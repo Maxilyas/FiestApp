@@ -21,6 +21,7 @@ import { Budget } from './core/budget'
 import { clientIp } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
@@ -833,12 +834,31 @@ export async function createQuizServer(opts: QuizServerOptions) {
       .catch((e: unknown) => repondreErreur(req, res, e))
   })
 
+  // Une archive ne garde que l'emoji de l'inscription : ce que les profils
+  // portent — le légendaire, la finition, l'Éclat — se lit sur eux, chargés
+  // d'un coup, par la règle de la salle (`badgeDe`). Le bilan montrait un
+  // emoji à celui qui portait un légendaire. Un profil supprimé ou fermé
+  // garde son emoji ; une base muette ne prive que de ça : la page part en
+  // emojis, sans se garder.
+  const apparencesDe = async (archive: PartyArchive, provisoire: () => void): Promise<BadgeLookup> => {
+    const ids = [...new Set(archive.players.flatMap(p => (p.profileId ? [p.profileId] : [])))]
+    const lus = await profiles.byIds(ids).catch((e: unknown) => {
+      console.error('[soirees] les profils d’une soirée archivée ne se lisent pas :', e)
+      provisoire()
+      return []
+    })
+    const actifs = new Set(lus.flatMap(p => (p ? [p.id] : [])))
+    return (profileId, avatar) => (actifs.has(profileId) ? profiles.badgeDe(profileId, avatar) : undefined)
+  }
+
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
   // Chaque requête téléchargeait l'archive entière — 2 Mo pour 150 invités —
   // et la réanalysait : elle se garde désormais comme les autres pages, et
-  // ne se relit que si l'historique de l'espace a bougé.
+  // ne se relit que si l'historique de l'espace a bougé — ou au bout de dix
+  // minutes, ce que les profils portent ayant pu changer.
   const archived =
-    (sorte: 'recap' | 'bilan', build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
+    (sorte: 'recap' | 'bilan', build: (archive: PartyArchive, apparences: BadgeLookup) => object) =>
+    (req: Request, res: Response) => {
       const account = spaceOf(res)
       pages
         .servir(req, res, {
@@ -846,10 +866,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
           empreinte: `${archives.revision(account.id)}|${reglagesDe(account)}`,
           dureeMs: 10 * 60_000,
           sorte: sorte === 'recap' ? 'souvenir archivé' : 'bilan archivé',
-          calculer: async () => {
+          calculer: async provisoire => {
             const found = await archives.get(account.id, req.params.id)
             if (!found) return null
-            return { ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) }
+            const apparences = await apparencesDe(found.archive, provisoire)
+            return { ...build(found.archive, apparences), archive: found.summary, space: auth.publicSpace(account) }
           },
         })
         .catch((e: unknown) => repondreErreur(req, res, e))

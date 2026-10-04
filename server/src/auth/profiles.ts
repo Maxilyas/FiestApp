@@ -71,6 +71,7 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
 import type { ArchiveStore } from '../core/archive'
+import type { ProfileBadge } from '../core/party'
 
 /**
  * Les profils des joueurs récurrents, leurs sessions, leur expérience et
@@ -2474,6 +2475,23 @@ export class ProfileStore {
       ...(legendaire && { legendaire }),
       ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
+  }
+
+  /**
+   * Ce que la salle voit d'un invité rattaché à ce profil, l'emoji de sa
+   * fiche à la main. Lu en mémoire : l'instantané l'appelle à chaque
+   * diffusion, et un profil est déjà chargé quand son joueur s'inscrit. Les
+   * pages d'une soirée archivée le lisent aussi, leurs profils chargés
+   * d'avance (`byIds`) : la même règle, le même avatar qu'en salle.
+   */
+  badgeDe(profileId: string, avatar: string): ProfileBadge | undefined {
+    const profile = this.cached(profileId)
+    if (!profile) return undefined
+    // Un emoji de collection qu'il n'ouvre plus : l'avatar qu'il porte à sa
+    // place, que la fiche reprend (`Party.relireAvatars`).
+    const porte = this.peutPorter(profile, avatar) ? avatar : this.avatarPorte(profile)
+    // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
+    return { ...this.apparenceDe(profile, porte), ...(porte !== avatar && { avatar: porte }) }
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */

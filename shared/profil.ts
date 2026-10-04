@@ -651,6 +651,26 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
   }
 }
 
+/** Ce que montre l'avatar d'un joueur, au-delà de son emoji : le légendaire porté, sa finition, son Éclat. */
+export type ApparenceDeLAvatar = Pick<Distinctions, 'finition' | 'eclat' | 'legendaire'>
+
+/**
+ * L'avatar seul, sans le niveau ni le laurier : ce que recopient le
+ * souvenir et le bilan. Ils ne montraient que l'emoji de l'inscription, et
+ * celui qui portait un légendaire ne se reconnaissait pas dans son propre
+ * bilan (le propriétaire du dépôt, le 4 octobre 2026). Le laurier dit
+ * « hier, au quiz du jour » : relu sur une soirée d'il y a un mois, il
+ * mentirait.
+ */
+export function apparenceDeLAvatar(source: Distinctions | undefined | null): ApparenceDeLAvatar {
+  if (!source) return {}
+  return {
+    ...(source.finition && { finition: source.finition }),
+    ...(source.eclat && { eclat: true }),
+    ...(source.legendaire && { legendaire: source.legendaire }),
+  }
+}
+
 /**
  * Le profil tel que les écrans le voient. Jamais de haché, jamais de jeton.
  *

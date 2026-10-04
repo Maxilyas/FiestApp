@@ -558,7 +558,14 @@ sans `QUIZ_DB_URL`.
   emoji d'Unicode 13) : l'invité anonyme n'y porte aucun emoji de
   collection. La fiche de la soirée se relit ensuite à chaque diffusion
   (`Party.relireAvatars`) : un niveau qui redescend en pleine soirée lui
-  rend l'avatar du profil, marques d'homonymie refaites.
+  rend l'avatar du profil, marques d'homonymie refaites. Ce que la salle
+  voit de lui — légendaire, finition, Éclat — passe par une seule règle,
+  `ProfileStore.badgeDe`, que l'instantané lit en mémoire et que les pages
+  d'une soirée archivée lisent aussi, leurs profils chargés d'un coup
+  (`byIds`) : l'archive ne garde que l'emoji de l'inscription, et le bilan
+  montrait un emoji à qui portait un légendaire. Le souvenir et le bilan
+  n'en recopient que l'avatar (`apparenceDeLAvatar`) : ni niveau, ni
+  laurier, qui mentirait sur une soirée d'il y a un mois.
 - **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
   les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
