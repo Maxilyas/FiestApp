@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Orbitron';
@@ -157,7 +161,7 @@
   background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px);
 }
 
-:root[data-theme='neon'] .card,
+:root[data-theme='neon'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='neon'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='neon'] .onglets {
   background: rgba(18, 8, 34, .9);
@@ -207,7 +211,7 @@
   text-shadow: 0 0 10px rgba(46, 230, 255, .85);
 }
 
-:root[data-theme='neon'] .label {
+:root[data-theme='neon'] .label:where(:not(.carte-fond, .carte-fond *)) {
   color: #2ee6ff;
   letter-spacing: .3em;
 }
@@ -233,7 +237,7 @@
   letter-spacing: .08em;
 }
 
-:root[data-theme='neon'] .niveau {
+:root[data-theme='neon'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: rgba(46, 230, 255, .1);
   border-color: rgba(46, 230, 255, .7);
   color: #9ff4ff;

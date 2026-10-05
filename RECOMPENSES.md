@@ -942,7 +942,9 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
 (`shared/sentiers.ts`, `CampagneStore`, `client/src/views/Sentiers.tsx`).
 
 - **Un palier, une épreuve** : seize questions de la catégorie de sa
-  branche, et **douze bonnes réponses pour valider — partout**. La règle se
+  branche, et **dix bonnes réponses pour valider — partout** (douze
+  jusqu'au 5 octobre 2026 : les vraies épreuves butaient du cinquième au
+  huitième palier). La règle se
   retient en une phrase ; ce sont les questions qui durcissent, par leur
   mélange (le niveau de chaque question est celui de la campagne,
   `niveauDeQuestion`) :
@@ -1007,7 +1009,7 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   d'une bulle pour les vies et d'une carte pour continuer. Le sentier qu'on
   avance y est en panorama — ses douze paliers en lacet, les portraits
   gagnés, celui qui attend, la couronne du maître au bout —, les vies en
-  cœurs, et les règles en quatre lignes (douze sur seize, un avatar tous
+  cœurs, et les règles en quatre lignes (dix sur seize, un avatar tous
   les deux paliers, un palier raté coûte une vie, le maître au sommet).
   Elles restent dépliées tant qu'on n'a pas gagné trois paliers en jouant —
   les paliers repris des portraits d'avant n'y comptent pas : ceux-là
@@ -1020,27 +1022,43 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
 chaque marche de `niveauDuTaux` —, et un joueur plus fort dans la catégorie
 a une chance de plus sur l'échelle logistique. La chance de valider du
-premier coup :
+premier coup, à dix sur seize :
 
 | Palier | moyen | bon | très bon | spécialiste |
 |---|---|---|---|---|
-| 1 | 92 % | 100 % | 100 % | 100 % |
-| 4 ★ | 59 % | 97 % | 99 % | 100 % |
-| 7 | 9 % | 70 % | 91 % | 98 % |
-| 10 ★ | 0,5 % | 25 % | 59 % | 86 % |
-| 12 ★ | 0,1 % | 13 % | 42 % | 76 % |
+| 1 | 99 % | 100 % | 100 % | 100 % |
+| 4 ★ | 91 % | 100 % | 100 % | 100 % |
+| 7 | 37 % | 94 % | 99 % | 100 % |
+| 10 ★ | 6 % | 66 % | 91 % | 99 % |
+| 12 ★ | 2 % | 46 % | 81 % | 96 % |
 | maître | 0 % | 0,4 % | 5 % | 26 % |
 
-Jusqu'au sommet, un bon joueur de la catégorie laisse une vingtaine de
-vies (un jour et demi de vies), un très bon quatre ; un joueur moyen n'y
-arrive pas — c'était voulu : le dernier portrait se mérite. Ces chiffres se vérifient sur les vraies épreuves, à `/admin#campagne`
-(« Les sentiers ») : palier par palier, la part qui valide du premier coup,
-les essais, les vies perdues avant de valider — sur trois mois —, ses
-rejeux à part (un palier déjà validé, ou repris des portraits d'avant, se
-rejoue sans risquer de vie : il ne dit rien d'un premier essai, mais
-l'administrateur voit qu'on y a joué), et un signal quand un palier se
-révèle plus facile que celui d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
-chiffres-là ; un portrait déjà ouvert ne se reprend pas (§ 5.4 ter).
+Jusqu'au sommet, un joueur assez bon dans la catégorie laisse une
+quinzaine de vies (un jour et quart de vies), un bon trois ; un joueur
+moyen une centaine, neuf jours de vies — le dernier portrait se mérite
+encore. À douze sur seize, le seuil du premier jour, le bon en laissait
+dix-huit et l'assez bon cent vingt ; le joueur moyen validait le cinquième
+palier 38 fois sur cent du premier coup, le sixième 21, le septième 9, le
+huitième 4 : le mur que les vraies épreuves montraient, et que le
+propriétaire a fait baisser de deux crans le 5 octobre 2026.
+
+Ces chiffres se vérifient sur les vraies épreuves, à `/admin#campagne`
+(« Les sentiers »), sur trois mois. Palier par palier : la chance d'un
+essai au seuil du jour, et à chaque seuil d'avant ; qui l'a tenté, qui l'a
+validé — du premier coup ou non —, qui y reste bloqué et ce qu'il y a
+laissé — la moyenne de ceux qui avaient validé, seule, faisait lire « 0,0
+vie perdue avant de valider » sur un palier où les autres laissaient leurs
+vies — ; les essais qu'il a fallu pour valider, la part de bonnes
+réponses (la difficulté sans le seuil), les abandons, ceux qui
+l'attendent sans l'avoir tenté ; ses rejeux à part (un palier déjà
+validé, ou repris des portraits d'avant, se rejoue sans risquer de vie :
+il ne dit rien d'un premier essai, mais l'administrateur voit qu'on y a
+joué), et un signal quand un palier se révèle plus facile que celui
+d'avant. Au-dessus, les bonnes réponses par marche de question, à côté de
+ce que le calcul suppose (`TAUX_DU_CALIBRAGE`) — une marche plus dure
+qu'annoncé fait un mur que le calcul ne voyait pas ; dessous, les plus
+bloqués, nommés. Les seuils et les mélanges se règlent dans le code, sur
+ces chiffres-là ; un portrait déjà ouvert ne se reprend pas (§ 5.4 ter).
 
 **La base grandit chaque matin.** La routine Claude Code qui remplit la
 réserve du quiz du jour écrit aussi, avec le même jeton, cinq questions

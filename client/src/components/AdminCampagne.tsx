@@ -4,9 +4,9 @@ import { quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
-import type { AdminDeLaCampagne, AjoutsDeLaRoutine as Ajouts, SignalementDeCampagne } from '../../../shared/campagne'
+import { NIVEAUX, type AdminDeLaCampagne, type AjoutsDeLaRoutine as Ajouts, type Niveau, type SignalementDeCampagne } from '../../../shared/campagne'
 import { BRANCHES } from '../../../shared/branches'
-import { PALIERS, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
+import { PALIERS, QUESTIONS_PAR_EPREUVE, TAUX_DU_CALIBRAGE, lectureDuPalier, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
 import { texteDuMelangeCourt } from './melanges'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
@@ -198,18 +198,57 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
   )
 }
 
+/** « 1,4 » : un chiffre après la virgule, à la française — et « 3 » quand il n'y en a pas. */
+const dec = (x: number) => (Number.isInteger(x) ? formatNumber(x) : x.toFixed(1).replace('.', ','))
+const pc = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
+const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
+
+/** La chance d'un essai au seuil d'une règle : null tant que personne ne l'a tenté à ce seuil-là. */
+export function parEssaiAuSeuil(p: StatsDuPalier, seuil: number): number | null {
+  const x = p.seuils.find(c => c.seuil === seuil)
+  return x && x.essais > 0 ? x.validees / x.essais : null
+}
+
 /**
- * Ce qu'une ligne de palier dit sous sa barre : les vrais essais, puis ses
- * rejeux à part. Un palier repris des portraits d'avant, qu'un joueur joue
- * pour la première fois, est un rejeu : il ne paraissait nulle part.
+ * Ce que la première ligne d'un palier dit de ceux qui l'ont tenté : combien
+ * l'ont validé, et du premier coup, combien y restent bloqués et ce qu'ils y
+ * ont laissé, puis ceux qui l'attendent sans l'avoir tenté. Celui qui échoue
+ * garde sa place : « 0,0 vie perdue avant de valider » ne voyait que ceux
+ * qui avaient validé (la remarque du propriétaire du 5 octobre 2026).
  */
-export function infosDuPalier(p: StatsDuPalier): string {
+export function progressionDuPalier(p: StatsDuPalier): string {
+  const l = lectureDuPalier(p)
+  const parties: string[] = []
+  if (p.joueurs > 0) {
+    parties.push(pluriel(p.joueurs, 'joueur'))
+    if (p.valides === 0) parties.push('aucun ne l’a validé')
+    else parties.push(`${formatNumber(p.valides)} l’${p.valides > 1 ? 'ont' : 'a'} validé${p.premierCoup > 0 ? `, ${formatNumber(p.premierCoup)} du premier coup` : ''}`)
+    if (l.bloques > 0 && l.echecsParBloque !== null) {
+      const echecs = l.echecsParBloque
+      parties.push(`${pluriel(l.bloques, 'bloqué')} (${dec(echecs)} échec${echecs >= 2 ? 's' : ''}${l.bloques > 1 ? ' chacun' : ''})`)
+    }
+  }
+  if (p.enAttente > 0) parties.push(`${formatNumber(p.enAttente)} l’attend${p.enAttente > 1 ? 'ent' : ''} sans l’avoir tenté`)
+  return parties.length > 0 ? parties.join(' · ') : 'Aucune épreuve'
+}
+
+/**
+ * Ce que la seconde ligne dit de l'effort : les essais et ce qu'il en faut
+ * pour valider, la part de bonnes réponses — la difficulté sans le seuil —,
+ * les abandons, la chance d'un essai aux seuils d'avant, et les rejeux à
+ * part. Un palier repris des portraits d'avant, qu'un joueur joue pour la
+ * première fois, est un rejeu : il ne paraissait nulle part.
+ */
+export function effortDuPalier(p: StatsDuPalier, seuilDuJour: number): string {
+  const l = lectureDuPalier(p)
   const parties: string[] = []
   if (p.essais > 0) {
-    parties.push(`${formatNumber(p.joueurs)} joueur${p.joueurs > 1 ? 's' : ''}`, `${formatNumber(p.essais)} essai${p.essais > 1 ? 's' : ''}`)
-    if (p.viesAvantDeValider !== null) {
-      const pluriel = p.viesAvantDeValider >= 2 ? 's' : ''
-      parties.push(`${p.viesAvantDeValider.toFixed(1).replace('.', ',')} vie${pluriel} perdue${pluriel} avant de valider`)
+    parties.push(`${pluriel(p.essais, 'essai')}${l.essaisPourValider !== null ? `, ${dec(l.essaisPourValider)} pour valider` : ''}`)
+    if (l.bonnesReponses !== null) parties.push(`${pc(l.bonnesReponses)} de bonnes réponses`)
+    if (p.abandons > 0) parties.push(pluriel(p.abandons, 'abandon'))
+    // Un seuil changé ne vaut que pour les épreuves d'après : les deux se lisent côte à côte.
+    for (const x of p.seuils) {
+      if (x.seuil !== seuilDuJour) parties.push(`à ${x.seuil}/${QUESTIONS_PAR_EPREUVE} : ${pc(x.validees / x.essais)} par essai (${pluriel(x.essais, 'essai')})`)
     }
   }
   if (p.rejeux === 1) parties.push(`1 rejeu, ${p.rejeuxValides === 1 ? 'validé' : 'raté'}`)
@@ -217,15 +256,21 @@ export function infosDuPalier(p: StatsDuPalier): string {
     const valides = p.rejeuxValides === 0 ? 'aucun validé' : `${formatNumber(p.rejeuxValides)} validé${p.rejeuxValides > 1 ? 's' : ''}`
     parties.push(`${formatNumber(p.rejeux)} rejeux, ${valides}`)
   }
-  return parties.length > 0 ? parties.join(' · ') : 'Aucune épreuve'
+  return parties.join(' · ')
 }
 
+/** Les marches, au pluriel : ce sont des questions. */
+const MARCHES: Record<Niveau, string> = { facile: 'Faciles', moyen: 'Moyennes', difficile: 'Difficiles', expert: 'Expertes' }
+
 /**
- * Les sentiers du savoir, palier par palier (`shared/sentiers.ts`) : la part
- * des joueurs qui valident du premier coup, les essais, les vies perdues
- * avant de valider — sur les trois derniers mois, les rejeux à part. Un
- * palier plus facile que celui d'avant se signale : c'est un mélange à
- * revoir. Les seuils se règlent dans le code, sur ces chiffres-là.
+ * Les sentiers du savoir, palier par palier (`shared/sentiers.ts`), sur les
+ * trois derniers mois, les rejeux à part : la chance d'un essai au seuil du
+ * jour, qui l'a validé — du premier coup ou non —, qui y reste bloqué, ce
+ * que les essais coûtent. Au-dessus, les bonnes réponses par marche, à côté
+ * de ce que le calibrage suppose : une marche plus dure qu'annoncé fait un
+ * mur que le calcul ne voyait pas. Dessous, les plus bloqués. Un palier
+ * plus facile que celui d'avant se signale : c'est un mélange à revoir. Les
+ * seuils et les mélanges se règlent dans le code, sur ces chiffres-là.
  */
 function AdminSentiers() {
   const [branche, setBranche] = useState('')
@@ -242,7 +287,6 @@ function AdminSentiers() {
       vivant = false
     }
   }, [branche])
-  const pc = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
   return (
     <section className="admin-groupe" aria-labelledby="campagne-sentiers-titre">
       <h2 className="compte-groupe" id="campagne-sentiers-titre">
@@ -261,13 +305,21 @@ function AdminSentiers() {
               {stats.semaine.epreuves > 1 ? 'épreuves' : 'épreuve'}
             </span>
             <span>
+              <b>{formatNumber(stats.semaine.paliersValides)}</b>
+              {stats.semaine.paliersValides > 1 ? 'paliers validés' : 'palier validé'}
+            </span>
+            <span>
+              <b>{formatNumber(stats.semaine.viesPerdues)}</b>
+              {stats.semaine.viesPerdues > 1 ? 'vies perdues' : 'vie perdue'}
+            </span>
+            <span>
               <b>{formatNumber(stats.semaine.viesAchetees)}</b>
               {stats.semaine.viesAchetees > 1 ? 'vies achetées' : 'vie achetée'}
             </span>
           </div>
           <p className="muted small">
-            Ces sept derniers jours. Les paliers, eux, se lisent sur trois mois. Un rejeu — un palier déjà validé, ou repris des portraits d’avant — se compte à part : il ne coûte
-            pas de vie.
+            Ces sept derniers jours, rejeux compris pour les joueurs et les épreuves. Les paliers, eux, se lisent sur trois mois ; un joueur y compte une fois par sentier. Un rejeu
+            — un palier déjà validé, ou repris des portraits d’avant — se compte à part : il ne coûte pas de vie.
           </p>
         </>
       )}
@@ -283,28 +335,81 @@ function AdminSentiers() {
         </select>
       </label>
       {stats && (
-        <ol className="sentiers-admin-paliers">
-          {stats.paliers.map((p, i) => {
-            const regle = PALIERS[p.palier - 1]
-            const avant = i > 0 ? stats.paliers[i - 1].premierEssai : null
-            // Plus facile que le palier d'avant, sur assez d'essais pour le croire : à revoir.
-            const remonte = !regle.maitre && p.premierEssai !== null && avant !== null && p.essais >= 10 && p.premierEssai > avant
-            return (
-              <li key={p.palier} className={'sentiers-admin-ligne' + (remonte ? ' sentiers-admin-alerte' : '') + (regle.maitre ? ' sentiers-admin-maitre' : '')}>
-                <b>{regle.maitre ? 'Maître' : `P${p.palier}`}</b>
-                <span className="muted">{`${texteDuMelangeCourt(regle.melange)} · ${regle.seuil}/16`}</span>
-                <b className="num">{pc(p.premierEssai)}</b>
-                <span className="sentiers-admin-barre" aria-hidden="true">
-                  <i style={{ width: `${Math.round((p.premierEssai ?? 0) * 100)}%` }} />
+        <>
+          {/* Les bonnes réponses par marche de question, à côté de ce que le calibrage suppose. */}
+          <div className="sentiers-admin-marches" aria-label="Bonnes réponses par marche de question">
+            {NIVEAUX.map(niveau => {
+              const x = stats.niveaux.find(c => c.niveau === niveau)
+              return (
+                <span key={niveau}>
+                  <b className="num">{pc(x && x.questions > 0 ? x.justes / x.questions : null)}</b>
+                  {MARCHES[niveau]}
+                  <small>{`${pc(TAUX_DU_CALIBRAGE[niveau])} au calcul · ${pluriel(x?.questions ?? 0, 'réponse')}`}</small>
                 </span>
-                <span className="muted small sentiers-admin-infos">
-                  {infosDuPalier(p)}
-                  {remonte && <span className="sentiers-admin-puce">{`plus facile que P${p.palier - 1}`}</span>}
-                </span>
-              </li>
-            )
-          })}
-        </ol>
+              )
+            })}
+          </div>
+          <p className="muted small">
+            Les bonnes réponses en épreuve, hors rejeux, par marche de question — le calibrage des paliers suppose les chiffres « au calcul », ceux d’un joueur moyen. Elles
+            se mesurent sur ceux qui y répondent : les difficiles ne tombent qu’à partir du huitième palier, devant des joueurs déjà forts. En face de chaque palier, la
+            chance d’un essai au seuil du jour ; la barre :<span className="sentiers-admin-legende sentiers-admin-premier">validé du premier coup</span>{' '}
+            <span className="sentiers-admin-legende sentiers-admin-ensuite">validé ensuite</span> <span className="sentiers-admin-legende sentiers-admin-bloque">bloqué</span>.
+          </p>
+          <ol className="sentiers-admin-paliers">
+            {stats.paliers.map((p, i) => {
+              const regle = PALIERS[p.palier - 1]
+              const parEssai = parEssaiAuSeuil(p, regle.seuil)
+              const essaisAuSeuil = p.seuils.find(c => c.seuil === regle.seuil)?.essais ?? 0
+              const avant = i > 0 ? stats.paliers[i - 1] : null
+              const parEssaiAvant = avant ? parEssaiAuSeuil(avant, PALIERS[avant.palier - 1].seuil) : null
+              const essaisAvant = avant?.seuils.find(c => c.seuil === PALIERS[avant.palier - 1].seuil)?.essais ?? 0
+              // Plus facile que le palier d'avant, sur assez d'essais pour le croire : à revoir.
+              const remonte = !regle.maitre && parEssai !== null && parEssaiAvant !== null && essaisAuSeuil >= 10 && essaisAvant >= 10 && parEssai > parEssaiAvant
+              const l = lectureDuPalier(p)
+              const largeur = (n: number) => `${p.joueurs > 0 ? (n / p.joueurs) * 100 : 0}%`
+              const effort = effortDuPalier(p, regle.seuil)
+              return (
+                <li key={p.palier} className={'sentiers-admin-ligne' + (remonte ? ' sentiers-admin-alerte' : '') + (regle.maitre ? ' sentiers-admin-maitre' : '')}>
+                  <b>{regle.maitre ? 'Maître' : `P${p.palier}`}</b>
+                  <span className="muted">{`${texteDuMelangeCourt(regle.melange)} · ${regle.seuil}/${QUESTIONS_PAR_EPREUVE}`}</span>
+                  <span className="sentiers-admin-chance">
+                    <b className="num">{pc(parEssai)}</b>
+                    <small>par essai</small>
+                  </span>
+                  <span className="sentiers-admin-barre" aria-hidden="true">
+                    <i className="sentiers-admin-premier" style={{ width: largeur(p.premierCoup) }} />
+                    <i className="sentiers-admin-ensuite" style={{ width: largeur(p.valides - p.premierCoup) }} />
+                    <i className="sentiers-admin-bloque" style={{ width: largeur(l.bloques) }} />
+                  </span>
+                  <span className="small sentiers-admin-infos">
+                    {progressionDuPalier(p)}
+                    {remonte && <span className="sentiers-admin-puce">{`plus facile que P${p.palier - 1}`}</span>}
+                  </span>
+                  {effort && <span className="muted small sentiers-admin-effort">{effort}</span>}
+                </li>
+              )
+            })}
+          </ol>
+          <h3 className="sentiers-admin-sous-titre">Les plus bloqués</h3>
+          {stats.bloques.length === 0 ? (
+            <p className="muted small">Personne n’a encore raté deux fois le palier qui l’attend.</p>
+          ) : (
+            <>
+              <p className="muted small">Ceux qui ont le plus d’échecs sur le palier qui les attend, abandons compris — le maître à part, il est facultatif.</p>
+              <ul className="sentiers-admin-bloques">
+                {stats.bloques.map(x => {
+                  const b = BRANCHES.find(c => c.key === x.branche)
+                  return (
+                    <li key={`${x.profileId}|${x.branche}`}>
+                      <b>{x.prenom ?? 'Profil supprimé'}</b>
+                      <span className="muted">{`${b?.nom ?? x.branche} · P${x.palier} · ${pluriel(x.echecs, 'échec')} · dernier échec ${quand(x.dernier)}`}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
+          )}
+        </>
       )}
     </section>
   )

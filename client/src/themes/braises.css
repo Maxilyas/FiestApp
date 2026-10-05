@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Eczar';
@@ -100,7 +104,7 @@
   z-index: 1;
 }
 
-:root[data-theme='braises'] .card,
+:root[data-theme='braises'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='braises'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='braises'] .onglets {
   background: linear-gradient(180deg, rgba(40, 14, 8, .92), rgba(24, 9, 6, .92));

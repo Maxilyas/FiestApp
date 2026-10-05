@@ -43,7 +43,12 @@
   src: url('/fonts/figtree-variable.woff2') format('woff2');
 }
 
-:root {
+/* Les couleurs du Velours. Elles se posent aussi sur un fond de carte
+   (`.carte-fond`), dont le décor reste nocturne sous tous les thèmes :
+   déclarées sur lui, elles passent devant celles que le thème pose sur la
+   racine. Sous l'Ivoire, la carte ouverte gardait la croix et les cadrans
+   crème du papier sur son décor de nuit, l'encre claire dessus. */
+:root, .carte-fond {
   /* Le sol : un noir chaud, et le halo qui l'éclaire par le haut. */
   --bg: #1a1412;
   --bg-halo: #2b211b;
@@ -121,6 +126,16 @@
   --anneau-collection: #7fbf95;
   --anneau-collection-haut: #7fa6dd;
 
+  /* Les contrôles natifs (listes déroulantes, cases, ascenseurs) suivent le
+     thème : sans ça, les listes d'équipe s'ouvraient en blanc sur le Velours,
+     devant la salle. */
+  color-scheme: dark;
+  accent-color: var(--accent);
+}
+
+/* Les formes et les polices, elles, suivent le thème jusque dans un fond de
+   carte : seule la nuit de son décor ne se discute pas. */
+:root {
   --radius: 16px;
   --radius-sm: 14px;
   /* Le cran des petites boîtes : les lignes de la vitrine, de la collection
@@ -134,12 +149,6 @@
      famille d'un avatar, le titre et le compte d'un prix, le nom et la
      légende d'un écusson descendaient jusqu'à 9,9 px. */
   --t-label: 0.6875rem;
-
-  /* Les contrôles natifs (listes déroulantes, cases, ascenseurs) suivent le
-     thème : sans ça, les listes d'équipe s'ouvraient en blanc sur le Velours,
-     devant la salle. */
-  color-scheme: dark;
-  accent-color: var(--accent);
 
   --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
@@ -3898,7 +3907,16 @@ h3 > .icon {
    calques (::before, ::after) tiennent sous le texte (z-index -1, dans
    l'isolation du cadre), et le contenu défile par-dessus (`.carte-defile`).
    L'encre y reste claire quel que soit le thème : le décor est toujours
-   nocturne. D'après la maquette validée (v2). */
+   nocturne. D'après la maquette validée (v2).
+
+   Le thème de celui qui regarde n'y peint rien : la carte reprend les
+   couleurs du Velours (le bloc de la racine), et chaque règle d'un thème
+   qui peindrait la carte ou ce qu'elle montre s'en écarte
+   (`:where(:not(.carte-fond, .carte-fond *))`, sans rien changer à sa
+   force). Le `.card` d'un thème, plus précis que le fond, le repeignait :
+   en blanc sous Héros, le cahier sous le Cahier — l'encre claire dessus
+   (la remarque du propriétaire du 5 octobre 2026). `fonds.test.ts` relit
+   chaque feuille. */
 .carte-fond {
   position: relative;
   isolation: isolate;
@@ -5130,11 +5148,12 @@ h3 > .icon {
 .av-portrait .lu-etincelle { --x: 0.56em; --y: -0.56em; }
 
 /* À l'écran commun en Ivoire, la nuit de l'Astrolabe reste une nuit : sur la
-   crème, la nébuleuse devenait un lavis gris et ses étoiles s'effaçaient. */
-:root[data-theme='ivoire'] .lu-nebuleuse {
+   crème, la nébuleuse devenait un lavis gris et ses étoiles s'effaçaient.
+   Sur un fond de carte, nocturne, elle garde celle du Velours. */
+:root[data-theme='ivoire'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, 0.85) 56%, rgba(28, 34, 104, 0) 71%);
 }
-:root[data-theme='ivoire'] .lu-scintille { filter: brightness(0.6) sepia(1) saturate(2.5); }
+:root[data-theme='ivoire'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) { filter: brightness(0.6) sepia(1) saturate(2.5); }
 
 @keyframes lu-souffle {
   0%, 100% { scale: 0.9; opacity: 0.7; }
@@ -5174,8 +5193,8 @@ h3 > .icon {
 .finition-btn .av { margin: 6px 0 8px; }
 
 /* Argent, sur l'Ivoire : un halo clair sur un fond clair ne se voyait pas.
-   Il s'y assombrit, et prend un filet. */
-:root[data-theme='ivoire'] .av-argent::before {
+   Il s'y assombrit, et prend un filet — sauf sur un fond de carte, nocturne. */
+:root[data-theme='ivoire'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, 0.42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, 0.5);
 }
@@ -7323,7 +7342,10 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: var(--radius);
   background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--surface);
-  color: inherit;
+  /* L'encre, pas celle dont il hérite : sous un fond de carte, c'est l'encre
+     claire du décor. Héritée, elle restait celle de la page — sombre sous
+     l'Ivoire ou un thème clair, et le prénom disparaissait dans la nuit. */
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -7723,20 +7745,41 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .maitres-recompenses li > span:last-child { display: flex; flex-direction: column; }
 .maitres-pastille { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--shape-2) 60%, transparent); color: var(--shape-2); font-weight: 800; font-size: 0.82rem; }
 .maitres-acquis .maitres-pastille { border-style: solid; background: color-mix(in srgb, var(--shape-2) 18%, transparent); }
-/* L'administration des sentiers : trois tuiles, puis un palier par ligne. */
-.sentiers-admin-tuiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+/* L'administration des sentiers : les tuiles de la semaine, les marches, un palier par ligne, puis les plus bloqués. */
+.sentiers-admin-tuiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; }
 .sentiers-admin-tuiles span { padding: 8px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: var(--t-label); color: var(--muted); }
 .sentiers-admin-tuiles b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--ink); }
+/* Les bonnes réponses par marche : le chiffre des vraies épreuves, celui du calcul dessous. */
+.sentiers-admin-marches { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
+.sentiers-admin-marches span { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface); font-size: 0.82rem; }
+.sentiers-admin-marches b { font-size: 1.2rem; color: var(--ink); }
+.sentiers-admin-marches small { font-size: var(--t-label); color: var(--muted); }
 .sentiers-admin-paliers { list-style: none; margin: 0; padding: 0; }
 .sentiers-admin-ligne { display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--edge); font-size: 0.82rem; }
 .sentiers-admin-ligne .num { text-align: right; font-variant-numeric: tabular-nums; }
-.sentiers-admin-barre { grid-column: 2 / 4; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
-.sentiers-admin-barre i { display: block; height: 100%; background: var(--accent); }
+.sentiers-admin-chance { display: flex; align-items: baseline; gap: 4px; }
+.sentiers-admin-chance small { font-size: var(--t-label); color: var(--muted); }
+/* La barre se lit en joueurs : validés du premier coup, validés ensuite, bloqués — le reste de la piste, personne. */
+.sentiers-admin-barre { grid-column: 2 / 4; display: flex; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.sentiers-admin-barre i { display: block; height: 100%; flex: none; }
+.sentiers-admin-premier { background: var(--accent); }
+.sentiers-admin-ensuite { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.sentiers-admin-bloque { background: color-mix(in srgb, var(--alert) 70%, transparent); }
 .sentiers-admin-infos { grid-column: 2 / 4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
-.sentiers-admin-alerte .sentiers-admin-barre i { background: var(--shape-0); }
+.sentiers-admin-effort { grid-column: 2 / 4; }
 .sentiers-admin-puce { padding: 1px 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--shape-0) 16%, transparent); color: var(--ink); font-size: var(--t-label); font-weight: 700; }
 .sentiers-admin-maitre > b:first-child { color: var(--shape-2); }
-.sentiers-admin-maitre .sentiers-admin-barre i { background: var(--shape-2); }
+.sentiers-admin-maitre .sentiers-admin-premier { background: var(--shape-2); }
+.sentiers-admin-maitre .sentiers-admin-ensuite { background: color-mix(in srgb, var(--shape-2) 45%, transparent); }
+/* La légende de la barre, dans la phrase qui l'explique : une pastille de sa couleur devant chaque mot. */
+span.sentiers-admin-legende { background: none; white-space: nowrap; }
+.sentiers-admin-legende::before { content: ''; display: inline-block; width: 0.7em; height: 0.7em; margin-right: 0.3em; border-radius: 2px; vertical-align: -0.05em; }
+.sentiers-admin-legende.sentiers-admin-premier::before { background: var(--accent); }
+.sentiers-admin-legende.sentiers-admin-ensuite::before { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.sentiers-admin-legende.sentiers-admin-bloque::before { background: color-mix(in srgb, var(--alert) 70%, transparent); }
+.sentiers-admin-sous-titre { margin-top: 6px; font-size: 1.15rem; }
+.sentiers-admin-bloques { list-style: none; margin: 0; padding: 0; }
+.sentiers-admin-bloques li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 0; border-bottom: 1px solid var(--edge); font-size: 0.85rem; }
 .vies-autres .gros-texte b { font-family: var(--sans); font-size: 0.95rem; }
 @media (prefers-reduced-motion: reduce) {
   .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i, .pano-courant::before { animation: none; }

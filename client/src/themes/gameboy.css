@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Press Start 2P';
@@ -72,16 +76,16 @@
   opacity: .45;
 }
 
-:root[data-theme='gameboy'] .av-argent::before {
+:root[data-theme='gameboy'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='gameboy'] .lu-nebuleuse {
+:root[data-theme='gameboy'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='gameboy'] .lu-scintille {
+:root[data-theme='gameboy'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -128,7 +132,7 @@
   z-index: 1;
 }
 
-:root[data-theme='gameboy'] .card,
+:root[data-theme='gameboy'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='gameboy'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='gameboy'] .onglets {
   background: #8bac0f;
@@ -176,7 +180,7 @@
   min-width: 56px;
 }
 
-:root[data-theme='gameboy'] .label {
+:root[data-theme='gameboy'] .label:where(:not(.carte-fond, .carte-fond *)) {
   font-family: var(--sans);
   font-size: 18px;
   letter-spacing: .08em;
@@ -211,7 +215,7 @@
   font-size: .8rem;
 }
 
-:root[data-theme='gameboy'] .niveau {
+:root[data-theme='gameboy'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: #0f380f;
   color: #9bbc0f;
   border: 0;

@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Fredoka';
@@ -72,16 +76,16 @@
   opacity: .45;
 }
 
-:root[data-theme='licorne'] .av-argent::before {
+:root[data-theme='licorne'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='licorne'] .lu-nebuleuse {
+:root[data-theme='licorne'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='licorne'] .lu-scintille {
+:root[data-theme='licorne'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -129,7 +133,7 @@
   z-index: 1;
 }
 
-:root[data-theme='licorne'] .card,
+:root[data-theme='licorne'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='licorne'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='licorne'] .onglets {
   background: linear-gradient(rgba(255, 255, 255, .86), rgba(255, 255, 255, .86)) padding-box, linear-gradient(125deg, #ff9ed2, #c3a6ff 50%, #8ee8d6) border-box;
@@ -187,7 +191,7 @@
   color: transparent;
 }
 
-:root[data-theme='licorne'] .label {
+:root[data-theme='licorne'] .label:where(:not(.carte-fond, .carte-fond *)) {
   color: #8a5ba8;
 }
 
@@ -205,7 +209,7 @@
   border-color: #c89af0;
 }
 
-:root[data-theme='licorne'] .niveau {
+:root[data-theme='licorne'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: linear-gradient(120deg, #ffd6ee, #e3d6ff);
   border-color: #c89af0;
   color: #7c1f9e;

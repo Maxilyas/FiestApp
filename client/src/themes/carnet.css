@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Special Elite';
@@ -80,16 +84,16 @@
   opacity: .45;
 }
 
-:root[data-theme='carnet'] .av-argent::before {
+:root[data-theme='carnet'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='carnet'] .lu-nebuleuse {
+:root[data-theme='carnet'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='carnet'] .lu-scintille {
+:root[data-theme='carnet'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -126,7 +130,7 @@
   z-index: 1;
 }
 
-:root[data-theme='carnet'] .card,
+:root[data-theme='carnet'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='carnet'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='carnet'] .onglets {
   background: #f7efdd;

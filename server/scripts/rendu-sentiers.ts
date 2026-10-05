@@ -126,7 +126,7 @@ try {
   await photo('7-validee')
   await photo('7-validee-entiere', true)
 
-  // Raté : cinq fautes d'affilée.
+  // Raté : la faute de trop (la septième, à 10 sur 16), d'affilée.
   await page.click('text=Retour au sentier')
   await palierSuivant()
   await jouer(3, { 7: '8-rate-reponse' })
@@ -164,14 +164,15 @@ try {
   await page.waitForSelector('.campagne-heros')
   await photo('11-serie')
 
-  // La boutique : deux rayons sous une barre fine — les thèmes, puis les vies.
+  // La boutique : deux rayons sous une barre fine — les thèmes, puis les
+  // objets, où se vend la vie des sentiers (`RayonDesObjets`).
   await page.goto(`${banc.url}/boutique`)
   await page.waitForSelector('.onglets-fins')
   await page.waitForSelector('.gemmes')
   await photo('12-boutique-themes')
-  await page.click('.onglets-fins [role="tab"]:has-text("Vies")')
-  await page.waitForSelector('.rayon-vies')
-  await photo('12-boutique-vies')
+  await page.click('.onglets-fins [role="tab"]:has-text("Objets")')
+  await page.waitForSelector('.rayon-objets')
+  await photo('12-boutique-objets')
 
   // Les avatars du profil : la forêt et ses paliers.
   await page.goto(`${banc.url}/profil#avatars`)

@@ -2,13 +2,14 @@
 // rendues à minuit (Paris), sans s'additionner d'un jour à l'autre ; au-delà,
 // des vies achetées en confettis, qui attendent dans une réserve et ne
 // périment pas. Rejouer un palier validé ne coûte rien, même sans vie. Et
-// l'administration lit les paliers sur les vraies épreuves, les rejeux à part.
+// l'administration lit les paliers sur les vraies épreuves — ceux qui y
+// échouent compris —, les rejeux à part.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import React from 'react'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, VIES_PAR_JOUR, type StatsDuPalier } from '../../shared/sentiers'
+import { PRIX_D_UNE_VIE, QUESTIONS_PAR_EPREUVE, SEUIL_DES_PALIERS, VIES_PAR_ACHAT_MAX, VIES_PAR_JOUR, lectureDuPalier, type StatsDuPalier } from '../../shared/sentiers'
 
 /** Samedi 26 septembre 2026, 22 h à Paris : minuit arrive dans deux heures. */
 const DEBUT = Date.UTC(2026, 8, 26, 20, 0)
@@ -90,7 +91,7 @@ test('douze vies par jour : la treizième épreuve ratée attend minuit, ou une 
   }
 })
 
-test('l’administration lit les paliers sur les vraies épreuves — et un profil supprimé emporte ses vies et ses acquis', async () => {
+test('l’administration lit les paliers sur les vraies épreuves, ceux qui échouent compris — et un profil supprimé emporte ses vies et ses acquis', async () => {
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(60, { categories: ['Nature', 'Sport'] }) })
   try {
@@ -98,10 +99,20 @@ test('l’administration lit les paliers sur les vraies épreuves — et un prof
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
     const max = await inscrireProfil(banc.url, 'max', 'Max', '🦉')
-    // Léa : le premier palier du premier coup. Bob : un échec, puis validé.
+    // Léa : les deux premiers paliers du premier coup. Bob : un échec, puis
+    // le premier validé ; au deuxième, trois échecs et un abandon. C'est le
+    // cas que le propriétaire a lu le 5 octobre 2026 : « 0,0 vie perdue avant
+    // de valider » sur un palier où l'un avait validé du premier coup
+    // pendant que l'autre y laissait ses vies.
     await epreuve(banc, lea, 'foret', 1, 16)
     await epreuve(banc, bob, 'foret', 1, 0)
     await epreuve(banc, bob, 'foret', 1, 14)
+    await epreuve(banc, lea, 'foret', 2, 16)
+    for (let i = 0; i < 3; i++) assert.equal((await epreuve(banc, bob, 'foret', 2, 0)).epreuve.issue, 'ratee')
+    const quittee = (await poster(banc, bob, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
+    const faute = (bonneDe(quittee.question) + 1) % quittee.question.reponses.length
+    assert.equal((await poster(banc, bob, `/api/campagne/epreuve/${quittee.id}/reponse`, { index: 0, choix: faute })).status, 200)
+    assert.equal((await poster(banc, bob, `/api/campagne/epreuve/${quittee.id}/abandon`)).status, 200)
     // Un rejeu ne risque rien : il ne dit rien d'un premier essai, et se compte
     // à part. Léa rejoue le sien et le rate ; Max, qui tenait la forêt de ses
     // portraits d'avant (la reprise), y joue le premier palier pour la première
@@ -114,16 +125,69 @@ test('l’administration lit les paliers sur les vraies épreuves — et un prof
 
     const toutes = await lire(banc, admin, '/api/admin/campagne/sentiers')
     assert.equal(toutes.status, 200, toutes.corps.error)
-    const p1 = toutes.corps.paliers[0]
+    const [p1, p2, p3] = toutes.corps.paliers as StatsDuPalier[]
+    // Une faute de trop arrête l'épreuve : Bob, sans une bonne réponse, s'arrête à la septième question.
+    const chute = QUESTIONS_PAR_EPREUVE - SEUIL_DES_PALIERS + 1
+    assert.deepEqual(p1, {
+      palier: 1,
+      joueurs: 2,
+      valides: 2,
+      premierCoup: 1,
+      essais: 3,
+      echecsDesBloques: 0,
+      abandons: 0,
+      questions: 16 + chute + 16,
+      justes: 16 + 0 + 14,
+      seuils: [{ seuil: SEUIL_DES_PALIERS, essais: 3, validees: 2 }],
+      enAttente: 0,
+      rejeux: 2,
+      rejeuxValides: 1,
+    })
+    // Bob reste au deuxième : ses quatre échecs comptent, abandon compris, et ne disparaissent pas derrière le premier coup de Léa.
+    assert.deepEqual(p2, {
+      palier: 2,
+      joueurs: 2,
+      valides: 1,
+      premierCoup: 1,
+      essais: 5,
+      echecsDesBloques: 4,
+      abandons: 1,
+      questions: 16 + 3 * chute + 1,
+      justes: 16,
+      seuils: [{ seuil: SEUIL_DES_PALIERS, essais: 5, validees: 1 }],
+      enAttente: 0,
+      rejeux: 0,
+      rejeuxValides: 0,
+    })
+    assert.deepEqual(lectureDuPalier(p2), {
+      bloques: 1,
+      passent: 0.5,
+      premierEssai: 0.5,
+      parEssai: 0.2,
+      essaisPourValider: 1,
+      echecsParBloque: 4,
+      viesPerdues: 4,
+      bonnesReponses: 16 / (16 + 3 * chute + 1),
+    })
+    // Au troisième, personne n'a joué : Léa l'attend, et Max, que la reprise y a posé.
+    assert.deepEqual([p3.joueurs, p3.essais, p3.enAttente], [0, 0, 2])
+    // Les bonnes réponses par marche couvrent toutes les épreuves, hors rejeux.
+    const niveaux = toutes.corps.niveaux as { niveau: string; questions: number; justes: number }[]
+    assert.deepEqual(niveaux.map(n => n.niveau), ['facile', 'moyen', 'difficile', 'expert'])
     assert.deepEqual(
-      { palier: p1.palier, joueurs: p1.joueurs, essais: p1.essais, premierEssai: p1.premierEssai, viesAvantDeValider: p1.viesAvantDeValider, rejeux: p1.rejeux, rejeuxValides: p1.rejeuxValides },
-      { palier: 1, joueurs: 2, essais: 3, premierEssai: 0.5, viesAvantDeValider: 0.5, rejeux: 2, rejeuxValides: 1 },
+      [niveaux.reduce((n, x) => n + x.questions, 0), niveaux.reduce((n, x) => n + x.justes, 0)],
+      [p1.questions + p2.questions, p1.justes + p2.justes],
     )
-    assert.deepEqual([toutes.corps.paliers[1].essais, toutes.corps.paliers[1].premierEssai, toutes.corps.paliers[1].rejeux], [0, null, 0], 'personne au deuxième')
-    assert.deepEqual([toutes.corps.semaine.joueurs, toutes.corps.semaine.epreuves, toutes.corps.branche], [3, 5, null])
+    // Les plus bloqués, nommés : Bob, sur le deuxième.
+    assert.deepEqual(
+      toutes.corps.bloques.map((x: any) => [x.prenom, x.branche, x.palier, x.echecs]),
+      [['Bob', 'foret', 2, 4]],
+    )
+    assert.deepEqual(toutes.corps.semaine, { joueurs: 3, epreuves: 10, viesAchetees: 0, viesPerdues: 5, paliersValides: 3 })
+    assert.equal(toutes.corps.branche, null)
     // Une seule branche : celle qu'on demande.
     const stade = await lire(banc, admin, '/api/admin/campagne/sentiers?branche=stade')
-    assert.deepEqual([stade.corps.branche, stade.corps.paliers[0].essais], ['stade', 0])
+    assert.deepEqual([stade.corps.branche, stade.corps.paliers[0].essais, stade.corps.bloques], ['stade', 0, []])
     // Pas pour un joueur.
     assert.notEqual((await lire(banc, lea, '/api/admin/campagne/sentiers')).status, 200)
 
@@ -144,18 +208,45 @@ test('l’administration lit les paliers sur les vraies épreuves — et un prof
   }
 })
 
-test('une ligne de palier dit ses rejeux à part — et rien de joué, elle le dit', async () => {
+test('une ligne de palier dit qui passe et qui reste bloqué, l’effort, chaque seuil — et ses rejeux à part', async () => {
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#campagne', origin: 'http://banc' } } })
-  const { infosDuPalier } = await import(new URL('../../client/src/components/AdminCampagne.tsx', import.meta.url).href)
-  const ligne = (p: Partial<StatsDuPalier>): string =>
-    infosDuPalier({ palier: 1, joueurs: 0, essais: 0, premierEssai: null, viesAvantDeValider: null, rejeux: 0, rejeuxValides: 0, ...p })
-  assert.equal(ligne({}), 'Aucune épreuve')
+  const { progressionDuPalier, effortDuPalier, parEssaiAuSeuil } = await import(new URL('../../client/src/components/AdminCampagne.tsx', import.meta.url).href)
+  const p = (x: Partial<StatsDuPalier>): StatsDuPalier => ({
+    palier: 1,
+    joueurs: 0,
+    valides: 0,
+    premierCoup: 0,
+    essais: 0,
+    echecsDesBloques: 0,
+    abandons: 0,
+    questions: 0,
+    justes: 0,
+    seuils: [],
+    enAttente: 0,
+    rejeux: 0,
+    rejeuxValides: 0,
+    ...x,
+  })
+  assert.equal(progressionDuPalier(p({})), 'Aucune épreuve')
+  assert.equal(effortDuPalier(p({}), 10), '')
+  // L'un valide du premier coup, l'autre échoue cinq fois : la ligne dit les
+  // deux. Elle disait « 0,0 vie perdue avant de valider ».
+  const mur = p({ joueurs: 2, valides: 1, premierCoup: 1, essais: 6, echecsDesBloques: 5, questions: 60, justes: 33, seuils: [{ seuil: 10, essais: 6, validees: 1 }] })
+  assert.equal(progressionDuPalier(mur), '2 joueurs · 1 l’a validé, 1 du premier coup · 1 bloqué (5 échecs)')
+  assert.equal(effortDuPalier(mur, 10), '6 essais, 1 pour valider · 55 % de bonnes réponses')
+  assert.equal(parEssaiAuSeuil(mur, 10), 1 / 6)
+  assert.equal(parEssaiAuSeuil(mur, 12), null, 'personne à l’autre seuil')
+  // Plusieurs bloqués : leurs échecs en moyenne. Personne n'a validé : on le dit.
+  assert.equal(progressionDuPalier(p({ joueurs: 3, essais: 7, echecsDesBloques: 7 })), '3 joueurs · aucun ne l’a validé · 3 bloqués (2,3 échecs chacun)')
+  // Un seuil d'avant se lit à côté : la chance d'un essai à douze sur seize.
+  const avant = p({ joueurs: 4, valides: 3, premierCoup: 1, essais: 9, echecsDesBloques: 2, abandons: 2, seuils: [{ seuil: 12, essais: 6, validees: 1 }, { seuil: 10, essais: 3, validees: 2 }] })
+  assert.equal(effortDuPalier(avant, 10), '9 essais, 2,3 pour valider · 2 abandons · à 12/16 : 17 % par essai (6 essais)')
+  // Ceux qui l'attendent sans l'avoir tenté.
+  assert.equal(progressionDuPalier(p({ enAttente: 1 })), '1 l’attend sans l’avoir tenté')
+  assert.equal(progressionDuPalier(p({ joueurs: 1, valides: 1, premierCoup: 1, essais: 1, enAttente: 3 })), '1 joueur · 1 l’a validé, 1 du premier coup · 3 l’attendent sans l’avoir tenté')
   // Le palier repris des portraits d'avant, joué pour la première fois : on le voit.
-  assert.equal(ligne({ rejeux: 1, rejeuxValides: 1 }), '1 rejeu, validé')
-  assert.equal(ligne({ rejeux: 1 }), '1 rejeu, raté')
-  assert.equal(ligne({ rejeux: 2 }), '2 rejeux, aucun validé')
-  assert.equal(
-    ligne({ joueurs: 2, essais: 3, premierEssai: 0.5, viesAvantDeValider: 0.5, rejeux: 3, rejeuxValides: 2 }),
-    '2 joueurs · 3 essais · 0,5 vie perdue avant de valider · 3 rejeux, 2 validés',
-  )
+  assert.equal(effortDuPalier(p({ rejeux: 1, rejeuxValides: 1 }), 10), '1 rejeu, validé')
+  assert.equal(effortDuPalier(p({ rejeux: 1 }), 10), '1 rejeu, raté')
+  assert.equal(effortDuPalier(p({ rejeux: 2 }), 10), '2 rejeux, aucun validé')
+  assert.equal(effortDuPalier(p({ joueurs: 2, valides: 2, premierCoup: 1, essais: 3, rejeux: 3, rejeuxValides: 2 }), 10), '3 essais, 1,5 pour valider · 3 rejeux, 2 validés')
 })

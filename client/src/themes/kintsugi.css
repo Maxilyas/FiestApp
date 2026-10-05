@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Italiana';
@@ -84,7 +88,7 @@
   z-index: 1;
 }
 
-:root[data-theme='kintsugi'] .card,
+:root[data-theme='kintsugi'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='kintsugi'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='kintsugi'] .onglets {
   background: #1b1a18;
@@ -92,7 +96,7 @@
   box-shadow: 0 12px 26px rgba(0, 0, 0, .45);
 }
 
-:root[data-theme='kintsugi'] .card {
+:root[data-theme='kintsugi'] .card:where(:not(.carte-fond, .carte-fond *)) {
   background: #1b1a18 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120' viewBox='0 0 300 120'><g fill='none' stroke='%23d9ad44' stroke-linecap='round' stroke-linejoin='round'><path d='M32 40L40 58' stroke-width='0.7'/><path d='M0 34L32 40L62 42L102 48L143 35L162 25' stroke-width='1.2'/><path d='M82 120L65 110L51 86L41 68L23 25L-7 4' stroke-width='1.2'/></g></svg>") center / 100% 100% no-repeat;
 }
 

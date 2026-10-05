@@ -9,18 +9,19 @@
 // (θ = 1) a une chance de plus sur l'échelle logistique : 94 % sur une
 // facile, 77 % sur une moyenne. C'est le calcul qui a fixé les mélanges et
 // les seuils le 5 octobre 2026 ; les vraies épreuves le corrigent ensuite
-// (`/admin#campagne`, « Les sentiers »).
+// (`/admin#campagne`, « Les sentiers ») — elles ont fait descendre le seuil
+// de 12 à 10 le jour même. Sans option, les seuils du code.
 //
-//   npx tsx scripts/calibrage-sentiers.ts [--seuil 12] [--maitre 9]
-import { PALIERS, QUESTIONS_PAR_EPREUVE, type Melange, type RegleDuPalier } from '../../shared/sentiers'
+//   npx tsx scripts/calibrage-sentiers.ts [--seuil 10] [--maitre 9]
+import { PALIERS, QUESTIONS_PAR_EPREUVE, SEUIL_DES_PALIERS, SEUIL_DU_MAITRE, type Melange, type RegleDuPalier } from '../../shared/sentiers'
 import type { Niveau } from '../../shared/campagne'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
   return i >= 0 ? Number(process.argv[i + 1]) : defaut
 }
-const SEUIL = option('seuil', 12)
-const SEUIL_MAITRE = option('maitre', 9)
+const SEUIL = option('seuil', SEUIL_DES_PALIERS)
+const SEUIL_MAITRE = option('maitre', SEUIL_DU_MAITRE)
 /** Le temps d'une question, lecture de l'anecdote comprise. */
 const SECONDES_PAR_QUESTION = 20
 

@@ -103,7 +103,7 @@ test('rien ne se lit à travers la console, et aucun classement de la scène ne 
 
 test('en Velours, le voile d’une mauvaise réponse épargne son compte', () => {
   // Posé sur toute la carte, il laissait le compte à 2,39:1.
-  const racine = css.slice(css.indexOf(':root {'), css.indexOf('}', css.indexOf(':root {')))
+  const racine = css.slice(css.indexOf(':root, .carte-fond {'), css.indexOf('}', css.indexOf(':root, .carte-fond {')))
   assert.match(racine, /--dim-carte: 1;/)
   assert.match(racine, /--dim-contenu: var\(--dim\);/)
 })

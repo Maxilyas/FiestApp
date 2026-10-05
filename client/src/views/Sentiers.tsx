@@ -22,6 +22,7 @@ import {
   PALIER_DU_MAITRE,
   PALIERS_DU_SENTIER,
   QUESTIONS_PAR_EPREUVE,
+  SEUIL_DES_PALIERS,
   VIES_PAR_ACHAT_MAX,
   cleDeMaitre,
   etoilesDe,
@@ -102,6 +103,14 @@ export function dansCombien(ms: number): string {
 const paliersAJouer = (s: SentierDuJoueur): number | null => (s.paliers >= PALIER_DU_MAITRE ? null : s.paliers + 1)
 
 const libelleVies = (v: VieDesSentiers) => `${v.jour} vie${v.jour > 1 ? 's' : ''}${v.reserve > 0 ? ` et ${v.reserve} en réserve` : ''}`
+
+/**
+ * « La septième faute » : celle qui franchit la ligne dépend du seuil de
+ * l'épreuve — la cinquième à 12 sur 16, la septième à 10, la huitième au
+ * maître. Écrite en dur, la cinquième seule avait des lettres.
+ */
+const ORDINAUX = ['', 'première', 'deuxième', 'troisième', 'quatrième', 'cinquième', 'sixième', 'septième', 'huitième', 'neuvième', 'dixième']
+const ordinal = (n: number) => ORDINAUX[n] ?? `${n}ᵉ`
 
 /**
  * Les sentiers demandés d'avance, avec l'état de la campagne (`CampagneApp`) :
@@ -731,7 +740,7 @@ function ReglesDesSentiers() {
     <ul className="pano-regles-liste">
       <li>
         <Icon name="check" />
-        <span>12 bonnes sur 16 valident un palier</span>
+        <span>{`${SEUIL_DES_PALIERS} bonnes sur ${QUESTIONS_PAR_EPREUVE} valident un palier`}</span>
       </li>
       <li>
         <Icon name="award" />
@@ -1445,7 +1454,7 @@ function FinDEpreuve({
         <header className="fin-tete epreuve-fin-tete">
           <span className="label">{`${b.nom} · ${regle.maitre ? 'palier de maître' : `palier ${e.palier}`}`}</span>
           <h1>{deux ? 'Raté de peu' : 'Pas cette fois'}</h1>
-          <p className="muted small">{`${e.justes} bonne${e.justes > 1 ? 's' : ''} réponse${e.justes > 1 ? 's' : ''} : il en fallait ${e.seuil}.${e.fausses > QUESTIONS_PAR_EPREUVE - e.seuil ? ` La ${e.fausses === 5 ? 'cinquième' : `${e.fausses}ᵉ`} faute a franchi la ligne.` : ''}`}</p>
+          <p className="muted small">{`${e.justes} bonne${e.justes > 1 ? 's' : ''} réponse${e.justes > 1 ? 's' : ''} : il en fallait ${e.seuil}.${e.fausses > QUESTIONS_PAR_EPREUVE - e.seuil ? ` La ${ordinal(e.fausses)} faute a franchi la ligne.` : ''}`}</p>
         </header>
         <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} />
         {!e.rejeu ? (

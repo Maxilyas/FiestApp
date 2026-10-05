@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Bebas Neue';
@@ -118,7 +122,7 @@
   z-index: 1;
 }
 
-:root[data-theme='stade'] .card,
+:root[data-theme='stade'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='stade'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='stade'] .onglets {
   background: rgba(6, 22, 12, .88);
