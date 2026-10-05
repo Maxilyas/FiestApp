@@ -53,7 +53,7 @@ import {
   type RevelationDuJour,
   type SerieDuJour,
 } from '../../../shared/jour'
-import { niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { SALLE_DU_JOUR, hautFait, palierDe } from '../../../shared/hautsfaits'
 
@@ -1103,8 +1103,28 @@ export class JourStore {
     // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
     // réponse coûtait un aller-retour de plus sous les doigts du joueur.
     await this.ecrireXp(partie.profileId, partie.jour, derniere, [parties, podiums])
-    if (derniere) await this.decernerALaFin(partie.profileId, partie.jour, maintenant)
+    if (derniere) {
+      await this.decernerALaFin(partie.profileId, partie.jour, maintenant)
+      await this.tirerLEclat(partie.profileId, partie.jour)
+    }
     return lu
+  }
+
+  /**
+   * L'Éclat du quiz du jour : une chance sur `CHANCE_ECLAT_DU_JOUR`, tirée
+   * ici, quand la partie finit — une seule fois, l'écriture qui la finit ne
+   * passe qu'une fois —, donc une fois par jour. Jamais dans
+   * `decernerALaFin`, que la relecture des jours rejoue : chaque relecture
+   * aurait retiré au sort. Il se range sous le jour, avec ses paliers, et la
+   * fin de la partie le relit (`vueDe`).
+   */
+  private async tirerLEclat(profileId: string, jour: string): Promise<void> {
+    try {
+      await this.deps.profiles.tirerUnEclat(profileId, cleDuJour(jour), CHANCE_ECLAT_DU_JOUR)
+    } catch (e) {
+      // La partie est rangée : un Éclat que la base refuse tombe à côté, comme un tirage manqué.
+      console.error('[jour] Éclat non rangé :', e)
+    }
   }
 
   /** Ce que la réponse à une question lui apprend. */
@@ -1239,10 +1259,14 @@ export class JourStore {
       // Ce que sa partie a fait tomber : sous ce jour, sauf ce que la nuit
       // décernera (`estDeLaNuit`) ; sous le mois, la page du calendrier que
       // ce jour-ci a ouverte.
-      const [duJour, duMois] = await Promise.all([
+      const [duJour, duMois, eclat] = await Promise.all([
         this.deps.profiles.recompensesDuJour(profil.id, jour),
         partie ? this.deps.profiles.rangesSous(profil.id, cleDuMois(moisDe(jour))) : [],
+        // L'Éclat que sa partie a fait tomber, relu sous le jour : la page
+        // rechargée le redit, comme ses paliers.
+        this.deps.profiles.eclatSous(profil.id, cleDuJour(jour)),
       ])
+      if (eclat) vue = { ...vue, eclat }
       const tombees = duJour.filter(t => !estDeLaNuit(t.key))
       const paliers = tombees.filter(t => palierDe(t.key))
       if (paliers.length > 0) vue = { ...vue, paliers }

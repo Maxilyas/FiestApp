@@ -195,6 +195,17 @@ export function finitionValide(raw: unknown, niveau: number): Finition {
  */
 export const CHANCE_ECLAT = 40
 
+/**
+ * L'Éclat se tire aussi hors des soirées (le choix du 5 octobre 2026) : au
+ * quiz du jour, à chaque partie finie ; au défi de la semaine, à sa
+ * tentative finie. Le calendrier y tient lieu de garde-fou — une partie par
+ * jour, une tentative par semaine —, comme « une fois par soirée » en
+ * soirée : ni la campagne ni les sentiers, qui se rejouent à volonté, n'en
+ * tirent.
+ */
+export const CHANCE_ECLAT_DU_JOUR = 40
+export const CHANCE_ECLAT_DU_DEFI = 20
+
 // ── Barème d'expérience ───────────────────────────────────────────────────
 //
 // L'expérience se MÉRITE. Elle ne récompense plus d'être venu — cinquante

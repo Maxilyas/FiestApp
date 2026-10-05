@@ -6,7 +6,7 @@ import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, sentierDeLAdresse } f
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
-import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
@@ -18,6 +18,7 @@ import { porterGerbe } from '../gerbe'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
+import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -71,6 +72,8 @@ type Ecran =
       /** Le défi de la semaine, et sa place au classement pour l'instant. */
       defi?: true
       place?: { rang: number; joueurs: number }
+      /** Ce qui a éclaté pour lui à la fin du défi (`CHANCE_ECLAT_DU_DEFI`). */
+      eclat?: string
     }
 
 /** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine. */
@@ -99,6 +102,8 @@ export function CampagneApp() {
   const [categories, setCategories] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
+  // Son profil, lu en léger : l'Éclat d'un défi s'y montre avec sa finition.
+  const [profil, setProfil] = useState<PublicProfile | null>(null)
   // Chaque écran commence en haut, comme une page qu'on ouvre.
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
@@ -160,6 +165,7 @@ export function CampagneApp() {
       void porterTheme(moi.profile?.theme)
       porterGerbe(moi.profile?.gerbe)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
+      setProfil(moi.profile)
       const lu = await etat
       if (vivant) setEcran({ e: 'accueil', etat: lu })
     })().catch(e => vivant && setEcran({ e: 'erreur', motif: motifDe(e) }))
@@ -214,6 +220,7 @@ export function CampagneApp() {
         legendaires: r.legendaires ?? [],
         ...(ecran.defi && { defi: true as const }),
         ...(r.defi && { place: r.defi }),
+        ...(r.eclat && { eclat: r.eclat }),
       })
     }
     setEcran({ ...ecran, question: r.suivante, reponse: null, choix: null })
@@ -428,6 +435,8 @@ export function CampagneApp() {
             ))}
           </section>
         )}
+        {/* L'Éclat du défi : une chance sur vingt, à sa tentative finie. */}
+        {ecran.eclat && <EclatTombe cle={ecran.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} />}
         {ecran.legendaires.map(cle => (
           <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
         ))}

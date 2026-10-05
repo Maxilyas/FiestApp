@@ -53,7 +53,7 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   legendaire: { terme: 'Avatar légendaire', sens: 'Un avatar dessiné, débloqué par des hauts faits, au quiz du jour ou à sa saison.' },
   divin: { terme: 'Divins', sens: 'Cinq avatars secrets. Personne ne sait ce qui les fait descendre.' },
   finition: { terme: 'Finition', sens: 'Le cadre autour de ton avatar, que toute la salle voit. Il se gagne au niveau.' },
-  eclat: { terme: 'Éclat', sens: 'Une chance sur quarante, à chaque soirée jouée à deux ou plus : ton avatar change de couleurs.' },
+  eclat: { terme: 'Éclat', sens: 'Une chance sur 40 par soirée à deux ou quiz du jour, sur 20 au défi : ton avatar change de couleurs.' },
   xp: { terme: 'XP', sens: 'L’expérience, gagnée en jouant avec un profil. Elle fait monter de niveau.' },
   niveau: { terme: 'Niveau', sens: 'Il monte avec l’XP, et ne redescend pas pendant une soirée. Il ne donne aucun avantage de jeu.' },
   precision: { terme: 'Précision', sens: 'La part de bonnes réponses aux QCM. Une estimation ne compte pas.' },

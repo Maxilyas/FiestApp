@@ -19,13 +19,13 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
+import { CollectionOuverte, EclatTombe, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
 import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { PucesDeSabliers, Sablier, adresseDeLObjet } from '../components/Objets'
 import { createPortal } from 'react-dom'
-import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
   NOM_DU_LAURIER,
@@ -817,6 +817,8 @@ export function Fin({
       {(partie.divins ?? []).map(d => (
         <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={profil.legendaire === d.key} />
       ))}
+      {/* Puis l'Éclat, comme en fin de soirée : une chance sur quarante par partie finie. */}
+      {partie.eclat && <EclatTombe cle={partie.eclat} avatar={profil.avatar} finition={profil.finition} chance={CHANCE_ECLAT_DU_JOUR} />}
       {partie.page && <PageOuverte mois={partie.page} />}
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />

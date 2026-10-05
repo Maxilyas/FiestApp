@@ -178,6 +178,8 @@ export interface ReponseDeCampagne {
   legendaires?: string[]
   /** À la fin d'un défi de la semaine : sa place au classement de la semaine, pour l'instant. */
   defi?: { rang: number; joueurs: number }
+  /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
+  eclat?: string
 }
 
 /** Une série, telle que sa page la reprend. */

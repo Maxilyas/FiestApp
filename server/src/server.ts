@@ -531,6 +531,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
     : null
 
+  // Les espaces dont la soirée est en train de se clore : elle compte déjà
+  // pour close dans les paliers des autres (`soireesEnCoursAilleurs`) — et
+  // dans ceux que décernent le quiz du jour et le défi (`soireesEnCours`).
+  const cloturesEnCours = new Set<string>()
   // Une soirée par espace, réveillée à la première connexion ; celles dont
   // une partie était en cours à l'extinction repartent tout de suite.
   const registry = new SpaceRegistry({
@@ -547,10 +551,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return ip ? `http://${ip}:${boundPort}` : null
     },
     maxPlayersCeiling,
-    cloturesEnCours: new Set(),
+    cloturesEnCours,
     jour,
     salons,
   })
+  // L'Éclat tiré au quiz du jour ou au défi fait tomber La Pluie d'Éclats
+  // sans compter ceux des soirées qui se jouent encore : un essai effacé
+  // ensuite aurait laissé le palier sans son Éclat.
+  profiles.soireesEnCours = () =>
+    new Set(
+      (db.prepare('SELECT space_id, id FROM soiree').all() as { space_id: string; id: string }[])
+        .filter(r => !cloturesEnCours.has(r.space_id))
+        .map(r => cleDeSoiree(r.space_id, r.id)),
+    )
   // Un laurier qui change de tête — la nuit close, un profil masqué, le
   // défi de la semaine clos — se voit dans la salle où il joue sans attendre
   // la diffusion suivante.

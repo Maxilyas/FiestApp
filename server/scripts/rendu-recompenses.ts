@@ -1,10 +1,10 @@
 // Les écrans des récompenses de la campagne et du quiz du jour, photographiés
 // sur un serveur jetable : les records par catégorie, une fin de série qui
 // fait tomber hauts faits, paliers et légendaire, le défi de la semaine
-// (avant, pendant, après, sa clôture et sa correction), le laurier d'argent
-// sur le profil — au téléphone, en 360 × 640 —, et l'entrée en scène du
-// champion du mois à l'écran commun, en 1366 × 768. Le client construit
-// d'abord (`npm run build -w client`).
+// (avant, pendant, après — l'Éclat de sa fin, forcé —, sa clôture et sa
+// correction), le laurier d'argent sur le profil — au téléphone, en
+// 360 × 640 —, et l'entrée en scène du champion du mois à l'écran commun, en
+// 1366 × 768. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-recompenses.ts [dossier]
 import { createRequire } from 'node:module'
@@ -13,7 +13,11 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, invite } from '../test/banc'
+import { ProfileStore } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
+
+// L'Éclat est un tirage : il ne tombe ici que là où on le photographie.
+ProfileStore.tirageEclat = () => false
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-recompenses')
 mkdirSync(sortie, { recursive: true })
@@ -129,8 +133,12 @@ try {
   await page.click('text=Relever le défi')
   await page.waitForSelector('.ans-btn')
   await photo('4-defi-question')
+  // Sa fin fait éclater son avatar, à coup sûr : la carte de l'Éclat.
+  ProfileStore.tirageEclat = () => true
   await jouer(9)
   await page.waitForSelector('.fin-tete')
+  await page.waitForSelector('.fin-eclat')
+  ProfileStore.tirageEclat = () => false
   await photo('5-defi-fin', true)
   await page.click('text=Le classement du défi')
   await page.waitForSelector('.defi-classement .lb-row')
