@@ -649,6 +649,10 @@ function HautDesSentiers({
           : prochain
             ? [`Vers ${nomDansLaPhrase(prochain.portrait.nom)}`, `Palier ${c}, puis ${nomDansLaPhrase(prochain.portrait.nom)} au palier ${prochain.portrait.palier}`]
             : ['Le maître t’attend', `Seize expertes, et le titre « ${titreDeMaitre(b)} »`]
+  // Une épreuve laissée sur un autre sentier que celui montré : elle bloque
+  // toutes les autres, le bloc la rappelle — sinon on n'en savait rien qu'au
+  // refus, sur le chemin.
+  const ailleurs = cible.laissee ? null : epreuveQuiBloque(laissee, b.key, c)
   const geste = cible.laissee
     ? 'Reprendre l’épreuve'
     : c === null
@@ -672,6 +676,14 @@ function HautDesSentiers({
       <button type="button" className="btn btn-primary btn-block" onClick={() => (cible.laissee && laissee ? onReprendre(laissee) : onOuvrir(b.key))}>
         {geste}
       </button>
+      {ailleurs && (
+        <p className="pano-ailleurs small">
+          <span>{`${phraseDeLEpreuveQuiAttend(ailleurs, b.key)} : une seule à la fois.`}</span>
+          <button type="button" className="link-inline" onClick={() => onReprendre(ailleurs)}>
+            La reprendre
+          </button>
+        </p>
+      )}
     </section>
   )
 }
@@ -883,16 +895,19 @@ export function SentierVu({
             en haut, elle se posait sur le chemin — son tracé, la jauge et
             l'accolade passaient dessous (la remarque du propriétaire du
             5 octobre 2026). Le palier le dit lui-même, sous lui. */}
+        {/* Un refus, lui, s'écrit ici, dans l'en-tête collé : sous lui, il
+            restait en haut de la page pendant que le chemin montrait le
+            palier, et « Jouer » semblait ne rien faire. */}
+        {erreur && (
+          <p className="error" role="alert">
+            {erreur}
+          </p>
+        )}
       </div>
       {laissee && (
         <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
           {`Reprendre le palier ${laissee.palier} · ${laissee.justes} sur ${laissee.justes + laissee.fausses}`}
         </button>
-      )}
-      {erreur && (
-        <p className="error" role="alert">
-          {erreur}
-        </p>
       )}
       <div className="sentier-chemin" ref={chemin} style={{ height: HAUTEUR_DU_CHEMIN }}>
         <svg className="sentier-trace" viewBox={`0 0 100 ${HAUTEUR_DU_CHEMIN}`} preserveAspectRatio="none" aria-hidden="true">
@@ -978,6 +993,7 @@ export function SentierVu({
             branche={b}
             sentier={s}
             maitres={etat.sentiers.filter(x => x.paliers >= PALIER_DU_MAITRE).length}
+            epreuve={etat.epreuve}
             sansVie={sansVie}
             busy={busy}
             onJouer={() => {
@@ -988,6 +1004,10 @@ export function SentierVu({
               setFiche(null)
               onVies()
             }}
+            onReprendre={e => {
+              setFiche(null)
+              onReprendre(e)
+            }}
           />
         </Feuille>
       )}
@@ -995,29 +1015,54 @@ export function SentierVu({
   )
 }
 
+/**
+ * L'épreuve laissée en jeu qui en bloque une autre — rejeu compris : le
+ * serveur n'en tient qu'une à la fois. Un rejeu laissé, ou une épreuve déjà
+ * validée qui continuait pour ses étoiles, ne bloque rien : il les referme
+ * de lui-même. Null quand rien n'attend, ou que c'est ce palier-là.
+ */
+function epreuveQuiBloque(epreuve: EpreuveDeSentier | null, branche: CleDeBranche, palier: number | null): EpreuveDeSentier | null {
+  if (!epreuve || epreuve.rejeu || epreuve.issue === 'validee') return null
+  return epreuve.branche === branche && epreuve.palier === palier ? null : epreuve
+}
+
+/** « Ton épreuve du palier 10 de la forêt t'attend » — sans le sentier quand on y est. */
+function phraseDeLEpreuveQuiAttend(e: EpreuveDeSentier, ici: CleDeBranche): string {
+  const autre = e.branche === ici ? null : brancheDe(e.branche)
+  return `Ton épreuve ${e.palier === PALIER_DU_MAITRE ? 'du palier de maître' : `du palier ${e.palier}`}${autre ? ` ${deLaBranche(autre)}` : ''} t’attend`
+}
+
 /** La fiche d'un palier, qu'on ouvre en le touchant : ses questions, sa règle, ce qu'il ouvre, et le geste. */
-function FicheDuPalier({
+export function FicheDuPalier({
   regle: r,
   branche: b,
   sentier: s,
   maitres,
+  epreuve,
   sansVie,
   busy,
   onJouer,
   onVies,
+  onReprendre,
 }: {
   regle: RegleDuPalier
   branche: Branche
   sentier: SentierDuJoueur
   /** Les sentiers dont il est déjà maître. */
   maitres: number
+  /** L'épreuve qu'il a laissée en cours, où qu'elle soit. */
+  epreuve: EpreuveDeSentier | null
   sansVie: boolean
   busy: boolean
   onJouer: () => void
   onVies: () => void
+  onReprendre: (e: EpreuveDeSentier) => void
 }) {
   const fait = s.paliers >= r.n
   const vise = paliersAJouer(s) === r.n
+  // Une autre épreuve laissée en jeu : le serveur refuserait celle-ci — la
+  // fiche offrait « Jouer » quand même, et rien ne semblait se passer.
+  const bloquante = fait || vise ? epreuveQuiBloque(epreuve, b.key, r.n) : null
   const etoiles = s.etoiles[r.n - 1] ?? 0
   const p = r.avatar !== null ? b.portraits[r.avatar] : null
   const sousThemes = SOUS_THEMES[b.categorie as keyof typeof SOUS_THEMES]?.length ?? 0
@@ -1052,7 +1097,15 @@ function FicheDuPalier({
           <p>{fait ? <>Tu as gagné <b>{nomDansLaPhrase(p.nom)}</b>.</> : <>Ce palier ouvre <b>{nomDansLaPhrase(p.nom)}</b>.</>}</p>
         </div>
       )}
-      {fait ? (
+      {bloquante ? (
+        <div className="sentier-fiche-attente">
+          <b>{phraseDeLEpreuveQuiAttend(bloquante, b.key)}</b>
+          <p className="muted small">Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté.</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(bloquante)}>
+            Reprendre l’épreuve
+          </button>
+        </div>
+      ) : fait ? (
         <>
           <p className="muted small">
             {etoiles > 0 ? (
