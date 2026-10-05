@@ -30,8 +30,9 @@ import {
   type Socket,
 } from './banc'
 import { ecrireAttente, prechargerDonnees } from '../src/core/page'
-import { donneesDeDepart } from '../../shared/depart'
+import { donneesDeDepart, donneesDuFragment, versLesSentiers } from '../../shared/depart'
 import { parseRoute } from '../../shared/adresses'
+import { BRANCHES } from '../../shared/branches'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -79,11 +80,31 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'quiz']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'quiz']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
   assert.match(source('routes.ts'), /return adresseDesDonnees\(slug, file, archiveId\)/)
+})
+
+test('les sentiers, que le serveur ne peut pas précharger, partent du premier script — par la règle qui les fera demander', () => {
+  // `#sentiers` ne parvient pas au serveur : le premier script de la page les
+  // précharge (`main.tsx`), une demi-seconde avant le code de la campagne.
+  const campagne = parseRoute('/campagne')
+  assert.deepEqual(donneesDuFragment(campagne, '#sentiers'), ['/api/campagne/sentiers'])
+  for (const b of BRANCHES) assert.deepEqual(donneesDuFragment(campagne, `#sentier-${b.key}`), ['/api/campagne/sentiers'], b.key)
+  for (const hash of ['', '#defi', '#sentiersx', '#sentier']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
+  assert.deepEqual(donneesDuFragment(parseRoute('/profil'), '#sentiers'), [], 'ailleurs que la campagne, rien')
+  // Les adresses que `Sentiers.tsx` écrit tombent sous la règle.
+  assert.match(source('views/Sentiers.tsx'), /export const ADRESSE_DES_SENTIERS = '#sentiers'\nconst PREFIXE = '#sentier-'/)
+  assert.ok(versLesSentiers('#sentiers') && versLesSentiers('#sentier-foret'))
+
+  // Le premier script pose le préchargement ; la campagne s'ouvre sur les
+  // sentiers par la même règle, et les demande alors à coup sûr : un
+  // préchargement qu'elle ne reprendrait pas attendrait son `fetch` suivant.
+  assert.match(source('main.tsx'), /for \(const adresse of donneesDuFragment\(route, window\.location\.hash\)\) \{/)
+  assert.match(source('main.tsx'), /lien\.rel = 'preload'\n\s*lien\.as = 'fetch'\n\s*lien\.href = adresse\n\s*lien\.crossOrigin = 'anonymous'/)
+  assert.match(source('views/CampagneApp.tsx'), /const modeDe = \(hash: string\): Mode => \(hash === ADRESSE_DU_DEFI \? 'defi' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'\)/)
 })
 
 // ── 2. La page servie ─────────────────────────────────────────────────────

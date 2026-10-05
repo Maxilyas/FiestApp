@@ -30,6 +30,8 @@ export const DEPART = {
   /** La partie du jour — sa réponse remesure l'heure (`avecLHeure`, `client/src/api.ts`). */
   jour: '/api/jour',
   campagne: '/api/campagne',
+  /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
+  sentiers: '/api/campagne/sentiers',
   /** Les quiz de l'espace (« Mes quiz »). */
   quiz: '/api/quizzes',
 } as const
@@ -79,4 +81,27 @@ export function donneesDeDepart(route: Route): string[] {
     return [adresseDesDonnees(slug, 'recap.json', archiveId), DEPART.console, DEPART.theme]
   }
   return []
+}
+
+/**
+ * L'adresse des sentiers — `#sentiers`, ou l'un d'eux, `#sentier-foret` —,
+ * où la campagne s'ouvre sur ses sentiers (`modeDe`, `CampagneApp`). Un
+ * sentier inconnu en est aussi : il ouvre les sentiers sur leur carte, et
+ * la règle n'a pas à connaître les branches, que le premier script de
+ * chaque page n'emporte pas.
+ */
+export function versLesSentiers(hash: string): boolean {
+  return hash === '#sentiers' || hash.startsWith('#sentier-')
+}
+
+/**
+ * Ce que la page demandera dès son code arrivé, et que le serveur ne peut pas
+ * précharger : le fragment de l'adresse (`#…`) ne lui parvient pas. Le
+ * premier script le précharge (`main.tsx`), une demi-seconde avant que le
+ * code de la page n'arrive pour le demander (4G) ; la page le demande au même
+ * fragment, par la même règle — sinon la réponse préchargée attendrait un
+ * `fetch` plus tardif, et lui rendrait celle d'avant.
+ */
+export function donneesDuFragment(route: Route, hash: string): string[] {
+  return route.kind === 'account' && route.page === 'campagne' && versLesSentiers(hash) ? [DEPART.sentiers] : []
 }

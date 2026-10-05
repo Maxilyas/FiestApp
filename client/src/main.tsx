@@ -7,6 +7,7 @@ import { installerClavier } from './clavier'
 import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
+import { donneesDuFragment } from '../../shared/depart'
 import { titreDePage } from './titres'
 import './styles.css'
 
@@ -122,6 +123,19 @@ if (App === HostApp) applyTheme()
 else if (!(route.kind === 'public' && route.page === 'bilan/fiches')) {
   poserThemeRetenu()
   if (!LISENT_LE_PROFIL.has(App)) void confirmerTheme()
+}
+
+// Ce que le serveur n'a pas pu précharger avec la page : le fragment de
+// l'adresse (`#sentiers`) ne lui parvient pas. Demandé d'ici, il part avant
+// que le code de la page n'arrive pour le demander, et son `fetch` reprend
+// la réponse (`donneesDuFragment`, `shared/depart.ts`).
+for (const adresse of donneesDuFragment(route, window.location.hash)) {
+  const lien = document.createElement('link')
+  lien.rel = 'preload'
+  lien.as = 'fetch'
+  lien.href = adresse
+  lien.crossOrigin = 'anonymous'
+  document.head.append(lien)
 }
 
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un

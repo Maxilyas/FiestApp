@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
-import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers, sentierDeLAdresse } from './Sentiers'
+import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
@@ -18,6 +18,7 @@ import { porterGerbe } from '../gerbe'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
+import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
 import {
   NIVEAUX,
@@ -78,7 +79,9 @@ type Ecran =
 
 /** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine. */
 type Mode = 'serie' | 'sentiers' | 'defi'
-const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : hash === ADRESSE_DES_SENTIERS || sentierDeLAdresse(hash) ? 'sentiers' : 'serie')
+// Les sentiers par la règle même du préchargement (`donneesDuFragment`,
+// `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
+const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : versLesSentiers(hash) ? 'sentiers' : 'serie')
 
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois

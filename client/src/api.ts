@@ -368,7 +368,7 @@ export const api = {
      * celles de la série.
      */
     sentiers: {
-      etat: () => req<EtatDesSentiers>('/api/campagne/sentiers'),
+      etat: () => req<EtatDesSentiers>(DEPART.sentiers),
       commencer: (branche: string, palier: number) =>
         req<EpreuveDeSentier>('/api/campagne/sentiers/epreuve', { method: 'POST', body: JSON.stringify({ branche, palier }) }),
       repondre: (epreuve: string, index: number, choix: number) =>

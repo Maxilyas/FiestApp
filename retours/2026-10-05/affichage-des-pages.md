@@ -10,6 +10,11 @@ retouche. Rien n'a été changé à l'application pour l'écrire.
 
 ## En bref
 
+- **Suite donnée le jour même** : les pistes 1 à 4 sont faites, dans la même
+  PR — −8 à −28 % sur l'écran utile des pages qui attendent des données à la
+  première visite, jusqu'à −45 % au retour, et le premier affichage 0,13 à
+  0,26 s plus tôt partout (« Suite donnée », plus bas). Le reste de ce
+  rapport décrit l'état d'avant.
 - **Un invité qui scanne le QR attend 1,4 s en 4G avant l'écran d'entrée,
   4,2 s en 4G lente.** Les autres pages : 1,2 à 1,5 s en 4G et 3,8 à 4,7 s en
   4G lente à la première visite ; 1,0 à 1,3 s et 1,8 à 2,5 s au retour.
@@ -329,6 +334,101 @@ En ligne, `/healthz` dit dans `ressenti` ce que coûtent les données côté
 serveur (médiane et 95ᵉ centile par route, et chaque aller-retour vers
 Turso) : c'est le complément de cette mesure, et ce qui dira si
 `/api/joueur/moi?accueil` ou `recap.json` pèsent plus en ligne qu'ici.
+
+## Suite donnée : les pistes 1 à 4, le jour même
+
+Faites dans la même PR (#108), dans l'ordre proposé :
+
+- **Les données dès la page** (piste 1). Le serveur précharge, en servant la
+  page, ce que sa vue demandera dès son code arrivé
+  (`<link rel="preload" as="fetch">`, `prechargerDonnees`,
+  `server/src/core/page.ts`) ; la liste et la page lisent les mêmes adresses
+  (`shared/depart.ts`). Trois écarts au plan :
+  - **pour tout visiteur, pas selon les cookies.** La page demande ces
+    adresses avec ou sans profil (un invité reçoit `null` ou 401). Et un
+    préchargement que la page ne reprend pas n'est pas seulement perdu : le
+    navigateur garde la réponse pour le premier `fetch` de la même adresse,
+    sans regarder son âge — essayé, douze secondes après, il rendait encore
+    celle du chargement. Une page qui ne demanderait une adresse qu'après une
+    connexion y lirait la réponse d'un invité : la liste ne porte que ce que
+    chaque page demande à l'ouverture, vérifié page par page (CLAUDE.md, les
+    pièges) ;
+  - **`/api/jour` reste dans la liste** : le serveur marque la réponse
+    préchargée (`prechargee`), et le client lit son aller-retour dans le
+    Resource Timing du préchargement (`mesureDeLaReponse`,
+    `client/src/clock.ts`) ;
+  - **les sentiers, le premier script les précharge** : `#sentiers` ne
+    parvient pas au serveur. `main.tsx` pose le préchargement dès son
+    exécution (`donneesDuFragment`), une demi-seconde avant que le code de la
+    campagne n'arrive pour les demander ; la campagne s'ouvre sur eux par la
+    même règle (`versLesSentiers`), et un sentier inconnu ouvre leur carte.
+- **Plus de demande en file** (piste 2). Entre deux soirées, `recap.json` et
+  `bilan.json` portent la page de la soirée close (`derniere.page`, gardée
+  comme demandée seule — et provisoire avec elle : si les profils ne se
+  lisent pas, ni l'une ni l'autre ne se garde) ; la campagne ouverte sur ses
+  sentiers les demande avec son état ; la boutique et `/profil#…` demandent
+  leurs onglets sans attendre le profil.
+- **socket.io hors de l'accueil** (piste 3) : `components/inscription.ts`,
+  et `medaillons.test.ts` garde le chemin — 17 Ko de script de moins sur
+  l'accueil, le profil et la boutique.
+- **L'attente écrite dans la page** (piste 4) : `ecrireAttente`, le balisage
+  de `Patience` — une épreuve compare les deux rendus.
+
+`npm run mesure` relève maintenant, à chaque page, les préchargements
+qu'elle n'a pas repris (jamais demandés, ou redemandés au réseau) : aucun
+sur les quatorze pages.
+
+### Mesuré
+
+Le commit d'avant (`dcd0ef0`) construit à part, puis celui-ci, mesurés à la
+suite sur la même machine — trois essais par case, la médiane ; les
+sentiers, remesurés après leur préchargement par la page. Écran utile, en
+secondes (en gras, les gains de 10 % et plus) :
+
+| Page | 4G, 1ʳᵉ visite | 4G, retour | 4G lente, 1ʳᵉ visite | 4G lente, retour |
+|---|---|---|---|---|
+| Entrée d’un invité (QR) | 1,37 → 1,35 (−1 %) | 1,13 → 1,15 (+2 %) | 4,26 → 4,18 (−2 %) | 2,16 → 2,19 (+1 %) |
+| Salle d’attente (retour) | 1,49 → 1,48 (−1 %) | 1,22 → 1,30 (+6 %) | 4,46 → 4,39 (−2 %) | 2,34 → 2,41 (+3 %) |
+| Accueil sans profil | 1,23 → **1,03 (−16 %)** | 0,98 → **0,86 (−12 %)** | 3,79 → **3,04 (−20 %)** | 1,78 → **1,24 (−30 %)** |
+| Accueil d’un profil | 1,29 → **1,10 (−15 %)** | 1,02 → **0,89 (−12 %)** | 3,90 → **3,11 (−20 %)** | 1,84 → **1,29 (−30 %)** |
+| Profil (tuiles) | 1,26 → **1,09 (−14 %)** | 1,06 → **0,89 (−16 %)** | 3,94 → **3,15 (−20 %)** | 1,87 → **1,29 (−31 %)** |
+| Mes avatars | 1,53 → **1,25 (−18 %)** | 1,04 → **0,90 (−14 %)** | 4,69 → **3,98 (−15 %)** | 1,87 → **1,30 (−30 %)** |
+| Boutique | 1,48 → **1,25 (−15 %)** | 1,07 → **0,90 (−15 %)** | 4,69 → **3,97 (−15 %)** | 1,88 → **1,33 (−29 %)** |
+| Quiz du jour | 1,24 → **1,05 (−15 %)** | 0,98 → **0,84 (−14 %)** | 3,81 → **3,22 (−15 %)** | 1,79 → **1,28 (−29 %)** |
+| Campagne (série) | 1,23 → 1,13 (−8 %) | 1,02 → **0,86 (−15 %)** | 3,83 → **3,26 (−15 %)** | 1,82 → **1,27 (−30 %)** |
+| Sentiers du savoir | 1,46 → **1,13 (−23 %)** | 1,25 → **0,94 (−25 %)** | 4,47 → **3,22 (−28 %)** | 2,49 → **1,49 (−40 %)** |
+| Souvenir de la soirée | 1,54 → **1,20 (−22 %)** | 1,33 → **1,00 (−25 %)** | 4,33 → **3,18 (−27 %)** | 2,58 → **1,44 (−44 %)** |
+| Bilan de la soirée | 1,45 → **1,11 (−24 %)** | 1,24 → **0,92 (−26 %)** | 4,17 → **2,99 (−28 %)** | 2,48 → **1,36 (−45 %)** |
+| Mes quiz | 1,23 → **1,09 (−11 %)** | 1,03 → **0,92 (−10 %)** | 3,77 → **3,11 (−17 %)** | 1,83 → **1,30 (−29 %)** |
+| Écran commun (wifi, ×2) | 0,64 → 0,66 (+3 %) | 0,62 → 0,64 (+4 %) | — | — |
+
+- **Toutes les pages qui attendent des données gagnent**, et autant que la
+  variante l'annonçait : −11 à −24 % en 4G à la première visite, −15 à
+  −28 % en 4G lente, et au retour jusqu'à −45 % — le souvenir et le bilan,
+  qui enchaînaient deux demandes, gagnent le plus. La campagne gagne moins
+  en 4G à la première visite (−8 % ; −12 % sur une seconde série) : ses
+  données arrivent désormais 0,5 s avant son code, et c'est le rendu de sa
+  page, 0,2 s au processeur ×4 une fois le code arrivé, qui la retient.
+- **Le premier affichage avance partout** : de 0,66–0,71 s à 0,52–0,54 s en
+  4G à la première visite, de 0,46–0,48 à 0,26–0,32 s au retour, de 2,03–2,06
+  à 1,80–1,84 s en 4G lente ; l'écran commun, de 0,21 à 0,13 s. Pour
+  l'invité, c'est le nom de la soirée et « On arrive… ».
+- **L'entrée d'un invité et sa salle d'attente ne bougent pas** : elles
+  attendent la liaison temps réel, pas une donnée — c'est la piste 8. Au
+  retour, elles perdent même 20 à 80 ms : l'attente, peinte plus tôt, prend
+  ce temps au processeur avant que la liaison ne s'ouvre (20 à 60 ms plus
+  tard). Le nom de la soirée paraissant 0,16 s plus tôt, l'échange est
+  gardé : c'est l'écran qui dit au téléphone que le QR a marché.
+- **L'écran commun** : rien sur son écran utile (0,64 → 0,66 s, sous le
+  seuil du bruit), le premier affichage 0,08 s plus tôt.
+
+### Ce qui reste
+
+Les deux chantiers, dans l'ordre : **l'état de l'entrée dans la page**
+(piste 8) — la page que toute la salle ouvre en même temps, la seule que
+cette PR n'avance pas —, puis **la feuille de style par vue** (piste 5).
+Preact (piste 6) et les morceaux préchargés (piste 7) se décideront sur une
+mesure refaite après eux.
 
 ## Méthode
 
