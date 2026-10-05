@@ -303,6 +303,15 @@ export interface StatsDuPalier {
   premierEssai: number | null
   /** Les vies perdues en moyenne avant de le valider, sur ceux qui l'ont validé ; null si personne. */
   viesAvantDeValider: number | null
+  /**
+   * Ses rejeux terminés, comptés à part : un palier déjà validé — ou repris
+   * des portraits d'avant (`sentier_acquis`) —, rejoué sans risquer de vie,
+   * ne dit rien d'un premier essai. Mais sans eux, le joueur qui rejouait
+   * les premiers paliers repris ne paraissait nulle part.
+   */
+  rejeux: number
+  /** Ceux de ces rejeux qui ont atteint le seuil. */
+  rejeuxValides: number
 }
 
 export interface AdminDesSentiers {
