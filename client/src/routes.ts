@@ -13,10 +13,11 @@
 // Le serveur redirige les adresses d'avant les espaces (`/bilan`, `/soirees`…)
 // vers l'espace de l'administrateur : les liens déjà partagés restent bons.
 import { parseRoute, type AccountPage, type PublicPage, type Route } from '../../shared/adresses'
+import { adresseDesDonnees, type FichierDeSoiree } from '../../shared/depart'
 
 export { parseRoute }
 export type { AccountPage, PublicPage, Route }
-export type DataFile = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json'
+export type DataFile = FichierDeSoiree
 
 /** La route de la page ouverte, lue une fois pour toutes. */
 export const route: Route = parseRoute(window.location.pathname)
@@ -52,7 +53,10 @@ export function spacePath(slug: string, page: PublicPage | '' = '', archiveId: s
   return path
 }
 
-/** D'où une page tire ses chiffres. */
+/**
+ * D'où une page tire ses chiffres — l'adresse que le serveur précharge en
+ * servant la page (`shared/depart.ts`) : la même lettre pour lettre.
+ */
 export function dataUrl(slug: string, file: DataFile, archiveId: string | null = null): string {
-  return `/s/${slug}${archiveId ? `/soirees/${archiveId}` : ''}/${file}`
+  return adresseDesDonnees(slug, file, archiveId)
 }

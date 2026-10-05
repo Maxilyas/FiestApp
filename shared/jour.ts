@@ -384,6 +384,12 @@ export interface PartieDuJour {
    * chrono (invariant 6) — il n'a pas de liaison temps réel pour la mesurer.
    */
   maintenant: number
+  /**
+   * Partie vers le préchargement que la page a posé (`shared/depart.ts`), pas
+   * vers son `fetch` : elle arrive à celui-ci déjà là, et son aller-retour se
+   * lit dans le préchargement (`mesureDeLaReponse`, `client/src/clock.ts`).
+   */
+  prechargee?: true
   total: number
   /** Les catégories du jour, pour la carte de l'accueil. */
   categories: string[]

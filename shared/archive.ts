@@ -117,6 +117,13 @@ export interface DerniereSoiree {
   id: string
   title: string
   heldAt: number
+  /**
+   * Sa page — le souvenir ou le bilan archivé —, jointe par le serveur à
+   * celle de l'espace qui la désigne : le téléphone la demandait aussitôt,
+   * un aller-retour de plus. Absente d'un serveur d'avant, ou d'une base
+   * muette : la page la demande alors à son adresse (`client/src/derniere.ts`).
+   */
+  page?: unknown
 }
 
 export interface ArchiveList {

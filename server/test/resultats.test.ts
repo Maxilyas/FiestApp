@@ -862,14 +862,19 @@ test('le souvenir et le bilan se calculent une fois pour toute la salle, et se r
     assert.equal((await rafale(`/soirees/${current.id}/bilan.json`)).calculs, 1)
     assert.equal((await rafale(`/soirees/${current.id}/recap.json`, 5)).calculs, 0)
 
-    // La clôture : la page de l'espace montre la soirée close, l'archive se relit.
+    // La clôture : la page de l'espace montre la soirée close, l'archive se
+    // relit. Sa page part avec celle de l'espace (`derniere.page`) : la
+    // clôture les refait toutes deux, une fois pour toute la salle — et
+    // l'archive demandée ensuite à son adresse est déjà prête.
     const close = banc.attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
     ;(host as any).emit('host:closeParty', {})
     assert.equal((await close).kind, 'info')
     const apresCloture = await rafale('/recap.json')
-    assert.equal(apresCloture.calculs, 1, 'la clôture refait la page')
+    assert.equal(apresCloture.calculs, 2, 'la clôture refait la page, et celle de la soirée close qu’elle porte')
     assert.equal(apresCloture.page.derniere?.id, current.id, 'qui désigne la soirée close')
-    assert.equal((await rafale(`/soirees/${current.id}/recap.json`)).calculs, 1, 'l’archive réécrite se relit')
+    const archiveeRelue = await rafale(`/soirees/${current.id}/recap.json`)
+    assert.equal(archiveeRelue.calculs, 0, 'l’archive réécrite s’est relue avec la page de l’espace')
+    assert.deepEqual(apresCloture.page.derniere.page, archiveeRelue.page, 'et c’est la même')
 
     // Un essai : dès sa première question, la page parle de lui ; effacé, la veille revient.
     const essai = await banc.invite(b.url, 'Chloé', '🐙')
@@ -1023,7 +1028,7 @@ test('chaque écriture qui change le souvenir ou le bilan le refait, et un tél�
       proto.derniere = derniere
     }
     const revenue = await relire('/recap.json')
-    assert.equal(revenue.calculs, 1)
+    assert.equal(revenue.calculs, 2, 'la page, et celle de la soirée close qu’elle porte')
     assert.equal(revenue.page.derniere?.title, 'La veille', 'la base revenue, la dernière soirée revient')
   } finally {
     await b.close()
