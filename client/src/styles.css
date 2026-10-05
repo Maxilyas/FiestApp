@@ -7571,6 +7571,9 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .pano-coeurs .coeur[fill='none'] { color: color-mix(in srgb, var(--alert) 55%, transparent); }
 .pano-reserve { padding: 0 7px; border-radius: var(--radius-pill); background: rgba(var(--alert-rgb), 0.14); color: var(--ink); font-size: var(--t-label); font-weight: 700; line-height: 1.5; }
 .pano-racheter { margin-left: auto; }
+.pano-ailleurs { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 8px; margin: -4px 0 0; color: var(--muted); text-align: center; }
+/* Dans la fiche d'un palier : l'épreuve laissée ailleurs, qui attend d'être finie. */
+.sentier-fiche-attente { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--edge-strong); background: var(--accent-soft); }
 .sentiers-couronne { display: inline-grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; color: var(--shape-2); background: color-mix(in srgb, var(--shape-2) 16%, transparent); border: 1.5px solid color-mix(in srgb, var(--shape-2) 60%, transparent); }
 .sentiers-couronne .icon { width: 26px; height: 26px; }
 .sentiers-couronne.petite { width: 34px; height: 34px; }
