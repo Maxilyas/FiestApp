@@ -52,7 +52,14 @@ function couleurDuFond(d, l, h) {
 // canaux, partout (« partout »). Sur le magenta — le fond des sujets qui
 // portent du vert —, le rose d'une fleur ou d'une joue est à eux : le reflet
 // ne se retire qu'aux bords, là où le fond s'est mêlé (« bords »).
-async function detourer(src, reflet, attendu) {
+//
+// « fondLu » : le bord est forcément le fond — un bijou peint seul, sans décor
+// qu'une découpe aurait gardé —, même quand le modèle l'a peint plus terne
+// que demandé (le vert de Chronos, rendu sombre). On le prend tel qu'il est
+// lu, et les seuils se mesurent à sa chrominance : comptés pour un vert
+// franc, ils rendaient l'argent et le bleu du bijou à moitié transparents —
+// et roses, une fois démêlés.
+async function detourer(src, reflet, attendu, fondLu) {
   const img = await charger(src)
   const l = img.naturalWidth, h = img.naturalHeight
   const c = toile(l, h), x = c.getContext('2d', { willReadFrequently: true })
@@ -62,12 +69,14 @@ async function detourer(src, reflet, attendu) {
   // Un bord qui ment — une découpe qui a gardé son décor jusqu'au bord (les
   // vagues de la raie) — donne un fond qui n'est pas celui qu'on a demandé :
   // on détoure alors la couleur demandée, et le décor gardé se voit.
-  const bordFaux = !!attendu && Math.hypot(K[0] - attendu[0], K[1] - attendu[1], K[2] - attendu[2]) > 90
+  const bordFaux = !fondLu && !!attendu && Math.hypot(K[0] - attendu[0], K[1] - attendu[1], K[2] - attendu[2]) > 90
   if (bordFaux) K = attendu
   const magenta = K[0] > K[1] + 60 && K[2] > K[1] + 60
   const partout = reflet ? reflet === 'partout' : !magenta
   const kb = cb(K[0], K[1], K[2]), kr = cr(K[0], K[1], K[2])
-  const T0 = 0.06, T1 = 0.4
+  // 136 : la chrominance d'un vert ou d'un magenta francs, loin des gris.
+  const force = fondLu ? Math.min(1, Math.hypot(kb - 128, kr - 128) / 136) : 1
+  const T0 = 0.06 * force, T1 = 0.4 * force
   let transparents = 0
   for (let k = 0; k < d.length; k += 4) {
     const r = d[k], g = d[k + 1], b = d[k + 2]
@@ -98,7 +107,7 @@ async function detourer(src, reflet, attendu) {
   // déformait le personnage.
   const m = Math.max(l, h), carre = toile(m, m)
   carre.getContext('2d').drawImage(c, (m - l) / 2, (m - h) / 2)
-  return { plein: carre.toDataURL('image/png'), fond: K, bordFaux, magenta, transparents: transparents / (l * h), taille: [l, h] }
+  return { plein: carre.toDataURL('image/png'), fond: K, bordFaux, magenta, force, transparents: transparents / (l * h), taille: [l, h] }
 }
 
 // Une image réduite par moitiés successives : d'un coup, de 1024 à 128,
