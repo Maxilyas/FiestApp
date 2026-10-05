@@ -115,7 +115,11 @@ test('la consigne de la routine dit la difficulté de chaque question, sans chem
   assert.match(consigne, /le fichier que te nomme ta mission/)
   assert.match(consigne, /^- Quel oiseau pond dans le nid des autres \?$/m)
   assert.doesNotMatch(consigne, /environ 10 % de 1/, 'la commande fixe la difficulté : pas de répartition à deviner')
-  assert.ok(!consigne.includes(SERVEUR), 'la routine tourne dans son clone du dépôt, pas sur le serveur')
+  assert.ok(!consigne.includes(SERVEUR), 'la routine tourne ailleurs que sur le serveur')
+  // Ni le dépôt, ni son vérificateur : la routine du matin n'a pas de clone,
+  // et sa consigne l'envoyait lancer `verifier` depuis un dossier absent.
+  assert.doesNotMatch(consigne, /npx tsx|scripts\/base-campagne|dossier server/, 'rien à lancer du dépôt')
+  assert.match(consigne, /À l'envoi, le serveur relit chaque question avec le juge de la base/)
 })
 
 // ── La porte et le dépôt ─────────────────────────────────────────────────────
