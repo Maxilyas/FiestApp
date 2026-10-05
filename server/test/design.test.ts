@@ -296,9 +296,11 @@ test('chaque thème d’un profil se lit comme Velours et Ivoire : texte, accent
     for (const [, nom] of css.matchAll(/@keyframes ([\w-]+)/g)) assert.ok(nom.startsWith(`${t.key}-`), `${t.nom} : @keyframes ${nom}`)
     // Son décor s'arrête si le système demande moins de mouvement.
     if (/animation:/.test(css)) assert.match(css, /@media \(prefers-reduced-motion: reduce\)[^@]*animation: none !important/, `${t.nom} : le décor s'arrête`)
-    // Rien n'est demandé ailleurs : ses polices sont les nôtres (`client/public/fonts/themes`).
+    // Rien n'est demandé ailleurs : ses polices sont les nôtres (`client/public/fonts/themes`),
+    // et le décor d'un thème peint aussi, sous son empreinte (`client/public/decors`,
+    // livré par `server/scripts/anime/decors.ts` — `decors-peints.test.ts` en relit le reste).
     for (const [, adresse] of css.replace(/url\("data:[^"]*"\)/g, '').matchAll(/url\(["']?([^"')]+)/g)) {
-      assert.match(adresse, /^\/fonts\/themes\/[\w-]+\.woff2$/, `${t.nom} : ${adresse}`)
+      assert.match(adresse, /^\/(fonts\/themes\/[\w-]+\.woff2|decors\/[\w-]+\.[0-9a-f]{10}\.webp)$/, `${t.nom} : ${adresse}`)
       assert.ok(existsSync(new URL(`../../client/public${adresse}`, import.meta.url)), `${t.nom} : ${adresse} est livrée`)
     }
   }

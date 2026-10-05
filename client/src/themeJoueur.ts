@@ -64,6 +64,123 @@ function habiller(cible: string | null) {
   if (cible) racine.dataset.theme = cible
   else delete racine.dataset.theme
   teinterLaBarre(cible)
+  suivreLHeure(cible)
+}
+
+// ── L'heure de Paris ──────────────────────────────────────────────────────
+// Trois thèmes peints suivent le temps qu'il fait à Paris : l'Horloge
+// astronomique en marque l'heure, le Ciel du jour en prend la lumière, les
+// Très Riches Heures en montrent la page du mois (`themes/horloge.css`,
+// `ciel.css`, `heures.css`). Une feuille ne sait pas l'heure qu'il est :
+// cette horloge la lui pose sur <html> — `data-mois`, `data-ciel`, et les
+// angles des aiguilles —, une fois par minute, et seulement tant qu'un de ces
+// thèmes est porté. Ce module part avec toutes les pages : pour les autres
+// thèmes, une comparaison et rien d'autre, ni minuteur ni calcul de date.
+
+/** Les thèmes dont le décor lit l'heure de Paris. */
+const SUIVENT_L_HEURE = new Set(['horloge', 'ciel', 'heures'])
+
+/**
+ * Les moments du ciel, à l'heure de Paris : l'aube à 5 h, le jour à 9 h, le
+ * crépuscule à 18 h, la nuit à 21 h. D'un moment à l'autre, le décor passe
+ * en fondu pendant une heure, à cheval sur la bascule : à 5 h pile, la nuit
+ * et l'aube se partagent l'écran.
+ */
+const MOMENTS: readonly [number, string][] = [
+  [5 * 60, 'aube'],
+  [9 * 60, 'jour'],
+  [18 * 60, 'crepuscule'],
+  [21 * 60, 'nuit'],
+]
+const FONDU_MIN = 60
+
+/** Le moment d'une minute de la journée, et celui vers lequel il fond s'il est près d'une bascule. */
+export function momentDuCiel(minutes: number): { ciel: string; vers?: string; fondu?: number } {
+  for (let i = 0; i < MOMENTS.length; i++) {
+    const [bascule, vers] = MOMENTS[i]
+    const ecart = minutes - bascule
+    if (Math.abs(ecart) < FONDU_MIN / 2) {
+      return { ciel: MOMENTS[(i + MOMENTS.length - 1) % MOMENTS.length][1], vers, fondu: (ecart + FONDU_MIN / 2) / FONDU_MIN }
+    }
+  }
+  // Avant 5 h, c'est encore la nuit de la veille.
+  return { ciel: [...MOMENTS].reverse().find(([b]) => minutes >= b)?.[1] ?? 'nuit' }
+}
+
+/** La lecture de l'heure de Paris, faite une fois : sa création coûte plus que chaque lecture. */
+let paris: Intl.DateTimeFormat | null = null
+let minuteur: ReturnType<typeof setTimeout> | undefined
+/** Les propriétés posées sur <html>, que l'arrêt retire. */
+const PROPRIETES = ['--horloge-heures', '--horloge-minutes', '--ciel-fondu']
+
+/** Le mois (« 10 ») et la minute de la journée à Paris, quelle que soit l'heure du téléphone — heure d'été comprise. */
+export function heureDeParis(quand: Date): { mois: string; minutes: number } {
+  paris ??= new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  const parts = paris.formatToParts(quand)
+  const lire = (type: string) => parts.find(p => p.type === type)?.value ?? '0'
+  return { mois: lire('month'), minutes: Number(lire('hour')) * 60 + Number(lire('minute')) }
+}
+
+/**
+ * Pose l'heure de Paris sur <html>. Les aiguilles tournent d'un angle compté
+ * depuis minuit (six degrés la minute, un demi pour les heures), qui ne
+ * revient en arrière qu'à minuit : compté sur le cadran seul, le passage de
+ * 59 à 0 faisait faire à l'aiguille un tour à l'envers. `data-heure-suivie`
+ * dit que l'heure suit depuis plus d'une minute : seulement alors les
+ * feuilles animent ce qui change — posée d'emblée, une transition faisait
+ * tourner les aiguilles depuis midi à l'ouverture de la page — et pas à
+ * minuit, où l'angle revient à zéro.
+ */
+function poserLHeure(premiere: boolean) {
+  const { mois, minutes } = heureDeParis(new Date())
+  const racine = document.documentElement
+  racine.dataset.mois = mois
+  racine.style.setProperty('--horloge-minutes', `${minutes * 6}deg`)
+  racine.style.setProperty('--horloge-heures', `${minutes / 2}deg`)
+  const { ciel, vers, fondu } = momentDuCiel(minutes)
+  racine.dataset.ciel = ciel
+  if (vers) {
+    racine.dataset.cielVers = vers
+    racine.style.setProperty('--ciel-fondu', fondu!.toFixed(3))
+  } else {
+    delete racine.dataset.cielVers
+    racine.style.removeProperty('--ciel-fondu')
+  }
+  if (premiere || minutes === 0) delete racine.dataset.heureSuivie
+  else racine.dataset.heureSuivie = ''
+}
+
+/** Une page qui revient au premier plan : ses minuteurs ont pu dormir, l'heure se relit tout de suite. */
+function auRetour() {
+  if (document.visibilityState === 'visible' && minuteur !== undefined) poserLHeure(false)
+}
+
+/** Lance l'horloge si ce thème en a besoin, l'arrête sinon. */
+function suivreLHeure(cible: string | null) {
+  const voulue = cible !== null && SUIVENT_L_HEURE.has(cible)
+  if (voulue === (minuteur !== undefined)) return
+  const racine = document.documentElement
+  if (!voulue) {
+    clearTimeout(minuteur)
+    minuteur = undefined
+    document.removeEventListener('visibilitychange', auRetour)
+    for (const cle of ['mois', 'ciel', 'cielVers', 'heureSuivie']) delete racine.dataset[cle]
+    for (const p of PROPRIETES) racine.style.removeProperty(p)
+    return
+  }
+  const prochaine = () => {
+    // À la minute pile (et un souffle) : Paris change de minute en même temps que l'horloge du téléphone.
+    minuteur = setTimeout(
+      () => {
+        poserLHeure(false)
+        prochaine()
+      },
+      60_000 - (Date.now() % 60_000) + 50,
+    )
+  }
+  poserLHeure(true)
+  prochaine()
+  document.addEventListener('visibilitychange', auRetour)
 }
 
 /**

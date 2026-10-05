@@ -8,7 +8,9 @@
 // la vignette est l'application elle-même, polices et décor compris — jamais
 // une maquette qui aurait dérivé. Sans clé, tous ; avec, ceux-là (un
 // thème retouché). Le décor y est immobile, comme pour qui demande moins de
-// mouvement : une vignette ne doit pas dépendre de l'instant de la photo.
+// mouvement : une vignette ne doit pas dépendre de l'instant de la photo —
+// ni de son heure, pour les thèmes peints qui suivent celle de Paris
+// (`INSTANTS`).
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -30,6 +32,17 @@ import {
 import { SERVEUR } from '../src/racine'
 import { THEMES } from '../../shared/themes'
 import { BRANCHES } from '../../shared/branches'
+import { PAGES, cleDeLaPage } from '../../shared/calendrier'
+
+/**
+ * L'heure de Paris de la photo, pour les thèmes dont le décor la suit : dix
+ * heures dix, l'heure des horloges en vitrine, aiguilles levées au-dessus de
+ * la question ; le crépuscule pour le Ciel du jour, sa lumière la plus
+ * reconnaissable ; un jour d'octobre, dont les Très Riches Heures montrent la
+ * page. Les autres thèmes n'en lisent rien.
+ */
+const INSTANTS: Record<string, string> = { ciel: '2026-10-05T19:30:00+02:00' }
+const INSTANT_PAR_DEFAUT = '2026-10-05T10:10:00+02:00'
 
 const sortie = path.resolve(SERVEUR, '../client/src/themes/apercus')
 mkdirSync(sortie, { recursive: true })
@@ -71,8 +84,9 @@ try {
   )
 
   // Camille a tous les thèmes : achetés d'avance, pour rien, dans la base
-  // jetable — et les douze sentiers gravis jusqu'au maître, pour celui qui
-  // se gagne (`gagne`).
+  // jetable — et, pour ceux qui se gagnent (`gagne`), ce qui les ouvre : les
+  // douze sentiers gravis jusqu'au maître, les victoires, les paliers, les
+  // pages du calendrier, lus dans le catalogue plutôt que recopiés ici.
   const profil = await inscrireProfil(url, 'camille', 'Camille', '🦊')
   {
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -81,8 +95,20 @@ try {
     for (const t of THEMES) if (t.rarete !== 'offert' && !t.gagne) achat.run(id, t.key)
     const maitre = base.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)')
     for (const b of BRANCHES) maitre.run(id, b.key)
+    // Une récompense rangée par jour du quiz : la clé (profil, badge, jour) ne se répète pas.
+    const badge = base.prepare(`INSERT OR IGNORE INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, ?, '', '🏅', ?, 1)`)
+    for (const t of THEMES) {
+      const par = t.gagne?.par
+      if (!par) continue
+      if ('hautFait' in par) for (let i = 0; i < par.fois; i++) badge.run(id, par.hautFait, `#jour:apercu-${i}`, t.nom)
+      else if ('cle' in par) badge.run(id, par.cle, '#jour:apercu', t.nom)
+      else if ('pages' in par) for (const p of PAGES) badge.run(id, cleDeLaPage(p.mois), `#jour:apercu-${p.mois}`, p.nom)
+    }
     base.close()
   }
+  // Les récompenses se lisent en mémoire, chargées au démarrage : le serveur
+  // redémarre pour relire celles qu'on vient de poser (même port, mêmes bases).
+  await banc.redemarrer()
 
   // Son téléphone, dans un vrai navigateur : son jeton lui est remis comme
   // s'il s'était déjà inscrit, et le cookie de son profil l'accompagne.
@@ -127,6 +153,8 @@ try {
     await enQuestion()
     const r = await ecrire(url, '/api/joueur/moi', { theme: t.key === 'velours' ? null : t.key }, profil, 'PUT')
     if (!r.ok) throw new Error(`Camille ne porte pas ${t.key} (${r.status})`)
+    // Le téléphone lit l'heure à l'instant voulu ; ses minuteurs, eux, tournent.
+    await telephone.clock.setFixedTime(new Date(INSTANTS[t.key] ?? INSTANT_PAR_DEFAUT))
     await telephone.goto(`${url}/${ADMIN.slug}`)
     // Une fonction, pas un texte : la politique de sécurité de la page refuse
     // `eval`. `globalThis` : le serveur se compile sans les types du navigateur.
