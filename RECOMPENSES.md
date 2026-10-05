@@ -997,10 +997,12 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   soirées et au quiz du jour.
 - **L'accueil le rappelle** : le bouton de la campagne dit le sentier qu'on
   avance et ses vies — « Vers le palier 8 de la forêt · 11 vies », « Ton
-  épreuve t'attend… » — et y mène (`sentierQuOnAvance`, la même règle que
-  la carte des sentiers : l'épreuve laissée d'abord, sinon le plus haut qui
-  n'est pas au sommet). Tant qu'aucun n'est commencé, il présente les deux
-  modes, et ouvre la série.
+  épreuve t'attend… » — et ouvre la campagne sur ses sentiers, où ce
+  sentier est en tête (`sentierQuOnAvance`, la même règle que la carte des
+  sentiers : l'épreuve laissée d'abord, sinon le plus haut qui n'est pas au
+  sommet). Jamais le sentier seul : mené tout droit à la scène, il l'ouvrait
+  sans les onglets de la campagne. Tant qu'aucun n'est commencé, il
+  présente les deux modes, et ouvre la série.
 
 **Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
