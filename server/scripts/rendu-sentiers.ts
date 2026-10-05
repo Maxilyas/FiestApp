@@ -155,7 +155,13 @@ try {
   await page.waitForSelector('.rayon, .atlas-branche')
   await photo('13-avatars', true)
 
-  // L'administration des sentiers.
+  // L'administration des sentiers — avec un rejeu, compté à part : le premier
+  // palier de la forêt, repris des portraits d'avant, joué pour la première fois.
+  let rejeu = (await (await ecrire(banc.url, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 }, cookie)).json()) as any
+  while (!rejeu.finie && rejeu.question) {
+    const choix = rejeu.question.reponses.findIndex((r: string) => r.startsWith('Bonne'))
+    rejeu = ((await (await ecrire(banc.url, `/api/campagne/epreuve/${rejeu.id}/reponse`, { index: rejeu.question.index, choix }, cookie)).json()) as any).epreuve
+  }
   const admin = await connexionAnimateur(banc.url)
   const [nomA, valeurA] = admin.split('=')
   await contexte.addCookies([{ name: nomA, value: valeurA, url: banc.url }])

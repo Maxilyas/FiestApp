@@ -6,7 +6,7 @@ import { formatNumber } from '../../../shared/typographie'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import type { AdminDeLaCampagne, AjoutsDeLaRoutine as Ajouts, SignalementDeCampagne } from '../../../shared/campagne'
 import { BRANCHES } from '../../../shared/branches'
-import { PALIERS, type AdminDesSentiers } from '../../../shared/sentiers'
+import { PALIERS, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
 import { texteDuMelangeCourt } from './melanges'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
@@ -199,11 +199,33 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
 }
 
 /**
+ * Ce qu'une ligne de palier dit sous sa barre : les vrais essais, puis ses
+ * rejeux à part. Un palier repris des portraits d'avant, qu'un joueur joue
+ * pour la première fois, est un rejeu : il ne paraissait nulle part.
+ */
+export function infosDuPalier(p: StatsDuPalier): string {
+  const parties: string[] = []
+  if (p.essais > 0) {
+    parties.push(`${formatNumber(p.joueurs)} joueur${p.joueurs > 1 ? 's' : ''}`, `${formatNumber(p.essais)} essai${p.essais > 1 ? 's' : ''}`)
+    if (p.viesAvantDeValider !== null) {
+      const pluriel = p.viesAvantDeValider >= 2 ? 's' : ''
+      parties.push(`${p.viesAvantDeValider.toFixed(1).replace('.', ',')} vie${pluriel} perdue${pluriel} avant de valider`)
+    }
+  }
+  if (p.rejeux === 1) parties.push(`1 rejeu, ${p.rejeuxValides === 1 ? 'validé' : 'raté'}`)
+  else if (p.rejeux > 1) {
+    const valides = p.rejeuxValides === 0 ? 'aucun validé' : `${formatNumber(p.rejeuxValides)} validé${p.rejeuxValides > 1 ? 's' : ''}`
+    parties.push(`${formatNumber(p.rejeux)} rejeux, ${valides}`)
+  }
+  return parties.length > 0 ? parties.join(' · ') : 'Aucune épreuve'
+}
+
+/**
  * Les sentiers du savoir, palier par palier (`shared/sentiers.ts`) : la part
  * des joueurs qui valident du premier coup, les essais, les vies perdues
- * avant de valider — sur les trois derniers mois, rejeux exclus. Un palier
- * plus facile que celui d'avant se signale : c'est un mélange à revoir. Les
- * seuils se règlent dans le code, sur ces chiffres-là.
+ * avant de valider — sur les trois derniers mois, les rejeux à part. Un
+ * palier plus facile que celui d'avant se signale : c'est un mélange à
+ * revoir. Les seuils se règlent dans le code, sur ces chiffres-là.
  */
 function AdminSentiers() {
   const [branche, setBranche] = useState('')
@@ -243,7 +265,10 @@ function AdminSentiers() {
               {stats.semaine.viesAchetees > 1 ? 'vies achetées' : 'vie achetée'}
             </span>
           </div>
-          <p className="muted small">Ces sept derniers jours. Les paliers, eux, se lisent sur trois mois, sans les rejeux.</p>
+          <p className="muted small">
+            Ces sept derniers jours. Les paliers, eux, se lisent sur trois mois. Un rejeu — un palier déjà validé, ou repris des portraits d’avant — se compte à part : il ne coûte
+            pas de vie.
+          </p>
         </>
       )}
       <label className="row">
@@ -273,8 +298,7 @@ function AdminSentiers() {
                   <i style={{ width: `${Math.round((p.premierEssai ?? 0) * 100)}%` }} />
                 </span>
                 <span className="muted small sentiers-admin-infos">
-                  {`${formatNumber(p.joueurs)} joueur${p.joueurs > 1 ? 's' : ''} · ${formatNumber(p.essais)} essai${p.essais > 1 ? 's' : ''}`}
-                  {p.viesAvantDeValider !== null && ` · ${p.viesAvantDeValider.toFixed(1).replace('.', ',')} vie${p.viesAvantDeValider >= 2 ? 's' : ''} perdue${p.viesAvantDeValider >= 2 ? 's' : ''} avant de valider`}
+                  {infosDuPalier(p)}
                   {remonte && <span className="sentiers-admin-puce">{`plus facile que P${p.palier - 1}`}</span>}
                 </span>
               </li>

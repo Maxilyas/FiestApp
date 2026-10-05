@@ -1023,9 +1023,11 @@ Jusqu'au sommet, un bon joueur de la catégorie laisse une vingtaine de
 vies (un jour et demi de vies), un très bon quatre ; un joueur moyen n'y
 arrive pas — c'était voulu : le dernier portrait se mérite. Ces chiffres se vérifient sur les vraies épreuves, à `/admin#campagne`
 (« Les sentiers ») : palier par palier, la part qui valide du premier coup,
-les essais, les vies perdues avant de valider — sur trois mois, sans les
-rejeux —, et un signal quand un palier se révèle plus facile que celui
-d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
+les essais, les vies perdues avant de valider — sur trois mois —, ses
+rejeux à part (un palier déjà validé, ou repris des portraits d'avant, se
+rejoue sans risquer de vie : il ne dit rien d'un premier essai, mais
+l'administrateur voit qu'on y a joué), et un signal quand un palier se
+révèle plus facile que celui d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
 chiffres-là ; un portrait déjà ouvert ne se reprend pas (§ 5.4 ter).
 
 **La base grandit chaque matin.** La routine Claude Code qui remplit la

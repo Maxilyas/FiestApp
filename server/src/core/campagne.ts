@@ -854,8 +854,9 @@ export class CampagneStore {
    * Les sentiers, côté administrateur : palier par palier, ce que les vraies
    * réponses disent — la part qui le valide du premier coup, les essais, les
    * vies perdues avant de le valider —, toutes branches ou une seule, sur
-   * les trois derniers mois. Les rejeux n'y comptent pas : ils ne risquent
-   * rien. De quoi régler un seuil sur des faits, pas sur une estimation.
+   * les trois derniers mois. De quoi régler un seuil sur des faits, pas sur
+   * une estimation. Les rejeux se comptent à part : ils ne risquent rien, et
+   * ne disent rien d'un premier essai.
    */
   async adminDesSentiers(cle: unknown): Promise<AdminDesSentiers> {
     const b = brancheParCle(cle) ?? null
@@ -863,8 +864,8 @@ export class CampagneStore {
     const semaine = maintenant - 7 * 24 * HEURE_MS
     const [lignes, recentes, achetees] = await Promise.all([
       this.client.execute({
-        sql: `SELECT profile_id, branche, palier, issue FROM campagne_series
-              WHERE mode = 'sentier' AND rejeu = 0 AND issue IS NOT NULL AND commencee_le > ?${b ? ' AND branche = ?' : ''}
+        sql: `SELECT profile_id, branche, palier, issue, rejeu FROM campagne_series
+              WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${b ? ' AND branche = ?' : ''}
               ORDER BY commencee_le`,
         args: b ? [maintenant - STATS_DES_SENTIERS_MS, b.key] : [maintenant - STATS_DES_SENTIERS_MS],
       }),
@@ -876,10 +877,19 @@ export class CampagneStore {
     ])
     // Les essais de chacun sur chaque palier, dans l'ordre : le premier dit « du premier coup ».
     const essais = new Map<string, IssueDEpreuve[]>()
+    const rejeux = new Map<number, { joues: number; valides: number }>()
     for (const r of lignes.rows) {
+      const issue: IssueDEpreuve = r.issue === 'validee' ? 'validee' : 'ratee'
+      if (Number(r.rejeu ?? 0) === 1) {
+        const c = rejeux.get(Number(r.palier)) ?? { joues: 0, valides: 0 }
+        c.joues++
+        if (issue === 'validee') c.valides++
+        rejeux.set(Number(r.palier), c)
+        continue
+      }
       const k = `${r.palier}|${r.profile_id}|${r.branche}`
       const liste = essais.get(k) ?? []
-      liste.push(r.issue === 'validee' ? 'validee' : 'ratee')
+      liste.push(issue)
       essais.set(k, liste)
     }
     const paliers: StatsDuPalier[] = PALIERS.map(regle => {
@@ -891,6 +901,8 @@ export class CampagneStore {
         essais: groupes.reduce((n, g) => n + g.length, 0),
         premierEssai: groupes.length > 0 ? groupes.filter(g => g[0] === 'validee').length / groupes.length : null,
         viesAvantDeValider: valides.length > 0 ? valides.reduce((n, g) => n + g.indexOf('validee'), 0) / valides.length : null,
+        rejeux: rejeux.get(regle.n)?.joues ?? 0,
+        rejeuxValides: rejeux.get(regle.n)?.valides ?? 0,
       }
     })
     return {
