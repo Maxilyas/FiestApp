@@ -200,6 +200,12 @@ export function moisEnToutesLettres(mois: string): string {
   return `${NOMS_DES_MOIS[(m || 1) - 1]} ${annee}`
 }
 
+/** « de septembre 2026 », « d’octobre 2026 » : l'élision devant avril, août, octobre. */
+export function duMois(mois: string): string {
+  const nom = moisEnToutesLettres(mois)
+  return /^[aeiouéâ]/.test(nom) ? `d’${nom}` : `de ${nom}`
+}
+
 /**
  * La série : les jours d'affilée où il a joué — au quiz du jour, ou en
  * soirée : la fête ne casse jamais une série. Elle court jusqu'à hier tant
@@ -335,9 +341,11 @@ export interface JourJoue {
 export interface CarriereDuJour {
   /** Jours joués, en tout. */
   joues: number
-  /** La série en cours et la plus longue, soirées comprises, comme sur la carte du jour. */
+  /** La série en cours et la plus longue, soirées et sabliers compris, comme sur la carte du jour. */
   serie: number
   record: number
+  /** Les sabliers qui attendent un jour manqué (`serieAvecSabliers`). */
+  sabliers: number
   medailles: Record<Medaille, number>
   meilleurScore: number
   /** Les marches de podium payées, et les victoires — tous les ex æquo en tête gagnent. */
@@ -426,4 +434,124 @@ export interface PartieDuJour {
    * il en faut.
    */
   saison?: { nom: string; legendaire: string; joues: number; requis: number; periode: string }
+}
+
+// ── Le laurier qui grandit ────────────────────────────────────────────────
+
+/**
+ * Le laurier du lendemain change d'allure avec ses victoires, toutes
+ * comptées : vert à la première, d'or à cinq, serti à vingt, couronne
+ * étoilée à cinquante — les paliers du Champion du jour, et le thème de
+ * L'Horloge astronomique pour le dernier. Il ne se porte toujours que le
+ * lendemain d'une victoire : la salle reconnaît un champion habituel sans
+ * qu'une marque de plus suive son prénom.
+ */
+export const SEUILS_DU_LAURIER = [1, 5, 20, 50] as const
+
+export type NiveauDeLaurier = 1 | 2 | 3 | 4
+
+/** Le laurier de qui a gagné tant de fois — au moins le premier : il vient de gagner. */
+export function niveauDuLaurier(victoires: number): NiveauDeLaurier {
+  let n = 1
+  for (let i = 1; i < SEUILS_DU_LAURIER.length; i++) if (victoires >= SEUILS_DU_LAURIER[i]) n = i + 1
+  return n as NiveauDeLaurier
+}
+
+export const NOM_DU_LAURIER: Record<NiveauDeLaurier, string> = {
+  1: 'Laurier',
+  2: 'Laurier d’or',
+  3: 'Laurier d’or serti',
+  4: 'Couronne étoilée',
+}
+
+// ── Le champion du mois ───────────────────────────────────────────────────
+
+/**
+ * Le champion d'un mois : le premier du classement du mois, rang partagé —
+ * les points de tous ses jours additionnés. Le mois récompense la
+ * régularité autant que le talent : un joueur de tous les jours passe devant
+ * un génie de trois jours. Sa clé est datée (`mois:2026-10`), une par mois
+ * gagné : un titre qu'on collectionne (« Champion d’octobre 2026 »).
+ */
+export const PREFIXE_DU_CHAMPION = 'mois:'
+
+export const cleDuChampion = (mois: string) => `${PREFIXE_DU_CHAMPION}${mois}`
+
+/** Le mois d'une clé de champion (`mois:2026-10` → `2026-10`), null pour toute autre clé. */
+export function moisDuChampion(cle: string | null | undefined): string | null {
+  if (!cle?.startsWith(PREFIXE_DU_CHAMPION)) return null
+  const mois = cle.slice(PREFIXE_DU_CHAMPION.length)
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(mois) ? mois : null
+}
+
+/** Le titre daté d'un champion du mois : « Champion d’octobre 2026 ». */
+export function titreDuChampion(cle: string): string | null {
+  const mois = moisDuChampion(cle)
+  return mois ? `Champion ${duMois(mois)}` : null
+}
+
+/** Ses titres de champion du mois, du plus récent au plus ancien. */
+export function titresDeChampion(recompenses: ReadonlyMap<string, number>): string[] {
+  return [...recompenses.keys()].filter(k => (recompenses.get(k) ?? 0) > 0 && moisDuChampion(k)).sort().reverse()
+}
+
+// ── La série et ses sabliers ──────────────────────────────────────────────
+
+/** Un sablier : il couvre un jour manqué, et la série tient. Le prix d'un, en confettis. */
+export const PRIX_D_UN_SABLIER = 50
+
+/** Deux au plus dans la réserve : de quoi partir en week-end, pas de quoi oublier le quiz un mois. */
+export const SABLIERS_MAX = 2
+
+/** La série d'un profil, ses sabliers comptés : ce que sa page et ses paliers lisent. */
+export interface SerieDuJour {
+  /** Les jours joués d'affilée jusqu'à aujourd'hui — ou hier, tant qu'aujourd'hui n'est pas joué. */
+  serie: number
+  /** La plus longue de sa vie. */
+  record: number
+  /** Aujourd'hui compte déjà. */
+  tenue: boolean
+  /** Les sabliers qui l'attendent. */
+  sabliers: number
+  /** Les jours manqués qu'un sablier a couverts, du plus ancien au plus récent. */
+  couverts: string[]
+}
+
+/**
+ * La série, ses sabliers comptés : on parcourt les jours, du premier joué à
+ * aujourd'hui. Un sablier acheté rejoint la réserve le jour de l'achat (deux
+ * au plus) ; un jour manqué au milieu d'une série en prend un s'il y en a,
+ * et la série tient — sans compter ce jour-là : un sablier garde la série,
+ * il ne joue pas à sa place. Sans sablier, elle se casse. Aujourd'hui, tant
+ * qu'il n'est pas joué, ne coûte rien : minuit seul casse une série.
+ *
+ * Rien ne s'écrit : les sabliers pris se relisent ainsi des jours joués et
+ * des achats, comme les vies des sentiers (`viesDe`) — un hoquet de la base
+ * ne fausse rien, et une soirée retirée de l'historique rend le sablier
+ * qu'elle avait épargné.
+ */
+export function serieAvecSabliers(joues: ReadonlySet<string>, achats: readonly string[], aujourdhui: string): SerieDuJour {
+  const tries = [...joues].filter(j => j <= aujourdhui).sort()
+  const parJour = new Map<string, number>()
+  for (const a of achats) if (a <= aujourdhui) parJour.set(a, (parJour.get(a) ?? 0) + 1)
+  const premier = [tries[0], [...parJour.keys()].sort()[0]].filter(Boolean).sort()[0]
+  let reserve = 0
+  let serie = 0
+  let record = 0
+  const couverts: string[] = []
+  if (premier) {
+    for (let jour = premier; jour <= aujourdhui; jour = jourAvant(jour, -1)) {
+      reserve = Math.min(SABLIERS_MAX, reserve + (parJour.get(jour) ?? 0))
+      if (joues.has(jour)) {
+        serie++
+        record = Math.max(record, serie)
+      } else if (jour === aujourdhui) {
+        // Pas encore joué : la journée n'est pas finie.
+      } else if (serie > 0 && reserve > 0) {
+        reserve--
+        couverts.push(jour)
+      } else serie = 0
+    }
+  }
+  return { serie, record, tenue: joues.has(aujourdhui), sabliers: reserve, couverts }
 }

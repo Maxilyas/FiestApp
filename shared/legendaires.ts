@@ -32,17 +32,32 @@
 // gagnent qu'à leur période (`shared/saisons.ts`) : des jours joués au quiz
 // du jour, ou une soirée ces jours-là. Leur condition porte sur une
 // récompense de saison (`saison:halloween`), rangée comme les autres.
+//
+// Depuis le 5 octobre 2026, le quiz du jour et la campagne ont les leurs —
+// l'Aigle, l'Ouroboros, la Salamandre… —, et neuf légendaires de soirée y
+// ont une seconde voie qui raconte la même histoire : la Chouette au
+// sans-faute du jour, le Kraken à la lanterne du jour (`aussi`). Deux
+// demandent les trois mondes à la fois, la Chimère et Janus (`toutes`).
+// L'Arbre-Monde, qui veut les douze d'origine, en devient plus accessible :
+// le propriétaire l'a accepté ce jour-là.
 
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import type { CleDeSaison } from './saisons'
 
 /**
- * Ce qui débloque un légendaire : un haut fait de soirée décroché `fois`
- * fois — autant de soirées, puisqu'il ne tombe qu'une fois par soirée —, ou
- * un palier de carrière atteint.
+ * Ce qui débloque un légendaire : un haut fait qui se regagne, décroché
+ * `fois` fois — autant de soirées, de jours ou de séries, puisqu'il ne tombe
+ * qu'une fois par soirée, par jour ou par série —, un palier de carrière
+ * atteint, ou plusieurs de ces conditions à la fois (`toutes`).
  */
-export type Condition = { hautFait: string; fois: number } | { hautFait: string; palier: number }
+export type Condition =
+  | { hautFait: string; fois: number }
+  | { hautFait: string; palier: number }
+  | { toutes: readonly SimpleCondition[] }
+
+/** Une condition sur un seul haut fait : de quoi composer `toutes`. */
+export type SimpleCondition = Exclude<Condition, { toutes: unknown }>
 
 export interface Legendaire {
   key: string
@@ -50,8 +65,8 @@ export interface Legendaire {
   /** Une ligne, pour la galerie : ce qu'il raconte. */
   legende: string
   condition: Condition
-  /** Une seconde voie : l'une ou l'autre le débloque. */
-  aussi?: Condition
+  /** D'autres voies : l'une ou l'autre le débloque. */
+  aussi?: readonly Condition[]
   /** Le ton du haut fait qui le débloque : les légendaires de l'ombre se gagnent en jouant mal. */
   ton: 'eclat' | 'ombre'
   /** Un légendaire de saison : il ne se gagne qu'à sa période. */
@@ -64,6 +79,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Phénix',
     legende: 'Il renaît quand on le croyait fini.',
     condition: { hautFait: 'hf:phenix', fois: 1 },
+    aussi: [{ hautFait: 'hf:phenix-du-jour', fois: 1 }],
     ton: 'eclat',
   },
   {
@@ -71,6 +87,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Dragon d’Or',
     legende: 'Trois quiz dans la même soirée : il garde son trésor.',
     condition: { hautFait: 'hf:triple', fois: 1 },
+    aussi: [{ hautFait: 'hf:triomphe', fois: 1 }],
     ton: 'eclat',
   },
   {
@@ -85,6 +102,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'La Chouette d’Argent',
     legende: 'Pas une erreur de tout le quiz.',
     condition: { hautFait: 'hf:grand-chelem', fois: 1 },
+    aussi: [{ hautFait: 'hf:sans-faute', palier: 2 }],
     ton: 'eclat',
   },
   {
@@ -92,6 +110,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Tigre Foudre',
     legende: 'Le plus rapide, soir après soir.',
     condition: { hautFait: 'hf:foudre', fois: 10 },
+    aussi: [{ hautFait: 'hf:eclair-du-jour', fois: 10 }],
     ton: 'eclat',
   },
   {
@@ -99,6 +118,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'La Licorne Astrale',
     legende: 'Seul contre tous, et trois fois raison.',
     condition: { hautFait: 'hf:seul-contre-tous', fois: 3 },
+    aussi: [{ hautFait: 'hf:seul-au-monde', fois: 3 }],
     ton: 'eclat',
   },
   {
@@ -106,6 +126,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Lion Couronné',
     legende: 'Huit fois premier d’une soirée d’au moins huit joueurs.',
     condition: { hautFait: 'hf:roi', fois: 8 },
+    aussi: [{ hautFait: 'hf:champion-du-jour', palier: 3 }],
     ton: 'eclat',
   },
   {
@@ -113,6 +134,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Renard Lunaire',
     legende: 'Dix soirées : il connaît la maison.',
     condition: { hautFait: 'hf:habitue', palier: 2 },
+    aussi: [{ hautFait: 'hf:assidu', palier: 2 }],
     ton: 'eclat',
   },
   {
@@ -127,6 +149,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Kraken',
     legende: 'Trois lanternes rouges : il remonte des abysses.',
     condition: { hautFait: 'hf:lanterne-rouge', fois: 3 },
+    aussi: [{ hautFait: 'hf:lanterne-du-jour', fois: 3 }],
     ton: 'ombre',
   },
   {
@@ -134,6 +157,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Fantôme',
     legende: 'Il passe, il repasse, il ne répond pas.',
     condition: { hautFait: 'hf:somnambule', fois: 6 },
+    aussi: [{ hautFait: 'hf:courant-d-air', fois: 6 }],
     ton: 'ombre',
   },
   {
@@ -148,7 +172,7 @@ export const LEGENDAIRES: Legendaire[] = [
     nom: 'Le Sphinx',
     legende: 'Cent jours de questions, ou dix sans une faute : il a tout vu.',
     condition: { hautFait: 'hf:assidu', palier: 3 },
-    aussi: { hautFait: 'hf:sans-faute', palier: 3 },
+    aussi: [{ hautFait: 'hf:sans-faute', palier: 3 }],
     ton: 'eclat',
   },
   {
@@ -175,6 +199,90 @@ export const LEGENDAIRES: Legendaire[] = [
     ton: 'eclat',
     saison: 'nouvel-an',
   },
+  // ── Le quiz du jour ──
+  {
+    key: 'lg:aigle',
+    nom: 'L’Aigle aux lauriers',
+    legende: 'Trente fois couronné au quiz du jour : le laurier lui a donné des ailes.',
+    condition: { hautFait: 'hf:laurier', fois: 30 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:ouroboros',
+    nom: 'L’Ouroboros',
+    legende: 'Cent jours d’affilée : le cercle ne s’est jamais brisé.',
+    condition: { hautFait: 'hf:infatigable', palier: 3 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:scarabee',
+    nom: 'Le Scarabée solaire',
+    legende: 'Chaque matin d’un mois entier, il a poussé le soleil.',
+    condition: { hautFait: 'hf:mois-complet', fois: 1 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:coq',
+    nom: 'Le Coq de l’aube',
+    legende: 'Vingt fois debout avant tout le monde, le quiz déjà joué.',
+    condition: { hautFait: 'hf:leve-tot', fois: 20 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:chauve-souris',
+    nom: 'La Chauve-souris',
+    legende: 'Dix fois au dernier métro : elle ne joue qu’à minuit moins le quart.',
+    condition: { hautFait: 'hf:dernier-metro', fois: 10 },
+    ton: 'ombre',
+  },
+  // ── La campagne ──
+  {
+    key: 'lg:salamandre',
+    nom: 'La Salamandre',
+    legende: 'Une seule vie, et neuf bonnes réponses dans le feu.',
+    condition: { hautFait: 'hf:funambule', fois: 1 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:elephant',
+    nom: 'L’Éléphant',
+    legende: 'Deux mille bonnes réponses en campagne : une mémoire d’éléphant.',
+    condition: { hautFait: 'hf:marathonien', palier: 3 },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:serpent',
+    nom: 'Le Serpent à plumes',
+    legende: 'Trente marches d’une seule série : il a gravi la pyramide.',
+    condition: { hautFait: 'hf:grande-serie', fois: 1 },
+    ton: 'eclat',
+  },
+  // ── Les trois mondes ──
+  {
+    key: 'lg:chimere',
+    nom: 'La Chimère',
+    legende: 'Lion en soirée, chèvre au quiz du jour, serpent en campagne : les trois à la fois.',
+    condition: {
+      toutes: [
+        { hautFait: 'hf:podium', palier: 1 },
+        { hautFait: 'hf:champion-du-jour', palier: 1 },
+        { hautFait: 'hf:alpiniste', palier: 3 },
+      ],
+    },
+    ton: 'eclat',
+  },
+  {
+    key: 'lg:janus',
+    nom: 'Janus',
+    legende: 'Trois fois roi d’une soirée, trois fois vainqueur du jour : deux visages, une couronne.',
+    condition: {
+      toutes: [
+        { hautFait: 'hf:roi', fois: 3 },
+        { hautFait: 'hf:laurier', fois: 3 },
+      ],
+    },
+    ton: 'eclat',
+  },
 ]
 
 const PAR_CLE = new Map(LEGENDAIRES.map(l => [l.key, l]))
@@ -183,12 +291,32 @@ export function legendaire(key: unknown): Legendaire | undefined {
   return typeof key === 'string' ? PAR_CLE.get(key) : undefined
 }
 
+/** Toutes les voies d'un légendaire, la première d'abord. */
+export function voiesDe(l: Legendaire): readonly Condition[] {
+  return l.aussi ? [l.condition, ...l.aussi] : [l.condition]
+}
+
+/** Le haut fait de sa première voie, si elle n'en demande qu'un : ce qu'une ligne en dit d'un mot. Null pour la Chimère. */
+export function hautFaitPrincipal(l: Legendaire): string | null {
+  return 'toutes' in l.condition ? null : l.condition.hautFait
+}
+
+/** Les conditions simples d'une voie : elle-même, ou chacune de celles qu'elle demande à la fois. */
+export function partiesDe(c: Condition): readonly SimpleCondition[] {
+  return 'toutes' in c ? c.toutes : [c]
+}
+
 /**
  * Où en est un profil sur une condition : combien il a, combien il faut.
- * `recompenses` compte ses hauts faits rangés — une clé par haut fait de
- * soirée (le nombre de soirées où il l'a décroché), une par palier atteint.
+ * `recompenses` compte ses hauts faits rangés — une clé par haut fait qui se
+ * regagne (le nombre de soirées, de jours ou de séries où il l'a décroché),
+ * une par palier atteint. Une condition qui en demande plusieurs compte
+ * celles qui sont tenues : « 2 sur 3 ».
  */
-function progresSur(c: Condition, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
+export function progresSur(c: Condition, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
+  if ('toutes' in c) {
+    return { acquis: c.toutes.filter(p => conditionTenue(p, recompenses)).length, requis: c.toutes.length }
+  }
   if ('fois' in c) return { acquis: Math.min(c.fois, recompenses.get(c.hautFait) ?? 0), requis: c.fois }
   let atteint = 0
   for (let p = 1; p <= 3; p++) if ((recompenses.get(clePalier(c.hautFait, p)) ?? 0) > 0) atteint = p
@@ -197,27 +325,39 @@ function progresSur(c: Condition, recompenses: ReadonlyMap<string, number>): { a
 
 /**
  * Où en est un profil sur un légendaire, avec la règle du jour — sur la
- * plus avancée de ses voies, s'il en a deux.
+ * plus avancée de ses voies, s'il en a plusieurs.
  */
 export function progresVers(l: Legendaire, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
-  const principale = progresSur(l.condition, recompenses)
-  if (!l.aussi) return principale
-  const seconde = progresSur(l.aussi, recompenses)
-  return seconde.acquis / seconde.requis > principale.acquis / principale.requis ? seconde : principale
+  return voieLaPlusAvancee(l, recompenses).progres
+}
+
+/** Sa voie la plus avancée vers ce légendaire, et où il en est : la première, à égalité. */
+export function voieLaPlusAvancee(
+  l: Legendaire,
+  recompenses: ReadonlyMap<string, number>,
+): { voie: Condition; progres: { acquis: number; requis: number } } {
+  let meilleure = { voie: l.condition, progres: progresSur(l.condition, recompenses) }
+  for (const voie of l.aussi ?? []) {
+    const progres = progresSur(voie, recompenses)
+    if (progres.acquis / progres.requis > meilleure.progres.acquis / meilleure.progres.requis) meilleure = { voie, progres }
+  }
+  return meilleure
 }
 
 /** Cette condition est-elle remplie ? */
 export function conditionTenue(c: Condition, recompenses: ReadonlyMap<string, number>): boolean {
+  if ('toutes' in c) return c.toutes.every(p => conditionTenue(p, recompenses))
   const { acquis, requis } = progresSur(c, recompenses)
   return acquis >= requis
 }
 
 /**
- * Les légendaires que ces paliers, tout juste tombés, viennent d'ouvrir :
- * ceux qu'il a, et qu'il n'aurait pas sans eux. Le Sphinx, au centième jour
- * ou au dixième sans-faute — mais pas une seconde fois quand l'autre voie
- * l'avait déjà ouvert. La page du quiz du jour le fête, comme la fin de
- * soirée les siens.
+ * Les légendaires que ces récompenses, tout juste tombées, viennent
+ * d'ouvrir : ceux qu'il a, et qu'il n'aurait pas sans elles. Le Sphinx, au
+ * centième jour ou au dixième sans-faute — mais pas une seconde fois quand
+ * l'autre voie l'avait déjà ouvert. La page du quiz du jour et la fin d'une
+ * série le fêtent, comme la fin de soirée les siens. Une clé tombée compte
+ * pour une fois : le dixième Éclair du jour ouvre le Tigre, pas le neuvième.
  */
 export function legendairesOuvertsPar(
   tombes: readonly string[],
@@ -225,7 +365,12 @@ export function legendairesOuvertsPar(
   acquis?: ReadonlyMap<string, Condition>,
 ): string[] {
   if (tombes.length === 0) return []
-  const avant = new Map([...recompenses].filter(([cle]) => !tombes.includes(cle)))
+  const avant = new Map(recompenses)
+  for (const cle of tombes) {
+    const n = (avant.get(cle) ?? 0) - 1
+    if (n > 0) avant.set(cle, n)
+    else avant.delete(cle)
+  }
   const deja = new Set(legendairesDebloques(avant, acquis))
   return legendairesDebloques(recompenses, acquis).filter(cle => !deja.has(cle))
 }
@@ -255,8 +400,7 @@ export function legendairesDebloques(
   acquis?: ReadonlyMap<string, Condition>,
 ): string[] {
   return LEGENDAIRES.filter(l => {
-    if (conditionTenue(l.condition, recompenses)) return true
-    if (l.aussi && conditionTenue(l.aussi, recompenses)) return true
+    if (voiesDe(l).some(v => conditionTenue(v, recompenses))) return true
     const avant = acquis?.get(l.key)
     return !!avant && conditionTenue(avant, recompenses)
   }).map(l => l.key)

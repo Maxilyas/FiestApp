@@ -9,7 +9,7 @@
 // serveur, et rien ne s'écrit.
 
 import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, type HautFaitVu } from './hautsfaits'
-import { LEGENDAIRES } from './legendaires'
+import { LEGENDAIRES, progresSur, voiesDe } from './legendaires'
 
 /** Un objectif commencé : un légendaire (`lg:…`) ou un palier de carrière (`hf:…:2`), et où il en est. */
 export interface Proche {
@@ -56,12 +56,16 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
   const representes = new Set<string>()
   for (const l of LEGENDAIRES) {
     if (legendaires.includes(l.key)) continue
-    // Une voie, ou deux (le Sphinx) : la plus avancée le représente, et
-    // chacun de ses paliers ne se montre plus à part.
+    // Une voie, ou plusieurs (le Sphinx, la Chouette…) : la plus avancée le
+    // représente, et chacun de ses paliers ne se montre plus à part. Une voie
+    // qui en demande plusieurs à la fois (la Chimère) compte celles qui sont
+    // tenues.
     let meilleure: (Proche & { legendaire: boolean }) | null = null
-    for (const c of l.aussi ? [l.condition, l.aussi] : [l.condition]) {
+    for (const c of voiesDe(l)) {
       let voie: { acquis: number; requis: number } | null = null
-      if ('fois' in c) {
+      if ('toutes' in c) {
+        voie = progresSur(c, recompenses)
+      } else if ('fois' in c) {
         voie = { acquis: Math.min(c.fois, recompenses.get(c.hautFait) ?? 0), requis: c.fois }
       } else {
         const h = hautFait(c.hautFait)
@@ -71,7 +75,7 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
       }
       if (voie.acquis <= 0 || voie.acquis >= voie.requis) continue
       if (meilleure && voie.acquis / voie.requis <= meilleure.acquis / meilleure.requis) continue
-      meilleure = { key: l.key, ...voie, legendaire: true, ...(l.aussi && { hautFait: c.hautFait }) }
+      meilleure = { key: l.key, ...voie, legendaire: true, ...(l.aussi && !('toutes' in c) && { hautFait: c.hautFait }) }
     }
     if (meilleure) candidats.push(meilleure)
   }

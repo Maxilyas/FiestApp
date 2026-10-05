@@ -845,7 +845,8 @@ function FicheDuPalier({
 }
 
 /** Le thème que les maîtres gagnent, et combien il en faut (`shared/themes.ts`, `gagne`). */
-const THEME_DES_MAITRES = THEMES.find(t => t.gagne)
+const THEME_DES_MAITRES = THEMES.find(t => t.gagne && 'maitres' in t.gagne.par)
+const MAITRES_DU_THEME = THEME_DES_MAITRES?.gagne && 'maitres' in THEME_DES_MAITRES.gagne.par ? THEME_DES_MAITRES.gagne.par.maitres : null
 
 /**
  * Ce que rapportent les maîtres : chacun son titre, le Cabinet de curiosités
@@ -856,7 +857,7 @@ function CeQueRapportentLesMaitres({ maitres }: { maitres: number }) {
   const lignes: { n: number; titre: string; detail: string }[] = [
     { n: 1, titre: 'Un titre', detail: 'Le nom de son sentier, sous ton prénom : « Maître de la forêt ».' },
     { n: MAITRES_DU_CABINET, titre: 'Le Cabinet de curiosités', detail: 'Un fond pour ta carte de joueur.' },
-    ...(THEME_DES_MAITRES ? [{ n: THEME_DES_MAITRES.gagne!.maitres, titre: `Le thème ${THEME_DES_MAITRES.nom}`, detail: 'Aucune boutique ne le vend.' }] : []),
+    ...(THEME_DES_MAITRES && MAITRES_DU_THEME ? [{ n: MAITRES_DU_THEME, titre: `Le thème ${THEME_DES_MAITRES.nom}`, detail: 'Aucune boutique ne le vend.' }] : []),
   ]
   return (
     <section className="maitres-recompenses" aria-labelledby="maitres-titre">
@@ -1207,7 +1208,7 @@ function FinDEpreuve({
           <h1>{r.maitre}</h1>
           <p className="muted">Le titre se porte sous ton prénom : la salle le lit en touchant ton nom.</p>
           {maitres === MAITRES_DU_CABINET && <p className="campagne-record-battu">Et le Cabinet de curiosités, pour ta carte : il est à toi.</p>}
-          {THEME_DES_MAITRES && maitres === THEME_DES_MAITRES.gagne!.maitres && (
+          {THEME_DES_MAITRES && maitres === MAITRES_DU_THEME && (
             <p className="campagne-record-battu">{`Et le thème ${THEME_DES_MAITRES.nom}, qu’aucune boutique ne vend : il est à toi.`}</p>
           )}
         </section>

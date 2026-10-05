@@ -34,8 +34,7 @@ import {
   jourValide,
   medailleDe,
   moisDe,
-  plusLongueSerie,
-  serieDe,
+  serieAvecSabliers,
   xpDuJour,
   xpDuPodium,
   type CarriereDuJour,
@@ -46,10 +45,11 @@ import {
   type PartieDuJour,
   type QuestionDuJour,
   type RevelationDuJour,
+  type SerieDuJour,
 } from '../../../shared/jour'
 import { niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
-import { palierDe } from '../../../shared/hautsfaits'
+import { SALLE_DU_JOUR, palierDe } from '../../../shared/hautsfaits'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -894,7 +894,7 @@ export class JourStore {
         // Citrouille : le lendemain, la saison était finie, pour un an. La
         // fin de la partie les fête toujours : elle lit ce que ce jour a fait
         // tomber (`recompensesDuJour`).
-        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, statsDe(stats))
+        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, statsDe(stats, jour))
         await this.accorderSaison(profil.id, jour)
       }
       const commencee = lirePartie(profil.id, jour, lue.rows[0])
@@ -1435,7 +1435,7 @@ export class JourStore {
    * encore).
    */
   async statsDuJour(profileId: string): Promise<StatsDuJour> {
-    return statsDe(await this.client.batch(lecturesDesStats(profileId), 'read'))
+    return statsDe(await this.client.batch(lecturesDesStats(profileId), 'read'), jourDe(this.maintenant()))
   }
 
   /**
@@ -1545,7 +1545,7 @@ export class JourStore {
   async carriereDe(profileId: string): Promise<CarriereDuJour> {
     const aujourdhui = jourDe(this.maintenant())
     await this.clorePasses(aujourdhui)
-    const [parties, podiums, soirees] = await this.client.batch(
+    const [parties, podiums, soirees, sabliers] = await this.client.batch(
       [
         {
           sql: `SELECT p.jour, p.points, p.justes, p.xp, t.annulees,
@@ -1556,6 +1556,7 @@ export class JourStore {
         },
         { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
         { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART}`, args: [profileId] },
+        { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
       ],
       'read',
     )
@@ -1573,11 +1574,17 @@ export class JourStore {
       if (m) medailles[m]++
     }
     const joues = new Set([...lues.map(p => p.jour), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
+    const serie = serieAvecSabliers(
+      joues,
+      sabliers.rows.map(r => jourDe(Number(r.created_at))),
+      aujourdhui,
+    )
     const podiumDe = new Map(podiums.rows.map(r => [String(r.jour), Number(r.xp)]))
     return {
       joues: lues.length,
-      serie: serieDe(joues, aujourdhui),
-      record: plusLongueSerie(joues),
+      serie: serie.serie,
+      record: serie.record,
+      sabliers: serie.sabliers,
       medailles,
       meilleurScore: lues.reduce((m, p) => Math.max(m, p.points), 0),
       podiums: podiums.rows.length,
@@ -1662,21 +1669,14 @@ export class JourStore {
 
   // ── La série ────────────────────────────────────────────────────────────
 
-  /** Ses jours d'affilée joués — au quiz du jour ou en soirée —, et si aujourd'hui y compte déjà. */
-  private async serieDe(profileId: string, aujourdhui: string): Promise<{ serie: number; tenue: boolean }> {
-    const depuis = jourAvant(aujourdhui, 400)
-    const [jours, soirees] = await this.client.batch(
-      [
-        { sql: 'SELECT jour FROM jour_parties WHERE profile_id = ? AND jour >= ?', args: [profileId, depuis] },
-        {
-          sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?`,
-          args: [profileId, Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10)))],
-        },
-      ],
-      'read',
-    )
-    const joues = new Set<string>([...jours.rows.map(r => String(r.jour)), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
-    return { serie: serieDe(joues, aujourdhui), tenue: joues.has(aujourdhui) }
+  /**
+   * Ses jours d'affilée joués — au quiz du jour ou en soirée —, si aujourd'hui
+   * y compte déjà, et les sabliers qui l'attendent. Relue sur 400 jours : la
+   * série d'avant n'a pas besoin de plus — l'Ouroboros en demande cent —, et
+   * la plus longue de sa vie se lit dans ses paliers (`statsDuJour`).
+   */
+  private async serieDe(profileId: string, aujourdhui: string): Promise<SerieDuJour> {
+    return serieLue(await this.client.batch(lecturesDeLaSerie(profileId, jourAvant(aujourdhui, 400)), 'read'), aujourdhui)
   }
 
   // ── La nuit ─────────────────────────────────────────────────────────────
@@ -2112,7 +2112,14 @@ function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string)
 }
 
 /** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
-/** Ce que ses paliers du quiz du jour comptent (`statsDuJour`) : seules, ou dans le lot qui commence sa partie. */
+/**
+ * Ce que ses paliers du quiz du jour comptent (`statsDuJour`) : seules, ou
+ * dans le lot qui commence sa partie. Le premier quart se lit sur les jours
+ * clos — la nuit fige le classement —, les masqués écartés, à huit joueurs
+ * au moins (`SALLE_DU_JOUR`) : le rang de chacun est celui du classement,
+ * rang partagé (invariant 15). La série lit ses jours joués, ses soirées et
+ * ses sabliers (`serieAvecSabliers`).
+ */
 function lecturesDesStats(profileId: string): InStatement[] {
   return [
     { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
@@ -2124,14 +2131,50 @@ function lecturesDesStats(profileId: string): InStatement[] {
               AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
       args: [profileId],
     },
+    {
+      sql: `SELECT COUNT(*) AS n FROM (
+              SELECT p.profile_id AS id, p.points,
+                     RANK() OVER (PARTITION BY p.jour ORDER BY p.points DESC) AS rang,
+                     COUNT(*) OVER (PARTITION BY p.jour) AS joueurs
+              FROM jour_parties p
+              JOIN jour_clotures c ON c.jour = p.jour
+              JOIN profiles pr ON pr.id = p.profile_id AND pr.disabled_at IS NULL
+              WHERE p.jour IN (SELECT jour FROM jour_parties WHERE profile_id = ?)
+                AND p.profile_id NOT IN (SELECT profile_id FROM jour_masques)
+            ) WHERE id = ? AND joueurs >= ? AND points > 0 AND rang * 4 <= joueurs`,
+      args: [profileId, profileId, SALLE_DU_JOUR],
+    },
+    ...lecturesDeLaSerie(profileId),
   ]
 }
 
-function statsDe([joues, victoires, sansFautes]: readonly ResultSet[]): StatsDuJour {
+/** Ce que sa série lit : ses jours de quiz du jour, ses soirées, ses sabliers. */
+function lecturesDeLaSerie(profileId: string, depuis?: string): InStatement[] {
+  const apres = depuis ? Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10))) : 0
+  return [
+    { sql: 'SELECT jour FROM jour_parties WHERE profile_id = ? AND jour >= ?', args: [profileId, depuis ?? ''] },
+    { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?`, args: [profileId, apres] },
+    { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ? AND created_at >= ?', args: [profileId, apres] },
+  ]
+}
+
+/** Sa série, ses sabliers comptés, de ce que `lecturesDeLaSerie` a lu. */
+function serieLue([jours, soirees, sabliers]: readonly ResultSet[], aujourdhui: string): SerieDuJour {
+  const joues = new Set<string>([...jours.rows.map(r => String(r.jour)), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
+  return serieAvecSabliers(
+    joues,
+    sabliers.rows.map(r => jourDe(Number(r.created_at))),
+    aujourdhui,
+  )
+}
+
+function statsDe([joues, victoires, sansFautes, elite, ...serie]: readonly ResultSet[], aujourdhui: string): StatsDuJour {
   return {
     joues: Number(joues.rows[0]?.n ?? 0),
     victoires: Number(victoires.rows[0]?.n ?? 0),
     sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
+    elite: Number(elite.rows[0]?.n ?? 0),
+    serieRecord: serieLue(serie, aujourdhui).record,
   }
 }
 

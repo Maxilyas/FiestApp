@@ -20,6 +20,7 @@ import { buildProgress } from '../src/core/progress'
 import {
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  HAUTS_FAITS_REGAGNABLES,
   PART_DES_JOUEURS,
   clePalier,
   hautFait,
@@ -31,7 +32,7 @@ import {
   XP_PALIER,
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
-import { LEGENDAIRES, legendairesDebloques, progresVers } from '../../shared/legendaires'
+import { LEGENDAIRES, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -338,18 +339,20 @@ test('un légendaire se débloque sur ses hauts faits, et se voit venir', () => 
 })
 
 test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe', () => {
-  const cles = new Set([...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
-  assert.equal(LEGENDAIRES.length, 16)
+  const cles = new Set([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
+  assert.equal(LEGENDAIRES.length, 26)
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
     // Un légendaire de saison se gagne par sa saison, et par elle seule.
     if (l.saison) {
-      assert.equal(l.condition.hautFait, `saison:${l.saison}`, `${l.key} se gagne par sa saison`)
+      assert.ok(!('toutes' in l.condition) && !l.aussi, `${l.key} n’a qu’une voie`)
+      assert.equal(!('toutes' in l.condition) && l.condition.hautFait, `saison:${l.saison}`, `${l.key} se gagne par sa saison`)
       assert.equal(saison(l.saison)?.legendaire, l.key, `${l.key} est celui de sa saison`)
       continue
     }
-    assert.ok(cles.has(l.condition.hautFait), `${l.key} se gagne par ${l.condition.hautFait}, qui existe`)
-    if (l.aussi) assert.ok(cles.has(l.aussi.hautFait), `${l.key} se gagne aussi par ${l.aussi.hautFait}, qui existe`)
+    for (const voie of voiesDe(l)) {
+      for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
+    }
   }
   // Les ombres ont leurs légendaires aussi : la malchance assumée a son trophée.
   assert.ok(LEGENDAIRES.some(l => l.ton === 'ombre'))

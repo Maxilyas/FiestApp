@@ -21,7 +21,7 @@ import type { PlayerRec } from '../src/core/party'
 import { DOUZE_LEGENDAIRES, divinsDebloques, divinsDeSoiree, raconter } from '../src/core/divins'
 import { ProfileStore } from '../src/auth/profiles'
 import { DIVINS } from '../../shared/divins'
-import { LEGENDAIRES } from '../../shared/legendaires'
+import { LEGENDAIRES, partiesDe } from '../../shared/legendaires'
 import { clePalier } from '../../shared/hautsfaits'
 import {
   ADMIN,
@@ -254,9 +254,10 @@ test('l’Ange Déchu : premier du premier quiz, dernier de la soirée — en jo
 function recompensesPour(cles: string[]): Map<string, number> {
   const m = new Map<string, number>()
   for (const l of LEGENDAIRES.filter(x => cles.includes(x.key))) {
-    const c = l.condition
-    if ('fois' in c) m.set(c.hautFait, c.fois)
-    else for (let p = 1; p <= c.palier; p++) m.set(clePalier(c.hautFait, p), 1)
+    for (const c of partiesDe(l.condition)) {
+      if ('fois' in c) m.set(c.hautFait, Math.max(m.get(c.hautFait) ?? 0, c.fois))
+      else for (let p = 1; p <= c.palier; p++) m.set(clePalier(c.hautFait, p), 1)
+    }
   }
   return m
 }

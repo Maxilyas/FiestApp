@@ -51,6 +51,7 @@ import {
   nConfettis,
   prixDe,
   theme as themeDuCatalogue,
+  themeGagne,
   THEMES,
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
@@ -67,6 +68,7 @@ import {
 import { divin } from '../../../shared/divins'
 import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX } from '../../../shared/jour'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -599,6 +601,17 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_vies ON profile_vies(profile_id)',
+        // Les sabliers de la série du quiz du jour, achetés en confettis, un
+        // par ligne, jamais effacée : comme une vie, un achat ne se reprend
+        // pas. Ceux qui restent se relisent des jours joués
+        // (`serieAvecSabliers`) — rien ne se compte à côté.
+        `CREATE TABLE IF NOT EXISTS profile_sabliers (
+           id         TEXT PRIMARY KEY,
+           profile_id TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_sabliers ON profile_sabliers(profile_id)',
       ],
       'write',
     )
@@ -803,16 +816,21 @@ export class ProfileStore {
     return themeDuCatalogue(p.theme)?.key ?? null
   }
 
-  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers : un seul aller-retour. */
-  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number }> {
-    const [themes, vies] = await this.client.batch(
+  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers et ses sabliers : un seul aller-retour. */
+  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number; sabliers: number }> {
+    const [themes, vies, sabliers] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
       ],
       'read',
     )
-    return { themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])), vies: Number(vies.rows[0]?.prix ?? 0) }
+    return {
+      themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])),
+      vies: Number(vies.rows[0]?.prix ?? 0),
+      sabliers: Number(sabliers.rows[0]?.prix ?? 0),
+    }
   }
 
   /**
@@ -845,10 +863,12 @@ export class ProfileStore {
       ),
     ])
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
-    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies
+    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
-      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.themes.has(t.key) || (t.gagne && maitres >= t.gagne.maitres)).map(t => t.key),
+      possedes: THEMES.filter(
+        t => t.rarete === 'offert' || achats.themes.has(t.key) || themeGagne(t, { maitres, recompenses: this.recompensesOf(p.id) }),
+      ).map(t => t.key),
       porte: this.themePorte(p),
       jour,
     }
@@ -913,6 +933,27 @@ export class ProfileStore {
         args: [randomUUID(), id, n, prix, Date.now()],
       })
       return n
+    })
+  }
+
+  /**
+   * Achète un sablier pour sa série du quiz du jour, au prix du jour
+   * (`PRIX_D_UN_SABLIER`) : il attend dans sa réserve qu'un jour manqué le
+   * prenne. Deux au plus en réserve (`SABLIERS_MAX`) — au-delà, refusé en
+   * clair, comme un solde trop court. La réserve se relit des jours joués
+   * (`sabliersDe`), qu'on lui passe : le quiz du jour les connaît.
+   */
+  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>): Promise<number> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      if ((await enReserve(id)) >= SABLIERS_MAX) throw new Error(`Tu as déjà ${SABLIERS_MAX} sabliers : un jour manqué en prendra un`)
+      const manque = PRIX_D_UN_SABLIER - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour un sablier`)
+      await this.client.execute({
+        sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
+        args: [randomUUID(), id, PRIX_D_UN_SABLIER, Date.now()],
+      })
+      return enReserve(id)
     })
   }
 
@@ -1571,7 +1612,8 @@ export class ProfileStore {
       if (!choisi || choisi.key === 'velours') champs.theme = null
       else {
         if (choisi.gagne) {
-          if (maitresDe(await this.paliersDe(id)).length < choisi.gagne.maitres) {
+          const maitres = 'maitres' in choisi.gagne.par ? maitresDe(await this.paliersDe(id)).length : 0
+          if (!themeGagne(choisi, { maitres, recompenses: this.recompensesOf(id) })) {
             throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
           }
         } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
@@ -2304,7 +2346,7 @@ export class ProfileStore {
   async supprimer(profileId: string): Promise<void> {
     await this.client.batch(
       [
-        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies'].map(table => ({
+        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies', 'profile_sabliers'].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
         })),

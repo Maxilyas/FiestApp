@@ -87,7 +87,7 @@ const xpDesPaliers = (banc: Banc, login: string) =>
   })
 
 test('les paliers du quiz du jour ont leur moment : jamais celui d’une soirée', () => {
-  const stats = { joues: 100, victoires: 5, sansFautes: 2 }
+  const stats = { joues: 100, victoires: 5, sansFautes: 2, elite: 0, serieRecord: 0 }
   assert.deepEqual(paliersDuJourAtteints(stats), [
     'hf:assidu:1',
     'hf:assidu:2',

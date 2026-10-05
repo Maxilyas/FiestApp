@@ -403,17 +403,35 @@ export function releveVide(): ReleveSoiree {
 
 /**
  * Ce que le quiz du jour compte pour ses paliers : les jours joués (une
- * partie commencée compte), les victoires, et les jours sans une faute — la
- * médaille d'or.
+ * partie commencée compte), les victoires, les jours sans une faute — la
+ * médaille d'or —, les jours dans le premier quart d'une salle de huit
+ * (`SALLE_DU_JOUR`), et la plus longue série de jours d'affilée, soirées et
+ * sabliers compris.
  */
 export interface StatsDuJour {
   joues: number
   victoires: number
   sansFautes: number
+  elite: number
+  serieRecord: number
 }
 
 /** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
-export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0 }
+export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, elite: 0, serieRecord: 0 }
+
+/**
+ * Ce que la campagne compte pour ses paliers : le record d'une série à trois
+ * vies, les questions expertes trouvées et toutes les bonnes réponses —
+ * épreuves des sentiers comprises pour ces deux-là.
+ */
+export interface StatsDeCampagne {
+  record: number
+  expertes: number
+  justes: number
+}
+
+/** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
@@ -450,14 +468,16 @@ export interface Carriere {
   eclats: number
   niveau: number
   categories: Record<string, { questions: number; justes: number }>
-  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute). */
+  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable). */
   jour: StatsDuJour
+  /** La campagne, pour ses paliers (L'Alpiniste, L'Érudit, Le Marathonien). */
+  campagne: StatsDeCampagne
 }
 
 /** Additionne des relevés en une carrière. */
 export function carriereDe(
   soirees: { releve: ReleveSoiree; gain: GainSoiree; spaceId: string }[],
-  extra: { eclats: number; niveau: number; jour?: StatsDuJour },
+  extra: { eclats: number; niveau: number; jour?: StatsDuJour; campagne?: StatsDeCampagne },
 ): Carriere {
   const c: Carriere = {
     soirees: 0,
@@ -489,6 +509,7 @@ export function carriereDe(
     eclats: extra.eclats,
     niveau: extra.niveau,
     jour: { ...(extra.jour ?? AUCUN_JOUR) },
+    campagne: { ...(extra.campagne ?? AUCUNE_CAMPAGNE) },
     categories: {},
   }
   const hotes = new Set<string>()

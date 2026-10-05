@@ -5,9 +5,13 @@
 //
 // · Les hauts faits **de soirée** se jugent sur une soirée entière, à sa
 //   clôture : un sans-faute, une remontée, une série noire. Ils se regagnent
-//   d'une soirée à l'autre, et l'étagère compte les fois (« ×3 »).
+//   d'une soirée à l'autre, et l'étagère compte les fois (« ×3 »). Le quiz du
+//   jour et la campagne ont les leurs, de la même famille — ils se regagnent
+//   aussi, un jour ou une série au plus chacun (`origine`).
 // · Les hauts faits **de carrière** additionnent toutes les soirées : trois
-//   paliers — bronze, argent, or —, qui ne tombent qu'une fois chacun.
+//   paliers — bronze, argent, or —, qui ne tombent qu'une fois chacun. Ceux
+//   du quiz du jour et de la campagne comptent ce qu'on y fait (`duJour`,
+//   `deCampagne`).
 //
 // Chacun a un ton. Les **éclats** récompensent un exploit ; les **ombres**,
 // un coup de malchance — un prix, pas une punition. Le bas du classement a
@@ -22,11 +26,14 @@
 // Comme le reste du profil, un haut fait ne donne AUCUN avantage de jeu. Il
 // dit d'où l'on vient, pas ce qu'on vaut ce soir.
 
-import type { Carriere, StatsDuJour } from './profil'
+import type { Carriere, StatsDeCampagne, StatsDuJour } from './profil'
 import type { Rarete } from './badges'
 import { formatNumber } from './typographie'
 
 export type Ton = 'eclat' | 'ombre'
+
+/** Où se gagne un haut fait qui se regagne, s'il ne se gagne pas en soirée. */
+export type Origine = 'jour' | 'campagne'
 
 export interface HautFaitDeSoiree {
   key: string
@@ -38,6 +45,12 @@ export interface HautFaitDeSoiree {
   ton: Ton
   /** L'expérience qu'il rapporte, chaque fois. */
   xp: number
+  /**
+   * Il se gagne au quiz du jour ou en campagne, pas en soirée : la clôture
+   * d'une soirée ne le juge jamais (`core/hautsfaits.ts` ne connaît que
+   * `HAUTS_FAITS_DE_SOIREE`), et aucune soirée retirée ne le reprend.
+   */
+  origine?: Origine
 }
 
 export interface HautFaitDeCarriere {
@@ -58,6 +71,12 @@ export interface HautFaitDeCarriere {
    * la clôture d'une soirée, qui ne sait rien du quiz du jour.
    */
   duJour?: keyof StatsDuJour
+  /**
+   * Tiré de la campagne, et de ce qu'elle compte : il tombe à la fin d'une
+   * série ou d'une épreuve (`accorderPaliersDeCampagne`), jamais à la
+   * clôture d'une soirée.
+   */
+  deCampagne?: keyof StatsDeCampagne
 }
 
 export type HautFait = HautFaitDeSoiree | HautFaitDeCarriere
@@ -254,6 +273,181 @@ export const HAUTS_FAITS_DE_SOIREE: HautFaitDeSoiree[] = [
   },
 ]
 
+/**
+ * La salle du quiz du jour où se juge ce qui se mesure aux autres — être
+ * seul à trouver, dernier, dans le premier quart : huit joueurs ce jour-là.
+ * À trois, « seul à trouver » ne disait rien, et la lanterne allait à qui
+ * jouait contre deux champions.
+ */
+export const SALLE_DU_JOUR = 8
+
+/**
+ * Les hauts faits du quiz du jour : ils se regagnent, un jour au plus chacun
+ * — l'étagère compte les jours —, et se rangent sous le jour qui les a fait
+ * tomber (`#jour:2026-10-05`) : aucune soirée ne les porte. Ceux qui se
+ * mesurent aux autres tombent à la nuit qui clôt le jour, quand tout le monde
+ * a joué ; les autres à la fin de la partie.
+ *
+ * Ils ne rapportent pas d'expérience : le quiz du jour a la sienne, bornée
+ * (75 par partie, l'option B du 26 septembre 2026), et ses paliers. Ils
+ * ouvrent un titre, comme tout haut fait, et des légendaires — souvent la
+ * seconde voie d'un légendaire de soirée qui raconte la même histoire
+ * (`shared/legendaires.ts`).
+ */
+export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
+  // ── Les éclats ──
+  {
+    key: 'hf:laurier',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🌿',
+    title: 'Le Laurier',
+    rule: 'Gagner le quiz du jour',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:triomphe',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🏛️',
+    title: 'Le Triomphe',
+    rule: 'Gagner le quiz du jour trois jours d’affilée',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:phenix-du-jour',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🌅',
+    title: 'Le Phénix du jour',
+    rule: 'Gagner le quiz du jour au lendemain d’un jour fini dans la moitié basse',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:seul-au-monde',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🏝️',
+    title: 'Seul au monde',
+    rule: 'Seul de tous les joueurs du jour à trouver une question',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:eclair-du-jour',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🌩️',
+    title: 'L’Éclair du jour',
+    rule: 'La bonne réponse la plus rapide du jour, sur trois questions de sa partie',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:leve-tot',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🐓',
+    title: 'Le Lève-tôt',
+    rule: 'Finir sa partie du jour avant huit heures',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:mois-complet',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🗓️',
+    title: 'Le Mois complet',
+    rule: 'Jouer chaque quiz du jour d’un mois, sans en manquer un',
+    ton: 'eclat',
+    xp: 0,
+  },
+  // ── Les ombres ──
+  {
+    key: 'hf:lanterne-du-jour',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🕯️',
+    title: 'La Lanterne du jour',
+    rule: 'Dernier du quiz du jour, en ayant répondu à tout',
+    ton: 'ombre',
+    xp: 0,
+  },
+  {
+    key: 'hf:dernier-metro',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '🚇',
+    title: 'Le Dernier Métro',
+    rule: 'Commencer sa partie du jour dans la dernière demi-heure avant minuit',
+    ton: 'ombre',
+    xp: 0,
+  },
+  {
+    key: 'hf:courant-d-air',
+    famille: 'soiree',
+    origine: 'jour',
+    emoji: '💨',
+    title: 'Le Courant d’air',
+    rule: 'Commencer sa partie du jour, et la laisser avant sa dernière question',
+    ton: 'ombre',
+    xp: 0,
+  },
+]
+
+/**
+ * Les hauts faits de la campagne, la série à trois vies : ils se regagnent,
+ * une série au plus chacun, et se rangent sous la série qui les a fait
+ * tomber (`#campagne:<série>`). Sans expérience non plus : chaque bonne
+ * réponse de campagne paie déjà la sienne, sans plafond.
+ */
+export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
+  {
+    key: 'hf:funambule',
+    famille: 'soiree',
+    origine: 'campagne',
+    emoji: '🎪',
+    title: 'Le Funambule',
+    rule: 'Neuf bonnes réponses d’affilée sur sa dernière vie, dans une série',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:intact',
+    famille: 'soiree',
+    origine: 'campagne',
+    emoji: '💠',
+    title: 'Sans une égratignure',
+    rule: 'Atteindre les questions expertes d’une série sans perdre une vie',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:grande-serie',
+    famille: 'soiree',
+    origine: 'campagne',
+    emoji: '🏔️',
+    title: 'La Grande Série',
+    rule: 'Trente bonnes réponses dans une série de toutes les catégories',
+    ton: 'eclat',
+    xp: 0,
+  },
+  {
+    key: 'hf:tour-du-monde',
+    famille: 'soiree',
+    origine: 'campagne',
+    emoji: '🌍',
+    title: 'Le Tour du monde',
+    rule: 'Dix bonnes réponses dans une série de chacune des douze catégories',
+    ton: 'eclat',
+    xp: 0,
+  },
+]
+
 export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   {
     key: 'hf:habitue',
@@ -390,9 +584,73 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.jour.sansFautes,
     duJour: 'sansFautes',
   },
+  // Pour qui joue bien sans gagner : le podium du jour ira toujours aux
+  // deux ou trois mêmes, le premier quart s'atteint à vingt.
+  {
+    key: 'hf:elite',
+    famille: 'carriere',
+    emoji: '🏹',
+    title: 'L’Élite',
+    mesure: 'jours dans le premier quart du quiz du jour',
+    mesureUne: 'jour dans le premier quart du quiz du jour',
+    paliers: [10, 50, 150],
+    valeur: c => c.jour.elite,
+    duJour: 'elite',
+  },
+  // La série, qui ne faisait que s'afficher : la plus longue, soirées
+  // comprises — la fête ne casse jamais une série —, sabliers compris.
+  {
+    key: 'hf:infatigable',
+    famille: 'carriere',
+    emoji: '🏃',
+    title: 'L’Infatigable',
+    mesure: 'jours d’affilée',
+    mesureUne: 'jour d’affilée',
+    paliers: [7, 30, 100],
+    valeur: c => c.jour.serieRecord,
+    duJour: 'serieRecord',
+  },
+  // La campagne, la série à trois vies : son record, ses expertes, ses
+  // bonnes réponses — épreuves des sentiers comprises pour les deux derniers.
+  {
+    key: 'hf:alpiniste',
+    famille: 'carriere',
+    emoji: '🧗',
+    title: 'L’Alpiniste',
+    mesure: 'bonnes réponses dans une série de campagne',
+    mesureUne: 'bonne réponse dans une série de campagne',
+    paliers: [10, 15, 20],
+    valeur: c => c.campagne.record,
+    deCampagne: 'record',
+  },
+  {
+    key: 'hf:erudit',
+    famille: 'carriere',
+    emoji: '🎓',
+    title: 'L’Érudit',
+    mesure: 'questions expertes trouvées en campagne',
+    mesureUne: 'question experte trouvée en campagne',
+    paliers: [25, 100, 300],
+    valeur: c => c.campagne.expertes,
+    deCampagne: 'expertes',
+  },
+  {
+    key: 'hf:marathonien',
+    famille: 'carriere',
+    emoji: '👟',
+    title: 'Le Marathonien',
+    mesure: 'bonnes réponses en campagne',
+    mesureUne: 'bonne réponse en campagne',
+    paliers: [250, 1000, 2000],
+    valeur: c => c.campagne.justes,
+    deCampagne: 'justes',
+  },
 ]
 
-const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
+/** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne. */
+export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE]
+
+const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
 
 export function hautFait(key: string): HautFait | undefined {
   return PAR_CLE.get(key)
@@ -464,7 +722,7 @@ export const VITRINE_MAX = 3
  */
 export function hautsFaitsGagnes(recompenses: ReadonlyMap<string, number>): string[] {
   return [
-    ...HAUTS_FAITS_DE_SOIREE.filter(h => (recompenses.get(h.key) ?? 0) > 0).map(h => h.key),
+    ...HAUTS_FAITS_REGAGNABLES.filter(h => (recompenses.get(h.key) ?? 0) > 0).map(h => h.key),
     ...HAUTS_FAITS_DE_CARRIERE.filter(h => cleRangee(h.key, recompenses) !== null).map(h => h.key),
   ]
 }
@@ -485,12 +743,13 @@ export function cleRangee(cle: string, recompenses: ReadonlyMap<string, number>)
 
 /**
  * Les paliers de soirée qu'une carrière atteint, clés rangées comprises
- * (`hf:bavard:1`, `hf:bavard:2`…) — ceux du quiz du jour à part : ils ont
- * leur moment (`paliersDuJourAtteints`).
+ * (`hf:bavard:1`, `hf:bavard:2`…) — ceux du quiz du jour et de la campagne
+ * à part : ils ont leur moment (`paliersDuJourAtteints`,
+ * `paliersDeCampagneAtteints`).
  */
 export function paliersAtteints(c: Carriere): string[] {
   return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
-    if (h.duJour) return []
+    if (h.duJour || h.deCampagne) return []
     const v = h.valeur(c)
     return h.paliers.flatMap((seuil, i) => (v >= seuil ? [clePalier(h.key, i + 1)] : []))
   })
@@ -501,6 +760,15 @@ export function paliersDuJourAtteints(stats: StatsDuJour): string[] {
   return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
     if (!h.duJour) return []
     const v = stats[h.duJour]
+    return h.paliers.flatMap((seuil, i) => (v >= seuil ? [clePalier(h.key, i + 1)] : []))
+  })
+}
+
+/** Les paliers de la campagne que ce qu'elle compte fait atteindre. */
+export function paliersDeCampagneAtteints(stats: StatsDeCampagne): string[] {
+  return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
+    if (!h.deCampagne) return []
+    const v = stats[h.deCampagne]
     return h.paliers.flatMap((seuil, i) => (v >= seuil ? [clePalier(h.key, i + 1)] : []))
   })
 }
@@ -525,6 +793,8 @@ export function paliersDuNiveau(niveau: number): string[] {
 export interface HautFaitVu {
   key: string
   famille: 'soiree' | 'carriere'
+  /** Il se gagne au quiz du jour ou en campagne (`origine`, ou un palier `duJour` / `deCampagne`) : la page le range à part. */
+  origine?: Origine
   emoji: string
   title: string
   /** Soirée : la règle ; carrière : ce qu'on compte. */
@@ -637,6 +907,37 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:sans-faute:1': 0.2,
   'hf:sans-faute:2': 0.06,
   'hf:sans-faute:3': 0.01,
+  // Ceux d'octobre 2026, estimés pour une vingtaine de joueurs par jour —
+  // la production en comptait autant — et la campagne qu'ils jouent.
+  'hf:laurier': 0.12, // comme Le Champion du jour · Bronze, qu'il double
+  'hf:triomphe': 0.01,
+  'hf:phenix-du-jour': 0.03,
+  'hf:seul-au-monde': 0.15,
+  'hf:eclair-du-jour': 0.1,
+  'hf:leve-tot': 0.15,
+  'hf:mois-complet': 0.05,
+  'hf:lanterne-du-jour': 0.1,
+  'hf:dernier-metro': 0.2,
+  'hf:courant-d-air': 0.3,
+  'hf:funambule': 0.02,
+  'hf:intact': 0.08,
+  'hf:grande-serie': 0.005,
+  'hf:tour-du-monde': 0.002,
+  'hf:elite:1': 0.25,
+  'hf:elite:2': 0.08,
+  'hf:elite:3': 0.02,
+  'hf:infatigable:1': 0.3,
+  'hf:infatigable:2': 0.08,
+  'hf:infatigable:3': 0.01,
+  'hf:alpiniste:1': 0.4,
+  'hf:alpiniste:2': 0.12,
+  'hf:alpiniste:3': 0.02,
+  'hf:erudit:1': 0.3,
+  'hf:erudit:2': 0.1,
+  'hf:erudit:3': 0.02,
+  'hf:marathonien:1': 0.35,
+  'hf:marathonien:2': 0.1,
+  'hf:marathonien:3': 0.03,
 }
 
 /**
