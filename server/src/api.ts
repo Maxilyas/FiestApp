@@ -137,7 +137,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     reserveAutomatique: deps.jetonDeLaReserve !== null,
   })
   // La base de la campagne et ses signalements : l'administrateur seul.
-  mountCampagneAdmin(app, { campagne: deps.campagne })
+  mountCampagneAdmin(app, { campagne: deps.campagne, profiles: deps.profiles })
   // « Les profils » : les chercher, en supprimer un — l'administrateur seul.
   mountProfilsAdmin(app, {
     profiles: deps.profiles,

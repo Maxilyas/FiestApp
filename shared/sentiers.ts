@@ -2,7 +2,7 @@
 // les avatars du savoir (`shared/branches.ts`).
 //
 // Un sentier par branche, douze paliers chacun. Un palier pose seize
-// questions de sa catégorie, et se valide à douze bonnes réponses : la même
+// questions de sa catégorie, et se valide à dix bonnes réponses : la même
 // règle partout, ce sont les questions qui durcissent, des faciles du premier
 // palier aux difficiles du douzième. Un portrait tous les deux paliers. Après
 // le sommet, un palier de maître, facultatif : seize expertes, neuf à
@@ -64,9 +64,11 @@ export interface RegleDuPalier {
 /**
  * Les mélanges des douze paliers, du plus facile au sommet : quatorze
  * faciles et deux moyennes au deuxième, trois moyennes et treize difficiles
- * au douzième. Mesurés à 12 sur 16 pour que la difficulté monte sans à-coup :
- * un joueur moyen dans la catégorie valide le premier 92 fois sur cent, le
- * douzième presque jamais ; un spécialiste, 76 fois sur cent au sommet.
+ * au douzième. Mesurés pour que la difficulté monte sans à-coup : à 10 sur
+ * 16, un joueur moyen dans la catégorie valide le premier presque toujours,
+ * le cinquième 79 fois sur cent, le huitième 23, le douzième 2 ; un bon
+ * joueur, 46 fois sur cent au sommet ; un spécialiste, 96
+ * (`server/scripts/calibrage-sentiers.ts`).
  */
 const MELANGES: readonly Melange[] = [
   { facile: 16 },
@@ -83,8 +85,16 @@ const MELANGES: readonly Melange[] = [
   { moyen: 3, difficile: 13 },
 ]
 
-/** Douze bonnes réponses sur seize, à chaque palier : la règle se retient en une phrase. */
-export const SEUIL_DES_PALIERS = 12
+/**
+ * Dix bonnes réponses sur seize, à chaque palier : la règle se retient en
+ * une phrase. Il en fallait douze : les vraies épreuves butaient du
+ * cinquième au huitième palier — le calcul y donnait au joueur moyen 38,
+ * 21, 9 puis 4 chances sur cent du premier coup, 79, 61, 37 et 23 à dix —,
+ * et le propriétaire l'a baissé de deux crans le 5 octobre 2026. Une
+ * épreuve commencée garde le seuil de son départ (`campagne_series.seuil`),
+ * un palier validé ne se reprend pas.
+ */
+export const SEUIL_DES_PALIERS = 10
 /** Neuf expertes sur seize : plus de la moitié de questions que presque personne ne trouve. */
 export const SEUIL_DU_MAITRE = 9
 /** À partir de ce palier, pas de vrai ou faux. */
@@ -298,17 +308,45 @@ export interface ReponseDEpreuve {
   legendaires?: string[]
 }
 
-/** Un palier, côté administrateur : ce que les vraies réponses en disent. */
+/**
+ * Un palier, côté administrateur : ce que les vraies épreuves en disent, sur
+ * les trois derniers mois, rejeux à part. Le compte se tient par joueur et
+ * par sentier — tous sentiers confondus, celui qui tente la forêt et le
+ * stade compte sur chacun —, et ceux qui n'ont pas validé y gardent leur
+ * place : « 0,0 vie perdue avant de valider » se lisait sur un palier où le
+ * seul qui avait validé l'avait fait du premier coup, pendant que les autres
+ * y avaient laissé cinq vies chacun (la remarque du propriétaire du
+ * 5 octobre 2026). `lectureDuPalier` en tire les parts.
+ */
 export interface StatsDuPalier {
   palier: number
-  /** Ceux qui l'ont tenté, au moins une fois, hors rejeu. */
+  /** Ceux qui l'ont tenté, hors rejeu. */
   joueurs: number
-  /** Les épreuves jouées, hors rejeu. */
+  /** Ceux d'entre eux qui l'ont validé ; et parmi eux, ceux du premier coup. */
+  valides: number
+  premierCoup: number
+  /** Les épreuves jouées, hors rejeu : une validée par joueur au plus, chacune des autres a coûté une vie. */
   essais: number
-  /** La part de ceux qui l'ont validé du premier coup, sur ceux qui l'ont tenté ; null sans essai. */
-  premierEssai: number | null
-  /** Les vies perdues en moyenne avant de le valider, sur ceux qui l'ont validé ; null si personne. */
-  viesAvantDeValider: number | null
+  /** Les échecs de ceux qui ne l'ont pas validé : ce qu'ils y ont laissé, que la moyenne des autres ne cache plus. */
+  echecsDesBloques: number
+  /** Ceux des échecs qui étaient des abandons : l'épreuve quittée avant la faute de trop. */
+  abandons: number
+  /** Les questions répondues en épreuve, hors rejeu, et les bonnes : la difficulté du palier, sans son seuil. */
+  questions: number
+  justes: number
+  /**
+   * Ses essais par seuil, du plus haut au plus bas : un seuil changé ne vaut
+   * que pour les épreuves d'après, et les deux se comparent — douze sur
+   * seize jusqu'au 5 octobre 2026.
+   */
+  seuils: { seuil: number; essais: number; validees: number }[]
+  /**
+   * Ceux qui l'attendent sans l'avoir jamais tenté : le palier d'avant
+   * validé, celui-ci jamais joué — sur toutes leurs épreuves, pas seulement
+   * les trois derniers mois. Un joueur qui ne revient pas s'y voit, pas
+   * dans les échecs.
+   */
+  enAttente: number
   /**
    * Ses rejeux terminés, comptés à part : un palier déjà validé — ou repris
    * des portraits d'avant (`sentier_acquis`) —, rejoué sans risquer de vie,
@@ -320,10 +358,75 @@ export interface StatsDuPalier {
   rejeuxValides: number
 }
 
+/** Ce qu'une ligne de palier se lit : des parts et des moyennes, null quand rien ne les fonde. */
+export interface LectureDuPalier {
+  /** Ceux qui l'ont tenté sans le valider. */
+  bloques: number
+  /** Validé, sur tenté. */
+  passent: number | null
+  /** Validé du premier coup, sur tenté. */
+  premierEssai: number | null
+  /** Épreuves validées sur épreuves jouées : la chance d'un essai, celle que le calibrage annonce. */
+  parEssai: number | null
+  /** Les essais qu'il a fallu, en moyenne, à ceux qui l'ont validé — le dernier, réussi, compris. */
+  essaisPourValider: number | null
+  /** Les échecs, en moyenne, de ceux qui ne l'ont pas validé. */
+  echecsParBloque: number | null
+  /** Toutes les vies qu'il a coûtées : chaque essai qui n'a pas validé. */
+  viesPerdues: number
+  /** Les bonnes réponses, sur les questions répondues. */
+  bonnesReponses: number | null
+}
+
+export function lectureDuPalier(p: StatsDuPalier): LectureDuPalier {
+  const part = (n: number, sur: number) => (sur > 0 ? n / sur : null)
+  const bloques = Math.max(0, p.joueurs - p.valides)
+  return {
+    bloques,
+    passent: part(p.valides, p.joueurs),
+    premierEssai: part(p.premierCoup, p.joueurs),
+    parEssai: part(p.valides, p.essais),
+    essaisPourValider: part(p.essais - p.echecsDesBloques, p.valides),
+    echecsParBloque: part(p.echecsDesBloques, bloques),
+    viesPerdues: Math.max(0, p.essais - p.valides),
+    bonnesReponses: part(p.justes, p.questions),
+  }
+}
+
+/**
+ * La part des joueurs qui trouvent une question de chaque marche, telle que
+ * le calibrage la suppose (`server/scripts/calibrage-sentiers.ts`) : le
+ * milieu de chaque marche de `niveauDuTaux`. L'administration la met à côté
+ * de ce que les vraies épreuves disent — une marche plus dure qu'annoncé
+ * fait un mur que le calcul ne voyait pas.
+ */
+export const TAUX_DU_CALIBRAGE: Readonly<Record<Niveau, number>> = { facile: 0.85, moyen: 0.55, difficile: 0.3, expert: 0.1 }
+
+/** Un joueur bloqué, côté administrateur : le palier qui l'attend, et ce qu'il y a laissé. */
+export interface JoueurBloque {
+  profileId: string
+  /** Son prénom ; absent si le profil ne se lit plus. */
+  prenom?: string
+  branche: CleDeBranche
+  palier: number
+  /** Ses échecs sur ce palier, abandons compris : autant de vies. */
+  echecs: number
+  /** Son dernier essai. */
+  dernier: number
+}
+
 export interface AdminDesSentiers {
   /** Les sept derniers jours. */
-  semaine: { joueurs: number; epreuves: number; viesAchetees: number }
+  semaine: { joueurs: number; epreuves: number; viesAchetees: number; viesPerdues: number; paliersValides: number }
   /** La branche lue, ou null pour toutes. */
   branche: CleDeBranche | null
   paliers: StatsDuPalier[]
+  /** Les bonnes réponses en épreuve, hors rejeu, par marche de question — trois derniers mois. */
+  niveaux: { niveau: Niveau; questions: number; justes: number }[]
+  /**
+   * Ceux qui ont le plus d'échecs sur le palier qui les attend — deux au
+   * moins, le maître à part : il est facultatif, et seize expertes en font
+   * un mur voulu. Les plus bloqués d'abord, puis les plus récents.
+   */
+  bloques: JoueurBloque[]
 }

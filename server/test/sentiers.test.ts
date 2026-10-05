@@ -2,7 +2,7 @@
 // les avatars du savoir (`shared/sentiers.ts`).
 //
 // Un sentier par branche, douze paliers chacun ; un palier pose seize
-// questions de sa catégorie et se valide à douze bonnes réponses — ce sont
+// questions de sa catégorie et se valide à dix bonnes réponses — ce sont
 // les questions qui durcissent. Un portrait tous les deux paliers, un titre
 // de maître au palier facultatif d'après le sommet. Un palier raté coûte une
 // vie ; un palier déjà validé se rejoue sans risque. Le serveur compte tout,
@@ -38,7 +38,7 @@ import { XP_PAR_JUSTE, niveauDeQuestion } from '../../shared/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
-test('douze paliers de seize questions à douze bonnes réponses, plus durs à chaque marche — puis le maître', () => {
+test('douze paliers de seize questions à dix bonnes réponses, plus durs à chaque marche — puis le maître', () => {
   assert.equal(PALIERS.length, 13)
   const poids = { facile: 0, moyen: 1, difficile: 2, expert: 3 } as const
   let avant = -1
@@ -53,9 +53,10 @@ test('douze paliers de seize questions à douze bonnes réponses, plus durs à c
   assert.deepEqual(
     PALIERS.slice(0, 12).map(r => r.seuil),
     Array(12).fill(SEUIL_DES_PALIERS),
-    'la même règle partout : douze sur seize',
+    'la même règle partout : dix sur seize',
   )
-  assert.equal(SEUIL_DES_PALIERS, 12)
+  // Douze jusqu'au 5 octobre 2026 : le mur du cinquième au huitième palier.
+  assert.equal(SEUIL_DES_PALIERS, 10)
   // Les avatars tous les deux paliers, ceux de `PALIER_DU_PORTRAIT`, le sixième au sommet.
   assert.deepEqual(
     PALIERS.filter(r => r.avatar !== null).map(r => [r.n, r.avatar]),
@@ -84,6 +85,11 @@ test('une épreuve se valide dès le seuil, continue pour les étoiles, s’arr�
   assert.equal(issueDe(7, 11, 12), null, 'quatre fautes : on peut encore')
   assert.equal(issueDe(7, 12, 12), 'ratee', 'la cinquième : douze ne sont plus possibles')
   assert.equal(epreuveFinie(7, 12, 12), true)
+  // À dix, deux fautes de plus : la septième fait tomber l'épreuve.
+  assert.equal(issueDe(7, 13, 10), null, 'six fautes : dix restent possibles')
+  assert.equal(issueDe(7, 14, 10), 'ratee', 'la septième')
+  assert.equal(issueDe(10, 13, 10), 'validee', 'validée dès la dixième bonne réponse')
+  assert.deepEqual([9, 10, 12, 13, 15, 16].map(j => etoilesDe(j, 10)), [0, 1, 1, 2, 2, 3])
   // Une, deux, trois étoiles : au seuil, à mi-chemin du sans-faute, au sans-faute.
   assert.deepEqual([11, 12, 13, 14, 15, 16].map(j => etoilesDe(j, 12)), [0, 1, 1, 2, 2, 3])
   assert.deepEqual([8, 9, 12, 13, 15, 16].map(j => etoilesDe(j, 9)), [0, 1, 1, 2, 2, 3])
@@ -236,7 +242,7 @@ async function avecBanc(scenario: (banc: Banc, horloge: { t: number }) => Promis
   }
 }
 
-test('un sentier se gravit palier par palier : seize questions, douze pour valider, un portrait au deuxième', () =>
+test('un sentier se gravit palier par palier : seize questions, dix pour valider, un portrait au deuxième', () =>
   avecBanc(async banc => {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const etat = (await lire(banc, lea, '/api/campagne/sentiers')).corps
@@ -253,23 +259,23 @@ test('un sentier se gravit palier par palier : seize questions, douze pour valid
 
     // Le premier palier, sans faute : trois étoiles, rien à porter encore.
     const p1 = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps
-    assert.deepEqual([p1.palier, p1.seuil, p1.total, p1.rejeu, p1.question.index], [1, 12, 16, false, 0])
+    assert.deepEqual([p1.palier, p1.seuil, p1.total, p1.rejeu, p1.question.index], [1, 10, 16, false, 0])
     const fin1 = await jouer(banc, lea, p1, 16)
     assert.deepEqual([fin1.epreuve.issue, fin1.epreuve.finie, fin1.etoiles, fin1.avatar], ['validee', true, 3, undefined])
     assert.equal(fin1.xp, XP_PAR_JUSTE, 'une bonne réponse paie comme dans la série')
 
-    // Le deuxième, à treize : validé à la douzième, l'épreuve va au bout, et le portrait tombe à la fin.
+    // Le deuxième, à douze : validé à la dixième, l'épreuve va au bout, et le portrait tombe à la fin.
     const p2 = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
     let e = p2
     let validee: any = null
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 10; i++) {
       const r = await poster(banc, lea, `/api/campagne/epreuve/${e.id}/reponse`, { index: e.question.index, choix: bonneDe(e.question) })
       e = r.corps.epreuve
       validee = r.corps
     }
-    assert.deepEqual([validee.epreuve.issue, validee.epreuve.finie], ['validee', false], 'validée à douze, elle continue')
-    const fin2 = await jouer(banc, lea, e, 1)
-    assert.deepEqual([fin2.epreuve.justes, fin2.etoiles, fin2.avatar], [13, 1, 'br:ecureuil'])
+    assert.deepEqual([validee.epreuve.issue, validee.epreuve.finie], ['validee', false], 'validée à dix, elle continue')
+    const fin2 = await jouer(banc, lea, e, 2)
+    assert.deepEqual([fin2.epreuve.justes, fin2.etoiles, fin2.avatar], [12, 1, 'br:ecureuil'])
     // L'écureuil se porte : le serveur l'accorde sur ses paliers.
     const porte = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'br:ecureuil' }, lea, 'PUT')
     assert.equal(porte.status, 200)
@@ -281,7 +287,7 @@ test('un sentier se gravit palier par palier : seize questions, douze pour valid
     const foret = apres.sentiers.find((s: any) => s.branche === 'foret')
     assert.deepEqual([foret.paliers, foret.acquis, foret.etoiles.slice(0, 3)], [2, 0, [3, 1, 0]])
     assert.equal(apres.vies.jour, VIES_PAR_JOUR, 'aucune vie perdue')
-    assert.equal(apres.confettis, 29, 'un confetti par bonne réponse')
+    assert.equal(apres.confettis, 28, 'un confetti par bonne réponse')
 
     // Rejoué, le deuxième palier ne risque rien — et une meilleure note se dit.
     const rejeu = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
@@ -289,7 +295,7 @@ test('un sentier se gravit palier par palier : seize questions, douze pour valid
     const finRejeu = await jouer(banc, lea, rejeu, 15)
     assert.deepEqual([finRejeu.etoiles, finRejeu.record, finRejeu.avatar], [2, true, undefined], 'pas de second portrait')
     const rate = await jouer(banc, lea, (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps, 0)
-    assert.deepEqual([rate.epreuve.issue, rate.epreuve.fausses, rate.vies], ['ratee', 5, undefined], 'raté en rejeu : rien de perdu')
+    assert.deepEqual([rate.epreuve.issue, rate.epreuve.fausses, rate.vies], ['ratee', 7, undefined], 'raté en rejeu : rien de perdu')
     assert.equal((await lire(banc, lea, '/api/campagne/sentiers')).corps.vies.jour, VIES_PAR_JOUR)
   }))
 
@@ -316,10 +322,10 @@ test('un palier raté coûte une vie, abandonner aussi ; une épreuve à la fois
   avecBanc(async banc => {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
-    // Raté à la cinquième faute : l'épreuve s'arrête là, une vie de moins.
+    // Raté à la septième faute : l'épreuve s'arrête là, une vie de moins.
     const p1 = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps
     const rate = await jouer(banc, lea, p1, 3)
-    assert.deepEqual([rate.epreuve.issue, rate.epreuve.finie, rate.epreuve.justes, rate.epreuve.fausses], ['ratee', true, 3, 5])
+    assert.deepEqual([rate.epreuve.issue, rate.epreuve.finie, rate.epreuve.justes, rate.epreuve.fausses], ['ratee', true, 3, 7])
     assert.equal(rate.vies.jour, VIES_PAR_JOUR - 1)
 
     // Une épreuve à la fois : celle qu'on a laissée attend.

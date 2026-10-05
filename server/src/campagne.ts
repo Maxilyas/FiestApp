@@ -172,7 +172,7 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
  * (`/admin#campagne`) : garder une question signalée, ou la retirer pour
  * tous. Passe derrière la porte des animateurs, sous `/api/admin`.
  */
-export function mountCampagneAdmin(app: Express, deps: { campagne: CampagneStore }) {
+export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
   app.get(
     '/api/admin/campagne',
     requireAdmin,
@@ -200,11 +200,15 @@ export function mountCampagneAdmin(app: Express, deps: { campagne: CampagneStore
   )
 
   // Les sentiers palier par palier : de quoi régler un seuil sur des faits.
+  // Les plus bloqués y sont nommés : leurs profils se lisent d'un coup.
   app.get(
     '/api/admin/campagne/sentiers',
     requireAdmin,
     wrap(async (req, res) => {
-      res.json(await deps.campagne.adminDesSentiers(req.query.branche))
+      const stats = await deps.campagne.adminDesSentiers(req.query.branche)
+      const profils = await deps.profiles.byIds(stats.bloques.map(x => x.profileId))
+      stats.bloques = stats.bloques.map((x, i) => (profils[i] ? { ...x, prenom: profils[i]!.name } : x))
+      res.json(stats)
     }),
   )
 }

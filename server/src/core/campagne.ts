@@ -67,6 +67,7 @@ import {
   type EpreuveDeSentier,
   type EtatDesSentiers,
   type IssueDEpreuve,
+  type JoueurBloque,
   type RegleDuPalier,
   type ReponseDEpreuve,
   type SentierDuJoueur,
@@ -129,6 +130,8 @@ const HEURE_MS = 3600_000
 const SERIES = "COALESCE(mode, 'serie') = 'serie'"
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
+/** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
+const BLOQUES_MONTRES = 10
 /** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
 const LIGNES_DU_DEFI = 50
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
@@ -1397,64 +1400,167 @@ export class CampagneStore {
   }
 
   /**
-   * Les sentiers, côté administrateur : palier par palier, ce que les vraies
-   * réponses disent — la part qui le valide du premier coup, les essais, les
-   * vies perdues avant de le valider —, toutes branches ou une seule, sur
-   * les trois derniers mois. De quoi régler un seuil sur des faits, pas sur
-   * une estimation. Les rejeux se comptent à part : ils ne risquent rien, et
-   * ne disent rien d'un premier essai.
+   * Les sentiers, côté administrateur, toutes branches ou une seule. Palier
+   * par palier, ce que les vraies épreuves des trois derniers mois disent :
+   * qui l'a tenté, qui l'a validé et en combien d'essais, qui y reste bloqué
+   * et ce qu'il y a laissé, la chance d'un essai à chaque seuil, la part de
+   * bonnes réponses. Les bonnes réponses par marche de question, que le
+   * calibrage suppose. Et où chacun en est aujourd'hui : ceux qui attendent
+   * un palier sans l'avoir tenté, les plus bloqués. De quoi régler un seuil
+   * ou un mélange sur des faits. Les rejeux se comptent à part : ils ne
+   * risquent rien, et ne disent rien d'un premier essai.
    */
   async adminDesSentiers(cle: unknown): Promise<AdminDesSentiers> {
     const b = brancheParCle(cle) ?? null
     const maintenant = this.maintenant()
     const semaine = maintenant - 7 * 24 * HEURE_MS
-    const [lignes, recentes, achetees] = await Promise.all([
-      this.client.execute({
-        sql: `SELECT profile_id, branche, palier, issue, rejeu FROM campagne_series
-              WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${b ? ' AND branche = ?' : ''}
-              ORDER BY commencee_le`,
-        args: b ? [maintenant - STATS_DES_SENTIERS_MS, b.key] : [maintenant - STATS_DES_SENTIERS_MS],
-      }),
-      this.client.execute({
-        sql: `SELECT COUNT(*) AS n, COUNT(DISTINCT profile_id) AS joueurs FROM campagne_series WHERE mode = 'sentier' AND commencee_le > ?${b ? ' AND branche = ?' : ''}`,
-        args: b ? [semaine, b.key] : [semaine],
-      }),
+    const depuis = maintenant - STATS_DES_SENTIERS_MS
+    const filtre = b ? ' AND branche = ?' : ''
+    const avec = (...args: number[]) => (b ? [...args, b.key] : args)
+    const [[lignes, recentes, parNiveau, resumes, acquis], achetees] = await Promise.all([
+      this.client.batch(
+        [
+          {
+            sql: `SELECT profile_id, branche, palier, issue, rejeu, seuil, position, justes FROM campagne_series
+                  WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${filtre}
+                  ORDER BY commencee_le`,
+            args: avec(depuis),
+          },
+          {
+            sql: `SELECT COUNT(*) AS n, COUNT(DISTINCT profile_id) AS joueurs,
+                         SUM(CASE WHEN rejeu = 0 AND issue = 'ratee' THEN 1 ELSE 0 END) AS perdues,
+                         SUM(CASE WHEN rejeu = 0 AND issue = 'validee' THEN 1 ELSE 0 END) AS validees
+                  FROM campagne_series WHERE mode = 'sentier' AND commencee_le > ?${filtre}`,
+            args: avec(semaine),
+          },
+          // Chaque réponse retrouve la marche de sa question dans l'épreuve
+          // qui la gardait : le JSON de l'épreuve se lit une fois pour ses
+          // seize réponses (`CROSS JOIN` garde cet ordre-là).
+          {
+            sql: `SELECT json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
+                  FROM campagne_series s CROSS JOIN json_each(s.questions) q
+                  JOIN campagne_reponses r ON r.serie_id = s.id AND r.position = q.key
+                  WHERE s.mode = 'sentier' AND s.rejeu = 0 AND s.commencee_le > ?${b ? ' AND s.branche = ?' : ''}
+                  GROUP BY niveau`,
+            args: avec(depuis),
+          },
+          // Où chacun en est, sur toutes ses épreuves : un résumé par joueur, sentier et palier.
+          {
+            sql: `SELECT profile_id, branche, palier, rejeu, issue, COUNT(*) AS n, MAX(commencee_le) AS dernier
+                  FROM campagne_series WHERE mode = 'sentier'${filtre}
+                  GROUP BY profile_id, branche, palier, rejeu, issue`,
+            args: avec(),
+          },
+          { sql: `SELECT profile_id, branche, paliers FROM sentier_acquis${b ? ' WHERE branche = ?' : ''}`, args: avec() },
+        ],
+        'read',
+      ),
       this.viesAcheteesDepuis?.(semaine) ?? 0,
     ])
+
     // Les essais de chacun sur chaque palier, dans l'ordre : le premier dit « du premier coup ».
-    const essais = new Map<string, IssueDEpreuve[]>()
+    const essais = new Map<string, { issue: IssueDEpreuve; seuil: number; abandon: boolean; questions: number; justes: number }[]>()
     const rejeux = new Map<number, { joues: number; valides: number }>()
     for (const r of lignes.rows) {
+      const palier = Number(r.palier)
       const issue: IssueDEpreuve = r.issue === 'validee' ? 'validee' : 'ratee'
       if (Number(r.rejeu ?? 0) === 1) {
-        const c = rejeux.get(Number(r.palier)) ?? { joues: 0, valides: 0 }
+        const c = rejeux.get(palier) ?? { joues: 0, valides: 0 }
         c.joues++
         if (issue === 'validee') c.valides++
-        rejeux.set(Number(r.palier), c)
+        rejeux.set(palier, c)
         continue
       }
-      const k = `${r.palier}|${r.profile_id}|${r.branche}`
+      const seuil = Number(r.seuil ?? regleDuPalier(palier)?.seuil ?? QUESTIONS_PAR_EPREUVE)
+      const questions = Number(r.position ?? 0)
+      const justes = Number(r.justes ?? 0)
+      const k = `${palier}|${r.profile_id}|${r.branche}`
       const liste = essais.get(k) ?? []
-      liste.push(issue)
+      // Ratée sans la faute de trop : quittée en route (`abandonnerEpreuve`).
+      liste.push({ issue, seuil, abandon: issue === 'ratee' && questions - justes <= QUESTIONS_PAR_EPREUVE - seuil, questions, justes })
       essais.set(k, liste)
     }
+
+    // Où chacun en est aujourd'hui : le plus haut palier validé de chaque
+    // sentier commencé — ses épreuves, et ce que la reprise lui a retenu
+    // (`sentier_acquis`). Un sentier repris des portraits d'avant, jamais
+    // joué, n'est pas en route : il ne compte pas.
+    const enRoute = new Map<string, { haut: number; tentes: Set<number>; echecs: Map<number, { n: number; dernier: number }> }>()
+    for (const r of resumes.rows) {
+      const k = `${r.profile_id}|${r.branche}`
+      const p = enRoute.get(k) ?? { haut: 0, tentes: new Set<number>(), echecs: new Map() }
+      enRoute.set(k, p)
+      const palier = Number(r.palier)
+      if (r.issue === 'validee') p.haut = Math.max(p.haut, palier)
+      if (Number(r.rejeu ?? 0) === 0) {
+        p.tentes.add(palier)
+        if (r.issue === 'ratee') p.echecs.set(palier, { n: Number(r.n), dernier: Number(r.dernier) })
+      }
+    }
+    for (const r of acquis.rows) {
+      const p = enRoute.get(`${r.profile_id}|${r.branche}`)
+      if (p) p.haut = Math.max(p.haut, Number(r.paliers))
+    }
+    const enAttente = new Map<number, number>()
+    const bloques: JoueurBloque[] = []
+    for (const [k, p] of enRoute) {
+      const suivant = p.haut + 1
+      if (suivant > PALIER_DU_MAITRE) continue
+      if (!p.tentes.has(suivant)) {
+        enAttente.set(suivant, (enAttente.get(suivant) ?? 0) + 1)
+        continue
+      }
+      const echecs = p.echecs.get(suivant)
+      if (echecs && echecs.n >= 2 && suivant < PALIER_DU_MAITRE) {
+        const [profileId, branche] = k.split('|')
+        bloques.push({ profileId, branche: branche as CleDeBranche, palier: suivant, echecs: echecs.n, dernier: echecs.dernier })
+      }
+    }
+    bloques.sort((x, y) => y.echecs - x.echecs || y.dernier - x.dernier)
+
     const paliers: StatsDuPalier[] = PALIERS.map(regle => {
       const groupes = [...essais].filter(([k]) => k.startsWith(`${regle.n}|`)).map(([, liste]) => liste)
-      const valides = groupes.filter(g => g.includes('validee'))
+      const tous = groupes.flat()
+      const valide = (g: (typeof tous)[number][]) => g.some(e => e.issue === 'validee')
+      const parSeuil = new Map<number, { essais: number; validees: number }>()
+      for (const e of tous) {
+        const c = parSeuil.get(e.seuil) ?? { essais: 0, validees: 0 }
+        c.essais++
+        if (e.issue === 'validee') c.validees++
+        parSeuil.set(e.seuil, c)
+      }
       return {
         palier: regle.n,
-        joueurs: new Set([...essais.keys()].filter(k => k.startsWith(`${regle.n}|`)).map(k => k.split('|')[1])).size,
-        essais: groupes.reduce((n, g) => n + g.length, 0),
-        premierEssai: groupes.length > 0 ? groupes.filter(g => g[0] === 'validee').length / groupes.length : null,
-        viesAvantDeValider: valides.length > 0 ? valides.reduce((n, g) => n + g.indexOf('validee'), 0) / valides.length : null,
+        joueurs: groupes.length,
+        valides: groupes.filter(valide).length,
+        premierCoup: groupes.filter(g => g[0].issue === 'validee').length,
+        essais: tous.length,
+        echecsDesBloques: groupes.filter(g => !valide(g)).reduce((n, g) => n + g.length, 0),
+        abandons: tous.filter(e => e.abandon).length,
+        questions: tous.reduce((n, e) => n + e.questions, 0),
+        justes: tous.reduce((n, e) => n + e.justes, 0),
+        seuils: [...parSeuil].sort(([x], [y]) => y - x).map(([seuil, c]) => ({ seuil, ...c })),
+        enAttente: enAttente.get(regle.n) ?? 0,
         rejeux: rejeux.get(regle.n)?.joues ?? 0,
         rejeuxValides: rejeux.get(regle.n)?.valides ?? 0,
       }
     })
+    const semaineLue = recentes.rows[0]
     return {
-      semaine: { joueurs: Number(recentes.rows[0]?.joueurs ?? 0), epreuves: Number(recentes.rows[0]?.n ?? 0), viesAchetees: achetees },
+      semaine: {
+        joueurs: Number(semaineLue?.joueurs ?? 0),
+        epreuves: Number(semaineLue?.n ?? 0),
+        viesAchetees: achetees,
+        viesPerdues: Number(semaineLue?.perdues ?? 0),
+        paliersValides: Number(semaineLue?.validees ?? 0),
+      },
       branche: b?.key ?? null,
       paliers,
+      niveaux: NIVEAUX.map(niveau => {
+        const r = parNiveau.rows.find(x => x.niveau === niveau)
+        return { niveau, questions: Number(r?.n ?? 0), justes: Number(r?.justes ?? 0) }
+      }),
+      bloques: bloques.slice(0, BLOQUES_MONTRES),
     }
   }
 

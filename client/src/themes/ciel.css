@@ -19,7 +19,11 @@
    ne captent jamais un doigt et ne bougent que par `transform` et `opacity`.
    Le texte reste lisible : un voile de nuit, plus épais en haut où l'on
    écrit, plus épais à l'aube claire qu'à la nuit noire, et un halo sous ce
-   qui s'écrit sur la page. `design.test.ts` en mesure les contrastes. */
+   qui s'écrit sur la page. `design.test.ts` en mesure les contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Fraunces';
@@ -198,21 +202,21 @@
    question et ses secondes — garde un halo de nuit : sur un ciel d'aube, le
    voile ne suffisait pas seul aux lettres fines. Sur une carte, il ne se
    voit pas. */
-:root[data-theme='ciel'] .label,
-:root[data-theme='ciel'] .muted,
-:root[data-theme='ciel'] .small,
+:root[data-theme='ciel'] .label:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='ciel'] .muted:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='ciel'] .small:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='ciel'] h1,
 :root[data-theme='ciel'] h2,
-:root[data-theme='ciel'] h3,
-:root[data-theme='ciel'] .identite-nom,
-:root[data-theme='ciel'] .xp-mince-texte,
+:root[data-theme='ciel'] h3:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='ciel'] .identite-nom:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='ciel'] .xp-mince-texte:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='ciel'] .quiz-question,
 :root[data-theme='ciel'] .timer-seconds {
   text-shadow: 0 1px 2px rgba(6, 9, 24, 0.9), 0 0 10px rgba(6, 9, 24, 0.8), 0 0 20px rgba(6, 9, 24, 0.55);
 }
 
 /* Les cartes et les réponses : du verre de nuit, un filet de lumière. */
-:root[data-theme='ciel'] .card,
+:root[data-theme='ciel'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='ciel'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='ciel'] .onglets {
   background: rgba(16, 22, 52, 0.9);
@@ -232,7 +236,7 @@
   border: 1.5px solid #f3c46a;
 }
 
-:root[data-theme='ciel'] .niveau {
+:root[data-theme='ciel'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: linear-gradient(rgba(243, 196, 106, 0.14), rgba(243, 196, 106, 0.14)), #141b3d;
 }
 
@@ -254,7 +258,7 @@
 
 /* Les surtitres à l'encre claire, pas atténués : ceux de l'accueil
    descendent jusqu'à l'horizon, la part la plus claire du ciel de midi. */
-:root[data-theme='ciel'] .label {
+:root[data-theme='ciel'] .label:where(:not(.carte-fond, .carte-fond *)) {
   color: var(--ink);
   letter-spacing: 0.2em;
 }

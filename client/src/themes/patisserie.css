@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Pacifico';
@@ -72,16 +76,16 @@
   opacity: .45;
 }
 
-:root[data-theme='patisserie'] .av-argent::before {
+:root[data-theme='patisserie'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='patisserie'] .lu-nebuleuse {
+:root[data-theme='patisserie'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='patisserie'] .lu-scintille {
+:root[data-theme='patisserie'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -121,7 +125,7 @@
   z-index: 1;
 }
 
-:root[data-theme='patisserie'] .card,
+:root[data-theme='patisserie'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='patisserie'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='patisserie'] .onglets {
   background: #ffffff;
@@ -165,7 +169,7 @@
   color: #b0305a;
 }
 
-:root[data-theme='patisserie'] .label {
+:root[data-theme='patisserie'] .label:where(:not(.carte-fond, .carte-fond *)) {
   color: #9a5a6a;
 }
 
@@ -175,7 +179,7 @@
   font-weight: 400;
 }
 
-:root[data-theme='patisserie'] .niveau {
+:root[data-theme='patisserie'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: #ffe3ea;
   border-color: #f7a8b8;
   color: #b0305a;

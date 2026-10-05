@@ -9,7 +9,11 @@
    remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
    couches fixes (`body::before`, `body::after`, `#root::after`), qui ne
    captent jamais un doigt et ne bougent que par `transform` et `opacity`.
-   `design.test.ts` en mesure les contrastes. */
+   `design.test.ts` en mesure les contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'EB Garamond';
@@ -141,7 +145,7 @@
 
 /* Les cartes et les réponses : du cuir, sous un double filet doré, comme
    le plat d'une reliure. */
-:root[data-theme='babel'] .card,
+:root[data-theme='babel'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='babel'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='babel'] .onglets {
   background: #1e1812;

@@ -15,7 +15,11 @@
    tableau, calée en haut de l'écran : sur tout écran, chaque lueur tombe sur
    son camp. Le texte reste lisible : un voile de nuit, épais en haut où
    s'écrivent l'en-tête et la question, et un halo sous ce qui s'écrit sur la
-   page. `design.test.ts` en mesure les contrastes. */
+   page. `design.test.ts` en mesure les contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Josefin Sans';
@@ -168,21 +172,21 @@
 
 /* Le texte posé sur la page, hors des cartes, garde un halo de nuit : la
    neige du sommet, rose à l'aube, passe sous lui. */
-:root[data-theme='sommet'] .label,
-:root[data-theme='sommet'] .muted,
-:root[data-theme='sommet'] .small,
+:root[data-theme='sommet'] .label:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='sommet'] .muted:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='sommet'] .small:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='sommet'] h1,
 :root[data-theme='sommet'] h2,
-:root[data-theme='sommet'] h3,
-:root[data-theme='sommet'] .identite-nom,
-:root[data-theme='sommet'] .xp-mince-texte,
+:root[data-theme='sommet'] h3:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='sommet'] .identite-nom:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='sommet'] .xp-mince-texte:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='sommet'] .quiz-question,
 :root[data-theme='sommet'] .timer-seconds {
   text-shadow: 0 1px 2px rgba(4, 8, 18, 0.9), 0 0 10px rgba(4, 8, 18, 0.8), 0 0 20px rgba(4, 8, 18, 0.55);
 }
 
 /* Les cartes et les réponses : de la glace sombre, un filet de givre. */
-:root[data-theme='sommet'] .card,
+:root[data-theme='sommet'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='sommet'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='sommet'] .onglets {
   background: rgba(14, 23, 40, 0.92);
@@ -201,7 +205,7 @@
   border: 1.5px solid #f2a65a;
 }
 
-:root[data-theme='sommet'] .niveau {
+:root[data-theme='sommet'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: linear-gradient(rgba(242, 166, 90, 0.14), rgba(242, 166, 90, 0.14)), #111b2e;
 }
 

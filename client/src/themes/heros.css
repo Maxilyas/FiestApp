@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Bangers';
@@ -80,16 +84,16 @@
   opacity: .45;
 }
 
-:root[data-theme='heros'] .av-argent::before {
+:root[data-theme='heros'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='heros'] .lu-nebuleuse {
+:root[data-theme='heros'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='heros'] .lu-scintille {
+:root[data-theme='heros'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -135,7 +139,7 @@
   z-index: 1;
 }
 
-:root[data-theme='heros'] .card,
+:root[data-theme='heros'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='heros'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='heros'] .onglets {
   background: #fff;
@@ -222,7 +226,7 @@
   text-shadow: 3px 3px 0 #141414;
 }
 
-:root[data-theme='heros'] .label {
+:root[data-theme='heros'] .label:where(:not(.carte-fond, .carte-fond *)) {
   color: #141414;
   font-weight: 700;
 }
@@ -283,7 +287,7 @@
   letter-spacing: .06em;
 }
 
-:root[data-theme='heros'] .niveau {
+:root[data-theme='heros'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: #1f5fe0;
   color: #fff;
   border: 2px solid #141414;

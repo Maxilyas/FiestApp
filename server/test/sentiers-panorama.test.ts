@@ -12,7 +12,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { BRANCHES, type CleDeBranche } from '../../shared/branches'
-import type { EpreuveDeSentier, EtatDesSentiers, VieDesSentiers } from '../../shared/sentiers'
+import { SEUIL_DES_PALIERS, type EpreuveDeSentier, type EtatDesSentiers, type VieDesSentiers } from '../../shared/sentiers'
+
+/** La règle du seuil, telle que les règles l'écrivent : celle du code, jamais un nombre recopié. */
+const REGLE_DU_SEUIL = new RegExp(`${SEUIL_DES_PALIERS} bonnes sur 16 valident un palier`)
 
 Object.assign(globalThis, {
   React,
@@ -99,20 +102,20 @@ test('qui débute lit les règles en entier — même avec des paliers repris de
   assert.match(debut, /Palier 3, puis le blaireau au palier 4/)
   assert.doesNotMatch(debut, /<details/)
   assert.doesNotMatch(debut, /Comment ça marche/)
-  for (const regle of [/12 bonnes sur 16/, /Un avatar tous les deux paliers/, /Un palier raté coûte une vie/, /le maître/]) assert.match(debut, regle)
+  for (const regle of [REGLE_DU_SEUIL, /Un avatar tous les deux paliers/, /Un palier raté coûte une vie/, /le maître/]) assert.match(debut, regle)
 
   // Six paliers repris des portraits d'avant, sans étoile : il n'a encore rien joué ici.
   const repris = await haut(etat({ foret: { paliers: 6, acquis: 6, etoiles: SANS_ETOILE } }))
   assert.match(repris, /Vers le loup/)
   assert.doesNotMatch(repris, /<details/)
-  assert.match(repris, /12 bonnes sur 16/)
+  assert.match(repris, REGLE_DU_SEUIL)
 })
 
 test('rien de commencé : les règles, les vies, et le geste qui mène aux sentiers', async () => {
   const neuf = await haut(etat({}, { jour: 12, reserve: 0 }))
   assert.match(neuf, /Les sentiers du savoir/)
   assert.equal(compte(neuf, /class="pano-etape/), 0, 'pas de panorama sans sentier')
-  for (const regle of [/12 bonnes sur 16/, /Un avatar tous les deux paliers/, /Un palier raté coûte une vie/, /le maître/]) assert.match(neuf, regle)
+  for (const regle of [REGLE_DU_SEUIL, /Un avatar tous les deux paliers/, /Un palier raté coûte une vie/, /le maître/]) assert.match(neuf, regle)
   assert.deepEqual([pleins(neuf), vides(neuf)], [12, 0])
   assert.match(neuf, /Choisir mon premier sentier/)
 })

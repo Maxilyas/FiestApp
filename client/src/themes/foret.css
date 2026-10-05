@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Merienda';
@@ -72,16 +76,16 @@
   opacity: .45;
 }
 
-:root[data-theme='foret'] .av-argent::before {
+:root[data-theme='foret'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
   background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
   box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
 }
 
-:root[data-theme='foret'] .lu-nebuleuse {
+:root[data-theme='foret'] .lu-nebuleuse:where(:not(.carte-fond, .carte-fond *)) {
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 
-:root[data-theme='foret'] .lu-scintille {
+:root[data-theme='foret'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) {
   filter: brightness(.6) sepia(1) saturate(2.5);
 }
 
@@ -125,7 +129,7 @@
   z-index: 1;
 }
 
-:root[data-theme='foret'] .card,
+:root[data-theme='foret'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='foret'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='foret'] .onglets {
   background: rgba(255, 250, 242, .93);

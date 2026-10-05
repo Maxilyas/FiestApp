@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Creepster';
@@ -106,7 +110,7 @@
   z-index: 1;
 }
 
-:root[data-theme='halloween'] .card,
+:root[data-theme='halloween'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='halloween'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='halloween'] .onglets {
   background: linear-gradient(180deg, rgba(44, 20, 52, .92), rgba(26, 12, 32, .92));
@@ -181,7 +185,7 @@
   content: '☾ ';
 }
 
-:root[data-theme='halloween'] .niveau {
+:root[data-theme='halloween'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: rgba(255, 140, 26, .12);
   border-color: rgba(255, 140, 26, .55);
   color: #ffb366;

@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Josefin Sans';
@@ -112,7 +116,7 @@
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='150' viewBox='0 0 360 150'><path d='M0 150V92L42 66L78 90L122 44L166 88L206 58L250 94L292 54L332 84L360 70V150Z' fill='%23132a47'/><path d='M122 44L110 58L119 55L125 62L131 54L138 58Z M206 58L196 70L204 67L210 72L215 66L220 70Z M292 54L281 67L289 64L295 70L300 63L306 67Z' fill='%23dcefff' opacity='.42'/><path d='M0 150V118L52 98L96 116L152 90L212 120L262 102L312 122L360 106V150Z' fill='%230f2139'/></svg>") center bottom / 100% auto no-repeat;
 }
 
-:root[data-theme='neige'] .card,
+:root[data-theme='neige'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='neige'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='neige'] .onglets {
   background: linear-gradient(180deg, rgba(30, 56, 90, .82), rgba(17, 34, 58, .82));
@@ -168,7 +172,7 @@
   content: '❄ ';
 }
 
-:root[data-theme='neige'] .niveau {
+:root[data-theme='neige'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: rgba(191, 230, 255, .12);
   border-color: rgba(191, 230, 255, .5);
   color: #dff3ff;

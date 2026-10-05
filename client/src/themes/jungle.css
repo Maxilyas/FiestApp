@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Lilita One';
@@ -105,7 +109,7 @@
   z-index: 1;
 }
 
-:root[data-theme='jungle'] .card,
+:root[data-theme='jungle'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='jungle'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='jungle'] .onglets {
   background: rgba(16, 44, 29, .88);
@@ -162,7 +166,7 @@
   content: '🐾 ';
 }
 
-:root[data-theme='jungle'] .niveau {
+:root[data-theme='jungle'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
   background: rgba(169, 224, 107, .14);
   border-color: rgba(169, 224, 107, .55);
   color: #c9f08f;

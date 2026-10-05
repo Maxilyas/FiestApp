@@ -7,7 +7,11 @@
    couches fixes (`body::before`, `body::after`, `#root::before`,
    `#root::after`), qui ne captent jamais un doigt et ne bougent que
    par `transform` et `opacity`. `design.test.ts` en mesure les
-   contrastes. */
+   contrastes.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
 
 @font-face {
   font-family: 'Exo 2';
@@ -107,7 +111,7 @@
   animation: cosmos-filante 7s ease-in infinite;
 }
 
-:root[data-theme='cosmos'] .card,
+:root[data-theme='cosmos'] .card:where(:not(.carte-fond, .carte-fond *)),
 :root[data-theme='cosmos'] .ans-btn:not(.correct):not(.chosen),
 :root[data-theme='cosmos'] .onglets {
   background: rgba(14, 20, 51, .86);

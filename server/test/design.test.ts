@@ -194,7 +194,9 @@ function jetons(ouverture: string): Map<string, string> {
   const corps = CSS.slice(debut, CSS.indexOf('\n}', debut))
   return new Map([...corps.matchAll(/^\s*(--[\w-]+|color-scheme):\s*([^;]+);/gm)].map(m => [m[1], m[2].trim()]))
 }
-const VELOURS = jetons(':root {')
+// Ses couleurs se posent aussi sur un fond de carte, qui reste nocturne sous
+// tous les thèmes ; ses formes et ses polices, sur la racine seule.
+const VELOURS = new Map([...jetons(':root, .carte-fond {'), ...jetons(':root {')])
 const IVOIRE = new Map([...VELOURS, ...jetons(":root[data-theme='ivoire'] {")])
 
 /** La couleur d'un jeton, `var(--autre)` suivi jusqu'à un #rrggbb. */
