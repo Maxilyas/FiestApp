@@ -1,13 +1,14 @@
 import { useId } from 'react'
 import type { Finition } from '../../../shared/profil'
-import { portrait as portraitDe, SEUILS_BRANCHE, type CleDeBranche } from '../../../shared/branches'
+import { portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import { Cercle } from './Cercle'
 import { dessinDuPortrait, useDessins } from './medaillons'
 import type { ImageDePortrait } from './portraits/outils'
 
 /**
  * Les portraits des branches : soixante-douze avatars peints, qui se
- * gagnent en répondant juste (`shared/branches.ts`).
+ * gagnent sur les sentiers du savoir de la campagne (`shared/branches.ts`,
+ * `shared/sentiers.ts`).
  *
  * Un style d'image par branche — l'affiche de voyage, l'anime, l'estampe… —
  * et un ingrédient de plus à chaque palier (« La montée en puissance ») : le
@@ -217,7 +218,7 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   const titre = verrouille ? `${p.nom} — pas encore gagné` : eclate ? `${p.nom}, éclaté` : p.nom
   const disque =
     `<radialGradient id="${u}_fond" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
-  const palier = SEUILS_BRANCHE.indexOf(p.seuil as (typeof SEUILS_BRANCHE)[number])
+  const palier = p.rang
   classes.push(`pt-palier-${palier + 1}`)
   const { defs, avant, scene, apres, rayon } = peint(dessin.image, palier, u, {
     verrouille: !!verrouille,

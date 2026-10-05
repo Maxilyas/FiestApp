@@ -22,6 +22,7 @@ import { ecussonsDe } from '../../../shared/ecussons'
 import { distinctions, type ProfilDAccueil } from '../../../shared/profil'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { profilDeCarte } from '../core/carte'
+import type { CampagneStore } from '../core/campagne'
 import { jourDe } from '../../../shared/jour'
 
 interface ProfileApiDeps {
@@ -45,6 +46,8 @@ interface ProfileApiDeps {
   jour: JourStore
   /** L'horloge du quiz du jour, que les tests avancent : la boutique y lit ses saisons. */
   maintenant: () => number
+  /** Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et celui qu'il avance. */
+  campagne: Pick<CampagneStore, 'accueilDesSentiers'>
 }
 
 /**
@@ -98,38 +101,53 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
     // Ses soirées viennent d'être relues : la boutique compte ses confettis
     // dessus. Une base qui se tait ôte la boutique, pas la page.
-    const boutique = await profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
-      console.error('[profil] boutique illisible :', e)
-      return undefined
-    })
+    // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
+    // qui se tait les ôte, pas la page.
+    const [boutique, sentiers] = await Promise.all([
+      profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
+        console.error('[profil] boutique illisible :', e)
+        return undefined
+      }),
+      profiles.paliersDe(rec.id).catch(e => {
+        console.error('[profil] sentiers illisibles :', e)
+        return undefined
+      }),
+    ])
     return {
       ...detail,
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories, categoriesDuJour),
       ...(boutique && { boutique }),
+      ...(sentiers && { sentiers }),
     }
   }
 
   /**
-   * L'accueil (`ProfilDAccueil`) : l'en-tête, sa carrière au quiz du jour et
-   * son solde, lus ensemble — un aller-retour, quand le détail en faisait
-   * quatre ou cinq l'un après l'autre. La nuit d'abord, comme le détail : le
-   * podium d'hier dans le niveau, le laurier sur le prénom.
+   * L'accueil (`ProfilDAccueil`) : l'en-tête, sa carrière au quiz du jour,
+   * son solde et ses sentiers, lus ensemble — un aller-retour, quand le
+   * détail en faisait quatre ou cinq l'un après l'autre. La nuit d'abord,
+   * comme le détail : le podium d'hier dans le niveau, le laurier sur le
+   * prénom.
    */
   const accueilDe = async (me: ProfileRec): Promise<ProfilDAccueil> => {
     const aujourdhui = jourDe(deps.maintenant())
     await deps.jour.clorePasses(aujourdhui)
     const rec = (await profiles.byId(me.id)) ?? me
-    const [jour, boutique] = await Promise.all([
+    const [jour, boutique, campagne] = await Promise.all([
       deps.jour.carriereDe(rec.id),
       // Une base qui se tait ôte le solde, pas la page.
       profiles.boutiqueDe(rec, aujourdhui).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
+      // Et les sentiers : le bouton de la campagne retrouve sa phrase de toujours.
+      deps.campagne.accueilDesSentiers(rec.id).catch(e => {
+        console.error('[profil] sentiers illisibles :', e)
+        return undefined
+      }),
     ])
-    return { ...profiles.toPublic(rec), jour, ...(boutique && { boutique }) }
+    return { ...profiles.toPublic(rec), jour, ...(boutique && { boutique }), ...(campagne && { campagne }) }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */

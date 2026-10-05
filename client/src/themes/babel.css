@@ -1,0 +1,218 @@
+/* ── Babel · gagné, jamais vendu ──
+   La bibliothèque infinie : le cuir des reliures, l’or des dorures, et la
+   lampe verte qui veille. Il se gagne aux douze paliers de maître des
+   sentiers du savoir (`shared/themes.ts`, `gagne`) : aucune boutique ne le
+   vend.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::after`), qui ne
+   captent jamais un doigt et ne bougent que par `transform` et `opacity`.
+   `design.test.ts` en mesure les contrastes. */
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/eb-garamond.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/themes/cinzel.woff2') format('woff2');
+}
+
+:root[data-theme='babel'] {
+  --bg: #15110d;
+  --bg-halo: #2a2016;
+  --bg-raised: #1e1812;
+  --ink: #f2e9d8;
+  --muted: #bba98d;
+  --accent: #c9a14a;
+  --accent-rgb: 201, 161, 74;
+  --accent-hover: #d6b465;
+  --accent-text: #dbb75e;
+  --accent-text-hover: #e7cb85;
+  --focus: #dbb75e;
+  --on-accent: #15110d;
+  --alert: #e4775f;
+  --alert-rgb: 228, 119, 95;
+  --alert-hover: #ea8f7b;
+  --on-alert: #15110d;
+  --surface: rgba(255, 244, 222, 0.045);
+  --surface-faint: rgba(255, 244, 222, 0.025);
+  --surface-strong: rgba(255, 244, 222, 0.08);
+  --track: rgba(255, 244, 222, 0.14);
+  --edge: rgba(201, 161, 74, 0.28);
+  --edge-strong: rgba(201, 161, 74, 0.62);
+  --accent-soft: rgba(201, 161, 74, 0.13);
+  --scroll-thumb: rgba(201, 161, 74, 0.34);
+  --backdrop: rgba(6, 4, 2, 0.74);
+  --shape-0: #e08a7e;
+  --shape-1: #dbb75e;
+  --shape-2: #a7a9dc;
+  --shape-3: #8cc6a0;
+  --bronze-text: #d8a072;
+  --argent-text: #d2cabb;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='babel'] {
+  --serif: 'EB Garamond', Garamond, Georgia, serif;
+  --radius: 12px;
+  font-synthesis: none;
+}
+
+/* Le noyer des rayonnages, sous la lampe verte d'une table de lecture. */
+:root[data-theme='babel'] body {
+  background-color: #15110d;
+  background-image:
+    radial-gradient(70% 38% at 18% 0%, rgba(120, 170, 120, 0.16), rgba(21, 17, 13, 0) 70%),
+    radial-gradient(90% 50% at 50% 0%, #2a2016, rgba(21, 17, 13, 0) 75%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 2px, transparent 2px 9px);
+  background-size: 100% 100vh, 100% 100vh, auto;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+/* Une rangée de reliures au bas de l'écran : cuir vert, bordeaux, bleu nuit,
+   des nerfs dorés — à mi-teinte, sous tout ce qui se lit. */
+:root[data-theme='babel'] body::before {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, #15110d 0%, rgba(21, 17, 13, 0) 40%),
+    repeating-linear-gradient(180deg, transparent 0 18px, rgba(219, 183, 94, 0.55) 18px 19px, transparent 19px 70px, rgba(219, 183, 94, 0.55) 70px 71px, transparent 71px),
+    repeating-linear-gradient(90deg, #2f4a34 0 22px, #15110d 22px 24px, #5a2230 24px 41px, #15110d 41px 43px, #233050 43px 66px, #15110d 66px 68px, #4a3420 68px 84px, #15110d 84px 86px, #3d2a46 86px 104px, #15110d 104px 106px);
+  opacity: 0.35;
+}
+
+/* La lampe : un halo vert qui respire, à peine. */
+:root[data-theme='babel'] body::after {
+  content: '';
+  position: fixed;
+  top: -20vh;
+  left: -30vw;
+  width: 90vw;
+  height: 60vh;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(closest-side, rgba(140, 198, 160, 0.14), rgba(140, 198, 160, 0));
+  animation: babel-lampe 6s ease-in-out infinite alternate;
+}
+
+/* La poussière qui danse dans la lumière de la lampe. */
+:root[data-theme='babel'] #root::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 70vw;
+  height: 50vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(1.4px 1.4px at 22% 30%, rgba(242, 233, 216, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 48% 18%, rgba(242, 233, 216, 0.45) 50%, transparent 51%),
+    radial-gradient(1.2px 1.2px at 64% 46%, rgba(242, 233, 216, 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 62%, rgba(242, 233, 216, 0.35) 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 78% 24%, rgba(242, 233, 216, 0.4) 50%, transparent 51%);
+  animation: babel-poussiere 14s ease-in-out infinite alternate;
+}
+
+:root[data-theme='babel'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Les cartes et les réponses : du cuir, sous un double filet doré, comme
+   le plat d'une reliure. */
+:root[data-theme='babel'] .card,
+:root[data-theme='babel'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='babel'] .onglets {
+  background: #1e1812;
+  border: 1px solid rgba(201, 161, 74, 0.5);
+  box-shadow: inset 0 0 0 3px #1e1812, inset 0 0 0 4px rgba(201, 161, 74, 0.22), 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme='babel'] .ans-btn {
+  font-weight: 500;
+}
+
+:root[data-theme='babel'] .ans-btn.chosen {
+  background: rgba(201, 161, 74, 0.13);
+  border: 1.5px solid #c9a14a;
+}
+
+:root[data-theme='babel'] .quiz-question {
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+:root[data-theme='babel'] h1,
+:root[data-theme='babel'] h2,
+:root[data-theme='babel'] h3 {
+  font-weight: 500;
+}
+
+/* Les surtitres en capitales romaines, comme au dos d'un volume. */
+:root[data-theme='babel'] .label {
+  font-family: Cinzel, 'EB Garamond', serif;
+  letter-spacing: 0.18em;
+}
+
+:root[data-theme='babel'] .timer-fill,
+:root[data-theme='babel'] .xp-fill {
+  background: linear-gradient(90deg, #8c6a26, #e7cb85, #8c6a26);
+}
+
+:root[data-theme='babel'] .result-banner .big,
+:root[data-theme='babel'] .fin-xp {
+  background: linear-gradient(100deg, #8c6a26, #e7cb85 50%, #8c6a26);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes babel-lampe {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes babel-poussiere {
+  from {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+  to {
+    transform: translate(10px, -14px);
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='babel'] body::after,
+  :root[data-theme='babel'] #root::after {
+    animation: none !important;
+  }
+}

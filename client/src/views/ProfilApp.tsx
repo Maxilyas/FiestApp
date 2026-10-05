@@ -360,7 +360,7 @@ export function ProfilApp() {
       <div className="player-shell accueil">
         {/* Soi-même en une ligne : un toucher mène au profil. */}
         <IdentiteLigne profil={profil} />
-        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} />
+        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} campagne={'campagne' in profil ? profil.campagne : undefined} />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />
         {/* Pas de carte « J'anime » ici : qui anime avec son profil a déjà
@@ -399,7 +399,21 @@ export function ProfilApp() {
           )}
         </header>
         {regionDAnnonce}
-        {pret ? <pret.PanneauBoutique profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} /> : enChemin}
+        {pret ? (
+          <pret.PanneauBoutique
+            profil={profil}
+            busy={busy}
+            enregistrer={enregistrer}
+            acheter={acheter}
+            onSolde={solde =>
+              setProfil(p =>
+                p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,
+              )
+            }
+          />
+        ) : (
+          enChemin
+        )}
         {erreur && <p className="error">{erreur}</p>}
         {menu('boutique')}
       </div>

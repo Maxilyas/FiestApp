@@ -23,6 +23,7 @@ import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
+import { reprendreLesPortraits } from './core/repriseDesPortraits'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques } from './core/pages'
@@ -447,8 +448,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.statsDuJour = id => jour.statsDuJour(id)
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
   profiles.laurierDe = id => jour.laureats().has(id)
-  // Ses bonnes réponses du quiz du jour ouvrent ses portraits, avec celles des soirées.
+  // Ses bonnes réponses du quiz du jour ouvraient ses portraits avec celles
+  // des soirées : la reprise les relit une fois (`core/repriseDesPortraits.ts`).
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
+  // Les sentiers du savoir ouvrent ses portraits et ses titres de maître ;
+  // ses vies achetées en confettis sont chez le profil, qui tient le solde.
+  profiles.paliersDesSentiers = id => campagne.paliersDe(id)
+  campagne.viesAchetees = id => profiles.viesAcheteesDe(id)
+  campagne.viesAcheteesDepuis = depuis => profiles.viesAcheteesDepuis(depuis)
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
@@ -484,6 +491,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
     console.log(
       `[profils] expérience recalculée au barème du jour : ${recalcul.soirees} soirées relues, ` +
         `${recalcul.lignes} lignes revalorisées, ${recalcul.profils} profils, en ${Date.now() - debutDuRecalcul} ms`,
+    )
+  }
+  // Les avatars du savoir se gagnent sur les sentiers : chacun garde ce qu'il
+  // avait, en paliers — une fois, après le recalcul, qui a relu les soirées
+  // dont il compte les bonnes réponses.
+  const reprise = await reprendreLesPortraits({ profiles, campagne }, !hadAccounts)
+  if (reprise && reprise.profils > 0) {
+    console.log(
+      `[sentiers] ${reprise.portraits} portrait(s) de ${reprise.profils} profil(s) repris en paliers` +
+        (reprise.otes > 0 ? ` ; ${reprise.otes} portrait(s) porté(s) qu'ils n'avaient plus, ôté(s)` : ''),
     )
   }
 
@@ -721,6 +738,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
+    // Ce que la routine du matin a déposé dans la base de la campagne : une
+    // routine qui ne tourne plus se voit à sa date.
+    mesurer('campagne', () => ({ campagne: campagne.santeDeLaBase() }))
     // La dernière tournée du rappel du soir : combien sont partis, combien
     // ont échoué — un service de push qui refuse tout se voit ici.
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))

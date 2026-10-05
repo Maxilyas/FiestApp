@@ -6,7 +6,8 @@
 //
 // Deux sont offerts à tous ; les autres s'achètent en confettis, rangés à
 // l'échelle de rareté de l'étagère (`shared/badges.ts`), du Commun au
-// Légendaire. Ici, la rareté ne se mesure pas : elle se décrète, avec le prix.
+// Légendaire — sauf Babel, qu'aucune boutique ne vend : il se gagne au
+// douzième palier de maître des sentiers du savoir (`gagne`). Ici, la rareté ne se mesure pas : elle se décrète, avec le prix.
 // Un cosmétique : aucun ne change un point de quiz (invariant 8). Acheté, un
 // thème se garde : une soirée effacée peut faire passer le solde sous zéro,
 // elle ne reprend jamais ce qu'il a payé.
@@ -60,6 +61,12 @@ export interface Theme {
   clair: boolean
   /** En boutique pendant sa saison seulement. Acheté, il se garde toute l'année. */
   saison?: PeriodeDeBoutique
+  /**
+   * Il ne se vend pas : il se gagne, aux paliers de maître des sentiers du
+   * savoir (`shared/sentiers.ts`) — combien, et la règle en quelques mots.
+   * Un palier de maître ne se perd jamais : gagné, il reste à lui.
+   */
+  gagne?: { maitres: number; regle: string }
 }
 
 /** Les trois saisons des légendaires gardent leurs dates : un Noël, pas deux. */
@@ -146,6 +153,15 @@ export const THEMES: readonly Theme[] = [
   { key: 'aurore', nom: 'Aurore boréale', rarete: 'legendaire', clair: false, humeur: 'Les voiles verts et violets ondulent au-dessus des sapins.' },
   { key: 'kintsugi', nom: 'Kintsugi', rarete: 'legendaire', clair: false, humeur: 'Céramique noire, fêlures réparées à l’or.' },
   { key: 'theatre', nom: 'Grand théâtre', rarete: 'legendaire', clair: false, humeur: 'Rideaux de velours, dorures, et le projecteur sur la question.' },
+  // ── Gagné, jamais vendu ── les douze sentiers gravis jusqu'au maître.
+  {
+    key: 'babel',
+    nom: 'Babel',
+    rarete: 'legendaire',
+    clair: false,
+    humeur: 'La bibliothèque infinie : le cuir des reliures, l’or des dorures, et la lampe verte qui veille.',
+    gagne: { maitres: 12, regle: 'les douze paliers de maître des sentiers du savoir' },
+  },
 ]
 
 const PAR_CLE = new Map(THEMES.map(t => [t.key, t]))
@@ -179,6 +195,8 @@ export function retourEnBoutique(t: Theme): string | null {
  * janvier.
  */
 export function enBoutique(t: Theme, jour: string): boolean {
+  // Un thème qui se gagne n'est jamais en boutique.
+  if (t.gagne) return false
   if (!t.saison) return true
   const quand = Number(jour.slice(5, 7)) * 100 + Number(jour.slice(8, 10))
   const debut = t.saison.debut[0] * 100 + t.saison.debut[1]

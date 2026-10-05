@@ -38,10 +38,10 @@ export function prochainSeuil(palier: 0 | 1 | 2 | 3): number | null {
 
 /**
  * Ses bonnes réponses par catégorie, sources additionnées — la carrière des
- * soirées, le quiz du jour. Les écussons et les avatars des branches
- * (`shared/branches.ts`) comptent ici, et nulle part ailleurs : l'écusson
- * d'argent et l'avatar de 75 bonnes réponses tombent ensemble, ou la page
- * du profil se contredirait.
+ * soirées, le quiz du jour. Les écussons comptent ici, et nulle part
+ * ailleurs. Les avatars des branches s'y ouvraient aussi, jusqu'aux sentiers
+ * du savoir (`shared/sentiers.ts`) : la reprise l'a relu une dernière fois
+ * (`core/repriseDesPortraits.ts`).
  */
 export function justesParCategorie(...sources: Readonly<Record<string, { justes: number }>>[]): Record<string, number> {
   return Object.fromEntries(CATEGORIES.map(c => [c, sources.reduce((n, s) => n + (s[c]?.justes ?? 0), 0)]))

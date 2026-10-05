@@ -29,8 +29,39 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(html, /ton record/, 'la place du record, sans rien décaler quand il arrive')
   assert.match(html, /aria-disabled="true"[^>]*>.*Commencer une série/, 'le bouton attend la série à reprendre')
   assert.doesNotMatch(html, /Chargement…/)
-  // Et c'est elle que la page rend tant que le serveur n'a pas répondu.
-  assert.match(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin \/>/)
+  // Et c'est elle que la page rend tant que le serveur n'a pas répondu —
+  // ouverte sur les sentiers (`#sentiers`), la place de leurs tuiles.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin \/>/)
+  assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
+})
+
+test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et ses vies, et y mène', async () => {
+  const module = await import(client('components/AccueilDesRoles.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const bouton = (campagne?: object) => {
+    const html = renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne }))
+    const a = html.split('<a ').find(x => x.includes('<b>La campagne</b>'))!
+    return { href: a.match(/href="([^"]*)"/)![1], detail: a.match(/<span class="gros-detail">([^<]*)<\/span>/)![1] }
+  }
+  // Rien de commencé, ou une base qui s'est tue : les deux modes, la série d'abord.
+  const deuxModes = { href: '/campagne', detail: 'Une série sans fin, ou les sentiers de tes avatars' }
+  assert.deepEqual(bouton(), deuxModes)
+  assert.deepEqual(bouton({ vies: 12, avance: null }), deuxModes)
+  assert.deepEqual(bouton({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false } }), {
+    href: '/campagne#sentier-foret',
+    detail: 'Vers le palier\u00a08 de la forêt · 11\u00a0vies',
+  })
+  assert.deepEqual(bouton({ vies: 1, avance: { branche: 'mythes', palier: 3, laissee: true } }), {
+    href: '/campagne#sentier-mythes',
+    detail: 'Ton épreuve t’attend\u00a0: palier\u00a03 des mythologies · 1\u00a0vie',
+  })
+  assert.deepEqual(bouton({ vies: 0, avance: { branche: 'espace', palier: 13, laissee: true } }), {
+    href: '/campagne#sentier-espace',
+    detail: 'Ton épreuve t’attend\u00a0: palier de maître de l’espace · plus de vie avant minuit',
+  })
+  // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
+  assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /campagne=\{'campagne' in profil \? profil\.campagne : undefined\}/)
 })
 
 test('l’accueil d’un profil télécharge en fond le code de la campagne et du quiz du jour', () => {

@@ -14,6 +14,8 @@ import {
   type Theme,
 } from '../../../shared/themes'
 import type { PublicProfileDetail } from '../../../shared/profil'
+import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, type VieDesSentiers } from '../../../shared/sentiers'
+import { api, motifDe } from '../api'
 import type { ChoixDuProfil } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
@@ -225,6 +227,15 @@ export function RayonDesThemes({
       <p className="muted small center">
         {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#style-theme">les porter</a>
       </p>
+      {/* Celui qui ne se vend pas se dit ici, sans se montrer : il se gagne. */}
+      {THEMES.filter(t => t.gagne && !possedes.has(t.key)).map(t => (
+        <p key={t.key} className="muted small center">
+          {`Le thème ${t.nom} ne se vend pas : il se gagne avec ${t.gagne!.regle}. `}
+          <a className="link-inline" href="/campagne#sentiers">
+            Les sentiers
+          </a>
+        </p>
+      ))}
     </>
   )
 }
@@ -353,5 +364,86 @@ export function DetailTheme({
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Le rayon des vies : des vies pour les sentiers du savoir (`shared/sentiers.ts`),
+ * au prix d'une vie (`PRIX_D_UNE_VIE`). Elles vont dans la réserve, servent
+ * après celles du jour et ne périment pas. Le même achat que l'écran « Plus
+ * de vies » des sentiers : c'est le serveur qui compte.
+ */
+export function RayonDesVies({ profil, onSolde }: { profil: PublicProfileDetail; onSolde: (solde: number) => void }) {
+  const [vies, setVies] = useState<VieDesSentiers | null>(null)
+  const [nombre, setNombre] = useState(1)
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const [achete, setAchete] = useState(0)
+  useEffect(() => {
+    let vivant = true
+    api.campagne.sentiers
+      .etat()
+      .then(e => vivant && setVies(e.vies))
+      .catch(() => {})
+    return () => {
+      vivant = false
+    }
+  }, [])
+  const solde = profil.boutique?.confettis.solde
+  if (solde === undefined) return null
+  const prix = nombre * (vies?.prix ?? PRIX_D_UNE_VIE)
+  const manque = Math.max(0, prix - solde)
+  const acheter = async () => {
+    if (busy || manque > 0) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const e = await api.campagne.sentiers.acheterVies(nombre)
+      setVies(e.vies)
+      setAchete(nombre)
+      setNombre(1)
+      if (e.confettis !== undefined) onSolde(e.confettis)
+    } catch (err) {
+      setErreur(motifDe(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="vies-achat rayon-vies" aria-labelledby="rayon-vies">
+      <div className="vies-ligne">
+        <b id="rayon-vies">Des vies pour les sentiers</b>
+        {vies && <span className="muted small">{`${vies.jour} aujourd’hui · ${vies.reserve} en réserve`}</span>}
+      </div>
+      <p className="muted small">Un palier raté coûte une vie. Celles-ci vont dans ta réserve : elles servent après celles du jour, et ne périment pas.</p>
+      <div className="vies-ligne">
+        <span className="vies-pas" role="group" aria-label="Combien de vies">
+          <button type="button" className="vies-pas-btn" aria-label="Une vie de moins" onClick={() => setNombre(n => Math.max(1, n - 1))}>
+            −
+          </button>
+          <output aria-live="polite">{nombre}</output>
+          <button type="button" className="vies-pas-btn" aria-label="Une vie de plus" onClick={() => setNombre(n => Math.min(VIES_PAR_ACHAT_MAX, n + 1))}>
+            +
+          </button>
+        </span>
+        <span className="muted small">{`${nombre} vie${nombre > 1 ? 's' : ''} · ${enConfettis(prix)}`}</span>
+      </div>
+      {erreur && (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      )}
+      <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || manque > 0 || undefined} onClick={() => void acheter()}>
+        {manque > 0 ? `Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''}` : 'Acheter'}
+      </button>
+      {achete > 0 && (
+        <p className="muted small" role="status">
+          {`${achete > 1 ? `${achete} vies ajoutées` : 'Une vie ajoutée'} à ta réserve. `}
+          <a className="link-inline" href="/campagne#sentiers">
+            Les sentiers
+          </a>
+        </p>
+      )}
+    </section>
   )
 }

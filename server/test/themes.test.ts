@@ -41,6 +41,7 @@ import {
   THEMES,
 } from '../../shared/themes'
 import { gainVide, releveVide } from '../../shared/profil'
+import { BRANCHES } from '../../shared/branches'
 
 // L'Éclat se tire une chance sur quarante, et le premier fait tomber un
 // palier : ici, le hasard ne décide de rien.
@@ -51,15 +52,21 @@ Object.assign(globalThis, { React })
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('trente thèmes, rangés à l’échelle de rareté : la Licorne est Rare, le Néon Épique', () => {
-  assert.equal(THEMES.length, 30)
-  assert.equal(new Set(THEMES.map(t => t.key)).size, 30, 'une clé par thème')
-  const de = (rarete: string) => THEMES.filter(t => t.rarete === rarete).map(t => t.key)
+test('trente thèmes en boutique, rangés à l’échelle de rareté — et Babel, qui se gagne', () => {
+  assert.equal(THEMES.length, 31)
+  assert.equal(new Set(THEMES.map(t => t.key)).size, 31, 'une clé par thème')
+  const de = (rarete: string) => THEMES.filter(t => t.rarete === rarete && !t.gagne).map(t => t.key)
   assert.deepEqual(de('offert'), ['velours', 'ivoire'], 'deux offerts à tous')
   assert.deepEqual(
     ['commune', 'peucommune', 'rare', 'epique', 'legendaire'].map(r => de(r).length),
     [5, 7, 8, 5, 3],
   )
+  // Babel ne se vend pas : il se gagne aux douze paliers de maître des sentiers.
+  assert.deepEqual(
+    THEMES.filter(t => t.gagne).map(t => [t.key, t.gagne!.maitres]),
+    [['babel', 12]],
+  )
+  assert.equal(enBoutique(theme('babel')!, '2026-09-29'), false, 'jamais en boutique')
   assert.equal(theme('licorne')?.rarete, 'rare')
   assert.equal(theme('neon')?.rarete, 'epique')
   assert.deepEqual(PRIX_DES_THEMES, { offert: 0, commune: 150, peucommune: 250, rare: 400, epique: 650, legendaire: 1000 })
@@ -691,4 +698,29 @@ test('seul devant son quiz, la soirée ne rapporte aucun confetti, et sa fin n�
     assert.ok(profil, 'Alice a un profil')
     assert.equal(profil.confettis, undefined)
     assert.deepEqual((await lire(banc, aliceCookie)).boutique.confettis, { gagnes: 0, depenses: 0, solde: 0 })
+  }))
+
+test('Babel ne se vend pas : il se gagne aux douze paliers de maître des sentiers, et se porte alors', () =>
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const alice = idDe(banc, 'alice')
+    const maitre = (n: number) =>
+      enBase(banc, db => {
+        const ligne = db.prepare(`INSERT OR REPLACE INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)`)
+        for (const b of BRANCHES.slice(0, n)) ligne.run(alice, b.key)
+      })
+
+    // Onze maîtres : ni à elle, ni à vendre — même avec de quoi le payer.
+    maitre(11)
+    soireeRangee(banc, alice, 'soiree-a-deux', 2000)
+    assert.ok(!(await lire(banc, cookie)).boutique.possedes.includes('babel'))
+    assert.equal((await acheter(banc, cookie, 'babel')).corps.error, 'Le thème Babel ne se vend pas : il se gagne avec les douze paliers de maître des sentiers du savoir')
+    assert.equal((await porter(banc, cookie, 'babel')).corps.error, 'Le thème Babel se gagne avec les douze paliers de maître des sentiers du savoir')
+
+    // Le douzième : il est à elle, et se porte, sans rien coûter.
+    maitre(12)
+    const moi = await lire(banc, cookie)
+    assert.ok(moi.boutique.possedes.includes('babel'))
+    assert.equal(moi.boutique.confettis.depenses, 0)
+    assert.equal((await porter(banc, cookie, 'babel')).corps.profile.theme, 'babel')
   }))

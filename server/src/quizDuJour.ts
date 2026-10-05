@@ -164,23 +164,27 @@ const empreinte = (jeton: string) => createHash('sha256').update(jeton).digest()
  * les requêtes forgées : son dépôt porte `X-Requested-With: quizz`, comme
  * toute écriture.
  */
-export function mountReserve(app: Express, deps: { jour: JourStore; jeton: string | null }) {
-  const attendu = deps.jeton ? empreinte(deps.jeton) : null
-  const depot = express.json({ limit: '256kb' })
-
-  /**
-   * La porte, AVANT de lire le corps : sans elle, n'importe qui faisait
-   * analyser un quart de mégaoctet de JSON au serveur. Les jetons se
-   * comparent par leur empreinte, en temps constant : ni le jeton ni sa
-   * longueur ne se devinent à la montre.
-   */
-  const porte = (req: Request, res: Response, next: NextFunction) => {
+/**
+ * La porte du jeton de la réserve, AVANT de lire le corps : sans elle,
+ * n'importe qui faisait analyser un quart de mégaoctet de JSON au serveur.
+ * Les jetons se comparent par leur empreinte, en temps constant : ni le
+ * jeton ni sa longueur ne se devinent à la montre. La même pour la base de
+ * la campagne (`mountBaseDeLaCampagne`) : une routine, un jeton.
+ */
+export function porteDeLaReserve(jeton: string | null) {
+  const attendu = jeton ? empreinte(jeton) : null
+  return (req: Request, res: Response, next: NextFunction) => {
     res.set('Cache-Control', 'no-store')
     if (!attendu) return res.status(404).json({ error: 'Le dépôt automatique n’est pas ouvert sur ce serveur' })
     const recu = /^Bearer\s+(\S+)$/i.exec(req.header('authorization') ?? '')?.[1] ?? ''
     if (!timingSafeEqual(empreinte(recu), attendu)) return res.status(401).json({ error: 'Jeton de la réserve refusé' })
     next()
   }
+}
+
+export function mountReserve(app: Express, deps: { jour: JourStore; jeton: string | null }) {
+  const depot = express.json({ limit: '256kb' })
+  const porte = porteDeLaReserve(deps.jeton)
 
   app.get(
     '/api/jour/reserve',

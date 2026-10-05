@@ -96,7 +96,7 @@ Enfin, dans *Settings*, coupe **Auto-Deploy** : la production ne se déploie qu'
 
 > Pourquoi pas **New → Blueprint** ? Il lirait `render.yaml` et réglerait tout d'un coup — mais pour les **deux** services que le fichier décrit, production et préproduction, chacun avec sa base Turso. Et le choix est sans retour : Render n'adopte jamais un service qu'un blueprint n'a pas créé, il en fabrique des copies (étape 7).
 
-Deux à trois minutes de construction, et Render t'affiche ton adresse publique. Chaque démarrage se dit au journal : `[serveur] prêt en … ms — au plus 150 invités par soirée` — si la ligne dit 500 et « MAX_PLAYERS non défini », la variable manque. Au premier démarrage, le serveur crée ton compte et, si la base contenait déjà des quiz ou des soirées d'avant les comptes, il te les rattache — regarde le journal : `[comptes] administrateur « … » créé`, et s'il y a lieu `[espaces] … lignes d'avant les comptes rattachées`. L'adresse apparaîtra automatiquement dans le QR code, suivie du nom de ton espace — rien à configurer de plus.
+Deux à trois minutes de construction, et Render t'affiche ton adresse publique. Chaque démarrage se dit au journal : `[serveur] prêt en … ms — au plus 150 invités par soirée` — si la ligne dit 500 et « MAX_PLAYERS non défini », la variable manque. Au premier démarrage, le serveur crée ton compte et, si la base contenait déjà des quiz ou des soirées d'avant les comptes, il te les rattache — regarde le journal : `[comptes] administrateur « … » créé`, et s'il y a lieu `[espaces] … lignes d'avant les comptes rattachées`. L'adresse apparaîtra automatiquement dans le QR code, suivie du nom de ton espace — rien à configurer de plus. Le premier démarrage d'une version qui connaît les sentiers du savoir rend à chacun ses avatars du savoir en paliers, une fois : `[sentiers] … portrait(s) de … profil(s) repris en paliers` (rien sur une base neuve).
 
 **Ensuite, tout de suite :** ouvre `https://TON-ADRESSE.onrender.com/connexion`, connecte-toi, va dans **Mon compte**, change ton mot de passe, puis retire `ADMIN_PASSWORD` des variables de Render. Le redémarrage qui suit se fait très bien sans.
 
@@ -274,6 +274,35 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
    ```
 
    Le serveur relit chaque description au catalogue des étiquettes : une clé inconnue la refuse entière, et la question attend la passe suivante. La consigne du quiz du jour, elle, apprend d'elle-même ce que disent les joueurs — la difficulté mesurée des dernières questions posées — dès qu'il y en a assez.
+
+6. **Agrandir la base de la campagne (par la même routine).** La campagne solo puise dans sa base à elle (`server/content/campagne/`), et les sentiers du savoir en consomment beaucoup, surtout des questions difficiles. Chaque matin, la routine y ajoute cinq questions par catégorie, soixante par jour, dans les sous-thèmes les moins fournis et aux difficultés qui manquent : le serveur fait la commande. Même jeton, même porte. Ajoute à la consigne de la routine, après le point 5, ce passage :
+
+   ```
+   6. Agrandis ensuite la base de la campagne. Travaille dans un dossier
+      hors du dépôt (mktemp -d) : rien ne s'écrit dans le dépôt.
+      curl -sS --max-time 120 "$FIESTAPP_URL/api/campagne/base" \
+        -H "Authorization: Bearer $RESERVE_TOKEN" > commande.json
+      La réponse donne aEcrire, parEnvoi et, pour chaque catégorie, aEcrire
+      et sa consigne. Si aEcrire vaut 0, dis-le en une ligne et arrête-toi.
+      Pour chaque catégorie dont aEcrire > 0, l'une après l'autre :
+      a. Écris sa consigne dans un fichier, puis confie-la à l'agent
+         redacteur-campagne : il écrit le lot dans lot.json et le vérifie
+         (depuis le dossier server du dépôt :
+         npx tsx scripts/base-campagne.ts verifier <dossier>/lot.json)
+         jusqu'à zéro refus.
+      b. Fais relire le lot par l'agent relecteur-campagne, sur sa fiche
+         (npx tsx scripts/base-campagne.ts fiche <dossier>/lot.json) ; il
+         écrit ses décisions dans <dossier>/decisions.json, que tu
+         appliques : npx tsx scripts/base-campagne.ts appliquer <dossier>/decisions.json
+      c. Envoie le lot relu, sous sa catégorie :
+         jq --arg c "<la catégorie>" '{categorie: $c, entrees: .}' lot.json > envoi.json
+         curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/campagne/base" \
+           -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
+           -H "Content-Type: application/json" --data @envoi.json
+      Termine par une ligne par catégorie : ajoutées, écartées, et pourquoi.
+   ```
+
+   Le serveur relit chaque question avec le juge de la base — une question peu sûre, une réponse dans l'intitulé, un leurre oublié : refusée —, écarte ce que la base, la réserve du quiz du jour ou un quiz livré a déjà, et ne prend pas plus de dix questions par catégorie et par jour. Le reste se range dans la base permanente et se joue tout de suite, sans déploiement. À `/admin#campagne`, « La routine du matin » montre ce qu'elle a déposé, et **Retirer** sort une question pour tous ; `/healthz` dit son dernier apport (`campagne.dernierApport`). Les deux agents du projet (`.claude/agents/`) écrivent et relisent sobrement : Sonnet pour écrire, Opus pour relire, à réflexion basse.
 
 La routine vise trois semaines d'avance, et cent questions au plus par passage. Si elle s'arrête — abonnement, jeton changé d'un seul côté, domaine plus permis —, `/admin` le montre : plus de dépôt, puis l'alerte sous sept jours d'avance. En attendant, **Copier la consigne pour une IA** : la même consigne, pour trente questions, à coller dans le chatbot de ton choix ; sa réponse se recolle dans **Coller une liste**.
 
@@ -495,6 +524,7 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 | `memoire`, `rssMo` | le tas, la mémoire du processus, les connexions ouvertes | 512 Mo sur l'offre gratuite |
 | `version` | le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT`) — la ligne `[serveur] prêt …` du journal le dit aussi | après un « Manual Deploy », que c'est bien le bon |
 | `jour.joursDAvance`, `jour.dernierApport` | l'avance de la réserve du quiz du jour, et l'heure du dernier apport (en millisecondes) — relues au plus toutes les dix minutes, absentes juste après un réveil | sous sept jours, la routine ne dépose plus (étape 8) |
+| `campagne.ajoutees`, `campagne.dernierApport` | ce que la routine du matin a déposé dans la base de la campagne, et quand (en millisecondes) — lus en mémoire | un dernier apport de plus d'un jour : la routine ne passe plus par son point 6 (étape 8) |
 
 Chaque réveil de l'offre gratuite remet ces compteurs à zéro : ce qui compte part aussi au journal. À chaque clôture, `[soirée] close en … ms : N invités, … ; la réserve d'inscriptions a vu K adresses`. Une salle de téléphones en 4G sous une ou deux adresses veut dire que le serveur lit celle du proxy de Render, pas celle du téléphone — et que toute la salle partage une seule réserve d'inscriptions. Au premier refus d'une adresse dans la minute, `[inscriptions] réserve épuisée pour l'adresse …` donne une empreinte (jamais l'adresse) et le nombre d'entrées de `x-forwarded-for`.
 

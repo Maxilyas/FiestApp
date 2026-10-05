@@ -1,5 +1,5 @@
 // Les fonds de carte : ce qu'on voit derrière sa carte quand quelqu'un touche
-// son nom. Quatre, gagnés sur la durée ; on ne porte que ceux qu'on a
+// son nom. Cinq, gagnés sur la durée ; on ne porte que ceux qu'on a
 // gagnés ; ils se relisent à chaque affichage — celui qu'on ne mérite plus
 // cesse de se voir, sans que rien ne soit réécrit, et revient avec ce qui
 // l'avait ouvert.
@@ -11,14 +11,15 @@ import { fondsOuverts } from '../../shared/fonds'
 import { xpDuNiveau } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
-test('quatre fonds, chacun sa règle', () => {
+test('cinq fonds, chacun sa règle', () => {
   const rien = { niveau: 1, jour: { joues: 0, victoires: 0 }, recompenses: new Map<string, number>() }
   assert.deepEqual(fondsOuverts(rien), [])
   assert.deepEqual(fondsOuverts({ ...rien, jour: { joues: 30, victoires: 0 } }), ['nuit'], 'trente jours de quiz du jour')
   assert.deepEqual(fondsOuverts({ ...rien, niveau: 20 }), ['aurore'], 'le niveau 20')
   assert.deepEqual(fondsOuverts({ ...rien, jour: { joues: 29, victoires: 10 } }), ['kintsugi'], 'dix victoires au quiz du jour')
   assert.deepEqual(fondsOuverts({ ...rien, recompenses: new Map([['hf:habitue:3', 1]]) }), ['theatre'], 'L’Habitué · Or')
-  assert.deepEqual(fondsOuverts({ ...rien, niveau: 19, jour: { joues: 29, victoires: 9 }, recompenses: new Map([['hf:habitue:2', 1]]) }), [])
+  assert.deepEqual(fondsOuverts({ ...rien, maitres: 3 }), ['cabinet'], 'trois paliers de maître des sentiers')
+  assert.deepEqual(fondsOuverts({ ...rien, niveau: 19, jour: { joues: 29, victoires: 9 }, recompenses: new Map([['hf:habitue:2', 1]]), maitres: 2 }), [])
 })
 
 async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
@@ -118,4 +119,31 @@ test('un fond se choisit parmi ceux qu’on a gagnés ; la carte le montre, et l
     assert.equal((await changer(null)).status, 200)
     assert.equal((await moi()).fond, null)
     assert.equal((await carte(alice.playerId)).fond, undefined)
+  }))
+
+test('le Cabinet de curiosités s’ouvre au troisième palier de maître, et se voit sur la carte', () =>
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const id = base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id)
+    const changer = (fond: string | null) =>
+      ecrire(banc.url, '/api/joueur/moi', { fond }, cookie, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+    const moi = async () =>
+      ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
+    /** Des sentiers gravis jusqu'au maître, posés comme la reprise les écrit. */
+    const maitre = (...branches: string[]) =>
+      base(banc, db => {
+        for (const b of branches) db.prepare(`INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)`).run(id, b)
+      })
+
+    maitre('foret', 'stade')
+    const refus = await changer('cabinet')
+    assert.equal(refus.status, 400)
+    assert.match(refus.corps.error, /se gagne d’abord : 3 paliers de maître des sentiers/)
+    maitre('oceans')
+    assert.deepEqual((await moi()).fonds, ['cabinet'])
+    assert.equal((await changer('cabinet')).status, 200)
+    assert.equal((await moi()).fond, 'cabinet')
+    const alice = await invite(banc.url, 'Alice', '', { cookie })
+    const carte = ((await (await fetch(`${banc.url}/s/${ADMIN.slug}/joueurs/${alice.playerId}.json`)).json()) as any).profil
+    assert.equal(carte.fond, 'cabinet')
   }))

@@ -65,7 +65,8 @@ import {
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { brancheDe, portrait, portraitsOuverts, type Savoir } from '../../../shared/branches'
+import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
+import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -395,12 +396,6 @@ export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: numbe
  */
 export const cleDeSoiree = (spaceId: string, soireeId: string): string => `${spaceId}#${soireeId}`
 
-/**
- * L'âge au-delà duquel le savoir gardé en mémoire se relit : une soirée
- * retirée de l'historique reprend ses portraits en une minute au plus.
- */
-const SAVOIR_FRAIS_MS = 60_000
-
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -453,10 +448,18 @@ export class ProfileStore {
 
   /**
    * Ses bonnes réponses du quiz du jour, par catégorie (`JourStore.categoriesDe`),
-   * branchées au démarrage comme `statsDuJour` : elles comptent pour les
-   * portraits des branches, avec celles des soirées.
+   * branchées au démarrage comme `statsDuJour` : elles ouvraient les
+   * portraits des branches avec celles des soirées, jusqu'aux sentiers — la
+   * reprise les relit une fois (`core/repriseDesPortraits.ts`).
    */
   categoriesDuJour?: (profileId: string) => Promise<Record<string, { justes: number }>>
+
+  /**
+   * Les paliers validés de chacun de ses sentiers (`CampagneStore.paliersDe`),
+   * branchés au démarrage : ils ouvrent ses portraits et ses titres de
+   * maître. Les sentiers vivent dans la campagne, qui dépend des profils.
+   */
+  paliersDesSentiers?: (profileId: string) => Promise<Paliers>
 
   /**
    * Ses bonnes réponses au quiz du jour, toutes parties comprises
@@ -478,18 +481,6 @@ export class ProfileStore {
    * deux fois les mêmes confettis.
    */
   private achatsEnCours = new Map<string, Promise<unknown>>()
-
-  /**
-   * Son savoir — ses bonnes réponses par catégorie —, tel que le dernier
-   * relu : le portrait qu'il porte se vérifie à chaque instantané de la
-   * salle, sans aller-retour. Il ne sert qu'à ça : porter un portrait,
-   * l'annoncer, se relisent toujours en base (`savoirDe`).
-   */
-  private savoirs = new Map<string, { savoir: Savoir; lu: number }>()
-  /** Les relectures en cours, une par profil : vingt instantanés d'affilée n'en lancent qu'une. */
-  private savoirsEnRoute = new Set<string>()
-  /** Refermé : plus de relecture en arrière-plan, elle tomberait sur une base close. */
-  private ferme = false
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -595,6 +586,19 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, theme)
          )`,
+        // Les vies des sentiers achetées en confettis, un achat par ligne,
+        // jamais effacée, avec ce qu'il a coûté : comme un thème, un achat ne
+        // se reprend pas, et un prix changé ne refait payer personne. Les
+        // vies qui restent se relisent dans le journal des épreuves
+        // (`CampagneStore.vies`).
+        `CREATE TABLE IF NOT EXISTS profile_vies (
+           id         TEXT PRIMARY KEY,
+           profile_id TEXT NOT NULL,
+           nombre     INTEGER NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_vies ON profile_vies(profile_id)',
       ],
       'write',
     )
@@ -783,15 +787,15 @@ export class ProfileStore {
     return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
   }
 
-  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers (`shared/fonds.ts`). */
-  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond[] {
-    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id) })
+  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers de carrière, ses maîtres des sentiers (`shared/fonds.ts`). */
+  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond[] {
+    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id), maitres })
   }
 
   /** Le fond qu'on voit derrière sa carte : celui qu'il a choisi, s'il le mérite encore. */
-  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond | null {
+  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond | null {
     const choisi = fond(p.fond)
-    return choisi && this.fondsOuvertsDe(p, jour).includes(choisi.key) ? choisi.key : null
+    return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -799,10 +803,16 @@ export class ProfileStore {
     return themeDuCatalogue(p.theme)?.key ?? null
   }
 
-  /** Les thèmes qu'il a achetés, et ce qu'il les a payés. */
-  private async achatsDe(profileId: string): Promise<Map<string, number>> {
-    const res = await this.client.execute({ sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] })
-    return new Map(res.rows.map(r => [String(r.theme), Number(r.prix)]))
+  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers : un seul aller-retour. */
+  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number }> {
+    const [themes, vies] = await this.client.batch(
+      [
+        { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
+      ],
+      'read',
+    )
+    return { themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])), vies: Number(vies.rows[0]?.prix ?? 0) }
   }
 
   /**
@@ -810,7 +820,8 @@ export class ProfileStore {
    * qu'il a achetés —, celui qu'il porte.
    *
    * Une bonne réponse, un confetti : ses soirées qui comptent
-   * (`confettisDeSoiree`) et son quiz du jour, moins ce qu'il a dépensé.
+   * (`confettisDeSoiree`), son quiz du jour et sa campagne, moins ce qu'il a
+   * dépensé — ses thèmes, ses vies des sentiers.
    * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
    * soirée retirée de l'historique emporte les siens. Le solde peut alors
    * passer sous zéro ; un achat, lui, ne se reprend jamais.
@@ -822,17 +833,22 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
   ): Promise<BoutiqueDuProfil> {
-    const [lues, achats, duJour, deCampagne] = await Promise.all([
+    const [lues, achats, duJour, deCampagne, maitres] = await Promise.all([
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
       this.justesDeCampagne?.(p.id) ?? 0,
+      // Ses maîtres ouvrent le thème qui se gagne ; muets, ils ne l'ôtent qu'à cette lecture.
+      this.paliersDe(p.id).then(
+        x => maitresDe(x).length,
+        () => 0,
+      ),
     ])
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
-    const depenses = [...achats.values()].reduce((n, prix) => n + prix, 0)
+    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
-      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.has(t.key)).map(t => t.key),
+      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.themes.has(t.key) || (t.gagne && maitres >= t.gagne.maitres)).map(t => t.key),
       porte: this.themePorte(p),
       jour,
     }
@@ -852,13 +868,13 @@ export class ProfileStore {
    * a pu dépenser entre-temps.
    */
   acheterTheme(id: string, cle: unknown, jour: string): Promise<ProfileRec> {
-    const avant = this.achatsEnCours.get(id) ?? Promise.resolve()
-    const achat = avant.then(async () => {
+    return this.unAchatALaFois(id, async () => {
       const rec = await this.require(id)
       const t = themeDuCatalogue(cle)
       if (!t) throw new Error('Ce thème n’existe pas')
       const boutique = await this.boutiqueDe(rec, jour)
       if (boutique.possedes.includes(t.key)) throw new Error('Ce thème est déjà à toi')
+      if (t.gagne) throw new Error(`Le thème ${t.nom} ne se vend pas : il se gagne avec ${t.gagne.regle}`)
       if (t.saison && !enBoutique(t, jour)) throw new Error(`Le thème ${t.nom} revient en boutique ${t.saison.periode}`)
       const prix = prixDe(t)
       const manque = prix - boutique.confettis.solde
@@ -876,8 +892,51 @@ export class ProfileStore {
       rec.theme = t.key
       return rec
     })
-    // Le suivant attend celui-ci, qu'il réussisse ou non ; le dernier parti
-    // libère la place.
+  }
+
+  /**
+   * Achète des vies pour les sentiers du savoir, au prix du jour
+   * (`PRIX_D_UNE_VIE`) : elles attendent dans sa réserve, après celles du
+   * jour, et ne périment pas. Refusé en clair s'il manque des confettis — un
+   * autre onglet a pu dépenser entre-temps.
+   */
+  acheterVies(id: string, nombre: unknown, jour: string): Promise<number> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      const n = typeof nombre === 'number' && Number.isInteger(nombre) ? nombre : NaN
+      if (!(n >= 1 && n <= VIES_PAR_ACHAT_MAX)) throw new Error(`Choisis de 1 à ${VIES_PAR_ACHAT_MAX} vies`)
+      const prix = n * PRIX_D_UNE_VIE
+      const manque = prix - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${n > 1 ? `${n} vies` : 'une vie'}`)
+      await this.client.execute({
+        sql: 'INSERT INTO profile_vies (id, profile_id, nombre, prix, created_at) VALUES (?, ?, ?, ?, ?)',
+        args: [randomUUID(), id, n, prix, Date.now()],
+      })
+      return n
+    })
+  }
+
+  /** Toutes les vies qu'il a achetées : la campagne en retire celles qu'il a prises (`viesDe`). */
+  async viesAcheteesDe(profileId: string): Promise<number> {
+    const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(nombre), 0) AS n FROM profile_vies WHERE profile_id = ?', args: [profileId] })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /** Les vies achetées depuis cet instant, tous profils : l'administration dit si la boutique sert. */
+  async viesAcheteesDepuis(depuis: number): Promise<number> {
+    const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(nombre), 0) AS n FROM profile_vies WHERE created_at > ?', args: [depuis] })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Un achat à la fois par profil : deux partis ensemble — deux onglets, un
+   * double toucher — liraient le même solde, et dépenseraient deux fois les
+   * mêmes confettis. Le suivant attend celui-ci, qu'il réussisse ou non ; le
+   * dernier parti libère la place.
+   */
+  private unAchatALaFois<T>(id: string, travail: () => Promise<T>): Promise<T> {
+    const avant = this.achatsEnCours.get(id) ?? Promise.resolve()
+    const achat = avant.then(travail)
     const fin = achat.catch(() => {})
     this.achatsEnCours.set(id, fin)
     void fin.then(() => {
@@ -1011,53 +1070,32 @@ export class ProfileStore {
   }
 
   /**
-   * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire, un
-   * Divin ou un portrait rendu avec sa soirée (exclusion, essai effacé) ne
-   * se porte plus.
+   * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire ou un
+   * Divin rendu avec sa soirée (exclusion, essai effacé) ne se porte plus.
+   * Un portrait, lui, s'est vérifié quand il l'a pris (`update`) : un palier
+   * validé ne se reprend jamais — ni soirée retirée, ni épreuve effacée.
    */
   legendairePorte(p: ProfileRec): string | null {
     if (!p.legendaire) return null
-    if (portrait(p.legendaire)) return this.portraitEncoreASoi(p.id, p.legendaire) ? p.legendaire : null
+    if (portrait(p.legendaire)) return p.legendaire
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
   }
 
   /**
-   * Ce portrait lui revient-il encore ? Lu dans le savoir gardé en mémoire,
-   * que la lecture relance en arrière-plan quand il a plus d'une minute :
-   * l'instantané part sans attendre la base. Tant qu'il n'a jamais été lu, le
-   * portrait se montre — il a été vérifié quand on l'a pris (`update`), et
-   * seule une soirée retirée de l'historique peut le reprendre : la salle le
-   * voit alors une minute de trop, pas une soirée entière.
-   */
-  private portraitEncoreASoi(profileId: string, cle: string): boolean {
-    const garde = this.savoirs.get(profileId)
-    if (!garde || Date.now() - garde.lu > SAVOIR_FRAIS_MS) this.relireSavoir(profileId)
-    return !garde || portraitsOuverts(garde.savoir).includes(cle)
-  }
-
-  /** Relit son savoir en arrière-plan, une fois à la fois ; une base muette garde l'ancien. */
-  private relireSavoir(profileId: string): void {
-    if (this.ferme || this.savoirsEnRoute.has(profileId)) return
-    this.savoirsEnRoute.add(profileId)
-    this.savoirDe(profileId)
-      .catch(e => {
-        if (!this.ferme) console.error('[profil] savoir non relu :', e)
-      })
-      .finally(() => this.savoirsEnRoute.delete(profileId))
-  }
-
-  /**
    * Son savoir, relu en base : ses bonnes réponses par catégorie, soirées
-   * qui comptent et quiz du jour ensemble — ce qui fait ses écussons, et
-   * ouvre ses portraits (`shared/branches.ts`). Toujours frais : c'est lui
-   * qui décide de ce qu'on peut porter, et de ce qu'une soirée annonce.
+   * qui comptent et quiz du jour ensemble — ce qui fait ses écussons, et ce
+   * qui ouvrait ses portraits avant les sentiers. La reprise le relit une
+   * fois (`core/repriseDesPortraits.ts`).
    */
-  async savoirDe(profileId: string): Promise<Savoir> {
+  async savoirDe(profileId: string): Promise<Record<string, number>> {
     const [soirees, jour] = await Promise.all([this.historiqueOf(profileId), this.categoriesDuJour?.(profileId) ?? {}])
-    const savoir = justesParCategorie(carriereDe(soirees, { eclats: 0, niveau: 1 }).categories, jour)
-    this.savoirs.set(profileId, { savoir, lu: Date.now() })
-    return savoir
+    return justesParCategorie(carriereDe(soirees, { eclats: 0, niveau: 1 }).categories, jour)
+  }
+
+  /** Les paliers validés de ses sentiers : ce qui ouvre ses portraits et ses titres de maître. Aucun tant que la campagne n'est pas branchée. */
+  async paliersDe(profileId: string): Promise<Paliers> {
+    return (await this.paliersDesSentiers?.(profileId)) ?? {}
   }
 
   /**
@@ -1080,9 +1118,15 @@ export class ProfileStore {
     return this.peutPorter(p, p.avatar) ? p.avatar : DEFAULT_AVATAR
   }
 
-  /** Le titre qu'il porte, s'il l'a encore : une soirée retirée emporte son haut fait, et le titre avec. */
+  /**
+   * Le titre qu'il porte, s'il l'a encore : une soirée retirée emporte son
+   * haut fait, et le titre avec. Celui d'un maître s'est vérifié quand il
+   * l'a pris (`update`) : son palier ne se reprend jamais.
+   */
   titrePorte(p: ProfileRec): string | null {
-    return p.titre && hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
+    if (!p.titre) return null
+    if (brancheDuMaitre(p.titre)) return p.titre
+    return hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
   }
 
   /**
@@ -1166,7 +1210,17 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    const jour = await this.statsDuJourDe(p.id)
+    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour, sans attendre l'un l'autre.
+    const [jour, maitres] = await Promise.all([
+      this.statsDuJourDe(p.id),
+      this.paliersDe(p.id).then(
+        x => maitresDe(x).length,
+        e => {
+          console.error('[profil] sentiers illisibles pour ses fonds :', e)
+          return 0
+        },
+      ),
+    ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
       niveau: this.niveauOf(p),
@@ -1193,8 +1247,8 @@ export class ProfileStore {
       fiche: ficheDe(carriere),
       categories: carriere.categories,
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
-      fond: this.fondPorte(p, jour),
-      fonds: this.fondsOuvertsDe(p, jour),
+      fond: this.fondPorte(p, jour, maitres),
+      fonds: this.fondsOuvertsDe(p, jour, maitres),
     }
   }
 
@@ -1465,8 +1519,8 @@ export class ProfileStore {
       } else if (divin(patch.legendaire)) throw new Error('Ce Divin n’est pas encore descendu sur toi')
       else if (portrait(patch.legendaire)) {
         const p = portrait(patch.legendaire)!
-        if (!portraitsOuverts(await this.savoirDe(id)).includes(p.key)) {
-          throw new Error(`Ce portrait se gagne à ${p.seuil} bonnes réponses en ${brancheDe(p).categorie}`)
+        if (!portraitsOuverts(await this.paliersDe(id)).includes(p.key)) {
+          throw new Error(`Ce portrait se gagne au palier ${p.palier} du sentier ${deLaBranche(brancheDe(p))}`)
         }
         champs.legendaire = p.key
       } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
@@ -1474,8 +1528,14 @@ export class ProfileStore {
     // Un titre, une vitrine : seulement ce qu'il a gagné. La page ne propose
     // rien d'autre ; seul un appel forgé l'enverrait.
     if (patch.titre !== undefined) {
+      const maitre = brancheDuMaitre(patch.titre)
       if (patch.titre === null || patch.titre === '') champs.titre = null
-      else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
+      else if (maitre) {
+        if (!maitresDe(await this.paliersDe(id)).includes(maitre.key)) {
+          throw new Error(`Ce titre se gagne au palier de maître du sentier ${deLaBranche(maitre)}`)
+        }
+        champs.titre = String(patch.titre)
+      } else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
       else throw new Error('Ce titre se gagne d’abord : c’est le nom d’un de tes hauts faits')
     }
     if (patch.vitrine !== undefined) {
@@ -1495,7 +1555,8 @@ export class ProfileStore {
       else {
         const choisi = fond(patch.fond)
         if (!choisi) throw new Error('Ce fond de carte n’existe pas')
-        if (!this.fondsOuvertsDe(rec, await this.statsDuJourDe(id)).includes(choisi.key)) {
+        const [jour, paliers] = await Promise.all([this.statsDuJourDe(id), this.paliersDe(id)])
+        if (!this.fondsOuvertsDe(rec, jour, maitresDe(paliers).length).includes(choisi.key)) {
           throw new Error(`Ce fond se gagne d’abord : ${choisi.regle}`)
         }
         champs.fond = choisi.key
@@ -1509,7 +1570,11 @@ export class ProfileStore {
       if (!vide && !choisi) throw new Error('Ce thème n’existe pas')
       if (!choisi || choisi.key === 'velours') champs.theme = null
       else {
-        if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).has(choisi.key)) {
+        if (choisi.gagne) {
+          if (maitresDe(await this.paliersDe(id)).length < choisi.gagne.maitres) {
+            throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
+          }
+        } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
           throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
         }
         champs.theme = choisi.key
@@ -2119,9 +2184,6 @@ export class ProfileStore {
    */
   private async recompterRecompenses(profileIds: string[]): Promise<void> {
     if (profileIds.length === 0) return
-    // Une soirée retirée, une exclusion : le savoir gardé se relit tout de
-    // suite, plutôt qu'au bout de sa minute.
-    for (const id of profileIds) if (this.savoirs.has(id)) this.relireSavoir(id)
     const res = await this.client.execute({
       sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges
             WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id, badge`,
@@ -2242,7 +2304,7 @@ export class ProfileStore {
   async supprimer(profileId: string): Promise<void> {
     await this.client.batch(
       [
-        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats'].map(table => ({
+        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies'].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
         })),
@@ -2251,7 +2313,7 @@ export class ProfileStore {
       'write',
     )
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
-    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.savoirs, this.achatsEnCours]) {
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.achatsEnCours]) {
       carte.delete(profileId)
     }
     // La rareté des hauts faits se compte sur la population : elle a changé.
@@ -2507,7 +2569,6 @@ export class ProfileStore {
    * laissait une de plus derrière lui.
    */
   close() {
-    this.ferme = true
     this.client.close()
   }
 
@@ -2532,13 +2593,6 @@ export class ProfileStore {
       this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
       this.eteints.set(rec.id, new Set(eclats.rows.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
       await this.recompterRecompenses([rec.id])
-      // Un portrait porté se vérifie sur son savoir : lu tout de suite, la
-      // première salle où il entre le voit juste, sans attendre une
-      // relecture. Une base qui se tait n'empêche pas le profil de venir : le
-      // portrait se montre, et la relecture suivante tranchera.
-      if (portrait(rec.legendaire) && this.categoriesDuJour) {
-        await this.savoirDe(rec.id).catch(e => console.error('[profil] savoir non relu :', e))
-      }
     }
     return rec.disabledAt ? null : rec
   }

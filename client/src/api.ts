@@ -1,4 +1,5 @@
 import type { AdminDeLaCampagne, CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
+import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -353,6 +354,20 @@ export const api = {
     /** « Signaler une erreur » sur une question déjà jouée de la série. */
     signaler: (serie: string, index: number, texte: string) =>
       req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
+    /**
+     * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une
+     * série d'un autre mode — sa correction et ses signalements passent par
+     * celles de la série.
+     */
+    sentiers: {
+      etat: () => req<EtatDesSentiers>('/api/campagne/sentiers'),
+      commencer: (branche: string, palier: number) =>
+        req<EpreuveDeSentier>('/api/campagne/sentiers/epreuve', { method: 'POST', body: JSON.stringify({ branche, palier }) }),
+      repondre: (epreuve: string, index: number, choix: number) =>
+        req<ReponseDEpreuve>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
+      abandonner: (epreuve: string) => req<EtatDesSentiers>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
+      acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
+    },
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
@@ -444,6 +459,8 @@ export const api = {
     campagne: () => req<AdminDeLaCampagne>('/api/admin/campagne'),
     garderDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/garder', { method: 'POST', body: JSON.stringify({ questionId }) }),
     retirerDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/retirer', { method: 'POST', body: JSON.stringify({ questionId }) }),
+    /** Les sentiers, palier par palier : toutes les branches, ou une seule. */
+    sentiers: (branche?: string) => req<AdminDesSentiers>(`/api/admin/campagne/sentiers${branche ? `?branche=${encodeURIComponent(branche)}` : ''}`),
   },
 }
 

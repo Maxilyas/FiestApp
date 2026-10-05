@@ -1,5 +1,5 @@
 import type { CampagneStore } from './core/campagne'
-import { mountCampagne, mountCampagneAdmin } from './campagne'
+import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
@@ -109,6 +109,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     profilChange: deps.profilChange,
     jour: deps.jour,
     maintenant: deps.maintenant,
+    campagne: deps.campagne,
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })
@@ -116,6 +117,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
+  // La base de la campagne aussi, par la même routine et le même jeton.
+  mountBaseDeLaCampagne(app, { campagne: deps.campagne, jeton: deps.jetonDeLaReserve })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.

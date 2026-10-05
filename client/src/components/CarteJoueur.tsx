@@ -3,7 +3,8 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
+import { ceQuIlAFallu } from '../../../shared/hautsfaits'
+import { nomDuTitre } from '../../../shared/sentiers'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, sortesDesAvatars, useDessins } from './medaillons'
@@ -130,8 +131,8 @@ export function CarteJoueur({
                     {carte.nom}
                     <Niveau niveau={p?.niveau} big />
                   </h3>
-                  {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
-                  {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
+                  {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
+                  {nomDuTitre(p?.titre) && <p className="titre-porte">{espacesFines(`« ${nomDuTitre(p?.titre)} »`)}</p>}
                   {carte.laurier && (
                     <p className="carte-laurier">
                       <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier

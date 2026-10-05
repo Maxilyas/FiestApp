@@ -143,6 +143,38 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   return { question: { id, texte, reponses, bonne, anecdote, meta, empreinte: empreinteDe(texte) } }
 }
 
+/**
+ * Une question telle qu'on la range : la question d'abord, ses métadonnées
+ * ensuite, dans l'ordre des fichiers de la base — une relecture de PR s'y
+ * fait question par question. Les dépôts de la routine (`campagne_ajouts`)
+ * gardent la même forme : on les rapatrierait dans le dépôt sans la changer.
+ */
+export function entreeDeLaBase(q: QuestionDeLaBase): Record<string, unknown> {
+  const m = q.meta
+  return {
+    id: q.id,
+    texte: q.texte,
+    reponses: q.reponses,
+    bonne: q.bonne,
+    anecdote: q.anecdote,
+    categorie: m.categorie,
+    sousTheme: m.sousTheme,
+    etiquettes: m.etiquettes,
+    difficulte: m.difficulte,
+    ageMin: m.ageMin,
+    date: m.date,
+    entites: m.entites,
+    portee: m.portee,
+    valeur: m.valeur,
+    leurres: m.leurres,
+    dureeDeVie: m.dureeDeVie,
+    explication: m.explication,
+    source: m.source,
+    confiance: m.confiance,
+    aRelire: m.aRelire,
+  }
+}
+
 /** Le nom du fichier d'une catégorie : « Cinéma & séries » → cinema-series.json. */
 export function fichierDeCategorie(categorie: string): string {
   return `${sansAccent(categorie)

@@ -413,8 +413,6 @@ export interface PartieDuJour {
   paliers?: PalierTombe[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
-  /** La partie finie : les portraits des branches que ses bonnes réponses du jour ont ouverts (`shared/branches.ts`). */
-  portraits?: string[]
   /**
    * La partie finie : son niveau avant elle, et après — ce qu'elle a ouvert
    * se dit comme en fin de soirée (« Niveau 2 ! », la finition, l'emoji de
