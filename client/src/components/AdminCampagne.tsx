@@ -4,9 +4,20 @@ import { quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
-import { NIVEAUX, type AdminDeLaCampagne, type AjoutsDeLaRoutine as Ajouts, type Niveau, type SignalementDeCampagne } from '../../../shared/campagne'
-import { BRANCHES } from '../../../shared/branches'
-import { PALIERS, QUESTIONS_PAR_EPREUVE, TAUX_DU_CALIBRAGE, lectureDuPalier, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
+import { MAX_ANECDOTE, MAX_TEXT } from '../../../shared/library'
+import {
+  MAX_REPONSE,
+  NIVEAUX,
+  bonneReponseChange,
+  type AdminDeLaCampagne,
+  type AjoutsDeLaRoutine as Ajouts,
+  type CorrectionDeQuestion,
+  type Niveau,
+  type RapportDeSignalement,
+  type SignalementDeCampagne,
+} from '../../../shared/campagne'
+import { BRANCHES, branche as brancheParCle, deLaBranche } from '../../../shared/branches'
+import { PALIERS, PALIER_DU_MAITRE, QUESTIONS_PAR_EPREUVE, TAUX_DU_CALIBRAGE, lectureDuPalier, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
 import { texteDuMelangeCourt } from './melanges'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
@@ -15,11 +26,11 @@ const nomDuSousTheme = (categorie: string, cle: string) =>
 
 /**
  * La campagne, côté administrateur (`/admin#campagne`) : sa base — combien
- * de questions, par catégorie —, et les questions que les joueurs signalent.
- * « Retirer » la sort de la campagne pour tous ; « Garder » referme les
- * signalements. Corriger une question se fait dans la base du dépôt
- * (`server/scripts/base-campagne.ts`) : elle revient alors sous un nouvel
- * identifiant.
+ * de questions, par catégorie —, et les questions que les joueurs signalent,
+ * avec qui les signale et ce qu'il y a répondu. « Corriger » la reprend ici
+ * même — sous son identifiant, ou sous un neuf quand la bonne réponse change
+ * (`bonneReponseChange`) ; « Retirer » la sort de la campagne pour tous ;
+ * « Garder » referme les signalements.
  */
 export function AdminCampagne() {
   const [etat, setEtat] = useState<AdminDeLaCampagne | null>(null)
@@ -121,7 +132,69 @@ export function AdminCampagne() {
   )
 }
 
-function Signalement({ s, occupe, faire }: { s: SignalementDeCampagne; occupe: boolean; faire: (appel: () => Promise<unknown>, merci: string) => Promise<void> }) {
+/** Un geste de l'écran : l'appel, puis le merci — la liste se relit. */
+type Faire = (appel: () => Promise<unknown>, merci: string) => Promise<void>
+
+/** Une question au singulier, comme les marches des sentiers : « une question moyenne à l'usage ». */
+const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+const ORIGINES: Record<SignalementDeCampagne['origine'], string> = { depot: 'base du dépôt', routine: 'routine du matin', correction: 'née d’une correction' }
+
+/**
+ * Ce que toutes les réponses de campagne disent de la question, à côté de
+ * ce que l'écriture en estimait : un « elle est trop dure » se juge là. Puis
+ * d'où elle vient, et son identifiant — c'est lui qu'on cherche dans les
+ * fichiers du dépôt.
+ */
+function lectureDeLaQuestion(s: SignalementDeCampagne): string {
+  const { justes, total } = s.mesure
+  return [
+    total > 0 ? `${pluriel(total, 'réponse')} en campagne, ${pc(justes / total)} justes` : 'aucune réponse en campagne pour l’instant',
+    `estimée ${s.difficulte} sur 5 à l’écriture, ${QUESTION_DE_NIVEAU[s.niveau]} à l’usage`,
+    ORIGINES[s.origine] + (s.corrigeeLe !== null ? `, corrigée ${quand(s.corrigeeLe)}` : ''),
+    s.questionId,
+  ].join(' · ')
+}
+
+/** Où il l'a jouée : « en série », « sentier des mythologies, palier 3 », « défi de la semaine ». */
+function ouDuRapport(r: RapportDeSignalement): string {
+  if (r.ou === 'defi') return 'défi de la semaine'
+  if (r.ou === 'serie') return 'en série'
+  const b = brancheParCle(r.branche)
+  const palier = r.palier === PALIER_DU_MAITRE ? 'palier de maître' : r.palier !== undefined ? `palier ${r.palier}` : null
+  return [b ? `sentier ${deLaBranche(b)}` : 'sentier', palier].filter(Boolean).join(', ')
+}
+
+/** Ce qu'il a répondu, tel qu'il l'a lu. */
+function saReponse(r: RapportDeSignalement): string | null {
+  if (r.juste === true) return 'a trouvé'
+  if (r.juste === false) return r.reponse !== null ? `a répondu « ${r.reponse} »` : 'a répondu faux'
+  return null
+}
+
+/** Un joueur qui signale : qui, où, ce qu'il a répondu, quand — puis ce qu'il en dit. */
+function Rapport({ r }: { r: RapportDeSignalement }) {
+  const details = [
+    ouDuRapport(r),
+    saReponse(r),
+    r.traiteLe === null ? quand(r.le) : `${quand(r.le)}, relu ${quand(r.traiteLe)}`,
+    r.versionDAvant && 'a lu la version d’avant une correction',
+  ].filter(Boolean)
+  return (
+    <li>
+      <span>
+        <b>{r.prenom ?? 'Profil supprimé'}</b>
+        {r.login && <span className="muted small"> @{r.login}</span>}
+      </span>
+      <span className="muted small">{details.join(' · ')}</span>
+      <span>« {r.texte} »</span>
+    </li>
+  )
+}
+
+function Signalement({ s, occupe, faire }: { s: SignalementDeCampagne; occupe: boolean; faire: Faire }) {
+  const [corrige, setCorrige] = useState(false)
+  const ouverts = s.rapports.filter(r => r.traiteLe === null)
+  const relus = s.rapports.filter(r => r.traiteLe !== null)
   return (
     <div className="signalement">
       <p>
@@ -139,18 +212,133 @@ function Signalement({ s, occupe, faire }: { s: SignalementDeCampagne; occupe: b
         ))}
       </p>
       {s.anecdote && <p className="muted small">{s.anecdote}</p>}
-      <p className="muted small">
-        {s.joueurs} joueur{s.joueurs > 1 ? 's' : ''} : {s.textes.map(t => `« ${t} »`).join(' · ')}
+      <p className="muted small">{lectureDeLaQuestion(s)}</p>
+      <ul className="signalement-rapports" aria-label={`${pluriel(s.joueurs, 'joueur')} la signale${s.joueurs > 1 ? 'nt' : ''}`}>
+        {ouverts.map(r => (
+          <Rapport key={r.profileId} r={r} />
+        ))}
+      </ul>
+      {relus.length > 0 && (
+        <details className="signalement-relus">
+          <summary className="muted small">{`${pluriel(relus.length, 'signalement')} déjà relu${relus.length > 1 ? 's' : ''}`}</summary>
+          <ul className="signalement-rapports">
+            {relus.map(r => (
+              <Rapport key={r.profileId} r={r} />
+            ))}
+          </ul>
+        </details>
+      )}
+      {s.retiree ? (
+        <>
+          <p className="muted small">Déjà retirée de la campagne : on la signale depuis une série tirée avant. Il ne reste qu’à refermer.</p>
+          <div className="row">
+            <button
+              className="btn btn-small btn-ghost"
+              disabled={occupe}
+              aria-label={`Refermer « ${s.texte} »`}
+              onClick={() => void faire(() => api.admin.garderDeLaCampagne(s.questionId), 'Refermé')}
+            >
+              Refermer
+            </button>
+          </div>
+        </>
+      ) : corrige ? (
+        <CorrigerLaQuestion s={s} occupe={occupe} faire={faire} onAnnuler={() => setCorrige(false)} />
+      ) : (
+        <div className="row">
+          <button className="btn btn-small btn-primary" disabled={occupe} aria-label={`Corriger « ${s.texte} »`} onClick={() => setCorrige(true)}>
+            Corriger
+          </button>
+          <button
+            className="btn btn-small"
+            disabled={occupe}
+            aria-label={`Retirer de la campagne « ${s.texte} »`}
+            onClick={() => void faire(() => api.admin.retirerDeLaCampagne(s.questionId), 'Retirée de la campagne')}
+          >
+            Retirer de la campagne
+          </button>
+          <button
+            className="btn btn-small btn-ghost"
+            disabled={occupe}
+            aria-label={`Garder « ${s.texte} »`}
+            onClick={() => void faire(() => api.admin.garderDeLaCampagne(s.questionId), 'Gardée')}
+          >
+            Garder
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Corriger une question signalée : ce que le joueur lit — l'intitulé, les
+ * réponses et la bonne, l'anecdote —, relu au serveur par le juge de la
+ * base. L'écran dit avant d'enregistrer ce que la correction fera de son
+ * identifiant : la même bonne réponse le garde, une autre en tire un neuf et
+ * retire l'ancienne (`bonneReponseChange`, la même règle qu'au serveur).
+ */
+function CorrigerLaQuestion({ s, occupe, faire, onAnnuler }: { s: SignalementDeCampagne; occupe: boolean; faire: Faire; onAnnuler: () => void }) {
+  const [texte, setTexte] = useState(s.texte)
+  const [reponses, setReponses] = useState(s.reponses)
+  const [bonne, setBonne] = useState(s.bonne)
+  const [anecdote, setAnecdote] = useState(s.anecdote ?? '')
+  const vraiFaux = s.reponses.length === 2
+  const correction: CorrectionDeQuestion = { texte, reponses, bonne, anecdote: anecdote.trim() || null }
+  const nouvelle = bonneReponseChange(s, correction)
+  const inchangee = texte === s.texte && reponses.every((r, i) => r === s.reponses[i]) && bonne === s.bonne && correction.anecdote === s.anecdote
+  const enregistrer = () =>
+    void faire(() => api.admin.corrigerDansLaCampagne(s.questionId, correction), nouvelle ? 'Corrigée, sous un nouvel identifiant' : 'Corrigée')
+  return (
+    <form
+      className="correction-question"
+      onSubmit={e => {
+        e.preventDefault()
+        enregistrer()
+      }}
+    >
+      <label>
+        <span className="label">L’intitulé</span>
+        <textarea className="input" rows={3} maxLength={MAX_TEXT} value={texte} onChange={e => setTexte(e.target.value)} />
+      </label>
+      <fieldset className="correction-reponses">
+        <legend className="label">Les réponses — la bonne cochée</legend>
+        {reponses.map((r, i) => (
+          <label key={i} className={'correction-reponse' + (i === bonne ? ' is-correct' : '')}>
+            <input type="radio" name={`bonne-${s.questionId}`} checked={i === bonne} onChange={() => setBonne(i)} aria-label={`La réponse ${i + 1} est la bonne`} />
+            {vraiFaux ? (
+              <span>{r}</span>
+            ) : (
+              <input
+                className="input"
+                maxLength={MAX_REPONSE}
+                aria-label={`Réponse ${i + 1}`}
+                value={r}
+                onChange={e => setReponses(rs => rs.map((x, j) => (j === i ? e.target.value : x)))}
+              />
+            )}
+          </label>
+        ))}
+      </fieldset>
+      <label>
+        <span className="label">L’anecdote, montrée après la réponse</span>
+        <textarea className="input" rows={3} maxLength={MAX_ANECDOTE} value={anecdote} onChange={e => setAnecdote(e.target.value)} />
+      </label>
+      <p className="muted small" aria-live="polite">
+        {nouvelle
+          ? 'La bonne réponse change : la question repartira sous un nouvel identifiant, sans les mesures de l’ancienne, qui sera retirée.'
+          : 'Même bonne réponse : la question garde son identifiant, ses réponses passées et sa difficulté mesurée.'}{' '}
+        Les séries déjà tirées gardent la version qu’elles ont lue.
       </p>
       <div className="row">
-        <button className="btn btn-small" disabled={occupe} onClick={() => void faire(() => api.admin.retirerDeLaCampagne(s.questionId), 'Retirée de la campagne')}>
-          Retirer de la campagne
+        <button type="submit" className="btn btn-small btn-primary" disabled={occupe || inchangee}>
+          Enregistrer la correction
         </button>
-        <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => void faire(() => api.admin.garderDeLaCampagne(s.questionId), 'Gardée')}>
-          Garder
+        <button type="button" className="btn btn-small btn-ghost" disabled={occupe} onClick={onAnnuler}>
+          Annuler
         </button>
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -160,7 +348,7 @@ function Signalement({ s, occupe, faire }: { s: SignalementDeCampagne; occupe: b
  * première fois qu'un humain les lit. « Retirer » les sort de la campagne
  * pour tous, comme une question signalée.
  */
-function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: boolean; faire: (appel: () => Promise<unknown>, merci: string) => Promise<void> }) {
+function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: boolean; faire: Faire }) {
   if (ajouts.total === 0) {
     return (
       <p className="muted small">
@@ -185,7 +373,7 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
               </span>
             </p>
             {a.retiree ? (
-              <p className="muted small">Retirée de la campagne.</p>
+              <p className="muted small">{a.remplacee ? 'Corrigée : une nouvelle version se joue à sa place.' : 'Retirée de la campagne.'}</p>
             ) : (
               <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => void faire(() => api.admin.retirerDeLaCampagne(a.id), 'Retirée de la campagne')}>
                 Retirer

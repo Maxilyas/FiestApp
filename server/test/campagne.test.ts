@@ -297,7 +297,7 @@ test('signaler une erreur : après sa réponse, relue par l’administrateur, qu
     assert.deepEqual([etat.questions, etat.jouables, etat.retirees], [20, 20, 0])
     assert.equal(etat.signalements.length, 1)
     assert.deepEqual(
-      [etat.signalements[0].questionId, etat.signalements[0].joueurs, etat.signalements[0].textes],
+      [etat.signalements[0].questionId, etat.signalements[0].joueurs, etat.signalements[0].rapports.map((r: any) => r.texte)],
       [qs[0].id, 1, ['Et la C aussi']],
     )
     assert.equal(etat.signalements[0].anecdote, base.parId.get(qs[0].id)!.anecdote)
