@@ -1,0 +1,282 @@
+/* ── Le Sommet · gagné, jamais vendu ──
+   Quatre camps jusqu'au sommet : la neige, les drapeaux de prière, l'aube
+   sur les crêtes. Il se gagne à une série de vingt en campagne (L'Alpiniste ·
+   Or, `shared/themes.ts`, `gagne`) : aucune boutique ne le vend.
+
+   L'un des quatre thèmes peints (`server/scripts/anime/decors.ts`) : la
+   montagne à l'aube, ses quatre camps qui luisent sur l'arête, et à part,
+   détourés, les drapeaux de prière, pour qu'ils flottent au vent.
+
+   Le décor vit dans les couches fixes (`html::before` : la montagne ;
+   `body::before` : la lueur des camps ; `body::after` : les drapeaux ;
+   `#root::before` : le voile ; `#root::after` : la neige qui vole), qui ne
+   captent jamais un doigt et ne bougent que par `transform` et `opacity`.
+   La montagne et la lueur des camps partagent une boîte au rapport du
+   tableau, calée en haut de l'écran : sur tout écran, chaque lueur tombe sur
+   son camp. Le texte reste lisible : un voile de nuit, épais en haut où
+   s'écrivent l'en-tête et la question, et un halo sous ce qui s'écrit sur la
+   page. `design.test.ts` en mesure les contrastes. */
+
+@font-face {
+  font-family: 'Josefin Sans';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/themes/josefin-sans.woff2') format('woff2');
+}
+
+:root[data-theme='sommet'] {
+  --bg: #0b1322;
+  --bg-halo: #1a2740;
+  --bg-raised: #111b2e;
+  --ink: #f4f6fb;
+  --muted: #b6c0d2;
+  --accent: #f2a65a;
+  --accent-rgb: 242, 166, 90;
+  --accent-hover: #f6ba7c;
+  --accent-text: #f6b475;
+  --accent-text-hover: #f9c898;
+  --focus: #f6b475;
+  --on-accent: #0b1322;
+  --alert: #ff8f8f;
+  --alert-rgb: 255, 143, 143;
+  --alert-hover: #ffa8a8;
+  --on-alert: #0b1322;
+  /* Des surfaces de glace sombre, presque opaques : sous un décor peint, un
+     voile blanc à 5 % laissait la neige claire sous le texte. */
+  --surface: rgba(18, 28, 48, 0.9);
+  --surface-faint: rgba(15, 24, 42, 0.86);
+  --surface-strong: rgba(210, 228, 255, 0.09);
+  --track: rgba(210, 228, 255, 0.16);
+  --edge: rgba(242, 166, 90, 0.3);
+  --edge-strong: rgba(242, 166, 90, 0.66);
+  --accent-soft: rgba(242, 166, 90, 0.14);
+  --scroll-thumb: rgba(242, 166, 90, 0.35);
+  --backdrop: rgba(3, 6, 14, 0.75);
+  --shape-0: #ff9fb0;
+  --shape-1: #f6b475;
+  --shape-2: #9fc2ff;
+  --shape-3: #8fe0c4;
+  --bronze-text: #e6a676;
+  --argent-text: #cdd6e4;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */
+:root[data-theme='sommet'] {
+  --decor-montagne: url(/decors/sommet-aube-720.f3140ece63.webp);
+  --decor-drapeaux: url(/decors/sommet-drapeaux-720.87b4584211.webp);
+}
+/* ── Fin des décors peints ── */
+
+:root[data-theme='sommet'] {
+  --serif: 'Josefin Sans', 'Segoe UI', sans-serif;
+  --radius: 14px;
+  font-synthesis: none;
+  /* La boîte de la montagne, au rapport de son tableau (720 × 1290) : elle
+     couvre l'écran, calée en haut, et déborde en bas ou sur les côtés. */
+  --sommet-l: max(100vw, calc(100vh * 720 / 1290));
+  --sommet-h: max(calc(100vw * 1290 / 720), 100vh);
+}
+
+:root[data-theme='sommet'] body {
+  background-color: #0b1322;
+}
+
+/* La montagne et la lueur de ses camps, dans la même boîte. */
+:root[data-theme='sommet']::before,
+:root[data-theme='sommet'] body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 50%;
+  width: var(--sommet-l);
+  height: var(--sommet-h);
+  margin-left: calc(var(--sommet-l) / -2);
+  pointer-events: none;
+  z-index: 0;
+}
+
+:root[data-theme='sommet']::before {
+  background: var(--decor-montagne) 0 0 / 100% 100% no-repeat;
+}
+
+/* Les quatre camps, aux places mesurées sur le tableau : le camp de base,
+   puis les trois autres le long de l'arête. Leurs lanternes vacillent. */
+:root[data-theme='sommet'] body::before {
+  background:
+    radial-gradient(4.5% 2.2% at 16.5% 93.2%, rgba(255, 176, 90, 0.7), rgba(255, 150, 70, 0) 100%),
+    radial-gradient(3.4% 1.7% at 29.3% 69.6%, rgba(255, 176, 90, 0.75), rgba(255, 150, 70, 0) 100%),
+    radial-gradient(3% 1.5% at 52.9% 63.9%, rgba(255, 176, 90, 0.75), rgba(255, 150, 70, 0) 100%),
+    radial-gradient(3% 1.5% at 80.7% 50.4%, rgba(255, 176, 90, 0.8), rgba(255, 150, 70, 0) 100%);
+  animation: sommet-lanternes 2.8s ease-in-out infinite alternate;
+}
+
+/* Les drapeaux de prière, tendus au-dessus du sentier, que le vent soulève. */
+:root[data-theme='sommet'] body::after {
+  /* Tendus d'un bord à l'autre d'un téléphone ; sur un grand écran, pas plus
+     haut qu'un cinquième de la page. */
+  --drapeaux-l: min(112vw, 72vh);
+  content: '';
+  position: fixed;
+  top: -1.5vw;
+  left: 50%;
+  width: var(--drapeaux-l);
+  height: calc(var(--drapeaux-l) / 3.29);
+  margin-left: calc(var(--drapeaux-l) / -2);
+  pointer-events: none;
+  z-index: 0;
+  background: var(--decor-drapeaux) center top / 100% auto no-repeat;
+  transform-origin: 50% 0;
+  animation: sommet-vent 4.2s ease-in-out infinite alternate;
+}
+
+:root[data-theme='sommet'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Le voile : la nuit de l'application, épais en haut où s'écrivent l'en-tête
+   et la question, léger en bas où l'arête et ses camps se montrent. */
+:root[data-theme='sommet'] #root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(11, 19, 34, 0.7) 0%, rgba(11, 19, 34, 0.6) 40%, rgba(11, 19, 34, 0.36) 68%, rgba(11, 19, 34, 0.24) 100%);
+}
+
+/* La neige qui vole, poussée par le vent des crêtes. */
+:root[data-theme='sommet'] #root::after {
+  content: '';
+  position: fixed;
+  top: -240px;
+  left: -40px;
+  right: -240px;
+  bottom: -40px;
+  z-index: -1;
+  pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><g fill='%23ffffff'><circle cx='18' cy='30' r='1.3' opacity='.8'/><circle cx='70' cy='12' r='0.9' opacity='.6'/><circle cx='130' cy='44' r='1.6' opacity='.7'/><circle cx='200' cy='20' r='1' opacity='.55'/><circle cx='40' cy='96' r='1.1' opacity='.65'/><circle cx='104' cy='118' r='0.8' opacity='.5'/><circle cx='176' cy='88' r='1.4' opacity='.75'/><circle cx='226' cy='140' r='0.9' opacity='.55'/><circle cx='22' cy='170' r='1.5' opacity='.7'/><circle cx='88' cy='196' r='1' opacity='.6'/><circle cx='150' cy='168' r='1.2' opacity='.65'/><circle cx='206' cy='222' r='1.6' opacity='.8'/><circle cx='120' cy='232' r='0.8' opacity='.5'/><circle cx='60' cy='146' r='0.7' opacity='.45'/></g></svg>") 0 0 / 240px 240px repeat;
+  opacity: 0.7;
+  animation: sommet-neige 7s linear infinite;
+}
+
+/* Le texte posé sur la page, hors des cartes, garde un halo de nuit : la
+   neige du sommet, rose à l'aube, passe sous lui. */
+:root[data-theme='sommet'] .label,
+:root[data-theme='sommet'] .muted,
+:root[data-theme='sommet'] .small,
+:root[data-theme='sommet'] h1,
+:root[data-theme='sommet'] h2,
+:root[data-theme='sommet'] h3,
+:root[data-theme='sommet'] .identite-nom,
+:root[data-theme='sommet'] .xp-mince-texte,
+:root[data-theme='sommet'] .quiz-question,
+:root[data-theme='sommet'] .timer-seconds {
+  text-shadow: 0 1px 2px rgba(4, 8, 18, 0.9), 0 0 10px rgba(4, 8, 18, 0.8), 0 0 20px rgba(4, 8, 18, 0.55);
+}
+
+/* Les cartes et les réponses : de la glace sombre, un filet de givre. */
+:root[data-theme='sommet'] .card,
+:root[data-theme='sommet'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='sommet'] .onglets {
+  background: rgba(14, 23, 40, 0.92);
+  border: 1px solid rgba(200, 225, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(230, 242, 255, 0.1), 0 12px 28px rgba(2, 5, 12, 0.5);
+}
+
+/* La réponse choisie, le gros bouton du moment et la pastille du niveau : la
+   lueur d'un camp posée sur la glace, pas sur la montagne. */
+:root[data-theme='sommet'] .ans-btn.chosen,
+:root[data-theme='sommet'] .gros-principal {
+  background: radial-gradient(120% 160% at 0% 0%, rgba(242, 166, 90, 0.24), rgba(242, 166, 90, 0.06) 65%), #111b2e;
+}
+
+:root[data-theme='sommet'] .ans-btn.chosen {
+  border: 1.5px solid #f2a65a;
+}
+
+:root[data-theme='sommet'] .niveau {
+  background: linear-gradient(rgba(242, 166, 90, 0.14), rgba(242, 166, 90, 0.14)), #111b2e;
+}
+
+:root[data-theme='sommet'] .ans-btn {
+  font-weight: 500;
+}
+
+:root[data-theme='sommet'] .quiz-question {
+  font-weight: 600;
+  font-size: 27px;
+  line-height: 1.2;
+}
+
+:root[data-theme='sommet'] h1,
+:root[data-theme='sommet'] h2,
+:root[data-theme='sommet'] h3 {
+  font-weight: 600;
+}
+
+/* Les surtitres, espacés comme sur une affiche d'expédition. */
+:root[data-theme='sommet'] .label {
+  font-weight: 600;
+  letter-spacing: 0.26em;
+}
+
+:root[data-theme='sommet'] .timer-seconds {
+  font-weight: 300;
+  color: #f6b475;
+}
+
+/* La barre du temps et celle de l'expérience : la lumière qui monte du camp
+   au sommet. */
+:root[data-theme='sommet'] .timer-fill,
+:root[data-theme='sommet'] .xp-fill {
+  background: linear-gradient(90deg, #f2a65a, #ffd7b0 60%, #ffffff);
+}
+
+:root[data-theme='sommet'] .result-banner .big,
+:root[data-theme='sommet'] .fin-xp {
+  background: linear-gradient(100deg, #f2a65a, #ffd7b0 55%, #ffffff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes sommet-lanternes {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sommet-vent {
+  from {
+    transform: rotate(-0.8deg) scaleY(0.97);
+  }
+  to {
+    transform: rotate(0.8deg) skewX(-2deg) scaleY(1.05);
+  }
+}
+
+@keyframes sommet-neige {
+  to {
+    transform: translate(-240px, 240px);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : la neige retombe, les
+   drapeaux et les lanternes se figent. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='sommet'] body::before,
+  :root[data-theme='sommet'] body::after,
+  :root[data-theme='sommet'] #root::after {
+    animation: none !important;
+  }
+}

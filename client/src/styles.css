@@ -4108,6 +4108,33 @@ h3 > .icon {
   mask-image: linear-gradient(180deg, transparent 0 90px, #000 220px);
 }
 
+/* Les deux fonds peints, des tableaux plutôt qu'un dessin : le Triomphe du
+   champion du mois — la colonnade pourpre et or vers l'arc, les lauriers — et
+   le Cadran solaire de L'Élite · Argent — la pierre au soleil, l'ombre du
+   gnomon. Leur image vient du bloc que la chaîne écrit ci-dessous
+   (`server/scripts/anime/decors.ts`), sous son empreinte, et ne se
+   télécharge qu'à l'ouverture d'une carte qui la porte. Peints au format de
+   la carte et calés en haut, sombres sous la tête de la carte comme leurs
+   consignes le voulaient ; un voile de nuit descend sous ce qui défile,
+   pour que l'encre claire tienne partout, même sur le marbre et la pierre
+   au soleil. */
+/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */
+.carte-fond.fond-triomphe { --fond-peint: url(/decors/fond-triomphe-720.b117f758c6.webp); }
+.carte-fond.fond-cadran { --fond-peint: url(/decors/fond-cadran-720.45125bacac.webp); }
+/* ── Fin des décors peints ── */
+.carte-fond.fond-triomphe,
+.carte-fond.fond-cadran {
+  background: var(--fond-peint) center top / cover no-repeat, #160c18;
+  border-color: var(--fond-or);
+}
+.carte-fond.fond-cadran { background-color: #0e1209; }
+.carte-fond.fond-triomphe::before {
+  background: linear-gradient(180deg, rgba(14, 6, 16, 0.54) 0%, rgba(14, 6, 16, 0.6) 34%, rgba(14, 6, 16, 0.68) 62%, rgba(14, 6, 16, 0.78) 100%);
+}
+.carte-fond.fond-cadran::before {
+  background: linear-gradient(180deg, rgba(8, 10, 6, 0.36) 0%, rgba(8, 10, 6, 0.46) 40%, rgba(8, 10, 6, 0.66) 68%, rgba(8, 10, 6, 0.74) 100%);
+}
+
 /* L'aperçu, sur sa page : le même décor, en vignette. */
 .fond-apercu {
   display: block;
