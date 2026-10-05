@@ -91,14 +91,14 @@ export class PagesPubliques {
     this.entrees.delete(place)
   }
 
-  /** La page de cette place, calculée ou reprise — la même promesse pour toute la rafale. */
-  private obtenir(d: DemandeDePage): Promise<Corps | null> {
+  /** La page de cette place, calculée ou reprise — la même entrée pour toute la rafale. */
+  private obtenir(d: DemandeDePage): Entree {
     const deja = this.entrees.get(d.place)
     if (deja && deja.empreinte === d.empreinte && deja.expire > Date.now()) {
       // Remise en fin de file : la place la plus demandée reste.
       this.entrees.delete(d.place)
       this.entrees.set(d.place, deja)
-      return deja.corps
+      return deja
     }
     this.oublier(d.place)
     const entree: Entree = {
@@ -132,7 +132,7 @@ export class PagesPubliques {
       },
     )
     this.entrees.set(d.place, entree)
-    return entree.corps
+    return entree
   }
 
   private async fabriquer(d: DemandeDePage, provisoire: () => void): Promise<Corps | null> {
@@ -151,6 +151,21 @@ export class PagesPubliques {
   }
 
   /**
+   * La page de cette place, telle qu'elle partirait — pour la joindre à une
+   * autre : la dernière soirée close, au souvenir et au bilan de l'espace qui
+   * la désignent. Gardée et calculée comme si on la demandait seule.
+   * Provisoire, elle rend provisoire la page qui la joint (`provisoire`, celui
+   * de cette page-là) : gardée, celle-ci aurait montré la page amputée
+   * jusqu'à son échéance.
+   */
+  async lire(d: DemandeDePage, provisoire: () => void): Promise<unknown> {
+    const entree = this.obtenir(d)
+    const corps = await entree.corps
+    if (entree.provisoire) provisoire()
+    return corps ? JSON.parse(corps.brut.toString('utf8')) : null
+  }
+
+  /**
    * Sert la page : gardée si elle tient encore, calculée sinon — une seule
    * fois pour toutes les requêtes qui arrivent pendant le calcul. Compressée
    * ici, une fois pour toutes : `compression()` laisse passer une réponse
@@ -158,7 +173,7 @@ export class PagesPubliques {
    */
   async servir(req: Request, res: Response, d: DemandeDePage): Promise<void> {
     pouls.pagesServies.noter()
-    const corps = await this.obtenir(d)
+    const corps = await this.obtenir(d).corps
     if (!corps) {
       res.status(404).json({ error: 'Soirée introuvable' })
       return

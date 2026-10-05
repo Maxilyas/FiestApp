@@ -35,6 +35,10 @@ export function lecteurDePage<T extends { derniere?: DerniereSoiree }>(
     const page = await lireJson<T>(dataUrl(slug, fichier, archiveId))
     const derniere = archiveId ? undefined : page.derniere
     if (!derniere) return page
+    // Le serveur la joint à la page de l'espace : la demander ensuite
+    // coûtait un aller-retour de plus. Un serveur d'avant, ou une base
+    // muette, ne la joint pas : on la demande, une fois par soirée désignée.
+    if (derniere.page) return derniere.page as T
     if (gardee?.id !== derniere.id) {
       // Retirée de l'historique entre les deux lectures, ou le réseau qui
       // flanche : la page de l'espace telle quelle, et on réessaiera.

@@ -12,7 +12,8 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
-import { applySample } from './clock'
+import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
+import { DEPART } from '../../shared/depart'
 
 /**
  * Une erreur d'API qui porte ce que le serveur a joint au message.
@@ -153,7 +154,7 @@ export interface Activation {
 export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
 
 export const api = {
-  list: () => req<QuizSummary[]>('/api/quizzes'),
+  list: () => req<QuizSummary[]>(DEPART.quiz),
   /** Les quiz qui contiennent ces mots — titre, intitulés, réponses. */
   chercher: (q: string) => req<QuizSummary[]>(`/api/quizzes?q=${encodeURIComponent(q)}`),
   /** Range un quiz à l'écart (hors de la liste et du choix de la soirée), ou l'en ressort. */
@@ -228,7 +229,7 @@ export const api = {
   },
   /** Se connecter, activer son compte, changer de mot de passe. */
   auth: {
-    me: () => req<Me>('/api/auth/me'),
+    me: () => req<Me>(DEPART.console),
     login: (login: string, password: string) =>
       req<Me>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
     logout: () => req<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
@@ -275,16 +276,16 @@ export const api = {
         espace: PublicSpace | null
         /** Les soirées en cours où ce profil est inscrit. Absent d'un serveur d'avant. */
         enCours?: { nom: string; slug: string }[]
-      }>('/api/joueur/moi'),
+      }>(DEPART.moi),
     /**
      * Ce qu'une page de jeu montre de lui — prénom, niveau, thème —, sans le
      * détail : le quiz du jour et la campagne n'attendent plus son historique
      * pour ouvrir leur partie. Sans cookie, `null`.
      */
-    moiLeger: () => req<{ profile: PublicProfile | null }>('/api/joueur/moi?leger'),
+    moiLeger: () => req<{ profile: PublicProfile | null }>(DEPART.moiLeger),
     /** L'accueil : l'en-tête, sa carrière au quiz du jour et son solde — la soirée en cours et l'espace aussi, comme `moi`. */
     moiAccueil: () =>
-      req<{ profile: ProfilDAccueil | null; espace: PublicSpace | null; enCours?: { nom: string; slug: string }[] }>('/api/joueur/moi?accueil'),
+      req<{ profile: ProfilDAccueil | null; espace: PublicSpace | null; enCours?: { nom: string; slug: string }[] }>(DEPART.moiAccueil),
     connexion: (login: string, password: string) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null }>('/api/joueur/connexion', {
         method: 'POST',
@@ -347,7 +348,7 @@ export const api = {
    */
   /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
   campagne: {
-    etat: () => req<EtatDeCampagne>('/api/campagne'),
+    etat: () => req<EtatDeCampagne>(DEPART.campagne),
     commencer: (categories: string[]) => req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories }) }),
     repondre: (serie: string, index: number, choix: number) =>
       req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
@@ -367,7 +368,7 @@ export const api = {
      * celles de la série.
      */
     sentiers: {
-      etat: () => req<EtatDesSentiers>('/api/campagne/sentiers'),
+      etat: () => req<EtatDesSentiers>(DEPART.sentiers),
       commencer: (branche: string, palier: number) =>
         req<EpreuveDeSentier>('/api/campagne/sentiers/epreuve', { method: 'POST', body: JSON.stringify({ branche, palier }) }),
       repondre: (epreuve: string, index: number, choix: number) =>
@@ -377,7 +378,7 @@ export const api = {
     },
   },
   jour: {
-    etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
+    etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),
     commencer: () => avecLHeure(() => req<PartieDuJour>('/api/jour/commencer', { method: 'POST' })),
     suivante: () => avecLHeure(() => req<PartieDuJour>('/api/jour/suivante', { method: 'POST' })),
     repondre: (jour: string, index: number, choix: number) =>
@@ -531,10 +532,13 @@ export interface CorrectionDuJour {
  * écrite en répondant (l'en-tête `Date` n'a que la seconde), et le retour —
  * la mesure la plus rapide l'emporte (`shared/clock.ts`).
  */
-async function avecLHeure(appel: () => Promise<PartieDuJour>): Promise<PartieDuJour> {
+async function avecLHeure(appel: () => Promise<PartieDuJour>, adresse?: string): Promise<PartieDuJour> {
   const sentAt = Date.now()
   const reponse = await appel()
-  if (typeof reponse.maintenant === 'number') applySample({ serverTime: reponse.maintenant, sentAt, receivedAt: Date.now() })
+  // La première partie de la page peut être celle que le serveur a fait
+  // précharger : son aller-retour se lit alors dans le préchargement.
+  const mesure = mesureDeLaReponse(reponse, { sentAt, receivedAt: Date.now() }, () => (adresse ? tempsDuPrechargement(adresse) : null))
+  if (mesure) applySample(mesure)
   return reponse
 }
 

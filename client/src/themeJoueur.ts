@@ -12,6 +12,8 @@
 // (`shared/themes.ts`) ni le client d'API : il part avec toutes les pages,
 // et la liste des feuilles suffit à dire ce qui existe.
 
+import { DEPART } from '../../shared/depart'
+
 /**
  * Les feuilles des thèmes : Vite en fait autant de morceaux, qui ne partent
  * qu'à la demande. Hors de Vite — les tests chargent les pages dans Node, où
@@ -266,7 +268,7 @@ export async function confirmerTheme(): Promise<void> {
   const abandon = new AbortController()
   const minuteur = setTimeout(() => abandon.abort(), DELAI_CONFIRMATION_MS)
   try {
-    const res = await fetch('/api/joueur/theme', { credentials: 'same-origin', signal: abandon.signal })
+    const res = await fetch(DEPART.theme, { credentials: 'same-origin', signal: abandon.signal })
     if (!res.ok) return
     const { theme } = (await res.json()) as { theme?: unknown }
     if (lus !== avant) return

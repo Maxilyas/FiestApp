@@ -113,6 +113,27 @@ const ORDINAUX = ['', 'première', 'deuxième', 'troisième', 'quatrième', 'cin
 const ordinal = (n: number) => ORDINAUX[n] ?? `${n}ᵉ`
 
 /**
+ * Les sentiers demandés d'avance, avec l'état de la campagne (`CampagneApp`) :
+ * la page ouverte sur eux (`#sentiers`, où mène le bouton de l'accueil) ne
+ * les demandait qu'une fois cet état arrivé, au montage de `Sentiers` — un
+ * aller-retour de plus, à chaque visite. Le premier `relire` les prend.
+ */
+let sentiersDAvance: Promise<EtatDesSentiers> | null = null
+
+export function demanderLesSentiers() {
+  sentiersDAvance ??= api.campagne.sentiers.etat()
+  // Un refus se dira au montage, quand `relire` le reprendra.
+  sentiersDAvance.catch(() => {})
+}
+
+/** Les sentiers demandés d'avance s'il y en a — une fois —, sinon demandés tout de suite. */
+export function lesSentiers(): Promise<EtatDesSentiers> {
+  const dAvance = sentiersDAvance
+  sentiersDAvance = null
+  return dAvance ?? api.campagne.sentiers.etat()
+}
+
+/**
  * Les sentiers, dans la page de la campagne : la carte des douze sentiers,
  * un sentier, une épreuve, sa fin, le rachat des vies. `onglets`, la rangée
  * « La série · Les sentiers » de la campagne, ne paraît que sur la carte :
@@ -133,7 +154,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   }
 
   const relire = async () => {
-    const lu = await api.campagne.sentiers.etat()
+    const lu = await lesSentiers()
     setEtat(lu)
     return lu
   }

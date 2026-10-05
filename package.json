@@ -21,6 +21,7 @@
     "load": "npm run load -w server --",
     "export": "npm run export -w server --",
     "sauvegarde": "npm run sauvegarde -w server --",
+    "mesure": "npm run mesure -w server --",
     "tablee": "npm run tablee -w server --"
   },
   "devDependencies": {
