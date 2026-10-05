@@ -111,8 +111,13 @@ try {
 
   // L'accueil : le bouton de la campagne dit le sentier qu'on avance et ses vies.
   await page.goto(`${banc.url}/`)
-  await page.waitForSelector('.gros-bouton[href^="/campagne#sentier-"]')
+  await page.waitForSelector('.gros-bouton[href="/campagne#sentiers"]')
   await photo('8-accueil')
+  // Touché, il ouvre la campagne sur ses sentiers — ses onglets, le sentier en tête —, jamais un sentier seul.
+  await page.click('.gros-bouton[href="/campagne#sentiers"]')
+  await page.waitForSelector('.onglets-campagne')
+  await page.waitForSelector('.sentiers-reprise')
+  await photo('8-accueil-campagne')
 
   // Le maître : le stade est au sommet.
   await page.goto(`${banc.url}/campagne#sentier-stade`)

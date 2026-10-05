@@ -53,8 +53,11 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
 }
 
 /**
- * Le bouton de la campagne : le sentier qu'il avance et ses vies, et il y
- * mène ; tant qu'il n'en avance aucun, les deux modes, et la série d'abord.
+ * Le bouton de la campagne : le sentier qu'il avance et ses vies ; tant qu'il
+ * n'en avance aucun, les deux modes, et la série d'abord. Il ouvre la
+ * campagne, jamais un sentier seul : mené à `#sentier-scene`, « la
+ * campagne » ouvrait la scène sans les onglets de la campagne. Sur ses
+ * sentiers, celui qu'il avance est en tête, à un toucher.
  */
 export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string } {
   const b = branche(c?.avance?.branche)
@@ -64,7 +67,9 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
   const vies = c.vies > 0 ? `${c.vies}\u00a0vie${c.vies > 1 ? 's' : ''}` : 'plus de vie avant minuit'
   return {
     detail: espacesFines(`${c.avance.laissee ? `Ton épreuve t’attend : ${palier}` : `Vers le ${palier}`} · ${vies}`),
-    href: `/campagne#sentier-${b.key}`,
+    // L'adresse des sentiers (`ADRESSE_DES_SENTIERS`), écrite ici : l'importer
+    // ferait venir toute la page des sentiers dans celle de l'accueil.
+    href: '/campagne#sentiers',
   }
 }
 

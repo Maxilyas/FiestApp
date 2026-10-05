@@ -36,7 +36,12 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
-test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et ses vies, et y mène', async () => {
+// Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la
+// campagne », il ouvrait la scène seule, sans les onglets de la campagne, que
+// la reprise avait mise en tête (la remarque du propriétaire du 5 octobre
+// 2026). Il ouvre la campagne, sur ses sentiers : le sentier qu'il avance y
+// est en tête, à un toucher.
+test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et ses vies, et ouvre la campagne sur ses sentiers', async () => {
   const module = await import(client('components/AccueilDesRoles.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const bouton = (campagne?: object) => {
@@ -49,15 +54,15 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
   assert.deepEqual(bouton(), deuxModes)
   assert.deepEqual(bouton({ vies: 12, avance: null }), deuxModes)
   assert.deepEqual(bouton({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false } }), {
-    href: '/campagne#sentier-foret',
+    href: '/campagne#sentiers',
     detail: 'Vers le palier\u00a08 de la forêt · 11\u00a0vies',
   })
   assert.deepEqual(bouton({ vies: 1, avance: { branche: 'mythes', palier: 3, laissee: true } }), {
-    href: '/campagne#sentier-mythes',
+    href: '/campagne#sentiers',
     detail: 'Ton épreuve t’attend\u00a0: palier\u00a03 des mythologies · 1\u00a0vie',
   })
   assert.deepEqual(bouton({ vies: 0, avance: { branche: 'espace', palier: 13, laissee: true } }), {
-    href: '/campagne#sentier-espace',
+    href: '/campagne#sentiers',
     detail: 'Ton épreuve t’attend\u00a0: palier de maître de l’espace · plus de vie avant minuit',
   })
   // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
