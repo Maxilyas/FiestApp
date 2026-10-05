@@ -13,6 +13,7 @@
 
 import { XP, type Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
+import { sansAccent } from './homonymes'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -97,6 +98,27 @@ export function niveauDeQuestion(difficulte: number, mesure?: { justes: number; 
 
 /** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour. */
 export const SIGNALEMENT_MAX = 280
+
+/** Une réponse tient sur un bouton de téléphone : bien moins que les 120 caractères qu'accepte l'éditeur. */
+export const MAX_REPONSE = 70
+
+/** Ce qui fait une réponse, pour la reconnaître d'une version à l'autre : ni casse, ni accents, ni ponctuation. */
+const reconnaissable = (reponse: string) =>
+  sansAccent(reponse)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+/**
+ * Une correction change-t-elle la bonne réponse ? Alors ce n'est plus la
+ * même question : elle repart sous un nouvel identifiant, et les mesures de
+ * l'ancienne — ses réponses, sa difficulté — ne la suivent pas. Une
+ * coquille, un leurre ambigu remplacé, une anecdote reprise, des réponses
+ * dans un autre ordre : la même question, le même identifiant. L'écran de
+ * l'administrateur le dit avant d'enregistrer, le serveur le décide.
+ */
+export function bonneReponseChange(avant: { reponses: readonly string[]; bonne: number }, apres: { reponses: readonly string[]; bonne: number }): boolean {
+  return reconnaissable(avant.reponses[avant.bonne] ?? '') !== reconnaissable(apres.reponses[apres.bonne] ?? '')
+}
 
 /**
  * L'ordre d'une série : cinq de chaque marche, de la plus facile à la plus
@@ -214,6 +236,31 @@ export interface EtatDeCampagne {
   records?: { categorie: string; record: number }[]
 }
 
+/**
+ * Un joueur qui signale une question : qui, ce qu'il en dit, où il l'a
+ * jouée et ce qu'il y a répondu — « la B est juste aussi » ne se lit pas
+ * de la même façon venant de celui qui a répondu B.
+ */
+export interface RapportDeSignalement {
+  profileId: string
+  /** Son prénom et son identifiant, lus au profil ; null : le profil n'existe plus. */
+  prenom: string | null
+  login: string | null
+  texte: string
+  le: number
+  /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
+  traiteLe: number | null
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine. */
+  ou: 'serie' | 'sentier' | 'defi'
+  branche?: string
+  palier?: number
+  /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */
+  reponse: string | null
+  juste: boolean | null
+  /** La version qu'il a jouée n'est plus celle de la base : la question a été corrigée depuis. */
+  versionDAvant?: true
+}
+
 /** Une question que des joueurs ont signalée, pour l'administrateur (`/admin#campagne`). */
 export interface SignalementDeCampagne {
   questionId: string
@@ -223,10 +270,40 @@ export interface SignalementDeCampagne {
   anecdote: string | null
   categorie: string
   sousTheme: string
-  /** Combien de joueurs la signalent, et ce que disent les trois derniers. */
+  /** Sa difficulté estimée à l'écriture (de 1 à 5), et la marche où les réponses de campagne la placent. */
+  difficulte: number
+  niveau: Niveau
+  /** Ses réponses en campagne, séries, épreuves et défis ensemble — relues toutes les dix minutes. */
+  mesure: { justes: number; total: number }
+  /** D'où elle vient : la base du dépôt, la routine du matin, ou une correction faite ici — et quand elle l'a été. */
+  origine: 'depot' | 'routine' | 'correction'
+  corrigeeLe: number | null
+  /** Déjà retirée de la campagne : il ne reste qu'à refermer ce qu'on en dit. */
+  retiree?: true
+  /** Combien de joueurs la signalent encore. */
   joueurs: number
-  textes: string[]
+  /** Ce que chacun en dit, les plus récents d'abord, ceux déjà relus compris. */
+  rapports: RapportDeSignalement[]
   dernier: number
+}
+
+/**
+ * Ce que l'administrateur corrige d'une question de la campagne : ce que le
+ * joueur lit. Le reste de sa fiche — catégorie, sous-thème, difficulté
+ * estimée — ne bouge pas ; ses leurres suivent les réponses.
+ */
+export interface CorrectionDeQuestion {
+  texte: string
+  reponses: string[]
+  bonne: number
+  anecdote: string | null
+}
+
+/** Ce que dit une correction enregistrée : sous quel identifiant la question se joue désormais. */
+export interface QuestionCorrigee {
+  id: string
+  /** La bonne réponse a changé : un nouvel identifiant, l'ancienne retirée. */
+  nouvelle: boolean
 }
 
 /** La campagne, côté administrateur : sa base, et ce que les joueurs y signalent. */
@@ -271,8 +348,12 @@ export interface AjoutsDeLaRoutine {
   septJours: number
   total: number
   dernierLe: number | null
-  /** Les plus récents d'abord : un coup d'œil, et « Retirer » si l'un cloche. */
-  derniers: { id: string; texte: string; categorie: string; sousTheme: string; difficulte: number; ajouteeLe: number; retiree: boolean }[]
+  /**
+   * Les plus récents d'abord : un coup d'œil, et « Retirer » si l'un cloche.
+   * Corrigé depuis, il se lit dans sa version du jour ; remplacé — sa bonne
+   * réponse a changé —, il est retiré, et sa remplaçante se joue à sa place.
+   */
+  derniers: { id: string; texte: string; categorie: string; sousTheme: string; difficulte: number; ajouteeLe: number; retiree: boolean; remplacee?: true }[]
 }
 
 /** Une question corrigée, à la fin d'une série : « Mes réponses ». */

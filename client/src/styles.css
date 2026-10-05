@@ -8379,6 +8379,21 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .admin-entree,
 .admin .signalement { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
 .admin .signalement p { margin: 0; }
+/* Qui signale une question de la campagne : un joueur par ligne — où, sa
+   réponse, quand —, ce qu'il en dit dessous. Ceux déjà relus, repliés. */
+.signalement-rapports { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.signalement-rapports li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--edge); overflow-wrap: anywhere; }
+.signalement-relus summary { cursor: pointer; }
+.signalement-relus .signalement-rapports { opacity: var(--dim); }
+/* Corriger une question : le formulaire prend la place des gestes. */
+.correction-question { display: flex; flex-direction: column; gap: 12px; }
+.correction-question > label { display: flex; flex-direction: column; gap: 6px; }
+.correction-question textarea { resize: vertical; }
+.correction-reponses { min-width: 0; margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; }
+.correction-reponses legend { padding: 0; margin-bottom: 4px; }
+.correction-reponse { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.correction-reponse input[type='radio'] { flex: none; width: 22px; height: 22px; cursor: pointer; }
+.correction-reponse.is-correct .input { border-color: var(--accent); }
 .admin-entree-tete { display: flex; gap: 12px; }
 .admin-entree-texte { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 .admin .reserve-tete, .admin .reserve-jauge, .admin-hud > p, .admin-hud > ul, .admin-hud > ol, .admin-hud > div { position: relative; z-index: 1; }

@@ -5,6 +5,8 @@ import { CATEGORIES } from '../../../shared/categories'
 import { lireEtiquetage, type MetadonneesDeQuestion } from '../../../shared/etiquettes'
 import { MAX_ANECDOTE, MAX_TEXT } from '../../../shared/library'
 import { sansAccent } from '../../../shared/homonymes'
+// Partagée : l'écran de l'administrateur, qui corrige une question, borne ses champs à la même mesure.
+import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
 
 /**
@@ -29,9 +31,6 @@ import { empreinteDe } from './jour'
  */
 
 export const DOSSIER_DE_LA_BASE = path.join(SERVEUR, 'content/campagne')
-
-/** Une réponse tient sur un bouton de téléphone : bien moins que les 120 caractères qu'accepte l'éditeur. */
-export const MAX_REPONSE = 70
 
 /** Les étiquettes que la campagne ne pose jamais : ce qui gâche un film, divise la table, ou n'a rien à faire dans un jeu ouvert à tous. */
 export const ETIQUETTES_ECARTEES: readonly string[] = ['sexualite', 'politique', 'divulgache']

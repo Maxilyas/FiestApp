@@ -1,4 +1,13 @@
-import type { AdminDeLaCampagne, CorrectionDeCampagne, DefiDeLaSemaine, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
+import type {
+  AdminDeLaCampagne,
+  CorrectionDeCampagne,
+  CorrectionDeQuestion,
+  DefiDeLaSemaine,
+  EtatDeCampagne,
+  QuestionCorrigee,
+  ReponseDeCampagne,
+  SerieDeCampagne,
+} from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -469,6 +478,9 @@ export const api = {
     campagne: () => req<AdminDeLaCampagne>('/api/admin/campagne'),
     garderDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/garder', { method: 'POST', body: JSON.stringify({ questionId }) }),
     retirerDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/retirer', { method: 'POST', body: JSON.stringify({ questionId }) }),
+    /** Corriger une question signalée : sous le même identifiant, ou un neuf si la bonne réponse change. */
+    corrigerDansLaCampagne: (questionId: string, correction: CorrectionDeQuestion) =>
+      req<QuestionCorrigee>('/api/admin/campagne/corriger', { method: 'POST', body: JSON.stringify({ questionId, correction }) }),
     /** Les sentiers, palier par palier : toutes les branches, ou une seule. */
     sentiers: (branche?: string) => req<AdminDesSentiers>(`/api/admin/campagne/sentiers${branche ? `?branche=${encodeURIComponent(branche)}` : ''}`),
   },

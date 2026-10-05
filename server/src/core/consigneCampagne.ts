@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { SERVEUR } from '../racine'
-import { ETIQUETTES_ECARTEES, MAX_REPONSE } from './baseCampagne'
+import { ETIQUETTES_ECARTEES } from './baseCampagne'
 import { empreinteDe } from './jour'
 import type { Categorie } from '../../../shared/categories'
+import { MAX_REPONSE } from '../../../shared/campagne'
 import { ETIQUETTES, SOUS_THEMES } from '../../../shared/etiquettes'
 
 // La consigne qu'on donne à une IA pour agrandir la base de la campagne

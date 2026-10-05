@@ -15,7 +15,7 @@ import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
 import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { classer } from '../../../shared/classement'
-import { nomsAffiches } from '../../../shared/homonymes'
+import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
 import { CATEGORIES } from '../../../shared/categories'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
@@ -29,6 +29,7 @@ import {
   RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
+  bonneReponseChange,
   minutesAvantLundi,
   niveauDeQuestion,
   semaineAvant,
@@ -41,11 +42,14 @@ import {
   type CommandeDeLaBase,
   type DepotDeLaBase,
   type CorrectionDeCampagne,
+  type CorrectionDeQuestion,
   type DefiDeLaSemaine,
   type EtatDeCampagne,
   type LigneDuDefi,
   type Niveau,
+  type QuestionCorrigee,
   type QuestionDeCampagne,
+  type RapportDeSignalement,
   type ReponseDeCampagne,
   type SerieDeCampagne,
   type SignalementDeCampagne,
@@ -134,6 +138,8 @@ const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 const BLOQUES_MONTRES = 10
 /** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
 const LIGNES_DU_DEFI = 50
+/** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
+const SIGNALEMENTS_MONTRES = 50
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 
 /**
@@ -191,8 +197,18 @@ export class CampagneStore {
    * déposée à 7 h se joue à 7 h.
    */
   private ajouts: { question: QuestionDeLaBase; ajouteeLe: number }[] = []
-  /** Le dépôt et les ajouts ensemble, refaits quand un ajout arrive. */
-  private fusion: { fichiers: BaseDeLaCampagne; ajouts: number; base: BaseDeLaCampagne } | null = null
+  /**
+   * Les corrections de l'administrateur (`campagne_corrections`), sous
+   * l'identifiant de la question corrigée : sa version corrigée — sous le
+   * même identifiant, ou sous un neuf quand la bonne réponse a changé
+   * (`bonneReponseChange`). Lues au démarrage, appliquées à la base qu'on
+   * joue (`base`) ; peu nombreuses, gardées en mémoire.
+   */
+  private corrections = new Map<string, { question: QuestionDeLaBase; corrigeeLe: number }>()
+  /** Monte à chaque correction : la base fusionnée se refait. */
+  private versionDesCorrections = 0
+  /** Le dépôt, les ajouts et les corrections ensemble, refaits quand l'un d'eux change. */
+  private fusion: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number; base: BaseDeLaCampagne } | null = null
   /** Les intitulés des quiz livrés, lus au premier dépôt : la base ne les reprend pas. */
   private livres: Set<string> | null = null
   /** Les intitulés de la réserve du quiz du jour (`JourStore.empreintes`) : la campagne n'en pose aucun. */
@@ -258,20 +274,21 @@ export class CampagneStore {
   }
 
   /**
-   * La base qu'on joue : celle du dépôt, et ce que la routine y a ajouté.
-   * Refaite seulement quand un ajout arrive — une série la lit à chaque
-   * fois. Un ajout que le dépôt aurait rangé depuis (même identifiant, même
-   * intitulé) n'y entre pas deux fois.
+   * La base qu'on joue : celle du dépôt, ce que la routine y a ajouté, et ce
+   * que l'administrateur y a corrigé (`appliquerLesCorrections`). Refaite
+   * seulement quand l'un d'eux change — une série la lit à chaque fois. Un
+   * ajout que le dépôt aurait rangé depuis (même identifiant, même intitulé)
+   * n'y entre pas deux fois.
    */
   private async base(): Promise<BaseDeLaCampagne> {
     const fichiers = await this.fichiers()
-    if (this.ajouts.length === 0) return fichiers
+    if (this.ajouts.length === 0 && this.corrections.size === 0) return fichiers
     const f = this.fusion
-    if (f && f.fichiers === fichiers && f.ajouts === this.ajouts.length) return f.base
+    if (f && f.fichiers === fichiers && f.ajouts === this.ajouts.length && f.corrections === this.versionDesCorrections) return f.base
     const ids = new Set(fichiers.parId.keys())
     const enPlus = this.ajouts.map(a => a.question).filter(q => !ids.has(q.id) && !fichiers.empreintes.has(q.empreinte))
-    const base = new BaseDeLaCampagne([...fichiers.questions, ...enPlus])
-    this.fusion = { fichiers, ajouts: this.ajouts.length, base }
+    const base = new BaseDeLaCampagne(appliquerLesCorrections([...fichiers.questions, ...enPlus], this.corrections))
+    this.fusion = { fichiers, ajouts: this.ajouts.length, corrections: this.versionDesCorrections, base }
     return base
   }
 
@@ -333,27 +350,38 @@ export class CampagneStore {
            entree      TEXT NOT NULL,
            ajoutee_le  INTEGER NOT NULL
          )`,
+        // Ce que l'administrateur corrige d'une question signalée : sa version
+        // corrigée, dans la forme des fichiers du dépôt — sous le même
+        // identifiant, ou sous un neuf quand la bonne réponse a changé.
+        `CREATE TABLE IF NOT EXISTS campagne_corrections (
+           question_id TEXT PRIMARY KEY,
+           entree      TEXT NOT NULL,
+           corrigee_le INTEGER NOT NULL
+         )`,
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
+        'SELECT question_id, entree, corrigee_le FROM campagne_corrections',
       ],
       'write',
     )
-    for (const r of resultats[resultats.length - 2].rows) this.retirees.add(String(r.question_id))
+    const [retraits, ajouts, corrections] = resultats.slice(-3)
+    for (const r of retraits.rows) this.retirees.add(String(r.question_id))
+    // Relues par le juge du jour : une règle durcie depuis les écarte, comme une ligne du dépôt.
     let illisibles = 0
-    for (const r of resultats[resultats.length - 1].rows) {
-      // Relue par le juge du jour : une règle durcie depuis le dépôt l'écarte, comme une ligne du dépôt.
-      const lu = (() => {
-        try {
-          return lireQuestionDeLaBase(JSON.parse(String(r.entree)))
-        } catch {
-          return { refus: 'JSON illisible' }
-        }
-      })()
+    for (const r of ajouts.rows) {
+      const lu = relireUneEntree(r.entree)
       if ('refus' in lu) illisibles++
       else this.ajouts.push({ question: lu.question, ajouteeLe: Number(r.ajoutee_le) })
     }
     if (illisibles > 0) console.warn(`[campagne] ${illisibles} question(s) déposée(s) par la routine écartée(s) : le juge de la base ne les accepte plus`)
+    illisibles = 0
+    for (const r of corrections.rows) {
+      const lu = relireUneEntree(r.entree)
+      if ('refus' in lu) illisibles++
+      else this.corrections.set(String(r.question_id), { question: lu.question, corrigeeLe: Number(r.corrigee_le) })
+    }
+    if (illisibles > 0) console.warn(`[campagne] ${illisibles} correction(s) de l’administration écartée(s) : le juge de la base ne les accepte plus`)
     // Les épreuves des sentiers vivent dans les mêmes tables que les séries :
     // de quoi les reconnaître, et ce qu'elles visaient. Le schéma se lit une
     // fois par table (`ajouterColonne`) ; une base muette arrête le démarrage.
@@ -1663,8 +1691,12 @@ export class CampagneStore {
     })
   }
 
-  /** Ce que la routine a ajouté : de quoi voir qu'elle tourne, et relire ses dernières questions. */
-  private ajoutsDeLaRoutine(): AjoutsDeLaRoutine {
+  /**
+   * Ce que la routine a ajouté : de quoi voir qu'elle tourne, et relire ses
+   * dernières questions — dans leur version du jour, corrigées depuis s'il
+   * le faut (`base`).
+   */
+  private ajoutsDeLaRoutine(base: BaseDeLaCampagne): AjoutsDeLaRoutine {
     const maintenant = this.maintenant()
     const aujourdhui = jourDe(maintenant)
     const derniers = this.ajouts.slice(-20).reverse()
@@ -1673,15 +1705,20 @@ export class CampagneStore {
       septJours: this.ajouts.filter(a => a.ajouteeLe > maintenant - 7 * 24 * HEURE_MS).length,
       total: this.ajouts.length,
       dernierLe: this.ajouts.at(-1)?.ajouteeLe ?? null,
-      derniers: derniers.map(({ question: q, ajouteeLe }) => ({
-        id: q.id,
-        texte: q.texte,
-        categorie: q.meta.categorie,
-        sousTheme: q.meta.sousTheme,
-        difficulte: q.meta.difficulte,
-        ajouteeLe,
-        retiree: this.retirees.has(q.id),
-      })),
+      derniers: derniers.map(({ question: deposee, ajouteeLe }) => {
+        const q = base.parId.get(deposee.id) ?? deposee
+        const remplacante = this.corrections.get(q.id)?.question.id
+        return {
+          id: q.id,
+          texte: q.texte,
+          categorie: q.meta.categorie,
+          sousTheme: q.meta.sousTheme,
+          difficulte: q.meta.difficulte,
+          ajouteeLe,
+          retiree: this.retirees.has(q.id),
+          ...(remplacante !== undefined && remplacante !== q.id && { remplacee: true as const }),
+        }
+      }),
     }
   }
 
@@ -1712,31 +1749,71 @@ export class CampagneStore {
     })
   }
 
-  /** Les questions signalées et pas encore relues, la plus récente d'abord : combien de joueurs, et ce qu'ils disent. */
+  /**
+   * Les questions signalées et pas encore relues, la plus récente d'abord :
+   * qui les signale — ce qu'il en dit, où il l'a jouée, ce qu'il y a
+   * répondu —, ceux déjà relus avec, et ce que disent toutes les réponses de
+   * campagne. Sa réponse se lit dans la version qu'il a jouée, que sa série
+   * garde — réponses mélangées, et peut-être corrigées depuis — : seule
+   * cette question en revient (`json_extract`), pas la série entière. Les
+   * prénoms se lisent au profil, dans la route (`campagne.ts`).
+   */
   async signalements(): Promise<SignalementDeCampagne[]> {
-    const res = await this.client.execute(
-      `SELECT question_id, COUNT(*) AS n, MAX(cree_le) AS dernier, json_group_array(texte) AS textes
-       FROM campagne_signalements WHERE traite_le IS NULL GROUP BY question_id ORDER BY dernier DESC LIMIT 50`,
-    )
-    const base = await this.base()
-    return res.rows.flatMap(r => {
-      const q = base.parId.get(String(r.question_id))
-      if (!q) return []
-      return [
-        {
-          questionId: q.id,
-          texte: q.texte,
-          reponses: q.reponses,
-          bonne: q.bonne,
-          anecdote: q.anecdote,
-          categorie: q.meta.categorie,
-          sousTheme: q.meta.sousTheme,
-          joueurs: Number(r.n),
-          textes: lireTextes(r.textes).slice(-3),
-          dernier: Number(r.dernier),
-        },
-      ]
-    })
+    const [res, base, fichiers, mesure] = await Promise.all([
+      this.client.execute(
+        `SELECT g.question_id, g.profile_id, g.texte, g.cree_le, g.traite_le, s.mode, s.branche, s.palier, r.choix, r.juste,
+                json_extract(s.questions, '$[' || r.position || ']') AS vue
+         FROM campagne_signalements g
+         LEFT JOIN campagne_series s ON s.id = g.serie_id
+         LEFT JOIN campagne_reponses r ON r.serie_id = g.serie_id AND r.reserve_id = g.question_id
+         WHERE g.question_id IN (
+           SELECT question_id FROM campagne_signalements WHERE traite_le IS NULL
+           GROUP BY question_id ORDER BY MAX(cree_le) DESC LIMIT ${SIGNALEMENTS_MONTRES}
+         )
+         ORDER BY g.cree_le DESC`,
+      ),
+      this.base(),
+      this.fichiers(),
+      this.mesures(),
+    ])
+    // Les remplaçantes : nées d'une correction qui a changé la bonne réponse.
+    const remplacantes = new Map<string, number>()
+    for (const [ancienne, c] of this.corrections) if (c.question.id !== ancienne) remplacantes.set(c.question.id, c.corrigeeLe)
+    const parQuestion = new Map<string, Record<string, unknown>[]>()
+    for (const r of res.rows) {
+      const id = String(r.question_id)
+      const lignes = parQuestion.get(id)
+      if (lignes) lignes.push(r)
+      else parQuestion.set(id, [r])
+    }
+    const sortie: SignalementDeCampagne[] = []
+    for (const [id, lignes] of parQuestion) {
+      const q = base.parId.get(id)
+      if (!q) continue
+      const rapports = lignes.map(r => rapportDe(r, q))
+      const ouverts = rapports.filter(r => r.traiteLe === null)
+      if (ouverts.length === 0) continue
+      const surPlace = this.corrections.get(id)
+      sortie.push({
+        questionId: q.id,
+        texte: q.texte,
+        reponses: q.reponses,
+        bonne: q.bonne,
+        anecdote: q.anecdote,
+        categorie: q.meta.categorie,
+        sousTheme: q.meta.sousTheme,
+        difficulte: q.meta.difficulte,
+        niveau: niveauDeQuestion(q.meta.difficulte, mesure.get(q.id)),
+        mesure: mesure.get(q.id) ?? { justes: 0, total: 0 },
+        origine: remplacantes.has(q.id) ? 'correction' : fichiers.parId.has(q.id) ? 'depot' : 'routine',
+        corrigeeLe: surPlace?.question.id === q.id ? surPlace.corrigeeLe : (remplacantes.get(q.id) ?? null),
+        ...(this.retirees.has(q.id) && { retiree: true as const }),
+        joueurs: ouverts.length,
+        rapports,
+        dernier: Math.max(...ouverts.map(r => r.le)),
+      })
+    }
+    return sortie.sort((a, b) => b.dernier - a.dernier)
   }
 
   /** « Garder » : la question est juste, ses signalements se referment. */
@@ -1750,7 +1827,7 @@ export class CampagneStore {
   /**
    * « Retirer » : la campagne ne la tire plus, pour personne — les séries en
    * cours la gardent, elles l'ont déjà. Ses signalements se referment avec.
-   * Corrigée dans la base, elle reviendrait sous un nouvel identifiant.
+   * Pour la reprendre plutôt que la perdre, il y a « Corriger ».
    */
   async retirer(questionId: string): Promise<void> {
     if (!(await this.base()).parId.has(questionId)) throw new Error('Cette question n’est pas dans la base')
@@ -1763,6 +1840,77 @@ export class CampagneStore {
       'write',
     )
     this.retirees.add(questionId)
+  }
+
+  /**
+   * « Corriger » : la question se joue désormais dans sa version corrigée,
+   * relue par le juge de la base comme une ligne du dépôt. La même bonne
+   * réponse, le même identifiant : ses réponses passées et sa difficulté
+   * mesurée la suivent. Une autre bonne réponse, et ce n'est plus la même
+   * question (`bonneReponseChange`) : elle repart sous un identifiant neuf,
+   * sans les mesures de l'ancienne, qui est retirée — et sans ce qui
+   * justifiait l'ancienne réponse (son explication, sa valeur, sa date).
+   * Les séries déjà tirées, le défi de la semaine compris, gardent la
+   * version qu'elles ont lue. Ses signalements se referment.
+   *
+   * Rangée dans Turso, pas dans les fichiers du dépôt : elle vaut sans
+   * déploiement, et l'emporte sur la ligne du fichier tant qu'elle existe.
+   * Sous le verrou des dépôts : un identifiant neuf ou un intitulé ne se
+   * prennent pas deux fois.
+   */
+  corriger(questionId: string, brut: unknown): Promise<QuestionCorrigee> {
+    return this.avecVerrou('#depot', async () => {
+      const [base, duJour] = await Promise.all([this.base(), this.empreintesDuJour()])
+      const avant = base.parId.get(questionId)
+      if (!avant) throw new Error('Cette question n’est pas dans la base')
+      if (this.retirees.has(questionId)) throw new Error('Cette question est retirée de la campagne : on ne la corrige plus')
+      const proposee = lireLaCorrection(brut)
+      if (!proposee) throw new Error('Envoie l’intitulé, les réponses, l’index de la bonne et l’anecdote')
+      // Rangée pour rien, elle masquerait encore la ligne du fichier le jour où on la reprendrait dans le dépôt.
+      const pareille =
+        proposee.texte === avant.texte &&
+        proposee.anecdote === avant.anecdote &&
+        proposee.bonne === avant.bonne &&
+        proposee.reponses.length === avant.reponses.length &&
+        proposee.reponses.every((r, i) => r === avant.reponses[i])
+      if (pareille) throw new Error('Rien n’a changé : « Garder » referme ses signalements')
+      const nouvelle = bonneReponseChange(avant, proposee)
+      const lu = lireQuestionDeLaBase({
+        ...entreeDeLaBase(avant),
+        ...proposee,
+        leurres: leurresApres(avant, proposee),
+        ...(nouvelle && { explication: '', valeur: null, date: null }),
+      })
+      if ('refus' in lu) throw new Error(`Correction refusée : ${lu.refus}`)
+      // Un intitulé neuf n'est celui d'aucune autre question jouable : ni de
+      // la base, ni de la réserve du quiz du jour, ni d'un quiz livré.
+      if (lu.question.empreinte !== avant.empreinte) {
+        this.livres ??= empreintesDesLivres()
+        const e = lu.question.empreinte
+        if (base.questions.some(x => x.id !== questionId && x.empreinte === e && !this.retirees.has(x.id))) throw new Error('Cet intitulé est déjà celui d’une autre question de la campagne')
+        if (duJour.has(e)) throw new Error('Cet intitulé est déjà dans la réserve du quiz du jour')
+        if (this.livres.has(e)) throw new Error('Cet intitulé est déjà dans un quiz livré')
+      }
+      const corrigee = { ...lu.question, id: nouvelle ? nouvelIdentifiant(new Set(base.parId.keys())) : questionId }
+      const maintenant = this.maintenant()
+      await this.client.batch(
+        [
+          {
+            sql: `INSERT INTO campagne_corrections (question_id, entree, corrigee_le) VALUES (?, ?, ?)
+                  ON CONFLICT(question_id) DO UPDATE SET entree = excluded.entree, corrigee_le = excluded.corrigee_le`,
+            args: [questionId, JSON.stringify(entreeDeLaBase(corrigee)), maintenant],
+          },
+          ...(nouvelle ? [{ sql: 'INSERT OR IGNORE INTO campagne_retraits (question_id, retiree_le) VALUES (?, ?)', args: [questionId, maintenant] }] : []),
+          { sql: 'UPDATE campagne_signalements SET traite_le = ? WHERE question_id = ? AND traite_le IS NULL', args: [maintenant, questionId] },
+        ],
+        'write',
+      )
+      // Écrite : elle se joue tout de suite. La base fusionnée se refait à la prochaine lecture.
+      this.corrections.set(questionId, { question: corrigee, corrigeeLe: maintenant })
+      this.versionDesCorrections++
+      if (nouvelle) this.retirees.add(questionId)
+      return { id: corrigee.id, nouvelle }
+    })
   }
 
   /** L'écran de l'administrateur : la base, ce qu'on en joue, et les signalements à relire. */
@@ -1778,7 +1926,7 @@ export class CampagneStore {
         for (const q of jouables) if (q.meta.categorie === categorie) difficultes[q.meta.difficulte - 1]++
         return { categorie, difficultes }
       }),
-      ajouts: this.ajoutsDeLaRoutine(),
+      ajouts: this.ajoutsDeLaRoutine(base),
       signalements,
     }
   }
@@ -1995,13 +2143,114 @@ function parCategorie(questions: readonly QuestionDeLaBase[]): { categorie: stri
   return CATEGORIES.filter(c => compte.has(c)).map(c => ({ categorie: c, questions: compte.get(c)! }))
 }
 
-function lireTextes(brut: unknown): string[] {
+/** Une entrée de la base rangée dans Turso — un dépôt de la routine, une correction —, relue par le juge du jour. */
+function relireUneEntree(brut: unknown): { question: QuestionDeLaBase } | { refus: string } {
   try {
-    const textes = JSON.parse(String(brut)) as unknown
-    return Array.isArray(textes) ? textes.filter((t): t is string => typeof t === 'string') : []
+    return lireQuestionDeLaBase(JSON.parse(String(brut)))
   } catch {
-    return []
+    return { refus: 'JSON illisible' }
   }
+}
+
+/**
+ * Les corrections de l'administrateur, sur la base du dépôt et de la
+ * routine : les remplaçantes d'abord — une question neuve, sous son propre
+ * identifiant —, puis les corrections sur place, qui prennent la place de la
+ * version d'avant. Une remplaçante se corrige donc comme les autres. Une
+ * correction sur place dont la question a quitté la base ne la fait pas
+ * revenir.
+ */
+function appliquerLesCorrections(
+  questions: readonly QuestionDeLaBase[],
+  corrections: ReadonlyMap<string, { question: QuestionDeLaBase }>,
+): QuestionDeLaBase[] {
+  const parId = new Map(questions.map(q => [q.id, q]))
+  for (const [ancienne, c] of corrections) if (c.question.id !== ancienne && !parId.has(c.question.id)) parId.set(c.question.id, c.question)
+  for (const [id, c] of corrections) if (c.question.id === id && parId.has(id)) parId.set(id, c.question)
+  return [...parId.values()]
+}
+
+/**
+ * Ce que l'écran de l'administrateur envoie pour corriger une question, mis
+ * en forme : des textes sur une ligne, sans espaces en trop — le juge de la
+ * base refuserait un retour à la ligne collé avec l'intitulé. Il dira le
+ * reste. Null : pas une correction.
+ */
+function lireLaCorrection(brut: unknown): CorrectionDeQuestion | null {
+  if (!brut || typeof brut !== 'object') return null
+  const b = brut as Record<string, unknown>
+  if (typeof b.texte !== 'string' || !Array.isArray(b.reponses) || !b.reponses.every(r => typeof r === 'string')) return null
+  if (typeof b.bonne !== 'number' || !Number.isInteger(b.bonne)) return null
+  if (b.anecdote !== null && b.anecdote !== undefined && typeof b.anecdote !== 'string') return null
+  const uneLigne = (t: string) => t.replace(/\s+/g, ' ').trim()
+  const anecdote = typeof b.anecdote === 'string' ? b.anecdote.trim() : ''
+  return { texte: uneLigne(b.texte), reponses: (b.reponses as string[]).map(uneLigne), bonne: b.bonne, anecdote: anecdote || null }
+}
+
+/**
+ * Les leurres d'une question corrigée. Ses mauvaises réponses d'abord : le
+ * juge les y veut toutes, et n'en garde que huit. Puis ceux d'avant qu'on
+ * ne montrait pas. Une réponse que la correction a ôtée n'en est plus un :
+ * on l'ôte parce qu'elle trompait mal — juste, elle aussi, ou ambiguë. La
+ * bonne réponse n'en est jamais un.
+ */
+export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestion): string[] {
+  const juste = sansAccent(apres.reponses[apres.bonne] ?? '')
+  const restent = new Set(apres.reponses.map(sansAccent))
+  const otees = new Set(avant.reponses.map(sansAccent).filter(r => !restent.has(r)))
+  const vus = new Set<string>()
+  const leurres: string[] = []
+  for (const l of [...apres.reponses.filter((_, i) => i !== apres.bonne), ...avant.meta.leurres]) {
+    const cle = sansAccent(l)
+    if (cle === juste || otees.has(cle) || vus.has(cle)) continue
+    vus.add(cle)
+    leurres.push(l)
+  }
+  return leurres
+}
+
+/**
+ * Un signalement, tel que l'administration le lit : sa ligne, sa série et
+ * sa réponse jointes (`signalements`). La version qu'il a jouée — réponses
+ * dans l'ordre de sa série — dit ce qu'il a répondu, et si la base a changé
+ * depuis : corrigée ici, ou dans son fichier.
+ */
+function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
+  const vue = lireLaVersionJouee(r.vue)
+  const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
+  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : 'serie'
+  return {
+    profileId: String(r.profile_id),
+    prenom: null,
+    login: null,
+    texte: String(r.texte),
+    le: Number(r.cree_le),
+    traiteLe: r.traite_le === null || r.traite_le === undefined ? null : Number(r.traite_le),
+    ou,
+    ...(ou === 'sentier' && typeof r.branche === 'string' && { branche: r.branche }),
+    ...(ou === 'sentier' && r.palier !== null && r.palier !== undefined && { palier: Number(r.palier) }),
+    reponse: vue && choix !== null ? (vue.reponses[choix] ?? null) : null,
+    juste: r.juste === null || r.juste === undefined ? null : Number(r.juste) === 1,
+    ...(vue && !memeVersion(vue, q) && { versionDAvant: true as const }),
+  }
+}
+
+/** La question telle qu'une série l'a gardée (`QuestionDeSerie`) : ce qu'il en faut pour lire une réponse. Null : illisible. */
+function lireLaVersionJouee(brut: unknown): { texte: string; reponses: string[]; bonne: number; anecdote: string | null } | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const v = JSON.parse(brut) as Record<string, unknown>
+    if (typeof v.texte !== 'string' || !Array.isArray(v.reponses) || typeof v.bonne !== 'number') return null
+    return { texte: v.texte, reponses: v.reponses.map(String), bonne: v.bonne, anecdote: typeof v.anecdote === 'string' ? v.anecdote : null }
+  } catch {
+    return null
+  }
+}
+
+/** La même version qu'une question de la base : le même intitulé, les mêmes réponses — dans n'importe quel ordre, la série les mélange —, la même bonne, la même anecdote. */
+function memeVersion(vue: { texte: string; reponses: string[]; bonne: number; anecdote: string | null }, q: QuestionDeLaBase): boolean {
+  const triees = (r: readonly string[]) => [...r].sort().join('\n')
+  return vue.texte === q.texte && triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne] && vue.anecdote === q.anecdote
 }
 
 function melanger<T>(liste: readonly T[]): T[] {

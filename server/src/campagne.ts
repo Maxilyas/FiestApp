@@ -169,15 +169,27 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
 
 /**
  * La base de la campagne et ses signalements, pour l'administrateur seul
- * (`/admin#campagne`) : garder une question signalée, ou la retirer pour
- * tous. Passe derrière la porte des animateurs, sous `/api/admin`.
+ * (`/admin#campagne`) : qui signale quoi, puis garder la question, la
+ * corriger, ou la retirer pour tous. Passe derrière la porte des
+ * animateurs, sous `/api/admin`.
  */
 export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
   app.get(
     '/api/admin/campagne',
     requireAdmin,
     wrap(async (_req, res) => {
-      res.json(await deps.campagne.administration())
+      const etat = await deps.campagne.administration()
+      // Qui signale : leurs profils se lisent d'un coup, comme les plus bloqués des sentiers.
+      const ids = [...new Set(etat.signalements.flatMap(s => s.rapports.map(r => r.profileId)))]
+      const profils = await deps.profiles.byIds(ids)
+      const parId = new Map(ids.map((id, i) => [id, profils[i]]))
+      for (const s of etat.signalements) {
+        s.rapports = s.rapports.map(r => {
+          const p = parId.get(r.profileId)
+          return p ? { ...r, prenom: p.name, login: p.login } : r
+        })
+      }
+      res.json(etat)
     }),
   )
 
@@ -196,6 +208,15 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
     wrap(async (req, res) => {
       await deps.campagne.retirer(String(req.body?.questionId ?? ''))
       res.json({ ok: true })
+    }),
+  )
+
+  // Corriger une question signalée : son intitulé, ses réponses, la bonne, l'anecdote.
+  app.post(
+    '/api/admin/campagne/corriger',
+    requireAdmin,
+    wrap(async (req, res) => {
+      res.json(await deps.campagne.corriger(String(req.body?.questionId ?? ''), req.body?.correction))
     }),
   )
 
