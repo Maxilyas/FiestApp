@@ -17,6 +17,7 @@ npm test           # les tests ciblés de server/test/ (node:test, quatre à cin
 npm run smoke      # le test de bout en bout seul (~90 s)
 npm run sauvegarde # la base permanente en SQL daté, dans export/sauvegardes/
 npm run tablee     # une soirée jouée par des agents (régie + /tablee) : voir .claude/skills/tablee/
+npm run mesure     # ce que chaque page fait attendre à un téléphone (client construit d'abord) : voir server/scripts/mesure-pages.ts
 ```
 
 Deux suites, aucune dépendance de plus, et toujours ni linter ni formateur.
@@ -133,6 +134,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Absents.tsx` · `Reprendre.tsx` | le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), et le code tapé par l'invité |
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
 | `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
+| `server/scripts/mesure-pages.ts` | ce que chaque page fait attendre à un téléphone (`npm run mesure`) : un serveur jetable et une soirée jouée, puis chaque page ouverte dans Chromium bridé — 4G, 4G lente ou la 4G moyenne des audits de septembre, processeur ×4 —, cache vide puis plein ; le premier affichage, l'écran utile (un sélecteur par page, guetté dans la page), les octets et requêtes avant lui, le processeur. Derrière un relais HTTP/2, comme chez l'hébergeur : en HTTP/1.1, les trente morceaux d'une route font la queue sur six connexions, et toute conclusion sur le nombre de requêtes s'inverse ; le relais retarde aussi les messages temps réel, que Chrome ne bride pas. `--cascade`, `--couverture`, `--client` (deux paquets comparés). La mesure d'avant et d'après une retouche, pas un test (`retours/2026-10-05/affichage-des-pages.md`) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
 | `server/scripts/empaqueter.ts` · `server/src/racine.ts` | le serveur en un seul fichier (`server/dist/index.mjs`), que `npm run build` construit avec le client et que la commande de démarrage lance sans tsx — un réveil de l'offre gratuite ne traduit plus le TypeScript ; et `SERVEUR`, d'où se compte tout chemin du serveur |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, combien de soirées chaque niveau, et la rareté de chaque haut fait (que `PART_DES_JOUEURS` recopie) : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
