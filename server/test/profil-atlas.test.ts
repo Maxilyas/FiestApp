@@ -3,7 +3,7 @@
 // Les avatars se parcourent en atlas : un rail des douze branches, chacune un
 // orbe dont l'anneau se remplit, puis la branche choisie en chemin ; les
 // légendaires et les Divins en grilles de médaillons. Le style se lit en
-// quatre lignes — ce qui est choisi, en clair —, chacune ouvrant son écran à
+// cinq lignes — ce qui est choisi, en clair —, chacune ouvrant son écran à
 // son adresse, la carte collée en tête pendant qu'on règle.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -85,16 +85,16 @@ test('les légendaires et les Divins en grilles de médaillons, le compte en tê
   assert.match(html, /Ils ne disent pas comment/)
 })
 
-test('« Mon style » : quatre lignes, ce qui est choisi en clair, chacune son écran — le thème compris', async () => {
+test('« Mon style » : cinq lignes, ce qui est choisi en clair, chacune son écran — la gerbe et le thème compris', async () => {
   const html = await rendu('components/PanneauxDuProfil', 'PanneauStyle', { profil, ...rien, onReglage: () => {} })
   assert.match(html, /<button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
   const lignes = [...html.matchAll(/<span class="style-nom">([^<]+)<\/span><span class="style-valeur">([^<]+)<\/span>/g)].map(([, nom, valeur]) => `${nom} : ${valeur}`)
-  assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Thème : Velours'])
+  assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Gerbe : Aucune', 'Thème : Velours'])
   // Le thème aussi : ceux qu'on a se portent ici, la boutique ne vend que les autres.
-  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 4)
+  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 5)
   // Chaque réglage a son écran, à son adresse : le retour du navigateur ramène au style.
   const app = source('views/ProfilApp.tsx')
-  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-theme'/)
+  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-gerbe' \| 'style-theme'/)
   assert.match(app, /onReglage=\{r => ouvrir\(`style-\$\{r\}`\)\}/)
   // Le réglage garde la carte collée en tête, où l'on voit ce qu'on change.
   assert.match(source('components/PanneauxDuProfil.tsx'), /<div className="identite-collante">/)
