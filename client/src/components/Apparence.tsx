@@ -31,6 +31,8 @@ import {
   type Paliers,
 } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
+import { GERBES } from '../../../shared/gerbes'
+import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
@@ -118,7 +120,7 @@ export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avat
 /**
  * Tous ses avatars, rangés par famille : les portraits des branches ; les
  * vingt-quatre emojis et les douze de collection ; les légendaires et les
- * cinq Divins. Cent vingt-neuf avatars ne se parcourent plus en une grille :
+ * six Divins. Cent quarante avatars ne se parcourent plus en une grille :
  * chaque famille a son onglet, et chaque partie son titre et son compte.
  *
  * Chacun se touche de la même façon : sa fiche s'ouvre sous sa rangée, et
@@ -823,9 +825,11 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
  * comptent, sans se nommer : trente boutons fermés noyaient les siens.
  */
 export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
-  // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier.
-  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
-  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length)
+  // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
+  // puis les titres datés des champions du mois, du plus récent au plus ancien.
+  const dates = profil.titresDates ?? []
+  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
+  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length)
   const porte = profil.titre ?? null
   return (
     <section className="card">
@@ -924,6 +928,72 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
           )
         })}
       </div>
+    </section>
+  )
+}
+
+/**
+ * Sa gerbe : ce qui éclate sur son téléphone à une bonne réponse, en soirée,
+ * au quiz du jour et en campagne. Pour lui seul — ni la salle ni l'écran
+ * commun n'en voient rien. Ceux qui restent à gagner se voient, avec ce
+ * qu'il faut ; toucher celle qu'on porte la rejoue.
+ */
+export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+  // L'aperçu : la gerbe qu'on vient de toucher éclate, une fois par toucher.
+  const [apercu, setApercu] = useState<{ cle: string; n: number } | null>(null)
+  if (!profil.gerbes) return null
+  const porte = profil.gerbe ?? null
+  const montrer = (cle: string) => setApercu(a => ({ cle, n: (a?.n ?? 0) + 1 }))
+  return (
+    <section className="card">
+      <h3>
+        <Icon name="zap" />
+        Ma gerbe <span className="muted small titre-compte">{`${profil.gerbes.length} / ${GERBES.length}`}</span>
+      </h3>
+      <p className="muted small">Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit.</p>
+      <div className="finitions gerbes-choix">
+        <button
+          type="button"
+          className={'finition-btn' + (!porte ? ' selected' : '')}
+          aria-disabled={busy || undefined}
+          aria-pressed={!porte}
+          onClick={() => enregistrer({ gerbe: null })}
+        >
+          <span className="gerbe-apercu" aria-hidden="true" />
+          <span className="finition-nom">Aucune</span>
+          <span className="muted small" aria-hidden="true">
+            {!porte ? 'portée' : 'sobre'}
+          </span>
+        </button>
+        {GERBES.map(g => {
+          const ouverte = profil.gerbes!.includes(g.key)
+          const choisie = porte === g.key
+          return (
+            <button
+              key={g.key}
+              type="button"
+              className={'finition-btn' + (choisie ? ' selected' : '')}
+              disabled={!ouverte}
+              aria-disabled={busy || undefined}
+              aria-pressed={choisie}
+              onClick={() => {
+                montrer(g.key)
+                if (!choisie) enregistrer({ gerbe: g.key })
+              }}
+            >
+              <span className="gerbe-apercu" aria-hidden="true">
+                {g.particules.slice(0, 3).join('')}
+              </span>
+              <span className="finition-nom">{g.nom}</span>
+              <span className="muted small" aria-hidden={choisie || undefined}>
+                {ouverte ? (choisie ? 'portée' : 'ouverte') : g.regle}
+              </span>
+              {choisie && <span className="sr-only">ouverte</span>}
+            </button>
+          )
+        })}
+      </div>
+      {apercu && <GerbeDeJuste key={apercu.n} cle={apercu.cle} />}
     </section>
   )
 }

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import type { Finition, PublicProfile } from '../../../shared/profil'
 import { collectionGagnee } from '../../../shared/avatars'
+import { ceQuIlAFallu, palierDe } from '../../../shared/hautsfaits'
+import { legendaire } from '../../../shared/legendaires'
 import { api } from '../api'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 
 // Ce qu'une partie vient d'ouvrir, qu'on porte d'ici : à la fin d'une
-// soirée (`FinDeSoiree.tsx`) comme à la fin du quiz du jour (`JourApp.tsx`).
+// soirée (`FinDeSoiree.tsx`), du quiz du jour (`JourApp.tsx`), d'une série
+// de campagne (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
 // À part de la fin de soirée : le quiz du jour l'importait pour ces
 // composants, et téléchargeait toute la fin de soirée à chaque ouverture de
 // sa page. (Les portraits des branches s'y annonçaient aussi : ils se
@@ -88,5 +91,59 @@ export function Medaillon({ cle, className }: { cle: string; className: string }
     <span className={className}>
       <Dessin cle={cle} grand />
     </span>
+  )
+}
+
+/**
+ * Le légendaire qu'une partie vient d'ouvrir — au quiz du jour, en
+ * campagne, sur un sentier —, fêté comme en fin de soirée, et qu'on porte
+ * d'un toucher.
+ */
+export function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: boolean }) {
+  const [porte, setPorte] = useState(dejaPorte)
+  const l = legendaire(cle)
+  if (!l) return null
+  const porter = async () => {
+    try {
+      const { profile } = await api.joueur.enregistrer({ legendaire: cle })
+      setPorte(profile.legendaire === cle)
+      showToast({ kind: 'info', message: `Tu portes ${l.nom}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    }
+  }
+  return (
+    <section className="card fin-legendaire">
+      <span className="label">Avatar légendaire débloqué</span>
+      <Medaillon cle={cle} className="fin-medaillon" />
+      <h2>{l.nom}</h2>
+      <p className="serif-note">{l.legende}</p>
+      {porte ? (
+        <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
+      ) : (
+        <button className="btn btn-primary" onClick={() => void porter()}>
+          Le porter
+        </button>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Un haut fait ou un palier qui vient de tomber — le Lève-tôt, le
+ * Funambule, L'Alpiniste · Argent —, avec ce qu'il a fallu faire : un titre
+ * seul ne dit rien à qui ne l'a jamais chassé.
+ */
+export function RecompenseTombee({ recompense }: { recompense: { key: string; emoji: string; title: string } }) {
+  return (
+    <div className="jour-ligne">
+      <span className="jour-pastille jour-palier" aria-hidden="true">
+        {recompense.emoji}
+      </span>
+      <div>
+        <b>{`${palierDe(recompense.key) ? 'Nouveau palier' : 'Nouveau haut fait'} : ${recompense.title}`}</b>
+        <span className="muted small">{ceQuIlAFallu(recompense.key)}</span>
+      </div>
+    </div>
   )
 }

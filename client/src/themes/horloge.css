@@ -1,0 +1,327 @@
+/* ── L'Horloge astronomique · gagnée, jamais vendue ──
+   Émail lapis-lazuli, zodiaque à la feuille d'or, et des aiguilles qui
+   marquent l'heure de Paris. Elle se gagne à la cinquantième victoire au quiz
+   du jour (`shared/themes.ts`, `gagne`) : aucune boutique ne la vend.
+
+   L'un des quatre thèmes peints : son décor est fait d'images
+   (`server/scripts/anime/decors.ts`) — le cadran, ses deux aiguilles
+   détourées, deux engrenages de laiton —, que la chaîne livre sous leur
+   empreinte et nomme dans le bloc qu'elle réécrit plus bas. Elles ne partent
+   que chez qui porte le thème : cette feuille est chargée à la demande
+   (`client/src/themeJoueur.ts`), et une image de fond ne se télécharge
+   qu'une fois la règle qui la cite appliquée.
+
+   Les aiguilles suivent l'heure de Paris, que `themeJoueur.ts` pose sur
+   <html> chaque minute (`--horloge-heures`, `--horloge-minutes`) ; les
+   engrenages tournent lentement. Le décor vit dans les couches fixes
+   (`html::before`, `body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que par
+   `transform` et `opacity` ; chacune est centrée par ses marges, puisque sa
+   rotation prend `transform`. Le texte reste lisible : le cadran passe sous
+   la page à mi-teinte, et les cartes sont d'émail opaque.
+   `design.test.ts` en mesure les contrastes. */
+
+@font-face {
+  font-family: 'Marcellus';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/marcellus.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/themes/cinzel.woff2') format('woff2');
+}
+
+:root[data-theme='horloge'] {
+  --bg: #0a1024;
+  --bg-halo: #17224a;
+  --bg-raised: #0f1733;
+  --ink: #f5efe0;
+  --muted: #b4b9cc;
+  --accent: #d9b45c;
+  --accent-rgb: 217, 180, 92;
+  --accent-hover: #e6c77f;
+  --accent-text: #e4c06a;
+  --accent-text-hover: #f0d595;
+  --focus: #e4c06a;
+  --on-accent: #0a1024;
+  --alert: #f2876f;
+  --alert-rgb: 242, 135, 111;
+  --alert-hover: #f5a08c;
+  --on-alert: #0a1024;
+  /* Les surfaces sont d'émail presque opaque, pas un voile blanc à 5 % :
+     sous un décor peint, les gros boutons, les tuiles et les listes
+     laissaient passer l'or du cadran sous leur texte. */
+  --surface: rgba(20, 30, 62, 0.9);
+  --surface-faint: rgba(16, 24, 52, 0.86);
+  --surface-strong: rgba(205, 220, 255, 0.09);
+  --track: rgba(205, 220, 255, 0.15);
+  --edge: rgba(217, 180, 92, 0.3);
+  --edge-strong: rgba(217, 180, 92, 0.66);
+  --accent-soft: rgba(217, 180, 92, 0.13);
+  --scroll-thumb: rgba(217, 180, 92, 0.34);
+  --backdrop: rgba(3, 5, 14, 0.76);
+  --shape-0: #f09aa6;
+  --shape-1: #e4c06a;
+  --shape-2: #9fb3ff;
+  --shape-3: #8fd6b4;
+  --bronze-text: #e0a679;
+  --argent-text: #ccd3e0;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */
+:root[data-theme='horloge'] {
+  --decor-cadran: url(/decors/horloge-cadran-960.970220425c.webp);
+  --decor-aiguille-heures: url(/decors/horloge-heures-512.738396629c.webp);
+  --decor-aiguille-minutes: url(/decors/horloge-minutes-512.647555ceea.webp);
+  --decor-engrenage-grand: url(/decors/horloge-engrenage-grand-512.254dc09772.webp);
+  --decor-engrenage-petit: url(/decors/horloge-engrenage-petit-384.11971d76b7.webp);
+}
+/* ── Fin des décors peints ── */
+
+:root[data-theme='horloge'] {
+  --serif: Marcellus, 'EB Garamond', Georgia, serif;
+  --radius: 12px;
+  font-synthesis: none;
+  /* Le cadran : sa taille, et son centre, autour duquel tournent les
+     aiguilles. Il tient en haut de chaque page, son XII sous le bord de
+     l'écran : coupé plus haut, on ne lisait plus l'heure, seulement deux
+     aiguilles sur de l'or. À peine plus large qu'un téléphone, il en déborde
+     des deux côtés. */
+  --horloge-cadran-taille: min(108vw, 62vh, 560px);
+  --horloge-cadran-y: calc(var(--horloge-cadran-taille) / 2 + 6px);
+}
+
+/* Le texte posé sur la page, hors des cartes — l'en-tête, les surtitres, la
+   question et ses secondes — garde un halo de nuit : le cadran passe sous
+   lui à mi-teinte, et ses ors clairs ne doivent jamais le disputer à l'œil.
+   Sur l'émail sombre d'une carte, le halo ne se voit pas. */
+:root[data-theme='horloge'] .label,
+:root[data-theme='horloge'] .muted,
+:root[data-theme='horloge'] .small,
+:root[data-theme='horloge'] h1,
+:root[data-theme='horloge'] h2,
+:root[data-theme='horloge'] h3,
+:root[data-theme='horloge'] .identite-nom,
+:root[data-theme='horloge'] .xp-mince-texte,
+:root[data-theme='horloge'] .quiz-question,
+:root[data-theme='horloge'] .timer-seconds {
+  text-shadow: 0 1px 2px rgba(5, 8, 20, 0.9), 0 0 10px rgba(5, 8, 20, 0.85), 0 0 18px rgba(5, 8, 20, 0.6);
+}
+
+/* L'émail du ciel : un lapis profond, semé d'étoiles d'or fines. */
+:root[data-theme='horloge'] body {
+  background-color: #0a1024;
+  background-image:
+    radial-gradient(90% 55% at 50% 0%, #1a2756, rgba(10, 16, 36, 0) 72%),
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'><g fill='%23d9b45c'><circle cx='14' cy='22' r='0.9' opacity='.7'/><circle cx='61' cy='9' r='0.6' opacity='.5'/><circle cx='122' cy='31' r='1.1' opacity='.6'/><circle cx='163' cy='12' r='0.7' opacity='.5'/><circle cx='37' cy='77' r='0.7' opacity='.45'/><circle cx='95' cy='66' r='0.9' opacity='.55'/><circle cx='148' cy='90' r='0.6' opacity='.5'/><circle cx='19' cy='133' r='1' opacity='.55'/><circle cx='73' cy='118' r='0.6' opacity='.4'/><circle cx='118' cy='149' r='0.8' opacity='.5'/><circle cx='171' cy='160' r='0.9' opacity='.6'/><circle cx='52' cy='171' r='0.6' opacity='.45'/></g></svg>");
+  background-size: 100% 100vh, 180px 180px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* Le cadran, à mi-teinte : ses ors restent sous le texte clair. */
+:root[data-theme='horloge'] body::before {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: var(--horloge-cadran-y);
+  width: var(--horloge-cadran-taille);
+  height: var(--horloge-cadran-taille);
+  margin: calc(var(--horloge-cadran-taille) / -2) 0 0 calc(var(--horloge-cadran-taille) / -2);
+  pointer-events: none;
+  z-index: 0;
+  background: var(--decor-cadran) center / contain no-repeat;
+  opacity: 0.42;
+  transition: opacity 0.6s ease;
+}
+
+/* Pendant une question, l'horloge recule d'un pas : la salle lit, le temps
+   compte, l'or ne doit rien disputer à la question. */
+:root[data-theme='horloge']:has(.quiz-player) body::before {
+  opacity: 0.3;
+}
+
+:root[data-theme='horloge']:has(.quiz-player) body::after,
+:root[data-theme='horloge']:has(.quiz-player) #root::before {
+  opacity: 0.55;
+}
+
+/* Les deux aiguilles : chacune dans une boîte centrée sur le cadran, son
+   moyeu au centre de la boîte (la chaîne les a recentrées sur lui). */
+:root[data-theme='horloge'] body::after,
+:root[data-theme='horloge'] #root::before {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: var(--horloge-cadran-y);
+  width: var(--aiguille);
+  height: var(--aiguille);
+  margin: calc(var(--aiguille) / -2) 0 0 calc(var(--aiguille) / -2);
+  pointer-events: none;
+  background: center / contain no-repeat;
+  opacity: 0.8;
+  transition: opacity 0.6s ease;
+}
+
+:root[data-theme='horloge'] body::after {
+  --aiguille: calc(var(--horloge-cadran-taille) * 0.62);
+  z-index: 0;
+  background-image: var(--decor-aiguille-heures);
+  transform: rotate(var(--horloge-heures, 305deg));
+}
+
+:root[data-theme='horloge'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='horloge'] #root::before {
+  --aiguille: calc(var(--horloge-cadran-taille) * 0.88);
+  z-index: -1;
+  background-image: var(--decor-aiguille-minutes);
+  transform: rotate(var(--horloge-minutes, 60deg));
+}
+
+/* Chaque minute, l'aiguille avance d'un cran, comme celle d'une horloge de
+   clocher : un pas bref, qui dépasse à peine et revient. Seulement quand
+   l'heure suit depuis plus d'une minute (`data-heure-suivie`) : à
+   l'ouverture de la page, elle est déjà à sa place. */
+:root[data-theme='horloge'][data-heure-suivie] body::after,
+:root[data-theme='horloge'][data-heure-suivie] #root::before {
+  transition: transform 0.9s cubic-bezier(0.3, 1.6, 0.5, 1), opacity 0.6s ease;
+}
+
+/* Les engrenages : le grand dans le coin d'en bas à gauche, le petit à
+   droite, qui tournent en sens contraire, au pas d'un rouage. */
+:root[data-theme='horloge'] #root::after,
+:root[data-theme='horloge']::before {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  background: center / contain no-repeat;
+}
+
+/* À la mesure d'un téléphone, plafonnés sur un grand écran : en largeur
+   d'écran seule, le grand engrenage y aurait fait huit cents pixels. */
+:root[data-theme='horloge'] #root::after {
+  --engrenage: min(64vw, 420px);
+  z-index: -1;
+  left: calc(var(--engrenage) * -0.34);
+  bottom: calc(var(--engrenage) * -0.28);
+  width: var(--engrenage);
+  height: var(--engrenage);
+  background-image: var(--decor-engrenage-grand);
+  opacity: 0.2;
+  animation: horloge-rouage 240s linear infinite;
+}
+
+:root[data-theme='horloge']::before {
+  --engrenage: min(34vw, 220px);
+  z-index: 0;
+  right: calc(var(--engrenage) * -0.35);
+  bottom: 16vh;
+  width: var(--engrenage);
+  height: var(--engrenage);
+  background-image: var(--decor-engrenage-petit);
+  opacity: 0.16;
+  animation: horloge-rouage 120s linear infinite reverse;
+}
+
+/* Les cartes et les réponses : de l'émail, sous un double filet d'or,
+   comme les anneaux du cadran. */
+:root[data-theme='horloge'] .card,
+:root[data-theme='horloge'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='horloge'] .onglets {
+  background: rgba(13, 20, 46, 0.95);
+  border: 1px solid rgba(217, 180, 92, 0.5);
+  box-shadow: inset 0 0 0 3px rgba(13, 20, 46, 0.95), inset 0 0 0 4px rgba(217, 180, 92, 0.2), 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='horloge'] .ans-btn {
+  font-weight: 500;
+}
+
+/* La réponse choisie, le gros bouton du moment et la pastille du niveau :
+   l'or posé sur l'émail, pas sur le décor — translucides, ils laissaient
+   voir le cadran (le « 1 » d'un niveau tombait à 4,3:1 sur ses ors). */
+:root[data-theme='horloge'] .ans-btn.chosen,
+:root[data-theme='horloge'] .gros-principal {
+  background: radial-gradient(120% 160% at 0% 0%, rgba(217, 180, 92, 0.24), rgba(217, 180, 92, 0.06) 65%), #111a38;
+}
+
+:root[data-theme='horloge'] .niveau {
+  background: linear-gradient(rgba(217, 180, 92, 0.13), rgba(217, 180, 92, 0.13)), #0f1733;
+}
+
+:root[data-theme='horloge'] .ans-btn.chosen {
+  border: 1.5px solid #d9b45c;
+}
+
+:root[data-theme='horloge'] .quiz-question {
+  font-weight: 400;
+  font-size: 29px;
+  line-height: 1.18;
+}
+
+:root[data-theme='horloge'] h1,
+:root[data-theme='horloge'] h2,
+:root[data-theme='horloge'] h3 {
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* Les surtitres en capitales romaines, comme les heures du cadran — un peu
+   grasses : à onze pixels, le trait fin de Cinzel se perdait sur l'or. */
+:root[data-theme='horloge'] .label {
+  font-family: Cinzel, Marcellus, serif;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+:root[data-theme='horloge'] .timer-seconds {
+  font-family: Cinzel, Marcellus, serif;
+  color: #e4c06a;
+}
+
+:root[data-theme='horloge'] .timer-fill,
+:root[data-theme='horloge'] .xp-fill {
+  background: linear-gradient(90deg, #8f6c22, #f0d595, #8f6c22);
+}
+
+:root[data-theme='horloge'] .result-banner .big,
+:root[data-theme='horloge'] .fin-xp {
+  background: linear-gradient(100deg, #8f6c22, #f0d595 50%, #8f6c22);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes horloge-rouage {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : les engrenages s'arrêtent, et
+   l'aiguille saute d'une minute à l'autre sans son pas. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='horloge'] #root::after,
+  :root[data-theme='horloge']::before {
+    animation: none !important;
+  }
+
+  :root[data-theme='horloge'][data-heure-suivie] body::after,
+  :root[data-theme='horloge'][data-heure-suivie] #root::before {
+    transition: none;
+  }
+}

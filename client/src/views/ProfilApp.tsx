@@ -24,6 +24,7 @@ import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
 import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
+import { porterGerbe } from '../gerbe'
 import { nConfettis } from '../../../shared/themes'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
@@ -175,6 +176,10 @@ export function ProfilApp() {
   useEffect(() => {
     if (!chargement) void porterTheme(profil?.theme)
   }, [chargement, profil?.theme])
+  // Sa gerbe aussi : choisie ici, elle éclate à sa prochaine bonne réponse.
+  useEffect(() => {
+    if (!chargement) porterGerbe(profil?.gerbe)
+  }, [chargement, profil?.gerbe])
 
   // L'accueil affiché, le code du quiz du jour et de la campagne vient en
   // fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
@@ -446,7 +451,7 @@ export function ProfilApp() {
           (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} onReglage={r => ouvrir(`style-${r}`)} /> : enChemin)}
         {reglage &&
           (pret ? (
-            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond' | 'theme'} profil={profil} busy={busy} enregistrer={enregistrer} />
+            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond' | 'gerbe' | 'theme'} profil={profil} busy={busy} enregistrer={enregistrer} />
           ) : (
             enChemin
           ))}
@@ -481,10 +486,10 @@ export function ProfilApp() {
     <div className="player-shell">
       {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
       <Identite profil={profil} />
-      {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+      {/* Il a gagné hier — ou le défi de la semaine passée : sa page le lui dit, comme la salle le voit. */}
       {profil.laurier && (
         <p className="carte-laurier">
-          <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+          <Laurier laurier={profil.laurier} decoratif /> {profil.laurier === 'argent' ? 'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'}
         </p>
       )}
       {regionDAnnonce}
@@ -541,7 +546,7 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
  */
 type TuileDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
 /** Un réglage du style a son écran, sous « Mon style ». */
-type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond' | 'style-theme'
+type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond' | 'style-gerbe' | 'style-theme'
 type EcranDuProfil = TuileDuProfil | ReglageDuStyle
 
 const ECRANS: { id: TuileDuProfil; nom: string }[] = [
@@ -556,6 +561,7 @@ const REGLAGES: { id: ReglageDuStyle; nom: string }[] = [
   { id: 'style-finition', nom: 'Finition' },
   { id: 'style-titre', nom: 'Titre' },
   { id: 'style-fond', nom: 'Fond de carte' },
+  { id: 'style-gerbe', nom: 'Gerbe' },
   { id: 'style-theme', nom: 'Thème' },
 ]
 

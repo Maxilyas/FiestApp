@@ -30,6 +30,7 @@ import {
   type Niveau,
 } from '../../shared/campagne'
 import { XP } from '../../shared/profil'
+import { XP_PALIER } from '../../shared/hautsfaits'
 import { empreinteDe } from '../src/core/jour'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
@@ -337,7 +338,9 @@ test('l’expérience de campagne paie chaque bonne réponse, sans plafond, et n
     assert.equal(gains.length, 20)
     assert.deepEqual(gains, Array(20).fill(XP_PAR_JUSTE), 'la vingtième paie comme la première')
     const plein = await moi()
-    assert.equal(plein.xp, depart.xp + 20 * XP_PAR_JUSTE)
+    // Et L'Alpiniste · Bronze, une série de dix justes : un palier de la
+    // campagne paie comme tout palier (le 5 octobre 2026).
+    assert.equal(plein.xp, depart.xp + 20 * XP_PAR_JUSTE + XP_PALIER[0])
     assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 20, 'un confetti chacune')
     assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 20 * XP_PAR_JUSTE)
     // La campagne n'est pas une soirée : l'historique ne la compte pas.
@@ -348,7 +351,7 @@ test('l’expérience de campagne paie chaque bonne réponse, sans plafond, et n
     assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 0)
     const demain = await toutJuste()
     assert.equal(demain[0], XP_PAR_JUSTE)
-    assert.equal((await moi()).xp, depart.xp + 30 * XP_PAR_JUSTE)
+    assert.equal((await moi()).xp, depart.xp + 30 * XP_PAR_JUSTE + XP_PALIER[0], 'le palier ne paie qu’une fois')
   } finally {
     await banc.close()
   }

@@ -20,6 +20,7 @@
 
 import { BRANCHES, branche, deLaBranche, type Branche, type CleDeBranche, type Paliers } from './branches'
 import { hautFait } from './hautsfaits'
+import { titreDuChampion } from './jour'
 import type { Niveau, QuestionDeCampagne } from './campagne'
 
 /** Les paliers d'un sentier ; le treizième est celui du maître. */
@@ -188,6 +189,8 @@ export function nomDuTitre(cle: string | null | undefined): string | null {
   if (!cle) return null
   const h = hautFait(cle)
   if (h) return h.title
+  const champion = titreDuChampion(cle)
+  if (champion) return champion
   const b = brancheDuMaitre(cle)
   return b ? titreDeMaitre(b) : null
 }
@@ -290,6 +293,9 @@ export interface ReponseDEpreuve {
   maitre?: string
   /** Après un échec : les vies qui restent. */
   vies?: VieDesSentiers
+  /** Finie : les paliers de la campagne qu'elle a fait tomber (Le Marathonien, L'Érudit), et ce qu'ils ouvrent. */
+  recompenses?: { key: string; emoji: string; title: string }[]
+  legendaires?: string[]
 }
 
 /** Un palier, côté administrateur : ce que les vraies réponses en disent. */

@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis } from '../../../shared/avatars'
 import {
   AUCUN_JOUR,
+  AUCUNE_CAMPAGNE,
   CHANCE_ECLAT,
   carriereDe,
   choixDeFinition,
@@ -26,17 +27,21 @@ import {
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
+  type StatsDeCampagne,
   type StatsDuJour,
 } from '../../../shared/profil'
 import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  HAUTS_FAITS_REGAGNABLES,
   VITRINE_MAX,
   clePalier,
+  hautFait,
   hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
+  paliersDeCampagneAtteints,
   paliersDuJourAtteints,
   paliersDuNiveau,
   titreDePalier,
@@ -44,6 +49,7 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
+import { gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -51,6 +57,7 @@ import {
   nConfettis,
   prixDe,
   theme as themeDuCatalogue,
+  themeGagne,
   THEMES,
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
@@ -67,6 +74,8 @@ import {
 import { divin } from '../../../shared/divins'
 import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
+import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -133,6 +142,11 @@ export interface ProfileRec {
    * encore.
    */
   theme: string | null
+  /**
+   * La gerbe de ses bonnes réponses (`shared/gerbes.ts`), s'il en a choisi
+   * une. Relue à chaque affichage (`gerbePortee`), comme le fond.
+   */
+  gerbe: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -396,6 +410,34 @@ export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: numbe
  */
 export const cleDeSoiree = (spaceId: string, soireeId: string): string => `${spaceId}#${soireeId}`
 
+/** Le rangement des récompenses d'un mois du quiz du jour : la page du calendrier, le champion, le mois complet. */
+export const cleDuMois = (mois: string) => `#mois:${mois}`
+
+/** Le rangement des récompenses d'une série de campagne. */
+export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
+
+/** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
+export const cleDuDefi = (semaine: string) => `#defi:${semaine}`
+
+/**
+ * L'emoji et le titre d'une clé rangée hors d'une soirée, recopiés sur sa
+ * ligne comme ceux d'un prix : une étagère se relit des années plus tard,
+ * même si un titre a changé entre-temps.
+ */
+function etiquetteDe(cle: string): { emoji: string; title: string } {
+  const h = hautFait(cle)
+  if (h) return { emoji: h.emoji, title: h.title }
+  const p = palierDe(cle)
+  if (p) return { emoji: p.hautFait.emoji, title: titreDePalier(p.hautFait, p.palier) }
+  const champion = titreDuChampion(cle)
+  if (champion) return { emoji: '🏆', title: champion }
+  const page = moisDeLaPage(cle)
+  if (page) return { emoji: '📜', title: `Le calendrier : ${PAGES.find(x => x.mois === page)?.nom ?? page}` }
+  const d = divin(cle)
+  if (d) return { emoji: '✨', title: d.nom }
+  return { emoji: '✨', title: cle }
+}
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -447,6 +489,41 @@ export class ProfileStore {
   laurierDe?: (profileId: string) => boolean
 
   /**
+   * Le mois dont il est le champion, s'il l'est du mois dernier
+   * (`JourStore.champions`) : sa carte le dit tout le mois suivant, et l'écran
+   * commun le salue quand il entre dans une soirée. Lu en mémoire, comme le
+   * laurier.
+   */
+  championDe?: (profileId: string) => string | null
+
+  /**
+   * A-t-il fini premier du défi de la semaine passée, en campagne
+   * (`CampagneStore.vainqueursDuDefi`) ? Branché au démarrage, lu en
+   * mémoire comme le laurier du jour : le laurier d'argent suit son prénom
+   * toute la semaine.
+   */
+  argentDe?: (profileId: string) => boolean
+
+  /**
+   * L'allure de son laurier : ses victoires, toutes comptées (`hf:laurier`,
+   * une ligne par victoire), le font grandir — vert, d'or, serti, étoilé.
+   * Il vient de gagner : au moins le premier.
+   */
+  niveauDuLaurierDe(profileId: string): NiveauDeLaurier {
+    return niveauDuLaurier(Math.max(1, this.recompensesOf(profileId).get('hf:laurier') ?? 0))
+  }
+
+  /**
+   * Le laurier qui suit son prénom (`LaurierPorte`) : celui du quiz du jour
+   * d'hier, sinon l'argent du défi de la semaine passée — le jour passe
+   * devant, il ne dure qu'un jour.
+   */
+  laurierPorte(profileId: string): LaurierPorte | undefined {
+    if (this.laurierDe?.(profileId)) return this.niveauDuLaurierDe(profileId)
+    return this.argentDe?.(profileId) ? 'argent' : undefined
+  }
+
+  /**
    * Ses bonnes réponses du quiz du jour, par catégorie (`JourStore.categoriesDe`),
    * branchées au démarrage comme `statsDuJour` : elles ouvraient les
    * portraits des branches avec celles des soirées, jusqu'aux sentiers — la
@@ -474,6 +551,13 @@ export class ProfileStore {
    * campagne. Branchées au démarrage comme `justesDuJour`.
    */
   justesDeCampagne?: (profileId: string) => Promise<number>
+
+  /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
+  statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
+
+  /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
+  moisDuJour?: () => string
+  joursDuMois?: (profileId: string) => Promise<number>
 
   /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
@@ -599,6 +683,17 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_vies ON profile_vies(profile_id)',
+        // Les sabliers de la série du quiz du jour, achetés en confettis, un
+        // par ligne, jamais effacée : comme une vie, un achat ne se reprend
+        // pas. Ceux qui restent se relisent des jours joués
+        // (`serieAvecSabliers`) — rien ne se compte à côté.
+        `CREATE TABLE IF NOT EXISTS profile_sabliers (
+           id         TEXT PRIMARY KEY,
+           profile_id TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_sabliers ON profile_sabliers(profile_id)',
       ],
       'write',
     )
@@ -613,6 +708,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
     // Le thème de son téléphone, qu'il porte parmi ceux qu'il a.
     await ajouterColonne(this.client, 'profiles', 'theme', 'TEXT')
+    // La gerbe de ses bonnes réponses, qu'il choisit parmi celles qu'il a gagnées.
+    await ajouterColonne(this.client, 'profiles', 'gerbe', 'TEXT')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
     await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
@@ -798,21 +895,32 @@ export class ProfileStore {
     return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
   }
 
+  /** La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite encore. */
+  gerbePortee(p: ProfileRec): CleDeGerbe | null {
+    const choisie = gerbe(p.gerbe)
+    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : null
+  }
+
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
   themePorte(p: ProfileRec): string | null {
     return themeDuCatalogue(p.theme)?.key ?? null
   }
 
-  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers : un seul aller-retour. */
-  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number }> {
-    const [themes, vies] = await this.client.batch(
+  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers et ses sabliers : un seul aller-retour. */
+  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number; sabliers: number }> {
+    const [themes, vies, sabliers] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
       ],
       'read',
     )
-    return { themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])), vies: Number(vies.rows[0]?.prix ?? 0) }
+    return {
+      themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])),
+      vies: Number(vies.rows[0]?.prix ?? 0),
+      sabliers: Number(sabliers.rows[0]?.prix ?? 0),
+    }
   }
 
   /**
@@ -845,10 +953,12 @@ export class ProfileStore {
       ),
     ])
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
-    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies
+    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
-      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.themes.has(t.key) || (t.gagne && maitres >= t.gagne.maitres)).map(t => t.key),
+      possedes: THEMES.filter(
+        t => t.rarete === 'offert' || achats.themes.has(t.key) || themeGagne(t, { maitres, recompenses: this.recompensesOf(p.id) }),
+      ).map(t => t.key),
       porte: this.themePorte(p),
       jour,
     }
@@ -913,6 +1023,29 @@ export class ProfileStore {
         args: [randomUUID(), id, n, prix, Date.now()],
       })
       return n
+    })
+  }
+
+  /**
+   * Achète un sablier pour sa série du quiz du jour, au prix du jour
+   * (`PRIX_D_UN_SABLIER`) : il attend dans sa réserve qu'un jour manqué le
+   * prenne. Deux au plus en réserve (`SABLIERS_MAX`) — au-delà, refusé en
+   * clair, comme un solde trop court. La réserve se relit des jours joués
+   * (`sabliersDe`), qu'on lui passe : le quiz du jour les connaît. `quand`
+   * est l'heure du quiz du jour : un sablier ne couvre que les jours manqués
+   * après son achat, et la série se lit à cette horloge-là.
+   */
+  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>, quand = Date.now()): Promise<number> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      if ((await enReserve(id)) >= SABLIERS_MAX) throw new Error(`Tu as déjà ${SABLIERS_MAX} sabliers : un jour manqué en prendra un`)
+      const manque = PRIX_D_UN_SABLIER - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour un sablier`)
+      await this.client.execute({
+        sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
+        args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
+      })
+      return enReserve(id)
     })
   }
 
@@ -1126,7 +1259,9 @@ export class ProfileStore {
   titrePorte(p: ProfileRec): string | null {
     if (!p.titre) return null
     if (brancheDuMaitre(p.titre)) return p.titre
-    return hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
+    const recompenses = this.recompensesOf(p.id)
+    if (moisDuChampion(p.titre)) return (recompenses.get(p.titre) ?? 0) > 0 ? p.titre : null
+    return hautsFaitsGagnes(recompenses).includes(p.titre) ? p.titre : null
   }
 
   /**
@@ -1149,6 +1284,8 @@ export class ProfileStore {
 
   toPublic(p: ProfileRec): PublicProfile {
     const { niveau, acquis, requis } = progression(p.xp, this.gardesOf(p.id))
+    const laurier = this.laurierPorte(p.id)
+    const champion = this.championDe?.(p.id)
     return {
       id: p.id,
       login: p.login,
@@ -1167,14 +1304,16 @@ export class ProfileStore {
       eclatsEteints: this.eteintsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:')).length,
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !moisDeLaPage(k)).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
-      ...(this.laurierDe?.(p.id) && { laurier: true }),
+      ...(laurier && { laurier }),
+      ...(champion && { champion }),
       theme: this.themePorte(p),
+      gerbe: this.gerbePortee(p),
     }
   }
 
@@ -1210,8 +1349,11 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour, sans attendre l'un l'autre.
-    const [jour, maitres] = await Promise.all([
+    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour
+    // et sa campagne, sans attendre l'un l'autre.
+    // Le mois en cours du quiz du jour, et ses jours joués : ce qui manque à sa page du calendrier.
+    const moisDuCalendrier = (this.moisDuJour?.() ?? '').slice(5, 7)
+    const [jour, maitres, campagne, joursCeMois] = await Promise.all([
       this.statsDuJourDe(p.id),
       this.paliersDe(p.id).then(
         x => maitresDe(x).length,
@@ -1220,11 +1362,17 @@ export class ProfileStore {
           return 0
         },
       ),
+      (this.statsDeCampagne?.(p.id) ?? Promise.resolve(AUCUNE_CAMPAGNE)).catch(e => {
+        console.error('[profil] campagne illisible pour sa carrière :', e)
+        return AUCUNE_CAMPAGNE
+      }),
+      (this.joursDuMois?.(p.id) ?? Promise.resolve(0)).catch(() => 0),
     ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
       niveau: this.niveauOf(p),
       jour,
+      campagne,
     })
     return {
       ...this.toPublic(p),
@@ -1249,6 +1397,14 @@ export class ProfileStore {
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       fonds: this.fondsOuvertsDe(p, jour, maitres),
+      gerbes: gerbesOuvertes(this.recompensesOf(p.id)),
+      calendrier: {
+        pages: pagesOuvertes(this.recompensesOf(p.id)),
+        dorees: pagesDorees(this.recompensesOf(p.id)),
+        mois: moisDuCalendrier,
+        joursCeMois,
+      },
+      titresDates: titresDeChampion(this.recompensesOf(p.id)),
     }
   }
 
@@ -1261,11 +1417,12 @@ export class ProfileStore {
   private async hautsFaitsVus(id: string, carriere: Carriere, vitrine: BadgePorte[]): Promise<HautFaitVu[]> {
     const recompenses = this.recompensesOf(id)
     const rarete = new Map(vitrine.map(b => [b.key, b]))
-    const soiree: HautFaitVu[] = HAUTS_FAITS_DE_SOIREE.map(h => {
+    const soiree: HautFaitVu[] = HAUTS_FAITS_REGAGNABLES.map(h => {
       const porte = rarete.get(h.key)
       return {
         key: h.key,
         famille: 'soiree',
+        ...(h.origine && { origine: h.origine }),
         emoji: h.emoji,
         title: h.title,
         rule: h.rule,
@@ -1282,6 +1439,7 @@ export class ProfileStore {
       return {
         key: h.key,
         famille: 'carriere',
+        ...(h.duJour ? { origine: 'jour' as const } : h.deCampagne ? { origine: 'campagne' as const } : {}),
         emoji: h.emoji,
         title: h.title,
         rule: h.mesure,
@@ -1331,6 +1489,7 @@ export class ProfileStore {
       vitrine: null,
       fond: null,
       theme: null,
+      gerbe: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -1384,6 +1543,7 @@ export class ProfileStore {
       vitrine: null,
       fond: null,
       theme: null,
+      gerbe: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -1489,6 +1649,7 @@ export class ProfileStore {
       vitrine?: unknown
       fond?: unknown
       theme?: unknown
+      gerbe?: unknown
       eclat?: unknown
     },
   ): Promise<ProfileRec> {
@@ -1496,7 +1657,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -1536,6 +1697,7 @@ export class ProfileStore {
         }
         champs.titre = String(patch.titre)
       } else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
+      else if (moisDuChampion(String(patch.titre)) && (this.recompensesOf(id).get(String(patch.titre)) ?? 0) > 0) champs.titre = String(patch.titre)
       else throw new Error('Ce titre se gagne d’abord : c’est le nom d’un de tes hauts faits')
     }
     if (patch.vitrine !== undefined) {
@@ -1571,13 +1733,24 @@ export class ProfileStore {
       if (!choisi || choisi.key === 'velours') champs.theme = null
       else {
         if (choisi.gagne) {
-          if (maitresDe(await this.paliersDe(id)).length < choisi.gagne.maitres) {
+          const maitres = 'maitres' in choisi.gagne.par ? maitresDe(await this.paliersDe(id)).length : 0
+          if (!themeGagne(choisi, { maitres, recompenses: this.recompensesOf(id) })) {
             throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
           }
         } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
           throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
         }
         champs.theme = choisi.key
+      }
+    }
+    // Une gerbe : seulement l'une de celles qu'il a gagnées ; aucune s'écrit null.
+    if (patch.gerbe !== undefined) {
+      if (patch.gerbe === null || patch.gerbe === '') champs.gerbe = null
+      else {
+        const choisie = gerbe(patch.gerbe)
+        if (!choisie) throw new Error('Cette gerbe n’existe pas')
+        if (!gerbeOuverte(choisie, this.recompensesOf(id))) throw new Error(`Cette gerbe se gagne avec ${choisie.regle}`)
+        champs.gerbe = choisie.key
       }
     }
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
@@ -2085,11 +2258,24 @@ export class ProfileStore {
    * nouveaux.
    */
   async accorderPaliersDuJour(profileId: string, jour: string, stats: StatsDuJour): Promise<string[]> {
-    const deja = this.recompensesOf(profileId)
     const profil = await this.byId(profileId)
-    const neufs = [...paliersDuJourAtteints(stats), ...(profil ? paliersDuNiveau(this.niveauOf(profil)) : [])].filter(
-      cle => !deja.has(cle),
-    )
+    return this.accorderDesPaliers(profileId, cleDuJour(jour), [...paliersDuJourAtteints(stats), ...(profil ? paliersDuNiveau(this.niveauOf(profil)) : [])])
+  }
+
+  /**
+   * Décerne les paliers de la campagne qu'il vient d'atteindre — L'Alpiniste,
+   * L'Érudit, Le Marathonien —, rangés sous la série qui les a fait tomber
+   * (`cleDeSerie`), leur expérience créditée avec celle des autres paliers.
+   * Rend ceux qui sont nouveaux.
+   */
+  async accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]> {
+    return this.accorderDesPaliers(profileId, sous, paliersDeCampagneAtteints(stats))
+  }
+
+  /** Range ceux de ces paliers qu'il n'a pas encore, et repaie la ligne des paliers. */
+  private async accorderDesPaliers(profileId: string, sous: string, atteints: readonly string[]): Promise<string[]> {
+    const deja = this.recompensesOf(profileId)
+    const neufs = atteints.filter(cle => !deja.has(cle))
     if (neufs.length === 0) return []
     const now = Date.now()
     await this.client.batch(
@@ -2098,7 +2284,7 @@ export class ProfileStore {
         return {
           sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
                 VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-          args: [profileId, cle, cleDuJour(jour), hautFait.emoji, titreDePalier(hautFait, palier), now],
+          args: [profileId, cle, sous, hautFait.emoji, titreDePalier(hautFait, palier), now],
         }
       }),
       'write',
@@ -2108,6 +2294,50 @@ export class ProfileStore {
     await this.ecrireXpDesPaliers(profileId)
     await this.recalculerTotal(profileId)
     return neufs
+  }
+
+  /**
+   * Range des récompenses sous un jour, un mois, une série ou une semaine
+   * (`#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…`) : un haut fait du
+   * quiz du jour ou de la campagne, une page du calendrier, un titre de
+   * champion du mois, un Divin. Une seule ligne par clé et par rangement —
+   * la clé primaire le garantit, et rejouer la nuit ou la relecture ne
+   * double rien. Rend celles qui sont neuves : ce que la page annonce. Sans
+   * expérience : seuls les paliers en rapportent (`accorderPaliersDuJour`).
+   * `quand` est l'heure du quiz du jour, celle qui dit ce qu'une partie a
+   * fait tomber (`created_at` comparé à son début), et que les tests font
+   * passer minuit.
+   */
+  async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
+    const uniques = [...new Set(cles)]
+    if (uniques.length === 0) return []
+    const now = quand
+    const res = await this.client.batch(
+      uniques.map(cle => {
+        const { emoji, title } = etiquetteDe(cle)
+        return {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [profileId, cle, sous, emoji, title, now],
+        }
+      }),
+      'write',
+    )
+    const neuves = uniques.filter((_, i) => res[i].rowsAffected > 0)
+    if (neuves.length > 0) {
+      this.porteurs = null
+      await this.recompterRecompenses([profileId])
+    }
+    return neuves
+  }
+
+  /** Ce qui est rangé sous un jour, un mois ou une série, dans l'ordre où c'est tombé. */
+  async rangesSous(profileId: string, sous: string): Promise<{ key: string; emoji: string; title: string; at: number }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT badge, emoji, title, created_at FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at, badge`,
+      args: [profileId, sous],
+    })
+    return res.rows.map(r => ({ key: String(r.badge), emoji: String(r.emoji), title: String(r.title), at: Number(r.created_at) }))
   }
 
   /**
@@ -2201,7 +2431,8 @@ export class ProfileStore {
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire ;
+    // ni les pages du calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -2212,7 +2443,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
@@ -2304,7 +2535,7 @@ export class ProfileStore {
   async supprimer(profileId: string): Promise<void> {
     await this.client.batch(
       [
-        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies'].map(table => ({
+        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies', 'profile_sabliers'].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
         })),
@@ -2526,16 +2757,19 @@ export class ProfileStore {
   apparenceDe(
     p: ProfileRec,
     avatar: string = this.avatarPorte(p),
-  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: boolean } {
+  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: LaurierPorte; champion?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
+    const laurier = this.laurierPorte(p.id)
+    const champion = this.championDe?.(p.id)
     return {
       niveau,
       finition: finitionPortee(p.finition, niveau),
       // Éteint, un Éclat ne se voit plus : il porte la version d'origine.
       eclat: this.brilleChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
-      ...(this.laurierDe?.(p.id) && { laurier: true }),
+      ...(laurier && { laurier }),
+      ...(champion && { champion }),
     }
   }
 
@@ -2615,6 +2849,7 @@ export class ProfileStore {
       vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
       fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
       theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
+      gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

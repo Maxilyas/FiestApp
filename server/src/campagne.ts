@@ -80,6 +80,27 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Le défi de la semaine ──────────────────────────────────────────────
+  // Une série d'un autre mode : ses réponses, son signalement et sa
+  // correction passent par les routes de la série, sous son identifiant.
+
+  app.get(
+    '/api/campagne/defi',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.defi(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/defi',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerLeDefi(profil.id))
+    }),
+  )
+
   // ── Les sentiers du savoir (`shared/sentiers.ts`) ──────────────────────
   // Une épreuve est une série d'un autre mode : son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.

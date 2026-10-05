@@ -3,6 +3,8 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
+import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
 import { LUEUR, lueur } from '../components/Atlas'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -1090,7 +1092,8 @@ function FicheDuPalier({
 }
 
 /** Le thème que les maîtres gagnent, et combien il en faut (`shared/themes.ts`, `gagne`). */
-const THEME_DES_MAITRES = THEMES.find(t => t.gagne)
+const THEME_DES_MAITRES = THEMES.find(t => t.gagne && 'maitres' in t.gagne.par)
+const MAITRES_DU_THEME = THEME_DES_MAITRES?.gagne && 'maitres' in THEME_DES_MAITRES.gagne.par ? THEME_DES_MAITRES.gagne.par.maitres : null
 
 /**
  * Ce que rapportent les maîtres : chacun son titre, le Cabinet de curiosités
@@ -1101,7 +1104,7 @@ function CeQueRapportentLesMaitres({ maitres }: { maitres: number }) {
   const lignes: { n: number; titre: string; detail: string }[] = [
     { n: 1, titre: 'Un titre', detail: 'Le nom de son sentier, sous ton prénom : « Maître de la forêt ».' },
     { n: MAITRES_DU_CABINET, titre: 'Le Cabinet de curiosités', detail: 'Un fond pour ta carte de joueur.' },
-    ...(THEME_DES_MAITRES ? [{ n: THEME_DES_MAITRES.gagne!.maitres, titre: `Le thème ${THEME_DES_MAITRES.nom}`, detail: 'Aucune boutique ne le vend.' }] : []),
+    ...(THEME_DES_MAITRES && MAITRES_DU_THEME ? [{ n: MAITRES_DU_THEME, titre: `Le thème ${THEME_DES_MAITRES.nom}`, detail: 'Aucune boutique ne le vend.' }] : []),
   ]
   return (
     <section className="maitres-recompenses" aria-labelledby="maitres-titre">
@@ -1216,6 +1219,7 @@ function EcranDEpreuve({
                 <>
                   <span className="big">🎊 +1</span>
                   <p>Bien joué !{r.xp > 0 ? ` +${r.xp} XP` : ''}</p>
+                  <GerbeDeJuste />
                 </>
               ) : (
                 <>
@@ -1314,6 +1318,22 @@ function FinDEpreuve({
       </span>
     </div>
   )
+  // Les paliers de la campagne qu'elle a fait tomber — Le Marathonien,
+  // L'Érudit —, validée ou non : ils comptent toutes les bonnes réponses.
+  const tombees = (
+    <>
+      {!!r.recompenses?.length && (
+        <section className="card campagne-recompenses">
+          {r.recompenses.map(x => (
+            <RecompenseTombee key={x.key} recompense={x} />
+          ))}
+        </section>
+      )}
+      {(r.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+    </>
+  )
   const correction = fin.correction ? (
     <ol className="campagne-correction">
       {fin.correction.map((c, i) => (
@@ -1365,6 +1385,7 @@ function FinDEpreuve({
           <p className="muted small">Un rejeu ne coûte rien : le palier reste validé.</p>
         )}
         {gains}
+        {tombees}
         {erreur && <p className="error">{erreur}</p>}
         {sansVie && !e.rejeu ? (
           <button type="button" className="btn btn-primary btn-big btn-block" onClick={onVies}>
@@ -1416,6 +1437,7 @@ function FinDEpreuve({
           <p className="muted">{`${RANGS[rang]} avatar ${deLaBranche(b)}.`}</p>
         </section>
         {gains}
+        {tombees}
         {fin.porte ? (
           <p className="muted small centre">C’est lui que la salle verra.</p>
         ) : (
@@ -1452,12 +1474,13 @@ function FinDEpreuve({
           <h1>{r.maitre}</h1>
           <p className="muted">Le titre se porte sous ton prénom : la salle le lit en touchant ton nom.</p>
           {maitres === MAITRES_DU_CABINET && <p className="campagne-record-battu">Et le Cabinet de curiosités, pour ta carte : il est à toi.</p>}
-          {THEME_DES_MAITRES && maitres === THEME_DES_MAITRES.gagne!.maitres && (
+          {THEME_DES_MAITRES && maitres === MAITRES_DU_THEME && (
             <p className="campagne-record-battu">{`Et le thème ${THEME_DES_MAITRES.nom}, qu’aucune boutique ne vend : il est à toi.`}</p>
           )}
         </section>
         <CeQueRapportentLesMaitres maitres={maitres} />
         {gains}
+        {tombees}
         {fin.porte ? (
           <p className="muted small centre">Il est sous ton prénom.</p>
         ) : (
@@ -1482,6 +1505,7 @@ function FinDEpreuve({
       </header>
       <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} />
       {gains}
+      {tombees}
       {erreur && <p className="error">{erreur}</p>}
       {suivant && !e.rejeu && suivant <= PALIER_DU_MAITRE && (
         sansVie ? (

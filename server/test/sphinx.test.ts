@@ -110,12 +110,14 @@ test('le centième jour l’ouvre à la fin de la partie, et il se porte ; pas u
     const fin = await jouer(banc, alice)
     assert.equal(fin.etat, 'finie')
     assert.ok(fin.paliers.some((p: any) => p.key === 'hf:assidu:3'), 'L’Assidu · Or tombe')
-    assert.deepEqual(fin.legendaires, ['lg:sphinx'], 'la fin de la partie annonce le Sphinx')
+    // Le centième jour ouvre aussi le Renard (L'Assidu · Argent tombe avec :
+    // les jours sont écrits en base) et l'Ouroboros (cent jours d'affilée).
+    assert.deepEqual(fin.legendaires, ['lg:renard', 'lg:sphinx', 'lg:ouroboros'], 'la fin de la partie annonce le Sphinx')
     const porte = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:sphinx' }, alice, 'PUT')
     assert.equal(porte.status, 200)
     assert.equal(((await porte.json()) as any).profile.legendaire, 'lg:sphinx')
 
     const finBob = await jouer(banc, bob)
     assert.ok(finBob.paliers.some((p: any) => p.key === 'hf:assidu:3'), 'son Or de L’Assidu tombe aussi')
-    assert.equal(finBob.legendaires, undefined, 'mais le Sphinx était déjà à lui')
+    assert.ok(!finBob.legendaires.includes('lg:sphinx'), 'mais le Sphinx était déjà à lui')
   }))

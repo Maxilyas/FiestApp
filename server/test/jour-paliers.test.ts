@@ -87,7 +87,7 @@ const xpDesPaliers = (banc: Banc, login: string) =>
   })
 
 test('les paliers du quiz du jour ont leur moment : jamais celui d’une soirée', () => {
-  const stats = { joues: 100, victoires: 5, sansFautes: 2 }
+  const stats = { joues: 100, victoires: 5, sansFautes: 2, elite: 0, serieRecord: 0 }
   assert.deepEqual(paliersDuJourAtteints(stats), [
     'hf:assidu:1',
     'hf:assidu:2',
@@ -176,11 +176,15 @@ test('L’Assidu tombe à la fin de la septième partie', () =>
       for (let j = 20; j <= 25; j++) insert.run(id, `2026-09-${j}`)
     })
     const fin = await jouer(banc, alice, i => i !== 0)
+    // Sept jours d'affilée, aussi : L'Infatigable tombe avec (le 5 octobre 2026).
     assert.deepEqual(
       fin.paliers.map((p: any) => p.key),
-      ['hf:assidu:1'],
+      ['hf:assidu:1', 'hf:infatigable:1'],
     )
-    assert.deepEqual(paliersDe(banc, 'alice'), [{ badge: 'hf:assidu:1', soiree_id: cleDuJour(JOUR) }])
+    assert.deepEqual(paliersDe(banc, 'alice'), [
+      { badge: 'hf:assidu:1', soiree_id: cleDuJour(JOUR) },
+      { badge: 'hf:infatigable:1', soiree_id: cleDuJour(JOUR) },
+    ])
   }))
 
 test('La Légende se juge aussi au quiz du jour : le niveau 10 par lui seul la fait tomber, rangée sous le jour', () =>

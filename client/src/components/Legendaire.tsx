@@ -6,21 +6,22 @@ import { Cercle, OR } from './Cercle'
 import { IMAGES } from './legendaires-peints'
 
 /**
- * Les avatars légendaires : seize cartes peintes, qui ne se gagnent que par
- * un haut fait (`shared/legendaires.ts`).
+ * Les avatars légendaires : vingt-six cartes peintes, qui ne se gagnent que
+ * par un haut fait (`shared/legendaires.ts`).
  *
  * Un emoji est à tout le monde ; un légendaire, non — et il doit se voir de
  * loin, au-dessus même de la forme ultime d'une branche. Chacun est une
  * illustration de carte légendaire, pleine page, peinte à la feuille d'or,
- * dans un seul style pour les seize — une collection —, sous une pellicule
- * holographique : un arc-en-ciel qui glisse et un reflet qui passe, et qui
- * n'allument que ce qui est déjà clair, comme une vraie carte. En grand, le
- * reflet suit le doigt et la carte penche un peu ; ailleurs, la lumière passe
- * seule ; dans une liste, tout s'arrête (`styles.css`).
+ * dans un seul style pour les vingt-six — une collection —, sous une
+ * pellicule holographique : un arc-en-ciel qui glisse et un reflet qui passe,
+ * et qui n'allument que ce qui est déjà clair, comme une vraie carte. En
+ * grand, le reflet suit le doigt et la carte penche un peu ; ailleurs, la
+ * lumière passe seule ; dans une liste, tout s'arrête (`styles.css`).
  *
- * Les trois légendes de l'ombre (le Kraken, le Fantôme, le Trou Noir, qui se
- * gagnent en jouant mal) ont une pellicule noire aux reflets violets, sous un
- * anneau d'ombre.
+ * Les quatre légendes de l'ombre (le Kraken, le Fantôme et le Trou Noir, qui
+ * se gagnent en jouant mal, et la Chauve-souris, qui ne joue qu'à minuit
+ * moins le quart) ont une pellicule noire aux reflets violets, sous un anneau
+ * d'ombre.
  *
  * Éclaté, il porte sa version rare — la même pose repeinte dans ses couleurs
  * rares, le Phénix de glace, le Dragon d'argent — sous un prisme de deux
@@ -63,11 +64,22 @@ const FONDS: Record<string, [string, string, string]> = {
   'lg:citrouille': ['#7b4bb8', '#2d1250', '#0b0416'],
   'lg:sapin': ['#3d63a8', '#142552', '#050b1c'],
   'lg:bouquet': ['#4a3598', '#1a0f47', '#06031a'],
+  'lg:aigle': ['#ffd88f', '#d0784a', '#3f1622'],
+  'lg:ouroboros': ['#2f9a6e', '#0d3a3a', '#030a12'],
+  'lg:scarabee': ['#ffcf8a', '#e0705a', '#4a1430'],
+  'lg:coq': ['#ffb36b', '#b8455a', '#2e1030'],
+  'lg:chauve-souris': ['#6f5fb8', '#2a1f5c', '#0a0718'],
+  'lg:salamandre': ['#ffb347', '#c73a1a', '#2e0606'],
+  'lg:elephant': ['#4a6fc0', '#18285a', '#050b1e'],
+  'lg:serpent': ['#f2dc8a', '#3f9a5c', '#0a2a1a'],
+  'lg:chimere': ['#ffa64d', '#a82a18', '#2a0505'],
+  'lg:janus': ['#f4dfa6', '#6a5fa8', '#121032'],
 }
 
 /**
  * Les mêmes, éclatés : chacun a sa version rare — le Phénix de glace, le
- * Dragon d'argent, la Chouette d'or, le Tigre blanc, la Licorne noire…
+ * Dragon d'argent, la Chouette d'or, le Tigre blanc, la Licorne noire, l'Aigle
+ * d'argent sur la pourpre, le Scarabée qui pousse la lune…
  */
 const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:phenix': ['#c4f4ff', '#2f86d6', '#0a1d4d'],
@@ -86,6 +98,16 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:citrouille': ['#2f9a70', '#0e3d2c', '#03120c'],
   'lg:sapin': ['#9cc4e0', '#34607c', '#0c1c29'],
   'lg:bouquet': ['#a32a66', '#3a0c27', '#10030b'],
+  'lg:aigle': ['#c9a6f0', '#6a2fa3', '#1c0733'],
+  'lg:ouroboros': ['#3fbf7f', '#0f4a2c', '#02100a'],
+  'lg:scarabee': ['#a9c8ff', '#2a4fa8', '#081436'],
+  'lg:coq': ['#b8d4ff', '#33589e', '#0a1530'],
+  'lg:chauve-souris': ['#3faa78', '#0f3d2b', '#020d08'],
+  'lg:salamandre': ['#a8ecff', '#2a86d6', '#061c42'],
+  'lg:elephant': ['#b0c8ff', '#2c4aa8', '#081233'],
+  'lg:serpent': ['#ffa36b', '#a3305f', '#2c0a24'],
+  'lg:chimere': ['#9ccfff', '#2a56b0', '#071533'],
+  'lg:janus': ['#dde8f8', '#6f86b0', '#18213a'],
 }
 
 const OMBRE: [string, string, string] = ['#d9c9ff', '#6d4fb3', '#1d1233']

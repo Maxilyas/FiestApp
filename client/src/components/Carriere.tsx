@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { coupDOeilMoyen, type Fiche, type ReleveSoiree } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, hautFait } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
-import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
+import { LEGENDAIRES, partiesDe, progresSur, progresVers, voiesDe, type Condition, type SimpleCondition } from '../../../shared/legendaires'
 import { saison } from '../../../shared/saisons'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { portrait } from '../../../shared/branches'
@@ -111,9 +111,9 @@ export function DetailLegendaire({
   const choisi = LEGENDAIRES.find(l => l.key === cle)
   if (!choisi) return null
   const gagne = debloques.includes(choisi.key)
-  const hf = hautsFaits.find(h => h.key === choisi.condition.hautFait)
-  const hfAussi = choisi.aussi && hautsFaits.find(h => h.key === choisi.aussi!.hautFait)
-  const progres = progresVers(choisi, recompensesDe(hautsFaits))
+  const recompenses = recompensesDe(hautsFaits)
+  const progres = progresVers(choisi, recompenses)
+  const voies = voiesDe(choisi)
   // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en
   // dates, et il n'a pas de jauge — on l'a, ou on attend la saison.
   const saisonDe = choisi.saison && saison(choisi.saison)
@@ -139,16 +139,13 @@ export function DetailLegendaire({
               ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
               : 'Gagné par '
             : 'Se gagne par '}
-          <b>{regleDe(choisi.condition, hautsFaits)}</b>
-          {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
-          {!gagne && avancement(choisi.condition, hf, progres)}
-          {/* Une seconde voie (le Sphinx) : l'une ou l'autre suffit. */}
-          {choisi.aussi && (
-            <>
-              {' '}ou par <b>{regleDe(choisi.aussi, hautsFaits)}</b>
-              {!gagne && avancement(choisi.aussi, hfAussi, progres)}
-            </>
-          )}
+          {/* Plusieurs voies (le Sphinx, la Chouette…) : l'une ou l'autre suffit. */}
+          {voies.map((voie, i) => (
+            <Fragment key={i}>
+              {i > 0 && (i === voies.length - 1 ? ' ou par ' : ', par ')}
+              <Voie voie={voie} hautsFaits={hautsFaits} avance={!gagne && progresSur(voie, recompenses)} />
+            </Fragment>
+          ))}
           .
         </p>
       )}
@@ -228,14 +225,39 @@ export function DetailDivin({
 }
 
 /**
+ * Une voie vers un légendaire : son haut fait — et sa règle, pour un haut
+ * fait qui se regagne —, ou ceux qu'elle demande à la fois (la Chimère), et
+ * où l'on en est s'il manque encore (`avance`).
+ */
+function Voie({ voie, hautsFaits, avance }: { voie: Condition; hautsFaits: HautFaitVu[]; avance: false | { acquis: number; requis: number } }) {
+  if ('toutes' in voie) {
+    return (
+      <>
+        {partiesDe(voie).map((c, i) => (
+          <Fragment key={c.hautFait}>
+            {i > 0 && (i === voie.toutes.length - 1 ? ' et ' : ', ')}
+            <b>{regleDe(c, hautsFaits)}</b>
+          </Fragment>
+        ))}
+        {avance && ` (${avance.acquis} sur ${avance.requis})`}
+      </>
+    )
+  }
+  const hf = hautsFaits.find(h => h.key === voie.hautFait)
+  return (
+    <>
+      <b>{regleDe(voie, hautsFaits)}</b>
+      {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
+      {avance && avancement(voie, hf, avance)}
+    </>
+  )
+}
+
+/**
  * Où l'on en est, dit comme on le compte : « (2 sur 3) » pour un haut fait à
  * regagner, « (4 sur 10 soirées jouées) » pour un palier de carrière.
  */
-function avancement(
-  condition: { hautFait: string; fois: number } | { hautFait: string; palier: number },
-  hf: HautFaitVu | undefined,
-  progres: { acquis: number; requis: number },
-): string {
+function avancement(condition: SimpleCondition, hf: HautFaitVu | undefined, progres: { acquis: number; requis: number }): string {
   if ('palier' in condition) {
     const h = hautFait(condition.hautFait)
     if (!h || h.famille !== 'carriere' || !hf) return ''
@@ -247,10 +269,7 @@ function avancement(
 }
 
 /** « Le Grand Chelem », « L'Habitué · Argent », « Trois fois Seul contre tous ». */
-function regleDe(
-  condition: { hautFait: string; fois: number } | { hautFait: string; palier: number },
-  hautsFaits: HautFaitVu[],
-): string {
+function regleDe(condition: SimpleCondition, hautsFaits: HautFaitVu[]): string {
   const h = hautsFaits.find(x => x.key === condition.hautFait)
   const titre = h ? `${h.emoji} ${h.title}` : condition.hautFait
   if ('palier' in condition) return `${titre} · ${NOM_PALIER[condition.palier - 1]}`

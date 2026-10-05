@@ -97,8 +97,9 @@ test('le lendemain, la page du vainqueur porte son laurier et son podium dès la
     const lire = async () => ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: alice } })).json()) as any).profile
     const premiere = await lire()
     const seconde = await lire()
-    assert.equal(seconde.laurier, true, 'rechargée, la page porte le laurier')
-    assert.equal(premiere.laurier, true, 'dès la première visite du jour, le vainqueur d’hier porte son laurier')
+    // Le laurier dit l'allure de ses victoires (`niveauDuLaurier`) : vert, à la première.
+    assert.equal(seconde.laurier, 1, 'rechargée, la page porte le laurier')
+    assert.equal(premiere.laurier, 1, 'dès la première visite du jour, le vainqueur d’hier porte son laurier')
     assert.equal(premiere.xp, seconde.xp, 'et son expérience compte déjà le podium de la nuit')
   } finally {
     await banc.close()

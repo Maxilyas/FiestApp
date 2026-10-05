@@ -61,7 +61,7 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   reflexe: { terme: 'Réflexe', sens: 'Ton temps moyen sur tes bonnes réponses.' },
   flair: { terme: 'Flair', sens: 'La part de tes bonnes réponses données quand la majorité se trompait.' },
   ecusson: { terme: 'Écussons de savoir', sens: 'Tes bonnes réponses dans une catégorie, en soirée comme au quiz du jour : bronze, argent, or.' },
-  laurier: { terme: 'Laurier', sens: 'Le vainqueur du quiz du jour d’hier le porte toute la journée, après son prénom.' },
+  laurier: { terme: 'Laurier', sens: 'Après le prénom du vainqueur du quiz du jour d’hier — et, en argent, du défi de la semaine passée.' },
   serie: { terme: 'Série', sens: 'Les jours d’affilée où tu as joué, au quiz du jour ou en soirée. Minuit la casse.' },
   fond: { terme: 'Fond de carte', sens: 'Le décor derrière ta carte, quand on touche ton prénom. Il se gagne, comme un titre.' },
 }

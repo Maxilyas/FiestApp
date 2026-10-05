@@ -90,7 +90,11 @@ export function approchesDeLaSoiree(o: {
   const representes = new Set<string>()
   for (const l of LEGENDAIRES) {
     if (o.legendaires.includes(l.key)) continue
+    // Sa voie de soirée : la première. Celles du quiz du jour et de la
+    // campagne n'avancent pas un soir de fête, et une voie qui demande les
+    // trois mondes à la fois (la Chimère) se suit sur la page du profil.
     const c = l.condition
+    if ('toutes' in c) continue
     if ('fois' in c) {
       if (!o.ceSoir.has(c.hautFait)) continue
       const acquis = Math.min(c.fois, o.recompenses.get(c.hautFait) ?? 0)

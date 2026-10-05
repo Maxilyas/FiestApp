@@ -66,7 +66,7 @@ test('« Camille (2) » se coupe au prénom : la marque reste, le laurier aussi'
     '<span class="nom-laure"><span class="nom-laure-texte">Camille</span><span class="nom-marque"> (2)</span></span>',
   )
   const laure = await rendu('components/Laurier', 'NomLaure', { nom: 'Camille (2)', laurier: true })
-  assert.match(laure, /^<span class="nom-laure"><span class="nom-laure-texte">Camille<\/span><span class="nom-marque"> \(2\)<\/span><span class="laurier-bulle"[^>]*><svg class="laurier"/)
+  assert.match(laure, /^<span class="nom-laure"><span class="nom-laure-texte">Camille<\/span><span class="nom-marque"> \(2\)<\/span><span class="laurier-bulle"[^>]*><svg class="laurier laurier-1"/)
   // Le cas de toutes les soirées reste un texte nu (`finitions.test.ts` le lit ainsi).
   assert.equal(await rendu('components/Laurier', 'NomLaure', { nom: 'Camille' }), 'Camille')
 
@@ -82,7 +82,7 @@ test('« Camille (2) » se coupe au prénom : la marque reste, le laurier aussi'
     { id: 'b', name: 'Camille', nomAffiche: 'Camille (2)', avatar: '🐙', score: 900, connected: true, teamId: null, laurier: true },
   ]
   const html = await rendu('components/Leaderboard', 'Leaderboard', { players: joueurs })
-  assert.match(html, /<span class="nom-laure-texte">Camille<\/span><span class="nom-marque"> \(2\)<\/span><span class="laurier-bulle"[^>]*><svg class="laurier"/)
+  assert.match(html, /<span class="nom-laure-texte">Camille<\/span><span class="nom-marque"> \(2\)<\/span><span class="laurier-bulle"[^>]*><svg class="laurier laurier-1"/)
 })
 
 test('chaque prénom d’un classement passe par NomLaure', () => {
@@ -205,17 +205,23 @@ test('à l’écran commun, le laurier suit le prénom de la pastille, et se dit
   assert.doesNotMatch(hote, /<Laurier laurier=\{p\.laurier\} \/>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)*<button\s+className="chip-name"/)
   assert.match(hote, /<span className="chip-prenom">\{prenom\}<\/span>[\s\S]{0,400}<Laurier laurier=\{joueur\.laurier\} decoratif \/>/)
   // Muet dans le bouton, qui le dit dans son nom.
-  assert.match(hote, /aria-label=\{`Donner un surnom à \$\{p\.nomAffiche \?\? p\.name\}\$\{p\.laurier \? `, \$\{LAURIER_TEXTE\}` : ''\}`\}/)
+  // Il s'y dit par ce qu'il est : le laurier du jour, à son allure, ou l'argent du défi (`texteDuLaurier`).
+  assert.match(hote, /aria-label=\{`Donner un surnom à \$\{p\.nomAffiche \?\? p\.name\}\$\{p\.laurier \? `, \$\{texteDuLaurier\(p\.laurier\)\}` : ''\}`\}/)
   assert.match(regle('.player-chip .chip-name'), /grid-auto-flow:\s*column/)
 
   // Décoratif, il se tait ; seul, il se nomme.
   const muet = await rendu('components/Laurier', 'Laurier', { laurier: true, decoratif: true })
-  assert.match(muet, /^<span class="laurier-bulle" role="presentation" title="vainqueur du quiz du jour d’hier"><svg class="laurier"[^>]* aria-hidden="true"/)
+  assert.match(muet, /^<span class="laurier-bulle" role="presentation" title="vainqueur du quiz du jour d’hier"><svg class="laurier laurier-1"[^>]* aria-hidden="true"/)
   assert.doesNotMatch(muet, /role="img"|aria-label/)
   assert.match(await rendu('components/Laurier', 'Laurier', { laurier: true }), /role="img" aria-label="vainqueur du quiz du jour d’hier"/)
   // Sur la carte et le profil, le texte le dit juste à côté : il se taisait deux fois moins.
+  // Celui du jour comme celui d'argent : chacun sa phrase.
   for (const f of ['components/CarteJoueur.tsx', 'views/ProfilApp.tsx'])
-    assert.match(source(f), /<Laurier laurier decoratif \/> Vainqueur du quiz du jour d’hier/, f)
+    assert.match(
+      source(f),
+      /<Laurier laurier=\{(?:carte|profil)\.laurier\} decoratif \/>[\s\S]{0,120}'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'/,
+      f,
+    )
 
   // « Niv. niveau 5 » : le préfixe du mur se tait pour l'oreille, avec un repli.
   assert.match(regle('.host .niveau::before'), /content: 'Niv\.\\00a0';\s*(?:\/\*[\s\S]*?\*\/\s*)?content: 'Niv\.\\00a0' \/ '';/)
@@ -226,7 +232,7 @@ test('le laurier a son infobulle pour la souris, hors du texte du prénom et une
   // — l'arbitrage du 27 septembre 2026 [mots-2]. Un <title> aurait glissé
   // la phrase dans le texte du prénom : l'infobulle est sur l'enveloppe.
   const dit = await rendu('components/Laurier', 'Laurier', { laurier: true })
-  assert.match(dit, /^<span class="laurier-bulle" role="presentation" title="vainqueur du quiz du jour d’hier"><svg class="laurier"[^>]* role="img" aria-label="vainqueur du quiz du jour d’hier"/)
+  assert.match(dit, /^<span class="laurier-bulle" role="presentation" title="vainqueur du quiz du jour d’hier"><svg class="laurier laurier-1"[^>]* role="img" aria-label="vainqueur du quiz du jour d’hier"/)
   const laure = await rendu('components/Laurier', 'NomLaure', { nom: 'Camille (2)', laurier: true })
   assert.equal(laure.replace(/<[^>]+>/g, ''), 'Camille (2)', 'le texte de la ligne ne change pas')
   assert.match(regle('.laurier-bulle'), /display:\s*contents/, 'l’enveloppe ne fait pas de boîte')

@@ -3,20 +3,26 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, sentierDeLAdresse } from './Sentiers'
+import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
+import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
 import { promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
+import { porterGerbe } from '../gerbe'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
+import { placeDuJour } from '../../../shared/course'
 import {
   NIVEAUX,
   NOM_NIVEAU,
   QUESTIONS_POUR_JOUER,
+  RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
   XP_PAR_JUSTE,
@@ -25,6 +31,7 @@ import {
   type Niveau,
   type QuestionDeCampagne,
   type ReponseDeCampagne,
+  type SerieDeCampagne,
 } from '../../../shared/campagne'
 
 type Ecran =
@@ -43,6 +50,8 @@ type Ecran =
       choix: number | null
       /** L'expérience gagnée depuis qu'on a ouvert la série sur cette page. */
       xp: number
+      /** Le défi de la semaine : la même partie, son classement au bout. */
+      defi?: true
     }
   | {
       e: 'fin'
@@ -55,11 +64,18 @@ type Ecran =
       niveauAtteint: Niveau | null
       correction: CorrectionDeCampagne[] | null
       xp: number
+      /** Les hauts faits et paliers que la série a fait tomber — le Funambule, L'Alpiniste… */
+      recompenses: NonNullable<ReponseDeCampagne['recompenses']>
+      /** Et les légendaires qu'ils ouvrent, qu'on porte d'ici. */
+      legendaires: string[]
+      /** Le défi de la semaine, et sa place au classement pour l'instant. */
+      defi?: true
+      place?: { rang: number; joueurs: number }
     }
 
-/** Les deux modes de la campagne : la série à trois vies, et les sentiers du savoir. */
-type Mode = 'serie' | 'sentiers'
-const modeDe = (hash: string): Mode => (hash === ADRESSE_DES_SENTIERS || sentierDeLAdresse(hash) ? 'sentiers' : 'serie')
+/** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine. */
+type Mode = 'serie' | 'sentiers' | 'defi'
+const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : hash === ADRESSE_DES_SENTIERS || sentierDeLAdresse(hash) ? 'sentiers' : 'serie')
 
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois
@@ -106,7 +122,11 @@ export function CampagneApp() {
   }, [])
   /** Changer d'onglet n'empile rien : le retour du téléphone quitte la campagne, comme avant. */
   const choisirMode = (m: Mode) => {
-    history.replaceState(history.state, '', m === 'sentiers' ? ADRESSE_DES_SENTIERS : `${window.location.pathname}${window.location.search}`)
+    history.replaceState(
+      history.state,
+      '',
+      m === 'sentiers' ? ADRESSE_DES_SENTIERS : m === 'defi' ? ADRESSE_DU_DEFI : `${window.location.pathname}${window.location.search}`,
+    )
     setMode(m)
     window.scrollTo(0, 0)
   }
@@ -115,6 +135,7 @@ export function CampagneApp() {
       onglets={[
         { id: 'serie', nom: 'La série', icone: 'list' },
         { id: 'sentiers', nom: 'Les sentiers', icone: 'target' },
+        { id: 'defi', nom: 'Le défi', icone: 'trophy' },
       ]}
       actif={mode}
       onChoisir={choisirMode}
@@ -137,6 +158,7 @@ export function CampagneApp() {
       if (!vivant) return
       // Le thème de son profil habille sa page, comme le quiz du jour.
       void porterTheme(moi.profile?.theme)
+      porterGerbe(moi.profile?.gerbe)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
       const lu = await etat
       if (vivant) setEcran({ e: 'accueil', etat: lu })
@@ -188,9 +210,19 @@ export function CampagneApp() {
         niveauAtteint: r.niveauAtteint ?? null,
         correction: null,
         xp: ecran.xp,
+        recompenses: r.recompenses ?? [],
+        legendaires: r.legendaires ?? [],
+        ...(ecran.defi && { defi: true as const }),
+        ...(r.defi && { place: r.defi }),
       })
     }
     setEcran({ ...ecran, question: r.suivante, reponse: null, choix: null })
+  }
+
+  /** Le défi relevé — ou repris — depuis son onglet : la même partie que la série, sous son nom. */
+  const jouerLeDefi = (t: SerieDeCampagne) => {
+    if (!t.question) return
+    setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, defi: true })
   }
 
   /**
@@ -232,6 +264,15 @@ export function CampagneApp() {
     )
   }
 
+  if (ecran.e === 'accueil' && mode === 'defi') {
+    return (
+      <>
+        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} />
+        {toastVu}
+      </>
+    )
+  }
+
   if (ecran.e === 'anonyme' || ecran.e === 'erreur') {
     return (
       <div className="player-shell">
@@ -263,6 +304,7 @@ export function CampagneApp() {
         <Sortie />
         {onglets}
         <Heros etat={etat} />
+        {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
         {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
         {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}
         {pret ? (
@@ -349,8 +391,8 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <header className="fin-tete">
-          <span className="label">La campagne</span>
-          <h1>Série terminée</h1>
+          <span className="label">{ecran.defi ? 'Le défi de la semaine' : 'La campagne'}</span>
+          <h1>{ecran.defi ? 'Défi relevé' : 'Série terminée'}</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
           <span className="big">{ecran.justes}</span>
@@ -358,6 +400,10 @@ export function CampagneApp() {
             bonne{s} réponse{s}
             {ecran.niveauAtteint && `, jusqu’au niveau ${NOM_NIVEAU[ecran.niveauAtteint].toLowerCase()}`}
           </p>
+          {/* Au défi, sa place pour l'instant — la bonne nouvelle seulement (`placeDuJour`). */}
+          {ecran.place && placeDuJour(ecran.place.rang, ecran.place.joueurs, ecran.justes) && (
+            <p className="campagne-record-battu">{`${placeDuJour(ecran.place.rang, ecran.place.joueurs, ecran.justes)}, pour l’instant`}</p>
+          )}
           {/* Le record d'avant la série : battu, on le dit fièrement ; sinon, ce qu'il reste à battre. */}
           {ecran.record ? (
             <p className="campagne-record-battu">
@@ -375,22 +421,49 @@ export function CampagneApp() {
             </p>
           )}
         </section>
+        {ecran.recompenses.length > 0 && (
+          <section className="card campagne-recompenses">
+            {ecran.recompenses.map(r => (
+              <RecompenseTombee key={r.key} recompense={r} />
+            ))}
+          </section>
+        )}
+        {ecran.legendaires.map(cle => (
+          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+        ))}
         {erreur && <p className="error">{erreur}</p>}
-        <a className="btn btn-primary btn-big btn-block" href="/">
-          <Icon name="home" />
-          Retour à l’accueil
-        </a>
-        <div className="row campagne-suite">
-          <button type="button" className="btn" onClick={() => void commencer()}>
-            <Icon name="rotate" />
-            Rejouer
-          </button>
-          {!ecran.correction && (
-            <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
-              Mes réponses
+        {ecran.defi ? (
+          <>
+            {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. */}
+            <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void relire()}>
+              <Icon name="trophy" />
+              Le classement du défi
             </button>
-          )}
-        </div>
+            <p className="muted small centre">La correction s’ouvre lundi, à la clôture : elle soufflerait les réponses à ceux qui jouent encore.</p>
+            <a className="btn btn-block" href="/">
+              <Icon name="home" />
+              Retour à l’accueil
+            </a>
+          </>
+        ) : (
+          <>
+            <a className="btn btn-primary btn-big btn-block" href="/">
+              <Icon name="home" />
+              Retour à l’accueil
+            </a>
+            <div className="row campagne-suite">
+              <button type="button" className="btn" onClick={() => void commencer()}>
+                <Icon name="rotate" />
+                Rejouer
+              </button>
+              {!ecran.correction && (
+                <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
+                  Mes réponses
+                </button>
+              )}
+            </div>
+          </>
+        )}
         {ecran.correction && (
           <ol className="campagne-correction">
             {ecran.correction.map((c, i) => (
@@ -418,6 +491,7 @@ export function CampagneApp() {
       <div className="quiz-player">
         <div className="quiz-topbar">
           <span className="label">
+            {ecran.defi && 'Le défi · '}
             {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
           </span>
           <Vies restantes={ecran.vies} />
@@ -442,6 +516,7 @@ export function CampagneApp() {
                   <p>
                     Bien joué !{r.xp > 0 ? ` +${r.xp}\u00a0XP` : ''}
                   </p>
+                  <GerbeDeJuste />
                 </>
               ) : (
                 <>
@@ -553,6 +628,46 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
         </li>
       </ul>
     </section>
+  )
+}
+
+/**
+ * Ses records catégorie par catégorie, d'une série jouée seule : ce que le
+ * Tour du monde demande — dix dans chacune. Replié : la page s'ouvre sur le
+ * défi, pas sur un tableau.
+ */
+function RecordsParCategorie({ records, categories }: { records: { categorie: string; record: number }[]; categories: string[] }) {
+  const parCategorie = new Map(records.map(r => [r.categorie, r.record]))
+  const atteintes = categories.filter(c => (parCategorie.get(c) ?? 0) >= RECORD_DU_TOUR_DU_MONDE).length
+  const fait = atteintes === categories.length
+  return (
+    <details className="reglages-salon campagne-records">
+      <summary>
+        <Icon name="trophy" className="reglages-icone" />
+        <span>
+          <b>Mes records par catégorie</b>
+          <span className="muted small">
+            {fait ? 'le Tour du monde est fait' : `Tour du monde : ${atteintes} sur ${categories.length}`}
+          </span>
+        </span>
+        <Icon name="chevron-down" className="repli-chevron" />
+      </summary>
+      <p className="muted small">
+        {`Une série d’une seule catégorie : choisis-la dans « Catégories ». ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le Tour du monde est à toi.`}
+      </p>
+      <ul className="campagne-records-grille">
+        {categories.map(c => {
+          const record = parCategorie.get(c) ?? 0
+          return (
+            <li key={c} className={record >= RECORD_DU_TOUR_DU_MONDE ? 'atteint' : undefined}>
+              <Icon name={EMBLEME[c] ?? 'star'} />
+              <span>{c}</span>
+              <b aria-label={`record : ${record}`}>{record || '–'}</b>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
   )
 }
 

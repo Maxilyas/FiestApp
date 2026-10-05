@@ -52,21 +52,28 @@ Object.assign(globalThis, { React })
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
-test('trente thèmes en boutique, rangés à l’échelle de rareté — et Babel, qui se gagne', () => {
-  assert.equal(THEMES.length, 31)
-  assert.equal(new Set(THEMES.map(t => t.key)).size, 31, 'une clé par thème')
+test('trente thèmes en boutique, rangés à l’échelle de rareté — et cinq qui se gagnent', () => {
+  assert.equal(THEMES.length, 35)
+  assert.equal(new Set(THEMES.map(t => t.key)).size, 35, 'une clé par thème')
   const de = (rarete: string) => THEMES.filter(t => t.rarete === rarete && !t.gagne).map(t => t.key)
   assert.deepEqual(de('offert'), ['velours', 'ivoire'], 'deux offerts à tous')
   assert.deepEqual(
     ['commune', 'peucommune', 'rare', 'epique', 'legendaire'].map(r => de(r).length),
     [5, 7, 8, 5, 3],
   )
-  // Babel ne se vend pas : il se gagne aux douze paliers de maître des sentiers.
+  // Babel ne se vend pas : il se gagne aux douze paliers de maître des
+  // sentiers ; les quatre thèmes peints, au quiz du jour et en campagne.
   assert.deepEqual(
-    THEMES.filter(t => t.gagne).map(t => [t.key, t.gagne!.maitres]),
-    [['babel', 12]],
+    THEMES.filter(t => t.gagne).map(t => [t.key, t.gagne!.par]),
+    [
+      ['babel', { maitres: 12 }],
+      ['horloge', { hautFait: 'hf:laurier', fois: 50 }],
+      ['ciel', { cle: 'hf:infatigable:2' }],
+      ['heures', { pages: 12 }],
+      ['sommet', { cle: 'hf:alpiniste:3' }],
+    ],
   )
-  assert.equal(enBoutique(theme('babel')!, '2026-09-29'), false, 'jamais en boutique')
+  for (const t of THEMES.filter(x => x.gagne)) assert.equal(enBoutique(t, '2026-09-29'), false, `${t.key} : jamais en boutique`)
   assert.equal(theme('licorne')?.rarete, 'rare')
   assert.equal(theme('neon')?.rarete, 'epique')
   assert.deepEqual(PRIX_DES_THEMES, { offert: 0, commune: 150, peucommune: 250, rare: 400, epique: 650, legendaire: 1000 })

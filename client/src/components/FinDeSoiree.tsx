@@ -10,7 +10,7 @@ import {
 } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
-import { legendaire } from '../../../shared/legendaires'
+import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
@@ -533,7 +533,8 @@ function Nouveautes({ liste, collection }: { liste: Nouveaute[]; collection?: No
 function UneApproche({ a }: { a: Approche }) {
   const l = legendaire(a.key)
   const p = palierDe(a.key)
-  const h = l ? hautFait(l.condition.hautFait) : p?.hautFait
+  const principal = l && hautFaitPrincipal(l)
+  const h = l ? principal && hautFait(principal) : p?.hautFait
   if (!h || (!l && !p)) return null
   const titre = l ? l.nom : titreDePalier(p!.hautFait, p!.palier)
   const compte =

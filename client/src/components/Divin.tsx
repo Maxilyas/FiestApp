@@ -4,15 +4,15 @@ import { inscrireDessin } from './medaillons'
 import { BADGES } from './divins-peints'
 
 /**
- * Les avatars divins : cinq bijoux au-dessus des légendaires
+ * Les avatars divins : six bijoux au-dessus des légendaires
  * (`shared/divins.ts`). Personne ne sait ce qui les fait descendre.
  *
  * Un légendaire est une carte peinte, ronde, tenue dans son cadre. Un Divin,
  * lui, n'est pas un rond : c'est un bijou sacré — or, émail, pierres —, peint
  * chacun à sa silhouette (le disque solaire d'Hélios, les six ailes du
  * Séraphin, les pétales du Lotus, la couronne de l'Arbre-Monde, l'auréole
- * brisée de l'Ange Déchu). À vingt pixels dans un classement, sa forme seule
- * dit ce qu'il est.
+ * brisée de l'Ange Déchu, le sablier de Chronos). À vingt pixels dans un
+ * classement, sa forme seule dit ce qu'il est.
  *
  * Et il vit : sa lumière tourne derrière lui, sa lueur respire, un éclat
  * glisse sur son or, des étincelles gravitent. Rien que des `transform` et
@@ -40,6 +40,8 @@ const THEMES: Record<string, Theme> = {
   'dv:lotus': { fond: ['#3a1d5c', '#1d1446', '#070a1f'], anneau: ['#ffe3ec', '#e8a0b8', '#9a4a6a'], aura: '#ffb0cc' },
   'dv:arbre': { fond: ['#11604a', '#062a1f', '#010a07'], anneau: ['#fff2c4', '#d4a64a', '#6f4a10'], aura: '#7dffc0' },
   'dv:dechu': { fond: ['#4a1d6b', '#1d0a2d', '#07020d'], anneau: ['#d9b8ff', '#7a3aa8', '#2a0f3d'], aura: '#c0306a' },
+  // Sa lumière est l'azur de son anneau d'émail et de sa lune : l'or est déjà celle d'Hélios.
+  'dv:chronos': { fond: ['#2b5d7a', '#102a3d', '#040d14'], anneau: ['#fff1c9', '#d9b25a', '#7a5214'], aura: '#7fc8ff' },
 }
 
 const n = (v: number) => Number(v.toFixed(2))

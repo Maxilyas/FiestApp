@@ -31,7 +31,7 @@ import {
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { divinsDebloques } from '../src/core/divins'
-import { LEGENDAIRES, legendairesDebloques, type Condition } from '../../shared/legendaires'
+import { LEGENDAIRES, legendairesDebloques, partiesDe, type Condition } from '../../shared/legendaires'
 import { clePalier } from '../../shared/hautsfaits'
 
 // Le hasard ne décide de rien ici : un Éclat n'a rien à faire dans ces comptes.
@@ -82,9 +82,10 @@ test('l’Arbre-Monde compte aussi les légendaires gardés d’avant', () => {
   // Tout au seuil du jour, sauf le Tigre : une seule Foudre, gagnée avant.
   const recompenses = new Map<string, number>()
   for (const l of LEGENDAIRES) {
-    const c = l.condition
-    if ('fois' in c) recompenses.set(c.hautFait, c.fois)
-    else for (let p = 1; p <= c.palier; p++) recompenses.set(clePalier(c.hautFait, p), 1)
+    for (const c of partiesDe(l.condition)) {
+      if ('fois' in c) recompenses.set(c.hautFait, Math.max(recompenses.get(c.hautFait) ?? 0, c.fois))
+      else for (let p = 1; p <= c.palier; p++) recompenses.set(clePalier(c.hautFait, p), 1)
+    }
   }
   recompenses.set('hf:foudre', 1)
   assert.deepEqual(divinsDebloques(recompenses), [], 'onze légendaires ne font pas l’Arbre')

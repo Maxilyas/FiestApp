@@ -38,15 +38,27 @@ export const enPartie = (f: string): Partie => {
 
 const pause = (ms: number) => new Promise(ok => setTimeout(ok, ms))
 
-/** Un appel à Nano Banana : des images et une consigne, une image carrée en retour. */
-export async function generer(parties: Partie[], { modele, taille }: { modele: string; taille: string }): Promise<Rendu> {
+/**
+ * Les formats que Nano Banana Pro sait rendre. Le carré reste celui de tous
+ * les médaillons ; les décors des thèmes peints sont des images en hauteur,
+ * à la mesure d'un téléphone (`decors.ts`).
+ */
+export type FormatDImage = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
+
+/** Ce qu'on demande d'une image : le carré par défaut, pour que rien ne change aux appelants d'avant le format. */
+function configDImage(taille: string, format: FormatDImage = '1:1') {
+  // Le premier Nano Banana (2.5) ne connaît pas de taille : une taille vide la retire.
+  return { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: format, ...(taille ? { imageSize: taille } : {}) } }
+}
+
+/** Un appel à Nano Banana : des images et une consigne, une image en retour — carrée, sauf format demandé. */
+export async function generer(
+  parties: Partie[],
+  { modele, taille, format }: { modele: string; taille: string; format?: FormatDImage },
+): Promise<Rendu> {
   const cle = process.env.GEMINI_API_KEY
   if (!cle) throw new Error('GEMINI_API_KEY manque : la clé de l’API Gemini.')
-  const corps = JSON.stringify({
-    contents: [{ role: 'user', parts: parties }],
-    // Le premier Nano Banana (2.5) ne connaît pas de taille : une taille vide la retire.
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1', ...(taille ? { imageSize: taille } : {}) } },
-  })
+  const corps = JSON.stringify({ contents: [{ role: 'user', parts: parties }], generationConfig: configDImage(taille, format) })
   // Une surcharge passagère (503) se réessaie ; un quota (429) jamais :
   // à l'offre gratuite, les modèles d'image ont un quota de zéro, et
   // insister n'y change rien.
@@ -93,6 +105,8 @@ export interface Demande {
   /** Ce qui retrouve la réponse : les lots ne gardent pas l'ordre. */
   cle: string
   parties: Partie[]
+  /** Son format, s'il n'est pas celui du lot : un même lot peut mêler carrés et décors en hauteur. */
+  format?: FormatDImage
 }
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -113,12 +127,12 @@ async function appel(url: string, init: RequestInit = {}): Promise<any> {
 }
 
 /** Envoie un lot ; rend son nom (`batches/…`), qu'on relit ensuite. */
-export async function lancerLot(demandes: Demande[], { modele, taille, nom }: { modele: string; taille: string; nom: string }): Promise<string> {
+export async function lancerLot(
+  demandes: Demande[],
+  { modele, taille, nom, format }: { modele: string; taille: string; nom: string; format?: FormatDImage },
+): Promise<string> {
   const requests = demandes.map(d => ({
-    request: {
-      contents: [{ role: 'user', parts: d.parties }],
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1', ...(taille ? { imageSize: taille } : {}) } },
-    },
+    request: { contents: [{ role: 'user', parts: d.parties }], generationConfig: configDImage(taille, d.format ?? format) },
     metadata: { key: d.cle },
   }))
   const r = await appel(`${API}/models/${modele}:batchGenerateContent`, {

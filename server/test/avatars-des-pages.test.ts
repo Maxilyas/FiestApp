@@ -87,7 +87,7 @@ test('le bilan et le souvenir recopient l’avatar porté — légendaire, finit
     finition: 'holo',
     eclat: true,
     legendaire: 'lg:phenix',
-    laurier: true,
+    laurier: 1,
   })
   const bob = joueur('bob', 'Bob', '🐻', { score: 100 })
   const rows = [reponse('jeanne', 300), reponse('bob', 100)]
@@ -129,7 +129,7 @@ test('relue, une archive montre ce que les profils portent — l’emoji de l’
   const apparences = (profileId: string, avatar: string) => {
     demandes.push([profileId, avatar])
     return profileId === 'profil-jeanne'
-      ? { niveau: 14, finition: 'or' as const, eclat: false, legendaire: 'lg:chouette', laurier: true }
+      ? { niveau: 14, finition: 'or' as const, eclat: false, legendaire: 'lg:chouette', laurier: 1 as const }
       : undefined
   }
 
