@@ -13,7 +13,8 @@ import { Icon } from './Icon'
 import { Onglets, type Onglet } from './Onglets'
 import { TropheesAtlas } from './TropheesAtlas'
 import { CarriereAtlas } from './CarriereAtlas'
-import { MesThemes, RayonDesThemes, RayonDesVies } from './Boutique'
+import { MesThemes, RayonDesObjets, RayonDesThemes } from './Boutique'
+import { objetDeLAdresse, type CleDObjet } from './Objets'
 
 // Le contenu des écrans du profil — ses avatars, son style, ses trophées —
 // et de la boutique, que la page charge à la demande (`ProfilApp`) : ils
@@ -130,21 +131,35 @@ export function PanneauReglage({ reglage, profil, busy, enregistrer }: Props & {
   )
 }
 
-type RayonDeLaBoutique = 'themes' | 'vies'
+type RayonDeLaBoutique = 'themes' | 'objets'
 
 const RAYONS: Onglet<RayonDeLaBoutique>[] = [
   { id: 'themes', nom: 'Thèmes' },
-  { id: 'vies', nom: 'Vies' },
+  { id: 'objets', nom: 'Objets' },
 ]
 
-/** L'adresse du rayon des vies : un lien peut y mener (`/boutique#vies`). */
-const ADRESSE_DES_VIES = '#vies'
+/** L'adresse du rayon des objets : un lien peut y mener (`/boutique#objets`). */
+const ADRESSE_DES_OBJETS = '#objets'
+
+/**
+ * Le rayon et l'objet qu'ouvre l'adresse : `#objets`, le rayon ; `#objet-sablier`,
+ * sa fiche dépliée (le lien de la série, au quiz du jour) ; et `#vies`, celle
+ * d'avant, quand le rayon ne vendait que les vies.
+ */
+function lireRayon(): { rayon: RayonDeLaBoutique; objet?: CleDObjet } {
+  const h = window.location.hash
+  if (h === ADRESSE_DES_OBJETS) return { rayon: 'objets' }
+  if (h === '#vies') return { rayon: 'objets', objet: 'vie' }
+  const objet = objetDeLAdresse(h)
+  return objet ? { rayon: 'objets', objet } : { rayon: 'themes' }
+}
 
 /**
  * La boutique, en deux rayons sous une barre fine : les thèmes — ce qui
- * reste à prendre, une rareté à la fois —, et les vies des sentiers. Posées
- * sous la vitrine, les vies ne se trouvaient qu'en la faisant défiler toute
- * (la remarque du propriétaire du 5 octobre 2026). Changer de rayon n'empile
+ * reste à prendre, une rareté à la fois —, et les objets — les vies des
+ * sentiers, le sablier de la série, et ce qui viendra. Posées sous la
+ * vitrine, les vies ne se trouvaient qu'en la faisant défiler toute (la
+ * remarque du propriétaire du 5 octobre 2026). Changer de rayon n'empile
  * rien : le retour du téléphone quitte la boutique, comme avant.
  */
 export function PanneauBoutique({
@@ -152,11 +167,11 @@ export function PanneauBoutique({
   busy,
   acheter,
   onSolde,
-}: Props & { acheter: (cle: string) => Promise<string | null>; /** Des vies achetées : le solde que le serveur rend. */ onSolde: (solde: number) => void }) {
-  const [rayon, setRayon] = useState<RayonDeLaBoutique>(() => (window.location.hash === ADRESSE_DES_VIES ? 'vies' : 'themes'))
+}: Props & { acheter: (cle: string) => Promise<string | null>; /** Un objet acheté : le solde que le serveur rend. */ onSolde: (solde: number) => void }) {
+  const [{ rayon, objet }, setLu] = useState(lireRayon)
   const choisir = (r: RayonDeLaBoutique) => {
-    history.replaceState(history.state, '', r === 'vies' ? ADRESSE_DES_VIES : `${window.location.pathname}${window.location.search}`)
-    setRayon(r)
+    history.replaceState(history.state, '', r === 'objets' ? ADRESSE_DES_OBJETS : `${window.location.pathname}${window.location.search}`)
+    setLu({ rayon: r })
   }
   return (
     <>
@@ -170,7 +185,11 @@ export function PanneauBoutique({
         className="onglets-fins"
       />
       <div className="rayon-de-la-boutique" role="tabpanel" id="rayon-de-la-boutique" aria-labelledby={`boutique-${rayon}`}>
-        {rayon === 'themes' ? <RayonDesThemes profil={profil} busy={busy} acheter={acheter} /> : <RayonDesVies profil={profil} onSolde={onSolde} />}
+        {rayon === 'themes' ? (
+          <RayonDesThemes profil={profil} busy={busy} acheter={acheter} />
+        ) : (
+          <RayonDesObjets profil={profil} ouvert={objet} onSolde={onSolde} />
+        )}
       </div>
     </>
   )

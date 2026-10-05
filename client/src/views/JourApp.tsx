@@ -1,4 +1,4 @@
-import { Sortie } from '../components/Pieces'
+import { Feuille, Sortie } from '../components/Pieces'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour } from '../api'
 import { resetClock, serverNow } from '../clock'
@@ -23,6 +23,8 @@ import { CollectionOuverte, LegendaireOuvert, Medaillon, RecompenseTombee } from
 import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { GerbeDeJuste } from '../components/Gerbe'
+import { PucesDeSabliers, Sablier, adresseDeLObjet } from '../components/Objets'
+import { createPortal } from 'react-dom'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
@@ -479,12 +481,9 @@ export function JourApp() {
   return (
     <div className="player-shell">
       {/* La sortie en tête, la même partout ; puis aujourd'hui d'abord — c'est pour lui qu'on vient —, hier dessous. */}
-      <BarreDuJour />
+      <BarreDuJour partie={partie} />
       <section className="card jour-carte jour-heros">
-        <div className="jour-tete">
-          <span className="label">Le quiz du jour</span>
-          <Serie jours={partie.serie} />
-        </div>
+        <span className="label">Le quiz du jour</span>
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         {partie.etat === 'aucun' ? (
           <p className="muted">
@@ -524,12 +523,14 @@ export function JourApp() {
           </p>
         )}
       </section>
-      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier === 'argent' ? undefined : profil.laurier} onCorrection={() => ouvrir('correction')} />}
-      {partie.moisDernier && <MoisDernier mois={partie.moisDernier} />}
-      {partie.serie > 0 && (
-        <section className="card jour-garde">
-          <GardeDeLaSerie sabliers={partie.sabliers ?? 0} />
-        </section>
+      {/* Hier et le mois d'avant dans une seule carte : quatre cartes à la
+          file — le jour, hier, le mois, les sabliers — faisaient un mur (la
+          remarque du propriétaire du 5 octobre 2026). Les sabliers tiennent
+          dans la pastille de la série, en haut, et s'achètent à la boutique. */}
+      {partie.sonHier ? (
+        <Lendemain partie={partie} laurier={profil.laurier === 'argent' ? undefined : profil.laurier} onCorrection={() => ouvrir('correction')} />
+      ) : (
+        partie.moisDernier && <MoisDernier mois={partie.moisDernier} />
       )}
       {partie.saison && <Saison saison={partie.saison} />}
       {toastVu}
@@ -538,14 +539,20 @@ export function JourApp() {
 }
 
 /**
- * Le haut de la page du jour : la sortie, et la cloche du rappel du soir,
- * qui ne paraît que dans l'application installée (`RappelDuJour`).
+ * Le haut de la page du jour : la sortie, la série et ses sabliers — une
+ * pastille hors des cartes : dans l'en-tête du jour joué, elle repoussait
+ * « Le quiz du jour · joué » sur deux lignes —, et la cloche du rappel du
+ * soir, qui ne paraît que dans l'application installée (`RappelDuJour`).
+ * La fin de partie n'y montre pas la série : elle la raconte dans sa carte.
  */
-function BarreDuJour() {
+function BarreDuJour({ partie }: { partie?: PartieDuJour }) {
   return (
     <div className="jour-barre">
       <Sortie />
-      <RappelDuJour />
+      <span className="jour-barre-fin">
+        {partie && <SerieDuJour jours={partie.serie} sabliers={partie.sabliers ?? 0} />}
+        <RappelDuJour />
+      </span>
     </div>
   )
 }
@@ -739,7 +746,9 @@ export function Fin({
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
       </header>
-      <section className="card result-banner result-ok">
+      {/* Le résultat et ce qu'il rapporte dans une seule carte : à la file,
+          elles en faisaient deux de plus avant les récompenses. */}
+      <section className="card result-banner result-ok jour-fin-resultat">
         <span className="big">{pts(partie.points)}</span>
         <p>
           {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {comptees}
@@ -750,30 +759,32 @@ export function Fin({
             {partie.devant && ` · à ${pts(partie.devant.ecart)} de ${partie.devant.nom}`}
           </p>
         )}
-      </section>
-      <section className="card fin-gain">
-        <p className="fin-xp">+{formatNumber(partie.xp)} points d’expérience</p>
-        {/* Une bonne réponse, un confetti : au quiz du jour comme en soirée. */}
-        {partie.justes > 0 && <p className="fin-confettis">🎊 +{nConfettis(partie.justes)}</p>}
-        <p className="muted small">
-          {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
-          {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
-        </p>
-        <div className="xp-bar" role="progressbar" aria-label={`Niveau ${profil.niveau}`} aria-valuemin={0} aria-valuemax={profil.requis || 1} aria-valuenow={profil.requis > 0 ? profil.acquis : 1}>
-          <div className="xp-fill" style={{ width: `${part}%` }} />
-        </div>
-        <p className="muted small">
-          {profil.requis > 0
-            ? `Niveau ${profil.niveau} · ${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
-            : `Niveau ${profil.niveau} · au sommet`}
-        </p>
-        {/* La montée de niveau de cette partie, dite comme en fin de soirée. */}
-        {monte && <p className="fin-monte">Niveau {partie.niveauApres} !</p>}
-        {finitionsNeuves.length > 0 && (
-          <p className="fin-finition">
-            Nouvelle finition : <b>{finitionsNeuves.map(f => NOM_FINITION[f]).join(', ')}</b>
+        <div className="fin-gain jour-fin-gain">
+          <p className="fin-xp">
+            +{formatNumber(partie.xp)} XP
+            {/* Une bonne réponse, un confetti : au quiz du jour comme en soirée. */}
+            {partie.justes > 0 && <span className="fin-confettis"> · 🎊 +{nConfettis(partie.justes)}</span>}
           </p>
-        )}
+          <p className="muted small">
+            {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
+            {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
+          </p>
+          <div className="xp-bar" role="progressbar" aria-label={`Niveau ${profil.niveau}`} aria-valuemin={0} aria-valuemax={profil.requis || 1} aria-valuenow={profil.requis > 0 ? profil.acquis : 1}>
+            <div className="xp-fill" style={{ width: `${part}%` }} />
+          </div>
+          <p className="muted small">
+            {profil.requis > 0
+              ? `Niveau ${profil.niveau} · ${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
+              : `Niveau ${profil.niveau} · au sommet`}
+          </p>
+          {/* La montée de niveau de cette partie, dite comme en fin de soirée. */}
+          {monte && <p className="fin-monte">Niveau {partie.niveauApres} !</p>}
+          {finitionsNeuves.length > 0 && (
+            <p className="fin-finition">
+              Nouvelle finition : <b>{finitionsNeuves.map(f => NOM_FINITION[f]).join(', ')}</b>
+            </p>
+          )}
+        </div>
       </section>
       {partie.niveauAvant !== undefined && partie.niveauApres !== undefined && (
         <CollectionOuverte avant={partie.niveauAvant} apres={partie.niveauApres} finition={profil.finition} />
@@ -794,20 +805,7 @@ export function Fin({
             </span>
           </div>
         </div>
-        {partie.serie > 0 && (
-          <div className="jour-ligne">
-            <span className="jour-pastille">
-              <Flamme />
-            </span>
-            <div>
-              <b>
-                Série : {partie.serie} jour{partie.serie > 1 ? 's' : ''}
-              </b>
-              <span className="muted small">Un soir de soirée compte aussi : la fête ne casse jamais une série.</span>
-            </div>
-          </div>
-        )}
-        {partie.serie > 0 && <GardeDeLaSerie sabliers={partie.sabliers ?? 0} />}
+        {partie.serie > 0 && <SerieDuJour jours={partie.serie} sabliers={partie.sabliers ?? 0} forme="ligne" />}
         {(partie.paliers ?? []).map(p => (
           <RecompenseTombee key={p.key} recompense={p} />
         ))}
@@ -905,12 +903,9 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
   return (
     <div className="player-shell jour-joue">
       {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
-      <BarreDuJour />
+      <BarreDuJour partie={partie} />
       <section className="card jour-carte">
-        <div className="jour-tete">
-          <span className="label">Le quiz du jour · joué</span>
-          <Serie jours={partie.serie} />
-        </div>
+        <span className="label">Le quiz du jour · joué</span>
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         <div className="jour-resultat">
           {partie.medaille ? (
@@ -1015,63 +1010,31 @@ function DivinDescendu({ cle, legende, ton, dejaPorte }: { cle: string; legende:
 }
 
 /**
- * Les sabliers qui gardent la série : combien l'attendent, et de quoi en
- * acheter un — deux au plus. Un jour manqué en prend un, et la série tient.
- */
-function GardeDeLaSerie({ sabliers }: { sabliers: number }) {
-  const [restants, setRestants] = useState(sabliers)
-  const [occupe, setOccupe] = useState(false)
-  useEffect(() => setRestants(sabliers), [sabliers])
-  const acheter = async () => {
-    setOccupe(true)
-    try {
-      const r = await api.jour.sablier()
-      setRestants(r.sabliers)
-      showToast({ kind: 'info', message: `Un sablier garde ta série. Il te reste ${nConfettis(r.confettis.solde)}.` })
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
-    } finally {
-      setOccupe(false)
-    }
-  }
-  return (
-    <div className="jour-ligne jour-sabliers">
-      <span className="jour-pastille">
-        <Icon name="sablier" />
-      </span>
-      <div>
-        <b>{restants > 0 ? `${restants} sablier${restants > 1 ? 's' : ''} pour ta série` : 'Un sablier pour ta série'}</b>
-        <span className="muted small">
-          Un jour sans quiz en prend un, et ta série tient — sans compter ce jour-là. Achète-le avant le jour manqué, ou ce
-          jour-là avant minuit.
-        </span>
-        {restants < SABLIERS_MAX && (
-          <button type="button" className="btn btn-small" aria-disabled={occupe || undefined} onClick={() => !occupe && void acheter()}>
-            {`Un sablier · ${nConfettis(PRIX_D_UN_SABLIER)}`}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
  * Le mois d'avant, les sept premiers jours du suivant : sa place au
  * classement du mois, ce que sa clôture lui a décerné — un titre de champion,
  * le Mois complet —, et les légendaires que ça ouvre.
  */
 function MoisDernier({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> }) {
-  const sa = placeDuJour(mois.rang, mois.joueurs, mois.points)
   return (
     <section className="card jour-annonce jour-mois-dernier">
+      <LignesDuMois mois={mois} />
+    </section>
+  )
+}
+
+/** Le mois d'avant en quelques lignes : sous la veille, dans sa carte, ou seul s'il n'y a pas de veille à raconter. */
+function LignesDuMois({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> }) {
+  const sa = placeDuJour(mois.rang, mois.joueurs, mois.points)
+  return (
+    <>
       <span className="label">{capitale(moisEnToutesLettres(mois.mois))}, au quiz du jour</span>
       <div className="jour-ligne">
         <span className="jour-pastille">
           <Icon name="trophy" />
         </span>
         <div>
-          <h2>{sa ?? pts(mois.points)}</h2>
-          <span className="muted">{sa ? `${pts(mois.points)} sur le mois` : `sur ${mois.joueurs} joueurs`}</span>
+          <b>{sa ?? pts(mois.points)}</b>
+          <span className="muted small">{sa ? `${pts(mois.points)} sur le mois` : `sur ${mois.joueurs} joueurs`}</span>
         </div>
       </div>
       {mois.recompenses.map(r => (
@@ -1090,7 +1053,7 @@ function MoisDernier({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> 
       {(mois.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
-    </section>
+    </>
   )
 }
 
@@ -1136,11 +1099,89 @@ function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; la
           {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.
         </p>
       )}
-      <button className="btn btn-block" onClick={onCorrection}>
+      {/* Un lien, pas un bouton de plus : la carte se lit d'abord. */}
+      <button type="button" className="link-inline jour-lien" onClick={onCorrection}>
         <Icon name="book" />
         La correction d’hier
       </button>
+      {/* Les sept premiers jours du mois, le mois d'avant suit la veille, dans la même carte. */}
+      {partie.moisDernier && (
+        <div className="jour-mois-suite">
+          <LignesDuMois mois={partie.moisDernier} />
+        </div>
+      )}
     </section>
+  )
+}
+
+/**
+ * La série et ses sabliers, en une pastille : la flamme et ses jours, puis
+ * les sabliers — pleins ceux qu'on a, en retrait les places libres. Un
+ * toucher ouvre ce qu'ils veulent dire et mène à la boutique, où ils
+ * s'achètent : la page du jour n'a plus de carte pour eux (la remarque du
+ * propriétaire du 5 octobre 2026). `ligne` : la même, en ligne de la fin de
+ * partie.
+ */
+function SerieDuJour({ jours, sabliers, forme = 'puce' }: { jours: number; sabliers: number; forme?: 'puce' | 'ligne' }) {
+  const [ouverte, setOuverte] = useState(false)
+  if (jours < 1) return null
+  const dit = `Série : ${jours} jour${jours > 1 ? 's' : ''}, ${sabliers > 0 ? `${sabliers} sablier${sabliers > 1 ? 's' : ''}` : 'aucun sablier'} sur ${SABLIERS_MAX}`
+  return (
+    <>
+      {forme === 'puce' ? (
+        <button type="button" className="serie-du-jour" aria-haspopup="dialog" aria-label={dit} onClick={() => setOuverte(true)}>
+          <Serie jours={jours} />
+          <PucesDeSabliers sabliers={sabliers} />
+        </button>
+      ) : (
+        <button type="button" className="jour-ligne serie-du-jour-ligne" aria-haspopup="dialog" aria-label={dit} onClick={() => setOuverte(true)}>
+          <span className="jour-pastille">
+            <Flamme />
+          </span>
+          <span className="serie-du-jour-texte">
+            <b>
+              Série : {jours} jour{jours > 1 ? 's' : ''}
+              <PucesDeSabliers sabliers={sabliers} />
+            </b>
+            <span className="muted small">Un soir de soirée compte aussi : la fête ne casse jamais une série.</span>
+          </span>
+        </button>
+      )}
+      {/* Posée sur la page : une carte à `backdrop-filter` deviendrait le repère de la feuille. */}
+      {ouverte &&
+        createPortal(
+          <Feuille
+            titre="Ta série"
+            onFermer={() => setOuverte(false)}
+            pied={
+              sabliers < SABLIERS_MAX ? (
+                <a className="btn btn-primary btn-block" href={adresseDeLObjet('sablier')}>
+                  <Sablier />
+                  {`Un sablier à la boutique · ${nConfettis(PRIX_D_UN_SABLIER)}`}
+                </a>
+              ) : undefined
+            }
+          >
+            <div className="serie-feuille">
+              <p className="serie-feuille-jours">
+                <Flamme />
+                <b>{jours}</b> jour{jours > 1 ? 's' : ''} d’affilée
+              </p>
+              <p className="muted small">Un soir de soirée compte aussi : la fête ne casse jamais une série. Minuit sans quiz la casse.</p>
+              <div className="serie-feuille-sabliers">
+                <PucesDeSabliers sabliers={sabliers} />
+                <b>{sabliers > 0 ? `${sabliers} sablier${sabliers > 1 ? 's' : ''} sur ${SABLIERS_MAX}` : `Aucun sablier sur ${SABLIERS_MAX}`}</b>
+              </div>
+              <p className="muted small">
+                {sabliers >= SABLIERS_MAX
+                  ? 'Tes deux sabliers veillent : un jour sans quiz en prendra un, et ta série tiendra.'
+                  : 'Un jour sans quiz prend un sablier, et ta série tient — sans compter ce jour-là.'}
+              </p>
+            </div>
+          </Feuille>,
+          document.body,
+        )}
+    </>
   )
 }
 

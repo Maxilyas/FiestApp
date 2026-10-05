@@ -984,8 +984,8 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   **Rejouer un palier validé ne coûte rien**, même sans vie : pour les
   étoiles, et pour les confettis. Une épreuve à la fois. Au-delà des
   douze, **des vies en confettis** : 25 la vie, dix au plus par achat
-  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (son onglet
-  « Vies », `/boutique#vies`) ou sur l'écran « Plus de vies » ; elles vont dans une
+  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (le rayon
+  « Objets », `/boutique#objet-vie`) ou sur l'écran « Plus de vies » ; elles vont dans une
   **réserve qui ne périme pas**, et servent après celles du jour. Rien ne
   se compte à côté : les vies se relisent dans le journal des épreuves
   ratées et des achats (`viesDe`) — un hoquet de la base ne fausse rien.
@@ -1089,7 +1089,9 @@ campagne reste sans chronomètre, une vingtaine de joueurs au quiz du jour.
   Riches Heures. Une collection que tout le monde peut finir.
 - **La série** a ses sabliers : 50 confettis l'un, deux au plus ; un jour
   manqué en prend un, la série tient sans compter ce jour-là
-  (`serieAvecSabliers`).
+  (`serieAvecSabliers`). La page du jour les montre dans la pastille de la
+  série, en haut, à côté de la cloche ; ils s'achètent à la boutique, dans
+  le rayon « Objets », un ou deux d'un coup (`/boutique#objet-sablier`).
 - **Des paliers** (10, 25 et 50 XP, comme ceux des soirées) : **L'Élite**
   (10, 50, 150 jours dans le premier quart, à huit joueurs au moins),
   **L'Infatigable** (une série de 7, 30, 100 jours) — au quiz du jour ;

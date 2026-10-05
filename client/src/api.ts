@@ -389,8 +389,8 @@ export const api = {
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
-    /** Un sablier pour sa série, en confettis : ceux qui restent, et son solde. */
-    sablier: () => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST' }),
+    /** Des sabliers pour sa série, en confettis — deux au plus en tout : ceux qui l'attendent, et son solde. */
+    sablier: (nombre = 1) => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST', body: JSON.stringify({ nombre }) }),
     /** Le rappel du soir (`rappel.ts`) : la clé du serveur, puis l'abonnement de ce téléphone. */
     rappel: {
       cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),

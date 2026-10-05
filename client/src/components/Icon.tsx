@@ -80,8 +80,6 @@ export type IconName =
   | 'dice'
   | 'glass'
   | 'shield'
-  // Le sablier qui garde la série du quiz du jour.
-  | 'sablier'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -515,15 +513,6 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   shield: { paths: <path d="M12 3 20 6v5.5c0 4.8-3.3 8.6-8 10.5-4.7-1.9-8-5.7-8-10.5V6l8-3Z" /> },
-  sablier: {
-    paths: (
-      <>
-        <path d="M6 3h12M6 21h12" />
-        <path d="M7.5 3c0 4.5 4.5 6 4.5 9s-4.5 4.5-4.5 9M16.5 3c0 4.5-4.5 6-4.5 9s4.5 4.5 4.5 9" />
-        <path d="M9.5 18.5h5" />
-      </>
-    ),
-  },
   glass: {
     paths: (
       <>

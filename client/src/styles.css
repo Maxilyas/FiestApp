@@ -5912,6 +5912,44 @@ h3 > .icon {
 .jour-score { margin: 0; font-size: 1.05rem; }
 .jour-score .num { font-family: var(--serif); font-size: 1.9rem; color: var(--accent-text); }
 .serie { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+/* La série et ses sabliers, une seule puce qu'on touche : la flamme, ses
+   jours, puis les sabliers — dorés ceux qu'on a, en retrait les places
+   libres. Plus de carte pour eux sur la page du jour. */
+/* Une pastille dans la barre du haut, à côté de la cloche : son fond voilé
+   la garde lisible sur les thèmes peints. */
+.jour-barre-fin { display: inline-flex; align-items: center; gap: 6px; }
+.serie-du-jour { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 9px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 60%, transparent); color: inherit; font: inherit; cursor: pointer; }
+.serie-du-jour:hover { border-color: var(--edge-strong); }
+.sabliers-puces { display: inline-flex; align-items: center; gap: 1px; }
+.sablier { width: 1.05em; height: 1.05em; flex: none; overflow: visible; }
+.sablier-monture { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+.sablier-verre { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
+.sablier-sable { fill: currentColor; opacity: 0.9; }
+.sablier-filet { fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; }
+.sablier-plein { color: var(--or-text); }
+.sablier-vide { color: var(--muted); opacity: 0.5; }
+.serie-du-jour .sabliers-puces { font-size: 0.85rem; }
+/* La même, en ligne de la fin de partie : une ligne de récompense qu'on touche. */
+.serie-du-jour-ligne { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.serie-du-jour-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.serie-du-jour-texte b { display: inline-flex; align-items: center; gap: 8px; }
+/* Ce que la puce ouvre : la série, puis ses sabliers en grand. */
+.serie-feuille { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 8px; }
+.serie-feuille p { margin: 0; }
+.serie-feuille-jours { display: flex; align-items: baseline; gap: 8px; color: var(--accent-text); font-size: 1.05rem; }
+.serie-feuille-jours b { font-family: var(--serif); font-size: 2.4rem; line-height: 1; }
+.serie-feuille-jours .flamme { align-self: center; width: 1.6rem; height: 1.6rem; }
+.serie-feuille-sabliers { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--edge); }
+.serie-feuille-sabliers .sablier { width: 2.2rem; height: 2.2rem; }
+/* Sur le bouton plein, le sablier prend la couleur du texte : à l'or, il s'y fondait. */
+.carte-pied .btn .sablier { width: 1.2em; height: 1.2em; color: inherit; }
+/* La fin de partie : ce qu'elle rapporte, sous le résultat, dans la même carte. */
+.jour-fin-gain { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--edge); }
+.jour-fin-gain p { margin: 0; }
+/* La veille : un lien pour sa correction, puis le mois d'avant dans la même carte. */
+.jour-lien { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
+.jour-lien .icon { width: 16px; height: 16px; }
+.jour-mois-suite { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; border-top: 1px solid var(--edge); }
 .flamme { width: 1.1em; height: 1.1em; }
 .medaille { width: 1.2em; height: 1.2em; flex: none; vertical-align: -0.25em; }
 .medaille-texte { width: 1.25em; height: 1.25em; }
@@ -6209,9 +6247,6 @@ h3 > .icon {
 .jour-annonce p { margin: 0; }
 
 /* Les sabliers qui gardent la série : sous elle, avec de quoi en acheter un. */
-.jour-garde { display: flex; flex-direction: column; gap: 10px; }
-.jour-sabliers > div { align-items: flex-start; }
-.jour-sabliers .btn { margin-top: 6px; }
 
 /* ── Le calendrier des Heures ──────────────────────────────────────────────
    Douze enluminures, au vélin quand elles ne sont pas encore ouvertes : la
@@ -8080,6 +8115,30 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-fiche { grid-column: 1 / -1; }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
 .lien-boutique .icon { width: 15px; height: 15px; }
+/* Le rayon des objets : une case par objet — son dessin dans un rond de sa
+   couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
+   au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on
+   touche se déplie dessous, l'allure de celles des avatars et des thèmes. */
+.rayon-objets { display: flex; flex-direction: column; gap: 12px; }
+.objets-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.objet-vie { --objet: var(--alert); }
+.objet-sablier { --objet: var(--or-text); }
+.objet-case { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px 10px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: center; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.objet-case:hover, .objet-case.actif { border-color: color-mix(in srgb, var(--objet) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--objet) 55%, transparent), 0 6px 22px color-mix(in srgb, var(--objet) 20%, transparent); }
+.objet-dessin { display: grid; place-items: center; flex: none; width: 56px; height: 56px; margin-bottom: 4px; border-radius: 50%; color: var(--objet); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--objet) 26%, transparent), color-mix(in srgb, var(--objet) 6%, transparent) 72%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--objet) 30%, transparent); }
+.objet-dessin svg { width: 30px; height: 30px; }
+.objet-dessin .sablier-plein { color: inherit; }
+.coeur-de-vie { fill: currentColor; }
+.objet-nom { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
+.objet-prix { font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.objet-compte { position: absolute; top: 6px; right: 6px; min-width: 22px; padding: 1px 7px; border-radius: var(--radius-pill); background: var(--surface-strong); color: var(--ink); font-size: var(--t-label); font-weight: 700; font-variant-numeric: tabular-nums; }
+.fiche-objet { align-self: stretch; align-items: stretch; gap: 10px; margin: 0; }
+.fiche-objet-tete { display: flex; align-items: center; gap: 12px; }
+.fiche-objet-titre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.objet-dessin-grand { width: 64px; height: 64px; margin: 0; }
+.objet-dessin-grand svg { width: 36px; height: 36px; }
+.fiche-objet-quantite { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .objet-case { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .gemme i, .theme-vitrine { transition: none; } }
 
 /* ── Le compte : quelques lignes, chacune sa feuille ─────────────────────

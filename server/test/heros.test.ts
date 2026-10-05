@@ -30,12 +30,17 @@ test('le quiz du jour à jouer : la sortie en tête, aujourd’hui d’abord, hi
   const page = source('views/JourApp.tsx')
   const debut = page.indexOf('// À jouer — ou en cours')
   const ecran = page.slice(debut, page.indexOf('\n}\n', debut))
-  // La sortie vit dans la barre du haut, la cloche du rappel du soir à sa droite.
-  const sortie = ecran.indexOf('<BarreDuJour />')
+  // La sortie vit dans la barre du haut ; la série et la cloche du rappel du soir à sa droite.
+  const sortie = ecran.indexOf('<BarreDuJour partie={partie} />')
   const aujourdhui = ecran.indexOf('<section className="card jour-carte jour-heros">')
-  const hier = ecran.indexOf('{partie.sonHier && <Lendemain')
+  const hier = ecran.indexOf('<Lendemain ')
   assert.ok(sortie > 0 && aujourdhui > sortie && hier > aujourdhui, 'Sortie, puis aujourd’hui, puis hier')
-  assert.match(page, /function BarreDuJour\(\) \{\s*return \(\s*<div className="jour-barre">\s*<Sortie \/>/, 'la barre commence par la sortie')
+  assert.match(page, /function BarreDuJour\(\{ partie \}: \{ partie\?: PartieDuJour \}\) \{\s*return \(\s*<div className="jour-barre">\s*<Sortie \/>/, 'la barre commence par la sortie')
+  // Deux cartes au plus sous la barre : le jour, puis hier et le mois d'avant
+  // ensemble — les sabliers n'ont plus la leur (la remarque du propriétaire
+  // du 5 octobre 2026).
+  assert.match(ecran, /\{partie\.sonHier \? \(\s*<Lendemain [^\n]*\/>\s*\) : \(\s*partie\.moisDernier && <MoisDernier /)
+  assert.doesNotMatch(page, /GardeDeLaSerie|jour-garde/, 'plus de carte pour les sabliers')
   // Une seule sortie : celle du bas faisait doublon.
   assert.doesNotMatch(ecran, /Retour à l’accueil/)
   // « Jouer » respire, sauf si le système demande moins de mouvement.
