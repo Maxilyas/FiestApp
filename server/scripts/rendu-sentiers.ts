@@ -139,10 +139,13 @@ try {
   await page.waitForSelector('.campagne-heros')
   await photo('11-serie')
 
-  // La boutique : le rayon des vies, sous les thèmes.
+  // La boutique : deux rayons sous une barre fine — les thèmes, puis les vies.
   await page.goto(`${banc.url}/boutique`)
+  await page.waitForSelector('.onglets-fins')
+  await page.waitForSelector('.gemmes')
+  await photo('12-boutique-themes')
+  await page.click('.onglets-fins [role="tab"]:has-text("Vies")')
   await page.waitForSelector('.rayon-vies')
-  await page.locator('.rayon-vies').scrollIntoViewIfNeeded()
   await photo('12-boutique-vies')
 
   // Les avatars du profil : la forêt et ses paliers.

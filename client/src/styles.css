@@ -6200,6 +6200,33 @@ h3 > .icon {
 }
 .onglet.actif { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .onglets-petits .onglet { min-height: 34px; font-size: 0.82rem; }
+/* La barre fine : deux rayons d'une même page (la boutique), le texte et un
+   trait, sans cadre — les pilules restent aux choix qui changent tout
+   l'écran (la campagne, « Mes avatars »). Le trait de l'onglet choisi
+   recouvre celui de la barre. */
+.onglets.onglets-fins {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--edge);
+  border-radius: 0;
+  background: none;
+}
+.onglets-fins .onglet {
+  min-height: 38px;
+  margin-bottom: -1px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+.onglets-fins .onglet.actif {
+  background: none;
+  box-shadow: none;
+  color: var(--accent-text);
+  border-bottom-color: var(--accent);
+}
+/* Le rayon montré garde l'espacement de la page : la vitrine en était un
+   enfant direct. */
+.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 18px; }
 /* Le panneau des onglets du classement du jour : l'espacement de la page. */
 .classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
@@ -7502,7 +7529,6 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .maitres-recompenses li > span:last-child { display: flex; flex-direction: column; }
 .maitres-pastille { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--shape-2) 60%, transparent); color: var(--shape-2); font-weight: 800; font-size: 0.82rem; }
 .maitres-acquis .maitres-pastille { border-style: solid; background: color-mix(in srgb, var(--shape-2) 18%, transparent); }
-.rayon-vies { margin-top: 8px; }
 /* L'administration des sentiers : trois tuiles, puis un palier par ligne. */
 .sentiers-admin-tuiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .sentiers-admin-tuiles span { padding: 8px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: var(--t-label); color: var(--muted); }

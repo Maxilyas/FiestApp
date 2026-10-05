@@ -984,8 +984,8 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   **Rejouer un palier validé ne coûte rien**, même sans vie : pour les
   étoiles, et pour les confettis. Une épreuve à la fois. Au-delà des
   douze, **des vies en confettis** : 25 la vie, dix au plus par achat
-  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (« Des vies pour
-  les sentiers ») ou sur l'écran « Plus de vies » ; elles vont dans une
+  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (son onglet
+  « Vies », `/boutique#vies`) ou sur l'écran « Plus de vies » ; elles vont dans une
   **réserve qui ne périme pas**, et servent après celles du jour. Rien ne
   se compte à côté : les vies se relisent dans le journal des épreuves
   ratées et des achats (`viesDe`) — un hoquet de la base ne fausse rien.
