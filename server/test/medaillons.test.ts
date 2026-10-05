@@ -95,6 +95,23 @@ test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', 
   }
 })
 
+test('l’accueil ne télécharge pas la liaison temps réel : elle ne sert qu’en soirée', () => {
+  // Le formulaire du profil prenait deux fonctions à l'entrée d'une soirée
+  // (`Entree.tsx`), et avec elle toute la liaison : socket.io, 13 Ko, sur le
+  // chemin de chaque ouverture de l'accueil, pour une page qui ne s'y branche
+  // jamais (`retours/2026-10-05/affichage-des-pages.md`, piste 3).
+  const accueil = importsStatiques(path.join(client, 'views/ProfilApp.tsx'))
+  assert.ok(accueil.has(path.join(client, 'components/ProfilForm.tsx')), 'le formulaire du profil est sur le chemin')
+  assert.ok(accueil.has(path.join(client, 'components/inscription.ts')), 'ce qu’il partage avec l’entrée aussi')
+  for (const f of ['components/Entree.tsx', 'components/Reprendre.tsx', 'socket.ts']) {
+    assert.ok(!accueil.has(path.join(client, f)), `${f} ne part pas avec l’accueil`)
+  }
+  const liaison = (chemin: Set<string>) => [...chemin].filter(f => /from\s+['"]socket\.io-client['"]/.test(readFileSync(f, 'utf8')))
+  assert.deepEqual(liaison(accueil), [], 'aucun fichier de l’accueil n’importe socket.io')
+  // Le parcours la voit bien là où elle sert : sinon ce test ne garderait rien.
+  assert.deepEqual(liaison(importsStatiques(path.join(client, 'views/PlayerApp.tsx'))), [path.join(client, 'socket.ts')])
+})
+
 test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui ne sert qu’après', () => {
   // La carte d'un joueur (au toucher d'un nom), la fin de soirée (à la
   // clôture) et le quiz du jour (pour une seule icône, la flamme) passaient

@@ -20,7 +20,10 @@
 //       [--photos=dossier] [--json=fichier] [--client=dossier] [--http1]
 //
 // `--cascade` écrit les requêtes du premier chargement, une par ligne : c'est
-// là qu'on voit les allers-retours qui s'enchaînent. `--couverture` dit,
+// là qu'on voit les allers-retours qui s'enchaînent. Chaque mesure relève
+// aussi les données que la page servie fait précharger (`shared/depart.ts`)
+// et que la page n'a pas reprises — jamais demandées, ou redemandées au
+// réseau : la liste et la page ne disent plus la même adresse. `--couverture` dit,
 // sans bridage, la part du script et de la feuille de style chargés que la
 // page a vraiment servie avant son écran utile. `--client` mesure un autre
 // client construit : deux paquets se comparent sur la même machine.
@@ -244,7 +247,14 @@ async function semer(url: string) {
  */
 const sonde = (pret: string) => `(() => {
   const PRET = ${JSON.stringify(pret)};
-  const m = (window.__mesure = { pret: null, pretPeint: null, lcp: null, longues: [], decalage: 0 });
+  const m = (window.__mesure = { pret: null, pretPeint: null, lcp: null, longues: [], decalage: 0, demandees: [] });
+  // Ce que la page demande elle-même : un préchargement qu'elle ne demande
+  // pas est parti pour rien (\`prechargement\`).
+  const demander = window.fetch;
+  window.fetch = function (entree) {
+    try { m.demandees.push(new URL(entree instanceof Request ? entree.url : String(entree), location.href).href) } catch {}
+    return demander.apply(this, arguments);
+  };
   const observer = (type, f) => {
     try { new PerformanceObserver(l => l.getEntries().forEach(f)).observe({ type, buffered: true }) } catch {}
   };
@@ -317,9 +327,16 @@ interface Mesure {
   /** La poignée de main temps réel et les premiers messages reçus, en ms. */
   socket: { ouvert: number | null; messages: number[] }
   cascade: Requete[]
+  /**
+   * Les données de départ que la page servie fait précharger
+   * (\`shared/depart.ts\`) et que la page n'a pas reprises : jamais demandées,
+   * ou demandées une seconde fois au réseau — l'adresse a changé d'un côté.
+   */
+  prechargement: { jamaisDemandees: string[]; doublees: string[] }
 }
 
 const enMs = (t: number, t0: number) => Math.round((t - t0) * 1000)
+const cheminDe = (url: string) => new URL(url).pathname + new URL(url).search
 
 /** Un navigateur neuf pour la page — son cache vide —, avec ce que son visiteur apporte : un cookie, un jeton retenu. */
 async function contexteDe(navigateur: any, page: PageMesuree, etat: Etat) {
@@ -431,7 +448,9 @@ async function mesurer(navigateur: any, page: PageMesuree, reseau: string, cache
     const lu = await onglet.evaluate(`(() => {
       const n = performance.getEntriesByType('navigation')[0];
       const fcp = performance.getEntriesByName('first-contentful-paint')[0];
-      return { ttfb: n ? n.responseStart : null, fcp: fcp ? fcp.startTime : null, ...window.__mesure };
+      const prechargees = [...document.querySelectorAll('link[rel=preload][as=fetch]')].map(l => l.href);
+      const jamaisDemandees = prechargees.filter(h => !window.__mesure.demandees.includes(h));
+      return { ttfb: n ? n.responseStart : null, fcp: fcp ? fcp.startTime : null, ...window.__mesure, prechargees, jamaisDemandees };
     })()`)
     const { metrics } = await cdp.send('Performance.getMetrics')
     const metrique = (nom: string) => Math.round(((metrics as { name: string; value: number }[]).find(m => m.name === nom)?.value ?? 0) * 1000)
@@ -472,6 +491,10 @@ async function mesurer(navigateur: any, page: PageMesuree, reseau: string, cache
       apres,
       socket: { ouvert: socketOuvert === null ? null : enMs(socketOuvert, debutNav), messages: messages.map(t => enMs(t, debutNav)) },
       cascade,
+      prechargement: {
+        jamaisDemandees: (lu.jamaisDemandees as string[]).map(cheminDe),
+        doublees: (lu.prechargees as string[]).filter(h => cascade.filter(r => r.url === h && !r.cache).length > 1).map(cheminDe),
+      },
     }
   } finally {
     await contexte.close()
@@ -684,6 +707,7 @@ const relais = args.has('http1') ? null : await relaisHttp2(banc.server.port)
 if (!relais && !args.has('http1')) console.error('openssl introuvable : les pages passent en HTTP/1.1, où les morceaux d’une route font la queue six par six.')
 const navigateur = await chromium.launch({ headless: true, args: relais ? [`--ignore-certificate-errors-spki-list=${relais.empreinte}`] : [] })
 const toutes: Mesure[] = []
+const aRevoir = new Set<string>()
 try {
   const seme = await semer(banc.url)
   const etat: Etat = { url: relais?.url ?? banc.url, ...seme }
@@ -711,6 +735,10 @@ try {
           }
         }
         process.stdout.write('.')
+        for (const m of runs) {
+          for (const c of m.prechargement.jamaisDemandees) aRevoir.add(`${page.nom} : ${c} préchargée, jamais demandée`)
+          for (const c of m.prechargement.doublees) aRevoir.add(`${page.nom} : ${c} demandée une seconde fois`)
+        }
         toutes.push(...runs)
         const groupe = parReseau.get(reseau) ?? []
         groupe.push({ page, cache, runs })
@@ -720,6 +748,10 @@ try {
     }
   }
   console.log()
+  if (aRevoir.size) {
+    console.log('\nPréchargements que la page n’a pas repris (`shared/depart.ts`) :')
+    for (const ligne of aRevoir) console.log(`  ${ligne}`)
+  }
   for (const [reseau, lignes] of parReseau) {
     const processeur = lignes.some(l => l.page.appareil === 'tele') ? APPAREILS.tele.processeur : APPAREILS.telephone.processeur
     const bridage = RESEAUX[reseau] ? `${RESEAUX[reseau]!.nom} · processeur ralenti ×${processeur}` : 'sans bridage, processeur à pleine vitesse'

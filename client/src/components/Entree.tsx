@@ -19,6 +19,7 @@ import { Icon } from './Icon'
 import { MotDePasse } from './MotDePasse'
 import { Sortie } from './Pieces'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
+import { identifiantPour, tirage } from './inscription'
 import { LOGIN } from '../../../shared/space'
 import { espacesFines } from '../format'
 
@@ -65,13 +66,6 @@ interface Props {
 }
 
 type Etape = 'entree' | 'connexion' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
-
-/** Un avatar au hasard : sans ça, tous ceux qui ne touchent à rien arrivent identiques. */
-export const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
-
-/** « Camille » → « camille » : un identifiant proposé, qu'on peut changer. */
-export const identifiantPour = (prenom: string) =>
-  sansAccent(prenom).replace(/[^a-z0-9._-]+/g, '').slice(0, 32)
 
 /**
  * Tout ce qu'un invité traverse entre le scan du QR et la salle d'attente :

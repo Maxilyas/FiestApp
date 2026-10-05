@@ -59,10 +59,6 @@ function retenirProfil(connu: boolean) {
   }
 }
 
-// Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
-// un, les onglets arrivent avec elle, pas un aller-retour après.
-if (profilConnuIci()) void panneaux.charger().catch(() => {})
-
 /**
  * L'accueil (`/`), le profil (`/profil`) et la boutique (`/boutique`) : une
  * même page, qui lit son adresse (`VUE`), et la barre du menu dessous.
@@ -581,6 +577,14 @@ function lireEcran(): EcranDuProfil | null {
   const h = window.location.hash.slice(1)
   return ECRANS.find(e => e.id === h)?.id ?? REGLAGES.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
 }
+
+// Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
+// un, les onglets arrivent avec elle, pas un aller-retour après. La boutique
+// et un écran du profil (`/profil#avatars`) ne se montrent qu'avec eux : sur
+// un appareil neuf, ils attendaient la réponse du profil pour les demander —
+// un tour de plus, 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il
+// lit.
+if (profilConnuIci() || VUE === 'boutique' || (VUE === 'profil' && lireEcran())) void panneaux.charger().catch(() => {})
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
 // fin de soirée d'une page d'avant y mène encore, et trouve sa page.

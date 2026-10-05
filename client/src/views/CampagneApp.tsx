@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
-import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, sentierDeLAdresse } from './Sentiers'
+import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers, sentierDeLAdresse } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
@@ -155,9 +155,11 @@ export function CampagneApp() {
     document.title = 'La campagne · FiestApp'
     let vivant = true
     // L'état part avec le profil, pas après lui, et le profil se lit en
-    // léger : comme au quiz du jour, son détail ne servait qu'au thème.
+    // léger : comme au quiz du jour, son détail ne servait qu'au thème. Ouverte
+    // sur les sentiers, leur état part avec eux : il attendait le premier.
     const etat = api.campagne.etat()
     etat.catch(() => {})
+    if (modeDe(window.location.hash) === 'sentiers') demanderLesSentiers()
     ;(async () => {
       const moi = await api.joueur.moiLeger()
       if (!vivant) return

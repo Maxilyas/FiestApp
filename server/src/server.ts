@@ -26,7 +26,7 @@ import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
-import { PagesPubliques } from './core/pages'
+import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
@@ -35,7 +35,9 @@ import { mountApi } from './api'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
-import { espaceDeLEntree, pageDEntree } from './core/page'
+import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
+import { parseRoute } from '../../shared/adresses'
+import { donneesDeDepart } from '../../shared/depart'
 import { wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
@@ -817,6 +819,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // local, et s'affiche quand même.
   const avecLaDerniere = async <T extends object>(
     account: AccountRec,
+    sorte: 'recap' | 'bilan',
     page: T,
     provisoire: () => void,
   ): Promise<T & { derniere?: DerniereSoiree }> => {
@@ -825,7 +828,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
       provisoire()
       return null
     })
-    return derniere ? { ...page, derniere } : page
+    if (!derniere) return page
+    // Sa page part avec : le téléphone la montre à la place de la soirée
+    // vide, et la demandait aussitôt — un aller-retour de plus, à chaque
+    // ouverture entre deux soirées. Gardée comme demandée seule
+    // (`demandeArchivee`), et provisoire avec elle ; muette, la page de
+    // l'espace part sans elle, et le téléphone la demande, comme avant.
+    const archivee = await pages.lire(demandeArchivee(sorte, account, derniere.id), provisoire).catch((e: unknown) => {
+      console.error(`[soirees] la dernière soirée de « ${account.slug} » ne se joint pas :`, e)
+      provisoire()
+      return null
+    })
+    return { ...page, derniere: archivee ? { ...derniere, page: archivee } : derniere }
   }
 
   // Le souvenir et le bilan se gardent, calculés une fois pour toute la
@@ -846,7 +860,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         dureeMs: 60_000,
         sorte: sorte === 'recap' ? 'souvenir en cours' : 'bilan en cours',
         calculer: provisoire =>
-          avecLaDerniere(account, sorte === 'recap' ? rt.liveRecap() : rt.liveReview(), provisoire),
+          avecLaDerniere(account, sorte, sorte === 'recap' ? rt.liveRecap() : rt.liveReview(), provisoire),
       })
       .catch((e: unknown) => repondreErreur(req, res, e))
   }
@@ -914,27 +928,27 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // et la réanalysait : elle se garde désormais comme les autres pages, et
   // ne se relit que si l'historique de l'espace a bougé — ou au bout de dix
   // minutes, ce que les profils portent ayant pu changer.
-  const archived =
-    (sorte: 'recap' | 'bilan', build: (archive: PartyArchive, apparences: BadgeLookup) => object) =>
-    (req: Request, res: Response) => {
-      const account = spaceOf(res)
-      pages
-        .servir(req, res, {
-          place: `${account.id}|${sorte}|${req.params.id}`,
-          empreinte: `${archives.revision(account.id)}|${reglagesDe(account)}`,
-          dureeMs: 10 * 60_000,
-          sorte: sorte === 'recap' ? 'souvenir archivé' : 'bilan archivé',
-          calculer: async provisoire => {
-            const found = await archives.get(account.id, req.params.id)
-            if (!found) return null
-            const apparences = await apparencesDe(found.archive, provisoire)
-            return { ...build(found.archive, apparences), archive: found.summary, space: auth.publicSpace(account) }
-          },
-        })
-        .catch((e: unknown) => repondreErreur(req, res, e))
-    }
-  app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived('recap', recapOfArchive))
-  app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived('bilan', reviewOfArchive))
+  const PAGE_ARCHIVEE: Record<'recap' | 'bilan', (archive: PartyArchive, apparences: BadgeLookup) => object> = {
+    recap: recapOfArchive,
+    bilan: reviewOfArchive,
+  }
+  const demandeArchivee = (sorte: 'recap' | 'bilan', account: AccountRec, id: string): DemandeDePage => ({
+    place: `${account.id}|${sorte}|${id}`,
+    empreinte: `${archives.revision(account.id)}|${reglagesDe(account)}`,
+    dureeMs: 10 * 60_000,
+    sorte: sorte === 'recap' ? 'souvenir archivé' : 'bilan archivé',
+    calculer: async provisoire => {
+      const found = await archives.get(account.id, id)
+      if (!found) return null
+      const apparences = await apparencesDe(found.archive, provisoire)
+      return { ...PAGE_ARCHIVEE[sorte](found.archive, apparences), archive: found.summary, space: auth.publicSpace(account) }
+    },
+  })
+  const archived = (sorte: 'recap' | 'bilan') => (req: Request, res: Response) => {
+    pages.servir(req, res, demandeArchivee(sorte, spaceOf(res), req.params.id)).catch((e: unknown) => repondreErreur(req, res, e))
+  }
+  app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived('recap'))
+  app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived('bilan'))
 
   // Les adresses d'avant les espaces — celles des liens déjà partagés et des
   // QR déjà imprimés — mènent à l'espace par défaut, celui de l'administrateur.
@@ -1098,15 +1112,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const envoyer = (page: typeof decision) => {
         if (!page.indexable) res.set('X-Robots-Tag', 'noindex, nofollow')
         const base = opts.publicUrl ? opts.publicUrl.replace(/\/+$/, '') : `${req.protocol}://${req.get('host')}`
-        const habillee = habillerPage(indexHtml, page, base, chemin)
+        let html = habillerPage(indexHtml, page, base, chemin)
         // Le téléphone d'un invité reçoit aussi l'en-tête de son entrée
         // (`core/page.ts`) : l'attente l'écrit avant que le script n'arrive.
         const entree = page.statut === 200 ? espaceDeLEntree(chemin) : null
         const compte = entree ? auth.bySlug(entree) : undefined
-        res
-          .status(page.statut)
-          .type('html')
-          .send(compte && compte.slug === entree ? pageDEntree(habillee, auth.publicSpace(compte)) : habillee)
+        const espace = compte && compte.slug === entree ? auth.publicSpace(compte) : undefined
+        if (espace) html = pageDEntree(html, espace)
+        // Ce que la page demandera dès son code arrivé part avec son script
+        // (`shared/depart.ts`), et son attente est déjà écrite.
+        if (page.statut === 200) html = prechargerDonnees(html, donneesDeDepart(parseRoute(chemin)))
+        res.status(page.statut).type('html').send(ecrireAttente(html, espace))
       }
       if (!decision.archive) return envoyer(decision)
       // Une soirée archivée se cherche dans la base permanente. Muette, elle

@@ -78,7 +78,12 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
     '/api/jour',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.jour.etat(profil))
+      if (!profil) return
+      const etat = await deps.jour.etat(profil)
+      // Sans l'en-tête maison, c'est le préchargement que la page a posé
+      // (`shared/depart.ts`) : la réponse arrivera à son `fetch` déjà là, et
+      // l'heure qu'elle porte ne se mesure plus autour de lui. Elle le dit.
+      res.json(req.header('x-requested-with') === 'quizz' ? etat : { ...etat, prechargee: true })
     }),
   )
 
