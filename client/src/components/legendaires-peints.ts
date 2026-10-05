@@ -1,4 +1,4 @@
-// Les seize légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
+// Les vingt-six légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
 //
 // Écrit par `server/scripts/anime/legendaires.ts --livrer` : on ne le retouche
 // pas à la main, on relance la chaîne. Chaque fichier est nommé par son
@@ -113,5 +113,65 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rare: ['/medaillons/bouquet-rare-512.d62c59d7e6.webp', '/medaillons/bouquet-rare-256.f17f70c00f.webp'],
     perso: '/medaillons/bouquet-perso-256.3c96f2c985.webp',
     rarePerso: ['/medaillons/bouquet-rare-perso-512.d2362df665.webp', '/medaillons/bouquet-rare-perso-256.9f2bb27c25.webp'],
+  },
+  'lg:aigle': {
+    art: ['/medaillons/aigle-art-512.f6b481108b.webp', '/medaillons/aigle-art-256.97c138bb70.webp'],
+    rare: ['/medaillons/aigle-rare-512.f2ce0e762f.webp', '/medaillons/aigle-rare-256.14d377346e.webp'],
+    perso: '/medaillons/aigle-perso-256.c8c02ed69f.webp',
+    rarePerso: ['/medaillons/aigle-rare-perso-512.f43a58e941.webp', '/medaillons/aigle-rare-perso-256.9213fa9e06.webp'],
+  },
+  'lg:ouroboros': {
+    art: ['/medaillons/ouroboros-art-512.4feeed8462.webp', '/medaillons/ouroboros-art-256.4314e255f9.webp'],
+    rare: ['/medaillons/ouroboros-rare-512.f9fea04f56.webp', '/medaillons/ouroboros-rare-256.771f0050c2.webp'],
+    perso: '/medaillons/ouroboros-perso-256.8d332c5df5.webp',
+    rarePerso: ['/medaillons/ouroboros-rare-perso-512.20b8770946.webp', '/medaillons/ouroboros-rare-perso-256.0b25c442d2.webp'],
+  },
+  'lg:scarabee': {
+    art: ['/medaillons/scarabee-art-512.c4daa01feb.webp', '/medaillons/scarabee-art-256.69af1ef161.webp'],
+    rare: ['/medaillons/scarabee-rare-512.148a922307.webp', '/medaillons/scarabee-rare-256.5a2ee93594.webp'],
+    perso: '/medaillons/scarabee-perso-256.ab2be6e901.webp',
+    rarePerso: ['/medaillons/scarabee-rare-perso-512.5bb5d15730.webp', '/medaillons/scarabee-rare-perso-256.3161eb2f59.webp'],
+  },
+  'lg:coq': {
+    art: ['/medaillons/coq-art-512.e865b79748.webp', '/medaillons/coq-art-256.cb489768ad.webp'],
+    rare: ['/medaillons/coq-rare-512.8d55613115.webp', '/medaillons/coq-rare-256.40d591dbad.webp'],
+    perso: '/medaillons/coq-perso-256.ca1968cab2.webp',
+    rarePerso: ['/medaillons/coq-rare-perso-512.27f7d0822a.webp', '/medaillons/coq-rare-perso-256.579fa0b342.webp'],
+  },
+  'lg:chauve-souris': {
+    art: ['/medaillons/chauve-souris-art-512.0d277d19c7.webp', '/medaillons/chauve-souris-art-256.4ac0fd6c25.webp'],
+    rare: ['/medaillons/chauve-souris-rare-512.f1aa756fba.webp', '/medaillons/chauve-souris-rare-256.63b020deac.webp'],
+    perso: '/medaillons/chauve-souris-perso-256.15410b7e5f.webp',
+    rarePerso: ['/medaillons/chauve-souris-rare-perso-512.b9e9a4013b.webp', '/medaillons/chauve-souris-rare-perso-256.a7935e3a41.webp'],
+  },
+  'lg:salamandre': {
+    art: ['/medaillons/salamandre-art-512.b0de778d68.webp', '/medaillons/salamandre-art-256.b647706a87.webp'],
+    rare: ['/medaillons/salamandre-rare-512.7c110fb18c.webp', '/medaillons/salamandre-rare-256.d0c2c0a7a4.webp'],
+    perso: '/medaillons/salamandre-perso-256.3bb4959f92.webp',
+    rarePerso: ['/medaillons/salamandre-rare-perso-512.8053dd434b.webp', '/medaillons/salamandre-rare-perso-256.0189a48502.webp'],
+  },
+  'lg:elephant': {
+    art: ['/medaillons/elephant-art-512.f01fdb59ff.webp', '/medaillons/elephant-art-256.b21b0b3c71.webp'],
+    rare: ['/medaillons/elephant-rare-512.4827845427.webp', '/medaillons/elephant-rare-256.68b7073559.webp'],
+    perso: '/medaillons/elephant-perso-256.8710ec8112.webp',
+    rarePerso: ['/medaillons/elephant-rare-perso-512.1c7d6a8fa2.webp', '/medaillons/elephant-rare-perso-256.4777e067a1.webp'],
+  },
+  'lg:serpent': {
+    art: ['/medaillons/serpent-art-512.17cb1e7b16.webp', '/medaillons/serpent-art-256.e6fc441ec7.webp'],
+    rare: ['/medaillons/serpent-rare-512.a515e817b7.webp', '/medaillons/serpent-rare-256.5a29008a3e.webp'],
+    perso: '/medaillons/serpent-perso-256.59205bbff7.webp',
+    rarePerso: ['/medaillons/serpent-rare-perso-512.dfee47abb9.webp', '/medaillons/serpent-rare-perso-256.468e0650d7.webp'],
+  },
+  'lg:chimere': {
+    art: ['/medaillons/chimere-art-512.aa4a8f67c7.webp', '/medaillons/chimere-art-256.f45a9fedde.webp'],
+    rare: ['/medaillons/chimere-rare-512.b0c69d1e95.webp', '/medaillons/chimere-rare-256.59622da526.webp'],
+    perso: '/medaillons/chimere-perso-256.9b9a428241.webp',
+    rarePerso: ['/medaillons/chimere-rare-perso-512.52447b57d5.webp', '/medaillons/chimere-rare-perso-256.db3a5045b7.webp'],
+  },
+  'lg:janus': {
+    art: ['/medaillons/janus-art-512.a918e51f79.webp', '/medaillons/janus-art-256.017b698b51.webp'],
+    rare: ['/medaillons/janus-rare-512.4a2c63cc5d.webp', '/medaillons/janus-rare-256.c07d8ecea7.webp'],
+    perso: '/medaillons/janus-perso-256.e1a0dd05bd.webp',
+    rarePerso: ['/medaillons/janus-rare-perso-512.b27cadd4ad.webp', '/medaillons/janus-rare-perso-256.03a8536e17.webp'],
   },
 }

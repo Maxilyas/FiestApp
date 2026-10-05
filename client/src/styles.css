@@ -4421,12 +4421,12 @@ h3 > .icon {
 
 /* ── Les avatars légendaires ───────────────────────────────────────────────
 
-   Seize cartes peintes (components/Legendaire.tsx), à la taille du texte :
-   1 em, comme l'emoji qu'elles remplacent. Des calques que le navigateur
-   compose — l'image, la pellicule holo, le reflet —, qui ne bougent que par
-   `transform` et `opacity`. Rien ne bouge si le système demande moins de
-   mouvement, ni dans une liste (« Dans une liste, un médaillon se tient
-   tranquille », plus bas). */
+   Vingt-six cartes peintes (components/Legendaire.tsx), à la taille du
+   texte : 1 em, comme l'emoji qu'elles remplacent. Des calques que le
+   navigateur compose — l'image, la pellicule holo, le reflet —, qui ne
+   bougent que par `transform` et `opacity`. Rien ne bouge si le système
+   demande moins de mouvement, ni dans une liste (« Dans une liste, un
+   médaillon se tient tranquille », plus bas). */
 
 .lg {
   --px: 0.5;
@@ -4707,7 +4707,7 @@ h3 > .icon {
 
 /* ── Les avatars divins ────────────────────────────────────────────────────
 
-   Cinq bijoux peints (components/Divin.tsx), à la taille du texte comme les
+   Six bijoux peints (components/Divin.tsx), à la taille du texte comme les
    légendaires, et habités de lumière : des rayons qui tournent, une lueur qui
    respire, un éclat qui glisse sur l'or, des étincelles qui gravitent. Tout
    bouge par `transform` et `opacity`, jamais par un filtre — le PC du

@@ -113,7 +113,9 @@ const podium = `<div class="ligne">
       { legendaire: 'lg:kraken', finition: 'constellation' },
       { legendaire: 'lg:licorne', finition: 'prisme', eclat: true },
       { legendaire: 'lg:sapin', finition: 'or' },
+      { legendaire: 'lg:chauve-souris', finition: 'aurore', eclat: true },
       { legendaire: 'dv:seraphin', finition: 'constellation' },
+      { legendaire: 'dv:chronos', finition: 'prisme' },
     ]
       .map(props => case_(Avatar, { avatar: '🦊', className: 'podium-avatar av-sujet', ...props }, 16, `${props.legendaire.slice(3)} · ${props.finition}`))
       .join('')}
@@ -124,9 +126,9 @@ const catalogue = `<div class="grille">${LEGENDAIRES.map(l => case_(Legendaire, 
   <div class="grille">${DIVINS.map(d => case_(Divin, { cle: d.key, grand: true }, 116, d.nom)).join('')}</div>`
 
 const PLANCHES: [string, string][] = [
-  ['legendaires', page('Les légendaires', 'Seize cartes peintes sous leur pellicule holo · gagnés, éclatés, à gagner, portés', podium + legendaires)],
-  ['divins', page('Les Divins', 'Cinq bijoux peints, habités de lumière', divins)],
-  ['catalogue-medaillons', page('Les médaillons', 'Les seize, leurs versions rares, les cinq Divins', catalogue)],
+  ['legendaires', page('Les légendaires', 'Vingt-six cartes peintes sous leur pellicule holo · gagnés, éclatés, à gagner, portés', podium + legendaires)],
+  ['divins', page('Les Divins', 'Six bijoux peints, habités de lumière', divins)],
+  ['catalogue-medaillons', page('Les médaillons', 'Les vingt-six, leurs versions rares, les six Divins', catalogue)],
   ['catalogue-medaillons-ivoire', page('Les médaillons, en Ivoire', 'L’écran commun, sur demande de l’animateur', catalogue, 'ivoire')],
 ]
 
