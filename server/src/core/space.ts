@@ -1607,7 +1607,7 @@ export class SpaceRuntime {
       const avant = this.deps.profiles.avantLaSoiree(g.profileId, deCeSoir)
       // L'Éclat a pu tomber à n'importe quel podium de la soirée : c'est ici
       // qu'on le dit, une fois tout joué.
-      const eclat = await this.deps.profiles.eclatDeLaSoiree(g.profileId, soireeId).catch(() => null)
+      const eclat = await this.deps.profiles.eclatSous(g.profileId, soireeId).catch(() => null)
       // Une base du jour qui se tait ôte la ligne du quiz du jour, pas la fin.
       const jour = await this.deps.jour?.pontDuJour(g.profileId).catch(() => null)
       const legendaires = this.deps.profiles.legendairesOf(g.profileId)

@@ -3,6 +3,7 @@ import type { Finition, PublicProfile } from '../../../shared/profil'
 import { collectionGagnee } from '../../../shared/avatars'
 import { ceQuIlAFallu, palierDe } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
+import { portrait as portraitDe } from '../../../shared/branches'
 import { api } from '../api'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
@@ -10,7 +11,7 @@ import { perdus, sortesDe, useDessins } from './medaillons'
 
 // Ce qu'une partie vient d'ouvrir, qu'on porte d'ici : à la fin d'une
 // soirée (`FinDeSoiree.tsx`), du quiz du jour (`JourApp.tsx`), d'une série
-// de campagne (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
+// de campagne ou d'un défi (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
 // À part de la fin de soirée : le quiz du jour l'importait pour ces
 // composants, et téléchargeait toute la fin de soirée à chaque ouverture de
 // sa page. (Les portraits des branches s'y annonçaient aussi : ils se
@@ -125,6 +126,29 @@ export function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: b
           Le porter
         </button>
       )}
+    </section>
+  )
+}
+
+/** Le tirage en toutes lettres, comme on le dit : « une chance sur quarante ». */
+const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
+
+/**
+ * L'Éclat tombé — à la fin d'une soirée, d'une partie du quiz du jour, d'un
+ * défi de la semaine : ce qui a éclaté, dans sa version rare. Il tombait en
+ * silence, et sous un légendaire personne ne le voyait jamais. `avatar` tient
+ * la place d'un légendaire ou d'un portrait le temps que son dessin arrive.
+ */
+export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; avatar: string; finition?: Finition; chance: number }) {
+  const dessine = legendaire(cle) ?? portraitDe(cle)
+  return (
+    <section className="card fin-eclat">
+      <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
+      <span className="fin-apparition">
+        {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
+      </span>
+      <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
+      <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
     </section>
   )
 }

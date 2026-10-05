@@ -1,7 +1,8 @@
 // Le quiz du jour et le rayon des objets de la boutique, photographiés au
 // téléphone (360 × 640) sur un serveur jetable : l'accueil du jour avec une
-// série en cours et la veille à raconter, une partie jouée jusqu'à sa fin,
-// le jour joué qu'on retrouve en revenant, et la boutique — ses objets, la
+// série en cours et la veille à raconter, une partie jouée jusqu'à sa fin —
+// et l'Éclat qu'elle fait tomber, forcé —, le jour joué qu'on retrouve en
+// revenant, et la boutique — ses objets, la
 // fiche d'un objet touché. Le client construit d'abord
 // (`npm run build -w client`).
 //
@@ -12,6 +13,7 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { demarrer, inscrireProfil } from '../test/banc'
+import { ProfileStore } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-jour')
 mkdirSync(sortie, { recursive: true })
@@ -68,7 +70,9 @@ try {
     await page.locator('.carte-fermer').click()
   }
 
-  // 2. Une partie jouée jusqu'au bout, la première réponse à chaque fois.
+  // 2. Une partie jouée jusqu'au bout, la première réponse à chaque fois ;
+  // l'Éclat tombe à coup sûr, pour photographier sa carte.
+  ProfileStore.tirageEclat = () => true
   await page.locator('.jour-heros .btn-primary').click()
   for (let i = 0; i < 12; i++) {
     await page.waitForSelector('.ans-btn, .fin-tete', { timeout: 15000 })

@@ -811,7 +811,8 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
       </div>
       <p className="muted small">
         Les finitions se gagnent au niveau, jusqu’à Constellation au niveau 25. L’Éclat, lui, ne se gagne pas : une chance
-        sur quarante par soirée jouée à deux ou plus, et c’est l’avatar lui-même qui change de couleurs.
+        sur quarante par soirée jouée à deux ou plus et par quiz du jour, une sur vingt par défi de la semaine, et c’est
+        l’avatar lui-même qui change de couleurs.
       </p>
     </section>
   )
