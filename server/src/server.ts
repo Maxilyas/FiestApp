@@ -446,8 +446,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
-  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
+  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
+  // champion du mois dernier, que l'écran commun salue à son entrée.
   profiles.laurierDe = id => jour.laureats().has(id)
+  profiles.championDe = id => jour.champions(id)
   // Ses bonnes réponses du quiz du jour ouvraient ses portraits avec celles
   // des soirées : la reprise les relit une fois (`core/repriseDesPortraits.ts`).
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
@@ -503,6 +505,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
         (reprise.otes > 0 ? ` ; ${reprise.otes} portrait(s) porté(s) qu'ils n'avaient plus, ôté(s)` : ''),
     )
   }
+
+  // Le quiz du jour relit ses jours passés avec les règles du jour, une fois
+  // par version : ce que la nuit, la partie et le mois auraient décerné
+  // (`relireLesJours`) — les lauriers d'avant, les pages du calendrier…
+  const debutDesJours = Date.now()
+  const jours = await jour.relireLesJours()
+  if (jours) console.log(`[jour] ${jours.jours} jour(s) relu(s), ${jours.profils} profil(s), en ${Date.now() - debutDesJours} ms`)
 
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID

@@ -4,6 +4,7 @@ import { indexerJournal, questionsDe, type QuizJoue } from './journal'
 import { SEUILS } from '../../../shared/profil'
 import { DIVINS, divin, type DivinDescendu } from '../../../shared/divins'
 import { legendairesDebloques, type Condition } from '../../../shared/legendaires'
+import { jourAvant } from '../../../shared/jour'
 import type { PrixDeSoiree } from '../auth/profiles'
 
 /**
@@ -52,11 +53,26 @@ const RECITS: Record<string, Omit<DivinDescendu, 'key'>> = {
   'dv:lotus': { legende: 'Il est monté du fond de l’eau jusqu’à la lumière.', ton: 'eclat' },
   'dv:arbre': { legende: 'Douze lumières à ses branches : il les a toutes cueillies.', ton: 'eclat' },
   'dv:dechu': { legende: 'Il brillait le plus haut. Il est tombé le plus bas.', ton: 'ombre' },
+  'dv:chronos': { legende: 'Le temps s’est arrêté pour lui : pas une faute, jour après jour.', ton: 'eclat' },
 }
 
 /** Les Divins descendus, avec leur récit — pour leur seul porteur. */
 export function raconter(cles: readonly string[]): DivinDescendu[] {
   return cles.flatMap(key => (RECITS[key] ? [{ key, ...RECITS[key] }] : []))
+}
+
+/**
+ * Chronos, le seul Divin du quiz du jour (le 5 octobre 2026) : autant de
+ * jours d'affilée sans une faute — la médaille d'or, chaque jour, sans en
+ * sauter un. Le quiz du jour le juge à la fin de chaque partie
+ * (`core/jour.ts`), mais la règle vit ici, avec les autres.
+ */
+export const JOURS_DE_CHRONOS = 7
+
+/** Chronos descend-il ce jour-là, sur ces jours sans une faute ? */
+export function chronosDescend(sansFautes: ReadonlySet<string>, jour: string): boolean {
+  for (let i = 0; i < JOURS_DE_CHRONOS; i++) if (!sansFautes.has(jourAvant(jour, i))) return false
+  return true
 }
 
 /**

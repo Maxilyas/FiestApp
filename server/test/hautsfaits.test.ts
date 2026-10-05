@@ -362,7 +362,7 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
 
 test('chaque haut fait a sa rareté mesurée, et un palier plus haut n’est jamais plus courant', () => {
   const cles = [
-    ...HAUTS_FAITS_DE_SOIREE.map(h => h.key),
+    ...HAUTS_FAITS_REGAGNABLES.map(h => h.key),
     ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
   ]
   // Un haut fait de plus sans sa part passerait pour le plus courant de tous :

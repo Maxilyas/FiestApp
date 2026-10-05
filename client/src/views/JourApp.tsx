@@ -38,6 +38,7 @@ import {
   type QuestionDuJour,
   type RevelationDuJour,
   type PalierTombe,
+  type NiveauDeLaurier,
 } from '../../../shared/jour'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
@@ -1005,7 +1006,7 @@ function Palier({ palier }: { palier: PalierTombe }) {
 }
 
 /** Hier, au quiz du jour : sa place, ce que le podium lui a payé, le vainqueur. */
-function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; laurier?: boolean; onCorrection: () => void }) {
+function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; laurier?: NiveauDeLaurier; onCorrection: () => void }) {
   const h = partie.sonHier!
   // Le rang s'il est bon à dire, sinon les points en titre (`placeDuJour`).
   const sa = placeDuJour(h.rang, h.joueurs, h.points)

@@ -148,6 +148,20 @@ export function heureDeParis(instant: number): number {
   return Number(FORMAT_DE_L_HEURE.formatToParts(new Date(instant)).find(p => p.type === 'hour')?.value ?? 0)
 }
 
+const FORMAT_DES_MINUTES = new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+
+/** Les minutes passées depuis minuit à Paris, de 0 à 1439. */
+export function minutesDeParis(instant: number): number {
+  const parts = FORMAT_DES_MINUTES.formatToParts(new Date(instant))
+  return Number(parts.find(p => p.type === 'hour')?.value ?? 0) * 60 + Number(parts.find(p => p.type === 'minute')?.value ?? 0)
+}
+
+/** Le Lève-tôt : une partie finie avant huit heures, à Paris. */
+export const AVANT_LE_LEVE_TOT = 8 * 60
+
+/** Le Dernier Métro : une partie commencée dans la dernière demi-heure avant minuit, à Paris. */
+export const DEPUIS_LE_DERNIER_METRO = 23 * 60 + 30
+
 /** Un jour bien écrit, et qui existe au calendrier. */
 export function jourValide(jour: unknown): jour is string {
   if (typeof jour !== 'string') return false
@@ -295,8 +309,8 @@ export interface LigneDuJour {
   finition?: Finition
   legendaire?: string
   eclat?: true
-  /** Il a gagné le quiz du jour d'hier. */
-  laurier?: true
+  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`). */
+  laurier?: NiveauDeLaurier
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */
@@ -416,11 +430,29 @@ export interface PartieDuJour {
     xpPodium: number
     medaille: Medaille | null
     paliers?: PalierTombe[]
+    /** Ce que la nuit lui a décerné, en plus de ses paliers : le Laurier, le Triomphe, Seul au monde, la Lanterne du jour… */
+    hautsFaits?: PalierTombe[]
+    /** Et les légendaires que la nuit lui a ouverts : l'Aigle au trentième laurier, le Lion, Janus… */
+    legendaires?: string[]
   } | null
-  /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute). */
+  /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute, L'Infatigable). */
   paliers?: PalierTombe[]
+  /** Les hauts faits du jour qu'elle a fait tomber : le Lève-tôt, le Dernier Métro. */
+  hautsFaits?: PalierTombe[]
+  /** La page du calendrier qu'elle a ouverte, au vingtième jour joué du mois (« 10 » pour octobre). */
+  page?: string
+  /** Le Divin qui est descendu sur elle — à lui seul, avec son récit (invariant 21). */
+  divins?: { key: string; legende: string; ton: 'eclat' | 'ombre' }[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
+  /** Les sabliers qui gardent sa série : ils attendent un jour manqué (`serieAvecSabliers`). */
+  sabliers?: number
+  /**
+   * Les sept premiers jours d'un mois, le mois d'avant : sa place au
+   * classement du mois, et ce que la clôture du mois lui a décerné — un titre
+   * de champion, le Mois complet, et ce qu'ils ouvrent.
+   */
+  moisDernier?: { mois: string; rang: number; joueurs: number; points: number; recompenses: PalierTombe[]; legendaires?: string[] }
   /**
    * La partie finie : son niveau avant elle, et après — ce qu'elle a ouvert
    * se dit comme en fin de soirée (« Niveau 2 ! », la finition, l'emoji de

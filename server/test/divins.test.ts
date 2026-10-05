@@ -267,8 +267,18 @@ test('l’Arbre-Monde descend avec le douzième légendaire, et repart avec lui'
   assert.deepEqual(divinsDebloques(recompensesPour(tous)), ['dv:arbre'])
   assert.equal(DOUZE_LEGENDAIRES.length, 12)
   for (const manquant of DOUZE_LEGENDAIRES) {
-    assert.deepEqual(divinsDebloques(recompensesPour(tous.filter(k => k !== manquant))), [], `sans ${manquant}, pas d’Arbre`)
+    assert.deepEqual(
+      divinsDebloques(recompensesPour(DOUZE_LEGENDAIRES.filter(k => k !== manquant))),
+      [],
+      `sans ${manquant}, pas d’Arbre`,
+    )
   }
+  // Depuis le 5 octobre 2026, neuf des douze ont une voie au quiz du jour :
+  // elle compte pour l'Arbre comme la voie de soirée — le propriétaire l'a
+  // voulu plus accessible. Le Renard par L'Assidu · Argent, sans dix soirées.
+  const sansLeRenard = recompensesPour(DOUZE_LEGENDAIRES.filter(k => k !== 'lg:renard'))
+  for (const p of [1, 2]) sansLeRenard.set(clePalier('hf:assidu', p), 1)
+  assert.deepEqual(divinsDebloques(sansLeRenard), ['dv:arbre'], 'le Renard par sa voie du quiz du jour')
   // Ceux venus après les douze — le Sphinx — ne lui sont pas demandés : l'Arbre
   // qu'on porte ne repart pas parce que le catalogue a grandi.
   const venusApres = tous.filter(k => !DOUZE_LEGENDAIRES.includes(k))

@@ -34,6 +34,7 @@ import {
   HAUTS_FAITS_DE_SOIREE,
   VITRINE_MAX,
   clePalier,
+  hautFait,
   hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
@@ -68,7 +69,8 @@ import {
 import { divin } from '../../../shared/divins'
 import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
-import { PRIX_D_UN_SABLIER, SABLIERS_MAX } from '../../../shared/jour'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, type NiveauDeLaurier } from '../../../shared/jour'
+import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage } from '../../../shared/calendrier'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -398,6 +400,31 @@ export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: numbe
  */
 export const cleDeSoiree = (spaceId: string, soireeId: string): string => `${spaceId}#${soireeId}`
 
+/** Le rangement des récompenses d'un mois du quiz du jour : la page du calendrier, le champion, le mois complet. */
+export const cleDuMois = (mois: string) => `#mois:${mois}`
+
+/** Le rangement des récompenses d'une série de campagne. */
+export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
+
+/**
+ * L'emoji et le titre d'une clé rangée hors d'une soirée, recopiés sur sa
+ * ligne comme ceux d'un prix : une étagère se relit des années plus tard,
+ * même si un titre a changé entre-temps.
+ */
+function etiquetteDe(cle: string): { emoji: string; title: string } {
+  const h = hautFait(cle)
+  if (h) return { emoji: h.emoji, title: h.title }
+  const p = palierDe(cle)
+  if (p) return { emoji: p.hautFait.emoji, title: titreDePalier(p.hautFait, p.palier) }
+  const champion = titreDuChampion(cle)
+  if (champion) return { emoji: '🏆', title: champion }
+  const page = moisDeLaPage(cle)
+  if (page) return { emoji: '📜', title: `Le calendrier : ${PAGES.find(x => x.mois === page)?.nom ?? page}` }
+  const d = divin(cle)
+  if (d) return { emoji: '✨', title: d.nom }
+  return { emoji: '✨', title: cle }
+}
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -447,6 +474,23 @@ export class ProfileStore {
    * diffusion à toute la salle.
    */
   laurierDe?: (profileId: string) => boolean
+
+  /**
+   * Le mois dont il est le champion, s'il l'est du mois dernier
+   * (`JourStore.champions`) : sa carte le dit tout le mois suivant, et l'écran
+   * commun le salue quand il entre dans une soirée. Lu en mémoire, comme le
+   * laurier.
+   */
+  championDe?: (profileId: string) => string | null
+
+  /**
+   * L'allure de son laurier : ses victoires, toutes comptées (`hf:laurier`,
+   * une ligne par victoire), le font grandir — vert, d'or, serti, étoilé.
+   * Il vient de gagner : au moins le premier.
+   */
+  niveauDuLaurierDe(profileId: string): NiveauDeLaurier {
+    return niveauDuLaurier(Math.max(1, this.recompensesOf(profileId).get('hf:laurier') ?? 0))
+  }
 
   /**
    * Ses bonnes réponses du quiz du jour, par catégorie (`JourStore.categoriesDe`),
@@ -941,9 +985,11 @@ export class ProfileStore {
    * (`PRIX_D_UN_SABLIER`) : il attend dans sa réserve qu'un jour manqué le
    * prenne. Deux au plus en réserve (`SABLIERS_MAX`) — au-delà, refusé en
    * clair, comme un solde trop court. La réserve se relit des jours joués
-   * (`sabliersDe`), qu'on lui passe : le quiz du jour les connaît.
+   * (`sabliersDe`), qu'on lui passe : le quiz du jour les connaît. `quand`
+   * est l'heure du quiz du jour : un sablier ne couvre que les jours manqués
+   * après son achat, et la série se lit à cette horloge-là.
    */
-  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>): Promise<number> {
+  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>, quand = Date.now()): Promise<number> {
     return this.unAchatALaFois(id, async () => {
       const rec = await this.require(id)
       if ((await enReserve(id)) >= SABLIERS_MAX) throw new Error(`Tu as déjà ${SABLIERS_MAX} sabliers : un jour manqué en prendra un`)
@@ -951,7 +997,7 @@ export class ProfileStore {
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour un sablier`)
       await this.client.execute({
         sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
-        args: [randomUUID(), id, PRIX_D_UN_SABLIER, Date.now()],
+        args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
       })
       return enReserve(id)
     })
@@ -1167,7 +1213,9 @@ export class ProfileStore {
   titrePorte(p: ProfileRec): string | null {
     if (!p.titre) return null
     if (brancheDuMaitre(p.titre)) return p.titre
-    return hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
+    const recompenses = this.recompensesOf(p.id)
+    if (moisDuChampion(p.titre)) return (recompenses.get(p.titre) ?? 0) > 0 ? p.titre : null
+    return hautsFaitsGagnes(recompenses).includes(p.titre) ? p.titre : null
   }
 
   /**
@@ -1208,13 +1256,14 @@ export class ProfileStore {
       eclatsEteints: this.eteintsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:')).length,
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !moisDeLaPage(k)).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
-      ...(this.laurierDe?.(p.id) && { laurier: true }),
+      ...(this.laurierDe?.(p.id) && { laurier: this.niveauDuLaurierDe(p.id) }),
+      ...(this.championDe?.(p.id) && { champion: this.championDe(p.id)! }),
       theme: this.themePorte(p),
     }
   }
@@ -1577,6 +1626,7 @@ export class ProfileStore {
         }
         champs.titre = String(patch.titre)
       } else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
+      else if (moisDuChampion(String(patch.titre)) && (this.recompensesOf(id).get(String(patch.titre)) ?? 0) > 0) champs.titre = String(patch.titre)
       else throw new Error('Ce titre se gagne d’abord : c’est le nom d’un de tes hauts faits')
     }
     if (patch.vitrine !== undefined) {
@@ -2153,6 +2203,49 @@ export class ProfileStore {
   }
 
   /**
+   * Range des récompenses sous un jour, un mois ou une série (`#jour:…`,
+   * `#mois:…`, `#campagne:…`) : un haut fait du quiz du jour ou de la
+   * campagne, une page du calendrier, un titre de champion du mois, un
+   * Divin. Une seule ligne par clé et par rangement — la clé primaire le
+   * garantit, et rejouer la nuit ou la relecture ne double rien. Rend celles
+   * qui sont neuves : ce que la page annonce. Sans expérience : seuls les
+   * paliers en rapportent (`accorderPaliersDuJour`). `quand` est l'heure du
+   * quiz du jour, celle qui dit ce qu'une partie a fait tomber
+   * (`created_at` comparé à son début), et que les tests font passer minuit.
+   */
+  async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
+    const uniques = [...new Set(cles)]
+    if (uniques.length === 0) return []
+    const now = quand
+    const res = await this.client.batch(
+      uniques.map(cle => {
+        const { emoji, title } = etiquetteDe(cle)
+        return {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [profileId, cle, sous, emoji, title, now],
+        }
+      }),
+      'write',
+    )
+    const neuves = uniques.filter((_, i) => res[i].rowsAffected > 0)
+    if (neuves.length > 0) {
+      this.porteurs = null
+      await this.recompterRecompenses([profileId])
+    }
+    return neuves
+  }
+
+  /** Ce qui est rangé sous un jour, un mois ou une série, dans l'ordre où c'est tombé. */
+  async rangesSous(profileId: string, sous: string): Promise<{ key: string; emoji: string; title: string; at: number }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT badge, emoji, title, created_at FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at, badge`,
+      args: [profileId, sous],
+    })
+    return res.rows.map(r => ({ key: String(r.badge), emoji: String(r.emoji), title: String(r.title), at: Number(r.created_at) }))
+  }
+
+  /**
    * Ce que ce jour a fait tomber, rangé sous lui : les paliers du quiz du
    * jour — à la fin de sa partie, ou à la nuit qui l'a clos — et la saison
    * qu'il a ouverte.
@@ -2243,7 +2336,8 @@ export class ProfileStore {
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire ;
+    // ni les pages du calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -2254,7 +2348,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
@@ -2568,7 +2662,7 @@ export class ProfileStore {
   apparenceDe(
     p: ProfileRec,
     avatar: string = this.avatarPorte(p),
-  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: boolean } {
+  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: NiveauDeLaurier; champion?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
     return {
@@ -2577,7 +2671,8 @@ export class ProfileStore {
       // Éteint, un Éclat ne se voit plus : il porte la version d'origine.
       eclat: this.brilleChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
-      ...(this.laurierDe?.(p.id) && { laurier: true }),
+      ...(this.laurierDe?.(p.id) && { laurier: this.niveauDuLaurierDe(p.id) }),
+      ...(this.championDe?.(p.id) && { champion: this.championDe(p.id)! }),
     }
   }
 

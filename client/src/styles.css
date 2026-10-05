@@ -3867,6 +3867,26 @@ h3 > .icon {
 .nom-marque { flex: none; white-space: pre; }
 .nom-laure > .laurier-bulle > .laurier { margin-left: 0.3em; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
+/* Le laurier grandit avec les victoires : vert à la première — le vert des
+   emojis de collection, que chaque thème accorde à son fond —, d'or à cinq,
+   serti d'un rubis à vingt (la première forme du thème), étoilé à
+   cinquante : les étoiles scintillent, sauf si le système demande moins de
+   mouvement. */
+.laurier-1 { color: var(--anneau-collection); }
+.laurier-2,
+.laurier-3,
+.laurier-4 { color: var(--or-text); }
+.laurier-gemme { fill: var(--shape-0); stroke: var(--or-text); stroke-width: 0.5; }
+.laurier-etoile { transform-box: fill-box; transform-origin: center; animation: laurier-scintille 2.6s ease-in-out infinite; }
+.laurier-etoile:nth-child(2) { animation-delay: 0.9s; }
+.laurier-etoile:nth-child(3) { animation-delay: 1.7s; }
+@keyframes laurier-scintille {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .laurier-etoile { animation: none; }
+}
 
 /* ── Les fonds de carte ────────────────────────────────────────────────── */
 

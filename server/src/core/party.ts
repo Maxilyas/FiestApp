@@ -3,6 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import type { Finition } from '../../../shared/profil'
+import type { NiveauDeLaurier } from '../../../shared/jour'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 
@@ -25,8 +26,10 @@ export interface ProfileBadge {
   eclat: boolean
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
-  /** Il a gagné le quiz du jour d'hier. */
-  laurier?: boolean
+  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier, qui grandit avec ses victoires. */
+  laurier?: NiveauDeLaurier
+  /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue à son entrée. */
+  champion?: string
   /**
    * L'avatar qu'il porte à la place de celui de sa fiche, quand il ne l'ouvre
    * plus : un emoji de collection au-dessus du niveau qu'il vient de perdre.
@@ -398,7 +401,8 @@ export class Party {
       ...(badge && { niveau: badge.niveau, finition: badge.finition }),
       ...(badge?.eclat && { eclat: true }),
       ...(badge?.legendaire && { legendaire: badge.legendaire }),
-      ...(badge?.laurier && { laurier: true }),
+      ...(badge?.laurier && { laurier: badge.laurier }),
+      ...(badge?.champion && { champion: badge.champion }),
       // Même raison : absent tant qu'aucun homonyme ne porte le même avatar.
       ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
     }

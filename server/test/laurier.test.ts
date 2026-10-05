@@ -73,7 +73,7 @@ async function jouer(banc: Banc, cookie: string, juste: (i: number) => boolean) 
 }
 
 /** Qui porte le laurier : dans des lignes du classement du jour, ou des joueurs d'un instantané. */
-const laures = (lignes: { nom?: string; name?: string; laurier?: boolean }[]) =>
+const laures = (lignes: { nom?: string; name?: string; laurier?: number }[]) =>
   lignes
     .filter(l => l.laurier)
     .map(l => l.nom ?? l.name)
@@ -118,9 +118,9 @@ test('le vainqueur d’hier porte le laurier toute la journée, ex æquo compris
 
     // Sa carte et sa page le disent ; celles de Carole, rien.
     const carte = (id: string) => fetch(`${banc.url}/s/${ADMIN.slug}/joueurs/${id}.json`).then(r => r.json() as Promise<any>)
-    assert.equal((await carte(aliceEnSoiree.playerId)).laurier, true)
+    assert.equal((await carte(aliceEnSoiree.playerId)).laurier, 1, 'sa première victoire : le laurier vert')
     assert.ok(!('laurier' in (await carte(caroleEnSoiree.playerId))))
-    assert.equal((await lire(banc, alice, '/api/joueur/moi')).corps.profile.laurier, true)
+    assert.equal((await lire(banc, alice, '/api/joueur/moi')).corps.profile.laurier, 1)
     assert.ok(!('laurier' in (await lire(banc, carole, '/api/joueur/moi')).corps.profile))
 
     // Masqué, Bob ne s'annonce plus : son laurier tombe, jusque sur sa page.
