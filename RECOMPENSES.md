@@ -984,8 +984,8 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   **Rejouer un palier validé ne coûte rien**, même sans vie : pour les
   étoiles, et pour les confettis. Une épreuve à la fois. Au-delà des
   douze, **des vies en confettis** : 25 la vie, dix au plus par achat
-  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (« Des vies pour
-  les sentiers ») ou sur l'écran « Plus de vies » ; elles vont dans une
+  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (son onglet
+  « Vies », `/boutique#vies`) ou sur l'écran « Plus de vies » ; elles vont dans une
   **réserve qui ne périme pas**, et servent après celles du jour. Rien ne
   se compte à côté : les vies se relisent dans le journal des épreuves
   ratées et des achats (`viesDe`) — un hoquet de la base ne fausse rien.
@@ -1003,6 +1003,18 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   sommet). Jamais le sentier seul : mené tout droit à la scène, il l'ouvrait
   sans les onglets de la campagne. Tant qu'aucun n'est commencé, il
   présente les deux modes, et ouvre la série.
+- **Le haut des sentiers explique les sentiers** : un seul bloc, à la place
+  d'une bulle pour les vies et d'une carte pour continuer. Le sentier qu'on
+  avance y est en panorama — ses douze paliers en lacet, les portraits
+  gagnés, celui qui attend, la couronne du maître au bout —, les vies en
+  cœurs, et les règles en quatre lignes (douze sur seize, un avatar tous
+  les deux paliers, un palier raté coûte une vie, le maître au sommet).
+  Elles restent dépliées tant qu'on n'a pas gagné trois paliers en jouant —
+  les paliers repris des portraits d'avant n'y comptent pas : ceux-là
+  découvrent les sentiers —, puis se replient sous « Comment ça marche ? ».
+  Rien de commencé : les règles, et « Choisir mon premier sentier ».
+  Une tuile touchée y fait monter son sentier, qu'on regarde avant d'y
+  entrer : un second toucher, ou le bouton du bloc, y entre.
 
 **Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
@@ -1023,9 +1035,11 @@ Jusqu'au sommet, un bon joueur de la catégorie laisse une vingtaine de
 vies (un jour et demi de vies), un très bon quatre ; un joueur moyen n'y
 arrive pas — c'était voulu : le dernier portrait se mérite. Ces chiffres se vérifient sur les vraies épreuves, à `/admin#campagne`
 (« Les sentiers ») : palier par palier, la part qui valide du premier coup,
-les essais, les vies perdues avant de valider — sur trois mois, sans les
-rejeux —, et un signal quand un palier se révèle plus facile que celui
-d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
+les essais, les vies perdues avant de valider — sur trois mois —, ses
+rejeux à part (un palier déjà validé, ou repris des portraits d'avant, se
+rejoue sans risquer de vie : il ne dit rien d'un premier essai, mais
+l'administrateur voit qu'on y a joué), et un signal quand un palier se
+révèle plus facile que celui d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
 chiffres-là ; un portrait déjà ouvert ne se reprend pas (§ 5.4 ter).
 
 **La base grandit chaque matin.** La routine Claude Code qui remplit la

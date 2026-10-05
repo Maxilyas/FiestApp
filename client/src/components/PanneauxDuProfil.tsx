@@ -130,17 +130,48 @@ export function PanneauReglage({ reglage, profil, busy, enregistrer }: Props & {
   )
 }
 
-/** La boutique : ce qui reste à prendre, une rareté à la fois. */
+type RayonDeLaBoutique = 'themes' | 'vies'
+
+const RAYONS: Onglet<RayonDeLaBoutique>[] = [
+  { id: 'themes', nom: 'Thèmes' },
+  { id: 'vies', nom: 'Vies' },
+]
+
+/** L'adresse du rayon des vies : un lien peut y mener (`/boutique#vies`). */
+const ADRESSE_DES_VIES = '#vies'
+
+/**
+ * La boutique, en deux rayons sous une barre fine : les thèmes — ce qui
+ * reste à prendre, une rareté à la fois —, et les vies des sentiers. Posées
+ * sous la vitrine, les vies ne se trouvaient qu'en la faisant défiler toute
+ * (la remarque du propriétaire du 5 octobre 2026). Changer de rayon n'empile
+ * rien : le retour du téléphone quitte la boutique, comme avant.
+ */
 export function PanneauBoutique({
   profil,
   busy,
   acheter,
   onSolde,
 }: Props & { acheter: (cle: string) => Promise<string | null>; /** Des vies achetées : le solde que le serveur rend. */ onSolde: (solde: number) => void }) {
+  const [rayon, setRayon] = useState<RayonDeLaBoutique>(() => (window.location.hash === ADRESSE_DES_VIES ? 'vies' : 'themes'))
+  const choisir = (r: RayonDeLaBoutique) => {
+    history.replaceState(history.state, '', r === 'vies' ? ADRESSE_DES_VIES : `${window.location.pathname}${window.location.search}`)
+    setRayon(r)
+  }
   return (
     <>
-      <RayonDesThemes profil={profil} busy={busy} acheter={acheter} />
-      <RayonDesVies profil={profil} onSolde={onSolde} />
+      <Onglets
+        onglets={RAYONS}
+        actif={rayon}
+        onChoisir={choisir}
+        label="Les rayons de la boutique"
+        idOnglet={id => `boutique-${id}`}
+        idPanneau={() => 'rayon-de-la-boutique'}
+        className="onglets-fins"
+      />
+      <div className="rayon-de-la-boutique" role="tabpanel" id="rayon-de-la-boutique" aria-labelledby={`boutique-${rayon}`}>
+        {rayon === 'themes' ? <RayonDesThemes profil={profil} busy={busy} acheter={acheter} /> : <RayonDesVies profil={profil} onSolde={onSolde} />}
+      </div>
     </>
   )
 }

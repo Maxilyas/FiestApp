@@ -6285,6 +6285,33 @@ h3 > .icon {
 }
 .onglet.actif { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .onglets-petits .onglet { min-height: 34px; font-size: 0.82rem; }
+/* La barre fine : deux rayons d'une même page (la boutique), le texte et un
+   trait, sans cadre — les pilules restent aux choix qui changent tout
+   l'écran (la campagne, « Mes avatars »). Le trait de l'onglet choisi
+   recouvre celui de la barre. */
+.onglets.onglets-fins {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--edge);
+  border-radius: 0;
+  background: none;
+}
+.onglets-fins .onglet {
+  min-height: 38px;
+  margin-bottom: -1px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+}
+.onglets-fins .onglet.actif {
+  background: none;
+  box-shadow: none;
+  color: var(--accent-text);
+  border-bottom-color: var(--accent);
+}
+/* Le rayon montré garde l'espacement de la page : la vitrine en était un
+   enfant direct. */
+.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 18px; }
 /* Le panneau des onglets du classement du jour : l'espacement de la page. */
 .classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
@@ -7445,21 +7472,70 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }
 .vies-jour.vies-vides .coeur { color: var(--muted); }
-.sentiers-vies { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid rgba(var(--alert-rgb), 0.35); }
-.sentiers-vies b { font-size: 1.05rem; }
-.sentiers-vies .sentiers-racheter { grid-column: 2; justify-self: start; }
-.sentiers-vies-vides { border-color: var(--edge); }
 .sentiers-gros-coeur { grid-row: span 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--radius-xs); background: rgba(var(--alert-rgb), 0.14); }
 .sentiers-gros-coeur .coeur { width: 24px; height: 24px; color: var(--alert); }
-.sentiers-vies-vides .sentiers-gros-coeur, .sentiers-gros-coeur.grand:has(.coeur[fill='none']) { background: var(--surface-strong); }
-.sentiers-vies-vides .sentiers-gros-coeur .coeur { color: var(--muted); }
+.sentiers-gros-coeur.grand:has(.coeur[fill='none']) { background: var(--surface-strong); }
 .sentiers-gros-coeur.grand { width: 64px; height: 64px; border-radius: var(--radius); }
 .sentiers-gros-coeur.grand .coeur { width: 36px; height: 36px; }
-.sentiers-intro { margin: 0; }
-.sentiers-reprise { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center; padding: 12px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--lueur) 45%, transparent); background: radial-gradient(100% 140% at 0% 0%, color-mix(in srgb, var(--lueur) 20%, transparent), transparent 65%), var(--surface); }
-.sentiers-reprise p { margin: 0; display: flex; flex-direction: column; gap: 1px; }
-.sentiers-reprise strong { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
-.sentiers-reprise .btn { grid-column: 1 / -1; }
+
+/* Le haut des sentiers, en un bloc (`HautDesSentiers`) : le sentier qu'on
+   avance en panorama, les règles, les vies en cœurs, le geste. Sans sentier
+   à avancer, il prend l'or de l'application à la place de la lueur. */
+.sentiers-haut { display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 16px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--lueur, var(--accent)) 45%, transparent); background: radial-gradient(120% 70% at 0% 0%, color-mix(in srgb, var(--lueur, var(--accent)) 16%, transparent), transparent 60%), var(--surface); }
+/* Sa place, le temps que les sentiers répondent : la hauteur du bloc replié,
+   pour que les tuiles ne sautent pas de quatre cents pixels à son arrivée. */
+.sentiers-haut-vide { min-height: 410px; }
+.pano-tete { display: flex; flex-direction: column; gap: 2px; }
+.pano-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
+.pano-tete p { margin: 0; }
+/* Le lacet : sept colonnes — six paliers à l'aller, le septième dans le
+   virage, cinq au retour puis la couronne —, sur deux rangées. Tout se place
+   en pourcentages de la largeur, rien ne se mesure ; le virage, lui, garde
+   son rayon en pixels — la moitié de l'écart des rangées. L'isolation garde
+   la lueur du palier à jouer sous lui, pas sous le bloc. */
+.pano { --y1: 26px; --y2: 104px; position: relative; height: 150px; isolation: isolate; }
+.pano-trait { position: absolute; top: var(--y1); left: calc(100% / 14); width: calc(500% / 7); height: 3px; margin-top: -1.5px; border-radius: 2px; background: repeating-linear-gradient(90deg, var(--track) 0 4px, transparent 4px 10px); }
+.pano-trait.pano-retour { top: var(--y2); }
+.pano-trait.pano-parcouru { background: var(--accent); opacity: 0.85; }
+.pano-virage { position: absolute; left: calc(550% / 7); width: 40.5px; height: 40.5px; border: 3px dashed var(--track); border-left: 0; }
+.pano-virage-haut { top: calc(var(--y1) - 1.5px); border-bottom: 0; border-top-right-radius: 40.5px; }
+.pano-virage-bas { top: calc((var(--y1) + var(--y2)) / 2); border-top: 0; border-bottom-right-radius: 40.5px; }
+.pano-virage.pano-parcouru { border-style: solid; border-color: var(--accent); opacity: 0.85; }
+.pano-etape { --t: 10px; position: absolute; top: var(--y1); left: calc((var(--col) - 0.5) * 100% / 7); display: grid; place-items: center; width: var(--t); height: var(--t); margin: calc(var(--t) / -2) 0 0 calc(var(--t) / -2); border-radius: 50%; }
+.pano-etape.rang-retour { top: var(--y2); }
+.pano-etape.rang-virage { top: calc((var(--y1) + var(--y2)) / 2); left: calc(550% / 7 + 39px); }
+.pano-point.pano-fait { background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
+.pano-point.pano-avenir { background: var(--bg); box-shadow: inset 0 0 0 2px var(--track); }
+.pano-point.pano-courant { --t: 20px; background: var(--bg); box-shadow: inset 0 0 0 2px var(--accent); }
+.pano-point.pano-courant::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.pano-portrait { --t: 32px; background: var(--bg-raised); box-shadow: 0 0 0 2px var(--track); }
+.pano-portrait.pano-fait { box-shadow: 0 0 0 2px var(--accent); }
+.pano-portrait.pano-avenir .sentier-portrait { opacity: 0.45; }
+.pano-portrait.pano-courant { --t: 40px; box-shadow: 0 0 0 2px var(--accent); }
+.pano-maitre { --t: 30px; color: var(--shape-2); background: var(--bg); border: 1.5px dashed color-mix(in srgb, var(--shape-2) 70%, transparent); }
+.pano-maitre.pano-fait, .pano-maitre.pano-courant { border-style: solid; border-color: var(--shape-2); }
+.pano-maitre .icon { width: 16px; height: 16px; }
+/* Le palier à jouer : une lueur qui bat derrière lui — seule son opacité bouge. */
+.pano-courant::before { content: ''; position: absolute; inset: -8px; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(var(--accent-rgb), 0.5), transparent 70%); animation: pano-battre 1.8s ease-in-out infinite; }
+@keyframes pano-battre { 50% { opacity: 0.3; } }
+.pano-num { position: absolute; top: calc(100% + 3px); left: 50%; translate: -50% 0; padding: 0 5px; border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 700; line-height: 1.35; color: var(--muted); white-space: nowrap; }
+.pano-courant .pano-num { background: var(--accent); color: var(--on-accent); }
+.pano-maitre .pano-num { color: var(--shape-2); }
+.pano-regles > summary { display: inline-flex; align-items: center; min-height: 32px; cursor: pointer; color: var(--accent-text); font-size: 0.88rem; font-weight: 600; }
+.pano-regles[open] > summary { margin-bottom: 6px; }
+.pano-regles-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--edge); list-style: none; font-size: 0.8rem; line-height: 1.3; }
+.pano-regles-liste li { display: flex; align-items: flex-start; gap: 6px; }
+.pano-regles-liste .icon { flex: none; width: 16px; height: 16px; color: var(--accent-text); }
+.pano-regles-liste .coeur-brise { color: var(--alert); }
+.pano-regles-liste li:last-child .icon { color: var(--shape-2); }
+details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
+.pano-vies { display: flex; flex-direction: column; gap: 2px; }
+.pano-vies-ligne { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pano-coeurs { display: inline-flex; gap: 2px; }
+.pano-coeurs .coeur { width: 13px; height: 13px; color: var(--alert); }
+.pano-coeurs .coeur[fill='none'] { color: color-mix(in srgb, var(--alert) 55%, transparent); }
+.pano-reserve { padding: 0 7px; border-radius: var(--radius-pill); background: rgba(var(--alert-rgb), 0.14); color: var(--ink); font-size: var(--t-label); font-weight: 700; line-height: 1.5; }
+.pano-racheter { margin-left: auto; }
 .sentiers-couronne { display: inline-grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; color: var(--shape-2); background: color-mix(in srgb, var(--shape-2) 16%, transparent); border: 1.5px solid color-mix(in srgb, var(--shape-2) 60%, transparent); }
 .sentiers-couronne .icon { width: 26px; height: 26px; }
 .sentiers-couronne.petite { width: 34px; height: 34px; }
@@ -7473,6 +7549,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .sentiers-tuile b { display: flex; align-items: center; min-height: 2.3em; font-size: 0.78rem; font-weight: 600; line-height: 1.15; }
 .sentiers-tuile-vide { justify-content: flex-end; }
 .sentiers-tuile-complete { border-color: var(--edge-strong); background: linear-gradient(180deg, var(--accent-soft), transparent 70%), var(--surface); }
+/* La tuile que le bloc du haut montre : touchée encore, elle y entre. */
+.sentiers-tuile[aria-pressed='true'] { border-color: color-mix(in srgb, var(--lueur) 80%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 55%, transparent), 0 0 16px color-mix(in srgb, var(--lueur) 28%, transparent); }
 .sentiers-mini { display: flex; gap: 3px; }
 .sentiers-mini i { width: 8px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .sentiers-mini i.mini-ok { background: var(--accent); box-shadow: none; }
@@ -7607,7 +7685,6 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .maitres-recompenses li > span:last-child { display: flex; flex-direction: column; }
 .maitres-pastille { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1.5px dashed color-mix(in srgb, var(--shape-2) 60%, transparent); color: var(--shape-2); font-weight: 800; font-size: 0.82rem; }
 .maitres-acquis .maitres-pastille { border-style: solid; background: color-mix(in srgb, var(--shape-2) 18%, transparent); }
-.rayon-vies { margin-top: 8px; }
 /* L'administration des sentiers : trois tuiles, puis un palier par ligne. */
 .sentiers-admin-tuiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .sentiers-admin-tuiles span { padding: 8px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: var(--t-label); color: var(--muted); }
@@ -7624,7 +7701,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .sentiers-admin-maitre .sentiers-admin-barre i { background: var(--shape-2); }
 .vies-autres .gros-texte b { font-family: var(--sans); font-size: 0.95rem; }
 @media (prefers-reduced-motion: reduce) {
-  .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i { animation: none; }
+  .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i, .pano-courant::before { animation: none; }
 }
 
 /* ── Mes avatars : la famille à son écran ───────────────────────────────
