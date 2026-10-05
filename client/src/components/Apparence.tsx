@@ -120,7 +120,7 @@ export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avat
 /**
  * Tous ses avatars, rangés par famille : les portraits des branches ; les
  * vingt-quatre emojis et les douze de collection ; les légendaires et les
- * cinq Divins. Cent vingt-neuf avatars ne se parcourent plus en une grille :
+ * six Divins. Cent quarante avatars ne se parcourent plus en une grille :
  * chaque famille a son onglet, et chaque partie son titre et son compte.
  *
  * Chacun se touche de la même façon : sa fiche s'ouvre sous sa rangée, et

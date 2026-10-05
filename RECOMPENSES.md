@@ -1040,6 +1040,95 @@ rejouées.
 
 ---
 
+### 5.16 Le quiz du jour et la campagne récompensent aussi
+
+Lot 11 (le 5 octobre 2026). Les soirées et les sentiers avaient leurs
+récompenses ; le quiz du jour et la série de la campagne, presque rien qui
+se porte. La commande : « faire remporter des avatars, des titres, des
+thèmes » par le quiz du jour surtout, partager des conditions avec les
+légendaires des soirées, et peindre de nouvelles images — « le plus beau
+possible ». Arbitrages du propriétaire : pas d'anti-triche (une application
+entre amis), l'Arbre-Monde devient plus facile à décrocher (accepté), la
+campagne reste sans chronomètre, une vingtaine de joueurs au quiz du jour.
+
+- **Des hauts faits du jour**, qui se regagnent et se rangent sous leur
+  jour (`#jour:…`), sans expérience — la partie paie déjà la sienne. À la
+  fin de la partie : **Le Lève-tôt** (finie avant 8 h). À la nuit, qui clôt
+  le jour : **Le Laurier** (la victoire), **Le Triomphe** (trois victoires
+  d'affilée), **Le Phénix du jour** (gagner au lendemain d'un jour fini dans
+  la moitié basse) ; à huit joueurs au moins (`SALLE_DU_JOUR`), **Seul au
+  monde** (seul à trouver une question), **L'Éclair du jour** (la bonne
+  réponse la plus rapide, sur trois questions de sa partie) et **La Lanterne
+  du jour** (dernier en ayant tout répondu). De l'ombre aussi : **Le Dernier
+  Métro** (commencée dans la dernière demi-heure), **Le Courant d'air**
+  (laissée avant la dernière question). Au mois : **Le Mois complet**.
+- **Le laurier grandit** avec les victoires : vert à la première, d'or à
+  cinq, serti à vingt, étoilé à cinquante (`niveauDuLaurier`). La salle
+  reconnaît un champion habituel sans une marque de plus.
+- **Le champion du mois** : le premier du classement du mois, à deux
+  joueurs au moins, reçoit un titre daté (« Champion d'octobre 2026 »), le
+  fond du Triomphe, et sa carte le dit tout le mois suivant — l'écran
+  commun le salue quand il entre dans une soirée (`EntreeEnScene`).
+- **Le calendrier des Heures** : vingt jours joués dans un mois ouvrent sa
+  page, une enluminure peinte dans l'esprit des Très Riches Heures ; le
+  champion du mois la reçoit dorée. Les douze ouvrent le thème des Très
+  Riches Heures. Une collection que tout le monde peut finir.
+- **La série** a ses sabliers : 50 confettis l'un, deux au plus ; un jour
+  manqué en prend un, la série tient sans compter ce jour-là
+  (`serieAvecSabliers`).
+- **Des paliers** (10, 25 et 50 XP, comme ceux des soirées) : **L'Élite**
+  (10, 50, 150 jours dans le premier quart, à huit joueurs au moins),
+  **L'Infatigable** (une série de 7, 30, 100 jours) — au quiz du jour ;
+  **L'Alpiniste** (une série de 10, 15, 20), **L'Érudit** (25, 100, 300
+  expertes trouvées), **Le Marathonien** (250, 1 000, 2 000 bonnes réponses)
+  — en campagne.
+- **La campagne a ses hauts faits de série**, rangés sous la série
+  (`#campagne:…`) : **Le Funambule** (neuf bonnes réponses d'affilée sur sa
+  dernière vie), **Sans une égratignure** (les expertes atteintes sans
+  perdre une vie, après les trois marches complètes), **La Grande Série**
+  (trente dans une série de toutes les catégories), **Le Tour du monde**
+  (dix dans une série de chacune des douze catégories — la page tient ses
+  records par catégorie).
+- **Le défi de la semaine** (`#defi`) : la même série pour tous du lundi au
+  dimanche, tirée au premier qui l'ouvre et figée, une seule tentative, son
+  classement ; ses premiers portent **le laurier d'argent** toute la semaine
+  suivante, et rangent **Le Vainqueur du défi**. Sa correction attend la
+  clôture, pour ne rien souffler à ceux qui jouent encore.
+- **Dix légendaires de plus** (vingt-six), peints dans le style des autres
+  (§ 5.4) : l'Aigle aux lauriers (trente victoires), l'Ouroboros
+  (L'Infatigable · Or), le Scarabée solaire (le Mois complet), le Coq de
+  l'aube (vingt Lève-tôt), la Chauve-souris (dix Dernier Métro, de l'ombre),
+  la Salamandre (le Funambule), l'Éléphant (Le Marathonien · Or), le Serpent
+  à plumes (la Grande Série), et deux qui demandent les deux mondes — **la
+  Chimère** (un podium de soirée, une victoire au quiz du jour, L'Alpiniste
+  · Or) et **Janus** (trois rois de soirée, trois lauriers du jour). Les
+  **voies solitaires** : neuf légendaires des soirées s'ouvrent aussi par un
+  haut fait du jour qui leur ressemble (`aussi` — le Phénix par le Phénix du
+  jour, le Dragon par le Triomphe, la Chouette par Le Sans-Faute · Argent,
+  le Tigre par dix Éclairs du jour, la Licorne par trois Seul au monde, le
+  Lion par Le Champion du jour · Or, le Renard par L'Assidu · Argent, le
+  Kraken par trois Lanternes du jour, le Fantôme par six Courants d'air).
+  Une voie de plus ne reprend rien à personne (invariant 22).
+- **Un sixième Divin**, Chronos, descend au quiz du jour ; sa règle se tait,
+  comme celle des autres (§ 5.4 bis, invariant 21).
+- **Des thèmes et des fonds qu'aucune boutique ne vend**, peints eux aussi :
+  **L'Horloge astronomique** (cinquante victoires — ses aiguilles marquent
+  l'heure de Paris), **Le Ciel du jour** (L'Infatigable · Argent — un même
+  paysage en quatre lumières, qui suivent l'heure), **Les Très Riches
+  Heures** (les douze pages), **Le Sommet** (L'Alpiniste · Or) ; les fonds
+  du **Triomphe** (champion du mois) et du **Cadran solaire** (L'Élite ·
+  Argent).
+- **La gerbe**, un emplacement neuf : ce qui éclate sur son téléphone à une
+  bonne réponse — en soirée, au quiz du jour, en campagne. Les confettis
+  pour tout profil, puis neuf autres, chacune ouverte par l'une des
+  récompenses ci-dessus (`shared/gerbes.ts`). Elle se choisit dans « Mon
+  style » et ne se voit que sur son téléphone : aucun avantage, rien pour
+  l'anonyme (invariant 8).
+- **Comme le reste, ce sont des dérivations des journaux** : les jours et
+  les séries d'avant se relisent une fois au démarrage, sous leur version
+  (`relireLesJours`, `relireLesSeries`) — un joueur assidu retrouve ce que
+  ses parties passées lui auraient valu.
+
 ## 6. Feuille de route
 
 **Lot 1 — fait** : 1–5, 9, 12–21, 23–36, 40–44, 46–48.
@@ -1090,10 +1179,17 @@ rachat en confettis ; le palier de maître, son titre, le Cabinet de
 curiosités au troisième et le thème Babel au douzième ; chacun garde ses
 portraits d'avant, repris en paliers.
 
+**Lot 11 — fait** : le quiz du jour et la campagne récompensent aussi
+(§ 5.16) — leurs hauts faits et leurs paliers, le laurier qui grandit, le
+champion du mois et son entrée en scène, le calendrier des Heures, les
+sabliers, le défi de la semaine et son laurier d'argent, dix légendaires et
+un Divin de plus, quatre thèmes et deux fonds peints, la gerbe.
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
-2. Le mur des réponses (45) et l'entrée en scène (10).
+2. Le mur des réponses (45) et l'entrée en scène (10) — celle du champion
+   du mois est faite (§ 5.16).
 3. Le radar des catégories (37).
 4. Les rivalités (39), le cadre de soirée (7).
 5. L'Éclat garanti (6) et le Métronome (22).
