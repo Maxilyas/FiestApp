@@ -445,6 +445,11 @@ export interface PartieDuJour {
   divins?: { key: string; legende: string; ton: 'eclat' | 'ombre' }[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
+  /**
+   * La partie finie : ce qui a éclaté pour lui ce jour-là — l'emoji qu'il
+   * porte, ou son légendaire (`CHANCE_ECLAT_DU_JOUR`).
+   */
+  eclat?: string
   /** Les sabliers qui gardent sa série : ils attendent un jour manqué (`serieAvecSabliers`). */
   sabliers?: number
   /**

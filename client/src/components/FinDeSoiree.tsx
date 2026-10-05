@@ -9,10 +9,9 @@ import {
   type RecordBattu,
 } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
-import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
+import { CHANCE_ECLAT, NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { portrait as portraitDe } from '../../../shared/branches'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { collectionGagnee } from '../../../shared/avatars'
 import { phraseDesConfettis } from '../../../shared/themes'
@@ -24,7 +23,7 @@ import { confirmDialog } from './Dialog'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
-import { CollectionOuverte, Medaillon } from './Ouverts'
+import { CollectionOuverte, EclatTombe, Medaillon } from './Ouverts'
 import { lienBilan } from './Lendemain'
 import { Feuille } from './Pieces'
 
@@ -179,26 +178,7 @@ export function FinDeSoiree({
 
       {/* L'Éclat : une chance sur quarante, qui tombait en silence — sous un
           légendaire, personne ne le voyait jamais. */}
-      {gain?.eclat && (
-        <section className="card fin-eclat">
-          <span className="label">Une chance sur quarante</span>
-          <span className="fin-apparition">
-            {legendaire(gain.eclat) || portraitDe(gain.eclat) ? (
-              <Avatar avatar={fin.avatar} legendaire={gain.eclat} finition={fin.finition} eclat />
-            ) : (
-              <Avatar avatar={gain.eclat} finition={fin.finition} eclat />
-            )}
-          </span>
-          <h2>
-            {legendaire(gain.eclat)
-              ? `${legendaire(gain.eclat)?.nom} a éclaté !`
-              : portraitDe(gain.eclat)
-                ? `${portraitDe(gain.eclat)?.nom} a éclaté !`
-                : `Ton ${gain.eclat} a éclaté !`}
-          </h2>
-          <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
-        </section>
-      )}
+      {gain?.eclat && <EclatTombe cle={gain.eclat} avatar={fin.avatar} finition={fin.finition} chance={CHANCE_ECLAT} />}
 
       {/* Un emoji de collection à chaque niveau qui n'ouvre pas de finition :
           il se porte d'ici, comme un légendaire. Porter un emoji ôte le

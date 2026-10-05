@@ -43,6 +43,7 @@ import {
   paliersAtteints,
   paliersDeCampagneAtteints,
   paliersDuJourAtteints,
+  paliersDesEclats,
   paliersDuNiveau,
   titreDePalier,
   XP_PALIER,
@@ -558,6 +559,15 @@ export class ProfileStore {
   /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
   moisDuJour?: () => string
   joursDuMois?: (profileId: string) => Promise<number>
+
+  /**
+   * Les soirées qui se jouent encore, tous espaces confondus (`cleDeSoiree`),
+   * branchées au démarrage sur la base locale — celle dont la clôture est en
+   * cours compte pour close, comme à une clôture (`soireesEnCoursAilleurs`).
+   * Un Éclat tiré au quiz du jour ou au défi n'y compte pas leurs Éclats
+   * pour ses paliers (`tirerUnEclat`).
+   */
+  soireesEnCours?: () => ReadonlySet<string>
 
   /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
@@ -2143,14 +2153,18 @@ export class ProfileStore {
   }
 
   /**
-   * Ce qui a éclaté pour ce profil pendant cette soirée, s'il y en a un — la
-   * fin de soirée l'annonce : tombé en silence, un Éclat passait inaperçu, et
+   * Ce qui a éclaté pour ce profil sous ce nom — une soirée, un jour du quiz
+   * du jour, une semaine du défi —, s'il y en a un : la fin de la soirée ou
+   * de la partie l'annonce. Tombé en silence, un Éclat passait inaperçu, et
    * plus encore sous un légendaire.
    */
-  async eclatDeLaSoiree(profileId: string, soireeId: string): Promise<string | null> {
+  async eclatSous(profileId: string, sous: string): Promise<string | null> {
+    // Rien n'a jamais éclaté pour lui : la fin du quiz du jour, relue à
+    // chaque visite, ne demande rien de plus à la base.
+    if (this.eclats.get(profileId)?.size === 0) return null
     const res = await this.client.execute({
       sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at LIMIT 1',
-      args: [profileId, soireeId],
+      args: [profileId, sous],
     })
     return res.rows.length > 0 ? String(res.rows[0].avatar) : null
   }
@@ -2173,9 +2187,59 @@ export class ProfileStore {
     return true
   }
 
-  /** Le tirage de l'Éclat : une chance sur `CHANCE_ECLAT`, une fois par soirée. */
-  static tirageEclat(hasard: () => number = Math.random): boolean {
-    return hasard() * CHANCE_ECLAT < 1
+  /**
+   * Le tirage de l'Éclat : une chance sur `chance` — `CHANCE_ECLAT`, une fois
+   * par soirée ; au quiz du jour et au défi de la semaine, la leur
+   * (`tirerUnEclat`). Un test qui le remplace le fait taire, ou tomber,
+   * partout à la fois.
+   */
+  static tirageEclat(chance: number = CHANCE_ECLAT, hasard: () => number = Math.random): boolean {
+    return hasard() * chance < 1
+  }
+
+  /**
+   * L'Éclat hors d'une soirée — à la fin d'une partie du quiz du jour, d'une
+   * tentative du défi de la semaine —, tiré par qui l'appelle une seule fois
+   * par partie : une partie ne finit qu'une fois. Il tombe, comme en soirée,
+   * sur ce qu'il porte (`cibleEclatDe`), et se range sous `sous` — le jour,
+   * la semaine : aucune soirée ne porte ce nom, en retirer une ne le reprend
+   * donc jamais. Puis les paliers de La Pluie d'Éclats qu'il fait atteindre,
+   * sous le même nom. Rend ce qui a éclaté et ces paliers, ou null : le
+   * tirage est tombé à côté, ou sur un avatar qui brillait déjà.
+   */
+  async tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null> {
+    if (!ProfileStore.tirageEclat(chance)) return null
+    const profil = await this.byId(profileId)
+    if (!profil) return null
+    const avatar = this.cibleEclatDe(profileId, this.avatarPorte(profil))
+    if (!(await this.grantEclat(profileId, avatar, sous))) return null
+    return { avatar, paliers: await this.accorderPaliersDesEclats(profileId, sous) }
+  }
+
+  /**
+   * Les paliers de La Pluie d'Éclats qu'un Éclat tiré hors d'une soirée fait
+   * atteindre, rangés sous `sous`. Les Éclats d'une soirée qui se joue
+   * encore n'y comptent pas, comme à une clôture (`accorderPaliers`) :
+   * effacée comme un essai, elle laissait le palier sans son Éclat. Sa
+   * clôture, si elle est gardée, les recomptera.
+   */
+  private async accorderPaliersDesEclats(profileId: string, sous: string): Promise<string[]> {
+    const enCours = this.soireesEnCours?.() ?? new Set<string>()
+    const ecartees = enCours.size === 0 ? [] : (await this.historiqueOf(profileId)).filter(s => enCours.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    const eclats = await this.eclatsHors(profileId, new Set(ecartees.map(s => s.soireeId)))
+    return this.accorderDesPaliers(profileId, sous, paliersDesEclats(eclats))
+  }
+
+  /**
+   * Combien d'avatars ont éclaté pour lui, sans ceux des soirées écartées
+   * (leurs noms). Les Éclats ne portent que le nom de la soirée : un nom
+   * d'avant l'empreinte de l'espace partagé avec une soirée écartée l'écarte
+   * aussi — un palier qui attend, jamais un palier de trop.
+   */
+  private async eclatsHors(profileId: string, noms: ReadonlySet<string>): Promise<number> {
+    if (noms.size === 0) return this.eclatsOf(profileId).length
+    const res = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
+    return res.rows.filter(r => !noms.has(String(r.soiree_id))).length
   }
 
   // ── L'étagère ───────────────────────────────────────────────────────────
@@ -2624,12 +2688,7 @@ export class ProfileStore {
     // faire tomber `hf:eclats:1` sur l'Éclat d'un essai qu'on efface ensuite.
     // Le niveau se relit sans elles, gardes comprises (invariant 22).
     const ecartees = toutes.filter(s => sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
-    const noms = new Set(ecartees.map(s => s.soireeId))
-    // Les Éclats ne portent que le nom de la soirée : un nom d'avant
-    // l'empreinte de l'espace partagé avec une soirée écartée l'écarte aussi —
-    // un palier qui attend, jamais un palier de trop.
-    const res = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
-    const eclats = res.rows.filter(r => !noms.has(String(r.soiree_id))).length
+    const eclats = await this.eclatsHors(profileId, new Set(ecartees.map(s => s.soireeId)))
     const xpEcartee = ecartees.reduce((n, s) => n + s.xp, 0)
     const niveau = rec ? niveauDuProfil(Math.max(0, rec.xp - xpEcartee), this.gardesOf(profileId)) : 1
     return carriereDe(soirees, { eclats, niveau, jour })

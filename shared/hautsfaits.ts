@@ -798,6 +798,17 @@ export function paliersDuNiveau(niveau: number): string[] {
 }
 
 /**
+ * Les paliers de La Pluie d'Éclats qu'un compte d'avatars éclatés fait
+ * atteindre. Elle se juge aussi là où l'Éclat se tire hors des soirées — le
+ * quiz du jour, le défi de la semaine : qui n'y jouait qu'eux voyait sa
+ * collection éclater sans jamais son palier.
+ */
+export function paliersDesEclats(eclats: number): string[] {
+  const pluie = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:eclats')!
+  return pluie.paliers.flatMap((seuil, i) => (eclats >= seuil ? [clePalier(pluie.key, i + 1)] : []))
+}
+
+/**
  * Un haut fait tel qu'une page le montre : gagné ou non, avec sa progression.
  * La page profil montre tout le catalogue — savoir ce qui vient donne envie
  * de revenir.
@@ -848,7 +859,8 @@ export interface HautFaitVu {
  * L'Éclair.
  *
  * Quatre ne se simulent pas : les Éclats se calculent (une chance sur
- * quarante par soirée) ; La Girouette, Le Globe-trotteur et Le
+ * quarante par soirée et par partie du quiz du jour, une sur vingt par défi
+ * de la semaine) ; La Girouette, Le Globe-trotteur et Le
  * Collectionneur tiennent à une habitude que la bande n'a pas — changer
  * d'avis, d'hôte, d'avatar — et sont estimés. Les trois du quiz du jour
  * aussi : la bande ne joue qu'en soirée.
@@ -901,9 +913,13 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:collection:1': 0.25, // estimées : la bande garde son emoji
   'hf:collection:2': 0.05,
   'hf:collection:3': 0.005,
-  'hf:eclats:1': 0.379, // calculées : une chance sur quarante par soirée
-  'hf:eclats:2': 0.023,
-  'hf:eclats:3': 0.0001,
+  // Calculées, une soirée par semaine : deux joueurs sur trois s'en tiennent
+  // là (0,379 · 0,023 · 0,0001) ; un sur trois joue aussi le quiz du jour —
+  // deux jours par semaine et un défi sur deux, ou, pour un sur dix, tous les
+  // jours et chaque défi (le 5 octobre 2026).
+  'hf:eclats:1': 0.525,
+  'hf:eclats:2': 0.168,
+  'hf:eclats:3': 0.054,
   'hf:legende:1': 0.53, // 70,9 · 54,1 · 34,0
   'hf:legende:2': 0.009, // 2,6 · 0,1 · 0
   'hf:legende:3': 0, // personne en quarante soirées

@@ -12,7 +12,7 @@ import {
 } from './consigneCampagne'
 import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
-import type { StatsDeCampagne } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
 import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { classer } from '../../../shared/classement'
 import { nomsAffiches } from '../../../shared/homonymes'
@@ -159,12 +159,18 @@ export interface RecompensesDeCampagne {
   ranger(profileId: string, sous: string, cles: readonly string[], quand?: number): Promise<string[]>
   accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
+  tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
 }
 
 /** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
 interface Recompenses {
   recompenses?: PalierTombe[]
   legendaires?: string[]
+}
+
+/** Ce que la fin d'un défi annonce en plus : l'Éclat, s'il est tombé. */
+interface RecompensesDuDefi extends Recompenses {
+  eclat?: string
 }
 
 export class CampagneStore {
@@ -712,6 +718,9 @@ export class CampagneStore {
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
       const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
+      // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
+      // `recompenserLaSerie`, que la relecture des séries rejoue.
+      const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
       const defi = finie && s.mode === 'defi' && s.semaine ? await this.placeAuDefi(s.semaine, profileId) : null
       return {
         juste,
@@ -726,9 +735,34 @@ export class CampagneStore {
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
-        ...gagnees,
+        ...ensemble(gagnees, eclat),
       }
     })
+  }
+
+  /**
+   * L'Éclat du défi de la semaine : une chance sur `CHANCE_ECLAT_DU_DEFI`,
+   * tirée quand sa tentative finit — une fois par semaine : il n'y en a
+   * qu'une, et elle ne finit qu'une fois. Rangé sous la semaine
+   * (`cleDuDefi`), avec les paliers de La Pluie d'Éclats qu'il fait tomber ;
+   * rend ce que la fin du défi en annonce.
+   */
+  private async tirerLEclat(profileId: string, semaine: string): Promise<RecompensesDuDefi> {
+    if (!this.recompenses) return {}
+    try {
+      const tire = await this.recompenses.tirerUnEclat(profileId, cleDuDefi(semaine), CHANCE_ECLAT_DU_DEFI)
+      if (!tire) return {}
+      const legendaires = this.recompenses.legendairesOuverts(profileId, tire.paliers)
+      return {
+        eclat: tire.avatar,
+        ...(tire.paliers.length > 0 && { recompenses: tire.paliers.map(tombee) }),
+        ...(legendaires.length > 0 && { legendaires }),
+      }
+    } catch (e) {
+      // Le défi est rangé : un Éclat que la base refuse tombe à côté, comme un tirage manqué.
+      console.error('[campagne] Éclat du défi non rangé :', e)
+      return {}
+    }
   }
 
   /**
@@ -1744,6 +1778,17 @@ export function hautsFaitsDeLaSerie(
   if (experte >= AVANT_LES_EXPERTES && justes.length > experte - 1 && justes.slice(0, experte).every(Boolean)) cles.push('hf:intact')
   if (s.justes >= GRANDE_SERIE && !s.categories) cles.push('hf:grande-serie')
   return cles
+}
+
+/** La fin d'une série et l'Éclat de son défi, en une annonce : ce qui est tombé à la suite, chaque légendaire une fois. */
+function ensemble(serie: Recompenses, defi: RecompensesDuDefi): RecompensesDuDefi {
+  const recompenses = [...(serie.recompenses ?? []), ...(defi.recompenses ?? [])]
+  const legendaires = [...new Set([...(serie.legendaires ?? []), ...(defi.legendaires ?? [])])]
+  return {
+    ...(recompenses.length > 0 && { recompenses }),
+    ...(legendaires.length > 0 && { legendaires }),
+    ...(defi.eclat && { eclat: defi.eclat }),
+  }
 }
 
 /** Ce qu'une fin annonce d'une clé tombée : son emoji et son titre — « L'Alpiniste · Argent » pour un palier. */
