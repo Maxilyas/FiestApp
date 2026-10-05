@@ -2,7 +2,7 @@
 import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { PublicSpace } from './space'
 import type { ApparenceDeLAvatar, Finition } from './profil'
-import type { NiveauDeLaurier } from './jour'
+import type { LaurierPorte } from './jour'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -34,8 +34,8 @@ export interface PublicPlayer {
   eclat?: boolean
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
-  /** Il a gagné le quiz du jour d'hier : un laurier suit son prénom (`Distinctions.laurier`), à l'allure de ses victoires. */
-  laurier?: NiveauDeLaurier
+  /** Il a gagné le quiz du jour d'hier : un laurier suit son prénom (`Distinctions.laurier`), à l'allure de ses victoires — ou le défi de la semaine passée, en argent. */
+  laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue quand il entre. */
   champion?: string
   /**

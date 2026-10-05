@@ -136,8 +136,9 @@ export function CarteJoueur({
                   {nomDuTitre(p?.titre) && <p className="titre-porte">{espacesFines(`« ${nomDuTitre(p?.titre)} »`)}</p>}
                   {carte.laurier && (
                     <p className="carte-laurier">
-                      <Laurier laurier={carte.laurier} decoratif /> Vainqueur du quiz du jour d’hier
-                      {carte.laurier > 1 && ` · ${NOM_DU_LAURIER[carte.laurier].toLowerCase()}`}
+                      <Laurier laurier={carte.laurier} decoratif />{' '}
+                      {carte.laurier === 'argent' ? 'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'}
+                      {carte.laurier !== 'argent' && carte.laurier > 1 && ` · ${NOM_DU_LAURIER[carte.laurier].toLowerCase()}`}
                     </p>
                   )}
                   {/* Le champion du mois dernier, tout le mois : la salle le salue. */}

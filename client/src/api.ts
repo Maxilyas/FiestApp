@@ -1,4 +1,4 @@
-import type { AdminDeLaCampagne, CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
+import type { AdminDeLaCampagne, CorrectionDeCampagne, DefiDeLaSemaine, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -354,6 +354,12 @@ export const api = {
     /** « Signaler une erreur » sur une question déjà jouée de la série. */
     signaler: (serie: string, index: number, texte: string) =>
       req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
+    /**
+     * Le défi de la semaine : une série d'un autre mode — ses réponses, sa
+     * correction et ses signalements passent par celles de la série.
+     */
+    defi: () => req<DefiDeLaSemaine>('/api/campagne/defi'),
+    releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
     /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une
      * série d'un autre mode — sa correction et ses signalements passent par

@@ -309,8 +309,8 @@ export interface LigneDuJour {
   finition?: Finition
   legendaire?: string
   eclat?: true
-  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`). */
-  laurier?: NiveauDeLaurier
+  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`) — ou l'argent du défi de la semaine. */
+  laurier?: LaurierPorte
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */
@@ -481,6 +481,14 @@ export interface PartieDuJour {
 export const SEUILS_DU_LAURIER = [1, 5, 20, 50] as const
 
 export type NiveauDeLaurier = 1 | 2 | 3 | 4
+
+/**
+ * Le laurier qu'on porte à côté de son prénom : celui du quiz du jour (1 à
+ * 4, l'allure de ses victoires), ou le laurier d'argent du défi de la
+ * semaine (`'argent'`, la campagne). Qui a les deux porte celui d'hier : il
+ * ne dure qu'un jour, l'argent une semaine.
+ */
+export type LaurierPorte = NiveauDeLaurier | 'argent'
 
 /** Le laurier de qui a gagné tant de fois — au moins le premier : il vient de gagner. */
 export function niveauDuLaurier(victoires: number): NiveauDeLaurier {

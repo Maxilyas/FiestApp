@@ -446,6 +446,18 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     ton: 'eclat',
     xp: 0,
   },
+  {
+    // Rangé sous sa semaine (`#defi:<lundi>`), à la clôture du défi : le
+    // laurier d'argent dit « cette semaine », le haut fait garde le compte.
+    key: 'hf:defi',
+    famille: 'soiree',
+    origine: 'campagne',
+    emoji: '⚔️',
+    title: 'Le Vainqueur du défi',
+    rule: 'Finir en tête du défi de la semaine, à deux joueurs au moins',
+    ton: 'eclat',
+    xp: 0,
+  },
 ]
 
 export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
@@ -923,6 +935,7 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:intact': 0.08,
   'hf:grande-serie': 0.005,
   'hf:tour-du-monde': 0.002,
+  'hf:defi': 0.04,
   'hf:elite:1': 0.25,
   'hf:elite:2': 0.08,
   'hf:elite:3': 0.02,

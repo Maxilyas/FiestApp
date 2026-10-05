@@ -13,7 +13,9 @@ import {
 import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import type { StatsDeCampagne } from '../../../shared/profil'
-import { cleDeSerie } from '../auth/profiles'
+import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
+import { classer } from '../../../shared/classement'
+import { nomsAffiches } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
 import { CATEGORIES } from '../../../shared/categories'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
@@ -22,11 +24,15 @@ import {
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
   QUESTIONS_PAR_SERIE,
+  JOUEURS_POUR_LE_DEFI,
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
+  minutesAvantLundi,
   niveauDeQuestion,
+  semaineAvant,
+  semaineDe,
   ordreDeSerie,
   xpDeCampagne,
   xpDuJourDeCampagne,
@@ -35,7 +41,9 @@ import {
   type CommandeDeLaBase,
   type DepotDeLaBase,
   type CorrectionDeCampagne,
+  type DefiDeLaSemaine,
   type EtatDeCampagne,
+  type LigneDuDefi,
   type Niveau,
   type QuestionDeCampagne,
   type ReponseDeCampagne,
@@ -99,7 +107,7 @@ interface Serie {
   vies: number
   justes: number
   finieLe: number | null
-  mode: 'serie' | 'sentier'
+  mode: 'serie' | 'sentier' | 'defi'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -108,6 +116,8 @@ interface Serie {
   issue: IssueDEpreuve | null
   /** Les catégories qu'elle a choisies ; null : toutes (`categoriesRetenues`). */
   categories?: string[] | null
+  /** Un défi de la semaine : le lundi de sa semaine, qui le clôt. */
+  semaine?: string | null
 }
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
@@ -119,6 +129,9 @@ const HEURE_MS = 3600_000
 const SERIES = "COALESCE(mode, 'serie') = 'serie'"
 /** Ce que l'administration relit des épreuves : trois mois suffisent à régler un palier. */
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
+/** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
+const LIGNES_DU_DEFI = 50
+const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 
 /**
  * La campagne solo (`shared/campagne.ts`) : ses séries, dans la base
@@ -186,6 +199,24 @@ export class CampagneStore {
    * échec — écrite ou non, on ne le sait pas, et la base fait alors foi.
    */
   private enCours = new Map<string, Serie>()
+  /** Les questions du défi de chaque semaine jouée depuis le démarrage : figées en base, relues une fois. */
+  private tirages = new Map<string, QuestionDeSerie[]>()
+  /** Les vainqueurs du défi de la semaine passée (`vainqueursDuDefi`), lus à sa clôture. */
+  private argent: { semaine: string; ids: ReadonlySet<string> } = { semaine: '', ids: AUCUN_VAINQUEUR }
+  private argentEnRoute: Promise<void> | null = null
+  /** La semaine dont toutes les précédentes sont closes : `cloreLesDefis` ne relit rien d'autre jusqu'au lundi suivant. */
+  private closAvant: string | null = null
+  private semaineGardee: { heure: number; semaine: string; passee: string } | null = null
+  private ferme = false
+  /**
+   * Les profils, pour nommer le classement du défi et ses vainqueurs
+   * (`ProfileStore`) ; les masqués du quiz du jour, qu'il écarte aussi ; et
+   * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
+   * Branchés au démarrage, comme les vies achetées.
+   */
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'>
+  masque?: (profileId: string) => boolean
+  laurierChange?: (profileId: string) => void
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
 
   constructor(
@@ -328,6 +359,8 @@ export class CampagneStore {
       // Tour du monde et les records par catégorie lisent les séries d'une
       // seule ; la Grande Série, celles de toutes.
       ['categories', 'TEXT'],
+      // Un défi de la semaine : le lundi de sa semaine.
+      ['semaine', 'TEXT'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -347,6 +380,17 @@ export class CampagneStore {
            cle    TEXT PRIMARY KEY,
            valeur TEXT NOT NULL
          )`,
+        // Le défi de chaque semaine : ses questions, tirées au premier qui
+        // l'ouvre et figées — la même série pour tous —, et sa clôture, qui
+        // range ses vainqueurs.
+        `CREATE TABLE IF NOT EXISTS campagne_defis (
+           semaine    TEXT PRIMARY KEY,
+           questions  TEXT NOT NULL,
+           tire_le    INTEGER NOT NULL,
+           clos_le    INTEGER,
+           vainqueurs TEXT
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_campagne_series_defi ON campagne_series(mode, semaine)',
       ],
       'write',
     )
@@ -494,11 +538,7 @@ export class CampagneStore {
     if (tombees.length === 0) return {}
     const legendaires = this.recompenses.legendairesOuverts(profileId, tombees)
     return {
-      recompenses: tombees.map(cle => {
-        const p = palierDe(cle)
-        const h = hautFait(cle)
-        return { key: cle, emoji: p ? p.hautFait.emoji : (h?.emoji ?? '✨'), title: p ? titreDePalier(p.hautFait, p.palier) : (h?.title ?? cle) }
-      }),
+      recompenses: tombees.map(tombee),
       ...(legendaires.length > 0 && { legendaires }),
     }
   }
@@ -630,8 +670,10 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
-      if (!s || s.mode !== 'serie') throw new Error('Cette série est introuvable')
-      if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
+      if (!s || (s.mode !== 'serie' && s.mode !== 'defi')) throw new Error('Cette série est introuvable')
+      // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
+      if (s.mode === 'defi' && s.semaine !== this.semaineDeLHeure().semaine) throw new Error('Ce défi est clos : celui de cette semaine t’attend')
+      if (s.finieLe !== null) throw new Error(s.mode === 'defi' ? 'Tu as relevé le défi de cette semaine : le prochain ouvre lundi' : 'Cette série est finie : commence-en une autre')
       if (index !== s.index) throw new Error('Cette question est passée : la série a continué sans elle')
       const q = s.questions[s.index]
       const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
@@ -654,7 +696,9 @@ export class CampagneStore {
           args: [position, vies, justes, finie ? maintenant : null, s.id],
         },
       ]
-      if (finie) lot.unshift({ sql: `SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`, args: [profileId] })
+      // Le record est celui des séries : un défi a son classement à lui.
+      const record = finie && s.mode === 'serie'
+      if (record) lot.unshift({ sql: `SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`, args: [profileId] })
       if (juste) lot.push(lectureDesJustes(profileId))
       let res: ResultSet[]
       try {
@@ -665,9 +709,10 @@ export class CampagneStore {
       }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours({ ...s, index: position, vies, justes })
-      const avant = finie ? Number(res[0].rows[0]?.record ?? 0) : 0
+      const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
       const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
+      const defi = finie && s.mode === 'defi' && s.semaine ? await this.placeAuDefi(s.semaine, profileId) : null
       return {
         juste,
         xp,
@@ -676,8 +721,10 @@ export class CampagneStore {
         vies,
         justes,
         finie,
-        ...(finie && { recordAvant: avant, niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
-        ...(finie && justes > avant && { record: true }),
+        ...(finie && { niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
+        ...(record && { recordAvant: avant }),
+        ...(record && justes > avant && { record: true }),
+        ...(defi && { defi }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
         ...gagnees,
       }
@@ -707,6 +754,9 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     // En cours, la correction donnerait les réponses de la question qu'on a sous les yeux.
     if (s.finieLe === null) throw new Error('La correction attend la fin de la série')
+    // Le défi de la semaine se corrige à sa clôture : finie, la sienne
+    // soufflerait ses réponses à ceux qui jouent encore.
+    if (s.mode === 'defi' && s.semaine === this.semaineDeLHeure().semaine) throw new Error('La correction du défi s’ouvre à sa clôture, lundi')
     const res = await this.client.execute({ sql: 'SELECT position, choix, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
@@ -736,6 +786,298 @@ export class CampagneStore {
   async justesDe(profileId: string): Promise<number> {
     const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] })
     return Number(res.rows[0]?.n ?? 0)
+  }
+
+  // ── Le défi de la semaine ───────────────────────────────────────────────
+  //
+  // La même série pour tous, du lundi au dimanche (`shared/campagne.ts`) :
+  // une série d'un autre mode (`mode = 'defi'`, sous son lundi), dans les
+  // mêmes tables — l'expérience, les confettis et les hauts faits de série
+  // la comptent sans rien en savoir ; le record des séries, non. Rien ne
+  // tourne le lundi à minuit : la première demande de la semaine clôt les
+  // précédentes (`cloreLesDefis`), comme la nuit du quiz du jour.
+
+  /**
+   * La semaine de Paris et la précédente, gardées pour l'heure : le laurier
+   * d'argent les demande pour chaque profil de chaque instantané, et minuit
+   * à Paris tombe toujours sur une heure pleine du temps universel.
+   */
+  private semaineDeLHeure(): { semaine: string; passee: string } {
+    const heure = Math.floor(this.maintenant() / HEURE_MS)
+    if (this.semaineGardee?.heure !== heure) {
+      const semaine = semaineDe(jourDe(heure * HEURE_MS))
+      this.semaineGardee = { heure, semaine, passee: semaineAvant(semaine) }
+    }
+    return this.semaineGardee
+  }
+
+  /**
+   * Les questions du défi d'une semaine : tirées au premier qui l'ouvre,
+   * dans toute la base, marche par marche comme une série — sans « jamais
+   * vues d'abord », qui ne vaut que pour un joueur —, puis figées en base :
+   * une question retirée ou ajoutée en cours de semaine ne change pas la
+   * série des autres. Deux serveurs qui tirent ensemble gardent le premier
+   * tirage écrit. Sans assez de questions, rien ne se fige.
+   */
+  private tirageDuDefi(semaine: string): Promise<QuestionDeSerie[]> {
+    const garde = this.tirages.get(semaine)
+    if (garde) return Promise.resolve(garde)
+    return this.avecVerrou('#defi', async () => {
+      const deja = this.tirages.get(semaine)
+      if (deja) return deja
+      const lire = async () => {
+        const res = await this.client.execute({ sql: 'SELECT questions FROM campagne_defis WHERE semaine = ?', args: [semaine] })
+        return res.rows[0] ? (JSON.parse(String(res.rows[0].questions)) as QuestionDeSerie[]) : null
+      }
+      let questions = await lire()
+      if (!questions) {
+        const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
+        if (jouables.length < QUESTIONS_POUR_JOUER) return []
+        const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
+        for (const q of melanger(jouables)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
+        const tirees = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+        await this.client.execute({
+          sql: 'INSERT INTO campagne_defis (semaine, questions, tire_le) VALUES (?, ?, ?) ON CONFLICT(semaine) DO NOTHING',
+          args: [semaine, JSON.stringify(tirees), this.maintenant()],
+        })
+        questions = (await lire()) ?? tirees
+      }
+      this.tirages.set(semaine, questions)
+      for (const k of [...this.tirages.keys()]) if (k < semaineAvant(semaine)) this.tirages.delete(k)
+      return questions
+    })
+  }
+
+  /** Sa tentative au défi d'une semaine, s'il l'a commencée. */
+  private async tentativeDuDefi(profileId: string, semaine: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY commencee_le LIMIT 1`,
+      args: [profileId, semaine],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /**
+   * Relever le défi de la semaine : une seule tentative. Laissée en route,
+   * elle se reprend — sans chronomètre, rien ne presse avant lundi ; finie,
+   * le défi attend la semaine suivante. Une série en cours, elle, attend :
+   * le défi ne la clôt pas.
+   */
+  commencerLeDefi(profileId: string): Promise<SerieDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const { semaine } = this.semaineDeLHeure()
+      const deja = await this.tentativeDuDefi(profileId, semaine)
+      if (deja?.finieLe != null) throw new Error('Tu as relevé le défi de cette semaine : le prochain ouvre lundi')
+      if (deja) {
+        this.garderEnCours(deja)
+        return vueDeSerie(deja)
+      }
+      const questions = await this.tirageDuDefi(semaine)
+      if (questions.length < QUESTIONS_POUR_JOUER) throw new Error('Le défi n’a pas encore de questions à poser : reviens bientôt')
+      const serie: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions,
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'defi',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        categories: null,
+        semaine,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'defi', ?)`,
+        args: [serie.id, profileId, JSON.stringify(questions), VIES, this.maintenant(), semaine],
+      })
+      this.garderEnCours(serie)
+      return vueDeSerie(serie)
+    })
+  }
+
+  /**
+   * La page du défi : sa semaine et le temps qui reste, sa tentative, le
+   * classement — et la semaine passée : ses vainqueurs, qui portent le
+   * laurier d'argent, et sa place à lui. La première demande de la semaine
+   * clôt les précédentes.
+   */
+  async defi(profileId: string): Promise<DefiDeLaSemaine> {
+    await this.cloreLesDefis()
+    const { semaine, passee } = this.semaineDeLHeure()
+    const [tentative, classement, avant, vainqueurs] = await Promise.all([
+      this.tentativeDuDefi(profileId, semaine),
+      this.classementDuDefi(semaine, profileId),
+      this.tentativeDuDefi(profileId, passee),
+      this.vainqueursDe(passee),
+    ])
+    let saSemainePassee: DefiDeLaSemaine['saSemainePassee']
+    if (avant && avant.index > 0) {
+      const place = await this.placeAuDefi(passee, profileId)
+      if (place) {
+        saSemainePassee = {
+          serie: avant.id,
+          justes: avant.justes,
+          ...place,
+          recompenses: vainqueurs.ids.includes(profileId) ? [tombee('hf:defi')] : [],
+        }
+      }
+    }
+    return {
+      semaine,
+      minutesRestantes: minutesAvantLundi(this.maintenant()),
+      tentative: tentative ? vueDeSerie(tentative) : null,
+      ...classement,
+      vainqueurs: vainqueurs.montres,
+      ...(saSemainePassee && { saSemainePassee }),
+    }
+  }
+
+  /**
+   * Le classement du défi d'une semaine : ses bonnes réponses, rang partagé
+   * (invariant 15), ceux qui ont répondu à une question au moins — les
+   * masqués du quiz du jour écartés, sauf pour eux-mêmes. Nommé comme au
+   * quiz du jour : un homonyme y garde sa marque.
+   */
+  private async classementDuDefi(semaine: string, pour: string | null): Promise<Pick<DefiDeLaSemaine, 'joueurs' | 'lignes' | 'moi' | 'sienne'>> {
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, justes, finie_le, commencee_le FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`,
+      args: [semaine],
+    })
+    const profils = this.profils ? await this.profils.byIds(res.rows.map(r => String(r.profile_id))) : []
+    const ouverte = semaine === this.semaineDeLHeure().semaine
+    const joueurs: { profil: ProfileRec; justes: number; enCours: boolean; commenceeLe: number }[] = []
+    res.rows.forEach((r, i) => {
+      const profil = profils[i]
+      if (!profil || (this.masque?.(profil.id) && profil.id !== pour)) return
+      joueurs.push({ profil, justes: Number(r.justes), enCours: ouverte && r.finie_le === null, commenceeLe: Number(r.commencee_le) })
+    })
+    const p = this.profils
+    if (!p) return { joueurs: 0, lignes: [] }
+    const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
+    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil) })))
+    const nom = (j: (typeof joueurs)[number]) => marques.get(j.profil.id) ?? j.profil.name
+    const classes = classer(joueurs, j => j.justes, nom, j => j.profil.id)
+    const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDuDefi => {
+      const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
+      return {
+        profileId: j.profil.id,
+        nom: nom(j),
+        avatar: p.avatarPorte(j.profil),
+        niveau,
+        finition,
+        ...(legendaire && { legendaire }),
+        ...(eclat && { eclat: true as const }),
+        ...(laurier && { laurier }),
+        justes: j.justes,
+        rang,
+        ...(j.enCours && { enCours: true as const }),
+      }
+    }
+    const montrees = classes.slice(0, LIGNES_DU_DEFI)
+    const sienne = pour ? classes.find(c => c.item.profil.id === pour) : undefined
+    return {
+      joueurs: joueurs.length,
+      lignes: montrees.map(ligne),
+      ...(sienne && !montrees.includes(sienne) && { moi: ligne(sienne) }),
+      ...(sienne && { sienne: sienne.item.profil.id }),
+    }
+  }
+
+  /** Sa place au défi d'une semaine, s'il y a répondu : ce que la fin de sa tentative lui dit. */
+  private async placeAuDefi(semaine: string, profileId: string): Promise<{ rang: number; joueurs: number } | null> {
+    const c = await this.classementDuDefi(semaine, profileId)
+    const sienne = c.moi ?? c.lignes.find(l => l.profileId === profileId)
+    return sienne ? { rang: sienne.rang, joueurs: c.joueurs } : null
+  }
+
+  /** Les vainqueurs d'une semaine close : leurs identifiants, et ce que la page en montre. */
+  private async vainqueursDe(semaine: string): Promise<{ ids: string[]; montres: DefiDeLaSemaine['vainqueurs'] }> {
+    const res = await this.client.execute({ sql: 'SELECT vainqueurs FROM campagne_defis WHERE semaine = ? AND clos_le IS NOT NULL', args: [semaine] })
+    const ids = lireVainqueurs(res.rows[0]?.vainqueurs).filter(id => !this.masque?.(id))
+    const profils = ids.length > 0 && this.profils ? await this.profils.byIds(ids) : []
+    return {
+      ids,
+      montres: profils.flatMap(p => (p ? [{ nom: p.name, avatar: this.profils!.avatarPorte(p) }] : [])),
+    }
+  }
+
+  /**
+   * Clôt les défis des semaines passées qui ne le sont pas encore : leurs
+   * premiers — tous les ex æquo, à deux joueurs au moins, une bonne réponse
+   * au moins — reçoivent le Vainqueur du défi, rangé sous la semaine ; les
+   * tentatives laissées en route s'arrêtent là. Puis relit les vainqueurs de
+   * la semaine passée, qui portent le laurier d'argent. Une fois par semaine
+   * et par serveur ; rejouée, elle ne range rien deux fois.
+   */
+  async cloreLesDefis(): Promise<void> {
+    const { semaine, passee } = this.semaineDeLHeure()
+    const faite = () => this.closAvant === semaine && this.argent.semaine === passee
+    if (faite()) return
+    await this.avecVerrou('#defi-cloture', async () => {
+      if (faite()) return
+      const ouvertes = await this.client.execute({ sql: 'SELECT semaine FROM campagne_defis WHERE clos_le IS NULL AND semaine < ? ORDER BY semaine', args: [semaine] })
+      for (const r of ouvertes.rows) await this.cloreLeDefi(String(r.semaine))
+      await this.lireLArgent(passee)
+      this.closAvant = semaine
+    })
+  }
+
+  private async cloreLeDefi(semaine: string): Promise<void> {
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, justes FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`,
+      args: [semaine],
+    })
+    const joueurs = res.rows.map(r => ({ id: String(r.profile_id), justes: Number(r.justes) })).filter(j => !this.masque?.(j.id))
+    const classes = classer(joueurs, j => j.justes, j => j.id, j => j.id)
+    const vainqueurs = joueurs.length >= JOUEURS_POUR_LE_DEFI ? classes.filter(c => c.rang === 1 && c.item.justes > 0).map(c => c.item.id) : []
+    const maintenant = this.maintenant()
+    for (const id of vainqueurs) await this.recompenses?.ranger(id, cleDuDefi(semaine), ['hf:defi'], maintenant)
+    await this.client.batch(
+      [
+        { sql: `UPDATE campagne_series SET finie_le = ? WHERE mode = 'defi' AND semaine = ? AND finie_le IS NULL`, args: [maintenant, semaine] },
+        { sql: 'UPDATE campagne_defis SET clos_le = ?, vainqueurs = ? WHERE semaine = ? AND clos_le IS NULL', args: [maintenant, JSON.stringify(vainqueurs), semaine] },
+      ],
+      'write',
+    )
+    for (const s of this.enCours.values()) if (s.mode === 'defi' && s.semaine === semaine) this.enCours.delete(s.profileId)
+    console.log(`[campagne] défi du ${semaine} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${vainqueurs.length} vainqueur${vainqueurs.length > 1 ? 's' : ''}`)
+  }
+
+  /** Relit les vainqueurs de la semaine passée, et rediffuse la salle de ceux dont le laurier d'argent change. */
+  private async lireLArgent(semaine: string): Promise<void> {
+    const { ids } = await this.vainqueursDe(semaine)
+    const avant = this.argent
+    const neufs = new Set(ids)
+    this.argent = { semaine, ids: neufs }
+    for (const id of new Set([...neufs, ...avant.ids])) if (avant.semaine !== semaine || avant.ids.has(id) !== neufs.has(id)) this.laurierChange?.(id)
+  }
+
+  /**
+   * Les vainqueurs du défi de la semaine passée : le laurier d'argent suit
+   * leur prénom toute la semaine. Lus en mémoire, sans attendre — chaque
+   * diffusion à toute la salle les demande. Le lundi, ceux d'avant se taisent
+   * aussitôt, et la semaine se clôt en arrière-plan si personne n'a encore
+   * ouvert le défi.
+   */
+  vainqueursDuDefi(): ReadonlySet<string> {
+    const { passee } = this.semaineDeLHeure()
+    if (this.argent.semaine === passee) return this.argent.ids
+    if (!this.argentEnRoute && !this.ferme) {
+      this.argentEnRoute = this.cloreLesDefis()
+        .catch(e => {
+          if (!this.ferme) console.error('[campagne] le défi de la semaine passée n’a pas pu se clore :', e)
+        })
+        .finally(() => {
+          this.argentEnRoute = null
+        })
+    }
+    return AUCUN_VAINQUEUR
   }
 
   // ── Les sentiers du savoir ──────────────────────────────────────────────
@@ -1306,6 +1648,7 @@ export class CampagneStore {
   }
 
   close() {
+    this.ferme = true
     this.client.close()
   }
 }
@@ -1391,6 +1734,24 @@ export function hautsFaitsDeLaSerie(
   return cles
 }
 
+/** Ce qu'une fin annonce d'une clé tombée : son emoji et son titre — « L'Alpiniste · Argent » pour un palier. */
+function tombee(cle: string): PalierTombe {
+  const p = palierDe(cle)
+  const h = hautFait(cle)
+  return { key: cle, emoji: p ? p.hautFait.emoji : (h?.emoji ?? '✨'), title: p ? titreDePalier(p.hautFait, p.palier) : (h?.title ?? cle) }
+}
+
+/** Les vainqueurs d'un défi clos, tels que la clôture les a écrits. */
+function lireVainqueurs(brut: unknown): string[] {
+  if (typeof brut !== 'string') return []
+  try {
+    const lu: unknown = JSON.parse(brut)
+    return Array.isArray(lu) ? lu.map(String) : []
+  } catch {
+    return []
+  }
+}
+
 function versSerie(r: Record<string, unknown>): Serie {
   const questions = (JSON.parse(String(r.questions)) as (QuestionDeSerie & { reserveId?: string })[]).map(({ reserveId, ...q }) => ({ ...q, id: q.id ?? reserveId ?? '' }))
   return {
@@ -1401,13 +1762,14 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    mode: r.mode === 'sentier' ? 'sentier' : 'serie',
+    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
     rejeu: Number(r.rejeu ?? 0) === 1,
     issue: r.issue === 'validee' || r.issue === 'ratee' ? r.issue : null,
     categories: lireCategories(r.categories),
+    semaine: typeof r.semaine === 'string' ? r.semaine : null,
   }
 }
 

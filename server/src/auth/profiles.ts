@@ -73,7 +73,7 @@ import {
 import { divin } from '../../../shared/divins'
 import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
-import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type NiveauDeLaurier } from '../../../shared/jour'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
@@ -410,6 +410,9 @@ export const cleDuMois = (mois: string) => `#mois:${mois}`
 /** Le rangement des récompenses d'une série de campagne. */
 export const cleDeSerie = (serieId: string) => `#campagne:${serieId}`
 
+/** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
+export const cleDuDefi = (semaine: string) => `#defi:${semaine}`
+
 /**
  * L'emoji et le titre d'une clé rangée hors d'une soirée, recopiés sur sa
  * ligne comme ceux d'un prix : une étagère se relit des années plus tard,
@@ -488,12 +491,30 @@ export class ProfileStore {
   championDe?: (profileId: string) => string | null
 
   /**
+   * A-t-il fini premier du défi de la semaine passée, en campagne
+   * (`CampagneStore.vainqueursDuDefi`) ? Branché au démarrage, lu en
+   * mémoire comme le laurier du jour : le laurier d'argent suit son prénom
+   * toute la semaine.
+   */
+  argentDe?: (profileId: string) => boolean
+
+  /**
    * L'allure de son laurier : ses victoires, toutes comptées (`hf:laurier`,
    * une ligne par victoire), le font grandir — vert, d'or, serti, étoilé.
    * Il vient de gagner : au moins le premier.
    */
   niveauDuLaurierDe(profileId: string): NiveauDeLaurier {
     return niveauDuLaurier(Math.max(1, this.recompensesOf(profileId).get('hf:laurier') ?? 0))
+  }
+
+  /**
+   * Le laurier qui suit son prénom (`LaurierPorte`) : celui du quiz du jour
+   * d'hier, sinon l'argent du défi de la semaine passée — le jour passe
+   * devant, il ne dure qu'un jour.
+   */
+  laurierPorte(profileId: string): LaurierPorte | undefined {
+    if (this.laurierDe?.(profileId)) return this.niveauDuLaurierDe(profileId)
+    return this.argentDe?.(profileId) ? 'argent' : undefined
   }
 
   /**
@@ -1249,6 +1270,8 @@ export class ProfileStore {
 
   toPublic(p: ProfileRec): PublicProfile {
     const { niveau, acquis, requis } = progression(p.xp, this.gardesOf(p.id))
+    const laurier = this.laurierPorte(p.id)
+    const champion = this.championDe?.(p.id)
     return {
       id: p.id,
       login: p.login,
@@ -1273,8 +1296,8 @@ export class ProfileStore {
       divins: raconter(this.divinsOf(p.id)),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
-      ...(this.laurierDe?.(p.id) && { laurier: this.niveauDuLaurierDe(p.id) }),
-      ...(this.championDe?.(p.id) && { champion: this.championDe(p.id)! }),
+      ...(laurier && { laurier }),
+      ...(champion && { champion }),
       theme: this.themePorte(p),
     }
   }
@@ -2245,15 +2268,16 @@ export class ProfileStore {
   }
 
   /**
-   * Range des récompenses sous un jour, un mois ou une série (`#jour:…`,
-   * `#mois:…`, `#campagne:…`) : un haut fait du quiz du jour ou de la
-   * campagne, une page du calendrier, un titre de champion du mois, un
-   * Divin. Une seule ligne par clé et par rangement — la clé primaire le
-   * garantit, et rejouer la nuit ou la relecture ne double rien. Rend celles
-   * qui sont neuves : ce que la page annonce. Sans expérience : seuls les
-   * paliers en rapportent (`accorderPaliersDuJour`). `quand` est l'heure du
-   * quiz du jour, celle qui dit ce qu'une partie a fait tomber
-   * (`created_at` comparé à son début), et que les tests font passer minuit.
+   * Range des récompenses sous un jour, un mois, une série ou une semaine
+   * (`#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…`) : un haut fait du
+   * quiz du jour ou de la campagne, une page du calendrier, un titre de
+   * champion du mois, un Divin. Une seule ligne par clé et par rangement —
+   * la clé primaire le garantit, et rejouer la nuit ou la relecture ne
+   * double rien. Rend celles qui sont neuves : ce que la page annonce. Sans
+   * expérience : seuls les paliers en rapportent (`accorderPaliersDuJour`).
+   * `quand` est l'heure du quiz du jour, celle qui dit ce qu'une partie a
+   * fait tomber (`created_at` comparé à son début), et que les tests font
+   * passer minuit.
    */
   async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
     const uniques = [...new Set(cles)]
@@ -2704,17 +2728,19 @@ export class ProfileStore {
   apparenceDe(
     p: ProfileRec,
     avatar: string = this.avatarPorte(p),
-  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: NiveauDeLaurier; champion?: string } {
+  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: LaurierPorte; champion?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
+    const laurier = this.laurierPorte(p.id)
+    const champion = this.championDe?.(p.id)
     return {
       niveau,
       finition: finitionPortee(p.finition, niveau),
       // Éteint, un Éclat ne se voit plus : il porte la version d'origine.
       eclat: this.brilleChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
-      ...(this.laurierDe?.(p.id) && { laurier: this.niveauDuLaurierDe(p.id) }),
-      ...(this.championDe?.(p.id) && { champion: this.championDe(p.id)! }),
+      ...(laurier && { laurier }),
+      ...(champion && { champion }),
     }
   }
 

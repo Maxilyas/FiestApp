@@ -451,6 +451,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // champion du mois dernier, que l'écran commun salue à son entrée.
   profiles.laurierDe = id => jour.laureats().has(id)
   profiles.championDe = id => jour.champions(id)
+  // Le laurier d'argent du défi de la semaine : ses vainqueurs, lus en
+  // mémoire ; un profil masqué depuis le perd aussitôt.
+  profiles.argentDe = id => campagne.vainqueursDuDefi().has(id) && !jour.estMasque(id)
+  campagne.profils = profiles
+  campagne.masque = id => jour.estMasque(id)
   // Ses bonnes réponses du quiz du jour ouvraient ses portraits avec celles
   // des soirées : la reprise les relit une fois (`core/repriseDesPortraits.ts`).
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
@@ -546,9 +551,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jour,
     salons,
   })
-  // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
-  // dans la salle où il joue sans attendre la diffusion suivante.
-  jour.laurierChange = profileId => {
+  // Un laurier qui change de tête — la nuit close, un profil masqué, le
+  // défi de la semaine clos — se voit dans la salle où il joue sans attendre
+  // la diffusion suivante.
+  const laurierChange = (profileId: string) => {
     for (const rt of registry.all()) {
       if (!rt.party.findByProfile(profileId)) continue
       rt.broadcastSnapshot()
@@ -558,6 +564,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       rt.engine.rafraichirVues()
     }
   }
+  jour.laurierChange = laurierChange
+  campagne.laurierChange = laurierChange
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 

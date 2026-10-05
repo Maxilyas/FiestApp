@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react'
 import { partsDuNomAffiche } from '../../../shared/homonymes'
-import { NOM_DU_LAURIER, type NiveauDeLaurier } from '../../../shared/jour'
+import { NOM_DU_LAURIER, type LaurierPorte } from '../../../shared/jour'
 
 /**
  * Le laurier du vainqueur d'hier au quiz du jour : une couronne juste après
@@ -12,6 +12,10 @@ import { NOM_DU_LAURIER, type NiveauDeLaurier } from '../../../shared/jour'
  * vert à la première, d'or à cinq — un ruban noue les branches —, serti
  * d'un rubis à vingt, couronne étoilée à cinquante. La salle reconnaît un
  * champion habituel sans qu'une marque de plus suive son prénom.
+ *
+ * Le laurier d'argent, lui, vient de la campagne : le vainqueur du défi
+ * de la semaine passée le porte toute la semaine (`'argent'`). Le même
+ * dessin garni, en argent, noué de son ruban.
  *
  * Rien pour les autres : ni laurier gris, ni place gardée (invariant 8).
  */
@@ -46,15 +50,22 @@ export const LAURIER_TEXTE = 'vainqueur du quiz du jour d’hier'
  * jour d'hier » sur la carte et le profil), ou dans un bouton qui porte déjà
  * son nom, le laurier se tait — il était dit deux fois.
  */
-/** Ce que dit un laurier qui a grandi : « vainqueur du quiz du jour d'hier — laurier d'or ». */
-export function texteDuLaurier(niveau: NiveauDeLaurier): string {
-  return niveau > 1 ? `${LAURIER_TEXTE} — ${NOM_DU_LAURIER[niveau].toLowerCase()}` : LAURIER_TEXTE
+/** Ce que dit le laurier d'argent. */
+export const LAURIER_D_ARGENT_TEXTE = 'vainqueur du défi de la semaine dernière'
+
+/**
+ * Ce que dit un laurier : « vainqueur du quiz du jour d'hier — laurier
+ * d'or », ou celui d'argent du défi. `true` : une page d'avant les allures.
+ */
+export function texteDuLaurier(laurier: LaurierPorte | true): string {
+  if (laurier === 'argent') return LAURIER_D_ARGENT_TEXTE
+  return laurier !== true && laurier > 1 ? `${LAURIER_TEXTE} — ${NOM_DU_LAURIER[laurier].toLowerCase()}` : LAURIER_TEXTE
 }
 
-export function Laurier({ laurier, decoratif }: { laurier?: NiveauDeLaurier | boolean; decoratif?: boolean }) {
+export function Laurier({ laurier, decoratif }: { laurier?: LaurierPorte | boolean; decoratif?: boolean }) {
   if (!laurier) return null
   // `true` : une page d'avant les quatre allures, ou un appelant qui ne sait que « il a gagné ».
-  const niveau: NiveauDeLaurier = laurier === true ? 1 : laurier
+  const niveau: LaurierPorte = laurier === true ? 1 : laurier
   const texte = texteDuLaurier(niveau)
   const nom: SVGProps<SVGSVGElement> = decoratif ? { 'aria-hidden': true } : { role: 'img', 'aria-label': texte }
   return (
@@ -81,8 +92,11 @@ const ETOILES = [
 const etoile = ({ x, y, r }: { x: number; y: number; r: number }) =>
   `M${x} ${y - r}L${x + r * 0.32} ${y - r * 0.32}L${x + r} ${y}L${x + r * 0.32} ${y + r * 0.32}L${x} ${y + r}L${x - r * 0.32} ${y + r * 0.32}L${x - r} ${y}L${x - r * 0.32} ${y - r * 0.32}Z`
 
-function Couronne({ niveau, ...nom }: { niveau: NiveauDeLaurier } & SVGProps<SVGSVGElement>) {
-  const garni = niveau >= 2 ? FEUILLES_D_OR : FEUILLES
+function Couronne({ niveau, ...nom }: { niveau: LaurierPorte } & SVGProps<SVGSVGElement>) {
+  // L'argent se garnit et se noue comme l'or, sans gemme ni étoiles : il
+  // dit une victoire, pas une collection.
+  const rang = niveau === 'argent' ? 2 : niveau
+  const garni = rang >= 2 ? FEUILLES_D_OR : FEUILLES
   return (
     <svg className={`laurier laurier-${niveau}`} viewBox="0 0 24 24" {...nom}>
       <g fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
@@ -101,11 +115,11 @@ function Couronne({ niveau, ...nom }: { niveau: NiveauDeLaurier } & SVGProps<SVG
           />
         ))}
         {/* Le ruban qui noue les branches, d'or à partir de cinq victoires. */}
-        {niveau >= 2 && <path d="M12 19.3L9.6 22.2L10.9 22.4L12 20.9L13.1 22.4L14.4 22.2Z" />}
+        {rang >= 2 && <path d="M12 19.3L9.6 22.2L10.9 22.4L12 20.9L13.1 22.4L14.4 22.2Z" />}
       </g>
       {/* Le rubis, serti à vingt victoires, au sommet de la couronne. */}
-      {niveau >= 3 && <circle className="laurier-gemme" cx="12" cy={niveau === 4 ? 5.8 : 4.6} r="1.35" />}
-      {niveau === 4 && (
+      {rang >= 3 && <circle className="laurier-gemme" cx="12" cy={rang === 4 ? 5.8 : 4.6} r="1.35" />}
+      {rang === 4 && (
         <g className="laurier-etoiles" fill="currentColor">
           {ETOILES.map((e, i) => (
             <path key={i} className="laurier-etoile" d={etoile(e)} />
@@ -122,7 +136,7 @@ function Couronne({ niveau, ...nom }: { niveau: NiveauDeLaurier } & SVGProps<SVG
  * marque ni le laurier. « Camille (2) » devenait « Camil… » dès 320 px — la
  * seule chose qui distinguait deux invités identiques (invariant 17).
  */
-export function NomLaure({ nom, laurier }: { nom: string; laurier?: NiveauDeLaurier | boolean }) {
+export function NomLaure({ nom, laurier }: { nom: string; laurier?: LaurierPorte | boolean }) {
   const { prenom, marque } = partsDuNomAffiche(nom)
   if (!laurier && !marque) return <>{nom}</>
   return (

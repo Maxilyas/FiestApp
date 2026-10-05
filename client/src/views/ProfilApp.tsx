@@ -481,10 +481,10 @@ export function ProfilApp() {
     <div className="player-shell">
       {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
       <Identite profil={profil} />
-      {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+      {/* Il a gagné hier — ou le défi de la semaine passée : sa page le lui dit, comme la salle le voit. */}
       {profil.laurier && (
         <p className="carte-laurier">
-          <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+          <Laurier laurier={profil.laurier} decoratif /> {profil.laurier === 'argent' ? 'Vainqueur du défi de la semaine dernière' : 'Vainqueur du quiz du jour d’hier'}
         </p>
       )}
       {regionDAnnonce}

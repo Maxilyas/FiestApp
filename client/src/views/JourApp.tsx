@@ -13,7 +13,7 @@ import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, Dessin } from '../components/Avatar'
 import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
-import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
+import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Onglets, type Onglet } from '../components/Onglets'
 import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
@@ -517,7 +517,7 @@ export function JourApp() {
           </p>
         )}
       </section>
-      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
+      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier === 'argent' ? undefined : profil.laurier} onCorrection={() => ouvrir('correction')} />}
       {partie.moisDernier && <MoisDernier mois={partie.moisDernier} />}
       {partie.serie > 0 && (
         <section className="card jour-garde">
@@ -1241,7 +1241,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
       className={'lb-row lb-ouvrable' + (moi ? ' me' : '')}
       // Le nom du bouton remplace tout son contenu : le rang et les points
       // doivent y être, comme au classement d'une soirée.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${LAURIER_TEXTE}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />

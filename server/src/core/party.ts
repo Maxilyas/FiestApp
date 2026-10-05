@@ -3,7 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import type { Finition } from '../../../shared/profil'
-import type { NiveauDeLaurier } from '../../../shared/jour'
+import type { LaurierPorte } from '../../../shared/jour'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 
@@ -26,8 +26,8 @@ export interface ProfileBadge {
   eclat: boolean
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
-  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier, qui grandit avec ses victoires. */
-  laurier?: NiveauDeLaurier
+  /** Il a gagné le quiz du jour d'hier : l'allure de son laurier, qui grandit avec ses victoires — ou l'argent du défi de la semaine. */
+  laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue à son entrée. */
   champion?: string
   /**

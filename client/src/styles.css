@@ -3878,6 +3878,8 @@ h3 > .icon {
 .laurier-2,
 .laurier-3,
 .laurier-4 { color: var(--or-text); }
+/* Le laurier d'argent du défi de la semaine, en campagne. */
+.laurier-argent { color: var(--argent-text); }
 .laurier-gemme { fill: var(--shape-0); stroke: var(--or-text); stroke-width: 0.5; }
 .laurier-etoile { transform-box: fill-box; transform-origin: center; animation: laurier-scintille 2.6s ease-in-out infinite; }
 .laurier-etoile:nth-child(2) { animation-delay: 0.9s; }
@@ -7403,6 +7405,15 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
    règle et dont `design.test.ts` mesure le contraste ; la lueur de chaque
    branche (`--lueur`, `Atlas.tsx`) ne teinte que des fonds et des traits. */
 .onglets-campagne { margin-top: -4px; }
+/* Trois onglets au téléphone : sans leurs icônes, « Les sentiers » tient sur une ligne. */
+@media (max-width: 420px) {
+  .onglets-campagne .onglet .icon { display: none; }
+}
+/* Le défi de la semaine : son classement sous le héros, la semaine passée dessous. */
+.defi-classement { display: flex; flex-direction: column; gap: 8px; }
+.defi-classement h2 { margin: 4px 0 0; }
+.campagne-puces .laurier { width: 16px; height: 16px; }
+.defi-passee .jour-pastille .laurier { width: 22px; height: 22px; }
 .vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }
@@ -8328,7 +8339,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 /* L'entrée en scène du champion du mois, à l'écran commun : un bandeau d'or
    en haut de la salle, quelques secondes. Centré par marges (le toast l'a
    appris : une animation qui pose `transform` écrase un `translateX`). */
-.entree-en-scene { position: fixed; z-index: 40; top: 1.25rem; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100% - 2rem); display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1.6rem 0.9rem 1rem; border: 2px solid var(--or-text); border-radius: 999px; background: var(--surface); box-shadow: 0 0 2.5rem color-mix(in srgb, var(--or-text) 45%, transparent); overflow: hidden; animation: entree-arrive 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, entree-part 0.5s ease-in 5.5s forwards; }
+.entree-en-scene { position: fixed; z-index: 40; top: 1.25rem; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100% - 2rem); display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1.6rem 0.9rem 1rem; border: 2px solid var(--or-text); border-radius: 999px; background: var(--bg-raised); box-shadow: 0 0 2.5rem color-mix(in srgb, var(--or-text) 45%, transparent); overflow: hidden; animation: entree-arrive 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, entree-part 0.5s ease-in 5.5s forwards; }
 .entree-rayons { position: absolute; inset: -50%; background: conic-gradient(from 0deg, transparent 0 20%, color-mix(in srgb, var(--or-text) 22%, transparent) 25%, transparent 30% 70%, color-mix(in srgb, var(--or-text) 22%, transparent) 75%, transparent 80%); animation: entree-tourne 6s linear infinite; pointer-events: none; }
 .entree-avatar { position: relative; width: 3.5rem; height: 3.5rem; font-size: 2.2rem; flex: none; }
 .entree-texte { position: relative; display: flex; flex-direction: column; min-width: 0; }

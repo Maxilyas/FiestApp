@@ -20,7 +20,7 @@
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
-import type { CarriereDuJour, NiveauDeLaurier } from './jour'
+import type { CarriereDuJour, LaurierPorte } from './jour'
 import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
@@ -654,9 +654,10 @@ export interface Distinctions {
   /**
    * Il a gagné le quiz du jour d'hier : un laurier suit son prénom toute la
    * journée, jusque dans les soirées où il joue — et grandit avec ses
-   * victoires (`niveauDuLaurier` : vert, d'or, serti, étoilé).
+   * victoires (`niveauDuLaurier` : vert, d'or, serti, étoilé). Ou le défi
+   * de la semaine passée : le laurier d'argent, toute la semaine.
    */
-  laurier?: NiveauDeLaurier
+  laurier?: LaurierPorte
   /**
    * Il est le champion du mois dernier au quiz du jour (`2026-10`) : l'écran
    * commun le salue quand il entre dans une soirée, et sa carte le dit tout
@@ -750,7 +751,7 @@ export interface PublicProfile {
   /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
   vitrineChoisie?: string[] | null
   /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit — l'allure de son laurier. */
-  laurier?: NiveauDeLaurier
+  laurier?: LaurierPorte
   /** Champion du mois dernier au quiz du jour (`2026-10`) : sa page et sa carte le disent tout le mois. */
   champion?: string
   /**

@@ -5,7 +5,7 @@ import { memesChamps } from '../egalite'
 import { classer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
-import { LAURIER_TEXTE, NomLaure } from './Laurier'
+import { NomLaure, texteDuLaurier } from './Laurier'
 import { Rank, Score, motPoints } from './Rank'
 
 interface Props {
@@ -89,7 +89,7 @@ const Ligne = memo(function Ligne({ p, rang, moi, onOuvrir }: LigneProps) {
       className={classe + ' lb-ouvrable'}
       // Le nom du bouton remplace tout son contenu : le rang et les
       // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
-      aria-label={`La carte ${deNom(p.nomAffiche ?? p.name)}${p.laurier ? `, ${LAURIER_TEXTE}` : ''} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
+      aria-label={`La carte ${deNom(p.nomAffiche ?? p.name)}${p.laurier ? `, ${texteDuLaurier(p.laurier)}` : ''} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
       onClick={() => onOuvrir(p.id)}
     >
       {contenu}
