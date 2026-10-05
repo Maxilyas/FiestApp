@@ -109,6 +109,11 @@ try {
   await photo('8-rate')
   await photo('8-rate-entier', true)
 
+  // L'accueil : le bouton de la campagne dit le sentier qu'on avance et ses vies.
+  await page.goto(`${banc.url}/`)
+  await page.waitForSelector('.gros-bouton[href^="/campagne#sentier-"]')
+  await photo('8-accueil')
+
   // Le maître : le stade est au sommet.
   await page.goto(`${banc.url}/campagne#sentier-stade`)
   await page.waitForSelector('.sentier-chemin')

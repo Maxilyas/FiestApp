@@ -995,6 +995,12 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   les confettis, la mesure des difficultés et « jamais vues d'abord » les
   comptent sans rien savoir des sentiers). Les écussons, eux, restent aux
   soirées et au quiz du jour.
+- **L'accueil le rappelle** : le bouton de la campagne dit le sentier qu'on
+  avance et ses vies — « Vers le palier 8 de la forêt · 11 vies », « Ton
+  épreuve t'attend… » — et y mène (`sentierQuOnAvance`, la même règle que
+  la carte des sentiers : l'épreuve laissée d'abord, sinon le plus haut qui
+  n'est pas au sommet). Tant qu'aucun n'est commencé, il présente les deux
+  modes, et ouvre la série.
 
 **Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de

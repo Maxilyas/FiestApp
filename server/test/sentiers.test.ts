@@ -26,7 +26,9 @@ import {
   nomDuTitre,
   paliersDesPortraits,
   regleDuPalier,
+  sentierQuOnAvance,
   viesDe,
+  type SentierDuJoueur,
 } from '../../shared/sentiers'
 import { BRANCHES, PALIER_DU_PORTRAIT } from '../../shared/branches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
@@ -175,6 +177,20 @@ test('une épreuve tire son mélange, jamais vues d’abord, sans vrai-faux là 
   assert.throws(() => tirerUneEpreuve(faciles.questions.slice(0, 15), regleDuPalier(1)!, new Set(), mesure), /pas encore assez de questions/)
 })
 
+test('le sentier qu’on avance : l’épreuve laissée d’abord, sinon le plus haut qui n’est pas au sommet', () => {
+  const s = (branche: string, paliers: number) => ({ branche, paliers, acquis: 0, etoiles: [] }) as unknown as SentierDuJoueur
+  assert.equal(sentierQuOnAvance([s('foret', 0), s('stade', 0)], null), null, 'rien de commencé')
+  assert.deepEqual(sentierQuOnAvance([s('foret', 3), s('scene', 7), s('stade', 7)], null), { branche: 'scene', palier: 8, laissee: false }, 'le plus haut ; à égalité, le premier des branches')
+  // Le maître est facultatif : un sentier au sommet n'attend plus rien.
+  assert.deepEqual(sentierQuOnAvance([s('foret', 12), s('scene', 2), s('stade', PALIER_DU_MAITRE)], null), { branche: 'scene', palier: 3, laissee: false })
+  assert.equal(sentierQuOnAvance([s('foret', 12), s('stade', PALIER_DU_MAITRE)], null), null)
+  assert.deepEqual(
+    sentierQuOnAvance([s('stade', 7)], { branche: 'foret', palier: PALIER_DU_MAITRE }),
+    { branche: 'foret', palier: PALIER_DU_MAITRE, laissee: true },
+    'l’épreuve laissée d’abord, celle du maître comprise',
+  )
+})
+
 // ── Sur le serveur ─────────────────────────────────────────────────────────
 
 /** Samedi 26 septembre 2026, 10 h à Paris. */
@@ -275,6 +291,25 @@ test('un sentier se gravit palier par palier : seize questions, douze pour valid
     const rate = await jouer(banc, lea, (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps, 0)
     assert.deepEqual([rate.epreuve.issue, rate.epreuve.fausses, rate.vies], ['ratee', 5, undefined], 'raté en rejeu : rien de perdu')
     assert.equal((await lire(banc, lea, '/api/campagne/sentiers')).corps.vies.jour, VIES_PAR_JOUR)
+  }))
+
+test('l’accueil dit ses vies et le sentier qu’il avance, lus avec le reste', () =>
+  avecBanc(async banc => {
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const accueil = async () => (await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.campagne
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: null }, 'rien de commencé')
+    // L'épreuve laissée en cours, c'est elle qui l'attend.
+    const p1 = (await poster(banc, tom, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 1, laissee: true } })
+    // Validée : le palier suivant.
+    await jouer(banc, tom, p1, 16)
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 2, laissee: false } })
+    // Ratée : une vie de moins, et le même palier qui l'attend.
+    await jouer(banc, tom, (await poster(banc, tom, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps, 0)
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR - 1, avance: { branche: 'foret', palier: 2, laissee: false } })
+    // Ce sont les vies de la page des sentiers.
+    const etat = (await lire(banc, tom, '/api/campagne/sentiers')).corps
+    assert.equal(etat.vies.jour + etat.vies.reserve, VIES_PAR_JOUR - 1)
   }))
 
 test('un palier raté coûte une vie, abandonner aussi ; une épreuve à la fois', () =>

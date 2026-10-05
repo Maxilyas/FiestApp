@@ -232,15 +232,15 @@ function AdminSentiers() {
           <div className="sentiers-admin-tuiles">
             <span>
               <b>{formatNumber(stats.semaine.joueurs)}</b>
-              joueurs
+              {stats.semaine.joueurs > 1 ? 'joueurs' : 'joueur'}
             </span>
             <span>
               <b>{formatNumber(stats.semaine.epreuves)}</b>
-              épreuves
+              {stats.semaine.epreuves > 1 ? 'épreuves' : 'épreuve'}
             </span>
             <span>
               <b>{formatNumber(stats.semaine.viesAchetees)}</b>
-              vies achetées
+              {stats.semaine.viesAchetees > 1 ? 'vies achetées' : 'vie achetée'}
             </span>
           </div>
           <p className="muted small">Ces sept derniers jours. Les paliers, eux, se lisent sur trois mois, sans les rejeux.</p>

@@ -24,6 +24,7 @@ import {
   cleDeMaitre,
   etoilesDe,
   regleDuPalier,
+  sentierQuOnAvance,
   titreDeMaitre,
   type EpreuveDeSentier,
   type EtatDesSentiers,
@@ -452,9 +453,11 @@ function CarteDesSentiers({
   const { vies } = etat
   const avatars = etat.sentiers.reduce((n, s) => n + ouvertsDansLaBranche(brancheDe(s.branche)!, { [s.branche]: s.paliers }), 0)
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE).length
-  // Le sentier qu'on avance : l'épreuve laissée d'abord, sinon le plus haut qui n'est pas fini.
-  const enCours = [...etat.sentiers].filter(s => s.paliers > 0 && s.paliers < PALIERS_DU_SENTIER).sort((a, b) => b.paliers - a.paliers)[0]
+  // Le sentier qu'on avance, que l'accueil dit aussi (`sentierQuOnAvance`) :
+  // l'épreuve laissée d'abord — sa carte dit où elle en est —, sinon le plus
+  // haut qui n'est pas au sommet.
   const laissee = etat.epreuve
+  const avance = sentierQuOnAvance(etat.sentiers, null)
   return (
     <div className="player-shell campagne sentiers">
       <Sortie />
@@ -478,16 +481,16 @@ function CarteDesSentiers({
       )}
       {laissee ? (
         <Reprise branche={brancheDe(laissee.branche)!} palier={laissee.palier} detail={`${laissee.justes} bonne${laissee.justes > 1 ? 's' : ''} sur ${laissee.justes + laissee.fausses}`} bouton="Reprendre l’épreuve" onClick={() => onReprendre(laissee)} />
-      ) : enCours ? (
+      ) : avance ? (
         <Reprise
-          branche={brancheDe(enCours.branche)!}
-          palier={enCours.paliers + 1}
+          branche={brancheDe(avance.branche)!}
+          palier={avance.palier}
           detail={(() => {
-            const p = prochainDansLaBranche(brancheDe(enCours.branche)!, { [enCours.branche]: enCours.paliers })
+            const p = prochainDansLaBranche(brancheDe(avance.branche)!, { [avance.branche]: avance.palier - 1 })
             return p ? `Le palier ${p.portrait.palier} ouvre ${nomDansLaPhrase(p.portrait.nom)}` : 'Vers le sommet'
           })()}
           bouton="Continuer le sentier"
-          onClick={() => onOuvrir(enCours.branche)}
+          onClick={() => onOuvrir(avance.branche)}
         />
       ) : (
         avatars === 0 && <p className="muted sentiers-intro">Douze sentiers, un par branche du savoir. Un palier se valide à douze bonnes réponses sur seize ; un avatar tous les deux paliers. Choisis ton premier sentier.</p>

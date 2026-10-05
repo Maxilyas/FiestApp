@@ -240,6 +240,39 @@ export interface EtatDesSentiers {
   confettis?: number
 }
 
+/** Le sentier qu'on avance, et le palier qui l'y attend. */
+export interface SentierQuOnAvance {
+  branche: CleDeBranche
+  /** Celui de l'épreuve laissée, sinon le suivant du sentier. */
+  palier: number
+  /** Une épreuve laissée en cours, sur ce palier. */
+  laissee: boolean
+}
+
+/**
+ * Le sentier qu'on avance : l'épreuve laissée d'abord, sinon le plus haut
+ * qui n'est pas au sommet — le maître est facultatif, un sentier au sommet
+ * n'attend plus rien. La carte des sentiers et l'accueil le disent pareil :
+ * à égalité, le premier dans l'ordre des branches.
+ */
+export function sentierQuOnAvance(
+  sentiers: readonly SentierDuJoueur[],
+  laissee: { branche: CleDeBranche; palier: number } | null,
+): SentierQuOnAvance | null {
+  if (laissee) return { branche: laissee.branche, palier: laissee.palier, laissee: true }
+  const haut = sentiers
+    .filter(s => s.paliers > 0 && s.paliers < PALIERS_DU_SENTIER)
+    .reduce<SentierDuJoueur | null>((m, s) => (m && m.paliers >= s.paliers ? m : s), null)
+  return haut ? { branche: haut.branche, palier: haut.paliers + 1, laissee: false } : null
+}
+
+/** Ce que l'accueil d'un profil dit de ses sentiers, sur le bouton de la campagne. */
+export interface SentiersDAccueil {
+  /** Ses vies : celles du jour et sa réserve ensemble. */
+  vies: number
+  avance: SentierQuOnAvance | null
+}
+
 /** Ce que dit une réponse d'épreuve : la bonne, l'anecdote, et l'épreuve d'après. */
 export interface ReponseDEpreuve {
   juste: boolean

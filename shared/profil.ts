@@ -24,6 +24,7 @@ import type { CarriereDuJour } from './jour'
 import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
+import type { SentiersDAccueil } from './sentiers'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -840,7 +841,11 @@ export interface PublicProfileDetail extends PublicProfile {
  * hauts faits ni les titres des soirées, qui coûtaient huit allers-retours
  * à la base pour une ligne. Le détail reste à la page du profil.
  */
-export type ProfilDAccueil = PublicProfile & Pick<PublicProfileDetail, 'jour' | 'boutique'>
+export type ProfilDAccueil = PublicProfile &
+  Pick<PublicProfileDetail, 'jour' | 'boutique'> & {
+    /** Ses vies et le sentier qu'il avance, pour le bouton de la campagne ; absent si la base s'est tue. */
+    campagne?: SentiersDAccueil
+  }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */
 export interface PrixDeCollection {

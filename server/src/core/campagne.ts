@@ -47,6 +47,7 @@ import {
   etoilesDe,
   issueDe,
   regleDuPalier,
+  sentierQuOnAvance,
   titreDeMaitre,
   viesDe,
   type AdminDesSentiers,
@@ -56,6 +57,7 @@ import {
   type RegleDuPalier,
   type ReponseDEpreuve,
   type SentierDuJoueur,
+  type SentiersDAccueil,
   type StatsDuPalier,
   type VieDesSentiers,
 } from '../../../shared/sentiers'
@@ -602,18 +604,27 @@ export class CampagneStore {
     return Object.fromEntries(sentiersLus(acquis.rows, validees.rows).filter(s => s.paliers > 0).map(s => [s.branche, s.paliers]))
   }
 
+  /** Ses épreuves ratées, chacune au jour où elle l'a été : ce qui a coûté ses vies. */
+  private lectureDesEchecs(profileId: string): InStatement {
+    return {
+      sql: `SELECT finie_le FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND rejeu = 0 AND issue = 'ratee' AND finie_le IS NOT NULL`,
+      args: [profileId],
+    }
+  }
+
+  /** L'épreuve qu'il a laissée en cours, s'il en a une : une seule à la fois. */
+  private lectureDeLEpreuveOuverte(profileId: string): InStatement {
+    return {
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      args: [profileId],
+    }
+  }
+
   /** Ses vies : celles du jour, et sa réserve (`viesDe`), relues dans le journal de ses épreuves ratées. */
-  private async vies(profileId: string): Promise<VieDesSentiers> {
+  private viesLues(echecs: readonly Record<string, unknown>[], achetees: number): VieDesSentiers {
     const maintenant = this.maintenant()
-    const [echecs, achetees] = await Promise.all([
-      this.client.execute({
-        sql: `SELECT finie_le FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND rejeu = 0 AND issue = 'ratee' AND finie_le IS NOT NULL`,
-        args: [profileId],
-      }),
-      this.viesAchetees?.(profileId) ?? 0,
-    ])
     const parJour = new Map<string, number>()
-    for (const r of echecs.rows) {
+    for (const r of echecs) {
       const jour = jourDe(Number(r.finie_le))
       parJour.set(jour, (parJour.get(jour) ?? 0) + 1)
     }
@@ -621,23 +632,48 @@ export class CampagneStore {
     return { jour, reserve, parJour: VIES_PAR_JOUR, prix: PRIX_D_UNE_VIE, renouveleesLe: maintenant + minutesAvantMinuit(maintenant) * 60_000 }
   }
 
-  /** L'épreuve qu'il a laissée en cours, s'il en a une : une seule à la fois. */
+  private async vies(profileId: string): Promise<VieDesSentiers> {
+    const [echecs, achetees] = await Promise.all([this.client.execute(this.lectureDesEchecs(profileId)), this.viesAchetees?.(profileId) ?? 0])
+    return this.viesLues(echecs.rows, achetees)
+  }
+
   private async epreuveEnCours(profileId: string): Promise<Serie | null> {
-    const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
-      args: [profileId],
-    })
+    const res = await this.client.execute(this.lectureDeLEpreuveOuverte(profileId))
     return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /**
+   * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
+   * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
+   * profil : deux allers-retours de front, l'accueil les attend.
+   */
+  private async lireLesSentiers(profileId: string): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null }> {
+    const [[acquis, validees, echecs, ouverte], achetees] = await Promise.all([
+      this.client.batch([...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)], 'read'),
+      this.viesAchetees?.(profileId) ?? 0,
+    ])
+    return {
+      sentiers: sentiersLus(acquis.rows, validees.rows),
+      vies: this.viesLues(echecs.rows, achetees),
+      ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
+    }
   }
 
   /** La page des sentiers : ses vies, chaque sentier — ses paliers, ses étoiles —, et l'épreuve qu'il a laissée. */
   async etatDesSentiers(profileId: string): Promise<EtatDesSentiers> {
-    const [[acquis, validees], vies, ouverte] = await Promise.all([
-      this.client.batch(this.lecturesDesSentiers(profileId), 'read'),
-      this.vies(profileId),
-      this.epreuveEnCours(profileId),
-    ])
-    return { vies, sentiers: sentiersLus(acquis.rows, validees.rows), epreuve: ouverte ? vueDEpreuve(ouverte) : null }
+    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    return { vies, sentiers, epreuve: ouverte ? vueDEpreuve(ouverte) : null }
+  }
+
+  /**
+   * Ce que le bouton de la campagne dit sur l'accueil : ses vies, et le
+   * sentier qu'il avance (`sentierQuOnAvance`) — rien tant qu'il n'en a
+   * commencé aucun, ni épreuve ni portrait d'avant.
+   */
+  async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
+    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
+    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee) }
   }
 
   /**

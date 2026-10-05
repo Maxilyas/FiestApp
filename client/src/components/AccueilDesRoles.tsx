@@ -5,6 +5,9 @@ import { LienConsole } from './LienConsole'
 import { spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
+import { espacesFines } from '../format'
+import { branche, deLaBranche } from '../../../shared/branches'
+import { PALIER_DU_MAITRE, type SentiersDAccueil } from '../../../shared/sentiers'
 
 // L'accueil, selon qui le tient.
 //
@@ -50,6 +53,22 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
 }
 
 /**
+ * Le bouton de la campagne : le sentier qu'il avance et ses vies, et il y
+ * mène ; tant qu'il n'en avance aucun, les deux modes, et la série d'abord.
+ */
+export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string } {
+  const b = branche(c?.avance?.branche)
+  if (!c?.avance || !b) return { detail: 'Une série sans fin, ou les sentiers de tes avatars', href: '/campagne' }
+  // Un nombre ne quitte pas son mot à la ligne : « 11 » d'un côté, « vies » de l'autre.
+  const palier = c.avance.palier === PALIER_DU_MAITRE ? `palier de maître ${deLaBranche(b)}` : `palier\u00a0${c.avance.palier} ${deLaBranche(b)}`
+  const vies = c.vies > 0 ? `${c.vies}\u00a0vie${c.vies > 1 ? 's' : ''}` : 'plus de vie avant minuit'
+  return {
+    detail: espacesFines(`${c.avance.laissee ? `Ton épreuve t’attend : ${palier}` : `Vers le ${palier}`} · ${vies}`),
+    href: `/campagne#sentier-${b.key}`,
+  }
+}
+
+/**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
  * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis le quiz
  * du jour, créer un salon, rejoindre une soirée. Chacun ouvre sa page, qui en
@@ -65,16 +84,20 @@ export function AccueilJouer({
   onRejoindre,
   lendemain,
   jour,
+  campagne,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
   lendemain: ReactNode
   /** Sa carrière au quiz du jour : sa série, et s'il a déjà joué aujourd'hui. */
   jour?: CarriereDuJour
+  /** Ses sentiers : ses vies, et celui qu'il avance. */
+  campagne?: SentiersDAccueil
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   const joueAujourdhui = jour?.jours[0]?.jour === jourDe(Date.now())
   const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
+  const laCampagne = boutonDeLaCampagne(campagne)
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
@@ -87,7 +110,7 @@ export function AccueilJouer({
         <span className="label" id="jouer-seul">
           Seul
         </span>
-        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Une série sans fin, ou les sentiers de tes avatars" href="/campagne" />
+        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} href={laCampagne.href} />
         <GrosBouton
           icone={<Icon name="sun" />}
           titre="Le quiz du jour"
