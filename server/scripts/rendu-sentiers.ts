@@ -68,7 +68,14 @@ try {
   await photo('1-carte')
   await photo('1-carte-entiere', true)
 
+  // Une tuile touchée : son sentier monte dans le bloc, on n'y entre pas encore.
+  await page.click('.sentiers-tuile >> text=Les océans')
+  await page.waitForSelector('.sentiers-haut .label >> text=Les océans')
+  await photo('1-carte-oceans')
+  // La forêt touchée la remonte ; le bouton du bloc y entre.
   await page.click('.sentiers-tuile >> text=La forêt')
+  await page.waitForSelector('.sentiers-haut .label >> text=La forêt')
+  await page.click('.sentiers-haut .btn-primary')
   await page.waitForSelector('.sentier-chemin')
   await photo('2-sentier')
   await photo('2-sentier-entier', true)
@@ -109,8 +116,10 @@ try {
   await photo('6-revelation')
   await photo('6-revelation-entiere', true)
 
-  // Le palier 9 n'ouvre rien : « Palier validé », ses étoiles.
+  // Le palier 9 n'ouvre rien : sous lui, ce qui l'attend après — puis « Palier validé », ses étoiles.
   await page.click('text=Continuer le sentier')
+  await page.waitForSelector('.sentier-chemin')
+  await photo('2-sentier-palier-9')
   await palierSuivant()
   await jouer(15)
   await page.waitForSelector('.epreuve-fin-tete')

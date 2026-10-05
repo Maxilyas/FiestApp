@@ -111,6 +111,9 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   const [etat, setEtat] = useState<EtatDesSentiers | null>(null)
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [ouvert, setOuvert] = useState<CleDeBranche | null>(() => sentierDeLAdresse(window.location.hash))
+  // Le sentier qu'une tuile a fait monter dans le bloc du haut — et celui d'où
+  // l'on revient : la carte le montre encore au retour.
+  const [choisi, setChoisi] = useState<CleDeBranche | null>(() => sentierDeLAdresse(window.location.hash))
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
   const setEcran = (e: Ecran) => {
@@ -150,7 +153,13 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   const ouvrirSentier = (b: CleDeBranche) => {
     history.pushState({ ...(history.state ?? {}), [OUVERT_ICI]: true }, '', `${PREFIXE}${b}`)
     setOuvert(b)
+    setChoisi(b)
     setEcran({ e: 'carte' })
+  }
+  /** Une tuile touchée : son sentier monte dans le bloc, qu'on voit — on n'y entre pas encore. */
+  const montrerSentier = (b: CleDeBranche) => {
+    setChoisi(b)
+    versLeHaut()
   }
   /** « ← Les sentiers » : d'un cran si c'est d'ici qu'on l'a ouvert, sans entrée en double sinon. */
   const revenirAuxSentiers = () => {
@@ -340,7 +349,18 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     )
   }
 
-  return <CarteDesSentiers etat={etat} onglets={onglets} erreur={erreur} onOuvrir={ouvrirSentier} onReprendre={reprendre} onVies={() => setEcran({ e: 'vies', branche: null })} />
+  return (
+    <CarteDesSentiers
+      etat={etat}
+      onglets={onglets}
+      erreur={erreur}
+      choisi={choisi}
+      onChoisir={montrerSentier}
+      onOuvrir={ouvrirSentier}
+      onReprendre={reprendre}
+      onVies={() => setEcran({ e: 'vies', branche: null })}
+    />
+  )
 }
 
 /** La page qui s'ouvre tout de suite : les onglets, puis la place des sentiers, sans rien décaler. */
@@ -436,10 +456,18 @@ function vitrineDe(b: Branche, s: SentierDuJoueur): { cle: string; verrouille: b
   return n > 0 ? { cle: b.portraits[n - 1].key, verrouille: false } : { cle: b.portraits[0].key, verrouille: true }
 }
 
+/**
+ * La carte des sentiers : le bloc du haut, puis les douze tuiles. Une tuile
+ * touchée montre son sentier dans le bloc — on le voit avant d'y entrer (la
+ * demande du propriétaire du 5 octobre 2026) ; touchée quand le bloc la
+ * montre déjà, elle y entre, comme le bouton du bloc.
+ */
 export function CarteDesSentiers({
   etat,
   onglets,
   erreur,
+  choisi,
+  onChoisir,
   onOuvrir,
   onReprendre,
   onVies,
@@ -447,12 +475,16 @@ export function CarteDesSentiers({
   etat: EtatDesSentiers
   onglets: ReactNode
   erreur: string
+  /** Le sentier qu'une tuile a fait monter dans le bloc ; sinon, celui qu'on avance. */
+  choisi: CleDeBranche | null
+  onChoisir: (b: CleDeBranche) => void
   onOuvrir: (b: CleDeBranche) => void
   onReprendre: (e: EpreuveDeSentier) => void
   onVies: () => void
 }) {
   const avatars = etat.sentiers.reduce((n, s) => n + ouvertsDansLaBranche(brancheDe(s.branche)!, { [s.branche]: s.paliers }), 0)
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE).length
+  const montre = sentierMontre(etat, choisi)
   return (
     <div className="player-shell campagne sentiers">
       <Sortie />
@@ -462,7 +494,7 @@ export function CarteDesSentiers({
           {erreur}
         </p>
       )}
-      <HautDesSentiers etat={etat} onOuvrir={onOuvrir} onReprendre={onReprendre} onVies={onVies} />
+      <HautDesSentiers etat={etat} montre={montre} onOuvrir={onOuvrir} onReprendre={onReprendre} onVies={onVies} />
       <div className="sentiers-compte">
         <span className="label">Tes douze sentiers</span>
         <span className="muted small">{`${avatars} avatar${avatars > 1 ? 's' : ''} sur ${BRANCHES.length * 6} · ${maitres} maître${maitres > 1 ? 's' : ''}`}</span>
@@ -480,7 +512,8 @@ export function CarteDesSentiers({
               className={'sentiers-tuile' + (s.paliers >= PALIERS_DU_SENTIER ? ' sentiers-tuile-complete' : '')}
               style={lueur(LUEUR[b.key])}
               aria-label={`${b.nom} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}`}
-              onClick={() => onOuvrir(b.key)}
+              aria-pressed={montre?.branche === b.key}
+              onClick={() => (montre?.branche === b.key ? onOuvrir(b.key) : onChoisir(b.key))}
             >
               <Portrait cle={v.cle} verrouille={v.verrouille} taille={46} />
               <b>{b.nom}</b>
@@ -511,28 +544,65 @@ export function CarteDesSentiers({
  */
 const PALIERS_DU_DEBUTANT = 3
 
+/** Le sentier que montre le bloc du haut : son palier à jouer (null quand tout est fait), et l'épreuve qu'on y a laissée. */
+interface SentierMontre {
+  branche: CleDeBranche
+  palier: number | null
+  laissee: boolean
+}
+
+/**
+ * Celui qu'une tuile a choisi, sinon celui qu'on avance (`sentierQuOnAvance`,
+ * comme l'accueil : l'épreuve laissée d'abord, sinon le plus haut qui n'est
+ * pas au sommet) ; null quand il n'y a rien à montrer.
+ */
+function sentierMontre(etat: EtatDesSentiers, choisi: CleDeBranche | null): SentierMontre | null {
+  const laissee = etat.epreuve
+  if (choisi) {
+    const s = etat.sentiers.find(x => x.branche === choisi)
+    if (s) {
+      const ici = laissee?.branche === choisi
+      return { branche: choisi, palier: ici ? laissee.palier : s.paliers >= PALIER_DU_MAITRE ? null : s.paliers + 1, laissee: ici }
+    }
+  }
+  return sentierQuOnAvance(etat.sentiers, laissee && { branche: laissee.branche, palier: laissee.palier })
+}
+
+/** Vers le bloc du haut, qu'une tuile vient de changer : il remonte en vue, sans bouger s'il y est déjà. */
+function versLeHaut() {
+  let calme = false
+  try {
+    calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    calme = true
+  }
+  document.querySelector<HTMLElement>('.sentiers-haut')?.scrollIntoView({ behavior: calme ? 'auto' : 'smooth', block: 'nearest' })
+}
+
 /**
  * Le haut des sentiers, en un seul bloc (le choix du 5 octobre 2026 : la piste
  * A de la maquette, avec les règles de la piste D) — il remplace une bulle
- * pour les vies et une carte pour continuer. Le sentier qu'on avance en
- * panorama (`sentierQuOnAvance`, comme l'accueil : l'épreuve laissée d'abord,
- * sinon le plus haut qui n'est pas au sommet), les vies en cœurs, et les
- * règles : en entier tant qu'on débute, repliées sous « Comment ça marche ? »
- * ensuite. Sans sentier à avancer, les règles, et le geste qui mène aux tuiles.
+ * pour les vies et une carte pour continuer. Le sentier montré en panorama
+ * (`sentierMontre` : celui d'une tuile touchée, sinon celui qu'on avance),
+ * les vies en cœurs, et les règles : en entier tant qu'on débute, repliées
+ * sous « Comment ça marche ? » ensuite. Sans sentier à montrer, les règles,
+ * et le geste qui mène aux tuiles.
  */
 function HautDesSentiers({
   etat,
+  montre,
   onOuvrir,
   onReprendre,
   onVies,
 }: {
   etat: EtatDesSentiers
+  montre: SentierMontre | null
   onOuvrir: (b: CleDeBranche) => void
   onReprendre: (e: EpreuveDeSentier) => void
   onVies: () => void
 }) {
   const laissee = etat.epreuve
-  const cible = sentierQuOnAvance(etat.sentiers, laissee && { branche: laissee.branche, palier: laissee.palier })
+  const cible = montre
   const joues = etat.sentiers.reduce((n, s) => n + s.etoiles.filter(e => e > 0).length, 0)
   const regles = joues < PALIERS_DU_DEBUTANT ? (
     <div className="pano-regles">
@@ -565,22 +635,34 @@ function HautDesSentiers({
   const b = brancheDe(cible.branche)!
   const s = etat.sentiers.find(x => x.branche === b.key)!
   const c = cible.palier
-  const prochain = prochainDansLaBranche(b, { [b.key]: c - 1 })
+  const prochain = c === null ? null : prochainDansLaBranche(b, { [b.key]: c - 1 })
   const ici = prochain?.portrait.palier === c ? prochain.portrait : null
   const reponses = laissee ? laissee.justes + laissee.fausses : 0
   const nomDuPalier = c === PALIER_DU_MAITRE ? 'Le palier de maître' : `Palier ${c}`
   const [titre, detail] =
     cible.laissee && laissee
       ? ['Ton épreuve t’attend', reponses > 0 ? `${nomDuPalier} · ${laissee.justes} bonne${laissee.justes > 1 ? 's' : ''} sur ${reponses}` : nomDuPalier]
-      : ici
-        ? [`${ici.nom} t’attend`, `Valide le palier ${c} pour l’ouvrir`]
-        : prochain
-          ? [`Vers ${nomDansLaPhrase(prochain.portrait.nom)}`, `Palier ${c}, puis ${nomDansLaPhrase(prochain.portrait.nom)} au palier ${prochain.portrait.palier}`]
-          : ['Le maître t’attend', `Seize expertes, et le titre « ${titreDeMaitre(b)} »`]
+      : c === null
+        ? [titreDeMaitre(b), 'Tous ses paliers sont validés : rejoue-les pour leurs étoiles']
+        : ici
+          ? [`${ici.nom} t’attend`, `Valide le palier ${c} pour l’ouvrir`]
+          : prochain
+            ? [`Vers ${nomDansLaPhrase(prochain.portrait.nom)}`, `Palier ${c}, puis ${nomDansLaPhrase(prochain.portrait.nom)} au palier ${prochain.portrait.palier}`]
+            : ['Le maître t’attend', `Seize expertes, et le titre « ${titreDeMaitre(b)} »`]
+  const geste = cible.laissee
+    ? 'Reprendre l’épreuve'
+    : c === null
+      ? 'Voir le sentier'
+      : c === PALIER_DU_MAITRE
+        ? 'Tenter le maître'
+        : s.paliers === 0
+          ? 'Commencer le sentier'
+          : `Continuer · palier ${c}`
   return (
     <section className="sentiers-haut" style={lueur(LUEUR[b.key])}>
-      <div className="pano-tete">
-        <span className="label">{`${b.nom} · ${c === PALIER_DU_MAITRE ? 'le palier de maître' : `palier ${c} sur ${PALIERS_DU_SENTIER}`}`}</span>
+      {/* Une tuile touchée change ce qu'il montre : le lecteur d'écran l'entend. */}
+      <div className="pano-tete" aria-live="polite">
+        <span className="label">{`${b.nom} · ${c === null ? 'sentier achevé' : c === PALIER_DU_MAITRE ? 'le palier de maître' : `palier ${c} sur ${PALIERS_DU_SENTIER}`}`}</span>
         <h2>{titre}</h2>
         <p className="muted small">{detail}</p>
       </div>
@@ -588,7 +670,7 @@ function HautDesSentiers({
       {regles}
       <CoeursDuJour vies={etat.vies} onVies={onVies} />
       <button type="button" className="btn btn-primary btn-block" onClick={() => (cible.laissee && laissee ? onReprendre(laissee) : onOuvrir(b.key))}>
-        {cible.laissee ? 'Reprendre l’épreuve' : `Continuer · palier ${c}`}
+        {geste}
       </button>
     </section>
   )
@@ -692,7 +774,7 @@ const colonnes = (k: number) => `${(k * 100) / 7}%`
  * place en pourcentages de sa largeur : il tient sur tous les téléphones sans
  * rien mesurer.
  */
-function PanoramaDuSentier({ branche: b, sentier: s, courant }: { branche: Branche; sentier: SentierDuJoueur; courant: number }) {
+function PanoramaDuSentier({ branche: b, sentier: s, courant }: { branche: Branche; sentier: SentierDuJoueur; courant: number | null }) {
   const n = ouvertsDansLaBranche(b, { [b.key]: s.paliers })
   const valides = Math.min(s.paliers, PALIERS_DU_SENTIER)
   const jusqua = Math.min(s.paliers + 1, PALIER_DU_MAITRE)
@@ -750,7 +832,7 @@ function courbe(points: { x: number; y: number }[]): string {
   return points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `C ${points[i - 1].x} ${(points[i - 1].y + p.y) / 2}, ${p.x} ${(points[i - 1].y + p.y) / 2}, ${p.x} ${p.y}`)).join(' ')
 }
 
-function SentierVu({
+export function SentierVu({
   sentier: s,
   etat,
   busy,
@@ -797,26 +879,10 @@ function SentierVu({
           {`${b.categorie} · ${n} avatar${n > 1 ? 's' : ''} sur 6 · `}
           {s.paliers >= PALIER_DU_MAITRE ? 'maître' : s.paliers >= PALIERS_DU_SENTIER ? 'sommet atteint' : `palier ${s.paliers + 1} sur ${PALIERS_DU_SENTIER}`}
         </span>
-        {prochain ? (
-          <p className="sentier-prochain">
-            <Portrait cle={prochain.portrait.key} verrouille taille={34} />
-            <span>
-              {`Le palier ${prochain.portrait.palier} ouvre `}
-              <b>{nomDansLaPhrase(prochain.portrait.nom)}</b>
-            </span>
-          </p>
-        ) : (
-          s.paliers < PALIER_DU_MAITRE && (
-            <p className="sentier-prochain">
-              <span className="sentiers-couronne petite">
-                <Icon name="crown" />
-              </span>
-              <span>
-                Après le sommet, le palier de maître : <b>{titreDeMaitre(b)}</b>
-              </span>
-            </p>
-          )
-        )}
+        {/* Ce que le palier à jouer ouvre ne se dit plus ici, en bulle : collée
+            en haut, elle se posait sur le chemin — son tracé, la jauge et
+            l'accolade passaient dessous (la remarque du propriétaire du
+            5 octobre 2026). Le palier le dit lui-même, sous lui. */}
       </div>
       {laissee && (
         <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
@@ -881,6 +947,11 @@ function SentierVu({
                   <span className={'sentier-nom' + (vise ? ' sentier-nom-vise' : '') + (r.maitre ? ' sentier-nom-maitre' : '')} aria-hidden="true" style={{ top: taille / 2 + 4 }}>
                     <b>{r.maitre ? 'Palier de maître' : p!.nom}</b>
                     {fait && etoiles > 0 ? <Etoiles n={etoiles} /> : <span>{r.maitre ? '16 expertes · un titre' : vise ? `palier ${r.n} · à jouer` : r.n === PALIERS_DU_SENTIER ? 'le sommet' : `palier ${r.n}`}</span>}
+                  </span>
+                ) : vise ? (
+                  <span className="sentier-nom sentier-nom-vise" aria-hidden="true" style={{ top: taille / 2 + 4 }}>
+                    <b>{`Palier ${r.n}`}</b>
+                    <span>{prochain ? `puis ${nomDansLaPhrase(prochain.portrait.nom)} au palier ${prochain.portrait.palier}` : 'puis le sommet'}</span>
                   </span>
                 ) : (
                   fait &&

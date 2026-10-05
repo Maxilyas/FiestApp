@@ -36,16 +36,32 @@ function etat(par: Partial<Record<CleDeBranche, Sentier>>, vies: Partial<VieDesS
   }
 }
 
-/** Le haut de la carte des sentiers : de son bloc jusqu'aux tuiles. */
-async function haut(e: EtatDesSentiers): Promise<string> {
-  const module = await import(new URL('../../client/src/views/Sentiers.tsx', import.meta.url).href)
+const page = () => import(new URL('../../client/src/views/Sentiers.tsx', import.meta.url).href)
+
+/** La carte des sentiers entière, le sentier `choisi` d'une tuile montré dans son bloc. */
+async function carte(e: EtatDesSentiers, choisi: CleDeBranche | null = null): Promise<string> {
+  const module = await page()
   const { renderToStaticMarkup } = await import('react-dom/server')
   const html: string = renderToStaticMarkup(
-    React.createElement(module.CarteDesSentiers, { etat: e, onglets: null, erreur: '', onOuvrir: () => {}, onReprendre: () => {}, onVies: () => {} }),
+    React.createElement(module.CarteDesSentiers, { etat: e, onglets: null, erreur: '', choisi, onChoisir: () => {}, onOuvrir: () => {}, onReprendre: () => {}, onVies: () => {} }),
   )
   assert.doesNotMatch(html, /sentiers-vies|sentiers-reprise/, 'plus de bulle des vies ni de carte « Continuer » à côté du bloc')
   assert.equal(compte(html, /class="sentiers-haut[ "]/), 1, 'un seul bloc')
+  return html
+}
+
+/** Le haut de la carte des sentiers : de son bloc jusqu'aux tuiles. */
+async function haut(e: EtatDesSentiers, choisi: CleDeBranche | null = null): Promise<string> {
+  const html = await carte(e, choisi)
   return html.slice(html.indexOf('class="sentiers-haut'), html.indexOf('class="sentiers-compte"'))
+}
+
+/** Les tuiles d'une carte rendue par sa fonction, sans navigateur : leurs gestes s'appellent à la main. */
+function tuiles(el: any): any[] {
+  if (!el || typeof el !== 'object') return []
+  if (Array.isArray(el)) return el.flatMap(tuiles)
+  const ici = typeof el.props?.className === 'string' && el.props.className.startsWith('sentiers-tuile') ? [el] : []
+  return [...ici, ...tuiles(el.props?.children)]
 }
 
 const compte = (html: string, motif: RegExp) => (html.match(new RegExp(motif.source, 'g')) ?? []).length
@@ -116,6 +132,92 @@ test('plus de vies : les cœurs vides, et de quoi en racheter', async () => {
   assert.deepEqual([pleins(bloc), vides(bloc)], [0, 12])
   assert.match(bloc, /Plus de vies : elles reviennent à minuit/)
   assert.match(bloc, /Racheter/)
+})
+
+// Une tuile touchée entrait tout droit dans son sentier : le propriétaire
+// voulait le voir d'abord dans le bloc (le 5 octobre 2026). Le premier
+// toucher le montre, le second — ou le bouton du bloc — y entre.
+test('toucher une tuile montre son sentier dans le bloc, sans y entrer — un second toucher y entre', async () => {
+  const module = await page()
+  const gestes: string[] = []
+  const tuile = (choisi: CleDeBranche | null, nom: string) =>
+    tuiles(
+      module.CarteDesSentiers({
+        etat: etat({ foret: { paliers: 9 } }),
+        onglets: null,
+        erreur: '',
+        choisi,
+        onChoisir: (b: string) => gestes.push(`montrer ${b}`),
+        onOuvrir: (b: string) => gestes.push(`entrer ${b}`),
+        onReprendre: () => {},
+        onVies: () => {},
+      }),
+    ).find(t => String(t.props['aria-label']).startsWith(nom))
+  tuile(null, 'Les océans').props.onClick()
+  tuile('oceans', 'Les océans').props.onClick()
+  // La forêt, que le bloc montre d'office — le sentier qu'on avance : elle y est déjà.
+  tuile(null, 'La forêt').props.onClick()
+  assert.deepEqual(gestes, ['montrer oceans', 'entrer oceans', 'entrer foret'])
+})
+
+test('le bloc montre le sentier choisi : son panorama, sa tuile marquée, et le geste qui y entre', async () => {
+  const html = await carte(etat({ foret: { paliers: 9 } }), 'oceans')
+  const bloc = html.slice(html.indexOf('class="sentiers-haut'), html.indexOf('class="sentiers-compte"'))
+  assert.match(bloc, /Les océans · palier 1 sur 12/)
+  assert.match(bloc, /Vers l’hippocampe/)
+  assert.match(bloc, /Palier 1, puis l’hippocampe au palier 2/)
+  assert.equal(compte(bloc, /pano-courant/), 1)
+  assert.equal(compte(bloc, /pano-fait/), 0)
+  assert.match(bloc, /Commencer le sentier/)
+  assert.match(html, /aria-label="Les océans[^"]*" aria-pressed="true"/)
+  assert.match(html, /aria-label="La forêt[^"]*" aria-pressed="false"/)
+  // Sans choix, la tuile marquée est celle du sentier que le bloc montre d'office.
+  const dOffice = await carte(etat({ foret: { paliers: 9 } }))
+  assert.match(dOffice, /aria-label="La forêt[^"]*" aria-pressed="true"/)
+  assert.equal(compte(dOffice, /aria-pressed="true"/), 1)
+})
+
+test('un sentier au sommet propose son maître ; un sentier de maître se revoit', async () => {
+  const sommet = await haut(etat({ stade: { paliers: 12 }, foret: { paliers: 3 } }), 'stade')
+  assert.match(sommet, /Le stade · le palier de maître/)
+  assert.match(sommet, /Le maître t’attend/)
+  assert.match(sommet, /Tenter le maître/)
+  const maitre = await haut(etat({ stade: { paliers: 13 } }), 'stade')
+  assert.match(maitre, /Le stade · sentier achevé/)
+  assert.match(maitre, /Maître du stade/)
+  assert.match(maitre, /Voir le sentier/)
+  assert.equal(compte(maitre, /pano-courant/), 0)
+  assert.equal(compte(maitre, /pano-fait/), 13)
+})
+
+// Dans un sentier, « Le palier 8 ouvre le loup » vivait dans l'en-tête collé
+// en haut : il se posait sur le chemin — son tracé, la jauge, l'accolade
+// passaient dessous (la remarque du propriétaire du 5 octobre 2026). L'info
+// est maintenant sur le palier à jouer.
+test('dans un sentier, ce que le palier à jouer ouvre se lit sur lui, plus dans l’en-tête', async () => {
+  const module = await page()
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const sentier = (paliers: number): string => {
+    const e = etat({ foret: { paliers } })
+    return renderToStaticMarkup(
+      React.createElement(module.SentierVu, {
+        sentier: e.sentiers.find(s => s.branche === 'foret'),
+        etat: e,
+        busy: false,
+        erreur: '',
+        onRetour: () => {},
+        onJouer: () => {},
+        onReprendre: () => {},
+        onVies: () => {},
+      }),
+    )
+  }
+  const loup = sentier(7)
+  assert.doesNotMatch(loup, /sentier-prochain/, 'plus de bulle dans l’en-tête')
+  assert.match(loup, /<b>Le loup<\/b><span>palier 8 · à jouer<\/span>/)
+  // Un palier sans portrait dit lequel l'attend après lui.
+  assert.match(sentier(8), /<b>Palier 9<\/b><span>puis l’ours au palier 10<\/span>/)
+  assert.match(sentier(12), /<b>Palier de maître<\/b><span>16 expertes · un titre<\/span>/)
 })
 
 test('le palier à jouer bat doucement — et se tient tranquille si le système demande moins de mouvement', () => {

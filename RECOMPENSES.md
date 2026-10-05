@@ -1013,6 +1013,8 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   les paliers repris des portraits d'avant n'y comptent pas : ceux-là
   découvrent les sentiers —, puis se replient sous « Comment ça marche ? ».
   Rien de commencé : les règles, et « Choisir mon premier sentier ».
+  Une tuile touchée y fait monter son sentier, qu'on regarde avant d'y
+  entrer : un second toucher, ou le bouton du bloc, y entre.
 
 **Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
