@@ -10,13 +10,17 @@ import {
   consigneDEcriture,
   empreintesDesLivres,
 } from './consigneCampagne'
-import { jourDe, minutesAvantMinuit } from '../../../shared/jour'
+import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
+import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
+import type { StatsDeCampagne } from '../../../shared/profil'
+import { cleDeSerie } from '../auth/profiles'
 import { tronquer } from '../../../shared/avatars'
 import { CATEGORIES } from '../../../shared/categories'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import {
   NIVEAUX,
+  QUESTIONS_PAR_MARCHE,
   QUESTIONS_PAR_SERIE,
   QUESTIONS_POUR_JOUER,
   SIGNALEMENT_MAX,
@@ -101,6 +105,8 @@ interface Serie {
   seuil: number | null
   rejeu: boolean
   issue: IssueDEpreuve | null
+  /** Les catégories qu'elle a choisies ; null : toutes (`categoriesRetenues`). */
+  categories?: string[] | null
 }
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
@@ -129,8 +135,28 @@ const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
  * sans plafond (`xpDeCampagne`), dans sa ligne à part (`LIGNE_CAMPAGNE`) ;
  * et un confetti, comme au quiz du jour (`ProfileStore.justesDeCampagne`).
  */
+/**
+ * Ce que la campagne demande aux profils pour décerner ses récompenses —
+ * ses hauts faits de série, ses paliers, et les légendaires qu'ils ouvrent :
+ * le profil tient l'étagère (`ProfileStore`), la campagne sait ce qui s'est
+ * joué. Sans lui (un test qui n'en a pas besoin), elle ne décerne rien.
+ */
+export interface RecompensesDeCampagne {
+  ranger(profileId: string, sous: string, cles: readonly string[], quand?: number): Promise<string[]>
+  accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
+  legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
+}
+
+/** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
+interface Recompenses {
+  recompenses?: PalierTombe[]
+  legendaires?: string[]
+}
+
 export class CampagneStore {
   private client: Client
+  /** L'étagère des profils (`RecompensesDeCampagne`), branchée par le serveur. */
+  private recompenses: RecompensesDeCampagne | null
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
   /** La base du dépôt, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
@@ -169,9 +195,11 @@ export class CampagneStore {
       base?: BaseDeLaCampagne | (() => BaseDeLaCampagne)
       empreintesDuJour?: () => Promise<ReadonlySet<string>>
       ecrireXp?: (profileId: string, xp: number, jours: number) => Promise<unknown>
+      recompenses?: RecompensesDeCampagne
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
+    this.recompenses = opts.recompenses ?? null
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
@@ -295,6 +323,10 @@ export class CampagneStore {
       ['seuil', 'INTEGER'],
       ['rejeu', 'INTEGER NOT NULL DEFAULT 0'],
       ['issue', 'TEXT'],
+      // Les catégories qu'une série a choisies, en JSON — NULL : toutes. Le
+      // Tour du monde et les records par catégorie lisent les séries d'une
+      // seule ; la Grande Série, celles de toutes.
+      ['categories', 'TEXT'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -309,6 +341,10 @@ export class CampagneStore {
            paliers    INTEGER NOT NULL,
            retenu_le  INTEGER NOT NULL,
            PRIMARY KEY (profile_id, branche)
+         )`,
+        `CREATE TABLE IF NOT EXISTS campagne_meta (
+           cle    TEXT PRIMARY KEY,
+           valeur TEXT NOT NULL
          )`,
       ],
       'write',
@@ -358,7 +394,7 @@ export class CampagneStore {
   }
 
   async etat(profileId: string): Promise<EtatDeCampagne> {
-    const [series, jouables, parJour, enCours] = await Promise.all([
+    const [series, jouables, parJour, enCours, records] = await Promise.all([
       this.client.execute({
         sql: `SELECT COUNT(*) AS n, COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
         args: [profileId],
@@ -366,6 +402,7 @@ export class CampagneStore {
       this.jouables(),
       this.justesParJour(profileId),
       this.serieEnCours(profileId),
+      this.recordsParCategorie(profileId),
     ])
     return {
       record: Number(series.rows[0]?.record ?? 0),
@@ -374,7 +411,134 @@ export class CampagneStore {
       enCours: enCours ? vueDeSerie(enCours) : null,
       categories: parCategorie(jouables),
       questions: jouables.length,
+      records: [...records].map(([categorie, record]) => ({ categorie, record })),
     }
+  }
+
+  // ── Les récompenses ─────────────────────────────────────────────────────
+
+  /**
+   * Ce que la campagne compte pour ses paliers : le record d'une série,
+   * ses questions expertes trouvées et toutes ses bonnes réponses —
+   * épreuves des sentiers comprises pour ces deux-là. Le niveau d'une
+   * question est celui que la série lui donnait quand elle l'a posée.
+   */
+  async statsDe(profileId: string): Promise<StatsDeCampagne> {
+    const [record, justes, expertes] = await this.client.batch(
+      [
+        {
+          sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
+          args: [profileId],
+        },
+        { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
+        {
+          sql: `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+                WHERE s.profile_id = ? AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
+          args: [profileId],
+        },
+      ],
+      'read',
+    )
+    return { record: Number(record.rows[0]?.n ?? 0), justes: Number(justes.rows[0]?.n ?? 0), expertes: Number(expertes.rows[0]?.n ?? 0) }
+  }
+
+  /** Son record dans chaque catégorie jouée seule : la meilleure série d'une seule catégorie. */
+  async recordsParCategorie(profileId: string): Promise<Map<string, number>> {
+    const res = await this.client.execute({
+      sql: `SELECT json_extract(categories, '$[0]') AS categorie, MAX(justes) AS record FROM campagne_series
+            WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES} AND categories IS NOT NULL AND json_array_length(categories) = 1
+            GROUP BY categorie`,
+      args: [profileId],
+    })
+    return new Map(res.rows.filter(r => r.categorie != null).map(r => [String(r.categorie), Number(r.record)]))
+  }
+
+  /**
+   * Ce qu'une série finie fait tomber : le Funambule (neuf bonnes réponses
+   * d'affilée sur sa dernière vie), Sans une égratignure (les expertes
+   * atteintes sans perdre une vie), la Grande Série (trente bonnes réponses
+   * dans une série de toutes les catégories), le Tour du monde (dix dans une
+   * série de chacune des douze) — puis les paliers que sa campagne atteint.
+   */
+  private async recompenserLaSerie(profileId: string, s: Serie): Promise<Recompenses> {
+    if (!this.recompenses) return {}
+    try {
+      const res = await this.client.execute({ sql: 'SELECT position, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
+      const cles = hautsFaitsDeLaSerie(
+        s,
+        res.rows.map(r => Number(r.juste) === 1),
+      )
+      if (await this.tourDuMondeFait(profileId)) cles.push('hf:tour-du-monde')
+      return await this.recompenser(profileId, s.id, cles, s.finieLe ?? this.maintenant())
+    } catch (e) {
+      // La série est rangée : une étagère muette n'y change rien, la relecture rattrapera.
+      console.error('[campagne] récompenses de la série non rangées :', e)
+      return {}
+    }
+  }
+
+  /** Dix bonnes réponses dans une série de chacune des douze catégories, jouée seule. */
+  private async tourDuMondeFait(profileId: string): Promise<boolean> {
+    const records = await this.recordsParCategorie(profileId)
+    return CATEGORIES.every(c => (records.get(c) ?? 0) >= RECORD_DU_TOUR_DU_MONDE)
+  }
+
+  /** Range ces hauts faits sous la série, puis les paliers qu'elle fait atteindre, et dit ce que tout cela ouvre. */
+  private async recompenser(profileId: string, serieId: string, cles: readonly string[], quand: number): Promise<Recompenses> {
+    if (!this.recompenses) return {}
+    const sous = cleDeSerie(serieId)
+    const neufs = await this.recompenses.ranger(profileId, sous, cles, quand)
+    const paliers = await this.recompenses.accorderPaliersDeCampagne(profileId, sous, await this.statsDe(profileId))
+    const tombees = [...neufs, ...paliers]
+    if (tombees.length === 0) return {}
+    const legendaires = this.recompenses.legendairesOuverts(profileId, tombees)
+    return {
+      recompenses: tombees.map(cle => {
+        const p = palierDe(cle)
+        const h = hautFait(cle)
+        return { key: cle, emoji: p ? p.hautFait.emoji : (h?.emoji ?? '✨'), title: p ? titreDePalier(p.hautFait, p.palier) : (h?.title ?? cle) }
+      }),
+      ...(legendaires.length > 0 && { legendaires }),
+    }
+  }
+
+  /**
+   * Relit toutes les séries finies avec les règles du jour, une fois par
+   * version (`VERSION_DES_SERIES`) : ce que leur fin aurait décerné, et les
+   * paliers que la campagne de chacun atteint. Les séries d'avant la colonne
+   * des catégories y gagnent la leur, lue sur leurs questions : toutes de la
+   * même catégorie, c'était une série d'une seule.
+   */
+  async relireLesSeries(): Promise<{ series: number; profils: number } | null> {
+    if (!this.recompenses) return null
+    const fait = await this.client.execute({ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: ['relecture_des_series'] })
+    if (Number(fait.rows[0]?.valeur ?? 0) >= VERSION_DES_SERIES) return null
+    const res = await this.client.execute(`SELECT * FROM campagne_series WHERE finie_le IS NOT NULL AND ${SERIES} ORDER BY finie_le`)
+    const profils = new Set<string>()
+    for (const r of res.rows) {
+      const s = versSerie(r)
+      profils.add(s.profileId)
+      if (r.categories == null) {
+        const toutes = new Set(s.questions.map(q => q.categorie).filter(Boolean))
+        if (toutes.size === 1) {
+          s.categories = [...toutes] as string[]
+          await this.client.execute({ sql: 'UPDATE campagne_series SET categories = ? WHERE id = ?', args: [JSON.stringify(s.categories), s.id] })
+        }
+      }
+      await this.avecVerrou(s.profileId, () => this.recompenserLaSerie(s.profileId, s))
+    }
+    // Les épreuves comptent pour Le Marathonien et L'Érudit : un passage par profil.
+    const joueurs = await this.client.execute(`SELECT DISTINCT profile_id FROM campagne_series WHERE finie_le IS NOT NULL`)
+    for (const r of joueurs.rows) {
+      const id = String(r.profile_id)
+      profils.add(id)
+      await this.avecVerrou(id, async () => this.recompenses!.accorderPaliersDeCampagne(id, cleDeSerie('relecture'), await this.statsDe(id)))
+    }
+    await this.client.execute({
+      sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
+      args: ['relecture_des_series', String(VERSION_DES_SERIES)],
+    })
+    return { series: res.rows.length, profils: profils.size }
   }
 
   /**
@@ -413,6 +577,7 @@ export class CampagneStore {
         seuil: null,
         rejeu: false,
         issue: null,
+        categories: lireCategories(categoriesRetenues(categories)),
       }
       const maintenant = this.maintenant()
       this.enCours.delete(profileId)
@@ -421,9 +586,9 @@ export class CampagneStore {
           // La série laissée en route s'arrête : une seule à la fois. Une épreuve des sentiers, elle, attend.
           { sql: `UPDATE campagne_series SET finie_le = ? WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES}`, args: [maintenant, profileId] },
           {
-            sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le)
-                  VALUES (?, ?, ?, 0, ?, 0, ?, NULL)`,
-            args: [serie.id, profileId, JSON.stringify(questions), VIES, maintenant],
+            sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, categories)
+                  VALUES (?, ?, ?, 0, ?, 0, ?, NULL, ?)`,
+            args: [serie.id, profileId, JSON.stringify(questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null],
           },
         ],
         'write',
@@ -501,6 +666,7 @@ export class CampagneStore {
       else this.garderEnCours({ ...s, index: position, vies, justes })
       const avant = finie ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
+      const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
       return {
         juste,
         xp,
@@ -512,6 +678,7 @@ export class CampagneStore {
         ...(finie && { recordAvant: avant, niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
         ...(finie && justes > avant && { record: true }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
+        ...gagnees,
       }
     })
   }
@@ -808,6 +975,8 @@ export class CampagneStore {
         }
       }
       if (issue === 'ratee' && !e.rejeu) reponse.vies = await this.vies(profileId)
+      // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme celles d'une série.
+      if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
       return reponse
     })
   }
@@ -1165,6 +1334,64 @@ function justesParJourDe(lignes: readonly Record<string, unknown>[]): Map<string
   return parJour
 }
 
+/**
+ * La version des règles de la campagne que la relecture a appliquées aux
+ * séries passées (`relireLesSeries`) : 1 depuis ses hauts faits et ses
+ * paliers (le 5 octobre 2026). Une règle de plus la fait monter.
+ */
+const VERSION_DES_SERIES = 1
+
+/** Le Funambule : autant de bonnes réponses d'affilée sur sa dernière vie. */
+export const FUNAMBULE = 9
+/** La Grande Série : autant de bonnes réponses dans une série de toutes les catégories. */
+export const GRANDE_SERIE = 30
+/** Le Tour du monde : autant de bonnes réponses dans une série de chaque catégorie, jouée seule. */
+export const RECORD_DU_TOUR_DU_MONDE = 10
+/**
+ * Sans une égratignure : les expertes doivent venir après les trois marches
+ * complètes — quinze questions. Une catégorie jouée seule, qui n'a pas cinq
+ * questions de chaque marche, les sert plus tôt : ce n'est pas le même
+ * exploit.
+ */
+const AVANT_LES_EXPERTES = 3 * QUESTIONS_PAR_MARCHE
+
+/** Les catégories qu'une série retient en base : aucune ou toutes, c'est NULL — toutes. */
+function categoriesRetenues(categories?: readonly string[]): string | null {
+  const choisies = [...new Set(categories ?? [])].filter(c => (CATEGORIES as readonly string[]).includes(c))
+  return choisies.length === 0 || choisies.length >= CATEGORIES.length ? null : JSON.stringify(choisies)
+}
+
+/**
+ * Les hauts faits d'une série finie, lus sur ses réponses dans l'ordre :
+ * dérivation pure, comme ceux d'une soirée. Le Funambule compte les bonnes
+ * réponses d'affilée après la deuxième erreur ; Sans une égratignure, que
+ * tout était juste jusqu'à la première experte ; la Grande Série, une série
+ * de toutes les catégories (`categories` NULL).
+ */
+export function hautsFaitsDeLaSerie(
+  s: { questions: readonly { niveau: Niveau }[]; justes: number; categories?: readonly string[] | null },
+  justes: readonly boolean[],
+): string[] {
+  const cles: string[] = []
+  let erreurs = 0
+  let derniereVie = 0
+  let meilleure = 0
+  for (const j of justes) {
+    if (!j) {
+      erreurs++
+      derniereVie = 0
+    } else if (erreurs === VIES - 1) {
+      derniereVie++
+      meilleure = Math.max(meilleure, derniereVie)
+    }
+  }
+  if (meilleure >= FUNAMBULE) cles.push('hf:funambule')
+  const experte = s.questions.findIndex(q => q.niveau === 'expert')
+  if (experte >= AVANT_LES_EXPERTES && justes.length > experte - 1 && justes.slice(0, experte).every(Boolean)) cles.push('hf:intact')
+  if (s.justes >= GRANDE_SERIE && !s.categories) cles.push('hf:grande-serie')
+  return cles
+}
+
 function versSerie(r: Record<string, unknown>): Serie {
   const questions = (JSON.parse(String(r.questions)) as (QuestionDeSerie & { reserveId?: string })[]).map(({ reserveId, ...q }) => ({ ...q, id: q.id ?? reserveId ?? '' }))
   return {
@@ -1181,6 +1408,18 @@ function versSerie(r: Record<string, unknown>): Serie {
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
     rejeu: Number(r.rejeu ?? 0) === 1,
     issue: r.issue === 'validee' || r.issue === 'ratee' ? r.issue : null,
+    categories: lireCategories(r.categories),
+  }
+}
+
+/** Les catégories retenues d'une série : null — toutes, ou une série d'avant la colonne. */
+function lireCategories(brut: unknown): string[] | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const lu: unknown = JSON.parse(brut)
+    return Array.isArray(lu) ? lu.map(String) : null
+  } catch {
+    return null
   }
 }
 

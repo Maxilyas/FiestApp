@@ -171,6 +171,10 @@ export interface ReponseDeCampagne {
   /** L'expérience que cette réponse rapporte : celle d'une bonne réponse, 0 pour une fausse. */
   xp: number
   suivante?: QuestionDeCampagne
+  /** À la fin de la série : les hauts faits et les paliers qu'elle a fait tomber (le Funambule, L'Alpiniste…). */
+  recompenses?: { key: string; emoji: string; title: string }[]
+  /** Et les légendaires qu'ils ouvrent : la Salamandre, le Serpent à plumes, l'Éléphant… */
+  legendaires?: string[]
 }
 
 /** Une série, telle que sa page la reprend. */
@@ -194,6 +198,8 @@ export interface EtatDeCampagne {
   categories: { categorie: string; questions: number }[]
   /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number
+  /** Son record dans chaque catégorie jouée seule — ce que le Tour du monde demande, dix dans chacune. */
+  records?: { categorie: string; record: number }[]
 }
 
 /** Une question que des joueurs ont signalée, pour l'administrateur (`/admin#campagne`). */

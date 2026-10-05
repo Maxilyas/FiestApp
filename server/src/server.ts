@@ -373,6 +373,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     ...(opts.baseDeLaCampagne && { base: opts.baseDeLaCampagne }),
     empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
+    recompenses: profiles,
   })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
@@ -461,6 +462,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
+  // Ses paliers de campagne, pour les jauges de sa page.
+  profiles.statsDeCampagne = id => campagne.statsDe(id)
   // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché
   // après l'amorce de la réserve, qui n'a pas à lire la base.
   jour.dansLaCampagne = empreinte => campagne.dansLaBase(empreinte)
@@ -512,6 +515,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const debutDesJours = Date.now()
   const jours = await jour.relireLesJours()
   if (jours) console.log(`[jour] ${jours.jours} jour(s) relu(s), ${jours.profils} profil(s), en ${Date.now() - debutDesJours} ms`)
+  // La campagne aussi : les hauts faits de ses séries passées, ses paliers.
+  const series = await campagne.relireLesSeries()
+  if (series) console.log(`[campagne] ${series.series} série(s) relue(s), ${series.profils} profil(s)`)
 
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID

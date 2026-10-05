@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis } from '../../../shared/avatars'
 import {
   AUCUN_JOUR,
+  AUCUNE_CAMPAGNE,
   CHANCE_ECLAT,
   carriereDe,
   choixDeFinition,
@@ -26,6 +27,7 @@ import {
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
+  type StatsDeCampagne,
   type StatsDuJour,
 } from '../../../shared/profil'
 import { rareteDe, type BadgePorte } from '../../../shared/badges'
@@ -38,6 +40,7 @@ import {
   hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
+  paliersDeCampagneAtteints,
   paliersDuJourAtteints,
   paliersDuNiveau,
   titreDePalier,
@@ -520,6 +523,9 @@ export class ProfileStore {
    * campagne. Branchées au démarrage comme `justesDuJour`.
    */
   justesDeCampagne?: (profileId: string) => Promise<number>
+
+  /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
+  statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
 
   /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
@@ -1300,8 +1306,9 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour, sans attendre l'un l'autre.
-    const [jour, maitres] = await Promise.all([
+    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour
+    // et sa campagne, sans attendre l'un l'autre.
+    const [jour, maitres, campagne] = await Promise.all([
       this.statsDuJourDe(p.id),
       this.paliersDe(p.id).then(
         x => maitresDe(x).length,
@@ -1310,11 +1317,16 @@ export class ProfileStore {
           return 0
         },
       ),
+      (this.statsDeCampagne?.(p.id) ?? Promise.resolve(AUCUNE_CAMPAGNE)).catch(e => {
+        console.error('[profil] campagne illisible pour sa carrière :', e)
+        return AUCUNE_CAMPAGNE
+      }),
     ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
       niveau: this.niveauOf(p),
       jour,
+      campagne,
     })
     return {
       ...this.toPublic(p),
@@ -2177,11 +2189,24 @@ export class ProfileStore {
    * nouveaux.
    */
   async accorderPaliersDuJour(profileId: string, jour: string, stats: StatsDuJour): Promise<string[]> {
-    const deja = this.recompensesOf(profileId)
     const profil = await this.byId(profileId)
-    const neufs = [...paliersDuJourAtteints(stats), ...(profil ? paliersDuNiveau(this.niveauOf(profil)) : [])].filter(
-      cle => !deja.has(cle),
-    )
+    return this.accorderDesPaliers(profileId, cleDuJour(jour), [...paliersDuJourAtteints(stats), ...(profil ? paliersDuNiveau(this.niveauOf(profil)) : [])])
+  }
+
+  /**
+   * Décerne les paliers de la campagne qu'il vient d'atteindre — L'Alpiniste,
+   * L'Érudit, Le Marathonien —, rangés sous la série qui les a fait tomber
+   * (`cleDeSerie`), leur expérience créditée avec celle des autres paliers.
+   * Rend ceux qui sont nouveaux.
+   */
+  async accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]> {
+    return this.accorderDesPaliers(profileId, sous, paliersDeCampagneAtteints(stats))
+  }
+
+  /** Range ceux de ces paliers qu'il n'a pas encore, et repaie la ligne des paliers. */
+  private async accorderDesPaliers(profileId: string, sous: string, atteints: readonly string[]): Promise<string[]> {
+    const deja = this.recompensesOf(profileId)
+    const neufs = atteints.filter(cle => !deja.has(cle))
     if (neufs.length === 0) return []
     const now = Date.now()
     await this.client.batch(
@@ -2190,7 +2215,7 @@ export class ProfileStore {
         return {
           sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
                 VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-          args: [profileId, cle, cleDuJour(jour), hautFait.emoji, titreDePalier(hautFait, palier), now],
+          args: [profileId, cle, sous, hautFait.emoji, titreDePalier(hautFait, palier), now],
         }
       }),
       'write',

@@ -290,6 +290,9 @@ export interface ReponseDEpreuve {
   maitre?: string
   /** Après un échec : les vies qui restent. */
   vies?: VieDesSentiers
+  /** Finie : les paliers de la campagne qu'elle a fait tomber (Le Marathonien, L'Érudit), et ce qu'ils ouvrent. */
+  recompenses?: { key: string; emoji: string; title: string }[]
+  legendaires?: string[]
 }
 
 /** Un palier, côté administrateur : ce que les vraies réponses en disent. */
