@@ -275,34 +275,39 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
 
    Le serveur relit chaque description au catalogue des étiquettes : une clé inconnue la refuse entière, et la question attend la passe suivante. La consigne du quiz du jour, elle, apprend d'elle-même ce que disent les joueurs — la difficulté mesurée des dernières questions posées — dès qu'il y en a assez.
 
-6. **Agrandir la base de la campagne (par la même routine).** La campagne solo puise dans sa base à elle (`server/content/campagne/`), et les sentiers du savoir en consomment beaucoup, surtout des questions difficiles. Chaque matin, la routine y ajoute cinq questions par catégorie, soixante par jour, dans les sous-thèmes les moins fournis et aux difficultés qui manquent : le serveur fait la commande. Même jeton, même porte. Ajoute à la consigne de la routine, après le point 5, ce passage :
+6. **Agrandir la base de la campagne (par la même routine).** La campagne solo puise dans sa base à elle (`server/content/campagne/`), et les sentiers du savoir en consomment beaucoup, surtout des questions difficiles. Chaque matin, la routine y ajoute cinq questions par catégorie, soixante par jour, dans les sous-thèmes les moins fournis et aux difficultés qui manquent : le serveur fait la commande. Même jeton, même porte. La routine n'a pas le dépôt (ni son vérificateur, ni ses agents) : elle écrit et relit elle-même, et le serveur relit chaque question à l'envoi. Ajoute à la consigne de la routine ce passage, à la suite des autres — et au point 1, une réserve pleine ne l'arrête plus : « si aEcrire vaut 0, dis-le en une ligne et passe à la base de la campagne ».
 
    ```
-   6. Agrandis ensuite la base de la campagne. Travaille dans un dossier
-      hors du dépôt (mktemp -d) : rien ne s'écrit dans le dépôt.
-      curl -sS --max-time 120 "$FIESTAPP_URL/api/campagne/base" \
-        -H "Authorization: Bearer $RESERVE_TOKEN" > commande.json
-      La réponse donne aEcrire, parEnvoi et, pour chaque catégorie, aEcrire
-      et sa consigne. Si aEcrire vaut 0, dis-le en une ligne et arrête-toi.
-      Pour chaque catégorie dont aEcrire > 0, l'une après l'autre :
-      a. Écris sa consigne dans un fichier, puis confie-la à l'agent
-         redacteur-campagne : il écrit le lot dans lot.json et le vérifie
-         (depuis le dossier server du dépôt :
-         npx tsx scripts/base-campagne.ts verifier <dossier>/lot.json)
-         jusqu'à zéro refus.
-      b. Fais relire le lot par l'agent relecteur-campagne, sur sa fiche
-         (npx tsx scripts/base-campagne.ts fiche <dossier>/lot.json) ; il
-         écrit ses décisions dans <dossier>/decisions.json, que tu
-         appliques : npx tsx scripts/base-campagne.ts appliquer <dossier>/decisions.json
-      c. Envoie le lot relu, sous sa catégorie :
-         jq --arg c "<la catégorie>" '{categorie: $c, entrees: .}' lot.json > envoi.json
+   N. Agrandis ensuite la base de la campagne, avec le même jeton :
+      curl -sS --max-time 120 -o commande.json -w '%{http_code}\n' \
+        "$FIESTAPP_URL/api/campagne/base" -H "Authorization: Bearer $RESERVE_TOKEN"
+      Toute autre réponse que 200 : dis en une ligne le code et
+      jq -r .error commande.json, et arrête-toi. Sinon,
+      jq '{aEcrire, parEnvoi}' commande.json ; si aEcrire vaut 0, dis-le en
+      une ligne et arrête-toi. Puis, pour chaque catégorie qui a encore des
+      questions à écrire, l'une après l'autre
+      (jq -r '.categories[] | select(.aEcrire > 0) | .categorie' commande.json) :
+      a. Lis sa consigne :
+         jq -r --arg c "LA CATÉGORIE" '.categories[] | select(.categorie == $c) | .consigne' commande.json
+         et écris ses questions en la suivant à la lettre, dans lot.json :
+         le tableau JSON qu'elle décrit, rien d'autre.
+      b. Relis chaque question comme un correcteur exigeant : la bonne
+         réponse est-elle certaine et la seule possible ? Chaque leurre
+         est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre
+         doute, remplace la question.
+      c. Envoie-les :
+         jq --arg c "LA CATÉGORIE" '{categorie: $c, entrees: .}' lot.json > envoi.json
          curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/campagne/base" \
            -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
            -H "Content-Type: application/json" --data @envoi.json
+         La réponse donne ajoutees, et ecartees : chacune avec son texte et
+         son motif. Corrige ou remplace chaque écartée — une question que la
+         base a déjà se remplace par une autre — et renvoie seulement
+         celles-là, deux fois au plus.
       Termine par une ligne par catégorie : ajoutées, écartées, et pourquoi.
    ```
 
-   Le serveur relit chaque question avec le juge de la base — une question peu sûre, une réponse dans l'intitulé, un leurre oublié : refusée —, écarte ce que la base, la réserve du quiz du jour ou un quiz livré a déjà, et ne prend pas plus de dix questions par catégorie et par jour. Le reste se range dans la base permanente et se joue tout de suite, sans déploiement. À `/admin#campagne`, « La routine du matin » montre ce qu'elle a déposé, et **Retirer** sort une question pour tous ; `/healthz` dit son dernier apport (`campagne.dernierApport`). Les deux agents du projet (`.claude/agents/`) écrivent et relisent sobrement : Sonnet pour écrire, Opus pour relire, à réflexion basse.
+   Le serveur relit chaque question avec le juge de la base — une question peu sûre, une réponse dans l'intitulé, un leurre oublié : refusée —, écarte ce que la base, la réserve du quiz du jour ou un quiz livré a déjà, et ne prend pas plus de dix questions par catégorie et par jour. Le reste se range dans la base permanente et se joue tout de suite, sans déploiement. À `/admin#campagne`, « La routine du matin » montre ce qu'elle a déposé, et **Retirer** sort une question pour tous ; `/healthz` dit son dernier apport (`campagne.dernierApport`). Les deux agents du projet (`.claude/agents/`, Sonnet pour écrire, Opus pour relire, à réflexion basse) servent aux lots écrits à la main, dans le dépôt (`scripts/base-campagne.ts`) : la routine ne les a pas.
 
 La routine vise trois semaines d'avance, et cent questions au plus par passage. Si elle s'arrête — abonnement, jeton changé d'un seul côté, domaine plus permis —, `/admin` le montre : plus de dépôt, puis l'alerte sous sept jours d'avance. En attendant, **Copier la consigne pour une IA** : la même consigne, pour trente questions, à coller dans le chatbot de ton choix ; sa réponse se recolle dans **Coller une liste**.
 

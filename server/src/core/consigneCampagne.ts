@@ -26,8 +26,10 @@ export interface QuotaDEcriture {
 /**
  * Comment l'IA travaille : par fichiers dans un dossier, vérifiés au fur et
  * à mesure (`lots`), ou d'un seul fichier que la routine lui nomme
- * (`routine`) — elle tourne dans un clone du dépôt, dont elle ne connaît
- * pas le chemin d'avance.
+ * (`routine`). La routine du matin n'a pas le dépôt — ni son vérificateur,
+ * ni ses agents : sa consigne l'envoyait lancer `verifier` depuis un dossier
+ * qui n'existe pas chez elle. C'est le serveur qui relit à l'envoi, avec le
+ * même juge, et lui rend chaque refus avec son motif.
  */
 export type TravailDUnLot = { sorte: 'lots'; lot: string; dossier: string } | { sorte: 'routine' }
 
@@ -46,9 +48,8 @@ function commentTravailler(travail: TravailDUnLot): string {
   if (travail.sorte === 'routine') {
     return `COMMENT TRAVAILLER
 1. Écris toutes tes questions d'un seul coup dans le fichier que te nomme ta mission : le tableau JSON, rien d'autre.
-2. Puis, depuis le dossier server du dépôt, lance : npx tsx scripts/base-campagne.ts verifier <ton fichier> — corrige ou remplace chaque question REFUSÉE et chaque AVERTISSEMENT, et relance jusqu'à zéro refus.
-3. Relis chaque question comme un correcteur exigeant avant de l'écrire : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
-4. Rends seulement la dernière ligne du vérificateur. N'écris rien ailleurs que dans ton fichier.`
+2. Relis chaque question comme un correcteur exigeant avant de l'envoyer : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
+3. À l'envoi, le serveur relit chaque question avec le juge de la base : il range celles qu'il accepte et te rend chaque refusée avec son motif. Corrige ou remplace chaque refusée — une question que la base a déjà se remplace par une autre —, et renvoie seulement celles-là.`
   }
   const { dossier, lot } = travail
   return `COMMENT TRAVAILLER
