@@ -373,6 +373,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     ...(opts.baseDeLaCampagne && { base: opts.baseDeLaCampagne }),
     empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
+    recompenses: profiles,
   })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
@@ -446,8 +447,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
-  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
+  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
+  // champion du mois dernier, que l'écran commun salue à son entrée.
   profiles.laurierDe = id => jour.laureats().has(id)
+  profiles.championDe = id => jour.champions(id)
+  // Le laurier d'argent du défi de la semaine : ses vainqueurs, lus en
+  // mémoire ; un profil masqué depuis le perd aussitôt.
+  profiles.argentDe = id => campagne.vainqueursDuDefi().has(id) && !jour.estMasque(id)
+  campagne.profils = profiles
+  campagne.masque = id => jour.estMasque(id)
   // Ses bonnes réponses du quiz du jour ouvraient ses portraits avec celles
   // des soirées : la reprise les relit une fois (`core/repriseDesPortraits.ts`).
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
@@ -459,6 +467,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
+  // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
+  profiles.statsDeCampagne = id => campagne.statsDe(id)
+  profiles.moisDuJour = () => jour.aujourdhui()
+  profiles.joursDuMois = id => jour.joursDuMois(id)
   // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché
   // après l'amorce de la réserve, qui n'a pas à lire la base.
   jour.dansLaCampagne = empreinte => campagne.dansLaBase(empreinte)
@@ -504,6 +516,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
     )
   }
 
+  // Le quiz du jour relit ses jours passés avec les règles du jour, une fois
+  // par version : ce que la nuit, la partie et le mois auraient décerné
+  // (`relireLesJours`) — les lauriers d'avant, les pages du calendrier…
+  const debutDesJours = Date.now()
+  const jours = await jour.relireLesJours()
+  if (jours) console.log(`[jour] ${jours.jours} jour(s) relu(s), ${jours.profils} profil(s), en ${Date.now() - debutDesJours} ms`)
+  // La campagne aussi : les hauts faits de ses séries passées, ses paliers.
+  const series = await campagne.relireLesSeries()
+  if (series) console.log(`[campagne] ${series.series} série(s) relue(s), ${series.profils} profil(s)`)
+
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
@@ -529,9 +551,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jour,
     salons,
   })
-  // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
-  // dans la salle où il joue sans attendre la diffusion suivante.
-  jour.laurierChange = profileId => {
+  // Un laurier qui change de tête — la nuit close, un profil masqué, le
+  // défi de la semaine clos — se voit dans la salle où il joue sans attendre
+  // la diffusion suivante.
+  const laurierChange = (profileId: string) => {
     for (const rt of registry.all()) {
       if (!rt.party.findByProfile(profileId)) continue
       rt.broadcastSnapshot()
@@ -541,6 +564,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       rt.engine.rafraichirVues()
     }
   }
+  jour.laurierChange = laurierChange
+  campagne.laurierChange = laurierChange
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
@@ -1011,6 +1036,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.use('/portraits', express.static(path.join(clientDist, 'portraits'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les légendaires et les Divins peints de même (`server/scripts/anime/legendaires.ts`).
     app.use('/medaillons', express.static(path.join(clientDist, 'medaillons'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les décors peints — le calendrier, les thèmes peints, les fonds de carte — de même (`server/scripts/anime/decors.ts`).
+    app.use('/decors', express.static(path.join(clientDist, 'decors'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,

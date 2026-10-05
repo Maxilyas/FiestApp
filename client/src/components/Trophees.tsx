@@ -13,7 +13,7 @@ import {
   plusBeaux,
   titreDePalier,
 } from '../../../shared/hautsfaits'
-import { legendaire } from '../../../shared/legendaires'
+import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { recompensesDe, type Proche } from '../../../shared/proches'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
@@ -189,11 +189,16 @@ export function MaVitrine({
 export function UnProche({ p }: { p: Proche }) {
   const l = legendaire(p.key)
   const palier = palierDe(p.key)
-  const h = l ? hautFait(p.hautFait ?? l.condition.hautFait) : palier?.hautFait
-  if (!h) return null
+  // La voie qui le représente : celle qu'il avance le plus. Une voie qui en
+  // demande plusieurs à la fois (la Chimère) n'a pas de haut fait à elle :
+  // elle se compte en conditions tenues.
+  const cleDuHautFait = p.hautFait ?? (l ? hautFaitPrincipal(l) : null)
+  const h = l ? (cleDuHautFait ? hautFait(cleDuHautFait) : undefined) : palier?.hautFait
+  if (!h && !l) return null
   const titre = l ? l.nom : titreDePalier(palier!.hautFait, palier!.palier)
-  const compte =
-    h.famille === 'carriere'
+  const compte = !h
+    ? `${p.acquis} conditions sur ${p.requis}`
+    : h.famille === 'carriere'
       ? `${formatNumber(p.acquis)} sur ${formatNumber(p.requis)} ${p.requis < 2 ? h.mesureUne : h.mesure}`
       : `${h.title} : ${p.acquis} fois sur ${p.requis}`
   return (
@@ -204,7 +209,7 @@ export function UnProche({ p }: { p: Proche }) {
         </span>
       ) : (
         <span className="approche-emoji" aria-hidden="true">
-          {h.emoji}
+          {h?.emoji}
         </span>
       )}
       <div className="approche-corps">

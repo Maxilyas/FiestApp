@@ -3,7 +3,7 @@
 // Les avatars se parcourent en atlas : un rail des douze branches, chacune un
 // orbe dont l'anneau se remplit, puis la branche choisie en chemin ; les
 // légendaires et les Divins en grilles de médaillons. Le style se lit en
-// quatre lignes — ce qui est choisi, en clair —, chacune ouvrant son écran à
+// cinq lignes — ce qui est choisi, en clair —, chacune ouvrant son écran à
 // son adresse, la carte collée en tête pendant qu'on règle.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -85,16 +85,16 @@ test('les légendaires et les Divins en grilles de médaillons, le compte en tê
   assert.match(html, /Ils ne disent pas comment/)
 })
 
-test('« Mon style » : quatre lignes, ce qui est choisi en clair, chacune son écran — le thème compris', async () => {
+test('« Mon style » : cinq lignes, ce qui est choisi en clair, chacune son écran — la gerbe et le thème compris', async () => {
   const html = await rendu('components/PanneauxDuProfil', 'PanneauStyle', { profil, ...rien, onReglage: () => {} })
   assert.match(html, /<button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
   const lignes = [...html.matchAll(/<span class="style-nom">([^<]+)<\/span><span class="style-valeur">([^<]+)<\/span>/g)].map(([, nom, valeur]) => `${nom} : ${valeur}`)
-  assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Thème : Velours'])
+  assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Gerbe : Aucune', 'Thème : Velours'])
   // Le thème aussi : ceux qu'on a se portent ici, la boutique ne vend que les autres.
-  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 4)
+  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 5)
   // Chaque réglage a son écran, à son adresse : le retour du navigateur ramène au style.
   const app = source('views/ProfilApp.tsx')
-  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-theme'/)
+  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-gerbe' \| 'style-theme'/)
   assert.match(app, /onReglage=\{r => ouvrir\(`style-\$\{r\}`\)\}/)
   // Le réglage garde la carte collée en tête, où l'on voit ce qu'on change.
   assert.match(source('components/PanneauxDuProfil.tsx'), /<div className="identite-collante">/)
@@ -151,16 +151,17 @@ const vecu = {
   prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
 }
 
-test('les trophées : la vitrine sur une ligne, six collections qu’on déplie, une à la fois', async () => {
+test('les trophées : la vitrine sur une ligne, sept collections qu’on déplie, une à la fois', async () => {
   const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu, ...rien })
   assert.match(html, /<section class="vitrine-ligne" aria-label="Ma vitrine">/)
   // Rien à montrer encore : la ligne le dit, sans bouton pour choisir dans le vide.
   assert.match(html, /Elle se remplit à la fin de chaque soirée/)
   assert.doesNotMatch(html, />Changer</)
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
-  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour'])
+  // La campagne a la sienne depuis ses hauts faits de série (le 5 octobre 2026).
+  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour', 'Campagne'])
   // Toutes repliées à l'ouverture : la page tient en un écran.
-  assert.equal(html.match(/aria-expanded="false"/g)?.length, 6)
+  assert.equal(html.match(/aria-expanded="false"/g)?.length, 7)
   assert.doesNotMatch(html, /trophee-contenu/)
   assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
   assert.match(source('components/PanneauxDuProfil.tsx'), /return <TropheesAtlas profil=\{profil\} busy=\{busy\} enregistrer=\{enregistrer\} \/>/)

@@ -1,0 +1,361 @@
+/* ── Les Très Riches Heures · gagnées, jamais vendues ──
+   Le vélin, le bleu lapis et l'or des enlumineurs : la page du mois en
+   cours. Elles se gagnent aux douze pages du calendrier du quiz du jour
+   (`shared/calendrier.ts`, `shared/themes.ts`, `gagne`) : aucune boutique ne
+   les vend.
+
+   L'un des quatre thèmes peints (`server/scripts/anime/decors.ts`) : un
+   folio de vélin et sa bordure de rinceaux, et la page du calendrier du mois
+   de Paris — `data-mois`, que `themeJoueur.ts` pose sur <html> —, la même
+   image que celle de l'écran du calendrier. Une règle par mois, dans le bloc
+   de la chaîne : seule la page du mois se télécharge.
+
+   Un thème clair : l'encre de noix, les rubriques au vermillon, le lapis de
+   ce qui se touche. Le folio est posé en neuf tranches (`border-image`) : ses
+   coins et leurs rinceaux restent entiers à toutes les hauteurs d'écran, ses
+   bordures longent les bords du téléphone, dans la marge que laissent les
+   cartes ; au milieu, son vélin. Le décor vit dans les couches fixes
+   (`body::before` : le folio ; `body::after` : la page du mois ;
+   `#root::after` : l'or qui scintille dans les rinceaux), qui ne captent
+   jamais un doigt et ne bougent que par `transform` et `opacity`. Le texte
+   reste lisible : la page du mois passe sous un voile de vélin et s'y fond
+   vers le bas, et ce qui s'écrit sur la page garde un halo de vélin.
+   `design.test.ts` en mesure les contrastes. */
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/eb-garamond.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/themes/cinzel.woff2') format('woff2');
+}
+
+:root[data-theme='heures'] {
+  --bg: #f3e8cf;
+  --bg-halo: #faf3e2;
+  --bg-raised: #fcf7ec;
+  --ink: #2b1d14;
+  --muted: #4e3b29;
+  --accent: #c19a3e;
+  --accent-rgb: 193, 154, 62;
+  --accent-hover: #cfab55;
+  --accent-text: #1e4091;
+  --accent-text-hover: #15306f;
+  --focus: #1e4091;
+  --on-accent: #2b1d14;
+  --alert: #9c2a19;
+  --alert-rgb: 156, 42, 25;
+  --alert-hover: #ad4433;
+  --on-alert: #fcf7ec;
+  /* Des surfaces de vélin plus clair, presque opaques : sous un décor
+     peint, un voile à 5 % laissait la page du mois sous ce qui s'écrit dans
+     une carte. */
+  --surface: rgba(252, 247, 234, 0.92);
+  --surface-faint: rgba(252, 247, 234, 0.8);
+  --surface-strong: rgba(43, 29, 20, 0.06);
+  --track: rgba(43, 29, 20, 0.15);
+  --edge: rgba(156, 112, 30, 0.42);
+  --edge-strong: rgba(156, 112, 30, 0.75);
+  --accent-soft: rgba(193, 154, 62, 0.16);
+  --scroll-thumb: rgba(156, 112, 30, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(43, 29, 20, 0.42);
+  --shadow-toast: 0 10px 30px rgba(43, 29, 20, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(43, 29, 20, 0.25);
+  --shape-0: #a3311d;
+  --shape-1: #8a6a12;
+  --shape-2: #1e4fa3;
+  --shape-3: #2f6b3a;
+  --bronze-text: #7a4a1a;
+  --argent-text: #4d5866;
+  /* L'or qui écrit : celui des écussons, plus sombre que l'aplat. */
+  --or-text: #7d5f0c;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */
+:root[data-theme='heures'] {
+  --decor-folio: url(/decors/heures-folio-720.b4880bc94c.webp);
+}
+:root[data-theme='heures'][data-mois='01'] {
+  --decor-page: url(/decors/page-01-512.abe98b6db5.webp);
+}
+:root[data-theme='heures'][data-mois='02'] {
+  --decor-page: url(/decors/page-02-512.5bfd08aaa9.webp);
+}
+:root[data-theme='heures'][data-mois='03'] {
+  --decor-page: url(/decors/page-03-512.6c98f01f4f.webp);
+}
+:root[data-theme='heures'][data-mois='04'] {
+  --decor-page: url(/decors/page-04-512.d4121f8dc1.webp);
+}
+:root[data-theme='heures'][data-mois='05'] {
+  --decor-page: url(/decors/page-05-512.7c86266045.webp);
+}
+:root[data-theme='heures'][data-mois='06'] {
+  --decor-page: url(/decors/page-06-512.77c4676241.webp);
+}
+:root[data-theme='heures'][data-mois='07'] {
+  --decor-page: url(/decors/page-07-512.51add6af72.webp);
+}
+:root[data-theme='heures'][data-mois='08'] {
+  --decor-page: url(/decors/page-08-512.48a4d82679.webp);
+}
+:root[data-theme='heures'][data-mois='09'] {
+  --decor-page: url(/decors/page-09-512.9f97c05c8f.webp);
+}
+:root[data-theme='heures'][data-mois='10'] {
+  --decor-page: url(/decors/page-10-512.03942dd16b.webp);
+}
+:root[data-theme='heures'][data-mois='11'] {
+  --decor-page: url(/decors/page-11-512.45a05cb3d5.webp);
+}
+:root[data-theme='heures'][data-mois='12'] {
+  --decor-page: url(/decors/page-12-512.c4576aaec3.webp);
+}
+/* ── Fin des décors peints ── */
+
+/* Ce que les thèmes clairs reprennent de Velours, à l'encre sur le vélin. */
+:root[data-theme='heures'] .silhouette {
+  filter: brightness(0);
+  opacity: 0.45;
+}
+
+:root[data-theme='heures'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, 0.42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, 0.5);
+}
+
+:root[data-theme='heures'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, 0.85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='heures'] .lu-scintille {
+  filter: brightness(0.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='heures'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='heures'] {
+  --serif: 'EB Garamond', Garamond, Georgia, serif;
+  --sans: 'EB Garamond', Garamond, Georgia, serif;
+  --radius: 6px;
+  --radius-sm: 6px;
+  font-synthesis: none;
+  /* La bordure du folio, au ras de l'écran : ses quatre largeurs suivent ses
+     tranches (80, 168, 165 et 303 pixels du folio) au même facteur — sinon
+     les rinceaux des coins s'écrasaient d'un côté. */
+  --heures-bord-haut: 20px;
+  --heures-bord-droit: 20px;
+  --heures-bord-bas: 36px;
+  --heures-bord-gauche: 10px;
+  /* La page du mois : un carré en haut de la page, dans la bordure. */
+  --heures-page-taille: min(calc(100vw - var(--heures-bord-gauche) - var(--heures-bord-droit) - 14px), 440px);
+}
+
+:root[data-theme='heures'] body {
+  background-color: #f3e8cf;
+}
+
+/* Le folio : sa bordure de rinceaux en neuf tranches, son vélin au milieu. */
+:root[data-theme='heures'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  border-style: solid;
+  border-width: var(--heures-bord-haut) var(--heures-bord-droit) var(--heures-bord-bas) var(--heures-bord-gauche);
+  border-image-source: var(--decor-folio);
+  border-image-slice: 165 168 303 80 fill;
+  border-image-repeat: stretch;
+}
+
+/* La page du mois de Paris, en haut, sous un voile de vélin qui la laisse
+   lire, et qui s'y fond vers le bas — là où commencent les cartes. */
+:root[data-theme='heures'] body::after {
+  content: '';
+  position: fixed;
+  top: calc(var(--heures-bord-haut) + 6px);
+  left: calc(var(--heures-bord-gauche) + (100vw - var(--heures-bord-gauche) - var(--heures-bord-droit)) / 2);
+  width: var(--heures-page-taille);
+  height: var(--heures-page-taille);
+  margin-left: calc(var(--heures-page-taille) / -2);
+  pointer-events: none;
+  z-index: 0;
+  background: var(--decor-page) center / contain no-repeat;
+  /* En aquarelle : ses ombres relevées, ses couleurs gardées. Telle quelle à
+     62 %, le lapis du tympan, sous l'encre noire de la question, ne laissait
+     plus lire qu'à 1,4:1 ; délavée à l'opacité seule, elle virait au gris de
+     vélin. Un filtre fixe, calculé une fois : la couche ne bouge jamais. */
+  filter: contrast(0.46) brightness(1.7) saturate(1.35);
+  opacity: 0.7;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
+}
+
+:root[data-theme='heures'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* L'or des rinceaux qui accroche la lumière, ici et là, le long des bords. */
+:root[data-theme='heures'] #root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 3% 22%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 2% 61%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 96% 30%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 97% 74%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
+    radial-gradient(2.2px 2.2px at 8% 3%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 91% 2.5%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(2.2px 2.2px at 6% 96%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 93% 97%, rgba(255, 236, 170, 0.95) 50%, transparent 51%);
+  animation: heures-or 4.5s ease-in-out infinite alternate;
+}
+
+/* Le texte posé sur la page, hors des cartes, garde un halo de vélin : la
+   page du mois passe sous lui. Sur une carte, il ne se voit pas. */
+:root[data-theme='heures'] .label,
+:root[data-theme='heures'] .muted,
+:root[data-theme='heures'] .small,
+:root[data-theme='heures'] h1,
+:root[data-theme='heures'] h2,
+:root[data-theme='heures'] h3,
+:root[data-theme='heures'] .identite-nom,
+:root[data-theme='heures'] .xp-mince-texte,
+:root[data-theme='heures'] .quiz-question,
+:root[data-theme='heures'] .timer-seconds {
+  text-shadow: 0 0 1px #fbf5e6, 0 0 3px #fbf5e6, 0 0 8px #fbf5e6, 0 0 16px rgba(251, 245, 230, 0.9);
+}
+
+/* Les cartes et les réponses : un vélin plus clair, sous un filet d'or et
+   la réglure rouge des copistes. */
+:root[data-theme='heures'] .card,
+:root[data-theme='heures'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='heures'] .onglets {
+  background: rgba(252, 247, 236, 0.95);
+  border: 1px solid rgba(156, 112, 30, 0.5);
+  box-shadow: inset 0 0 0 3px rgba(252, 247, 236, 0.95), inset 0 0 0 4px rgba(163, 49, 29, 0.2), 0 6px 18px rgba(80, 50, 20, 0.12);
+}
+
+/* La réponse choisie, le gros bouton du moment et la pastille du niveau : la
+   feuille d'or posée sur le vélin, pas sur la page peinte. */
+:root[data-theme='heures'] .ans-btn.chosen,
+:root[data-theme='heures'] .gros-principal {
+  background: radial-gradient(120% 160% at 0% 0%, rgba(193, 154, 62, 0.3), rgba(193, 154, 62, 0.1) 65%), #fcf7ec;
+}
+
+:root[data-theme='heures'] .ans-btn.chosen {
+  border: 1.5px solid #9c701e;
+}
+
+:root[data-theme='heures'] .niveau {
+  background: linear-gradient(rgba(193, 154, 62, 0.18), rgba(193, 154, 62, 0.18)), #fcf7ec;
+  border-color: rgba(156, 112, 30, 0.6);
+  color: #1e4091;
+}
+
+/* Le compte de confettis, au bout de la ligne d'expérience, frôle les
+   rinceaux de la bordure droite : un lapis plus profond. */
+:root[data-theme='heures'] .xp-confettis {
+  color: var(--accent-text-hover);
+}
+
+:root[data-theme='heures'] .ans-btn {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+:root[data-theme='heures'] .quiz-question {
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1.14;
+}
+
+/* La lettrine : la première lettre de la question, d'or sur un carré de
+   lapis bordé d'or, comme l'initiale d'une prière. */
+:root[data-theme='heures'] .quiz-question::first-letter {
+  float: left;
+  font-size: 2.3em;
+  line-height: 0.82;
+  margin: 0.06em 0.12em 0 0;
+  padding: 0.1em 0.13em 0.05em;
+  color: #f7e3a1;
+  background: radial-gradient(circle at 32% 28%, #2f5cbc, #1a3577 70%);
+  border: 2px solid #c19a3e;
+  border-radius: 3px;
+  text-shadow: none;
+}
+
+:root[data-theme='heures'] h1,
+:root[data-theme='heures'] h2,
+:root[data-theme='heures'] h3 {
+  font-weight: 500;
+}
+
+/* Les rubriques : au vermillon, en capitales romaines. */
+:root[data-theme='heures'] .label {
+  font-family: Cinzel, 'EB Garamond', serif;
+  font-weight: 700;
+  color: #862412;
+  letter-spacing: 0.18em;
+  /* Un liseré de vélin serré autour des lettres : en onze pixels, le halo
+     large des grands textes ne suffisait pas sur le lapis du tympan. */
+  text-shadow: 0 0 1px #fbf5e6, 0 0 2px #fbf5e6, 0 0 4px #fbf5e6, 0 0 8px #fbf5e6, 0 0 14px rgba(251, 245, 230, 0.9);
+}
+
+:root[data-theme='heures'] .timer-track {
+  height: 3px;
+  background: rgba(43, 29, 20, 0.18);
+}
+
+:root[data-theme='heures'] .timer-fill,
+:root[data-theme='heures'] .xp-fill {
+  background: linear-gradient(90deg, #9c701e, #e6c66a, #9c701e);
+}
+
+:root[data-theme='heures'] .timer-seconds {
+  font-weight: 500;
+  color: #1e4091;
+}
+
+:root[data-theme='heures'] .result-banner .big,
+:root[data-theme='heures'] .fin-xp {
+  font-weight: 600;
+  color: #1e4091;
+}
+
+@keyframes heures-or {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : l'or ne scintille plus. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='heures'] #root::after {
+    animation: none !important;
+  }
+}

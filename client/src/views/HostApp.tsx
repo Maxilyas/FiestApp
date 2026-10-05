@@ -32,7 +32,7 @@ import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
+import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { distinctions } from '../../../shared/profil'
 import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
@@ -42,6 +42,7 @@ import { useEcranAllume } from '../veille'
 import { RemiseEnScene } from '../components/RemiseEnScene'
 import { CodeDeLaTele } from '../components/Appairage'
 import { EcranDeBranchement, SalleDeLaTele } from '../components/Tele'
+import { EntreeEnScene } from '../components/EntreeEnScene'
 import { retenirTelecommande, telecommandeParDefaut } from '../telecommande'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -221,7 +222,7 @@ const PuceJoueur = memo(
           className="chip-name"
               style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
               title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
-          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}${p.laurier ? `, ${LAURIER_TEXTE}` : ''}`}
+          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}${p.laurier ? `, ${texteDuLaurier(p.laurier)}` : ''}`}
           onClick={async () => {
             const name = await promptDialog({
               title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,
@@ -896,6 +897,10 @@ export function HostApp() {
 
         {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
         {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
+
+        {/* Le champion du mois qui arrive, salué à la salle — jamais par-dessus
+            une question, ni sur le téléphone qui tient la télécommande. */}
+        {!quizView && !telecommande && <EntreeEnScene players={snap.players} />}
 
         {/* Le repère principal : la scène et ses colonnes, entre le bandeau
             (banner) et la console (contentinfo). */}

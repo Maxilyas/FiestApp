@@ -4,6 +4,7 @@ import { divin } from '../../../shared/divins'
 import { nomDansLaPhrase, portrait } from '../../../shared/branches'
 import { hautFait } from '../../../shared/hautsfaits'
 import { fond } from '../../../shared/fonds'
+import { gerbe } from '../../../shared/gerbes'
 import { theme } from '../../../shared/themes'
 
 // Ce qu'un toucher du profil change, et ce que le lecteur d'écran en entend.
@@ -18,6 +19,8 @@ export type ChoixDuProfil = {
   legendaire?: string | null
   titre?: string | null
   fond?: string | null
+  /** La gerbe de ses bonnes réponses, parmi celles qu'il a gagnées ; null : aucune. */
+  gerbe?: string | null
   /** Le thème de ses pages, parmi ceux qu'il a ; null : Velours. */
   theme?: string | null
   vitrine?: string[] | null
@@ -45,6 +48,10 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
   if (choix.fond !== undefined) {
     const nom = fond(choix.fond)?.nom
     return nom ? `Ton fond de carte : ${nom}.` : 'Sans fond de carte.'
+  }
+  if (choix.gerbe !== undefined) {
+    const nom = gerbe(choix.gerbe)?.nom
+    return nom ? `Ta gerbe : ${nom.charAt(0).toLowerCase()}${nom.slice(1)}.` : 'Sans gerbe.'
   }
   if (choix.theme !== undefined) {
     const nom = choix.theme ? theme(choix.theme)?.nom : undefined

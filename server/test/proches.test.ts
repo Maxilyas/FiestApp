@@ -39,9 +39,11 @@ function vu(soiree: Record<string, number>, carriere: Record<string, number>): H
 test('les plus proches : les légendaires et les paliers commencés, rangés par ce qui manque', () => {
   const hf = vu({ 'hf:foudre': 7, 'hf:oracle': 2 }, { 'hf:habitue': 8, 'hf:bavard': 60, 'hf:legende': 9 })
   assert.deepEqual(lesPlusProches(hf, []), [
-    // L'Habitué · Argent (dix soirées) : c'est le Renard qui le dit, pas le palier une seconde fois.
-    { key: 'lg:renard', acquis: 8, requis: 10 },
-    { key: 'lg:tigre', acquis: 7, requis: 10 },
+    // L'Habitué · Argent (dix soirées) : c'est le Renard qui le dit, pas le
+    // palier une seconde fois. Depuis qu'il a une voie au quiz du jour, il
+    // dit aussi laquelle il compte, comme le Tigre.
+    { key: 'lg:renard', acquis: 8, requis: 10, hautFait: 'hf:habitue' },
+    { key: 'lg:tigre', acquis: 7, requis: 10, hautFait: 'hf:foudre' },
     { key: 'hf:bavard:1', acquis: 60, requis: 100 },
   ])
   // Le Renard gagné, son palier redevient un objectif comme un autre ; La Légende, elle, suit le niveau.
@@ -65,8 +67,10 @@ test('un légendaire à deux voies se montre une fois, sur la plus avancée — 
   // Quarante-cinq jours joués (L'Assidu · Argent, l'Or à cent) et deux
   // sans-faute (Bronze, l'Argent à trois) : le Sphinx compte ses jours.
   const jours = vu({}, { 'hf:assidu': 45, 'hf:sans-faute': 2 })
+  // Le Sans-Faute · Argent ouvre la Chouette par sa voie du jour : c'est elle
+  // qui le dit, comme le Renard L'Habitué · Argent.
   assert.deepEqual(lesPlusProches(jours, [], 5), [
-    { key: 'hf:sans-faute:2', acquis: 2, requis: 3 },
+    { key: 'lg:chouette', acquis: 2, requis: 3, hautFait: 'hf:sans-faute' },
     { key: 'lg:sphinx', acquis: 45, requis: 100, hautFait: 'hf:assidu' },
   ])
   // Huit sans-faute : la seconde voie est plus avancée, c'est elle qu'il compte.

@@ -518,6 +518,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         vitrine: req.body?.vitrine,
         fond: req.body?.fond,
         theme: req.body?.theme,
+        gerbe: req.body?.gerbe,
         eclat: req.body?.eclat,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque

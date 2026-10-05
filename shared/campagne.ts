@@ -11,7 +11,8 @@
 // propriétaire du 3 octobre 2026). Un joueur n'y revoit une question
 // qu'une fois toutes les autres de sa marche passées.
 
-import { XP } from './profil'
+import { XP, type Finition } from './profil'
+import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -171,6 +172,12 @@ export interface ReponseDeCampagne {
   /** L'expérience que cette réponse rapporte : celle d'une bonne réponse, 0 pour une fausse. */
   xp: number
   suivante?: QuestionDeCampagne
+  /** À la fin de la série : les hauts faits et les paliers qu'elle a fait tomber (le Funambule, L'Alpiniste…). */
+  recompenses?: { key: string; emoji: string; title: string }[]
+  /** Et les légendaires qu'ils ouvrent : la Salamandre, le Serpent à plumes, l'Éléphant… */
+  legendaires?: string[]
+  /** À la fin d'un défi de la semaine : sa place au classement de la semaine, pour l'instant. */
+  defi?: { rang: number; joueurs: number }
 }
 
 /** Une série, telle que sa page la reprend. */
@@ -183,6 +190,13 @@ export interface SerieDeCampagne {
   question?: QuestionDeCampagne
 }
 
+/**
+ * Le Tour du monde : autant de bonnes réponses dans une série de chaque
+ * catégorie, jouée seule. Ici, pas au serveur : la page de la campagne dit
+ * ce qui manque à chaque catégorie.
+ */
+export const RECORD_DU_TOUR_DU_MONDE = 10
+
 /** La page de la campagne : le record, la série en cours, ce qu'on peut viser. */
 export interface EtatDeCampagne {
   record: number
@@ -194,6 +208,8 @@ export interface EtatDeCampagne {
   categories: { categorie: string; questions: number }[]
   /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number
+  /** Son record dans chaque catégorie jouée seule — ce que le Tour du monde demande, dix dans chacune. */
+  records?: { categorie: string; record: number }[]
 }
 
 /** Une question que des joueurs ont signalée, pour l'administrateur (`/admin#campagne`). */
@@ -266,4 +282,87 @@ export interface CorrectionDeCampagne {
   juste: boolean
   niveau: Niveau
   anecdote: string | null
+}
+
+// ── Le défi de la semaine ─────────────────────────────────────────────────
+
+/**
+ * Le défi de la semaine : la même série pour tous, du lundi au dimanche à
+ * Paris — tirée au premier qui l'ouvre, puis figée —, trois vies, sans
+ * chronomètre, une seule tentative. Son classement compte les bonnes
+ * réponses, rang partagé (invariant 15) ; ses premiers portent le laurier
+ * d'argent toute la semaine suivante — à deux joueurs au moins, comme le
+ * champion du mois : seul, on n'a battu personne.
+ */
+export const JOUEURS_POUR_LE_DEFI = 2
+
+/**
+ * Le lundi de la semaine d'un jour de Paris, « 2026-10-05 » : la clé du
+ * défi. Lu au calendrier, sans fuseau — le jour est déjà celui de Paris.
+ */
+export function semaineDe(jour: string): string {
+  const [a, m, j] = jour.split('-').map(Number)
+  const depuisLundi = (new Date(Date.UTC(a, m - 1, j)).getUTCDay() + 6) % 7
+  return jourAvant(jour, depuisLundi)
+}
+
+/** La semaine d'avant (`n` = 1), ou d'après (`n` négatif). */
+export const semaineAvant = (semaine: string, n = 1) => jourAvant(semaine, 7 * n)
+
+/**
+ * Les minutes qui restent avant la clôture du défi, lundi à minuit (Paris) :
+ * comptées jusqu'à l'instant où la semaine change, comme `minutesAvantMinuit`
+ * — une semaine qui passe à l'heure d'hiver a une heure de plus.
+ */
+export function minutesAvantLundi(instant: number): number {
+  const semaine = semaineDe(jourDe(instant))
+  let avant = instant
+  let apres = instant + 8 * 24 * 3_600_000
+  while (apres - avant > 1000) {
+    const milieu = Math.floor((avant + apres) / 2)
+    if (semaineDe(jourDe(milieu)) === semaine) avant = milieu
+    else apres = milieu
+  }
+  return Math.max(1, Math.round((apres - instant) / 60_000))
+}
+
+/** Une ligne du classement du défi : comme celle du quiz du jour, ses bonnes réponses au lieu de points. */
+export interface LigneDuDefi {
+  profileId: string
+  /** Le prénom de son profil, marque d'homonymie comprise. */
+  nom: string
+  avatar: string
+  niveau: number
+  finition?: Finition
+  legendaire?: string
+  eclat?: true
+  laurier?: LaurierPorte
+  justes: number
+  rang: number
+  /** Sa tentative n'est pas finie : il peut encore monter. */
+  enCours?: true
+}
+
+/** La page du défi (`GET /api/campagne/defi`). */
+export interface DefiDeLaSemaine {
+  /** Le lundi de la semaine, « 2026-10-05 ». */
+  semaine: string
+  /** Les minutes avant sa clôture, lundi à minuit à Paris. */
+  minutesRestantes: number
+  /** Sa tentative : en cours, elle se reprend ; finie, elle attend la semaine prochaine. */
+  tentative: SerieDeCampagne | null
+  joueurs: number
+  lignes: LigneDuDefi[]
+  /** Sa ligne, si elle n'est pas dans celles qu'on montre. */
+  moi?: LigneDuDefi
+  /** Qui regarde, s'il est classé : sa ligne se distingue. */
+  sienne?: string
+  /** Les premiers de la semaine passée : le laurier d'argent est à eux cette semaine. */
+  vainqueurs: { nom: string; avatar: string }[]
+  /**
+   * Sa semaine passée, s'il a relevé le défi : sa place, ce qu'elle lui a
+   * valu, et de quoi relire sa correction — qui attend la clôture, pour ne
+   * rien souffler à ceux qui jouent encore.
+   */
+  saSemainePassee?: { serie: string; justes: number; rang: number; joueurs: number; recompenses: PalierTombe[] }
 }

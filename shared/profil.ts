@@ -20,7 +20,7 @@
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
-import type { CarriereDuJour } from './jour'
+import type { CarriereDuJour, LaurierPorte } from './jour'
 import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
@@ -403,17 +403,35 @@ export function releveVide(): ReleveSoiree {
 
 /**
  * Ce que le quiz du jour compte pour ses paliers : les jours joués (une
- * partie commencée compte), les victoires, et les jours sans une faute — la
- * médaille d'or.
+ * partie commencée compte), les victoires, les jours sans une faute — la
+ * médaille d'or —, les jours dans le premier quart d'une salle de huit
+ * (`SALLE_DU_JOUR`), et la plus longue série de jours d'affilée, soirées et
+ * sabliers compris.
  */
 export interface StatsDuJour {
   joues: number
   victoires: number
   sansFautes: number
+  elite: number
+  serieRecord: number
 }
 
 /** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
-export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0 }
+export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, elite: 0, serieRecord: 0 }
+
+/**
+ * Ce que la campagne compte pour ses paliers : le record d'une série à trois
+ * vies, les questions expertes trouvées et toutes les bonnes réponses —
+ * épreuves des sentiers comprises pour ces deux-là.
+ */
+export interface StatsDeCampagne {
+  record: number
+  expertes: number
+  justes: number
+}
+
+/** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
@@ -450,14 +468,16 @@ export interface Carriere {
   eclats: number
   niveau: number
   categories: Record<string, { questions: number; justes: number }>
-  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute). */
+  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable). */
   jour: StatsDuJour
+  /** La campagne, pour ses paliers (L'Alpiniste, L'Érudit, Le Marathonien). */
+  campagne: StatsDeCampagne
 }
 
 /** Additionne des relevés en une carrière. */
 export function carriereDe(
   soirees: { releve: ReleveSoiree; gain: GainSoiree; spaceId: string }[],
-  extra: { eclats: number; niveau: number; jour?: StatsDuJour },
+  extra: { eclats: number; niveau: number; jour?: StatsDuJour; campagne?: StatsDeCampagne },
 ): Carriere {
   const c: Carriere = {
     soirees: 0,
@@ -489,6 +509,7 @@ export function carriereDe(
     eclats: extra.eclats,
     niveau: extra.niveau,
     jour: { ...(extra.jour ?? AUCUN_JOUR) },
+    campagne: { ...(extra.campagne ?? AUCUNE_CAMPAGNE) },
     categories: {},
   }
   const hotes = new Set<string>()
@@ -632,9 +653,17 @@ export interface Distinctions {
   legendaire?: string
   /**
    * Il a gagné le quiz du jour d'hier : un laurier suit son prénom toute la
-   * journée, jusque dans les soirées où il joue.
+   * journée, jusque dans les soirées où il joue — et grandit avec ses
+   * victoires (`niveauDuLaurier` : vert, d'or, serti, étoilé). Ou le défi
+   * de la semaine passée : le laurier d'argent, toute la semaine.
    */
-  laurier?: boolean
+  laurier?: LaurierPorte
+  /**
+   * Il est le champion du mois dernier au quiz du jour (`2026-10`) : l'écran
+   * commun le salue quand il entre dans une soirée, et sa carte le dit tout
+   * le mois.
+   */
+  champion?: string
 }
 
 /**
@@ -649,7 +678,8 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
     ...(source.finition && { finition: source.finition }),
     ...(source.eclat && { eclat: true }),
     ...(source.legendaire && { legendaire: source.legendaire }),
-    ...(source.laurier && { laurier: true }),
+    ...(source.laurier && { laurier: source.laurier }),
+    ...(source.champion && { champion: source.champion }),
   }
 }
 
@@ -720,13 +750,20 @@ export interface PublicProfile {
   titre?: string | null
   /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
   vitrineChoisie?: string[] | null
-  /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit. */
-  laurier?: boolean
+  /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit — l'allure de son laurier. */
+  laurier?: LaurierPorte
+  /** Champion du mois dernier au quiz du jour (`2026-10`) : sa page et sa carte le disent tout le mois. */
+  champion?: string
   /**
    * Le thème qui habille son téléphone (`shared/themes.ts`) ; null : Velours.
    * Pour lui seul — la salle n'en voit rien —, et absent d'un serveur d'avant.
    */
   theme?: string | null
+  /**
+   * La gerbe qui éclate sur son téléphone à une bonne réponse
+   * (`shared/gerbes.ts`), s'il en porte une. Pour lui seul, comme le thème.
+   */
+  gerbe?: string | null
 }
 
 /**
@@ -825,6 +862,8 @@ export interface PublicProfileDetail extends PublicProfile {
   fond?: string | null
   /** Les fonds de carte qu'il a gagnés, dans l'ordre du catalogue. */
   fonds?: string[]
+  /** Les gerbes qu'il peut porter, dans l'ordre du catalogue (`shared/gerbes.ts`). Absentes d'un serveur d'avant. */
+  gerbes?: string[]
   /** Ses confettis et ses thèmes : la boutique de sa page. Absente d'un serveur d'avant. */
   boutique?: BoutiqueDuProfil
   /**
@@ -833,6 +872,14 @@ export interface PublicProfileDetail extends PublicProfile {
    * maître. Absents d'un serveur d'avant, ou si la base s'est tue.
    */
   sentiers?: Paliers
+  /**
+   * Son calendrier des Heures (`shared/calendrier.ts`) : les pages qu'il a
+   * ouvertes, celles qu'il a dorées, et ses jours joués du mois en cours —
+   * ce qui manque à sa page. Absent d'un serveur d'avant.
+   */
+  calendrier?: { pages: string[]; dorees: string[]; mois: string; joursCeMois: number }
+  /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
+  titresDates?: string[]
 }
 
 /**

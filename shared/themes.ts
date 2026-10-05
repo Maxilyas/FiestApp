@@ -6,8 +6,13 @@
 //
 // Deux sont offerts à tous ; les autres s'achètent en confettis, rangés à
 // l'échelle de rareté de l'étagère (`shared/badges.ts`), du Commun au
-// Légendaire — sauf Babel, qu'aucune boutique ne vend : il se gagne au
-// douzième palier de maître des sentiers du savoir (`gagne`). Ici, la rareté ne se mesure pas : elle se décrète, avec le prix.
+// Légendaire — sauf cinq, qu'aucune boutique ne vend : Babel, au douzième
+// palier de maître des sentiers du savoir ; L'Horloge astronomique, à la
+// cinquantième victoire au quiz du jour ; Le Ciel du jour, à trente jours
+// d'affilée ; Les Très Riches Heures, aux douze pages du calendrier ; Le
+// Sommet, à une série de vingt en campagne (`gagne`). Ces quatre-là sont
+// peints : leur décor est une illustration, chargée avec leur feuille.
+// Ici, la rareté ne se mesure pas : elle se décrète, avec le prix.
 // Un cosmétique : aucun ne change un point de quiz (invariant 8). Acheté, un
 // thème se garde : une soirée effacée peut faire passer le solde sous zéro,
 // elle ne reprend jamais ce qu'il a payé.
@@ -18,6 +23,7 @@
 
 import { NOM_RARETE, type Rarete } from './badges'
 import { SAISONS, type CleDeSaison } from './saisons'
+import { pagesOuvertes, PAGES } from './calendrier'
 import { soireeQuiCompte, type GainSoiree, type ReleveSoiree } from './profil'
 import { formatNumber } from './typographie'
 
@@ -62,11 +68,37 @@ export interface Theme {
   /** En boutique pendant sa saison seulement. Acheté, il se garde toute l'année. */
   saison?: PeriodeDeBoutique
   /**
-   * Il ne se vend pas : il se gagne, aux paliers de maître des sentiers du
-   * savoir (`shared/sentiers.ts`) — combien, et la règle en quelques mots.
-   * Un palier de maître ne se perd jamais : gagné, il reste à lui.
+   * Il ne se vend pas : il se gagne — ce qui l'ouvre, et la règle en
+   * quelques mots. Un palier de maître, une victoire, un palier de carrière,
+   * une page du calendrier ne se perdent jamais : gagné, il reste à lui.
    */
-  gagne?: { maitres: number; regle: string }
+  gagne?: { regle: string; par: CeQuiOuvreUnTheme }
+}
+
+/**
+ * Ce qui ouvre un thème qui se gagne : des paliers de maître des sentiers
+ * (`maitres`), un haut fait décroché tant de fois (`hautFait`, `fois`), une
+ * clé rangée — un palier de carrière (`cle`) —, ou toutes les pages du
+ * calendrier (`pages`).
+ */
+export type CeQuiOuvreUnTheme = { maitres: number } | { hautFait: string; fois: number } | { cle: string } | { pages: number }
+
+/** Ce qu'il faut savoir d'un profil pour ses thèmes gagnés. */
+export interface CeQuOuvreUnTheme {
+  /** Les sentiers dont il est maître (`maitresDe`). */
+  maitres: number
+  /** Ses récompenses rangées : victoires, paliers, pages du calendrier. */
+  recompenses: ReadonlyMap<string, number>
+}
+
+/** Ce thème, qui se gagne, est-il à lui ? Faux pour un thème qui s'achète. */
+export function themeGagne(t: Theme, c: CeQuOuvreUnTheme): boolean {
+  const par = t.gagne?.par
+  if (!par) return false
+  if ('maitres' in par) return c.maitres >= par.maitres
+  if ('hautFait' in par) return (c.recompenses.get(par.hautFait) ?? 0) >= par.fois
+  if ('cle' in par) return (c.recompenses.get(par.cle) ?? 0) > 0
+  return pagesOuvertes(c.recompenses).length >= par.pages
 }
 
 /** Les trois saisons des légendaires gardent leurs dates : un Noël, pas deux. */
@@ -153,14 +185,48 @@ export const THEMES: readonly Theme[] = [
   { key: 'aurore', nom: 'Aurore boréale', rarete: 'legendaire', clair: false, humeur: 'Les voiles verts et violets ondulent au-dessus des sapins.' },
   { key: 'kintsugi', nom: 'Kintsugi', rarete: 'legendaire', clair: false, humeur: 'Céramique noire, fêlures réparées à l’or.' },
   { key: 'theatre', nom: 'Grand théâtre', rarete: 'legendaire', clair: false, humeur: 'Rideaux de velours, dorures, et le projecteur sur la question.' },
-  // ── Gagné, jamais vendu ── les douze sentiers gravis jusqu'au maître.
+  // ── Gagnés, jamais vendus ── les douze sentiers gravis jusqu'au maître ;
+  // et, depuis le 5 octobre 2026, quatre thèmes peints : le quiz du jour, sa
+  // série, son calendrier, et la campagne.
   {
     key: 'babel',
     nom: 'Babel',
     rarete: 'legendaire',
     clair: false,
     humeur: 'La bibliothèque infinie : le cuir des reliures, l’or des dorures, et la lampe verte qui veille.',
-    gagne: { maitres: 12, regle: 'les douze paliers de maître des sentiers du savoir' },
+    gagne: { regle: 'les douze paliers de maître des sentiers du savoir', par: { maitres: 12 } },
+  },
+  {
+    key: 'horloge',
+    nom: 'L’Horloge astronomique',
+    rarete: 'legendaire',
+    clair: false,
+    humeur: 'Émail lapis-lazuli, zodiaque à la feuille d’or, et des aiguilles qui marquent l’heure de Paris.',
+    gagne: { regle: 'cinquante victoires au quiz du jour', par: { hautFait: 'hf:laurier', fois: 50 } },
+  },
+  {
+    key: 'ciel',
+    nom: 'Le Ciel du jour',
+    rarete: 'legendaire',
+    clair: false,
+    humeur: 'Un même paysage peint, qui suit l’heure de Paris : l’aube, midi, le crépuscule, la nuit.',
+    gagne: { regle: 'trente jours d’affilée (L’Infatigable · Argent)', par: { cle: 'hf:infatigable:2' } },
+  },
+  {
+    key: 'heures',
+    nom: 'Les Très Riches Heures',
+    rarete: 'legendaire',
+    clair: true,
+    humeur: 'Le vélin, le bleu lapis et l’or des enlumineurs : la page du mois en cours.',
+    gagne: { regle: `les ${PAGES.length} pages du calendrier du quiz du jour`, par: { pages: PAGES.length } },
+  },
+  {
+    key: 'sommet',
+    nom: 'Le Sommet',
+    rarete: 'legendaire',
+    clair: false,
+    humeur: 'Quatre camps jusqu’au sommet : la neige, les drapeaux de prière, l’aube sur les crêtes.',
+    gagne: { regle: 'une série de vingt en campagne (L’Alpiniste · Or)', par: { cle: 'hf:alpiniste:3' } },
   },
 ]
 

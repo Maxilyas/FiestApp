@@ -1,4 +1,6 @@
-// Les avatars divins : cinq dessins au-dessus des légendaires.
+// Les avatars divins : six dessins au-dessus des légendaires — cinq qui
+// descendent sur une soirée, un sur le quiz du jour (Chronos, le 5 octobre
+// 2026).
 //
 // Un légendaire se gagne par un haut fait, et la page profil dit lequel : on
 // sait ce qu'on veut avant de l'avoir. Un Divin, non. Ce qui le fait
@@ -22,6 +24,7 @@ export const DIVINS: Divin[] = [
   { key: 'dv:lotus', nom: 'Le Lotus Sacré' },
   { key: 'dv:arbre', nom: 'L’Arbre-Monde' },
   { key: 'dv:dechu', nom: 'L’Ange Déchu' },
+  { key: 'dv:chronos', nom: 'Chronos' },
 ]
 
 const PAR_CLE = new Map(DIVINS.map(d => [d.key, d]))

@@ -148,9 +148,10 @@ test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille 
     ['Les emojis', '24'],
     ['De collection', '10 / 12'],
   ])
+  // Vingt-six légendaires et six Divins depuis les récompenses du quiz du jour et de la campagne (le 5 octobre 2026).
   assert.deepEqual(await titres('legendaires'), [
-    ['Les légendaires', '2 / 16'],
-    ['Les Divins', '1 / 5'],
+    ['Les légendaires', '2 / 26'],
+    ['Les Divins', '1 / 6'],
   ])
 })
 

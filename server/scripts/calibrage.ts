@@ -50,7 +50,7 @@ import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { pointsDesEstimations, pointsDuChoix, tempsDeLecture } from '../src/games/quiz'
 import { XP_PAR_PALIER, carriereDe, niveauPour, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
-import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_DE_SOIREE, XP_PALIER, clePalier, palierDe, paliersAtteints } from '../../shared/hautsfaits'
+import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_DE_SOIREE, HAUTS_FAITS_REGAGNABLES, XP_PALIER, clePalier, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { SEUILS_ECUSSON, justesParCategorie } from '../../shared/ecussons'
@@ -315,12 +315,14 @@ function tenue(r: Regle, s: Suivi): boolean {
   return s.carriere[r.carriere] >= r.seuil
 }
 
-const decrire = (r: Regle) =>
+const decrire = (r: Regle): string =>
   'carriere' in r
     ? `${r.carriere} ≥ ${r.seuil}`
-    : 'fois' in r.condition
-      ? `${r.condition.hautFait} × ${r.condition.fois}`
-      : `${r.condition.hautFait} palier ${r.condition.palier}`
+    : 'toutes' in r.condition
+      ? r.condition.toutes.map(c => decrire({ condition: c })).join(' et ')
+      : 'fois' in r.condition
+        ? `${r.condition.hautFait} × ${r.condition.fois}`
+        : `${r.condition.hautFait} palier ${r.condition.palier}`
 
 /**
  * Ceux que la bande simulée ne peut pas gagner : elle joue toujours chez le
@@ -334,13 +336,19 @@ const NON_SIMULES = new Set([
   'hf:collection',
   'hf:eclats',
   'hf:girouette',
-  ...HAUTS_FAITS_DE_CARRIERE.filter(h => h.duJour).map(h => h.key),
+  ...HAUTS_FAITS_DE_CARRIERE.filter(h => h.duJour || h.deCampagne).map(h => h.key),
+  ...HAUTS_FAITS_REGAGNABLES.filter(h => h.origine).map(h => h.key),
 ])
 /**
- * Les légendaires que la bande peut gagner : ceux d'une voie simulée. Ni le
- * Sphinx (le quiz du jour), ni ceux de saison : la bande joue sans date.
+ * Les légendaires que la bande peut gagner : ceux dont la première voie est
+ * simulée — leurs voies du quiz du jour et de la campagne ne le sont pas. Ni
+ * le Sphinx (le quiz du jour), ni ceux de saison : la bande joue sans date ;
+ * ni ceux qui demandent les trois mondes à la fois.
  */
-const LEGENDAIRES_SIMULES = LEGENDAIRES.filter(l => !NON_SIMULES.has(l.condition.hautFait) && !l.saison)
+const LEGENDAIRES_SIMULES = LEGENDAIRES.flatMap(l => {
+  const c = l.condition
+  return 'toutes' in c || NON_SIMULES.has(c.hautFait) || l.saison ? [] : [{ ...l, condition: c }]
+})
 
 
 /** Ce qu'on essaie, légendaire par légendaire : la règle du catalogue, puis d'autres seuils. */

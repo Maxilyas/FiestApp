@@ -109,6 +109,20 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
     }),
   )
 
+  // Un sablier pour sa série, en confettis : le profil tient le solde, le
+  // quiz du jour compte ceux qui restent (`serieAvecSabliers`).
+  app.post(
+    '/api/jour/sablier',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const maintenant = deps.maintenant()
+      const jour = jourDe(maintenant)
+      const sabliers = await deps.profiles.acheterSablier(profil.id, jour, id => deps.jour.sabliersDe(id), maintenant)
+      res.json({ sabliers, confettis: (await deps.profiles.boutiqueDe(profil, jour)).confettis })
+    }),
+  )
+
   // `?jour=2026-09-25` ou `?mois=2026-09` ; aujourd'hui par défaut.
   app.get(
     '/api/jour/classement',

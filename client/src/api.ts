@@ -1,4 +1,4 @@
-import type { AdminDeLaCampagne, CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
+import type { AdminDeLaCampagne, CorrectionDeCampagne, DefiDeLaSemaine, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -11,7 +11,7 @@ import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLE
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
-import type { BoutiqueDuProfil } from '../../shared/themes'
+import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import { applySample } from './clock'
 
 /**
@@ -310,6 +310,7 @@ export const api = {
       vitrine?: string[] | null
       fond?: string | null
       theme?: string | null
+      gerbe?: string | null
       eclat?: { cle: string; brille: boolean }
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
@@ -355,6 +356,12 @@ export const api = {
     signaler: (serie: string, index: number, texte: string) =>
       req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
     /**
+     * Le défi de la semaine : une série d'un autre mode — ses réponses, sa
+     * correction et ses signalements passent par celles de la série.
+     */
+    defi: () => req<DefiDeLaSemaine>('/api/campagne/defi'),
+    releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
+    /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une
      * série d'un autre mode — sa correction et ses signalements passent par
      * celles de la série.
@@ -382,6 +389,8 @@ export const api = {
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
+    /** Un sablier pour sa série, en confettis : ceux qui restent, et son solde. */
+    sablier: () => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST' }),
     /** Le rappel du soir (`rappel.ts`) : la clé du serveur, puis l'abonnement de ce téléphone. */
     rappel: {
       cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),
