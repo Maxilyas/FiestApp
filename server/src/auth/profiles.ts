@@ -1035,16 +1035,26 @@ export class ProfileStore {
    * est l'heure du quiz du jour : un sablier ne couvre que les jours manqués
    * après son achat, et la série se lit à cette horloge-là.
    */
-  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>, quand = Date.now()): Promise<number> {
+  acheterSablier(id: string, jour: string, enReserve: (profileId: string) => Promise<number>, quand = Date.now(), nombre = 1): Promise<number> {
     return this.unAchatALaFois(id, async () => {
+      if (!Number.isInteger(nombre) || nombre < 1 || nombre > SABLIERS_MAX) throw new Error(`Un ou ${SABLIERS_MAX} sabliers à la fois`)
       const rec = await this.require(id)
-      if ((await enReserve(id)) >= SABLIERS_MAX) throw new Error(`Tu as déjà ${SABLIERS_MAX} sabliers : un jour manqué en prendra un`)
-      const manque = PRIX_D_UN_SABLIER - (await this.boutiqueDe(rec, jour)).confettis.solde
-      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour un sablier`)
-      await this.client.execute({
-        sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
-        args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
-      })
+      const deja = await enReserve(id)
+      if (deja >= SABLIERS_MAX) throw new Error(`Tu as déjà ${SABLIERS_MAX} sabliers : un jour manqué en prendra un`)
+      if (deja + nombre > SABLIERS_MAX) {
+        const place = SABLIERS_MAX - deja
+        throw new Error(`Tu as déjà ${deja > 1 ? `${deja} sabliers` : 'un sablier'} : il n’y a de place que pour ${place > 1 ? `${place} de plus` : 'un autre'}`)
+      }
+      const manque = nombre * PRIX_D_UN_SABLIER - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nombre > 1 ? `${nombre} sabliers` : 'un sablier'}`)
+      // Une ligne par sablier, dans un seul lot : la série en compte un par jour manqué.
+      await this.client.batch(
+        Array.from({ length: nombre }, () => ({
+          sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
+          args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
+        })),
+        'write',
+      )
       return enReserve(id)
     })
   }

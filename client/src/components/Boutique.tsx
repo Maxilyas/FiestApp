@@ -14,7 +14,9 @@ import {
   type Theme,
 } from '../../../shared/themes'
 import type { PublicProfileDetail } from '../../../shared/profil'
-import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, type VieDesSentiers } from '../../../shared/sentiers'
+import type { VieDesSentiers } from '../../../shared/sentiers'
+import { SABLIERS_MAX } from '../../../shared/jour'
+import { OBJETS, type CleDObjet, type Objet } from './Objets'
 import { api, motifDe } from '../api'
 import type { ChoixDuProfil } from './choix'
 
@@ -368,17 +370,18 @@ export function DetailTheme({
 }
 
 /**
- * Le rayon des vies : des vies pour les sentiers du savoir (`shared/sentiers.ts`),
- * au prix d'une vie (`PRIX_D_UNE_VIE`). Elles vont dans la réserve, servent
- * après celles du jour et ne périment pas. Le même achat que l'écran « Plus
- * de vies » des sentiers : c'est le serveur qui compte.
+ * Le rayon des objets : ce qui sert en jeu et s'achète en confettis — une
+ * vie des sentiers, un sablier pour la série du quiz du jour, et ce qui
+ * viendra (`components/Objets.tsx`). Une case par objet, son dessin, son
+ * prix, ce qu'on en a ; la toucher ouvre sa fiche dessous — ce que c'est,
+ * combien on en prend, ce que ça coûte —, d'où l'on achète, jamais d'un
+ * toucher (le geste des thèmes). C'est le serveur qui compte : les vies avec
+ * les sentiers, les sabliers avec la série.
  */
-export function RayonDesVies({ profil, onSolde }: { profil: PublicProfileDetail; onSolde: (solde: number) => void }) {
+export function RayonDesObjets({ profil, ouvert, onSolde }: { profil: PublicProfileDetail; ouvert?: CleDObjet; onSolde: (solde: number) => void }) {
+  const [choisi, setChoisi] = useState<CleDObjet | null>(ouvert ?? null)
   const [vies, setVies] = useState<VieDesSentiers | null>(null)
-  const [nombre, setNombre] = useState(1)
-  const [busy, setBusy] = useState(false)
-  const [erreur, setErreur] = useState('')
-  const [achete, setAchete] = useState(0)
+  const [sabliers, setSabliers] = useState(profil.jour?.sabliers ?? 0)
   useEffect(() => {
     let vivant = true
     api.campagne.sentiers
@@ -391,18 +394,107 @@ export function RayonDesVies({ profil, onSolde }: { profil: PublicProfileDetail;
   }, [])
   const solde = profil.boutique?.confettis.solde
   if (solde === undefined) return null
-  const prix = nombre * (vies?.prix ?? PRIX_D_UNE_VIE)
+  /**
+   * Ce qu'on en a, en court sur la case — en entier dans la fiche. Les vies du
+   * jour reviennent chaque matin : la case ne compte que la réserve, et rien
+   * quand elle est vide — un « 0 » seul ne disait pas de quoi.
+   */
+  const possede = (o: Objet): { court: string | null; long: string } | null => {
+    if (o.cle === 'vie')
+      return vies ? { court: vies.reserve > 0 ? String(vies.reserve) : null, long: `${vies.jour} aujourd’hui · ${vies.reserve} en réserve` } : null
+    return { court: `${sabliers}/${SABLIERS_MAX}`, long: `${sabliers} sur ${SABLIERS_MAX} · ta série : ${profil.jour?.serie ?? 0} jour${(profil.jour?.serie ?? 0) > 1 ? 's' : ''}` }
+  }
+  const objet = OBJETS.find(o => o.cle === choisi)
+  return (
+    <section className="rayon-objets" aria-label="Les objets">
+      <div className="objets-grille">
+        {OBJETS.map(o => {
+          const a = possede(o)
+          return (
+            <button
+              key={o.cle}
+              type="button"
+              className={`objet-case objet-${o.cle}` + (choisi === o.cle ? ' actif' : '')}
+              aria-expanded={choisi === o.cle}
+              aria-controls="fiche-objet"
+              onClick={() => setChoisi(c => (c === o.cle ? null : o.cle))}
+            >
+              <span className="objet-dessin">{o.dessin()}</span>
+              <span className="objet-nom">{o.nom}</span>
+              <span className="objet-prix">🎊 {formatNumber(o.prix)}</span>
+              {a && (
+                <>
+                  {a.court && (
+                    <span className="objet-compte" aria-hidden="true">
+                      {a.court}
+                    </span>
+                  )}
+                  <span className="sr-only">{`Tu en as : ${a.long}`}</span>
+                </>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {objet && (
+        <FicheDObjet
+          key={objet.cle}
+          objet={objet}
+          possede={possede(objet)?.long ?? null}
+          // Le sablier : deux au plus, et ce qu'on a déjà en prend la place.
+          maximum={objet.cle === 'sablier' ? SABLIERS_MAX - sabliers : objet.maximum}
+          solde={solde}
+          acheter={async nombre => {
+            if (objet.cle === 'vie') {
+              const e = await api.campagne.sentiers.acheterVies(nombre)
+              setVies(e.vies)
+              if (e.confettis !== undefined) onSolde(e.confettis)
+            } else {
+              const r = await api.jour.sablier(nombre)
+              setSabliers(r.sabliers)
+              onSolde(r.confettis.solde)
+            }
+          }}
+        />
+      )}
+    </section>
+  )
+}
+
+/**
+ * La fiche d'un objet touché : son dessin en grand, ce qu'il fait, ce qu'on
+ * en a, la quantité — ce qui reste de place pour le sablier —, le prix total
+ * et « Acheter ». Sans assez de confettis, elle dit combien il en manque.
+ */
+function FicheDObjet({
+  objet,
+  possede,
+  maximum,
+  solde,
+  acheter,
+}: {
+  objet: Objet
+  possede: string | null
+  maximum: number
+  solde: number
+  acheter: (nombre: number) => Promise<void>
+}) {
+  const [nombre, setNombre] = useState(1)
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const [achete, setAchete] = useState(0)
+  const n = Math.max(1, Math.min(nombre, maximum))
+  const prix = n * objet.prix
   const manque = Math.max(0, prix - solde)
-  const acheter = async () => {
-    if (busy || manque > 0) return
+  const plein = maximum < 1
+  const valider = async () => {
+    if (busy || manque > 0 || plein) return
     setBusy(true)
     setErreur('')
     try {
-      const e = await api.campagne.sentiers.acheterVies(nombre)
-      setVies(e.vies)
-      setAchete(nombre)
+      await acheter(n)
+      setAchete(n)
       setNombre(1)
-      if (e.confettis !== undefined) onSolde(e.confettis)
     } catch (err) {
       setErreur(motifDe(err))
     } finally {
@@ -410,40 +502,63 @@ export function RayonDesVies({ profil, onSolde }: { profil: PublicProfileDetail;
     }
   }
   return (
-    <section className="vies-achat rayon-vies" aria-labelledby="rayon-vies">
-      <div className="vies-ligne">
-        <b id="rayon-vies">Des vies pour les sentiers</b>
-        {vies && <span className="muted small">{`${vies.jour} aujourd’hui · ${vies.reserve} en réserve`}</span>}
-      </div>
-      <p className="muted small">Un palier raté coûte une vie. Celles-ci vont dans ta réserve : elles servent après celles du jour, et ne périment pas.</p>
-      <div className="vies-ligne">
-        <span className="vies-pas" role="group" aria-label="Combien de vies">
-          <button type="button" className="vies-pas-btn" aria-label="Une vie de moins" onClick={() => setNombre(n => Math.max(1, n - 1))}>
-            −
-          </button>
-          <output aria-live="polite">{nombre}</output>
-          <button type="button" className="vies-pas-btn" aria-label="Une vie de plus" onClick={() => setNombre(n => Math.min(VIES_PAR_ACHAT_MAX, n + 1))}>
-            +
-          </button>
+    <div className="galerie-detail fiche-objet" id="fiche-objet" role="region" aria-label={objet.nom}>
+      <div className="fiche-objet-tete">
+        <span className={`objet-dessin objet-dessin-grand objet-${objet.cle}`}>{objet.dessin()}</span>
+        <span className="fiche-objet-titre">
+          <b className="galerie-detail-nom">{objet.nom}</b>
+          <span className="detail-famille muted">{objet.pour}</span>
         </span>
-        <span className="muted small">{`${nombre} vie${nombre > 1 ? 's' : ''} · ${enConfettis(prix)}`}</span>
       </div>
-      {erreur && (
-        <p className="error" role="alert">
-          {erreur}
+      <p className="muted small">{objet.dit}</p>
+      {possede && <p className="small fiche-objet-possede">{`Tu en as : ${possede}`}</p>}
+      {plein ? (
+        <p className="small" role="status">
+          {objet.plein ?? 'Tu en as autant qu’il se peut.'}
         </p>
+      ) : (
+        <>
+          <div className="fiche-objet-quantite">
+            <span className="vies-pas" role="group" aria-label={`Combien : ${objet.compte(n)}`}>
+              <button type="button" className="vies-pas-btn" aria-label="Un de moins" disabled={n <= 1} onClick={() => setNombre(Math.max(1, n - 1))}>
+                −
+              </button>
+              <output aria-live="polite">{n}</output>
+              <button type="button" className="vies-pas-btn" aria-label="Un de plus" disabled={n >= maximum} onClick={() => setNombre(Math.min(maximum, n + 1))}>
+                +
+              </button>
+            </span>
+            <span className="small">{`${objet.compte(n)} · ${enConfettis(prix)}`}</span>
+          </div>
+          {erreur && (
+            <p className="error" role="alert">
+              {erreur}
+            </p>
+          )}
+          <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || manque > 0 || undefined} onClick={() => void valider()}>
+            {manque > 0 ? `Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''}` : `Acheter · ${enConfettis(prix)}`}
+          </button>
+        </>
       )}
-      <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || manque > 0 || undefined} onClick={() => void acheter()}>
-        {manque > 0 ? `Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''}` : 'Acheter'}
-      </button>
       {achete > 0 && (
         <p className="muted small" role="status">
-          {`${achete > 1 ? `${achete} vies ajoutées` : 'Une vie ajoutée'} à ta réserve. `}
-          <a className="link-inline" href="/campagne#sentiers">
-            Les sentiers
-          </a>
+          {objet.cle === 'vie' ? (
+            <>
+              {`${achete > 1 ? `${achete} vies ajoutées` : 'Une vie ajoutée'} à ta réserve. `}
+              <a className="link-inline" href="/campagne#sentiers">
+                Les sentiers
+              </a>
+            </>
+          ) : (
+            <>
+              {`${achete > 1 ? `${achete} sabliers gardent` : 'Un sablier garde'} ta série. `}
+              <a className="link-inline" href="/jour">
+                Le quiz du jour
+              </a>
+            </>
+          )}
         </p>
       )}
-    </section>
+    </div>
   )
 }

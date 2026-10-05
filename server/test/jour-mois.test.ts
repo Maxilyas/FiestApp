@@ -233,3 +233,40 @@ test('un sablier s’achète en confettis — deux au plus — et garde la séri
     assert.equal(vue.serie, 2, 'la série tient, sans compter le jour manqué')
     assert.equal(vue.sabliers, 1, 'il en reste un')
   }))
+
+test('les sabliers s’achètent aussi à plusieurs, d’un seul lot — jamais plus que la place', () =>
+  avecBanc(Date.UTC(2026, 8, 23, 10, 0), async banc => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const carole = await inscrireProfil(banc.url, 'carole', 'Carole', '🐱')
+    for (const login of ['alice', 'bob', 'carole']) joues(banc, login, ['2026-09-22', '2026-09-23'])
+    // Trois sabliers de confettis pour Alice et Bob, un et un peu plus pour Carole.
+    const confettis = (login: string, n: number) =>
+      base(banc, db => db.prepare(`UPDATE jour_parties SET justes = ? WHERE profile_id = ?`).run(n / 2, idDe(banc, login)))
+    confettis('alice', 3 * PRIX_D_UN_SABLIER)
+    confettis('bob', 3 * PRIX_D_UN_SABLIER)
+    confettis('carole', PRIX_D_UN_SABLIER + 20)
+
+    // La boutique en prend deux d'un coup, au prix des deux.
+    const trois = await poster(banc, alice, '/api/jour/sablier', { nombre: SABLIERS_MAX + 1 })
+    assert.equal(trois.status, 400)
+    assert.match(trois.corps.error, /à la fois/)
+    const deux = await poster(banc, alice, '/api/jour/sablier', { nombre: 2 })
+    assert.equal(deux.status, 200, deux.corps.error)
+    assert.equal(deux.corps.sabliers, 2)
+    assert.equal(deux.corps.confettis.solde, PRIX_D_UN_SABLIER)
+    assert.equal(base(banc, db => (db.prepare(`SELECT COUNT(*) AS n FROM profile_sabliers WHERE profile_id = ?`).get(idDe(banc, 'alice')) as { n: number }).n), 2)
+
+    // Un sablier déjà là : la place d'un autre, pas de deux.
+    assert.equal((await poster(banc, bob, '/api/jour/sablier', { nombre: 1 })).corps.sabliers, 1)
+    const pasLaPlace = await poster(banc, bob, '/api/jour/sablier', { nombre: 2 })
+    assert.equal(pasLaPlace.status, 400)
+    assert.match(pasLaPlace.corps.error, /place que pour un autre/)
+    assert.equal((await poster(banc, bob, '/api/jour/sablier', { nombre: 1 })).corps.sabliers, 2)
+
+    // Pas de quoi payer les deux : rien n'est pris, pas même le premier.
+    const manque = await poster(banc, carole, '/api/jour/sablier', { nombre: 2 })
+    assert.equal(manque.status, 400)
+    assert.match(manque.corps.error, new RegExp(`Il te manque ${PRIX_D_UN_SABLIER - 20} confettis pour 2 sabliers`))
+    assert.equal(base(banc, db => (db.prepare(`SELECT COUNT(*) AS n FROM profile_sabliers WHERE profile_id = ?`).get(idDe(banc, 'carole')) as { n: number }).n), 0)
+  }))

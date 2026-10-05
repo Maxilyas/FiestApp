@@ -617,9 +617,10 @@ test('une petite cloche en haut de la page, à côté de la sortie : un interrup
   assert.equal(DIT_LA_CLOCHE.active, 'Rappel du soir activé : vers 18 h, les jours où tu n’as pas fini ta partie')
   assert.match(DIT_LA_CLOCHE.bloque, /se rouvre dans les réglages du téléphone/)
 
-  // Sur les trois écrans du quiz du jour qu'on retrouve — à jouer, la fin, le jour joué —, dans la barre de la sortie.
+  // Sur les trois écrans du quiz du jour qu'on retrouve — à jouer, la fin, le
+  // jour joué —, dans la barre de la sortie, au bout : la série la précède.
   const page = readFileSync(new URL('../../client/src/views/JourApp.tsx', import.meta.url), 'utf8')
-  assert.equal(page.match(/<BarreDuJour \/>/g)?.length, 3)
-  assert.match(page, /<div className="jour-barre">\s*<Sortie \/>\s*<RappelDuJour \/>\s*<\/div>/)
+  assert.equal(page.match(/<BarreDuJour( partie=\{partie\})? \/>/g)?.length, 3)
+  assert.match(page, /<div className="jour-barre">\s*<Sortie \/>\s*<span className="jour-barre-fin">[^<]*<SerieDuJour [^\n]*\s*<RappelDuJour \/>\s*<\/span>\s*<\/div>/)
   assert.equal(page.match(/<Sortie \/>/g)?.length, 1, 'la sortie de la page ne vit plus que dans sa barre')
 })
