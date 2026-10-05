@@ -47,8 +47,24 @@ try {
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
 
+  // Rien de commencé : les règles, les vies, et le geste qui mène aux tuiles.
+  const neo = await inscrireProfil(banc.url, 'neo', 'Néo', '🦉')
+  const premiers = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+  const [nomN, valeurN] = neo.split('=')
+  await premiers.addCookies([{ name: nomN, value: valeurN, url: banc.url }])
+  const premierePage = await premiers.newPage()
+  if (ivoire) await ecrire(banc.url, '/api/joueur/moi', { theme: 'ivoire' }, neo, 'PUT')
+  await premierePage.goto(`${banc.url}/campagne#sentiers`)
+  await premierePage.waitForSelector('.sentiers-haut-sans')
+  await premierePage.waitForTimeout(600)
+  await premierePage.screenshot({ path: path.join(sortie, '0-premier-pas.png') })
+  console.log(path.join(sortie, '0-premier-pas.png'))
+  await premiers.close()
+
+  // Le haut des sentiers : la forêt en panorama, les règles en entier — ses paliers repris ne lui ont rien fait jouer.
   await page.goto(`${banc.url}/campagne#sentiers`)
   await page.waitForSelector('.sentiers-grille .sentiers-tuile:not(.sentiers-tuile-vide)')
+  await page.waitForSelector('.sentiers-haut .pano')
   await photo('1-carte')
   await photo('1-carte-entiere', true)
 
@@ -116,7 +132,7 @@ try {
   // Touché, il ouvre la campagne sur ses sentiers — ses onglets, le sentier en tête —, jamais un sentier seul.
   await page.click('.gros-bouton[href="/campagne#sentiers"]')
   await page.waitForSelector('.onglets-campagne')
-  await page.waitForSelector('.sentiers-reprise')
+  await page.waitForSelector('.sentiers-haut .pano')
   await photo('8-accueil-campagne')
 
   // Le maître : le stade est au sommet.
@@ -129,8 +145,8 @@ try {
 
   // Le rachat des vies.
   await page.goto(`${banc.url}/campagne#sentiers`)
-  await page.waitForSelector('.sentiers-racheter')
-  await page.click('.sentiers-racheter')
+  await page.waitForSelector('.pano-racheter')
+  await page.click('.pano-racheter')
   await page.waitForSelector('.vies-achat')
   await photo('10-vies')
 
@@ -188,6 +204,26 @@ try {
   await page.waitForSelector('.maitres-recompenses')
   await page.locator('.maitres-recompenses').scrollIntoViewIfNeeded()
   await photo('16-maitres')
+
+  // Trois paliers gagnés en jouant : les règles se replient sous « Comment ça marche ? ».
+  await page.goto(`${banc.url}/campagne#sentiers`)
+  await page.waitForSelector('.sentiers-haut details.pano-regles')
+  await photo('17-haut-replie')
+  await page.click('.pano-regles > summary')
+  await photo('17-haut-deplie')
+
+  // Une épreuve laissée en route : son sentier en panorama, et la reprendre.
+  let laissee = (await (await ecrire(banc.url, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 10 }, cookie)).json()) as any
+  for (const juste of [true, true, false]) {
+    const bonne = laissee.question.reponses.findIndex((r: string) => r.startsWith('Bonne'))
+    const choix = juste ? bonne : (bonne + 1) % laissee.question.reponses.length
+    laissee = ((await (await ecrire(banc.url, `/api/campagne/epreuve/${laissee.id}/reponse`, { index: laissee.question.index, choix }, cookie)).json()) as any).epreuve
+  }
+  // La même adresse ne recharge pas la page : l'état des sentiers doit se relire.
+  await page.goto(`${banc.url}/campagne#sentiers`)
+  await page.reload()
+  await page.waitForSelector('.sentiers-haut .pano')
+  await photo('18-haut-laissee')
 } finally {
   await navigateur.close()
   await banc.close()

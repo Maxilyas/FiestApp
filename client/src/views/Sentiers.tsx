@@ -349,6 +349,7 @@ export function SentiersEnChemin({ onglets }: { onglets: ReactNode }) {
     <div className="player-shell campagne sentiers" aria-busy="true">
       <Sortie />
       {onglets}
+      <div className="sentiers-haut sentiers-haut-vide" aria-hidden="true" />
       <div className="sentiers-grille">
         {BRANCHES.map(b => (
           <span key={b.key} className="sentiers-tuile sentiers-tuile-vide" style={lueur(LUEUR[b.key])}>
@@ -435,7 +436,7 @@ function vitrineDe(b: Branche, s: SentierDuJoueur): { cle: string; verrouille: b
   return n > 0 ? { cle: b.portraits[n - 1].key, verrouille: false } : { cle: b.portraits[0].key, verrouille: true }
 }
 
-function CarteDesSentiers({
+export function CarteDesSentiers({
   etat,
   onglets,
   erreur,
@@ -450,51 +451,18 @@ function CarteDesSentiers({
   onReprendre: (e: EpreuveDeSentier) => void
   onVies: () => void
 }) {
-  const { vies } = etat
   const avatars = etat.sentiers.reduce((n, s) => n + ouvertsDansLaBranche(brancheDe(s.branche)!, { [s.branche]: s.paliers }), 0)
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE).length
-  // Le sentier qu'on avance, que l'accueil dit aussi (`sentierQuOnAvance`) :
-  // l'épreuve laissée d'abord — sa carte dit où elle en est —, sinon le plus
-  // haut qui n'est pas au sommet.
-  const laissee = etat.epreuve
-  const avance = sentierQuOnAvance(etat.sentiers, null)
   return (
     <div className="player-shell campagne sentiers">
       <Sortie />
       {onglets}
-      <section className={'sentiers-vies' + (vies.jour + vies.reserve === 0 ? ' sentiers-vies-vides' : '')}>
-        <span className="sentiers-gros-coeur">
-          <Coeur plein={vies.jour + vies.reserve > 0} />
-        </span>
-        <b>{`${vies.jour} vie${vies.jour > 1 ? 's' : ''} sur ${vies.parJour} aujourd’hui`}</b>
-        <span className="muted small">
-          {vies.reserve > 0 ? `+${vies.reserve} en réserve · ` : ''}elles reviennent à minuit
-        </span>
-        <button type="button" className="link-inline small sentiers-racheter" onClick={onVies}>
-          Racheter des vies
-        </button>
-      </section>
       {erreur && (
         <p className="error" role="alert">
           {erreur}
         </p>
       )}
-      {laissee ? (
-        <Reprise branche={brancheDe(laissee.branche)!} palier={laissee.palier} detail={`${laissee.justes} bonne${laissee.justes > 1 ? 's' : ''} sur ${laissee.justes + laissee.fausses}`} bouton="Reprendre l’épreuve" onClick={() => onReprendre(laissee)} />
-      ) : avance ? (
-        <Reprise
-          branche={brancheDe(avance.branche)!}
-          palier={avance.palier}
-          detail={(() => {
-            const p = prochainDansLaBranche(brancheDe(avance.branche)!, { [avance.branche]: avance.palier - 1 })
-            return p ? `Le palier ${p.portrait.palier} ouvre ${nomDansLaPhrase(p.portrait.nom)}` : 'Vers le sommet'
-          })()}
-          bouton="Continuer le sentier"
-          onClick={() => onOuvrir(avance.branche)}
-        />
-      ) : (
-        avatars === 0 && <p className="muted sentiers-intro">Douze sentiers, un par branche du savoir. Un palier se valide à douze bonnes réponses sur seize ; un avatar tous les deux paliers. Choisis ton premier sentier.</p>
-      )}
+      <HautDesSentiers etat={etat} onOuvrir={onOuvrir} onReprendre={onReprendre} onVies={onVies} />
       <div className="sentiers-compte">
         <span className="label">Tes douze sentiers</span>
         <span className="muted small">{`${avatars} avatar${avatars > 1 ? 's' : ''} sur ${BRANCHES.length * 6} · ${maitres} maître${maitres > 1 ? 's' : ''}`}</span>
@@ -533,21 +501,227 @@ function CarteDesSentiers({
   )
 }
 
-/** La carte « Reprendre » : un sentier en cours, ou l'épreuve qu'on a laissée. */
-function Reprise({ branche: b, palier, detail, bouton, onClick }: { branche: Branche; palier: number; detail: string; bouton: string; onClick: () => void }) {
-  const p = prochainDansLaBranche(b, { [b.key]: palier - 1 })
+// ── Le haut des sentiers ────────────────────────────────────────────────────
+
+/**
+ * Les paliers à gagner en jouant avant de connaître les règles : en deçà, elles
+ * restent dépliées. Les paliers repris des portraits d'avant n'y comptent pas
+ * — validés sans épreuve, donc sans étoiles : ceux-là n'ont encore rien joué
+ * ici, et ce sont eux qui découvrent les sentiers.
+ */
+const PALIERS_DU_DEBUTANT = 3
+
+/**
+ * Le haut des sentiers, en un seul bloc (le choix du 5 octobre 2026 : la piste
+ * A de la maquette, avec les règles de la piste D) — il remplace une bulle
+ * pour les vies et une carte pour continuer. Le sentier qu'on avance en
+ * panorama (`sentierQuOnAvance`, comme l'accueil : l'épreuve laissée d'abord,
+ * sinon le plus haut qui n'est pas au sommet), les vies en cœurs, et les
+ * règles : en entier tant qu'on débute, repliées sous « Comment ça marche ? »
+ * ensuite. Sans sentier à avancer, les règles, et le geste qui mène aux tuiles.
+ */
+function HautDesSentiers({
+  etat,
+  onOuvrir,
+  onReprendre,
+  onVies,
+}: {
+  etat: EtatDesSentiers
+  onOuvrir: (b: CleDeBranche) => void
+  onReprendre: (e: EpreuveDeSentier) => void
+  onVies: () => void
+}) {
+  const laissee = etat.epreuve
+  const cible = sentierQuOnAvance(etat.sentiers, laissee && { branche: laissee.branche, palier: laissee.palier })
+  const joues = etat.sentiers.reduce((n, s) => n + s.etoiles.filter(e => e > 0).length, 0)
+  const regles = joues < PALIERS_DU_DEBUTANT ? (
+    <div className="pano-regles">
+      <ReglesDesSentiers />
+    </div>
+  ) : (
+    <details className="pano-regles">
+      <summary>{espacesFines('Comment ça marche ?')}</summary>
+      <ReglesDesSentiers />
+    </details>
+  )
+  if (!cible) {
+    const rien = etat.sentiers.every(s => s.paliers === 0)
+    return (
+      <section className="sentiers-haut sentiers-haut-sans">
+        <div className="pano-tete">
+          <h2>Les sentiers du savoir</h2>
+          <p className="muted small">
+            {rien ? 'Douze sentiers, un par branche du savoir. Chacun monte en douze paliers.' : 'Tes sentiers commencés sont au sommet : tente leur maître, ou ouvre un autre sentier.'}
+          </p>
+        </div>
+        {regles}
+        <CoeursDuJour vies={etat.vies} onVies={onVies} />
+        <button type="button" className="btn btn-primary btn-block" onClick={versLesTuiles}>
+          {rien ? 'Choisir mon premier sentier' : 'Choisir un sentier'}
+        </button>
+      </section>
+    )
+  }
+  const b = brancheDe(cible.branche)!
+  const s = etat.sentiers.find(x => x.branche === b.key)!
+  const c = cible.palier
+  const prochain = prochainDansLaBranche(b, { [b.key]: c - 1 })
+  const ici = prochain?.portrait.palier === c ? prochain.portrait : null
+  const reponses = laissee ? laissee.justes + laissee.fausses : 0
+  const nomDuPalier = c === PALIER_DU_MAITRE ? 'Le palier de maître' : `Palier ${c}`
+  const [titre, detail] =
+    cible.laissee && laissee
+      ? ['Ton épreuve t’attend', reponses > 0 ? `${nomDuPalier} · ${laissee.justes} bonne${laissee.justes > 1 ? 's' : ''} sur ${reponses}` : nomDuPalier]
+      : ici
+        ? [`${ici.nom} t’attend`, `Valide le palier ${c} pour l’ouvrir`]
+        : prochain
+          ? [`Vers ${nomDansLaPhrase(prochain.portrait.nom)}`, `Palier ${c}, puis ${nomDansLaPhrase(prochain.portrait.nom)} au palier ${prochain.portrait.palier}`]
+          : ['Le maître t’attend', `Seize expertes, et le titre « ${titreDeMaitre(b)} »`]
   return (
-    <section className="sentiers-reprise" style={lueur(LUEUR[b.key])}>
-      {p ? <Portrait cle={p.portrait.key} verrouille taille={52} /> : <span className="sentiers-couronne"><Icon name="crown" /></span>}
-      <p>
-        <span className="label">{palier === PALIER_DU_MAITRE ? 'Le palier de maître' : `Palier ${palier}`}</span>
-        <strong>{b.nom}</strong>
-        <span className="muted small">{detail}</span>
-      </p>
-      <button type="button" className="btn btn-primary btn-block" onClick={onClick}>
-        {bouton}
+    <section className="sentiers-haut" style={lueur(LUEUR[b.key])}>
+      <div className="pano-tete">
+        <span className="label">{`${b.nom} · ${c === PALIER_DU_MAITRE ? 'le palier de maître' : `palier ${c} sur ${PALIERS_DU_SENTIER}`}`}</span>
+        <h2>{titre}</h2>
+        <p className="muted small">{detail}</p>
+      </div>
+      <PanoramaDuSentier branche={b} sentier={s} courant={c} />
+      {regles}
+      <CoeursDuJour vies={etat.vies} onVies={onVies} />
+      <button type="button" className="btn btn-primary btn-block" onClick={() => (cible.laissee && laissee ? onReprendre(laissee) : onOuvrir(b.key))}>
+        {cible.laissee ? 'Reprendre l’épreuve' : `Continuer · palier ${c}`}
       </button>
     </section>
+  )
+}
+
+/** Vers les tuiles des sentiers, la première prête au doigt comme au clavier. */
+function versLesTuiles() {
+  const grille = document.querySelector<HTMLElement>('.sentiers-grille')
+  let calme = false
+  try {
+    calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  } catch {
+    // Sans matchMedia, on va droit au but.
+    calme = true
+  }
+  grille?.scrollIntoView({ behavior: calme ? 'auto' : 'smooth', block: 'start' })
+  grille?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
+}
+
+/** Les règles en quatre lignes, les mêmes pour qui débute et sous « Comment ça marche ? ». */
+function ReglesDesSentiers() {
+  return (
+    <ul className="pano-regles-liste">
+      <li>
+        <Icon name="check" />
+        <span>12 bonnes sur 16 valident un palier</span>
+      </li>
+      <li>
+        <Icon name="award" />
+        <span>Un avatar tous les deux paliers</span>
+      </li>
+      <li>
+        <CoeurBrise />
+        <span>Un palier raté coûte une vie</span>
+      </li>
+      <li>
+        <Icon name="crown" />
+        <span>Au sommet, le maître et son titre</span>
+      </li>
+    </ul>
+  )
+}
+
+/** Un cœur fendu : une vie perdue. Pas un cœur des vies — il ne se compte pas avec eux. */
+function CoeurBrise() {
+  return (
+    <svg className="icon coeur-brise" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">
+      <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
+      <path d="m12.6 8.6-2 3.6 2.6 1.4-1.6 3.4" />
+    </svg>
+  )
+}
+
+/** Les vies du jour en cœurs — un par vie, pleins ou vides —, la réserve à côté, et de quoi en racheter. */
+function CoeursDuJour({ vies, onVies }: { vies: VieDesSentiers; onVies: () => void }) {
+  const ligne =
+    vies.jour > 0
+      ? vies.jour >= vies.parJour
+        ? `${vies.parJour} vies sur ${vies.parJour} aujourd’hui`
+        : `${vies.jour} vie${vies.jour > 1 ? 's' : ''} sur ${vies.parJour} · elles reviennent à minuit`
+      : vies.reserve > 0
+        ? 'Plus de vie du jour : ta réserve prend le relais'
+        : 'Plus de vies : elles reviennent à minuit'
+  return (
+    <div className="pano-vies">
+      <div className="pano-vies-ligne">
+        <span className="pano-coeurs" role="img" aria-label={`${libelleVies(vies)} aujourd’hui`}>
+          {Array.from({ length: vies.parJour }, (_, i) => (
+            <Coeur key={i} plein={i < vies.jour} />
+          ))}
+        </span>
+        {vies.reserve > 0 && (
+          <span className="pano-reserve" aria-hidden="true">
+            +{vies.reserve}
+          </span>
+        )}
+        <button type="button" className="link-inline small pano-racheter" onClick={onVies}>
+          Racheter
+        </button>
+      </div>
+      <span className="muted small">{ligne}</span>
+    </div>
+  )
+}
+
+/** Où se pose une étape du panorama : sa colonne sur sept, et sa rangée — l'aller, le virage, le retour. */
+function placeAuPanorama(n: number): { col: number; rang: 'aller' | 'virage' | 'retour' } {
+  if (n <= 6) return { col: n, rang: 'aller' }
+  if (n === 7) return { col: 6, rang: 'virage' }
+  return { col: 14 - n, rang: 'retour' }
+}
+
+/** Une part de la largeur du panorama, comptée en colonnes. */
+const colonnes = (k: number) => `${(k * 100) / 7}%`
+
+/**
+ * Le panorama d'un sentier : ses douze paliers en lacet — six à l'aller, six
+ * au retour, le septième dans le virage —, un portrait tous les deux, la
+ * couronne du maître au bout. Le tracé est doré jusqu'au palier à jouer — une
+ * épreuve rejouée plus bas n'y change rien —, en pointillés au-delà. Tout se
+ * place en pourcentages de sa largeur : il tient sur tous les téléphones sans
+ * rien mesurer.
+ */
+function PanoramaDuSentier({ branche: b, sentier: s, courant }: { branche: Branche; sentier: SentierDuJoueur; courant: number }) {
+  const n = ouvertsDansLaBranche(b, { [b.key]: s.paliers })
+  const valides = Math.min(s.paliers, PALIERS_DU_SENTIER)
+  const jusqua = Math.min(s.paliers + 1, PALIER_DU_MAITRE)
+  return (
+    <div
+      className="pano"
+      role="img"
+      aria-label={`${b.nom} : ${valides} palier${valides > 1 ? 's' : ''} validé${valides > 1 ? 's' : ''} sur ${PALIERS_DU_SENTIER}, ${n} avatar${n > 1 ? 's' : ''} sur 6`}
+    >
+      <span className="pano-trait pano-aller" />
+      {jusqua > 1 && <span className="pano-trait pano-aller pano-parcouru" style={{ width: colonnes(Math.min(jusqua, 6) - 1) }} />}
+      <span className={'pano-virage pano-virage-haut' + (jusqua >= 7 ? ' pano-parcouru' : '')} />
+      <span className={'pano-virage pano-virage-bas' + (jusqua >= 8 ? ' pano-parcouru' : '')} />
+      <span className="pano-trait pano-retour" />
+      {jusqua > 8 && <span className="pano-trait pano-retour pano-parcouru" style={{ left: colonnes(14 - jusqua - 0.5), width: colonnes(jusqua - 8) }} />}
+      {PALIERS.map(r => {
+        const place = placeAuPanorama(r.n)
+        const p = r.avatar !== null ? b.portraits[r.avatar] : null
+        const vise = r.n === courant
+        const etatDuPalier = vise ? 'pano-courant' : s.paliers >= r.n ? 'pano-fait' : 'pano-avenir'
+        const sorte = p ? 'pano-portrait' : r.maitre ? 'pano-maitre' : 'pano-point'
+        return (
+          <span key={r.n} className={`pano-etape rang-${place.rang} ${sorte} ${etatDuPalier}`} style={{ '--col': place.col } as CSSProperties}>
+            {p ? <Portrait cle={p.key} verrouille={s.paliers < r.n} taille={vise ? 36 : 28} /> : r.maitre && <Icon name="crown" />}
+            {r.maitre ? <span className="pano-num">Maître</span> : (p || vise) && <span className="pano-num">{r.n}</span>}
+          </span>
+        )
+      })}
+    </div>
   )
 }
 

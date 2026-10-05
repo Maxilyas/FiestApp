@@ -1003,6 +1003,16 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   sommet). Jamais le sentier seul : mené tout droit à la scène, il l'ouvrait
   sans les onglets de la campagne. Tant qu'aucun n'est commencé, il
   présente les deux modes, et ouvre la série.
+- **Le haut des sentiers explique les sentiers** : un seul bloc, à la place
+  d'une bulle pour les vies et d'une carte pour continuer. Le sentier qu'on
+  avance y est en panorama — ses douze paliers en lacet, les portraits
+  gagnés, celui qui attend, la couronne du maître au bout —, les vies en
+  cœurs, et les règles en quatre lignes (douze sur seize, un avatar tous
+  les deux paliers, un palier raté coûte une vie, le maître au sommet).
+  Elles restent dépliées tant qu'on n'a pas gagné trois paliers en jouant —
+  les paliers repris des portraits d'avant n'y comptent pas : ceux-là
+  découvrent les sentiers —, puis se replient sous « Comment ça marche ? ».
+  Rien de commencé : les règles, et « Choisir mon premier sentier ».
 
 **Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
 trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
