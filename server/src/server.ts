@@ -462,8 +462,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
-  // Ses paliers de campagne, pour les jauges de sa page.
+  // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
+  profiles.moisDuJour = () => jour.aujourdhui()
+  profiles.joursDuMois = id => jour.joursDuMois(id)
   // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché
   // après l'amorce de la réserve, qui n'a pas à lire la base.
   jour.dansLaCampagne = empreinte => campagne.dansLaBase(empreinte)

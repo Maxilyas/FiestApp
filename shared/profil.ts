@@ -864,6 +864,14 @@ export interface PublicProfileDetail extends PublicProfile {
    * maître. Absents d'un serveur d'avant, ou si la base s'est tue.
    */
   sentiers?: Paliers
+  /**
+   * Son calendrier des Heures (`shared/calendrier.ts`) : les pages qu'il a
+   * ouvertes, celles qu'il a dorées, et ses jours joués du mois en cours —
+   * ce qui manque à sa page. Absent d'un serveur d'avant.
+   */
+  calendrier?: { pages: string[]; dorees: string[]; mois: string; joursCeMois: number }
+  /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
+  titresDates?: string[]
 }
 
 /**

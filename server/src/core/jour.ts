@@ -1793,6 +1793,16 @@ export class JourStore {
     return serieLue(await this.client.batch(lecturesDeLaSerie(profileId, jourAvant(aujourdhui, 400)), 'read'), aujourdhui)
   }
 
+  /** Ses jours joués ce mois-ci (une partie commencée compte) : ce qui manque à sa page du calendrier. */
+  async joursDuMois(profileId: string): Promise<number> {
+    const mois = moisDe(jourDe(this.maintenant()))
+    const res = await this.client.execute({
+      sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?',
+      args: [profileId, `${mois}-01`, `${mois}-31`],
+    })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
   /** Les sabliers qui l'attendent : ceux qu'il a achetés, moins ceux qu'un jour manqué a pris. */
   async sabliersDe(profileId: string): Promise<number> {
     return (await this.serieDe(profileId, jourDe(this.maintenant()))).sabliers

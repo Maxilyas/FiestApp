@@ -19,12 +19,16 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, Medaillon } from '../components/Ouverts'
+import { CollectionOuverte, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
+import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
+  NOM_DU_LAURIER,
   NOM_MEDAILLE,
+  PRIX_D_UN_SABLIER,
+  SABLIERS_MAX,
   XP_PODIUM_DU_JOUR,
   jourAvant,
   jourEnToutesLettres,
@@ -37,11 +41,11 @@ import {
   type PartieDuJour,
   type QuestionDuJour,
   type RevelationDuJour,
-  type PalierTombe,
   type NiveauDeLaurier,
 } from '../../../shared/jour'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
 import { gesteAccepte } from '../../../shared/console'
 import { porterTheme } from '../themeJoueur'
 import { nConfettis } from '../../../shared/themes'
@@ -514,6 +518,12 @@ export function JourApp() {
         )}
       </section>
       {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
+      {partie.moisDernier && <MoisDernier mois={partie.moisDernier} />}
+      {partie.serie > 0 && (
+        <section className="card jour-garde">
+          <GardeDeLaSerie sabliers={partie.sabliers ?? 0} />
+        </section>
+      )}
       {partie.saison && <Saison saison={partie.saison} />}
       {toastVu}
     </div>
@@ -789,10 +799,19 @@ export function Fin({
             </div>
           </div>
         )}
+        {partie.serie > 0 && <GardeDeLaSerie sabliers={partie.sabliers ?? 0} />}
         {(partie.paliers ?? []).map(p => (
-          <Palier key={p.key} palier={p} />
+          <RecompenseTombee key={p.key} recompense={p} />
+        ))}
+        {(partie.hautsFaits ?? []).map(h => (
+          <RecompenseTombee key={h.key} recompense={h} />
         ))}
       </section>
+      {/* Un Divin passe avant tout le reste, comme en fin de soirée. */}
+      {(partie.divins ?? []).map(d => (
+        <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={profil.legendaire === d.key} />
+      ))}
+      {partie.page && <PageOuverte mois={partie.page} />}
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
@@ -956,29 +975,26 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
   )
 }
 
-/**
- * Le légendaire qu'un palier du jour vient d'ouvrir — le Sphinx —, fêté
- * comme en fin de soirée, et qu'on porte d'un toucher.
- */
-function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: boolean }) {
+/** Un Divin descendu sur la partie — Chronos —, révélé avant tout le reste, et qu'on porte d'un toucher. */
+function DivinDescendu({ cle, legende, ton, dejaPorte }: { cle: string; legende: string; ton: 'eclat' | 'ombre'; dejaPorte: boolean }) {
   const [porte, setPorte] = useState(dejaPorte)
-  const l = legendaire(cle)
-  if (!l) return null
+  const d = divin(cle)
+  if (!d) return null
   const porter = async () => {
     try {
       const { profile } = await api.joueur.enregistrer({ legendaire: cle })
       setPorte(profile.legendaire === cle)
-      showToast({ kind: 'info', message: `Tu portes ${l.nom}` })
+      showToast({ kind: 'info', message: `Tu portes ${d.nom}` })
     } catch (e) {
       showToast({ kind: 'error', message: (e as Error).message })
     }
   }
   return (
-    <section className="card fin-legendaire">
-      <span className="label">Avatar légendaire débloqué</span>
-      <Medaillon cle={cle} className="fin-medaillon" />
-      <h2>{l.nom}</h2>
-      <p className="serif-note">{l.legende}</p>
+    <section className={`card fin-divin fin-divin-${ton}`}>
+      <span className="label">Un Divin est descendu sur toi</span>
+      <Medaillon cle={cle} className="fin-apparition" />
+      <h2>{d.nom}</h2>
+      {legende && <p className="serif-note">{legende}</p>}
       {porte ? (
         <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
       ) : (
@@ -990,18 +1006,83 @@ function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: boolean 
   )
 }
 
-/** Un palier du quiz du jour qui vient de tomber, avec ce qu'il a fallu faire. */
-function Palier({ palier }: { palier: PalierTombe }) {
+/**
+ * Les sabliers qui gardent la série : combien l'attendent, et de quoi en
+ * acheter un — deux au plus. Un jour manqué en prend un, et la série tient.
+ */
+function GardeDeLaSerie({ sabliers }: { sabliers: number }) {
+  const [restants, setRestants] = useState(sabliers)
+  const [occupe, setOccupe] = useState(false)
+  useEffect(() => setRestants(sabliers), [sabliers])
+  const acheter = async () => {
+    setOccupe(true)
+    try {
+      const r = await api.jour.sablier()
+      setRestants(r.sabliers)
+      showToast({ kind: 'info', message: `Un sablier garde ta série. Il te reste ${nConfettis(r.confettis.solde)}.` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    } finally {
+      setOccupe(false)
+    }
+  }
   return (
-    <div className="jour-ligne">
-      <span className="jour-pastille jour-palier" aria-hidden="true">
-        {palier.emoji}
+    <div className="jour-ligne jour-sabliers">
+      <span className="jour-pastille">
+        <Icon name="sablier" />
       </span>
       <div>
-        <b>Nouveau palier : {palier.title}</b>
-        <span className="muted small">{ceQuIlAFallu(palier.key)}</span>
+        <b>{restants > 0 ? `${restants} sablier${restants > 1 ? 's' : ''} pour ta série` : 'Un sablier pour ta série'}</b>
+        <span className="muted small">
+          Un jour sans quiz en prend un, et ta série tient — sans compter ce jour-là. Achète-le avant le jour manqué, ou ce
+          jour-là avant minuit.
+        </span>
+        {restants < SABLIERS_MAX && (
+          <button type="button" className="btn btn-small" aria-disabled={occupe || undefined} onClick={() => !occupe && void acheter()}>
+            {`Un sablier · ${nConfettis(PRIX_D_UN_SABLIER)}`}
+          </button>
+        )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Le mois d'avant, les sept premiers jours du suivant : sa place au
+ * classement du mois, ce que sa clôture lui a décerné — un titre de champion,
+ * le Mois complet —, et les légendaires que ça ouvre.
+ */
+function MoisDernier({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> }) {
+  const sa = placeDuJour(mois.rang, mois.joueurs, mois.points)
+  return (
+    <section className="card jour-annonce jour-mois-dernier">
+      <span className="label">{capitale(moisEnToutesLettres(mois.mois))}, au quiz du jour</span>
+      <div className="jour-ligne">
+        <span className="jour-pastille">
+          <Icon name="trophy" />
+        </span>
+        <div>
+          <h2>{sa ?? pts(mois.points)}</h2>
+          <span className="muted">{sa ? `${pts(mois.points)} sur le mois` : `sur ${mois.joueurs} joueurs`}</span>
+        </div>
+      </div>
+      {mois.recompenses.map(r => (
+        <div key={r.key} className="jour-ligne">
+          <span className="jour-pastille jour-palier" aria-hidden="true">
+            {r.emoji}
+          </span>
+          <div>
+            <b>{r.key.startsWith('mois:') ? `Ton titre : ${r.title}` : `Nouveau haut fait : ${r.title}`}</b>
+            <span className="muted small">
+              {r.key.startsWith('mois:') ? 'Il se porte sous ton prénom, depuis « Mon style ». La salle te saluera tout le mois.' : ceQuIlAFallu(r.key)}
+            </span>
+          </div>
+        </div>
+      ))}
+      {(mois.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+    </section>
   )
 }
 
@@ -1025,14 +1106,23 @@ function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; la
         </div>
       </div>
       {(h.paliers ?? []).map(p => (
-        <Palier key={p.key} palier={p} />
+        <RecompenseTombee key={p.key} recompense={p} />
+      ))}
+      {(h.hautsFaits ?? []).map(hf => (
+        <RecompenseTombee key={hf.key} recompense={hf} />
       ))}
       {/* Le vainqueur d'hier le lisait sous son prénom, jamais ce qu'il vaut. */}
       {laurier && (
         <p className="jour-enjeu">
-          <Laurier laurier decoratif /> Tu portes le laurier aujourd’hui : la salle le verra à côté de ton prénom.
+          <Laurier laurier={laurier} decoratif />{' '}
+          {laurier > 1
+            ? `Tu portes le ${NOM_DU_LAURIER[laurier].toLowerCase()} aujourd’hui : tes victoires l’ont fait grandir, et la salle le verra à côté de ton prénom.`
+            : 'Tu portes le laurier aujourd’hui : la salle le verra à côté de ton prénom.'}
         </p>
       )}
+      {(h.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
       {partie.vainqueursDHier.length > 0 && (
         <p className="muted small">
           {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.

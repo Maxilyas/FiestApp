@@ -34,6 +34,7 @@ import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  HAUTS_FAITS_REGAGNABLES,
   VITRINE_MAX,
   clePalier,
   hautFait,
@@ -72,8 +73,8 @@ import {
 import { divin } from '../../../shared/divins'
 import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
-import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, type NiveauDeLaurier } from '../../../shared/jour'
-import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage } from '../../../shared/calendrier'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type NiveauDeLaurier } from '../../../shared/jour'
+import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -526,6 +527,10 @@ export class ProfileStore {
 
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
+
+  /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
+  moisDuJour?: () => string
+  joursDuMois?: (profileId: string) => Promise<number>
 
   /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
@@ -1308,7 +1313,9 @@ export class ProfileStore {
     }
     // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour
     // et sa campagne, sans attendre l'un l'autre.
-    const [jour, maitres, campagne] = await Promise.all([
+    // Le mois en cours du quiz du jour, et ses jours joués : ce qui manque à sa page du calendrier.
+    const moisDuCalendrier = (this.moisDuJour?.() ?? '').slice(5, 7)
+    const [jour, maitres, campagne, joursCeMois] = await Promise.all([
       this.statsDuJourDe(p.id),
       this.paliersDe(p.id).then(
         x => maitresDe(x).length,
@@ -1321,6 +1328,7 @@ export class ProfileStore {
         console.error('[profil] campagne illisible pour sa carrière :', e)
         return AUCUNE_CAMPAGNE
       }),
+      (this.joursDuMois?.(p.id) ?? Promise.resolve(0)).catch(() => 0),
     ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
@@ -1351,6 +1359,13 @@ export class ProfileStore {
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       fonds: this.fondsOuvertsDe(p, jour, maitres),
+      calendrier: {
+        pages: pagesOuvertes(this.recompensesOf(p.id)),
+        dorees: pagesDorees(this.recompensesOf(p.id)),
+        mois: moisDuCalendrier,
+        joursCeMois,
+      },
+      titresDates: titresDeChampion(this.recompensesOf(p.id)),
     }
   }
 
@@ -1363,11 +1378,12 @@ export class ProfileStore {
   private async hautsFaitsVus(id: string, carriere: Carriere, vitrine: BadgePorte[]): Promise<HautFaitVu[]> {
     const recompenses = this.recompensesOf(id)
     const rarete = new Map(vitrine.map(b => [b.key, b]))
-    const soiree: HautFaitVu[] = HAUTS_FAITS_DE_SOIREE.map(h => {
+    const soiree: HautFaitVu[] = HAUTS_FAITS_REGAGNABLES.map(h => {
       const porte = rarete.get(h.key)
       return {
         key: h.key,
         famille: 'soiree',
+        ...(h.origine && { origine: h.origine }),
         emoji: h.emoji,
         title: h.title,
         rule: h.rule,
@@ -1384,6 +1400,7 @@ export class ProfileStore {
       return {
         key: h.key,
         famille: 'carriere',
+        ...(h.duJour ? { origine: 'jour' as const } : h.deCampagne ? { origine: 'campagne' as const } : {}),
         emoji: h.emoji,
         title: h.title,
         rule: h.mesure,

@@ -5,6 +5,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { nomDuTitre } from '../../../shared/sentiers'
+import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, sortesDesAvatars, useDessins } from './medaillons'
@@ -135,7 +136,14 @@ export function CarteJoueur({
                   {nomDuTitre(p?.titre) && <p className="titre-porte">{espacesFines(`« ${nomDuTitre(p?.titre)} »`)}</p>}
                   {carte.laurier && (
                     <p className="carte-laurier">
-                      <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+                      <Laurier laurier={carte.laurier} decoratif /> Vainqueur du quiz du jour d’hier
+                      {carte.laurier > 1 && ` · ${NOM_DU_LAURIER[carte.laurier].toLowerCase()}`}
+                    </p>
+                  )}
+                  {/* Le champion du mois dernier, tout le mois : la salle le salue. */}
+                  {carte.champion && (
+                    <p className="carte-laurier carte-champion">
+                      <Icon name="trophy" /> {`Champion ${duMois(carte.champion)} au quiz du jour`}
                     </p>
                   )}
                   {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}

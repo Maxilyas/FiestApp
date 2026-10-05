@@ -3867,6 +3867,8 @@ h3 > .icon {
 .nom-marque { flex: none; white-space: pre; }
 .nom-laure > .laurier-bulle > .laurier { margin-left: 0.3em; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
+.carte-champion { color: var(--or-text); }
+.carte-champion .icon { width: 1.05em; height: 1.05em; }
 /* Le laurier grandit avec les victoires : vert à la première — le vert des
    emojis de collection, que chaque thème accorde à son fond —, d'or à cinq,
    serti d'un rubis à vingt (la première forme du thème), étoilé à
@@ -6176,6 +6178,40 @@ h3 > .icon {
 .cloche-du-rappel:disabled { opacity: 0.5; cursor: default; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
 .jour-annonce p { margin: 0; }
+
+/* Les sabliers qui gardent la série : sous elle, avec de quoi en acheter un. */
+.jour-garde { display: flex; flex-direction: column; gap: 10px; }
+.jour-sabliers > div { align-items: flex-start; }
+.jour-sabliers .btn { margin-top: 6px; }
+
+/* ── Le calendrier des Heures ──────────────────────────────────────────────
+   Douze enluminures, au vélin quand elles ne sont pas encore ouvertes : la
+   collection se voit entière, ce qui manque en vélin éteint, avec son mois.
+   Dorée, une page s'entoure d'or — le champion du mois. */
+.calendrier { display: flex; flex-direction: column; gap: 10px; }
+.calendrier-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.calendrier-tete h3 { margin: 0; }
+.calendrier-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.calendrier-case { padding: 0; border: 0; background: none; border-radius: var(--radius); }
+.calendrier-case[aria-pressed='true'] .calendrier-page { box-shadow: 0 0 0 2px var(--accent); }
+.calendrier-page { position: relative; display: block; aspect-ratio: 1; border-radius: var(--radius); overflow: hidden; background: var(--surface-strong); border: 1px solid var(--edge); }
+.calendrier-page img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.calendrier-velin { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 20%, rgba(var(--accent-rgb), 0.18), transparent 70%), var(--surface); }
+.calendrier-mois { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 4px 4px; text-align: center; font-size: var(--t-label); font-weight: 600; color: var(--ink); background: linear-gradient(transparent, var(--backdrop)); }
+.calendrier-page-verrou img { filter: grayscale(1) brightness(0.5); }
+.calendrier-page-verrou .calendrier-mois { color: var(--muted); }
+.calendrier-page-doree { border-color: var(--or-text); box-shadow: 0 0 0 1px var(--or-text), 0 0 14px rgba(var(--accent-rgb), 0.35); }
+.calendrier-page-grande { width: min(100%, 320px); margin: 0 auto; }
+.calendrier-page-grande .calendrier-mois { font-size: 0.95rem; }
+.calendrier-detail { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.calendrier-detail .serif-note,
+.calendrier-detail p { margin: 0; }
+.calendrier-fini { color: var(--accent-text); margin: 0; }
+/* La page qu'une partie vient d'ouvrir, fêtée comme un légendaire. */
+.page-ouverte { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; border-color: var(--edge-strong); }
+.page-ouverte h2 { margin: 0; font-size: 1.6rem; }
+.page-ouverte p { margin: 0; }
+.page-ouverte .calendrier-page { animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .correction li { display: flex; gap: 10px; align-items: flex-start; }
 .correction-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; margin-top: 1px; background: var(--surface); color: var(--muted); }
@@ -7335,6 +7371,17 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 /* Le record battu, au cœur du résultat ; l'anecdote redonnée sous chaque question corrigée. */
 .campagne-record-battu { margin: 0; font-weight: 600; color: var(--or-text); }
 .campagne-anecdote { color: var(--ink); line-height: 1.4; }
+/* Ce qu'une série a fait tomber, sous son résultat : une ligne par haut fait ou palier. */
+.campagne-recompenses { display: flex; flex-direction: column; gap: 10px; }
+/* Ses records par catégorie, repliés sous le héros : le Tour du monde en vue. */
+.campagne-records > p { margin: 4px 0 8px; }
+.campagne-records-grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.campagne-records-grille li { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--edge); color: var(--muted); font-size: 0.9rem; }
+.campagne-records-grille li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.campagne-records-grille li b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.campagne-records-grille li .icon { width: 16px; height: 16px; flex: none; }
+.campagne-records-grille li.atteint { color: var(--ink); }
+.campagne-records-grille li.atteint .icon, .campagne-records-grille li.atteint b { color: var(--or-text); }
 .campagne .lien-signaler { margin-top: 2px; }
 /* La base, à l'administration : une ligne par catégorie, son compte au bout. */
 .campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
@@ -8277,3 +8324,21 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .identifiant-retenu { font-variant-numeric: tabular-nums; color: var(--accent-text); }
 /* Le choix de l'entrée : trois gros boutons, une phrase, rien d'autre. */
 .entree-choix .join-actions { gap: 12px; }
+
+/* L'entrée en scène du champion du mois, à l'écran commun : un bandeau d'or
+   en haut de la salle, quelques secondes. Centré par marges (le toast l'a
+   appris : une animation qui pose `transform` écrase un `translateX`). */
+.entree-en-scene { position: fixed; z-index: 40; top: 1.25rem; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100% - 2rem); display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1.6rem 0.9rem 1rem; border: 2px solid var(--or-text); border-radius: 999px; background: var(--surface); box-shadow: 0 0 2.5rem color-mix(in srgb, var(--or-text) 45%, transparent); overflow: hidden; animation: entree-arrive 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both, entree-part 0.5s ease-in 5.5s forwards; }
+.entree-rayons { position: absolute; inset: -50%; background: conic-gradient(from 0deg, transparent 0 20%, color-mix(in srgb, var(--or-text) 22%, transparent) 25%, transparent 30% 70%, color-mix(in srgb, var(--or-text) 22%, transparent) 75%, transparent 80%); animation: entree-tourne 6s linear infinite; pointer-events: none; }
+.entree-avatar { position: relative; width: 3.5rem; height: 3.5rem; font-size: 2.2rem; flex: none; }
+.entree-texte { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.entree-texte .label { color: var(--or-text); }
+.entree-texte b { font-size: 1.6rem; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entree-texte > span:last-child { color: var(--muted); font-size: 0.95rem; }
+@keyframes entree-arrive { from { opacity: 0; transform: translateY(-1.5rem) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes entree-part { to { opacity: 0; transform: translateY(-1rem); } }
+@keyframes entree-tourne { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .entree-en-scene { animation: none; }
+  .entree-rayons { animation: none; }
+}

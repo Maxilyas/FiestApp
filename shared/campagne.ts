@@ -187,6 +187,13 @@ export interface SerieDeCampagne {
   question?: QuestionDeCampagne
 }
 
+/**
+ * Le Tour du monde : autant de bonnes réponses dans une série de chaque
+ * catégorie, jouée seule. Ici, pas au serveur : la page de la campagne dit
+ * ce qui manque à chaque catégorie.
+ */
+export const RECORD_DU_TOUR_DU_MONDE = 10
+
 /** La page de la campagne : le record, la série en cours, ce qu'on peut viser. */
 export interface EtatDeCampagne {
   record: number

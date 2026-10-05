@@ -23,6 +23,7 @@ import {
   QUESTIONS_PAR_MARCHE,
   QUESTIONS_PAR_SERIE,
   QUESTIONS_POUR_JOUER,
+  RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
   niveauDeQuestion,
@@ -1345,8 +1346,6 @@ const VERSION_DES_SERIES = 1
 export const FUNAMBULE = 9
 /** La Grande Série : autant de bonnes réponses dans une série de toutes les catégories. */
 export const GRANDE_SERIE = 30
-/** Le Tour du monde : autant de bonnes réponses dans une série de chaque catégorie, jouée seule. */
-export const RECORD_DU_TOUR_DU_MONDE = 10
 /**
  * Sans une égratignure : les expertes doivent venir après les trois marches
  * complètes — quinze questions. Une catégorie jouée seule, qui n'a pas cinq

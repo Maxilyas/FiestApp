@@ -151,16 +151,17 @@ const vecu = {
   prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
 }
 
-test('les trophées : la vitrine sur une ligne, six collections qu’on déplie, une à la fois', async () => {
+test('les trophées : la vitrine sur une ligne, sept collections qu’on déplie, une à la fois', async () => {
   const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu, ...rien })
   assert.match(html, /<section class="vitrine-ligne" aria-label="Ma vitrine">/)
   // Rien à montrer encore : la ligne le dit, sans bouton pour choisir dans le vide.
   assert.match(html, /Elle se remplit à la fin de chaque soirée/)
   assert.doesNotMatch(html, />Changer</)
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
-  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour'])
+  // La campagne a la sienne depuis ses hauts faits de série (le 5 octobre 2026).
+  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour', 'Campagne'])
   // Toutes repliées à l'ouverture : la page tient en un écran.
-  assert.equal(html.match(/aria-expanded="false"/g)?.length, 6)
+  assert.equal(html.match(/aria-expanded="false"/g)?.length, 7)
   assert.doesNotMatch(html, /trophee-contenu/)
   assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
   assert.match(source('components/PanneauxDuProfil.tsx'), /return <TropheesAtlas profil=\{profil\} busy=\{busy\} enregistrer=\{enregistrer\} \/>/)

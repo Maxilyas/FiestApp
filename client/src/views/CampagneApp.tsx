@@ -5,6 +5,7 @@ import { Onglets } from '../components/Onglets'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, sentierDeLAdresse } from './Sentiers'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
+import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
 import { promptDialog } from '../components/Dialog'
@@ -17,6 +18,7 @@ import {
   NIVEAUX,
   NOM_NIVEAU,
   QUESTIONS_POUR_JOUER,
+  RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
   XP_PAR_JUSTE,
@@ -55,6 +57,10 @@ type Ecran =
       niveauAtteint: Niveau | null
       correction: CorrectionDeCampagne[] | null
       xp: number
+      /** Les hauts faits et paliers que la série a fait tomber — le Funambule, L'Alpiniste… */
+      recompenses: NonNullable<ReponseDeCampagne['recompenses']>
+      /** Et les légendaires qu'ils ouvrent, qu'on porte d'ici. */
+      legendaires: string[]
     }
 
 /** Les deux modes de la campagne : la série à trois vies, et les sentiers du savoir. */
@@ -188,6 +194,8 @@ export function CampagneApp() {
         niveauAtteint: r.niveauAtteint ?? null,
         correction: null,
         xp: ecran.xp,
+        recompenses: r.recompenses ?? [],
+        legendaires: r.legendaires ?? [],
       })
     }
     setEcran({ ...ecran, question: r.suivante, reponse: null, choix: null })
@@ -263,6 +271,7 @@ export function CampagneApp() {
         <Sortie />
         {onglets}
         <Heros etat={etat} />
+        {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
         {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
         {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}
         {pret ? (
@@ -375,6 +384,16 @@ export function CampagneApp() {
             </p>
           )}
         </section>
+        {ecran.recompenses.length > 0 && (
+          <section className="card campagne-recompenses">
+            {ecran.recompenses.map(r => (
+              <RecompenseTombee key={r.key} recompense={r} />
+            ))}
+          </section>
+        )}
+        {ecran.legendaires.map(cle => (
+          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+        ))}
         {erreur && <p className="error">{erreur}</p>}
         <a className="btn btn-primary btn-big btn-block" href="/">
           <Icon name="home" />
@@ -553,6 +572,46 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
         </li>
       </ul>
     </section>
+  )
+}
+
+/**
+ * Ses records catégorie par catégorie, d'une série jouée seule : ce que le
+ * Tour du monde demande — dix dans chacune. Replié : la page s'ouvre sur le
+ * défi, pas sur un tableau.
+ */
+function RecordsParCategorie({ records, categories }: { records: { categorie: string; record: number }[]; categories: string[] }) {
+  const parCategorie = new Map(records.map(r => [r.categorie, r.record]))
+  const atteintes = categories.filter(c => (parCategorie.get(c) ?? 0) >= RECORD_DU_TOUR_DU_MONDE).length
+  const fait = atteintes === categories.length
+  return (
+    <details className="reglages-salon campagne-records">
+      <summary>
+        <Icon name="trophy" className="reglages-icone" />
+        <span>
+          <b>Mes records par catégorie</b>
+          <span className="muted small">
+            {fait ? 'le Tour du monde est fait' : `Tour du monde : ${atteintes} sur ${categories.length}`}
+          </span>
+        </span>
+        <Icon name="chevron-down" className="repli-chevron" />
+      </summary>
+      <p className="muted small">
+        {`Une série d’une seule catégorie : choisis-la dans « Catégories ». ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le Tour du monde est à toi.`}
+      </p>
+      <ul className="campagne-records-grille">
+        {categories.map(c => {
+          const record = parCategorie.get(c) ?? 0
+          return (
+            <li key={c} className={record >= RECORD_DU_TOUR_DU_MONDE ? 'atteint' : undefined}>
+              <Icon name={EMBLEME[c] ?? 'star'} />
+              <span>{c}</span>
+              <b aria-label={`record : ${record}`}>{record || '–'}</b>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
   )
 }
 

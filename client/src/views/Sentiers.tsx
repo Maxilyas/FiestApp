@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
+import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { Dessin } from '../components/Avatar'
 import { LUEUR, lueur } from '../components/Atlas'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -1070,6 +1071,22 @@ function FinDEpreuve({
       </span>
     </div>
   )
+  // Les paliers de la campagne qu'elle a fait tomber — Le Marathonien,
+  // L'Érudit —, validée ou non : ils comptent toutes les bonnes réponses.
+  const tombees = (
+    <>
+      {!!r.recompenses?.length && (
+        <section className="card campagne-recompenses">
+          {r.recompenses.map(x => (
+            <RecompenseTombee key={x.key} recompense={x} />
+          ))}
+        </section>
+      )}
+      {(r.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+    </>
+  )
   const correction = fin.correction ? (
     <ol className="campagne-correction">
       {fin.correction.map((c, i) => (
@@ -1121,6 +1138,7 @@ function FinDEpreuve({
           <p className="muted small">Un rejeu ne coûte rien : le palier reste validé.</p>
         )}
         {gains}
+        {tombees}
         {erreur && <p className="error">{erreur}</p>}
         {sansVie && !e.rejeu ? (
           <button type="button" className="btn btn-primary btn-big btn-block" onClick={onVies}>
@@ -1172,6 +1190,7 @@ function FinDEpreuve({
           <p className="muted">{`${RANGS[rang]} avatar ${deLaBranche(b)}.`}</p>
         </section>
         {gains}
+        {tombees}
         {fin.porte ? (
           <p className="muted small centre">C’est lui que la salle verra.</p>
         ) : (
@@ -1214,6 +1233,7 @@ function FinDEpreuve({
         </section>
         <CeQueRapportentLesMaitres maitres={maitres} />
         {gains}
+        {tombees}
         {fin.porte ? (
           <p className="muted small centre">Il est sous ton prénom.</p>
         ) : (
@@ -1238,6 +1258,7 @@ function FinDEpreuve({
       </header>
       <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} />
       {gains}
+      {tombees}
       {erreur && <p className="error">{erreur}</p>}
       {suivant && !e.rejeu && suivant <= PALIER_DU_MAITRE && (
         sansVie ? (

@@ -42,6 +42,7 @@ import { useEcranAllume } from '../veille'
 import { RemiseEnScene } from '../components/RemiseEnScene'
 import { CodeDeLaTele } from '../components/Appairage'
 import { EcranDeBranchement, SalleDeLaTele } from '../components/Tele'
+import { EntreeEnScene } from '../components/EntreeEnScene'
 import { retenirTelecommande, telecommandeParDefaut } from '../telecommande'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -896,6 +897,10 @@ export function HostApp() {
 
         {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
         {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
+
+        {/* Le champion du mois qui arrive, salué à la salle — jamais par-dessus
+            une question, ni sur le téléphone qui tient la télécommande. */}
+        {!quizView && !telecommande && <EntreeEnScene players={snap.players} />}
 
         {/* Le repère principal : la scène et ses colonnes, entre le bandeau
             (banner) et la console (contentinfo). */}

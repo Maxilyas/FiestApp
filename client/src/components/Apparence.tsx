@@ -823,9 +823,11 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
  * comptent, sans se nommer : trente boutons fermés noyaient les siens.
  */
 export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
-  // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier.
-  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
-  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length)
+  // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
+  // puis les titres datés des champions du mois, du plus récent au plus ancien.
+  const dates = profil.titresDates ?? []
+  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
+  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length)
   const porte = profil.titre ?? null
   return (
     <section className="card">

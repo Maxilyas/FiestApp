@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { connexionAnimateur, demarrer, ecranCommun, ecrire, inscrireProfil, instantane, invite, type Banc } from './banc'
 import { ProfileStore, cleDuJour, cleDuMois } from '../src/auth/profiles'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, serieAvecSabliers } from '../../shared/jour'
 
@@ -174,6 +174,15 @@ test('le mois se clôt : son champion reçoit un titre daté et la marque du moi
     assert.equal(moiBob.champion, '2026-11')
     assert.ok(moiBob.fonds.includes('triomphe'))
     assert.ok(!('champion' in (await lire(banc, alice, '/api/joueur/moi')).corps.profile))
+    // À la soirée, l'écran commun le sait champion — il le salue à son entrée
+    // (`EntreeEnScene`) ; Alice entre sans fanfare.
+    const ecran = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
+    const invites = [await invite(banc.url, 'Bob', '🐻', { cookie: bob }), await invite(banc.url, 'Alice', '🦊', { cookie: alice })]
+    const salle = await instantane<any>(ecran, s => s.players?.length === 2, 'Bob et Alice dans la salle')
+    assert.equal(salle.players.find((p: any) => p.name === 'Bob').champion, '2026-11')
+    assert.ok(!('champion' in salle.players.find((p: any) => p.name === 'Alice')))
+    for (const i of invites) i.socket.close()
+    ecran.close()
     // Passé la première semaine, le mois d'avant ne se raconte plus ; passé le mois, la marque tombe.
     horloge.t += 7 * JOUR_MS
     assert.equal((await lire(banc, alice, '/api/jour')).corps.moisDernier, undefined)

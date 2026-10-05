@@ -11,7 +11,7 @@ import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLE
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
-import type { BoutiqueDuProfil } from '../../shared/themes'
+import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import { applySample } from './clock'
 
 /**
@@ -382,6 +382,8 @@ export const api = {
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
+    /** Un sablier pour sa série, en confettis : ceux qui restent, et son solde. */
+    sablier: () => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST' }),
     /** Le rappel du soir (`rappel.ts`) : la clé du serveur, puis l'abonnement de ce téléphone. */
     rappel: {
       cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),

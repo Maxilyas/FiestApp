@@ -4,6 +4,7 @@ import { Ecusson } from './Ecusson'
 import { Medaille } from './Jour'
 import { Case, LUEUR, OR, lueur } from './Atlas'
 import { MaVitrine, UnProche, laVitrine } from './Trophees'
+import { Calendrier } from './Calendrier'
 import { espacesFines, formatNumber } from '../format'
 import { lesPlusProches } from '../../../shared/proches'
 import { prochainSeuil } from '../../../shared/ecussons'
@@ -12,12 +13,12 @@ import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
-// Les trophées, simples : la vitrine sur une ligne, puis six collections en
+// Les trophées, simples : la vitrine sur une ligne, puis sept collections en
 // liste — une ligne chacune, son compte et sa jauge —, qu'on déplie sur
-// place. Une seule ouverte à la fois : six cartes empilées faisaient une
+// place. Une seule ouverte à la fois : sept cartes empilées faisaient une
 // page qu'on ne lisait plus. Chaque case dépliée s'ouvre sur sa règle.
 
-type Collection = 'eclats' | 'ombres' | 'paliers' | 'ecussons' | 'prix' | 'jour'
+type Collection = 'eclats' | 'ombres' | 'paliers' | 'ecussons' | 'prix' | 'jour' | 'campagne'
 
 /** Une teinte par collection : l'icône de sa ligne, son compte, sa jauge. Jamais un texte long. */
 const COULEURS: Record<Collection, string> = {
@@ -27,6 +28,7 @@ const COULEURS: Record<Collection, string> = {
   ecussons: '#7ccf6a',
   prix: '#ff6b8a',
   jour: '#ffd36e',
+  campagne: '#6ec8ff',
 }
 const METAUX = ['Bronze', 'Argent', 'Or'] as const
 
@@ -69,9 +71,13 @@ export function TropheesAtlas({
     setOuvert(null)
   }
 
-  const soiree = profil.hautsFaits.filter(h => h.famille === 'soiree')
+  // Les hauts faits de soirée à part de ceux du quiz du jour et de la
+  // campagne : chacun se gagne dans son monde, et chacun a sa collection.
+  const soiree = profil.hautsFaits.filter(h => h.famille === 'soiree' && !h.origine)
   const eclats = soiree.filter(h => h.ton !== 'ombre')
   const ombres = soiree.filter(h => h.ton === 'ombre')
+  const duJour = profil.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'jour')
+  const deCampagne = profil.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'campagne')
   const paliers = profil.hautsFaits.filter(h => h.famille === 'carriere')
   const prix = profil.prix ?? []
   const ecussons = profil.ecussons ?? []
@@ -212,8 +218,29 @@ export function TropheesAtlas({
               <b>{formatNumber(jour.meilleurScore)}</b>meilleur score
             </span>
           </div>
+          <p className="muted small">Ceux qui se gagnent au quiz du jour — à la fin de la partie, ou la nuit qui le clôt.</p>
+          {grille(duJour, 'Réussi')}
+          {profil.calendrier && (
+            <Calendrier
+              pages={profil.calendrier.pages}
+              dorees={profil.calendrier.dorees}
+              moisEnCours={profil.calendrier.mois}
+              joursCeMois={profil.calendrier.joursCeMois}
+            />
+          )}
         </>
       ),
+    campagne: (
+      <>
+        <p className="muted small">
+          Ceux qui se gagnent dans une série de la campagne, à trois vies.{' '}
+          <a className="link-inline" href="/campagne">
+            Jouer une série
+          </a>
+        </p>
+        {grille(deCampagne, 'Réussi')}
+      </>
+    ),
   }
 
   const victoires = jour?.victoires ?? 0
@@ -223,7 +250,8 @@ export function TropheesAtlas({
     { cle: 'paliers', emoji: '🎖️', nom: 'Paliers', detail: 'Bronze, argent, or, sur toute ta carrière', compte: `${crans}/${paliers.length * 3}`, part: crans / Math.max(1, paliers.length * 3) },
     { cle: 'ecussons', emoji: '🛡️', nom: 'Écussons', detail: 'Les bonnes réponses de chaque catégorie', compte: `${ecussonsEus}/${ecussons.length}`, part: ecussonsEus / Math.max(1, ecussons.length) },
     { cle: 'prix', emoji: '🏅', nom: 'Prix', detail: 'Ceux qu’annonce la fin d’une soirée', compte: `${eus(prix)}/${prix.length}`, part: eus(prix) / Math.max(1, prix.length) },
-    { cle: 'jour', emoji: '☀️', nom: 'Quiz du jour', detail: 'Tes médailles du matin', compte: `${victoires} victoire${victoires > 1 ? 's' : ''}`, part: jour && jour.joues > 0 ? 1 : 0 },
+    { cle: 'jour', emoji: '☀️', nom: 'Quiz du jour', detail: 'Tes médailles, ses hauts faits, le calendrier', compte: `${victoires} victoire${victoires > 1 ? 's' : ''}`, part: eus(duJour) / Math.max(1, duJour.length) },
+    { cle: 'campagne', emoji: '🧗', nom: 'Campagne', detail: 'Ce qu’on réussit dans une série à trois vies', compte: `${eus(deCampagne)}/${deCampagne.length}`, part: eus(deCampagne) / Math.max(1, deCampagne.length) },
   ]
 
   return (
@@ -251,7 +279,7 @@ export function TropheesAtlas({
       </section>
       {changer && <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />}
 
-      {/* Six collections en liste : une ligne chacune, qu'on déplie sur place. */}
+      {/* Sept collections en liste : une ligne chacune, qu'on déplie sur place. */}
       <ul className="trophees-liste">
         {LIGNES.map(l => {
           const ouverte = collection === l.cle
