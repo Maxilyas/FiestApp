@@ -759,6 +759,11 @@ export interface PublicProfile {
    * Pour lui seul — la salle n'en voit rien —, et absent d'un serveur d'avant.
    */
   theme?: string | null
+  /**
+   * La gerbe qui éclate sur son téléphone à une bonne réponse
+   * (`shared/gerbes.ts`), s'il en porte une. Pour lui seul, comme le thème.
+   */
+  gerbe?: string | null
 }
 
 /**
@@ -857,6 +862,8 @@ export interface PublicProfileDetail extends PublicProfile {
   fond?: string | null
   /** Les fonds de carte qu'il a gagnés, dans l'ordre du catalogue. */
   fonds?: string[]
+  /** Les gerbes qu'il peut porter, dans l'ordre du catalogue (`shared/gerbes.ts`). Absentes d'un serveur d'avant. */
+  gerbes?: string[]
   /** Ses confettis et ses thèmes : la boutique de sa page. Absente d'un serveur d'avant. */
   boutique?: BoutiqueDuProfil
   /**

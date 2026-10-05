@@ -39,6 +39,7 @@ import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, so
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { porterTheme } from '../themeJoueur'
+import { porterGerbe } from '../gerbe'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { chefIci, entreeDemandee, oublierEntree } from '../chef'
@@ -248,6 +249,10 @@ function SalleDuJoueur() {
   useEffect(() => {
     if (presente) void porterTheme(profil?.theme)
   }, [presente, profil?.theme])
+  // Sa gerbe, à ses bonnes réponses : celle de son profil, aucune sans profil.
+  useEffect(() => {
+    if (presente) porterGerbe(profil?.gerbe)
+  }, [presente, profil?.gerbe])
 
   // L'expérience créditée en fin de quiz : le serveur renvoie le profil à
   // jour, et le niveau affiché sur ce téléphone monte pendant la fête — pas

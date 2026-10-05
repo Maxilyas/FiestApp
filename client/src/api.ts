@@ -310,6 +310,7 @@ export const api = {
       vitrine?: string[] | null
       fond?: string | null
       theme?: string | null
+      gerbe?: string | null
       eclat?: { cle: string; brille: boolean }
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),

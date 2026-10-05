@@ -7,12 +7,14 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
 import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
 import { promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
+import { porterGerbe } from '../gerbe'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
@@ -156,6 +158,7 @@ export function CampagneApp() {
       if (!vivant) return
       // Le thème de son profil habille sa page, comme le quiz du jour.
       void porterTheme(moi.profile?.theme)
+      porterGerbe(moi.profile?.gerbe)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
       const lu = await etat
       if (vivant) setEcran({ e: 'accueil', etat: lu })
@@ -513,6 +516,7 @@ export function CampagneApp() {
                   <p>
                     Bien joué !{r.xp > 0 ? ` +${r.xp}\u00a0XP` : ''}
                   </p>
+                  <GerbeDeJuste />
                 </>
               ) : (
                 <>

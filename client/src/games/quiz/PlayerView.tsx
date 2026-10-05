@@ -8,6 +8,7 @@ import { TeamBoard } from '../../components/TeamBoard'
 import { finalRanking } from '../../../../shared/teams'
 import { Rank, Score } from '../../components/Rank'
 import { Icon } from '../../components/Icon'
+import { GerbeDeJuste } from '../../components/Gerbe'
 import { Shape } from '../../components/Shape'
 import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
 import { espacesFines, formatNumber, place, pts, rang, secondes } from '../../format'
@@ -630,6 +631,7 @@ function VarianteRevelee({
           <>
             <Gain view={v} />
             <p>{enOrdre ? 'Le bon ordre, bien joué !' : 'Toutes trouvées, bien joué !'}</p>
+            <GerbeDeJuste />
           </>
         ) : (
           <>
@@ -1023,6 +1025,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
             <>
               <Gain view={v} />
               <p>Bien joué !</p>
+              <GerbeDeJuste />
             </>
           ) : (
             <>

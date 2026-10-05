@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
 import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
 import { LUEUR, lueur } from '../components/Atlas'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -973,6 +974,7 @@ function EcranDEpreuve({
                 <>
                   <span className="big">🎊 +1</span>
                   <p>Bien joué !{r.xp > 0 ? ` +${r.xp} XP` : ''}</p>
+                  <GerbeDeJuste />
                 </>
               ) : (
                 <>

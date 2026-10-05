@@ -3,9 +3,10 @@ import { NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
 import { portrait } from '../../../shared/branches'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { fond } from '../../../shared/fonds'
+import { gerbe } from '../../../shared/gerbes'
 import { theme } from '../../../shared/themes'
 import type { ChoixDuProfil } from './choix'
-import { MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
+import { MaGerbe, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
 import { AtlasDesAvatars } from './AtlasDesAvatars'
 import { Identite } from './Identite'
 import { Icon } from './Icon'
@@ -76,7 +77,7 @@ export function PanneauAvatars({ profil, busy, enregistrer }: Props) {
 }
 
 /** Les réglages de « Mon style », chacun son écran (`ProfilApp`, `#style-finition`…). */
-export type Reglage = 'finition' | 'titre' | 'fond' | 'theme'
+export type Reglage = 'finition' | 'titre' | 'fond' | 'gerbe' | 'theme'
 
 /**
  * « Mon style » : sa carte en tête — c'est ce qu'on change —, puis quatre
@@ -90,6 +91,7 @@ export function PanneauStyle({ profil, onReglage }: Props & { onReglage: (r: Reg
     { r: 'finition', icone: <Icon name="sparkles" />, nom: 'Finition', valeur: finition },
     { r: 'titre', icone: <Icon name="award" />, nom: 'Titre', valeur: titre ?? 'Aucun' },
     { r: 'fond', icone: <Icon name="image" />, nom: 'Fond de carte', valeur: fond(profil.fond)?.nom ?? 'Aucun' },
+    { r: 'gerbe', icone: <Icon name="zap" />, nom: 'Gerbe', valeur: gerbe(profil.gerbe)?.nom ?? 'Aucune' },
     { r: 'theme', icone: <Icon name="palette" />, nom: 'Thème', valeur: theme(profil.theme ?? 'velours')?.nom ?? 'Velours' },
   ]
   return (
@@ -122,6 +124,7 @@ export function PanneauReglage({ reglage, profil, busy, enregistrer }: Props & {
       {reglage === 'finition' && <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />}
       {reglage === 'titre' && <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />}
       {reglage === 'fond' && <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />}
+      {reglage === 'gerbe' && <MaGerbe profil={profil} busy={busy} enregistrer={enregistrer} />}
       {reglage === 'theme' && <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />}
     </>
   )

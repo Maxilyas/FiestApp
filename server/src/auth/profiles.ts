@@ -49,6 +49,7 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
+import { gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -141,6 +142,11 @@ export interface ProfileRec {
    * encore.
    */
   theme: string | null
+  /**
+   * La gerbe de ses bonnes réponses (`shared/gerbes.ts`), s'il en a choisi
+   * une. Relue à chaque affichage (`gerbePortee`), comme le fond.
+   */
+  gerbe: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -702,6 +708,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
     // Le thème de son téléphone, qu'il porte parmi ceux qu'il a.
     await ajouterColonne(this.client, 'profiles', 'theme', 'TEXT')
+    // La gerbe de ses bonnes réponses, qu'il choisit parmi celles qu'il a gagnées.
+    await ajouterColonne(this.client, 'profiles', 'gerbe', 'TEXT')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
     await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
@@ -885,6 +893,12 @@ export class ProfileStore {
   fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond | null {
     const choisi = fond(p.fond)
     return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
+  }
+
+  /** La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite encore. */
+  gerbePortee(p: ProfileRec): CleDeGerbe | null {
+    const choisie = gerbe(p.gerbe)
+    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : null
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -1299,6 +1313,7 @@ export class ProfileStore {
       ...(laurier && { laurier }),
       ...(champion && { champion }),
       theme: this.themePorte(p),
+      gerbe: this.gerbePortee(p),
     }
   }
 
@@ -1382,6 +1397,7 @@ export class ProfileStore {
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       fonds: this.fondsOuvertsDe(p, jour, maitres),
+      gerbes: gerbesOuvertes(this.recompensesOf(p.id)),
       calendrier: {
         pages: pagesOuvertes(this.recompensesOf(p.id)),
         dorees: pagesDorees(this.recompensesOf(p.id)),
@@ -1473,6 +1489,7 @@ export class ProfileStore {
       vitrine: null,
       fond: null,
       theme: null,
+      gerbe: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -1526,6 +1543,7 @@ export class ProfileStore {
       vitrine: null,
       fond: null,
       theme: null,
+      gerbe: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -1631,6 +1649,7 @@ export class ProfileStore {
       vitrine?: unknown
       fond?: unknown
       theme?: unknown
+      gerbe?: unknown
       eclat?: unknown
     },
   ): Promise<ProfileRec> {
@@ -1638,7 +1657,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -1722,6 +1741,16 @@ export class ProfileStore {
           throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
         }
         champs.theme = choisi.key
+      }
+    }
+    // Une gerbe : seulement l'une de celles qu'il a gagnées ; aucune s'écrit null.
+    if (patch.gerbe !== undefined) {
+      if (patch.gerbe === null || patch.gerbe === '') champs.gerbe = null
+      else {
+        const choisie = gerbe(patch.gerbe)
+        if (!choisie) throw new Error('Cette gerbe n’existe pas')
+        if (!gerbeOuverte(choisie, this.recompensesOf(id))) throw new Error(`Cette gerbe se gagne avec ${choisie.regle}`)
+        champs.gerbe = choisie.key
       }
     }
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
@@ -2820,6 +2849,7 @@ export class ProfileStore {
       vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
       fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
       theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
+      gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

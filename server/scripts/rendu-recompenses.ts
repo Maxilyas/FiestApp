@@ -149,6 +149,27 @@ try {
   await page.waitForTimeout(1200)
   await photo('9-profil-laurier-argent')
 
+  // 6. La gerbe : son choix dans « Mon style », et l'éclat d'une bonne réponse.
+  await page.goto(`${banc.url}/profil#style-gerbe`)
+  await page.waitForSelector('.gerbes-choix')
+  await photo('11-ma-gerbe', true)
+  await page.click('.gerbes-choix >> text=Les confettis')
+  await page.waitForTimeout(250)
+  await page.screenshot({ path: path.join(sortie, '12-gerbe-apercu.png') })
+  console.log(path.join(sortie, '12-gerbe-apercu.png'))
+  await page.goto(`${banc.url}/campagne`)
+  await page.reload()
+  await page.locator('.btn-primary.btn-big').click()
+  await page.waitForSelector('.ans-btn')
+  {
+    const textes: string[] = await page.$$eval('.ans-btn .ans-text', (els: any[]) => els.map(e => String(e.textContent ?? '')))
+    await page.locator('.ans-btn').nth(textes.findIndex(t => t.startsWith('Bonne'))).click()
+    await page.waitForSelector('.gerbe i')
+    await page.waitForTimeout(550)
+    await page.screenshot({ path: path.join(sortie, '13-gerbe-en-jeu.png') })
+    console.log(path.join(sortie, '13-gerbe-en-jeu.png'))
+  }
+
   // 5. L'entrée en scène du champion du mois, à l'écran commun.
   const animateur = await connexionAnimateur(banc.url)
   const ecranCtx = await navigateur.newContext({ viewport: { width: 1366, height: 768 } })

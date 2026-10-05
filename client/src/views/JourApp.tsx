@@ -22,6 +22,7 @@ import { Medaille, Serie, ontGagneHier } from '../components/Jour'
 import { CollectionOuverte, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
 import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
+import { GerbeDeJuste } from '../components/Gerbe'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
@@ -48,6 +49,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { gesteAccepte } from '../../../shared/console'
 import { porterTheme } from '../themeJoueur'
+import { porterGerbe } from '../gerbe'
 import { nConfettis } from '../../../shared/themes'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
@@ -162,6 +164,11 @@ export function JourApp() {
   useEffect(() => {
     if (themePorte !== undefined) void porterTheme(themePorte)
   }, [themePorte])
+  // Sa gerbe éclate à ses bonnes réponses, comme en soirée.
+  const gerbe = profil === undefined ? undefined : (profil?.gerbe ?? null)
+  useEffect(() => {
+    if (gerbe !== undefined) porterGerbe(gerbe)
+  }, [gerbe])
 
   // Au retour au premier plan, l'heure du téléphone a pu être recalée
   // pendant qu'il dormait : la prochaine mesure fait autorité, quel que soit
@@ -663,6 +670,7 @@ function Revelation({ r }: { r: RevelationDuJour }) {
           <>
             <span className="big">+{pts(r.points)}</span>
             <p>Bien joué !</p>
+            <GerbeDeJuste />
           </>
         ) : (
           <>
