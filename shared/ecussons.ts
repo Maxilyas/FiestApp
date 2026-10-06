@@ -62,6 +62,44 @@ export function additionnerCategories(...sources: Readonly<ParCategorie>[]): Par
 }
 
 /**
+ * Ce qu'un mode de jeu hors des soirées — le quiz du jour, la campagne —
+ * sait de lui : ses questions et ses bonnes réponses par catégorie (ses
+ * écussons, « Ma carrière »), et la base de sa précision : ses QCM
+ * répondus, et justes, toutes ses questions comprises, classées ou non.
+ */
+export interface Savoir {
+  categories: ParCategorie
+  qcm: number
+  justes: number
+}
+
+/** Les savoirs de plusieurs modes, additionnés. */
+export function additionnerSavoirs(...savoirs: readonly Savoir[]): Savoir {
+  return {
+    categories: additionnerCategories(...savoirs.map(s => s.categories)),
+    qcm: savoirs.reduce((n, s) => n + s.qcm, 0),
+    justes: savoirs.reduce((n, s) => n + s.justes, 0),
+  }
+}
+
+/**
+ * Un savoir lu en base, une ligne par catégorie — celle des questions sans
+ * catégorie comprise : elle ne fait aucun écusson, mais ses QCM comptent
+ * pour la précision. `repondues` : ses QCM répondus — une question laissée
+ * sans réponse est posée, pas ratée, comme en soirée.
+ */
+export function savoirDesLignes(lignes: readonly Record<string, unknown>[]): Savoir {
+  const savoir: Savoir = { categories: {}, qcm: 0, justes: 0 }
+  for (const r of lignes) {
+    const justes = Number(r.justes ?? 0)
+    savoir.qcm += Number(r.repondues ?? 0)
+    savoir.justes += justes
+    if (r.categorie != null) savoir.categories[String(r.categorie)] = { questions: Number(r.questions ?? 0), justes }
+  }
+  return savoir
+}
+
+/**
  * Ses bonnes réponses par catégorie, sources additionnées. Les écussons
  * comptent ici, et nulle part ailleurs. Les avatars des branches s'y
  * ouvraient aussi, sur les soirées et le quiz du jour, jusqu'aux sentiers du

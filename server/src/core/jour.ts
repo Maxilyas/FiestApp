@@ -55,6 +55,7 @@ import {
 } from '../../../shared/jour'
 import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
+import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe } from '../../../shared/hautsfaits'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
@@ -1577,27 +1578,27 @@ export class JourStore {
   }
 
   /**
-   * Ses questions et ses bonnes réponses du quiz du jour, catégorie par
-   * catégorie : de quoi faire ses écussons de savoir (`shared/ecussons.ts`),
-   * avec celles des soirées et de la campagne. Une question annulée pour
-   * tous ne compte pas — ni pour lui, ni contre lui.
+   * Ce que le quiz du jour sait de lui (`Savoir`) : ses questions et ses
+   * bonnes réponses, catégorie par catégorie — ses écussons de savoir, avec
+   * les soirées et la campagne —, et la base de sa précision, ses QCM
+   * répondus. Une question annulée pour tous ne compte pas — ni pour lui,
+   * ni contre lui.
    */
-  async categoriesDe(profileId: string): Promise<Record<string, { questions: number; justes: number }>> {
+  async savoirDe(profileId: string): Promise<Savoir> {
+    // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part :
+    // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON du
+    // tirage pour chacune de ses réponses (`CampagneStore.savoirDe`).
     const res = await this.client.execute({
-      sql: `SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie,
-                   COUNT(*) AS questions, SUM(r.juste) AS justes
-            FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
-            WHERE r.profile_id = ?
-              AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+      sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
+            FROM (SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
+                  FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+                  WHERE r.profile_id = ?
+                    AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+                  LIMIT -1)
             GROUP BY categorie`,
       args: [profileId],
     })
-    const categories: Record<string, { questions: number; justes: number }> = {}
-    for (const r of res.rows) {
-      if (r.categorie == null) continue
-      categories[String(r.categorie)] = { questions: Number(r.questions), justes: Number(r.justes ?? 0) }
-    }
-    return categories
+    return savoirDesLignes(res.rows)
   }
 
   /**

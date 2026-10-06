@@ -20,17 +20,17 @@ export async function profilDeCarte(
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
     jour?.resumeDe(profil.id).catch(() => null),
-    // Ses écussons comptent tous les modes de jeu, comme sa page : le quiz du
-    // jour et la campagne s'ajoutent à ses soirées.
-    profiles.categoriesHorsSoirees(profil.id),
+    // Ses écussons et sa précision comptent tous les modes de jeu, comme sa
+    // page : le quiz du jour et la campagne s'ajoutent à ses soirées.
+    profiles.savoirHorsSoirees(profil.id),
     // Ses maîtres ouvrent le Cabinet de curiosités ; muets, ils ne l'ôtent qu'à cette lecture.
     profiles.paliersDe(profil.id).catch(() => ({})),
   ])
-  const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, ailleurs)).map(e => ({
+  const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, ailleurs.categories)).map(e => ({
     categorie: e.categorie,
     palier: e.palier as 1 | 2 | 3,
   }))
-  const fiche = ficheDe(carriere)
+  const fiche = ficheDe(carriere, ailleurs)
   const recompenses = profiles.recompensesOf(profil.id)
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)

@@ -458,12 +458,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.argentDe = id => campagne.vainqueursDuDefi().has(id) && !jour.estMasque(id)
   campagne.profils = profiles
   campagne.masque = id => jour.estMasque(id)
-  // Ses bonnes réponses du quiz du jour et de la campagne, par catégorie :
-  // ses écussons, avec celles des soirées. Celles du quiz du jour ouvraient
+  // Ce que le quiz du jour et la campagne savent de lui : ses écussons et sa
+  // précision, avec les soirées. Les catégories du quiz du jour ouvraient
   // aussi ses portraits : la reprise les relit une fois
   // (`core/repriseDesPortraits.ts`).
-  profiles.categoriesDuJour = id => jour.categoriesDe(id)
-  profiles.categoriesDeCampagne = id => campagne.categoriesDe(id)
+  profiles.savoirDuJour = id => jour.savoirDe(id)
+  profiles.savoirDeCampagne = id => campagne.savoirDe(id)
   // Les sentiers du savoir ouvrent ses portraits et ses titres de maître ;
   // ses vies achetées en confettis sont chez le profil, qui tient le solde.
   profiles.paliersDesSentiers = id => campagne.paliersDe(id)

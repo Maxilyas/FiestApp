@@ -590,9 +590,9 @@ export function carriereDe(
 export interface Fiche {
   soirees: number
   reponses: number
-  /** Part des questions à choix justes, null sans réponse. */
+  /** Part des questions à choix justes, tous modes de jeu ensemble ; null sans réponse. */
   precision: number | null
-  /** La base de la précision : QCM répondus, et justes. */
+  /** La base de la précision : QCM répondus, et justes — en soirée, au quiz du jour, en campagne. */
   qcm: number
   justes: number
   /**
@@ -623,13 +623,21 @@ export interface Fiche {
 export const coupDOeilMoyen = (r: Pick<ReleveSoiree, 'coupDOeil' | 'estimationsComparees'>): number | null =>
   r.estimationsComparees > 0 ? r.coupDOeil / r.estimationsComparees : null
 
-export function ficheDe(c: Carriere): Fiche {
+/**
+ * La fiche de sa carrière. Sa précision compte tous ses QCM répondus : ceux
+ * des soirées, et ceux qu'ajoutent les autres modes de jeu (`ailleurs` — le
+ * quiz du jour, la campagne). Le réflexe et le flair gardent la base des
+ * soirées : un QCM sans chronomètre, ou joué seul, n'en dit rien.
+ */
+export function ficheDe(c: Carriere, ailleurs: { qcm: number; justes: number } = { qcm: 0, justes: 0 }): Fiche {
+  const qcm = c.qcm + ailleurs.qcm
+  const justes = c.justes + ailleurs.justes
   return {
     soirees: c.soirees,
     reponses: c.reponses,
-    precision: c.qcm > 0 ? c.justes / c.qcm : null,
-    qcm: c.qcm,
-    justes: c.justes,
+    precision: qcm > 0 ? justes / qcm : null,
+    qcm,
+    justes,
     coupDOeil: coupDOeilMoyen(c),
     estimationsComparees: c.estimationsComparees,
     reflexeMoyenMs: c.justes > 0 ? Math.round(c.tempsJustesMs / c.justes) : null,
@@ -850,12 +858,12 @@ export interface ProfilDAdministration {
 export interface PublicProfileDetail extends PublicProfile {
   vitrine: BadgePorte[]
   soirees: SoireeJouee[]
-  /** Les chiffres de carrière. */
+  /** Les chiffres de carrière : sa précision compte tous les modes de jeu, le reste les soirées (`ficheDe`). */
   fiche: Fiche
   /**
    * Par catégorie : posées, justes — tous les modes de jeu ensemble, les
    * soirées qui comptent, le quiz du jour et la campagne
-   * (`additionnerCategories`) ; la fiche, elle, reste celle des soirées.
+   * (`additionnerCategories`), comme la précision de la fiche.
    */
   categories: Record<string, { questions: number; justes: number }>
   /** Tous les hauts faits du catalogue, gagnés ou non, avec leur progression. */

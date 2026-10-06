@@ -54,6 +54,11 @@ export function CarriereAtlas({ profil }: { profil: PublicProfileDetail }) {
         <Jauge part={f.coupDOeil ?? 0} valeur={pourcent(f.coupDOeil)} nom="Coup d’œil" detail={pluriel(f.estimationsComparees, 'estimation')} couleur={LILAS} />
         <Jauge part={f.flair ?? 0} valeur={pourcent(f.flair)} nom="Flair" detail="seul contre tous" couleur="#ff9f5a" />
       </div>
+      {/* La précision compte tous ses QCM ; le coup d'œil, le flair et les
+          chiffres d'en dessous ne se mesurent qu'en soirée — sans cette
+          ligne, ses « 312 sur 400 QCM » ne se retrouveraient pas dans ses
+          soirées. */}
+      {f.precision !== null && <p className="muted small">La précision compte tous tes QCM : soirées, quiz du jour et campagne.</p>}
       {f.coupDOeil !== null && <p className="muted small">Le coup d’œil : la part de la salle que tes estimations battent ou égalent, en moyenne.</p>}
       <div className="hud-chiffres">
         <span>
@@ -126,9 +131,7 @@ export function CarriereAtlas({ profil }: { profil: PublicProfileDetail }) {
                   </li>
                 ))}
               </ul>
-              {/* Tous les modes de jeu, comme ses écussons. La précision du
-                  haut, elle, reste celle des soirées : sans cette ligne, ses
-                  « 16 sur 20 QCM » sembleraient démentir les barres. */}
+              {/* Tous les modes de jeu, comme ses écussons et sa précision. */}
               <p className="muted small">Tes soirées, le quiz du jour et la campagne ensemble, comme tes écussons.</p>
             </>
           )}

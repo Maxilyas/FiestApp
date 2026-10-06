@@ -77,7 +77,7 @@ import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
-import { additionnerCategories, justesParCategorie, type ParCategorie } from '../../../shared/ecussons'
+import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
@@ -525,22 +525,23 @@ export class ProfileStore {
   }
 
   /**
-   * Ses questions et ses bonnes réponses du quiz du jour, par catégorie
-   * (`JourStore.categoriesDe`), branchées au démarrage comme `statsDuJour` :
-   * ses écussons et « Ma carrière », avec les soirées et la campagne
-   * (`categoriesHorsSoirees`). Elles ouvraient aussi les portraits des
-   * branches avec celles des soirées, jusqu'aux sentiers — la reprise les
-   * relit une fois (`core/repriseDesPortraits.ts`).
+   * Ce que le quiz du jour sait de lui (`JourStore.savoirDe`) — ses bonnes
+   * réponses par catégorie, la base de sa précision —, branché au démarrage
+   * comme `statsDuJour` : ses écussons, « Ma carrière » et sa précision, avec
+   * les soirées et la campagne (`savoirHorsSoirees`). Ses catégories
+   * ouvraient aussi les portraits des branches avec celles des soirées,
+   * jusqu'aux sentiers — la reprise les relit une fois
+   * (`core/repriseDesPortraits.ts`).
    */
-  categoriesDuJour?: (profileId: string) => Promise<ParCategorie>
+  savoirDuJour?: (profileId: string) => Promise<Savoir>
 
   /**
-   * Ses questions et ses bonnes réponses en campagne, par catégorie — séries,
-   * épreuves des sentiers, défis (`CampagneStore.categoriesDe`) : ses
-   * écussons et « Ma carrière », avec les soirées et le quiz du jour.
-   * Branchées au démarrage comme `justesDeCampagne`.
+   * Ce que la campagne sait de lui — séries, épreuves des sentiers, défis
+   * (`CampagneStore.savoirDe`) : ses écussons, « Ma carrière » et sa
+   * précision, avec les soirées et le quiz du jour. Branché au démarrage
+   * comme `justesDeCampagne`.
    */
-  categoriesDeCampagne?: (profileId: string) => Promise<ParCategorie>
+  savoirDeCampagne?: (profileId: string) => Promise<Savoir>
 
   /**
    * Les paliers validés de chacun de ses sentiers (`CampagneStore.paliersDe`),
@@ -1250,32 +1251,33 @@ export class ProfileStore {
    * catégorie, soirées qui comptent et quiz du jour ensemble — ce qui
    * ouvrait ses portraits. La reprise le relit une fois
    * (`core/repriseDesPortraits.ts`) ; ses écussons, eux, comptent aussi la
-   * campagne (`categoriesHorsSoirees`).
+   * campagne (`savoirHorsSoirees`).
    */
   async savoirDe(profileId: string): Promise<Record<string, number>> {
-    const [soirees, jour] = await Promise.all([this.historiqueOf(profileId), this.categoriesDuJour?.(profileId) ?? {}])
+    const [soirees, jour] = await Promise.all([this.historiqueOf(profileId), this.savoirDuJour?.(profileId).then(s => s.categories) ?? {}])
     return justesParCategorie(carriereDe(soirees, { eclats: 0, niveau: 1 }).categories, jour)
   }
 
   /**
-   * Ses questions et ses bonnes réponses par catégorie hors des soirées — le
-   * quiz du jour, la campagne (séries, épreuves des sentiers, défis) —, lues
-   * ensemble. Elles s'ajoutent à celles de sa carrière (`Carriere.categories`)
-   * pour « Ma carrière » et ses écussons, sur sa page comme sur sa carte
-   * (`additionnerCategories`) : un seul chemin, pour que la salle ne voie pas
-   * d'autres écussons que lui. Une base qui se tait ôte la part de son mode,
-   * pas la page ni la carte.
+   * Ce qu'il sait hors des soirées — le quiz du jour, la campagne (séries,
+   * épreuves des sentiers, défis) —, lu d'un coup : ses bonnes réponses par
+   * catégorie et la base de sa précision. Elles s'ajoutent à celles de sa
+   * carrière pour ses écussons, « Ma carrière » et sa précision
+   * (`additionnerCategories`, `ficheDe`), sur sa page comme sur sa carte : un
+   * seul chemin, pour que la salle ne lise pas d'autres chiffres que lui.
+   * Une base qui se tait ôte la part de son mode, pas la page ni la carte.
    */
-  async categoriesHorsSoirees(profileId: string): Promise<ParCategorie> {
-    const muette = (mode: string) => (e: unknown): ParCategorie => {
-      console.error(`[profil] ${mode} illisible pour ses écussons :`, e)
-      return {}
+  async savoirHorsSoirees(profileId: string): Promise<Savoir> {
+    const rien = (): Savoir => ({ categories: {}, qcm: 0, justes: 0 })
+    const muette = (mode: string) => (e: unknown): Savoir => {
+      console.error(`[profil] ${mode} illisible pour ses écussons et sa précision :`, e)
+      return rien()
     }
     const [jour, campagne] = await Promise.all([
-      this.categoriesDuJour?.(profileId).catch(muette('quiz du jour')) ?? {},
-      this.categoriesDeCampagne?.(profileId).catch(muette('campagne')) ?? {},
+      this.savoirDuJour?.(profileId).catch(muette('quiz du jour')) ?? rien(),
+      this.savoirDeCampagne?.(profileId).catch(muette('campagne')) ?? rien(),
     ])
-    return additionnerCategories(jour, campagne)
+    return additionnerSavoirs(jour, campagne)
   }
 
   /** Les paliers validés de ses sentiers : ce qui ouvre ses portraits et ses titres de maître. Aucun tant que la campagne n'est pas branchée. */
@@ -1419,7 +1421,7 @@ export class ProfileStore {
         return AUCUNE_CAMPAGNE
       }),
       (this.joursDuMois?.(p.id) ?? Promise.resolve(0)).catch(() => 0),
-      this.categoriesHorsSoirees(p.id),
+      this.savoirHorsSoirees(p.id),
     ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
@@ -1445,10 +1447,9 @@ export class ProfileStore {
           at: s.at,
         }
       }),
-      fiche: ficheDe(carriere),
-      // Ce qu'il sait, par catégorie : tous les modes de jeu, quand la fiche
-      // reste celle des soirées.
-      categories: additionnerCategories(carriere.categories, ailleurs),
+      // Sa précision et ce qu'il sait, par catégorie : tous les modes de jeu.
+      fiche: ficheDe(carriere, ailleurs),
+      categories: additionnerCategories(carriere.categories, ailleurs.categories),
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       fonds: this.fondsOuvertsDe(p, jour, maitres),

@@ -623,12 +623,13 @@ gravi jusqu'à son douzième palier, cent vingt au moins — l'argent, et l'or
 plus hauts (`plusBeauxEcussons`) ; la page du profil, les douze, avec ce
 qui manque au suivant — ce qu'on n'a pas, en pointillé. Une dérivation
 pure de la carrière (`categories`), des réponses du quiz du jour
-(`JourStore.categoriesDe`, les questions annulées écartées) et de celles de
-la campagne (`CampagneStore.categoriesDe`, la catégorie que chaque série a
+(`JourStore.savoirDe`, les questions annulées écartées) et de celles de
+la campagne (`CampagneStore.savoirDe`, la catégorie que chaque série a
 gardée de sa question), additionnées une fois (`additionnerCategories`) —
-« Ma carrière », par catégorie, montre la même addition : rien ne s'écrit,
-ils ne rapportent aucune expérience, et une soirée retirée de l'historique
-emporte les bonnes réponses qu'elle avait comptées.
+« Ma carrière », par catégorie, montre la même addition, et la précision
+de la fiche aussi (§ 5.7) : rien ne s'écrit, ils ne rapportent aucune
+expérience, et une soirée retirée de l'historique emporte les bonnes
+réponses qu'elle avait comptées.
 
 La campagne n'y comptait pas jusqu'au 6 octobre 2026 : qui gravissait le
 sentier de la forêt jusqu'à son maître n'avait pas l'écusson de la Nature,
@@ -661,6 +662,16 @@ flair, dernière seconde, revirements, quiz joués, gagnés, podiums, rang,
 taille de la salle, et la réussite par catégorie. La carrière les additionne ;
 `/profil` en tire la fiche (précision et coup d'œil, chacun avec sa base,
 réflexe moyen, record, flair…) et les courbes, soirée après soirée.
+
+**La précision compte tous les modes de jeu** (le 6 octobre 2026) : les QCM
+répondus en soirée, au quiz du jour et en campagne — séries, sentiers, défi
+—, sur « Ma carrière », sa tuile et la carte d'un joueur (`ficheDe(carriere,
+ailleurs)`, `Savoir`). Au quiz du jour comme en soirée, une question laissée
+sans réponse est posée, pas ratée, et une question annulée pour tous ne
+compte ni pour ni contre. Le reste de la fiche ne se mesure qu'en soirée :
+le réflexe et le flair gardent leur base, que ni un QCM sans chronomètre ni
+une partie jouée seul ne disent ; le coup d'œil aussi, contre la salle. Les
+courbes et les records de précision restent ceux de chaque soirée.
 
 ### 5.8 Le surnom de soirée
 
