@@ -171,7 +171,8 @@ test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas, puis
   // Ce qui s'achète à la boutique, ce qui se gagne dans la collection : pas sur l'écran où l'on choisit.
   assert.match(html, /<a class="link-inline lien-boutique" href="\/boutique"><svg[^>]*>.*?<\/svg>\d+ autres à la boutique<\/a>/)
   assert.match(html, /<a class="link-inline lien-boutique" href="#collection-themes"><svg[^>]*>.*?<\/svg>5 qui ne se vendent pas : où les gagner<\/a>/)
-  assert.doesNotMatch(html, /class="theme-a-gagner/)
+  // Seulement ceux qu'il a, dans leurs cartes : les autres se montrent dans la collection.
+  assert.equal(html.match(/<button type="button" class="theme-vitrine/g)?.length, complet.boutique.possedes.length)
 })
 
 // ── Les trophées, la carrière, les soirées ─────────────────────────────

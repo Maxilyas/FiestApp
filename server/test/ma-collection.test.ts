@@ -6,21 +6,27 @@
 // n'y règle rien. Son compte est celui de la tuile du profil : une seule
 // règle (`shared/collection.ts`), qui compte aussi les lignes des trophées.
 //
-// Et les thèmes qui ne se vendent pas : la boutique les disait en une ligne
-// de texte chacun, et son lien menait les cinq aux sentiers quand quatre se
-// gagnent au quiz du jour ou dans la série (la remarque du 5 octobre 2026).
+// Et les thèmes : la collection les disait en deux lignes de texte, ceux
+// qu'on a compris, quand tout le reste s'y montre (la remarque du 6 octobre
+// 2026) — ils y sont en album, une vignette chacun, rangés par rareté. Ceux
+// qui ne se vendent pas quittent la boutique : ils s'y montrent, avec le lieu
+// qui les donne — le lien d'avant menait les cinq aux sentiers quand quatre
+// se gagnent au quiz du jour ou dans la série (la remarque du 5 octobre 2026).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { compteDeLaCollection, comptesDesTrophees } from '../../shared/collection'
-import { THEMES } from '../../shared/themes'
+import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES } from '../../shared/themes'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
 Object.assign(globalThis, { React, window: { location: lieu }, location: lieu })
 
 const source = (fichier: string) => readFileSync(new URL(`../../${fichier}`, import.meta.url), 'utf8')
+
+/** Les cartes d'une vitrine de thèmes, par ce que chacune dit d'elle à l'oreille. */
+const casesDe = (html: string) => [...html.matchAll(/<button\b[^>]*class="theme-vitrine[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
 
 async function rendu(fichier: string, composant: string, props: object): Promise<string> {
   const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
@@ -153,17 +159,63 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
 })
 
-test('une ligne de la collection a son adresse : « Mon thème » y mène, ouverte sur ceux qui se gagnent', async () => {
+test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l’album des thèmes', async () => {
   lieu.hash = '#collection-themes'
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
   assert.match(html, /<li id="collection-themes" class="trophee trophee-ouvert"/)
-  // Ce qu'elle a, ce que vend la boutique, et les cinq qui se gagnent — le Sommet, à elle, le dit.
-  assert.match(html, /<b>À toi · 3<\/b> — Velours, Ivoire, Le Sommet\./)
-  assert.match(html, /<a class="link-inline" href="#theme">Les porter<\/a>/)
-  assert.match(html, /<b>À la boutique · \d+<\/b> — de 🎊 150 à 🎊 [\d  ]+/)
-  const cartes = [...html.matchAll(/<li class="theme-a-gagner( theme-gagne)?"[^>]*>.*?<b>([^<]+)<\/b><span class="small">([^<]+)<\/span>/g)].map(m => `${m[2]} : ${m[3]}`)
-  assert.equal(cartes.length, THEMES.filter(t => t.gagne).length)
-  assert.ok(cartes.includes('Le Sommet : À toi : il se porte dans « Mon thème ».'), cartes.join('\n'))
+  // Un album : une page par rareté, sa gemme et son compte en titre, chaque
+  // thème en vignette à sa place du catalogue — en couleur ceux qu'elle a, en
+  // gris les autres. Deux lignes de texte disaient ce qu'elle avait sans le
+  // montrer, puis les cartes de la boutique prenaient quatre écrans.
+  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner|class="theme-vitrine/)
+  const pages = [
+    ...html.matchAll(
+      /<h4 class="album-rarete" style="([^"]+)"><i aria-hidden="true"><\/i>([^<]+) <span class="famille-compte">(\d+)\/(\d+)<\/span><\/h4><div class="album-themes" role="group" aria-label="([^"]+)">(.*?)<\/div>/g,
+    ),
+  ].map(m => ({
+    style: m[1],
+    nom: m[2],
+    compte: `${m[3]}/${m[4]}`,
+    groupe: m[5],
+    vignettes: [...m[6].matchAll(/<button type="button" class="vignette-theme([^"]*)" style="([^"]+)"[^>]*aria-label="([^"]+)"/g)].map(v => ({ classes: v[1], style: v[2], nom: v[3] })),
+  }))
+  assert.deepEqual(
+    pages.map(p => `${p.nom} ${p.compte}`),
+    ['Offert 2/2', 'Commune 0/5', 'Peu commune 0/7', 'Rare 0/8', 'Épique 0/5', 'Légendaire 1/8'],
+  )
+  const possedes = new Set(LEA.boutique.possedes)
+  for (const [i, r] of RARETES_DE_THEME.entries()) {
+    const page = pages[i]
+    const themes = THEMES.filter(t => t.rarete === r)
+    assert.equal(page.groupe, `${NOM_DE_RARETE[r]} : ${themes.filter(t => possedes.has(t.key)).length} sur ${themes.length}`)
+    // Chacun à sa place du catalogue, bordé de la gemme de sa page.
+    assert.deepEqual(
+      page.vignettes.map(v => v.nom.split(',')[0]),
+      themes.map(t => t.nom),
+      r,
+    )
+    for (const v of page.vignettes) assert.equal(v.style, page.style, v.nom)
+    // En gris ce qui lui manque, en couleur le reste ; le Sommet, porté, cerclé.
+    assert.deepEqual(
+      page.vignettes.map(v => v.classes.includes('vignette-manque')),
+      themes.map(t => !possedes.has(t.key)),
+      r,
+    )
+  }
+  const portees = pages.flatMap(p => p.vignettes).filter(v => v.classes.includes('vignette-portee'))
+  assert.deepEqual(portees.map(v => v.nom), ['Le Sommet, porté'])
+  // Ceux qui se gagnent n'ont pas de prix : leur fiche dit comment, et où.
+  assert.ok(pages[5].vignettes.some(v => v.nom === 'Babel, Légendaire, se gagne'))
+  // La vignette est l'aperçu seul — dans Vite, celui de la boutique (`apercuDe`) — et le gris vient de la feuille.
+  const page = source('client/src/components/Collection.tsx')
+  assert.match(page, /const apercu = apercuDe\(t\.key\)/)
+  assert.match(page, /<VignetteDeTheme t=\{t\} etat=\{etat\(t\)\} solde=\{solde\} ouvert=\{ouvert === t\.key\} onToucher=\{\(\) => setOuvert\(o => \(o === t\.key \? null : t\.key\)\)\} \/>/)
+  assert.match(source('client/src/styles.css'), /\.vignette-manque img \{ filter: grayscale\(1\); opacity: 0\.4; \}/)
+  // Un toucher ouvre sa fiche, qui ne fait que montrer : ni `onPorter` ni `onAcheter`.
+  assert.doesNotMatch(html, /id="detail-theme"/, 'aucune fiche avant le premier toucher')
+  assert.match(page, /<DetailTheme theme=\{t\} etat=\{etat\(t\)\} solde=\{solde\} \/>/)
+  // Ouverte, elle défile jusqu'à se montrer entière : au-dessus de la barre du menu, sous laquelle passait son lien.
+  assert.match(source('client/src/styles.css'), /html:has\(> body\.avec-menu\) \{ scroll-padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom\)\); \}/)
   // Chaque autre ligne dit où se porte ce qu'on a.
   for (const [partie, ecran] of [
     ['savoir', 'avatar'],
@@ -198,23 +250,44 @@ test('une fiche de la collection ne porte rien : sans `onPorter`, ni bouton ni �
   assert.match(portrait, /Gagné au palier 4/)
   // Avec, comme dans « Mon avatar » : on porte d'ici.
   assert.match(await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', paliers: { foret: 5 }, eclat: false, onPorter: () => {} }), />Le porter</)
+  // Un thème non plus : un lien mène à l'écran qui le porte, ou qui le vend.
+  const theme = (cle: string, etat: string) => rendu('components/Boutique', 'DetailTheme', { theme: THEMES.find(t => t.key === cle), etat, solde: 350 })
+  const aToi = await theme('velours', 'a-toi')
+  assert.doesNotMatch(aToi, /<button/)
+  assert.match(aToi, /À toi : il se porte dans <a class="link-inline" href="#theme">« Mon thème »<\/a>\./)
+  const enVente = await theme('ocean', 'a-vendre')
+  assert.doesNotMatch(enVente, /<button/)
+  assert.match(enVente, /Il coûte 250 confettis : il t’en restera 100\.<\/p><a class="link-inline" href="\/boutique">La boutique<\/a>/)
 })
 
-test('la boutique montre les thèmes qui se gagnent dans leurs cartes, chacun avec le lieu qui le donne', async () => {
+test('la boutique ne montre que ce qui se vend : ceux qui se gagnent ont leur lieu dans leur fiche, dans « Ma collection »', async () => {
   const html = await rendu('components/Boutique', 'RayonDesThemes', { profil: LEA, busy: false, acheter: async () => null })
-  // La ligne de texte d'avant, et son lien unique vers les sentiers, ne sont plus.
-  assert.doesNotMatch(html, /ne se vend pas : il se gagne avec/)
-  const cartes = [...html.matchAll(/<li class="theme-a-gagner"[^>]*>.*?<b>([^<]+)<\/b>.*?<a class="link-inline small" href="([^"]+)">([^<]+)<\/a>/g)].map(m => `${m[1]} → ${m[3]} (${m[2]})`)
-  // Le Sommet est à elle : la boutique ne montre que ceux qui manquent.
-  assert.deepEqual(cartes, [
+  // Ni carte ni ligne : un thème qui ne s'achète pas n'a rien à faire dans
+  // une boutique, et la collection les montre (la remarque du 6 octobre 2026).
+  assert.doesNotMatch(html, /se gagne|ne se vendent pas|theme-a-gagner/)
+  const vendus = casesDe(html)
+  assert.ok(vendus.length > 0)
+  for (const t of THEMES.filter(t => t.gagne)) assert.ok(!vendus.some(nom => nom.startsWith(`${t.nom},`)), t.key)
+  // Ce qu'elle a se porte dans « Mon thème ».
+  assert.match(html, /déjà à toi : <a class="link-inline" href="\/profil#theme">les porter<\/a>/)
+  // La fiche de chacun : ce qu'il faut, sans prix, et le lieu qui le donne.
+  const lieux: string[] = []
+  for (const t of THEMES.filter(t => t.gagne)) {
+    const fiche = await rendu('components/Boutique', 'DetailTheme', { theme: t, etat: 'a-gagner', solde: 350 })
+    assert.match(fiche, new RegExp(`<span class="detail-famille muted">${NOM_DE_RARETE[t.rarete]} · il se gagne</span>`), t.key)
+    // Les espaces fines de `espacesFines`, devant les deux-points.
+    assert.match(fiche, /Il ne se vend pas\s:\sil se gagne avec\s/, t.key)
+    assert.doesNotMatch(fiche, /🎊|<button/, t.key)
+    const lien = /<a class="link-inline" href="([^"]+)">([^<]+)<\/a>/.exec(fiche)!
+    lieux.push(`${t.nom} → ${lien[2]} (${lien[1]})`)
+  }
+  assert.deepEqual(lieux, [
     'Babel → Les sentiers (/campagne#sentiers)',
     'L’Horloge astronomique → Le quiz du jour (/jour)',
     'Le Ciel du jour → Le quiz du jour (/jour)',
     'Les Très Riches Heures → Le quiz du jour (/jour)',
+    'Le Sommet → La série (/campagne)',
   ])
-  assert.match(html, /<h3 class="themes-a-gagner-titre">Ils ne se vendent pas : ils se gagnent<\/h3>/)
-  // Ce qu'elle a se porte dans « Mon thème ».
-  assert.match(html, /déjà à toi : <a class="link-inline" href="\/profil#theme">les porter<\/a>/)
   // Chaque thème qui se gagne dit où : un thème de plus devra le dire aussi.
   for (const t of THEMES.filter(t => t.gagne)) assert.match(t.gagne!.ou.lien, /^\/(campagne|jour)/, t.key)
 })

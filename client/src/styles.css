@@ -7307,6 +7307,10 @@ body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe
 }
 /* La page ne passe jamais sous la barre. */
 body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+/* Ce que la page fait défiler jusqu'à soi — la fiche ouverte d'un thème,
+   d'un avatar — s'arrête au-dessus de la barre : le lien ou le bouton au bas
+   de la fiche passait dessous. */
+html:has(> body.avec-menu) { scroll-padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 body.avec-menu .player-shell { padding-bottom: 24px; }
 body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
@@ -8201,19 +8205,20 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-fiche { grid-column: 1 / -1; }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
-/* Ceux qui ne se vendent pas : chacun sa carte, le haut de son aperçu, ce
-   qu'il faut et le lieu qui le donne. Ni prix ni bouton : ils se gagnent. */
-.themes-a-gagner { display: flex; flex-direction: column; gap: 8px; }
-.themes-a-gagner-titre { margin: 4px 0 0; font-size: 1.15rem; }
-.themes-a-gagner ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.theme-a-gagner { display: flex; flex-direction: column; border: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-.theme-a-gagner-image { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--bg); }
-.theme-a-gagner-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.theme-a-gagner-texte { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 10px 10px; }
-.theme-a-gagner-texte b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
-.theme-a-gagner-texte > span.small { color: var(--muted); line-height: 1.35; }
-.theme-gagne { box-shadow: 0 0 0 1px var(--gemme); }
-.theme-gagne .theme-a-gagner-texte > span.small { color: var(--accent-text); }
+/* « Ma collection » : les thèmes en album — une page par rareté, chaque
+   thème en vignette, à sa place du catalogue : en couleur ceux qu'on a, en
+   gris ceux qui restent, bordés de leur gemme. Huit par rangée au téléphone,
+   et une rareté en compte huit au plus : une rangée chacune. Les cartes de la
+   boutique, trois par rangée, faisaient une page de quatre écrans. */
+.album-rarete { display: flex; align-items: center; gap: 7px; margin: 10px 0 5px; font-size: 0.85rem; font-weight: 600; }
+.album-rarete i { flex: none; width: 9px; height: 9px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); }
+.album-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 4px; grid-auto-flow: dense; }
+.vignette-theme { display: block; aspect-ratio: 4 / 5; padding: 0; border: 1px solid var(--gemme); border-radius: var(--radius-xs); background: var(--bg); overflow: hidden; cursor: pointer; }
+.vignette-theme img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.vignette-manque { border-color: color-mix(in srgb, var(--gemme) 35%, transparent); }
+.vignette-manque img { filter: grayscale(1); opacity: 0.4; }
+.vignette-portee { box-shadow: 0 0 0 2px var(--accent); }
+.vignette-theme:hover, .vignette-theme.ouverte { box-shadow: 0 0 0 2px var(--gemme); }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

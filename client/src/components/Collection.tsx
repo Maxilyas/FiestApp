@@ -1,17 +1,18 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { AtlasDesAvatars } from './AtlasDesAvatars'
 import { COLLECTION_HAUTE } from './Apparence'
 import { JaugeFine, LigneDeCollection, TropheesAtlas } from './TropheesAtlas'
-import { ThemesAGagner } from './Boutique'
+import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { CIEL, LILAS, OR } from './Atlas'
 import { espacesFines, formatNumber } from '../format'
+import { apercuDe } from '../apercus'
 import { compteDeLaCollection, type FamilleDeLaCollection, type LigneDuCompte, type PartieDeLaCollection } from '../../../shared/collection'
 import { COLLECTION } from '../../../shared/avatars'
 import { FONDS } from '../../../shared/fonds'
 import { GERBES } from '../../../shared/gerbes'
-import { THEMES, enBoutique, prixDe } from '../../../shared/themes'
+import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES, type Theme } from '../../../shared/themes'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // « Ma collection » : tout ce qui se gagne, d'un coup d'œil — ce qu'on a, ce
@@ -37,7 +38,7 @@ const LIGNES: Partial<Record<PartieDeLaCollection, { emoji: string; nom: string;
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', style: 'Style', trophees: 'Trophées' }
 
-/** L'adresse d'une ligne : `#collection-themes`. « Mon thème » y mène, ouverte sur ceux qui se gagnent. */
+/** L'adresse d'une ligne : `#collection-themes`. « Mon thème » y mène, ouverte sur ses thèmes — ceux qui se gagnent compris. */
 const ADRESSE = 'collection'
 
 function partieDeLAdresse(): PartieDeLaCollection | null {
@@ -109,33 +110,77 @@ function EmojisDeCollection({ profil }: { profil: PublicProfileDetail }) {
   )
 }
 
-/** Les thèmes : ceux qu'on a, ce que la boutique vend, et ceux qui se gagnent — dans leurs cartes, avec le lieu. */
+/**
+ * Une vignette de l'album : l'aperçu seul, en couleur s'il est à lui, en gris
+ * sinon, bordé de sa rareté. Son nom et ce qu'il est pour lui se disent à
+ * l'oreille, et dans sa fiche. Un bouton qui déplie, comme les cartes de la
+ * boutique : rien ne s'y porte.
+ */
+function VignetteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+  const apercu = apercuDe(t.key)
+  const aLui = etat === 'porte' || etat === 'a-toi'
+  return (
+    <button
+      type="button"
+      className={'vignette-theme' + (aLui ? '' : ' vignette-manque') + (etat === 'porte' ? ' vignette-portee' : '') + (ouvert ? ' ouverte' : '')}
+      style={gemme(t.rarete)}
+      aria-expanded={ouvert}
+      aria-controls={ouvert ? 'detail-theme' : undefined}
+      aria-label={nomDeLaCase(t, etat, solde)}
+      onClick={onToucher}
+    >
+      {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
+    </button>
+  )
+}
+
+/**
+ * Les thèmes, en album : une page par rareté, sa gemme et son compte en
+ * titre, chaque thème à sa place du catalogue — en couleur ceux qu'on a, en
+ * gris ceux qui restent. Les cartes de la boutique, trois par rangée,
+ * prenaient quatre écrans pour trente-cinq thèmes (la remarque du 6 octobre
+ * 2026). Toucher une vignette ouvre sa fiche sous sa rangée : ce qu'il
+ * habille, et comment l'avoir — rien ne s'y achète ni ne s'y porte, un lien
+ * mène à l'écran qui le fait (la boutique, « Mon thème », le lieu qui le
+ * donne).
+ */
 function ThemesDeLaCollection({ profil }: { profil: PublicProfileDetail }) {
+  const [ouvert, setOuvert] = useState<string | null>(null)
+  const porte = profil.theme ?? 'velours'
+  const detail = useFiche(ouvert, porte)
   const boutique = profil.boutique
   if (!boutique) return null
+  const { solde } = boutique.confettis
   const possedes = new Set(boutique.possedes)
-  const siens = THEMES.filter(t => possedes.has(t.key))
-  const enVente = THEMES.filter(t => !possedes.has(t.key) && enBoutique(t, boutique.jour))
-  // Hors de leur saison, ils ne sont pas en boutique : ils reviendront.
-  const ailleurs = THEMES.filter(t => !possedes.has(t.key) && !t.gagne && !enBoutique(t, boutique.jour)).length
-  const prix = enVente.map(prixDe)
+  const etat = (t: Theme) => etatDuTheme(t, porte, possedes, solde, boutique.jour)
   return (
     <>
-      <p className="small">
-        <b>{`À toi · ${siens.length}`}</b> — {siens.map(t => t.nom).join(', ')}.{' '}
-        <a className="link-inline" href="#theme">
-          Les porter
-        </a>
-      </p>
-      <p className="small">
-        <b>{`À la boutique · ${enVente.length}`}</b>
-        {prix.length > 0 && ` — de 🎊 ${formatNumber(Math.min(...prix))} à 🎊 ${formatNumber(Math.max(...prix))}`}
-        {ailleurs > 0 && `, et ${ailleurs} de saison qui reviendr${ailleurs > 1 ? 'ont' : 'a'}`}.{' '}
-        <a className="link-inline" href="/boutique">
-          La boutique
-        </a>
-      </p>
-      <ThemesAGagner possedes={possedes} tous titre="Ceux qui ne se vendent pas" />
+      <p className="muted small">En couleur, ceux qui sont à toi. Touche un thème : ce qu’il habille, et comment l’avoir.</p>
+      {RARETES_DE_THEME.map(r => {
+        const themes = THEMES.filter(t => t.rarete === r)
+        if (themes.length === 0) return null
+        const aLui = themes.filter(t => ['porte', 'a-toi'].includes(etat(t))).length
+        return (
+          <Fragment key={r}>
+            <h4 className="album-rarete" style={gemme(r)}>
+              <i aria-hidden="true" />
+              {NOM_DE_RARETE[r]} <span className="famille-compte">{`${aLui}/${themes.length}`}</span>
+            </h4>
+            <div className="album-themes" role="group" aria-label={`${NOM_DE_RARETE[r]} : ${aLui} sur ${themes.length}`}>
+              {themes.map(t => (
+                <Fragment key={t.key}>
+                  <VignetteDeTheme t={t} etat={etat(t)} solde={solde} ouvert={ouvert === t.key} onToucher={() => setOuvert(o => (o === t.key ? null : t.key))} />
+                  {ouvert === t.key && (
+                    <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
+                      <DetailTheme theme={t} etat={etat(t)} solde={solde} />
+                    </div>
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          </Fragment>
+        )
+      })}
     </>
   )
 }
