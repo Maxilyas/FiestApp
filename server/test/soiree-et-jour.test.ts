@@ -110,9 +110,11 @@ test('la partie dit sa montée de niveau, et la série sait si aujourd’hui com
       etat = (await poster(banc, alice, '/api/jour/suivante')).corps
     }
     assert.equal(etat.etat, 'finie')
-    // Dix sur dix : 75 XP, le niveau 2 — et le paon qu'il ouvre.
+    // Dix sur dix : 200 XP, le bonus de série et Le Sans-Faute — le niveau 3
+    // d'un coup, le paon du deuxième et la finition d'argent (le barème du
+    // solo, le 6 octobre 2026 ; 75 XP et le niveau 2 avant lui).
     assert.equal(etat.niveauAvant, 1)
-    assert.equal(etat.niveauApres, 2)
+    assert.equal(etat.niveauApres, 3)
   } finally {
     await banc.close()
   }

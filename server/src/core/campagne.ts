@@ -37,6 +37,7 @@ import {
   semaineDe,
   ordreDeSerie,
   xpDeCampagne,
+  xpDeLaBonneReponse,
   xpDuJourDeCampagne,
   type AdminDeLaCampagne,
   type AjoutsDeLaRoutine,
@@ -68,6 +69,7 @@ import {
   sentierQuOnAvance,
   titreDeMaitre,
   viesDe,
+  xpDuPalier,
   type AdminDesSentiers,
   type EpreuveDeSentier,
   type EtatDesSentiers,
@@ -167,6 +169,8 @@ const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
  */
 export interface RecompensesDeCampagne {
   ranger(profileId: string, sous: string, cles: readonly string[], quand?: number): Promise<string[]>
+  /** Ce qu'il a déjà sur son étagère, et combien de fois (`ProfileStore.recompensesOf`). */
+  recompensesOf(profileId: string): ReadonlyMap<string, number>
   accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
@@ -487,10 +491,12 @@ export class CampagneStore {
       this.serieEnCours(profileId),
       this.recordsParCategorie(profileId),
     ])
+    const aujourdhui = parJour.get(jourDe(this.maintenant())) ?? 0
     return {
       record: Number(series.rows[0]?.record ?? 0),
       series: Number(series.rows[0]?.n ?? 0),
-      xpAujourdhui: xpDuJourDeCampagne(parJour.get(jourDe(this.maintenant())) ?? 0),
+      xpAujourdhui: xpDuJourDeCampagne(aujourdhui),
+      justesAujourdhui: aujourdhui,
       enCours: enCours ? vueDeSerie(enCours) : null,
       categories: parCategorie(jouables),
       questions: jouables.length,
@@ -551,7 +557,10 @@ export class CampagneStore {
         s,
         res.rows.map(r => Number(r.juste) === 1),
       )
-      if (await this.tourDuMondeFait(profileId)) cles.push('hf:tour-du-monde')
+      // Une fois : sa condition tenue le reste, et il tombait à chaque série
+      // d'après — « Nouveau haut fait » à chaque fin, et maintenant qu'il
+      // paie, de l'expérience à chaque série perdue en trois questions.
+      if (!this.recompenses.recompensesOf(profileId).has('hf:tour-du-monde') && (await this.tourDuMondeFait(profileId))) cles.push('hf:tour-du-monde')
       return await this.recompenser(profileId, s.id, cles, s.finieLe ?? this.maintenant())
     } catch (e) {
       // La série est rangée : une étagère muette n'y change rien, la relecture rattrapera.
@@ -737,7 +746,7 @@ export class CampagneStore {
       // Le record est celui des séries : un défi a son classement à lui.
       const record = finie && s.mode === 'serie'
       if (record) lot.unshift({ sql: `SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`, args: [profileId] })
-      if (juste) lot.push(lectureDesJustes(profileId))
+      if (juste) lot.push(...lecturesDeLExperience(profileId))
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -748,7 +757,7 @@ export class CampagneStore {
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours({ ...s, index: position, vies, justes })
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
-      const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
+      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
       const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
@@ -799,19 +808,39 @@ export class CampagneStore {
 
   /**
    * Une bonne réponse vient d'entrer : sa ligne d'expérience se relit en
-   * entier, sous le verrou du profil où l'on est déjà. Rend ce que cette
-   * réponse rapporte. Une base qui refuse d'écrire la ligne ne fait pas
-   * échouer la réponse, déjà rangée : la bonne réponse suivante réécrit la
-   * ligne entière.
+   * entier (`lecturesDeLExperience`, lues dans le lot qui l'écrit), sous le
+   * verrou du profil où l'on est déjà. Rend ce que cette réponse rapporte —
+   * double parmi les vingt premières du jour. Une base qui refuse d'écrire la
+   * ligne ne fait pas échouer la réponse, déjà rangée : la bonne réponse
+   * suivante réécrit la ligne entière.
    */
-  private async crediter(profileId: string, parJour: Map<string, number>): Promise<number> {
+  private async crediter(profileId: string, lues: readonly ResultSet[]): Promise<number> {
+    const { parJour, xp } = experienceLue(lues)
     try {
-      await this.ecrireXp(profileId, xpDeCampagne(parJour.values()), parJour.size)
-      return xpDuJourDeCampagne(1)
+      await this.ecrireXp(profileId, xp, parJour.size)
+      return xpDeLaBonneReponse(parJour.get(jourDe(this.maintenant())) ?? 1)
     } catch (e) {
       console.error('[campagne] expérience non écrite, la prochaine bonne réponse la réécrira :', e)
       return 0
     }
+  }
+
+  /**
+   * Le barème du solo du 6 octobre 2026, appliqué à ce qui est déjà joué —
+   * une fois, au démarrage qui l'apporte (`core/baremeDuSolo.ts`) : la ligne
+   * de chaque joueur de la campagne se réécrit de ses réponses et de ses
+   * paliers, au barème du jour. Rend les profils réécrits.
+   */
+  async revaloriser(): Promise<string[]> {
+    const joueurs = await this.client.execute('SELECT DISTINCT profile_id FROM campagne_series')
+    const ids = joueurs.rows.map(r => String(r.profile_id))
+    for (const id of ids) {
+      await this.avecVerrou(id, async () => {
+        const { parJour, xp } = experienceLue(await this.client.batch(lecturesDeLExperience(id), 'read'))
+        await this.ecrireXp(id, xp, parJour.size)
+      })
+    }
+    return ids
   }
 
   /** « Mes réponses », une série finie : chaque question posée, sa bonne réponse, la sienne, et l'anecdote. */
@@ -1377,15 +1406,18 @@ export class CampagneStore {
           args: [position, justes, issue, finie ? maintenant : null, e.id],
         },
       ]
-      // Finie et validée : sa meilleure note d'avant sur ce palier, pour dire un record.
-      if (finie && issue === 'validee') {
+      // Finie et validée : sa meilleure note d'avant sur ce palier, pour dire
+      // un record ; et combien de fois il l'avait déjà validé — à la première,
+      // le palier paie (`xpDuPalier`).
+      const valideeIci = e.issue === null && issue === 'validee'
+      if ((finie && issue === 'validee') || valideeIci) {
         lot.unshift({
-          sql: `SELECT COALESCE(MAX(justes), 0) AS avant FROM campagne_series
+          sql: `SELECT COALESCE(MAX(justes), 0) AS avant, COUNT(*) AS fois FROM campagne_series
                 WHERE profile_id = ? AND mode = 'sentier' AND branche = ? AND palier = ? AND issue = 'validee' AND id <> ?`,
           args: [profileId, e.branche, e.palier, e.id],
         })
       }
-      if (juste) lot.push(lectureDesJustes(profileId))
+      if (juste) lot.push(...lecturesDeLExperience(profileId))
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -1396,8 +1428,11 @@ export class CampagneStore {
       const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
       if (finie) this.enCours.delete(profileId)
       else this.garderEnCours(apres)
-      const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
+      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
       const reponse: ReponseDEpreuve = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuve(apres) }
+      // Validé pour la première fois : sa ligne, que la bonne réponse vient
+      // de réécrire, le compte déjà ; la réponse le dit.
+      if (valideeIci && xp > 0 && Number(res[0].rows[0]?.fois ?? 0) === 0) reponse.xpPalier = xpDuPalier(e.palier)
       if (finie && issue === 'validee') {
         const avant = Number(res[0].rows[0]?.avant ?? 0)
         reponse.etoiles = etoilesDe(justes, seuil)
@@ -1994,6 +2029,30 @@ function lectureDesJustes(profileId: string): InStatement {
           WHERE s.profile_id = ? AND r.juste = 1 GROUP BY heure`,
     args: [profileId],
   }
+}
+
+/**
+ * Tout ce que sa ligne d'expérience compte : ses bonnes réponses, heure par
+ * heure, et les paliers des sentiers qu'il a validés en jouant — une fois
+ * chacun (`xpDuPalier`). Lues ensemble, au bout du lot qui écrit une bonne
+ * réponse : la ligne se réécrit toujours en entier, et une ligne sans ses
+ * paliers les aurait repris.
+ */
+function lecturesDeLExperience(profileId: string): InStatement[] {
+  return [
+    lectureDesJustes(profileId),
+    {
+      sql: `SELECT DISTINCT branche, palier FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
+      args: [profileId],
+    },
+  ]
+}
+
+/** Sa ligne d'expérience de campagne, de ce que `lecturesDeLExperience` a lu. */
+function experienceLue([justes, paliers]: readonly ResultSet[]): { parJour: Map<string, number>; xp: number } {
+  const parJour = justesParJourDe(justes.rows)
+  const xp = xpDeCampagne(parJour.values()) + paliers.rows.reduce((n, r) => n + xpDuPalier(Number(r.palier)), 0)
+  return { parJour, xp }
 }
 
 /** Des heures aux jours de Paris : il change de jour à une heure pile, hiver comme été — une heure n'est jamais à cheval sur deux jours. */

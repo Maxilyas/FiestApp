@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
 import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { BarreDeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
 import { LUEUR, lueur } from '../components/Atlas'
@@ -71,11 +72,12 @@ type Ecran =
       question: QuestionDeCampagne
       reponse: ReponseDEpreuve | null
       choix: number | null
-      /** Ce que l'épreuve a rapporté depuis qu'on l'a ouverte sur cette page. */
+      /** Ce que l'épreuve a rapporté depuis qu'on l'a ouverte sur cette page — le palier validé compris (`xpPalier`). */
       xp: number
+      xpPalier: number
       justesIci: number
     }
-  | { e: 'fin'; reponse: ReponseDEpreuve; xp: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
+  | { e: 'fin'; reponse: ReponseDEpreuve; xp: number; xpPalier: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
   | { e: 'vies'; branche: CleDeBranche | null }
 
 /** Les niveaux d'une épreuve, au féminin : ce sont des questions. */
@@ -216,7 +218,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     setErreur('')
     try {
       const epreuve = await api.campagne.sentiers.commencer(b, palier)
-      if (epreuve.question) setEcran({ e: 'epreuve', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, justesIci: 0 })
+      if (epreuve.question) setEcran({ e: 'epreuve', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, xpPalier: 0, justesIci: 0 })
     } catch (e) {
       // Sans vie, l'écran du rachat plutôt qu'un refus sec.
       const vies = etat?.vies
@@ -228,7 +230,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   }
 
   const reprendre = (epreuve: EpreuveDeSentier) => {
-    if (epreuve.question) setEcran({ e: 'epreuve', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, justesIci: 0 })
+    if (epreuve.question) setEcran({ e: 'epreuve', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, xpPalier: 0, justesIci: 0 })
   }
 
   const repondre = async (choix: number) => {
@@ -242,7 +244,8 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
         reponse,
         choix,
         epreuve: reponse.epreuve,
-        xp: ecran.xp + reponse.xp,
+        xp: ecran.xp + reponse.xp + (reponse.xpPalier ?? 0),
+        xpPalier: ecran.xpPalier + (reponse.xpPalier ?? 0),
         justesIci: ecran.justesIci + (reponse.juste ? 1 : 0),
       })
       if (reponse.vies) setEtat(avant => avant && { ...avant, vies: reponse.vies! })
@@ -257,7 +260,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     if (ecran.e !== 'epreuve' || !ecran.reponse) return
     const r = ecran.reponse
     if (r.epreuve.finie || !r.epreuve.question) {
-      setEcran({ e: 'fin', reponse: r, xp: ecran.xp, justesIci: ecran.justesIci, correction: null, porte: false })
+      setEcran({ e: 'fin', reponse: r, xp: ecran.xp, xpPalier: ecran.xpPalier, justesIci: ecran.justesIci, correction: null, porte: false })
       void relire().catch(() => {})
       return
     }
@@ -1301,7 +1304,11 @@ function EcranDEpreuve({
               {r.juste ? (
                 <>
                   <span className="big">🎊 +1</span>
-                  <p>Bien joué !{r.xp > 0 ? ` +${r.xp} XP` : ''}</p>
+                  <p>
+                    Bien joué !{r.xp > 0 ? ` +${r.xp} XP` : ''}
+                    {/* Le palier vient d'être validé pour la première fois : il paie, tout de suite. */}
+                    {!!r.xpPalier && <b>{` · palier validé, +${r.xpPalier} XP`}</b>}
+                  </p>
                   <GerbeDeJuste />
                 </>
               ) : (
@@ -1390,16 +1397,20 @@ function FinDEpreuve({
   // Ses maîtres, celui-ci compris : l'état relu après l'épreuve peut ne pas l'avoir encore.
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE || (r.maitre && s.branche === e.branche)).length
   const gains = (
-    <div className="epreuve-gains">
-      <span>
-        <b>🎊 +{fin.justesIci}</b>
-        confetti{fin.justesIci > 1 ? 's' : ''}
-      </span>
-      <span>
-        <b>+{fin.xp}</b>
-        XP
-      </span>
-    </div>
+    <>
+      <div className="epreuve-gains">
+        <span>
+          <b>🎊 +{fin.justesIci}</b>
+          confetti{fin.justesIci > 1 ? 's' : ''}
+        </span>
+        <span>
+          <b>+{fin.xp}</b>
+          {fin.xpPalier > 0 ? `XP, dont ${fin.xpPalier} pour le palier` : 'XP'}
+        </span>
+      </div>
+      {/* Où il en est : la barre de niveau, relue après l'épreuve, et la montée qu'elle a faite. */}
+      {fin.xp > 0 && <BarreDeNiveau />}
+    </>
   )
   // Les paliers de la campagne qu'elle a fait tomber — Le Marathonien,
   // L'Érudit —, validée ou non : ils comptent toutes les bonnes réponses.

@@ -4,14 +4,13 @@
 // réponse — c'est là qu'on apprend.
 //
 // Il ne remplace pas la soirée, il en est l'entre-deux : on y joue seul, pour
-// apprendre et pour avancer. Il rapporte de l'expérience — le barème d'un
-// quiz de soirée de dix questions, 75 au plus, à proportion des points
-// (l'option B, choisie le 26 septembre 2026) —, et son podium, figé à minuit,
-// 25, 15 et 10, comme celui d'un quiz. Il a ses récompenses à lui : trois
-// paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), le Sphinx, et les
-// jours de saison qui ouvrent la Citrouille, le Sapin, le Bouquet final. Les
-// hauts faits de soirée, les paliers de carrière et l'Éclat restent aux
-// soirées.
+// apprendre et pour avancer. Il rapporte de l'expérience — 200 au plus, à
+// proportion des points, et jusqu'à 100 de plus pour la série (le choix du
+// 6 octobre 2026 : c'est lui qu'on joue le plus, et les soirées sont rares) —,
+// et son podium, figé à minuit, 75, 45 et 30. Il a ses récompenses à lui :
+// ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute…), ses hauts
+// faits, le Sphinx, et les jours de saison qui ouvrent la Citrouille, le
+// Sapin, le Bouquet final. Les hauts faits de soirée restent aux soirées.
 //
 // Réservé aux profils. Un invité anonyme n'y voit rien qui lui manque
 // (invariant 8) : la porte d'entrée reste celle des soirées.
@@ -19,7 +18,7 @@
 // Ce fichier est pur et partagé ; la réserve, le tirage, la partie et la
 // clôture de la nuit vivent dans `server/src/core/jour.ts`.
 
-import { XP, type Finition } from './profil'
+import type { Finition } from './profil'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
 export const QUESTIONS_PAR_JOUR = 10
@@ -28,22 +27,43 @@ export const QUESTIONS_PAR_JOUR = 10
 export const FUSEAU_DU_JOUR = 'Europe/Paris'
 
 /**
- * L'expérience d'un quiz du jour parfait : ce que rapporte un quiz de soirée
- * de dix questions, toutes justes et rapides — dix fois une réponse, une
- * bonne réponse et un réflexe, plus le sans-faute : 75. Elle se gagne à
- * proportion des points (`xpDuJour`). Plus, et le quiz du jour avalait les
- * soirées : à une soirée par mois, 255 par jour les réduisait à 4 % du
- * niveau d'un joueur assidu.
+ * L'expérience d'un quiz du jour parfait : vingt par question. Elle se gagne
+ * à proportion des points (`xpDuJour`).
+ *
+ * Elle était de 75 — ce que rapporte un quiz de soirée de dix questions —
+ * pour que le quiz du jour n'avale pas les soirées (l'option B du 26
+ * septembre 2026). À l'usage, c'est lui qu'on joue le plus, puis la
+ * campagne ; les soirées sont rares, et qui ne faisait que le quiz du jour
+ * gagnait une quarantaine de points par jour : au niveau 10, vingt-cinq
+ * parties pour un seul niveau. Le propriétaire l'a voulu bien plus généreux
+ * le 6 octobre 2026 — « que ça avance vite pour ceux qui jouent en solo » —,
+ * un système de niveaux plus dur viendra plus tard. Toute partie déjà jouée
+ * se recompte à ce barème, une fois (`core/baremeDuSolo.ts`).
  */
-export const XP_MAX_DU_JOUR = QUESTIONS_PAR_JOUR * (XP.reponse + XP.juste + XP.reflexe) + XP.sansFaute
+export const XP_MAX_DU_JOUR = 200
 
-/** Le podium du jour, figé à minuit : celui d'un quiz de soirée. */
-export const XP_PODIUM_DU_JOUR: readonly number[] = XP.podiumQuiz
+/** Le podium du jour, figé à minuit (25, 15 et 10 jusqu'au 6 octobre 2026). */
+export const XP_PODIUM_DU_JOUR: readonly number[] = [75, 45, 30]
+
+/**
+ * Le bonus de série : chaque partie commencée rapporte autant par jour
+ * d'affilée joué — aujourd'hui compris —, jusqu'à `XP_DE_SERIE_MAX`, atteint
+ * au dixième jour. Il paie la régularité, quel que soit le score : c'est
+ * elle qu'on voulait récompenser (le choix du 6 octobre 2026), et les
+ * sabliers, qui gardent la série, le gardent aussi.
+ */
+export const XP_PAR_JOUR_DE_SERIE = 10
+export const XP_DE_SERIE_MAX = 100
+
+/** Le bonus de série d'une partie jouée au `serie`-ième jour d'affilée. */
+export function xpDeSerie(serie: number): number {
+  return Math.min(XP_DE_SERIE_MAX, XP_PAR_JOUR_DE_SERIE * Math.max(0, Math.floor(serie)))
+}
 
 /**
  * L'expérience d'une partie du jour : la part des points possibles, ramenée
- * aux 75 d'un quiz parfait, arrondie en dessous — 1 240 points sur 2 000
- * font 46.
+ * aux 200 d'un quiz parfait, arrondie en dessous — 1 240 points sur 2 000
+ * font 124.
  */
 export function xpDuJour(points: number, pointsPossibles: number): number {
   if (!(pointsPossibles > 0) || !(points > 0)) return 0
@@ -331,14 +351,14 @@ export interface ClassementDuJour {
   fige: boolean
 }
 
-/** Un jour joué, tel que le profil le relit : « Vendredi 26 · 1 240 pts · 7ᵉ sur 23 · +46 XP ». */
+/** Un jour joué, tel que le profil le relit : « Vendredi 26 · 1 240 pts · 7ᵉ sur 23 · +144 XP ». */
 export interface JourJoue {
   jour: string
   points: number
   /** Sa place ce jour-là, rang partagé (invariant 15), et combien avaient joué. */
   rang: number
   joueurs: number
-  /** Ce que le jour lui a rapporté : la partie et le podium. */
+  /** Ce que le jour lui a rapporté : la partie, son bonus de série et le podium. */
   xp: number
   medaille: Medaille | null
   /** Pour les courbes : les questions qui comptaient, ses bonnes réponses, et leur temps. */
@@ -403,8 +423,10 @@ export interface PartieDuJour {
   revelation?: RevelationDuJour
   points: number
   justes: number
-  /** Ce que la partie lui a rapporté, jusqu'ici. */
+  /** Ce que la partie lui a rapporté, jusqu'ici — à ses points ; le bonus de série à part (`xpSerie`). */
   xp: number
+  /** Le bonus de série de sa partie (`xpDeSerie`), payé dès qu'elle commence. */
+  xpSerie?: number
   medaille: Medaille | null
   /** Sa place pour l'instant, et combien ont joué. */
   rang: number
@@ -582,6 +604,29 @@ export interface SerieDuJour {
  * qu'elle avait épargné.
  */
 export function serieAvecSabliers(joues: ReadonlySet<string>, achats: readonly string[], aujourdhui: string): SerieDuJour {
+  return parcourirLaSerie(joues, achats, aujourdhui)
+}
+
+/**
+ * La série telle qu'elle était chaque jour joué, sabliers comptés : de quoi
+ * payer le bonus de série de chaque partie (`xpDeSerie`), y compris celles
+ * jouées avant qu'il existe. La même marche que `serieAvecSabliers`, qui
+ * note en route ce que la série valait.
+ */
+export function seriesParJour(joues: ReadonlySet<string>, achats: readonly string[]): Map<string, number> {
+  const parJour = new Map<string, number>()
+  const dernier = [...joues].sort().at(-1)
+  if (dernier) parcourirLaSerie(joues, achats, dernier, (jour, serie) => parJour.set(jour, serie))
+  return parJour
+}
+
+/** La marche de la série, du premier jour joué ou acheté jusqu'à `aujourdhui` ; `noter` reçoit chaque jour joué. */
+function parcourirLaSerie(
+  joues: ReadonlySet<string>,
+  achats: readonly string[],
+  aujourdhui: string,
+  noter?: (jour: string, serie: number) => void,
+): SerieDuJour {
   const tries = [...joues].filter(j => j <= aujourdhui).sort()
   const parJour = new Map<string, number>()
   for (const a of achats) if (a <= aujourdhui) parJour.set(a, (parJour.get(a) ?? 0) + 1)
@@ -596,6 +641,7 @@ export function serieAvecSabliers(joues: ReadonlySet<string>, achats: readonly s
       if (joues.has(jour)) {
         serie++
         record = Math.max(record, serie)
+        noter?.(jour, serie)
       } else if (jour === aujourdhui) {
         // Pas encore joué : la journée n'est pas finie.
       } else if (serie > 0 && reserve > 0) {

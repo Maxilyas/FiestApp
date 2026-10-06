@@ -123,6 +123,26 @@ export function regleDuPalier(n: unknown): RegleDuPalier | null {
 }
 
 /**
+ * L'expérience d'un palier validé en jouant, une fois par palier : il ne
+ * rapportait que ses bonnes réponses, et l'épreuve qui ouvrait un portrait
+ * passait sans un point de plus que la série d'à côté (le choix du 6 octobre
+ * 2026). Le double s'il ouvre un portrait, bien plus pour le maître. Un palier
+ * repris des portraits d'avant (`sentier_acquis`) ne paie qu'une fois rejoué
+ * et validé : ses portraits avaient déjà payé leurs bonnes réponses.
+ */
+export const XP_D_UN_PALIER = 50
+export const XP_D_UN_PALIER_A_PORTRAIT = 100
+export const XP_DU_MAITRE = 250
+
+/** Ce que rapporte le palier `n` validé pour la première fois. */
+export function xpDuPalier(n: number): number {
+  const regle = regleDuPalier(n)
+  if (!regle) return 0
+  if (regle.maitre) return XP_DU_MAITRE
+  return regle.avatar !== null ? XP_D_UN_PALIER_A_PORTRAIT : XP_D_UN_PALIER
+}
+
+/**
  * Les étoiles d'une épreuve validée : une au seuil, deux à mi-chemin du
  * sans-faute (14 sur 16 quand il en faut 12), trois pour le sans-faute.
  * Purement pour le plaisir : elles ne rapportent rien, et donnent une raison
@@ -293,6 +313,8 @@ export interface ReponseDEpreuve {
   anecdote: string | null
   /** L'expérience que cette réponse rapporte (celle d'une bonne réponse en série). */
   xp: number
+  /** Le palier vient d'être validé pour la première fois : ce qu'il rapporte en plus (`xpDuPalier`). */
+  xpPalier?: number
   epreuve: EpreuveDeSentier
   /** Finie et validée : ses étoiles, et si c'est sa meilleure note sur ce palier. */
   etoiles?: number

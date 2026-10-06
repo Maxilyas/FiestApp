@@ -11,7 +11,7 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore, cleDuJour } from '../src/auth/profiles'
 import { AUCUN_JOUR, carriereDe } from '../../shared/profil'
-import { XP_PALIER, paliersAtteints, paliersDuJourAtteints, paliersDuNiveau } from '../../shared/hautsfaits'
+import { XP_PALIER, paliersAtteints, paliersDuJourAtteints, paliersDuNiveau, xpDe } from '../../shared/hautsfaits'
 
 ProfileStore.tirageEclat = () => false
 
@@ -156,7 +156,8 @@ test('un sans-faute tombe à la fin de la partie ; la nuit sacre les premiers Ch
     )
     assert.deepEqual(paliersDe(banc, 'bob').map(p => p.badge), ['hf:champion-du-jour:1', 'hf:sans-faute:1'])
     assert.deepEqual(paliersDe(banc, 'carole'), [])
-    assert.equal(xpDesPaliers(banc, 'alice'), 2 * XP_PALIER[0])
+    // Et Le Laurier, le haut fait de sa victoire, payé dans la même ligne (le 6 octobre 2026).
+    assert.equal(xpDesPaliers(banc, 'alice'), 2 * XP_PALIER[0] + xpDe('hf:laurier'))
     assert.equal(lendemain.sonHier.paliers.length, 1, 'le sans-faute d’hier, déjà annoncé, ne revient pas')
     // Titres et vitrine : un palier du jour en ouvre un, comme les autres.
     const titre = await ecrire(banc.url, '/api/joueur/moi', { titre: 'hf:champion-du-jour' }, alice, 'PUT')

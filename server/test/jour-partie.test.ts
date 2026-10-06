@@ -12,7 +12,8 @@ import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { JourStore } from '../src/core/jour'
-import { XP_PALIER } from '../../shared/hautsfaits'
+import { XP_PALIER, xpDe } from '../../shared/hautsfaits'
+import { XP_MAX_DU_JOUR, xpDeSerie, xpDuJour, xpDuPodium } from '../../shared/jour'
 
 ProfileStore.tirageEclat = () => false
 
@@ -170,7 +171,7 @@ test('le chrono est celui du serveur : trop tard ne paie rien, et un téléphone
     assert.equal(q3bis.echeance, q3.echeance)
   }))
 
-test('une partie parfaite : l’or, 75 XP, la correction — et le classement de tout le serveur', () =>
+test('une partie parfaite : l’or, 200 XP et le bonus de série, la correction — et le classement de tout le serveur', () =>
   avecBanc(async (banc, horloge) => {
     const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
@@ -182,12 +183,14 @@ test('une partie parfaite : l’or, 75 XP, la correction — et le classement de
     assert.equal(etat.points, 2000)
     assert.equal(etat.justes, 10)
     assert.equal(etat.medaille, 'or')
-    assert.equal(etat.xp, 75, 'le barème d’un quiz de soirée de dix questions parfait')
+    assert.equal(etat.xp, XP_MAX_DU_JOUR, 'un quiz du jour parfait : le maximum')
+    assert.equal(etat.xpSerie, xpDeSerie(1), 'son premier jour d’affilée : le bonus de série, dès la partie commencée')
     assert.equal(revelations.at(-1).derniere, true)
     // Son profil l'a reçue — sans une soirée de plus dans son historique —,
-    // avec le palier que ce sans-faute fait tomber (Le Sans-Faute · Bronze).
+    // avec son bonus de série et le palier que ce sans-faute fait tomber (Le
+    // Sans-Faute · Bronze).
     const moi = ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile
-    assert.equal(moi.xp, 75 + XP_PALIER[0])
+    assert.equal(moi.xp, XP_MAX_DU_JOUR + xpDeSerie(1) + XP_PALIER[0])
     assert.deepEqual(moi.soirees, [], 'le quiz du jour n’est pas une soirée')
 
     // Bob en trouve six, moins vite.
@@ -234,18 +237,19 @@ test('minuit clôt la journée : le podium est payé une fois, le lendemain le r
     assert.equal(matin.etat, 'a-jouer')
     assert.deepEqual(matin.vainqueursDHier, [{ nom: 'Alice', avatar: '🦊' }])
     assert.equal(matin.sonHier.rang, 1)
-    assert.equal(matin.sonHier.xpPodium, 25, 'à deux, seul le premier monte sur le podium')
+    assert.equal(matin.sonHier.xpPodium, xpDuPodium(1, 2), 'à deux, seul le premier monte sur le podium')
     assert.equal(matin.sonHier.medaille, 'or')
     assert.equal(matin.serie, 1, 'hier compte, aujourd’hui pas encore joué')
-    // Le podium, et le palier de la victoire (Le Champion du jour · Bronze).
+    // Le podium, le palier de la victoire (Le Champion du jour · Bronze) et
+    // son haut fait, Le Laurier, qui paie depuis le 6 octobre 2026.
     const apres = ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp
-    assert.equal(apres, xpAvant + 25 + XP_PALIER[0])
+    assert.equal(apres, xpAvant + xpDuPodium(1, 2) + XP_PALIER[0] + xpDe('hf:laurier'))
     const deBob = (await lire(banc, bob, '/api/jour')).corps
     assert.equal(deBob.sonHier.xpPodium, 0)
 
     // Une seconde demande ne paie pas deux fois.
     await lire(banc, bob, '/api/jour')
-    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, xpAvant + 25 + XP_PALIER[0])
+    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, xpAvant + xpDuPodium(1, 2) + XP_PALIER[0] + xpDe('hf:laurier'))
 
     // Le classement d'hier est figé, et sa correction ouverte à tous.
     const hier = (await lire(banc, bob, `/api/jour/classement?jour=${JOUR}`)).corps
@@ -304,7 +308,7 @@ test('l’administrateur : coller une liste, lire un signalement, annuler une qu
     const apres = (await lire(banc, alice, '/api/jour')).corps
     assert.equal(apres.points, 1800)
     assert.equal(apres.pointsPossibles, 1800)
-    assert.equal(apres.xp, 75, 'neuf sur neuf, parfaites : le maximum')
+    assert.equal(apres.xp, XP_MAX_DU_JOUR, 'neuf sur neuf, parfaites : le maximum')
     assert.equal(apres.medaille, 'or')
     assert.deepEqual((await lire(banc, admin, '/api/admin/jour')).corps.signalements, [], 'traité')
 
@@ -319,7 +323,7 @@ test('l’administrateur : coller une liste, lire un signalement, annuler une qu
     )
     // À minuit, masquée, elle ne monte pas sur le podium : Bob le prend.
     horloge.t = Date.UTC(2026, 8, 27, 6, 0)
-    assert.equal((await lire(banc, bob, '/api/jour')).corps.sonHier.xpPodium, 25)
+    assert.equal((await lire(banc, bob, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
     assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, 0)
   }))
 
@@ -342,12 +346,12 @@ test('un redémarrage ne perd rien : la partie reprend où elle était, et son e
     assert.equal(reprise.question?.echeance, q2.echeance)
     assert.equal(reprise.points, 200)
     const profil = ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile
-    assert.equal(profil.xp, 7, 'deux cents points sur deux mille : 7 XP, gardés')
+    assert.equal(profil.xp, xpDuJour(200, 2000) + xpDeSerie(1), 'deux cents points sur deux mille, et le bonus de série : gardés')
     assert.deepEqual(profil.soirees, [])
     const lu = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
     const ligne = lu.prepare(`SELECT xp, detail FROM profile_xp WHERE soiree_id = '#jour'`).get() as { xp: number; detail: string }
     lu.close()
-    assert.equal(ligne.xp, 7)
+    assert.equal(ligne.xp, xpDuJour(200, 2000) + xpDeSerie(1))
     assert.notEqual(JSON.parse(ligne.detail).v, 1, 'remise à la version du jour')
     // Telle qu'`aRecalculer` la cherche : écrite en flottant, `{"v":6.0,…}`
     // n'était jamais « du jour », et tout l'historique se relisait à chaque
@@ -365,8 +369,8 @@ test('deux ex æquo en tête gagnent tous les deux : le podium les paie, le lend
     const matin = (await lire(banc, bob, '/api/jour')).corps
     assert.deepEqual(matin.vainqueursDHier.map((v: any) => v.nom), ['Alice', 'Bob'])
     assert.equal(matin.sonHier.rang, 1)
-    assert.equal(matin.sonHier.xpPodium, 25)
-    assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, 25)
+    assert.equal(matin.sonHier.xpPodium, xpDuPodium(1, 2))
+    assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
   }))
 
 test('une annulation qui croise une réponse en route : la question annulée ne reste payée à personne', () =>
@@ -410,8 +414,12 @@ test('une annulation qui croise une réponse en route : la question annulée ne 
     assert.equal(apres.points, 200, 'seule la première compte')
     assert.equal(apres.justes, 1)
     assert.equal(apres.pointsPossibles, 1800)
-    assert.equal(apres.xp, 8, 'deux cents points sur mille huit cents : 8 XP')
-    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, 8, 'et son niveau les compte, pas plus')
+    assert.equal(apres.xp, xpDuJour(200, 1800), 'deux cents points sur mille huit cents')
+    assert.equal(
+      ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp,
+      xpDuJour(200, 1800) + xpDeSerie(1),
+      'et son niveau les compte, avec son bonus de série — pas plus',
+    )
   }))
 
 test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ainsi — et un profil masqué depuis la nuit ne s’annonce plus', () =>
@@ -439,7 +447,7 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     const id = (await lire(banc, admin, '/api/admin/jour/profils?q=camille2')).corps.find((p: any) => p.login === 'camille2').id
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: true })).status, 200)
     assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [])
-    assert.equal((await lire(banc, seconde, '/api/jour')).corps.sonHier.xpPodium, 25)
+    assert.equal((await lire(banc, seconde, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
   }))
 
 test('une annulation tombée en panne à mi-chemin se rejoue : le second clic recompte ceux que le premier n’a pas eus', () =>
@@ -469,7 +477,7 @@ test('une annulation tombée en panne à mi-chemin se rejoue : le second clic re
     for (const joueur of [alice, bob]) {
       const etat = (await lire(banc, joueur, '/api/jour')).corps
       assert.equal(etat.points, 1800)
-      assert.equal(etat.xp, 75)
+      assert.equal(etat.xp, XP_MAX_DU_JOUR)
     }
   }))
 
@@ -494,8 +502,8 @@ test('sa page relit son quiz du jour : médailles, série et record, podiums, et
     assert.deepEqual(
       moi.jours.map((j: any) => [j.jour, j.points, j.rang, j.joueurs, j.xp, j.medaille, j.justes, j.comptees]),
       [
-        [LENDEMAIN, 1600, 1, 1, 60, 'argent', 8, 10],
-        [JOUR, 2000, 1, 2, 75 + 25, 'or', 10, 10],
+        [LENDEMAIN, 1600, 1, 1, xpDuJour(1600, 2000) + xpDeSerie(2), 'argent', 8, 10],
+        [JOUR, 2000, 1, 2, XP_MAX_DU_JOUR + xpDeSerie(1) + xpDuPodium(1, 2), 'or', 10, 10],
       ],
     )
     const deBob = (await lire(banc, bob, '/api/joueur/moi')).corps.profile.jour

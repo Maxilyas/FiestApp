@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Finition, PublicProfile } from '../../../shared/profil'
 import { collectionGagnee } from '../../../shared/avatars'
-import { ceQuIlAFallu, palierDe } from '../../../shared/hautsfaits'
+import { ceQuIlAFallu, palierDe, xpDe } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
 import { portrait as portraitDe } from '../../../shared/branches'
 import { api } from '../api'
@@ -159,6 +159,9 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
  * seul ne dit rien à qui ne l'a jamais chassé.
  */
 export function RecompenseTombee({ recompense }: { recompense: { key: string; emoji: string; title: string } }) {
+  // Ce qu'il rapporte, dit avec lui : les hauts faits du quiz du jour et de
+  // la campagne paient depuis le 6 octobre 2026, et personne ne le voyait.
+  const xp = xpDe(recompense.key)
   return (
     <div className="jour-ligne">
       <span className="jour-pastille jour-palier" aria-hidden="true">
@@ -166,7 +169,10 @@ export function RecompenseTombee({ recompense }: { recompense: { key: string; em
       </span>
       <div>
         <b>{`${palierDe(recompense.key) ? 'Nouveau palier' : 'Nouveau haut fait'} : ${recompense.title}`}</b>
-        <span className="muted small">{ceQuIlAFallu(recompense.key)}</span>
+        <span className="muted small">
+          {ceQuIlAFallu(recompense.key)}
+          {xp > 0 && ` · +${xp} XP`}
+        </span>
       </div>
     </div>
   )

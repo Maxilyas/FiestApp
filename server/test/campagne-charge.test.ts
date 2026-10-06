@@ -13,7 +13,7 @@ import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { ProfileStore, LIGNE_CAMPAGNE } from '../src/auth/profiles'
-import { XP_PAR_JUSTE } from '../../shared/campagne'
+import { xpDeLaBonneReponse, xpDuJourDeCampagne } from '../../shared/campagne'
 
 ProfileStore.tirageEclat = () => false
 
@@ -104,7 +104,7 @@ test('une bonne réponse de campagne : deux allers-retours, sans relire tout ce 
   const reponses = bonnes(serie.id)
   const juste = await mesurer(() => poster(`/api/campagne/serie/${serie.id}/reponse`, { index: 0, choix: reponses[0] }))
   assert.equal(juste.resultat.juste, true)
-  assert.equal(juste.resultat.xp, XP_PAR_JUSTE)
+  assert.equal(juste.resultat.xp, xpDeLaBonneReponse(1), 'la première du jour, au double')
   // Sa réponse, son record et ses bonnes réponses dans un lot ; sa ligne d'expérience dans l'autre.
   assert.ok(juste.appels <= 2, `${juste.appels} allers-retours pour une bonne réponse`)
   // Comptées par heure : quelques lignes, pas trois cents.
@@ -119,8 +119,10 @@ test('comptée par heure, sa ligne d’expérience reste exacte, jours de Paris 
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
   try {
     const ligne = db.prepare('SELECT xp, detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ?').get(profileId, LIGNE_CAMPAGNE) as { xp: number; detail: string }
-    // Les trois cents deux d'avant et celle d'aujourd'hui.
-    assert.equal(ligne.xp, (ANCIENNES + 3) * XP_PAR_JUSTE)
+    // Les trois cents deux d'avant et celle d'aujourd'hui, chaque jour de
+    // Paris avec ses vingt premières au double : trois cent une le 24, celle
+    // de minuit pile le 25, et celle d'aujourd'hui — la première de sa journée.
+    assert.equal(ligne.xp, xpDuJourDeCampagne(ANCIENNES + 1) + xpDuJourDeCampagne(1) + xpDuJourDeCampagne(1))
     // Le 24, le 25 (minuit pile à Paris, 22 h en UTC) et aujourd'hui, le 26.
     assert.equal(JSON.parse(ligne.detail).jours, 3)
   } finally {
