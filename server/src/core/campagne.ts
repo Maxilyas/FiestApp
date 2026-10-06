@@ -18,6 +18,7 @@ import { classer } from '../../../shared/classement'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
 import { CATEGORIES } from '../../../shared/categories'
+import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import {
@@ -851,6 +852,33 @@ export class CampagneStore {
   async justesDe(profileId: string): Promise<number> {
     const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] })
     return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Ce que la campagne sait de lui (`Savoir`) — séries, épreuves des
+   * sentiers et défis ensemble : ses questions et ses bonnes réponses,
+   * catégorie par catégorie — ses écussons de savoir et « Ma carrière »,
+   * avec les soirées et le quiz du jour —, et la base de sa précision. La
+   * catégorie est celle que la série a gardée de sa question : une question
+   * corrigée ou retirée depuis ne reprend pas ce qu'il a su ce jour-là, pas
+   * plus que son expérience ou ses confettis.
+   */
+  async savoirDe(profileId: string): Promise<Savoir> {
+    // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part :
+    // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON
+    // entier de la série — soixante questions — pour chacune de ses
+    // réponses. Six fois plus lent pour un joueur de cinq cents séries, et
+    // la carte la lit à chaque toucher sur son nom.
+    const res = await this.client.execute({
+      sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
+            FROM (SELECT json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
+                  FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+                  WHERE s.profile_id = ?
+                  LIMIT -1)
+            GROUP BY categorie`,
+      args: [profileId],
+    })
+    return savoirDesLignes(res.rows)
   }
 
   // ── Le défi de la semaine ───────────────────────────────────────────────

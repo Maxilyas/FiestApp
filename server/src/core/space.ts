@@ -70,8 +70,8 @@ export interface SpaceDeps {
    * et celui qu'elles atteignaient ensemble ne tombait nulle part.
    */
   cloturesEnCours: Set<string>
-  /** Le quiz du jour, pour ce qu'en montrent la carte d'un joueur (sa ligne, ses écussons) et sa fin de soirée (sa série). Absent, elles s'en passent. */
-  jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe' | 'pontDuJour' | 'aujourdhui'>
+  /** Le quiz du jour, pour ce qu'en montrent la carte d'un joueur (sa ligne) et sa fin de soirée (sa série). Absent, elles s'en passent. */
+  jour?: Pick<JourStore, 'resumeDe' | 'pontDuJour' | 'aujourdhui'>
   /** Les codes des salons (`core/salons.ts`). Absents, un espace ne s'ouvre que par son adresse. */
   salons?: Pick<SalonStore, 'codeDe' | 'ouvrir' | 'fermer' | 'clotureAuto'>
 }

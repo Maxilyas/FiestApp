@@ -1,15 +1,27 @@
 // Les écussons de savoir : une catégorie maîtrisée, au bronze, à l'argent, à
-// l'or. Ils comptent les bonnes réponses d'une catégorie, en soirée comme au
-// quiz du jour, et ne rapportent rien d'autre que d'être vus : la carte en
-// montre trois, les plus hauts ; la page du profil, les douze, avec ce qui
-// manque au suivant. Un invité anonyme n'en a pas.
+// l'or. Ils comptent les bonnes réponses d'une catégorie dans tous les modes
+// de jeu — en soirée, au quiz du jour, en campagne —, et ne rapportent rien
+// d'autre que d'être vus : la carte en montre trois, les plus hauts ; la
+// page du profil, les douze, avec ce qui manque au suivant. Un invité
+// anonyme n'en a pas. La précision de la carrière se lit sur la même
+// lecture : tous ses QCM répondus.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { ADMIN, demarrer, inscrireProfil, invite, type Banc } from './banc'
+import { ADMIN, baseDEssai, demarrer, ecrire, inscrireProfil, invite, type Banc } from './banc'
+import { BRANCHES } from '../../shared/branches'
 import { CATEGORIES } from '../../shared/categories'
-import { SEUILS_ECUSSON, ecussonsDe, palierEcusson, plusBeauxEcussons, prochainSeuil } from '../../shared/ecussons'
-import { gainVide, releveVide, totalGain } from '../../shared/profil'
+import {
+  SEUILS_ECUSSON,
+  additionnerCategories,
+  additionnerSavoirs,
+  ecussonsDe,
+  palierEcusson,
+  plusBeauxEcussons,
+  prochainSeuil,
+  savoirDesLignes,
+} from '../../shared/ecussons'
+import { carriereDe, ficheDe, gainVide, releveVide, totalGain } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
 test('les seuils des écussons sont un choix de produit : 20, 75, 200 bonnes réponses', () => {
@@ -40,6 +52,56 @@ test('un écusson par catégorie : les bonnes réponses des soirées et du quiz 
     ['Sciences', 'Histoire', 'Sport'],
   )
   assert.deepEqual(plusBeauxEcussons(ecussonsDe({})), [])
+})
+
+test('« Ma carrière », par catégorie, et les écussons : une seule addition de tous les modes de jeu', () => {
+  const soirees = { Histoire: { questions: 50, justes: 40 } }
+  const jour = { Histoire: { questions: 20, justes: 15 }, Sport: { questions: 10, justes: 8 } }
+  const campagne = { Histoire: { questions: 30, justes: 20 }, Nature: { questions: 16, justes: 12 } }
+  const tous = additionnerCategories(soirees, jour, campagne)
+  assert.deepEqual(tous, {
+    Histoire: { questions: 100, justes: 75 },
+    Sport: { questions: 10, justes: 8 },
+    Nature: { questions: 16, justes: 12 },
+  })
+  // Les écussons lisent la même addition : quarante, quinze et vingt font l'argent.
+  assert.deepEqual(ecussonsDe(tous), ecussonsDe(soirees, jour, campagne))
+  assert.equal(ecussonsDe(tous).find(e => e.categorie === 'Histoire')!.palier, 2)
+  // Une copie : la carrière qu'on a lue, gardée par l'appelant, ne bouge pas.
+  additionnerCategories(soirees, soirees)
+  assert.deepEqual(soirees, { Histoire: { questions: 50, justes: 40 } })
+  assert.deepEqual(additionnerCategories(), {})
+})
+
+test('un savoir lu en base : les questions sans catégorie comptent pour la précision, pas pour les écussons', () => {
+  const jour = savoirDesLignes([
+    { categorie: 'Histoire', questions: 10, repondues: 9, justes: 7 },
+    { categorie: null, questions: 4, repondues: 4, justes: 3 },
+  ])
+  // Posées par catégorie, répondues pour la précision : la question laissée
+  // sans réponse est posée, pas ratée.
+  assert.deepEqual(jour, { categories: { Histoire: { questions: 10, justes: 7 } }, qcm: 13, justes: 10 })
+  const campagne = savoirDesLignes([{ categorie: 'Nature', questions: 16, repondues: 16, justes: 12 }])
+  assert.deepEqual(additionnerSavoirs(jour, campagne), {
+    categories: { Histoire: { questions: 10, justes: 7 }, Nature: { questions: 16, justes: 12 } },
+    qcm: 29,
+    justes: 22,
+  })
+  assert.deepEqual(savoirDesLignes([]), { categories: {}, qcm: 0, justes: 0 })
+})
+
+test('la précision de la fiche compte tous les QCM répondus ; le réflexe et le flair gardent la base des soirées', () => {
+  const vide = carriereDe([], { eclats: 0, niveau: 1 })
+  const soirees = { ...vide, qcm: 20, justes: 10, tempsJustesMs: 30_000, flair: 2 }
+  const seule = ficheDe(soirees)
+  assert.deepEqual([seule.qcm, seule.justes, seule.precision], [20, 10, 0.5])
+  const tous = ficheDe(soirees, { qcm: 30, justes: 30 })
+  assert.deepEqual([tous.qcm, tous.justes, tous.precision], [50, 40, 0.8])
+  // Un QCM sans chronomètre, ou joué seul, ne dit rien du réflexe ni du flair.
+  assert.deepEqual([tous.reflexeMoyenMs, tous.flair], [3000, 0.2])
+  // Sans soirée, la précision des autres modes ; sans rien, « — ».
+  assert.equal(ficheDe(vide, { qcm: 4, justes: 3 }).precision, 0.75)
+  assert.equal(ficheDe(vide).precision, null)
 })
 
 async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
@@ -73,17 +135,21 @@ test('sa page montre les douze, sa carte les trois plus hauts — les annulées 
         `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
       )
       const rangee = (soireeId: string, categories: Record<string, { questions: number; justes: number }>, le: number) => {
-        const gain = { ...gainVide(), reponses: Object.values(categories).reduce((n, c) => n + c.questions, 0) }
-        const detail = JSON.stringify({ v: VERSION_BAREME, gain, releve: { ...releveVide(), categories } })
+        // Tous ses QCM répondus : la base de sa précision.
+        const qcm = Object.values(categories).reduce((n, c) => n + c.questions, 0)
+        const justes = Object.values(categories).reduce((n, c) => n + c.justes, 0)
+        const gain = { ...gainVide(), reponses: qcm }
+        const detail = JSON.stringify({ v: VERSION_BAREME, gain, releve: { ...releveVide(), questions: qcm, reponses: qcm, qcm, justes, categories } })
         soiree.run(id, soireeId, espace, totalGain(gain), detail, le)
       }
       rangee('soiree-1', { Histoire: { questions: 50, justes: 40 }, Sciences: { questions: 150, justes: 120 } }, 1000)
       rangee('soiree-2', { Histoire: { questions: 30, justes: 20 }, Sciences: { questions: 100, justes: 80 }, Musique: { questions: 20, justes: 12 } }, 2000)
       // Trois jours de quiz du jour : quinze bonnes réponses en Histoire, et
-      // une Histoire de plus dont l'administrateur a annulé les points.
+      // une Histoire de plus dont l'administrateur a annulé les points ; une
+      // Nature laissée sans réponse, le deuxième jour.
       const tirage = db.prepare(`INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, 1)`)
       const reponse = db.prepare(
-        `INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, 0, 1000, ?, 100, 1)`,
+        `INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, 1000, ?, 100, 1)`,
       )
       for (const [jour, annulees] of [
         ['2026-09-01', []],
@@ -92,7 +158,7 @@ test('sa page montre les douze, sa carte les trois plus hauts — les annulées 
       ] as const) {
         const questions = Array.from({ length: 10 }, (_, i) => ({ categorie: i < 6 ? 'Histoire' : 'Nature' }))
         tirage.run(jour, JSON.stringify(questions), JSON.stringify(annulees))
-        for (let i = 0; i < 10; i++) reponse.run(id, jour, i, i < 6 ? 1 : 0)
+        for (let i = 0; i < 10; i++) reponse.run(id, jour, i, jour === '2026-09-02' && i === 9 ? null : 0, i < 6 ? 1 : 0)
       }
     })
     await banc.redemarrer()
@@ -109,14 +175,88 @@ test('sa page montre les douze, sa carte les trois plus hauts — les annulées 
         { categorie: 'Musique', justes: 12, palier: 0 },
       ],
     )
+    // Sa précision : tous ses QCM répondus — trois cent cinquante en soirée,
+    // vingt-huit au quiz du jour, ni l'annulée ni celle laissée sans réponse.
+    const precision = [350 + 28, 272 + 17, (272 + 17) / (350 + 28)]
+    assert.deepEqual([moi.fiche.qcm, moi.fiche.justes, moi.fiche.precision], precision)
 
     // La carte : les trois plus hauts — ici deux —, et rien pour un anonyme.
     const alice = await invite(banc.url, 'Alice', '', { cookie })
     const bob = await invite(banc.url, 'Bob', '🐻')
     const carte = (id: string) => fetch(`${banc.url}/s/${ADMIN.slug}/joueurs/${id}.json`).then(r => r.json() as Promise<any>)
-    assert.deepEqual((await carte(alice.playerId)).profil.ecussons, [
+    const saCarte = await carte(alice.playerId)
+    assert.deepEqual(saCarte.profil.ecussons, [
       { categorie: 'Sciences', palier: 3 },
       { categorie: 'Histoire', palier: 2 },
     ])
+    assert.deepEqual([saCarte.profil.fiche.qcm, saCarte.profil.fiche.justes, saCarte.profil.fiche.precision], precision, 'la même précision que sa page')
     assert.equal((await carte(bob.playerId)).profil, undefined)
   }))
+
+// ── Tous les modes de jeu (le 6 octobre 2026) ─────────────────────────────
+//
+// La campagne pose aussi des questions classées, et sa base les écrit
+// d'avance : une série, une épreuve des sentiers et le défi de la semaine
+// disent ce qu'on sait d'une catégorie autant qu'une soirée. Ils ne
+// comptaient ni pour les écussons ni pour « Ma carrière », par catégorie.
+
+/** Mardi 6 octobre 2026, 10 h à Paris. */
+const MARDI = Date.UTC(2026, 9, 6, 8, 0)
+
+test('la campagne compte aussi — une série, une épreuve des sentiers, le défi de la semaine : sur sa page comme sur sa carte', async () => {
+  const banc = await demarrer({ horlogeDuJour: () => MARDI, baseDeLaCampagne: baseDEssai(240, { categories: ['Histoire', 'Nature'] }) })
+  try {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const poster = async (chemin: string, corps: unknown) => {
+      const r = await ecrire(banc.url, chemin, corps, cookie)
+      const lu = (await r.json()) as any
+      assert.equal(r.status, 200, lu.error)
+      return lu
+    }
+    // Ce que son téléphone a vu, catégorie par catégorie : la question
+    // montrée dit sa catégorie, et la bonne réponse de la base d'essai
+    // commence par « Bonne ».
+    const vu: Record<string, { questions: number; justes: number }> = {}
+    const repondre = (chemin: string, q: { index: number; categorie: string; reponses: string[] }, juste: boolean) => {
+      const bonne = q.reponses.findIndex(r => r.startsWith('Bonne'))
+      const c = (vu[q.categorie] ??= { questions: 0, justes: 0 })
+      c.questions++
+      if (juste) c.justes++
+      return poster(chemin, { index: q.index, choix: juste ? bonne : (bonne + 1) % q.reponses.length })
+    }
+
+    // Une série d'Histoire seule : vingt bonnes réponses, puis ses trois vies.
+    const serie = await poster('/api/campagne/serie', { categories: ['Histoire'] })
+    for (let i = 0, q = serie.question; q; i++) q = (await repondre(`/api/campagne/serie/${serie.id}/reponse`, q, i < 20)).suivante
+    // Le premier palier du sentier de la Nature : douze bonnes réponses, puis
+    // des fautes jusqu'à la seizième — validée, l'épreuve va au bout.
+    const sentier = BRANCHES.find(b => b.categorie === 'Nature')!.key
+    let epreuve = await poster('/api/campagne/sentiers/epreuve', { branche: sentier, palier: 1 })
+    for (let i = 0, id = epreuve.id; !epreuve.finie && epreuve.question; i++) epreuve = (await repondre(`/api/campagne/epreuve/${id}/reponse`, epreuve.question, i < 12)).epreuve
+    // Le défi de la semaine, de toutes les catégories : cinq bonnes réponses, puis ses trois vies.
+    const defi = await poster('/api/campagne/defi', {})
+    for (let i = 0, q = defi.question; q; i++) q = (await repondre(`/api/campagne/serie/${defi.id}/reponse`, q, i < 5)).suivante
+    assert.deepEqual(Object.keys(vu).sort(), ['Histoire', 'Nature'])
+    assert.equal(vu.Nature.questions >= 16, true, 'les seize questions de l’épreuve')
+
+    const moi = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
+    // « Ma carrière », par catégorie : ni soirée ni quiz du jour ici, la campagne seule.
+    assert.deepEqual(moi.categories, vu)
+    assert.deepEqual(
+      moi.ecussons.filter((e: any) => e.justes > 0),
+      CATEGORIES.filter(c => vu[c]).map(c => ({ categorie: c, justes: vu[c].justes, palier: palierEcusson(vu[c].justes) })),
+    )
+    // Vingt bonnes réponses en Histoire, au moins : le bronze. La Nature, à
+    // douze et quelques, l'attend encore — la carte ne la montre pas.
+    assert.equal(moi.ecussons.find((e: any) => e.categorie === 'Histoire').palier, 1)
+    // Sa précision aussi : chaque QCM de campagne qu'il a répondu.
+    const qcm = Object.values(vu).reduce((n, c) => n + c.questions, 0)
+    const justes = Object.values(vu).reduce((n, c) => n + c.justes, 0)
+    assert.deepEqual([moi.fiche.qcm, moi.fiche.justes, moi.fiche.precision], [qcm, justes, justes / qcm])
+    const carte = (await (await fetch(`${banc.url}/api/joueur/carte`, { headers: { Cookie: cookie } })).json()) as any
+    assert.deepEqual(carte.profil.ecussons, [{ categorie: 'Histoire', palier: 1 }])
+    assert.deepEqual([carte.profil.fiche.qcm, carte.profil.fiche.justes], [qcm, justes], 'la même précision que sa page')
+  } finally {
+    await banc.close()
+  }
+})

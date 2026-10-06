@@ -608,19 +608,37 @@ collection : les vingt qu'une personne peut remporter (`PRIX_INDIVIDUELS`),
 Le Coup de Pouce et La Plus Solidaire allant à une équipe.
 
 **Les écussons de savoir** (lot 7) disent ce qu'on sait, catégorie par
-catégorie : les bonnes réponses d'une catégorie, en soirée comme au quiz du
-jour — aux QCM seulement, une estimation n'étant jamais « juste » —, font
-un blason de bronze à 20, d'argent à 75, d'or à 200 (`SEUILS_ECUSSON`,
-`shared/ecussons.ts`). À une soirée par mois et au quiz du jour 25 jours
-sur 30, une catégorie gagne une quinzaine de bonnes réponses par mois : le
-bronze en un mois et demi, l'argent en cinq, l'or en un an environ ; à la
-soirée seule, bien plus lentement. Ces seuils sont un choix à ajuster. La carte en montre les trois plus hauts
-(`plusBeauxEcussons`) ; la page du profil, les douze, avec ce qui manque au
-suivant — ce qu'on n'a pas, en pointillé. Une dérivation pure de la
-carrière (`categories`) et des réponses du quiz du jour
-(`JourStore.categoriesDe`, les questions annulées écartées) : rien ne
-s'écrit, ils ne rapportent aucune expérience, et une soirée retirée de
-l'historique emporte les bonnes réponses qu'elle avait comptées.
+catégorie : les bonnes réponses d'une catégorie, dans tous les modes de
+jeu — en soirée, au quiz du jour, en campagne (séries, épreuves des
+sentiers, défi de la semaine) —, aux QCM seulement, une estimation n'étant
+jamais « juste », font un blason de bronze à 20, d'argent à 75, d'or à 200
+(`SEUILS_ECUSSON`, `shared/ecussons.ts`). À une soirée par mois et au quiz
+du jour 25 jours sur 30, une catégorie gagne une quinzaine de bonnes
+réponses par mois : le bronze en un mois et demi, l'argent en cinq, l'or en
+un an environ ; à la soirée seule, bien plus lentement. La campagne les
+fait monter à son rythme, sans plafond, comme son expérience : un palier
+de sentier validé en donne de dix à seize dans sa catégorie, et le sentier
+gravi jusqu'à son douzième palier, cent vingt au moins — l'argent, et l'or
+à portée. Ces seuils sont un choix à ajuster. La carte en montre les trois
+plus hauts (`plusBeauxEcussons`) ; la page du profil, les douze, avec ce
+qui manque au suivant — ce qu'on n'a pas, en pointillé. Une dérivation
+pure de la carrière (`categories`), des réponses du quiz du jour
+(`JourStore.savoirDe`, les questions annulées écartées) et de celles de
+la campagne (`CampagneStore.savoirDe`, la catégorie que chaque série a
+gardée de sa question), additionnées une fois (`additionnerCategories`) —
+« Ma carrière », par catégorie, montre la même addition, et la précision
+de la fiche aussi (§ 5.7) : rien ne s'écrit, ils ne rapportent aucune
+expérience, et une soirée retirée de l'historique emporte les bonnes
+réponses qu'elle avait comptées.
+
+La campagne n'y comptait pas jusqu'au 6 octobre 2026 : qui gravissait le
+sentier de la forêt jusqu'à son maître n'avait pas l'écusson de la Nature,
+ni « Ma carrière » une ligne pour ce qu'il y avait trouvé. Elle se joue
+seul, et ses séries se rejouent à volonté ; mais ses questions viennent
+d'une base écrite d'avance, et celles qu'on n'a jamais vues passent
+devant : on n'y récite pas les réponses qu'on a soi-même écrites, comme
+seul devant son quiz (§ 5.5). Le quiz du jour, joué seul lui aussi,
+comptait déjà.
 
 **Les fonds de carte** (lot 7) changent l'allure de la carte qu'on ouvre —
 rien d'autre ne change, ni l'écran commun ni les classements. Quatre,
@@ -645,6 +663,16 @@ taille de la salle, et la réussite par catégorie. La carrière les additionne 
 `/profil` en tire la fiche (précision et coup d'œil, chacun avec sa base,
 réflexe moyen, record, flair…) et les courbes, soirée après soirée.
 
+**La précision compte tous les modes de jeu** (le 6 octobre 2026) : les QCM
+répondus en soirée, au quiz du jour et en campagne — séries, sentiers, défi
+—, sur « Ma carrière », sa tuile et la carte d'un joueur (`ficheDe(carriere,
+ailleurs)`, `Savoir`). Au quiz du jour comme en soirée, une question laissée
+sans réponse est posée, pas ratée, et une question annulée pour tous ne
+compte ni pour ni contre. Le reste de la fiche ne se mesure qu'en soirée :
+le réflexe et le flair gardent leur base, que ni un QCM sans chronomètre ni
+une partie jouée seul ne disent ; le coup d'œil aussi, contre la salle. Les
+courbes et les records de précision restent ceux de chaque soirée.
+
 ### 5.8 Le surnom de soirée
 
 Le renommage de l'animateur est un **surnom pour la soirée** : il remplace le
@@ -662,7 +690,9 @@ Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries,
 Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de
 la fête. L'éditeur la propose sur chaque carte ; l'import en liste la lit sur
 une ligne `# Cinéma` ; l'écran commun l'affiche au-dessus de la question ; le
-journal la garde, et la fiche de carrière donne la réussite par catégorie.
+journal la garde, et « Ma carrière » donne la réussite par catégorie — les
+soirées, le quiz du jour et la campagne ensemble, comme les écussons
+(§ 5.6).
 
 ### 5.10 Le barème des questions
 
@@ -995,8 +1025,8 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   l'expérience d'une bonne réponse en soirée, comme la série (les épreuves
   sont des séries d'un autre mode, dans les mêmes tables : l'expérience,
   les confettis, la mesure des difficultés et « jamais vues d'abord » les
-  comptent sans rien savoir des sentiers). Les écussons, eux, restent aux
-  soirées et au quiz du jour.
+  comptent sans rien savoir des sentiers) — et, depuis le 6 octobre 2026,
+  l'écusson de savoir de sa catégorie (§ 5.6), comme la série et le défi.
 - **L'accueil le rappelle** : le bouton de la campagne dit le sentier qu'on
   avance et ses vies — « Vers le palier 8 de la forêt · 11 vies », « Ton
   épreuve t'attend… » — et ouvre la campagne sur ses sentiers, où ce

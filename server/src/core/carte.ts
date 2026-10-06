@@ -13,23 +13,24 @@ import { maitresDe } from '../../../shared/sentiers'
 /** La moitié « profil » d'une carte. */
 export async function profilDeCarte(
   profiles: ProfileStore,
-  jour: Pick<JourStore, 'resumeDe' | 'categoriesDe'> | undefined,
+  jour: Pick<JourStore, 'resumeDe'> | undefined,
   profil: ProfileRec,
 ): Promise<NonNullable<CarteDeJoueur['profil']>> {
-  const [vitrine, carriere, resume, categoriesDuJour, paliers] = await Promise.all([
+  const [vitrine, carriere, resume, ailleurs, paliers] = await Promise.all([
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
     jour?.resumeDe(profil.id).catch(() => null),
-    // Une base qui se tait ôte ses écussons du quiz du jour à la carte, pas la carte.
-    jour?.categoriesDe(profil.id).catch(() => ({})) ?? {},
+    // Ses écussons et sa précision comptent tous les modes de jeu, comme sa
+    // page : le quiz du jour et la campagne s'ajoutent à ses soirées.
+    profiles.savoirHorsSoirees(profil.id),
     // Ses maîtres ouvrent le Cabinet de curiosités ; muets, ils ne l'ôtent qu'à cette lecture.
     profiles.paliersDe(profil.id).catch(() => ({})),
   ])
-  const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, categoriesDuJour)).map(e => ({
+  const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, ailleurs.categories)).map(e => ({
     categorie: e.categorie,
     palier: e.palier as 1 | 2 | 3,
   }))
-  const fiche = ficheDe(carriere)
+  const fiche = ficheDe(carriere, ailleurs)
   const recompenses = profiles.recompensesOf(profil.id)
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)

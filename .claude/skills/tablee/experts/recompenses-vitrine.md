@@ -41,9 +41,11 @@ côté client `components/Apparence.tsx`, `Trophees.tsx`, `Carriere.tsx`,
 - **Le laurier** : qui le porte, où, jusqu'à quand (minuit), un profil
   masqué, un homonyme, un invité anonyme au même prénom ; ce que la télé en
   montre (`Coupe`, longues listes).
-- **Les écussons** : bonnes réponses d'une catégorie, soirées et quiz du jour
-  ensemble — double compte ? catégorie inconnue ou renommée ? question
-  annulée du jour ? seuils (`SEUILS_ECUSSON`) ?
+- **Les écussons** : bonnes réponses d'une catégorie, tous les modes de jeu
+  ensemble (soirées, quiz du jour, campagne : séries, sentiers, défi) —
+  double compte ? catégorie inconnue ou renommée ? question annulée du jour,
+  question de campagne corrigée ou retirée ? la carte et la page font-elles
+  la même addition ? seuils (`SEUILS_ECUSSON`) ?
 - **Les emojis** : la collection et les nouvelles icônes respectent-elles la
   règle d'avant Unicode 13 (`emojis.test.ts` couvre-t-il tout ce qui
   s'affiche ?), `niveauRequis` face aux sélecteurs de variante et aux emojis
