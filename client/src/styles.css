@@ -5299,6 +5299,7 @@ h3 > .icon {
    finition, et le bord de la carte d'un joueur la coupait net. */
 .podium-avatar .lu,
 .carte-avatar .lu,
+.carte-loupe-avatar .lu,
 .bilan-avatar .lu,
 .retour-avatar .lu,
 .identite .player-avatar .lu,
@@ -5863,6 +5864,67 @@ h3 > .icon {
 .carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; }
 .carte-tete p { margin: 2px 0 0; }
 .carte-avatar { font-size: 2.4rem; }
+/* L'avatar se touche : il s'ouvre en grand (`AvatarEnGrand`). Un bouton nu
+   — c'est l'avatar qu'on voit, pas un bouton. */
+.carte-avatar-bouton {
+  flex: none;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+/* L'avatar en grand, à la place de ce que la carte raconte. Tout ce qui
+   déborde de lui tient dans sa case (`--loupe`), la plus grande que la
+   carte contienne : sa largeur moins ses marges, et sa hauteur
+   (`.carte-joueur`) moins sa barre, ses marges et la légende — rien ne
+   défile, sauf sur un téléphone couché, où la case garde 160 pixels. Le
+   halo et les paillettes d'un emoji y tiennent (1,7 em), la gerbe d'un
+   légendaire éclaté et les rayons d'un Divin aussi ; la lumière des trois
+   dernières finitions va jusqu'à 2,8 em : l'avatar qui la porte se fait
+   plus petit pour qu'elle tienne entière. Ses dessins y prennent leurs
+   grands fichiers, nets à cette taille. */
+.carte-loupe {
+  --loupe: min(300px, 100vw - 74px, max(160px, 76dvh - 186px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+@supports not (height: 1dvh) {
+  .carte-loupe { --loupe: min(300px, 100vw - 74px, max(160px, 76vh - 186px)); }
+}
+/* La case coupe ce qui la dépasse : les calques qui tournent sont des
+   carrés, et leurs coins — transparents — en sortaient, si bien que la
+   carte défilait en largeur au gré de leur rotation. Carrée : un cercle
+   rognerait les paillettes de l'Éclat, posées près des coins du leur. */
+.carte-loupe-bouton {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--loupe);
+  height: var(--loupe);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  overflow: clip;
+  cursor: zoom-out;
+}
+.carte-loupe-avatar { font-size: calc(var(--loupe) / 1.7); animation: pop 0.35s ease-out both; }
+.carte-loupe-avatar.av-lumiere { font-size: calc(var(--loupe) / 2.8); }
+.carte-loupe-legende { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 0; }
+.carte-loupe-nom { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.15; }
+@media (prefers-reduced-motion: reduce) {
+  .carte-loupe-avatar { animation: none; }
+}
 .carte-soir b { font-family: var(--serif); font-size: 1.1rem; color: var(--accent-text); }
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 6px; }
 .carte-legendaire { font-size: 32px; line-height: 0; }
