@@ -1,26 +1,29 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
-import { portrait } from '../../../shared/branches'
-import { nomDuTitre } from '../../../shared/sentiers'
-import { fond } from '../../../shared/fonds'
+import { compteDeLaCollection, type Compte } from '../../../shared/collection'
+import { vitrineDeLaCarte } from '../../../shared/carte'
+import { recompensesDe } from '../../../shared/proches'
 import { gerbe } from '../../../shared/gerbes'
-import { theme } from '../../../shared/themes'
+import { apercuDe } from '../apercus'
 import type { ChoixDuProfil } from './choix'
 import { MaGerbe, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
-import { AtlasDesAvatars } from './AtlasDesAvatars'
+import { MaVitrine } from './Trophees'
 import { Identite } from './Identite'
 import { Icon } from './Icon'
 import { Onglets, type Onglet } from './Onglets'
-import { TropheesAtlas } from './TropheesAtlas'
 import { CarriereAtlas } from './CarriereAtlas'
 import { MesThemes, RayonDesObjets, RayonDesThemes } from './Boutique'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
 
-// Le contenu des écrans du profil — ses avatars, son style, ses trophées —
-// et de la boutique, que la page charge à la demande (`ProfilApp`) : ils
-// portent les dessins de tous les médaillons, et l'accueil anonyme, qui ne
-// montre que « Me connecter » et « Rejoindre une soirée », les
-// téléchargeait avec lui.
+// Le contenu des écrans du profil — « Mon avatar », « Ma carte », « Mon
+// thème », « Ma collection » — et de la boutique, que la page charge à la
+// demande (`ProfilApp`) : ils portent les dessins de tous les médaillons, et
+// l'accueil anonyme, qui ne montre que « Me connecter » et « Rejoindre une
+// soirée », les téléchargeait avec lui.
+//
+// Les trois premiers sont ceux où l'on choisit ce qu'on porte, rangés par
+// qui le voit : ils ne montrent que ce qu'on a. Tout le reste, et où le
+// gagner, vit dans « Ma collection », où l'on ne règle rien.
 
 interface Props {
   profil: PublicProfileDetail
@@ -28,108 +31,123 @@ interface Props {
   enregistrer: (patch: ChoixDuProfil) => void
 }
 
-type OngletAvatars = 'emojis' | 'legendaires' | 'savoir'
-
-const ONGLETS_AVATARS: Onglet<OngletAvatars>[] = [
-  { id: 'emojis', nom: 'Emojis', icone: 'sparkles' },
-  { id: 'legendaires', nom: 'Légendaires', icone: 'star' },
-  { id: 'savoir', nom: 'Savoir', icone: 'book' },
-]
-
-/** L'onglet qu'on ouvre d'abord : celui de ce qu'il porte. */
-function ongletDuDebut(porte: string | null | undefined): OngletAvatars {
-  if (portrait(porte)) return 'savoir'
-  return porte ? 'legendaires' : 'emojis'
+/**
+ * Ce que les tuiles du profil montrent en plus de son en-tête : le total de
+ * sa collection, les hauts faits de sa vitrine, sa gerbe et l'aperçu de son
+ * thème. Ici, avec les écrans : leurs catalogues — fonds, gerbes, aperçus
+ * des thèmes — n'ont rien à faire sur le chemin de l'accueil anonyme, qui
+ * partage le fichier des tuiles (`ProfilApp`) : près de trois kilos de plus.
+ */
+export function apercusDesTuiles(profil: PublicProfileDetail): {
+  collection: Compte
+  vitrine: string
+  gerbe: { nom: string; particule: string } | null
+  apercuDuTheme: string | undefined
+} {
+  const saGerbe = gerbe(profil.gerbe)
+  return {
+    collection: compteDeLaCollection(profil).total,
+    vitrine: vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits))
+      .map(b => b.emoji)
+      .join(''),
+    gerbe: saGerbe ? { nom: saGerbe.nom, particule: saGerbe.particules[0] } : null,
+    apercuDuTheme: apercuDe(profil.theme ?? 'velours'),
+  }
 }
 
 /**
- * « Mes avatars », en trois onglets : les emojis dans leur grille, les
- * légendaires dans leur écrin, le savoir en atlas. Chaque famille garde
- * l'allure qui lui va : un emoji se choisit d'un coup d'œil, un légendaire
- * se contemple, une branche se parcourt. Ce que la salle voit est en tête
- * du profil (`Identite`) : l'écran est aux avatars.
+ * « Mon avatar » : ce que la salle voit à côté de son prénom. Sa carte en
+ * tête, collée pendant qu'on choisit — on se voit changer —, puis la
+ * finition sur sa ligne, et ses avatars, ceux qu'il a seulement. La finition
+ * vivait dans « Mon style », loin de l'avatar qu'elle habille : on la
+ * cherchait (la remarque du 5 octobre 2026).
  */
-export function PanneauAvatars({ profil, busy, enregistrer }: Props) {
-  const [onglet, setOnglet] = useState<OngletAvatars>(() => ongletDuDebut(profil.legendaire))
-  return (
-    <>
-      <Onglets
-        onglets={ONGLETS_AVATARS}
-        actif={onglet}
-        onChoisir={setOnglet}
-        label="Mes avatars"
-        idOnglet={id => `avatars-${id}`}
-        idPanneau={id => `panneau-${id}`}
-        className="onglets-avatars"
-      />
-      <div role="tabpanel" id={`panneau-${onglet}`} aria-labelledby={`avatars-${onglet}`} className="panneau-avatars">
-        {onglet === 'emojis' ? (
-          // La grille des emojis de toujours, seule : ses onglets de familles
-          // et son mode d'emploi feraient doublon avec ceux-ci.
-          <div className="une-famille">
-            <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} familleInitiale="emojis" />
-          </div>
-        ) : (
-          <AtlasDesAvatars key={onglet} profil={profil} onglet={onglet} busy={busy} enregistrer={enregistrer} />
-        )}
-      </div>
-    </>
-  )
-}
-
-/** Les réglages de « Mon style », chacun son écran (`ProfilApp`, `#style-finition`…). */
-export type Reglage = 'finition' | 'titre' | 'fond' | 'gerbe' | 'theme'
-
-/**
- * « Mon style » : sa carte en tête — c'est ce qu'on change —, puis quatre
- * lignes qui disent ce qui est choisi, chacune ouvrant son écran — le thème
- * compris : ceux qu'on a se portent ici, la boutique ne vend que les autres.
- */
-export function PanneauStyle({ profil, onReglage }: Props & { onReglage: (r: Reglage) => void }) {
-  const titre = nomDuTitre(profil.titre)
-  const finition = profil.finitionChoisie === 'auto' ? `Auto · ${NOM_FINITION[profil.finition]}` : NOM_FINITION[profil.finition]
-  const lignes: { r: Reglage; icone: ReactNode; nom: string; valeur: string }[] = [
-    { r: 'finition', icone: <Icon name="sparkles" />, nom: 'Finition', valeur: finition },
-    { r: 'titre', icone: <Icon name="award" />, nom: 'Titre', valeur: titre ?? 'Aucun' },
-    { r: 'fond', icone: <Icon name="image" />, nom: 'Fond de carte', valeur: fond(profil.fond)?.nom ?? 'Aucun' },
-    { r: 'gerbe', icone: <Icon name="zap" />, nom: 'Gerbe', valeur: gerbe(profil.gerbe)?.nom ?? 'Aucune' },
-    { r: 'theme', icone: <Icon name="palette" />, nom: 'Thème', valeur: theme(profil.theme ?? 'velours')?.nom ?? 'Velours' },
-  ]
-  return (
-    <>
-      <Identite profil={profil} />
-      <ul className="style-liste">
-        {lignes.map(l => (
-          <li key={l.r}>
-            <button type="button" onClick={() => onReglage(l.r)}>
-              <span className="style-icone">{l.icone}</span>
-              <span className="style-nom">{l.nom}</span>
-              <span className="style-valeur">{l.valeur}</span>
-              <Icon name="chevron-down" className="style-chevron" />
-            </button>
-          </li>
-        ))}
-      </ul>
-      <p className="muted small center">La finition, le titre et le fond se voient ci-dessus, et sur ta carte.</p>
-    </>
-  )
-}
-
-/** Un réglage du style, seul sur son écran, sa carte au-dessus, qui reste en vue : on voit ce qu'on change. */
-export function PanneauReglage({ reglage, profil, busy, enregistrer }: Props & { reglage: Reglage }) {
+export function PanneauMonAvatar({ profil, busy, enregistrer }: Props) {
+  const avatars = compteDeLaCollection(profil).familles.find(f => f.famille === 'avatars')
+  const reste = avatars ? avatars.total - avatars.acquis : 0
   return (
     <>
       <div className="identite-collante">
         <Identite profil={profil} />
       </div>
-      {reglage === 'finition' && <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />}
-      {reglage === 'titre' && <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />}
-      {reglage === 'fond' && <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />}
-      {reglage === 'gerbe' && <MaGerbe profil={profil} busy={busy} enregistrer={enregistrer} />}
-      {reglage === 'theme' && <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />}
+      <MaFinition profil={profil} busy={busy} enregistrer={enregistrer} />
+      <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} aMoi />
+      {reste > 0 && (
+        <a className="link-inline lien-boutique" href="#collection">
+          <Icon name="award" />
+          {`${reste} autre${reste > 1 ? 's' : ''} à gagner : où et comment, dans « Ma collection »`}
+        </a>
+      )}
     </>
   )
 }
+
+/**
+ * La finition, sur une ligne qui dit celle qu'il porte ; touchée, sa grille
+ * se déplie dessous. Dépliée d'office, ses huit cases repoussaient ses
+ * avatars de plus d'un écran — et l'on vient surtout changer d'avatar.
+ */
+function MaFinition({ profil, busy, enregistrer }: Props) {
+  const [ouverte, setOuverte] = useState(false)
+  const valeur = profil.finitionChoisie === 'auto' ? `Auto · ${NOM_FINITION[profil.finition]}` : NOM_FINITION[profil.finition]
+  return (
+    <div className="ma-finition">
+      <ul className="style-liste">
+        <li>
+          <button type="button" aria-expanded={ouverte} aria-controls="mes-finitions" onClick={() => setOuverte(o => !o)}>
+            <span className="style-icone">
+              <Icon name="sparkles" />
+            </span>
+            <span className="style-nom">Finition</span>
+            <span className="style-valeur">{valeur}</span>
+            <Icon name="chevron-down" className="style-chevron" />
+          </button>
+        </li>
+      </ul>
+      {ouverte && (
+        <div id="mes-finitions">
+          <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * « Ma carte » : ce qu'on voit en touchant son prénom — son titre, sa
+ * vitrine, son fond —, sa carte collée en tête. La vitrine vivait dans les
+ * trophées, le titre et le fond dans « Mon style » : trois écrans pour une
+ * carte. Le reste s'y remplit tout seul.
+ */
+export function PanneauMaCarte({ profil, busy, enregistrer }: Props) {
+  return (
+    <>
+      <div className="identite-collante">
+        <Identite profil={profil} />
+      </div>
+      <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
+      <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
+      <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+      <p className="muted small center">Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix.</p>
+    </>
+  )
+}
+
+/**
+ * « Mon thème » : ce que lui seul voit — le thème qui habille ses pages, la
+ * gerbe qui éclate à ses bonnes réponses. Ses thèmes seulement : la boutique
+ * vend les autres, la collection dit où gagner ceux qui ne se vendent pas.
+ */
+export function PanneauMonTheme({ profil, busy, enregistrer }: Props) {
+  return (
+    <>
+      <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />
+      <MaGerbe profil={profil} busy={busy} enregistrer={enregistrer} />
+    </>
+  )
+}
+
+export { MaCollection as PanneauCollection } from './Collection'
 
 type RayonDeLaBoutique = 'themes' | 'objets'
 
@@ -193,10 +211,6 @@ export function PanneauBoutique({
       </div>
     </>
   )
-}
-
-export function PanneauTrophees({ profil, busy, enregistrer }: Props) {
-  return <TropheesAtlas profil={profil} busy={busy} enregistrer={enregistrer} />
 }
 
 export function PanneauCarriere({ profil }: { profil: PublicProfileDetail }) {

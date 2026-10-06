@@ -174,11 +174,9 @@ try {
   await page.waitForSelector('.rayon-objets')
   await photo('12-boutique-objets')
 
-  // Les avatars du profil : la forêt et ses paliers.
-  await page.goto(`${banc.url}/profil#avatars`)
-  await page.waitForSelector('[role="tab"]')
-  await page.locator('[role="tab"]', { hasText: /Savoir|Branches/ }).first().click()
-  await page.waitForSelector('.rayon, .atlas-branche')
+  // Les avatars du savoir, dans « Ma collection » : la forêt et ses paliers.
+  await page.goto(`${banc.url}/profil#collection-savoir`)
+  await page.waitForSelector('.atlas-branche')
   await photo('13-avatars', true)
 
   // L'administration des sentiers — avec un rejeu, compté à part : le premier

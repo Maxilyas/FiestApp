@@ -157,8 +157,8 @@ try {
   await page.waitForTimeout(1200)
   await photo('9-profil-laurier-argent')
 
-  // 6. La gerbe : son choix dans « Mon style », et l'éclat d'une bonne réponse.
-  await page.goto(`${banc.url}/profil#style-gerbe`)
+  // 6. La gerbe : son choix dans « Mon thème », et l'éclat d'une bonne réponse.
+  await page.goto(`${banc.url}/profil#theme`)
   await page.waitForSelector('.gerbes-choix')
   await photo('11-ma-gerbe', true)
   await page.click('.gerbes-choix >> text=Les confettis')

@@ -5,27 +5,10 @@
 import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
 import { PRIX_INDIVIDUELS } from './stats'
-import type { CarteDeJoueur } from '../../../shared/carte'
-import type { BadgePorte } from '../../../shared/badges'
+import { vitrineDeLaCarte, type CarteDeJoueur } from '../../../shared/carte'
 import { ecussonsDe, plusBeauxEcussons } from '../../../shared/ecussons'
-import { VITRINE_MAX, cleRangee, plusBeaux } from '../../../shared/hautsfaits'
 import { ficheDe } from '../../../shared/profil'
 import { maitresDe } from '../../../shared/sentiers'
-
-/**
- * La vitrine d'une carte : les hauts faits qu'il a choisis, dans son ordre —
- * un haut fait de carrière à son plus haut palier, qui monte avec lui —, ou,
- * s'il n'a rien choisi, ses trois plus beaux (`plusBeaux`).
- */
-export function vitrineDeLaCarte(etagere: BadgePorte[], choisie: string[] | null, recompenses: ReadonlyMap<string, number>): BadgePorte[] {
-  if (!choisie) return plusBeaux(etagere, VITRINE_MAX)
-  const parCle = new Map(etagere.map(b => [b.key, b]))
-  return choisie.flatMap(cle => {
-    const rangee = cleRangee(cle, recompenses)
-    const badge = rangee ? parCle.get(rangee) : undefined
-    return badge ? [badge] : []
-  })
-}
 
 /** La moitié « profil » d'une carte. */
 export async function profilDeCarte(

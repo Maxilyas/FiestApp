@@ -1,10 +1,13 @@
-// « Mes avatars » et « Mon style », à la manière de la maquette.
+// Les écrans du profil, à la manière de la maquette du 5 octobre 2026.
 //
-// Les avatars se parcourent en atlas : un rail des douze branches, chacune un
-// orbe dont l'anneau se remplit, puis la branche choisie en chemin ; les
-// légendaires et les Divins en grilles de médaillons. Le style se lit en
-// cinq lignes — ce qui est choisi, en clair —, chacune ouvrant son écran à
-// son adresse, la carte collée en tête pendant qu'on règle.
+// Ce qu'on porte, rangé par qui le voit : « Mon avatar » (la salle — sa
+// finition comprise), « Ma carte » (qui touche son nom — titre, vitrine,
+// fond), « Mon thème » (lui seul — sa gerbe comprise). Ces écrans ne
+// montrent que ce qu'on a ; tout le reste, et où le gagner, vit dans « Ma
+// collection », où les avatars se parcourent en atlas : un rail des douze
+// branches, chacune un orbe dont l'anneau se remplit, puis la branche
+// choisie en chemin ; les légendaires et les Divins en grilles de
+// médaillons.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -85,20 +88,90 @@ test('les légendaires et les Divins en grilles de médaillons, le compte en tê
   assert.match(html, /Ils ne disent pas comment/)
 })
 
-test('« Mon style » : cinq lignes, ce qui est choisi en clair, chacune son écran — la gerbe et le thème compris', async () => {
-  const html = await rendu('components/PanneauxDuProfil', 'PanneauStyle', { profil, ...rien, onReglage: () => {} })
-  assert.match(html, /<button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
-  const lignes = [...html.matchAll(/<span class="style-nom">([^<]+)<\/span><span class="style-valeur">([^<]+)<\/span>/g)].map(([, nom, valeur]) => `${nom} : ${valeur}`)
-  assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Gerbe : Aucune', 'Thème : Velours'])
-  // Le thème aussi : ceux qu'on a se portent ici, la boutique ne vend que les autres.
-  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 5)
-  // Chaque réglage a son écran, à son adresse : le retour du navigateur ramène au style.
+// ── Ce qu'on porte : trois écrans, rangés par qui le voit ──────────────
+
+/** Un profil tel que sa page le reçoit : de quoi rendre les écrans qu'on porte. */
+const complet = {
+  ...profil,
+  ouvertes: ['mat'],
+  vitrine: [],
+  vitrineChoisie: null,
+  fonds: [],
+  gerbes: ['confettis'],
+  gerbe: null,
+  titresDates: [],
+  boutique: { confettis: { gagnes: 12, depenses: 0, solde: 12 }, possedes: ['velours', 'ivoire'], porte: null, jour: '2026-10-05' },
+}
+
+/** Les titres des cartes d'un écran, dans l'ordre : ce qu'on y règle. */
+const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
+
+test('le profil : deux groupes de tuiles — ce qu’on porte, chacune dit qui le voit ; ce qu’on a et ce qu’on a fait', () => {
   const app = source('views/ProfilApp.tsx')
-  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-gerbe' \| 'style-theme'/)
-  assert.match(app, /onReglage=\{r => ouvrir\(`style-\$\{r\}`\)\}/)
-  // Le réglage garde la carte collée en tête, où l'on voit ce qu'on change.
-  assert.match(source('components/PanneauxDuProfil.tsx'), /<div className="identite-collante">/)
+  const ecrans = [...app.matchAll(/\{ id: '(\w+)', nom: '([^']+)', groupe: '([^']+)'/g)].map(([, id, nom, groupe]) => `${groupe} › ${nom} (#${id})`)
+  assert.deepEqual(ecrans, [
+    'Me changer › Mon avatar (#avatar)',
+    'Me changer › Ma carte (#carte)',
+    'Me changer › Mon thème (#theme)',
+    'Me retrouver › Ma collection (#collection)',
+    'Me retrouver › Ma carrière (#carriere)',
+    'Me retrouver › Mes soirées (#soirees)',
+  ])
+  // Chaque tuile de ce qu'on porte dit qui le voit, et son écran le redit en tête.
+  for (const qui of ['la salle le voit', 'en touchant ton nom', 'toi seul le vois']) assert.match(app, new RegExp(`qui="${qui}"`), qui)
+  assert.match(app, /<PieceTete piece=\{e\.groupe\} titre=\{e\.nom\}>\s*\{e\.qui && <p className="muted qui-le-voit">\{e\.qui\}<\/p>\}/)
+  // Trois par rangée, puis la collection couchée sur la sienne.
+  assert.match(app, /<div className="tuiles tuiles-trois">/)
+  assert.match(source('styles.css'), /\.tuiles-trois \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/)
+  // Chaque écran a son panneau, chargé à la demande.
+  for (const [ecran, panneau] of [['avatar', 'PanneauMonAvatar'], ['carte', 'PanneauMaCarte'], ['theme', 'PanneauMonTheme'], ['collection', 'PanneauCollection']])
+    assert.match(app, new RegExp(`\\{ecran === '${ecran}' && \\(pret \\? <pret\\.${panneau} `), ecran)
+})
+
+test('une tuile montre ce qu’on porte et qui le voit ; la collection se couche, son compte et sa jauge', async () => {
+  const porte = await rendu('components/Pieces', 'Tuile', { apercu: React.createElement('i'), titre: 'Mon thème', detail: 'Velours', qui: 'toi seul le vois', onClick: () => {} })
+  assert.match(porte, /^<button type="button" class="tuile tuile-a-apercu"><span class="tuile-apercu" aria-hidden="true"><i><\/i><\/span><b>Mon thème<\/b>/)
+  assert.match(porte, /<span class="tuile-qui"><svg[^>]*>.*<\/svg>toi seul le vois<\/span><\/button>$/)
+  const large = await rendu('components/Pieces', 'Tuile', { icone: 'award', titre: 'Ma collection', compte: '27 sur 308', jauge: 0.09, detail: 'Avatars', onClick: () => {} })
+  assert.match(large, /^<button type="button" class="tuile tuile-large"><span class="gros-icone">/)
+  assert.match(large, /<b>Ma collection<span class="tuile-compte">27 sur 308<\/span><\/b><span class="jauge-fine" aria-hidden="true"><span style="width:9%"><\/span><\/span>/)
+  // Sans aperçu ni jauge : la tuile de toujours.
+  assert.match(await rendu('components/Pieces', 'Tuile', { icone: 'book', titre: 'Mes soirées', onClick: () => {} }), /^<button type="button" class="tuile"><span class="gros-icone">/)
+})
+
+test('« Mon avatar » : sa carte collée en tête, la finition sur sa ligne, ses avatars à lui — le reste, dans la collection', async () => {
+  const html = await rendu('components/PanneauxDuProfil', 'PanneauMonAvatar', { profil: complet, ...rien })
+  assert.match(html, /^<div class="identite-collante"><button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
+  // La finition se lit sur sa ligne et se déplie : dépliée d'office, ses huit
+  // cases repoussaient les avatars de plus d'un écran.
+  assert.match(html, /<button type="button" aria-expanded="false" aria-controls="mes-finitions">.*<span class="style-nom">Finition<\/span><span class="style-valeur">Auto · Mat<\/span>/)
+  assert.doesNotMatch(html, /class="finitions"/)
+  assert.ok(html.indexOf('Finition') < html.indexOf('Mes avatars'), 'la finition avant les avatars')
+  // Seulement ce qu'il a : rien de fermé, et le compte dit « à toi ».
+  assert.match(html, /Mes avatars <span class="muted small titre-compte">\d+ à toi<\/span>/)
+  assert.doesNotMatch(html, /case-avatar[^"]* ferme/)
+  // Ce qui reste, et où le gagner : un lien vers la collection, compté.
+  const { compteDeLaCollection } = await import('../../shared/collection')
+  const avatars = compteDeLaCollection(complet as any).familles.find(f => f.famille === 'avatars')!
+  assert.match(html, new RegExp(`<a class="link-inline lien-boutique" href="#collection">.*${avatars.total - avatars.acquis} autres à gagner : où et comment, dans « Ma collection »</a>`))
+  // La carte reste collée pendant qu'on choisit.
   assert.match(source('styles.css'), /\.identite-collante \{ position: sticky; top: 0;/)
+})
+
+test('« Ma carte » : son titre, sa vitrine et son fond — la vitrine a quitté les trophées', async () => {
+  const html = await rendu('components/PanneauxDuProfil', 'PanneauMaCarte', { profil: complet, ...rien })
+  assert.match(html, /^<div class="identite-collante"><button type="button" class="identite"/)
+  assert.deepEqual(cartes(html), ['Mon titre', 'Ma vitrine', 'Le fond de ma carte'])
+  assert.match(html, /Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix\./)
+})
+
+test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas, puis sa gerbe', async () => {
+  const html = await rendu('components/PanneauxDuProfil', 'PanneauMonTheme', { profil: complet, ...rien })
+  assert.ok(html.indexOf('class="mes-themes"') < html.indexOf('Ma gerbe'), 'le thème, puis la gerbe')
+  // Ce qui s'achète à la boutique, ce qui se gagne dans la collection : pas sur l'écran où l'on choisit.
+  assert.match(html, /<a class="link-inline lien-boutique" href="\/boutique"><svg[^>]*>.*?<\/svg>\d+ autres à la boutique<\/a>/)
+  assert.match(html, /<a class="link-inline lien-boutique" href="#collection-themes"><svg[^>]*>.*?<\/svg>5 qui ne se vendent pas : où les gagner<\/a>/)
+  assert.doesNotMatch(html, /class="theme-a-gagner/)
 })
 
 // ── Les trophées, la carrière, les soirées ─────────────────────────────
@@ -151,12 +224,9 @@ const vecu = {
   prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
 }
 
-test('les trophées : la vitrine sur une ligne, sept collections qu’on déplie, une à la fois', async () => {
-  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu, ...rien })
-  assert.match(html, /<section class="vitrine-ligne" aria-label="Ma vitrine">/)
-  // Rien à montrer encore : la ligne le dit, sans bouton pour choisir dans le vide.
-  assert.match(html, /Elle se remplit à la fin de chaque soirée/)
-  assert.doesNotMatch(html, />Changer</)
+test('les trophées : sept collections qu’on déplie, une à la fois — la vitrine se règle dans « Ma carte »', async () => {
+  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu })
+  assert.doesNotMatch(html, /vitrine/i, 'la vitrine a sa place dans « Ma carte »')
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
   // La campagne a la sienne depuis ses hauts faits de série (le 5 octobre 2026).
   assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour', 'Campagne'])
@@ -164,7 +234,8 @@ test('les trophées : la vitrine sur une ligne, sept collections qu’on déplie
   assert.equal(html.match(/aria-expanded="false"/g)?.length, 7)
   assert.doesNotMatch(html, /trophee-contenu/)
   assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
-  assert.match(source('components/PanneauxDuProfil.tsx'), /return <TropheesAtlas profil=\{profil\} busy=\{busy\} enregistrer=\{enregistrer\} \/>/)
+  // Elles vivent dans « Ma collection », sous les avatars et le style.
+  assert.match(source('components/Collection.tsx'), /f\.famille === 'trophees' \? <TropheesAtlas profil=\{profil\} \/>/)
 })
 
 test('la carrière : trois jauges jamais fondues, les chiffres en cases, quatre vues', async () => {

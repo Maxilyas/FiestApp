@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 import { Ecusson } from './Ecusson'
 import { Medaille } from './Jour'
 import { Case, LUEUR, OR, lueur } from './Atlas'
-import { MaVitrine, UnProche, laVitrine } from './Trophees'
+import { UnProche } from './Trophees'
 import { Calendrier } from './Calendrier'
 import { espacesFines, formatNumber } from '../format'
 import { lesPlusProches } from '../../../shared/proches'
@@ -12,11 +12,13 @@ import { BRANCHES } from '../../../shared/branches'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import type { PublicProfileDetail } from '../../../shared/profil'
+import { comptesDesTrophees, listesDesTrophees } from '../../../shared/collection'
 
-// Les trophées, simples : la vitrine sur une ligne, puis sept collections en
-// liste — une ligne chacune, son compte et sa jauge —, qu'on déplie sur
-// place. Une seule ouverte à la fois : sept cartes empilées faisaient une
-// page qu'on ne lisait plus. Chaque case dépliée s'ouvre sur sa règle.
+// Les trophées, dans « Ma collection » : sept collections en liste — une
+// ligne chacune, son compte et sa jauge —, qu'on déplie sur place. Une seule
+// ouverte à la fois : sept cartes empilées faisaient une page qu'on ne lisait
+// plus. Chaque case dépliée s'ouvre sur sa règle. La vitrine, qui y tenait
+// sa ligne, se règle dans « Ma carte » : c'est la carte qui la montre.
 
 type Collection = 'eclats' | 'ombres' | 'paliers' | 'ecussons' | 'prix' | 'jour' | 'campagne'
 
@@ -36,7 +38,7 @@ const METAUX = ['Bronze', 'Argent', 'Or'] as const
 const lueurDe = (categorie: string) => LUEUR[BRANCHES.find(b => b.categorie === categorie)?.key ?? 'monde']
 
 /** Une jauge fine : où l'on en est, sans un chiffre de plus. */
-function JaugeFine({ part }: { part: number }) {
+export function JaugeFine({ part }: { part: number }) {
   return (
     <span className="jauge-fine" aria-hidden="true">
       <span style={{ width: `${Math.round(Math.max(0, Math.min(1, part)) * 100)}%` }} />
@@ -53,40 +55,70 @@ interface Collectionnable {
   rarete?: Rarete | null
 }
 
-export function TropheesAtlas({
-  profil,
-  busy,
-  enregistrer,
+/**
+ * Une ligne d'une collection : son emblème, son nom, ce qu'on y trouve, son
+ * compte et sa jauge — elle se déplie sur place, sous son nom. Les trophées
+ * et « Ma collection » ont les mêmes.
+ */
+export function LigneDeCollection({
+  id,
+  emoji,
+  nom,
+  detail,
+  compte,
+  part,
+  couleur,
+  ouverte,
+  onToucher,
+  children,
 }: {
-  profil: PublicProfileDetail
-  busy: boolean
-  enregistrer: (patch: { vitrine: string[] | null }) => void
+  id?: string
+  emoji: string
+  nom: string
+  detail: string
+  compte: string
+  part: number
+  couleur: string
+  ouverte: boolean
+  onToucher: () => void
+  children: ReactNode
 }) {
+  return (
+    <li id={id} className={'trophee' + (ouverte ? ' trophee-ouvert' : '')} style={lueur(couleur)}>
+      <button type="button" className="trophee-ligne" aria-expanded={ouverte} onClick={onToucher}>
+        <span className="trophee-emoji" aria-hidden="true">
+          {emoji}
+        </span>
+        <span className="trophee-texte">
+          <b>{nom}</b>
+          <span className="muted small">{detail}</span>
+        </span>
+        <span className="trophee-compte">
+          {compte}
+          <JaugeFine part={part} />
+        </span>
+        <Icon name="chevron-down" className="trophee-chevron" />
+      </button>
+      {ouverte && <div className="trophee-contenu">{children}</div>}
+    </li>
+  )
+}
+
+export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
   const [collection, setCollection] = useState<Collection | null>(null)
   const [ouvert, setOuvert] = useState<string | null>(null)
-  const [changer, setChanger] = useState(false)
   const toucher = (k: string) => setOuvert(o => (o === k ? null : k))
   const choisir = (c: Collection | null) => {
     setCollection(c)
     setOuvert(null)
   }
 
-  // Les hauts faits de soirée à part de ceux du quiz du jour et de la
-  // campagne : chacun se gagne dans son monde, et chacun a sa collection.
-  const soiree = profil.hautsFaits.filter(h => h.famille === 'soiree' && !h.origine)
-  const eclats = soiree.filter(h => h.ton !== 'ombre')
-  const ombres = soiree.filter(h => h.ton === 'ombre')
-  const duJour = profil.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'jour')
-  const deCampagne = profil.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'campagne')
-  const paliers = profil.hautsFaits.filter(h => h.famille === 'carriere')
-  const prix = profil.prix ?? []
-  const ecussons = profil.ecussons ?? []
+  // Ce que chaque collection montre, et son compte : la règle de « Ma
+  // collection » (`shared/collection.ts`), qui fait aussi son total.
+  const { eclats, ombres, duJour, deCampagne, paliers, prix, ecussons } = listesDesTrophees(profil)
+  const comptes = new Map(comptesDesTrophees(profil).map(c => [c.partie, c]))
   const jour = profil.jour
   const proches = lesPlusProches(profil.hautsFaits, profil.legendaires)
-  const { gagnes, montres } = laVitrine(profil)
-  const eus = (l: readonly { fois: number }[]) => l.filter(x => x.fois > 0).length
-  const crans = paliers.reduce((s, h) => s + Math.min(3, h.fois), 0)
-  const ecussonsEus = ecussons.filter(e => e.palier > 0).length
 
   /** Une grille de hauts faits ou de prix : allumés si on les a, la règle à l'ouverture. */
   const grille = (liste: Collectionnable[], quoi: string) => (
@@ -244,66 +276,39 @@ export function TropheesAtlas({
   }
 
   const victoires = jour?.victoires ?? 0
-  const LIGNES: { cle: Collection; emoji: string; nom: string; detail: string; compte: string; part: number }[] = [
-    { cle: 'eclats', emoji: '⚡', nom: 'Hauts faits', detail: 'Ce qu’on réussit de remarquable en soirée', compte: `${eus(eclats)}/${eclats.length}`, part: eus(eclats) / Math.max(1, eclats.length) },
-    { cle: 'ombres', emoji: '💥', nom: 'Coups du sort', detail: 'Les soirées où rien ne va', compte: `${eus(ombres)}/${ombres.length}`, part: eus(ombres) / Math.max(1, ombres.length) },
-    { cle: 'paliers', emoji: '🎖️', nom: 'Paliers', detail: 'Bronze, argent, or, sur toute ta carrière', compte: `${crans}/${paliers.length * 3}`, part: crans / Math.max(1, paliers.length * 3) },
-    { cle: 'ecussons', emoji: '🛡️', nom: 'Écussons', detail: 'Les bonnes réponses de chaque catégorie', compte: `${ecussonsEus}/${ecussons.length}`, part: ecussonsEus / Math.max(1, ecussons.length) },
-    { cle: 'prix', emoji: '🏅', nom: 'Prix', detail: 'Ceux qu’annonce la fin d’une soirée', compte: `${eus(prix)}/${prix.length}`, part: eus(prix) / Math.max(1, prix.length) },
-    { cle: 'jour', emoji: '☀️', nom: 'Quiz du jour', detail: 'Tes médailles, ses hauts faits, le calendrier', compte: `${victoires} victoire${victoires > 1 ? 's' : ''}`, part: eus(duJour) / Math.max(1, duJour.length) },
-    { cle: 'campagne', emoji: '🧗', nom: 'Campagne', detail: 'Ce qu’on réussit dans une série à trois vies', compte: `${eus(deCampagne)}/${deCampagne.length}`, part: eus(deCampagne) / Math.max(1, deCampagne.length) },
+  const LIGNES: { cle: Collection; emoji: string; nom: string; detail: string }[] = [
+    { cle: 'eclats', emoji: '⚡', nom: 'Hauts faits', detail: 'Ce qu’on réussit de remarquable en soirée' },
+    { cle: 'ombres', emoji: '💥', nom: 'Coups du sort', detail: 'Les soirées où rien ne va' },
+    { cle: 'paliers', emoji: '🎖️', nom: 'Paliers', detail: 'Bronze, argent, or, sur toute ta carrière' },
+    { cle: 'ecussons', emoji: '🛡️', nom: 'Écussons', detail: 'Les bonnes réponses de chaque catégorie' },
+    { cle: 'prix', emoji: '🏅', nom: 'Prix', detail: 'Ceux qu’annonce la fin d’une soirée' },
+    { cle: 'jour', emoji: '☀️', nom: 'Quiz du jour', detail: 'Tes médailles, ses hauts faits, le calendrier' },
+    { cle: 'campagne', emoji: '🧗', nom: 'Campagne', detail: 'Ce qu’on réussit dans une série à trois vies' },
   ]
 
   return (
-    <div className="trophees">
-      {/* La vitrine, sur une ligne : ce que sa carte montre à la salle. */}
-      <section className="vitrine-ligne" aria-label="Ma vitrine">
-        <span className="vitrine-ligne-texte">
-          <span className="label">Ma vitrine</span>
-          {gagnes.length > 0 ? (
-            <button type="button" className="link-inline" aria-expanded={changer} onClick={() => setChanger(c => !c)}>
-              {changer ? 'Fermer' : 'Changer'}
-            </button>
-          ) : (
-            <span className="muted small">Elle se remplit à la fin de chaque soirée</span>
-          )}
-        </span>
-        <span className="vitrine-ligne-medailles">
-          {montres.slice(0, 3).map(v => (
-            <span key={v.key} className="vitrine-petite" title={v.title}>
-              <span aria-hidden="true">{v.emoji}</span>
-              <span className="sr-only">{v.title}</span>
-            </span>
-          ))}
-        </span>
-      </section>
-      {changer && <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />}
-
-      {/* Sept collections en liste : une ligne chacune, qu'on déplie sur place. */}
-      <ul className="trophees-liste">
-        {LIGNES.map(l => {
-          const ouverte = collection === l.cle
-          return (
-            <li key={l.cle} className={'trophee' + (ouverte ? ' trophee-ouvert' : '')} style={lueur(COULEURS[l.cle])}>
-              <button type="button" className="trophee-ligne" aria-expanded={ouverte} onClick={() => choisir(ouverte ? null : l.cle)}>
-                <span className="trophee-emoji" aria-hidden="true">
-                  {l.emoji}
-                </span>
-                <span className="trophee-texte">
-                  <b>{l.nom}</b>
-                  <span className="muted small">{l.detail}</span>
-                </span>
-                <span className="trophee-compte">
-                  {l.compte}
-                  <JaugeFine part={l.part} />
-                </span>
-                <Icon name="chevron-down" className="trophee-chevron" />
-              </button>
-              {ouverte && <div className="trophee-contenu">{contenus[l.cle]}</div>}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+    // Sept collections en liste : une ligne chacune, qu'on déplie sur place.
+    <ul className="trophees-liste">
+      {LIGNES.map(l => {
+        const ouverte = collection === l.cle
+        const { acquis, total } = comptes.get(l.cle) ?? { acquis: 0, total: 0 }
+        return (
+          <LigneDeCollection
+            key={l.cle}
+            emoji={l.emoji}
+            nom={l.nom}
+            detail={l.detail}
+            // Le quiz du jour se compte en victoires : c'est ce qu'on y retient.
+            compte={l.cle === 'jour' ? `${victoires} victoire${victoires > 1 ? 's' : ''}` : `${acquis}/${total}`}
+            part={acquis / Math.max(1, total)}
+            couleur={COULEURS[l.cle]}
+            ouverte={ouverte}
+            onToucher={() => choisir(ouverte ? null : l.cle)}
+          >
+            {contenus[l.cle]}
+          </LigneDeCollection>
+        )
+      })}
+    </ul>
   )
 }

@@ -3,28 +3,20 @@ import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { formatNumber } from '../format'
 import { rendreLeFocus } from '../focus'
-import {
-  VITRINE_MAX,
-  ceQuIlAFallu,
-  cleRangee,
-  hautFait,
-  hautsFaitsGagnes,
-  palierDe,
-  plusBeaux,
-  titreDePalier,
-} from '../../../shared/hautsfaits'
+import { VITRINE_MAX, ceQuIlAFallu, cleRangee, hautFait, hautsFaitsGagnes, palierDe, titreDePalier } from '../../../shared/hautsfaits'
+import { vitrineDeLaCarte } from '../../../shared/carte'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { recompensesDe, type Proche } from '../../../shared/proches'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
-// Les pièces des trophées du profil que d'autres écrans reprennent : sa
-// vitrine — ce que sa carte montre à la salle — et un objectif commencé. La
-// liste des collections elle-même vit dans `TropheesAtlas`.
+// Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
+// que sa carte montre à la salle, qui se règle dans « Ma carte » — et un
+// objectif commencé. La liste des collections elle-même vit dans
+// `TropheesAtlas`, sous « Ma collection ».
 
 /**
  * Ce que sa vitrine montre — celle qu'il a choisie, sinon ses trois plus
- * beaux —, et de quoi la choisir : la ligne des trophées et le choix lisent
- * la même chose.
+ * beaux, la règle de la carte (`vitrineDeLaCarte`) —, et de quoi la choisir.
  */
 export function laVitrine(profil: PublicProfileDetail) {
   const recompenses = recompensesDe(profil.hautsFaits)
@@ -35,7 +27,7 @@ export function laVitrine(profil: PublicProfileDetail) {
   }
   const gagnes = hautsFaitsGagnes(recompenses).filter(cle => badgeDe(cle))
   const choisie = profil.vitrineChoisie ?? null
-  const montres = choisie ? choisie.flatMap(cle => badgeDe(cle) ?? []) : plusBeaux(profil.vitrine, VITRINE_MAX)
+  const montres = vitrineDeLaCarte(profil.vitrine, choisie, recompenses)
   return { badgeDe, gagnes, montres }
 }
 

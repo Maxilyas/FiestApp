@@ -17,8 +17,9 @@ import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 // choisie en chemin lumineux — six étapes, du visage à la forme ultime, la
 // prochaine qui palpite et dit combien de paliers de son sentier il manque
 // (`shared/sentiers.ts`). On parcourt d'un doigt (le
-// rail, ou les flèches), sans déplier ni replier une liste. Les fiches
-// (« Le porter ») sont celles de toujours (`Apparence`, `Carriere`).
+// rail, ou les flèches), sans déplier ni replier une liste. Les fiches sont
+// celles de toujours (`Apparence`, `Carriere`) ; dans « Ma collection », qui
+// ne fait que montrer, sans « Le porter » : on porte dans « Mon avatar ».
 
 const SORTES = BRANCHES.map(b => `branche:${b.key}` as const)
 
@@ -33,20 +34,22 @@ function brancheDuDebut(paliers: Paliers, porte: string | null | undefined): Cle
 const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
 
 /**
- * Les légendaires dans leur écrin, ou le savoir en atlas — un onglet chacun
- * de « Mes avatars ». Une seule façon de parcourir — glisser, toucher un
- * orbe, toucher une case —, et la fiche de chaque avatar pour le porter.
+ * Les légendaires dans leur écrin, ou le savoir en atlas — une ligne chacun
+ * de « Ma collection ». Une seule façon de parcourir — glisser, toucher un
+ * orbe, toucher une case —, et la fiche de chaque avatar : ce qu'il raconte,
+ * comment il se gagne, et — si la page sait enregistrer — de quoi le porter.
  */
 export function AtlasDesAvatars({
   profil,
-  busy,
+  busy = false,
   enregistrer,
   onglet,
 }: {
   profil: PublicProfileDetail
-  busy: boolean
-  enregistrer: (patch: ChoixDuProfil) => void
-  /** Les légendaires seuls, ou le savoir seul : chaque onglet de « Mes avatars » a le sien. */
+  busy?: boolean
+  /** Absent : on regarde sans rien porter (« Ma collection »). */
+  enregistrer?: (patch: ChoixDuProfil) => void
+  /** Les légendaires seuls, ou le savoir seul : chacun a sa ligne dans « Ma collection ». */
   onglet: 'legendaires' | 'savoir'
 }) {
   const paliers = profil.sentiers ?? {}
@@ -68,6 +71,9 @@ export function AtlasDesAvatars({
   const dessin = (k: string, verrouille: boolean) =>
     Portrait && dessinDuPortrait(dessins, k) ? <Portrait cle={k} verrouille={verrouille} eclat={brille(k)} /> : <span className="pt" aria-hidden="true" />
   const divins = profil.divins ?? []
+  // Porter, et choisir la version d'un avatar éclaté : seulement d'une page qui enregistre.
+  const porter = enregistrer && ((k: string | null) => enregistrer({ legendaire: k }))
+  const eclat = (cle: string) => enregistrer && ((b: boolean) => enregistrer({ eclat: { cle, brille: b } }))
 
   return (
     <div className="atlas">
@@ -119,8 +125,8 @@ export function AtlasDesAvatars({
                         porte={porte}
                         hautsFaits={profil.hautsFaits}
                         busy={busy}
-                        onPorter={k => enregistrer({ legendaire: k })}
-                        onEclat={b => enregistrer({ eclat: { cle: l.key, brille: b } })}
+                        onPorter={porter}
+                        onEclat={eclat(l.key)}
                         dessin={<Legendaire cle={l.key} verrouille={!gagne} eclat={brille(l.key)} grand />}
                       />
                     </div>
@@ -143,7 +149,7 @@ export function AtlasDesAvatars({
                     </Case>
                     {ouvert === d.key && (
                       <div className="fiche-case hud-fiche">
-                        <DetailDivin cle={d.key} descendus={divins} porte={porte} busy={busy} onPorter={k => enregistrer({ legendaire: k })} dessin={<Divin cle={d.key} verrouille={!la} grand />} />
+                        <DetailDivin cle={d.key} descendus={divins} porte={porte} busy={busy} onPorter={porter} dessin={<Divin cle={d.key} verrouille={!la} grand />} />
                       </div>
                     )}
                   </Fragment>
@@ -176,8 +182,8 @@ export function AtlasDesAvatars({
               eclat={profil.eclats.includes(k)}
               brille={brilleChez(profil, k)}
               busy={busy}
-              onPorter={l => enregistrer({ legendaire: l })}
-              onEclat={b => enregistrer({ eclat: { cle: k, brille: b } })}
+              onPorter={porter}
+              onEclat={eclat(k)}
             />
             </>
           )}

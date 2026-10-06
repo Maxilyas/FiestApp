@@ -12,6 +12,25 @@
 
 import type { BadgePorte } from './badges'
 import type { Distinctions, Fiche } from './profil'
+import { VITRINE_MAX, cleRangee, plusBeaux } from './hautsfaits'
+
+/**
+ * La vitrine d'une carte : les hauts faits qu'il a choisis, dans son ordre —
+ * un haut fait de carrière à son plus haut palier, qui monte avec lui —, ou,
+ * s'il n'a rien choisi, ses trois plus beaux (`plusBeaux`). La carte que le
+ * serveur compose et ce que sa page en montre — la tuile « Ma carte », le
+ * choix de la vitrine — lisent la même règle : la page en avait sa copie,
+ * qui aurait fini par montrer une autre vitrine que la carte.
+ */
+export function vitrineDeLaCarte(etagere: BadgePorte[], choisie: readonly string[] | null, recompenses: ReadonlyMap<string, number>): BadgePorte[] {
+  if (!choisie) return plusBeaux(etagere, VITRINE_MAX)
+  const parCle = new Map(etagere.map(b => [b.key, b]))
+  return choisie.flatMap(cle => {
+    const rangee = cleRangee(cle, recompenses)
+    const badge = rangee ? parCle.get(rangee) : undefined
+    return badge ? [badge] : []
+  })
+}
 
 export interface CarteDeJoueur extends Distinctions {
   /** Le nom qu'il porte ce soir, marque d'homonymie comprise. */

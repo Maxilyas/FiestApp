@@ -68,12 +68,27 @@ export interface Theme {
   /** En boutique pendant sa saison seulement. Acheté, il se garde toute l'année. */
   saison?: PeriodeDeBoutique
   /**
-   * Il ne se vend pas : il se gagne — ce qui l'ouvre, et la règle en
-   * quelques mots. Un palier de maître, une victoire, un palier de carrière,
-   * une page du calendrier ne se perdent jamais : gagné, il reste à lui.
+   * Il ne se vend pas : il se gagne — ce qui l'ouvre, la règle en quelques
+   * mots, et où l'on va le chercher. Un palier de maître, une victoire, un
+   * palier de carrière, une page du calendrier ne se perdent jamais : gagné,
+   * il reste à lui.
    */
-  gagne?: { regle: string; par: CeQuiOuvreUnTheme }
+  gagne?: { regle: string; par: CeQuiOuvreUnTheme; ou: OuSeGagne }
 }
+
+/**
+ * Où se gagne ce qui ne se vend pas : le nom du lieu et son adresse. Écrit
+ * une fois pour chaque thème : la boutique menait les cinq aux sentiers,
+ * quand quatre se gagnent au quiz du jour ou dans la série.
+ */
+export interface OuSeGagne {
+  nom: string
+  lien: string
+}
+
+const AUX_SENTIERS: OuSeGagne = { nom: 'Les sentiers', lien: '/campagne#sentiers' }
+const AU_QUIZ_DU_JOUR: OuSeGagne = { nom: 'Le quiz du jour', lien: '/jour' }
+const DANS_LA_SERIE: OuSeGagne = { nom: 'La série', lien: '/campagne' }
 
 /**
  * Ce qui ouvre un thème qui se gagne : des paliers de maître des sentiers
@@ -194,7 +209,7 @@ export const THEMES: readonly Theme[] = [
     rarete: 'legendaire',
     clair: false,
     humeur: 'La bibliothèque infinie : le cuir des reliures, l’or des dorures, et la lampe verte qui veille.',
-    gagne: { regle: 'les douze paliers de maître des sentiers du savoir', par: { maitres: 12 } },
+    gagne: { regle: 'les douze paliers de maître des sentiers du savoir', par: { maitres: 12 }, ou: AUX_SENTIERS },
   },
   {
     key: 'horloge',
@@ -202,7 +217,7 @@ export const THEMES: readonly Theme[] = [
     rarete: 'legendaire',
     clair: false,
     humeur: 'Émail lapis-lazuli, zodiaque à la feuille d’or, et des aiguilles qui marquent l’heure de Paris.',
-    gagne: { regle: 'cinquante victoires au quiz du jour', par: { hautFait: 'hf:laurier', fois: 50 } },
+    gagne: { regle: 'cinquante victoires au quiz du jour', par: { hautFait: 'hf:laurier', fois: 50 }, ou: AU_QUIZ_DU_JOUR },
   },
   {
     key: 'ciel',
@@ -210,7 +225,7 @@ export const THEMES: readonly Theme[] = [
     rarete: 'legendaire',
     clair: false,
     humeur: 'Un même paysage peint, qui suit l’heure de Paris : l’aube, midi, le crépuscule, la nuit.',
-    gagne: { regle: 'trente jours d’affilée (L’Infatigable · Argent)', par: { cle: 'hf:infatigable:2' } },
+    gagne: { regle: 'trente jours d’affilée (L’Infatigable · Argent)', par: { cle: 'hf:infatigable:2' }, ou: AU_QUIZ_DU_JOUR },
   },
   {
     key: 'heures',
@@ -218,7 +233,7 @@ export const THEMES: readonly Theme[] = [
     rarete: 'legendaire',
     clair: true,
     humeur: 'Le vélin, le bleu lapis et l’or des enlumineurs : la page du mois en cours.',
-    gagne: { regle: `les ${PAGES.length} pages du calendrier du quiz du jour`, par: { pages: PAGES.length } },
+    gagne: { regle: `les ${PAGES.length} pages du calendrier du quiz du jour`, par: { pages: PAGES.length }, ou: AU_QUIZ_DU_JOUR },
   },
   {
     key: 'sommet',
@@ -226,7 +241,7 @@ export const THEMES: readonly Theme[] = [
     rarete: 'legendaire',
     clair: false,
     humeur: 'Quatre camps jusqu’au sommet : la neige, les drapeaux de prière, l’aube sur les crêtes.',
-    gagne: { regle: 'une série de vingt en campagne (L’Alpiniste · Or)', par: { cle: 'hf:alpiniste:3' } },
+    gagne: { regle: 'une série de vingt en campagne (L’Alpiniste · Or)', par: { cle: 'hf:alpiniste:3' }, ou: DANS_LA_SERIE },
   },
 ]
 

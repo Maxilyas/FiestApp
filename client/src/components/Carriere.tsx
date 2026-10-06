@@ -75,7 +75,8 @@ function Dessin({ children }: { children?: ReactNode }) {
 /**
  * Ce qu'on lit d'un légendaire en le touchant dans la grille : son nom, sa
  * légende, et comment il se gagne — avec, s'il manque encore, où l'on en
- * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici.
+ * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici — sauf
+ * d'une page qui ne fait que montrer (« Ma collection », sans `onPorter`).
  */
 export function DetailLegendaire({
   cle,
@@ -100,7 +101,8 @@ export function DetailLegendaire({
   porte: string | null
   hautsFaits: HautFaitVu[]
   busy: boolean
-  onPorter: (cle: string | null) => void
+  /** Le porter, ou revenir à son emoji ; absent, la fiche ne fait que montrer. */
+  onPorter?: (cle: string | null) => void
   /**
    * Le médaillon en grand, au-dessus de la fiche. C'est la page qui a les
    * dessins qui le pose (`Apparence`) : ce fichier-ci est sur le chemin de
@@ -154,7 +156,7 @@ export function DetailLegendaire({
           <span className="jauge-plein" style={{ width: `${(progres.acquis / progres.requis) * 100}%` }} />
         </span>
       )}
-      {gagne && (
+      {gagne && onPorter && (
         <>
           <CeQuIlRemplace porte={porte} cle={choisi.key} />
           <button
@@ -189,7 +191,8 @@ export function DetailDivin({
   descendus: DivinDescendu[]
   porte: string | null
   busy: boolean
-  onPorter: (cle: string | null) => void
+  /** Le porter, ou revenir à son emoji ; absent, la fiche ne fait que montrer. */
+  onPorter?: (cle: string | null) => void
   /** Son bijou en grand — ou, pas encore descendu, son voile —, posé par `Apparence`, comme celui d'un légendaire. */
   dessin?: ReactNode
 }) {
@@ -204,15 +207,19 @@ export function DetailDivin({
         <>
           <b className="galerie-detail-nom">{choisi.nom}</b>
           <p className="serif-note">{recit.legende}</p>
-          <CeQuIlRemplace porte={porte} cle={choisi.key} />
-          <button
-            type="button"
-            className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-            aria-disabled={busy || undefined}
-            onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
-          >
-            {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
-          </button>
+          {onPorter && (
+            <>
+              <CeQuIlRemplace porte={porte} cle={choisi.key} />
+              <button
+                type="button"
+                className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
+                aria-disabled={busy || undefined}
+                onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
+              >
+                {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
+              </button>
+            </>
+          )}
         </>
       ) : (
         <>

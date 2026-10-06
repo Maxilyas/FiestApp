@@ -126,16 +126,66 @@ export function GrosBouton({
   )
 }
 
-/** Une tuile du profil : plus haute qu'un bouton, deux par rangée. */
-export function Tuile({ icone, titre, detail, pastille, onClick }: { icone: IconName; titre: string; detail?: ReactNode; pastille?: ReactNode; onClick: () => void }) {
+/**
+ * Une tuile du profil : plus haute qu'un bouton, deux par rangée — ou trois,
+ * quand elle montre ce qu'on porte (`apercu`) et qui le voit (`qui`) ; ou
+ * toute la rangée, couchée, avec son compte et sa jauge (`large`).
+ */
+export function Tuile({
+  icone,
+  apercu,
+  titre,
+  detail,
+  qui,
+  compte,
+  jauge,
+  pastille,
+  onClick,
+}: {
+  icone?: IconName
+  /** Ce qu'on porte, en petit, à la place de l'icône. */
+  apercu?: ReactNode
+  titre: string
+  detail?: ReactNode
+  /** Qui le voit : « la salle », « toi seul ». */
+  qui?: string
+  /** Couchée sur la rangée : son compte à droite du titre, et sa jauge dessous (de 0 à 1). */
+  compte?: string
+  jauge?: number
+  pastille?: ReactNode
+  onClick: () => void
+}) {
+  const large = jauge !== undefined
   return (
-    <button type="button" className="tuile" onClick={onClick}>
+    <button type="button" className={'tuile' + (apercu ? ' tuile-a-apercu' : '') + (large ? ' tuile-large' : '')} onClick={onClick}>
       {pastille && <span className="pastille-attente">{pastille}</span>}
-      <span className="gros-icone">
-        <Icon name={icone} />
-      </span>
-      <b>{titre}</b>
+      {apercu ? (
+        <span className="tuile-apercu" aria-hidden="true">
+          {apercu}
+        </span>
+      ) : (
+        icone && (
+          <span className="gros-icone">
+            <Icon name={icone} />
+          </span>
+        )
+      )}
+      <b>
+        {titre}
+        {compte && <span className="tuile-compte">{compte}</span>}
+      </b>
+      {large && (
+        <span className="jauge-fine" aria-hidden="true">
+          <span style={{ width: `${Math.round(Math.max(0, Math.min(1, jauge)) * 100)}%` }} />
+        </span>
+      )}
       {detail && <span className="gros-detail">{detail}</span>}
+      {qui && (
+        <span className="tuile-qui">
+          <Icon name="eye" />
+          {qui}
+        </span>
+      )}
     </button>
   )
 }

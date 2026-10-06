@@ -18,31 +18,22 @@ import type { VieDesSentiers } from '../../../shared/sentiers'
 import { SABLIERS_MAX } from '../../../shared/jour'
 import { OBJETS, type CleDObjet, type Objet } from './Objets'
 import { api, motifDe } from '../api'
+import { apercuDe } from '../apercus'
 import type { ChoixDuProfil } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
 // quiz, son compte —, sauf l'écran commun, acheté en confettis
 // (`shared/themes.ts`). Une bonne réponse, un
 // confetti. La boutique ne montre que ce qui reste à prendre, une rareté à
-// la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon style › Thème »
+// la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon thème »
 // (`MesThemes`). Les deux dans les mêmes cartes : l'écran d'une question
-// sous chaque thème, en grand.
+// sous chaque thème, en grand. Ceux qui ne se vendent pas se montrent aussi,
+// dans les leurs, avec où les gagner (`ThemesAGagner`).
 //
 // Le geste est celui de « Mes avatars » : toucher un thème ouvre sa fiche
 // sous sa rangée, et l'on porte — ou l'on achète — de là. Un thème se
 // portait d'un toucher : le doigt qui voulait le regarder habillait déjà
 // toute la page.
-
-/**
- * Les aperçus : l'écran d'une question, photographié dans l'application sous
- * chaque thème (`server/scripts/apercus-themes.ts`). Des adresses seulement :
- * une image ne part que si sa case se montre. Hors de Vite (les tests
- * rendent la page dans Node), des cases sans image.
- */
-const APERCUS: Record<string, string> = import.meta.env
-  ? import.meta.glob<string>('../themes/apercus/*.webp', { eager: true, query: '?url', import: 'default' })
-  : {}
-const apercuDe = (cle: string): string | undefined => APERCUS[`../themes/apercus/${cle}.webp`]
 
 export type EtatDuTheme = 'porte' | 'a-toi' | 'a-vendre' | 'trop-cher' | 'hors-saison'
 
@@ -137,9 +128,10 @@ function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: E
 
 /**
  * La boutique : ce qu'on achète, à part de ce qu'on a — ce qu'on possède se
- * porte dans « Mon style › Thème » (`MesThemes`). Une rareté à la fois,
- * choisie sur une rangée de gemmes ; elle s'ouvre sur la plus belle qu'on
- * peut déjà s'offrir. Hors de sa saison, un thème attend la sienne.
+ * porte dans « Mon thème » (`MesThemes`). Une rareté à la fois, choisie sur
+ * une rangée de gemmes ; elle s'ouvre sur la plus belle qu'on peut déjà
+ * s'offrir. Hors de sa saison, un thème attend la sienne. Sous la vitrine,
+ * ceux qui ne se vendent pas, chacun avec le lieu qui le donne.
  */
 export function RayonDesThemes({
   profil,
@@ -226,24 +218,19 @@ export function RayonDesThemes({
           </div>
         </>
       )}
+      {/* Ceux qui ne se vendent pas se montrent, dans leurs cartes : une
+          ligne de texte chacun ne les faisait pas voir, et son lien menait
+          les cinq aux sentiers (la remarque du 5 octobre 2026). */}
+      <ThemesAGagner possedes={possedes} titre="Ils ne se vendent pas : ils se gagnent" />
       <p className="muted small center">
-        {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#style-theme">les porter</a>
+        {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#theme">les porter</a>
       </p>
-      {/* Celui qui ne se vend pas se dit ici, sans se montrer : il se gagne. */}
-      {THEMES.filter(t => t.gagne && !possedes.has(t.key)).map(t => (
-        <p key={t.key} className="muted small center">
-          {`Le thème ${t.nom} ne se vend pas : il se gagne avec ${t.gagne!.regle}. `}
-          <a className="link-inline" href="/campagne#sentiers">
-            Les sentiers
-          </a>
-        </p>
-      ))}
     </>
   )
 }
 
 /**
- * « Mes thèmes », dans « Mon style » : seulement ceux qu'il a, dans les
+ * « Mes thèmes », dans « Mon thème » : seulement ceux qu'il a, dans les
  * cartes de la boutique, celui qu'il porte en tête. Toucher un thème ouvre
  * sa fiche, d'où on le porte : un thème se portait d'un toucher, et le doigt
  * qui voulait le regarder habillait déjà toute la page.
@@ -257,6 +244,8 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
   const { solde } = boutique.confettis
   const possedes = new Set(boutique.possedes)
   const siens = THEMES.filter(t => possedes.has(t.key)).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
+  const aVendre = THEMES.filter(t => !possedes.has(t.key) && enBoutique(t, boutique.jour)).length
+  const aGagner = THEMES.filter(t => t.gagne && !possedes.has(t.key)).length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
   const porter = (cle: string | null) => {
     if (!busy) enregistrer({ theme: cle })
@@ -284,9 +273,19 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
           )
         })}
       </div>
+      {/* Ce qu'il n'a pas encore, en deux liens : la boutique pour ce qui
+          s'achète, la collection pour ce qui se gagne — et où. L'écran ne
+          montre que ce qu'on porte. */}
       <a className="link-inline lien-boutique" href="/boutique">
-        <Icon name="palette" /> D’autres thèmes à la boutique
+        <Icon name="palette" />
+        {aVendre > 0 ? `${aVendre} autre${aVendre > 1 ? 's' : ''} à la boutique` : 'La boutique'}
       </a>
+      {aGagner > 0 && (
+        <a className="link-inline lien-boutique" href="#collection-themes">
+          <Icon name="award" />
+          {`${aGagner} qui ne se vend${aGagner > 1 ? 'ent' : ''} pas : où ${aGagner > 1 ? 'les' : 'le'} gagner`}
+        </a>
+      )}
     </section>
   )
 }
@@ -366,6 +365,46 @@ export function DetailTheme({
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Les thèmes qui ne se vendent pas — ils se gagnent —, chacun dans sa carte :
+ * son aperçu, ce qu'il faut, et le lieu qui le donne (`Theme.gagne.ou`). La
+ * boutique ne montre que ceux qui manquent ; « Ma collection », tous, ceux
+ * qu'on a compris. Rien ne s'y achète ni ne s'y porte : seul le lieu se
+ * touche, et il y mène.
+ */
+export function ThemesAGagner({ possedes, tous = false, titre }: { possedes: ReadonlySet<string>; tous?: boolean; titre?: string }) {
+  const liste = THEMES.filter(t => t.gagne && (tous || !possedes.has(t.key)))
+  if (liste.length === 0) return null
+  return (
+    <section className="themes-a-gagner" aria-label={titre ?? 'Les thèmes qui se gagnent'}>
+      {titre && <h3 className="themes-a-gagner-titre">{titre}</h3>}
+      <ul>
+        {liste.map(t => {
+          const gagne = t.gagne!
+          const aToi = possedes.has(t.key)
+          const apercu = apercuDe(t.key)
+          return (
+            <li key={t.key} className={'theme-a-gagner' + (aToi ? ' theme-gagne' : '')} style={gemme(t.rarete)}>
+              <span className="theme-a-gagner-image" aria-hidden="true">
+                {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
+              </span>
+              <span className="theme-a-gagner-texte">
+                <b>{t.nom}</b>
+                <span className="small">{aToi ? 'À toi : il se porte dans « Mon thème ».' : espacesFines(`Se gagne avec ${gagne.regle}.`)}</span>
+                {!aToi && (
+                  <a className="link-inline small" href={gagne.ou.lien}>
+                    {gagne.ou.nom}
+                  </a>
+                )}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
