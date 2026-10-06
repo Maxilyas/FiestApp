@@ -4,14 +4,15 @@ import { Icon } from './Icon'
 import { AtlasDesAvatars } from './AtlasDesAvatars'
 import { COLLECTION_HAUTE } from './Apparence'
 import { JaugeFine, LigneDeCollection, TropheesAtlas } from './TropheesAtlas'
-import { CarteDeTheme, DetailTheme, etatDuTheme, useFiche, type EtatDuTheme } from './Boutique'
+import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { CIEL, LILAS, OR } from './Atlas'
 import { espacesFines, formatNumber } from '../format'
+import { apercuDe } from '../apercus'
 import { compteDeLaCollection, type FamilleDeLaCollection, type LigneDuCompte, type PartieDeLaCollection } from '../../../shared/collection'
 import { COLLECTION } from '../../../shared/avatars'
 import { FONDS } from '../../../shared/fonds'
 import { GERBES } from '../../../shared/gerbes'
-import { THEMES, type Theme } from '../../../shared/themes'
+import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES, type Theme } from '../../../shared/themes'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // « Ma collection » : tout ce qui se gagne, d'un coup d'œil — ce qu'on a, ce
@@ -110,24 +111,38 @@ function EmojisDeCollection({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /**
- * Les groupes des thèmes, dans l'ordre où on les lit : ce qu'on a d'abord —
- * on vient le voir —, puis ce qui se gagne, ce que vend la boutique, et ce
- * qui attend sa saison.
+ * Une vignette de l'album : l'aperçu seul, en couleur s'il est à lui, en gris
+ * sinon, bordé de sa rareté. Son nom et ce qu'il est pour lui se disent à
+ * l'oreille, et dans sa fiche. Un bouton qui déplie, comme les cartes de la
+ * boutique : rien ne s'y porte.
  */
-const GROUPES_DE_THEMES: { nom: string; etats: readonly EtatDuTheme[] }[] = [
-  { nom: 'À toi', etats: ['porte', 'a-toi'] },
-  { nom: 'Ils se gagnent', etats: ['a-gagner'] },
-  { nom: 'À la boutique', etats: ['a-vendre', 'trop-cher'] },
-  { nom: 'De saison', etats: ['hors-saison'] },
-]
+function VignetteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+  const apercu = apercuDe(t.key)
+  const aLui = etat === 'porte' || etat === 'a-toi'
+  return (
+    <button
+      type="button"
+      className={'vignette-theme' + (aLui ? '' : ' vignette-manque') + (etat === 'porte' ? ' vignette-portee' : '') + (ouvert ? ' ouverte' : '')}
+      style={gemme(t.rarete)}
+      aria-expanded={ouvert}
+      aria-controls={ouvert ? 'detail-theme' : undefined}
+      aria-label={nomDeLaCase(t, etat, solde)}
+      onClick={onToucher}
+    >
+      {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
+    </button>
+  )
+}
 
 /**
- * Les thèmes, montrés comme le reste de la collection : chacun dans sa carte,
- * l'écran d'une question sous lui — ceux qu'on a compris, que deux lignes de
- * texte disaient sans les montrer (la remarque du 6 octobre 2026). Toucher
- * une carte ouvre sa fiche sous sa rangée : ce qu'il habille, et comment
- * l'avoir — rien ne s'y achète ni ne s'y porte, un lien mène à l'écran qui le
- * fait (la boutique, « Mon thème », le lieu qui le donne).
+ * Les thèmes, en album : une page par rareté, sa gemme et son compte en
+ * titre, chaque thème à sa place du catalogue — en couleur ceux qu'on a, en
+ * gris ceux qui restent. Les cartes de la boutique, trois par rangée,
+ * prenaient quatre écrans pour trente-cinq thèmes (la remarque du 6 octobre
+ * 2026). Toucher une vignette ouvre sa fiche sous sa rangée : ce qu'il
+ * habille, et comment l'avoir — rien ne s'y achète ni ne s'y porte, un lien
+ * mène à l'écran qui le fait (la boutique, « Mon thème », le lieu qui le
+ * donne).
  */
 function ThemesDeLaCollection({ profil }: { profil: PublicProfileDetail }) {
   const [ouvert, setOuvert] = useState<string | null>(null)
@@ -140,20 +155,21 @@ function ThemesDeLaCollection({ profil }: { profil: PublicProfileDetail }) {
   const etat = (t: Theme) => etatDuTheme(t, porte, possedes, solde, boutique.jour)
   return (
     <>
-      <p className="muted small">Touche un thème : ce qu’il habille, et comment l’avoir.</p>
-      {GROUPES_DE_THEMES.map(g => {
-        // Celui qu'on porte en tête des siens, les autres dans l'ordre du catalogue.
-        const themes = THEMES.filter(t => g.etats.includes(etat(t))).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
+      <p className="muted small">En couleur, ceux qui sont à toi. Touche un thème : ce qu’il habille, et comment l’avoir.</p>
+      {RARETES_DE_THEME.map(r => {
+        const themes = THEMES.filter(t => t.rarete === r)
         if (themes.length === 0) return null
+        const aLui = themes.filter(t => ['porte', 'a-toi'].includes(etat(t))).length
         return (
-          <Fragment key={g.nom}>
-            <h4 className="famille-titre">
-              {g.nom} <span className="famille-compte">{themes.length}</span>
+          <Fragment key={r}>
+            <h4 className="album-rarete" style={gemme(r)}>
+              <i aria-hidden="true" />
+              {NOM_DE_RARETE[r]} <span className="famille-compte">{`${aLui}/${themes.length}`}</span>
             </h4>
-            <div className="vitrine-themes vitrine-collection" role="group" aria-label={g.nom}>
+            <div className="album-themes" role="group" aria-label={`${NOM_DE_RARETE[r]} : ${aLui} sur ${themes.length}`}>
               {themes.map(t => (
                 <Fragment key={t.key}>
-                  <CarteDeTheme t={t} etat={etat(t)} solde={solde} ouvert={ouvert === t.key} onToucher={() => setOuvert(o => (o === t.key ? null : t.key))} />
+                  <VignetteDeTheme t={t} etat={etat(t)} solde={solde} ouvert={ouvert === t.key} onToucher={() => setOuvert(o => (o === t.key ? null : t.key))} />
                   {ouvert === t.key && (
                     <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
                       <DetailTheme theme={t} etat={etat(t)} solde={solde} />

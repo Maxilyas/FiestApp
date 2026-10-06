@@ -27,8 +27,9 @@ import type { ChoixDuProfil } from './choix'
 // confetti. La boutique ne montre que ce qui reste à prendre, une rareté à
 // la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon thème »
 // (`MesThemes`). Les deux dans les mêmes cartes : l'écran d'une question
-// sous chaque thème, en grand. « Ma collection » les montre tous dans les
-// mêmes, ceux qui ne se vendent pas compris, avec où les gagner.
+// sous chaque thème, en grand. « Ma collection » les montre tous, en
+// vignettes rangées par rareté, ceux qui ne se vendent pas compris, et la
+// même fiche dit où les gagner.
 //
 // Le geste est celui de « Mes avatars » : toucher un thème ouvre sa fiche
 // sous sa rangée, et l'on porte — ou l'on achète — de là. Un thème se
@@ -54,7 +55,7 @@ export function etatDuTheme(t: Theme, porte: string, possedes: ReadonlySet<strin
 }
 
 /** Sa case, dite à l'oreille d'une traite : son nom, puis ce qu'il est pour lui. */
-function nomDeLaCase(t: Theme, etat: EtatDuTheme, solde: number): string {
+export function nomDeLaCase(t: Theme, etat: EtatDuTheme, solde: number): string {
   if (etat === 'porte') return `${t.nom}, porté`
   if (etat === 'a-toi') return `${t.nom}, à toi`
   if (etat === 'a-gagner') return `${t.nom}, ${NOM_DE_RARETE[t.rarete]}, se gagne`
@@ -73,7 +74,7 @@ const GEMMES: Record<RareteDeTheme, string> = {
   epique: '#b77bff',
   legendaire: '#f2b84b',
 }
-const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
+export const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
 
 /**
  * La fiche ouverte s'ouvre juste sous sa case, et reçoit le focus sur son
@@ -103,10 +104,9 @@ export function useFiche(ouvert: string | null, porte: string) {
 /**
  * Une carte de la vitrine : l'aperçu en grand, le nom, et dessous ce qu'il
  * est pour lui. Elle ouvre sa fiche — un bouton qui déplie, pas un
- * interrupteur : `aria-pressed` disait qu'un toucher le portait. La même
- * dans la boutique, dans « Mon thème » et dans « Ma collection ».
+ * interrupteur : `aria-pressed` disait qu'un toucher le portait.
  */
-export function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
   const apercu = apercuDe(t.key)
   const pied =
     etat === 'porte'

@@ -8,7 +8,7 @@
 //
 // Et les thèmes : la collection les disait en deux lignes de texte, ceux
 // qu'on a compris, quand tout le reste s'y montre (la remarque du 6 octobre
-// 2026) — ils y ont leurs cartes, l'écran d'une question sous chacun. Ceux
+// 2026) — ils y sont en album, une vignette chacun, rangés par rareté. Ceux
 // qui ne se vendent pas quittent la boutique : ils s'y montrent, avec le lieu
 // qui les donne — le lien d'avant menait les cinq aux sentiers quand quatre
 // se gagnent au quiz du jour ou dans la série (la remarque du 5 octobre 2026).
@@ -17,7 +17,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { compteDeLaCollection, comptesDesTrophees } from '../../shared/collection'
-import { NOM_DE_RARETE, THEMES, enBoutique } from '../../shared/themes'
+import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES } from '../../shared/themes'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
@@ -159,48 +159,61 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
 })
 
-test('une ligne de la collection a son adresse : « Mon thème » y mène, sur tous les thèmes en miniatures', async () => {
+test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l’album des thèmes', async () => {
   lieu.hash = '#collection-themes'
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
   assert.match(html, /<li id="collection-themes" class="trophee trophee-ouvert"/)
-  // Chaque thème dans sa carte — celle de la boutique, l'écran d'une question
-  // sous lui —, rangé sous ce qu'il est pour elle : ce qu'elle a d'abord, le
-  // Sommet porté en tête, puis ce qui se gagne, ce que vend la boutique, ce
-  // qui attend sa saison. Deux lignes de texte disaient ce qu'elle avait sans
-  // le montrer.
-  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner/)
-  const groupes = [
-    ...html.matchAll(/<h4 class="famille-titre">([^<]+) <span class="famille-compte">(\d+)<\/span><\/h4><div class="vitrine-themes vitrine-collection" role="group" aria-label="([^"]+)">(.*?)<\/div>/g),
-  ].map(m => ({ nom: m[1], compte: Number(m[2]), groupe: m[3], cases: casesDe(m[4]), html: m[4] }))
+  // Un album : une page par rareté, sa gemme et son compte en titre, chaque
+  // thème en vignette à sa place du catalogue — en couleur ceux qu'elle a, en
+  // gris les autres. Deux lignes de texte disaient ce qu'elle avait sans le
+  // montrer, puis les cartes de la boutique prenaient quatre écrans.
+  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner|class="theme-vitrine/)
+  const pages = [
+    ...html.matchAll(
+      /<h4 class="album-rarete" style="([^"]+)"><i aria-hidden="true"><\/i>([^<]+) <span class="famille-compte">(\d+)\/(\d+)<\/span><\/h4><div class="album-themes" role="group" aria-label="([^"]+)">(.*?)<\/div>/g,
+    ),
+  ].map(m => ({
+    style: m[1],
+    nom: m[2],
+    compte: `${m[3]}/${m[4]}`,
+    groupe: m[5],
+    vignettes: [...m[6].matchAll(/<button type="button" class="vignette-theme([^"]*)" style="([^"]+)"[^>]*aria-label="([^"]+)"/g)].map(v => ({ classes: v[1], style: v[2], nom: v[3] })),
+  }))
+  assert.deepEqual(
+    pages.map(p => `${p.nom} ${p.compte}`),
+    ['Offert 2/2', 'Commune 0/5', 'Peu commune 0/7', 'Rare 0/8', 'Épique 0/5', 'Légendaire 1/8'],
+  )
   const possedes = new Set(LEA.boutique.possedes)
-  const reste = THEMES.filter(t => !possedes.has(t.key) && !t.gagne)
-  const enVente = reste.filter(t => enBoutique(t, LEA.boutique.jour)).length
-  const deSaison = reste.length - enVente
-  assert.deepEqual(
-    groupes.map(g => [g.nom, g.compte, g.cases.length]),
-    [
-      ['À toi', 3, 3],
-      ['Ils se gagnent', 4, 4],
-      ['À la boutique', enVente, enVente],
-      ['De saison', deSaison, deSaison],
-    ],
-  )
-  for (const g of groupes) assert.equal(g.groupe, g.nom)
-  assert.equal(groupes.reduce((n, g) => n + g.compte, 0), THEMES.length, 'tous les thèmes, chacun une fois')
-  assert.deepEqual(groupes[0].cases, ['Le Sommet, porté', 'Velours, à toi', 'Ivoire, à toi'])
+  for (const [i, r] of RARETES_DE_THEME.entries()) {
+    const page = pages[i]
+    const themes = THEMES.filter(t => t.rarete === r)
+    assert.equal(page.groupe, `${NOM_DE_RARETE[r]} : ${themes.filter(t => possedes.has(t.key)).length} sur ${themes.length}`)
+    // Chacun à sa place du catalogue, bordé de la gemme de sa page.
+    assert.deepEqual(
+      page.vignettes.map(v => v.nom.split(',')[0]),
+      themes.map(t => t.nom),
+      r,
+    )
+    for (const v of page.vignettes) assert.equal(v.style, page.style, v.nom)
+    // En gris ce qui lui manque, en couleur le reste ; le Sommet, porté, cerclé.
+    assert.deepEqual(
+      page.vignettes.map(v => v.classes.includes('vignette-manque')),
+      themes.map(t => !possedes.has(t.key)),
+      r,
+    )
+  }
+  const portees = pages.flatMap(p => p.vignettes).filter(v => v.classes.includes('vignette-portee'))
+  assert.deepEqual(portees.map(v => v.nom), ['Le Sommet, porté'])
   // Ceux qui se gagnent n'ont pas de prix : leur fiche dit comment, et où.
-  assert.deepEqual(
-    groupes[1].cases,
-    THEMES.filter(t => t.gagne && !possedes.has(t.key)).map(t => `${t.nom}, ${NOM_DE_RARETE[t.rarete]}, se gagne`),
-  )
-  assert.doesNotMatch(groupes[1].html, /🎊/)
-  assert.equal(groupes[1].html.match(/<span class="theme-vitrine-prix">Se gagne<\/span>/g)?.length, 4)
-  // Chaque carte a sa miniature — dans Vite, l'aperçu de la boutique (`apercuDe`) ; ici, sa case.
-  assert.equal(html.match(/<span class="theme-vitrine-image" aria-hidden="true">/g)?.length, THEMES.length)
-  assert.match(source('client/src/components/Collection.tsx'), /<CarteDeTheme t=\{t\} etat=\{etat\(t\)\} solde=\{solde\} ouvert=\{ouvert === t\.key\} onToucher=\{\(\) => setOuvert\(o => \(o === t\.key \? null : t\.key\)\)\} \/>/)
+  assert.ok(pages[5].vignettes.some(v => v.nom === 'Babel, Légendaire, se gagne'))
+  // La vignette est l'aperçu seul — dans Vite, celui de la boutique (`apercuDe`) — et le gris vient de la feuille.
+  const page = source('client/src/components/Collection.tsx')
+  assert.match(page, /const apercu = apercuDe\(t\.key\)/)
+  assert.match(page, /<VignetteDeTheme t=\{t\} etat=\{etat\(t\)\} solde=\{solde\} ouvert=\{ouvert === t\.key\} onToucher=\{\(\) => setOuvert\(o => \(o === t\.key \? null : t\.key\)\)\} \/>/)
+  assert.match(source('client/src/styles.css'), /\.vignette-manque img \{ filter: grayscale\(1\); opacity: 0\.4; \}/)
   // Un toucher ouvre sa fiche, qui ne fait que montrer : ni `onPorter` ni `onAcheter`.
   assert.doesNotMatch(html, /id="detail-theme"/, 'aucune fiche avant le premier toucher')
-  assert.match(source('client/src/components/Collection.tsx'), /<DetailTheme theme=\{t\} etat=\{etat\(t\)\} solde=\{solde\} \/>/)
+  assert.match(page, /<DetailTheme theme=\{t\} etat=\{etat\(t\)\} solde=\{solde\} \/>/)
   // Ouverte, elle défile jusqu'à se montrer entière : au-dessus de la barre du menu, sous laquelle passait son lien.
   assert.match(source('client/src/styles.css'), /html:has\(> body\.avec-menu\) \{ scroll-padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom\)\); \}/)
   // Chaque autre ligne dit où se porte ce qu'on a.

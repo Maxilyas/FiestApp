@@ -8205,16 +8205,20 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-fiche { grid-column: 1 / -1; }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
-/* « Ma collection » : tous les thèmes dans les cartes de la boutique, trois
-   par rangée — trente-cinq à deux par rangée faisaient une page de quatre
-   écrans. La saison se lit dans le titre du groupe et dans la fiche : son
-   badge, à cette largeur, couvrait tout l'aperçu. Un nom long se coupe à la
-   française (« astrono-mique ») ; Safari ne le fait qu'avec son préfixe. */
-.vitrine-collection { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.vitrine-collection .theme-vitrine-pied { padding: 6px 7px 8px; }
-.vitrine-collection .theme-vitrine-pied b { font-size: 0.95rem; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
-.vitrine-collection .theme-vitrine-prix { font-size: 0.78rem; }
-.vitrine-collection .theme-saison { display: none; }
+/* « Ma collection » : les thèmes en album — une page par rareté, chaque
+   thème en vignette, à sa place du catalogue : en couleur ceux qu'on a, en
+   gris ceux qui restent, bordés de leur gemme. Huit par rangée au téléphone,
+   et une rareté en compte huit au plus : une rangée chacune. Les cartes de la
+   boutique, trois par rangée, faisaient une page de quatre écrans. */
+.album-rarete { display: flex; align-items: center; gap: 7px; margin: 10px 0 5px; font-size: 0.85rem; font-weight: 600; }
+.album-rarete i { flex: none; width: 9px; height: 9px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); }
+.album-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 4px; grid-auto-flow: dense; }
+.vignette-theme { display: block; aspect-ratio: 4 / 5; padding: 0; border: 1px solid var(--gemme); border-radius: var(--radius-xs); background: var(--bg); overflow: hidden; cursor: pointer; }
+.vignette-theme img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.vignette-manque { border-color: color-mix(in srgb, var(--gemme) 35%, transparent); }
+.vignette-manque img { filter: grayscale(1); opacity: 0.4; }
+.vignette-portee { box-shadow: 0 0 0 2px var(--accent); }
+.vignette-theme:hover, .vignette-theme.ouverte { box-shadow: 0 0 0 2px var(--gemme); }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on
