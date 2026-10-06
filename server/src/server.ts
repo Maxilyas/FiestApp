@@ -24,6 +24,7 @@ import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
+import { appliquerLeBaremeDuSolo } from './core/baremeDuSolo'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
@@ -530,6 +531,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La campagne aussi : les hauts faits de ses séries passées, ses paliers.
   const series = await campagne.relireLesSeries()
   if (series) console.log(`[campagne] ${series.series} série(s) relue(s), ${series.profils} profil(s)`)
+  // Le barème du solo (le 6 octobre 2026) : ce qui s'est déjà joué au quiz
+  // du jour et en campagne se recompte au barème du jour, une fois, et les
+  // niveaux gelés de l'ancienne courbe se rattrapent (`core/baremeDuSolo.ts`).
+  const solo = await appliquerLeBaremeDuSolo({ profiles, jour, campagne }, !hadAccounts)
+  if (solo && hadAccounts) {
+    console.log(
+      `[profils] barème du solo : ${solo.jour} joueur(s) du quiz du jour, ${solo.campagne} de la campagne, ` +
+        `${solo.paliers} ligne(s) de paliers, ${solo.rattrapes} niveau(x) gelé(s) rattrapé(s), ${solo.legendes} palier(s) de La Légende`,
+    )
+  }
 
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID

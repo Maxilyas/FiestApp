@@ -41,6 +41,8 @@ import {
   minutesDeParis,
   moisDe,
   serieAvecSabliers,
+  seriesParJour,
+  xpDeSerie,
   xpDuJour,
   xpDuPodium,
   type CarriereDuJour,
@@ -56,7 +58,7 @@ import {
 import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
-import { SALLE_DU_JOUR, hautFait, palierDe } from '../../../shared/hautsfaits'
+import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -88,6 +90,8 @@ interface Partie {
   justes: number
   finieLe: number | null
   xp: number
+  /** Son bonus de série (`xpDeSerie`), écrit quand elle commence. */
+  xpSerie: number
 }
 
 /** Une partie d'un profil, relue pour sa page. */
@@ -440,6 +444,9 @@ export class JourStore {
     // réserve : une base d'avant ne les a pas.
     await ajouterColonne(this.client, 'jour_reserve', 'metadonnees', 'TEXT')
     await ajouterColonne(this.client, 'jour_reserve', 'etiquetee_le', 'INTEGER')
+    // Le bonus de série d'une partie (`xpDeSerie`), venu le 6 octobre 2026 :
+    // écrit quand elle commence, à côté de l'expérience de ses points.
+    await ajouterColonne(this.client, 'jour_parties', 'xp_serie', 'INTEGER NOT NULL DEFAULT 0')
     for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
     await this.amorcer()
   }
@@ -934,6 +941,9 @@ export class JourStore {
       )
       if (res.rowsAffected > 0) {
         this.reviser(jour)
+        // Son bonus de série d'abord : versé avant ses paliers, il compte
+        // déjà dans le niveau que La Légende lit.
+        await this.payerLaSerie(profil.id, jour, serieLue(stats.slice(4), jour).serie)
         // Une partie commencée compte — pour la jauge de L'Assidu comme pour
         // celle de la saison : ce qu'elle fait atteindre tombe maintenant.
         // Décerné seulement à la fin de la partie, le troisième jour
@@ -970,6 +980,19 @@ export class JourStore {
       const [partie, revelation] = (commencee && (await this.expirer(commencee, tirage))) ?? [commencee, undefined]
       return this.vueDe(profil, jour, tirage, partie, revelation)
     })
+  }
+
+  /**
+   * Le bonus de série d'une partie qui commence (`xpDeSerie`) : la série du
+   * jour — aujourd'hui compris, sabliers comptés —, écrit avec la partie et
+   * versé dans sa ligne tout de suite. Une partie commencée compte pour la
+   * série, laissée en route aussi : son bonus de même.
+   */
+  private async payerLaSerie(profileId: string, jour: string, serie: number): Promise<void> {
+    const xp = xpDeSerie(serie)
+    if (xp <= 0) return
+    await this.client.execute({ sql: 'UPDATE jour_parties SET xp_serie = ? WHERE profile_id = ? AND jour = ?', args: [xp, profileId, jour] })
+    await this.ecrireXp(profileId, jour, false)
   }
 
   /**
@@ -1238,6 +1261,7 @@ export class JourStore {
       points: partie?.points ?? 0,
       justes: partie?.justes ?? 0,
       xp: partie?.xp ?? 0,
+      ...(partie && partie.xpSerie > 0 && { xpSerie: partie.xpSerie }),
       medaille: partie?.finieLe ? medailleDe(partie.justes, comptees) : null,
       rang: moi && partie ? moi.rang : 0,
       joueurs: joueurs.length,
@@ -1288,7 +1312,12 @@ export class JourStore {
         const frais = await this.deps.profiles.byId(profil.id).catch(() => null)
         if (frais) {
           const gardes = this.deps.profiles.gardesOf(profil.id)
-          vue = { ...vue, niveauAvant: niveauDuProfil(frais.xp - partie.xp, gardes), niveauApres: niveauDuProfil(frais.xp, gardes) }
+          // Tout ce que la partie a rapporté : ses points, sa série, et ce
+          // qu'elle a fait tomber — ses paliers et ses hauts faits paient
+          // aussi. Sans eux, le niveau qu'un palier faisait passer se lisait
+          // « déjà là » avant la partie, et rien ne l'annonçait.
+          const gagne = partie.xp + partie.xpSerie + tombees.reduce((n, t) => n + xpDe(t.key), 0)
+          vue = { ...vue, niveauAvant: niveauDuProfil(frais.xp - gagne, gardes), niveauApres: niveauDuProfil(frais.xp, gardes) }
         }
       }
     }
@@ -1687,7 +1716,7 @@ export class JourStore {
     const [parties, podiums, soirees, sabliers] = await this.client.batch(
       [
         {
-          sql: `SELECT p.jour, p.points, p.justes, p.xp, t.annulees,
+          sql: `SELECT p.jour, p.points, p.justes, p.xp + p.xp_serie AS xp, t.annulees,
                        json_array_length(t.questions) - json_array_length(t.annulees) AS comptees
                 FROM jour_parties p LEFT JOIN jour_tirages t ON t.jour = p.jour
                 WHERE p.profile_id = ? ORDER BY p.jour DESC`,
@@ -1918,7 +1947,7 @@ export class JourStore {
   /** Ce que son expérience du jour additionne : ses parties, ses podiums. */
   private lecturesDeLExperience(profileId: string): InStatement[] {
     return [
-      { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+      { sql: 'SELECT COALESCE(SUM(xp + xp_serie), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
       { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
     ]
   }
@@ -2212,6 +2241,64 @@ export class JourStore {
       args: ['relecture_des_jours', String(VERSION_DES_JOURS)],
     })
     return { jours: clos.rows.length, profils: profils.size }
+  }
+
+  /**
+   * Le barème du solo du 6 octobre 2026, appliqué à ce qui est déjà joué —
+   * une fois, au démarrage qui l'apporte (`core/baremeDuSolo.ts`) : chaque
+   * partie se recompte sur ses points (`xpDuJour`), chaque podium à son rang
+   * (`xpDuPodium`), chaque partie reçoit le bonus de la série qu'elle tenait
+   * ce jour-là (`seriesParJour`), et la ligne de chaque joueur se réécrit.
+   * Tout se relit des journaux : rejouée, elle écrit la même chose. Rend les
+   * profils dont la ligne a été réécrite.
+   */
+  async revaloriser(): Promise<string[]> {
+    const [parties, podiums] = await this.client.batch(
+      [
+        {
+          sql: `SELECT p.profile_id, p.jour, p.points,
+                       json_array_length(t.questions) - json_array_length(t.annulees) AS comptees
+                FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour`,
+          args: [],
+        },
+        { sql: 'SELECT d.jour, d.profile_id, d.rang, c.joueurs FROM jour_podiums d JOIN jour_clotures c ON c.jour = d.jour', args: [] },
+      ],
+      'read',
+    )
+    const parProfil = new Map<string, { jour: string; points: number; comptees: number }[]>()
+    for (const r of parties.rows) {
+      const id = String(r.profile_id)
+      if (!parProfil.has(id)) parProfil.set(id, [])
+      parProfil.get(id)!.push({ jour: String(r.jour), points: Number(r.points), comptees: Number(r.comptees ?? 0) })
+    }
+    if (podiums.rows.length > 0) {
+      await this.client.batch(
+        podiums.rows.map(r => ({
+          sql: 'UPDATE jour_podiums SET xp = ? WHERE jour = ? AND profile_id = ?',
+          args: [xpDuPodium(Number(r.rang), Number(r.joueurs)), String(r.jour), String(r.profile_id)],
+        })),
+        'write',
+      )
+    }
+    const profils = new Set([...parProfil.keys(), ...podiums.rows.map(r => String(r.profile_id))])
+    const aujourdhui = jourDe(this.maintenant())
+    for (const id of profils) {
+      await this.avecVerrou(id, async () => {
+        const series = seriesLues(await this.client.batch(lecturesDeLaSerie(id), 'read'))
+        const siennes = parProfil.get(id) ?? []
+        if (siennes.length > 0) {
+          await this.client.batch(
+            siennes.map(p => ({
+              sql: 'UPDATE jour_parties SET xp = ?, xp_serie = ? WHERE profile_id = ? AND jour = ?',
+              args: [xpDuJour(p.points, POINTS_MAX_PAR_QUESTION * p.comptees), xpDeSerie(series.get(p.jour) ?? 1), id, p.jour],
+            })),
+            'write',
+          )
+        }
+        await this.ecrireXp(id, aujourdhui, false)
+      })
+    }
+    return [...profils]
   }
 
   // ── La correction ───────────────────────────────────────────────────────
@@ -2602,6 +2689,15 @@ function serieLue([jours, soirees, sabliers]: readonly ResultSet[], aujourdhui: 
   )
 }
 
+/** La série que chaque jour joué tenait, de ce que `lecturesDeLaSerie` a lu : le bonus de série de chaque partie. */
+function seriesLues([jours, soirees, sabliers]: readonly ResultSet[]): Map<string, number> {
+  const joues = new Set<string>([...jours.rows.map(r => String(r.jour)), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
+  return seriesParJour(
+    joues,
+    sabliers.rows.map(r => jourDe(Number(r.created_at))),
+  )
+}
+
 function statsDe([joues, victoires, sansFautes, elite, ...serie]: readonly ResultSet[], aujourdhui: string): StatsDuJour {
   return {
     joues: Number(joues.rows[0]?.n ?? 0),
@@ -2624,6 +2720,7 @@ function lirePartie(profileId: string, jour: string, r: Record<string, unknown> 
     justes: Number(r.justes),
     finieLe: r.finie_le == null ? null : Number(r.finie_le),
     xp: Number(r.xp),
+    xpSerie: Number(r.xp_serie ?? 0),
   }
 }
 

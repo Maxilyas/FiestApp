@@ -2,8 +2,9 @@
 // vies, sans chronomètre. Elle se joue seul, avec son profil, quand on veut
 // — l'entre-deux des soirées, comme le quiz du jour, mais sans rendez-vous.
 //
-// Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
-// sans plafond — chacun monte à son rythme —, et un confetti.
+// Une bonne réponse y rapporte de l'expérience — cinq points, dix pour les
+// vingt premières du jour —, sans plafond : chacun monte à son rythme. Et un
+// confetti.
 //
 // Ses questions viennent de sa base à elle (`server/src/core/baseCampagne.ts`),
 // écrite et étiquetée d'avance, jamais de la réserve du quiz du jour : elle
@@ -11,7 +12,7 @@
 // propriétaire du 3 octobre 2026). Un joueur n'y revoit une question
 // qu'une fois toutes les autres de sa marche passées.
 
-import { XP, type Finition } from './profil'
+import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 
@@ -141,22 +142,36 @@ export function ordreDeSerie<T>(parNiveau: Record<Niveau, readonly T[]>, max = Q
 }
 
 /**
- * L'expérience d'une bonne réponse en campagne : celle d'une bonne réponse
- * en soirée (`XP.juste`), sans la présence ni le réflexe — rien ne presse,
- * il n'y a pas de chronomètre. Choisie le 3 octobre 2026.
+ * L'expérience d'une bonne réponse en campagne — séries, épreuves des
+ * sentiers, défi de la semaine. Elle valait celle d'une bonne réponse en
+ * soirée (`XP.juste`, 3), choisie le 3 octobre 2026 ; le propriétaire l'a
+ * voulue plus généreuse le 6 octobre 2026 : la campagne est ce qu'on joue
+ * le plus après le quiz du jour, et les soirées sont rares.
  */
-export const XP_PAR_JUSTE = XP.juste
+export const XP_PAR_JUSTE = 5
+
+/**
+ * Les premières bonnes réponses de chaque journée paient double : revenir
+ * chaque jour rapporte plus qu'enchaîner les séries d'un coup (le choix du
+ * 6 octobre 2026).
+ */
+export const JUSTES_DOUBLEES_PAR_JOUR = 20
 
 /**
  * L'expérience d'une journée de campagne (à l'heure de Paris) : chaque bonne
- * réponse paie, sans plafond. Elle en avait un, quinze bonnes réponses par
- * jour, pour que la campagne, qui se rejoue sans fin, n'avale pas les
- * soirées ; le propriétaire l'a levé le 3 octobre 2026 : « que les gens
- * puissent augmenter à leur rythme ». La journée ne sert plus qu'à dire ce
- * qu'aujourd'hui a rapporté.
+ * réponse paie, sans plafond, et les vingt premières deux fois. Elle avait un
+ * plafond, quinze bonnes réponses par jour, pour que la campagne, qui se
+ * rejoue sans fin, n'avale pas les soirées ; le propriétaire l'a levé le 3
+ * octobre 2026 : « que les gens puissent augmenter à leur rythme ».
  */
 export function xpDuJourDeCampagne(justes: number): number {
-  return Math.max(0, Math.floor(justes)) * XP_PAR_JUSTE
+  const n = Math.max(0, Math.floor(justes))
+  return (n + Math.min(n, JUSTES_DOUBLEES_PAR_JOUR)) * XP_PAR_JUSTE
+}
+
+/** Ce que rapporte la `n`-ième bonne réponse d'une journée : double parmi les vingt premières. */
+export function xpDeLaBonneReponse(n: number): number {
+  return n >= 1 ? xpDuJourDeCampagne(n) - xpDuJourDeCampagne(n - 1) : 0
 }
 
 /** Toute l'expérience de campagne, journée par journée. */
@@ -191,7 +206,7 @@ export interface ReponseDeCampagne {
   recordAvant?: number
   /** À la fin de la série : la marche la plus haute qu'elle a atteinte. */
   niveauAtteint?: Niveau
-  /** L'expérience que cette réponse rapporte : celle d'une bonne réponse, 0 pour une fausse. */
+  /** L'expérience que cette réponse rapporte (`xpDeLaBonneReponse`) : double parmi les vingt premières du jour, 0 pour une fausse. */
   xp: number
   suivante?: QuestionDeCampagne
   /** À la fin de la série : les hauts faits et les paliers qu'elle a fait tomber (le Funambule, L'Alpiniste…). */
@@ -227,6 +242,8 @@ export interface EtatDeCampagne {
   series: number
   /** L'expérience de campagne gagnée aujourd'hui (Paris). */
   xpAujourdhui: number
+  /** Ses bonnes réponses de campagne aujourd'hui : les vingt premières paient double (`JUSTES_DOUBLEES_PAR_JOUR`). */
+  justesAujourdhui?: number
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]

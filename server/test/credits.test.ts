@@ -33,6 +33,7 @@ import {
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { ArchiveStore } from '../src/core/archive'
 import { XP } from '../../shared/profil'
+import { XP_PALIER } from '../../shared/hautsfaits'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — dix points de plus à la clôture. Ici, le
@@ -358,8 +359,8 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
       )
       db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2026-09-22-veille', espace, 40, JSON.stringify(veille), 1)
       db.prepare('INSERT INTO profile_badges VALUES (?, ?, ?, ?, ?, ?, ?)').run(aliceId, 'hf:habitue:1', soiree, espace, '🎟️', 'L’Habitué', 2)
-      db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '#paliers', '', 10, JSON.stringify({ v: 2, paliers: ['hf:habitue:1'] }), 3)
-      db.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(XP.reponse + 40 + 10, aliceId)
+      db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '#paliers', '', XP_PALIER[0], JSON.stringify({ v: 2, paliers: ['hf:habitue:1'] }), 3)
+      db.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(XP.reponse + 40 + XP_PALIER[0], aliceId)
     })
 
     await banc.redemarrer()
@@ -372,7 +373,7 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
     )
     assert.equal((await moi(banc, animCookie)).xp, juste, 'la soirée de l’historique se recrédite à l’animateur')
     const aliceApres = await moi(banc, aliceCookie)
-    assert.equal(aliceApres.xp, XP.reponse + 40 + 10, 'la veille et le palier gardent leur expérience')
+    assert.equal(aliceApres.xp, XP.reponse + 40 + XP_PALIER[0], 'la veille et le palier gardent leur expérience')
     // Lue comme une ligne de l'ancien barème, la veille perdait ses catégories.
     assert.deepEqual(aliceApres.categories, { Musique: { questions: 11, justes: 10 } })
     // Plus rien d'une version d'avant : le démarrage suivant n'a rien à relire.

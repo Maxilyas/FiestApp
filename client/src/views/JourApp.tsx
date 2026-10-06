@@ -32,6 +32,8 @@ import {
   NOM_MEDAILLE,
   PRIX_D_UN_SABLIER,
   SABLIERS_MAX,
+  XP_DE_SERIE_MAX,
+  XP_PAR_JOUR_DE_SERIE,
   XP_PODIUM_DU_JOUR,
   jourAvant,
   jourEnToutesLettres,
@@ -761,7 +763,7 @@ export function Fin({
         )}
         <div className="fin-gain jour-fin-gain">
           <p className="fin-xp">
-            +{formatNumber(partie.xp)} XP
+            +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
             {/* Une bonne réponse, un confetti : au quiz du jour comme en soirée. */}
             {partie.justes > 0 && <span className="fin-confettis"> · 🎊 +{nConfettis(partie.justes)}</span>}
           </p>
@@ -769,6 +771,12 @@ export function Fin({
             {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
             {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
           </p>
+          {/* Le bonus de série, à part : c'est la régularité qui le paie, pas le score. */}
+          {!!partie.xpSerie && (
+            <p className="muted small">
+              +{formatNumber(partie.xpSerie)} XP de série : {partie.serie} jour{partie.serie > 1 ? 's' : ''} d’affilée
+            </p>
+          )}
           <div className="xp-bar" role="progressbar" aria-label={`Niveau ${profil.niveau}`} aria-valuemin={0} aria-valuemax={profil.requis || 1} aria-valuenow={profil.requis > 0 ? profil.acquis : 1}>
             <div className="xp-fill" style={{ width: `${part}%` }} />
           </div>
@@ -932,7 +940,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
             )}
             <span className="muted small">
               {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {partie.comptees} ·{' '}
-              {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +{formatNumber(partie.xp)} XP
+              {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
             </span>
           </span>
         </div>
@@ -1170,6 +1178,8 @@ function SerieDuJour({ jours, sabliers, forme = 'puce' }: { jours: number; sabli
                 <b>{jours}</b> jour{jours > 1 ? 's' : ''} d’affilée
               </p>
               <p className="muted small">Un soir de soirée compte aussi : la fête ne casse jamais une série. Minuit sans quiz la casse.</p>
+              {/* Ce qu'elle rapporte : le bonus de série, payé à chaque partie commencée. */}
+              <p className="small">{`Elle paie : +${XP_PAR_JOUR_DE_SERIE} XP par jour d’affilée à chaque partie, jusqu’à +${XP_DE_SERIE_MAX}.`}</p>
               <div className="serie-feuille-sabliers">
                 <PucesDeSabliers sabliers={sabliers} />
                 <b>{sabliers > 0 ? `${sabliers} sablier${sabliers > 1 ? 's' : ''} sur ${SABLIERS_MAX}` : `Aucun sablier sur ${SABLIERS_MAX}`}</b>

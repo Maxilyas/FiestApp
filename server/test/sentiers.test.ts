@@ -28,13 +28,14 @@ import {
   regleDuPalier,
   sentierQuOnAvance,
   viesDe,
+  xpDuPalier,
   type SentierDuJoueur,
 } from '../../shared/sentiers'
 import { BRANCHES, PALIER_DU_PORTRAIT } from '../../shared/branches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { tirerUneEpreuve } from '../src/core/campagne'
-import { XP_PAR_JUSTE, niveauDeQuestion } from '../../shared/campagne'
+import { niveauDeQuestion, xpDeLaBonneReponse } from '../../shared/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
     assert.deepEqual([p1.palier, p1.seuil, p1.total, p1.rejeu, p1.question.index], [1, 10, 16, false, 0])
     const fin1 = await jouer(banc, lea, p1, 16)
     assert.deepEqual([fin1.epreuve.issue, fin1.epreuve.finie, fin1.etoiles, fin1.avatar], ['validee', true, 3, undefined])
-    assert.equal(fin1.xp, XP_PAR_JUSTE, 'une bonne réponse paie comme dans la série')
+    assert.equal(fin1.xp, xpDeLaBonneReponse(16), 'une bonne réponse paie comme dans la série — double parmi les vingt premières du jour')
 
     // Le deuxième, à douze : validé à la dixième, l'épreuve va au bout, et le portrait tombe à la fin.
     const p2 = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
@@ -274,6 +275,7 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
       validee = r.corps
     }
     assert.deepEqual([validee.epreuve.issue, validee.epreuve.finie], ['validee', false], 'validée à dix, elle continue')
+    assert.equal(validee.xpPalier, xpDuPalier(2), 'validé pour la première fois, le palier paie — le double : il ouvre un portrait')
     const fin2 = await jouer(banc, lea, e, 2)
     assert.deepEqual([fin2.epreuve.justes, fin2.etoiles, fin2.avatar], [12, 1, 'br:ecureuil'])
     // L'écureuil se porte : le serveur l'accorde sur ses paliers.

@@ -12,7 +12,10 @@ import {
   medailleDe,
   moisEnToutesLettres,
   plusLongueSerie,
+  serieAvecSabliers,
   serieDe,
+  seriesParJour,
+  xpDeSerie,
   xpDuJour,
   xpDuPodium,
 } from '../../shared/jour'
@@ -36,18 +39,44 @@ test('un jour se lit à Paris : minuit à Paris, pas à Greenwich', () => {
   assert.equal(moisEnToutesLettres('2026-09'), 'septembre 2026')
 })
 
-test('l’expérience du jour : le barème d’un quiz de soirée de dix questions, à proportion des points', () => {
-  // Dix fois une réponse, une bonne réponse et un réflexe, plus le sans-faute.
-  assert.equal(XP_MAX_DU_JOUR, 75)
-  assert.equal(xpDuJour(2000, 2000), 75)
-  assert.equal(xpDuJour(1240, 2000), 46, '62 % des points, arrondis en dessous')
+test('l’expérience du jour : vingt points par question au plus, à proportion des points', () => {
+  // Le barème du solo (le 6 octobre 2026) : 200 pour un quiz parfait — 75 avant.
+  assert.equal(XP_MAX_DU_JOUR, 200)
+  assert.equal(xpDuJour(2000, 2000), 200)
+  assert.equal(xpDuJour(1240, 2000), 124, '62 % des points, arrondis en dessous')
+  assert.equal(xpDuJour(1239, 2000), 123)
   assert.equal(xpDuJour(0, 2000), 0)
-  assert.equal(xpDuJour(2400, 2000), 75, 'jamais plus qu’un quiz parfait')
+  assert.equal(xpDuJour(2400, 2000), 200, 'jamais plus qu’un quiz parfait')
   assert.equal(xpDuJour(100, 0), 0, 'une journée dont tout a été annulé ne rapporte rien')
-  // Le podium : 25, 15, 10 — une marche de moins que la salle, comme en soirée.
-  assert.deepEqual([1, 2, 3, 4].map(r => xpDuPodium(r, 23)), [25, 15, 10, 0])
-  assert.deepEqual([1, 2].map(r => xpDuPodium(r, 2)), [25, 0], 'à deux, seul le premier monte')
+  // Le podium : 75, 45, 30 — une marche de moins que la salle, comme en soirée.
+  assert.deepEqual([1, 2, 3, 4].map(r => xpDuPodium(r, 23)), [75, 45, 30, 0])
+  assert.deepEqual([1, 2].map(r => xpDuPodium(r, 2)), [75, 0], 'à deux, seul le premier monte')
   assert.equal(xpDuPodium(1, 1), 0, 'seul, on ne monte sur rien')
+})
+
+test('le bonus de série : dix points par jour d’affilée, cent au plus', () => {
+  assert.deepEqual([0, 1, 2, 9, 10, 11, 365].map(xpDeSerie), [0, 10, 20, 90, 100, 100, 100])
+  // La série que chaque jour joué tenait, sabliers comptés : la même marche que la série du jour.
+  const joues = new Set(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-06', '2026-10-09'])
+  assert.deepEqual(Object.fromEntries(seriesParJour(joues, [])), {
+    '2026-10-01': 1,
+    '2026-10-02': 2,
+    '2026-10-03': 3,
+    '2026-10-05': 1,
+    '2026-10-06': 2,
+    '2026-10-09': 1,
+  })
+  // Un sablier acheté le 2 couvre le 4 : la série tient, sans compter ce jour-là.
+  assert.deepEqual(Object.fromEntries(seriesParJour(joues, ['2026-10-02'])), {
+    '2026-10-01': 1,
+    '2026-10-02': 2,
+    '2026-10-03': 3,
+    '2026-10-05': 4,
+    '2026-10-06': 5,
+    '2026-10-09': 1,
+  })
+  // Elle dit, chaque jour joué, ce que la série du jour disait ce jour-là.
+  for (const jour of joues) assert.equal(seriesParJour(joues, ['2026-10-02']).get(jour), serieAvecSabliers(joues, ['2026-10-02'], jour).serie)
 })
 
 test('la médaille : le bronze à six bonnes réponses, l’argent à huit, l’or à dix', () => {

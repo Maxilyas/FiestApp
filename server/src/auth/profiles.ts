@@ -18,6 +18,7 @@ import {
   niveauSurCourbe,
   progression,
   releveVide,
+  xpDuNiveau,
   XP,
   type Carriere,
   type Finition,
@@ -34,6 +35,7 @@ import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  HAUTS_FAITS_HORS_SOIREE,
   HAUTS_FAITS_REGAGNABLES,
   VITRINE_MAX,
   clePalier,
@@ -46,7 +48,8 @@ import {
   paliersDesEclats,
   paliersDuNiveau,
   titreDePalier,
-  XP_PALIER,
+  xpDe,
+  xpHorsDesSoirees,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
@@ -180,8 +183,14 @@ export interface PrixDeSoiree {
  * qu'une fois, sur toute la carrière : son expérience ne peut pas vivre dans
  * la ligne d'une soirée, que chaque crédit remplace. Elle a donc la sienne,
  * recalculée à chaque palier décerné — et l'historique des soirées l'ignore.
+ * Depuis le 6 octobre 2026, elle porte aussi les hauts faits du quiz du jour
+ * et de la campagne, qui ne se rangent sous aucune soirée
+ * (`xpHorsDesSoirees`) : recalculée de même à chaque haut fait rangé.
  */
 export const LIGNE_PALIERS = '#paliers'
+
+/** Ce que la ligne des paliers compte, en SQL : les paliers de carrière, les hauts faits hors des soirées. */
+const BADGES_DE_LA_LIGNE = `(badge GLOB 'hf:*:[123]' OR badge IN (${HAUTS_FAITS_HORS_SOIREE.map(h => `'${h.key}'`).join(', ')}))`
 
 /**
  * La ligne d'expérience du quiz du jour : toutes ses parties et tous ses
@@ -201,11 +210,18 @@ export const LIGNE_JOUR = '#jour'
 export const LIGNE_CAMPAGNE = '#campagne'
 
 /**
+ * La ligne du rattrapage des niveaux gelés (`rattraperLesNiveauxGeles`) :
+ * écrite une fois, le 6 octobre 2026, et jamais recalculée — elle n'a rien
+ * à relire, et recalculée, elle reprendrait ce que le profil gagne ensuite.
+ */
+export const LIGNE_RATTRAPAGE = '#rattrapage'
+
+/**
  * Les lignes qui ne sont pas des soirées : tout ce qui lit `profile_xp`
  * comme des soirées les écarte — l'historique, la série du jour. Une ligne
  * de plus s'ajoute ici, et nulle part ailleurs.
  */
-export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGNE_CAMPAGNE]
+export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGNE_CAMPAGNE, LIGNE_RATTRAPAGE]
 
 /** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
 export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
@@ -2101,7 +2117,7 @@ export class ProfileStore {
     if (touches.length > 0) {
       const restants = await this.client.execute({
         sql: `SELECT profile_id, badge FROM profile_badges
-              WHERE profile_id IN (${touches.map(() => '?').join(', ')}) AND badge GLOB 'hf:*:[123]'
+              WHERE profile_id IN (${touches.map(() => '?').join(', ')}) AND ${BADGES_DE_LA_LIGNE}
                 AND NOT (soiree_id = ? AND space_id = ?)`,
         args: [...touches, soireeId, spaceId],
       })
@@ -2412,11 +2428,12 @@ export class ProfileStore {
    * quiz du jour ou de la campagne, une page du calendrier, un titre de
    * champion du mois, un Divin. Une seule ligne par clé et par rangement —
    * la clé primaire le garantit, et rejouer la nuit ou la relecture ne
-   * double rien. Rend celles qui sont neuves : ce que la page annonce. Sans
-   * expérience : seuls les paliers en rapportent (`accorderPaliersDuJour`).
-   * `quand` est l'heure du quiz du jour, celle qui dit ce qu'une partie a
-   * fait tomber (`created_at` comparé à son début), et que les tests font
-   * passer minuit.
+   * double rien. Rend celles qui sont neuves : ce que la page annonce. Un
+   * haut fait neuf du quiz du jour ou de la campagne paie son expérience dans
+   * la ligne des paliers (`xpHorsDesSoirees`) ; le reste — une page, un
+   * titre, un Divin — n'en rapporte pas. `quand` est l'heure du quiz du jour,
+   * celle qui dit ce qu'une partie a fait tomber (`created_at` comparé à son
+   * début), et que les tests font passer minuit.
    */
   async ranger(profileId: string, sous: string, cles: readonly string[], quand = Date.now()): Promise<string[]> {
     const uniques = [...new Set(cles)]
@@ -2437,6 +2454,10 @@ export class ProfileStore {
     if (neuves.length > 0) {
       this.porteurs = null
       await this.recompterRecompenses([profileId])
+    }
+    if (neuves.some(cle => xpDe(cle) > 0)) {
+      await this.ecrireXpDesPaliers(profileId)
+      await this.recalculerTotal(profileId)
     }
     return neuves
   }
@@ -2487,29 +2508,97 @@ export class ProfileStore {
   }
 
   /**
-   * La ligne d'expérience des paliers de carrière, recalculée de ceux qu'il
-   * porte (voir `LIGNE_PALIERS`). Effacée quand il n'en porte plus aucun.
+   * Les paliers de La Légende que son niveau atteint, rangés sous `sous` : le
+   * barème du solo vient de le faire monter, sans partie ni soirée pour les
+   * décerner (`core/baremeDuSolo.ts`). Rend ceux qui sont nouveaux.
+   */
+  async accorderLaLegende(profileId: string, sous: string): Promise<string[]> {
+    const profil = await this.byId(profileId)
+    return profil ? this.accorderDesPaliers(profileId, sous, paliersDuNiveau(this.niveauOf(profil))) : []
+  }
+
+  /**
+   * La ligne des paliers de chacun, réécrite une fois (`core/baremeDuSolo.ts`)
+   * : ses paliers au barème du jour (`XP_PALIER`), et les hauts faits du quiz
+   * du jour et de la campagne, qui ne payaient rien jusque-là. Rend les
+   * profils réécrits.
+   */
+  async revaloriserLesPaliers(): Promise<string[]> {
+    const res = await this.client.execute(
+      `SELECT DISTINCT profile_id FROM profile_badges WHERE ${BADGES_DE_LA_LIGNE} AND profile_id IN (SELECT id FROM profiles)`,
+    )
+    const ids = res.rows.map(r => String(r.profile_id))
+    for (const id of ids) {
+      await this.ecrireXpDesPaliers(id)
+      await this.recalculerTotal(id)
+    }
+    return ids
+  }
+
+  /**
+   * Les niveaux gelés de l'ancienne courbe, rattrapés une fois (le choix du
+   * 6 octobre 2026, `core/baremeDuSolo.ts`). Un niveau gardé
+   * (`profile_niveaux`) tient tant que la courbe du jour ne l'a pas rejoint,
+   * et pendant ce temps rien ne monte : 2 500 points en septembre gardaient
+   * le niveau 11, et le douzième en demandait 7 260 — plus de cent quiz du
+   * jour sans un niveau, quand un niveau 11 en coûte 1 260. Chacun reçoit,
+   * dans sa ligne à part (`LIGNE_RATTRAPAGE`), ce qui manque pour que la
+   * courbe du jour lui donne le niveau qu'il porte : son niveau ne bouge pas,
+   * sa barre repart du début de ce niveau, comme pour tout le monde. Rejoué
+   * après une panne, il trouve la ligne déjà écrite et n'y touche plus.
+   * Rend les profils rattrapés.
+   */
+  async rattraperLesNiveauxGeles(): Promise<string[]> {
+    const res = await this.client.execute('SELECT id, xp FROM profiles')
+    const rattrapes: string[] = []
+    for (const r of res.rows) {
+      const id = String(r.id)
+      const gardes = this.gardesOf(id)
+      if (gardes.length === 0) continue
+      const total = Number(r.xp ?? 0)
+      const niveau = niveauDuProfil(total, gardes)
+      if (niveau <= niveauPour(total)) continue
+      await this.recalculerTotal(id, {
+        sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+              VALUES (?, ?, '', ?, ?, ?)
+              ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = profile_xp.xp + excluded.xp, detail = excluded.detail`,
+        args: [id, LIGNE_RATTRAPAGE, xpDuNiveau(niveau) - total, JSON.stringify({ v: VERSION_BAREME, niveau }), Date.now()],
+      })
+      rattrapes.push(id)
+    }
+    return rattrapes
+  }
+
+  /**
+   * La ligne d'expérience des paliers de carrière et des hauts faits hors des
+   * soirées, recalculée de ce que son étagère range (voir `LIGNE_PALIERS`).
+   * Effacée quand il n'en porte plus aucun.
    */
   private async ecrireXpDesPaliers(profileId: string): Promise<void> {
     const res = await this.client.execute({
-      sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND badge GLOB 'hf:*:[123]'`,
+      sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND ${BADGES_DE_LA_LIGNE}`,
       args: [profileId],
     })
     await this.client.execute(this.ligneDesPaliers(profileId, res.rows.map(r => String(r.badge))))
   }
 
-  /** La ligne d'expérience des paliers d'un profil, telle que ces paliers la font — effacée s'il n'en a plus. */
+  /**
+   * La ligne d'expérience des paliers d'un profil, telle que son étagère la
+   * fait — une entrée par ligne rangée, doublons compris : un haut fait du
+   * quiz du jour paie chaque jour où il tombe. Effacée s'il n'a plus rien.
+   */
   private ligneDesPaliers(profileId: string, badges: readonly string[]): InStatement {
-    const cles = [...new Set(badges)]
-    const xp = cles.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
+    const xp = xpHorsDesSoirees(badges)
     if (xp === 0) {
       return { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, LIGNE_PALIERS] }
     }
+    const paliers = [...new Set(badges.filter(cle => palierDe(cle)))]
+    const hautsFaits = badges.length - badges.filter(cle => palierDe(cle)).length
     return {
       sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
             VALUES (?, ?, '', ?, ?, ?)
             ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
-      args: [profileId, LIGNE_PALIERS, xp, JSON.stringify({ v: VERSION_BAREME, paliers: cles }), Date.now()],
+      args: [profileId, LIGNE_PALIERS, xp, JSON.stringify({ v: VERSION_BAREME, paliers, hautsFaits }), Date.now()],
     }
   }
 
@@ -2788,8 +2877,9 @@ export class ProfileStore {
       await this.recalculerTotal(profileId)
       return
     }
-    if (soireeId === LIGNE_JOUR || soireeId === LIGNE_CAMPAGNE) {
-      // Le quiz du jour et la campagne ne dépendent pas du barème des soirées : leur ligne garde
+    if (soireeId === LIGNE_JOUR || soireeId === LIGNE_CAMPAGNE || soireeId === LIGNE_RATTRAPAGE) {
+      // Le quiz du jour et la campagne ne dépendent pas du barème des soirées,
+      // ni le rattrapage, écrit une fois pour toutes : leur ligne garde
       // son expérience, et ne prend que la version du jour. En entier : le
       // nombre lié part en flottant, et `{"v":7.0,…}` n'était jamais « du
       // jour » pour `aRecalculer` — tout l'historique se relisait à chaque

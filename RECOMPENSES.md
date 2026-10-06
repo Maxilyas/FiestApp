@@ -316,7 +316,8 @@ qu'une fois chacun et se jugent sur la carrière entière.
 | ✨ La Pluie d'Éclats — avatars éclatés | 1 | 3 | 6 |
 | 🎖️ La Légende — niveau | 10 | 20 | 30 |
 
-Rapportent 10, 25 et 50 points d'expérience. La Légende se juge aussi à
+Rapportent 50, 100 et 200 points d'expérience (10, 25 et 50 jusqu'au
+6 octobre 2026, § 5.17). La Légende se juge aussi à
 la fin d'une partie du quiz du jour, et à la nuit qui en paie le podium :
 le niveau compte son expérience, et qui n'y jouait que passait le niveau 10
 sans le palier (arbitrage du 27 septembre 2026) — elle se range alors sous
@@ -822,6 +823,11 @@ qui lui manque. `/jour`, et une carte sur l'accueil, sous « Ce soir » (ou
   | **B · un quiz du jour = un quiz de soirée** | **1 105** | **23 %** | **15** |
 
   (Une soirée par mois, le quiz du jour 25 jours sur 30, réussi à 45 %.)
+
+  Le 6 octobre 2026, le barème du solo l'a fait bien plus généreux (§ 5.17)
+  : 200 au plus par partie, le podium à 75, 45 et 30, et un bonus de série
+  — le quiz du jour est devenu ce qu'on joue le plus, les soirées sont
+  rares.
 - **La médaille** au nombre de bonnes réponses : le bronze à six, l'argent à
   huit, l'or à dix — sur les questions qui comptent encore. **La série** :
   les jours d'affilée où l'on a joué, au quiz du jour ou en soirée — la fête
@@ -1022,11 +1028,13 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   se compte à côté : les vies se relisent dans le journal des épreuves
   ratées et des achats (`viesDe`) — un hoquet de la base ne fausse rien.
 - **Ce qu'une épreuve rapporte** : chaque bonne réponse, un confetti et
-  l'expérience d'une bonne réponse en soirée, comme la série (les épreuves
-  sont des séries d'un autre mode, dans les mêmes tables : l'expérience,
-  les confettis, la mesure des difficultés et « jamais vues d'abord » les
-  comptent sans rien savoir des sentiers) — et, depuis le 6 octobre 2026,
-  l'écusson de savoir de sa catégorie (§ 5.6), comme la série et le défi.
+  son expérience, comme la série (les épreuves sont des séries d'un autre
+  mode, dans les mêmes tables : l'expérience, les confettis, la mesure des
+  difficultés et « jamais vues d'abord » les comptent sans rien savoir des
+  sentiers) ; l'écusson de savoir de sa catégorie (§ 5.6), comme la série et
+  le défi ; et, la première fois qu'il est validé en jouant, le palier
+  lui-même : 50, 100 s'il ouvre un portrait, 250 pour le maître (§ 5.17).
+  Ces deux-là depuis le 6 octobre 2026.
 - **L'accueil le rappelle** : le bouton de la campagne dit le sentier qu'on
   avance et ses vies — « Vers le palier 8 de la forêt · 11 vies », « Ton
   épreuve t'attend… » — et ouvre la campagne sur ses sentiers, où ce
@@ -1114,7 +1122,8 @@ entre amis), l'Arbre-Monde devient plus facile à décrocher (accepté), la
 campagne reste sans chronomètre, une vingtaine de joueurs au quiz du jour.
 
 - **Des hauts faits du jour**, qui se regagnent et se rangent sous leur
-  jour (`#jour:…`), sans expérience — la partie paie déjà la sienne. À la
+  jour (`#jour:…`) — sans expérience à leur arrivée, la partie payant déjà
+  la sienne ; ils paient depuis le 6 octobre 2026 (§ 5.17). À la
   fin de la partie : **Le Lève-tôt** (finie avant 8 h). À la nuit, qui clôt
   le jour : **Le Laurier** (la victoire), **Le Triomphe** (trois victoires
   d'affilée), **Le Phénix du jour** (gagner au lendemain d'un jour fini dans
@@ -1140,7 +1149,7 @@ campagne reste sans chronomètre, une vingtaine de joueurs au quiz du jour.
   (`serieAvecSabliers`). La page du jour les montre dans la pastille de la
   série, en haut, à côté de la cloche ; ils s'achètent à la boutique, dans
   le rayon « Objets », un ou deux d'un coup (`/boutique#objet-sablier`).
-- **Des paliers** (10, 25 et 50 XP, comme ceux des soirées) : **L'Élite**
+- **Des paliers** (comme ceux des soirées : 50, 100 et 200 XP depuis le 6 octobre 2026) : **L'Élite**
   (10, 50, 150 jours dans le premier quart, à huit joueurs au moins),
   **L'Infatigable** (une série de 7, 30, 100 jours) — au quiz du jour ;
   **L'Alpiniste** (une série de 10, 15, 20), **L'Érudit** (25, 100, 300
@@ -1192,6 +1201,80 @@ campagne reste sans chronomètre, une vingtaine de joueurs au quiz du jour.
   les séries d'avant se relisent une fois au démarrage, sous leur version
   (`relireLesJours`, `relireLesSeries`) — un joueur assidu retrouve ce que
   ses parties passées lui auraient valu.
+
+### 5.17 Le solo récompense vite
+
+Lot 12 (le 6 octobre 2026). Le quiz du jour est ce qu'on joue le plus, puis
+la campagne ; les soirées sont rares. L'expérience, réglée sur les soirées
+(§ 5.2), laissait qui ne faisait que le quiz du jour à une quarantaine de
+points par jour : au niveau 10, vingt-cinq parties pour un seul niveau, et
+une barre qui avançait de 3 % par partie. La commande : « récompenser les
+gens bien plus », « que ça avance vite pour ceux qui jouent en solo », plus
+généreux encore sur le quiz du jour, les bonnes réponses de campagne, les
+hauts faits et les paliers — un système de niveaux plus dur, avec ses
+récompenses, viendra plus tard.
+
+| Ce qui paie | Avant | Depuis le 6 octobre 2026 |
+|---|---|---|
+| Une partie du quiz du jour | 75 au plus | **200** au plus, à proportion des points (`XP_MAX_DU_JOUR`) |
+| Le podium du jour | 25 · 15 · 10 | **75 · 45 · 30** (`XP_PODIUM_DU_JOUR`) |
+| La série du jour | — | **+10 par jour d'affilée**, jusqu'à **+100** au dixième jour, dès la partie commencée (`xpDeSerie`) |
+| Une bonne réponse de campagne | 3 | **5**, et **10** pour les vingt premières de la journée (`XP_PAR_JUSTE`, `JUSTES_DOUBLEES_PAR_JOUR`) |
+| Un palier de sentier validé en jouant | — | **50**, **100** s'il ouvre un portrait, **250** pour le maître, une fois chacun (`xpDuPalier`) |
+| Un haut fait du quiz du jour ou de la campagne | 0 | de **5** à **250** (ci-dessous) |
+| Un palier de carrière | 10 · 25 · 50 | **50 · 100 · 200** (`XP_PALIER`) |
+
+Les hauts faits : **Le Laurier** 50, **Le Triomphe** 150, **Le Phénix du
+jour** 100, **Seul au monde** 75, **L'Éclair du jour** 50, **Le Lève-tôt**
+25, **Le Mois complet** 250 ; de l'ombre, **La Lanterne du jour** 15, **Le
+Dernier Métro** 10, **Le Courant d'air** 5 — un prix, pas une punition. En
+campagne : **Le Funambule** et **Sans une égratignure** 100, **La Grande
+Série** et **Le Vainqueur du défi** 150, **Le Tour du monde** 250, une fois :
+sa condition, une fois tenue, le reste, et il retombait à chaque série
+d'après (`paieUneFois`) — il ne se range plus qu'une fois. Ils paient dans
+la ligne des paliers (`LIGNE_PALIERS`, `xpHorsDesSoirees`), chaque fois
+qu'ils tombent.
+
+- **La régularité d'abord.** Le bonus de série et les vingt premières
+  bonnes réponses de la journée paient qui revient chaque jour, quel que
+  soit son score : revenir rapporte plus qu'enchaîner. Les sabliers, qui
+  gardent la série, gardent aussi son bonus.
+- **Mesuré** sur les vraies formules — 7 sur 10 au quiz du jour, une
+  vingtaine de joueurs, une trentaine de bonnes réponses de campagne pour
+  un quart d'heure — le niveau atteint :
+
+  | Joueur type | XP par jour | après 1 mois | 3 mois | 6 mois | 1 an |
+  |---|---|---|---|---|---|
+  | Le quiz du jour, six jours sur sept | 39 → 140 | 5 → 9 | 8 → 15 | 11 → 21 | 16 → 30 |
+  | Le quiz du jour chaque jour, une soirée par mois | 60 → 255 | 6 → 12 | 10 → 20 | 14 → 28 | 19 → 40 |
+  | Le quiz du jour et un quart d'heure de campagne | 149 → 557 | 9 → 17 | 15 → 30 | 22 → 41 | 30 → 58 |
+  | Le mordu : quarante minutes de campagne en plus | 316 → 927 | 13 → 22 | 22 → 38 | 31 → 52 | 44 → 73 |
+
+  Au-delà du niveau 25, plus rien ne s'ouvre que La Légende · Or, au
+  trentième : c'est voulu, l'étage d'au-dessus viendra.
+- **Rétroactif.** Le premier démarrage qui l'apporte recompte tout ce qui
+  s'était joué, une fois (`core/baremeDuSolo.ts`, son drapeau) : chaque
+  partie du jour sur ses points et sa série d'alors, chaque podium à son
+  rang, les lignes de la campagne et des paliers relues des journaux. La
+  Légende tombe chez ceux qu'il fait monter.
+- **Les niveaux gelés se rattrapent.** Quand la courbe s'est durcie, en
+  septembre, chacun a gardé le niveau qu'il avait (§ 5.2) — mais ce niveau
+  restait figé tant que la courbe du jour ne l'avait pas rejoint : 2 500
+  points en septembre gardaient le niveau 11, et le douzième en demandait
+  7 260, plus de cent quiz du jour sans un niveau. Chacun reçoit, une fois,
+  ce qui manquait pour que la courbe lui donne le niveau qu'il porte
+  (`LIGNE_RATTRAPAGE`) : son niveau ne bouge pas, sa barre repart du début
+  de ce niveau, comme pour tout le monde.
+- **Ce qui ne bouge pas** : le barème des soirées — leurs questions, leurs
+  podiums, leurs hauts faits —, la courbe des niveaux, et les confettis, qui
+  comptent les bonnes réponses, pas l'expérience. Les soirées seules y
+  gagnent à peine, par leurs paliers de carrière : sur deux quiz de
+  cinquante questions, le joueur médian passe le niveau 10 à sa onzième
+  soirée au lieu de la douzième (`calibrage.ts`).
+- **Que ça se voie** : la fin du quiz du jour dit à part son bonus de série,
+  la fin d'une série ou d'une épreuve de campagne montre la barre de niveau
+  et la montée qu'elle a faite, et chaque haut fait ou palier tombé dit ce
+  qu'il rapporte.
 
 ## 6. Feuille de route
 
@@ -1249,6 +1332,11 @@ champion du mois et son entrée en scène, le calendrier des Heures, les
 sabliers, le défi de la semaine et son laurier d'argent, dix légendaires et
 un Divin de plus, quatre thèmes et deux fonds peints, la gerbe.
 
+**Lot 12 — fait** : le solo récompense vite (§ 5.17) — le quiz du jour, la
+campagne, leurs hauts faits, les paliers des sentiers et de carrière paient
+bien plus, rétroactivement, et les niveaux gelés de l'ancienne courbe se
+rattrapent.
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
@@ -1257,3 +1345,5 @@ un Divin de plus, quatre thèmes et deux fonds peints, la gerbe.
 3. Le radar des catégories (37).
 4. Les rivalités (39), le cadre de soirée (7).
 5. L'Éclat garanti (6) et le Métronome (22).
+6. Un étage de niveaux au-dessus du 25, plus dur, avec ses récompenses — la
+   suite du barème du solo (§ 5.17).

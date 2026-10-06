@@ -46,6 +46,11 @@ export interface HautFaitDeSoiree {
   /** L'expérience qu'il rapporte, chaque fois. */
   xp: number
   /**
+   * Il ne paie qu'une fois, même regagné : sa condition, une fois tenue, le
+   * reste — le Tour du monde tombait à chaque série d'après.
+   */
+  paieUneFois?: true
+  /**
    * Il se gagne au quiz du jour ou en campagne, pas en soirée : la clôture
    * d'une soirée ne le juge jamais (`core/hautsfaits.ts` ne connaît que
    * `HAUTS_FAITS_DE_SOIREE`), et aucune soirée retirée ne le reprend.
@@ -82,8 +87,14 @@ export interface HautFaitDeCarriere {
 export type HautFait = HautFaitDeSoiree | HautFaitDeCarriere
 
 export const NOM_PALIER = ['Bronze', 'Argent', 'Or'] as const
-/** L'expérience de chaque palier de carrière, une seule fois. */
-export const XP_PALIER = [10, 25, 50] as const
+/**
+ * L'expérience de chaque palier de carrière, une seule fois. Elle était de
+ * 10, 25 et 50 ; le propriétaire l'a voulue bien plus généreuse le 6 octobre
+ * 2026, avec celle du quiz du jour et de la campagne. La ligne des paliers se
+ * réécrit au démarrage qui l'apporte (`core/baremeDuSolo.ts`) : elle se lit
+ * toute dans l'étagère, sans relire une soirée.
+ */
+export const XP_PALIER = [50, 100, 200] as const
 
 /** La clé sous laquelle un palier de carrière se range : `hf:bavard:2` pour l'argent. */
 export const clePalier = (key: string, palier: number) => `${key}:${palier}`
@@ -288,10 +299,11 @@ export const SALLE_DU_JOUR = 8
  * mesurent aux autres tombent à la nuit qui clôt le jour, quand tout le monde
  * a joué ; les autres à la fin de la partie.
  *
- * Ils ne rapportent pas d'expérience : le quiz du jour a la sienne, bornée
- * (75 par partie, l'option B du 26 septembre 2026), et ses paliers. Ils
- * ouvrent un titre, comme tout haut fait, et des légendaires — souvent la
- * seconde voie d'un légendaire de soirée qui raconte la même histoire
+ * Ils rapportent de l'expérience depuis le 6 octobre 2026 — rien jusque-là :
+ * le quiz du jour avait la sienne, bornée à 75 par partie —, dans la ligne
+ * des paliers (`LIGNE_PALIERS`), chaque fois qu'ils tombent. Ils ouvrent un
+ * titre, comme tout haut fait, et des légendaires — souvent la seconde voie
+ * d'un légendaire de soirée qui raconte la même histoire
  * (`shared/legendaires.ts`).
  */
 export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
@@ -304,7 +316,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Laurier',
     rule: 'Gagner le quiz du jour',
     ton: 'eclat',
-    xp: 0,
+    xp: 50,
   },
   {
     key: 'hf:triomphe',
@@ -314,7 +326,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Triomphe',
     rule: 'Gagner le quiz du jour trois jours d’affilée',
     ton: 'eclat',
-    xp: 0,
+    xp: 150,
   },
   {
     key: 'hf:phenix-du-jour',
@@ -324,7 +336,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Phénix du jour',
     rule: 'Gagner le quiz du jour au lendemain d’un jour fini dans la moitié basse',
     ton: 'eclat',
-    xp: 0,
+    xp: 100,
   },
   {
     key: 'hf:seul-au-monde',
@@ -334,7 +346,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Seul au monde',
     rule: 'Seul de tous les joueurs du jour à trouver une question',
     ton: 'eclat',
-    xp: 0,
+    xp: 75,
   },
   {
     key: 'hf:eclair-du-jour',
@@ -344,7 +356,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'L’Éclair du jour',
     rule: 'La bonne réponse la plus rapide du jour, sur trois questions de sa partie',
     ton: 'eclat',
-    xp: 0,
+    xp: 50,
   },
   {
     key: 'hf:leve-tot',
@@ -354,7 +366,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Lève-tôt',
     rule: 'Finir sa partie du jour avant huit heures',
     ton: 'eclat',
-    xp: 0,
+    xp: 25,
   },
   {
     key: 'hf:mois-complet',
@@ -364,7 +376,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Mois complet',
     rule: 'Jouer chaque quiz du jour d’un mois, sans en manquer un',
     ton: 'eclat',
-    xp: 0,
+    xp: 250,
   },
   // ── Les ombres ──
   {
@@ -375,7 +387,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'La Lanterne du jour',
     rule: 'Dernier du quiz du jour, en ayant répondu à tout',
     ton: 'ombre',
-    xp: 0,
+    xp: 15,
   },
   {
     key: 'hf:dernier-metro',
@@ -385,7 +397,7 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Dernier Métro',
     rule: 'Commencer sa partie du jour dans la dernière demi-heure avant minuit',
     ton: 'ombre',
-    xp: 0,
+    xp: 10,
   },
   {
     key: 'hf:courant-d-air',
@@ -395,15 +407,15 @@ export const HAUTS_FAITS_DU_JOUR: HautFaitDeSoiree[] = [
     title: 'Le Courant d’air',
     rule: 'Commencer sa partie du jour, et la laisser avant sa dernière question',
     ton: 'ombre',
-    xp: 0,
+    xp: 5,
   },
 ]
 
 /**
  * Les hauts faits de la campagne, la série à trois vies : ils se regagnent,
  * une série au plus chacun, et se rangent sous la série qui les a fait
- * tomber (`#campagne:<série>`). Sans expérience non plus : chaque bonne
- * réponse de campagne paie déjà la sienne, sans plafond.
+ * tomber (`#campagne:<série>`). Ils rapportent de l'expérience depuis le
+ * 6 octobre 2026, comme ceux du quiz du jour ; le Tour du monde, une fois.
  */
 export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
   {
@@ -414,7 +426,7 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     title: 'Le Funambule',
     rule: 'Neuf bonnes réponses d’affilée sur sa dernière vie, dans une série',
     ton: 'eclat',
-    xp: 0,
+    xp: 100,
   },
   {
     key: 'hf:intact',
@@ -424,7 +436,7 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     title: 'Sans une égratignure',
     rule: 'Atteindre les questions expertes d’une série sans perdre une vie',
     ton: 'eclat',
-    xp: 0,
+    xp: 100,
   },
   {
     key: 'hf:grande-serie',
@@ -434,7 +446,7 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     title: 'La Grande Série',
     rule: 'Trente bonnes réponses dans une série de toutes les catégories',
     ton: 'eclat',
-    xp: 0,
+    xp: 150,
   },
   {
     key: 'hf:tour-du-monde',
@@ -444,7 +456,8 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     title: 'Le Tour du monde',
     rule: 'Dix bonnes réponses dans une série de chacune des douze catégories',
     ton: 'eclat',
-    xp: 0,
+    xp: 250,
+    paieUneFois: true,
   },
   {
     // Rangé sous sa semaine (`#defi:<lundi>`), à la clôture du défi : le
@@ -456,7 +469,7 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
     title: 'Le Vainqueur du défi',
     rule: 'Finir en tête du défi de la semaine, à deux joueurs au moins',
     ton: 'eclat',
-    xp: 0,
+    xp: 150,
   },
 ]
 
@@ -662,6 +675,9 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
 /** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne. */
 export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE]
 
+/** Ceux qui se gagnent hors des soirées — au quiz du jour, en campagne : leur expérience vit dans la ligne des paliers. */
+export const HAUTS_FAITS_HORS_SOIREE: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE]
+
 const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
 
 export function hautFait(key: string): HautFait | undefined {
@@ -685,6 +701,28 @@ export function palierDe(cle: string): { hautFait: HautFaitDeCarriere; palier: n
 /** Comment un palier s'écrit sur une étagère : « Le Bavard · Argent ». */
 export function titreDePalier(h: HautFaitDeCarriere, palier: number): string {
   return `${h.title} · ${NOM_PALIER[palier - 1]}`
+}
+
+/**
+ * L'expérience de la ligne des paliers (`LIGNE_PALIERS`), de ce que
+ * l'étagère range — une entrée par ligne, doublons compris : chaque palier
+ * de carrière une fois, chaque haut fait du quiz du jour et de la campagne
+ * autant de fois qu'il est tombé, sauf ceux qui ne paient qu'une fois
+ * (`paieUneFois`). Ceux des soirées n'y entrent pas : leur expérience vit
+ * dans la ligne de leur soirée, que sa clôture écrit.
+ */
+export function xpHorsDesSoirees(ranges: readonly string[]): number {
+  let xp = 0
+  const payes = new Set<string>()
+  for (const cle of ranges) {
+    const p = palierDe(cle)
+    const h = p ? null : hautFaitDeSoiree(cle)
+    if (!p && !h?.origine) continue
+    if ((p || h?.paieUneFois) && payes.has(cle)) continue
+    payes.add(cle)
+    xp += p ? XP_PALIER[p.palier - 1] : h!.xp
+  }
+  return xp
 }
 
 /** L'expérience que rapporte une clé rangée — haut fait de soirée ou palier —, 0 pour le reste. */

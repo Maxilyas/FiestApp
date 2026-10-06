@@ -7,6 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
@@ -26,6 +27,7 @@ import {
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
+  JUSTES_DOUBLEES_PAR_JOUR,
   VIES,
   XP_PAR_JUSTE,
   type CorrectionDeCampagne,
@@ -171,6 +173,8 @@ export function CampagneApp() {
       porterGerbe(moi.profile?.gerbe)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
       setProfil(moi.profile)
+      // Le point de départ des montées de niveau que la fin d'une série dira.
+      retenirLeNiveau(moi.profile.niveau)
       const lu = await etat
       if (vivant) setEcran({ e: 'accueil', etat: lu })
     })().catch(e => vivant && setEcran({ e: 'erreur', motif: motifDe(e) }))
@@ -310,6 +314,8 @@ export function CampagneApp() {
   if (ecran.e === 'accueil') {
     const { etat } = ecran
     const pret = etat.questions >= QUESTIONS_POUR_JOUER
+    // Les bonnes réponses du jour qui paient encore double (`JUSTES_DOUBLEES_PAR_JOUR`).
+    const doubles = Math.max(0, JUSTES_DOUBLEES_PAR_JOUR - (etat.justesAujourdhui ?? 0))
     const basculer = (c: string) => setCategories(avant => (avant.includes(c) ? avant.filter(x => x !== c) : [...avant, c]))
     return (
       <div className="player-shell campagne">
@@ -317,8 +323,13 @@ export function CampagneApp() {
         {onglets}
         <Heros etat={etat} />
         {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
-        {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
-        {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}
+        {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer. */}
+        {etat.xpAujourdhui > 0 && (
+          <p className="muted small campagne-xp-du-jour">
+            Aujourd’hui : +{etat.xpAujourdhui} XP
+            {doubles > 0 && ` · encore ${doubles} bonne${doubles > 1 ? 's' : ''} réponse${doubles > 1 ? 's' : ''} au double`}
+          </p>
+        )}
         {pret ? (
           <>
             {etat.categories.length > 1 && (
@@ -433,6 +444,8 @@ export function CampagneApp() {
             </p>
           )}
         </section>
+        {/* Où il en est : la barre de niveau, relue après la série, et la montée qu'elle a faite. */}
+        {ecran.justes > 0 && <BarreDeNiveau />}
         {ecran.recompenses.length > 0 && (
           <section className="card campagne-recompenses">
             {ecran.recompenses.map(r => (
@@ -638,7 +651,7 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
         </li>
         <li>🎊 un confetti par bonne réponse</li>
         <li>
-          <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite
+          <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite — le double pour les {JUSTES_DOUBLEES_PAR_JOUR} premières du jour
         </li>
       </ul>
     </section>

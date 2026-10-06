@@ -6,7 +6,7 @@ import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { pourquoiInjoignable } from './distante'
-import { LIGNE_CAMPAGNE, LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_CAMPAGNE, LIGNE_JOUR, LIGNE_PALIERS, LIGNE_RATTRAPAGE, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -153,8 +153,9 @@ export async function recalculerHistorique(deps: {
       continue
     }
     // Le quiz du jour et la campagne ont leur propre barème, que celui des
-    // soirées ne touche pas : leur ligne prend la version du jour, sans rien relire.
-    if (l.soireeId === LIGNE_JOUR || l.soireeId === LIGNE_CAMPAGNE) {
+    // soirées ne touche pas, et le rattrapage des niveaux gelés s'est écrit
+    // une fois pour toutes : leur ligne prend la version du jour, sans rien relire.
+    if (l.soireeId === LIGNE_JOUR || l.soireeId === LIGNE_CAMPAGNE || l.soireeId === LIGNE_RATTRAPAGE) {
       await profiles.remettreAuBareme(l.profileId, l.soireeId)
       continue
     }

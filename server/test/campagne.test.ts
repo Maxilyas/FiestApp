@@ -18,6 +18,7 @@ import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type 
 import {
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
+  JUSTES_DOUBLEES_PAR_JOUR,
   REPONSES_FICTIVES,
   VIES,
   XP_PAR_JUSTE,
@@ -26,10 +27,10 @@ import {
   ordreDeSerie,
   tauxLisse,
   xpDeCampagne,
+  xpDeLaBonneReponse,
   xpDuJourDeCampagne,
   type Niveau,
 } from '../../shared/campagne'
-import { XP } from '../../shared/profil'
 import { XP_PALIER } from '../../shared/hautsfaits'
 import { empreinteDe } from '../src/core/jour'
 
@@ -71,13 +72,17 @@ test('une série monte : cinq de chaque marche, de la plus facile à l’expert,
   assert.deepEqual([...NIVEAUX], ['facile', 'moyen', 'difficile', 'expert'])
 })
 
-test('une bonne réponse rapporte celle d’une soirée, sans réflexe ni plafond', () => {
-  assert.equal(XP_PAR_JUSTE, XP.juste)
+test('une bonne réponse rapporte cinq points, dix parmi les vingt premières du jour, sans plafond', () => {
+  assert.equal(XP_PAR_JUSTE, 5)
+  assert.equal(JUSTES_DOUBLEES_PAR_JOUR, 20)
   assert.equal(xpDuJourDeCampagne(0), 0)
-  assert.equal(xpDuJourDeCampagne(4), 12)
-  assert.equal(xpDuJourDeCampagne(15), 45)
-  assert.equal(xpDuJourDeCampagne(40), 120, 'plus de plafond : la quarantième paie comme la première')
-  assert.equal(xpDeCampagne([40, 2, 15]), 120 + 6 + 45)
+  assert.equal(xpDuJourDeCampagne(4), 40, 'les premières du jour paient double')
+  assert.equal(xpDuJourDeCampagne(15), 150)
+  assert.equal(xpDuJourDeCampagne(20), 200)
+  assert.equal(xpDuJourDeCampagne(40), 300, 'plus de plafond : la quarantième paie encore, au prix simple')
+  assert.equal(xpDeCampagne([40, 2, 15]), 300 + 20 + 150, 'chaque journée a ses vingt premières')
+  assert.deepEqual([1, 20, 21, 40].map(xpDeLaBonneReponse), [10, 10, 5, 5])
+  assert.equal(xpDeLaBonneReponse(0), 0)
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────
@@ -133,7 +138,7 @@ test('la campagne joue sa propre base, dès le premier jour : trois vies, la bon
 
     // Juste, puis faux trois fois : la série s'arrête à la troisième erreur.
     const r0 = (await repondre(banc, lea, serie.id, 0, true)).corps
-    assert.deepEqual([r0.juste, r0.vies, r0.justes, r0.finie, r0.bonne, r0.xp], [true, 3, 1, false, qs[0].bonne, XP_PAR_JUSTE])
+    assert.deepEqual([r0.juste, r0.vies, r0.justes, r0.finie, r0.bonne, r0.xp], [true, 3, 1, false, qs[0].bonne, xpDeLaBonneReponse(1)])
     assert.equal(r0.anecdote, base.parId.get(qs[0].id)!.anecdote, 'l’anecdote, après la réponse')
     assert.equal(r0.suivante.index, 1)
     assert.equal(r0.suivante.bonne, undefined)
@@ -165,11 +170,12 @@ test('la campagne joue sa propre base, dès le premier jour : trois vies, la bon
       qs.slice(0, 4).map(q => base.parId.get(q.id)!.anecdote),
     )
 
-    // Une bonne réponse, un confetti, et l'expérience d'une bonne réponse en soirée.
+    // Une bonne réponse, un confetti, et son expérience — la première du jour paie double.
     const apres = await solde()
-    assert.equal(apres.xp, avant.xp + XP_PAR_JUSTE, 'une bonne réponse, trois points d’expérience')
+    assert.equal(apres.xp, avant.xp + 2 * XP_PAR_JUSTE, 'la première bonne réponse du jour, dix points d’expérience')
     assert.equal(apres.boutique.confettis.gagnes, avant.boutique.confettis.gagnes + 1, 'une bonne réponse, un confetti')
-    assert.equal(apresSerie.xpAujourdhui, XP_PAR_JUSTE)
+    assert.equal(apresSerie.xpAujourdhui, 2 * XP_PAR_JUSTE)
+    assert.equal(apresSerie.justesAujourdhui, 1)
 
     // Une seconde série moins bonne : le record n'est pas battu, et la fin le redit.
     const deux = (await poster(banc, lea, '/api/campagne/serie')).corps
@@ -333,16 +339,18 @@ test('l’expérience de campagne paie chaque bonne réponse, sans plafond, et n
       for (let i = 0; i < serie.total; i++) gains.push((await repondre(banc, lea, serie.id, i, true)).corps.xp)
       return gains
     }
-    // Vingt bonnes réponses le même jour : toutes paient — il y avait un plafond à quinze.
+    // Vingt bonnes réponses le même jour : toutes paient double — il y avait
+    // un plafond à quinze —, puis la suite au prix simple, sans plafond.
     const gains = [...(await toutJuste()), ...(await toutJuste())]
     assert.equal(gains.length, 20)
-    assert.deepEqual(gains, Array(20).fill(XP_PAR_JUSTE), 'la vingtième paie comme la première')
+    assert.deepEqual(gains, Array(20).fill(2 * XP_PAR_JUSTE), 'les vingt premières du jour paient double')
+    assert.deepEqual(await toutJuste(), Array(10).fill(XP_PAR_JUSTE), 'la vingt et unième paie encore, au prix simple')
     const plein = await moi()
     // Et L'Alpiniste · Bronze, une série de dix justes : un palier de la
     // campagne paie comme tout palier (le 5 octobre 2026).
-    assert.equal(plein.xp, depart.xp + 20 * XP_PAR_JUSTE + XP_PALIER[0])
-    assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 20, 'un confetti chacune')
-    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 20 * XP_PAR_JUSTE)
+    assert.equal(plein.xp, depart.xp + 20 * 2 * XP_PAR_JUSTE + 10 * XP_PAR_JUSTE + XP_PALIER[0])
+    assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 30, 'un confetti chacune')
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, xpDuJourDeCampagne(30))
     // La campagne n'est pas une soirée : l'historique ne la compte pas.
     assert.ok(Array.isArray(plein.soirees))
     assert.deepEqual(plein.soirees, depart.soirees, 'pas de soirée de plus')
@@ -350,8 +358,8 @@ test('l’expérience de campagne paie chaque bonne réponse, sans plafond, et n
     horloge.t += 24 * 3_600_000
     assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 0)
     const demain = await toutJuste()
-    assert.equal(demain[0], XP_PAR_JUSTE)
-    assert.equal((await moi()).xp, depart.xp + 30 * XP_PAR_JUSTE + XP_PALIER[0], 'le palier ne paie qu’une fois')
+    assert.equal(demain[0], 2 * XP_PAR_JUSTE, 'le lendemain, les vingt premières repartent')
+    assert.equal((await moi()).xp, depart.xp + xpDuJourDeCampagne(30) + xpDuJourDeCampagne(10) + XP_PALIER[0], 'le palier ne paie qu’une fois')
   } finally {
     await banc.close()
   }

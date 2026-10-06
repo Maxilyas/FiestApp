@@ -20,7 +20,7 @@ import { ProfileStore } from '../src/auth/profiles'
 import { calendrierDesSoirees } from '../src/core/saisons'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
-// tomber un palier de carrière — dix points de plus à la clôture. Le smoke
+// tomber un palier de carrière — cinquante points de plus à la clôture. Le smoke
 // compte l'expérience au point près : le hasard n'y décide de rien.
 ProfileStore.tirageEclat = () => false
 // Le calendrier non plus : une soirée jouée pendant une saison ouvrirait son

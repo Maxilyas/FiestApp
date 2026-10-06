@@ -114,7 +114,7 @@ export function CarteDuJour() {
           </p>
           <p className="jour-meta">
             {partie.medaille && <Medaille medaille={partie.medaille} className="medaille-texte" />}
-            {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} · +{partie.xp} XP
+            {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} · +{partie.xp + (partie.xpSerie ?? 0)} XP
           </p>
           <a className="btn btn-accent btn-block" href="/jour#classement">
             Voir le classement
