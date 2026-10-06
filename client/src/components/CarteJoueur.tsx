@@ -3,12 +3,14 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { brancheDe, portrait as portraitDe } from '../../../shared/branches'
+import { NOM_FINITION } from '../../../shared/profil'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
-import { chargerDessinsAuPlus, complets, sortesDesAvatars, useDessins } from './medaillons'
+import { chargerDessinsAuPlus, complets, dessinDuPortrait, sortesDesAvatars, useDessins } from './medaillons'
 import { justesses, type Chiffre } from './Chiffres'
 import { Flamme, Icon } from './Icon'
 import { Niveau } from './Niveau'
@@ -34,6 +36,10 @@ import { fond as fondDeCarte } from '../../../shared/fonds'
  * pied d'une carte bien remplie, ne se voyait qu'en défilant jusqu'au bout,
  * et la carte prenait tout l'écran (la remarque du propriétaire du
  * 3 octobre 2026).
+ *
+ * Son avatar se touche : il s'ouvre en grand, à la place de ce que la carte
+ * raconte (`AvatarEnGrand`), et un nouveau toucher — ou Échap — rend la
+ * carte.
  */
 export function CarteJoueur({
   slug,
@@ -50,6 +56,23 @@ export function CarteJoueur({
   const [carte, setCarte] = useState<CarteDeJoueur | null>(null)
   const [erreur, setErreur] = useState('')
   const boite = useRef<HTMLDivElement>(null)
+  // L'avatar en grand, et la hauteur du contenu qu'il remplace : il la
+  // garde, et la carte ne rapetisse pas sous le doigt — centrée dans
+  // l'écran, sa croix aurait sauté.
+  const [loupe, setLoupe] = useState<{ hauteur: number } | null>(null)
+  const petitAvatar = useRef<HTMLButtonElement>(null)
+  const ouvrirLaLoupe = () => {
+    const defile = boite.current?.querySelector<HTMLElement>('.carte-defile')
+    const s = defile && getComputedStyle(defile)
+    setLoupe({ hauteur: defile && s ? defile.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) : 0 })
+  }
+  // Refermée, le focus revient à l'avatar qui l'avait ouverte : le clavier
+  // et le lecteur d'écran reprennent la carte où l'œil l'avait laissée.
+  const etaitOuverte = useRef(false)
+  useEffect(() => {
+    if (!loupe && etaitOuverte.current) petitAvatar.current?.focus({ preventScroll: true })
+    etaitOuverte.current = !!loupe
+  }, [loupe])
 
   useEffect(() => {
     let vivant = true
@@ -98,6 +121,15 @@ export function CarteJoueur({
         aria-label={carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur'}
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
+        onKeyDown={e => {
+          // Échap rend la carte à l'avatar en grand, sans la fermer : arrêté
+          // ici, il ne parvient pas jusqu'à la fenêtre modale, qui l'écoute
+          // sur le document.
+          if (loupe && e.key === 'Escape') {
+            e.stopPropagation()
+            setLoupe(null)
+          }
+        }}
       >
         {/* Le balayage du tableau de bord, sous un fond de carte jamais : le
             fond porte déjà son décor dans les mêmes couches. */}
@@ -117,16 +149,29 @@ export function CarteJoueur({
         <div className="carte-defile">
           {erreur && <p className="muted">{erreur}</p>}
           {!carte && !erreur && <p className="muted">Chargement…</p>}
-          {carte && (
+          {carte && loupe && <AvatarEnGrand carte={carte} hauteur={loupe.hauteur} onRevenir={() => setLoupe(null)} />}
+          {carte && !loupe && (
             <>
               <header className="carte-tete">
-                <Avatar
-                  className="carte-avatar"
-                  avatar={carte.avatar}
-                  finition={carte.finition}
-                  eclat={carte.eclat}
-                  legendaire={carte.legendaire}
-                />
+                {/* En tête de la carte, on ne voyait ni la peinture d'un
+                    légendaire ni la lumière d'une finition : touché, il
+                    s'ouvre en grand (la demande du 6 octobre 2026). */}
+                <button
+                  ref={petitAvatar}
+                  type="button"
+                  className="carte-avatar-bouton"
+                  aria-label={`Voir l’avatar ${deNom(carte.nom)} en grand`}
+                  title="Voir en grand"
+                  onClick={ouvrirLaLoupe}
+                >
+                  <Avatar
+                    className="carte-avatar"
+                    avatar={carte.avatar}
+                    finition={carte.finition}
+                    eclat={carte.eclat}
+                    legendaire={carte.legendaire}
+                  />
+                </button>
                 <div>
                   <h3>
                     {carte.nom}
@@ -262,12 +307,106 @@ export function CarteJoueur({
           {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
               plus en salle d'attente, n'en expliquait aucun. Seulement ceux
               qu'elle montre. */}
-          {carte && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
+          {carte && !loupe && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
             <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+/** Au-delà, en pixels, le doigt glisse plutôt qu'il ne touche. */
+const GLISSE = 10
+
+/**
+ * Ce clic finit-il un doigt qui a glissé ? Sur un légendaire en grand, il
+ * faisait suivre au reflet sa course : il regardait, il ne refermait rien.
+ * Un clic du clavier n'a pas de course (`detail` à 0).
+ */
+export function aGlisse(depart: { x: number; y: number } | null, fin: { clientX: number; clientY: number; detail: number }): boolean {
+  return !!depart && fin.detail > 0 && Math.hypot(fin.clientX - depart.x, fin.clientY - depart.y) > GLISSE
+}
+
+/**
+ * L'avatar touché sur la carte, en grand, à la place de ce qu'elle raconte :
+ * ce que la salle voit, finition, lumière et Éclat compris, avec les grands
+ * fichiers des dessins et le reflet d'un légendaire sous le doigt. Le
+ * toucher encore rend la carte. `hauteur` : celle du contenu qu'il remplace,
+ * qu'il garde au moins.
+ */
+export function AvatarEnGrand({ carte, hauteur, onRevenir }: { carte: CarteDeJoueur; hauteur?: number; onRevenir: () => void }) {
+  const bouton = useRef<HTMLButtonElement>(null)
+  const depart = useRef<{ x: number; y: number } | null>(null)
+  // Le focus sur l'avatar qu'on regarde : Entrée, comme le doigt, rend la carte.
+  useEffect(() => {
+    bouton.current?.focus({ preventScroll: true })
+  }, [])
+  return (
+    <div className="carte-loupe" style={hauteur ? { minHeight: hauteur } : undefined}>
+      <button
+        ref={bouton}
+        type="button"
+        className="carte-loupe-bouton"
+        aria-label="Revenir à la carte"
+        title="Revenir à la carte"
+        onPointerDown={e => {
+          depart.current = { x: e.clientX, y: e.clientY }
+        }}
+        onClick={e => {
+          const glisse = aGlisse(depart.current, e)
+          depart.current = null
+          if (!glisse) onRevenir()
+        }}
+      >
+        <Avatar
+          className="carte-loupe-avatar"
+          avatar={carte.avatar}
+          finition={carte.finition}
+          eclat={carte.eclat}
+          legendaire={carte.legendaire}
+          grand
+        />
+      </button>
+      <LegendeDeLAvatar carte={carte} />
+      <p className="muted small">Touche-le pour revenir à la carte.</p>
+    </div>
+  )
+}
+
+/**
+ * Ce que l'avatar en grand montre, dit dessous : le nom d'un avatar dessiné
+ * et sa famille, comme sa fiche les dit, puis sa finition et son Éclat. Un
+ * Divin n'a ni l'une ni l'autre, et un invité anonyme rien du tout — ni
+ * « Mat », ni « aucune » : l'absence, pas l'infériorité. Le nom d'un dessin
+ * qui n'est pas venu ne dirait rien de l'emoji qui tient sa place.
+ */
+function LegendeDeLAvatar({ carte }: { carte: CarteDeJoueur }) {
+  const dessins = useDessins()
+  const cle = carte.legendaire
+  const d = divin(cle)
+  const l = legendaire(cle)
+  const pr = portraitDe(cle)
+  const dessin = d
+    ? dessins.Divin && { famille: 'Divin', classe: 'anneau-texte-divin', nom: d.nom }
+    : l
+      ? dessins.Legendaire && { famille: 'Légendaire', classe: 'anneau-texte-legendaire', nom: l.nom }
+      : pr && dessinDuPortrait(dessins, pr.key)
+        ? { famille: `${brancheDe(pr).nom} · ${brancheDe(pr).categorie}`, classe: 'muted', nom: pr.nom }
+        : null
+  const finition = !d && carte.finition && carte.finition !== 'mat' ? `Finition ${NOM_FINITION[carte.finition]}` : null
+  const parure = [finition, !d && carte.eclat && 'éclaté'].filter(Boolean).join(' · ')
+  if (!dessin && !parure) return null
+  return (
+    <p className="carte-loupe-legende">
+      {dessin && (
+        <>
+          <span className={`detail-famille ${dessin.classe}`}>{dessin.famille}</span>
+          <b className="carte-loupe-nom">{dessin.nom}</b>
+        </>
+      )}
+      {parure && <span className="muted small">{parure.charAt(0).toUpperCase() + parure.slice(1)}</span>}
+    </p>
   )
 }
 

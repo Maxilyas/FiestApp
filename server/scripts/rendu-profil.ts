@@ -1,8 +1,9 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
 // jetable : ses tuiles en deux groupes — « Me changer », « Me retrouver » —,
-// chacun de ses écrans — « Mon avatar », « Ma carte », « Mon thème », « Ma
-// collection », ses lignes dépliées, l'album des thèmes et la fiche de l'un
-// d'eux —, et la boutique des thèmes, qui ne vend que ce qui s'achète.
+// sa carte et son avatar touché, en grand, chacun de ses écrans — « Mon
+// avatar », « Ma carte », « Mon thème », « Ma collection », ses lignes
+// dépliées, l'album des thèmes et la fiche de l'un d'eux —, et la boutique
+// des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -77,6 +78,13 @@ try {
   await page.waitForSelector('.tuile-compte')
   await photo('1-tuiles')
   await photo('1-tuiles-pleine', true)
+  // Sa carte, comme la salle la voit, et son avatar touché : en grand, à sa place.
+  await page.click('.identite')
+  await page.waitForSelector('.carte-joueur .carte-tete')
+  await photo('1-carte')
+  await page.click('.carte-avatar-bouton')
+  await page.waitForSelector('.carte-loupe')
+  await photo('1-carte-avatar-en-grand')
 
   // Chaque écran, ouvert de sa tuile ; la finition de « Mon avatar », dépliée.
   for (const [i, tuile, attente] of [

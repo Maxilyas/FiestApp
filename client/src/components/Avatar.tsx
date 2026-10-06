@@ -15,6 +15,12 @@ interface Props {
   legendaire?: string
   /** La classe de taille du contexte (`lb-avatar`, `podium-avatar`…). */
   className?: string
+  /**
+   * Regardé en grand — l'avatar touché sur la carte d'un joueur — : son
+   * dessin prend ses grands fichiers, et le reflet d'un légendaire suit le
+   * doigt. Partout ailleurs, à la taille d'un prénom, les petits suffisent.
+   */
+  grand?: boolean
 }
 
 /**
@@ -53,7 +59,7 @@ interface Props {
  * par page, et pas de remède bon marché — attendre retarderait son arrivée
  * chez tout le monde, précharger ferait tout télécharger à chacun.
  */
-export function Avatar({ avatar, finition, eclat, legendaire, className }: Props) {
+export function Avatar({ avatar, finition, eclat, legendaire, className, grand }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
   const tete = legendaire && portraitDe(legendaire) ? legendaire : null
@@ -82,11 +88,11 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
   const dedans = (
     <span className="av-emoji">
       {divin && Divin ? (
-        <Divin cle={divin} />
+        <Divin cle={divin} grand={grand} />
       ) : porte && Legendaire ? (
-        <Legendaire cle={porte} finition={finition} eclat={eclat} />
+        <Legendaire cle={porte} finition={finition} eclat={eclat} grand={grand} />
       ) : portrait && Portrait ? (
-        <Portrait cle={portrait} finition={finition} eclat={eclat} />
+        <Portrait cle={portrait} finition={finition} eclat={eclat} grand={grand} />
       ) : (
         avatar
       )}
