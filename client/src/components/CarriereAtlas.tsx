@@ -112,19 +112,25 @@ export function CarriereAtlas({ profil }: { profil: PublicProfileDetail }) {
           {categories.length === 0 ? (
             <p className="atlas-objectif">Pas encore de question jouée.</p>
           ) : (
-            <ul className="hud-barres">
-              {categories.map(c => (
-                <li key={c.nom} style={lueur(lueurDe(c.nom))}>
-                  <span className="hud-barre-nom">{c.nom}</span>
-                  <span className="hud-barre-valeur">
-                    {c.justes}/{c.questions} · {Math.round(c.part * 100)} %
-                  </span>
-                  <span className="jauge-fine" aria-hidden="true">
-                    <span style={{ width: `${c.part * 100}%` }} />
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="hud-barres">
+                {categories.map(c => (
+                  <li key={c.nom} style={lueur(lueurDe(c.nom))}>
+                    <span className="hud-barre-nom">{c.nom}</span>
+                    <span className="hud-barre-valeur">
+                      {c.justes}/{c.questions} · {Math.round(c.part * 100)} %
+                    </span>
+                    <span className="jauge-fine" aria-hidden="true">
+                      <span style={{ width: `${c.part * 100}%` }} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {/* Tous les modes de jeu, comme ses écussons. La précision du
+                  haut, elle, reste celle des soirées : sans cette ligne, ses
+                  « 16 sur 20 QCM » sembleraient démentir les barres. */}
+              <p className="muted small">Tes soirées, le quiz du jour et la campagne ensemble, comme tes écussons.</p>
+            </>
           )}
         </Panneau>
       )}

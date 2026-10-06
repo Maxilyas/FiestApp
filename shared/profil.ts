@@ -852,7 +852,11 @@ export interface PublicProfileDetail extends PublicProfile {
   soirees: SoireeJouee[]
   /** Les chiffres de carrière. */
   fiche: Fiche
-  /** Par catégorie : posées, justes. */
+  /**
+   * Par catégorie : posées, justes — tous les modes de jeu ensemble, les
+   * soirées qui comptent, le quiz du jour et la campagne
+   * (`additionnerCategories`) ; la fiche, elle, reste celle des soirées.
+   */
   categories: Record<string, { questions: number; justes: number }>
   /** Tous les hauts faits du catalogue, gagnés ou non, avec leur progression. */
   hautsFaits: HautFaitVu[]
@@ -865,8 +869,8 @@ export interface PublicProfileDetail extends PublicProfile {
   prix?: PrixDeCollection[]
   /**
    * Ses écussons de savoir, les douze catégories dans l'ordre de la liste
-   * fixe : ses bonnes réponses, en soirée comme au quiz du jour, et le palier
-   * qu'elles valent. Absents d'un serveur d'avant.
+   * fixe : ses bonnes réponses, dans tous les modes de jeu (`categories`), et
+   * le palier qu'elles valent. Absents d'un serveur d'avant.
    */
   ecussons?: Ecusson[]
   /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`). Absent d'un serveur d'avant. */

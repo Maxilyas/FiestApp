@@ -1579,8 +1579,8 @@ export class JourStore {
   /**
    * Ses questions et ses bonnes réponses du quiz du jour, catégorie par
    * catégorie : de quoi faire ses écussons de savoir (`shared/ecussons.ts`),
-   * avec celles des soirées. Une question annulée pour tous ne compte pas —
-   * ni pour lui, ni contre lui.
+   * avec celles des soirées et de la campagne. Une question annulée pour
+   * tous ne compte pas — ni pour lui, ni contre lui.
    */
   async categoriesDe(profileId: string): Promise<Record<string, { questions: number; justes: number }>> {
     const res = await this.client.execute({
