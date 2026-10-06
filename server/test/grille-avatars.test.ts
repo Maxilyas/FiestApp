@@ -155,6 +155,45 @@ test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille 
   ])
 })
 
+test('dans « Mon avatar », seulement ceux qu’il a : ni case fermée, ni branche sans portrait, ni Divin pas encore descendu', async () => {
+  // On y vient pour en changer : cent cases fermées noyaient les quarante
+  // qu'on peut porter. Ce qui reste, et où, se lit dans « Ma collection ».
+  const aMoi = (profil: object, familleInitiale: string) =>
+    rendu('components/Apparence', 'MesAvatars', { profil, busy: false, enregistrer: () => {}, familleInitiale, aMoi: true })
+  const savant = { ...HABITUE, sentiers: { foret: 5, mythes: 2 } }
+  for (const famille of FAMILLES) {
+    const html = await aMoi(savant, famille)
+    assert.doesNotMatch(html, /case-avatar[^"]* ferme/, famille)
+    assert.match(html, /<span class="muted small titre-compte">\d+ à toi<\/span>/, famille)
+  }
+  // Les branches où il a un portrait — la forêt dépliée, les mythologies sur
+  // leur ligne —, et dans chacune ceux qu'il a gagnés.
+  const branches = await aMoi(savant, 'branches')
+  assert.equal([...branches.matchAll(/class="ligne-branche"/g)].length, 1)
+  assert.deepEqual(
+    [...branches.matchAll(/class="emoji-btn case-avatar case-portrait[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1]),
+    ['L’écureuil, gagné', 'Le blaireau, gagné'],
+  )
+  // Ses deux légendaires et son Divin.
+  const legendaires = await aMoi(savant, 'legendaires')
+  assert.equal([...legendaires.matchAll(/class="emoji-btn case-avatar anneau-legendaire/g)].length, 2)
+  assert.equal([...legendaires.matchAll(/class="emoji-btn case-avatar anneau-divin/g)].length, 1)
+  // Les dix emojis de collection du niveau 14, pas les deux d'après.
+  assert.equal([...(await aMoi(savant, 'emojis')).matchAll(/aria-label="Avatar [^"]*, de collection/g)].length, 10)
+  // Rien encore : il le dit, sans titre vide — ni Divins, ni emojis de collection.
+  const debutant = { ...HABITUE, legendaire: null, legendaires: [], divins: [], niveau: 1 }
+  const vide = await aMoi(debutant, 'legendaires')
+  assert.match(vide, /Aucun encore : chacun se réveille par un exploit/)
+  assert.doesNotMatch(vide, /Les Divins/)
+  assert.doesNotMatch(await aMoi(debutant, 'emojis'), /De collection/)
+  // Il s'ouvre sur ce qu'il porte : sous un emoji de l'inscription, ses emojis — pas des branches vides.
+  const actif = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
+  const ouvert = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, busy: false, enregistrer: () => {}, aMoi: true })
+  assert.equal(actif(await ouvert(debutant)), 'Emojis')
+  assert.equal(actif(await ouvert({ ...savant, legendaire: 'br:blaireau' })), 'Branches')
+  assert.equal(actif(await ouvert(savant)), 'Légendaires')
+})
+
 test('l’onglet des branches : une dépliée — celle du portrait porté —, les autres sur une ligne qui dit ce qui vient', async () => {
   const savant = { ...HABITUE, legendaire: 'br:blaireau', sentiers: { foret: 5, mythes: 2 } }
   const html = await mesAvatars(savant)

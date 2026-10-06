@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
@@ -25,16 +25,20 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
-import { nConfettis } from '../../../shared/themes'
+import { nConfettis, theme } from '../../../shared/themes'
+import { divin } from '../../../shared/divins'
+import { portrait } from '../../../shared/branches'
+import { legendaire } from '../../../shared/legendaires'
+import { NOM_FINITION } from '../../../shared/profil'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
 /**
- * Les onglets « Apparence » et « Trophées », à la demande : ils portent les
- * dessins de tous les médaillons, et l'accueil anonyme — « Me connecter »,
- * « Rejoindre une soirée » — les téléchargeait avec lui, 21 Ko et 179 ms de
- * plus en 4G. Ils partent dès qu'un profil répond, et tout de suite sur le
- * téléphone qui en a déjà montré un (`profilConnuIci`).
+ * Les écrans du profil — « Mon avatar », « Ma collection »… —, à la demande :
+ * ils portent les dessins de tous les médaillons, et l'accueil anonyme —
+ * « Me connecter », « Rejoindre une soirée » — les téléchargeait avec lui,
+ * 21 Ko et 179 ms de plus en 4G. Ils partent dès qu'un profil répond, et tout
+ * de suite sur le téléphone qui en a déjà montré un (`profilConnuIci`).
  */
 const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
 
@@ -118,26 +122,42 @@ export function ProfilApp() {
   /** Le contenu des écrans du profil et de la boutique, dès que le profil est connu. */
   const lesPanneaux = useALaDemande(panneaux, !!profil)
   /**
-   * Ouvrir un écran pose son adresse dans l'historique : le retour du
-   * navigateur ramène aux tuiles, pas hors du profil. Et chaque écran
-   * commence en haut, comme une page qu'on ouvre.
+   * Ouvrir un écran pose son adresse dans l'historique — une ligne de la
+   * collection a la sienne (`#collection-themes`) —, avec l'écran d'où l'on
+   * vient : le retour du navigateur y ramène, pas hors du profil. Et chaque
+   * écran commence en haut, comme une page qu'on ouvre.
    */
-  const ouvrir = (e: EcranDuProfil | null) => {
-    if (e) history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${window.location.search}#${e}`)
-    else if (window.location.hash) history.back()
+  const ouvrir = (e: EcranDuProfil, adresse: string = e) => {
+    history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${window.location.search}#${adresse}`)
     setEcranOuvert(e)
     window.scrollTo(0, 0)
   }
   /**
-   * Revenir à « Mon style » d'un de ses réglages : d'un cran si c'est de là
-   * qu'on l'a ouvert, sans quoi on remplace l'adresse — jamais d'entrée en
-   * double, et l'adresse d'un réglage ouverte d'un lien ne sort pas du profil.
+   * « ← » en tête d'un écran : d'un cran quand on l'a ouvert d'ici — des
+   * tuiles, ou d'un autre écran (« Mon thème » mène à la collection) —,
+   * comme le retour du navigateur. Ouvert d'un lien ou d'un favori, on
+   * remplace l'adresse par les tuiles : jamais d'entrée en double, et le
+   * retour ne sort pas du profil.
    */
-  const revenirAuStyle = () => {
-    if (history.state?.[DEPUIS] === 'style') history.back()
-    else history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#style`)
-    setEcranOuvert('style')
+  const revenir = () => {
+    if (history.state?.[DEPUIS] !== undefined) return history.back()
+    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}`)
+    setEcranOuvert(null)
     window.scrollTo(0, 0)
+  }
+  /**
+   * Un lien d'un écran vers un autre (`#avatar`, `#collection-themes`) passe
+   * par `ouvrir` : son entrée d'historique retient d'où l'on vient. Laissé au
+   * navigateur, il changeait l'adresse sans rien retenir, et « ← » ramenait
+   * aux tuiles au lieu de l'écran qu'on quittait.
+   */
+  const suivreUnLien = (e: MouseEvent<HTMLElement>) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    const adresse = (e.target as Element).closest?.('a[href^="#"]')?.getAttribute('href')?.slice(1)
+    const cible = adresse ? ecranDe(adresse) : null
+    if (!cible || !adresse) return
+    e.preventDefault()
+    ouvrir(cible, adresse)
   }
   useEffect(() => {
     const auRetour = () => setEcranOuvert(lireEcran())
@@ -423,35 +443,31 @@ export function ProfilApp() {
 
   // ── Le profil : un écran ouvert depuis sa tuile ──
   if (ecran) {
-    const reglage = REGLAGES.find(e => e.id === ecran)
-    const nom = reglage?.nom ?? ECRANS.find(e => e.id === ecran)?.nom ?? ''
+    const e = ECRANS.find(x => x.id === ecran)!
+    // « ← » dit où il ramène : l'écran d'où l'on vient, sinon les tuiles.
+    const depuis = ECRANS.find(x => x.id === history.state?.[DEPUIS])
     return (
-      <div className="player-shell">
+      <div className="player-shell" onClick={suivreUnLien}>
         <a
           className="lien-discret jour-sortie"
-          href={reglage ? '/profil#style' : '/profil'}
-          onClick={e => {
-            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-            e.preventDefault()
-            if (reglage) revenirAuStyle()
-            else ouvrir(null)
+          href={depuis ? `#${depuis.id}` : '/profil'}
+          onClick={ev => {
+            if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
+            ev.preventDefault()
+            revenir()
           }}
         >
           <Icon name="arrow-left" />
-          {reglage ? 'Mon style' : 'Mon profil'}
+          {depuis?.nom ?? 'Mon profil'}
         </a>
-        <PieceTete piece={reglage ? 'Mon style' : 'Mon profil'} titre={nom} />
+        <PieceTete piece={e.groupe} titre={e.nom}>
+          {e.qui && <p className="muted qui-le-voit">{e.qui}</p>}
+        </PieceTete>
         {regionDAnnonce}
-        {ecran === 'avatars' && (pret ? <pret.PanneauAvatars profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'style' &&
-          (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} onReglage={r => ouvrir(`style-${r}`)} /> : enChemin)}
-        {reglage &&
-          (pret ? (
-            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond' | 'gerbe' | 'theme'} profil={profil} busy={busy} enregistrer={enregistrer} />
-          ) : (
-            enChemin
-          ))}
-        {ecran === 'trophees' && (pret ? <pret.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'avatar' && (pret ? <pret.PanneauMonAvatar profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'carte' && (pret ? <pret.PanneauMaCarte profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'theme' && (pret ? <pret.PanneauMonTheme profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'collection' && (pret ? <pret.PanneauCollection profil={profil} /> : enChemin)}
         {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
         {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
         {erreur && <p className="error">{erreur}</p>}
@@ -460,24 +476,23 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : qui je suis, puis ses tuiles ──
-  const nHautsFaits = profil.hautsFaits.filter(h => h.fois > 0).length
-  const nPrix = (profil.prix ?? []).filter(x => x.fois > 0).length
+  // ── Le profil : qui je suis, puis ses tuiles, rangées en deux ──
+  // Ce qu'on porte, chacun dit qui le voit ; puis ce qu'on a et ce qu'on a
+  // fait. Cinq tuiles mêlaient les deux : la finition vivait dans « Mon
+  // style », la vitrine dans les trophées, et l'on cherchait où changer quoi
+  // (la remarque du 5 octobre 2026).
   const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
-  const detailDeTuile: Record<TuileDuProfil, string> = {
-    avatars: profil.legendaires.length > 0 ? `${profil.legendaires.length} légendaire${profil.legendaires.length > 1 ? 's' : ''}, des branches, des emojis` : 'Des branches, des emojis, des légendaires',
-    style: 'Finition, titre, fond',
-    trophees: `${nHautsFaits} haut${nHautsFaits > 1 ? 's' : ''} fait${nHautsFaits > 1 ? 's' : ''} · ${nPrix} prix`,
-    carriere: precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes',
-    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`,
-  }
-  const iconeDeTuile: Record<TuileDuProfil, IconName> = {
-    avatars: 'sparkles',
-    style: 'palette',
-    trophees: 'trophy',
-    carriere: 'bar-chart',
-    soirees: 'book',
-  }
+  // L'avatar porté par son nom — un emoji n'en a pas —, et sa finition, sauf
+  // sous un Divin, qui a sa propre lumière.
+  const nomPorte = legendaire(profil.legendaire)?.nom ?? divin(profil.legendaire)?.nom ?? portrait(profil.legendaire)?.nom ?? null
+  const finition = divin(profil.legendaire) ? null : NOM_FINITION[profil.finition]
+  const sonTheme = theme(profil.theme ?? 'velours') ?? theme('velours')!
+  // Le reste des vignettes — sa vitrine, sa gerbe, l'aperçu de son thème, le
+  // total de sa collection — vient avec les écrans (`apercusDesTuiles`) :
+  // leurs catalogues alourdissaient de trois kilos l'accueil, qui partage ce
+  // fichier. Ils sont là d'emblée sur un téléphone qui a déjà montré un
+  // profil ; ailleurs, leurs places sont gardées.
+  const plus = pret?.apercusDesTuiles(profil)
   return (
     <div className="player-shell">
       {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
@@ -490,11 +505,72 @@ export function ProfilApp() {
       )}
       {regionDAnnonce}
 
-      <div className="tuiles">
-        {ECRANS.map(e => (
-          <Tuile key={e.id} icone={iconeDeTuile[e.id]} titre={e.nom} detail={detailDeTuile[e.id]} onClick={() => ouvrir(e.id)} />
-        ))}
-      </div>
+      <section className="profil-groupe" aria-labelledby="groupe-changer">
+        <h2 id="groupe-changer" className="profil-groupe-titre">
+          Me changer <span>ce que tu portes</span>
+        </h2>
+        <div className="tuiles tuiles-trois">
+          <Tuile
+            apercu={avatar('tuile-avatar')}
+            titre="Mon avatar"
+            detail={[nomPorte, finition].filter(Boolean).join(' · ') || 'Ton emoji'}
+            qui="la salle le voit"
+            onClick={() => ouvrir('avatar')}
+          />
+          <Tuile
+            apercu={
+              <span className={'mini-carte' + (profil.fond ? ` fond-apercu carte-fond fond-${profil.fond}` : '')}>
+                {avatar('mini-carte-avatar')}
+                <span className="mini-carte-vitrine">{plus?.vitrine || '· · ·'}</span>
+              </span>
+            }
+            titre="Ma carte"
+            detail="Titre, vitrine, fond"
+            qui="en touchant ton nom"
+            onClick={() => ouvrir('carte')}
+          />
+          <Tuile
+            apercu={
+              <span className="mini-theme">
+                {plus?.apercuDuTheme && <img src={plus.apercuDuTheme} alt="" width={46} height={58} decoding="async" />}
+                {plus?.gerbe && <span className="mini-theme-gerbe">{plus.gerbe.particule}</span>}
+              </span>
+            }
+            titre="Mon thème"
+            detail={plus?.gerbe ? `${sonTheme.nom} · ${plus.gerbe.nom}` : sonTheme.nom}
+            qui="toi seul le vois"
+            onClick={() => ouvrir('theme')}
+          />
+        </div>
+      </section>
+
+      <section className="profil-groupe" aria-labelledby="groupe-retrouver">
+        <h2 id="groupe-retrouver" className="profil-groupe-titre">
+          Me retrouver <span>ce que tu as, ce que tu as fait</span>
+        </h2>
+        <div className="tuiles">
+          <Tuile
+            icone="award"
+            titre="Ma collection"
+            compte={plus && `${formatNumber(plus.collection.acquis)} sur ${formatNumber(plus.collection.total)}`}
+            jauge={plus ? plus.collection.acquis / Math.max(1, plus.collection.total) : 0}
+            detail="Avatars, thèmes, trophées — et où gagner le reste"
+            onClick={() => ouvrir('collection')}
+          />
+          <Tuile
+            icone="bar-chart"
+            titre="Ma carrière"
+            detail={precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes'}
+            onClick={() => ouvrir('carriere')}
+          />
+          <Tuile
+            icone="book"
+            titre="Mes soirées"
+            detail={profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`}
+            onClick={() => ouvrir('soirees')}
+          />
+        </div>
+      </section>
 
       <Glossaire
         mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'serie', 'fond', 'precision', 'coupDOeil', 'reflexe', 'flair']}
@@ -509,7 +585,6 @@ export function ProfilApp() {
     </div>
   )
 }
-
 
 /**
  * Un onglet qui arrive : sa place, d'une hauteur d'écran — ce qui est
@@ -535,55 +610,66 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
 }
 
 /**
- * Les écrans du profil, chacun derrière sa tuile. Les trois onglets d'avant
- * tenaient tout sur trois pages qu'on faisait défiler — avatars, finitions,
- * thèmes, hauts faits, prix, fiche, soirées — : cinq tuiles disent ce qu'il
- * y a, et chacune ouvre le sien. La boutique a sa page, dans le menu.
+ * Les écrans du profil, chacun derrière sa tuile, en deux groupes : ce qu'on
+ * porte — rangé par qui le voit : la salle, qui touche son nom, lui seul — et
+ * ce qu'on a, ce qu'on a fait. Les onglets d'avant tenaient tout sur trois
+ * pages qu'on faisait défiler ; puis cinq tuiles — avatars, style, trophées,
+ * carrière, soirées — mêlaient ce qu'on porte et ce qu'on collectionne. La
+ * boutique a sa page, dans le menu.
  */
-type TuileDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
-/** Un réglage du style a son écran, sous « Mon style ». */
-type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond' | 'style-gerbe' | 'style-theme'
-type EcranDuProfil = TuileDuProfil | ReglageDuStyle
+type EcranDuProfil = 'avatar' | 'carte' | 'theme' | 'collection' | 'carriere' | 'soirees'
 
-const ECRANS: { id: TuileDuProfil; nom: string }[] = [
-  { id: 'avatars', nom: 'Mes avatars' },
-  { id: 'style', nom: 'Mon style' },
-  { id: 'trophees', nom: 'Mes trophées' },
-  { id: 'carriere', nom: 'Ma carrière' },
-  { id: 'soirees', nom: 'Mes soirées' },
-]
-
-const REGLAGES: { id: ReglageDuStyle; nom: string }[] = [
-  { id: 'style-finition', nom: 'Finition' },
-  { id: 'style-titre', nom: 'Titre' },
-  { id: 'style-fond', nom: 'Fond de carte' },
-  { id: 'style-gerbe', nom: 'Gerbe' },
-  { id: 'style-theme', nom: 'Thème' },
+const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'Me changer' | 'Me retrouver'; qui?: string }[] = [
+  { id: 'avatar', nom: 'Mon avatar', groupe: 'Me changer', qui: 'La salle le voit, à côté de ton prénom.' },
+  { id: 'carte', nom: 'Ma carte', groupe: 'Me changer', qui: 'On la voit en touchant ton prénom, en soirée.' },
+  { id: 'theme', nom: 'Mon thème', groupe: 'Me changer', qui: 'Toi seul le vois : il habille tes pages, et ta gerbe éclate à tes bonnes réponses.' },
+  { id: 'collection', nom: 'Ma collection', groupe: 'Me retrouver' },
+  { id: 'carriere', nom: 'Ma carrière', groupe: 'Me retrouver' },
+  { id: 'soirees', nom: 'Mes soirées', groupe: 'Me retrouver' },
 ]
 
 /** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */
 const VUE: 'accueil' | 'profil' | 'boutique' =
   route.kind === 'account' && route.page === 'boutique' ? 'boutique' : route.kind === 'account' && route.page === 'profil' ? 'profil' : 'accueil'
 
-/** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique : « ← Mon style » y revient d'un cran. */
+/** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique — null : les tuiles. « ← » y revient d'un cran. */
 const DEPUIS = 'fiestappProfilDepuis'
 
-/** Les adresses d'avant — un onglet, la boutique dans l'apparence — mènent encore quelque part. */
-const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
+/**
+ * Les adresses d'avant mènent à l'écran qui les a reprises — un onglet,
+ * « Mes avatars », les réglages de « Mon style », les trophées. « Mon style »
+ * lui-même (`#style`) ouvre les tuiles : ses réglages y sont tous.
+ */
+const ANCIENNES: Record<string, EcranDuProfil> = {
+  apparence: 'avatar',
+  avatars: 'avatar',
+  'style-finition': 'avatar',
+  'style-titre': 'carte',
+  'style-fond': 'carte',
+  'style-gerbe': 'theme',
+  'style-theme': 'theme',
+  trophees: 'collection',
+}
 
-/** L'écran de l'adresse (`/profil#trophees`), ou les tuiles. */
+/** L'écran d'une adresse (`trophees`, `collection-themes`), ou rien : les tuiles. */
+function ecranDe(h: string): EcranDuProfil | null {
+  // Une ligne de la collection a son adresse : c'est l'écran de la collection.
+  if (h.startsWith('collection-')) return 'collection'
+  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
+}
+
+/** L'écran de l'adresse (`/profil#collection`), ou les tuiles. */
 function lireEcran(): EcranDuProfil | null {
   if (VUE !== 'profil') return null
-  const h = window.location.hash.slice(1)
-  return ECRANS.find(e => e.id === h)?.id ?? REGLAGES.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
+  return ecranDe(window.location.hash.slice(1))
 }
 
 // Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
-// un, les onglets arrivent avec elle, pas un aller-retour après. La boutique
-// et un écran du profil (`/profil#avatars`) ne se montrent qu'avec eux : sur
-// un appareil neuf, ils attendaient la réponse du profil pour les demander —
-// un tour de plus, 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il
-// lit.
+// un, les onglets arrivent avec elle, pas un aller-retour après — les
+// vignettes des tuiles aussi. La boutique et un écran du profil
+// (`/profil#avatar`) ne se montrent qu'avec eux : sur un appareil neuf, ils
+// attendaient la réponse du profil pour les demander — un tour de plus,
+// 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il lit.
 if (profilConnuIci() || VUE === 'boutique' || (VUE === 'profil' && lireEcran())) void panneaux.charger().catch(() => {})
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la

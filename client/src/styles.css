@@ -7408,8 +7408,15 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   white-space: nowrap;
 }
 
-/* ── Le profil : cinq tuiles, deux par rangée ─────────────────────────── */
+/* ── Le profil : ses tuiles, en deux groupes ────────────────────────────
+   « Me changer » — ce qu'on porte, trois par rangée, chacune son aperçu et
+   qui le voit —, puis « Me retrouver » : la collection couchée sur sa
+   rangée, sa jauge dessous, la carrière et les soirées côte à côte. */
+.profil-groupe { display: flex; flex-direction: column; gap: 8px; }
+.profil-groupe-titre { display: flex; align-items: baseline; gap: 8px; margin: 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--zone, var(--muted)); }
+.profil-groupe-titre span { margin-left: auto; font-size: 0.8rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); text-align: right; }
 .tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tuiles-trois { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tuile {
   position: relative;
   display: flex;
@@ -7430,17 +7437,33 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .tuile .gros-icone { margin-bottom: 6px; }
 .tuile b { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.15; }
 .tuile .pastille-attente { position: absolute; top: 12px; right: 12px; }
-/* Cinq tuiles : la dernière prend la rangée, couchée. */
-.tuiles .tuile:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  column-gap: 14px;
-  row-gap: 2px;
-  min-height: 0;
-}
-.tuiles .tuile:last-child:nth-child(odd) .gros-icone { grid-row: span 2; margin-bottom: 0; }
+/* Ce qu'on porte : son aperçu en tête, centré ; qui le voit, en pied. */
+.tuile-a-apercu { align-items: center; gap: 5px; min-height: 150px; padding: 12px 6px 10px; text-align: center; }
+.tuile-a-apercu b { font-size: 1.1rem; }
+.tuile-a-apercu .gros-detail { font-size: 0.8rem; line-height: 1.3; overflow-wrap: anywhere; }
+.tuile-apercu { display: grid; place-items: center; height: 58px; margin-bottom: 2px; }
+.tuile-apercu .tuile-avatar { font-size: 2.5rem; }
+.tuile-qui { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin-top: auto; padding-top: 2px; font-size: var(--t-label); line-height: 1.25; color: var(--zone, var(--muted)); }
+.tuile-qui .icon { flex: none; width: 12px; height: 12px; }
+/* Sa carte en vignette : son fond, son visage, sa vitrine. Le fond porté
+   garde son décor (`.carte-fond.fond-…`, en vignette par `.fond-apercu`) :
+   seul le cadre est d'ici. */
+.tuile-apercu .mini-carte { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; width: 76px; height: 56px; margin: 0; padding: 0 7px; border-radius: var(--radius-xs); }
+.mini-carte:not(.carte-fond) { border: 1px solid var(--edge); background: var(--bg-raised); }
+.mini-carte .mini-carte-avatar { font-size: 1.15rem; }
+.mini-carte-vitrine { font-size: 0.75rem; line-height: 1; letter-spacing: 1px; white-space: nowrap; }
+/* Son thème en vignette : l'écran d'une question sous lui, sa gerbe en pastille. */
+.mini-theme { position: relative; display: block; width: 46px; height: 58px; border-radius: var(--radius-xs); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); background: var(--bg); }
+.mini-theme img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; object-position: top; }
+.mini-theme-gerbe { position: absolute; right: -9px; bottom: -7px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--edge); font-size: 0.8rem; line-height: 1; }
+/* La collection : couchée sur toute la rangée, son compte au bout du titre, sa jauge dessous. */
+.tuile-large { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 14px; row-gap: 5px; min-height: 0; }
+.tuile-large .gros-icone { grid-row: span 3; margin-bottom: 0; }
+.tuile-large b { display: flex; align-items: baseline; gap: 8px; }
+.tuile-large .jauge-fine { width: 100%; }
+.tuile-compte { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Ce que dit l'en-tête d'un écran qu'on porte : qui le voit. */
+.qui-le-voit { font-size: 0.92rem; }
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas
@@ -7785,17 +7808,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i, .pano-courant::before { animation: none; }
 }
 
-/* ── Mes avatars : la famille à son écran ───────────────────────────────
-   Les emojis gardent leur grille, mais le titre de la carte, son mode
-   d'emploi et les onglets des familles feraient doublon avec les onglets
-   de « Mes avatars », juste au-dessus. */
-.une-famille > .card > h3,
-.une-famille > .card > h3 + p,
-.une-famille .onglets-familles,
-.une-famille .famille-note { display: none; }
-.onglets-avatars { margin-top: 2px; }
-.panneau-avatars { display: flex; flex-direction: column; gap: 12px; }
-
 /* ── L'atlas ─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
    gagnée —, puis la collection choisie sur une trame fine, comme un écran de
@@ -8029,8 +8041,10 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .hud-jauge figcaption { display: flex; flex-direction: column; gap: 1px; font-size: 0.8rem; color: var(--muted); line-height: 1.25; }
 .hud-jauge figcaption b { color: var(--ink); font-size: 0.9rem; }
 
-/* ── Mon style : quatre lignes, la valeur en clair ──────────────────────
-   Sa carte reste en tête pendant qu'on règle : c'est elle qui change. */
+/* ── Des lignes de réglage, la valeur en clair ──────────────────────────
+   Le Compte, l'administration, la fin de soirée. Et sa carte, collée en tête
+   de « Mon avatar » et de « Ma carte » pendant qu'on choisit : c'est elle
+   qui change. */
 .identite-collante { position: sticky; top: 0; z-index: 4; padding-top: 4px; background: var(--bg); }
 .style-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .style-liste li + li { border-top: 1px solid var(--edge); }
@@ -8041,16 +8055,42 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .style-nom { flex: 1; font-weight: 600; }
 .style-valeur { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); font-size: 0.9rem; }
 .style-chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }
+/* La finition de « Mon avatar » se déplie sur place : son chevron le dit. */
+.ma-finition { display: flex; flex-direction: column; gap: 10px; }
+.ma-finition .style-chevron { transform: none; transition: transform 0.2s ease; }
+.ma-finition [aria-expanded='true'] .style-chevron { transform: rotate(180deg); }
+
+/* ── Ma collection, en listes ────────────────────────────────────────────
+   Trois familles — avatars, style, trophées —, une ligne par collection
+   qu'on déplie sur place : une seule ouverte par famille, la page tient en
+   un écran. Les trophées gardent leurs sept lignes. */
+.collection { display: flex; flex-direction: column; gap: 20px; }
+.collection-tete { display: flex; flex-direction: column; gap: 6px; }
+.collection-tete p { margin: 0; }
+.collection-total { color: var(--muted); font-size: 0.95rem; }
+.collection-total b { margin-right: 4px; font-family: var(--serif); font-size: 2.3rem; font-weight: 600; line-height: 1; color: var(--ink); }
+.collection-tete .jauge-fine { height: 6px; }
+.collection-famille { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: 12px; }
+.collection-famille h2 { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 1.4rem; }
+.collection-compte { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.trophees-liste .trophee { scroll-margin-top: 12px; }
+/* Ce qui se gagne, à lire : son aperçu, son nom, ce qu'il faut — coché quand il est à toi. */
+.a-gagner { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.a-gagner li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.a-gagner-apercu { display: grid; place-items: center; min-height: 40px; font-size: 1.8rem; }
+.a-gagner-apercu .fond-apercu { width: 56px; height: 40px; margin: 0; }
+.a-gagner-apercu .gerbe-apercu { min-height: 0; font-size: 1rem; letter-spacing: 0; }
+.a-gagner-reste .a-gagner-apercu { opacity: 0.6; }
+.a-gagner-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.a-gagner-texte b { font-weight: 600; }
+.a-gagner-reste .a-gagner-texte .small { color: var(--muted); }
+.a-gagner-a-toi .a-gagner-texte .small { color: var(--accent-text); }
+.a-gagner-marque { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.a-gagner-a-toi .a-gagner-marque { color: var(--accent-text); }
 
 /* ── Les trophées, en liste ──────────────────────────────────────────────
-   La vitrine sur une ligne, puis six collections qu'on déplie sur place :
-   une seule ouverte, la page tient en un écran. */
-.trophees { display: flex; flex-direction: column; gap: 12px; }
-.vitrine-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid color-mix(in srgb, #e3b04b 40%, transparent); border-radius: var(--radius); background: radial-gradient(80% 140% at 100% 50%, color-mix(in srgb, #e3b04b 14%, transparent), transparent 70%), var(--surface); }
-.vitrine-ligne-texte { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.vitrine-ligne-texte .label { color: var(--accent-text); }
-.vitrine-ligne-medailles { display: flex; gap: 8px; }
-.vitrine-petite { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 2px #e3b04b, 0 0 10px color-mix(in srgb, #e3b04b 40%, transparent); font-size: 21px; line-height: 1; }
+   Sept collections qu'on déplie sur place, dans « Ma collection » : une
+   seule ouverte, la page tient en un écran. */
 .trophees-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .trophee + .trophee { border-top: 1px solid var(--edge); }
 .trophee-ligne { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -8159,8 +8199,21 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-cher .theme-vitrine-prix { color: var(--muted); }
 .theme-saison { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; }
 .theme-fiche { grid-column: 1 / -1; }
-.lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; }
-.lien-boutique .icon { width: 15px; height: 15px; }
+.lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
+.lien-boutique .icon { flex: none; width: 15px; height: 15px; }
+/* Ceux qui ne se vendent pas : chacun sa carte, le haut de son aperçu, ce
+   qu'il faut et le lieu qui le donne. Ni prix ni bouton : ils se gagnent. */
+.themes-a-gagner { display: flex; flex-direction: column; gap: 8px; }
+.themes-a-gagner-titre { margin: 4px 0 0; font-size: 1.15rem; }
+.themes-a-gagner ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.theme-a-gagner { display: flex; flex-direction: column; border: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.theme-a-gagner-image { display: block; aspect-ratio: 4 / 3; overflow: hidden; background: var(--bg); }
+.theme-a-gagner-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.theme-a-gagner-texte { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 10px 10px; }
+.theme-a-gagner-texte b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
+.theme-a-gagner-texte > span.small { color: var(--muted); line-height: 1.35; }
+.theme-gagne { box-shadow: 0 0 0 1px var(--gemme); }
+.theme-gagne .theme-a-gagner-texte > span.small { color: var(--accent-text); }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

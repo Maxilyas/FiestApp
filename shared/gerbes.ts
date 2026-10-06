@@ -2,7 +2,7 @@
 // soirée, au quiz du jour, en campagne, sur les sentiers, au défi de la
 // semaine. Un emplacement de plus pour les petites récompenses (le 5
 // octobre 2026) : chaque gerbe se gagne par un haut fait ou un palier du
-// quiz du jour ou de la campagne, se choisit dans « Mon style », et ne se
+// quiz du jour ou de la campagne, se choisit dans « Mon thème », et ne se
 // voit que sur son propre téléphone. Ni la salle ni l'écran commun n'en
 // savent rien : aucun avantage de jeu, et rien pour l'anonyme (invariant 8).
 //

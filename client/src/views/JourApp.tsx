@@ -1047,7 +1047,7 @@ function LignesDuMois({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']>
           <div>
             <b>{r.key.startsWith('mois:') ? `Ton titre : ${r.title}` : `Nouveau haut fait : ${r.title}`}</b>
             <span className="muted small">
-              {r.key.startsWith('mois:') ? 'Il se porte sous ton prénom, depuis « Mon style ». La salle te saluera tout le mois.' : ceQuIlAFallu(r.key)}
+              {r.key.startsWith('mois:') ? 'Il se porte sous ton prénom, depuis « Ma carte ». La salle te saluera tout le mois.' : ceQuIlAFallu(r.key)}
             </span>
           </div>
         </div>

@@ -234,7 +234,7 @@ const JEANNE = {
   },
 }
 
-/** La boutique — ce qui reste à prendre — et « Mes thèmes », dans « Mon style » : ce qu'on a. */
+/** La boutique — ce qui reste à prendre — et « Mes thèmes », dans « Mon thème » : ce qu'on a. */
 const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, busy: false, acheter: async () => null })
 const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, busy: false, enregistrer: () => {} })
 

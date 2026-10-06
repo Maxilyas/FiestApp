@@ -42,11 +42,28 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   const profil = source('views/ProfilApp.tsx')
   for (const ici of ['accueil', 'profil', 'boutique']) assert.match(profil, new RegExp(`menu\\('${ici}'\\)`), `la barre sur « ${ici} »`)
   // Les tuiles ouvrent leurs écrans, chacun à son adresse ; le retour du navigateur y ramène.
-  // L'entrée retient l'écran d'où l'on vient : un réglage de « Mon style » y revient d'un cran.
-  assert.match(profil, /history\.pushState\(\{ \.\.\.history\.state, \[DEPUIS\]: lireEcran\(\) \}, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{e\}`\)/)
-  assert.match(profil, /if \(history\.state\?\.\[DEPUIS\] === 'style'\) history\.back\(\)/)
-  // Les adresses d'avant mènent encore quelque part.
-  assert.match(profil, /const ANCIENNES: Record<string, EcranDuProfil> = \{ apparence: 'avatars' \}/)
+  // L'entrée retient l'écran d'où l'on vient : « ← » y revient d'un cran — « Mon thème »
+  // mène à la collection, et la collection y ramène.
+  assert.match(profil, /history\.pushState\(\{ \.\.\.history\.state, \[DEPUIS\]: lireEcran\(\) \}, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{adresse\}`\)/)
+  assert.match(profil, /if \(history\.state\?\.\[DEPUIS\] !== undefined\) return history\.back\(\)/)
+  // Ouvert d'un lien, il remplace l'adresse par les tuiles : le retour ne sort pas du profil.
+  assert.match(profil, /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\)\s*setEcranOuvert\(null\)/)
+  // Un lien d'un écran vers un autre passe par la même porte.
+  assert.match(profil, /<div className="player-shell" onClick=\{suivreUnLien\}>/)
+  // Les adresses d'avant mènent à l'écran qui les a reprises.
+  for (const [avant, ecran] of [
+    ['apparence', 'avatar'],
+    ['avatars', 'avatar'],
+    ["'style-finition'", 'avatar'],
+    ["'style-titre'", 'carte'],
+    ["'style-fond'", 'carte'],
+    ["'style-gerbe'", 'theme'],
+    ["'style-theme'", 'theme'],
+    ['trophees', 'collection'],
+  ])
+    assert.match(profil, new RegExp(`\\n  ${avant}: '${ecran}',\\n`), avant)
+  // Une ligne de la collection a son adresse, celle de la collection.
+  assert.match(profil, /if \(h\.startsWith\('collection-'\)\) return 'collection'/)
   assert.match(profil, /window\.location\.hash === '#mes-themes'\) window\.location\.replace\('\/boutique'\)/)
   assert.match(source('components/FinDeSoiree.tsx'), /<a className="link-inline" href="\/boutique">\s*La boutique des thèmes\s*<\/a>/)
   // L'accueil anonyme reste un écran de connexion : ni barre, ni tuiles.

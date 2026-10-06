@@ -13,7 +13,7 @@ const PARTICULES = 18
  * lecteur d'écran : c'est un décor. Elle ne bouge que par `transform` et
  * `opacity`, et se tait si le système demande moins de mouvement.
  *
- * `cle` : une gerbe à montrer — l'aperçu de « Mon style » ; sinon celle que
+ * `cle` : une gerbe à montrer — l'aperçu de « Mon thème » ; sinon celle que
  * porte le profil connecté ici (`gerbe.ts`), et rien pour l'anonyme.
  */
 export function GerbeDeJuste({ cle }: { cle?: string }) {

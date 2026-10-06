@@ -37,9 +37,10 @@ import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 
-// L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
-// — portraits des branches, emojis, légendaires, Divins, rangés par famille
-// —, et sa finition.
+// « Mon avatar », au profil : ce que la salle voit de lui, son visage —
+// portraits des branches, emojis, légendaires, Divins, rangés par famille —,
+// et sa finition ; puis, dans « Ma carte » et « Mon thème », son titre, son
+// fond et sa gerbe.
 //
 // Tout cela, c'est l'avatar qu'on porte : une seule carte, un onglet par
 // famille, des cases de la même taille ; un anneau de couleur dit ce qui est
@@ -51,7 +52,7 @@ import type { ChoixDuProfil } from './choix'
  * niveau 10 : les premiers viennent en quelques soirées, les autres en une
  * année, et la grille le dit d'un coup d'œil.
  */
-const COLLECTION_HAUTE = 10
+export const COLLECTION_HAUTE = 10
 
 type Patch = Omit<ChoixDuProfil, 'vitrine'>
 
@@ -123,6 +124,10 @@ export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avat
  * six Divins. Cent quarante avatars ne se parcourent plus en une grille :
  * chaque famille a son onglet, et chaque partie son titre et son compte.
  *
+ * Dans « Mon avatar » (`aMoi`), seulement ceux qu'il a : on y vient pour en
+ * changer, et cent cases fermées noyaient les quarante qu'on peut porter. Ce
+ * qui reste à gagner, et où, se lit dans « Ma collection ».
+ *
  * Chacun se touche de la même façon : sa fiche s'ouvre sous sa rangée, et
  * l'on porte l'avatar de là (« Le porter ») — un emoji comme un portrait ou
  * un légendaire. Un emoji se portait d'un toucher, quand un avatar dessiné
@@ -135,14 +140,24 @@ export function MesAvatars({
   busy,
   enregistrer,
   familleInitiale,
+  aMoi = false,
 }: {
   profil: PublicProfileDetail
   busy: boolean
   enregistrer: (patch: Patch) => void
   /** La famille ouverte d'abord ; celle de l'avatar qu'il porte, par défaut (`familleDe`). */
   familleInitiale?: Famille
+  /** Seulement ceux qu'il a : l'écran où l'on choisit. */
+  aMoi?: boolean
 }) {
-  const [famille, setFamille] = useState<Famille>(() => familleInitiale ?? familleDe(profil))
+  // Dans « Mon avatar », sous un emoji de l'inscription, ses emojis : c'est
+  // ce qu'il porte, et ses branches n'y montrent que ce qu'il a — rien, au
+  // premier jour.
+  const [famille, setFamille] = useState<Famille>(() => {
+    if (familleInitiale) return familleInitiale
+    const f = familleDe(profil)
+    return aMoi && f === 'branches' && !portraitDe(profil.legendaire) ? 'emojis' : f
+  })
   const [ouvert, setOuvert] = useState<string | null>(null)
   // Ce qui a éclaté brille, sauf ce qu'il a éteint : la grille et les fiches
   // montrent la version qu'il porte.
@@ -158,6 +173,9 @@ export function MesAvatars({
   const possedes = portraits.length + AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = PORTRAITS.length + AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
+  // Ce que chaque grille montre : tout, ou ce qu'il a.
+  const legendairesVus = LEGENDAIRES.filter(l => !aMoi || profil.legendaires.includes(l.key))
+  const divinsVus = DIVINS.filter(d => !aMoi || descendu(d.key))
   // Changer de famille referme la fiche : elle parlait d'un avatar qu'on ne voit plus.
   const choisir = (f: Famille) => {
     setFamille(f)
@@ -255,7 +273,7 @@ export function MesAvatars({
     <section className="card">
       <h3>
         <Icon name="users" />
-        Mes avatars <span className="muted small titre-compte">{`${possedes} / ${total}`}</span>
+        Mes avatars <span className="muted small titre-compte">{aMoi ? `${possedes} à toi` : `${possedes} / ${total}`}</span>
       </h3>
       <p className="muted small">
         {espacesFines('Un seul à la fois : touche un avatar, puis « Le porter ». Un avatar dessiné dit aussi d’où il vient.')}
@@ -289,6 +307,7 @@ export function MesAvatars({
               toucher={toucher}
               fiche={fiche}
               onDeplier={() => setOuvert(null)}
+              aMoi={aMoi}
             />
           </>
         )}
@@ -319,60 +338,65 @@ export function MesAvatars({
                 )
               })}
             </div>
-            <h4 className="famille-titre">
-              De collection <span className="famille-compte">{`${ouverts} / ${COLLECTION.length}`}</span>
-            </h4>
-            <p className="legende-anneaux small muted famille-note">
-              Un à chaque niveau qui n’ouvre pas de finition, réservés aux profils ·{' '}
-              <span className="puce anneau-texte-collection" aria-hidden="true">
-                ●
-              </span>{' '}
-              niveaux 2 à 9 ·{' '}
-              <span className="puce anneau-texte-collection-haut" aria-hidden="true">
-                ●
-              </span>{' '}
-              11 et plus
-            </p>
-            <div className="emoji-grid grille-unique" role="group" aria-label="De collection">
-              {COLLECTION.map(c => {
-                const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
-                if (profil.niveau < c.niveau) {
-                  // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
-                  // histoire que le niveau qui l'ouvre.
-                  return (
-                    <span
-                      key={c.emoji}
-                      className={'emoji-btn case-avatar ferme' + anneau}
-                      role="img"
-                      aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}
-                    >
-                      <span className="silhouette" aria-hidden="true">
-                        {c.emoji}
-                      </span>
-                      <span className="case-niveau" aria-hidden="true">
-                        niv. {c.niveau}
-                      </span>
-                    </span>
-                  )
-                }
-                const choisi = !porte && c.emoji === profil.avatar
-                return (
-                  <Fragment key={c.emoji}>
-                    <button
-                      type="button"
-                      className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '') + (ouvert === c.emoji ? ' ouverte' : '')}
-                      aria-expanded={ouvert === c.emoji}
-                      aria-controls={ouvert === c.emoji ? 'detail-avatar' : undefined}
-                      aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
-                      onClick={() => toucher(c.emoji)}
-                    >
-                      <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
-                    </button>
-                    {fiche(c.emoji)}
-                  </Fragment>
-                )
-              })}
-            </div>
+            {(!aMoi || ouverts > 0) && (
+              <>
+                <h4 className="famille-titre">
+                  De collection <span className="famille-compte">{`${ouverts} / ${COLLECTION.length}`}</span>
+                </h4>
+                <p className="legende-anneaux small muted famille-note">
+                  Un à chaque niveau qui n’ouvre pas de finition, réservés aux profils ·{' '}
+                  <span className="puce anneau-texte-collection" aria-hidden="true">
+                    ●
+                  </span>{' '}
+                  niveaux 2 à 9 ·{' '}
+                  <span className="puce anneau-texte-collection-haut" aria-hidden="true">
+                    ●
+                  </span>{' '}
+                  11 et plus
+                </p>
+                <div className="emoji-grid grille-unique" role="group" aria-label="De collection">
+                  {COLLECTION.map(c => {
+                    const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
+                    if (profil.niveau < c.niveau) {
+                      // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
+                      // histoire que le niveau qui l'ouvre. Dans « Mon avatar », rien.
+                      if (aMoi) return null
+                      return (
+                        <span
+                          key={c.emoji}
+                          className={'emoji-btn case-avatar ferme' + anneau}
+                          role="img"
+                          aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}
+                        >
+                          <span className="silhouette" aria-hidden="true">
+                            {c.emoji}
+                          </span>
+                          <span className="case-niveau" aria-hidden="true">
+                            niv. {c.niveau}
+                          </span>
+                        </span>
+                      )
+                    }
+                    const choisi = !porte && c.emoji === profil.avatar
+                    return (
+                      <Fragment key={c.emoji}>
+                        <button
+                          type="button"
+                          className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '') + (ouvert === c.emoji ? ' ouverte' : '')}
+                          aria-expanded={ouvert === c.emoji}
+                          aria-controls={ouvert === c.emoji ? 'detail-avatar' : undefined}
+                          aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
+                          onClick={() => toucher(c.emoji)}
+                        >
+                          <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
+                        </button>
+                        {fiche(c.emoji)}
+                      </Fragment>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
         {famille === 'legendaires' && (
@@ -380,8 +404,11 @@ export function MesAvatars({
             <h4 className="famille-titre">
               Les légendaires <span className="famille-compte">{`${profil.legendaires.length} / ${LEGENDAIRES.length}`}</span>
             </h4>
+            {legendairesVus.length === 0 && (
+              <p className="muted small">Aucun encore : chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne.</p>
+            )}
             <div className="emoji-grid grille-unique" role="group" aria-label="Les légendaires">
-              {LEGENDAIRES.map(l => {
+              {legendairesVus.map(l => {
                 const gagne = profil.legendaires.includes(l.key)
                 return (
                   <Fragment key={l.key}>
@@ -408,36 +435,40 @@ export function MesAvatars({
                 )
               })}
             </div>
-            <h4 className="famille-titre">
-              Les Divins <span className="famille-compte">{`${divins.length} / ${DIVINS.length}`}</span>
-            </h4>
-            <div className="emoji-grid grille-unique" role="group" aria-label="Les Divins">
-              {DIVINS.map(d => {
-                const la = descendu(d.key)
-                return (
-                  <Fragment key={d.key}>
-                    <button
-                      type="button"
-                      className={
-                        'emoji-btn case-avatar anneau-divin' +
-                        (la ? '' : ' ferme') +
-                        (porte === d.key ? ' selected' : '') +
-                        (ouvert === d.key ? ' ouverte' : '')
-                      }
-                      aria-expanded={ouvert === d.key}
-                      aria-controls={ouvert === d.key ? 'detail-avatar' : undefined}
-                      aria-label={la ? `${d.nom}, Divin${porte === d.key ? ', porté' : ''}` : 'Un Divin, inconnu'}
-                      onClick={() => toucher(d.key)}
-                    >
-                      <span className="case-medaillon">
-                        <Divin cle={d.key} verrouille={!la} />
-                      </span>
-                    </button>
-                    {fiche(d.key)}
-                  </Fragment>
-                )
-              })}
-            </div>
+            {divinsVus.length > 0 && (
+              <>
+                <h4 className="famille-titre">
+                  Les Divins <span className="famille-compte">{`${divins.length} / ${DIVINS.length}`}</span>
+                </h4>
+                <div className="emoji-grid grille-unique" role="group" aria-label="Les Divins">
+                  {divinsVus.map(d => {
+                    const la = descendu(d.key)
+                    return (
+                      <Fragment key={d.key}>
+                        <button
+                          type="button"
+                          className={
+                            'emoji-btn case-avatar anneau-divin' +
+                            (la ? '' : ' ferme') +
+                            (porte === d.key ? ' selected' : '') +
+                            (ouvert === d.key ? ' ouverte' : '')
+                          }
+                          aria-expanded={ouvert === d.key}
+                          aria-controls={ouvert === d.key ? 'detail-avatar' : undefined}
+                          aria-label={la ? `${d.nom}, Divin${porte === d.key ? ', porté' : ''}` : 'Un Divin, inconnu'}
+                          onClick={() => toucher(d.key)}
+                        >
+                          <span className="case-medaillon">
+                            <Divin cle={d.key} verrouille={!la} />
+                          </span>
+                        </button>
+                        {fiche(d.key)}
+                      </Fragment>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
@@ -493,6 +524,7 @@ function MesBranches({
   toucher,
   fiche,
   onDeplier,
+  aMoi = false,
 }: {
   paliers: Paliers
   porte: string | null
@@ -502,8 +534,16 @@ function MesBranches({
   fiche: (cle: string) => ReactNode
   /** Une autre branche se déplie : la fiche d'un portrait de la précédente se referme. */
   onDeplier: () => void
+  /** Seulement ses portraits : les branches où il en a, et dans chacune ceux qu'il a gagnés. */
+  aMoi?: boolean
 }) {
-  const [depliee, setDepliee] = useState<CleDeBranche>(() => brancheDepliee(paliers, porte))
+  // Dans « Mon avatar », les branches où il a déjà un portrait : les autres
+  // n'ont rien à porter.
+  const siennes = BRANCHES.filter(b => !aMoi || ouvertsDansLaBranche(b, paliers) > 0)
+  const [depliee, setDepliee] = useState<CleDeBranche>(() => {
+    const k = brancheDepliee(paliers, porte)
+    return siennes.some(b => b.key === k) ? k : (siennes[0]?.key ?? k)
+  })
   // La ligne touchée a disparu, remplacée par sa branche dépliée en tête : le
   // focus qu'elle avait va au nom de la branche, et la page remonte juste ce
   // qu'il faut pour la montrer.
@@ -527,7 +567,7 @@ function MesBranches({
     setDepliee(cle)
   }
   // La dépliée d'abord, les autres dans l'ordre des catégories.
-  const ordre = [...BRANCHES.filter(b => b.key === depliee), ...BRANCHES.filter(b => b.key !== depliee)]
+  const ordre = [...siennes.filter(b => b.key === depliee), ...siennes.filter(b => b.key !== depliee)]
   // Les douze branches se montrent — dépliée, ou sur une ligne : leurs
   // dessins viennent ensemble, à l'ouverture de l'onglet.
   const dessins = useDessins(...SORTES_DES_BRANCHES)
@@ -586,7 +626,7 @@ function MesBranches({
             </span>
             <p className="muted small">{ceQuiVient(b, paliers)}</p>
             <div className="emoji-grid grille-unique grille-branche" role="group" aria-label={b.nom}>
-              {b.portraits.map(p => {
+              {b.portraits.filter(p => !aMoi || valides >= p.palier).map(p => {
                 const gagne = valides >= p.palier
                 return (
                   <Fragment key={p.key}>
@@ -626,7 +666,8 @@ function MesBranches({
  * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, le palier
  * de son sentier qui l'ouvre — et, s'il manque encore, combien de paliers,
  * avec le chemin du sentier. Gagné, il se porte d'ici ; porté, on revient à
- * son emoji.
+ * son emoji. Sans `onPorter` — « Ma collection », qui ne fait que montrer —,
+ * rien à toucher que le sentier.
  */
 export function DetailPortrait({
   cle,
@@ -647,7 +688,7 @@ export function DetailPortrait({
   /** Il en porte la version rare — sinon, il l'a éteint. */
   brille?: boolean
   busy: boolean
-  onPorter: (cle: string | null) => void
+  onPorter?: (cle: string | null) => void
   /** Porter sa version rare, ou sa version d'origine. */
   onEclat?: (brille: boolean) => void
 }) {
@@ -675,7 +716,7 @@ export function DetailPortrait({
       )}
       {/* Gagné seulement : un portrait verrouillé n'a rien qui éclate. */}
       {gagne && eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
-      {gagne && (
+      {gagne && onPorter && (
         <>
           <CeQuIlRemplace porte={porte} cle={p.key} />
           <button
