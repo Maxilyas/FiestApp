@@ -1,8 +1,9 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
 // jetable : ses tuiles en deux groupes — « Me changer », « Me retrouver » —,
 // chacun de ses écrans — « Mon avatar », « Ma carte », « Mon thème », « Ma
-// collection », ses lignes dépliées —, et la boutique des thèmes, où ceux qui
-// se gagnent ont leurs cartes. Une joueuse en route : un légendaire porté,
+// collection », ses lignes dépliées, les thèmes en miniatures et la fiche de
+// l'un d'eux —, et la boutique des thèmes, qui ne vend que ce qui s'achète.
+// Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
 //
@@ -103,6 +104,13 @@ try {
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
   }
+  // Les thèmes de la collection : toucher celui qui se gagne ouvre sa fiche, et le lieu qui le donne.
+  await page.goto(`${banc.url}/profil#collection-themes`)
+  await page.waitForSelector('#collection-themes .vitrine-collection')
+  await photo('6-collection-themes-pleine', true)
+  await page.click('#collection-themes .theme-vitrine[aria-label^="Babel,"]')
+  await page.waitForSelector('#detail-theme .detail-theme')
+  await photo('6-collection-themes-fiche')
   // Du lien de « Mon thème » à la collection, puis « ← » : on revient à « Mon thème ».
   await page.goto(`${banc.url}/profil#theme`)
   await page.waitForSelector('.mes-themes')
@@ -113,9 +121,9 @@ try {
   await page.waitForSelector('.mes-themes')
   console.log('retour :', new URL(page.url()).hash)
 
-  // La boutique : ceux qui ne se vendent pas, dans leurs cartes.
+  // La boutique : ce qui s'achète, une rareté à la fois — ceux qui se gagnent n'y sont plus.
   await page.goto(`${banc.url}/boutique`)
-  await page.waitForSelector('.themes-a-gagner')
+  await page.waitForSelector('.vitrine-themes .theme-vitrine')
   await photo('8-boutique', true)
 } finally {
   await navigateur.close()

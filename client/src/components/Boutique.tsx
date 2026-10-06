@@ -27,23 +27,28 @@ import type { ChoixDuProfil } from './choix'
 // confetti. La boutique ne montre que ce qui reste à prendre, une rareté à
 // la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon thème »
 // (`MesThemes`). Les deux dans les mêmes cartes : l'écran d'une question
-// sous chaque thème, en grand. Ceux qui ne se vendent pas se montrent aussi,
-// dans les leurs, avec où les gagner (`ThemesAGagner`).
+// sous chaque thème, en grand. « Ma collection » les montre tous dans les
+// mêmes, ceux qui ne se vendent pas compris, avec où les gagner.
 //
 // Le geste est celui de « Mes avatars » : toucher un thème ouvre sa fiche
 // sous sa rangée, et l'on porte — ou l'on achète — de là. Un thème se
 // portait d'un toucher : le doigt qui voulait le regarder habillait déjà
 // toute la page.
 
-export type EtatDuTheme = 'porte' | 'a-toi' | 'a-vendre' | 'trop-cher' | 'hors-saison'
+export type EtatDuTheme = 'porte' | 'a-toi' | 'a-vendre' | 'trop-cher' | 'hors-saison' | 'a-gagner'
 
 /** « 🎊 400 », en chiffres à la française. */
 const enConfettis = (n: number) => `🎊 ${formatNumber(n)}`
 
-/** Ce qu'est un thème pour lui, ce jour-là : porté, à lui, à vendre, trop cher pour l'instant, ou hors de sa saison. */
+/**
+ * Ce qu'est un thème pour lui, ce jour-là : porté, à lui, à vendre, trop
+ * cher pour l'instant, hors de sa saison — ou à gagner : celui-là ne se vend
+ * jamais, et son prix ne voudrait rien dire.
+ */
 export function etatDuTheme(t: Theme, porte: string, possedes: ReadonlySet<string>, solde: number, jour: string): EtatDuTheme {
   if (t.key === porte) return 'porte'
   if (possedes.has(t.key)) return 'a-toi'
+  if (t.gagne) return 'a-gagner'
   if (!enBoutique(t, jour)) return 'hors-saison'
   return prixDe(t) > solde ? 'trop-cher' : 'a-vendre'
 }
@@ -52,6 +57,7 @@ export function etatDuTheme(t: Theme, porte: string, possedes: ReadonlySet<strin
 function nomDeLaCase(t: Theme, etat: EtatDuTheme, solde: number): string {
   if (etat === 'porte') return `${t.nom}, porté`
   if (etat === 'a-toi') return `${t.nom}, à toi`
+  if (etat === 'a-gagner') return `${t.nom}, ${NOM_DE_RARETE[t.rarete]}, se gagne`
   const prix = `${NOM_DE_RARETE[t.rarete]}, ${formatNumber(prixDe(t))} confettis`
   if (etat === 'trop-cher') return `${t.nom}, ${prix}, encore ${formatNumber(prixDe(t) - solde)}`
   if (etat === 'hors-saison') return `${t.nom}, ${prix}, ${retourEnBoutique(t)}`
@@ -75,7 +81,7 @@ const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
  * la montrer entière, son bouton compris. Porté, un thème n'a plus de
  * bouton : le focus qui y était tombait sur la page, il revient au nom.
  */
-function useFiche(ouvert: string | null, porte: string) {
+export function useFiche(ouvert: string | null, porte: string) {
   const detail = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const fiche = detail.current
@@ -97,12 +103,21 @@ function useFiche(ouvert: string | null, porte: string) {
 /**
  * Une carte de la vitrine : l'aperçu en grand, le nom, et dessous ce qu'il
  * est pour lui. Elle ouvre sa fiche — un bouton qui déplie, pas un
- * interrupteur : `aria-pressed` disait qu'un toucher le portait.
+ * interrupteur : `aria-pressed` disait qu'un toucher le portait. La même
+ * dans la boutique, dans « Mon thème » et dans « Ma collection ».
  */
-function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+export function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
   const apercu = apercuDe(t.key)
   const pied =
-    etat === 'porte' ? 'Porté' : etat === 'a-toi' ? NOM_DE_RARETE[t.rarete] : etat === 'trop-cher' ? `encore ${formatNumber(prixDe(t) - solde)}` : enConfettis(prixDe(t))
+    etat === 'porte'
+      ? 'Porté'
+      : etat === 'a-toi'
+        ? NOM_DE_RARETE[t.rarete]
+        : etat === 'a-gagner'
+          ? 'Se gagne'
+          : etat === 'trop-cher'
+            ? `encore ${formatNumber(prixDe(t) - solde)}`
+            : enConfettis(prixDe(t))
   return (
     <button
       type="button"
@@ -130,8 +145,9 @@ function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: E
  * La boutique : ce qu'on achète, à part de ce qu'on a — ce qu'on possède se
  * porte dans « Mon thème » (`MesThemes`). Une rareté à la fois, choisie sur
  * une rangée de gemmes ; elle s'ouvre sur la plus belle qu'on peut déjà
- * s'offrir. Hors de sa saison, un thème attend la sienne. Sous la vitrine,
- * ceux qui ne se vendent pas, chacun avec le lieu qui le donne.
+ * s'offrir. Hors de sa saison, un thème attend la sienne. Ceux qui ne se
+ * vendent pas n'y sont pas : ils se gagnent, et « Ma collection » dit où (la
+ * remarque du 6 octobre 2026).
  */
 export function RayonDesThemes({
   profil,
@@ -218,10 +234,6 @@ export function RayonDesThemes({
           </div>
         </>
       )}
-      {/* Ceux qui ne se vendent pas se montrent, dans leurs cartes : une
-          ligne de texte chacun ne les faisait pas voir, et son lien menait
-          les cinq aux sentiers (la remarque du 5 octobre 2026). */}
-      <ThemesAGagner possedes={possedes} titre="Ils ne se vendent pas : ils se gagnent" />
       <p className="muted small center">
         {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#theme">les porter</a>
       </p>
@@ -294,13 +306,15 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
  * La fiche d'un thème, sous sa case : son nom, son aperçu en grand, ce qu'il
  * habille, et le seul geste qui compte ce jour-là — le porter, l'acheter —,
  * ou ce qui manque encore. L'écran commun garde le sien : c'est ici qu'on le
- * dit, au moment de choisir.
+ * dit, au moment de choisir. Sans `onPorter` ni `onAcheter` — « Ma
+ * collection », qui ne fait que montrer —, un lien mène à l'écran qui le
+ * fait ; un thème qui se gagne dit comment, et où.
  */
 export function DetailTheme({
   theme: t,
   etat,
   solde,
-  busy,
+  busy = false,
   erreur,
   onPorter,
   onAcheter,
@@ -308,19 +322,20 @@ export function DetailTheme({
   theme: Theme
   etat: EtatDuTheme
   solde: number
-  busy: boolean
+  /** Un enregistrement en route ; « Ma collection » n'en fait aucun. */
+  busy?: boolean
   /** Le refus d'un achat, dit là où l'on a touché. */
   erreur?: string
   /** Le porter ; null : Velours, celui de toutes les soirées. */
-  onPorter: (cle: string | null) => void
-  onAcheter: (theme: Theme) => void
+  onPorter?: (cle: string | null) => void
+  onAcheter?: (theme: Theme) => void
 }) {
   const prix = prixDe(t)
   const apercu = apercuDe(t.key)
   return (
     <div className="galerie-detail detail-case detail-theme">
       <span className="detail-famille muted">
-        {t.rarete === 'offert' ? 'Offert' : `${NOM_DE_RARETE[t.rarete]} · ${enConfettis(prix)}`}
+        {t.rarete === 'offert' ? 'Offert' : t.gagne ? `${NOM_DE_RARETE[t.rarete]} · il se gagne` : `${NOM_DE_RARETE[t.rarete]} · ${enConfettis(prix)}`}
       </span>
       <b className="galerie-detail-nom">{t.nom}</b>
       {apercu && (
@@ -330,34 +345,57 @@ export function DetailTheme({
       )}
       <p className="muted small">{t.humeur}</p>
       {etat === 'porte' && <p className="muted small">C’est lui qui habille tes pages. L’écran commun garde le sien.</p>}
-      {etat === 'a-toi' && (
-        <button
-          type="button"
-          className="btn btn-small btn-primary"
-          aria-disabled={busy || undefined}
-          onClick={() => onPorter(t.key === 'velours' ? null : t.key)}
-        >
-          Le porter
-        </button>
-      )}
+      {etat === 'a-toi' &&
+        (onPorter ? (
+          <button
+            type="button"
+            className="btn btn-small btn-primary"
+            aria-disabled={busy || undefined}
+            onClick={() => onPorter(t.key === 'velours' ? null : t.key)}
+          >
+            Le porter
+          </button>
+        ) : (
+          <p className="muted small">
+            À toi : il se porte dans{' '}
+            <a className="link-inline" href="#theme">
+              « Mon thème »
+            </a>
+            .
+          </p>
+        ))}
       {etat === 'a-vendre' && (
         <>
           <p className="muted small">
             {`Il coûte ${formatNumber(prix)} confettis : il t’en restera ${formatNumber(solde - prix)}.`}
             {t.saison && ` En boutique ${t.saison.periode}, et gardé toute l’année.`}
           </p>
-          <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onAcheter(t)}>
-            {`L’acheter · ${enConfettis(prix)}`}
-          </button>
+          {onAcheter ? (
+            <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onAcheter(t)}>
+              {`L’acheter · ${enConfettis(prix)}`}
+            </button>
+          ) : (
+            <a className="link-inline" href="/boutique">
+              La boutique
+            </a>
+          )}
         </>
       )}
       {etat === 'trop-cher' && (
         <p className="muted small">
-          Il coûte {formatNumber(prix)} confettis : <b>encore {formatNumber(prix - solde)}</b>. Une bonne réponse, un confetti.
+          Il coûte {formatNumber(prix)} confettis : <b>encore {formatNumber(prix - solde)}</b>.{t.saison && ` En boutique ${t.saison.periode}.`} Une bonne réponse, un confetti.
         </p>
       )}
       {etat === 'hors-saison' && t.saison && (
         <p className="muted small">{`En boutique ${t.saison.periode} seulement — acheté, il se garde toute l’année.`}</p>
+      )}
+      {etat === 'a-gagner' && t.gagne && (
+        <>
+          <p className="muted small">{espacesFines(`Il ne se vend pas : il se gagne avec ${t.gagne.regle}.`)}</p>
+          <a className="link-inline" href={t.gagne.ou.lien}>
+            {t.gagne.ou.nom}
+          </a>
+        </>
       )}
       {erreur && (
         <p className="error" role="alert">
@@ -365,46 +403,6 @@ export function DetailTheme({
         </p>
       )}
     </div>
-  )
-}
-
-/**
- * Les thèmes qui ne se vendent pas — ils se gagnent —, chacun dans sa carte :
- * son aperçu, ce qu'il faut, et le lieu qui le donne (`Theme.gagne.ou`). La
- * boutique ne montre que ceux qui manquent ; « Ma collection », tous, ceux
- * qu'on a compris. Rien ne s'y achète ni ne s'y porte : seul le lieu se
- * touche, et il y mène.
- */
-export function ThemesAGagner({ possedes, tous = false, titre }: { possedes: ReadonlySet<string>; tous?: boolean; titre?: string }) {
-  const liste = THEMES.filter(t => t.gagne && (tous || !possedes.has(t.key)))
-  if (liste.length === 0) return null
-  return (
-    <section className="themes-a-gagner" aria-label={titre ?? 'Les thèmes qui se gagnent'}>
-      {titre && <h3 className="themes-a-gagner-titre">{titre}</h3>}
-      <ul>
-        {liste.map(t => {
-          const gagne = t.gagne!
-          const aToi = possedes.has(t.key)
-          const apercu = apercuDe(t.key)
-          return (
-            <li key={t.key} className={'theme-a-gagner' + (aToi ? ' theme-gagne' : '')} style={gemme(t.rarete)}>
-              <span className="theme-a-gagner-image" aria-hidden="true">
-                {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
-              </span>
-              <span className="theme-a-gagner-texte">
-                <b>{t.nom}</b>
-                <span className="small">{aToi ? 'À toi : il se porte dans « Mon thème ».' : espacesFines(`Se gagne avec ${gagne.regle}.`)}</span>
-                {!aToi && (
-                  <a className="link-inline small" href={gagne.ou.lien}>
-                    {gagne.ou.nom}
-                  </a>
-                )}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
   )
 }
 
