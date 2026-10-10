@@ -10,7 +10,8 @@
 // écrite et étiquetée d'avance, jamais de la réserve du quiz du jour : elle
 // en reposait les questions, vues et corrigées chaque matin (le choix du
 // propriétaire du 3 octobre 2026). Un joueur n'y revoit une question
-// qu'une fois toutes les autres de sa marche passées.
+// qu'une fois toutes les autres de sa marche passées, la plus anciennement
+// vue d'abord — et celle d'hier soir en dernier recours.
 
 import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'

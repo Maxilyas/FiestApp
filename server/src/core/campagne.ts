@@ -155,7 +155,8 @@ const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
  * Ses questions viennent de sa base à elle (`baseCampagne.ts`), jamais de
  * la réserve du quiz du jour, dont elle écarte même les intitulés
  * (`empreintesDuJour`). Une question jamais vue d'un joueur passe devant
- * celles qu'il a déjà vues. Sa difficulté part de l'estimation de l'écriture
+ * celles qu'il a déjà vues, et parmi elles la plus anciennement vue
+ * (`parFraicheur`). Sa difficulté part de l'estimation de l'écriture
  * et se corrige par les réponses de campagne (`niveauDeQuestion`).
  * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
  * sans plafond (`xpDeCampagne`), dans sa ligne à part (`LIGNE_CAMPAGNE`) ;
@@ -472,12 +473,14 @@ export class CampagneStore {
   }
 
   /** Les questions de la base qu'un joueur a déjà vues en campagne : elles passent après les autres. */
-  private async vuesPar(profileId: string): Promise<Set<string>> {
+  /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`). */
+  private async vuesPar(profileId: string): Promise<Map<string, number>> {
     const res = await this.client.execute({
-      sql: `SELECT DISTINCT r.reserve_id FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id WHERE s.profile_id = ?`,
+      sql: `SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.profile_id = ? GROUP BY r.reserve_id`,
       args: [profileId],
     })
-    return new Set(res.rows.map(r => String(r.reserve_id)))
+    return new Map(res.rows.map(r => [String(r.reserve_id), Number(r.le)]))
   }
 
   async etat(profileId: string): Promise<EtatDeCampagne> {
@@ -633,7 +636,8 @@ export class CampagneStore {
    * Une série neuve — la précédente, laissée en route, s'arrête là. Chaque
    * marche tire d'abord parmi les questions que ce joueur n'a jamais vues :
    * il ne revoit une question qu'une fois toutes les autres de sa marche
-   * passées, et la base en compte des milliers.
+   * passées, la plus anciennement vue d'abord (`parFraicheur`), et la base
+   * en compte des milliers.
    */
   commencer(profileId: string, categories?: readonly string[]): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
@@ -645,11 +649,10 @@ export class CampagneStore {
             : 'La campagne n’a pas encore de questions à poser : reviens bientôt',
         )
       }
+      const maintenant = this.maintenant()
       const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-      // Battues, puis les jamais vues devant : le tri garde le hasard de
-      // chaque groupe, et chaque marche cet ordre.
-      const battues = melanger(jouables).sort((a, b) => Number(vues.has(a.id)) - Number(vues.has(b.id)))
-      for (const q of battues) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
+      // Battues, puis rangées par ce qu'il en a vu : chaque marche garde cet ordre.
+      for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
       const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = {
         id: randomUUID(),
@@ -667,7 +670,6 @@ export class CampagneStore {
         issue: null,
         categories: lireCategories(categoriesRetenues(categories)),
       }
-      const maintenant = this.maintenant()
       this.enCours.delete(profileId)
       await this.client.batch(
         [
@@ -1343,7 +1345,7 @@ export class CampagneStore {
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
       const [jouables, mesure, vues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.vuesPar(profileId)])
-      const questions = tirerUneEpreuve(jouables, regle, vues, mesure).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -2417,18 +2419,65 @@ const EMPRUNTS: Readonly<Record<Niveau, readonly Niveau[]>> = {
 }
 
 /**
+ * Une question vue ces dernières vingt-quatre heures ne revient qu'en
+ * dernier recours. Une fois les jamais vues d'une marche épuisées, le tirage
+ * reprenait les déjà vues au hasard : celle d'il y a cinq minutes valait
+ * celle d'il y a trois semaines, et qui usait ses douze vies sur un palier
+ * revoyait le soir même les questions qu'il venait de rater (un retour de
+ * joueur, le 10 octobre 2026). Une redite d'hier soir se remarque ; celle
+ * d'il y a trois semaines est une révision.
+ */
+export const VUE_RECENTE_MS = 24 * HEURE_MS
+
+/** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était ces dernières vingt-quatre heures. */
+function fraicheurDe(vues: ReadonlyMap<string, number>, maintenant: number) {
+  return (id: string): { recente: number; vue: number; le: number } => {
+    const le = vues.get(id)
+    return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: maintenant - le < VUE_RECENTE_MS ? 1 : 0, vue: 1, le }
+  }
+}
+
+/**
+ * Les questions rangées par ce qu'un joueur en a vu : les jamais vues
+ * d'abord, puis les déjà vues de la plus anciennement vue à la plus récente,
+ * celles des dernières vingt-quatre heures en tout dernier. Le tri est
+ * stable : chaque groupe garde l'ordre qu'on lui donne — le hasard du
+ * battage, pour les jamais vues.
+ */
+export function parFraicheur<T extends { id: string }>(questions: readonly T[], vues: ReadonlyMap<string, number>, maintenant: number): T[] {
+  const fraicheur = fraicheurDe(vues, maintenant)
+  return [...questions].sort((a, b) => {
+    const x = fraicheur(a.id)
+    const y = fraicheur(b.id)
+    return x.recente - y.recente || x.vue - y.vue || x.le - y.le
+  })
+}
+
+/** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
+function passeAvant(a: readonly number[], b: readonly number[]): boolean {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
+  return false
+}
+
+/**
  * Les seize questions d'une épreuve, tirées dans la catégorie de son sentier
  * selon le mélange de son palier : jamais vues d'abord, puis les sous-thèmes
- * les moins servis. Aux paliers « toute la catégorie », chaque sous-thème
- * passe d'abord, même par une question déjà vue : on ne valide pas le stade
- * sur le seul football. Pas de vrai ou faux là où le palier n'en veut pas.
- * Dans le désordre : chaque question peut être la difficile.
+ * les moins servis, puis les déjà vues de la plus anciennement vue à la plus
+ * récente (`parFraicheur`). Aux paliers « toute la catégorie », chaque
+ * sous-thème passe d'abord, même par une question déjà vue : on ne valide
+ * pas le stade sur le seul football — mais jamais par une question vue ces
+ * dernières vingt-quatre heures, qui ne sort qu'en dernier recours, partout
+ * (`VUE_RECENTE_MS`). Une marche épuisée de jamais vues reste sa marche :
+ * emprunter au voisin changerait la difficulté du palier, que ses mélanges
+ * ont mesurée. Pas de vrai ou faux là où le palier n'en veut pas. Dans le
+ * désordre : chaque question peut être la difficile.
  */
 export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
   regle: RegleDuPalier,
-  vues: ReadonlySet<string>,
+  vues: ReadonlyMap<string, number>,
   mesure: ReadonlyMap<string, { justes: number; total: number }>,
+  maintenant: number,
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const pool = regle.sansVraiFaux ? jouables.filter(q => q.reponses.length !== 2) : jouables
   if (pool.length < QUESTIONS_PAR_EPREUVE) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
@@ -2436,23 +2485,30 @@ export function tirerUneEpreuve(
   for (const q of melanger(pool)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
   const usage = new Map<string, number>()
   const prises = new Set<string>()
-  const score = (q: QuestionDeLaBase) => {
+  const fraicheur = fraicheurDe(vues, maintenant)
+  // Le rang d'une question pour la place suivante — le plus petit gagne : une
+  // vue d'hier soir en dernier, partout ; puis, aux paliers « toute la
+  // catégorie », le sous-thème le moins servi avant la jamais vue, ailleurs
+  // l'inverse ; enfin la plus anciennement vue.
+  const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
-    return (regle.touteLaCategorie ? servi * 10_000 : servi) + (vues.has(q.id) ? 1000 : 0)
+    const f = fraicheur(q.id)
+    return regle.touteLaCategorie ? [f.recente, servi, f.vue, f.le] : [f.recente, f.vue, servi, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
     for (let i = 0; i < combien; i++) {
       for (const n of EMPRUNTS[niveau]) {
         let meilleure: QuestionDeLaBase | null = null
-        let sonScore = Infinity
+        let sonRang: number[] | null = null
         for (const q of parNiveau[n]) {
           if (prises.has(q.id)) continue
-          const x = score(q)
-          if (x < sonScore) {
+          const r = rang(q)
+          if (!sonRang || passeAvant(r, sonRang)) {
             meilleure = q
-            sonScore = x
-            if (x === 0) break
+            sonRang = r
+            // Jamais vue, d'un sous-thème encore à servir : rien ne fera mieux.
+            if (r[0] === 0 && r[1] === 0 && r[2] === 0) break
           }
         }
         if (meilleure) {
