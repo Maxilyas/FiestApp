@@ -484,6 +484,7 @@ function appliquerLaRelecture(ctx: Contexte, g: Generation, w: number) {
     decisions.push(...rendues.decisions)
   }
   const fait = appliquerLesDecisions(decisions, lots)
+  for (const d of fait.ignorees) incidents.push(`${d.ref} : correction sans champ corrigeable (${Object.keys(d.champs ?? {}).join(', ') || 'aucun'}), ignorée`)
   for (const [nom, entrees] of lots) {
     const apres = fait.lots.get(nom) ?? entrees
     if (apres.length > 0) ecrireLot(path.join(ctx.dossier, nom), apres)
@@ -498,7 +499,9 @@ function appliquerLaRelecture(ctx: Contexte, g: Generation, w: number) {
     const [nom, i] = ref.split('#')
     return String((lots.get(nom)?.[Number(i)] as { texte?: unknown } | undefined)?.texte ?? '')
   }
-  const journal = decisions.map(d => `${d.action === 'retirer' ? 'retirée' : `corrigée (${Object.keys(d.champs ?? {}).join(', ')})`} ${d.ref} « ${texteDe(d.ref)} » — ${d.motif ?? 'sans motif'}`)
+  const ignorees = new Set(fait.ignorees)
+  const quoi = (d: Decision) => (d.action === 'retirer' ? 'retirée' : `${ignorees.has(d) ? 'ignorée, sans champ corrigeable' : 'corrigée'} (${Object.keys(d.champs ?? {}).join(', ')})`)
+  const journal = decisions.map(d => `${quoi(d)} ${d.ref} « ${texteDe(d.ref)} » — ${d.motif ?? 'sans motif'}`)
   writeFileSync(path.join(dossierDe(ctx, g.nom), `relecture-${w + 1}.txt`), journal.map(l => `${l}\n`).join(''))
   v.relecture = { le: maintenant(), retirees: fait.retirees, corrigees: fait.corrigees, aRelire: nonRelus, incidents }
   ctx.dire(

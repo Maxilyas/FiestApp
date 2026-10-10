@@ -119,6 +119,46 @@ test('retournée, la même question l’est encore : la réponse de chacune est 
   assert.equal(meme(chaplin, temps), false)
 })
 
+test('retournées par l’intitulé : chacune écrit la réponse de l’autre, et elles parlent de la même chose', () => {
+  // La première génération en nombre les a écrites le même jour, en culture
+  // générale et en géographie : seul leur correcteur, qui les avait sur la même fiche, les a vues.
+  const dragon = question('Quel animal fabuleux figure sur le drapeau du Bhoutan ?', ['Dragon', 'Phénix', 'Griffon', 'Licorne'], {
+    entites: [
+      ['Drapeau du Bhoutan', 'objet'],
+      ['Himalaya', 'lieu'],
+    ],
+    categorie: 'Culture générale',
+  })
+  const bhoutan = question('Quel pays de l’Himalaya a un dragon blanc sur son drapeau ?', ['Bhoutan', 'Népal', 'Tibet', 'Sikkim'], {
+    entites: [
+      ['Bhoutan', 'lieu'],
+      ['Drapeau du Bhoutan', 'objet'],
+      ['Himalaya', 'lieu'],
+    ],
+    categorie: 'Géographie',
+  })
+  assert.equal(meme(dragon, bhoutan), true)
+  assert.equal(new IndexDesFaits([dragon]).chercher(bhoutan), dragon, 'd’une catégorie à l’autre')
+  assert.deepEqual([...new IndexDesFaits([dragon, bhoutan]).paires()], [[dragon, bhoutan]], 'deux entités en commun, une seule paire')
+  // D'un seul sens, deux faits : le drapeau du Bhoutan a aussi ses couleurs.
+  const couleurs = question('Quelles couleurs partagent en deux triangles le drapeau du Bhoutan ?', ['Jaune et orange', 'Rouge et blanc', 'Vert et jaune', 'Bleu et blanc'], {
+    entites: [['Drapeau du Bhoutan', 'objet']],
+    categorie: 'Géographie',
+  })
+  assert.equal(meme(bhoutan, couleurs), false)
+  assert.equal(meme(dragon, couleurs), false)
+  // Sans rien dont elles parlent toutes deux, deux questions qui se citent posent deux faits : le peintre, le musée.
+  const peintre = question('Quel peintre a peint La Joconde, exposée au Louvre ?', ['Léonard de Vinci', 'Raphaël', 'Titien', 'Botticelli'], {
+    entites: [['La Joconde', 'oeuvre']],
+    categorie: 'Arts & lettres',
+  })
+  const musee = question('Quel musée parisien expose une célèbre toile de Léonard de Vinci ?', ['Le Louvre', 'Orsay', 'Le Petit Palais', 'Beaubourg'], {
+    entites: [['Musée du Louvre', 'lieu']],
+    categorie: 'Arts & lettres',
+  })
+  assert.equal(meme(peintre, musee), false)
+})
+
 test('un nom se compare sans ce qui ne le distingue pas : préposition, article, accents, ponctuation', () => {
   assert.equal(normeDUnNom('En Belgique'), normeDUnNom('la Belgique'))
   assert.equal(normeDUnNom('L’Algérie'), normeDUnNom("l'Algerie"))

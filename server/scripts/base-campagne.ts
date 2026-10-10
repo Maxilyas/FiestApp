@@ -219,7 +219,8 @@ function appliquer(fichier: string) {
   }
   const fait = appliquerLesDecisions(decisions, lots)
   for (const [nom, entrees] of fait.lots) ecrireLot(path.join(dossier, nom), entrees)
-  console.log(`${fait.corrigees} question(s) corrigée(s), ${fait.retirees} retirée(s).`)
+  for (const d of fait.ignorees) console.log(`ignorée : ${d.ref} — aucun champ corrigeable (${Object.keys(d.champs ?? {}).join(', ') || 'aucun'})`)
+  console.log(`${fait.corrigees} question(s) corrigée(s), ${fait.retirees} retirée(s)${fait.ignorees.length > 0 ? `, ${fait.ignorees.length} correction(s) ignorée(s)` : ''}.`)
 }
 
 function stats() {

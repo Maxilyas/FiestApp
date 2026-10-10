@@ -10,6 +10,8 @@ import path from 'node:path'
 import { SERVEUR } from '../src/racine'
 import { lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { IndexDesFaits, motifDuMemeFait } from '../src/core/memeFait'
+import { sansAccent } from '../../shared/homonymes'
+import { lireNombre } from '../../shared/nombres'
 
 /** Les lots attendent à côté du dépôt, dans un dossier que git ignore : rien n'y est committé. */
 export const DOSSIER_DES_LOTS = path.join(SERVEUR, '..', '.lots-campagne')
@@ -130,22 +132,41 @@ export interface Decision {
   motif?: string
 }
 
-/** Ce qu'une relecture corrige : jamais une réponse — une réponse douteuse retire la question, dans le doute. */
-export const CHAMPS_CORRIGEABLES: readonly string[] = ['anecdote', 'explication', 'difficulte', 'texte']
+/**
+ * Ce qu'une relecture corrige, sous le nom du champ de l'entrée — jamais une
+ * réponse : une réponse douteuse retire la question, dans le doute. Un
+ * correcteur écrit aussi ce qu'il lit sur la fiche, « intitulé » ou
+ * « difficulté » : le 10 octobre 2026, dix corrections ainsi nommées
+ * passaient pour faites, et n'avaient rien changé.
+ */
+const CHAMP_CORRIGEABLE: Readonly<Record<string, string>> = { anecdote: 'anecdote', explication: 'explication', difficulte: 'difficulte', texte: 'texte', intitule: 'texte' }
+
+/** Les champs d'une correction, sous leur nom dans l'entrée ; une difficulté écrite « 2 » se lit 2. */
+function champsCorriges(champs: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const lus: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(champs)) {
+    const champ = CHAMP_CORRIGEABLE[sansAccent(k)]
+    if (champ) lus[champ] = champ === 'difficulte' && typeof v === 'string' ? (lireNombre(v) ?? v) : v
+  }
+  return lus
+}
 
 /**
  * Applique des décisions de relecture à des lots en mémoire (le nom du
  * fichier → ses entrées) et rend les lots qu'elles touchent, sans leurs
- * retirées. Une correction que le juge refuse retire la question aussi. Les
- * positions sont celles des lots avant la relecture : les retraits se font
- * à la fin, d'un coup.
+ * retirées. Une correction que le juge refuse retire la question aussi ; une
+ * correction qui ne nomme aucun champ corrigeable ne change rien, et se rend
+ * à part (`ignorees`) : comptée pour faite, elle se perdait sans bruit. Les
+ * positions sont celles des lots avant la relecture : les retraits se font à
+ * la fin, d'un coup.
  */
 export function appliquerLesDecisions(
   decisions: readonly Decision[],
   lots: ReadonlyMap<string, readonly unknown[]>,
-): { lots: Map<string, unknown[]>; corrigees: number; retirees: number } {
+): { lots: Map<string, unknown[]>; corrigees: number; retirees: number; ignorees: Decision[] } {
   const touches = new Map<string, unknown[]>()
   const aRetirer = new Map<string, Set<number>>()
+  const ignorees: Decision[] = []
   let corrigees = 0
   for (const d of decisions) {
     const [nom, n] = d.ref.split('#')
@@ -157,7 +178,11 @@ export function appliquerLesDecisions(
     const retirer = () => (aRetirer.get(nom) ?? aRetirer.set(nom, new Set()).get(nom)!).add(index)
     if (d.action === 'retirer') retirer()
     else if (d.action === 'corriger') {
-      const champs = Object.fromEntries(Object.entries(d.champs ?? {}).filter(([k]) => CHAMPS_CORRIGEABLES.includes(k)))
+      const champs = champsCorriges(d.champs ?? {})
+      if (Object.keys(champs).length === 0) {
+        ignorees.push(d)
+        continue
+      }
       const corrigee = { ...(entrees[index] as object), ...champs }
       if ('refus' in lireQuestionDeLaBase(corrigee, { sansId: true })) retirer()
       else {
@@ -172,5 +197,5 @@ export function appliquerLesDecisions(
     retirees += sortir.size
     touches.set(nom, entrees.filter((_, i) => !sortir.has(i)))
   }
-  return { lots: touches, corrigees, retirees }
+  return { lots: touches, corrigees, retirees, ignorees }
 }

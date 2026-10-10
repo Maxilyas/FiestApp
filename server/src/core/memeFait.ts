@@ -23,6 +23,18 @@ import { QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from './baseCampagne'
 // deux faits — Persepolis la bande dessinée et la cité antique, le cou de
 // la girafe et le nôtre. Un refus dit « sans doute » : une question de plus
 // se réécrit sans peine.
+//
+// Retournées, deux questions ne se nomment pas toujours par leurs entités :
+// « Quel animal fabuleux figure sur le drapeau du Bhoutan ? » (un dragon)
+// et « Quel pays de l'Himalaya a un dragon blanc sur son drapeau ? » (le
+// Bhoutan), écrites le même jour en culture générale et en géographie par la
+// première génération en nombre, ne se voyaient pas : seul leur correcteur,
+// qui les avait sur la même fiche, les a vues. Chacune écrit dans son
+// intitulé la réponse de l'autre, et elles parlent de la même chose : le même
+// fait. Sur la base, la règle relevait trois paires — Lacoste et son
+// crocodile, la cité de Chichén Itzá au Mexique et bâtie par les Mayas, Les
+// Demoiselles de Rochefort et la sœur de Catherine Deneuve : la dernière pose
+// deux faits, mais l'une souffle la réponse de l'autre.
 
 /** Ce qu'il faut d'une question pour en lire le fait. */
 export type AvecUnFait = Pick<QuestionDeLaBase, 'texte' | 'reponses' | 'bonne' | 'meta'>
@@ -81,7 +93,12 @@ export interface Fait {
    * du monde 1998 ? » et « … 2018 ? », la France les deux fois.
    */
   nombres: Set<string>
+  /** L'intitulé écrit comme un nom (`normeDUnNom`), entre deux espaces : on y cherche la réponse d'une autre question. */
+  intitule: string
 }
+
+/** Ce nom est-il écrit en toutes lettres dans cet intitulé ? Pas sous trois lettres : « or » et « ré » se croisent par hasard. */
+const ecrit = (intitule: string, nom: string) => nom.length >= 3 && intitule.includes(` ${nom} `)
 
 /** Le fait d'une question ; null pour un vrai ou faux, dont la réponse ne dit rien du fait. */
 export function faitDe(q: AvecUnFait): Fait | null {
@@ -94,13 +111,18 @@ export function faitDe(q: AvecUnFait): Fait | null {
     entites: new Set(q.meta.entites.map(e => normeDUnNom(e.nom)).filter(e => e && e !== reponse)),
     mots: motsDe(q.texte),
     nombres: new Set(q.texte.match(/\d+/g) ?? []),
+    intitule: ` ${sansAccent(q.texte).replace(/[^a-z0-9]+/g, ' ').trim()} `,
   }
 }
 
 /** Ces deux faits sont-ils le même — posé deux fois, ou retourné ? */
 export function memeFait(a: Fait, b: Fait): boolean {
-  // Retourné : chacune a pour réponse ce dont parle l'autre — Charlot et Charlie Chaplin, le canal de Suez et Ferdinand de Lesseps.
-  if (a.reponse !== b.reponse) return a.entites.has(b.reponse) && b.entites.has(a.reponse)
+  if (a.reponse !== b.reponse) {
+    // Retourné : chacune a pour réponse ce dont parle l'autre — Charlot et Charlie Chaplin, le canal de Suez et Ferdinand de Lesseps.
+    if (a.entites.has(b.reponse) && b.entites.has(a.reponse)) return true
+    // Ou chacune écrit dans son intitulé la réponse de l'autre, et elles parlent de la même chose : le dragon du drapeau du Bhoutan.
+    return ecrit(a.intitule, b.reponse) && ecrit(b.intitule, a.reponse) && [...a.entites].some(e => b.entites.has(e))
+  }
   for (const e of a.entites) if (b.entites.has(e)) return true
   if (a.chiffree || b.chiffree) return false
   if (a.nombres.size > 0 && b.nombres.size > 0 && ![...a.nombres].some(n => b.nombres.has(n))) return false
@@ -115,12 +137,14 @@ interface Entree<Q> {
 }
 
 /**
- * Les faits d'une base, rangés par bonne réponse : chercher ne compare
- * qu'aux questions de même réponse, et à celles qui ont pour réponse une de
- * ses entités — quelques-unes, jamais toute la base.
+ * Les faits d'une base, rangés par bonne réponse et par entité : chercher ne
+ * compare qu'aux questions de même réponse, à celles qui ont pour réponse une
+ * de ses entités, et à celles qui parlent de la même chose — quelques-unes,
+ * jamais toute la base.
  */
 export class IndexDesFaits<Q extends AvecUnFait> {
   private readonly parReponse = new Map<string, Entree<Q>[]>()
+  private readonly parEntite = new Map<string, Entree<Q>[]>()
   private rang = 0
 
   constructor(questions: Iterable<Q> = []) {
@@ -131,14 +155,19 @@ export class IndexDesFaits<Q extends AvecUnFait> {
     const fait = faitDe(q)
     if (!fait) return
     const entree = { question: q, fait, rang: this.rang++ }
-    const groupe = this.parReponse.get(fait.reponse)
-    if (groupe) groupe.push(entree)
-    else this.parReponse.set(fait.reponse, [entree])
+    for (const [index, cle] of [[this.parReponse, fait.reponse] as const, ...[...fait.entites].map(e => [this.parEntite, e] as const)]) {
+      const groupe = index.get(cle)
+      if (groupe) groupe.push(entree)
+      else index.set(cle, [entree])
+    }
   }
 
   private *candidates(fait: Fait): Generator<Entree<Q>> {
     yield* this.parReponse.get(fait.reponse) ?? []
-    for (const e of fait.entites) yield* this.parReponse.get(e) ?? []
+    for (const e of fait.entites) {
+      yield* this.parReponse.get(e) ?? []
+      yield* this.parEntite.get(e) ?? []
+    }
   }
 
   /** La question qui pose déjà ce fait, s'il y en a une. */
@@ -149,10 +178,18 @@ export class IndexDesFaits<Q extends AvecUnFait> {
     return undefined
   }
 
-  /** Toutes les paires de la base qui posent le même fait. */
+  /** Toutes les paires de la base qui posent le même fait, chacune une fois : deux questions qui partagent deux entités se croisent deux fois. */
   *paires(): Generator<[Q, Q]> {
+    const dites = new Set<string>()
     for (const groupe of this.parReponse.values()) {
-      for (const x of groupe) for (const y of this.candidates(x.fait)) if (y.rang > x.rang && memeFait(x.fait, y.fait)) yield [x.question, y.question]
+      for (const x of groupe) {
+        for (const y of this.candidates(x.fait)) {
+          const paire = `${x.rang}:${y.rang}`
+          if (y.rang <= x.rang || dites.has(paire) || !memeFait(x.fait, y.fait)) continue
+          dites.add(paire)
+          yield [x.question, y.question]
+        }
+      }
     }
   }
 }

@@ -197,6 +197,30 @@ test('appliquer une relecture : retirer, corriger une phrase — jamais une rép
   assert.equal(apres[0].anecdote, 'Une meilleure anecdote.')
   assert.deepEqual(apres[0].reponses, entree(2).reponses, 'les réponses ne bougent pas')
   assert.equal(lots.get('g1-01.json')!.length, 4, 'les lots donnés restent tels quels')
+  assert.deepEqual(fait.ignorees, [])
+})
+
+test('une correction se lit sous les noms que lit le correcteur — « intitulé », « difficulté » —, et une correction qui ne nomme rien ne passe pas pour faite', () => {
+  // Le 10 octobre 2026, dix corrections ainsi nommées passaient pour faites, et n'avaient rien changé.
+  const lots = new Map([['g2-06.json', [entree(1), entree(2), entree(3)]]])
+  const fait = appliquerLesDecisions(
+    [
+      { ref: 'g2-06.json#0', action: 'corriger', champs: { difficulté: 2 } },
+      { ref: 'g2-06.json#1', action: 'corriger', champs: { intitulé: 'Quel fait numéro 2 distingue vraiment ce lieu 2 ?', difficulte: '4' } },
+      { ref: 'g2-06.json#2', action: 'corriger', champs: { couleur: 'bleue' } },
+    ],
+    lots,
+  )
+  const apres = fait.lots.get('g2-06.json')! as { texte: string; difficulte: number }[]
+  assert.equal(apres[0].difficulte, 2)
+  assert.equal(apres[1].texte, 'Quel fait numéro 2 distingue vraiment ce lieu 2 ?')
+  assert.equal(apres[1].difficulte, 4, 'une difficulté écrite en lettres se lit')
+  assert.equal(fait.corrigees, 2)
+  assert.deepEqual(
+    fait.ignorees.map(d => d.ref),
+    ['g2-06.json#2'],
+  )
+  assert.deepEqual(apres[2], entree(3), 'rien de changé, et elle le dit')
 })
 
 test('de bout en bout : préparer, écrire par vagues, recueillir, relire, et laisser des lots prêts à ranger', () => {

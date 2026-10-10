@@ -20,6 +20,6 @@ Pour chaque question, juge :
 
 Écris tes décisions avec Write dans le fichier que donne ta mission : un tableau JSON, une entrée par question à changer, et rien pour les questions justes :
 - `{"ref": "A1-02.json#7", "action": "retirer", "motif": "…"}` — une réponse fausse ou discutable, une question ambiguë, un doublon, un doute que tu ne peux pas lever avec certitude : dans le doute, on retire, la base est grande ;
-- `{"ref": "…", "action": "corriger", "champs": {"anecdote": "…"}, "motif": "…"}` — seulement l'anecdote, l'explication, l'intitulé ou la difficulté, quand tu es certain de la correction. Ne corrige jamais une réponse : retire la question.
+- `{"ref": "…", "action": "corriger", "champs": {"anecdote": "…"}, "motif": "…"}` — seulement quand tu es certain de la correction, et sous ces clés, sans accents : `anecdote`, `explication`, `texte` (l'intitulé) et `difficulte` (un entier de 1 à 5), par exemple `{"texte": "…", "difficulte": 3}`. Ne corrige jamais une réponse : retire la question.
 
 Sois sobre : ne commente pas les questions justes, ne réfléchis longuement qu'à celles qui te font hésiter. N'ouvre que la fiche de ta mission. Rends seulement le nombre de questions relues, retirées et corrigées.
