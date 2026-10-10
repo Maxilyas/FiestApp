@@ -1,6 +1,6 @@
 ---
 name: base-campagne
-description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, ou une génération en nombre.
+description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement ; ou à partir de faits tirés de Wikidata (scripts/faits-wikidata.ts), trois fois moins cher. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, une génération en nombre, ou des questions tirées de Wikidata.
 ---
 
 # Agrandir la base de la campagne
@@ -78,3 +78,30 @@ facture à part, et le propriétaire n'en veut pas.
 
 `etat` dit où en est une génération. Une seule à la fois : pour en abandonner
 une, supprime `../.lots-campagne/<nom>/` et ses lots `<nom>-*.json`.
+
+## Depuis Wikidata : des faits sûrs, des phrases à écrire
+
+Trois fois moins de jetons qu'un lot écrit de mémoire, et des difficultés 4
+et 5 : `server/scripts/faits-wikidata.ts` tire de Wikidata la bonne réponse,
+les leurres, la date, les entités et la source ; le rédacteur n'écrit que
+l'intitulé, l'anecdote et l'explication. Pour les relations qu'il connaît
+(un tableau et son peintre, un film et son réalisateur…), pas pour les
+notions ni la culture française du quotidien, qui restent au chemin
+ci-dessus. Les familles et leurs règles sont dans la règle `campagne-base.md`.
+
+1. **Extraire** : `NODE_USE_ENV_PROXY=1 npx tsx scripts/faits-wikidata.ts
+   extraire [<famille> …]` (la variable : dans le cloud, `fetch` ne suit pas
+   le proxy sans elle). Les fiches vont dans `../.faits-wikidata/`, que git
+   ignore ; `familles` dit ce qui est extrait.
+2. **Les lots** : `npx tsx scripts/faits-wikidata.ts lots --questions=<n>
+   [--familles=tableaux,films] --nom=<nom>` (crée `../.lots-campagne/` s'il
+   manque). Il donne une mission par lot.
+3. **L'écriture** : un agent `redacteur-campagne` par mission, telle quelle,
+   en arrière-plan, une dizaine à la fois. Son vérificateur,
+   `faits-wikidata.ts fusionner <nom>-NN`, écrit le lot ordinaire
+   `../.lots-campagne/<nom>-NN.json`.
+4. **La relecture, par échantillon** : `base-campagne.ts fiche` sur un lot sur
+   trois de chaque famille, un `relecteur-campagne` par fiche, `appliquer`.
+   Une famille dont le correcteur retire une question se relit en entier.
+5. **Ranger** : `voisines`, puis `ranger ../.lots-campagne/<nom>-*.json`,
+   comme tout lot ; commite `server/content/campagne/`.
