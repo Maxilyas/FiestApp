@@ -734,11 +734,11 @@ const UA = 'FiestApp/1.0 (https://github.com/Maxilyas/FiestApp ; questions de qu
 const JOURS_DE_VUES = 30
 
 /**
- * La médiane des vues de chaque jour, pas leur moyenne : une série tirée
- * d'« À l'est d'Éden » est sortie le 1er octobre 2026, et le roman, lu trois
- * cents fois par jour, l'a été treize mille — sa moyenne sur trente jours en
- * faisait un livre que tout le monde connaît, en difficulté 1. Une médiane ne
- * bouge qu'à un pic de plus de la moitié des jours.
+ * La médiane des vues de chaque jour, pas leur moyenne : « À l'est d'Éden »,
+ * lu trois cents fois par jour, l'a été treize mille à partir du 1er octobre
+ * 2026 — sa moyenne sur trente jours en faisait un livre que tout le monde
+ * connaît, en difficulté 1. Une médiane ne bouge qu'à un pic de plus de la
+ * moitié des jours.
  */
 export function mediane(jours: readonly number[]): number {
   if (jours.length === 0) return 0

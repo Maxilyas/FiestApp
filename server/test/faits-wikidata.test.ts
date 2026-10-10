@@ -325,7 +325,7 @@ test('les vues de Wikipédia arrivent par morceaux : on suit la continuation, et
     const vues = await new Wikidata(dossier, 0).vues(['Tres de mayo', 'Salvador Dalí', 'À l’est d’Éden'])
     assert.equal(vues.get('Salvador Dalí'), 1000, 'la seconde page de la réponse')
     assert.equal(vues.get('Tres de mayo'), 130, 'la redirection suivie, les jours sans mesure ignorés')
-    // La série sortie le 1er octobre 2026 : en moyenne, 4 500 vues par jour et une difficulté 1 ; un jour ordinaire, 310.
+    // À partir du 1er octobre 2026 : en moyenne, 4 500 vues par jour et une difficulté 1 ; un jour ordinaire, 310.
     assert.equal(vues.get('À l’est d’Éden'), 310, 'un pic de quelques jours ne fait pas un livre que tout le monde connaît')
     assert.equal(mediane([]), 0)
     assert.equal(mediane([4, 1, 3, 2]), 3, 'entre les deux du milieu, arrondie')
