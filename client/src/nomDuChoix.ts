@@ -1,4 +1,7 @@
-import { sujetParCle } from '../../../shared/sujets'
+import { sujetParCle } from '../../shared/sujets'
+
+// Ce que joue une série, en mots : la page de la campagne et celle d'un défi
+// entre amis le disent toutes deux.
 
 /** Les catégories d'une série, en quelques mots : « Culture générale », « Histoire et Sport », « 4 catégories » ; rien pour toutes. */
 export function nomDesCategories(categories: readonly string[]): string | null {

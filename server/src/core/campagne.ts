@@ -1432,7 +1432,9 @@ export class CampagneStore {
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
       const [toutes, mesure] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures()])
       const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
-      if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('Pas assez de questions pour ce défi : choisis d’autres catégories')
+      if (jouables.length < QUESTIONS_POUR_JOUER) {
+        throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
+      }
       const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
       for (const q of melanger(jouables)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
       const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))

@@ -9,7 +9,7 @@ import { espacesFines } from '../format'
 import { placeDuJour } from '../../../shared/course'
 import { NOM_NIVEAU, type CorrectionDeCampagne, type DuelEntreAmis, type ResumeDuDuel, type SerieDeCampagne } from '../../../shared/campagne'
 import { LigneDuDefiVue } from './Defi'
-import { nomDuChoix } from './nomDuChoix'
+import { nomDuChoix } from '../nomDuChoix'
 
 /** L'adresse d'un défi entre amis, dans la campagne : son lien. */
 export const adresseDuDuel = (code: string) => `#duel-${code}`

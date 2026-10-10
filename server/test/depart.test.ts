@@ -93,7 +93,7 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   const campagne = parseRoute('/campagne')
   assert.deepEqual(donneesDuFragment(campagne, '#sentiers'), ['/api/campagne/sentiers'])
   for (const b of BRANCHES) assert.deepEqual(donneesDuFragment(campagne, `#sentier-${b.key}`), ['/api/campagne/sentiers'], b.key)
-  for (const hash of ['', '#defi', '#sentiersx', '#sentier']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
+  for (const hash of ['', '#defi', '#duel-K7M2QX', '#sentiersx', '#sentier']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
   assert.deepEqual(donneesDuFragment(parseRoute('/profil'), '#sentiers'), [], 'ailleurs que la campagne, rien')
   // Les adresses que `Sentiers.tsx` écrit tombent sous la règle.
   assert.match(source('views/Sentiers.tsx'), /export const ADRESSE_DES_SENTIERS = '#sentiers'\nconst PREFIXE = '#sentier-'/)
@@ -104,7 +104,11 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   // préchargement qu'elle ne reprendrait pas attendrait son `fetch` suivant.
   assert.match(source('main.tsx'), /for \(const adresse of donneesDuFragment\(route, window\.location\.hash\)\) \{/)
   assert.match(source('main.tsx'), /lien\.rel = 'preload'\n\s*lien\.as = 'fetch'\n\s*lien\.href = adresse\n\s*lien\.crossOrigin = 'anonymous'/)
-  assert.match(source('views/CampagneApp.tsx'), /const modeDe = \(hash: string\): Mode => \(hash === ADRESSE_DU_DEFI \? 'defi' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'\)/)
+  // Un défi entre amis (`#duel-K7M2QX`) passe avant : son adresse n'est jamais celle d'un sentier.
+  assert.match(
+    source('views/CampagneApp.tsx'),
+    /const modeDe = \(hash: string\): Mode => \(hash === ADRESSE_DU_DEFI \? 'defi' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'\)/,
+  )
 })
 
 // ── 2. La page servie ─────────────────────────────────────────────────────
