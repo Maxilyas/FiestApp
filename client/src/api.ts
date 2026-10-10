@@ -326,14 +326,15 @@ export const api = {
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**
-     * Acheter un thème en confettis, et le porter aussitôt. Pas de reprise
-     * au réveil du serveur : rejoué, un achat passé répondrait « déjà à toi ».
-     * La boutique revient telle que le serveur l'a comptée.
+     * Acheter un thème en confettis, et le porter aussitôt — ou le garder pour
+     * plus tard (`porter: false`). Pas de reprise au réveil du serveur :
+     * rejoué, un achat passé répondrait « déjà à toi ». La boutique revient
+     * telle que le serveur l'a comptée.
      */
-    acheterTheme: (theme: string) =>
+    acheterTheme: (theme: string, porter = true) =>
       req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/themes', {
         method: 'POST',
-        body: JSON.stringify({ theme }),
+        body: JSON.stringify({ theme, porter }),
       }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour

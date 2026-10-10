@@ -8267,6 +8267,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-cher .theme-vitrine-prix { color: var(--muted); }
 .theme-saison { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; }
 .theme-fiche { grid-column: 1 / -1; }
+/* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
+.theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
 /* « Ma collection » : les thèmes en album — une page par rareté, chaque

@@ -237,20 +237,21 @@ export function ProfilApp() {
   }
 
   /**
-   * Acheter un thème : le serveur compte, achète et le fait porter. Le solde
-   * affiché est celui qu'il rend — jamais une soustraction faite ici, qu'un
-   * autre onglet aurait pu fausser. Rend le motif d'un refus, que la
-   * boutique montre là où l'on a touché.
+   * Acheter un thème : le serveur compte, achète, et le fait porter si on le
+   * veut. Le solde affiché est celui qu'il rend — jamais une soustraction
+   * faite ici, qu'un autre onglet aurait pu fausser. Rend le motif d'un
+   * refus, que la boutique montre là où l'on a touché.
    */
-  const acheter = async (cle: string): Promise<string | null> => {
+  const acheter = async (cle: string, porter: boolean): Promise<string | null> => {
     if (enregistrement.current) return null
     enregistrement.current = true
     setBusy(true)
     setAnnonce('')
     try {
-      const { profile, boutique } = await api.joueur.acheterTheme(cle)
+      const { profile, boutique } = await api.joueur.acheterTheme(cle, porter)
       setProfil(p => (p ? { ...p, ...profile, boutique } : p))
-      setAnnonce(annonceDuChoix({ theme: cle }))
+      // Gardé pour plus tard, la boutique le dit elle-même, là où l'on a touché.
+      if (porter) setAnnonce(annonceDuChoix({ theme: cle }))
       return null
     } catch (e) {
       return motifDe(e)

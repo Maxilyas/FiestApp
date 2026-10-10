@@ -1009,12 +1009,15 @@ export class ProfileStore {
   }
 
   /**
-   * Achète un thème, et le porte : on n'achète pas un habillage pour le
-   * laisser au placard. Refusé en clair — pas assez de confettis, hors de
+   * Achète un thème — et le porte, ou le garde pour plus tard. On le portait
+   * toujours, « on n'achète pas un habillage pour le laisser au placard » ;
+   * mais on achète aussi un thème de saison avant qu'il ne parte, ou pour
+   * compléter son album, sans quitter celui qu'on aime (un retour de joueur
+   * du 10 octobre 2026). Refusé en clair — pas assez de confettis, hors de
    * sa saison, déjà à lui : la page ne le propose pas, mais un autre onglet
    * a pu dépenser entre-temps.
    */
-  acheterTheme(id: string, cle: unknown, jour: string): Promise<ProfileRec> {
+  acheterTheme(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
     return this.unAchatALaFois(id, async () => {
       const rec = await this.require(id)
       const t = themeDuCatalogue(cle)
@@ -1032,11 +1035,11 @@ export class ProfileStore {
             sql: 'INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, ?, ?)',
             args: [id, t.key, prix, Date.now()],
           },
-          { sql: 'UPDATE profiles SET theme = ? WHERE id = ?', args: [t.key, id] },
+          ...(porter ? [{ sql: 'UPDATE profiles SET theme = ? WHERE id = ?', args: [t.key, id] }] : []),
         ],
         'write',
       )
-      rec.theme = t.key
+      if (porter) rec.theme = t.key
       return rec
     })
   }

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Icon } from './Icon'
-import { confirmDialog } from './Dialog'
+import { choixDialog } from './Dialog'
 import { rendreLeFocus } from '../focus'
 import { espacesFines, formatNumber } from '../format'
 import {
@@ -142,6 +142,18 @@ function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: E
 }
 
 /**
+ * La rareté que le rayon montre : celle choisie à la main tant qu'elle a
+ * encore un thème à vendre — son dernier acheté, la page lisait le prix d'un
+ * thème qui n'était plus là, et tombait —, sinon la plus haute à sa portée,
+ * sinon la première.
+ */
+export function rareteDuRayon(choisie: RareteDeTheme | null, aPrendre: readonly Theme[], solde: number): RareteDeTheme {
+  const raretes = RARETES_DE_THEME.filter(r => aPrendre.some(t => t.rarete === r))
+  if (choisie && raretes.includes(choisie)) return choisie
+  return [...raretes].reverse().find(r => prixDe(aPrendre.find(t => t.rarete === r)!) <= solde) ?? raretes[0]
+}
+
+/**
  * La boutique : ce qu'on achète, à part de ce qu'on a — ce qu'on possède se
  * porte dans « Mon thème » (`MesThemes`). Une rareté à la fois, choisie sur
  * une rangée de gemmes ; elle s'ouvre sur la plus belle qu'on peut déjà
@@ -156,11 +168,13 @@ export function RayonDesThemes({
 }: {
   profil: PublicProfileDetail
   busy: boolean
-  /** Achète et porte : rend le motif d'un refus, ou null. */
-  acheter: (cle: string) => Promise<string | null>
+  /** Achète — et porte, ou garde pour plus tard : rend le motif d'un refus, ou null. */
+  acheter: (cle: string, porter: boolean) => Promise<string | null>
 }) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [erreur, setErreur] = useState('')
+  // Le dernier acheté : sa carte quitte le rayon, la boutique dit où il est passé.
+  const [achete, setAchete] = useState<{ nom: string; porte: boolean } | null>(null)
   // Le thème porté se lit dans le profil, que chaque enregistrement rend à
   // jour — jamais dans la boutique, lue une fois avec la page.
   const porte = profil.theme ?? 'velours'
@@ -172,7 +186,7 @@ export function RayonDesThemes({
   const raretes = RARETES_DE_THEME.filter(r => aPrendre.some(t => t.rarete === r))
   const [choisie, setChoisie] = useState<RareteDeTheme | null>(null)
   if (!boutique) return null
-  const rarete = choisie ?? [...raretes].reverse().find(r => prixDe(aPrendre.find(t => t.rarete === r)!) <= solde) ?? raretes[0]
+  const rarete = rareteDuRayon(choisie, aPrendre, solde)
   const liste = aPrendre.filter(t => t.rarete === rarete)
 
   const toucher = (cle: string) => {
@@ -184,24 +198,47 @@ export function RayonDesThemes({
     setChoisie(r)
     setOuvert(null)
   }
+  // Le porter tout de suite, ou le garder pour plus tard : on achète aussi un
+  // thème de saison avant qu'il ne parte, ou pour son album, sans quitter
+  // celui qu'on aime (un retour de joueur du 10 octobre 2026).
   const acheterLe = async (t: Theme) => {
     if (busy) return
     setErreur('')
+    setAchete(null)
     const prix = prixDe(t)
-    const oui = await confirmDialog({
+    const choix = await choixDialog({
       title: `${t.nom} · ${NOM_DE_RARETE[t.rarete]}`,
       message: `Il coûte ${formatNumber(prix)} confettis : il t’en restera ${formatNumber(solde - prix)}.`,
       confirmLabel: `Acheter et porter · ${enConfettis(prix)}`,
+      alternative: { label: 'L’acheter seulement' },
       cancelLabel: 'Plus tard',
     })
-    if (!oui) return
-    const refus = await acheter(t.key)
-    if (refus) setErreur(refus)
+    if (!choix) return
+    const porter = choix.geste === 'confirmer'
+    const refus = await acheter(t.key, porter)
+    if (refus) return setErreur(refus)
+    setOuvert(null)
+    setAchete({ nom: t.nom, porte: porter })
   }
 
   return (
     <>
       {solde < 0 && <p className="muted small">Une soirée retirée de l’historique a repris ses confettis. Tes thèmes, eux, te restent.</p>}
+      {achete && (
+        <p className="card theme-achete" role="status">
+          {achete.porte ? (
+            `${achete.nom} habille tes pages.`
+          ) : (
+            <>
+              {`${achete.nom} est à toi : `}
+              <a className="link-inline" href="/profil#theme">
+                le porter
+              </a>
+              {' quand tu veux.'}
+            </>
+          )}
+        </p>
+      )}
       {raretes.length === 0 ? (
         <p className="card muted">Tu as tous les thèmes de la boutique. Ceux des saisons reviennent avec elles.</p>
       ) : (
