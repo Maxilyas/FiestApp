@@ -25,9 +25,10 @@ import { sansAccent } from '../../shared/homonymes'
  * écrasé, un rangement raté). Un retrait voulu le baisse dans le même commit,
  * et dit pourquoi : le 10 octobre 2026, trente-huit questions qui posaient le
  * même fait qu'une autre (`voisines`, `retirer`) — 5 012 questions, 4 974
- * faits.
+ * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
+ * Le même jour, la première génération en nombre en a rangé 306 : 5 278.
  */
-const AU_MOINS = 4970
+const AU_MOINS = 5270
 
 const { questions, refusees } = lireLaBase()
 
