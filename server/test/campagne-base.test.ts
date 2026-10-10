@@ -26,9 +26,10 @@ import { sansAccent } from '../../shared/homonymes'
  * et dit pourquoi : le 10 octobre 2026, trente-huit questions qui posaient le
  * même fait qu'une autre (`voisines`, `retirer`) — 5 012 questions, 4 974
  * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
- * Le même jour, la première génération en nombre en a rangé 306 : 5 278.
+ * Le même jour, la première génération en nombre en a rangé 306 : 5 278 ;
+ * puis le pilote tiré de Wikidata (`faits-wikidata.ts`), 296 : 5 574.
  */
-const AU_MOINS = 5270
+const AU_MOINS = 5570
 
 const { questions, refusees } = lireLaBase()
 
