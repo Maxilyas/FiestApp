@@ -46,7 +46,9 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       // Seules les catégories de la liste fixe : le reste ne filtrerait rien.
       const brut: unknown = req.body?.categories
       const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
-      res.json(await deps.campagne.commencer(profil.id, categories))
+      // Un sujet traverse les catégories ; une page d'avant n'en envoie pas. Inconnu, il est refusé avec son motif.
+      const sujet: unknown = req.body?.sujet
+      res.json(await deps.campagne.commencer(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined))
     }),
   )
 

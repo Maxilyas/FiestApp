@@ -230,6 +230,8 @@ export interface SerieDeCampagne {
   question?: QuestionDeCampagne
   /** Les catégories qu'elle joue ; absentes : toutes. « Rejouer » les reprend, même pour une série reprise d'un autre téléphone. */
   categories?: string[]
+  /** Le sujet qu'elle suit à travers toutes les catégories (`shared/sujets.ts`) : une époque, un fil rouge. */
+  sujet?: string
 }
 
 /**
@@ -265,6 +267,8 @@ export interface EtatDeCampagne {
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]
+  /** Les sujets qui ont de quoi faire une série, et combien de questions ; absents : un serveur d'avant. */
+  sujets?: { sujet: string; questions: number }[]
   /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number
   /** Son record dans chaque catégorie jouée seule — ce que le Tour du monde demande, dix dans chacune. */

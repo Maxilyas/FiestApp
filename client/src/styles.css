@@ -7559,6 +7559,11 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .categorie-case .icon { width: 20px; height: 20px; }
 .categorie-case.active { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent); }
 .categorie-case.active .icon { color: var(--accent-text); }
+/* Les sujets, sous les catégories qu'ils traversent : une époque, puis un fil rouge, chacun son petit titre. */
+.campagne-sujets { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--edge); }
+.campagne-sujets p { margin: 0; }
+.campagne-sujets .sujets-titre { font-weight: 600; }
+.campagne-sujets .label { margin-top: 4px; }
 .campagne-xp-du-jour { margin: 0; text-align: center; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }

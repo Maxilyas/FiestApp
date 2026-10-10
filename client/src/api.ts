@@ -360,7 +360,9 @@ export const api = {
   /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
   campagne: {
     etat: () => req<EtatDeCampagne>(DEPART.campagne),
-    commencer: (categories: string[]) => req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories }) }),
+    /** Une série neuve : sur ces catégories (aucune : toutes), ou sur un sujet qui les traverse (`shared/sujets.ts`). */
+    commencer: (categories: string[], sujet?: string | null) =>
+      req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),
     repondre: (serie: string, index: number, choix: number) =>
       req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
     correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),

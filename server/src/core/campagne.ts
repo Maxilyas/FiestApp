@@ -23,6 +23,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import {
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
@@ -129,6 +130,8 @@ interface Serie {
   issue: IssueDEpreuve | null
   /** Les catégories qu'elle a choisies ; null : toutes (`categoriesRetenues`). */
   categories?: string[] | null
+  /** Le sujet qu'elle suit à travers les catégories (`shared/sujets.ts`) ; ses catégories sont alors null. */
+  sujet?: string | null
   /** Un défi de la semaine : le lundi de sa semaine, qui le clôt. */
   semaine?: string | null
 }
@@ -415,6 +418,9 @@ export class CampagneStore {
       // Tour du monde et les records par catégorie lisent les séries d'une
       // seule ; la Grande Série, celles de toutes.
       ['categories', 'TEXT'],
+      // Le sujet d'une série qui traverse les catégories (`shared/sujets.ts`) :
+      // ses catégories restent NULL, mais elle n'est pas une série de toutes.
+      ['sujet', 'TEXT'],
       // Un défi de la semaine : le lundi de sa semaine.
       ['semaine', 'TEXT'],
     ] as const) {
@@ -496,6 +502,13 @@ export class CampagneStore {
     return new Map(res.rows.map(r => [String(r.reserve_id), Number(r.le)]))
   }
 
+  /** Les sujets qui ont de quoi faire une série, comptés sur ce que la campagne peut poser. */
+  private sujetsJouables(jouables: readonly QuestionDeLaBase[]): { sujet: string; questions: number }[] {
+    const compte = new Map<string, number>()
+    for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
+    return SUJETS.filter(s => (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_JOUER).map(s => ({ sujet: s.cle, questions: compte.get(s.cle)! }))
+  }
+
   async etat(profileId: string): Promise<EtatDeCampagne> {
     const [series, jouables, parJour, enCours, records] = await Promise.all([
       this.client.execute({
@@ -515,6 +528,7 @@ export class CampagneStore {
       justesAujourdhui: aujourdhui,
       enCours: enCours ? vueDeSerie(enCours) : null,
       categories: parCategorie(jouables),
+      sujets: this.sujetsJouables(jouables),
       questions: jouables.length,
       records: [...records].map(([categorie, record]) => ({ categorie, record })),
     }
@@ -622,7 +636,8 @@ export class CampagneStore {
     for (const r of res.rows) {
       const s = versSerie(r)
       profils.add(s.profileId)
-      if (r.categories == null) {
+      // Une série à sujet a ses catégories NULL sans être d'avant la colonne : elle n'en gagne pas.
+      if (r.categories == null && r.sujet == null) {
         const toutes = new Set(s.questions.map(q => q.categorie).filter(Boolean))
         if (toutes.size === 1) {
           s.categories = [...toutes] as string[]
@@ -650,16 +665,22 @@ export class CampagneStore {
    * marche tire d'abord parmi les questions que ce joueur n'a jamais vues :
    * il ne revoit une question qu'une fois toutes les autres de sa marche
    * passées, la plus anciennement vue d'abord (`parFraicheur`), et la base
-   * en compte des milliers.
+   * en compte des milliers. Sur un sujet (`shared/sujets.ts`), ses
+   * catégories n'y sont pour rien : il les traverse toutes.
    */
-  commencer(profileId: string, categories?: readonly string[]): Promise<SerieDeCampagne> {
+  commencer(profileId: string, categories?: readonly string[], sujet?: string): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
-      const [jouables, mesure, vues, laissee] = await Promise.all([this.jouables(categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
+      const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
+      if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
+      const [toutes, mesure, vues, laissee] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
+      const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
-          categories && categories.length > 0
-            ? 'Pas assez de questions dans ces catégories : ajoutes-en une autre'
-            : 'La campagne n’a pas encore de questions à poser : reviens bientôt',
+          suivi
+            ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre'
+            : categories && categories.length > 0
+              ? 'Pas assez de questions dans ces catégories : ajoutes-en une autre'
+              : 'La campagne n’a pas encore de questions à poser : reviens bientôt',
         )
       }
       const maintenant = this.maintenant()
@@ -681,7 +702,8 @@ export class CampagneStore {
         seuil: null,
         rejeu: false,
         issue: null,
-        categories: lireCategories(categoriesRetenues(categories)),
+        categories: suivi ? null : lireCategories(categoriesRetenues(categories)),
+        sujet: suivi?.cle ?? null,
       }
       this.enCours.delete(profileId)
       await this.client.batch(
@@ -689,9 +711,9 @@ export class CampagneStore {
           // La série laissée en route s'arrête : une seule à la fois. Une épreuve des sentiers, elle, attend.
           { sql: `UPDATE campagne_series SET finie_le = ? WHERE profile_id = ? AND finie_le IS NULL AND ${SERIES}`, args: [maintenant, profileId] },
           {
-            sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, categories)
-                  VALUES (?, ?, ?, 0, ?, 0, ?, NULL, ?)`,
-            args: [serie.id, profileId, JSON.stringify(questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null],
+            sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, categories, sujet)
+                  VALUES (?, ?, ?, 0, ?, 0, ?, NULL, ?, ?)`,
+            args: [serie.id, profileId, JSON.stringify(questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null, serie.sujet ?? null],
           },
         ],
         'write',
@@ -2181,10 +2203,11 @@ function categoriesRetenues(categories?: readonly string[]): string | null {
  * dérivation pure, comme ceux d'une soirée. Le Funambule compte les bonnes
  * réponses d'affilée après la deuxième erreur ; Sans une égratignure, que
  * tout était juste jusqu'à la première experte ; la Grande Série, une série
- * de toutes les catégories (`categories` NULL).
+ * de toutes les catégories (`categories` NULL) — pas celle d'un sujet, qui
+ * les traverse sans les poser toutes.
  */
 export function hautsFaitsDeLaSerie(
-  s: { questions: readonly { niveau: Niveau }[]; justes: number; categories?: readonly string[] | null },
+  s: { questions: readonly { niveau: Niveau }[]; justes: number; categories?: readonly string[] | null; sujet?: string | null },
   justes: readonly boolean[],
 ): string[] {
   const cles: string[] = []
@@ -2203,7 +2226,7 @@ export function hautsFaitsDeLaSerie(
   if (meilleure >= FUNAMBULE) cles.push('hf:funambule')
   const experte = s.questions.findIndex(q => q.niveau === 'expert')
   if (experte >= AVANT_LES_EXPERTES && justes.length > experte - 1 && justes.slice(0, experte).every(Boolean)) cles.push('hf:intact')
-  if (s.justes >= GRANDE_SERIE && !s.categories) cles.push('hf:grande-serie')
+  if (s.justes >= GRANDE_SERIE && !s.categories && !s.sujet) cles.push('hf:grande-serie')
   return cles
 }
 
@@ -2253,8 +2276,22 @@ function versSerie(r: Record<string, unknown>): Serie {
     rejeu: Number(r.rejeu ?? 0) === 1,
     issue: r.issue === 'validee' || r.issue === 'ratee' ? r.issue : null,
     categories: lireCategories(r.categories),
+    sujet: typeof r.sujet === 'string' ? r.sujet : null,
     semaine: typeof r.semaine === 'string' ? r.semaine : null,
   }
+}
+
+/**
+ * Les sujets d'une question de la base, lus une fois : la page de la
+ * campagne les compte à chaque ouverture, cinq mille questions et dix-neuf
+ * sujets — au dixième de cœur de l'hébergeur, recompté à chaque fois, la
+ * page attendait.
+ */
+const SUJETS_LUS = new WeakMap<QuestionDeLaBase, readonly string[]>()
+function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
+  let lus = SUJETS_LUS.get(q)
+  if (!lus) SUJETS_LUS.set(q, (lus = sujetsDe(q.meta)))
+  return lus
 }
 
 /** Les catégories retenues d'une série : null — toutes, ou une série d'avant la colonne. */
@@ -2302,6 +2339,7 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
     ...(s.mode === 'serie' && s.categories && s.categories.length > 0 && { categories: s.categories }),
+    ...(s.mode === 'serie' && s.sujet && { sujet: s.sujet }),
   }
 }
 

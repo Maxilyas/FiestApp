@@ -73,6 +73,33 @@ test('la fin d’une série la rejoue sur ses catégories, ou en change sans qui
   assert.equal(module.nomDesCategories([]), null)
 })
 
+// Une série sur un sujet qui traverse les catégories (`shared/sujets.ts`,
+// `campagne-sujets.test.ts`) : sa fin le rejoue, et le choix le retient.
+test('la fin d’une série à sujet le rejoue, et le téléphone retient le sujet comme les catégories', async () => {
+  const module = await import(client('views/CampagneApp.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(
+    React.createElement(module.SuiteDeLaSerie, { categories: [], sujet: 'annees-80', correctionOuverte: false, busy: false, onRejouer: () => {}, onChanger: () => {}, onCorrection: () => {} }),
+  )
+  assert.match(html, /btn-primary[^>]*>.*Rejouer · Les années 80<\/button>/)
+  assert.match(html, /Changer de sujet/)
+  assert.equal(module.nomDuChoix(['Histoire'], 'pionnieres'), 'Pionnières', 'le sujet l’emporte sur des catégories retenues')
+  assert.equal(module.nomDuChoix(['Histoire'], null), 'Histoire')
+  assert.equal(module.nomDuChoix([], 'astrologie'), null, 'un sujet inconnu ne se nomme pas')
+  // Retenu sur le téléphone ; un sujet qu'il ne connaît plus n'y revient pas.
+  memoire.set('quizz.campagne.sujet', 'france')
+  assert.equal(module.sujetRetenu(), 'france')
+  memoire.set('quizz.campagne.sujet', 'astrologie')
+  assert.equal(module.sujetRetenu(), null)
+  memoire.delete('quizz.campagne.sujet')
+  assert.equal(module.sujetRetenu(), null)
+  // La page : un sujet de chaque famille, en grille, sous les catégories ; « Commencer » part sur celui qui se joue.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /useState<string \| null>\(sujetRetenu\)/)
+  assert.match(page, /aria-label=\{famille === 'epoque' \? 'Une époque' : 'Un fil rouge'\}/)
+  assert.match(page, /onClick=\{\(\) => void commencer\(categories, sujetJouable\)\}/)
+})
+
 // Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la
 // campagne », il ouvrait la scène seule, sans les onglets de la campagne, que
 // la reprise avait mise en tête (la remarque du propriétaire du 5 octobre
