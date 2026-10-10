@@ -336,6 +336,19 @@ test('la fiche d’un thème : « Le porter », « L’acheter », ou ce qui man
   assert.doesNotMatch(halloween, /<button/)
 })
 
+test('le rayon garde la rareté qu’on a choisie, et la quitte quand on vient d’en acheter le dernier thème', async () => {
+  const { rareteDuRayon } = await import(duClient('components/Boutique.tsx'))
+  const enRayon = (...cles: string[]) => cles.map(theme)
+  // Choisie à la main : on y reste, même au-dessus de ses moyens.
+  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean', 'licorne'), 150), 'rare')
+  // Sans choix : la plus belle à sa portée.
+  assert.equal(rareteDuRayon(null, enRayon('cahier', 'ocean', 'licorne'), 300), 'peucommune')
+  // Le dernier rare acheté : la page lisait le prix d'un thème qui n'était
+  // plus là, et tombait. Elle revient à la plus belle à sa portée.
+  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean'), 300), 'peucommune')
+  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean'), 0), 'commune', 'rien à sa portée : la première')
+})
+
 // ── Sur un serveur jetable ────────────────────────────────────────────────
 
 /** Le 29 septembre 2026, 10 h à Paris : aucune saison. */
@@ -489,6 +502,32 @@ test('un thème de saison s’achète pendant sa saison, et se garde après', ()
     assert.equal((await porter(banc, cookie, null)).corps.profile.theme, null)
     assert.equal((await porter(banc, cookie, 'halloween')).corps.profile.theme, 'halloween')
     assert.ok((await lire(banc, cookie)).boutique.possedes.includes('halloween'))
+  }))
+
+// On achète aussi un thème de saison avant qu'il ne parte, ou pour son
+// album, sans quitter celui qu'on aime (un retour de joueur du 10 octobre
+// 2026) : l'achat portait toujours le thème.
+test('un thème s’achète aussi sans se porter : celui qu’on aime reste sur le dos', () =>
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    partieDuJour(banc, idDe(banc, 'alice'), '2026-09-28', 500)
+    assert.equal((await porter(banc, cookie, 'ivoire')).corps.profile.theme, 'ivoire')
+    const garde = await ecrire(banc.url, '/api/joueur/themes', { theme: 'cahier', porter: false }, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+    assert.equal(garde.status, 200, garde.corps.error)
+    assert.equal(garde.corps.profile.theme, 'ivoire', 'Ivoire reste sur le dos')
+    assert.equal(garde.corps.boutique.porte, 'ivoire')
+    assert.ok(garde.corps.boutique.possedes.includes('cahier'))
+    assert.deepEqual(garde.corps.boutique.confettis, { gagnes: 500, depenses: 150, solde: 350 })
+    assert.equal((await lire(banc, cookie)).theme, 'ivoire')
+    // Il se porte ensuite comme tout thème à soi.
+    assert.equal((await porter(banc, cookie, 'cahier')).corps.profile.theme, 'cahier')
+    // Sans le drapeau — une page d'avant —, acheter porte, comme avant.
+    assert.equal((await acheter(banc, cookie, 'carnet')).corps.profile.theme, 'carnet')
+    // La boutique offre les deux gestes, et dit où est passé le thème gardé.
+    const BOUTIQUE = readFileSync(new URL('../../client/src/components/Boutique.tsx', import.meta.url), 'utf8')
+    assert.match(BOUTIQUE, /confirmLabel: `Acheter et porter · \$\{enConfettis\(prix\)\}`,\s*alternative: \{ label: 'L’acheter seulement' \}/)
+    assert.match(BOUTIQUE, /const refus = await acheter\(t\.key, porter\)/)
+    assert.match(BOUTIQUE, /est à toi : `\}\s*<a className="link-inline" href="\/profil#theme">/)
   }))
 
 /**

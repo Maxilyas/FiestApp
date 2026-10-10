@@ -987,6 +987,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
                   {gap === null ? '' : gap === 0 ? ' — pile-poil !' : ` — à ${formatNumber(gap)} ${v.unit} près`}
                 </p>
+                {/* Pile-poil vaut une bonne réponse : sa gerbe éclate aussi (rien pour l'anonyme, qui n'en a pas). */}
+                {gap === 0 && <GerbeDeJuste />}
               </>
             ) : (
               <SansReponse envoi={viseLaVue(envoi, v) ? envoi : null} />

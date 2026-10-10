@@ -20,10 +20,11 @@ test('la campagne s’ouvre sur son défi : le record, l’échelle et les règl
   assert.match(heros, /\{XP_PAR_JUSTE\} XP par bonne réponse, sans limite — le double pour les \{JUSTES_DOUBLEES_PAR_JOUR\} premières du jour/)
   // Les cœurs ne se lisent pas deux fois à l'oreille.
   assert.match(heros, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
-  // Les catégories en grille, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher.
+  // Les catégories en grille, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher,
+  // qui quitte aussi un sujet choisi : sur un sujet, aucune catégorie ne se dit choisie.
   assert.match(page, /<div className="categories-grille" role="group" aria-label="Catégories">/)
   assert.match(page, /<Icon name=\{EMBLEME\[c\.categorie\] \?\? 'star'\} \/>/)
-  assert.match(page, /aria-pressed=\{categories\.length === 0\} onClick=\{\(\) => setCategories\(\[\]\)\}/)
+  assert.match(page, /aria-pressed=\{!sujetJouable && categories\.length === 0\} onClick=\{\(\) => setCategories\(\[\]\)\}/)
   assert.match(source('components/Ecusson.tsx'), /export const EMBLEME: Record<string, IconName>/)
 })
 

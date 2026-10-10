@@ -7559,6 +7559,11 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .categorie-case .icon { width: 20px; height: 20px; }
 .categorie-case.active { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent); }
 .categorie-case.active .icon { color: var(--accent-text); }
+/* Les sujets, sous les catégories qu'ils traversent : une époque, puis un fil rouge, chacun son petit titre. */
+.campagne-sujets { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--edge); }
+.campagne-sujets p { margin: 0; }
+.campagne-sujets .sujets-titre { font-weight: 600; }
+.campagne-sujets .label { margin-top: 4px; }
 .campagne-xp-du-jour { margin: 0; text-align: center; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }
@@ -7585,6 +7590,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-records-grille li.atteint { color: var(--ink); }
 .campagne-records-grille li.atteint .icon, .campagne-records-grille li.atteint b { color: var(--or-text); }
 .campagne .lien-signaler { margin-top: 2px; }
+/* « Recommencer », au pied de la question : discret, comme « Quitter l'épreuve » des sentiers. */
+.serie-recommencer { align-self: center; margin-top: 6px; }
 /* La base, à l'administration : une ligne par catégorie, son compte au bout. */
 .campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
 .campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
@@ -7614,6 +7621,19 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .defi-classement h2 { margin: 4px 0 0; }
 .campagne-puces .laurier { width: 16px; height: 16px; }
 .defi-passee .jour-pastille .laurier { width: 22px; height: 22px; }
+/* Le défi entre amis : de quoi l'envoyer — le lien reste écrit, à sélectionner, sans feuille de partage ni presse-papier —, et ses défis sous celui de la semaine. */
+.duel-envoi { display: flex; flex-direction: column; gap: 8px; }
+.duel-envoi h2, .duel-envoi p { margin: 0; }
+.duel-boutons { flex-wrap: wrap; gap: 8px; }
+.duel-boutons .btn { flex: 1 1 140px; }
+.duel-lien { overflow-wrap: anywhere; user-select: all; }
+.duel-liste { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.duel-liste h2 { margin: 0; }
+.duel-liste ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+/* Un bouton de deux lignes : le texte va à la ligne (`.btn` ne le fait pas), le score garde sa place à droite. */
+.duel-ligne { justify-content: space-between; gap: 10px; padding: 8px 18px; border-radius: var(--radius-sm); text-align: left; white-space: normal; }
+.duel-ligne > span:first-child { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.duel-score { flex: none; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }
@@ -7634,6 +7654,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .pano-tete { display: flex; flex-direction: column; gap: 2px; }
 .pano-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
 .pano-tete p { margin: 0; }
+.pano-categorie { color: var(--muted); }
 /* Le lacet : sept colonnes — six paliers à l'aller, le septième dans le
    virage, cinq au retour puis la couronne —, sur deux rangées. Tout se place
    en pourcentages de la largeur, rien ne se mesure ; le virage, lui, garde
@@ -7704,6 +7725,9 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sentiers-mini i { width: 8px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .sentiers-mini i.mini-ok { background: var(--accent); box-shadow: none; }
 .sentiers-etat { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: var(--t-label); font-weight: 600; }
+/* La catégorie sous le nom, qui n'est qu'une image ; les étoiles, en or. */
+.sentiers-categorie { margin-top: -4px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; }
+.sentiers-etoiles { color: var(--or-text); white-space: nowrap; }
 .sentiers-etat .icon { width: 12px; height: 12px; color: var(--shape-2); }
 .sentiers-tuile-complete .sentiers-etat { color: var(--accent-text); font-weight: 700; }
 .sentier-portrait { display: inline-grid; place-items: center; flex: none; line-height: 0; }
@@ -8155,8 +8179,13 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .a-gagner-a-toi .a-gagner-marque { color: var(--accent-text); }
 
 /* ── Les trophées, en liste ──────────────────────────────────────────────
-   Sept collections qu'on déplie sur place, dans « Ma collection » : une
-   seule ouverte, la page tient en un écran. */
+   Dix collections qu'on déplie sur place, dans « Ma collection », rangées
+   par où elles se gagnent — une section par lieu, son nom au-dessus de sa
+   liste : une seule ouverte, la page tient en peu d'écrans. */
+.trophees-section { display: flex; flex-direction: column; gap: 6px; }
+.trophees-section + .trophees-section { margin-top: 10px; }
+.trophees-lieu { margin: 0 0 0 4px; }
+.trophees-proches { margin: 0 0 12px; }
 .trophees-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .trophee + .trophee { border-top: 1px solid var(--edge); }
 .trophee-ligne { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -8265,6 +8294,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-cher .theme-vitrine-prix { color: var(--muted); }
 .theme-saison { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; }
 .theme-fiche { grid-column: 1 / -1; }
+/* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
+.theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
 /* « Ma collection » : les thèmes en album — une page par rareté, chaque
@@ -8727,5 +8758,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .gerbe { display: none; }
 }
-/* « Ma gerbe », dans « Mon style » : ses particules en aperçu, comme une finition. */
+/* « Ma gerbe », dans « Mon thème » : ses particules en aperçu, comme une finition. */
 .gerbe-apercu { display: flex; align-items: center; justify-content: center; min-height: 2.2rem; font-size: 1.3rem; letter-spacing: 0.1em; }
+/* Une gerbe à gagner se touche — elle éclate, pour qu'on voie ce qu'on vise —
+   mais ne se porte pas : le pointillé et l'aperçu voilé d'une finition fermée,
+   sa règle lisible. */
+.finition-btn.gerbe-a-gagner { border-style: dashed; }
+.finition-btn.gerbe-a-gagner > :not(.muted) { opacity: 0.45; }

@@ -20,8 +20,15 @@ import { SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, QUESTIONS_PAR_SERIE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import { sansAccent } from '../../shared/homonymes'
 
-/** Ce que la base a déjà : elle ne descend jamais sous ce nombre (un fichier écrasé, un rangement raté). */
-const AU_MOINS = 5000
+/**
+ * Ce que la base a déjà : elle ne descend jamais sous ce nombre (un fichier
+ * écrasé, un rangement raté). Un retrait voulu le baisse dans le même commit,
+ * et dit pourquoi : le 10 octobre 2026, trente-huit questions qui posaient le
+ * même fait qu'une autre (`voisines`, `retirer`) — 5 012 questions, 4 974
+ * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
+ * Le même jour, la première génération en nombre en a rangé 306 : 5 278.
+ */
+const AU_MOINS = 5270
 
 const { questions, refusees } = lireLaBase()
 

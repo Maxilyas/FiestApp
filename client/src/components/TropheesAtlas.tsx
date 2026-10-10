@@ -12,26 +12,40 @@ import { BRANCHES } from '../../../shared/branches'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import type { PublicProfileDetail } from '../../../shared/profil'
-import { comptesDesTrophees, listesDesTrophees } from '../../../shared/collection'
+import { LIEU_DES_TROPHEES, comptesDesTrophees, listesDesTrophees, type LieuDesTrophees, type PartieDesTrophees } from '../../../shared/collection'
 
-// Les trophées, dans « Ma collection » : sept collections en liste — une
-// ligne chacune, son compte et sa jauge —, qu'on déplie sur place. Une seule
-// ouverte à la fois : sept cartes empilées faisaient une page qu'on ne lisait
-// plus. Chaque case dépliée s'ouvre sur sa règle. La vitrine, qui y tenait
-// sa ligne, se règle dans « Ma carte » : c'est la carte qui la montre.
+// Les trophées, dans « Ma collection » : dix collections en liste — une
+// ligne chacune, son compte et sa jauge —, qu'on déplie sur place, rangées
+// par où elles se gagnent : en soirée, au quiz du jour, en campagne, et
+// partout. Sept lignes mêlaient deux logiques, et la partie était
+// « incompréhensible » (un retour du 10 octobre 2026). Une seule ouverte à
+// la fois : des cartes empilées faisaient une page qu'on ne lisait plus.
+// Chaque case dépliée s'ouvre sur sa règle. La vitrine, qui y tenait sa
+// ligne, se règle dans « Ma carte » : c'est la carte qui la montre.
 
-type Collection = 'eclats' | 'ombres' | 'paliers' | 'ecussons' | 'prix' | 'jour' | 'campagne'
+type Collection = PartieDesTrophees
 
 /** Une teinte par collection : l'icône de sa ligne, son compte, sa jauge. Jamais un texte long. */
 const COULEURS: Record<Collection, string> = {
   eclats: OR,
   ombres: '#b9a6ff',
-  paliers: '#ff9f5a',
-  ecussons: '#7ccf6a',
   prix: '#ff6b8a',
+  paliers: '#ff9f5a',
   jour: '#ffd36e',
+  paliersDuJour: '#ffb454',
   campagne: '#6ec8ff',
+  paliersDeCampagne: '#59a8ff',
+  ecussons: '#7ccf6a',
+  paliersDeToujours: '#e9c46a',
 }
+
+/** Les sections, dans l'ordre : où se gagne ce qu'elles rangent. */
+const SECTIONS: { lieu: LieuDesTrophees; nom: string }[] = [
+  { lieu: 'soiree', nom: 'En soirée' },
+  { lieu: 'jour', nom: 'Au quiz du jour' },
+  { lieu: 'campagne', nom: 'En campagne' },
+  { lieu: 'partout', nom: 'Partout' },
+]
 const METAUX = ['Bronze', 'Argent', 'Or'] as const
 
 /** La branche d'une catégorie, pour sa couleur. */
@@ -115,7 +129,7 @@ export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
 
   // Ce que chaque collection montre, et son compte : la règle de « Ma
   // collection » (`shared/collection.ts`), qui fait aussi son total.
-  const { eclats, ombres, duJour, deCampagne, paliers, prix, ecussons } = listesDesTrophees(profil)
+  const { eclats, ombres, duJour, deCampagne, paliers, paliersDuJour, paliersDeCampagne, paliersDeToujours, prix, ecussons } = listesDesTrophees(profil)
   const comptes = new Map(comptesDesTrophees(profil).map(c => [c.partie, c]))
   const jour = profil.jour
   const proches = lesPlusProches(profil.hautsFaits, profil.legendaires)
@@ -191,21 +205,15 @@ export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
   const contenus: Record<Collection, ReactNode> = {
     eclats: (
       <>
-        {/* Ce qu'il peut chasser à la prochaine soirée, avant le catalogue. */}
-        {proches.length > 0 && (
-          <div className="proches">
-            <span className="label">Les plus proches</span>
-            {proches.map(p => (
-              <UnProche key={p.key} p={p} />
-            ))}
-          </div>
-        )}
         <p className="muted small">Ils se décernent à la fin de chaque soirée, et certains réveillent un légendaire.</p>
         {grille(eclats, 'Réussi')}
       </>
     ),
     ombres: grille(ombres, 'Subi'),
     paliers: <ul className="paliers">{paliers.map(palier)}</ul>,
+    paliersDuJour: <ul className="paliers">{paliersDuJour.map(palier)}</ul>,
+    paliersDeCampagne: <ul className="paliers">{paliersDeCampagne.map(palier)}</ul>,
+    paliersDeToujours: <ul className="paliers">{paliersDeToujours.map(palier)}</ul>,
     ecussons: (
       <ul className="hud-ecussons">
         {ecussons.map(e => {
@@ -265,7 +273,7 @@ export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
     campagne: (
       <>
         <p className="muted small">
-          Ceux qui se gagnent dans une série de la campagne, à trois vies.{' '}
+          Ceux qui se gagnent dans une série à trois vies, et au défi de la semaine.{' '}
           <a className="link-inline" href="/campagne">
             Jouer une série
           </a>
@@ -275,40 +283,60 @@ export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
     ),
   }
 
-  const victoires = jour?.victoires ?? 0
   const LIGNES: { cle: Collection; emoji: string; nom: string; detail: string }[] = [
     { cle: 'eclats', emoji: '⚡', nom: 'Hauts faits', detail: 'Ce qu’on réussit de remarquable en soirée' },
     { cle: 'ombres', emoji: '💥', nom: 'Coups du sort', detail: 'Les soirées où rien ne va' },
-    { cle: 'paliers', emoji: '🎖️', nom: 'Paliers', detail: 'Bronze, argent, or, sur toute ta carrière' },
-    { cle: 'ecussons', emoji: '🛡️', nom: 'Écussons', detail: 'Les bonnes réponses de chaque catégorie' },
     { cle: 'prix', emoji: '🏅', nom: 'Prix', detail: 'Ceux qu’annonce la fin d’une soirée' },
-    { cle: 'jour', emoji: '☀️', nom: 'Quiz du jour', detail: 'Tes médailles, ses hauts faits, le calendrier' },
-    { cle: 'campagne', emoji: '🧗', nom: 'Campagne', detail: 'Ce qu’on réussit dans une série à trois vies' },
+    { cle: 'paliers', emoji: '🎖️', nom: 'Paliers des soirées', detail: 'Bronze, argent, or, soirée après soirée' },
+    { cle: 'jour', emoji: '☀️', nom: 'Hauts faits du jour', detail: 'Tes médailles, ses hauts faits, le calendrier' },
+    { cle: 'paliersDuJour', emoji: '📆', nom: 'Paliers du jour', detail: 'Bronze, argent, or, jour après jour' },
+    { cle: 'campagne', emoji: '🧗', nom: 'Hauts faits de campagne', detail: 'La série à trois vies, le défi de la semaine' },
+    { cle: 'paliersDeCampagne', emoji: '⛰️', nom: 'Paliers de campagne', detail: 'Bronze, argent, or, série après série' },
+    { cle: 'ecussons', emoji: '🛡️', nom: 'Écussons', detail: 'Les bonnes réponses de chaque catégorie, où que tu joues' },
+    { cle: 'paliersDeToujours', emoji: '🌟', nom: 'Paliers de toujours', detail: 'Ton niveau, et tes Éclats de partout' },
   ]
 
   return (
-    // Sept collections en liste : une ligne chacune, qu'on déplie sur place.
-    <ul className="trophees-liste">
-      {LIGNES.map(l => {
-        const ouverte = collection === l.cle
-        const { acquis, total } = comptes.get(l.cle) ?? { acquis: 0, total: 0 }
-        return (
-          <LigneDeCollection
-            key={l.cle}
-            emoji={l.emoji}
-            nom={l.nom}
-            detail={l.detail}
-            // Le quiz du jour se compte en victoires : c'est ce qu'on y retient.
-            compte={l.cle === 'jour' ? `${victoires} victoire${victoires > 1 ? 's' : ''}` : `${acquis}/${total}`}
-            part={acquis / Math.max(1, total)}
-            couleur={COULEURS[l.cle]}
-            ouverte={ouverte}
-            onToucher={() => choisir(ouverte ? null : l.cle)}
-          >
-            {contenus[l.cle]}
-          </LigneDeCollection>
-        )
-      })}
-    </ul>
+    <>
+      {/* Ce qu'il peut chasser bientôt, d'où qu'il vienne : avant le catalogue. */}
+      {proches.length > 0 && (
+        <div className="proches trophees-proches">
+          <span className="label">Les plus proches</span>
+          {proches.map(p => (
+            <UnProche key={p.key} p={p} />
+          ))}
+        </div>
+      )}
+      {SECTIONS.map(s => (
+        <section key={s.lieu} className="trophees-section" aria-labelledby={`trophees-${s.lieu}`}>
+          <h3 id={`trophees-${s.lieu}`} className="label trophees-lieu">
+            {s.nom}
+          </h3>
+          {/* Une ligne par collection, qu'on déplie sur place. */}
+          <ul className="trophees-liste">
+            {LIGNES.filter(l => LIEU_DES_TROPHEES[l.cle] === s.lieu).map(l => {
+              const ouverte = collection === l.cle
+              const { acquis, total } = comptes.get(l.cle) ?? { acquis: 0, total: 0 }
+              return (
+                <LigneDeCollection
+                  key={l.cle}
+                  emoji={l.emoji}
+                  nom={l.nom}
+                  detail={l.detail}
+                  // Partout le même compte que la jauge : « 1 victoire » sur une jauge de hauts faits ne disait pas la même chose.
+                  compte={`${acquis}/${total}`}
+                  part={acquis / Math.max(1, total)}
+                  couleur={COULEURS[l.cle]}
+                  ouverte={ouverte}
+                  onToucher={() => choisir(ouverte ? null : l.cle)}
+                >
+                  {contenus[l.cle]}
+                </LigneDeCollection>
+              )
+            })}
+          </ul>
+        </section>
+      ))}
+    </>
   )
 }

@@ -53,7 +53,7 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
-import { gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
+import { AUCUNE_GERBE, GERBE_PAR_DEFAUT, gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -148,7 +148,8 @@ export interface ProfileRec {
   theme: string | null
   /**
    * La gerbe de ses bonnes réponses (`shared/gerbes.ts`), s'il en a choisi
-   * une. Relue à chaque affichage (`gerbePortee`), comme le fond.
+   * une — null : celle de tous ; `AUCUNE_GERBE` : aucune. Relue à chaque
+   * affichage (`gerbePortee`), comme le fond.
    */
   gerbe: string | null
   passwordHash: string
@@ -555,7 +556,7 @@ export class ProfileStore {
    * Ce que la campagne sait de lui — séries, épreuves des sentiers, défis
    * (`CampagneStore.savoirDe`) : ses écussons, « Ma carrière » et sa
    * précision, avec les soirées et le quiz du jour. Branché au démarrage
-   * comme `justesDeCampagne`.
+   * comme `confettisDeCampagne`.
    */
   savoirDeCampagne?: (profileId: string) => Promise<Savoir>
 
@@ -574,11 +575,12 @@ export class ProfileStore {
   justesDuJour?: (profileId: string) => Promise<number>
 
   /**
-   * Ses bonnes réponses en campagne (`CampagneStore.justesDe`) : un confetti
-   * chacune, comme au quiz du jour — un choix de produit, dit avec la
-   * campagne. Branchées au démarrage comme `justesDuJour`.
+   * Ses confettis de campagne (`CampagneStore.confettisDe`) : un par bonne
+   * réponse, comme au quiz du jour, et ce que paient les étoiles de ses
+   * sentiers (`CONFETTIS_DES_ETOILES`) — des choix de produit, dits avec la
+   * campagne. Branchés au démarrage comme `justesDuJour`.
    */
-  justesDeCampagne?: (profileId: string) => Promise<number>
+  confettisDeCampagne?: (profileId: string) => Promise<number>
 
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
@@ -932,10 +934,15 @@ export class ProfileStore {
     return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
   }
 
-  /** La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite encore. */
+  /**
+   * La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite
+   * encore ; sinon celle de tous (`GERBE_PAR_DEFAUT`) ; aucune s'il l'a
+   * demandé (`AUCUNE_GERBE`).
+   */
   gerbePortee(p: ProfileRec): CleDeGerbe | null {
+    if (p.gerbe === AUCUNE_GERBE) return null
     const choisie = gerbe(p.gerbe)
-    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : null
+    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : GERBE_PAR_DEFAUT
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -965,8 +972,9 @@ export class ProfileStore {
    * qu'il a achetés —, celui qu'il porte.
    *
    * Une bonne réponse, un confetti : ses soirées qui comptent
-   * (`confettisDeSoiree`), son quiz du jour et sa campagne, moins ce qu'il a
-   * dépensé — ses thèmes, ses vies des sentiers.
+   * (`confettisDeSoiree`), son quiz du jour et sa campagne — et les étoiles
+   * de ses sentiers —, moins ce qu'il a dépensé : ses thèmes, ses vies des
+   * sentiers, ses sabliers.
    * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
    * soirée retirée de l'historique emporte les siens. Le solde peut alors
    * passer sous zéro ; un achat, lui, ne se reprend jamais.
@@ -982,7 +990,7 @@ export class ProfileStore {
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
-      this.justesDeCampagne?.(p.id) ?? 0,
+      this.confettisDeCampagne?.(p.id) ?? 0,
       // Ses maîtres ouvrent le thème qui se gagne ; muets, ils ne l'ôtent qu'à cette lecture.
       this.paliersDe(p.id).then(
         x => maitresDe(x).length,
@@ -1009,12 +1017,15 @@ export class ProfileStore {
   }
 
   /**
-   * Achète un thème, et le porte : on n'achète pas un habillage pour le
-   * laisser au placard. Refusé en clair — pas assez de confettis, hors de
+   * Achète un thème — et le porte, ou le garde pour plus tard. On le portait
+   * toujours, « on n'achète pas un habillage pour le laisser au placard » ;
+   * mais on achète aussi un thème de saison avant qu'il ne parte, ou pour
+   * compléter son album, sans quitter celui qu'on aime (un retour de joueur
+   * du 10 octobre 2026). Refusé en clair — pas assez de confettis, hors de
    * sa saison, déjà à lui : la page ne le propose pas, mais un autre onglet
    * a pu dépenser entre-temps.
    */
-  acheterTheme(id: string, cle: unknown, jour: string): Promise<ProfileRec> {
+  acheterTheme(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
     return this.unAchatALaFois(id, async () => {
       const rec = await this.require(id)
       const t = themeDuCatalogue(cle)
@@ -1032,11 +1043,11 @@ export class ProfileStore {
             sql: 'INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, ?, ?)',
             args: [id, t.key, prix, Date.now()],
           },
-          { sql: 'UPDATE profiles SET theme = ? WHERE id = ?', args: [t.key, id] },
+          ...(porter ? [{ sql: 'UPDATE profiles SET theme = ? WHERE id = ?', args: [t.key, id] }] : []),
         ],
         'write',
       )
-      rec.theme = t.key
+      if (porter) rec.theme = t.key
       return rec
     })
   }
@@ -1815,9 +1826,11 @@ export class ProfileStore {
         champs.theme = choisi.key
       }
     }
-    // Une gerbe : seulement l'une de celles qu'il a gagnées ; aucune s'écrit null.
+    // Une gerbe : seulement l'une de celles qu'il a gagnées ; null, celle de
+    // tous ; et qui n'en veut aucune le dit (`AUCUNE_GERBE`).
     if (patch.gerbe !== undefined) {
       if (patch.gerbe === null || patch.gerbe === '') champs.gerbe = null
+      else if (patch.gerbe === AUCUNE_GERBE) champs.gerbe = AUCUNE_GERBE
       else {
         const choisie = gerbe(patch.gerbe)
         if (!choisie) throw new Error('Cette gerbe n’existe pas')

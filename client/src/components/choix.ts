@@ -19,7 +19,7 @@ export type ChoixDuProfil = {
   legendaire?: string | null
   titre?: string | null
   fond?: string | null
-  /** La gerbe de ses bonnes réponses, parmi celles qu'il a gagnées ; null : aucune. */
+  /** La gerbe de ses bonnes réponses, parmi celles qu'il a gagnées ; `AUCUNE_GERBE` : aucune ; null : celle de tous. */
   gerbe?: string | null
   /** Le thème de ses pages, parmi ceux qu'il a ; null : Velours. */
   theme?: string | null

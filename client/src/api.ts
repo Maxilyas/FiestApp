@@ -3,9 +3,12 @@ import type {
   CorrectionDeCampagne,
   CorrectionDeQuestion,
   DefiDeLaSemaine,
+  DuelEntreAmis,
   EtatDeCampagne,
+  FinDeSerie,
   QuestionCorrigee,
   ReponseDeCampagne,
+  ResumeDuDuel,
   SerieDeCampagne,
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
@@ -325,14 +328,15 @@ export const api = {
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**
-     * Acheter un thème en confettis, et le porter aussitôt. Pas de reprise
-     * au réveil du serveur : rejoué, un achat passé répondrait « déjà à toi ».
-     * La boutique revient telle que le serveur l'a comptée.
+     * Acheter un thème en confettis, et le porter aussitôt — ou le garder pour
+     * plus tard (`porter: false`). Pas de reprise au réveil du serveur :
+     * rejoué, un achat passé répondrait « déjà à toi ». La boutique revient
+     * telle que le serveur l'a comptée.
      */
-    acheterTheme: (theme: string) =>
+    acheterTheme: (theme: string, porter = true) =>
       req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/themes', {
         method: 'POST',
-        body: JSON.stringify({ theme }),
+        body: JSON.stringify({ theme, porter }),
       }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
@@ -358,10 +362,14 @@ export const api = {
   /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
   campagne: {
     etat: () => req<EtatDeCampagne>(DEPART.campagne),
-    commencer: (categories: string[]) => req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories }) }),
+    /** Une série neuve : sur ces catégories (aucune : toutes), ou sur un sujet qui les traverse (`shared/sujets.ts`). */
+    commencer: (categories: string[], sujet?: string | null) =>
+      req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),
     repondre: (serie: string, index: number, choix: number) =>
       req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
     correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),
+    /** « Recommencer » : la série finit là, comme perdue — son record et ses hauts faits lus sur ce qu'elle a joué. */
+    abandonner: (serie: string) => req<FinDeSerie>(`/api/campagne/serie/${encodeURIComponent(serie)}/abandon`, { method: 'POST' }),
     /** « Signaler une erreur » sur une question déjà jouée de la série. */
     signaler: (serie: string, index: number, texte: string) =>
       req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
@@ -371,6 +379,14 @@ export const api = {
      */
     defi: () => req<DefiDeLaSemaine>('/api/campagne/defi'),
     releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
+    /** Le défi entre amis : le lancer (et jouer sa propre tentative), le relire par son code, le relever, retrouver les siens. */
+    duel: {
+      lancer: (categories: string[], sujet?: string | null) =>
+        req<{ code: string; serie: SerieDeCampagne }>('/api/campagne/duel', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),
+      lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
+      relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
+      miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+    },
     /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une
      * série d'un autre mode — sa correction et ses signalements passent par

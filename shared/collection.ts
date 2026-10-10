@@ -19,7 +19,7 @@ import { FINITIONS, type PublicProfileDetail } from './profil'
 
 export type FamilleDeLaCollection = 'avatars' | 'style' | 'trophees'
 
-/** Une ligne de la collection : les avatars en trois, le style en quatre, les trophées dans les sept collections de toujours. */
+/** Une ligne de la collection : les avatars en trois, le style en quatre, les trophées en dix, rangés par où ils se gagnent. */
 export type PartieDeLaCollection =
   | 'savoir'
   | 'legendaires'
@@ -28,13 +28,49 @@ export type PartieDeLaCollection =
   | 'fonds'
   | 'gerbes'
   | 'finitions'
+  | PartieDesTrophees
+
+/** Les lignes des trophées, dans l'ordre de leurs sections (`LIEU_DES_TROPHEES`). */
+export type PartieDesTrophees =
   | 'eclats'
   | 'ombres'
-  | 'paliers'
-  | 'ecussons'
   | 'prix'
+  | 'paliers'
   | 'jour'
+  | 'paliersDuJour'
   | 'campagne'
+  | 'paliersDeCampagne'
+  | 'ecussons'
+  | 'paliersDeToujours'
+
+/**
+ * Où se gagne un trophée : sa section dans « Ma collection ». Sept lignes
+ * mêlaient deux logiques — « Hauts faits » ne montrait que les soirées,
+ * « Paliers » mêlait soirées, quiz du jour et campagne, le défi se rangeait
+ * sous la série —, et la partie était « incompréhensible » (un retour du
+ * 10 octobre 2026). Chaque trophée se range là où on le gagne.
+ */
+export type LieuDesTrophees = 'soiree' | 'jour' | 'campagne' | 'partout'
+
+export const LIEU_DES_TROPHEES: Readonly<Record<PartieDesTrophees, LieuDesTrophees>> = {
+  eclats: 'soiree',
+  ombres: 'soiree',
+  prix: 'soiree',
+  paliers: 'soiree',
+  jour: 'jour',
+  paliersDuJour: 'jour',
+  campagne: 'campagne',
+  paliersDeCampagne: 'campagne',
+  ecussons: 'partout',
+  paliersDeToujours: 'partout',
+}
+
+/**
+ * Les paliers de carrière qui comptent partout : le niveau, et les Éclats
+ * de la soirée, du quiz du jour et du défi. Les autres, sans origine, ne
+ * comptent que les soirées.
+ */
+const PALIERS_DE_TOUJOURS: ReadonlySet<string> = new Set(['hf:legende', 'hf:eclats'])
 
 export interface Compte {
   acquis: number
@@ -59,23 +95,31 @@ export type ProfilDeLaCollection = Pick<
 const eus = (liste: readonly { fois: number }[]) => liste.filter(x => x.fois > 0).length
 
 /**
- * Les sept collections des trophées, telles que leurs lignes les montrent
- * (`TropheesAtlas`) : les hauts faits de soirée à part de ceux du quiz du
- * jour et de la campagne — chacun se gagne dans son monde, et chacun a sa
- * collection —, les paliers de carrière, les prix, les écussons.
+ * Les dix collections des trophées, telles que leurs lignes les montrent
+ * (`TropheesAtlas`), rangées par où elles se gagnent : en soirée — ses
+ * hauts faits, ses coups du sort, ses prix, ses paliers —, au quiz du jour,
+ * en campagne — la série et le défi —, et partout — les écussons, que tous
+ * les modes nourrissent, le niveau et les Éclats.
  */
 export function listesDesTrophees(p: Pick<ProfilDeLaCollection, 'hautsFaits' | 'prix' | 'ecussons'>) {
   const soiree = p.hautsFaits.filter(h => h.famille === 'soiree' && !h.origine)
+  const carriere = p.hautsFaits.filter(h => h.famille === 'carriere')
   return {
     eclats: soiree.filter(h => h.ton !== 'ombre'),
     ombres: soiree.filter(h => h.ton === 'ombre'),
-    duJour: p.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'jour'),
-    deCampagne: p.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'campagne'),
-    paliers: p.hautsFaits.filter(h => h.famille === 'carriere'),
     prix: p.prix ?? [],
+    paliers: carriere.filter(h => !h.origine && !PALIERS_DE_TOUJOURS.has(h.key)),
+    duJour: p.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'jour'),
+    paliersDuJour: carriere.filter(h => h.origine === 'jour'),
+    deCampagne: p.hautsFaits.filter(h => h.famille === 'soiree' && h.origine === 'campagne'),
+    paliersDeCampagne: carriere.filter(h => h.origine === 'campagne'),
     ecussons: p.ecussons ?? [],
+    paliersDeToujours: carriere.filter(h => PALIERS_DE_TOUJOURS.has(h.key)),
   }
 }
+
+/** Des paliers de carrière : un par métal. */
+const parMetal = (paliers: readonly { fois: number }[]): Compte => ({ acquis: paliers.reduce((s, h) => s + Math.min(3, h.fois), 0), total: paliers.length * 3 })
 
 /**
  * Leur compte : un haut fait décroché, un palier de carrière par métal, un
@@ -83,17 +127,20 @@ export function listesDesTrophees(p: Pick<ProfilDeLaCollection, 'hautsFaits' | '
  * de son calendrier.
  */
 export function comptesDesTrophees(p: Pick<ProfilDeLaCollection, 'hautsFaits' | 'prix' | 'ecussons' | 'calendrier'>): LigneDuCompte[] {
-  const { eclats, ombres, duJour, deCampagne, paliers, prix, ecussons } = listesDesTrophees(p)
+  const l = listesDesTrophees(p)
   // Le calendrier n'est compté qu'avec lui : un serveur d'avant ne le dit pas.
   const pages = p.calendrier ? { acquis: p.calendrier.pages.length, total: PAGES.length } : { acquis: 0, total: 0 }
   return [
-    { partie: 'eclats', acquis: eus(eclats), total: eclats.length },
-    { partie: 'ombres', acquis: eus(ombres), total: ombres.length },
-    { partie: 'paliers', acquis: paliers.reduce((s, h) => s + Math.min(3, h.fois), 0), total: paliers.length * 3 },
-    { partie: 'ecussons', acquis: ecussons.filter(e => e.palier > 0).length, total: ecussons.length },
-    { partie: 'prix', acquis: eus(prix), total: prix.length },
-    { partie: 'jour', acquis: eus(duJour) + pages.acquis, total: duJour.length + pages.total },
-    { partie: 'campagne', acquis: eus(deCampagne), total: deCampagne.length },
+    { partie: 'eclats', acquis: eus(l.eclats), total: l.eclats.length },
+    { partie: 'ombres', acquis: eus(l.ombres), total: l.ombres.length },
+    { partie: 'prix', acquis: eus(l.prix), total: l.prix.length },
+    { partie: 'paliers', ...parMetal(l.paliers) },
+    { partie: 'jour', acquis: eus(l.duJour) + pages.acquis, total: l.duJour.length + pages.total },
+    { partie: 'paliersDuJour', ...parMetal(l.paliersDuJour) },
+    { partie: 'campagne', acquis: eus(l.deCampagne), total: l.deCampagne.length },
+    { partie: 'paliersDeCampagne', ...parMetal(l.paliersDeCampagne) },
+    { partie: 'ecussons', acquis: l.ecussons.filter(e => e.palier > 0).length, total: l.ecussons.length },
+    { partie: 'paliersDeToujours', ...parMetal(l.paliersDeToujours) },
   ]
 }
 

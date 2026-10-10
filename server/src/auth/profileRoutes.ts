@@ -530,9 +530,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
-   * Acheter un thème, en confettis, et le porter aussitôt. La réponse rend la
-   * boutique à jour : le solde qu'elle montre est celui que le serveur a
-   * compté, pas une soustraction faite dans la page.
+   * Acheter un thème, en confettis — et le porter aussitôt, ou le garder
+   * pour plus tard (`porter: false`). Sans le drapeau, une page d'avant
+   * achète et porte, comme avant. La réponse rend la boutique à jour : le
+   * solde qu'elle montre est celui que le serveur a compté, pas une
+   * soustraction faite dans la page.
    */
   app.post(
     '/api/joueur/themes',
@@ -542,7 +544,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
       const jour = jourDe(deps.maintenant())
-      const achete = await profiles.acheterTheme(me.id, req.body?.theme, jour)
+      const achete = await profiles.acheterTheme(me.id, req.body?.theme, jour, { porter: req.body?.porter !== false })
       res.json({ profile: profiles.toPublic(achete), boutique: await profiles.boutiqueDe(achete, jour) })
     }),
   )

@@ -472,7 +472,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   campagne.viesAcheteesDepuis = depuis => profiles.viesAcheteesDepuis(depuis)
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
-  profiles.justesDeCampagne = id => campagne.justesDe(id)
+  profiles.confettisDeCampagne = id => campagne.confettisDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
   profiles.moisDuJour = () => jour.aujourdhui()

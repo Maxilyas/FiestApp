@@ -88,6 +88,32 @@ test('dans un sentier, un refus s’écrit dans l’en-tête collé : il reste e
   assert.match(tete, /role="alert">[^<]*<\/p><\/div>/, 'dans l’en-tête, pas sous lui')
 })
 
+// « Le tour du monde » posait de la culture générale à qui attendait de la
+// géographie (un retour de joueur du 10 octobre 2026) : les noms des
+// sentiers sont des images, et la catégorie ne se lisait qu'une fois entré.
+// Et les étoiles, qui paient désormais, se comptent.
+test('chaque tuile dit sa catégorie et ses étoiles ; le bloc du haut, d’où viennent ses questions', async () => {
+  const e = etat({ monde: 3 }, null)
+  e.sentiers.find(s => s.branche === 'monde')!.etoiles = [3, 2, 1, ...Array(10).fill(0)]
+  const html = await rendre('CarteDesSentiers', {
+    etat: e,
+    onglets: null,
+    erreur: '',
+    choisi: 'monde',
+    onChoisir: () => {},
+    onOuvrir: () => {},
+    onReprendre: () => {},
+    onVies: () => {},
+  })
+  assert.match(html, /<b>Le tour du monde<\/b><span class="sentiers-categorie"[^>]*>Culture générale<\/span>/)
+  assert.match(html, /<b>Les océans<\/b><span class="sentiers-categorie"[^>]*>Géographie<\/span>/)
+  assert.match(html, /aria-label="Le tour du monde, Culture générale : 1 avatar sur 6, palier 4, 6 étoiles"/)
+  assert.match(html, /Palier 4<span class="sentiers-etoiles"> · ★ 6<\/span>/)
+  const bloc = html.slice(html.indexOf('class="sentiers-haut'), html.indexOf('class="sentiers-compte"'))
+  assert.match(bloc, /Ses questions : Culture générale · ★ 6 sur 39/)
+  assert.match(html, /1 avatar sur 72 · 0 maître · ★ 6/)
+})
+
 test('le bloc du haut rappelle l’épreuve laissée quand il montre un autre sentier', async () => {
   const html = await rendre('CarteDesSentiers', {
     etat: etat({ scene: 6, foret: 9 }, DANS_LA_FORET),

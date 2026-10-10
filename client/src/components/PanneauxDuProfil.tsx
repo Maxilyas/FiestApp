@@ -185,7 +185,7 @@ export function PanneauBoutique({
   busy,
   acheter,
   onSolde,
-}: Props & { acheter: (cle: string) => Promise<string | null>; /** Un objet acheté : le solde que le serveur rend. */ onSolde: (solde: number) => void }) {
+}: Props & { acheter: (cle: string, porter: boolean) => Promise<string | null>; /** Un objet acheté : le solde que le serveur rend. */ onSolde: (solde: number) => void }) {
   const [{ rayon, objet }, setLu] = useState(lireRayon)
   const choisir = (r: RayonDeLaBoutique) => {
     history.replaceState(history.state, '', r === 'objets' ? ADRESSE_DES_OBJETS : `${window.location.pathname}${window.location.search}`)

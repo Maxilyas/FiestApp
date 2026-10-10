@@ -31,7 +31,7 @@ import {
   type Paliers,
 } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
-import { GERBES } from '../../../shared/gerbes'
+import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
@@ -977,8 +977,9 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
 /**
  * Sa gerbe : ce qui éclate sur son téléphone à une bonne réponse, en soirée,
  * au quiz du jour et en campagne. Pour lui seul — ni la salle ni l'écran
- * commun n'en voient rien. Ceux qui restent à gagner se voient, avec ce
- * qu'il faut ; toucher celle qu'on porte la rejoue.
+ * commun n'en voient rien. Les confettis d'office, et « Aucune » pour qui
+ * n'en veut pas ; celles qui restent à gagner se voient avec ce qu'il faut,
+ * et éclatent au toucher pour qu'on sache ce qu'on vise — sans se porter.
  */
 export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   // L'aperçu : la gerbe qu'on vient de toucher éclate, une fois par toucher.
@@ -992,14 +993,16 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
         <Icon name="zap" />
         Ma gerbe <span className="muted small titre-compte">{`${profil.gerbes.length} / ${GERBES.length}`}</span>
       </h3>
-      <p className="muted small">Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit.</p>
+      <p className="muted small">
+        Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit. Touche-en une pour la voir, même celles à gagner.
+      </p>
       <div className="finitions gerbes-choix">
         <button
           type="button"
           className={'finition-btn' + (!porte ? ' selected' : '')}
           aria-disabled={busy || undefined}
           aria-pressed={!porte}
-          onClick={() => enregistrer({ gerbe: null })}
+          onClick={() => enregistrer({ gerbe: AUCUNE_GERBE })}
         >
           <span className="gerbe-apercu" aria-hidden="true" />
           <span className="finition-nom">Aucune</span>
@@ -1014,13 +1017,12 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
             <button
               key={g.key}
               type="button"
-              className={'finition-btn' + (choisie ? ' selected' : '')}
-              disabled={!ouverte}
+              className={'finition-btn' + (choisie ? ' selected' : '') + (ouverte ? '' : ' gerbe-a-gagner')}
               aria-disabled={busy || undefined}
-              aria-pressed={choisie}
+              aria-pressed={ouverte ? choisie : undefined}
               onClick={() => {
                 montrer(g.key)
-                if (!choisie) enregistrer({ gerbe: g.key })
+                if (ouverte && !choisie) enregistrer({ gerbe: g.key })
               }}
             >
               <span className="gerbe-apercu" aria-hidden="true">
@@ -1031,6 +1033,7 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
                 {ouverte ? (choisie ? 'portée' : 'ouverte') : g.regle}
               </span>
               {choisie && <span className="sr-only">ouverte</span>}
+              {!ouverte && <span className="sr-only">, à gagner : touche-la pour la voir</span>}
             </button>
           )
         })}

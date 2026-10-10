@@ -5,40 +5,36 @@
 //   npx tsx scripts/base-campagne.ts verifier <lot.json> …                      ce que le rangement refuserait, et pourquoi
 //   npx tsx scripts/base-campagne.ts ranger <lot.json> …                        range des lots vérifiés dans la base
 //   npx tsx scripts/base-campagne.ts stats                                      la base, par catégorie, sous-thème et difficulté
-//   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait
+//   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait, et les intitulés presque pareils
 //   npx tsx scripts/base-campagne.ts fiche <lot.json> …                         la fiche de relecture : l'essentiel de chaque question, une ligne ou trois
 //   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
+//   npx tsx scripts/base-campagne.ts retirer <id> …                              retire des questions de la base, par identifiant
 //
 // Un lot est un tableau JSON d'entrées sans identifiant, écrit par une IA
-// selon la consigne. Le rangement tire l'identifiant de chacune, écarte ce
-// que la base, les quiz livrés ou le lot lui-même ont déjà, et réécrit les
-// fichiers de la base, une question par ligne : une relecture de PR s'y
-// fait question par question.
+// selon la consigne — à la main, ou par milliers par `generer-campagne.ts`.
+// Le rangement tire l'identifiant de chacune, écarte ce que la base, les
+// quiz livrés ou le lot lui-même ont déjà — le même intitulé, ou le même
+// fait sous un autre (`core/memeFait.ts`) —, et réécrit les fichiers de la
+// base, une question par ligne : une relecture de PR s'y fait question par
+// question.
 
 import { randomBytes } from 'node:crypto'
-import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { SERVEUR } from '../src/racine'
 import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
+import { IndexDesFaits, motsDe, proximite } from '../src/core/memeFait'
 import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
 import { sansAccent } from '../../shared/homonymes'
-
-function lireLot(fichier: string): unknown[] {
-  const brut = JSON.parse(readFileSync(fichier, 'utf8')) as unknown
-  if (!Array.isArray(brut)) throw new Error(`${fichier} : un tableau JSON est attendu`)
-  return brut
-}
+import { DOSSIER_DES_LOTS, FICHIER_DE_LOT, TriDesEntrees, appliquerLesDecisions, ecrireLot, ficheDUneEntree, lireLot, type Decision } from './lots-campagne'
 
 /** Une ligne du fichier : la forme de `entreeDeLaBase`, celle des dépôts de la routine aussi. */
 const enLigne = (q: QuestionDeLaBase) => JSON.stringify(entreeDeLaBase(q))
 
 function verifier(fichiers: string[]): number {
-  const { questions: base } = lireLaBase()
-  const dansLaBase = new Set(base.map(q => q.empreinte))
-  const livres = empreintesDesLivres()
-  const vues = new Map<string, string>()
+  // Toute la base, toutes catégories, puis ce que les lots vérifiés ensemble ont déjà.
+  const tri = new TriDesEntrees(lireLaBase().questions, empreintesDesLivres())
   let refus = 0
   let avertissements = 0
   const parSousTheme = new Map<string, number>()
@@ -56,26 +52,12 @@ function verifier(fichiers: string[]): number {
     entrees.forEach((brut, i) => {
       const ou = `${path.basename(fichier)} #${i}`
       const texte = String((brut as { texte?: unknown })?.texte ?? '').slice(0, 90)
-      const lu = lireQuestionDeLaBase(brut, { sansId: true })
-      if ('refus' in lu) {
+      const jugee = tri.juger(brut, ou)
+      if ('refus' in jugee) {
         refus++
-        return console.log(`✗ REFUS ${ou} « ${texte} » — ${lu.refus}`)
+        return console.log(`✗ REFUS ${ou} « ${texte} » — ${jugee.refus}`)
       }
-      const q = lu.question
-      const deja = vues.get(q.empreinte)
-      if (deja) {
-        refus++
-        return console.log(`✗ REFUS ${ou} « ${texte} » — doublon de ${deja}`)
-      }
-      if (dansLaBase.has(q.empreinte)) {
-        refus++
-        return console.log(`✗ REFUS ${ou} « ${texte} » — déjà dans la base`)
-      }
-      if (livres.has(q.empreinte)) {
-        refus++
-        return console.log(`✗ REFUS ${ou} « ${texte} » — déjà dans un quiz livré`)
-      }
-      vues.set(q.empreinte, ou)
+      const q = jugee.question
       total++
       parSousTheme.set(q.meta.sousTheme, (parSousTheme.get(q.meta.sousTheme) ?? 0) + 1)
       parDifficulte.set(q.meta.difficulte, (parDifficulte.get(q.meta.difficulte) ?? 0) + 1)
@@ -112,79 +94,100 @@ function ranger(fichiers: string[]) {
   const { questions: base, refusees } = lireLaBase()
   if (refusees.length > 0) throw new Error(`La base a ${refusees.length} entrée(s) défectueuse(s) : corrige-les avant de ranger.`)
   const ids = new Set(base.map(q => q.id))
-  const empreintes = new Set(base.map(q => q.empreinte))
-  const livres = empreintesDesLivres()
+  const tri = new TriDesEntrees(base, empreintesDesLivres())
   const parCategorie = new Map<string, QuestionDeLaBase[]>(CATEGORIES.map(c => [c, base.filter(q => q.meta.categorie === c)]))
   let rangees = 0
   const ecartees: string[] = []
   for (const fichier of fichiers) {
     lireLot(fichier).forEach((brut, i) => {
-      const lu = lireQuestionDeLaBase(brut, { sansId: true })
       const ou = `${path.basename(fichier)} #${i}`
-      if ('refus' in lu) return ecartees.push(`${ou} — ${lu.refus}`)
-      const q = lu.question
-      if (empreintes.has(q.empreinte) || livres.has(q.empreinte)) return ecartees.push(`${ou} — déjà là : ${q.texte}`)
-      empreintes.add(q.empreinte)
+      const jugee = tri.juger(brut, ou)
+      if ('refus' in jugee) return ecartees.push(`${ou} « ${String((brut as { texte?: unknown })?.texte ?? '').slice(0, 90)} » — ${jugee.refus}`)
+      const q = jugee.question
       parCategorie.get(q.meta.categorie)!.push({ ...q, id: nouvelId(ids) })
       rangees++
     })
   }
-  mkdirSync(DOSSIER_DE_LA_BASE, { recursive: true })
-  for (const [categorie, questions] of parCategorie) {
-    if (questions.length === 0) continue
-    writeFileSync(path.join(DOSSIER_DE_LA_BASE, fichierDeCategorie(categorie)), `[\n${questions.map(enLigne).join(',\n')}\n]\n`)
-  }
+  ecrireLaBase(parCategorie)
   for (const e of ecartees) console.log(`écartée : ${e}`)
   console.log(`${rangees} question(s) rangée(s), ${ecartees.length} écartée(s). La base en compte ${base.length + rangees}.`)
 }
 
-/** Les mots qui portent le sens d'un intitulé : sans accents, sans les petits mots. */
-const VIDES = new Set(['dans', 'avec', 'quel', 'quelle', 'quels', 'quelles', 'lequel', 'laquelle', 'sont', 'était', 'etait', 'cette', 'quoi', 'pour', 'plus', 'comment', 'combien', 'nomme', 'appelle', 'appelait'])
-function mots(texte: string): Set<string> {
-  return new Set(
-    sansAccent(texte)
-      .replace(/[^a-z0-9]+/g, ' ')
-      .split(' ')
-      .filter(m => m.length > 3 && !VIDES.has(m)),
-  )
-}
-function proximite(a: Set<string>, b: Set<string>): number {
-  let communs = 0
-  for (const m of a) if (b.has(m)) communs++
-  return communs / Math.max(1, a.size + b.size - communs)
+/** Réécrit les fichiers de la base, une question par ligne — la forme exacte que `ranger` a toujours écrite. */
+function ecrireLaBase(parCategorie: ReadonlyMap<string, readonly QuestionDeLaBase[]>) {
+  mkdirSync(DOSSIER_DE_LA_BASE, { recursive: true })
+  for (const [categorie, questions] of parCategorie) {
+    const fichier = path.join(DOSSIER_DE_LA_BASE, fichierDeCategorie(categorie))
+    if (questions.length === 0 && !existsSync(fichier)) continue
+    writeFileSync(fichier, `[\n${questions.map(enLigne).join(',\n')}\n]\n`)
+  }
 }
 
 /**
- * Les questions qui posent sans doute le même fait, que l'empreinte laisse
- * passer parce qu'elles le tournent autrement : la même bonne réponse et des
- * intitulés voisins, ou deux intitulés presque pareils dans un sous-thème.
- * Une liste à relire à la main, pas un refus : « Paris » répond à bien des
- * questions différentes.
+ * Retire des questions de la base, par identifiant : un doublon que
+ * `voisines` a montré, une question dont la bonne réponse change (elle se
+ * range ensuite, neuve, sous un identifiant neuf). Ses réponses passées
+ * gardent leur série, qui a recopié la question : rien ne se perd des
+ * mesures ni des écussons.
+ */
+function retirer(ids: string[]) {
+  const { questions: base, refusees } = lireLaBase()
+  if (refusees.length > 0) throw new Error(`La base a ${refusees.length} entrée(s) défectueuse(s) : corrige-les avant de retirer.`)
+  const inconnus = ids.filter(id => !base.some(q => q.id === id))
+  if (inconnus.length > 0) throw new Error(`identifiant(s) absent(s) de la base : ${inconnus.join(', ')}`)
+  const sortir = new Set(ids)
+  ecrireLaBase(new Map(CATEGORIES.map(c => [c, base.filter(q => q.meta.categorie === c && !sortir.has(q.id))])))
+  console.log(`${sortir.size} question(s) retirée(s). La base en compte ${base.length - sortir.size}.`)
+}
+
+/**
+ * Ce qu'un humain relit d'un coup d'œil : les paires que `verifier` et
+ * `ranger` refuseraient (le même fait, `IndexDesFaits`) — dans la base, celles
+ * qu'on y a gardées ; sur des lots, entre eux et avec la base —, puis deux
+ * intitulés presque pareils dans un sous-thème, de réponses différentes, que
+ * nulle règle ne refuse : « le plus long fleuve de France » et « … d'Europe ».
  */
 function voisines(fichiers: string[]) {
-  const entrees: { ou: string; q: QuestionDeLaBase }[] = []
-  if (fichiers.length === 0) for (const q of lireLaBase().questions) entrees.push({ ou: q.id, q })
+  const base = lireLaBase().questions
+  const ou = new Map<QuestionDeLaBase, string>(base.map(q => [q, q.id]))
+  const lots: QuestionDeLaBase[] = []
   for (const f of fichiers) {
     lireLot(f).forEach((brut, i) => {
       const lu = lireQuestionDeLaBase(brut, { sansId: true })
-      if (!('refus' in lu)) entrees.push({ ou: `${path.basename(f)} #${i}`, q: lu.question })
+      if ('refus' in lu) return
+      ou.set(lu.question, `${path.basename(f)} #${i}`)
+      lots.push(lu.question)
     })
   }
-  const vus = entrees.map(e => ({ ...e, mots: mots(e.q.texte), juste: sansAccent(e.q.reponses[e.q.bonne]) }))
-  let paires = 0
-  for (let i = 0; i < vus.length; i++) {
-    for (let j = i + 1; j < vus.length; j++) {
-      const a = vus[i]
-      const b = vus[j]
-      const p = proximite(a.mots, b.mots)
-      const memeReponse = a.juste === b.juste
-      if ((memeReponse && p >= 0.34) || (a.q.meta.sousTheme === b.q.meta.sousTheme && p >= 0.6)) {
-        paires++
-        console.log(`${a.ou} « ${a.q.texte} » → ${a.q.reponses[a.q.bonne]}\n${b.ou} « ${b.q.texte} » → ${b.q.reponses[b.q.bonne]}\n`)
+  const nouvelles = new Set(lots)
+  const dire = (q: QuestionDeLaBase) => `${ou.get(q)} [${q.meta.categorie}] « ${q.texte} » → ${q.reponses[q.bonne]}`
+  // Sans lot, toute la base ; avec, chaque paire qui touche un lot.
+  const vise = ([a, b]: [QuestionDeLaBase, QuestionDeLaBase]) => nouvelles.size === 0 || nouvelles.has(a) || nouvelles.has(b)
+  let memes = 0
+  for (const paire of new IndexDesFaits([...base, ...lots]).paires()) {
+    if (!vise(paire)) continue
+    memes++
+    console.log(`${dire(paire[0])}\n${dire(paire[1])}\n`)
+  }
+  const parSousTheme = new Map<string, { q: QuestionDeLaBase; mots: Set<string> }[]>()
+  for (const q of [...base, ...lots]) {
+    const cle = `${q.meta.categorie}/${q.meta.sousTheme}`
+    const groupe = parSousTheme.get(cle) ?? parSousTheme.set(cle, []).get(cle)!
+    groupe.push({ q, mots: motsDe(q.texte) })
+  }
+  let pareils = 0
+  for (const groupe of parSousTheme.values()) {
+    for (let i = 0; i < groupe.length; i++) {
+      for (let j = i + 1; j < groupe.length; j++) {
+        const [a, b] = [groupe[i], groupe[j]]
+        if (sansAccent(a.q.reponses[a.q.bonne]) === sansAccent(b.q.reponses[b.q.bonne]) || !vise([a.q, b.q])) continue
+        if (proximite(a.mots, b.mots) < 0.6) continue
+        pareils++
+        console.log(`${dire(a.q)}\n${dire(b.q)}\n`)
       }
     }
   }
-  console.log(`${paires} paire(s) à relire sur ${vus.length} questions.`)
+  console.log(`${memes} paire(s) sur le même fait, ${pareils} paire(s) d'intitulés presque pareils, sur ${base.length + lots.length} questions.`)
 }
 
 /**
@@ -195,17 +198,7 @@ function voisines(fichiers: string[]) {
  * base tient alors dans le budget d'une session.
  */
 function fiche(fichiers: string[]) {
-  for (const f of fichiers) {
-    lireLot(f).forEach((brut, i) => {
-      const e = brut as Record<string, any>
-      const juste = e.reponses?.[e.bonne]
-      const autres = (e.reponses ?? []).filter((_: unknown, j: number) => j !== e.bonne).join(' | ')
-      console.log(`[${path.basename(f)}#${i}] (${e.sousTheme}, d${e.difficulte}, ${e.ageMin} ans) ${e.texte}`)
-      console.log(`  ✓ ${juste}   ✗ ${autres}`)
-      if (e.anecdote) console.log(`  Anecdote : ${e.anecdote}`)
-      if (e.explication) console.log(`  Explication : ${e.explication}`)
-    })
-  }
+  for (const f of fichiers) lireLot(f).forEach((brut, i) => console.log(ficheDUneEntree(`${path.basename(f)}#${i}`, brut)))
 }
 
 /**
@@ -218,37 +211,16 @@ function fiche(fichiers: string[]) {
  */
 function appliquer(fichier: string) {
   const dossier = path.dirname(fichier)
-  const decisions = JSON.parse(readFileSync(fichier, 'utf8')) as { ref: string; action: string; champs?: Record<string, unknown>; motif?: string }[]
+  const decisions = JSON.parse(readFileSync(fichier, 'utf8')) as Decision[]
   const lots = new Map<string, unknown[]>()
-  const aRetirer = new Map<string, Set<number>>()
-  let corrigees = 0
   for (const d of decisions) {
-    const [nom, n] = d.ref.split('#')
-    const index = Number(n)
+    const nom = d.ref.split('#')[0]
     if (!lots.has(nom)) lots.set(nom, lireLot(path.join(dossier, nom)))
-    const entrees = lots.get(nom)!
-    if (!Number.isInteger(index) || !entrees[index]) throw new Error(`référence inconnue : ${d.ref}`)
-    const retirer = () => (aRetirer.get(nom) ?? aRetirer.set(nom, new Set()).get(nom)!).add(index)
-    if (d.action === 'retirer') retirer()
-    else if (d.action === 'corriger') {
-      const permis = ['anecdote', 'explication', 'difficulte', 'texte']
-      const champs = Object.fromEntries(Object.entries(d.champs ?? {}).filter(([k]) => permis.includes(k)))
-      const corrigee = { ...(entrees[index] as object), ...champs }
-      if ('refus' in lireQuestionDeLaBase(corrigee, { sansId: true })) retirer()
-      else {
-        entrees[index] = corrigee
-        corrigees++
-      }
-    } else throw new Error(`action inconnue : ${d.action} (${d.ref})`)
   }
-  let retirees = 0
-  for (const [nom, entrees] of lots) {
-    const sortir = aRetirer.get(nom) ?? new Set()
-    retirees += sortir.size
-    const gardees = entrees.filter((_, i) => !sortir.has(i))
-    writeFileSync(path.join(dossier, nom), `[\n${gardees.map(e => JSON.stringify(e)).join(',\n')}\n]\n`)
-  }
-  console.log(`${corrigees} question(s) corrigée(s), ${retirees} retirée(s).`)
+  const fait = appliquerLesDecisions(decisions, lots)
+  for (const [nom, entrees] of fait.lots) ecrireLot(path.join(dossier, nom), entrees)
+  for (const d of fait.ignorees) console.log(`ignorée : ${d.ref} — aucun champ corrigeable (${Object.keys(d.champs ?? {}).join(', ') || 'aucun'})`)
+  console.log(`${fait.corrigees} question(s) corrigée(s), ${fait.retirees} retirée(s)${fait.ignorees.length > 0 ? `, ${fait.ignorees.length} correction(s) ignorée(s)` : ''}.`)
 }
 
 function stats() {
@@ -286,17 +258,7 @@ if (commande === 'verifier') {
   const c = CATEGORIES.find(x => sansAccent(x) === sansAccent(categorie ?? ''))
   if (!c || parts.length === 0) throw new Error('consigne <Catégorie> <sous-thème>:<n> … [--lot=nom] [--dossier=chemin]')
   const lot = parts.find(p => p.startsWith('--lot='))?.slice(6) ?? 'lot'
-  // Les lots attendent à côté du dépôt, dans un dossier que git ignore (`.git/info/exclude`) : rien n'y est committé.
-  const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? path.join(SERVEUR, '..', '.lots-campagne')
-  // Ce que la catégorie a déjà : la base, et les lots du dossier pas encore rangés.
-  const deja = [
-    ...lireLaBase().questions.filter(q => q.meta.categorie === c).map(q => q.texte),
-    ...readdirSync(dossier)
-      .filter(f => /^[A-Za-z0-9]+-\d+\.json$/.test(f))
-      .flatMap(f => lireLot(path.join(dossier, f)) as { texte?: string; categorie?: string }[])
-      .filter(e => e.categorie === c && typeof e.texte === 'string')
-      .map(e => e.texte!),
-  ]
+  const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? DOSSIER_DES_LOTS
   const quotas = parts
     .filter(p => !p.startsWith('--'))
     .map(p => {
@@ -304,7 +266,22 @@ if (commande === 'verifier') {
       if (!SOUS_THEMES[c].some(s => s.cle === cle)) throw new Error(`sous-thème inconnu dans ${c} : ${cle}`)
       return { cle, n: Number(n) }
     })
+  // Ce que ses sous-thèmes ont déjà : la base, et les lots du dossier pas
+  // encore rangés. Pas toute la catégorie — quatre cents intitulés, dix mille
+  // jetons par consigne — : un fait déjà posé ailleurs, `verifier` le refuse.
+  const vises = new Set(quotas.map(q => q.cle))
+  const deja = [
+    ...lireLaBase().questions.filter(q => q.meta.categorie === c && vises.has(q.meta.sousTheme)).map(q => q.texte),
+    ...(existsSync(dossier) ? readdirSync(dossier) : [])
+      .filter(f => FICHIER_DE_LOT.test(f))
+      .flatMap(f => lireLot(path.join(dossier, f)) as { texte?: string; categorie?: string; sousTheme?: string }[])
+      .filter(e => e.categorie === c && vises.has(e.sousTheme ?? '') && typeof e.texte === 'string')
+      .map(e => e.texte!),
+  ]
   process.stdout.write(consigneDEcriture(c, quotas, { sorte: 'lots', lot, dossier }, deja))
+} else if (commande === 'retirer') {
+  if (args.length === 0) throw new Error('retirer <id> …')
+  retirer(args)
 } else {
-  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | fiche | appliquer')
+  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | fiche | appliquer | retirer')
 }

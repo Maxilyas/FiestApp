@@ -144,15 +144,42 @@ export function xpDuPalier(n: number): number {
 
 /**
  * Les étoiles d'une épreuve validée : une au seuil, deux à mi-chemin du
- * sans-faute (14 sur 16 quand il en faut 12), trois pour le sans-faute.
- * Purement pour le plaisir : elles ne rapportent rien, et donnent une raison
- * de rejouer.
+ * sans-faute (13 sur 16 quand il en faut 10), trois pour le sans-faute. Elles
+ * ne rapportaient rien, et les deux dernières se jouaient pour rien ; elles
+ * paient maintenant en confettis (`CONFETTIS_DES_ETOILES`).
  */
 export function etoilesDe(justes: number, seuil: number): 0 | 1 | 2 | 3 {
   if (justes < seuil) return 0
   if (justes >= QUESTIONS_PAR_EPREUVE) return 3
   return justes >= seuil + Math.ceil((QUESTIONS_PAR_EPREUVE - seuil) / 2) ? 2 : 1
 }
+
+/**
+ * Les confettis de la meilleure note d'un palier (le choix du 10 octobre
+ * 2026, un choix de produit : les deuxième et troisième étoiles ne
+ * rapportaient rien) — deux étoiles, dix ; trois, vingt-cinq, le prix d'une
+ * vie. La première valide le palier, que son expérience paie déjà. Une fois
+ * par palier : rejouer pour la même note ne rapporte rien de plus, et une
+ * meilleure ne paie que la différence. Comme tous les confettis, relus à
+ * chaque lecture (`confettisDesEtoiles`) : la règle vaut aussi pour les
+ * étoiles d'avant elle.
+ */
+export const CONFETTIS_DES_ETOILES: Readonly<Record<0 | 1 | 2 | 3, number>> = { 0: 0, 1: 0, 2: 10, 3: PRIX_D_UNE_VIE }
+
+const confettisDeLaNote = (etoiles: number): number => CONFETTIS_DES_ETOILES[Math.max(0, Math.min(3, Math.floor(etoiles))) as 0 | 1 | 2 | 3]
+
+/** Ce que rapportent ses étoiles : la meilleure note de chaque palier de chaque sentier. */
+export function confettisDesEtoiles(sentiers: readonly { etoiles: readonly number[] }[]): number {
+  return sentiers.reduce((n, s) => n + s.etoiles.reduce((m, e) => m + confettisDeLaNote(e), 0), 0)
+}
+
+/** Ce qu'une note nouvelle rapporte sur un palier qui en avait déjà une : la différence, jamais moins que rien. */
+export function confettisDeLaNouvelleNote(avant: number, apres: number): number {
+  return Math.max(0, confettisDeLaNote(apres) - confettisDeLaNote(avant))
+}
+
+/** Ses étoiles sur un sentier, ou sur tous : la somme des meilleures notes. */
+export const etoilesDuSentier = (s: { etoiles: readonly number[] }): number => s.etoiles.reduce((n, e) => n + e, 0)
 
 export type IssueDEpreuve = 'validee' | 'ratee'
 
@@ -319,6 +346,8 @@ export interface ReponseDEpreuve {
   /** Finie et validée : ses étoiles, et si c'est sa meilleure note sur ce palier. */
   etoiles?: number
   record?: boolean
+  /** Une meilleure note qui paie (`CONFETTIS_DES_ETOILES`) : les confettis qu'elle ajoute. */
+  confettisDesEtoiles?: number
   /** Le portrait que ce palier vient d'ouvrir — la première fois seulement. */
   avatar?: string
   /** Le titre de maître que le palier de maître vient de donner. */

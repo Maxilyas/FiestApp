@@ -46,7 +46,50 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       // Seules les catégories de la liste fixe : le reste ne filtrerait rien.
       const brut: unknown = req.body?.categories
       const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
-      res.json(await deps.campagne.commencer(profil.id, categories))
+      // Un sujet traverse les catégories ; une page d'avant n'en envoie pas. Inconnu, il est refusé avec son motif.
+      const sujet: unknown = req.body?.sujet
+      res.json(await deps.campagne.commencer(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined))
+    }),
+  )
+
+  // Le défi entre amis : le lancer — sur des catégories ou un sujet, comme
+  // une série —, le relire par son code, le relever. Ses réponses passent par
+  // la porte des séries.
+  app.post(
+    '/api/campagne/duel',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const brut: unknown = req.body?.categories
+      const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
+      const sujet: unknown = req.body?.sujet
+      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/duels',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.mesDuels(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/duel/:code',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.duel(profil.id, req.params.code))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/duel/:code',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.releverUnDuel(profil.id, req.params.code))
     }),
   )
 
@@ -57,6 +100,15 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       const profil = await profilDe(req, res)
       if (!profil) return
       res.json(await deps.campagne.repondre(profil.id, String(req.params.id), Number(req.body?.index), req.body?.choix))
+    }),
+  )
+
+  // « Recommencer » : la série finit là, comme perdue ; le défi ne s'abandonne pas.
+  app.post(
+    '/api/campagne/serie/:id/abandon',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.abandonnerSerie(profil.id, String(req.params.id)))
     }),
   )
 
@@ -238,9 +290,10 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
  * La base de la campagne, pour la routine du matin qui l'agrandit — la même
  * que celle de la réserve du quiz du jour, avec le même jeton
  * (`RESERVE_TOKEN`, MISE-EN-LIGNE.md, étape 8) : ce qu'il faut écrire
- * aujourd'hui et la consigne de chaque catégorie, puis le dépôt. Le jeton
- * n'y apprend rien de plus : des intitulés déjà écrits, aucune bonne
- * réponse, ni ne retire rien. Avant la porte des animateurs — la routine
+ * aujourd'hui, la consigne commune et la part de chaque catégorie, puis le
+ * dépôt. Le jeton n'y apprend rien de plus : des intitulés déjà écrits — un
+ * refus cite celui qui pose déjà le fait —, aucune bonne réponse, et il ne
+ * retire rien. Avant la porte des animateurs — la routine
  * n'en est pas un —, derrière la protection contre les requêtes forgées.
  */
 export function mountBaseDeLaCampagne(app: Express, deps: { campagne: CampagneStore; jeton: string | null }) {

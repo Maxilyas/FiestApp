@@ -9,7 +9,16 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import React from 'react'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { PRIX_D_UNE_VIE, QUESTIONS_PAR_EPREUVE, SEUIL_DES_PALIERS, VIES_PAR_ACHAT_MAX, VIES_PAR_JOUR, lectureDuPalier, type StatsDuPalier } from '../../shared/sentiers'
+import {
+  CONFETTIS_DES_ETOILES,
+  PRIX_D_UNE_VIE,
+  QUESTIONS_PAR_EPREUVE,
+  SEUIL_DES_PALIERS,
+  VIES_PAR_ACHAT_MAX,
+  VIES_PAR_JOUR,
+  lectureDuPalier,
+  type StatsDuPalier,
+} from '../../shared/sentiers'
 
 /** Samedi 26 septembre 2026, 22 h à Paris : minuit arrive dans deux heures. */
 const DEBUT = Date.UTC(2026, 8, 26, 20, 0)
@@ -51,21 +60,27 @@ test('douze vies par jour : la treizième épreuve ratée attend minuit, ou une 
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(60, { categories: ['Nature'] }) })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
-    // Le premier palier validé, pour avoir de quoi rejouer — et seize confettis.
-    assert.equal((await epreuve(banc, lea, 'foret', 1, 16)).epreuve.issue, 'validee')
+    // Le premier palier validé à douze, pour avoir de quoi rejouer : douze
+    // confettis — une étoile, qui ne paie pas (`CONFETTIS_DES_ETOILES`).
+    assert.equal((await epreuve(banc, lea, 'foret', 1, 12)).epreuve.issue, 'validee')
 
     // Pas assez de confettis : l'achat le dit, en clair.
     const cher = await poster(banc, lea, '/api/campagne/vies', { nombre: 1 })
     assert.equal(cher.status, 400)
-    assert.equal(cher.corps.error, `Il te manque ${PRIX_D_UNE_VIE - 16} confettis pour une vie`)
+    assert.equal(cher.corps.error, `Il te manque ${PRIX_D_UNE_VIE - 12} confettis pour une vie`)
     assert.equal((await poster(banc, lea, '/api/campagne/vies', { nombre: VIES_PAR_ACHAT_MAX + 1 })).corps.error, `Choisis de 1 à ${VIES_PAR_ACHAT_MAX} vies`)
     assert.equal((await poster(banc, lea, '/api/campagne/vies', { nombre: 1.5 })).corps.error, `Choisis de 1 à ${VIES_PAR_ACHAT_MAX} vies`)
 
-    // Deux rejeux sans faute : trente-deux confettis de plus, quarante-huit en tout.
-    for (let i = 0; i < 2; i++) assert.equal((await epreuve(banc, lea, 'foret', 1, 16)).epreuve.rejeu, true)
+    // Un rejeu sans faute : seize confettis de plus, et ses trois étoiles en
+    // paient vingt-cinq — le prix d'une vie.
+    const sansFaute = await epreuve(banc, lea, 'foret', 1, 16)
+    assert.deepEqual([sansFaute.epreuve.rejeu, sansFaute.etoiles, sansFaute.confettisDesEtoiles], [true, 3, CONFETTIS_DES_ETOILES[3]])
     const achat = await poster(banc, lea, '/api/campagne/vies', { nombre: 1 })
     assert.equal(achat.status, 200, achat.corps.error)
-    assert.deepEqual([achat.corps.vies.jour, achat.corps.vies.reserve, achat.corps.confettis], [VIES_PAR_JOUR, 1, 48 - PRIX_D_UNE_VIE])
+    assert.deepEqual([achat.corps.vies.jour, achat.corps.vies.reserve, achat.corps.confettis], [VIES_PAR_JOUR, 1, 12 + 16 + CONFETTIS_DES_ETOILES[3] - PRIX_D_UNE_VIE])
+    // Trois étoiles encore : la même note ne paie pas deux fois.
+    const encore = await epreuve(banc, lea, 'foret', 1, 16)
+    assert.deepEqual([encore.etoiles, encore.confettisDesEtoiles], [3, undefined])
 
     // Douze échecs prennent celles du jour, le treizième la réserve.
     for (let i = 0; i < VIES_PAR_JOUR; i++) assert.equal((await epreuve(banc, lea, 'foret', 2, 0)).epreuve.issue, 'ratee')

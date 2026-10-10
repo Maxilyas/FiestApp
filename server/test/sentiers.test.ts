@@ -12,15 +12,20 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import {
+  CONFETTIS_DES_ETOILES,
   PALIERS,
   PALIER_DU_MAITRE,
   QUESTIONS_PAR_EPREUVE,
   SEUIL_DES_PALIERS,
   SEUIL_DU_MAITRE,
   VIES_PAR_JOUR,
+  PRIX_D_UNE_VIE,
   cleDeMaitre,
+  confettisDeLaNouvelleNote,
+  confettisDesEtoiles,
   epreuveFinie,
   etoilesDe,
+  etoilesDuSentier,
   issueDe,
   maitresDe,
   nomDuTitre,
@@ -34,8 +39,13 @@ import {
 import { BRANCHES, PALIER_DU_PORTRAIT } from '../../shared/branches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
-import { tirerUneEpreuve } from '../src/core/campagne'
+import { VUE_RECENTE_MS, parFraicheur, tirerUneEpreuve } from '../src/core/campagne'
 import { niveauDeQuestion, xpDeLaBonneReponse } from '../../shared/campagne'
+
+const HEURE_MS = 3600_000
+const JOUR_MS = 24 * HEURE_MS
+/** L'heure des tirages purs : un soir d'octobre. */
+const MAINTENANT = Date.UTC(2026, 9, 10, 20)
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -96,6 +106,18 @@ test('une épreuve se valide dès le seuil, continue pour les étoiles, s’arr�
   assert.deepEqual([8, 9, 12, 13, 15, 16].map(j => etoilesDe(j, 9)), [0, 1, 1, 2, 2, 3])
 })
 
+test('les étoiles paient en confettis : la meilleure note de chaque palier, une fois, la différence à chaque progrès', () => {
+  // Deux étoiles, dix ; trois, le prix d'une vie. La première valide : son expérience la paie déjà.
+  assert.deepEqual(CONFETTIS_DES_ETOILES, { 0: 0, 1: 0, 2: 10, 3: PRIX_D_UNE_VIE })
+  const sentier = (...etoiles: number[]) => ({ etoiles: [...etoiles, ...Array(13 - etoiles.length).fill(0)] })
+  assert.equal(confettisDesEtoiles([]), 0)
+  assert.equal(confettisDesEtoiles([sentier(3, 1, 2), sentier(2)]), PRIX_D_UNE_VIE + 10 + 10)
+  assert.equal(etoilesDuSentier(sentier(3, 1, 2)), 6)
+  // Un progrès paie la différence ; la même note, ou moins, rien.
+  assert.deepEqual([confettisDeLaNouvelleNote(0, 1), confettisDeLaNouvelleNote(1, 2), confettisDeLaNouvelleNote(2, 3), confettisDeLaNouvelleNote(0, 3)], [0, 10, 15, 25])
+  assert.deepEqual([confettisDeLaNouvelleNote(3, 3), confettisDeLaNouvelleNote(3, 2)], [0, 0])
+})
+
 test('douze vies par jour, rendues à minuit ; la réserve achetée sert ensuite, et ne périme pas', () => {
   const jour = '2026-10-05'
   assert.deepEqual(viesDe(new Map(), 0, jour), { jour: VIES_PAR_JOUR, reserve: 0 })
@@ -153,7 +175,7 @@ test('une épreuve tire son mélange, jamais vues d’abord, sans vrai-faux là 
   const mesure = new Map()
   const niveauDe = (q: { meta: { difficulte: number } }) => niveauDeQuestion(q.meta.difficulte)
 
-  const p2 = tirerUneEpreuve(base.questions, regleDuPalier(2)!, new Set(), mesure)
+  const p2 = tirerUneEpreuve(base.questions, regleDuPalier(2)!, new Map(), mesure, MAINTENANT)
   assert.equal(p2.length, 16)
   assert.equal(new Set(p2.map(x => x.question.id)).size, 16, 'seize questions différentes')
   assert.deepEqual(
@@ -164,13 +186,13 @@ test('une épreuve tire son mélange, jamais vues d’abord, sans vrai-faux là 
   for (const x of p2) assert.equal(niveauDe(x.question), x.niveau)
 
   // Jamais vues d'abord : tout ce qui a été vu passe derrière.
-  const vues = new Set(base.questions.filter(q => niveauDe(q) === 'moyen').slice(0, 10).map(q => q.id))
-  const p7 = tirerUneEpreuve(base.questions, regleDuPalier(7)!, vues, mesure)
+  const vues = new Map(base.questions.filter(q => niveauDe(q) === 'moyen').slice(0, 10).map(q => [q.id, MAINTENANT - 30 * JOUR_MS]))
+  const p7 = tirerUneEpreuve(base.questions, regleDuPalier(7)!, vues, mesure, MAINTENANT)
   assert.equal(p7.filter(x => vues.has(x.question.id)).length, 0, 'il reste assez de moyennes jamais vues')
   assert.equal(p7.filter(x => x.question.reponses.length === 2).length, 0, 'pas de vrai-faux au septième')
 
   // Au neuvième, chaque sous-thème a sa question avant qu'un autre en ait deux.
-  const p9 = tirerUneEpreuve(base.questions, regleDuPalier(9)!, new Set(), mesure)
+  const p9 = tirerUneEpreuve(base.questions, regleDuPalier(9)!, new Map(), mesure, MAINTENANT)
   const parSousTheme = new Map<string, number>()
   for (const x of p9) parSousTheme.set(x.question.meta.sousTheme, (parSousTheme.get(x.question.meta.sousTheme) ?? 0) + 1)
   assert.equal(parSousTheme.size, Math.min(16, sousThemes.length), 'toute la catégorie')
@@ -178,10 +200,63 @@ test('une épreuve tire son mélange, jamais vues d’abord, sans vrai-faux là 
 
   // Une catégorie qui manque d'un niveau emprunte au voisin : l'épreuve se joue quand même.
   const faciles = new BaseDeLaCampagne(Array.from({ length: 20 }, (_, i) => question(i, 1, sousThemes[0])))
-  const p12 = tirerUneEpreuve(faciles.questions, regleDuPalier(12)!, new Set(), mesure)
+  const p12 = tirerUneEpreuve(faciles.questions, regleDuPalier(12)!, new Map(), mesure, MAINTENANT)
   assert.equal(p12.length, 16)
   // Trop peu de questions : le sentier le dit.
-  assert.throws(() => tirerUneEpreuve(faciles.questions.slice(0, 15), regleDuPalier(1)!, new Set(), mesure), /pas encore assez de questions/)
+  assert.throws(() => tirerUneEpreuve(faciles.questions.slice(0, 15), regleDuPalier(1)!, new Map(), mesure, MAINTENANT), /pas encore assez de questions/)
+})
+
+test('les jamais vues épuisées, la plus anciennement vue revient d’abord — une vue des dernières vingt-quatre heures en dernier recours', () => {
+  const sousThemes = SOUS_THEMES.Nature.map(s => s.cle)
+  // Quarante moyennes, toutes déjà vues : la moitié il y a trois semaines,
+  // l'autre ce soir — le joueur qui use ses vies sur le septième palier.
+  const base = new BaseDeLaCampagne(Array.from({ length: 40 }, (_, i) => question(i, 3, sousThemes[i % sousThemes.length])))
+  const vueLe = (i: number) => (i % 2 === 0 ? MAINTENANT - 21 * JOUR_MS + i : MAINTENANT - HEURE_MS + i)
+  const vues = new Map(base.questions.map((q, i) => [q.id, vueLe(i)]))
+  const ceSoir = (id: string) => MAINTENANT - vues.get(id)! < VUE_RECENTE_MS
+  for (let essai = 0; essai < 20; essai++) {
+    const p7 = tirerUneEpreuve(base.questions, regleDuPalier(7)!, vues, new Map(), MAINTENANT)
+    assert.equal(p7.length, 16)
+    assert.equal(p7.filter(x => ceSoir(x.question.id)).length, 0, 'aucune des questions de ce soir, tant que les anciennes suffisent')
+  }
+  // Seize places pour vingt anciennes : les plus anciennement vues d'abord,
+  // à sous-thèmes égaux — jamais le hasard des déjà vues d'avant.
+  const anciennes = base.questions.filter(q => !ceSoir(q.id))
+  const p7 = tirerUneEpreuve(anciennes, regleDuPalier(7)!, vues, new Map(), MAINTENANT)
+  const laissees = anciennes.filter(q => !p7.some(x => x.question.id === q.id))
+  assert.equal(laissees.length, 4)
+  for (const q of laissees) {
+    const memeSousTheme = p7.filter(x => x.question.meta.sousTheme === q.meta.sousTheme)
+    for (const x of memeSousTheme) assert.ok(vues.get(x.question.id)! < vues.get(q.id)!, 'dans un sous-thème, la plus anciennement vue passe devant')
+  }
+
+  // Au neuvième palier, chaque sous-thème passe d'abord — par une question
+  // vue il y a longtemps s'il le faut, jamais par une vue ce soir quand une
+  // jamais vue attend ailleurs.
+  const neuves = Array.from({ length: 40 }, (_, i) => question(100 + i, 3, sousThemes[1 + (i % (sousThemes.length - 1))]))
+  const seuleDuSousTheme = question(99, 3, sousThemes[0])
+  const melange = new BaseDeLaCampagne([seuleDuSousTheme, ...neuves]).questions
+  const vueCeSoir = new Map([[seuleDuSousTheme.id, MAINTENANT - HEURE_MS]])
+  const p9 = tirerUneEpreuve(melange, { ...regleDuPalier(9)!, melange: { moyen: 16 } }, vueCeSoir, new Map(), MAINTENANT)
+  assert.ok(!p9.some(x => x.question.id === seuleDuSousTheme.id), 'la question de ce soir attend, même pour couvrir son sous-thème')
+  const vueIlYALongtemps = new Map([[seuleDuSousTheme.id, MAINTENANT - 30 * JOUR_MS]])
+  const p9bis = tirerUneEpreuve(melange, { ...regleDuPalier(9)!, melange: { moyen: 16 } }, vueIlYALongtemps, new Map(), MAINTENANT)
+  assert.ok(p9bis.some(x => x.question.id === seuleDuSousTheme.id), 'vue il y a un mois, elle couvre son sous-thème')
+})
+
+test('une série range ses questions : jamais vues, puis vues il y a longtemps, puis celles des dernières vingt-quatre heures', () => {
+  const vues = new Map([
+    ['ce-soir', MAINTENANT - HEURE_MS],
+    ['hier-matin', MAINTENANT - 30 * HEURE_MS],
+    ['il-y-a-un-mois', MAINTENANT - 30 * JOUR_MS],
+    ['tout-a-l-heure', MAINTENANT - 5 * 60_000],
+  ])
+  const questions = ['ce-soir', 'neuve-1', 'hier-matin', 'tout-a-l-heure', 'il-y-a-un-mois', 'neuve-2'].map(id => ({ id }))
+  assert.deepEqual(
+    parFraicheur(questions, vues, MAINTENANT).map(q => q.id),
+    ['neuve-1', 'neuve-2', 'il-y-a-un-mois', 'hier-matin', 'ce-soir', 'tout-a-l-heure'],
+    'les jamais vues gardent leur ordre (le hasard du battage) ; les autres, de la plus anciennement vue à la plus récente',
+  )
 })
 
 test('le sentier qu’on avance : l’épreuve laissée d’abord, sinon le plus haut qui n’est pas au sommet', () => {
@@ -263,6 +338,7 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
     assert.deepEqual([p1.palier, p1.seuil, p1.total, p1.rejeu, p1.question.index], [1, 10, 16, false, 0])
     const fin1 = await jouer(banc, lea, p1, 16)
     assert.deepEqual([fin1.epreuve.issue, fin1.epreuve.finie, fin1.etoiles, fin1.avatar], ['validee', true, 3, undefined])
+    assert.equal(fin1.confettisDesEtoiles, CONFETTIS_DES_ETOILES[3], 'trois étoiles : le prix d’une vie en confettis')
     assert.equal(fin1.xp, xpDeLaBonneReponse(16), 'une bonne réponse paie comme dans la série — double parmi les vingt premières du jour')
 
     // Le deuxième, à douze : validé à la dixième, l'épreuve va au bout, et le portrait tombe à la fin.
@@ -289,13 +365,14 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
     const foret = apres.sentiers.find((s: any) => s.branche === 'foret')
     assert.deepEqual([foret.paliers, foret.acquis, foret.etoiles.slice(0, 3)], [2, 0, [3, 1, 0]])
     assert.equal(apres.vies.jour, VIES_PAR_JOUR, 'aucune vie perdue')
-    assert.equal(apres.confettis, 28, 'un confetti par bonne réponse')
+    assert.equal(apres.confettis, 16 + 12 + CONFETTIS_DES_ETOILES[3], 'un confetti par bonne réponse, et les trois étoiles du premier palier')
 
-    // Rejoué, le deuxième palier ne risque rien — et une meilleure note se dit.
+    // Rejoué, le deuxième palier ne risque rien — et une meilleure note se dit, et paie.
     const rejeu = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
     assert.equal(rejeu.rejeu, true)
     const finRejeu = await jouer(banc, lea, rejeu, 15)
     assert.deepEqual([finRejeu.etoiles, finRejeu.record, finRejeu.avatar], [2, true, undefined], 'pas de second portrait')
+    assert.equal(finRejeu.confettisDesEtoiles, CONFETTIS_DES_ETOILES[2])
     const rate = await jouer(banc, lea, (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps, 0)
     assert.deepEqual([rate.epreuve.issue, rate.epreuve.fausses, rate.vies], ['ratee', 7, undefined], 'raté en rejeu : rien de perdu')
     assert.equal((await lire(banc, lea, '/api/campagne/sentiers')).corps.vies.jour, VIES_PAR_JOUR)
