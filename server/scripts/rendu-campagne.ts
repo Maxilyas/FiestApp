@@ -2,8 +2,9 @@
 // photographiés au téléphone (360 × 640) sur un serveur jetable dont
 // l'horloge avance à la main : le carnet de révision — vide, puis rempli par
 // des séries ratées, une révision et ses réponses (retrouvée, apprise,
-// ratée), sa fin, ce qu'il a appris — et le rappel en fin de série. Le
-// client construit d'abord (`npm run build -w client`).
+// ratée), sa fin, ce qu'il a appris —, le rappel en fin de série, une
+// rencontre contre un inconnu, et les sentiers à thème. Le client construit
+// d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-campagne.ts [dossier]
 import { createRequire } from 'node:module'
@@ -12,8 +13,10 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
+import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { ProfileStore } from '../src/auth/profiles'
-import { CATEGORIES } from '../../shared/categories'
+import { CATEGORIES, type Categorie } from '../../shared/categories'
+import { SOUS_THEMES } from '../../shared/etiquettes'
 
 ProfileStore.tirageEclat = () => false
 
@@ -25,7 +28,37 @@ const JOUR = 24 * 3_600_000
 /** Le mardi 6 octobre 2026, 10 h à Paris. */
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
 const horloge = { t: DEBUT }
-const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }) })
+/** Cent vingt questions des années 80, de quatre catégories et trois marches : de quoi un sentier à thème. */
+const annees80 = Array.from({ length: 120 }, (_, i) => {
+  const categorie = (['Histoire', 'Musique', 'Cinéma & séries', 'Sport'] as Categorie[])[i % 4]
+  const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${i}`)
+  const lu = lireQuestionDeLaBase({
+    id: `an80${String(i).padStart(4, '0')}`,
+    texte: `Une question des années 80, numéro ${i} : laquelle est la bonne ?`,
+    reponses: [`Bonne ${i}`, ...autres.slice(0, 3)],
+    bonne: 0,
+    anecdote: `L'anecdote de la question ${i}, en 1985.`,
+    categorie,
+    sousTheme: SOUS_THEMES[categorie][0].cle,
+    etiquettes: [],
+    difficulte: [2, 3, 4][i % 3],
+    ageMin: 10,
+    date: { valeur: '1985', precision: 'annee' },
+    entites: [],
+    portee: 'monde',
+    valeur: null,
+    leurres: autres,
+    dureeDeVie: 'stable',
+    explication: '',
+    source: null,
+    confiance: 3,
+    aRelire: [],
+  })
+  if ('refus' in lu) throw new Error(lu.refus)
+  return lu.question
+})
+const base = new BaseDeLaCampagne([...baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }).questions, ...annees80])
+const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: base })
 const navigateur = await chromium.launch({ headless: true })
 const questionsDe = (serie: string): { bonne: number; reponses: string[] }[] => {
   const d = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
@@ -180,6 +213,37 @@ try {
   await page.waitForSelector('.rencontre-liste')
   await page.locator('.rencontre-carte').scrollIntoViewIfNeeded()
   await photo('14-mes-rencontres')
+
+  // 6. Les sentiers à thème, repliés sous les douze : leurs tuiles, la fiche
+  // d'un sujet, une épreuve sans vies, et sa fin validée.
+  await ouvrir('/campagne#sentiers')
+  await page.waitForSelector('.sentiers-sujets summary')
+  await page.locator('.sentiers-sujets').scrollIntoViewIfNeeded()
+  await photo('15-sentiers-a-theme-replies')
+  await page.click('.sentiers-sujets summary')
+  await page.waitForSelector('.sujet-tuile')
+  await page.locator('.sentiers-sujets .sujets-famille').first().scrollIntoViewIfNeeded()
+  await photo('16-sentiers-a-theme')
+  await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).click()
+  await page.waitForSelector('.sujet-paliers')
+  await photo('17-fiche-d-un-theme')
+  await page.locator('.sujet-paliers button', { hasText: 'Jouer' }).click()
+  await repondre(true)
+  await photo('18-epreuve-de-theme')
+  for (let i = 1; ; i++) {
+    const suite = page.locator('.btn-primary.btn-big')
+    if ((await suite.textContent())?.includes('Voir le résultat')) break
+    await suite.click()
+    await repondre(i !== 3)
+  }
+  await page.click('text=Voir le résultat')
+  await page.waitForSelector('.epreuve-fin-tete')
+  await photo('19-fin-d-une-epreuve-de-theme', true)
+  await page.click('text=Retour aux sentiers')
+  await page.waitForSelector('.sentiers-sujets summary')
+  if (!(await page.locator('.sujet-tuile').first().isVisible())) await page.click('.sentiers-sujets summary')
+  await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).scrollIntoViewIfNeeded()
+  await photo('20-un-palier-de-theme-valide')
 } finally {
   await navigateur.close()
   await banc.close()

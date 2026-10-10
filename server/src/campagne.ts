@@ -256,6 +256,36 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Les sentiers à thème (`shared/sentiersDeSujets.ts`) ───────────────
+  // Une épreuve de sujet est une série d'un autre mode : son signalement et
+  // sa correction passent par les routes de la série, sous son identifiant.
+
+  app.get(
+    '/api/campagne/sujets',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.etatDesSujets(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/sujets/epreuve',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerUnSujet(profil.id, req.body?.sujet, req.body?.palier))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/sujets/epreuve/:id/reponse',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.repondreAuSujet(profil.id, String(req.params.id), Number(req.body?.index), req.body?.choix))
+    }),
+  )
+
   // Des vies en confettis : le profil tient le solde, la campagne les compte.
   app.post(
     '/api/campagne/vies',

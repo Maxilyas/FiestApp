@@ -105,6 +105,19 @@ import {
   type VieDesSentiers,
 } from '../../../shared/sentiers'
 import {
+  PALIERS_DES_SUJETS,
+  QUESTIONS_POUR_UN_SENTIER_DE_SUJET,
+  SEUIL_D_UN_SUJET,
+  epreuveDeSujetFinie,
+  etoilesDuSujet,
+  issueDuSujet,
+  regleDuPalierDeSujet,
+  type EpreuveDeSujet,
+  type EtatDesSujets,
+  type ReponseDuSujet,
+  type SentierDeSujet,
+} from '../../../shared/sentiersDeSujets'
+import {
   QUESTIONS_PAR_REVISION,
   suiteDeLaRevision,
   suiviDeLaQuestion,
@@ -154,9 +167,10 @@ interface Serie {
   /**
    * Une révision du carnet (`shared/revision.ts`) n'a pas de vies : ses
    * erreurs remettent la question au lendemain, rien de plus. Une rencontre
-   * rejoue la série finie d'un autre joueur, contre son score.
+   * rejoue la série finie d'un autre joueur, contre son score. Une épreuve
+   * d'un sentier à thème (`sujet`) monte un sujet en six paliers, sans vies.
    */
-  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre'
+  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -2274,6 +2288,174 @@ export class CampagneStore {
     })
   }
 
+  // ── Les sentiers à thème ────────────────────────────────────────────────
+  //
+  // Un sujet de la campagne (`shared/sujets.ts`) monté en six paliers de dix
+  // questions, sans vies (`shared/sentiersDeSujets.ts`). Une épreuve est une
+  // série d'un autre mode (`mode = 'sujet'`, son sujet, son palier, son seuil
+  // figé) : l'expérience, les confettis, la mesure des difficultés et le
+  // carnet la comptent sans rien en savoir ; les vies, les paliers à portrait
+  // et l'administration des sentiers ne regardent que les leurs.
+
+  /** Les questions qu'un sujet peut poser : la base jouable, sur lui. */
+  private async jouablesDuSujet(cle: string): Promise<QuestionDeLaBase[]> {
+    return (await this.jouables()).filter(q => sujetsDeLaQuestion(q).includes(cle))
+  }
+
+  /** Ses sentiers à thème : ceux que la base sert assez — leurs paliers, leurs étoiles —, et l'épreuve laissée en route. */
+  async etatDesSujets(profileId: string): Promise<EtatDesSujets> {
+    const [[validees, ouverte], jouables] = await Promise.all([
+      this.client.batch(
+        [
+          { sql: `SELECT sujet, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND issue = 'validee'`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+        ],
+        'read',
+      ),
+      this.jouables(),
+    ])
+    const compte = new Map<string, number>()
+    for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
+    const parSujet = new Map<string, SentierDeSujet>()
+    for (const s of SUJETS) {
+      if ((compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
+    }
+    for (const r of validees.rows) {
+      const s = parSujet.get(String(r.sujet))
+      const palier = Number(r.palier)
+      if (!s || !regleDuPalierDeSujet(palier)) continue
+      s.paliers = Math.max(s.paliers, palier)
+      s.etoiles[palier - 1] = Math.max(s.etoiles[palier - 1], etoilesDuSujet(Number(r.justes), Number(r.seuil ?? SEUIL_D_UN_SUJET)))
+    }
+    return { sujets: [...parSujet.values()], epreuve: ouverte.rows[0] ? vueDEpreuveDeSujet(versSerie(ouverte.rows[0])) : null }
+  }
+
+  /**
+   * Une épreuve d'un sentier à thème : le palier qui suit le dernier validé,
+   * ou un palier validé, rejoué. Celle laissée sur ce palier reprend ; une
+   * autre laissée se referme — sans vies, rien ne se perd à la quitter.
+   */
+  commencerUnSujet(profileId: string, cle: unknown, n: unknown): Promise<EpreuveDeSujet> {
+    return this.avecVerrou(profileId, async () => {
+      const suivi = sujetParCle(cle)
+      if (!suivi) throw new Error('Ce sentier n’existe pas')
+      const regle = regleDuPalierDeSujet(n)
+      if (!regle) throw new Error('Ce palier n’existe pas')
+      const etat = await this.etatDesSujets(profileId)
+      const sentier = etat.sujets.find(s => s.sujet === suivi.cle)
+      if (!sentier) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
+      const ouverte = etat.epreuve
+      if (ouverte) {
+        if (ouverte.sujet === suivi.cle && ouverte.palier === regle.n) {
+          const laissee = await this.serie(profileId, ouverte.id)
+          if (laissee) {
+            this.garderEnCours(laissee)
+            return vueDEpreuveDeSujet(laissee)
+          }
+        }
+        await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [this.maintenant(), ouverte.id] })
+        this.enCours.delete(profileId)
+      }
+      if (regle.n > sentier.paliers + 1) throw new Error(`Valide d’abord le palier ${sentier.paliers + 1}`)
+      const [jouables, mesure, vues] = await Promise.all([this.jouablesDuSujet(suivi.cle), this.mesures(), this.vuesPar(profileId)])
+      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const e: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions,
+        index: 0,
+        vies: 0,
+        justes: 0,
+        finieLe: null,
+        mode: 'sujet',
+        branche: null,
+        palier: regle.n,
+        seuil: regle.seuil,
+        rejeu: regle.n <= sentier.paliers,
+        issue: null,
+        categories: null,
+        sujet: suivi.cle,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, palier, seuil, rejeu, issue, sujet)
+              VALUES (?, ?, ?, 0, 0, 0, ?, NULL, 'sujet', ?, ?, ?, NULL, ?)`,
+        args: [e.id, profileId, JSON.stringify(questions), this.maintenant(), regle.n, regle.seuil, e.rejeu ? 1 : 0, suivi.cle],
+      })
+      this.garderEnCours(e)
+      return vueDEpreuveDeSujet(e)
+    })
+  }
+
+  /**
+   * Une réponse d'épreuve de sujet : comme aux sentiers — validée dès le
+   * seuil, elle va au bout pour les étoiles ; ratée dès que le seuil n'est
+   * plus possible —, sans vie à perdre. Une bonne réponse paie comme en
+   * série : un confetti, l'expérience d'une bonne réponse.
+   */
+  repondreAuSujet(profileId: string, id: string, index: number, choix: unknown): Promise<ReponseDuSujet> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = this.enCours.get(profileId)
+      const e = gardee?.id === id ? gardee : await this.serie(profileId, id)
+      // Le voisin n'en sait pas plus (invariant 3) : l'épreuve d'un autre est introuvable.
+      if (!e || e.mode !== 'sujet' || !e.sujet || !e.palier) throw new Error('Cette épreuve est introuvable')
+      if (e.finieLe !== null) throw new Error('Cette épreuve est finie')
+      if (index !== e.index) throw new Error('Cette question est passée : l’épreuve a continué sans elle')
+      const q = e.questions[e.index]
+      const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
+      const juste = c === q.bonne
+      const justes = e.justes + (juste ? 1 : 0)
+      const position = e.index + 1
+      const seuil = e.seuil ?? SEUIL_D_UN_SUJET
+      // Validée, elle le reste : les erreurs d'après ne la défont pas.
+      const issue = e.issue ?? issueDuSujet(justes, position, seuil)
+      const finie = position >= e.questions.length || epreuveDeSujetFinie(justes, position, seuil)
+      const maintenant = this.maintenant()
+      const lot: InStatement[] = [
+        {
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant],
+        },
+        { sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?', args: [position, justes, issue, finie ? maintenant : null, e.id] },
+      ]
+      // Finie et validée : ses notes d'avant sur ce palier, pour dire une meilleure.
+      if (finie && issue === 'validee') {
+        lot.unshift({
+          sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND sujet = ? AND palier = ? AND issue = 'validee' AND id <> ?`,
+          args: [profileId, e.sujet, e.palier, e.id],
+        })
+      }
+      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      let res: ResultSet[]
+      try {
+        res = await this.client.batch(lot, 'write')
+      } catch (err) {
+        this.enCours.delete(profileId)
+        throw err
+      }
+      const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
+      if (finie) this.enCours.delete(profileId)
+      else this.garderEnCours(apres)
+      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const reponse: ReponseDuSujet = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuveDeSujet(apres) }
+      if (finie && issue === 'validee') {
+        const avant = Math.max(0, ...res[0].rows.map(r => Number(r.justes)))
+        reponse.etoiles = etoilesDuSujet(justes, seuil)
+        if (avant > 0 && justes > avant) reponse.record = true
+      }
+      // Ses bonnes réponses comptent pour Le Marathonien, validée ou non,
+      // comme celles d'une épreuve des sentiers. Une étagère qui se tait n'y
+      // change rien : l'épreuve est rangée, et la fin suivante les relira.
+      if (finie) {
+        try {
+          Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
+        } catch (err) {
+          console.error('[campagne] récompenses de l’épreuve à thème non rangées :', err)
+        }
+      }
+      return reponse
+    })
+  }
+
   /**
    * Les paliers que chacun tenait de ses portraits d'avant les sentiers
    * (`core/repriseDesPortraits.ts`) : écrits une fois, en lots ; un acquis
@@ -2983,7 +3165,7 @@ function versSerie(r: Record<string, unknown>): Serie {
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
     mode:
-      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' ? r.mode : 'serie',
+      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -3208,7 +3390,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' ? r.mode : 'serie'
+  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,
@@ -3260,6 +3442,24 @@ function nouvelIdentifiant(pris: Set<string>): string {
       pris.add(id)
       return id
     }
+  }
+}
+
+/** Une épreuve de sentier à thème telle que sa page la reprend : jamais la bonne réponse de la question en cours. */
+function vueDEpreuveDeSujet(e: Serie): EpreuveDeSujet {
+  const finie = e.finieLe !== null
+  return {
+    id: e.id,
+    sujet: e.sujet ?? '',
+    palier: e.palier ?? 1,
+    rejeu: e.rejeu,
+    seuil: e.seuil ?? SEUIL_D_UN_SUJET,
+    justes: e.justes,
+    fausses: e.index - e.justes,
+    total: e.questions.length,
+    issue: e.issue,
+    finie,
+    ...(!finie && e.questions[e.index] && { question: questionMontree(e.questions[e.index], e.index) }),
   }
 }
 
@@ -3387,7 +3587,9 @@ export function tirerUneEpreuve(
   chapitre: readonly string[] = [],
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const pool = regle.sansVraiFaux ? jouables.filter(q => q.reponses.length !== 2) : jouables
-  if (pool.length < QUESTIONS_PAR_EPREUVE) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
+  // Seize aux sentiers, dix à ceux d'un sujet (`shared/sentiersDeSujets.ts`) : son mélange le dit.
+  const aTirer = Object.values(regle.melange).reduce((n, x) => n + (x ?? 0), 0)
+  if (pool.length < aTirer) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
   const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
   for (const q of melanger(pool)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
   const usage = new Map<string, number>()

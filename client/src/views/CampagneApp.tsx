@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, motifDe } from '../api'
-import { Icon, type IconName } from '../components/Icon'
+import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
+import { iconeDuSujet } from '../iconeDuSujet'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
@@ -25,7 +26,7 @@ import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
-import { SUJETS, sujetParCle, type Sujet } from '../../../shared/sujets'
+import { SUJETS, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -166,19 +167,6 @@ function retenirSujet(sujet: string | null) {
   }
 }
 
-/** L'icône d'un sujet : l'horloge pour une époque, un emblème pour un fil rouge. */
-const ICONE_DU_SUJET: Record<string, IconName> = {
-  france: 'flag',
-  pionnieres: 'award',
-  pieges: 'alert',
-  premieres: 'zap',
-  records: 'trophy',
-  surnoms: 'message',
-  mots: 'book',
-  insolite: 'eye',
-  enfance: 'star',
-}
-const iconeDuSujet = (s: Sujet): IconName => ICONE_DU_SUJET[s.cle] ?? 'clock'
 // Les sentiers par la règle même du préchargement (`donneesDuFragment`,
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
 const modeDe = (hash: string): Mode =>

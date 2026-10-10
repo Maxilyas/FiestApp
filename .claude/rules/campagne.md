@@ -4,7 +4,7 @@ paths:
   - "server/src/core/{campagne,baremeDuSolo}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{CampagneApp,Defi,Duel,Carnet,Rencontre}.tsx"
-  - "client/src/nomDuChoix.ts"
+  - "client/src/{nomDuChoix,iconeDuSujet}.ts"
   - "server/scripts/rendu-campagne.ts"
   - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-duel,campagne-ouverture,campagne-recompenses,campagne-rencontre,campagne-sujets,bareme-du-solo}.test.ts"
 ---
