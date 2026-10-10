@@ -1109,9 +1109,15 @@ par catégorie et par jour pour la campagne (`/api/campagne/base`,
 MISE-EN-LIGNE.md, étape 8) : là où il en manque le plus — sous-thèmes et
 difficultés —, jouables aussitôt déposées.
 
-**Plus tard** : des chemins à thème (les années 80, le tour de France),
-des sentiers de saison, la revanche — les questions ratées d'une semaine,
-rejouées.
+Depuis le 10 octobre 2026, la série se joue aussi sur un sujet qui
+traverse les catégories — les années 80, la France, les pionnières
+(`shared/sujets.ts`) —, et le défi de la semaine se lance entre amis. Une
+série à sujet ne fait pas la Grande Série — elle ne pose pas toutes les
+catégories — ; le défi entre amis ne décerne ni laurier ni Éclat : on se
+défierait soi-même d'un second profil.
+
+**Plus tard** : des sentiers de saison, la revanche — les questions
+ratées d'une semaine, rejouées.
 
 ---
 
