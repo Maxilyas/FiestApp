@@ -30,9 +30,12 @@ export interface QuotaDEcriture {
  * (`routine`). La routine du matin n'a pas le dépôt — ni son vérificateur,
  * ni ses agents : sa consigne l'envoyait lancer `verifier` depuis un dossier
  * qui n'existe pas chez elle. C'est le serveur qui relit à l'envoi, avec le
- * même juge, et lui rend chaque refus avec son motif.
+ * même juge, et lui rend chaque refus avec son motif. Ou d'un seul fichier
+ * que sa consigne nomme, vérifié jusqu'à zéro refus (`fichier`) : un des
+ * lots d'une génération en nombre (`scripts/generer-campagne.ts`), écrits en
+ * même temps par autant d'agents.
  */
-export type TravailDUnLot = { sorte: 'lots'; lot: string; dossier: string } | { sorte: 'routine' }
+export type TravailDUnLot = { sorte: 'lots'; lot: string; dossier: string } | { sorte: 'routine' } | { sorte: 'fichier'; fichier: string }
 
 /** Les intitulés des quiz livrés : la base ne les reprend pas, le quiz du jour s'en est amorcé. */
 export function empreintesDesLivres(): Set<string> {
@@ -52,6 +55,15 @@ function commentTravailler(travail: TravailDUnLot): string {
 2. Relis chaque question comme un correcteur exigeant avant de l'envoyer : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
 3. À l'envoi, le serveur relit chaque question avec le juge de la base : il range celles qu'il accepte et te rend chaque refusée avec son motif. Corrige ou remplace chaque refusée — une question que la base a déjà, ou dont elle pose déjà le fait, se remplace par une autre —, et renvoie seulement celles-là.`
   }
+  if (travail.sorte === 'fichier') {
+    // D'autres agents écrivent les autres lots en même temps : rien ne se touche hors de son fichier.
+    const { fichier } = travail
+    return `COMMENT TRAVAILLER
+1. Écris toutes tes questions d'un seul coup dans ${fichier} : le tableau JSON, rien d'autre.
+2. Puis lance : cd ${SERVEUR} && npx tsx scripts/base-campagne.ts verifier ${fichier} — corrige ou remplace chaque question REFUSÉE et chaque AVERTISSEMENT, et relance jusqu'à zéro refus. Une question que la base a déjà, ou dont elle pose déjà le fait, se remplace par une autre.
+3. Relis chaque question comme un correcteur exigeant avant de l'écrire : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
+4. N'écris rien d'autre que ce fichier : d'autres écrivent les lots voisins en même temps, et un correcteur relira le tien.`
+  }
   const { dossier, lot } = travail
   return `COMMENT TRAVAILLER
 1. Écris par fichiers de 30 à 40 questions, dans ${dossier}/${lot}-01.json, puis ${lot}-02.json, etc. Un fichier ne contient que le tableau JSON, rien d'autre.
@@ -69,11 +81,13 @@ function commentTravailler(travail: TravailDUnLot): string {
  * (`lireEtiquetage`, par `lireQuestionDeLaBase`) : un champ qu'elle
  * décrirait autrement serait refusé à la vérification, pas rangé.
  *
- * Deux façons de travailler : à la main, par lots rangés ensuite dans le
- * dépôt (`scripts/base-campagne.ts consigne`) ; ou chaque matin, par la
+ * Trois façons de travailler : à la main, par lots rangés ensuite dans le
+ * dépôt (`scripts/base-campagne.ts consigne`) ; chaque matin, par la
  * routine qui dépose ses questions au serveur (`/api/campagne/base`) — sa
  * commande dit alors la difficulté de chaque question, et la consigne
- * commune ne s'y lit qu'une fois pour ses douze parts.
+ * commune ne s'y lit qu'une fois pour ses douze parts — ; ou par milliers
+ * (`scripts/generer-campagne.ts`), un fichier par agent, tous écrits en même
+ * temps.
  */
 export function consigneDEcriture(
   categorie: Categorie,

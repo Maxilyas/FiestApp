@@ -1,6 +1,6 @@
 ---
 name: base-campagne
-description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire.
+description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, ou une génération en nombre.
 ---
 
 # Agrandir la base de la campagne
@@ -14,9 +14,8 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
 1. **Voir ce qui manque** : `npx tsx scripts/base-campagne.ts stats`, par
    catégorie, sous-thème et difficulté.
 2. **Le dossier des lots** : `../.lots-campagne/`, à côté du code, que git ne
-   voit jamais. Dans un clone neuf (une session cloud), crée-le et ajoute la
-   ligne `.lots-campagne/` à `.git/info/exclude` avant tout : la consigne lit ce
-   dossier, et rien n'y est committé.
+   voit jamais (`.gitignore`). Dans un clone neuf (une session cloud),
+   crée-le avant tout : la consigne lit ce dossier, et rien n'y est committé.
 3. **La consigne d'un lot** : `npx tsx scripts/base-campagne.ts consigne
    <Catégorie> <sous-thème>:<n> … --lot=<nom> > ../.lots-campagne/<nom>.consigne.md`.
    Le nom du lot ne prend que des lettres et des chiffres (`geo1`) : ses
@@ -48,3 +47,34 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
 
 Sans déploiement, la routine du matin agrandit aussi la base, par l'API
 (`/api/campagne/base`) : voir la règle `campagne-base.md`.
+
+## En nombre : des centaines, des milliers de questions
+
+`server/scripts/generer-campagne.ts` fait le plan et la paperasse ; la session
+lance les mêmes agents, en nombre. Tout passe par l'abonnement Claude : rien
+ne se paie en plus, mais chaque vague consomme les limites d'usage du forfait,
+que la routine du matin partage — mille questions, c'est une quarantaine de
+rédacteurs et une dizaine de correcteurs. Pas d'API d'Anthropic : elle se
+facture à part, et le propriétaire n'en veut pas.
+
+1. **Le plan** : `npx tsx scripts/generer-campagne.ts preparer
+   --questions=<n>` (`--categories=Géographie,Sport`, `--par-lot=30`). Il dit ce
+   qui manque à la base, en lots de trente au plus et en vagues, écrit les
+   consignes de la première vague, et donne une mission par lot.
+2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle
+   quelle, en arrière-plan, une dizaine à la fois.
+3. **La suite** : `npx tsx scripts/generer-campagne.ts suite`, après chaque
+   fournée d'agents. Elle recueille la vague écrite — le juge et le
+   dédoublonnage du rangement, entre ses lots aussi —, écrit les consignes de
+   la vague suivante et les fiches de relecture, applique les décisions
+   rendues, puis donne les missions suivantes : des `redacteur-campagne` et des
+   `relecteur-campagne` mêlés, à lancer de même. Recommence jusqu'au bilan.
+4. **Un agent qui ne rend rien** : relance sa mission. S'il échoue encore,
+   `suite --forcer` compte son lot pour vide, ou met de côté les lots d'une
+   fiche que personne n'a relue (`../.lots-campagne/<nom>/a-relire/`, à relire
+   à la main avant de les remettre dans le dossier des lots).
+5. **Ranger** : le bilan donne les commandes — `voisines`, puis `ranger
+   ../.lots-campagne/<nom>-*.json` — ; commite `server/content/campagne/`.
+
+`etat` dit où en est une génération. Une seule à la fois : pour en abandonner
+une, supprime `../.lots-campagne/<nom>/` et ses lots `<nom>-*.json`.
