@@ -8161,8 +8161,13 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .a-gagner-a-toi .a-gagner-marque { color: var(--accent-text); }
 
 /* ── Les trophées, en liste ──────────────────────────────────────────────
-   Sept collections qu'on déplie sur place, dans « Ma collection » : une
-   seule ouverte, la page tient en un écran. */
+   Dix collections qu'on déplie sur place, dans « Ma collection », rangées
+   par où elles se gagnent — une section par lieu, son nom au-dessus de sa
+   liste : une seule ouverte, la page tient en peu d'écrans. */
+.trophees-section { display: flex; flex-direction: column; gap: 6px; }
+.trophees-section + .trophees-section { margin-top: 10px; }
+.trophees-lieu { margin: 0 0 0 4px; }
+.trophees-proches { margin: 0 0 12px; }
 .trophees-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .trophee + .trophee { border-top: 1px solid var(--edge); }
 .trophee-ligne { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

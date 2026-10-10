@@ -241,14 +241,26 @@ const vecu = {
   prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
 }
 
-test('les trophées : sept collections qu’on déplie, une à la fois — la vitrine se règle dans « Ma carte »', async () => {
+test('les trophées : dix collections qu’on déplie, une à la fois, rangées par où elles se gagnent — la vitrine se règle dans « Ma carte »', async () => {
   const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu })
   assert.doesNotMatch(html, /vitrine/i, 'la vitrine a sa place dans « Ma carte »')
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
-  // La campagne a la sienne depuis ses hauts faits de série (le 5 octobre 2026).
-  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour', 'Campagne'])
-  // Toutes repliées à l'ouverture : la page tient en un écran.
-  assert.equal(html.match(/aria-expanded="false"/g)?.length, 7)
+  // La campagne a les siennes depuis ses hauts faits de série (le 5 octobre
+  // 2026) ; chacune dans la section de son lieu depuis le 10 octobre 2026.
+  assert.deepEqual(lignes, [
+    'Hauts faits',
+    'Coups du sort',
+    'Prix',
+    'Paliers des soirées',
+    'Hauts faits du jour',
+    'Paliers du jour',
+    'Hauts faits de campagne',
+    'Paliers de campagne',
+    'Écussons',
+    'Paliers de toujours',
+  ])
+  // Toutes repliées à l'ouverture.
+  assert.equal(html.match(/aria-expanded="false"/g)?.length, 10)
   assert.doesNotMatch(html, /trophee-contenu/)
   assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
   // Elles vivent dans « Ma collection », sous les avatars et le style.
