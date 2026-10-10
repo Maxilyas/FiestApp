@@ -7612,15 +7612,56 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
    règle et dont `design.test.ts` mesure le contraste ; la lueur de chaque
    branche (`--lueur`, `Atlas.tsx`) ne teinte que des fonds et des traits. */
 .onglets-campagne { margin-top: -4px; }
-/* Trois onglets au téléphone : sans leurs icônes, « Les sentiers » tient sur une ligne. */
+/* Le nom court d'un onglet ne sert qu'au téléphone. */
+.onglet-court { display: none; }
+/* Quatre onglets au téléphone, depuis le carnet : sans leurs icônes ni leur
+   article, chacun tient sur une ligne — « Les sentiers » et « Le carnet »
+   passaient sur deux. */
 @media (max-width: 420px) {
+  .onglets-campagne .onglet { gap: 4px; padding: 0 4px; }
   .onglets-campagne .onglet .icon { display: none; }
+  .onglets-campagne .onglet-nom { display: none; }
+  .onglets-campagne .onglet-court { display: inline; }
 }
 /* Le défi de la semaine : son classement sous le héros, la semaine passée dessous. */
 .defi-classement { display: flex; flex-direction: column; gap: 8px; }
 .defi-classement h2 { margin: 4px 0 0; }
 .campagne-puces .laurier { width: 16px; height: 16px; }
 .defi-passee .jour-pastille .laurier { width: 22px; height: 22px; }
+/* Ce qui attend derrière un onglet, compté : le carnet de la campagne. */
+.onglet-pastille { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+/* Le carnet de révision : ses rendez-vous en frise — trois points qui mènent à « apprise » —, ce qu'il a appris dessous. */
+.carnet-rendez-vous { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.carnet-rendez-vous li { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; line-height: 1.2; }
+.carnet-rendez-vous i { display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--lueur) 45%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--lueur) 30%, transparent); }
+.carnet-rendez-vous .carnet-apprise { flex-direction: row; align-items: flex-end; gap: 4px; color: var(--ink); }
+.carnet-rendez-vous .carnet-apprise .icon { width: 14px; height: 14px; color: var(--lueur); }
+.carnet-prochaine { margin: 4px 0; }
+.carnet-faits { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.carnet-faits li p { margin: 4px 0 0; }
+.carnet-reponse { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-text); }
+.carnet-reponse .icon { width: 16px; height: 16px; flex: none; }
+/* Retrouvée en révision : ce qu'il reste de rendez-vous, sous la bonne réponse. */
+.carnet-suite { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 6px 0 0; font-weight: 600; }
+.carnet-suite .icon { width: 18px; height: 18px; }
+/* La fin d'une série rappelle que ses erreurs reviendront : une phrase, son lien dedans — en boîte souple, le point final partait seul. */
+.carnet-rappel .icon { width: 14px; height: 14px; vertical-align: -2px; }
+/* Affronter un inconnu : sa carte sous le défi de la semaine, ses dernières rencontres, et pendant la partie, les deux scores. */
+.rencontre-carte { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.rencontre-carte h2 { margin: 0; font-size: 1.15rem; }
+.rencontre-carte p { margin: 0; }
+.rencontre-liste { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rencontre-liste li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--edge); }
+.rencontre-liste b { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
+.rencontre-adversaire { font-size: 1.25rem; line-height: 1; }
+.rencontre-issue { flex: none; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.rencontre-gagnee .rencontre-issue { color: var(--accent-text); }
+.rencontre-score { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-variant-numeric: tabular-nums; }
+.rencontre-score .muted { margin-left: auto; }
+.rencontre-final { display: flex; align-items: flex-end; justify-content: center; gap: 18px; margin: 0; }
+.rencontre-final > span:not(.rencontre-contre) { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rencontre-final b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.rencontre-contre { padding-bottom: 22px; font-size: 1.6rem; color: var(--muted); }
 /* Le défi entre amis : de quoi l'envoyer — le lien reste écrit, à sélectionner, sans feuille de partage ni presse-papier —, et ses défis sous celui de la semaine. */
 .duel-envoi { display: flex; flex-direction: column; gap: 8px; }
 .duel-envoi h2, .duel-envoi p { margin: 0; }
@@ -7762,6 +7803,38 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .jauge-expert { color: var(--shape-2); }
 .sentier-accolade { position: absolute; right: 12px; width: 8px; border: 1.5px solid var(--edge-strong); border-left: 0; border-radius: 0 6px 6px 0; }
 .sentier-accolade-nom { position: absolute; right: 24px; translate: 0 50%; writing-mode: vertical-rl; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); white-space: nowrap; }
+/* Un chapitre : son thème entre ses deux paliers, du côté que le chemin
+   laisse libre — entre la jauge et le chemin à gauche, avant l'accolade à
+   droite —, sur deux ou trois lignes, jamais sous un palier ni sous son nom. */
+.sentier-chapitre { position: absolute; translate: 0 50%; display: flex; flex-direction: column; gap: 1px; max-width: 28%; font-size: var(--t-label); line-height: 1.25; color: var(--muted); pointer-events: none; }
+.sentier-chapitre.a-gauche { left: 42px; text-align: left; }
+.sentier-chapitre.a-droite { right: 42px; text-align: right; }
+.sentier-chapitre > span { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.sentier-chapitre b { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.sentier-chapitre.chapitre-en-cours > span, .sentier-chapitre.chapitre-en-cours b { color: var(--accent-text); }
+.sentier-chapitre.chapitre-fait { opacity: var(--dim); }
+/* Les sentiers à thème, sous les douze tuiles : repliés, deux colonnes de
+   tuiles par famille — une époque, un fil rouge —, et la fiche d'un sujet en
+   six lignes, une par palier. */
+.sentiers-sujets { margin-top: 12px; }
+.sentiers-sujets > p { margin: 6px 0 8px; }
+.sujets-famille { margin-top: 8px; }
+.sujets-famille .label { display: block; margin-bottom: 6px; }
+.sujets-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.sujet-tuile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 76px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.sujet-tuile .icon { width: 18px; height: 18px; color: var(--accent-text); }
+.sujet-tuile b { font-size: 0.86rem; line-height: 1.2; }
+.sujet-etat { margin-top: auto; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+.sujet-accompli { border-color: var(--edge-strong); background: var(--accent-soft); }
+.sujet-accompli .sujet-etat { color: var(--accent-text); }
+.sujet-paliers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sujet-paliers li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
+.sujet-palier-num { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--edge-strong); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sujet-palier-fait .sujet-palier-num { border-color: var(--shape-3); color: var(--shape-3); }
+.sujet-palier-vise .sujet-palier-num { border-color: var(--accent); color: var(--accent-text); }
+.sujet-palier-avenir { opacity: var(--dim); }
+.sujet-palier-texte { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.sujet-paliers .icon { width: 16px; height: 16px; }
 .sentier-depart { position: absolute; bottom: 4px; left: 50%; translate: -50% 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .sentier-paliers { list-style: none; margin: 0; padding: 0; }
 .sentier-paliers > li { position: absolute; width: 0; height: 0; }
@@ -7798,13 +7871,13 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .epreuve-enjeu { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--edge); }
 .epreuve-enjeu p { margin: 0; font-size: 0.84rem; }
 .epreuve-barre { display: flex; flex-direction: column; gap: 6px; }
-.epreuve-cases { position: relative; display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; }
+.epreuve-cases { --cases: 16; position: relative; display: grid; grid-template-columns: repeat(var(--cases), minmax(0, 1fr)); gap: 3px; }
 .epreuve-cases i { aspect-ratio: 1; border-radius: 4px; border: 1.5px solid var(--track); }
 .epreuve-cases i.case-ok { border-color: var(--shape-3); background: var(--shape-3); }
 .epreuve-cases i.case-ko { border-color: var(--alert); background: rgba(var(--alert-rgb), 0.55); }
 .epreuve-cases i.case-neuve { animation: sentier-poser 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
 /* La ligne d'or : entre la case du seuil et la suivante. */
-.epreuve-seuil { position: absolute; top: -5px; bottom: -5px; left: calc(var(--seuil) * (100% + 3px) / 16 - 1.5px); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6); }
+.epreuve-seuil { position: absolute; top: -5px; bottom: -5px; left: calc(var(--seuil) * (100% + 3px) / var(--cases) - 1.5px); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6); }
 @keyframes sentier-poser { from { scale: 0.3; opacity: 0; } }
 .epreuve-legende { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: 0.78rem; color: var(--muted); }
 .epreuve-legende b { color: var(--ink); }

@@ -15,6 +15,20 @@ import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
+import { sujetParCle } from '../../../shared/sujets'
+import {
+  PALIERS_DES_SUJETS,
+  PALIERS_D_UN_SUJET,
+  QUESTIONS_D_UN_PALIER_DE_SUJET,
+  SEUIL_D_UN_SUJET,
+  etoilesDuSujet,
+  type EpreuveDeSujet,
+  type EtatDesSujets,
+  type ReponseDuSujet,
+  type SentierDeSujet,
+} from '../../../shared/sentiersDeSujets'
+import { iconeDuSujet } from '../iconeDuSujet'
 import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
@@ -81,6 +95,9 @@ type Ecran =
     }
   | { e: 'fin'; reponse: ReponseDEpreuve; xp: number; xpPalier: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
   | { e: 'vies'; branche: CleDeBranche | null }
+  /** Une épreuve d'un sentier à thème (`shared/sentiersDeSujets.ts`), et sa fin. */
+  | { e: 'sujet'; epreuve: EpreuveDeSujet; question: QuestionDeCampagne; reponse: ReponseDuSujet | null; choix: number | null; xp: number; justesIci: number }
+  | { e: 'finDuSujet'; reponse: ReponseDuSujet; xp: number; justesIci: number; correction: CorrectionDeCampagne[] | null }
 
 /** Les niveaux d'une épreuve, au féminin : ce sont des questions. */
 const NIVEAU_DES_QUESTIONS: Record<Niveau, [string, string]> = {
@@ -152,6 +169,8 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   const [choisi, setChoisi] = useState<CleDeBranche | null>(() => sentierDeLAdresse(window.location.hash))
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
+  // Les sentiers à thème, sous les douze : lus à côté, sans retenir la carte.
+  const [sujets, setSujets] = useState<EtatDesSujets | null>(null)
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
     window.scrollTo(0, 0)
@@ -162,9 +181,17 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     setEtat(lu)
     return lu
   }
+  const relireLesSujets = () => {
+    api.campagne.sujets
+      .etat()
+      .then(setSujets)
+      // Ils se taisent : la carte reste, sans eux.
+      .catch(() => {})
+  }
 
   useEffect(() => {
     let vivant = true
+    relireLesSujets()
     relire()
       .then(() => vivant && setEcranBrut({ e: 'carte' }))
       .catch(e => vivant && setEcranBrut({ e: 'erreur', motif: motifDe(e) }))
@@ -174,7 +201,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     // qui dit ce qu'il en coûte.
     const suivre = () => {
       setOuvert(sentierDeLAdresse(window.location.hash))
-      setEcranBrut(e => (e.e === 'fin' || e.e === 'vies' ? { e: 'carte' } : e))
+      setEcranBrut(e => (e.e === 'fin' || e.e === 'vies' || e.e === 'finDuSujet' ? { e: 'carte' } : e))
     }
     window.addEventListener('hashchange', suivre)
     window.addEventListener('popstate', suivre)
@@ -288,6 +315,52 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     }
   }
 
+  // ── Un sentier à thème : son épreuve, sans vies ──
+  const jouerUnSujet = async (cle: string, palier: number) => {
+    if (busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const epreuve = await api.campagne.sujets.commencer(cle, palier)
+      if (epreuve.question) setEcran({ e: 'sujet', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, justesIci: 0 })
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const reprendreUnSujet = (epreuve: EpreuveDeSujet) => {
+    if (epreuve.question) setEcran({ e: 'sujet', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, justesIci: 0 })
+  }
+  const repondreAuSujet = async (choix: number) => {
+    if (ecran.e !== 'sujet' || ecran.reponse || busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const reponse = await api.campagne.sujets.repondre(ecran.epreuve.id, ecran.question.index, choix)
+      setEcranBrut({ ...ecran, reponse, choix, epreuve: reponse.epreuve, xp: ecran.xp + reponse.xp, justesIci: ecran.justesIci + (reponse.juste ? 1 : 0) })
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const suivanteDuSujet = () => {
+    if (ecran.e !== 'sujet' || !ecran.reponse) return
+    const r = ecran.reponse
+    if (r.epreuve.finie || !r.epreuve.question) {
+      setEcran({ e: 'finDuSujet', reponse: r, xp: ecran.xp, justesIci: ecran.justesIci, correction: null })
+      relireLesSujets()
+      return
+    }
+    setEcran({ ...ecran, question: r.epreuve.question, reponse: null, choix: null })
+  }
+  /** Quitter une épreuve de sujet ne coûte rien : elle attend, et la suivante la referme. */
+  const quitterLeSujet = () => {
+    setEcran({ e: 'carte' })
+    relireLesSujets()
+  }
+
   const signaler = async (epreuve: string, index: number) => {
     const texte = await promptDialog({
       title: 'Signaler une erreur',
@@ -356,6 +429,42 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     )
   }
 
+  if (ecran.e === 'sujet') {
+    return (
+      <EcranDuSujet
+        ecran={ecran}
+        busy={busy}
+        erreur={erreur}
+        onRepondre={i => void repondreAuSujet(i)}
+        onSuivante={suivanteDuSujet}
+        onQuitter={quitterLeSujet}
+        onSignaler={() => void signaler(ecran.epreuve.id, ecran.question.index)}
+      />
+    )
+  }
+
+  if (ecran.e === 'finDuSujet') {
+    const e = ecran.reponse.epreuve
+    const voirCorrection = async () => {
+      try {
+        setEcranBrut({ ...ecran, correction: await api.campagne.correction(e.id) })
+      } catch (err) {
+        setErreur(motifDe(err))
+      }
+    }
+    return (
+      <FinDuSujet
+        fin={ecran}
+        busy={busy}
+        erreur={erreur}
+        onCorrection={() => void voirCorrection()}
+        onRejouer={() => void jouerUnSujet(e.sujet, e.palier)}
+        onSuivant={() => void jouerUnSujet(e.sujet, e.palier + 1)}
+        onRetour={quitterLeSujet}
+      />
+    )
+  }
+
   if (ecran.e === 'vies') {
     return (
       <PlusDeVies
@@ -396,6 +505,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
       onOuvrir={ouvrirSentier}
       onReprendre={reprendre}
       onVies={() => setEcran({ e: 'vies', branche: null })}
+      apres={sujets && sujets.sujets.length > 0 && <SentiersDeSujets etat={sujets} busy={busy} onJouer={(cle, n) => void jouerUnSujet(cle, n)} onReprendre={reprendreUnSujet} />}
     />
   )
 }
@@ -471,13 +581,31 @@ function Portrait({ cle, verrouille, taille, grand }: { cle: string; verrouille?
  * gauche, les fautes de la droite, et la ligne d'or au seuil — celle que les
  * fautes ne doivent pas franchir.
  */
-export function BarreDEpreuve({ justes, fausses, seuil, neuve }: { justes: number; fausses: number; seuil: number; neuve?: 'ok' | 'ko' | null }) {
+export function BarreDEpreuve({
+  justes,
+  fausses,
+  seuil,
+  neuve,
+  total = QUESTIONS_PAR_EPREUVE,
+}: {
+  justes: number
+  fausses: number
+  seuil: number
+  neuve?: 'ok' | 'ko' | null
+  /** Ses cases : seize aux sentiers, dix à ceux d'un sujet. */
+  total?: number
+}) {
   return (
-    <div className="epreuve-cases" role="img" aria-label={`${justes} bonne${justes > 1 ? 's' : ''} réponse${justes > 1 ? 's' : ''}, ${fausses} faute${fausses > 1 ? 's' : ''}, ${seuil} pour valider`}>
-      {Array.from({ length: QUESTIONS_PAR_EPREUVE }, (_, i) => {
+    <div
+      className="epreuve-cases"
+      style={{ '--cases': total } as CSSProperties}
+      role="img"
+      aria-label={`${justes} bonne${justes > 1 ? 's' : ''} réponse${justes > 1 ? 's' : ''}, ${fausses} faute${fausses > 1 ? 's' : ''}, ${seuil} pour valider`}
+    >
+      {Array.from({ length: total }, (_, i) => {
         const ok = i < justes
-        const ko = i >= QUESTIONS_PAR_EPREUVE - fausses
-        const neuf = (neuve === 'ok' && i === justes - 1) || (neuve === 'ko' && i === QUESTIONS_PAR_EPREUVE - fausses)
+        const ko = i >= total - fausses
+        const neuf = (neuve === 'ok' && i === justes - 1) || (neuve === 'ko' && i === total - fausses)
         return <i key={i} className={(ok ? 'case-ok' : ko ? 'case-ko' : '') + (neuf ? ' case-neuve' : '')} />
       })}
       <span className="epreuve-seuil" style={{ '--seuil': seuil } as CSSProperties} />
@@ -508,6 +636,7 @@ export function CarteDesSentiers({
   onOuvrir,
   onReprendre,
   onVies,
+  apres,
 }: {
   etat: EtatDesSentiers
   onglets: ReactNode
@@ -518,6 +647,8 @@ export function CarteDesSentiers({
   onOuvrir: (b: CleDeBranche) => void
   onReprendre: (e: EpreuveDeSentier) => void
   onVies: () => void
+  /** Sous les douze tuiles : les sentiers à thème. */
+  apres?: ReactNode
 }) {
   const avatars = etat.sentiers.reduce((n, s) => n + ouvertsDansLaBranche(brancheDe(s.branche)!, { [s.branche]: s.paliers }), 0)
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE).length
@@ -576,6 +707,7 @@ export function CarteDesSentiers({
           )
         })}
       </div>
+      {apres}
     </div>
   )
 }
@@ -717,6 +849,8 @@ function HautDesSentiers({
         <p className="muted small">{detail}</p>
         <p className="pano-categorie small">
           {`Ses questions : ${b.categorie}`}
+          {/* Le thème du chapitre que le palier à jouer ouvre, s'il en a un. */}
+          {c !== null && chapitreDuPalier(b.key, c) && ` · ${chapitreDuPalier(b.key, c)!.nom}`}
           {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
         </p>
       </div>
@@ -987,6 +1121,24 @@ export function SentierVu({
         <span className="sentier-accolade-nom" aria-hidden="true" style={{ bottom: (PLACES[8].y + PLACES[12].y) / 2 }}>
           Toute la catégorie
         </span>
+        {/* Avant, les chapitres : deux paliers, un thème (`shared/chapitres.ts`) —
+            écrit entre ses deux paliers, du côté que le chemin laisse libre. */}
+        {chapitresDe(b.key).map(c => {
+          const [bas, haut] = [PLACES[c.paliers[0] - 1], PLACES[c.paliers[1] - 1]]
+          const aGauche = (bas.x + haut.x) / 2 >= 50
+          const enCours = courant !== null && courant >= c.paliers[0] && courant <= c.paliers[1]
+          return (
+            <span
+              key={c.numero}
+              className={'sentier-chapitre' + (aGauche ? ' a-gauche' : ' a-droite') + (enCours ? ' chapitre-en-cours' : s.paliers >= c.paliers[1] ? ' chapitre-fait' : '')}
+              aria-hidden="true"
+              style={{ bottom: (bas.y + haut.y) / 2 }}
+            >
+              <span>{`Chapitre ${c.numero}`}</span>
+              <b>{c.nom}</b>
+            </span>
+          )
+        })}
         <span className="sentier-depart" aria-hidden="true">
           Départ
         </span>
@@ -999,8 +1151,10 @@ export function SentierVu({
             const p = r.avatar !== null ? b.portraits[r.avatar] : null
             const taille = r.maitre ? 64 : p ? 72 : 48
             const classes = ['sentier-palier', fait ? 'palier-fait' : vise ? 'palier-courant' : 'palier-avenir', p ? 'palier-portrait' : '', r.n === PALIERS_DU_SENTIER ? 'palier-sommet' : '', r.maitre ? 'palier-maitre' : '']
+            const chapitre = chapitreDuPalier(b.key, r.n)
             const libelle =
               (r.maitre ? 'Palier de maître, seize expertes' : `Palier ${r.n}`) +
+              (chapitre ? `, ${chapitre.nom}` : '') +
               (p ? `, ouvre ${nomDansLaPhrase(p.nom)}` : '') +
               (fait ? `, validé${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}` : vise ? ', à jouer' : '')
             return (
@@ -1117,10 +1271,18 @@ export function FicheDuPalier({
   const p = r.avatar !== null ? b.portraits[r.avatar] : null
   const sousThemes = SOUS_THEMES[b.categorie as keyof typeof SOUS_THEMES]?.length ?? 0
   const regles = [r.touteLaCategorie ? 'chaque sous-thème a sa question' : null, r.sansVraiFaux ? 'pas de vrai ou faux' : null].filter(Boolean)
+  const chapitre = chapitreDuPalier(b.key, r.n)
   return (
     <div className="sentier-fiche">
       {r.maitre && <p className="muted small">{`Après le sommet, facultatif : des questions que moins d’un joueur sur cinq trouve. En réussir plus de la moitié fait de toi le maître ${deLaBranche(b)}.`}</p>}
       <dl className="sentier-regle">
+        {/* Les huit premiers paliers ont leur thème (`shared/chapitres.ts`) : on sait ce qui attend. */}
+        {chapitre && (
+          <>
+            <dt>Thème</dt>
+            <dd>{`${chapitre.nom} · chapitre ${chapitre.numero} sur 4`}</dd>
+          </>
+        )}
         <dt>Questions</dt>
         <dd>{`${texteDuMelange(r.melange)}${r.touteLaCategorie && sousThemes > 0 ? ', de toute la catégorie' : ''}`}</dd>
         <dt>Pour valider</dt>
@@ -1533,6 +1695,13 @@ function FinDEpreuve({
   )
   if (portrait) {
     const rang = b.portraits.indexOf(portrait)
+    // Un portrait clôt son chapitre : ce qui vient ensuite, un autre thème ou toute la catégorie.
+    const chapitreSuivant = chapitreDuPalier(b.key, e.palier + 1)
+    const suite = chapitreSuivant
+      ? `Place au chapitre ${chapitreSuivant.numero} : ${chapitreSuivant.nom}.`
+      : chapitreDuPalier(b.key, e.palier)
+        ? `Du palier ${e.palier + 1} au maître : toute la catégorie.`
+        : null
     return (
       <div className="player-shell campagne sentiers" style={lueur(LUEUR[b.key])}>
         <section className="epreuve-revelation">
@@ -1547,6 +1716,7 @@ function FinDEpreuve({
           </div>
           <h1>{`${portrait.nom} est à toi`}</h1>
           <p className="muted">{`${RANGS[rang]} avatar ${deLaBranche(b)}.`}</p>
+          {suite && <p className="muted small">{suite}</p>}
         </section>
         {gains}
         {tombees}
@@ -1748,6 +1918,359 @@ export function PlusDeVies({
           </span>
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Les sentiers à thème ────────────────────────────────────────────────────
+
+/**
+ * Les sentiers à thème, sous les douze tuiles : un sujet de la campagne — une
+ * époque, un fil rouge — monté en six paliers de dix questions, sans vies
+ * (`shared/sentiersDeSujets.ts`). Repliés : la page s'ouvre sur les douze
+ * sentiers et leurs avatars, et l'on déplie celui-ci quand on veut un thème ;
+ * dépliés d'eux-mêmes quand une épreuve y attend.
+ */
+function SentiersDeSujets({
+  etat,
+  busy,
+  onJouer,
+  onReprendre,
+}: {
+  etat: EtatDesSujets
+  busy: boolean
+  onJouer: (sujet: string, palier: number) => void
+  onReprendre: (e: EpreuveDeSujet) => void
+}) {
+  const [fiche, setFiche] = useState<string | null>(null)
+  const laissee = etat.epreuve?.question ? etat.epreuve : null
+  const accomplis = etat.sujets.filter(s => s.paliers >= PALIERS_D_UN_SUJET).length
+  const sentier = fiche ? etat.sujets.find(s => s.sujet === fiche) : undefined
+  const sujet = sentier ? sujetParCle(sentier.sujet) : undefined
+  return (
+    <details className="reglages-salon sentiers-sujets" open={!!laissee || undefined}>
+      <summary>
+        <Icon name="clock" className="reglages-icone" />
+        <span>
+          <b>Les sentiers à thème</b>
+          <span className="muted small">{`${etat.sujets.length} thème${etat.sujets.length > 1 ? 's' : ''}, sans vies${accomplis > 0 ? ` · ${accomplis} accompli${accomplis > 1 ? 's' : ''}` : ''}`}</span>
+        </span>
+        <Icon name="chevron-down" className="repli-chevron" />
+      </summary>
+      <p className="muted small">{`Une époque ou un fil rouge, à travers toutes les catégories : ${PALIERS_D_UN_SUJET} paliers de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions, ${SEUIL_D_UN_SUJET} bonnes réponses pour passer. Rien à perdre : chaque bonne réponse paie comme en série.`}</p>
+      {laissee && (
+        <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
+          {`Reprendre · ${sujetParCle(laissee.sujet)?.nom ?? 'ton thème'}, palier ${laissee.palier}`}
+        </button>
+      )}
+      {(['epoque', 'fil'] as const).map(famille => {
+        const ici = etat.sujets.filter(s => sujetParCle(s.sujet)?.famille === famille)
+        if (ici.length === 0) return null
+        return (
+          <div key={famille} className="sujets-famille">
+            <p className="label">{famille === 'epoque' ? 'Une époque' : 'Un fil rouge'}</p>
+            <div className="sujets-grille">
+              {ici.map(s => {
+                const sj = sujetParCle(s.sujet)!
+                const etoiles = s.etoiles.reduce((n, e) => n + e, 0)
+                const accompli = s.paliers >= PALIERS_D_UN_SUJET
+                const ou = accompli ? 'accompli' : s.paliers === 0 ? 'à commencer' : `palier ${s.paliers + 1} sur ${PALIERS_D_UN_SUJET}`
+                return (
+                  <button
+                    key={s.sujet}
+                    type="button"
+                    className={'sujet-tuile' + (accompli ? ' sujet-accompli' : '')}
+                    aria-label={`${sj.nom} : ${ou}${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}`}
+                    onClick={() => setFiche(s.sujet)}
+                  >
+                    <Icon name={accompli ? 'crown' : iconeDuSujet(sj)} />
+                    <b>{sj.nom}</b>
+                    <span className="sujet-etat" aria-hidden="true">
+                      {accompli ? 'Accompli' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}/${PALIERS_D_UN_SUJET}`}
+                      {etoiles > 0 && ` · ★ ${etoiles}`}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+      {sentier && sujet && (
+        <Feuille titre={sujet.nom} onFermer={() => setFiche(null)}>
+          <FicheDuSentierDeSujet
+            sentier={sentier}
+            description={sujet.description}
+            busy={busy}
+            onJouer={n => {
+              setFiche(null)
+              onJouer(sentier.sujet, n)
+            }}
+          />
+        </Feuille>
+      )}
+    </details>
+  )
+}
+
+/** La fiche d'un sentier à thème : ses six paliers, ce qu'ils posent, ses étoiles — et le geste. */
+function FicheDuSentierDeSujet({ sentier: s, description, busy, onJouer }: { sentier: SentierDeSujet; description: string; busy: boolean; onJouer: (palier: number) => void }) {
+  const prochain = s.paliers < PALIERS_D_UN_SUJET ? s.paliers + 1 : null
+  return (
+    <div className="sentier-fiche">
+      <p className="muted small">{espacesFines(description)}</p>
+      <ol className="sujet-paliers">
+        {PALIERS_DES_SUJETS.map(r => {
+          const fait = s.paliers >= r.n
+          const vise = prochain === r.n
+          return (
+            <li key={r.n} className={fait ? 'sujet-palier-fait' : vise ? 'sujet-palier-vise' : 'sujet-palier-avenir'}>
+              <span className="sujet-palier-num" aria-hidden="true">
+                {fait ? <Icon name="check" /> : r.n}
+              </span>
+              <span className="sujet-palier-texte">
+                <b>{`Palier ${r.n}`}</b>
+                <span className="muted small">{texteDuMelange(r.melange)}</span>
+              </span>
+              {fait ? (
+                <button type="button" className="btn btn-ghost btn-small" aria-disabled={busy || undefined} aria-label={`Rejouer le palier ${r.n}`} onClick={() => onJouer(r.n)}>
+                  {(s.etoiles[r.n - 1] ?? 0) > 0 ? <Etoiles n={s.etoiles[r.n - 1]} /> : 'Rejouer'}
+                </button>
+              ) : vise ? (
+                <button type="button" className="btn btn-primary btn-small" aria-disabled={busy || undefined} onClick={() => onJouer(r.n)}>
+                  Jouer
+                </button>
+              ) : (
+                <Icon name="lock" />
+              )}
+            </li>
+          )
+        })}
+      </ol>
+      {prochain === null && <p className="campagne-record-battu">Sentier accompli : rejoue un palier pour ses étoiles.</p>}
+    </div>
+  )
+}
+
+/** Une épreuve de sentier à thème : la barre de ses dix cases, la question, sa révélation — sans vies. */
+function EcranDuSujet({
+  ecran,
+  busy,
+  erreur,
+  onRepondre,
+  onSuivante,
+  onQuitter,
+  onSignaler,
+}: {
+  ecran: Extract<Ecran, { e: 'sujet' }>
+  busy: boolean
+  erreur: string
+  onRepondre: (i: number) => void
+  onSuivante: () => void
+  onQuitter: () => void
+  onSignaler: () => void
+}) {
+  const { epreuve: e, question: q, reponse: r } = ecran
+  const sujet = sujetParCle(e.sujet)
+  const valide = e.issue === 'validee'
+  const reste = Math.max(0, e.seuil - e.justes)
+  const permises = e.total - e.seuil - e.fausses
+  return (
+    <div className="player-shell campagne sentiers">
+      <div className="quiz-player epreuve">
+        <div className="quiz-topbar">
+          <span className="label">{`${sujet?.nom ?? 'Thème'} · palier ${e.palier} · ${q.index + 1}/${e.total}`}</span>
+          {e.rejeu && <span className="label epreuve-rejeu">Rejeu</span>}
+        </div>
+        <div className="epreuve-barre">
+          <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} total={e.total} neuve={r ? (r.juste ? 'ok' : 'ko') : null} />
+          <div className="epreuve-legende">
+            {valide ? (
+              <span>
+                <b>Validé !</b>
+                {` Encore ${e.total - e.justes - e.fausses} question${e.total - e.justes - e.fausses > 1 ? 's' : ''} pour les étoiles`}
+              </span>
+            ) : (
+              <>
+                <span>
+                  <b>{e.justes}</b>
+                  {` bonne${e.justes > 1 ? 's' : ''} · encore `}
+                  <b>{reste}</b>
+                  {' pour valider'}
+                </span>
+                <span>
+                  <b>{e.fausses}</b>
+                  {` faute${e.fausses > 1 ? 's' : ''} · `}
+                  {permises > 1 ? `${permises} permises` : permises === 1 ? 'plus qu’une permise' : 'plus aucune permise'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <span className="label quiz-categorie">{[NOM_NIVEAU[q.niveau], q.categorie].filter(Boolean).join(' · ')}</span>
+        <h2 className={'quiz-question' + questionSizeClass(q.texte)}>{espacesFines(q.texte)}</h2>
+        {!r ? (
+          <div className={'ans-grid' + answersSizeClass(q.reponses)}>
+            {q.reponses.map((a, i) => (
+              <button key={i} className="ans-btn" aria-disabled={busy || undefined} {...toucher(() => onRepondre(i))}>
+                <Shape index={i} />
+                <span className="ans-text">{espacesFines(a)}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className={'card result-banner ' + (r.juste ? 'result-ok' : 'result-ko')} role="status">
+              {r.juste ? (
+                <>
+                  <span className="big">🎊 +1</span>
+                  <p>Bien joué !{r.xp > 0 ? ` +${r.xp} XP` : ''}</p>
+                  <GerbeDeJuste />
+                </>
+              ) : (
+                <>
+                  <span className="result-icon">
+                    <Icon name="x-circle" />
+                  </span>
+                  <p>{r.epreuve.issue === 'ratee' && !valide ? 'Raté… la ligne d’or est franchie' : 'Raté…'}</p>
+                </>
+              )}
+              <p className="muted">
+                La bonne réponse : <Shape index={r.bonne} inline />
+                <strong>{espacesFines(q.reponses[r.bonne])}</strong>
+              </p>
+            </div>
+            {r.anecdote && (
+              <p className="card anecdote">
+                <Icon name="message" />
+                <span>
+                  <b>Le saviez-vous ?</b> {espacesFines(r.anecdote)}
+                </span>
+              </p>
+            )}
+            <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuivante}>
+              {r.epreuve.finie ? 'Voir le résultat' : 'Question suivante'}
+            </button>
+            <button type="button" className="lien-signaler link-inline small" onClick={onSignaler}>
+              Signaler une erreur dans cette question
+            </button>
+          </>
+        )}
+        {erreur && (
+          <p className="error" role="alert">
+            {erreur}
+          </p>
+        )}
+        {!r?.epreuve.finie && (
+          <button type="button" className="btn btn-ghost btn-small epreuve-quitter" onClick={onQuitter}>
+            Quitter · elle t’attendra
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** La fin d'une épreuve de sentier à thème : validée — ses étoiles, le palier d'après — ou à réessayer, sans rien perdre. */
+function FinDuSujet({
+  fin,
+  busy,
+  erreur,
+  onCorrection,
+  onRejouer,
+  onSuivant,
+  onRetour,
+}: {
+  fin: Extract<Ecran, { e: 'finDuSujet' }>
+  busy: boolean
+  erreur: string
+  onCorrection: () => void
+  onRejouer: () => void
+  onSuivant: () => void
+  onRetour: () => void
+}) {
+  const r = fin.reponse
+  const e = r.epreuve
+  const sujet = sujetParCle(e.sujet)
+  const validee = e.issue === 'validee'
+  const etoiles = r.etoiles ?? etoilesDuSujet(e.justes, e.seuil)
+  const dernier = e.palier >= PALIERS_D_UN_SUJET
+  const s = e.justes > 1 ? 's' : ''
+  return (
+    <div className="player-shell campagne sentiers">
+      <header className="fin-tete epreuve-fin-tete">
+        <span className={'label' + (validee ? ' epreuve-validee' : '')}>{`${sujet?.nom ?? 'Thème'} · palier ${e.palier} sur ${PALIERS_D_UN_SUJET}`}</span>
+        {validee && <Etoiles n={etoiles} grandes />}
+        <h1>{!validee ? 'Pas cette fois' : dernier && !e.rejeu ? 'Sentier accompli !' : e.rejeu ? 'Rejoué' : 'Palier validé'}</h1>
+        <p className="muted small">{`${e.justes} bonne${s} réponse${s} sur ${e.total}${validee ? '' : ` : il en fallait ${e.seuil}`}.`}</p>
+        {r.record && <p className="campagne-record-battu">Ta meilleure note sur ce palier</p>}
+      </header>
+      <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} total={e.total} />
+      <div className="epreuve-gains">
+        <span>
+          <b>🎊 +{fin.justesIci}</b>
+          {`confetti${fin.justesIci > 1 ? 's' : ''}`}
+        </span>
+        <span>
+          <b>+{fin.xp}</b>
+          XP
+        </span>
+      </div>
+      {fin.xp > 0 && <BarreDeNiveau />}
+      {/* Le Marathonien et ce qu'il ouvre, validée ou non : il compte toutes les bonnes réponses. */}
+      {!!r.recompenses?.length && (
+        <section className="card campagne-recompenses">
+          {r.recompenses.map(x => (
+            <RecompenseTombee key={x.key} recompense={x} />
+          ))}
+        </section>
+      )}
+      {(r.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+      {erreur && <p className="error">{erreur}</p>}
+      {validee && !dernier && !e.rejeu ? (
+        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>
+          <Icon name="play" />
+          {`Jouer le palier ${e.palier + 1}`}
+        </button>
+      ) : !validee ? (
+        <>
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
+            <Icon name="rotate" />
+            Réessayer
+          </button>
+          <p className="muted small centre">D’autres questions, et rien à perdre.</p>
+        </>
+      ) : null}
+      {validee && etoiles < 3 && (
+        <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
+          <Icon name="rotate" />
+          {`Rejouer pour ${'★'.repeat(etoiles + 1)}`}
+        </button>
+      )}
+      <button type="button" className="btn btn-block" onClick={onRetour}>
+        Retour aux sentiers
+      </button>
+      {fin.correction ? (
+        <ol className="campagne-correction">
+          {fin.correction.map((c, i) => (
+            <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
+              <span className="label">{NOM_NIVEAU[c.niveau]}</span>
+              <p>{espacesFines(c.texte)}</p>
+              <p className="muted small">
+                <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
+                {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
+              </p>
+              {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <button type="button" className="btn btn-ghost btn-block" onClick={onCorrection}>
+          Mes réponses
+        </button>
+      )}
     </div>
   )
 }

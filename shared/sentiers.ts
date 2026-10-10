@@ -99,7 +99,7 @@ export const SEUIL_DES_PALIERS = 10
 export const SEUIL_DU_MAITRE = 9
 /** À partir de ce palier, pas de vrai ou faux. */
 export const SANS_VRAI_FAUX_DES = 5
-/** À partir de ce palier, toute la catégorie. */
+/** À partir de ce palier, toute la catégorie ; avant, les chapitres et leur thème (`shared/chapitres.ts`). */
 export const TOUTE_LA_CATEGORIE_DES = 9
 
 export const PALIERS: readonly RegleDuPalier[] = [

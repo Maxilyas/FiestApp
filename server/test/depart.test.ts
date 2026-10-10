@@ -105,10 +105,12 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   assert.match(source('main.tsx'), /for \(const adresse of donneesDuFragment\(route, window\.location\.hash\)\) \{/)
   assert.match(source('main.tsx'), /lien\.rel = 'preload'\n\s*lien\.as = 'fetch'\n\s*lien\.href = adresse\n\s*lien\.crossOrigin = 'anonymous'/)
   // Un défi entre amis (`#duel-K7M2QX`) passe avant : son adresse n'est jamais celle d'un sentier.
+  // Le carnet (`#carnet`) non plus, et il ne précharge rien : sa page demande le sien.
   assert.match(
     source('views/CampagneApp.tsx'),
-    /const modeDe = \(hash: string\): Mode => \(hash === ADRESSE_DU_DEFI \? 'defi' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'\)/,
+    /const modeDe = \(hash: string\): Mode =>\s*hash === ADRESSE_DU_DEFI \? 'defi' : hash === ADRESSE_DU_CARNET \? 'carnet' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'/,
   )
+  assert.deepEqual(donneesDuFragment(campagne, '#carnet'), [], '#carnet')
 })
 
 // ── 2. La page servie ─────────────────────────────────────────────────────
