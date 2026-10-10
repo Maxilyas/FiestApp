@@ -323,8 +323,13 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
   for (const d of DIVINS) assert.deepEqual(Object.keys(d).sort(), ['key', 'nom'])
   // Et la documentation ne l'écrit pas non plus : la règle de l'Arbre-Monde
   // s'était glissée dans RECOMPENSES.md et le CLAUDE.md, alors que les règles
-  // vivent dans core/divins.ts « et nulle part ailleurs » (invariants-4).
-  for (const doc of ['README.md', 'RECOMPENSES.md', 'CLAUDE.md', 'MISE-EN-LIGNE.md']) {
+  // vivent dans core/divins.ts « et nulle part ailleurs » (invariants-4). Le
+  // CLAUDE.md a laissé le détail de chaque domaine à ses règles
+  // (`.claude/rules/`) : elles se relisent avec lui.
+  const regles = readdirSync(path.join(racine, '.claude/rules'))
+    .filter(f => f.endsWith('.md'))
+    .map(f => `.claude/rules/${f}`)
+  for (const doc of ['README.md', 'RECOMPENSES.md', 'CLAUDE.md', 'MISE-EN-LIGNE.md', ...regles]) {
     const texte = readFileSync(path.join(racine, doc), 'utf8')
     assert.doesNotMatch(texte, /DOUZE_LEGENDAIRES|douze d.origine/, doc)
   }

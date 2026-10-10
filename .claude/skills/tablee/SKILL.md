@@ -53,8 +53,11 @@ tablée, ou retire l'option, pas l'un sans l'autre.
 ### 2. Lancer les agents
 
 Un agent par fiche, **tous dans le même message**, en arrière-plan
-(`run_in_background: true`), type `general-purpose`. Chacun lit lui-même ses
-consignes — le prompt ne fait que les désigner, avec les valeurs du jour :
+(`run_in_background: true`), type `convive` (`.claude/agents/convive.md`) : il
+ne reçoit pas le `CLAUDE.md` — un personnage ne connaît pas le code, et chacun
+s'épargne ce fichier à chacun de ses appels. Les experts, qui lisent le code,
+restent `general-purpose`. Chacun lit lui-même ses consignes — le prompt ne
+fait que les désigner, avec les valeurs du jour :
 
 ```
 Tu es un agent de la tablée de FiestApp : <un invité | l'animatrice> d'une

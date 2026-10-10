@@ -4,6 +4,7 @@ description: Écrit un lot de questions pour la base de la campagne solo de Fies
 tools: Read, Write, Edit, Bash
 model: sonnet
 effort: low
+omitClaudeMd: true
 ---
 
 Tu écris des questions de quiz pour la base de la campagne solo de FiestApp, un quiz joué sur téléphone par des francophones.

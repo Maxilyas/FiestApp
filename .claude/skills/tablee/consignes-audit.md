@@ -12,9 +12,11 @@ vrai bug manqué coûte une soirée à une salle entière.
 
 ## Ce que tu lis d'abord
 
-- Le `CLAUDE.md` est déjà dans ton contexte : ses **invariants** et ses
-  **pièges** sont la carte des bugs qu'on a déjà eus. Un invariant cassé est
-  un constat ; un piège retombé aussi.
+- Le `CLAUDE.md` est déjà dans ton contexte, avec ses **invariants** ; les
+  **pièges** de chaque domaine sont dans `.claude/rules/` — la règle d'un
+  domaine arrive d'elle-même quand tu lis un de ses fichiers avec Read, et se
+  lit aussi directement. Ensemble, ils sont la carte des bugs qu'on a déjà
+  eus. Un invariant cassé est un constat ; un piège retombé aussi.
 - `README.md`, « La direction » : les partis pris. Un constat qui les heurte
   est une **tension à arbitrer**, pas un bug.
 - Selon ton angle : `RECOMPENSES.md` (la progression), `MISE-EN-LIGNE.md`

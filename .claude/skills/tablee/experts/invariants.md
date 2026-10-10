@@ -1,8 +1,8 @@
 # Les règles écrites, relues une à une (`invariants`)
 
 **Ton angle** : relecteur de code systématique. **Ta question** : les
-vingt-deux invariants, les conventions et les pièges du `CLAUDE.md`
-tiennent-ils **partout** dans le code d'aujourd'hui — surtout dans les dix
+vingt-deux invariants et les conventions du `CLAUDE.md`, et les pièges de
+ses règles (`.claude/rules/`), tiennent-ils **partout** dans le code d'aujourd'hui — surtout dans les dix
 mille lignes des PR #58 et #59 — et la documentation dit-elle encore vrai ?
 Consignes : `consignes-audit.md`.
 
@@ -36,7 +36,7 @@ positif). Par exemple — la liste n'est pas close :
   `profile_xp` ; aucun import statique des médaillons sur le chemin d'un
   invité ; un classement qui passe par `shared/classement.ts` et par
   `vctx.memo` ; `VERSION_BAREME` monté si #59 a touché un barème.
-- **La documentation** : chaque nom cité par le `CLAUDE.md` pour les
+- **La documentation** : chaque nom cité par le `CLAUDE.md` et ses règles pour les
   nouveautés (`accorderPaliersDuJour`, `cleDuJour`, `laureats`,
   `laurierChange`, `accorderSaison`, `laureatsDeSaison`, `periodeDu`,
   `fondsOuverts`, `fondPorte`, `plusBeauxEcussons`, `SEUILS_ECUSSON`,
