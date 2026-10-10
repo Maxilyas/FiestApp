@@ -81,6 +81,11 @@ try {
     const [nom, valeur] = cookie.split('=')
     await contexte.addCookies([{ name: nom, value: valeur, url: banc.url }])
   }
+  /** Ouvre une adresse de la page à neuf : un fragment seul, vers la même page, ne ferait que changer d'onglet sans la relire. */
+  const ouvrir = async (chemin: string) => {
+    await page.goto('about:blank')
+    await page.goto(`${banc.url}${chemin}`)
+  }
   const photo = async (n: string, pleine = false) => {
     await page.waitForTimeout(700)
     await page.screenshot({ path: path.join(sortie, `${n}.png`), fullPage: pleine })
@@ -97,13 +102,13 @@ try {
 
   // 1. Un carnet vide : Tom n'a encore rien raté.
   await entrer(tom)
-  await page.goto(`${banc.url}/campagne#carnet`)
+  await ouvrir('/campagne#carnet')
   await page.waitForSelector('.carnet-prochaine')
   await photo('1-carnet-vide')
 
   // 2. Celui de Léa : l'onglet compte ce qui l'attend, ce qu'elle a appris se déplie.
   await entrer(lea)
-  await page.goto(`${banc.url}/campagne`)
+  await ouvrir('/campagne')
   await page.waitForSelector('.onglet-pastille')
   await photo('2-onglet-du-carnet')
   await page.click('#mode-carnet')
@@ -140,7 +145,7 @@ try {
   await photo('8-fin-de-revision', true)
 
   // 4. La fin d'une série rappelle le carnet.
-  await page.goto(`${banc.url}/campagne`)
+  await ouvrir('/campagne')
   await page.locator('button', { hasText: /Commencer une série|Une nouvelle série/ }).click()
   await repondre(true)
   for (let i = 0; i < 3; i++) {
@@ -150,6 +155,31 @@ try {
   await page.click('text=Voir ma série')
   await page.waitForSelector('.carnet-rappel')
   await photo('9-fin-de-serie', true)
+
+  // 5. Affronter un inconnu : Tom a fini une série — cinq bonnes réponses,
+  // sa troisième faute à la huitième question —, Léa le trouve sous le défi.
+  await jouerParLAPI(tom, await nouvelleSerie(tom), [true, true, true, true, true, false, false, false])
+  await ouvrir('/campagne#defi')
+  await page.waitForSelector('.rencontre-carte')
+  await page.locator('.rencontre-carte').scrollIntoViewIfNeeded()
+  await photo('10-affronter-un-inconnu')
+  await page.click('text=Trouver un adversaire')
+  await repondre(true)
+  await photo('11-rencontre-reponse')
+  for (let i = 1; ; i++) {
+    const suite = page.locator('.btn-primary.btn-big')
+    if ((await suite.textContent())?.includes('Voir qui a gagné')) break
+    await suite.click()
+    await repondre(i < 6)
+    if (i === 6) await photo('12-rencontre-ratee')
+  }
+  await page.click('text=Voir qui a gagné')
+  await page.waitForSelector('.rencontre-final')
+  await photo('13-rencontre-gagnee', true)
+  await ouvrir('/campagne#defi')
+  await page.waitForSelector('.rencontre-liste')
+  await page.locator('.rencontre-carte').scrollIntoViewIfNeeded()
+  await photo('14-mes-rencontres')
 } finally {
   await navigateur.close()
   await banc.close()

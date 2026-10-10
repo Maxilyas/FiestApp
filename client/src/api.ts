@@ -6,7 +6,9 @@ import type {
   DuelEntreAmis,
   EtatDeCampagne,
   FinDeSerie,
+  MesRencontres,
   QuestionCorrigee,
+  RencontreDeCampagne,
   ReponseDeCampagne,
   ResumeDuDuel,
   SerieDeCampagne,
@@ -387,6 +389,11 @@ export const api = {
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+    },
+    /** Affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
+    rencontre: {
+      commencer: () => req<RencontreDeCampagne>('/api/campagne/rencontre', { method: 'POST' }),
+      miennes: () => req<MesRencontres>('/api/campagne/rencontres'),
     },
     /**
      * Le carnet de révision (`shared/revision.ts`) : une révision est une

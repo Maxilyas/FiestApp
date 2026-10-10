@@ -161,6 +161,27 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Affronter un inconnu ───────────────────────────────────────────────
+  // Une rencontre est une série d'un autre mode : ses réponses, son
+  // signalement et sa correction passent par les routes de la série.
+
+  app.post(
+    '/api/campagne/rencontre',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerUneRencontre(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/rencontres',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.mesRencontres(profil.id))
+    }),
+  )
+
   // ── Le défi de la semaine ──────────────────────────────────────────────
   // Une série d'un autre mode : ses réponses, son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.

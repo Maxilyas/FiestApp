@@ -39,9 +39,12 @@ import {
   JOUEURS_POUR_LE_DEFI,
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
+  SERIES_POUR_LE_NIVEAU,
   SIGNALEMENT_MAX,
   VIES,
   bonneReponseChange,
+  issueDeRencontre,
+  niveauPourUneRencontre,
   minutesAvantLundi,
   niveauDeQuestion,
   semaineAvant,
@@ -51,7 +54,12 @@ import {
   xpDeLaBonneReponse,
   xpDuJourDeCampagne,
   type AdminDeLaCampagne,
+  type Adversaire,
   type AjoutsDeLaRoutine,
+  type CoupDeLaRencontre,
+  type MesRencontres,
+  type RencontreDeCampagne,
+  type ResumeDeRencontre,
   type CommandeDeLaBase,
   type DepotDeLaBase,
   type CorrectionDeCampagne,
@@ -143,8 +151,12 @@ interface Serie {
   vies: number
   justes: number
   finieLe: number | null
-  /** Une révision du carnet (`shared/revision.ts`) n'a pas de vies : ses erreurs remettent la question au lendemain, rien de plus. */
-  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision'
+  /**
+   * Une révision du carnet (`shared/revision.ts`) n'a pas de vies : ses
+   * erreurs remettent la question au lendemain, rien de plus. Une rencontre
+   * rejoue la série finie d'un autre joueur, contre son score.
+   */
+  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -159,6 +171,19 @@ interface Serie {
   semaine?: string | null
   /** Un défi entre amis : son code (`campagne_duels`). */
   duel?: string | null
+  /** Une rencontre : qui elle affronte (`AdversaireGarde`). */
+  adversaire?: AdversaireGarde | null
+}
+
+/**
+ * L'adversaire d'une rencontre, tel qu'elle le garde : sa série, son profil,
+ * et ses réponses dans l'ordre — recopiées au départ : un profil supprimé
+ * emporte ses séries, la rencontre garde ce qu'il avait fait.
+ */
+interface AdversaireGarde {
+  serie: string
+  profil: string
+  reponses: boolean[]
 }
 
 /** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
@@ -193,6 +218,13 @@ const DUELS_MONTRES = 10
 const SIGNALEMENTS_MONTRES = 50
 /** Ce que le carnet redonne de ce qu'il a appris : les plus récents, de quoi relire sans tout charger. */
 const FAITS_MONTRES = 100
+/** Les séries finies où l'on cherche un adversaire : les plus récentes, des trois derniers mois. */
+const CANDIDATS_A_UNE_RENCONTRE = 200
+const RENCONTRE_SUR_MS = 90 * 24 * HEURE_MS
+/** Les adversaires les plus proches de son niveau, dont on regarde ce qu'il a déjà vu de leurs questions. */
+const ADVERSAIRES_REGARDES = 8
+/** Ses rencontres qu'on lui rappelle : les plus récentes. */
+const RENCONTRES_MONTREES = 10
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 
 /**
@@ -469,6 +501,8 @@ export class CampagneStore {
       ['semaine', 'TEXT'],
       // Un défi entre amis : son code (`campagne_duels`).
       ['duel', 'TEXT'],
+      // Une rencontre : son adversaire, en JSON (`AdversaireGarde`).
+      ['adversaire', 'TEXT'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -808,6 +842,7 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       if (s?.mode === 'defi' || s?.mode === 'duel') throw new Error('Le défi n’a qu’une tentative : elle ne s’abandonne pas')
+      if (s?.mode === 'rencontre') throw new Error('Une rencontre se joue jusqu’au bout : elle ne s’abandonne pas')
       if (!s || s.mode !== 'serie') throw new Error('Cette série est introuvable')
       if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
       const maintenant = this.maintenant()
@@ -862,7 +897,7 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
-      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision')) throw new Error('Cette série est introuvable')
+      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision' && s.mode !== 'rencontre')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
       if (s.mode === 'defi' && s.semaine !== this.semaineDeLHeure().semaine) throw new Error('Ce défi est clos : celui de cette semaine t’attend')
       // Un défi entre amis ferme au bout de sa semaine, tentatives en route comprises.
@@ -875,7 +910,9 @@ export class CampagneStore {
               ? 'Tu as relevé ce défi : son classement t’attend'
               : s.mode === 'revision'
                 ? 'Cette révision est finie : ton carnet t’attend'
-                : 'Cette série est finie : commence-en une autre',
+                : s.mode === 'rencontre'
+                  ? 'Cette rencontre est finie : cherche un autre adversaire'
+                  : 'Cette série est finie : commence-en une autre',
         )
       }
       if (index !== s.index) throw new Error('Cette question est passée : la série a continué sans elle')
@@ -948,6 +985,8 @@ export class CampagneStore {
         ...(defi && { defi }),
         ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste) }),
         ...(carnet && { carnet }),
+        // Une rencontre : ce que son adversaire avait fait de la même question, et les deux scores.
+        ...(s.mode === 'rencontre' && s.adversaire && { rencontre: coupDeLaRencontre(s.adversaire, s.index, justes, finie) }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
         ...ensemble(gagnees, eclat),
       }
@@ -1794,6 +1833,147 @@ export class CampagneStore {
         minutesRestantes: Math.max(0, Math.ceil((d.fermeLe - this.maintenant()) / 60_000)),
       }
     })
+  }
+
+  // ── Affronter un inconnu ────────────────────────────────────────────────
+  //
+  // Un adversaire tout de suite (`shared/campagne.ts`) : la série finie d'un
+  // autre joueur, de son niveau, rejouée — ses questions, dans le même
+  // ordre, contre son score. Une série d'un autre mode (`mode = 'rencontre'`)
+  // qui garde son adversaire (`AdversaireGarde`) : l'expérience, les
+  // confettis et les hauts faits de série la comptent, le record des séries
+  // non. Ni classement, ni laurier, ni Éclat.
+
+  /** Sa rencontre laissée en route, s'il en a une : elle se reprend. */
+  private async rencontreEnCours(profileId: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      args: [profileId],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /** Qui l'on affronte, tel que la page le montre : un profil masqué ou parti ne se nomme pas. */
+  private async adversaireVu(a: AdversaireGarde): Promise<Adversaire> {
+    const p = this.profils ? ((await this.profils.byIds([a.profil]))[0] ?? null) : null
+    const nomme = p && !this.masque?.(p.id)
+    return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: a.reponses.filter(Boolean).length }
+  }
+
+  /**
+   * Affronter un inconnu : celle qu'il a laissée en route reprend ; sinon,
+   * parmi les séries finies des trois derniers mois — d'autres joueurs, pas
+   * masqués, jamais deux fois la même —, celle de son niveau dont il a vu le
+   * moins de questions (`choisirUnAdversaire`). Seules les séries allées au
+   * bout de leurs vies comptent : une série abandonnée sous-estime qui l'a
+   * jouée. Une série en cours, elle, attend.
+   */
+  commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const ouverte = await this.rencontreEnCours(profileId)
+      if (ouverte?.adversaire) {
+        this.garderEnCours(ouverte)
+        return { serie: vueDeSerie(ouverte), adversaire: await this.adversaireVu(ouverte.adversaire), sesJustes: sesJustesAvant(ouverte) }
+      }
+      const maintenant = this.maintenant()
+      const [miennes, deja, candidats, vues] = await Promise.all([
+        this.client.execute({
+          sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
+          args: [profileId, SERIES_POUR_LE_NIVEAU],
+        }),
+        this.client.execute({ sql: `SELECT json_extract(adversaire, '$.serie') AS serie FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre'`, args: [profileId] }),
+        this.client.execute({
+          sql: `SELECT id, profile_id, justes, finie_le FROM campagne_series
+                WHERE ${SERIES} AND finie_le IS NOT NULL AND vies = 0 AND position > 0 AND profile_id <> ? AND finie_le > ?
+                ORDER BY finie_le DESC LIMIT ?`,
+          args: [profileId, maintenant - RENCONTRE_SUR_MS, CANDIDATS_A_UNE_RENCONTRE],
+        }),
+        this.vuesPar(profileId),
+      ])
+      const niveau = niveauPourUneRencontre(miennes.rows.map(r => Number(r.justes)))
+      const dejaAffrontees = new Set(deja.rows.map(r => String(r.serie)))
+      // Les plus proches de son niveau, battus d'abord : à écart égal, ni l'ordre de la base ni l'heure ne décide.
+      const proches = melanger(candidats.rows.filter(r => !dejaAffrontees.has(String(r.id)) && !this.masque?.(String(r.profile_id))))
+        .sort((a, b) => Math.floor(Math.abs(Number(a.justes) - niveau) / 2) - Math.floor(Math.abs(Number(b.justes) - niveau) / 2))
+        .slice(0, ADVERSAIRES_REGARDES)
+      if (proches.length === 0) throw new Error('Personne à affronter pour l’instant : d’autres joueurs doivent d’abord finir des séries')
+      // Ce qu'il a déjà vu de leurs questions jouées, et des trois d'après : lues dans la base, sans charger leurs séries entières.
+      const ids = proches.map(r => String(r.id))
+      const premieres = await this.client.execute({
+        sql: `SELECT s.id AS serie, COALESCE(json_extract(j.value, '$.id'), json_extract(j.value, '$.reserveId')) AS question
+              FROM campagne_series s, json_each(s.questions) j
+              WHERE s.id IN (${ids.map(() => '?').join(', ')}) AND CAST(j.key AS INTEGER) < s.position + 3`,
+        args: ids,
+      })
+      const vuesParSerie = new Map<string, number>()
+      for (const r of premieres.rows) if (vues.has(String(r.question))) vuesParSerie.set(String(r.serie), (vuesParSerie.get(String(r.serie)) ?? 0) + 1)
+      const choisi = choisirUnAdversaire(
+        proches.map(r => ({ serie: String(r.id), profil: String(r.profile_id), justes: Number(r.justes), finieLe: Number(r.finie_le), dejaVues: vuesParSerie.get(String(r.id)) ?? 0 })),
+        niveau,
+      )!
+      const [ligne, reponses] = await this.client.batch(
+        [
+          { sql: 'SELECT * FROM campagne_series WHERE id = ?', args: [choisi.serie] },
+          { sql: 'SELECT juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [choisi.serie] },
+        ],
+        'read',
+      )
+      if (!ligne.rows[0]) throw new Error('Cet adversaire vient de partir : cherches-en un autre')
+      const sienne = versSerie(ligne.rows[0])
+      const adversaire: AdversaireGarde = { serie: sienne.id, profil: sienne.profileId, reponses: reponses.rows.map(r => Number(r.juste) === 1) }
+      const serie: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions: sienne.questions,
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'rencontre',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        categories: sienne.categories ?? null,
+        sujet: sienne.sujet ?? null,
+        adversaire,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, adversaire)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'rencontre', ?, ?, ?)`,
+        args: [serie.id, profileId, JSON.stringify(serie.questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null, serie.sujet ?? null, JSON.stringify(adversaire)],
+      })
+      this.garderEnCours(serie)
+      return { serie: vueDeSerie(serie), adversaire: await this.adversaireVu(adversaire), sesJustes: 0 }
+    })
+  }
+
+  /** Ses rencontres : celle laissée en route, et les dernières jouées, leur issue — leurs adversaires lus d'un coup. */
+  async mesRencontres(profileId: string): Promise<MesRencontres> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
+      args: [profileId, RENCONTRES_MONTREES + 1],
+    })
+    const rencontres = res.rows.map(versSerie).filter(s => s.adversaire)
+    const profils = this.profils ? await this.profils.byIds(rencontres.map(s => s.adversaire!.profil)) : []
+    const vu = (s: Serie, i: number): Adversaire => {
+      const p = profils[i]
+      const nomme = p && !this.masque?.(p.id)
+      return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: s.adversaire!.reponses.filter(Boolean).length }
+    }
+    const i = rencontres.findIndex(s => s.finieLe === null)
+    return {
+      enCours: i >= 0 ? { serie: vueDeSerie(rencontres[i]), adversaire: vu(rencontres[i], i), sesJustes: sesJustesAvant(rencontres[i]) } : null,
+      passees: rencontres
+        .map((s, j) => ({ s, j }))
+        .filter(({ s }) => s.finieLe !== null)
+        .slice(0, RENCONTRES_MONTREES)
+        .map(({ s, j }): ResumeDeRencontre => {
+          const adversaire = vu(s, j)
+          return { serie: s.id, adversaire, justes: s.justes, issue: issueDeRencontre(s.justes, adversaire.justes), le: s.finieLe! }
+        }),
+    }
   }
 
   /**
@@ -2802,7 +2982,8 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : r.mode === 'revision' ? 'revision' : 'serie',
+    mode:
+      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' ? r.mode : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -2812,7 +2993,65 @@ function versSerie(r: Record<string, unknown>): Serie {
     sujet: typeof r.sujet === 'string' ? r.sujet : null,
     semaine: typeof r.semaine === 'string' ? r.semaine : null,
     duel: typeof r.duel === 'string' ? r.duel : null,
+    adversaire: lireAdversaire(r.adversaire),
   }
+}
+
+/** L'adversaire qu'une rencontre a gardé ; null : pas une rencontre, ou illisible. */
+function lireAdversaire(brut: unknown): AdversaireGarde | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const lu = JSON.parse(brut) as Record<string, unknown>
+    if (typeof lu.serie !== 'string' || typeof lu.profil !== 'string' || !Array.isArray(lu.reponses)) return null
+    return { serie: lu.serie, profil: lu.profil, reponses: lu.reponses.map(x => x === true) }
+  } catch {
+    return null
+  }
+}
+
+/** Les bonnes réponses de l'adversaire sur les questions qu'une rencontre a déjà jouées : le score d'en face, à la reprise. */
+function sesJustesAvant(s: Serie): number {
+  return s.adversaire ? s.adversaire.reponses.slice(0, s.index).filter(Boolean).length : 0
+}
+
+/** Ce qu'une réponse de rencontre dit de l'adversaire sur la même question, et les deux scores — finie, son issue contre son score entier. */
+function coupDeLaRencontre(a: AdversaireGarde, index: number, toi: number, finie: boolean): CoupDeLaRencontre {
+  const total = a.reponses.filter(Boolean).length
+  return {
+    lui: index < a.reponses.length ? a.reponses[index] : null,
+    toi,
+    sesJustes: a.reponses.slice(0, index + 1).filter(Boolean).length,
+    ...(finie && { issue: issueDeRencontre(toi, total) }),
+  }
+}
+
+/** Un adversaire possible : une série finie d'un autre joueur, et ce qu'on a déjà vu de ses premières questions. */
+export interface CandidatALaRencontre {
+  serie: string
+  profil: string
+  justes: number
+  finieLe: number
+  /** Ses questions jouées — et les trois d'après, qu'on peut atteindre — que celui qui cherche a déjà vues. */
+  dejaVues: number
+}
+
+/**
+ * L'adversaire d'une rencontre : de son niveau d'abord — à un point près,
+ * c'est pareil : deux bonnes réponses d'écart font une autre partie —, puis
+ * celui dont il a vu le moins de questions — une rencontre sur des questions
+ * qu'on connaît n'en est pas une —, puis au hasard. Null : personne.
+ */
+export function choisirUnAdversaire(candidats: readonly CandidatALaRencontre[], niveau: number, hasard: () => number = Math.random): CandidatALaRencontre | null {
+  let meilleur: CandidatALaRencontre | null = null
+  let sonRang: number[] | null = null
+  for (const c of candidats) {
+    const r = [Math.floor(Math.abs(c.justes - niveau) / 2), c.dejaVues, hasard()]
+    if (!sonRang || passeAvant(r, sonRang)) {
+      meilleur = c
+      sonRang = r
+    }
+  }
+  return meilleur
 }
 
 /** Un code de défi entre amis, à recopier sans se tromper (`LETTRES_D_UN_CODE`). */
@@ -2877,8 +3116,8 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     total: s.questions.length,
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
-    ...((s.mode === 'serie' || s.mode === 'duel') && s.categories && s.categories.length > 0 && { categories: s.categories }),
-    ...((s.mode === 'serie' || s.mode === 'duel') && s.sujet && { sujet: s.sujet }),
+    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.categories && s.categories.length > 0 && { categories: s.categories }),
+    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.sujet && { sujet: s.sujet }),
   }
 }
 
@@ -2969,7 +3208,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : r.mode === 'revision' ? 'revision' : 'serie'
+  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' ? r.mode : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,

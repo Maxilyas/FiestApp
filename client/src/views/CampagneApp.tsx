@@ -6,6 +6,7 @@ import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers }
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans } from './Carnet'
+import { AffronterUnInconnu, MOT_DE_L_ISSUE, scoreDeRencontre } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
@@ -35,10 +36,13 @@ import {
   VIES,
   XP_PAR_JUSTE,
   lireCodeDuDuel,
+  type Adversaire,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
+  type IssueDeRencontre,
   type Niveau,
   type QuestionDeCampagne,
+  type RencontreDeCampagne,
   type ReponseDeCampagne,
   type SerieDeCampagne,
 } from '../../../shared/campagne'
@@ -72,6 +76,8 @@ type Ecran =
       revision?: true
       /** Les questions que cette révision vient de faire apprendre. */
       apprises?: number
+      /** Une rencontre : qui l'on affronte, et ses bonnes réponses jusqu'à la question qu'on vient de jouer. */
+      rencontre?: { adversaire: Adversaire; sesJustes: number }
     }
   | {
       e: 'fin'
@@ -85,6 +91,8 @@ type Ecran =
       erreurs: number
       /** Une révision du carnet : ses questions, ce qu'elle a fait apprendre, et le carnet relu. */
       revision?: { total: number; apprises: number; carnet: EtatDuCarnet | null }
+      /** Une rencontre : qui l'on affrontait, et qui l'a gagnée. */
+      rencontre?: { adversaire: Adversaire; issue: IssueDeRencontre }
       record: boolean
       /** Le record d'avant la série : « L'ancien était de 12 », ou « Ton record : 12 ». */
       recordAvant: number | null
@@ -427,6 +435,7 @@ export function CampagneApp() {
         justes: reponse.justes,
         xp: ecran.xp + (reponse.xp ?? 0),
         ...(ecran.revision && { apprises: (ecran.apprises ?? 0) + (reponse.revision?.apprise ? 1 : 0) }),
+        ...(ecran.rencontre && reponse.rencontre && { rencontre: { ...ecran.rencontre, sesJustes: reponse.rencontre.sesJustes } }),
       })
       // Le carnet relu à la fin d'une révision : l'onglet suit.
       if (reponse.carnet) setARevoir(reponse.carnet.aRevoir)
@@ -449,6 +458,7 @@ export function CampagneApp() {
         justes: r.justes,
         erreurs: VIES - r.vies,
         ...(ecran.revision && { revision: { total: ecran.total, apprises: ecran.apprises ?? 0, carnet: r.carnet ?? null } }),
+        ...(ecran.rencontre && r.rencontre?.issue && { rencontre: { adversaire: ecran.rencontre.adversaire, issue: r.rencontre.issue } }),
         record: !!r.record,
         recordAvant: r.recordAvant ?? null,
         niveauAtteint: r.niveauAtteint ?? null,
@@ -489,6 +499,39 @@ export function CampagneApp() {
       revision: true,
       apprises: 0,
     })
+  }
+
+  /** Une rencontre, trouvée ou reprise depuis l'onglet du défi : la partie de la série, contre le score d'un autre. */
+  const jouerLaRencontre = ({ serie: t, adversaire, sesJustes }: RencontreDeCampagne) => {
+    if (!t.question) return
+    setEcran({
+      e: 'jeu',
+      serie: t.id,
+      question: t.question,
+      vies: t.vies,
+      justes: t.justes,
+      total: t.total,
+      reponse: null,
+      choix: null,
+      xp: 0,
+      categories: t.categories ?? [],
+      sujet: t.sujet ?? null,
+      rencontre: { adversaire, sesJustes },
+    })
+  }
+
+  /** De la fin d'une rencontre à une autre : un autre adversaire, tout de suite. */
+  const uneAutreRencontre = async () => {
+    if (busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      jouerLaRencontre(await api.campagne.rencontre.commencer())
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   /** De la fin d'une révision à une autre, tant qu'il reste à revoir. */
@@ -604,7 +647,16 @@ export function CampagneApp() {
   if (ecran.e === 'accueil' && mode === 'defi') {
     return (
       <>
-        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} apres={<MesDuels onOuvrir={ouvrirLeDuel} />} />
+        <PageDuDefi
+          onglets={onglets}
+          onJouer={jouerLeDefi}
+          apres={
+            <>
+              <AffronterUnInconnu onJouer={jouerLaRencontre} />
+              <MesDuels onOuvrir={ouvrirLeDuel} />
+            </>
+          }
+        />
         {toastVu}
       </>
     )
@@ -850,6 +902,86 @@ export function CampagneApp() {
     )
   }
 
+  if (ecran.e === 'fin' && ecran.rencontre) {
+    const { adversaire, issue } = ecran.rencontre
+    const s = ecran.justes > 1 ? 's' : ''
+    const voirCorrection = async () => {
+      try {
+        setEcranBrut({ ...ecran, correction: await api.campagne.correction(ecran.serie) })
+      } catch (e) {
+        setErreur(motifDe(e))
+      }
+    }
+    return (
+      <div className="player-shell campagne">
+        <header className="fin-tete">
+          <span className="label">{`Rencontre contre ${adversaire.nom}`}</span>
+          <h1>{issue === 'gagnee' ? 'Gagné !' : issue === 'egalite' ? 'Égalité' : adversaire.justes - ecran.justes <= 2 ? 'Perdu de peu' : 'Perdu'}</h1>
+        </header>
+        <section className={'card result-banner campagne-fin ' + (issue === 'perdue' ? 'result-ko' : 'result-ok')}>
+          {/* Les deux scores, côte à côte : le sien d'abord. */}
+          <p className="rencontre-final" aria-label={scoreDeRencontre(ecran.justes, adversaire)}>
+            <span>
+              <b>{ecran.justes}</b>
+              <span className="muted small">toi</span>
+            </span>
+            <span className="rencontre-contre" aria-hidden="true">
+              –
+            </span>
+            <span>
+              <b>{adversaire.justes}</b>
+              <span className="muted small">{`${adversaire.avatar} ${adversaire.nom}`}</span>
+            </span>
+          </p>
+          <p>{`${MOT_DE_L_ISSUE[issue]} : ${ecran.justes} bonne${s} réponse${s} contre ${adversaire.justes}, sur les mêmes questions.`}</p>
+          {ecran.justes > 0 && (
+            <p className="muted">
+              🎊 +{ecran.justes} confetti{s}
+              {ecran.xp > 0 && ` · +${ecran.xp} XP`}
+            </p>
+          )}
+        </section>
+        {ecran.erreurs > 0 && (
+          <p className="muted small centre carnet-rappel">
+            <Icon name="book" /> {ecran.erreurs > 1 ? 'Tes erreurs reviendront' : 'Ton erreur reviendra'} demain dans{' '}
+            <button type="button" className="link-inline" onClick={() => void ouvrirLeCarnet()}>
+              ton carnet de révision
+            </button>
+            .
+          </p>
+        )}
+        {ecran.justes > 0 && <BarreDeNiveau />}
+        {ecran.recompenses.length > 0 && (
+          <section className="card campagne-recompenses">
+            {ecran.recompenses.map(r => (
+              <RecompenseTombee key={r.key} recompense={r} />
+            ))}
+          </section>
+        )}
+        {ecran.legendaires.map(cle => (
+          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+        ))}
+        {erreur && <p className="error">{erreur}</p>}
+        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void uneAutreRencontre()}>
+          <Icon name="users" />
+          Un autre adversaire
+        </button>
+        <div className="row campagne-suite">
+          {!ecran.correction && (
+            <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
+              Mes réponses
+            </button>
+          )}
+          <a className="btn btn-ghost" href="/">
+            <Icon name="home" />
+            Accueil
+          </a>
+        </div>
+        {ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+      </div>
+    )
+  }
+
   if (ecran.e === 'fin') {
     const voirCorrection = async () => {
       try {
@@ -948,22 +1080,7 @@ export function CampagneApp() {
             onCorrection={() => void voirCorrection()}
           />
         )}
-        {ecran.correction && (
-          <ol className="campagne-correction">
-            {ecran.correction.map((c, i) => (
-              <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-                <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-                <p>{espacesFines(c.texte)}</p>
-                <p className="muted small">
-                  <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-                  {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-                </p>
-                {/* L'anecdote, qu'on a lue en jouant : la correction la redonne, pour s'en souvenir. */}
-                {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-              </li>
-            ))}
-          </ol>
-        )}
+        {ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
       </div>
     )
   }
@@ -977,6 +1094,11 @@ export function CampagneApp() {
           {ecran.revision ? (
             // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
             <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
+          ) : ecran.rencontre ? (
+            <>
+              <span className="label">{`Contre ${ecran.rencontre.adversaire.nom} · question ${q.index + 1}`}</span>
+              <Vies restantes={ecran.vies} />
+            </>
           ) : (
             <>
               <span className="label">
@@ -987,6 +1109,16 @@ export function CampagneApp() {
             </>
           )}
         </div>
+        {/* Le face-à-face : les deux scores sur les mêmes questions, et celui d'en face à battre. */}
+        {ecran.rencontre && (
+          <p className="rencontre-score" aria-live="polite">
+            <span className="rencontre-adversaire" aria-hidden="true">
+              {ecran.rencontre.adversaire.avatar}
+            </span>
+            <b>{scoreDeRencontre(ecran.justes, ecran.rencontre.adversaire, ecran.rencontre.sesJustes)}</b>
+            <span className="muted small">{`à battre : ${ecran.rencontre.adversaire.justes}`}</span>
+          </p>
+        )}
         {q.categorie && <span className="label quiz-categorie">{q.categorie}</span>}
         <h2 className={'quiz-question' + questionSizeClass(q.texte)}>{espacesFines(q.texte)}</h2>
         {!r ? (
@@ -1025,6 +1157,14 @@ export function CampagneApp() {
                 La bonne réponse : <Shape index={r.bonne} inline />
                 <strong>{espacesFines(q.reponses[r.bonne])}</strong>
               </p>
+              {/* Ce que l'adversaire en avait fait, après sa réponse à soi : jamais avant, ça soufflerait. */}
+              {ecran.rencontre && r.rencontre && (
+                <p className="muted small">
+                  {r.rencontre.lui === null
+                    ? `${ecran.rencontre.adversaire.nom} s’était arrêté avant.`
+                    : `${ecran.rencontre.adversaire.nom} l’avait ${r.rencontre.lui ? 'trouvée' : 'ratée'}.`}
+                </p>
+              )}
               {/* Retrouvée en révision : ce qu'il reste de rendez-vous, ou apprise. */}
               {r.juste && r.revision && (
                 <p className="carnet-suite">
@@ -1047,7 +1187,7 @@ export function CampagneApp() {
               </p>
             )}
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
-              {r.finie ? (ecran.revision ? 'Voir ma révision' : 'Voir ma série') : 'Question suivante'}
+              {r.finie ? (ecran.revision ? 'Voir ma révision' : ecran.rencontre ? 'Voir qui a gagné' : 'Voir ma série') : 'Question suivante'}
             </button>
             <button type="button" className="lien-signaler link-inline small" onClick={() => void signaler(ecran.serie, q.index)}>
               Signaler une erreur dans cette question
@@ -1059,8 +1199,8 @@ export function CampagneApp() {
             {erreur}
           </p>
         )}
-        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une révision n'a rien à perdre. */}
-        {!ecran.defi && !ecran.revision && !r?.finie && (
+        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une révision n'a rien à perdre, une rencontre se joue jusqu'au bout. */}
+        {!ecran.defi && !ecran.revision && !ecran.rencontre && !r?.finie && (
           <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void abandonner()}>
             <Icon name="rotate" />
             Recommencer
@@ -1119,6 +1259,26 @@ export function SuiteDeLaSerie({
         </a>
       </div>
     </>
+  )
+}
+
+/** « Mes réponses », une série finie : chaque question, sa bonne réponse, la sienne. */
+function CorrectionDeLaSerie({ correction }: { correction: CorrectionDeCampagne[] }) {
+  return (
+    <ol className="campagne-correction">
+      {correction.map((c, i) => (
+        <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
+          <span className="label">{NOM_NIVEAU[c.niveau]}</span>
+          <p>{espacesFines(c.texte)}</p>
+          <p className="muted small">
+            <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
+            {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
+          </p>
+          {/* L'anecdote, qu'on a lue en jouant : la correction la redonne, pour s'en souvenir. */}
+          {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
+        </li>
+      ))}
+    </ol>
   )
 }
 
