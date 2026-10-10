@@ -7612,15 +7612,40 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
    règle et dont `design.test.ts` mesure le contraste ; la lueur de chaque
    branche (`--lueur`, `Atlas.tsx`) ne teinte que des fonds et des traits. */
 .onglets-campagne { margin-top: -4px; }
-/* Trois onglets au téléphone : sans leurs icônes, « Les sentiers » tient sur une ligne. */
+/* Le nom court d'un onglet ne sert qu'au téléphone. */
+.onglet-court { display: none; }
+/* Quatre onglets au téléphone, depuis le carnet : sans leurs icônes ni leur
+   article, chacun tient sur une ligne — « Les sentiers » et « Le carnet »
+   passaient sur deux. */
 @media (max-width: 420px) {
+  .onglets-campagne .onglet { gap: 4px; padding: 0 4px; }
   .onglets-campagne .onglet .icon { display: none; }
+  .onglets-campagne .onglet-nom { display: none; }
+  .onglets-campagne .onglet-court { display: inline; }
 }
 /* Le défi de la semaine : son classement sous le héros, la semaine passée dessous. */
 .defi-classement { display: flex; flex-direction: column; gap: 8px; }
 .defi-classement h2 { margin: 4px 0 0; }
 .campagne-puces .laurier { width: 16px; height: 16px; }
 .defi-passee .jour-pastille .laurier { width: 22px; height: 22px; }
+/* Ce qui attend derrière un onglet, compté : le carnet de la campagne. */
+.onglet-pastille { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+/* Le carnet de révision : ses rendez-vous en frise — trois points qui mènent à « apprise » —, ce qu'il a appris dessous. */
+.carnet-rendez-vous { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.carnet-rendez-vous li { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; line-height: 1.2; }
+.carnet-rendez-vous i { display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--lueur) 45%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--lueur) 30%, transparent); }
+.carnet-rendez-vous .carnet-apprise { flex-direction: row; align-items: flex-end; gap: 4px; color: var(--ink); }
+.carnet-rendez-vous .carnet-apprise .icon { width: 14px; height: 14px; color: var(--lueur); }
+.carnet-prochaine { margin: 4px 0; }
+.carnet-faits { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.carnet-faits li p { margin: 4px 0 0; }
+.carnet-reponse { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-text); }
+.carnet-reponse .icon { width: 16px; height: 16px; flex: none; }
+/* Retrouvée en révision : ce qu'il reste de rendez-vous, sous la bonne réponse. */
+.carnet-suite { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 6px 0 0; font-weight: 600; }
+.carnet-suite .icon { width: 18px; height: 18px; }
+/* La fin d'une série rappelle que ses erreurs reviendront : une phrase, son lien dedans — en boîte souple, le point final partait seul. */
+.carnet-rappel .icon { width: 14px; height: 14px; vertical-align: -2px; }
 /* Le défi entre amis : de quoi l'envoyer — le lien reste écrit, à sélectionner, sans feuille de partage ni presse-papier —, et ses défis sous celui de la semaine. */
 .duel-envoi { display: flex; flex-direction: column; gap: 8px; }
 .duel-envoi h2, .duel-envoi p { margin: 0; }

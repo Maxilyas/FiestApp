@@ -155,11 +155,12 @@ function lectureDeLaQuestion(s: SignalementDeCampagne): string {
   ].join(' · ')
 }
 
-/** Où il l'a jouée : « en série », « sentier des mythologies, palier 3 », « défi de la semaine », « défi entre amis ». */
+/** Où il l'a jouée : « en série », « sentier des mythologies, palier 3 », « défi de la semaine », « défi entre amis », « en révision ». */
 function ouDuRapport(r: RapportDeSignalement): string {
   if (r.ou === 'defi') return 'défi de la semaine'
   if (r.ou === 'duel') return 'défi entre amis'
   if (r.ou === 'serie') return 'en série'
+  if (r.ou === 'revision') return 'en révision'
   const b = brancheParCle(r.branche)
   const palier = r.palier === PALIER_DU_MAITRE ? 'palier de maître' : r.palier !== undefined ? `palier ${r.palier}` : null
   return [b ? `sentier ${deLaBranche(b)}` : 'sentier', palier].filter(Boolean).join(', ')

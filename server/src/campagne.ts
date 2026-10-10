@@ -132,6 +132,35 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Le carnet de révision (`shared/revision.ts`) ───────────────────────
+  // Une révision est une série d'un autre mode : ses réponses et son
+  // signalement passent par les routes de la série, sous son identifiant.
+
+  app.get(
+    '/api/campagne/carnet',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.carnet(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/carnet/appris',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.faitsAppris(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/revision',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerRevision(profil.id))
+    }),
+  )
+
   // ── Le défi de la semaine ──────────────────────────────────────────────
   // Une série d'un autre mode : ses réponses, son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.

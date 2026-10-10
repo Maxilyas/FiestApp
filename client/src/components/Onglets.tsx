@@ -5,6 +5,10 @@ export interface Onglet<T extends string> {
   id: T
   nom: string
   icone?: IconName
+  /** Son nom au téléphone, quand la rangée ne tient pas sur une ligne (« Sentiers » pour « Les sentiers ») ; la feuille de la rangée dit quand. */
+  court?: string
+  /** Ce qui l'attend derrière, compté : un chiffre à l'œil, une phrase au lecteur d'écran. */
+  pastille?: { n: number; label: string }
 }
 
 /** Les touches du motif d'onglets, et l'onglet où chacune mène. */
@@ -65,7 +69,23 @@ export function Onglets<T extends string>({
           onKeyDown={e => touche(e, i)}
         >
           {o.icone && <Icon name={o.icone} />}
-          {o.nom}
+          {o.court ? (
+            // L'un ou l'autre se voit — et se lit : celui qu'on cache sort aussi du lecteur d'écran.
+            <>
+              <span className="onglet-nom">{o.nom}</span>
+              <span className="onglet-court">{o.court}</span>
+            </>
+          ) : (
+            o.nom
+          )}
+          {o.pastille && (
+            <>
+              <span className="onglet-pastille" aria-hidden="true">
+                {o.pastille.n > 99 ? '99+' : o.pastille.n}
+              </span>
+              <span className="sr-only">{`, ${o.pastille.label}`}</span>
+            </>
+          )}
         </button>
       ))}
     </div>

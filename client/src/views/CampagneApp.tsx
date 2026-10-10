@@ -5,6 +5,7 @@ import { Onglets } from '../components/Onglets'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
+import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans } from './Carnet'
 import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
@@ -41,6 +42,7 @@ import {
   type ReponseDeCampagne,
   type SerieDeCampagne,
 } from '../../../shared/campagne'
+import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
 
 type Ecran =
   | { e: 'chargement' }
@@ -66,6 +68,10 @@ type Ecran =
       defi?: true
       /** Un défi entre amis : son code, que sa fin envoie. */
       duel?: string
+      /** Une révision du carnet : sans vies, et chaque réponse dit où en est sa question. */
+      revision?: true
+      /** Les questions que cette révision vient de faire apprendre. */
+      apprises?: number
     }
   | {
       e: 'fin'
@@ -75,6 +81,10 @@ type Ecran =
       /** Arrêtée avant sa dernière vie (« Recommencer », puis « Arrêter là »). */
       abandonnee?: true
       justes: number
+      /** Ses erreurs : elles reviendront demain dans le carnet. */
+      erreurs: number
+      /** Une révision du carnet : ses questions, ce qu'elle a fait apprendre, et le carnet relu. */
+      revision?: { total: number; apprises: number; carnet: EtatDuCarnet | null }
       record: boolean
       /** Le record d'avant la série : « L'ancien était de 12 », ou « Ton record : 12 ». */
       recordAvant: number | null
@@ -95,8 +105,8 @@ type Ecran =
       eclat?: string
     }
 
-/** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine — et un défi entre amis, ouvert par son lien. */
-type Mode = 'serie' | 'sentiers' | 'defi' | 'duel'
+/** Les modes de la campagne : la série à trois vies, les sentiers du savoir, le défi de la semaine — et un défi entre amis, ouvert par son lien —, et le carnet de révision. */
+type Mode = 'serie' | 'sentiers' | 'defi' | 'duel' | 'carnet'
 
 /**
  * Les catégories de sa dernière série, retenues sur ce téléphone : la page
@@ -163,7 +173,8 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
 const iconeDuSujet = (s: Sujet): IconName => ICONE_DU_SUJET[s.cle] ?? 'clock'
 // Les sentiers par la règle même du préchargement (`donneesDuFragment`,
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
-const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : codeDuLien(hash) ? 'duel' : versLesSentiers(hash) ? 'sentiers' : 'serie')
+const modeDe = (hash: string): Mode =>
+  hash === ADRESSE_DU_DEFI ? 'defi' : hash === ADRESSE_DU_CARNET ? 'carnet' : codeDuLien(hash) ? 'duel' : versLesSentiers(hash) ? 'sentiers' : 'serie'
 /** Le code du défi entre amis qu'ouvre l'adresse (`#duel-K7M2QX`), ou null. */
 const codeDuLien = (hash: string) => (hash.startsWith('#duel-') ? lireCodeDuDuel(hash) : null)
 
@@ -208,6 +219,8 @@ export function CampagneApp() {
   const [erreur, setErreur] = useState('')
   // Son profil, lu en léger : l'Éclat d'un défi s'y montre avec sa finition.
   const [profil, setProfil] = useState<PublicProfile | null>(null)
+  // Ce que son carnet a à revoir aujourd'hui, sur l'onglet : lu après la page, sans la retenir.
+  const [aRevoir, setARevoir] = useState(0)
   // Chaque écran commence en haut, comme une page qu'on ouvre.
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
@@ -237,7 +250,13 @@ export function CampagneApp() {
     history.replaceState(
       history.state,
       '',
-      m === 'sentiers' ? ADRESSE_DES_SENTIERS : m === 'defi' ? ADRESSE_DU_DEFI : `${window.location.pathname}${window.location.search}`,
+      m === 'sentiers'
+        ? ADRESSE_DES_SENTIERS
+        : m === 'defi'
+          ? ADRESSE_DU_DEFI
+          : m === 'carnet'
+            ? ADRESSE_DU_CARNET
+            : `${window.location.pathname}${window.location.search}`,
     )
     setMode(m)
     window.scrollTo(0, 0)
@@ -245,9 +264,18 @@ export function CampagneApp() {
   const onglets = (
     <Onglets
       onglets={[
-        { id: 'serie', nom: 'La série', icone: 'list' },
-        { id: 'sentiers', nom: 'Les sentiers', icone: 'target' },
-        { id: 'defi', nom: 'Le défi', icone: 'trophy' },
+        // Quatre au téléphone : sans leur article, chacun tient sur une ligne.
+        { id: 'serie', nom: 'La série', court: 'Série', icone: 'list' },
+        { id: 'sentiers', nom: 'Les sentiers', court: 'Sentiers', icone: 'target' },
+        { id: 'defi', nom: 'Le défi', court: 'Défi', icone: 'trophy' },
+        // Ce qui l'attend aujourd'hui se compte sur l'onglet : sinon, il faudrait l'ouvrir pour le savoir.
+        {
+          id: 'carnet',
+          nom: 'Le carnet',
+          court: 'Carnet',
+          icone: 'book',
+          ...(aRevoir > 0 && { pastille: { n: aRevoir, label: `${aRevoir} à revoir aujourd’hui` } }),
+        },
       ]}
       // Un défi entre amis se range sous l'onglet du défi.
       actif={mode === 'duel' ? 'defi' : mode}
@@ -279,7 +307,13 @@ export function CampagneApp() {
       // Le point de départ des montées de niveau que la fin d'une série dira.
       retenirLeNiveau(moi.profile.niveau)
       const lu = await etat
-      if (vivant) setEcran({ e: 'accueil', etat: lu })
+      if (!vivant) return
+      setEcran({ e: 'accueil', etat: lu })
+      // Le compte du carnet vient après la page, pour l'onglet : qu'il se taise ne retient rien.
+      api.campagne.carnet
+        .etat()
+        .then(c => vivant && setARevoir(c.aRevoir))
+        .catch(() => {})
     })().catch(e => vivant && setEcran({ e: 'erreur', motif: motifDe(e) }))
     return () => {
       vivant = false
@@ -348,6 +382,7 @@ export function CampagneApp() {
         sujet: de.sujet,
         abandonnee: true,
         justes: fin.justes,
+        erreurs: VIES - de.vies,
         record: !!fin.record,
         recordAvant: fin.recordAvant,
         niveauAtteint: fin.niveauAtteint ?? null,
@@ -384,7 +419,17 @@ export function CampagneApp() {
     try {
       const reponse = await api.campagne.repondre(ecran.serie, ecran.question.index, choix)
       // La révélation sur place : la question reste lisible au-dessus.
-      setEcranBrut({ ...ecran, reponse, choix, vies: reponse.vies, justes: reponse.justes, xp: ecran.xp + (reponse.xp ?? 0) })
+      setEcranBrut({
+        ...ecran,
+        reponse,
+        choix,
+        vies: reponse.vies,
+        justes: reponse.justes,
+        xp: ecran.xp + (reponse.xp ?? 0),
+        ...(ecran.revision && { apprises: (ecran.apprises ?? 0) + (reponse.revision?.apprise ? 1 : 0) }),
+      })
+      // Le carnet relu à la fin d'une révision : l'onglet suit.
+      if (reponse.carnet) setARevoir(reponse.carnet.aRevoir)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -402,6 +447,8 @@ export function CampagneApp() {
         categories: ecran.categories,
         sujet: ecran.sujet,
         justes: r.justes,
+        erreurs: VIES - r.vies,
+        ...(ecran.revision && { revision: { total: ecran.total, apprises: ecran.apprises ?? 0, carnet: r.carnet ?? null } }),
         record: !!r.record,
         recordAvant: r.recordAvant ?? null,
         niveauAtteint: r.niveauAtteint ?? null,
@@ -422,6 +469,50 @@ export function CampagneApp() {
   const jouerLeDefi = (t: SerieDeCampagne) => {
     if (!t.question) return
     setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, categories: [], sujet: null, defi: true })
+  }
+
+  /** Une révision du carnet, commencée ou reprise depuis son onglet : la partie de la série, sans vies. */
+  const jouerLaRevision = (t: SerieDeCampagne) => {
+    if (!t.question) return
+    setEcran({
+      e: 'jeu',
+      serie: t.id,
+      question: t.question,
+      vies: t.vies,
+      justes: t.justes,
+      total: t.total,
+      reponse: null,
+      choix: null,
+      xp: 0,
+      categories: [],
+      sujet: null,
+      revision: true,
+      apprises: 0,
+    })
+  }
+
+  /** De la fin d'une révision à une autre, tant qu'il reste à revoir. */
+  const reviserEncore = async () => {
+    if (busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      jouerLaRevision(await api.campagne.carnet.reviser())
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Le carnet, depuis la fin d'une série ou d'une révision : son onglet, relu. */
+  const ouvrirLeCarnet = async () => {
+    choisirMode('carnet')
+    try {
+      await relire()
+    } catch (e) {
+      setErreur(motifDe(e))
+    }
   }
 
   /** Un défi entre amis, lancé ou relevé : la même partie, une seule tentative, son code au bout pour l'envoyer. */
@@ -514,6 +605,15 @@ export function CampagneApp() {
     return (
       <>
         <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} apres={<MesDuels onOuvrir={ouvrirLeDuel} />} />
+        {toastVu}
+      </>
+    )
+  }
+
+  if (ecran.e === 'accueil' && mode === 'carnet') {
+    return (
+      <>
+        <PageDuCarnet onglets={onglets} onReviser={jouerLaRevision} onLu={c => setARevoir(c.aRevoir)} />
         {toastVu}
       </>
     )
@@ -690,6 +790,66 @@ export function CampagneApp() {
     )
   }
 
+  if (ecran.e === 'fin' && ecran.revision) {
+    const { total, apprises, carnet } = ecran.revision
+    const ratees = total - ecran.justes
+    const s = ecran.justes > 1 ? 's' : ''
+    return (
+      <div className="player-shell campagne">
+        <header className="fin-tete">
+          <span className="label">Le carnet de révision</span>
+          <h1>Révision terminée</h1>
+        </header>
+        <section className="card result-banner result-ok campagne-fin">
+          <span className="big">{ecran.justes}</span>
+          <p>{`retrouvée${s} sur ${total}`}</p>
+          {apprises > 0 && (
+            <p className="campagne-record-battu">
+              <Icon name="check-circle" /> {apprises > 1 ? `${apprises} choses apprises` : 'Une chose apprise'}
+            </p>
+          )}
+          {ratees > 0 && <p className="muted small">{ratees > 1 ? `Les ${ratees} autres reviennent demain : c’est comme ça qu’on apprend.` : 'L’autre revient demain : c’est comme ça qu’on apprend.'}</p>}
+          {ecran.justes > 0 && (
+            <p className="muted">
+              🎊 +{ecran.justes} confetti{s}
+              {ecran.xp > 0 && ` · +${ecran.xp} XP`}
+            </p>
+          )}
+        </section>
+        {ecran.justes > 0 && <BarreDeNiveau />}
+        {ecran.recompenses.length > 0 && (
+          <section className="card campagne-recompenses">
+            {ecran.recompenses.map(r => (
+              <RecompenseTombee key={r.key} recompense={r} />
+            ))}
+          </section>
+        )}
+        {ecran.legendaires.map(cle => (
+          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+        ))}
+        {erreur && <p className="error">{erreur}</p>}
+        {carnet && carnet.aRevoir > 0 ? (
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
+            <Icon name="rotate" />
+            {`Réviser encore · ${Math.min(carnet.aRevoir, total)} question${Math.min(carnet.aRevoir, total) > 1 ? 's' : ''}`}
+          </button>
+        ) : (
+          carnet && <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
+        )}
+        <div className="row campagne-suite">
+          <button type="button" className="btn btn-ghost" onClick={() => void ouvrirLeCarnet()}>
+            <Icon name="book" />
+            Mon carnet
+          </button>
+          <a className="btn btn-ghost" href="/">
+            <Icon name="home" />
+            Accueil
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   if (ecran.e === 'fin') {
     const voirCorrection = async () => {
       try {
@@ -736,6 +896,16 @@ export function CampagneApp() {
             </p>
           )}
         </section>
+        {/* Ses erreurs ne sont pas perdues : le carnet les repose demain. Pas celles d'un défi, qui attendent sa clôture. */}
+        {!ecran.defi && ecran.erreurs > 0 && (
+          <p className="muted small centre carnet-rappel">
+            <Icon name="book" /> {ecran.erreurs > 1 ? 'Tes erreurs reviendront' : 'Ton erreur reviendra'} demain dans{' '}
+            <button type="button" className="link-inline" onClick={() => void ouvrirLeCarnet()}>
+              ton carnet de révision
+            </button>
+            .
+          </p>
+        )}
         {/* Où il en est : la barre de niveau, relue après la série, et la montée qu'elle a faite. */}
         {ecran.justes > 0 && <BarreDeNiveau />}
         {ecran.recompenses.length > 0 && (
@@ -804,11 +974,18 @@ export function CampagneApp() {
     <div className="player-shell campagne">
       <div className="quiz-player">
         <div className="quiz-topbar">
-          <span className="label">
-            {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
-            {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
-          </span>
-          <Vies restantes={ecran.vies} />
+          {ecran.revision ? (
+            // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
+            <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
+          ) : (
+            <>
+              <span className="label">
+                {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
+                {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
+              </span>
+              <Vies restantes={ecran.vies} />
+            </>
+          )}
         </div>
         {q.categorie && <span className="label quiz-categorie">{q.categorie}</span>}
         <h2 className={'quiz-question' + questionSizeClass(q.texte)}>{espacesFines(q.texte)}</h2>
@@ -838,7 +1015,9 @@ export function CampagneApp() {
                     <Icon name="x-circle" />
                   </span>
                   <p>
-                    Raté… {ecran.vies > 0 ? `plus que ${ecran.vies} vie${ecran.vies > 1 ? 's' : ''}` : 'c’était ta dernière vie'}
+                    {ecran.revision
+                      ? 'Pas grave : elle revient demain.'
+                      : `Raté… ${ecran.vies > 0 ? `plus que ${ecran.vies} vie${ecran.vies > 1 ? 's' : ''}` : 'c’était ta dernière vie'}`}
                   </p>
                 </>
               )}
@@ -846,6 +1025,18 @@ export function CampagneApp() {
                 La bonne réponse : <Shape index={r.bonne} inline />
                 <strong>{espacesFines(q.reponses[r.bonne])}</strong>
               </p>
+              {/* Retrouvée en révision : ce qu'il reste de rendez-vous, ou apprise. */}
+              {r.juste && r.revision && (
+                <p className="carnet-suite">
+                  {r.revision.apprise ? (
+                    <>
+                      <Icon name="check-circle" /> Apprise !
+                    </>
+                  ) : (
+                    `Encore ${INTERVALLES_DE_REVISION.length - r.revision.etape} rendez-vous : elle revient ${revientDans(r.revision.dans ?? 1)}.`
+                  )}
+                </p>
+              )}
             </div>
             {r.anecdote && (
               <p className="card anecdote">
@@ -856,7 +1047,7 @@ export function CampagneApp() {
               </p>
             )}
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
-              {r.finie ? 'Voir ma série' : 'Question suivante'}
+              {r.finie ? (ecran.revision ? 'Voir ma révision' : 'Voir ma série') : 'Question suivante'}
             </button>
             <button type="button" className="lien-signaler link-inline small" onClick={() => void signaler(ecran.serie, q.index)}>
               Signaler une erreur dans cette question
@@ -868,8 +1059,8 @@ export function CampagneApp() {
             {erreur}
           </p>
         )}
-        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative. */}
-        {!ecran.defi && !r?.finie && (
+        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une révision n'a rien à perdre. */}
+        {!ecran.defi && !ecran.revision && !r?.finie && (
           <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void abandonner()}>
             <Icon name="rotate" />
             Recommencer

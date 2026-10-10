@@ -12,6 +12,7 @@ import type {
   SerieDeCampagne,
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
+import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -386,6 +387,17 @@ export const api = {
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+    },
+    /**
+     * Le carnet de révision (`shared/revision.ts`) : une révision est une
+     * série d'un autre mode — ses réponses et ses signalements passent par
+     * celles de la série.
+     */
+    carnet: {
+      etat: () => req<EtatDuCarnet>('/api/campagne/carnet'),
+      appris: () => req<FaitAppris[]>('/api/campagne/carnet/appris'),
+      /** Une révision : celle laissée en route, ou les questions dont le rendez-vous est arrivé. */
+      reviser: () => req<SerieDeCampagne>('/api/campagne/revision', { method: 'POST' }),
     },
     /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une

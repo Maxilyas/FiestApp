@@ -12,7 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
+import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
 import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
@@ -95,6 +95,14 @@ import {
   type StatsDuPalier,
   type VieDesSentiers,
 } from '../../../shared/sentiers'
+import {
+  QUESTIONS_PAR_REVISION,
+  suiteDeLaRevision,
+  suiviDeLaQuestion,
+  type EtatDuCarnet,
+  type FaitAppris,
+  type SuiviDeRevision,
+} from '../../../shared/revision'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -112,6 +120,12 @@ interface QuestionDeSerie {
   niveau: Niveau
   /** Son sous-thème : une série d'avant les sentiers ne le gardait pas. */
   sousTheme?: string
+  /**
+   * Une révision : ses rendez-vous réussis quand elle l'a tirée — de quoi dire
+   * après chaque réponse où en est la question sans relire tout le journal.
+   * Le carnet, lui, se relit toujours dans le journal (`suiviDeLaQuestion`).
+   */
+  etape?: number
 }
 
 /**
@@ -128,7 +142,8 @@ interface Serie {
   vies: number
   justes: number
   finieLe: number | null
-  mode: 'serie' | 'sentier' | 'defi' | 'duel'
+  /** Une révision du carnet (`shared/revision.ts`) n'a pas de vies : ses erreurs remettent la question au lendemain, rien de plus. */
+  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -175,6 +190,8 @@ const LIGNES_DU_DEFI = 50
 const DUELS_MONTRES = 10
 /** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
 const SIGNALEMENTS_MONTRES = 50
+/** Ce que le carnet redonne de ce qu'il a appris : les plus récents, de quoi relire sans tout charger. */
+const FAITS_MONTRES = 100
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 
 /**
@@ -527,7 +544,13 @@ export class CampagneStore {
   async mesures(): Promise<Map<string, { justes: number; total: number }>> {
     const garde = this.mesuresGardees
     if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.parQuestion
-    const res = await this.client.execute('SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses GROUP BY reserve_id')
+    // Sans les révisions du carnet : elles ne reposent que ce qu'on a raté,
+    // dont on a lu la bonne réponse la veille — comptées, elles feraient
+    // passer pour faciles les questions que tout le monde rate une fois.
+    const res = await this.client.execute(
+      `SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
+       WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id`,
+    )
     const parQuestion = new Map(res.rows.map(r => [String(r.reserve_id), { justes: Number(r.justes), total: Number(r.total) }]))
     this.mesuresGardees = { a: this.maintenant(), parQuestion }
     return parQuestion
@@ -592,9 +615,11 @@ export class CampagneStore {
           args: [profileId],
         },
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
+        // Une experte retrouvée en révision ne compte pas pour L'Érudit : on
+        // en aurait fait trois d'une seule, ratée exprès.
         {
           sql: `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                WHERE s.profile_id = ? AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
+                WHERE s.profile_id = ? AND s.mode <> 'revision' AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
           args: [profileId],
         },
       ],
@@ -836,7 +861,7 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
-      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel')) throw new Error('Cette série est introuvable')
+      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
       if (s.mode === 'defi' && s.semaine !== this.semaineDeLHeure().semaine) throw new Error('Ce défi est clos : celui de cette semaine t’attend')
       // Un défi entre amis ferme au bout de sa semaine, tentatives en route comprises.
@@ -847,14 +872,18 @@ export class CampagneStore {
             ? 'Tu as relevé le défi de cette semaine : le prochain ouvre lundi'
             : s.mode === 'duel'
               ? 'Tu as relevé ce défi : son classement t’attend'
-              : 'Cette série est finie : commence-en une autre',
+              : s.mode === 'revision'
+                ? 'Cette révision est finie : ton carnet t’attend'
+                : 'Cette série est finie : commence-en une autre',
         )
       }
       if (index !== s.index) throw new Error('Cette question est passée : la série a continué sans elle')
       const q = s.questions[s.index]
       const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
       const juste = c === q.bonne
-      const vies = juste ? s.vies : s.vies - 1
+      // Une révision n'a pas de vies : on y vient apprendre ce qu'on a raté,
+      // et l'erreur remet seulement la question au lendemain.
+      const vies = juste || s.mode === 'revision' ? s.vies : s.vies - 1
       const justes = s.justes + (juste ? 1 : 0)
       const position = s.index + 1
       const finie = vies <= 0 || position >= s.questions.length
@@ -887,7 +916,12 @@ export class CampagneStore {
       else this.garderEnCours({ ...s, index: position, vies, justes })
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
-      const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
+      const revision = s.mode === 'revision'
+      const gagnees = !finie
+        ? {}
+        : revision
+          ? await this.recompenserLaRevision(profileId, s.id, maintenant)
+          : await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant })
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
       const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
@@ -897,6 +931,8 @@ export class CampagneStore {
           : finie && s.mode === 'duel' && s.duel
             ? await this.placeAuDuel(s.duel, profileId)
             : null
+      // Finie, une révision redit son carnet : ce qu'elle a appris, ce qui reste à revoir.
+      const carnet = finie && revision ? await this.carnetApres(profileId) : null
       return {
         juste,
         xp,
@@ -905,10 +941,12 @@ export class CampagneStore {
         vies,
         justes,
         finie,
-        ...(finie && { niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
+        ...(finie && !revision && { niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
         ...(record && { recordAvant: avant }),
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
+        ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste) }),
+        ...(carnet && { carnet }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
         ...ensemble(gagnees, eclat),
       }
@@ -1041,17 +1079,195 @@ export class CampagneStore {
     // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON
     // entier de la série — soixante questions — pour chacune de ses
     // réponses. Six fois plus lent pour un joueur de cinq cents séries, et
-    // la carte la lit à chaque toucher sur son nom.
+    // la carte la lit à chaque toucher sur son nom. Les révisions du carnet
+    // n'y sont pas : elles reposent ce qu'il a raté, réponse lue la veille,
+    // et sa précision y gagnait ce qu'il venait d'apprendre par cœur.
     const res = await this.client.execute({
       sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
             FROM (SELECT json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
                   FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                  WHERE s.profile_id = ?
+                  WHERE s.profile_id = ? AND s.mode <> 'revision'
                   LIMIT -1)
             GROUP BY categorie`,
       args: [profileId],
     })
     return savoirDesLignes(res.rows)
+  }
+
+  // ── Le carnet de révision ───────────────────────────────────────────────
+  //
+  // Ce qu'il a raté revient le lendemain, puis trois jours après, puis une
+  // semaine (`shared/revision.ts`) : retrouvé à chaque rendez-vous, c'est
+  // appris. Rien ne se tient à côté : le carnet se relit dans le journal des
+  // réponses, comme l'expérience. Une révision est une série d'un autre mode
+  // (`mode = 'revision'`), sans vies : ses bonnes réponses paient comme en
+  // série — un confetti, l'expérience d'une bonne réponse —, mais ni la
+  // mesure des difficultés ni la précision ne la comptent, elle ne repose que
+  // ce qu'il a raté.
+
+  /**
+   * Ce que ses réponses disent de chaque question qu'il a ratée
+   * (`suiviDeLaQuestion`), lues dans l'ordre où elles sont venues. Le défi de
+   * la semaine qui court et un défi entre amis ouvert n'y entrent qu'à leur
+   * clôture : leur correction attend, le carnet aussi — il redonnerait leurs
+   * réponses à ceux qui jouent encore.
+   */
+  private async suivisDe(profileId: string): Promise<Map<string, SuiviDeRevision>> {
+    const res = await this.client.execute({
+      sql: `WITH miennes AS (
+              SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
+              FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+              WHERE s.profile_id = ?
+                AND NOT (s.mode = 'defi' AND s.semaine >= ?)
+                AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
+            )
+            SELECT id, juste, le FROM miennes WHERE id IN (SELECT id FROM miennes WHERE juste = 0)
+            ORDER BY le, serie, position`,
+      args: [profileId, this.semaineDeLHeure().semaine, this.maintenant()],
+    })
+    const parQuestion = new Map<string, { le: number; juste: boolean }[]>()
+    for (const r of res.rows) {
+      const id = String(r.id)
+      const passage = { le: Number(r.le), juste: Number(r.juste) === 1 }
+      const passages = parQuestion.get(id)
+      if (passages) passages.push(passage)
+      else parQuestion.set(id, [passage])
+    }
+    const suivis = new Map<string, SuiviDeRevision>()
+    for (const [id, passages] of parQuestion) {
+      const suivi = suiviDeLaQuestion(passages)
+      if (suivi) suivis.set(id, suivi)
+    }
+    return suivis
+  }
+
+  /** Sa révision laissée en route, s'il en a une : elle se reprend. */
+  private async revisionEnCours(profileId: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      args: [profileId],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /**
+   * Son carnet : ce qui est à revoir aujourd'hui, ce qui revient demain et
+   * plus tard, ce qu'il a appris — parmi les questions que la campagne pose
+   * encore : retirée ou remplacée depuis, une question n'y est plus.
+   */
+  async carnet(profileId: string): Promise<EtatDuCarnet> {
+    const [suivis, jouables, ouverte] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.revisionEnCours(profileId)])
+    const ids = new Set(jouables.map(q => q.id))
+    const aujourdhui = jourDe(this.maintenant())
+    const demain = jourAvant(aujourdhui, -1)
+    const carnet: EtatDuCarnet = { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: ouverte ? vueDeSerie(ouverte) : null }
+    for (const [id, s] of suivis) {
+      if (!ids.has(id)) continue
+      if (s.apprise) carnet.appris++
+      else if (s.revientLe <= aujourdhui) carnet.aRevoir++
+      else {
+        if (s.revientLe === demain) carnet.demain++
+        else carnet.plusTard++
+        if (!carnet.prochainJour || s.revientLe < carnet.prochainJour) carnet.prochainJour = s.revientLe
+      }
+    }
+    return carnet
+  }
+
+  /** Le carnet relu à la fin d'une révision ; une base qui se tait l'ôte de la réponse, pas la réponse. */
+  private async carnetApres(profileId: string): Promise<EtatDuCarnet | null> {
+    try {
+      return await this.carnet(profileId)
+    } catch (e) {
+      console.error('[campagne] carnet non relu après la révision :', e)
+      return null
+    }
+  }
+
+  /**
+   * Ce qu'il a appris, le plus récent d'abord — les cent derniers : la
+   * question, sa réponse, son anecdote. Jamais ce qui reste à revoir : la
+   * bonne réponse attend son rendez-vous.
+   */
+  async faitsAppris(profileId: string): Promise<FaitAppris[]> {
+    const [suivis, jouables] = await Promise.all([this.suivisDe(profileId), this.jouables()])
+    const parId = new Map(jouables.map(q => [q.id, q]))
+    const faits: FaitAppris[] = []
+    for (const [id, s] of suivis) {
+      const q = parId.get(id)
+      if (s.apprise && q) faits.push({ texte: q.texte, reponse: q.reponses[q.bonne], anecdote: q.anecdote, categorie: q.meta.categorie, le: s.le })
+    }
+    return faits.sort((a, b) => b.le.localeCompare(a.le)).slice(0, FAITS_MONTRES)
+  }
+
+  /**
+   * Une révision : les questions dont le rendez-vous est arrivé, les plus en
+   * retard d'abord, dix au plus (`QUESTIONS_PAR_REVISION`). Celle qu'il a
+   * laissée en route se reprend ; rien à revoir, rien ne commence. Une série
+   * en cours, elle, attend : la révision ne la clôt pas.
+   */
+  commencerRevision(profileId: string): Promise<SerieDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const ouverte = await this.revisionEnCours(profileId)
+      if (ouverte) {
+        this.garderEnCours(ouverte)
+        return vueDeSerie(ouverte)
+      }
+      const [suivis, jouables, mesure] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.mesures()])
+      const aujourdhui = jourDe(this.maintenant())
+      const parId = new Map(jouables.map(q => [q.id, q]))
+      const dues: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
+      for (const [id, s] of suivis) {
+        const q = parId.get(id)
+        if (q && !s.apprise && s.revientLe <= aujourdhui) dues.push({ q, etape: s.etape, revientLe: s.revientLe })
+      }
+      if (dues.length === 0) throw new Error(suivis.size === 0 ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain' : 'Rien à revoir aujourd’hui : reviens demain')
+      // Battues avant d'être rangées : à rendez-vous égal, ni l'ordre de la
+      // base ni celui des séries ne décide ; puis dans le désordre, pour que
+      // les catégories se mêlent.
+      const tirees = melanger(dues)
+        .sort((a, b) => a.revientLe.localeCompare(b.revientLe))
+        .slice(0, QUESTIONS_PAR_REVISION)
+      const questions = melanger(tirees).map(d => ({ ...versQuestionDeSerie(d.q, niveauDeQuestion(d.q.meta.difficulte, mesure.get(d.q.id))), etape: d.etape }))
+      const serie: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions,
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'revision',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        categories: null,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'revision')`,
+        args: [serie.id, profileId, JSON.stringify(questions), VIES, this.maintenant()],
+      })
+      this.garderEnCours(serie)
+      return vueDeSerie(serie)
+    })
+  }
+
+  /**
+   * La fin d'une révision : aucun haut fait de série — elle n'en est pas
+   * une —, seulement les paliers que ses bonnes réponses font atteindre (Le
+   * Marathonien). Une étagère qui se tait n'y change rien : la révision est
+   * rangée, et la suivante les relira.
+   */
+  private async recompenserLaRevision(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    try {
+      return await this.recompenser(profileId, serieId, [], quand)
+    } catch (e) {
+      console.error('[campagne] récompenses de la révision non rangées :', e)
+      return {}
+    }
   }
 
   // ── Le défi de la semaine ───────────────────────────────────────────────
@@ -2583,7 +2799,7 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie',
+    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : r.mode === 'revision' ? 'revision' : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -2750,7 +2966,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie'
+  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : r.mode === 'revision' ? 'revision' : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,

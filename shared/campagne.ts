@@ -16,6 +16,7 @@
 import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
+import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -218,6 +219,10 @@ export interface ReponseDeCampagne {
   defi?: { rang: number; joueurs: number }
   /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
   eclat?: string
+  /** Une révision (`shared/revision.ts`) : où en est la question après cette réponse — apprise, ou quand elle revient. */
+  revision?: SuiteDeLaRevision
+  /** À la fin d'une révision : son carnet, relu. */
+  carnet?: EtatDuCarnet
 }
 
 /** Une série, telle que sa page la reprend. */
@@ -289,8 +294,8 @@ export interface RapportDeSignalement {
   le: number
   /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
   traiteLe: number | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis. */
-  ou: 'serie' | 'sentier' | 'defi' | 'duel'
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet. */
+  ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision'
   branche?: string
   palier?: number
   /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */
