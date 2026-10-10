@@ -58,7 +58,10 @@ Il n'y a ni linter ni formateur : le typecheck, les tests et le test de bout
 en bout tiennent lieu de filet, et la relecture fait le reste.
 
 **Si tu travailles avec Claude Code**, `CLAUDE.md` à la racine lui dit les
-conventions, les invariants et les pièges du dépôt — il le lit tout seul. Un
+conventions et les invariants du dépôt — il le lit tout seul —, et
+`.claude/rules/` les pièges de chaque domaine, qu'il lit quand il en ouvre un
+fichier ; les procédures en plusieurs étapes sont des skills
+(`.claude/skills/`). Un
 hook de démarrage (`.claude/hooks/session-start.sh`) installe les dépendances
 au réveil d'une session web, pour que `npm run verify` marche d'emblée.
 

@@ -14,8 +14,8 @@ redémarre) ? Consignes : `consignes-audit.md`.
 `shared/saisons.ts`, ce que `auth/profiles.ts` fait pour le jour (la ligne
 `#jour`, les paliers `duJour`, le Sphinx et sa voie `aussi`, les lauriers),
 `shared/hautsfaits.ts`, `shared/legendaires.ts` ; la documentation :
-`RECOMPENSES.md` et le README (le quiz du jour), CLAUDE.md (le piège « Le
-quiz du jour a son horloge ») ; les tests : `jour.test.ts`,
+`RECOMPENSES.md` et le README (le quiz du jour), `.claude/rules/jour.md` (le
+piège « Le quiz du jour a son horloge ») ; les tests : `jour.test.ts`,
 `jour-partie.test.ts`, `jour-paliers.test.ts`, `jour-reserve.test.ts`,
 `sphinx.test.ts`, `laurier.test.ts`, `saisons.test.ts`.
 
@@ -41,7 +41,7 @@ quiz du jour a son horloge ») ; les tests : `jour.test.ts`,
 - **Les comptes** : l'expérience (75 au plus, le podium 25/15/10), les
   ex æquo (invariant 15 : passent-ils par `shared/classement.ts` ?), le
   recompte d'une annulation (`annuler`, `recompter`, sous le verrou de chaque
-  profil — piège du CLAUDE.md), une annulation **après** la nuit (le podium
+  profil — piège de `.claude/rules/jour.md`), une annulation **après** la nuit (le podium
   se refait-il ? l'expérience du podium suit-elle ?), `garder`, un profil
   masqué ou supprimé dans un classement ou un podium.
 - **Les paliers, le Sphinx, le laurier, les saisons** : L'Assidu (la série :

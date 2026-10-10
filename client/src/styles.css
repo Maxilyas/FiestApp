@@ -2100,7 +2100,7 @@ h3 > .icon {
    Centré par `transform`, il était décalé — l'animation `pop` réécrit
    `transform`, son `scale(1)` effaçait le `translateX(-50%)`, et le toast
    partait du milieu de l'écran : trois lignes serrées dans la moitié droite
-   d'un téléphone (le piège de CLAUDE.md). Il ne capte aucun doigt : quatre
+   d'un téléphone (le piège de `.claude/rules/css.md`). Il ne capte aucun doigt : quatre
    secondes au-dessus d'un bouton ne doivent empêcher personne de répondre. */
 .toast {
   position: fixed;

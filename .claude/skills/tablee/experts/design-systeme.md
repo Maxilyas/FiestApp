@@ -14,7 +14,7 @@ espacements, les rayons, les ombres, les `z-index`, les points de rupture,
 les animations et leurs durées ; les variables réellement utilisées ; les
 règles en double ou presque ; le CSS mort (sélecteurs qu'aucun composant
 n'emploie) ; les deux thèmes (Velours, Ivoire) et la règle `--accent-text`
-pour l'écrit, `--accent` pour les aplats (CLAUDE.md) ; les icônes
+pour l'écrit, `--accent` pour les aplats (`.claude/rules/css.md`) ; les icônes
 (`Icon.tsx`) face aux emojis, et la règle « emojis antérieurs à Unicode 13 »
 (vérifie chaque emoji du client et de `shared/`) ; les variantes de
 boutons, de cartes, de pastilles, de dialogues.

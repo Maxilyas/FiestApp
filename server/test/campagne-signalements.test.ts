@@ -8,8 +8,9 @@
 // réponse reste la même — une coquille, un leurre ambigu remplacé, une
 // anecdote reprise : ses réponses passées et sa difficulté mesurée la
 // suivent. Une autre bonne réponse, et ce n'est plus la même question : elle
-// repart sous un identifiant neuf, l'ancienne est retirée (CLAUDE.md, « Une
-// question de la base de la campagne garde son identifiant »). Rangée dans
+// repart sous un identifiant neuf, l'ancienne est retirée
+// (`.claude/rules/campagne-base.md`, « Une question de la base de la
+// campagne garde son identifiant »). Rangée dans
 // Turso, la correction se joue tout de suite et survit au réveil ; les séries
 // déjà tirées gardent la version qu'elles ont lue.
 import { test } from 'node:test'
