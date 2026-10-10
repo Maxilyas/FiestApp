@@ -8735,5 +8735,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .gerbe { display: none; }
 }
-/* « Ma gerbe », dans « Mon style » : ses particules en aperçu, comme une finition. */
+/* « Ma gerbe », dans « Mon thème » : ses particules en aperçu, comme une finition. */
 .gerbe-apercu { display: flex; align-items: center; justify-content: center; min-height: 2.2rem; font-size: 1.3rem; letter-spacing: 0.1em; }
+/* Une gerbe à gagner se touche — elle éclate, pour qu'on voie ce qu'on vise —
+   mais ne se porte pas : le pointillé et l'aperçu voilé d'une finition fermée,
+   sa règle lisible. */
+.finition-btn.gerbe-a-gagner { border-style: dashed; }
+.finition-btn.gerbe-a-gagner > :not(.muted) { opacity: 0.45; }

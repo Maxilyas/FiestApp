@@ -53,7 +53,7 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
-import { gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
+import { AUCUNE_GERBE, GERBE_PAR_DEFAUT, gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -148,7 +148,8 @@ export interface ProfileRec {
   theme: string | null
   /**
    * La gerbe de ses bonnes réponses (`shared/gerbes.ts`), s'il en a choisi
-   * une. Relue à chaque affichage (`gerbePortee`), comme le fond.
+   * une — null : celle de tous ; `AUCUNE_GERBE` : aucune. Relue à chaque
+   * affichage (`gerbePortee`), comme le fond.
    */
   gerbe: string | null
   passwordHash: string
@@ -933,10 +934,15 @@ export class ProfileStore {
     return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
   }
 
-  /** La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite encore. */
+  /**
+   * La gerbe de ses bonnes réponses : celle qu'il a choisie, s'il la mérite
+   * encore ; sinon celle de tous (`GERBE_PAR_DEFAUT`) ; aucune s'il l'a
+   * demandé (`AUCUNE_GERBE`).
+   */
   gerbePortee(p: ProfileRec): CleDeGerbe | null {
+    if (p.gerbe === AUCUNE_GERBE) return null
     const choisie = gerbe(p.gerbe)
-    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : null
+    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : GERBE_PAR_DEFAUT
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -1820,9 +1826,11 @@ export class ProfileStore {
         champs.theme = choisi.key
       }
     }
-    // Une gerbe : seulement l'une de celles qu'il a gagnées ; aucune s'écrit null.
+    // Une gerbe : seulement l'une de celles qu'il a gagnées ; null, celle de
+    // tous ; et qui n'en veut aucune le dit (`AUCUNE_GERBE`).
     if (patch.gerbe !== undefined) {
       if (patch.gerbe === null || patch.gerbe === '') champs.gerbe = null
+      else if (patch.gerbe === AUCUNE_GERBE) champs.gerbe = AUCUNE_GERBE
       else {
         const choisie = gerbe(patch.gerbe)
         if (!choisie) throw new Error('Cette gerbe n’existe pas')

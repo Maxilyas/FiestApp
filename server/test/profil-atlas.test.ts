@@ -15,6 +15,7 @@ import React from 'react'
 import { BRANCHES, ouvertsDansLaBranche } from '../../shared/branches'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
+import { GERBES } from '../../shared/gerbes'
 
 Object.assign(globalThis, {
   React,
@@ -173,6 +174,21 @@ test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas, puis
   assert.match(html, /<a class="link-inline lien-boutique" href="#collection-themes"><svg[^>]*>.*?<\/svg>5 qui ne se vendent pas : où les gagner<\/a>/)
   // Seulement ceux qu'il a, dans leurs cartes : les autres se montrent dans la collection.
   assert.equal(html.match(/<button type="button" class="theme-vitrine/g)?.length, complet.boutique.possedes.length)
+})
+
+// « Les gerbes, à améliorer » (le 10 octobre 2026) : celles à gagner étaient
+// fermées au doigt — on ne savait pas ce qu'on visait. Elles éclatent au
+// toucher, sans se porter ; et « Aucune » se demande, puisque sans choix
+// chacun porte les confettis.
+test('« Ma gerbe » : celles à gagner se touchent pour se voir, sans se porter ; « Aucune » se demande', async () => {
+  const html = await rendu('components/PanneauxDuProfil', 'PanneauMonTheme', { profil: complet, ...rien })
+  const gerbes = html.slice(html.indexOf('gerbes-choix'))
+  assert.doesNotMatch(gerbes, /<button[^>]*disabled=""/, 'aucune gerbe ne se ferme au doigt')
+  assert.equal(gerbes.match(/class="finition-btn gerbe-a-gagner"/g)?.length, GERBES.length - complet.gerbes.length)
+  assert.match(gerbes, /, à gagner : touche-la pour la voir/)
+  const APPARENCE = source('components/Apparence.tsx')
+  assert.match(APPARENCE, /onClick=\{\(\) => enregistrer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
+  assert.match(APPARENCE, /if \(ouverte && !choisie\) enregistrer\(\{ gerbe: g\.key \}\)/)
 })
 
 // ── Les trophées, la carrière, les soirées ─────────────────────────────

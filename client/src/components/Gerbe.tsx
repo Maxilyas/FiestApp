@@ -1,10 +1,20 @@
 import { useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { gerbe as gerbeDuCatalogue } from '../../../shared/gerbes'
+import { ALLURE_PAR_DEFAUT, gerbe as gerbeDuCatalogue, type AllureDeGerbe } from '../../../shared/gerbes'
 import { gerbePortee } from '../gerbe'
 
-/** Combien de particules : assez pour une gerbe, pas de quoi charger un petit téléphone. */
-const PARTICULES = 18
+/** Ses particules, tirées une fois à l'allure de la gerbe : un ballon flotte, une étincelle file. */
+function tirerLesParticules({ nombre, taille, duree }: AllureDeGerbe) {
+  return Array.from({ length: nombre }, (_, i) => ({
+    i,
+    x: 4 + Math.random() * 92,
+    delai: Math.random() * 0.3,
+    duree: duree[0] + Math.random() * (duree[1] - duree[0]),
+    tour: Math.round((Math.random() * 2 - 1) * 300),
+    ecart: Math.round((Math.random() * 2 - 1) * 60),
+    taille: taille[0] + Math.random() * (taille[1] - taille[0]),
+  }))
+}
 
 /**
  * La gerbe d'une bonne réponse : ses particules éclatent par-dessus l'écran,
@@ -19,17 +29,7 @@ const PARTICULES = 18
 export function GerbeDeJuste({ cle }: { cle?: string }) {
   const g = gerbeDuCatalogue(cle ?? gerbePortee())
   // Tirées une fois : une nouvelle diffusion de la même révélation ne relance rien.
-  const [particules] = useState(() =>
-    Array.from({ length: PARTICULES }, (_, i) => ({
-      i,
-      x: 4 + Math.random() * 92,
-      delai: Math.random() * 0.3,
-      duree: 1.3 + Math.random() * 0.8,
-      tour: Math.round((Math.random() * 2 - 1) * 300),
-      ecart: Math.round((Math.random() * 2 - 1) * 60),
-      taille: 0.8 + Math.random() * 0.7,
-    })),
-  )
+  const [particules] = useState(() => tirerLesParticules(g?.allure ?? ALLURE_PAR_DEFAUT))
   if (!g || typeof document === 'undefined') return null
   // Posée sur la page, pas dans le bandeau : une carte à `backdrop-filter`
   // devient le repère d'un `position: fixed`, et la gerbe s'y rognait.
