@@ -8,7 +8,18 @@
 // qui manque à la base. De mémoire, deux rédacteurs retombent vite sur les
 // mêmes faits célèbres ; ici, le fait est neuf avant qu'on écrive un mot.
 //
-//   NODE_USE_ENV_PROXY=1 npx tsx scripts/faits-wikidata.ts extraire [<famille> …]
+// Le pilote de trois cents questions, le même soir : 299 écrites en douze
+// lots sans un refus du juge, pour 650 jetons de rédacteur par question, puis
+// toutes relues, pour 490 de correcteur — 1 140 en tout, la moitié d'une
+// question écrite de mémoire et relue. Le correcteur en a retiré trois, des
+// vainqueurs de 2026 qu'il ne connaît pas encore, et corrigé quatorze : sept
+// phrases écrites de mémoire, dont deux sur la foi d'une description de
+// Wikidata (Patty Jenkins, « réalisatrice et scénariste », n'a pas écrit
+// « Wonder Woman »), trois dates fausses sur Wikidata, un musée d'avant 1949,
+// trois difficultés. Un lot sur trois relu en aurait laissé passer les deux
+// tiers : chaque lot se relit.
+//
+//   NODE_USE_ENV_PROXY=1 npx tsx scripts/faits-wikidata.ts extraire [<famille> …] [--max-sujets=600]
 //   npx tsx scripts/faits-wikidata.ts lots --questions=300 [--familles=tableaux,films] [--par-lot=30] [--nom=wd1]
 //   npx tsx scripts/faits-wikidata.ts fusionner <nom>-NN
 //   npx tsx scripts/faits-wikidata.ts familles
@@ -34,6 +45,7 @@ import { fileURLToPath } from 'node:url'
 import { SERVEUR } from '../src/racine'
 import { lireLaBase, lireQuestionDeLaBase, nomDeFamille } from '../src/core/baseCampagne'
 import { CIBLE_DES_DIFFICULTES, TEXTE_CONSEILLE, empreintesDesLivres } from '../src/core/consigneCampagne'
+import { tronquer } from '../../shared/avatars'
 import type { Categorie } from '../../shared/categories'
 import { MAX_EXPLICATION, type MetadonneesDeQuestion } from '../../shared/etiquettes'
 import { MAX_ANECDOTE } from '../../shared/library'
@@ -47,7 +59,10 @@ export const DOSSIER_DES_FAITS = path.join(SERVEUR, '..', '.faits-wikidata')
 /** Une entité de Wikidata, telle qu'une fiche s'en sert. */
 export interface EntiteWd {
   qid: string
+  /** Le nom qu'on affiche : le titre de son article sur Wikipédia en français, sans sa parenthèse — sinon son libellé. */
   nom: string
+  /** Son libellé français sur Wikidata, que l'index des libellés retrouve : la recherche des homonymes passe par lui. */
+  libelle?: string
   description: string | null
   /** Son article sur Wikipédia en français : la source de la question, et ses vues. */
   titre: string | null
@@ -107,7 +122,16 @@ const plat = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').to
  * leurre honnête pour Vincent, ni Brueghel le Jeune pour l'Ancien. Null sous
  * six : le juge en veut six à huit.
  */
-export function choisirLeurres(reponse: EntiteWd, vivier: readonly EntiteWd[], o: { ecart: number; exclus?: ReadonlySet<string> }): string[] | null {
+export function choisirLeurres(
+  reponse: EntiteWd,
+  vivier: readonly EntiteWd[],
+  o: {
+    ecart: number
+    exclus?: ReadonlySet<string>
+    /** Combien de fois chaque leurre s'est déjà affiché dans la famille : Tarantino, Clooney et Ben Stiller revenaient à toutes les questions de films de leur génération. */
+    affiches?: ReadonlyMap<string, number>
+  },
+): string[] | null {
   const annees = reponse.annees ?? []
   if (annees.length === 0) return null
   const famille = nomDeFamille(reponse.nom)
@@ -117,8 +141,9 @@ export function choisirLeurres(reponse: EntiteWd, vivier: readonly EntiteWd[], o
     .filter(e => plat(e.nom) !== plat(reponse.nom) && (!famille || nomDeFamille(e.nom) !== famille))
     .map(e => ({ e, d: Math.min(...e.annees!.flatMap(a => annees.map(b => Math.abs(a - b)))) }))
     .filter(({ d }) => d <= o.ecart)
-    // L'année d'abord ; le même pays vaut quinze ans ; un peu de notoriété départage — un leurre que personne ne connaît ne trompe personne.
-    .map(({ e, d }) => ({ e, score: d + ((e.pays ?? []).some(p => pays.has(p)) ? 0 : 15) - Math.min(e.liens, 150) / 15 }))
+    // L'année d'abord ; le même pays vaut quinze ans ; un peu de notoriété départage — un leurre que personne ne connaît
+    // ne trompe personne ; chaque affichage déjà fait coûte quatre ans, pour que la famille ne repose pas les trois mêmes.
+    .map(({ e, d }) => ({ e, score: d + ((e.pays ?? []).some(p => pays.has(p)) ? 0 : 15) - Math.min(e.liens, 150) / 15 + 4 * (o.affiches?.get(e.nom) ?? 0) }))
     .sort((a, b) => a.score - b.score || a.e.nom.localeCompare(b.e.nom))
   const leurres: string[] = []
   for (const { e } of candidats) {
@@ -139,16 +164,25 @@ export function choisirLeurres(reponse: EntiteWd, vivier: readonly EntiteWd[], o
  * connaître le champion. Les réponses des joueurs corrigent ensuite
  * (`tauxLisse`, `niveauDeQuestion`).
  */
-export function difficulteAPriori(sorte: 'sujet' | 'palmares', vues: { sujet: number; reponse: number; leurres: readonly number[] }): number {
+export function difficulteAPriori(
+  sorte: 'sujet' | 'palmares',
+  vues: { sujet: number; reponse: number; leurres: readonly number[] },
+  o: { echelle?: number; moinsSuivi?: boolean } = {},
+): number {
   const l = (v: number) => Math.log10(1 + Math.max(0, v))
-  const connu = sorte === 'palmares' ? vues.reponse / 4 : vues.sujet
+  // Connaître l'œuvre ne suffit pas : il faut en connaître l'auteur — le Pentagone est célèbre, George Bergstrom
+  // ne l'est pas. La question est aussi connue que le moins connu des deux, à l'échelle de sa famille : un film est
+  // bien plus lu qu'un tableau, et Get Out, à trois cents vues par jour, n'est pas une question que tout le monde réussit.
+  const connu = (sorte === 'palmares' ? vues.reponse / 4 : Math.min(vues.sujet, vues.reponse)) * (o.echelle ?? 1)
   // Les seuils, relus sur les tableaux : la Joconde (800 vues par jour) en 1, Le Jardin des délices (240) en 2, Des glaneuses (100) en 3.
   let d = connu >= 600 ? 1 : connu >= 200 ? 2 : connu >= 70 ? 3 : connu >= 25 ? 4 : 5
   if (sorte === 'sujet' && vues.leurres.length > 0) {
     const ecart = l(vues.reponse) - vues.leurres.reduce((s, v) => s + l(v), 0) / vues.leurres.length
-    if (ecart >= 0.8) d--
+    if (ecart >= 1) d--
     else if (ecart <= -0.5) d++
   }
+  // Le Tour d'Italie et le Tour d'Espagne se suivent moins, en France, que le Tour de France.
+  if (o.moinsSuivi) d++
   return Math.min(5, Math.max(1, d))
 }
 
@@ -162,8 +196,21 @@ export function difficulteAPriori(sorte: 'sujet' | 'palmares', vues: { sujet: nu
 export function entreeDeLaFiche(f: FicheDeFait, p?: Phrases): Record<string, unknown> | null {
   if (p && p.t === null) return null
   const { famille: _f, qids: _q, demande: _d, indices: _i, vues: _v, ...entree } = f
-  return { ...entree, texte: (p?.t ?? f.texte).trim(), anecdote: p?.a?.trim() || null, explication: (p?.x ?? '').trim().slice(0, MAX_EXPLICATION) }
+  const anecdote = p?.a?.trim()
+  return {
+    ...entree,
+    texte: guillemets((p?.t ?? f.texte).trim()),
+    anecdote: anecdote ? guillemets(anecdote) : null,
+    explication: tronquer(guillemets((p?.x ?? '').trim()), MAX_EXPLICATION),
+  }
 }
+
+/**
+ * Les guillemets d'un titre, avec une espace à l'intérieur, comme les 2 452
+ * de la base : au pilote du 10 octobre 2026, un rédacteur sur douze les
+ * collait («Anora»), et le juge ne le voit pas.
+ */
+export const guillemets = (s: string): string => s.replace(/«\s*/g, '« ').replace(/\s*»/g, ' »')
 
 /** Une fiche telle que la consigne la montre : le fait, les réponses affichées, ce qui aide. */
 export function ligneDeFiche(ref: number, f: FicheDeFait): string {
@@ -191,6 +238,7 @@ Chaque fiche plus bas donne un fait tiré de Wikidata : un sujet, la bonne répo
 
 Pour chaque fiche, écris :
 - t : l'intitulé. Il demande exactement le fait de la fiche, et se comprend seul. Tu peux l'enrichir d'un indice qui ne trahit pas la réponse — l'époque, le sujet, un lieu —, mais jamais le nom de la bonne réponse, ni une partie de ce nom (un surnom, un titre qui le contient), ni ce qui la désigne seule. ${TEXTE_CONSEILLE} caractères au plus, une espace avant « ? ». Un titre d'œuvre s'écrit entre « ».
+L'année et les descriptions entre parenthèses viennent de Wikidata, qui se trompe parfois : l'année d'un livre ou d'un tableau peut être celle d'une édition, d'une traduction ou d'une estimation, et « réalisatrice et scénariste » ne dit pas qu'elle a écrit ce film-là. N'en écris que ce que tu sais juste ; sinon, l'époque suffit.
 - a : l'anecdote, une ou deux phrases (${MAX_ANECDOTE} caractères au plus), vraie, qui apprend autre chose que la réponse. Aucun nom, chiffre ou date dont tu ne sois pas certain ; si tu n'as rien de certain à raconter, écris null.
 - x : l'explication, une phrase (${MAX_EXPLICATION} caractères au plus) qui dit pourquoi la bonne réponse est la bonne, sans répéter l'anecdote.
 Si un fait te semble faux, ou le sujet ambigu (deux œuvres du même nom), écris "t": null et dis pourquoi dans "motif" : la fiche sera écartée.
@@ -229,6 +277,8 @@ export interface Famille {
   parReponse: number
   /** Sous ce nombre de vues par jour sur Wikipédia en français, le sujet est trop obscur pour la France. */
   vuesMin: number
+  /** Ce que valent ses vues au regard de celles des tableaux, sur quoi les seuils de difficulté se sont réglés : un film est bien plus lu. */
+  echelle?: number
   sorte: 'sujet' | 'palmares'
   extraire: (wd: Wikidata) => Promise<Extraction>
 }
@@ -258,57 +308,107 @@ async function personnes(wd: Wikidata, qids: readonly string[], annees?: Readonl
 }
 
 /**
- * Les titres ambigus : portés par des sujets d'auteurs différents —
- * « La Naissance de Vénus », de Botticelli et de Bouguereau ; « Autoportrait ».
- * Les versions d'un même auteur ne le sont pas : il y a plusieurs Cri et
- * plusieurs Tournesols, et une seule réponse. Compter les seuls titres
- * écartait 231 tableaux, dont les plus connus. Un sujet sans auteur connu
- * compte pour un auteur de plus : dans le doute, le titre est ambigu.
+ * Les titres ambigus d'une famille : ceux qu'une autre œuvre porte aussi,
+ * d'un autre auteur, et assez connue pour qu'on y pense — quatre langues au
+ * moins, et le quart de celles du sujet. « La Naissance de Vénus » est de
+ * Botticelli et de Bouguereau ; « Autoportrait », de tout le monde. Les
+ * versions d'un même auteur ne le sont pas — il y a plusieurs Cri, une seule
+ * réponse —, ni les copies anonymes d'un chef-d'œuvre : compter tous les
+ * homonymes écartait la Joconde. Un auteur inconnu compte pour un autre
+ * auteur : dans le doute, le titre est ambigu.
  */
-export function titresAmbigus(lignes: readonly { item: string; l: string; a?: string }[]): Set<string> {
-  const auteurs = new Map<string, Set<string>>()
-  for (const { item, l, a } of lignes) {
-    const titre = plat(l)
-    const deja = auteurs.get(titre) ?? auteurs.set(titre, new Set()).get(titre)!
-    deja.add(a ?? `inconnu:${item}`)
+export function titresAmbigus(
+  sujets: readonly { qid: string; nom: string; auteur: string; liens: number }[],
+  lignes: readonly { item: string; l: string; a?: string; n: number }[],
+): Set<string> {
+  const parTitre = new Map<string, { item: string; a?: string; n: number }[]>()
+  for (const l of lignes) {
+    const titre = plat(l.l)
+    const memes = parTitre.get(titre) ?? parTitre.set(titre, []).get(titre)!
+    memes.push(l)
   }
-  return new Set([...auteurs].filter(([, a]) => a.size > 1).map(([titre]) => titre))
+  const ambigus = new Set<string>()
+  for (const s of sujets) {
+    const titre = plat(s.nom)
+    const autres = (parTitre.get(titre) ?? []).filter(l => qidDe(l.item) !== s.qid && (l.a === undefined || qidDe(l.a) !== s.auteur))
+    if (autres.some(l => l.n >= Math.max(4, s.liens / 4))) ambigus.add(titre)
+  }
+  return ambigus
 }
 
-async function homonymesDe(wd: Wikidata, motif: string, prop: string, liensMin: number): Promise<Set<string>> {
-  const lignes = await wd.sparql(
-    `SELECT ?item ?l ?a WHERE { ${motif} ?item wikibase:sitelinks ?n . FILTER(?n >= ${liensMin}) ?item rdfs:label ?l FILTER(lang(?l) = 'fr') OPTIONAL { ?item wdt:${prop} ?a } }`,
+/**
+ * Les titres des sujets que d'autres œuvres de la classe portent aussi, d'un
+ * autre auteur — cherchés par leur titre exact, que l'index des libellés rend
+ * d'un coup, quelle que soit leur notoriété. Balayer toute la classe dépassait
+ * les soixante secondes du service pour les romans : la réponse arrivait
+ * coupée, une trace d'erreur à la place de la fin.
+ */
+async function homonymesDe(wd: Wikidata, motif: string, prop: string, faits: readonly FaitBrut[]): Promise<Set<string>> {
+  const titres = [...new Set(faits.flatMap(f => [f.sujet.libelle ?? f.sujet.nom, f.sujet.nom]))]
+  const lignes: { item: string; l: string; a?: string; n: number }[] = []
+  for (let i = 0; i < titres.length; i += 200) {
+    const lot = await wd.sparql(
+      `SELECT ?item ?l ?a ?n WHERE { VALUES ?l { ${titres.slice(i, i + 200).map(t => `${JSON.stringify(t)}@fr`).join(' ')} } ?item rdfs:label ?l . ${motif} ?item wikibase:sitelinks ?n . OPTIONAL { ?item wdt:${prop} ?a } }`,
+    )
+    lignes.push(...lot.map(l => ({ item: l.item, l: l.l, a: l.a, n: Number(l.n) })))
+  }
+  // Sous son libellé comme sous le titre qu'on affichera : l'un ou l'autre peut être celui d'une autre œuvre.
+  return titresAmbigus(
+    faits.flatMap(f => [...new Set([f.sujet.libelle ?? f.sujet.nom, f.sujet.nom])].map(nom => ({ qid: f.sujet.qid, nom, auteur: f.reponse.qid, liens: f.sujet.liens }))),
+    lignes,
   )
-  return titresAmbigus(lignes.map(l => ({ item: l.item, l: l.l, a: l.a })))
+}
+
+/**
+ * Les sujets dont l'auteur porte une réserve — « attribué à », « vers »,
+ * « probablement » (P1480, P5102, P1773) : leurs leurres pourraient être
+ * justes, et la réponse se discute.
+ */
+async function attributionsDouteuses(wd: Wikidata, qids: readonly string[], prop: string): Promise<Set<string>> {
+  const douteux = new Set<string>()
+  for (let i = 0; i < qids.length; i += 300) {
+    const lignes = await wd.sparql(
+      `SELECT DISTINCT ?item WHERE { VALUES ?item { ${qids.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} } ?item p:${prop} ?st . { ?st pq:P1480 [] } UNION { ?st pq:P5102 [] } UNION { ?st pq:P1773 [] } }`,
+    )
+    for (const l of lignes) {
+      const q = qidDe(l.item)
+      if (q) douteux.add(q)
+    }
+  }
+  return douteux
 }
 
 /**
  * Les faits d'une famille « une œuvre, son auteur » : les sujets assez
  * traduits, dont un seul auteur répond — deux réalisateurs, c'est un fait qui
- * se discute —, et le vivier des leurres : ceux qui ont signé assez d'œuvres
- * de la classe. « Métier : peintre » y mettait Johan Huizinga, historien, et
- * l'impératrice Dagmar.
+ * se discute —, un auteur admis (`auteur` : un écrivain de métier, une
+ * personne plutôt qu'une agence) ; et le vivier des leurres, ceux qui signent
+ * au moins `oeuvresMin` de ces sujets — les auteurs connus d'œuvres connues.
+ * « Métier : peintre » y mettait Johan Huizinga, historien, et l'impératrice
+ * Dagmar ; et balayer toute la classe pour le dresser dépassait les soixante
+ * secondes du service.
  */
 async function oeuvresEtAuteurs(
   wd: Wikidata,
-  o: { motif: string; prop: string; liensMin: number; vivierLiensMin: number; oeuvresMin: number; homonymesLiensMin: number; date: string; pays?: string; indice?: string; auteur?: string },
+  o: { motif: string; prop: string; liensMin: number; oeuvresMin: number; date: string; pays?: string; indice?: string; auteur?: { prop: string; valeurs: readonly string[] } },
 ): Promise<Extraction> {
   const sujetsBruts = await wd.sparql(`SELECT DISTINCT ?item WHERE { ${o.motif} ?item wikibase:sitelinks ?n . FILTER(?n >= ${o.liensMin}) }`)
   const qids = sujetsBruts.map(l => qidDe(l.item)).filter((q): q is string => q !== null)
   const reponses = await wd.valeurs(qids, o.prop)
-  const toutes = await wd.sparql(`SELECT ?item ?a WHERE { ${o.motif} ?item wikibase:sitelinks ?n . FILTER(?n >= ${o.vivierLiensMin}) ?item wdt:${o.prop} ?a . ${o.auteur ?? ''} }`)
+  const douteux = await attributionsDouteuses(wd, qids, o.prop)
+  const seuls = qids.filter(q => !douteux.has(q) && (reponses.get(q) ?? []).length === 1 && /^Q\d+$/.test(reponses.get(q)![0].v))
+  const auteurs = [...new Set(seuls.map(q => reponses.get(q)![0].v))]
+  // Un auteur qui n'est pas admis (un groupe, un anonyme, Moïse pour La Genèse) ne répond pas : son fait se discute.
+  const qualites = o.auteur ? await wd.valeurs(auteurs, o.auteur.prop) : null
+  const admis = new Set(auteurs.filter(a => !qualites || (qualites.get(a) ?? []).some(v => o.auteur!.valeurs.includes(v.v))))
+  const uniques = seuls.filter(q => admis.has(reponses.get(q)![0].v))
   const parAuteur = new Map<string, number>()
-  for (const l of toutes) {
-    const a = qidDe(l.a)
-    if (a) parAuteur.set(a, (parAuteur.get(a) ?? 0) + 1)
-  }
+  for (const q of uniques) parAuteur.set(reponses.get(q)![0].v, (parAuteur.get(reponses.get(q)![0].v) ?? 0) + 1)
   const vivier = [...parAuteur].filter(([, k]) => k >= o.oeuvresMin).map(([a]) => a)
-  // Un auteur qui n'est pas du vivier (un groupe, un anonyme, Moïse pour La Genèse) ne répond pas : son fait se discute.
-  const uniques = qids.filter(q => (reponses.get(q) ?? []).length === 1 && parAuteur.has(reponses.get(q)![0].v))
   const sujets = await wd.entites(uniques)
   const dates = await wd.valeurs(uniques, o.date)
   const pays = o.pays ? await wd.valeurs(uniques, o.pays) : new Map<string, Valeur[]>()
-  const indices = o.indice ? await wd.valeurs(uniques, o.indice) : new Map<string, Valeur[]>()
+  const indices = o.indice ? await wd.valeurs(uniques, o.indice, { periodes: true }) : new Map<string, Valeur[]>()
   const gens = await personnes(wd, [...new Set([...vivier, ...uniques.map(q => reponses.get(q)![0].v)])])
   const faits: FaitBrut[] = []
   for (const q of uniques) {
@@ -320,11 +420,12 @@ async function oeuvresEtAuteurs(
       sujet,
       reponse,
       annee: annees.length > 0 ? Math.min(...annees) : null,
-      indices: (indices.get(q) ?? []).map(v => v.l).filter((l): l is string => !!l).slice(0, 2),
+      indices: [valeurActuelle(indices.get(q) ?? [])?.l].filter((l): l is string => !!l),
       francais: (pays.get(q) ?? []).some(v => v.v === FRANCE) || (reponse.pays ?? []).includes(FRANCE),
     })
   }
-  return { faits, vivier: vivier.map(a => gens.get(a)).filter((e): e is EntiteWd => !!e), homonymes: await homonymesDe(wd, o.motif, o.prop, o.homonymesLiensMin) }
+  const homonymes = await homonymesDe(wd, o.motif, o.prop, faits)
+  return { faits, vivier: vivier.map(a => gens.get(a)).filter((e): e is EntiteWd => !!e), homonymes }
 }
 
 /** Le Tour de France, le Tour d'Italie, le Tour d'Espagne — avec l'article qu'on leur donne dans une phrase. */
@@ -383,7 +484,7 @@ export const FAMILLES: readonly Famille[] = [
     vuesMin: 12,
     sorte: 'sujet',
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q3305213 .', prop: 'P170', liensMin: 12, vivierLiensMin: 4, oeuvresMin: 3, homonymesLiensMin: 4, date: 'P571', indice: 'P195' }),
+      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q3305213 .', prop: 'P170', liensMin: 12, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
   },
   {
     cle: 'films',
@@ -397,9 +498,10 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 25,
     parReponse: 3,
     vuesMin: 25,
+    echelle: 0.5,
     sorte: 'sujet',
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P57', liensMin: 40, vivierLiensMin: 20, oeuvresMin: 3, homonymesLiensMin: 10, date: 'P577', pays: 'P495' }),
+      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P57', liensMin: 40, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
   },
   {
     cle: 'romans',
@@ -420,31 +522,15 @@ export const FAMILLES: readonly Famille[] = [
         motif: 'VALUES ?classe { wd:Q7725634 wd:Q8261 } ?item wdt:P31 ?classe .',
         prop: 'P50',
         liensMin: 15,
-        vivierLiensMin: 10,
-        oeuvresMin: 3,
-        homonymesLiensMin: 8,
+        oeuvresMin: 2,
         date: 'P577',
         pays: 'P495',
-        auteur: 'VALUES ?metier { wd:Q36180 wd:Q6625963 wd:Q49757 wd:Q214917 wd:Q4964182 } ?a wdt:P106 ?metier .',
+        auteur: { prop: 'P106', valeurs: ['Q36180', 'Q6625963', 'Q49757', 'Q214917', 'Q4964182'] },
       }),
   },
-  {
-    cle: 'edifices',
-    nom: 'Un édifice, son architecte',
-    categorie: 'Arts & lettres',
-    sousTheme: () => 'sculpture-archi',
-    gabarit: f => `Quel architecte a conçu « ${f.sujet.nom} » ?`,
-    demande: "quel architecte a conçu l'édifice",
-    typeSujet: 'lieu',
-    descriptionSujet: 'édifice',
-    ecart: 40,
-    parReponse: 3,
-    vuesMin: 12,
-    sorte: 'sujet',
-    // Un architecte en personne : une agence ne se devine pas, et ses associés changent d'un projet à l'autre.
-    extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: '?item wdt:P84 [] .', prop: 'P84', liensMin: 25, vivierLiensMin: 10, oeuvresMin: 2, homonymesLiensMin: 10, date: 'P571', pays: 'P17', indice: 'P131', auteur: '?a wdt:P31 wd:Q5 .' }),
-  },
+  // Pas d'édifices : sur Wikidata, « architecte » nomme souvent l'auteur d'une partie — Viollet-le-Duc pour la statue de
+  // la Liberté, Stéphen Sauvestre pour la tour Eiffel, l'auteur de la façade pour Sainte-Marie-Majeure. Des faits qui
+  // trompent, essayés et écartés le 10 octobre 2026.
   {
     cle: 'grands-tours',
     nom: 'Un grand tour, son vainqueur',
@@ -468,24 +554,38 @@ export const FAMILLES: readonly Famille[] = [
  * les plus lus d'abord —, au plus `parReponse` par réponse, avec leurs
  * leurres et leur difficulté a priori.
  */
-export function fichesDeLaFamille(fam: Famille, x: Extraction, vues: ReadonlyMap<string, number>): { fiches: FicheDeFait[]; ecartes: Record<string, number> } {
+export function fichesDeLaFamille(
+  fam: Famille,
+  x: Extraction,
+  vues: ReadonlyMap<string, number>,
+  aujourdhui = new Date(),
+): { fiches: FicheDeFait[]; ecartes: Record<string, number> } {
   const ecartes: Record<string, number> = {}
   const ecarter = (motif: string) => (ecartes[motif] = (ecartes[motif] ?? 0) + 1)
   const vuesDe = (e: EntiteWd | undefined) => (e?.titre ? (vues.get(e.titre) ?? 0) : 0)
   const parNom = new Map(x.vivier.map(e => [e.nom, e]))
   const tries = [...x.faits].sort((a, b) => vuesDe(b.sujet) - vuesDe(a.sujet) || a.sujet.qid.localeCompare(b.sujet.qid))
   const parReponse = new Map<string, number>()
+  const dejaAffiches = new Map<string, number>()
   const fiches: FicheDeFait[] = []
   for (const f of tries) {
     if (!f.sujet.titre || !f.reponse.titre) { ecarter('sans article sur Wikipédia en français'); continue }
-    if (x.homonymes.has(plat(f.sujet.nom))) { ecarter('titre porté par plusieurs sujets'); continue }
+    // Un fait de l'année ne se relit pas : le correcteur ne le connaît pas encore, et Wikidata le retouche encore — au
+    // pilote du 10 octobre 2026, les vainqueurs 2026 du Tour, du Giro et de la Vuelta, écrits pour rien, ont été retirés.
+    if (f.annee !== null && f.annee >= aujourdhui.getFullYear()) { ecarter("de l'année, trop frais pour être relu"); continue }
+    if (x.homonymes.has(plat(f.sujet.nom)) || (f.sujet.libelle && x.homonymes.has(plat(f.sujet.libelle)))) { ecarter('titre porté par plusieurs sujets'); continue }
     if ((fam.sorte === 'palmares' ? vuesDe(f.reponse) : vuesDe(f.sujet)) < fam.vuesMin) { ecarter('trop peu lu en France'); continue }
     if ((parReponse.get(f.reponse.qid) ?? 0) >= fam.parReponse) { ecarter('plafond par réponse'); continue }
-    const leurres = choisirLeurres(f.reponse, x.vivier, { ecart: fam.ecart })
+    const leurres = choisirLeurres(f.reponse, x.vivier, { ecart: fam.ecart, affiches: dejaAffiches })
     if (!leurres) { ecarter('moins de six leurres'); continue }
     parReponse.set(f.reponse.qid, (parReponse.get(f.reponse.qid) ?? 0) + 1)
     const affiches = leurres.slice(0, 3)
-    const difficulte = difficulteAPriori(fam.sorte, { sujet: vuesDe(f.sujet), reponse: vuesDe(f.reponse), leurres: affiches.map(nom => vuesDe(parNom.get(nom))) })
+    for (const nom of affiches) dejaAffiches.set(nom, (dejaAffiches.get(nom) ?? 0) + 1)
+    const difficulte = difficulteAPriori(
+      fam.sorte,
+      { sujet: vuesDe(f.sujet), reponse: vuesDe(f.reponse), leurres: affiches.map(nom => vuesDe(parNom.get(nom))) },
+      { echelle: fam.echelle, moinsSuivi: fam.sorte === 'palmares' && !f.francais },
+    )
     // La bonne réponse à une place tirée du sujet, pas du hasard : une extraction refaite rend les mêmes fiches.
     const bonne = parseInt(createHash('sha1').update(f.sujet.qid).digest('hex').slice(0, 8), 16) % 4
     const reponses = [...affiches]
@@ -506,8 +606,8 @@ export function fichesDeLaFamille(fam: Famille, x: Extraction, vues: ReadonlyMap
       ageMin: 10,
       date: f.annee !== null ? { valeur: String(f.annee), precision: 'annee' } : null,
       entites: [
-        { nom: f.sujet.nom, type: fam.typeSujet, description: (f.sujet.description ?? fam.descriptionSujet).slice(0, 120) },
-        { nom: f.reponse.nom, type: 'personne', description: (f.reponse.description ?? '').slice(0, 120) },
+        { nom: f.sujet.nom, type: fam.typeSujet, description: tronquer(f.sujet.description ?? fam.descriptionSujet, 120) },
+        { nom: f.reponse.nom, type: 'personne', description: tronquer(f.reponse.description ?? '', 120) },
       ],
       // Un sujet français peu lu ailleurs que chez nous : la portée « france », celle d'un tiers des questions de la base.
       portee: fam.sorte === 'sujet' && f.francais && f.sujet.liens < 40 ? 'france' : 'monde',
@@ -603,19 +703,59 @@ export function fusionner(id: string, o: { racine?: string; dire?: (ligne: strin
 
 // ── Wikidata et Wikipédia ───────────────────────────────────────────────
 
-/** Une valeur d'une propriété : l'objet (un identifiant, une date, un texte), son libellé, et la précision d'une date. */
+/** Une valeur d'une propriété : l'objet (un identifiant, une date, un texte), son libellé, la précision d'une date, et depuis quand et jusqu'à quand elle vaut. */
 export interface Valeur {
   v: string
   l?: string
   prec?: number
+  debut?: string
+  fin?: string
+}
+
+/**
+ * La valeur d'aujourd'hui d'une propriété qui a une histoire, comme la
+ * collection d'un tableau : celles qui ont pris fin sont passées, et des
+ * autres la plus récente ; sans date pour les départager, aucune. « La
+ * Madeleine à la veilleuse » avait le musée Wallraf-Richartz depuis 1941, le
+ * Central Collecting Point de Munich en 1946, le Louvre depuis 1949, et le
+ * rédacteur en avait fait « une version à Cologne ».
+ */
+export function valeurActuelle(vs: readonly Valeur[]): Valeur | null {
+  const ouvertes = vs.filter(v => !v.fin)
+  if (ouvertes.length <= 1) return ouvertes[0] ?? null
+  const debuts = ouvertes.map(v => (v.debut ? anneeDe(v.debut) : null))
+  if (debuts.some(a => a === null)) return null
+  const dernier = Math.max(...(debuts as number[]))
+  return debuts.filter(a => a === dernier).length === 1 ? ouvertes[debuts.indexOf(dernier)] : null
 }
 
 const UA = 'FiestApp/1.0 (https://github.com/Maxilyas/FiestApp ; questions de quiz)'
-/** Les jours sur lesquels se moyennent les vues : trente, et l'API en rend deux fois plus d'articles par réponse qu'à soixante. */
+/** Les jours sur lesquels se mesurent les vues : trente, et l'API en rend deux fois plus d'articles par réponse qu'à soixante. */
 const JOURS_DE_VUES = 30
+
+/**
+ * La médiane des vues de chaque jour, pas leur moyenne : une série tirée
+ * d'« À l'est d'Éden » est sortie le 1er octobre 2026, et le roman, lu trois
+ * cents fois par jour, l'a été treize mille — sa moyenne sur trente jours en
+ * faisait un livre que tout le monde connaît, en difficulté 1. Une médiane ne
+ * bouge qu'à un pic de plus de la moitié des jours.
+ */
+export function mediane(jours: readonly number[]): number {
+  if (jours.length === 0) return 0
+  const tries = [...jours].sort((a, b) => a - b)
+  const m = tries.length >> 1
+  return Math.round(tries.length % 2 === 1 ? tries[m] : (tries[m - 1] + tries[m]) / 2)
+}
 const attendre = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 /** Une réponse que le serveur a refusée pour de bon (400, 404…) : la redemander ne la changerait pas. */
 class ErreurHttp extends Error {}
+/**
+ * Les caractères de contrôle, que JSON refuse bruts dans une chaîne — une
+ * tabulation dans une description de Wikidata, le 10 octobre 2026. Entre deux
+ * éléments, une espace vaut un saut de ligne ; une séquence échappée (« \n »)
+ * n'en contient aucun : les remplacer tous ne change rien d'autre.
+ */
+const CONTROLES = /[\u0000-\u001F]/g
 
 export const qidDe = (uri: string | undefined): string | null => /\/entity\/(Q\d+)$/.exec(uri ?? '')?.[1] ?? null
 
@@ -636,7 +776,11 @@ export function anneeDe(v: string): number | null {
 export class Wikidata {
   private readonly cache: string
 
-  constructor(private readonly dossier: string) {
+  constructor(
+    private readonly dossier: string,
+    /** Entre deux requêtes de vues : deux secondes, sinon Wikipédia répond 429 à l'adresse partagée du cloud. */
+    private readonly pause = 2_000,
+  ) {
     this.cache = path.join(dossier, 'cache')
     mkdirSync(this.cache, { recursive: true })
   }
@@ -646,15 +790,18 @@ export class Wikidata {
       try {
         const r = await fetch(url, { ...init, headers: { 'User-Agent': UA, ...(init.headers ?? {}) }, signal: AbortSignal.timeout(90_000) })
         // Lu dans la même reprise : une réponse longue se coupe aussi en route (« terminated »), une fois les en-têtes passés.
-        if (r.ok) return await r.json()
+        // Un libellé de Wikidata porte parfois un caractère de contrôle brut, que JSON refuse : les romans ne s'extrayaient pas.
+        if (r.ok) return JSON.parse((await r.text()).replace(CONTROLES, ' '))
         const corps = (await r.text()).slice(0, 300)
-        if ((r.status === 429 || r.status >= 500) && essai < 6) {
-          await attendre(Math.max(1, Number(r.headers.get('retry-after')) || 5 * essai) * 1000)
+        // Wikipédia limite fort une adresse partagée, comme celle du cloud : on attend ce qu'il dit, et de plus en plus, jusqu'à deux minutes.
+        if ((r.status === 429 && essai < 10) || (r.status >= 500 && essai < 6)) {
+          await attendre(Math.min(120, Math.max(Number(r.headers.get('retry-after')) || 0, 2 ** essai)) * 1000)
           continue
         }
         throw new ErreurHttp(`${url.slice(0, 80)}… : ${r.status} ${corps}`)
       } catch (e) {
-        if (e instanceof ErreurHttp) throw e
+        // Refusée, ou illisible même nettoyée : la même requête rendrait la même chose.
+        if (e instanceof ErreurHttp || e instanceof SyntaxError) throw e
         if ((e as { cause?: { code?: string } }).cause?.code === 'ENOTFOUND' && process.env.HTTPS_PROXY && !process.env.NODE_USE_ENV_PROXY) {
           throw new Error('Le réseau passe par un proxy que fetch ne suit pas seul : relance avec NODE_USE_ENV_PROXY=1 devant la commande.')
         }
@@ -691,42 +838,51 @@ export class Wikidata {
 }`)
       for (const l of lignes) {
         const q = qidDe(l.item)
-        if (q && l.l && !out.has(q)) out.set(q, { qid: q, nom: l.l, description: l.d ?? null, titre: l.t ?? null, liens: Number(l.n) })
-      }
-    }
-    return out
-  }
-
-  /** Les valeurs d'une propriété, hors rang déprécié, par lots : l'objet, son libellé en français, la précision d'une date. */
-  async valeurs(qids: readonly string[], prop: string): Promise<Map<string, Valeur[]>> {
-    const out = new Map<string, Valeur[]>()
-    const valides = qids.filter(q => /^Q\d+$/.test(q))
-    for (let i = 0; i < valides.length; i += 300) {
-      const lignes = await this.sparql(`SELECT ?item ?v ?l ?prec WHERE {
-  VALUES ?item { ${valides.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} }
-  ?item p:${prop} ?st . ?st ps:${prop} ?v . FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank }
-  OPTIONAL { ?st psv:${prop} ?vn . ?vn wikibase:timePrecision ?prec }
-  OPTIONAL { ?v rdfs:label ?l FILTER(lang(?l) = 'fr') }
-}`)
-      for (const l of lignes) {
-        const q = qidDe(l.item)
-        if (!q) continue
-        const v = qidDe(l.v) ?? l.v
-        const liste = out.get(q) ?? out.set(q, []).get(q)!
-        if (!liste.some(x => x.v === v)) liste.push({ v, l: l.l, prec: l.prec ? Number(l.prec) : undefined })
+        // Le titre de l'article plutôt que le libellé : sur Wikidata, Michel-Ange s'appelait « Michel-Ange Buronarroti » le
+        // 10 octobre 2026, et le leurre s'affichait ainsi ; « Le Parrain (film) » se dit « Le Parrain ».
+        const nom = l.t ? l.t.replace(/\s*\([^()]*\)\s*$/, '') : l.l
+        if (q && nom && !out.has(q)) out.set(q, { qid: q, nom, libelle: l.l, description: l.d ?? null, titre: l.t ?? null, liens: Number(l.n) })
       }
     }
     return out
   }
 
   /**
-   * Les vues par jour, en moyenne sur trente jours, d'articles de
+   * Les valeurs d'une propriété, hors rang déprécié, par lots : l'objet, son
+   * libellé en français, la précision d'une date — et, demandées, ses dates
+   * de début et de fin (`periodes`), que seules les propriétés qui ont une
+   * histoire demandent : la requête change, et avec elle sa place au cache.
+   */
+  async valeurs(qids: readonly string[], prop: string, o: { periodes?: boolean } = {}): Promise<Map<string, Valeur[]>> {
+    const out = new Map<string, Valeur[]>()
+    const valides = qids.filter(q => /^Q\d+$/.test(q))
+    for (let i = 0; i < valides.length; i += 300) {
+      const lignes = await this.sparql(`SELECT ?item ?v ?l ?prec${o.periodes ? ' ?debut ?fin' : ''} WHERE {
+  VALUES ?item { ${valides.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} }
+  ?item p:${prop} ?st . ?st ps:${prop} ?v . FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank }
+  OPTIONAL { ?st psv:${prop} ?vn . ?vn wikibase:timePrecision ?prec }
+  OPTIONAL { ?v rdfs:label ?l FILTER(lang(?l) = 'fr') }${o.periodes ? '\n  OPTIONAL { ?st pq:P580 ?debut } OPTIONAL { ?st pq:P582 ?fin }' : ''}
+}`)
+      for (const l of lignes) {
+        const q = qidDe(l.item)
+        if (!q) continue
+        const v = qidDe(l.v) ?? l.v
+        const liste = out.get(q) ?? out.set(q, []).get(q)!
+        if (!liste.some(x => x.v === v)) liste.push({ v, l: l.l, prec: l.prec ? Number(l.prec) : undefined, debut: l.debut, fin: l.fin })
+      }
+    }
+    return out
+  }
+
+  /**
+   * Les vues d'un jour ordinaire, la médiane de trente jours, d'articles de
    * Wikipédia en français, redirections suivies : « Tres de mayo » redirige
    * vers « El tres de mayo de 1808 en Madrid », et l'API des vues par article
-   * comptait 38 vues par mois à la redirection. Gardées trente jours.
+   * comptait 38 vues par mois à la redirection. Gardées trente jours — dans
+   * un fichier à part de celui des moyennes d'avant, qu'aucune ne se relise.
    */
   async vues(titres: readonly string[]): Promise<Map<string, number>> {
-    const fichier = path.join(this.dossier, 'vues.json')
+    const fichier = path.join(this.dossier, 'vues-medianes.json')
     const gardees: Record<string, { le: string; vues: number }> = existsSync(fichier) ? JSON.parse(readFileSync(fichier, 'utf8')) : {}
     const fraiche = (le: string) => Date.now() - Date.parse(le) < 30 * 86_400_000
     const manquants = [...new Set(titres)].filter(t => !gardees[t] || !fraiche(gardees[t].le))
@@ -747,12 +903,11 @@ export class Wikidata {
         for (const n of [...(d.query?.normalized ?? []), ...(d.query?.redirects ?? [])]) vers.set(n.from, n.to)
         for (const p of d.query?.pages ?? []) {
           if (!p.pageviews) continue
-          const jours = Object.values(p.pageviews).filter((v): v is number => typeof v === 'number')
-          parTitre.set(p.title, jours.length > 0 ? Math.round(jours.reduce((s, v) => s + v, 0) / jours.length) : 0)
+          parTitre.set(p.title, mediane(Object.values(p.pageviews).filter((v): v is number => typeof v === 'number')))
         }
         if (!d.continue) break
         suite = d.continue
-        await attendre(1_000)
+        await attendre(this.pause)
       }
       const le = new Date().toISOString()
       for (const t of lot) {
@@ -761,7 +916,7 @@ export class Wikidata {
         gardees[t] = { le, vues: parTitre.get(cible) ?? 0 }
       }
       writeFileSync(fichier, JSON.stringify(gardees))
-      await attendre(1_000)
+      await attendre(this.pause)
     }
     return new Map(titres.map(t => [t, gardees[t]?.vues ?? 0]))
   }
@@ -771,14 +926,17 @@ export class Wikidata {
 
 const fichierDesFiches = (cle: string) => path.join(DOSSIER_DES_FAITS, `${cle}.json`)
 
-async function extraire(cles: readonly string[]) {
+async function extraire(cles: readonly string[], maxSujets = Infinity) {
   const wd = new Wikidata(DOSSIER_DES_FAITS)
   const inconnue = cles.find(c => !FAMILLES.some(f => f.cle === c))
   if (inconnue) throw new Error(`Famille inconnue : ${inconnue} (${FAMILLES.map(f => f.cle).join(', ')}).`)
   // Dans l'ordre demandé : les familles légères d'abord, les films — des milliers de vues à lire — à la fin.
   for (const fam of cles.length === 0 ? FAMILLES : cles.map(c => FAMILLES.find(f => f.cle === c)!)) {
     console.log(`→ ${fam.cle} : ${fam.nom}`)
-    const x = await fam.extraire(wd)
+    const brute = await fam.extraire(wd)
+    // Les vues se lisent à un ou deux articles par seconde depuis une adresse partagée : `--max-sujets` borne une
+    // extraction pressée aux sujets les plus traduits — ceux qui ont le plus de chances d'être connus.
+    const x = { ...brute, faits: [...brute.faits].sort((a, b) => b.sujet.liens - a.sujet.liens).slice(0, maxSujets) }
     // Les vues des sujets et des réponses d'abord, puis celles des seuls leurres affichés : tout le vivier, c'était
     // deux fois plus de titres, et l'API de Wikipédia en rend trois ou quatre par seconde.
     const titres = x.faits.flatMap(f => [f.sujet.titre, f.reponse.titre]).filter((t): t is string => !!t)
@@ -827,7 +985,7 @@ function preparerLesLots(o: { questions: number; familles: string[]; parLot: num
     return `- redacteur-campagne (${fiches[0].famille}) : Ta consigne est dans ${f.consigne} : lis-la en entier avec Read, écris les phrases de ses ${fiches.length} fiches dans ${f.phrases}, puis vérifie-les comme elle le dit, jusqu'à zéro refus.`
   })
   console.log(`${lots.reduce((s, l) => s + l.length, 0)} fiches en ${lots.length} lots, dans ${dossier}. Un agent par lot :\n${missions.join('\n')}`)
-  console.log(`\nPuis : base-campagne.ts fiche sur un lot sur trois de chaque famille, un relecteur-campagne par fiche, appliquer, voisines, ranger.`)
+  console.log(`\nPuis : base-campagne.ts fiche sur chaque lot, un relecteur-campagne par fiche, appliquer, voisines, ranger.`)
 }
 
 function lireLesOptions(args: readonly string[]) {
@@ -844,7 +1002,7 @@ function lireLesOptions(args: readonly string[]) {
 async function principal(args: readonly string[]) {
   const [commande, ...reste] = args
   const { mots, options } = lireLesOptions(reste)
-  if (commande === 'extraire') await extraire(mots)
+  if (commande === 'extraire') await extraire(mots, options.has('max-sujets') ? Number(options.get('max-sujets')) : undefined)
   else if (commande === 'lots') {
     preparerLesLots({
       questions: Number(options.get('questions') ?? 300),

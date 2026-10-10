@@ -1,6 +1,6 @@
 ---
 name: base-campagne
-description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement ; ou à partir de faits tirés de Wikidata (scripts/faits-wikidata.ts), trois fois moins cher. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, une génération en nombre, ou des questions tirées de Wikidata.
+description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement ; ou à partir de faits tirés de Wikidata (scripts/faits-wikidata.ts), deux fois moins cher relecture comprise. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, une génération en nombre, ou des questions tirées de Wikidata.
 ---
 
 # Agrandir la base de la campagne
@@ -81,8 +81,9 @@ une, supprime `../.lots-campagne/<nom>/` et ses lots `<nom>-*.json`.
 
 ## Depuis Wikidata : des faits sûrs, des phrases à écrire
 
-Trois fois moins de jetons qu'un lot écrit de mémoire, et des difficultés 4
-et 5 : `server/scripts/faits-wikidata.ts` tire de Wikidata la bonne réponse,
+Deux fois moins de jetons qu'un lot écrit de mémoire, relecture comprise
+(1 140 par question au pilote de trois cents), et des difficultés 4 et 5 :
+`server/scripts/faits-wikidata.ts` tire de Wikidata la bonne réponse,
 les leurres, la date, les entités et la source ; le rédacteur n'écrit que
 l'intitulé, l'anecdote et l'explication. Pour les relations qu'il connaît
 (un tableau et son peintre, un film et son réalisateur…), pas pour les
@@ -100,8 +101,13 @@ ci-dessus. Les familles et leurs règles sont dans la règle `campagne-base.md`.
    en arrière-plan, une dizaine à la fois. Son vérificateur,
    `faits-wikidata.ts fusionner <nom>-NN`, écrit le lot ordinaire
    `../.lots-campagne/<nom>-NN.json`.
-4. **La relecture, par échantillon** : `base-campagne.ts fiche` sur un lot sur
-   trois de chaque famille, un `relecteur-campagne` par fiche, `appliquer`.
-   Une famille dont le correcteur retire une question se relit en entier.
+4. **La relecture, de chaque lot** : les phrases s'écrivent de mémoire, et
+   Wikidata se trompe parfois de date — au pilote, le correcteur a corrigé
+   quatorze questions sur trois cents, dans les quatre familles. Pour chaque
+   lot, `base-campagne.ts fiche ../.lots-campagne/<nom>-NN.json >
+   ../.lots-campagne/<nom>.NN.fiche.txt`, un `relecteur-campagne` dont la
+   mission donne la fiche et `../.lots-campagne/<nom>.NN.decisions.json`, puis
+   `appliquer`. Un point, pas un tiret, après le nom : `ranger <nom>-*.json`
+   prendrait les décisions pour un lot.
 5. **Ranger** : `voisines`, puis `ranger ../.lots-campagne/<nom>-*.json`,
    comme tout lot ; commite `server/content/campagne/`.
