@@ -214,7 +214,7 @@ export interface ReponseDeCampagne {
   recompenses?: { key: string; emoji: string; title: string }[]
   /** Et les légendaires qu'ils ouvrent : la Salamandre, le Serpent à plumes, l'Éléphant… */
   legendaires?: string[]
-  /** À la fin d'un défi de la semaine : sa place au classement de la semaine, pour l'instant. */
+  /** À la fin d'un défi — de la semaine, ou entre amis : sa place à son classement, pour l'instant. */
   defi?: { rang: number; joueurs: number }
   /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
   eclat?: string
@@ -289,8 +289,8 @@ export interface RapportDeSignalement {
   le: number
   /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
   traiteLe: number | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine. */
-  ou: 'serie' | 'sentier' | 'defi'
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis. */
+  ou: 'serie' | 'sentier' | 'defi' | 'duel'
   branche?: string
   palier?: number
   /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */
@@ -493,4 +493,61 @@ export interface DefiDeLaSemaine {
    * rien souffler à ceux qui jouent encore.
    */
   saSemainePassee?: { serie: string; justes: number; rang: number; joueurs: number; recompenses: PalierTombe[] }
+}
+
+// ── Le défi entre amis ──────────────────────────────────────────────────────
+//
+// Le défi de la semaine se joue contre tout le monde ; celui-ci, contre qui
+// on veut, en différé (un retour de joueur du 10 octobre 2026 : « un mode
+// défi en différé, compétitif ») : on lance un tirage, on le joue, on
+// envoie le lien — chacun de ceux qui l'ouvrent, profil en main, joue les
+// mêmes questions, une fois, dans la semaine. Ni laurier, ni haut fait :
+// rien qu'on gagnerait à se défier soi-même d'un second profil.
+
+/** Une semaine pour le relever : ensuite, son classement se fige et sa correction s'ouvre. */
+export const DUREE_D_UN_DUEL_MS = 7 * 24 * 3_600_000
+
+/** Les défis qu'un joueur tient ouverts à la fois : chacun fige son tirage en base. */
+export const DUELS_OUVERTS_MAX = 5
+
+/** Les lettres d'un code de défi : ni 0 ni O, ni 1, I ni L, qu'on confond en les recopiant. */
+export const LETTRES_D_UN_CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+export const LONGUEUR_D_UN_CODE = 6
+
+/** Le code d'un défi lu dans une saisie ou une adresse (`#duel-K7M2QX`) : en capitales, ou null. */
+export function lireCodeDuDuel(brut: unknown): string | null {
+  if (typeof brut !== 'string') return null
+  const code = brut.trim().replace(/^#?duel-/i, '').toUpperCase()
+  return code.length === LONGUEUR_D_UN_CODE && [...code].every(c => LETTRES_D_UN_CODE.includes(c)) ? code : null
+}
+
+/** La page d'un défi entre amis (`GET /api/campagne/duel/:code`). */
+export interface DuelEntreAmis {
+  code: string
+  /** Qui l'a lancé ; `toi` quand c'est lui qui regarde. */
+  auteur: { nom: string; avatar: string; toi?: true }
+  /** Ce qu'il fait jouer : un sujet, ou des catégories ; ni l'un ni l'autre : toutes. */
+  sujet?: string
+  categories?: string[]
+  /** Les minutes avant qu'il ferme ; 0 : fermé, son classement figé et sa correction ouverte. */
+  minutesRestantes: number
+  /** Sa tentative : en cours, elle se reprend ; finie, elle attend les autres. */
+  tentative: SerieDeCampagne | null
+  joueurs: number
+  lignes: LigneDuDefi[]
+  moi?: LigneDuDefi
+  sienne?: string
+}
+
+/** Un défi entre amis qu'il a lancé ou relevé, pour le retrouver (`GET /api/campagne/duels`). */
+export interface ResumeDuDuel {
+  code: string
+  auteur: string
+  sujet?: string
+  categories?: string[]
+  joueurs: number
+  /** Ses bonnes réponses et sa place, s'il y a répondu. */
+  justes: number | null
+  rang: number | null
+  minutesRestantes: number
 }

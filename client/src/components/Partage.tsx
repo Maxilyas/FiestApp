@@ -44,10 +44,10 @@ export function BoutonCopier({
  * là où elle existe — sinon rien, « Copier » suffit. Annuler la feuille
  * rejette la promesse : ce n'est pas une erreur à dire.
  */
-export function BoutonPartager({ titre, url, className = 'btn' }: { titre: string; url: string; className?: string }) {
+export function BoutonPartager({ titre, texte, url, className = 'btn' }: { titre: string; texte?: string; url: string; className?: string }) {
   if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return null
   return (
-    <button type="button" className={className} onClick={() => navigator.share({ title: titre, url }).catch(() => {})}>
+    <button type="button" className={className} onClick={() => navigator.share({ title: titre, ...(texte && { text: texte }), url }).catch(() => {})}>
       <Icon name="arrow-up" />
       Partager
     </button>

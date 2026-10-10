@@ -100,6 +100,31 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   assert.match(page, /onClick=\{\(\) => void commencer\(categories, sujetJouable\)\}/)
 })
 
+// Le défi entre amis (`campagne-duel.test.ts`) : sa fin l'envoie d'abord —
+// celui qui vient de le lancer n'a encore défié personne —, et son lien
+// survit à une connexion.
+test('la fin d’un défi entre amis l’envoie : son lien écrit, son code, son classement', async () => {
+  const module = await import(client('views/Duel.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = renderToStaticMarkup(React.createElement(module.FinDuDuel, { code: 'K7M2QX', justes: 5, onClassement: () => {} }))
+  assert.match(html, /Envoie ce défi/)
+  // Sans feuille de partage ni presse-papier — Node n'en a pas —, le lien reste écrit.
+  assert.match(html, /<span class="duel-lien">http:\/\/banc\/campagne#duel-K7M2QX<\/span>/)
+  assert.match(html, /son code : <b>K7M2QX<\/b>/)
+  assert.match(html, /Le classement du défi/)
+  assert.equal(module.texteDuDefi(5), '5 bonnes réponses à ce défi de la campagne de FiestApp : feras-tu mieux ?')
+  assert.equal(module.texteDuDefi(null), 'Un défi à la campagne de FiestApp : feras-tu mieux que moi ?')
+  assert.equal(module.fermeture(0), 'Fermé : son classement est figé')
+  assert.equal(module.fermeture(30), 'Ferme dans 30 minutes')
+  assert.equal(module.fermeture(3 * 24 * 60 + 5), 'Ferme dans 3 jours')
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  // L'ami sans profil se connecte, puis revient sur le défi : `next` garde son fragment.
+  assert.match(page, /const retour = encodeURIComponent\(`\/campagne\$\{codeDuDuel \? adresseDuDuel\(codeDuDuel\) : ''\}`\)/)
+  assert.match(page, /href=\{`\/\?next=\$\{retour\}`\}/)
+  // Une seule tentative : pas de « Recommencer » — le drapeau du défi le dit.
+  assert.match(page, /defi: true,\s*duel: code,/)
+})
+
 // Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la
 // campagne », il ouvrait la scène seule, sans les onglets de la campagne, que
 // la reprise avait mise en tête (la remarque du propriétaire du 5 octobre

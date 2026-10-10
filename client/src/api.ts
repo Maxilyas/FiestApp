@@ -3,10 +3,12 @@ import type {
   CorrectionDeCampagne,
   CorrectionDeQuestion,
   DefiDeLaSemaine,
+  DuelEntreAmis,
   EtatDeCampagne,
   FinDeSerie,
   QuestionCorrigee,
   ReponseDeCampagne,
+  ResumeDuDuel,
   SerieDeCampagne,
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
@@ -377,6 +379,14 @@ export const api = {
      */
     defi: () => req<DefiDeLaSemaine>('/api/campagne/defi'),
     releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
+    /** Le défi entre amis : le lancer (et jouer sa propre tentative), le relire par son code, le relever, retrouver les siens. */
+    duel: {
+      lancer: (categories: string[], sujet?: string | null) =>
+        req<{ code: string; serie: SerieDeCampagne }>('/api/campagne/duel', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),
+      lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
+      relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
+      miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+    },
     /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une
      * série d'un autre mode — sa correction et ses signalements passent par

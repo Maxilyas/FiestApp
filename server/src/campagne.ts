@@ -52,6 +52,47 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // Le défi entre amis : le lancer — sur des catégories ou un sujet, comme
+  // une série —, le relire par son code, le relever. Ses réponses passent par
+  // la porte des séries.
+  app.post(
+    '/api/campagne/duel',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const brut: unknown = req.body?.categories
+      const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
+      const sujet: unknown = req.body?.sujet
+      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/duels',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.mesDuels(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/duel/:code',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.duel(profil.id, req.params.code))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/duel/:code',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.releverUnDuel(profil.id, req.params.code))
+    }),
+  )
+
   app.post(
     '/api/campagne/serie/:id/reponse',
     petit,

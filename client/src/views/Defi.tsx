@@ -38,7 +38,7 @@ function cloture(minutes: number): string {
  * La partie elle-même se joue sur l'écran de la série (`CampagneApp`) : une
  * question, sa révélation, la suivante — la page lui passe la tentative.
  */
-export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: (tentative: SerieDeCampagne) => void }) {
+export function PageDuDefi({ onglets, onJouer, apres }: { onglets: ReactNode; onJouer: (tentative: SerieDeCampagne) => void; apres?: ReactNode }) {
   const [defi, setDefi] = useState<DefiDeLaSemaine | null>(null)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
@@ -218,12 +218,14 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
           ))}
         </ol>
       )}
+      {/* Ses défis entre amis, sous celui de la semaine (`Duel.tsx`). */}
+      {apres}
     </div>
   )
 }
 
-/** Une ligne du classement du défi : sa place, son avatar, son prénom et ses bonnes réponses. */
-function LigneDuDefiVue({ ligne: l, moi }: { ligne: LigneDuDefi; moi: boolean }) {
+/** Une ligne du classement d'un défi — de la semaine, ou entre amis : sa place, son avatar, son prénom et ses bonnes réponses. */
+export function LigneDuDefiVue({ ligne: l, moi }: { ligne: LigneDuDefi; moi: boolean }) {
   return (
     <div
       className={'lb-row' + (moi ? ' me' : '')}

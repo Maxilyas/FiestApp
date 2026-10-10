@@ -4,6 +4,8 @@ import { Icon, type IconName } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
+import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
+import { nomDesCategories, nomDuChoix } from './nomDuChoix'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
@@ -31,6 +33,7 @@ import {
   JUSTES_DOUBLEES_PAR_JOUR,
   VIES,
   XP_PAR_JUSTE,
+  lireCodeDuDuel,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type Niveau,
@@ -59,8 +62,10 @@ type Ecran =
       categories: string[]
       /** Le sujet qu'elle suit à travers les catégories, que « Rejouer » reprend aussi. */
       sujet: string | null
-      /** Le défi de la semaine : la même partie, son classement au bout. */
+      /** Un défi — de la semaine, ou entre amis : la même partie, une seule tentative, son classement au bout. */
       defi?: true
+      /** Un défi entre amis : son code, que sa fin envoie. */
+      duel?: string
     }
   | {
       e: 'fin'
@@ -81,15 +86,17 @@ type Ecran =
       recompenses: NonNullable<ReponseDeCampagne['recompenses']>
       /** Et les légendaires qu'ils ouvrent, qu'on porte d'ici. */
       legendaires: string[]
-      /** Le défi de la semaine, et sa place au classement pour l'instant. */
+      /** Un défi — de la semaine, ou entre amis —, et sa place au classement pour l'instant. */
       defi?: true
       place?: { rang: number; joueurs: number }
-      /** Ce qui a éclaté pour lui à la fin du défi (`CHANCE_ECLAT_DU_DEFI`). */
+      /** Un défi entre amis : son code, à envoyer. */
+      duel?: string
+      /** Ce qui a éclaté pour lui à la fin du défi de la semaine (`CHANCE_ECLAT_DU_DEFI`). */
       eclat?: string
     }
 
-/** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine. */
-type Mode = 'serie' | 'sentiers' | 'defi'
+/** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine — et un défi entre amis, ouvert par son lien. */
+type Mode = 'serie' | 'sentiers' | 'defi' | 'duel'
 
 /**
  * Les catégories de sa dernière série, retenues sur ce téléphone : la page
@@ -116,12 +123,8 @@ function retenirCategories(categories: readonly string[]) {
   }
 }
 
-/** Les catégories d'une série, en quelques mots : « Culture générale », « Histoire et Sport », « 4 catégories » ; rien pour toutes. */
-export function nomDesCategories(categories: readonly string[]): string | null {
-  if (categories.length === 0) return null
-  if (categories.length <= 2) return categories.join(' et ')
-  return `${categories.length} catégories`
-}
+// Les noms d'un choix vivent à part : la page d'un défi entre amis les dit aussi.
+export { nomDesCategories, nomDuChoix }
 
 /**
  * Le sujet de sa dernière série (`shared/sujets.ts`), retenu sur ce
@@ -145,11 +148,6 @@ function retenirSujet(sujet: string | null) {
   }
 }
 
-/** Ce que joue une série, en quelques mots : son sujet, ou ses catégories ; rien pour toutes. */
-export function nomDuChoix(categories: readonly string[], sujet: string | null | undefined): string | null {
-  return (sujet && sujetParCle(sujet)?.nom) || nomDesCategories(categories)
-}
-
 /** L'icône d'un sujet : l'horloge pour une époque, un emblème pour un fil rouge. */
 const ICONE_DU_SUJET: Record<string, IconName> = {
   france: 'flag',
@@ -165,7 +163,9 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
 const iconeDuSujet = (s: Sujet): IconName => ICONE_DU_SUJET[s.cle] ?? 'clock'
 // Les sentiers par la règle même du préchargement (`donneesDuFragment`,
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
-const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : versLesSentiers(hash) ? 'sentiers' : 'serie')
+const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : codeDuLien(hash) ? 'duel' : versLesSentiers(hash) ? 'sentiers' : 'serie')
+/** Le code du défi entre amis qu'ouvre l'adresse (`#duel-K7M2QX`), ou null. */
+const codeDuLien = (hash: string) => (hash.startsWith('#duel-') ? lireCodeDuDuel(hash) : null)
 
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois
@@ -185,6 +185,8 @@ const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : vers
 export function CampagneApp() {
   const { toast } = useAppState()
   const [mode, setMode] = useState<Mode>(() => modeDe(window.location.hash))
+  // Le défi entre amis qu'ouvre l'adresse : son lien, envoyé par un ami.
+  const [codeDuDuel, setCodeDuDuel] = useState<string | null>(() => codeDuLien(window.location.hash))
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [categories, setCategoriesBrut] = useState<string[]>(categoriesRetenues)
   // Un sujet traverse les catégories : en choisir un les laisse de côté, sans
@@ -219,7 +221,10 @@ export function CampagneApp() {
 
   // Le retour du navigateur d'un sentier à la série, ou l'inverse.
   useEffect(() => {
-    const suivre = () => setMode(modeDe(window.location.hash))
+    const suivre = () => {
+      setMode(modeDe(window.location.hash))
+      setCodeDuDuel(codeDuLien(window.location.hash))
+    }
     window.addEventListener('hashchange', suivre)
     window.addEventListener('popstate', suivre)
     return () => {
@@ -244,7 +249,8 @@ export function CampagneApp() {
         { id: 'sentiers', nom: 'Les sentiers', icone: 'target' },
         { id: 'defi', nom: 'Le défi', icone: 'trophy' },
       ]}
-      actif={mode}
+      // Un défi entre amis se range sous l'onglet du défi.
+      actif={mode === 'duel' ? 'defi' : mode}
       onChoisir={choisirMode}
       label="Le mode de la campagne"
       idOnglet={m => `mode-${m}`}
@@ -404,6 +410,7 @@ export function CampagneApp() {
         recompenses: r.recompenses ?? [],
         legendaires: r.legendaires ?? [],
         ...(ecran.defi && { defi: true as const }),
+        ...(ecran.duel && { duel: ecran.duel }),
         ...(r.defi && { place: r.defi }),
         ...(r.eclat && { eclat: r.eclat }),
       })
@@ -415,6 +422,53 @@ export function CampagneApp() {
   const jouerLeDefi = (t: SerieDeCampagne) => {
     if (!t.question) return
     setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, categories: [], sujet: null, defi: true })
+  }
+
+  /** Un défi entre amis, lancé ou relevé : la même partie, une seule tentative, son code au bout pour l'envoyer. */
+  const jouerLeDuel = (t: SerieDeCampagne, code: string) => {
+    if (!t.question) return
+    setEcran({
+      e: 'jeu',
+      serie: t.id,
+      question: t.question,
+      vies: t.vies,
+      justes: t.justes,
+      total: t.total,
+      reponse: null,
+      choix: null,
+      xp: 0,
+      categories: t.categories ?? [],
+      sujet: t.sujet ?? null,
+      defi: true,
+      duel: code,
+    })
+  }
+
+  /** « Défier des amis » : un tirage sur ce qu'on a choisi — catégories ou sujet —, et sa propre tentative d'abord. */
+  const lancerUnDuel = async (choisies: string[], choisi: string | null) => {
+    if (busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const { code, serie } = await api.campagne.duel.lancer(choisi ? [] : choisies, choisi)
+      jouerLeDuel(serie, code)
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** La page d'un défi entre amis, à son adresse : le retour du navigateur ramène d'où l'on vient. */
+  const ouvrirLeDuel = async (code: string) => {
+    history.pushState(history.state, '', `${window.location.pathname}${window.location.search}${adresseDuDuel(code)}`)
+    setCodeDuDuel(code)
+    setMode('duel')
+    try {
+      await relire()
+    } catch (e) {
+      setErreur(motifDe(e))
+    }
   }
 
   /**
@@ -459,24 +513,39 @@ export function CampagneApp() {
   if (ecran.e === 'accueil' && mode === 'defi') {
     return (
       <>
-        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} />
+        <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} apres={<MesDuels onOuvrir={ouvrirLeDuel} />} />
+        {toastVu}
+      </>
+    )
+  }
+
+  if (ecran.e === 'accueil' && mode === 'duel' && codeDuDuel) {
+    return (
+      <>
+        <PageDuDuel key={codeDuDuel} code={codeDuDuel} onglets={onglets} onJouer={jouerLeDuel} />
         {toastVu}
       </>
     )
   }
 
   if (ecran.e === 'anonyme' || ecran.e === 'erreur') {
+    // Le lien d'un défi entre amis survit à la connexion : on revient sur lui (`pageDeRetour` garde le fragment).
+    const retour = encodeURIComponent(`/campagne${codeDuDuel ? adresseDuDuel(codeDuDuel) : ''}`)
     return (
       <div className="player-shell">
         <Sortie />
         <PieceTete piece="Seul" titre="La campagne" />
         {ecran.e === 'anonyme' ? (
           <>
-            <p>La campagne se joue avec ton profil : tes records et tes confettis y restent.</p>
-            <a className="btn btn-primary btn-big btn-block" href="/?next=/campagne">
+            <p>
+              {codeDuDuel
+                ? 'Un ami te défie à la campagne : connecte-toi à ton profil pour relever son défi, ou crée-le.'
+                : 'La campagne se joue avec ton profil : tes records et tes confettis y restent.'}
+            </p>
+            <a className="btn btn-primary btn-big btn-block" href={`/?next=${retour}`}>
               Me connecter
             </a>
-            <a className="btn btn-block" href="/?creer=1&next=/campagne">
+            <a className="btn btn-block" href={`/?creer=1&next=${retour}`}>
               Créer mon profil
             </a>
           </>
@@ -607,6 +676,12 @@ export function CampagneApp() {
               <Icon name="play" />
               {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
+            {/* Le même tirage pour ceux qu'on défie : on joue d'abord, on envoie le lien ensuite (`Duel.tsx`). */}
+            <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={() => void lancerUnDuel(categories, sujetJouable)}>
+              <Icon name="users" />
+              Défier des amis
+            </button>
+            <p className="muted small centre">Le même tirage pour eux : tu joues d’abord, puis tu leur envoies le lien.</p>
           </>
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
@@ -629,7 +704,9 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <header className="fin-tete">
-          <span className="label">{ecran.defi ? 'Le défi de la semaine' : `La campagne${jouees ? ` · ${jouees}` : ''}`}</span>
+          <span className="label">
+            {ecran.duel ? `Défi entre amis${jouees ? ` · ${jouees}` : ''}` : ecran.defi ? 'Le défi de la semaine' : `La campagne${jouees ? ` · ${jouees}` : ''}`}
+          </span>
           <h1>{ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
@@ -674,7 +751,10 @@ export function CampagneApp() {
           <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
         ))}
         {erreur && <p className="error">{erreur}</p>}
-        {ecran.defi ? (
+        {ecran.duel ? (
+          // L'envoyer d'abord : celui qui vient de le lancer n'a encore défié personne.
+          <FinDuDuel code={ecran.duel} justes={ecran.justes} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
+        ) : ecran.defi ? (
           <>
             {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. */}
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void relire()}>
@@ -725,7 +805,7 @@ export function CampagneApp() {
       <div className="quiz-player">
         <div className="quiz-topbar">
           <span className="label">
-            {ecran.defi && 'Le défi · '}
+            {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
             {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
           </span>
           <Vies restantes={ecran.vies} />

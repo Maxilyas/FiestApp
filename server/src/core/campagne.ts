@@ -25,6 +25,13 @@ import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, typ
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import {
+  DUELS_OUVERTS_MAX,
+  DUREE_D_UN_DUEL_MS,
+  LETTRES_D_UN_CODE,
+  LONGUEUR_D_UN_CODE,
+  lireCodeDuDuel,
+  type DuelEntreAmis,
+  type ResumeDuDuel,
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
   QUESTIONS_PAR_SERIE,
@@ -121,7 +128,7 @@ interface Serie {
   vies: number
   justes: number
   finieLe: number | null
-  mode: 'serie' | 'sentier' | 'defi'
+  mode: 'serie' | 'sentier' | 'defi' | 'duel'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -134,6 +141,21 @@ interface Serie {
   sujet?: string | null
   /** Un défi de la semaine : le lundi de sa semaine, qui le clôt. */
   semaine?: string | null
+  /** Un défi entre amis : son code (`campagne_duels`). */
+  duel?: string | null
+}
+
+/** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
+interface Duel {
+  code: string
+  auteur: string
+  questions: QuestionDeSerie[]
+  categories: string[] | null
+  sujet: string | null
+  creeLe: number
+  fermeLe: number
+  /** Quand sa fermeture a figé les tentatives laissées en route ; null : pas encore. */
+  closLe: number | null
 }
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
@@ -149,6 +171,8 @@ const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 const BLOQUES_MONTRES = 10
 /** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
 const LIGNES_DU_DEFI = 50
+/** Ses défis entre amis qu'on lui rappelle : les plus récents, de quoi retrouver un lien perdu. */
+const DUELS_MONTRES = 10
 /** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
 const SIGNALEMENTS_MONTRES = 50
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
@@ -248,6 +272,8 @@ export class CampagneStore {
   private enCours = new Map<string, Serie>()
   /** Les questions du défi de chaque semaine jouée depuis le démarrage : figées en base, relues une fois. */
   private tirages = new Map<string, QuestionDeSerie[]>()
+  /** Les défis entre amis lus depuis le démarrage : leur tirage et leur fermeture sont figés, relus une fois. */
+  private duels = new Map<string, Duel>()
   /** Les vainqueurs du défi de la semaine passée (`vainqueursDuDefi`), lus à sa clôture. */
   private argent: { semaine: string; ids: ReadonlySet<string> } = { semaine: '', ids: AUCUN_VAINQUEUR }
   private argentEnRoute: Promise<void> | null = null
@@ -423,6 +449,8 @@ export class CampagneStore {
       ['sujet', 'TEXT'],
       // Un défi de la semaine : le lundi de sa semaine.
       ['semaine', 'TEXT'],
+      // Un défi entre amis : son code (`campagne_duels`).
+      ['duel', 'TEXT'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -453,6 +481,20 @@ export class CampagneStore {
            vainqueurs TEXT
          )`,
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_defi ON campagne_series(mode, semaine)',
+        // Les défis entre amis : un tirage figé sous un code, que son lien
+        // donne à qui le reçoit ; une semaine pour le relever.
+        `CREATE TABLE IF NOT EXISTS campagne_duels (
+           code       TEXT PRIMARY KEY,
+           auteur     TEXT NOT NULL,
+           questions  TEXT NOT NULL,
+           categories TEXT,
+           sujet      TEXT,
+           cree_le    INTEGER NOT NULL,
+           ferme_le   INTEGER NOT NULL,
+           clos_le    INTEGER
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_campagne_duels_auteur ON campagne_duels(auteur, ferme_le)',
+        'CREATE INDEX IF NOT EXISTS idx_campagne_series_duel ON campagne_series(mode, duel)',
       ],
       'write',
     )
@@ -739,7 +781,7 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
-      if (s?.mode === 'defi') throw new Error('Le défi n’a qu’une tentative : elle ne s’abandonne pas')
+      if (s?.mode === 'defi' || s?.mode === 'duel') throw new Error('Le défi n’a qu’une tentative : elle ne s’abandonne pas')
       if (!s || s.mode !== 'serie') throw new Error('Cette série est introuvable')
       if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
       const maintenant = this.maintenant()
@@ -794,10 +836,20 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
-      if (!s || (s.mode !== 'serie' && s.mode !== 'defi')) throw new Error('Cette série est introuvable')
+      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
       if (s.mode === 'defi' && s.semaine !== this.semaineDeLHeure().semaine) throw new Error('Ce défi est clos : celui de cette semaine t’attend')
-      if (s.finieLe !== null) throw new Error(s.mode === 'defi' ? 'Tu as relevé le défi de cette semaine : le prochain ouvre lundi' : 'Cette série est finie : commence-en une autre')
+      // Un défi entre amis ferme au bout de sa semaine, tentatives en route comprises.
+      if (s.mode === 'duel' && (await this.duelFerme(s.duel))) throw new Error('Ce défi est fermé : son classement est figé')
+      if (s.finieLe !== null) {
+        throw new Error(
+          s.mode === 'defi'
+            ? 'Tu as relevé le défi de cette semaine : le prochain ouvre lundi'
+            : s.mode === 'duel'
+              ? 'Tu as relevé ce défi : son classement t’attend'
+              : 'Cette série est finie : commence-en une autre',
+        )
+      }
       if (index !== s.index) throw new Error('Cette question est passée : la série a continué sans elle')
       const q = s.questions[s.index]
       const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
@@ -839,7 +891,12 @@ export class CampagneStore {
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
       const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
-      const defi = finie && s.mode === 'defi' && s.semaine ? await this.placeAuDefi(s.semaine, profileId) : null
+      const defi =
+        finie && s.mode === 'defi' && s.semaine
+          ? await this.placeAuDefi(s.semaine, profileId)
+          : finie && s.mode === 'duel' && s.duel
+            ? await this.placeAuDuel(s.duel, profileId)
+            : null
       return {
         juste,
         xp,
@@ -929,6 +986,8 @@ export class CampagneStore {
     // Le défi de la semaine se corrige à sa clôture : finie, la sienne
     // soufflerait ses réponses à ceux qui jouent encore.
     if (s.mode === 'defi' && s.semaine === this.semaineDeLHeure().semaine) throw new Error('La correction du défi s’ouvre à sa clôture, lundi')
+    // Un défi entre amis de même : finie, la sienne soufflerait ses réponses à ceux qu'il a défiés.
+    if (s.mode === 'duel' && !(await this.duelFerme(s.duel))) throw new Error('La correction du défi s’ouvre à sa fermeture : tes amis jouent encore')
     const res = await this.client.execute({ sql: 'SELECT position, choix, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
@@ -1145,19 +1204,28 @@ export class CampagneStore {
     }
   }
 
+  /** Le classement du défi d'une semaine (`classementDesTentatives`), ouvert tant que c'est la semaine. */
+  private classementDuDefi(semaine: string, pour: string | null): Promise<Pick<DefiDeLaSemaine, 'joueurs' | 'lignes' | 'moi' | 'sienne'>> {
+    return this.classementDesTentatives({ mode: 'defi', semaine }, semaine === this.semaineDeLHeure().semaine, pour)
+  }
+
   /**
-   * Le classement du défi d'une semaine : ses bonnes réponses, rang partagé
-   * (invariant 15), ceux qui ont répondu à une question au moins — les
-   * masqués du quiz du jour écartés, sauf pour eux-mêmes. Nommé comme au
-   * quiz du jour : un homonyme y garde sa marque.
+   * Le classement d'un défi — de la semaine, ou entre amis : ses bonnes
+   * réponses, rang partagé (invariant 15), ceux qui ont répondu à une
+   * question au moins — les masqués du quiz du jour écartés, sauf pour
+   * eux-mêmes. Nommé comme au quiz du jour : un homonyme y garde sa marque.
    */
-  private async classementDuDefi(semaine: string, pour: string | null): Promise<Pick<DefiDeLaSemaine, 'joueurs' | 'lignes' | 'moi' | 'sienne'>> {
-    const res = await this.client.execute({
-      sql: `SELECT profile_id, justes, finie_le, commencee_le FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`,
-      args: [semaine],
-    })
+  private async classementDesTentatives(
+    defi: { mode: 'defi'; semaine: string } | { mode: 'duel'; code: string },
+    ouverte: boolean,
+    pour: string | null,
+  ): Promise<Pick<DefiDeLaSemaine, 'joueurs' | 'lignes' | 'moi' | 'sienne'>> {
+    const res = await this.client.execute(
+      defi.mode === 'defi'
+        ? { sql: `SELECT profile_id, justes, finie_le, commencee_le FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`, args: [defi.semaine] }
+        : { sql: `SELECT profile_id, justes, finie_le, commencee_le FROM campagne_series WHERE mode = 'duel' AND duel = ? AND position > 0`, args: [defi.code] },
+    )
     const profils = this.profils ? await this.profils.byIds(res.rows.map(r => String(r.profile_id))) : []
-    const ouverte = semaine === this.semaineDeLHeure().semaine
     const joueurs: { profil: ProfileRec; justes: number; enCours: boolean; commenceeLe: number }[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
@@ -1263,6 +1331,250 @@ export class CampagneStore {
     const neufs = new Set(ids)
     this.argent = { semaine, ids: neufs }
     for (const id of new Set([...neufs, ...avant.ids])) if (avant.semaine !== semaine || avant.ids.has(id) !== neufs.has(id)) this.laurierChange?.(id)
+  }
+
+  // ── Le défi entre amis ──────────────────────────────────────────────────
+  //
+  // Le défi de la semaine, contre qui l'on veut (`shared/campagne.ts`) : un
+  // tirage figé sous un code, que son lien donne ; chacun le joue une fois,
+  // dans la semaine, comme une série d'un autre mode (`mode = 'duel'`) —
+  // l'expérience, les confettis et les hauts faits de série la comptent, le
+  // record des séries non. Ni laurier ni haut fait à lui : on gagnerait à se
+  // défier soi-même d'un second profil. Rien ne tourne à sa fermeture : la
+  // première lecture d'après fige ce qui restait en route (`fermerLeDuel`).
+
+  /** Un défi entre amis par son code, lu une fois. */
+  private async duelDe(code: string | null | undefined): Promise<Duel | null> {
+    if (!code) return null
+    const garde = this.duels.get(code)
+    if (garde) return garde
+    const res = await this.client.execute({ sql: 'SELECT * FROM campagne_duels WHERE code = ?', args: [code] })
+    const r = res.rows[0]
+    if (!r) return null
+    const duel: Duel = {
+      code,
+      auteur: String(r.auteur),
+      questions: JSON.parse(String(r.questions)) as QuestionDeSerie[],
+      categories: lireCategories(r.categories),
+      sujet: typeof r.sujet === 'string' ? r.sujet : null,
+      creeLe: Number(r.cree_le),
+      fermeLe: Number(r.ferme_le),
+      closLe: r.clos_le === null || r.clos_le === undefined ? null : Number(r.clos_le),
+    }
+    this.duels.set(code, duel)
+    if (this.duels.size > SERIES_GARDEES) this.duels.delete(this.duels.keys().next().value!)
+    return duel
+  }
+
+  /** Ce défi a-t-il fermé ? Inconnu, il l'est : rien ne s'y joue plus. */
+  private async duelFerme(code: string | null | undefined): Promise<boolean> {
+    const d = await this.duelDe(code)
+    return !d || this.maintenant() >= d.fermeLe
+  }
+
+  /** Sa tentative à un défi entre amis, s'il l'a commencée. */
+  private async tentativeDuDuel(profileId: string, code: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY commencee_le LIMIT 1`,
+      args: [profileId, code],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /** Sa tentative neuve à un défi entre amis : son tirage, ses catégories ou son sujet — les hauts faits de série les lisent. */
+  private async releverLeDuel(profileId: string, duel: Duel, lot: InStatement[] = []): Promise<Serie> {
+    const serie: Serie = {
+      id: randomUUID(),
+      profileId,
+      questions: duel.questions,
+      index: 0,
+      vies: VIES,
+      justes: 0,
+      finieLe: null,
+      mode: 'duel',
+      branche: null,
+      palier: null,
+      seuil: null,
+      rejeu: false,
+      issue: null,
+      categories: duel.categories,
+      sujet: duel.sujet,
+      duel: duel.code,
+    }
+    await this.client.batch(
+      [
+        ...lot,
+        {
+          sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, duel)
+                VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'duel', ?, ?, ?)`,
+          args: [serie.id, profileId, JSON.stringify(duel.questions), VIES, this.maintenant(), duel.categories ? JSON.stringify(duel.categories) : null, duel.sujet, duel.code],
+        },
+      ],
+      'write',
+    )
+    this.garderEnCours(serie)
+    return serie
+  }
+
+  /**
+   * Lancer un défi entre amis : un tirage sur ses catégories ou son sujet,
+   * marche par marche comme une série — sans « jamais vues d'abord », qui ne
+   * vaut que pour lui —, figé sous un code neuf ; et sa propre tentative,
+   * qui commence là. Une série en cours, elle, attend. Pas plus de
+   * `DUELS_OUVERTS_MAX` ouverts à la fois.
+   */
+  creerUnDuel(profileId: string, categories?: readonly string[], sujet?: string): Promise<{ code: string; serie: SerieDeCampagne }> {
+    return this.avecVerrou(profileId, async () => {
+      const maintenant = this.maintenant()
+      const ouverts = await this.client.execute({ sql: 'SELECT COUNT(*) AS n FROM campagne_duels WHERE auteur = ? AND ferme_le > ?', args: [profileId, maintenant] })
+      if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} défis ouverts : attends que l’un d’eux ferme`)
+      const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
+      if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
+      const [toutes, mesure] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures()])
+      const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
+      if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('Pas assez de questions pour ce défi : choisis d’autres catégories')
+      const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
+      for (const q of melanger(jouables)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
+      const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
+      for (let essai = 0; ; essai++) {
+        const duel: Duel = {
+          code: nouveauCode(),
+          auteur: profileId,
+          questions,
+          categories: retenues,
+          sujet: suivi?.cle ?? null,
+          creeLe: maintenant,
+          fermeLe: maintenant + DUREE_D_UN_DUEL_MS,
+          closLe: null,
+        }
+        try {
+          // Le défi et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
+          const serie = await this.releverLeDuel(profileId, duel, [
+            {
+              sql: 'INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              args: [duel.code, profileId, JSON.stringify(questions), retenues ? JSON.stringify(retenues) : null, duel.sujet, maintenant, duel.fermeLe],
+            },
+          ])
+          this.duels.set(duel.code, duel)
+          return { code: duel.code, serie: vueDeSerie(serie) }
+        } catch (e) {
+          // Un code déjà pris — une chance sur des centaines de millions — : on en tire un autre, une fois.
+          if (essai > 0 || !String((e as Error).message).includes('UNIQUE')) throw e
+        }
+      }
+    })
+  }
+
+  /**
+   * Relever un défi entre amis : une seule tentative. Laissée en route, elle
+   * se reprend ; finie, le défi attend les autres. Fermé, il ne se joue plus.
+   */
+  releverUnDuel(profileId: string, brut: unknown): Promise<SerieDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const duel = await this.duelDe(lireCodeDuDuel(brut))
+      if (!duel) throw new Error('Ce défi est introuvable : vérifie son lien')
+      if (this.maintenant() >= duel.fermeLe) throw new Error('Ce défi est fermé : son classement est figé')
+      const deja = await this.tentativeDuDuel(profileId, duel.code)
+      if (deja?.finieLe != null) throw new Error('Tu as relevé ce défi : son classement t’attend')
+      if (deja) {
+        this.garderEnCours(deja)
+        return vueDeSerie(deja)
+      }
+      return vueDeSerie(await this.releverLeDuel(profileId, duel))
+    })
+  }
+
+  /**
+   * Fermé, un défi fige une fois ce qui restait en route : la correction de
+   * chacun s'ouvre, et la page ne dit plus « en cours ».
+   */
+  private async fermerLeDuel(duel: Duel): Promise<void> {
+    if (duel.closLe !== null || this.maintenant() < duel.fermeLe) return
+    await this.client.batch(
+      [
+        { sql: `UPDATE campagne_series SET finie_le = ? WHERE mode = 'duel' AND duel = ? AND finie_le IS NULL`, args: [duel.fermeLe, duel.code] },
+        { sql: 'UPDATE campagne_duels SET clos_le = ? WHERE code = ? AND clos_le IS NULL', args: [this.maintenant(), duel.code] },
+      ],
+      'write',
+    )
+    duel.closLe = this.maintenant()
+    for (const s of [...this.enCours.values()]) if (s.mode === 'duel' && s.duel === duel.code) this.enCours.delete(s.profileId)
+  }
+
+  /** La page d'un défi entre amis : qui l'a lancé, ce qu'il fait jouer, le temps qui reste, sa tentative et le classement. */
+  async duel(profileId: string, brut: unknown): Promise<DuelEntreAmis> {
+    const duel = await this.duelDe(lireCodeDuDuel(brut))
+    if (!duel) throw new Error('Ce défi est introuvable : vérifie son lien')
+    await this.fermerLeDuel(duel)
+    const ouvert = this.maintenant() < duel.fermeLe
+    const [tentative, classement, auteur] = await Promise.all([
+      this.tentativeDuDuel(profileId, duel.code),
+      this.classementDesTentatives({ mode: 'duel', code: duel.code }, ouvert, profileId),
+      this.profils ? this.profils.byIds([duel.auteur]).then(p => p[0] ?? null) : Promise.resolve(null),
+    ])
+    // Masqué au quiz du jour, l'auteur ne se nomme pas plus ici, sauf à lui-même.
+    const nomme = auteur && (!this.masque?.(auteur.id) || auteur.id === profileId)
+    return {
+      code: duel.code,
+      auteur: {
+        nom: nomme ? auteur.name : 'Un joueur',
+        avatar: nomme && this.profils ? this.profils.avatarPorte(auteur) : '🎲',
+        ...(duel.auteur === profileId && { toi: true as const }),
+      },
+      ...(duel.sujet && { sujet: duel.sujet }),
+      ...(duel.categories && duel.categories.length > 0 && { categories: duel.categories }),
+      minutesRestantes: ouvert ? Math.max(1, Math.ceil((duel.fermeLe - this.maintenant()) / 60_000)) : 0,
+      tentative: tentative ? vueDeSerie(tentative) : null,
+      ...classement,
+    }
+  }
+
+  /** Sa place à un défi entre amis, s'il y a répondu : ce que la fin de sa tentative lui dit. */
+  private async placeAuDuel(code: string, profileId: string): Promise<{ rang: number; joueurs: number } | null> {
+    const c = await this.classementDesTentatives({ mode: 'duel', code }, true, profileId)
+    const sienne = c.moi ?? c.lignes.find(l => l.profileId === profileId)
+    return sienne ? { rang: sienne.rang, joueurs: c.joueurs } : null
+  }
+
+  /**
+   * Ses défis entre amis — lancés ou relevés — des trente derniers jours, les
+   * plus récents d'abord : un lien perdu ne perd pas le défi. Leurs scores
+   * d'un seul aller-retour, classés comme leur page les classe.
+   */
+  async mesDuels(profileId: string): Promise<ResumeDuDuel[]> {
+    const depuis = this.maintenant() - 30 * 24 * HEURE_MS
+    const res = await this.client.execute({
+      sql: `SELECT code FROM campagne_duels
+            WHERE ferme_le > ? AND (auteur = ? OR code IN (SELECT duel FROM campagne_series WHERE profile_id = ? AND mode = 'duel'))
+            ORDER BY cree_le DESC LIMIT ?`,
+      args: [depuis, profileId, profileId, DUELS_MONTRES],
+    })
+    const duels = (await Promise.all(res.rows.map(r => this.duelDe(String(r.code))))).filter((d): d is Duel => d !== null)
+    if (duels.length === 0) return []
+    const tentatives = await this.client.execute({
+      sql: `SELECT duel, profile_id, justes FROM campagne_series WHERE mode = 'duel' AND position > 0 AND duel IN (${duels.map(() => '?').join(', ')})`,
+      args: duels.map(d => d.code),
+    })
+    const auteurs = this.profils ? await this.profils.byIds(duels.map(d => d.auteur)) : []
+    return duels.map((d, i) => {
+      const joueurs = tentatives.rows
+        .filter(r => String(r.duel) === d.code)
+        .map(r => ({ id: String(r.profile_id), justes: Number(r.justes) }))
+        .filter(j => !this.masque?.(j.id) || j.id === profileId)
+      const sienne = classer(joueurs, j => j.justes, j => j.id, j => j.id).find(c => c.item.id === profileId)
+      const auteur = auteurs[i]
+      return {
+        code: d.code,
+        auteur: d.auteur === profileId ? 'toi' : auteur && !this.masque?.(auteur.id) ? auteur.name : 'Un joueur',
+        ...(d.sujet && { sujet: d.sujet }),
+        ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
+        joueurs: joueurs.length,
+        justes: sienne ? sienne.item.justes : null,
+        rang: sienne ? sienne.rang : null,
+        minutesRestantes: Math.max(0, Math.ceil((d.fermeLe - this.maintenant()) / 60_000)),
+      }
+    })
   }
 
   /**
@@ -2269,7 +2581,7 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : 'serie',
+    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -2278,7 +2590,13 @@ function versSerie(r: Record<string, unknown>): Serie {
     categories: lireCategories(r.categories),
     sujet: typeof r.sujet === 'string' ? r.sujet : null,
     semaine: typeof r.semaine === 'string' ? r.semaine : null,
+    duel: typeof r.duel === 'string' ? r.duel : null,
   }
+}
+
+/** Un code de défi entre amis, à recopier sans se tromper (`LETTRES_D_UN_CODE`). */
+function nouveauCode(): string {
+  return Array.from(randomBytes(LONGUEUR_D_UN_CODE), o => LETTRES_D_UN_CODE[o % LETTRES_D_UN_CODE.length]).join('')
 }
 
 /**
@@ -2338,8 +2656,8 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     total: s.questions.length,
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
-    ...(s.mode === 'serie' && s.categories && s.categories.length > 0 && { categories: s.categories }),
-    ...(s.mode === 'serie' && s.sujet && { sujet: s.sujet }),
+    ...((s.mode === 'serie' || s.mode === 'duel') && s.categories && s.categories.length > 0 && { categories: s.categories }),
+    ...((s.mode === 'serie' || s.mode === 'duel') && s.sujet && { sujet: s.sujet }),
   }
 }
 
@@ -2430,7 +2748,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : 'serie'
+  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,
