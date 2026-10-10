@@ -555,7 +555,7 @@ export class ProfileStore {
    * Ce que la campagne sait de lui — séries, épreuves des sentiers, défis
    * (`CampagneStore.savoirDe`) : ses écussons, « Ma carrière » et sa
    * précision, avec les soirées et le quiz du jour. Branché au démarrage
-   * comme `justesDeCampagne`.
+   * comme `confettisDeCampagne`.
    */
   savoirDeCampagne?: (profileId: string) => Promise<Savoir>
 
@@ -574,11 +574,12 @@ export class ProfileStore {
   justesDuJour?: (profileId: string) => Promise<number>
 
   /**
-   * Ses bonnes réponses en campagne (`CampagneStore.justesDe`) : un confetti
-   * chacune, comme au quiz du jour — un choix de produit, dit avec la
-   * campagne. Branchées au démarrage comme `justesDuJour`.
+   * Ses confettis de campagne (`CampagneStore.confettisDe`) : un par bonne
+   * réponse, comme au quiz du jour, et ce que paient les étoiles de ses
+   * sentiers (`CONFETTIS_DES_ETOILES`) — des choix de produit, dits avec la
+   * campagne. Branchés au démarrage comme `justesDuJour`.
    */
-  justesDeCampagne?: (profileId: string) => Promise<number>
+  confettisDeCampagne?: (profileId: string) => Promise<number>
 
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
@@ -965,8 +966,9 @@ export class ProfileStore {
    * qu'il a achetés —, celui qu'il porte.
    *
    * Une bonne réponse, un confetti : ses soirées qui comptent
-   * (`confettisDeSoiree`), son quiz du jour et sa campagne, moins ce qu'il a
-   * dépensé — ses thèmes, ses vies des sentiers.
+   * (`confettisDeSoiree`), son quiz du jour et sa campagne — et les étoiles
+   * de ses sentiers —, moins ce qu'il a dépensé : ses thèmes, ses vies des
+   * sentiers, ses sabliers.
    * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
    * soirée retirée de l'historique emporte les siens. Le solde peut alors
    * passer sous zéro ; un achat, lui, ne se reprend jamais.
@@ -982,7 +984,7 @@ export class ProfileStore {
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
-      this.justesDeCampagne?.(p.id) ?? 0,
+      this.confettisDeCampagne?.(p.id) ?? 0,
       // Ses maîtres ouvrent le thème qui se gagne ; muets, ils ne l'ôtent qu'à cette lecture.
       this.paliersDe(p.id).then(
         x => maitresDe(x).length,

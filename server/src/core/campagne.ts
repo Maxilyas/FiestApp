@@ -63,6 +63,8 @@ import {
   PRIX_D_UNE_VIE,
   QUESTIONS_PAR_EPREUVE,
   VIES_PAR_JOUR,
+  confettisDeLaNouvelleNote,
+  confettisDesEtoiles,
   epreuveFinie,
   etoilesDe,
   issueDe,
@@ -161,7 +163,7 @@ const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
  * et se corrige par les réponses de campagne (`niveauDeQuestion`).
  * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
  * sans plafond (`xpDeCampagne`), dans sa ligne à part (`LIGNE_CAMPAGNE`) ;
- * et un confetti, comme au quiz du jour (`ProfileStore.justesDeCampagne`).
+ * et un confetti, comme au quiz du jour (`ProfileStore.confettisDeCampagne`).
  */
 /**
  * Ce que la campagne demande aux profils pour décerner ses récompenses —
@@ -920,10 +922,18 @@ export class CampagneStore {
     return (await this.base()).empreintes.has(empreinte)
   }
 
-  /** Ses bonnes réponses en campagne, toutes séries comprises : ses confettis de campagne. */
-  async justesDe(profileId: string): Promise<number> {
-    const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] })
-    return Number(res.rows[0]?.n ?? 0)
+  /**
+   * Ses confettis de campagne : une bonne réponse, un confetti — séries,
+   * épreuves et défis —, et ce que paient les étoiles de ses sentiers, la
+   * meilleure note de chaque palier (`confettisDesEtoiles`). Relus à chaque
+   * lecture, d'un seul aller-retour.
+   */
+  async confettisDe(profileId: string): Promise<number> {
+    const [justes, acquis, validees] = await this.client.batch(
+      [{ sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] }, ...this.lecturesDesSentiers(profileId)],
+      'read',
+    )
+    return Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiersLus(acquis.rows, validees.rows))
   }
 
   /**
@@ -1449,13 +1459,14 @@ export class CampagneStore {
           args: [position, justes, issue, finie ? maintenant : null, e.id],
         },
       ]
-      // Finie et validée : sa meilleure note d'avant sur ce palier, pour dire
-      // un record ; et combien de fois il l'avait déjà validé — à la première,
-      // le palier paie (`xpDuPalier`).
+      // Finie et validée : ses épreuves validées d'avant sur ce palier — sa
+      // meilleure note, pour dire un record et ce que paient ses étoiles, et
+      // combien de fois il l'avait déjà validé : à la première, le palier paie
+      // (`xpDuPalier`).
       const valideeIci = e.issue === null && issue === 'validee'
       if ((finie && issue === 'validee') || valideeIci) {
         lot.unshift({
-          sql: `SELECT COALESCE(MAX(justes), 0) AS avant, COUNT(*) AS fois FROM campagne_series
+          sql: `SELECT justes, seuil FROM campagne_series
                 WHERE profile_id = ? AND mode = 'sentier' AND branche = ? AND palier = ? AND issue = 'validee' AND id <> ?`,
           args: [profileId, e.branche, e.palier, e.id],
         })
@@ -1475,11 +1486,15 @@ export class CampagneStore {
       const reponse: ReponseDEpreuve = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuve(apres) }
       // Validé pour la première fois : sa ligne, que la bonne réponse vient
       // de réécrire, le compte déjà ; la réponse le dit.
-      if (valideeIci && xp > 0 && Number(res[0].rows[0]?.fois ?? 0) === 0) reponse.xpPalier = xpDuPalier(e.palier)
+      const dAvant = valideeIci || (finie && issue === 'validee') ? res[0].rows : []
+      if (valideeIci && xp > 0 && dAvant.length === 0) reponse.xpPalier = xpDuPalier(e.palier)
       if (finie && issue === 'validee') {
-        const avant = Number(res[0].rows[0]?.avant ?? 0)
+        const avant = Math.max(0, ...dAvant.map(r => Number(r.justes)))
+        const etoilesAvant = Math.max(0, ...dAvant.map(r => etoilesDe(Number(r.justes), Number(r.seuil ?? seuil))))
         reponse.etoiles = etoilesDe(justes, seuil)
         if (avant > 0 && justes > avant) reponse.record = true
+        const confettis = confettisDeLaNouvelleNote(etoilesAvant, reponse.etoiles)
+        if (confettis > 0) reponse.confettisDesEtoiles = confettis
         // Le palier vient d'être conquis (pas rejoué) : ce qu'il ouvre.
         if (!e.rejeu) {
           const regle = regleDuPalier(e.palier)

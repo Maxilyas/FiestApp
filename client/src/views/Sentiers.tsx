@@ -19,6 +19,7 @@ import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, ty
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
 import {
+  CONFETTIS_DES_ETOILES,
   PALIERS,
   PALIER_DU_MAITRE,
   PALIERS_DU_SENTIER,
@@ -27,6 +28,7 @@ import {
   VIES_PAR_ACHAT_MAX,
   cleDeMaitre,
   etoilesDe,
+  etoilesDuSentier,
   regleDuPalier,
   sentierQuOnAvance,
   titreDeMaitre,
@@ -519,6 +521,7 @@ export function CarteDesSentiers({
 }) {
   const avatars = etat.sentiers.reduce((n, s) => n + ouvertsDansLaBranche(brancheDe(s.branche)!, { [s.branche]: s.paliers }), 0)
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE).length
+  const etoiles = etat.sentiers.reduce((n, s) => n + etoilesDuSentier(s), 0)
   const montre = sentierMontre(etat, choisi)
   return (
     <div className="player-shell campagne sentiers">
@@ -532,7 +535,7 @@ export function CarteDesSentiers({
       <HautDesSentiers etat={etat} montre={montre} onOuvrir={onOuvrir} onReprendre={onReprendre} onVies={onVies} />
       <div className="sentiers-compte">
         <span className="label">Tes douze sentiers</span>
-        <span className="muted small">{`${avatars} avatar${avatars > 1 ? 's' : ''} sur ${BRANCHES.length * 6} · ${maitres} maître${maitres > 1 ? 's' : ''}`}</span>
+        <span className="muted small">{`${avatars} avatar${avatars > 1 ? 's' : ''} sur ${BRANCHES.length * 6} · ${maitres} maître${maitres > 1 ? 's' : ''}${etoiles > 0 ? ` · ★ ${etoiles}` : ''}`}</span>
       </div>
       <div className="sentiers-grille">
         {BRANCHES.map(b => {
@@ -540,18 +543,25 @@ export function CarteDesSentiers({
           const n = ouvertsDansLaBranche(b, { [b.key]: s.paliers })
           const v = vitrineDe(b, s)
           const etatDuSentier = s.paliers >= PALIER_DU_MAITRE ? 'Maître' : s.paliers >= PALIERS_DU_SENTIER ? 'Maître à tenter' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}`
+          const etoilesIci = etoilesDuSentier(s)
           return (
             <button
               key={b.key}
               type="button"
               className={'sentiers-tuile' + (s.paliers >= PALIERS_DU_SENTIER ? ' sentiers-tuile-complete' : '')}
               style={lueur(LUEUR[b.key])}
-              aria-label={`${b.nom} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}`}
+              aria-label={`${b.nom}, ${b.categorie} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}${etoilesIci > 0 ? `, ${etoilesIci} étoile${etoilesIci > 1 ? 's' : ''}` : ''}`}
               aria-pressed={montre?.branche === b.key}
               onClick={() => (montre?.branche === b.key ? onOuvrir(b.key) : onChoisir(b.key))}
             >
               <Portrait cle={v.cle} verrouille={v.verrouille} taille={46} />
               <b>{b.nom}</b>
+              {/* Le nom est une image : « Le tour du monde » pose de la culture
+                  générale, pas de la géographie (un retour de joueur du
+                  10 octobre 2026). La catégorie se dit sous lui. */}
+              <span className="sentiers-categorie" aria-hidden="true">
+                {b.categorie}
+              </span>
               <span className="sentiers-mini" aria-hidden="true">
                 {b.portraits.map((p, i) => (
                   <i key={p.key} className={i < n ? 'mini-ok' : undefined} />
@@ -560,6 +570,7 @@ export function CarteDesSentiers({
               <span className="sentiers-etat" aria-hidden="true">
                 {s.paliers >= PALIER_DU_MAITRE && <Icon name="crown" />}
                 {etatDuSentier}
+                {etoilesIci > 0 && <span className="sentiers-etoiles">{` · ★ ${etoilesIci}`}</span>}
               </span>
             </button>
           )
@@ -704,6 +715,10 @@ function HautDesSentiers({
         <span className="label">{`${b.nom} · ${c === null ? 'sentier achevé' : c === PALIER_DU_MAITRE ? 'le palier de maître' : `palier ${c} sur ${PALIERS_DU_SENTIER}`}`}</span>
         <h2>{titre}</h2>
         <p className="muted small">{detail}</p>
+        <p className="pano-categorie small">
+          {`Ses questions : ${b.categorie}`}
+          {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
+        </p>
       </div>
       <PanoramaDuSentier branche={b} sentier={s} courant={c} />
       {regles}
@@ -1111,7 +1126,7 @@ export function FicheDuPalier({
         <dt>Pour valider</dt>
         <dd>{`${r.seuil} bonnes réponses sur ${QUESTIONS_PAR_EPREUVE}`}</dd>
         <dt>Étoiles</dt>
-        <dd>{`★★ à ${r.seuil + Math.ceil((QUESTIONS_PAR_EPREUVE - r.seuil) / 2)}, ★★★ sans faute`}</dd>
+        <dd>{`★★ à ${r.seuil + Math.ceil((QUESTIONS_PAR_EPREUVE - r.seuil) / 2)} : ${CONFETTIS_DES_ETOILES[2]} confettis · ★★★ sans faute : ${CONFETTIS_DES_ETOILES[3]}`}</dd>
         {regles.length > 0 && (
           <>
             <dt>Règles</dt>
@@ -1396,12 +1411,15 @@ function FinDEpreuve({
   const sansVie = vies.jour + vies.reserve === 0
   // Ses maîtres, celui-ci compris : l'état relu après l'épreuve peut ne pas l'avoir encore.
   const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE || (r.maitre && s.branche === e.branche)).length
+  // Une meilleure note qui paie : ses étoiles s'ajoutent aux bonnes réponses (`CONFETTIS_DES_ETOILES`).
+  const pourLesEtoiles = r.confettisDesEtoiles ?? 0
+  const confettis = fin.justesIci + pourLesEtoiles
   const gains = (
     <>
       <div className="epreuve-gains">
         <span>
-          <b>🎊 +{fin.justesIci}</b>
-          confetti{fin.justesIci > 1 ? 's' : ''}
+          <b>🎊 +{confettis}</b>
+          {pourLesEtoiles > 0 ? `confettis, dont ${pourLesEtoiles} pour tes étoiles` : `confetti${confettis > 1 ? 's' : ''}`}
         </span>
         <span>
           <b>+{fin.xp}</b>
@@ -1612,6 +1630,13 @@ function FinDEpreuve({
             {suivant === PALIER_DU_MAITRE ? 'Tenter le maître' : `Jouer le palier ${suivant}`}
           </button>
         )
+      )}
+      {/* Les étoiles qui manquent paient : le rejeu, gratuit, se propose ici. */}
+      {etoiles < 3 && (
+        <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
+          <Icon name="rotate" />
+          {`Rejouer pour ${'★'.repeat(etoiles + 1)} · sans risquer de vie`}
+        </button>
       )}
       <button type="button" className="btn btn-block" onClick={onSentier}>
         Retour au sentier

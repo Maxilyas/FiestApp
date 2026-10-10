@@ -12,15 +12,20 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import {
+  CONFETTIS_DES_ETOILES,
   PALIERS,
   PALIER_DU_MAITRE,
   QUESTIONS_PAR_EPREUVE,
   SEUIL_DES_PALIERS,
   SEUIL_DU_MAITRE,
   VIES_PAR_JOUR,
+  PRIX_D_UNE_VIE,
   cleDeMaitre,
+  confettisDeLaNouvelleNote,
+  confettisDesEtoiles,
   epreuveFinie,
   etoilesDe,
+  etoilesDuSentier,
   issueDe,
   maitresDe,
   nomDuTitre,
@@ -99,6 +104,18 @@ test('une épreuve se valide dès le seuil, continue pour les étoiles, s’arr�
   // Une, deux, trois étoiles : au seuil, à mi-chemin du sans-faute, au sans-faute.
   assert.deepEqual([11, 12, 13, 14, 15, 16].map(j => etoilesDe(j, 12)), [0, 1, 1, 2, 2, 3])
   assert.deepEqual([8, 9, 12, 13, 15, 16].map(j => etoilesDe(j, 9)), [0, 1, 1, 2, 2, 3])
+})
+
+test('les étoiles paient en confettis : la meilleure note de chaque palier, une fois, la différence à chaque progrès', () => {
+  // Deux étoiles, dix ; trois, le prix d'une vie. La première valide : son expérience la paie déjà.
+  assert.deepEqual(CONFETTIS_DES_ETOILES, { 0: 0, 1: 0, 2: 10, 3: PRIX_D_UNE_VIE })
+  const sentier = (...etoiles: number[]) => ({ etoiles: [...etoiles, ...Array(13 - etoiles.length).fill(0)] })
+  assert.equal(confettisDesEtoiles([]), 0)
+  assert.equal(confettisDesEtoiles([sentier(3, 1, 2), sentier(2)]), PRIX_D_UNE_VIE + 10 + 10)
+  assert.equal(etoilesDuSentier(sentier(3, 1, 2)), 6)
+  // Un progrès paie la différence ; la même note, ou moins, rien.
+  assert.deepEqual([confettisDeLaNouvelleNote(0, 1), confettisDeLaNouvelleNote(1, 2), confettisDeLaNouvelleNote(2, 3), confettisDeLaNouvelleNote(0, 3)], [0, 10, 15, 25])
+  assert.deepEqual([confettisDeLaNouvelleNote(3, 3), confettisDeLaNouvelleNote(3, 2)], [0, 0])
 })
 
 test('douze vies par jour, rendues à minuit ; la réserve achetée sert ensuite, et ne périme pas', () => {
@@ -321,6 +338,7 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
     assert.deepEqual([p1.palier, p1.seuil, p1.total, p1.rejeu, p1.question.index], [1, 10, 16, false, 0])
     const fin1 = await jouer(banc, lea, p1, 16)
     assert.deepEqual([fin1.epreuve.issue, fin1.epreuve.finie, fin1.etoiles, fin1.avatar], ['validee', true, 3, undefined])
+    assert.equal(fin1.confettisDesEtoiles, CONFETTIS_DES_ETOILES[3], 'trois étoiles : le prix d’une vie en confettis')
     assert.equal(fin1.xp, xpDeLaBonneReponse(16), 'une bonne réponse paie comme dans la série — double parmi les vingt premières du jour')
 
     // Le deuxième, à douze : validé à la dixième, l'épreuve va au bout, et le portrait tombe à la fin.
@@ -347,13 +365,14 @@ test('un sentier se gravit palier par palier : seize questions, dix pour valider
     const foret = apres.sentiers.find((s: any) => s.branche === 'foret')
     assert.deepEqual([foret.paliers, foret.acquis, foret.etoiles.slice(0, 3)], [2, 0, [3, 1, 0]])
     assert.equal(apres.vies.jour, VIES_PAR_JOUR, 'aucune vie perdue')
-    assert.equal(apres.confettis, 28, 'un confetti par bonne réponse')
+    assert.equal(apres.confettis, 16 + 12 + CONFETTIS_DES_ETOILES[3], 'un confetti par bonne réponse, et les trois étoiles du premier palier')
 
-    // Rejoué, le deuxième palier ne risque rien — et une meilleure note se dit.
+    // Rejoué, le deuxième palier ne risque rien — et une meilleure note se dit, et paie.
     const rejeu = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
     assert.equal(rejeu.rejeu, true)
     const finRejeu = await jouer(banc, lea, rejeu, 15)
     assert.deepEqual([finRejeu.etoiles, finRejeu.record, finRejeu.avatar], [2, true, undefined], 'pas de second portrait')
+    assert.equal(finRejeu.confettisDesEtoiles, CONFETTIS_DES_ETOILES[2])
     const rate = await jouer(banc, lea, (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps, 0)
     assert.deepEqual([rate.epreuve.issue, rate.epreuve.fausses, rate.vies], ['ratee', 7, undefined], 'raté en rejeu : rien de perdu')
     assert.equal((await lire(banc, lea, '/api/campagne/sentiers')).corps.vies.jour, VIES_PAR_JOUR)

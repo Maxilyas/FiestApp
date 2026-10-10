@@ -1004,8 +1004,13 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   toujours, et la routine du matin comble les trous.
 - **L'épreuve s'arrête à la faute de trop** (la cinquième, quand il en faut
   douze) ; validée, elle va au bout, pour les **étoiles** : une au seuil,
-  deux à quatorze, trois sans faute. Les étoiles ne rapportent rien ; elles
-  donnent une raison de rejouer.
+  deux à quatorze, trois sans faute. Les étoiles ne rapportaient rien ;
+  depuis le 10 octobre 2026, la meilleure note de chaque palier paie en
+  confettis — deux étoiles, dix ; trois, vingt-cinq, le prix d'une vie
+  (`CONFETTIS_DES_ETOILES`) —, une fois, la différence à chaque progrès,
+  relue à chaque lecture comme tous les confettis. Un choix de produit :
+  les deuxième et troisième étoiles se jouaient pour rien. La fin d'une
+  épreuve propose le rejeu pour l'étoile qui manque.
 - **Le palier de maître**, après le sommet, facultatif : seize expertes, de
   toute la catégorie, **neuf pour valider**, et un titre au bout —
   « Maître de la forêt » (`titreDeMaitre`) —, qui se porte sous le prénom
