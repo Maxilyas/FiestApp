@@ -47,6 +47,7 @@ import {
   type CorrectionDeQuestion,
   type DefiDeLaSemaine,
   type EtatDeCampagne,
+  type FinDeSerie,
   type LigneDuDefi,
   type Niveau,
   type QuestionCorrigee,
@@ -641,7 +642,7 @@ export class CampagneStore {
    */
   commencer(profileId: string, categories?: readonly string[]): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
-      const [jouables, mesure, vues] = await Promise.all([this.jouables(categories), this.mesures(), this.vuesPar(profileId)])
+      const [jouables, mesure, vues, laissee] = await Promise.all([this.jouables(categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
           categories && categories.length > 0
@@ -684,7 +685,47 @@ export class CampagneStore {
         'write',
       )
       this.garderEnCours(serie)
+      // La série laissée finit comme une série abandonnée : ce qu'elle a
+      // joué fait tomber ses hauts faits — trente bonnes réponses avant de
+      // poser le téléphone font la Grande Série. Rien ne s'annonce : la
+      // nouvelle commence, et la collection les garde.
+      if (laissee) await this.recompenserLaSerie(profileId, { ...laissee, finieLe: maintenant })
       return vueDeSerie(serie)
+    })
+  }
+
+  /**
+   * Abandonner une série — « Recommencer » alors qu'il reste des vies (un
+   * retour de joueur du 10 octobre 2026) : elle finit là, comme perdue. Ni
+   * vie ni expérience en jeu — une série perdue n'en coûte pas non plus — ;
+   * son record et ses hauts faits se lisent sur ce qu'elle a joué. Le défi
+   * de la semaine n'a qu'une tentative : elle ne s'abandonne pas.
+   */
+  abandonnerSerie(profileId: string, id: string): Promise<FinDeSerie> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = this.enCours.get(profileId)
+      const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
+      if (s?.mode === 'defi') throw new Error('Le défi n’a qu’une tentative : elle ne s’abandonne pas')
+      if (!s || s.mode !== 'serie') throw new Error('Cette série est introuvable')
+      if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
+      const maintenant = this.maintenant()
+      const [avant] = await this.client.batch(
+        [
+          { sql: `SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`, args: [profileId] },
+          { sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [maintenant, s.id] },
+        ],
+        'write',
+      )
+      this.enCours.delete(profileId)
+      const recordAvant = Number(avant.rows[0]?.record ?? 0)
+      const gagnees = await this.recompenserLaSerie(profileId, { ...s, finieLe: maintenant })
+      return {
+        justes: s.justes,
+        recordAvant,
+        ...(s.justes > recordAvant && { record: true }),
+        ...(s.index > 0 && { niveauAtteint: plusHaute(s.questions.slice(0, s.index)) }),
+        ...gagnees,
+      }
     })
   }
 
@@ -2217,6 +2258,7 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     total: s.questions.length,
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
+    ...(s.mode === 'serie' && s.categories && s.categories.length > 0 && { categories: s.categories }),
   }
 }
 

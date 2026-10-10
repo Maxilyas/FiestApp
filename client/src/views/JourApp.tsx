@@ -853,6 +853,11 @@ export function Fin({
           <Icon name="book" />
           Revoir mes réponses
         </button>
+        {/* L'envie d'en rejouer tout de suite : la campagne, sans repasser par l'accueil. */}
+        <a className="btn" href="/campagne">
+          <Icon name="target" />
+          Continuer en solo : la campagne
+        </a>
         <a className="btn btn-ghost" href="/">
           Retour à l’accueil
         </a>

@@ -228,6 +228,23 @@ export interface SerieDeCampagne {
   total: number
   finie: boolean
   question?: QuestionDeCampagne
+  /** Les catégories qu'elle joue ; absentes : toutes. « Rejouer » les reprend, même pour une série reprise d'un autre téléphone. */
+  categories?: string[]
+}
+
+/**
+ * Une série abandonnée (« Recommencer », un retour de joueur du 10 octobre
+ * 2026 : on ne pouvait pas repartir tant qu'il restait des vies) : ce que sa
+ * fin dit, comme une série perdue — son record et ses hauts faits lus sur ce
+ * qu'elle a joué, rien de plus.
+ */
+export interface FinDeSerie {
+  justes: number
+  recordAvant: number
+  record?: boolean
+  niveauAtteint?: Niveau
+  recompenses?: { key: string; emoji: string; title: string }[]
+  legendaires?: string[]
 }
 
 /**

@@ -7585,6 +7585,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-records-grille li.atteint { color: var(--ink); }
 .campagne-records-grille li.atteint .icon, .campagne-records-grille li.atteint b { color: var(--or-text); }
 .campagne .lien-signaler { margin-top: 2px; }
+/* « Recommencer », au pied de la question : discret, comme « Quitter l'épreuve » des sentiers. */
+.serie-recommencer { align-self: center; margin-top: 6px; }
 /* La base, à l'administration : une ligne par catégorie, son compte au bout. */
 .campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
 .campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }

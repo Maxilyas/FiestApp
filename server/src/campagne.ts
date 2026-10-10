@@ -60,6 +60,15 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // « Recommencer » : la série finit là, comme perdue ; le défi ne s'abandonne pas.
+  app.post(
+    '/api/campagne/serie/:id/abandon',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.abandonnerSerie(profil.id, String(req.params.id)))
+    }),
+  )
+
   // « Signaler une erreur » : une question déjà jouée de sa série, en une phrase.
   app.post(
     '/api/campagne/serie/:id/signalement',

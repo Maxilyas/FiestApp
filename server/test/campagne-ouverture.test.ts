@@ -36,6 +36,43 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
+// Une série finie menait à l'accueil de l'application, et il fallait y
+// revenir pour changer de catégorie : cinq ou six touchers (un retour de
+// joueur du 10 octobre 2026). Sa fin la rejoue sur les mêmes catégories, ou
+// rouvre la campagne sur leur choix ; la question offre de recommencer.
+test('la fin d’une série la rejoue sur ses catégories, ou en change sans quitter la campagne', async () => {
+  const module = await import(client('views/CampagneApp.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const suite = (categories: string[], correctionOuverte = false) =>
+    renderToStaticMarkup(
+      React.createElement(module.SuiteDeLaSerie, { categories, correctionOuverte, busy: false, onRejouer: () => {}, onChanger: () => {}, onCorrection: () => {} }),
+    )
+  const une = suite(['Culture générale'])
+  assert.match(une, /btn-primary[^>]*>.*Rejouer · Culture générale<\/button>/, 'rejouer d’abord, sur sa catégorie')
+  assert.match(une, /Changer de catégorie/)
+  assert.ok(une.indexOf('Rejouer') < une.indexOf('Changer de catégorie'))
+  assert.match(une, /Mes réponses/)
+  assert.match(une, /href="\/"[^>]*>.*Accueil<\/a>/, 'l’accueil reste à un toucher, plus en tête')
+  assert.match(suite([]), />Rejouer<\/button>/, 'toutes les catégories : rien à préciser')
+  assert.match(suite(['Histoire', 'Sport']), /Rejouer · Histoire et Sport/)
+  assert.match(suite(['Histoire', 'Sport', 'Nature']), /Rejouer · 3 catégories/)
+  assert.doesNotMatch(suite([], true), /Mes réponses/, 'la correction ouverte ne se redemande pas')
+  // La page : le choix retenu sur le téléphone, déplié en arrivant de la fin,
+  // et « Recommencer » sous chaque question — jamais au défi, qui n'a qu'une tentative.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /useState<string\[\]>\(categoriesRetenues\)/)
+  assert.match(page, /<details className="reglages-salon" ref=\{choix\} open=\{choixOuvert\}/)
+  assert.match(page, /\{!ecran\.defi && !r\?\.finie && \(\s*<button[^>]*serie-recommencer/)
+  // Ce que le téléphone a retenu se relit avec méfiance : un stockage abîmé ne casse rien.
+  memoire.set('quizz.campagne.categories', JSON.stringify(['Histoire', 42]))
+  assert.deepEqual(module.categoriesRetenues(), ['Histoire'])
+  memoire.set('quizz.campagne.categories', '{pas du json')
+  assert.deepEqual(module.categoriesRetenues(), [])
+  memoire.delete('quizz.campagne.categories')
+  assert.equal(module.nomDesCategories(['Histoire']), 'Histoire')
+  assert.equal(module.nomDesCategories([]), null)
+})
+
 // Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la
 // campagne », il ouvrait la scène seule, sans les onglets de la campagne, que
 // la reprise avait mise en tête (la remarque du propriétaire du 5 octobre

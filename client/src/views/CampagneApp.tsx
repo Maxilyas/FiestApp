@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
@@ -11,7 +11,7 @@ import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
-import { promptDialog } from '../components/Dialog'
+import { choixDialog, promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
@@ -54,12 +54,17 @@ type Ecran =
       choix: number | null
       /** L'expérience gagnée depuis qu'on a ouvert la série sur cette page. */
       xp: number
+      /** Ses catégories, que « Rejouer » reprend ; vide : toutes. */
+      categories: string[]
       /** Le défi de la semaine : la même partie, son classement au bout. */
       defi?: true
     }
   | {
       e: 'fin'
       serie: string
+      categories: string[]
+      /** Arrêtée avant sa dernière vie (« Recommencer », puis « Arrêter là »). */
+      abandonnee?: true
       justes: number
       record: boolean
       /** Le record d'avant la série : « L'ancien était de 12 », ou « Ton record : 12 ». */
@@ -81,6 +86,38 @@ type Ecran =
 
 /** Les trois modes de la campagne : la série à trois vies, les sentiers du savoir, et le défi de la semaine. */
 type Mode = 'serie' | 'sentiers' | 'defi'
+
+/**
+ * Les catégories de sa dernière série, retenues sur ce téléphone : la page
+ * s'ouvre sur elles. Le choix repartait sur « toutes » à chaque passage par
+ * l'accueil, et changer de catégorie entre deux séries coûtait cinq ou six
+ * touchers (un retour de joueur du 10 octobre 2026). Sous try/catch : des
+ * cookies bloqués donnaient une page noire.
+ */
+const CLE_CATEGORIES = 'quizz.campagne.categories'
+export function categoriesRetenues(): string[] {
+  try {
+    const lu: unknown = JSON.parse(localStorage.getItem(CLE_CATEGORIES) ?? '[]')
+    return Array.isArray(lu) ? lu.filter((c): c is string => typeof c === 'string') : []
+  } catch {
+    return []
+  }
+}
+function retenirCategories(categories: readonly string[]) {
+  try {
+    if (categories.length > 0) localStorage.setItem(CLE_CATEGORIES, JSON.stringify(categories))
+    else localStorage.removeItem(CLE_CATEGORIES)
+  } catch {
+    // Sans stockage, la page repart sur « toutes » : rien de plus grave.
+  }
+}
+
+/** Les catégories d'une série, en quelques mots : « Culture générale », « Histoire et Sport », « 4 catégories » ; rien pour toutes. */
+export function nomDesCategories(categories: readonly string[]): string | null {
+  if (categories.length === 0) return null
+  if (categories.length <= 2) return categories.join(' et ')
+  return `${categories.length} catégories`
+}
 // Les sentiers par la règle même du préchargement (`donneesDuFragment`,
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
 const modeDe = (hash: string): Mode => (hash === ADRESSE_DU_DEFI ? 'defi' : versLesSentiers(hash) ? 'sentiers' : 'serie')
@@ -104,7 +141,14 @@ export function CampagneApp() {
   const { toast } = useAppState()
   const [mode, setMode] = useState<Mode>(() => modeDe(window.location.hash))
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategoriesBrut] = useState<string[]>(categoriesRetenues)
+  const setCategories = (choisies: string[]) => {
+    setCategoriesBrut(choisies)
+    retenirCategories(choisies)
+  }
+  // Le choix des catégories, déplié quand on vient de la fin d'une série pour en changer.
+  const [choixOuvert, setChoixOuvert] = useState(false)
+  const choix = useRef<HTMLDetailsElement>(null)
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
   // Son profil, lu en léger : l'Éclat d'un défi s'y montre avec sa finition.
@@ -183,19 +227,83 @@ export function CampagneApp() {
     }
   }, [])
 
-  const commencer = async () => {
+  /** Une série neuve : celles qu'on a choisies, ou celles de la série qu'on rejoue. */
+  const commencer = async (choisies: string[] = categories) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const s = await api.campagne.commencer(categories)
-      if (s.question) setEcran({ e: 'jeu', serie: s.id, question: s.question, vies: s.vies, justes: s.justes, total: s.total, reponse: null, choix: null, xp: 0 })
+      const s = await api.campagne.commencer(choisies)
+      if (s.question)
+        setEcran({ e: 'jeu', serie: s.id, question: s.question, vies: s.vies, justes: s.justes, total: s.total, reponse: null, choix: null, xp: 0, categories: s.categories ?? [] })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
       setBusy(false)
     }
   }
+
+  /**
+   * « Recommencer », alors qu'il reste des vies : la série finit là, comme
+   * perdue — son record et ses hauts faits comptent ce qu'elle a joué —,
+   * puis une neuve sur les mêmes catégories, ou sa fin, pour regarder.
+   */
+  const abandonner = async () => {
+    if (ecran.e !== 'jeu' || ecran.defi || busy) return
+    const de = ecran
+    const s = de.justes > 1 ? 's' : ''
+    const geste = await choixDialog({
+      title: 'Arrêter cette série ?',
+      message: `Elle s’arrête ici, avec ${de.justes} bonne${s} réponse${s} : ton record et tes hauts faits les comptent.`,
+      confirmLabel: 'Recommencer une série',
+      alternative: { label: 'Arrêter là' },
+      cancelLabel: 'Continuer',
+    })
+    if (!geste) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const fin = await api.campagne.abandonner(de.serie)
+      if (geste.geste === 'confirmer') {
+        // Ce qu'elle a fait tomber ne se perd pas : la collection le garde, et on le dit.
+        const tombe = [...(fin.record ? [`Record battu : ${fin.justes}`] : []), ...(fin.recompenses ?? []).map(r => `${r.emoji} ${r.title}`)]
+        if (tombe.length > 0) showToast({ kind: 'info', message: tombe.join(' · ') })
+        return void (await commencer(de.categories))
+      }
+      setEcran({
+        e: 'fin',
+        serie: de.serie,
+        categories: de.categories,
+        abandonnee: true,
+        justes: fin.justes,
+        record: !!fin.record,
+        recordAvant: fin.recordAvant,
+        niveauAtteint: fin.niveauAtteint ?? null,
+        correction: null,
+        xp: de.xp,
+        recompenses: fin.recompenses ?? [],
+        legendaires: fin.legendaires ?? [],
+      })
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Depuis la fin d'une série : l'accueil de la campagne, le choix des catégories déplié sous les yeux. */
+  const changerDeCategorie = async () => {
+    setChoixOuvert(true)
+    try {
+      await relire()
+    } catch (e) {
+      setErreur(motifDe(e))
+    }
+  }
+  // Seulement à l'arrivée sur l'accueil : déplié à la main, le choix ne fait rien défiler.
+  useEffect(() => {
+    if (ecran.e === 'accueil' && choixOuvert) choix.current?.scrollIntoView({ block: 'center' })
+  }, [ecran.e])
 
   const repondre = async (choix: number) => {
     if (ecran.e !== 'jeu' || ecran.reponse || busy) return
@@ -219,6 +327,7 @@ export function CampagneApp() {
       return setEcran({
         e: 'fin',
         serie: ecran.serie,
+        categories: ecran.categories,
         justes: r.justes,
         record: !!r.record,
         recordAvant: r.recordAvant ?? null,
@@ -238,7 +347,7 @@ export function CampagneApp() {
   /** Le défi relevé — ou repris — depuis son onglet : la même partie que la série, sous son nom. */
   const jouerLeDefi = (t: SerieDeCampagne) => {
     if (!t.question) return
-    setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, defi: true })
+    setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, categories: [], defi: true })
   }
 
   /**
@@ -316,7 +425,7 @@ export function CampagneApp() {
     const pret = etat.questions >= QUESTIONS_POUR_JOUER
     // Les bonnes réponses du jour qui paient encore double (`JUSTES_DOUBLEES_PAR_JOUR`).
     const doubles = Math.max(0, JUSTES_DOUBLEES_PAR_JOUR - (etat.justesAujourdhui ?? 0))
-    const basculer = (c: string) => setCategories(avant => (avant.includes(c) ? avant.filter(x => x !== c) : [...avant, c]))
+    const basculer = (c: string) => setCategories(categories.includes(c) ? categories.filter(x => x !== c) : [...categories, c])
     return (
       <div className="player-shell campagne">
         <Sortie />
@@ -333,7 +442,7 @@ export function CampagneApp() {
         {pret ? (
           <>
             {etat.categories.length > 1 && (
-              <details className="reglages-salon">
+              <details className="reglages-salon" ref={choix} open={choixOuvert} onToggle={e => setChoixOuvert(e.currentTarget.open)}>
                 <summary>
                   <Icon name="list" className="reglages-icone" />
                   <span>
@@ -383,6 +492,7 @@ export function CampagneApp() {
                     reponse: null,
                     choix: null,
                     xp: 0,
+                    categories: etat.enCours!.categories ?? [],
                   })
                 }
               >
@@ -411,11 +521,12 @@ export function CampagneApp() {
       }
     }
     const s = ecran.justes > 1 ? 's' : ''
+    const jouees = nomDesCategories(ecran.categories)
     return (
       <div className="player-shell campagne">
         <header className="fin-tete">
-          <span className="label">{ecran.defi ? 'Le défi de la semaine' : 'La campagne'}</span>
-          <h1>{ecran.defi ? 'Défi relevé' : 'Série terminée'}</h1>
+          <span className="label">{ecran.defi ? 'Le défi de la semaine' : `La campagne${jouees ? ` · ${jouees}` : ''}`}</span>
+          <h1>{ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
           <span className="big">{ecran.justes}</span>
@@ -473,23 +584,14 @@ export function CampagneApp() {
             </a>
           </>
         ) : (
-          <>
-            <a className="btn btn-primary btn-big btn-block" href="/">
-              <Icon name="home" />
-              Retour à l’accueil
-            </a>
-            <div className="row campagne-suite">
-              <button type="button" className="btn" onClick={() => void commencer()}>
-                <Icon name="rotate" />
-                Rejouer
-              </button>
-              {!ecran.correction && (
-                <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
-                  Mes réponses
-                </button>
-              )}
-            </div>
-          </>
+          <SuiteDeLaSerie
+            categories={ecran.categories}
+            correctionOuverte={!!ecran.correction}
+            busy={busy}
+            onRejouer={() => void commencer(ecran.categories)}
+            onChanger={() => void changerDeCategorie()}
+            onCorrection={() => void voirCorrection()}
+          />
         )}
         {ecran.correction && (
           <ol className="campagne-correction">
@@ -581,9 +683,64 @@ export function CampagneApp() {
             {erreur}
           </p>
         )}
+        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative. */}
+        {!ecran.defi && !r?.finie && (
+          <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void abandonner()}>
+            <Icon name="rotate" />
+            Recommencer
+          </button>
+        )}
       </div>
       {toastVu}
     </div>
+  )
+}
+
+/**
+ * La suite d'une série finie : la rejouer sur les mêmes catégories, en
+ * changer — l'accueil de la campagne, le choix déplié —, ou relire ses
+ * réponses. On quittait la campagne pour l'accueil de l'application à
+ * chaque série, et il fallait y revenir pour changer de catégorie (un
+ * retour de joueur du 10 octobre 2026).
+ */
+export function SuiteDeLaSerie({
+  categories,
+  correctionOuverte,
+  busy,
+  onRejouer,
+  onChanger,
+  onCorrection,
+}: {
+  categories: readonly string[]
+  correctionOuverte: boolean
+  busy: boolean
+  onRejouer: () => void
+  onChanger: () => void
+  onCorrection: () => void
+}) {
+  const jouees = nomDesCategories(categories)
+  return (
+    <>
+      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
+        <Icon name="rotate" />
+        {jouees ? `Rejouer · ${jouees}` : 'Rejouer'}
+      </button>
+      <button type="button" className="btn btn-block" onClick={onChanger}>
+        <Icon name="list" />
+        Changer de catégorie
+      </button>
+      <div className="row campagne-suite">
+        {!correctionOuverte && (
+          <button type="button" className="btn btn-ghost" onClick={onCorrection}>
+            Mes réponses
+          </button>
+        )}
+        <a className="btn btn-ghost" href="/">
+          <Icon name="home" />
+          Accueil
+        </a>
+      </div>
+    </>
   )
 }
 

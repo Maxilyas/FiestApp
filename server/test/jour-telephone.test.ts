@@ -386,9 +386,11 @@ test('la fin du jour montre sa sortie en tête : « Retour à l’accueil » att
   // À la taille d'un pouce : la ligne fine de l'animateur n'a que 32 px.
   const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
   assert.match(/\.jour-sortie\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '', /min-height:\s*44px/)
-  // Le bas de page garde ses trois gestes, pour qui a tout lu.
+  // Le bas de page garde ses gestes, pour qui a tout lu — et la campagne,
+  // pour qui veut rejouer tout de suite, sans repasser par l'accueil.
   const bas = html.slice(html.indexOf('fin-actions'))
   for (const geste of ['Voir le classement', 'Revoir mes réponses', 'Retour à l’accueil']) assert.ok(bas.includes(geste), geste)
+  assert.match(bas, /href="\/campagne"[^>]*>.*Continuer en solo : la campagne<\/a>/)
 })
 
 test('revenue après la partie, la page du jour montre le jour joué, pas la fête de la fin', async () => {

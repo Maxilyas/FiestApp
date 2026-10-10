@@ -4,6 +4,7 @@ import type {
   CorrectionDeQuestion,
   DefiDeLaSemaine,
   EtatDeCampagne,
+  FinDeSerie,
   QuestionCorrigee,
   ReponseDeCampagne,
   SerieDeCampagne,
@@ -362,6 +363,8 @@ export const api = {
     repondre: (serie: string, index: number, choix: number) =>
       req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
     correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),
+    /** « Recommencer » : la série finit là, comme perdue — son record et ses hauts faits lus sur ce qu'elle a joué. */
+    abandonner: (serie: string) => req<FinDeSerie>(`/api/campagne/serie/${encodeURIComponent(serie)}/abandon`, { method: 'POST' }),
     /** « Signaler une erreur » sur une question déjà jouée de la série. */
     signaler: (serie: string, index: number, texte: string) =>
       req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
