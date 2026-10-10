@@ -23,6 +23,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import {
   DUELS_OUVERTS_MAX,
@@ -1958,7 +1959,9 @@ export class CampagneStore {
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
       const [jouables, mesure, vues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.vuesPar(profileId)])
-      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
+      // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
+      const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
+      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -3126,10 +3129,14 @@ function passeAvant(a: readonly number[], b: readonly number[]): boolean {
  * sous-thème passe d'abord, même par une question déjà vue : on ne valide
  * pas le stade sur le seul football — mais jamais par une question vue ces
  * dernières vingt-quatre heures, qui ne sort qu'en dernier recours, partout
- * (`VUE_RECENTE_MS`). Une marche épuisée de jamais vues reste sa marche :
- * emprunter au voisin changerait la difficulté du palier, que ses mélanges
- * ont mesurée. Pas de vrai ou faux là où le palier n'en veut pas. Dans le
- * désordre : chaque question peut être la difficile.
+ * (`VUE_RECENTE_MS`). Avant, un chapitre (`shared/chapitres.ts`) : ses
+ * sous-thèmes passent devant le reste de la catégorie, même par une question
+ * déjà vue — c'est son thème —, ses sous-thèmes servis à tour de rôle ; le
+ * reste ne complète que ce que le thème n'a plus de frais. Une marche
+ * épuisée de jamais vues reste sa marche : emprunter au voisin changerait la
+ * difficulté du palier, que ses mélanges ont mesurée. Pas de vrai ou faux là
+ * où le palier n'en veut pas. Dans le désordre : chaque question peut être
+ * la difficile.
  */
 export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
@@ -3137,6 +3144,8 @@ export function tirerUneEpreuve(
   vues: ReadonlyMap<string, number>,
   mesure: ReadonlyMap<string, { justes: number; total: number }>,
   maintenant: number,
+  /** Les sous-thèmes du chapitre de ce palier (`chapitreDuPalier`) ; vide : aucun chapitre. */
+  chapitre: readonly string[] = [],
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const pool = regle.sansVraiFaux ? jouables.filter(q => q.reponses.length !== 2) : jouables
   if (pool.length < QUESTIONS_PAR_EPREUVE) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
@@ -3145,14 +3154,19 @@ export function tirerUneEpreuve(
   const usage = new Map<string, number>()
   const prises = new Set<string>()
   const fraicheur = fraicheurDe(vues, maintenant)
+  const duChapitre = regle.touteLaCategorie ? new Set<string>() : new Set(chapitre)
   // Le rang d'une question pour la place suivante — le plus petit gagne : une
   // vue d'hier soir en dernier, partout ; puis, aux paliers « toute la
-  // catégorie », le sous-thème le moins servi avant la jamais vue, ailleurs
-  // l'inverse ; enfin la plus anciennement vue.
+  // catégorie », le sous-thème le moins servi avant la jamais vue ; dans un
+  // chapitre, son thème avant tout le reste, puis la jamais vue, puis le
+  // sous-thème le moins servi ; ailleurs, la jamais vue d'abord ; enfin la
+  // plus anciennement vue.
   const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
     const f = fraicheur(q.id)
-    return regle.touteLaCategorie ? [f.recente, servi, f.vue, f.le] : [f.recente, f.vue, servi, f.le]
+    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, f.le]
+    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, servi, f.le]
+    return [f.recente, f.vue, servi, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
@@ -3166,8 +3180,8 @@ export function tirerUneEpreuve(
           if (!sonRang || passeAvant(r, sonRang)) {
             meilleure = q
             sonRang = r
-            // Jamais vue, d'un sous-thème encore à servir : rien ne fera mieux.
-            if (r[0] === 0 && r[1] === 0 && r[2] === 0) break
+            // Jamais vue, du thème, d'un sous-thème encore à servir : rien ne fera mieux.
+            if (r.every(x => x === 0)) break
           }
         }
         if (meilleure) {

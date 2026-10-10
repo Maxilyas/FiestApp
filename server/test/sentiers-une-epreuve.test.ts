@@ -110,7 +110,8 @@ test('chaque tuile dit sa catégorie et ses étoiles ; le bloc du haut, d’où 
   assert.match(html, /aria-label="Le tour du monde, Culture générale : 1 avatar sur 6, palier 4, 6 étoiles"/)
   assert.match(html, /Palier 4<span class="sentiers-etoiles"> · ★ 6<\/span>/)
   const bloc = html.slice(html.indexOf('class="sentiers-haut'), html.indexOf('class="sentiers-compte"'))
-  assert.match(bloc, /Ses questions : Culture générale · ★ 6 sur 39/)
+  // Sa catégorie, le thème du chapitre que le palier à jouer ouvre (`shared/chapitres.ts`), ses étoiles.
+  assert.match(bloc, /Ses questions : Culture générale · Mots et symboles · ★ 6 sur 39/)
   assert.match(html, /1 avatar sur 72 · 0 maître · ★ 6/)
 })
 

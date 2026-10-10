@@ -7787,6 +7787,16 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .jauge-expert { color: var(--shape-2); }
 .sentier-accolade { position: absolute; right: 12px; width: 8px; border: 1.5px solid var(--edge-strong); border-left: 0; border-radius: 0 6px 6px 0; }
 .sentier-accolade-nom { position: absolute; right: 24px; translate: 0 50%; writing-mode: vertical-rl; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); white-space: nowrap; }
+/* Un chapitre : son thème entre ses deux paliers, du côté que le chemin
+   laisse libre — entre la jauge et le chemin à gauche, avant l'accolade à
+   droite —, sur deux ou trois lignes, jamais sous un palier ni sous son nom. */
+.sentier-chapitre { position: absolute; translate: 0 50%; display: flex; flex-direction: column; gap: 1px; max-width: 28%; font-size: var(--t-label); line-height: 1.25; color: var(--muted); pointer-events: none; }
+.sentier-chapitre.a-gauche { left: 42px; text-align: left; }
+.sentier-chapitre.a-droite { right: 42px; text-align: right; }
+.sentier-chapitre > span { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.sentier-chapitre b { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.sentier-chapitre.chapitre-en-cours > span, .sentier-chapitre.chapitre-en-cours b { color: var(--accent-text); }
+.sentier-chapitre.chapitre-fait { opacity: var(--dim); }
 .sentier-depart { position: absolute; bottom: 4px; left: 50%; translate: -50% 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .sentier-paliers { list-style: none; margin: 0; padding: 0; }
 .sentier-paliers > li { position: absolute; width: 0; height: 0; }

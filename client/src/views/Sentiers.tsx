@@ -15,6 +15,7 @@ import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
 import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
@@ -717,6 +718,8 @@ function HautDesSentiers({
         <p className="muted small">{detail}</p>
         <p className="pano-categorie small">
           {`Ses questions : ${b.categorie}`}
+          {/* Le thème du chapitre que le palier à jouer ouvre, s'il en a un. */}
+          {c !== null && chapitreDuPalier(b.key, c) && ` · ${chapitreDuPalier(b.key, c)!.nom}`}
           {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
         </p>
       </div>
@@ -987,6 +990,24 @@ export function SentierVu({
         <span className="sentier-accolade-nom" aria-hidden="true" style={{ bottom: (PLACES[8].y + PLACES[12].y) / 2 }}>
           Toute la catégorie
         </span>
+        {/* Avant, les chapitres : deux paliers, un thème (`shared/chapitres.ts`) —
+            écrit entre ses deux paliers, du côté que le chemin laisse libre. */}
+        {chapitresDe(b.key).map(c => {
+          const [bas, haut] = [PLACES[c.paliers[0] - 1], PLACES[c.paliers[1] - 1]]
+          const aGauche = (bas.x + haut.x) / 2 >= 50
+          const enCours = courant !== null && courant >= c.paliers[0] && courant <= c.paliers[1]
+          return (
+            <span
+              key={c.numero}
+              className={'sentier-chapitre' + (aGauche ? ' a-gauche' : ' a-droite') + (enCours ? ' chapitre-en-cours' : s.paliers >= c.paliers[1] ? ' chapitre-fait' : '')}
+              aria-hidden="true"
+              style={{ bottom: (bas.y + haut.y) / 2 }}
+            >
+              <span>{`Chapitre ${c.numero}`}</span>
+              <b>{c.nom}</b>
+            </span>
+          )
+        })}
         <span className="sentier-depart" aria-hidden="true">
           Départ
         </span>
@@ -999,8 +1020,10 @@ export function SentierVu({
             const p = r.avatar !== null ? b.portraits[r.avatar] : null
             const taille = r.maitre ? 64 : p ? 72 : 48
             const classes = ['sentier-palier', fait ? 'palier-fait' : vise ? 'palier-courant' : 'palier-avenir', p ? 'palier-portrait' : '', r.n === PALIERS_DU_SENTIER ? 'palier-sommet' : '', r.maitre ? 'palier-maitre' : '']
+            const chapitre = chapitreDuPalier(b.key, r.n)
             const libelle =
               (r.maitre ? 'Palier de maître, seize expertes' : `Palier ${r.n}`) +
+              (chapitre ? `, ${chapitre.nom}` : '') +
               (p ? `, ouvre ${nomDansLaPhrase(p.nom)}` : '') +
               (fait ? `, validé${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}` : vise ? ', à jouer' : '')
             return (
@@ -1117,10 +1140,18 @@ export function FicheDuPalier({
   const p = r.avatar !== null ? b.portraits[r.avatar] : null
   const sousThemes = SOUS_THEMES[b.categorie as keyof typeof SOUS_THEMES]?.length ?? 0
   const regles = [r.touteLaCategorie ? 'chaque sous-thème a sa question' : null, r.sansVraiFaux ? 'pas de vrai ou faux' : null].filter(Boolean)
+  const chapitre = chapitreDuPalier(b.key, r.n)
   return (
     <div className="sentier-fiche">
       {r.maitre && <p className="muted small">{`Après le sommet, facultatif : des questions que moins d’un joueur sur cinq trouve. En réussir plus de la moitié fait de toi le maître ${deLaBranche(b)}.`}</p>}
       <dl className="sentier-regle">
+        {/* Les huit premiers paliers ont leur thème (`shared/chapitres.ts`) : on sait ce qui attend. */}
+        {chapitre && (
+          <>
+            <dt>Thème</dt>
+            <dd>{`${chapitre.nom} · chapitre ${chapitre.numero} sur 4`}</dd>
+          </>
+        )}
         <dt>Questions</dt>
         <dd>{`${texteDuMelange(r.melange)}${r.touteLaCategorie && sousThemes > 0 ? ', de toute la catégorie' : ''}`}</dd>
         <dt>Pour valider</dt>
@@ -1533,6 +1564,13 @@ function FinDEpreuve({
   )
   if (portrait) {
     const rang = b.portraits.indexOf(portrait)
+    // Un portrait clôt son chapitre : ce qui vient ensuite, un autre thème ou toute la catégorie.
+    const chapitreSuivant = chapitreDuPalier(b.key, e.palier + 1)
+    const suite = chapitreSuivant
+      ? `Place au chapitre ${chapitreSuivant.numero} : ${chapitreSuivant.nom}.`
+      : chapitreDuPalier(b.key, e.palier)
+        ? `Du palier ${e.palier + 1} au maître : toute la catégorie.`
+        : null
     return (
       <div className="player-shell campagne sentiers" style={lueur(LUEUR[b.key])}>
         <section className="epreuve-revelation">
@@ -1547,6 +1585,7 @@ function FinDEpreuve({
           </div>
           <h1>{`${portrait.nom} est à toi`}</h1>
           <p className="muted">{`${RANGS[rang]} avatar ${deLaBranche(b)}.`}</p>
+          {suite && <p className="muted small">{suite}</p>}
         </section>
         {gains}
         {tombees}
