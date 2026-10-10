@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { IndexDesFaits, faitDe, memeFait, motifDuMemeFait, normeDUnNom } from '../src/core/memeFait'
+import { IndexDesFaits, faitDe, memeFait, motifDuMemeFait, normeDUnNom, presquePareils, traitsDe } from '../src/core/memeFait'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
 
@@ -177,4 +177,14 @@ test('l’index trouve le fait d’une base d’une catégorie à l’autre, et 
   index.ajouter(gothamAuCinema)
   assert.deepEqual([...index.paires()], [[gotham, gothamAuCinema]])
   assert.equal(motifDuMemeFait(gotham), 'pose sans doute le même fait que « Dans quelle ville imaginaire Batman protège-t-il les habitants ? » (Arts & lettres) : écris-en un autre')
+})
+
+test('deux intitulés presque pareils, que `voisines` montre : pas deux années d’un même palmarès', () => {
+  // Au pilote de Wikidata du 10 octobre 2026, les vainqueurs des grands tours, année par année, faisaient mille paires.
+  const voisins = (a: string, b: string) => presquePareils(traitsDe(a), traitsDe(b))
+  assert.ok(voisins('Quel peintre a réalisé « La Ronde de nuit » ?', 'Quel peintre a réalisé « La Ronde des prisonniers » ?'))
+  assert.ok(!voisins('Qui a remporté le classement général du Tour de France 1976 ?', 'Qui a remporté le classement général du Tour de France 1977 ?'), 'deux années, deux faits')
+  assert.ok(voisins('Qui a remporté le Tour de France 1976 ?', 'En 1976, qui a remporté le Tour de France ?'), 'la même année, presque le même intitulé')
+  assert.ok(voisins('Qui a remporté le Tour de France 1976 ?', 'Qui a remporté le Tour de France ?'), 'un nombre d’un seul côté ne dit rien')
+  assert.ok(!voisins('Quel peintre a réalisé « La Ronde de nuit » ?', 'Quelle est la capitale du Pérou ?'))
 })

@@ -70,6 +70,45 @@ function ecritDans(texte: string, mot: string): boolean {
   return false
 }
 
+const LETTRE = /[\p{L}\p{N}]/u
+/** Ce qui suit un nom sans en être : Brueghel l'Ancien, Pline le Jeune. */
+const SURNOM = new Set(['ancien', 'jeune', 'aine', 'cadet', 'pere', 'fils', 'jr', 'sr'])
+const ARTICLE = new Set(['le', 'la', 'les', "l'", 'l’'])
+
+/**
+ * Le nom de famille d'une réponse qui est une personne, quand il la désigne à
+ * lui seul : le dernier mot, sans son surnom (« l'Ancien »), d'une capitale
+ * et de quatre lettres au moins. Ni un titre — « Claude de France », toutes
+ * les reines de la question sont « de » quelque part —, ni un nom de règne :
+ * Napoléon II a Napoléon III pour voisin de réponses, et son père dans
+ * l'intitulé. Les faits de Wikidata s'en servent aussi : Théo van Gogh ne
+ * fait pas un leurre honnête pour Vincent (`scripts/faits-wikidata.ts`).
+ */
+export function nomDeFamille(reponse: string): string | null {
+  const mots = reponse.split(/\s+/)
+  if (/^([IVXLC]+|1er|Ier|Ire)$/.test(mots[mots.length - 1])) return null
+  while (mots.length > 1) {
+    const dernier = sansAccent(mots[mots.length - 1]).replace(/^l['’]/, '')
+    if (SURNOM.has(dernier) || ARTICLE.has(dernier)) mots.pop()
+    else break
+  }
+  if (mots.length < 2) return null
+  const nom = mots[mots.length - 1]
+  const avant = sansAccent(mots[mots.length - 2])
+  if (/^d['’]/.test(nom) || avant === 'de' || avant === 'du' || avant === 'des') return null
+  return /^\p{Lu}/u.test(nom) && Array.from(nom).length >= 4 ? nom : null
+}
+
+/** Ce nom propre est-il écrit tel quel, capitale comprise, en mot entier ? « whistler » en minuscules n'est pas Whistler. */
+function nomEcritDans(texte: string, nom: string): boolean {
+  for (let i = texte.indexOf(nom); i >= 0; i = texte.indexOf(nom, i + 1)) {
+    const avant = texte[i - 1]
+    const apres = texte[i + nom.length]
+    if ((avant === undefined || !LETTRE.test(avant)) && (apres === undefined || !LETTRE.test(apres))) return true
+  }
+  return false
+}
+
 /**
  * Relit une entrée de la base — ou d'un lot qu'une IA vient d'écrire, sans
  * identifiant encore (`sansId`). Refusée en entier au premier défaut, avec
@@ -127,6 +166,15 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   if ('refus' in lu) return { refus: `étiquetage : ${lu.refus}` }
   if ('horsBase' in lu) return { refus: `hors de la base : ${lu.horsBase}` }
   const meta = lu.meta
+  // Le nom de famille trahit une personne aussi bien que son nom entier :
+  // « …plus connu sous le nom de La Mère de Whistler » pour James Abbott
+  // McNeill Whistler passait, le 10 octobre 2026, et seul le correcteur l'a
+  // vu. Seulement quand la réponse est une personne de la question (ses
+  // entités) : « France » ou « Noël » dans une réponse ne désignent rien.
+  if (!vraiFaux && meta.entites.some(e => (e.type === 'personne' || e.type === 'personnage') && sansAccent(e.nom) === juste)) {
+    const nom = nomDeFamille(reponses[bonne])
+    if (nom && nomEcritDans(texte, nom)) return { refus: `le nom de la bonne réponse (${nom}) est écrit dans l’intitulé` }
+  }
   if (meta.confiance !== 3) return { refus: `confiance ${meta.confiance} : seule une question sûre entre dans la base` }
   const aRelire = meta.aRelire.filter(r => r !== 'sensible')
   if (aRelire.length > 0) return { refus: `à relire : ${aRelire.join(', ')}` }

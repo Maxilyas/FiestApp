@@ -6,3 +6,5 @@ server/data/
 export/
 # Les lots de questions de la campagne, qui attendent leur rangement (server/scripts/base-campagne.ts) : jamais committés.
 .lots-campagne/
+# Les fiches tirées de Wikidata et le cache de leurs requêtes (server/scripts/faits-wikidata.ts) : régénérables, jamais committés.
+.faits-wikidata/

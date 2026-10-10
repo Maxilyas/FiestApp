@@ -26,9 +26,10 @@ import { sansAccent } from '../../shared/homonymes'
  * et dit pourquoi : le 10 octobre 2026, trente-huit questions qui posaient le
  * même fait qu'une autre (`voisines`, `retirer`) — 5 012 questions, 4 974
  * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
- * Le même jour, la première génération en nombre en a rangé 306 : 5 278.
+ * Le même jour, la première génération en nombre en a rangé 306 : 5 278 ;
+ * puis le pilote tiré de Wikidata (`faits-wikidata.ts`), 296 : 5 574.
  */
-const AU_MOINS = 5270
+const AU_MOINS = 5570
 
 const { questions, refusees } = lireLaBase()
 
@@ -140,4 +141,32 @@ test('la bonne réponse écrite dans l’intitulé se refuse en mot entier, où 
   assert.equal(verdict(`Quelle est la bonne réponse, des ${mot}s mises à part ?`), 'acceptée', 'au milieu d’un mot plus long')
   assert.equal(verdict(`Quelle est la bonne réponse, au sur${mot} près ?`), 'acceptée', 'collée à la fin d’un mot')
   assert.equal(verdict('Quelle est donc la bonne réponse à cette question-ci ?'), 'acceptée')
+})
+
+test('le nom de famille d’une personne qui répond se refuse dans l’intitulé, pas un titre ni un nom de règne', () => {
+  // « …plus connu sous le nom de La Mère de Whistler » pour James Abbott
+  // McNeill Whistler : le juge ne cherchait que le nom entier, et seul le
+  // correcteur l'a vu (le 10 octobre 2026, le premier lot écrit sur des
+  // faits de Wikidata). La base en avait une : « l'album Mingus Ah Um ».
+  const modele = JSON.parse(readFileSync(path.join(DOSSIER_DE_LA_BASE, fichierDeCategorie('Arts & lettres')), 'utf8'))[0]
+  const verdict = (texte: string, juste: string, type = 'personne') => {
+    const autres = ['Gustave Courbet', 'Mary Cassatt', 'Winslow Homer']
+    const lu = lireQuestionDeLaBase({
+      ...modele,
+      texte,
+      reponses: [juste, ...autres],
+      bonne: 0,
+      entites: [{ nom: juste, type, description: 'la réponse' }],
+      leurres: [...autres, 'Edgar Degas', 'Thomas Eakins', 'Albert Bierstadt'],
+    })
+    return 'refus' in lu ? lu.refus : 'acceptée'
+  }
+  const whistler = 'James Abbott McNeill Whistler'
+  assert.equal(verdict('Qui a peint « Arrangement en gris et noir », plus connu sous le nom de « La Mère de Whistler » ?', whistler), 'le nom de la bonne réponse (Whistler) est écrit dans l’intitulé')
+  assert.equal(verdict('Quel peintre a signé « Arrangement en gris et noir n° 1 », portrait de sa mère ?', whistler), 'acceptée')
+  assert.equal(verdict('Qui a peint « La Mère de Whistler » ?', whistler, 'oeuvre'), 'acceptée', 'la réponse n’est pas une personne de la question')
+  assert.equal(verdict('Qui a peint « Le Dénombrement de Bethléem », comme son fils Brueghel le Jeune ?', 'Pieter Brueghel l’Ancien'), 'le nom de la bonne réponse (Brueghel) est écrit dans l’intitulé', 'derrière son surnom')
+  assert.equal(verdict('Quelle reine de France a donné son nom à une prune ?', 'Claude de France'), 'acceptée', 'un titre, « de France », n’est pas un nom de famille')
+  assert.equal(verdict('Quel fils de Napoléon Ier fut surnommé l’Aiglon ?', 'Napoléon II'), 'acceptée', 'un nom de règne est celui de toute la lignée')
+  assert.equal(verdict('Quel peintre a fait des whistler une marque ?', whistler), 'acceptée', 'un nom propre s’écrit avec sa capitale')
 })
