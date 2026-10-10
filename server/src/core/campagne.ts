@@ -12,7 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
+import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
 import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
@@ -23,6 +23,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import {
   DUELS_OUVERTS_MAX,
@@ -38,9 +39,12 @@ import {
   JOUEURS_POUR_LE_DEFI,
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
+  SERIES_POUR_LE_NIVEAU,
   SIGNALEMENT_MAX,
   VIES,
   bonneReponseChange,
+  issueDeRencontre,
+  niveauPourUneRencontre,
   minutesAvantLundi,
   niveauDeQuestion,
   semaineAvant,
@@ -50,7 +54,12 @@ import {
   xpDeLaBonneReponse,
   xpDuJourDeCampagne,
   type AdminDeLaCampagne,
+  type Adversaire,
   type AjoutsDeLaRoutine,
+  type CoupDeLaRencontre,
+  type MesRencontres,
+  type RencontreDeCampagne,
+  type ResumeDeRencontre,
   type CommandeDeLaBase,
   type DepotDeLaBase,
   type CorrectionDeCampagne,
@@ -95,6 +104,27 @@ import {
   type StatsDuPalier,
   type VieDesSentiers,
 } from '../../../shared/sentiers'
+import {
+  PALIERS_DES_SUJETS,
+  QUESTIONS_POUR_UN_SENTIER_DE_SUJET,
+  SEUIL_D_UN_SUJET,
+  epreuveDeSujetFinie,
+  etoilesDuSujet,
+  issueDuSujet,
+  regleDuPalierDeSujet,
+  type EpreuveDeSujet,
+  type EtatDesSujets,
+  type ReponseDuSujet,
+  type SentierDeSujet,
+} from '../../../shared/sentiersDeSujets'
+import {
+  QUESTIONS_PAR_REVISION,
+  suiteDeLaRevision,
+  suiviDeLaQuestion,
+  type EtatDuCarnet,
+  type FaitAppris,
+  type SuiviDeRevision,
+} from '../../../shared/revision'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -112,6 +142,12 @@ interface QuestionDeSerie {
   niveau: Niveau
   /** Son sous-thème : une série d'avant les sentiers ne le gardait pas. */
   sousTheme?: string
+  /**
+   * Une révision : ses rendez-vous réussis quand elle l'a tirée — de quoi dire
+   * après chaque réponse où en est la question sans relire tout le journal.
+   * Le carnet, lui, se relit toujours dans le journal (`suiviDeLaQuestion`).
+   */
+  etape?: number
 }
 
 /**
@@ -128,7 +164,13 @@ interface Serie {
   vies: number
   justes: number
   finieLe: number | null
-  mode: 'serie' | 'sentier' | 'defi' | 'duel'
+  /**
+   * Une révision du carnet (`shared/revision.ts`) n'a pas de vies : ses
+   * erreurs remettent la question au lendemain, rien de plus. Une rencontre
+   * rejoue la série finie d'un autre joueur, contre son score. Une épreuve
+   * d'un sentier à thème (`sujet`) monte un sujet en six paliers, sans vies.
+   */
+  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -143,6 +185,19 @@ interface Serie {
   semaine?: string | null
   /** Un défi entre amis : son code (`campagne_duels`). */
   duel?: string | null
+  /** Une rencontre : qui elle affronte (`AdversaireGarde`). */
+  adversaire?: AdversaireGarde | null
+}
+
+/**
+ * L'adversaire d'une rencontre, tel qu'elle le garde : sa série, son profil,
+ * et ses réponses dans l'ordre — recopiées au départ : un profil supprimé
+ * emporte ses séries, la rencontre garde ce qu'il avait fait.
+ */
+interface AdversaireGarde {
+  serie: string
+  profil: string
+  reponses: boolean[]
 }
 
 /** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
@@ -175,6 +230,15 @@ const LIGNES_DU_DEFI = 50
 const DUELS_MONTRES = 10
 /** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
 const SIGNALEMENTS_MONTRES = 50
+/** Ce que le carnet redonne de ce qu'il a appris : les plus récents, de quoi relire sans tout charger. */
+const FAITS_MONTRES = 100
+/** Les séries finies où l'on cherche un adversaire : les plus récentes, des trois derniers mois. */
+const CANDIDATS_A_UNE_RENCONTRE = 200
+const RENCONTRE_SUR_MS = 90 * 24 * HEURE_MS
+/** Les adversaires les plus proches de son niveau, dont on regarde ce qu'il a déjà vu de leurs questions. */
+const ADVERSAIRES_REGARDES = 8
+/** Ses rencontres qu'on lui rappelle : les plus récentes. */
+const RENCONTRES_MONTREES = 10
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 
 /**
@@ -451,6 +515,8 @@ export class CampagneStore {
       ['semaine', 'TEXT'],
       // Un défi entre amis : son code (`campagne_duels`).
       ['duel', 'TEXT'],
+      // Une rencontre : son adversaire, en JSON (`AdversaireGarde`).
+      ['adversaire', 'TEXT'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -527,7 +593,13 @@ export class CampagneStore {
   async mesures(): Promise<Map<string, { justes: number; total: number }>> {
     const garde = this.mesuresGardees
     if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.parQuestion
-    const res = await this.client.execute('SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses GROUP BY reserve_id')
+    // Sans les révisions du carnet : elles ne reposent que ce qu'on a raté,
+    // dont on a lu la bonne réponse la veille — comptées, elles feraient
+    // passer pour faciles les questions que tout le monde rate une fois.
+    const res = await this.client.execute(
+      `SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
+       WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id`,
+    )
     const parQuestion = new Map(res.rows.map(r => [String(r.reserve_id), { justes: Number(r.justes), total: Number(r.total) }]))
     this.mesuresGardees = { a: this.maintenant(), parQuestion }
     return parQuestion
@@ -592,9 +664,11 @@ export class CampagneStore {
           args: [profileId],
         },
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
+        // Une experte retrouvée en révision ne compte pas pour L'Érudit : on
+        // en aurait fait trois d'une seule, ratée exprès.
         {
           sql: `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                WHERE s.profile_id = ? AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
+                WHERE s.profile_id = ? AND s.mode <> 'revision' AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
           args: [profileId],
         },
       ],
@@ -782,6 +856,7 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       if (s?.mode === 'defi' || s?.mode === 'duel') throw new Error('Le défi n’a qu’une tentative : elle ne s’abandonne pas')
+      if (s?.mode === 'rencontre') throw new Error('Une rencontre se joue jusqu’au bout : elle ne s’abandonne pas')
       if (!s || s.mode !== 'serie') throw new Error('Cette série est introuvable')
       if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
       const maintenant = this.maintenant()
@@ -836,7 +911,7 @@ export class CampagneStore {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
-      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel')) throw new Error('Cette série est introuvable')
+      if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision' && s.mode !== 'rencontre')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
       if (s.mode === 'defi' && s.semaine !== this.semaineDeLHeure().semaine) throw new Error('Ce défi est clos : celui de cette semaine t’attend')
       // Un défi entre amis ferme au bout de sa semaine, tentatives en route comprises.
@@ -847,14 +922,20 @@ export class CampagneStore {
             ? 'Tu as relevé le défi de cette semaine : le prochain ouvre lundi'
             : s.mode === 'duel'
               ? 'Tu as relevé ce défi : son classement t’attend'
-              : 'Cette série est finie : commence-en une autre',
+              : s.mode === 'revision'
+                ? 'Cette révision est finie : ton carnet t’attend'
+                : s.mode === 'rencontre'
+                  ? 'Cette rencontre est finie : cherche un autre adversaire'
+                  : 'Cette série est finie : commence-en une autre',
         )
       }
       if (index !== s.index) throw new Error('Cette question est passée : la série a continué sans elle')
       const q = s.questions[s.index]
       const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
       const juste = c === q.bonne
-      const vies = juste ? s.vies : s.vies - 1
+      // Une révision n'a pas de vies : on y vient apprendre ce qu'on a raté,
+      // et l'erreur remet seulement la question au lendemain.
+      const vies = juste || s.mode === 'revision' ? s.vies : s.vies - 1
       const justes = s.justes + (juste ? 1 : 0)
       const position = s.index + 1
       const finie = vies <= 0 || position >= s.questions.length
@@ -887,7 +968,12 @@ export class CampagneStore {
       else this.garderEnCours({ ...s, index: position, vies, justes })
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
-      const gagnees = finie ? await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant }) : {}
+      const revision = s.mode === 'revision'
+      const gagnees = !finie
+        ? {}
+        : revision
+          ? await this.recompenserLaRevision(profileId, s.id, maintenant)
+          : await this.recompenserLaSerie(profileId, { ...s, index: position, vies, justes, finieLe: maintenant })
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
       const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
@@ -897,6 +983,8 @@ export class CampagneStore {
           : finie && s.mode === 'duel' && s.duel
             ? await this.placeAuDuel(s.duel, profileId)
             : null
+      // Finie, une révision redit son carnet : ce qu'elle a appris, ce qui reste à revoir.
+      const carnet = finie && revision ? await this.carnetApres(profileId) : null
       return {
         juste,
         xp,
@@ -905,10 +993,14 @@ export class CampagneStore {
         vies,
         justes,
         finie,
-        ...(finie && { niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
+        ...(finie && !revision && { niveauAtteint: plusHaute(s.questions.slice(0, position)) }),
         ...(record && { recordAvant: avant }),
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
+        ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste) }),
+        ...(carnet && { carnet }),
+        // Une rencontre : ce que son adversaire avait fait de la même question, et les deux scores.
+        ...(s.mode === 'rencontre' && s.adversaire && { rencontre: coupDeLaRencontre(s.adversaire, s.index, justes, finie) }),
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
         ...ensemble(gagnees, eclat),
       }
@@ -1041,17 +1133,195 @@ export class CampagneStore {
     // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON
     // entier de la série — soixante questions — pour chacune de ses
     // réponses. Six fois plus lent pour un joueur de cinq cents séries, et
-    // la carte la lit à chaque toucher sur son nom.
+    // la carte la lit à chaque toucher sur son nom. Les révisions du carnet
+    // n'y sont pas : elles reposent ce qu'il a raté, réponse lue la veille,
+    // et sa précision y gagnait ce qu'il venait d'apprendre par cœur.
     const res = await this.client.execute({
       sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
             FROM (SELECT json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
                   FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                  WHERE s.profile_id = ?
+                  WHERE s.profile_id = ? AND s.mode <> 'revision'
                   LIMIT -1)
             GROUP BY categorie`,
       args: [profileId],
     })
     return savoirDesLignes(res.rows)
+  }
+
+  // ── Le carnet de révision ───────────────────────────────────────────────
+  //
+  // Ce qu'il a raté revient le lendemain, puis trois jours après, puis une
+  // semaine (`shared/revision.ts`) : retrouvé à chaque rendez-vous, c'est
+  // appris. Rien ne se tient à côté : le carnet se relit dans le journal des
+  // réponses, comme l'expérience. Une révision est une série d'un autre mode
+  // (`mode = 'revision'`), sans vies : ses bonnes réponses paient comme en
+  // série — un confetti, l'expérience d'une bonne réponse —, mais ni la
+  // mesure des difficultés ni la précision ne la comptent, elle ne repose que
+  // ce qu'il a raté.
+
+  /**
+   * Ce que ses réponses disent de chaque question qu'il a ratée
+   * (`suiviDeLaQuestion`), lues dans l'ordre où elles sont venues. Le défi de
+   * la semaine qui court et un défi entre amis ouvert n'y entrent qu'à leur
+   * clôture : leur correction attend, le carnet aussi — il redonnerait leurs
+   * réponses à ceux qui jouent encore.
+   */
+  private async suivisDe(profileId: string): Promise<Map<string, SuiviDeRevision>> {
+    const res = await this.client.execute({
+      sql: `WITH miennes AS (
+              SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
+              FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+              WHERE s.profile_id = ?
+                AND NOT (s.mode = 'defi' AND s.semaine >= ?)
+                AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
+            )
+            SELECT id, juste, le FROM miennes WHERE id IN (SELECT id FROM miennes WHERE juste = 0)
+            ORDER BY le, serie, position`,
+      args: [profileId, this.semaineDeLHeure().semaine, this.maintenant()],
+    })
+    const parQuestion = new Map<string, { le: number; juste: boolean }[]>()
+    for (const r of res.rows) {
+      const id = String(r.id)
+      const passage = { le: Number(r.le), juste: Number(r.juste) === 1 }
+      const passages = parQuestion.get(id)
+      if (passages) passages.push(passage)
+      else parQuestion.set(id, [passage])
+    }
+    const suivis = new Map<string, SuiviDeRevision>()
+    for (const [id, passages] of parQuestion) {
+      const suivi = suiviDeLaQuestion(passages)
+      if (suivi) suivis.set(id, suivi)
+    }
+    return suivis
+  }
+
+  /** Sa révision laissée en route, s'il en a une : elle se reprend. */
+  private async revisionEnCours(profileId: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'revision' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      args: [profileId],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /**
+   * Son carnet : ce qui est à revoir aujourd'hui, ce qui revient demain et
+   * plus tard, ce qu'il a appris — parmi les questions que la campagne pose
+   * encore : retirée ou remplacée depuis, une question n'y est plus.
+   */
+  async carnet(profileId: string): Promise<EtatDuCarnet> {
+    const [suivis, jouables, ouverte] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.revisionEnCours(profileId)])
+    const ids = new Set(jouables.map(q => q.id))
+    const aujourdhui = jourDe(this.maintenant())
+    const demain = jourAvant(aujourdhui, -1)
+    const carnet: EtatDuCarnet = { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: ouverte ? vueDeSerie(ouverte) : null }
+    for (const [id, s] of suivis) {
+      if (!ids.has(id)) continue
+      if (s.apprise) carnet.appris++
+      else if (s.revientLe <= aujourdhui) carnet.aRevoir++
+      else {
+        if (s.revientLe === demain) carnet.demain++
+        else carnet.plusTard++
+        if (!carnet.prochainJour || s.revientLe < carnet.prochainJour) carnet.prochainJour = s.revientLe
+      }
+    }
+    return carnet
+  }
+
+  /** Le carnet relu à la fin d'une révision ; une base qui se tait l'ôte de la réponse, pas la réponse. */
+  private async carnetApres(profileId: string): Promise<EtatDuCarnet | null> {
+    try {
+      return await this.carnet(profileId)
+    } catch (e) {
+      console.error('[campagne] carnet non relu après la révision :', e)
+      return null
+    }
+  }
+
+  /**
+   * Ce qu'il a appris, le plus récent d'abord — les cent derniers : la
+   * question, sa réponse, son anecdote. Jamais ce qui reste à revoir : la
+   * bonne réponse attend son rendez-vous.
+   */
+  async faitsAppris(profileId: string): Promise<FaitAppris[]> {
+    const [suivis, jouables] = await Promise.all([this.suivisDe(profileId), this.jouables()])
+    const parId = new Map(jouables.map(q => [q.id, q]))
+    const faits: FaitAppris[] = []
+    for (const [id, s] of suivis) {
+      const q = parId.get(id)
+      if (s.apprise && q) faits.push({ texte: q.texte, reponse: q.reponses[q.bonne], anecdote: q.anecdote, categorie: q.meta.categorie, le: s.le })
+    }
+    return faits.sort((a, b) => b.le.localeCompare(a.le)).slice(0, FAITS_MONTRES)
+  }
+
+  /**
+   * Une révision : les questions dont le rendez-vous est arrivé, les plus en
+   * retard d'abord, dix au plus (`QUESTIONS_PAR_REVISION`). Celle qu'il a
+   * laissée en route se reprend ; rien à revoir, rien ne commence. Une série
+   * en cours, elle, attend : la révision ne la clôt pas.
+   */
+  commencerRevision(profileId: string): Promise<SerieDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const ouverte = await this.revisionEnCours(profileId)
+      if (ouverte) {
+        this.garderEnCours(ouverte)
+        return vueDeSerie(ouverte)
+      }
+      const [suivis, jouables, mesure] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.mesures()])
+      const aujourdhui = jourDe(this.maintenant())
+      const parId = new Map(jouables.map(q => [q.id, q]))
+      const dues: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
+      for (const [id, s] of suivis) {
+        const q = parId.get(id)
+        if (q && !s.apprise && s.revientLe <= aujourdhui) dues.push({ q, etape: s.etape, revientLe: s.revientLe })
+      }
+      if (dues.length === 0) throw new Error(suivis.size === 0 ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain' : 'Rien à revoir aujourd’hui : reviens demain')
+      // Battues avant d'être rangées : à rendez-vous égal, ni l'ordre de la
+      // base ni celui des séries ne décide ; puis dans le désordre, pour que
+      // les catégories se mêlent.
+      const tirees = melanger(dues)
+        .sort((a, b) => a.revientLe.localeCompare(b.revientLe))
+        .slice(0, QUESTIONS_PAR_REVISION)
+      const questions = melanger(tirees).map(d => ({ ...versQuestionDeSerie(d.q, niveauDeQuestion(d.q.meta.difficulte, mesure.get(d.q.id))), etape: d.etape }))
+      const serie: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions,
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'revision',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        categories: null,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'revision')`,
+        args: [serie.id, profileId, JSON.stringify(questions), VIES, this.maintenant()],
+      })
+      this.garderEnCours(serie)
+      return vueDeSerie(serie)
+    })
+  }
+
+  /**
+   * La fin d'une révision : aucun haut fait de série — elle n'en est pas
+   * une —, seulement les paliers que ses bonnes réponses font atteindre (Le
+   * Marathonien). Une étagère qui se tait n'y change rien : la révision est
+   * rangée, et la suivante les relira.
+   */
+  private async recompenserLaRevision(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    try {
+      return await this.recompenser(profileId, serieId, [], quand)
+    } catch (e) {
+      console.error('[campagne] récompenses de la révision non rangées :', e)
+      return {}
+    }
   }
 
   // ── Le défi de la semaine ───────────────────────────────────────────────
@@ -1579,6 +1849,147 @@ export class CampagneStore {
     })
   }
 
+  // ── Affronter un inconnu ────────────────────────────────────────────────
+  //
+  // Un adversaire tout de suite (`shared/campagne.ts`) : la série finie d'un
+  // autre joueur, de son niveau, rejouée — ses questions, dans le même
+  // ordre, contre son score. Une série d'un autre mode (`mode = 'rencontre'`)
+  // qui garde son adversaire (`AdversaireGarde`) : l'expérience, les
+  // confettis et les hauts faits de série la comptent, le record des séries
+  // non. Ni classement, ni laurier, ni Éclat.
+
+  /** Sa rencontre laissée en route, s'il en a une : elle se reprend. */
+  private async rencontreEnCours(profileId: string): Promise<Serie | null> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
+      args: [profileId],
+    })
+    return res.rows[0] ? versSerie(res.rows[0]) : null
+  }
+
+  /** Qui l'on affronte, tel que la page le montre : un profil masqué ou parti ne se nomme pas. */
+  private async adversaireVu(a: AdversaireGarde): Promise<Adversaire> {
+    const p = this.profils ? ((await this.profils.byIds([a.profil]))[0] ?? null) : null
+    const nomme = p && !this.masque?.(p.id)
+    return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: a.reponses.filter(Boolean).length }
+  }
+
+  /**
+   * Affronter un inconnu : celle qu'il a laissée en route reprend ; sinon,
+   * parmi les séries finies des trois derniers mois — d'autres joueurs, pas
+   * masqués, jamais deux fois la même —, celle de son niveau dont il a vu le
+   * moins de questions (`choisirUnAdversaire`). Seules les séries allées au
+   * bout de leurs vies comptent : une série abandonnée sous-estime qui l'a
+   * jouée. Une série en cours, elle, attend.
+   */
+  commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
+    return this.avecVerrou(profileId, async () => {
+      const ouverte = await this.rencontreEnCours(profileId)
+      if (ouverte?.adversaire) {
+        this.garderEnCours(ouverte)
+        return { serie: vueDeSerie(ouverte), adversaire: await this.adversaireVu(ouverte.adversaire), sesJustes: sesJustesAvant(ouverte) }
+      }
+      const maintenant = this.maintenant()
+      const [miennes, deja, candidats, vues] = await Promise.all([
+        this.client.execute({
+          sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
+          args: [profileId, SERIES_POUR_LE_NIVEAU],
+        }),
+        this.client.execute({ sql: `SELECT json_extract(adversaire, '$.serie') AS serie FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre'`, args: [profileId] }),
+        this.client.execute({
+          sql: `SELECT id, profile_id, justes, finie_le FROM campagne_series
+                WHERE ${SERIES} AND finie_le IS NOT NULL AND vies = 0 AND position > 0 AND profile_id <> ? AND finie_le > ?
+                ORDER BY finie_le DESC LIMIT ?`,
+          args: [profileId, maintenant - RENCONTRE_SUR_MS, CANDIDATS_A_UNE_RENCONTRE],
+        }),
+        this.vuesPar(profileId),
+      ])
+      const niveau = niveauPourUneRencontre(miennes.rows.map(r => Number(r.justes)))
+      const dejaAffrontees = new Set(deja.rows.map(r => String(r.serie)))
+      // Les plus proches de son niveau, battus d'abord : à écart égal, ni l'ordre de la base ni l'heure ne décide.
+      const proches = melanger(candidats.rows.filter(r => !dejaAffrontees.has(String(r.id)) && !this.masque?.(String(r.profile_id))))
+        .sort((a, b) => Math.floor(Math.abs(Number(a.justes) - niveau) / 2) - Math.floor(Math.abs(Number(b.justes) - niveau) / 2))
+        .slice(0, ADVERSAIRES_REGARDES)
+      if (proches.length === 0) throw new Error('Personne à affronter pour l’instant : d’autres joueurs doivent d’abord finir des séries')
+      // Ce qu'il a déjà vu de leurs questions jouées, et des trois d'après : lues dans la base, sans charger leurs séries entières.
+      const ids = proches.map(r => String(r.id))
+      const premieres = await this.client.execute({
+        sql: `SELECT s.id AS serie, COALESCE(json_extract(j.value, '$.id'), json_extract(j.value, '$.reserveId')) AS question
+              FROM campagne_series s, json_each(s.questions) j
+              WHERE s.id IN (${ids.map(() => '?').join(', ')}) AND CAST(j.key AS INTEGER) < s.position + 3`,
+        args: ids,
+      })
+      const vuesParSerie = new Map<string, number>()
+      for (const r of premieres.rows) if (vues.has(String(r.question))) vuesParSerie.set(String(r.serie), (vuesParSerie.get(String(r.serie)) ?? 0) + 1)
+      const choisi = choisirUnAdversaire(
+        proches.map(r => ({ serie: String(r.id), profil: String(r.profile_id), justes: Number(r.justes), finieLe: Number(r.finie_le), dejaVues: vuesParSerie.get(String(r.id)) ?? 0 })),
+        niveau,
+      )!
+      const [ligne, reponses] = await this.client.batch(
+        [
+          { sql: 'SELECT * FROM campagne_series WHERE id = ?', args: [choisi.serie] },
+          { sql: 'SELECT juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [choisi.serie] },
+        ],
+        'read',
+      )
+      if (!ligne.rows[0]) throw new Error('Cet adversaire vient de partir : cherches-en un autre')
+      const sienne = versSerie(ligne.rows[0])
+      const adversaire: AdversaireGarde = { serie: sienne.id, profil: sienne.profileId, reponses: reponses.rows.map(r => Number(r.juste) === 1) }
+      const serie: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions: sienne.questions,
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'rencontre',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        categories: sienne.categories ?? null,
+        sujet: sienne.sujet ?? null,
+        adversaire,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, adversaire)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'rencontre', ?, ?, ?)`,
+        args: [serie.id, profileId, JSON.stringify(serie.questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null, serie.sujet ?? null, JSON.stringify(adversaire)],
+      })
+      this.garderEnCours(serie)
+      return { serie: vueDeSerie(serie), adversaire: await this.adversaireVu(adversaire), sesJustes: 0 }
+    })
+  }
+
+  /** Ses rencontres : celle laissée en route, et les dernières jouées, leur issue — leurs adversaires lus d'un coup. */
+  async mesRencontres(profileId: string): Promise<MesRencontres> {
+    const res = await this.client.execute({
+      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
+      args: [profileId, RENCONTRES_MONTREES + 1],
+    })
+    const rencontres = res.rows.map(versSerie).filter(s => s.adversaire)
+    const profils = this.profils ? await this.profils.byIds(rencontres.map(s => s.adversaire!.profil)) : []
+    const vu = (s: Serie, i: number): Adversaire => {
+      const p = profils[i]
+      const nomme = p && !this.masque?.(p.id)
+      return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: s.adversaire!.reponses.filter(Boolean).length }
+    }
+    const i = rencontres.findIndex(s => s.finieLe === null)
+    return {
+      enCours: i >= 0 ? { serie: vueDeSerie(rencontres[i]), adversaire: vu(rencontres[i], i), sesJustes: sesJustesAvant(rencontres[i]) } : null,
+      passees: rencontres
+        .map((s, j) => ({ s, j }))
+        .filter(({ s }) => s.finieLe !== null)
+        .slice(0, RENCONTRES_MONTREES)
+        .map(({ s, j }): ResumeDeRencontre => {
+          const adversaire = vu(s, j)
+          return { serie: s.id, adversaire, justes: s.justes, issue: issueDeRencontre(s.justes, adversaire.justes), le: s.finieLe! }
+        }),
+    }
+  }
+
   /**
    * Les vainqueurs du défi de la semaine passée : le laurier d'argent suit
    * leur prénom toute la semaine. Lus en mémoire, sans attendre — chaque
@@ -1742,7 +2153,9 @@ export class CampagneStore {
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
       const [jouables, mesure, vues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.vuesPar(profileId)])
-      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
+      // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
+      const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
+      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -1872,6 +2285,174 @@ export class CampagneStore {
       }
       this.enCours.delete(profileId)
       return this.vies(profileId)
+    })
+  }
+
+  // ── Les sentiers à thème ────────────────────────────────────────────────
+  //
+  // Un sujet de la campagne (`shared/sujets.ts`) monté en six paliers de dix
+  // questions, sans vies (`shared/sentiersDeSujets.ts`). Une épreuve est une
+  // série d'un autre mode (`mode = 'sujet'`, son sujet, son palier, son seuil
+  // figé) : l'expérience, les confettis, la mesure des difficultés et le
+  // carnet la comptent sans rien en savoir ; les vies, les paliers à portrait
+  // et l'administration des sentiers ne regardent que les leurs.
+
+  /** Les questions qu'un sujet peut poser : la base jouable, sur lui. */
+  private async jouablesDuSujet(cle: string): Promise<QuestionDeLaBase[]> {
+    return (await this.jouables()).filter(q => sujetsDeLaQuestion(q).includes(cle))
+  }
+
+  /** Ses sentiers à thème : ceux que la base sert assez — leurs paliers, leurs étoiles —, et l'épreuve laissée en route. */
+  async etatDesSujets(profileId: string): Promise<EtatDesSujets> {
+    const [[validees, ouverte], jouables] = await Promise.all([
+      this.client.batch(
+        [
+          { sql: `SELECT sujet, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND issue = 'validee'`, args: [profileId] },
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+        ],
+        'read',
+      ),
+      this.jouables(),
+    ])
+    const compte = new Map<string, number>()
+    for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
+    const parSujet = new Map<string, SentierDeSujet>()
+    for (const s of SUJETS) {
+      if ((compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
+    }
+    for (const r of validees.rows) {
+      const s = parSujet.get(String(r.sujet))
+      const palier = Number(r.palier)
+      if (!s || !regleDuPalierDeSujet(palier)) continue
+      s.paliers = Math.max(s.paliers, palier)
+      s.etoiles[palier - 1] = Math.max(s.etoiles[palier - 1], etoilesDuSujet(Number(r.justes), Number(r.seuil ?? SEUIL_D_UN_SUJET)))
+    }
+    return { sujets: [...parSujet.values()], epreuve: ouverte.rows[0] ? vueDEpreuveDeSujet(versSerie(ouverte.rows[0])) : null }
+  }
+
+  /**
+   * Une épreuve d'un sentier à thème : le palier qui suit le dernier validé,
+   * ou un palier validé, rejoué. Celle laissée sur ce palier reprend ; une
+   * autre laissée se referme — sans vies, rien ne se perd à la quitter.
+   */
+  commencerUnSujet(profileId: string, cle: unknown, n: unknown): Promise<EpreuveDeSujet> {
+    return this.avecVerrou(profileId, async () => {
+      const suivi = sujetParCle(cle)
+      if (!suivi) throw new Error('Ce sentier n’existe pas')
+      const regle = regleDuPalierDeSujet(n)
+      if (!regle) throw new Error('Ce palier n’existe pas')
+      const etat = await this.etatDesSujets(profileId)
+      const sentier = etat.sujets.find(s => s.sujet === suivi.cle)
+      if (!sentier) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
+      const ouverte = etat.epreuve
+      if (ouverte) {
+        if (ouverte.sujet === suivi.cle && ouverte.palier === regle.n) {
+          const laissee = await this.serie(profileId, ouverte.id)
+          if (laissee) {
+            this.garderEnCours(laissee)
+            return vueDEpreuveDeSujet(laissee)
+          }
+        }
+        await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [this.maintenant(), ouverte.id] })
+        this.enCours.delete(profileId)
+      }
+      if (regle.n > sentier.paliers + 1) throw new Error(`Valide d’abord le palier ${sentier.paliers + 1}`)
+      const [jouables, mesure, vues] = await Promise.all([this.jouablesDuSujet(suivi.cle), this.mesures(), this.vuesPar(profileId)])
+      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const e: Serie = {
+        id: randomUUID(),
+        profileId,
+        questions,
+        index: 0,
+        vies: 0,
+        justes: 0,
+        finieLe: null,
+        mode: 'sujet',
+        branche: null,
+        palier: regle.n,
+        seuil: regle.seuil,
+        rejeu: regle.n <= sentier.paliers,
+        issue: null,
+        categories: null,
+        sujet: suivi.cle,
+      }
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, palier, seuil, rejeu, issue, sujet)
+              VALUES (?, ?, ?, 0, 0, 0, ?, NULL, 'sujet', ?, ?, ?, NULL, ?)`,
+        args: [e.id, profileId, JSON.stringify(questions), this.maintenant(), regle.n, regle.seuil, e.rejeu ? 1 : 0, suivi.cle],
+      })
+      this.garderEnCours(e)
+      return vueDEpreuveDeSujet(e)
+    })
+  }
+
+  /**
+   * Une réponse d'épreuve de sujet : comme aux sentiers — validée dès le
+   * seuil, elle va au bout pour les étoiles ; ratée dès que le seuil n'est
+   * plus possible —, sans vie à perdre. Une bonne réponse paie comme en
+   * série : un confetti, l'expérience d'une bonne réponse.
+   */
+  repondreAuSujet(profileId: string, id: string, index: number, choix: unknown): Promise<ReponseDuSujet> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = this.enCours.get(profileId)
+      const e = gardee?.id === id ? gardee : await this.serie(profileId, id)
+      // Le voisin n'en sait pas plus (invariant 3) : l'épreuve d'un autre est introuvable.
+      if (!e || e.mode !== 'sujet' || !e.sujet || !e.palier) throw new Error('Cette épreuve est introuvable')
+      if (e.finieLe !== null) throw new Error('Cette épreuve est finie')
+      if (index !== e.index) throw new Error('Cette question est passée : l’épreuve a continué sans elle')
+      const q = e.questions[e.index]
+      const c = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
+      const juste = c === q.bonne
+      const justes = e.justes + (juste ? 1 : 0)
+      const position = e.index + 1
+      const seuil = e.seuil ?? SEUIL_D_UN_SUJET
+      // Validée, elle le reste : les erreurs d'après ne la défont pas.
+      const issue = e.issue ?? issueDuSujet(justes, position, seuil)
+      const finie = position >= e.questions.length || epreuveDeSujetFinie(justes, position, seuil)
+      const maintenant = this.maintenant()
+      const lot: InStatement[] = [
+        {
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant],
+        },
+        { sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?', args: [position, justes, issue, finie ? maintenant : null, e.id] },
+      ]
+      // Finie et validée : ses notes d'avant sur ce palier, pour dire une meilleure.
+      if (finie && issue === 'validee') {
+        lot.unshift({
+          sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND mode = 'sujet' AND sujet = ? AND palier = ? AND issue = 'validee' AND id <> ?`,
+          args: [profileId, e.sujet, e.palier, e.id],
+        })
+      }
+      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      let res: ResultSet[]
+      try {
+        res = await this.client.batch(lot, 'write')
+      } catch (err) {
+        this.enCours.delete(profileId)
+        throw err
+      }
+      const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
+      if (finie) this.enCours.delete(profileId)
+      else this.garderEnCours(apres)
+      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const reponse: ReponseDuSujet = { juste, bonne: q.bonne, anecdote: q.anecdote, xp, epreuve: vueDEpreuveDeSujet(apres) }
+      if (finie && issue === 'validee') {
+        const avant = Math.max(0, ...res[0].rows.map(r => Number(r.justes)))
+        reponse.etoiles = etoilesDuSujet(justes, seuil)
+        if (avant > 0 && justes > avant) reponse.record = true
+      }
+      // Ses bonnes réponses comptent pour Le Marathonien, validée ou non,
+      // comme celles d'une épreuve des sentiers. Une étagère qui se tait n'y
+      // change rien : l'épreuve est rangée, et la fin suivante les relira.
+      if (finie) {
+        try {
+          Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
+        } catch (err) {
+          console.error('[campagne] récompenses de l’épreuve à thème non rangées :', err)
+        }
+      }
+      return reponse
     })
   }
 
@@ -2583,7 +3164,8 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
-    mode: r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie',
+    mode:
+      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -2593,7 +3175,65 @@ function versSerie(r: Record<string, unknown>): Serie {
     sujet: typeof r.sujet === 'string' ? r.sujet : null,
     semaine: typeof r.semaine === 'string' ? r.semaine : null,
     duel: typeof r.duel === 'string' ? r.duel : null,
+    adversaire: lireAdversaire(r.adversaire),
   }
+}
+
+/** L'adversaire qu'une rencontre a gardé ; null : pas une rencontre, ou illisible. */
+function lireAdversaire(brut: unknown): AdversaireGarde | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const lu = JSON.parse(brut) as Record<string, unknown>
+    if (typeof lu.serie !== 'string' || typeof lu.profil !== 'string' || !Array.isArray(lu.reponses)) return null
+    return { serie: lu.serie, profil: lu.profil, reponses: lu.reponses.map(x => x === true) }
+  } catch {
+    return null
+  }
+}
+
+/** Les bonnes réponses de l'adversaire sur les questions qu'une rencontre a déjà jouées : le score d'en face, à la reprise. */
+function sesJustesAvant(s: Serie): number {
+  return s.adversaire ? s.adversaire.reponses.slice(0, s.index).filter(Boolean).length : 0
+}
+
+/** Ce qu'une réponse de rencontre dit de l'adversaire sur la même question, et les deux scores — finie, son issue contre son score entier. */
+function coupDeLaRencontre(a: AdversaireGarde, index: number, toi: number, finie: boolean): CoupDeLaRencontre {
+  const total = a.reponses.filter(Boolean).length
+  return {
+    lui: index < a.reponses.length ? a.reponses[index] : null,
+    toi,
+    sesJustes: a.reponses.slice(0, index + 1).filter(Boolean).length,
+    ...(finie && { issue: issueDeRencontre(toi, total) }),
+  }
+}
+
+/** Un adversaire possible : une série finie d'un autre joueur, et ce qu'on a déjà vu de ses premières questions. */
+export interface CandidatALaRencontre {
+  serie: string
+  profil: string
+  justes: number
+  finieLe: number
+  /** Ses questions jouées — et les trois d'après, qu'on peut atteindre — que celui qui cherche a déjà vues. */
+  dejaVues: number
+}
+
+/**
+ * L'adversaire d'une rencontre : de son niveau d'abord — à un point près,
+ * c'est pareil : deux bonnes réponses d'écart font une autre partie —, puis
+ * celui dont il a vu le moins de questions — une rencontre sur des questions
+ * qu'on connaît n'en est pas une —, puis au hasard. Null : personne.
+ */
+export function choisirUnAdversaire(candidats: readonly CandidatALaRencontre[], niveau: number, hasard: () => number = Math.random): CandidatALaRencontre | null {
+  let meilleur: CandidatALaRencontre | null = null
+  let sonRang: number[] | null = null
+  for (const c of candidats) {
+    const r = [Math.floor(Math.abs(c.justes - niveau) / 2), c.dejaVues, hasard()]
+    if (!sonRang || passeAvant(r, sonRang)) {
+      meilleur = c
+      sonRang = r
+    }
+  }
+  return meilleur
 }
 
 /** Un code de défi entre amis, à recopier sans se tromper (`LETTRES_D_UN_CODE`). */
@@ -2658,8 +3298,8 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     total: s.questions.length,
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
-    ...((s.mode === 'serie' || s.mode === 'duel') && s.categories && s.categories.length > 0 && { categories: s.categories }),
-    ...((s.mode === 'serie' || s.mode === 'duel') && s.sujet && { sujet: s.sujet }),
+    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.categories && s.categories.length > 0 && { categories: s.categories }),
+    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.sujet && { sujet: s.sujet }),
   }
 }
 
@@ -2750,7 +3390,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' ? 'sentier' : r.mode === 'defi' ? 'defi' : r.mode === 'duel' ? 'duel' : 'serie'
+  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,
@@ -2802,6 +3442,24 @@ function nouvelIdentifiant(pris: Set<string>): string {
       pris.add(id)
       return id
     }
+  }
+}
+
+/** Une épreuve de sentier à thème telle que sa page la reprend : jamais la bonne réponse de la question en cours. */
+function vueDEpreuveDeSujet(e: Serie): EpreuveDeSujet {
+  const finie = e.finieLe !== null
+  return {
+    id: e.id,
+    sujet: e.sujet ?? '',
+    palier: e.palier ?? 1,
+    rejeu: e.rejeu,
+    seuil: e.seuil ?? SEUIL_D_UN_SUJET,
+    justes: e.justes,
+    fausses: e.index - e.justes,
+    total: e.questions.length,
+    issue: e.issue,
+    finie,
+    ...(!finie && e.questions[e.index] && { question: questionMontree(e.questions[e.index], e.index) }),
   }
 }
 
@@ -2910,10 +3568,14 @@ function passeAvant(a: readonly number[], b: readonly number[]): boolean {
  * sous-thème passe d'abord, même par une question déjà vue : on ne valide
  * pas le stade sur le seul football — mais jamais par une question vue ces
  * dernières vingt-quatre heures, qui ne sort qu'en dernier recours, partout
- * (`VUE_RECENTE_MS`). Une marche épuisée de jamais vues reste sa marche :
- * emprunter au voisin changerait la difficulté du palier, que ses mélanges
- * ont mesurée. Pas de vrai ou faux là où le palier n'en veut pas. Dans le
- * désordre : chaque question peut être la difficile.
+ * (`VUE_RECENTE_MS`). Avant, un chapitre (`shared/chapitres.ts`) : ses
+ * sous-thèmes passent devant le reste de la catégorie, même par une question
+ * déjà vue — c'est son thème —, ses sous-thèmes servis à tour de rôle ; le
+ * reste ne complète que ce que le thème n'a plus de frais. Une marche
+ * épuisée de jamais vues reste sa marche : emprunter au voisin changerait la
+ * difficulté du palier, que ses mélanges ont mesurée. Pas de vrai ou faux là
+ * où le palier n'en veut pas. Dans le désordre : chaque question peut être
+ * la difficile.
  */
 export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
@@ -2921,22 +3583,31 @@ export function tirerUneEpreuve(
   vues: ReadonlyMap<string, number>,
   mesure: ReadonlyMap<string, { justes: number; total: number }>,
   maintenant: number,
+  /** Les sous-thèmes du chapitre de ce palier (`chapitreDuPalier`) ; vide : aucun chapitre. */
+  chapitre: readonly string[] = [],
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const pool = regle.sansVraiFaux ? jouables.filter(q => q.reponses.length !== 2) : jouables
-  if (pool.length < QUESTIONS_PAR_EPREUVE) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
+  // Seize aux sentiers, dix à ceux d'un sujet (`shared/sentiersDeSujets.ts`) : son mélange le dit.
+  const aTirer = Object.values(regle.melange).reduce((n, x) => n + (x ?? 0), 0)
+  if (pool.length < aTirer) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
   const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
   for (const q of melanger(pool)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
   const usage = new Map<string, number>()
   const prises = new Set<string>()
   const fraicheur = fraicheurDe(vues, maintenant)
+  const duChapitre = regle.touteLaCategorie ? new Set<string>() : new Set(chapitre)
   // Le rang d'une question pour la place suivante — le plus petit gagne : une
   // vue d'hier soir en dernier, partout ; puis, aux paliers « toute la
-  // catégorie », le sous-thème le moins servi avant la jamais vue, ailleurs
-  // l'inverse ; enfin la plus anciennement vue.
+  // catégorie », le sous-thème le moins servi avant la jamais vue ; dans un
+  // chapitre, son thème avant tout le reste, puis la jamais vue, puis le
+  // sous-thème le moins servi ; ailleurs, la jamais vue d'abord ; enfin la
+  // plus anciennement vue.
   const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
     const f = fraicheur(q.id)
-    return regle.touteLaCategorie ? [f.recente, servi, f.vue, f.le] : [f.recente, f.vue, servi, f.le]
+    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, f.le]
+    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, servi, f.le]
+    return [f.recente, f.vue, servi, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
@@ -2950,8 +3621,8 @@ export function tirerUneEpreuve(
           if (!sonRang || passeAvant(r, sonRang)) {
             meilleure = q
             sonRang = r
-            // Jamais vue, d'un sous-thème encore à servir : rien ne fera mieux.
-            if (r[0] === 0 && r[1] === 0 && r[2] === 0) break
+            // Jamais vue, du thème, d'un sous-thème encore à servir : rien ne fera mieux.
+            if (r.every(x => x === 0)) break
           }
         }
         if (meilleure) {

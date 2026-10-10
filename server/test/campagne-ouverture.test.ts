@@ -58,11 +58,13 @@ test('la fin d’une série la rejoue sur ses catégories, ou en change sans qui
   assert.match(suite(['Histoire', 'Sport', 'Nature']), /Rejouer · 3 catégories/)
   assert.doesNotMatch(suite([], true), /Mes réponses/, 'la correction ouverte ne se redemande pas')
   // La page : le choix retenu sur le téléphone, déplié en arrivant de la fin,
-  // et « Recommencer » sous chaque question — jamais au défi, qui n'a qu'une tentative.
+  // et « Recommencer » sous chaque question — jamais au défi, qui n'a qu'une
+  // tentative, ni en révision du carnet, qui n'a rien à perdre, ni en
+  // rencontre, qui se joue jusqu'au bout.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string\[\]>\(categoriesRetenues\)/)
   assert.match(page, /<details className="reglages-salon" ref=\{choix\} open=\{choixOuvert\}/)
-  assert.match(page, /\{!ecran\.defi && !r\?\.finie && \(\s*<button[^>]*serie-recommencer/)
+  assert.match(page, /\{!ecran\.defi && !ecran\.revision && !ecran\.rencontre && !r\?\.finie && \(\s*<button[^>]*serie-recommencer/)
   // Ce que le téléphone a retenu se relit avec méfiance : un stockage abîmé ne casse rien.
   memoire.set('quizz.campagne.categories', JSON.stringify(['Histoire', 42]))
   assert.deepEqual(module.categoriesRetenues(), ['Histoire'])

@@ -16,6 +16,7 @@
 import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
+import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -218,6 +219,12 @@ export interface ReponseDeCampagne {
   defi?: { rang: number; joueurs: number }
   /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
   eclat?: string
+  /** Une révision (`shared/revision.ts`) : où en est la question après cette réponse — apprise, ou quand elle revient. */
+  revision?: SuiteDeLaRevision
+  /** À la fin d'une révision : son carnet, relu. */
+  carnet?: EtatDuCarnet
+  /** Une rencontre : ce que l'adversaire avait fait de cette question, et les deux scores. */
+  rencontre?: CoupDeLaRencontre
 }
 
 /** Une série, telle que sa page la reprend. */
@@ -289,8 +296,8 @@ export interface RapportDeSignalement {
   le: number
   /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
   traiteLe: number | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis. */
-  ou: 'serie' | 'sentier' | 'defi' | 'duel'
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un sentier à thème. */
+  ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
   branche?: string
   palier?: number
   /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */
@@ -550,4 +557,77 @@ export interface ResumeDuDuel {
   justes: number | null
   rang: number | null
   minutesRestantes: number
+}
+
+// ── Affronter un inconnu ────────────────────────────────────────────────────
+//
+// Un adversaire tout de suite, sans liste d'amis ni attente (le choix du
+// 10 octobre 2026, après la question « peut-on défier des inconnus ? ») : la
+// série finie d'un autre joueur, de son niveau — ses questions, dans le même
+// ordre, et son score à battre. Rien à modérer : on ne s'écrit pas, on ne
+// s'attend pas. Ni classement, ni laurier, ni Éclat : un face-à-face, qui
+// paie comme une série.
+
+/** Les séries finies qui disent son niveau : les dix dernières. */
+export const SERIES_POUR_LE_NIVEAU = 10
+
+/**
+ * Son niveau, pour lui trouver un adversaire : la médiane de ses dernières
+ * séries finies — une série ratée d'entrée ne le fait pas passer pour un
+ * débutant, un coup de chance pour un expert. Sans série, celui d'un joueur
+ * qui découvre : huit bonnes réponses, la marche des moyennes.
+ */
+export function niveauPourUneRencontre(justes: readonly number[]): number {
+  if (justes.length === 0) return 8
+  const triees = [...justes].sort((a, b) => a - b)
+  const milieu = Math.floor(triees.length / 2)
+  return triees.length % 2 === 1 ? triees[milieu] : (triees[milieu - 1] + triees[milieu]) / 2
+}
+
+export type IssueDeRencontre = 'gagnee' | 'perdue' | 'egalite'
+
+/** L'issue d'une rencontre finie : plus de bonnes réponses que lui, autant, ou moins. */
+export const issueDeRencontre = (toi: number, lui: number): IssueDeRencontre => (toi > lui ? 'gagnee' : toi === lui ? 'egalite' : 'perdue')
+
+/** Un adversaire : son prénom, son avatar, et ses bonnes réponses sur ces questions — le score à battre. */
+export interface Adversaire {
+  nom: string
+  avatar: string
+  justes: number
+}
+
+/** Une rencontre, commencée ou reprise (`POST /api/campagne/rencontre`) : la partie, et qui l'on affronte. */
+export interface RencontreDeCampagne {
+  serie: SerieDeCampagne
+  adversaire: Adversaire
+  /** Ses bonnes réponses sur les questions déjà jouées : le score d'en face, quand on la reprend. */
+  sesJustes: number
+}
+
+/**
+ * Ce qu'une réponse de rencontre dit en plus : ce que l'adversaire avait
+ * fait de cette question — juste, faux, ou null s'il s'était arrêté avant —,
+ * et les deux scores à cet instant ; finie, son issue.
+ */
+export interface CoupDeLaRencontre {
+  lui: boolean | null
+  toi: number
+  sesJustes: number
+  issue?: IssueDeRencontre
+}
+
+/** Une rencontre de sa liste (`GET /api/campagne/rencontres`). */
+export interface ResumeDeRencontre {
+  serie: string
+  adversaire: Adversaire
+  justes: number
+  /** Null : en cours. */
+  issue: IssueDeRencontre | null
+  le: number
+}
+
+export interface MesRencontres {
+  enCours: RencontreDeCampagne | null
+  /** Les plus récentes d'abord. */
+  passees: ResumeDeRencontre[]
 }

@@ -132,6 +132,56 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Le carnet de révision (`shared/revision.ts`) ───────────────────────
+  // Une révision est une série d'un autre mode : ses réponses et son
+  // signalement passent par les routes de la série, sous son identifiant.
+
+  app.get(
+    '/api/campagne/carnet',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.carnet(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/carnet/appris',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.faitsAppris(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/revision',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerRevision(profil.id))
+    }),
+  )
+
+  // ── Affronter un inconnu ───────────────────────────────────────────────
+  // Une rencontre est une série d'un autre mode : ses réponses, son
+  // signalement et sa correction passent par les routes de la série.
+
+  app.post(
+    '/api/campagne/rencontre',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerUneRencontre(profil.id))
+    }),
+  )
+
+  app.get(
+    '/api/campagne/rencontres',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.mesRencontres(profil.id))
+    }),
+  )
+
   // ── Le défi de la semaine ──────────────────────────────────────────────
   // Une série d'un autre mode : ses réponses, son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.
@@ -203,6 +253,36 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       if (!profil) return
       await deps.campagne.abandonnerEpreuve(profil.id, String(req.params.id))
       res.json(await etatDesSentiers(profil))
+    }),
+  )
+
+  // ── Les sentiers à thème (`shared/sentiersDeSujets.ts`) ───────────────
+  // Une épreuve de sujet est une série d'un autre mode : son signalement et
+  // sa correction passent par les routes de la série, sous son identifiant.
+
+  app.get(
+    '/api/campagne/sujets',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.etatDesSujets(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/sujets/epreuve',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerUnSujet(profil.id, req.body?.sujet, req.body?.palier))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/sujets/epreuve/:id/reponse',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.repondreAuSujet(profil.id, String(req.params.id), Number(req.body?.index), req.body?.choix))
     }),
   )
 

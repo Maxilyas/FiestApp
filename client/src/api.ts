@@ -6,12 +6,16 @@ import type {
   DuelEntreAmis,
   EtatDeCampagne,
   FinDeSerie,
+  MesRencontres,
   QuestionCorrigee,
+  RencontreDeCampagne,
   ReponseDeCampagne,
   ResumeDuDuel,
   SerieDeCampagne,
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
+import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
+import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -386,6 +390,29 @@ export const api = {
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+    },
+    /** Affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
+    rencontre: {
+      commencer: () => req<RencontreDeCampagne>('/api/campagne/rencontre', { method: 'POST' }),
+      miennes: () => req<MesRencontres>('/api/campagne/rencontres'),
+    },
+    /**
+     * Le carnet de révision (`shared/revision.ts`) : une révision est une
+     * série d'un autre mode — ses réponses et ses signalements passent par
+     * celles de la série.
+     */
+    carnet: {
+      etat: () => req<EtatDuCarnet>('/api/campagne/carnet'),
+      appris: () => req<FaitAppris[]>('/api/campagne/carnet/appris'),
+      /** Une révision : celle laissée en route, ou les questions dont le rendez-vous est arrivé. */
+      reviser: () => req<SerieDeCampagne>('/api/campagne/revision', { method: 'POST' }),
+    },
+    /** Les sentiers à thème (`shared/sentiersDeSujets.ts`) : une épreuve de sujet est une série d'un autre mode — sa correction et ses signalements passent par celles de la série. */
+    sujets: {
+      etat: () => req<EtatDesSujets>('/api/campagne/sujets'),
+      commencer: (sujet: string, palier: number) => req<EpreuveDeSujet>('/api/campagne/sujets/epreuve', { method: 'POST', body: JSON.stringify({ sujet, palier }) }),
+      repondre: (epreuve: string, index: number, choix: number) =>
+        req<ReponseDuSujet>(`/api/campagne/sujets/epreuve/${encodeURIComponent(epreuve)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
     },
     /**
      * Les sentiers du savoir (`shared/sentiers.ts`) : une épreuve est une

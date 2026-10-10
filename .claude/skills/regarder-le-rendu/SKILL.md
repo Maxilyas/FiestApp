@@ -23,6 +23,7 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
 - `server/scripts/rendu-jour.ts` — le quiz du jour et le rayon des objets de la boutique, photographiés au téléphone sur un serveur jetable : l'accueil du jour avec une série et la veille à raconter, la feuille de la série, une partie jusqu'à sa fin, le jour joué, et la fiche de chaque objet
 - `server/scripts/rendu-profil.ts` — la page du profil photographiée au téléphone sur un serveur jetable : ses tuiles en deux groupes, sa carte et son avatar en grand, chacun de ses écrans, chaque ligne de « Ma collection » dépliée — l'album des thèmes, la fiche de l'un —, le retour de la collection à « Mon thème », et la boutique
 - `server/scripts/rendu-sentiers.ts` — tous les écrans des sentiers du savoir (règle `sentiers.md`).
+- `server/scripts/rendu-campagne.ts` — les écrans de la campagne qui se jouent sur plusieurs jours, l'horloge avancée à la main : le carnet de révision, ses révisions et leur fin, une rencontre contre un inconnu (règle `campagne.md`), et les sentiers à thème — leurs tuiles, la fiche d'un sujet, une épreuve et sa fin (règle `sentiers.md`).
 - `server/scripts/rendu-themes.ts` et `server/scripts/apercus-themes.ts` — un thème dans l'application, son contraste, son aperçu (règle `themes.md`).
 - `server/scripts/planche-portraits.ts`, `server/scripts/planche-medaillons.ts` — les images peintes dans tous leurs états (skill `peindre`).
 - `server/scripts/mesure-pages.ts` (`npm run mesure`) — ce que chaque page fait attendre à un téléphone (règle `client.md`).
