@@ -7,9 +7,11 @@ import {
   PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR,
   QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR,
   commandeDeLaCategorie,
-  consigneDEcriture,
+  consigneCommune,
   empreintesDesLivres,
+  partDeLaCategorie,
 } from './consigneCampagne'
+import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
 import { jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
@@ -220,6 +222,14 @@ export class CampagneStore {
   private fusion: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number; base: BaseDeLaCampagne } | null = null
   /** Les intitulés des quiz livrés, lus au premier dépôt : la base ne les reprend pas. */
   private livres: Set<string> | null = null
+  /**
+   * Les faits de la base (`core/memeFait.ts`), pour écarter un dépôt qui en
+   * pose un qu'elle a déjà sous un autre intitulé : bâtis au premier dépôt
+   * sans figer le serveur, puis tenus à jour de ce qui entre. Une correction
+   * ne les refait pas : la version d'avant y reste, et n'écarte qu'un fait
+   * de plus.
+   */
+  private faits: Promise<IndexDesFaits<QuestionDeLaBase>> | null = null
   /** Les intitulés de la réserve du quiz du jour (`JourStore.empreintes`) : la campagne n'en pose aucun. */
   private empreintesDuJour: () => Promise<ReadonlySet<string>>
   /** Écrit sa ligne d'expérience (`ProfileStore.ecrireXpDeCampagne`). */
@@ -1719,9 +1729,10 @@ export class CampagneStore {
    * Ce que la routine doit écrire aujourd'hui (Paris) : par catégorie,
    * combien encore — la commande moins ce qu'elle a déjà déposé, si elle
    * repasse —, les sous-thèmes et les difficultés qui manquent le plus
-   * (`commandeDeLaCategorie`), et la consigne qu'elle donne à l'IA, avec les
-   * intitulés déjà écrits dans ces sous-thèmes-là : la catégorie entière
-   * ferait des consignes de plus en plus longues à mesure que la base grandit.
+   * (`commandeDeLaCategorie`), et sa part de la consigne, avec les intitulés
+   * déjà écrits dans ces sous-thèmes-là : la catégorie entière ferait des
+   * consignes de plus en plus longues à mesure que la base grandit. La
+   * consigne commune, une fois pour toutes (`consigneCommune`).
    */
   async commandeDuJour(): Promise<CommandeDeLaBase> {
     const base = await this.base()
@@ -1738,16 +1749,18 @@ export class CampagneStore {
       )
       const vises = new Set(quotas.map(q => q.cle))
       const deja = existantes.filter(q => vises.has(q.meta.sousTheme)).map(q => q.texte)
-      return { categorie, aEcrire, quotas, consigne: consigneDEcriture(categorie, quotas, { sorte: 'routine' }, deja) }
+      return { categorie, aEcrire, quotas, consigne: partDeLaCategorie(categorie, quotas, deja) }
     })
-    return { aEcrire: categories.reduce((n, c) => n + c.aEcrire, 0), parEnvoi: DEPOT_MAX, categories }
+    const aEcrire = categories.reduce((n, c) => n + c.aEcrire, 0)
+    return { aEcrire, parEnvoi: DEPOT_MAX, consigneCommune: aEcrire > 0 ? consigneCommune({ sorte: 'routine' }) : null, categories }
   }
 
   /**
    * Le dépôt de la routine : chaque entrée relue par le juge de la base
    * (`lireQuestionDeLaBase`), comme une ligne du dépôt ; écartée, avec sa
    * raison, si elle est d'une autre catégorie, déjà dans la base, dans la
-   * réserve du quiz du jour ou dans un quiz livré, ou si la catégorie a
+   * réserve du quiz du jour ou dans un quiz livré, si elle pose un fait que
+   * la base ou ce dépôt pose déjà (`IndexDesFaits`), ou si la catégorie a
    * atteint son plafond du jour. Rangée sous un identifiant neuf, et jouable
    * tout de suite. Un dépôt à la fois : deux routines lancées ensemble ne
    * passeraient pas le plafond, ni ne rangeraient deux fois le même intitulé.
@@ -1760,6 +1773,13 @@ export class CampagneStore {
       if (entrees.length > DEPOT_MAX) throw new Error(`${DEPOT_MAX} questions au plus par envoi : coupe le lot en plusieurs`)
       const [base, duJour] = await Promise.all([this.base(), this.empreintesDuJour()])
       this.livres ??= empreintesDesLivres()
+      const faits = await (this.faits ??= indexSansBloquer(base.questions).catch(e => {
+        // Raté, il se rebâtit au dépôt suivant : gardée, la promesse le figerait.
+        this.faits = null
+        throw e
+      }))
+      // Ce dépôt à part : écrit seulement si le lot passe, il rejoint ensuite les faits de la base.
+      const dansCeDepot = new IndexDesFaits<QuestionDeLaBase>()
       const ids = new Set(base.parId.keys())
       const vues = new Set<string>()
       const aujourdhui = jourDe(this.maintenant())
@@ -1774,6 +1794,7 @@ export class CampagneStore {
           continue
         }
         const q = lu.question
+        const memeFait = faits.chercher(q) ?? dansCeDepot.chercher(q)
         const motif =
           q.meta.categorie !== c
             ? `d’une autre catégorie (${q.meta.categorie}) : dépose-la avec la sienne`
@@ -1785,16 +1806,20 @@ export class CampagneStore {
                   ? 'déjà dans un quiz livré'
                   : vues.has(q.empreinte)
                     ? 'deux fois dans ce dépôt'
-                    : place <= 0
-                      ? `la catégorie a reçu ses ${PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR} questions du jour`
-                      : null
+                    : memeFait
+                      ? motifDuMemeFait(memeFait)
+                      : place <= 0
+                        ? `la catégorie a reçu ses ${PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR} questions du jour`
+                        : null
         if (motif) {
           ecartees.push({ texte, motif })
           continue
         }
         vues.add(q.empreinte)
         place--
-        acceptees.push({ ...q, id: nouvelIdentifiant(ids) })
+        const rangee = { ...q, id: nouvelIdentifiant(ids) }
+        dansCeDepot.ajouter(rangee)
+        acceptees.push(rangee)
       }
       if (acceptees.length > 0) {
         const maintenant = this.maintenant()
@@ -1806,7 +1831,10 @@ export class CampagneStore {
           'write',
         )
         // Écrites : elles se jouent tout de suite. La base fusionnée se refait à la prochaine lecture.
-        for (const q of acceptees) this.ajouts.push({ question: q, ajouteeLe: maintenant })
+        for (const q of acceptees) {
+          this.ajouts.push({ question: q, ajouteeLe: maintenant })
+          faits.ajouter(q)
+        }
       }
       return { ajoutees: acceptees.length, ecartees }
     })

@@ -229,7 +229,7 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
 
 1. **Le jeton, dans Render.** Sur la préproduction d'abord, pour essayer, puis sur la production — chacune le sien : *Environment → Add Environment Variable*, la clé `RESERVE_TOKEN`, et le bouton **Generate** pour la valeur. Enregistre : le service redémarre, et `/admin`, rubrique « Le quiz du jour », dit **Remplissage automatique ouvert**. Sous trente-deux caractères, la porte reste fermée, et le journal du démarrage le dit.
 2. **Le même jeton, dans l'environnement Claude Code.** Sur claude.ai/code, le menu de l'environnement (en haut d'une session), puis **Edit** : ajoute les variables `RESERVE_TOKEN` (la valeur recopiée depuis Render) et `FIESTAPP_URL` (l'adresse du service qu'elle remplit, `https://….onrender.com`, sans `/` à la fin). Dans **Network access**, ajoute ce domaine aux domaines permis. Le jeton ne s'écrit jamais dans le dépôt, ni dans une conversation. Une fois la préproduction essayée, remplace les deux variables par celles de la production.
-3. **La routine.** Demande-la à Claude dans une nouvelle session de cet environnement (« crée la routine de la réserve du quiz du jour, tous les jours à 6 h 55 »), ou crée-la toi-même : une nouvelle session à chaque passage, avec cette consigne. Elle sert deux fois : elle remplit la réserve, et elle **réveille la production** avant le premier appel de cron-job.org, à 7 h (étape 5) — d'où le passage quotidien, même quand la réserve est pleine (elle s'arrête alors en une ligne). C'est la patience de sa première requête qui réveille le serveur : elle attend jusqu'à deux minutes et insiste ; ensuite elle lit, écrit pendant plusieurs minutes, puis dépose, et la tâche de cron-job.org a pris le relais.
+3. **La routine.** Demande-la à Claude dans une nouvelle session de cet environnement (« crée la routine de la réserve du quiz du jour, tous les jours à 6 h 55 »), ou crée-la toi-même : une nouvelle session à chaque passage, avec cette consigne. Elle sert deux fois : elle remplit la réserve, et elle **réveille la production** avant le premier appel de cron-job.org, à 7 h (étape 5) — d'où le passage quotidien, même quand la réserve est pleine (elle s'arrête alors en une ligne). C'est la patience de sa première requête qui réveille le serveur : elle attend jusqu'à deux minutes et insiste ; ensuite elle lit, écrit pendant plusieurs minutes, puis dépose, et la tâche de cron-job.org a pris le relais. Donne-lui **Sonnet** pour modèle, dans les réglages de la routine : il écrit ces questions aussi bien, et pèse bien moins sur la limite d'usage de l'abonnement — sur Opus, le 10 octobre 2026, la routine s'arrêtait dessus avant d'avoir écrit une ligne.
 
    ```
    Tu remplis la réserve du quiz du jour de FiestApp, avec les variables de
@@ -239,9 +239,11 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
    1. Lis ce qu'il faut écrire. Le serveur dort peut-être : il met jusqu'à
       deux minutes à se réveiller.
       curl -sS --retry 6 --retry-delay 20 --retry-all-errors --max-time 90 \
-        "$FIESTAPP_URL/api/jour/reserve" -H "Authorization: Bearer $RESERVE_TOKEN"
-      La réponse donne aEcrire, parEnvoi et consigne. Si aEcrire vaut 0,
-      dis-le en une ligne et arrête-toi.
+        -o reserve.json "$FIESTAPP_URL/api/jour/reserve" -H "Authorization: Bearer $RESERVE_TOKEN"
+      jq '{aEcrire, parEnvoi, error}' reserve.json : si aEcrire vaut 0,
+      dis-le en une ligne et arrête-toi. Sinon,
+      jq -r .consigne reserve.json > consigne.txt, et lis-la en entier
+      avec Read — la sortie d'une commande la couperait.
    2. Écris aEcrire questions en suivant la consigne à la lettre, puis
       relis-les une à une comme elle le demande. Au moindre doute sur un
       fait, remplace la question.
@@ -284,30 +286,44 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
       Toute autre réponse que 200 : dis en une ligne le code et
       jq -r .error commande.json, et arrête-toi. Sinon,
       jq '{aEcrire, parEnvoi}' commande.json ; si aEcrire vaut 0, dis-le en
-      une ligne et arrête-toi. Puis, pour chaque catégorie qui a encore des
-      questions à écrire, l'une après l'autre
-      (jq -r '.categories[] | select(.aEcrire > 0) | .categorie' commande.json) :
-      a. Lis sa consigne :
-         jq -r --arg c "LA CATÉGORIE" '.categories[] | select(.categorie == $c) | .consigne' commande.json
-         et écris ses questions en la suivant à la lettre, dans lot.json :
-         le tableau JSON qu'elle décrit, rien d'autre.
-      b. Relis chaque question comme un correcteur exigeant : la bonne
+      une ligne et arrête-toi.
+      a. Lis la consigne, une seule fois pour toutes les catégories : la
+         commune, puis la part de chaque catégorie qui a encore des
+         questions à écrire. Écris-la dans un fichier et lis-la en entier
+         avec Read, par morceaux s'il te le demande — la sortie d'une
+         commande la couperait :
+         jq -r '.consigneCommune // empty, (.categories[] | select(.aEcrire > 0) | .consigne)' commande.json > consigne-campagne.txt
+      b. Écris toutes les questions de toutes les parts, d'un seul coup,
+         dans lots.json : un seul tableau JSON au format de la consigne,
+         chaque question avec la catégorie de sa part. Tu n'as pas le
+         dépôt : saute ce que la consigne dirait d'un vérificateur
+         (npx tsx …), le serveur relit chaque question à l'envoi, avec le
+         même juge.
+      c. Relis chaque question comme un correcteur exigeant : la bonne
          réponse est-elle certaine et la seule possible ? Chaque leurre
          est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre
          doute, remplace la question.
-      c. Envoie-les :
-         jq --arg c "LA CATÉGORIE" '{categorie: $c, entrees: .}' lot.json > envoi.json
-         curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/campagne/base" \
-           -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
-           -H "Content-Type: application/json" --data @envoi.json
-         La réponse donne ajoutees, et ecartees : chacune avec son texte et
-         son motif. Corrige ou remplace chaque écartée — une question que la
-         base a déjà se remplace par une autre — et renvoie seulement
-         celles-là, deux fois au plus.
+      d. Envoie-les, une catégorie par envoi :
+         jq -c 'group_by(.categorie)[] | {categorie: .[0].categorie, entrees: .}' lots.json > envois.jsonl
+         while IFS= read -r envoi; do
+           printf '%s\n' "$envoi" | jq -r .categorie
+           printf '%s' "$envoi" | curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/campagne/base" \
+             -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
+             -H "Content-Type: application/json" --data-binary @-
+           echo
+         done < envois.jsonl
+         Chaque réponse, sous sa catégorie, donne ajoutees, et ecartees :
+         chacune avec son texte et son motif.
+      e. Corrige ou remplace chaque écartée — une question que la base a
+         déjà, ou dont elle pose déjà le fait, se remplace par une autre — :
+         récris lots.json avec celles-là seulement, et renvoie-les par la
+         même boucle, deux fois au plus.
       Termine par une ligne par catégorie : ajoutées, écartées, et pourquoi.
    ```
 
-   Le serveur relit chaque question avec le juge de la base — une question peu sûre, une réponse dans l'intitulé, un leurre oublié : refusée —, écarte ce que la base, la réserve du quiz du jour ou un quiz livré a déjà, et ne prend pas plus de dix questions par catégorie et par jour. Le reste se range dans la base permanente et se joue tout de suite, sans déploiement. À `/admin#campagne`, « La routine du matin » montre ce qu'elle a déposé, et **Retirer** sort une question pour tous ; `/healthz` dit son dernier apport (`campagne.dernierApport`). Les deux agents du projet (`.claude/agents/`, Sonnet pour écrire, Opus pour relire, à réflexion basse) servent aux lots écrits à la main, dans le dépôt (`scripts/base-campagne.ts`) : la routine ne les a pas.
+   La consigne commune ne se lit qu'une fois, et toutes les catégories s'écrivent d'un coup : recopiée dans chacune des douze, elle faisait les trois quarts des 250 000 caractères que la routine lisait chaque matin, et chaque catégorie lui coûtait trois ou quatre tours de plus — le 10 octobre 2026, elle s'arrêtait sur la limite d'usage de l'abonnement. Une consigne passe toujours par un fichier : l'outil qui lance les commandes coupe ce qu'elles écrivent au-delà de 30 000 caractères, et celle du quiz du jour, avec ses trois cents intitulés, y touche déjà — la routine en usage le dit dès son point 0. Un serveur d'avant, sans consigne commune, donne à chaque catégorie sa consigne entière : le même passage le lit aussi.
+
+   Le serveur relit chaque question avec le juge de la base — une question peu sûre, une réponse dans l'intitulé, un leurre oublié : refusée —, écarte ce que la base, la réserve du quiz du jour ou un quiz livré a déjà — le même intitulé, ou le même fait sous un autre, d'une catégorie à l'autre (`core/memeFait.ts`) —, et ne prend pas plus de dix questions par catégorie et par jour. Le reste se range dans la base permanente et se joue tout de suite, sans déploiement. À `/admin#campagne`, « La routine du matin » montre ce qu'elle a déposé, et **Retirer** sort une question pour tous ; `/healthz` dit son dernier apport (`campagne.dernierApport`). Les deux agents du projet (`.claude/agents/`, Sonnet pour écrire, Opus pour relire, à réflexion basse) servent aux lots écrits à la main, dans le dépôt (`scripts/base-campagne.ts`) : la routine ne les a pas.
 
 La routine vise trois semaines d'avance, et cent questions au plus par passage. Si elle s'arrête — abonnement, jeton changé d'un seul côté, domaine plus permis —, `/admin` le montre : plus de dépôt, puis l'alerte sous sept jours d'avance. En attendant, **Copier la consigne pour une IA** : la même consigne, pour trente questions, à coller dans le chatbot de ton choix ; sa réponse se recolle dans **Coller une liste**.
 

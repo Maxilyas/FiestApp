@@ -38,12 +38,21 @@ function routine(banc: Banc, chemin: string, { corps, jeton = JETON }: { corps?:
 const lire = (banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
-/** Une entrée telle qu'une IA l'écrit d'après la consigne, sans identifiant. */
-function entree(texte: string, { categorie = 'Nature', sousTheme = 'oiseaux', difficulte = 4 } = {}) {
-  const mauvaises = ['Le merle', 'La mésange', 'Le moineau']
+/** Une entrée telle qu'une IA l'écrit d'après la consigne, sans identifiant ; la bonne réponse en premier. */
+function entree(
+  texte: string,
+  {
+    categorie = 'Nature',
+    sousTheme = 'oiseaux',
+    difficulte = 4,
+    reponses = ['Le pic vert', 'Le merle', 'La mésange', 'Le moineau'],
+    entites = [] as { nom: string; type: string; description: string }[],
+  } = {},
+) {
+  const mauvaises = reponses.slice(1)
   return {
     texte,
-    reponses: ['Le pic vert', ...mauvaises],
+    reponses,
     bonne: 0,
     anecdote: 'Il tambourine sur les troncs pour marquer son territoire.',
     categorie,
@@ -52,7 +61,7 @@ function entree(texte: string, { categorie = 'Nature', sousTheme = 'oiseaux', di
     difficulte,
     ageMin: 10,
     date: null,
-    entites: [],
+    entites,
     portee: 'monde',
     valeur: null,
     leurres: [...mauvaises, 'Le geai', 'La pie', 'Le rouge-gorge'],
@@ -144,7 +153,7 @@ test('sans jeton posé, la porte de la base n’existe pas ; un mauvais jeton es
     }),
   ))
 
-test('la commande du jour : cinq questions par catégorie, chacune sa consigne', () =>
+test('la commande du jour : cinq questions par catégorie, chacune sa part, la consigne commune une fois', () =>
   avecBanc({ jetonDeLaReserve: JETON }, async banc => {
     const { status, corps } = await routine(banc, '/api/campagne/base')
     assert.equal(status, 200)
@@ -158,7 +167,52 @@ test('la commande du jour : cinq questions par catégorie, chacune sa consigne',
     // Ses trente questions sont toutes dans le premier sous-thème : la commande va ailleurs.
     assert.ok(!histoire.quotas.some((q: any) => q.cle === SOUS_THEMES.Histoire[0].cle), JSON.stringify(histoire.quotas))
     assert.ok(histoire.quotas.every((q: any) => q.difficulte >= 3), 'une base où chaque difficulté a sa part : les dures d’abord')
-    assert.match(histoire.consigne, /QUESTIONS À ÉCRIRE, CATÉGORIE « Histoire »/)
+    assert.match(histoire.consigne, /^TA PART — 5 QUESTIONS À ÉCRIRE, CATÉGORIE « Histoire »/)
+    // Recopiée dans chaque part, la consigne commune faisait les trois quarts
+    // de ce que la routine lisait chaque matin — jusqu'à sa limite d'usage.
+    assert.match(corps.consigneCommune, /^LA BASE DE LA CAMPAGNE DE FIESTAPP/)
+    assert.match(corps.consigneCommune, /^LE FORMAT/m)
+    for (const c of corps.categories) assert.doesNotMatch(c.consigne, /LE FORMAT|CE QUI FAIT UNE BONNE QUESTION/, c.categorie)
+    assert.ok(corps.consigneCommune.length > 4 * histoire.consigne.length, 'l’essentiel est dans la commune')
+  }))
+
+test('le dépôt écarte un fait que la base ou ce dépôt pose déjà : sous un autre intitulé, ou retourné', () =>
+  avecBanc({ jetonDeLaReserve: JETON }, async banc => {
+    const reponses = ['Le pic épeiche', 'Le merle', 'La mésange', 'Le moineau']
+    const tambour = [{ nom: 'Tambourinage', type: 'notion', description: 'martèlement du bec sur le bois' }]
+    const premier = await routine(banc, '/api/campagne/base', {
+      corps: {
+        categorie: 'Nature',
+        entrees: [
+          entree('Quel oiseau tambourine sur les troncs pour marquer son territoire ?', { reponses, entites: tambour }),
+          // Le même fait, autrement dit, dans le même dépôt.
+          entree('Quel oiseau des bois martèle les arbres de son bec au printemps ?', { reponses, entites: tambour }),
+          // La même réponse, un autre fait : il entre.
+          entree('Quel oiseau creuse sa loge dans le tronc des arbres morts ?', { reponses, entites: [{ nom: 'Loge', type: 'notion', description: 'cavité où niche un oiseau' }] }),
+        ],
+      },
+    })
+    assert.equal(premier.status, 200, premier.corps.error)
+    assert.equal(premier.corps.ajoutees, 2, JSON.stringify(premier.corps.ecartees))
+    assert.deepEqual(
+      premier.corps.ecartees.map((e: any) => e.motif),
+      ['pose sans doute le même fait que « Quel oiseau tambourine sur les troncs pour marquer son territoire ? » (Nature) : écris-en un autre'],
+    )
+    // Au dépôt suivant, la base s'en souvient — et la question retournée, dont
+    // la réponse est le sujet de l'autre, n'y entre pas plus.
+    const retournee = await routine(banc, '/api/campagne/base', {
+      corps: {
+        categorie: 'Nature',
+        entrees: [
+          entree('Comment appelle-t-on le bruit du pic épeiche qui frappe le bois de son bec ?', {
+            reponses: ['Le tambourinage', 'Le craquètement', 'Le cliquetis', 'Le hululement'],
+            entites: [{ nom: 'Pic épeiche', type: 'espece', description: 'oiseau des forêts' }],
+          }),
+        ],
+      },
+    })
+    assert.equal(retournee.corps.ajoutees, 0)
+    assert.match(retournee.corps.ecartees[0].motif, /^pose sans doute le même fait que « Quel oiseau tambourine sur les troncs/)
   }))
 
 test('le dépôt : relu par le juge de la base, les doublons écartés, le reste jouable tout de suite et gardé au réveil', () =>

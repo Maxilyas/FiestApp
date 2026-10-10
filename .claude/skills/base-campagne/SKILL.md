@@ -21,13 +21,17 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
    <Catégorie> <sous-thème>:<n> … --lot=<nom> > ../.lots-campagne/<nom>.consigne.md`.
    Le nom du lot ne prend que des lettres et des chiffres (`geo1`) : ses
    fichiers seront `<nom>-01.json`, `<nom>-02.json`… La consigne rappelle les
-   intitulés que la catégorie a déjà, lots en attente compris.
+   intitulés que ses sous-thèmes ont déjà, lots en attente compris — pas toute
+   la catégorie : `verifier` refuse un fait que la base pose déjà, d'où qu'il
+   vienne (`core/memeFait.ts`).
 4. **L'écriture** : un agent `redacteur-campagne` par lot, dont la mission
    donne le chemin de la consigne. Il écrit ses fichiers et les vérifie
    jusqu'à zéro refus.
-5. **Les doublons** : `npx tsx scripts/base-campagne.ts voisines
-   ../.lots-campagne/<nom>-*.json` liste les paires qui posent sans doute le
-   même fait.
+5. **Les doublons** : `verifier` et `ranger` refusent le même fait sous un
+   autre intitulé, ou retourné ; `npx tsx scripts/base-campagne.ts voisines
+   ../.lots-campagne/<nom>-*.json` montre en plus les intitulés presque
+   pareils d'un sous-thème, que rien ne refuse. Sans lot, `voisines` relit
+   toute la base, et `retirer <id> …` en sort un doublon.
 6. **La relecture des faits** : `npx tsx scripts/base-campagne.ts fiche
    ../.lots-campagne/<nom>-*.json > ../.lots-campagne/<nom>.fiche.txt`, puis un
    agent `relecteur-campagne`, dont la mission donne la fiche et le fichier de
@@ -39,8 +43,8 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
 8. **Ranger** : `verifier` une dernière fois, puis `npx tsx
    scripts/base-campagne.ts ranger ../.lots-campagne/<nom>-*.json`. Chaque
    question y reçoit son identifiant, et le rangement écarte ce que la base ou
-   les quiz livrés ont déjà. Commite `server/content/campagne/`, jamais le
-   dossier des lots.
+   les quiz livrés ont déjà — le même intitulé, ou le même fait. Commite
+   `server/content/campagne/`, jamais le dossier des lots.
 
 Sans déploiement, la routine du matin agrandit aussi la base, par l'API
 (`/api/campagne/base`) : voir la règle `campagne-base.md`.

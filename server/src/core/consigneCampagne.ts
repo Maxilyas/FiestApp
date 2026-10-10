@@ -48,9 +48,9 @@ export function empreintesDesLivres(): Set<string> {
 function commentTravailler(travail: TravailDUnLot): string {
   if (travail.sorte === 'routine') {
     return `COMMENT TRAVAILLER
-1. Écris toutes tes questions d'un seul coup dans le fichier que te nomme ta mission : le tableau JSON, rien d'autre.
+1. Écris toutes tes questions d'un seul coup dans le fichier que te nomme ta mission : le tableau JSON, rien d'autre — chacune avec la catégorie de sa part.
 2. Relis chaque question comme un correcteur exigeant avant de l'envoyer : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
-3. À l'envoi, le serveur relit chaque question avec le juge de la base : il range celles qu'il accepte et te rend chaque refusée avec son motif. Corrige ou remplace chaque refusée — une question que la base a déjà se remplace par une autre —, et renvoie seulement celles-là.`
+3. À l'envoi, le serveur relit chaque question avec le juge de la base : il range celles qu'il accepte et te rend chaque refusée avec son motif. Corrige ou remplace chaque refusée — une question que la base a déjà, ou dont elle pose déjà le fait, se remplace par une autre —, et renvoie seulement celles-là.`
   }
   const { dossier, lot } = travail
   return `COMMENT TRAVAILLER
@@ -63,26 +63,39 @@ function commentTravailler(travail: TravailDUnLot): string {
 
 /**
  * La consigne d'écriture d'un lot : ce qu'on donne à une IA pour écrire des
- * questions de la base, déjà étiquetées. Ses champs sont ceux de la
- * consigne d'étiquetage de la réserve (`core/etiquetage.ts`), et le même
- * juge les relit (`lireEtiquetage`, par `lireQuestionDeLaBase`) : un champ
- * qu'elle décrirait autrement serait refusé à la vérification, pas rangé.
+ * questions de la base, déjà étiquetées — la consigne commune, puis la part
+ * de sa catégorie. Ses champs sont ceux de la consigne d'étiquetage de la
+ * réserve (`core/etiquetage.ts`), et le même juge les relit
+ * (`lireEtiquetage`, par `lireQuestionDeLaBase`) : un champ qu'elle
+ * décrirait autrement serait refusé à la vérification, pas rangé.
  *
  * Deux façons de travailler : à la main, par lots rangés ensuite dans le
  * dépôt (`scripts/base-campagne.ts consigne`) ; ou chaque matin, par la
  * routine qui dépose ses questions au serveur (`/api/campagne/base`) — sa
- * commande dit alors la difficulté de chaque question.
+ * commande dit alors la difficulté de chaque question, et la consigne
+ * commune ne s'y lit qu'une fois pour ses douze parts.
  */
 export function consigneDEcriture(
   categorie: Categorie,
   quotas: readonly QuotaDEcriture[],
   travail: TravailDUnLot,
-  /** Les intitulés déjà écrits dans la catégorie : une IA ne sait pas ce que ses voisines ont écrit. */
+  /** Les intitulés déjà écrits dans les sous-thèmes de la part : une IA ne sait pas ce que ses voisines ont écrit. */
   deja: readonly string[] = [],
 ): string {
+  return `${consigneCommune(travail)}\n${partDeLaCategorie(categorie, quotas, deja)}`
+}
+
+/**
+ * La part d'une catégorie : combien de questions, dans quels sous-thèmes, à
+ * quelle difficulté, et ce que ces sous-thèmes ont déjà. Ceux-là seulement :
+ * la catégorie entière faisait des consignes de plus en plus longues à mesure
+ * que la base grandissait, et un fait déjà posé ailleurs, le juge le refuse
+ * avec son motif (`IndexDesFaits`, `core/memeFait.ts`).
+ */
+export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDEcriture[], deja: readonly string[] = []): string {
   const total = quotas.reduce((s, q) => s + q.n, 0)
   const sousThemes = SOUS_THEMES[categorie]
-  const part = quotas
+  const lignes = quotas
     .map(q => {
       const nom = sousThemes.find(s => s.cle === q.cle)?.nom
       const combien = `${q.n} question${q.n > 1 ? 's' : ''}`
@@ -91,8 +104,27 @@ export function consigneDEcriture(
     .join('\n')
   // La commande de la routine dit la difficulté de chaque question ; un lot écrit à la main la répartit.
   const dosage = quotas.every(q => q.difficulte)
-    ? `Chaque ligne dit la difficulté à viser (échelle plus bas) : tiens-la, c'est ce qui manque à la base. Une 4 ou une 5 n'est pas obscure pour autant.`
-    : `Dans chaque sous-thème, la difficulté (échelle plus bas) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
+    ? `Chaque ligne dit la difficulté à viser (échelle plus haut) : tiens-la, c'est ce qui manque à la base. Une 4 ou une 5 n'est pas obscure pour autant.`
+    : `Dans chaque sous-thème, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
+  const dejaEcrites =
+    deja.length > 0
+      ? `\nDÉJÀ ÉCRITES DANS CES SOUS-THÈMES — n'en reprends aucune, même reformulée ou retournée\n${deja.map(t => `- ${t.replace(/\s+/g, ' ').trim()}`).join('\n')}\n`
+      : ''
+  return `TA PART — ${total} QUESTIONS À ÉCRIRE, CATÉGORIE « ${categorie} »
+${lignes}
+${dosage} Un fait que la base pose déjà, dans n'importe quelle catégorie, est refusé : préfère les faits moins courus.
+${dejaEcrites}`
+}
+
+/**
+ * Ce qui ne dépend ni de la catégorie ni de la commande : la base, ce qui
+ * fait une bonne question, l'échelle, le format, les sous-thèmes, les
+ * étiquettes, les règles de partage, comment travailler, l'exemple. Recopiée
+ * dans chacune des douze parts du matin, elle faisait les trois quarts des
+ * 250 000 caractères que la routine lisait — et le 10 octobre 2026, la
+ * routine s'arrêtait sur sa limite d'usage.
+ */
+export function consigneCommune(travail: TravailDUnLot): string {
   const etiquettes = ETIQUETTES.map(f =>
     f.regle
       ? `${f.famille} — ${f.regle} : ${f.etiquettes.map(e => `${e.cle} (${e.nom})`).join(', ')}`
@@ -101,13 +133,9 @@ export function consigneDEcriture(
   const tousLesSousThemes = Object.entries(SOUS_THEMES)
     .map(([c, liste]) => `- ${c} : ${liste.map(s => s.cle).join(', ')}`)
     .join('\n')
-  return `LA BASE DE LA CAMPAGNE DE FIESTAPP — ${total} QUESTIONS À ÉCRIRE, CATÉGORIE « ${categorie} »
+  return `LA BASE DE LA CAMPAGNE DE FIESTAPP — LA CONSIGNE D'ÉCRITURE
 
-FiestApp est un quiz joué sur téléphone par des francophones de tous âges, surtout des adultes en France. Sa campagne solo pose des questions qui montent en difficulté — faciles, moyennes, difficiles, puis expertes —, sans chronomètre : en série, avec trois vies, ou palier par palier sur les sentiers du savoir, où l'on gagne ses avatars ; après chaque réponse, le joueur découvre la bonne et une anecdote : c'est là qu'il apprend. La campagne puise dans une très grande base écrite d'avance, pour qu'un joueur n'y croise jamais deux fois la même question. Tu écris une partie de cette base : des questions sûres, variées, bien dosées, et déjà décrites par leurs métadonnées, dans un format qu'un programme relit et refuse au moindre écart.
-
-TA PART — ${total} questions, catégorie « ${categorie} »
-${part}
-${dosage}
+FiestApp est un quiz joué sur téléphone par des francophones de tous âges, surtout des adultes en France. Sa campagne solo pose des questions qui montent en difficulté — faciles, moyennes, difficiles, puis expertes —, sans chronomètre : en série, avec trois vies, ou palier par palier sur les sentiers du savoir, où l'on gagne ses avatars ; après chaque réponse, le joueur découvre la bonne et une anecdote : c'est là qu'il apprend. La campagne puise dans une très grande base écrite d'avance, pour qu'un joueur n'y croise jamais deux fois la même question. Tu écris une partie de cette base : des questions sûres, variées, bien dosées, et déjà décrites par leurs métadonnées, dans un format qu'un programme relit et refuse au moindre écart. Ce que tu écris — combien, dans quelle catégorie, quels sous-thèmes, à quelle difficulté — est dit par ta part, après cette consigne.
 
 CE QUI FAIT UNE BONNE QUESTION
 - Un fait sûr, qui ne changera pas : ni actualité, ni « actuel », ni « aujourd'hui », ni record qui peut tomber, ni palmarès en cours, ni chiffre approximatif. Un fait daté se date dans l'intitulé (« En 1998, … »). Si tu n'es pas certain à cent pour cent de la bonne réponse ET des trois autres, change de question.
@@ -135,8 +163,8 @@ LE FORMAT — un fichier = un tableau JSON, une entrée par question, exactement
 - reponses : quatre chaînes, ou ["Vrai", "Faux"]. Place la bonne au hasard parmi les quatre (pas toujours en premier) : le jeu les mélange, mais une base dont la bonne est toujours la première trahit sa paresse.
 - bonne : l'index (0 à 3) de la bonne réponse dans reponses.
 - anecdote : une ou deux phrases (voir plus haut).
-- categorie : « ${categorie} », recopiée telle quelle.
-- sousTheme : la clé d'un sous-thème de ta part (liste plus haut). Une question qui, à la réflexion, relève d'une autre catégorie (règles de partage plus bas) : ne l'écris pas, écris-en une autre.
+- categorie : celle de ta part, recopiée telle quelle.
+- sousTheme : la clé d'un sous-thème de ta part. Une question qui, à la réflexion, relève d'une autre catégorie (règles de partage plus bas) : ne l'écris pas, écris-en une autre.
 - etiquettes : de zéro à trois clés de la liste plus bas, chacune seulement si sa définition s'applique à la lettre à la question ou à sa bonne réponse, jamais à un leurre. La plupart des questions n'en ont qu'une, ou aucune.
 - difficulte : de 1 à 5 (échelle plus haut).
 - ageMin : 6, 10, 14 ou 18 — le plus jeune âge où la question est à la fois convenable et compréhensible. 6 : ce qu'un enfant connaît avant de bien lire ; 10 : l'école primaire ; 14 : le collège, ou un sujet qui demande de la maturité — dans le doute entre 10 et 14, mets 10 ; 18 : réservé aux adultes (l'alcool). Ce n'est pas la difficulté.
@@ -168,11 +196,7 @@ LES RÈGLES DE PARTAGE — elles disent à quelle catégorie appartient un savoi
 
 ${commentTravailler(travail)}
 
-${
-    deja.length > 0
-      ? `DÉJÀ ÉCRITES DANS CETTE CATÉGORIE — n'en reprends aucune, même reformulée ou retournée\n${deja.map(t => `- ${t}`).join('\n')}\n\n`
-      : ''
-  }EXEMPLE — deux entrées (Géographie et Sport) ; n'en reprends pas les questions
+EXEMPLE — deux entrées (Géographie et Sport) ; n'en reprends pas les questions
 [
   {"texte": "Quelle est la capitale de l'Australie ?", "reponses": ["Sydney", "Melbourne", "Canberra", "Perth"], "bonne": 2, "anecdote": "Canberra a été bâtie exprès pour devenir la capitale : Sydney et Melbourne se disputaient le titre.", "categorie": "Géographie", "sousTheme": "capitales", "etiquettes": ["piege"], "difficulte": 4, "ageMin": 10, "date": null, "entites": [{"nom": "Canberra", "type": "lieu", "description": "ville d'Australie"}, {"nom": "Australie", "type": "lieu", "description": "pays d'Océanie"}], "portee": "monde", "valeur": null, "leurres": ["Sydney", "Melbourne", "Brisbane", "Perth", "Adélaïde", "Darwin"], "dureeDeVie": "stable", "explication": "Sydney est la plus grande ville du pays, d'où le piège ; la capitale fédérale est Canberra.", "source": {"titre": "Canberra", "site": "wikipedia-fr"}, "confiance": 3, "aRelire": []},
   {"texte": "Combien de joueurs une équipe de rugby à XV aligne-t-elle sur le terrain ?", "reponses": ["11", "13", "15", "18"], "bonne": 2, "anecdote": "Le sport tient son nom de la ville anglaise de Rugby, dont le collège passe pour l'avoir vu naître au XIXe siècle.", "categorie": "Sport", "sousTheme": "rugby", "etiquettes": [], "difficulte": 1, "ageMin": 10, "date": null, "entites": [{"nom": "Rugby à XV", "type": "notion", "description": "sport collectif au ballon ovale"}], "portee": "monde", "valeur": {"nombre": 15, "unite": "joueurs"}, "leurres": ["13", "14", "16", "11", "12", "18"], "dureeDeVie": "stable", "explication": "Le nom le dit : le rugby à XV se joue à quinze ; à treize, c'est le rugby à XIII, une autre discipline.", "source": {"titre": "Rugby à XV", "site": "wikipedia-fr"}, "confiance": 3, "aRelire": []}

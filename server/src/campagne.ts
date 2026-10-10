@@ -247,9 +247,10 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
  * La base de la campagne, pour la routine du matin qui l'agrandit — la même
  * que celle de la réserve du quiz du jour, avec le même jeton
  * (`RESERVE_TOKEN`, MISE-EN-LIGNE.md, étape 8) : ce qu'il faut écrire
- * aujourd'hui et la consigne de chaque catégorie, puis le dépôt. Le jeton
- * n'y apprend rien de plus : des intitulés déjà écrits, aucune bonne
- * réponse, ni ne retire rien. Avant la porte des animateurs — la routine
+ * aujourd'hui, la consigne commune et la part de chaque catégorie, puis le
+ * dépôt. Le jeton n'y apprend rien de plus : des intitulés déjà écrits — un
+ * refus cite celui qui pose déjà le fait —, aucune bonne réponse, et il ne
+ * retire rien. Avant la porte des animateurs — la routine
  * n'en est pas un —, derrière la protection contre les requêtes forgées.
  */
 export function mountBaseDeLaCampagne(app: Express, deps: { campagne: CampagneStore; jeton: string | null }) {

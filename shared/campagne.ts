@@ -361,12 +361,18 @@ export interface CommandeDeLaBase {
   aEcrire: number
   /** Ce qu'un dépôt porte au plus. */
   parEnvoi: number
+  /**
+   * Ce qu'on donne d'abord à l'IA qui écrit, une fois pour toutes les
+   * catégories : le format, les règles, l'échelle — null quand il n'y a rien
+   * à écrire. Absente d'un serveur d'avant, dont chaque consigne était entière.
+   */
+  consigneCommune: string | null
   categories: {
     categorie: string
     aEcrire: number
     /** Chaque sous-thème à écrire, combien, et à quelle difficulté. */
     quotas: { cle: string; n: number; difficulte?: number }[]
-    /** Ce qu'on donne à l'IA qui écrit — null quand la catégorie a son compte du jour. */
+    /** Sa part de la consigne, à lire après la commune — null quand la catégorie a son compte du jour. */
     consigne: string | null
   }[]
 }
