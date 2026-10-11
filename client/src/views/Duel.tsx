@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
@@ -11,19 +11,17 @@ import { NOM_NIVEAU, type AmiDeCampagne, type CorrectionDeCampagne, type DefiRec
 import { LigneDuDefiVue, useCarteDuClassement } from './Defi'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
+import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
 
-/** L'adresse d'un défi entre amis, dans la campagne : son lien. */
-export const adresseDuDuel = (code: string) => `#duel-${code}`
+export { ADRESSE_DU_LANCEMENT, adresseDuDuel } from './adressesDesDuels'
 
-/** L'adresse où l'on prépare un défi entre amis (`LancerUnDefi`, chargé à la demande). */
-export const ADRESSE_DU_LANCEMENT = '#defier'
-const lienDuDuel = (code: string) => `${window.location.origin}/campagne${adresseDuDuel(code)}`
+const lienDuDuel = (code: string) => `${window.location.origin}${PAGE_DES_DUELS}${adresseDuDuel(code)}`
 
 const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
 
 /** Ce que dit le message qui part avec le lien : son score, s'il a joué. */
 export const texteDuDefi = (justes: number | null) =>
-  justes === null ? 'Un défi à la campagne de FiestApp : feras-tu mieux que moi ?' : `${bonnes(justes)} à ce défi de la campagne de FiestApp : feras-tu mieux ?`
+  justes === null ? 'Un défi entre amis sur FiestApp : feras-tu mieux que moi ?' : `${bonnes(justes)} à ce défi sur FiestApp : feras-tu mieux ?`
 
 /** « Ferme dans 3 jours » : ce qui reste à un défi entre amis. */
 export function fermeture(minutes: number): string {
@@ -50,7 +48,7 @@ function EnvoyerLeDefi({ code, texte }: { code: string; texte: string }) {
       </h2>
       <p className="small">Qui ouvre son lien, profil en main, joue les mêmes questions — une fois, d’ici une semaine.</p>
       <div className="row duel-boutons">
-        <BoutonPartager titre="Un défi à la campagne de FiestApp" texte={texte} url={lien} className="btn btn-primary" />
+        <BoutonPartager titre="Un défi entre amis sur FiestApp" texte={texte} url={lien} className="btn btn-primary" />
         <BoutonCopier texte={lien} />
       </div>
       <p className="muted small">
@@ -65,8 +63,8 @@ const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? ''
 
 /**
  * L'envoyer à d'autres amis, d'un toucher — ceux avec qui il a joué un défi
- * entre amis (`shared/campagne.ts`) : il les attend sous leur onglet du
- * défi, sans lien à faire suivre, et leur téléphone sonne. Rien de coché
+ * entre amis (`shared/campagne.ts`) : il les attend dans leurs duels, sans
+ * lien à faire suivre, et leur téléphone sonne. Rien de coché
  * d'office : ceux qu'il voulait défier, il les a choisis en le lançant
  * (`LancerUnDefi`) — tous cochés, la fin poussait à défier toute sa liste.
  * Celui qui l'a déjà — reçu ou relevé — ne se coche plus. Sans ami encore,
@@ -99,7 +97,7 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
   if (amis.length === 0) {
     return (
       <p className="muted small duel-amis-vide">
-        {espacesFines('Tes amis viendront ici : ceux qui relèvent un de tes défis, ou dont tu en relèves un. La prochaine fois, ton défi les attendra sous leur onglet Défi, sans lien à envoyer.')}
+        {espacesFines('Tes amis viendront ici : ceux qui relèvent un de tes défis, ou dont tu en relèves un. La prochaine fois, ton défi les attendra dans leurs duels, sans lien à envoyer.')}
       </p>
     )
   }
@@ -176,7 +174,7 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
 /** « Parti à Tom et Inès : … » — ce qui vient de leur arriver, sans promettre une notification qu'ils n'ont peut-être pas voulue. */
 const partiAvec = (noms: readonly string[]) =>
   espacesFines(
-    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend sous ${noms.length > 1 ? 'leur' : 'son'} onglet Défi, et ${noms.length > 1 ? 'leur' : 'son'} téléphone sonne s’${noms.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`,
+    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend dans ${noms.length > 1 ? 'leurs' : 'ses'} duels, et ${noms.length > 1 ? 'leur' : 'son'} téléphone sonne s’${noms.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`,
   )
 
 /**
@@ -206,18 +204,19 @@ export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: s
 }
 
 /**
- * Un défi entre amis (`/campagne#duel-K7M2QX`) : qui l'a lancé, ce qu'il
- * fait jouer, le temps qui reste, sa tentative et le classement ; fermé, sa
+ * Un défi entre amis (`/duels#duel-K7M2QX`) : qui l'a lancé, ce qu'il fait
+ * jouer, le temps qui reste, sa tentative et le classement ; fermé, sa
  * correction. La partie se joue sur l'écran de la série (`CampagneApp`),
- * comme celle du défi de la semaine.
+ * comme celle d'un duel classé.
  */
 export function PageDuDuel({
   code,
-  onglets,
+  onRetour,
   onJouer,
 }: {
   code: string
-  onglets: ReactNode
+  /** « ← Les duels » : la page d'où l'on vient, sans la recharger. */
+  onRetour: () => void
   /** `lance` : le sien, repris — sa fin dit « Défi lancé ». */
   onJouer: (tentative: SerieDeCampagne, code: string, lance: boolean) => void
 }) {
@@ -267,8 +266,7 @@ export function PageDuDuel({
 
   return (
     <div className="player-shell campagne">
-      <Sortie />
-      {onglets}
+      <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={onRetour} />
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
         <span className="atlas-categorie">{duel?.auteur.toi ? 'Ton défi entre amis' : 'Un défi entre amis'}</span>
         <h1>{!duel ? 'Le défi' : duel.auteur.toi ? 'Qui fera mieux que toi ?' : `${duel.auteur.nom} te défie`}</h1>
@@ -300,6 +298,9 @@ export function PageDuDuel({
           <li>
             <Icon name="timer" /> trois vies, sans chrono
           </li>
+          <li>
+            <Icon name="users" /> amical : il ne change pas ta cote
+          </li>
         </ul>
       </section>
 
@@ -321,7 +322,7 @@ export function PageDuDuel({
           {`Reprendre mon défi · ${bonnes(t.justes)}`}
         </button>
       )}
-      {duel && !ouvert && !t && <p className="muted small centre">Ce défi est fermé : son classement est figé. Lance le tien depuis l’onglet du défi.</p>}
+      {duel && !ouvert && !t && <p className="muted small centre">Ce défi est fermé : son classement est figé. Lance le tien depuis tes duels.</p>}
 
       {/* Le sien, pas encore joué jusqu'au bout : à qui il partira à sa dernière réponse. */}
       {duel && ouvert && duel.prevus && duel.prevus.length > 0 && (
@@ -386,13 +387,13 @@ export function PageDuDuel({
 }
 
 /**
- * Défier un ami, en tête de l'onglet du défi (le souhait du propriétaire du
- * 11 octobre 2026 : « choisir avec qui je le lance, sur quel thème ») : ses
- * amis en visages — un toucher, et le défi se prépare pour lui —, ou
- * « Lancer un défi », qui demande à qui et sur quoi (`LancerUnDefi`). Puis la
- * cloche des défis : son téléphone sonne quand un ami le défie. Il était
- * sous la série, à lancer sur les catégories qu'on y avait choisies, sans
- * dire à qui il partirait.
+ * Défier un ami, sous « Trouver un adversaire » dans la page des duels (le
+ * souhait du propriétaire du 11 octobre 2026 : « choisir avec qui je le
+ * lance, sur quel thème ») : ses amis en visages — un toucher, et le défi se
+ * prépare pour lui —, ou « Lancer un défi », qui demande à qui et sur quoi
+ * (`LancerUnDefi`). Amical : il ne change pas la cote — un second profil y
+ * soufflerait les réponses au premier (`shared/duels.ts`). Puis la cloche des
+ * défis : son téléphone sonne quand un ami le défie.
  */
 export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[] | null; onLancer: (ami?: AmiDeCampagne) => void }) {
   return (
@@ -403,7 +404,7 @@ export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[]
         </span>
         <div>
           <h2 id="defier-un-ami-titre">Défier un ami</h2>
-          <p className="muted small">{espacesFines('Choisis qui et sur quoi : tu joues d’abord, et ton score à battre lui part à ta dernière réponse.')}</p>
+          <p className="muted small">{espacesFines('Choisis qui et sur quoi : tu joues d’abord, et ton score à battre lui part à ta dernière réponse. Amical : ta cote ne bouge pas.')}</p>
         </div>
       </div>
       {amis && amis.length > 0 && (
@@ -422,7 +423,8 @@ export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[]
           ))}
         </ul>
       )}
-      <button type="button" className="btn btn-primary btn-block" onClick={() => onLancer()}>
+      {/* Plein, il disputait la vedette à « Trouver un adversaire », juste au-dessus. */}
+      <button type="button" className="btn btn-block" onClick={() => onLancer()}>
         <Icon name="plus" />
         Lancer un défi
       </button>
@@ -432,9 +434,9 @@ export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[]
 }
 
 /**
- * La cloche des défis, chargée avec l'onglet du défi seulement : elle tire
- * le service worker et l'abonnement (`rappel.ts`), que la série, qui ouvre
- * le plus souvent la campagne, n'a pas à télécharger.
+ * La cloche des défis, chargée avec la page des duels seulement : elle tire
+ * le service worker et l'abonnement (`rappel.ts`), que la campagne et
+ * l'accueil n'ont pas à télécharger.
  */
 const cloche = aLaDemande(() => import('../components/ClocheDesDefis'))
 function LaClocheDesDefis() {
@@ -442,11 +444,11 @@ function LaClocheDesDefis() {
   return laCloche && laCloche !== 'perdu' ? <laCloche.ClocheDesDefis /> : null
 }
 
-/** Les visages d'amis en tête de l'onglet : une rangée au téléphone — les autres, dans « Lancer un défi » et sous « Tes amis ». */
+/** Les visages d'amis de « Défier un ami » : une rangée au téléphone — les autres, dans « Lancer un défi » et sous « Tes amis ». */
 const VISAGES_MONTRES = 5
 
 /**
- * Les défis que ses amis lui ont envoyés, en tête de l'onglet du défi : qui
+ * Les défis que ses amis lui ont envoyés, en tête de la page des duels : qui
  * le défie, sur quoi, le temps qui reste — un toucher, et il le relève.
  * Rien tant qu'on ne lui a rien envoyé.
  */
@@ -509,12 +511,12 @@ export function TesAmis({ amis, onDefier, onRetirer }: { amis: readonly AmiDeCam
             ))}
           </ul>
           <p className="muted small">
-            {espacesFines('Ceux qui ont relevé un de tes défis, ou dont tu en as relevé un. Défie-les en lançant un défi : tu le joues d’abord, et à ta dernière réponse il leur part — sous leur onglet Défi, et leur téléphone sonne.')}
+            {espacesFines('Ceux qui ont relevé un de tes défis, ou dont tu en as relevé un. Défie-les en lançant un défi : tu le joues d’abord, et à ta dernière réponse il leur part — dans leurs duels, et leur téléphone sonne.')}
           </p>
         </>
       ) : (
         <ol className="muted small tes-amis-etapes">
-          <li>{espacesFines('« Lancer un défi », en haut de cet onglet : choisis le thème, et tu le joues le premier.')}</li>
+          <li>{espacesFines('« Lancer un défi », sous « Défier un ami » : choisis le thème, et tu le joues le premier.')}</li>
           <li>{espacesFines('À sa fin, envoie son lien : qui l’ouvre, profil en main, joue les mêmes questions, une fois, dans la semaine.')}</li>
           <li>{espacesFines('Ceux qui le relèvent deviennent tes amis : le prochain, tu les choisis en le lançant — il leur part à ta dernière réponse, et leur téléphone sonne.')}</li>
         </ol>
@@ -544,9 +546,9 @@ export function ligneDuDuel(d: ResumeDuDuel): { titre: string; detail: string; s
 }
 
 /**
- * Ses défis entre amis, sous le défi de la semaine : ceux qu'il a lancés ou
+ * Ses défis entre amis, dans la page des duels : ceux qu'il a lancés ou
  * relevés ces trente derniers jours — un lien perdu ne perd pas le défi.
- * Rien tant qu'il n'en a aucun : la série dit comment en lancer un.
+ * Rien tant qu'il n'en a aucun : « Défier un ami » dit comment en lancer un.
  */
 export function MesDuels({ onOuvrir }: { onOuvrir: (code: string) => void }) {
   const [duels, setDuels] = useState<ResumeDuDuel[] | null>(null)

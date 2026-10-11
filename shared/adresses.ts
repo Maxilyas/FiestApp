@@ -15,9 +15,10 @@ export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soir
  * « salon » ouvre un salon depuis son profil ; « tele » est l'écran commun
  * tel qu'on le tape sur une télé, pour y lire le code qui la branche.
  * « boutique » : les thèmes d'un profil, une pièce du menu ; « campagne » : la
- * série solo d'un profil.
+ * série solo d'un profil ; « duels » : ses duels classés et ses défis entre
+ * amis, sortis de la campagne.
  */
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour' | 'salon' | 'tele' | 'boutique' | 'campagne'
+export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour' | 'salon' | 'tele' | 'boutique' | 'campagne' | 'duels'
 
 export type Route =
   | { kind: 'landing' }
@@ -26,7 +27,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne']
+export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne', 'duels']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 

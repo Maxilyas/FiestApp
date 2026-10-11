@@ -213,6 +213,19 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // ── Les duels classés (`shared/duels.ts`) ──────────────────────────────
+  // Leur page (`/duels`) : sa cote, sa ligue, sa semaine, le classement. Un
+  // duel classé est une rencontre : il se cherche, se joue et se corrige par
+  // les routes de la rencontre et de la série.
+
+  app.get(
+    '/api/duels',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.etatDesDuels(profil.id))
+    }),
+  )
+
   // ── Le défi de la semaine ──────────────────────────────────────────────
   // Une série d'un autre mode : ses réponses, son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.

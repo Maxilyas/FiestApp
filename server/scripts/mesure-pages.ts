@@ -134,6 +134,8 @@ const PAGES: PageMesuree[] = [
   { cle: 'jour', nom: 'Quiz du jour', chemin: '/jour', qui: 'profil', pret: '.jour-heros' },
   { cle: 'campagne', nom: 'Campagne (série)', chemin: '/campagne', qui: 'profil', pret: '.campagne:not([aria-busy]) .campagne-heros' },
   { cle: 'sentiers', nom: 'Sentiers du savoir', chemin: '/campagne#sentiers', qui: 'profil', pret: '.sentiers:not([aria-busy]) .sentiers-tuile' },
+  // Sa cote arrivée : la barre vers la ligue d'après ne se dessine qu'avec elle.
+  { cle: 'duels', nom: 'Les duels', chemin: '/duels', qui: 'profil', pret: '.duels:not([aria-busy]) .duels-vers' },
   { cle: 'souvenir', nom: 'Souvenir de la soirée', chemin: `/${ADMIN.slug}/souvenir`, qui: 'anonyme', pret: '.recap.souvenir .page-corps > *' },
   { cle: 'bilan', nom: 'Bilan de la soirée', chemin: `/${ADMIN.slug}/bilan`, qui: 'anonyme', pret: '.recap.bilan .page-corps > *' },
   { cle: 'mes-quiz', nom: 'Mes quiz', chemin: '/edit', qui: 'animateur', pret: '.quiz-carte-ouvrir' },

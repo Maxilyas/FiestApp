@@ -348,13 +348,15 @@ export function sentierQuOnAvance(
   return haut ? { branche: haut.branche, palier: haut.paliers + 1, laissee: false } : null
 }
 
-/** Ce que l'accueil d'un profil dit de ses sentiers, sur le bouton de la campagne. */
+/**
+ * Ce que l'accueil d'un profil dit de ses sentiers, sur le bouton de la
+ * campagne. Les défis que ses amis lui envoient vont aux duels
+ * (`DuelsDAccueil`), qui ont quitté la campagne.
+ */
 export interface SentiersDAccueil {
   /** Ses vies : celles du jour et sa réserve ensemble. */
   vies: number
   avance: SentierQuOnAvance | null
-  /** Les défis que ses amis lui ont envoyés, à relever : combien, et qui, le plus récent (`campagne_envois`). */
-  defisRecus?: { n: number; de: string }
 }
 
 /** Ce que dit une réponse d'épreuve : la bonne, l'anecdote, et l'épreuve d'après. */

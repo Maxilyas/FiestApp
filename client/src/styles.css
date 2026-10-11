@@ -7762,7 +7762,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .tes-amis p { margin: 0; }
 .tes-amis-etapes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; }
 .tes-amis-defier .icon { width: 14px; height: 14px; color: var(--accent-text); }
-/* Défier un ami, en tête de l'onglet du défi : ses amis en visages qu'on
+/* Défier un ami, dans la page des duels : ses amis en visages qu'on
    touche, « Lancer un défi », et la cloche de ses défis. */
 .defier-un-ami { display: flex; flex-direction: column; gap: 12px; border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: radial-gradient(90% 140% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%), var(--surface); }
 .defier-un-ami-tete { display: flex; align-items: center; gap: 12px; }
@@ -7788,6 +7788,59 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 /* À qui il vient de partir — ou partira : une ligne qui rassure, cochée. */
 .duel-parti { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .duel-parti > .icon { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--accent-text); }
+
+/* ── Les duels (`/duels`, `shared/duels.ts`) ──────────────────────────────
+   Le héros à la couleur de sa ligue (`--lueur`) : son blason, sa cote en
+   grand, la ligue d'après, sa semaine en trois pastilles ; le classement et
+   ses blasons ; la fin d'un duel, sa cote et son écart. Un blason garde son
+   métal quel que soit le thème porté : une ligue se reconnaît à sa couleur. */
+.blason { flex: none; display: block; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35)); }
+.blason-ecu { fill: var(--blason-fonce); }
+.blason-champ { fill: var(--blason-clair); }
+.blason-embleme { fill: var(--blason-fonce); }
+.blason-facette { fill: none; stroke: var(--blason-clair); stroke-width: 0.9; stroke-linejoin: round; }
+.blason-bronze { --blason-fonce: #7a4a22; --blason-clair: #e2a56c; }
+.blason-argent { --blason-fonce: #5d6876; --blason-clair: #e3e8ee; }
+.blason-or { --blason-fonce: #8f6a0c; --blason-clair: #f7d56e; }
+.blason-platine { --blason-fonce: #2f6f74; --blason-clair: #c4f0ea; }
+.blason-diamant { --blason-fonce: #2453a6; --blason-clair: #bfdcff; }
+.blason-maitre { --blason-fonce: #5f2596; --blason-clair: #e6c0ff; }
+.duels-heros { gap: 14px; }
+.duels-ligue { display: flex; align-items: center; gap: 14px; }
+.duels-ligue .blason { filter: drop-shadow(0 0 12px color-mix(in srgb, var(--lueur) 60%, transparent)); }
+.duels-ligue h1 { margin: 0; font-size: 1.9rem; line-height: 1.05; }
+.duels-cote { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 6px 0 0; }
+.duels-cote b { font-family: var(--serif); font-size: 2.6rem; font-weight: 600; line-height: 0.95; color: var(--accent-text); text-shadow: 0 0 22px color-mix(in srgb, var(--lueur) 55%, transparent); font-variant-numeric: lining-nums tabular-nums; }
+.duels-vers { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.duels-vers.muted { margin: 0; }
+.duels-barre { display: block; height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--lueur) 18%, transparent); overflow: hidden; }
+.duels-barre i { display: block; height: 100%; border-radius: inherit; background: var(--lueur); box-shadow: 0 0 8px color-mix(in srgb, var(--lueur) 60%, transparent); }
+.duels-semaine { display: flex; align-items: center; gap: 12px; width: 100%; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--lueur) 25%, transparent); }
+.duels-semaine > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.duels-pastilles { display: inline-flex; flex: none; gap: 4px; }
+.duels-pastilles i { display: block; width: 12px; height: 12px; border: 2px solid color-mix(in srgb, var(--lueur) 60%, transparent); border-radius: 50%; }
+.duels-pastilles i.jouee { border-color: var(--lueur); background: var(--lueur); box-shadow: 0 0 6px color-mix(in srgb, var(--lueur) 60%, transparent); }
+.duels-semaine-passee { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 600; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.duels-sous-bouton { margin: -4px 0 0; }
+.duels-etapes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding-left: 20px; font-size: 0.9rem; }
+.duels-ligues-liste { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.duels-ligues-liste li { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-top: 1px solid var(--edge); }
+.duels-ligues-liste li.la-sienne { border-radius: var(--radius-xs); background: var(--accent-soft); }
+.duels-ligue-nom { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.duels-ligue-prix { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.duels-ligne .blason { margin-left: auto; }
+.duels-plus { color: var(--accent-text); }
+.duels-moins { color: var(--alert); }
+.duels-enjeu { margin: -2px 0 8px; }
+.duels-fin { display: flex; flex-direction: column; gap: 10px; }
+.duels-fin p { margin: 0; }
+.duels-fin-cote { display: flex; align-items: center; gap: 14px; }
+.duels-fin-cote > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.duels-fin-cote .label, .duels-fin-cote .muted { flex-basis: 100%; }
+.duels-fin-cote b { font-family: var(--serif); font-size: 2.4rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.duels-fin-ecart { font-size: 1.2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.duels-promu { border-color: var(--or-text); box-shadow: 0 0 18px color-mix(in srgb, var(--or-text) 35%, transparent); }
+.duels-fin-semaine { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--edge); }
 .vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }

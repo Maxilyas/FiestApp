@@ -105,7 +105,7 @@ export function messageDUnDefi(d: { auteur: string; quoi: string | null; justes:
         ? `${sur}les mêmes questions pour vous deux : une seule tentative, avant qu’il ferme.`
         : `${sur}${bonnes(d.justes)} à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.`,
     ),
-    url: `/campagne#duel-${d.code}`,
+    url: `/duels#duel-${d.code}`,
     tag: `defi-${d.code}`,
   }
 }

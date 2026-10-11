@@ -46,8 +46,12 @@ interface ProfileApiDeps {
   jour: JourStore
   /** L'horloge du quiz du jour, que les tests avancent : la boutique y lit ses saisons. */
   maintenant: () => number
-  /** Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et celui qu'il avance ; et ses défis, qui ouvrent sa carte. */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'aReleveUnDefi'>
+  /**
+   * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
+   * celui qu'il avance ; ses duels, pour le leur ; et ses défis, qui ouvrent
+   * sa carte.
+   */
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'aReleveUnDefi'>
 }
 
 /**
@@ -134,7 +138,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const aujourdhui = jourDe(deps.maintenant())
     await deps.jour.clorePasses(aujourdhui)
     const rec = (await profiles.byId(me.id)) ?? me
-    const [jour, boutique, campagne] = await Promise.all([
+    const [jour, boutique, campagne, duels] = await Promise.all([
       deps.jour.carriereDe(rec.id),
       // Une base qui se tait ôte le solde, pas la page.
       profiles.boutiqueDe(rec, aujourdhui).catch(e => {
@@ -146,8 +150,13 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         console.error('[profil] sentiers illisibles :', e)
         return undefined
       }),
+      // Et les duels : leur bouton dit sa ligue — ou qui le défie.
+      deps.campagne.accueilDesDuels(rec.id).catch(e => {
+        console.error('[profil] duels illisibles :', e)
+        return undefined
+      }),
     ])
-    return { ...profiles.toPublic(rec), jour, aujourdhui, ...(boutique && { boutique }), ...(campagne && { campagne }) }
+    return { ...profiles.toPublic(rec), jour, aujourdhui, ...(boutique && { boutique }), ...(campagne && { campagne }), ...(duels && { duels }) }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */

@@ -199,8 +199,8 @@ export function ProfilApp() {
     if (!chargement) porterGerbe(profil?.gerbe)
   }, [chargement, profil?.gerbe])
 
-  // L'accueil affiché, le code du quiz du jour et de la campagne vient en
-  // fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
+  // L'accueil affiché, le code du quiz du jour, de la campagne et des duels
+  // vient en fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
   // Pour un profil seulement — l'invité anonyme n'y a pas accès. Les écrans
   // du profil aussi, que « Profil », au menu, trouvera là : demandés dès le
   // profil lu, leurs douze morceaux passaient devant le premier écran de
@@ -211,6 +211,7 @@ export function ProfilApp() {
     if (VUE !== 'accueil' || !aUnProfil) return
     const precharger = () => {
       void import('./CampagneApp').catch(() => {})
+      void import('./Duels').catch(() => {})
       void import('./JourApp').catch(() => {})
       void panneaux.charger().catch(() => {})
     }
@@ -388,6 +389,7 @@ export function ProfilApp() {
           jour={profil.jour}
           aujourdhui={'aujourdhui' in profil ? profil.aujourdhui : undefined}
           campagne={'campagne' in profil ? profil.campagne : undefined}
+          duels={'duels' in profil ? profil.duels : undefined}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />

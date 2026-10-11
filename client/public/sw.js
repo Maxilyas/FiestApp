@@ -43,7 +43,7 @@ self.addEventListener('notificationclick', evenement => {
 
 /**
  * La page de la notification si elle est déjà ouverte — menée à son adresse
- * exacte : la campagne ouverte sur la série va au défi reçu (`#duel-…`) —,
+ * exacte : les duels ouverts sur leur classement vont au défi reçu (`#duel-…`) —,
  * sinon l'application à cette page. Jamais une autre page de l'application
  * menée ailleurs : c'était peut-être une soirée en cours.
  */

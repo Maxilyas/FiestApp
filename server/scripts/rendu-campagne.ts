@@ -2,9 +2,10 @@
 // photographiés au téléphone (360 × 640) sur un serveur jetable dont
 // l'horloge avance à la main : le carnet de révision — vide, puis rempli par
 // des séries ratées, une révision et ses réponses (retrouvée, apprise,
-// ratée), sa fin, ce qu'il a appris —, le rappel en fin de série, une
-// rencontre contre un inconnu, et les sentiers à thème. Le client construit
-// d'abord (`npm run build -w client`).
+// ratée), sa fin, ce qu'il a appris —, le rappel en fin de série, un duel
+// classé contre un inconnu et les défis entre amis — dans leur page,
+// `/duels` —, et les sentiers à thème. Le client construit d'abord
+// (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-campagne.ts [dossier]
 import { createRequire } from 'node:module'
@@ -214,13 +215,12 @@ try {
   await page.waitForSelector('.carnet-rappel')
   await photo('9-fin-de-serie', true)
 
-  // 5. Affronter un inconnu : Tom a fini une série — cinq bonnes réponses,
-  // sa troisième faute à la huitième question —, Léa le trouve sous le défi.
+  // 5. Un duel classé : Tom a fini une série — cinq bonnes réponses, sa
+  // troisième faute à la huitième question —, Léa le trouve dans ses duels.
   await jouerParLAPI(tom, await nouvelleSerie(tom), [true, true, true, true, true, false, false, false])
-  await ouvrir('/campagne#defi')
-  await page.waitForSelector('.rencontre-carte')
-  await page.locator('.rencontre-carte').scrollIntoViewIfNeeded()
-  await photo('10-affronter-un-inconnu')
+  await ouvrir('/duels')
+  await page.waitForSelector('.duels-ligues-liste')
+  await photo('10-trouver-un-adversaire')
   await page.click('text=Trouver un adversaire')
   await repondre(true)
   await photo('11-rencontre-reponse')
@@ -234,10 +234,10 @@ try {
   await page.click('text=Voir qui a gagné')
   await page.waitForSelector('.rencontre-final')
   await photo('13-rencontre-gagnee', true)
-  await ouvrir('/campagne#defi')
+  await ouvrir('/duels')
   await page.waitForSelector('.rencontre-liste')
-  await page.locator('.rencontre-carte').scrollIntoViewIfNeeded()
-  await photo('14-mes-rencontres')
+  await page.locator('.rencontre-liste').scrollIntoViewIfNeeded()
+  await photo('14-mes-duels')
 
   // 6. Les sentiers à thème, repliés sous les douze : leurs tuiles, la fiche
   // d'un sujet, une épreuve sans vies, et sa fin validée.
@@ -271,16 +271,16 @@ try {
   await photo('20-un-palier-de-theme-valide')
 
   // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Le suivant, Léa
-  // le prépare sous sa série — Tom coché, sur ses catégories —, le joue, et il
-  // part à Tom à sa dernière réponse ; Tom le trouve sous l'onglet du défi,
-  // compté sur l'onglet, et sa liste d'amis dessous. `rendu-defis.ts`
-  // photographie la préparation en détail.
+  // le prépare dans ses duels — Tom coché —, le joue, et il part à Tom à sa
+  // dernière réponse ; Tom le trouve en tête de ses duels, l'accueil le lui
+  // dit, et sa liste d'amis est dessous. `rendu-duels.ts` photographie la
+  // préparation en détail.
   const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as any
   await jouerParLAPI(lea, premier.serie.id, [true, true, true, false, false, false])
   const releve = (await (await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, tom)).json()) as any
   await jouerParLAPI(tom, releve.id, [true, false, false, false])
-  await ouvrir('/campagne')
-  await page.click('text=Défier des amis')
+  await ouvrir('/duels')
+  await page.click('text=Lancer un défi')
   await page.waitForSelector('.defier-etape')
   await page.getByRole('button', { name: /Tom/ }).click()
   await photo('21-preparer-un-defi')
@@ -294,11 +294,11 @@ try {
   await page.waitForSelector('.duel-parti')
   await photo('22-parti-a-mes-amis', true)
   await entrer(tom)
-  // Son accueil le lui dit, sur le bouton de la campagne.
+  // Son accueil le lui dit, sur le bouton des duels.
   await ouvrir('/')
   await page.waitForSelector('text=Léa te défie')
   await photo('22a-accueil-defi-recu')
-  await ouvrir('/campagne#defi')
+  await ouvrir('/duels')
   await page.waitForSelector('.duel-recus')
   await photo('23-defis-recus')
   await page.waitForSelector('.tes-amis')
