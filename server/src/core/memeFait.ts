@@ -76,6 +76,36 @@ export function proximite(a: ReadonlySet<string>, b: ReadonlySet<string>): numbe
  */
 export const PROXIMITE_DU_MEME_FAIT = 0.4
 
+/** Les nombres d'un intitulé : une année, un rang, un compte. */
+export const nombresDe = (texte: string): Set<string> => new Set(texte.match(/\d+/g) ?? [])
+
+/** Deux intitulés qui ont des nombres et n'en partagent aucun parlent de deux choses : la Coupe du monde 1998 et celle de 2018. */
+const aucunNombreCommun = (a: ReadonlySet<string>, b: ReadonlySet<string>) => a.size > 0 && b.size > 0 && ![...a].some(n => b.has(n))
+
+/**
+ * Au-delà, deux intitulés de réponses différentes sont presque pareils : rien
+ * ne les refuse, `voisines` les montre à un humain — « Quel peintre a réalisé
+ * « La Ronde de nuit » ? » et « … des prisonniers ? » (0,6).
+ */
+export const PROXIMITE_DES_VOISINES = 0.6
+
+/** Ce que `presquePareils` compare d'un intitulé, lu une fois pour toutes ses paires. */
+export interface TraitsDUnIntitule {
+  mots: Set<string>
+  nombres: Set<string>
+}
+export const traitsDe = (texte: string): TraitsDUnIntitule => ({ mots: motsDe(texte), nombres: nombresDe(texte) })
+
+/**
+ * Deux intitulés presque pareils — sauf s'ils ne partagent aucun nombre, comme
+ * pour le même fait (`memeFait`) : au pilote de Wikidata du 10 octobre 2026,
+ * les vainqueurs des grands tours, année par année, faisaient mille paires,
+ * et noyaient celles qui comptent.
+ */
+export function presquePareils(a: TraitsDUnIntitule, b: TraitsDUnIntitule): boolean {
+  return !aucunNombreCommun(a.nombres, b.nombres) && proximite(a.mots, b.mots) >= PROXIMITE_DES_VOISINES
+}
+
 /** Ce qui se compare d'une question : sa bonne réponse, ses entités hors elle, ses mots et ses nombres. */
 export interface Fait {
   reponse: string
@@ -110,7 +140,7 @@ export function faitDe(q: AvecUnFait): Fait | null {
     chiffree: q.meta.valeur !== null || /^\d/.test(reponse),
     entites: new Set(q.meta.entites.map(e => normeDUnNom(e.nom)).filter(e => e && e !== reponse)),
     mots: motsDe(q.texte),
-    nombres: new Set(q.texte.match(/\d+/g) ?? []),
+    nombres: nombresDe(q.texte),
     intitule: ` ${sansAccent(q.texte).replace(/[^a-z0-9]+/g, ' ').trim()} `,
   }
 }
@@ -125,7 +155,7 @@ export function memeFait(a: Fait, b: Fait): boolean {
   }
   for (const e of a.entites) if (b.entites.has(e)) return true
   if (a.chiffree || b.chiffree) return false
-  if (a.nombres.size > 0 && b.nombres.size > 0 && ![...a.nombres].some(n => b.nombres.has(n))) return false
+  if (aucunNombreCommun(a.nombres, b.nombres)) return false
   return proximite(a.mots, b.mots) >= PROXIMITE_DU_MEME_FAIT
 }
 

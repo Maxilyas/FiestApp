@@ -1,6 +1,6 @@
 ---
 name: base-campagne
-description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, ou une génération en nombre.
+description: Agrandir la base de questions de la campagne solo de FiestApp (server/content/campagne/) — voir ce qui manque, faire écrire un lot par l'agent redacteur-campagne, le faire relire par relecteur-campagne, appliquer ses décisions, ranger ; ou des centaines, des milliers de questions d'un coup (scripts/generer-campagne.ts), sur l'abonnement ; ou à partir de faits tirés de Wikidata (scripts/faits-wikidata.ts), deux fois moins cher relecture comprise. À utiliser quand on demande des questions de campagne en plus, un lot à écrire ou à relire, une génération en nombre, ou des questions tirées de Wikidata.
 ---
 
 # Agrandir la base de la campagne
@@ -78,3 +78,50 @@ facture à part, et le propriétaire n'en veut pas.
 
 `etat` dit où en est une génération. Une seule à la fois : pour en abandonner
 une, supprime `../.lots-campagne/<nom>/` et ses lots `<nom>-*.json`.
+
+## Depuis Wikidata : des faits sûrs, des phrases à écrire
+
+Deux fois moins de jetons qu'un lot écrit de mémoire, relecture comprise
+(1 140 par question au pilote de trois cents), et des difficultés 4 et 5 :
+`server/scripts/faits-wikidata.ts` tire de Wikidata la bonne réponse,
+les leurres, la date, les entités et la source ; le rédacteur n'écrit que
+l'intitulé, l'anecdote et l'explication. Pour les relations qu'il connaît
+(un tableau et son peintre, un film et son réalisateur…), pas pour les
+notions ni la culture française du quotidien, qui restent au chemin
+ci-dessus. Les familles et leurs règles sont dans la règle `campagne-base.md`.
+
+1. **Extraire** : d'abord les vues, `NODE_USE_ENV_PROXY=1 npx tsx
+   scripts/faits-wikidata.ts vues-des-dumps` — les fichiers quotidiens de
+   Wikimedia, dix jours lus au fil de l'eau, un quart d'heure ; l'API des vues
+   renvoyait chaque requête du cloud à une minute. Puis `NODE_USE_ENV_PROXY=1
+   npx tsx scripts/faits-wikidata.ts extraire [<famille> …]` (la variable :
+   dans le cloud, `fetch` ne suit pas le proxy sans elle). Les fiches vont
+   dans `../.faits-wikidata/`, que git ignore, et les requêtes s'y gardent :
+   relancer une famille ne demande que ce qui a changé ; `familles` dit ce
+   qui est extrait.
+2. **Les lots** : `npx tsx scripts/faits-wikidata.ts lots --questions=<n>
+   [--familles=films:150,goncourt:50] --nom=<nom>` (crée `../.lots-campagne/`
+   s'il manque) : la part de chaque famille, prise parmi les plus lues — de
+   quoi doubler à peu près une catégorie, pas davantage, ou un seul gabarit
+   la noierait. Il donne une mission par lot.
+3. **L'écriture** : un agent `redacteur-campagne` par mission, telle quelle,
+   en arrière-plan, vingt à la fois au plus — au-delà, Claude Code refuse le
+   lancement : relance à mesure que les places se libèrent. Son
+   vérificateur, `faits-wikidata.ts fusionner <nom>-NN`, écrit le lot
+   ordinaire `../.lots-campagne/<nom>-NN.json`.
+4. **La relecture, de chaque lot** : les phrases s'écrivent de mémoire, et
+   Wikidata se trompe parfois de date ou de créateur — le correcteur a
+   corrigé 48 questions sur 788 à la troisième vague, et en a retiré 8. Pour
+   chaque lot, `base-campagne.ts fiche ../.lots-campagne/<nom>-NN.json >
+   ../.lots-campagne/<nom>.NN.fiche.txt`, un `relecteur-campagne` dont la
+   mission donne la fiche et `../.lots-campagne/<nom>.NN.decisions.json`, puis
+   `appliquer`. Un point, pas un tiret, après le nom : `ranger <nom>-*.json`
+   prendrait les décisions pour un lot. Le relecteur ne corrige pas le
+   sous-thème : celui qu'il signale se corrige à la main dans le lot, et dans
+   l'extraction s'il vient d'elle (Joyce en littérature française : la
+   langue des livres n'était pas lue).
+5. **Ranger** : `verifier`, puis `voisines`, puis `ranger
+   ../.lots-campagne/<nom>-*.json`, comme tout lot. Une question que
+   `verifier` refuse se retire par un fichier de décisions de plus
+   (`<nom>.refus.decisions.json`). Commite `server/content/campagne/` et
+   relève `AU_MOINS` (`campagne-base.test.ts`).

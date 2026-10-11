@@ -23,7 +23,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 
 import path from 'node:path'
 import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
-import { IndexDesFaits, motsDe, proximite } from '../src/core/memeFait'
+import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
 import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
 import { sansAccent } from '../../shared/homonymes'
@@ -169,11 +169,11 @@ function voisines(fichiers: string[]) {
     memes++
     console.log(`${dire(paire[0])}\n${dire(paire[1])}\n`)
   }
-  const parSousTheme = new Map<string, { q: QuestionDeLaBase; mots: Set<string> }[]>()
+  const parSousTheme = new Map<string, { q: QuestionDeLaBase; traits: TraitsDUnIntitule }[]>()
   for (const q of [...base, ...lots]) {
     const cle = `${q.meta.categorie}/${q.meta.sousTheme}`
     const groupe = parSousTheme.get(cle) ?? parSousTheme.set(cle, []).get(cle)!
-    groupe.push({ q, mots: motsDe(q.texte) })
+    groupe.push({ q, traits: traitsDe(q.texte) })
   }
   let pareils = 0
   for (const groupe of parSousTheme.values()) {
@@ -181,7 +181,7 @@ function voisines(fichiers: string[]) {
       for (let j = i + 1; j < groupe.length; j++) {
         const [a, b] = [groupe[i], groupe[j]]
         if (sansAccent(a.q.reponses[a.q.bonne]) === sansAccent(b.q.reponses[b.q.bonne]) || !vise([a.q, b.q])) continue
-        if (proximite(a.mots, b.mots) < 0.6) continue
+        if (!presquePareils(a.traits, b.traits)) continue
         pareils++
         console.log(`${dire(a.q)}\n${dire(b.q)}\n`)
       }
