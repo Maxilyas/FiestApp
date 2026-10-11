@@ -14,7 +14,12 @@ test('un jeton d’une soirée passée ne fait pas voir une salle d’attente vi
   // Le téléphone éteint à la clôture, exclu pendant son sommeil : la salle
   // d'attente d'un invité sans prénom, « 0 pt », puis l'entrée [client-7].
   const s = source('views/PlayerApp.tsx')
-  assert.match(s, /setJetonEnVol\(true\)\s*try \{\s*await representer\(token\)\s*\} finally \{\s*setJetonEnVol\(false\)\s*\}/)
+  // Le jeton en vol dès avant son envoi — parti avec la présentation, sans
+  // attendre sa réponse (`depart.test.ts`) —, et jusqu'à sa réponse.
+  assert.match(
+    s,
+    /if \(token\) setJetonEnVol\(true\)\s*try \{[\s\S]*?const reprise = token \? representer\(token\)[\s\S]*?await reprise\s*\} finally \{\s*if \(token\) setJetonEnVol\(false\)\s*\}/,
+  )
   // Le premier écran seulement : une reconnexion en pleine question garde sa question.
   assert.match(s, /const attendreReprise = !dejaVu && jetonEnVol/)
   assert.match(s, /if \(!snap \|\| !presente \|\| attendreDessins \|\| attendreReprise \|\| attendreEntree\) return <AttenteConnexion \/>/)

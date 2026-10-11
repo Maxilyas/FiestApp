@@ -18,7 +18,7 @@ import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
 import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
-import { clientIp } from './auth/http'
+import { clientIp, readPlayerToken } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import type { BadgeLookup } from './core/party'
@@ -38,7 +38,7 @@ import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
-import { donneesDeDepart } from '../../shared/depart'
+import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
 import { wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
@@ -824,6 +824,27 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const spaceOf = (res: Response) => (res.locals as SpaceLocals).account
 
   app.get('/s/:slug/space.json', withSpace, (_req, res) => res.json(auth.publicSpace(spaceOf(res))))
+  // L'entrée d'un invité, avant sa liaison temps réel : ce que `party:watch`
+  // lui dirait, préchargé avec la page (`EntreeDeDepart`, `shared/depart.ts`)
+  // — l'écran d'entrée paraît dès son code arrivé, la liaison s'ouvrant
+  // derrière. Le profil du cookie la rend propre à chaque téléphone : rien ne
+  // la garde en route. Un espace fermé n'y existe pas plus qu'à `party:watch`.
+  app.get('/s/:slug/entree.json', withSpace, (req, res) => {
+    res.set('Cache-Control', 'no-store')
+    const account = spaceOf(res)
+    if (account.disabledAt) return res.status(404).json({ error: 'Soirée introuvable' })
+    const jeton = readPlayerToken(req.header('cookie'))
+    ;(jeton ? profiles.bySession(jeton) : Promise.resolve(null))
+      .catch(() => null)
+      .then(profil => {
+        const entree: EntreeDeDepart = {
+          snapshot: registry.get(account.id).buildSnapshot(false),
+          ...(profil && { profile: profiles.toPublic(profil) }),
+        }
+        res.json(entree)
+      })
+      .catch((e: unknown) => repondreErreur(req, res, e))
+  })
   // Entre deux soirées, ces pages n'avaient plus rien à montrer : la clôture
   // efface la soirée en cours, et l'invité qui rouvrait le lendemain le
   // souvenir scanné au podium lisait « La soirée n'a pas encore commencé ».

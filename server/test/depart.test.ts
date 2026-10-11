@@ -6,8 +6,9 @@
 // sert la page, y pose maintenant ce qu'elle demandera
 // (`<link rel="preload" as="fetch">`, `shared/depart.ts`) et son attente déjà
 // écrite (`core/page.ts`) ; la dernière soirée close part avec la page de
-// l'espace qui la désigne ; les sentiers partent avec la campagne, et les
-// onglets du profil avec la boutique.
+// l'espace qui la désigne ; les sentiers partent avec la campagne, les
+// onglets du profil avec la boutique ; et l'entrée d'un invité n'attend plus
+// sa liaison temps réel pour paraître (`entree.json`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -17,12 +18,15 @@ import React from 'react'
 import {
   ADMIN,
   attendre,
+  connecter,
   connexionAnimateur,
   creerQuiz,
   demarrer,
   ecranCommun,
+  ecrire,
   emitAck,
   inscrireProfil,
+  instantane,
   invite,
   lancerQuiz,
   qcm,
@@ -30,7 +34,7 @@ import {
   type Socket,
 } from './banc'
 import { ecrireAttente, prechargerDonnees } from '../src/core/page'
-import { donneesDeDepart, donneesDuFragment, versLesSentiers } from '../../shared/depart'
+import { donneesDeDepart, donneesDuFragment, entreeUtilisable, versLesSentiers, type EntreeDeDepart } from '../../shared/depart'
 import { parseRoute } from '../../shared/adresses'
 import { BRANCHES } from '../../shared/branches'
 import { ProfileStore } from '../src/auth/profiles'
@@ -74,8 +78,9 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   assert.deepEqual(de('/banc/bilan/fiches'), ['/s/banc/bilan.json', '/api/auth/me'])
   assert.deepEqual(de('/banc/soirees'), ['/s/banc/soirees.json', '/api/auth/me', '/api/joueur/theme'])
   assert.deepEqual(de('/banc/soirees/2026-10-05-abc/bilan'), ['/s/banc/soirees/2026-10-05-abc/bilan.json', '/api/auth/me', '/api/joueur/theme'])
-  // L'entrée d'un invité attend sa liaison temps réel, pas une donnée ; l'écran commun aussi.
-  for (const c of ['/banc', '/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
+  // L'entrée d'un invité, son état de départ ; l'écran commun attend sa liaison temps réel, pas une donnée.
+  assert.deepEqual(de('/banc'), ['/s/banc/entree.json'])
+  for (const c of ['/host', '/tele', '/compte', '/nulle/part/ici']) assert.deepEqual(de(c), [], c)
 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
@@ -85,6 +90,8 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   }
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
   assert.match(source('routes.ts'), /return adresseDesDonnees\(slug, file, archiveId\)/)
+  // L'entrée la demande à son ouverture, quel que soit le téléphone.
+  assert.match(source('views/PlayerApp.tsx'), /await fetch\(dataUrl\(slug, 'entree\.json'\)\)/)
 })
 
 test('les sentiers, que le serveur ne peut pas précharger, partent du premier script — par la règle qui les fera demander', () => {
@@ -196,9 +203,9 @@ test('la page servie fait précharger ce que sa vue demandera ; l’entrée d’
       assert.deepEqual(prechargees(html), de(chemin), chemin)
       assert.match(html, /<div id="root"><div class="center-page"><div class="attente" role="status"><p class="muted">Chargement…<\/p>/, chemin)
     }
-    // L'entrée : rien à précharger, le nom de la soirée écrit à sa place.
+    // L'entrée : son état de départ préchargé, le nom de la soirée écrit à sa place.
     const entree = await lire(`/${s}`)
-    assert.deepEqual(prechargees(entree), [])
+    assert.deepEqual(prechargees(entree), [`/s/${s}/entree.json`])
     assert.match(entree, /<div id="root"><div class="join entree"><div class="join-head"><span class="join-eyebrow">[^<]+<\/span><h1 class="join-title[^"]*">[^<]+<\/h1><\/div>/)
     assert.match(entree, /<p class="muted">On arrive…<\/p>/)
     // Une adresse qui ne mène nulle part ne précharge rien.
@@ -209,6 +216,116 @@ test('la page servie fait précharger ce que sa vue demandera ; l’entrée d’
     await banc.close()
     rmSync(dist, { recursive: true, force: true })
   }
+})
+
+test('l’entrée d’un invité part avec la page : ce que la liaison lui dirait, profil compris, sans l’attendre', async () => {
+  // Son code arrivé, l'entrée attendait la poignée de main de la liaison et
+  // deux échanges : une demi-seconde en 4G, une seconde en 4G lente, sur la
+  // page que toute la salle ouvre en même temps.
+  const banc = await demarrer()
+  try {
+    const s = ADMIN.slug
+    const entree = (cookie?: string, slug = s) => fetch(`${banc.url}/s/${slug}/entree.json`, cookie ? { headers: { Cookie: cookie } } : {})
+    const lea = await invite(banc.url, 'Léa', '🦊')
+    // Ce que `party:watch` dit au même instant, à un téléphone sans profil puis avec.
+    const regarder = async (cookie?: string) => {
+      const tel = connecter(banc.url, cookie)
+      const watched = await emitAck<{ ok: boolean; profile?: { name: string } }>(tel, 'party:watch', { slug: s })
+      const snapshot = await instantane(tel)
+      tel.disconnect()
+      return { watched, snapshot }
+    }
+
+    const anonyme = await entree()
+    assert.equal(anonyme.status, 200)
+    // Propre à chaque téléphone — son profil —, et vivante : rien ne la garde en route.
+    assert.equal(anonyme.headers.get('cache-control'), 'no-store')
+    const sansProfil = (await anonyme.json()) as EntreeDeDepart
+    assert.equal(sansProfil.profile, undefined, 'un invité anonyme n’a pas de profil')
+    const parLaLiaison = await regarder()
+    assert.deepEqual(sansProfil.snapshot, parLaLiaison.snapshot, 'le même instantané que la liaison')
+    // L'instantané des téléphones : la salle, sans dire qui est connecté (invariant 4).
+    assert.deepEqual(sansProfil.snapshot.players.map(p => p.name), ['Léa'])
+    assert.ok(sansProfil.snapshot.players.every(p => !('connected' in p)), 'jamais `connected` aux téléphones')
+    assert.equal(sansProfil.snapshot.wifi, null, 'le wifi reste à l’écran commun')
+
+    // Le profil que le cookie reconnaît, comme `party:watch` le salue.
+    const cookie = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🦉')
+    const avecProfil = (await (await entree(cookie)).json()) as EntreeDeDepart
+    const zoe = await regarder(cookie)
+    assert.equal(avecProfil.profile?.name, 'Zoé')
+    assert.deepEqual(avecProfil.profile, zoe.watched.profile)
+    assert.deepEqual(avecProfil.snapshot, zoe.snapshot)
+
+    // Un espace inconnu, ou fermé, n'a pas d'entrée — pas plus qu'à `party:watch`.
+    assert.equal((await entree(undefined, 'personne-ici')).status, 404)
+    const admin = await connexionAnimateur(banc.url)
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'lea', name: 'Léa', slug: 'chez-lea' }, admin)
+    const { account } = (await cree.json()) as { account: { id: string } }
+    assert.equal((await entree(undefined, 'chez-lea')).status, 200)
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${account.id}/disable`, {}, admin)).status, 200)
+    assert.equal((await entree(undefined, 'chez-lea')).status, 404)
+    lea.socket.disconnect()
+  } finally {
+    await banc.close()
+  }
+})
+
+test('l’entrée préchargée ne sert qu’au téléphone qui n’a rien à reprendre', () => {
+  assert.equal(entreeUtilisable({ jeton: false, fin: false, liaison: false }), true, 'le QR scanné')
+  // Un jeton attend sa re-présentation : l'instantané seul montrait la salle
+  // d'attente d'un invité que la soirée ne connaît peut-être plus.
+  assert.equal(entreeUtilisable({ jeton: true, fin: false, liaison: false }), false, 'un téléphone qui revient')
+  assert.equal(entreeUtilisable({ jeton: false, fin: true, liaison: false }), false, 'une fin de soirée gardée')
+  assert.equal(entreeUtilisable({ jeton: false, fin: false, liaison: true }), false, 'la liaison, plus fraîche, a parlé')
+
+  // La page s'en sert ainsi, et ne crie pas à la coupure tant que la liaison
+  // n'a pas eu le temps de s'ouvrir.
+  const page = source('views/PlayerApp.tsx')
+  assert.match(page, /if \(perime \|\| !entree \|\| !entreeUtilisable\(\{ jeton: !!me\?\.token, fin: !!fin, liaison \}\)\) return/)
+  assert.match(page, /const liaison = presenteeParLaLiaison\.current \|\| !!snapshot/)
+  assert.match(page, /<BandeauCoupure connecte=\{s\.connected \|\| premiereLiaison\} \/>/)
+})
+
+test('le téléphone qui revient envoie son jeton derrière sa présentation, sans attendre sa réponse : un aller-retour de moins', async () => {
+  // Rechargé, réveillé, la page présentait la soirée, attendait sa réponse,
+  // puis seulement reprenait sa place : un aller-retour de plus à chaque
+  // réveil, en pleine question parfois. La liaison garde l'ordre des
+  // messages : les deux partent ensemble.
+  const banc = await demarrer()
+  try {
+    const s = ADMIN.slug
+    const lea = await invite(banc.url, 'Léa', '🦊')
+    lea.socket.disconnect()
+    const tel = connecter(banc.url)
+    const [watched, reprise] = await Promise.all([
+      emitAck<{ ok: boolean }>(tel, 'party:watch', { slug: s }),
+      emitAck<{ ok: boolean; playerId: string; token: string; name: string }>(tel, 'player:join', { slug: s, token: lea.token }),
+    ])
+    assert.equal(watched.ok, true)
+    assert.equal(reprise.ok, true)
+    assert.equal(reprise.playerId, lea.playerId, 'sa place, pas une nouvelle')
+    assert.equal(reprise.name, 'Léa')
+    const snapshot = await instantane<{ players: { id: string }[] }>(tel, sn => sn.players.some(p => p.id === lea.playerId))
+    assert.equal(snapshot.players.length, 1, 'personne de plus dans la salle')
+    // Un jeton que la soirée ne connaît plus se refuse de même : le téléphone repasse par l'entrée.
+    const autre = connecter(banc.url)
+    const [, refus] = await Promise.all([
+      emitAck(autre, 'party:watch', { slug: s }),
+      emitAck<{ ok: boolean; reason?: string }>(autre, 'player:join', { slug: s, token: 'jeton-inconnu' }),
+    ])
+    assert.equal(refus.ok, false)
+    assert.equal(refus.reason, 'unknown-token')
+    tel.disconnect()
+    autre.disconnect()
+  } finally {
+    await banc.close()
+  }
+  // La page les envoie ainsi.
+  assert.match(
+    source('views/PlayerApp.tsx'),
+    /const presentation = watchParty\(slug\)\n(?:\s*\/\/[^\n]*\n)*\s*const reprise = token \? representer\(token\)\.catch\(\(\) => \{\}\) : undefined\n\s*const watched = await presentation\n/,
+  )
 })
 
 // ── 3. Le quiz du jour et son heure ───────────────────────────────────────
