@@ -99,6 +99,7 @@ export function AccueilJouer({
   onRejoindre,
   lendemain,
   jour,
+  aujourdhui,
   campagne,
 }: {
   enCours: { nom: string; slug: string }[]
@@ -106,11 +107,16 @@ export function AccueilJouer({
   lendemain: ReactNode
   /** Sa carrière au quiz du jour : sa série, et s'il a déjà joué aujourd'hui. */
   jour?: CarriereDuJour
+  /** Le jour de Paris, dit par le serveur (`ProfilDAccueil.aujourdhui`). */
+  aujourdhui?: string
   /** Ses sentiers : ses vies, et celui qu'il avance. */
   campagne?: SentiersDAccueil
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
-  const joueAujourdhui = jour?.jours[0]?.jour === jourDe(Date.now())
+  // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
+  // du français avant le premier écran ; un serveur d'avant ne le dit pas.
+  const dernier = jour?.jours[0]?.jour
+  const joueAujourdhui = !!dernier && dernier === (aujourdhui ?? jourDe(Date.now()))
   const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
   const laCampagne = boutonDeLaCampagne(campagne)
   return (

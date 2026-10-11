@@ -381,7 +381,14 @@ export function ProfilApp() {
       <div className="player-shell accueil">
         {/* Soi-même en une ligne : un toucher mène au profil. */}
         <IdentiteLigne profil={profil} />
-        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} campagne={'campagne' in profil ? profil.campagne : undefined} />
+        <AccueilJouer
+          enCours={enCours}
+          onRejoindre={() => setRejoindre(true)}
+          lendemain={lendemain}
+          jour={profil.jour}
+          aujourdhui={'aujourdhui' in profil ? profil.aujourdhui : undefined}
+          campagne={'campagne' in profil ? profil.campagne : undefined}
+        />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />
         {/* Pas de carte « J'anime » ici : qui anime avec son profil a déjà

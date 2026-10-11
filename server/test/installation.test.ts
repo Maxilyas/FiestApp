@@ -179,8 +179,8 @@ test('au pied de l’accueil, avec ou sans profil : les trois gros boutons d’a
   const profil = source('views/ProfilApp.tsx')
   // Sans profil : sous le choix, que la carte ne pousse pas hors de l'écran.
   assert.match(profil, /pied=\{<Installer \/>\}/)
-  // Avec profil : sous ce qu'on vient faire, la promesse du rappel en plus.
-  assert.match(profil, /<AccueilJouer [^\n]*\/>\s*\{\/\*[^}]*\*\/\}\s*<Installer avecProfil \/>/)
+  // Avec profil : sous ce qu'on vient faire, la promesse du rappel en plus (l'élément tient sur une ou plusieurs lignes).
+  assert.match(profil, /<AccueilJouer\s[^/]*?\/>\s*\{\/\*[^}]*\*\/\}\s*<Installer avecProfil \/>/)
   const formulaire = source('components/ProfilForm.tsx')
   const choix = formulaire.slice(formulaire.indexOf("if (mode === 'choix')"), formulaire.indexOf('const creation = mode'))
   assert.ok(choix.indexOf('Créer un profil') < choix.indexOf('{pied}'), 'le pied vient après les trois boutons')
