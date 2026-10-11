@@ -17,7 +17,7 @@ import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
-import type { CoteApresLeDuel, EnjeuDuDuel } from './duels'
+import type { CleDeLigue, CoteApresLeDuel, EnjeuDuDuel } from './duels'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -220,6 +220,14 @@ export interface ReponseDeCampagne {
   defi?: { rang: number; joueurs: number }
   /** À la fin d'un défi entre amis qu'il a lancé : les amis choisis au lancement, à qui il vient de partir (`campagne_envois_prevus`). */
   partiA?: string[]
+  /** À la fin d'un duel classé qu'il a lancé : sa cote bougera quand l'autre l'aura joué (`shared/duels.ts`). */
+  classe?: true
+  /**
+   * À la fin d'un duel classé joué le second : celui d'en face et son score —
+   * le duel est joué, les deux cotes ont bougé (`duel`). Son profil, pour la
+   * revanche ; absent d'un masqué, qu'on ne retrouve pas.
+   */
+  contre?: Adversaire & { profileId?: string }
   /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
   eclat?: string
   /** Une révision (`shared/revision.ts`) : où en est la question après cette réponse — apprise, ou quand elle revient. */
@@ -523,7 +531,11 @@ export interface DefiDeLaSemaine {
 /** Une semaine pour le relever : ensuite, son classement se fige et sa correction s'ouvre. */
 export const DUREE_D_UN_DUEL_MS = 7 * 24 * 3_600_000
 
-/** Les défis qu'un joueur tient ouverts à la fois : chacun fige son tirage en base. */
+/**
+ * Les défis qu'un joueur tient ouverts à la fois : chacun fige son tirage en
+ * base. Un duel classé joué des deux côtés n'en est plus un : il n'attend
+ * plus personne.
+ */
 export const DUELS_OUVERTS_MAX = 5
 
 /** Les lettres d'un code de défi : ni 0 ni O, ni 1, I ni L, qu'on confond en les recopiant. */
@@ -551,6 +563,18 @@ export interface DuelEntreAmis {
   tentative: SerieDeCampagne | null
   /** Le sien, pas encore joué jusqu'au bout : les amis choisis au lancement, à qui il partira à sa dernière réponse. */
   prevus?: string[]
+  /**
+   * Un duel classé (`shared/duels.ts`) : qui a été défié — `toi` quand c'est
+   * lui qui regarde —, et, joué des deux côtés, ce qu'il a fait à sa cote.
+   */
+  contre?: { nom: string; avatar: string; toi?: true }
+  ecart?: number
+  /** Un duel classé qu'il n'a pas encore fini : ce qu'il met en jeu sur sa cote, contre la cote d'en face figée au lancement (`enjeuContre`). */
+  enjeu?: EnjeuDuDuel
+  /** Un duel classé que l'autre a fini : son score, à battre. */
+  aBattre?: number
+  /** Un duel classé joué des deux côtés : sa correction est ouverte — personne d'autre n'y joue. */
+  corrige?: true
   joueurs: number
   lignes: LigneDuDefi[]
   moi?: LigneDuDefi
@@ -571,12 +595,13 @@ export interface ResumeDuDuel {
 }
 
 // Ses amis (le souhait du propriétaire du 11 octobre 2026 : « défi entre amis
-// avec liste d'amis ») : ceux qui ont relevé un de ses défis, ou dont il a
-// relevé un. Personne ne s'ajoute à la main — ni demande, ni attente, ni
-// recherche d'un inconnu par son nom : rien à modérer, et un profil masqué
-// n'y paraît jamais. Un ami se retire d'un toucher, et revient s'ils jouent
-// de nouveau ensemble. On lui envoie un défi d'un toucher : il l'attend sous
-// son onglet du défi, sans lien à faire suivre.
+// avec liste d'amis », puis « une liste d'amis avec leur classement et leur
+// ligue, et pouvoir ajouter des amis ») : ceux qu'il a ajoutés — trouvés par
+// leur prénom, d'un toucher, sans demande ni attente : sa liste à lui, comme
+// un carnet d'adresses —, et ceux avec qui il a joué un défi ou un duel. Un
+// profil masqué n'y paraît jamais. Un ami se retire d'un toucher : ni lui ni
+// ses défis ne parviennent plus, jusqu'à ce qu'il l'ajoute de nouveau ou
+// qu'ils jouent de nouveau ensemble.
 
 /** Les amis qu'on montre, les plus récents d'abord : de quoi défier sa bande, pas un annuaire. */
 export const AMIS_MONTRES = 40
@@ -592,15 +617,23 @@ export interface AmiDeCampagne {
   avatar: string
   /** Lu pour un défi (`?duel=`) : il le lui a déjà envoyé, ou l'ami l'a relevé — rien à renvoyer. */
   deja?: 'recu' | 'releve'
+  /** Sa cote et sa ligue, s'il a fini un duel classé ; sa place au classement des duels, s'il y est. */
+  cote?: number
+  ligue?: CleDeLigue
+  rang?: number
 }
 
-/** Un défi entre amis qu'un ami lui a envoyé, et qu'il n'a pas encore relevé. */
+/** Un défi qu'on lui a envoyé — d'un ami, ou un duel classé de qui l'a défié —, qu'il n'a pas encore relevé. */
 export interface DefiRecu {
   code: string
   auteur: { nom: string; avatar: string }
   sujet?: string
   categories?: string[]
   minutesRestantes: number
+  /** Un duel classé : sa cote s'y joue. */
+  classe?: true
+  /** Le score à battre de qui l'a lancé, sa tentative finie. */
+  score?: number
 }
 
 /** Ses amis et ce qu'ils lui ont envoyé (`GET /api/campagne/amis`). */

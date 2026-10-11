@@ -30,7 +30,7 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour, SujetDeNotification } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
-import type { EtatDesDuels } from '../../shared/duels'
+import type { EnjeuDuDuel, EtatDesDuels, JoueurADefier } from '../../shared/duels'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -393,11 +393,15 @@ export const api = {
     releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
     /** Le défi entre amis : le lancer (et jouer sa propre tentative), le relire par son code, le relever, retrouver les siens. */
     duel: {
-      /** Le lancer : ses catégories ou son sujet, et les amis choisis — il leur part à sa dernière réponse. */
-      lancer: (categories: string[], sujet?: string | null, amis: string[] = []) =>
-        req<{ code: string; serie: SerieDeCampagne }>('/api/campagne/duel', {
+      /**
+       * Le lancer : ses catégories ou son sujet, et contre qui — un duel
+       * classé, qui lui part à sa dernière réponse (`adversaire`) ; d'une page
+       * d'avant, des amis choisis (`amis`).
+       */
+      lancer: (categories: string[], sujet?: string | null, amis: string[] = [], adversaire?: string) =>
+        req<{ code: string; serie: SerieDeCampagne; enjeu?: EnjeuDuDuel }>('/api/campagne/duel', {
           method: 'POST',
-          body: JSON.stringify({ categories, ...(sujet && { sujet }), ...(amis.length > 0 && { amis }) }),
+          body: JSON.stringify({ categories, ...(sujet && { sujet }), ...(amis.length > 0 && { amis }), ...(adversaire && { adversaire }) }),
         }),
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
@@ -410,6 +414,8 @@ export const api = {
     amis: {
       lire: (duel?: string) => req<MesAmis>(`/api/campagne/amis${duel ? `?duel=${encodeURIComponent(duel)}` : ''}`),
       retirer: (id: string) => req<{ ok: true }>(`/api/campagne/amis/${encodeURIComponent(id)}/retrait`, { method: 'POST' }),
+      /** L'ajouter à sa liste, trouvé par son prénom : sans demande ni attente. */
+      ajouter: (id: string) => req<{ ok: true }>(`/api/campagne/amis/${encodeURIComponent(id)}/ajout`, { method: 'POST' }),
     },
     /** Un duel classé — affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
     rencontre: {
@@ -457,6 +463,8 @@ export const api = {
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {
     etat: () => req<EtatDesDuels>(DEPART.duels),
+    /** Quelqu'un à défier ou à ajouter, par son prénom. */
+    chercher: (texte: string) => req<JoueurADefier[]>(`/api/duels/joueurs?q=${encodeURIComponent(texte)}`),
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),

@@ -27,11 +27,14 @@ import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
-import { messageDUnDefi, type MessageDUnDefi } from './rappels'
+import { messageDUnDefi, messageDUnDuelJoue, type MessageDUnDefi } from './rappels'
 import {
+  JOUEURS_TROUVES,
   JOURS_DU_CLASSEMENT,
+  LETTRES_POUR_CHERCHER,
   LIGNES_DU_CLASSEMENT,
   confettisDesLigues,
+  enjeuContre,
   enjeuDuDuel,
   ligueDe,
   ligueDeLaSemaine,
@@ -41,9 +44,12 @@ import {
   type ClassementDesDuels,
   type CleDeLigue,
   type CoteApresLeDuel,
+  type DuelContre,
   type DuelJoue,
   type DuelsDAccueil,
+  type EnjeuDuDuel,
   type EtatDesDuels,
+  type JoueurADefier,
   type LigneDesDuels,
   type ReleveDesDuels,
   type SemaineDesDuels,
@@ -243,6 +249,10 @@ interface Duel {
   fermeLe: number
   /** Quand sa fermeture a figé les tentatives laissées en route ; null : pas encore. */
   closLe: number | null
+  /** Un duel classé : qui a été défié, et les deux cotes au lancement ; null : un défi entre amis d'avant, amical. */
+  adversaire: string | null
+  coteAuteur: number | null
+  coteAdversaire: number | null
 }
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
@@ -392,7 +402,7 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'>
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -630,9 +640,27 @@ export class CampagneStore {
            retire_le  INTEGER NOT NULL,
            PRIMARY KEY (profile_id, ami)
          )`,
+        // Un ami ajouté à la main — trouvé par son prénom : sa liste à lui,
+        // sans demande ni attente.
+        `CREATE TABLE IF NOT EXISTS campagne_amis_ajoutes (
+           profile_id TEXT NOT NULL,
+           ami        TEXT NOT NULL,
+           ajoute_le  INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, ami)
+         )`,
       ],
       'write',
     )
+    // Un duel classé contre quelqu'un (`shared/duels.ts`) : qui a été défié,
+    // et les deux cotes au lancement — chacun bouge contre celle de l'autre.
+    for (const [colonne, type] of [
+      ['adversaire', 'TEXT'],
+      ['cote_auteur', 'INTEGER'],
+      ['cote_adversaire', 'INTEGER'],
+    ] as const) {
+      await ajouterColonne(this.client, 'campagne_duels', colonne, type)
+    }
+    await this.client.execute('CREATE INDEX IF NOT EXISTS idx_campagne_duels_adversaire ON campagne_duels(adversaire, ferme_le)')
   }
 
   /** Un geste à la fois par profil : deux onglets qui répondent ensemble ne comptent pas deux fois. */
@@ -1047,8 +1075,12 @@ export class CampagneStore {
       // Le record est celui des séries : un défi a son classement à lui.
       const record = finie && s.mode === 'serie'
       if (record) lot.unshift({ sql: `SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`, args: [profileId] })
-      // Une rencontre finie est un duel classé : ses duels se relisent après elle, dans le même lot — sa fin dit sa cote.
-      const lectureDuDuel = finie && s.mode === 'rencontre' ? lot.push(lectureDesDuels(profileId)) - 1 : -1
+      // Une rencontre finie est un duel classé : ses duels se relisent après
+      // elle, dans le même lot — sa fin dit sa cote. Un duel contre quelqu'un
+      // aussi : joué des deux côtés, il compte, et sa fin la dit de même.
+      const contre = finie && s.mode === 'duel' ? await this.duelDe(s.duel) : null
+      const classe = !!contre?.adversaire
+      const lectureDuDuel = finie && (s.mode === 'rencontre' || classe) ? lot.push(lectureDesDuels(profileId, this.maintenant())) - 1 : -1
       if (juste) lot.push(...lecturesDeLExperience(profileId))
       let res: ResultSet[]
       try {
@@ -1062,6 +1094,9 @@ export class CampagneStore {
       // Le classement des duels se relira : sa cote vient de bouger.
       if (lectureDuDuel >= 0) this.cotes = null
       const duel = lectureDuDuel >= 0 ? this.coteApres(releverLesDuels(duelsLus(res[lectureDuDuel].rows), semaineDeLInstant), s.id) : null
+      // Joué des deux côtés : le téléphone de l'autre sonne, avec le résultat ; sa fin à lui dit le score d'en face.
+      if (classe && duel && contre) this.prevenirDuResultat(contre, profileId, justes)
+      const enFace = classe && duel && contre ? await this.enFaceDuDuel(contre, profileId) : null
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
       const revision = s.mode === 'revision'
@@ -1073,10 +1108,11 @@ export class CampagneStore {
       // L'Éclat du défi se tire ici, à sa tentative finie — jamais dans
       // `recompenserLaSerie`, que la relecture des séries rejoue.
       const eclat = finie && s.mode === 'defi' && s.semaine ? await this.tirerLEclat(profileId, s.semaine) : {}
+      // Un duel classé n'a pas de classement : deux joueurs, un score contre l'autre.
       const defi =
         finie && s.mode === 'defi' && s.semaine
           ? await this.placeAuDefi(s.semaine, profileId)
-          : finie && s.mode === 'duel' && s.duel
+          : finie && s.mode === 'duel' && s.duel && !classe
             ? await this.placeAuDuel(s.duel, profileId)
             : null
       // Finie, une révision redit son carnet : ce qu'elle a appris, ce qui reste à revoir.
@@ -1096,6 +1132,9 @@ export class CampagneStore {
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
         ...(partiA.length > 0 && { partiA }),
+        // Un duel classé qu'il a joué le premier : sa cote bougera quand l'autre l'aura joué.
+        ...(classe && !duel && { classe: true as const }),
+        ...(enFace && { contre: enFace }),
         ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste, q.enAvance, jourDe(maintenant)) }),
         ...(carnet && { carnet }),
         // Une rencontre : ce que son adversaire avait fait de la même question, et les deux scores.
@@ -1178,8 +1217,12 @@ export class CampagneStore {
     // Le défi de la semaine se corrige à sa clôture : finie, la sienne
     // soufflerait ses réponses à ceux qui jouent encore.
     if (s.mode === 'defi' && s.semaine === this.semaineDeLHeure().semaine) throw new Error('La correction du défi s’ouvre à sa clôture, lundi')
-    // Un défi entre amis de même : finie, la sienne soufflerait ses réponses à ceux qu'il a défiés.
-    if (s.mode === 'duel' && !(await this.duelFerme(s.duel))) throw new Error('La correction du défi s’ouvre à sa fermeture : tes amis jouent encore')
+    // Un défi entre amis de même : finie, la sienne soufflerait ses réponses à
+    // ceux qu'il a défiés. Un duel classé joué des deux côtés, lui, n'a plus
+    // personne à qui les souffler : personne d'autre n'y joue (`dansLeDuel`).
+    if (s.mode === 'duel' && !(await this.duelFerme(s.duel)) && !(await this.joueDesDeuxCotes(s.duel))) {
+      throw new Error((await this.duelDe(s.duel))?.adversaire ? 'La correction du duel s’ouvre quand vous l’aurez joué tous les deux' : 'La correction du défi s’ouvre à sa fermeture : tes amis jouent encore')
+    }
     const res = await this.client.execute({ sql: 'SELECT position, choix, juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [s.id] })
     return res.rows.map(r => {
       const q = s.questions[Number(r.position)]
@@ -1217,7 +1260,7 @@ export class CampagneStore {
       [
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
         ...this.lecturesDesSentiers(profileId),
-        lectureDesDuels(profileId),
+        lectureDesDuels(profileId, this.maintenant()),
       ],
       'read',
     )
@@ -1772,16 +1815,47 @@ export class CampagneStore {
       creeLe: Number(r.cree_le),
       fermeLe: Number(r.ferme_le),
       closLe: r.clos_le === null || r.clos_le === undefined ? null : Number(r.clos_le),
+      adversaire: typeof r.adversaire === 'string' && r.adversaire ? r.adversaire : null,
+      coteAuteur: r.cote_auteur === null || r.cote_auteur === undefined ? null : Number(r.cote_auteur),
+      coteAdversaire: r.cote_adversaire === null || r.cote_adversaire === undefined ? null : Number(r.cote_adversaire),
     }
     this.duels.set(code, duel)
     if (this.duels.size > SERIES_GARDEES) this.duels.delete(this.duels.keys().next().value!)
     return duel
   }
 
+  /** Peut-il y jouer, le voir ? Un défi entre amis, qui a son code ; un duel classé, ses deux joueurs seulement. */
+  private dansLeDuel(duel: Duel, profileId: string): boolean {
+    return !duel.adversaire || duel.auteur === profileId || duel.adversaire === profileId
+  }
+
   /** Ce défi a-t-il fermé ? Inconnu, il l'est : rien ne s'y joue plus. */
   private async duelFerme(code: string | null | undefined): Promise<boolean> {
     const d = await this.duelDe(code)
     return !d || this.maintenant() >= d.fermeLe
+  }
+
+  /** Un duel classé joué jusqu'au bout par ses deux joueurs : il n'a plus rien à cacher. */
+  private async joueDesDeuxCotes(code: string | null | undefined): Promise<boolean> {
+    const d = await this.duelDe(code)
+    if (!d?.adversaire) return false
+    const [a, b] = await Promise.all([this.tentativeDuDuel(d.auteur, d.code), this.tentativeDuDuel(d.adversaire, d.code)])
+    return a?.finieLe != null && b?.finieLe != null
+  }
+
+  /**
+   * Celui d'en face, à un duel classé qu'il vient de finir le second : son
+   * prénom, son avatar et son score — sa fin dit qui l'a gagné, comme celle
+   * d'une rencontre. Masqué, « Un joueur », sans son profil : on ne le
+   * retrouve pas pour une revanche.
+   */
+  private async enFaceDuDuel(duel: Duel, profileId: string): Promise<(Adversaire & { profileId?: string }) | null> {
+    const autre = profileId === duel.auteur ? duel.adversaire : duel.auteur
+    if (!autre) return null
+    const [[p], t] = await Promise.all([this.profils ? this.profils.byIds([autre]) : Promise.resolve([null]), this.tentativeDuDuel(autre, duel.code)])
+    if (!t) return null
+    const nomme = p && this.profils && !this.masque?.(p.id)
+    return nomme ? { nom: p.name, avatar: this.profils!.avatarPorte(p), justes: t.justes, profileId: p.id } : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
   }
 
   /** Sa tentative à un défi entre amis, s'il l'a commencée. */
@@ -1829,6 +1903,66 @@ export class CampagneStore {
   }
 
   /**
+   * Qui il défie en duel classé : un profil qui existe — ni lui-même, ni un
+   * masqué, qui se dit introuvable comme un inconnu —, et un seul duel ouvert
+   * entre eux deux : un second le relancerait avant que l'autre ait joué le
+   * premier, ou passerait devant celui qu'on lui a envoyé.
+   */
+  private async adversaireDuDuel(profileId: string, id: string): Promise<string> {
+    if (id === profileId) throw new Error('Tu ne peux pas te défier toi-même : choisis quelqu’un d’autre')
+    const [lui] = this.profils ? await this.profils.byIds([id]) : [null]
+    if (!lui || this.masque?.(lui.id)) throw new Error('Ce joueur est introuvable : cherche-le de nouveau')
+    const ouvert = await this.client.execute({
+      // Et de quoi dire quoi faire : reçu, joué par qui l'a lancé.
+      sql: `SELECT d.auteur,
+              EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = ?) AS recu,
+              EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) AS joue
+            FROM campagne_duels d
+            WHERE d.ferme_le > ? AND ((d.auteur = ? AND d.adversaire = ?) OR (d.auteur = ? AND d.adversaire = ?))
+              AND (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND s.profile_id IN (d.auteur, d.adversaire)) < 2
+            LIMIT 1`,
+      args: [profileId, this.maintenant(), profileId, id, id, profileId],
+    })
+    const r = ouvert.rows[0]
+    if (r) {
+      const joue = Number(r.joue) === 1
+      throw new Error(
+        String(r.auteur) === profileId
+          ? joue
+            ? `Tu as déjà un duel en cours contre ${lui.name} : il attend d’être joué`
+            : `Tu as déjà un duel en cours contre ${lui.name} : finis-le, il partira à ta dernière réponse`
+          : Number(r.recu) === 1
+            ? `${lui.name} t’a déjà défié : relève son duel d’abord, en tête de tes duels`
+            : joue
+              ? // Retenu : il l'avait retiré de ses amis (`aRetire`).
+                `${lui.name} t’a déjà défié : remets ce profil dans tes amis pour recevoir son duel`
+              : `${lui.name} t’a déjà défié : son duel t’arrivera à sa dernière réponse`,
+      )
+    }
+    return lui.id
+  }
+
+  /**
+   * L'a-t-il retiré de ses amis, sans l'avoir ajouté ni joué avec lui depuis ?
+   * Ses duels ne lui parviennent plus — sans que l'autre l'apprenne : il
+   * attend comme on attend quelqu'un qui ne joue pas.
+   */
+  private async aRetire(profileId: string, ami: string): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: `SELECT r.retire_le,
+              (SELECT MAX(ajoute_le) FROM campagne_amis_ajoutes WHERE profile_id = r.profile_id AND ami = r.ami) AS ajoute_le,
+              (SELECT MAX(s.commencee_le) FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel
+                WHERE s.mode = 'duel' AND ((s.profile_id = r.profile_id AND d.auteur = r.ami) OR (s.profile_id = r.ami AND d.auteur = r.profile_id))) AS joue_le
+            FROM campagne_amis_retires r WHERE r.profile_id = ? AND r.ami = ?`,
+      args: [profileId, ami],
+    })
+    const r = res.rows[0]
+    if (!r) return false
+    const depuis = Math.max(Number(r.ajoute_le ?? -Infinity), Number(r.joue_le ?? -Infinity))
+    return Number(r.retire_le) >= depuis
+  }
+
+  /**
    * Lancer un défi entre amis : un tirage sur ses catégories ou son sujet,
    * marche par marche comme une série — sans « jamais vues d'abord », qui ne
    * vaut que pour lui —, figé sous un code neuf ; et sa propre tentative,
@@ -1838,20 +1972,37 @@ export class CampagneStore {
    * sans qu'il l'apprenne — l'attendent à sa dernière réponse
    * (`campagne_envois_prevus`, `envoyerLesPrevus`).
    */
-  creerUnDuel(profileId: string, categories?: readonly string[], sujet?: string, amis?: unknown): Promise<{ code: string; serie: SerieDeCampagne }> {
+  creerUnDuel(
+    profileId: string,
+    categories?: readonly string[],
+    sujet?: string,
+    amis?: unknown,
+    adversaire?: unknown,
+  ): Promise<{ code: string; serie: SerieDeCampagne; enjeu?: EnjeuDuDuel }> {
     return this.avecVerrou(profileId, async () => {
       const maintenant = this.maintenant()
-      const ouverts = await this.client.execute({ sql: 'SELECT COUNT(*) AS n FROM campagne_duels WHERE auteur = ? AND ferme_le > ?', args: [profileId, maintenant] })
-      if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} défis ouverts : attends que l’un d’eux ferme`)
+      // Un duel classé joué des deux côtés n'attend plus personne : il ne compte
+      // plus parmi les ouverts — sinon cinq duels joués dans la journée
+      // bloquaient les suivants une semaine.
+      const ouverts = await this.client.execute({
+        sql: `SELECT COUNT(*) AS n FROM campagne_duels d WHERE d.auteur = ? AND d.ferme_le > ?
+                AND (d.adversaire IS NULL OR (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND s.profile_id IN (d.auteur, d.adversaire)) < 2)`,
+        args: [profileId, maintenant],
+      })
+      if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} duels qui attendent d’être joués : attends que l’un d’eux le soit, ou qu’il ferme`)
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
-      const voulus = idsVoulus(amis)
-      const [toutes, mesure, sesAmis] = await Promise.all([
+      // Un duel classé contre quelqu'un : lui seul l'attend, à sa dernière réponse.
+      const contre = typeof adversaire === 'string' && adversaire ? await this.adversaireDuDuel(profileId, adversaire) : null
+      const voulus = contre ? new Set<string>() : idsVoulus(amis)
+      const [toutes, mesure, sesAmis, cotes] = await Promise.all([
         this.jouables(suivi ? undefined : categories),
         this.mesures(),
         voulus.size > 0 ? this.idsDesAmis(profileId) : Promise.resolve([]),
+        // Les deux cotes au lancement : chacun bougera contre celle de l'autre.
+        contre ? Promise.all([this.releveDesDuels(profileId), this.releveDesDuels(contre)]) : null,
       ])
-      const prevus = sesAmis.filter(id => voulus.has(id))
+      const prevus = contre ? [contre] : sesAmis.filter(id => voulus.has(id))
       const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
@@ -1868,18 +2019,34 @@ export class CampagneStore {
           creeLe: maintenant,
           fermeLe: maintenant + DUREE_D_UN_DUEL_MS,
           closLe: null,
+          adversaire: contre,
+          coteAuteur: cotes ? cotes[0].cote : null,
+          coteAdversaire: cotes ? cotes[1].cote : null,
         }
         try {
           // Le défi, ses amis choisis et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
           const serie = await this.releverLeDuel(profileId, duel, [
             {
-              sql: 'INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le) VALUES (?, ?, ?, ?, ?, ?, ?)',
-              args: [duel.code, profileId, JSON.stringify(questions), retenues ? JSON.stringify(retenues) : null, duel.sujet, maintenant, duel.fermeLe],
+              sql: `INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [
+                duel.code,
+                profileId,
+                JSON.stringify(questions),
+                retenues ? JSON.stringify(retenues) : null,
+                duel.sujet,
+                maintenant,
+                duel.fermeLe,
+                duel.adversaire,
+                duel.coteAuteur,
+                duel.coteAdversaire,
+              ],
             },
             ...prevus.map(id => ({ sql: 'INSERT INTO campagne_envois_prevus (code, profile_id) VALUES (?, ?)', args: [duel.code, id] })),
           ])
           this.duels.set(duel.code, duel)
-          return { code: duel.code, serie: vueDeSerie(serie) }
+          // Ce qu'il met en jeu, que sa partie redit à chaque question : contre la cote d'en face, figée ici.
+          return { code: duel.code, serie: vueDeSerie(serie), ...(cotes && { enjeu: enjeuContre(cotes[0].cote, cotes[1].cote, cotes[0].joues) }) }
         } catch (e) {
           // Un code déjà pris — une chance sur des centaines de millions — : on en tire un autre, une fois.
           if (essai > 0 || !String((e as Error).message).includes('UNIQUE')) throw e
@@ -1895,7 +2062,8 @@ export class CampagneStore {
   releverUnDuel(profileId: string, brut: unknown): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
       const duel = await this.duelDe(lireCodeDuDuel(brut))
-      if (!duel) throw new Error('Ce défi est introuvable : vérifie son lien')
+      // Un duel classé ne se joue qu'à deux : pour un troisième, il n'existe pas.
+      if (!duel || !this.dansLeDuel(duel, profileId)) throw new Error('Ce défi est introuvable : vérifie son lien')
       if (this.maintenant() >= duel.fermeLe) throw new Error('Ce défi est fermé : son classement est figé')
       const deja = await this.tentativeDuDuel(profileId, duel.code)
       if (deja?.finieLe != null) throw new Error('Tu as relevé ce défi : son classement t’attend')
@@ -1927,16 +2095,33 @@ export class CampagneStore {
   /** La page d'un défi entre amis : qui l'a lancé, ce qu'il fait jouer, le temps qui reste, sa tentative et le classement. */
   async duel(profileId: string, brut: unknown): Promise<DuelEntreAmis> {
     const duel = await this.duelDe(lireCodeDuDuel(brut))
-    if (!duel) throw new Error('Ce défi est introuvable : vérifie son lien')
+    if (!duel || !this.dansLeDuel(duel, profileId)) throw new Error('Ce défi est introuvable : vérifie son lien')
     await this.fermerLeDuel(duel)
     const ouvert = this.maintenant() < duel.fermeLe
-    const [tentative, classement, auteur] = await Promise.all([
+    const autre = duel.adversaire ? (duel.auteur === profileId ? duel.adversaire : duel.auteur) : null
+    const [tentative, classement, [auteur, defie], releve, enFace] = await Promise.all([
       this.tentativeDuDuel(profileId, duel.code),
       this.classementDesTentatives({ mode: 'duel', code: duel.code }, ouvert, profileId),
-      this.profils ? this.profils.byIds([duel.auteur]).then(p => p[0] ?? null) : Promise.resolve(null),
+      this.profils ? this.profils.byIds(duel.adversaire ? [duel.auteur, duel.adversaire] : [duel.auteur]) : Promise.resolve([null, null]),
+      // Un duel classé joué des deux côtés : ce qu'il a fait à sa cote.
+      duel.adversaire ? this.releveDesDuels(profileId) : null,
+      // Et le score d'en face, à battre, une fois qu'il l'a joué.
+      autre ? this.tentativeDuDuel(autre, duel.code) : null,
     ])
     // Masqué au quiz du jour, l'auteur ne se nomme pas plus ici, sauf à lui-même.
     const nomme = auteur && (!this.masque?.(auteur.id) || auteur.id === profileId)
+    const ecart = releve && tentative ? releve.ecarts.get(tentative.id)?.ecart : undefined
+    // Pas encore joué jusqu'au bout : ce qu'il met en jeu, contre la cote d'en face figée au lancement — on sait pour quoi on joue.
+    const coteDEnFace = duel.auteur === profileId ? duel.coteAdversaire : duel.coteAuteur
+    const enjeu = releve && ouvert && tentative?.finieLe == null && coteDEnFace !== null ? enjeuContre(releve.cote, coteDEnFace, releve.joues) : null
+    const contre =
+      duel.adversaire && defie !== undefined
+        ? {
+            nom: defie && (!this.masque?.(defie.id) || defie.id === profileId) ? defie.name : 'Un joueur',
+            avatar: defie && this.profils ? this.profils.avatarPorte(defie) : '🎲',
+            ...(duel.adversaire === profileId && { toi: true as const }),
+          }
+        : null
     // Le sien, ouvert : à qui il partira à sa dernière réponse — ou, joué
     // jusqu'au bout et resté en route (un envoi raté), il part maintenant.
     let prevus: string[] = []
@@ -1956,6 +2141,12 @@ export class CampagneStore {
       minutesRestantes: ouvert ? Math.max(1, Math.ceil((duel.fermeLe - this.maintenant()) / 60_000)) : 0,
       tentative: tentative ? vueDeSerie(tentative) : null,
       ...(prevus.length > 0 && { prevus }),
+      ...(contre && { contre }),
+      ...(ecart !== undefined && { ecart }),
+      ...(enjeu && { enjeu }),
+      ...(enFace?.finieLe != null && { aBattre: enFace.justes }),
+      // Ouvert, un duel classé ne compte qu'une fois joué des deux côtés : son écart dit qu'il l'est.
+      ...(contre && ouvert && ecart !== undefined && { corrige: true as const }),
       ...classement,
     }
   }
@@ -1975,8 +2166,9 @@ export class CampagneStore {
   async mesDuels(profileId: string): Promise<ResumeDuDuel[]> {
     const depuis = this.maintenant() - 30 * 24 * HEURE_MS
     const res = await this.client.execute({
+      // Les duels classés ont leur liste à eux (`duelsContre`).
       sql: `SELECT code FROM campagne_duels
-            WHERE ferme_le > ? AND (auteur = ? OR code IN (SELECT duel FROM campagne_series WHERE profile_id = ? AND mode = 'duel'))
+            WHERE ferme_le > ? AND adversaire IS NULL AND (auteur = ? OR code IN (SELECT duel FROM campagne_series WHERE profile_id = ? AND mode = 'duel'))
             ORDER BY cree_le DESC LIMIT ?`,
       args: [depuis, profileId, profileId, DUELS_MONTRES],
     })
@@ -2016,20 +2208,24 @@ export class CampagneStore {
   // qui revient s'ils jouent de nouveau ensemble. Un masqué n'y paraît
   // jamais, et ses défis ne parviennent à personne.
 
-  /** Ses amis, les plus récents d'abord : leur identifiant et leur dernier défi joué ensemble. */
+  /** Ses amis, les plus récents d'abord : leur identifiant, et quand il les a ajoutés ou joué avec eux pour la dernière fois. */
   private async idsDesAmis(profileId: string): Promise<string[]> {
     const [ensemble, retires] = await this.client.batch(
       [
         {
-          // Les tentatives des autres à ses défis, et les siennes aux leurs.
+          // Ceux qu'il a ajoutés ; les tentatives des autres à ses défis entre
+          // amis, et les siennes aux leurs. Un duel classé contre quelqu'un
+          // du classement n'en fait pas un ami : il l'ajoute, s'il veut.
           sql: `SELECT ami, MAX(le) AS le FROM (
+                  SELECT ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE profile_id = ?
+                  UNION ALL
                   SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
-                   WHERE d.auteur = ? AND s.profile_id <> ?
+                   WHERE d.auteur = ? AND s.profile_id <> ? AND d.adversaire IS NULL
                   UNION ALL
                   SELECT d.auteur AS ami, s.commencee_le AS le FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel
-                   WHERE s.profile_id = ? AND s.mode = 'duel' AND d.auteur <> ?
+                   WHERE s.profile_id = ? AND s.mode = 'duel' AND d.auteur <> ? AND d.adversaire IS NULL
                 ) GROUP BY ami ORDER BY le DESC LIMIT ?`,
-          args: [profileId, profileId, profileId, profileId, AMIS_MONTRES * 2],
+          args: [profileId, profileId, profileId, profileId, profileId, AMIS_MONTRES * 2],
         },
         { sql: 'SELECT ami, retire_le FROM campagne_amis_retires WHERE profile_id = ?', args: [profileId] },
       ],
@@ -2049,15 +2245,21 @@ export class CampagneStore {
    */
   async mesAmis(profileId: string, code?: unknown): Promise<MesAmis> {
     const maintenant = this.maintenant()
-    const [ids, envois] = await Promise.all([
+    const [ids, envois, cotes, rangs] = await Promise.all([
       this.idsDesAmis(profileId),
       this.client.execute({
-        sql: `SELECT e.code FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
+        // Et le score à battre de qui l'a lancé, sa tentative finie.
+        sql: `SELECT e.code, (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) AS score
+              FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
               WHERE e.profile_id = ? AND d.ferme_le > ?
                 AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+                AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur AND d.adversaire IS NOT NULL AND r.retire_le >= d.cree_le)
               ORDER BY e.envoye_le DESC LIMIT ?`,
         args: [profileId, maintenant, DEFIS_RECUS_MONTRES],
       }),
+      // Sa ligue et sa place, sur la ligne de chaque ami.
+      this.toutesLesCotes(),
+      this.rangsDuClassement(),
     ])
     // Pour un de ses défis : à qui il est déjà parti, et qui l'a relevé.
     const vise = await this.duelDe(lireCodeDuDuel(code))
@@ -2084,14 +2286,27 @@ export class CampagneStore {
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
       ...(deja.has(x.id) && { deja: deja.get(x.id) }),
+      ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
     }))
-    // Un défi reçu ne vient que d'un ami : un retiré ou un masqué n'envoie rien.
+    // Sa liste se lit comme un classement : la plus haute cote d'abord ; ceux
+    // qui n'ont fini aucun duel classé ensuite, dans l'ordre où ils sont venus.
+    amis.sort((a, b) => (b.cote ?? -Infinity) - (a.cote ?? -Infinity) || 0)
+    // Un défi entre amis ne vient que d'un ami — un retiré ou un masqué
+    // n'envoie rien ; un duel classé, de qui l'a défié, sauf s'il l'avait
+    // retiré de ses amis avant.
     const sesAmis = new Set(ids)
-    const duels = (await Promise.all(envois.rows.map(r => this.duelDe(String(r.code))))).filter((d): d is Duel => d !== null && sesAmis.has(d.auteur))
+    const score = new Map(envois.rows.map(r => [String(r.code), r.score === null || r.score === undefined ? null : Number(r.score)]))
+    const duels = (await Promise.all(envois.rows.map(r => this.duelDe(String(r.code))))).filter(
+      (d): d is Duel => d !== null && !this.masque?.(d.auteur) && (d.adversaire === profileId || sesAmis.has(d.auteur)),
+    )
     const auteurs = new Map(profils.map(x => [x.id, x]))
+    // Qui l'a défié sans être son ami : lu d'un coup.
+    const inconnus = [...new Set(duels.map(d => d.auteur).filter(id => !auteurs.has(id)))]
+    for (const x of inconnus.length > 0 ? await p.byIds(inconnus) : []) if (x) auteurs.set(x.id, x)
     const recus: DefiRecu[] = duels.flatMap(d => {
       const auteur = auteurs.get(d.auteur)
       if (!auteur) return []
+      const s = score.get(d.code)
       return [
         {
           code: d.code,
@@ -2099,10 +2314,100 @@ export class CampagneStore {
           ...(d.sujet && { sujet: d.sujet }),
           ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
           minutesRestantes: Math.max(1, Math.ceil((d.fermeLe - maintenant) / 60_000)),
+          ...(d.adversaire && { classe: true as const }),
+          ...(s !== null && s !== undefined && { score: s }),
         },
       ]
     })
     return { amis, recus, ...(vise?.auteur === profileId && { sien: true as const }) }
+  }
+
+  /** Sa cote, sa ligue et sa place, tels qu'une ligne d'ami ou de recherche les dit — rien tant qu'il n'a fini aucun duel classé. */
+  private saCote(r: ReleveDesDuels | undefined, rang: number | undefined): { cote?: number; ligue?: CleDeLigue; rang?: number } {
+    if (!r || r.joues === 0) return {}
+    return { cote: r.cote, ligue: ligueDe(r.cote).cle, ...(rang !== undefined && { rang }) }
+  }
+
+  /**
+   * La place de chacun au classement des duels, comme il la dit (`classementDesDuels`) :
+   * ceux qui ont joué ces quatre dernières semaines, sans les masqués — rang
+   * partagé, un de plus que ceux qui ont strictement plus (invariant 15).
+   */
+  private async rangsDuClassement(): Promise<Map<string, number>> {
+    const cotes = await this.toutesLesCotes()
+    const depuis = this.maintenant() - JOURS_DU_CLASSEMENT * 24 * HEURE_MS
+    const classes = [...cotes].filter(([id, r]) => r.dernierLe !== null && r.dernierLe >= depuis && !this.masque?.(id)).map(([id, r]) => ({ id, cote: r.cote }))
+    const rangs = new Map<string, number>()
+    for (const c of classes) rangs.set(c.id, 1 + classes.filter(x => x.cote > c.cote).length)
+    return rangs
+  }
+
+  /**
+   * Ajouter un ami à sa liste, trouvé par son prénom : sans demande ni
+   * attente — sa liste à lui. Un profil qui n'existe pas, un masqué ou
+   * lui-même ne s'ajoutent pas ; ajouté après l'avoir retiré, il revient.
+   */
+  async ajouterUnAmi(profileId: string, ami: unknown): Promise<{ ok: true }> {
+    if (typeof ami !== 'string' || !ami || ami === profileId) throw new Error('Ce joueur est introuvable : cherche-le de nouveau')
+    const [lui] = this.profils ? await this.profils.byIds([ami]) : [null]
+    if (!lui || this.masque?.(lui.id)) throw new Error('Ce joueur est introuvable : cherche-le de nouveau')
+    await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO campagne_amis_ajoutes (profile_id, ami, ajoute_le) VALUES (?, ?, ?)
+                ON CONFLICT (profile_id, ami) DO UPDATE SET ajoute_le = excluded.ajoute_le`,
+          args: [profileId, lui.id, this.maintenant()],
+        },
+        // Rajouté, il n'est plus retiré : ses duels reçus avant le retrait reparaissent.
+        { sql: 'DELETE FROM campagne_amis_retires WHERE profile_id = ? AND ami = ?', args: [profileId, lui.id] },
+      ],
+      'write',
+    )
+    // Le duel qu'il lui avait lancé pendant qu'il était retiré l'attend
+    // maintenant : retenu, il bloquait la paire jusqu'à sa fermeture — un
+    // duel ouvert qu'il ne voyait nulle part.
+    const retenus = await this.client.execute({
+      sql: `SELECT d.code, s.justes FROM campagne_duels d
+            JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL
+            WHERE d.auteur = ? AND d.adversaire = ? AND d.ferme_le > ?
+              AND NOT EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = d.adversaire)
+              AND NOT EXISTS (SELECT 1 FROM campagne_series t WHERE t.mode = 'duel' AND t.duel = d.code AND t.profile_id = d.adversaire)`,
+      args: [lui.id, profileId, this.maintenant()],
+    })
+    for (const r of retenus.rows) {
+      const duel = await this.duelDe(String(r.code))
+      if (!duel) continue
+      const ecrit = await this.client.execute({
+        sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)',
+        args: [duel.code, profileId, this.maintenant()],
+      })
+      if (ecrit.rowsAffected > 0) this.prevenirDuDefi(duel, [profileId], Number(r.justes))
+    }
+    return { ok: true }
+  }
+
+  /**
+   * Chercher quelqu'un à défier, ou à ajouter : par son prénom, sans les
+   * accents — « lea » trouve Léa —, ni lui-même, ni un masqué. Chacun dit sa
+   * ligue, sa cote, sa place, et s'il est déjà son ami. Jamais son
+   * identifiant de connexion : on le trouve par lui, on ne le lit pas.
+   */
+  async chercherDesJoueurs(profileId: string, brut: unknown): Promise<JoueurADefier[]> {
+    const texte = typeof brut === 'string' ? tronquer(brut.trim(), 40) : ''
+    const p = this.profils
+    if (!p?.chercher || sansAccent(texte).length < LETTRES_POUR_CHERCHER) return []
+    const trouves = (await p.chercher(texte, JOUEURS_TROUVES + 1)).filter(x => x.id !== profileId && !this.masque?.(x.id)).slice(0, JOUEURS_TROUVES)
+    if (trouves.length === 0) return []
+    const [amis, cotes, rangs] = await Promise.all([this.idsDesAmis(profileId), this.toutesLesCotes(), this.rangsDuClassement()])
+    const sesAmis = new Set(amis)
+    const marques = nomsAffiches(trouves.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    return trouves.map(x => ({
+      profileId: x.id,
+      nom: marques.get(x.id) ?? x.name,
+      avatar: p.avatarPorte(x),
+      ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
+      ...(sesAmis.has(x.id) && { ami: true as const }),
+    }))
   }
 
   /**
@@ -2148,8 +2453,16 @@ export class CampagneStore {
     })
     // Personne de choisi : rien à écrire, la fin de sa tentative n'attend pas un aller-retour de plus.
     if (prevus.rows.length === 0) return []
-    const amis = new Set(await this.idsDesAmis(duel.auteur))
-    const destinataires = prevus.rows.filter(r => !Number(r.joue)).map(r => String(r.profile_id)).filter(id => amis.has(id))
+    // Un duel classé part à qui a été défié — sauf s'il avait retiré de ses
+    // amis celui qui le défie ; un défi entre amis, à ses amis seulement.
+    const [amis, bloque] = await Promise.all([
+      duel.adversaire ? null : this.idsDesAmis(duel.auteur).then(ids => new Set(ids)),
+      duel.adversaire ? this.aRetire(duel.adversaire, duel.auteur) : false,
+    ])
+    const destinataires = prevus.rows
+      .filter(r => !Number(r.joue))
+      .map(r => String(r.profile_id))
+      .filter(id => (amis ? amis.has(id) : !bloque && id === duel.adversaire))
     const ecrits = await this.client.batch(
       [
         ...destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
@@ -2163,7 +2476,8 @@ export class CampagneStore {
       destinataires.filter((_, i) => ecrits[i].rowsAffected > 0),
       justes,
     )
-    return this.prenomsDe(destinataires)
+    // Un duel classé se dit parti même retenu : celui qui défie n'apprend pas qu'on l'a retiré.
+    return this.prenomsDe(duel.adversaire ? [duel.adversaire] : destinataires)
   }
 
   /**
@@ -2214,6 +2528,24 @@ export class CampagneStore {
       // Gardé chez le service jusqu'à sa fermeture : après, il n'y a plus rien à relever.
       await prevenir(ids, message, Math.floor((duel.fermeLe - this.maintenant()) / 1000))
     })().catch(e => console.warn('[campagne] la notification d’un défi n’est pas partie :', e instanceof Error ? e.message : e))
+  }
+
+  /**
+   * Un duel classé vient de se jouer des deux côtés : le téléphone de
+   * l'autre sonne, avec les deux scores et ce que le duel a fait à sa cote
+   * (`messageDUnDuelJoue`). Jamais attendu, et un masqué ne fait rien sonner.
+   */
+  private prevenirDuResultat(duel: Duel, joueur: string, justes: number): void {
+    const prevenir = this.prevenir
+    const autre = joueur === duel.auteur ? duel.adversaire : duel.auteur
+    if (!prevenir || !autre || !this.profils || this.masque?.(joueur)) return
+    const profils = this.profils
+    void (async () => {
+      const [[lui], tentative, releve] = await Promise.all([profils.byIds([joueur]), this.tentativeDuDuel(autre, duel.code), this.releveDesDuels(autre)])
+      if (!lui || !tentative || tentative.finieLe === null) return
+      const ecart = releve.ecarts.get(tentative.id)?.ecart ?? null
+      await prevenir([autre], messageDUnDuelJoue({ adversaire: lui.name, justes: tentative.justes, sesJustes: justes, ecart, code: duel.code }), 7 * 24 * 3600)
+    })().catch(e => console.warn('[campagne] la notification d’un duel joué n’est pas partie :', e instanceof Error ? e.message : e))
   }
 
   /** Retirer un ami de sa liste : ni lui ni ses défis n'y paraissent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
@@ -2368,7 +2700,7 @@ export class CampagneStore {
     const [res, duels] = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`, args: [profileId, RENCONTRES_MONTREES + 1] },
-        lectureDesDuels(profileId),
+        lectureDesDuels(profileId, this.maintenant()),
       ],
       'read',
     )
@@ -2416,7 +2748,7 @@ export class CampagneStore {
 
   /** Ses duels classés, relus : sa cote, ses semaines. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
-    return releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId))).rows), semaineDeLInstant)
+    return releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
   }
 
   /** Sa ligue et sa cote, pour sa carte ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
@@ -2444,7 +2776,7 @@ export class CampagneStore {
     const maintenant = this.maintenant()
     if (this.cotes && maintenant - this.cotes.lu < COTES_GARDEES_MS) return this.cotes.parProfil
     const parProfil = (async () => {
-      const res = await this.client.execute(lectureDesDuels(null))
+      const res = await this.client.execute(lectureDesDuels(null, this.maintenant()))
       const parJoueur = new Map<string, Record<string, unknown>[]>()
       for (const r of res.rows) {
         const id = String(r.profile_id)
@@ -2518,7 +2850,12 @@ export class CampagneStore {
    * de front.
    */
   async etatDesDuels(profileId: string): Promise<EtatDesDuels> {
-    const [{ rencontres, releve }, classement] = await Promise.all([this.rencontresEtDuels(profileId), this.classementDesDuels(profileId)])
+    const [{ rencontres, releve }, classement, auHasard] = await Promise.all([
+      this.rencontresEtDuels(profileId),
+      this.classementDesDuels(profileId),
+      this.adversaireAuHasard(profileId),
+    ])
+    const contre = await this.duelsContre(profileId, releve)
     const passee = releve.semaines.get(this.semaineDeLHeure().passee)
     const payee = recompenseDeLaSemaine(passee)
     return {
@@ -2530,7 +2867,99 @@ export class CampagneStore {
       classement,
       enCours: rencontres.enCours,
       dernieres: rencontres.passees,
+      contre,
+      auHasard,
     }
+  }
+
+  /**
+   * Un adversaire au hasard est-il là ? Une série finie d'un autre, allée au
+   * bout de ses vies, ces trois derniers mois, qu'il n'a pas déjà affrontée —
+   * ce que `commencerUneRencontre` cherchera. Sinon, la page ne propose pas un
+   * bouton qui ne mène qu'à « personne à affronter » (le retour du
+   * propriétaire du 11 octobre 2026). Celle laissée en route se reprend
+   * toujours.
+   */
+  private async adversaireAuHasard(profileId: string): Promise<boolean> {
+    const [candidats, deja] = await this.client.batch(
+      [
+        {
+          sql: `SELECT id, profile_id FROM campagne_series
+                WHERE ${SERIES} AND finie_le IS NOT NULL AND vies = 0 AND position > 0 AND profile_id <> ? AND finie_le > ?
+                ORDER BY finie_le DESC LIMIT ?`,
+          args: [profileId, this.maintenant() - RENCONTRE_SUR_MS, CANDIDATS_A_UNE_RENCONTRE],
+        },
+        { sql: `SELECT json_extract(adversaire, '$.serie') AS serie FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre'`, args: [profileId] },
+      ],
+      'read',
+    )
+    const dejaAffrontees = new Set(deja.rows.map(r => String(r.serie)))
+    return candidats.rows.some(r => !dejaAffrontees.has(String(r.id)) && !this.masque?.(String(r.profile_id)))
+  }
+
+  /**
+   * Ses duels contre quelqu'un, des trente derniers jours : ceux où c'est à
+   * lui de jouer d'abord, puis ceux qui attendent l'autre, puis les joués et
+   * les fermés, les plus récents d'abord. Un duel qu'on lui a lancé ne paraît
+   * qu'une fois parti : avant la dernière réponse de qui le défie, il
+   * n'existe pas pour lui.
+   */
+  private async duelsContre(profileId: string, releve: ReleveDesDuels): Promise<DuelContre[]> {
+    const maintenant = this.maintenant()
+    const res = await this.client.execute({
+      sql: `SELECT code FROM campagne_duels
+            WHERE adversaire IS NOT NULL AND (auteur = ? OR adversaire = ?) AND cree_le > ?
+            ORDER BY cree_le DESC LIMIT ?`,
+      args: [profileId, profileId, maintenant - 30 * 24 * HEURE_MS, DUELS_MONTRES],
+    })
+    const duels = (await Promise.all(res.rows.map(r => this.duelDe(String(r.code))))).filter((d): d is Duel => d !== null && d.adversaire !== null)
+    if (duels.length === 0) return []
+    const [tentatives, recus] = await this.client.batch(
+      [
+        {
+          sql: `SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (${duels.map(() => '?').join(', ')})`,
+          args: duels.map(d => d.code),
+        },
+        { sql: `SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (${duels.map(() => '?').join(', ')})`, args: [profileId, ...duels.map(d => d.code)] },
+      ],
+      'read',
+    )
+    const recu = new Set(recus.rows.map(r => String(r.code)))
+    const tentative = (code: string, id: string) => tentatives.rows.find(r => String(r.duel) === code && String(r.profile_id) === id)
+    const autres = [...new Set(duels.map(d => (d.auteur === profileId ? d.adversaire! : d.auteur)))]
+    const profils = this.profils ? await this.profils.byIds(autres) : []
+    const parId = new Map(autres.map((id, i) => [id, profils[i] ?? null]))
+    const vus = duels.flatMap((d): DuelContre[] => {
+      const lance = d.auteur === profileId
+      const autre = lance ? d.adversaire! : d.auteur
+      // Lancé contre lui : rien tant qu'il ne lui est pas parti.
+      if (!lance && !recu.has(d.code)) return []
+      const sienne = tentative(d.code, profileId)
+      const enFace = tentative(d.code, autre)
+      // Fermé, une tentative commencée compte sur ce qu'elle a atteint (`lectureDesDuels`).
+      const ferme = d.fermeLe <= maintenant
+      const finie = (t: Record<string, unknown> | undefined) => t !== undefined && ((t.finie_le !== null && t.finie_le !== undefined) || ferme)
+      const p = parId.get(autre)
+      const nomme = p && !this.masque?.(p.id)
+      const ecart = finie(sienne) && finie(enFace) ? releve.ecarts.get(String(sienne!.id))?.ecart : undefined
+      return [
+        {
+          code: d.code,
+          contre: { profileId: autre, nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲' },
+          lance,
+          ...(d.sujet && { sujet: d.sujet }),
+          ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
+          justes: finie(sienne) ? Number(sienne!.justes) : null,
+          // Le score d'en face : celui à battre pour qui joue en second, le résultat ensuite.
+          sesJustes: finie(enFace) ? Number(enFace!.justes) : null,
+          ...(ecart !== undefined && { ecart }),
+          minutesRestantes: Math.max(0, Math.ceil((d.fermeLe - maintenant) / 60_000)),
+        },
+      ]
+    })
+    // À lui de jouer d'abord, puis ce qui attend l'autre, puis le reste.
+    const ordre = (d: DuelContre) => (d.minutesRestantes > 0 && d.justes === null ? 0 : d.minutesRestantes > 0 && d.sesJustes === null ? 1 : 2)
+    return vus.map((d, i) => ({ d, i })).sort((a, b) => ordre(a.d) - ordre(b.d) || a.i - b.i).map(({ d }) => d)
   }
 
   /**
@@ -2541,7 +2970,7 @@ export class CampagneStore {
   async accueilDesDuels(profileId: string): Promise<DuelsDAccueil> {
     const [duels, recus, ouverte] = await this.client.batch(
       [
-        lectureDesDuels(profileId),
+        lectureDesDuels(profileId, this.maintenant()),
         lectureDesDefisRecus(profileId, this.maintenant()),
         { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
       ],
@@ -3586,10 +4015,11 @@ export class CampagneStore {
           { sql: 'DELETE FROM campagne_series WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM campagne_signalements WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM sentier_acquis WHERE profile_id = ?', args: [profileId] },
-          // Ce qu'on lui a envoyé — ou prévu de lui envoyer —, ce qu'il a envoyé, et les listes d'amis où il était retiré.
+          // Ce qu'on lui a envoyé — ou prévu de lui envoyer —, ce qu'il a envoyé, et les listes d'amis où il était — retiré ou ajouté.
           { sql: 'DELETE FROM campagne_envois WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
           { sql: 'DELETE FROM campagne_envois_prevus WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
           { sql: 'DELETE FROM campagne_amis_retires WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
+          { sql: 'DELETE FROM campagne_amis_ajoutes WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
         ],
         'write',
       )
@@ -3626,19 +4056,41 @@ function lectureDesJustes(profileId: string): InStatement {
  * l'adversaire. Une rencontre au gardé illisible ne compte pas : elle ne dit
  * pas ce qu'elle affrontait.
  */
-function lectureDesDuels(profileId: string | null): InStatement {
+function lectureDesDuels(profileId: string | null, maintenant: number): InStatement {
+  // Et ses duels contre quelqu'un, joués des deux côtés : chacun sa tentative,
+  // celle d'en face, la cote d'en face figée au lancement — datés du second
+  // qui a fini, quand le duel s'est joué. Un seul des deux n'en fait pas un.
+  // Commencés tous deux, ils comptent aussi à la fermeture, sur les scores
+  // atteints : qui joue en second voit le score à battre, et s'arrêter en
+  // route, une fois battu, ne doit pas effacer le duel. Jamais commencé, il
+  // ne compte pas : personne ne perd de points en dormant.
   return {
-    sql: `SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes
-          FROM campagne_series
-          WHERE ${profileId ? 'profile_id = ? AND ' : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
-          ORDER BY finie_le, id`,
-    args: profileId ? [profileId] : [],
+    sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse FROM (
+            SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes, NULL AS cote_adverse
+            FROM campagne_series
+            WHERE ${profileId ? 'profile_id = ? AND ' : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
+            UNION ALL
+            SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
+                   CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse
+            FROM campagne_duels d
+            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
+            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
+                                  AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?)
+            WHERE d.adversaire IS NOT NULL${profileId ? ' AND m.profile_id = ?' : ''}
+          ) ORDER BY finie_le, id`,
+    args: profileId ? [profileId, maintenant, maintenant, profileId] : [maintenant, maintenant],
   }
 }
 
 /** Des lignes de `lectureDesDuels` aux duels qu'elles racontent. */
 const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[] =>
-  lignes.map(r => ({ serie: String(r.id), justes: Number(r.justes), sesJustes: Number(r.ses_justes), finiLe: Number(r.finie_le) }))
+  lignes.map(r => ({
+    serie: String(r.id),
+    justes: Number(r.justes),
+    sesJustes: Number(r.ses_justes),
+    finiLe: Number(r.finie_le),
+    ...(r.cote_adverse !== null && r.cote_adverse !== undefined && { coteAdverse: Number(r.cote_adverse) }),
+  }))
 
 /** La semaine de Paris d'un instant : la clé sous laquelle ses duels se comptent. */
 const semaineDeLInstant = (instant: number) => semaineDe(jourDe(instant))

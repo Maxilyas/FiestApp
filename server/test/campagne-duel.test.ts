@@ -160,7 +160,7 @@ test('un défi introuvable le dit, et l’on n’en tient que cinq ouverts à la
     for (let i = 0; i < DUELS_OUVERTS_MAX; i++) assert.equal((await poster(banc, lea, '/api/campagne/duel', {})).status, 200)
     const trop = await poster(banc, lea, '/api/campagne/duel', {})
     assert.equal(trop.status, 400)
-    assert.equal(trop.corps.error, `Tu as déjà ${DUELS_OUVERTS_MAX} défis ouverts : attends que l’un d’eux ferme`)
+    assert.equal(trop.corps.error, `Tu as déjà ${DUELS_OUVERTS_MAX} duels qui attendent d’être joués : attends que l’un d’eux le soit, ou qu’il ferme`)
     // Sans profil, le défi le dit comme la campagne.
     assert.equal((await fetch(`${banc.url}/api/campagne/duel/ZZZZZZ`)).status, 401)
   } finally {

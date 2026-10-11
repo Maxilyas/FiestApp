@@ -13,8 +13,20 @@
 // perdre exprès contre son second profil ne donne rien au premier, et battre
 // un score faible ne rapporte presque rien.
 //
-// Les défis entre amis restent amicaux : on y joue les questions d'un autre
-// après lui, et un second profil y soufflerait toutes les réponses au premier.
+// Puis défier quelqu'un (le souhait du propriétaire du 11 octobre 2026 : « tu
+// choisis sur quoi tu veux défier, une barre de recherche, un classement de
+// la ligue avec des petites épées ; une fois le quiz fait de mon côté, ça
+// envoie automatiquement une notification, pas de lien à partager ») : un
+// duel classé entre deux vrais joueurs, sur un tirage figé. Celui qui défie
+// joue d'abord ; à sa dernière réponse, l'autre le reçoit. Joué des deux
+// côtés, chacun bouge contre la cote de l'autre, figée au lancement
+// (`DuelJoue.coteAdverse`) — pas contre son score : un second profil qui
+// rejouerait les questions en connaissant les réponses choisirait son score,
+// pas sa cote, et battre un profil neuf à 1000 ne rapporte que ce qu'une
+// cote de 1000 vaut, de moins en moins à mesure qu'on monte. Chacun se relit
+// toujours seul : rien ne passe d'un profil à l'autre.
+//
+// Les défis entre amis d'avant, à plusieurs et par lien, restent amicaux.
 //
 // Tout se relit dans le journal des rencontres finies (`releverLesDuels`) : la
 // cote, les ligues de chaque semaine, les confettis qu'elles ont payés. Une
@@ -127,10 +139,17 @@ export const resultatDuDuel = (toi: number, lui: number): Resultat => (toi > lui
 /**
  * Ce qu'un duel fait à la cote, en points entiers : ce qu'on affiche est ce
  * qui compte — « +14 » ajoute quatorze, et la cote ne garde pas de virgule
- * qui ferait mentir la somme des écarts.
+ * qui ferait mentir la somme des écarts. `adverse` : la force d'en face — la
+ * cote de son score (`coteDuScore`) contre une série rejouée, sa cote figée
+ * au lancement contre un joueur défié.
  */
+export function ecartContre(cote: number, adverse: number, dejaJoues: number, resultat: Resultat): number {
+  return Math.round(poidsDuDuel(dejaJoues) * (resultat - chancesDeGagner(cote, adverse)))
+}
+
+/** L'écart d'une rencontre : contre la cote de son score. */
 export function ecartDuDuel(cote: number, sesJustes: number, dejaJoues: number, resultat: Resultat): number {
-  return Math.round(poidsDuDuel(dejaJoues) * (resultat - chancesDeGagner(cote, coteDuScore(sesJustes))))
+  return ecartContre(cote, coteDuScore(sesJustes), dejaJoues, resultat)
 }
 
 /** Ce qu'un duel met en jeu, dit avant de le jouer : sa cote, et ce que lui ferait chaque issue. */
@@ -141,21 +160,32 @@ export interface EnjeuDuDuel {
   perdu: number
 }
 
-export function enjeuDuDuel(cote: number, sesJustes: number, dejaJoues: number): EnjeuDuDuel {
+/** Ce que met en jeu un duel contre une force d'en face (`ecartContre`). */
+export function enjeuContre(cote: number, adverse: number, dejaJoues: number): EnjeuDuDuel {
   return {
     cote,
-    gagne: ecartDuDuel(cote, sesJustes, dejaJoues, 1),
-    egalite: ecartDuDuel(cote, sesJustes, dejaJoues, 0.5),
-    perdu: ecartDuDuel(cote, sesJustes, dejaJoues, 0),
+    gagne: ecartContre(cote, adverse, dejaJoues, 1),
+    egalite: ecartContre(cote, adverse, dejaJoues, 0.5),
+    perdu: ecartContre(cote, adverse, dejaJoues, 0),
   }
 }
 
-/** Un duel classé fini, tel que le journal le garde : sa série, ses bonnes réponses, celles du score à battre, quand il a fini. */
+/** Ce que met en jeu une rencontre : contre la cote de son score. */
+export function enjeuDuDuel(cote: number, sesJustes: number, dejaJoues: number): EnjeuDuDuel {
+  return enjeuContre(cote, coteDuScore(sesJustes), dejaJoues)
+}
+
+/**
+ * Un duel classé fini, tel que le journal le garde : sa série, ses bonnes
+ * réponses, celles d'en face, quand il a fini — et, contre un joueur défié,
+ * sa cote figée au lancement, contre laquelle on bouge.
+ */
 export interface DuelJoue {
   serie: string
   justes: number
   sesJustes: number
   finiLe: number
+  coteAdverse?: number
 }
 
 /** Une semaine de duels : combien, et la meilleure cote qu'elle a vue — celle du lundi comprise. */
@@ -191,7 +221,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
   const ecarts = new Map<string, { avant: number; ecart: number }>()
   const semaines = new Map<string, SemaineJouee>()
   ordre.forEach((d, i) => {
-    const ecart = ecartDuDuel(cote, d.sesJustes, i, resultatDuDuel(d.justes, d.sesJustes))
+    const ecart = ecartContre(cote, d.coteAdverse ?? coteDuScore(d.sesJustes), i, resultatDuDuel(d.justes, d.sesJustes))
     const semaine = semaineDe(d.finiLe)
     const s = semaines.get(semaine) ?? { duels: 0, meilleure: cote }
     ecarts.set(d.serie, { avant: cote, ecart })
@@ -273,7 +303,54 @@ export interface ClassementDesDuels {
   sienne?: string
 }
 
-/** La page des duels (`GET /api/duels`) : sa cote, sa semaine, le classement, sa rencontre en route et les dernières. */
+/**
+ * Un joueur qu'on peut défier — trouvé par son prénom, dans sa liste d'amis,
+ * sur une ligne du classement : de quoi le reconnaître et savoir contre qui
+ * on joue.
+ */
+export interface JoueurADefier {
+  profileId: string
+  /** Son prénom, marqué « (2) » s'il en partage un autre et l'avatar avec (`nomsAffiches`). */
+  nom: string
+  avatar: string
+  /** Sa cote et sa ligue, s'il a fini un duel classé — rien sinon : l'absence, pas une ligue de bronze. */
+  cote?: number
+  ligue?: CleDeLigue
+  /** Sa place au classement des duels, s'il y est. */
+  rang?: number
+  /** Dans sa liste d'amis. */
+  ami?: true
+}
+
+/** Ce qu'une recherche rend au plus : de quoi trouver quelqu'un, pas un annuaire. */
+export const JOUEURS_TROUVES = 12
+
+/** Une recherche commence à deux lettres : une seule rendrait la moitié des prénoms. */
+export const LETTRES_POUR_CHERCHER = 2
+
+/**
+ * Un duel contre quelqu'un, dans la page des duels : contre qui, sur quoi,
+ * à qui de jouer — et, joué des deux côtés, les deux scores et ce qu'il a
+ * fait à sa cote.
+ */
+export interface DuelContre {
+  code: string
+  contre: { profileId: string; nom: string; avatar: string }
+  /** C'est lui qui l'a lancé. */
+  lance: boolean
+  sujet?: string
+  categories?: string[]
+  /** Ses bonnes réponses, sa tentative finie ; null : pas encore jouée jusqu'au bout. */
+  justes: number | null
+  /** Celles d'en face : le score à battre pour qui joue en second, le résultat une fois joué des deux côtés. */
+  sesJustes: number | null
+  /** Ce que le duel a fait à sa cote, joué des deux côtés. */
+  ecart?: number
+  /** Les minutes avant qu'il ferme ; 0 : fermé. */
+  minutesRestantes: number
+}
+
+/** La page des duels (`GET /api/duels`) : sa cote, sa semaine, le classement, ses duels — en route et derniers. */
 export interface EtatDesDuels {
   cote: number
   ligue: CleDeLigue
@@ -282,9 +359,14 @@ export interface EtatDesDuels {
   /** La semaine passée, si elle a payé : sa ligue, ses duels, ses confettis. */
   semainePassee?: { ligue: CleDeLigue; duels: number; confettis: number }
   classement: ClassementDesDuels
-  /** Son duel laissé en route : il se reprend. */
+  /** Son duel au hasard laissé en route : il se reprend. */
   enCours: RencontreDeCampagne | null
+  /** Ses duels au hasard, les derniers joués. */
   dernieres: ResumeDeRencontre[]
+  /** Ses duels contre quelqu'un : ceux qui attendent, puis les derniers joués (absent d'un serveur d'avant). */
+  contre?: DuelContre[]
+  /** Un adversaire au hasard est-il là, tout de suite ? Sans série finie d'un autre, le bouton ne paraît pas (absent d'un serveur d'avant). */
+  auHasard?: boolean
 }
 
 /**

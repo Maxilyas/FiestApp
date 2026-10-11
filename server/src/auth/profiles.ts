@@ -83,6 +83,7 @@ import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titre
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
+import { sansAccent } from '../../../shared/homonymes'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
 import type { ArchiveStore } from '../core/archive'
@@ -310,6 +311,9 @@ function lireCondition(brut: unknown): Condition | null {
  * d'identifiants reste loin de la borne des paramètres de SQLite.
  */
 const PROFILS_PAR_PAQUET = 200
+
+/** Les prénoms qu'une recherche parcourt (`chercher`), relus au plus une fois la minute. */
+const ANNUAIRE_GARDE_MS = 60_000
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
@@ -855,6 +859,31 @@ export class ProfileStore {
       const p = this.profiles.get(id)
       return p && !p.disabledAt ? p : null
     })
+  }
+
+  /**
+   * Les profils dont le prénom contient ce texte — sans les accents ni la
+   * casse : « lea » trouve Léa —, ou dont l'identifiant commence par lui,
+   * ceux dont le prénom commence par lui d'abord. Pour défier quelqu'un ou
+   * l'ajouter à ses amis (`CampagneStore.chercherDesJoueurs`) : l'appelant
+   * écarte les masqués, et ne montre jamais l'identifiant. Les prénoms se
+   * relisent au plus une fois la minute — une frappe ne coûte pas une
+   * lecture de tous les profils —, et dès qu'un profil naît ou change de
+   * prénom ici.
+   */
+  async chercher(texte: string, limite: number): Promise<ProfileRec[]> {
+    const cherche = sansAccent(texte)
+    if (!cherche) return []
+    const maintenant = Date.now()
+    if (!this.annuaire || maintenant - this.annuaire.lu > ANNUAIRE_GARDE_MS) {
+      const res = await this.client.execute('SELECT id, name, login FROM profiles WHERE disabled_at IS NULL')
+      this.annuaire = { lu: maintenant, lignes: res.rows.map(r => ({ id: String(r.id), nom: sansAccent(String(r.name)), login: String(r.login) })) }
+    }
+    const trouves = this.annuaire.lignes
+      .filter(l => l.nom.includes(cherche) || l.login.startsWith(cherche))
+      .sort((a, b) => Number(!a.nom.startsWith(cherche)) - Number(!b.nom.startsWith(cherche)) || a.nom.localeCompare(b.nom))
+      .slice(0, limite)
+    return (await this.byIds(trouves.map(l => l.id))).filter((p): p is ProfileRec => p !== null)
   }
 
   async byLogin(login: unknown): Promise<ProfileRec | null> {
@@ -1604,6 +1633,8 @@ export class ProfileStore {
     this.eclats.set(rec.id, new Set())
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
+    // Né à l'instant, il se trouve tout de suite : l'ami qui le cherche est souvent à côté de lui.
+    this.annuaire = null
     return { profile: rec, recovery }
   }
 
@@ -1647,6 +1678,7 @@ export class ProfileStore {
     this.eclats.set(rec.id, new Set())
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
+    this.annuaire = null
     return rec
   }
 
@@ -1860,6 +1892,8 @@ export class ProfileStore {
         args: [...colonnes.map(c => champs[c]!), id],
       })
       Object.assign(rec, champs)
+      // Un prénom changé se cherche sous le nouveau dès maintenant (`chercher`).
+      if ('name' in champs) this.annuaire = null
     }
     if (eclat) {
       await this.client.execute({
@@ -2686,6 +2720,8 @@ export class ProfileStore {
    * ouverture d'une page.
    */
   private porteurs: { at: number; porteurs: Map<string, number>; profils: number } | null = null
+  /** Les prénoms sans accents et les identifiants de tous, pour `chercher`. */
+  private annuaire: { lu: number; lignes: { id: string; nom: string; login: string }[] } | null = null
 
   private async populationBadges(): Promise<{ porteurs: Map<string, number>; profils: number }> {
     const frais = this.porteurs && Date.now() - this.porteurs.at < 60_000

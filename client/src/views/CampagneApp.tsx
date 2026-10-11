@@ -7,7 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre } from './Rencontre'
+import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
@@ -37,6 +37,7 @@ import {
   JUSTES_DOUBLEES_PAR_JOUR,
   VIES,
   XP_PAR_JUSTE,
+  issueDeRencontre,
   lireCodeDuDuel,
   type Adversaire,
   type CorrectionDeCampagne,
@@ -51,7 +52,7 @@ import {
   type SerieDeCampagne,
 } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
-import type { CoteApresLeDuel, EnjeuDuDuel } from '../../../shared/duels'
+import type { CoteApresLeDuel, EnjeuDuDuel, JoueurADefier } from '../../../shared/duels'
 
 type Ecran =
   | { e: 'chargement' }
@@ -87,6 +88,8 @@ type Ecran =
       apprises?: number
       /** Une rencontre — un duel classé : qui l'on affronte, ses bonnes réponses jusqu'à la question qu'on vient de jouer, et ce qu'elle met en jeu sur sa cote. */
       rencontre?: { adversaire: Adversaire; sesJustes: number; enjeu?: EnjeuDuDuel }
+      /** Un duel contre quelqu'un : qui l'on affronte, son score à battre s'il l'a joué, et ce qui se joue sur sa cote. */
+      contre?: ContreEnJeu
     }
   | {
       e: 'fin'
@@ -100,8 +103,12 @@ type Ecran =
       erreurs: number
       /** Une révision du carnet : ses questions, ce qu'elle a fait apprendre, et le carnet relu. */
       revision?: { total: number; apprises: number; carnet: EtatDuCarnet | null }
-      /** Une rencontre : qui l'on affrontait, et qui l'a gagnée. */
+      /** Une rencontre — ou un duel contre quelqu'un joué des deux côtés : qui l'on affrontait, et qui l'a gagnée. */
       rencontre?: { adversaire: Adversaire; issue: IssueDeRencontre }
+      /** Un duel contre quelqu'un qu'il vient de jouer le premier : il est parti, sa cote bougera quand l'autre l'aura joué. */
+      classe?: true
+      /** Un duel contre quelqu'un joué des deux côtés : de quoi en relancer un, contre le même. */
+      revanche?: JoueurADefier
       /** Un duel classé : ce qu'il a fait à sa cote, à sa ligue et à sa semaine. */
       cote?: CoteApresLeDuel
       record: boolean
@@ -540,6 +547,12 @@ export function CampagneApp() {
         erreurs: VIES - r.vies,
         ...(ecran.revision && { revision: { total: ecran.total, apprises: ecran.apprises ?? 0, carnet: r.carnet ?? null } }),
         ...(ecran.rencontre && r.rencontre?.issue && { rencontre: { adversaire: ecran.rencontre.adversaire, issue: r.rencontre.issue } }),
+        // Un duel contre quelqu'un, joué le second : sa fin se lit comme celle d'une rencontre — les deux scores, qui l'a gagné.
+        ...(r.contre && {
+          rencontre: { adversaire: r.contre, issue: issueDeRencontre(r.justes, r.contre.justes) },
+          ...(r.contre.profileId && { revanche: { profileId: r.contre.profileId, nom: r.contre.nom, avatar: r.contre.avatar } }),
+        }),
+        ...(r.classe && { classe: true as const }),
         ...(r.duel && { cote: r.duel }),
         record: !!r.record,
         recordAvant: r.recordAvant ?? null,
@@ -668,8 +681,12 @@ export function CampagneApp() {
     }
   }
 
-  /** Un défi entre amis, lancé ou relevé : la même partie, une seule tentative, son code au bout pour l'envoyer. */
-  const jouerLeDuel = (t: SerieDeCampagne, code: string, lance = false) => {
+  /**
+   * Un défi entre amis, lancé ou relevé : la même partie, une seule tentative,
+   * son code au bout pour l'envoyer. Un duel contre quelqu'un (`contre`) : la
+   * partie dit à chaque question qui l'on affronte et ce qui se joue.
+   */
+  const jouerLeDuel = (t: SerieDeCampagne, code: string, lance = false, contre?: ContreEnJeu) => {
     if (!t.question) return
     setEcran({
       e: 'jeu',
@@ -686,19 +703,24 @@ export function CampagneApp() {
       defi: true,
       duel: code,
       ...(lance && { lance: true as const }),
+      ...(contre && { contre }),
     })
     // Relevé, un défi reçu quitte la liste — et le compte de l'onglet.
     if (mesAmis?.recus.some(d => d.code === code)) void relireMesAmis()
   }
 
   /**
-   * Préparer un défi entre amis (`/duels#defier`) : à qui, sur quoi — les
-   * catégories ou le sujet de sa dernière série d'abord, l'ami touché déjà
-   * coché. Une entrée d'historique : le retour du téléphone, comme « ← Les
-   * duels », ramène d'où l'on vient. Ce que la campagne peut poser se lit à
-   * l'arrivée — la page des duels n'en a pas besoin.
+   * Préparer un duel (`/duels#defier`) : contre qui, sur quoi — les
+   * catégories ou le sujet de sa dernière série d'abord, le joueur touché
+   * (l'épée du classement, un ami) déjà choisi. Une entrée d'historique : le
+   * retour du téléphone, comme « ← Les duels », ramène d'où l'on vient. Ce
+   * que la campagne peut poser se lit à l'arrivée — la page des duels n'en a
+   * pas besoin.
    */
-  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; ami?: string }>({ categories: [], sujet: null })
+  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }>({
+    categories: [],
+    sujet: null,
+  })
   const laPreparation = useALaDemande(lancement, mode === 'defier')
   useEffect(() => {
     if (mode !== 'defier' || etatPourLancer || ecran.e !== 'duels') return
@@ -711,8 +733,8 @@ export function CampagneApp() {
       vivant = false
     }
   }, [mode, etatPourLancer, ecran.e])
-  const ouvrirLeLancement = (ami?: AmiDeCampagne) => {
-    setDepart({ categories, sujet, ...(ami && { ami: ami.profileId }) })
+  const ouvrirLeLancement = (adversaire?: JoueurADefier, moi?: { cote: number; joues: number }) => {
+    setDepart({ categories, sujet, ...(adversaire && { adversaire }), ...(moi && { moi }) })
     history.pushState({ ...history.state, [LANCEMENT]: true }, '', `${PAGE_DES_DUELS}${window.location.search}${ADRESSE_DU_LANCEMENT}`)
     setErreur('')
     setMode('defier')
@@ -723,20 +745,27 @@ export function CampagneApp() {
     choisirMode('duels')
   }
 
-  /** Un défi lancé : son tirage sur ce qu'on a choisi — catégories ou sujet —, les amis choisis, et sa propre tentative d'abord. */
-  const lancerUnDuel = async (choisies: string[], choisi: string | null, amis: string[]) => {
+  /**
+   * Un duel lancé : son tirage sur ce qu'on a choisi — catégories ou sujet —,
+   * contre qui, et sa propre tentative d'abord ; à sa dernière réponse, il
+   * part à l'autre (`envoyerLesPrevus`), sans lien à envoyer.
+   */
+  const lancerUnDuel = async (choisies: string[], choisi: string | null, adversaire: JoueurADefier, enjeu?: EnjeuDuDuel) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const { code, serie } = await api.campagne.duel.lancer(choisi ? [] : choisies, choisi, amis)
+      const lance = await api.campagne.duel.lancer(choisi ? [] : choisies, choisi, [], adversaire.profileId)
+      const { code, serie } = lance
+      // L'enjeu du serveur, sur les cotes figées au lancement ; sinon celui que la préparation a dit.
+      const enJeu = lance.enjeu ?? enjeu
       // Lancé, il ne se prépare plus : l'entrée de la préparation devient la page des duels — le
       // retour du téléphone, après son classement, ne rouvre pas un défi déjà parti.
       if (window.location.hash === ADRESSE_DU_LANCEMENT) {
         history.replaceState({ ...history.state, [LANCEMENT]: undefined }, '', `${PAGE_DES_DUELS}${window.location.search}`)
         setMode('duels')
       }
-      jouerLeDuel(serie, code, true)
+      jouerLeDuel(serie, code, true, { nom: adversaire.nom, avatar: adversaire.avatar, justes: null, ...(enJeu && { enjeu: enJeu }) })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -744,11 +773,11 @@ export function CampagneApp() {
     }
   }
 
-  /** Retirer un ami de sa liste, après confirmation : ses défis ne lui parviennent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
+  /** Retirer un ami de sa liste, après confirmation : ses duels ne lui parviennent plus, jusqu'à ce qu'il le rajoute ou qu'ils jouent de nouveau ensemble. */
   const retirerUnAmi = async (ami: AmiDeCampagne) => {
     const oui = await confirmDialog({
       title: `Retirer ${ami.nom} de tes amis ?`,
-      message: 'Ses défis ne te parviendront plus. S’il relève un de tes défis — ou toi un des siens —, il reviendra.',
+      message: 'Il quitte ta liste, et ses duels ne te parviendront plus. Tu pourras le rajouter par son prénom.',
       confirmLabel: 'Retirer',
       cancelLabel: 'Garder',
     })
@@ -759,6 +788,12 @@ export function CampagneApp() {
     } catch (e) {
       setErreur(motifDe(e))
     }
+  }
+
+  /** Ajouter un ami trouvé par son prénom : sans demande ni attente, il rejoint sa liste — sa ligue et sa cote avec. */
+  const ajouterUnAmi = async (joueur: JoueurADefier) => {
+    await api.campagne.amis.ajouter(joueur.profileId)
+    await relireMesAmis()
   }
 
   /** La page d'un défi entre amis, à son adresse : le retour du navigateur, comme « ← Les duels », ramène d'où l'on vient. */
@@ -864,7 +899,7 @@ export function CampagneApp() {
             depart={{ ...depart, sujet: sujets.some(x => x.cle === depart.sujet) ? depart.sujet : null }}
             busy={busy}
             erreur={erreur}
-            onLancer={(c, x, a) => void lancerUnDuel(c, x, a)}
+            onLancer={(c, x, a, enjeu) => void lancerUnDuel(c, x, a, enjeu)}
             onRetour={quitterLeLancement}
           />
           {toastVu}
@@ -884,9 +919,10 @@ export function CampagneApp() {
         <laPageDesDuels.PageDesDuels
           amis={mesAmis}
           onJouer={jouerLaRencontre}
-          onLancer={ouvrirLeLancement}
+          onDefier={ouvrirLeLancement}
           onOuvrirDuel={code => void ouvrirLeDuel(code)}
           onRetirerAmi={a => void retirerUnAmi(a)}
+          onAjouterAmi={ajouterUnAmi}
         />
         {toastVu}
       </>
@@ -1092,7 +1128,7 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <header className="fin-tete">
-          <span className="label">{`Duel contre ${adversaire.nom}`}</span>
+          <span className="label">{`${ecran.duel ? 'Duel classé' : 'Duel'} contre ${adversaire.nom}`}</span>
           <h1>{issue === 'gagnee' ? 'Gagné !' : issue === 'egalite' ? 'Égalité' : adversaire.justes - ecran.justes <= 2 ? 'Perdu de peu' : 'Perdu'}</h1>
         </header>
         <section className={'card result-banner campagne-fin ' + (issue === 'perdue' ? 'result-ko' : 'result-ok')}>
@@ -1120,7 +1156,8 @@ export function CampagneApp() {
         </section>
         {/* Un duel classé : sa cote, sa ligue, sa semaine — ce pour quoi on l'a joué. */}
         {ecran.cote && laPageDesDuels && laPageDesDuels !== 'perdu' && <laPageDesDuels.CoteApresLeDuelVue cote={ecran.cote} />}
-        {ecran.erreurs > 0 && (
+        {/* Celles d'un duel contre quelqu'un attendent sa fermeture, comme celles d'un défi. */}
+        {!ecran.defi && ecran.erreurs > 0 && (
           <p className="muted small centre carnet-rappel">
             <Icon name="book" /> {ecran.erreurs > 1 ? 'Tes erreurs reviendront' : 'Ton erreur reviendra'} demain dans{' '}
             <button type="button" className="link-inline" onClick={() => void ouvrirLeCarnet()}>
@@ -1141,10 +1178,27 @@ export function CampagneApp() {
           <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
         ))}
         {erreur && <p className="error">{erreur}</p>}
-        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void uneAutreRencontre()}>
-          <Icon name="swords" />
-          Un autre adversaire
-        </button>
+        {ecran.duel ? (
+          // Joué des deux côtés : on en relance un contre le même, d'un toucher — lui déjà choisi.
+          ecran.revanche && (
+            <button
+              type="button"
+              className="btn btn-primary btn-big btn-block"
+              onClick={() => {
+                ouvrirLeLancement(ecran.revanche)
+                void relire()
+              }}
+            >
+              <Icon name="swords" />
+              {`Revanche contre ${ecran.revanche.nom}`}
+            </button>
+          )
+        ) : (
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void uneAutreRencontre()}>
+            <Icon name="swords" />
+            Un autre adversaire
+          </button>
+        )}
         <div className="row campagne-suite">
           {!ecran.correction && (
             <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
@@ -1186,9 +1240,13 @@ export function CampagneApp() {
       <div className="player-shell campagne">
         <header className="fin-tete">
           <span className="label">
-            {ecran.duel ? `Défi entre amis${jouees ? ` · ${jouees}` : ''}` : ecran.defi ? 'Le défi de la semaine' : `La campagne${jouees ? ` · ${jouees}` : ''}`}
+            {ecran.duel
+              ? `${ecran.classe ? 'Duel classé' : 'Défi entre amis'}${jouees ? ` · ${jouees}` : ''}`
+              : ecran.defi
+                ? 'Le défi de la semaine'
+                : `La campagne${jouees ? ` · ${jouees}` : ''}`}
           </span>
-          <h1>{ecran.lance ? 'Défi lancé' : ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
+          <h1>{ecran.lance ? (ecran.classe ? 'Duel lancé' : 'Défi lancé') : ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
           <span className="big">{ecran.justes}</span>
@@ -1245,7 +1303,9 @@ export function CampagneApp() {
         {ecran.duel ? (
           // L'envoyer d'abord : celui qui vient de le lancer n'a encore défié personne.
           laPageDesDuels &&
-          laPageDesDuels !== 'perdu' && <laPageDesDuels.FinDuDuel code={ecran.duel} justes={ecran.justes} partiA={ecran.partiA} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
+          laPageDesDuels !== 'perdu' && (
+            <laPageDesDuels.FinDuDuel code={ecran.duel} justes={ecran.justes} partiA={ecran.partiA} classe={!!ecran.classe} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
+          )
         ) : ecran.defi ? (
           <>
             {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. */}
@@ -1291,13 +1351,17 @@ export function CampagneApp() {
         ? 'Ta révision t’attend : reprends-la quand tu veux'
         : ecran.rencontre
           ? 'Ton duel t’attend : reprends-le quand tu veux'
-          : ecran.duel
-            ? 'Ton défi t’attend : reprends-le avant sa fermeture'
-            : ecran.defi
-              ? 'Ton défi t’attend : reprends-le avant sa clôture'
-              : 'Ta série t’attend : reprends-la quand tu veux',
+          : ecran.contre
+            ? 'Ton duel t’attend : reprends-le avant sa fermeture'
+            : ecran.duel
+              ? 'Ton défi t’attend : reprends-le avant sa fermeture'
+              : ecran.defi
+                ? 'Ton défi t’attend : reprends-le avant sa clôture'
+                : 'Ta série t’attend : reprends-la quand tu veux',
     })
   }
+  // Un duel au hasard ou contre quelqu'un : ce qu'il met en jeu sur sa cote.
+  const enjeu = ecran.rencontre?.enjeu ?? ecran.contre?.enjeu
   return (
     <div className="player-shell campagne">
       <div className="quiz-player">
@@ -1309,9 +1373,9 @@ export function CampagneApp() {
           {ecran.revision ? (
             // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
             <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
-          ) : ecran.rencontre ? (
+          ) : ecran.rencontre || ecran.contre ? (
             <>
-              <span className="label">{`Contre ${ecran.rencontre.adversaire.nom} · question ${q.index + 1}`}</span>
+              <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom} · question ${q.index + 1}`}</span>
               <Vies restantes={ecran.vies} />
             </>
           ) : (
@@ -1334,10 +1398,20 @@ export function CampagneApp() {
             <span className="muted small">{`à battre : ${ecran.rencontre.adversaire.justes}`}</span>
           </p>
         )}
+        {/* Un duel contre quelqu'un : son score à battre s'il l'a joué — question par question, on ne sait pas ce qu'il a fait. */}
+        {ecran.contre && (
+          <p className="rencontre-score" aria-live="polite">
+            <span className="rencontre-adversaire" aria-hidden="true">
+              {ecran.contre.avatar}
+            </span>
+            <b>{`Toi ${ecran.justes}`}</b>
+            <span className="muted small">{ecran.contre.justes !== null ? `à battre : ${ecran.contre.justes}` : `${ecran.contre.nom} jouera après toi`}</span>
+          </p>
+        )}
         {/* Ce que le duel met en jeu sur sa cote, dit à chaque question : on sait pour quoi on joue. */}
-        {ecran.rencontre?.enjeu && !r?.finie && (
+        {enjeu && !r?.finie && (
           <p className="muted small duels-enjeu">
-            En jeu : <b className="duels-plus">{ecartSigne(ecran.rencontre.enjeu.gagne)}</b> si tu gagnes, <b className="duels-moins">{ecartSigne(ecran.rencontre.enjeu.perdu)}</b> si tu perds
+            En jeu : <b className="duels-plus">{ecartSigne(enjeu.gagne)}</b> si tu gagnes, <b className="duels-moins">{ecartSigne(enjeu.perdu)}</b> si tu perds
           </p>
         )}
         {q.categorie && <span className="label quiz-categorie">{q.categorie}</span>}
@@ -1417,7 +1491,15 @@ export function CampagneApp() {
               </p>
             )}
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
-              {r.finie ? (ecran.revision ? 'Voir ma révision' : ecran.rencontre ? 'Voir qui a gagné' : 'Voir ma série') : 'Question suivante'}
+              {r.finie
+                ? ecran.revision
+                  ? 'Voir ma révision'
+                  : ecran.rencontre || r.contre
+                    ? 'Voir qui a gagné'
+                    : ecran.contre
+                      ? 'Voir mon duel'
+                      : 'Voir ma série'
+                : 'Question suivante'}
             </button>
             <button type="button" className="lien-signaler link-inline small" onClick={() => void signaler(ecran.serie, q.index)}>
               Signaler une erreur dans cette question

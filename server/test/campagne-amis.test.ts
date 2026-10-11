@@ -93,9 +93,9 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
       ],
       'parti : rien à renvoyer',
     )
-    // Tom le trouve sous son onglet du défi — qui, sur quoi, le temps qui reste ; Zoé, rien.
+    // Tom le trouve sous son onglet du défi — qui, sur quoi, le score à battre, le temps qui reste ; Zoé, rien.
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [
-      { code: second.code, auteur: { nom: 'Léa', avatar: '🦊' }, categories: ['Histoire'], minutesRestantes: DUREE_D_UN_DUEL_MS / 60_000 },
+      { code: second.code, auteur: { nom: 'Léa', avatar: '🦊' }, categories: ['Histoire'], minutesRestantes: DUREE_D_UN_DUEL_MS / 60_000, score: 4 },
     ])
     assert.deepEqual((await lire(banc, zoe, '/api/campagne/amis')).corps.recus, [])
     // L'accueil le dit aussi, sur le bouton des duels — sortis de la campagne : qui le défie, et combien.

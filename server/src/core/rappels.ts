@@ -111,6 +111,23 @@ export function messageDUnDefi(d: { auteur: string; quoi: string | null; justes:
 }
 
 /**
+ * Le texte d'un duel classé que l'autre vient de jouer : les deux scores,
+ * l'issue, et ce que le duel a fait à sa cote — le prénom de qui l'a joué,
+ * jamais celui de qui le reçoit. Son étiquette à lui : il ne chasse pas un
+ * défi qu'on n'a pas encore lu.
+ */
+export function messageDUnDuelJoue(d: { adversaire: string; justes: number; sesJustes: number; ecart: number | null; code: string }): MessageDUnDefi {
+  const issue = d.justes > d.sesJustes ? 'tu gagnes' : d.justes === d.sesJustes ? 'égalité' : 'tu perds'
+  const cote = d.ecart === null ? '' : ` : ta cote ${d.ecart >= 0 ? '+' : '−'}${Math.abs(d.ecart)}`
+  return {
+    titre: espacesFines(`${d.adversaire} a joué votre duel`),
+    corps: espacesFines(`${d.justes} à ${d.sesJustes}, ${issue}${cote}.`),
+    url: `/duels#duel-${d.code}`,
+    tag: `duel-${d.code}`,
+  }
+}
+
+/**
  * Le texte du rappel : la partie commencée à finir, la série à tenir, ou le
  * quiz du jour tout court. Jamais de prénom : une notification se lit sur
  * l'écran verrouillé, par qui le tient.

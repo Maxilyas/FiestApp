@@ -12,6 +12,9 @@ import { LigneDuDefiVue, useCarteDuClassement } from './Defi'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
+import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
+import { ecartSigne, type ContreEnJeu } from './Rencontre'
+import type { DuelContre, JoueurADefier } from '../../../shared/duels'
 
 export { ADRESSE_DU_LANCEMENT, adresseDuDuel } from './adressesDesDuels'
 
@@ -182,8 +185,44 @@ const partiAvec = (noms: readonly string[]) =>
  * l'écran de la série), à qui il vient de partir (`partiA` : les amis choisis
  * en le lançant), puis de quoi l'envoyer encore — à d'autres amis d'un
  * toucher, aux autres par son lien —, et son classement.
+ *
+ * Un duel classé (`classe`) ne s'envoie à personne d'autre, ni par lien :
+ * il est parti à celui qu'il défie. Joué le premier, sa cote bougera quand
+ * l'autre l'aura joué ; joué le second, sa cote se dit au-dessus
+ * (`CoteApresLeDuelVue`).
  */
-export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: string; justes: number; partiA?: readonly string[]; onClassement: () => void }) {
+export function FinDuDuel({
+  code,
+  justes,
+  partiA = [],
+  classe = false,
+  onClassement,
+}: {
+  code: string
+  justes: number
+  partiA?: readonly string[]
+  classe?: boolean
+  onClassement: () => void
+}) {
+  if (classe) {
+    return (
+      <>
+        {partiA.length > 0 && (
+          <p className="card duel-parti" role="status">
+            <Icon name="check-circle" />
+            <span>{espacesFines(`${partiAvec(partiA)} Ta cote bougera quand ${enPhrase(partiA)} l’aura joué.`)}</span>
+          </p>
+        )}
+        <button type="button" className="btn btn-primary btn-big btn-block" onClick={onClassement}>
+          <Icon name="swords" />
+          Voir le duel
+        </button>
+        <p className="muted small centre">
+          {espacesFines(`La correction s’ouvre quand ${partiA.length > 0 ? enPhrase(partiA) : 'l’autre'} l’aura joué : avant, elle lui soufflerait les réponses.`)}
+        </p>
+      </>
+    )
+  }
   return (
     <>
       {partiA.length > 0 && (
@@ -204,10 +243,46 @@ export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: s
 }
 
 /**
+ * Le gros chiffre d'un duel classé : le sien une fois joué — et, joué des
+ * deux côtés, qui l'a gagné —, sinon le score à battre, sinon ce qui reste
+ * avant qu'il ferme.
+ */
+function HudDuDuelClasse({ duel }: { duel: DuelEntreAmis }) {
+  const t = duel.tentative
+  const ferme = fermeture(duel.minutesRestantes)
+  if (t?.finie) {
+    const issue =
+      duel.aBattre === undefined ? null : t.justes > duel.aBattre ? 'gagné' : t.justes === duel.aBattre ? 'égalité' : 'perdu'
+    return (
+      <div className="campagne-record-hud">
+        <b>{t.justes}</b>
+        <span>
+          {t.justes > 1 ? 'bonnes réponses' : 'bonne réponse'}
+          <br />
+          {issue ? `${issue}, ${t.justes} à ${duel.aBattre}` : duel.minutesRestantes > 0 ? 'en attente de l’autre' : 'il ne l’a pas joué'}
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="campagne-record-hud">
+      <b>{duel.aBattre ?? (t ? t.justes : '–')}</b>
+      <span>
+        {duel.aBattre !== undefined ? 'bonnes réponses à battre' : t ? 'bonnes réponses pour l’instant' : 'à toi de jouer d’abord'}
+        <br />
+        {ferme}
+      </span>
+    </div>
+  )
+}
+
+/**
  * Un défi entre amis (`/duels#duel-K7M2QX`) : qui l'a lancé, ce qu'il fait
  * jouer, le temps qui reste, sa tentative et le classement ; fermé, sa
  * correction. La partie se joue sur l'écran de la série (`CampagneApp`),
- * comme celle d'un duel classé.
+ * comme celle d'un duel classé. Un duel contre quelqu'un s'y lit de même,
+ * à deux : le score à battre, ce qui se joue sur sa cote, et — joué des deux
+ * côtés — qui l'a gagné, et sa correction.
  */
 export function PageDuDuel({
   code,
@@ -217,8 +292,8 @@ export function PageDuDuel({
   code: string
   /** « ← Les duels » : la page d'où l'on vient, sans la recharger. */
   onRetour: () => void
-  /** `lance` : le sien, repris — sa fin dit « Défi lancé ». */
-  onJouer: (tentative: SerieDeCampagne, code: string, lance: boolean) => void
+  /** `lance` : le sien, repris — sa fin dit « Défi lancé » ; `contre` : un duel classé, qui l'on affronte et ce qui se joue. */
+  onJouer: (tentative: SerieDeCampagne, code: string, lance: boolean, contre?: ContreEnJeu) => void
 }) {
   const [duel, setDuel] = useState<DuelEntreAmis | null>(null)
   const [erreur, setErreur] = useState('')
@@ -243,7 +318,10 @@ export function PageDuDuel({
     setErreur('')
     try {
       const tentative = await api.campagne.duel.relever(code)
-      if (tentative.question) onJouer(tentative, code, !!duel?.auteur.toi)
+      // Un duel classé : la partie dit à chaque question contre qui, le score à battre et ce qui se joue.
+      const enFace = duel?.contre && (duel.auteur.toi ? duel.contre : duel.auteur)
+      if (tentative.question)
+        onJouer(tentative, code, !!duel?.auteur.toi, enFace ? { nom: enFace.nom, avatar: enFace.avatar, justes: duel.aBattre ?? null, ...(duel.enjeu && { enjeu: duel.enjeu }) } : undefined)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -263,31 +341,47 @@ export function PageDuDuel({
   const ouvert = !!duel && duel.minutesRestantes > 0
   const sienne = duel && [...duel.lignes, ...(duel.moi ? [duel.moi] : [])].find(l => l.profileId === duel.sienne)
   const joue = duel ? nomDuChoix(duel.categories ?? [], duel.sujet) : null
+  // Un duel classé : deux joueurs, leurs deux cotes en jeu, rien à envoyer à d'autres.
+  const contre = duel?.contre
 
   return (
     <div className="player-shell campagne">
       <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={onRetour} />
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
-        <span className="atlas-categorie">{duel?.auteur.toi ? 'Ton défi entre amis' : 'Un défi entre amis'}</span>
-        <h1>{!duel ? 'Le défi' : duel.auteur.toi ? 'Qui fera mieux que toi ?' : `${duel.auteur.nom} te défie`}</h1>
-        <div className="campagne-record-hud">
-          {t?.finie || (t && !ouvert) ? <b>{t.justes}</b> : <b>{duel ? duel.joueurs : '–'}</b>}
-          <span>
-            {t?.finie || (t && !ouvert) ? (
-              <>
-                {t.justes > 1 ? 'bonnes réponses' : 'bonne réponse'}
-                <br />
-                {(sienne && placeDuJour(sienne.rang, duel!.joueurs, sienne.justes)) ?? 'ta tentative est jouée'}
-              </>
-            ) : (
-              <>
-                {duel && duel.joueurs > 1 ? 'joueurs l’ont relevé' : 'joueur l’a relevé'}
-                <br />
-                {duel ? fermeture(duel.minutesRestantes) : '…'}
-              </>
-            )}
-          </span>
-        </div>
+        <span className="atlas-categorie">{contre ? 'Duel classé' : duel?.auteur.toi ? 'Ton défi entre amis' : 'Un défi entre amis'}</span>
+        <h1>
+          {!duel
+            ? 'Le défi'
+            : contre
+              ? duel.auteur.toi
+                ? `Ton duel contre ${contre.nom}`
+                : `${duel.auteur.nom} te défie`
+              : duel.auteur.toi
+                ? 'Qui fera mieux que toi ?'
+                : `${duel.auteur.nom} te défie`}
+        </h1>
+        {duel && contre ? (
+          <HudDuDuelClasse duel={duel} />
+        ) : (
+          <div className="campagne-record-hud">
+            {t?.finie || (t && !ouvert) ? <b>{t.justes}</b> : <b>{duel ? duel.joueurs : '–'}</b>}
+            <span>
+              {t?.finie || (t && !ouvert) ? (
+                <>
+                  {t.justes > 1 ? 'bonnes réponses' : 'bonne réponse'}
+                  <br />
+                  {(sienne && placeDuJour(sienne.rang, duel!.joueurs, sienne.justes)) ?? 'ta tentative est jouée'}
+                </>
+              ) : (
+                <>
+                  {duel && duel.joueurs > 1 ? 'joueurs l’ont relevé' : 'joueur l’a relevé'}
+                  <br />
+                  {duel ? fermeture(duel.minutesRestantes) : '…'}
+                </>
+              )}
+            </span>
+          </div>
+        )}
         <ul className="campagne-puces">
           <li>
             <Icon name="list" /> {joue ?? 'toutes les catégories'}
@@ -299,10 +393,24 @@ export function PageDuDuel({
             <Icon name="timer" /> trois vies, sans chrono
           </li>
           <li>
-            <Icon name="users" /> amical : il ne change pas ta cote
+            {contre ? (
+              <>
+                <Icon name="swords" /> classé : vos deux cotes se jouent
+              </>
+            ) : (
+              <>
+                <Icon name="users" /> amical : il ne change pas ta cote
+              </>
+            )}
           </li>
         </ul>
       </section>
+      {/* Joué des deux côtés : ce qu'il a fait à sa cote. */}
+      {contre && duel?.ecart !== undefined && (
+        <p className={'card duels-fin-ecart-ligne ' + (duel.ecart >= 0 ? 'duels-plus' : 'duels-moins')} role="status">
+          {espacesFines(`Ta cote : ${ecartSigne(duel.ecart)}`)}
+        </p>
+      )}
 
       {erreur && (
         <p className="error" role="alert">
@@ -312,17 +420,34 @@ export function PageDuDuel({
 
       {duel && ouvert && !t && (
         <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void relever()}>
-          <Icon name="play" />
-          Relever le défi
+          <Icon name={contre ? 'swords' : 'play'} />
+          {contre ? (duel.auteur.toi ? 'Jouer mon duel' : 'Relever le duel') : 'Relever le défi'}
         </button>
       )}
       {duel && ouvert && t && !t.finie && (
         <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void relever()}>
           <Icon name="play" />
-          {`Reprendre mon défi · ${bonnes(t.justes)}`}
+          {`${contre ? 'Reprendre mon duel' : 'Reprendre mon défi'} · ${bonnes(t.justes)}`}
         </button>
       )}
-      {duel && !ouvert && !t && <p className="muted small centre">Ce défi est fermé : son classement est figé. Lance le tien depuis tes duels.</p>}
+      {/* Avant de jouer : le score à battre, et ce qui se joue sur sa cote — on sait pour quoi on joue. */}
+      {duel && ouvert && contre && !t?.finie && (duel.aBattre !== undefined || duel.enjeu) && (
+        <p className="muted small centre duels-sous-bouton">
+          {duel.aBattre !== undefined && <b>{espacesFines(`${bonnes(duel.aBattre)} à battre. `)}</b>}
+          {duel.enjeu && (
+            <>
+              En jeu : <b className="duels-plus">{ecartSigne(duel.enjeu.gagne)}</b> si tu gagnes, <b className="duels-moins">{ecartSigne(duel.enjeu.perdu)}</b> si tu perds.
+            </>
+          )}
+        </p>
+      )}
+      {/* Joué le premier : il attend l'autre. */}
+      {duel && ouvert && contre && duel.auteur.toi && t?.finie && duel.ecart === undefined && (
+        <p className="muted small centre">{espacesFines(`Parti à ${contre.nom} : vos deux cotes bougeront quand il l’aura joué.`)}</p>
+      )}
+      {duel && !ouvert && !t && (
+        <p className="muted small centre">{contre ? 'Ce duel est fermé : il ne compte plus. Défie quelqu’un depuis tes duels.' : 'Ce défi est fermé : son classement est figé. Lance le tien depuis tes duels.'}</p>
+      )}
 
       {/* Le sien, pas encore joué jusqu'au bout : à qui il partira à sa dernière réponse. */}
       {duel && ouvert && duel.prevus && duel.prevus.length > 0 && (
@@ -331,19 +456,19 @@ export function PageDuDuel({
           <span>{espacesFines(`À ta dernière réponse, il partira à ${enPhrase(duel.prevus)}, ton score à battre avec lui.`)}</span>
         </p>
       )}
-      {/* Le sien, ouvert : à d'autres amis d'un toucher, aux autres par son lien. */}
-      {duel && ouvert && duel.auteur.toi && <EnvoyerAuxAmis code={duel.code} />}
-      {duel && ouvert && (duel.auteur.toi || t?.finie) && (
+      {/* Le sien, ouvert : à d'autres amis d'un toucher, aux autres par son lien. Un duel classé, lui, est parti à qui il défie. */}
+      {duel && ouvert && !contre && duel.auteur.toi && <EnvoyerAuxAmis code={duel.code} />}
+      {duel && ouvert && !contre && (duel.auteur.toi || t?.finie) && (
         <EnvoyerLeDefi code={duel.code} texte={texteDuDefi(t?.finie ? t.justes : null)} />
       )}
 
       {duel && (
         <section className="defi-classement" aria-labelledby="duel-classement-titre">
           <h2 id="duel-classement-titre" className="label">
-            {ouvert ? 'Le classement, pour l’instant' : 'Le classement final'}
+            {contre ? 'Le score' : ouvert ? 'Le classement, pour l’instant' : 'Le classement final'}
           </h2>
           {duel.joueurs === 0 ? (
-            <p className="muted small">Personne n’a encore répondu : la première place t’attend.</p>
+            <p className="muted small">{contre ? 'Personne n’a encore joué ce duel.' : 'Personne n’a encore répondu : la première place t’attend.'}</p>
           ) : (
             <div className="leaderboard">
               {duel.lignes.map(l => (
@@ -360,10 +485,11 @@ export function PageDuDuel({
         </section>
       )}
 
-      {duel && !ouvert && t && !correction && (
+      {/* Fermé — ou un duel classé joué des deux côtés, qui n'a plus personne à qui souffler ses réponses. */}
+      {duel && (!ouvert || duel.corrige) && t && !correction && (
         <button type="button" className="btn btn-block" onClick={() => void voirCorrection(t.id)}>
           <Icon name="book" />
-          La correction du défi
+          {contre ? 'La correction du duel' : 'La correction du défi'}
         </button>
       )}
       {correction && (
@@ -387,77 +513,29 @@ export function PageDuDuel({
 }
 
 /**
- * Défier un ami, sous « Trouver un adversaire » dans la page des duels (le
- * souhait du propriétaire du 11 octobre 2026 : « choisir avec qui je le
- * lance, sur quel thème ») : ses amis en visages — un toucher, et le défi se
- * prépare pour lui —, ou « Lancer un défi », qui demande à qui et sur quoi
- * (`LancerUnDefi`). Amical : il ne change pas la cote — un second profil y
- * soufflerait les réponses au premier (`shared/duels.ts`). Puis la cloche des
- * défis : son téléphone sonne quand un ami le défie.
- */
-export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[] | null; onLancer: (ami?: AmiDeCampagne) => void }) {
-  return (
-    <section className="card defier-un-ami" aria-labelledby="defier-un-ami-titre">
-      <div className="defier-un-ami-tete">
-        <span className="gros-icone" aria-hidden="true">
-          <Icon name="users" />
-        </span>
-        <div>
-          <h2 id="defier-un-ami-titre">Défier un ami</h2>
-          <p className="muted small">{espacesFines('Choisis qui et sur quoi : tu joues d’abord, et ton score à battre lui part à ta dernière réponse. Amical : ta cote ne bouge pas.')}</p>
-        </div>
-      </div>
-      {amis && amis.length > 0 && (
-        <ul className="defier-visages" aria-label="Défier l’un de tes amis">
-          {amis.slice(0, VISAGES_MONTRES).map(a => (
-            <li key={a.profileId}>
-              <button type="button" className="defier-visage" aria-label={`Défier ${a.nom}`} onClick={() => onLancer(a)}>
-                <span className="defier-visage-avatar" aria-hidden="true">
-                  {a.avatar}
-                </span>
-                <span className="defier-visage-nom" aria-hidden="true">
-                  {a.nom}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* Plein, il disputait la vedette à « Trouver un adversaire », juste au-dessus. */}
-      <button type="button" className="btn btn-block" onClick={() => onLancer()}>
-        <Icon name="plus" />
-        Lancer un défi
-      </button>
-      <LaClocheDesDefis />
-    </section>
-  )
-}
-
-/**
  * La cloche des défis, chargée avec la page des duels seulement : elle tire
  * le service worker et l'abonnement (`rappel.ts`), que la campagne et
- * l'accueil n'ont pas à télécharger.
+ * l'accueil n'ont pas à télécharger. Son téléphone sonne quand on le défie,
+ * et quand un duel qu'il a lancé vient d'être joué.
  */
 const cloche = aLaDemande(() => import('../components/ClocheDesDefis'))
-function LaClocheDesDefis() {
+export function LaClocheDesDefis() {
   const laCloche = useALaDemande(cloche)
   return laCloche && laCloche !== 'perdu' ? <laCloche.ClocheDesDefis /> : null
 }
 
-/** Les visages d'amis de « Défier un ami » : une rangée au téléphone — les autres, dans « Lancer un défi » et sous « Tes amis ». */
-const VISAGES_MONTRES = 5
-
 /**
- * Les défis que ses amis lui ont envoyés, en tête de la page des duels : qui
- * le défie, sur quoi, le temps qui reste — un toucher, et il le relève.
- * Rien tant qu'on ne lui a rien envoyé.
+ * Ce qu'on lui a envoyé, en tête de la page des duels : qui le défie, sur
+ * quoi, le score à battre, le temps qui reste — un toucher, et il le relève.
+ * Un duel classé le dit : sa cote s'y joue. Rien tant qu'on ne lui a rien
+ * envoyé.
  */
 export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; onOuvrir: (code: string) => void }) {
   if (recus.length === 0) return null
   return (
     <section className="duel-liste duel-recus" aria-labelledby="defis-recus-titre">
       <h2 id="defis-recus-titre" className="label">
-        Tes amis te défient
+        On te défie
       </h2>
       <ul>
         {recus.map(d => (
@@ -467,7 +545,16 @@ export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; on
                 <b>
                   <span aria-hidden="true">{d.auteur.avatar}</span> {`${d.auteur.nom} te défie`}
                 </b>
-                <span className="muted small">{[nomDuChoix(d.categories ?? [], d.sujet) ?? 'toutes les catégories', fermeture(d.minutesRestantes)].join(' · ')}</span>
+                <span className="muted small">
+                  {[
+                    d.classe ? 'duel classé' : null,
+                    nomDuChoix(d.categories ?? [], d.sujet) ?? 'toutes les catégories',
+                    d.score !== undefined ? `${bonnes(d.score)} à battre` : null,
+                    fermeture(d.minutesRestantes),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
               </span>
               <span className="duel-score">Relever</span>
             </button>
@@ -479,48 +566,138 @@ export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; on
 }
 
 /**
- * Ses amis, sous ses défis : ceux qui ont relevé un de ses défis, ou dont il
- * a relevé un — ce qui fait un ami, dit en une phrase, puisqu'on ne
- * l'ajoute pas soi-même. Chacun se défie d'un toucher (`LancerUnDefi`, lui
- * déjà choisi), et se retire, après confirmation ; il revient s'ils jouent
- * de nouveau ensemble. Sans ami encore : comment ça marche.
+ * Ses amis (le souhait du propriétaire du 11 octobre 2026 : « une liste
+ * d'amis avec leur classement et leur ligue, et pouvoir ajouter des amis ») :
+ * chacun sa ligue en blason, sa cote et sa place ; l'épée le défie
+ * (`LancerUnDefi`, lui déjà choisi) ; il se retire, après confirmation. Et
+ * « Ajouter un ami » : un prénom, et il rejoint la liste — sans demande ni
+ * attente.
  */
-export function TesAmis({ amis, onDefier, onRetirer }: { amis: readonly AmiDeCampagne[]; onDefier: (ami: AmiDeCampagne) => void; onRetirer: (ami: AmiDeCampagne) => void }) {
+export function TesAmis({
+  amis,
+  onDefier,
+  onRetirer,
+  onAjouter,
+}: {
+  amis: readonly AmiDeCampagne[]
+  onDefier: (ami: AmiDeCampagne) => void
+  onRetirer: (ami: AmiDeCampagne) => void
+  onAjouter: (joueur: JoueurADefier) => Promise<void>
+}) {
+  const [ajout, setAjout] = useState(false)
+  const [ajoutes, setAjoutes] = useState<ReadonlySet<string>>(new Set())
+  const [erreur, setErreur] = useState('')
+  const ajouter = async (j: JoueurADefier) => {
+    setErreur('')
+    try {
+      await onAjouter(j)
+      setAjoutes(s => new Set([...s, j.profileId]))
+    } catch (e) {
+      setErreur(motifDe(e))
+    }
+  }
   return (
     <section className="duel-liste tes-amis" aria-labelledby="tes-amis-titre">
       <h2 id="tes-amis-titre" className="label">
-        {amis.length > 0 ? `Tes amis · ${amis.length}` : 'Défier des amis : comment ça marche'}
+        {amis.length > 0 ? `Tes amis · ${amis.length}` : 'Tes amis'}
       </h2>
       {amis.length > 0 ? (
-        <>
-          <ul className="tes-amis-liste">
-            {amis.map(a => (
-              <li key={a.profileId}>
-                <span className="duel-ami-avatar" aria-hidden="true">
-                  {a.avatar}
-                </span>
-                <span className="duel-ami-nom">{a.nom}</span>
-                <button type="button" className="btn btn-small tes-amis-defier" aria-label={`Défier ${a.nom}`} onClick={() => onDefier(a)}>
-                  <Icon name="trophy" />
-                  Défier
+        <ul className="joueurs-trouves tes-amis-liste">
+          {amis.map(a => (
+            <li key={a.profileId}>
+              <LigneDeJoueur joueur={a}>
+                <button type="button" className="duels-epee" aria-label={`Défier ${a.nom}`} onClick={() => onDefier(a)}>
+                  <Icon name="swords" />
                 </button>
                 <button type="button" className="btn btn-ghost btn-small" aria-label={`Retirer ${a.nom} de mes amis`} onClick={() => onRetirer(a)}>
-                  Retirer
+                  <Icon name="x" />
                 </button>
-              </li>
-            ))}
-          </ul>
-          <p className="muted small">
-            {espacesFines('Ceux qui ont relevé un de tes défis, ou dont tu en as relevé un. Défie-les en lançant un défi : tu le joues d’abord, et à ta dernière réponse il leur part — dans leurs duels, et leur téléphone sonne.')}
-          </p>
-        </>
+              </LigneDeJoueur>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <ol className="muted small tes-amis-etapes">
-          <li>{espacesFines('« Lancer un défi », sous « Défier un ami » : choisis le thème, et tu le joues le premier.')}</li>
-          <li>{espacesFines('À sa fin, envoie son lien : qui l’ouvre, profil en main, joue les mêmes questions, une fois, dans la semaine.')}</li>
-          <li>{espacesFines('Ceux qui le relèvent deviennent tes amis : le prochain, tu les choisis en le lançant — il leur part à ta dernière réponse, et leur téléphone sonne.')}</li>
-        </ol>
+        <p className="muted small">{espacesFines('Ajoute tes amis par leur prénom : tu verras leur ligue et leur cote, et tu les défies d’un toucher.')}</p>
       )}
+      {erreur && (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      )}
+      {ajout ? (
+        <ChercherUnJoueur
+          libelle="Chercher un ami par son prénom"
+          rendre={j => (
+            <LigneDeJoueur joueur={j}>
+              {j.ami || ajoutes.has(j.profileId) ? (
+                <span className="muted small ligne-joueur-deja">
+                  <Icon name="check" /> ami
+                </span>
+              ) : (
+                <button type="button" className="btn btn-small" aria-label={`Ajouter ${j.nom} à mes amis`} onClick={() => void ajouter(j)}>
+                  <Icon name="plus" />
+                  Ajouter
+                </button>
+              )}
+            </LigneDeJoueur>
+          )}
+        />
+      ) : (
+        <button type="button" className="btn btn-block" onClick={() => setAjout(true)}>
+          <Icon name="plus" />
+          Ajouter un ami
+        </button>
+      )}
+    </section>
+  )
+}
+
+/** « Contre Tom · Cinéma & séries · gagné 11 à 9 » : la ligne d'un de ses duels contre quelqu'un, et ce qu'elle dit au bout. */
+export function ligneDuDuelContre(d: DuelContre): { titre: string; detail: string; score: string } {
+  const quoi = nomDuChoix(d.categories ?? [], d.sujet) ?? 'toutes les catégories'
+  const ouvert = d.minutesRestantes > 0
+  const titre = d.lance ? `Contre ${d.contre.nom}` : `${d.contre.nom} t’a défié`
+  if (d.justes !== null && d.sesJustes !== null) {
+    const issue = d.justes > d.sesJustes ? 'gagné' : d.justes === d.sesJustes ? 'égalité' : 'perdu'
+    return { titre, detail: `${quoi} · ${issue} ${d.justes} à ${d.sesJustes}`, score: d.ecart !== undefined ? ecartSigne(d.ecart) : issue }
+  }
+  if (!ouvert) return { titre, detail: `${quoi} · ${d.justes === null ? 'pas joué' : `${d.contre.nom} ne l’a pas joué`}`, score: 'fermé' }
+  if (d.justes === null) return { titre, detail: [quoi, d.sesJustes !== null ? `${bonnes(d.sesJustes)} à battre` : null, fermeture(d.minutesRestantes)].filter(Boolean).join(' · '), score: 'à toi' }
+  return { titre, detail: `${quoi} · ${bonnes(d.justes)} pour toi · ${fermeture(d.minutesRestantes)}`, score: 'à lui' }
+}
+
+/**
+ * Ses duels contre quelqu'un : ceux où c'est à lui de jouer, ceux qui
+ * attendent l'autre, puis les joués — chacun ouvre sa page. Ce qu'on vient
+ * de lui envoyer est au-dessus (`DefisRecus`), pas ici une seconde fois.
+ */
+export function TesDuelsContre({ duels, recus, onOuvrir }: { duels: readonly DuelContre[]; recus: readonly DefiRecu[]; onOuvrir: (code: string) => void }) {
+  const dejaAuDessus = new Set(recus.map(r => r.code))
+  const montres = duels.filter(d => !dejaAuDessus.has(d.code))
+  if (montres.length === 0) return null
+  return (
+    <section className="duel-liste" aria-labelledby="duels-contre-titre">
+      <h2 id="duels-contre-titre" className="label">
+        Tes duels
+      </h2>
+      <ul>
+        {montres.map(d => {
+          const l = ligneDuDuelContre(d)
+          return (
+            <li key={d.code}>
+              <button type="button" className="btn btn-block duel-ligne" onClick={() => onOuvrir(d.code)}>
+                <span>
+                  <b>
+                    <span aria-hidden="true">{d.contre.avatar}</span> {l.titre}
+                  </b>
+                  <span className="muted small">{l.detail}</span>
+                </span>
+                <span className={'duel-score' + (d.ecart !== undefined ? (d.ecart >= 0 ? ' duels-plus' : ' duels-moins') : '')}>{l.score}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </section>
   )
 }
