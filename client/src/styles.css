@@ -7632,8 +7632,14 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-records-grille li.atteint { color: var(--ink); }
 .campagne-records-grille li.atteint .icon, .campagne-records-grille li.atteint b { color: var(--or-text); }
 .campagne .lien-signaler { margin-top: 2px; }
-/* « Recommencer », au pied de la question : discret, comme « Quitter l'épreuve » des sentiers. */
-.serie-recommencer { align-self: center; margin-top: 6px; }
+/* Le geste du bas d'une partie — recommencer une série, une révision ;
+   abandonner une épreuve — : la même pilule partout, pleine largeur, comme
+   « Recommencer une révision » au carnet (`GesteDuBas`). Partir est en haut,
+   « ← Partir », comme toute sortie. Ce qui coûte une vie le dit d'un filet. */
+.geste-du-bas { margin-top: 6px; color: var(--muted); }
+.geste-du-bas:hover { color: var(--ink); }
+.geste-du-bas.geste-qui-coute { color: var(--alert); border-color: rgba(var(--alert-rgb), 0.45); }
+.geste-du-bas.geste-qui-coute:hover { color: var(--alert-hover); border-color: var(--alert); }
 /* La base, à l'administration : une ligne par catégorie, son compte au bout. */
 .campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
 .campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
@@ -7947,7 +7953,6 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .epreuve-legende { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: 0.78rem; color: var(--muted); }
 .epreuve-legende b { color: var(--ink); }
 .epreuve-encore { margin: 0; text-align: center; font-size: 0.84rem; font-weight: 600; color: var(--accent-text); }
-.epreuve-quitter { align-self: center; }
 
 /* Sa fin : ratée, validée, ou la révélation d'un portrait. */
 .epreuve-fin-tete { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }

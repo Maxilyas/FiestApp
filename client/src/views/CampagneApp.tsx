@@ -10,7 +10,7 @@ import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCa
 import { AffronterUnInconnu, MOT_DE_L_ISSUE, scoreDeRencontre } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
 import { Shape } from '../components/Shape'
-import { PieceTete, Sortie } from '../components/Pieces'
+import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
@@ -1155,9 +1155,27 @@ export function CampagneApp() {
 
   // ── Une question de la série ──
   const { question: q, reponse: r } = ecran
+  // Partir ne perd rien : la partie attend dans l'onglet d'où elle se reprend.
+  const ouAttend: Mode = ecran.revision ? 'carnet' : ecran.defi || ecran.rencontre ? 'defi' : 'serie'
+  const partir = () => {
+    choisirMode(ouAttend)
+    void relire().catch(() => {})
+    showToast({
+      kind: 'info',
+      message: ecran.revision
+        ? 'Ta révision t’attend : reprends-la quand tu veux'
+        : ecran.rencontre
+          ? 'Ta rencontre t’attend : reprends-la quand tu veux'
+          : ecran.defi
+            ? 'Ton défi t’attend : reprends-le avant sa clôture'
+            : 'Ta série t’attend : reprends-la quand tu veux',
+    })
+  }
   return (
     <div className="player-shell campagne">
       <div className="quiz-player">
+        {/* Sa dernière réponse donnée, la partie est finie : sa fin d'abord, ce qu'elle a rapporté. */}
+        {!r?.finie && <Sortie vers="Partir" href={`/campagne${ouAttend === 'carnet' ? ADRESSE_DU_CARNET : ouAttend === 'defi' ? ADRESSE_DU_DEFI : ''}`} onClick={partir} />}
         <div className="quiz-topbar">
           {ecran.revision ? (
             // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
@@ -1278,17 +1296,15 @@ export function CampagneApp() {
         )}
         {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une rencontre se joue jusqu'au bout. */}
         {!ecran.defi && !ecran.revision && !ecran.rencontre && !r?.finie && (
-          <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void abandonner()}>
-            <Icon name="rotate" />
+          <GesteDuBas icone="rotate" busy={busy} onClick={() => void abandonner()}>
             Recommencer
-          </button>
+          </GesteDuBas>
         )}
         {/* Une révision se recommence aussi : rien à perdre, ses réponses restent au carnet. */}
         {ecran.revision && !r?.finie && (
-          <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void recommencerLaRevision()}>
-            <Icon name="rotate" />
+          <GesteDuBas icone="rotate" busy={busy} onClick={() => void recommencerLaRevision()}>
             Recommencer
-          </button>
+          </GesteDuBas>
         )}
       </div>
       {toastVu}

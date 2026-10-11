@@ -42,6 +42,24 @@ export function Sortie({ vers = 'Accueil', href = '/', onClick }: { vers?: strin
 }
 
 /**
+ * Le geste du bas d'une partie de la campagne — recommencer une série ou une
+ * révision, abandonner une épreuve —, le même partout : une pilule pleine
+ * largeur, son icône devant, comme « Recommencer une révision » au carnet.
+ * Partir, lui, est en haut, comme toute sortie (`Sortie`, « ← Partir »). Un
+ * bouton fantôme de 36 px sous la question, hors de l'écran au téléphone,
+ * ne disait pas comment partir (la remarque du propriétaire du 11 octobre
+ * 2026).
+ */
+export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: IconName; children: ReactNode; onClick: () => void; busy?: boolean; /** Ce qui coûte quelque chose — une vie : le filet d'alerte. */ danger?: boolean }) {
+  return (
+    <button type="button" className={'btn btn-block geste-du-bas' + (danger ? ' geste-qui-coute' : '')} aria-disabled={busy || undefined} onClick={onClick}>
+      <Icon name={icone} />
+      {children}
+    </button>
+  )
+}
+
+/**
  * Une feuille qui monte du bas, « Fermer » toujours en vue : choisir un quiz,
  * ranger. Le voile la ferme aussi ; le reste de la page ne bouge pas.
  */
