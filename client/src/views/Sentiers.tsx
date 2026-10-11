@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
-import { Feuille, Sortie } from '../components/Pieces'
+import { Feuille, GesteDuBas, Sortie } from '../components/Pieces'
 import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { BarreDeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
@@ -301,9 +301,12 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     if (ecran.e !== 'epreuve') return
     const enJeu = !ecran.epreuve.rejeu && ecran.epreuve.issue !== 'validee'
     const ok = await confirmDialog({
-      title: 'Quitter l’épreuve ?',
-      message: enJeu ? 'Un palier qu’on quitte compte comme raté : une vie de moins.' : 'Tu ne perds rien : ce qui est validé le reste.',
-      confirmLabel: 'Quitter',
+      title: 'Abandonner l’épreuve ?',
+      message: enJeu
+        ? 'Un palier abandonné compte comme raté : une vie de moins. « Partir », en haut, la garde sans rien coûter.'
+        : 'Tu ne perds rien : ce qui est validé le reste.',
+      confirmLabel: 'Abandonner',
+      cancelLabel: 'Continuer',
       danger: enJeu,
     })
     if (!ok) return
@@ -398,6 +401,10 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
         erreur={erreur}
         onRepondre={i => void repondre(i)}
         onSuivante={suivante}
+        onPartir={() => {
+          retourAuSentier(ecran.epreuve.branche)
+          showToast({ kind: 'info', message: 'L’épreuve t’attend : son palier la reprend' })
+        }}
         onQuitter={() => void abandonner()}
         onSignaler={() => void signaler(ecran.epreuve.id, ecran.question.index)}
       />
@@ -438,7 +445,10 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
         erreur={erreur}
         onRepondre={i => void repondreAuSujet(i)}
         onSuivante={suivanteDuSujet}
-        onQuitter={quitterLeSujet}
+        onQuitter={() => {
+          quitterLeSujet()
+          showToast({ kind: 'info', message: 'L’épreuve t’attend : reprends-la quand tu veux' })
+        }}
         onSignaler={() => void signaler(ecran.epreuve.id, ecran.question.index)}
       />
     )
@@ -1099,7 +1109,7 @@ export function SentierVu({
       </div>
       {laissee && (
         <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
-          {`Reprendre le palier ${laissee.palier} · ${laissee.justes} sur ${laissee.justes + laissee.fausses}`}
+          {`Reprendre le palier ${laissee.palier}${laissee.justes + laissee.fausses > 0 ? ` · ${laissee.justes} sur ${laissee.justes + laissee.fausses}` : ''}`}
         </button>
       )}
       <div className="sentier-chemin" ref={chemin} style={{ height: HAUTEUR_DU_CHEMIN }}>
@@ -1191,7 +1201,8 @@ export function SentierVu({
                 )}
                 {vise && (
                   <span className={'sentier-jouer' + (x > 50 ? ' a-gauche' : '')} aria-hidden="true" style={{ [x > 50 ? 'right' : 'left']: taille / 2 + 10 }}>
-                    Jouer
+                    {/* Laissée d'un « ← Partir », son épreuve l'attend : la pastille le dit. */}
+                    {laissee?.palier === r.n ? 'Reprendre' : 'Jouer'}
                   </span>
                 )}
               </li>
@@ -1409,6 +1420,7 @@ function EcranDEpreuve({
   erreur,
   onRepondre,
   onSuivante,
+  onPartir,
   onQuitter,
   onSignaler,
 }: {
@@ -1418,6 +1430,9 @@ function EcranDEpreuve({
   erreur: string
   onRepondre: (i: number) => void
   onSuivante: () => void
+  /** Partir sans rien perdre : l'épreuve attend sur son sentier. */
+  onPartir: () => void
+  /** L'abandonner : un palier quitté en jeu compte comme raté. */
   onQuitter: () => void
   onSignaler: () => void
 }) {
@@ -1433,6 +1448,8 @@ function EcranDEpreuve({
   return (
     <div className="player-shell campagne sentiers" style={lueur(LUEUR[b.key])}>
       <div className="quiz-player epreuve">
+        {/* Partir ne coûte rien : l'épreuve reste en jeu, son palier la reprend. Abandonner, en bas, si. */}
+        {!r?.epreuve.finie && <Sortie vers="Partir" href={`/campagne${PREFIXE}${b.key}`} onClick={onPartir} />}
         <div className="quiz-topbar">
           <span className="label">{`${regle.maitre ? 'Maître' : `Palier ${e.palier}`} · question ${q.index + 1}/${e.total}`}</span>
           {e.rejeu ? <span className="label epreuve-rejeu">Rejeu</span> : <ViesDuJour vies={vies} />}
@@ -1537,9 +1554,9 @@ function EcranDEpreuve({
           </p>
         )}
         {!r?.epreuve.finie && (
-          <button type="button" className="btn btn-ghost btn-small epreuve-quitter" onClick={onQuitter}>
-            Quitter l’épreuve
-          </button>
+          <GesteDuBas icone="flag" danger={!e.rejeu && !valide} onClick={onQuitter}>
+            Abandonner l’épreuve
+          </GesteDuBas>
         )}
       </div>
     </div>
@@ -2092,6 +2109,8 @@ function EcranDuSujet({
   return (
     <div className="player-shell campagne sentiers">
       <div className="quiz-player epreuve">
+        {/* Sans vies, rien ne se perd : l'épreuve attend, la suivante la refermera. */}
+        {!r?.epreuve.finie && <Sortie vers="Partir" href={`/campagne${ADRESSE_DES_SENTIERS}`} onClick={onQuitter} />}
         <div className="quiz-topbar">
           <span className="label">{`${sujet?.nom ?? 'Thème'} · palier ${e.palier} · ${q.index + 1}/${e.total}`}</span>
           {e.rejeu && <span className="label epreuve-rejeu">Rejeu</span>}
@@ -2174,11 +2193,6 @@ function EcranDuSujet({
           <p className="error" role="alert">
             {erreur}
           </p>
-        )}
-        {!r?.epreuve.finie && (
-          <button type="button" className="btn btn-ghost btn-small epreuve-quitter" onClick={onQuitter}>
-            Quitter · elle t’attendra
-          </button>
         )}
       </div>
     </div>

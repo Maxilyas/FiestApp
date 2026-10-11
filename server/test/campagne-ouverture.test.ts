@@ -36,6 +36,40 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
+// Dans le carnet, « Recommencer » mais rien pour partir — un bouton fantôme
+// de 36 px sous la question, hors de l'écran au téléphone (la remarque du
+// propriétaire du 11 octobre 2026). Chaque partie de la campagne se quitte
+// maintenant d'un « ← Partir » en haut, comme toute page s'en va d'un
+// « ← Accueil », et son geste du bas est la même pilule partout.
+test('chaque partie de la campagne se quitte d’un « ← Partir » en haut ; recommencer ou abandonner, d’une même pilule en bas', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const pieces = await import(client('components/Pieces.tsx').href)
+  const partir = renderToStaticMarkup(React.createElement(pieces.Sortie, { vers: 'Partir', href: '/campagne#carnet', onClick: () => {} }))
+  assert.match(partir, /^<a class="lien-discret jour-sortie" href="\/campagne#carnet">.*Partir<\/a>$/, 'un lien, comme « ← Accueil » : il s’ouvre aussi dans un onglet')
+  const geste = (danger: boolean) =>
+    renderToStaticMarkup(React.createElement(pieces.GesteDuBas, { icone: 'rotate', onClick: () => {}, danger }, 'Recommencer'))
+  assert.match(geste(false), /^<button type="button" class="btn btn-block geste-du-bas">.*Recommencer<\/button>$/)
+  assert.match(geste(true), /class="btn btn-block geste-du-bas geste-qui-coute"/, 'ce qui coûte une vie le dit')
+
+  // La série, la révision, le défi, la rencontre : partir ramène à l'onglet
+  // d'où la partie se reprend, et ne se propose plus une fois la dernière
+  // réponse donnée — sa fin d'abord.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /const ouAttend: Mode = ecran\.revision \? 'carnet' : ecran\.defi \|\| ecran\.rencontre \? 'defi' : 'serie'/)
+  assert.match(page, /\{!r\?\.finie && <Sortie vers="Partir" href=\{[^}]+\}[^>]*onClick=\{partir\} \/>\}/)
+  assert.match(page, /\{ecran\.revision && !r\?\.finie && \(\s*<GesteDuBas icone="rotate" busy=\{busy\} onClick=\{\(\) => void recommencerLaRevision\(\)\}>/)
+  // Les épreuves des sentiers : partir garde l'épreuve en jeu, abandonner
+  // coûte une vie — chacun son geste ; celles d'un thème, sans vies, partent.
+  const sentiers = readFileSync(client('views/Sentiers.tsx'), 'utf8')
+  assert.equal([...sentiers.matchAll(/<Sortie vers="Partir"/g)].length, 2, 'les deux épreuves')
+  assert.match(sentiers, /<GesteDuBas icone="flag" danger=\{!e\.rejeu && !valide\} onClick=\{onQuitter\}>\s*Abandonner l’épreuve/)
+  assert.match(sentiers, /onPartir=\{\(\) => \{\s*retourAuSentier\(ecran\.epreuve\.branche\)/)
+  // Revenu sur son sentier, le palier de l'épreuve laissée dit qu'elle l'attend.
+  assert.match(sentiers, /\{laissee\?\.palier === r\.n \? 'Reprendre' : 'Jouer'\}/)
+  // Plus un seul bouton fantôme sous une question.
+  for (const source of [page, sentiers]) assert.ok(!/serie-recommencer|epreuve-quitter/.test(source), 'les boutons fantômes d’avant')
+})
+
 // Une série finie menait à l'accueil de l'application, et il fallait y
 // revenir pour changer de catégorie : cinq ou six touchers (un retour de
 // joueur du 10 octobre 2026). Sa fin la rejoue sur les mêmes catégories, ou
@@ -64,7 +98,7 @@ test('la fin d’une série la rejoue sur ses catégories, ou en change sans qui
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string\[\]>\(categoriesRetenues\)/)
   assert.match(page, /<details className="reglages-salon" ref=\{choix\} open=\{choixOuvert\}/)
-  assert.match(page, /\{!ecran\.defi && !ecran\.revision && !ecran\.rencontre && !r\?\.finie && \(\s*<button[^>]*serie-recommencer/)
+  assert.match(page, /\{!ecran\.defi && !ecran\.revision && !ecran\.rencontre && !r\?\.finie && \(\s*<GesteDuBas icone="rotate" busy=\{busy\} onClick=\{\(\) => void abandonner\(\)\}>/)
   // Ce que le téléphone a retenu se relit avec méfiance : un stockage abîmé ne casse rien.
   memoire.set('quizz.campagne.categories', JSON.stringify(['Histoire', 42]))
   assert.deepEqual(module.categoriesRetenues(), ['Histoire'])
