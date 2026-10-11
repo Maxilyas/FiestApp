@@ -87,6 +87,15 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { Sport: ['olympisme'] },
     etiquettes: ['jeux-olympiques', 'coupe-du-monde', 'tour-de-france'],
   },
+  // Les séries vivent au cinéma, la télévision dans les jeux et la pop
+  // culture : deux catégories pour un seul écran, celui du salon.
+  {
+    cle: 'petit-ecran',
+    nom: 'Le petit écran',
+    famille: 'theme',
+    description: 'Séries cultes, jeux télévisés et émissions de toujours',
+    sousThemes: { 'Cinéma & séries': ['series'], 'Jeux & pop culture': ['tele'] },
+  },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
   { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },

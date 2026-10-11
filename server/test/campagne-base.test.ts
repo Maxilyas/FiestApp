@@ -31,9 +31,11 @@ import { sansAccent } from '../../shared/homonymes'
  * 11 octobre 2026, ses deux vagues suivantes, 258 puis 779 : 6 611 ; puis ce
  * qui manquait aux chapitres des sentiers (`preparer --sentiers`), 723 : 7 334 ;
  * puis mille de plus aux huit catégories les moins fournies, 973, et douze
- * difficiles au thème des mythes et légendes (`preparer --theme`) : 8 319.
+ * difficiles au thème des mythes et légendes (`preparer --theme`) : 8 319 ;
+ * puis mille à la musique, au sport, aux jeux et à la fête, 968, et sept de
+ * sport sauvées d'un lot dont l'indice de la bonne réponse était décalé : 9 294.
  */
-const AU_MOINS = 8310
+const AU_MOINS = 9290
 
 const { questions, refusees } = lireLaBase()
 

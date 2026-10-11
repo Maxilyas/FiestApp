@@ -57,8 +57,24 @@ que la routine du matin partage — mille questions, c'est une quarantaine de
 rédacteurs et une dizaine de correcteurs (le 11 octobre 2026 : mille écrites,
 dix-neuf refusées entre lots comme le même fait, huit retirées et cinquante-quatre
 corrigées à la relecture — une anecdote ou une explication sur deux, des
-difficultés trop hautes pour un fait que tout le monde sait —, 973 rangées).
+difficultés trop hautes pour un fait que tout le monde sait —, 973 rangées ;
+puis mille autres, 968 rangées, vingt-quatre retirées : dont treize d'un même
+lot, où l'indice de la bonne réponse pointait la case d'à côté et les leurres
+suivaient l'erreur — le juge n'y voit rien, les explications nommaient la
+vraie réponse, seul le correcteur l'a vu ; on n'en sauve une qu'en refaisant
+`bonne` et ses leurres, dans un lot à part, relu à son tour).
 Pas d'API d'Anthropic : elle se facture à part, et le propriétaire n'en veut pas.
+
+**Laisse passer la routine du matin** (« Réserve du quiz du jour », 6 h 55 à
+Paris) : une génération qui épuise le forfait l'empêche de remplir la réserve
+du quiz du jour — le 10 octobre 2026, elle a échoué ainsi (« usage limit
+reached »), et le 11, vingt agents en même temps ont touché la limite à
+quelques minutes d'elle, tous arrêtés en route. Ne lance pas de vague dans
+l'heure qui la précède, attends qu'elle ait fini (`list_triggers`, son
+`last_run`), et tiens-toi à une dizaine d'agents à la fois. Un rédacteur
+arrêté laisse souvent son lot écrit mais pas vérifié : `verifier` dit ses
+refus, et un agent à qui l'on demande de corriger ces seuls refus coûte bien
+moins qu'une réécriture.
 
 1. **Le plan** : `npx tsx scripts/generer-campagne.ts preparer
    --questions=<n>` (`--categories=Géographie,Sport`, `--par-lot=30`). Il dit ce
