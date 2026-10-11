@@ -791,9 +791,27 @@ export function DetailEmoji({
 }
 
 /**
+ * « N autres à gagner », sous ce qu'un écran du profil laisse choisir : ce
+ * qu'on n'a pas encore vit dans sa ligne de « Ma collection », avec ce qu'il
+ * faut pour l'ouvrir. Les fonds, les gerbes et les finitions à gagner se
+ * montraient fermés au milieu de ceux qu'on choisit (le souhait du
+ * propriétaire du 11 octobre 2026 : que le profil « ne soit pas mélangé avec
+ * la collection »).
+ */
+export function AGagnerDansLaCollection({ reste, partie, nom }: { reste: number; partie: string; nom: string }) {
+  if (reste <= 0) return null
+  return (
+    <a className="link-inline lien-boutique" href={`#collection-${partie}`}>
+      <Icon name="award" />
+      {`${reste} ${reste > 1 ? 'autres' : 'autre'} ${nom} à gagner : où et comment, dans « Ma collection »`}
+    </a>
+  )
+}
+
+/**
  * Sa finition : par défaut, la plus belle qu'il a — chaque niveau qui en
  * ouvre une nouvelle la fait porter d'office. On en épingle une autre si on
- * préfère.
+ * préfère, parmi celles qu'il a ; les autres se disent dans la collection.
  */
 export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   // Les aperçus montrent ce que la salle verra : sous un légendaire porté,
@@ -826,15 +844,13 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
             {profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}
           </span>
         </button>
-        {FINITIONS.map(f => {
-          const ouverte = profil.ouvertes.includes(f)
+        {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => {
           const choisie = profil.finitionChoisie === f
           return (
             <button
               key={f}
               type="button"
               className={'finition-btn' + (choisie ? ' selected' : '')}
-              disabled={!ouverte}
               aria-disabled={busy || undefined}
               aria-pressed={choisie}
               onClick={() => enregistrer({ finition: f })}
@@ -843,7 +859,7 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
               <span className="finition-nom">{NOM_FINITION[f]}</span>
               {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
               <span className="muted small" aria-hidden={choisie || undefined}>
-                {ouverte ? (choisie ? 'épinglée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
+                {choisie ? 'épinglée' : 'ouverte'}
               </span>
               {choisie && <span className="sr-only">ouverte</span>}
             </button>
@@ -851,10 +867,11 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
         })}
       </div>
       <p className="muted small">
-        Les finitions se gagnent au niveau, jusqu’à Constellation au niveau 25. L’Éclat, lui, ne se gagne pas : une chance
-        sur quarante par soirée jouée à deux ou plus et par quiz du jour, une sur vingt par défi de la semaine, et c’est
-        l’avatar lui-même qui change de couleurs.
+        Les finitions se gagnent au niveau, jusqu’à Constellation au niveau {NIVEAU_FINITION.constellation}. L’Éclat, lui, ne se
+        gagne pas : une chance sur quarante par soirée jouée à deux ou plus et par quiz du jour, une sur vingt par défi de la
+        semaine, et c’est l’avatar lui-même qui change de couleurs.
       </p>
+      <AGagnerDansLaCollection reste={FINITIONS.length - profil.ouvertes.length} partie="finitions" nom={FINITIONS.length - profil.ouvertes.length > 1 ? 'finitions' : 'finition'} />
     </section>
   )
 }
@@ -919,17 +936,19 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
 /**
  * Le fond de sa carte : ce qu'on voit derrière elle quand quelqu'un touche
  * son nom. Rien d'autre ne change — ni l'écran commun, ni les classements.
- * Ceux qui restent à gagner se voient, avec ce qu'il faut : savoir ce qui
- * vient donne envie de revenir.
+ * Ceux qu'il a seulement ; ceux qui restent à gagner se voient dans sa
+ * collection, avec ce qu'il faut pour les ouvrir.
  */
 export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   if (!profil.fonds) return null
   const porte = profil.fond ?? null
+  const reste = FONDS.filter(f => !profil.fonds!.includes(f.key)).length
   return (
     <section className="card">
       <h3>
         <Icon name="image" />
-        Le fond de ma carte <span className="muted small titre-compte">{`${profil.fonds.length} / ${FONDS.length}`}</span>
+        {/* Compté comme sa ligne de la collection : le Velours, à tout le monde, n'en est pas. */}
+        Le fond de ma carte {profil.fonds.length > 0 && <span className="muted small titre-compte">{`${profil.fonds.length} à toi`}</span>}
       </h3>
       <p className="muted small">Il se voit quand quelqu’un touche ton nom : c’est ta carte qui change d’allure, rien d’autre.</p>
       <div className="finitions fonds-choix">
@@ -946,15 +965,13 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
             {!porte ? 'porté' : 'd’office'}
           </span>
         </button>
-        {FONDS.map(f => {
-          const ouvert = profil.fonds!.includes(f.key)
+        {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => {
           const choisi = porte === f.key
           return (
             <button
               key={f.key}
               type="button"
               className={'finition-btn' + (choisi ? ' selected' : '')}
-              disabled={!ouvert}
               aria-disabled={busy || undefined}
               aria-pressed={choisi}
               onClick={() => enregistrer({ fond: f.key })}
@@ -963,13 +980,14 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
               <span className="finition-nom">{f.nom}</span>
               {/* « porté » redit `aria-pressed` : l'oreille entend « ouvert ». */}
               <span className="muted small" aria-hidden={choisi || undefined}>
-                {ouvert ? (choisi ? 'porté' : 'ouvert') : f.regle}
+                {choisi ? 'porté' : 'ouvert'}
               </span>
               {choisi && <span className="sr-only">ouvert</span>}
             </button>
           )
         })}
       </div>
+      <AGagnerDansLaCollection reste={reste} partie="fonds" nom={reste > 1 ? 'fonds' : 'fond'} />
     </section>
   )
 }
@@ -978,8 +996,9 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
  * Sa gerbe : ce qui éclate sur son téléphone à une bonne réponse, en soirée,
  * au quiz du jour et en campagne. Pour lui seul — ni la salle ni l'écran
  * commun n'en voient rien. Les confettis d'office, et « Aucune » pour qui
- * n'en veut pas ; celles qui restent à gagner se voient avec ce qu'il faut,
- * et éclatent au toucher pour qu'on sache ce qu'on vise — sans se porter.
+ * n'en veut pas ; celles qu'il a éclatent au toucher, et se portent. Celles
+ * qui restent à gagner éclatent dans sa collection, pour qu'on sache ce
+ * qu'on vise (`GerbesDeLaCollection`).
  */
 export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   // L'aperçu : la gerbe qu'on vient de toucher éclate, une fois par toucher.
@@ -987,14 +1006,15 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
   if (!profil.gerbes) return null
   const porte = profil.gerbe ?? null
   const montrer = (cle: string) => setApercu(a => ({ cle, n: (a?.n ?? 0) + 1 }))
+  const reste = GERBES.filter(g => !profil.gerbes!.includes(g.key)).length
   return (
     <section className="card">
       <h3>
         <Icon name="zap" />
-        Ma gerbe <span className="muted small titre-compte">{`${profil.gerbes.length} / ${GERBES.length}`}</span>
+        Ma gerbe <span className="muted small titre-compte">{`${profil.gerbes.length} à toi`}</span>
       </h3>
       <p className="muted small">
-        Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit. Touche-en une pour la voir, même celles à gagner.
+        Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit. Touche-en une pour la voir et la porter.
       </p>
       <div className="finitions gerbes-choix">
         <button
@@ -1010,19 +1030,18 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
             {!porte ? 'portée' : 'sobre'}
           </span>
         </button>
-        {GERBES.map(g => {
-          const ouverte = profil.gerbes!.includes(g.key)
+        {GERBES.filter(g => profil.gerbes!.includes(g.key)).map(g => {
           const choisie = porte === g.key
           return (
             <button
               key={g.key}
               type="button"
-              className={'finition-btn' + (choisie ? ' selected' : '') + (ouverte ? '' : ' gerbe-a-gagner')}
+              className={'finition-btn' + (choisie ? ' selected' : '')}
               aria-disabled={busy || undefined}
-              aria-pressed={ouverte ? choisie : undefined}
+              aria-pressed={choisie}
               onClick={() => {
                 montrer(g.key)
-                if (ouverte && !choisie) enregistrer({ gerbe: g.key })
+                if (!choisie) enregistrer({ gerbe: g.key })
               }}
             >
               <span className="gerbe-apercu" aria-hidden="true">
@@ -1030,14 +1049,14 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
               </span>
               <span className="finition-nom">{g.nom}</span>
               <span className="muted small" aria-hidden={choisie || undefined}>
-                {ouverte ? (choisie ? 'portée' : 'ouverte') : g.regle}
+                {choisie ? 'portée' : 'ouverte'}
               </span>
               {choisie && <span className="sr-only">ouverte</span>}
-              {!ouverte && <span className="sr-only">, à gagner : touche-la pour la voir</span>}
             </button>
           )
         })}
       </div>
+      <AGagnerDansLaCollection reste={reste} partie="gerbes" nom={reste > 1 ? 'gerbes' : 'gerbe'} />
       {apercu && <GerbeDeJuste key={apercu.n} cle={apercu.cle} />}
     </section>
   )

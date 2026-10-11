@@ -394,7 +394,8 @@ test('les aperçus des finitions bougent portés ou survolés, pas avant', async
   const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, busy: false, enregistrer: () => {} })
   assert.match(html, /<div class="finitions">/)
   const boutons = [...html.matchAll(/<button[^>]*class="(finition-btn[^"]*)"/g)].map(m => m[1].split(' '))
-  assert.equal(boutons.length, 8, 'la plus belle, et les sept')
+  // La plus belle, et celles qu'il a : les autres se disent dans sa collection (le 11 octobre 2026).
+  assert.equal(boutons.length, 1 + HABITUE.ouvertes.length, 'la plus belle, et celles qu’il a')
   assert.equal(boutons.filter(b => b.includes('selected')).length, 1, 'une seule portée')
   for (const dedans of ['.av::before', '.av::after', '.lg *']) {
     const selecteur = `.finitions .finition-btn:not(.selected):not(:hover) ${dedans}`

@@ -72,33 +72,44 @@ try {
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
 
-  // Les tuiles : ce qu'on porte, trois par rangée, puis ce qu'on a.
+  // Le vestiaire — ce qu'on porte, en une image qu'on touche —, puis ce qu'on a.
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.tuiles-trois')
+  await page.waitForSelector('.vestiaire')
   await page.waitForSelector('.tuile-compte')
   await photo('1-tuiles')
   await photo('1-tuiles-pleine', true)
   // Sa carte, comme la salle la voit, et son avatar touché : en grand, à sa place.
-  await page.click('.identite')
+  await page.click('.vestiaire-voir')
   await page.waitForSelector('.carte-joueur .carte-tete')
   await photo('1-carte')
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe')
   await photo('1-carte-avatar-en-grand')
 
-  // Chaque écran, ouvert de sa tuile ; la finition de « Mon avatar », dépliée.
-  for (const [i, tuile, attente] of [
-    [2, 'Mon avatar', '.famille-avatars'],
-    [3, 'Ma carte', '.titres'],
-    [4, 'Mon thème', '.mes-themes'],
-    [5, 'Ma collection', '.collection'],
+  // Chaque écran, ouvert de la pièce du vestiaire qui le mène — ou de sa tuile ; la finition de « Mon avatar », dépliée.
+  for (const [i, nom, piece, attente] of [
+    [2, 'Mon avatar', '.vestiaire-avatar', '.famille-avatars'],
+    [3, 'Ma carte', '.vestiaire-titre', '.titres'],
+    [4, 'Mon thème', '.vestiaire-theme', '.mes-themes'],
+    [5, 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)
-    await page.waitForSelector('.tuiles-trois')
-    await page.click(`.tuile:has-text("${tuile}")`)
+    await page.waitForSelector('.vestiaire')
+    await page.click(piece)
     await page.waitForSelector(attente)
-    await photo(`${i}-${tuile.toLowerCase().replace(/ /g, '-')}`)
-    await photo(`${i}-${tuile.toLowerCase().replace(/ /g, '-')}-pleine`, true)
+    await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
+    await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}-pleine`, true)
+  }
+  // La vitrine et le fond, touchés au vestiaire : « Ma carte » s'ouvre sur eux.
+  for (const [piece, ancre] of [
+    ['.vestiaire-vitrine', 'carte-vitrine'],
+    ['.vestiaire-fond', 'carte-fond'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil`)
+    await page.waitForSelector('.vestiaire')
+    await page.click(piece)
+    await page.waitForSelector(`#${ancre} .card`)
+    await photo(`3-ma-carte-${ancre}`)
   }
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.ma-finition')
@@ -133,6 +144,14 @@ try {
   await page.goto(`${banc.url}/boutique`)
   await page.waitForSelector('.vitrine-themes .theme-vitrine')
   await photo('8-boutique', true)
+
+  // Le vestiaire habillé : un titre porté, et sous la nuit étoilée — posée à
+  // la main sur la carte : ce fond se gagne en trente jours de quiz du jour.
+  await ecrire(banc.url, '/api/joueur/moi', { titre: 'hf:phenix' }, cookie, 'PUT')
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.vestiaire .vestiaire-case:not(.vestiaire-vide)')
+  await page.$eval('.vestiaire-carte', (carte: any) => carte.classList.add('carte-fond', 'fond-nuit'))
+  await photo('9-vestiaire-habille')
 } finally {
   await navigateur.close()
   await banc.close()

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
 import { compteDeLaCollection, type Compte } from '../../../shared/collection'
 import { vitrineDeLaCarte } from '../../../shared/carte'
 import { recompensesDe } from '../../../shared/proches'
 import { gerbe } from '../../../shared/gerbes'
+import { FONDS } from '../../../shared/fonds'
 import { apercuDe } from '../apercus'
 import type { ChoixDuProfil } from './choix'
 import { MaGerbe, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
@@ -14,6 +15,7 @@ import { Onglets, type Onglet } from './Onglets'
 import { CarriereAtlas } from './CarriereAtlas'
 import { MesThemes, RayonDesObjets, RayonDesThemes } from './Boutique'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
+import type { ApercusDuVestiaire } from './Vestiaire'
 
 // Le contenu des écrans du profil — « Mon avatar », « Ma carte », « Mon
 // thème », « Ma collection » — et de la boutique, que la page charge à la
@@ -32,24 +34,20 @@ interface Props {
 }
 
 /**
- * Ce que les tuiles du profil montrent en plus de son en-tête : le total de
- * sa collection, les hauts faits de sa vitrine, sa gerbe et l'aperçu de son
- * thème. Ici, avec les écrans : leurs catalogues — fonds, gerbes, aperçus
- * des thèmes — n'ont rien à faire sur le chemin de l'accueil anonyme, qui
- * partage le fichier des tuiles (`ProfilApp`) : près de trois kilos de plus.
+ * Ce que le profil montre en plus de son en-tête : le total de sa
+ * collection, et pour le vestiaire les hauts faits de sa vitrine — une case
+ * chacun —, sa gerbe et l'aperçu de son thème. Ici, avec les écrans : leurs
+ * catalogues — fonds, gerbes, aperçus des thèmes — n'ont rien à faire sur le
+ * chemin de l'accueil anonyme, qui partage le fichier du profil
+ * (`ProfilApp`) : près de trois kilos de plus.
  */
-export function apercusDesTuiles(profil: PublicProfileDetail): {
-  collection: Compte
-  vitrine: string
-  gerbe: { nom: string; particule: string } | null
-  apercuDuTheme: string | undefined
-} {
+export function apercusDesTuiles(profil: PublicProfileDetail): ApercusDuVestiaire & { collection: Compte } {
   const saGerbe = gerbe(profil.gerbe)
   return {
     collection: compteDeLaCollection(profil).total,
-    vitrine: vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits))
-      .map(b => b.emoji)
-      .join(''),
+    vitrine: vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits)).map(b => ({ emoji: b.emoji, nom: b.title })),
+    // Le Velours d'office : il n'est pas du catalogue des fonds.
+    fond: FONDS.find(f => f.key === profil.fond)?.nom ?? 'Velours',
     gerbe: saGerbe ? { nom: saGerbe.nom, particule: saGerbe.particules[0] } : null,
     apercuDuTheme: apercuDe(profil.theme ?? 'velours'),
   }
@@ -120,17 +118,38 @@ function MaFinition({ profil, busy, enregistrer }: Props) {
  * carte. Le reste s'y remplit tout seul.
  */
 export function PanneauMaCarte({ profil, busy, enregistrer }: Props) {
+  useAncreDuVestiaire()
   return (
     <>
       <div className="identite-collante">
         <Identite profil={profil} />
       </div>
-      <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
-      <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
-      <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+      {/* Chaque partie à son adresse : le vestiaire du profil y mène (`#carte-vitrine`). */}
+      <div id="carte-titre" className="ancre-du-vestiaire">
+        <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
+      </div>
+      <div id="carte-vitrine" className="ancre-du-vestiaire">
+        <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
+      </div>
+      <div id="carte-fond" className="ancre-du-vestiaire">
+        <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+      </div>
       <p className="muted small center">Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix.</p>
     </>
   )
+}
+
+/**
+ * La partie d'un écran qu'a touchée le vestiaire (`#carte-vitrine`) vient
+ * sous les yeux, une fois, à l'ouverture : sous la carte collée en tête, le
+ * fond de carte était à trois écrans de défilement du titre.
+ */
+function useAncreDuVestiaire() {
+  useEffect(() => {
+    const ancre = window.location.hash.slice(1)
+    if (ancre.includes('-')) document.getElementById(ancre)?.scrollIntoView({ block: 'start' })
+    // Une fois : ensuite, c'est le doigt qui parcourt.
+  }, [])
 }
 
 /**
