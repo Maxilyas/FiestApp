@@ -118,11 +118,12 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   // Le carnet (`#carnet`) non plus, et il ne précharge rien : sa page demande le sien.
   assert.match(
     source('views/CampagneApp.tsx'),
-    /const modeDe = \(hash: string\): Mode =>\s*DUELS\s*\? hash === ADRESSE_DU_LANCEMENT\s*\? 'defier'\s*: codeDuLien\(hash\)\s*\? 'duel'\s*: 'duels'\s*: hash === ADRESSE_DU_DEFI\s*\? 'defi'\s*: hash === ADRESSE_DU_CARNET\s*\? 'carnet'\s*: versLesSentiers\(hash\)\s*\? 'sentiers'\s*: 'serie'/,
+    /const modeDe = \(hash: string\): Mode =>\s*DUELS\s*\? estLeLancement\(hash\)\s*\? 'defier'\s*: codeDuLien\(hash\)\s*\? 'duel'\s*: 'duels'\s*: hash === ADRESSE_DU_DEFI\s*\? 'defi'\s*: hash === ADRESSE_DU_CARNET\s*\? 'carnet'\s*: versLesSentiers\(hash\)\s*\? 'sentiers'\s*: 'serie'/,
   )
   assert.deepEqual(donneesDuFragment(campagne, '#carnet'), [], '#carnet')
-  // La préparation d'un défi non plus : elle lit l'état de la campagne, que la page demande toujours.
+  // La préparation d'un défi non plus — contre quelqu'un compris (`#defier-<id>`) : elle lit l'état de la campagne, que la page demande toujours.
   assert.deepEqual(donneesDuFragment(campagne, '#defier'), [], '#defier')
+  assert.deepEqual(donneesDuFragment(campagne, '#defier-a1b2'), [], '#defier-a1b2')
 })
 
 // ── 2. La page servie ─────────────────────────────────────────────────────

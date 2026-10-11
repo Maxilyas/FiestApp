@@ -63,10 +63,24 @@ export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: 
  * Une feuille qui monte du bas, « Fermer » toujours en vue : choisir un quiz,
  * ranger. Le voile la ferme aussi ; le reste de la page ne bouge pas.
  */
-export function Feuille({ titre, onFermer, pied, children }: { titre: string; onFermer: () => void; /** Collé en bas, toujours en vue. */ pied?: ReactNode; children: ReactNode }) {
+export function Feuille({
+  titre,
+  onFermer,
+  pied,
+  className,
+  children,
+}: {
+  titre: string
+  onFermer: () => void
+  /** Collé en bas, toujours en vue. */
+  pied?: ReactNode
+  /** Sa mise en page à elle — une hauteur fixe, quand son contenu change sous le doigt. */
+  className?: string
+  children: ReactNode
+}) {
   return (
     <div className="carte-voile" onClick={onFermer}>
-      <div className="carte-feuille" role="dialog" aria-modal="true" aria-label={titre} onClick={e => e.stopPropagation()}>
+      <div className={'carte-feuille' + (className ? ` ${className}` : '')} role="dialog" aria-modal="true" aria-label={titre} onClick={e => e.stopPropagation()}>
         <header className="carte-barre">
           <b className="feuille-titre">{titre}</b>
           <button type="button" className="carte-fermer" onClick={onFermer}>

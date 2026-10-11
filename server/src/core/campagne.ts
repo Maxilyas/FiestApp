@@ -49,12 +49,14 @@ import {
   type DuelsDAccueil,
   type EnjeuDuDuel,
   type EtatDesDuels,
+  type FaceAFace,
   type JoueurADefier,
   type LigneDesDuels,
   type ReleveDesDuels,
   type SemaineDesDuels,
 } from '../../../shared/duels'
 import {
+  AJOUTS_MONTRES,
   AMIS_MONTRES,
   DEFIS_RECUS_MONTRES,
   DUELS_OUVERTS_MAX,
@@ -63,6 +65,7 @@ import {
   LONGUEUR_D_UN_CODE,
   lireCodeDuDuel,
   type AmiDeCampagne,
+  type AmisDeLaFeuille,
   type SonApparence,
   type DefiRecu,
   type DuelEntreAmis,
@@ -406,7 +409,7 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher'>>
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -652,6 +655,11 @@ export class CampagneStore {
            ajoute_le  INTEGER NOT NULL,
            PRIMARY KEY (profile_id, ami)
          )`,
+        // Et lues dans l'autre sens — qui l'a ajouté, qui l'a retiré —, à
+        // chaque ouverture de la feuille des amis et de la carte d'un ami
+        // (`cercleDe`) : sans index, la table entière.
+        'CREATE INDEX IF NOT EXISTS idx_campagne_amis_ajoutes_ami ON campagne_amis_ajoutes(ami)',
+        'CREATE INDEX IF NOT EXISTS idx_campagne_amis_retires_ami ON campagne_amis_retires(ami)',
       ],
       'write',
     )
@@ -2441,6 +2449,122 @@ export class CampagneStore {
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
       ...(sesAmis.has(x.id) && { ami: true as const }),
     }))
+  }
+
+  /**
+   * Les deux sens de sa liste, d'un aller-retour. Ses amis, comme
+   * `idsDesAmis` les lit — ceux qu'il a ajoutés, ceux de ses défis entre
+   * amis —, les plus récents d'abord ; ceux qui l'ont dans la leur — qui l'ont
+   * ajouté, ou joué un défi entre amis avec lui : la même ligne se lit des
+   * deux côtés —, sauf qui l'a retiré depuis ; et ceux qui l'ont ajouté sans
+   * qu'il les ait ajoutés, ni retirés. Un masqué n'y paraît jamais.
+   */
+  private async cercleDe(profileId: string): Promise<{
+    amis: string[]
+    estAmi: (id: string) => boolean
+    reciproque: (id: string) => boolean
+    tOntAjoute: string[]
+  }> {
+    const [sesAjouts, defis, leursAjouts, sesRetraits, leursRetraits] = await this.client.batch(
+      [
+        { sql: 'SELECT ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE profile_id = ?', args: [profileId] },
+        {
+          // Les défis entre amis joués ensemble, d'un côté ou de l'autre : chacun est l'ami de l'autre.
+          sql: `SELECT ami, MAX(le) AS le FROM (
+                  SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
+                   WHERE d.auteur = ? AND s.profile_id <> ? AND d.adversaire IS NULL
+                  UNION ALL
+                  SELECT d.auteur AS ami, s.commencee_le AS le FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel
+                   WHERE s.profile_id = ? AND s.mode = 'duel' AND d.auteur <> ? AND d.adversaire IS NULL
+                ) GROUP BY ami`,
+          args: [profileId, profileId, profileId, profileId],
+        },
+        { sql: 'SELECT profile_id AS ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE ami = ?', args: [profileId] },
+        { sql: 'SELECT ami, retire_le AS le FROM campagne_amis_retires WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT profile_id AS ami, retire_le AS le FROM campagne_amis_retires WHERE ami = ?', args: [profileId] },
+      ],
+      'read',
+    )
+    const parAmi = (res: ResultSet) => new Map(res.rows.map(r => [String(r.ami), Number(r.le)]))
+    const [ses, communs, leurs, sesRetires, leursRetires] = [sesAjouts, defis, leursAjouts, sesRetraits, leursRetraits].map(parAmi)
+    const plusRecent = (a: number | undefined, b: number | undefined) => (a === undefined ? b : b === undefined ? a : Math.max(a, b))
+    // Comme `idsDesAmis` : un retrait tient jusqu'à ce qu'ils jouent de nouveau ensemble, ou qu'il le rajoute.
+    const tient = (le: number | undefined, retire: number | undefined) => le !== undefined && !(le <= (retire ?? -Infinity))
+    const lesSiens = new Map<string, number>()
+    for (const id of new Set([...ses.keys(), ...communs.keys()])) {
+      const le = plusRecent(ses.get(id), communs.get(id))
+      if (le !== undefined && !this.masque?.(id) && tient(le, sesRetires.get(id))) lesSiens.set(id, le)
+    }
+    const lAOntDansLaLeur = (id: string) => tient(plusRecent(leurs.get(id), communs.get(id)), leursRetires.get(id))
+    return {
+      amis: [...lesSiens]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, AMIS_MONTRES)
+        .map(([id]) => id),
+      estAmi: id => lesSiens.has(id),
+      reciproque: id => lesSiens.has(id) && lAOntDansLaLeur(id),
+      // Jamais un qu'il a retiré : il l'a écarté, et le rajouter se fait par son prénom.
+      tOntAjoute: [...leurs]
+        .filter(([id]) => !lesSiens.has(id) && !sesRetires.has(id) && !this.masque?.(id) && lAOntDansLaLeur(id))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, AJOUTS_MONTRES)
+        .map(([id]) => id),
+    }
+  }
+
+  /** Amis l'un de l'autre : chacun a l'autre dans sa liste. Sa carte s'ouvre alors à l'autre, même sans classement où elle se touche. */
+  async sontAmisReciproques(profileId: string, autre: string): Promise<boolean> {
+    return profileId !== autre && (await this.cercleDe(profileId)).reciproque(autre)
+  }
+
+  /**
+   * La feuille des amis (`GET /api/duels/amis`) : sa liste, lue comme un
+   * classement — la plus haute cote d'abord —, qui est en ligne parmi ceux
+   * qui l'ont ajouté aussi, puis ceux qui l'ont ajouté sans qu'il les ait
+   * ajoutés. « En ligne » ne se dit jamais d'un ami à sens unique : on ajoute
+   * n'importe qui par son prénom, sans qu'il accepte, et un inconnu
+   * guetterait sinon quand il se connecte.
+   */
+  async amisDeLaFeuille(profileId: string): Promise<AmisDeLaFeuille> {
+    const p = this.profils
+    if (!p) return { amis: [], tOntAjoute: [] }
+    const [cercle, cotes, rangs] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement()])
+    const lus = (await p.byIds([...cercle.amis, ...cercle.tOntAjoute])).filter((x): x is ProfileRec => x !== null)
+    // Deux du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17) — d'une section à l'autre aussi.
+    const marques = nomsAffiches(lus.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const parId = new Map(lus.map(x => [x.id, x]))
+    const ligne = (id: string): AmiDeCampagne[] => {
+      const x = parId.get(id)
+      return x ? [{ profileId: x.id, nom: marques.get(x.id) ?? x.name, avatar: p.avatarPorte(x), ...sonApparence(p, x), ...this.saCote(cotes.get(x.id), rangs.get(x.id)) }] : []
+    }
+    const amis = cercle.amis.flatMap(id => ligne(id).map(a => ({ ...a, ...(cercle.reciproque(id) && p.enLigne?.(id) && { enLigne: true as const }) })))
+    amis.sort((a, b) => (b.cote ?? -Infinity) - (a.cote ?? -Infinity) || 0)
+    return { amis, tOntAjoute: cercle.tOntAjoute.flatMap(ligne) }
+  }
+
+  /**
+   * Un joueur touché hors d'une soirée (`GET /api/duels/joueurs/:id`) : ce
+   * que la recherche dirait de lui — sa ligue, sa cote, sa place, s'il est
+   * son ami —, et sa propre cote, relue, pour que la préparation dise ce qui
+   * se joue. Ni lui-même, ni un masqué, ni un inconnu : null.
+   */
+  async faceAFace(profileId: string, autre: unknown): Promise<FaceAFace | null> {
+    const p = this.profils
+    if (!p || typeof autre !== 'string' || !autre || autre === profileId || this.masque?.(autre)) return null
+    const [lui] = await p.byIds([autre])
+    if (!lui) return null
+    const [cercle, cotes, rangs, moi] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement(), this.releveDesDuels(profileId)])
+    return {
+      joueur: {
+        profileId: lui.id,
+        nom: lui.name,
+        avatar: p.avatarPorte(lui),
+        ...sonApparence(p, lui),
+        ...this.saCote(cotes.get(lui.id), rangs.get(lui.id)),
+        ...(cercle.estAmi(lui.id) && { ami: true as const }),
+      },
+      moi: { cote: moi.cote, joues: moi.joues },
+    }
   }
 
   /**

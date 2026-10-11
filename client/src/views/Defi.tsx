@@ -10,8 +10,7 @@ import { Shape } from '../components/Shape'
 import { RecompenseTombee } from '../components/Ouverts'
 import { OR, lueur } from '../components/Atlas'
 import { deNom, espacesFines } from '../format'
-import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { showToast } from '../state'
+import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { placeDuJour } from '../../../shared/course'
 import { NOM_NIVEAU, type CorrectionDeCampagne, type DefiDeLaSemaine, type LigneDuDefi, type SerieDeCampagne } from '../../../shared/campagne'
 
@@ -45,7 +44,7 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
   const [correction, setCorrection] = useState<CorrectionDeCampagne[] | null>(null)
-  const { ouvrir, carte } = useCarteDuClassement()
+  const { ouvrir, carte } = useCarteDUnProfil()
 
   useEffect(() => {
     let vivant = true
@@ -224,28 +223,6 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
       {carte}
     </div>
   )
-}
-
-/** La carte d'un joueur, au toucher de son nom dans un classement de défi : rien ne la télécharge avant. */
-const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
-
-/**
- * La carte d'un joueur d'un classement de défi, comme au classement du jour :
- * son nom se touche (le souhait du propriétaire du 11 octobre 2026). Rend de
- * quoi l'ouvrir, et la carte ouverte, à poser dans la page.
- */
-export function useCarteDuClassement(): { ouvrir: (profileId: string) => void; carte: ReactNode } {
-  const [carte, setCarte] = useState<string | null>(null)
-  const laCarte = useALaDemande(carteJoueur, !!carte)
-  useEffect(() => {
-    if (!carte || laCarte !== 'perdu') return
-    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
-    setCarte(null)
-  }, [carte, laCarte])
-  return {
-    ouvrir: setCarte,
-    carte: carte && laCarte && laCarte !== 'perdu' ? <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} /> : null,
-  }
 }
 
 /**

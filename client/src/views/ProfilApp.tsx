@@ -5,6 +5,7 @@ import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
 import { IdentiteLigne } from '../components/Identite'
+import { BoutonDesAmis, lesAmis } from '../components/FeuilleDesAmisADemande'
 import { Vestiaire } from '../components/Vestiaire'
 import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
@@ -205,7 +206,8 @@ export function ProfilApp() {
   // du profil aussi, que « Profil », au menu, trouvera là : demandés dès le
   // profil lu, leurs douze morceaux passaient devant le premier écran de
   // l'accueil, qui n'en montre rien (mesuré le 11 octobre 2026 :
-  // `PanneauxDuProfil`, 21 ko, arrivait juste avant lui).
+  // `PanneauxDuProfil`, 21 ko, arrivait juste avant lui). La feuille des amis
+  // de même : « Amis », touché, l'ouvre tout de suite.
   const aUnProfil = !!profil
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
@@ -214,6 +216,7 @@ export function ProfilApp() {
       void import('./Duels').catch(() => {})
       void import('./JourApp').catch(() => {})
       void panneaux.charger().catch(() => {})
+      void lesAmis.charger().catch(() => {})
     }
     const attente = window as Window & { requestIdleCallback?: (f: () => void) => number }
     if (attente.requestIdleCallback) attente.requestIdleCallback(precharger)
@@ -380,8 +383,14 @@ export function ProfilApp() {
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
       <div className="player-shell accueil">
-        {/* Soi-même en une ligne : un toucher mène au profil. */}
-        <IdentiteLigne profil={profil} />
+        {/* Soi-même en une ligne : un toucher mène au profil. Au bout, ses
+            amis : leur feuille monte sur l'accueil (le souhait du
+            propriétaire du 11 octobre 2026) — un profil seulement, l'invité
+            anonyme n'a rien ici. */}
+        <div className="accueil-tete">
+          <IdentiteLigne profil={profil} />
+          <BoutonDesAmis />
+        </div>
         <AccueilJouer
           enCours={enCours}
           onRejoindre={() => setRejoindre(true)}

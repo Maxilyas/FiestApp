@@ -228,5 +228,7 @@ test('toucher un nom du classement du défi ouvre sa carte — même sans quiz d
     const client = (f: string) => readFileSync(path.join(SERVEUR, '..', 'client', 'src', f), 'utf8')
     assert.match(client('views/Defi.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === defi\.sienne\} onOuvrir=\{ouvrir\} \/>/)
     assert.match(client('views/Duel.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === duel\.sienne\} onOuvrir=\{ouvrirLaCarte\} \/>/)
-    assert.match(client('views/Defi.tsx'), /adresse=\{`\/api\/joueur\/carte\/\$\{encodeURIComponent\(carte\)\}`\}/)
+    // La carte s'ouvre à son adresse par le crochet que partagent les classements, les duels et les amis (`CarteDUnProfil`).
+    assert.match(client('views/Defi.tsx'), /const \{ ouvrir, carte \} = useCarteDUnProfil\(\)/)
+    assert.match(client('components/CarteDUnProfil.tsx'), /adresse=\{`\/api\/joueur\/carte\/\$\{encodeURIComponent\(carte\)\}`\}/)
   }))

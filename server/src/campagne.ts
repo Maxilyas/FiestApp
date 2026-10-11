@@ -245,6 +245,28 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // Un joueur touché — sa carte, la préparation ouverte à son adresse : ce
+  // que la recherche dirait de lui, s'il est son ami, et sa propre cote.
+  app.get(
+    '/api/duels/joueurs/:id',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const face = await deps.campagne.faceAFace(profil.id, req.params.id)
+      if (face) res.json(face)
+      else res.status(404).json({ error: 'Ce joueur est introuvable : cherche-le de nouveau' })
+    }),
+  )
+
+  // La feuille des amis : sa liste — qui est en ligne, entre amis réciproques —, et qui l'a ajouté.
+  app.get(
+    '/api/duels/amis',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.amisDeLaFeuille(profil.id))
+    }),
+  )
+
   // ── Le défi de la semaine ──────────────────────────────────────────────
   // Une série d'un autre mode : ses réponses, son signalement et sa
   // correction passent par les routes de la série, sous son identifiant.

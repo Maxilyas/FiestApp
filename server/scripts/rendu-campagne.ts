@@ -272,16 +272,18 @@ try {
   await photo('20-un-palier-de-theme-valide')
 
   // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Léa le défie
-  // depuis ses duels — l'épée de sa ligne, sous « Tes amis » —, le joue, et il
-  // part à Tom à sa dernière réponse ; Tom le trouve en tête de ses duels,
-  // l'accueil le lui dit, et sa liste d'amis est dessous. `rendu-duels.ts`
-  // photographie la préparation en détail.
+  // depuis ses duels — « Mes amis », sa ligne, « Défier Tom » sur sa carte —,
+  // le joue, et il part à Tom à sa dernière réponse ; Tom le trouve en tête
+  // de ses duels, l'accueil le lui dit, et sa liste d'amis est dans sa
+  // feuille. `rendu-duels.ts` photographie la préparation en détail.
   const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as any
   await jouerParLAPI(lea, premier.serie.id, [true, true, true, false, false, false])
   const releve = (await (await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, tom)).json()) as any
   await jouerParLAPI(tom, releve.id, [true, false, false, false])
   await ouvrir('/duels')
-  await page.locator('.tes-amis .duels-epee[aria-label="Défier Tom"]').click()
+  await page.getByRole('button', { name: /Mes amis/ }).click()
+  await page.locator('.ligne-joueur-ouvrable', { hasText: 'Tom' }).click()
+  await page.getByRole('button', { name: 'Défier Tom' }).click()
   await page.waitForSelector('.defier-etape')
   await photo('21-preparer-un-defi')
   await page.getByRole('button', { name: 'Jouer le duel' }).click()
@@ -301,8 +303,8 @@ try {
   await ouvrir('/duels')
   await page.waitForSelector('.duel-recus')
   await photo('23-defis-recus')
-  await page.waitForSelector('.tes-amis')
-  await page.locator('.tes-amis').scrollIntoViewIfNeeded()
+  await page.getByRole('button', { name: /Mes amis/ }).click()
+  await page.waitForSelector('.amis-sections .ligne-joueur-ouvrable')
   await photo('24-tes-amis')
 } finally {
   await navigateur.close()
