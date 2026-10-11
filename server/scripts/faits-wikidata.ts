@@ -68,10 +68,12 @@ export interface EntiteWd {
   titre: string | null
   /** Ses articles dans toutes les langues : la notoriété dans le monde. */
   liens: number
-  /** Les années qui situent une personne parmi les leurres : sa naissance, ou ses victoires. */
+  /** Les années qui situent une réponse parmi les leurres : sa naissance, ses victoires, ou ses œuvres. */
   annees?: number[]
   pays?: string[]
   femme?: boolean
+  /** Un être humain — non : un groupe, un film qui répond (un groupe de rock, une Palme d'or). */
+  humain?: boolean
 }
 
 /** Un fait brut : un sujet, sa réponse, et ce qui aide à écrire sans trahir. */
@@ -84,6 +86,8 @@ export interface FaitBrut {
   indices: string[]
   /** Le sujet est français : sous-thème et portée en dépendent. */
   francais: boolean
+  /** Les genres du sujet, parmi ceux que sa famille sait ranger (`Famille.genres`) : un album de rap va au rap. */
+  genres?: string[]
 }
 
 /** Une entrée de la base sans ce que le rédacteur écrit — l'anecdote, l'explication ; l'intitulé y est celui du gabarit. */
@@ -271,6 +275,8 @@ export interface Famille {
   demande: string
   typeSujet: 'oeuvre' | 'lieu' | 'evenement'
   descriptionSujet: string
+  /** Ce qui répond, quand ce n'est pas une personne ou un groupe : un film, pour une Palme d'or. */
+  typeReponse?: 'oeuvre'
   /** Les leurres se cherchent à tant d'années au plus de la réponse. */
   ecart: number
   /** Au plus tant de fiches par réponse : vingt-sept Caravage feraient une famille monotone. */
@@ -292,19 +298,46 @@ export interface Extraction {
 
 const FRANCE = 'Q142'
 const FEMME = 'Q6581072'
+const HUMAIN = 'Q5'
 
-/** Les personnes d'un vivier, avec leur naissance — ou les années qu'on leur donne —, leurs nationalités et leur genre. */
+/**
+ * Les réponses d'un vivier, avec leur naissance — ou les années qu'on leur
+ * donne —, leurs pays et leur genre : des personnes, mais aussi des groupes
+ * et des films, que leur pays d'origine situe (P495) — un groupe n'a pas de
+ * nationalité, et sans pays, Téléphone passait pour étranger à la France.
+ */
 async function personnes(wd: Wikidata, qids: readonly string[], annees?: ReadonlyMap<string, number[]>): Promise<Map<string, EntiteWd>> {
   const entites = await wd.entites(qids)
-  const naissances = annees ? null : await wd.valeurs(qids, 'P569')
-  const nationalites = await wd.valeurs(qids, 'P27')
-  const genres = await wd.valeurs(qids, 'P21')
+  const p = await wd.proprietes(qids, ['P569', 'P27', 'P495', 'P21', 'P31'])
   for (const [q, e] of entites) {
-    e.annees = annees?.get(q) ?? (naissances?.get(q) ?? []).map(v => anneeDe(v.v)).filter((a): a is number => a !== null).slice(0, 1)
-    e.pays = (nationalites.get(q) ?? []).map(v => v.v)
-    e.femme = (genres.get(q) ?? []).some(v => v.v === FEMME)
+    const de = (prop: string) => p.get(q)?.get(prop) ?? []
+    e.annees = annees?.get(q) ?? de('P569').map(anneeDe).filter((a): a is number => a !== null).slice(0, 1)
+    e.pays = [...new Set([...de('P27'), ...de('P495')])]
+    e.femme = de('P21').includes(FEMME)
+    e.humain = de('P31').includes(HUMAIN)
   }
   return entites
+}
+
+/**
+ * Les genres de chaque sujet parmi des racines données — le rap, le jazz —,
+ * par ses genres et leurs parents (P279*) : un album de « gangsta rap » est un
+ * album de rap. De quoi ranger un album dans son sous-thème.
+ */
+async function genresParmi(wd: Wikidata, qids: readonly string[], racines: readonly string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>()
+  for (let i = 0; i < qids.length; i += 300) {
+    const lignes = await wd.sparql(`SELECT DISTINCT ?item ?racine WHERE {
+  VALUES ?item { ${qids.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} }
+  VALUES ?racine { ${racines.map(q => `wd:${q}`).join(' ')} }
+  ?item wdt:P136/wdt:P279* ?racine .
+}`)
+    for (const l of lignes) {
+      const [q, r] = [qidDe(l.item), qidDe(l.racine)]
+      if (q && r) out.set(q, [...(out.get(q) ?? []), r])
+    }
+  }
+  return out
 }
 
 /**
@@ -390,7 +423,20 @@ async function attributionsDouteuses(wd: Wikidata, qids: readonly string[], prop
  */
 async function oeuvresEtAuteurs(
   wd: Wikidata,
-  o: { motif: string; prop: string; liensMin: number; oeuvresMin: number; date: string; pays?: string; indice?: string; auteur?: { prop: string; valeurs: readonly string[] } },
+  o: {
+    motif: string
+    prop: string
+    liensMin: number
+    oeuvresMin: number
+    date: string
+    pays?: string
+    indice?: string
+    auteur?: { prop: string; valeurs: readonly string[] }
+    /** Les auteurs situés par les années de leurs œuvres, pas par leur naissance : un groupe n'est pas né. */
+    anneesDesOeuvres?: boolean
+    /** Les genres à reconnaître dans les sujets (`FaitBrut.genres`). */
+    genres?: readonly string[]
+  },
 ): Promise<Extraction> {
   const sujetsBruts = await wd.sparql(`SELECT DISTINCT ?item WHERE { ${o.motif} ?item wikibase:sitelinks ?n . FILTER(?n >= ${o.liensMin}) }`)
   const qids = sujetsBruts.map(l => qidDe(l.item)).filter((q): q is string => q !== null)
@@ -409,19 +455,33 @@ async function oeuvresEtAuteurs(
   const dates = await wd.valeurs(uniques, o.date)
   const pays = o.pays ? await wd.valeurs(uniques, o.pays) : new Map<string, Valeur[]>()
   const indices = o.indice ? await wd.valeurs(uniques, o.indice, { periodes: true }) : new Map<string, Valeur[]>()
-  const gens = await personnes(wd, [...new Set([...vivier, ...uniques.map(q => reponses.get(q)![0].v)])])
+  const genres = o.genres ? await genresParmi(wd, uniques, o.genres) : null
+  const anneeDuSujet = (q: string) => {
+    const annees = (dates.get(q) ?? []).filter(v => (v.prec ?? 0) >= 9).map(v => anneeDe(v.v)).filter((a): a is number => a !== null)
+    return annees.length > 0 ? Math.min(...annees) : null
+  }
+  let parOeuvres: Map<string, number[]> | undefined
+  if (o.anneesDesOeuvres) {
+    parOeuvres = new Map()
+    for (const q of uniques) {
+      const a = anneeDuSujet(q)
+      const auteur = reponses.get(q)![0].v
+      if (a !== null) parOeuvres.set(auteur, [...(parOeuvres.get(auteur) ?? []), a])
+    }
+  }
+  const gens = await personnes(wd, [...new Set([...vivier, ...uniques.map(q => reponses.get(q)![0].v)])], parOeuvres)
   const faits: FaitBrut[] = []
   for (const q of uniques) {
     const sujet = sujets.get(q)
     const reponse = gens.get(reponses.get(q)![0].v)
     if (!sujet || !reponse) continue
-    const annees = (dates.get(q) ?? []).filter(v => (v.prec ?? 0) >= 9).map(v => anneeDe(v.v)).filter((a): a is number => a !== null)
     faits.push({
       sujet,
       reponse,
-      annee: annees.length > 0 ? Math.min(...annees) : null,
+      annee: anneeDuSujet(q),
       indices: [valeurActuelle(indices.get(q) ?? [])?.l].filter((l): l is string => !!l),
       francais: (pays.get(q) ?? []).some(v => v.v === FRANCE) || (reponse.pays ?? []).includes(FRANCE),
+      ...(genres && { genres: genres.get(q) ?? [] }),
     })
   }
   const homonymes = await homonymesDe(wd, o.motif, o.prop, faits)
@@ -468,6 +528,70 @@ async function grandsTours(wd: Wikidata): Promise<Extraction> {
   }
   return { faits, vivier: [...gens.values()], homonymes: new Set() }
 }
+
+/**
+ * Les lauréats de chaque année et les années de chacun, d'après les lignes
+ * « lauréat, année » d'un prix. Une année à deux lauréats reste dans la
+ * liste : c'est à qui écrit la question de l'écarter.
+ */
+export function laureatsParAnnee(lignes: readonly { l?: string; an?: string }[]): { parAnnee: Map<number, string[]>; annees: Map<string, number[]> } {
+  const parAnnee = new Map<number, string[]>()
+  const annees = new Map<string, number[]>()
+  for (const ligne of lignes) {
+    const q = qidDe(ligne.l)
+    const an = Number(ligne.an)
+    if (!q || !Number.isInteger(an) || an <= 0) continue
+    const deLAnnee = parAnnee.get(an) ?? parAnnee.set(an, []).get(an)!
+    if (!deLAnnee.includes(q)) deLAnnee.push(q)
+    const siennes = annees.get(q) ?? annees.set(q, []).get(q)!
+    if (!siennes.includes(an)) siennes.push(an)
+  }
+  return { parAnnee, annees }
+}
+
+/**
+ * Les lauréats d'un prix, année par année : ceux qui le portent (P166) avec
+ * sa date (P585) — un écrivain pour le Goncourt, un film pour la Palme d'or
+ * (`classe`). Une année à deux lauréats ne s'écrit pas : les deux réponses
+ * seraient justes. Le sujet est le prix lui-même, la même entité pour toutes
+ * les années : deux questions d'un même lauréat posent le même fait aux yeux
+ * de l'index, une seule reste — Platini, trois Ballons d'or, n'en aura qu'une.
+ * Les leurres sont d'autres lauréats, à quelques années près, que leurs années
+ * de prix situent.
+ */
+async function laureats(wd: Wikidata, o: { prix: string; classe: string }): Promise<Extraction> {
+  const lignes = await wd.sparql(`SELECT ?l ?an WHERE {
+  ?l p:P166 ?st . ?st ps:P166 wd:${o.prix} ; pq:P585 ?d . FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank }
+  ?l wdt:P31 wd:${o.classe} .
+  BIND(YEAR(?d) AS ?an)
+}`)
+  const { parAnnee, annees } = laureatsParAnnee(lignes)
+  const prix = (await wd.entites([o.prix])).get(o.prix)
+  const gens = await personnes(wd, [...annees.keys()], annees)
+  const faits: FaitBrut[] = []
+  for (const [an, qs] of parAnnee) {
+    const reponse = qs.length === 1 ? gens.get(qs[0]) : undefined
+    if (prix && reponse) faits.push({ sujet: prix, reponse, annee: an, indices: [], francais: (reponse.pays ?? []).includes(FRANCE) })
+  }
+  return { faits, vivier: [...gens.values()], homonymes: new Set() }
+}
+
+/** Les genres qui rangent un album ailleurs que dans la pop et le rock. */
+const JAZZ = 'Q8341'
+const HIP_HOP = 'Q11401'
+const RAP = 'Q6010'
+const ELECTRO = 'Q9778'
+
+/** Le sous-thème d'un album : son genre d'abord, puis la chanson française pour un album français. */
+export function sousThemeDUnAlbum(f: Pick<FaitBrut, 'genres' | 'francais'>): string {
+  const genres = new Set(f.genres ?? [])
+  if (genres.has(JAZZ)) return 'jazz-monde'
+  if (genres.has(HIP_HOP) || genres.has(RAP) || genres.has(ELECTRO)) return 'rap-electro'
+  return f.francais ? 'chanson-fr' : 'pop-rock'
+}
+
+/** Ceux dont le métier est d'écrire — écrivain, romancier, poète, dramaturge, philosophe. */
+const ECRIVAINS = ['Q36180', 'Q6625963', 'Q49757', 'Q214917', 'Q4964182']
 
 export const FAMILLES: readonly Famille[] = [
   {
@@ -525,8 +649,221 @@ export const FAMILLES: readonly Famille[] = [
         oeuvresMin: 2,
         date: 'P577',
         pays: 'P495',
-        auteur: { prop: 'P106', valeurs: ['Q36180', 'Q6625963', 'Q49757', 'Q214917', 'Q4964182'] },
+        auteur: { prop: 'P106', valeurs: ECRIVAINS },
       }),
+  },
+  {
+    cle: 'films-fr',
+    nom: 'Un film français, son réalisateur',
+    categorie: 'Cinéma & séries',
+    sousTheme: () => 'cinema-fr',
+    gabarit: f => `Qui a réalisé « ${f.sujet.nom} » ?`,
+    demande: 'qui a réalisé le film',
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'film',
+    ecart: 25,
+    parReponse: 3,
+    vuesMin: 15,
+    echelle: 0.5,
+    sorte: 'sujet',
+    // Les films français, bien moins traduits que ceux d'Hollywood : à quarante langues, le pilote n'en avait que trois
+    // sur soixante-quinze. Leur vivier, des réalisateurs français : de vrais leurres pour un film français.
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 ; wdt:P495 wd:Q142 .', prop: 'P57', liensMin: 12, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+  },
+  {
+    cle: 'animation',
+    nom: "Un film d'animation, son réalisateur",
+    categorie: 'Cinéma & séries',
+    sousTheme: () => 'animation',
+    gabarit: f => `Qui a réalisé le film d'animation « ${f.sujet.nom} » ?`,
+    demande: "qui a réalisé le film d'animation",
+    typeSujet: 'oeuvre',
+    descriptionSujet: "film d'animation",
+    ecart: 25,
+    parReponse: 3,
+    vuesMin: 15,
+    echelle: 0.5,
+    sorte: 'sujet',
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q202866 wd:Q29168811 } ?item wdt:P31 ?classe .', prop: 'P57', liensMin: 15, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+  },
+  {
+    cle: 'series',
+    nom: 'Une série, son créateur',
+    categorie: 'Cinéma & séries',
+    sousTheme: () => 'series',
+    gabarit: f => `Qui a créé la série « ${f.sujet.nom} » ?`,
+    demande: 'qui a créé la série',
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'série télévisée',
+    ecart: 20,
+    parReponse: 2,
+    vuesMin: 15,
+    echelle: 0.5,
+    sorte: 'sujet',
+    // Un créateur signe rarement deux séries connues : le vivier prend tous ceux des sujets, pas ceux qui en ont deux.
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q5398426 .', prop: 'P170', liensMin: 15, oeuvresMin: 1, date: 'P580', pays: 'P495' }),
+  },
+  {
+    cle: 'musiques-de-films',
+    nom: "La musique d'un film, son compositeur",
+    categorie: 'Musique',
+    sousTheme: () => 'ecrans',
+    gabarit: f => `Qui a composé la musique du film « ${f.sujet.nom} » ?`,
+    demande: 'qui a composé la musique du film',
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'film',
+    ecart: 30,
+    parReponse: 3,
+    vuesMin: 25,
+    echelle: 0.4,
+    sorte: 'sujet',
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P86', liensMin: 30, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+  },
+  {
+    cle: 'operas',
+    nom: 'Un opéra, son compositeur',
+    categorie: 'Musique',
+    sousTheme: () => 'classique',
+    gabarit: f => `Qui a composé l'opéra « ${f.sujet.nom} » ?`,
+    demande: "qui a composé l'opéra",
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'opéra',
+    ecart: 60,
+    parReponse: 3,
+    vuesMin: 8,
+    sorte: 'sujet',
+    // Sa date, celle de la première représentation (P1191) : un opéra se crée sur scène.
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q1344 .', prop: 'P86', liensMin: 10, oeuvresMin: 2, date: 'P1191' }),
+  },
+  {
+    cle: 'albums',
+    nom: 'Un album, son interprète',
+    categorie: 'Musique',
+    sousTheme: sousThemeDUnAlbum,
+    gabarit: f => `Quel artiste a sorti l'album « ${f.sujet.nom} » ?`,
+    demande: "quel artiste ou quel groupe a sorti l'album",
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'album',
+    ecart: 15,
+    parReponse: 2,
+    vuesMin: 15,
+    echelle: 0.5,
+    sorte: 'sujet',
+    // Un groupe n'est pas né : ses albums le situent parmi les autres ; son genre range l'album au rap ou au jazz.
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, {
+        motif: 'VALUES ?classe { wd:Q482994 wd:Q208569 } ?item wdt:P31 ?classe .',
+        prop: 'P175',
+        liensMin: 15,
+        oeuvresMin: 2,
+        date: 'P577',
+        pays: 'P495',
+        anneesDesOeuvres: true,
+        genres: [JAZZ, HIP_HOP, RAP, ELECTRO],
+      }),
+  },
+  {
+    cle: 'theatre-poesie',
+    nom: 'Une pièce ou un poème, son auteur',
+    categorie: 'Arts & lettres',
+    sousTheme: () => 'poesie-theatre',
+    gabarit: f => `Qui a écrit « ${f.sujet.nom} » ?`,
+    demande: 'qui a écrit la pièce ou le poème',
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'pièce de théâtre ou poème',
+    ecart: 50,
+    parReponse: 3,
+    vuesMin: 8,
+    sorte: 'sujet',
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, {
+        motif: 'VALUES ?classe { wd:Q25379 wd:Q5185279 wd:Q12106333 } ?item wdt:P31 ?classe .',
+        prop: 'P50',
+        liensMin: 10,
+        oeuvresMin: 2,
+        date: 'P577',
+        pays: 'P495',
+        auteur: { prop: 'P106', valeurs: ECRIVAINS },
+      }),
+  },
+  {
+    cle: 'sculptures',
+    nom: 'Une sculpture, son sculpteur',
+    categorie: 'Arts & lettres',
+    sousTheme: () => 'sculpture-archi',
+    gabarit: f => `Qui a sculpté « ${f.sujet.nom} » ?`,
+    demande: "qui a sculpté l'œuvre",
+    typeSujet: 'oeuvre',
+    descriptionSujet: 'sculpture',
+    ecart: 60,
+    parReponse: 3,
+    vuesMin: 8,
+    sorte: 'sujet',
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q860861 .', prop: 'P170', liensMin: 10, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
+  },
+  {
+    cle: 'goncourt',
+    nom: 'Le prix Goncourt, son lauréat',
+    categorie: 'Arts & lettres',
+    sousTheme: () => 'litterature-fr',
+    gabarit: f => `En ${f.annee}, qui reçoit le prix Goncourt ?`,
+    demande: "qui a reçu le prix Goncourt l'année de la fiche",
+    typeSujet: 'evenement',
+    descriptionSujet: 'prix littéraire',
+    ecart: 12,
+    parReponse: 1,
+    vuesMin: 5,
+    sorte: 'palmares',
+    extraire: wd => laureats(wd, { prix: 'Q187300', classe: HUMAIN }),
+  },
+  {
+    cle: 'nobel-litterature',
+    nom: 'Le prix Nobel de littérature, son lauréat',
+    categorie: 'Arts & lettres',
+    sousTheme: f => (f.francais ? 'litterature-fr' : 'litterature-monde'),
+    gabarit: f => `En ${f.annee}, qui reçoit le prix Nobel de littérature ?`,
+    demande: "qui a reçu le prix Nobel de littérature l'année de la fiche",
+    typeSujet: 'evenement',
+    descriptionSujet: 'prix littéraire',
+    ecart: 12,
+    parReponse: 1,
+    vuesMin: 8,
+    sorte: 'palmares',
+    extraire: wd => laureats(wd, { prix: 'Q37922', classe: HUMAIN }),
+  },
+  {
+    cle: 'ballon-dor',
+    nom: "Le Ballon d'or, son lauréat",
+    categorie: 'Sport',
+    sousTheme: () => 'football',
+    gabarit: f => `En ${f.annee}, qui reçoit le Ballon d'or ?`,
+    demande: "qui a reçu le Ballon d'or l'année de la fiche",
+    typeSujet: 'evenement',
+    descriptionSujet: 'récompense du football',
+    ecart: 8,
+    parReponse: 1,
+    vuesMin: 10,
+    sorte: 'palmares',
+    extraire: wd => laureats(wd, { prix: 'Q166177', classe: HUMAIN }),
+  },
+  {
+    cle: 'palme-dor',
+    nom: "La Palme d'or, son film",
+    categorie: 'Cinéma & séries',
+    sousTheme: f => (f.francais ? 'cinema-fr' : 'cinema-monde'),
+    gabarit: f => `En ${f.annee}, quel film reçoit la Palme d'or ?`,
+    demande: "quel film a reçu la Palme d'or l'année de la fiche",
+    typeSujet: 'evenement',
+    descriptionSujet: 'prix du Festival de Cannes',
+    typeReponse: 'oeuvre',
+    ecart: 12,
+    parReponse: 1,
+    vuesMin: 10,
+    echelle: 0.5,
+    sorte: 'palmares',
+    extraire: wd => laureats(wd, { prix: 'Q179808', classe: 'Q11424' }),
   },
   // Pas d'édifices : sur Wikidata, « architecte » nomme souvent l'auteur d'une partie — Viollet-le-Duc pour la statue de
   // la Liberté, Stéphen Sauvestre pour la tour Eiffel, l'auteur de la façade pour Sainte-Marie-Majeure. Des faits qui
@@ -564,7 +901,9 @@ export function fichesDeLaFamille(
   const ecarter = (motif: string) => (ecartes[motif] = (ecartes[motif] ?? 0) + 1)
   const vuesDe = (e: EntiteWd | undefined) => (e?.titre ? (vues.get(e.titre) ?? 0) : 0)
   const parNom = new Map(x.vivier.map(e => [e.nom, e]))
-  const tries = [...x.faits].sort((a, b) => vuesDe(b.sujet) - vuesDe(a.sujet) || a.sujet.qid.localeCompare(b.sujet.qid))
+  // Les plus lus d'abord : le sujet, ou pour un palmarès son lauréat — tous les Goncourt ont le même sujet, le prix.
+  const lu = (f: FaitBrut) => (fam.sorte === 'palmares' ? vuesDe(f.reponse) : vuesDe(f.sujet))
+  const tries = [...x.faits].sort((a, b) => lu(b) - lu(a) || a.sujet.qid.localeCompare(b.sujet.qid) || (a.annee ?? 0) - (b.annee ?? 0))
   const parReponse = new Map<string, number>()
   const dejaAffiches = new Map<string, number>()
   const fiches: FicheDeFait[] = []
@@ -587,7 +926,9 @@ export function fichesDeLaFamille(
       { echelle: fam.echelle, moinsSuivi: fam.sorte === 'palmares' && !f.francais },
     )
     // La bonne réponse à une place tirée du sujet, pas du hasard : une extraction refaite rend les mêmes fiches.
-    const bonne = parseInt(createHash('sha1').update(f.sujet.qid).digest('hex').slice(0, 8), 16) % 4
+    // Le sujet, son année et sa réponse ensemble : tous les Goncourt ont le même sujet, et leur bonne réponse aurait
+    // toujours été à la même place.
+    const bonne = parseInt(createHash('sha1').update(`${f.sujet.qid}/${f.annee ?? ''}/${f.reponse.qid}`).digest('hex').slice(0, 8), 16) % 4
     const reponses = [...affiches]
     reponses.splice(bonne, 0, f.reponse.nom)
     fiches.push({
@@ -607,10 +948,11 @@ export function fichesDeLaFamille(
       date: f.annee !== null ? { valeur: String(f.annee), precision: 'annee' } : null,
       entites: [
         { nom: f.sujet.nom, type: fam.typeSujet, description: tronquer(f.sujet.description ?? fam.descriptionSujet, 120) },
-        { nom: f.reponse.nom, type: 'personne', description: tronquer(f.reponse.description ?? '', 120) },
+        { nom: f.reponse.nom, type: fam.typeReponse ?? (f.reponse.humain === false ? 'groupe' : 'personne'), description: tronquer(f.reponse.description ?? '', 120) },
       ],
-      // Un sujet français peu lu ailleurs que chez nous : la portée « france », celle d'un tiers des questions de la base.
-      portee: fam.sorte === 'sujet' && f.francais && f.sujet.liens < 40 ? 'france' : 'monde',
+      // Un sujet français peu lu ailleurs que chez nous — pour un palmarès, son lauréat : la portée « france », celle
+      // d'un tiers des questions de la base.
+      portee: f.francais && (fam.sorte === 'palmares' ? f.reponse.liens : f.sujet.liens) < 40 ? 'france' : 'monde',
       valeur: null,
       leurres,
       dureeDeVie: 'stable',
@@ -795,7 +1137,10 @@ export class Wikidata {
         const corps = (await r.text()).slice(0, 300)
         // Wikipédia limite fort une adresse partagée, comme celle du cloud : on attend ce qu'il dit, et de plus en plus, jusqu'à deux minutes.
         if ((r.status === 429 && essai < 10) || (r.status >= 500 && essai < 6)) {
-          await attendre(Math.min(120, Math.max(Number(r.headers.get('retry-after')) || 0, 2 ** essai)) * 1000)
+          const secondes = Math.min(120, Math.max(Number(r.headers.get('retry-after')) || 0, 2 ** essai))
+          // Dit en route : une extraction qui attend des heures ne doit pas sembler morte.
+          if (secondes >= 30) console.error(`  ${new URL(url).hostname} répond ${r.status} : on attend ${secondes} s (essai ${essai})`)
+          await attendre(secondes * 1000)
           continue
         }
         throw new ErreurHttp(`${url.slice(0, 80)}… : ${r.status} ${corps}`)
@@ -875,51 +1220,111 @@ export class Wikidata {
   }
 
   /**
+   * Plusieurs propriétés d'un coup, leurs valeurs du meilleur rang (`wdt:`,
+   * jamais les dépréciées), par lots : une requête au lieu d'une par
+   * propriété — le service n'en acceptait qu'une par minute pendant sa panne
+   * du 11 octobre 2026.
+   */
+  async proprietes(qids: readonly string[], props: readonly string[]): Promise<Map<string, Map<string, string[]>>> {
+    const out = new Map<string, Map<string, string[]>>()
+    const valides = qids.filter(q => /^Q\d+$/.test(q))
+    for (let i = 0; i < valides.length; i += 300) {
+      const lignes = await this.sparql(`SELECT ?item ?p ?v WHERE {
+  VALUES ?item { ${valides.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} }
+  VALUES ?p { ${props.map(p => `wdt:${p}`).join(' ')} }
+  ?item ?p ?v .
+}`)
+      for (const l of lignes) {
+        const q = qidDe(l.item)
+        const p = /\/(P\d+)$/.exec(l.p ?? '')?.[1]
+        if (!q || !p) continue
+        const parProp = out.get(q) ?? out.set(q, new Map()).get(q)!
+        parProp.set(p, [...(parProp.get(p) ?? []), qidDe(l.v) ?? l.v])
+      }
+    }
+    return out
+  }
+
+  /**
    * Les vues d'un jour ordinaire, la médiane de trente jours, d'articles de
-   * Wikipédia en français, redirections suivies : « Tres de mayo » redirige
-   * vers « El tres de mayo de 1808 en Madrid », et l'API des vues par article
-   * comptait 38 vues par mois à la redirection. Gardées trente jours — dans
-   * un fichier à part de celui des moyennes d'avant, qu'aucune ne se relise.
+   * Wikipédia en français. Par l'API REST de Wikimedia, un article par
+   * requête mais huit à la fois : l'API de Wikipédia, cinquante articles par
+   * requête et autant de suites, en rendait un ou deux par seconde, et
+   * répondait 429 à l'adresse partagée du cloud des heures durant. Un article
+   * presque sans lecteurs peut être une redirection — « Tres de mayo » mène à
+   * « El tres de mayo de 1808 en Madrid », et ne comptait que les siens — :
+   * l'API de Wikipédia dit où elle mène, et on relit la cible. Gardées trente
+   * jours, dans un fichier à part de celui des moyennes d'avant.
    */
   async vues(titres: readonly string[]): Promise<Map<string, number>> {
     const fichier = path.join(this.dossier, 'vues-medianes.json')
     const gardees: Record<string, { le: string; vues: number }> = existsSync(fichier) ? JSON.parse(readFileSync(fichier, 'utf8')) : {}
     const fraiche = (le: string) => Date.now() - Date.parse(le) < 30 * 86_400_000
     const manquants = [...new Set(titres)].filter(t => !gardees[t] || !fraiche(gardees[t].le))
-    for (let i = 0; i < manquants.length; i += 50) {
-      const lot = manquants.slice(i, i + 50)
-      const vers = new Map<string, string>()
-      const parTitre = new Map<string, number>()
-      // Les vues arrivent par morceaux : chaque réponse en couvre une partie et dit où reprendre (`pvipcontinue`) —
-      // sans la suite, Salvador Dalí avait zéro lecteur.
-      let suite: Record<string, string> = {}
-      for (let page = 0; page < 20; page++) {
-        const d = (await this.demander(
-          `https://fr.wikipedia.org/w/api.php?${new URLSearchParams({ action: 'query', prop: 'pageviews', titles: lot.join('|'), format: 'json', formatversion: '2', redirects: '1', pvipdays: String(JOURS_DE_VUES), ...suite })}`,
-        )) as {
-          continue?: Record<string, string>
-          query?: { pages?: { title: string; pageviews?: Record<string, number | null> }[]; normalized?: { from: string; to: string }[]; redirects?: { from: string; to: string }[] }
-        }
-        for (const n of [...(d.query?.normalized ?? []), ...(d.query?.redirects ?? [])]) vers.set(n.from, n.to)
-        for (const p of d.query?.pages ?? []) {
-          if (!p.pageviews) continue
-          parTitre.set(p.title, mediane(Object.values(p.pageviews).filter((v): v is number => typeof v === 'number')))
-        }
-        if (!d.continue) break
-        suite = d.continue
-        await attendre(this.pause)
-      }
-      const le = new Date().toISOString()
+    const garder = () => writeFileSync(fichier, JSON.stringify(gardees))
+    const presqueVides: string[] = []
+    let lus = 0
+    await enParallele(manquants, VUES_EN_PARALLELE, async t => {
+      const vues = await this.vuesDUnArticle(t)
+      gardees[t] = { le: new Date().toISOString(), vues }
+      if (vues < VUES_D_UNE_REDIRECTION) presqueVides.push(t)
+      // Gardées en route : une extraction coupée reprend où elle en était.
+      if (++lus % 500 === 0) garder()
+    })
+    for (let i = 0; i < presqueVides.length; i += 50) {
+      const lot = presqueVides.slice(i, i + 50)
+      const d = (await this.demander(
+        `https://fr.wikipedia.org/w/api.php?${new URLSearchParams({ action: 'query', titles: lot.join('|'), redirects: '1', format: 'json', formatversion: '2' })}`,
+      )) as { query?: { normalized?: { from: string; to: string }[]; redirects?: { from: string; to: string }[] } }
+      const vers = new Map([...(d.query?.normalized ?? []), ...(d.query?.redirects ?? [])].map(n => [n.from, n.to]))
       for (const t of lot) {
         let cible = t
         for (let saut = 0; saut < 3 && vers.has(cible); saut++) cible = vers.get(cible)!
-        gardees[t] = { le, vues: parTitre.get(cible) ?? 0 }
+        if (cible !== t) gardees[t] = { le: new Date().toISOString(), vues: await this.vuesDUnArticle(cible) }
       }
-      writeFileSync(fichier, JSON.stringify(gardees))
       await attendre(this.pause)
     }
+    garder()
     return new Map(titres.map(t => [t, gardees[t]?.vues ?? 0]))
   }
+
+  /** La médiane des vues d'un article sur trente jours ; zéro pour un article que l'API ne connaît pas. */
+  private async vuesDUnArticle(titre: string): Promise<number> {
+    const [debut, fin] = fenetreDesVues(new Date())
+    try {
+      const d = (await this.demander(
+        `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/fr.wikipedia/all-access/user/${encodeURIComponent(titre.replace(/ /g, '_'))}/daily/${debut}/${fin}`,
+      )) as { items?: { views: number }[] }
+      // Un jour sans lecteur manque à la réponse : sans lui, un article lu deux jours sur trente le semblait tous les jours.
+      const jours = (d.items ?? []).map(i => i.views)
+      while (jours.length < JOURS_DE_VUES) jours.push(0)
+      return mediane(jours)
+    } catch (e) {
+      if (e instanceof ErreurHttp) return 0
+      throw e
+    }
+  }
+}
+
+/** Huit requêtes de vues à la fois : trente à cinquante articles par seconde, sans que l'API de Wikimedia ne proteste. */
+const VUES_EN_PARALLELE = 8
+/** Sous ce nombre de vues par jour, un article est peut-être une redirection : on demande où il mène. */
+const VUES_D_UNE_REDIRECTION = 5
+
+/** Les trente jours sur lesquels se lisent les vues : jusqu'à avant-hier, que l'API a sûrement comptés. */
+export function fenetreDesVues(aujourdhui: Date): [string, string] {
+  const jour = (decalage: number) => new Date(aujourdhui.getTime() - decalage * 86_400_000).toISOString().slice(0, 10).replace(/-/g, '')
+  return [jour(JOURS_DE_VUES + 1), jour(2)]
+}
+
+/** Chaque élément passe par `f`, `n` à la fois. */
+async function enParallele<T>(elements: readonly T[], n: number, f: (e: T) => Promise<void>): Promise<void> {
+  let suivant = 0
+  await Promise.all(
+    Array.from({ length: Math.min(n, elements.length) }, async () => {
+      while (suivant < elements.length) await f(elements[suivant++])
+    }),
+  )
 }
 
 // ── Les commandes ───────────────────────────────────────────────────────
@@ -933,22 +1338,30 @@ async function extraire(cles: readonly string[], maxSujets = Infinity) {
   // Dans l'ordre demandé : les familles légères d'abord, les films — des milliers de vues à lire — à la fin.
   for (const fam of cles.length === 0 ? FAMILLES : cles.map(c => FAMILLES.find(f => f.cle === c)!)) {
     console.log(`→ ${fam.cle} : ${fam.nom}`)
-    const brute = await fam.extraire(wd)
-    // Les vues se lisent à un ou deux articles par seconde depuis une adresse partagée : `--max-sujets` borne une
-    // extraction pressée aux sujets les plus traduits — ceux qui ont le plus de chances d'être connus.
-    const x = { ...brute, faits: [...brute.faits].sort((a, b) => b.sujet.liens - a.sujet.liens).slice(0, maxSujets) }
-    // Les vues des sujets et des réponses d'abord, puis celles des seuls leurres affichés : tout le vivier, c'était
-    // deux fois plus de titres, et l'API de Wikipédia en rend trois ou quatre par seconde.
-    const titres = x.faits.flatMap(f => [f.sujet.titre, f.reponse.titre]).filter((t): t is string => !!t)
-    const vues = new Map(await wd.vues(titres))
-    const parNom = new Map(x.vivier.map(e => [e.nom, e.titre]))
-    const affiches = fichesDeLaFamille(fam, x, vues).fiches.flatMap(f => f.reponses.filter((_, i) => i !== f.bonne).map(nom => parNom.get(nom)))
-    for (const [t, v] of await wd.vues(affiches.filter((t): t is string => !!t))) vues.set(t, v)
-    const { fiches, ecartes } = fichesDeLaFamille(fam, x, vues)
-    writeFileSync(fichierDesFiches(fam.cle), `[\n${fiches.map(f => JSON.stringify(f)).join(',\n')}\n]\n`)
-    const marches = [1, 2, 3, 4, 5].map(d => `${d}: ${fiches.filter(f => f.difficulte === d).length}`).join(' · ')
-    console.log(`  ${x.faits.length} faits, ${fiches.length} fiches (difficulté ${marches}) ; écartés : ${Object.entries(ecartes).map(([m, k]) => `${m} ${k}`).join(', ') || 'aucun'}`)
+    // Une famille qui échoue — le service coupé trop longtemps — n'arrête pas les suivantes : elle se relance seule.
+    try {
+      await extraireLaFamille(wd, fam, maxSujets)
+    } catch (e) {
+      console.error(`  ✗ ${fam.cle} : ${(e as Error).message.slice(0, 300)} — relance « extraire ${fam.cle} » plus tard.`)
+    }
   }
+}
+
+async function extraireLaFamille(wd: Wikidata, fam: Famille, maxSujets: number) {
+  const brute = await fam.extraire(wd)
+  // `--max-sujets` borne une extraction pressée aux sujets les plus traduits — ceux qui ont le plus de chances d'être connus.
+  const x = { ...brute, faits: [...brute.faits].sort((a, b) => b.sujet.liens - a.sujet.liens).slice(0, maxSujets) }
+  // Les vues des sujets et des réponses d'abord, puis celles des seuls leurres affichés : tout le vivier, c'était deux
+  // fois plus de titres.
+  const titres = x.faits.flatMap(f => [f.sujet.titre, f.reponse.titre]).filter((t): t is string => !!t)
+  const vues = new Map(await wd.vues(titres))
+  const parNom = new Map(x.vivier.map(e => [e.nom, e.titre]))
+  const affiches = fichesDeLaFamille(fam, x, vues).fiches.flatMap(f => f.reponses.filter((_, i) => i !== f.bonne).map(nom => parNom.get(nom)))
+  for (const [t, v] of await wd.vues(affiches.filter((t): t is string => !!t))) vues.set(t, v)
+  const { fiches, ecartes } = fichesDeLaFamille(fam, x, vues)
+  writeFileSync(fichierDesFiches(fam.cle), `[\n${fiches.map(f => JSON.stringify(f)).join(',\n')}\n]\n`)
+  const marches = [1, 2, 3, 4, 5].map(d => `${d}: ${fiches.filter(f => f.difficulte === d).length}`).join(' · ')
+  console.log(`  ${x.faits.length} faits, ${fiches.length} fiches (difficulté ${marches}) ; écartés : ${Object.entries(ecartes).map(([m, k]) => `${m} ${k}`).join(', ') || 'aucun'}`)
 }
 
 function lireLesFiches(cle: string): FicheDeFait[] {

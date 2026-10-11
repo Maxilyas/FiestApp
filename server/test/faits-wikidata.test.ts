@@ -20,13 +20,16 @@ import {
   consigneDesFaits,
   difficulteAPriori,
   entreeDeLaFiche,
+  fenetreDesVues,
   fichesDeLaFamille,
   fichiersDuLot,
   fusionner,
   guillemets,
+  laureatsParAnnee,
   ligneDeFiche,
   mediane,
   qidDe,
+  sousThemeDUnAlbum,
   titresAmbigus,
   valeurActuelle,
   Wikidata,
@@ -298,45 +301,94 @@ test('un titre est ambigu quand un autre auteur connu le porte, pas les versions
   assert.ok(!ambigus.has('la joconde'), 'une copie anonyme que personne ne connaît ne trouble personne')
 })
 
-test('les vues de Wikipédia arrivent par morceaux : on suit la continuation, et les redirections', async () => {
-  // Sans la suite (`pvipcontinue`), Salvador Dalí avait zéro lecteur, et La Persistance de la mémoire passait pour introuvable.
+test('les vues d’un article : la médiane de trente jours, les jours sans lecteur comptés, les redirections suivies', async () => {
   const dossier = mkdtempSync(path.join(tmpdir(), 'vues-'))
   const vrai = globalThis.fetch
   const demandes: string[] = []
+  // Trente jours de vues, du plus ancien au plus récent ; un jour sans lecteur n'est pas dans la réponse de l'API.
+  const jours = (vues: number[]) => ({ items: vues.map((v, i) => ({ timestamp: `202609${String(i + 1).padStart(2, '0')}00`, views: v })) })
+  const articles: Record<string, ReturnType<typeof jours>> = {
+    Salvador_Dalí: jours(Array(30).fill(1000)),
+    // À partir du 1er octobre 2026 : en moyenne, 4 500 vues par jour et une difficulté 1 ; un jour ordinaire, 300.
+    'À_l’est_d’Éden': jours([...Array(26).fill(300), 10052, 11547, 13109, 16994]),
+    // Lu deux jours sur trente : la médiane des trente, pas celle des deux.
+    Un_article_oublié: jours([40, 60]),
+    El_tres_de_mayo_de_1808_en_Madrid: jours(Array(30).fill(130)),
+  }
   globalThis.fetch = (async (url: string | URL) => {
     const u = new URL(String(url))
-    demandes.push(u.searchParams.get('pvipcontinue') ?? '')
-    const corps = u.searchParams.has('pvipcontinue')
-      ? { query: { pages: [{ title: 'Salvador Dalí', pageviews: { '2026-10-01': 900, '2026-10-02': 1100 } }] } }
-      : {
-          continue: { pvipcontinue: 'Salvador_Dalí', continue: '||' },
-          query: {
-            redirects: [{ from: 'Tres de mayo', to: 'El tres de mayo de 1808 en Madrid' }],
-            pages: [
-              { title: 'El tres de mayo de 1808 en Madrid', pageviews: { '2026-10-01': 120, '2026-10-02': null, '2026-10-03': 140 } },
-              { title: 'Salvador Dalí' },
-              { title: 'À l’est d’Éden', pageviews: { '2026-09-28': 300, '2026-09-29': 310, '2026-09-30': 290, '2026-10-01': 10052, '2026-10-02': 11547 } },
-            ],
-          },
-        }
-    return new Response(JSON.stringify(corps), { status: 200 })
+    if (u.hostname === 'wikimedia.org') {
+      const titre = decodeURIComponent(u.pathname.split('/')[9])
+      demandes.push(titre)
+      assert.match(u.pathname, /\/per-article\/fr\.wikipedia\/all-access\/user\/.+\/daily\/\d{8}\/\d{8}$/)
+      return articles[titre] ? new Response(JSON.stringify(articles[titre]), { status: 200 }) : new Response('{"type":"not_found"}', { status: 404 })
+    }
+    // L'API de Wikipédia, pour les articles presque sans lecteurs : « Tres de mayo » est une redirection.
+    demandes.push(`redirections : ${u.searchParams.get('titles')}`)
+    return new Response(JSON.stringify({ query: { redirects: [{ from: 'Tres de mayo', to: 'El tres de mayo de 1808 en Madrid' }] } }), { status: 200 })
   }) as typeof fetch
   try {
-    const vues = await new Wikidata(dossier, 0).vues(['Tres de mayo', 'Salvador Dalí', 'À l’est d’Éden'])
-    assert.equal(vues.get('Salvador Dalí'), 1000, 'la seconde page de la réponse')
-    assert.equal(vues.get('Tres de mayo'), 130, 'la redirection suivie, les jours sans mesure ignorés')
-    // À partir du 1er octobre 2026 : en moyenne, 4 500 vues par jour et une difficulté 1 ; un jour ordinaire, 310.
-    assert.equal(vues.get('À l’est d’Éden'), 310, 'un pic de quelques jours ne fait pas un livre que tout le monde connaît')
+    const titres = ['Tres de mayo', 'Salvador Dalí', 'À l’est d’Éden', 'Un article oublié']
+    const vues = await new Wikidata(dossier, 0).vues(titres)
+    assert.equal(vues.get('Salvador Dalí'), 1000)
+    assert.equal(vues.get('À l’est d’Éden'), 300, 'un pic de quelques jours ne fait pas un livre que tout le monde connaît')
+    assert.equal(vues.get('Un article oublié'), 0, 'vingt-huit jours sans lecteur')
+    assert.equal(vues.get('Tres de mayo'), 130, 'la redirection suivie')
+    assert.ok(demandes.some(d => d.startsWith('redirections : ') && d.includes('Tres de mayo') && d.includes('Un article oublié')))
+    assert.ok(!demandes.some(d => d.startsWith('redirections : ') && d.includes('Salvador Dalí')), 'un article lu ne se demande pas')
     assert.equal(mediane([]), 0)
     assert.equal(mediane([4, 1, 3, 2]), 3, 'entre les deux du milieu, arrondie')
-    assert.deepEqual(demandes, ['', 'Salvador_Dalí'])
+    const avant = demandes.length
     const encore = await new Wikidata(dossier, 0).vues(['Tres de mayo'])
     assert.equal(encore.get('Tres de mayo'), 130)
-    assert.equal(demandes.length, 2, 'gardées sur le disque : rien ne se redemande')
+    assert.equal(demandes.length, avant, 'gardées sur le disque : rien ne se redemande')
+    assert.deepEqual(fenetreDesVues(new Date('2026-10-11T08:00:00Z')), ['20260910', '20261009'], 'trente jours, jusqu’à avant-hier')
   } finally {
     globalThis.fetch = vrai
     rmSync(dossier, { recursive: true, force: true })
   }
+})
+
+test('les lauréats d’un prix, année par année : une année à deux lauréats se voit, chacun garde ses années', () => {
+  const e = (q: string) => `http://www.wikidata.org/entity/${q}`
+  const { parAnnee, annees } = laureatsParAnnee([
+    { l: e('Q1'), an: '1998' },
+    { l: e('Q2'), an: '1999' },
+    { l: e('Q3'), an: '1999' },
+    { l: e('Q1'), an: '2000' },
+    { l: e('Q1'), an: '2000' },
+    { l: 'http://www.wikidata.org/.well-known/genid/x', an: '2001' },
+    { l: e('Q4') },
+  ])
+  assert.deepEqual(parAnnee.get(1998), ['Q1'])
+  assert.deepEqual(parAnnee.get(1999), ['Q2', 'Q3'], 'deux lauréats : la question aurait deux réponses justes')
+  assert.deepEqual(parAnnee.get(2000), ['Q1'], 'une ligne en double ne fait pas deux lauréats')
+  assert.deepEqual(annees.get('Q1'), [1998, 2000], 'ses années de prix le situent parmi les leurres')
+  assert.equal(parAnnee.has(2001), false, 'un lauréat inconnu ne compte pas')
+})
+
+test('un album va au sous-thème de son genre, puis à la chanson française s’il est français', () => {
+  assert.equal(sousThemeDUnAlbum({ genres: ['Q6010'], francais: true }), 'rap-electro', 'L’École du micro d’argent : du rap avant tout')
+  assert.equal(sousThemeDUnAlbum({ genres: ['Q8341'], francais: false }), 'jazz-monde')
+  assert.equal(sousThemeDUnAlbum({ genres: ['Q9778'], francais: false }), 'rap-electro')
+  assert.equal(sousThemeDUnAlbum({ genres: [], francais: true }), 'chanson-fr')
+  assert.equal(sousThemeDUnAlbum({ francais: false }), 'pop-rock')
+})
+
+test('un palmarès : la bonne réponse change de place d’une année à l’autre, le même sujet n’y fait rien', () => {
+  // Tous les Goncourt ont pour sujet le prix : la place de la bonne réponse, tirée du seul sujet, était toujours la même.
+  const goncourt = FAMILLES.find(f => f.cle === 'goncourt')!
+  const prix: EntiteWd = { qid: 'Q187300', nom: 'Prix Goncourt', description: 'prix littéraire', titre: 'Prix Goncourt', liens: 60 }
+  const ecrivain = (q: number, an: number): EntiteWd => ({ qid: `Q${q}`, nom: `Écrivaine Numéro${q}`, description: null, titre: `Écrivaine Numéro${q}`, liens: 20, annees: [an], pays: ['Q142'], femme: true, humain: true })
+  const vivier = Array.from({ length: 30 }, (_, i) => ecrivain(500 + i, 1980 + i))
+  const x = { faits: vivier.map(r => ({ sujet: prix, reponse: r, annee: r.annees![0], indices: [], francais: true })), vivier, homonymes: new Set<string>() }
+  const vues = new Map<string, number>(vivier.map(e => [e.titre!, 50]))
+  const { fiches } = fichesDeLaFamille(goncourt, x, vues, new Date('2026-10-10'))
+  assert.ok(fiches.length >= 20, `${fiches.length} fiches`)
+  assert.ok(new Set(fiches.map(f => f.bonne)).size >= 3, 'la bonne réponse n’est pas toujours au même endroit')
+  assert.ok(fiches.every(f => f.portee === 'france' && f.etiquettes.includes('femmes')), 'un lauréat français peu traduit : la portée « france »')
+  assert.ok(fiches.every(f => f.entites[1].type === 'personne'))
+  assert.equal(fiches[0].texte, `En ${fiches[0].date!.valeur}, qui reçoit le prix Goncourt ?`)
 })
 
 test('une réponse de Wikidata se lit malgré un caractère de contrôle brut dans un libellé, et se garde', async () => {
