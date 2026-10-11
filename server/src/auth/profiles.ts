@@ -1,3 +1,4 @@
+import type { CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -584,6 +585,9 @@ export class ProfileStore {
 
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
+
+  /** Sa ligue des duels et sa cote (`CampagneStore.coteDe`), pour sa carte ; null tant qu'il n'a fini aucun duel classé. */
+  duelsDe?: (profileId: string) => Promise<{ ligue: CleDeLigue; cote: number } | null>
 
   /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
   moisDuJour?: () => string

@@ -477,6 +477,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.confettisDeCampagne = id => campagne.confettisDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
+  // Sa ligue des duels, sur sa carte.
+  profiles.duelsDe = id => campagne.coteDe(id)
   profiles.moisDuJour = () => jour.aujourdhui()
   profiles.joursDuMois = id => jour.joursDuMois(id)
   // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché

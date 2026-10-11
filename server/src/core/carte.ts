@@ -16,7 +16,7 @@ export async function profilDeCarte(
   jour: Pick<JourStore, 'resumeDe'> | undefined,
   profil: ProfileRec,
 ): Promise<NonNullable<CarteDeJoueur['profil']>> {
-  const [vitrine, carriere, resume, ailleurs, paliers] = await Promise.all([
+  const [vitrine, carriere, resume, ailleurs, paliers, duels] = await Promise.all([
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
     jour?.resumeDe(profil.id).catch(() => null),
@@ -25,6 +25,8 @@ export async function profilDeCarte(
     profiles.savoirHorsSoirees(profil.id),
     // Ses maîtres ouvrent le Cabinet de curiosités ; muets, ils ne l'ôtent qu'à cette lecture.
     profiles.paliersDe(profil.id).catch(() => ({})),
+    // Sa ligue des duels : une base qui se tait l'ôte, pas la carte.
+    profiles.duelsDe?.(profil.id).catch(() => null) ?? null,
   ])
   const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, ailleurs.categories)).map(e => ({
     categorie: e.categorie,
@@ -49,6 +51,7 @@ export async function profilDeCarte(
     prix: { eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length, total: PRIX_INDIVIDUELS.length },
     ...(titre && { titre }),
     ...(resume && resume.joues > 0 && { jour: resume }),
+    ...(duels && { duels }),
     ...(ecussons.length > 0 && { ecussons }),
     ...(fond && { fond }),
     fiche: {

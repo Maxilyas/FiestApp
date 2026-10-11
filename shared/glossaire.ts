@@ -33,6 +33,7 @@ export type Mot =
   | 'laurier'
   | 'serie'
   | 'fond'
+  | 'ligue'
 
 export interface Definition {
   /** Le mot tel qu'il s'affiche. */
@@ -64,4 +65,5 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   laurier: { terme: 'Laurier', sens: 'Après le prénom du vainqueur du quiz du jour d’hier — et, en argent, du défi de la semaine passée.' },
   serie: { terme: 'Série', sens: 'Les jours d’affilée où tu as joué, au quiz du jour ou en soirée. Minuit la casse.' },
   fond: { terme: 'Fond de carte', sens: 'Le décor derrière ta carte, quand on touche ton prénom. Il se gagne, comme un titre.' },
+  ligue: { terme: 'Ligue', sens: 'Ta place aux duels, selon ta cote : du bronze aux maîtres, une tous les cent points.' },
 }

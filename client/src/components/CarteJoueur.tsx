@@ -21,6 +21,8 @@ import { Ecusson } from './Ecusson'
 import { Glossaire } from './Glossaire'
 import type { Mot } from '../../../shared/glossaire'
 import { fond as fondDeCarte } from '../../../shared/fonds'
+import { ligueParCle } from '../../../shared/duels'
+import { BlasonDeLigue } from './Blason'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
@@ -282,7 +284,7 @@ export function CarteJoueur({
                   />
                   {/* Ses prix : leur nombre, pas leur liste — ils tombent à
                       chaque soirée. Rien tant qu'il n'en a aucun. */}
-                  {((p.prix && p.prix.eus > 0) || p.jour) && (
+                  {((p.prix && p.prix.eus > 0) || p.jour || p.duels) && (
                     <div className="carte-pastilles">
                       {p.prix && p.prix.eus > 0 && (
                         <span className="carte-prix">
@@ -296,6 +298,13 @@ export function CarteJoueur({
                           <Flamme />
                           Quiz du jour {p.jour.joues} j
                           {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
+                        </span>
+                      )}
+                      {/* Sa ligue des duels, en une pastille : rien tant qu'il n'a fini aucun duel classé. */}
+                      {p.duels && (
+                        <span className="carte-prix">
+                          <BlasonDeLigue ligue={p.duels.ligue} taille={16} decoratif />
+                          {`${ligueParCle(p.duels.ligue).nom} · cote\u00a0${p.duels.cote}`}
                         </span>
                       )}
                     </div>
@@ -442,6 +451,7 @@ function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: { legendaires: boolean
   if (p.ecussons && p.ecussons.length > 0) mots.push('ecusson')
   mots.push('precision', 'coupDOeil', 'reflexe')
   if (p.prix && p.prix.eus > 0) mots.push('prix')
+  if (p.duels) mots.push('ligue')
   if (fond) mots.push('fond')
   return mots
 }

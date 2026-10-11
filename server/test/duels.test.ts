@@ -178,9 +178,13 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     // L'adversaire n'était pas là : sa cote n'a pas bougé, et il n'est pas classé.
     const deTom = (await lire(banc, tom, '/api/duels')).corps
     assert.deepEqual([deTom.cote, deTom.joues], [COTE_DE_DEPART, 0])
-    // Classée, sa carte s'ouvre à qui la touche au classement.
+    // Classée, sa carte s'ouvre à qui la touche au classement — sa ligue et sa cote dessus.
     const idLea = apres.classement.lignes[0].profileId as string
-    assert.equal((await lire(banc, tom, `/api/joueur/carte/${idLea}`)).status, 200)
+    const carte = await lire(banc, tom, `/api/joueur/carte/${idLea}`)
+    assert.equal(carte.status, 200)
+    assert.deepEqual(carte.corps.profil.duels, { ligue: 'bronze', cote: 1024 })
+    // Sans duel classé, rien : l'absence, pas une ligue de bronze.
+    assert.equal((await lire(banc, tom, '/api/joueur/carte')).corps.profil.duels, undefined)
 
     // Un défi entre amis se joue pour le plaisir : il ne change pas sa cote.
     const lance = await poster(banc, lea, '/api/campagne/duel', { categories: [] })

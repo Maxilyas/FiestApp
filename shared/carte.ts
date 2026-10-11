@@ -10,6 +10,7 @@
 // manque. Un surnom donné par l'animateur ne touche pas au profil : la carte
 // dit les deux, le nom du soir et le prénom du profil.
 
+import type { CleDeLigue } from './duels'
 import type { BadgePorte } from './badges'
 import type { Distinctions, Fiche } from './profil'
 import { VITRINE_MAX, cleRangee, plusBeaux } from './hautsfaits'
@@ -81,6 +82,8 @@ export interface CarteDeJoueur extends Distinctions {
     titre?: string
     /** Son quiz du jour, en une ligne : les jours joués, les victoires. Absent s'il n'y a jamais joué. */
     jour?: { joues: number; victoires: number }
+    /** Sa ligue des duels et sa cote (`shared/duels.ts`). Absente tant qu'il n'a fini aucun duel classé. */
+    duels?: { ligue: CleDeLigue; cote: number }
     /**
      * Ses écussons de savoir les plus hauts, trois au plus (`plusBeauxEcussons`).
      * Absents tant qu'il n'en a aucun.
