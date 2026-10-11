@@ -85,7 +85,7 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'quiz']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'sujets', 'quiz']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
@@ -98,8 +98,11 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   // `#sentiers` ne parvient pas au serveur : le premier script de la page les
   // précharge (`main.tsx`), une demi-seconde avant le code de la campagne.
   const campagne = parseRoute('/campagne')
-  assert.deepEqual(donneesDuFragment(campagne, '#sentiers'), ['/api/campagne/sentiers'])
-  for (const b of BRANCHES) assert.deepEqual(donneesDuFragment(campagne, `#sentier-${b.key}`), ['/api/campagne/sentiers'], b.key)
+  // Les sentiers à thème avec eux : demandés au montage, ils revenaient un
+  // aller-retour après la carte, et la redessinaient en entier.
+  const sentiers = ['/api/campagne/sentiers', '/api/campagne/sujets']
+  assert.deepEqual(donneesDuFragment(campagne, '#sentiers'), sentiers)
+  for (const b of BRANCHES) assert.deepEqual(donneesDuFragment(campagne, `#sentier-${b.key}`), sentiers, b.key)
   for (const hash of ['', '#defi', '#duel-K7M2QX', '#sentiersx', '#sentier']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
   assert.deepEqual(donneesDuFragment(parseRoute('/profil'), '#sentiers'), [], 'ailleurs que la campagne, rien')
   // Les adresses que `Sentiers.tsx` écrit tombent sous la règle.
@@ -488,18 +491,26 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
     window: { location: { pathname: '/campagne', search: '', hash: '#sentiers', origin: 'http://banc', host: 'banc' }, addEventListener: () => {} },
   })
   let demandes = 0
+  let sujets = 0
   globalThis.fetch = (async (url: string) => {
     if (url === '/api/campagne/sentiers') demandes++
+    if (url === '/api/campagne/sujets') {
+      const numero = ++sujets
+      return { ok: true, status: 200, text: async () => JSON.stringify({ sujets: [], numero }) }
+    }
     return { ok: true, status: 200, text: async () => JSON.stringify({ vies: 12, numero: demandes }) }
   }) as unknown as typeof fetch
   try {
-    const { demanderLesSentiers, lesSentiers } = await import(client('views/Sentiers.tsx').href)
+    const { demanderLesSentiers, lesSentiers, lesSujets } = await import(client('views/Sentiers.tsx').href)
     demanderLesSentiers()
     demanderLesSentiers()
     assert.equal(demandes, 1, 'une seule demande d’avance')
+    assert.equal(sujets, 1, 'les sentiers à thème partent avec eux, une fois')
     assert.deepEqual(await lesSentiers(), { vies: 12, numero: 1 }, 'le montage reprend celle d’avance')
     assert.equal(demandes, 1)
     assert.deepEqual(await lesSentiers(), { vies: 12, numero: 2 }, 'les suivants redemandent')
+    assert.deepEqual(await lesSujets(), { sujets: [], numero: 1 }, 'le montage reprend les sentiers à thème d’avance')
+    assert.deepEqual(await lesSujets(), { sujets: [], numero: 2 }, 'les relectures d’après redemandent')
   } finally {
     Object.assign(globalThis, { window: avant.window })
     globalThis.fetch = avant.fetch
@@ -510,6 +521,7 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
     /const etat = DUELS \? null : api\.campagne\.etat\(\)\n\s*etat\?\.catch\(\(\) => \{\}\)\n\s*if \(!DUELS && modeDe\(window\.location\.hash\) === 'sentiers'\) demanderLesSentiers\(\)/,
   )
   assert.match(source('views/Sentiers.tsx'), /const lu = await lesSentiers\(\)/)
+  assert.match(source('views/Sentiers.tsx'), /const relireLesSujets = \(\) => \{\n\s*lesSujets\(\)/)
   // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets —
   // jamais l'accueil, qui n'en montre rien (`campagne-ouverture.test.ts`).
   assert.match(source('views/ProfilApp.tsx'), /if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/)

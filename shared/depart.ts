@@ -36,6 +36,8 @@ export const DEPART = {
   duels: '/api/duels',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
+  /** Les sentiers à thème, sous les douze — préchargés avec eux. */
+  sujets: '/api/campagne/sujets',
   /** Les quiz de l'espace (« Mes quiz »). */
   quiz: '/api/quizzes',
 } as const
@@ -132,7 +134,11 @@ export function versLesSentiers(hash: string): boolean {
  * code de la page n'arrive pour le demander (4G) ; la page le demande au même
  * fragment, par la même règle — sinon la réponse préchargée attendrait un
  * `fetch` plus tardif, et lui rendrait celle d'avant.
+ *
+ * Les sentiers à thème partent avec les douze : demandés au montage, ils
+ * revenaient un aller-retour après la carte et la redessinaient en entier
+ * — arrivés avec elle, ils se dessinent dans le même rendu.
  */
 export function donneesDuFragment(route: Route, hash: string): string[] {
-  return route.kind === 'account' && route.page === 'campagne' && versLesSentiers(hash) ? [DEPART.sentiers] : []
+  return route.kind === 'account' && route.page === 'campagne' && versLesSentiers(hash) ? [DEPART.sentiers, DEPART.sujets] : []
 }

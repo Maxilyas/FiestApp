@@ -434,7 +434,7 @@ export const api = {
     },
     /** Les sentiers à thème (`shared/sentiersDeSujets.ts`) : une épreuve de sujet est une série d'un autre mode — sa correction et ses signalements passent par celles de la série. */
     sujets: {
-      etat: () => req<EtatDesSujets>('/api/campagne/sujets'),
+      etat: () => req<EtatDesSujets>(DEPART.sujets),
       commencer: (sujet: string, palier: number) => req<EpreuveDeSujet>('/api/campagne/sujets/epreuve', { method: 'POST', body: JSON.stringify({ sujet, palier }) }),
       repondre: (epreuve: string, index: number, choix: number) =>
         req<ReponseDuSujet>(`/api/campagne/sujets/epreuve/${encodeURIComponent(epreuve)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),

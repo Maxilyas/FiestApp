@@ -96,7 +96,7 @@ test('dans un sentier, un refus s’écrit dans l’en-tête collé : il reste e
 // et chaque tuile dit la difficulté du palier à jouer, comme celle d'un
 // sentier (le souhait du propriétaire du 11 octobre 2026).
 test('une tuile de sentier à thème dit sa rangée et la difficulté de son palier à jouer', async () => {
-  const html = await rendre('SentiersDeSujets', {
+  const html = await rendre('TuilesDesSujets', {
     etat: {
       sujets: [
         { sujet: 'annees-80', paliers: 6, etoiles: [3, 3, 3, 3, 3, 3] },
@@ -104,15 +104,34 @@ test('une tuile de sentier à thème dit sa rangée et la difficulté de son pal
       ],
       epreuve: null,
     },
-    busy: false,
-    onJouer: () => {},
-    onReprendre: () => {},
+    onFiche: () => {},
   })
   assert.ok(html.indexOf('Un thème') < html.indexOf('Une époque'), 'les thèmes d’abord')
   assert.match(html, /aria-label="Les animaux : palier 2 sur 6, facile à moyen, 2 étoiles"/)
   assert.match(html, /Palier 2\/6 · ★ 2<span class="sujet-difficulte">facile à moyen<\/span>/)
   // Accompli : plus rien à jouer, plus de difficulté.
   assert.match(html, /aria-label="Les années 80 : accompli, 18 étoiles"/)
+})
+
+// Repliés sous les douze sentiers, les sentiers à thème rendaient quand même
+// leurs vingt-cinq tuiles et leurs icônes : près de deux cents éléments
+// cachés, un quart de la carte, faits à chaque ouverture (mesuré le
+// 11 octobre 2026). Repliés, leur titre seul ; leurs tuiles viennent au dépli.
+test('repliés, les sentiers à thème ne rendent que leur titre — une épreuve laissée les déplie, tuiles comprises', async () => {
+  const sujets = [
+    { sujet: 'annees-80', paliers: 2, etoiles: [3, 2, 0, 0, 0, 0] },
+    { sujet: 'animaux', paliers: 0, etoiles: [0, 0, 0, 0, 0, 0] },
+  ]
+  const replies = await rendre('SentiersDeSujets', { etat: { sujets, epreuve: null }, busy: false, onJouer: () => {}, onReprendre: () => {} })
+  assert.match(replies, /<b>Les sentiers à thème<\/b><span class="muted small">2 thèmes, sans vies<\/span>/)
+  assert.doesNotMatch(replies, /<details[^>]* open=""/)
+  assert.doesNotMatch(replies, /sujet-tuile|sujets-famille|Rien à perdre/, 'rien sous le titre')
+
+  const laissee = { id: 's1', sujet: 'animaux', palier: 1, rejeu: false, seuil: 7, justes: 1, fausses: 0, total: 10, issue: null, finie: false, question: { index: 1, texte: '…', reponses: ['a', 'b'] } }
+  const depliee = await rendre('SentiersDeSujets', { etat: { sujets, epreuve: laissee }, busy: false, onJouer: () => {}, onReprendre: () => {} })
+  assert.match(depliee, /<details[^>]* open=""/)
+  assert.match(depliee, /Reprendre · Les animaux, palier 1/)
+  assert.equal(depliee.match(/class="sujet-tuile/g)?.length, 2, 'ses tuiles avec')
 })
 
 test('chaque tuile dit sa catégorie et ses étoiles ; le bloc du haut, d’où viennent ses questions', async () => {
