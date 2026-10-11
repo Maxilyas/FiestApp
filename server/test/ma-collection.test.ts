@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import { LIEU_DES_TROPHEES, compteDeLaCollection, comptesDesTrophees, listesDesTrophees } from '../../shared/collection'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES } from '../../shared/themes'
+import { GERBES } from '../../shared/gerbes'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
@@ -204,6 +205,22 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.match(page, /<AtlasDesAvatars profil=\{profil\} onglet="legendaires" \/>/)
   assert.doesNotMatch(page, /enregistrer|busy/)
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
+})
+
+// « Ma gerbe » ne montre que les siennes (le 11 octobre 2026) : c'est ici
+// que celles à gagner se voient — elles éclatent au toucher, sans se porter.
+test('les gerbes de la collection se touchent pour éclater, même celles à gagner — rien ne s’y porte', async () => {
+  lieu.hash = '#collection-gerbes'
+  const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
+  lieu.hash = ''
+  assert.match(html, /<li id="collection-gerbes" class="trophee trophee-ouvert"/)
+  const ligne = html.slice(html.indexOf('id="collection-gerbes"'), html.indexOf('id="collection-finitions"'))
+  assert.match(ligne, /Touche une gerbe pour la voir éclater, même celles à gagner\./)
+  assert.equal(ligne.match(/<button type="button" class="a-gagner-bouton">/g)?.length, GERBES.length)
+  assert.equal(ligne.match(/, à gagner : touche-la pour la voir<\/span>/g)?.length, GERBES.length - LEA.gerbes.length)
+  assert.doesNotMatch(ligne, /aria-pressed|Le porter/)
+  // Elle se porte dans « Mon thème » : le lien le dit.
+  assert.match(ligne, /Elle se porte dans <a class="link-inline" href="#theme">« Mon thème »<\/a>/)
 })
 
 test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l’album des thèmes', async () => {

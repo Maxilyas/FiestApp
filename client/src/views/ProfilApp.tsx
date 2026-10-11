@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
-import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
-import { Identite, IdentiteLigne } from '../components/Identite'
+import { IdentiteLigne } from '../components/Identite'
+import { Vestiaire } from '../components/Vestiaire'
 import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
-import { cibleEclat } from '../../../shared/legendaires'
-import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
+import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
@@ -25,7 +24,6 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
-import { nConfettis, theme } from '../../../shared/themes'
 import { divin } from '../../../shared/divins'
 import { portrait } from '../../../shared/branches'
 import { legendaire } from '../../../shared/legendaires'
@@ -356,15 +354,6 @@ export function ProfilApp() {
       <div className="xp-fill" style={{ width: `${part}%` }} />
     </div>
   )
-  const avatar = (classe: string) => (
-    <Avatar
-      className={classe}
-      avatar={profil.avatar}
-      finition={profil.finition}
-      eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-      legendaire={profil.legendaire ?? undefined}
-    />
-  )
   // Toujours là, vide d'abord : une région qui apparaît avec son texte
   // n'est pas toujours lue.
   const regionDAnnonce = (
@@ -477,27 +466,24 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : qui je suis, puis ses tuiles, rangées en deux ──
-  // Ce qu'on porte, chacun dit qui le voit ; puis ce qu'on a et ce qu'on a
-  // fait. Cinq tuiles mêlaient les deux : la finition vivait dans « Mon
-  // style », la vitrine dans les trophées, et l'on cherchait où changer quoi
-  // (la remarque du 5 octobre 2026).
+  // ── Le profil : ce qu'on porte, en une image qu'on touche, puis ses tuiles ──
+  // Ce qu'on porte, chaque pièce à sa place sur sa carte ; puis ce qu'on a et
+  // ce qu'on a fait. Cinq tuiles mêlaient les deux (la remarque du 5 octobre
+  // 2026) ; puis trois tuiles rangeaient ce qu'on porte par écran, et l'on
+  // devinait laquelle changeait son titre (le 11 octobre 2026).
   const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
   // L'avatar porté par son nom — un emoji n'en a pas —, et sa finition, sauf
   // sous un Divin, qui a sa propre lumière.
   const nomPorte = legendaire(profil.legendaire)?.nom ?? divin(profil.legendaire)?.nom ?? portrait(profil.legendaire)?.nom ?? null
   const finition = divin(profil.legendaire) ? null : NOM_FINITION[profil.finition]
-  const sonTheme = theme(profil.theme ?? 'velours') ?? theme('velours')!
-  // Le reste des vignettes — sa vitrine, sa gerbe, l'aperçu de son thème, le
-  // total de sa collection — vient avec les écrans (`apercusDesTuiles`) :
-  // leurs catalogues alourdissaient de trois kilos l'accueil, qui partage ce
+  // Le reste — sa vitrine, sa gerbe, l'aperçu de son thème, le total de sa
+  // collection — vient avec les écrans (`apercusDesTuiles`) : leurs
+  // catalogues alourdissaient de trois kilos l'accueil, qui partage ce
   // fichier. Ils sont là d'emblée sur un téléphone qui a déjà montré un
   // profil ; ailleurs, leurs places sont gardées.
   const plus = pret?.apercusDesTuiles(profil)
   return (
     <div className="player-shell">
-      {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
-      <Identite profil={profil} />
       {/* Il a gagné hier — ou le défi de la semaine passée : sa page le lui dit, comme la salle le voit. */}
       {profil.laurier && (
         <p className="carte-laurier">
@@ -508,41 +494,9 @@ export function ProfilApp() {
 
       <section className="profil-groupe" aria-labelledby="groupe-changer">
         <h2 id="groupe-changer" className="profil-groupe-titre">
-          Me changer <span>ce que tu portes</span>
+          Me changer <span>touche ce que tu veux changer</span>
         </h2>
-        <div className="tuiles tuiles-trois">
-          <Tuile
-            apercu={avatar('tuile-avatar')}
-            titre="Mon avatar"
-            detail={[nomPorte, finition].filter(Boolean).join(' · ') || 'Ton emoji'}
-            qui="la salle le voit"
-            onClick={() => ouvrir('avatar')}
-          />
-          <Tuile
-            apercu={
-              <span className={'mini-carte' + (profil.fond ? ` fond-apercu carte-fond fond-${profil.fond}` : '')}>
-                {avatar('mini-carte-avatar')}
-                <span className="mini-carte-vitrine">{plus?.vitrine || '· · ·'}</span>
-              </span>
-            }
-            titre="Ma carte"
-            detail="Titre, vitrine, fond"
-            qui="en touchant ton nom"
-            onClick={() => ouvrir('carte')}
-          />
-          <Tuile
-            apercu={
-              <span className="mini-theme">
-                {plus?.apercuDuTheme && <img src={plus.apercuDuTheme} alt="" width={46} height={58} decoding="async" />}
-                {plus?.gerbe && <span className="mini-theme-gerbe">{plus.gerbe.particule}</span>}
-              </span>
-            }
-            titre="Mon thème"
-            detail={plus?.gerbe ? `${sonTheme.nom} · ${plus.gerbe.nom}` : sonTheme.nom}
-            qui="toi seul le vois"
-            onClick={() => ouvrir('theme')}
-          />
-        </div>
+        <Vestiaire profil={profil} apercus={plus} nomPorte={[nomPorte, finition].filter(Boolean).join(' · ') || 'ton emoji'} onOuvrir={ouvrir} />
       </section>
 
       <section className="profil-groupe" aria-labelledby="groupe-retrouver">
@@ -656,7 +610,9 @@ const ANCIENNES: Record<string, EcranDuProfil> = {
 function ecranDe(h: string): EcranDuProfil | null {
   // Une ligne de la collection a son adresse : c'est l'écran de la collection.
   if (h.startsWith('collection-')) return 'collection'
-  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
+  // Une pièce d'un écran a la sienne aussi (`#carte-vitrine`, touchée au vestiaire) : c'est son écran.
+  const piece = ECRANS.find(e => h.startsWith(`${e.id}-`))
+  return ECRANS.find(e => e.id === h)?.id ?? piece?.id ?? ANCIENNES[h] ?? null
 }
 
 /** L'écran de l'adresse (`/profil#collection`), ou les tuiles. */

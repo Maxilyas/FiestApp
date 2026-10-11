@@ -107,7 +107,7 @@ const complet = {
 /** Les titres des cartes d'un écran, dans l'ordre : ce qu'on y règle. */
 const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
 
-test('le profil : deux groupes de tuiles — ce qu’on porte, chacune dit qui le voit ; ce qu’on a et ce qu’on a fait', () => {
+test('le profil : ce qu’on porte en une image qu’on touche, puis ce qu’on a et ce qu’on a fait', () => {
   const app = source('views/ProfilApp.tsx')
   const ecrans = [...app.matchAll(/\{ id: '(\w+)', nom: '([^']+)', groupe: '([^']+)'/g)].map(([, id, nom, groupe]) => `${groupe} › ${nom} (#${id})`)
   assert.deepEqual(ecrans, [
@@ -118,12 +118,13 @@ test('le profil : deux groupes de tuiles — ce qu’on porte, chacune dit qui l
     'Me retrouver › Ma carrière (#carriere)',
     'Me retrouver › Mes soirées (#soirees)',
   ])
-  // Chaque tuile de ce qu'on porte dit qui le voit, et son écran le redit en tête.
-  for (const qui of ['la salle le voit', 'en touchant ton nom', 'toi seul le vois']) assert.match(app, new RegExp(`qui="${qui}"`), qui)
+  // Chaque écran de ce qu'on porte redit en tête qui le voit.
   assert.match(app, /<PieceTete piece=\{e\.groupe\} titre=\{e\.nom\}>\s*\{e\.qui && <p className="muted qui-le-voit">\{e\.qui\}<\/p>\}/)
-  // Trois par rangée, puis la collection couchée sur la sienne.
-  assert.match(app, /<div className="tuiles tuiles-trois">/)
-  assert.match(source('styles.css'), /\.tuiles-trois \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/)
+  // « Me changer » : le vestiaire, qui ouvre les écrans par la même porte que les tuiles.
+  assert.match(app, /<Vestiaire profil=\{profil\} apercus=\{plus\} nomPorte=\{[^}]+\} onOuvrir=\{ouvrir\} \/>/)
+  assert.doesNotMatch(app, /tuiles-trois/)
+  // Une pièce d'un écran a son adresse (`#carte-vitrine`) : c'est son écran.
+  assert.match(app, /const piece = ECRANS\.find\(e => h\.startsWith\(`\$\{e\.id\}-`\)\)/)
   // Chaque écran a son panneau, chargé à la demande.
   for (const [ecran, panneau] of [['avatar', 'PanneauMonAvatar'], ['carte', 'PanneauMaCarte'], ['theme', 'PanneauMonTheme'], ['collection', 'PanneauCollection']])
     assert.match(app, new RegExp(`\\{ecran === '${ecran}' && \\(pret \\? <pret\\.${panneau} `), ecran)
@@ -138,6 +139,48 @@ test('une tuile montre ce qu’on porte et qui le voit ; la collection se couche
   assert.match(large, /<b>Ma collection<span class="tuile-compte">27 sur 308<\/span><\/b><span class="jauge-fine" aria-hidden="true"><span style="width:9%"><\/span><\/span>/)
   // Sans aperçu ni jauge : la tuile de toujours.
   assert.match(await rendu('components/Pieces', 'Tuile', { icone: 'book', titre: 'Mes soirées', onClick: () => {} }), /^<button type="button" class="tuile"><span class="gros-icone">/)
+})
+
+// Le souhait du propriétaire du 11 octobre 2026 : « quelque chose de visuel
+// qui permettrait de cliquer sur les différents éléments ». Trois tuiles
+// rangeaient ce qu'on porte par écran, et l'on devinait laquelle changeait
+// son titre.
+test('le vestiaire : sa carte telle que la salle la voit, chaque pièce un bouton qui dit qu’il se change, et qui le voit', async () => {
+  const apercus = { vitrine: [{ emoji: '🔥', nom: 'Le Phénix' }], fond: 'Velours', gerbe: { nom: 'Les confettis', particule: '🎊' }, apercuDuTheme: '/apercu.webp' }
+  const html = await rendu('components/Vestiaire', 'Vestiaire', { profil: complet, apercus, nomPorte: 'ton emoji · Mat', onOuvrir: () => {} })
+  for (const etiquette of [
+    'Mon avatar, ton emoji · Mat : le changer',
+    'Choisir un titre',
+    'Ma vitrine, Le Phénix : la changer',
+    'Le fond de ma carte, Velours : le changer',
+    'Mon thème, Velours, et ma gerbe, Les confettis : les changer',
+  ])
+    assert.match(html, new RegExp(`<button type="button" class="[^"]*" aria-label="${etiquette}"`), etiquette)
+  // Chaque pièce porte le crayon de ce qui se change ; la vitrine garde ses trois cases, vides en pointillés.
+  assert.equal(html.match(/<span class="vestiaire-case( vestiaire-vide)?">/g)?.length, 3)
+  assert.equal(html.match(/class="vestiaire-case vestiaire-vide"/g)?.length, 2)
+  // Qui voit quoi : la salle, l'avatar et la carte ; lui seul, son thème.
+  // (L'espace fine avant le point-virgule : `espacesFines`.)
+  assert.match(html, /La salle voit ton avatar\u202f; ta carte s’ouvre quand on touche ton nom\./)
+  assert.match(html, /<span class="tuile-qui"><svg[^>]*>.*?<\/svg>toi seul le vois<\/span>/)
+  // Sa carte entière, d'un lien : comme la salle la voit.
+  assert.match(html, /Voir ma carte en entier, comme la salle/)
+  // Chaque pièce mène à l'écran qui la change, à sa partie.
+  const code = source('components/Vestiaire.tsx')
+  for (const [ecran, adresse] of [
+    ['avatar', 'avatar'],
+    ['carte', 'carte-titre'],
+    ['carte', 'carte-vitrine'],
+    ['carte', 'carte-fond'],
+    ['theme', 'theme'],
+  ])
+    assert.match(code, new RegExp(`onOuvrir\\('${ecran}', '${adresse}'\\)`), adresse)
+  // Les parties de « Ma carte » ont leurs adresses, et viennent sous les yeux.
+  const carte = await rendu('components/PanneauxDuProfil', 'PanneauMaCarte', { profil: complet, ...rien })
+  for (const partie of ['carte-titre', 'carte-vitrine', 'carte-fond']) assert.match(carte, new RegExp(`<div id="${partie}" class="ancre-du-vestiaire"><section class="card"`), partie)
+  // Son titre porté s'y écrit, entre guillemets.
+  const titre = await rendu('components/Vestiaire', 'Vestiaire', { profil: { ...complet, titre: 'hf:phenix' }, apercus, nomPorte: 'ton emoji', onOuvrir: () => {} })
+  assert.match(titre, /aria-label="Mon titre, Le Phénix : le changer">«\u202fLe Phénix\u202f»/)
 })
 
 test('« Mon avatar » : sa carte collée en tête, la finition sur sa ligne, ses avatars à lui — le reste, dans la collection', async () => {
@@ -179,16 +222,30 @@ test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas, puis
 // « Les gerbes, à améliorer » (le 10 octobre 2026) : celles à gagner étaient
 // fermées au doigt — on ne savait pas ce qu'on visait. Elles éclatent au
 // toucher, sans se porter ; et « Aucune » se demande, puisque sans choix
-// chacun porte les confettis.
-test('« Ma gerbe » : celles à gagner se touchent pour se voir, sans se porter ; « Aucune » se demande', async () => {
+// chacun porte les confettis. Puis le 11 octobre 2026 : « que ça ne soit pas
+// mélangé avec la collection » — « Ma gerbe » ne montre que les siennes, et
+// celles à gagner éclatent dans sa collection.
+test('« Ma gerbe » : les siennes seulement, « Aucune » se demande — celles à gagner éclatent dans la collection', async () => {
   const html = await rendu('components/PanneauxDuProfil', 'PanneauMonTheme', { profil: complet, ...rien })
   const gerbes = html.slice(html.indexOf('gerbes-choix'))
   assert.doesNotMatch(gerbes, /<button[^>]*disabled=""/, 'aucune gerbe ne se ferme au doigt')
-  assert.equal(gerbes.match(/class="finition-btn gerbe-a-gagner"/g)?.length, GERBES.length - complet.gerbes.length)
-  assert.match(gerbes, /, à gagner : touche-la pour la voir/)
+  assert.doesNotMatch(gerbes, /gerbe-a-gagner/)
+  assert.equal(gerbes.match(/class="finition-btn( selected)?"/g)?.length, 1 + complet.gerbes.length, 'Aucune, et les siennes')
+  const reste = GERBES.length - complet.gerbes.length
+  assert.match(gerbes, new RegExp(`<a class="link-inline lien-boutique" href="#collection-gerbes"><svg[^>]*>.*?</svg>${reste} autres gerbes à gagner : où et comment, dans « Ma collection »</a>`))
   const APPARENCE = source('components/Apparence.tsx')
   assert.match(APPARENCE, /onClick=\{\(\) => enregistrer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
-  assert.match(APPARENCE, /if \(ouverte && !choisie\) enregistrer\(\{ gerbe: g\.key \}\)/)
+  assert.match(APPARENCE, /if \(!choisie\) enregistrer\(\{ gerbe: g\.key \}\)/)
+  // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
+  const carte = await rendu('components/PanneauxDuProfil', 'PanneauMaCarte', { profil: complet, ...rien })
+  assert.match(carte, /href="#collection-fonds"><svg[^>]*>.*?<\/svg>7 autres fonds à gagner : où et comment, dans « Ma collection »<\/a>/)
+  assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
+  const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...rien })
+  assert.match(avatar, /href="#collection-finitions"><svg[^>]*>.*?<\/svg>6 autres finitions à gagner : où et comment, dans « Ma collection »<\/a>/)
+  // Dans la collection, chaque gerbe se touche pour éclater, même à gagner.
+  const COLLECTION = source('components/Collection.tsx')
+  assert.match(COLLECTION, /onToucher=\{cle => setGerbeVue\(a => \(\{ cle, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\}/)
+  assert.match(COLLECTION, /\{gerbeVue && <GerbeDeJuste key=\{gerbeVue\.n\} cle=\{gerbeVue\.cle\} \/>\}/)
 })
 
 // ── Les trophées, la carrière, les soirées ─────────────────────────────

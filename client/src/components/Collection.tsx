@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 import { AtlasDesAvatars } from './AtlasDesAvatars'
 import { COLLECTION_HAUTE } from './Apparence'
 import { JaugeFine, LigneDeCollection, TropheesAtlas } from './TropheesAtlas'
+import { GerbeDeJuste } from './Gerbe'
 import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { CIEL, LILAS, OR } from './Atlas'
 import { espacesFines, formatNumber } from '../format'
@@ -60,22 +61,46 @@ function OuLePorter({ ecran, nom, quoi = 'Ce qui est à toi se porte dans' }: { 
   )
 }
 
-/** Une liste à lire : ce qu'on a, coché, et ce qui manque, avec ce qu'il faut. Rien à toucher. */
-function ListeAGagner({ items }: { items: { cle: string; apercu: ReactNode; nom: string; aToi: string | null; regle: string }[] }) {
+/**
+ * Une liste à lire : ce qu'on a, coché, et ce qui manque, avec ce qu'il faut.
+ * Rien ne s'y porte ; avec `onToucher`, chaque ligne se touche pour se voir
+ * — une gerbe éclate, même à gagner : on sait ce qu'on vise.
+ */
+function ListeAGagner({
+  items,
+  onToucher,
+}: {
+  items: { cle: string; apercu: ReactNode; nom: string; aToi: string | null; regle: string }[]
+  onToucher?: (cle: string) => void
+}) {
   return (
     <ul className="a-gagner">
-      {items.map(i => (
-        <li key={i.cle} className={i.aToi ? 'a-gagner-a-toi' : 'a-gagner-reste'}>
-          <span className="a-gagner-apercu" aria-hidden="true">
-            {i.apercu}
-          </span>
-          <span className="a-gagner-texte">
-            <b>{i.nom}</b>
-            <span className="small">{i.aToi ?? espacesFines(majuscule(i.regle))}</span>
-          </span>
-          <Icon name={i.aToi ? 'check' : 'lock'} className="a-gagner-marque" />
-        </li>
-      ))}
+      {items.map(i => {
+        const contenu = (
+          <>
+            <span className="a-gagner-apercu" aria-hidden="true">
+              {i.apercu}
+            </span>
+            <span className="a-gagner-texte">
+              <b>{i.nom}</b>
+              <span className="small">{i.aToi ?? espacesFines(majuscule(i.regle))}</span>
+            </span>
+            <Icon name={i.aToi ? 'check' : 'lock'} className="a-gagner-marque" />
+          </>
+        )
+        return (
+          <li key={i.cle} className={(i.aToi ? 'a-gagner-a-toi' : 'a-gagner-reste') + (onToucher ? ' a-gagner-touchable' : '')}>
+            {onToucher ? (
+              <button type="button" className="a-gagner-bouton" onClick={() => onToucher(i.cle)}>
+                {contenu}
+                <span className="sr-only">{i.aToi ? ' : touche-la pour la voir' : ', à gagner : touche-la pour la voir'}</span>
+              </button>
+            ) : (
+              contenu
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -208,6 +233,8 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
   }
   const fonds = profil.fonds ?? []
   const gerbes = profil.gerbes ?? []
+  // La gerbe qu'on vient de toucher éclate, une fois par toucher — celles à gagner aussi.
+  const [gerbeVue, setGerbeVue] = useState<{ cle: string; n: number } | null>(null)
 
   const contenus: Partial<Record<PartieDeLaCollection, ReactNode>> = {
     savoir: (
@@ -251,6 +278,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
     ),
     gerbes: (
       <>
+        <p className="muted small">Touche une gerbe pour la voir éclater, même celles à gagner.</p>
         <ListeAGagner
           items={GERBES.map(g => ({
             cle: g.key,
@@ -259,7 +287,9 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
             aToi: gerbes.includes(g.key) ? (profil.gerbe === g.key ? 'Portée' : 'À toi') : null,
             regle: g.regle,
           }))}
+          onToucher={cle => setGerbeVue(a => ({ cle, n: (a?.n ?? 0) + 1 }))}
         />
+        {gerbeVue && <GerbeDeJuste key={gerbeVue.n} cle={gerbeVue.cle} />}
         <OuLePorter ecran="theme" nom="Mon thème" quoi="Elle se porte dans" />
       </>
     ),
