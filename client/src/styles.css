@@ -7749,6 +7749,33 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .tes-amis-liste li .duel-ami-nom { flex: 1; min-width: 0; }
 .tes-amis p { margin: 0; }
 .tes-amis-etapes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; }
+.tes-amis-defier .icon { width: 14px; height: 14px; color: var(--accent-text); }
+/* Défier un ami, en tête de l'onglet du défi : ses amis en visages qu'on
+   touche, « Lancer un défi », et la cloche de ses défis. */
+.defier-un-ami { display: flex; flex-direction: column; gap: 12px; border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: radial-gradient(90% 140% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%), var(--surface); }
+.defier-un-ami-tete { display: flex; align-items: center; gap: 12px; }
+.defier-un-ami-tete h2 { margin: 0 0 2px; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+.defier-un-ami-tete p { margin: 0; }
+.defier-visages { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; overflow: hidden; }
+.defier-visages li { flex: 0 1 64px; min-width: 0; }
+.defier-visage { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; min-height: 64px; padding: 4px 2px; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; cursor: pointer; }
+.defier-visage:hover .defier-visage-avatar { box-shadow: 0 0 0 2px var(--accent); }
+.defier-visage-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-faint); box-shadow: 0 0 0 1px var(--edge); font-size: 1.6rem; line-height: 1; }
+.defier-visage-nom { max-width: 100%; overflow: hidden; font-size: var(--t-label); font-weight: 600; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.cloche-des-defis { display: flex; align-items: center; gap: 4px; margin: -4px 0 -8px -11px; color: var(--muted); }
+.cloche-des-defis .cloche-du-rappel { margin-right: 0; }
+.cloche-des-defis-ailleurs { margin: 0; }
+/* Lancer un défi : trois temps, chacun sa carte numérotée. */
+.defier-etapes { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; font-size: 0.85rem; color: var(--ink); }
+.defier-etapes b { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 25%, transparent); color: var(--ink); font-size: var(--t-label); }
+.defier-etape { display: flex; flex-direction: column; gap: 10px; }
+.defier-etape p { margin: 0; }
+.defier-titre { display: flex; align-items: center; gap: 10px; margin: 0; font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
+.defier-numero { display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-family: var(--sans); font-size: 0.9rem; font-weight: 700; }
+.defier-choix { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); text-align: right; }
+/* À qui il vient de partir — ou partira : une ligne qui rassure, cochée. */
+.duel-parti { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.duel-parti > .icon { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--accent-text); }
 .vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }

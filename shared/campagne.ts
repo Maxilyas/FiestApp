@@ -217,6 +217,8 @@ export interface ReponseDeCampagne {
   legendaires?: string[]
   /** À la fin d'un défi — de la semaine, ou entre amis : sa place à son classement, pour l'instant. */
   defi?: { rang: number; joueurs: number }
+  /** À la fin d'un défi entre amis qu'il a lancé : les amis choisis au lancement, à qui il vient de partir (`campagne_envois_prevus`). */
+  partiA?: string[]
   /** À la fin d'un défi de la semaine : ce qui a éclaté pour lui — l'emoji qu'il porte, ou son légendaire (`CHANCE_ECLAT_DU_DEFI`). */
   eclat?: string
   /** Une révision (`shared/revision.ts`) : où en est la question après cette réponse — apprise, ou quand elle revient. */
@@ -506,8 +508,12 @@ export interface DefiDeLaSemaine {
 //
 // Le défi de la semaine se joue contre tout le monde ; celui-ci, contre qui
 // on veut, en différé (un retour de joueur du 10 octobre 2026 : « un mode
-// défi en différé, compétitif ») : on lance un tirage, on le joue, on
-// envoie le lien — chacun de ceux qui l'ouvrent, profil en main, joue les
+// défi en différé, compétitif ») : on choisit à qui et sur quoi, on le joue
+// d'abord — et à sa dernière réponse, il part aux amis choisis, en
+// notification sur leur téléphone (le souhait du propriétaire du
+// 11 octobre 2026 : « choisir avec qui je le lance, sur quel thème […] et
+// que ça envoie une notif à la personne pour faire le même ») ; aux autres,
+// par son lien. Chacun de ceux qui l'ouvrent, profil en main, joue les
 // mêmes questions, une fois, dans la semaine. Ni laurier, ni haut fait :
 // rien qu'on gagnerait à se défier soi-même d'un second profil.
 
@@ -540,6 +546,8 @@ export interface DuelEntreAmis {
   minutesRestantes: number
   /** Sa tentative : en cours, elle se reprend ; finie, elle attend les autres. */
   tentative: SerieDeCampagne | null
+  /** Le sien, pas encore joué jusqu'au bout : les amis choisis au lancement, à qui il partira à sa dernière réponse. */
+  prevus?: string[]
   joueurs: number
   lignes: LigneDuDefi[]
   moi?: LigneDuDefi

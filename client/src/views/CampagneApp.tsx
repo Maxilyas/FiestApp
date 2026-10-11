@@ -2,19 +2,20 @@ import { useEffect, useRef, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
-import { iconeDuSujet } from '../iconeDuSujet'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
-import { DefisRecus, FinDuDuel, MesDuels, PageDuDuel, TesAmis, adresseDuDuel } from './Duel'
+import { ADRESSE_DU_LANCEMENT, DefierUnAmi, DefisRecus, FinDuDuel, MesDuels, PageDuDuel, TesAmis, adresseDuDuel } from './Duel'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
 import { AffronterUnInconnu, MOT_DE_L_ISSUE, scoreDeRencontre } from './Rencontre'
-import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
+import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
 import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
+import { ChoixDuTheme } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
@@ -26,7 +27,7 @@ import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
-import { FAMILLES_DE_SUJETS, SUJETS, sujetParCle } from '../../../shared/sujets'
+import { SUJETS, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -112,12 +113,28 @@ type Ecran =
       place?: { rang: number; joueurs: number }
       /** Un défi entre amis : son code, à envoyer. */
       duel?: string
+      /** Le sien : les amis choisis en le lançant, à qui il vient de partir. */
+      partiA?: string[]
       /** Ce qui a éclaté pour lui à la fin du défi de la semaine (`CHANCE_ECLAT_DU_DEFI`). */
       eclat?: string
     }
 
-/** Les modes de la campagne : la série à trois vies, les sentiers du savoir, le défi de la semaine — et un défi entre amis, ouvert par son lien —, et le carnet de révision. */
-type Mode = 'serie' | 'sentiers' | 'defi' | 'duel' | 'carnet'
+/**
+ * Les modes de la campagne : la série à trois vies, les sentiers du savoir,
+ * le défi de la semaine — un défi entre amis, ouvert par son lien, et celui
+ * qu'on prépare (`#defier`) —, et le carnet de révision.
+ */
+type Mode = 'serie' | 'sentiers' | 'defi' | 'duel' | 'defier' | 'carnet'
+
+/** L'entrée d'historique qu'ouvre « Lancer un défi » : « ← Le défi » y revient d'un cran. */
+const LANCEMENT = 'fiestappLancement'
+
+/**
+ * La préparation d'un défi entre amis, chargée à la demande : la série ne
+ * l'ouvre jamais, et elle pesait sur chaque ouverture de la campagne. Elle
+ * se télécharge en fond une fois la page montrée : touchée, elle est là.
+ */
+const lancement = aLaDemande(() => import('./LancerUnDefi'))
 
 /**
  * Les catégories de sa dernière série, retenues sur ce téléphone : la page
@@ -172,7 +189,7 @@ function retenirSujet(sujet: string | null) {
 // Les sentiers par la règle même du préchargement (`donneesDuFragment`,
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
 const modeDe = (hash: string): Mode =>
-  hash === ADRESSE_DU_DEFI ? 'defi' : hash === ADRESSE_DU_CARNET ? 'carnet' : codeDuLien(hash) ? 'duel' : versLesSentiers(hash) ? 'sentiers' : 'serie'
+  hash === ADRESSE_DU_DEFI ? 'defi' : hash === ADRESSE_DU_LANCEMENT ? 'defier' : hash === ADRESSE_DU_CARNET ? 'carnet' : codeDuLien(hash) ? 'duel' : versLesSentiers(hash) ? 'sentiers' : 'serie'
 /** Le code du défi entre amis qu'ouvre l'adresse (`#duel-K7M2QX`), ou null. */
 const codeDuLien = (hash: string) => (hash.startsWith('#duel-') ? lireCodeDuDuel(hash) : null)
 
@@ -292,8 +309,8 @@ export function CampagneApp() {
           ...(aRevoir > 0 && { pastille: { n: aRevoir, label: `${aRevoir} à revoir aujourd’hui` } }),
         },
       ]}
-      // Un défi entre amis se range sous l'onglet du défi.
-      actif={mode === 'duel' ? 'defi' : mode}
+      // Un défi entre amis se range sous l'onglet du défi, comme celui qu'on prépare.
+      actif={mode === 'duel' || mode === 'defier' ? 'defi' : mode}
       onChoisir={choisirMode}
       label="Le mode de la campagne"
       idOnglet={m => `mode-${m}`}
@@ -324,6 +341,8 @@ export function CampagneApp() {
       const lu = await etat
       if (!vivant) return
       setEcran({ e: 'accueil', etat: lu })
+      // La préparation d'un défi, en fond : « Lancer un défi » s'ouvre sans attendre.
+      void lancement.charger().catch(() => {})
       // Le compte du carnet vient après la page, pour l'onglet : qu'il se taise ne retient rien.
       api.campagne.carnet
         .etat()
@@ -477,6 +496,7 @@ export function CampagneApp() {
         legendaires: r.legendaires ?? [],
         ...(ecran.defi && { defi: true as const }),
         ...(ecran.duel && { duel: ecran.duel }),
+        ...(r.partiA && { partiA: r.partiA }),
         ...(r.defi && { place: r.defi }),
         ...(r.eclat && { eclat: r.eclat }),
       })
@@ -614,13 +634,38 @@ export function CampagneApp() {
     if (mesAmis?.recus.some(d => d.code === code)) void relireMesAmis()
   }
 
-  /** « Défier des amis » : un tirage sur ce qu'on a choisi — catégories ou sujet —, et sa propre tentative d'abord. */
-  const lancerUnDuel = async (choisies: string[], choisi: string | null) => {
+  /**
+   * Préparer un défi entre amis (`#defier`) : à qui, sur quoi — la série en
+   * cours de choix d'abord, l'ami touché déjà coché. Une entrée d'historique :
+   * le retour du téléphone, comme « ← Le défi », ramène d'où l'on vient.
+   */
+  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; ami?: string }>({ categories: [], sujet: null })
+  const laPreparation = useALaDemande(lancement, mode === 'defier')
+  const ouvrirLeLancement = (ami?: AmiDeCampagne) => {
+    setDepart({ categories, sujet, ...(ami && { ami: ami.profileId }) })
+    history.pushState({ ...history.state, [LANCEMENT]: true }, '', `${window.location.pathname}${window.location.search}${ADRESSE_DU_LANCEMENT}`)
+    setErreur('')
+    setMode('defier')
+    window.scrollTo(0, 0)
+  }
+  const quitterLeLancement = () => {
+    if (history.state?.[LANCEMENT]) return history.back()
+    choisirMode('defi')
+  }
+
+  /** Un défi lancé : son tirage sur ce qu'on a choisi — catégories ou sujet —, les amis choisis, et sa propre tentative d'abord. */
+  const lancerUnDuel = async (choisies: string[], choisi: string | null, amis: string[]) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const { code, serie } = await api.campagne.duel.lancer(choisi ? [] : choisies, choisi)
+      const { code, serie } = await api.campagne.duel.lancer(choisi ? [] : choisies, choisi, amis)
+      // Lancé, il ne se prépare plus : l'entrée de la préparation devient l'onglet du défi — le
+      // retour du téléphone, après son classement, ne rouvre pas un défi déjà parti.
+      if (window.location.hash === ADRESSE_DU_LANCEMENT) {
+        history.replaceState({ ...history.state, [LANCEMENT]: undefined }, '', `${window.location.pathname}${window.location.search}${ADRESSE_DU_DEFI}`)
+        setMode('defi')
+      }
       jouerLeDuel(serie, code)
     } catch (e) {
       setErreur(motifDe(e))
@@ -703,13 +748,18 @@ export function CampagneApp() {
         <PageDuDefi
           onglets={onglets}
           onJouer={jouerLeDefi}
-          // Ce qu'un ami lui a envoyé d'abord : c'est ce qui l'attend, et l'onglet le compte.
-          avant={<DefisRecus recus={mesAmis?.recus ?? []} onOuvrir={ouvrirLeDuel} />}
+          // Ce qu'un ami lui a envoyé d'abord : c'est ce qui l'attend, et l'onglet le compte. Puis défier un ami.
+          avant={
+            <>
+              <DefisRecus recus={mesAmis?.recus ?? []} onOuvrir={ouvrirLeDuel} />
+              <DefierUnAmi amis={mesAmis?.amis ?? null} onLancer={ouvrirLeLancement} />
+            </>
+          }
           apres={
             <>
               <AffronterUnInconnu onJouer={jouerLaRencontre} />
               <MesDuels onOuvrir={ouvrirLeDuel} />
-              {mesAmis && <TesAmis amis={mesAmis.amis} onRetirer={a => void retirerUnAmi(a)} />}
+              {mesAmis && <TesAmis amis={mesAmis.amis} onDefier={ouvrirLeLancement} onRetirer={a => void retirerUnAmi(a)} />}
             </>
           }
         />
@@ -722,6 +772,37 @@ export function CampagneApp() {
     return (
       <>
         <PageDuCarnet onglets={onglets} onReviser={jouerLaRevision} onLu={c => setARevoir(c.aRevoir)} />
+        {toastVu}
+      </>
+    )
+  }
+
+  if (ecran.e === 'accueil' && mode === 'defier') {
+    // Pas encore arrivée (un réseau lent, ouverte à son adresse) : sa place, ou ce qui l'empêche.
+    if (!laPreparation || laPreparation === 'perdu') {
+      return (
+        <div className="player-shell campagne">
+          <Sortie vers="Le défi" href={`/campagne${ADRESSE_DU_DEFI}`} onClick={quitterLeLancement} />
+          {onglets}
+          {laPreparation === 'perdu' ? <p className="error">Cette page n’a pas pu se charger : vérifie ta connexion, puis recharge-la.</p> : <p className="serif-note">Chargement…</p>}
+        </div>
+      )
+    }
+    // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
+    const sujets = SUJETS.filter(s => ecran.etat.sujets?.some(x => x.sujet === s.cle))
+    return (
+      <>
+        <laPreparation.LancerUnDefi
+          onglets={onglets}
+          amis={mesAmis?.amis ?? null}
+          categoriesJouables={ecran.etat.categories.map(c => c.categorie)}
+          sujets={sujets}
+          depart={{ ...depart, sujet: sujets.some(s => s.cle === depart.sujet) ? depart.sujet : null }}
+          busy={busy}
+          erreur={erreur}
+          onLancer={(c, s, a) => void lancerUnDuel(c, s, a)}
+          onRetour={quitterLeLancement}
+        />
         {toastVu}
       </>
     )
@@ -773,9 +854,6 @@ export function CampagneApp() {
     const sujets = SUJETS.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
     const sujetJouable = sujets.some(s => s.cle === sujet) ? sujet : null
     const leSujet = sujetJouable ? sujetParCle(sujetJouable) : undefined
-    // Sur un sujet, toucher une catégorie la choisit seule : la basculer retirerait celle qu'on ne voyait plus choisie.
-    const basculer = (c: string) =>
-      setCategories(sujetJouable ? [c] : categories.includes(c) ? categories.filter(x => x !== c) : [...categories, c])
     return (
       <div className="player-shell campagne">
         <Sortie />
@@ -803,55 +881,14 @@ export function CampagneApp() {
                   </span>
                   <Icon name="chevron-down" className="repli-chevron" />
                 </summary>
-                {/* En grille, l'emblème de chacune : tout tient sans rien faire glisser de côté. */}
-                <div className="categories-grille" role="group" aria-label="Catégories">
-                  <button type="button" className={'categorie-case' + (!sujetJouable && categories.length === 0 ? ' active' : '')} aria-pressed={!sujetJouable && categories.length === 0} onClick={() => setCategories([])}>
-                    <Icon name="sparkles" />
-                    Toutes
-                  </button>
-                  {etat.categories.map(c => (
-                    <button
-                      key={c.categorie}
-                      type="button"
-                      className={'categorie-case' + (!sujetJouable && categories.includes(c.categorie) ? ' active' : '')}
-                      aria-pressed={!sujetJouable && categories.includes(c.categorie)}
-                      onClick={() => basculer(c.categorie)}
-                    >
-                      <Icon name={EMBLEME[c.categorie] ?? 'star'} />
-                      {c.categorie}
-                    </button>
-                  ))}
-                </div>
-                {/* Ou un sujet au-delà des catégories : un thème, une époque, un fil rouge (`shared/sujets.ts`), chaque famille sa rangée — une famille sans sujet jouable n'en a pas. Le toucher de nouveau rend les catégories. */}
-                {sujets.length > 0 && (
-                  <div className="campagne-sujets">
-                    <p className="sujets-titre">Ou un sujet, au-delà des catégories</p>
-                    {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
-                      const ici = sujets.filter(s => s.famille === famille)
-                      if (ici.length === 0) return null
-                      return (
-                        <div key={famille}>
-                          <p className="label">{nom}</p>
-                          <div className="categories-grille" role="group" aria-label={nom}>
-                            {ici.map(s => (
-                              <button
-                                key={s.cle}
-                                type="button"
-                                className={'categorie-case' + (sujetJouable === s.cle ? ' active' : '')}
-                                aria-pressed={sujetJouable === s.cle}
-                                onClick={() => choisirSujet(sujetJouable === s.cle ? null : s.cle)}
-                              >
-                                <Icon name={iconeDuSujet(s)} />
-                                {s.nom}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {leSujet && <p className="muted small">{espacesFines(leSujet.description)}</p>}
-                  </div>
-                )}
+                <ChoixDuTheme
+                  categoriesJouables={etat.categories.map(c => c.categorie)}
+                  sujets={sujets}
+                  categories={categories}
+                  sujet={sujetJouable}
+                  onCategories={setCategories}
+                  onSujet={choisirSujet}
+                />
               </details>
             )}
             {erreur && (
@@ -886,12 +923,12 @@ export function CampagneApp() {
               <Icon name="play" />
               {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
-            {/* Le même tirage pour ceux qu'on défie : on joue d'abord, on l'envoie ensuite — à ses amis d'un toucher, aux autres par son lien (`Duel.tsx`). */}
-            <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={() => void lancerUnDuel(categories, sujetJouable)}>
+            {/* Le même tirage pour ceux qu'on défie : on choisit à qui et sur quoi — ce qu'on a choisi ici d'abord —, on joue, et il leur part (`LancerUnDefi`). */}
+            <button type="button" className="btn btn-block" onClick={() => ouvrirLeLancement()}>
               <Icon name="users" />
               Défier des amis
             </button>
-            <p className="muted small centre">Le même tirage pour eux : tu joues d’abord, puis il part à tes amis d’un toucher — aux autres, par son lien.</p>
+            <p className="muted small centre">{espacesFines('Le même tirage pour eux : choisis à qui et sur quoi, joue d’abord, et il leur part à ta dernière réponse.')}</p>
           </>
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
@@ -1123,7 +1160,7 @@ export function CampagneApp() {
         {erreur && <p className="error">{erreur}</p>}
         {ecran.duel ? (
           // L'envoyer d'abord : celui qui vient de le lancer n'a encore défié personne.
-          <FinDuDuel code={ecran.duel} justes={ecran.justes} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
+          <FinDuDuel code={ecran.duel} justes={ecran.justes} partiA={ecran.partiA} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
         ) : ecran.defi ? (
           <>
             {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. */}

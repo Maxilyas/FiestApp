@@ -25,6 +25,8 @@ import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, typ
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
+import { nomDuChoix } from '../../../shared/nomDuChoix'
+import { messageDUnDefi, type MessageDUnDefi } from './rappels'
 import {
   AMIS_MONTRES,
   DEFIS_RECUS_MONTRES,
@@ -363,6 +365,12 @@ export class CampagneStore {
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
+  /**
+   * Faire sonner les téléphones d'amis à qui un défi vient de partir
+   * (`RappelStore.prevenirDUnDefi`), branché au démarrage. Jamais attendu :
+   * un service de push lent ne retient pas la réponse du joueur.
+   */
+  prevenir?: (profileIds: readonly string[], message: MessageDUnDefi, ttlS: number) => Promise<unknown>
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
 
   constructor(
@@ -578,6 +586,13 @@ export class CampagneStore {
            PRIMARY KEY (code, profile_id)
          )`,
         'CREATE INDEX IF NOT EXISTS idx_campagne_envois_profil ON campagne_envois(profile_id, envoye_le)',
+        // Les amis choisis au lancement : il leur part à la dernière réponse
+        // de celui qui l'a lancé — son score à battre avec lui.
+        `CREATE TABLE IF NOT EXISTS campagne_envois_prevus (
+           code       TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           PRIMARY KEY (code, profile_id)
+         )`,
         // Un ami retiré de sa liste — jusqu'à ce qu'ils jouent de nouveau ensemble.
         `CREATE TABLE IF NOT EXISTS campagne_amis_retires (
            profile_id TEXT NOT NULL,
@@ -1008,6 +1023,8 @@ export class CampagneStore {
             : null
       // Finie, une révision redit son carnet : ce qu'elle a appris, ce qui reste à revoir.
       const carnet = finie && revision ? await this.carnetApres(profileId) : null
+      // Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au lancement, son score avec lui.
+      const partiA = finie && s.mode === 'duel' && s.duel ? await this.partirAuxPrevus(profileId, s.duel, justes) : []
       return {
         juste,
         xp,
@@ -1020,6 +1037,7 @@ export class CampagneStore {
         ...(record && { recordAvant: avant }),
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
+        ...(partiA.length > 0 && { partiA }),
         ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste, q.enAvance, jourDe(maintenant)) }),
         ...(carnet && { carnet }),
         // Une rencontre : ce que son adversaire avait fait de la même question, et les deux scores.
@@ -1747,16 +1765,25 @@ export class CampagneStore {
    * marche par marche comme une série — sans « jamais vues d'abord », qui ne
    * vaut que pour lui —, figé sous un code neuf ; et sa propre tentative,
    * qui commence là. Une série en cours, elle, attend. Pas plus de
-   * `DUELS_OUVERTS_MAX` ouverts à la fois.
+   * `DUELS_OUVERTS_MAX` ouverts à la fois. Les amis choisis (`amis`) — les
+   * siens seulement : un identifiant qui n'en est pas un ne reçoit rien,
+   * sans qu'il l'apprenne — l'attendent à sa dernière réponse
+   * (`campagne_envois_prevus`, `envoyerLesPrevus`).
    */
-  creerUnDuel(profileId: string, categories?: readonly string[], sujet?: string): Promise<{ code: string; serie: SerieDeCampagne }> {
+  creerUnDuel(profileId: string, categories?: readonly string[], sujet?: string, amis?: unknown): Promise<{ code: string; serie: SerieDeCampagne }> {
     return this.avecVerrou(profileId, async () => {
       const maintenant = this.maintenant()
       const ouverts = await this.client.execute({ sql: 'SELECT COUNT(*) AS n FROM campagne_duels WHERE auteur = ? AND ferme_le > ?', args: [profileId, maintenant] })
       if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} défis ouverts : attends que l’un d’eux ferme`)
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
-      const [toutes, mesure] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures()])
+      const voulus = idsVoulus(amis)
+      const [toutes, mesure, sesAmis] = await Promise.all([
+        this.jouables(suivi ? undefined : categories),
+        this.mesures(),
+        voulus.size > 0 ? this.idsDesAmis(profileId) : Promise.resolve([]),
+      ])
+      const prevus = sesAmis.filter(id => voulus.has(id))
       const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
@@ -1775,12 +1802,13 @@ export class CampagneStore {
           closLe: null,
         }
         try {
-          // Le défi et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
+          // Le défi, ses amis choisis et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
           const serie = await this.releverLeDuel(profileId, duel, [
             {
               sql: 'INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le) VALUES (?, ?, ?, ?, ?, ?, ?)',
               args: [duel.code, profileId, JSON.stringify(questions), retenues ? JSON.stringify(retenues) : null, duel.sujet, maintenant, duel.fermeLe],
             },
+            ...prevus.map(id => ({ sql: 'INSERT INTO campagne_envois_prevus (code, profile_id) VALUES (?, ?)', args: [duel.code, id] })),
           ])
           this.duels.set(duel.code, duel)
           return { code: duel.code, serie: vueDeSerie(serie) }
@@ -1841,6 +1869,13 @@ export class CampagneStore {
     ])
     // Masqué au quiz du jour, l'auteur ne se nomme pas plus ici, sauf à lui-même.
     const nomme = auteur && (!this.masque?.(auteur.id) || auteur.id === profileId)
+    // Le sien, ouvert : à qui il partira à sa dernière réponse — ou, joué
+    // jusqu'au bout et resté en route (un envoi raté), il part maintenant.
+    let prevus: string[] = []
+    if (duel.auteur === profileId && ouvert) {
+      if (tentative?.finieLe != null) await this.partirAuxPrevus(profileId, duel.code, tentative.justes)
+      else prevus = await this.prenomsDesPrevus(duel.code)
+    }
     return {
       code: duel.code,
       auteur: {
@@ -1852,6 +1887,7 @@ export class CampagneStore {
       ...(duel.categories && duel.categories.length > 0 && { categories: duel.categories }),
       minutesRestantes: ouvert ? Math.max(1, Math.ceil((duel.fermeLe - this.maintenant()) / 60_000)) : 0,
       tentative: tentative ? vueDeSerie(tentative) : null,
+      ...(prevus.length > 0 && { prevus }),
       ...classement,
     }
   }
@@ -2011,15 +2047,105 @@ export class CampagneStore {
     const duel = await this.duelDe(lireCodeDuDuel(brut))
     if (!duel || duel.auteur !== profileId) throw new Error('Ce défi est introuvable : vérifie son lien')
     if (this.maintenant() >= duel.fermeLe) throw new Error('Ce défi est fermé : lances-en un autre depuis la série')
-    const voulus = new Set(Array.isArray(amis) ? amis.filter((a): a is string => typeof a === 'string') : [])
+    const voulus = idsVoulus(amis)
     const destinataires = (await this.idsDesAmis(profileId)).filter(id => voulus.has(id))
     if (destinataires.length > 0) {
-      await this.client.batch(
-        destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
-        'write',
-      )
+      const [ecrits, tentative] = await Promise.all([
+        this.client.batch(
+          destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
+          'write',
+        ),
+        this.tentativeDuDuel(profileId, duel.code),
+      ])
+      // Leur téléphone sonne — une fois : déjà reçu, il ne sonne pas de nouveau.
+      // Son score à battre, s'il l'a joué jusqu'au bout.
+      const nouveaux = destinataires.filter((_, i) => ecrits[i].rowsAffected > 0)
+      this.prevenirDuDefi(duel, nouveaux, tentative?.finieLe != null ? tentative.justes : null)
     }
     return { envoyes: destinataires.length }
+  }
+
+  /**
+   * Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au
+   * lancement — encore ses amis, et qui ne l'ont pas déjà relevé par son
+   * lien —, son score à battre avec lui, et leur téléphone sonne. Rend leurs
+   * prénoms, pour la fin de sa tentative. Une seule fois : les prévus
+   * s'effacent en partant.
+   */
+  private async envoyerLesPrevus(duel: Duel, justes: number): Promise<string[]> {
+    const prevus = await this.client.execute({
+      sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = p.profile_id AND s.mode = 'duel' AND s.duel = p.code) AS joue
+            FROM campagne_envois_prevus p WHERE p.code = ?`,
+      args: [duel.code],
+    })
+    // Personne de choisi : rien à écrire, la fin de sa tentative n'attend pas un aller-retour de plus.
+    if (prevus.rows.length === 0) return []
+    const amis = new Set(await this.idsDesAmis(duel.auteur))
+    const destinataires = prevus.rows.filter(r => !Number(r.joue)).map(r => String(r.profile_id)).filter(id => amis.has(id))
+    const ecrits = await this.client.batch(
+      [
+        ...destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
+        { sql: 'DELETE FROM campagne_envois_prevus WHERE code = ?', args: [duel.code] },
+      ],
+      'write',
+    )
+    // Envoyé à la main avant sa dernière réponse, il a déjà sonné chez eux.
+    this.prevenirDuDefi(
+      duel,
+      destinataires.filter((_, i) => ecrits[i].rowsAffected > 0),
+      justes,
+    )
+    return this.prenomsDe(destinataires)
+  }
+
+  /**
+   * Sa dernière réponse au défi qu'il a lancé : il part à ceux qu'il avait
+   * choisis. Un envoi raté ne coûte pas sa réponse, déjà écrite : les prévus
+   * restent, et sa page les envoie à sa prochaine visite (`duel`).
+   */
+  private async partirAuxPrevus(profileId: string, code: string, justes: number): Promise<string[]> {
+    const duel = await this.duelDe(code)
+    if (!duel || duel.auteur !== profileId) return []
+    try {
+      return await this.envoyerLesPrevus(duel, justes)
+    } catch (e) {
+      console.warn('[campagne] un défi n’est pas parti à ses amis choisis, il partira de sa page :', e instanceof Error ? e.message : e)
+      return []
+    }
+  }
+
+  /** Les prénoms des amis choisis au lancement d'un défi, qui l'attendent encore. */
+  private async prenomsDesPrevus(code: string): Promise<string[]> {
+    const res = await this.client.execute({ sql: 'SELECT profile_id FROM campagne_envois_prevus WHERE code = ?', args: [code] })
+    return this.prenomsDe(res.rows.map(r => String(r.profile_id)))
+  }
+
+  /** Les prénoms de ces profils, marqués s'ils se confondent entre eux (invariant 17). */
+  private async prenomsDe(ids: readonly string[]): Promise<string[]> {
+    const p = this.profils
+    if (!p || ids.length === 0) return []
+    const profils = (await p.byIds([...ids])).filter((x): x is ProfileRec => x !== null)
+    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    return profils.map(x => marques.get(x.id) ?? x.name)
+  }
+
+  /**
+   * Les téléphones des amis à qui un défi vient de partir sonnent : qui les
+   * défie, sur quoi, et le score à battre (`messageDUnDefi`). Jamais attendu
+   * — la réponse du joueur ne guette pas un service de push —, et un masqué
+   * n'envoie rien : ses défis ne parviennent à personne.
+   */
+  private prevenirDuDefi(duel: Duel, ids: readonly string[], justes: number | null): void {
+    const prevenir = this.prevenir
+    if (ids.length === 0 || !prevenir || !this.profils || this.masque?.(duel.auteur)) return
+    const profils = this.profils
+    void (async () => {
+      const [auteur] = await profils.byIds([duel.auteur])
+      if (!auteur) return
+      const message = messageDUnDefi({ auteur: auteur.name, quoi: nomDuChoix(duel.categories ?? [], duel.sujet), justes, code: duel.code })
+      // Gardé chez le service jusqu'à sa fermeture : après, il n'y a plus rien à relever.
+      await prevenir(ids, message, Math.floor((duel.fermeLe - this.maintenant()) / 1000))
+    })().catch(e => console.warn('[campagne] la notification d’un défi n’est pas partie :', e instanceof Error ? e.message : e))
   }
 
   /** Retirer un ami de sa liste : ni lui ni ses défis n'y paraissent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
@@ -3213,8 +3339,9 @@ export class CampagneStore {
           { sql: 'DELETE FROM campagne_series WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM campagne_signalements WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM sentier_acquis WHERE profile_id = ?', args: [profileId] },
-          // Ce qu'on lui a envoyé, ce qu'il a envoyé, et les listes d'amis où il était retiré.
+          // Ce qu'on lui a envoyé — ou prévu de lui envoyer —, ce qu'il a envoyé, et les listes d'amis où il était retiré.
           { sql: 'DELETE FROM campagne_envois WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
+          { sql: 'DELETE FROM campagne_envois_prevus WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
           { sql: 'DELETE FROM campagne_amis_retires WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
         ],
         'write',
@@ -3461,6 +3588,11 @@ function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
   let lus = SUJETS_LUS.get(q)
   if (!lus) SUJETS_LUS.set(q, (lus = sujetsDe(q.meta)))
   return lus
+}
+
+/** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */
+function idsVoulus(brut: unknown): Set<string> {
+  return new Set(Array.isArray(brut) ? brut.filter((a): a is string => typeof a === 'string').slice(0, AMIS_MONTRES) : [])
 }
 
 /** Les catégories retenues d'une série : null — toutes, ou une série d'avant la colonne. */

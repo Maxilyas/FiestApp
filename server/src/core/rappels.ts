@@ -18,12 +18,21 @@
 // déconnexion, un mot de passe changé, un profil supprimé, un an sans
 // revenir. La page du jour le rattache à la session du moment à chaque
 // visite (`client/src/rappel.ts`).
+//
+// Le même téléphone sonne aussi quand un ami lui envoie un défi
+// (`prevenirDUnDefi`, le souhait du propriétaire du 11 octobre 2026 : « que
+// ça envoie une notif à la personne »). Deux réglages par téléphone, chacun
+// sa cloche : le rappel du soir (`soir`, la page du jour) et les défis
+// (`defis`, l'onglet du défi). Un téléphone abonné avant eux garde le soir et
+// reçoit les défis — un choix de produit : un défi n'arrive que d'un ami, et
+// sa cloche le coupe ; les deux coupés, l'abonnement s'efface.
 
-import { clientDistant, type Client } from './distante'
+import type { InStatement } from '@libsql/client'
+import { ajouterColonne, clientDistant, type Client } from './distante'
 import { lireAbonnement, nouvellesCles, pousser, type Abonnement, type ClesVapid } from './pousser'
 import type { ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
-import { FIN_DU_RAPPEL, HEURE_DU_RAPPEL, heureDeParis, jourDe, minutesAvantMinuit } from '../../../shared/jour'
+import { FIN_DU_RAPPEL, HEURE_DU_RAPPEL, heureDeParis, jourDe, minutesAvantMinuit, type ReglagesDesNotifications, type SujetDeNotification } from '../../../shared/jour'
 import { espacesFines } from '../../../shared/typographie'
 
 /** L'heure se regarde chaque minute : la tournée part à 18 h, pas à 18 h 59. */
@@ -45,6 +54,17 @@ const APPAREILS_MAX = 5
 /** Le sujet des messages : un rappel resté en attente chez le service est remplacé par le suivant, jamais doublé. */
 const SUJET_DU_MESSAGE = 'quiz-du-jour'
 
+/** La colonne de chaque cloche : jamais un mot venu d'une requête dans le SQL. */
+const COLONNE: Record<SujetDeNotification, string> = { soir: 'soir', defis: 'defis' }
+
+/** Une semaine au plus chez le service : un défi entre amis ferme au bout d'une semaine. */
+const TTL_D_UN_DEFI_MAX_S = 7 * 24 * 3600
+
+/** Les réglages d'une ligne d'abonnement ; sans ligne, il n'est plus abonné. */
+function reglagesDe(r: Record<string, unknown> | undefined): ReglagesDesNotifications {
+  return { soir: !!r && Number(r.soir) === 1, defis: !!r && Number(r.defis) === 1 }
+}
+
 /** Ce que la dernière tournée a fait, pour `/healthz` : des nombres, jamais un nom. */
 export interface BilanDeTournee {
   jour: string
@@ -62,6 +82,32 @@ export interface MessageDuRappel {
   corps: string
   /** La page que le toucher ouvre. */
   url: string
+}
+
+/** La notification d'un défi d'ami : un message, et son étiquette — une par défi, la suivante du même remplace celle qu'on n'a pas lue. */
+export interface MessageDUnDefi extends MessageDuRappel {
+  tag: string
+}
+
+/**
+ * Le texte d'un défi qu'un ami envoie : qui défie, sur quoi, et le score à
+ * battre quand il l'a joué. Le prénom de celui qui l'envoie, cette fois —
+ * c'est lui, le message —, jamais celui de qui le reçoit : une notification
+ * se lit sur l'écran verrouillé, par qui le tient.
+ */
+export function messageDUnDefi(d: { auteur: string; quoi: string | null; justes: number | null; code: string }): MessageDUnDefi {
+  const sur = d.quoi ? `${d.quoi} · ` : ''
+  const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
+  return {
+    titre: espacesFines(`${d.auteur} te défie`),
+    corps: espacesFines(
+      d.justes === null
+        ? `${sur}les mêmes questions pour vous deux : une seule tentative, avant qu’il ferme.`
+        : `${sur}${bonnes(d.justes)} à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.`,
+    ),
+    url: `/campagne#duel-${d.code}`,
+    tag: `defi-${d.code}`,
+  }
 }
 
 /**
@@ -137,7 +183,9 @@ export class RappelStore {
            p256dh       TEXT NOT NULL,
            auth         TEXT NOT NULL,
            vu_le        INTEGER NOT NULL,
-           dernier_jour TEXT
+           dernier_jour TEXT,
+           soir         INTEGER NOT NULL DEFAULT 1,
+           defis        INTEGER NOT NULL DEFAULT 1
          )`,
         `CREATE INDEX IF NOT EXISTS idx_jour_rappels_profil ON jour_rappels(profile_id)`,
         `CREATE TABLE IF NOT EXISTS jour_rappels_cles (
@@ -157,6 +205,10 @@ export class RappelStore {
     const cles = lus[lus.length - 1].rows[0]
     if (!cles) throw new Error('Base permanente illisible : les clés du rappel du soir ne se relisent pas')
     this.cles = { publique: String(cles.publique), privee: String(cles.privee) }
+    // Les deux cloches d'un téléphone, sur une table d'avant elles : abonné
+    // pour le soir, il le reste, et les défis de ses amis le font sonner aussi.
+    await ajouterColonne(this.client, 'jour_rappels', 'soir', 'INTEGER NOT NULL DEFAULT 1')
+    await ajouterColonne(this.client, 'jour_rappels', 'defis', 'INTEGER NOT NULL DEFAULT 1')
   }
 
   /** La clé publique du serveur, que le téléphone donne à son service de push en s'abonnant. */
@@ -167,40 +219,75 @@ export class RappelStore {
 
   /**
    * Abonne ce téléphone, pour ce profil et cette session — ou l'y rattache :
-   * la page du jour le renvoie à chaque visite, et c'est la dernière session
-   * qui compte. Le rappel déjà parti aujourd'hui le reste (`dernier_jour`).
-   * Abonné après 18 h, le premier rappel est pour demain : on vient de
-   * toucher la cloche sur la page même du quiz, et la tournée du
-   * soir — faite, ou à refaire après un redémarrage — n'a rien à lui
-   * apprendre.
+   * chaque page qui a sa cloche le renvoie à chaque visite, et c'est la
+   * dernière session qui compte. `activer` allume la cloche de `quoi` ; sans
+   * lui, ses réglages restent. Un téléphone qu'on ne connaît pas — neuf, ou
+   * effacé avec une session close — prend la cloche de la page qui le
+   * rattache, et les défis de ses amis avec : un défi n'arrive que d'un ami.
+   * Passé d'un profil à un autre (un téléphone qu'on se prête), il repart
+   * de là, sans rien garder des réglages du premier. Renouvelé par le
+   * service de push (`ancien`), il garde ceux de l'abonnement qu'il remplace.
+   *
+   * Le rappel déjà parti aujourd'hui le reste (`dernier_jour`). Abonné après
+   * 18 h, le premier rappel est pour demain : on vient de toucher la cloche
+   * sur la page même du quiz, et la tournée du soir — faite, ou à refaire
+   * après un redémarrage — n'a rien à lui apprendre. Rend ses réglages,
+   * que la cloche montre.
    */
-  async abonner(profileId: string, sessionId: string, brut: unknown): Promise<void> {
+  async abonner(profileId: string, sessionId: string, brut: unknown, quoi: SujetDeNotification = 'soir', activer = false, ancien?: unknown): Promise<ReglagesDesNotifications> {
     const lu = lireAbonnement(brut, this.deps.servicesDePush)
     if ('refus' in lu) throw new Error(lu.refus)
     const maintenant = this.deps.maintenant()
     const dejaFait = heureDeParis(maintenant) >= HEURE_DU_RAPPEL ? jourDe(maintenant) : null
-    await this.client.batch(
+    let neuf = { soir: quoi === 'soir' ? 1 : 0, defis: 1 }
+    const lot: InStatement[] = []
+    if (typeof ancien === 'string' && ancien !== lu.endpoint) {
+      const avant = await this.client.execute({ sql: 'SELECT soir, defis FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [ancien, profileId] })
+      if (avant.rows[0]) neuf = { soir: Number(avant.rows[0].soir), defis: Number(avant.rows[0].defis) }
+      lot.push({ sql: 'DELETE FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [ancien, profileId] })
+    }
+    const allume = (s: SujetDeNotification) => (activer && quoi === s ? 1 : 0)
+    const res = await this.client.batch(
       [
+        ...lot,
         {
-          sql: `INSERT INTO jour_rappels (endpoint, profile_id, session_id, p256dh, auth, vu_le, dernier_jour) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(endpoint) DO UPDATE SET profile_id = excluded.profile_id, session_id = excluded.session_id,
+          // SQLite lit l'ancienne ligne pour tout le SET : `jour_rappels.profile_id` est celui d'avant.
+          sql: `INSERT INTO jour_rappels (endpoint, profile_id, session_id, p256dh, auth, vu_le, dernier_jour, soir, defis) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(endpoint) DO UPDATE SET
+                  soir = CASE WHEN jour_rappels.profile_id = excluded.profile_id THEN MAX(jour_rappels.soir, ?) ELSE excluded.soir END,
+                  defis = CASE WHEN jour_rappels.profile_id = excluded.profile_id THEN MAX(jour_rappels.defis, ?) ELSE excluded.defis END,
+                  profile_id = excluded.profile_id, session_id = excluded.session_id,
                   p256dh = excluded.p256dh, auth = excluded.auth, vu_le = excluded.vu_le`,
-          args: [lu.endpoint, profileId, sessionId, lu.p256dh, lu.auth, Date.now(), dejaFait],
+          args: [lu.endpoint, profileId, sessionId, lu.p256dh, lu.auth, Date.now(), dejaFait, neuf.soir, neuf.defis, allume('soir'), allume('defis')],
         },
         {
           sql: `DELETE FROM jour_rappels WHERE profile_id = ? AND endpoint NOT IN
                   (SELECT endpoint FROM jour_rappels WHERE profile_id = ? ORDER BY vu_le DESC LIMIT ?)`,
           args: [profileId, profileId, APPAREILS_MAX],
         },
+        { sql: 'SELECT soir, defis FROM jour_rappels WHERE endpoint = ?', args: [lu.endpoint] },
       ],
       'write',
     )
+    return reglagesDe(res[res.length - 1].rows[0])
   }
 
-  /** La cloche coupée : ce téléphone-là, s'il est bien à lui. */
-  async desabonner(profileId: string, endpoint: unknown): Promise<void> {
-    if (typeof endpoint !== 'string') return
-    await this.client.execute({ sql: 'DELETE FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [endpoint, profileId] })
+  /**
+   * Une cloche coupée : ce téléphone-là, s'il est bien à lui. L'autre cloche
+   * allumée, il reste abonné pour elle ; les deux coupées, il s'efface — et
+   * le téléphone peut se désabonner chez son service.
+   */
+  async desabonner(profileId: string, endpoint: unknown, quoi: SujetDeNotification = 'soir'): Promise<ReglagesDesNotifications> {
+    if (typeof endpoint !== 'string') return { soir: false, defis: false }
+    const res = await this.client.batch(
+      [
+        { sql: `UPDATE jour_rappels SET ${COLONNE[quoi]} = 0 WHERE endpoint = ? AND profile_id = ?`, args: [endpoint, profileId] },
+        { sql: 'DELETE FROM jour_rappels WHERE endpoint = ? AND profile_id = ? AND soir = 0 AND defis = 0', args: [endpoint, profileId] },
+        { sql: 'SELECT soir, defis FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [endpoint, profileId] },
+      ],
+      'write',
+    )
+    return reglagesDe(res[2].rows[0])
   }
 
   /** Un profil supprimé (`/admin`, « Les profils ») : ses téléphones ne sonnent plus. */
@@ -249,8 +336,9 @@ export class RappelStore {
 
   private async faireLaTournee(jour: string) {
     const bilan: BilanDeTournee = { jour, envoyes: 0, finis: 0, retires: 0, echecs: 0 }
+    // Ceux qui veulent le rappel du soir : un téléphone abonné pour les seuls défis de ses amis ne sonne pas à 18 h.
     const dus = await this.client.execute({
-      sql: 'SELECT endpoint, profile_id, session_id, p256dh, auth FROM jour_rappels WHERE dernier_jour IS NULL OR dernier_jour <> ?',
+      sql: 'SELECT endpoint, profile_id, session_id, p256dh, auth FROM jour_rappels WHERE soir = 1 AND (dernier_jour IS NULL OR dernier_jour <> ?)',
       args: [jour],
     })
     for (let i = 0; i < dus.rows.length && !this.ferme; i += EN_VOL) {
@@ -317,6 +405,53 @@ export class RappelStore {
       bilan.echecs++
       if (!this.ferme) console.warn(`[rappels] un rappel n’est pas parti (${new URL(abonnement.endpoint).hostname}) :`, e instanceof Error ? e.message : e)
     }
+  }
+
+  /**
+   * Un défi qu'un ami vient d'envoyer (`CampagneStore.prevenirDuDefi`) : les
+   * téléphones de ceux qui le reçoivent sonnent, s'ils en veulent
+   * (`defis`). Comme le rappel du soir : une session encore ouverte, et un
+   * abonnement que le service dit mort s'efface. Rien à réserver : un défi
+   * ne part qu'une fois à chacun (`campagne_envois`), et ne sonne qu'avec
+   * lui. Son étiquette (`tag`) en fait le sujet du message : un défi resté
+   * en attente chez le service n'arrive qu'une fois.
+   */
+  async prevenirDUnDefi(profileIds: readonly string[], message: MessageDUnDefi, ttlS: number): Promise<{ envoyes: number; retires: number; echecs: number }> {
+    const bilan = { envoyes: 0, retires: 0, echecs: 0 }
+    if (this.ferme || !this.cles || profileIds.length === 0) return bilan
+    const abonnes = await this.client.execute({
+      sql: `SELECT endpoint, profile_id, session_id, p256dh, auth FROM jour_rappels WHERE defis = 1 AND profile_id IN (${profileIds.map(() => '?').join(', ')})`,
+      args: [...profileIds],
+    })
+    const ttl = Math.max(60, Math.min(ttlS, TTL_D_UN_DEFI_MAX_S))
+    for (let i = 0; i < abonnes.rows.length && !this.ferme; i += EN_VOL) {
+      await Promise.all(
+        abonnes.rows.slice(i, i + EN_VOL).map(async r => {
+          const profileId = String(r.profile_id)
+          const abonnement = { endpoint: String(r.endpoint), p256dh: String(r.p256dh), auth: String(r.auth) }
+          try {
+            if (this.deps.profiles.profilDeLaSession(String(r.session_id)) !== profileId || !(await this.deps.profiles.byId(profileId))) {
+              await this.retirer(abonnement.endpoint)
+              bilan.retires++
+              return
+            }
+            const { statut, motif } = await pousser(abonnement, message, { cles: this.cles!, sujet: this.deps.sujet, ttl, sujetDuMessage: message.tag })
+            if (statut >= 200 && statut < 300) bilan.envoyes++
+            else if (statut === 404 || statut === 410) {
+              await this.retirer(abonnement.endpoint)
+              bilan.retires++
+            } else {
+              bilan.echecs++
+              console.warn(`[rappels] ${new URL(abonnement.endpoint).hostname} a refusé un défi (${statut}) : ${motif || 'sans motif'}`)
+            }
+          } catch (e) {
+            bilan.echecs++
+            if (!this.ferme) console.warn(`[rappels] un défi n’a pas sonné (${new URL(abonnement.endpoint).hostname}) :`, e instanceof Error ? e.message : e)
+          }
+        }),
+      )
+    }
+    return bilan
   }
 
   private async retirer(endpoint: string) {

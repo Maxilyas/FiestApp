@@ -21,10 +21,15 @@ test('la campagne s’ouvre sur son défi : le record, l’échelle et les règl
   // Les cœurs ne se lisent pas deux fois à l'oreille.
   assert.match(heros, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
   // Les catégories en grille, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher,
-  // qui quitte aussi un sujet choisi : sur un sujet, aucune catégorie ne se dit choisie.
-  assert.match(page, /<div className="categories-grille" role="group" aria-label="Catégories">/)
-  assert.match(page, /<Icon name=\{EMBLEME\[c\.categorie\] \?\? 'star'\} \/>/)
-  assert.match(page, /aria-pressed=\{!sujetJouable && categories\.length === 0\} onClick=\{\(\) => setCategories\(\[\]\)\}/)
+  // qui quitte aussi un sujet choisi : sur un sujet, aucune catégorie ne se dit choisie. La grille
+  // vit à part, la même pour la série et pour un défi entre amis (`ChoixDuTheme`).
+  assert.match(page, /<ChoixDuTheme\s+categoriesJouables=/)
+  const grille = source('components/ChoixDuTheme.tsx')
+  assert.match(grille, /<div className="categories-grille" role="group" aria-label="Catégories">/)
+  assert.match(grille, /<Icon name=\{EMBLEME\[c\] \?\? 'star'\} \/>/)
+  assert.match(grille, /const toutes = !sujet && categories\.length === 0/)
+  assert.match(grille, /aria-pressed=\{toutes\} onClick=\{\(\) => onCategories\(\[\]\)\}/)
+  assert.match(grille, /const choisie = !sujet && categories\.includes\(c\)/)
   assert.match(source('components/Ecusson.tsx'), /export const EMBLEME: Record<string, IconName>/)
 })
 

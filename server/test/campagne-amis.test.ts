@@ -148,6 +148,71 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
   }
 })
 
+// Le souhait du propriétaire du 11 octobre 2026 : « choisir avec qui je le
+// lance, sur quel thème. Quitte à faire le quiz moi et que ça envoie une
+// notif à la personne pour faire le même ». Les amis se choisissent au
+// lancement ; le défi leur part à la dernière réponse de qui l'a lancé, son
+// score à battre avec lui (la notification : `rappel.test.ts`).
+test('lancer un défi, c’est choisir à qui : il leur part à sa dernière réponse — un intrus ne reçoit rien, celui qui l’a déjà relevé non plus', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
+    const ines = await inscrireProfil(banc.url, 'ines', 'Inès', '🐙')
+    await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐸')
+    const [deTom, deHugo, deInes, deZoe] = ['tom', 'hugo', 'ines', 'zoe'].map(l => idDe(banc, l))
+    // Tom, Hugo et Inès relèvent un premier défi de Léa : ses amis.
+    const premier = (await poster(banc, lea, '/api/campagne/duel', {})).corps
+    await jouer(banc, lea, premier.serie.id, 2)
+    for (const cookie of [tom, hugo, ines]) {
+      horloge.t += 60_000
+      await poster(banc, cookie, `/api/campagne/duel/${premier.code}`)
+    }
+
+    // Léa lance un défi d'histoire pour Tom, Hugo et Inès — et Zoé, qui n'est pas son amie : elle n'en saura rien.
+    const lance = await poster(banc, lea, '/api/campagne/duel', { categories: ['Histoire'], amis: [deTom, deHugo, deInes, deZoe, 42] })
+    assert.equal(lance.status, 200, lance.corps.error)
+    const { code } = lance.corps
+    // Tant qu'elle joue, rien ne leur part : sa page dit à qui il partira.
+    assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [])
+    assert.deepEqual([...(await lire(banc, lea, `/api/campagne/duel/${code}`)).corps.prevus].sort(), ['Hugo', 'Inès', 'Tom'])
+    assert.equal((await lire(banc, tom, `/api/campagne/duel/${code}`)).corps.prevus, undefined, 'à elle seule')
+    // Inès le relève déjà, par son lien : il ne lui partira pas.
+    await poster(banc, ines, `/api/campagne/duel/${code}`)
+
+    // Sa dernière réponse : il part à Tom et Hugo — la fin le dit —, son score avec lui.
+    const qs = base(banc, db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(lance.corps.serie.id) as { questions: string }).questions)) as { bonne: number; reponses: string[] }[]
+    let fin: any = null
+    for (let i = 0; i < qs.length && !fin?.finie; i++) {
+      const choix = i < 5 ? qs[i].bonne : (qs[i].bonne + 1) % qs[i].reponses.length
+      fin = (await poster(banc, lea, `/api/campagne/serie/${lance.corps.serie.id}/reponse`, { index: i, choix })).corps
+      if (!fin.finie) assert.equal(fin.partiA, undefined, 'rien avant sa dernière réponse')
+    }
+    assert.deepEqual([...fin.partiA].sort(), ['Hugo', 'Tom'])
+    for (const cookie of [tom, hugo]) {
+      assert.deepEqual(
+        (await lire(banc, cookie, '/api/campagne/amis')).corps.recus.map((d: any) => [d.code, d.auteur.nom, d.categories]),
+        [[code, 'Léa', ['Histoire']]],
+      )
+    }
+    assert.deepEqual((await lire(banc, ines, '/api/campagne/amis')).corps.recus, [], 'Inès l’avait relevé')
+    // Parti, plus rien n'attend : sa page ne dit plus « il partira ».
+    assert.equal((await lire(banc, lea, `/api/campagne/duel/${code}`)).corps.prevus, undefined)
+    assert.deepEqual(base(banc, db => db.prepare('SELECT * FROM campagne_envois_prevus').all()), [])
+
+    // Un défi sans ami choisi : sa fin ne dit rien, et ne coûte rien de plus.
+    const seul = (await poster(banc, lea, '/api/campagne/duel', {})).corps
+    const qs2 = base(banc, db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(seul.serie.id) as { questions: string }).questions)) as { bonne: number; reponses: string[] }[]
+    let finSeul: any = null
+    for (let i = 0; i < qs2.length && !finSeul?.finie; i++) finSeul = (await poster(banc, lea, `/api/campagne/serie/${seul.serie.id}/reponse`, { index: i, choix: (qs2[i].bonne + 1) % qs2[i].reponses.length })).corps
+    assert.equal(finSeul.partiA, undefined)
+  } finally {
+    await banc.close()
+  }
+})
+
 test('deux amis du même prénom et du même avatar se distinguent à l’affichage, jamais en base', async () => {
   const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
   try {
@@ -178,6 +243,8 @@ test('un profil supprimé emporte ses envois, ce qu’on lui a envoyé, et les r
     assert.deepEqual((await poster(banc, tom, `/api/campagne/duel/${sien.code}/envoi`, { amis: [deLea] })).corps, { envoyes: 1 })
     const second = (await poster(banc, lea, '/api/campagne/duel', {})).corps
     assert.deepEqual((await poster(banc, lea, `/api/campagne/duel/${second.code}/envoi`, { amis: [deTom] })).corps, { envoyes: 1 })
+    // Et un troisième, lancé pour Tom, qui l'attend à la dernière réponse de Léa.
+    assert.equal((await poster(banc, lea, '/api/campagne/duel', { amis: [deTom] })).status, 200)
     await poster(banc, lea, `/api/campagne/amis/${deTom}/retrait`)
     await poster(banc, tom, `/api/campagne/amis/${deLea}/retrait`)
 
@@ -186,9 +253,10 @@ test('un profil supprimé emporte ses envois, ce qu’on lui a envoyé, et les r
     assert.equal(fait.status, 200)
     const reste = base(banc, db => ({
       envois: db.prepare('SELECT code, profile_id FROM campagne_envois').all(),
+      prevus: db.prepare('SELECT code, profile_id FROM campagne_envois_prevus').all(),
       retraits: db.prepare('SELECT profile_id, ami FROM campagne_amis_retires').all(),
     }))
-    assert.deepEqual(reste, { envois: [], retraits: [] }, 'ni ses envois, ni ce qu’on lui a envoyé, ni un retrait qui le nomme')
+    assert.deepEqual(reste, { envois: [], prevus: [], retraits: [] }, 'ni ses envois, ni ce qu’on lui a envoyé ou prévu, ni un retrait qui le nomme')
   } finally {
     await banc.close()
   }

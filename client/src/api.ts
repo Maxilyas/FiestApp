@@ -27,7 +27,7 @@ import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings }
 import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
-import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
+import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour, SujetDeNotification } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
@@ -386,8 +386,12 @@ export const api = {
     releverLeDefi: () => req<SerieDeCampagne>('/api/campagne/defi', { method: 'POST' }),
     /** Le défi entre amis : le lancer (et jouer sa propre tentative), le relire par son code, le relever, retrouver les siens. */
     duel: {
-      lancer: (categories: string[], sujet?: string | null) =>
-        req<{ code: string; serie: SerieDeCampagne }>('/api/campagne/duel', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),
+      /** Le lancer : ses catégories ou son sujet, et les amis choisis — il leur part à sa dernière réponse. */
+      lancer: (categories: string[], sujet?: string | null, amis: string[] = []) =>
+        req<{ code: string; serie: SerieDeCampagne }>('/api/campagne/duel', {
+          method: 'POST',
+          body: JSON.stringify({ categories, ...(sujet && { sujet }), ...(amis.length > 0 && { amis }) }),
+        }),
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
@@ -458,12 +462,17 @@ export const api = {
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
     /** Des sabliers pour sa série, en confettis — deux au plus en tout : ceux qui l'attendent, et son solde. */
     sablier: (nombre = 1) => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST', body: JSON.stringify({ nombre }) }),
-    /** Le rappel du soir (`rappel.ts`) : la clé du serveur, puis l'abonnement de ce téléphone. */
+    /**
+     * Les notifications de ce téléphone (`rappel.ts`) : la clé du serveur, puis
+     * l'abonnement — une cloche par sujet, le rappel du soir ou les défis de
+     * ses amis. Chaque réponse dit ses réglages.
+     */
     rappel: {
       cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),
-      abonner: (abonnement: PushSubscriptionJSON) =>
-        req<{ ok: true }>('/api/jour/rappel', { method: 'POST', body: JSON.stringify({ abonnement }) }),
-      desabonner: (endpoint: string) => req<{ ok: true }>('/api/jour/rappel', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+      abonner: (abonnement: PushSubscriptionJSON, quoi: SujetDeNotification, activer = false) =>
+        req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'POST', body: JSON.stringify({ abonnement, quoi, ...(activer && { activer }) }) }),
+      desabonner: (endpoint: string, quoi: SujetDeNotification) =>
+        req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'DELETE', body: JSON.stringify({ endpoint, quoi }) }),
     },
   },
   space: {

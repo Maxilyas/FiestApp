@@ -8,7 +8,7 @@ import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
-import { HEURE_DU_RAPPEL, jourDe, jourValide, moisDe } from '../../shared/jour'
+import { HEURE_DU_RAPPEL, jourDe, jourValide, moisDe, type SujetDeNotification } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
 
 interface JourDeps {
@@ -43,6 +43,11 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
   // Le rappel du soir (`core/rappels.ts`) : la clé du serveur, que le
   // téléphone donne à son service de push en s'abonnant, puis l'abonnement
   // lui-même — attaché à la session qui le demande : une déconnexion le défait.
+  // Une cloche par sujet (`quoi`) : le soir, sur la page du jour ; les défis
+  // de ses amis, sur l'onglet du défi. Sans `quoi` — une page d'avant, le
+  // renouvellement du service worker —, c'est le soir. Chaque réponse dit ses
+  // réglages, que la cloche montre.
+  const sujetDe = (brut: unknown): SujetDeNotification => (brut === 'defis' ? 'defis' : 'soir')
   app.get(
     '/api/jour/rappel',
     wrap(async (req, res) => {
@@ -58,8 +63,15 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
       const profil = await profilDe(req, res)
       if (!profil) return
       // Le jeton est là : `profilDe` vient de le lire.
-      await deps.rappels.abonner(profil.id, idDeSession(readPlayerToken(req.header('cookie'))!), req.body?.abonnement)
-      res.json({ ok: true })
+      const reglages = await deps.rappels.abonner(
+        profil.id,
+        idDeSession(readPlayerToken(req.header('cookie'))!),
+        req.body?.abonnement,
+        sujetDe(req.body?.quoi),
+        req.body?.activer === true,
+        req.body?.ancien,
+      )
+      res.json({ ok: true, ...reglages })
     }),
   )
 
@@ -69,8 +81,7 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (!profil) return
-      await deps.rappels.desabonner(profil.id, req.body?.endpoint)
-      res.json({ ok: true })
+      res.json({ ok: true, ...(await deps.rappels.desabonner(profil.id, req.body?.endpoint, sujetDe(req.body?.quoi))) })
     }),
   )
 
