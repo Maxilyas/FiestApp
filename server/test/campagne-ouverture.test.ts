@@ -332,6 +332,10 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.match(bouton(habitue), /<span class="gros-detail">Ligue d’argent · cote\u00a01184 · encore 2\u00a0duels pour ta récompense<\/span>/)
   assert.match(bouton(habitue), /class="blason blason-argent"/)
   assert.match(bouton({ ...habitue, semaine: { duels: 3, ligue: 'or' } }), /\+30\u00a0confettis lundi/, 'la meilleure ligue de sa semaine')
+  // Le lundi, ce que la semaine pass\u00e9e vient de verser, tant que la nouvelle n'a pas son premier duel.
+  const lundi = { ...habitue, semaine: { duels: 0, ligue: 'argent' }, semainePassee: { ligue: 'or', confettis: 30 } }
+  assert.match(bouton(lundi), /<span class="gros-detail">\+30\u00a0confettis pour ta semaine en ligue d\u2019or \u00b7 encore 3\u00a0duels pour la prochaine<\/span>/)
+  assert.match(bouton({ ...lundi, semaine: { duels: 1, ligue: 'argent' } }), /encore 2\u00a0duels pour ta r\u00e9compense/, 'son premier duel jou\u00e9, la semaine qui vient')
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /duels=\{'duels' in profil \? profil\.duels : undefined\}/)
 })
 

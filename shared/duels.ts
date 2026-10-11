@@ -301,4 +301,6 @@ export interface DuelsDAccueil {
   defisRecus?: { n: number; de: string }
   /** Son duel laissé en route : contre qui. */
   enCours?: Pick<Adversaire, 'nom'>
+  /** La semaine passée, si elle a payé : sa ligue et ses confettis — le lundi, l'accueil dit ce qui vient d'arriver au solde. */
+  semainePassee?: { ligue: CleDeLigue; confettis: number }
 }
