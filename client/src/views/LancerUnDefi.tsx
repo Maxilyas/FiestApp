@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { ChoixDuTheme } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
-import { ADRESSE_DU_DEFI } from './Defi'
+import { PAGE_DES_DUELS } from './adressesDesDuels'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
@@ -13,7 +13,7 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
 const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? '') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`)
 
 /**
- * Lancer un défi entre amis (`/campagne#defier`), en trois temps : avec qui
+ * Lancer un défi entre amis (`/duels#defier`), en trois temps : avec qui
  * — ses amis, en pastilles qu'on coche —, sur quoi — la grille de la série,
  * catégories ou sujet —, puis on le joue d'abord. À sa dernière réponse, il
  * part aux amis choisis, son score à battre avec lui, et leur téléphone
@@ -23,7 +23,6 @@ const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? ''
  * par son lien, à sa fin.
  */
 export function LancerUnDefi({
-  onglets,
   amis,
   categoriesJouables,
   sujets,
@@ -33,12 +32,11 @@ export function LancerUnDefi({
   onLancer,
   onRetour,
 }: {
-  onglets: ReactNode
   /** Ses amis ; null tant qu'ils arrivent. */
   amis: readonly AmiDeCampagne[] | null
   categoriesJouables: readonly string[]
   sujets: readonly Sujet[]
-  /** Ce qui est choisi en arrivant : les catégories ou le sujet de la série, l'ami touché dans l'onglet du défi. */
+  /** Ce qui est choisi en arrivant : les catégories ou le sujet de sa dernière série, l'ami touché dans la page des duels. */
   depart: { categories: readonly string[]; sujet: string | null; ami?: string }
   busy: boolean
   erreur: string
@@ -65,8 +63,7 @@ export function LancerUnDefi({
   const quoi = nomDuChoix(categories, sujet) ?? 'toutes les catégories'
   return (
     <div className="player-shell campagne">
-      <Sortie vers="Le défi" href={`/campagne${ADRESSE_DU_DEFI}`} onClick={onRetour} />
-      {onglets}
+      <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={onRetour} />
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
         <span className="atlas-categorie">Défi entre amis</span>
         <h1>Lance ton défi</h1>
@@ -154,7 +151,7 @@ export function LancerUnDefi({
       <p className="muted small centre">
         {espacesFines(
           defies.length > 0
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, il part à ${enPhrase(defies.map(a => a.nom))} : sous ${defies.length > 1 ? 'leur' : 'son'} onglet Défi, et ${defies.length > 1 ? 'leur' : 'son'} téléphone sonne s’${defies.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, il part à ${enPhrase(defies.map(a => a.nom))} : dans ${defies.length > 1 ? 'leurs' : 'ses'} duels, et ${defies.length > 1 ? 'leur' : 'son'} téléphone sonne s’${defies.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`
             : 'Tu joues d’abord, trois vies. À la fin, envoie son lien : qui l’ouvre, profil en main, joue les mêmes questions, une fois, dans la semaine.',
         )}
       </p>

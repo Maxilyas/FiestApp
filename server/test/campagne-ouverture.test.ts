@@ -51,12 +51,12 @@ test('chaque partie de la campagne se quitte d’un « ← Partir » en haut ; r
   assert.match(geste(false), /^<button type="button" class="btn btn-block geste-du-bas">.*Recommencer<\/button>$/)
   assert.match(geste(true), /class="btn btn-block geste-du-bas geste-qui-coute"/, 'ce qui coûte une vie le dit')
 
-  // La série, la révision, le défi, la rencontre : partir ramène à l'onglet
-  // d'où la partie se reprend, et ne se propose plus une fois la dernière
-  // réponse donnée — sa fin d'abord.
+  // La série, la révision, le défi : partir ramène à l'onglet d'où la partie
+  // se reprend — un duel classé ou entre amis, à la page des duels —, et ne
+  // se propose plus une fois la dernière réponse donnée — sa fin d'abord.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
-  assert.match(page, /const ouAttend: Mode = ecran\.revision \? 'carnet' : ecran\.defi \|\| ecran\.rencontre \? 'defi' : 'serie'/)
-  assert.match(page, /\{!r\?\.finie && <Sortie vers="Partir" href=\{[^}]+\}[^>]*onClick=\{partir\} \/>\}/)
+  assert.match(page, /const ouAttend: Mode = DUELS \? 'duels' : ecran\.revision \? 'carnet' : ecran\.defi \? 'defi' : 'serie'/)
+  assert.match(page, /\{!r\?\.finie && \(\s*<Sortie vers="Partir" href=\{DUELS \? PAGE_DES_DUELS : [^\n]+ onClick=\{partir\} \/>\s*\)\}/)
   assert.match(page, /\{ecran\.revision && !r\?\.finie && \(\s*<GesteDuBas icone="rotate" busy=\{busy\} onClick=\{\(\) => void recommencerLaRevision\(\)\}>/)
   // Les épreuves des sentiers : partir garde l'épreuve en jeu, abandonner
   // coûte une vie — chacun son geste ; celles d'un thème, sans vies, partent.
@@ -150,18 +150,18 @@ test('la fin d’un défi entre amis l’envoie : son lien écrit, son code, son
   const html = renderToStaticMarkup(React.createElement(module.FinDuDuel, { code: 'K7M2QX', justes: 5, onClassement: () => {} }))
   assert.match(html, /Envoie ce défi/)
   // Sans feuille de partage ni presse-papier — Node n'en a pas —, le lien reste écrit.
-  assert.match(html, /<span class="duel-lien">http:\/\/banc\/campagne#duel-K7M2QX<\/span>/)
+  assert.match(html, /<span class="duel-lien">http:\/\/banc\/duels#duel-K7M2QX<\/span>/, 'son lien mène à la page des duels')
   assert.match(html, /son code : <b>K7M2QX<\/b>/)
   assert.match(html, /Le classement du défi/)
-  assert.equal(module.texteDuDefi(5), '5 bonnes réponses à ce défi de la campagne de FiestApp : feras-tu mieux ?')
-  assert.equal(module.texteDuDefi(null), 'Un défi à la campagne de FiestApp : feras-tu mieux que moi ?')
+  assert.equal(module.texteDuDefi(5), '5 bonnes réponses à ce défi sur FiestApp : feras-tu mieux ?')
+  assert.equal(module.texteDuDefi(null), 'Un défi entre amis sur FiestApp : feras-tu mieux que moi ?')
   assert.equal(module.fermeture(0), 'Fermé : son classement est figé')
   // Le nombre tient à son mot (une espace insécable) : « Ferme dans 7 » ne finit plus une ligne.
   assert.equal(module.fermeture(30), 'Ferme dans 30\u00a0minutes')
   assert.equal(module.fermeture(3 * 24 * 60 + 5), 'Ferme dans 3\u00a0jours')
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   // L'ami sans profil se connecte, puis revient sur le défi : `next` garde son fragment.
-  assert.match(page, /const retour = encodeURIComponent\(`\/campagne\$\{codeDuDuel \? adresseDuDuel\(codeDuDuel\) : ''\}`\)/)
+  assert.match(page, /const retour = encodeURIComponent\(DUELS \? `\$\{PAGE_DES_DUELS\}\$\{codeDuDuel \? adresseDuDuel\(codeDuDuel\) : ''\}` : '\/campagne'\)/)
   assert.match(page, /href=\{`\/\?next=\$\{retour\}`\}/)
   // Une seule tentative : pas de « Recommencer » — le drapeau du défi le dit.
   assert.match(page, /defi: true,\s*duel: code,/)
@@ -172,7 +172,7 @@ test('la fin d’un défi entre amis l’envoie : son lien écrit, son code, son
 // notif à la personne ». « Défier des amis » lançait la partie tout de suite,
 // sur les catégories de la série, sans dire à qui elle partirait ; la fin
 // cochait d'office toute sa liste d'amis.
-test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi l’ouvre, chaque ami se défie, et sa fin dit à qui il est parti', async () => {
+test('lancer un défi : avec qui, sur quoi, puis on joue — la page des duels l’ouvre, chaque ami se défie, et sa fin dit à qui il est parti', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server')
   const lancer = await import(client('views/LancerUnDefi.tsx').href)
   const duel = await import(client('views/Duel.tsx').href)
@@ -182,7 +182,6 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
   const composer = (amis: object[] | null, depart: object) =>
     renderToStaticMarkup(
       React.createElement(lancer.LancerUnDefi, {
-        onglets: null,
         amis,
         categoriesJouables: ['Histoire', 'Sport'],
         sujets: SUJETS.slice(0, 2),
@@ -193,7 +192,7 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
         onRetour: () => {},
       }),
     )
-  // L'ami touché dans l'onglet du défi arrive coché ; les catégories de la série, choisies.
+  // L'ami touché dans la page des duels arrive coché ; les catégories de sa dernière série, choisies.
   const html = composer([tom, hugo], { categories: ['Histoire'], sujet: null, ami: 't' })
   assert.match(html, /<h1>Lance ton défi<\/h1>/)
   assert.match(html, /<span class="defier-numero" aria-hidden="true">1<\/span>Avec qui \?/)
@@ -202,7 +201,8 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
   assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<span class="defier-choix">Histoire<\/span>/)
   assert.match(html, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Histoire<\/button>/)
   assert.match(html, /<\/svg>Jouer le défi<\/button>/)
-  assert.match(html, /À ta dernière réponse, il part à Tom : sous son onglet Défi, et son téléphone sonne s’il a activé les notifications\./)
+  assert.match(html, /À ta dernière réponse, il part à Tom\u00a0: dans ses duels, et son téléphone sonne s’il a activé les notifications\./)
+  assert.match(html, /<a class="lien-discret jour-sortie" href="\/duels">/, '« ← Les duels » : la page d’où l’on vient')
   // Sans ami encore : son lien, à la fin ; avant qu'ils arrivent, leur place.
   const seul = composer([], { categories: [], sujet: null })
   assert.match(seul, /Pas encore d’amis ici/)
@@ -210,7 +210,7 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
   assert.match(seul, /<span class="defier-choix">toutes les catégories<\/span>/)
   assert.match(composer(null, { categories: [], sujet: null }), /Tes amis arrivent…/)
 
-  // L'onglet du défi : défier un ami, en tête — ses visages, « Lancer un défi ».
+  // La page des duels : défier un ami, sous « Trouver un adversaire » — ses visages, « Lancer un défi ».
   const carte = renderToStaticMarkup(React.createElement(duel.DefierUnAmi, { amis: [tom, hugo], onLancer: () => {} }))
   assert.match(carte, /<h2 id="defier-un-ami-titre">Défier un ami<\/h2>/)
   assert.match(carte, /<button type="button" class="defier-visage" aria-label="Défier Tom">/)
@@ -221,24 +221,27 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
   assert.match(liste, /aria-label="Défier Tom"><svg[^>]*>.*?<\/svg>Défier<\/button>/)
   // Sa fin dit à qui il est parti — sans promettre une notification qu'ils n'ont peut-être pas voulue.
   const fin = (partiA: string[]) => renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, onClassement: () => {} }))
-  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo : il les attend sous leur onglet Défi, et leur téléphone sonne s’ils ont activé les notifications\./)
-  assert.match(fin(['Tom']), /Parti à Tom : il l’attend sous son onglet Défi, et son téléphone sonne s’il a activé les notifications\./)
+  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur téléphone sonne s’ils ont activé les notifications\./)
+  assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son téléphone sonne s’il a activé les notifications\./)
   assert.doesNotMatch(fin([]), /Parti à/)
 
-  // La page : `#defier` est son adresse, sous l'onglet du défi ; la série, l'onglet et chaque ami y mènent ; les amis choisis partent avec le tirage.
+  // La page : `/duels#defier` est son adresse ; « Défier un ami » et chaque ami y mènent ; les amis choisis partent avec le tirage.
+  // La campagne ne le propose plus : défier un joueur a sa page (le souhait du propriétaire du 11 octobre 2026).
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  const duels = readFileSync(client('views/Duels.tsx'), 'utf8')
   assert.match(page, /hash === ADRESSE_DU_LANCEMENT\s*\? 'defier'/)
-  assert.match(page, /actif=\{mode === 'duel' \|\| mode === 'defier' \? 'defi' : mode\}/)
-  assert.match(page, /<DefierUnAmi amis=\{mesAmis\?\.amis \?\? null\} onLancer=\{ouvrirLeLancement\} \/>/)
-  assert.match(page, /<TesAmis amis=\{mesAmis\.amis\} onDefier=\{ouvrirLeLancement\}/)
-  assert.match(page, /onClick=\{\(\) => ouvrirLeLancement\(\)\}>\s*<Icon name="users" \/>\s*Défier des amis/)
+  assert.match(page, /actif=\{mode\}/, 'les onglets de la campagne n’ont plus rien des défis entre amis')
+  assert.match(page, /onLancer=\{ouvrirLeLancement\}/)
+  assert.match(duels, /<DefierUnAmi amis=\{amis\?\.amis \?\? null\} onLancer=\{onLancer\} \/>/)
+  assert.match(duels, /<TesAmis amis=\{amis\.amis\} onDefier=\{onLancer\}/)
+  assert.doesNotMatch(page, /Défier des amis/, 'plus de défi entre amis sous la série')
   assert.match(page, /await api\.campagne\.duel\.lancer\(choisi \? \[\] : choisies, choisi, amis\)/)
   assert.doesNotMatch(page, /lancerUnDuel\(categories, sujetJouable\)/, 'plus de défi lancé sans dire à qui')
   // Lancé, il ne se prépare plus : le retour du téléphone, après son classement, ne rouvre pas la préparation.
-  assert.match(page, /if \(window\.location\.hash === ADRESSE_DU_LANCEMENT\) \{\s*history\.replaceState\(\{ \.\.\.history\.state, \[LANCEMENT\]: undefined \}, '', `[^`]*\$\{ADRESSE_DU_DEFI\}`\)/)
+  assert.match(page, /if \(window\.location\.hash === ADRESSE_DU_LANCEMENT\) \{\s*history\.replaceState\(\{ \.\.\.history\.state, \[LANCEMENT\]: undefined \}, '', `\$\{PAGE_DES_DUELS\}\$\{window\.location\.search\}`\)/)
   // La préparation se charge à la demande — la série ne l'ouvre jamais —, en fond une fois la page montrée.
   assert.match(page, /const lancement = aLaDemande\(\(\) => import\('\.\/LancerUnDefi'\)\)/)
-  assert.match(page, /setEcran\(\{ e: 'accueil', etat: lu \}\)\s*\/\/[^\n]*\n\s*void lancement\.charger\(\)\.catch\(\(\) => \{\}\)/)
+  assert.match(page, /setEcran\(\{ e: 'duels' \}\)\s*\/\/[^\n]*\n\s*void lancement\.charger\(\)\.catch\(\(\) => \{\}\)/)
   assert.doesNotMatch(page, /from '\.\/LancerUnDefi'/, 'aucun import qui l’attacherait à la page')
   // La fin n'y coche plus personne d'office : ceux qu'on défie se choisissent en le lançant.
   assert.doesNotMatch(readFileSync(client('views/Duel.tsx'), 'utf8'), /setChoisis\(new Set\(m\.amis\.filter/)
@@ -299,21 +302,43 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
   // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /campagne=\{'campagne' in profil \? profil\.campagne : undefined\}/)
 
-  // Un défi qu'un ami lui a envoyé passe devant : qui le défie, une pastille, et l'onglet du défi (`campagne-amis.test.ts`).
-  const avecPastille = (campagne: object) => {
-    const html = renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne }))
-    return html.split('<a ').find(x => x.includes('<b>La campagne</b>'))!
-  }
-  const unDefi = avecPastille({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false }, defisRecus: { n: 1, de: 'Léa' } })
-  assert.match(unDefi, /href="\/campagne#defi"/)
-  assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
-  assert.match(unDefi, /<span class="pastille-attente">Un défi<\/span>/)
-  assert.match(avecPastille({ vies: 11, avance: null, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres amis : à toi de jouer.*3 défis/)
+  // Les défis de ses amis ont quitté ce bouton pour celui des duels, sous le quiz du jour.
+  assert.doesNotMatch(readFileSync(client('components/AccueilDesRoles.tsx'), 'utf8'), /campagne#defi/)
 })
 
-test('l’accueil d’un profil télécharge en fond le code de la campagne et du quiz du jour', () => {
+// Le souhait du propriétaire du 11 octobre 2026 : « Défier un joueur » hors de
+// la campagne, une tuile de l'accueil sous le quiz du jour — qui dise à quoi
+// on joue, et où l'on en est (`duels.test.ts`).
+test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie d’abord, son duel laissé, puis sa ligue, sa cote et sa semaine', async () => {
+  const module = await import(client('components/AccueilDesRoles.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const html = (duels?: object) => renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, duels }))
+  const bouton = (duels?: object) => html(duels).split('<a ').find(x => x.includes('<b>Les duels</b>'))!
+  // Sous le quiz du jour, avant ce qui se joue à plusieurs.
+  const tout = html()
+  assert.ok(tout.indexOf('<b>Le quiz du jour</b>') < tout.indexOf('<b>Les duels</b>'))
+  assert.ok(tout.indexOf('<b>Les duels</b>') < tout.indexOf('<b>Créer un salon</b>'))
+  assert.match(bouton(), /href="\/duels"/)
+  assert.match(bouton(), /<span class="gros-detail">Un joueur de ton niveau, son score à battre : monte de ligue<\/span>/)
+  const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
+  // Un défi qu'un ami lui a envoyé passe devant : qui le défie, une pastille (`campagne-amis.test.ts`).
+  const unDefi = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })
+  assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
+  assert.match(unDefi, /<span class="pastille-attente">Un défi<\/span>/)
+  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres amis : à toi de jouer.*3 défis/)
+  // Puis son duel laissé en route.
+  assert.match(bouton({ ...habitue, enCours: { nom: 'Tom' } }), /<span class="gros-detail">Ton duel contre Tom t’attend<\/span>/)
+  // Sinon sa ligue, sa cote, et ce qui manque à sa récompense de lundi — ou ce qu'elle rapportera ; son blason à la place de l'icône.
+  assert.match(bouton(habitue), /<span class="gros-detail">Ligue d’argent · cote\u00a01184 · encore 2\u00a0duels pour ta récompense<\/span>/)
+  assert.match(bouton(habitue), /class="blason blason-argent"/)
+  assert.match(bouton({ ...habitue, semaine: { duels: 3, ligue: 'or' } }), /\+30\u00a0confettis lundi/, 'la meilleure ligue de sa semaine')
+  assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /duels=\{'duels' in profil \? profil\.duels : undefined\}/)
+})
+
+test('l’accueil d’un profil télécharge en fond le code de la campagne, des duels et du quiz du jour', () => {
   const accueil = readFileSync(client('views/ProfilApp.tsx'), 'utf8')
   assert.match(accueil, /import\('\.\/CampagneApp'\)/)
+  assert.match(accueil, /import\('\.\/Duels'\)/)
   assert.match(accueil, /import\('\.\/JourApp'\)/)
   assert.match(accueil, /if \(VUE !== 'accueil' \|\| !aUnProfil\) return/, 'à l’accueil, et pour un profil seulement')
 })

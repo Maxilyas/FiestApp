@@ -25,6 +25,7 @@ import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
+import type { DuelsDAccueil } from './duels'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -915,6 +916,8 @@ export type ProfilDAccueil = PublicProfile &
   Pick<PublicProfileDetail, 'jour' | 'boutique'> & {
     /** Ses vies et le sentier qu'il avance, pour le bouton de la campagne ; absent si la base s'est tue. */
     campagne?: SentiersDAccueil
+    /** Sa ligue, sa cote, sa semaine et les défis de ses amis, pour le bouton des duels ; absent si la base s'est tue. */
+    duels?: DuelsDAccueil
     /**
      * Le jour de Paris au serveur (`2026-10-11`) : l'accueil sait s'il a joué
      * aujourd'hui sans le calculer — le premier `Intl` d'une page charge les

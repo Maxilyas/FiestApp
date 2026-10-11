@@ -111,11 +111,11 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   // préchargement qu'elle ne reprendrait pas attendrait son `fetch` suivant.
   assert.match(source('main.tsx'), /for \(const adresse of donneesDuFragment\(route, window\.location\.hash\)\) \{/)
   assert.match(source('main.tsx'), /lien\.rel = 'preload'\n\s*lien\.as = 'fetch'\n\s*lien\.href = adresse\n\s*lien\.crossOrigin = 'anonymous'/)
-  // Un défi entre amis (`#duel-K7M2QX`) passe avant : son adresse n'est jamais celle d'un sentier.
+  // Un défi entre amis (`#duel-K7M2QX`) et sa préparation vivent dans la page des duels : la campagne n'y lit jamais un sentier.
   // Le carnet (`#carnet`) non plus, et il ne précharge rien : sa page demande le sien.
   assert.match(
     source('views/CampagneApp.tsx'),
-    /const modeDe = \(hash: string\): Mode =>\s*hash === ADRESSE_DU_DEFI \? 'defi' : hash === ADRESSE_DU_LANCEMENT \? 'defier' : hash === ADRESSE_DU_CARNET \? 'carnet' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'/,
+    /const modeDe = \(hash: string\): Mode =>\s*DUELS\s*\? hash === ADRESSE_DU_LANCEMENT\s*\? 'defier'\s*: codeDuLien\(hash\)\s*\? 'duel'\s*: 'duels'\s*: hash === ADRESSE_DU_DEFI\s*\? 'defi'\s*: hash === ADRESSE_DU_CARNET\s*\? 'carnet'\s*: versLesSentiers\(hash\)\s*\? 'sentiers'\s*: 'serie'/,
   )
   assert.deepEqual(donneesDuFragment(campagne, '#carnet'), [], '#carnet')
   // La préparation d'un défi non plus : elle lit l'état de la campagne, que la page demande toujours.
@@ -504,10 +504,10 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
     Object.assign(globalThis, { window: avant.window })
     globalThis.fetch = avant.fetch
   }
-  // La campagne les demande avec son état, quand elle s'ouvre sur eux.
+  // La campagne les demande avec son état, quand elle s'ouvre sur eux ; les duels, servis par le même code, ne demandent ni l'un ni l'autre.
   assert.match(
     source('views/CampagneApp.tsx'),
-    /const etat = api\.campagne\.etat\(\)\n\s*etat\.catch\(\(\) => \{\}\)\n\s*if \(modeDe\(window\.location\.hash\) === 'sentiers'\) demanderLesSentiers\(\)/,
+    /const etat = DUELS \? null : api\.campagne\.etat\(\)\n\s*etat\?\.catch\(\(\) => \{\}\)\n\s*if \(!DUELS && modeDe\(window\.location\.hash\) === 'sentiers'\) demanderLesSentiers\(\)/,
   )
   assert.match(source('views/Sentiers.tsx'), /const lu = await lesSentiers\(\)/)
   // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets —

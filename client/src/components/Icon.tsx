@@ -61,6 +61,7 @@ export type IconName =
   | 'sparkles'
   | 'star'
   | 'sun'
+  | 'swords'
   | 'target'
   | 'timer'
   | 'trash'
@@ -411,6 +412,17 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
         <path d="M10 11v6M14 11v6" />
+      </>
+    ),
+  },
+  // Deux épées croisées : les duels, sur l'accueil et sur leur page.
+  swords: {
+    paths: (
+      <>
+        <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
+        <path d="M13 19l6-6M16 16l4 4M19 21l2-2" />
+        <path d="M14.5 6.5 18 3h3v3l-3.5 3.5" />
+        <path d="M5 14l4 4M7 17l-3 3M3 19l2 2" />
       </>
     ),
   },

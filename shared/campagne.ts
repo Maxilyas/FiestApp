@@ -17,6 +17,7 @@ import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
+import type { CoteApresLeDuel, EnjeuDuDuel } from './duels'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -227,6 +228,8 @@ export interface ReponseDeCampagne {
   carnet?: EtatDuCarnet
   /** Une rencontre : ce que l'adversaire avait fait de cette question, et les deux scores. */
   rencontre?: CoupDeLaRencontre
+  /** À la fin d'une rencontre — un duel classé (`shared/duels.ts`) : ce qu'elle a fait à sa cote, à sa ligue et à sa semaine. */
+  duel?: CoteApresLeDuel
 }
 
 /** Une série, telle que sa page la reprend. */
@@ -651,6 +654,8 @@ export interface RencontreDeCampagne {
   adversaire: Adversaire
   /** Ses bonnes réponses sur les questions déjà jouées : le score d'en face, quand on la reprend. */
   sesJustes: number
+  /** Ce qu'elle met en jeu sur sa cote, dit avant de jouer (`enjeuDuDuel`) ; absent d'un serveur d'avant. */
+  enjeu?: EnjeuDuDuel
 }
 
 /**
@@ -673,6 +678,8 @@ export interface ResumeDeRencontre {
   /** Null : en cours. */
   issue: IssueDeRencontre | null
   le: number
+  /** Ce qu'elle a fait à sa cote (`releverLesDuels`) ; absent d'une rencontre en cours. */
+  ecart?: number
 }
 
 export interface MesRencontres {

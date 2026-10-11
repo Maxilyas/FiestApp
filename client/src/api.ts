@@ -29,6 +29,7 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour, SujetDeNotification } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
+import type { EtatDesDuels } from '../../shared/duels'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -395,7 +396,7 @@ export const api = {
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
-      /** L'envoyer à des amis : il les attend sous leur onglet du défi. */
+      /** L'envoyer à des amis : il les attend dans leurs duels. */
       envoyer: (code: string, amis: string[]) =>
         req<{ envoyes: number }>(`/api/campagne/duel/${encodeURIComponent(code)}/envoi`, { method: 'POST', body: JSON.stringify({ amis }) }),
     },
@@ -404,7 +405,7 @@ export const api = {
       lire: (duel?: string) => req<MesAmis>(`/api/campagne/amis${duel ? `?duel=${encodeURIComponent(duel)}` : ''}`),
       retirer: (id: string) => req<{ ok: true }>(`/api/campagne/amis/${encodeURIComponent(id)}/retrait`, { method: 'POST' }),
     },
-    /** Affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
+    /** Un duel classé — affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
     rencontre: {
       commencer: () => req<RencontreDeCampagne>('/api/campagne/rencontre', { method: 'POST' }),
       miennes: () => req<MesRencontres>('/api/campagne/rencontres'),
@@ -446,6 +447,10 @@ export const api = {
       abandonner: (epreuve: string) => req<EtatDesSentiers>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
       acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
     },
+  },
+  /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
+  duels: {
+    etat: () => req<EtatDesDuels>(DEPART.duels),
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),

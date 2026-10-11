@@ -45,7 +45,19 @@ const AdminApp = () => import('./views/AdminApp').then(m => m.AdminApp)
 const LandingApp = () => import('./views/LandingApp').then(m => m.LandingApp)
 const ProfilApp = () => import('./views/ProfilApp').then(m => m.ProfilApp)
 const JourApp = () => import('./views/JourApp').then(m => m.JourApp)
-const CampagneApp = () => import('./views/CampagneApp').then(m => m.CampagneApp)
+// Les duels (`/duels`) jouent leurs parties sur l'écran de la campagne : sur
+// leur page, son code et le leur partent ensemble, plutôt que l'un derrière
+// l'autre — et la campagne seule ne télécharge jamais le leur. La page attend
+// le leur par la porte même qu'elle lit (`chargerLesDuels`) : arrivé par une
+// autre, il lui manquait parfois au premier rendu, qui montrait « Chargement… ».
+const CampagneApp = () => {
+  const duels = route.kind === 'account' && route.page === 'duels'
+  if (duels) void import('./views/Duels').catch(() => {})
+  return import('./views/CampagneApp').then(async m => {
+    if (duels) await m.chargerLesDuels().catch(() => {})
+    return m.CampagneApp
+  })
+}
 const SalonApp = () => import('./views/SalonApp').then(m => m.SalonApp)
 
 /** Une page, à charger : son code vient à part. */
@@ -66,6 +78,7 @@ const ACCOUNT: Record<AccountPage, PageACharger> = {
   // L'accueil, le profil et la boutique sont la même page, qui lit son adresse.
   boutique: ProfilApp,
   campagne: CampagneApp,
+  duels: CampagneApp,
 }
 const PUBLIC: Record<PublicPage, PageACharger> = {
   souvenir: RecapApp,

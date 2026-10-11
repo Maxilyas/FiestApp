@@ -32,6 +32,8 @@ export const DEPART = {
   /** La partie du jour — sa réponse remesure l'heure (`avecLHeure`, `client/src/api.ts`). */
   jour: '/api/jour',
   campagne: '/api/campagne',
+  /** La page des duels : sa cote, sa ligue, sa semaine, le classement. */
+  duels: '/api/duels',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
   /** Les quiz de l'espace (« Mes quiz »). */
@@ -91,6 +93,8 @@ export function donneesDeDepart(route: Route): string[] {
         return [DEPART.jour, DEPART.moiLeger]
       case 'campagne':
         return [DEPART.campagne, DEPART.moiLeger]
+      case 'duels':
+        return [DEPART.duels, DEPART.moiLeger]
       case 'edit':
         return [DEPART.quiz, DEPART.console, DEPART.theme]
       default:

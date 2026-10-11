@@ -98,8 +98,8 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
       { code: second.code, auteur: { nom: 'Léa', avatar: '🦊' }, categories: ['Histoire'], minutesRestantes: DUREE_D_UN_DUEL_MS / 60_000 },
     ])
     assert.deepEqual((await lire(banc, zoe, '/api/campagne/amis')).corps.recus, [])
-    // L'accueil le dit aussi, sur le bouton de la campagne : qui le défie, et combien.
-    const accueil = async (cookie: string) => (await lire(banc, cookie, '/api/joueur/moi?accueil')).corps.profile.campagne
+    // L'accueil le dit aussi, sur le bouton des duels — sortis de la campagne : qui le défie, et combien.
+    const accueil = async (cookie: string) => (await lire(banc, cookie, '/api/joueur/moi?accueil')).corps.profile.duels
     assert.deepEqual((await accueil(tom)).defisRecus, { n: 1, de: 'Léa' })
     assert.equal((await accueil(zoe)).defisRecus, undefined)
     // Le défi d'un autre ne s'envoie pas : seul celui qui l'a lancé l'envoie, les autres partagent son lien.

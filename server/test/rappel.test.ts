@@ -488,7 +488,7 @@ test('un défi parti à un ami fait sonner son téléphone : qui le défie, sur 
     assert.deepEqual(dechiffrer(pourTom.corps, telTom), {
       titre: 'Léa te défie',
       corps: 'Histoire · 4 bonnes réponses à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.',
-      url: `/campagne#duel-${second.code}`,
+      url: `/duels#duel-${second.code}`,
       tag: `defi-${second.code}`,
     })
 
@@ -596,20 +596,20 @@ test('le service worker montre le rappel — une seule notification à la fois �
   assert.deepEqual([deja.ouvertes, deja.focalisees], [[], ['/jour']])
 })
 
-test('un défi a son étiquette, et la campagne déjà ouverte va droit à lui', async () => {
-  const sw = serviceWorker(['/chez-nadia', '/campagne'])
-  await sw.declencher('push', { data: { json: () => ({ titre: 'Léa te défie', corps: 'Histoire.', url: '/campagne#duel-K7M2QX', tag: 'defi-K7M2QX' }) } })
+test('un défi a son étiquette, et la page des duels déjà ouverte va droit à lui', async () => {
+  const sw = serviceWorker(['/chez-nadia', '/duels'])
+  await sw.declencher('push', { data: { json: () => ({ titre: 'Léa te défie', corps: 'Histoire.', url: '/duels#duel-K7M2QX', tag: 'defi-K7M2QX' }) } })
   // Le sien : il ne chasse ni le rappel du soir, ni le défi d'un autre ami.
   assert.deepEqual(JSON.parse(JSON.stringify(sw.notifications[0].options)), {
     body: 'Histoire.',
     lang: 'fr',
     icon: '/icone-192.png',
     tag: 'defi-K7M2QX',
-    data: { url: '/campagne#duel-K7M2QX' },
+    data: { url: '/duels#duel-K7M2QX' },
   })
-  // Touchée : la campagne ouverte sur la série est menée au défi, pas ouverte en double ; la soirée, elle, ne bouge pas.
-  await sw.declencher('notificationclick', { notification: { data: { url: '/campagne#duel-K7M2QX' }, close: () => {} } })
-  assert.deepEqual([sw.menees, sw.ouvertes, sw.focalisees], [['https://fiestapp.example/campagne#duel-K7M2QX'], [], ['/campagne#duel-K7M2QX']])
+  // Touchée : la page des duels ouverte sur son classement est menée au défi, pas ouverte en double ; la soirée, elle, ne bouge pas.
+  await sw.declencher('notificationclick', { notification: { data: { url: '/duels#duel-K7M2QX' }, close: () => {} } })
+  assert.deepEqual([sw.menees, sw.ouvertes, sw.focalisees], [['https://fiestapp.example/duels#duel-K7M2QX'], [], ['/duels#duel-K7M2QX']])
 })
 
 test('un abonnement renouvelé par le service rejoint le serveur, avec l’en-tête des écritures', async () => {

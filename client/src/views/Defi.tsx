@@ -40,18 +40,7 @@ function cloture(minutes: number): string {
  * La partie elle-même se joue sur l'écran de la série (`CampagneApp`) : une
  * question, sa révélation, la suivante — la page lui passe la tentative.
  */
-export function PageDuDefi({
-  onglets,
-  onJouer,
-  avant,
-  apres,
-}: {
-  onglets: ReactNode
-  onJouer: (tentative: SerieDeCampagne) => void
-  /** En tête, sous les onglets : ce qu'un ami lui a envoyé — l'onglet le compte, on ne le cherche pas sous le classement. */
-  avant?: ReactNode
-  apres?: ReactNode
-}) {
+export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: (tentative: SerieDeCampagne) => void }) {
   const [defi, setDefi] = useState<DefiDeLaSemaine | null>(null)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
@@ -99,7 +88,6 @@ export function PageDuDefi({
     <div className="player-shell campagne">
       <Sortie />
       {onglets}
-      {avant}
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
         <span className="atlas-categorie">Le défi de la semaine</span>
         <h1>La même série pour tous</h1>
@@ -233,8 +221,6 @@ export function PageDuDefi({
           ))}
         </ol>
       )}
-      {/* Ses défis entre amis, sous celui de la semaine (`Duel.tsx`). */}
-      {apres}
       {carte}
     </div>
   )
