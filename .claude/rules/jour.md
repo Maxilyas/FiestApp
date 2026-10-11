@@ -19,6 +19,12 @@ paths:
 
 ## Les pièges
 
+- **Aucun formateur au chargement de `shared/jour.ts`** : ses
+  `Intl.DateTimeFormat` se créent à leur première lecture
+  (`aLaPremiereLecture`). Presque toutes les pages l'importent pour une
+  constante — le nom d'un laurier, un type —, et le premier `Intl` d'une page
+  charge les données ICU : 20 à 80 ms au processeur d'un téléphone moyen,
+  avant son premier écran (`jour.test.ts`).
 - **Le quiz du jour a son horloge** (`horlogeDuJour`, `JourStore.maintenant`) :
   les tests la font passer minuit (`jour-partie.test.ts`). Sa ligne
   d'expérience (`LIGNE_JOUR`, `#jour`) compte dans le total et le niveau

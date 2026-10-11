@@ -39,6 +39,34 @@ test('un jour se lit à Paris : minuit à Paris, pas à Greenwich', () => {
   assert.equal(moisEnToutesLettres('2026-09'), 'septembre 2026')
 })
 
+test('le module ne crée aucun formateur de date à son import : une page qui l’importe pour une constante ne paie pas ICU', async () => {
+  // Trois formateurs au fuseau de Paris, créés à l'import : le premier `Intl`
+  // d'une page charge les données ICU — 20 à 80 ms au processeur d'un
+  // téléphone moyen —, et l'entrée d'un invité comme les sentiers
+  // l'importent pour une constante, avant même leur premier écran.
+  const vrai = Intl.DateTimeFormat
+  let crees = 0
+  const compte = function (...args: ConstructorParameters<typeof Intl.DateTimeFormat>) {
+    crees++
+    return new vrai(...args)
+  } as unknown as typeof Intl.DateTimeFormat
+  Object.assign(Intl, { DateTimeFormat: compte })
+  try {
+    // Une instance neuve du module, chargée sous le compteur.
+    const neuf: typeof import('../../shared/jour') = await import(`${new URL('../../shared/jour.ts', import.meta.url).href}?a-l-import`)
+    assert.equal(crees, 0, 'rien à l’import')
+    assert.equal(neuf.jourDe(Date.UTC(2026, 8, 26, 21, 30)), '2026-09-26')
+    assert.equal(neuf.jourDe(Date.UTC(2026, 8, 26, 22, 30)), '2026-09-27')
+    assert.equal(crees, 1, 'créé à la première lecture, puis gardé')
+    assert.equal(neuf.heureDeParis(Date.UTC(2026, 8, 26, 21, 30)), 23)
+    assert.equal(neuf.minutesDeParis(Date.UTC(2026, 8, 26, 21, 30)), 23 * 60 + 30)
+    assert.equal(neuf.heureDeParis(Date.UTC(2026, 0, 14, 23, 0)), 0)
+    assert.equal(crees, 3, 'chacun le sien, une seule fois')
+  } finally {
+    Object.assign(Intl, { DateTimeFormat: vrai })
+  }
+})
+
 test('l’expérience du jour : vingt points par question au plus, à proportion des points', () => {
   // Le barème du solo (le 6 octobre 2026) : 200 pour un quiz parfait — 75 avant.
   assert.equal(XP_MAX_DU_JOUR, 200)
