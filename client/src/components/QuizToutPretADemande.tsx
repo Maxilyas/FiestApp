@@ -11,7 +11,15 @@ import type { QuizDef } from '../../../shared/library'
  */
 export const quizToutPret = aLaDemande(() => import('./QuizToutPret'))
 
-export function FeuilleDuQuizToutPretADemande({ onFermer, onCompose }: { onFermer: () => void; onCompose: (quiz: QuizDef) => void }) {
+export function FeuilleDuQuizToutPretADemande({
+  onFermer,
+  onCompose,
+  verbe,
+}: {
+  onFermer: () => void
+  onCompose: (quiz: QuizDef) => void
+  verbe?: string
+}) {
   const module = useALaDemande(quizToutPret)
   if (module === 'perdu') {
     return (
@@ -22,5 +30,5 @@ export function FeuilleDuQuizToutPretADemande({ onFermer, onCompose }: { onFerme
       </Feuille>
     )
   }
-  return module ? <module.FeuilleDuQuizToutPret onFermer={onFermer} onCompose={onCompose} /> : null
+  return module ? <module.FeuilleDuQuizToutPret onFermer={onFermer} onCompose={onCompose} verbe={verbe} /> : null
 }

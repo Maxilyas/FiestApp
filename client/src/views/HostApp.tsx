@@ -23,6 +23,7 @@ import { Icon } from '../components/Icon'
 import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
+import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { Absents } from '../components/Absents'
 import { EMOJIS_D_EQUIPE, POINTS_D_UN_PRIX, PRIX_MAX, detailDesPoints, effetDUnPrix, finalRanking, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
@@ -304,6 +305,8 @@ export function HostApp() {
    * « Mes quiz », à côté, qu'on vient d'en créer un.
    */
   const [bibliothequeVide, setBibliothequeVide] = useState(false)
+  /** La feuille du quiz tout prêt, ouverte d'une bibliothèque vide : composé, « Lancer un quiz » revient. */
+  const [toutPret, setToutPret] = useState(false)
   useEffect(() => {
     if (!me) return
     const lire = () =>
@@ -1491,10 +1494,18 @@ export function HostApp() {
                 )}
                 <ConsoleActions>
                   {bibliothequeVide ? (
-                    <a className="btn btn-primary" href="/edit" target={ONGLETS.quiz}>
-                      <Icon name="plus" />
-                      Créer mon premier quiz
-                    </a>
+                    // Sans rien écrire, de la console même : la salle est peut-être
+                    // déjà là. « Mes quiz », à côté, mène à l'écriture.
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => {
+                        quizToutPret.charger().catch(() => {})
+                        setToutPret(true)
+                      }}
+                    >
+                      <Icon name="dice" />
+                      Un quiz tout prêt
+                    </button>
                   ) : (
                     <button
                       className="btn btn-primary"
@@ -1568,6 +1579,16 @@ export function HostApp() {
                   </a>
                   {cloreButton}
                 </ConsoleActions>
+                {toutPret && (
+                  <FeuilleDuQuizToutPretADemande
+                    onFermer={() => setToutPret(false)}
+                    onCompose={() => {
+                      setToutPret(false)
+                      // Il est dans la bibliothèque : « Lancer un quiz » revient, et le propose.
+                      setBibliothequeVide(false)
+                    }}
+                  />
+                )}
               </>
             )}
           </section>
