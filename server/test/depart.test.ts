@@ -510,6 +510,7 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
     /const etat = api\.campagne\.etat\(\)\n\s*etat\.catch\(\(\) => \{\}\)\n\s*if \(modeDe\(window\.location\.hash\) === 'sentiers'\) demanderLesSentiers\(\)/,
   )
   assert.match(source('views/Sentiers.tsx'), /const lu = await lesSentiers\(\)/)
-  // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets.
-  assert.match(source('views/ProfilApp.tsx'), /if \(profilConnuIci\(\) \|\| VUE === 'boutique' \|\| \(VUE === 'profil' && lireEcran\(\)\)\) void panneaux\.charger\(\)/)
+  // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets —
+  // jamais l'accueil, qui n'en montre rien (`campagne-ouverture.test.ts`).
+  assert.match(source('views/ProfilApp.tsx'), /if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/)
 })

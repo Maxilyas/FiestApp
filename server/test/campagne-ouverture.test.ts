@@ -317,3 +317,20 @@ test('l’accueil d’un profil télécharge en fond le code de la campagne et d
   assert.match(accueil, /import\('\.\/JourApp'\)/)
   assert.match(accueil, /if \(VUE !== 'accueil' \|\| !aUnProfil\) return/, 'à l’accueil, et pour un profil seulement')
 })
+
+// Les écrans du profil (`PanneauxDuProfil` : 21 ko et onze morceaux) se
+// demandaient dès le profil lu — et, sur un téléphone qui en avait déjà
+// montré un, dès le chargement de la page. Sur l'accueil, qui n'en montre
+// rien, ils passaient devant son premier écran (mesuré le 11 octobre 2026).
+test('l’accueil d’un profil ne fait venir les écrans du profil qu’en fond, une fois montré', () => {
+  const page = readFileSync(client('views/ProfilApp.tsx'), 'utf8')
+  // Chaque porte qui les demande laisse l'accueil de côté…
+  assert.match(page, /useALaDemande\(panneaux, !!profil && VUE !== 'accueil'\)/)
+  assert.match(page, /if \(r\.profile && VUE !== 'accueil'\) void panneaux\.charger\(\)/)
+  assert.match(page, /onEnvoi=\{VUE === 'accueil' \? undefined : \(\) => void panneaux\.charger\(\)/)
+  assert.match(page, /^if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/m)
+  // … qui les fait venir avec la campagne et le quiz du jour, quand le navigateur n'a plus rien à faire.
+  assert.match(page, /const precharger = \(\) => \{[\s\S]*?void panneaux\.charger\(\)\.catch\(\(\) => \{\}\)\s*\}/)
+  // Et aucune autre porte.
+  assert.equal([...page.matchAll(/panneaux\.charger\(\)/g)].length, 4)
+})

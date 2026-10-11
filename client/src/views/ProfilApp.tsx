@@ -117,8 +117,12 @@ export function ProfilApp() {
   const [gardee] = useState(derniereSoireeGardee)
   /** L'écran ouvert depuis une tuile du profil (`/profil#trophees`), ou ses tuiles. */
   const [ecran, setEcranOuvert] = useState<EcranDuProfil | null>(lireEcran)
-  /** Le contenu des écrans du profil et de la boutique, dès que le profil est connu. */
-  const lesPanneaux = useALaDemande(panneaux, !!profil)
+  /**
+   * Le contenu des écrans du profil et de la boutique, dès que le profil est
+   * connu — pas sur l'accueil, qui n'en montre rien : il les fait venir en
+   * fond, une fois montré (`precharger`, plus bas).
+   */
+  const lesPanneaux = useALaDemande(panneaux, !!profil && VUE !== 'accueil')
   /**
    * Ouvrir un écran pose son adresse dans l'historique — une ligne de la
    * collection a la sienne (`#collection-themes`) —, avec l'écran d'où l'on
@@ -169,7 +173,7 @@ export function ProfilApp() {
   const relire = () =>
     (VUE === 'accueil' ? api.joueur.moiAccueil() : api.joueur.moi()).then(r => {
       retenirProfil(!!r.profile)
-      if (r.profile) void panneaux.charger().catch(() => {})
+      if (r.profile && VUE !== 'accueil') void panneaux.charger().catch(() => {})
       setProfil(r.profile)
       setEspace(r.espace)
       setEnCours(r.enCours ?? [])
@@ -197,13 +201,18 @@ export function ProfilApp() {
 
   // L'accueil affiché, le code du quiz du jour et de la campagne vient en
   // fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
-  // Pour un profil seulement — l'invité anonyme n'y a pas accès.
+  // Pour un profil seulement — l'invité anonyme n'y a pas accès. Les écrans
+  // du profil aussi, que « Profil », au menu, trouvera là : demandés dès le
+  // profil lu, leurs douze morceaux passaient devant le premier écran de
+  // l'accueil, qui n'en montre rien (mesuré le 11 octobre 2026 :
+  // `PanneauxDuProfil`, 21 ko, arrivait juste avant lui).
   const aUnProfil = !!profil
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
     const precharger = () => {
       void import('./CampagneApp').catch(() => {})
       void import('./JourApp').catch(() => {})
+      void panneaux.charger().catch(() => {})
     }
     const attente = window as Window & { requestIdleCallback?: (f: () => void) => number }
     if (attente.requestIdleCallback) attente.requestIdleCallback(precharger)
@@ -312,7 +321,8 @@ export function ProfilApp() {
         prefill={creation ?? undefined}
         // L'application à installer, sous les trois boutons : ils restent visibles sans défiler.
         pied={<Installer />}
-        onEnvoi={() => void panneaux.charger().catch(() => {})}
+        // Connecté, le profil montre ses écrans ; l'accueil, rien d'eux.
+        onEnvoi={VUE === 'accueil' ? undefined : () => void panneaux.charger().catch(() => {})}
         onDone={(_, info) => {
           // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
           if (suite) return window.location.assign(suite)
@@ -643,8 +653,9 @@ function lireEcran(): EcranDuProfil | null {
 // vignettes des tuiles aussi. La boutique et un écran du profil
 // (`/profil#avatar`) ne se montrent qu'avec eux : sur un appareil neuf, ils
 // attendaient la réponse du profil pour les demander — un tour de plus,
-// 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il lit.
-if (profilConnuIci() || VUE === 'boutique' || (VUE === 'profil' && lireEcran())) void panneaux.charger().catch(() => {})
+// 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il lit. Jamais sur
+// l'accueil, qui n'en montre rien : ils y viennent en fond, une fois montré.
+if (VUE === 'boutique' || (VUE === 'profil' && (profilConnuIci() || lireEcran()))) void panneaux.charger().catch(() => {})
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
 // fin de soirée d'une page d'avant y mène encore, et trouve sa page.
