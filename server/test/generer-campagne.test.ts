@@ -14,13 +14,16 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { consigneDEcriture } from '../src/core/consigneCampagne'
+import { consigneDEcriture, type QuotaDEcriture } from '../src/core/consigneCampagne'
 import { SERVEUR } from '../src/racine'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
+import { BRANCHES } from '../../shared/branches'
+import { niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import {
   QUESTIONS_PAR_LOT,
   charger,
+  commandeDesSentiers,
   etat,
   lireLesDecisions,
   planDeLaGeneration,
@@ -132,6 +135,50 @@ test('le plan suit ce qui manque, et ne touche que les catégories choisies', ()
   const quotas = lots.flatMap(l => l.quotas)
   assert.ok(!quotas.some(q => q.difficulte === 1), 'la base a déjà trop de faciles')
   assert.ok(!quotas.some(q => q.cle === 'capitales'), 'ni de capitales')
+})
+
+test('pour les sentiers : chaque chapitre à la marche que ses deux paliers demandent, puis ce que la catégorie demande encore', () => {
+  const parMarche = (lignes: readonly QuotaDEcriture[]) => {
+    const m: Record<Niveau, number> = { facile: 0, moyen: 0, difficile: 0, expert: 0 }
+    for (const l of lignes) m[niveauDeQuestion(l.difficulte!)] += l.n
+    return m
+  }
+  // Une base vide, une montée : chaque sentier commande ce que ses treize paliers posent, marche par marche.
+  const une = commandeDesSentiers([], 1)
+  for (const b of BRANCHES) assert.deepEqual(parMarche(une.get(b.categorie)!), { facile: 63, moyen: 87, difficile: 42, expert: 16 }, b.categorie)
+  const fete = une.get('Autour de la fête')!
+  const de = (sousThemes: readonly string[], marche: Niveau) => fete.filter(l => sousThemes.includes(l.cle) && niveauDeQuestion(l.difficulte!) === marche).reduce((s, l) => s + l.n, 0)
+  assert.equal(de(['noel', 'nouvel-an'], 'facile'), 30, 'les deux premiers paliers : seize faciles puis quatorze, à Noël et au Nouvel An')
+  assert.equal(de(['traditions'], 'moyen'), 29, 'le quatrième chapitre, ses vingt-neuf moyennes aux fêtes du monde')
+  assert.ok(
+    fete.filter(l => niveauDeQuestion(l.difficulte!) === 'facile').every(l => l.difficulte === 1 || l.difficulte === 2),
+    'une facile s’écrit en difficulté 1 ou 2',
+  )
+
+  // Le cinéma a de tout ; Noël, vingt faciles : rien au cinéma, et le Nouvel An d'abord, le moins fourni.
+  const cinema = SOUS_THEMES['Cinéma & séries'].flatMap(s => [1, 3, 4, 5].flatMap(difficulte => Array.from({ length: 60 }, () => ({ categorie: 'Cinéma & séries', sousTheme: s.cle, difficulte }))))
+  const noel = Array.from({ length: 20 }, () => ({ categorie: 'Autour de la fête', sousTheme: 'noel', difficulte: 2 }))
+  const deux = commandeDesSentiers([...cinema, ...noel], 2)
+  assert.equal(deux.has('Cinéma & séries'), false, 'le cinéma ne manque de rien')
+  const faciles = (cle: string) => deux.get('Autour de la fête')!.filter(l => l.cle === cle && l.difficulte! <= 2).reduce((s, l) => s + l.n, 0)
+  assert.deepEqual([faciles('noel'), faciles('nouvel-an')], [10, 30], 'soixante faciles pour deux montées : trente chacun')
+
+  // Le plan en fait des lots, comme d'une commande à parts égales.
+  const lots = planDeLaGeneration([], { nom: 's1', questions: 0, commandes: une }).flatMap(v => v.lots)
+  assert.equal(lots.reduce((s, l) => s + totalDe(l), 0), 12 * 208)
+  assert.ok(lots.every(l => totalDe(l) <= QUESTIONS_PAR_LOT))
+})
+
+test('préparer pour les sentiers : la commande dit combien, sans --questions', () => {
+  const ctx = contexte()
+  try {
+    const { generation, missions } = preparer(ctx, { sentiers: 1, nom: 's1' })
+    assert.equal(generation.demandees, 12 * 208)
+    assert.ok(missions.length > 0)
+    assert.throws(() => preparer(contexte(), { sentiers: 9 }), /de 1 à 5 montées/)
+  } finally {
+    rmSync(ctx.dossier, { recursive: true, force: true })
+  }
 })
 
 test('la consigne d’un lot : un seul fichier, vérifié jusqu’à zéro refus, rien d’autre', () => {

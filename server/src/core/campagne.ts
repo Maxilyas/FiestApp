@@ -781,8 +781,10 @@ export class CampagneStore {
    * marche tire d'abord parmi les questions que ce joueur n'a jamais vues :
    * il ne revoit une question qu'une fois toutes les autres de sa marche
    * passées, la plus anciennement vue d'abord (`parFraicheur`), et la base
-   * en compte des milliers. Sur un sujet (`shared/sujets.ts`), ses
-   * catégories n'y sont pour rien : il les traverse toutes.
+   * en compte des milliers ; ses catégories, puis leurs sous-thèmes, y
+   * passent à tour de rôle (`aTourDeRole`). Sur un sujet
+   * (`shared/sujets.ts`), ses catégories n'y sont pour rien : il les
+   * traverse toutes.
    */
   commencer(profileId: string, categories?: readonly string[], sujet?: string): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
@@ -800,10 +802,7 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-      // Battues, puis rangées par ce qu'il en a vu : chaque marche garde cet ordre.
-      for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
-      const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure, vues, maintenant), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -1369,9 +1368,7 @@ export class CampagneStore {
       if (!questions) {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
         if (jouables.length < QUESTIONS_POUR_JOUER) return []
-        const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-        for (const q of melanger(jouables)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
-        const tirees = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+        const tirees = ordreDeSerie(marchesDeLaSerie(jouables, mesure), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
         await this.client.execute({
           sql: 'INSERT INTO campagne_defis (semaine, questions, tire_le) VALUES (?, ?, ?) ON CONFLICT(semaine) DO NOTHING',
           args: [semaine, JSON.stringify(tirees), this.maintenant()],
@@ -1705,9 +1702,7 @@ export class CampagneStore {
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
       }
-      const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-      for (const q of melanger(jouables)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
-      const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
       for (let essai = 0; ; essai++) {
         const duel: Duel = {
@@ -3552,6 +3547,83 @@ export function parFraicheur<T extends { id: string }>(questions: readonly T[], 
     const y = fraicheur(b.id)
     return x.recente - y.recente || x.vue - y.vue || x.le - y.le
   })
+}
+
+/**
+ * Une marche où les catégories passent à tour de rôle, puis, dans chacune,
+ * ses sous-thèmes. Tirée au hasard, une série reflétait la base : après les
+ * faits de Wikidata, quatre questions expertes sur dix venaient de l'art ou
+ * du cinéma, « Depuis 2010 » posait du cinéma une fois sur deux, et une série
+ * de musique une musique de film sur trois (le 11 octobre 2026). La fraîcheur
+ * passe devant — une jamais vue d'une catégorie déjà servie bat une déjà vue
+ * d'une autre, une vue d'hier soir reste en dernier — ; à fraîcheur égale, la
+ * catégorie la moins servie, puis son sous-thème le moins servi, puis l'ordre
+ * reçu : le hasard du battage, ou la plus anciennement vue (`parFraicheur`).
+ * Ne range que les `max` premières : une série n'en lit pas plus, et la base
+ * en compte des milliers par marche.
+ */
+export function aTourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: string } }>(
+  questions: readonly T[],
+  vues: ReadonlyMap<string, number>,
+  maintenant: number,
+  max = QUESTIONS_PAR_SERIE,
+): T[] {
+  const fraicheur = fraicheurDe(vues, maintenant)
+  const classes: T[][] = [[], [], []]
+  for (const q of questions) {
+    const f = fraicheur(q.id)
+    classes[f.recente ? 2 : f.vue ? 1 : 0].push(q)
+  }
+  /** Une file par sous-thème, dans l'ordre reçu : le rang de sa tête départage deux files à égalité. */
+  type File = { categorie: string; cle: string; questions: T[]; rangs: number[]; tete: number }
+  const servieLaCategorie = new Map<string, number>()
+  const servieLeSousTheme = new Map<string, number>()
+  const tirees: T[] = []
+  for (const classe of classes) {
+    const files = new Map<string, File>()
+    classe.forEach((q, rang) => {
+      const cle = `${q.meta.categorie}\u0000${q.meta.sousTheme}`
+      const f = files.get(cle) ?? files.set(cle, { categorie: q.meta.categorie, cle, questions: [], rangs: [], tete: 0 }).get(cle)!
+      f.questions.push(q)
+      f.rangs.push(rang)
+    })
+    for (let reste = classe.length; reste > 0 && tirees.length < max; reste--) {
+      let meilleure: File | null = null
+      let sonRang: number[] | null = null
+      for (const f of files.values()) {
+        if (f.tete >= f.questions.length) continue
+        const r = [servieLaCategorie.get(f.categorie) ?? 0, servieLeSousTheme.get(f.cle) ?? 0, f.rangs[f.tete]]
+        if (!sonRang || passeAvant(r, sonRang)) {
+          meilleure = f
+          sonRang = r
+        }
+      }
+      if (!meilleure) break
+      tirees.push(meilleure.questions[meilleure.tete++])
+      servieLaCategorie.set(meilleure.categorie, (servieLaCategorie.get(meilleure.categorie) ?? 0) + 1)
+      servieLeSousTheme.set(meilleure.cle, (servieLeSousTheme.get(meilleure.cle) ?? 0) + 1)
+    }
+  }
+  return tirees
+}
+
+/**
+ * Les marches d'une série — une série, un défi de la semaine, un défi entre
+ * amis —, chacune rangée par fraîcheur puis ses catégories à tour de rôle
+ * (`aTourDeRole`). Sans `vues`, toutes passent pour jamais vues : le défi
+ * se tire pour tous.
+ */
+function marchesDeLaSerie(
+  jouables: readonly QuestionDeLaBase[],
+  mesure: ReadonlyMap<string, { justes: number; total: number }>,
+  vues: ReadonlyMap<string, number> = new Map(),
+  maintenant = 0,
+): Record<Niveau, QuestionDeLaBase[]> {
+  const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
+  // Battues, puis rangées par ce qu'il en a vu : chaque marche garde cet ordre.
+  for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
+  for (const n of NIVEAUX) parNiveau[n] = aTourDeRole(parNiveau[n], vues, maintenant)
+  return parNiveau
 }
 
 /** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
