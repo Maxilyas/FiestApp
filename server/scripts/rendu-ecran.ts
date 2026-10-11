@@ -32,7 +32,7 @@ import {
 } from '../test/banc'
 import { jourAvant, jourDe } from '../../shared/jour'
 import { brancheDe, portrait } from '../../shared/branches'
-import { gainVide, releveVide, totalGain, xpDuNiveau } from '../../shared/profil'
+import { xpDuNiveau } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu')
@@ -163,22 +163,18 @@ const equipes = avecEquipes.teams.map((t: any) => t.id)
 
 /**
  * Les portraits des branches que portent deux des invités à profil — un
- * masque et une danseuse, sous l'Astrolabe et le Diamant. Deux cents bonnes
- * réponses dans leur catégorie, rangées d'avance, les ouvrent.
+ * masque et une danseuse, sous l'Astrolabe et le Diamant. Ils ne se gagnent
+ * qu'aux sentiers du savoir (le choix du 5 octobre 2026) : les douze paliers
+ * de leur branche, rangés d'avance, les ouvrent.
  */
 const PORTRAITS_PORTES: Record<number, string> = { 0: 'br:venise', 2: 'br:danseuse' }
 
 async function porterUnPortrait(login: string, profil: string, cle: string) {
-  const categorie = brancheDe(portrait(cle)!).categorie
+  const branche = brancheDe(portrait(cle)!).key
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   try {
     const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
-    const espace = (base.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
-    const gain = { ...gainVide(), reponses: 1 }
-    const releve = { ...releveVide(), categories: { [categorie]: { questions: 200, justes: 200 } } }
-    base
-      .prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-d-avant', ?, ?, ?, 1)`)
-      .run(id, espace, totalGain(gain), JSON.stringify({ v: VERSION_BAREME, gain, releve }))
+    base.prepare('INSERT OR REPLACE INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 12, 1)').run(id, branche)
   } finally {
     base.close()
   }
@@ -265,6 +261,17 @@ async function capture(moment: string, opts: { telephone?: boolean } = {}) {
     console.log(
       await grande.evaluate(`[...document.querySelectorAll('.coupe-zone')].map(z => z.clientHeight + ' : ' + [...z.querySelectorAll('.lb-row')].map(l => { let h = 0; for (let x = l; x && x !== z; x = x.offsetParent) h += x.offsetTop; return (l.style.display === 'none' ? '-' : '') + (h + l.offsetHeight) + '(' + (l.offsetParent && l.offsetParent.className) + ')' }).join(' ')).join('\\n')`),
     )
+  // Ce qui dépasse de la scène — de quoi on ne voit qu'un bout, puisque
+  // personne ne fait défiler une télé : sa hauteur visible et sa hauteur
+  // entière, aux deux définitions.
+  if (process.env.DEBORDE)
+    for (const [nom, p] of [['1366', tele], ['1920', grande]] as const)
+      console.log(
+        `  ${nom} :`,
+        await p.evaluate(
+          `[...document.querySelectorAll('.host.staging .stage-scroll, .host.staging .stage-scroll *')].filter(e => e.scrollHeight > e.clientHeight + 1 && getComputedStyle(e).overflowY !== 'visible').map(e => e.className + ' ' + e.clientHeight + '/' + e.scrollHeight).join(' · ') || 'rien ne dépasse'`,
+        ),
+      )
   if (opts.telephone) await telephone.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-tel.jpg`), type: 'jpeg', quality: 70 })
   console.log(`  ${prefixe} ${moment}`)
 }

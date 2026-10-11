@@ -18,7 +18,7 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
 
 ## Les scripts qui photographient
 
-- `server/scripts/rendu-ecran.ts` — le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920)
+- `server/scripts/rendu-ecran.ts` — le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920 ; `DEBORDE=1` : ce qui dépasse de la scène)
 - `server/scripts/rendu-recompenses.ts` — les écrans des récompenses du quiz du jour et de la campagne, photographiés sur un serveur jetable : les records par catégorie, une fin de série qui fait tomber hauts faits, paliers et légendaire, le défi de la semaine de bout en bout, le laurier d'argent, la gerbe, et l'entrée en scène du champion du mois en 1366 × 768
 - `server/scripts/rendu-jour.ts` — le quiz du jour et le rayon des objets de la boutique, photographiés au téléphone sur un serveur jetable : l'accueil du jour avec une série et la veille à raconter, la feuille de la série, une partie jusqu'à sa fin, le jour joué, et la fiche de chaque objet
 - `server/scripts/rendu-profil.ts` — la page du profil photographiée au téléphone sur un serveur jetable : son vestiaire — ce qu'on porte, qu'on touche pièce par pièce — et ses tuiles, sa carte et son avatar en grand, chacun de ses écrans ouvert de la pièce qui y mène, chaque ligne de « Ma collection » dépliée — l'album des thèmes, la fiche de l'un —, le retour de la collection à « Mon thème », et la boutique
