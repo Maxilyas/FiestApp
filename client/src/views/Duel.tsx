@@ -28,11 +28,12 @@ export const texteDuDefi = (justes: number | null) =>
 /** « Ferme dans 3 jours » : ce qui reste à un défi entre amis. */
 export function fermeture(minutes: number): string {
   if (minutes <= 0) return 'Fermé : son classement est figé'
-  if (minutes < 60) return `Ferme dans ${minutes} minute${minutes > 1 ? 's' : ''}`
+  // Un nombre ne quitte pas son mot à la ligne : « Ferme dans 7 » d'un côté, « jours » de l'autre.
+  if (minutes < 60) return `Ferme dans ${minutes}\u00a0minute${minutes > 1 ? 's' : ''}`
   const heures = Math.floor(minutes / 60)
-  if (heures < 24) return `Ferme dans ${heures} heure${heures > 1 ? 's' : ''}`
+  if (heures < 24) return `Ferme dans ${heures}\u00a0heure${heures > 1 ? 's' : ''}`
   const jours = Math.floor(heures / 24)
-  return `Ferme dans ${jours} jour${jours > 1 ? 's' : ''}`
+  return `Ferme dans ${jours}\u00a0jour${jours > 1 ? 's' : ''}`
 }
 
 /**
@@ -210,7 +211,16 @@ export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: s
  * correction. La partie se joue sur l'écran de la série (`CampagneApp`),
  * comme celle du défi de la semaine.
  */
-export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: ReactNode; onJouer: (tentative: SerieDeCampagne, code: string) => void }) {
+export function PageDuDuel({
+  code,
+  onglets,
+  onJouer,
+}: {
+  code: string
+  onglets: ReactNode
+  /** `lance` : le sien, repris — sa fin dit « Défi lancé ». */
+  onJouer: (tentative: SerieDeCampagne, code: string, lance: boolean) => void
+}) {
   const [duel, setDuel] = useState<DuelEntreAmis | null>(null)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
@@ -234,7 +244,7 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
     setErreur('')
     try {
       const tentative = await api.campagne.duel.relever(code)
-      if (tentative.question) onJouer(tentative, code)
+      if (tentative.question) onJouer(tentative, code, !!duel?.auteur.toi)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -514,6 +524,26 @@ export function TesAmis({ amis, onDefier, onRetirer }: { amis: readonly AmiDeCam
 }
 
 /**
+ * La ligne d'un de ses défis : à qui il est, sur quoi, qui l'a joué, le temps
+ * qui reste — et sa place, ou ce qu'il lui reste à faire. Personne encore :
+ * rien à compter (« 0 joueur » ne disait rien). Et son propre défi se joue,
+ * il ne se relève pas : il part à ses amis à sa dernière réponse.
+ */
+export function ligneDuDuel(d: ResumeDuDuel): { titre: string; detail: string; score: string } {
+  const joueurs = d.joueurs > 0 ? `${d.joueurs} joueur${d.joueurs > 1 ? 's' : ''}` : null
+  return {
+    titre: d.auteur === 'toi' ? 'Ton défi' : `Le défi de ${d.auteur}`,
+    detail: [nomDuChoix(d.categories ?? [], d.sujet) ?? 'toutes les catégories', joueurs, fermeture(d.minutesRestantes)].filter(Boolean).join(' · '),
+    score:
+      d.justes !== null && d.rang !== null
+        ? `${d.rang}${d.rang === 1 ? 'er' : 'e'} · ${d.justes} bonne${d.justes > 1 ? 's' : ''}`
+        : d.auteur === 'toi'
+          ? 'à jouer'
+          : 'à relever',
+  }
+}
+
+/**
  * Ses défis entre amis, sous le défi de la semaine : ceux qu'il a lancés ou
  * relevés ces trente derniers jours — un lien perdu ne perd pas le défi.
  * Rien tant qu'il n'en a aucun : la série dit comment en lancer un.
@@ -539,19 +569,15 @@ export function MesDuels({ onOuvrir }: { onOuvrir: (code: string) => void }) {
       </h2>
       <ul>
         {duels.map(d => {
-          const joue = nomDuChoix(d.categories ?? [], d.sujet)
+          const l = ligneDuDuel(d)
           return (
             <li key={d.code}>
               <button type="button" className="btn btn-block duel-ligne" onClick={() => onOuvrir(d.code)}>
                 <span>
-                  <b>{d.auteur === 'toi' ? 'Ton défi' : `Le défi de ${d.auteur}`}</b>
-                  <span className="muted small">
-                    {[joue ?? 'toutes les catégories', `${d.joueurs} joueur${d.joueurs > 1 ? 's' : ''}`, fermeture(d.minutesRestantes)].join(' · ')}
-                  </span>
+                  <b>{l.titre}</b>
+                  <span className="muted small">{l.detail}</span>
                 </span>
-                <span className="duel-score">
-                  {d.justes !== null && d.rang !== null ? `${d.rang}${d.rang === 1 ? 'er' : 'e'} · ${d.justes} bonne${d.justes > 1 ? 's' : ''}` : 'à relever'}
-                </span>
+                <span className="duel-score">{l.score}</span>
               </button>
             </li>
           )

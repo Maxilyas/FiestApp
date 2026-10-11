@@ -287,7 +287,10 @@ h3 {
   text-wrap: balance;
 }
 
-/* Cormorant a un petit œil : elle se lit plus grande qu'une linéale. */
+/* Cormorant a un petit œil : elle se lit plus grande qu'une linéale. Et elle
+   écrit ses chiffres à l'ancienne : un nombre qu'on lit seul — un score, une
+   place, un solde — pose `lining-nums`, sans quoi un 0 se lisait « O » et un
+   1 « I » (`design.test.ts`). */
 h1 { font-size: 2.2rem; }
 h2 { font-size: 1.6rem; }
 h3 { font-size: 1.25rem; }
@@ -1359,7 +1362,7 @@ h3 > .icon {
 .regie-anneau-fond { fill: none; stroke: var(--track); stroke-width: 5; }
 .regie-anneau-plein { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray 0.2s linear, stroke 0.3s; }
 .regie-anneau.presse .regie-anneau-plein { stroke: var(--alert); }
-.regie-anneau b { font-family: var(--serif); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.regie-anneau b { font-family: var(--serif); font-size: 1.35rem; font-variant-numeric: lining-nums tabular-nums; }
 .regie-revele { border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text); }
 .regie-reponses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .regie-reponses li { position: relative; display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--edge); background: var(--surface); overflow: hidden; isolation: isolate; }
@@ -1369,7 +1372,7 @@ h3 > .icon {
 .regie-reponses .regie-bonne::before { background: var(--accent-soft); }
 .regie-texte { flex: 1; min-width: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
 .regie-coche { flex: none; color: var(--accent-text); }
-.regie-nombre { flex: none; min-width: 1.4em; text-align: right; font-family: var(--serif); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.regie-nombre { flex: none; min-width: 1.4em; text-align: right; font-family: var(--serif); font-size: 1.2rem; font-variant-numeric: lining-nums tabular-nums; }
 .regie-cible { margin: 0; font-size: 1.05rem; }
 .regie-cible b { font-family: var(--serif); font-size: 1.4rem; color: var(--accent-text); }
 .regie-salle { padding: 10px 12px 12px; border-radius: var(--radius); border: 1px solid var(--edge); background: var(--surface); }
@@ -6043,7 +6046,7 @@ h3 > .icon {
 .jour-recompenses { display: flex; flex-direction: column; gap: 14px; }
 .jour-ligne { display: flex; align-items: center; gap: 12px; }
 .jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.jour-ligne h2 { font-size: 1.8rem; margin: 0; }
+.jour-ligne h2 { font-size: 1.8rem; margin: 0; font-variant-numeric: lining-nums; }
 .jour-pastille { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); flex: none; }
 .jour-pastille .flamme, .jour-pastille .icon { width: 20px; height: 20px; }
 /* Un palier du quiz du jour : l'emoji de son haut fait, comme sur l'étagère. */
@@ -7223,7 +7226,8 @@ span.case-avatar { cursor: default; }
 }
 .gros-icone .icon { width: 24px; height: 24px; }
 .gros-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.gros-texte b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+/* Un titre qui passe à la ligne s'y coupe en deux moitiés, jamais un mot seul dessous. */
+.gros-texte b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
 .gros-detail { color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
 /* Une recherche sobre : un trait, une loupe. Le champ garde l'anneau du focus. */
 .recherche-sobre { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--edge-strong); color: var(--muted); }
@@ -7587,9 +7591,9 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-heros h1 { margin: 0; font-size: 2rem; }
 /* Le record en grand, dans la vue « Campagne » de la carrière. */
 .campagne-record { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-.campagne-record b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.campagne-record b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .campagne-record-hud { display: flex; align-items: center; gap: 14px; }
-.campagne-record-hud b { font-family: var(--serif); font-size: 3.6rem; font-weight: 600; line-height: 0.9; color: var(--accent-text); text-shadow: 0 0 22px color-mix(in srgb, var(--lueur) 55%, transparent); font-variant-numeric: tabular-nums; }
+.campagne-record-hud b { font-family: var(--serif); font-size: 3.6rem; font-weight: 600; line-height: 0.9; color: var(--accent-text); text-shadow: 0 0 22px color-mix(in srgb, var(--lueur) 55%, transparent); font-variant-numeric: lining-nums tabular-nums; }
 .campagne-record-hud span { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
 /* L'échelle des difficultés : quatre marches qui montent. */
 .campagne-echelle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
@@ -7617,7 +7621,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }
 .vies .coeur.perdu { color: var(--muted); }
-.campagne-fin .big { font-variant-numeric: tabular-nums; }
+.campagne-fin .big { font-variant-numeric: lining-nums tabular-nums; }
 .campagne-suite { justify-content: center; gap: 8px; }
 .campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .campagne-correction li { display: flex; flex-direction: column; gap: 4px; }
@@ -7715,7 +7719,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .rencontre-score .muted { margin-left: auto; }
 .rencontre-final { display: flex; align-items: flex-end; justify-content: center; gap: 18px; margin: 0; }
 .rencontre-final > span:not(.rencontre-contre) { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.rencontre-final b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.rencontre-final b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .rencontre-contre { padding-bottom: 22px; font-size: 1.6rem; color: var(--muted); }
 /* Le défi entre amis : de quoi l'envoyer — le lien reste écrit, à sélectionner, sans feuille de partage ni presse-papier —, et ses défis sous celui de la semaine. */
 .duel-envoi { display: flex; flex-direction: column; gap: 8px; }
@@ -8304,7 +8308,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .hud-jauge circle { fill: none; stroke-width: 7; }
 .hud-jauge-fond { stroke: color-mix(in srgb, var(--lueur) 16%, transparent); }
 .hud-jauge-plein { stroke: var(--lueur); stroke-linecap: round; }
-.hud-jauge-valeur { position: absolute; top: 0; left: 0; right: 0; height: 88px; display: grid; place-items: center; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hud-jauge-valeur { position: absolute; top: 0; left: 0; right: 0; height: 88px; display: grid; place-items: center; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .hud-jauge figcaption { display: flex; flex-direction: column; gap: 1px; font-size: 0.8rem; color: var(--muted); line-height: 1.25; }
 .hud-jauge figcaption b { color: var(--ink); font-size: 0.9rem; }
 
@@ -8408,14 +8412,14 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .medailles-du-jour { display: flex; justify-content: center; gap: 22px; }
 .medailles-du-jour > span { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .medailles-du-jour > .hud-ferme .medaille { opacity: 0.4; }
-.medailles-du-jour b { font-family: var(--serif); font-size: 1.5rem; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.medailles-du-jour b { font-family: var(--serif); font-size: 1.5rem; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .trophee-chevron { transition: none; } }
 
 /* ── La carrière : trois jauges, des chiffres en cases, quatre vues ───── */
 .hud-jauges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .hud-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .hud-chiffres span { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border: 1px solid var(--edge); border-radius: var(--radius-sm); color: var(--muted); font-size: 0.8rem; line-height: 1.25; text-align: center; }
-.hud-chiffres b { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.hud-chiffres b { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .hud-courbes { padding: 8px 2px 0; }
 .hud-barres { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .hud-barres li { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: baseline; }
@@ -8439,7 +8443,7 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .soiree-nom { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; line-height: 1.15; color: inherit; text-decoration: none; }
 a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline; }
 .soiree-carte .soiree-detail { flex: none; font-size: 0.8rem; line-height: 1.35; }
-.soiree-gain { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.soiree-gain { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; line-height: 1.1; }
 .soiree-annee { font-size: var(--t-label); letter-spacing: 0; }
 .soiree-carte .link-inline { font-size: 0.8rem; }
 .soiree-gain small { font-family: var(--sans); font-size: var(--t-label); color: var(--muted); }
@@ -8450,7 +8454,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
    thème. « Mes thèmes » reprend les mêmes cartes. */
 .boutique-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .boutique-tete h1 { margin: 0; font-size: 2rem; }
-.solde-puce { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.solde-puce { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .gemmes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .gemme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
 .gemme i { width: 18px; height: 18px; transform: rotate(45deg); border-radius: 4px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); opacity: 0.55; transition: transform 0.2s ease, opacity 0.2s ease; }
@@ -8788,7 +8792,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .marche-avatar { font-size: 2.4rem; }
 .marche:nth-child(2) .marche-avatar { font-size: 3rem; }
 .marche-nom { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 0.92rem; }
-.marche-points { font-family: var(--serif); font-size: 1.15rem; color: var(--metal); font-variant-numeric: tabular-nums; }
+.marche-points { font-family: var(--serif); font-size: 1.15rem; color: var(--metal); font-variant-numeric: lining-nums tabular-nums; }
 .marche-socle { display: grid; place-items: start center; width: 100%; height: var(--haut); padding-top: 8px; border-radius: 12px 12px 4px 4px; border-top: 3px solid var(--metal); background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent)); }
 .marche-socle b { font-family: var(--serif); font-size: 1.6rem; color: var(--metal); }
 .marche-moi .marche-nom { color: var(--accent-text); }
