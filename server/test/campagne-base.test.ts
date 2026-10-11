@@ -34,9 +34,11 @@ import { sansAccent } from '../../shared/homonymes'
  * difficiles au thème des mythes et légendes (`preparer --theme`) : 8 319 ;
  * puis mille à la musique, au sport, aux jeux et à la fête, 968, et sept de
  * sport sauvées d'un lot dont l'indice de la bonne réponse était décalé : 9 294 ;
- * puis mille aux six catégories restées sous 700, 986 : 10 280.
+ * puis mille aux six catégories restées sous 700, 986 : 10 280 ; puis cinq
+ * cents aux sous-thèmes maigres du cinéma et des arts — répliques, coulisses,
+ * sagas, bande dessinée, philosophie… —, 489 : 10 769.
  */
-const AU_MOINS = 10270
+const AU_MOINS = 10760
 
 const { questions, refusees } = lireLaBase()
 
