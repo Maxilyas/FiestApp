@@ -14,6 +14,7 @@ import { SOUS_THEMES, TYPES_D_ENTITE } from '../../shared/etiquettes'
 import { TriDesEntrees, lireLot } from '../scripts/lots-campagne'
 import {
   FAMILLES,
+  ajouterUneLigneDeVues,
   anneeDe,
   choisirLeurres,
   choisirLesFiches,
@@ -25,9 +26,11 @@ import {
   fichiersDuLot,
   fusionner,
   guillemets,
+  joursDesDumps,
   laureatsParAnnee,
   ligneDeFiche,
   mediane,
+  medianesDesJours,
   qidDe,
   sousThemeDUnAlbum,
   titresAmbigus,
@@ -343,6 +346,57 @@ test('les vues d’un article : la médiane de trente jours, les jours sans lect
     assert.equal(encore.get('Tres de mayo'), 130)
     assert.equal(demandes.length, avant, 'gardées sur le disque : rien ne se redemande')
     assert.deepEqual(fenetreDesVues(new Date('2026-10-11T08:00:00Z')), ['20260910', '20261009'], 'trente jours, jusqu’à avant-hier')
+  } finally {
+    globalThis.fetch = vrai
+    rmSync(dossier, { recursive: true, force: true })
+  }
+})
+
+test('les fichiers quotidiens de vues : les articles de Wikipédia en français, tous accès additionnés, la médiane des jours', () => {
+  // L'API REST des vues renvoyait chaque requête à une minute le 11 octobre 2026 : les fichiers quotidiens disent tout d'un coup.
+  const vues = new Map<string, Uint32Array>()
+  const jours = 3
+  const lignes = [
+    'fr.wikipedia La_Joconde 12345 desktop 400 A100B300',
+    'fr.wikipedia La_Joconde 12345 mobile-web 500 A500',
+    'en.wikipedia Mona_Lisa 999 desktop 9000 A9000',
+    'fr.wikipedia Une_page_absente null desktop 70 A70',
+    'fr.wikipedia Spécial:Recherche 1 desktop 5000 A5000',
+    'fr.wikipedia Discussion_utilisateur:Untel 2 desktop 30 A30',
+    'fr.wikipedia Star_Wars:_Episode_IV 77 desktop 80 A80',
+    'fr.wiktionary joconde 5 desktop 3 C3',
+  ]
+  for (const l of lignes) ajouterUneLigneDeVues(vues, 0, jours, l)
+  ajouterUneLigneDeVues(vues, 1, jours, 'fr.wikipedia La_Joconde 12345 desktop 1000 A1000')
+  ajouterUneLigneDeVues(vues, 2, jours, 'fr.wikipedia La_Joconde 12345 desktop 800 A800')
+  assert.deepEqual([...vues.keys()].sort(), ['La Joconde', 'Star Wars: Episode IV'], 'ni une autre langue, ni une page absente, ni une page spéciale ou de discussion')
+  assert.deepEqual(Array.from(vues.get('La Joconde')!), [900, 1000, 800], 'ordinateur et mobile additionnés')
+  const medianes = medianesDesJours(vues)
+  assert.equal(medianes['La Joconde'], 900)
+  assert.equal(medianes['Star Wars: Episode IV'], undefined, 'lu un jour sur trois : zéro un jour ordinaire, pas gardé')
+  const dix = joursDesDumps(new Date('2026-10-11T08:00:00Z'), 10)
+  assert.equal(dix.length, 10)
+  assert.equal(dix[0], '20261009', 'le plus récent : avant-hier')
+  assert.equal(dix[1], '20261006', 'un jour sur trois')
+  assert.equal(dix[9], '20260912')
+})
+
+test('les vues viennent de l’index des fichiers quotidiens quand il est là, sans une requête de plus', async () => {
+  const dossier = mkdtempSync(path.join(tmpdir(), 'index-'))
+  const vrai = globalThis.fetch
+  const demandes: string[] = []
+  writeFileSync(path.join(dossier, 'vues-des-dumps.json'), JSON.stringify({ le: new Date().toISOString(), jours: [], vues: { 'La Joconde': 900, 'El tres de mayo de 1808 en Madrid': 130 } }))
+  globalThis.fetch = (async (url: string | URL) => {
+    const u = new URL(String(url))
+    demandes.push(u.hostname)
+    return new Response(JSON.stringify({ query: { redirects: [{ from: 'Tres de mayo', to: 'El tres de mayo de 1808 en Madrid' }] } }), { status: 200 })
+  }) as typeof fetch
+  try {
+    const vues = await new Wikidata(dossier, 0).vues(['La Joconde', 'Tres de mayo', 'Un inconnu'])
+    assert.equal(vues.get('La Joconde'), 900)
+    assert.equal(vues.get('Tres de mayo'), 130, 'la redirection suivie, la cible lue dans l’index')
+    assert.equal(vues.get('Un inconnu'), 0)
+    assert.deepEqual(demandes, ['fr.wikipedia.org'], 'une seule requête : où mènent les articles presque sans lecteurs')
   } finally {
     globalThis.fetch = vrai
     rmSync(dossier, { recursive: true, force: true })

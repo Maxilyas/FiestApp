@@ -19,6 +19,7 @@
 // trois difficultés. Un lot sur trois relu en aurait laissé passer les deux
 // tiers : chaque lot se relit.
 //
+//   npx tsx scripts/faits-wikidata.ts vues-des-dumps [--jours=10]
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/faits-wikidata.ts extraire [<famille> …] [--max-sujets=600]
 //   npx tsx scripts/faits-wikidata.ts lots --questions=300 [--familles=tableaux,films] [--par-lot=30] [--nom=wd1]
 //   npx tsx scripts/faits-wikidata.ts fusionner <nom>-NN
@@ -38,9 +39,11 @@
 // Dans le cloud, le réseau passe par un proxy que le `fetch` de Node ne suit
 // que sous `NODE_USE_ENV_PROXY=1` : sans, il ne trouve même pas l'hôte.
 
+import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import { SERVEUR } from '../src/racine'
 import { lireLaBase, lireQuestionDeLaBase, nomDeFamille } from '../src/core/baseCampagne'
@@ -1263,9 +1266,12 @@ export class Wikidata {
     const manquants = [...new Set(titres)].filter(t => !gardees[t] || !fraiche(gardees[t].le))
     const garder = () => writeFileSync(fichier, JSON.stringify(gardees))
     const presqueVides: string[] = []
+    const index = this.indexDesDumps()
+    const lire = async (t: string) => (index ? (index.get(t) ?? 0) : await this.vuesDUnArticle(t))
     let lus = 0
-    await enParallele(manquants, VUES_EN_PARALLELE, async t => {
-      const vues = await this.vuesDUnArticle(t)
+    // L'index des fichiers quotidiens, s'il est là, dit tout sans requête ; sinon l'API REST, article par article.
+    await enParallele(manquants, index ? 1 : VUES_EN_PARALLELE, async t => {
+      const vues = await lire(t)
       gardees[t] = { le: new Date().toISOString(), vues }
       if (vues < VUES_D_UNE_REDIRECTION) presqueVides.push(t)
       // Gardées en route : une extraction coupée reprend où elle en était.
@@ -1280,12 +1286,22 @@ export class Wikidata {
       for (const t of lot) {
         let cible = t
         for (let saut = 0; saut < 3 && vers.has(cible); saut++) cible = vers.get(cible)!
-        if (cible !== t) gardees[t] = { le: new Date().toISOString(), vues: await this.vuesDUnArticle(cible) }
+        if (cible !== t) gardees[t] = { le: new Date().toISOString(), vues: await lire(cible) }
       }
       await attendre(this.pause)
     }
     garder()
     return new Map(titres.map(t => [t, gardees[t]?.vues ?? 0]))
+  }
+
+  private index: Map<string, number> | null | undefined
+  /** L'index des vues tiré des fichiers quotidiens (`vues-des-dumps`), lu une fois, s'il a moins de trente jours. */
+  private indexDesDumps(): Map<string, number> | null {
+    if (this.index !== undefined) return this.index
+    const f = path.join(this.dossier, FICHIER_DES_VUES_DES_DUMPS)
+    const lu = existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as { le: string; vues: Record<string, number> }) : null
+    this.index = lu && Date.now() - Date.parse(lu.le) < 30 * 86_400_000 ? new Map(Object.entries(lu.vues)) : null
+    return this.index
   }
 
   /** La médiane des vues d'un article sur trente jours ; zéro pour un article que l'API ne connaît pas. */
@@ -1325,6 +1341,93 @@ async function enParallele<T>(elements: readonly T[], n: number, f: (e: T) => Pr
       while (suivant < elements.length) await f(elements[suivant++])
     }),
   )
+}
+
+// ── Les vues des fichiers quotidiens ────────────────────────────────────
+
+/** Les vues d'un jour ordinaire de chaque article de Wikipédia en français, tirées des fichiers quotidiens (`vues-des-dumps`). */
+const FICHIER_DES_VUES_DES_DUMPS = 'vues-des-dumps.json'
+
+/** Ce qui n'est pas un article : une page spéciale, un fichier, une catégorie, une discussion… */
+const HORS_DES_ARTICLES = /^(Spécial|Special|Fichier|File|Catégorie|Category|Utilisateur|User|Modèle|Template|Portail|Projet|Wikipédia|Wikipedia|Aide|Help|Module|MediaWiki|Média|Media|Sujet|Talk|Discussion[^:]*):/
+
+/**
+ * Ajoute à son jour une ligne d'un fichier quotidien de vues, si c'est un
+ * article de Wikipédia en français : « fr.wikipedia La_Joconde 12345
+ * mobile-web 450 … » — une ligne par article et par accès (ordinateur, mobile,
+ * application), qu'on additionne ; sans identifiant de page (`null`), une
+ * page qui n'existe pas, qu'on ignore.
+ */
+export function ajouterUneLigneDeVues(vues: Map<string, Uint32Array>, jour: number, jours: number, ligne: string): void {
+  if (!ligne.startsWith('fr.wikipedia ')) return
+  const [, brut, page, , total] = ligne.split(' ')
+  const n = Number(total)
+  if (!brut || page === 'null' || !Number.isFinite(n) || HORS_DES_ARTICLES.test(brut)) return
+  const titre = brut.replace(/_/g, ' ')
+  const parJour = vues.get(titre) ?? vues.set(titre, new Uint32Array(jours)).get(titre)!
+  parJour[jour] += n
+}
+
+/** La médiane des jours de chaque article — un jour sans lecteur compte pour zéro —, gardée s'il est lu au moins une fois par jour ordinaire. */
+export function medianesDesJours(vues: ReadonlyMap<string, Uint32Array>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [titre, jours] of vues) {
+    const m = mediane(Array.from(jours))
+    if (m >= 1) out[titre] = m
+  }
+  return out
+}
+
+/** Les jours qu'on lit : `combien` jours répartis sur les trente de `fenetreDesVues`, le plus récent d'abord. */
+export function joursDesDumps(aujourdhui: Date, combien: number): string[] {
+  const fin = fenetreDesVues(aujourdhui)[1]
+  const t = Date.UTC(Number(fin.slice(0, 4)), Number(fin.slice(4, 6)) - 1, Number(fin.slice(6, 8)))
+  const pas = Math.max(1, Math.floor(JOURS_DE_VUES / combien))
+  return Array.from({ length: combien }, (_, i) => new Date(t - i * pas * 86_400_000).toISOString().slice(0, 10).replace(/-/g, ''))
+}
+
+/**
+ * Les vues de tous les articles de Wikipédia en français d'un coup : les
+ * fichiers quotidiens de Wikimedia (`pageview_complete`, six cents mégaoctets
+ * compressés par jour), lus au fil de l'eau — `curl | bzcat | grep` —, dix
+ * jours sur trente. L'API REST des vues, un article par requête, ne rendait
+ * plus rien le 11 octobre 2026 : chaque requête était renvoyée à une minute
+ * (429), et pas cinq cents articles n'étaient lus en dix minutes. Deux
+ * fichiers à la fois, ce que le serveur des dumps accepte d'une adresse.
+ */
+async function vuesDesDumps(combien: number) {
+  const jours = joursDesDumps(new Date(), combien)
+  const vues = new Map<string, Uint32Array>()
+  await enParallele(
+    jours.map((jour, i) => ({ jour, i })),
+    2,
+    async ({ jour, i }) => {
+      const url = `https://dumps.wikimedia.org/other/pageview_complete/${jour.slice(0, 4)}/${jour.slice(0, 4)}-${jour.slice(4, 6)}/pageviews-${jour}-user.bz2`
+      const debut = Date.now()
+      await new Promise<void>((resolve, reject) => {
+        const p = spawn('bash', ['-c', `set -o pipefail; curl -sSf --retry 5 -A '${UA}' '${url}' | bzcat | grep '^fr\\.wikipedia '`], { stdio: ['ignore', 'pipe', 'inherit'] })
+        let fini = false
+        let code: number | null = null
+        const finir = () => (fini && code !== null ? (code === 0 ? resolve() : reject(new Error(`${url} : code ${code}`))) : undefined)
+        createInterface({ input: p.stdout })
+          .on('line', l => ajouterUneLigneDeVues(vues, i, jours.length, l))
+          .on('close', () => {
+            fini = true
+            finir()
+          })
+        p.on('error', reject)
+        p.on('close', c => {
+          code = c ?? 1
+          finir()
+        })
+      })
+      console.log(`  ${jour} lu en ${Math.round((Date.now() - debut) / 1000)} s — ${vues.size} articles en tout`)
+    },
+  )
+  const medianes = medianesDesJours(vues)
+  mkdirSync(DOSSIER_DES_FAITS, { recursive: true })
+  writeFileSync(path.join(DOSSIER_DES_FAITS, FICHIER_DES_VUES_DES_DUMPS), JSON.stringify({ le: new Date().toISOString(), jours, vues: medianes }))
+  console.log(`${Object.keys(medianes).length} articles lus au moins une fois par jour ordinaire, sur ${jours.length} jours (${jours.at(-1)} → ${jours[0]}).`)
 }
 
 // ── Les commandes ───────────────────────────────────────────────────────
@@ -1416,6 +1519,7 @@ async function principal(args: readonly string[]) {
   const [commande, ...reste] = args
   const { mots, options } = lireLesOptions(reste)
   if (commande === 'extraire') await extraire(mots, options.has('max-sujets') ? Number(options.get('max-sujets')) : undefined)
+  else if (commande === 'vues-des-dumps') await vuesDesDumps(Number(options.get('jours') ?? 10))
   else if (commande === 'lots') {
     preparerLesLots({
       questions: Number(options.get('questions') ?? 300),
@@ -1431,7 +1535,7 @@ async function principal(args: readonly string[]) {
       console.log(`${f.cle.padEnd(14)} ${f.nom} (${f.categorie}) — ${n}`)
     }
   } else {
-    console.log('faits-wikidata.ts extraire [<famille> …] | lots --questions=<n> [--familles=…] [--par-lot=30] [--nom=wd1] | fusionner <nom>-NN | familles — le détail en tête du script.')
+    console.log('faits-wikidata.ts vues-des-dumps [--jours=10] | extraire [<famille> …] | lots --questions=<n> [--familles=…] [--par-lot=30] [--nom=wd1] | fusionner <nom>-NN | familles — le détail en tête du script.')
   }
 }
 
