@@ -54,8 +54,11 @@ Sans déploiement, la routine du matin agrandit aussi la base, par l'API
 lance les mêmes agents, en nombre. Tout passe par l'abonnement Claude : rien
 ne se paie en plus, mais chaque vague consomme les limites d'usage du forfait,
 que la routine du matin partage — mille questions, c'est une quarantaine de
-rédacteurs et une dizaine de correcteurs. Pas d'API d'Anthropic : elle se
-facture à part, et le propriétaire n'en veut pas.
+rédacteurs et une dizaine de correcteurs (le 11 octobre 2026 : mille écrites,
+dix-neuf refusées entre lots comme le même fait, huit retirées et cinquante-quatre
+corrigées à la relecture — une anecdote ou une explication sur deux, des
+difficultés trop hautes pour un fait que tout le monde sait —, 973 rangées).
+Pas d'API d'Anthropic : elle se facture à part, et le propriétaire n'en veut pas.
 
 1. **Le plan** : `npx tsx scripts/generer-campagne.ts preparer
    --questions=<n>` (`--categories=Géographie,Sport`, `--par-lot=30`). Il dit ce
