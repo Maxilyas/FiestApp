@@ -2548,6 +2548,8 @@ export class CampagneStore {
       'read',
     )
     const releve = releverLesDuels(duelsLus(duels.rows), semaineDeLInstant)
+    const passee = releve.semaines.get(this.semaineDeLHeure().passee)
+    const payee = recompenseDeLaSemaine(passee)
     // Ni un masqué, ni un ami qu'il a retiré : ce que la page des duels montre (`mesAmis`), sans relire toute sa liste d'amis.
     const auteurs = recus.rows.map(r => String(r.auteur)).filter(a => !this.masque?.(a))
     const adversaire = lireAdversaire(ouverte.rows[0]?.adversaire)
@@ -2562,6 +2564,7 @@ export class CampagneStore {
       semaine: (({ duels, ligue }) => ({ duels, ligue }))(this.semaineDesDuels(releve)),
       ...(dernier && { defisRecus: { n: auteurs.length, de: dernier.name } }),
       ...(contre && { enCours: { nom: contre.nom } }),
+      ...(passee && payee > 0 && { semainePassee: { ligue: ligueDe(passee.meilleure).cle, confettis: payee } }),
     }
   }
 

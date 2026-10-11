@@ -94,6 +94,16 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
   if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
   if (!d || d.joues === 0) return { detail: espacesFines('Un joueur de ton niveau, son score à battre : monte de ligue') }
   const manque = DUELS_POUR_LA_RECOMPENSE - d.semaine.duels
+  // Le lundi, ce que la semaine passée vient de verser — tant que la nouvelle n'a pas son premier duel :
+  // sans lui, la récompense arrivait au solde sans un mot, et la tuile redisait « encore 3 duels ».
+  if (d.semainePassee && d.semaine.duels === 0) {
+    const ligue = ligueParCle(d.semainePassee.ligue).nom
+    return {
+      detail: espacesFines(
+        `+${d.semainePassee.confettis}\u00a0confettis pour ta semaine en ${ligue.charAt(0).toLowerCase()}${ligue.slice(1)} · encore ${manque}\u00a0duels pour la prochaine`,
+      ),
+    }
+  }
   // Un nombre ne quitte pas son mot à la ligne : « cote » d'un côté, « 1084 » de l'autre.
   return {
     detail: espacesFines(

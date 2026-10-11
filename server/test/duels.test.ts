@@ -225,6 +225,12 @@ test('les ligues paient chaque lundi, dans le solde de confettis : dès trois du
     const etat = (await lire(banc, lea, '/api/duels')).corps
     assert.deepEqual(etat.semainePassee, { ligue: 'bronze', duels: 3, confettis: 10 })
     assert.deepEqual([etat.semaine.duels, etat.semaine.confettis], [0, 0], 'la nouvelle semaine repart de zéro')
+    // L'accueil le dit aussi : la récompense ne tombe pas au solde sans un mot.
+    const accueilDuLundi = (await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels
+    assert.deepEqual(accueilDuLundi.semainePassee, { ligue: 'bronze', confettis: 10 })
+    // Une semaine sans ses trois duels ne paie rien, et l'accueil n'en dit rien.
+    horloge.t += 7 * JOUR_MS
+    assert.equal((await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels.semainePassee, undefined)
   } finally {
     await banc.close()
   }
