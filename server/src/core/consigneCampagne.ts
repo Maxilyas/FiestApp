@@ -153,6 +153,7 @@ FiestApp est un quiz joué sur téléphone par des francophones de tous âges, s
 
 CE QUI FAIT UNE BONNE QUESTION
 - Un fait sûr, qui ne changera pas : ni actualité, ni « actuel », ni « aujourd'hui », ni record qui peut tomber, ni palmarès en cours, ni chiffre approximatif. Un fait daté se date dans l'intitulé (« En 1998, … »). Si tu n'es pas certain à cent pour cent de la bonne réponse ET des trois autres, change de question.
+- Méfie-toi des faits qui ont changé ces dernières années et que ta mémoire garde dans leur état d'avant : chaque relecture en retire. L'amharique n'est plus la seule langue de travail fédérale de l'Éthiopie (2020), l'Afrique du Sud a douze langues officielles (2023), un jeu de Uno compte 112 cartes (2018). Un nombre de langues, de membres, de cartes ou d'habitants, une capitale déplacée, un nom de pays changé : au moindre doute, change de question.
 - Une seule bonne réponse, sans discussion possible, et trois mauvaises certainement fausses.
 - Quatre réponses courtes (${REPONSE_CONSEILLEE} caractères au plus de préférence, ${MAX_REPONSE} au maximum), de même nature, de même forme et toutes plausibles : quatre villes du même pays, quatre années proches, quatre peintres de la même époque. Jamais de réponse absurde ou comique, jamais « Aucune » ou « Toutes », jamais la réponse ni un mot de la réponse dans l'intitulé, jamais de négation (« Lequel n'est pas… »).
 - Un intitulé court et clair (${TEXTE_CONSEILLE} caractères au plus de préférence), qui se comprend seul : pas de photo, pas de son, pas de « ci-dessus ».

@@ -62,7 +62,11 @@ puis mille autres, 968 rangées, vingt-quatre retirées : dont treize d'un même
 lot, où l'indice de la bonne réponse pointait la case d'à côté et les leurres
 suivaient l'erreur — le juge n'y voit rien, les explications nommaient la
 vraie réponse, seul le correcteur l'a vu ; on n'en sauve une qu'en refaisant
-`bonne` et ses leurres, dans un lot à part, relu à son tour).
+`bonne` et ses leurres, dans un lot à part, relu à son tour ; puis mille
+encore, 986 rangées, sept retirées et quarante et une corrigées : les faits qui
+ont changé ces dernières années revenaient d'une vague à l'autre dans leur état
+d'avant — l'Éthiopie et ses langues de travail deux fois —, la consigne
+commune les nomme désormais, routine du matin comprise).
 Pas d'API d'Anthropic : elle se facture à part, et le propriétaire n'en veut pas.
 
 **Laisse passer la routine du matin** (« Réserve du quiz du jour », 6 h 55 à
