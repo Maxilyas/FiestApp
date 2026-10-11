@@ -7769,6 +7769,8 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 /* La catégorie sous le nom, qui n'est qu'une image ; les étoiles, en or. */
 .sentiers-categorie { margin-top: -4px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; }
 .sentiers-etoiles { color: var(--or-text); white-space: nowrap; }
+/* La difficulté du palier à jouer, d'un mot, sous son numéro. */
+.sentiers-difficulte { margin-top: -3px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; }
 .sentiers-etat .icon { width: 12px; height: 12px; color: var(--shape-2); }
 .sentiers-tuile-complete .sentiers-etat { color: var(--accent-text); font-weight: 700; }
 .sentier-portrait { display: inline-grid; place-items: center; flex: none; line-height: 0; }
@@ -7825,6 +7827,8 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sujet-tuile .icon { width: 18px; height: 18px; color: var(--accent-text); }
 .sujet-tuile b { font-size: 0.86rem; line-height: 1.2; }
 .sujet-etat { margin-top: auto; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+/* La difficulté du palier à jouer, sous son état, plus légère. */
+.sujet-difficulte { display: block; font-weight: 400; }
 .sujet-accompli { border-color: var(--edge-strong); background: var(--accent-soft); }
 .sujet-accompli .sujet-etat { color: var(--accent-text); }
 .sujet-paliers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

@@ -98,7 +98,9 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   // La page : un sujet de chaque famille, en grille, sous les catégories ; « Commencer » part sur celui qui se joue.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string \| null>\(sujetRetenu\)/)
-  assert.match(page, /aria-label=\{famille === 'epoque' \? 'Une époque' : 'Un fil rouge'\}/)
+  // Chaque famille — un thème, une époque, un fil rouge — sa rangée nommée (`FAMILLES_DE_SUJETS`).
+  assert.match(page, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom \}\) =>/)
+  assert.match(page, /role="group" aria-label=\{nom\}/)
   assert.match(page, /onClick=\{\(\) => void commencer\(categories, sujetJouable\)\}/)
 })
 

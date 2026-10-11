@@ -20,10 +20,12 @@ import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { BRANCHES } from '../../shared/branches'
 import { niveauDeQuestion, type Niveau } from '../../shared/campagne'
+import { sujetParCle } from '../../shared/sujets'
 import {
   QUESTIONS_PAR_LOT,
   charger,
   commandeDesSentiers,
+  commandeDuTheme,
   etat,
   lireLesDecisions,
   planDeLaGeneration,
@@ -176,6 +178,49 @@ test('préparer pour les sentiers : la commande dit combien, sans --questions', 
     assert.equal(generation.demandees, 12 * 208)
     assert.ok(missions.length > 0)
     assert.throws(() => preparer(contexte(), { sentiers: 9 }), /de 1 à 5 montées/)
+  } finally {
+    rmSync(ctx.dossier, { recursive: true, force: true })
+  }
+})
+
+// Un thème qu'on ajoute (`shared/sujets.ts`, le souhait du propriétaire du
+// 11 octobre 2026 : « prévoir pour l'avenir de rajouter des thèmes ») se
+// remplit sans attendre que la base le croise.
+test('pour un thème : ce que ses six paliers et une série demandent, marche par marche, dans ses sous-thèmes — le moins fourni d’abord', () => {
+  const parMarche = (lignes: readonly QuotaDEcriture[]) => {
+    const m: Record<Niveau, number> = { facile: 0, moyen: 0, difficile: 0, expert: 0 }
+    for (const l of lignes) m[niveauDeQuestion(l.difficulte!)] += l.n
+    return m
+  }
+  const meta = (categorie: string, sousTheme: string, difficulte: number, etiquettes: string[] = []) => ({ categorie, sousTheme, difficulte, etiquettes, date: null, portee: 'monde' as const })
+  // Une base vide : deux montées de ses six paliers — 21 faciles, 24 moyennes et 15 difficiles chacune —, et les cinq expertes d'une série.
+  const terre = sujetParCle('terre-espace')!
+  const vide = commandeDuTheme(terre, [])
+  assert.deepEqual([...vide.keys()].sort(), ['Géographie', 'Sciences'])
+  const toutes = [...vide.values()].flat()
+  assert.deepEqual(parMarche(toutes), { facile: 42, moyen: 48, difficile: 30, expert: 5 })
+  const deSousTheme = (cle: string) => toutes.filter(l => l.cle === cle).reduce((s, l) => s + l.n, 0)
+  assert.deepEqual(['espace', 'terre', 'eaux', 'reliefs'].map(deSousTheme), [33, 32, 30, 30], 'ses quatre sous-thèmes à tour de rôle')
+  assert.ok(vide.get('Géographie')!.every(l => l.cle === 'eaux' || l.cle === 'reliefs'), 'rien hors de ses sous-thèmes')
+
+  // Ce que ses étiquettes lui apportent compte : quarante animaux faciles au cinéma, il n'en manque que deux — écrits en nature.
+  const animaux = sujetParCle('animaux')!
+  const auCinema = Array.from({ length: 40 }, () => meta('Cinéma & séries', 'sagas', 2, ['animaux']))
+  const commande = commandeDuTheme(animaux, auCinema)
+  assert.deepEqual([...commande.keys()], ['Nature'])
+  assert.equal(parMarche(commande.get('Nature')!).facile, 2)
+  // Plein, rien à écrire ; lu sur ses seules étiquettes, il ne se commande pas.
+  const plein = (['mammiferes', 'oiseaux'] as const).flatMap(s => [1, 3, 4, 5].flatMap(d => Array.from({ length: 30 }, () => meta('Nature', s, d))))
+  assert.equal(commandeDuTheme(animaux, plein).size, 0)
+  assert.throws(() => commandeDuTheme({ ...animaux, sousThemes: undefined }, []), /ne se lit que sur ses étiquettes/)
+
+  const ctx = contexte()
+  try {
+    const { generation, missions } = preparer(ctx, { theme: 'terre-espace', nom: 't1' })
+    assert.equal(generation.demandees, 125)
+    assert.ok(missions.length > 0)
+    assert.throws(() => preparer(contexte(), { theme: 'annees-80' }), /l'un des thèmes de shared\/sujets\.ts \(animaux, /)
+    assert.throws(() => preparer(contexte(), { theme: 'animaux', questions: 10 }), /un seul à la fois/)
   } finally {
     rmSync(ctx.dossier, { recursive: true, force: true })
   }

@@ -9,8 +9,11 @@
 // et ne donne la bonne réponse qu'après la sienne (invariant 1).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { SERVEUR } from '../src/racine'
 import {
   CONFETTIS_DES_ETOILES,
   PALIERS,
@@ -23,6 +26,7 @@ import {
   cleDeMaitre,
   confettisDeLaNouvelleNote,
   confettisDesEtoiles,
+  difficulteDuMelange,
   epreuveFinie,
   etoilesDe,
   etoilesDuSentier,
@@ -86,6 +90,33 @@ test('douze paliers de seize questions à dix bonnes réponses, plus durs à cha
   assert.equal(regleDuPalier(0), null)
   assert.equal(regleDuPalier(14), null)
   assert.equal(regleDuPalier('3'), null, 'un palier vient en nombre')
+})
+
+test('la difficulté d’un palier se dit d’un mot, lu sur son mélange — sur la tuile, dans le bloc du haut, sur la fiche', () => {
+  // « Savoir direct contre quoi on joue, et la difficulté » (le propriétaire, le 11 octobre 2026).
+  assert.deepEqual(
+    PALIERS.map(r => difficulteDuMelange(r.melange)),
+    [
+      'facile',
+      'facile',
+      'facile à moyen',
+      'facile à moyen',
+      'facile à moyen',
+      'moyen',
+      'moyen',
+      'moyen',
+      'moyen à difficile',
+      'moyen à difficile',
+      'moyen à difficile',
+      'difficile',
+      'expert',
+    ],
+  )
+  assert.equal(difficulteDuMelange({ facile: 2, moyen: 8 }), 'moyen', 'un mélange de sentier à thème se lit pareil')
+  const page = readFileSync(path.join(SERVEUR, '..', 'client', 'src', 'views', 'Sentiers.tsx'), 'utf8')
+  assert.match(page, /<span className="sentiers-difficulte" aria-hidden="true">/, 'la tuile la dit sous le palier à jouer')
+  assert.match(page, /` · \$\{difficulteDuMelange\(regleDuPalier\(c\)!\.melange\)\}`/, 'le bloc du haut, après le thème')
+  assert.match(page, /<dt>Difficulté<\/dt>/, 'la fiche du palier')
 })
 
 test('une épreuve se valide dès le seuil, continue pour les étoiles, s’arrête à la faute de trop', () => {

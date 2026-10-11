@@ -80,6 +80,10 @@ export type IconName =
   | 'dice'
   | 'glass'
   | 'shield'
+  // Les thèmes de la campagne (`client/src/iconeDuSujet.ts`).
+  | 'paw'
+  | 'planet'
+  | 'medal'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -518,6 +522,37 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M6 4h12l-1.4 5.2a4.8 4.8 0 0 1-9.2 0L6 4Z" />
         <path d="M12 14v6M8.5 20h7" />
+      </>
+    ),
+  },
+  // Les thèmes que les emblèmes des catégories ne disaient pas : la feuille
+  // de la nature, le globe de la géographie, la cible du sport y auraient
+  // fait croire à une catégorie.
+  paw: {
+    paths: (
+      <>
+        <circle cx="5.5" cy="10.5" r="1.8" />
+        <circle cx="9.5" cy="5.8" r="1.8" />
+        <circle cx="14.5" cy="5.8" r="1.8" />
+        <circle cx="18.5" cy="10.5" r="1.8" />
+        <path d="M12 11.5c-2.6 0-5.5 3.3-5.5 5.9 0 1.6 1.2 2.6 2.7 2.6 1.1 0 1.9-.6 2.8-.6s1.7.6 2.8.6c1.5 0 2.7-1 2.7-2.6 0-2.6-2.9-5.9-5.5-5.9Z" />
+      </>
+    ),
+  },
+  planet: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="5.5" />
+        <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-20 12 12)" />
+      </>
+    ),
+  },
+  medal: {
+    paths: (
+      <>
+        <path d="M7.5 3 10.2 9.4M16.5 3l-2.7 6.4" />
+        <circle cx="12" cy="15" r="6" />
+        <circle cx="12" cy="15" r="2.4" />
       </>
     ),
   },

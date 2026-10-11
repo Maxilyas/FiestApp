@@ -26,7 +26,7 @@ import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
-import { SUJETS, sujetParCle } from '../../../shared/sujets'
+import { FAMILLES_DE_SUJETS, SUJETS, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -779,17 +779,18 @@ export function CampagneApp() {
                     </button>
                   ))}
                 </div>
-                {/* Ou un fil qui les traverse toutes : une époque, la France, les pionnières (`shared/sujets.ts`). Le toucher de nouveau rend les catégories. */}
+                {/* Ou un sujet au-delà des catégories : un thème, une époque, un fil rouge (`shared/sujets.ts`), chaque famille sa rangée — une famille sans sujet jouable n'en a pas. Le toucher de nouveau rend les catégories. */}
                 {sujets.length > 0 && (
                   <div className="campagne-sujets">
-                    <p className="sujets-titre">Ou un sujet, à travers toutes les catégories</p>
-                    {(['epoque', 'fil'] as const).map(famille => (
-                      <div key={famille}>
-                        <p className="label">{famille === 'epoque' ? 'Une époque' : 'Un fil rouge'}</p>
-                        <div className="categories-grille" role="group" aria-label={famille === 'epoque' ? 'Une époque' : 'Un fil rouge'}>
-                          {sujets
-                            .filter(s => s.famille === famille)
-                            .map(s => (
+                    <p className="sujets-titre">Ou un sujet, au-delà des catégories</p>
+                    {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
+                      const ici = sujets.filter(s => s.famille === famille)
+                      if (ici.length === 0) return null
+                      return (
+                        <div key={famille}>
+                          <p className="label">{nom}</p>
+                          <div className="categories-grille" role="group" aria-label={nom}>
+                            {ici.map(s => (
                               <button
                                 key={s.cle}
                                 type="button"
@@ -801,9 +802,10 @@ export function CampagneApp() {
                                 {s.nom}
                               </button>
                             ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {leSujet && <p className="muted small">{espacesFines(leSujet.description)}</p>}
                   </div>
                 )}
