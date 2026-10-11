@@ -145,6 +145,9 @@ export function choisirLeurres(
   const pays = new Set(reponse.pays ?? [])
   const candidats = vivier
     .filter(e => e.qid !== reponse.qid && !o.exclus?.has(e.qid) && (e.annees?.length ?? 0) > 0)
+    // Une personne a des personnes pour leurres : Wikidata donne « non attribué » pour vainqueur des Tours retirés à
+    // Armstrong, et il s'affichait parmi les réponses d'une question sur la Vuelta.
+    .filter(e => reponse.humain !== true || e.humain !== false)
     .filter(e => plat(e.nom) !== plat(reponse.nom) && (!famille || nomDeFamille(e.nom) !== famille))
     .map(e => ({ e, d: Math.min(...e.annees!.flatMap(a => annees.map(b => Math.abs(a - b)))) }))
     .filter(({ d }) => d <= o.ecart)
@@ -546,7 +549,8 @@ async function grandsTours(wd: Wikidata): Promise<Extraction> {
     if (e.vainqueurs.size !== 1 || !e.annee) continue
     const sujet = editions.get(ed)
     const reponse = gens.get([...e.vainqueurs][0])
-    if (sujet && reponse) faits.push({ sujet, reponse, annee: e.annee, indices: [COURSES[e.course]], francais: e.course === 'Q33881' })
+    // « Non attribué » : un titre retiré pour dopage n'a pas de vainqueur à demander.
+    if (sujet && reponse && reponse.humain !== false) faits.push({ sujet, reponse, annee: e.annee, indices: [COURSES[e.course]], francais: e.course === 'Q33881' })
   }
   return { faits, vivier: [...gens.values()], homonymes: new Set() }
 }
@@ -581,7 +585,7 @@ export function laureatsParAnnee(lignes: readonly { l?: string; an?: string }[])
  * Les leurres sont d'autres lauréats, à quelques années près, que leurs années
  * de prix situent.
  */
-async function laureats(wd: Wikidata, o: { prix: string; classe: string }): Promise<Extraction> {
+async function laureats(wd: Wikidata, o: { prix: string; classe: string; annees?: (an: number) => boolean }): Promise<Extraction> {
   const lignes = await wd.sparql(`SELECT ?l ?an WHERE {
   ?l p:P166 ?st . ?st ps:P166 wd:${o.prix} ; pq:P585 ?d . FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank }
   ?l wdt:P31 wd:${o.classe} .
@@ -592,11 +596,20 @@ async function laureats(wd: Wikidata, o: { prix: string; classe: string }): Prom
   const gens = await personnes(wd, [...annees.keys()], annees)
   const faits: FaitBrut[] = []
   for (const [an, qs] of parAnnee) {
+    if (o.annees && !o.annees(an)) continue
     const reponse = qs.length === 1 ? gens.get(qs[0]) : undefined
     if (prix && reponse) faits.push({ sujet: prix, reponse, annee: an, indices: [], francais: (reponse.pays ?? []).includes(FRANCE) })
   }
   return { faits, vivier: [...gens.values()], homonymes: new Set() }
 }
+
+/**
+ * Les années où la récompense suprême de Cannes s'appelait la Palme d'or : le
+ * « Grand Prix du Festival » avant 1955, puis de 1964 à 1974, que Wikidata
+ * compte pour des Palmes — « Le Salaire de la peur », Palme d'or 1953, a été
+ * retiré par le correcteur le 11 octobre 2026, avec trois autres.
+ */
+export const anneeDUnePalme = (an: number): boolean => (an >= 1955 && an <= 1963) || an >= 1975
 
 /** Les genres qui rangent un album ailleurs que dans la pop et le rock. */
 const JAZZ = 'Q8341'
@@ -616,6 +629,14 @@ export function sousThemeDUnAlbum(f: Pick<FaitBrut, 'genres' | 'francais'>): str
 const POESIE = 'Q482'
 const COMEDIE = 'Q40831'
 const TRAGEDIE = 'Q80930'
+
+/**
+ * Ce que demande un palmarès : le lauréat d'un millésime, jamais « en 2019,
+ * qui reçoit » — le Nobel 2018 a été remis en 2019, et Olga Tokarczuk aurait
+ * été une seconde bonne réponse ; le correcteur a retiré quatre questions
+ * ainsi le 11 octobre 2026.
+ */
+const MILLESIME = (prix: string) => `qui est le lauréat de ${prix} de l'année de la fiche — le prix de ce millésime, même remis l'année suivante : écris « ${prix} 2006 », jamais « en 2006, qui reçoit »`
 
 /** Ceux dont le métier est d'écrire — écrivain, romancier, poète, dramaturge, philosophe. */
 const ECRIVAINS = ['Q36180', 'Q6625963', 'Q49757', 'Q214917', 'Q4964182']
@@ -852,8 +873,8 @@ export const FAMILLES: readonly Famille[] = [
     nom: 'Le prix Goncourt, son lauréat',
     categorie: 'Arts & lettres',
     sousTheme: () => 'litterature-fr',
-    gabarit: f => `En ${f.annee}, qui reçoit le prix Goncourt ?`,
-    demande: "qui a reçu le prix Goncourt l'année de la fiche",
+    gabarit: f => `Qui est le lauréat du prix Goncourt ${f.annee} ?`,
+    demande: MILLESIME('le prix Goncourt'),
     typeSujet: 'evenement',
     descriptionSujet: 'prix littéraire',
     ecart: 12,
@@ -867,8 +888,8 @@ export const FAMILLES: readonly Famille[] = [
     nom: 'Le prix Nobel de littérature, son lauréat',
     categorie: 'Arts & lettres',
     sousTheme: f => (f.francais ? 'litterature-fr' : 'litterature-monde'),
-    gabarit: f => `En ${f.annee}, qui reçoit le prix Nobel de littérature ?`,
-    demande: "qui a reçu le prix Nobel de littérature l'année de la fiche",
+    gabarit: f => `Qui est le lauréat du prix Nobel de littérature ${f.annee} ?`,
+    demande: MILLESIME('le prix Nobel de littérature'),
     typeSujet: 'evenement',
     descriptionSujet: 'prix littéraire',
     ecart: 12,
@@ -882,8 +903,8 @@ export const FAMILLES: readonly Famille[] = [
     nom: "Le Ballon d'or, son lauréat",
     categorie: 'Sport',
     sousTheme: () => 'football',
-    gabarit: f => `En ${f.annee}, qui reçoit le Ballon d'or ?`,
-    demande: "qui a reçu le Ballon d'or l'année de la fiche",
+    gabarit: f => `Qui est le lauréat du Ballon d'or ${f.annee} ?`,
+    demande: MILLESIME("le Ballon d'or"),
     typeSujet: 'evenement',
     descriptionSujet: 'récompense du football',
     ecart: 8,
@@ -897,8 +918,8 @@ export const FAMILLES: readonly Famille[] = [
     nom: "La Palme d'or, son film",
     categorie: 'Cinéma & séries',
     sousTheme: f => (f.francais ? 'cinema-fr' : 'cinema-monde'),
-    gabarit: f => `En ${f.annee}, quel film reçoit la Palme d'or ?`,
-    demande: "quel film a reçu la Palme d'or l'année de la fiche",
+    gabarit: f => `Quel film reçoit la Palme d'or au Festival de Cannes ${f.annee} ?`,
+    demande: "quel film a reçu la Palme d'or au Festival de Cannes de l'année de la fiche",
     typeSujet: 'evenement',
     descriptionSujet: 'prix du Festival de Cannes',
     typeReponse: 'oeuvre',
@@ -907,7 +928,7 @@ export const FAMILLES: readonly Famille[] = [
     vuesMin: 10,
     echelle: 0.5,
     sorte: 'palmares',
-    extraire: wd => laureats(wd, { prix: 'Q179808', classe: 'Q11424' }),
+    extraire: wd => laureats(wd, { prix: 'Q179808', classe: 'Q11424', annees: anneeDUnePalme }),
   },
   // Pas d'édifices : sur Wikidata, « architecte » nomme souvent l'auteur d'une partie — Viollet-le-Duc pour la statue de
   // la Liberté, Stéphen Sauvestre pour la tour Eiffel, l'auteur de la façade pour Sainte-Marie-Majeure. Des faits qui

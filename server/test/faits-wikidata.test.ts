@@ -15,6 +15,7 @@ import { TriDesEntrees, lireLot } from '../scripts/lots-campagne'
 import {
   FAMILLES,
   ajouterUneLigneDeVues,
+  anneeDUnePalme,
   anneeDe,
   choisirLeurres,
   choisirLesFiches,
@@ -104,6 +105,11 @@ test('les leurres d’une réponse : le même vivier, les années proches, le m�
   assert.ok(varies && !varies.slice(0, 3).includes('Pieter de Hooch') && !varies.slice(0, 3).includes('Gabriel Metsu'), 'les leurres déjà souvent affichés cèdent la place')
   assert.equal(choisirLeurres(VERMEER, VIVIER.slice(0, 5), { ecart: 60 }), null, 'sous six, pas de fiche')
   assert.equal(choisirLeurres({ ...VERMEER, annees: [] }, VIVIER, { ecart: 60 }), null, 'sans année, rien ne se compare')
+  // Wikidata donne « non attribué » pour vainqueur des Tours retirés à Armstrong : il s'affichait parmi les réponses.
+  const nonAttribue: EntiteWd = { qid: 'Q99', nom: 'non attribué', description: null, titre: null, liens: 200, annees: [1632], pays: ['Q55'], humain: false }
+  const humain = { ...VERMEER, humain: true }
+  assert.ok(!(choisirLeurres(humain, [...VIVIER, nonAttribue], { ecart: 60 }) ?? []).includes('non attribué'), 'une personne a des personnes pour leurres')
+  assert.ok((choisirLeurres({ ...VERMEER, humain: false }, [...VIVIER, nonAttribue], { ecart: 60 }) ?? []).includes('non attribué'), 'un groupe peut avoir un groupe pour leurre')
 })
 
 test('la difficulté a priori : les vues du sujet en France, la réponse qui se devine, le palmarès sur le vainqueur', () => {
@@ -284,6 +290,11 @@ test('chaque famille écrit des fiches que le juge peut lire : sa catégorie, so
   }
   assert.equal(new Set(FAMILLES.map(f => f.cle)).size, FAMILLES.length, 'une clé par famille')
   assert.equal(FAMILLES.find(f => f.cle === 'grands-tours')!.gabarit(fait), 'En 1985, qui remporte le Tour de France ?')
+  // Un palmarès se demande par millésime : le Nobel 2018 a été remis en 2019.
+  assert.equal(FAMILLES.find(f => f.cle === 'nobel-litterature')!.gabarit(fait), 'Qui est le lauréat du prix Nobel de littérature 1985 ?')
+  assert.match(FAMILLES.find(f => f.cle === 'goncourt')!.demande, /jamais « en 2006, qui reçoit »/)
+  // Le « Grand Prix du Festival » n'est pas une Palme d'or : avant 1955, et de 1964 à 1974.
+  assert.deepEqual([1953, 1955, 1963, 1967, 1974, 1975, 1994].map(anneeDUnePalme), [false, true, true, false, false, true, true])
 })
 
 test('un titre est ambigu quand un autre auteur connu le porte, pas les versions du même auteur ni une copie obscure', () => {
@@ -459,7 +470,7 @@ test('un palmarès : la bonne réponse change de place d’une année à l’aut
   assert.ok(new Set(fiches.map(f => f.bonne)).size >= 3, 'la bonne réponse n’est pas toujours au même endroit')
   assert.ok(fiches.every(f => f.portee === 'france' && f.etiquettes.includes('femmes')), 'un lauréat français peu traduit : la portée « france »')
   assert.ok(fiches.every(f => f.entites[1].type === 'personne'))
-  assert.equal(fiches[0].texte, `En ${fiches[0].date!.valeur}, qui reçoit le prix Goncourt ?`)
+  assert.equal(fiches[0].texte, `Qui est le lauréat du prix Goncourt ${fiches[0].date!.valeur} ?`)
 })
 
 test('une réponse de Wikidata se lit malgré un caractère de contrôle brut dans un libellé, et se garde', async () => {
