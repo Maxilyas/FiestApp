@@ -1,4 +1,4 @@
-import React, { Component, Suspense, lazy, type ReactNode } from 'react'
+import React, { Component, Suspense, type ComponentType, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
@@ -26,23 +26,32 @@ import './styles.css'
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
 // l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
 // un quiz en 4G.
-const PlayerApp = lazy(() => import('./views/PlayerApp').then(m => ({ default: m.PlayerApp })))
-const HostApp = lazy(() => import('./views/HostApp').then(m => ({ default: m.HostApp })))
-const EditorApp = lazy(() => import('./views/EditorApp').then(m => ({ default: m.EditorApp })))
-const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
-const BilanApp = lazy(() => import('./views/BilanApp').then(m => ({ default: m.BilanApp })))
-const ArchivesApp = lazy(() => import('./views/ArchivesApp').then(m => ({ default: m.ArchivesApp })))
-const LoginApp = lazy(() => import('./views/LoginApp').then(m => ({ default: m.LoginApp })))
-const ActivateApp = lazy(() => import('./views/ActivateApp').then(m => ({ default: m.ActivateApp })))
-const AccountApp = lazy(() => import('./views/AccountApp').then(m => ({ default: m.AccountApp })))
-const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.AdminApp })))
-const LandingApp = lazy(() => import('./views/LandingApp').then(m => ({ default: m.LandingApp })))
-const ProfilApp = lazy(() => import('./views/ProfilApp').then(m => ({ default: m.ProfilApp })))
-const JourApp = lazy(() => import('./views/JourApp').then(m => ({ default: m.JourApp })))
-const CampagneApp = lazy(() => import('./views/CampagneApp').then(m => ({ default: m.CampagneApp })))
-const SalonApp = lazy(() => import('./views/SalonApp').then(m => ({ default: m.SalonApp })))
+//
+// Son code se charge avant le premier rendu, sans `lazy` : une route
+// paresseuse suspendait, React posait son attente, puis retenait la page au
+// moins trois dixièmes de seconde après elle (`aLaDemande.ts`) — même son
+// code déjà en cache, au retour d'un joueur. L'attente que le serveur écrit
+// dans la page (`ecrireAttente`) reste à l'écran jusqu'à la page elle-même.
+const PlayerApp = () => import('./views/PlayerApp').then(m => m.PlayerApp)
+const HostApp = () => import('./views/HostApp').then(m => m.HostApp)
+const EditorApp = () => import('./views/EditorApp').then(m => m.EditorApp)
+const RecapApp = () => import('./views/RecapApp').then(m => m.RecapApp)
+const BilanApp = () => import('./views/BilanApp').then(m => m.BilanApp)
+const ArchivesApp = () => import('./views/ArchivesApp').then(m => m.ArchivesApp)
+const LoginApp = () => import('./views/LoginApp').then(m => m.LoginApp)
+const ActivateApp = () => import('./views/ActivateApp').then(m => m.ActivateApp)
+const AccountApp = () => import('./views/AccountApp').then(m => m.AccountApp)
+const AdminApp = () => import('./views/AdminApp').then(m => m.AdminApp)
+const LandingApp = () => import('./views/LandingApp').then(m => m.LandingApp)
+const ProfilApp = () => import('./views/ProfilApp').then(m => m.ProfilApp)
+const JourApp = () => import('./views/JourApp').then(m => m.JourApp)
+const CampagneApp = () => import('./views/CampagneApp').then(m => m.CampagneApp)
+const SalonApp = () => import('./views/SalonApp').then(m => m.SalonApp)
 
-const ACCOUNT: Record<AccountPage, typeof HostApp> = {
+/** Une page, à charger : son code vient à part. */
+type PageACharger = () => Promise<ComponentType>
+
+const ACCOUNT: Record<AccountPage, PageACharger> = {
   host: HostApp,
   edit: EditorApp,
   connexion: LoginApp,
@@ -58,7 +67,7 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   boutique: ProfilApp,
   campagne: CampagneApp,
 }
-const PUBLIC: Record<PublicPage, typeof RecapApp> = {
+const PUBLIC: Record<PublicPage, PageACharger> = {
   souvenir: RecapApp,
   stats: RecapApp,
   bilan: BilanApp,
@@ -79,6 +88,8 @@ const App =
         : route.kind === 'landing'
           ? ProfilApp
           : LandingApp
+// Demandé d'emblée : le code de la page part avant tout le reste du démarrage.
+const code = App()
 
 /**
  * Le repère principal, pour qui saute de région en région au lecteur
@@ -91,12 +102,12 @@ const App =
  * leurs hauteurs, qui se comptent en `vh`.
  */
 const REPERE_PROPRE = new Set<unknown>([HostApp, EditorApp, AccountApp, AdminApp, ArchivesApp, RecapApp, BilanApp])
-const Page = () =>
+const Page = ({ Vue }: { Vue: ComponentType }) =>
   REPERE_PROPRE.has(App) ? (
-    <App />
+    <Vue />
   ) : (
     <main>
-      <App />
+      <Vue />
     </main>
   )
 
@@ -210,13 +221,24 @@ class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <Filet>
-      <Suspense fallback={<Patience texte={<p className="muted">Chargement…</p>} />}>
-        <Page />
-      </Suspense>
-      <DialogHost />
-    </Filet>
-  </React.StrictMode>,
+/** Un code qui ne viendra pas tombe dans le filet, comme sous `lazy`. */
+const Perdu = ({ erreur }: { erreur: unknown }): ReactNode => {
+  throw erreur
+}
+
+const racine = ReactDOM.createRoot(document.getElementById('root')!)
+const rendre = (page: ReactNode) =>
+  racine.render(
+    <React.StrictMode>
+      <Filet>
+        {/* Rien n'y suspend plus : le filet d'une page qui suspendrait un jour. */}
+        <Suspense fallback={<Patience texte={<p className="muted">Chargement…</p>} />}>{page}</Suspense>
+        <DialogHost />
+      </Filet>
+    </React.StrictMode>,
+  )
+// Le premier rendu est la page même : React n'a pas d'attente à retenir.
+code.then(
+  Vue => rendre(<Page Vue={Vue} />),
+  (erreur: unknown) => rendre(<Perdu erreur={erreur} />),
 )

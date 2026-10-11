@@ -164,8 +164,23 @@ test('l’attente que le serveur écrit est celle que React dessinera : rien ne 
   } finally {
     Object.assign(globalThis, { document: avant })
   }
-  // Et c'est bien `Patience` que les routes montrent en attendant leur code.
+  // Et c'est bien `Patience` que la racine montrerait si une page suspendait.
   assert.match(source('main.tsx'), /<Suspense fallback=\{<Patience texte=\{<p className="muted">Chargement…<\/p>\} \/>\}>/)
+})
+
+test('le premier rendu est la page même : son code arrive avant, et React n’a aucune attente à retenir', () => {
+  // Une route paresseuse (`lazy`) suspendait au premier rendu : React posait
+  // son attente, puis retenait la page au moins trois dixièmes de seconde
+  // après elle — même son code déjà en cache, au retour d'un joueur. Le code
+  // part dès le démarrage, et l'attente que le serveur a écrite reste à
+  // l'écran jusqu'à la page.
+  const racine = source('main.tsx')
+  assert.doesNotMatch(racine, /\blazy\(/)
+  assert.match(racine, /^const code = App\(\)$/m)
+  assert.match(racine, /^code\.then\(\n\s*Vue => rendre\(<Page Vue=\{Vue\} \/>\),\n\s*\(erreur: unknown\) => rendre\(<Perdu erreur=\{erreur\} \/>\),\n\)$/m)
+  // Un seul rendu de la racine, une fois le code là ; un code perdu tombe dans le filet.
+  assert.equal([...racine.matchAll(/\.render\(/g)].length, 1)
+  assert.match(racine, /const Perdu = \(\{ erreur \}: \{ erreur: unknown \}\): ReactNode => \{\n\s*throw erreur\n\}/)
 })
 
 test('la page servie fait précharger ce que sa vue demandera ; l’entrée d’un invité, elle, porte déjà son nom', async () => {
