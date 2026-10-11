@@ -65,9 +65,10 @@ export function MaVitrine({
     const complet = choix.length >= VITRINE_MAX
     return (
       <section className="card" ref={section}>
+        {/* Sa page s'appelle « Ma vitrine » : la carte dit ce qu'elle range. */}
         <h3>
           <Icon name="award" />
-          Ma vitrine
+          Mes hauts faits <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>
         </h3>
         <p className="muted small">{`Jusqu’à ${VITRINE_MAX} hauts faits, dans l’ordre où ta carte les montrera.`}</p>
         {/* Une liste, pas un groupe : `role="group"` lui retirait ses éléments. */}
@@ -130,7 +131,7 @@ export function MaVitrine({
     <section className="card" ref={section}>
       <h3>
         <Icon name="award" />
-        Ma vitrine
+        Sur ta carte
       </h3>
       {montres.length === 0 ? (
         <p className="muted small">

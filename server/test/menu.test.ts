@@ -50,15 +50,19 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   assert.match(profil, /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\)\s*setEcranOuvert\(null\)/)
   // Un lien d'un écran vers un autre passe par la même porte.
   assert.match(profil, /<div className="player-shell" onClick=\{suivreUnLien\}>/)
-  // Les adresses d'avant mènent à l'écran qui les a reprises.
+  // Les adresses d'avant mènent à la page qui les a reprises — chaque pièce
+  // de « Ma carte » et de « Mon style » à la sienne.
   for (const [avant, ecran] of [
     ['apparence', 'avatar'],
     ['avatars', 'avatar'],
     ["'style-finition'", 'avatar'],
-    ["'style-titre'", 'carte'],
-    ["'style-fond'", 'carte'],
-    ["'style-gerbe'", 'theme'],
+    ["'style-titre'", 'titre'],
+    ["'style-fond'", 'fond'],
+    ["'style-gerbe'", 'gerbe'],
     ["'style-theme'", 'theme'],
+    ["'carte-titre'", 'titre'],
+    ["'carte-vitrine'", 'vitrine'],
+    ["'carte-fond'", 'fond'],
     ['trophees', 'collection'],
   ])
     assert.match(profil, new RegExp(`\\n  ${avant}: '${ecran}',\\n`), avant)

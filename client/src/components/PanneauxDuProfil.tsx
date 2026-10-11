@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
 import { compteDeLaCollection, type Compte } from '../../../shared/collection'
 import { vitrineDeLaCarte } from '../../../shared/carte'
@@ -17,15 +17,15 @@ import { MesThemes, RayonDesObjets, RayonDesThemes } from './Boutique'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
 import type { ApercusDuVestiaire } from './Vestiaire'
 
-// Le contenu des écrans du profil — « Mon avatar », « Ma carte », « Mon
-// thème », « Ma collection » — et de la boutique, que la page charge à la
-// demande (`ProfilApp`) : ils portent les dessins de tous les médaillons, et
-// l'accueil anonyme, qui ne montre que « Me connecter » et « Rejoindre une
-// soirée », les téléchargeait avec lui.
+// Le contenu des écrans du profil — une page par pièce qu'on porte (son
+// avatar, son titre, sa vitrine, son fond, son thème, sa gerbe), « Ma
+// collection », sa carrière, ses soirées — et de la boutique, que la page
+// charge à la demande (`ProfilApp`) : ils portent les dessins de tous les
+// médaillons, et l'accueil anonyme, qui ne montre que « Me connecter » et
+// « Rejoindre une soirée », les téléchargeait avec lui.
 //
-// Les trois premiers sont ceux où l'on choisit ce qu'on porte, rangés par
-// qui le voit : ils ne montrent que ce qu'on a. Tout le reste, et où le
-// gagner, vit dans « Ma collection », où l'on ne règle rien.
+// Les pages de ce qu'on porte ne montrent que ce qu'on a. Tout le reste, et
+// où le gagner, vit dans « Ma collection », où l'on ne règle rien.
 
 interface Props {
   profil: PublicProfileDetail
@@ -48,7 +48,8 @@ export function apercusDesTuiles(profil: PublicProfileDetail): ApercusDuVestiair
     vitrine: vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits)).map(b => ({ emoji: b.emoji, nom: b.title })),
     // Le Velours d'office : il n'est pas du catalogue des fonds.
     fond: FONDS.find(f => f.key === profil.fond)?.nom ?? 'Velours',
-    gerbe: saGerbe ? { nom: saGerbe.nom, particule: saGerbe.particules[0] } : null,
+    // Trois de ses particules au plus, comme sa case dans « Ma gerbe ».
+    gerbe: saGerbe ? { nom: saGerbe.nom, particules: saGerbe.particules.slice(0, 3) } : null,
     apercuDuTheme: apercuDe(profil.theme ?? 'velours'),
   }
 }
@@ -65,9 +66,7 @@ export function PanneauMonAvatar({ profil, busy, enregistrer }: Props) {
   const reste = avatars ? avatars.total - avatars.acquis : 0
   return (
     <>
-      <div className="identite-collante">
-        <Identite profil={profil} />
-      </div>
+      <SaCarteEnTete profil={profil} />
       <MaFinition profil={profil} busy={busy} enregistrer={enregistrer} />
       <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} aMoi />
       {reste > 0 && (
@@ -112,58 +111,67 @@ function MaFinition({ profil, busy, enregistrer }: Props) {
 }
 
 /**
- * « Ma carte » : ce qu'on voit en touchant son prénom — son titre, sa
- * vitrine, son fond —, sa carte collée en tête. La vitrine vivait dans les
- * trophées, le titre et le fond dans « Mon style » : trois écrans pour une
- * carte. Le reste s'y remplit tout seul.
+ * Les pages de la carte — ce qu'on voit en touchant son prénom : son titre,
+ * sa vitrine, son fond —, une par pièce, sa carte collée en tête : la pièce
+ * touchée y change sous ses yeux. Les trois tenaient sur « Ma carte », et le
+ * vestiaire faisait défiler jusqu'à la sienne : on tombait au milieu d'une
+ * page (le souhait du propriétaire du 11 octobre 2026).
  */
-export function PanneauMaCarte({ profil, busy, enregistrer }: Props) {
-  useAncreDuVestiaire()
+function SaCarteEnTete({ profil }: { profil: PublicProfileDetail }) {
+  return (
+    <div className="identite-collante">
+      <Identite profil={profil} />
+    </div>
+  )
+}
+
+/** « Mon titre » : sous son prénom, sur sa carte. */
+export function PanneauMonTitre({ profil, busy, enregistrer }: Props) {
   return (
     <>
-      <div className="identite-collante">
-        <Identite profil={profil} />
-      </div>
-      {/* Chaque partie à son adresse : le vestiaire du profil y mène (`#carte-vitrine`). */}
-      <div id="carte-titre" className="ancre-du-vestiaire">
-        <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
-      </div>
-      <div id="carte-vitrine" className="ancre-du-vestiaire">
-        <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
-      </div>
-      <div id="carte-fond" className="ancre-du-vestiaire">
-        <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
-      </div>
+      <SaCarteEnTete profil={profil} />
+      <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
+    </>
+  )
+}
+
+/** « Ma vitrine » : les hauts faits de sa carte — le reste s'y remplit tout seul, et la page le dit. */
+export function PanneauMaVitrine({ profil, busy, enregistrer }: Props) {
+  return (
+    <>
+      <SaCarteEnTete profil={profil} />
+      <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
       <p className="muted small center">Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix.</p>
     </>
   )
 }
 
-/**
- * La partie d'un écran qu'a touchée le vestiaire (`#carte-vitrine`) vient
- * sous les yeux, une fois, à l'ouverture : sous la carte collée en tête, le
- * fond de carte était à trois écrans de défilement du titre.
- */
-function useAncreDuVestiaire() {
-  useEffect(() => {
-    const ancre = window.location.hash.slice(1)
-    if (ancre.includes('-')) document.getElementById(ancre)?.scrollIntoView({ block: 'start' })
-    // Une fois : ensuite, c'est le doigt qui parcourt.
-  }, [])
+/** « Mon fond de carte » : sa carte en tête le porte dès qu'on en touche un. */
+export function PanneauMonFond({ profil, busy, enregistrer }: Props) {
+  return (
+    <>
+      <SaCarteEnTete profil={profil} />
+      <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+    </>
+  )
 }
 
 /**
- * « Mon thème » : ce que lui seul voit — le thème qui habille ses pages, la
- * gerbe qui éclate à ses bonnes réponses. Ses thèmes seulement : la boutique
- * vend les autres, la collection dit où gagner ceux qui ne se vendent pas.
+ * « Mon thème » : ce qui habille ses pages, pour lui seul. Ses thèmes
+ * seulement : la boutique vend les autres, la collection dit où gagner ceux
+ * qui ne se vendent pas. Pas de carte en tête : la page entière le porte.
  */
 export function PanneauMonTheme({ profil, busy, enregistrer }: Props) {
-  return (
-    <>
-      <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />
-      <MaGerbe profil={profil} busy={busy} enregistrer={enregistrer} />
-    </>
-  )
+  return <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />
+}
+
+/**
+ * « Ma gerbe » : ce qui éclate à ses bonnes réponses, pour lui seul. Elle
+ * vivait sous les thèmes, sur la même page : deux choses qu'on ne règle pas
+ * ensemble, et la seconde se cherchait sous la première.
+ */
+export function PanneauMaGerbe({ profil, busy, enregistrer }: Props) {
+  return <MaGerbe profil={profil} busy={busy} enregistrer={enregistrer} />
 }
 
 export { MaCollection as PanneauCollection } from './Collection'

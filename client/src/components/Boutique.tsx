@@ -305,7 +305,8 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
         <b>
           {siens.length} thème{siens.length > 1 ? 's' : ''}
         </b>{' '}
-        · {espacesFines('il habille toutes tes pages, de la soirée à tes quiz. Touche un thème, puis « Le porter ».')}
+        {/* Ce qu'il habille, l'en-tête de sa page le dit : ici, comment le porter. */}
+        · {espacesFines('de la soirée à tes quiz. Touche un thème, puis « Le porter ».')}
       </p>
       <div className="vitrine-themes" role="group" aria-label="Mes thèmes">
         {siens.map(t => {
