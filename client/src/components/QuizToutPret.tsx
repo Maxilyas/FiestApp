@@ -13,6 +13,7 @@ import {
   DIFFICULTES_DU_QUIZ,
   NOMBRES_DU_QUIZ,
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
+  UNE_ESTIMATION_SUR,
   type BaseDuQuizToutPret,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
@@ -20,11 +21,11 @@ import {
 /**
  * Un quiz tout prêt (`shared/quizToutPret.ts`), dans sa feuille : ses
  * catégories — la grille de la campagne —, la difficulté, combien de
- * questions, des enfants ou non, puis les sujets, qui font trois rangées de
- * plus ; « Composer », collé en bas, toujours en vue, sous ce qu'il composera
- * — tout est réglé d'office, et l'animateur pressé n'a qu'un toucher à faire.
- * Le quiz composé rejoint sa bibliothèque : « Créer un quiz » l'ouvre, le
- * salon l'ajoute à ce soir.
+ * questions, des estimations ou non, des enfants ou non, puis les sujets,
+ * qui font trois rangées de plus ; « Composer », collé en bas, toujours en
+ * vue, sous ce qu'il composera — tout est réglé d'office, et l'animateur
+ * pressé n'a qu'un toucher à faire. Le quiz composé rejoint sa
+ * bibliothèque : « Créer un quiz » l'ouvre, le salon l'ajoute à ce soir.
  */
 export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () => void; onCompose: (quiz: QuizDef) => void }) {
   const [base, setBase] = useState<BaseDuQuizToutPret | null>(null)
@@ -34,6 +35,8 @@ export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () =>
   const [difficulte, setDifficulte] = useState<DifficulteDuQuiz>('progressive')
   const [nombre, setNombre] = useState(NOMBRE_DU_QUIZ_PAR_DEFAUT)
   const [enfants, setEnfants] = useState(false)
+  // Cochées d'office, comme dans les quiz livrés : l'estimation au plus près fait parler la salle.
+  const [estimations, setEstimations] = useState(true)
   const [compose, setCompose] = useState(false)
 
   useEffect(() => {
@@ -52,7 +55,7 @@ export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () =>
     setCompose(true)
     setErreur('')
     try {
-      onCompose(await api.quizToutPret.composer({ categories: categories as Categorie[], sujet, difficulte, nombre, enfants }))
+      onCompose(await api.quizToutPret.composer({ categories: categories as Categorie[], sujet, difficulte, nombre, enfants, estimations }))
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -71,7 +74,9 @@ export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () =>
         <>
           {/* Ce que « Composer » va faire, en une ligne : le bouton, lui, ne tient pas les catégories. */}
           <p className="tout-pret-resume">
-            {espacesFines(`${quoi ?? 'Toutes les catégories'} · ${laDifficulte.nom.toLowerCase()}${enfants ? ' · des enfants jouent' : ''}`)}
+            {espacesFines(
+              `${quoi ?? 'Toutes les catégories'} · ${laDifficulte.nom.toLowerCase()}${enfants ? ' · des enfants jouent' : ''}${estimations ? '' : ' · que des QCM'}`,
+            )}
           </p>
           <button type="button" className="btn btn-primary btn-big btn-block" aria-busy={compose || undefined} disabled={!base || compose} onClick={() => void composer()}>
             <Icon name="dice" />
@@ -130,7 +135,14 @@ export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () =>
         </div>
       </section>
 
-      <label className="tout-pret-enfants">
+      <label className="tout-pret-case">
+        <input type="checkbox" checked={estimations} onChange={e => setEstimations(e.target.checked)} />
+        <span>
+          <b>Des estimations</b>
+          <span className="muted small">{espacesFines(`Une question sur ${UNE_ESTIMATION_SUR} se joue au plus près : une année, un nombre`)}</span>
+        </span>
+      </label>
+      <label className="tout-pret-case">
         <input type="checkbox" checked={enfants} onChange={e => setEnfants(e.target.checked)} />
         <span>
           <b>Des enfants jouent</b>

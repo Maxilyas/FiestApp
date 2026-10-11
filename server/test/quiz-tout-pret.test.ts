@@ -5,7 +5,17 @@
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { composerUnQuiz, dejaDansLEspace, idDansLeQuiz, lireChoixDuQuiz, planDuQuiz, titreDuQuizToutPret, type DejaDansLEspace } from '../src/core/quizToutPret'
+import {
+  cibleDeLEstimation,
+  composerUnQuiz,
+  dejaDansLEspace,
+  idDansLeQuiz,
+  lireChoixDuQuiz,
+  placesDesEstimations,
+  planDuQuiz,
+  titreDuQuizToutPret,
+  type DejaDansLEspace,
+} from '../src/core/quizToutPret'
 import { sujetsDeLaQuestion } from '../src/core/campagne'
 import { niveauDeQuestion } from '../../shared/campagne'
 import { suiteFixe } from '../../shared/hasard'
@@ -51,7 +61,53 @@ function question(
   return lu.question
 }
 
-const choix = (c: Partial<ChoixDuQuiz> = {}): ChoixDuQuiz => ({ categories: [], sujet: null, difficulte: 'progressive', nombre: 10, enfants: false, ...c })
+/**
+ * Une question de la base dont la bonne réponse est un nombre — et sa
+ * valeur, ce nombre, sauf à en dire une autre : de quoi la jouer en
+ * estimation.
+ */
+function aNombre(
+  id: string,
+  nombre: number,
+  { texte, valeur = nombre, unite = '', difficulte = 2 }: { texte?: string; valeur?: number; unite?: string; difficulte?: number } = {},
+): QuestionDeLaBase {
+  const ecrit = (n: number) => String(n).replace('.', ',')
+  const autres = [1, 2, 3, 4, 5, 6].map(d => ecrit(Math.round((nombre + d * 7) * 100) / 100))
+  const lu = lireQuestionDeLaBase({
+    id,
+    texte: texte ?? `En quelle année le fait numéro ${id} a-t-il eu lieu ?`,
+    reponses: [ecrit(nombre), ...autres.slice(0, 3)],
+    bonne: 0,
+    anecdote: `L'anecdote de ${id}.`,
+    categorie: 'Histoire',
+    sousTheme: SOUS_THEMES.Histoire[0].cle,
+    etiquettes: [],
+    difficulte,
+    ageMin: 10,
+    date: null,
+    entites: [],
+    portee: 'monde',
+    valeur: { nombre: valeur, unite },
+    leurres: autres,
+    dureeDeVie: 'stable',
+    explication: '',
+    source: null,
+    confiance: 3,
+    aRelire: [],
+  })
+  if ('refus' in lu) throw new Error(`question ${id} : ${lu.refus}`)
+  return lu.question
+}
+
+const choix = (c: Partial<ChoixDuQuiz> = {}): ChoixDuQuiz => ({
+  categories: [],
+  sujet: null,
+  difficulte: 'progressive',
+  nombre: 10,
+  enfants: false,
+  estimations: false,
+  ...c,
+})
 const rien: DejaDansLEspace = { ids: new Set(), empreintes: new Set(), posees: new Map() }
 const composer = (base: readonly QuestionDeLaBase[], c: ChoixDuQuiz, deja = rien, graine = 7) =>
   composerUnQuiz(base, sujetsDeLaQuestion, new Map(), c, deja, suiteFixe(graine))
@@ -92,6 +148,7 @@ test('le choix d’un navigateur se lit, ou se refuse en entier', () => {
   assert.deepEqual(lireChoixDuQuiz({}), choix({ nombre: 15 }), 'ce qui manque prend sa valeur par défaut')
   assert.deepEqual(lireChoixDuQuiz({ categories: ['Sport', 'Histoire', 'Sport'], nombre: 20, enfants: true })?.categories, ['Histoire', 'Sport'], 'dans l’ordre de la liste, sans doublon')
   assert.equal(lireChoixDuQuiz({ sujet: 'animaux' })?.sujet, 'animaux')
+  assert.equal(lireChoixDuQuiz({ estimations: true })?.estimations, true)
   for (const brut of [
     null,
     [],
@@ -105,6 +162,7 @@ test('le choix d’un navigateur se lit, ou se refuse en entier', () => {
     { nombre: 12.5 },
     { nombre: '15' },
     { enfants: 'oui' },
+    { estimations: 1 },
   ]) {
     assert.equal(lireChoixDuQuiz(brut), null, JSON.stringify(brut))
   }
@@ -198,6 +256,58 @@ test('une marche qui manque emprunte à sa voisine, et un choix trop étroit ren
   // Trois questions de sport en tout : trois, pas une de plus ni une d'ailleurs.
   const etroite = [...base, ...Array.from({ length: 3 }, (_, i) => question(id('s', i), { categorie: 'Sport', difficulte: 2 }))]
   assert.equal(composer(etroite, choix({ categories: ['Sport'], nombre: 10 })).length, 3)
+})
+
+test('une estimation vise le nombre de sa bonne réponse — plus de dix, et un intitulé qui se lit sans les choix', () => {
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000001', 1955)), { target: 1955, unit: '' })
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000002', 1.21, { unite: 'gigawatt', texte: 'Quelle puissance faut-il à la DeLorean pour voyager dans le temps ?' })), {
+    target: 1.21,
+    unit: 'gigawatt',
+  })
+  // Une unité trop longue pour l'écran s'efface : l'intitulé la dit déjà.
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000003', 24, { unite: 'images par seconde', texte: 'Combien d’images par seconde défilent dans un film ?' })), {
+    target: 24,
+    unit: '',
+  })
+  assert.equal(cibleDeLEstimation(aNombre('e0000004', 6, { texte: 'Combien de cordes compte une guitare classique ?' })), null, 'six se devine, ne s’estime pas')
+  assert.equal(cibleDeLEstimation(aNombre('e0000005', 1955, { valeur: 1985 })), null, 'une valeur qui n’est pas la bonne réponse')
+  assert.equal(cibleDeLEstimation(aNombre('e0000006', 1955, { texte: 'Parmi ces années, laquelle a vu naître le rock ?' })), null, 'un intitulé qui suppose des choix')
+  assert.equal(cibleDeLEstimation(question('e0000007')), null, 'pas de valeur')
+  assert.deepEqual(placesDesEstimations(15, 3), [3, 7, 10])
+  assert.deepEqual(placesDesEstimations(10, 2), [2, 6])
+})
+
+test('des estimations : une question sur cinq, réparties, jamais la première ; rien sans les demander', () => {
+  const base = [
+    ...Array.from({ length: 30 }, (_, i) => question(id('q', i), { difficulte: 1 + (i % 3) })),
+    ...Array.from({ length: 6 }, (_, i) => aNombre(id('n', i), 1900 + i * 10)),
+  ]
+  const avec = composer(base, choix({ nombre: 10, estimations: true }))
+  assert.equal(avec.length, 10)
+  assert.deepEqual(
+    avec.map((q, i) => (q.kind === 'number' ? i : -1)).filter(i => i >= 0),
+    [2, 6],
+  )
+  const estimation = avec[2]
+  const source = base.find(q => idDansLeQuiz(q.id) === estimation.id)!
+  assert.deepEqual(
+    { kind: estimation.kind, target: estimation.target, unit: estimation.unit, duration: estimation.duration, answers: estimation.answers },
+    { kind: 'number', target: source.meta.valeur!.nombre, unit: '', duration: 30, answers: [] },
+  )
+  assert.ok(composer(base, choix({ nombre: 10 })).every(q => q.kind === 'choice'), 'sans les demander, que des QCM')
+  // Une seule question à nombre : une estimation, et neuf QCM.
+  const une = composer([...base.slice(0, 30), base[30]], choix({ nombre: 10, estimations: true }))
+  assert.deepEqual([une.length, une.filter(q => q.kind === 'number').length], [10, 1])
+})
+
+test('une estimation experte ne vient que dans un quiz corsé', () => {
+  const base = [
+    ...Array.from({ length: 40 }, (_, i) => question(id('q', i), { difficulte: 1 + (i % 5) })),
+    ...Array.from({ length: 6 }, (_, i) => aNombre(id('x', i), 1500 + i * 10, { difficulte: 5 })),
+  ]
+  assert.ok(composer(base, choix({ difficulte: 'facile', estimations: true })).every(q => q.kind === 'choice'))
+  assert.ok(composer(base, choix({ difficulte: 'progressive', estimations: true })).every(q => q.kind === 'choice'))
+  assert.equal(composer(base, choix({ difficulte: 'corsee', estimations: true })).filter(q => q.kind === 'number').length, 2)
 })
 
 test('le titre dit ce qu’on a choisi, et tient sur une ligne', () => {
