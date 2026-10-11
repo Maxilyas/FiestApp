@@ -15,6 +15,10 @@ retouche. Rien n'a été changé à l'application pour l'écrire.
   première visite, jusqu'à −45 % au retour, et le premier affichage 0,13 à
   0,26 s plus tôt partout (« Suite donnée », plus bas). Le reste de ce
   rapport décrit l'état d'avant.
+- **Puis la piste 8, le 11 octobre** : l'entrée d'un invité paraît sans
+  attendre sa liaison temps réel — −22 % à la première visite, −32 à −40 %
+  au retour —, et le téléphone qui revient retrouve sa place un échange plus
+  tôt (« Suite donnée : la piste 8 »).
 - **Un invité qui scanne le QR attend 1,4 s en 4G avant l'écran d'entrée,
   4,2 s en 4G lente.** Les autres pages : 1,2 à 1,5 s en 4G et 3,8 à 4,7 s en
   4G lente à la première visite ; 1,0 à 1,3 s et 1,8 à 2,5 s au retour.
@@ -429,6 +433,66 @@ Les deux chantiers, dans l'ordre : **l'état de l'entrée dans la page**
 cette PR n'avance pas —, puis **la feuille de style par vue** (piste 5).
 Preact (piste 6) et les morceaux préchargés (piste 7) se décideront sur une
 mesure refaite après eux.
+
+## Suite donnée : la piste 8, le 11 octobre 2026
+
+**L'entrée d'un invité paraît dès son code arrivé.** La page précharge son
+état de départ — ce que `party:watch` lui dirait : l'instantané des
+téléphones, et le profil que le cookie reconnaît —, servi par
+`/s/<espace>/entree.json` (`EntreeDeDepart`, `shared/depart.ts`), au lieu
+d'attendre, son code arrivé, la poignée de main de la liaison et deux
+échanges. La liaison s'ouvre derrière, et ce qu'elle dit l'emporte. Trois
+écarts au plan :
+
+- **une donnée préchargée, pas l'état écrit dans la page** : la page part
+  sans attendre la lecture du profil, par le même chemin que les autres
+  pages (`donneesDeDepart`) — et l'entrée la demande à chaque ouverture,
+  même le téléphone qui ne s'en sert pas ;
+- **seulement sans rien à reprendre** (`entreeUtilisable`) : un téléphone
+  qui porte un jeton attend sa re-présentation — l'instantané seul montrait
+  la salle d'attente d'un invité que la soirée ne connaît peut-être plus
+  [client-7] —, et une fin de soirée gardée passe d'abord ;
+- **le téléphone qui revient y gagne autrement** : sa reprise par jeton part
+  juste derrière `party:watch`, sans attendre sa réponse — la liaison garde
+  l'ordre —, un aller-retour de moins à chaque rechargement, à chaque réveil.
+
+Le bandeau « Connexion perdue » de l'entrée attend la première liaison,
+quatre secondes au plus (`PREMIERE_LIAISON_MS`) : l'entrée paraissant avant
+elle, il clignotait sur chaque téléphone qui scannait le QR.
+
+### Mesuré
+
+`main` construit à part — son serveur et son client, dans un worktree —,
+puis cette retouche, en alternance : deux tours de trois essais chacun, la
+moyenne des deux médianes. Écran utile, en secondes :
+
+| Page | 4G, 1ʳᵉ visite | 4G, retour | 4G lente, 1ʳᵉ visite | 4G lente, retour |
+|---|---|---|---|---|
+| Entrée d’un invité (QR) | 1,52 → **1,18 (−22 %)** | 1,14 → **0,78 (−32 %)** | 4,30 → **3,33 (−22 %)** | 2,13 → **1,28 (−40 %)** |
+| Salle d’attente (retour d’un invité) | 1,62 → 1,52 (−6 %) | 1,25 → 1,18 (−6 %) | 4,48 → 4,30 (−4 %) | 2,36 → 2,19 (−7 %) |
+
+- **L'entrée gagne ce que la cascade promettait**, et un peu plus : la
+  liaison ne s'ouvrait qu'une fois le code exécuté, et ses trois échanges
+  (la poignée de main, `connect`, `party:watch`) passent maintenant derrière
+  l'écran. Au retour, la page arrive presque à son premier affichage.
+- **La salle d'attente gagne un échange avec le serveur** — 0,1 à 0,2 s
+  sous le bridage de la mesure, qui retarde chaque message temps réel de
+  60 ou 150 ms : la reprise par jeton n'attend plus la réponse de
+  `party:watch`. Elle attend toujours la liaison, et c'est voulu : la fiche
+  du serveur fait foi (invariant 9).
+- **Le premier affichage ne bouge pas** (l'attente que le serveur écrit),
+  et la page demande une donnée de plus — 0,6 Ko compressés, une requête.
+
+Au téléphone (360 × 640, la liaison retenue à la main) : l'entrée et le
+profil salué paraissent sans elle ; un prénom tapé et « Rejoindre la
+soirée » touché avant elle l'attendent, puis entrent ; le bandeau de
+coupure ne parle qu'au bout de quatre secondes, et se tait dès la liaison
+ouverte ; le téléphone qui revient reste sous « On arrive… » jusqu'à sa
+re-présentation — ni l'entrée, ni la salle d'avant elle.
+
+Restent, dans l'ordre : **la feuille de style par vue** (piste 5), puis
+Preact (piste 6) et les morceaux préchargés (piste 7), sur une mesure
+refaite.
 
 ## Méthode
 

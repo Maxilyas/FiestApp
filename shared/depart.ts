@@ -15,6 +15,8 @@
 // la lisent donc ici.
 
 import type { Route } from './adresses'
+import type { PublicProfile } from './profil'
+import type { PartySnapshot } from './types'
 
 export const DEPART = {
   /** La console ouverte sur ce navigateur (`currentMe`). */
@@ -37,7 +39,31 @@ export const DEPART = {
 } as const
 
 /** Ce qu'une page de soirée lit sous `/s/<espace>/…`. */
-export type FichierDeSoiree = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json'
+export type FichierDeSoiree = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json' | 'entree.json'
+
+/**
+ * L'entrée d'un invité telle que `party:watch` la lui dirait — l'instantané
+ * des téléphones, et le profil que le cookie reconnaît —, servie par
+ * `/s/<espace>/entree.json` et préchargée avec la page. Son code arrivé,
+ * l'entrée attendait encore la liaison temps réel : la poignée de main et
+ * deux échanges, une demi-seconde en 4G, une seconde en 4G lente, sur la
+ * page que toute la salle ouvre en même temps.
+ */
+export interface EntreeDeDepart {
+  snapshot: PartySnapshot
+  profile?: PublicProfile
+}
+
+/**
+ * L'entrée préchargée ne sert qu'au téléphone qui n'a rien à reprendre. Un
+ * jeton attend sa re-présentation — la fiche du serveur fait foi (invariant
+ * 9), et l'instantané seul montrait la salle d'attente d'un invité qui n'est
+ * peut-être plus de la soirée —, une fin de soirée gardée passe d'abord, et
+ * ce que la liaison a déjà dit est plus frais que la page.
+ */
+export function entreeUtilisable(t: { jeton: boolean; fin: boolean; liaison: boolean }): boolean {
+  return !t.jeton && !t.fin && !t.liaison
+}
 
 /** D'où une page tire ses chiffres : la soirée en cours, ou une soirée archivée. */
 export function adresseDesDonnees(slug: string, fichier: FichierDeSoiree, archiveId: string | null = null): string {
@@ -47,14 +73,15 @@ export function adresseDesDonnees(slug: string, fichier: FichierDeSoiree, archiv
 /**
  * Ce que la page d'une adresse demande dès son code arrivé, quel que soit le
  * visiteur : elle le demande aussi sans cookie (un invité reçoit `null` ou
- * 401), alors le serveur le précharge pour tous. Rien pour l'entrée d'un
- * invité : elle attend la liaison temps réel, pas une donnée. Une page qui
- * cesse de demander une adresse d'ici la laisse préchargée pour rien — le
- * navigateur le dit dans sa console, et `npm run mesure -- --cascade` le
- * montre.
+ * 401), alors le serveur le précharge pour tous. L'entrée d'un invité, son
+ * état de départ (`EntreeDeDepart`) — demandé par tout téléphone, même celui
+ * qui ne s'en sert pas (`entreeUtilisable`). Une page qui cesse de demander
+ * une adresse d'ici la laisse préchargée pour rien — le navigateur le dit
+ * dans sa console, et `npm run mesure -- --cascade` le montre.
  */
 export function donneesDeDepart(route: Route): string[] {
   if (route.kind === 'landing') return [DEPART.console, DEPART.moiAccueil]
+  if (route.kind === 'join') return [adresseDesDonnees(route.slug, 'entree.json')]
   if (route.kind === 'account') {
     switch (route.page) {
       case 'profil':

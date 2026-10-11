@@ -17,7 +17,8 @@ import {
   useAppState,
 } from '../state'
 import { suivanteCommencee } from '../../../shared/fin'
-import { currentSlug, spacePath } from '../routes'
+import { entreeUtilisable, type EntreeDeDepart } from '../../../shared/depart'
+import { currentSlug, dataUrl, spacePath } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
@@ -69,6 +70,23 @@ function precharger() {
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
 
+/**
+ * Le temps qu'on laisse à la première liaison avant de dire qu'elle manque :
+ * l'entrée paraît maintenant avant elle (`entree.json`), et « Connexion
+ * perdue » clignotait une demi-seconde sur chaque téléphone qui scannait le QR.
+ */
+const PREMIERE_LIAISON_MS = 4000
+
+/** L'entrée préchargée avec la page ; null si elle ne vient pas — la liaison la dira. */
+async function lireLEntree(slug: string): Promise<EntreeDeDepart | null> {
+  try {
+    const res = await fetch(dataUrl(slug, 'entree.json'))
+    return res.ok ? ((await res.json()) as EntreeDeDepart) : null
+  } catch {
+    return null
+  }
+}
+
 /** Stable d'un rendu à l'autre : un tableau neuf relancerait la demande à chaque rendu. */
 const SANS_JOUEURS: never[] = []
 /** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
@@ -101,7 +119,8 @@ function SalleDuJoueur() {
   /**
    * La soirée nous a-t-elle répondu ? Tant que non, on ne montre aucun écran
    * d'entrée : celui qu'on montrerait dépend justement du profil, qui arrive
-   * dans cette réponse-là.
+   * dans cette réponse-là — celle de la liaison, ou l'entrée préchargée avec
+   * la page (`entree.json`), qui la précède.
    */
   const [presente, setPresente] = useState(false)
   /**
@@ -161,37 +180,71 @@ function SalleDuJoueur() {
   /** La dernière soirée close d'ici, gardée sur ce téléphone : l'entrée la propose. */
   const [gardee, setGardee] = useState(() => soireeGardee(slug))
 
+  /** La liaison a présenté la soirée : l'entrée préchargée, plus ancienne, n'a plus rien à dire. */
+  const presenteeParLaLiaison = useRef(false)
+
+  // L'entrée préchargée avec la page (`entree.json`) : ce que la liaison
+  // dirait, sans attendre qu'elle s'ouvre. Demandée à chaque ouverture, même
+  // par le téléphone qui ne s'en sert pas : le préchargement attendrait sinon
+  // le `fetch` suivant, et lui rendrait la réponse d'avant (`client.md`).
+  useEffect(() => {
+    let perime = false
+    void lireLEntree(slug).then(entree => {
+      const { me, fin, snapshot } = getState()
+      const liaison = presenteeParLaLiaison.current || !!snapshot
+      if (perime || !entree || !entreeUtilisable({ jeton: !!me?.token, fin: !!fin, liaison })) return
+      setState({ snapshot: entree.snapshot })
+      setProfil(entree.profile ?? null)
+      // Les dessins du profil d'abord, comme à la présentation par la liaison.
+      const sesDessins = sortesDesAvatars(entree.profile ? [entree.profile] : [])
+      if (sesDessins.length === 0) return setPresente(true)
+      void chargerDessinsAuPlus(sesDessins).then(() => {
+        if (!perime) setPresente(true)
+      })
+    })
+    return () => {
+      perime = true
+    }
+  }, [slug])
+
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
   useEffect(() => {
     socket.connect()
     const presenter = async () => {
-      const watched = await watchParty(slug)
-      if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
-      setSpaceError('')
-      // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
-      // l'entrée peut saluer avant même qu'on rejoigne.
-      setProfil(watched.profile ?? null)
-      // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
-      // l'entrée montrerait son emoji, puis le médaillon — et la lumière de
-      // sa finition, qui s'allumerait après coup. Deux secondes et demie au
-      // plus — une requête muette le gardait sous « On arrive… » sans
-      // limite —, et la reprise par jeton, juste en dessous, n'attend pas :
-      // elle part pendant que les dessins arrivent.
-      const sesDessins = sortesDesAvatars(watched.profile ? [watched.profile] : [])
-      if (sesDessins.length > 0) void chargerDessinsAuPlus(sesDessins).then(() => setPresente(true))
-      else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
       // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
       // compris. Rejoindre tout seul avec le prénom retenu faisait atterrir
       // l'habitué « sans équipe », sans jamais lui montrer cet écran.
       const token = getState().me?.token
-      if (!token) return
-      setJetonEnVol(true)
+      if (token) setJetonEnVol(true)
       try {
-        await representer(token)
+        const presentation = watchParty(slug)
+        // Le jeton part juste derrière la présentation, sans attendre sa
+        // réponse : la liaison garde l'ordre, le serveur lit `party:watch`
+        // d'abord, et le téléphone qui revient — rechargé, réveillé —
+        // retrouve sa place un aller-retour plus tôt.
+        // Une présentation refusée ou muette ne l'attend pas : elle finit seule.
+        const reprise = token ? representer(token).catch(() => {}) : undefined
+        const watched = await presentation
+        if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
+        presenteeParLaLiaison.current = true
+        setSpaceError('')
+        // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
+        // l'entrée peut saluer avant même qu'on rejoigne.
+        setProfil(watched.profile ?? null)
+        // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
+        // l'entrée montrerait son emoji, puis le médaillon — et la lumière de
+        // sa finition, qui s'allumerait après coup. Deux secondes et demie au
+        // plus — une requête muette le gardait sous « On arrive… » sans
+        // limite —, et la reprise par jeton n'attend pas : elle est partie
+        // avec la présentation.
+        const sesDessins = sortesDesAvatars(watched.profile ? [watched.profile] : [])
+        if (sesDessins.length > 0) void chargerDessinsAuPlus(sesDessins).then(() => setPresente(true))
+        else setPresente(true)
+        await reprise
       } finally {
-        setJetonEnVol(false)
+        if (token) setJetonEnVol(false)
       }
     }
     const representer = async (token: string) => {
@@ -325,6 +378,17 @@ function SalleDuJoueur() {
   useEffect(() => {
     if (space) document.title = space.title
   }, [space])
+
+  // L'entrée paraît avant la liaison : son absence n'y est une coupure qu'une
+  // fois ouverte, ou passé le temps de l'ouvrir. Hors ligne, le bandeau le
+  // dit sur-le-champ (`BandeauCoupure`).
+  const [premiereLiaison, setPremiereLiaison] = useState(true)
+  useEffect(() => {
+    if (!premiereLiaison) return
+    if (s.connected) return setPremiereLiaison(false)
+    const t = setTimeout(() => setPremiereLiaison(false), PREMIERE_LIAISON_MS)
+    return () => clearTimeout(t)
+  }, [s.connected, premiereLiaison])
 
   /**
    * Rouvre la connexion et attend que le serveur dise qui est là.
@@ -550,7 +614,7 @@ function SalleDuJoueur() {
           equipeDAbord={equipeDAbord}
           lendemain={gardee && <Lendemain gardee={gardee} />}
         />
-        <BandeauCoupure connecte={s.connected} />
+        <BandeauCoupure connecte={s.connected || premiereLiaison} />
         {toast}
       </>
     )

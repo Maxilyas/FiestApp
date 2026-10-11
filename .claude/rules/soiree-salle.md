@@ -35,6 +35,21 @@ paths:
   rend la sonde en cours), et un prix se remet avec l'identifiant de son
   geste (`remise`, `client/src/remise.ts`) : un double clic ne le remet
   qu'une fois.
+- **L'entrée paraît avant la liaison.** La page d'un invité précharge son
+  état de départ (`/s/<espace>/entree.json`, `shared/depart.ts`) : ce que
+  `party:watch` dirait, l'instantané des téléphones et le profil du cookie.
+  Elle ne s'en sert que sans rien à reprendre (`entreeUtilisable`) : un
+  jeton attend sa re-présentation — l'instantané seul montrait la salle
+  d'attente d'un invité que la soirée ne connaît peut-être plus —, une fin
+  de soirée gardée passe d'abord, et ce que la liaison a dit l'emporte. Un
+  geste fait avant la liaison l'attend (`demander`, dix secondes), et
+  `party:watch` part toujours avant lui : la présentation s'écoute dès
+  l'ouverture de la page. Le bandeau de coupure de l'entrée attend la
+  première liaison, quatre secondes au plus (`PREMIERE_LIAISON_MS`) :
+  « Connexion perdue » clignotait sur chaque téléphone qui scannait le QR.
+  Et le téléphone qui revient — rechargé, réveillé — envoie son jeton juste
+  derrière `party:watch`, sans attendre sa réponse : la liaison garde
+  l'ordre, et chaque réveil coûte un aller-retour de moins (`depart.test.ts`).
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
 - **Une nouvelle commande `host:*`** s'ajoute à la liste de
