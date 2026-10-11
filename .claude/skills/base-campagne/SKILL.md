@@ -22,7 +22,14 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
    fichiers seront `<nom>-01.json`, `<nom>-02.json`… La consigne rappelle les
    intitulés que ses sous-thèmes ont déjà, lots en attente compris — pas toute
    la catégorie : `verifier` refuse un fait que la base pose déjà, d'où qu'il
-   vienne (`core/memeFait.ts`).
+   vienne (`core/memeFait.ts`). `--nombres` commande des questions à nombre,
+   qui se joueront aussi en estimation au quiz tout prêt — la base en
+   manquait de faciles : vérifie-les avec `verifier --nombres`, qui avertit de
+   celles qui ne se joueraient pas au plus près (`lireLEstimation`). Les
+   rédacteurs serrent leurs leurres et notent 3 ou 4 : la première vague à
+   nombre, le 11 octobre 2026, n'avait presque aucune 2, et des années à la
+   chaîne — demande-leur la moitié en 2, leurres écartés, et des grandeurs
+   variées.
 4. **L'écriture** : un agent `redacteur-campagne` par lot, dont la mission
    donne le chemin de la consigne. Il écrit ses fichiers et les vérifie
    jusqu'à zéro refus.

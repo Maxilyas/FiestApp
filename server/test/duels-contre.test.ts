@@ -303,6 +303,19 @@ test('chercher quelqu’un par son prénom, l’ajouter à ses amis, le retirer 
     assert.equal((await lire(banc, tom, '/api/duels/joueurs?q=leo')).corps[0].ami, true, 'la recherche dit qu’il est déjà son ami')
     assert.equal((await poster(banc, tom, `/api/campagne/amis/${deTom}/ajout`)).corps.error, 'Ce joueur est introuvable : cherche-le de nouveau')
 
+    // Léa porte le blaireau de la forêt : sa ligne d'amie et sa ligne trouvée
+    // le portent aussi. L'emoji seul lui donnait deux visages sur la même page
+    // — une chouette dans « Tes amis », son portrait au classement
+    // (l'experte du jeu solo, le 11 octobre 2026).
+    base(banc, db =>
+      db
+        .prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, ?)')
+        .run(deLea, 'foret', 5, Date.now()),
+    )
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'br:blaireau' }, lea, 'PUT')).status, 200)
+    assert.equal((await lire(banc, tom, '/api/campagne/amis')).corps.amis.find((a: any) => a.profileId === deLea).legendaire, 'br:blaireau')
+    assert.equal((await lire(banc, tom, '/api/duels/joueurs?q=lea')).corps[0].legendaire, 'br:blaireau')
+
     // Léa retire Tom : le duel qu'il lui lance part — sa fin le dit —, mais ne lui parvient pas.
     assert.equal((await poster(banc, lea, `/api/campagne/amis/${deTom}/retrait`)).status, 200)
     const retenu = await poster(banc, tom, '/api/campagne/duel', { adversaire: deLea })

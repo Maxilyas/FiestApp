@@ -88,7 +88,8 @@ test('le sentier qu’on avance, en panorama : douze paliers, un portrait tous l
   assert.deepEqual([pleins(bloc), vides(bloc)], [11, 1])
   assert.match(bloc, /aria-label="11 vies et 2 en réserve aujourd’hui"/)
   assert.match(bloc, />\+2</)
-  assert.match(bloc, /Racheter/)
+  // « Racheter » laissait croire qu'on rachetait une vie perdue (l'experte du jeu solo, le 11 octobre 2026).
+  assert.match(bloc, /class="link-inline small pano-racheter">Plus de vies</)
   assert.match(bloc, /Continuer · palier 10/)
   // Neuf paliers gagnés en jouant : il connaît les règles, elles se replient.
   assert.match(bloc, /<details class="pano-regles"><summary>Comment ça marche/)
@@ -134,7 +135,7 @@ test('plus de vies : les cœurs vides, et de quoi en racheter', async () => {
   const bloc = await haut(etat({ foret: { paliers: 9 } }, { jour: 0, reserve: 0 }))
   assert.deepEqual([pleins(bloc), vides(bloc)], [0, 12])
   assert.match(bloc, /Plus de vies : elles reviennent à minuit/)
-  assert.match(bloc, /Racheter/)
+  assert.match(bloc, /class="link-inline small pano-racheter">Plus de vies</)
 })
 
 // Une tuile touchée entrait tout droit dans son sentier : le propriétaire

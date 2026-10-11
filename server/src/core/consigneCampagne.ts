@@ -95,9 +95,34 @@ export function consigneDEcriture(
   travail: TravailDUnLot,
   /** Les intitulés déjà écrits dans les sous-thèmes de la part : une IA ne sait pas ce que ses voisines ont écrit. */
   deja: readonly string[] = [],
+  options: OptionsDeLaPart = {},
 ): string {
-  return `${consigneCommune(travail)}\n${partDeLaCategorie(categorie, quotas, deja)}`
+  return `${consigneCommune(travail)}\n${partDeLaCategorie(categorie, quotas, deja, options)}`
 }
+
+/** Ce qu'une part commande en plus de ses sous-thèmes. */
+export interface OptionsDeLaPart {
+  /** Des questions à nombre, qui se joueront aussi en estimation (`NOMBRES`). */
+  nombres?: boolean
+}
+
+/**
+ * Une part de questions à nombre : le quiz tout prêt pose en estimation les
+ * questions dont la bonne réponse est un nombre, aux règles de
+ * `cibleDeLEstimation` (`core/quizToutPret.ts`) — et la base n'en avait que
+ * vingt-sept de faciles, aucune en géographie, en nature, au cinéma ni en
+ * cuisine : un quiz facile d'une catégorie n'en avait plus aucune (le
+ * 11 octobre 2026). Les faciles y sont les plus demandées.
+ */
+const NOMBRES = `TA PART SE JOUE AUSSI AU PLUS PRÈS
+Chacune de tes questions a un nombre pour bonne réponse : en soirée, le quiz tout prêt la pose aussi en estimation — chacun tape un nombre, et le plus proche gagne. Donc :
+- La bonne réponse est ce nombre, écrit en tête de la réponse (« 330 m », « 1889 », « 42,195 km »), et valeur le donne : {"nombre": 330, "unite": "m"}. Les leurres sont des nombres de la même grandeur, écrits de la même façon.
+- Un nombre qui s'approche : une année, une hauteur, une longueur, une distance, une durée, une vitesse, une masse, une température, une quantité. Jamais un numéro (un département, un maillot, un vol, un code, un indicatif), jamais un calcul, jamais un nombre que tout le monde sait par cœur (onze joueurs, soixante minutes, vingt-six lettres) : toute la salle taperait le même. Plus de dix.
+- L'intitulé se lit sans les choix (ni « parmi », ni « lequel ») et dit l'unité qu'il attend (« en mètres », « combien de kilomètres ») : une unité de plus de douze caractères ne s'affiche pas à côté du nombre.
+- Un fait qui ne bouge plus : ni une population, ni un record qui peut tomber, ni une mesure refaite (l'Everest mesure 8 849 m depuis 2020, plus 8 848 ; la tour Eiffel 330 m depuis 2022, plus 324).
+- Varie les grandeurs : un tiers d'années au plus, et jamais deux fois le même gabarit (« En quelle année X est-il né ? », puis « … est-il mort ? ») — une hauteur, une durée, une distance, une vitesse, un âge, une quantité. Vingt-cinq dates de naissance ne font pas une soirée.
+- La difficulté : la moitié de 2, un tiers de 3, le reste de 1 et de 4, pas de 5 — ce que la plupart approchent (la longueur d'un marathon, l'année du premier pas sur la Lune). Une 1 ou une 2 se joue au-delà de cent ou à virgule : en dessous, tout le monde le sait.
+- Vérifie avec --nombres (verifier --nombres <fichier>) : il avertit de chaque question qui ne se jouerait pas au plus près, et pourquoi. Corrige-la comme tout avertissement.`
 
 /**
  * La part d'une catégorie : combien de questions, dans quels sous-thèmes, à
@@ -106,7 +131,7 @@ export function consigneDEcriture(
  * que la base grandissait, et un fait déjà posé ailleurs, le juge le refuse
  * avec son motif (`IndexDesFaits`, `core/memeFait.ts`).
  */
-export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDEcriture[], deja: readonly string[] = []): string {
+export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDEcriture[], deja: readonly string[] = [], { nombres = false }: OptionsDeLaPart = {}): string {
   const total = quotas.reduce((s, q) => s + q.n, 0)
   const sousThemes = SOUS_THEMES[categorie]
   const lignes = quotas
@@ -116,10 +141,12 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
       return q.difficulte ? `- ${q.cle} (${nom}) : ${combien} de difficulté ${q.difficulte}` : `- ${q.cle} (${nom}) : ${combien}`
     })
     .join('\n')
-  // La commande de la routine dit la difficulté de chaque question ; un lot écrit à la main la répartit.
-  const dosage = quotas.every(q => q.difficulte)
-    ? `Chaque ligne dit la difficulté à viser (échelle plus haut) : tiens-la, c'est ce qui manque à la base. Une 4 ou une 5 n'est pas obscure pour autant.`
-    : `Dans chaque sous-thème, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
+  // La commande de la routine dit la difficulté de chaque question ; un lot écrit à la main la répartit ; une part à nombre dit la sienne.
+  const dosage = nombres
+    ? `La difficulté (échelle plus haut) suit la consigne des nombres, plus bas.`
+    : quotas.every(q => q.difficulte)
+      ? `Chaque ligne dit la difficulté à viser (échelle plus haut) : tiens-la, c'est ce qui manque à la base. Une 4 ou une 5 n'est pas obscure pour autant.`
+      : `Dans chaque sous-thème, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
   const dejaEcrites =
     deja.length > 0
       ? `\nDÉJÀ ÉCRITES DANS CES SOUS-THÈMES — n'en reprends aucune, même reformulée ou retournée\n${deja.map(t => `- ${t.replace(/\s+/g, ' ').trim()}`).join('\n')}\n`
@@ -127,7 +154,7 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
   return `TA PART — ${total} QUESTIONS À ÉCRIRE, CATÉGORIE « ${categorie} »
 ${lignes}
 ${dosage} Un fait que la base pose déjà, dans n'importe quelle catégorie, est refusé : préfère les faits moins courus.
-${dejaEcrites}`
+${nombres ? `\n${NOMBRES}\n` : ''}${dejaEcrites}`
 }
 
 /**

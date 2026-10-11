@@ -132,15 +132,27 @@ const pourComparer = (texte: string) => texte.toLowerCase().replace(/’/g, "'")
  * était à des millions de la cible.
  */
 export function cibleDeLEstimation(q: QuestionDeLaBase): { target: number; unit: string } | null {
+  const lue = lireLEstimation(q)
+  return 'cible' in lue ? lue.cible : null
+}
+
+/** La même lecture, qui dit pourquoi une question ne se joue pas au plus près : `verifier --nombres` le dit au rédacteur d'une part à nombre. */
+export function lireLEstimation(q: QuestionDeLaBase): { cible: { target: number; unit: string } } | { refus: string } {
   const valeur = q.meta.valeur
-  if (!valeur || q.reponses.length !== 4) return null
-  if (Number.isInteger(valeur.nombre) && valeur.nombre <= 10) return null
-  if (Number.isInteger(valeur.nombre) && valeur.nombre <= PETIT_ENTIER_CONNU && q.meta.difficulte <= 2) return null
-  if (lireNombreEnTete(q.reponses[q.bonne])?.valeur !== valeur.nombre) return null
-  if (FORMULE_DE_QCM.test(q.texte) || NUMERO.test(q.texte)) return null
+  if (!valeur) return { refus: 'pas de valeur : la bonne réponse n’est pas un nombre' }
+  if (q.reponses.length !== 4) return { refus: 'un vrai ou faux' }
+  if (Number.isInteger(valeur.nombre) && valeur.nombre <= 10) return { refus: 'dix ou moins : il se devine, il ne s’estime pas' }
+  if (Number.isInteger(valeur.nombre) && valeur.nombre <= PETIT_ENTIER_CONNU && q.meta.difficulte <= 2) {
+    return { refus: `un petit entier à la difficulté ${q.meta.difficulte} : tout le monde le sait, la salle finirait ex æquo` }
+  }
+  if (lireNombreEnTete(q.reponses[q.bonne])?.valeur !== valeur.nombre) return { refus: 'la bonne réponse ne commence pas par la valeur' }
+  if (FORMULE_DE_QCM.test(q.texte)) return { refus: 'un intitulé qui suppose des choix (« parmi », « lequel »)' }
+  if (NUMERO.test(q.texte)) return { refus: 'un numéro ne s’estime pas' }
   const tient = Array.from(valeur.unite).length <= MAX_UNIT
-  if (!tient && !pourComparer(q.texte).includes(pourComparer(valeur.unite))) return null
-  return { target: valeur.nombre, unit: tient ? valeur.unite : '' }
+  if (!tient && !pourComparer(q.texte).includes(pourComparer(valeur.unite))) {
+    return { refus: `l’unité « ${valeur.unite} » ne tient pas à l’écran, et l’intitulé ne la dit pas` }
+  }
+  return { cible: { target: valeur.nombre, unit: tient ? valeur.unite : '' } }
 }
 
 /** Une année seule, telle qu'une réponse l'écrit : « 1988 », « -52 ». */
