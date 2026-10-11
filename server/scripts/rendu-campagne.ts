@@ -177,6 +177,24 @@ try {
   await page.waitForSelector('.campagne-fin')
   await photo('8-fin-de-revision', true)
 
+  // 3 bis. Rien à revoir aujourd'hui : tout le carnet se revoit, en avance —
+  // retrouvée, une question garde son rendez-vous —, et une révision laissée
+  // se reprend ou se recommence.
+  for (;;) {
+    const r = await ecrire(banc.url, '/api/campagne/revision', {}, lea)
+    if (r.status !== 200) break
+    await jouerParLAPI(lea, ((await r.json()) as any).id, toutJuste)
+  }
+  await ouvrir('/campagne#carnet')
+  await page.waitForSelector('text=Tout revoir')
+  await photo('8a-carnet-a-jour')
+  await page.click('text=Tout revoir')
+  await repondre(true)
+  await photo('8b-revue-en-avance')
+  await ouvrir('/campagne#carnet')
+  await page.waitForSelector('text=Recommencer une révision')
+  await photo('8c-reprendre-ou-recommencer')
+
   // 4. La fin d'une série rappelle le carnet.
   await ouvrir('/campagne')
   await page.locator('button', { hasText: /Commencer une série|Une nouvelle série/ }).click()

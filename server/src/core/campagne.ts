@@ -118,9 +118,11 @@ import {
   type SentierDeSujet,
 } from '../../../shared/sentiersDeSujets'
 import {
+  INTERVALLES_DE_REVISION,
   QUESTIONS_PAR_REVISION,
   suiteDeLaRevision,
   suiviDeLaQuestion,
+  type EnAvance,
   type EtatDuCarnet,
   type FaitAppris,
   type SuiviDeRevision,
@@ -148,6 +150,8 @@ interface QuestionDeSerie {
    * Le carnet, lui, se relit toujours dans le journal (`suiviDeLaQuestion`).
    */
   etape?: number
+  /** Une révision de tout le carnet : la question reprise en avance — pas encore à son rendez-vous, ou déjà apprise. */
+  enAvance?: EnAvance
 }
 
 /**
@@ -996,7 +1000,7 @@ export class CampagneStore {
         ...(record && { recordAvant: avant }),
         ...(record && justes > avant && { record: true }),
         ...(defi && { defi }),
-        ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste) }),
+        ...(revision && { revision: suiteDeLaRevision(q.etape ?? 0, juste, q.enAvance, jourDe(maintenant)) }),
         ...(carnet && { carnet }),
         // Une rencontre : ce que son adversaire avait fait de la même question, et les deux scores.
         ...(s.mode === 'rencontre' && s.adversaire && { rencontre: coupDeLaRencontre(s.adversaire, s.index, justes, finie) }),
@@ -1194,6 +1198,16 @@ export class CampagneStore {
     return suivis
   }
 
+  /**
+   * A-t-il relevé un défi — de la semaine ou entre amis ? Son nom paraît
+   * alors dans leurs classements, et sa carte s'y ouvre comme celle d'un
+   * joueur du quiz du jour (`/api/joueur/carte/:id`).
+   */
+  async aReleveUnDefi(profileId: string): Promise<boolean> {
+    const res = await this.client.execute({ sql: `SELECT 1 FROM campagne_series WHERE profile_id = ? AND mode IN ('defi', 'duel') LIMIT 1`, args: [profileId] })
+    return res.rows.length > 0
+  }
+
   /** Sa révision laissée en route, s'il en a une : elle se reprend. */
   private async revisionEnCours(profileId: string): Promise<Serie | null> {
     const res = await this.client.execute({
@@ -1256,32 +1270,57 @@ export class CampagneStore {
   /**
    * Une révision : les questions dont le rendez-vous est arrivé, les plus en
    * retard d'abord, dix au plus (`QUESTIONS_PAR_REVISION`). Celle qu'il a
-   * laissée en route se reprend ; rien à revoir, rien ne commence. Une série
-   * en cours, elle, attend : la révision ne la clôt pas.
+   * laissée en route se reprend — sauf à la recommencer (`recommencer`),
+   * comme une série : elle se referme là, et ses réponses restent au carnet,
+   * qui se relit dans le journal. Tout le carnet (`tout`) : puis celles qui
+   * attendent leur rendez-vous, la plus proche d'abord, puis les apprises,
+   * la plus anciennement apprise d'abord — « rien à revoir aujourd'hui »
+   * était une impasse (le choix du 11 octobre 2026) ; revue en avance, une
+   * question retrouvée garde sa place (`apresUnPassage`), ratée, elle revient
+   * demain. Une série en cours, elle, attend : la révision ne la clôt pas.
    */
-  commencerRevision(profileId: string): Promise<SerieDeCampagne> {
+  commencerRevision(profileId: string, o: { tout?: boolean; recommencer?: boolean } = {}): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
       const ouverte = await this.revisionEnCours(profileId)
-      if (ouverte) {
+      if (ouverte && !o.recommencer) {
         this.garderEnCours(ouverte)
         return vueDeSerie(ouverte)
       }
+      // Recommencée, elle revoit ce que revoyait l'autre : tout le carnet si l'autre le revoyait.
+      const tout = !!o.tout || !!ouverte?.questions.some(q => q.enAvance)
       const [suivis, jouables, mesure] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.mesures()])
       const aujourdhui = jourDe(this.maintenant())
       const parId = new Map(jouables.map(q => [q.id, q]))
       const dues: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
+      const enRoute: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
+      const apprises: { q: QuestionDeLaBase; le: string }[] = []
       for (const [id, s] of suivis) {
         const q = parId.get(id)
-        if (q && !s.apprise && s.revientLe <= aujourdhui) dues.push({ q, etape: s.etape, revientLe: s.revientLe })
+        if (!q) continue
+        if (s.apprise) apprises.push({ q, le: s.le })
+        else if (s.revientLe <= aujourdhui) dues.push({ q, etape: s.etape, revientLe: s.revientLe })
+        else enRoute.push({ q, etape: s.etape, revientLe: s.revientLe })
       }
-      if (dues.length === 0) throw new Error(suivis.size === 0 ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain' : 'Rien à revoir aujourd’hui : reviens demain')
       // Battues avant d'être rangées : à rendez-vous égal, ni l'ordre de la
       // base ni celui des séries ne décide ; puis dans le désordre, pour que
       // les catégories se mêlent.
-      const tirees = melanger(dues)
-        .sort((a, b) => a.revientLe.localeCompare(b.revientLe))
-        .slice(0, QUESTIONS_PAR_REVISION)
-      const questions = melanger(tirees).map(d => ({ ...versQuestionDeSerie(d.q, niveauDeQuestion(d.q.meta.difficulte, mesure.get(d.q.id))), etape: d.etape }))
+      const tirees: { q: QuestionDeLaBase; etape: number; enAvance?: EnAvance }[] = melanger(dues).sort((a, b) => a.revientLe.localeCompare(b.revientLe))
+      if (tout) {
+        for (const d of melanger(enRoute).sort((a, b) => a.revientLe.localeCompare(b.revientLe))) tirees.push({ ...d, enAvance: { revientLe: d.revientLe } })
+        for (const a of melanger(apprises).sort((x, y) => x.le.localeCompare(y.le))) tirees.push({ q: a.q, etape: INTERVALLES_DE_REVISION.length, enAvance: { apprise: true } })
+      }
+      if (tirees.length === 0) {
+        throw new Error(suivis.size === 0 ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain' : 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet')
+      }
+      if (ouverte) {
+        await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [this.maintenant(), ouverte.id] })
+        if (this.enCours.get(profileId)?.id === ouverte.id) this.enCours.delete(profileId)
+      }
+      const questions = melanger(tirees.slice(0, QUESTIONS_PAR_REVISION)).map(d => ({
+        ...versQuestionDeSerie(d.q, niveauDeQuestion(d.q.meta.difficulte, mesure.get(d.q.id))),
+        etape: d.etape,
+        ...(d.enAvance && { enAvance: d.enAvance }),
+      }))
       const serie: Serie = {
         id: randomUUID(),
         profileId,

@@ -104,7 +104,7 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
     assert.deepEqual(await compte(banc, lea), { aRevoir: 0, demain: 3, plusTard: 0, prochainJour: '2026-10-07', appris: 0 })
     const tropTot = await poster(banc, lea, '/api/campagne/revision')
     assert.equal(tropTot.status, 400)
-    assert.equal(tropTot.corps.error, 'Rien à revoir aujourd’hui : reviens demain')
+    assert.equal(tropTot.corps.error, 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet')
 
     // Le lendemain, une révision des trois.
     horloge.t = DEBUT + JOUR
@@ -170,6 +170,55 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
       const q = BASE.questions.find(x => x.texte === f.texte)!
       assert.deepEqual([f.reponse, f.anecdote, f.categorie, f.le], [q.reponses[q.bonne], q.anecdote, q.meta.categorie, '2026-10-17'])
     }
+  } finally {
+    await banc.close()
+  }
+})
+
+test('tout le carnet se revoit, en avance — retrouvée, une question garde sa place —, et une révision se recommence', async () => {
+  // « Rien à revoir aujourd'hui » était une impasse, et une révision laissée
+  // ne pouvait que se reprendre : le propriétaire voulait recommencer un
+  // carnet comme on recommence un sentier ou une série (le 11 octobre 2026).
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const serie = (await poster(banc, lea, '/api/campagne/serie')).corps
+    for (const i of [0, 1, 2]) await repondre(banc, lea, serie.id, i, false)
+    const tropTot = await poster(banc, lea, '/api/campagne/revision')
+    assert.equal(tropTot.corps.error, 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet')
+
+    // Le jour même, tout le carnet : les trois, chacune en avance de son rendez-vous.
+    const tout = (await poster(banc, lea, '/api/campagne/revision', { tout: true })).corps
+    assert.equal(tout.total, 3)
+    assert.ok(questions(banc, tout.id).every((q: any) => q.enAvance?.revientLe === '2026-10-07'))
+    const r0 = await repondre(banc, lea, tout.id, 0, true)
+    assert.deepEqual(r0.revision, { etape: 0, dans: 1, enAvance: true }, 'retrouvée en avance : son rendez-vous reste demain')
+    const r1 = await repondre(banc, lea, tout.id, 1, false)
+    assert.deepEqual(r1.revision, { etape: 0, dans: 1 }, 'ratée : elle revient demain, comme toujours')
+    assert.deepEqual(await compte(banc, lea), { aRevoir: 0, demain: 3, plusTard: 0, prochainJour: '2026-10-07', appris: 0 }, 'rien n’a bougé')
+
+    // Recommencée : celle-ci se referme, une neuve revoit encore tout le carnet.
+    const neuve = (await poster(banc, lea, '/api/campagne/revision', { recommencer: true })).corps
+    assert.notEqual(neuve.id, tout.id)
+    assert.equal(neuve.total, 3, 'tout le carnet, comme celle qu’elle remplace')
+    assert.equal((await poster(banc, lea, `/api/campagne/serie/${tout.id}/reponse`, { index: 2, choix: 0 })).corps.error, 'Cette révision est finie : ton carnet t’attend')
+    for (const i of [0, 1, 2]) await repondre(banc, lea, neuve.id, i, true)
+
+    // Les trois rendez-vous, puis apprises ; revues en avance, retrouvée, elle reste apprise ; ratée, elle revient.
+    for (const jours of [1, 4, 11]) {
+      horloge.t = DEBUT + jours * JOUR
+      const rev = (await poster(banc, lea, '/api/campagne/revision')).corps
+      assert.equal(rev.total, 3, `au jour ${jours}, les trois sont dues`)
+      for (const i of [0, 1, 2]) await repondre(banc, lea, rev.id, i, true)
+    }
+    assert.equal((await compte(banc, lea)).appris, 3)
+    const encore = (await poster(banc, lea, '/api/campagne/revision', { tout: true })).corps
+    assert.equal(encore.total, 3)
+    assert.deepEqual((await repondre(banc, lea, encore.id, 0, true)).revision, { etape: INTERVALLES_DE_REVISION.length, apprise: true, enAvance: true })
+    assert.deepEqual((await repondre(banc, lea, encore.id, 1, false)).revision, { etape: 0, dans: 1 }, 'oubliée : elle revient demain')
+    const fin = await repondre(banc, lea, encore.id, 2, true)
+    assert.deepEqual(fin.carnet, { aRevoir: 0, demain: 1, plusTard: 0, prochainJour: '2026-10-18', appris: 2, enCours: null })
   } finally {
     await banc.close()
   }

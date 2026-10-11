@@ -46,8 +46,8 @@ interface ProfileApiDeps {
   jour: JourStore
   /** L'horloge du quiz du jour, que les tests avancent : la boutique y lit ses saisons. */
   maintenant: () => number
-  /** Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et celui qu'il avance. */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers'>
+  /** Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et celui qu'il avance ; et ses défis, qui ouvrent sa carte. */
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'aReleveUnDefi'>
 }
 
 /**
@@ -403,9 +403,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
 
   // La carte d'un autre joueur du quiz du jour, en touchant son nom au
   // classement du jour — tout le serveur, comme le classement : l'arbitrage
-  // du 27 septembre 2026. Seulement qui y a joué, et jamais un profil masqué,
-  // que le classement ne montre plus aux autres ; qui regarde a un profil,
-  // comme pour lire le classement. La même carte qu'en soirée, sans « ce soir ».
+  // du 27 septembre 2026 —, ou au classement d'un défi, de la semaine ou entre
+  // amis (le souhait du propriétaire du 11 octobre 2026). Seulement qui y a
+  // joué, et jamais un profil masqué, que ces classements ne montrent plus aux
+  // autres ; qui regarde a un profil, comme pour les lire. La même carte
+  // qu'en soirée, sans « ce soir ».
   app.get(
     '/api/joueur/carte/:id',
     wrap(async (req, res) => {
@@ -414,7 +416,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
       const autre = await profiles.byId(String(req.params.id))
       const visible =
-        autre && (autre.id === me.id || (!deps.jour.estMasque(autre.id) && (await deps.jour.resumeDe(autre.id)).joues > 0))
+        autre &&
+        (autre.id === me.id ||
+          (!deps.jour.estMasque(autre.id) && ((await deps.jour.resumeDe(autre.id)).joues > 0 || (await deps.campagne.aReleveUnDefi(autre.id)))))
       if (!autre || !visible) return res.status(404).json({ error: 'Carte introuvable' })
       const carte: CarteDeJoueur = {
         nom: autre.name,

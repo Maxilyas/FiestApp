@@ -27,6 +27,9 @@ export function revientDans(jours: number): string {
   return `dans ${jours} jours`
 }
 
+/** Tout ce que son carnet tient — à revoir, en route, appris : ce que « Revoir tout mon carnet » peut reprendre. */
+export const tailleDuCarnet = (c: EtatDuCarnet) => c.aRevoir + c.demain + c.plusTard + c.appris
+
 /** Ce que la page dit quand rien n'est à revoir aujourd'hui : quand revenir, ou comment son carnet se remplit. */
 export function prochaineFois(c: EtatDuCarnet): string {
   if (c.demain > 0) return `Rien à revoir aujourd’hui : demain, ${questions(c.demain)} t’attend${c.demain > 1 ? 'ent' : ''}.`
@@ -65,12 +68,12 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
     }
   }, [])
 
-  const reviser = async () => {
+  const reviser = async (o: { tout?: boolean; recommencer?: boolean } = {}) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const revision = await api.campagne.carnet.reviser()
+      const revision = await api.campagne.carnet.reviser(o)
       if (revision.question) onReviser(revision)
     } catch (e) {
       setErreur(motifDe(e))
@@ -137,10 +140,18 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
 
       {carnet &&
         (enCours ? (
-          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser()}>
-            <Icon name="play" />
-            {`Reprendre ma révision · ${enCours.question!.index + 1} sur ${enCours.total}`}
-          </button>
+          <>
+            <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser()}>
+              <Icon name="play" />
+              {/* Court : « Reprendre ma révision · 2 sur 10 » débordait du gros bouton en 360 px. */}
+              {`Reprendre · ${enCours.question!.index + 1} sur ${enCours.total}`}
+            </button>
+            {/* Comme une série : celle laissée en route se referme, ses réponses restent au carnet. */}
+            <button type="button" className="btn btn-ghost btn-block" aria-disabled={busy || undefined} onClick={() => void reviser({ recommencer: true })}>
+              <Icon name="rotate" />
+              Recommencer une révision
+            </button>
+          </>
         ) : carnet.aRevoir > 0 ? (
           <>
             <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser()}>
@@ -150,7 +161,19 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
             {carnet.aRevoir > QUESTIONS_PAR_REVISION && <p className="muted small centre">{`${QUESTIONS_PAR_REVISION} à la fois, les plus en retard d’abord.`}</p>}
           </>
         ) : (
-          <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
+          <>
+            <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
+            {/* Rien à revoir aujourd'hui n'est plus une impasse : tout le carnet se revoit, en avance. */}
+            {tailleDuCarnet(carnet) > 0 && (
+              <>
+                <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser({ tout: true })}>
+                  <Icon name="book" />
+                  {`Tout revoir · ${questions(Math.min(tailleDuCarnet(carnet), QUESTIONS_PAR_REVISION))}`}
+                </button>
+                <p className="muted small centre">Retrouvée en avance, une question garde son rendez-vous ; ratée, elle revient demain.</p>
+              </>
+            )}
+          </>
         ))}
       {carnet && (carnet.aRevoir > 0 || enCours) && enRoute > 0 && (
         <p className="muted small centre">{`En route : ${carnet.demain > 0 ? `${carnet.demain} demain` : ''}${carnet.demain > 0 && carnet.plusTard > 0 ? ', ' : ''}${carnet.plusTard > 0 ? `${carnet.plusTard} plus tard` : ''}.`}</p>

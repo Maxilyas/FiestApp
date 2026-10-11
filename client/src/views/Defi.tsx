@@ -9,7 +9,9 @@ import { Rank } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { RecompenseTombee } from '../components/Ouverts'
 import { OR, lueur } from '../components/Atlas'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { showToast } from '../state'
 import { placeDuJour } from '../../../shared/course'
 import { NOM_NIVEAU, type CorrectionDeCampagne, type DefiDeLaSemaine, type LigneDuDefi, type SerieDeCampagne } from '../../../shared/campagne'
 
@@ -43,6 +45,7 @@ export function PageDuDefi({ onglets, onJouer, apres }: { onglets: ReactNode; on
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
   const [correction, setCorrection] = useState<CorrectionDeCampagne[] | null>(null)
+  const { ouvrir, carte } = useCarteDuClassement()
 
   useEffect(() => {
     let vivant = true
@@ -149,12 +152,12 @@ export function PageDuDefi({ onglets, onJouer, apres }: { onglets: ReactNode; on
           ) : (
             <div className="leaderboard">
               {defi.lignes.map(l => (
-                <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === defi.sienne} />
+                <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === defi.sienne} onOuvrir={ouvrir} />
               ))}
               {defi.moi && (
                 <>
                   <p className="muted center small">…</p>
-                  <LigneDuDefiVue ligne={defi.moi} moi />
+                  <LigneDuDefiVue ligne={defi.moi} moi onOuvrir={ouvrir} />
                 </>
               )}
             </div>
@@ -220,18 +223,41 @@ export function PageDuDefi({ onglets, onJouer, apres }: { onglets: ReactNode; on
       )}
       {/* Ses défis entre amis, sous celui de la semaine (`Duel.tsx`). */}
       {apres}
+      {carte}
     </div>
   )
 }
 
-/** Une ligne du classement d'un défi — de la semaine, ou entre amis : sa place, son avatar, son prénom et ses bonnes réponses. */
-export function LigneDuDefiVue({ ligne: l, moi }: { ligne: LigneDuDefi; moi: boolean }) {
-  return (
-    <div
-      className={'lb-row' + (moi ? ' me' : '')}
-      role="group"
-      aria-label={`${l.nom}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${bonnes(l.justes)}${l.enCours ? ', en cours' : ''}`}
-    >
+/** La carte d'un joueur, au toucher de son nom dans un classement de défi : rien ne la télécharge avant. */
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/**
+ * La carte d'un joueur d'un classement de défi, comme au classement du jour :
+ * son nom se touche (le souhait du propriétaire du 11 octobre 2026). Rend de
+ * quoi l'ouvrir, et la carte ouverte, à poser dans la page.
+ */
+export function useCarteDuClassement(): { ouvrir: (profileId: string) => void; carte: ReactNode } {
+  const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
+  return {
+    ouvrir: setCarte,
+    carte: carte && laCarte && laCarte !== 'perdu' ? <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} /> : null,
+  }
+}
+
+/**
+ * Une ligne du classement d'un défi — de la semaine, ou entre amis : sa place,
+ * son avatar, son prénom et ses bonnes réponses. Avec `onOuvrir`, un bouton
+ * qui ouvre sa carte.
+ */
+export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi; moi: boolean; onOuvrir?: (profileId: string) => void }) {
+  const contenu = (
+    <>
       <Rank n={l.rang} />
       <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
       <span className="lb-name">
@@ -243,6 +269,17 @@ export function LigneDuDefiVue({ ligne: l, moi }: { ligne: LigneDuDefi; moi: boo
         {l.justes}
         <span className="sr-only"> {l.justes > 1 ? 'bonnes réponses' : 'bonne réponse'}</span>
       </span>
+    </>
+  )
+  const quoi = `${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${bonnes(l.justes)}${l.enCours ? ', en cours' : ''}`
+  return onOuvrir ? (
+    // Le nom du bouton remplace tout son contenu : le rang et le score doivent y être, comme au classement du jour.
+    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '')} aria-label={`La carte ${deNom(l.nom)}${quoi}`} onClick={() => onOuvrir(l.profileId)}>
+      {contenu}
+    </button>
+  ) : (
+    <div className={'lb-row' + (moi ? ' me' : '')} role="group" aria-label={`${l.nom}${quoi}`}>
+      {contenu}
     </div>
   )
 }

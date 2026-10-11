@@ -6,7 +6,7 @@ import { iconeDuSujet } from '../iconeDuSujet'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
-import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans } from './Carnet'
+import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
 import { AffronterUnInconnu, MOT_DE_L_ISSUE, scoreDeRencontre } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
 import { Shape } from '../components/Shape'
@@ -16,7 +16,7 @@ import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
-import { choixDialog, promptDialog } from '../components/Dialog'
+import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
@@ -522,13 +522,38 @@ export function CampagneApp() {
     }
   }
 
-  /** De la fin d'une révision à une autre, tant qu'il reste à revoir. */
-  const reviserEncore = async () => {
+  /** De la fin d'une révision à une autre, tant qu'il reste à revoir — ou tout le carnet, en avance (`tout`). */
+  const reviserEncore = async (tout = false) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      jouerLaRevision(await api.campagne.carnet.reviser())
+      jouerLaRevision(await api.campagne.carnet.reviser({ tout }))
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Repartir d'une révision neuve, comme on recommence une série : celle-ci
+   * se referme là, et ce qu'elle a déjà répondu reste au carnet — il se relit
+   * dans le journal des réponses.
+   */
+  const recommencerLaRevision = async () => {
+    if (ecran.e !== 'jeu' || !ecran.revision || busy) return
+    const oui = await confirmDialog({
+      title: 'Recommencer la révision ?',
+      message: 'Celle-ci s’arrête ici : ce que tu as déjà répondu reste dans ton carnet.',
+      confirmLabel: 'Recommencer',
+      cancelLabel: 'Continuer',
+    })
+    if (!oui) return
+    setBusy(true)
+    setErreur('')
+    try {
+      jouerLaRevision(await api.campagne.carnet.reviser({ recommencer: true }))
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -874,7 +899,17 @@ export function CampagneApp() {
             {`Réviser encore · ${Math.min(carnet.aRevoir, total)} question${Math.min(carnet.aRevoir, total) > 1 ? 's' : ''}`}
           </button>
         ) : (
-          carnet && <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
+          carnet && (
+            <>
+              <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
+              {tailleDuCarnet(carnet) > 0 && (
+                <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore(true)}>
+                  <Icon name="book" />
+                  Revoir tout mon carnet
+                </button>
+              )}
+            </>
+          )
         )}
         <div className="row campagne-suite">
           <button type="button" className="btn btn-ghost" onClick={() => void ouvrirLeCarnet()}>
@@ -1156,7 +1191,16 @@ export function CampagneApp() {
               {/* Retrouvée en révision : ce qu'il reste de rendez-vous, ou apprise. */}
               {r.juste && r.revision && (
                 <p className="carnet-suite">
-                  {r.revision.apprise ? (
+                  {r.revision.enAvance ? (
+                    // Revue en avance : retrouvée, elle ne bouge pas — trouvée avant son rendez-vous, elle ne prouve rien.
+                    r.revision.apprise ? (
+                      <>
+                        <Icon name="check-circle" /> Toujours sue : elle reste apprise.
+                      </>
+                    ) : (
+                      `Bien vu : son rendez-vous reste ${revientDans(r.revision.dans ?? 1)}.`
+                    )
+                  ) : r.revision.apprise ? (
                     <>
                       <Icon name="check-circle" /> Apprise !
                     </>
@@ -1187,9 +1231,16 @@ export function CampagneApp() {
             {erreur}
           </p>
         )}
-        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une révision n'a rien à perdre, une rencontre se joue jusqu'au bout. */}
+        {/* Repartir alors qu'il reste des vies : la série finit là, comme perdue. Le défi n'a qu'une tentative, une rencontre se joue jusqu'au bout. */}
         {!ecran.defi && !ecran.revision && !ecran.rencontre && !r?.finie && (
           <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void abandonner()}>
+            <Icon name="rotate" />
+            Recommencer
+          </button>
+        )}
+        {/* Une révision se recommence aussi : rien à perdre, ses réponses restent au carnet. */}
+        {ecran.revision && !r?.finie && (
+          <button type="button" className="btn btn-ghost btn-small serie-recommencer" aria-disabled={busy || undefined} onClick={() => void recommencerLaRevision()}>
             <Icon name="rotate" />
             Recommencer
           </button>
