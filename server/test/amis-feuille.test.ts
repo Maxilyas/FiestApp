@@ -62,7 +62,75 @@ test('la feuille des amis : un seul champ, des lignes qui ouvrent la carte — n
   const feuille = source('views/Amis.tsx')
   assert.match(feuille, /<ChampDUnPrenom libelle="Chercher un ami, ou quelqu’un à ajouter, par son prénom"/)
   assert.doesNotMatch(feuille + source('views/Joueurs.tsx'), /\sautoFocus[\s=/>]/)
-  assert.match(feuille, /onOuvrir=\{j => ouvrir\(j\.profileId, repliDe\(j\)\)\}/, 'toucher une ligne ouvre sa carte, et ce que la ligne disait de lui si elle ne s’ouvre pas')
+  assert.match(feuille, /onOuvrir=\{j => ouvrir\(j\.profileId\)\}/, 'toucher une ligne ouvre sa carte — entière : plus de carte réduite à la place')
+  assert.doesNotMatch(source('components/CarteJoueur.tsx') + source('components/CarteDUnProfil.tsx') + source('views/Joueurs.tsx'), /RepliDeCarte|repliDe|reduite/)
+})
+
+test('les joueurs croisés : sous ses amis, chacun ce qui le fait paraître — dans la feuille des amis et dans « Contre qui ? »', async () => {
+  // Le souhait du propriétaire du 11 octobre 2026 : « dans les défis, c'est
+  // dommage que ça montre pas des joueurs pour les ajouter en ami » ; puis
+  // « Défier quelqu'un, go ».
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { ListeDesAmis } = await import(client('views/Amis.tsx').href)
+  const { LancerUnDefi } = await import(client('views/LancerUnDefi.tsx').href)
+  const paul = { profileId: 'p', nom: 'Paul', avatar: '🐧', cote: 1240, ligue: 'or', rang: 3, croise: 'niveau' }
+  const ines = { profileId: 'i', nom: 'Inès', avatar: '🦄', croise: 'soiree' }
+  const feuille = (croises?: object[]) =>
+    renderToStaticMarkup(React.createElement(ListeDesAmis, { cercle: { amis: [tom], tOntAjoute: [zoe], croises }, texte: '', trouves: null, onOuvrir: () => {} }))
+
+  // La feuille : qui l'a ajouté, sa liste, puis ceux qu'il a croisés — chacun sa ligne qui ouvre sa carte.
+  const avec = feuille([ines, paul])
+  assert.match(avec, /Ils t’ont ajouté<\/h3>.*Tes amis<\/h3>.*<h3 id="amis-croises-titre" class="label">Joueurs croisés<\/h3>/s)
+  // Sans duel classé, ce qui le fait paraître prend la place de « pas encore de duel classé » ; classé, sa ligue et sa cote suivent.
+  assert.match(avec, /<button type="button" class="ligne-joueur ligne-joueur-ouvrable" aria-label="La carte d’Inès — en soirée avec toi">/)
+  assert.match(avec, /<b>Inès<\/b><span class="muted small">en soirée avec toi<\/span>/)
+  assert.match(avec, /<b>Paul<\/b><span class="muted small">de ton niveau · Or · cote 1240 · 3e<\/span>/)
+  assert.doesNotMatch(avec, /Défier|Choisir/, 'aucun bouton sur une ligne : ses gestes sont sur sa carte')
+  // Personne de croisé — ou un serveur d'avant qui ne les dit pas : rien, pas une section vide.
+  assert.doesNotMatch(feuille([]), /Joueurs croisés/)
+  assert.doesNotMatch(feuille(undefined), /Joueurs croisés/)
+  // Tapé, la recherche prend la place : ses amis, puis les autres joueurs.
+  assert.doesNotMatch(
+    renderToStaticMarkup(React.createElement(ListeDesAmis, { cercle: { amis: [tom], tOntAjoute: [], croises: [ines] }, texte: 'in', trouves: [], onOuvrir: () => {} })),
+    /Joueurs croisés/,
+  )
+
+  // « Contre qui ? » : ses amis, puis les joueurs croisés ; chaque prénom ouvre sa carte, « Choisir » est à côté.
+  const preparer = (props: object) =>
+    renderToStaticMarkup(
+      React.createElement(LancerUnDefi, {
+        amis: [tom],
+        categoriesJouables: ['Histoire'],
+        sujets: [],
+        depart: { categories: [], sujet: null },
+        busy: false,
+        erreur: '',
+        onLancer: () => {},
+        onRetour: () => {},
+        ...props,
+      }),
+    )
+  const libre = preparer({ croises: [ines, paul] })
+  assert.match(libre, /<p class="label defier-amis-titre">Tes amis<\/p>.*<p class="label defier-amis-titre">Joueurs croisés<\/p><ul class="joueurs-trouves" aria-label="Défier un joueur croisé">/s)
+  assert.match(
+    libre,
+    /<div class="ligne-joueur"><button type="button" class="ligne-joueur-ouvrir" aria-label="La carte d’Inès — en soirée avec toi">.*?<\/button><button type="button" class="btn btn-small" aria-label="Défier Inès"><svg[^>]*>.*?<\/svg>Choisir<\/button><\/div>/,
+    'deux boutons côte à côte : le prénom ouvre la carte, « Choisir » le choisit',
+  )
+  assert.match(libre, /<button type="button" class="ligne-joueur-ouvrir" aria-label="La carte de Tom — Or · cote 1240 · 3e">/, 'ses amis aussi ouvrent leur carte')
+  // En chemin, ou sans eux : ses amis et la recherche, rien de plus.
+  assert.doesNotMatch(preparer({ croises: null }), /Joueurs croisés/)
+  assert.doesNotMatch(preparer({}), /Joueurs croisés/)
+  // Celui qu'on a choisi ouvre sa carte aussi, « Changer » à côté.
+  assert.match(preparer({ croises: [ines], depart: { categories: [], sujet: null, adversaire: ines } }), /<button type="button" class="ligne-joueur-ouvrir" aria-label="La carte d’Inès — pas encore de duel classé">.*?<\/button><button type="button" class="btn btn-ghost btn-small">Changer<\/button>/)
+
+  // « Défier » au pied d'une carte ouverte d'ici le choisit ici même ; la page relit ses amis et ses joueurs croisés quand sa liste change.
+  const lancer = source('views/LancerUnDefi.tsx')
+  assert.match(lancer, /useCarteDUnProfil\(\{\s*onDefier: \(j, m\) => \{\s*setChoisi\(j\)\s*setMoi\(m\)\s*\},\s*onAmis,\s*\}\)/)
+  const campagne = source('views/CampagneApp.tsx')
+  assert.match(campagne, /api\.duels\s*\.croises\(\)/)
+  assert.match(campagne, /croises=\{croises\}/)
+  assert.match(campagne, /onAmis=\{\(\) => \{\s*void relireMesAmis\(\)\s*setCroisesLus\(n => n \+ 1\)\s*\}\}/)
 })
 
 test('les gestes au pied de la carte : « Défier » en grand, l’ajouter ou le retirer — confirmé sur place', async () => {

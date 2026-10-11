@@ -7834,6 +7834,10 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
    entière ouvre sa carte, où sont ses gestes. Aucun bouton dedans. */
 .ligne-joueur-ouvrable { width: 100%; margin: 0; padding: 0 6px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .ligne-joueur-ouvrable:hover { background: var(--accent-soft); }
+/* Avec un geste à côté (« Choisir ») : le joueur ouvre sa carte, le geste
+   reste un bouton à lui — deux boutons côte à côte. */
+.ligne-joueur-ouvrir { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 48px; margin: 0; padding: 0 6px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ligne-joueur-ouvrir:hover { background: var(--accent-soft); }
 /* Un ami en ligne : un point vert sur son avatar — entre amis réciproques seulement. */
 .duel-ami-avatar.en-ligne { position: relative; }
 .duel-ami-avatar.en-ligne::after { content: ''; position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid var(--bg); border-radius: 50%; background: var(--en-ligne); }

@@ -31,7 +31,7 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour, SujetDeNotification } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
-import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier } from '../../shared/duels'
+import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -470,8 +470,10 @@ export const api = {
     chercher: (texte: string) => req<JoueurADefier[]>(`/api/duels/joueurs?q=${encodeURIComponent(texte)}`),
     /** Un joueur touché — sa carte, la préparation ouverte à son adresse : ce que la recherche dirait de lui, s'il est son ami, et sa propre cote. */
     joueur: (profileId: string) => req<FaceAFace>(`/api/duels/joueurs/${encodeURIComponent(profileId)}`),
-    /** La feuille des amis : sa liste — qui est en ligne, entre amis réciproques —, et qui l'a ajouté. */
+    /** La feuille des amis : sa liste — qui est en ligne, entre amis réciproques —, qui l'a ajouté, et des joueurs croisés. */
     amis: () => req<AmisDeLaFeuille>('/api/duels/amis'),
+    /** Des joueurs croisés — une soirée, un duel, le défi de la semaine, son niveau —, pour « Contre qui ? ». */
+    croises: () => req<JoueurCroise[]>('/api/duels/croises'),
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),

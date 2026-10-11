@@ -9,10 +9,12 @@
 // et dans ses duels, le joue et le gagne ; Léa qui le retrouve, joué ; la
 // barre de recherche ; la feuille des amis — qui est en ligne, qui l'a
 // ajoutée, un prénom tapé, Zoé ajoutée de sa carte —, et la même feuille sur
-// l'accueil, d'où « Défier » mène à la préparation. Les cotes des autres
-// viennent de duels écrits dans la base : la cote se relit dans le journal
-// des rencontres (`shared/duels.ts`). Le client construit d'abord
-// (`npm run build -w client`).
+// l'accueil, d'où « Défier » mène à la préparation ; enfin les joueurs
+// croisés — ceux d'une soirée d'hier, dans « Contre qui ? » et sous ses amis —,
+// et la carte entière de l'une, qui n'a joué ni au quiz du jour ni en duel.
+// Les cotes des autres viennent de duels écrits dans la base : la cote se
+// relit dans le journal des rencontres (`shared/duels.ts`). Le client
+// construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-duels.ts [dossier]
 import { createRequire } from 'node:module'
@@ -24,6 +26,8 @@ import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from '../test/banc'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES } from '../../shared/campagne'
+import { gainVide, releveVide } from '../../shared/profil'
+import { VERSION_BAREME } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-duels')
 mkdirSync(sortie, { recursive: true })
@@ -77,6 +81,19 @@ try {
   const ines = await inscrireProfil(banc.url, 'ines', 'Inès', '🐙')
   const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐯')
   const max = await inscrireProfil(banc.url, 'max', 'Max', '🦉')
+  const camille = await inscrireProfil(banc.url, 'camille', 'Camille', '🐨')
+  const noah = await inscrireProfil(banc.url, 'noah', 'Noah', '🦁')
+  const jade = await inscrireProfil(banc.url, 'jade', 'Jade', '🦄')
+  // Une soirée chez Léa, hier, avec Camille, Noah et Jade : des joueurs croisés, qu'elle n'a pas en amis.
+  const deLaSoiree = await Promise.all([lea, camille, noah, jade].map(c => idDe(banc, c)))
+  {
+    const db = base(banc)
+    const detail = JSON.stringify({ v: VERSION_BAREME, gain: gainVide(), releve: releveVide() })
+    const ligne = db.prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'la-soiree-des-renards', 'chez-lea', 0, ?, ?)`)
+    for (const id of deLaSoiree) ligne.run(id, detail, Date.now() - 24 * 3_600_000)
+    db.close()
+  }
+  duelsJoues(banc, deLaSoiree[3], 3, 10, 8)
   // Max finit des séries de huit : les scores à battre.
   for (let i = 0; i < 4; i++) await serieFinie(banc, max, 8)
   // Les autres ont déjà joué : Inès chez les maîtres, Hugo en platine, Tom en argent, Zoé tout près de l'argent.
@@ -249,6 +266,25 @@ try {
   await page.getByRole('button', { name: 'Défier Hugo' }).click()
   await page.waitForSelector('.defi-heros h1:has-text("Défier Hugo")')
   await photo(page, '18-defier-depuis-l-accueil')
+  // « Contre qui ? » : ses amis, puis les joueurs croisés — ceux de la soirée d'hier, Max de son duel —, chaque prénom ouvre sa carte, « Choisir » à côté.
+  await page.goto(`${banc.url}/duels`)
+  await page.getByRole('button', { name: 'Défier quelqu’un' }).click()
+  await page.waitForSelector('ul[aria-label="Défier un joueur croisé"]')
+  await photo(page, '19-contre-qui')
+  await photo(page, '19-contre-qui-pleine', true)
+  // Camille touchée : sa carte entière — elle n'a joué ni au quiz du jour ni en duel —, et « Défier Camille » à son pied la choisit ici même.
+  await page.locator('.ligne-joueur-ouvrir', { hasText: 'Camille' }).click()
+  await page.waitForSelector('.carte-joueur .carte-gestes')
+  await photo(page, '19b-carte-de-camille')
+  await page.locator('.carte-joueur').getByRole('button', { name: 'Défier Camille' }).click()
+  await page.waitForSelector('.defi-heros h1:has-text("Défier Camille")')
+  await photo(page, '19c-camille-choisie')
+  // La feuille des amis : sous sa liste, les joueurs croisés, chacun ce qui le fait paraître.
+  await page.goto(`${banc.url}/duels`)
+  await page.getByRole('button', { name: /Mes amis/ }).click()
+  await page.waitForSelector('#amis-croises-titre')
+  await page.locator('#amis-croises-titre').scrollIntoViewIfNeeded()
+  await photo(page, '20-amis-croises')
   // L'ancien lien d'un défi, parti avant les duels : il mène à sa page.
   await pourTom.goto(`${banc.url}/campagne#duel-${premier.code}`)
   await pourTom.waitForSelector('.defi-heros')

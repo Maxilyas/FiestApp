@@ -216,10 +216,14 @@ test('toucher un nom du classement du défi ouvre sa carte — même sans quiz d
     const page = (await lire(banc, lea, '/api/campagne/defi')).corps
     const deHugo = page.lignes.find((l: any) => l.nom === 'Hugo').profileId as string
     const carte = await lire(banc, lea, `/api/joueur/carte/${deHugo}`)
-    assert.equal(carte.status, 200, 'Hugo n’a jamais joué au quiz du jour : son défi suffit')
+    assert.equal(carte.status, 200, 'Hugo n’a jamais joué au quiz du jour : sa carte s’ouvre')
     assert.deepEqual([carte.corps.nom, carte.corps.avatar, carte.corps.profil.prenom], ['Hugo', '🐻', 'Hugo'])
-    // Zoé n'a relevé aucun défi : son identifiant ne mène à rien.
-    assert.equal((await lire(banc, lea, `/api/joueur/carte/${idDe(banc, 'zoe')}`)).status, 404)
+    // Zoé n'a relevé aucun défi : sa carte s'ouvre en entier aussi (le
+    // souhait du propriétaire du 11 octobre 2026 : une carte réduite tenait
+    // sa place hors des classements).
+    const deZoe = await lire(banc, lea, `/api/joueur/carte/${idDe(banc, 'zoe')}`)
+    assert.equal(deZoe.status, 200)
+    assert.deepEqual([deZoe.corps.nom, deZoe.corps.profil.prenom], ['Zoé', 'Zoé'])
     // Masqué par l'administrateur, Hugo quitte les classements des autres, et sa carte avec.
     const admin = await connexionAnimateur(banc.url)
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: deHugo, masque: true })).status, 200)

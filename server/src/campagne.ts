@@ -258,12 +258,21 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
-  // La feuille des amis : sa liste — qui est en ligne, entre amis réciproques —, et qui l'a ajouté.
+  // La feuille des amis : sa liste — qui est en ligne, entre amis réciproques —, qui l'a ajouté, et des joueurs croisés.
   app.get(
     '/api/duels/amis',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(await deps.campagne.amisDeLaFeuille(profil.id))
+    }),
+  )
+
+  // Des joueurs croisés — une soirée, un duel, le défi de la semaine, son niveau —, pour « Contre qui ? ».
+  app.get(
+    '/api/duels/croises',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.joueursCroises(profil.id))
     }),
   )
 

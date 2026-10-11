@@ -4,9 +4,9 @@ import { Feuille } from '../components/Pieces'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { espacesFines } from '../format'
 import { sansAccent } from '../../../shared/homonymes'
-import type { FaceAFace, JoueurADefier } from '../../../shared/duels'
+import { RAISON_DU_CROISEMENT, type FaceAFace, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 import type { AmiDeCampagne, AmisDeLaFeuille } from '../../../shared/campagne'
-import { ChampDUnPrenom, LigneDeJoueur, repliDe, useJoueursTrouves } from './Joueurs'
+import { ChampDUnPrenom, LigneDeJoueur, useJoueursTrouves } from './Joueurs'
 
 /**
  * La feuille des amis (le souhait du propriétaire du 11 octobre 2026 : « une
@@ -20,7 +20,7 @@ import { ChampDUnPrenom, LigneDeJoueur, repliDe, useJoueursTrouves } from './Jou
  * tapé, ses amis qu'il désigne, puis les autres joueurs — une recherche
  * seule obligeait à retaper le prénom d'une amie à chaque duel. Aucune ligne
  * n'a de bouton à elle : un toucher ouvre la carte du joueur, comme partout,
- * et ses gestes au pied — le défier, l'ajouter, le retirer
+ * entière, et ses gestes au pied — le défier, l'ajouter, le retirer
  * (`GestesDuJoueur`).
  */
 export function FeuilleDesAmis({
@@ -66,7 +66,7 @@ export function FeuilleDesAmis({
             {erreur || recherche.erreur}
           </p>
         )}
-        <ListeDesAmis cercle={cercle} texte={texte} trouves={recherche.joueurs} onOuvrir={j => ouvrir(j.profileId, repliDe(j))} />
+        <ListeDesAmis cercle={cercle} texte={texte} trouves={recherche.joueurs} onOuvrir={j => ouvrir(j.profileId)} />
       </Feuille>
       {carte}
     </>
@@ -76,9 +76,12 @@ export function FeuilleDesAmis({
 /**
  * Ce que la feuille montre sous son champ. Vide : ceux qui l'ont ajouté sans
  * qu'il les ait ajoutés — de quoi rendre la pareille, et voir alors qui est
- * en ligne —, puis sa liste, lue comme un classement. Tapé : ses amis que le
- * texte désigne, dès la première lettre, puis les autres joueurs, dès la
- * deuxième (`LETTRES_POUR_CHERCHER`).
+ * en ligne —, puis sa liste, lue comme un classement, puis des joueurs qu'il
+ * a croisés, chacun ce qui le fait paraître (le souhait du propriétaire du
+ * 11 octobre 2026 : « c'est dommage que ça montre pas des joueurs pour les
+ * ajouter en ami ») : sans eux, il fallait connaître un prénom. Tapé : ses
+ * amis que le texte désigne, dès la première lettre, puis les autres
+ * joueurs, dès la deuxième (`LETTRES_POUR_CHERCHER`).
  */
 export function ListeDesAmis({
   cercle,
@@ -102,6 +105,12 @@ export function ListeDesAmis({
   const ligne = (j: JoueurADefier | AmiDeCampagne) => (
     <li key={j.profileId}>
       <LigneDeJoueur joueur={j} onOuvrir={() => onOuvrir(j)} />
+    </li>
+  )
+  // Un joueur croisé dit ce qui le fait paraître : « en soirée avec toi ».
+  const croisee = (c: JoueurCroise) => (
+    <li key={c.profileId}>
+      <LigneDeJoueur joueur={c} detail={RAISON_DU_CROISEMENT[c.croise]} onOuvrir={() => onOuvrir(c)} />
     </li>
   )
   const cherche = sansAccent(texte)
@@ -160,6 +169,15 @@ export function ListeDesAmis({
         <p className="muted small">
           {espacesFines('Tape le prénom d’un ami ci-dessus : sa carte s’ouvre, et « Ajouter à mes amis » le met dans ta liste — sans demande ni attente. Tu y verras sa ligue et sa cote, et tu le défieras d’un toucher.')}
         </p>
+      )}
+      {/* Un serveur d'avant ne les dit pas : rien, pas une section vide. */}
+      {(cercle.croises ?? []).length > 0 && (
+        <section className="amis-section" aria-labelledby="amis-croises-titre">
+          <h3 id="amis-croises-titre" className="label">
+            Joueurs croisés
+          </h3>
+          <ul className="joueurs-trouves">{cercle.croises.map(croisee)}</ul>
+        </section>
       )}
     </div>
   )

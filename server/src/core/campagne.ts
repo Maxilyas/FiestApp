@@ -29,6 +29,8 @@ import { nomDuChoix } from '../../../shared/nomDuChoix'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import { messageDUnDefi, messageDUnDuelJoue, type MessageDUnDefi } from './rappels'
 import {
+  COTE_DE_DEPART,
+  JOUEURS_CROISES,
   JOUEURS_TROUVES,
   JOURS_DU_CLASSEMENT,
   LETTRES_POUR_CHERCHER,
@@ -44,6 +46,7 @@ import {
   type ClassementDesDuels,
   type CleDeLigue,
   type CoteApresLeDuel,
+  type Croisement,
   type DuelContre,
   type DuelJoue,
   type DuelsDAccueil,
@@ -51,6 +54,7 @@ import {
   type EtatDesDuels,
   type FaceAFace,
   type JoueurADefier,
+  type JoueurCroise,
   type LigneDesDuels,
   type ReleveDesDuels,
   type SemaineDesDuels,
@@ -289,6 +293,27 @@ const RENCONTRES_MONTREES = 10
 /** Les cotes du classement des duels se relisent au plus toutes les dix minutes, et à chaque duel fini ici. */
 const COTES_GARDEES_MS = 10 * 60_000
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
+/** Ce qu'on lit de chaque source des joueurs croisés : de quoi en garder assez une fois ses amis et les masqués écartés. */
+const CANDIDATS_PAR_SOURCE = 12
+/** Au défi de la semaine, ses derniers venus, parmi lesquels on cherche ceux de son score. */
+const CANDIDATS_DU_DEFI = 50
+/** La part de chaque source parmi les joueurs croisés, avant que la place qui reste aille au plus proche : six soirées ne cachent pas un adversaire. */
+const CROISES_PAR_SOURCE: Record<Croisement, number> = { soiree: 3, duel: 2, defi: 2, niveau: JOUEURS_CROISES }
+/** Du plus proche au plus lointain : l'ordre où ils se montrent. */
+const ORDRE_DES_CROISEMENTS: readonly Croisement[] = ['soiree', 'duel', 'defi', 'niveau']
+
+/** Les deux sens de sa liste d'amis, lus d'un aller-retour (`cercleDe`). */
+interface CercleDAmis {
+  /** Ses amis, les plus récents d'abord (`AMIS_MONTRES` au plus). */
+  amis: string[]
+  estAmi: (id: string) => boolean
+  /** Ami l'un de l'autre : chacun a l'autre dans sa liste. */
+  reciproque: (id: string) => boolean
+  /** Retiré de sa liste — jusqu'à ce qu'il le rajoute, ou qu'ils jouent de nouveau un défi ensemble. */
+  aRetire: (id: string) => boolean
+  /** Ceux qui l'ont ajouté sans qu'il les ait ajoutés, ni retirés (`AJOUTS_MONTRES` au plus). */
+  tOntAjoute: string[]
+}
 
 /**
  * La campagne solo (`shared/campagne.ts`) : ses séries, dans la base
@@ -409,7 +434,7 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne'>>
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -1362,19 +1387,6 @@ export class CampagneStore {
       if (suivi) suivis.set(id, suivi)
     }
     return suivis
-  }
-
-  /**
-   * A-t-il relevé un défi — de la semaine ou entre amis —, ou fini un duel
-   * classé ? Son nom paraît alors dans leurs classements, et sa carte s'y
-   * ouvre comme celle d'un joueur du quiz du jour (`/api/joueur/carte/:id`).
-   */
-  async aReleveUnDefi(profileId: string): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: `SELECT 1 FROM campagne_series WHERE profile_id = ? AND (mode IN ('defi', 'duel') OR (mode = 'rencontre' AND finie_le IS NOT NULL)) LIMIT 1`,
-      args: [profileId],
-    })
-    return res.rows.length > 0
   }
 
   /** Sa révision laissée en route, s'il en a une : elle se reprend. */
@@ -2459,12 +2471,7 @@ export class CampagneStore {
    * deux côtés —, sauf qui l'a retiré depuis ; et ceux qui l'ont ajouté sans
    * qu'il les ait ajoutés, ni retirés. Un masqué n'y paraît jamais.
    */
-  private async cercleDe(profileId: string): Promise<{
-    amis: string[]
-    estAmi: (id: string) => boolean
-    reciproque: (id: string) => boolean
-    tOntAjoute: string[]
-  }> {
+  private async cercleDe(profileId: string): Promise<CercleDAmis> {
     const [sesAjouts, defis, leursAjouts, sesRetraits, leursRetraits] = await this.client.batch(
       [
         { sql: 'SELECT ami, ajoute_le AS le FROM campagne_amis_ajoutes WHERE profile_id = ?', args: [profileId] },
@@ -2503,6 +2510,7 @@ export class CampagneStore {
         .map(([id]) => id),
       estAmi: id => lesSiens.has(id),
       reciproque: id => lesSiens.has(id) && lAOntDansLaLeur(id),
+      aRetire: id => sesRetires.has(id),
       // Jamais un qu'il a retiré : il l'a écarté, et le rajouter se fait par son prénom.
       tOntAjoute: [...leurs]
         .filter(([id]) => !lesSiens.has(id) && !sesRetires.has(id) && !this.masque?.(id) && lAOntDansLaLeur(id))
@@ -2512,34 +2520,160 @@ export class CampagneStore {
     }
   }
 
-  /** Amis l'un de l'autre : chacun a l'autre dans sa liste. Sa carte s'ouvre alors à l'autre, même sans classement où elle se touche. */
-  async sontAmisReciproques(profileId: string, autre: string): Promise<boolean> {
-    return profileId !== autre && (await this.cercleDe(profileId)).reciproque(autre)
-  }
-
   /**
    * La feuille des amis (`GET /api/duels/amis`) : sa liste, lue comme un
    * classement — la plus haute cote d'abord —, qui est en ligne parmi ceux
    * qui l'ont ajouté aussi, puis ceux qui l'ont ajouté sans qu'il les ait
    * ajoutés. « En ligne » ne se dit jamais d'un ami à sens unique : on ajoute
    * n'importe qui par son prénom, sans qu'il accepte, et un inconnu
-   * guetterait sinon quand il se connecte.
+   * guetterait sinon quand il se connecte. Puis des joueurs qu'il a croisés,
+   * à ajouter d'un toucher — ni ceux qui l'ont ajouté, déjà au-dessus.
    */
   async amisDeLaFeuille(profileId: string): Promise<AmisDeLaFeuille> {
     const p = this.profils
-    if (!p) return { amis: [], tOntAjoute: [] }
-    const [cercle, cotes, rangs] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement()])
-    const lus = (await p.byIds([...cercle.amis, ...cercle.tOntAjoute])).filter((x): x is ProfileRec => x !== null)
+    if (!p) return { amis: [], tOntAjoute: [], croises: [] }
+    // Les sources des joueurs croisés se lisent avec sa liste, et tous leurs profils d'un coup : la feuille ne prend pas un aller-retour de plus.
+    const [cercle, cotes, rangs, sources] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement(), this.sourcesDesCroises(profileId)])
+    const candidats = { ...sources, niveau: this.prochesDeSaCote(profileId, cotes) }
+    const lus = new Map(
+      (await p.byIds([...new Set([...cercle.amis, ...cercle.tOntAjoute, ...Object.values(candidats).flat()])]))
+        .filter((x): x is ProfileRec => x !== null)
+        .map(x => [x.id, x]),
+    )
+    // Ni ceux qui l'ont ajouté : la feuille les montre au-dessus.
+    const croises = this.choisirLesCroises(profileId, candidats, cercle, new Set(cercle.tOntAjoute), id => lus.has(id))
+    const montres = [...cercle.amis, ...cercle.tOntAjoute, ...croises.map(c => c.id)].flatMap(id => lus.get(id) ?? [])
     // Deux du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17) — d'une section à l'autre aussi.
-    const marques = nomsAffiches(lus.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
-    const parId = new Map(lus.map(x => [x.id, x]))
+    const marques = nomsAffiches(montres.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
     const ligne = (id: string): AmiDeCampagne[] => {
-      const x = parId.get(id)
+      const x = lus.get(id)
       return x ? [{ profileId: x.id, nom: marques.get(x.id) ?? x.name, avatar: p.avatarPorte(x), ...sonApparence(p, x), ...this.saCote(cotes.get(x.id), rangs.get(x.id)) }] : []
     }
     const amis = cercle.amis.flatMap(id => ligne(id).map(a => ({ ...a, ...(cercle.reciproque(id) && p.enLigne?.(id) && { enLigne: true as const }) })))
     amis.sort((a, b) => (b.cote ?? -Infinity) - (a.cote ?? -Infinity) || 0)
-    return { amis, tOntAjoute: cercle.tOntAjoute.flatMap(ligne) }
+    return { amis, tOntAjoute: cercle.tOntAjoute.flatMap(ligne), croises: croises.flatMap(c => ligne(c.id).map(a => ({ ...a, croise: c.croise }))) }
+  }
+
+  /**
+   * Des joueurs qu'il a croisés (`GET /api/duels/croises`, le souhait du
+   * propriétaire du 11 octobre 2026 : « dans les défis, c'est dommage que ça
+   * montre pas des joueurs pour les ajouter en ami ») : de quoi défier ou
+   * ajouter quelqu'un sans connaître son prénom (`choisirLesCroises`).
+   */
+  async joueursCroises(profileId: string): Promise<JoueurCroise[]> {
+    const p = this.profils
+    if (!p) return []
+    const [cercle, cotes, rangs, sources] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement(), this.sourcesDesCroises(profileId)])
+    const candidats = { ...sources, niveau: this.prochesDeSaCote(profileId, cotes) }
+    const lus = new Map(
+      (await p.byIds([...new Set(Object.values(candidats).flat())])).filter((x): x is ProfileRec => x !== null).map(x => [x.id, x]),
+    )
+    const croises = this.choisirLesCroises(profileId, candidats, cercle, new Set(), id => lus.has(id)).map(c => ({ profil: lus.get(c.id)!, croise: c.croise }))
+    const marques = nomsAffiches(croises.map(({ profil: x }) => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    return croises.map(({ profil: x, croise }) => ({
+      profileId: x.id,
+      nom: marques.get(x.id) ?? x.name,
+      avatar: p.avatarPorte(x),
+      ...sonApparence(p, x),
+      ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
+      croise,
+    }))
+  }
+
+  /**
+   * Ce que chaque source des joueurs croisés propose, du plus proche au plus
+   * lointain, d'un aller-retour : ceux de ses dernières soirées
+   * (`compagnonsDeSoiree` : il était dans la salle), les plus récents
+   * d'abord ; ses adversaires de duel — une rencontre, un duel lancé ou reçu ;
+   * ceux du défi de la semaine — au score le plus proche du sien s'il l'a
+   * joué, les derniers venus sinon. Rien ne se tient à côté : tout se relit
+   * dans les journaux.
+   */
+  private async sourcesDesCroises(profileId: string): Promise<Record<Exclude<Croisement, 'niveau'>, string[]>> {
+    const { semaine } = this.semaineDeLHeure()
+    const [soiree, [duels, defi]] = await Promise.all([
+      this.profils?.compagnonsDeSoiree ? this.profils.compagnonsDeSoiree(profileId, CANDIDATS_PAR_SOURCE) : Promise.resolve([]),
+      this.client.batch(
+        [
+          {
+            // Ses rencontres — l'adversaire gardé avec sa série, qu'elles nomment —, les duels qu'il a lancés, et ceux qu'on lui a envoyés.
+            // Une ligne illisible ne fait pas tomber la feuille : `json_extract` refuse un JSON mal formé.
+            sql: `SELECT qui, MAX(le) AS le FROM (
+                    SELECT json_extract(adversaire, '$.profil') AS qui, commencee_le AS le FROM campagne_series
+                     WHERE profile_id = ? AND mode = 'rencontre' AND adversaire IS NOT NULL AND json_valid(adversaire)
+                    UNION ALL
+                    SELECT adversaire AS qui, cree_le AS le FROM campagne_duels WHERE auteur = ? AND adversaire IS NOT NULL
+                    UNION ALL
+                    SELECT d.auteur AS qui, e.envoye_le AS le FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
+                     WHERE e.profile_id = ? AND d.adversaire = ?
+                  ) WHERE qui IS NOT NULL GROUP BY qui ORDER BY le DESC LIMIT ?`,
+            args: [profileId, profileId, profileId, profileId, CANDIDATS_PAR_SOURCE],
+          },
+          {
+            sql: `SELECT profile_id, justes FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0 ORDER BY commencee_le DESC LIMIT ?`,
+            args: [semaine, CANDIDATS_DU_DEFI],
+          },
+        ],
+        'read',
+      ),
+    ])
+    const sienne = defi.rows.find(r => String(r.profile_id) === profileId)
+    return {
+      soiree,
+      duel: duels.rows.map(r => String(r.qui)),
+      // Au défi, ceux qui en sont où il en est, s'il l'a joué : un adversaire à sa mesure.
+      defi: defi.rows
+        .map((r, i) => ({ id: String(r.profile_id), ecart: sienne ? Math.abs(Number(r.justes) - Number(sienne.justes)) : 0, i }))
+        .sort((a, b) => a.ecart - b.ecart || a.i - b.i)
+        .map(d => d.id),
+    }
+  }
+
+  /** Les classés de ces quatre dernières semaines, de la cote la plus proche de la sienne — celle de départ, s'il n'en a pas : un débutant croise des débutants. */
+  private prochesDeSaCote(profileId: string, cotes: Map<string, ReleveDesDuels>): string[] {
+    const sa = cotes.get(profileId)
+    const maCote = sa && sa.joues > 0 ? sa.cote : COTE_DE_DEPART
+    const depuis = this.maintenant() - JOURS_DU_CLASSEMENT * 24 * HEURE_MS
+    return [...cotes]
+      .filter(([id, r]) => id !== profileId && r.joues > 0 && r.dernierLe !== null && r.dernierLe >= depuis && !this.masque?.(id))
+      .sort(([, a], [, b]) => Math.abs(a.cote - maCote) - Math.abs(b.cote - maCote) || (b.dernierLe ?? 0) - (a.dernierLe ?? 0))
+      .slice(0, CANDIDATS_PAR_SOURCE)
+      .map(([id]) => id)
+  }
+
+  /**
+   * Les joueurs croisés, choisis parmi ce que proposent leurs sources, du
+   * plus proche au plus lointain — ses soirées, ses duels, le défi de la
+   * semaine, puis, pour compléter, sa cote : chacune sa part d'abord
+   * (`CROISES_PAR_SOURCE` : six soirées ne cachent pas un adversaire), puis
+   * la place qui reste au plus proche. Ni lui, ni un masqué, ni un ami, ni
+   * qui il a retiré, ni un profil qui n'existe plus (`existe`), ni `exclus` ;
+   * `JOUEURS_CROISES` au plus, rangés par ce qui les fait paraître.
+   */
+  private choisirLesCroises(
+    profileId: string,
+    candidats: Record<Croisement, readonly string[]>,
+    cercle: CercleDAmis,
+    exclus: ReadonlySet<string>,
+    existe: (id: string) => boolean,
+  ): { id: string; croise: Croisement }[] {
+    const pris = new Map<string, Croisement>()
+    const prendre = (croise: Croisement, part: number) => {
+      let n = 0
+      for (const id of candidats[croise]) {
+        if (pris.size >= JOUEURS_CROISES || n >= part) return
+        if (id === profileId || pris.has(id) || !existe(id) || exclus.has(id) || cercle.estAmi(id) || cercle.aRetire(id) || this.masque?.(id)) continue
+        pris.set(id, croise)
+        n++
+      }
+    }
+    const vus: Croisement[] = ['soiree', 'duel', 'defi']
+    for (const croise of vus) prendre(croise, CROISES_PAR_SOURCE[croise])
+    // La place qui reste : une soirée de plus avant un inconnu de son niveau.
+    for (const croise of vus) prendre(croise, JOUEURS_CROISES)
+    prendre('niveau', JOUEURS_CROISES)
+    // Chacun dans l'ordre de sa source : le plus récent, le plus proche.
+    return [...pris].sort((a, b) => ORDRE_DES_CROISEMENTS.indexOf(a[1]) - ORDRE_DES_CROISEMENTS.indexOf(b[1])).map(([id, croise]) => ({ id, croise }))
   }
 
   /**

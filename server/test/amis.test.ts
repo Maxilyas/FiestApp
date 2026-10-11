@@ -5,8 +5,8 @@
 // qui par son prénom, sans qu'il accepte : montrée à sens unique, la présence
 // laisserait un inconnu guetter quand on se connecte. Puis le joueur touché
 // (sa carte, la préparation ouverte à son adresse) : ce que la recherche
-// dirait de lui, s'il est son ami, et sa propre cote. Et la carte d'un ami
-// réciproque, qui s'ouvre même sans classement où elle se touche.
+// dirait de lui, s'il est son ami, et sa propre cote. Et sa carte, entière,
+// qui s'ouvre même sans classement où elle se touche — jamais d'un masqué.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -78,8 +78,8 @@ test('la feuille des amis : sa liste, qui l’a ajouté, et « en ligne » entre
     const noe = await inscrireProfil(banc.url, 'noe', 'Noé', '🐨')
     const [deLea, deTom, deHugo, deZoe, deMax, deNoe] = ['lea', 'tom', 'hugo', 'zoe', 'max', 'noe'].map(l => idDe(banc, l))
 
-    // Personne encore.
-    assert.deepEqual((await lire(banc, lea, '/api/duels/amis')).corps, { amis: [], tOntAjoute: [] })
+    // Personne encore — ni croisé nulle part (`joueurs-croises.test.ts`).
+    assert.deepEqual((await lire(banc, lea, '/api/duels/amis')).corps, { amis: [], tOntAjoute: [], croises: [] })
     assert.equal((await fetch(`${banc.url}/api/duels/amis`)).status, 401, 'sans profil, pas d’amis')
 
     // Léa ajoute Tom puis Hugo ; Tom l'ajoute en retour, Hugo non.
@@ -110,7 +110,7 @@ test('la feuille des amis : sa liste, qui l’a ajouté, et « en ligne » entre
 
     // De l'autre côté, Hugo voit Léa parmi ceux qui l'ont ajouté — sans un mot de sa présence : il ne l'a pas ajoutée.
     const deHugoLaFeuille = (await lire(banc, hugo, '/api/duels/amis')).corps
-    assert.deepEqual(deHugoLaFeuille, { amis: [], tOntAjoute: [{ profileId: deLea, nom: 'Léa', avatar: '🦊' }] })
+    assert.deepEqual(deHugoLaFeuille, { amis: [], tOntAjoute: [{ profileId: deLea, nom: 'Léa', avatar: '🦊' }], croises: [] })
 
     // Léa rend la pareille à Zoé : elle quitte « ils t'ont ajouté » pour sa liste, et, passée à l'instant, s'y dit en ligne.
     await ajouter(lea, deZoe)
@@ -171,27 +171,31 @@ test('un joueur touché : ce que la recherche dirait de lui, s’il est son ami,
   }
 })
 
-test('la carte d’un ami réciproque s’ouvre sans classement où la toucher ; à sens unique, jamais', async () => {
-  // Carol n'a joué ni au quiz du jour ni en duel : sa carte ne s'ouvrait à
-  // personne. L'ajouter par son prénom ne suffit pas — on l'ouvrirait alors à
-  // n'importe qui —, mais si elle l'ajoute aussi, elle a choisi qui la voit.
+test('la carte entière de tout profil s’ouvre, sans classement ni amitié — jamais celle d’un masqué', async () => {
+  // Carol n'a joué ni au quiz du jour ni en duel : sa carte ne s'ouvrait
+  // qu'à ses amis réciproques, et ailleurs une carte réduite tenait sa place
+  // — « vide avec juste défier / retirer » (la remarque du propriétaire du
+  // 11 octobre 2026). La recherche par prénom la trouvait déjà : sa carte
+  // s'ouvre en entier, à tout profil, sauf masquée.
   const banc = await demarrer({ baseDeLaCampagne: BASE })
   try {
     const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const carol = await inscrireProfil(banc.url, 'carol', 'Carol', '🐼')
-    const [deAlice, deCarol] = ['alice', 'carol'].map(l => idDe(banc, l))
-    assert.equal((await lire(banc, alice, `/api/joueur/carte/${deCarol}`)).status, 404)
-    assert.equal((await poster(banc, alice, `/api/campagne/amis/${deCarol}/ajout`)).status, 200)
-    assert.equal((await lire(banc, alice, `/api/joueur/carte/${deCarol}`)).status, 404, 'à sens unique : sa carte reste fermée')
-    assert.equal((await poster(banc, carol, `/api/campagne/amis/${deAlice}/ajout`)).status, 200)
+    const deCarol = idDe(banc, 'carol')
     const carte = await lire(banc, alice, `/api/joueur/carte/${deCarol}`)
-    assert.equal(carte.status, 200, 'amies l’une de l’autre : elle s’ouvre')
-    assert.deepEqual([carte.corps.nom, carte.corps.avatar, carte.corps.profil.prenom], ['Carol', '🐼', 'Carol'])
+    assert.equal(carte.status, 200, 'ni amies ni classées : elle s’ouvre')
+    assert.deepEqual([carte.corps.nom, carte.corps.avatar, carte.corps.profil.prenom, carte.corps.profil.niveau], ['Carol', '🐼', 'Carol', 1])
     const permis = new Set(['nom', 'avatar', 'profil', 'niveau', 'finition', 'eclat', 'legendaire', 'laurier'])
     assert.deepEqual(Object.keys(carte.corps).filter(k => !permis.has(k)), [], 'la carte de la salle, rien de plus : ni identifiant, ni rien du compte')
-    // Elle la retire : sa carte se referme.
-    assert.equal((await poster(banc, carol, `/api/campagne/amis/${deAlice}/retrait`)).status, 200)
+    // Sans profil, rien ; un inconnu, rien.
+    assert.equal((await fetch(`${banc.url}/api/joueur/carte/${deCarol}`)).status, 401)
+    assert.equal((await lire(banc, alice, '/api/joueur/carte/inconnu')).status, 404)
+    // Masquée, elle se ferme aux autres — amie ou non —, jamais à elle-même.
+    assert.equal((await poster(banc, alice, `/api/campagne/amis/${deCarol}/ajout`)).status, 200)
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/jour/masquer', { profileId: deCarol, masque: true }, admin)).status, 200)
     assert.equal((await lire(banc, alice, `/api/joueur/carte/${deCarol}`)).status, 404)
+    assert.equal((await lire(banc, carol, `/api/joueur/carte/${deCarol}`)).status, 200)
   } finally {
     await banc.close()
   }

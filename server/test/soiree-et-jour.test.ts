@@ -234,8 +234,15 @@ test('toucher un nom du classement du jour ouvre sa carte — jamais celle d’u
     const permis = new Set(['nom', 'avatar', 'profil', 'niveau', 'finition', 'eclat', 'legendaire', 'laurier'])
     assert.deepEqual(Object.keys(deBob.corps).filter(k => !permis.has(k)), [], 'rien de plus que la carte de la salle : ni identifiant, ni rien du compte')
 
-    // Carol n'a jamais joué au quiz du jour : son identifiant ne mène à rien.
-    assert.equal((await lire(banc, alice, `/api/joueur/carte/${idDeCarol}`)).status, 404)
+    // Carol n'a jamais joué au quiz du jour : sa carte s'ouvre quand même, en
+    // entier — la recherche par prénom la trouvait déjà, et une carte réduite
+    // tenait sa place ailleurs (le souhait du propriétaire du 11 octobre
+    // 2026) —, sans rien de plus que celle de Bob, ni quiz du jour à dire.
+    const deCarol = await lire(banc, alice, `/api/joueur/carte/${idDeCarol}`)
+    assert.equal(deCarol.status, 200)
+    assert.deepEqual([deCarol.corps.nom, deCarol.corps.avatar, deCarol.corps.profil.prenom], ['Carol', '🐼', 'Carol'])
+    assert.equal('jour' in deCarol.corps.profil, false, 'elle n’y a jamais joué : pas de pastille')
+    assert.deepEqual(Object.keys(deCarol.corps).filter(k => !permis.has(k)), [])
     assert.equal((await lire(banc, alice, '/api/joueur/carte/inconnu')).status, 404)
     // Masqué par l'administrateur, Dan disparaît du classement des autres, et sa carte avec — pas la sienne.
     const admin = await connexionAnimateur(banc.url)
