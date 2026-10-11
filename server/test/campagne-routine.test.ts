@@ -172,6 +172,11 @@ test('la commande du jour : cinq questions par catégorie, chacune sa part, la c
     // de ce que la routine lisait chaque matin — jusqu'à sa limite d'usage.
     assert.match(corps.consigneCommune, /^LA BASE DE LA CAMPAGNE DE FIESTAPP/)
     assert.match(corps.consigneCommune, /^LE FORMAT/m)
+    // Les faits qui ont changé reviennent d'une vague à l'autre dans leur état
+    // d'avant — l'Éthiopie et ses langues de travail retirées par deux
+    // relectures le 11 octobre 2026 — : la consigne les nomme.
+    assert.match(corps.consigneCommune, /^- Méfie-toi des faits qui ont changé ces dernières années/m)
+    assert.match(corps.consigneCommune, /amharique n'est plus la seule langue de travail fédérale de l'Éthiopie \(2020\)/)
     for (const c of corps.categories) assert.doesNotMatch(c.consigne, /LE FORMAT|CE QUI FAIT UNE BONNE QUESTION/, c.categorie)
     assert.ok(corps.consigneCommune.length > 4 * histoire.consigne.length, 'l’essentiel est dans la commune')
   }))

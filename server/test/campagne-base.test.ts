@@ -33,9 +33,10 @@ import { sansAccent } from '../../shared/homonymes'
  * puis mille de plus aux huit catégories les moins fournies, 973, et douze
  * difficiles au thème des mythes et légendes (`preparer --theme`) : 8 319 ;
  * puis mille à la musique, au sport, aux jeux et à la fête, 968, et sept de
- * sport sauvées d'un lot dont l'indice de la bonne réponse était décalé : 9 294.
+ * sport sauvées d'un lot dont l'indice de la bonne réponse était décalé : 9 294 ;
+ * puis mille aux six catégories restées sous 700, 986 : 10 280.
  */
-const AU_MOINS = 9290
+const AU_MOINS = 10270
 
 const { questions, refusees } = lireLaBase()
 
