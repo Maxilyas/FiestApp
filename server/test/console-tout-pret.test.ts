@@ -36,6 +36,25 @@ test('« Choisis un quiz » propose un quiz tout prêt, à côté de la biblioth
   assert.doesNotMatch(html, /Composer|Lancer \d+ questions/)
 })
 
+// Tout joué ce soir, « C'est parti ! » sur un quiz « Joué ce soir » restait le
+// bouton principal, et le quiz tout prêt — le geste d'une manche de plus —
+// un bouton fantôme (l'expert du quiz tout prêt, le 11 octobre 2026).
+test('tout joué ce soir : le quiz tout prêt devient le geste principal, les autres se rejouent', async () => {
+  const module = await import(new URL('../../client/src/games/quiz/HostView.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const rendre = (view: QuizHostView) => renderToStaticMarkup(React.createElement(module.QuizHost, { view, teams: [], sendCommand: () => {}, endSession: () => {} }))
+  const boutons = (html: string) =>
+    [...html.matchAll(/<button class="([^"]*)"[^>]*>(.*?)<\/button>/g)].map(m => `${m[1]} : ${m[2].replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").trim()}`)
+  const joues = { ...CHOIX, packs: CHOIX.packs!.map(p => ({ ...p, joueCeSoir: true })) } as QuizHostView
+  const tout = boutons(rendre(joues))
+  assert.ok(tout.includes('btn btn-primary : Un quiz tout prêt'), tout.join(' | '))
+  assert.equal(tout.filter(b => b === 'btn : Rejouer').length, 2, tout.join(' | '))
+  // Un seul quiz encore à jouer : rien ne change.
+  const un = boutons(rendre({ ...joues, packs: [joues.packs![0], { ...joues.packs![1], joueCeSoir: false }] } as QuizHostView))
+  assert.ok(un.includes('btn btn-ghost : Un quiz tout prêt'), un.join(' | '))
+  assert.equal(un.filter(b => b === "btn btn-primary : C'est parti !").length, 2, un.join(' | '))
+})
+
 test('composé à la console, le quiz se lance aussitôt, au multiplicateur choisi', () => {
   // La feuille rend le quiz composé ; la console le lance — le serveur l'a
   // rangé dans la bibliothèque avant de répondre (`onLibraryChanged`).
@@ -44,6 +63,46 @@ test('composé à la console, le quiz se lance aussitôt, au multiplicateur choi
   // L'écran commun d'une bibliothèque vide le propose aussi, au lieu de renvoyer écrire.
   const ecran = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
   assert.match(ecran, /bibliothequeVide \?[\s\S]{0,600}Un quiz tout prêt/)
+  // La salle déjà là, il s'y lance aussi d'un toucher : la partie s'ouvre, puis le choisit.
+  // Composé avant elle, il le dit. (L'expert du quiz tout prêt, le 11 octobre 2026 : il
+  // fallait encore « Lancer un quiz » puis « C'est parti ! », et rien ne disait ce qui était prêt.)
+  assert.match(ecran, /verbe=\{connectedCount > 0 \? 'Lancer' : 'Composer'\}/)
+  assert.match(ecran, /if \(connectedCount > 0\) \{\s+aLancer\.current = \{ quizId: quiz\.id, le: Date\.now\(\) \}\s+lancerQuiz\(\)\s+\} else showToast\(/)
+  assert.match(ecran, /phaseEnCours !== 'pickPack'\) return[\s\S]{0,200}type: 'selectPack', packId: voulu\.quizId/)
+})
+
+// Dans « Mes quiz » vide, il arrivait en douzième, sous les onze modèles — à
+// près de quatre écrans d'un téléphone —, et « Par où commencer » disait « un
+// quiz tout fait », le mot des modèles. Et le ▶ « Lancer » d'un compte
+// d'animateur sans profil menait à « Me connecter », alors qu'il l'était
+// (l'expert du quiz tout prêt, le 11 octobre 2026).
+test('une bibliothèque vide propose le quiz tout prêt en tête ; « Lancer » sans profil mène à l’écran commun', () => {
+  const editeur = readFileSync(new URL('../../client/src/views/EditorApp.tsx', import.meta.url), 'utf8')
+  const premiersPas = editeur.slice(editeur.indexOf('function PremiersPas('), editeur.indexOf('const ACCORDS_AFFICHES'))
+  const toutPret = premiersPas.indexOf('Composer un quiz tout prêt')
+  assert.ok(toutPret > 0 && toutPret < premiersPas.indexOf('{rayons.map('), 'avant les rayons des modèles')
+  assert.equal(premiersPas.match(/onClick=\{onToutPret\}/g)?.length, 1, 'une seule porte, en tête')
+  const compte = readFileSync(new URL('../../client/src/views/AccountApp.tsx', import.meta.url), 'utf8')
+  assert.match(compte, /compose un quiz tout prêt en un geste/)
+  assert.doesNotMatch(compte, /quiz tout fait/)
+
+  const salon = readFileSync(new URL('../../client/src/views/SalonApp.tsx', import.meta.url), 'utf8')
+  assert.match(salon, /setEtat\(\{ e: \(await currentMe\(\)\) \? 'animateur' : 'anonyme' \}\)/)
+  assert.match(salon, /etat\.e === 'animateur' \?[\s\S]{0,400}href="\/host"[\s\S]{0,120}Ouvrir l’écran commun/)
+})
+
+test('la feuille dit ce que durera le quiz, et ce que « Des enfants jouent » promet', async () => {
+  const module = await import(new URL('../../client/src/components/QuizToutPret.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  memoire.delete('quizz.quizToutPret')
+  const html = renderToStaticMarkup(React.createElement(module.FeuilleDuQuizToutPret, { onFermer: () => {}, onCompose: () => {} }))
+  // Quinze questions, dont trois estimations de trente secondes : huit minutes, révélations comprises.
+  assert.match(html, /class="tout-pret-resume">Toutes les catégories · progressive · ≈ 8 min</)
+  assert.match(html, /D’abord ce que les enfants savent/)
+  memoire.set('quizz.quizToutPret', JSON.stringify({ nombre: 30, estimations: false, enfants: true }))
+  const long = renderToStaticMarkup(React.createElement(module.FeuilleDuQuizToutPret, { onFermer: () => {}, onCompose: () => {} }))
+  assert.match(long, /class="tout-pret-resume">Toutes les catégories · progressive · ≈ 14 min · des enfants jouent · que des QCM</)
+  memoire.delete('quizz.quizToutPret')
 })
 
 test('le dernier choix composé se retient sur le téléphone, relu prudemment', async () => {

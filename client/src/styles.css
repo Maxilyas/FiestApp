@@ -6685,6 +6685,22 @@ h3 > .icon {
   .premiers-pas-choix .btn { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; }
 }
 .premiers-pas-etapes { margin: 6px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
+/* Le quiz tout prêt, en tête des départs : encadré à l'accent, il se voit
+   avant les onze modèles. */
+.premiers-pas-tout-pret {
+  margin-top: 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.premiers-pas-tout-pret h3 { margin: 0; font-size: 1.1rem; }
+.premiers-pas-tout-pret p { margin: 0; }
+@media (max-width: 600px) {
+  .premiers-pas-tout-pret .btn { width: 100%; }
+}
 
 /* Les modèles : un par ligne, ce qu'il est à gauche, le geste à droite ;
    « Pour qui ? » se déplie dessous, sur place. */

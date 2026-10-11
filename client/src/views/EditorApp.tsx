@@ -3439,9 +3439,24 @@ function PremiersPas({
       <h2>{debut ? 'Ton premier quiz' : 'Partir d’un modèle'}</h2>
       <p className="muted small">
         {debut
-          ? 'Aucun de tes quiz n’est encore prêt à jouer. Pars d’un quiz tout fait, que tu retoucheras à ton goût, ou du tien.'
+          ? 'Aucun de tes quiz n’est encore prêt à jouer. Compose un quiz tout prêt, pars d’un modèle que tu retoucheras à ton goût, ou écris le tien.'
           : 'Chaque modèle arrive en copie dans ta bibliothèque, que tu retoucheras à ton goût.'}
       </p>
+      {/* Le départ sans rien écrire, en tête : sous les onze modèles, il
+          arrivait en douzième, à près de quatre écrans de téléphone — la
+          porte que « Par où commencer » désigne (l'expert du quiz tout prêt,
+          le 11 octobre 2026). */}
+      {debut && (
+        <div className="premiers-pas-tout-pret">
+          <span className="label">Sans rien écrire</span>
+          <h3>Un quiz tout prêt</h3>
+          <p className="muted small">{espacesFines('Tes catégories ou un sujet, ta difficulté : il se compose en une seconde, tiré de milliers de questions relues, chacune avec son anecdote.')}</p>
+          <button className="btn btn-primary" onClick={onToutPret}>
+            <Icon name="dice" />
+            Composer un quiz tout prêt
+          </button>
+        </div>
+      )}
       {rayons.map(rayon => (
         <div key={rayon.titre} className="rayon">
           <h3 className="rayon-titre">{rayon.titre}</h3>
@@ -3526,10 +3541,6 @@ function PremiersPas({
       )}
       {debut && (
         <div className="premiers-pas-choix">
-          <button className="btn" onClick={onToutPret}>
-            <Icon name="dice" />
-            Un quiz tout prêt — tes catégories, ta difficulté
-          </button>
           <button className="btn" onClick={onListe}>
             <Icon name="clipboard" />
             Coller une liste — tes notes, ou la réponse d’une IA

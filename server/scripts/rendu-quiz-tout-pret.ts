@@ -3,9 +3,11 @@
 // ligne, la feuille réglée d'office puis choisie — deux catégories, facile,
 // dix questions —, le quiz composé ouvert dans l'éditeur, et sa première
 // estimation ; puis le salon d'un profil, où le quiz composé rejoint ce
-// soir ; enfin l'écran commun, en 1366 × 768 et 1920 × 1080 : celui d'un
-// compte neuf, bibliothèque vide, puis « Choisis un quiz » et sa feuille,
-// jusqu'au quiz lancé.
+// soir ; un compte neuf au téléphone, sa bibliothèque vide — le quiz tout
+// prêt en tête — et son salon sans profil, qui mène à l'écran commun ;
+// enfin l'écran commun, en 1366 × 768 et 1920 × 1080 : celui du compte
+// neuf, bibliothèque vide, puis « Choisis un quiz » et sa feuille, jusqu'au
+// quiz lancé.
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-quiz-tout-pret.ts [dossier]
@@ -98,6 +100,15 @@ try {
   const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'nadia', name: 'Nadia', slug: 'chez-nadia' }, admin)
   const { activation } = (await cree.json()) as { activation: { token: string } }
   const nadia = cookieDe(await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: 'nadia-pass-1' }))
+  // Sa bibliothèque vide au téléphone : le quiz tout prêt en tête des premiers pas.
+  const premiersPas = await telephone(nadia)
+  await premiersPas.goto(`${banc.url}/edit`)
+  await premiersPas.waitForSelector('.premiers-pas-tout-pret')
+  await photo(premiersPas, '09a-premiers-pas')
+  // Un compte sans profil qui touche ▶ « Lancer » : le salon le mène à l'écran commun.
+  await premiersPas.goto(`${banc.url}/salon?quiz=inconnu`)
+  await premiersPas.getByText('Ouvrir l’écran commun').waitFor()
+  await photo(premiersPas, '09b-salon-sans-profil')
   const ecranDe = async (cookie: string, largeur: number, hauteur: number) => {
     const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur } })
     const [nom, valeur] = cookie.split('=')

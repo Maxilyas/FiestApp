@@ -8,6 +8,7 @@
 // un modèle.
 
 import type { Categorie } from './categories'
+import { DEFAULT_DURATION, dureeDeQuestionsS } from './library'
 
 /** La difficulté d'un quiz tout prêt : que des faciles, une montée, ou de quoi départager des connaisseurs. */
 export type DifficulteDuQuiz = 'facile' | 'progressive' | 'corsee'
@@ -37,6 +38,20 @@ export const AGE_DES_ENFANTS = 10
 export const UNE_ESTIMATION_SUR = 5
 /** Taper un nombre prend plus longtemps que toucher une réponse : les estimations livrées laissent trente secondes. */
 export const DUREE_D_UNE_ESTIMATION = 30
+
+/**
+ * Ce que le quiz composé durera à jouer, à peu près : la feuille le dit
+ * avant de composer — l'animatrice se demande d'abord « combien de temps
+ * ça dure », et seul l'éditeur le disait, après (l'expert du quiz tout
+ * prêt, le 11 octobre 2026).
+ */
+export function dureeDuQuizToutPretS(nombre: number, estimations: boolean): number {
+  const e = estimations ? Math.round(nombre / UNE_ESTIMATION_SUR) : 0
+  return dureeDeQuestionsS([
+    { n: nombre - e, secondes: DEFAULT_DURATION },
+    { n: e, secondes: DUREE_D_UNE_ESTIMATION },
+  ])
+}
 
 /** Ce que l'animateur demande (`POST /api/quiz-tout-pret`). */
 export interface ChoixDuQuiz {

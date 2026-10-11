@@ -184,6 +184,11 @@ function ChoixDuQuiz({
   // qui défilait.
   const mots = pourChercher(recherche)
   const visibles = mots ? packs.filter(p => pourChercher(p.title).includes(mots)) : packs
+  // Tout a été joué ce soir : une manche de plus se compose, elle ne se
+  // rejoue pas. « C'est parti ! » sur le quiz « Joué ce soir » était le bouton
+  // principal, et le quiz tout prêt un bouton fantôme en haut à droite
+  // (l'expert du quiz tout prêt, le 11 octobre 2026).
+  const toutJoue = packs.length > 0 && packs.every(p => p.joueCeSoir)
   return (
     <div className="quiz-host">
       <div className="row choix-tete">
@@ -192,7 +197,7 @@ function ChoixDuQuiz({
           Choisis un quiz
         </h2>
         <button
-          className="btn btn-ghost"
+          className={toutJoue ? 'btn btn-primary' : 'btn btn-ghost'}
           onClick={() => {
             quizToutPret.charger().catch(() => {})
             setToutPret(true)
@@ -245,8 +250,8 @@ function ChoixDuQuiz({
                 )}
               </div>
             )}
-            <button className="btn btn-primary" onClick={() => lancer(p)}>
-              C'est parti !
+            <button className={toutJoue ? 'btn' : 'btn btn-primary'} onClick={() => lancer(p)}>
+              {toutJoue ? 'Rejouer' : "C'est parti !"}
             </button>
           </div>
         ))}
