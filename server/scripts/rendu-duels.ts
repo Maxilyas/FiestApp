@@ -1,14 +1,18 @@
 // Les duels, photographiés au téléphone (360 × 640) sur un serveur jetable :
 // le bouton de l'accueil, la page d'un débutant — comment ça marche et les
 // ligues dépliés —, un duel au hasard (son enjeu en jeu, sa cote à la fin),
-// une montée de ligue, la page d'un habitué — le classement par ligue et ses
-// épées, ses amis et leur ligue, la carte d'un joueur —, puis défier
-// quelqu'un : l'épée de Tom touchée, la préparation, une partie jusqu'à sa
-// fin — partie à Tom —, et Tom qui le reçoit, à l'accueil et dans ses duels,
-// le joue et le gagne ; Léa qui le retrouve, joué ; la barre de recherche et
-// l'ajout d'un ami. Les cotes des autres viennent de duels écrits dans la
-// base : la cote se relit dans le journal des rencontres (`shared/duels.ts`).
-// Le client construit d'abord (`npm run build -w client`).
+// une montée de ligue, la page d'un habitué — ses deux portes, « Voir le
+// classement » et « Mes amis » —, la feuille du classement, sa place en
+// tête, et la carte d'un joueur, ses gestes au pied ; puis défier quelqu'un :
+// Tom touché au classement, « Défier Tom » sur sa carte, la préparation, une
+// partie jusqu'à sa fin — partie à Tom —, et Tom qui le reçoit, à l'accueil
+// et dans ses duels, le joue et le gagne ; Léa qui le retrouve, joué ; la
+// barre de recherche ; la feuille des amis — qui est en ligne, qui l'a
+// ajoutée, un prénom tapé, Zoé ajoutée de sa carte —, et la même feuille sur
+// l'accueil, d'où « Défier » mène à la préparation. Les cotes des autres
+// viennent de duels écrits dans la base : la cote se relit dans le journal
+// des rencontres (`shared/duels.ts`). Le client construit d'abord
+// (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-duels.ts [dossier]
 import { createRequire } from 'node:module'
@@ -142,14 +146,18 @@ try {
   await jouerLeDuel(page, lea, 9, () => photo(page, '03-en-jeu'))
   await photo(page, '04-gagne')
   await photo(page, '04-gagne-pleine', true)
-  // De retour dans ses duels : le classement, ses blasons, son dernier duel.
+  // De retour dans ses duels : ses deux portes sous « Défier quelqu'un », ses duels joués repliés.
   await page.getByRole('link', { name: 'Les duels' }).click()
-  await page.waitForSelector('.duels-ligne')
+  await page.waitForSelector('.duels-portes')
   await photo(page, '05-habitue')
   await photo(page, '05-habitue-pleine', true)
-  // Un nom touché au classement : sa carte, sa ligue dessus.
+  // « Voir le classement » : sa place en tête, puis chacun sous sa ligue.
+  await page.getByRole('button', { name: 'Voir le classement' }).click()
+  await page.waitForSelector('.duels-ta-place')
+  await photo(page, '05a-classement')
+  // Un nom touché au classement : sa carte, sa ligue dessus, et ses gestes au pied.
   await page.locator('.duels-ligne', { hasText: 'Inès' }).click()
-  await page.waitForSelector('.carte-joueur .carte-pastilles')
+  await page.waitForSelector('.carte-joueur .carte-gestes')
   await photo(page, '05b-carte-d-ines')
   await page.keyboard.press('Escape')
 
@@ -160,10 +168,11 @@ try {
   await jouerLeDuel(pourZoe, zoe, 10)
   await photo(pourZoe, '06-promotion')
 
-  // Défier quelqu'un : l'épée de Tom, au classement — la préparation, lui déjà choisi ; l'histoire.
+  // Défier quelqu'un : Tom touché au classement, « Défier Tom » sur sa carte — la préparation, lui déjà choisi ; l'histoire.
   await page.goto(`${banc.url}/duels`)
-  await page.waitForSelector('.duels-rangee .duels-epee[aria-label="Défier Tom"]')
-  await page.locator('.duels-rangee .duels-epee[aria-label="Défier Tom"]').click()
+  await page.getByRole('button', { name: 'Voir le classement' }).click()
+  await page.locator('.duels-ligne', { hasText: 'Tom' }).click()
+  await page.getByRole('button', { name: 'Défier Tom' }).click()
   await page.waitForSelector('.defier-etape')
   await photo(page, '07-lancer')
   await page.getByRole('button', { name: 'Histoire', exact: true }).click()
@@ -190,9 +199,11 @@ try {
   await pourTom.waitForSelector('.duels-fin')
   await photo(pourTom, '12-tom-gagne')
   await photo(pourTom, '12-tom-gagne-pleine', true)
-  // Léa le retrouve, joué : sa page des duels — « Tes duels » —, puis le duel, sa correction ouverte.
+  // Léa le retrouve, joué : sa page des duels — « Tes duels joués », dépliés —, puis le duel, sa correction ouverte.
   await page.goto(`${banc.url}/duels`)
-  await page.waitForSelector('#duels-contre-titre')
+  await page.waitForSelector('.duels-joues summary')
+  await page.click('.duels-joues summary')
+  await page.waitForSelector('#duels-joues-titre')
   await photo(page, '13-lea-ses-duels', true)
   await page.locator('.duel-ligne', { hasText: 'Contre Tom' }).click()
   await page.waitForSelector('.defi-heros')
@@ -204,15 +215,40 @@ try {
   await page.fill('.chercher-champ input', 'zo')
   await page.waitForSelector('.joueurs-trouves .ligne-joueur')
   await photo(page, '15-chercher')
-  // Ajouter un ami : Zoé, par son prénom.
+  // Ses amis : « Mes amis » ouvre leur feuille, par-dessus la page — Tom, ami des deux côtés et passé à l'instant, en ligne ; Max vient de l'ajouter.
+  await ecrire(banc.url, `/api/campagne/amis/${await idDe(banc, lea)}/ajout`, {}, max)
   await page.goto(`${banc.url}/duels`)
-  await page.waitForSelector('.tes-amis')
-  await page.getByRole('button', { name: 'Ajouter un ami' }).click()
-  await page.fill('.tes-amis .chercher-champ input', 'zoé')
-  await page.getByRole('button', { name: 'Ajouter Zoé à mes amis' }).click()
-  await page.waitForSelector('.tes-amis-liste .ligne-joueur:has-text("Zoé")')
-  await page.locator('.tes-amis').scrollIntoViewIfNeeded()
+  await page.getByRole('button', { name: /Mes amis/ }).click()
+  await page.waitForSelector('.amis-sections .ligne-joueur-ouvrable')
   await photo(page, '16-amis')
+  // Un prénom tapé : ses amis qu'il désigne, puis les autres joueurs.
+  await page.fill('.carte-feuille .chercher-champ input', 'zo')
+  await page.waitForSelector('#amis-autres-titre')
+  await photo(page, '16b-amis-chercher')
+  // Zoé touchée : sa carte, et « Ajouter à mes amis » à son pied.
+  await page.locator('.ligne-joueur-ouvrable', { hasText: 'Zoé' }).click()
+  await page.waitForSelector('.carte-joueur .carte-gestes')
+  await photo(page, '16c-carte-de-zoe')
+  await page.getByRole('button', { name: 'Ajouter à mes amis' }).click()
+  await page.waitForSelector('.carte-gestes-ami')
+  await photo(page, '16d-zoe-ajoutee')
+  // Retirer se confirme sur place.
+  await page.getByRole('button', { name: 'Retirer Zoé de mes amis' }).click()
+  await page.waitForSelector('.carte-gestes-retrait')
+  await photo(page, '16e-retirer-zoe')
+  await page.getByRole('button', { name: 'Garder' }).click()
+  await page.keyboard.press('Escape')
+  // L'accueil : « Amis » au bout de sa ligne ; la feuille monte sur l'accueil, et « Défier » sur une carte mène à la préparation.
+  await page.goto(banc.url)
+  await page.waitForSelector('.bouton-des-amis')
+  await photo(page, '17-accueil-amis')
+  await page.click('.bouton-des-amis')
+  await page.waitForSelector('.amis-sections .ligne-joueur-ouvrable')
+  await photo(page, '17b-amis-sur-l-accueil')
+  await page.locator('.ligne-joueur-ouvrable', { hasText: 'Hugo' }).click()
+  await page.getByRole('button', { name: 'Défier Hugo' }).click()
+  await page.waitForSelector('.defi-heros h1:has-text("Défier Hugo")')
+  await photo(page, '18-defier-depuis-l-accueil')
   // L'ancien lien d'un défi, parti avant les duels : il mène à sa page.
   await pourTom.goto(`${banc.url}/campagne#duel-${premier.code}`)
   await pourTom.waitForSelector('.defi-heros')

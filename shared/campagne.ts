@@ -634,7 +634,28 @@ export interface AmiDeCampagne extends SonApparence {
   cote?: number
   ligue?: CleDeLigue
   rang?: number
+  /**
+   * En ligne ces cinq dernières minutes — dans la feuille des amis seulement
+   * (`AmisDeLaFeuille`), et seulement entre amis réciproques : chacun a
+   * ajouté l'autre. Rien sinon : l'absence, pas « hors ligne ».
+   */
+  enLigne?: true
 }
+
+/**
+ * La feuille des amis (`GET /api/duels/amis`, le souhait du propriétaire du
+ * 11 octobre 2026 : « une fenêtre avec la liste des amis, s'il est connecté,
+ * ajouter, supprimer, défier ») : sa liste — qui est en ligne, entre amis
+ * réciproques —, et ceux qui l'ont ajouté sans qu'il les ait ajoutés.
+ */
+export interface AmisDeLaFeuille {
+  amis: AmiDeCampagne[]
+  /** Ceux qui l'ont ajouté et qu'il n'a pas ajoutés, les plus récents d'abord (`AJOUTS_MONTRES` au plus) — jamais un qu'il a retiré. */
+  tOntAjoute: AmiDeCampagne[]
+}
+
+/** « Ils t'ont ajouté » : les plus récents, de quoi rendre la pareille — pas une liste de suiveurs. */
+export const AJOUTS_MONTRES = 5
 
 /** Un défi qu'on lui a envoyé — d'un ami, ou un duel classé de qui l'a défié —, qu'il n'a pas encore relevé. */
 export interface DefiRecu {

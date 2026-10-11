@@ -987,7 +987,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
         <Icon name="clock" /> Dix nouvelles questions dans <b>{avantMinuit}</b>
       </p>
       {carte && laCarte && laCarte !== 'perdu' && (
-        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
+        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} gestes={{ profileId: carte }} onFermer={() => setCarte(null)} />
       )}
     </div>
   )
@@ -1294,7 +1294,7 @@ export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetou
         Retour
       </button>
       {carte && laCarte && laCarte !== 'perdu' && (
-        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
+        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} gestes={{ profileId: carte }} onFermer={() => setCarte(null)} />
       )}
     </div>
   )

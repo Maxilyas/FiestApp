@@ -322,6 +322,17 @@ export interface JoueurADefier extends SonApparence {
   ami?: true
 }
 
+/**
+ * Un joueur touché hors d'une soirée — sa carte, une ligne de ses amis, la
+ * préparation ouverte à son adresse (`/duels#defier-<id>`) : ce que les duels
+ * savent de lui — sa ligue, sa cote, sa place, s'il est son ami —, et sa
+ * propre cote, pour dire ce qui se joue (`GET /api/duels/joueurs/:id`).
+ */
+export interface FaceAFace {
+  joueur: JoueurADefier
+  moi: { cote: number; joues: number }
+}
+
 /** Ce qu'une recherche rend au plus : de quoi trouver quelqu'un, pas un annuaire. */
 export const JOUEURS_TROUVES = 12
 

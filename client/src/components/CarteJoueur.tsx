@@ -23,6 +23,28 @@ import type { Mot } from '../../../shared/glossaire'
 import { fond as fondDeCarte } from '../../../shared/fonds'
 import { ligueParCle } from '../../../shared/duels'
 import { BlasonDeLigue } from './Blason'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+import type { GestesDeLaCarte } from './GestesDuJoueur'
+
+/**
+ * Les gestes d'une carte de profil — le défier, l'ajouter à ses amis
+ * (`GestesDuJoueur`) —, chargés avec elle seulement : la carte d'une soirée
+ * n'en a pas, et les téléphones de la salle ne les téléchargent jamais.
+ */
+const lesGestes = aLaDemande(() => import('./GestesDuJoueur'))
+
+/**
+ * Ce que la carte montre d'un profil dont elle ne s'ouvre pas à qui regarde
+ * — un ami qui n'a joué ni au quiz du jour ni en duel, et qui ne l'a pas
+ * ajouté en retour : son visage et son prénom, tels que la ligne touchée les
+ * montrait, et ce qu'elle disait de lui (`detail`). Rien de plus : sa carte
+ * entière ne s'ouvre qu'aux classements où il paraît, et à ses amis
+ * réciproques.
+ */
+export interface RepliDeCarte {
+  carte: CarteDeJoueur
+  detail?: string
+}
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
@@ -47,17 +69,28 @@ export function CarteJoueur({
   slug,
   playerId,
   adresse,
+  gestes,
+  repli,
   onFermer,
 }: {
   slug?: string
   playerId?: string
   /** D'où la lire, si ce n'est pas un invité de la soirée : sa propre carte, depuis sa page. */
   adresse?: string
+  /** Un profil touché hors d'une soirée : ce qu'on peut en faire, au pied de la carte (`GestesDuJoueur`). */
+  gestes?: GestesDeLaCarte
+  /** Ce qu'elle montre si elle ne s'ouvre pas à qui regarde (404). */
+  repli?: RepliDeCarte
   onFermer: () => void
 }) {
   const [carte, setCarte] = useState<CarteDeJoueur | null>(null)
+  // La carte réduite d'un profil qui ne s'ouvre pas à qui regarde : ce que la ligne disait de lui, sous son prénom.
+  const [reduite, setReduite] = useState<string | null>(null)
   const [erreur, setErreur] = useState('')
   const boite = useRef<HTMLDivElement>(null)
+  // Lu à l'ouverture : la ligne touchée ne change pas sous la carte.
+  const repliALOuverture = useRef(repli)
+  const desGestes = useALaDemande(lesGestes, !!gestes)
   // L'avatar en grand, et la hauteur du contenu qu'il remplace : il la
   // garde, et la carte ne rapetisse pas sous le doigt — centrée dans
   // l'écran, sa croix aurait sauté.
@@ -78,12 +111,15 @@ export function CarteJoueur({
 
   useEffect(() => {
     let vivant = true
+    const lui = repliALOuverture.current
     fetch(adresse ?? `/s/${slug}/joueurs/${encodeURIComponent(playerId ?? '')}.json`)
-      .then(r =>
-        r.ok
-          ? r.json()
-          : Promise.reject(new Error(r.status === 404 && !adresse ? 'Ce joueur a quitté la soirée' : 'Carte indisponible')),
-      )
+      .then(r => {
+        if (r.status === 404 && lui) {
+          setReduite(lui.detail ?? '')
+          return lui.carte
+        }
+        return r.ok ? r.json() : Promise.reject(new Error(r.status === 404 && !adresse ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))
+      })
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
       // La lumière de sa finition aussi : elle s'allumerait après coup.
@@ -179,6 +215,7 @@ export function CarteJoueur({
                     {carte.nom}
                     <Niveau niveau={p?.niveau} big />
                   </h3>
+                  {reduite && <p className="muted small">{espacesFines(reduite)}</p>}
                   {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné, ou d'un sentier dont il est maître. */}
                   {nomDuTitre(p?.titre) && <p className="titre-porte">{espacesFines(`« ${nomDuTitre(p?.titre)} »`)}</p>}
                   {carte.laurier && (
@@ -320,6 +357,11 @@ export function CarteJoueur({
             <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
           )}
         </div>
+        {/* Ses gestes au pied, hors de ce qui défile : « Défier » reste en vue
+            sous une carte bien remplie. Montés dès l'ouverture — ils lisent
+            ce qu'il faut pendant que la carte arrive —, cachés sous l'avatar
+            en grand. */}
+        {gestes && desGestes && desGestes !== 'perdu' && <desGestes.GestesDuJoueur gestes={gestes} visibles={!loupe} onFermer={onFermer} />}
       </div>
     </div>
   )

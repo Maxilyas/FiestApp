@@ -17,8 +17,8 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
  * 2026 : « tu choisis sur quoi tu veux défier, une barre de recherche, un
  * classement de la ligue avec des petites épées ; une fois le quiz fait de
  * mon côté, ça envoie automatiquement une notification, pas de lien à
- * partager »), en trois temps : contre qui — celui que l'épée du classement
- * ou la ligne d'un ami a choisi, sinon trouvé par son prénom ou parmi ses
+ * partager »), en trois temps : contre qui — celui dont la carte a dit
+ * « Défier » (`GestesDuJoueur`), sinon trouvé par son prénom ou parmi ses
  * amis —, sur quoi — la grille de la série, catégories ou sujet —, puis on
  * le joue d'abord. À sa dernière réponse, il lui part : dans ses duels, et
  * son téléphone sonne. Un duel classé : quand il l'a joué, les deux cotes
@@ -40,8 +40,8 @@ export function LancerUnDefi({
   sujets: readonly Sujet[]
   /**
    * Ce qui est choisi en arrivant : les catégories ou le sujet de sa dernière
-   * série, l'adversaire touché — l'épée d'une ligne du classement, un ami —,
-   * et sa propre cote, pour dire ce qui se joue.
+   * série, l'adversaire touché — « Défier » sur sa carte —, et sa propre
+   * cote, pour dire ce qui se joue.
    */
   depart: { categories: readonly string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }
   busy: boolean
@@ -117,7 +117,7 @@ export function LancerUnDefi({
                 </ul>
               </>
             ) : (
-              <p className="muted small">{espacesFines('Cherche un prénom, ou touche l’épée d’un joueur dans le classement des duels.')}</p>
+              <p className="muted small">{espacesFines('Cherche un prénom — ou touche un joueur du classement des duels : « Défier » est sur sa carte.')}</p>
             )}
           </>
         )}
@@ -153,7 +153,7 @@ export function LancerUnDefi({
         {espacesFines(
           choisi
             ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son téléphone sonne s’il a activé les notifications. Quand il l’a joué, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
-            : 'Choisis d’abord contre qui : un prénom, un ami, ou l’épée d’un joueur du classement.',
+            : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>
     </div>

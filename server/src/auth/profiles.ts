@@ -319,6 +319,15 @@ const ANNUAIRE_GARDE_MS = 60_000
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
 
+/**
+ * « En ligne » : passé ces cinq dernières minutes — une page, une partie,
+ * toute requête qui dit son profil (`sessionProfileId`). La feuille des amis
+ * le montre entre amis réciproques seulement (`CampagneStore.amisDeLaFeuille`) :
+ * on ajoute n'importe qui par son prénom, sans qu'il accepte, et un inconnu
+ * guetterait sinon quand il se connecte.
+ */
+export const EN_LIGNE_MS = 5 * 60_000
+
 const fingerprint = (token: string) => createHash('sha256').update(token).digest('hex')
 const newToken = () => randomBytes(32).toString('base64url')
 
@@ -465,6 +474,12 @@ export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
   private sessions = new Map<string, ProfileSessionRec>()
+  /**
+   * Quand chaque profil est passé pour la dernière fois (`enLigne`), en
+   * mémoire seulement : rien ne s'écrit à chaque requête, et un redémarrage
+   * l'oublie — personne n'y est « en ligne » d'avant.
+   */
+  private vus = new Map<string, number>()
   /** Les emojis éclatés, par profil — chargés avec le profil. */
   private eclats = new Map<string, Set<string>>()
   /**
@@ -1964,7 +1979,14 @@ export class ProfileStore {
         })
         .catch(() => {})
     }
+    this.vus.set(session.profileId, now)
     return session.profileId
+  }
+
+  /** Passé ces cinq dernières minutes (`EN_LIGNE_MS`) — à l'horloge de la machine, comme les sessions. */
+  enLigne(profileId: string, maintenant = Date.now()): boolean {
+    const vu = this.vus.get(profileId)
+    return vu !== undefined && maintenant - vu < EN_LIGNE_MS
   }
 
   /**
@@ -2796,7 +2818,7 @@ export class ProfileStore {
       'write',
     )
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
-    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.achatsEnCours]) {
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.achatsEnCours, this.vus]) {
       carte.delete(profileId)
     }
     // La rareté des hauts faits se compte sur la population : elle a changé.

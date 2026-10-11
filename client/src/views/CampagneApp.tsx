@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
-import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
+import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
 import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
@@ -43,7 +43,6 @@ import {
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type IssueDeRencontre,
-  type AmiDeCampagne,
   type MesAmis,
   type Niveau,
   type QuestionDeCampagne,
@@ -235,7 +234,7 @@ function retenirSujet(sujet: string | null) {
 // `shared/depart.ts`) : ouverte sur eux, la page les demande toujours.
 const modeDe = (hash: string): Mode =>
   DUELS
-    ? hash === ADRESSE_DU_LANCEMENT
+    ? estLeLancement(hash)
       ? 'defier'
       : codeDuLien(hash)
         ? 'duel'
@@ -270,6 +269,8 @@ export function CampagneApp() {
   const [mode, setMode] = useState<Mode>(() => modeDe(window.location.hash))
   // Le défi entre amis qu'ouvre l'adresse : son lien, envoyé par un ami.
   const [codeDuDuel, setCodeDuDuel] = useState<string | null>(() => codeDuLien(window.location.hash))
+  // Celui que l'adresse défie (`#defier-<id>`) : « Défier » sur sa carte y mène, d'où qu'elle s'ouvre.
+  const [contreQui, setContreQui] = useState<string | null>(() => profilDuLancement(window.location.hash))
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [categories, setCategoriesBrut] = useState<string[]>(categoriesRetenues)
   // Un sujet traverse les catégories : en choisir un les laisse de côté, sans
@@ -322,6 +323,7 @@ export function CampagneApp() {
     const suivre = () => {
       setMode(modeDe(window.location.hash))
       setCodeDuDuel(codeDuLien(window.location.hash))
+      setContreQui(profilDuLancement(window.location.hash))
     }
     window.addEventListener('hashchange', suivre)
     window.addEventListener('popstate', suivre)
@@ -717,10 +719,12 @@ export function CampagneApp() {
   /**
    * Préparer un duel (`/duels#defier`) : contre qui, sur quoi — les
    * catégories ou le sujet de sa dernière série d'abord, le joueur touché
-   * (l'épée du classement, un ami) déjà choisi. Une entrée d'historique : le
+   * (« Défier » sur sa carte) déjà choisi. Une entrée d'historique : le
    * retour du téléphone, comme « ← Les duels », ramène d'où l'on vient. Ce
    * que la campagne peut poser se lit à l'arrivée — la page des duels n'en a
-   * pas besoin.
+   * pas besoin. Contre quelqu'un, son adresse le nomme (`#defier-<id>`) : la
+   * carte d'un joueur y mène de l'accueil, du quiz du jour ou d'un défi, et
+   * la préparation le relit en arrivant, sa propre cote avec.
    */
   const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }>({
     categories: [],
@@ -738,9 +742,32 @@ export function CampagneApp() {
       vivant = false
     }
   }, [mode, etatPourLancer, ecran.e])
+  const adversaireAttendu = mode === 'defier' && !!contreQui && depart.adversaire?.profileId !== contreQui
+  useEffect(() => {
+    if (!adversaireAttendu || !contreQui || ecran.e !== 'duels') return
+    let vivant = true
+    api.duels
+      .joueur(contreQui)
+      .then(f => vivant && setDepart({ categories, sujet, adversaire: f.joueur, moi: f.moi }))
+      .catch(e => {
+        if (!vivant) return
+        // Introuvable — masqué, supprimé, ou soi-même : la préparation s'ouvre libre, et le dit.
+        setErreur(motifDe(e))
+        setContreQui(null)
+      })
+    return () => {
+      vivant = false
+    }
+    // Ses catégories et son sujet du moment : lus à l'arrivée, ils ne relancent rien.
+  }, [adversaireAttendu, contreQui, ecran.e])
   const ouvrirLeLancement = (adversaire?: JoueurADefier, moi?: { cote: number; joues: number }) => {
     setDepart({ categories, sujet, ...(adversaire && { adversaire }), ...(moi && { moi }) })
-    history.pushState({ ...history.state, [LANCEMENT]: true }, '', `${PAGE_DES_DUELS}${window.location.search}${ADRESSE_DU_LANCEMENT}`)
+    setContreQui(adversaire?.profileId ?? null)
+    history.pushState(
+      { ...history.state, [LANCEMENT]: true },
+      '',
+      `${PAGE_DES_DUELS}${window.location.search}${adversaire ? adresseDuLancementContre(adversaire.profileId) : ADRESSE_DU_LANCEMENT}`,
+    )
     setErreur('')
     setMode('defier')
     window.scrollTo(0, 0)
@@ -766,9 +793,10 @@ export function CampagneApp() {
       const enJeu = lance.enjeu ?? enjeu
       // Lancé, il ne se prépare plus : l'entrée de la préparation devient la page des duels — le
       // retour du téléphone, après son classement, ne rouvre pas un défi déjà parti.
-      if (window.location.hash === ADRESSE_DU_LANCEMENT) {
+      if (estLeLancement(window.location.hash)) {
         history.replaceState({ ...history.state, [LANCEMENT]: undefined }, '', `${PAGE_DES_DUELS}${window.location.search}`)
         setMode('duels')
+        setContreQui(null)
       }
       jouerLeDuel(serie, code, true, { nom: adversaire.nom, avatar: adversaire.avatar, justes: null, ...(enJeu && { enjeu: enJeu }) })
     } catch (e) {
@@ -776,29 +804,6 @@ export function CampagneApp() {
     } finally {
       setBusy(false)
     }
-  }
-
-  /** Retirer un ami de sa liste, après confirmation : ses duels ne lui parviennent plus, jusqu'à ce qu'il le rajoute ou qu'ils jouent de nouveau ensemble. */
-  const retirerUnAmi = async (ami: AmiDeCampagne) => {
-    const oui = await confirmDialog({
-      title: `Retirer ${ami.nom} de tes amis ?`,
-      message: 'Il quitte ta liste, et ses duels ne te parviendront plus. Tu pourras le rajouter par son prénom.',
-      confirmLabel: 'Retirer',
-      cancelLabel: 'Garder',
-    })
-    if (!oui) return
-    try {
-      await api.campagne.amis.retirer(ami.profileId)
-      await relireMesAmis()
-    } catch (e) {
-      setErreur(motifDe(e))
-    }
-  }
-
-  /** Ajouter un ami trouvé par son prénom : sans demande ni attente, il rejoint sa liste — sa ligue et sa cote avec. */
-  const ajouterUnAmi = async (joueur: JoueurADefier) => {
-    await api.campagne.amis.ajouter(joueur.profileId)
-    await relireMesAmis()
   }
 
   /** La page d'un défi entre amis, à son adresse : le retour du navigateur, comme « ← Les duels », ramène d'où l'on vient. */
@@ -884,8 +889,8 @@ export function CampagneApp() {
 
   if (ecran.e === 'duels' && laPageDesDuels && laPageDesDuels !== 'perdu') {
     if (mode === 'defier') {
-      // Pas encore arrivée (un réseau lent, ouverte à son adresse) : sa place, ou ce qui l'empêche.
-      if (!laPreparation || laPreparation === 'perdu' || !etatPourLancer) {
+      // Pas encore arrivée (un réseau lent, ouverte à son adresse — celui qu'elle défie compris) : sa place, ou ce qui l'empêche.
+      if (!laPreparation || laPreparation === 'perdu' || !etatPourLancer || adversaireAttendu) {
         return (
           <div className="player-shell campagne">
             <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={quitterLeLancement} />
@@ -902,6 +907,8 @@ export function CampagneApp() {
       return (
         <>
           <laPreparation.LancerUnDefi
+            // Celui qu'on défie change — une autre carte, l'adresse relue : la préparation repart de lui.
+            key={depart.adversaire?.profileId ?? 'libre'}
             amis={mesAmis?.amis ?? null}
             categoriesJouables={etatPourLancer.categories.map(c => c.categorie)}
             sujets={sujets}
@@ -930,8 +937,7 @@ export function CampagneApp() {
           onJouer={jouerLaRencontre}
           onDefier={ouvrirLeLancement}
           onOuvrirDuel={code => void ouvrirLeDuel(code)}
-          onRetirerAmi={a => void retirerUnAmi(a)}
-          onAjouterAmi={ajouterUnAmi}
+          onAmis={() => void relireMesAmis()}
         />
         {toastVu}
       </>

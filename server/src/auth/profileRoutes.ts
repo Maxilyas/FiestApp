@@ -48,10 +48,10 @@ interface ProfileApiDeps {
   maintenant: () => number
   /**
    * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
-   * celui qu'il avance ; ses duels, pour le leur ; et ses défis, qui ouvrent
-   * sa carte.
+   * celui qu'il avance ; ses duels, pour le leur ; et ses défis et ses amis
+   * réciproques, qui ouvrent sa carte.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'aReleveUnDefi'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'aReleveUnDefi' | 'sontAmisReciproques'>
 }
 
 /**
@@ -416,7 +416,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   // amis (le souhait du propriétaire du 11 octobre 2026). Seulement qui y a
   // joué, et jamais un profil masqué, que ces classements ne montrent plus aux
   // autres ; qui regarde a un profil, comme pour les lire. La même carte
-  // qu'en soirée, sans « ce soir ».
+  // qu'en soirée, sans « ce soir ». Et celle d'un ami réciproque — chacun a
+  // ajouté l'autre —, touché dans la feuille des amis : à sens unique, on
+  // l'ouvrirait à n'importe qui, en l'ajoutant par son prénom.
   app.get(
     '/api/joueur/carte/:id',
     wrap(async (req, res) => {
@@ -427,7 +429,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const visible =
         autre &&
         (autre.id === me.id ||
-          (!deps.jour.estMasque(autre.id) && ((await deps.jour.resumeDe(autre.id)).joues > 0 || (await deps.campagne.aReleveUnDefi(autre.id)))))
+          (!deps.jour.estMasque(autre.id) &&
+            ((await deps.jour.resumeDe(autre.id)).joues > 0 || (await deps.campagne.aReleveUnDefi(autre.id)) || (await deps.campagne.sontAmisReciproques(me.id, autre.id)))))
       if (!autre || !visible) return res.status(404).json({ error: 'Carte introuvable' })
       const carte: CarteDeJoueur = {
         nom: autre.name,
