@@ -105,14 +105,20 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
     const abandon = await poster(banc, lea, `/api/campagne/serie/${id}/abandon`)
     assert.equal(abandon.status, 400)
     assert.equal(abandon.corps.error, 'Une rencontre se joue jusqu’au bout : elle ne s’abandonne pas')
-    for (let i = 1; i < 7; i++) await repondre(banc, lea, id, i, true)
-    // Tom s'est arrêté à la neuvième question : passé elle, il n'y a plus rien à comparer.
-    const r7 = await repondre(banc, lea, id, 7, false)
-    assert.deepEqual(r7.rencontre, { lui: false, toi: 7, sesJustes: 6 })
-    await repondre(banc, lea, id, 8, false)
-    const fin = await repondre(banc, lea, id, 9, false)
+    for (let i = 1; i < 6; i++) await repondre(banc, lea, id, i, true)
+    // Six partout, une faute chacun à la septième : rien n'est joué, la rencontre continue.
+    const r6 = await repondre(banc, lea, id, 6, false)
+    assert.deepEqual(r6.rencontre, { lui: false, toi: 6, sesJustes: 6 })
+    assert.equal(r6.finie, false)
+    // La bonne réponse qui dépasse son score la gagne, et la finit là : il n'y a
+    // plus rien à jouer — elle allait jusqu'à la troisième erreur, sous « −36 si
+    // tu perds » (l'experte du jeu solo, le 11 octobre 2026).
+    const fin = await repondre(banc, lea, id, 7, true)
     assert.equal(fin.finie, true)
-    assert.deepEqual(fin.rencontre, { lui: null, toi: 7, sesJustes: 6, issue: 'gagnee' })
+    assert.deepEqual(fin.rencontre, { lui: false, toi: 7, sesJustes: 6, issue: 'gagnee' })
+    assert.equal(fin.suivante, undefined)
+    const apres = await poster(banc, lea, `/api/campagne/serie/${id}/reponse`, { index: 8, choix: 0 })
+    assert.equal(apres.corps.error, 'Cette rencontre est finie : cherche un autre adversaire')
     assert.equal(fin.recordAvant, undefined, 'le record des séries ne la compte pas')
     assert.deepEqual([(await lire(banc, lea, '/api/campagne')).corps.record, (await lire(banc, lea, '/api/campagne')).corps.series], [0, 0])
     assert.equal((await lire(banc, lea, `/api/campagne/serie/${id}/correction`)).status, 200, 'sa correction ne souffle rien : la série de Tom est finie')

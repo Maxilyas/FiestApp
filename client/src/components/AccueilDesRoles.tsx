@@ -64,6 +64,18 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
  */
 export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string; pastille?: string } {
   const b = branche(c?.avance?.branche)
+  // Le carnet passe devant le sentier — pas devant une épreuve laissée en route : c'est le rendez-vous du lendemain,
+  // que seul l'onglet comptait, deux écrans plus loin. L'adresse du carnet (`ADRESSE_DU_CARNET`) écrite ici, comme celle des sentiers.
+  if (c?.aRevoir && !c.avance?.laissee) {
+    const n = c.aRevoir
+    return {
+      detail: espacesFines(
+        n > 1 ? `${n} questions de ton carnet t’attendent : revois-les pour les apprendre` : 'Une question de ton carnet t’attend : revois-la pour l’apprendre',
+      ),
+      href: '/campagne#carnet',
+      pastille: 'À revoir',
+    }
+  }
   if (!c?.avance || !b) return { detail: 'Une série sans fin, ou les sentiers de tes avatars', href: '/campagne' }
   // Un nombre ne quitte pas son mot à la ligne : « 11 » d'un côté, « vies » de l'autre.
   const palier = c.avance.palier === PALIER_DU_MAITRE ? `palier de maître ${deLaBranche(b)}` : `palier\u00a0${c.avance.palier} ${deLaBranche(b)}`
@@ -78,7 +90,7 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
 
 /**
  * Le bouton des duels (le souhait du propriétaire du 11 octobre 2026 : une
- * tuile de l'accueil sous le quiz du jour) : un défi qu'un ami lui a envoyé
+ * tuile de l'accueil sous le quiz du jour) : un duel qu'on lui a envoyé
  * passe devant — qui le défie, une pastille —, puis son duel laissé en
  * route ; sinon sa ligue, sa cote et ce qui manque à sa récompense de lundi
  * — ou ce qu'elle rapportera. Avant son premier duel, ce qu'on y fait.
@@ -86,13 +98,14 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
 export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; pastille?: string } {
   if (d?.defisRecus && d.defisRecus.n > 0) {
     const autres = d.defisRecus.n - 1
+    // « et 2 autres », sans « amis » : on peut être défié par qui l'on ne connaît pas encore.
     return {
-      detail: espacesFines(`${d.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''} ami${autres > 1 ? 's' : ''}` : ''} : à toi de jouer`),
+      detail: espacesFines(`${d.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''}` : ''} : à toi de jouer`),
       pastille: d.defisRecus.n > 1 ? `${d.defisRecus.n} défis` : 'Un défi',
     }
   }
   if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
-  if (!d || d.joues === 0) return { detail: espacesFines('Un joueur de ton niveau, son score à battre : monte de ligue') }
+  if (!d || d.joues === 0) return { detail: espacesFines('Défie qui tu veux, ou un joueur au hasard : monte de ligue') }
   const manque = DUELS_POUR_LA_RECOMPENSE - d.semaine.duels
   // Le lundi, ce que la semaine passée vient de verser — tant que la nouvelle n'a pas son premier duel :
   // sans lui, la récompense arrivait au solde sans un mot, et la tuile redisait « encore 3 duels ».

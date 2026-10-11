@@ -557,7 +557,7 @@ test('un duel classé sonne chez qui l’on défie, même sans être son ami ; j
     assert.ok(ecart < 0)
     assert.deepEqual(dechiffrer(push.recus[1].corps, telLea), {
       titre: 'Tom a joué votre duel',
-      corps: `4 à 6, tu perds : ta cote −${-ecart}.`,
+      corps: `4 à 5, tu perds : ta cote −${-ecart}.`,
       url: `/duels#duel-${duel.code}`,
       tag: `duel-${duel.code}`,
     })

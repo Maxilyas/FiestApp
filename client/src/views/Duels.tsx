@@ -109,7 +109,18 @@ function HerosDesDuels({ etat }: { etat: EtatDesDuels | null }) {
           </p>
         </div>
       </div>
-      {etat && <VersLaLigueSuivante cote={etat.cote} />}
+      {/* En chemin, les lignes de la vraie ligue gardent leur place : la page sautait de 118 px
+          quand la cote arrivait (CLS 0,107, l'experte du jeu solo, le 11 octobre 2026). */}
+      {etat ? (
+        <VersLaLigueSuivante cote={etat.cote} />
+      ) : (
+        <div className="duels-vers" aria-hidden="true">
+          <span className="duels-barre">
+            <i style={{ width: 0 }} />
+          </span>
+          <span className="muted small">{' '}</span>
+        </div>
+      )}
       <div className="duels-semaine" aria-live="polite">
         <span className="duels-pastilles" role="img" aria-label={etat ? `${Math.min(etat.semaine.duels, DUELS_POUR_LA_RECOMPENSE)} sur ${DUELS_POUR_LA_RECOMPENSE}` : 'cette semaine'}>
           {Array.from({ length: DUELS_POUR_LA_RECOMPENSE }, (_, i) => (
@@ -118,8 +129,16 @@ function HerosDesDuels({ etat }: { etat: EtatDesDuels | null }) {
         </span>
         <span>
           <b>{semaine ? espacesFines(semaine.titre) : 'Cette semaine'}</b>
-          <span className="muted small">{semaine ? espacesFines(semaine.detail) : '…'}</span>
-          {etat && <span className="muted small">{cloture(etat.semaine.minutesRestantes)}</span>}
+          {semaine ? (
+            <span className="muted small">{espacesFines(semaine.detail)}</span>
+          ) : (
+            // Sa phrase tient deux lignes au téléphone : la place des deux.
+            <span className="muted small">
+              …<br />
+              {' '}
+            </span>
+          )}
+          <span className="muted small">{etat ? cloture(etat.semaine.minutesRestantes) : ' '}</span>
         </span>
       </div>
     </section>

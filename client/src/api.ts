@@ -14,7 +14,7 @@ import type {
   ResumeDuDuel,
   SerieDeCampagne,
 } from '../../shared/campagne'
-import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, ReponseDEpreuve } from '../../shared/sentiers'
+import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
@@ -456,7 +456,9 @@ export const api = {
         req<EpreuveDeSentier>('/api/campagne/sentiers/epreuve', { method: 'POST', body: JSON.stringify({ branche, palier }) }),
       repondre: (epreuve: string, index: number, choix: number) =>
         req<ReponseDEpreuve>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
-      abandonner: (epreuve: string) => req<EtatDesSentiers>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
+      /** L'abandonner — ou, validée, s'arrêter là : sa fin vient avec (`fin`), le portrait se révèle. */
+      abandonner: (epreuve: string) =>
+        req<EtatDesSentiers & { fin?: FinDEpreuve }>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
       acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
     },
   },

@@ -50,6 +50,7 @@ import {
   type EpreuveDeSentier,
   type EtatDesSentiers,
   type Melange,
+  type FinDEpreuve,
   type RegleDuPalier,
   type ReponseDEpreuve,
   type SentierDuJoueur,
@@ -94,7 +95,8 @@ type Ecran =
       xpPalier: number
       justesIci: number
     }
-  | { e: 'fin'; reponse: ReponseDEpreuve; xp: number; xpPalier: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
+  /** Sa fin : la dernière réponse, ou — arrêtée là une fois validée — la fin que le serveur rend (`FinDEpreuve`). */
+  | { e: 'fin'; reponse: FinDEpreuve; xp: number; xpPalier: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
   | { e: 'vies'; branche: CleDeBranche | null }
   /** Une épreuve d'un sentier à thème (`shared/sentiersDeSujets.ts`), et sa fin. */
   | { e: 'sujet'; epreuve: EpreuveDeSujet; question: QuestionDeCampagne; reponse: ReponseDuSujet | null; choix: number | null; xp: number; justesIci: number }
@@ -311,25 +313,39 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     setEcran({ ...ecran, question: r.epreuve.question, reponse: null, choix: null })
   }
 
+  /**
+   * Abandonner l'épreuve — ou, validée, s'arrêter là : rien à confirmer, rien
+   * à perdre, et sa fin comme à la seizième question — les étoiles, le
+   * portrait révélé, « Le porter ». Abandonnée une fois validée, elle sautait
+   * cet écran : la récompense même des sentiers ne se montrait pas.
+   */
   const abandonner = async () => {
-    if (ecran.e !== 'epreuve') return
-    const enJeu = !ecran.epreuve.rejeu && ecran.epreuve.issue !== 'validee'
-    const ok = await confirmDialog({
-      title: 'Abandonner l’épreuve ?',
-      message: enJeu
-        ? 'Un palier abandonné compte comme raté : une vie de moins. « Partir », en haut, la garde sans rien coûter.'
-        : 'Tu ne perds rien : ce qui est validé le reste.',
-      confirmLabel: 'Abandonner',
-      cancelLabel: 'Continuer',
-      danger: enJeu,
-    })
-    if (!ok) return
+    if (ecran.e !== 'epreuve' || busy) return
+    const validee = ecran.epreuve.issue === 'validee'
+    if (!validee) {
+      const enJeu = !ecran.epreuve.rejeu
+      const ok = await confirmDialog({
+        title: 'Abandonner l’épreuve ?',
+        message: enJeu
+          ? 'Un palier abandonné compte comme raté : une vie de moins. « Partir », en haut, la garde sans rien coûter.'
+          : 'Tu ne perds rien : ce rejeu ne coûte aucune vie.',
+        confirmLabel: 'Abandonner',
+        cancelLabel: 'Continuer',
+        danger: enJeu,
+      })
+      if (!ok) return
+    }
+    setBusy(true)
     try {
       const lu = await api.campagne.sentiers.abandonner(ecran.epreuve.id)
       setEtat(lu)
-      retourAuSentier(ecran.epreuve.branche)
+      if (lu.fin) {
+        setEcran({ e: 'fin', reponse: lu.fin, xp: ecran.xp, xpPalier: ecran.xpPalier, justesIci: ecran.justesIci, correction: null, porte: false })
+      } else retourAuSentier(ecran.epreuve.branche)
     } catch (e) {
       setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -1301,6 +1317,9 @@ export function FicheDuPalier({
   // Une autre épreuve laissée en jeu : le serveur refuserait celle-ci — la
   // fiche offrait « Jouer » quand même, et rien ne semblait se passer.
   const bloquante = fait || vise ? epreuveQuiBloque(epreuve, b.key, r.n) : null
+  // Celle de ce palier, laissée en route : « Jouer le palier » faisait craindre de tout recommencer —
+  // et de perdre ses bonnes réponses —, quand le serveur la reprend telle quelle (l'experte du jeu solo, le 11 octobre 2026).
+  const laissee = epreuve && !epreuve.finie && epreuve.branche === b.key && epreuve.palier === r.n ? epreuve : null
   const etoiles = s.etoiles[r.n - 1] ?? 0
   const p = r.avatar !== null ? b.portraits[r.avatar] : null
   const sousThemes = SOUS_THEMES[b.categorie as keyof typeof SOUS_THEMES]?.length ?? 0
@@ -1345,7 +1364,19 @@ export function FicheDuPalier({
           <p>{fait ? <>Tu as gagné <b>{nomDansLaPhrase(p.nom)}</b>.</> : <>Ce palier ouvre <b>{nomDansLaPhrase(p.nom)}</b>.</>}</p>
         </div>
       )}
-      {bloquante ? (
+      {laissee ? (
+        <>
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => onReprendre(laissee)}>
+            <Icon name="play" />
+            {r.maitre ? 'Reprendre le maître' : `Reprendre le palier ${r.n}`}
+          </button>
+          <p className="muted small centre">
+            {espacesFines(
+              `${laissee.justes} bonne${laissee.justes > 1 ? 's' : ''} · ${laissee.fausses} faute${laissee.fausses > 1 ? 's' : ''} : rien n’est perdu, tu reprends où tu en étais.`,
+            )}
+          </p>
+        </>
+      ) : bloquante ? (
         <div className="sentier-fiche-attente">
           <b>{phraseDeLEpreuveQuiAttend(bloquante, b.key)}</b>
           <p className="muted small">Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté.</p>
@@ -1473,6 +1504,12 @@ function EcranDEpreuve({
           <p>
             {e.rejeu ? (
               <>Rejeu : aucune vie en jeu, pour les étoiles et les confettis.</>
+            ) : valide ? (
+              // Validée, plus rien ne se perd : « Une vie en jeu » restait au-dessus de « Validé ! ».
+              <>
+                <b>Palier validé.</b>
+                {' Plus rien en jeu : les questions qui restent comptent pour les étoiles.'}
+              </>
             ) : (
               <>
                 <b>{`${e.seuil} bonnes réponses sur ${QUESTIONS_PAR_EPREUVE}`}</b>
@@ -1567,9 +1604,10 @@ function EcranDEpreuve({
             {erreur}
           </p>
         )}
+        {/* Validée, on s'arrête là quand on veut : sa fin, et ce qu'elle ouvre. */}
         {!r?.epreuve.finie && (
-          <GesteDuBas icone="flag" danger={!e.rejeu && !valide} onClick={onQuitter}>
-            Abandonner l’épreuve
+          <GesteDuBas icone={valide ? 'check' : 'flag'} busy={busy} danger={!e.rejeu && !valide} onClick={onQuitter}>
+            {valide ? 'Arrêter là · voir mon palier' : 'Abandonner l’épreuve'}
           </GesteDuBas>
         )}
       </div>

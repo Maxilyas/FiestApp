@@ -174,11 +174,12 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     duelsJoues(banc, deTom, 1, 12, 8, horloge.t - 30 * 60_000)
     const avantTom = (await lire(banc, tom, '/api/duels')).corps
     assert.ok(avantTom.cote > coteDeTom)
-    // Tom le relève et gagne, 6 à 4.
+    // Tom le relève et gagne : sa cinquième bonne réponse dépasse les quatre de Léa, le duel finit là.
     horloge.t += 60_000
     const tentative = await poster(banc, tom, `/api/campagne/duel/${code}`)
     assert.equal(tentative.status, 200, tentative.corps.error)
     const finTom = await jouer(banc, tom, tentative.corps.id, 6)
+    assert.deepEqual([finTom.finie, finTom.justes, finTom.vies, finTom.suivante], [true, 5, VIES, undefined], 'gagné : plus rien à jouer')
     assert.deepEqual(finTom.contre, { nom: 'Léa', avatar: '🦊', justes: 4, profileId: deLea }, 'sa fin dit qui l’a lancé, et son score')
     assert.equal(finTom.classe, undefined)
     const ecartDeTom = ecartContre(avantTom.cote, COTE_DE_DEPART, avantTom.joues, 1)
@@ -192,7 +193,7 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     assert.equal(apresLea.joues, 1)
     assert.equal(apresLea.ligue, ligueDe(COTE_DE_DEPART + ecartDeLea).cle)
     assert.deepEqual(apresLea.contre, [
-      { code, contre: { profileId: deTom, nom: 'Tom', avatar: '🐻' }, lance: true, categories: ['Histoire'], justes: 4, sesJustes: 6, ecart: ecartDeLea, minutesRestantes: (DUREE_D_UN_DUEL_MS - 2 * 60_000) / 60_000 },
+      { code, contre: { profileId: deTom, nom: 'Tom', avatar: '🐻' }, lance: true, categories: ['Histoire'], justes: 4, sesJustes: 5, ecart: ecartDeLea, minutesRestantes: (DUREE_D_UN_DUEL_MS - 2 * 60_000) / 60_000 },
     ])
     assert.equal((await lire(banc, tom, '/api/duels')).corps.cote, avantTom.cote + ecartDeTom)
     // Joué des deux côtés, il n'attend plus personne : sa correction s'ouvre, sa page le dit, la revanche se lance.
@@ -200,7 +201,7 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     const joue = (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps
     assert.equal(joue.corrige, true)
     assert.equal(joue.ecart, ecartDeLea)
-    assert.equal(joue.aBattre, 6)
+    assert.equal(joue.aBattre, 5)
     assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })).status, 200, 'la revanche')
   } finally {
     await banc.close()

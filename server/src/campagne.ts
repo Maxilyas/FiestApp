@@ -314,8 +314,9 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (!profil) return
-      await deps.campagne.abandonnerEpreuve(profil.id, String(req.params.id))
-      res.json(await etatDesSentiers(profil))
+      // Validée, sa fin vient avec : le portrait se révèle comme à sa dernière question.
+      const fin = await deps.campagne.abandonnerEpreuve(profil.id, String(req.params.id))
+      res.json({ ...(await etatDesSentiers(profil)), ...(fin && { fin }) })
     }),
   )
 
