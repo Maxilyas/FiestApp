@@ -115,9 +115,11 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   // Le carnet (`#carnet`) non plus, et il ne précharge rien : sa page demande le sien.
   assert.match(
     source('views/CampagneApp.tsx'),
-    /const modeDe = \(hash: string\): Mode =>\s*hash === ADRESSE_DU_DEFI \? 'defi' : hash === ADRESSE_DU_CARNET \? 'carnet' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'/,
+    /const modeDe = \(hash: string\): Mode =>\s*hash === ADRESSE_DU_DEFI \? 'defi' : hash === ADRESSE_DU_LANCEMENT \? 'defier' : hash === ADRESSE_DU_CARNET \? 'carnet' : codeDuLien\(hash\) \? 'duel' : versLesSentiers\(hash\) \? 'sentiers' : 'serie'/,
   )
   assert.deepEqual(donneesDuFragment(campagne, '#carnet'), [], '#carnet')
+  // La préparation d'un défi non plus : elle lit l'état de la campagne, que la page demande toujours.
+  assert.deepEqual(donneesDuFragment(campagne, '#defier'), [], '#defier')
 })
 
 // ── 2. La page servie ─────────────────────────────────────────────────────

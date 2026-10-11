@@ -68,13 +68,29 @@ export function RappelDuJour() {
   return <ClocheVue etat={etat} occupe={occupe} onToucher={() => void toucher()} />
 }
 
-/** La cloche telle qu'on la voit, selon l'état : rendue seule dans les épreuves. */
-export function ClocheVue({ etat, occupe, onToucher }: { etat: EtatDuRappel | null; occupe: boolean; onToucher: () => void }) {
+/**
+ * La cloche telle qu'on la voit, selon l'état : rendue seule dans les
+ * épreuves. Celle du soir d'office ; celle des défis de ses amis dit son nom
+ * et ce qu'elle fait (`ClocheDesDefis`).
+ */
+export function ClocheVue({
+  etat,
+  occupe,
+  onToucher,
+  nom = 'Rappel du soir',
+  titre = `Une notification vers ${HEURE_DU_RAPPEL} h, les jours où ta partie n’est pas finie`,
+}: {
+  etat: EtatDuRappel | null
+  occupe: boolean
+  onToucher: () => void
+  nom?: string
+  titre?: string
+}) {
   if (etat === null) return null
   // Bloquée, elle ne bascule plus : un bouton qui dit où se débloquer, pas un interrupteur.
   if (etat === 'bloque') {
     return (
-      <button type="button" className="cloche-du-rappel" aria-label="Rappel du soir : notifications bloquées" onClick={onToucher}>
+      <button type="button" className="cloche-du-rappel" aria-label={`${nom} : notifications bloquées`} onClick={onToucher}>
         <Icon name="bell-off" />
       </button>
     )
@@ -86,8 +102,8 @@ export function ClocheVue({ etat, occupe, onToucher }: { etat: EtatDuRappel | nu
       // Un interrupteur : l'état ne se dit que par `aria-pressed` — un nom ou
       // une infobulle qui changeraient avec lui le rediraient (`design.test.ts`).
       aria-pressed={etat === 'actif'}
-      aria-label="Rappel du soir"
-      title={`Une notification vers ${HEURE_DU_RAPPEL} h, les jours où ta partie n’est pas finie`}
+      aria-label={nom}
+      title={titre}
       disabled={occupe}
       onClick={onToucher}
     >

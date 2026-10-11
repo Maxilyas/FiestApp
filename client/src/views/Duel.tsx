@@ -9,10 +9,14 @@ import { espacesFines } from '../format'
 import { placeDuJour } from '../../../shared/course'
 import { NOM_NIVEAU, type AmiDeCampagne, type CorrectionDeCampagne, type DefiRecu, type DuelEntreAmis, type ResumeDuDuel, type SerieDeCampagne } from '../../../shared/campagne'
 import { LigneDuDefiVue, useCarteDuClassement } from './Defi'
-import { nomDuChoix } from '../nomDuChoix'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { nomDuChoix } from '../../../shared/nomDuChoix'
 
 /** L'adresse d'un défi entre amis, dans la campagne : son lien. */
 export const adresseDuDuel = (code: string) => `#duel-${code}`
+
+/** L'adresse où l'on prépare un défi entre amis (`LancerUnDefi`, chargé à la demande). */
+export const ADRESSE_DU_LANCEMENT = '#defier'
 const lienDuDuel = (code: string) => `${window.location.origin}/campagne${adresseDuDuel(code)}`
 
 const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
@@ -59,10 +63,13 @@ function EnvoyerLeDefi({ code, texte }: { code: string; texte: string }) {
 const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? '') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`)
 
 /**
- * L'envoyer à ses amis, d'un toucher — ceux avec qui il a joué un défi entre
- * amis (`shared/campagne.ts`) : il les attend sous leur onglet du défi, sans
- * lien à faire suivre. Tous cochés d'office ; celui qui l'a déjà — reçu ou
- * relevé — ne se coche plus. Sans ami encore, ce qui en fera.
+ * L'envoyer à d'autres amis, d'un toucher — ceux avec qui il a joué un défi
+ * entre amis (`shared/campagne.ts`) : il les attend sous leur onglet du
+ * défi, sans lien à faire suivre, et leur téléphone sonne. Rien de coché
+ * d'office : ceux qu'il voulait défier, il les a choisis en le lançant
+ * (`LancerUnDefi`) — tous cochés, la fin poussait à défier toute sa liste.
+ * Celui qui l'a déjà — reçu ou relevé — ne se coche plus. Sans ami encore,
+ * ce qui en fera.
  */
 export function EnvoyerAuxAmis({ code }: { code: string }) {
   const [amis, setAmis] = useState<AmiDeCampagne[] | null>(null)
@@ -80,7 +87,6 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
         if (!vivant) return
         setSien(!!m.sien)
         setAmis(m.amis)
-        setChoisis(new Set(m.amis.filter(a => !a.deja).map(a => a.profileId)))
       })
       // Une liste qui ne vient pas ne cache rien d'autre : le lien reste là.
       .catch(() => vivant && setAmis([]))
@@ -125,7 +131,7 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
   return (
     <section className="card duel-amis" aria-labelledby={`amis-${code}`}>
       <h2 id={`amis-${code}`} className="label">
-        À tes amis
+        {amis.some(a => a.deja) ? 'À d’autres amis' : 'À tes amis'}
       </h2>
       <div className="duel-amis-liste" role="group" aria-label="Les amis à qui l’envoyer">
         {amis.map(a => {
@@ -154,26 +160,39 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
         </p>
       )}
       <p className="small duel-amis-statut" role="status">
-        {envoyes && `Envoyé : il attend ${enPhrase(envoyes)} sous ${envoyes.length > 1 ? 'leur' : 'son'} onglet Défi.`}
+        {envoyes && partiAvec(envoyes)}
       </p>
       {aEnvoyer.length > 0 && (
         <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || undefined} onClick={() => void envoyer()}>
           <Icon name="users" />
-          {`L’envoyer à ${aEnvoyer.length === amis.length ? (aEnvoyer.length > 1 ? `mes ${aEnvoyer.length} amis` : 'mon ami') : `${aEnvoyer.length} ami${aEnvoyer.length > 1 ? 's' : ''}`}`}
+          {`L’envoyer à ${enPhrase(amis.filter(a => aEnvoyer.includes(a)).map(a => a.nom))}`}
         </button>
       )}
     </section>
   )
 }
 
+/** « Parti à Tom et Inès : … » — ce qui vient de leur arriver, sans promettre une notification qu'ils n'ont peut-être pas voulue. */
+const partiAvec = (noms: readonly string[]) =>
+  espacesFines(
+    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend sous ${noms.length > 1 ? 'leur' : 'son'} onglet Défi, et ${noms.length > 1 ? 'leur' : 'son'} téléphone sonne s’${noms.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`,
+  )
+
 /**
  * La fin de sa tentative à un défi entre amis : sa place pour l'instant (sur
- * l'écran de la série), puis de quoi l'envoyer — à ses amis d'un toucher,
- * aux autres par son lien —, et son classement.
+ * l'écran de la série), à qui il vient de partir (`partiA` : les amis choisis
+ * en le lançant), puis de quoi l'envoyer encore — à d'autres amis d'un
+ * toucher, aux autres par son lien —, et son classement.
  */
-export function FinDuDuel({ code, justes, onClassement }: { code: string; justes: number; onClassement: () => void }) {
+export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: string; justes: number; partiA?: readonly string[]; onClassement: () => void }) {
   return (
     <>
+      {partiA.length > 0 && (
+        <p className="card duel-parti" role="status">
+          <Icon name="check-circle" />
+          <span>{partiAvec(partiA)}</span>
+        </p>
+      )}
       <EnvoyerAuxAmis code={code} />
       <EnvoyerLeDefi code={code} texte={texteDuDefi(justes)} />
       <button type="button" className="btn btn-block" onClick={onClassement}>
@@ -292,9 +311,16 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
           {`Reprendre mon défi · ${bonnes(t.justes)}`}
         </button>
       )}
-      {duel && !ouvert && !t && <p className="muted small centre">Ce défi est fermé : son classement est figé. Lance le tien depuis la série.</p>}
+      {duel && !ouvert && !t && <p className="muted small centre">Ce défi est fermé : son classement est figé. Lance le tien depuis l’onglet du défi.</p>}
 
-      {/* Le sien, ouvert : à ses amis d'un toucher, aux autres par son lien. */}
+      {/* Le sien, pas encore joué jusqu'au bout : à qui il partira à sa dernière réponse. */}
+      {duel && ouvert && duel.prevus && duel.prevus.length > 0 && (
+        <p className="card duel-parti duel-prevu">
+          <Icon name="users" />
+          <span>{espacesFines(`À ta dernière réponse, il partira à ${enPhrase(duel.prevus)}, ton score à battre avec lui.`)}</span>
+        </p>
+      )}
+      {/* Le sien, ouvert : à d'autres amis d'un toucher, aux autres par son lien. */}
       {duel && ouvert && duel.auteur.toi && <EnvoyerAuxAmis code={duel.code} />}
       {duel && ouvert && (duel.auteur.toi || t?.finie) && (
         <EnvoyerLeDefi code={duel.code} texte={texteDuDefi(t?.finie ? t.justes : null)} />
@@ -350,6 +376,66 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
 }
 
 /**
+ * Défier un ami, en tête de l'onglet du défi (le souhait du propriétaire du
+ * 11 octobre 2026 : « choisir avec qui je le lance, sur quel thème ») : ses
+ * amis en visages — un toucher, et le défi se prépare pour lui —, ou
+ * « Lancer un défi », qui demande à qui et sur quoi (`LancerUnDefi`). Puis la
+ * cloche des défis : son téléphone sonne quand un ami le défie. Il était
+ * sous la série, à lancer sur les catégories qu'on y avait choisies, sans
+ * dire à qui il partirait.
+ */
+export function DefierUnAmi({ amis, onLancer }: { amis: readonly AmiDeCampagne[] | null; onLancer: (ami?: AmiDeCampagne) => void }) {
+  return (
+    <section className="card defier-un-ami" aria-labelledby="defier-un-ami-titre">
+      <div className="defier-un-ami-tete">
+        <span className="gros-icone" aria-hidden="true">
+          <Icon name="users" />
+        </span>
+        <div>
+          <h2 id="defier-un-ami-titre">Défier un ami</h2>
+          <p className="muted small">{espacesFines('Choisis qui et sur quoi : tu joues d’abord, et ton score à battre lui part à ta dernière réponse.')}</p>
+        </div>
+      </div>
+      {amis && amis.length > 0 && (
+        <ul className="defier-visages" aria-label="Défier l’un de tes amis">
+          {amis.slice(0, VISAGES_MONTRES).map(a => (
+            <li key={a.profileId}>
+              <button type="button" className="defier-visage" aria-label={`Défier ${a.nom}`} onClick={() => onLancer(a)}>
+                <span className="defier-visage-avatar" aria-hidden="true">
+                  {a.avatar}
+                </span>
+                <span className="defier-visage-nom" aria-hidden="true">
+                  {a.nom}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="btn btn-primary btn-block" onClick={() => onLancer()}>
+        <Icon name="plus" />
+        Lancer un défi
+      </button>
+      <LaClocheDesDefis />
+    </section>
+  )
+}
+
+/**
+ * La cloche des défis, chargée avec l'onglet du défi seulement : elle tire
+ * le service worker et l'abonnement (`rappel.ts`), que la série, qui ouvre
+ * le plus souvent la campagne, n'a pas à télécharger.
+ */
+const cloche = aLaDemande(() => import('../components/ClocheDesDefis'))
+function LaClocheDesDefis() {
+  const laCloche = useALaDemande(cloche)
+  return laCloche && laCloche !== 'perdu' ? <laCloche.ClocheDesDefis /> : null
+}
+
+/** Les visages d'amis en tête de l'onglet : une rangée au téléphone — les autres, dans « Lancer un défi » et sous « Tes amis ». */
+const VISAGES_MONTRES = 5
+
+/**
  * Les défis que ses amis lui ont envoyés, en tête de l'onglet du défi : qui
  * le défie, sur quoi, le temps qui reste — un toucher, et il le relève.
  * Rien tant qu'on ne lui a rien envoyé.
@@ -383,10 +469,11 @@ export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; on
 /**
  * Ses amis, sous ses défis : ceux qui ont relevé un de ses défis, ou dont il
  * a relevé un — ce qui fait un ami, dit en une phrase, puisqu'on ne
- * l'ajoute pas soi-même. Chacun se retire, après confirmation ; il revient
- * s'ils jouent de nouveau ensemble. Sans ami encore : comment ça marche.
+ * l'ajoute pas soi-même. Chacun se défie d'un toucher (`LancerUnDefi`, lui
+ * déjà choisi), et se retire, après confirmation ; il revient s'ils jouent
+ * de nouveau ensemble. Sans ami encore : comment ça marche.
  */
-export function TesAmis({ amis, onRetirer }: { amis: readonly AmiDeCampagne[]; onRetirer: (ami: AmiDeCampagne) => void }) {
+export function TesAmis({ amis, onDefier, onRetirer }: { amis: readonly AmiDeCampagne[]; onDefier: (ami: AmiDeCampagne) => void; onRetirer: (ami: AmiDeCampagne) => void }) {
   return (
     <section className="duel-liste tes-amis" aria-labelledby="tes-amis-titre">
       <h2 id="tes-amis-titre" className="label">
@@ -401,6 +488,10 @@ export function TesAmis({ amis, onRetirer }: { amis: readonly AmiDeCampagne[]; o
                   {a.avatar}
                 </span>
                 <span className="duel-ami-nom">{a.nom}</span>
+                <button type="button" className="btn btn-small tes-amis-defier" aria-label={`Défier ${a.nom}`} onClick={() => onDefier(a)}>
+                  <Icon name="trophy" />
+                  Défier
+                </button>
                 <button type="button" className="btn btn-ghost btn-small" aria-label={`Retirer ${a.nom} de mes amis`} onClick={() => onRetirer(a)}>
                   Retirer
                 </button>
@@ -408,14 +499,14 @@ export function TesAmis({ amis, onRetirer }: { amis: readonly AmiDeCampagne[]; o
             ))}
           </ul>
           <p className="muted small">
-            {espacesFines('Ceux qui ont relevé un de tes défis, ou dont tu en as relevé un. Lance un défi depuis la série : à sa fin, il part à tes amis d’un toucher, et les attend sous leur onglet Défi.')}
+            {espacesFines('Ceux qui ont relevé un de tes défis, ou dont tu en as relevé un. Défie-les en lançant un défi : tu le joues d’abord, et à ta dernière réponse il leur part — sous leur onglet Défi, et leur téléphone sonne.')}
           </p>
         </>
       ) : (
         <ol className="muted small tes-amis-etapes">
-          <li>{espacesFines('Dans la série, choisis tes catégories ou un sujet, puis « Défier des amis » : tu joues le défi le premier.')}</li>
+          <li>{espacesFines('« Lancer un défi », en haut de cet onglet : choisis le thème, et tu le joues le premier.')}</li>
           <li>{espacesFines('À sa fin, envoie son lien : qui l’ouvre, profil en main, joue les mêmes questions, une fois, dans la semaine.')}</li>
-          <li>{espacesFines('Ceux qui le relèvent deviennent tes amis : ton prochain défi leur part d’un toucher, sans lien à envoyer.')}</li>
+          <li>{espacesFines('Ceux qui le relèvent deviennent tes amis : le prochain, tu les choisis en le lançant — il leur part à ta dernière réponse, et leur téléphone sonne.')}</li>
         </ol>
       )}
     </section>

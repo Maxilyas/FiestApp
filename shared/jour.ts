@@ -171,6 +171,19 @@ export const HEURE_DU_RAPPEL = 18
  */
 export const FIN_DU_RAPPEL = 22
 
+/**
+ * Ce qu'un téléphone peut demander à faire sonner, chacun sa cloche : le
+ * rappel du soir (la page du jour), les défis que ses amis lui envoient
+ * (l'onglet du défi de la campagne).
+ */
+export type SujetDeNotification = 'soir' | 'defis'
+
+/** Les réglages d'un téléphone, que chaque cloche montre ; les deux à faux, il n'est plus abonné. */
+export interface ReglagesDesNotifications {
+  soir: boolean
+  defis: boolean
+}
+
 const formatDeLHeure = aLaPremiereLecture(() => new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', hourCycle: 'h23' }))
 
 /** L'heure qu'il est à Paris, de 0 à 23 — changements d'heure compris. */

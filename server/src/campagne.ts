@@ -53,7 +53,8 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
   )
 
   // Le défi entre amis : le lancer — sur des catégories ou un sujet, comme
-  // une série —, le relire par son code, le relever. Ses réponses passent par
+  // une série, vers les amis choisis (`amis`), à qui il part à sa dernière
+  // réponse —, le relire par son code, le relever. Ses réponses passent par
   // la porte des séries.
   app.post(
     '/api/campagne/duel',
@@ -64,7 +65,7 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       const brut: unknown = req.body?.categories
       const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
       const sujet: unknown = req.body?.sujet
-      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined))
+      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined, req.body?.amis))
     }),
   )
 

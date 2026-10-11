@@ -132,9 +132,12 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   // La page : un sujet de chaque famille, en grille, sous les catégories ; « Commencer » part sur celui qui se joue.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string \| null>\(sujetRetenu\)/)
-  // Chaque famille — un thème, une époque, un fil rouge — sa rangée nommée (`FAMILLES_DE_SUJETS`).
-  assert.match(page, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom \}\) =>/)
-  assert.match(page, /role="group" aria-label=\{nom\}/)
+  // La grille vit à part, la même pour la série et pour un défi entre amis (`ChoixDuTheme`) :
+  // chaque famille — un thème, une époque, un fil rouge — sa rangée nommée (`FAMILLES_DE_SUJETS`).
+  assert.match(page, /<ChoixDuTheme\s+categoriesJouables=\{etat\.categories\.map\(c => c\.categorie\)\}\s+sujets=\{sujets\}\s+categories=\{categories\}\s+sujet=\{sujetJouable\}/)
+  const grille = readFileSync(client('components/ChoixDuTheme.tsx'), 'utf8')
+  assert.match(grille, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom \}\) =>/)
+  assert.match(grille, /role="group" aria-label=\{nom\}/)
   assert.match(page, /onClick=\{\(\) => void commencer\(categories, sujetJouable\)\}/)
 })
 
@@ -161,6 +164,83 @@ test('la fin d’un défi entre amis l’envoie : son lien écrit, son code, son
   assert.match(page, /href=\{`\/\?next=\$\{retour\}`\}/)
   // Une seule tentative : pas de « Recommencer » — le drapeau du défi le dit.
   assert.match(page, /defi: true,\s*duel: code,/)
+})
+
+// Le souhait du propriétaire du 11 octobre 2026 : « choisir avec qui je le
+// lance, sur quel thème. Quitte à faire le quiz moi et que ça envoie une
+// notif à la personne ». « Défier des amis » lançait la partie tout de suite,
+// sur les catégories de la série, sans dire à qui elle partirait ; la fin
+// cochait d'office toute sa liste d'amis.
+test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi l’ouvre, chaque ami se défie, et sa fin dit à qui il est parti', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const lancer = await import(client('views/LancerUnDefi.tsx').href)
+  const duel = await import(client('views/Duel.tsx').href)
+  const { SUJETS } = await import('../../shared/sujets')
+  const tom = { profileId: 't', nom: 'Tom', avatar: '🐻' }
+  const hugo = { profileId: 'h', nom: 'Hugo', avatar: '🐼' }
+  const composer = (amis: object[] | null, depart: object) =>
+    renderToStaticMarkup(
+      React.createElement(lancer.LancerUnDefi, {
+        onglets: null,
+        amis,
+        categoriesJouables: ['Histoire', 'Sport'],
+        sujets: SUJETS.slice(0, 2),
+        depart,
+        busy: false,
+        erreur: '',
+        onLancer: () => {},
+        onRetour: () => {},
+      }),
+    )
+  // L'ami touché dans l'onglet du défi arrive coché ; les catégories de la série, choisies.
+  const html = composer([tom, hugo], { categories: ['Histoire'], sujet: null, ami: 't' })
+  assert.match(html, /<h1>Lance ton défi<\/h1>/)
+  assert.match(html, /<span class="defier-numero" aria-hidden="true">1<\/span>Avec qui \?/)
+  assert.match(html, /<button type="button" class="duel-ami choisi" aria-pressed="true"><span class="duel-ami-avatar" aria-hidden="true">🐻<\/span><span class="duel-ami-nom">Tom<\/span>/)
+  assert.match(html, /<button type="button" class="duel-ami" aria-pressed="false"><span class="duel-ami-avatar" aria-hidden="true">🐼<\/span><span class="duel-ami-nom">Hugo<\/span>/)
+  assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<span class="defier-choix">Histoire<\/span>/)
+  assert.match(html, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Histoire<\/button>/)
+  assert.match(html, /<\/svg>Jouer le défi<\/button>/)
+  assert.match(html, /À ta dernière réponse, il part à Tom : sous son onglet Défi, et son téléphone sonne s’il a activé les notifications\./)
+  // Sans ami encore : son lien, à la fin ; avant qu'ils arrivent, leur place.
+  const seul = composer([], { categories: [], sujet: null })
+  assert.match(seul, /Pas encore d’amis ici/)
+  assert.match(seul, /<\/svg>Jouer le défi<\/button>/)
+  assert.match(seul, /<span class="defier-choix">toutes les catégories<\/span>/)
+  assert.match(composer(null, { categories: [], sujet: null }), /Tes amis arrivent…/)
+
+  // L'onglet du défi : défier un ami, en tête — ses visages, « Lancer un défi ».
+  const carte = renderToStaticMarkup(React.createElement(duel.DefierUnAmi, { amis: [tom, hugo], onLancer: () => {} }))
+  assert.match(carte, /<h2 id="defier-un-ami-titre">Défier un ami<\/h2>/)
+  assert.match(carte, /<button type="button" class="defier-visage" aria-label="Défier Tom">/)
+  assert.match(carte, /<\/svg>Lancer un défi<\/button>/)
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(duel.DefierUnAmi, { amis: null, onLancer: () => {} })), /defier-visage/)
+  // Chaque ami se défie d'un toucher, sous « Tes amis ».
+  const liste = renderToStaticMarkup(React.createElement(duel.TesAmis, { amis: [tom], onDefier: () => {}, onRetirer: () => {} }))
+  assert.match(liste, /aria-label="Défier Tom"><svg[^>]*>.*?<\/svg>Défier<\/button>/)
+  // Sa fin dit à qui il est parti — sans promettre une notification qu'ils n'ont peut-être pas voulue.
+  const fin = (partiA: string[]) => renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, onClassement: () => {} }))
+  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo : il les attend sous leur onglet Défi, et leur téléphone sonne s’ils ont activé les notifications\./)
+  assert.match(fin(['Tom']), /Parti à Tom : il l’attend sous son onglet Défi, et son téléphone sonne s’il a activé les notifications\./)
+  assert.doesNotMatch(fin([]), /Parti à/)
+
+  // La page : `#defier` est son adresse, sous l'onglet du défi ; la série, l'onglet et chaque ami y mènent ; les amis choisis partent avec le tirage.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /hash === ADRESSE_DU_LANCEMENT\s*\? 'defier'/)
+  assert.match(page, /actif=\{mode === 'duel' \|\| mode === 'defier' \? 'defi' : mode\}/)
+  assert.match(page, /<DefierUnAmi amis=\{mesAmis\?\.amis \?\? null\} onLancer=\{ouvrirLeLancement\} \/>/)
+  assert.match(page, /<TesAmis amis=\{mesAmis\.amis\} onDefier=\{ouvrirLeLancement\}/)
+  assert.match(page, /onClick=\{\(\) => ouvrirLeLancement\(\)\}>\s*<Icon name="users" \/>\s*Défier des amis/)
+  assert.match(page, /await api\.campagne\.duel\.lancer\(choisi \? \[\] : choisies, choisi, amis\)/)
+  assert.doesNotMatch(page, /lancerUnDuel\(categories, sujetJouable\)/, 'plus de défi lancé sans dire à qui')
+  // Lancé, il ne se prépare plus : le retour du téléphone, après son classement, ne rouvre pas la préparation.
+  assert.match(page, /if \(window\.location\.hash === ADRESSE_DU_LANCEMENT\) \{\s*history\.replaceState\(\{ \.\.\.history\.state, \[LANCEMENT\]: undefined \}, '', `[^`]*\$\{ADRESSE_DU_DEFI\}`\)/)
+  // La préparation se charge à la demande — la série ne l'ouvre jamais —, en fond une fois la page montrée.
+  assert.match(page, /const lancement = aLaDemande\(\(\) => import\('\.\/LancerUnDefi'\)\)/)
+  assert.match(page, /setEcran\(\{ e: 'accueil', etat: lu \}\)\s*\/\/[^\n]*\n\s*void lancement\.charger\(\)\.catch\(\(\) => \{\}\)/)
+  assert.doesNotMatch(page, /from '\.\/LancerUnDefi'/, 'aucun import qui l’attacherait à la page')
+  // La fin n'y coche plus personne d'office : ceux qu'on défie se choisissent en le lançant.
+  assert.doesNotMatch(readFileSync(client('views/Duel.tsx'), 'utf8'), /setChoisis\(new Set\(m\.amis\.filter/)
 })
 
 // Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la

@@ -1,6 +1,7 @@
-// Le service worker de l'application installée, et rien d'autre que le rappel
-// du soir du quiz du jour (`server/src/core/rappels.ts`) : il montre la
-// notification que le serveur envoie, et ouvre le quiz quand on la touche.
+// Le service worker de l'application installée, et rien d'autre que ses
+// notifications (`server/src/core/rappels.ts`) — le rappel du soir du quiz du
+// jour, le défi qu'un ami vient d'envoyer : il montre la notification que le
+// serveur envoie, et ouvre sa page quand on la touche.
 //
 // Il ne garde rien en cache et n'intercepte aucune requête : l'application
 // reste celle que le serveur sert, à jour à chaque ouverture. Écrit à la
@@ -25,8 +26,10 @@ self.addEventListener('push', evenement => {
       body: message.corps,
       lang: 'fr',
       icon: '/icone-192.png',
-      // Une seule à la fois : la suivante remplace celle qu'on n'a pas lue.
-      tag: 'quiz-du-jour',
+      // Une seule à la fois par sujet : le rappel suivant remplace celui
+      // qu'on n'a pas lu ; un défi a la sienne (`defi-K7M2QX`), qui ne chasse
+      // ni le rappel ni le défi d'un autre ami.
+      tag: typeof message.tag === 'string' && message.tag ? message.tag : 'quiz-du-jour',
       data: { url: message.url },
     }),
   )
@@ -39,19 +42,26 @@ self.addEventListener('notificationclick', evenement => {
 })
 
 /**
- * La page du quiz si elle est déjà ouverte, sinon l'application à cette
- * page. Jamais une autre page de l'application menée ailleurs : c'était
- * peut-être une soirée en cours.
+ * La page de la notification si elle est déjà ouverte — menée à son adresse
+ * exacte : la campagne ouverte sur la série va au défi reçu (`#duel-…`) —,
+ * sinon l'application à cette page. Jamais une autre page de l'application
+ * menée ailleurs : c'était peut-être une soirée en cours.
  */
 async function ouvrir(url) {
   const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
   const deja = fenetres.find(f => new URL(f.url).pathname === url.pathname)
-  if (deja) return deja.focus()
-  return self.clients.openWindow(url.href)
+  if (!deja) return self.clients.openWindow(url.href)
+  if (deja.url !== url.href && typeof deja.navigate === 'function') {
+    // Une page que ce service worker ne tient pas refuse d'être menée : elle passe devant, telle quelle.
+    const menee = await deja.navigate(url.href).catch(() => null)
+    if (menee) return menee.focus()
+  }
+  return deja.focus()
 }
 
 // Le service de push a renouvelé l'abonnement (Firefox le fait) : le nouveau
-// rejoint le serveur, avec la session de ce téléphone, que la requête porte.
+// rejoint le serveur, avec la session de ce téléphone, que la requête porte,
+// et l'adresse de l'ancien — il en garde les réglages : le soir, les défis.
 self.addEventListener('pushsubscriptionchange', evenement => {
   evenement.waitUntil(
     (async () => {
@@ -65,7 +75,7 @@ self.addEventListener('pushsubscriptionchange', evenement => {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
-        body: JSON.stringify({ abonnement: nouvel.toJSON() }),
+        body: JSON.stringify({ abonnement: nouvel.toJSON(), ...(evenement.oldSubscription && { ancien: evenement.oldSubscription.endpoint }) }),
       })
     })().catch(() => {
       // Sans réseau, ou déconnecté : la page du jour le rattachera à la prochaine visite.

@@ -1,7 +1,8 @@
-import { sujetParCle } from '../../shared/sujets'
+import { sujetParCle } from './sujets'
 
 // Ce que joue une série, en mots : la page de la campagne et celle d'un défi
-// entre amis le disent toutes deux.
+// entre amis le disent toutes deux, et la notification d'un défi reçu aussi
+// — le serveur l'écrit.
 
 /** Les catégories d'une série, en quelques mots : « Culture générale », « Histoire et Sport », « 4 catégories » ; rien pour toutes. */
 export function nomDesCategories(categories: readonly string[]): string | null {
