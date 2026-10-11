@@ -468,6 +468,39 @@ test('un palier raté coûte une vie, abandonner aussi ; une épreuve à la fois
     assert.deepEqual([campagne.series, campagne.enCours], [0, null])
   }))
 
+// Validée à la dixième, l'épreuve continue pour ses étoiles ; arrêtée là, elle
+// renvoyait au sentier sans l'écran qui révèle le portrait — la récompense
+// même des sentiers (l'experte du jeu solo, le 11 octobre 2026). Elle rend sa
+// fin, comme à sa seizième question.
+test('une épreuve validée s’arrête là quand on veut : sa fin, ses étoiles et le portrait qu’elle ouvre, sans rien coûter', () =>
+  avecBanc(async banc => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    // Le premier palier, puis le deuxième — qui ouvre l'écureuil — validé à dix, sans faute.
+    await jouer(banc, lea, (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps, 16)
+    let e = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps
+    for (let i = 0; i < SEUIL_DES_PALIERS; i++) {
+      const r = await poster(banc, lea, `/api/campagne/epreuve/${e.id}/reponse`, { index: e.question.index, choix: bonneDe(e.question) })
+      e = r.corps.epreuve
+    }
+    assert.deepEqual([e.issue, e.finie], ['validee', false], 'validée, elle continue pour ses étoiles')
+    const arret = await poster(banc, lea, `/api/campagne/epreuve/${e.id}/abandon`)
+    assert.equal(arret.status, 200)
+    assert.deepEqual(
+      [arret.corps.fin.epreuve.finie, arret.corps.fin.epreuve.issue, arret.corps.fin.epreuve.justes, arret.corps.fin.etoiles, arret.corps.fin.avatar],
+      [true, 'validee', SEUIL_DES_PALIERS, etoilesDe(SEUIL_DES_PALIERS, SEUIL_DES_PALIERS), 'br:ecureuil'],
+      'sa fin : ses étoiles, et le portrait révélé',
+    )
+    assert.equal(arret.corps.vies.jour, VIES_PAR_JOUR, 'rien ne se perd')
+    // Le portrait se porte, le palier reste validé.
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'br:ecureuil' }, lea, 'PUT')).status, 200)
+    assert.equal((await lire(banc, lea, '/api/campagne/sentiers')).corps.sentiers.find((s: any) => s.branche === 'foret').paliers, 2)
+    // Un palier en jeu, lui, n'a pas de fin à montrer : abandonné, il est raté.
+    const enJeu = (await poster(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 3 })).corps
+    const abandon = await poster(banc, lea, `/api/campagne/epreuve/${enJeu.id}/abandon`)
+    assert.equal(abandon.corps.fin, undefined)
+    assert.equal(abandon.corps.vies.jour, VIES_PAR_JOUR - 1)
+  }))
+
 test('au sommet, le cerf ; puis le palier de maître, seize expertes à neuf, et son titre sous le prénom', () =>
   avecBanc(async banc => {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')

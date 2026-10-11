@@ -224,12 +224,13 @@ try {
   await page.click('text=Un adversaire au hasard')
   await repondre(true)
   await photo('11-rencontre-reponse')
+  // Une faute à la quatrième ; la bonne réponse qui dépasse les cinq de Tom la gagne, et la finit.
   for (let i = 1; ; i++) {
     const suite = page.locator('.btn-primary.btn-big')
     if ((await suite.textContent())?.includes('Voir qui a gagné')) break
     await suite.click()
-    await repondre(i < 6)
-    if (i === 6) await photo('12-rencontre-ratee')
+    await repondre(i !== 3)
+    if (i === 3) await photo('12-rencontre-ratee')
   }
   await page.click('text=Voir qui a gagné')
   await page.waitForSelector('.rencontre-final')

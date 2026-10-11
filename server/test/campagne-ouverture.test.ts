@@ -62,7 +62,11 @@ test('chaque partie de la campagne se quitte d’un « ← Partir » en haut ; r
   // coûte une vie — chacun son geste ; celles d'un thème, sans vies, partent.
   const sentiers = readFileSync(client('views/Sentiers.tsx'), 'utf8')
   assert.equal([...sentiers.matchAll(/<Sortie vers="Partir"/g)].length, 2, 'les deux épreuves')
-  assert.match(sentiers, /<GesteDuBas icone="flag" danger=\{!e\.rejeu && !valide\} onClick=\{onQuitter\}>\s*Abandonner l’épreuve/)
+  // Validée, la même pilule s'arrête là, sans rien coûter : sa fin et le portrait qu'elle ouvre (`sentiers.test.ts`).
+  assert.match(
+    sentiers,
+    /<GesteDuBas icone=\{valide \? 'check' : 'flag'\} busy=\{busy\} danger=\{!e\.rejeu && !valide\} onClick=\{onQuitter\}>\s*\{valide \? 'Arrêter là · voir mon palier' : 'Abandonner l’épreuve'\}/,
+  )
   assert.match(sentiers, /onPartir=\{\(\) => \{\s*retourAuSentier\(ecran\.epreuve\.branche\)/)
   // Revenu sur son sentier, le palier de l'épreuve laissée dit qu'elle l'attend.
   assert.match(sentiers, /\{laissee\?\.palier === r\.n \? 'Reprendre' : 'Jouer'\}/)
@@ -324,6 +328,16 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
     href: '/campagne#sentiers',
     detail: 'Ton épreuve t’attend\u00a0: palier de maître de l’espace · plus de vie avant minuit',
   })
+  // Le carnet qui attend passe devant le sentier — pas devant une épreuve laissée — : le rendez-vous du
+  // lendemain, que seul l'onglet du carnet comptait (l'experte du jeu solo, le 11 octobre 2026).
+  const { boutonDeLaCampagne } = module
+  assert.deepEqual(boutonDeLaCampagne({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false }, aRevoir: 4 }), {
+    href: '/campagne#carnet',
+    detail: '4 questions de ton carnet t’attendent : revois-les pour les apprendre',
+    pastille: 'À revoir',
+  })
+  assert.equal(boutonDeLaCampagne({ vies: 12, avance: null, aRevoir: 1 }).detail, 'Une question de ton carnet t’attend : revois-la pour l’apprendre')
+  assert.equal(boutonDeLaCampagne({ vies: 1, avance: { branche: 'mythes', palier: 3, laissee: true }, aRevoir: 4 }).href, '/campagne#sentiers', 'l’épreuve laissée d’abord')
   // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /campagne=\{'campagne' in profil \? profil\.campagne : undefined\}/)
 
@@ -344,13 +358,14 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.ok(tout.indexOf('<b>Le quiz du jour</b>') < tout.indexOf('<b>Les duels</b>'))
   assert.ok(tout.indexOf('<b>Les duels</b>') < tout.indexOf('<b>Créer un salon</b>'))
   assert.match(bouton(), /href="\/duels"/)
-  assert.match(bouton(), /<span class="gros-detail">Un joueur de ton niveau, son score à battre : monte de ligue<\/span>/)
+  // Avant son premier duel : qu'on défie qui l'on veut — « Un joueur de ton niveau » promettait un adversaire qu'un petit serveur n'a pas toujours.
+  assert.match(bouton(), /<span class="gros-detail">Défie qui tu veux, ou un joueur au hasard : monte de ligue<\/span>/)
   const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
   // Un défi qu'un ami lui a envoyé passe devant : qui le défie, une pastille (`campagne-amis.test.ts`).
   const unDefi = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })
   assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
   assert.match(unDefi, /<span class="pastille-attente">Un défi<\/span>/)
-  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres amis : à toi de jouer.*3 défis/)
+  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres : à toi de jouer.*3 défis/)
   // Puis son duel laissé en route.
   assert.match(bouton({ ...habitue, enCours: { nom: 'Tom' } }), /<span class="gros-detail">Ton duel contre Tom t’attend<\/span>/)
   // Sinon sa ligue, sa cote, et ce qui manque à sa récompense de lundi — ou ce qu'elle rapportera ; son blason à la place de l'icône.

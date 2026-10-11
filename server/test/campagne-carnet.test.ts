@@ -106,9 +106,14 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
     assert.equal(tropTot.status, 400)
     assert.equal(tropTot.corps.error, 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet')
 
+    // L'accueil n'en dit rien le jour même…
+    const accueil = async () => (await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.campagne
+    assert.equal((await accueil()).aRevoir, undefined)
     // Le lendemain, une révision des trois.
     horloge.t = DEBUT + JOUR
     assert.equal((await compte(banc, lea)).aRevoir, 3)
+    // … et le lendemain, la tuile de la campagne le compte, comme l'onglet du carnet : le rendez-vous se voit dès l'accueil.
+    assert.equal((await accueil()).aRevoir, 3)
     const solde = async () => (await lire(banc, lea, '/api/joueur/moi')).corps.profile
     const avant = await solde()
     const rev = (await poster(banc, lea, '/api/campagne/revision')).corps

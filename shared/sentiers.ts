@@ -357,6 +357,8 @@ export interface SentiersDAccueil {
   /** Ses vies : celles du jour et sa réserve ensemble. */
   vies: number
   avance: SentierQuOnAvance | null
+  /** Les questions que son carnet a à revoir aujourd'hui (`shared/revision.ts`) ; absent : rien. */
+  aRevoir?: number
 }
 
 /** Ce que dit une réponse d'épreuve : la bonne, l'anecdote, et l'épreuve d'après. */
@@ -384,6 +386,13 @@ export interface ReponseDEpreuve {
   recompenses?: { key: string; emoji: string; title: string }[]
   legendaires?: string[]
 }
+
+/**
+ * Ce que la fin d'une épreuve montre : sa dernière réponse, ou — arrêtée là
+ * une fois validée (`POST /api/campagne/epreuve/:id/abandon`, `fin`) — rien
+ * qu'elle-même, ses étoiles et ce qu'elle ouvre.
+ */
+export type FinDEpreuve = Omit<ReponseDEpreuve, 'juste' | 'bonne' | 'anecdote' | 'xp'>
 
 /**
  * Un palier, côté administrateur : ce que les vraies épreuves en disent, sur

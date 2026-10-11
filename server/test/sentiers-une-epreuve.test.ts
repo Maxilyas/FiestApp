@@ -71,6 +71,18 @@ test('une épreuve laissée ailleurs : la fiche du palier le dit, et mène à el
   assert.match(await fiche(7, { ...DANS_LA_FORET, issue: 'validee' }), /Jouer le palier 7/)
 })
 
+// « Jouer le palier 1 · Une vie en jeu » sur le palier même qu'on avait
+// quitté : on craignait de recommencer et de perdre ses bonnes réponses,
+// quand le serveur reprend l'épreuve telle quelle (l'experte du jeu solo, le
+// 11 octobre 2026).
+test('l’épreuve laissée sur ce palier : la fiche dit « Reprendre », et où l’on en est', async () => {
+  const ici: EpreuveDeSentier = { ...DANS_LA_FORET, branche: 'scene', palier: 7, justes: 5, fausses: 1 }
+  const html = await fiche(7, ici)
+  assert.match(html, /<\/svg>Reprendre le palier 7<\/button>/)
+  assert.match(html, /5 bonnes · 1 faute : rien n’est perdu, tu reprends où tu en étais\./)
+  assert.doesNotMatch(html, /Jouer le palier 7|Une vie en jeu/)
+})
+
 test('dans un sentier, un refus s’écrit dans l’en-tête collé : il reste en vue quand le chemin défile', async () => {
   const e = etat({ scene: 6 }, null)
   const html = await rendre('SentierVu', {

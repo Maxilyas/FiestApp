@@ -66,14 +66,17 @@ async function serieFinie(banc: Banc, cookie: string, justes: number) {
   for (let i = justes; i < justes + VIES; i++) await repondre(banc, cookie, s.id, i, false)
 }
 
-/** Un duel classé joué jusqu'au bout : `justes` bonnes réponses, puis trois fautes. Rend son départ et sa dernière réponse. */
+/**
+ * Un duel classé joué jusqu'au bout : `justes` bonnes réponses, puis trois
+ * fautes — gagné, il finit à la bonne réponse qui dépasse le score d'en face.
+ * Rend son départ et sa dernière réponse.
+ */
 async function duelJoue(banc: Banc, cookie: string, justes: number) {
   const depart = await poster(banc, cookie, '/api/campagne/rencontre')
   assert.equal(depart.status, 200, depart.corps.error)
   const id = depart.corps.serie.id as string
   let fin: any = null
-  for (let i = 0; i < justes; i++) fin = await repondre(banc, cookie, id, i, true)
-  for (let i = justes; i < justes + VIES; i++) fin = await repondre(banc, cookie, id, i, false)
+  for (let i = 0; i < justes + VIES && !fin?.finie; i++) fin = await repondre(banc, cookie, id, i, i < justes)
   assert.equal(fin.finie, true)
   return { depart: depart.corps, fin }
 }

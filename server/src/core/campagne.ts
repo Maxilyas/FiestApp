@@ -129,6 +129,7 @@ import {
   type AdminDesSentiers,
   type EpreuveDeSentier,
   type EtatDesSentiers,
+  type FinDEpreuve,
   type IssueDEpreuve,
   type JoueurBloque,
   type RegleDuPalier,
@@ -382,6 +383,8 @@ export class CampagneStore {
   private tirages = new Map<string, QuestionDeSerie[]>()
   /** Les défis entre amis lus depuis le démarrage : leur tirage et leur fermeture sont figés, relus une fois. */
   private duels = new Map<string, Duel>()
+  /** Le score fini de qui a lancé un duel classé, par code : celui qu'il a défié le joue pour le battre (`scoreABattre`). */
+  private scoresABattre = new Map<string, number>()
   /** Les vainqueurs du défi de la semaine passée (`vainqueursDuDefi`), lus à sa clôture. */
   private argent: { semaine: string; ids: ReadonlySet<string> } = { semaine: '', ids: AUCUN_VAINQUEUR }
   private argentEnRoute: Promise<void> | null = null
@@ -1057,7 +1060,15 @@ export class CampagneStore {
       const vies = juste || s.mode === 'revision' ? s.vies : s.vies - 1
       const justes = s.justes + (juste ? 1 : 0)
       const position = s.index + 1
-      const finie = vies <= 0 || position >= s.questions.length
+      // Un duel gagné n'a plus rien à jouer : sa cote ne lit que gagné, perdu
+      // ou égal. Il continuait jusqu'à la troisième erreur — soixante
+      // questions au plus —, sous « −36 si tu perds », et qui partait content
+      // d'avoir gagné laissait un duel en route, sans cote (l'experte du jeu
+      // solo, le 11 octobre 2026). Le score à battre : celui de la série
+      // rejouée, ou celui de qui l'a lancé, pour qui joue un duel en second.
+      const aBattre = s.mode === 'rencontre' && s.adversaire ? sesJustesEnTout(s.adversaire) : await this.scoreABattre(s)
+      const gagne = aBattre !== null && justes > aBattre
+      const finie = vies <= 0 || position >= s.questions.length || gagne
       const maintenant = this.maintenant()
       // Tout dans un lot : le record se lit avant d'écrire la fin — battu, la
       // fin le dit, et l'ancien avec —, ses bonnes réponses après la sienne,
@@ -1833,6 +1844,25 @@ export class CampagneStore {
   private async duelFerme(code: string | null | undefined): Promise<boolean> {
     const d = await this.duelDe(code)
     return !d || this.maintenant() >= d.fermeLe
+  }
+
+  /**
+   * Le score à battre d'un duel classé, pour celui qu'on a défié : il ne le
+   * reçoit qu'à la dernière réponse de qui l'a lancé, ce score est donc fini,
+   * et gardé — il ne change plus. Pour qui l'a lancé, rien : il joue le
+   * premier, sans score à battre.
+   */
+  private async scoreABattre(s: Serie): Promise<number | null> {
+    if (s.mode !== 'duel') return null
+    const duel = await this.duelDe(s.duel)
+    if (!duel?.adversaire || duel.adversaire !== s.profileId) return null
+    const garde = this.scoresABattre.get(duel.code)
+    if (garde !== undefined) return garde
+    const t = await this.tentativeDuDuel(duel.auteur, duel.code)
+    if (t?.finieLe == null) return null
+    this.scoresABattre.set(duel.code, t.justes)
+    if (this.scoresABattre.size > SERIES_GARDEES) this.scoresABattre.delete(this.scoresABattre.keys().next().value!)
+    return t.justes
   }
 
   /** Un duel classé joué jusqu'au bout par ses deux joueurs : il n'a plus rien à cacher. */
@@ -3115,15 +3145,22 @@ export class CampagneStore {
   }
 
   /**
-   * Ce que le bouton de la campagne dit sur l'accueil : ses vies, et le
-   * sentier qu'il avance (`sentierQuOnAvance`) — rien tant qu'il n'en a
-   * commencé aucun, ni épreuve ni portrait d'avant. Les défis de ses amis
-   * sont au bouton des duels (`accueilDesDuels`).
+   * Ce que le bouton de la campagne dit sur l'accueil : ses vies, le sentier
+   * qu'il avance (`sentierQuOnAvance`) — rien tant qu'il n'en a commencé
+   * aucun, ni épreuve ni portrait d'avant —, et ce que son carnet a à revoir
+   * aujourd'hui : c'est le rendez-vous du lendemain, que l'accueil taisait —
+   * l'onglet le comptait, deux écrans plus loin (l'experte du jeu solo, le
+   * 11 octobre 2026). Compté sans la base, qu'un démarrage n'a peut-être pas
+   * encore lue : seules les questions retirées en sortent. Les défis sont au
+   * bouton des duels (`accueilDesDuels`).
    */
   async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
-    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    const [{ sentiers, vies, ouverte }, suivis] = await Promise.all([this.lireLesSentiers(profileId), this.suivisDe(profileId)])
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
-    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee) }
+    const aujourdhui = jourDe(this.maintenant())
+    let aRevoir = 0
+    for (const [id, s] of suivis) if (!s.apprise && s.revientLe <= aujourdhui && !this.retirees.has(id)) aRevoir++
+    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }) }
   }
 
   /**
@@ -3255,21 +3292,7 @@ export class CampagneStore {
       // de réécrire, le compte déjà ; la réponse le dit.
       const dAvant = valideeIci || (finie && issue === 'validee') ? res[0].rows : []
       if (valideeIci && xp > 0 && dAvant.length === 0) reponse.xpPalier = xpDuPalier(e.palier)
-      if (finie && issue === 'validee') {
-        const avant = Math.max(0, ...dAvant.map(r => Number(r.justes)))
-        const etoilesAvant = Math.max(0, ...dAvant.map(r => etoilesDe(Number(r.justes), Number(r.seuil ?? seuil))))
-        reponse.etoiles = etoilesDe(justes, seuil)
-        if (avant > 0 && justes > avant) reponse.record = true
-        const confettis = confettisDeLaNouvelleNote(etoilesAvant, reponse.etoiles)
-        if (confettis > 0) reponse.confettisDesEtoiles = confettis
-        // Le palier vient d'être conquis (pas rejoué) : ce qu'il ouvre.
-        if (!e.rejeu) {
-          const regle = regleDuPalier(e.palier)
-          const b = brancheParCle(e.branche)!
-          if (regle?.avatar !== null && regle?.avatar !== undefined) reponse.avatar = b.portraits[regle.avatar].key
-          if (regle?.maitre) reponse.maitre = titreDeMaitre(b)
-        }
-      }
+      if (finie && issue === 'validee') Object.assign(reponse, finDeLEpreuveValidee(e, justes, seuil, dAvant))
       if (issue === 'ratee' && !e.rejeu) reponse.vies = await this.vies(profileId)
       // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme celles d'une série.
       if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
@@ -3281,18 +3304,35 @@ export class CampagneStore {
    * Abandonner une épreuve : un palier en jeu compte comme raté — une vie de
    * moins, sinon on fermerait l'application à la dixième erreur pour ne rien
    * perdre ; un rejeu, ou une épreuve déjà validée, se referme sans rien
-   * coûter. Rend les vies qui restent.
+   * coûter. Validée, elle s'arrête là comme à sa dernière question, et rend
+   * sa fin — ses étoiles, le portrait ou le titre qu'elle ouvre, ce qui
+   * tombe : arrêtée, elle sautait l'écran qui révèle le portrait, la
+   * récompense même des sentiers (l'experte du jeu solo, le 11 octobre 2026).
    */
-  abandonnerEpreuve(profileId: string, id: string): Promise<VieDesSentiers> {
+  abandonnerEpreuve(profileId: string, id: string): Promise<FinDEpreuve | null> {
     return this.avecVerrou(profileId, async () => {
       const e = await this.serie(profileId, id)
-      if (!e || e.mode !== 'sentier') throw new Error('Cette épreuve est introuvable')
-      if (e.finieLe === null) {
+      if (!e || e.mode !== 'sentier' || !e.branche || !e.palier) throw new Error('Cette épreuve est introuvable')
+      const maintenant = this.maintenant()
+      const ouverte = e.finieLe === null
+      if (ouverte) {
         const issue = e.issue ?? (e.rejeu ? null : 'ratee')
-        await this.client.execute({ sql: 'UPDATE campagne_series SET issue = ?, finie_le = ? WHERE id = ?', args: [issue, this.maintenant(), e.id] })
+        await this.client.execute({ sql: 'UPDATE campagne_series SET issue = ?, finie_le = ? WHERE id = ?', args: [issue, maintenant, e.id] })
       }
       this.enCours.delete(profileId)
-      return this.vies(profileId)
+      if (!ouverte || e.issue !== 'validee') return null
+      const seuil = e.seuil ?? regleDuPalier(e.palier)?.seuil ?? QUESTIONS_PAR_EPREUVE
+      const avant = await this.client.execute({
+        sql: `SELECT justes, seuil FROM campagne_series
+              WHERE profile_id = ? AND mode = 'sentier' AND branche = ? AND palier = ? AND issue = 'validee' AND id <> ?`,
+        args: [profileId, e.branche, e.palier, e.id],
+      })
+      return {
+        epreuve: vueDEpreuve({ ...e, finieLe: maintenant }),
+        ...finDeLEpreuveValidee(e, e.justes, seuil, avant.rows),
+        // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme à sa dernière question.
+        ...(await this.recompenser(profileId, e.id, [], maintenant)),
+      }
     })
   }
 
@@ -4562,6 +4602,34 @@ function vueDEpreuve(e: Serie): EpreuveDeSentier {
     issue: e.issue,
     finie,
     ...(!finie && e.questions[e.index] && { question: questionMontree(e.questions[e.index], e.index) }),
+  }
+}
+
+/**
+ * Ce que dit la fin d'une épreuve validée — à sa dernière question, ou
+ * arrêtée là une fois validée (`abandonnerEpreuve`) : ses étoiles, un record,
+ * ce que paie sa meilleure note, et, conquis — pas rejoué —, le portrait ou le
+ * titre de maître que le palier ouvre. `avant` : ses autres épreuves validées
+ * sur ce palier.
+ */
+function finDeLEpreuveValidee(
+  e: Serie,
+  justes: number,
+  seuil: number,
+  avant: readonly Record<string, unknown>[],
+): Pick<ReponseDEpreuve, 'etoiles' | 'record' | 'confettisDesEtoiles' | 'avatar' | 'maitre'> {
+  const meilleure = Math.max(0, ...avant.map(r => Number(r.justes)))
+  const etoilesAvant = Math.max(0, ...avant.map(r => etoilesDe(Number(r.justes), Number(r.seuil ?? seuil))))
+  const etoiles = etoilesDe(justes, seuil)
+  const confettis = confettisDeLaNouvelleNote(etoilesAvant, etoiles)
+  const regle = e.rejeu ? undefined : regleDuPalier(e.palier)
+  const b = brancheParCle(e.branche!)!
+  return {
+    etoiles,
+    ...(meilleure > 0 && justes > meilleure && { record: true }),
+    ...(confettis > 0 && { confettisDesEtoiles: confettis }),
+    ...(regle?.avatar !== null && regle?.avatar !== undefined && { avatar: b.portraits[regle.avatar].key }),
+    ...(regle?.maitre && { maitre: titreDeMaitre(b) }),
   }
 }
 
