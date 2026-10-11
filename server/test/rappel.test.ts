@@ -512,6 +512,61 @@ test('un défi parti à un ami fait sonner son téléphone : qui le défie, sur 
   }
 })
 
+// Le souhait du propriétaire du 11 octobre 2026 : « une fois le quiz fait de
+// mon côté, ça envoie automatiquement une notification pour faire le défi,
+// pas de lien à partager ». Un duel classé part à qui l'on défie, ami ou
+// non ; joué des deux côtés, le téléphone de qui l'a lancé sonne avec le
+// résultat.
+test('un duel classé sonne chez qui l’on défie, même sans être son ami ; joué, il sonne chez qui l’a lancé, avec le résultat et sa cote', async () => {
+  const push = await serviceDePush()
+  const horloge = { t: aParis(26, 10) }
+  const banc = await demarrer({
+    horlogeDuJour: () => horloge.t,
+    baseDeLaCampagne: BASE_DES_DEFIS,
+    rappels: { servicesDePush: url => url.hostname === '127.0.0.1' },
+  })
+  try {
+    const [lea, tom] = await Promise.all([inscrireProfil(banc.url, 'lea', 'Léa'), inscrireProfil(banc.url, 'tom', 'Tom')])
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    const deTom = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('tom') as { id: string }).id
+    db.close()
+    const [telLea, telTom] = [push.telephone('lea'), push.telephone('tom')]
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telLea), quoi: 'defis', activer: true }, lea)
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telTom), quoi: 'defis', activer: true }, tom)
+
+    // Léa défie Tom — ils ne sont pas amis — sur l'histoire : rien ne sonne tant qu'elle joue.
+    const duel = (await (await ecrire(banc.url, '/api/campagne/duel', { categories: ['Histoire'], adversaire: deTom }, lea)).json()) as any
+    await patienter(100)
+    assert.equal(push.recus.length, 0)
+    await jouerLaTentative(banc, lea, duel.serie.id, 4)
+    await arrives(push, 1)
+    assert.equal(push.recus[0].nom, 'tom')
+    assert.deepEqual(dechiffrer(push.recus[0].corps, telTom), {
+      titre: 'Léa te défie',
+      corps: 'Histoire · 4 bonnes réponses à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.',
+      url: `/duels#duel-${duel.code}`,
+      tag: `defi-${duel.code}`,
+    })
+
+    // Tom le joue et gagne : le téléphone de Léa sonne, le résultat et sa cote dedans.
+    const tentative = (await (await ecrire(banc.url, `/api/campagne/duel/${duel.code}`, {}, tom)).json()) as any
+    await jouerLaTentative(banc, tom, tentative.id, 6)
+    await arrives(push, 2)
+    assert.equal(push.recus[1].nom, 'lea')
+    const ecart = ((await (await fetch(`${banc.url}/api/duels`, { headers: { Cookie: lea } })).json()) as any).contre[0].ecart as number
+    assert.ok(ecart < 0)
+    assert.deepEqual(dechiffrer(push.recus[1].corps, telLea), {
+      titre: 'Tom a joué votre duel',
+      corps: `4 à 6, tu perds : ta cote −${-ecart}.`,
+      url: `/duels#duel-${duel.code}`,
+      tag: `duel-${duel.code}`,
+    })
+  } finally {
+    await banc.close()
+    await push.fermer()
+  }
+})
+
 // ── 3. Le service worker ──────────────────────────────────────────────────
 
 /** `client/public/sw.js`, joué dans un bac à sable, avec ce que le navigateur lui donnerait. */

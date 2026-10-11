@@ -3831,6 +3831,9 @@ h3 > .icon {
 .leaderboard .lb-row:nth-child(n + 6) .av::before,
 .leaderboard .lb-row:nth-child(n + 6) .av::after,
 .leaderboard .lb-row:nth-child(n + 6) .lu *,
+.leaderboard .duels-rangee:nth-child(n + 6) .av::before,
+.leaderboard .duels-rangee:nth-child(n + 6) .av::after,
+.leaderboard .duels-rangee:nth-child(n + 6) .lu *,
 .stats-table tbody tr:nth-child(n + 6) .av::before,
 .stats-table tbody tr:nth-child(n + 6) .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lu * {
@@ -7768,24 +7771,10 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .duel-amis-vide { margin: 0; }
 .duel-recus .duel-ligne { border-color: var(--accent); }
 .duel-recus .duel-score { color: var(--accent-text); }
-.tes-amis-liste li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 2px 4px 2px 8px; border-bottom: 1px solid var(--edge); }
-.tes-amis-liste li .duel-ami-nom { flex: 1; min-width: 0; }
 .tes-amis p { margin: 0; }
-.tes-amis-etapes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; }
-.tes-amis-defier .icon { width: 14px; height: 14px; color: var(--accent-text); }
-/* Défier un ami, dans la page des duels : ses amis en visages qu'on
-   touche, « Lancer un défi », et la cloche de ses défis. */
-.defier-un-ami { display: flex; flex-direction: column; gap: 12px; border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: radial-gradient(90% 140% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%), var(--surface); }
-.defier-un-ami-tete { display: flex; align-items: center; gap: 12px; }
-.defier-un-ami-tete h2 { margin: 0 0 2px; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
-.defier-un-ami-tete p { margin: 0; }
-.defier-visages { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; overflow: hidden; }
-.defier-visages li { flex: 0 1 64px; min-width: 0; }
-.defier-visage { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; min-height: 64px; padding: 4px 2px; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; cursor: pointer; }
-.defier-visage:hover .defier-visage-avatar { box-shadow: 0 0 0 2px var(--accent); }
-.defier-visage-avatar { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-faint); box-shadow: 0 0 0 1px var(--edge); font-size: 1.6rem; line-height: 1; }
-.defier-visage-nom { max-width: 100%; overflow: hidden; font-size: var(--t-label); font-weight: 600; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
-.cloche-des-defis { display: flex; align-items: center; gap: 4px; margin: -4px 0 -8px -11px; color: var(--muted); }
+.tes-amis-liste .ligne-joueur > .btn-ghost { width: 44px; padding: 0; }
+/* La cloche des duels, sous ses amis : la cloche devant ce qu'elle fait. */
+.cloche-des-defis { display: flex; align-items: center; gap: 4px; margin: -8px 0 -8px -11px; color: var(--muted); }
 .cloche-des-defis .cloche-du-rappel { margin-right: 0; }
 .cloche-des-defis-ailleurs { margin: 0; }
 /* Lancer un défi : trois temps, chacun sa carte numérotée. */
@@ -7799,6 +7788,35 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 /* À qui il vient de partir — ou partira : une ligne qui rassure, cochée. */
 .duel-parti { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .duel-parti > .icon { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--accent-text); }
+/* Défier quelqu'un (le souhait du propriétaire du 11 octobre 2026) : un
+   joueur sur une ligne — son avatar, son prénom, sa ligue, sa cote et sa
+   place —, puis ce qu'on en fait ; la barre de recherche et ce qu'elle
+   trouve ; l'épée, à la hauteur d'un doigt. */
+.ligne-joueur { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.ligne-joueur-nom { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ligne-joueur-nom b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-joueur > .btn { flex: none; min-height: 44px; }
+.ligne-joueur-deja { display: inline-flex; flex: none; align-items: center; gap: 4px; }
+.ligne-joueur-deja .icon { width: 14px; height: 14px; color: var(--accent-text); }
+.chercher-joueur { display: flex; flex-direction: column; gap: 8px; }
+.chercher-joueur p { margin: 0; }
+.chercher-champ { position: relative; display: block; }
+.chercher-champ > .icon { position: absolute; top: 50%; left: 14px; width: 18px; height: 18px; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.chercher-champ .input { padding-left: 42px; }
+.joueurs-trouves { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.joueurs-trouves li { padding: 2px 0; border-bottom: 1px solid var(--edge); }
+.joueurs-trouves li:last-child { border-bottom: 0; }
+.defier-amis-titre { margin: 4px 0 0; }
+.duels-epee { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); cursor: pointer; }
+.duels-epee .icon { width: 20px; height: 20px; }
+.duels-epee:hover { border-color: var(--accent); }
+/* La sienne n'a pas d'épée : sa place reste, pour que les cotes s'alignent. */
+span.duels-epee { visibility: hidden; }
+.duels-rangee { display: flex; align-items: center; gap: 6px; }
+.duels-rangee > .lb-row { flex: 1; min-width: 0; }
+.duels-classement-ligue { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.duels-classement-ligue:first-child { margin-top: 0; }
+.duels-fin-ecart-ligne { margin: 0; font-weight: 800; text-align: center; }
 
 /* ── Les duels (`/duels`, `shared/duels.ts`) ──────────────────────────────
    Le héros à la couleur de sa ligue (`--lueur`) : son blason, sa cote en

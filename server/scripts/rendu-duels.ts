@@ -1,12 +1,13 @@
 // Les duels, photographiés au téléphone (360 × 640) sur un serveur jetable :
 // le bouton de l'accueil, la page d'un débutant — comment ça marche et les
-// ligues dépliés —, un duel classé (son enjeu en jeu, sa cote à la fin), une
-// montée de ligue, la page d'un habitué — le classement et ses blasons, la
-// carte d'un joueur et sa ligue, ses derniers duels —, puis défier un ami :
-// la préparation, une partie jusqu'à sa fin — à qui il est parti —, et l'ami
-// qui le reçoit, à l'accueil et dans ses duels. Les cotes des autres viennent
-// de duels écrits dans la base : la cote se relit dans le journal des
-// rencontres (`shared/duels.ts`).
+// ligues dépliés —, un duel au hasard (son enjeu en jeu, sa cote à la fin),
+// une montée de ligue, la page d'un habitué — le classement par ligue et ses
+// épées, ses amis et leur ligue, la carte d'un joueur —, puis défier
+// quelqu'un : l'épée de Tom touchée, la préparation, une partie jusqu'à sa
+// fin — partie à Tom —, et Tom qui le reçoit, à l'accueil et dans ses duels,
+// le joue et le gagne ; Léa qui le retrouve, joué ; la barre de recherche et
+// l'ajout d'un ami. Les cotes des autres viennent de duels écrits dans la
+// base : la cote se relit dans le journal des rencontres (`shared/duels.ts`).
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-duels.ts [dossier]
@@ -96,26 +97,34 @@ try {
     await page.screenshot({ path: path.join(sortie, `${nomFichier}.png`), fullPage: pleine })
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
-  /** Un duel classé joué jusqu'au bout depuis la page : les bonnes réponses lues dans la base, `justes` fois, puis des fautes. */
-  const jouerLeDuel = async (page: any, cookie: string, justes: number, avant?: () => Promise<void>) => {
-    await page.getByRole('button', { name: /Trouver un adversaire|Reprendre contre/ }).click()
+  /** Une partie en cours jouée jusqu'au bout : les bonnes réponses lues dans la base, `justes` fois, puis des fautes. */
+  const jusquAuBout = async (page: any, cookie: string, mode: 'rencontre' | 'duel', justes: number) => {
     await page.waitForSelector('.ans-btn')
-    if (avant) await avant()
     const id = await idDe(banc, cookie)
     const db = base(banc)
-    const ligne = db.prepare(`SELECT questions FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL`).get(id) as { questions: string }
+    // La plus récente : Léa a aussi un défi entre amis d'avant, commencé et laissé.
+    const ligne = db
+      .prepare(`SELECT questions, position FROM campagne_series WHERE profile_id = ? AND mode = ? AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`)
+      .get(id, mode) as { questions: string; position: number }
     db.close()
     const qs = JSON.parse(ligne.questions) as { bonne: number; reponses: string[] }[]
-    for (let i = 0; ; i++) {
+    for (let i = ligne.position; ; i++) {
       await page.waitForSelector('.ans-btn')
       const q = qs[i]
       await page.locator('.ans-btn').nth(i < justes ? q.bonne : (q.bonne + 1) % q.reponses.length).click()
-      const suite = page.getByRole('button', { name: /Question suivante|Voir qui a gagné/ })
+      const suite = page.getByRole('button', { name: /Question suivante|Voir qui a gagné|Voir mon duel/ })
       await suite.waitFor()
-      const derniere = (await suite.textContent())?.includes('Voir qui a gagné')
+      const derniere = !(await suite.textContent())?.includes('Question suivante')
       await suite.click()
       if (derniere) break
     }
+  }
+  /** Un duel au hasard joué jusqu'au bout depuis la page. */
+  const jouerLeDuel = async (page: any, cookie: string, justes: number, avant?: () => Promise<void>) => {
+    await page.getByRole('button', { name: /Un adversaire au hasard|Reprendre contre/ }).click()
+    await page.waitForSelector('.ans-btn')
+    if (avant) await avant()
+    await jusquAuBout(page, cookie, 'rencontre', justes)
     await page.waitForSelector('.duels-fin')
   }
 
@@ -151,25 +160,20 @@ try {
   await jouerLeDuel(pourZoe, zoe, 10)
   await photo(pourZoe, '06-promotion')
 
-  // Défier un ami : Tom touché, la préparation, lui déjà coché ; Hugo aussi, et l'histoire.
-  await page.locator('.defier-visage[aria-label="Défier Tom"]').click()
+  // Défier quelqu'un : l'épée de Tom, au classement — la préparation, lui déjà choisi ; l'histoire.
+  await page.goto(`${banc.url}/duels`)
+  await page.waitForSelector('.duels-rangee .duels-epee[aria-label="Défier Tom"]')
+  await page.locator('.duels-rangee .duels-epee[aria-label="Défier Tom"]').click()
   await page.waitForSelector('.defier-etape')
   await photo(page, '07-lancer')
-  await page.getByRole('button', { name: /Hugo/ }).click()
   await page.getByRole('button', { name: 'Histoire', exact: true }).click()
-  await page.getByRole('button', { name: 'Jouer le défi' }).click()
-  for (let i = 0; i < 40; i++) {
-    await page.waitForSelector('.ans-btn')
-    await page.locator('.ans-btn').first().click()
-    const suite = page.getByRole('button', { name: /Question suivante|Voir ma série/ })
-    await suite.waitFor()
-    const derniere = (await suite.textContent())?.includes('Voir ma série')
-    await suite.click()
-    if (derniere) break
-  }
+  await page.getByRole('button', { name: 'Jouer le duel' }).click()
+  await page.waitForSelector('.duels-enjeu')
+  await photo(page, '07b-en-jeu-contre-tom')
+  await jusquAuBout(page, lea, 'duel', 6)
   await page.waitForSelector('.duel-parti')
   await photo(page, '08-parti')
-  // Tom : le bouton de son accueil le dit, et le défi l'attend en tête de ses duels.
+  // Tom : le bouton de son accueil le dit, et le duel l'attend en tête de ses duels.
   const pourTom = await telephone(tom)
   await pourTom.goto(banc.url)
   await pourTom.waitForSelector('.gros-bouton[href="/duels"] .pastille-attente')
@@ -177,6 +181,38 @@ try {
   await pourTom.click('.gros-bouton[href="/duels"]')
   await pourTom.waitForSelector('.duel-recus')
   await photo(pourTom, '10-tom-le-recoit')
+  // Il l'ouvre : le score à battre, ce qui se joue ; il le joue, et le gagne.
+  await pourTom.locator('.duel-recus .duel-ligne').first().click()
+  await pourTom.waitForSelector('.defi-heros')
+  await photo(pourTom, '11-tom-le-duel')
+  await pourTom.getByRole('button', { name: 'Relever le duel' }).click()
+  await jusquAuBout(pourTom, tom, 'duel', 9)
+  await pourTom.waitForSelector('.duels-fin')
+  await photo(pourTom, '12-tom-gagne')
+  await photo(pourTom, '12-tom-gagne-pleine', true)
+  // Léa le retrouve, joué : sa page des duels — « Tes duels » —, puis le duel, sa correction ouverte.
+  await page.goto(`${banc.url}/duels`)
+  await page.waitForSelector('#duels-contre-titre')
+  await photo(page, '13-lea-ses-duels', true)
+  await page.locator('.duel-ligne', { hasText: 'Contre Tom' }).click()
+  await page.waitForSelector('.defi-heros')
+  await photo(page, '14-lea-le-duel-joue', true)
+  // Défier quelqu'un par son prénom : la barre de recherche.
+  await page.goto(`${banc.url}/duels`)
+  await page.getByRole('button', { name: 'Défier quelqu’un' }).click()
+  await page.waitForSelector('.chercher-champ input')
+  await page.fill('.chercher-champ input', 'zo')
+  await page.waitForSelector('.joueurs-trouves .ligne-joueur')
+  await photo(page, '15-chercher')
+  // Ajouter un ami : Zoé, par son prénom.
+  await page.goto(`${banc.url}/duels`)
+  await page.waitForSelector('.tes-amis')
+  await page.getByRole('button', { name: 'Ajouter un ami' }).click()
+  await page.fill('.tes-amis .chercher-champ input', 'zoé')
+  await page.getByRole('button', { name: 'Ajouter Zoé à mes amis' }).click()
+  await page.waitForSelector('.tes-amis-liste .ligne-joueur:has-text("Zoé")')
+  await page.locator('.tes-amis').scrollIntoViewIfNeeded()
+  await photo(page, '16-amis')
   // L'ancien lien d'un défi, parti avant les duels : il mène à sa page.
   await pourTom.goto(`${banc.url}/campagne#duel-${premier.code}`)
   await pourTom.waitForSelector('.defi-heros')

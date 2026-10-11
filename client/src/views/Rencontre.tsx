@@ -1,4 +1,5 @@
 import type { Adversaire, IssueDeRencontre } from '../../../shared/campagne'
+import type { EnjeuDuDuel } from '../../../shared/duels'
 
 // Ce qu'une rencontre — un duel classé (`shared/duels.ts`) — écrit d'elle-même,
 // sur l'écran de la partie (`CampagneApp`) comme dans la page des duels
@@ -13,3 +14,15 @@ export const MOT_DE_L_ISSUE: Record<IssueDeRencontre, string> = { gagnee: 'Gagn�
 
 /** Un écart de cote, signé : « +14 », « −9 » — le vrai signe moins —, « ±0 ». */
 export const ecartSigne = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
+
+/**
+ * Celui qu'on affronte dans un duel contre quelqu'un, tel que la partie le
+ * dit à chaque question : son prénom, son avatar, son score s'il l'a déjà
+ * joué — à battre —, et ce que le duel met en jeu sur sa cote.
+ */
+export interface ContreEnJeu {
+  nom: string
+  avatar: string
+  justes: number | null
+  enjeu?: EnjeuDuDuel
+}

@@ -221,7 +221,7 @@ try {
   await ouvrir('/duels')
   await page.waitForSelector('.duels-ligues-liste')
   await photo('10-trouver-un-adversaire')
-  await page.click('text=Trouver un adversaire')
+  await page.click('text=Un adversaire au hasard')
   await repondre(true)
   await photo('11-rencontre-reponse')
   for (let i = 1; ; i++) {
@@ -270,27 +270,26 @@ try {
   await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).scrollIntoViewIfNeeded()
   await photo('20-un-palier-de-theme-valide')
 
-  // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Le suivant, Léa
-  // le prépare dans ses duels — Tom coché —, le joue, et il part à Tom à sa
-  // dernière réponse ; Tom le trouve en tête de ses duels, l'accueil le lui
-  // dit, et sa liste d'amis est dessous. `rendu-duels.ts` photographie la
-  // préparation en détail.
+  // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Léa le défie
+  // depuis ses duels — l'épée de sa ligne, sous « Tes amis » —, le joue, et il
+  // part à Tom à sa dernière réponse ; Tom le trouve en tête de ses duels,
+  // l'accueil le lui dit, et sa liste d'amis est dessous. `rendu-duels.ts`
+  // photographie la préparation en détail.
   const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as any
   await jouerParLAPI(lea, premier.serie.id, [true, true, true, false, false, false])
   const releve = (await (await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, tom)).json()) as any
   await jouerParLAPI(tom, releve.id, [true, false, false, false])
   await ouvrir('/duels')
-  await page.click('text=Lancer un défi')
+  await page.locator('.tes-amis .duels-epee[aria-label="Défier Tom"]').click()
   await page.waitForSelector('.defier-etape')
-  await page.getByRole('button', { name: /Tom/ }).click()
   await photo('21-preparer-un-defi')
-  await page.getByRole('button', { name: 'Jouer le défi' }).click()
+  await page.getByRole('button', { name: 'Jouer le duel' }).click()
   await repondre(true)
   for (let i = 0; i < 3; i++) {
     await page.locator('.btn-primary.btn-big').click()
     await repondre(false)
   }
-  await page.click('text=Voir ma série')
+  await page.click('text=Voir mon duel')
   await page.waitForSelector('.duel-parti')
   await photo('22-parti-a-mes-amis', true)
   await entrer(tom)

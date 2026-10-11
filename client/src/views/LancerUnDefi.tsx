@@ -5,22 +5,24 @@ import { ChoixDuTheme } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS } from './adressesDesDuels'
+import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
+import { ecartSigne } from './Rencontre'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
+import { COTE_DE_DEPART, enjeuContre, type EnjeuDuDuel, type JoueurADefier } from '../../../shared/duels'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
 
-/** « Tom, Hugo et Inès » : des prénoms dans une phrase. */
-const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? '') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`)
-
 /**
- * Lancer un défi entre amis (`/duels#defier`), en trois temps : avec qui
- * — ses amis, en pastilles qu'on coche —, sur quoi — la grille de la série,
- * catégories ou sujet —, puis on le joue d'abord. À sa dernière réponse, il
- * part aux amis choisis, son score à battre avec lui, et leur téléphone
- * sonne (le souhait du propriétaire du 11 octobre 2026 : « choisir avec qui
- * je le lance, sur quel thème. Quitte à faire le quiz moi et que ça envoie
- * une notif à la personne pour faire le même »). Sans ami encore, il part
- * par son lien, à sa fin.
+ * Défier quelqu'un (`/duels#defier`, le souhait du propriétaire du 11 octobre
+ * 2026 : « tu choisis sur quoi tu veux défier, une barre de recherche, un
+ * classement de la ligue avec des petites épées ; une fois le quiz fait de
+ * mon côté, ça envoie automatiquement une notification, pas de lien à
+ * partager »), en trois temps : contre qui — celui que l'épée du classement
+ * ou la ligne d'un ami a choisi, sinon trouvé par son prénom ou parmi ses
+ * amis —, sur quoi — la grille de la série, catégories ou sujet —, puis on
+ * le joue d'abord. À sa dernière réponse, il lui part : dans ses duels, et
+ * son téléphone sonne. Un duel classé : quand il l'a joué, les deux cotes
+ * bougent, et ce qui se joue se dit avant (`enjeuContre`).
  */
 export function LancerUnDefi({
   amis,
@@ -36,14 +38,19 @@ export function LancerUnDefi({
   amis: readonly AmiDeCampagne[] | null
   categoriesJouables: readonly string[]
   sujets: readonly Sujet[]
-  /** Ce qui est choisi en arrivant : les catégories ou le sujet de sa dernière série, l'ami touché dans la page des duels. */
-  depart: { categories: readonly string[]; sujet: string | null; ami?: string }
+  /**
+   * Ce qui est choisi en arrivant : les catégories ou le sujet de sa dernière
+   * série, l'adversaire touché — l'épée d'une ligne du classement, un ami —,
+   * et sa propre cote, pour dire ce qui se joue.
+   */
+  depart: { categories: readonly string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }
   busy: boolean
   erreur: string
-  onLancer: (categories: string[], sujet: string | null, amis: string[]) => void
+  /** Lancer le duel : ce qu'il fait jouer, contre qui — et ce qu'il met en jeu, que la partie redit à chaque question. */
+  onLancer: (categories: string[], sujet: string | null, adversaire: JoueurADefier, enjeu?: EnjeuDuDuel) => void
   onRetour: () => void
 }) {
-  const [choisis, setChoisis] = useState<ReadonlySet<string>>(() => new Set(depart.ami ? [depart.ami] : []))
+  const [choisi, setChoisi] = useState<JoueurADefier | null>(depart.adversaire ?? null)
   const [categories, setCategoriesBrut] = useState<string[]>(() => [...depart.categories])
   const [sujet, setSujet] = useState<string | null>(depart.sujet)
   // Toucher une catégorie quitte le sujet, comme dans la série.
@@ -51,25 +58,23 @@ export function LancerUnDefi({
     setCategoriesBrut(c)
     setSujet(null)
   }
-  const basculer = (id: string) =>
-    setChoisis(c => {
-      const n = new Set(c)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-  // Un ami parti de la liste entre-temps (retiré, masqué) ne se défie plus.
-  const defies = (amis ?? []).filter(a => choisis.has(a.profileId))
   const quoi = nomDuChoix(categories, sujet) ?? 'toutes les catégories'
+  const enjeu = choisi && depart.moi ? enjeuContre(depart.moi.cote, choisi.cote ?? COTE_DE_DEPART, depart.moi.joues) : null
+  const choisir = (j: JoueurADefier) => (
+    <button type="button" className="btn btn-small" aria-label={`Défier ${j.nom}`} onClick={() => setChoisi(j)}>
+      <Icon name="swords" />
+      Choisir
+    </button>
+  )
   return (
     <div className="player-shell campagne">
       <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={onRetour} />
       <section className="atlas-branche campagne-heros defi-heros" style={lueur(OR)}>
-        <span className="atlas-categorie">Défi entre amis</span>
-        <h1>Lance ton défi</h1>
+        <span className="atlas-categorie">Duel classé</span>
+        <h1>{choisi ? `Défier ${choisi.nom}` : 'Défier quelqu’un'}</h1>
         <ol className="defier-etapes">
           <li>
-            <b>1</b> avec qui
+            <b>1</b> contre qui
           </li>
           <li>
             <b>2</b> sur quoi
@@ -85,33 +90,35 @@ export function LancerUnDefi({
           <span className="defier-numero" aria-hidden="true">
             1
           </span>
-          Avec qui ?
+          Contre qui ?
         </h2>
-        {amis === null ? (
-          <p className="muted small" aria-busy="true">
-            Tes amis arrivent…
-          </p>
-        ) : amis.length === 0 ? (
-          <p className="muted small">
-            {espacesFines('Pas encore d’amis ici : à la fin, tu enverras son lien à qui tu veux. Ceux qui le relèvent deviennent tes amis — le prochain, tu les choisiras ici.')}
-          </p>
+        {choisi ? (
+          <LigneDeJoueur joueur={choisi}>
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setChoisi(null)}>
+              Changer
+            </button>
+          </LigneDeJoueur>
         ) : (
           <>
-            <div className="duel-amis-liste" role="group" aria-label="Les amis à défier">
-              {amis.map(a => {
-                const coche = choisis.has(a.profileId)
-                return (
-                  <button key={a.profileId} type="button" className={'duel-ami' + (coche ? ' choisi' : '')} aria-pressed={coche} onClick={() => basculer(a.profileId)}>
-                    <span className="duel-ami-avatar" aria-hidden="true">
-                      {a.avatar}
-                    </span>
-                    <span className="duel-ami-nom">{a.nom}</span>
-                    <Icon name={coche ? 'check' : 'plus'} />
-                  </button>
-                )
-              })}
-            </div>
-            <p className="muted small">{defies.length === 0 ? 'Personne de choisi : il partira par son lien, à la fin.' : 'Et à qui tu veux d’autre, par son lien, à la fin.'}</p>
+            <ChercherUnJoueur libelle="Chercher un joueur par son prénom" rendre={j => <LigneDeJoueur joueur={j}>{choisir(j)}</LigneDeJoueur>} />
+            {amis === null ? (
+              <p className="muted small" aria-busy="true">
+                Tes amis arrivent…
+              </p>
+            ) : amis.length > 0 ? (
+              <>
+                <p className="label defier-amis-titre">Tes amis</p>
+                <ul className="joueurs-trouves" aria-label="Défier l’un de tes amis">
+                  {amis.map(a => (
+                    <li key={a.profileId}>
+                      <LigneDeJoueur joueur={a}>{choisir(a)}</LigneDeJoueur>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="muted small">{espacesFines('Cherche un prénom, ou touche l’épée d’un joueur dans le classement des duels.')}</p>
+            )}
           </>
         )}
       </section>
@@ -135,24 +142,18 @@ export function LancerUnDefi({
       <button
         type="button"
         className="btn btn-primary btn-big btn-block"
-        aria-disabled={busy || undefined}
-        onClick={() =>
-          onLancer(
-            sujet ? [] : categories,
-            sujet,
-            defies.map(a => a.profileId),
-          )
-        }
+        aria-disabled={busy || !choisi || undefined}
+        onClick={() => choisi && onLancer(sujet ? [] : categories, sujet, choisi, enjeu ?? undefined)}
       >
-        <Icon name="play" />
-        {/* Les prénoms dans la phrase dessous : en capitales, deux suffisaient à faire déborder le gros bouton. */}
-        Jouer le défi
+        <Icon name="swords" />
+        {/* Le prénom dans la phrase dessous : en capitales, un long prénom faisait déborder le gros bouton. */}
+        Jouer le duel
       </button>
       <p className="muted small centre">
         {espacesFines(
-          defies.length > 0
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, il part à ${enPhrase(defies.map(a => a.nom))} : dans ${defies.length > 1 ? 'leurs' : 'ses'} duels, et ${defies.length > 1 ? 'leur' : 'son'} téléphone sonne s’${defies.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`
-            : 'Tu joues d’abord, trois vies. À la fin, envoie son lien : qui l’ouvre, profil en main, joue les mêmes questions, une fois, dans la semaine.',
+          choisi
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son téléphone sonne s’il a activé les notifications. Quand il l’a joué, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
+            : 'Choisis d’abord contre qui : un prénom, un ami, ou l’épée d’un joueur du classement.',
         )}
       </p>
     </div>

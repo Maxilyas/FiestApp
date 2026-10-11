@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
@@ -9,7 +9,7 @@ import { BlasonDeLigue } from '../components/Blason'
 import { lueur } from '../components/Atlas'
 import { deNom, espacesFines } from '../format'
 import { useCarteDuClassement } from './Defi'
-import { DefierUnAmi, DefisRecus, MesDuels, TesAmis } from './Duel'
+import { DefisRecus, LaClocheDesDefis, MesDuels, TesAmis, TesDuelsContre } from './Duel'
 import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre } from './Rencontre'
 import {
   DUELS_DE_PLACEMENT,
@@ -21,10 +21,14 @@ import {
   type CleDeLigue,
   type CoteApresLeDuel,
   type EtatDesDuels,
+  type JoueurADefier,
   type LigneDesDuels,
   type SemaineDesDuels,
 } from '../../../shared/duels'
 import type { AmiDeCampagne, MesAmis, RencontreDeCampagne, ResumeDeRencontre } from '../../../shared/campagne'
+
+/** Sa cote et ses duels joués : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
+export type MaCote = { cote: number; joues: number }
 
 // La page des duels (`/duels`, le souhait du propriétaire du 11 octobre 2026 :
 // « Défier un joueur » hors de la campagne, « un classement ELO et des
@@ -123,7 +127,7 @@ function HerosDesDuels({ etat }: { etat: EtatDesDuels | null }) {
 }
 
 /**
- * « Comment ça marche ? » — déplié tant qu'il n'a joué aucun duel : cinq
+ * « Comment ça marche ? » — déplié tant qu'il n'a joué aucun duel : six
  * phrases, dans l'ordre où il les vivra.
  */
 function CommentCaMarche({ ouvert }: { ouvert: boolean }) {
@@ -133,16 +137,17 @@ function CommentCaMarche({ ouvert }: { ouvert: boolean }) {
         <Icon name="book" className="reglages-icone" />
         <span>
           <b>Comment ça marche ?</b>
-          <span className="muted small">la cote, les ligues, les récompenses</span>
+          <span className="muted small">défier, la cote, les ligues, les récompenses</span>
         </span>
         <Icon name="chevron-down" className="repli-chevron" />
       </summary>
       <ol className="duels-etapes">
-        <li>{espacesFines('« Trouver un adversaire » : un joueur de ton niveau a fini une série. Tu joues les mêmes questions, trois vies, sans chrono — son score est à battre.')}</li>
-        <li>{espacesFines('Gagné, ta cote monte ; perdu, elle baisse. Battre un gros score rapporte plus, perdre contre un petit coûte plus : avant de jouer, tu sais combien.')}</li>
+        <li>{espacesFines('« Défier quelqu’un » : choisis qui — un prénom, un ami, l’épée d’un joueur du classement — et sur quoi. Tu joues d’abord, trois vies, sans chrono.')}</li>
+        <li>{espacesFines('À ta dernière réponse, il reçoit le duel dans ses duels, et son téléphone sonne s’il a activé les notifications : aucun lien à envoyer.')}</li>
+        <li>{espacesFines('Quand il l’a joué, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
+        <li>{espacesFines('Pressé ? « Un adversaire au hasard » : la série d’un joueur de ton niveau, son score à battre, tout de suite.')}</li>
         <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>
         <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>
-        <li>{espacesFines('Les défis entre amis se jouent pour le plaisir : ils ne changent pas ta cote.')}</li>
       </ol>
     </details>
   )
@@ -179,30 +184,73 @@ function LesLigues({ ligue, ouvert }: { ligue: CleDeLigue; ouvert: boolean }) {
   )
 }
 
-/** Une ligne du classement des duels : sa place, son avatar, son prénom, sa ligue, sa cote — un toucher ouvre sa carte. */
-function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void }) {
+/**
+ * Une ligne du classement des duels : sa place, son avatar, son prénom, sa
+ * ligue, sa cote — un toucher ouvre sa carte —, et l'épée qui le défie (le
+ * souhait du propriétaire du 11 octobre 2026 : « un classement de la ligue
+ * avec des petites épées pour affronter les personnes »). Deux boutons côte à
+ * côte, jamais l'un dans l'autre ; la sienne garde la place de l'épée, pour
+ * que les cotes restent alignées.
+ */
+function LigneDuClassement({ ligne: l, moi, onOuvrir, onDefier }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void; onDefier: (j: JoueurADefier) => void }) {
   const ligue = ligueParCle(l.ligue)
   return (
-    <button
-      type="button"
-      className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
-      // Le nom du bouton remplace tout son contenu : le rang, la ligue et la cote doivent y être.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}`}
-      onClick={() => onOuvrir(l.profileId)}
-    >
-      <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
-      <span className="lb-name">
-        <NomLaure nom={l.nom} laurier={l.laurier} />
-      </span>
-      <BlasonDeLigue ligue={l.ligue} taille={22} decoratif />
-      <span className="lb-score">{l.cote}</span>
-    </button>
+    <div className="duels-rangee">
+      <button
+        type="button"
+        className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
+        // Le nom du bouton remplace tout son contenu : le rang, la ligue et la cote doivent y être.
+        aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}`}
+        onClick={() => onOuvrir(l.profileId)}
+      >
+        <Rank n={l.rang} />
+        <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
+        <span className="lb-name">
+          <NomLaure nom={l.nom} laurier={l.laurier} />
+        </span>
+        <BlasonDeLigue ligue={l.ligue} taille={22} decoratif />
+        <span className="lb-score">{l.cote}</span>
+      </button>
+      {moi ? (
+        <span className="duels-epee" aria-hidden="true" />
+      ) : (
+        <button
+          type="button"
+          className="duels-epee"
+          aria-label={`Défier ${l.nom}`}
+          onClick={() => onDefier({ profileId: l.profileId, nom: l.nom, avatar: l.avatar, cote: l.cote, ligue: l.ligue, rang: l.rang })}
+        >
+          <Icon name="swords" />
+        </button>
+      )}
+    </div>
   )
 }
 
-/** Le classement : ceux qui ont joué ces quatre dernières semaines, de la plus haute cote à la plus basse. */
-function ClassementDesDuelsVue({ classement, onOuvrir }: { classement: EtatDesDuels['classement']; onOuvrir: (profileId: string) => void }) {
+/** Le titre d'une ligue dans le classement : les lignes s'y rangent par ligue, de la plus haute à la plus basse. */
+function TitreDeLigue({ ligue }: { ligue: CleDeLigue }) {
+  return (
+    <h3 className="duels-classement-ligue">
+      <BlasonDeLigue ligue={ligue} taille={18} decoratif />
+      {ligueParCle(ligue).nom}
+    </h3>
+  )
+}
+
+/**
+ * Le classement : ceux qui ont joué ces quatre dernières semaines, de la plus
+ * haute cote à la plus basse, rangés sous leur ligue ; chaque nom ouvre sa
+ * carte, chaque épée le défie.
+ */
+function ClassementDesDuelsVue({
+  classement,
+  onOuvrir,
+  onDefier,
+}: {
+  classement: EtatDesDuels['classement']
+  onOuvrir: (profileId: string) => void
+  onDefier: (j: JoueurADefier) => void
+}) {
   return (
     <section className="defi-classement" aria-labelledby="duels-classement-titre">
       <h2 id="duels-classement-titre" className="label">
@@ -211,30 +259,33 @@ function ClassementDesDuelsVue({ classement, onOuvrir }: { classement: EtatDesDu
       {classement.joueurs === 0 ? (
         <p className="muted small">Personne n’a encore joué de duel : la première place t’attend.</p>
       ) : (
-        <div className="leaderboard">
-          {classement.lignes.map(l => (
-            <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={onOuvrir} />
+        <div className="leaderboard duels-classement">
+          {classement.lignes.map((l, i) => (
+            <Fragment key={l.profileId}>
+              {(i === 0 || classement.lignes[i - 1].ligue !== l.ligue) && <TitreDeLigue ligue={l.ligue} />}
+              <LigneDuClassement ligne={l} moi={l.profileId === classement.sienne} onOuvrir={onOuvrir} onDefier={onDefier} />
+            </Fragment>
           ))}
           {classement.moi && (
             <>
               <p className="muted center small">…</p>
-              <LigneDuClassement ligne={classement.moi} moi onOuvrir={onOuvrir} />
+              <LigneDuClassement ligne={classement.moi} moi onOuvrir={onOuvrir} onDefier={onDefier} />
             </>
           )}
         </div>
       )}
-      <p className="muted small">{espacesFines('Ceux qui ont joué un duel ces quatre dernières semaines. Touche un nom : sa carte s’ouvre.')}</p>
+      <p className="muted small">{espacesFines('Ceux qui ont joué un duel ces quatre dernières semaines. Touche un nom : sa carte s’ouvre ; touche l’épée : tu le défies.')}</p>
     </section>
   )
 }
 
-/** Ses derniers duels : contre qui, le score, l'issue — et ce qu'ils ont fait à sa cote. */
+/** Ses derniers duels au hasard : contre qui, le score, l'issue — et ce qu'ils ont fait à sa cote. */
 function SesDerniersDuels({ dernieres }: { dernieres: readonly ResumeDeRencontre[] }) {
   if (dernieres.length === 0) return null
   return (
     <section className="duel-liste" aria-labelledby="duels-derniers-titre">
       <h2 id="duels-derniers-titre" className="label">
-        Tes derniers duels
+        Tes derniers duels au hasard
       </h2>
       <ul className="rencontre-liste">
         {dernieres.map(r => (
@@ -255,26 +306,34 @@ function SesDerniersDuels({ dernieres }: { dernieres: readonly ResumeDeRencontre
 }
 
 /**
- * La page des duels : sa ligue, sa cote et sa semaine en tête ; les défis
- * que ses amis lui envoient, à relever ; « Trouver un adversaire », le duel
- * classé ; « Défier un ami », amical ; le classement, dont chaque nom ouvre
- * la carte ; ses derniers duels et ses défis entre amis ; les ligues et
- * comment ça marche, dépliés tant qu'il n'a joué aucun duel.
+ * La page des duels (le souhait du propriétaire du 11 octobre 2026 : « tu
+ * choisis sur quoi tu veux défier, une barre de recherche, un classement de
+ * la ligue avec des petites épées ; une liste d'amis avec leur classement et
+ * leur ligue, et pouvoir ajouter des amis ») : sa ligue, sa cote et sa
+ * semaine en tête ; ce qu'on lui a envoyé, à relever ; « Défier quelqu'un »
+ * — qui, sur quoi, il joue d'abord —, et un adversaire au hasard s'il y en a
+ * un ; ses duels en route ; le classement par ligue, une épée à chaque ligne
+ * et chaque nom qui ouvre la carte ; ses amis, leur ligue et leur cote, une
+ * épée chacun, et d'autres à ajouter par leur prénom ; les ligues et comment
+ * ça marche, dépliés tant qu'il n'a joué aucun duel.
  */
 export function PageDesDuels({
   amis,
   onJouer,
-  onLancer,
+  onDefier,
   onOuvrirDuel,
   onRetirerAmi,
+  onAjouterAmi,
 }: {
-  /** Ses amis et les défis qu'ils lui envoient ; null tant qu'ils arrivent. */
+  /** Ses amis et ce qu'on lui envoie ; null tant qu'ils arrivent. */
   amis: MesAmis | null
-  /** Un duel classé trouvé — ou repris : la partie se joue sur l'écran de la série (`CampagneApp`). */
+  /** Un duel au hasard trouvé — ou repris : la partie se joue sur l'écran de la série (`CampagneApp`). */
   onJouer: (r: RencontreDeCampagne) => void
-  onLancer: (ami?: AmiDeCampagne) => void
+  /** Préparer un duel (`LancerUnDefi`) : contre qui, s'il est déjà choisi — une épée touchée —, et sa propre cote, pour dire ce qui se joue. */
+  onDefier: (joueur?: JoueurADefier, moi?: MaCote) => void
   onOuvrirDuel: (code: string) => void
   onRetirerAmi: (ami: AmiDeCampagne) => void
+  onAjouterAmi: (joueur: JoueurADefier) => Promise<void>
 }) {
   const [etat, setEtat] = useState<EtatDesDuels | null>(null)
   const [erreur, setErreur] = useState('')
@@ -308,6 +367,11 @@ export function PageDesDuels({
 
   const enCours = etat?.enCours?.serie.question ? etat.enCours : null
   const debutant = !!etat && etat.joues === 0
+  // Sa cote, pour que la préparation dise ce que chaque duel met en jeu.
+  const moi = etat ? { cote: etat.cote, joues: etat.joues } : undefined
+  const defier = (j?: JoueurADefier) => onDefier(j, moi)
+  // Sans série finie d'un autre, le bouton ne menait qu'à « personne à affronter » ; en attendant la page, il garde sa place.
+  const auHasard = !!enCours || !etat || etat.auHasard !== false
   return (
     <div className="player-shell campagne duels">
       <Sortie />
@@ -318,30 +382,32 @@ export function PageDesDuels({
           <span>{espacesFines(`+${etat.semainePassee.confettis} confettis : ta ${ligueParCle(etat.semainePassee.ligue).nom.toLowerCase()} de la semaine dernière`)}</span>
         </p>
       )}
-      {/* Ce qu'un ami lui a envoyé d'abord : c'est ce qui l'attend, et le bouton de l'accueil le disait. */}
+      {/* Ce qu'on lui a envoyé d'abord : c'est ce qui l'attend, et le bouton de l'accueil le disait. */}
       <DefisRecus recus={amis?.recus ?? []} onOuvrir={onOuvrirDuel} />
       {erreur && (
         <p className="error" role="alert">
           {erreur}
         </p>
       )}
-      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void chercher()}>
-        <Icon name="swords" />
-        {enCours ? `Reprendre contre ${enCours.adversaire.nom} · ${scoreDeRencontre(enCours.serie.justes, enCours.adversaire, enCours.sesJustes)}` : 'Trouver un adversaire'}
-      </button>
-      <p className="muted small centre duels-sous-bouton">
-        {espacesFines(
+      <BoutonsDesDuels
+        busy={busy}
+        onDefier={() => defier()}
+        auHasard={auHasard}
+        onAuHasard={() => void chercher()}
+        reprendre={enCours ? `Reprendre contre ${enCours.adversaire.nom} · ${scoreDeRencontre(enCours.serie.justes, enCours.adversaire, enCours.sesJustes)}` : null}
+        sous={
           enCours?.enjeu
-            ? `En jeu : ${ecartSigne(enCours.enjeu.gagne)} si tu gagnes, ${ecartSigne(enCours.enjeu.perdu)} si tu perds.`
-            : 'Un joueur de ton niveau : ses questions, son score à battre. Ta cote se joue à chaque duel.',
-        )}
-      </p>
+            ? `Ton duel au hasard, en route — en jeu : ${ecartSigne(enCours.enjeu.gagne)} si tu gagnes, ${ecartSigne(enCours.enjeu.perdu)} si tu perds.`
+            : 'Qui tu veux, sur ce que tu veux : tu joues d’abord, il reçoit le duel à ta dernière réponse.'
+        }
+      />
       {debutant && <CommentCaMarche ouvert />}
-      <DefierUnAmi amis={amis?.amis ?? null} onLancer={onLancer} />
-      {etat && <ClassementDesDuelsVue classement={etat.classement} onOuvrir={ouvrir} />}
+      {etat?.contre && <TesDuelsContre duels={etat.contre} recus={amis?.recus ?? []} onOuvrir={onOuvrirDuel} />}
+      {etat && <ClassementDesDuelsVue classement={etat.classement} onOuvrir={ouvrir} onDefier={defier} />}
+      {amis && <TesAmis amis={amis.amis} onDefier={defier} onRetirer={onRetirerAmi} onAjouter={onAjouterAmi} />}
+      <LaClocheDesDefis />
       {etat && <SesDerniersDuels dernieres={etat.dernieres} />}
       <MesDuels onOuvrir={onOuvrirDuel} />
-      {amis && <TesAmis amis={amis.amis} onDefier={onLancer} onRetirer={onRetirerAmi} />}
       {etat && <LesLigues ligue={etat.ligue} ouvert={debutant} />}
       {etat && !debutant && <CommentCaMarche ouvert={false} />}
       {carte}
@@ -350,19 +416,53 @@ export function PageDesDuels({
 }
 
 /**
+ * Les deux portes des duels : « Défier quelqu'un » — qui, sur quoi —, en
+ * grand ; « Un adversaire au hasard » dessous — ou celui qu'il a laissé en
+ * route —, quand il y en a un. La même place pendant que la page arrive.
+ */
+function BoutonsDesDuels({
+  busy,
+  onDefier,
+  auHasard,
+  onAuHasard,
+  reprendre,
+  sous,
+}: {
+  busy: boolean
+  onDefier?: () => void
+  auHasard: boolean
+  onAuHasard?: () => void
+  reprendre: string | null
+  sous: string
+}) {
+  return (
+    <>
+      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={!onDefier || undefined} onClick={onDefier}>
+        <Icon name="swords" />
+        Défier quelqu’un
+      </button>
+      {auHasard && (
+        <button type="button" className="btn btn-block" aria-disabled={busy || !onAuHasard || undefined} onClick={onAuHasard}>
+          <Icon name={reprendre ? 'play' : 'dice'} />
+          {reprendre ?? 'Un adversaire au hasard'}
+        </button>
+      )}
+      <p className="muted small centre duels-sous-bouton">{espacesFines(sous)}</p>
+    </>
+  )
+}
+
+/**
  * La page des duels qui s'ouvre tout de suite, avant que le serveur ait dit
  * qui joue : son héros à sa place — rien ne bouge quand la cote arrive —, et
- * le bouton qui attend.
+ * les boutons qui attendent.
  */
 export function DuelsEnChemin() {
   return (
     <div className="player-shell campagne duels" aria-busy="true">
       <Sortie />
       <HerosDesDuels etat={null} />
-      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled="true">
-        <Icon name="swords" />
-        Trouver un adversaire
-      </button>
+      <BoutonsDesDuels busy auHasard reprendre={null} sous="Qui tu veux, sur ce que tu veux : tu joues d’abord, il reçoit le duel à ta dernière réponse." />
     </div>
   )
 }

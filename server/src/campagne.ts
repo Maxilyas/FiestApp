@@ -52,10 +52,11 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
-  // Le défi entre amis : le lancer — sur des catégories ou un sujet, comme
-  // une série, vers les amis choisis (`amis`), à qui il part à sa dernière
-  // réponse —, le relire par son code, le relever. Ses réponses passent par
-  // la porte des séries.
+  // Le défi : le lancer — sur des catégories ou un sujet, comme une série —
+  // contre quelqu'un (`adversaire`), en duel classé, ou, d'une page d'avant,
+  // vers des amis choisis (`amis`) ; il leur part à sa dernière réponse. Le
+  // relire par son code, le relever. Ses réponses passent par la porte des
+  // séries.
   app.post(
     '/api/campagne/duel',
     petit,
@@ -65,7 +66,7 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       const brut: unknown = req.body?.categories
       const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
       const sujet: unknown = req.body?.sujet
-      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined, req.body?.amis))
+      res.json(await deps.campagne.creerUnDuel(profil.id, categories, typeof sujet === 'string' && sujet ? sujet : undefined, req.body?.amis, req.body?.adversaire))
     }),
   )
 
@@ -119,6 +120,15 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(await deps.campagne.retirerUnAmi(profil.id, req.params.id))
+    }),
+  )
+
+  // L'ajouter à sa liste, trouvé par son prénom : sans demande ni attente.
+  app.post(
+    '/api/campagne/amis/:id/ajout',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.ajouterUnAmi(profil.id, req.params.id))
     }),
   )
 
@@ -223,6 +233,15 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(await deps.campagne.etatDesDuels(profil.id))
+    }),
+  )
+
+  // Chercher quelqu'un à défier ou à ajouter, par son prénom (`?q=`).
+  app.get(
+    '/api/duels/joueurs',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.chercherDesJoueurs(profil.id, req.query.q))
     }),
   )
 
