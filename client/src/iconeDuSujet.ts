@@ -13,6 +13,7 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   'mythes-legendes': 'sparkles',
   'terre-espace': 'planet',
   'grands-rendez-vous': 'medal',
+  'petit-ecran': 'monitor',
   france: 'flag',
   pionnieres: 'award',
   pieges: 'alert',

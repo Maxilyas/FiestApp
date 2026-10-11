@@ -45,6 +45,10 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'reliefs')), ['terre-espace'])
   // Un thème se croise avec une époque et un fil rouge : chacun le sien.
   assert.deepEqual(sujetsDe(meta({ valeur: '1998', precision: 'annee' }, ['coupe-du-monde', 'record'], 'france', 'Sport', 'football')), ['grands-rendez-vous', 'annees-90', 'france', 'records'])
+  // Le petit écran (le 11 octobre 2026) : les séries du cinéma et la télévision des jeux, un écran pour deux catégories.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'series')), ['petit-ecran'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'tele')), ['petit-ecran'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'cinema-fr')), [])
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
