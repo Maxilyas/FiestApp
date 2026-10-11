@@ -353,6 +353,8 @@ export interface SentiersDAccueil {
   /** Ses vies : celles du jour et sa réserve ensemble. */
   vies: number
   avance: SentierQuOnAvance | null
+  /** Les défis que ses amis lui ont envoyés, à relever : combien, et qui, le plus récent (`campagne_envois`). */
+  defisRecus?: { n: number; de: string }
 }
 
 /** Ce que dit une réponse d'épreuve : la bonne, l'anecdote, et l'épreuve d'après. */

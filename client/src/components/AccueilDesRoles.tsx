@@ -57,9 +57,19 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
  * n'en avance aucun, les deux modes, et la série d'abord. Il ouvre la
  * campagne, jamais un sentier seul : mené à `#sentier-scene`, « la
  * campagne » ouvrait la scène sans les onglets de la campagne. Sur ses
- * sentiers, celui qu'il avance est en tête, à un toucher.
+ * sentiers, celui qu'il avance est en tête, à un toucher. Un défi qu'un ami
+ * lui a envoyé passe devant : qui le défie, une pastille, et l'onglet du
+ * défi, où il l'attend en tête.
  */
-export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string } {
+export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string; pastille?: string } {
+  if (c?.defisRecus && c.defisRecus.n > 0) {
+    const autres = c.defisRecus.n - 1
+    return {
+      detail: espacesFines(`${c.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''} ami${autres > 1 ? 's' : ''}` : ''} : à toi de jouer`),
+      href: '/campagne#defi',
+      pastille: c.defisRecus.n > 1 ? `${c.defisRecus.n} défis` : 'Un défi',
+    }
+  }
   const b = branche(c?.avance?.branche)
   if (!c?.avance || !b) return { detail: 'Une série sans fin, ou les sentiers de tes avatars', href: '/campagne' }
   // Un nombre ne quitte pas son mot à la ligne : « 11 » d'un côté, « vies » de l'autre.
@@ -115,7 +125,7 @@ export function AccueilJouer({
         <span className="label" id="jouer-seul">
           Seul
         </span>
-        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} href={laCampagne.href} />
+        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={laCampagne.detail} pastille={laCampagne.pastille} href={laCampagne.href} />
         <GrosBouton
           icone={<Icon name="sun" />}
           titre="Le quiz du jour"

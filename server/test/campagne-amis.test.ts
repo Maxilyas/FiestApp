@@ -98,6 +98,10 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
       { code: second.code, auteur: { nom: 'Léa', avatar: '🦊' }, categories: ['Histoire'], minutesRestantes: DUREE_D_UN_DUEL_MS / 60_000 },
     ])
     assert.deepEqual((await lire(banc, zoe, '/api/campagne/amis')).corps.recus, [])
+    // L'accueil le dit aussi, sur le bouton de la campagne : qui le défie, et combien.
+    const accueil = async (cookie: string) => (await lire(banc, cookie, '/api/joueur/moi?accueil')).corps.profile.campagne
+    assert.deepEqual((await accueil(tom)).defisRecus, { n: 1, de: 'Léa' })
+    assert.equal((await accueil(zoe)).defisRecus, undefined)
     // Le défi d'un autre ne s'envoie pas : seul celui qui l'a lancé l'envoie, les autres partagent son lien.
     assert.equal((await lire(banc, tom, `/api/campagne/amis?duel=${second.code}`)).corps.sien, undefined)
     const refus = await poster(banc, tom, `/api/campagne/duel/${second.code}/envoi`, { amis: [deLea] })
@@ -106,6 +110,7 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
     // Relevé, il quitte ses défis reçus — et Léa le lit relevé.
     await poster(banc, tom, `/api/campagne/duel/${second.code}`)
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [])
+    assert.equal((await accueil(tom)).defisRecus, undefined, 'l’accueil ne le dit plus')
     assert.equal((await lire(banc, lea, `/api/campagne/amis?duel=${second.code}`)).corps.amis.find((a: any) => a.nom === 'Tom').deja, 'releve')
 
     // Tom retire Léa : ni elle ni ses défis ne lui parviennent plus — elle n'en sait rien…
@@ -114,6 +119,7 @@ test('ses amis : ceux qui ont joué ses défis, ou dont il a joué un — un dé
     const troisieme = (await poster(banc, lea, '/api/campagne/duel', {})).corps
     assert.deepEqual((await poster(banc, lea, `/api/campagne/duel/${troisieme.code}/envoi`, { amis: [deTom] })).corps, { envoyes: 1 })
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [], 'retirée, ses défis ne lui parviennent plus')
+    assert.equal((await accueil(tom)).defisRecus, undefined, 'ni à l’accueil')
     // … jusqu'à ce qu'ils jouent de nouveau ensemble : il ouvre son lien, elle revient.
     horloge.t += 60_000
     await poster(banc, tom, `/api/campagne/duel/${troisieme.code}`)

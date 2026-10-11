@@ -292,6 +292,10 @@ try {
   await page.waitForSelector('text=Envoyé')
   await photo('22-envoye-a-mes-amis')
   await entrer(tom)
+  // Son accueil le lui dit, sur le bouton de la campagne.
+  await ouvrir('/')
+  await page.waitForSelector('text=Léa te défie')
+  await photo('22a-accueil-defi-recu')
   await ouvrir('/campagne#defi')
   await page.waitForSelector('.duel-recus')
   await photo('23-defis-recus')

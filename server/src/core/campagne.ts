@@ -2298,9 +2298,30 @@ export class CampagneStore {
    * commencé aucun, ni épreuve ni portrait d'avant.
    */
   async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
-    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    const [{ sentiers, vies, ouverte }, recus] = await Promise.all([this.lireLesSentiers(profileId), this.defisRecusDAccueil(profileId)])
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
-    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee) }
+    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(recus && { defisRecus: recus }) }
+  }
+
+  /**
+   * Les défis que ses amis lui ont envoyés, pour le bouton de la campagne à
+   * l'accueil : combien, et qui le plus récent — d'une requête, lue de front
+   * avec ses sentiers. Ni un masqué, ni un ami qu'il a retiré : ce que
+   * l'onglet du défi montre (`mesAmis`), sans relire toute sa liste d'amis.
+   */
+  private async defisRecusDAccueil(profileId: string): Promise<{ n: number; de: string } | null> {
+    const res = await this.client.execute({
+      sql: `SELECT d.auteur FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
+            WHERE e.profile_id = ? AND d.ferme_le > ?
+              AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+              AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur)
+            ORDER BY e.envoye_le DESC LIMIT ?`,
+      args: [profileId, this.maintenant(), DEFIS_RECUS_MONTRES],
+    })
+    const auteurs = res.rows.map(r => String(r.auteur)).filter(a => !this.masque?.(a))
+    if (auteurs.length === 0 || !this.profils) return null
+    const [dernier] = await this.profils.byIds([auteurs[0]])
+    return dernier ? { n: auteurs.length, de: dernier.name } : null
   }
 
   /**
