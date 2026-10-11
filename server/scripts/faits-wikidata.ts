@@ -327,11 +327,14 @@ async function personnes(wd: Wikidata, qids: readonly string[], annees?: Readonl
  * Un sujet est-il français ? Par sa langue, quand la famille la lit : sur
  * Wikidata, « Bridget Jones Baby » et « Le Ruban blanc » ont la France parmi
  * leurs pays d'origine — des coproductions —, et un réalisateur de
- * nationalité française y rangeait « Le Pianiste ». Sinon par son pays, ou
- * celui de son auteur.
+ * nationalité française y rangeait « Le Pianiste ». Mais les langues d'un
+ * film sont toutes celles qu'on y parle : « Inception » et « Inglourious
+ * Basterds » ont du français. Le français seul, donc, ou le français d'un
+ * film que la France a produit. Sans langue lue, son pays, ou celui de son
+ * auteur.
  */
 export function estFrancais(o: { langues: readonly string[] | null; pays: readonly string[]; paysDeLAuteur: readonly string[] }): boolean {
-  if (o.langues) return o.langues.includes(FRANCAIS)
+  if (o.langues) return o.langues.includes(FRANCAIS) && (o.langues.length === 1 || o.pays.includes(FRANCE))
   return o.pays.includes(FRANCE) || o.paysDeLAuteur.includes(FRANCE)
 }
 

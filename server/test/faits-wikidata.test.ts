@@ -432,6 +432,8 @@ test('un film est français par sa langue, pas par ses coproducteurs ni par son 
   assert.equal(estFrancais({ langues: ['Q1860'], pays: ['Q145', 'Q30', 'Q142'], paysDeLAuteur: ['Q145'] }), false, 'une coproduction tournée en anglais')
   assert.equal(estFrancais({ langues: ['Q1860'], pays: ['Q145'], paysDeLAuteur: ['Q142', 'Q36'] }), false, 'Le Pianiste')
   assert.equal(estFrancais({ langues: ['Q150'], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'Le Fabuleux Destin d’Amélie Poulain')
+  assert.equal(estFrancais({ langues: ['Q1860', 'Q150', 'Q5287'], pays: ['Q30', 'Q145'], paysDeLAuteur: ['Q145'] }), false, 'Inception : un peu de français ne fait pas un film français')
+  assert.equal(estFrancais({ langues: ['Q1860', 'Q150'], pays: ['Q38', 'Q142'], paysDeLAuteur: ['Q38'] }), true, 'Le Dernier Tango à Paris : en français, et produit par la France')
   assert.equal(estFrancais({ langues: null, pays: ['Q142'], paysDeLAuteur: [] }), true, 'un livre, sans langue lue : son pays')
   assert.equal(estFrancais({ langues: null, pays: [], paysDeLAuteur: ['Q142'] }), true, 'ou celui de son auteur')
 })
