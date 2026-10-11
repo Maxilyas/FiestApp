@@ -4,8 +4,11 @@
 // du défi — et lui pose le laurier d'argent toute la semaine suivante.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecranCommun, ecrire, inscrireProfil, instantane, invite, type Banc } from './banc'
+import { SERVEUR } from '../src/racine'
 import { ProfileStore, cleDuDefi } from '../src/auth/profiles'
 import { minutesAvantLundi, semaineAvant, semaineDe } from '../../shared/campagne'
 
@@ -200,4 +203,30 @@ test('des ex æquo en tête gagnent tous ; seul, on n’a battu personne', () =>
     assert.deepEqual(seule.vainqueurs, [])
     assert.equal(seule.saSemainePassee.rang, 1)
     assert.deepEqual(seule.saSemainePassee.recompenses, [])
+  }))
+
+test('toucher un nom du classement du défi ouvre sa carte — même sans quiz du jour, jamais celle d’un masqué', () =>
+  // Le souhait du propriétaire du 11 octobre 2026 : la carte ne s'ouvrait
+  // qu'au classement du jour, et à qui y avait joué.
+  avecBanc(async banc => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐻')
+    await inscrireProfil(banc.url, 'zoe', 'Zoé')
+    await relever(banc, hugo, i => i < 4)
+    const page = (await lire(banc, lea, '/api/campagne/defi')).corps
+    const deHugo = page.lignes.find((l: any) => l.nom === 'Hugo').profileId as string
+    const carte = await lire(banc, lea, `/api/joueur/carte/${deHugo}`)
+    assert.equal(carte.status, 200, 'Hugo n’a jamais joué au quiz du jour : son défi suffit')
+    assert.deepEqual([carte.corps.nom, carte.corps.avatar, carte.corps.profil.prenom], ['Hugo', '🐻', 'Hugo'])
+    // Zoé n'a relevé aucun défi : son identifiant ne mène à rien.
+    assert.equal((await lire(banc, lea, `/api/joueur/carte/${idDe(banc, 'zoe')}`)).status, 404)
+    // Masqué par l'administrateur, Hugo quitte les classements des autres, et sa carte avec.
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: deHugo, masque: true })).status, 200)
+    assert.equal((await lire(banc, lea, `/api/joueur/carte/${deHugo}`)).status, 404)
+    // Chaque ligne d'un classement de défi est un bouton qui l'ouvre — de la semaine comme entre amis.
+    const client = (f: string) => readFileSync(path.join(SERVEUR, '..', 'client', 'src', f), 'utf8')
+    assert.match(client('views/Defi.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === defi\.sienne\} onOuvrir=\{ouvrir\} \/>/)
+    assert.match(client('views/Duel.tsx'), /<LigneDuDefiVue key=\{l\.profileId\} ligne=\{l\} moi=\{l\.profileId === duel\.sienne\} onOuvrir=\{ouvrirLaCarte\} \/>/)
+    assert.match(client('views/Defi.tsx'), /adresse=\{`\/api\/joueur\/carte\/\$\{encodeURIComponent\(carte\)\}`\}/)
   }))

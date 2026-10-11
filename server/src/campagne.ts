@@ -157,7 +157,9 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.commencerRevision(profil.id))
+      // `tout` : tout le carnet, en avance compris ; `recommencer` : celle laissée en route se referme. Un vrai booléen, rien d'autre.
+      const corps = (req.body && typeof req.body === 'object' ? req.body : {}) as { tout?: unknown; recommencer?: unknown }
+      if (profil) res.json(await deps.campagne.commencerRevision(profil.id, { tout: corps.tout === true, recommencer: corps.recommencer === true }))
     }),
   )
 

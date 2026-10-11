@@ -83,11 +83,33 @@ export interface SuiteDeLaRevision {
   apprise?: true
   /** Dans combien de jours elle revient ; absent : apprise. */
   dans?: number
+  /** Revue en avance (« Revoir tout mon carnet ») et retrouvée : rien ne bouge, elle garde son rendez-vous ou reste apprise. */
+  enAvance?: true
 }
 
-/** Ce que la page dit d'une question après sa réponse en révision : le suivi d'avant, la réponse, et la suite. */
-export function suiteDeLaRevision(etapeAvant: number, juste: boolean): SuiteDeLaRevision {
+/**
+ * Où en était une question qu'une révision reprend en avance : pas encore à
+ * son rendez-vous, ou déjà apprise. Rien : elle y était.
+ */
+export type EnAvance = { apprise: true } | { revientLe: string }
+
+/**
+ * Ce que la page dit d'une question après sa réponse en révision : le suivi
+ * d'avant, la réponse, et la suite. Revue en avance, une bonne réponse ne la
+ * fait pas avancer (`apresUnPassage` : trouvée avant son rendez-vous, elle ne
+ * prouve rien) — elle garde sa place ; une erreur la remet au premier
+ * rendez-vous, même apprise, comme toujours.
+ */
+export function suiteDeLaRevision(etapeAvant: number, juste: boolean, enAvance?: EnAvance, aujourdhui?: string): SuiteDeLaRevision {
   if (!juste) return { etape: 0, dans: INTERVALLES_DE_REVISION[0] }
+  if (enAvance && 'apprise' in enAvance) return { etape: INTERVALLES_DE_REVISION.length, apprise: true, enAvance: true }
+  if (enAvance && aujourdhui && aujourdhui < enAvance.revientLe) return { etape: etapeAvant, dans: joursEntre(aujourdhui, enAvance.revientLe), enAvance: true }
   const etape = etapeAvant + 1
   return etape >= INTERVALLES_DE_REVISION.length ? { etape, apprise: true } : { etape, dans: INTERVALLES_DE_REVISION[etape] }
+}
+
+/** Les jours du calendrier de `de` à `a` (« 2026-10-11 » → « 2026-10-14 » : 3) : des jours de Paris, comptés sur leurs dates. */
+export function joursEntre(de: string, a: string): number {
+  const date = (j: string) => Date.UTC(Number(j.slice(0, 4)), Number(j.slice(5, 7)) - 1, Number(j.slice(8, 10)))
+  return Math.round((date(a) - date(de)) / 86_400_000)
 }

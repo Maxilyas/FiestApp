@@ -8,7 +8,7 @@ import { OR, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
 import { placeDuJour } from '../../../shared/course'
 import { NOM_NIVEAU, type CorrectionDeCampagne, type DuelEntreAmis, type ResumeDuDuel, type SerieDeCampagne } from '../../../shared/campagne'
-import { LigneDuDefiVue } from './Defi'
+import { LigneDuDefiVue, useCarteDuClassement } from './Defi'
 import { nomDuChoix } from '../nomDuChoix'
 
 /** L'adresse d'un défi entre amis, dans la campagne : son lien. */
@@ -84,6 +84,7 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
   const [correction, setCorrection] = useState<CorrectionDeCampagne[] | null>(null)
+  const { ouvrir: ouvrirLaCarte, carte } = useCarteDuClassement()
 
   useEffect(() => {
     let vivant = true
@@ -195,12 +196,12 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
           ) : (
             <div className="leaderboard">
               {duel.lignes.map(l => (
-                <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === duel.sienne} />
+                <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === duel.sienne} onOuvrir={ouvrirLaCarte} />
               ))}
               {duel.moi && (
                 <>
                   <p className="muted center small">…</p>
-                  <LigneDuDefiVue ligne={duel.moi} moi />
+                  <LigneDuDefiVue ligne={duel.moi} moi onOuvrir={ouvrirLaCarte} />
                 </>
               )}
             </div>
@@ -229,6 +230,7 @@ export function PageDuDuel({ code, onglets, onJouer }: { code: string; onglets: 
           ))}
         </ol>
       )}
+      {carte}
     </div>
   )
 }
