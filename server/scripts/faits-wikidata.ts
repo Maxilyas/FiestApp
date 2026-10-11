@@ -737,8 +737,10 @@ export const FAMILLES: readonly Famille[] = [
     parReponse: 3,
     vuesMin: 8,
     sorte: 'sujet',
-    // Sa date, celle de la première représentation (P1191) : un opéra se crée sur scène.
-    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q1344 .', prop: 'P86', liensMin: 10, oeuvresMin: 2, date: 'P1191' }),
+    // Sa date, celle de la première représentation (P1191) : un opéra se crée sur scène. Sur Wikidata, un opéra est une
+    // « œuvre dramatico-musicale » du genre opéra : « opéra » seul (Q1344) est le genre, et ne rendait aucune œuvre.
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q58483083 ; wdt:P136 wd:Q1344 .', prop: 'P86', liensMin: 10, oeuvresMin: 2, date: 'P1191' }),
   },
   {
     cle: 'albums',
@@ -804,7 +806,9 @@ export const FAMILLES: readonly Famille[] = [
     parReponse: 3,
     vuesMin: 8,
     sorte: 'sujet',
-    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q860861 .', prop: 'P170', liensMin: 10, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
+    // Une sculpture, une « œuvre sculptée » ou une statue : « Le Penseur » est la deuxième, et la première classe seule le manquait.
+    extraire: wd =>
+      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q860861 wd:Q28890616 wd:Q179700 } ?item wdt:P31 ?classe .', prop: 'P170', liensMin: 10, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
   },
   {
     cle: 'goncourt',
