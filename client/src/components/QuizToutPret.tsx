@@ -7,7 +7,7 @@ import { Feuille } from './Pieces'
 import { formatNumber } from '../../../shared/typographie'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { sujetParCle, type Sujet } from '../../../shared/sujets'
-import type { Categorie } from '../../../shared/categories'
+import { CATEGORIES, type Categorie } from '../../../shared/categories'
 import type { QuizDef } from '../../../shared/library'
 import {
   DIFFICULTES_DU_QUIZ,
@@ -15,8 +15,44 @@ import {
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
   UNE_ESTIMATION_SUR,
   type BaseDuQuizToutPret,
+  type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
+
+/**
+ * Le dernier choix composé, retenu sur ce téléphone : qui compose un second
+ * quiz pour la même tablée — une manche de plus — retrouve ses catégories,
+ * sa difficulté, ses enfants, au lieu de tout rechoisir. Relu prudemment :
+ * une catégorie ou un sujet que ce téléphone ne connaît plus n'y revient pas.
+ * Sous try/catch : des cookies bloqués donnaient une page noire.
+ */
+const CLE_DU_CHOIX = 'quizz.quizToutPret'
+export function choixRetenu(): Partial<ChoixDuQuiz> {
+  try {
+    const lu: unknown = JSON.parse(localStorage.getItem(CLE_DU_CHOIX) ?? '{}')
+    if (!lu || typeof lu !== 'object' || Array.isArray(lu)) return {}
+    const b = lu as Record<string, unknown>
+    const categories = Array.isArray(b.categories) ? b.categories : null
+    const difficulte = DIFFICULTES_DU_QUIZ.find(d => d.cle === b.difficulte)?.cle
+    return {
+      ...(categories && { categories: CATEGORIES.filter(c => categories.includes(c)) }),
+      ...(typeof b.sujet === 'string' && sujetParCle(b.sujet) && { sujet: b.sujet }),
+      ...(difficulte && { difficulte }),
+      ...(typeof b.nombre === 'number' && NOMBRES_DU_QUIZ.includes(b.nombre) && { nombre: b.nombre }),
+      ...(typeof b.enfants === 'boolean' && { enfants: b.enfants }),
+      ...(typeof b.estimations === 'boolean' && { estimations: b.estimations }),
+    }
+  } catch {
+    return {}
+  }
+}
+function retenirLeChoix(choix: ChoixDuQuiz) {
+  try {
+    localStorage.setItem(CLE_DU_CHOIX, JSON.stringify(choix))
+  } catch {
+    // Sans stockage, la feuille repart réglée d'office : rien de plus grave.
+  }
+}
 
 /**
  * Un quiz tout prêt (`shared/quizToutPret.ts`), dans sa feuille : ses
@@ -39,13 +75,14 @@ export function FeuilleDuQuizToutPret({
 }) {
   const [base, setBase] = useState<BaseDuQuizToutPret | null>(null)
   const [erreur, setErreur] = useState('')
-  const [categories, setCategories] = useState<string[]>([])
-  const [sujet, setSujet] = useState<string | null>(null)
-  const [difficulte, setDifficulte] = useState<DifficulteDuQuiz>('progressive')
-  const [nombre, setNombre] = useState(NOMBRE_DU_QUIZ_PAR_DEFAUT)
-  const [enfants, setEnfants] = useState(false)
+  const [retenu] = useState(choixRetenu)
+  const [categories, setCategories] = useState<string[]>(retenu.categories ?? [])
+  const [sujet, setSujet] = useState<string | null>(retenu.sujet ?? null)
+  const [difficulte, setDifficulte] = useState<DifficulteDuQuiz>(retenu.difficulte ?? 'progressive')
+  const [nombre, setNombre] = useState(retenu.nombre ?? NOMBRE_DU_QUIZ_PAR_DEFAUT)
+  const [enfants, setEnfants] = useState(retenu.enfants ?? false)
   // Cochées d'office, comme dans les quiz livrés : l'estimation au plus près fait parler la salle.
-  const [estimations, setEstimations] = useState(true)
+  const [estimations, setEstimations] = useState(retenu.estimations ?? true)
   const [compose, setCompose] = useState(false)
 
   useEffect(() => {
@@ -64,7 +101,10 @@ export function FeuilleDuQuizToutPret({
     setCompose(true)
     setErreur('')
     try {
-      onCompose(await api.quizToutPret.composer({ categories: categories as Categorie[], sujet, difficulte, nombre, enfants, estimations }))
+      const choix: ChoixDuQuiz = { categories: categories as Categorie[], sujet, difficulte, nombre, enfants, estimations }
+      const quiz = await api.quizToutPret.composer(choix)
+      retenirLeChoix(choix)
+      onCompose(quiz)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {

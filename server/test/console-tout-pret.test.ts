@@ -8,10 +8,12 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import type { QuizHostView } from '../../shared/games/quiz'
 
+const memoire = new Map<string, string>()
 Object.assign(globalThis, {
   React,
   window: { location: { pathname: '/host', search: '', hash: '', origin: 'http://banc' } },
   location: { pathname: '/host', search: '', hash: '', origin: 'http://banc' },
+  localStorage: { getItem: (k: string) => memoire.get(k) ?? null, setItem: (k: string, v: string) => memoire.set(k, v), removeItem: (k: string) => memoire.delete(k) },
 })
 
 const CHOIX: QuizHostView = {
@@ -42,4 +44,21 @@ test('composé à la console, le quiz se lance aussitôt, au multiplicateur choi
   // L'écran commun d'une bibliothèque vide le propose aussi, au lieu de renvoyer écrire.
   const ecran = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
   assert.match(ecran, /bibliothequeVide \?[\s\S]{0,600}Un quiz tout prêt/)
+})
+
+test('le dernier choix composé se retient sur le téléphone, relu prudemment', async () => {
+  const module = await import(new URL('../../client/src/components/QuizToutPret.tsx', import.meta.url).href)
+  assert.deepEqual(module.choixRetenu(), {}, 'rien de retenu : la feuille réglée d’office')
+  // Ce que ce téléphone ne connaît plus — une catégorie, un sujet, un nombre qu'on ne propose pas — n'y revient pas.
+  memoire.set(
+    'quizz.quizToutPret',
+    JSON.stringify({ categories: ['Sport', 'Astrologie', 'Histoire'], sujet: 'inconnu', difficulte: 'facile', nombre: 12, enfants: true, estimations: false }),
+  )
+  assert.deepEqual(module.choixRetenu(), { categories: ['Histoire', 'Sport'], difficulte: 'facile', enfants: true, estimations: false })
+  memoire.set('quizz.quizToutPret', '{pas du json')
+  assert.deepEqual(module.choixRetenu(), {})
+  // La feuille s'ouvre sur lui, et retient le choix composé — après la réponse du serveur, pas avant.
+  const source = readFileSync(new URL('../../client/src/components/QuizToutPret.tsx', import.meta.url), 'utf8')
+  assert.match(source, /useState\(choixRetenu\)/)
+  assert.match(source, /await api\.quizToutPret\.composer\(choix\)\s+retenirLeChoix\(choix\)/)
 })

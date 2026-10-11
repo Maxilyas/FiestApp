@@ -138,6 +138,10 @@ try {
   await ecran.waitForSelector('.carte-feuille', { state: 'detached' })
   await ecran.waitForTimeout(4500)
   await photo(ecran, '13-lance-1366')
+  // Révélée : la bonne réponse et l'anecdote de la base, telles que la salle les lit.
+  await ecran.getByRole('button', { name: 'Révéler' }).click()
+  await ecran.waitForTimeout(1500)
+  await photo(ecran, '14-revelation-1366')
   alice.socket.close()
 } finally {
   await navigateur.close()
