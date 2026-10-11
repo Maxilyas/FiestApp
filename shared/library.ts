@@ -547,6 +547,16 @@ export function dureeDesJouables(jouables: readonly PlayableQuestion[]): number 
   )
 }
 
+/**
+ * La même durée pour des questions qu'on n'a pas encore : tant de questions
+ * de tant de secondes — la feuille du quiz tout prêt la dit avant de
+ * composer, comme l'éditeur après.
+ */
+export function dureeDeQuestionsS(parts: readonly { n: number; secondes: number }[]): number {
+  if (parts.every(p => p.n <= 0)) return 0
+  return parts.reduce((s, p) => s + Math.max(0, p.n) * (p.secondes + REVELATION_S), DEPART_ET_PODIUM_S)
+}
+
 /** « ≈ 9 min », « ≈ 1 h 05 », pour une durée en secondes. */
 export function ecrireDuree(secondes: number): string {
   const minutes = Math.max(1, Math.round(secondes / 60))

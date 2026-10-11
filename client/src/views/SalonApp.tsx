@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, motifDe } from '../api'
+import { api, currentMe, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
 import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
@@ -19,7 +19,7 @@ interface QuizDuSoir {
   multiplicateur: 1 | 2 | 3
 }
 
-type Etat = { e: 'chargement' } | { e: 'anonyme' } | { e: 'erreur'; motif: string } | { e: 'pret'; espace: PublicSpace }
+type Etat = { e: 'chargement' } | { e: 'anonyme' } | { e: 'animateur' } | { e: 'erreur'; motif: string } | { e: 'pret'; espace: PublicSpace }
 
 /** Le rythme d'un salon neuf : la suite après cinq secondes, le temps de lire la bonne réponse. */
 const RYTHME_PAR_DEFAUT = 5
@@ -83,7 +83,11 @@ export function SalonApp() {
       // thème, qui l'habille comme ses autres pages.
       const moi = await api.joueur.moiLeger()
       if (vivant) void porterTheme(moi.profile?.theme)
-      if (!moi.profile) return vivant && setEtat({ e: 'anonyme' })
+      // Sans profil, mais la console ouverte : un compte d'animateur d'avant
+      // les profils, ou créé par l'administrateur. « Lancer », dans « Mes
+      // quiz », l'envoyait se connecter alors qu'il l'était — et la connexion
+      // perdait le quiz (l'expert du quiz tout prêt, le 11 octobre 2026).
+      if (!moi.profile) return vivant && setEtat({ e: (await currentMe()) ? 'animateur' : 'anonyme' })
       const { espace } = await api.joueur.espace()
       const [liste, programmes, livres] = await Promise.all([api.list(), api.programmes.list(), api.modeles().catch(() => [])])
       if (!vivant) return
@@ -115,12 +119,20 @@ export function SalonApp() {
       </div>
     )
   }
-  if (etat.e === 'anonyme' || etat.e === 'erreur') {
+  if (etat.e === 'anonyme' || etat.e === 'animateur' || etat.e === 'erreur') {
     return (
       <div className="player-shell">
         <Sortie />
         <PieceTete piece="Entre amis" titre="Nouveau salon" />
-        {etat.e === 'anonyme' ? (
+        {etat.e === 'animateur' ? (
+          <>
+            <p>Un salon s’ouvre avec un profil de joueur. Ton compte d’animateur, lui, lance ses quiz à l’écran commun.</p>
+            <a className="btn btn-primary btn-big btn-block" href="/host">
+              <Icon name="monitor" />
+              Ouvrir l’écran commun
+            </a>
+          </>
+        ) : etat.e === 'anonyme' ? (
           <>
             <p>Un salon s’ouvre avec ton profil : tes quiz, tes soirées et ton code y restent.</p>
             <a className="btn btn-primary btn-big btn-block" href="/?next=/salon">

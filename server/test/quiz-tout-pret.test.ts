@@ -13,6 +13,7 @@ import {
   lireChoixDuQuiz,
   placesDesEstimations,
   planDuQuiz,
+  souffleeParLEpoque,
   titreDuQuizToutPret,
   type DejaDansLEspace,
 } from '../src/core/quizToutPret'
@@ -89,6 +90,37 @@ function aNombre(
     portee: 'monde',
     valeur: { nombre: valeur, unite },
     leurres: autres,
+    dureeDeVie: 'stable',
+    explication: '',
+    source: null,
+    confiance: 3,
+    aRelire: [],
+  })
+  if ('refus' in lu) throw new Error(`question ${id} : ${lu.refus}`)
+  return lu.question
+}
+
+/** Une question de la base écrite à la main : ses réponses, ses leurres, sa date. */
+function ecrite(
+  id: string,
+  { texte, reponses, leurres, difficulte = 2, date = null }: { texte: string; reponses: string[]; leurres: string[]; difficulte?: number; date?: { valeur: string; precision: 'annee' } | null },
+): QuestionDeLaBase {
+  const lu = lireQuestionDeLaBase({
+    id,
+    texte,
+    reponses,
+    bonne: 0,
+    anecdote: `L'anecdote de ${id}.`,
+    categorie: 'Histoire',
+    sousTheme: SOUS_THEMES.Histoire[0].cle,
+    etiquettes: [],
+    difficulte,
+    ageMin: 10,
+    date,
+    entites: [],
+    portee: 'monde',
+    valeur: null,
+    leurres,
     dureeDeVie: 'stable',
     explication: '',
     source: null,
@@ -265,7 +297,7 @@ test('une estimation vise le nombre de sa bonne réponse — plus de dix, et un 
     unit: 'gigawatt',
   })
   // Une unité trop longue pour l'écran s'efface : l'intitulé la dit déjà.
-  assert.deepEqual(cibleDeLEstimation(aNombre('e0000003', 24, { unite: 'images par seconde', texte: 'Combien d’images par seconde défilent dans un film ?' })), {
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000003', 24, { unite: 'images par seconde', texte: 'Combien d’images par seconde défilent dans un film ?', difficulte: 3 })), {
     target: 24,
     unit: '',
   })
@@ -274,6 +306,28 @@ test('une estimation vise le nombre de sa bonne réponse — plus de dix, et un 
   assert.equal(cibleDeLEstimation(aNombre('e0000006', 1955, { texte: 'Parmi ces années, laquelle a vu naître le rock ?' })), null, 'un intitulé qui suppose des choix')
   assert.equal(cibleDeLEstimation(question('e0000007')), null, 'pas de valeur')
   assert.deepEqual(placesDesEstimations(15, 3), [3, 7, 10])
+})
+
+// Douze estimations sur dix-neuf posaient un problème dans les quiz composés
+// par l'expert du quiz tout prêt (le 11 octobre 2026), contre une question
+// sur huit des QCM.
+test('ni un numéro, ni un petit entier que tout le monde sait, ni une unité que l’intitulé tait', () => {
+  // Un numéro : 814 n'est pas « presque » le vol 815.
+  assert.equal(cibleDeLEstimation(aNombre('e0000011', 815, { texte: 'Quel numéro de vol porte l’avion qui s’écrase dans « Lost » ?', difficulte: 4 })), null)
+  assert.equal(cibleDeLEstimation(aNombre('e0000012', 33, { texte: 'Quel est l’indicatif téléphonique de la France ?', difficulte: 3 })), null)
+  // Compter des chiffres n'est pas un numéro.
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000013', 15, { texte: 'Combien de chiffres compte un numéro de Sécurité sociale ?', unite: 'chiffres', difficulte: 4 })), {
+    target: 15,
+    unit: 'chiffres',
+  })
+  // Une facile qui tient en un petit entier : toute la salle tape le même nombre.
+  assert.equal(cibleDeLEstimation(aNombre('e0000014', 42, { texte: 'Combien font 6 × 7 ?', difficulte: 1 })), null)
+  assert.equal(cibleDeLEstimation(aNombre('e0000015', 26, { texte: 'Combien de lettres compte l’alphabet français ?', unite: 'lettres', difficulte: 2 })), null)
+  // Moins sue, elle s'estime ; facile mais au-delà de cent, aussi.
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000016', 88, { texte: 'Combien de touches compte un piano ?', unite: 'touches', difficulte: 3 })), { target: 88, unit: 'touches' })
+  assert.deepEqual(cibleDeLEstimation(aNombre('e0000017', 1789, { difficulte: 1 })), { target: 1789, unit: '' })
+  // « Millions d'années » ne tient pas à l'écran, et l'intitulé ne le dit pas : 66 seul trompait la salle.
+  assert.equal(cibleDeLEstimation(aNombre('e0000018', 66, { unite: 'millions d’années', texte: 'Il y a combien de temps les dinosaures non aviens ont-ils disparu ?', difficulte: 3 })), null)
   assert.deepEqual(placesDesEstimations(10, 2), [2, 6])
 })
 
@@ -310,12 +364,101 @@ test('une estimation experte ne vient que dans un quiz corsé', () => {
   assert.equal(composer(base, choix({ difficulte: 'corsee', estimations: true })).filter(q => q.kind === 'number').length, 2)
 })
 
+// Tirées au hasard des marches permises, puis placées à intervalles : un
+// quiz corsé recevait « Combien font 6 × 7 ? », un quiz facile la guerre
+// des Six Jours, et la quatrième question des « faciles d'abord » était une
+// estimation difficile une fois sur trois (l'expert du quiz tout prêt, le
+// 11 octobre 2026).
+test('les estimations montent avec le quiz, sans sortir de ses marches', () => {
+  const base = [
+    ...Array.from({ length: 80 }, (_, i) => question(id('q', i), { difficulte: 1 + (i % 5) })),
+    ...[1, 3, 4, 5].flatMap(d => Array.from({ length: 6 }, (_, i) => aNombre(id(`e${d}`, i), 1500 + d * 100 + i * 7, { difficulte: d }))),
+  ]
+  const niveau = niveauDe(base)
+  const estimations = (b: readonly QuestionDeLaBase[], difficulte: ChoixDuQuiz['difficulte'], graine = 7) =>
+    composer(b, choix({ difficulte, nombre: 15, estimations: true }), rien, graine)
+      .filter(q => q.kind === 'number')
+      .map(q => niveau(q.id))
+  for (let graine = 1; graine <= 20; graine++) {
+    assert.deepEqual(estimations(base, 'facile', graine), ['facile', 'facile', 'facile'], 'un quiz facile : que des faciles')
+    assert.deepEqual(estimations(base, 'progressive', graine), ['facile', 'moyen', 'difficile'], 'la première dans les faciles d’abord')
+    assert.deepEqual(estimations(base, 'corsee', graine), ['moyen', 'difficile', 'expert'], 'jamais une facile dans un quiz corsé')
+  }
+  // Sans estimation facile : le quiz progressif emprunte à la marche voisine, le quiz facile s'en passe.
+  const sansFacile = base.filter(q => !q.id.startsWith('e1'))
+  assert.deepEqual(estimations(sansFacile, 'progressive'), ['moyen', 'moyen', 'difficile'])
+  assert.deepEqual(estimations(sansFacile, 'facile'), [])
+})
+
+test('des enfants jouent : ce qu’un enfant connaît d’abord, même déjà posé ; le reste de dix ans pour compléter', () => {
+  const base = [
+    // Six ans : ce qu'un enfant connaît avant de bien lire.
+    ...Array.from({ length: 6 }, (_, i) => question(id('p', i), { difficulte: 1 + (i % 2), ageMin: 6 })),
+    // Dix ans, et facile entre les faciles.
+    ...Array.from({ length: 4 }, (_, i) => question(id('f', i), { difficulte: 1, ageMin: 10 })),
+    // Dix ans : compréhensible, pas forcément connu — Tati, Nougaro, Tarantino.
+    ...Array.from({ length: 20 }, (_, i) => question(id('d', i), { difficulte: 2, ageMin: 10 })),
+    ...Array.from({ length: 10 }, (_, i) => question(id('a', i), { difficulte: 1, ageMin: 14 })),
+  ]
+  const famille = (q: { id?: string }) => q.id!.slice('base-'.length)[0]
+  const compter = (quiz: readonly { id?: string }[]) => {
+    const n: Record<string, number> = {}
+    for (const q of quiz) n[famille(q)] = (n[famille(q)] ?? 0) + 1
+    return n
+  }
+  assert.deepEqual(compter(composer(base, choix({ difficulte: 'facile', nombre: 15, enfants: true }))), { p: 6, f: 4, d: 5 })
+  // Déjà posées en soirée, elles passent encore devant : un enfant les connaît.
+  const posees = new Map(base.slice(0, 3).map((q, i) => [idDansLeQuiz(q.id), 1000 + i]))
+  assert.deepEqual(compter(composer(base, choix({ difficulte: 'facile', nombre: 15, enfants: true }), { ...rien, posees })), { p: 6, f: 4, d: 5 })
+})
+
+test('un quiz d’époque écarte le QCM dont l’époque souffle l’année ; pas de vrai ou faux pour finir un quiz corsé', () => {
+  const annee = (valeur: number) => ({ valeur: String(valeur), precision: 'annee' as const })
+  // La création du GIEC parmi 1988, 1972, 1992 et 1997 : seule la bonne est des années 80.
+  const giec = ecrite('g0000001', {
+    texte: 'En quelle année le GIEC a-t-il été créé ?',
+    reponses: ['1988', '1972', '1992', '1997'],
+    leurres: ['1972', '1992', '1997', '1965', '2001', '1979'],
+    date: annee(1988),
+  })
+  // Des années 80 parmi des années 80 : l'époque ne dit rien.
+  const autres = Array.from({ length: 4 }, (_, i) =>
+    ecrite(id('z', i), {
+      texte: `En quelle année l’événement ${i} des années 80 a-t-il eu lieu ?`,
+      reponses: [String(1981 + i), String(1985 + i), '1980', '1989'],
+      leurres: [String(1985 + i), '1980', '1989', '1986', '1987', '1988'].filter((l, k, t) => t.indexOf(l) === k && l !== String(1981 + i)),
+      date: annee(1981 + i),
+    }),
+  )
+  assert.equal(souffleeParLEpoque(giec, [1980, 1989]), true)
+  assert.ok(autres.every(q => !souffleeParLEpoque(q, [1980, 1989])))
+  const base = [giec, ...autres]
+  const ids = (quiz: readonly { id?: string }[]) => quiz.map(q => q.id).sort()
+  assert.deepEqual(ids(composer(base, choix({ sujet: 'annees-80', difficulte: 'facile', nombre: 5 }))), ids(autres.map(q => ({ id: idDansLeQuiz(q.id) }))))
+  // Hors de l'époque, son titre ne dit rien : elle se pose.
+  assert.ok(ids(composer(base, choix({ categories: ['Histoire'], difficulte: 'facile', nombre: 5 }))).includes(idDansLeQuiz(giec.id)))
+
+  // Un vrai ou faux expert : une chance sur deux pour clore un quiz corsé.
+  const corsee = [
+    ...Array.from({ length: 40 }, (_, i) => question(id('c', i), { difficulte: 3 + (i % 2) })),
+    ...Array.from({ length: 3 }, (_, i) => question(id('x', i), { difficulte: 5 })),
+    ...Array.from({ length: 3 }, (_, i) =>
+      ecrite(id('v', i), { texte: `Vrai ou faux : le fait expert numéro ${i} est avéré.`, reponses: ['Vrai', 'Faux'], leurres: ['Faux'], difficulte: 5 }),
+    ),
+  ]
+  const quiz = composer(corsee, choix({ difficulte: 'corsee', nombre: 15 }))
+  assert.equal(quiz.filter(q => q.answers.length === 2).length, 0)
+  assert.equal(quiz.length, 15, 'les marches voisines complètent')
+})
+
 test('le titre dit ce qu’on a choisi, et tient sur une ligne', () => {
   assert.equal(titreDuQuizToutPret(choix(), 15), 'Un peu de tout · 15 questions')
   assert.equal(titreDuQuizToutPret(choix({ categories: ['Histoire'], difficulte: 'facile' }), 10), 'Histoire · 10 questions faciles')
   assert.equal(titreDuQuizToutPret(choix({ categories: ['Histoire', 'Sport'], difficulte: 'corsee' }), 20), 'Histoire et Sport · 20 questions corsées')
   assert.equal(titreDuQuizToutPret(choix({ categories: ['Histoire', 'Géographie', 'Sciences', 'Sport'] }), 30), 'Histoire, Géographie et 2 autres · 30 questions')
   assert.equal(titreDuQuizToutPret(choix({ sujet: 'animaux' }), 10), 'Les animaux · 10 questions')
+  // Des enfants jouent : on retrouve le quiz composé pour eux.
+  assert.equal(titreDuQuizToutPret(choix({ difficulte: 'facile', enfants: true }), 15), 'Un peu de tout · 15 questions faciles · en famille')
 })
 
 // ── Sur un vrai serveur ─────────────────────────────────────────────────────

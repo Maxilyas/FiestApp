@@ -8,12 +8,13 @@ import { formatNumber } from '../../../shared/typographie'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { sujetParCle, type Sujet } from '../../../shared/sujets'
 import { CATEGORIES, type Categorie } from '../../../shared/categories'
-import type { QuizDef } from '../../../shared/library'
+import { ecrireDuree, type QuizDef } from '../../../shared/library'
 import {
   DIFFICULTES_DU_QUIZ,
   NOMBRES_DU_QUIZ,
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
   UNE_ESTIMATION_SUR,
+  dureeDuQuizToutPretS,
   type BaseDuQuizToutPret,
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
@@ -121,10 +122,10 @@ export function FeuilleDuQuizToutPret({
       onFermer={onFermer}
       pied={
         <>
-          {/* Ce que « Composer » va faire, en une ligne : le bouton, lui, ne tient pas les catégories. */}
+          {/* Ce que « Composer » va faire, en une ligne — et combien de temps il durera : le bouton, lui, ne tient pas les catégories. */}
           <p className="tout-pret-resume">
             {espacesFines(
-              `${quoi ?? 'Toutes les catégories'} · ${laDifficulte.nom.toLowerCase()}${enfants ? ' · des enfants jouent' : ''}${estimations ? '' : ' · que des QCM'}`,
+              `${quoi ?? 'Toutes les catégories'} · ${laDifficulte.nom.toLowerCase()} · ${ecrireDuree(dureeDuQuizToutPretS(nombre, estimations))}${enfants ? ' · des enfants jouent' : ''}${estimations ? '' : ' · que des QCM'}`,
             )}
           </p>
           <button type="button" className="btn btn-primary btn-big btn-block" aria-busy={compose || undefined} disabled={!base || compose} onClick={() => void composer()}>
@@ -195,7 +196,7 @@ export function FeuilleDuQuizToutPret({
         <input type="checkbox" checked={enfants} onChange={e => setEnfants(e.target.checked)} />
         <span>
           <b>Des enfants jouent</b>
-          <span className="muted small">{espacesFines('Rien qu’un enfant de dix ans ne puisse connaître')}</span>
+          <span className="muted small">{espacesFines('D’abord ce que les enfants savent, et rien qu’un enfant de dix ans ne puisse comprendre')}</span>
         </span>
       </label>
 

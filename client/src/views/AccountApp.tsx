@@ -182,7 +182,7 @@ export function AccountApp() {
               <a className="link-inline" href="/edit">
                 Mes quiz
               </a>{' '}
-              : pars d'un quiz tout fait, importe celui d'un ami, ou écris le tien.
+              : compose un quiz tout prêt en un geste, pars d'un modèle, importe celui d'un ami, ou écris le tien.
             </li>
             <li>Ouvre l'écran commun sur l'ordinateur branché à la télé.</li>
             <li>Tes invités scannent le QR qu'il affiche, et c'est parti.</li>

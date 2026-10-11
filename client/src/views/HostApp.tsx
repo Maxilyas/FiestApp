@@ -417,6 +417,21 @@ export function HostApp() {
   const phaseEnCours = sessionEnCours
     ? (s.views[sessionEnCours.id]?.view as QuizHostView | undefined)?.phase
     : undefined
+  /**
+   * Composé dans la salle d'attente, les invités déjà là : il se lance dès
+   * que la partie ouvre « Choisis un quiz », comme de là (`selectPack`).
+   * Composé, il attendait qu'on fasse encore « Lancer un quiz » puis « C'est
+   * parti ! », devant une salle qui attend (l'expert du quiz tout prêt, le
+   * 11 octobre 2026). Quinze secondes au plus : une partie qui ne s'ouvre pas
+   * ne le lance pas plus tard, à la place d'un autre.
+   */
+  const aLancer = useRef<{ quizId: string; le: number } | null>(null)
+  useEffect(() => {
+    const voulu = aLancer.current
+    if (!voulu || !sessionEnCours || phaseEnCours !== 'pickPack') return
+    aLancer.current = null
+    if (Date.now() - voulu.le < 15_000) envoyerCommande(sessionEnCours.id, { type: 'selectPack', packId: voulu.quizId, multiplier: 1 })
+  }, [sessionEnCours?.id, phaseEnCours])
   const cleCoulisses = `${ecran ?? ''}:${phaseEnCours ?? ''}`
   // Un numéro par scène traversée, pas la clé elle-même : les prix rouverts
   // après un détour par la salle d'attente sont une scène neuve, et ce qu'on
@@ -1581,11 +1596,16 @@ export function HostApp() {
                 </ConsoleActions>
                 {toutPret && (
                   <FeuilleDuQuizToutPretADemande
+                    verbe={connectedCount > 0 ? 'Lancer' : 'Composer'}
                     onFermer={() => setToutPret(false)}
-                    onCompose={() => {
+                    onCompose={quiz => {
                       setToutPret(false)
                       // Il est dans la bibliothèque : « Lancer un quiz » revient, et le propose.
                       setBibliothequeVide(false)
+                      if (connectedCount > 0) {
+                        aLancer.current = { quizId: quiz.id, le: Date.now() }
+                        lancerQuiz()
+                      } else showToast({ kind: 'info', message: `« ${quiz.title} » est prêt : lance-le quand tes invités sont là` })
                     }}
                   />
                 )}
