@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
+import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { BlasonDeLigue } from '../components/Blason'
 import { espacesFines } from '../format'
@@ -22,8 +23,9 @@ export function sonRang(j: Pick<JoueurADefier, 'ligue' | 'cote' | 'rang'>): stri
 export function LigneDeJoueur({ joueur: j, children }: { joueur: JoueurADefier | AmiDeCampagne; children?: ReactNode }) {
   return (
     <div className="ligne-joueur">
+      {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage. */}
       <span className="duel-ami-avatar" aria-hidden="true">
-        {j.avatar}
+        <Avatar avatar={j.avatar} finition={j.finition} legendaire={j.legendaire} eclat={j.eclat} />
       </span>
       <span className="ligne-joueur-nom">
         <b>{j.nom}</b>

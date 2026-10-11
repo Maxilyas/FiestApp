@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
@@ -992,8 +992,9 @@ function CoeursDuJour({ vies, onVies }: { vies: VieDesSentiers; onVies: () => vo
             +{vies.reserve}
           </span>
         )}
+        {/* « Racheter » laissait croire qu'on rachetait une vie perdue : on en prend en plus, pour la réserve. */}
         <button type="button" className="link-inline small pano-racheter" onClick={onVies}>
-          Racheter
+          Plus de vies
         </button>
       </div>
       <span className="muted small">{ligne}</span>
@@ -1103,8 +1104,11 @@ export function SentierVu({
   const prochain = prochainDansLaBranche(b, { [b.key]: s.paliers })
   const chemin = useRef<HTMLDivElement>(null)
   const laissee = etat.epreuve?.branche === b.key ? etat.epreuve : null
-  // Le palier à jouer en vue, sans animation : on arrive où l'on en est.
-  useEffect(() => {
+  // Le palier à jouer en vue, sans animation : on arrive où l'on en est —
+  // avant la première peinture. Après elle (`useEffect`), le haut du chemin,
+  // « Palier de maître · Expert », paraissait puis sautait au palier 3
+  // (l'experte du jeu solo, le 11 octobre 2026).
+  useLayoutEffect(() => {
     const vise = chemin.current?.querySelector<HTMLElement>('.palier-courant') ?? chemin.current?.querySelector<HTMLElement>('.palier-maitre')
     vise?.scrollIntoView({ block: 'center' })
   }, [b.key])

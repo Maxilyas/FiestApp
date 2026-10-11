@@ -135,7 +135,10 @@ export function MaVitrine({
       </h3>
       {montres.length === 0 ? (
         <p className="muted small">
-          Ta carte montrera tes trois plus beaux hauts faits : ils se décernent à la fin de chaque soirée.
+          {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
+              campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
+              (l'experte du jeu solo, le 11 octobre 2026). */}
+          Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
         </p>
       ) : (
         <>

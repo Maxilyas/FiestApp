@@ -33,7 +33,7 @@
 // règle changée vaut aussitôt pour tout ce qui a été joué, comme les
 // confettis des soirées — rien ne se tient à côté.
 
-import type { Adversaire, ResumeDeRencontre, RencontreDeCampagne } from './campagne'
+import type { Adversaire, ResumeDeRencontre, RencontreDeCampagne, SonApparence } from './campagne'
 import type { Finition } from './profil'
 import type { LaurierPorte } from './jour'
 
@@ -308,7 +308,7 @@ export interface ClassementDesDuels {
  * sur une ligne du classement : de quoi le reconnaître et savoir contre qui
  * on joue.
  */
-export interface JoueurADefier {
+export interface JoueurADefier extends SonApparence {
   profileId: string
   /** Son prénom, marqué « (2) » s'il en partage un autre et l'avatar avec (`nomsAffiches`). */
   nom: string

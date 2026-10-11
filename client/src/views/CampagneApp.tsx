@@ -404,8 +404,13 @@ export function CampagneApp() {
       }
       const lu = await etat
       if (!vivant) return
-      setEcran({ e: 'accueil', etat: lu })
-      // Le compte du carnet vient après la page, pour l'onglet : qu'il se taise ne retient rien.
+      // Le défi ou le carnet se touchent avant l'état : une partie commencée
+      // entre-temps garde son écran — et rien ne remonte la page qu'on lit.
+      setEcranBrut(avant => (avant.e === 'chargement' ? { e: 'accueil', etat: lu } : avant))
+      // Le compte du carnet vient après la page, pour l'onglet : qu'il se taise
+      // ne retient rien. Ouverte sur le carnet, sa page le lit déjà (`onLu`) :
+      // il partait deux fois.
+      if (modeDe(window.location.hash) === 'carnet') return
       api.campagne.carnet
         .etat()
         .then(c => vivant && setARevoir(c.aRevoir))
@@ -845,17 +850,12 @@ export function CampagneApp() {
   }
   // Ouverte sur les sentiers, la page n'attend pas la série pour s'esquisser.
   if (ecran.e === 'chargement' && mode === 'sentiers') return <SentiersEnChemin onglets={onglets} />
-  if (ecran.e === 'chargement') return <CampagneEnChemin />
-  if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
-    return (
-      <>
-        <Sentiers onglets={onglets} onSerie={() => choisirMode('serie')} />
-        {toastVu}
-      </>
-    )
-  }
-
-  if (ecran.e === 'accueil' && mode === 'defi') {
+  // Sur le défi ou le carnet, non plus : leur page s'esquisse d'elle-même,
+  // ses chiffres en attente, et demande les siens tout de suite. L'attente de
+  // la série — « Jusqu'où iras-tu ? » et son gros bouton — passait 60 à 90 ms
+  // avant le bon onglet (l'experte du jeu solo, le 11 octobre 2026).
+  const surSonOnglet = ecran.e === 'accueil' || ecran.e === 'chargement'
+  if (surSonOnglet && mode === 'defi') {
     return (
       <>
         <PageDuDefi onglets={onglets} onJouer={jouerLeDefi} />
@@ -864,10 +864,19 @@ export function CampagneApp() {
     )
   }
 
-  if (ecran.e === 'accueil' && mode === 'carnet') {
+  if (surSonOnglet && mode === 'carnet') {
     return (
       <>
         <PageDuCarnet onglets={onglets} onReviser={jouerLaRevision} onLu={c => setARevoir(c.aRevoir)} />
+        {toastVu}
+      </>
+    )
+  }
+  if (ecran.e === 'chargement') return <CampagneEnChemin />
+  if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
+    return (
+      <>
+        <Sentiers onglets={onglets} onSerie={() => choisirMode('serie')} />
         {toastVu}
       </>
     )

@@ -36,9 +36,11 @@ import { sansAccent } from '../../shared/homonymes'
  * sport sauvées d'un lot dont l'indice de la bonne réponse était décalé : 9 294 ;
  * puis mille aux six catégories restées sous 700, 986 : 10 280 ; puis cinq
  * cents aux sous-thèmes maigres du cinéma et des arts — répliques, coulisses,
- * sagas, bande dessinée, philosophie… —, 489 : 10 769.
+ * sagas, bande dessinée, philosophie… —, 489 : 10 769. Puis, le même jour,
+ * des questions à nombre pour les estimations du quiz tout prêt
+ * (`consigne --nombres`), 290 : 11 059.
  */
-const AU_MOINS = 10760
+const AU_MOINS = 11050
 
 const { questions, refusees } = lireLaBase()
 

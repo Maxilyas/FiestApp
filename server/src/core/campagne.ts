@@ -63,6 +63,7 @@ import {
   LONGUEUR_D_UN_CODE,
   lireCodeDuDuel,
   type AmiDeCampagne,
+  type SonApparence,
   type DefiRecu,
   type DuelEntreAmis,
   type MesAmis,
@@ -2315,6 +2316,7 @@ export class CampagneStore {
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
+      ...sonApparence(p, x),
       ...(deja.has(x.id) && { deja: deja.get(x.id) }),
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
     }))
@@ -2340,7 +2342,7 @@ export class CampagneStore {
       return [
         {
           code: d.code,
-          auteur: { nom: marques.get(auteur.id) ?? auteur.name, avatar: p.avatarPorte(auteur) },
+          auteur: { nom: marques.get(auteur.id) ?? auteur.name, avatar: p.avatarPorte(auteur), ...sonApparence(p, auteur) },
           ...(d.sujet && { sujet: d.sujet }),
           ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
           minutesRestantes: Math.max(1, Math.ceil((d.fermeLe - maintenant) / 60_000)),
@@ -2435,6 +2437,7 @@ export class CampagneStore {
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
+      ...sonApparence(p, x),
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
       ...(sesAmis.has(x.id) && { ami: true as const }),
     }))
@@ -4371,6 +4374,17 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
   let lus = SUJETS_LUS.get(q)
   if (!lus) SUJETS_LUS.set(q, (lus = sujetsDe(q.meta)))
   return lus
+}
+
+/**
+ * Ce qu'un joueur porte, sur une ligne d'ami, de recherche ou de défi reçu,
+ * comme au classement (`SonApparence`) : l'emoji seul lui donnait deux
+ * visages sur la même page.
+ */
+function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec): SonApparence {
+  const { finition, eclat, legendaire } = p.apparenceDe(x)
+  // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
+  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat: true as const }) }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */

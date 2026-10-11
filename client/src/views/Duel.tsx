@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
+import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { Shape } from '../components/Shape'
@@ -543,7 +544,10 @@ export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; on
             <button type="button" className="btn btn-block duel-ligne" onClick={() => onOuvrir(d.code)}>
               <span>
                 <b>
-                  <span aria-hidden="true">{d.auteur.avatar}</span> {`${d.auteur.nom} te défie`}
+                  <span aria-hidden="true">
+                    <Avatar avatar={d.auteur.avatar} finition={d.auteur.finition} legendaire={d.auteur.legendaire} eclat={d.auteur.eclat} />
+                  </span>{' '}
+                  {`${d.auteur.nom} te défie`}
                 </b>
                 <span className="muted small">
                   {[

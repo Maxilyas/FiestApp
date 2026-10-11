@@ -1,8 +1,8 @@
 // La base de la campagne, de son écriture à son rangement
 // (`server/src/core/baseCampagne.ts`).
 //
-//   npx tsx scripts/base-campagne.ts consigne <Catégorie> <sous-thème>:<n> …   la consigne d'un lot, pour une IA
-//   npx tsx scripts/base-campagne.ts verifier <lot.json> …                      ce que le rangement refuserait, et pourquoi
+//   npx tsx scripts/base-campagne.ts consigne <Catégorie> <sous-thème>:<n> …   la consigne d'un lot, pour une IA (--nombres : des questions à nombre)
+//   npx tsx scripts/base-campagne.ts verifier [--nombres] <lot.json> …          ce que le rangement refuserait, et pourquoi (--nombres : ce qui ne se jouerait pas au plus près)
 //   npx tsx scripts/base-campagne.ts ranger <lot.json> …                        range des lots vérifiés dans la base
 //   npx tsx scripts/base-campagne.ts stats                                      la base, par catégorie, sous-thème et difficulté
 //   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait, et les intitulés presque pareils
@@ -23,6 +23,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 
 import path from 'node:path'
 import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
+import { lireLEstimation } from '../src/core/quizToutPret'
 import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
 import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
@@ -32,7 +33,8 @@ import { DOSSIER_DES_LOTS, FICHIER_DE_LOT, TriDesEntrees, appliquerLesDecisions,
 /** Une ligne du fichier : la forme de `entreeDeLaBase`, celle des dépôts de la routine aussi. */
 const enLigne = (q: QuestionDeLaBase) => JSON.stringify(entreeDeLaBase(q))
 
-function verifier(fichiers: string[]): number {
+/** `nombres` : une part à nombre (`consigne --nombres`) — chaque question qui ne se jouerait pas au plus près s'avertit. */
+function verifier(fichiers: string[], { nombres = false } = {}): number {
   // Toute la base, toutes catégories, puis ce que les lots vérifiés ensemble ont déjà.
   const tri = new TriDesEntrees(lireLaBase().questions, empreintesDesLivres())
   let refus = 0
@@ -72,6 +74,10 @@ function verifier(fichiers: string[]): number {
       if (!q.anecdote) avertir('pas d’anecdote')
       if (!q.meta.explication) avertir('pas d’explication')
       if (!q.meta.source) avertir('pas de source')
+      if (nombres) {
+        const estimation = lireLEstimation(q)
+        if ('refus' in estimation) avertir(`ne se jouera pas au plus près : ${estimation.refus}`)
+      }
     })
   }
   console.log(`\n${total} question(s) acceptée(s), ${refus} refus, ${avertissements} avertissement(s).`)
@@ -239,8 +245,9 @@ function stats() {
 
 const [commande, ...args] = process.argv.slice(2)
 if (commande === 'verifier') {
-  if (args.length === 0) throw new Error('verifier <lot.json> …')
-  process.exitCode = verifier(args) > 0 ? 1 : 0
+  const fichiers = args.filter(a => a !== '--nombres')
+  if (fichiers.length === 0) throw new Error('verifier [--nombres] <lot.json> …')
+  process.exitCode = verifier(fichiers, { nombres: args.includes('--nombres') }) > 0 ? 1 : 0
 } else if (commande === 'ranger') {
   if (args.length === 0) throw new Error('ranger <lot.json> …')
   ranger(args)
@@ -256,7 +263,7 @@ if (commande === 'verifier') {
 } else if (commande === 'consigne') {
   const [categorie, ...parts] = args
   const c = CATEGORIES.find(x => sansAccent(x) === sansAccent(categorie ?? ''))
-  if (!c || parts.length === 0) throw new Error('consigne <Catégorie> <sous-thème>:<n> … [--lot=nom] [--dossier=chemin]')
+  if (!c || parts.length === 0) throw new Error('consigne <Catégorie> <sous-thème>:<n> … [--lot=nom] [--dossier=chemin] [--nombres]')
   const lot = parts.find(p => p.startsWith('--lot='))?.slice(6) ?? 'lot'
   const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? DOSSIER_DES_LOTS
   const quotas = parts
@@ -278,7 +285,8 @@ if (commande === 'verifier') {
       .filter(e => e.categorie === c && vises.has(e.sousTheme ?? '') && typeof e.texte === 'string')
       .map(e => e.texte!),
   ]
-  process.stdout.write(consigneDEcriture(c, quotas, { sorte: 'lots', lot, dossier }, deja))
+  // `--nombres` : des questions à nombre, qui se joueront aussi en estimation au quiz tout prêt.
+  process.stdout.write(consigneDEcriture(c, quotas, { sorte: 'lots', lot, dossier }, deja, { nombres: parts.includes('--nombres') }))
 } else if (commande === 'retirer') {
   if (args.length === 0) throw new Error('retirer <id> …')
   retirer(args)

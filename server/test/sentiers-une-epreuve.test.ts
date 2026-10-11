@@ -9,6 +9,7 @@
 // Pas de serveur : la fiche, le sentier et la carte, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import React from 'react'
 import { BRANCHES, type CleDeBranche } from '../../shared/branches'
 import { regleDuPalier, type EpreuveDeSentier, type EtatDesSentiers } from '../../shared/sentiers'
@@ -81,6 +82,15 @@ test('l’épreuve laissée sur ce palier : la fiche dit « Reprendre », et où
   assert.match(html, /<\/svg>Reprendre le palier 7<\/button>/)
   assert.match(html, /5 bonnes · 1 faute : rien n’est perdu, tu reprends où tu en étais\./)
   assert.doesNotMatch(html, /Jouer le palier 7|Une vie en jeu/)
+})
+
+// Ouvert à son adresse (`#sentier-foret`), un sentier se peignait en haut du
+// chemin — « Palier de maître · Expert » — puis sautait au palier en cours
+// (l'experte du jeu solo, le 11 octobre 2026) : il s'y place avant la
+// première peinture.
+test('ouvert à son adresse, un sentier arrive sur son palier sans montrer d’abord le haut du chemin', () => {
+  const source = readFileSync(new URL('../../client/src/views/Sentiers.tsx', import.meta.url), 'utf8')
+  assert.match(source, /useLayoutEffect\(\(\) => \{\s+const vise = chemin\.current\?\.querySelector<HTMLElement>\('\.palier-courant'\)/)
 })
 
 test('dans un sentier, un refus s’écrit dans l’en-tête collé : il reste en vue quand le chemin défile', async () => {

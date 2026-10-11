@@ -36,6 +36,23 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
+// Ouverte sur le carnet ou le défi, la campagne montrait d'abord la série —
+// « Jusqu'où iras-tu ? » et son gros bouton, 60 à 90 ms — avant le bon
+// onglet, et demandait deux fois le compte du carnet (l'experte du jeu solo,
+// le 11 octobre 2026). Leur page s'esquisse d'elle-même, ses chiffres en
+// attente : c'est elle que l'attente rend.
+test('ouverte sur le carnet ou le défi, la campagne s’esquisse sur eux, pas sur la série — et lit le carnet une fois', () => {
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  const attente = page.indexOf("if (ecran.e === 'chargement') return <CampagneEnChemin />")
+  const carnet = page.indexOf("if (surSonOnglet && mode === 'carnet')")
+  const defi = page.indexOf("if (surSonOnglet && mode === 'defi')")
+  assert.ok(carnet > 0 && defi > 0 && carnet < attente && defi < attente, 'le carnet et le défi passent avant l’attente de la série')
+  assert.match(page, /const surSonOnglet = ecran\.e === 'accueil' \|\| ecran\.e === 'chargement'/)
+  // Une révision commencée avant l'état garde son écran.
+  assert.match(page, /setEcranBrut\(avant => \(avant\.e === 'chargement' \? \{ e: 'accueil', etat: lu \} : avant\)\)/)
+  assert.match(page, /if \(modeDe\(window\.location\.hash\) === 'carnet'\) return\s+api\.campagne\.carnet\s+\.etat\(\)/)
+})
+
 // Dans le carnet, « Recommencer » mais rien pour partir — un bouton fantôme
 // de 36 px sous la question, hors de l'écran au téléphone (la remarque du
 // propriétaire du 11 octobre 2026). Chaque partie de la campagne se quitte

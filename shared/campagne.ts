@@ -610,7 +610,20 @@ export const AMIS_MONTRES = 40
 export const DEFIS_RECUS_MONTRES = 10
 
 /** Un ami : quelqu'un avec qui il a joué un défi entre amis. */
-export interface AmiDeCampagne {
+/**
+ * Ce qu'un joueur porte, comme une ligne de classement le montre : sa
+ * finition, le médaillon qu'il porte à la place de l'emoji, son Éclat. Ses
+ * amis, ses défis reçus et une recherche ne disaient que l'emoji : une amie
+ * avait deux visages sur la même page — une chouette dans « Tes amis », son
+ * écureuil peint au classement (l'experte du jeu solo, le 11 octobre 2026).
+ */
+export interface SonApparence {
+  finition?: Finition
+  legendaire?: string
+  eclat?: true
+}
+
+export interface AmiDeCampagne extends SonApparence {
   profileId: string
   /** Son prénom, marqué « (2) » s'il en partage un autre et l'avatar avec (`nomsAffiches`). */
   nom: string
@@ -626,7 +639,7 @@ export interface AmiDeCampagne {
 /** Un défi qu'on lui a envoyé — d'un ami, ou un duel classé de qui l'a défié —, qu'il n'a pas encore relevé. */
 export interface DefiRecu {
   code: string
-  auteur: { nom: string; avatar: string }
+  auteur: { nom: string; avatar: string } & SonApparence
   sujet?: string
   categories?: string[]
   minutesRestantes: number

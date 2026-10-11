@@ -11,6 +11,7 @@ import {
   dejaDansLEspace,
   idDansLeQuiz,
   lireChoixDuQuiz,
+  lireLEstimation,
   placesDesEstimations,
   planDuQuiz,
   souffleeParLEpoque,
@@ -18,6 +19,7 @@ import {
   type DejaDansLEspace,
 } from '../src/core/quizToutPret'
 import { sujetsDeLaQuestion } from '../src/core/campagne'
+import { consigneDEcriture } from '../src/core/consigneCampagne'
 import { niveauDeQuestion } from '../../shared/campagne'
 import { suiteFixe } from '../../shared/hasard'
 import { SOUS_THEMES } from '../../shared/etiquettes'
@@ -328,6 +330,23 @@ test('ni un numéro, ni un petit entier que tout le monde sait, ni une unité qu
   assert.deepEqual(cibleDeLEstimation(aNombre('e0000017', 1789, { difficulte: 1 })), { target: 1789, unit: '' })
   // « Millions d'années » ne tient pas à l'écran, et l'intitulé ne le dit pas : 66 seul trompait la salle.
   assert.equal(cibleDeLEstimation(aNombre('e0000018', 66, { unite: 'millions d’années', texte: 'Il y a combien de temps les dinosaures non aviens ont-ils disparu ?', difficulte: 3 })), null)
+})
+
+// La base n'avait que vingt-sept estimations faciles : un quiz facile d'une
+// catégorie n'en avait plus aucune. Une part à nombre se commande
+// (`consigne --nombres`), et `verifier --nombres` dit au rédacteur pourquoi
+// une question ne se jouerait pas au plus près — la règle même du tirage.
+test('une part à nombre : la consigne dit les règles de l’estimation, et le vérificateur pourquoi une question n’en est pas une', () => {
+  const part = consigneDEcriture('Géographie', [{ cle: 'reliefs', n: 10 }], { sorte: 'lots', lot: 'nb', dossier: '/tmp' }, [], { nombres: true })
+  assert.match(part, /TA PART SE JOUE AUSSI AU PLUS PRÈS/)
+  assert.match(part, /Jamais un numéro/)
+  assert.match(part, /verifier --nombres/)
+  assert.doesNotMatch(part, /environ 10 % de 1, 25 % de 2/, 'sa difficulté à elle, pas la répartition d’un lot ordinaire')
+  assert.doesNotMatch(consigneDEcriture('Géographie', [{ cle: 'reliefs', n: 10 }], { sorte: 'lots', lot: 'nb', dossier: '/tmp' }), /AU PLUS PRÈS/)
+  assert.deepEqual(lireLEstimation(aNombre('e0000021', 4810, { texte: 'Quelle est l’altitude du mont Blanc, en mètres ?', unite: 'm', difficulte: 2 })), { cible: { target: 4810, unit: 'm' } })
+  assert.deepEqual(lireLEstimation(aNombre('e0000022', 42, { texte: 'Combien font 6 × 7 ?', difficulte: 1 })), { refus: 'un petit entier à la difficulté 1 : tout le monde le sait, la salle finirait ex æquo' })
+  assert.deepEqual(lireLEstimation(aNombre('e0000023', 815, { texte: 'Quel numéro de vol porte l’avion de « Lost » ?', difficulte: 4 })), { refus: 'un numéro ne s’estime pas' })
+  assert.deepEqual(lireLEstimation(question('e0000024')), { refus: 'pas de valeur : la bonne réponse n’est pas un nombre' })
   assert.deepEqual(placesDesEstimations(10, 2), [2, 6])
 })
 
