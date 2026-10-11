@@ -890,16 +890,15 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
   const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
   const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length)
   const porte = profil.titre ?? null
+  // Sa page s'appelle « Mon titre » : la carte dit ce qu'elle range, ceux qu'il a.
   return (
     <section className="card">
       <h3>
         <Icon name="star" />
-        Mon titre
+        Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
       </h3>
-      <p className="muted small">
-        Chaque haut fait gagné ouvre le sien, chaque palier de maître des sentiers aussi. Il s’écrit sous ton prénom, sur ta carte : la salle
-        le lit en touchant ton nom.
-      </p>
+      {/* Où il s'écrit, l'en-tête de sa page le dit ; ici, d'où viennent les autres. */}
+      <p className="muted small">Chaque haut fait gagné ouvre le sien, chaque palier de maître des sentiers aussi.</p>
       <div className="titres" role="group" aria-label="Mon titre">
         <button
           type="button"
@@ -948,9 +947,9 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
       <h3>
         <Icon name="image" />
         {/* Compté comme sa ligne de la collection : le Velours, à tout le monde, n'en est pas. */}
-        Le fond de ma carte {profil.fonds.length > 0 && <span className="muted small titre-compte">{`${profil.fonds.length} à toi`}</span>}
+        Mes fonds {profil.fonds.length > 0 && <span className="muted small titre-compte">{`${profil.fonds.length} à toi`}</span>}
       </h3>
-      <p className="muted small">Il se voit quand quelqu’un touche ton nom : c’est ta carte qui change d’allure, rien d’autre.</p>
+      <p className="muted small">Touches-en un : ta carte, en haut, le porte aussitôt.</p>
       <div className="finitions fonds-choix">
         <button
           type="button"
@@ -1011,11 +1010,9 @@ export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDe
     <section className="card">
       <h3>
         <Icon name="zap" />
-        Ma gerbe <span className="muted small titre-compte">{`${profil.gerbes.length} à toi`}</span>
+        Mes gerbes <span className="muted small titre-compte">{`${profil.gerbes.length} à toi`}</span>
       </h3>
-      <p className="muted small">
-        Elle éclate sur ton téléphone à chaque bonne réponse : en soirée, au quiz du jour et en campagne. Personne d’autre ne la voit. Touche-en une pour la voir et la porter.
-      </p>
+      <p className="muted small">En soirée, au quiz du jour et en campagne. Touches-en une : elle éclate, et tu la portes.</p>
       <div className="finitions gerbes-choix">
         <button
           type="button"

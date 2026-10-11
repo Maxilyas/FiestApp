@@ -273,7 +273,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
             regle: f.regle,
           }))}
         />
-        <OuLePorter ecran="carte" nom="Ma carte" quoi="Il se porte dans" />
+        <OuLePorter ecran="fond" nom="Mon fond de carte" quoi="Il se porte dans" />
       </>
     ),
     gerbes: (
@@ -290,7 +290,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
           onToucher={cle => setGerbeVue(a => ({ cle, n: (a?.n ?? 0) + 1 }))}
         />
         {gerbeVue && <GerbeDeJuste key={gerbeVue.n} cle={gerbeVue.cle} />}
-        <OuLePorter ecran="theme" nom="Mon thème" quoi="Elle se porte dans" />
+        <OuLePorter ecran="gerbe" nom="Ma gerbe" quoi="Elle se porte dans" />
       </>
     ),
     finitions: (

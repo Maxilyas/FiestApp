@@ -1,9 +1,10 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
-// jetable : ses tuiles en deux groupes — « Me changer », « Me retrouver » —,
-// sa carte et son avatar touché, en grand, chacun de ses écrans — « Mon
-// avatar », « Ma carte », « Mon thème », « Ma collection », ses lignes
-// dépliées, l'album des thèmes et la fiche de l'un d'eux —, et la boutique
-// des thèmes, qui ne vend que ce qui s'achète.
+// jetable : ses deux groupes — « Me changer », sa carte qu'on touche pièce par
+// pièce, « Me retrouver », ses tuiles —, sa carte et son avatar touché, en
+// grand, la page de chaque pièce — « Mon avatar », « Mon titre », « Ma
+// vitrine », « Mon fond de carte », « Mon thème », « Ma gerbe » —, « Ma
+// collection », ses lignes dépliées, l'album des thèmes et la fiche de l'un
+// d'eux, et la boutique des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -86,12 +87,15 @@ try {
   await page.waitForSelector('.carte-loupe')
   await photo('1-carte-avatar-en-grand')
 
-  // Chaque écran, ouvert de la pièce du vestiaire qui le mène — ou de sa tuile ; la finition de « Mon avatar », dépliée.
+  // La page de chaque pièce, ouverte de sa place sur la carte — et la collection, de sa tuile ; la finition de « Mon avatar », dépliée.
   for (const [i, nom, piece, attente] of [
-    [2, 'Mon avatar', '.vestiaire-avatar', '.famille-avatars'],
-    [3, 'Ma carte', '.vestiaire-titre', '.titres'],
-    [4, 'Mon thème', '.vestiaire-theme', '.mes-themes'],
-    [5, 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
+    ['2', 'Mon avatar', '.vestiaire-avatar', '.famille-avatars'],
+    ['3a', 'Mon titre', '.vestiaire-titre', '.titres'],
+    ['3b', 'Ma vitrine', '.vestiaire-vitrine', '.vitrine-choix'],
+    ['3c', 'Mon fond de carte', '.vestiaire-fond', '.fonds-choix'],
+    ['4a', 'Mon thème', '.vestiaire-perso[aria-label^="Mon thème"]', '.mes-themes'],
+    ['4b', 'Ma gerbe', '.vestiaire-perso[aria-label^="Ma gerbe"]', '.gerbes-choix'],
+    ['5', 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)
     await page.waitForSelector('.vestiaire')
@@ -99,17 +103,6 @@ try {
     await page.waitForSelector(attente)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}-pleine`, true)
-  }
-  // La vitrine et le fond, touchés au vestiaire : « Ma carte » s'ouvre sur eux.
-  for (const [piece, ancre] of [
-    ['.vestiaire-vitrine', 'carte-vitrine'],
-    ['.vestiaire-fond', 'carte-fond'],
-  ] as const) {
-    await page.goto(`${banc.url}/profil`)
-    await page.waitForSelector('.vestiaire')
-    await page.click(piece)
-    await page.waitForSelector(`#${ancre} .card`)
-    await photo(`3-ma-carte-${ancre}`)
   }
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.ma-finition')

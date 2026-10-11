@@ -7509,18 +7509,18 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .tuile-apercu { display: grid; place-items: center; height: 58px; margin-bottom: 2px; }
 .tuile-qui { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin-top: auto; padding-top: 2px; font-size: var(--t-label); line-height: 1.25; color: var(--zone, var(--muted)); }
 .tuile-qui .icon { flex: none; width: 12px; height: 12px; }
-/* Son thème en vignette : l'écran d'une question sous lui, sa gerbe en pastille. */
+/* Son thème en vignette : l'écran d'une question sous lui — sa gerbe a sa case à côté (`.mini-gerbe`). */
 .mini-theme { position: relative; display: block; width: 46px; height: 58px; border-radius: var(--radius-xs); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); background: var(--bg); }
 .mini-theme img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; object-position: top; }
-.mini-theme-gerbe { position: absolute; right: -9px; bottom: -7px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 1px var(--edge); font-size: 0.8rem; line-height: 1; }
 /* La collection : couchée sur toute la rangée, son compte au bout du titre, sa jauge dessous. */
 .tuile-large { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 14px; row-gap: 5px; min-height: 0; }
 .tuile-large .gros-icone { grid-row: span 3; margin-bottom: 0; }
 .tuile-large b { display: flex; align-items: baseline; gap: 8px; }
 .tuile-large .jauge-fine { width: 100%; }
 .tuile-compte { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* Ce que dit l'en-tête d'un écran qu'on porte : qui le voit. */
-.qui-le-voit { font-size: 0.92rem; }
+/* Ce que dit l'en-tête d'une page de ce qu'on porte : qui le voit, l'œil devant. */
+.qui-le-voit { display: flex; align-items: baseline; gap: 6px; font-size: 0.92rem; }
+.qui-le-voit .icon { flex: none; width: 14px; height: 14px; translate: 0 2px; }
 
 /* ── Le vestiaire : ce qu'on porte, en une image qu'on touche ───────────
    Sa carte telle que la salle la voit — son fond porté la tapisse —, et
@@ -7562,16 +7562,23 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .vestiaire-carte > .xp-mince { max-width: none; }
 .vestiaire-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.8rem; line-height: 1.3; color: var(--muted); }
 .vestiaire-qui .icon { flex: none; width: 13px; height: 13px; }
-/* Son thème : l'écran d'une question dessous, sa gerbe en pastille — lui seul le voit. */
-.vestiaire-theme { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px 12px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.vestiaire-theme:hover { border-color: var(--edge-strong); }
-.vestiaire-theme > .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
-.vestiaire-theme-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.vestiaire-theme-texte b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
-.vestiaire-theme-texte .tuile-qui { margin-top: 2px; }
 .vestiaire-voir { align-self: center; min-height: 44px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 0.9rem; cursor: pointer; }
-/* Une partie d'écran qu'a touchée le vestiaire vient en tête, sous la carte collée qui la couvrirait. */
-.ancre-du-vestiaire { scroll-margin-top: 7.5rem; }
+/* Ce que lui seul voit, côte à côte : son thème — l'écran d'une question
+   dessous —, sa gerbe — ses particules en bouquet. Le crayon au coin, comme
+   les pièces de la carte. */
+.vestiaire-pour-moi { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 4px; }
+.vestiaire-perso { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 128px; padding: 12px 8px 10px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: center; cursor: pointer; }
+.vestiaire-perso:hover { border-color: var(--edge-strong); }
+.vestiaire-perso b { margin-top: 5px; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
+.vestiaire-perso .vestiaire-valeur { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+.vestiaire-perso > .icon { position: absolute; top: 10px; right: 10px; width: 14px; height: 14px; color: var(--accent-text); }
+.mini-gerbe { position: relative; display: block; width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 70%); font-size: 1.35rem; line-height: 1; }
+.mini-gerbe span { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
+.mini-gerbe span:nth-child(1):not(:only-child) { translate: -95% -80%; rotate: -14deg; }
+.mini-gerbe span:nth-child(2) { translate: -5% -95%; rotate: 12deg; font-size: 0.85em; }
+.mini-gerbe span:nth-child(3) { translate: -40% 5%; rotate: -6deg; font-size: 1.1em; }
+.mini-gerbe span:only-child { font-size: 1.4em; }
+.mini-gerbe-vide { border: 1px dashed var(--edge); background: none; }
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas

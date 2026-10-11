@@ -1,9 +1,9 @@
 // « Ma collection » : tout ce qui se gagne, ce qu'on a, ce qui reste — et où
 // le gagner.
 //
-// Les écrans où l'on choisit ce qu'on porte (« Mon avatar », « Ma carte »,
-// « Mon thème ») ne montrent que ce qu'on a ; la collection montre tout, et
-// n'y règle rien. Son compte est celui de la tuile du profil : une seule
+// Les pages où l'on choisit ce qu'on porte (« Mon avatar », « Mon titre »,
+// « Ma vitrine », « Mon fond de carte », « Mon thème », « Ma gerbe ») ne
+// montrent que ce qu'on a ; la collection montre tout, et n'y règle rien. Son compte est celui de la tuile du profil : une seule
 // règle (`shared/collection.ts`), qui compte aussi les lignes des trophées.
 //
 // Et les thèmes : la collection les disait en deux lignes de texte, ceux
@@ -219,8 +219,8 @@ test('les gerbes de la collection se touchent pour éclater, même celles à gag
   assert.equal(ligne.match(/<button type="button" class="a-gagner-bouton">/g)?.length, GERBES.length)
   assert.equal(ligne.match(/, à gagner : touche-la pour la voir<\/span>/g)?.length, GERBES.length - LEA.gerbes.length)
   assert.doesNotMatch(ligne, /aria-pressed|Le porter/)
-  // Elle se porte dans « Mon thème » : le lien le dit.
-  assert.match(ligne, /Elle se porte dans <a class="link-inline" href="#theme">« Mon thème »<\/a>/)
+  // Elle se porte dans « Ma gerbe », sa page — plus sous les thèmes : le lien le dit.
+  assert.match(ligne, /Elle se porte dans <a class="link-inline" href="#gerbe">« Ma gerbe »<\/a>/)
 })
 
 test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l’album des thèmes', async () => {
@@ -285,8 +285,8 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
     ['savoir', 'avatar'],
     ['legendaires', 'avatar'],
     ['emojis', 'avatar'],
-    ['fonds', 'carte'],
-    ['gerbes', 'theme'],
+    ['fonds', 'fond'],
+    ['gerbes', 'gerbe'],
     ['finitions', 'avatar'],
   ]) {
     lieu.hash = `#collection-${partie}`

@@ -450,13 +450,21 @@ export function ProfilApp() {
           <Icon name="arrow-left" />
           {depuis?.nom ?? 'Mon profil'}
         </a>
-        <PieceTete piece={e.groupe} titre={e.nom}>
-          {e.qui && <p className="muted qui-le-voit">{e.qui}</p>}
+        <PieceTete piece={e.groupe} titre={e.nom} icone={e.icone}>
+          {e.qui && (
+            <p className="muted qui-le-voit">
+              <Icon name="eye" />
+              {e.qui}
+            </p>
+          )}
         </PieceTete>
         {regionDAnnonce}
         {ecran === 'avatar' && (pret ? <pret.PanneauMonAvatar profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'carte' && (pret ? <pret.PanneauMaCarte profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'titre' && (pret ? <pret.PanneauMonTitre profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'vitrine' && (pret ? <pret.PanneauMaVitrine profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'fond' && (pret ? <pret.PanneauMonFond profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
         {ecran === 'theme' && (pret ? <pret.PanneauMonTheme profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'gerbe' && (pret ? <pret.PanneauMaGerbe profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
         {ecran === 'collection' && (pret ? <pret.PanneauCollection profil={profil} /> : enChemin)}
         {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
         {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
@@ -565,19 +573,26 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
 }
 
 /**
- * Les écrans du profil, chacun derrière sa tuile, en deux groupes : ce qu'on
- * porte — rangé par qui le voit : la salle, qui touche son nom, lui seul — et
- * ce qu'on a, ce qu'on a fait. Les onglets d'avant tenaient tout sur trois
- * pages qu'on faisait défiler ; puis cinq tuiles — avatars, style, trophées,
- * carrière, soirées — mêlaient ce qu'on porte et ce qu'on collectionne. La
- * boutique a sa page, dans le menu.
+ * Les écrans du profil, en deux groupes : ce qu'on porte — une page par
+ * pièce, chacune ouverte de sa place sur la carte (le vestiaire) — et ce
+ * qu'on a, ce qu'on a fait, derrière leurs tuiles. Les onglets d'avant
+ * tenaient tout sur trois pages qu'on faisait défiler ; puis cinq tuiles
+ * mêlaient ce qu'on porte et ce qu'on collectionne ; puis « Ma carte »
+ * rangeait titre, vitrine et fond sur un seul écran, et « Mon thème » la
+ * gerbe sous les thèmes : toucher la vitrine faisait tomber au milieu d'une
+ * page (le souhait du propriétaire du 11 octobre 2026 : « que chaque
+ * composant ait une page dédiée », « gerbes et thèmes pas dans le même
+ * onglet »). La boutique a sa page, dans le menu.
  */
-type EcranDuProfil = 'avatar' | 'carte' | 'theme' | 'collection' | 'carriere' | 'soirees'
+type EcranDuProfil = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'collection' | 'carriere' | 'soirees'
 
-const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'Me changer' | 'Me retrouver'; qui?: string }[] = [
-  { id: 'avatar', nom: 'Mon avatar', groupe: 'Me changer', qui: 'La salle le voit, à côté de ton prénom.' },
-  { id: 'carte', nom: 'Ma carte', groupe: 'Me changer', qui: 'On la voit en touchant ton prénom, en soirée.' },
-  { id: 'theme', nom: 'Mon thème', groupe: 'Me changer', qui: 'Toi seul le vois : il habille tes pages, et ta gerbe éclate à tes bonnes réponses.' },
+const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'Me changer' | 'Me retrouver'; icone?: IconName; qui?: string }[] = [
+  { id: 'avatar', nom: 'Mon avatar', groupe: 'Me changer', icone: 'sparkles', qui: 'La salle le voit, à côté de ton prénom.' },
+  { id: 'titre', nom: 'Mon titre', groupe: 'Me changer', icone: 'star', qui: 'Sous ton prénom, sur ta carte : on le lit en touchant ton nom.' },
+  { id: 'vitrine', nom: 'Ma vitrine', groupe: 'Me changer', icone: 'award', qui: 'Trois hauts faits sur ta carte : on les voit en touchant ton nom.' },
+  { id: 'fond', nom: 'Mon fond de carte', groupe: 'Me changer', icone: 'image', qui: 'Derrière ta carte, quand on touche ton nom : rien d’autre ne change.' },
+  { id: 'theme', nom: 'Mon thème', groupe: 'Me changer', icone: 'palette', qui: 'Toi seul le vois : il habille toutes tes pages.' },
+  { id: 'gerbe', nom: 'Ma gerbe', groupe: 'Me changer', icone: 'zap', qui: 'Toi seul la vois : elle éclate à tes bonnes réponses.' },
   { id: 'collection', nom: 'Ma collection', groupe: 'Me retrouver' },
   { id: 'carriere', nom: 'Ma carrière', groupe: 'Me retrouver' },
   { id: 'soirees', nom: 'Mes soirées', groupe: 'Me retrouver' },
@@ -591,18 +606,22 @@ const VUE: 'accueil' | 'profil' | 'boutique' =
 const DEPUIS = 'fiestappProfilDepuis'
 
 /**
- * Les adresses d'avant mènent à l'écran qui les a reprises — un onglet,
- * « Mes avatars », les réglages de « Mon style », les trophées. « Mon style »
- * lui-même (`#style`) ouvre les tuiles : ses réglages y sont tous.
+ * Les adresses d'avant mènent à la page qui les a reprises — un onglet,
+ * « Mes avatars », les réglages de « Mon style », les trophées, les parties
+ * de « Ma carte ». « Mon style » (`#style`) et « Ma carte » (`#carte`)
+ * eux-mêmes ouvrent le profil : sa carte y est, chaque pièce à toucher.
  */
 const ANCIENNES: Record<string, EcranDuProfil> = {
   apparence: 'avatar',
   avatars: 'avatar',
   'style-finition': 'avatar',
-  'style-titre': 'carte',
-  'style-fond': 'carte',
-  'style-gerbe': 'theme',
+  'style-titre': 'titre',
+  'style-fond': 'fond',
+  'style-gerbe': 'gerbe',
   'style-theme': 'theme',
+  'carte-titre': 'titre',
+  'carte-vitrine': 'vitrine',
+  'carte-fond': 'fond',
   trophees: 'collection',
 }
 
@@ -610,9 +629,7 @@ const ANCIENNES: Record<string, EcranDuProfil> = {
 function ecranDe(h: string): EcranDuProfil | null {
   // Une ligne de la collection a son adresse : c'est l'écran de la collection.
   if (h.startsWith('collection-')) return 'collection'
-  // Une pièce d'un écran a la sienne aussi (`#carte-vitrine`, touchée au vestiaire) : c'est son écran.
-  const piece = ECRANS.find(e => h.startsWith(`${e.id}-`))
-  return ECRANS.find(e => e.id === h)?.id ?? piece?.id ?? ANCIENNES[h] ?? null
+  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
 }
 
 /** L'écran de l'adresse (`/profil#collection`), ou les tuiles. */
