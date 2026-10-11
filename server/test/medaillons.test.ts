@@ -5,7 +5,7 @@
 // Pas de serveur : des modules du client, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -424,4 +424,24 @@ test('dans une liste, les halos des finitions et les paillettes de l’Éclat se
     '.player-chip .av::after',
   ])
     assert.ok(fige(selecteur), selecteur)
+})
+
+test('un portrait redessiné ne repose pas son SVG : jamais un `__html` neuf à chaque rendu', () => {
+  // React 19 réécrit un `innerHTML` dès que l'objet `dangerouslySetInnerHTML`
+  // change, même à texte égal (`updateProperties` compare les références, et
+  // ne relit plus `__html`). Neufs à chaque rendu, les quatre morceaux de
+  // chaque portrait se reparsaient à chaque instantané de la salle, à chaque
+  // branche de dessins arrivée — 234 fois avant que les sentiers ne
+  // paraissent —, et ses animations repartaient de zéro.
+  const tsx = (dossier: string): string[] =>
+    readdirSync(dossier, { withFileTypes: true }).flatMap(e =>
+      e.isDirectory() ? tsx(path.join(dossier, e.name)) : e.name.endsWith('.tsx') ? [path.join(dossier, e.name)] : [],
+    )
+  for (const fichier of tsx(client)) {
+    assert.doesNotMatch(readFileSync(fichier, 'utf8'), /dangerouslySetInnerHTML=\{\{/, `${path.relative(client, fichier)} : un objet neuf à chaque rendu`)
+  }
+  // Le portrait se peint une fois par état — son dessin, sa finition, sa taille.
+  const portrait = readFileSync(path.join(client, 'components/Portrait.tsx'), 'utf8')
+  assert.match(portrait, /const peinture = useMemo\(\(\) => \{[\s\S]*?\}, \[p, dessin, verrouille, eclate, cercle, grand, u\]\)/)
+  for (const morceau of ['defs', 'avant', 'scene', 'apres']) assert.match(portrait, new RegExp(`dangerouslySetInnerHTML=\\{peinture\\.${morceau}\\}`), morceau)
 })

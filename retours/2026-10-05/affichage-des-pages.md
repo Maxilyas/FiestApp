@@ -490,6 +490,40 @@ coupure ne parle qu'au bout de quatre secondes, et se tait dès la liaison
 ouverte ; le téléphone qui revient reste sous « On arrive… » jusqu'à sa
 re-présentation — ni l'entrée, ni la salle d'avant elle.
 
+## Puis le processeur, le 11 octobre 2026
+
+Le réseau ne retenant plus guère les pages, leur profil processeur
+(Chromium ×4, client non minifié) a montré deux travaux faits pour rien :
+
+- **Trois formateurs de date créés au chargement de `shared/jour.ts`**, au
+  fuseau de Paris. Presque toutes les pages l'importent pour une
+  constante, et le premier `Intl` d'une page charge les données ICU :
+  80 ms de son module au processeur ×4, avant le premier écran. Ils se
+  créent maintenant à leur première lecture (`aLaPremiereLecture`).
+- **Les portraits des branches reposés à chaque rendu.** React 19 réécrit
+  un `innerHTML` dès que l'objet `__html` change, même à texte égal : sur
+  les sentiers, chaque branche de dessins arrivée repeignait tous les
+  portraits — 234 `innerHTML` avant l'écran utile, 112 ms au processeur ×4 ;
+  en soirée, chaque instantané de la salle reparsait le portrait de chaque
+  invité qui en porte un. Ils se peignent une fois par état (`useMemo`) :
+  36 `innerHTML`, 17 ms.
+
+Mesuré en 4G, `main` contre la retouche, en alternance (deux tours de trois
+essais ; l'accueil et « Mon avatar », deux tours de cinq) — le temps de
+script, que ces retouches visent, en millisecondes, et ce qu'il fait à
+l'écran :
+
+| Page | script, 1ʳᵉ visite | script, retour | à l'écran |
+|---|---|---|---|
+| Sentiers du savoir | 579 → **476** | 641 → **480** | plus grand affichage au retour 1,40 → **0,98 s**, à la 1ʳᵉ visite 1,72 → 1,62 s |
+| Campagne (série) | 377 → **300** | 386 → **304** | écran utile au retour 0,91 → 0,82 s |
+| Entrée d’un invité (QR) | 368 → 304 | 373 → 341 | à 0,05 s près |
+| Accueil d’un profil, Mon avatar | — | — | rien ne bouge, à 0,02 s près |
+
+L'écran utile, lui, varie d'un tour à l'autre d'une centaine de
+millisecondes pour un même client : seul le script, et le plus grand
+affichage des sentiers, sortent nettement du bruit.
+
 Restent, dans l'ordre : **la feuille de style par vue** (piste 5), puis
 Preact (piste 6) et les morceaux préchargés (piste 7), sur une mesure
 refaite.

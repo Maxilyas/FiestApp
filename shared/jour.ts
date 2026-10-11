@@ -105,12 +105,22 @@ export function seuilsDesMedailles(questions: number): { or: number; argent: num
 
 // ── Les jours ─────────────────────────────────────────────────────────────
 
-const FORMAT_DU_JOUR = new Intl.DateTimeFormat('en-CA', {
-  timeZone: FUSEAU_DU_JOUR,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-})
+/**
+ * Un formateur créé à sa première lecture, puis gardé. Le premier `Intl`
+ * d'une page charge les données ICU — 20 à 80 ms au processeur d'un
+ * téléphone moyen —, et presque toutes les pages importent ce module pour
+ * une constante (le nom d'un laurier, un type) sans lire une date avant leur
+ * premier écran : créés au chargement, ses trois formateurs retardaient
+ * l'entrée d'un invité comme les sentiers.
+ */
+function aLaPremiereLecture(creer: () => Intl.DateTimeFormat): () => Intl.DateTimeFormat {
+  let format: Intl.DateTimeFormat | undefined
+  return () => (format ??= creer())
+}
+
+const formatDuJour = aLaPremiereLecture(
+  () => new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU_DU_JOUR, year: 'numeric', month: '2-digit', day: '2-digit' }),
+)
 
 /**
  * Le jour de Paris d'un instant, écrit « 2026-09-26 » : la clé de tout ce qui
@@ -118,7 +128,7 @@ const FORMAT_DU_JOUR = new Intl.DateTimeFormat('en-CA', {
  * ainsi, il se trie comme une chaîne.
  */
 export function jourDe(instant: number): string {
-  const parts = Object.fromEntries(FORMAT_DU_JOUR.formatToParts(new Date(instant)).map(p => [p.type, p.value]))
+  const parts = Object.fromEntries(formatDuJour().formatToParts(new Date(instant)).map(p => [p.type, p.value]))
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
@@ -161,18 +171,20 @@ export const HEURE_DU_RAPPEL = 18
  */
 export const FIN_DU_RAPPEL = 22
 
-const FORMAT_DE_L_HEURE = new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', hourCycle: 'h23' })
+const formatDeLHeure = aLaPremiereLecture(() => new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', hourCycle: 'h23' }))
 
 /** L'heure qu'il est à Paris, de 0 à 23 — changements d'heure compris. */
 export function heureDeParis(instant: number): number {
-  return Number(FORMAT_DE_L_HEURE.formatToParts(new Date(instant)).find(p => p.type === 'hour')?.value ?? 0)
+  return Number(formatDeLHeure().formatToParts(new Date(instant)).find(p => p.type === 'hour')?.value ?? 0)
 }
 
-const FORMAT_DES_MINUTES = new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+const formatDesMinutes = aLaPremiereLecture(
+  () => new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
+)
 
 /** Les minutes passées depuis minuit à Paris, de 0 à 1439. */
 export function minutesDeParis(instant: number): number {
-  const parts = FORMAT_DES_MINUTES.formatToParts(new Date(instant))
+  const parts = formatDesMinutes().formatToParts(new Date(instant))
   return Number(parts.find(p => p.type === 'hour')?.value ?? 0) * 60 + Number(parts.find(p => p.type === 'minute')?.value ?? 0)
 }
 

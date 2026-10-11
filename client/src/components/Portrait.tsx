@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useMemo } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import { Cercle } from './Cercle'
@@ -200,7 +200,6 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   const brut = useId()
   const dessin = dessinDuPortrait(useDessins(), cle)
   const p = portraitDe(cle)
-  if (!p || !dessin) return null
   // Verrouillé, il n'a ni version éclatée ni cercle : il n'est pas encore à lui.
   const eclate = !!eclat && !verrouille
   const cercle = !!finition && finition !== 'mat' && !verrouille
@@ -210,34 +209,47 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   // ciel du cerf ordinaire de l'autre — le premier dégradé d'un nom gagne.
   const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' : '')
   const u = `pt-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
-  const [a, b, c] = verrouille ? NUIT : eclate ? CIELS_RARES[p.branche] : dessin.fond
+  // Des chaînes écrites dans ce fichier et dans `portraits/`, jamais une
+  // donnée d'invité, posées d'un bloc — et peintes une fois par état : React
+  // 19 réécrit un `innerHTML` dès que l'objet `__html` change, même à texte
+  // égal. Neufs à chaque rendu, les quatre morceaux de chaque portrait se
+  // reparsaient à chaque instantané de la salle et à chaque branche de
+  // dessins arrivée — 234 fois avant que les sentiers ne paraissent, pour
+  // une soixantaine de portraits.
+  const peinture = useMemo(() => {
+    if (!p || !dessin) return null
+    const [a, b, c] = verrouille ? NUIT : eclate ? CIELS_RARES[p.branche] : dessin.fond
+    const disque =
+      `<radialGradient id="${u}_fond" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
+    const { defs, avant, scene, apres, rayon } = peint(dessin.image, p.rang, u, {
+      verrouille: !!verrouille,
+      eclate,
+      cercle,
+      grand: !!grand,
+      rare: CIELS_RARES[p.branche],
+    })
+    return {
+      defs: { __html: disque + `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs },
+      avant: avant ? { __html: avant } : null,
+      scene: { __html: scene },
+      apres: apres ? { __html: apres } : null,
+    }
+  }, [p, dessin, verrouille, eclate, cercle, grand, u])
+  if (!p || !peinture) return null
   const classes = ['pt', `pt-${p.branche}`]
   if (verrouille) classes.push('pt-verrou')
   if (eclate) classes.push('pt-eclate')
   if (className) classes.push(className)
+  classes.push(`pt-palier-${p.rang + 1}`)
   const titre = verrouille ? `${p.nom} — pas encore gagné` : eclate ? `${p.nom}, éclaté` : p.nom
-  const disque =
-    `<radialGradient id="${u}_fond" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
-  const palier = p.rang
-  classes.push(`pt-palier-${palier + 1}`)
-  const { defs, avant, scene, apres, rayon } = peint(dessin.image, palier, u, {
-    verrouille: !!verrouille,
-    eclate,
-    cercle,
-    grand: !!grand,
-    rare: CIELS_RARES[p.branche],
-  })
   return (
     <svg className={classes.join(' ')} viewBox="0 0 100 100" role="img" aria-label={titre}>
       <title>{titre}</title>
-      {/* Des chaînes écrites dans ce fichier et dans `portraits/`, jamais une
-          donnée d'invité : posées d'un bloc, elles ne font pas autant
-          d'éléments React à comparer à chaque instantané de la salle. */}
-      <defs dangerouslySetInnerHTML={{ __html: disque + `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs }} />
-      {avant && <g dangerouslySetInnerHTML={{ __html: avant }} />}
+      <defs dangerouslySetInnerHTML={peinture.defs} />
+      {peinture.avant && <g dangerouslySetInnerHTML={peinture.avant} />}
       {cercle && <Cercle finition={finition} id={nom => `${u}_${nom}`} />}
-      <g clipPath={`url(#${u}_clip)`} dangerouslySetInnerHTML={{ __html: scene }} />
-      {apres && <g dangerouslySetInnerHTML={{ __html: apres }} />}
+      <g clipPath={`url(#${u}_clip)`} dangerouslySetInnerHTML={peinture.scene} />
+      {peinture.apres && <g dangerouslySetInnerHTML={peinture.apres} />}
     </svg>
   )
 }
