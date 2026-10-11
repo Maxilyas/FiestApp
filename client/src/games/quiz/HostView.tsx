@@ -27,6 +27,7 @@ import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
 import { NomLaure } from '../../components/Laurier'
 import { Regie } from './Regie'
+import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../../components/QuizToutPretADemande'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -103,6 +104,8 @@ function ChoixDuQuiz({
   const ensuite = (programme?.ensuite && packs.find(p => p.id === programme.ensuite)) || null
   const [autre, setAutre] = useState(false)
   const [recherche, setRecherche] = useState('')
+  /** La feuille du quiz tout prêt : composé, il se lance aussitôt — la salle attend. */
+  const [toutPret, setToutPret] = useState(false)
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState<number>(prochain?.auProgramme?.multiplier ?? 1)
   const lancer = (p: QuizPackInfo) => sendCommand({ type: 'selectPack', packId: p.id, multiplier })
@@ -188,6 +191,16 @@ function ChoixDuQuiz({
           <Icon name="sparkles" />
           Choisis un quiz
         </h2>
+        <button
+          className="btn btn-ghost"
+          onClick={() => {
+            quizToutPret.charger().catch(() => {})
+            setToutPret(true)
+          }}
+        >
+          <Icon name="dice" />
+          Un quiz tout prêt
+        </button>
         {prochain && (
           <button
             className="btn btn-ghost"
@@ -240,6 +253,17 @@ function ChoixDuQuiz({
         {visibles.length === 0 && <p className="serif-note">Aucun quiz ne porte ce titre.</p>}
       </div>
       {annuler}
+      {toutPret && (
+        <FeuilleDuQuizToutPretADemande
+          verbe="Lancer"
+          onFermer={() => setToutPret(false)}
+          onCompose={quiz => {
+            setToutPret(false)
+            // Rangé dans la bibliothèque avant la réponse (`onLibraryChanged`) : la partie le trouve.
+            sendCommand({ type: 'selectPack', packId: quiz.id, multiplier })
+          }}
+        />
+      )}
     </div>
   )
 }

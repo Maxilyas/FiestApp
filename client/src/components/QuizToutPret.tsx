@@ -27,7 +27,16 @@ import {
  * pressé n'a qu'un toucher à faire. Le quiz composé rejoint sa
  * bibliothèque : « Créer un quiz » l'ouvre, le salon l'ajoute à ce soir.
  */
-export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () => void; onCompose: (quiz: QuizDef) => void }) {
+export function FeuilleDuQuizToutPret({
+  onFermer,
+  onCompose,
+  verbe = 'Composer',
+}: {
+  onFermer: () => void
+  onCompose: (quiz: QuizDef) => void
+  /** Ce que fait son bouton : « Composer », ou « Lancer » à la console, où le quiz composé se joue aussitôt. */
+  verbe?: string
+}) {
   const [base, setBase] = useState<BaseDuQuizToutPret | null>(null)
   const [erreur, setErreur] = useState('')
   const [categories, setCategories] = useState<string[]>([])
@@ -80,7 +89,7 @@ export function FeuilleDuQuizToutPret({ onFermer, onCompose }: { onFermer: () =>
           </p>
           <button type="button" className="btn btn-primary btn-big btn-block" aria-busy={compose || undefined} disabled={!base || compose} onClick={() => void composer()}>
             <Icon name="dice" />
-            {compose ? 'Je compose…' : `Composer ${nombre} questions`}
+            {compose ? 'Je compose…' : `${verbe} ${nombre} questions`}
           </button>
         </>
       }
