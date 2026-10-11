@@ -122,6 +122,21 @@ test('un 1920 × 1080 a la place d’un 1366 × 768, et un classement révélé 
   assert.match(css, /\.host\.staging \.reveal-boards \.coupe-zone \{ min-height: 4rem; \}/)
 })
 
+test('la clôture la plus courante tient dans la scène : ses hauts faits entiers sous le QR en grand', () => {
+  // Le QR du souvenir en grand, une équipe et des hauts faits — rien de
+  // débloqué, le cas de presque toutes les soirées — dépassaient la scène
+  // d'1,6 rem en 1366 × 768 comme en 1920 × 1080 : la rangée des hauts faits
+  // n'y montrait que le haut de ses badges (`rendu-ecran.ts`, `DEBORDE=1`, le
+  // 11 octobre 2026). Les écarts se resserrent…
+  assert.match(grandsEcrans, /\.cloture \{ gap: 0\.75rem; \}/)
+  assert.match(grandsEcrans, /\.cloture-colonne \{ gap: 0\.875rem; \}/)
+  assert.match(grandsEcrans, /\.scene-qr\.cloture-qr-grand \{ gap: 0\.5rem; \}/)
+  assert.match(grandsEcrans, /\.scene-qr\.cloture-qr-grand \.qr-box \{ padding: 0\.375rem; \}/)
+  assert.match(grandsEcrans, /\.cloture-tete h2 \{ font-size: 2\.25rem; margin-top: 0\.125rem; \}/)
+  // … et le QR garde sa taille de canapé, un tiers de la hauteur.
+  assert.match(css, /\.scene-qr\.cloture-qr-grand \.qr-box svg \{ width: min\(34vh, 22\.5rem\); height: min\(34vh, 22\.5rem\); \}/)
+})
+
 test('au podium de la soirée, la suite du classement passe avant les distinctions', () => {
   // Trois cartes de distinctions prenaient toute la colonne : il restait une
   // ligne du classement, et « et 4 autres ».
