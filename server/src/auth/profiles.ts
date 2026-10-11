@@ -229,6 +229,9 @@ export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGN
 /** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
 export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
 
+/** Ses dernières soirées, où l'on cherche qui il a croisé (`compagnonsDeSoiree`) : au-delà, on ne se souvient plus de qui était là. */
+const SOIREES_DES_CROISES = 5
+
 /**
  * Le nom sous lequel un jour range les paliers du quiz du jour qu'il a fait
  * tomber (`#jour:2026-09-26`) : aucune soirée ne le porte, et en retirer une
@@ -679,6 +682,8 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, soiree_id)
          )`,
+        // Lue par soirée — qui l'a jouée avec lui (`compagnonsDeSoiree`) — : sans index, la table entière à chaque lecture.
+        `CREATE INDEX IF NOT EXISTS idx_profile_xp_soiree ON profile_xp(soiree_id, space_id)`,
         // Une ligne par badge ET par soirée où il est tombé : la clé rend la
         // consolidation idempotente, et compter les lignes donne gratuitement
         // le nombre de fois où un prix a été décroché.
@@ -899,6 +904,26 @@ export class ProfileStore {
       .sort((a, b) => Number(!a.nom.startsWith(cherche)) - Number(!b.nom.startsWith(cherche)) || a.nom.localeCompare(b.nom))
       .slice(0, limite)
     return (await this.byIds(trouves.map(l => l.id))).filter((p): p is ProfileRec => p !== null)
+  }
+
+  /**
+   * Ceux qui ont joué ses dernières soirées avec lui — la même soirée du même
+   * espace, une ligne d'expérience chacun —, les plus récents d'abord : des
+   * joueurs croisés, à défier ou à ajouter (`CampagneStore.joueursCroises`).
+   * Seulement les siennes : il était dans la salle, il les a vus. Les lignes à
+   * part ne sont pas des soirées (`HORS_LIGNES_A_PART`) : celle du quiz du
+   * jour le ferait croiser tout le serveur.
+   */
+  async compagnonsDeSoiree(profileId: string, limite: number): Promise<string[]> {
+    const res = await this.client.execute({
+      sql: `SELECT x.profile_id, MAX(x.created_at) AS le
+            FROM (SELECT space_id, soiree_id FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} ORDER BY created_at DESC LIMIT ?) s
+            JOIN profile_xp x ON x.soiree_id = s.soiree_id AND x.space_id = s.space_id
+            WHERE x.profile_id <> ?
+            GROUP BY x.profile_id ORDER BY le DESC LIMIT ?`,
+      args: [profileId, SOIREES_DES_CROISES, profileId, limite],
+    })
+    return res.rows.map(r => String(r.profile_id))
   }
 
   async byLogin(login: unknown): Promise<ProfileRec | null> {

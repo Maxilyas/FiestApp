@@ -333,6 +333,34 @@ export interface FaceAFace {
   moi: { cote: number; joues: number }
 }
 
+/**
+ * Pourquoi un joueur croisé paraît, du plus proche au plus lointain : une
+ * soirée jouée ensemble, un duel entre eux, le défi de la semaine, une cote
+ * proche de la sienne.
+ */
+export type Croisement = 'soiree' | 'duel' | 'defi' | 'niveau'
+
+/** Ce que sa ligne en dit — sans genre : on ne devine pas celui d'un prénom. */
+export const RAISON_DU_CROISEMENT: Record<Croisement, string> = {
+  soiree: 'en soirée avec toi',
+  duel: 'un duel entre vous',
+  defi: 'au défi de la semaine',
+  niveau: 'de ton niveau',
+}
+
+/**
+ * Un joueur croisé (le souhait du propriétaire du 11 octobre 2026 : « c'est
+ * dommage que ça montre pas des joueurs pour les ajouter en ami ») : de quoi
+ * défier ou ajouter quelqu'un sans connaître son prénom — « Contre qui ? »,
+ * la feuille des amis. Jamais un ami : il est déjà dans sa liste.
+ */
+export interface JoueurCroise extends JoueurADefier {
+  croise: Croisement
+}
+
+/** Les joueurs croisés qu'on montre : une poignée, pas une liste à faire défiler. */
+export const JOUEURS_CROISES = 6
+
 /** Ce qu'une recherche rend au plus : de quoi trouver quelqu'un, pas un annuaire. */
 export const JOUEURS_TROUVES = 12
 

@@ -17,7 +17,7 @@ import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
-import type { CleDeLigue, CoteApresLeDuel, EnjeuDuDuel } from './duels'
+import type { CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise } from './duels'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -646,12 +646,15 @@ export interface AmiDeCampagne extends SonApparence {
  * La feuille des amis (`GET /api/duels/amis`, le souhait du propriétaire du
  * 11 octobre 2026 : « une fenêtre avec la liste des amis, s'il est connecté,
  * ajouter, supprimer, défier ») : sa liste — qui est en ligne, entre amis
- * réciproques —, et ceux qui l'ont ajouté sans qu'il les ait ajoutés.
+ * réciproques —, ceux qui l'ont ajouté sans qu'il les ait ajoutés, et des
+ * joueurs qu'il a croisés, à ajouter d'un toucher.
  */
 export interface AmisDeLaFeuille {
   amis: AmiDeCampagne[]
   /** Ceux qui l'ont ajouté et qu'il n'a pas ajoutés, les plus récents d'abord (`AJOUTS_MONTRES` au plus) — jamais un qu'il a retiré. */
   tOntAjoute: AmiDeCampagne[]
+  /** Des joueurs qu'il a croisés (`JOUEURS_CROISES` au plus) — ni un ami, ni l'un de ceux qui l'ont ajouté. */
+  croises: JoueurCroise[]
 }
 
 /** « Ils t'ont ajouté » : les plus récents, de quoi rendre la pareille — pas une liste de suiveurs. */

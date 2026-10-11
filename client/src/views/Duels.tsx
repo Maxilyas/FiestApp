@@ -9,7 +9,6 @@ import { BlasonDeLigue } from '../components/Blason'
 import { lueur } from '../components/Atlas'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
-import type { RepliDeCarte } from '../components/CarteJoueur'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
 import { DefisRecus, LaClocheDesDefis, MesDuels, TesDuelsContre, duelEnRoute } from './Duel'
 import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre } from './Rencontre'
@@ -214,7 +213,7 @@ function LesLigues({ ligue, ouvert }: { ligue: CleDeLigue; ouvert: boolean }) {
  * encombrait la page — la remarque du propriétaire —, et l'on défie
  * maintenant qui l'on a vu.
  */
-function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string, repli: RepliDeCarte) => void }) {
+function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void }) {
   const ligue = ligueParCle(l.ligue)
   return (
     <button
@@ -222,9 +221,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
       className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
       // Le nom du bouton remplace tout son contenu : le rang, la ligue et la cote doivent y être.
       aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}`}
-      onClick={() =>
-        onOuvrir(l.profileId, { carte: { nom: l.nom, avatar: l.avatar, finition: l.finition, legendaire: l.legendaire, ...(l.eclat && { eclat: true }), ...(l.laurier && { laurier: l.laurier }) } })
-      }
+      onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
       <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
@@ -262,7 +259,7 @@ export function FeuilleDuClassement({
   onFermer,
 }: {
   classement: EtatDesDuels['classement']
-  onOuvrir: (profileId: string, repli: RepliDeCarte) => void
+  onOuvrir: (profileId: string) => void
   onFermer: () => void
 }) {
   const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)

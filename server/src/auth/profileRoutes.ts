@@ -48,10 +48,9 @@ interface ProfileApiDeps {
   maintenant: () => number
   /**
    * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
-   * celui qu'il avance ; ses duels, pour le leur ; et ses défis et ses amis
-   * réciproques, qui ouvrent sa carte.
+   * celui qu'il avance ; ses duels, pour le leur.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'aReleveUnDefi' | 'sontAmisReciproques'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels'>
 }
 
 /**
@@ -410,15 +409,17 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
-  // La carte d'un autre joueur du quiz du jour, en touchant son nom au
-  // classement du jour — tout le serveur, comme le classement : l'arbitrage
-  // du 27 septembre 2026 —, ou au classement d'un défi, de la semaine ou entre
-  // amis (le souhait du propriétaire du 11 octobre 2026). Seulement qui y a
-  // joué, et jamais un profil masqué, que ces classements ne montrent plus aux
-  // autres ; qui regarde a un profil, comme pour les lire. La même carte
-  // qu'en soirée, sans « ce soir ». Et celle d'un ami réciproque — chacun a
-  // ajouté l'autre —, touché dans la feuille des amis : à sens unique, on
-  // l'ouvrirait à n'importe qui, en l'ajoutant par son prénom.
+  // La carte d'un autre profil, en touchant son nom hors d'une soirée — le
+  // classement du jour (tout le serveur, comme le classement : l'arbitrage du
+  // 27 septembre 2026), d'un défi, des duels, ses amis, une recherche, les
+  // joueurs croisés. La carte entière de tout profil, sauf d'un masqué, que
+  // ces listes ne montrent plus aux autres ; qui regarde a un profil, comme
+  // pour les lire. La même carte qu'en soirée, sans « ce soir ». Elle ne
+  // s'ouvrait qu'à qui avait joué au quiz du jour ou en duel, ou aux amis
+  // réciproques, et une carte réduite tenait sa place ailleurs — « vide avec
+  // juste défier / retirer » : le souhait du propriétaire du 11 octobre 2026
+  // l'ouvre en entier. La recherche par prénom trouvait déjà tout profil non
+  // masqué : son identifiant ne cachait rien de plus.
   app.get(
     '/api/joueur/carte/:id',
     wrap(async (req, res) => {
@@ -426,12 +427,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
       const autre = await profiles.byId(String(req.params.id))
-      const visible =
-        autre &&
-        (autre.id === me.id ||
-          (!deps.jour.estMasque(autre.id) &&
-            ((await deps.jour.resumeDe(autre.id)).joues > 0 || (await deps.campagne.aReleveUnDefi(autre.id)) || (await deps.campagne.sontAmisReciproques(me.id, autre.id)))))
-      if (!autre || !visible) return res.status(404).json({ error: 'Carte introuvable' })
+      if (!autre || (autre.id !== me.id && deps.jour.estMasque(autre.id))) return res.status(404).json({ error: 'Carte introuvable' })
       const carte: CarteDeJoueur = {
         nom: autre.name,
         avatar: profiles.avatarPorte(autre),

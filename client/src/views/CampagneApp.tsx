@@ -51,7 +51,7 @@ import {
   type SerieDeCampagne,
 } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
-import type { CoteApresLeDuel, EnjeuDuDuel, JoueurADefier } from '../../../shared/duels'
+import type { CoteApresLeDuel, EnjeuDuDuel, JoueurADefier, JoueurCroise } from '../../../shared/duels'
 
 type Ecran =
   | { e: 'chargement' }
@@ -742,6 +742,21 @@ export function CampagneApp() {
       vivant = false
     }
   }, [mode, etatPourLancer, ecran.e])
+  // Les joueurs qu'il a croisés, pour « Contre qui ? » : lus à l'arrivée, en même temps, et relus quand sa liste d'amis change.
+  // Sans eux — un échec —, la préparation garde la recherche et ses amis.
+  const [croises, setCroises] = useState<JoueurCroise[] | null>(null)
+  const [croisesLus, setCroisesLus] = useState(0)
+  useEffect(() => {
+    if (mode !== 'defier' || ecran.e !== 'duels') return
+    let vivant = true
+    api.duels
+      .croises()
+      .then(c => vivant && setCroises(c))
+      .catch(() => vivant && setCroises([]))
+    return () => {
+      vivant = false
+    }
+  }, [mode, ecran.e, croisesLus])
   const adversaireAttendu = mode === 'defier' && !!contreQui && depart.adversaire?.profileId !== contreQui
   useEffect(() => {
     if (!adversaireAttendu || !contreQui || ecran.e !== 'duels') return
@@ -910,12 +925,17 @@ export function CampagneApp() {
             // Celui qu'on défie change — une autre carte, l'adresse relue : la préparation repart de lui.
             key={depart.adversaire?.profileId ?? 'libre'}
             amis={mesAmis?.amis ?? null}
+            croises={croises}
             categoriesJouables={etatPourLancer.categories.map(c => c.categorie)}
             sujets={sujets}
             depart={{ ...depart, sujet: sujets.some(x => x.cle === depart.sujet) ? depart.sujet : null }}
             busy={busy}
             erreur={erreur}
             onLancer={(c, x, a, enjeu) => void lancerUnDuel(c, x, a, enjeu)}
+            onAmis={() => {
+              void relireMesAmis()
+              setCroisesLus(n => n + 1)
+            }}
             onRetour={quitterLeLancement}
           />
           {toastVu}
