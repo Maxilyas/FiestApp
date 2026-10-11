@@ -300,6 +300,7 @@ export interface Extraction {
 }
 
 const FRANCE = 'Q142'
+const FRANCAIS = 'Q150'
 const FEMME = 'Q6581072'
 const HUMAIN = 'Q5'
 
@@ -320,6 +321,18 @@ async function personnes(wd: Wikidata, qids: readonly string[], annees?: Readonl
     e.humain = de('P31').includes(HUMAIN)
   }
   return entites
+}
+
+/**
+ * Un sujet est-il français ? Par sa langue, quand la famille la lit : sur
+ * Wikidata, « Bridget Jones Baby » et « Le Ruban blanc » ont la France parmi
+ * leurs pays d'origine — des coproductions —, et un réalisateur de
+ * nationalité française y rangeait « Le Pianiste ». Sinon par son pays, ou
+ * celui de son auteur.
+ */
+export function estFrancais(o: { langues: readonly string[] | null; pays: readonly string[]; paysDeLAuteur: readonly string[] }): boolean {
+  if (o.langues) return o.langues.includes(FRANCAIS)
+  return o.pays.includes(FRANCE) || o.paysDeLAuteur.includes(FRANCE)
 }
 
 /**
@@ -439,6 +452,8 @@ async function oeuvresEtAuteurs(
     anneesDesOeuvres?: boolean
     /** Les genres à reconnaître dans les sujets (`FaitBrut.genres`). */
     genres?: readonly string[]
+    /** La langue du sujet, qui dit s'il est français (`estFrancais`) — P364 pour un film ou une série. */
+    langue?: string
   },
 ): Promise<Extraction> {
   const sujetsBruts = await wd.sparql(`SELECT DISTINCT ?item WHERE { ${o.motif} ?item wikibase:sitelinks ?n . FILTER(?n >= ${o.liensMin}) }`)
@@ -459,6 +474,7 @@ async function oeuvresEtAuteurs(
   const pays = o.pays ? await wd.valeurs(uniques, o.pays) : new Map<string, Valeur[]>()
   const indices = o.indice ? await wd.valeurs(uniques, o.indice, { periodes: true }) : new Map<string, Valeur[]>()
   const genres = o.genres ? await genresParmi(wd, uniques, o.genres) : null
+  const langues = o.langue ? await wd.valeurs(uniques, o.langue) : null
   const anneeDuSujet = (q: string) => {
     const annees = (dates.get(q) ?? []).filter(v => (v.prec ?? 0) >= 9).map(v => anneeDe(v.v)).filter((a): a is number => a !== null)
     return annees.length > 0 ? Math.min(...annees) : null
@@ -483,7 +499,7 @@ async function oeuvresEtAuteurs(
       reponse,
       annee: anneeDuSujet(q),
       indices: [valeurActuelle(indices.get(q) ?? [])?.l].filter((l): l is string => !!l),
-      francais: (pays.get(q) ?? []).some(v => v.v === FRANCE) || (reponse.pays ?? []).includes(FRANCE),
+      francais: estFrancais({ langues: langues && (langues.get(q) ?? []).map(v => v.v), pays: (pays.get(q) ?? []).map(v => v.v), paysDeLAuteur: reponse.pays ?? [] }),
       ...(genres && { genres: genres.get(q) ?? [] }),
     })
   }
@@ -593,6 +609,11 @@ export function sousThemeDUnAlbum(f: Pick<FaitBrut, 'genres' | 'francais'>): str
   return f.francais ? 'chanson-fr' : 'pop-rock'
 }
 
+/** Les genres qui rangent une œuvre littéraire au théâtre et à la poésie. */
+const POESIE = 'Q482'
+const COMEDIE = 'Q40831'
+const TRAGEDIE = 'Q80930'
+
 /** Ceux dont le métier est d'écrire — écrivain, romancier, poète, dramaturge, philosophe. */
 const ECRIVAINS = ['Q36180', 'Q6625963', 'Q49757', 'Q214917', 'Q4964182']
 
@@ -628,13 +649,15 @@ export const FAMILLES: readonly Famille[] = [
     echelle: 0.5,
     sorte: 'sujet',
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P57', liensMin: 40, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P57', liensMin: 40, oeuvresMin: 2, date: 'P577', pays: 'P495', langue: 'P364' }),
   },
   {
     cle: 'romans',
     nom: 'Un livre, son auteur',
     categorie: 'Arts & lettres',
-    sousTheme: f => (f.francais ? 'litterature-fr' : 'litterature-monde'),
+    // Sur Wikidata, « Les Fleurs du mal » et « Cyrano de Bergerac » sont des œuvres littéraires de genre poésie ou comédie :
+    // leur genre les range au théâtre et à la poésie.
+    sousTheme: f => ((f.genres ?? []).length > 0 ? 'poesie-theatre' : f.francais ? 'litterature-fr' : 'litterature-monde'),
     gabarit: f => `Qui a écrit « ${f.sujet.nom} » ?`,
     demande: "qui a écrit l'œuvre",
     typeSujet: 'oeuvre',
@@ -653,6 +676,7 @@ export const FAMILLES: readonly Famille[] = [
         date: 'P577',
         pays: 'P495',
         auteur: { prop: 'P106', valeurs: ECRIVAINS },
+        genres: [POESIE, COMEDIE, TRAGEDIE],
       }),
   },
   {
@@ -670,9 +694,18 @@ export const FAMILLES: readonly Famille[] = [
     echelle: 0.5,
     sorte: 'sujet',
     // Les films français, bien moins traduits que ceux d'Hollywood : à quarante langues, le pilote n'en avait que trois
-    // sur soixante-quinze. Leur vivier, des réalisateurs français : de vrais leurres pour un film français.
+    // sur soixante-quinze. En français : la France seule pour pays d'origine y mettait des coproductions tournées en
+    // anglais. Leur vivier, des réalisateurs de films français : de vrais leurres pour un film français.
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 ; wdt:P495 wd:Q142 .', prop: 'P57', liensMin: 12, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+      oeuvresEtAuteurs(wd, {
+        motif: '?item wdt:P31 wd:Q11424 ; wdt:P495 wd:Q142 ; wdt:P364 wd:Q150 .',
+        prop: 'P57',
+        liensMin: 12,
+        oeuvresMin: 2,
+        date: 'P577',
+        pays: 'P495',
+        langue: 'P364',
+      }),
   },
   {
     cle: 'animation',
@@ -689,7 +722,7 @@ export const FAMILLES: readonly Famille[] = [
     echelle: 0.5,
     sorte: 'sujet',
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q202866 wd:Q29168811 } ?item wdt:P31 ?classe .', prop: 'P57', liensMin: 15, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q202866 wd:Q29168811 } ?item wdt:P31 ?classe .', prop: 'P57', liensMin: 15, oeuvresMin: 2, date: 'P577', pays: 'P495', langue: 'P364' }),
   },
   {
     cle: 'series',
@@ -706,7 +739,7 @@ export const FAMILLES: readonly Famille[] = [
     echelle: 0.5,
     sorte: 'sujet',
     // Un créateur signe rarement deux séries connues : le vivier prend tous ceux des sujets, pas ceux qui en ont deux.
-    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q5398426 .', prop: 'P170', liensMin: 15, oeuvresMin: 1, date: 'P580', pays: 'P495' }),
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q5398426 .', prop: 'P170', liensMin: 15, oeuvresMin: 1, date: 'P580', pays: 'P495', langue: 'P364' }),
   },
   {
     cle: 'musiques-de-films',
@@ -722,7 +755,7 @@ export const FAMILLES: readonly Famille[] = [
     vuesMin: 25,
     echelle: 0.4,
     sorte: 'sujet',
-    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P86', liensMin: 30, oeuvresMin: 2, date: 'P577', pays: 'P495' }),
+    extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P86', liensMin: 30, oeuvresMin: 2, date: 'P577', pays: 'P495', langue: 'P364' }),
   },
   {
     cle: 'operas',
@@ -784,7 +817,8 @@ export const FAMILLES: readonly Famille[] = [
     sorte: 'sujet',
     extraire: wd =>
       oeuvresEtAuteurs(wd, {
-        motif: 'VALUES ?classe { wd:Q25379 wd:Q5185279 wd:Q12106333 } ?item wdt:P31 ?classe .',
+        // Une pièce est une « œuvre dramatique » (Q116476516) : « pièce de théâtre » seule ne rendait rien.
+        motif: 'VALUES ?classe { wd:Q116476516 wd:Q25379 wd:Q5185279 wd:Q12106333 } ?item wdt:P31 ?classe .',
         prop: 'P50',
         liensMin: 10,
         oeuvresMin: 2,
@@ -984,11 +1018,16 @@ export const FICHES_PAR_LOT = 30
  * (`CIBLE_DES_DIFFICULTES`). Rendues par lots d'une seule famille : la
  * consigne dit une seule question.
  */
-export function choisirLesFiches(parFamille: ReadonlyMap<string, readonly FicheDeFait[]>, tri: TriDesEntrees, o: { questions: number; parLot: number }): FicheDeFait[][] {
+export function choisirLesFiches(
+  parFamille: ReadonlyMap<string, readonly FicheDeFait[]>,
+  tri: TriDesEntrees,
+  o: { questions: number; parLot: number; quotas?: ReadonlyMap<string, number> },
+): FicheDeFait[][] {
   const familles = [...parFamille.keys()].filter(f => (parFamille.get(f)?.length ?? 0) > 0)
   const lots: FicheDeFait[][] = []
   familles.forEach((cle, i) => {
-    const part = Math.floor(o.questions / familles.length) + (i < o.questions % familles.length ? 1 : 0)
+    // Sa part : celle qu'on lui donne (`goncourt:50`), sinon autant que les autres.
+    const part = o.quotas?.get(cle) ?? Math.floor(o.questions / familles.length) + (i < o.questions % familles.length ? 1 : 0)
     const acceptees = parFamille.get(cle)!.filter(f => 'question' in tri.juger(entreeDeLaFiche(f), `${cle} ${f.qids.join('/')}`))
     // Chaque marche reçoit sa part de la cible, la plus lue d'abord ; ce qu'une marche n'a pas, les autres le prennent.
     const prises = new Set<FicheDeFait>()
@@ -1479,6 +1518,9 @@ function lireLesFiches(cle: string): FicheDeFait[] {
 
 function preparerLesLots(o: { questions: number; familles: string[]; parLot: number; nom: string }) {
   if (!/^[A-Za-z0-9]+$/.test(o.nom)) throw new Error(`Le nom d'une génération ne prend que des lettres et des chiffres : ${o.nom}`)
+  // Une famille peut porter sa part : `--familles=goncourt:50,films:250` — sans, toutes ont la même.
+  const quotas = new Map(o.familles.filter(f => f.includes(':')).map(f => [f.split(':')[0], Number(f.split(':')[1])] as const))
+  o = { ...o, familles: o.familles.map(f => f.split(':')[0]) }
   const inconnue = o.familles.find(c => !FAMILLES.some(f => f.cle === c))
   if (inconnue) throw new Error(`Famille inconnue : ${inconnue} (${FAMILLES.map(f => f.cle).join(', ')}).`)
   const dossier = path.join(DOSSIER_DES_LOTS, o.nom)
@@ -1495,7 +1537,7 @@ function preparerLesLots(o: { questions: number; familles: string[]; parLot: num
       }
     }
   }
-  const lots = choisirLesFiches(new Map(o.familles.map(cle => [cle, lireLesFiches(cle)])), tri, { questions: o.questions, parLot: o.parLot })
+  const lots = choisirLesFiches(new Map(o.familles.map(cle => [cle, lireLesFiches(cle)])), tri, { questions: o.questions, parLot: o.parLot, quotas })
   mkdirSync(dossier, { recursive: true })
   const missions = lots.map((fiches, i) => {
     const id = `${o.nom}-${String(i + 1).padStart(2, '0')}`

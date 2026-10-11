@@ -21,6 +21,7 @@ import {
   consigneDesFaits,
   difficulteAPriori,
   entreeDeLaFiche,
+  estFrancais,
   fenetreDesVues,
   fichesDeLaFamille,
   fichiersDuLot,
@@ -229,6 +230,11 @@ test('le choix des fiches : rien de ce que la base pose déjà, autant par famil
     assert.ok(lot.length <= 2)
     assert.equal(new Set(lot.map(f => f.famille)).size, 1, 'une seule famille par lot : une seule question dans la consigne')
   }
+  // Une part donnée à une famille : pas plus qu'elle, ce qui reste à l'autre.
+  const tri2 = new TriDesEntrees([(deja as { question: QuestionDeLaBase }).question], new Set())
+  const parts = choisirLesFiches(new Map([['tableaux', tableaux], ['films', films]]), tri2, { questions: 6, parLot: 30, quotas: new Map([['tableaux', 1]]) }).flat()
+  assert.equal(parts.filter(f => f.famille === 'tableaux').length, 1, 'sa part, pas la moitié')
+  assert.equal(parts.filter(f => f.famille === 'films').length, 3)
 })
 
 test('fusionner, le vérificateur du rédacteur : un lot ordinaire, chaque refus avec sa fiche, les fiches écartées à part', () => {
@@ -419,6 +425,15 @@ test('les lauréats d’un prix, année par année : une année à deux lauréat
   assert.deepEqual(parAnnee.get(2000), ['Q1'], 'une ligne en double ne fait pas deux lauréats')
   assert.deepEqual(annees.get('Q1'), [1998, 2000], 'ses années de prix le situent parmi les leurres')
   assert.equal(parAnnee.has(2001), false, 'un lauréat inconnu ne compte pas')
+})
+
+test('un film est français par sa langue, pas par ses coproducteurs ni par son réalisateur', () => {
+  // Sur Wikidata, « Bridget Jones Baby » a la France parmi ses pays d'origine, et Polanski la nationalité française.
+  assert.equal(estFrancais({ langues: ['Q1860'], pays: ['Q145', 'Q30', 'Q142'], paysDeLAuteur: ['Q145'] }), false, 'une coproduction tournée en anglais')
+  assert.equal(estFrancais({ langues: ['Q1860'], pays: ['Q145'], paysDeLAuteur: ['Q142', 'Q36'] }), false, 'Le Pianiste')
+  assert.equal(estFrancais({ langues: ['Q150'], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'Le Fabuleux Destin d’Amélie Poulain')
+  assert.equal(estFrancais({ langues: null, pays: ['Q142'], paysDeLAuteur: [] }), true, 'un livre, sans langue lue : son pays')
+  assert.equal(estFrancais({ langues: null, pays: [], paysDeLAuteur: ['Q142'] }), true, 'ou celui de son auteur')
 })
 
 test('un album va au sous-thème de son genre, puis à la chanson française s’il est français', () => {
