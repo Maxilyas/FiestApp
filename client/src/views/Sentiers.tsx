@@ -16,7 +16,7 @@ import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
-import { sujetParCle } from '../../../shared/sujets'
+import { FAMILLES_DE_SUJETS, sujetParCle } from '../../../shared/sujets'
 import {
   PALIERS_DES_SUJETS,
   PALIERS_D_UN_SUJET,
@@ -41,6 +41,7 @@ import {
   SEUIL_DES_PALIERS,
   VIES_PAR_ACHAT_MAX,
   cleDeMaitre,
+  difficulteDuMelange,
   etoilesDe,
   etoilesDuSentier,
   regleDuPalier,
@@ -674,6 +675,8 @@ export function CarteDesSentiers({
           const n = ouvertsDansLaBranche(b, { [b.key]: s.paliers })
           const v = vitrineDe(b, s)
           const etatDuSentier = s.paliers >= PALIER_DU_MAITRE ? 'Maître' : s.paliers >= PALIERS_DU_SENTIER ? 'Maître à tenter' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}`
+          // La difficulté du palier à jouer, d'un mot : on sait contre quoi on joue avant d'entrer.
+          const difficulte = s.paliers >= PALIER_DU_MAITRE ? null : difficulteDuMelange(regleDuPalier(s.paliers + 1)!.melange)
           const etoilesIci = etoilesDuSentier(s)
           return (
             <button
@@ -681,7 +684,7 @@ export function CarteDesSentiers({
               type="button"
               className={'sentiers-tuile' + (s.paliers >= PALIERS_DU_SENTIER ? ' sentiers-tuile-complete' : '')}
               style={lueur(LUEUR[b.key])}
-              aria-label={`${b.nom}, ${b.categorie} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}${etoilesIci > 0 ? `, ${etoilesIci} étoile${etoilesIci > 1 ? 's' : ''}` : ''}`}
+              aria-label={`${b.nom}, ${b.categorie} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}${difficulte ? `, ${difficulte}` : ''}${etoilesIci > 0 ? `, ${etoilesIci} étoile${etoilesIci > 1 ? 's' : ''}` : ''}`}
               aria-pressed={montre?.branche === b.key}
               onClick={() => (montre?.branche === b.key ? onOuvrir(b.key) : onChoisir(b.key))}
             >
@@ -703,6 +706,11 @@ export function CarteDesSentiers({
                 {etatDuSentier}
                 {etoilesIci > 0 && <span className="sentiers-etoiles">{` · ★ ${etoilesIci}`}</span>}
               </span>
+              {difficulte && (
+                <span className="sentiers-difficulte" aria-hidden="true">
+                  {difficulte}
+                </span>
+              )}
             </button>
           )
         })}
@@ -849,8 +857,9 @@ function HautDesSentiers({
         <p className="muted small">{detail}</p>
         <p className="pano-categorie small">
           {`Ses questions : ${b.categorie}`}
-          {/* Le thème du chapitre que le palier à jouer ouvre, s'il en a un. */}
+          {/* Le thème du chapitre que le palier à jouer ouvre, s'il en a un, et sa difficulté en un mot. */}
           {c !== null && chapitreDuPalier(b.key, c) && ` · ${chapitreDuPalier(b.key, c)!.nom}`}
+          {c !== null && regleDuPalier(c) && ` · ${difficulteDuMelange(regleDuPalier(c)!.melange)}`}
           {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
         </p>
       </div>
@@ -1280,9 +1289,11 @@ export function FicheDuPalier({
         {chapitre && (
           <>
             <dt>Thème</dt>
-            <dd>{`${chapitre.nom} · chapitre ${chapitre.numero} sur 4`}</dd>
+            <dd>{`${chapitre.nom} · chapitre ${chapitre.numero} sur ${chapitresDe(b.key).length}`}</dd>
           </>
         )}
+        <dt>Difficulté</dt>
+        <dd>{difficulteDuMelange(r.melange)}</dd>
         <dt>Questions</dt>
         <dd>{`${texteDuMelange(r.melange)}${r.touteLaCategorie && sousThemes > 0 ? ', de toute la catégorie' : ''}`}</dd>
         <dt>Pour valider</dt>
@@ -1931,7 +1942,7 @@ export function PlusDeVies({
  * sentiers et leurs avatars, et l'on déplie celui-ci quand on veut un thème ;
  * dépliés d'eux-mêmes quand une épreuve y attend.
  */
-function SentiersDeSujets({
+export function SentiersDeSujets({
   etat,
   busy,
   onJouer,
@@ -1957,30 +1968,32 @@ function SentiersDeSujets({
         </span>
         <Icon name="chevron-down" className="repli-chevron" />
       </summary>
-      <p className="muted small">{`Une époque ou un fil rouge, à travers toutes les catégories : ${PALIERS_D_UN_SUJET} paliers de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions, ${SEUIL_D_UN_SUJET} bonnes réponses pour passer. Rien à perdre : chaque bonne réponse paie comme en série.`}</p>
+      <p className="muted small">{`Un thème, une époque ou un fil rouge, au-delà des catégories : ${PALIERS_D_UN_SUJET} paliers de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions, ${SEUIL_D_UN_SUJET} bonnes réponses pour passer. Rien à perdre : chaque bonne réponse paie comme en série.`}</p>
       {laissee && (
         <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
           {`Reprendre · ${sujetParCle(laissee.sujet)?.nom ?? 'ton thème'}, palier ${laissee.palier}`}
         </button>
       )}
-      {(['epoque', 'fil'] as const).map(famille => {
+      {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
         const ici = etat.sujets.filter(s => sujetParCle(s.sujet)?.famille === famille)
         if (ici.length === 0) return null
         return (
           <div key={famille} className="sujets-famille">
-            <p className="label">{famille === 'epoque' ? 'Une époque' : 'Un fil rouge'}</p>
+            <p className="label">{nom}</p>
             <div className="sujets-grille">
               {ici.map(s => {
                 const sj = sujetParCle(s.sujet)!
                 const etoiles = s.etoiles.reduce((n, e) => n + e, 0)
                 const accompli = s.paliers >= PALIERS_D_UN_SUJET
                 const ou = accompli ? 'accompli' : s.paliers === 0 ? 'à commencer' : `palier ${s.paliers + 1} sur ${PALIERS_D_UN_SUJET}`
+                // La difficulté du palier à jouer, d'un mot, comme sur la tuile d'un sentier.
+                const difficulte = accompli ? null : difficulteDuMelange(PALIERS_DES_SUJETS[s.paliers].melange)
                 return (
                   <button
                     key={s.sujet}
                     type="button"
                     className={'sujet-tuile' + (accompli ? ' sujet-accompli' : '')}
-                    aria-label={`${sj.nom} : ${ou}${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}`}
+                    aria-label={`${sj.nom} : ${ou}${difficulte ? `, ${difficulte}` : ''}${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}`}
                     onClick={() => setFiche(s.sujet)}
                   >
                     <Icon name={accompli ? 'crown' : iconeDuSujet(sj)} />
@@ -1988,6 +2001,7 @@ function SentiersDeSujets({
                     <span className="sujet-etat" aria-hidden="true">
                       {accompli ? 'Accompli' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}/${PALIERS_D_UN_SUJET}`}
                       {etoiles > 0 && ` · ★ ${etoiles}`}
+                      {difficulte && <span className="sujet-difficulte">{difficulte}</span>}
                     </span>
                   </button>
                 )

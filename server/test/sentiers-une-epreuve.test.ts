@@ -92,6 +92,29 @@ test('dans un sentier, un refus s’écrit dans l’en-tête collé : il reste e
 // géographie (un retour de joueur du 10 octobre 2026) : les noms des
 // sentiers sont des images, et la catégorie ne se lisait qu'une fois entré.
 // Et les étoiles, qui paient désormais, se comptent.
+// Les sentiers à thème : un thème a sa rangée, en tête (`FAMILLES_DE_SUJETS`),
+// et chaque tuile dit la difficulté du palier à jouer, comme celle d'un
+// sentier (le souhait du propriétaire du 11 octobre 2026).
+test('une tuile de sentier à thème dit sa rangée et la difficulté de son palier à jouer', async () => {
+  const html = await rendre('SentiersDeSujets', {
+    etat: {
+      sujets: [
+        { sujet: 'annees-80', paliers: 6, etoiles: [3, 3, 3, 3, 3, 3] },
+        { sujet: 'animaux', paliers: 1, etoiles: [2, 0, 0, 0, 0, 0] },
+      ],
+      epreuve: null,
+    },
+    busy: false,
+    onJouer: () => {},
+    onReprendre: () => {},
+  })
+  assert.ok(html.indexOf('Un thème') < html.indexOf('Une époque'), 'les thèmes d’abord')
+  assert.match(html, /aria-label="Les animaux : palier 2 sur 6, facile à moyen, 2 étoiles"/)
+  assert.match(html, /Palier 2\/6 · ★ 2<span class="sujet-difficulte">facile à moyen<\/span>/)
+  // Accompli : plus rien à jouer, plus de difficulté.
+  assert.match(html, /aria-label="Les années 80 : accompli, 18 étoiles"/)
+})
+
 test('chaque tuile dit sa catégorie et ses étoiles ; le bloc du haut, d’où viennent ses questions', async () => {
   const e = etat({ monde: 3 }, null)
   e.sentiers.find(s => s.branche === 'monde')!.etoiles = [3, 2, 1, ...Array(10).fill(0)]
@@ -107,11 +130,12 @@ test('chaque tuile dit sa catégorie et ses étoiles ; le bloc du haut, d’où 
   })
   assert.match(html, /<b>Le tour du monde<\/b><span class="sentiers-categorie"[^>]*>Culture générale<\/span>/)
   assert.match(html, /<b>Les océans<\/b><span class="sentiers-categorie"[^>]*>Géographie<\/span>/)
-  assert.match(html, /aria-label="Le tour du monde, Culture générale : 1 avatar sur 6, palier 4, 6 étoiles"/)
-  assert.match(html, /Palier 4<span class="sentiers-etoiles"> · ★ 6<\/span>/)
+  // La difficulté du palier à jouer se dit aussi, d'un mot (`difficulteDuMelange`).
+  assert.match(html, /aria-label="Le tour du monde, Culture générale : 1 avatar sur 6, palier 4, facile à moyen, 6 étoiles"/)
+  assert.match(html, /Palier 4<span class="sentiers-etoiles"> · ★ 6<\/span><\/span><span class="sentiers-difficulte" aria-hidden="true">facile à moyen<\/span>/)
   const bloc = html.slice(html.indexOf('class="sentiers-haut'), html.indexOf('class="sentiers-compte"'))
-  // Sa catégorie, le thème du chapitre que le palier à jouer ouvre (`shared/chapitres.ts`), ses étoiles.
-  assert.match(bloc, /Ses questions : Culture générale · Mots et symboles · ★ 6 sur 39/)
+  // Sa catégorie, le thème du chapitre que le palier à jouer ouvre (`shared/chapitres.ts`), sa difficulté, ses étoiles.
+  assert.match(bloc, /Ses questions : Culture générale · Mots et symboles · facile à moyen · ★ 6 sur 39/)
   assert.match(html, /1 avatar sur 72 · 0 maître · ★ 6/)
 })
 

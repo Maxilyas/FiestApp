@@ -10,14 +10,15 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { hautsFaitsDeLaSerie } from '../src/core/campagne'
-import { SUJETS, sujetsDe } from '../../shared/sujets'
+import { FAMILLES_DE_SUJETS, SUJETS, sujetsDe } from '../../shared/sujets'
 import { ETIQUETTES, SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import type { Categorie } from '../../shared/categories'
 
 // ── Le catalogue, pur ───────────────────────────────────────────────────────
 
-const meta = (date: { valeur: string; precision: string } | null, etiquettes: string[] = [], portee = 'monde') => ({ date, etiquettes, portee }) as Parameters<typeof sujetsDe>[0]
+const meta = (date: { valeur: string; precision: string } | null, etiquettes: string[] = [], portee = 'monde', categorie = 'Histoire', sousTheme = 'civilisations') =>
+  ({ date, etiquettes, portee, categorie, sousTheme }) as Parameters<typeof sujetsDe>[0]
 
 test('une question est d’une époque par sa date, d’un fil rouge par ses étiquettes ou sa portée', () => {
   assert.deepEqual(sujetsDe(meta({ valeur: '1985-06', precision: 'mois' }, ['record'], 'france')), ['annees-80', 'france', 'records'])
@@ -27,8 +28,23 @@ test('une question est d’une époque par sa date, d’un fil rouge par ses ét
   assert.deepEqual(sujetsDe(meta({ valeur: '1889-03-31', precision: 'jour' })), ['xixe'])
   // Au siècle près, « 1801 » dit tout le XIXe : elle n'est d'aucune époque.
   assert.deepEqual(sujetsDe(meta({ valeur: '1801', precision: 'siecle' })), [])
-  assert.deepEqual(sujetsDe(meta(null, ['idee-recue', 'contes-legendes'])), ['insolite', 'enfance'])
+  assert.deepEqual(sujetsDe(meta(null, ['idee-recue', 'contes-legendes'])), ['mythes-legendes', 'insolite', 'enfance'])
   assert.deepEqual(sujetsDe(meta(null)), [])
+})
+
+// Un thème (le souhait du propriétaire du 11 octobre 2026 : « prévoir pour
+// l'avenir de rajouter des thèmes ») se lit sur les sous-thèmes de sa
+// catégorie, et au-delà sur une étiquette que toutes portent.
+test('une question est d’un thème par son sous-thème, dans sa catégorie, ou par une étiquette qui traverse les catégories', () => {
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Nature', 'oiseaux')), ['animaux'])
+  // Un animal au cinéma : l'étiquette le range avec les animaux.
+  assert.deepEqual(sujetsDe(meta(null, ['animaux'], 'monde', 'Cinéma & séries', 'sagas')), ['animaux'])
+  // Les plantes ne sont pas des animaux, et un sous-thème ne vaut que dans sa catégorie.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Nature', 'plantes')), [])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Histoire', 'espace')), [])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'reliefs')), ['terre-espace'])
+  // Un thème se croise avec une époque et un fil rouge : chacun le sien.
+  assert.deepEqual(sujetsDe(meta({ valeur: '1998', precision: 'annee' }, ['coupe-du-monde', 'record'], 'france', 'Sport', 'football')), ['grands-rendez-vous', 'annees-90', 'france', 'records'])
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
@@ -38,16 +54,39 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
   const epoques = SUJETS.filter(s => s.famille === 'epoque')
   for (const s of epoques) assert.ok(s.annees && s.annees[0] <= s.annees[1], s.cle)
   for (let i = 1; i < epoques.length; i++) assert.equal(epoques[i].annees![0], epoques[i - 1].annees![1] + 1, `${epoques[i - 1].cle} puis ${epoques[i].cle}`)
-  for (const s of SUJETS.filter(s => s.famille === 'fil')) assert.ok(!s.annees && (s.etiquettes || s.portee), s.cle)
+  for (const s of SUJETS.filter(s => s.famille === 'fil')) assert.ok(!s.annees && !s.sousThemes && (s.etiquettes || s.portee), s.cle)
+  // Un thème se lit sur des sous-thèmes qui existent dans leur catégorie, et sur des étiquettes ; jamais sur une date ou une portée.
+  const themes = SUJETS.filter(s => s.famille === 'theme')
+  assert.ok(themes.length >= 5, 'les premiers thèmes')
+  for (const s of themes) {
+    assert.ok(!s.annees && !s.portee && s.sousThemes, s.cle)
+    for (const [categorie, cles] of Object.entries(s.sousThemes!) as [Categorie, readonly string[]][]) {
+      assert.ok(SOUS_THEMES[categorie], `${s.cle} : ${categorie}`)
+      for (const cle of cles) assert.ok(SOUS_THEMES[categorie].some(x => x.cle === cle), `${s.cle} : ${categorie} › ${cle}`)
+    }
+  }
+  // Chaque famille a sa rangée à l'écran, une seule fois.
+  assert.deepEqual(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)), new Set(SUJETS.map(s => s.famille)))
+  assert.equal(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)).size, FAMILLES_DE_SUJETS.length)
 })
 
-test('chaque sujet tient une série dans la base livrée : cent questions, sept catégories, cinq de chaque marche', () => {
+test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horloge des époques', async () => {
+  const { iconeDuSujet } = await import(new URL('../../client/src/iconeDuSujet.ts', import.meta.url).href)
+  for (const s of SUJETS) {
+    if (s.famille === 'epoque') assert.equal(iconeDuSujet(s), 'clock', s.cle)
+    else assert.notEqual(iconeDuSujet(s), 'clock', `${s.cle} : ajoute son icône à client/src/iconeDuSujet.ts`)
+  }
+})
+
+// Un thème qu'on ajoute et qui manque de questions : `generer-campagne.ts preparer --theme=<clé>` écrit ce qui lui manque.
+test('chaque sujet tient une série dans la base livrée : cent questions, cinq de chaque marche — sept catégories pour une époque ou un fil rouge', () => {
   const { questions } = lireLaBase()
   for (const s of SUJETS) {
     const siennes = questions.filter(q => sujetsDe(q.meta).includes(s.cle))
     assert.ok(siennes.length >= 100, `${s.cle} : ${siennes.length} questions`)
     const categories = new Set(siennes.map(q => q.meta.categorie))
-    assert.ok(categories.size >= 7, `${s.cle} : ${categories.size} catégories — un sujet traverse les catégories`)
+    // Un thème a son nom, pas l'obligation de traverser les catégories : les animaux vivent surtout dans la nature.
+    if (s.famille !== 'theme') assert.ok(categories.size >= 7, `${s.cle} : ${categories.size} catégories — un sujet traverse les catégories`)
     const parNiveau = new Map<Niveau, number>()
     for (const q of siennes) parNiveau.set(niveauDeQuestion(q.meta.difficulte), (parNiveau.get(niveauDeQuestion(q.meta.difficulte)) ?? 0) + 1)
     for (const n of NIVEAUX) assert.ok((parNiveau.get(n) ?? 0) >= 5, `${s.cle} › ${n} : ${parNiveau.get(n) ?? 0}`)
@@ -92,12 +131,18 @@ function question(i: number, categorie: Categorie, { etiquettes = [] as string[]
   return lu.question
 }
 
-const CATEGORIES_DU_BANC: Categorie[] = ['Histoire', 'Sport', 'Géographie', 'Sciences']
+// Leurs premiers sous-thèmes — les capitales, le football, la chanson française — ne sont d'aucun thème.
+const CATEGORIES_DU_BANC: Categorie[] = ['Histoire', 'Sport', 'Géographie', 'Musique']
 /** Vingt records, vingt souvenirs des années 80, vingt questions sans sujet ; chacun sur quatre catégories. */
 const RECORDS = Array.from({ length: 20 }, (_, i) => question(i, CATEGORIES_DU_BANC[i % 4], { etiquettes: ['record'] }))
 const ANNEES_80 = Array.from({ length: 20 }, (_, i) => question(20 + i, CATEGORIES_DU_BANC[i % 4], { date: { valeur: '1985', precision: 'annee' } }))
 const SANS_SUJET = Array.from({ length: 20 }, (_, i) => question(40 + i, CATEGORIES_DU_BANC[i % 4]))
-const BASE = new BaseDeLaCampagne([...RECORDS, ...ANNEES_80, ...SANS_SUJET])
+/** Et un thème : dix mammifères de la nature, et cinq animaux du cinéma, par leur étiquette. */
+const ANIMAUX = [
+  ...Array.from({ length: 10 }, (_, i) => question(60 + i, 'Nature')),
+  ...Array.from({ length: 5 }, (_, i) => question(70 + i, 'Cinéma & séries', { etiquettes: ['animaux'] })),
+]
+const BASE = new BaseDeLaCampagne([...RECORDS, ...ANNEES_80, ...SANS_SUJET, ...ANIMAUX])
 
 const lire = (banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
@@ -122,6 +167,7 @@ test('une série sur un sujet ne pose que ses questions, à travers les catégor
     // La page sait quels sujets ont de quoi faire une série, et combien.
     const etat = (await lire(banc, lea, '/api/campagne')).corps
     assert.deepEqual(etat.sujets, [
+      { sujet: 'animaux', questions: 15 },
       { sujet: 'annees-80', questions: 20 },
       { sujet: 'records', questions: 20 },
     ])
@@ -138,6 +184,10 @@ test('une série sur un sujet ne pose que ses questions, à travers les catégor
     // Une décennie : les questions datées de ses années.
     const annees = (await poster(banc, lea, '/api/campagne/serie', { sujet: 'annees-80' })).corps
     assert.deepEqual(new Set(tirees(banc, annees.id)), new Set(ANNEES_80.map(q => q.id)))
+    // Un thème : ses sous-thèmes dans leur catégorie, et son étiquette ailleurs.
+    const animaux = (await poster(banc, lea, '/api/campagne/serie', { sujet: 'animaux' })).corps
+    assert.equal(animaux.sujet, 'animaux')
+    assert.deepEqual(new Set(tirees(banc, animaux.id)), new Set(ANIMAUX.map(q => q.id)))
     // Un sujet inconnu, ou trop maigre, se refuse avec ce qu'il faut faire.
     const inconnu = await poster(banc, lea, '/api/campagne/serie', { sujet: 'astrologie' })
     assert.equal(inconnu.status, 400)

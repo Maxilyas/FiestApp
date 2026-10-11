@@ -122,6 +122,28 @@ export function regleDuPalier(n: unknown): RegleDuPalier | null {
   return typeof n === 'number' && Number.isInteger(n) ? (PALIERS[n - 1] ?? null) : null
 }
 
+/** L'ordre des marches, pour lire un mélange : facile, moyenne, difficile, experte. */
+const RANG_DES_MARCHES: Readonly<Record<Niveau, number>> = { facile: 0, moyen: 1, difficile: 2, expert: 3 }
+
+/**
+ * La difficulté d'un palier en un mot, lue sur son mélange : la marche
+ * moyenne de ses questions. La tuile d'un sentier et son bloc disaient ce
+ * qu'il pose, jamais à quel point (le souhait du propriétaire du 11 octobre
+ * 2026 : « savoir direct contre quoi on joue, et la difficulté »). Des
+ * paliers au maître : facile deux fois, facile à moyen trois fois, moyen
+ * trois fois, moyen à difficile trois fois, difficile, puis expert.
+ */
+export function difficulteDuMelange(melange: Melange): string {
+  let questions = 0
+  let marches = 0
+  for (const [niveau, k] of Object.entries(melange) as [Niveau, number][]) {
+    questions += k
+    marches += RANG_DES_MARCHES[niveau] * k
+  }
+  const m = questions > 0 ? marches / questions : 0
+  return m < 0.25 ? 'facile' : m < 0.75 ? 'facile à moyen' : m < 1.25 ? 'moyen' : m < 1.75 ? 'moyen à difficile' : m < 2.5 ? 'difficile' : 'expert'
+}
+
 /**
  * L'expérience d'un palier validé en jouant, une fois par palier : il ne
  * rapportait que ses bonnes réponses, et l'épreuve qui ouvrait un portrait

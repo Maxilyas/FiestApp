@@ -7,6 +7,7 @@
 //
 //   npx tsx scripts/generer-campagne.ts preparer --questions=1000 [--categories=Géographie,Sport] [--par-lot=30] [--nom=g1]
 //   npx tsx scripts/generer-campagne.ts preparer --sentiers[=2] [--par-lot=30] [--nom=s1]   ce qui manque aux sentiers pour se monter deux fois
+//   npx tsx scripts/generer-campagne.ts preparer --theme=<clé> [--par-lot=30] [--nom=t1]    ce qui manque à un thème (shared/sujets.ts)
 //   npx tsx scripts/generer-campagne.ts suite [<nom>] [--forcer]
 //   npx tsx scripts/generer-campagne.ts etat [<nom>]
 //
@@ -34,7 +35,10 @@ import { SOUS_THEMES } from '../../shared/etiquettes'
 import { BRANCHES } from '../../shared/branches'
 import { chapitresDe } from '../../shared/chapitres'
 import { PALIERS, regleDuPalier } from '../../shared/sentiers'
-import { niveauDeQuestion, type Niveau } from '../../shared/campagne'
+import { PALIERS_DES_SUJETS } from '../../shared/sentiersDeSujets'
+import { SUJETS, sujetParCle, sujetsDe, type Sujet } from '../../shared/sujets'
+import type { MetadonneesDeQuestion } from '../../shared/etiquettes'
+import { QUESTIONS_PAR_MARCHE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import { DOSSIER_DES_LOTS, TriDesEntrees, appliquerLesDecisions, ecrireLot, ficheDUneEntree, lireLot, lotsEnAttente, type Decision, type SorteDeRefus } from './lots-campagne'
 
 /**
@@ -182,6 +186,56 @@ export function commandeDesSentiers(existantes: readonly { categorie: string; so
       lignes.sort((a, b) => tous.indexOf(a.cle) - tous.indexOf(b.cle) || (a.difficulte ?? 0) - (b.difficulte ?? 0))
       commandes.set(categorie, lignes)
     }
+  }
+  return commandes
+}
+
+/**
+ * Ce qui manque à un thème (`shared/sujets.ts`) pour se monter `montees`
+ * fois en sentier à thème et faire une série : à chaque marche, ce que les
+ * mélanges de ses six paliers posent (`PALIERS_DES_SUJETS`), et les cinq
+ * expertes d'une série, que ses paliers ne posent jamais
+ * (`QUESTIONS_PAR_MARCHE`) — écrit dans ses sous-thèmes, au moins fourni
+ * d'abord. Ce que ses étiquettes lui apportent compte, mais une étiquette ne
+ * se commande pas : elle se pose quand le fait la mérite. Un thème neuf (le
+ * souhait du propriétaire du 11 octobre 2026 : « prévoir de rajouter des
+ * thèmes ») se remplit ainsi sans attendre que la base le croise.
+ */
+export function commandeDuTheme(
+  theme: Sujet,
+  existantes: readonly Pick<MetadonneesDeQuestion, 'categorie' | 'sousTheme' | 'difficulte' | 'etiquettes' | 'date' | 'portee'>[],
+  montees = 2,
+): Map<Categorie, QuotaDEcriture[]> {
+  const paires = (Object.entries(theme.sousThemes ?? {}) as [Categorie, readonly string[]][]).flatMap(([categorie, cles]) => cles.map(sousTheme => ({ categorie, sousTheme })))
+  if (paires.length === 0) throw new Error(`« ${theme.nom} » ne se lit que sur ses étiquettes : donne-lui des sous-thèmes pour en commander.`)
+  const voulues = new Map<Niveau, number>([['expert', QUESTIONS_PAR_MARCHE]])
+  for (const p of PALIERS_DES_SUJETS) for (const [n, k] of Object.entries(p.melange) as [Niveau, number][]) voulues.set(n, (voulues.get(n) ?? 0) + montees * k)
+  const cle = (categorie: string, sousTheme: string, n: Niveau) => `${categorie}\u0000${sousTheme}\u0000${n}`
+  // L'offre de chacun de ses sous-thèmes à chaque marche, qui grandit de ce qu'on commande ; et ce que le thème a déjà, étiquettes comprises.
+  const offre = new Map<string, number>()
+  const aDeja = new Map<Niveau, number>()
+  for (const q of existantes) {
+    if (!sujetsDe(q).includes(theme.cle)) continue
+    const n = niveauDeQuestion(q.difficulte)
+    aDeja.set(n, (aDeja.get(n) ?? 0) + 1)
+    offre.set(cle(q.categorie, q.sousTheme, n), (offre.get(cle(q.categorie, q.sousTheme, n)) ?? 0) + 1)
+  }
+  const commandes = new Map<Categorie, QuotaDEcriture[]>()
+  for (const [n, k] of voulues) {
+    for (let manque = k - (aDeja.get(n) ?? 0), i = 0; manque > 0; manque--, i++) {
+      const p = paires.reduce((a, b) => ((offre.get(cle(b.categorie, b.sousTheme, n)) ?? 0) < (offre.get(cle(a.categorie, a.sousTheme, n)) ?? 0) ? b : a))
+      offre.set(cle(p.categorie, p.sousTheme, n), (offre.get(cle(p.categorie, p.sousTheme, n)) ?? 0) + 1)
+      const difficulte = DIFFICULTES_DE_LA_MARCHE[n][i % DIFFICULTES_DE_LA_MARCHE[n].length]
+      const lignes = commandes.get(p.categorie) ?? []
+      const meme = lignes.find(l => l.cle === p.sousTheme && l.difficulte === difficulte)
+      if (meme) meme.n++
+      else lignes.push({ cle: p.sousTheme, n: 1, difficulte })
+      commandes.set(p.categorie, lignes)
+    }
+  }
+  for (const [categorie, lignes] of commandes) {
+    const tous = SOUS_THEMES[categorie].map(s => s.cle)
+    lignes.sort((a, b) => tous.indexOf(a.cle) - tous.indexOf(b.cle) || (a.difficulte ?? 0) - (b.difficulte ?? 0))
   }
   return commandes
 }
@@ -370,6 +424,8 @@ export interface OptionsDePreparation {
   nom?: string
   /** Écrire ce qui manque aux sentiers pour se monter autant de fois (`commandeDesSentiers`), au lieu de `questions` à parts égales. */
   sentiers?: number
+  /** Écrire ce qui manque à ce thème pour se monter deux fois (`commandeDuTheme`). */
+  theme?: string
 }
 
 /**
@@ -378,8 +434,13 @@ export interface OptionsDePreparation {
  * manque à la base — sans se voir.
  */
 export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: Generation; missions: Mission[] } {
+  if ([o.questions, o.sentiers, o.theme].filter(x => x !== undefined).length > 1) throw new Error('--questions, --sentiers ou --theme : un seul à la fois.')
   if (o.sentiers !== undefined && (!Number.isInteger(o.sentiers) || o.sentiers < 1 || o.sentiers > 5)) throw new Error('--sentiers=<montées> : de 1 à 5 montées de chaque sentier.')
-  if (o.sentiers === undefined && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
+  const theme = o.theme === undefined ? undefined : sujetParCle(o.theme)
+  if (o.theme !== undefined && theme?.famille !== 'theme') {
+    throw new Error(`--theme=<clé> : l'un des thèmes de shared/sujets.ts (${SUJETS.filter(s => s.famille === 'theme').map(s => s.cle).join(', ')}).`)
+  }
+  if (o.sentiers === undefined && !theme && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
   const parLot = o.parLot ?? QUESTIONS_PAR_LOT
   if (!Number.isInteger(parLot) || parLot < 5 || parLot > 40) throw new Error('--par-lot : de 5 à 40 questions par lot.')
   const enCours = generations(ctx).find(x => !finie(x))
@@ -390,10 +451,11 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   if (nom !== nomLibre(ctx.dossier) && readdirSync(ctx.dossier).some(f => f === nom || f.startsWith(`${nom}-`) || f.startsWith(`${nom}.`))) {
     throw new Error(`« ${nom} » existe déjà dans ${ctx.dossier} : choisis un autre --nom.`)
   }
-  const connues = [...ctx.base, ...enAttente(ctx).map(a => a.question)].map(q => ({ categorie: q.meta.categorie, sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte }))
-  const commandes = o.sentiers === undefined ? undefined : commandeDesSentiers(connues, o.sentiers)
+  const lues = [...ctx.base, ...enAttente(ctx).map(a => a.question)]
+  const connues = lues.map(q => ({ categorie: q.meta.categorie, sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte }))
+  const commandes = theme ? commandeDuTheme(theme, lues.map(q => q.meta)) : o.sentiers === undefined ? undefined : commandeDesSentiers(connues, o.sentiers)
   const demandees = commandes ? [...commandes.values()].flat().reduce((s, l) => s + l.n, 0) : o.questions!
-  if (demandees === 0) throw new Error(`Les sentiers ont de quoi se monter ${o.sentiers} fois : rien à écrire.`)
+  if (demandees === 0) throw new Error(theme ? `« ${theme.nom} » a de quoi se monter deux fois : rien à écrire.` : `Les sentiers ont de quoi se monter ${o.sentiers} fois : rien à écrire.`)
   const g: Generation = {
     nom,
     creee: maintenant(),
@@ -701,7 +763,7 @@ function principal(args: readonly string[]) {
   if (refusees.length > 0) console.warn(`La base a ${refusees.length} entrée(s) défectueuse(s) : elles ne comptent pas.`)
   const ctx: Contexte = { dossier: DOSSIER_DES_LOTS, base, livres: empreintesDesLivres(), dire: ligne => console.log(ligne) }
   if (commande === 'preparer') {
-    const { options } = lireLesOptions(reste, ['questions', 'categories', 'par-lot', 'nom', 'sentiers'])
+    const { options } = lireLesOptions(reste, ['questions', 'categories', 'par-lot', 'nom', 'sentiers', 'theme'])
     const categories = options.get('categories')?.split(',').map(nom => {
       const c = categorieDe(nom)
       if (!c) throw new Error(`Catégorie inconnue : ${nom} (${CATEGORIES.join(', ')}).`)
@@ -715,6 +777,7 @@ function principal(args: readonly string[]) {
       nom: options.get('nom'),
       // `--sentiers` seul : deux montées.
       sentiers: sentiers === undefined ? undefined : sentiers === 'oui' ? 2 : Number(sentiers),
+      theme: options.get('theme'),
     })
   } else if (commande === 'suite') {
     const { mots, options } = lireLesOptions(reste, ['forcer'])

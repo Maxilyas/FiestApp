@@ -28,22 +28,21 @@ const JOUR = 24 * 3_600_000
 /** Le mardi 6 octobre 2026, 10 h à Paris. */
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
 const horloge = { t: DEBUT }
-/** Cent vingt questions des années 80, de quatre catégories et trois marches : de quoi un sentier à thème. */
-const annees80 = Array.from({ length: 120 }, (_, i) => {
-  const categorie = (['Histoire', 'Musique', 'Cinéma & séries', 'Sport'] as Categorie[])[i % 4]
+/** Une question de sujet, de trois marches : `sujet` la nomme, `quoi` en fait une époque, un thème ou un fil rouge. */
+const questionDeSujet = (sujet: string, i: number, categorie: Categorie, quoi: { sousTheme?: string; etiquettes?: string[]; date?: { valeur: string; precision: 'annee' } }) => {
   const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${i}`)
   const lu = lireQuestionDeLaBase({
-    id: `an80${String(i).padStart(4, '0')}`,
-    texte: `Une question des années 80, numéro ${i} : laquelle est la bonne ?`,
+    id: `${sujet}${String(i).padStart(4, '0')}`,
+    texte: `Une question ${sujet === 'an80' ? 'des années 80' : 'sur les animaux'}, numéro ${i} : laquelle est la bonne ?`,
     reponses: [`Bonne ${i}`, ...autres.slice(0, 3)],
     bonne: 0,
-    anecdote: `L'anecdote de la question ${i}, en 1985.`,
+    anecdote: `L'anecdote de la question ${i}.`,
     categorie,
-    sousTheme: SOUS_THEMES[categorie][0].cle,
-    etiquettes: [],
+    sousTheme: quoi.sousTheme ?? SOUS_THEMES[categorie][0].cle,
+    etiquettes: quoi.etiquettes ?? [],
     difficulte: [2, 3, 4][i % 3],
     ageMin: 10,
-    date: { valeur: '1985', precision: 'annee' },
+    date: quoi.date ?? null,
     entites: [],
     portee: 'monde',
     valeur: null,
@@ -56,8 +55,16 @@ const annees80 = Array.from({ length: 120 }, (_, i) => {
   })
   if ('refus' in lu) throw new Error(lu.refus)
   return lu.question
-})
-const base = new BaseDeLaCampagne([...baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }).questions, ...annees80])
+}
+/** Cent vingt questions des années 80, de quatre catégories et trois marches : de quoi un sentier à thème. */
+const annees80 = Array.from({ length: 120 }, (_, i) =>
+  questionDeSujet('an80', i, (['Histoire', 'Musique', 'Cinéma & séries', 'Sport'] as Categorie[])[i % 4], { date: { valeur: '1985', precision: 'annee' } }),
+)
+/** Et quatre-vingt-dix animaux — de la nature, et du cinéma par leur étiquette — : un thème (`shared/sujets.ts`) a sa rangée. */
+const animaux = Array.from({ length: 90 }, (_, i) =>
+  i % 5 === 4 ? questionDeSujet('anim', i, 'Cinéma & séries', { sousTheme: 'sagas', etiquettes: ['animaux'] }) : questionDeSujet('anim', i, 'Nature', { sousTheme: ['mammiferes', 'oiseaux', 'aquatique', 'petites-betes'][i % 4] }),
+)
+const base = new BaseDeLaCampagne([...baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }).questions, ...annees80, ...animaux])
 const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: base })
 const navigateur = await chromium.launch({ headless: true })
 const questionsDe = (serie: string): { bonne: number; reponses: string[] }[] => {
