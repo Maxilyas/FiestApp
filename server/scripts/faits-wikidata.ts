@@ -343,10 +343,11 @@ async function personnes(wd: Wikidata, qids: readonly string[], annees?: Readonl
  * Basterds » ont du français, et « Babel » ou « Call Me by Your Name », que
  * la France a coproduits aussi. Le français seul, donc, ou le français d'un
  * film que la France a produit et qu'un Français a réalisé. Sans langue lue,
- * son pays, ou celui de son auteur.
+ * son pays, ou celui de son auteur — et sans langue connue aussi : un livre
+ * français dont Wikidata ne dit pas la langue serait parti à l'étranger.
  */
 export function estFrancais(o: { langues: readonly string[] | null; pays: readonly string[]; paysDeLAuteur: readonly string[] }): boolean {
-  if (o.langues) return o.langues.includes(FRANCAIS) && (o.langues.length === 1 || (o.pays.includes(FRANCE) && o.paysDeLAuteur.includes(FRANCE)))
+  if (o.langues && o.langues.length > 0) return o.langues.includes(FRANCAIS) && (o.langues.length === 1 || (o.pays.includes(FRANCE) && o.paysDeLAuteur.includes(FRANCE)))
   return o.pays.includes(FRANCE) || o.paysDeLAuteur.includes(FRANCE)
 }
 
@@ -471,7 +472,7 @@ async function oeuvresEtAuteurs(
     genres?: { racines: readonly string[]; parents: boolean }
     /** Reconnaître une œuvre jouée sur scène, à sa première représentation (P1191). */
     jouees?: boolean
-    /** La langue du sujet, qui dit s'il est français (`estFrancais`) — P364 pour un film ou une série. */
+    /** La langue du sujet, qui dit s'il est français (`estFrancais`) — P364 pour un film ou une série, P407 pour un livre. */
     langue?: string
   },
 ): Promise<Extraction> {
@@ -699,6 +700,9 @@ export const FAMILLES: readonly Famille[] = [
     reponseVuesMin: 30,
     sorte: 'sujet',
     // Des écrivains de métier — écrivain, romancier, poète, dramaturge, philosophe : « La Genèse → Moïse » et « Nouveau Testament → AA.VV. » sortaient des seuls livres.
+    // Français par sa langue (P407) : Wikidata donne la nationalité française à Oscar Wilde, James Joyce et Ken Follett,
+    // et la France pour pays à « Lolita » et à « L'Archipel du Goulag », parus d'abord à Paris — vingt livres sur cent
+    // vingt-six de la littérature française n'étaient pas écrits en français, trois correcteurs l'ont vu le 11 octobre 2026.
     extraire: wd =>
       oeuvresEtAuteurs(wd, {
         motif: 'VALUES ?classe { wd:Q7725634 wd:Q8261 } ?item wdt:P31 ?classe .',
@@ -707,6 +711,7 @@ export const FAMILLES: readonly Famille[] = [
         oeuvresMin: 2,
         date: 'P577',
         pays: 'P495',
+        langue: 'P407',
         auteur: { prop: 'P106', valeurs: ECRIVAINS },
         genres: { racines: [POESIE], parents: false },
         jouees: true,

@@ -27,9 +27,10 @@ import { sansAccent } from '../../shared/homonymes'
  * même fait qu'une autre (`voisines`, `retirer`) — 5 012 questions, 4 974
  * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
  * Le même jour, la première génération en nombre en a rangé 306 : 5 278 ;
- * puis le pilote tiré de Wikidata (`faits-wikidata.ts`), 296 : 5 574.
+ * puis le pilote tiré de Wikidata (`faits-wikidata.ts`), 296 : 5 574. Le
+ * 11 octobre 2026, ses deux vagues suivantes, 258 puis 779 : 6 611.
  */
-const AU_MOINS = 5570
+const AU_MOINS = 6600
 
 const { questions, refusees } = lireLaBase()
 

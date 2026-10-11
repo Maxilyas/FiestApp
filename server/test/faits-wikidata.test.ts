@@ -3,7 +3,7 @@
 // priori, la fiche qui devient une entrée de la base avec les phrases du
 // rédacteur, la consigne, le choix des fiches d'une génération, et la
 // fusion qui sert de vérificateur au rédacteur. L'extraction elle-même
-// interroge Wikidata : elle ne se joue pas ici.
+// interroge Wikidata : elle ne se joue ici que sur une table (`wikidataDeTable`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -453,6 +453,49 @@ test('un film est français par sa langue, pas par ses coproducteurs ni par son 
   assert.equal(estFrancais({ langues: ['Q1860', 'Q150', 'Q8748'], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'Taken : produit par la France, réalisé par un Français')
   assert.equal(estFrancais({ langues: null, pays: ['Q142'], paysDeLAuteur: [] }), true, 'un livre, sans langue lue : son pays')
   assert.equal(estFrancais({ langues: null, pays: [], paysDeLAuteur: ['Q142'] }), true, 'ou celui de son auteur')
+  assert.equal(estFrancais({ langues: [], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'un livre dont Wikidata ne dit pas la langue : son pays')
+})
+
+/**
+ * Un Wikidata sans réseau, qui répond d'une table — de quoi rejouer l'extraction d'une famille. Les sujets sont ceux
+ * qu'on donne ; les requêtes qui cherchent autre chose — attributions douteuses, genres, homonymes — ne trouvent rien.
+ */
+function wikidataDeTable(table: Record<string, { nom: string; [prop: string]: string | string[] }>, sujets: readonly string[]): Wikidata {
+  const de = (q: string, prop: string): string[] => {
+    const v = table[q]?.[prop]
+    return Array.isArray(v) ? v : []
+  }
+  const faux = {
+    sparql: async (requete: string) => (requete.includes('FILTER(?n >=') ? sujets.map(q => ({ item: `http://www.wikidata.org/entity/${q}` })) : []),
+    entites: async (qids: readonly string[]) =>
+      new Map(qids.filter(q => table[q]).map(q => [q, { qid: q, nom: table[q].nom, libelle: table[q].nom, description: null, titre: table[q].nom, liens: 100 }])),
+    valeurs: async (qids: readonly string[], prop: string) => new Map(qids.filter(q => de(q, prop).length > 0).map(q => [q, de(q, prop).map(v => ({ v, prec: 11 }))])),
+    proprietes: async (qids: readonly string[], props: readonly string[]) => new Map(qids.map(q => [q, new Map(props.map(p => [p, de(q, p)]))])),
+  }
+  return faux as unknown as Wikidata
+}
+
+test('un livre est français par sa langue : Wikidata naturalise Oscar Wilde, et « Lolita » a paru à Paris', async () => {
+  // La famille ne lisait pas la langue de ses livres : vingt sur cent vingt-six de la littérature française n'étaient pas
+  // écrits en français, et trois correcteurs ont vu Joyce, Baldwin et Soljenitsyne en littérature française le 11 octobre 2026.
+  const romans = FAMILLES.find(f => f.cle === 'romans')!
+  const { faits } = await romans.extraire(
+    wikidataDeTable(
+      {
+        Q82464: { nom: 'Le Portrait de Dorian Gray', P50: ['Q30875'], P577: ['1890-06-20T00:00:00Z'], P495: ['Q27', 'Q145'], P407: ['Q1860'] },
+        Q127149: { nom: 'Lolita', P50: ['Q36591'], P577: ['1955-09-15T00:00:00Z'], P495: ['Q142'], P407: ['Q1860'] },
+        Q193417: { nom: 'Madame Bovary', P50: ['Q43444'], P577: ['1857-04-15T00:00:00Z'], P495: ['Q142'], P407: ['Q150'] },
+        Q30875: { nom: 'Oscar Wilde', P106: ['Q36180'], P27: ['Q27', 'Q142', 'Q145'], P31: ['Q5'] },
+        Q36591: { nom: 'Vladimir Nabokov', P106: ['Q36180'], P27: ['Q30', 'Q34266'], P31: ['Q5'] },
+        Q43444: { nom: 'Gustave Flaubert', P106: ['Q36180'], P27: ['Q142'], P31: ['Q5'] },
+      },
+      ['Q82464', 'Q127149', 'Q193417'],
+    ),
+  )
+  const sousTheme = (nom: string) => romans.sousTheme(faits.find(f => f.sujet.nom === nom)!)
+  assert.equal(sousTheme('Le Portrait de Dorian Gray'), 'litterature-monde', 'Oscar Wilde, français pour Wikidata, écrivait en anglais')
+  assert.equal(sousTheme('Lolita'), 'litterature-monde', 'paru d’abord à Paris, mais écrit en anglais')
+  assert.equal(sousTheme('Madame Bovary'), 'litterature-fr')
 })
 
 test('un livre joué sur scène, ou de poésie, va au théâtre et à la poésie ; un roman, à la littérature', () => {
