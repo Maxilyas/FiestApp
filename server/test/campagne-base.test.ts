@@ -28,9 +28,10 @@ import { sansAccent } from '../../shared/homonymes'
  * faits —, puis deux retournées (Lacoste et son crocodile, Chichén Itzá).
  * Le même jour, la première génération en nombre en a rangé 306 : 5 278 ;
  * puis le pilote tiré de Wikidata (`faits-wikidata.ts`), 296 : 5 574. Le
- * 11 octobre 2026, ses deux vagues suivantes, 258 puis 779 : 6 611.
+ * 11 octobre 2026, ses deux vagues suivantes, 258 puis 779 : 6 611 ; puis ce
+ * qui manquait aux chapitres des sentiers (`preparer --sentiers`), 723 : 7 334.
  */
-const AU_MOINS = 6600
+const AU_MOINS = 7330
 
 const { questions, refusees } = lireLaBase()
 
