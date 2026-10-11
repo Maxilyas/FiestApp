@@ -91,6 +91,8 @@ export interface FaitBrut {
   francais: boolean
   /** Les genres du sujet, parmi ceux que sa famille sait ranger (`Famille.genres`) : un album de rap va au rap. */
   genres?: string[]
+  /** Une œuvre qu'on a jouée sur scène — elle a une date de première représentation : une pièce, pas un roman. */
+  jouee?: boolean
 }
 
 /** Une entrée de la base sans ce que le rédacteur écrit — l'anecdote, l'explication ; l'intitulé y est celui du gabarit. */
@@ -289,6 +291,12 @@ export interface Famille {
   parReponse: number
   /** Sous ce nombre de vues par jour sur Wikipédia en français, le sujet est trop obscur pour la France. */
   vuesMin: number
+  /**
+   * Et sous celui-ci, la réponse : « Qui a créé la série Night Shift ? » — Gabe
+   * Sachs, trois lecteurs par jour — ne se gagne qu'au hasard. Une question
+   * difficile se joue sur un nom qu'on peut connaître.
+   */
+  reponseVuesMin?: number
   /** Ce que valent ses vues au regard de celles des tableaux, sur quoi les seuils de difficulté se sont réglés : un film est bien plus lu. */
   echelle?: number
   sorte: 'sujet' | 'palmares'
@@ -332,27 +340,30 @@ async function personnes(wd: Wikidata, qids: readonly string[], annees?: Readonl
  * leurs pays d'origine — des coproductions —, et un réalisateur de
  * nationalité française y rangeait « Le Pianiste ». Mais les langues d'un
  * film sont toutes celles qu'on y parle : « Inception » et « Inglourious
- * Basterds » ont du français. Le français seul, donc, ou le français d'un
- * film que la France a produit. Sans langue lue, son pays, ou celui de son
- * auteur.
+ * Basterds » ont du français, et « Babel » ou « Call Me by Your Name », que
+ * la France a coproduits aussi. Le français seul, donc, ou le français d'un
+ * film que la France a produit et qu'un Français a réalisé. Sans langue lue,
+ * son pays, ou celui de son auteur.
  */
 export function estFrancais(o: { langues: readonly string[] | null; pays: readonly string[]; paysDeLAuteur: readonly string[] }): boolean {
-  if (o.langues) return o.langues.includes(FRANCAIS) && (o.langues.length === 1 || o.pays.includes(FRANCE))
+  if (o.langues) return o.langues.includes(FRANCAIS) && (o.langues.length === 1 || (o.pays.includes(FRANCE) && o.paysDeLAuteur.includes(FRANCE)))
   return o.pays.includes(FRANCE) || o.paysDeLAuteur.includes(FRANCE)
 }
 
 /**
  * Les genres de chaque sujet parmi des racines données — le rap, le jazz —,
- * par ses genres et leurs parents (P279*) : un album de « gangsta rap » est un
- * album de rap. De quoi ranger un album dans son sous-thème.
+ * par ses genres et, demandés, leurs parents (P279*) : un album de « gangsta
+ * rap » est un album de rap. Pas pour un livre : en remontant les parents,
+ * « Gatsby le Magnifique » et « L'Étranger » finissaient en tragédie ou en
+ * comédie, et au théâtre.
  */
-async function genresParmi(wd: Wikidata, qids: readonly string[], racines: readonly string[]): Promise<Map<string, string[]>> {
+async function genresParmi(wd: Wikidata, qids: readonly string[], racines: readonly string[], parents: boolean): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>()
   for (let i = 0; i < qids.length; i += 300) {
     const lignes = await wd.sparql(`SELECT DISTINCT ?item ?racine WHERE {
   VALUES ?item { ${qids.slice(i, i + 300).map(q => `wd:${q}`).join(' ')} }
   VALUES ?racine { ${racines.map(q => `wd:${q}`).join(' ')} }
-  ?item wdt:P136/wdt:P279* ?racine .
+  ?item wdt:P136${parents ? '/wdt:P279*' : ''} ?racine .
 }`)
     for (const l of lignes) {
       const [q, r] = [qidDe(l.item), qidDe(l.racine)]
@@ -456,8 +467,10 @@ async function oeuvresEtAuteurs(
     auteur?: { prop: string; valeurs: readonly string[] }
     /** Les auteurs situés par les années de leurs œuvres, pas par leur naissance : un groupe n'est pas né. */
     anneesDesOeuvres?: boolean
-    /** Les genres à reconnaître dans les sujets (`FaitBrut.genres`). */
-    genres?: readonly string[]
+    /** Les genres à reconnaître dans les sujets (`FaitBrut.genres`), avec ou sans leurs parents. */
+    genres?: { racines: readonly string[]; parents: boolean }
+    /** Reconnaître une œuvre jouée sur scène, à sa première représentation (P1191). */
+    jouees?: boolean
     /** La langue du sujet, qui dit s'il est français (`estFrancais`) — P364 pour un film ou une série. */
     langue?: string
   },
@@ -479,7 +492,8 @@ async function oeuvresEtAuteurs(
   const dates = await wd.valeurs(uniques, o.date)
   const pays = o.pays ? await wd.valeurs(uniques, o.pays) : new Map<string, Valeur[]>()
   const indices = o.indice ? await wd.valeurs(uniques, o.indice, { periodes: true }) : new Map<string, Valeur[]>()
-  const genres = o.genres ? await genresParmi(wd, uniques, o.genres) : null
+  const genres = o.genres ? await genresParmi(wd, uniques, o.genres.racines, o.genres.parents) : null
+  const premieres = o.jouees ? await wd.valeurs(uniques, 'P1191') : null
   const langues = o.langue ? await wd.valeurs(uniques, o.langue) : null
   const anneeDuSujet = (q: string) => {
     const annees = (dates.get(q) ?? []).filter(v => (v.prec ?? 0) >= 9).map(v => anneeDe(v.v)).filter((a): a is number => a !== null)
@@ -507,6 +521,7 @@ async function oeuvresEtAuteurs(
       indices: [valeurActuelle(indices.get(q) ?? [])?.l].filter((l): l is string => !!l),
       francais: estFrancais({ langues: langues && (langues.get(q) ?? []).map(v => v.v), pays: (pays.get(q) ?? []).map(v => v.v), paysDeLAuteur: reponse.pays ?? [] }),
       ...(genres && { genres: genres.get(q) ?? [] }),
+      ...(premieres && { jouee: (premieres.get(q) ?? []).length > 0 }),
     })
   }
   const homonymes = await homonymesDe(wd, o.motif, o.prop, faits)
@@ -611,24 +626,14 @@ async function laureats(wd: Wikidata, o: { prix: string; classe: string; annees?
  */
 export const anneeDUnePalme = (an: number): boolean => (an >= 1955 && an <= 1963) || an >= 1975
 
-/** Les genres qui rangent un album ailleurs que dans la pop et le rock. */
-const JAZZ = 'Q8341'
-const HIP_HOP = 'Q11401'
-const RAP = 'Q6010'
-const ELECTRO = 'Q9778'
-
-/** Le sous-thème d'un album : son genre d'abord, puis la chanson française pour un album français. */
-export function sousThemeDUnAlbum(f: Pick<FaitBrut, 'genres' | 'francais'>): string {
-  const genres = new Set(f.genres ?? [])
-  if (genres.has(JAZZ)) return 'jazz-monde'
-  if (genres.has(HIP_HOP) || genres.has(RAP) || genres.has(ELECTRO)) return 'rap-electro'
-  return f.francais ? 'chanson-fr' : 'pop-rock'
-}
-
-/** Les genres qui rangent une œuvre littéraire au théâtre et à la poésie. */
+/** Le genre qui range une œuvre littéraire à la poésie. */
 const POESIE = 'Q482'
-const COMEDIE = 'Q40831'
-const TRAGEDIE = 'Q80930'
+
+/** Le sous-thème d'un livre : jouée sur scène ou de poésie, au théâtre et à la poésie ; sinon à la littérature, française ou non. */
+export function sousThemeDUnLivre(f: Pick<FaitBrut, 'genres' | 'jouee' | 'francais'>): string {
+  if (f.jouee || (f.genres ?? []).includes(POESIE)) return 'poesie-theatre'
+  return f.francais ? 'litterature-fr' : 'litterature-monde'
+}
 
 /**
  * Ce que demande un palmarès : le lauréat d'un millésime, jamais « en 2019,
@@ -654,6 +659,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 60,
     parReponse: 4,
     vuesMin: 12,
+    reponseVuesMin: 30,
     sorte: 'sujet',
     extraire: wd =>
       oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q3305213 .', prop: 'P170', liensMin: 12, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
@@ -670,6 +676,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 25,
     parReponse: 3,
     vuesMin: 25,
+    reponseVuesMin: 30,
     echelle: 0.5,
     sorte: 'sujet',
     extraire: wd =>
@@ -679,9 +686,9 @@ export const FAMILLES: readonly Famille[] = [
     cle: 'romans',
     nom: 'Un livre, son auteur',
     categorie: 'Arts & lettres',
-    // Sur Wikidata, « Les Fleurs du mal » et « Cyrano de Bergerac » sont des œuvres littéraires de genre poésie ou comédie :
-    // leur genre les range au théâtre et à la poésie.
-    sousTheme: f => ((f.genres ?? []).length > 0 ? 'poesie-theatre' : f.francais ? 'litterature-fr' : 'litterature-monde'),
+    // Sur Wikidata, « Les Fleurs du mal » et « Cyrano de Bergerac » sont des œuvres littéraires comme les romans : la
+    // première a la poésie pour genre, la seconde une première représentation ; elles vont au théâtre et à la poésie.
+    sousTheme: sousThemeDUnLivre,
     gabarit: f => `Qui a écrit « ${f.sujet.nom} » ?`,
     demande: "qui a écrit l'œuvre",
     typeSujet: 'oeuvre',
@@ -689,6 +696,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 40,
     parReponse: 3,
     vuesMin: 12,
+    reponseVuesMin: 30,
     sorte: 'sujet',
     // Des écrivains de métier — écrivain, romancier, poète, dramaturge, philosophe : « La Genèse → Moïse » et « Nouveau Testament → AA.VV. » sortaient des seuls livres.
     extraire: wd =>
@@ -700,14 +708,16 @@ export const FAMILLES: readonly Famille[] = [
         date: 'P577',
         pays: 'P495',
         auteur: { prop: 'P106', valeurs: ECRIVAINS },
-        genres: [POESIE, COMEDIE, TRAGEDIE],
+        genres: { racines: [POESIE], parents: false },
+        jouees: true,
       }),
   },
   {
     cle: 'films-fr',
     nom: 'Un film français, son réalisateur',
     categorie: 'Cinéma & séries',
-    sousTheme: () => 'cinema-fr',
+    // Une coproduction qui passe le motif — « Babel » a la France pour pays et du français — reste au cinéma du monde.
+    sousTheme: f => (f.francais ? 'cinema-fr' : 'cinema-monde'),
     gabarit: f => `Qui a réalisé « ${f.sujet.nom} » ?`,
     demande: 'qui a réalisé le film',
     typeSujet: 'oeuvre',
@@ -715,6 +725,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 25,
     parReponse: 3,
     vuesMin: 15,
+    reponseVuesMin: 30,
     echelle: 0.5,
     sorte: 'sujet',
     // Les films français, bien moins traduits que ceux d'Hollywood : à quarante langues, le pilote n'en avait que trois
@@ -743,6 +754,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 25,
     parReponse: 3,
     vuesMin: 15,
+    reponseVuesMin: 30,
     echelle: 0.5,
     sorte: 'sujet',
     extraire: wd =>
@@ -760,6 +772,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 20,
     parReponse: 2,
     vuesMin: 15,
+    reponseVuesMin: 30,
     echelle: 0.5,
     sorte: 'sujet',
     // Un créateur signe rarement deux séries connues : le vivier prend tous ceux des sujets, pas ceux qui en ont deux.
@@ -777,6 +790,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 30,
     parReponse: 3,
     vuesMin: 25,
+    reponseVuesMin: 30,
     echelle: 0.4,
     sorte: 'sujet',
     extraire: wd => oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q11424 .', prop: 'P86', liensMin: 30, oeuvresMin: 2, date: 'P577', pays: 'P495', langue: 'P364' }),
@@ -793,39 +807,16 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 60,
     parReponse: 3,
     vuesMin: 8,
+    reponseVuesMin: 30,
     sorte: 'sujet',
     // Sa date, celle de la première représentation (P1191) : un opéra se crée sur scène. Sur Wikidata, un opéra est une
     // « œuvre dramatico-musicale » du genre opéra : « opéra » seul (Q1344) est le genre, et ne rendait aucune œuvre.
     extraire: wd =>
       oeuvresEtAuteurs(wd, { motif: '?item wdt:P31 wd:Q58483083 ; wdt:P136 wd:Q1344 .', prop: 'P86', liensMin: 10, oeuvresMin: 2, date: 'P1191' }),
   },
-  {
-    cle: 'albums',
-    nom: 'Un album, son interprète',
-    categorie: 'Musique',
-    sousTheme: sousThemeDUnAlbum,
-    gabarit: f => `Quel artiste a sorti l'album « ${f.sujet.nom} » ?`,
-    demande: "quel artiste ou quel groupe a sorti l'album",
-    typeSujet: 'oeuvre',
-    descriptionSujet: 'album',
-    ecart: 15,
-    parReponse: 2,
-    vuesMin: 15,
-    echelle: 0.5,
-    sorte: 'sujet',
-    // Un groupe n'est pas né : ses albums le situent parmi les autres ; son genre range l'album au rap ou au jazz.
-    extraire: wd =>
-      oeuvresEtAuteurs(wd, {
-        motif: 'VALUES ?classe { wd:Q482994 wd:Q208569 } ?item wdt:P31 ?classe .',
-        prop: 'P175',
-        liensMin: 15,
-        oeuvresMin: 2,
-        date: 'P577',
-        pays: 'P495',
-        anneesDesOeuvres: true,
-        genres: [JAZZ, HIP_HOP, RAP, ELECTRO],
-      }),
-  },
+  // Pas d'albums : leurs leurres ignoraient le genre — « Kill 'Em All » de Metallica avait Eminem, Lady Gaga et Lana Del
+  // Rey —, un groupe à longue carrière étant proche de tous par ses années, et neuf albums sur dix sont trop peu lus en
+  // France. Essayés et écartés le 11 octobre 2026 : une famille à reprendre avec des leurres du même genre.
   {
     cle: 'theatre-poesie',
     nom: 'Une pièce ou un poème, son auteur',
@@ -838,6 +829,7 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 50,
     parReponse: 3,
     vuesMin: 8,
+    reponseVuesMin: 30,
     sorte: 'sujet',
     extraire: wd =>
       oeuvresEtAuteurs(wd, {
@@ -845,7 +837,8 @@ export const FAMILLES: readonly Famille[] = [
         motif: 'VALUES ?classe { wd:Q116476516 wd:Q25379 wd:Q5185279 wd:Q12106333 } ?item wdt:P31 ?classe .',
         prop: 'P50',
         liensMin: 10,
-        oeuvresMin: 2,
+        // Tous les auteurs des sujets : à deux pièces connues au moins, le vivier ne donnait pas six leurres.
+        oeuvresMin: 1,
         date: 'P577',
         pays: 'P495',
         auteur: { prop: 'P106', valeurs: ECRIVAINS },
@@ -863,10 +856,12 @@ export const FAMILLES: readonly Famille[] = [
     ecart: 60,
     parReponse: 3,
     vuesMin: 8,
+    reponseVuesMin: 30,
     sorte: 'sujet',
     // Une sculpture, une « œuvre sculptée » ou une statue : « Le Penseur » est la deuxième, et la première classe seule le manquait.
+    // Peu de sculpteurs signent deux œuvres connues : le vivier prend tous ceux des sujets — dix-sept, et pas une fiche.
     extraire: wd =>
-      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q860861 wd:Q28890616 wd:Q179700 } ?item wdt:P31 ?classe .', prop: 'P170', liensMin: 10, oeuvresMin: 2, date: 'P571', indice: 'P195' }),
+      oeuvresEtAuteurs(wd, { motif: 'VALUES ?classe { wd:Q860861 wd:Q28890616 wd:Q179700 } ?item wdt:P31 ?classe .', prop: 'P170', liensMin: 10, oeuvresMin: 1, date: 'P571', indice: 'P195' }),
   },
   {
     cle: 'goncourt',
@@ -979,6 +974,7 @@ export function fichesDeLaFamille(
     if (f.annee !== null && f.annee >= aujourdhui.getFullYear()) { ecarter("de l'année, trop frais pour être relu"); continue }
     if (x.homonymes.has(plat(f.sujet.nom)) || (f.sujet.libelle && x.homonymes.has(plat(f.sujet.libelle)))) { ecarter('titre porté par plusieurs sujets'); continue }
     if ((fam.sorte === 'palmares' ? vuesDe(f.reponse) : vuesDe(f.sujet)) < fam.vuesMin) { ecarter('trop peu lu en France'); continue }
+    if (vuesDe(f.reponse) < (fam.reponseVuesMin ?? 0)) { ecarter('réponse trop peu connue'); continue }
     if ((parReponse.get(f.reponse.qid) ?? 0) >= fam.parReponse) { ecarter('plafond par réponse'); continue }
     const leurres = choisirLeurres(f.reponse, x.vivier, { ecart: fam.ecart, affiches: dejaAffiches })
     if (!leurres) { ecarter('moins de six leurres'); continue }

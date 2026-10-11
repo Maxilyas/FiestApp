@@ -34,7 +34,7 @@ import {
   mediane,
   medianesDesJours,
   qidDe,
-  sousThemeDUnAlbum,
+  sousThemeDUnLivre,
   titresAmbigus,
   valeurActuelle,
   Wikidata,
@@ -176,6 +176,11 @@ test('un fait de l’année ne s’écrit pas encore : le correcteur ne le conna
   assert.deepEqual(fiches.map(f => f.entites[0].nom), ['La Toile ancienne'])
   assert.equal(Object.values(ecartes).reduce((s, n) => s + n, 0), 1, JSON.stringify(ecartes))
   assert.equal(fichesDeLaFamille(tableaux, x, vues, new Date('2027-01-02')).fiches.length, 2, 'l’an prochain, il se relit')
+  // Une réponse que presque personne ne lit ne se gagne qu'au hasard : « Night Shift », Gabe Sachs, trois lecteurs par jour.
+  const peuConnu = new Map(vues).set(VERMEER.titre!, 3)
+  const { fiches: aucune, ecartes: motifs } = fichesDeLaFamille({ ...tableaux, reponseVuesMin: 30 }, x, peuConnu, new Date('2027-01-02'))
+  assert.equal(aucune.length, 0)
+  assert.equal(motifs['réponse trop peu connue'], 2)
 })
 
 test('le musée d’un tableau : celui d’aujourd’hui, pas ceux de son histoire', () => {
@@ -444,17 +449,18 @@ test('un film est français par sa langue, pas par ses coproducteurs ni par son 
   assert.equal(estFrancais({ langues: ['Q1860'], pays: ['Q145'], paysDeLAuteur: ['Q142', 'Q36'] }), false, 'Le Pianiste')
   assert.equal(estFrancais({ langues: ['Q150'], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'Le Fabuleux Destin d’Amélie Poulain')
   assert.equal(estFrancais({ langues: ['Q1860', 'Q150', 'Q5287'], pays: ['Q30', 'Q145'], paysDeLAuteur: ['Q145'] }), false, 'Inception : un peu de français ne fait pas un film français')
-  assert.equal(estFrancais({ langues: ['Q1860', 'Q150'], pays: ['Q38', 'Q142'], paysDeLAuteur: ['Q38'] }), true, 'Le Dernier Tango à Paris : en français, et produit par la France')
+  assert.equal(estFrancais({ langues: ['Q1860', 'Q150'], pays: ['Q38', 'Q142'], paysDeLAuteur: ['Q38'] }), false, 'Le Dernier Tango à Paris : coproduit par la France, mais réalisé par un Italien')
+  assert.equal(estFrancais({ langues: ['Q1860', 'Q150', 'Q8748'], pays: ['Q142'], paysDeLAuteur: ['Q142'] }), true, 'Taken : produit par la France, réalisé par un Français')
   assert.equal(estFrancais({ langues: null, pays: ['Q142'], paysDeLAuteur: [] }), true, 'un livre, sans langue lue : son pays')
   assert.equal(estFrancais({ langues: null, pays: [], paysDeLAuteur: ['Q142'] }), true, 'ou celui de son auteur')
 })
 
-test('un album va au sous-thème de son genre, puis à la chanson française s’il est français', () => {
-  assert.equal(sousThemeDUnAlbum({ genres: ['Q6010'], francais: true }), 'rap-electro', 'L’École du micro d’argent : du rap avant tout')
-  assert.equal(sousThemeDUnAlbum({ genres: ['Q8341'], francais: false }), 'jazz-monde')
-  assert.equal(sousThemeDUnAlbum({ genres: ['Q9778'], francais: false }), 'rap-electro')
-  assert.equal(sousThemeDUnAlbum({ genres: [], francais: true }), 'chanson-fr')
-  assert.equal(sousThemeDUnAlbum({ francais: false }), 'pop-rock')
+test('un livre joué sur scène, ou de poésie, va au théâtre et à la poésie ; un roman, à la littérature', () => {
+  // En remontant les parents de leurs genres, « Gatsby le Magnifique » et « L'Étranger » finissaient au théâtre.
+  assert.equal(sousThemeDUnLivre({ jouee: true, genres: [], francais: true }), 'poesie-theatre', 'Cyrano de Bergerac, créé en 1897')
+  assert.equal(sousThemeDUnLivre({ jouee: false, genres: ['Q482'], francais: true }), 'poesie-theatre', 'Les Fleurs du mal')
+  assert.equal(sousThemeDUnLivre({ jouee: false, genres: [], francais: true }), 'litterature-fr', 'L’Étranger')
+  assert.equal(sousThemeDUnLivre({ jouee: false, genres: [], francais: false }), 'litterature-monde', 'Gatsby le Magnifique')
 })
 
 test('un palmarès : la bonne réponse change de place d’une année à l’autre, le même sujet n’y fait rien', () => {
