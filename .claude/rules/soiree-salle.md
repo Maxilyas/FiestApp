@@ -50,6 +50,12 @@ paths:
   Et le téléphone qui revient — rechargé, réveillé — envoie son jeton juste
   derrière `party:watch`, sans attendre sa réponse : la liaison garde
   l'ordre, et chaque réveil coûte un aller-retour de moins (`depart.test.ts`).
+  Ouvrir la liaison dès le code de la page arrivé (`main.tsx`) plutôt
+  qu'au premier rendu, essayé le 11 octobre 2026 : elle s'ouvrait 45 ms plus
+  tôt, et la salle d'attente ne gagnait rien de mesurable — en 4G, c'est la
+  poignée de main du WebSocket qui pèse (340 ms). Et un second `connect()`
+  sur un transport déjà ouvert renverrait la présentation de l'espace de
+  noms : une seconde socket au serveur, sur la même liaison.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
 - **Une nouvelle commande `host:*`** s'ajoute à la liste de
