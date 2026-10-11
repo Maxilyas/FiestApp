@@ -160,6 +160,17 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
   })
   // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /campagne=\{'campagne' in profil \? profil\.campagne : undefined\}/)
+
+  // Un défi qu'un ami lui a envoyé passe devant : qui le défie, une pastille, et l'onglet du défi (`campagne-amis.test.ts`).
+  const avecPastille = (campagne: object) => {
+    const html = renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne }))
+    return html.split('<a ').find(x => x.includes('<b>La campagne</b>'))!
+  }
+  const unDefi = avecPastille({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false }, defisRecus: { n: 1, de: 'Léa' } })
+  assert.match(unDefi, /href="\/campagne#defi"/)
+  assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
+  assert.match(unDefi, /<span class="pastille-attente">Un défi<\/span>/)
+  assert.match(avecPastille({ vies: 11, avance: null, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres amis : à toi de jouer.*3 défis/)
 })
 
 test('l’accueil d’un profil télécharge en fond le code de la campagne et du quiz du jour', () => {

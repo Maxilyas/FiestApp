@@ -93,6 +93,34 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // Ses amis — ceux avec qui il a joué un défi entre amis — et les défis
+  // qu'ils lui ont envoyés ; lus pour un de ses défis (`?duel=`), ceux qui
+  // l'ont déjà. Lui envoyer un défi, le retirer de sa liste.
+  app.get(
+    '/api/campagne/amis',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.mesAmis(profil.id, req.query.duel))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/duel/:code/envoi',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.envoyerUnDuel(profil.id, req.params.code, req.body?.amis))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/amis/:id/retrait',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.retirerUnAmi(profil.id, req.params.id))
+    }),
+  )
+
   app.post(
     '/api/campagne/serie/:id/reponse',
     petit,

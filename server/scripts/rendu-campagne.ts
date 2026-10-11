@@ -269,6 +269,39 @@ try {
   if (!(await page.locator('.sujet-tuile').first().isVisible())) await page.click('.sentiers-sujets summary')
   await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).scrollIntoViewIfNeeded()
   await photo('20-un-palier-de-theme-valide')
+
+  // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Le suivant, joué
+  // à l'écran, part à Tom d'un toucher à sa fin ; Tom le trouve sous l'onglet
+  // du défi, compté sur l'onglet, et sa liste d'amis dessous.
+  const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as any
+  await jouerParLAPI(lea, premier.serie.id, [true, true, true, false, false, false])
+  const releve = (await (await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, tom)).json()) as any
+  await jouerParLAPI(tom, releve.id, [true, false, false, false])
+  await ouvrir('/campagne')
+  await page.click('text=Défier des amis')
+  await repondre(true)
+  for (let i = 0; i < 3; i++) {
+    await page.locator('.btn-primary.btn-big').click()
+    await repondre(false)
+  }
+  await page.click('text=Voir ma série')
+  await page.waitForSelector('.duel-amis .duel-ami')
+  await page.locator('.duel-amis').scrollIntoViewIfNeeded()
+  await photo('21-envoyer-a-mes-amis')
+  await page.locator('.duel-amis .btn-primary').click()
+  await page.waitForSelector('text=Envoyé')
+  await photo('22-envoye-a-mes-amis')
+  await entrer(tom)
+  // Son accueil le lui dit, sur le bouton de la campagne.
+  await ouvrir('/')
+  await page.waitForSelector('text=Léa te défie')
+  await photo('22a-accueil-defi-recu')
+  await ouvrir('/campagne#defi')
+  await page.waitForSelector('.duel-recus')
+  await photo('23-defis-recus')
+  await page.waitForSelector('.tes-amis')
+  await page.locator('.tes-amis').scrollIntoViewIfNeeded()
+  await photo('24-tes-amis')
 } finally {
   await navigateur.close()
   await banc.close()
