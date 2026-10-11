@@ -139,13 +139,21 @@ const ordinal = (n: number) => ORDINAUX[n] ?? `${n}ᵉ`
  * la page ouverte sur eux (`#sentiers`, où mène le bouton de l'accueil) ne
  * les demandait qu'une fois cet état arrivé, au montage de `Sentiers` — un
  * aller-retour de plus, à chaque visite. Le premier `relire` les prend.
+ *
+ * Les sentiers à thème partent avec eux, préchargés de même
+ * (`donneesDuFragment`) : demandés au montage, ils arrivaient un
+ * aller-retour après la carte, et la redessinaient en entier pour la ligne
+ * qui les replie.
  */
 let sentiersDAvance: Promise<EtatDesSentiers> | null = null
+let sujetsDAvance: Promise<EtatDesSujets> | null = null
 
 export function demanderLesSentiers() {
   sentiersDAvance ??= api.campagne.sentiers.etat()
-  // Un refus se dira au montage, quand `relire` le reprendra.
+  sujetsDAvance ??= api.campagne.sujets.etat()
+  // Un refus se dira au montage, quand `relire` le reprendra ; ceux des sujets se taisent.
   sentiersDAvance.catch(() => {})
+  sujetsDAvance.catch(() => {})
 }
 
 /** Les sentiers demandés d'avance s'il y en a — une fois —, sinon demandés tout de suite. */
@@ -153,6 +161,13 @@ export function lesSentiers(): Promise<EtatDesSentiers> {
   const dAvance = sentiersDAvance
   sentiersDAvance = null
   return dAvance ?? api.campagne.sentiers.etat()
+}
+
+/** Les sentiers à thème demandés d'avance s'il y en a — une fois —, sinon demandés tout de suite. */
+export function lesSujets(): Promise<EtatDesSujets> {
+  const dAvance = sujetsDAvance
+  sujetsDAvance = null
+  return dAvance ?? api.campagne.sujets.etat()
 }
 
 /**
@@ -183,8 +198,7 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     return lu
   }
   const relireLesSujets = () => {
-    api.campagne.sujets
-      .etat()
+    lesSujets()
       .then(setSujets)
       // Ils se taisent : la carte reste, sans eux.
       .catch(() => {})
@@ -1958,6 +1972,11 @@ export function PlusDeVies({
  * (`shared/sentiersDeSujets.ts`). Repliés : la page s'ouvre sur les douze
  * sentiers et leurs avatars, et l'on déplie celui-ci quand on veut un thème ;
  * dépliés d'eux-mêmes quand une épreuve y attend.
+ *
+ * Repliés, ils ne rendent que leur titre : leurs tuiles (`TuilesDesSujets`)
+ * viennent au dépli. Cachées sous le titre, elles se faisaient à chaque
+ * ouverture de la carte — vingt-cinq tuiles et leurs icônes, près de deux
+ * cents éléments, un quart de la page (mesuré le 11 octobre 2026).
  */
 export function SentiersDeSujets({
   etat,
@@ -1972,11 +1991,12 @@ export function SentiersDeSujets({
 }) {
   const [fiche, setFiche] = useState<string | null>(null)
   const laissee = etat.epreuve?.question ? etat.epreuve : null
+  const [deplie, setDeplie] = useState(!!laissee)
   const accomplis = etat.sujets.filter(s => s.paliers >= PALIERS_D_UN_SUJET).length
   const sentier = fiche ? etat.sujets.find(s => s.sujet === fiche) : undefined
   const sujet = sentier ? sujetParCle(sentier.sujet) : undefined
   return (
-    <details className="reglages-salon sentiers-sujets" open={!!laissee || undefined}>
+    <details className="reglages-salon sentiers-sujets" open={!!laissee || undefined} onToggle={e => setDeplie(e.currentTarget.open)}>
       <summary>
         <Icon name="clock" className="reglages-icone" />
         <span>
@@ -1985,48 +2005,17 @@ export function SentiersDeSujets({
         </span>
         <Icon name="chevron-down" className="repli-chevron" />
       </summary>
-      <p className="muted small">{`Un thème, une époque ou un fil rouge, au-delà des catégories : ${PALIERS_D_UN_SUJET} paliers de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions, ${SEUIL_D_UN_SUJET} bonnes réponses pour passer. Rien à perdre : chaque bonne réponse paie comme en série.`}</p>
-      {laissee && (
-        <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
-          {`Reprendre · ${sujetParCle(laissee.sujet)?.nom ?? 'ton thème'}, palier ${laissee.palier}`}
-        </button>
+      {(deplie || laissee) && (
+        <>
+          <p className="muted small">{`Un thème, une époque ou un fil rouge, au-delà des catégories : ${PALIERS_D_UN_SUJET} paliers de ${QUESTIONS_D_UN_PALIER_DE_SUJET} questions, ${SEUIL_D_UN_SUJET} bonnes réponses pour passer. Rien à perdre : chaque bonne réponse paie comme en série.`}</p>
+          {laissee && (
+            <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(laissee)}>
+              {`Reprendre · ${sujetParCle(laissee.sujet)?.nom ?? 'ton thème'}, palier ${laissee.palier}`}
+            </button>
+          )}
+          <TuilesDesSujets etat={etat} onFiche={setFiche} />
+        </>
       )}
-      {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
-        const ici = etat.sujets.filter(s => sujetParCle(s.sujet)?.famille === famille)
-        if (ici.length === 0) return null
-        return (
-          <div key={famille} className="sujets-famille">
-            <p className="label">{nom}</p>
-            <div className="sujets-grille">
-              {ici.map(s => {
-                const sj = sujetParCle(s.sujet)!
-                const etoiles = s.etoiles.reduce((n, e) => n + e, 0)
-                const accompli = s.paliers >= PALIERS_D_UN_SUJET
-                const ou = accompli ? 'accompli' : s.paliers === 0 ? 'à commencer' : `palier ${s.paliers + 1} sur ${PALIERS_D_UN_SUJET}`
-                // La difficulté du palier à jouer, d'un mot, comme sur la tuile d'un sentier.
-                const difficulte = accompli ? null : difficulteDuMelange(PALIERS_DES_SUJETS[s.paliers].melange)
-                return (
-                  <button
-                    key={s.sujet}
-                    type="button"
-                    className={'sujet-tuile' + (accompli ? ' sujet-accompli' : '')}
-                    aria-label={`${sj.nom} : ${ou}${difficulte ? `, ${difficulte}` : ''}${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}`}
-                    onClick={() => setFiche(s.sujet)}
-                  >
-                    <Icon name={accompli ? 'crown' : iconeDuSujet(sj)} />
-                    <b>{sj.nom}</b>
-                    <span className="sujet-etat" aria-hidden="true">
-                      {accompli ? 'Accompli' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}/${PALIERS_D_UN_SUJET}`}
-                      {etoiles > 0 && ` · ★ ${etoiles}`}
-                      {difficulte && <span className="sujet-difficulte">{difficulte}</span>}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
       {sentier && sujet && (
         <Feuille titre={sujet.nom} onFermer={() => setFiche(null)}>
           <FicheDuSentierDeSujet
@@ -2042,6 +2031,46 @@ export function SentiersDeSujets({
       )}
     </details>
   )
+}
+
+/** Les tuiles des sentiers à thème, une rangée par famille — les thèmes d'abord (`FAMILLES_DE_SUJETS`). */
+export function TuilesDesSujets({ etat, onFiche }: { etat: EtatDesSujets; onFiche: (sujet: string) => void }) {
+  return FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
+    const ici = etat.sujets.filter(s => sujetParCle(s.sujet)?.famille === famille)
+    if (ici.length === 0) return null
+    return (
+      <div key={famille} className="sujets-famille">
+        <p className="label">{nom}</p>
+        <div className="sujets-grille">
+          {ici.map(s => {
+            const sj = sujetParCle(s.sujet)!
+            const etoiles = s.etoiles.reduce((n, e) => n + e, 0)
+            const accompli = s.paliers >= PALIERS_D_UN_SUJET
+            const ou = accompli ? 'accompli' : s.paliers === 0 ? 'à commencer' : `palier ${s.paliers + 1} sur ${PALIERS_D_UN_SUJET}`
+            // La difficulté du palier à jouer, d'un mot, comme sur la tuile d'un sentier.
+            const difficulte = accompli ? null : difficulteDuMelange(PALIERS_DES_SUJETS[s.paliers].melange)
+            return (
+              <button
+                key={s.sujet}
+                type="button"
+                className={'sujet-tuile' + (accompli ? ' sujet-accompli' : '')}
+                aria-label={`${sj.nom} : ${ou}${difficulte ? `, ${difficulte}` : ''}${etoiles > 0 ? `, ${etoiles} étoile${etoiles > 1 ? 's' : ''}` : ''}`}
+                onClick={() => onFiche(s.sujet)}
+              >
+                <Icon name={accompli ? 'crown' : iconeDuSujet(sj)} />
+                <b>{sj.nom}</b>
+                <span className="sujet-etat" aria-hidden="true">
+                  {accompli ? 'Accompli' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}/${PALIERS_D_UN_SUJET}`}
+                  {etoiles > 0 && ` · ★ ${etoiles}`}
+                  {difficulte && <span className="sujet-difficulte">{difficulte}</span>}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  })
 }
 
 /** La fiche d'un sentier à thème : ses six paliers, ce qu'ils posent, ses étoiles — et le geste. */
