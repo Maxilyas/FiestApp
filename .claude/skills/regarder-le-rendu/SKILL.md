@@ -25,6 +25,7 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
 - `server/scripts/rendu-sentiers.ts` — tous les écrans des sentiers du savoir (règle `sentiers.md`).
 - `server/scripts/rendu-duels.ts` — les duels (`/duels`) : le bouton de l'accueil, la page d'un débutant, un duel classé — son enjeu, sa cote à la fin —, une montée de ligue, le classement ; puis défier un ami : la préparation, une partie jusqu'à sa fin — à qui il est parti —, et l'ami qui le reçoit (règle `duels.md`).
 - `server/scripts/rendu-campagne.ts` — les écrans de la campagne qui se jouent sur plusieurs jours, l'horloge avancée à la main : le carnet de révision, ses révisions et leur fin, une rencontre contre un inconnu (règle `campagne.md`), et les sentiers à thème — leurs tuiles, la fiche d'un sujet, une épreuve et sa fin (règle `sentiers.md`).
+- `server/scripts/rendu-quiz-tout-pret.ts` — un quiz tout prêt, sur la vraie base de la campagne : « Créer un quiz », sa feuille réglée d'office puis choisie, le quiz composé dans l'éditeur, et le salon d'un profil où il rejoint ce soir (règle `bibliotheque.md`).
 - `server/scripts/rendu-themes.ts` et `server/scripts/apercus-themes.ts` — un thème dans l'application, son contraste, son aperçu (règle `themes.md`).
 - `server/scripts/planche-portraits.ts`, `server/scripts/planche-medaillons.ts` — les images peintes dans tous leurs états (skill `peindre`).
 - `server/scripts/mesure-pages.ts` (`npm run mesure`) — ce que chaque page fait attendre à un téléphone (règle `client.md`).

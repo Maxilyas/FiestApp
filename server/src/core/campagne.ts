@@ -26,6 +26,7 @@ import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
+import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import { messageDUnDefi, type MessageDUnDefi } from './rappels'
 import {
   JOURS_DU_CLASSEMENT,
@@ -689,6 +690,29 @@ export class CampagneStore {
     const compte = new Map<string, number>()
     for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
     return SUJETS.filter(s => (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_JOUER).map(s => ({ sujet: s.cle, questions: compte.get(s.cle)! }))
+  }
+
+  /**
+   * Ce qu'un quiz tout prêt peut tirer pour une soirée (`core/quizToutPret.ts`) :
+   * les questions que la campagne pose — ni retirées, ni de la réserve du quiz
+   * du jour —, et la part de joueurs qui ont trouvé chacune, qui corrige sa
+   * difficulté estimée.
+   */
+  async pourLesSoirees(): Promise<{ questions: readonly QuestionDeLaBase[]; mesures: ReadonlyMap<string, { justes: number; total: number }> }> {
+    const [questions, mesures] = await Promise.all([this.jouables(), this.mesures()])
+    return { questions, mesures }
+  }
+
+  /** Ce que la base offre à un quiz tout prêt : son total, et les catégories et les sujets qui ont de quoi en faire un. */
+  async baseDesSoirees(): Promise<BaseDuQuizToutPret> {
+    const jouables = await this.jouables()
+    const parCategorie = new Map<string, number>()
+    for (const q of jouables) parCategorie.set(q.meta.categorie, (parCategorie.get(q.meta.categorie) ?? 0) + 1)
+    return {
+      total: jouables.length,
+      categories: CATEGORIES.filter(c => (parCategorie.get(c) ?? 0) >= QUESTIONS_POUR_JOUER),
+      sujets: this.sujetsJouables(jouables).map(s => s.sujet),
+    }
   }
 
   async etat(profileId: string): Promise<EtatDeCampagne> {
@@ -3848,7 +3872,7 @@ function nouveauCode(): string {
  * page attendait.
  */
 const SUJETS_LUS = new WeakMap<QuestionDeLaBase, readonly string[]>()
-function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
+export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
   let lus = SUJETS_LUS.get(q)
   if (!lus) SUJETS_LUS.set(q, (lus = sujetsDe(q.meta)))
   return lus

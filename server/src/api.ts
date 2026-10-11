@@ -1,4 +1,6 @@
-import type { CampagneStore } from './core/campagne'
+import { sujetsDeLaQuestion, type CampagneStore } from './core/campagne'
+import { composerUnQuiz, dejaDansLEspace, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret } from './core/quizToutPret'
+import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
 import express, { type Express } from 'express'
@@ -12,7 +14,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi, normalizeQuestions, playableQuestions, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { horsBornesALEnvoi, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -443,6 +445,39 @@ export function mountApi(app: Express, deps: ApiDeps) {
       // Une copie de modèle mélange ses réponses : on écrit la bonne d'abord,
       // et la salle finirait par le voir.
       const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true })
+      await deps.onLibraryChanged(spaceId)
+      res.status(201).json(quiz)
+    }),
+  )
+
+  // Un quiz tout prêt, tiré de la base de la campagne (`core/quizToutPret.ts`) :
+  // ce qu'elle offre, puis le quiz composé, rangé dans la bibliothèque comme
+  // une copie de modèle.
+  app.get(
+    '/api/quiz-tout-pret',
+    wrap(async (_req, res) => {
+      res.json(await deps.campagne.baseDesSoirees())
+    }),
+  )
+
+  app.post(
+    '/api/quiz-tout-pret',
+    wrap(async (req, res) => {
+      const choix = lireChoixDuQuiz(req.body)
+      if (!choix) return res.status(400).json({ error: 'Ce choix ne se lit pas : recharge la page' })
+      const spaceId = spaceOf(res)
+      const [{ questions, mesures }, bibliotheque, memoire] = await Promise.all([
+        deps.campagne.pourLesSoirees(),
+        deps.store.all(spaceId),
+        deps.archives.memoire(spaceId),
+      ])
+      const tirees = composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, dejaDansLEspace(bibliotheque, dernieresFois(memoire)))
+      if (tirees.length < NOMBRE_MIN) {
+        return res.status(400).json({ error: 'Il ne reste pas assez de questions pour ce choix : ajoute une catégorie, ou change de difficulté' })
+      }
+      const titre = titreLibre(titreDuQuizToutPret(choix, tirees.length), bibliotheque.map(q => q.title))
+      // Ses réponses se mélangent à chaque partie, comme celles d'un modèle : la base les range comme elle veut.
+      const quiz = await deps.store.create(spaceId, titre, tirees, undefined, { melangerReponses: true })
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

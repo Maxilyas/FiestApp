@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
+import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { chefIci, demanderEntree, retenirChef } from '../chef'
 import { spacePath } from '../routes'
 import { porterTheme } from '../themeJoueur'
@@ -68,6 +69,8 @@ export function SalonApp() {
   const [rythme, setRythme] = useState<number | null>(RYTHME_PAR_DEFAUT)
   const [equipes, setEquipes] = useState(false)
   const [choisir, setChoisir] = useState(false)
+  /** La feuille du quiz tout prêt, ouverte depuis « Ajouter un quiz ». */
+  const [toutPret, setToutPret] = useState(false)
   const [cherche, setCherche] = useState('')
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
@@ -238,7 +241,15 @@ export function SalonApp() {
             )
           })}
         </ul>
-        <button type="button" className={'btn btn-block' + (quiz.length === 0 ? ' ajouter-premier' : '')} onClick={() => setChoisir(true)}>
+        <button
+          type="button"
+          className={'btn btn-block' + (quiz.length === 0 ? ' ajouter-premier' : '')}
+          onClick={() => {
+            // La feuille du quiz tout prêt arrive pendant qu'on lit celle-ci.
+            quizToutPret.charger().catch(() => {})
+            setChoisir(true)
+          }}
+        >
           <Icon name="plus" />
           {quiz.length === 0 ? 'Ajouter un quiz' : 'Ajouter un autre quiz'}
         </button>
@@ -399,6 +410,17 @@ export function SalonApp() {
             <Icon name="edit" />
             Écrire un quiz
           </a>
+          <span className="label">Sans rien écrire</span>
+          <Choix
+            icone="dice"
+            titre="Un quiz tout prêt"
+            detail="Tes catégories ou un sujet, ta difficulté : il se compose tout seul"
+            disabled={busy}
+            onClick={() => {
+              setChoisir(false)
+              setToutPret(true)
+            }}
+          />
           {livres.length > 0 && (
             <>
               <span className="label">Les modèles</span>
@@ -415,6 +437,20 @@ export function SalonApp() {
             </>
           )}
         </Feuille>
+      )}
+      {toutPret && (
+        <FeuilleDuQuizToutPretADemande
+          onFermer={() => setToutPret(false)}
+          onCompose={quiz => {
+            // Composé, il rejoint sa bibliothèque — une copie à lui, comme un modèle —, puis ce salon.
+            setToutPret(false)
+            ajouter({ id: quiz.id, title: quiz.title })
+            api
+              .list()
+              .then(setBibliotheque)
+              .catch(() => {})
+          }}
+        />
       )}
     </div>
   )

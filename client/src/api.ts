@@ -20,6 +20,7 @@ import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
+import type { BaseDuQuizToutPret, ChoixDuQuiz } from '../../shared/quizToutPret'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
@@ -211,6 +212,11 @@ export const api = {
   /** Une copie du modèle — personnalisée, s'il le demande et qu'on a répondu à « Pour qui ? ». */
   partirDe: (modele: string, pourQui?: PourQui) =>
     req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST', body: JSON.stringify(pourQui ?? {}) }),
+  /** Un quiz tout prêt, tiré de la base de la campagne (`shared/quizToutPret.ts`) : ce qu'elle offre, puis le quiz composé. */
+  quizToutPret: {
+    base: () => req<BaseDuQuizToutPret>('/api/quiz-tout-pret'),
+    composer: (choix: ChoixDuQuiz) => req<QuizDef>('/api/quiz-tout-pret', { method: 'POST', body: JSON.stringify(choix) }),
+  },
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   /** Partager : un code à un animateur de ce serveur, une copie au catalogue (`shared/partage.ts`). */
