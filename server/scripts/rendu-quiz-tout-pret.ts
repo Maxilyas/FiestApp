@@ -1,8 +1,9 @@
 // Un quiz tout prêt, photographié au téléphone (360 × 640) sur un serveur
 // jetable qui lit la vraie base de la campagne : « Créer un quiz » et sa
 // ligne, la feuille réglée d'office puis choisie — deux catégories, facile,
-// dix questions —, le quiz composé ouvert dans l'éditeur ; puis le salon d'un
-// profil, où le quiz composé rejoint ce soir.
+// dix questions —, le quiz composé ouvert dans l'éditeur, et sa première
+// estimation ; puis le salon d'un profil, où le quiz composé rejoint ce
+// soir.
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-quiz-tout-pret.ts [dossier]
@@ -72,6 +73,9 @@ try {
   await page.waitForSelector('.carte-feuille', { state: 'detached' })
   await page.waitForTimeout(800)
   await photo(page, '06-compose')
+  // Sa première estimation : la carte dont « Estimation » est choisi, sa cible et son unité.
+  await page.evaluate(`[...document.querySelectorAll('button.active, button[aria-pressed="true"]')].find(b => b.textContent.includes('Estimation'))?.scrollIntoView({ block: 'start' })`)
+  await photo(page, '06b-estimation')
   console.log('titre →', await page.locator('input[aria-label*="itre"], h1').first().inputValue().catch(() => page.locator('h1').first().textContent()))
 
   // Un profil crée son salon : le quiz tout prêt est dans « Ajouter un quiz ».

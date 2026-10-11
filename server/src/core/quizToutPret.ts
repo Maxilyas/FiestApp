@@ -1,11 +1,14 @@
 import { CATEGORIES, type Categorie } from '../../../shared/categories'
 import { NIVEAUX, niveauDeQuestion, type Niveau } from '../../../shared/campagne'
 import type { Aleatoire } from '../../../shared/hasard'
-import { DEFAULT_DURATION, type QuizDef, type QuizQuestionDef } from '../../../shared/library'
+import { DEFAULT_DURATION, MAX_UNIT, type QuizDef, type QuizQuestionDef } from '../../../shared/library'
+import { lireNombreEnTete } from '../../../shared/nombres'
 import {
   AGE_DES_ENFANTS,
   DIFFICULTES_DU_QUIZ,
+  DUREE_D_UNE_ESTIMATION,
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
+  UNE_ESTIMATION_SUR,
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
@@ -46,6 +49,7 @@ export function lireChoixDuQuiz(brut: unknown): ChoixDuQuiz | null {
   const nombre = b.nombre ?? NOMBRE_DU_QUIZ_PAR_DEFAUT
   if (typeof nombre !== 'number' || !Number.isInteger(nombre) || nombre < NOMBRE_MIN || nombre > NOMBRE_MAX) return null
   if (b.enfants !== undefined && typeof b.enfants !== 'boolean') return null
+  if (b.estimations !== undefined && typeof b.estimations !== 'boolean') return null
   return {
     // Dans l'ordre de la liste, pas dans celui des touchers : le titre se lit pareil.
     categories: CATEGORIES.filter(c => categories.includes(c)),
@@ -53,6 +57,7 @@ export function lireChoixDuQuiz(brut: unknown): ChoixDuQuiz | null {
     difficulte: difficulte as DifficulteDuQuiz,
     nombre,
     enfants: b.enfants === true,
+    estimations: b.estimations === true,
   }
 }
 
@@ -82,6 +87,47 @@ export function planDuQuiz(difficulte: DifficulteDuQuiz, nombre: number): { nive
             ['expert', part(0.2)],
           ]
   return plan.filter(([, n]) => n > 0).map(([niveau, n]) => ({ niveau, n }))
+}
+
+/**
+ * Les marches où une estimation se tire : comme ses QCM, un quiz facile n'en
+ * prend que de faciles et de moyennes, et seul un quiz corsé prend une
+ * experte — « En quelle année Michelin a-t-il ajouté sa troisième étoile ? ».
+ */
+const MARCHES_DES_ESTIMATIONS: Record<DifficulteDuQuiz, readonly Niveau[]> = {
+  facile: ['facile', 'moyen'],
+  progressive: ['facile', 'moyen', 'difficile'],
+  corsee: NIVEAUX,
+}
+
+/** « Lequel de ces… », « parmi » : un intitulé qui suppose des choix ne se pose pas sans eux. */
+const FORMULE_DE_QCM = /\b(parmi|de ces|lequel|laquelle|lesquels|lesquelles|ci-dessous)\b/i
+
+/**
+ * Ce qu'une question de la base vise, jouée en estimation — ou null. Sa
+ * bonne réponse doit être ce nombre (`valeur`, que la base donne aussi à une
+ * question dont un nombre n'est qu'un détail) ; plus de dix, ou à virgule :
+ * « Combien d'anneaux sur le drapeau olympique ? » se devine, ne s'estime
+ * pas ; et son intitulé doit se lire sans les choix. Une unité trop longue
+ * pour l'écran (`MAX_UNIT` : « images par seconde ») s'efface — l'intitulé
+ * la dit déjà.
+ */
+export function cibleDeLEstimation(q: QuestionDeLaBase): { target: number; unit: string } | null {
+  const valeur = q.meta.valeur
+  if (!valeur || q.reponses.length !== 4) return null
+  if (Number.isInteger(valeur.nombre) && valeur.nombre <= 10) return null
+  if (lireNombreEnTete(q.reponses[q.bonne])?.valeur !== valeur.nombre) return null
+  if (FORMULE_DE_QCM.test(q.texte)) return null
+  return { target: valeur.nombre, unit: Array.from(valeur.unite).length <= MAX_UNIT ? valeur.unite : '' }
+}
+
+/**
+ * Les places des estimations parmi `total` questions, réparties : jamais la
+ * première — la salle se met en jambes d'un toucher —, et l'une après
+ * l'autre si elles se suivent faute de QCM.
+ */
+export function placesDesEstimations(total: number, estimations: number): number[] {
+  return Array.from({ length: estimations }, (_, i) => Math.round(((i + 1) * total) / (estimations + 1)) - 1)
 }
 
 /** Où emprunter quand une marche manque de questions : la plus proche d'abord. */
@@ -167,6 +213,24 @@ function battre<T>(items: readonly T[], aleatoire: Aleatoire): T[] {
   return copie
 }
 
+/** Une question de la base jouée en estimation : sa cible et son unité, trente secondes pour taper. */
+function versLEstimation(q: QuestionDeLaBase, cible: { target: number; unit: string }): QuizQuestionDef {
+  return {
+    id: idDansLeQuiz(q.id),
+    kind: 'number',
+    text: q.texte,
+    answers: [],
+    correct: 0,
+    target: cible.target,
+    unit: cible.unit,
+    duration: DUREE_D_UNE_ESTIMATION,
+    image: null,
+    observeSeconds: null,
+    category: q.meta.categorie,
+    ...(q.anecdote && { anecdote: q.anecdote }),
+  }
+}
+
 /** Une question de la base, telle qu'un quiz la garde : un QCM ordinaire, sa catégorie, son anecdote à la révélation. */
 function versLeQuiz(q: QuestionDeLaBase): QuizQuestionDef {
   return {
@@ -187,13 +251,15 @@ function versLeQuiz(q: QuestionDeLaBase): QuizQuestionDef {
 
 /**
  * Les questions d'un quiz tout prêt, dans l'ordre où elles se jouent : les
- * marches du plan (`planDuQuiz`), les catégories à tour de rôle dans chacune.
- * Rien de ce que sa bibliothèque a déjà ; d'abord ce que ses soirées n'ont
- * jamais posé, puis ce qu'elles ont posé il y a le plus longtemps — qui joue
- * souvent avec les mêmes amis ne leur repose pas les mêmes questions. Une
- * marche qui manque de questions emprunte à sa voisine : mieux vaut une
- * question un peu plus dure qu'une question déjà posée. Moins que demandé
- * quand le choix est étroit ; jamais une question deux fois.
+ * marches du plan (`planDuQuiz`), les catégories à tour de rôle dans chacune
+ * — et, s'il en veut, une estimation sur cinq, tirée d'abord, placée à
+ * intervalles (`placesDesEstimations`). Rien de ce que sa bibliothèque a
+ * déjà ; d'abord ce que ses soirées n'ont jamais posé, puis ce qu'elles ont
+ * posé il y a le plus longtemps — qui joue souvent avec les mêmes amis ne
+ * leur repose pas les mêmes questions. Une marche qui manque de questions
+ * emprunte à sa voisine : mieux vaut une question un peu plus dure qu'une
+ * question déjà posée. Moins que demandé quand le choix est étroit, moins
+ * d'estimations quand la base n'en a pas ; jamais une question deux fois.
  *
  * `mesures` : la part de joueurs de la campagne qui ont trouvé chaque
  * question — ce qui corrige sa difficulté estimée (`niveauDeQuestion`).
@@ -208,32 +274,68 @@ export function composerUnQuiz(
 ): QuizQuestionDef[] {
   const filtre = choix.categories.length > 0 ? new Set<string>(choix.categories) : null
   const parNiveau = new Map<Niveau, QuestionDeLaBase[]>(NIVEAUX.map(n => [n, []]))
+  const cibles = new Map<string, { target: number; unit: string }>()
+  const marchesDesEstimations = new Set(MARCHES_DES_ESTIMATIONS[choix.difficulte])
+  const estimables: QuestionDeLaBase[] = []
   for (const q of battre(questions, aleatoire)) {
     if (choix.sujet ? !sujetsDe(q).includes(choix.sujet) : filtre && !filtre.has(q.meta.categorie)) continue
     if (choix.enfants && q.meta.ageMin > AGE_DES_ENFANTS) continue
     if (deja.ids.has(idDansLeQuiz(q.id)) || deja.empreintes.has(q.empreinte)) continue
-    parNiveau.get(niveauDeQuestion(q.meta.difficulte, mesures.get(q.id)))!.push(q)
+    const niveau = niveauDeQuestion(q.meta.difficulte, mesures.get(q.id))
+    parNiveau.get(niveau)!.push(q)
+    const cible = choix.estimations && marchesDesEstimations.has(niveau) ? cibleDeLEstimation(q) : null
+    if (cible) {
+      cibles.set(q.id, cible)
+      estimables.push(q)
+    }
   }
   const poseeLe = (q: QuestionDeLaBase) => deja.posees.get(idDansLeQuiz(q.id))
-  const plan = planDuQuiz(choix.difficulte, choix.nombre)
-  const marches: QuestionDeLaBase[][] = plan.map(() => [])
+  /** Les jamais posées, au hasard du battage ; ou les posées, la plus anciennement d'abord. */
+  const deLaPasse = (dispo: readonly QuestionDeLaBase[], fraiches: boolean) => {
+    const ici = dispo.filter(q => !prises.has(q.id) && (poseeLe(q) === undefined) === fraiches)
+    return fraiches ? ici : ici.sort((a, b) => poseeLe(a)! - poseeLe(b)!)
+  }
   const prises = new Set<string>()
   const servies: Servies = { categories: new Map(), sousThemes: new Map() }
+
+  // Les estimations d'abord : la base en a peu, et le tour de rôle des
+  // catégories, commun, range ensuite les QCM autour d'elles.
+  const voulues = choix.estimations ? Math.round(choix.nombre / UNE_ESTIMATION_SUR) : 0
+  const estimations: QuestionDeLaBase[] = []
+  for (const fraiches of [true, false]) {
+    for (const q of aTourDeRole(deLaPasse(estimables, fraiches), voulues - estimations.length, servies)) {
+      prises.add(q.id)
+      estimations.push(q)
+    }
+  }
+
+  const plan = planDuQuiz(choix.difficulte, choix.nombre - estimations.length)
+  const marches: QuestionDeLaBase[][] = plan.map(() => [])
   for (const fraiches of [true, false]) {
     plan.forEach((marche, i) => {
       for (const niveau of [marche.niveau, ...VOISINES[marche.niveau]]) {
         const manque = marche.n - marches[i].length
         if (manque <= 0) break
-        let dispo = parNiveau.get(niveau)!.filter(q => !prises.has(q.id) && (poseeLe(q) === undefined) === fraiches)
-        if (!fraiches) dispo = dispo.sort((a, b) => poseeLe(a)! - poseeLe(b)!)
-        for (const q of aTourDeRole(dispo, manque, servies)) {
+        for (const q of aTourDeRole(deLaPasse(parNiveau.get(niveau)!, fraiches), manque, servies)) {
           prises.add(q.id)
           marches[i].push(q)
         }
       }
     })
   }
-  return marches.flat().map(versLeQuiz)
+
+  const qcm = marches.flat()
+  const total = qcm.length + estimations.length
+  const places = placesDesEstimations(total, estimations.length)
+  const quiz: QuizQuestionDef[] = []
+  for (let i = 0, e = 0, c = 0; i < total; i++) {
+    // Sa place venue — ou plus un QCM pour la remplir —, l'estimation suivante.
+    if (e < estimations.length && (i >= places[e] || c >= qcm.length)) {
+      const q = estimations[e++]
+      quiz.push(versLEstimation(q, cibles.get(q.id)!))
+    } else quiz.push(versLeQuiz(qcm[c++]))
+  }
+  return quiz
 }
 
 /**

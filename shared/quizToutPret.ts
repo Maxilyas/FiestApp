@@ -28,6 +28,16 @@ export const NOMBRE_DU_QUIZ_PAR_DEFAUT = 15
  */
 export const AGE_DES_ENFANTS = 10
 
+/**
+ * « Des estimations » : une question sur cinq se joue au plus près — une
+ * année, une distance, un nombre —, comme dans les quiz livrés, où elles
+ * font parler la salle. Elles se tirent parmi les questions de la base dont
+ * la bonne réponse est ce nombre (`core/quizToutPret.ts`).
+ */
+export const UNE_ESTIMATION_SUR = 5
+/** Taper un nombre prend plus longtemps que toucher une réponse : les estimations livrées laissent trente secondes. */
+export const DUREE_D_UNE_ESTIMATION = 30
+
 /** Ce que l'animateur demande (`POST /api/quiz-tout-pret`). */
 export interface ChoixDuQuiz {
   /** Vide : toutes les catégories. */
@@ -37,6 +47,8 @@ export interface ChoixDuQuiz {
   difficulte: DifficulteDuQuiz
   nombre: number
   enfants: boolean
+  /** Une question sur cinq en estimation (`UNE_ESTIMATION_SUR`), si la base en a. */
+  estimations: boolean
 }
 
 /** Ce que la base offre (`GET /api/quiz-tout-pret`) : son total, les catégories et les sujets qui ont de quoi faire un quiz. */

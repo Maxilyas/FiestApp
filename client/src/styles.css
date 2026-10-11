@@ -7226,9 +7226,9 @@ span.case-avatar { cursor: default; }
 .tout-pret-etape > p { margin: 0; }
 .tout-pret-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
 .tout-pret-pastilles .pill-btn { min-width: 3.4em; justify-content: center; }
-.tout-pret-enfants { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); cursor: pointer; }
-.tout-pret-enfants input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
-.tout-pret-enfants > span { display: flex; flex-direction: column; gap: 2px; }
+.tout-pret-case { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); cursor: pointer; }
+.tout-pret-case input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
+.tout-pret-case > span { display: flex; flex-direction: column; gap: 2px; }
 .tout-pret-resume { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; text-align: center; }
 .choix-ligne { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .choix-ligne:hover { border-color: var(--edge-strong); }
