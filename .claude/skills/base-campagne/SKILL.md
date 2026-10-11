@@ -66,7 +66,9 @@ vraie réponse, seul le correcteur l'a vu ; on n'en sauve une qu'en refaisant
 encore, 986 rangées, sept retirées et quarante et une corrigées : les faits qui
 ont changé ces dernières années revenaient d'une vague à l'autre dans leur état
 d'avant — l'Éthiopie et ses langues de travail deux fois —, la consigne
-commune les nomme désormais, routine du matin comprise).
+commune les nomme désormais, routine du matin comprise ; puis cinq cents,
+489 rangées, pour les sous-thèmes restés maigres d'une catégorie grosse de
+ses faits de Wikidata — `commandeDeLaCategorie` les vise d'elle-même).
 Pas d'API d'Anthropic : elle se facture à part, et le propriétaire n'en veut pas.
 
 **Laisse passer la routine du matin** (« Réserve du quiz du jour », 6 h 55 à
