@@ -129,8 +129,9 @@ export function GrosBouton({
         <b>{titre}</b>
         {detail && <span className="gros-detail">{detail}</span>}
       </span>
-      {pastille && <span className="pastille-attente">{pastille}</span>}
-      <Icon name="chevron-down" className="chevron" />
+      {/* La pastille prend la place du chevron : les deux serraient le titre, et
+          « Le quiz du jour » laissait « jour » seul sur sa ligne en 360 de large. */}
+      {pastille ? <span className="pastille-attente">{pastille}</span> : <Icon name="chevron-down" className="chevron" />}
     </>
   )
   return href ? (

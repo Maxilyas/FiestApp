@@ -201,9 +201,9 @@ try {
   base.close()
   await ecrire(banc.url, '/api/joueur/moi', { fond: 'cabinet', titre: 'maitre:oceans' }, cookie, 'PUT')
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.identite')
-  await page.click('.identite')
-  await page.waitForSelector('.carte-fond')
+  await page.click('.vestiaire-voir')
+  // Le vestiaire porte aussi le fond : c'est la carte ouverte qu'on attend.
+  await page.waitForSelector('.carte-joueur.carte-fond')
   await page.waitForTimeout(800)
   await photo('15-carte-cabinet')
   await page.goto(`${banc.url}/campagne#sentier-stade`)

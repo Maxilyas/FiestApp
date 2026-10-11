@@ -443,6 +443,23 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
   }
 })
 
+// ── Les chiffres de Cormorant ─────────────────────────────────────────────
+
+test('un nombre en Cormorant s’écrit en chiffres alignés : un 0 n’est pas un « O », ni un 1 un « I »', () => {
+  // Cormorant écrit ses chiffres à l'ancienne, petits et descendants : à la
+  // fin d'une série, « 0 bonne réponse » se lisait « O bonne réponse », et le
+  // défi de la semaine « I joueur cette semaine » (vu en 360 × 640, le 11
+  // octobre 2026). `font-variant-numeric` est une seule propriété : poser
+  // `tabular-nums` seul efface le `lining-nums` d'une règle plus large — la
+  // fin d'une série le perdait ainsi.
+  const sansCommentaires = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  const lues = [...sansCommentaires.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, , corps]) => /var\(--serif\)/.test(corps) && /font-variant-numeric:/.test(corps))
+  assert.ok(lues.length > 10, `les règles en Cormorant qui règlent leurs chiffres sont lues (${lues.length})`)
+  for (const [, sel, corps] of lues) assert.match(corps, /font-variant-numeric:[^;]*lining-nums/, `${sel.trim()} écrit ses chiffres à l'ancienne`)
+  // Celles qui héritent Cormorant d'ailleurs : le score de la fin, la place d'hier au quiz du jour.
+  for (const sel of ['.campagne-fin .big', '.jour-ligne h2']) assert.match(regle(sel), /font-variant-numeric:[^;]*lining-nums/, sel)
+})
+
 // ── A4 · Des noms qui manquaient ──────────────────────────────────────────
 
 test('A4 · chaque QR code a un nom, et la page un repère principal', () => {

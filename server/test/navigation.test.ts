@@ -142,6 +142,12 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
   const carriere = (jours: string[]) => ({ joues: jours.length, serie: 4, record: 4, medailles: { or: 0, argent: 0, bronze: 0 }, meilleurScore: 0, podiums: 0, victoires: 0, jours: jours.map(jour => ({ jour })) })
   const aJouer = await accueil({ jour: carriere(['2026-01-01']) })
   assert.match(aJouer, /Dix questions, les mêmes pour tous · série de 4 jours.*<span class="pastille-attente">À jouer<\/span>/)
+  // La pastille prend la place du chevron : les deux serraient le titre, et
+  // « jour » passait seul à la ligne en 360 de large. Les autres le gardent.
+  const bouton = (href: string) => new RegExp(`<a class="gros-bouton" href="${href}">.*?</a>`).exec(aJouer)?.[0] ?? ''
+  assert.match(bouton('/jour'), /pastille-attente/)
+  assert.doesNotMatch(bouton('/jour'), /chevron/)
+  assert.match(bouton('/salon'), /class="icon chevron"/)
   const joue = await accueil({ jour: carriere([jourDe(Date.now())]) })
   assert.match(joue, /Joué aujourd’hui · série de 4 jours/)
   assert.doesNotMatch(joue, /À jouer/)

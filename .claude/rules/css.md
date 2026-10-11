@@ -24,3 +24,9 @@ paths:
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.
+- **Cormorant (`--serif`) écrit ses chiffres à l'ancienne** : un nombre qu'on
+  lit seul — un score, une place, un solde — pose `lining-nums`, sans quoi
+  « 0 bonne réponse » se lisait « O bonne réponse ». Et
+  `font-variant-numeric` est une seule propriété : `tabular-nums` seul efface
+  le `lining-nums` d'une règle plus large — écris les deux
+  (`design.test.ts`).

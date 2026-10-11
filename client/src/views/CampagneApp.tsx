@@ -76,6 +76,8 @@ type Ecran =
       defi?: true
       /** Un défi entre amis : son code, que sa fin envoie. */
       duel?: string
+      /** Le sien : il l'a lancé, et sa fin le dit — il ne relève pas son propre défi. */
+      lance?: true
       /** Une révision du carnet : sans vies, et chaque réponse dit où en est sa question. */
       revision?: true
       /** Les questions que cette révision vient de faire apprendre. */
@@ -113,6 +115,8 @@ type Ecran =
       place?: { rang: number; joueurs: number }
       /** Un défi entre amis : son code, à envoyer. */
       duel?: string
+      /** Le sien, qu'il vient de lancer. */
+      lance?: true
       /** Le sien : les amis choisis en le lançant, à qui il vient de partir. */
       partiA?: string[]
       /** Ce qui a éclaté pour lui à la fin du défi de la semaine (`CHANCE_ECLAT_DU_DEFI`). */
@@ -496,6 +500,7 @@ export function CampagneApp() {
         legendaires: r.legendaires ?? [],
         ...(ecran.defi && { defi: true as const }),
         ...(ecran.duel && { duel: ecran.duel }),
+        ...(ecran.lance && { lance: true as const }),
         ...(r.partiA && { partiA: r.partiA }),
         ...(r.defi && { place: r.defi }),
         ...(r.eclat && { eclat: r.eclat }),
@@ -613,7 +618,7 @@ export function CampagneApp() {
   }
 
   /** Un défi entre amis, lancé ou relevé : la même partie, une seule tentative, son code au bout pour l'envoyer. */
-  const jouerLeDuel = (t: SerieDeCampagne, code: string) => {
+  const jouerLeDuel = (t: SerieDeCampagne, code: string, lance = false) => {
     if (!t.question) return
     setEcran({
       e: 'jeu',
@@ -629,6 +634,7 @@ export function CampagneApp() {
       sujet: t.sujet ?? null,
       defi: true,
       duel: code,
+      ...(lance && { lance: true as const }),
     })
     // Relevé, un défi reçu quitte la liste — et le compte de l'onglet.
     if (mesAmis?.recus.some(d => d.code === code)) void relireMesAmis()
@@ -666,7 +672,7 @@ export function CampagneApp() {
         history.replaceState({ ...history.state, [LANCEMENT]: undefined }, '', `${window.location.pathname}${window.location.search}${ADRESSE_DU_DEFI}`)
         setMode('defi')
       }
-      jouerLeDuel(serie, code)
+      jouerLeDuel(serie, code, true)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -1104,7 +1110,7 @@ export function CampagneApp() {
           <span className="label">
             {ecran.duel ? `Défi entre amis${jouees ? ` · ${jouees}` : ''}` : ecran.defi ? 'Le défi de la semaine' : `La campagne${jouees ? ` · ${jouees}` : ''}`}
           </span>
-          <h1>{ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
+          <h1>{ecran.lance ? 'Défi lancé' : ecran.defi ? 'Défi relevé' : ecran.abandonnee ? 'Série arrêtée' : 'Série terminée'}</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
           <span className="big">{ecran.justes}</span>

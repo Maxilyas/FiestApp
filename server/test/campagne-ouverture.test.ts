@@ -156,8 +156,9 @@ test('la fin d’un défi entre amis l’envoie : son lien écrit, son code, son
   assert.equal(module.texteDuDefi(5), '5 bonnes réponses à ce défi de la campagne de FiestApp : feras-tu mieux ?')
   assert.equal(module.texteDuDefi(null), 'Un défi à la campagne de FiestApp : feras-tu mieux que moi ?')
   assert.equal(module.fermeture(0), 'Fermé : son classement est figé')
-  assert.equal(module.fermeture(30), 'Ferme dans 30 minutes')
-  assert.equal(module.fermeture(3 * 24 * 60 + 5), 'Ferme dans 3 jours')
+  // Le nombre tient à son mot (une espace insécable) : « Ferme dans 7 » ne finit plus une ligne.
+  assert.equal(module.fermeture(30), 'Ferme dans 30\u00a0minutes')
+  assert.equal(module.fermeture(3 * 24 * 60 + 5), 'Ferme dans 3\u00a0jours')
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   // L'ami sans profil se connecte, puis revient sur le défi : `next` garde son fragment.
   assert.match(page, /const retour = encodeURIComponent\(`\/campagne\$\{codeDuDuel \? adresseDuDuel\(codeDuDuel\) : ''\}`\)/)
@@ -241,6 +242,29 @@ test('lancer un défi : avec qui, sur quoi, puis on joue — l’onglet du défi
   assert.doesNotMatch(page, /from '\.\/LancerUnDefi'/, 'aucun import qui l’attacherait à la page')
   // La fin n'y coche plus personne d'office : ceux qu'on défie se choisissent en le lançant.
   assert.doesNotMatch(readFileSync(client('views/Duel.tsx'), 'utf8'), /setChoisis\(new Set\(m\.amis\.filter/)
+})
+
+// Qui lance un défi le joue d'abord, et sa fin disait « Défi relevé », comme
+// à l'ami qui le relève ; sous « Tes défis entre amis », sa ligne disait
+// « 0 joueur · à relever ». On ne relève pas son propre défi : on le lance,
+// puis on le joue.
+test('son propre défi se lance et se joue, il ne se relève pas : sa fin et sa ligne le disent', async () => {
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /<h1>\{ecran\.lance \? 'Défi lancé' : ecran\.defi \? 'Défi relevé' :/)
+  // Lancé de la préparation, ou repris de sa page : le drapeau va jusqu'à la fin.
+  assert.match(page, /jouerLeDuel\(serie, code, true\)/)
+  assert.match(page, /duel: code,\s*\.\.\.\(lance && \{ lance: true as const \}\),/)
+  assert.match(page, /\.\.\.\(ecran\.duel && \{ duel: ecran\.duel \}\),\s*\.\.\.\(ecran\.lance && \{ lance: true as const \}\),/)
+  assert.match(readFileSync(client('views/Duel.tsx'), 'utf8'), /onJouer\(tentative, code, !!duel\?\.auteur\.toi\)/)
+
+  const { ligneDuDuel } = await import(client('views/Duel.tsx').href)
+  const resume = { code: 'K7M2QX', categories: ['Histoire'], minutesRestantes: 7 * 24 * 60, justes: null, rang: null }
+  // Le sien, pas encore joué : personne à compter, et il est à jouer.
+  assert.deepEqual(ligneDuDuel({ ...resume, auteur: 'toi', joueurs: 0 }), { titre: 'Ton défi', detail: 'Histoire · Ferme dans 7\u00a0jours', score: 'à jouer' })
+  // Celui d'un ami, que deux autres ont joué : à relever.
+  assert.deepEqual(ligneDuDuel({ ...resume, auteur: 'Léa', joueurs: 2 }), { titre: 'Le défi de Léa', detail: 'Histoire · 2 joueurs · Ferme dans 7\u00a0jours', score: 'à relever' })
+  // Joué : sa place.
+  assert.equal(ligneDuDuel({ ...resume, auteur: 'toi', joueurs: 1, justes: 5, rang: 1 }).score, '1er · 5 bonnes')
 })
 
 // Il menait au sentier lui-même (`#sentier-scene`) : touché pour « la
