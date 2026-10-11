@@ -886,12 +886,12 @@ export function CampagneApp() {
               <Icon name="play" />
               {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
-            {/* Le même tirage pour ceux qu'on défie : on joue d'abord, on envoie le lien ensuite (`Duel.tsx`). */}
+            {/* Le même tirage pour ceux qu'on défie : on joue d'abord, on l'envoie ensuite — à ses amis d'un toucher, aux autres par son lien (`Duel.tsx`). */}
             <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={() => void lancerUnDuel(categories, sujetJouable)}>
               <Icon name="users" />
               Défier des amis
             </button>
-            <p className="muted small centre">Le même tirage pour eux : tu joues d’abord, puis tu leur envoies le lien.</p>
+            <p className="muted small centre">Le même tirage pour eux : tu joues d’abord, puis il part à tes amis d’un toucher — aux autres, par son lien.</p>
           </>
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
