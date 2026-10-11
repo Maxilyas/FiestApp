@@ -6,6 +6,7 @@
 // sont que des textes — mais toute la famille les lit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { de, deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
 import { defaultSettings, normalizeSettings, titreChoisi, titreDeCloture } from '../../shared/space'
 
@@ -124,4 +125,30 @@ test('une année s’écrit « 1889 » : les milliers ne se groupent qu’à par
   assert.equal(formatNumber(1234567), `1${FINE_GROUPE}234${FINE_GROUPE}567`)
   assert.equal(formatNumber(0.8), '0,8')
   assert.equal(formatNumber(12345.5), `12${FINE_GROUPE}345,5`)
+})
+
+// `toLocaleString('fr-FR', …)` chargeait les données du français à son
+// premier nombre — 94 ms au processeur d'un téléphone moyen, sur l'accueil
+// d'un profil (mesuré le 11 octobre 2026) —, puis bâtissait un formateur à
+// chacun. `formatNumber` l'écrit à la main : le même texte, nombre pour nombre.
+test('un nombre s’écrit sans Intl, exactement comme toLocaleString l’écrivait', () => {
+  const avant = (n: number) => n.toLocaleString('fr-FR', { useGrouping: Math.abs(n) >= 10000 })
+  const nombres = [
+    0, -0, 5, -5, 0.8, 1 / 3, 2.5, 1234.5678, 9999.9999, 9999.9995, 9999.9994, 10000, 35000, -35000, 1889, 1e6, 0.0625, -0.0625, -0.0001, 0.0005,
+    0.00049, 1.0005, 2.0004999, 123456789.123, 0.1 + 0.2, 1e-7, -1e-7, 1.5e-7, 0.000001, 1.5e-6, 999999.9996, 0.9995, -0.9995, 1e20, 1e21, 1.2345678901234567e25,
+    -4.56e30, Number.MAX_SAFE_INTEGER, NaN, Infinity, -Infinity,
+  ]
+  // Et des milliers d'autres, tirés d'une graine fixe : entiers, décimaux, négatifs, de toutes tailles.
+  let graine = 42
+  const hasard = () => (graine = (graine * 1103515245 + 12345) % 2147483648) / 2147483648
+  for (let i = 0; i < 5000; i++) {
+    const n = (hasard() - 0.3) * 10 ** Math.floor(hasard() * 14 - 5)
+    nombres.push(n, Math.round(n), Math.round(n * 1000) / 1000, Math.round(n * 10000 + 0.5) / 10000, Math.round(n * 10) / 10)
+  }
+  for (const n of nombres) assert.equal(formatNumber(n), avant(n), String(n))
+  // Et plus rien d'`Intl` dans le module — ses commentaires en parlent, son code non.
+  const code = readFileSync(new URL('../../shared/typographie.ts', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+  assert.doesNotMatch(code, /toLocaleString\(|Intl\./)
 })

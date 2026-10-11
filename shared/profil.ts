@@ -915,6 +915,13 @@ export type ProfilDAccueil = PublicProfile &
   Pick<PublicProfileDetail, 'jour' | 'boutique'> & {
     /** Ses vies et le sentier qu'il avance, pour le bouton de la campagne ; absent si la base s'est tue. */
     campagne?: SentiersDAccueil
+    /**
+     * Le jour de Paris au serveur (`2026-10-11`) : l'accueil sait s'il a joué
+     * aujourd'hui sans le calculer — le premier `Intl` d'une page charge les
+     * données du français, 90 ms au processeur d'un téléphone moyen, avant
+     * son premier écran. Absent d'un serveur d'avant.
+     */
+    aujourdhui?: string
   }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

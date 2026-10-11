@@ -147,7 +147,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         return undefined
       }),
     ])
-    return { ...profiles.toPublic(rec), jour, ...(boutique && { boutique }), ...(campagne && { campagne }) }
+    return { ...profiles.toPublic(rec), jour, aujourdhui, ...(boutique && { boutique }), ...(campagne && { campagne }) }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */

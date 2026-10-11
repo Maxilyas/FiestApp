@@ -57,6 +57,18 @@ paths:
   `req` pose toujours) se dit préchargé (`prechargee`) : son heure se lit
   alors dans le préchargement.
 
+- **Le premier `Intl` d'une page charge les données du français** : 90 ms
+  au processeur ×4, quel qu'il soit — retiré d'un endroit, il passe au
+  suivant. Un nombre s'écrit donc à la main (`formatNumber`,
+  `shared/typographie.ts` : le texte même de `toLocaleString('fr-FR')`, que
+  `typographie.test.ts` compare sur des milliers de nombres — avec ses
+  options, `toLocaleString` bâtissait en plus un formateur à chaque nombre),
+  et l'accueil reçoit le jour de Paris du serveur (`ProfilDAccueil.aujourdhui`)
+  au lieu de le calculer : aucun `Intl` avant son premier écran (mesuré le
+  11 octobre 2026 : le profil y gagnait 100 ms de script). Une date à écrire
+  passe par `shared/jour.ts`, dont les formateurs naissent à leur première
+  lecture (règle `jour.md`).
+
 ## Ce qu'il ne faut pas faire
 
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de

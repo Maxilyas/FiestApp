@@ -34,13 +34,63 @@ export function de(nom: string): string {
 /** « d’Antoine », « de Bob » : la préposition collée au prénom. */
 export const deNom = (nom: string) => `${de(nom)}${nom.trim()}`
 
+/** L'espace fine insécable qui groupe les milliers, celle qu'écrit `toLocaleString('fr-FR')`. */
+const MILLIERS = '\u202f'
+
+/**
+ * L'écriture décimale la plus courte d'un nombre positif, sans exposant
+ * (« 1e-7 » devient « 0.0000001 ») : c'est elle qu'on arrondit, comme le
+ * fait `toLocaleString`, et non sa valeur binaire exacte — 1,0005 s'arrondit
+ * à 1,001, quand `toFixed(3)` rendait 1,000.
+ */
+function enClair(x: number): string {
+  const ecrit = String(x)
+  const m = /^(\d)(?:\.(\d+))?e([+-])(\d+)$/.exec(ecrit)
+  if (!m) return ecrit
+  const chiffres = m[1] + (m[2] ?? '')
+  const exposant = Number(m[4])
+  return m[3] === '+' ? chiffres.padEnd(exposant + 1, '0') : `0.${'0'.repeat(exposant - 1)}${chiffres}`
+}
+
+/** Un de plus à un entier écrit en chiffres, de n'importe quelle longueur : « 0999 » donne « 1000 ». */
+function plusUn(chiffres: string): string {
+  let i = chiffres.length - 1
+  while (i >= 0 && chiffres[i] === '9') i--
+  if (i < 0) return `1${'0'.repeat(chiffres.length)}`
+  return `${chiffres.slice(0, i)}${Number(chiffres[i]) + 1}${'0'.repeat(chiffres.length - i - 1)}`
+}
+
 /**
  * Un nombre à la française : « 35 000 », « 0,8 », mais « 1889 ». L'usage ne
  * groupe les milliers qu'à partir de cinq chiffres, et une année est l'exemple
  * même de l'estimation : « 1 889 » en grand au mur, et « 1890 » juste à côté,
  * dans la liste des estimations, se lisaient comme deux nombres.
+ *
+ * Écrit à la main, sans `Intl` : `toLocaleString('fr-FR', …)` chargeait les
+ * données du français à son premier nombre — 94 ms au processeur d'un
+ * téléphone moyen, sur l'accueil d'un profil (mesuré le 11 octobre 2026) —,
+ * puis bâtissait un formateur à chacun. Le résultat est le sien, nombre pour
+ * nombre : trois décimales au plus, la moitié arrondie en s'éloignant de zéro
+ * (`typographie.test.ts` les compare sur des milliers de nombres).
  */
-export const formatNumber = (n: number) => n.toLocaleString('fr-FR', { useGrouping: Math.abs(n) >= 10000 })
+export function formatNumber(n: number): string {
+  if (Number.isNaN(n)) return 'NaN'
+  const signe = n < 0 || Object.is(n, -0) ? '-' : ''
+  if (!Number.isFinite(n)) return `${signe}∞`
+  let [entier, fraction = ''] = enClair(Math.abs(n)).split('.')
+  if (fraction.length > 3) {
+    const enHaut = fraction[3] >= '5'
+    fraction = fraction.slice(0, 3)
+    if (enHaut) {
+      const arrondi = plusUn(entier + fraction)
+      entier = arrondi.slice(0, -3)
+      fraction = arrondi.slice(-3)
+    }
+  }
+  fraction = fraction.replace(/0+$/, '')
+  if (Math.abs(n) >= 10000) entier = entier.replace(/\B(?=(\d{3})+(?!\d))/g, MILLIERS)
+  return `${signe}${entier}${fraction ? `,${fraction}` : ''}`
+}
 
 /**
  * « 1ʳᵉ », « 2ᵉ »… Au féminin, parce qu'il se lit devant « place » : on ne

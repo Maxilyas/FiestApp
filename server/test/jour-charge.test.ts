@@ -240,6 +240,8 @@ test('l’accueil lit son en-tête, sa série et son solde : les chiffres du dé
   assert.deepEqual([accueil.espace, accueil.enCours], [detail.espace, detail.enCours])
   assert.equal(accueil.profile.hautsFaits, undefined, 'sans les hauts faits')
   assert.match(readFileSync(new URL('../../client/src/views/ProfilApp.tsx', import.meta.url), 'utf8'), /VUE === 'accueil' \? api\.joueur\.moiAccueil\(\)/)
+  // Et le jour de Paris, à l'horloge du serveur : l'accueil n'a plus à le calculer, ni à charger `Intl` pour ça.
+  assert.equal(accueil.profile.aujourdhui, AUJOURDHUI)
 })
 
 // ── Une partie, une annulation ────────────────────────────────────────────

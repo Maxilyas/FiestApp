@@ -151,6 +151,10 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
   const joue = await accueil({ jour: carriere([jourDe(Date.now())]) })
   assert.match(joue, /Joué aujourd’hui · série de 4 jours/)
   assert.doesNotMatch(joue, /À jouer/)
+  // Le jour de Paris vient du serveur quand il le dit : calculé ici, son
+  // `Intl` chargeait les données du français avant le premier écran.
+  assert.match(await accueil({ jour: carriere(['2031-05-04']), aujourdhui: '2031-05-04' }), /Joué aujourd’hui/)
+  assert.match(await accueil({ jour: carriere([jourDe(Date.now())]), aujourdhui: '2031-05-04' }), /À jouer/, 'le jour du serveur l’emporte')
 
   // Inscrit chez Alice : y revenir passe devant tout, et seul en principal.
   const chezAlice = await accueil({ enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
