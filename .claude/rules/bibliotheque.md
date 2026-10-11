@@ -1,12 +1,12 @@
 ---
 paths:
-  - "shared/{library,echange,liste,modeles,emojis,partage,brouillon,categories,nombres}.ts"
-  - "server/src/core/{memoire,partages,quizStore}.ts"
+  - "shared/{library,echange,liste,modeles,emojis,partage,brouillon,categories,nombres,quizToutPret}.ts"
+  - "server/src/core/{memoire,partages,quizStore,quizToutPret}.ts"
   - "server/src/partages.ts"
   - "client/src/brouillon.ts"
   - "client/src/views/EditorApp.tsx"
-  - "client/src/components/{MesQuiz,Partage,ChampNombre}.tsx"
-  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,partage,mes-quiz,categories,memoire,nombres}.test.ts"
+  - "client/src/components/{MesQuiz,Partage,ChampNombre,QuizToutPret,QuizToutPretADemande}.tsx"
+  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret}.test.ts"
 ---
 
 # Les quiz : l'éditeur, la liste collée, l'import, le partage, la mémoire
@@ -20,6 +20,7 @@ paths:
 - `shared/categories.ts` — la liste fixe des catégories de questions, la même chez tous les animateurs
 - `shared/modeles.ts` · `shared/emojis.ts` — les modèles livrés, leurs rayons et « Pour qui ? » ; la règle des emojis d'avant Unicode 13, que l'éditeur dit sur la carte et que `emojis.test.ts` garde
 - `core/memoire.ts` — la mémoire des quiz : « joué 3 fois », « trouvée par 3 sur 13 », le tirage des jamais posées — dérivée des fiches des soirées (`jeux`), jamais des archives entières
+- `shared/quizToutPret.ts` · `core/quizToutPret.ts` · `components/QuizToutPret.tsx` — un quiz tout prêt (le choix du 11 octobre 2026 : les soirées n'avaient que les onze quiz livrés, quand la base de la campagne compte plus de dix mille questions relues) : dans « Créer un quiz », dans les premiers pas d'une bibliothèque vide et dans « Ajouter un quiz » du salon, une feuille — ses catégories, la difficulté (facile, progressive, corsée), combien de questions, « Des enfants jouent » (`AGE_DES_ENFANTS`, l'`ageMin` de la base), puis les sujets de la campagne (`GrilleDesCategories`, `GrilleDesSujets` : la grille de la série, coupée en deux pour que la difficulté ne se cherche pas au fond de la feuille) —, tout réglé d'office, « Composer » collé en bas sous ce qu'il composera ; chargée à la demande, préchargée par la feuille qui y mène (`QuizToutPretADemande.tsx` : dix kilo-octets de moins au premier écran de la bibliothèque et du salon). Le serveur tire (`POST /api/quiz-tout-pret`, `composerUnQuiz`, une dérivation pure) dans ce que la campagne pose (`CampagneStore.pourLesSoirees` : ni retirée, ni de la réserve du quiz du jour), les marches du plan (`planDuQuiz` — jamais d'experte hors d'un quiz corsé), sa difficulté lue comme en série (`niveauDeQuestion`, ses mesures comprises), les catégories à tour de rôle d'une marche à l'autre, puis leurs sous-thèmes ; rien de sa bibliothèque, quiz archivés compris — par l'identifiant, et par l'intitulé : un quiz dupliqué change les identifiants —, d'abord ce que ses soirées n'ont jamais posé, puis le plus anciennement posé ; une marche qui manque emprunte à sa voisine. Chaque question garde l'identifiant de la base, préfixé (`idDansLeQuiz`, `base-…`) : la mémoire des soirées, qui suit les questions par leur identifiant, la reconnaît même dans un quiz supprimé depuis. Le quiz se range comme une copie de modèle — réponses mélangées à chaque partie, titre libre (« Histoire et Nature · 10 questions faciles (2) ») — et s'ouvre dans l'éditeur, ou rejoint le salon de ce soir ; `GET /api/quiz-tout-pret` dit ce que la base offre (`baseDesSoirees`) (`quiz-tout-pret.test.ts` ; `server/scripts/rendu-quiz-tout-pret.ts` photographie la feuille, l'éditeur et le salon)
 - `shared/partage.ts` · `core/partages.ts` · `server/src/partages.ts` — partager, par copie seulement : un code court (sept jours, annulable, dix essais manqués par quart d'heure) et le catalogue que l'administrateur relit ; la copie reçue recopie toutes les pièces de ses questions (`copierPhotos`)
 
 ## Les pièges

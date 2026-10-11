@@ -86,6 +86,7 @@ import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/pa
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, MenuBarre } from '../components/Pieces'
+import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { CarteDeQuiz, FicheDeQuiz } from '../components/MesQuiz'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
@@ -241,7 +242,7 @@ export function EditorApp() {
     setFiche(null)
   }
   /** La feuille ouverte sur la liste : les cinq façons de créer, ou le tri. */
-  const [feuille, setFeuille] = useState<'creer' | 'trier' | null>(null)
+  const [feuille, setFeuille] = useState<'creer' | 'trier' | 'tout-pret' | null>(null)
   /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
   const [ouvrirListe, setOuvrirListe] = useState(false)
   /** Les modèles, rouverts depuis l'en-tête une fois la bibliothèque commencée. */
@@ -695,7 +696,15 @@ export function EditorApp() {
         ) : (
           <>
             {list && (
-              <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => setFeuille('creer')}>
+              <button
+                type="button"
+                className="btn btn-primary btn-big btn-block"
+                onClick={() => {
+                  // La feuille du quiz tout prêt arrive pendant qu'on lit celle-ci.
+                  quizToutPret.charger().catch(() => {})
+                  setFeuille('creer')
+                }}
+              >
                 <Icon name="plus" />
                 Créer un quiz
               </button>
@@ -712,6 +721,7 @@ export function EditorApp() {
                 onImporter={() => fichier.current?.click()}
                 onCreer={() => creer()}
                 onListe={() => creer(true)}
+                onToutPret={() => setFeuille('tout-pret')}
                 onFermer={aucunPret ? undefined : () => setVoirModeles(false)}
                 onErreur={setError}
               />
@@ -792,6 +802,13 @@ export function EditorApp() {
 
       {feuille === 'creer' && (
         <Feuille titre="Créer un quiz" onFermer={() => setFeuille(null)}>
+          <span className="label">Sans rien écrire</span>
+          <Choix
+            icone="dice"
+            titre="Un quiz tout prêt"
+            detail="Tes catégories ou un sujet, ta difficulté : il se compose tout seul"
+            onClick={choisir(() => setFeuille('tout-pret'))}
+          />
           <span className="label">Écrire</span>
           <Choix icone="edit" titre="Un quiz vide" detail="Les questions une à une" onClick={choisir(() => creer())} />
           <Choix icone="clipboard" titre="Coller une liste" detail="Tes notes, ou la réponse d’une IA" onClick={choisir(() => creer(true))} />
@@ -816,6 +833,16 @@ export function EditorApp() {
         </Feuille>
       )}
 
+      {feuille === 'tout-pret' && (
+        <FeuilleDuQuizToutPretADemande
+          onFermer={() => setFeuille(null)}
+          onCompose={quiz => {
+            setFeuille(null)
+            setVoirModeles(false)
+            setEditingId(quiz.id)
+          }}
+        />
+      )}
       {feuille === 'trier' && (
         <Feuille
           titre="Trier et filtrer"
@@ -3341,10 +3368,11 @@ function PremiersPas({
   onImporter,
   onCreer,
   onListe,
+  onToutPret,
   onFermer,
   onErreur,
 }: {
-  /** Aucun quiz prêt : les quatre départs. Sinon, les modèles seuls, rouverts depuis « Créer un quiz ». */
+  /** Aucun quiz prêt : les départs. Sinon, les modèles seuls, rouverts depuis « Créer un quiz ». */
   debut: boolean
   occupe: boolean
   onOuvrir: (id: string) => void
@@ -3352,6 +3380,8 @@ function PremiersPas({
   onCreer: () => void
   /** « Coller une liste » : le départ le plus rapide, celui qui accueille la réponse d'une IA. */
   onListe: () => void
+  /** Un quiz tout prêt, tiré de la base : le départ sans rien écrire du tout. */
+  onToutPret: () => void
   /** Refermer les modèles, rouverts depuis « Créer un quiz ». */
   onFermer?: () => void
   onErreur: (message: string) => void
@@ -3364,6 +3394,8 @@ function PremiersPas({
   const [pourQui, setPourQui] = useState<string | null>(null)
 
   useEffect(() => {
+    // Une bibliothèque vide propose le quiz tout prêt d'abord : sa feuille arrive avant le toucher.
+    if (debut) quizToutPret.charger().catch(() => {})
     // Sans modèles (une panne, un serveur sans contenu livré), il reste
     // l'import et la création : rien à dire de plus.
     api
@@ -3494,6 +3526,10 @@ function PremiersPas({
       )}
       {debut && (
         <div className="premiers-pas-choix">
+          <button className="btn" onClick={onToutPret}>
+            <Icon name="dice" />
+            Un quiz tout prêt — tes catégories, ta difficulté
+          </button>
           <button className="btn" onClick={onListe}>
             <Icon name="clipboard" />
             Coller une liste — tes notes, ou la réponse d’une IA
