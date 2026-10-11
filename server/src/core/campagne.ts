@@ -38,6 +38,7 @@ import {
   recompenseDeLaSemaine,
   releverLesDuels,
   type ClassementDesDuels,
+  type CleDeLigue,
   type CoteApresLeDuel,
   type DuelJoue,
   type DuelsDAccueil,
@@ -2392,6 +2393,12 @@ export class CampagneStore {
   /** Ses duels classés, relus : sa cote, ses semaines. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
     return releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId))).rows), semaineDeLInstant)
+  }
+
+  /** Sa ligue et sa cote, pour sa carte ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
+  async coteDe(profileId: string): Promise<{ ligue: CleDeLigue; cote: number } | null> {
+    const r = await this.releveDesDuels(profileId)
+    return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote } : null
   }
 
   /** Sa semaine de duels, telle que sa page la dit : ses duels, sa meilleure ligue, ce qu'elle rapportera lundi. */

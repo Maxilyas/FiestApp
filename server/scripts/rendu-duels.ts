@@ -1,11 +1,12 @@
 // Les duels, photographiés au téléphone (360 × 640) sur un serveur jetable :
 // le bouton de l'accueil, la page d'un débutant — comment ça marche et les
 // ligues dépliés —, un duel classé (son enjeu en jeu, sa cote à la fin), une
-// montée de ligue, la page d'un habitué — le classement et ses blasons, ses
-// derniers duels —, puis défier un ami : la préparation, une partie jusqu'à
-// sa fin — à qui il est parti —, et l'ami qui le reçoit, à l'accueil et dans
-// ses duels. Les cotes des autres viennent de duels écrits dans la base : la
-// cote se relit dans le journal des rencontres (`shared/duels.ts`).
+// montée de ligue, la page d'un habitué — le classement et ses blasons, la
+// carte d'un joueur et sa ligue, ses derniers duels —, puis défier un ami :
+// la préparation, une partie jusqu'à sa fin — à qui il est parti —, et l'ami
+// qui le reçoit, à l'accueil et dans ses duels. Les cotes des autres viennent
+// de duels écrits dans la base : la cote se relit dans le journal des
+// rencontres (`shared/duels.ts`).
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-duels.ts [dossier]
@@ -137,6 +138,11 @@ try {
   await page.waitForSelector('.duels-ligne')
   await photo(page, '05-habitue')
   await photo(page, '05-habitue-pleine', true)
+  // Un nom touché au classement : sa carte, sa ligue dessus.
+  await page.locator('.duels-ligne', { hasText: 'Inès' }).click()
+  await page.waitForSelector('.carte-joueur .carte-pastilles')
+  await photo(page, '05b-carte-d-ines')
+  await page.keyboard.press('Escape')
 
   // Zoé, tout près de l'argent : un duel gagné, et elle y monte.
   const pourZoe = await telephone(zoe)
