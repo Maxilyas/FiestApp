@@ -26,12 +26,17 @@ import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import {
+  AMIS_MONTRES,
+  DEFIS_RECUS_MONTRES,
   DUELS_OUVERTS_MAX,
   DUREE_D_UN_DUEL_MS,
   LETTRES_D_UN_CODE,
   LONGUEUR_D_UN_CODE,
   lireCodeDuDuel,
+  type AmiDeCampagne,
+  type DefiRecu,
   type DuelEntreAmis,
+  type MesAmis,
   type ResumeDuDuel,
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
@@ -565,6 +570,21 @@ export class CampagneStore {
          )`,
         'CREATE INDEX IF NOT EXISTS idx_campagne_duels_auteur ON campagne_duels(auteur, ferme_le)',
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_duel ON campagne_series(mode, duel)',
+        // Un défi envoyé à un ami : il l'attend sous son onglet du défi, sans lien à faire suivre.
+        `CREATE TABLE IF NOT EXISTS campagne_envois (
+           code       TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           envoye_le  INTEGER NOT NULL,
+           PRIMARY KEY (code, profile_id)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_campagne_envois_profil ON campagne_envois(profile_id, envoye_le)',
+        // Un ami retiré de sa liste — jusqu'à ce qu'ils jouent de nouveau ensemble.
+        `CREATE TABLE IF NOT EXISTS campagne_amis_retires (
+           profile_id TEXT NOT NULL,
+           ami        TEXT NOT NULL,
+           retire_le  INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, ami)
+         )`,
       ],
       'write',
     )
@@ -1883,6 +1903,137 @@ export class CampagneStore {
     })
   }
 
+  // ── Ses amis ────────────────────────────────────────────────────────────
+  //
+  // Ceux qui ont relevé un de ses défis entre amis, ou dont il a relevé un
+  // (`shared/campagne.ts`) : la liste se relit dans le journal des
+  // tentatives, rien ne s'y ajoute à la main. On leur envoie un défi d'un
+  // toucher (`campagne_envois`) ; on en retire un (`campagne_amis_retires`),
+  // qui revient s'ils jouent de nouveau ensemble. Un masqué n'y paraît
+  // jamais, et ses défis ne parviennent à personne.
+
+  /** Ses amis, les plus récents d'abord : leur identifiant et leur dernier défi joué ensemble. */
+  private async idsDesAmis(profileId: string): Promise<string[]> {
+    const [ensemble, retires] = await this.client.batch(
+      [
+        {
+          // Les tentatives des autres à ses défis, et les siennes aux leurs.
+          sql: `SELECT ami, MAX(le) AS le FROM (
+                  SELECT s.profile_id AS ami, s.commencee_le AS le FROM campagne_duels d JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code
+                   WHERE d.auteur = ? AND s.profile_id <> ?
+                  UNION ALL
+                  SELECT d.auteur AS ami, s.commencee_le AS le FROM campagne_series s JOIN campagne_duels d ON d.code = s.duel
+                   WHERE s.profile_id = ? AND s.mode = 'duel' AND d.auteur <> ?
+                ) GROUP BY ami ORDER BY le DESC LIMIT ?`,
+          args: [profileId, profileId, profileId, profileId, AMIS_MONTRES * 2],
+        },
+        { sql: 'SELECT ami, retire_le FROM campagne_amis_retires WHERE profile_id = ?', args: [profileId] },
+      ],
+      'read',
+    )
+    const retire = new Map(retires.rows.map(r => [String(r.ami), Number(r.retire_le)]))
+    return ensemble.rows
+      .filter(r => !this.masque?.(String(r.ami)) && !(Number(r.le) <= (retire.get(String(r.ami)) ?? -Infinity)))
+      .slice(0, AMIS_MONTRES)
+      .map(r => String(r.ami))
+  }
+
+  /**
+   * Ses amis, et les défis ouverts qu'ils lui ont envoyés sans qu'il les ait
+   * relevés. Lus pour un de ses défis (`code`), ceux à qui il est déjà parti
+   * ou qui l'ont relevé le disent : rien à leur renvoyer.
+   */
+  async mesAmis(profileId: string, code?: unknown): Promise<MesAmis> {
+    const maintenant = this.maintenant()
+    const [ids, envois] = await Promise.all([
+      this.idsDesAmis(profileId),
+      this.client.execute({
+        sql: `SELECT e.code FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
+              WHERE e.profile_id = ? AND d.ferme_le > ?
+                AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+              ORDER BY e.envoye_le DESC LIMIT ?`,
+        args: [profileId, maintenant, DEFIS_RECUS_MONTRES],
+      }),
+    ])
+    // Pour un de ses défis : à qui il est déjà parti, et qui l'a relevé.
+    const vise = await this.duelDe(lireCodeDuDuel(code))
+    const p = this.profils
+    if (!p) return { amis: [], recus: [] }
+    const deja = new Map<string, 'recu' | 'releve'>()
+    if (vise && vise.auteur === profileId) {
+      const [envoyes, releves] = await this.client.batch(
+        [
+          { sql: 'SELECT profile_id FROM campagne_envois WHERE code = ?', args: [vise.code] },
+          { sql: `SELECT profile_id FROM campagne_series WHERE mode = 'duel' AND duel = ?`, args: [vise.code] },
+        ],
+        'read',
+      )
+      for (const r of envoyes.rows) deja.set(String(r.profile_id), 'recu')
+      // Relevé, il l'a plus que reçu.
+      for (const r of releves.rows) deja.set(String(r.profile_id), 'releve')
+    }
+    const profils = (await p.byIds(ids)).filter((x): x is ProfileRec => x !== null)
+    // Deux amis du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17).
+    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const amis: AmiDeCampagne[] = profils.map(x => ({
+      profileId: x.id,
+      nom: marques.get(x.id) ?? x.name,
+      avatar: p.avatarPorte(x),
+      ...(deja.has(x.id) && { deja: deja.get(x.id) }),
+    }))
+    // Un défi reçu ne vient que d'un ami : un retiré ou un masqué n'envoie rien.
+    const sesAmis = new Set(ids)
+    const duels = (await Promise.all(envois.rows.map(r => this.duelDe(String(r.code))))).filter((d): d is Duel => d !== null && sesAmis.has(d.auteur))
+    const auteurs = new Map(profils.map(x => [x.id, x]))
+    const recus: DefiRecu[] = duels.flatMap(d => {
+      const auteur = auteurs.get(d.auteur)
+      if (!auteur) return []
+      return [
+        {
+          code: d.code,
+          auteur: { nom: marques.get(auteur.id) ?? auteur.name, avatar: p.avatarPorte(auteur) },
+          ...(d.sujet && { sujet: d.sujet }),
+          ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
+          minutesRestantes: Math.max(1, Math.ceil((d.fermeLe - maintenant) / 60_000)),
+        },
+      ]
+    })
+    return { amis, recus, ...(vise?.auteur === profileId && { sien: true as const }) }
+  }
+
+  /**
+   * Envoyer un de ses défis à des amis : il les attend sous leur onglet du
+   * défi. Seulement les siens, ouverts, et seulement à ses amis : un
+   * identifiant qui n'en est pas un ne reçoit rien, sans que l'envoyeur
+   * l'apprenne (invariant 3).
+   */
+  async envoyerUnDuel(profileId: string, brut: unknown, amis: unknown): Promise<{ envoyes: number }> {
+    const duel = await this.duelDe(lireCodeDuDuel(brut))
+    if (!duel || duel.auteur !== profileId) throw new Error('Ce défi est introuvable : vérifie son lien')
+    if (this.maintenant() >= duel.fermeLe) throw new Error('Ce défi est fermé : lances-en un autre depuis la série')
+    const voulus = new Set(Array.isArray(amis) ? amis.filter((a): a is string => typeof a === 'string') : [])
+    const destinataires = (await this.idsDesAmis(profileId)).filter(id => voulus.has(id))
+    if (destinataires.length > 0) {
+      await this.client.batch(
+        destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
+        'write',
+      )
+    }
+    return { envoyes: destinataires.length }
+  }
+
+  /** Retirer un ami de sa liste : ni lui ni ses défis n'y paraissent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
+  async retirerUnAmi(profileId: string, ami: unknown): Promise<{ ok: true }> {
+    if (typeof ami === 'string' && ami && ami !== profileId) {
+      await this.client.execute({
+        sql: `INSERT INTO campagne_amis_retires (profile_id, ami, retire_le) VALUES (?, ?, ?)
+              ON CONFLICT (profile_id, ami) DO UPDATE SET retire_le = excluded.retire_le`,
+        args: [profileId, ami, this.maintenant()],
+      })
+    }
+    return { ok: true }
+  }
+
   // ── Affronter un inconnu ────────────────────────────────────────────────
   //
   // Un adversaire tout de suite (`shared/campagne.ts`) : la série finie d'un
@@ -3041,6 +3192,9 @@ export class CampagneStore {
           { sql: 'DELETE FROM campagne_series WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM campagne_signalements WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM sentier_acquis WHERE profile_id = ?', args: [profileId] },
+          // Ce qu'on lui a envoyé, ce qu'il a envoyé, et les listes d'amis où il était retiré.
+          { sql: 'DELETE FROM campagne_envois WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
+          { sql: 'DELETE FROM campagne_amis_retires WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
         ],
         'write',
       )

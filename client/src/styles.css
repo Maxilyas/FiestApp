@@ -7717,6 +7717,25 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .duel-ligne { justify-content: space-between; gap: 10px; padding: 8px 18px; border-radius: var(--radius-sm); text-align: left; white-space: normal; }
 .duel-ligne > span:first-child { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
 .duel-score { flex: none; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Ses amis : à qui l'envoyer — des puces qu'on coche, toutes d'office —, puis leur liste sous ses défis. */
+.duel-amis { display: flex; flex-direction: column; gap: 10px; }
+.duel-amis h2, .duel-amis p { margin: 0; }
+.duel-amis-liste { display: flex; flex-wrap: wrap; gap: 8px; }
+.duel-ami { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 6px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.duel-ami .icon { width: 14px; height: 14px; color: var(--muted); }
+.duel-ami.choisi { border-color: var(--accent); background: var(--accent-soft); }
+.duel-ami.choisi .icon { color: var(--accent-text); }
+.duel-ami.deja { cursor: default; opacity: 0.75; }
+.duel-ami-avatar { display: grid; place-items: center; width: 32px; height: 32px; font-size: 1.35rem; line-height: 1; }
+.duel-ami-nom { font-weight: 600; overflow-wrap: anywhere; }
+.duel-amis-statut:empty { display: none; }
+.duel-amis-vide { margin: 0; }
+.duel-recus .duel-ligne { border-color: var(--accent); }
+.duel-recus .duel-score { color: var(--accent-text); }
+.tes-amis-liste li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 2px 4px 2px 8px; border-bottom: 1px solid var(--edge); }
+.tes-amis-liste li .duel-ami-nom { flex: 1; min-width: 0; }
+.tes-amis p { margin: 0; }
+.tes-amis-etapes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; }
 .vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
 .vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }

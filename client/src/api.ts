@@ -4,6 +4,7 @@ import type {
   CorrectionDeQuestion,
   DefiDeLaSemaine,
   DuelEntreAmis,
+  MesAmis,
   EtatDeCampagne,
   FinDeSerie,
   MesRencontres,
@@ -390,6 +391,14 @@ export const api = {
       lire: (code: string) => req<DuelEntreAmis>(`/api/campagne/duel/${encodeURIComponent(code)}`),
       relever: (code: string) => req<SerieDeCampagne>(`/api/campagne/duel/${encodeURIComponent(code)}`, { method: 'POST' }),
       miens: () => req<ResumeDuDuel[]>('/api/campagne/duels'),
+      /** L'envoyer à des amis : il les attend sous leur onglet du défi. */
+      envoyer: (code: string, amis: string[]) =>
+        req<{ envoyes: number }>(`/api/campagne/duel/${encodeURIComponent(code)}/envoi`, { method: 'POST', body: JSON.stringify({ amis }) }),
+    },
+    /** Ses amis — ceux avec qui il a joué un défi entre amis — et les défis qu'ils lui ont envoyés ; lus pour un de ses défis, ceux qui l'ont déjà. */
+    amis: {
+      lire: (duel?: string) => req<MesAmis>(`/api/campagne/amis${duel ? `?duel=${encodeURIComponent(duel)}` : ''}`),
+      retirer: (id: string) => req<{ ok: true }>(`/api/campagne/amis/${encodeURIComponent(id)}/retrait`, { method: 'POST' }),
     },
     /** Affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
     rencontre: {

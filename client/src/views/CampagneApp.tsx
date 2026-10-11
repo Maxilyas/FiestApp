@@ -5,7 +5,7 @@ import { Onglets } from '../components/Onglets'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers } from './Sentiers'
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
-import { FinDuDuel, MesDuels, PageDuDuel, adresseDuDuel } from './Duel'
+import { DefisRecus, FinDuDuel, MesDuels, PageDuDuel, TesAmis, adresseDuDuel } from './Duel'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
 import { AffronterUnInconnu, MOT_DE_L_ISSUE, scoreDeRencontre } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../nomDuChoix'
@@ -41,6 +41,8 @@ import {
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type IssueDeRencontre,
+  type AmiDeCampagne,
+  type MesAmis,
   type Niveau,
   type QuestionDeCampagne,
   type RencontreDeCampagne,
@@ -217,6 +219,13 @@ export function CampagneApp() {
   const [profil, setProfil] = useState<PublicProfile | null>(null)
   // Ce que son carnet a à revoir aujourd'hui, sur l'onglet : lu après la page, sans la retenir.
   const [aRevoir, setARevoir] = useState(0)
+  // Ses amis et les défis qu'ils lui ont envoyés : lus après la page, pour l'onglet du défi — et sa page, sans les redemander.
+  const [mesAmis, setMesAmis] = useState<MesAmis | null>(null)
+  const relireMesAmis = () =>
+    api.campagne.amis
+      .lire()
+      .then(setMesAmis)
+      .catch(() => {})
   // Chaque écran commence en haut, comme une page qu'on ouvre.
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
@@ -263,7 +272,17 @@ export function CampagneApp() {
         // Quatre au téléphone : sans leur article, chacun tient sur une ligne.
         { id: 'serie', nom: 'La série', court: 'Série', icone: 'list' },
         { id: 'sentiers', nom: 'Les sentiers', court: 'Sentiers', icone: 'target' },
-        { id: 'defi', nom: 'Le défi', court: 'Défi', icone: 'trophy' },
+        // Un défi qu'un ami lui a envoyé se compte sur l'onglet, comme ce que le carnet a à revoir.
+        {
+          id: 'defi',
+          nom: 'Le défi',
+          court: 'Défi',
+          icone: 'trophy',
+          ...(mesAmis &&
+            mesAmis.recus.length > 0 && {
+              pastille: { n: mesAmis.recus.length, label: `${mesAmis.recus.length} défi${mesAmis.recus.length > 1 ? 's' : ''} d’un ami à relever` },
+            }),
+        },
         // Ce qui l'attend aujourd'hui se compte sur l'onglet : sinon, il faudrait l'ouvrir pour le savoir.
         {
           id: 'carnet',
@@ -310,6 +329,8 @@ export function CampagneApp() {
         .etat()
         .then(c => vivant && setARevoir(c.aRevoir))
         .catch(() => {})
+      // Ses amis aussi : les défis qu'ils lui ont envoyés se comptent sur l'onglet du défi.
+      void relireMesAmis()
     })().catch(e => vivant && setEcran({ e: 'erreur', motif: motifDe(e) }))
     return () => {
       vivant = false
@@ -589,6 +610,8 @@ export function CampagneApp() {
       defi: true,
       duel: code,
     })
+    // Relevé, un défi reçu quitte la liste — et le compte de l'onglet.
+    if (mesAmis?.recus.some(d => d.code === code)) void relireMesAmis()
   }
 
   /** « Défier des amis » : un tirage sur ce qu'on a choisi — catégories ou sujet —, et sa propre tentative d'abord. */
@@ -607,6 +630,23 @@ export function CampagneApp() {
   }
 
   /** La page d'un défi entre amis, à son adresse : le retour du navigateur ramène d'où l'on vient. */
+  /** Retirer un ami de sa liste, après confirmation : ses défis ne lui parviennent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
+  const retirerUnAmi = async (ami: AmiDeCampagne) => {
+    const oui = await confirmDialog({
+      title: `Retirer ${ami.nom} de tes amis ?`,
+      message: 'Ses défis ne te parviendront plus. S’il relève un de tes défis — ou toi un des siens —, il reviendra.',
+      confirmLabel: 'Retirer',
+      cancelLabel: 'Garder',
+    })
+    if (!oui) return
+    try {
+      await api.campagne.amis.retirer(ami.profileId)
+      await relireMesAmis()
+    } catch (e) {
+      setErreur(motifDe(e))
+    }
+  }
+
   const ouvrirLeDuel = async (code: string) => {
     history.pushState(history.state, '', `${window.location.pathname}${window.location.search}${adresseDuDuel(code)}`)
     setCodeDuDuel(code)
@@ -663,10 +703,13 @@ export function CampagneApp() {
         <PageDuDefi
           onglets={onglets}
           onJouer={jouerLeDefi}
+          // Ce qu'un ami lui a envoyé d'abord : c'est ce qui l'attend, et l'onglet le compte.
+          avant={<DefisRecus recus={mesAmis?.recus ?? []} onOuvrir={ouvrirLeDuel} />}
           apres={
             <>
               <AffronterUnInconnu onJouer={jouerLaRencontre} />
               <MesDuels onOuvrir={ouvrirLeDuel} />
+              {mesAmis && <TesAmis amis={mesAmis.amis} onRetirer={a => void retirerUnAmi(a)} />}
             </>
           }
         />

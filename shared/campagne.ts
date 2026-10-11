@@ -559,6 +559,47 @@ export interface ResumeDuDuel {
   minutesRestantes: number
 }
 
+// Ses amis (le souhait du propriétaire du 11 octobre 2026 : « défi entre amis
+// avec liste d'amis ») : ceux qui ont relevé un de ses défis, ou dont il a
+// relevé un. Personne ne s'ajoute à la main — ni demande, ni attente, ni
+// recherche d'un inconnu par son nom : rien à modérer, et un profil masqué
+// n'y paraît jamais. Un ami se retire d'un toucher, et revient s'ils jouent
+// de nouveau ensemble. On lui envoie un défi d'un toucher : il l'attend sous
+// son onglet du défi, sans lien à faire suivre.
+
+/** Les amis qu'on montre, les plus récents d'abord : de quoi défier sa bande, pas un annuaire. */
+export const AMIS_MONTRES = 40
+
+/** Les défis reçus qu'on montre, les plus récents d'abord. */
+export const DEFIS_RECUS_MONTRES = 10
+
+/** Un ami : quelqu'un avec qui il a joué un défi entre amis. */
+export interface AmiDeCampagne {
+  profileId: string
+  /** Son prénom, marqué « (2) » s'il en partage un autre et l'avatar avec (`nomsAffiches`). */
+  nom: string
+  avatar: string
+  /** Lu pour un défi (`?duel=`) : il le lui a déjà envoyé, ou l'ami l'a relevé — rien à renvoyer. */
+  deja?: 'recu' | 'releve'
+}
+
+/** Un défi entre amis qu'un ami lui a envoyé, et qu'il n'a pas encore relevé. */
+export interface DefiRecu {
+  code: string
+  auteur: { nom: string; avatar: string }
+  sujet?: string
+  categories?: string[]
+  minutesRestantes: number
+}
+
+/** Ses amis et ce qu'ils lui ont envoyé (`GET /api/campagne/amis`). */
+export interface MesAmis {
+  amis: AmiDeCampagne[]
+  recus: DefiRecu[]
+  /** Lu pour un défi (`?duel=`) qu'il a lancé : il peut l'envoyer. Celui d'un autre se partage par son lien. */
+  sien?: true
+}
+
 // ── Affronter un inconnu ────────────────────────────────────────────────────
 //
 // Un adversaire tout de suite, sans liste d'amis ni attente (le choix du
