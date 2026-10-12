@@ -7310,8 +7310,11 @@ span.case-avatar { cursor: default; }
 .brancher-tele p { margin: 0; }
 .brancher-tele .row { flex-wrap: nowrap; }
 .brancher-tele .input { font-family: var(--serif); font-size: 1.4rem; letter-spacing: 0.12em; text-transform: uppercase; }
-.tele-branchee { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 500; margin: 0; }
-.tele-branchee .link-inline { font-weight: 400; }
+.tele-branchee { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--accent-text); font-weight: 500; margin: 0; }
+/* L'icône à côté de sa phrase, « Une autre télé ? » dessous : en 360 px, la
+   phrase passait sous l'icône restée seule sur sa ligne. */
+.tele-branchee > span { flex: 1; min-width: 0; }
+.tele-branchee .link-inline { flex-basis: 100%; font-weight: 400; }
 .salon-aide { margin: 6px 2px 0; }
 .reglages-salon { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
 .reglages-salon summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 2px; cursor: pointer; list-style: none; }

@@ -6,6 +6,7 @@
 // sans être passé par « Ouvrir le salon ».
 
 import { PALIERS_ENCHAINEMENT } from '../../shared/console'
+import { lireEquipesPreparees, type EquipePreparee } from '../../shared/teams'
 
 export interface ReglagesDuChef {
   /** L'adresse de l'espace : la barre ne paraît que chez lui. */
@@ -15,6 +16,8 @@ export interface ReglagesDuChef {
   /** Secondes avant la question suivante, après une révélation ; null : au clic. */
   rythme: number | null
   equipes: boolean
+  /** Les équipes qu'il a préparées en créant le salon : il les retrouve la fois suivante. */
+  equipesPreparees?: EquipePreparee[]
 }
 
 const CLE = 'quizz.chef'
@@ -34,7 +37,9 @@ export function chefIci(slug: string): ReglagesDuChef | null {
     const brut = JSON.parse(localStorage.getItem(CLE) ?? 'null') as Partial<ReglagesDuChef> | null
     if (!brut || brut.slug !== slug) return null
     const rythme = typeof brut.rythme === 'number' && PALIERS_ENCHAINEMENT.includes(brut.rythme) ? brut.rythme : null
-    return { slug, joue: brut.joue !== false, rythme, equipes: brut.equipes === true }
+    // Lues comme le serveur les lit : une liste abîmée ne fait pas tomber la page, elle ne vaut rien.
+    const equipesPreparees = lireEquipesPreparees(brut.equipesPreparees)
+    return { slug, joue: brut.joue !== false, rythme, equipes: brut.equipes === true, ...(equipesPreparees && { equipesPreparees }) }
   } catch {
     return null
   }

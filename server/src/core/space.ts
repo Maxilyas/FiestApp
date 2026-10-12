@@ -44,7 +44,7 @@ import type { Review } from '../../../shared/review'
 import type { LancementDeQuiz } from '../../../shared/games/quiz'
 import type { ArchiveList, ArchiveSummary, DerniereSoiree } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
-import { questionsDesEquipes, teamScores } from '../../../shared/teams'
+import { questionsDesEquipes, teamScores, type EquipePreparee } from '../../../shared/teams'
 import { confettisDeSoiree } from '../../../shared/themes'
 import { jourDe } from '../../../shared/jour'
 
@@ -1157,7 +1157,7 @@ export class SpaceRuntime {
    * d'animateur qui se présente l'ouvre aussi : la salle d'attente le montre
    * en grand, et le QR le porte. Le code neuf part à toute la salle.
    */
-  async ouvrirSalon(opts: { auto?: boolean; commencer?: boolean } = {}): Promise<string | null> {
+  async ouvrirSalon(opts: { auto?: boolean; commencer?: boolean; equipes?: readonly EquipePreparee[] | null } = {}): Promise<string | null> {
     if (!this.deps.salons) return null
     // « Ouvrir le salon », depuis le téléphone du chef, commence une soirée :
     // la clôture de la précédente, restée sur la télé, y affichait « La
@@ -1165,9 +1165,18 @@ export class SpaceRuntime {
     // du 4 octobre 2026). Un écran qui se présente, lui, ne la quitte pas.
     const fermee = !!opts.commencer && this.scene?.ecran === 'cloture'
     if (fermee) this.soireeCommence()
+    // Les équipes préparées en créant le salon (le souhait du propriétaire du
+    // 12 octobre 2026 : « préparer les équipes avant de créer le salon ») :
+    // posées dès son ouverture, avant le premier invité, qui choisit la sienne
+    // en entrant. Celles d'une soirée qui en a déjà ne se remplacent pas sous
+    // les pieds de ses invités.
+    let posees = 0
+    if (opts.equipes && this.teams.count() === 0) {
+      for (const e of opts.equipes) if (!('error' in this.teams.create(e.nom, e.emoji))) posees++
+    }
     const avant = this.deps.salons.codeDe(this.spaceId)
     const code = await this.deps.salons.ouvrir(this.spaceId, { auto: opts.auto })
-    if (code !== avant || fermee) this.sendSnapshot()
+    if (code !== avant || fermee || posees > 0) this.sendSnapshot()
     return code
   }
 
