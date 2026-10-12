@@ -330,8 +330,13 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   const vitrine = trophees.slice(trophees.indexOf('export function MaVitrine'), trophees.indexOf('export function UnProche'))
   assert.match(vitrine, /<ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">\s*<li>\s*<button\s+type="button"\s+className=\{'vitrine-option' \+ \(office\.montre/)
   assert.doesNotMatch(vitrine, /\{montree && \(/)
-  // La légende d'un avatar dessiné reçoit le focus à l'ouverture.
-  assert.match(source('components/Apparence.tsx'), /querySelector<HTMLElement>\('\.galerie-detail-nom'\)/)
+  // Dans la loge, une case d'avatar touchée n'ouvre plus rien et ne part pas :
+  // elle s'essaie, et ses voisines restent où elles sont (`grille-avatars.test.ts`
+  // les compare avant et après l'essai) — le focus reste sur elle. Les fiches,
+  // et le focus posé sur leur nom, vivent dans « Ma collection ».
+  const apparence = source('components/Apparence.tsx')
+  assert.doesNotMatch(apparence, /aria-expanded|aria-controls=\{ouvert/)
+  assert.match(apparence, /onClick=\{\(\) => essayer\(piece\)\}/)
 })
 
 // ── Ce qui se lit sans la couleur, et sur son fond ────────────────────────

@@ -1,42 +1,25 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
-import { CeQuIlRemplace, ChoixDeLEclat, DetailDivin, DetailLegendaire } from './Carriere'
+import { CeQuIlRemplace, ChoixDeLEclat } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
 import { PremierHautFait } from './Trophees'
-import { dessinDuPortrait, useDessins } from './medaillons'
 import { espacesFines } from '../format'
-import { rendreLeFocus } from '../focus'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS, divin } from '../../../shared/divins'
-import {
-  BRANCHES,
-  PORTRAITS,
-  brancheDe,
-  deLaBranche,
-  nomDansLaPhrase,
-  ouvertsDansLaBranche,
-  portrait as portraitDe,
-  portraitsOuverts,
-  prochainDansLaBranche,
-  type Branche,
-  type CleDeBranche,
-  type Paliers,
-} from '../../../shared/branches'
+import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
-import { avecLEssai, type Essai } from '../../../shared/loge'
+import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import type { PropsDUnePiece } from './choix'
 
 // Les pièces de la loge (« Me changer », au profil), chacune dans son
@@ -47,8 +30,8 @@ import type { PropsDUnePiece } from './choix'
 // Un seul geste partout : toucher une pièce l'essaie — la carte de la loge
 // la montre, rien n'est enregistré —, et « Porter », dans la barre de la
 // loge, enregistre l'essai. Chaque grille dit ce qu'il porte (« porté ») et
-// ce qu'il essaie (« à l'essai »). Les avatars gardent leur fiche, ouverte
-// sous la case touchée : d'où il vient, sa version rare.
+// ce qu'il essaie (« à l'essai »). D'où vient un avatar, et comment gagner
+// les autres, se lit dans « Ma collection » (`AtlasDesAvatars`).
 
 /**
  * L'anneau des emojis de collection passe du vert au bleu à partir du
@@ -56,14 +39,6 @@ import type { PropsDUnePiece } from './choix'
  * année, et la grille le dit d'un coup d'œil.
  */
 export const COLLECTION_HAUTE = 10
-
-/**
- * Ce qu'une case dit d'elle, après son nom : portée, à l'essai — ce que la
- * carte montre sans qu'il le porte —, arrivée depuis son dernier passage.
- */
-function etatsDeLaCase({ porte, essaye, neuve }: { porte: boolean; essaye: boolean; neuve?: boolean }): string {
-  return (porte ? ', porté' : '') + (essaye ? ', à l’essai' : '') + (neuve ? ', nouveau' : '')
-}
 
 /** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
 function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
@@ -106,563 +81,242 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /**
- * Les familles de « Mes avatars », dans l'ordre des onglets. Trois, pas
- * cinq : cinq onglets à compteur faisaient trois rangées au téléphone, un
- * tiers de l'écran avant le premier avatar. Les emojis de collection vivent
- * avec les emojis, les Divins avec les légendaires, chacun sous son titre.
+ * Les familles de la grille des avatars, dans l'ordre de leurs pastilles :
+ * les légendaires — les Divins dessous —, les portraits des branches, les
+ * emojis — ceux de collection dessous. Chacune mène à sa ligne de « Ma
+ * collection » (`partie`), où se lit ce qui reste, et où le gagner.
  */
-export type Famille = 'branches' | 'emojis' | 'legendaires'
-const FAMILLES: { id: Famille; nom: string }[] = [
-  { id: 'branches', nom: 'Branches' },
-  { id: 'emojis', nom: 'Emojis' },
-  { id: 'legendaires', nom: 'Légendaires' },
+export type Famille = 'legendaires' | 'portraits' | 'emojis'
+export const FAMILLES: readonly { id: Famille; nom: string; partie: string }[] = [
+  { id: 'legendaires', nom: 'Légendaires', partie: 'legendaires' },
+  { id: 'portraits', nom: 'Portraits', partie: 'savoir' },
+  { id: 'emojis', nom: 'Emojis', partie: 'emojis' },
 ]
 
 /**
- * La famille où « Mes avatars » s'ouvre : celle de l'avatar dessiné qu'il
- * porte — on vient souvent pour en changer, et « Le porter » est alors à
- * côté de ce qu'on quitte —, celle de son emoji de collection. Sous un emoji
- * de l'inscription, les branches : c'est là que ses bonnes réponses le
- * mènent.
+ * La famille où la grille s'ouvre : celle de l'avatar qu'il porte — on vient
+ * souvent pour en changer, et ce qu'on quitte est juste à côté.
  */
 export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avatar'>): Famille {
-  if (portraitDe(profil.legendaire)) return 'branches'
+  if (portraitDe(profil.legendaire)) return 'portraits'
   if (legendaire(profil.legendaire) || divin(profil.legendaire)) return 'legendaires'
-  if (COLLECTION.some(c => c.emoji === profil.avatar)) return 'emojis'
-  return 'branches'
+  return 'emojis'
+}
+
+/** Ce qu'une case de la grille dit d'elle : montrée par la carte, portée, nouvelle. */
+interface EtatDUneCase {
+  montre: boolean
+  porte: boolean
+  neuve?: boolean
 }
 
 /**
- * Tous ses avatars, rangés par famille : les portraits des branches ; les
- * vingt-quatre emojis et les douze de collection ; les légendaires et les
- * six Divins. Cent quarante avatars ne se parcourent plus en une grille :
- * chaque famille a son onglet, et chaque partie son titre et son compte.
- *
- * Dans « Mon avatar » (`aMoi`), seulement ceux qu'il a : on y vient pour en
- * changer, et cent cases fermées noyaient les quarante qu'on peut porter. Ce
- * qui reste à gagner, et où, se lit dans « Ma collection ».
- *
- * Chacun se touche de la même façon : il s'essaie — la carte de la loge le
- * porte, rien n'est enregistré — et sa fiche s'ouvre sous sa rangée, qui dit
- * d'où il vient — un emoji comme un portrait ou un légendaire. Un emoji se
- * portait d'un toucher, quand un avatar dessiné ouvrait sa légende : la même
- * grille répondait de deux façons. Le doigt qui voulait voir la grenouille la
- * portait déjà — enregistrée, montrée à la salle — et ôtait le Phénix.
- * « Porter », dans la barre de la loge, enregistre l'essai.
+ * Ses classes, celles de la maquette : `selected`, ce que la carte montre —
+ * lui seul bouge (`styles.css`) ; `essaye`, à l'essai, son halo d'or ;
+ * `porte`, ce qu'il porte, sa coche — montré ou non.
  */
-export function MesAvatars({
-  profil,
-  essai,
-  essayer,
-  busy,
-  enregistrer,
-  neufs,
-  familleInitiale,
-  aMoi = false,
-}: PropsDUnePiece & {
-  /** La famille ouverte d'abord ; celle de l'avatar qu'il porte, par défaut (`familleDe`). */
-  familleInitiale?: Famille
-  /** Seulement ceux qu'il a : l'écran où l'on choisit. */
-  aMoi?: boolean
-}) {
-  // Dans « Mon avatar », sous un emoji de l'inscription, ses emojis : c'est
-  // ce qu'il porte, et ses branches n'y montrent que ce qu'il a — rien, au
-  // premier jour.
-  const [famille, setFamille] = useState<Famille>(() => {
-    if (familleInitiale) return familleInitiale
-    const f = familleDe(profil)
-    return aMoi && f === 'branches' && !portraitDe(profil.legendaire) ? 'emojis' : f
-  })
-  const [ouvert, setOuvert] = useState<string | null>(null)
-  // Ce qui a éclaté brille, sauf ce qu'il a éteint : la grille et les fiches
-  // montrent la version qu'il porte.
-  const brille = (cle: string) => brilleChez(profil, cle)
-  const choisirEclat = (cle: string) => (b: boolean) => enregistrer({ eclat: { cle, brille: b } })
-  const divins = profil.divins ?? []
-  const descendu = (cle: string) => divins.some(d => d.key === cle)
-  const porte = profil.legendaire
-  // Ce que la carte de la loge montre : l'avatar essayé, sinon celui qu'il porte.
-  const montre = essai.legendaire !== undefined ? essai.legendaire : essai.avatar !== undefined ? null : porte
-  const emojiMontre = essai.avatar ?? profil.avatar
-  // Ses paliers validés sur les sentiers du savoir : ils ouvrent ses portraits.
-  const paliers = profil.sentiers ?? {}
-  const portraits = portraitsOuverts(paliers)
-  const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
-  const possedes = portraits.length + AVATARS.length + ouverts + profil.legendaires.length + divins.length
-  const total = PORTRAITS.length + AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
-  /** Ce que toucher cette case essaie : un avatar à lui — ce qui reste à gagner ne fait qu'ouvrir sa fiche. */
-  const essaiDe = (cle: string): Essai | null => {
-    if (portraitDe(cle)) return portraits.includes(cle) ? { legendaire: cle } : null
-    if (legendaire(cle)) return profil.legendaires.includes(cle) ? { legendaire: cle } : null
-    if (divin(cle)) return descendu(cle) ? { legendaire: cle } : null
-    const collection = COLLECTION.find(c => c.emoji === cle)
-    if (collection) return profil.niveau >= collection.niveau ? { avatar: cle } : null
-    return AVATARS.some(a => a === cle) ? { avatar: cle } : null
-  }
-  const toucher = (cle: string) => {
-    setOuvert(o => (o === cle ? null : cle))
-    const piece = essaiDe(cle)
-    if (piece) essayer(piece)
-  }
-  // Ce qu'une case dessinée — portrait, légendaire, Divin — dit d'elle : montrée sur la carte, portée, nouvelle.
-  const etatDessine = (cle: string) => ({ montre: montre === cle, porte: porte === cle, neuve: neufs?.has(cle) })
-  // Ce que chaque grille montre : tout, ou ce qu'il a.
-  const legendairesVus = LEGENDAIRES.filter(l => !aMoi || profil.legendaires.includes(l.key))
-  const divinsVus = DIVINS.filter(d => !aMoi || descendu(d.key))
-  // Changer de famille referme la fiche : elle parlait d'un avatar qu'on ne voit plus.
-  const choisir = (f: Famille) => {
-    setFamille(f)
-    setOuvert(null)
-  }
-  // La fiche s'ouvre juste sous la case, et reçoit le focus sur son nom :
-  // le lecteur d'écran la lit. La page ne défile que ce qu'il faut pour la
-  // montrer entière, « Le porter » compris : la case touchée reste à
-  // l'écran, juste au-dessus — le doigt qui parcourt la grille n'est pas
-  // emporté.
-  const detail = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const fiche = detail.current
-    if (!ouvert || !fiche) return
-    const nom = fiche.querySelector<HTMLElement>('.galerie-detail-nom')
-    if (!nom) return
-    nom.tabIndex = -1
-    nom.focus({ preventScroll: true })
-    const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const comportement = calme ? 'auto' : 'smooth'
-    // La case et sa fiche ensemble, quand elles tiennent à l'écran : la
-    // fiche refermée plus haut dans la grille fait remonter tout ce qui la
-    // suit, et la fiche d'un légendaire, qui le montre en grand, est haute —
-    // on touchait le Kraken, et la page le laissait au-dessus de l'écran.
-    const laCase = fiche.previousElementSibling
-    const haut = (laCase ?? fiche).getBoundingClientRect().top
-    const bas = fiche.getBoundingClientRect().bottom
-    if (laCase && haut < 0 && bas - haut <= window.innerHeight) {
-      window.scrollBy({ top: haut - Math.min(8, window.innerHeight - (bas - haut)), behavior: comportement })
-    } else {
-      fiche.scrollIntoView({ block: 'nearest', behavior: comportement })
-    }
-  }, [ouvert])
-  // Porté, un emoji n'a plus de bouton : le focus qui y était tombait sur la
-  // page. Il revient au nom de la fiche.
-  useEffect(() => {
-    rendreLeFocus(detail.current, ['.galerie-detail-nom'])
-  }, [porte, profil.avatar])
-  // La fiche se glisse juste derrière la case touchée ; la grille, en
-  // `dense`, finit la rangée et la pose dessous, de toute sa largeur
-  // (`styles.css`). Sous toute la grille — 687 px en 360 × 640, plus haute
-  // que l'écran —, elle s'ouvrait hors de la vue : toucher le Dragon
-  // semblait ne rien faire. Elle dit d'où il vient, sa version rare : on ne
-  // porte plus de là — la case touchée s'essaie, « Porter » est dans la
-  // barre de la loge.
-  const fiche = (cle: string) =>
-    ouvert === cle && (
-      <div id="detail-avatar" className="fiche-case" ref={detail}>
-        {portraitDe(cle) ? (
-          <DetailPortrait cle={cle} paliers={paliers} porte={porte} eclat={profil.eclats.includes(cle)} brille={brille(cle)} busy={busy} onEclat={choisirEclat(cle)} />
-        ) : legendaire(cle) ? (
-          <DetailLegendaire
-            cle={cle}
-            debloques={profil.legendaires}
-            eclats={profil.eclats}
-            eteints={profil.eclatsEteints ?? []}
-            porte={porte}
-            hautsFaits={profil.hautsFaits}
-            busy={busy}
-            onEclat={choisirEclat(cle)}
-            dessin={<Legendaire cle={cle} verrouille={!profil.legendaires.includes(cle)} eclat={brille(cle)} grand />}
-          />
-        ) : divin(cle) ? (
-          <DetailDivin cle={cle} descendus={divins} porte={porte} busy={busy} dessin={<Divin cle={cle} verrouille={!descendu(cle)} grand />} />
-        ) : (
-          <DetailEmoji emoji={cle} avatar={profil.avatar} porte={porte} eclat={profil.eclats.includes(cle)} brille={brille(cle)} busy={busy} onEclat={choisirEclat(cle)} />
-        )}
-      </div>
-    )
+function classesDUnAvatar({ montre, porte, neuve }: EtatDUneCase): string {
+  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (porte ? ' porte' : '') + (neuve ? ' neuve' : '')
+}
+
+/**
+ * Ce qu'une case dit à l'oreille après son nom : portée, quand la carte en
+ * montre une autre — montrée, `aria-pressed` le dit déjà, et « portée,
+ * activé » le disait deux fois —, et nouvelle.
+ */
+function ceQueDitLaCase({ montre, porte, neuve }: EtatDUneCase, portee = 'porté', nouvelle = 'nouveau'): string {
+  return (porte && !montre ? `, ${portee}` : '') + (neuve ? `, ${nouvelle}` : '')
+}
+
+/**
+ * Combien de cadenas finissent la grille, s'il reste à gagner : sa dernière
+ * rangée, ou une rangée entière quand elle tombe juste — jamais plus que ce
+ * qui reste. Ils disent qu'il y en a d'autres ; où, le lien dessous le dit.
+ */
+export function cadenas(n: number, colonnes: number, reste: number): number {
+  return reste > 0 ? Math.min(reste, colonnes - (n % colonnes)) : 0
+}
+
+/**
+ * Ses avatars, dans la loge (la maquette 1 validée le 12 octobre 2026) :
+ * trois pastilles — ses légendaires, ses portraits, ses emojis, chacune son
+ * compte —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
+ * la carte collée en tête le montre, la case a son halo d'or, celle qu'il
+ * porte garde sa coche, et « Porter », dans la barre de la loge, le garde.
+ * Trois familles en onglets à titres, l'accordéon des branches et une fiche
+ * dépliée sous chaque case touchée l'avaient précédée : on lisait des titres
+ * et des lignes avant de voir un avatar (« pas reprendre ce qu'on a déjà »,
+ * le propriétaire, le 12 octobre 2026). Ce qui reste à gagner se lit dans
+ * « Ma collection », d'où il vient et comment.
+ */
+export function MesAvatars(props: PropsDUnePiece) {
+  const { profil } = props
+  const [famille, setFamille] = useState<Famille>(() => familleDe(profil))
+  const comptes = comptesDesFamilles(profil)
   return (
-    <section className="card">
-      <h3>
-        <Icon name="users" />
-        Mes avatars <span className="muted small titre-compte">{aMoi ? `${possedes} à toi` : `${possedes} / ${total}`}</span>
-      </h3>
-      <p className="muted small">{espacesFines('Touches-en un : ta carte l’essaie.')}</p>
+    <section className="loge-avatars">
+      {/* Les onglets de toute l'application, en pastilles : un seul arrêt de Tab, les flèches passent à la voisine. */}
       <Onglets
-        onglets={FAMILLES}
+        onglets={FAMILLES.map(f => ({ id: f.id, nom: f.nom, pastille: { n: comptes[f.id], label: `${comptes[f.id]} à toi` } }))}
         actif={famille}
-        onChoisir={choisir}
+        onChoisir={setFamille}
         label="Familles d’avatars"
         idOnglet={f => `famille-${f}`}
         idPanneau={() => 'famille-avatars'}
-        className="onglets-petits onglets-familles"
+        className="onglets-puces"
       />
       <div className="famille-avatars" role="tabpanel" id="famille-avatars" aria-labelledby={`famille-${famille}`}>
-        {famille === 'branches' && (
-          <>
-            <h4 className="famille-titre">
-              Les portraits des branches <span className="famille-compte">{`${portraits.length} / ${PORTRAITS.length}`}</span>
-            </h4>
-            <p className="muted small famille-note">
-              Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers.{' '}
-              <a className="link-inline" href="/campagne#sentiers">
-                Les sentiers
-              </a>
-            </p>
-            <MesBranches
-              paliers={paliers}
-              porte={porte}
-              montre={montre}
-              neufs={neufs}
-              eclats={profil.eclats.filter(brille)}
-              ouvert={ouvert}
-              toucher={toucher}
-              fiche={fiche}
-              onDeplier={() => setOuvert(null)}
-              aMoi={aMoi}
-            />
-          </>
-        )}
-        {famille === 'emojis' && (
-          <>
-            <h4 className="famille-titre">
-              Les emojis <span className="famille-compte">{AVATARS.length}</span>
-            </h4>
-            <div className="emoji-grid grille-unique" role="group" aria-label="Les emojis">
-              {AVATARS.map(a => {
-                const etat = { montre: !montre && a === emojiMontre, porte: !porte && a === profil.avatar, neuve: neufs?.has(a) }
-                return (
-                  <Fragment key={a}>
-                    <button
-                      type="button"
-                      className={'emoji-btn case-avatar' + classesDeLaCase(etat) + (ouvert === a ? ' ouverte' : '')}
-                      // Il s'essaie et ouvre sa fiche, dessous, comme un avatar
-                      // dessiné : un bouton qui déplie, pas un interrupteur.
-                      aria-expanded={ouvert === a}
-                      aria-controls={ouvert === a ? 'detail-avatar' : undefined}
-                      aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}`}
-                      onClick={() => toucher(a)}
-                    >
-                      <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
-                    </button>
-                    {fiche(a)}
-                  </Fragment>
-                )
-              })}
-            </div>
-            {(!aMoi || ouverts > 0) && (
-              <>
-                <h4 className="famille-titre">
-                  De collection <span className="famille-compte">{`${ouverts} / ${COLLECTION.length}`}</span>
-                </h4>
-                <p className="legende-anneaux small muted famille-note">
-                  Un à chaque niveau qui n’ouvre pas de finition, réservés aux profils ·{' '}
-                  <span className="puce anneau-texte-collection" aria-hidden="true">
-                    ●
-                  </span>{' '}
-                  niveaux 2 à 9 ·{' '}
-                  <span className="puce anneau-texte-collection-haut" aria-hidden="true">
-                    ●
-                  </span>{' '}
-                  11 et plus
-                </p>
-                <div className="emoji-grid grille-unique" role="group" aria-label="De collection">
-                  {COLLECTION.map(c => {
-                    const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
-                    if (profil.niveau < c.niveau) {
-                      // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
-                      // histoire que le niveau qui l'ouvre. Dans « Mon avatar », rien.
-                      if (aMoi) return null
-                      return (
-                        <span
-                          key={c.emoji}
-                          className={'emoji-btn case-avatar ferme' + anneau}
-                          role="img"
-                          aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}
-                        >
-                          <span className="silhouette" aria-hidden="true">
-                            {c.emoji}
-                          </span>
-                          <span className="case-niveau" aria-hidden="true">
-                            niv. {c.niveau}
-                          </span>
-                        </span>
-                      )
-                    }
-                    const etat = { montre: !montre && c.emoji === emojiMontre, porte: !porte && c.emoji === profil.avatar, neuve: neufs?.has(c.emoji) }
-                    return (
-                      <Fragment key={c.emoji}>
-                        <button
-                          type="button"
-                          className={'emoji-btn case-avatar' + anneau + classesDeLaCase(etat) + (ouvert === c.emoji ? ' ouverte' : '')}
-                          aria-expanded={ouvert === c.emoji}
-                          aria-controls={ouvert === c.emoji ? 'detail-avatar' : undefined}
-                          aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}`}
-                          onClick={() => toucher(c.emoji)}
-                        >
-                          <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
-                        </button>
-                        {fiche(c.emoji)}
-                      </Fragment>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </>
-        )}
-        {famille === 'legendaires' && (
-          <>
-            <h4 className="famille-titre">
-              Les légendaires <span className="famille-compte">{`${profil.legendaires.length} / ${LEGENDAIRES.length}`}</span>
-            </h4>
-            {legendairesVus.length === 0 && (
-              <p className="muted small">Aucun encore : chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne.</p>
-            )}
-            <div className="emoji-grid grille-unique" role="group" aria-label="Les légendaires">
-              {legendairesVus.map(l => {
-                const gagne = profil.legendaires.includes(l.key)
-                const etat = etatDessine(l.key)
-                return (
-                  <Fragment key={l.key}>
-                    <button
-                      type="button"
-                      className={'emoji-btn case-avatar anneau-legendaire' + (gagne ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === l.key ? ' ouverte' : '')}
-                      // Il s'essaie et ouvre sa légende, dessous : un bouton qui déplie, pas un interrupteur.
-                      aria-expanded={ouvert === l.key}
-                      aria-controls={ouvert === l.key ? 'detail-avatar' : undefined}
-                      aria-label={`${l.nom}, légendaire${gagne ? (etat.porte ? '' : ', gagné') + etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte }) : ', à gagner'}`}
-                      onClick={() => toucher(l.key)}
-                    >
-                      <span className="case-medaillon">
-                        <Legendaire cle={l.key} verrouille={!gagne} eclat={brille(l.key)} />
-                      </span>
-                    </button>
-                    {fiche(l.key)}
-                  </Fragment>
-                )
-              })}
-            </div>
-            {divinsVus.length > 0 && (
-              <>
-                <h4 className="famille-titre">
-                  Les Divins <span className="famille-compte">{`${divins.length} / ${DIVINS.length}`}</span>
-                </h4>
-                <div className="emoji-grid grille-unique" role="group" aria-label="Les Divins">
-                  {divinsVus.map(d => {
-                    const la = descendu(d.key)
-                    const etat = etatDessine(d.key)
-                    return (
-                      <Fragment key={d.key}>
-                        <button
-                          type="button"
-                          className={'emoji-btn case-avatar anneau-divin' + (la ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === d.key ? ' ouverte' : '')}
-                          aria-expanded={ouvert === d.key}
-                          aria-controls={ouvert === d.key ? 'detail-avatar' : undefined}
-                          aria-label={la ? `${d.nom}, Divin${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}` : 'Un Divin, inconnu'}
-                          onClick={() => toucher(d.key)}
-                        >
-                          <span className="case-medaillon">
-                            <Divin cle={d.key} verrouille={!la} />
-                          </span>
-                        </button>
-                        {fiche(d.key)}
-                      </Fragment>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </>
-        )}
+        <FamilleDAvatars {...props} famille={famille} />
       </div>
-      {profil.eclats.length > 0 && (
-        <p className="muted small">
-          {profil.eclats.length === 1 ? 'Un de tes avatars a éclaté' : `${profil.eclats.length} de tes avatars ont éclaté`} : il
-          change de couleurs, et toi seul l’as comme ça.
-        </p>
-      )}
     </section>
   )
 }
 
-/** Les douze branches, une sorte de dessins chacune (`medaillons.ts`). */
-const SORTES_DES_BRANCHES = BRANCHES.map(b => `branche:${b.key}` as const)
+/** Ce que chaque pastille compte : ce qu'il peut porter, Divins et emojis de collection compris. */
+export function comptesDesFamilles(profil: PublicProfileDetail): Record<Famille, number> {
+  return {
+    legendaires: profil.legendaires.length + (profil.divins ?? []).length,
+    portraits: portraitsOuverts(profil.sentiers ?? {}).length,
+    emojis: AVATARS.length + COLLECTION.filter(c => profil.niveau >= c.niveau).length,
+  }
+}
 
 /**
- * La branche dépliée d'abord : celle du portrait qu'il porte ; sinon celle
- * où il est monté le plus haut sans l'avoir finie — c'est là que le prochain
- * tombera ; la première, pour qui n'a encore rien.
+ * La grille d'une famille, sans état : ses cases — chacune essaie son
+ * avatar —, les cadenas de ce qui reste, et le chemin de « Ma collection ».
+ * Chaque case est dessinée par `Avatar`, qui fait venir son dessin : un
+ * portrait, un légendaire ou un Divin, sans l'emoji dessous en attendant.
  */
-function brancheDepliee(paliers: Paliers, porte: string | null): CleDeBranche {
-  const portee = portraitDe(porte)
-  if (portee) return portee.branche
-  const enCours = BRANCHES.filter(b => prochainDansLaBranche(b, paliers))
-  const plusAvancee = [...enCours].sort((a, b) => (paliers[b.key] ?? 0) - (paliers[a.key] ?? 0))[0]
-  return plusAvancee && (paliers[plusAvancee.key] ?? 0) > 0 ? plusAvancee.key : BRANCHES[0].key
+export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: PropsDUnePiece & { famille: Famille }) {
+  // Ce que la carte montre — l'avatar essayé, sinon celui qu'il porte — et
+  // la version de chaque Éclat qu'elle montrerait.
+  const montre = avatarMontre(profil, essai)
+  const tenue = avecLEssai(profil, essai)
+  const brille = (cle: string) => brilleChez(tenue, cle)
+  const dessine = (cle: string): EtatDUneCase => ({ montre: montre.legendaire === cle, porte: profil.legendaire === cle, neuve: neufs?.has(cle) })
+  const emoji = (e: string): EtatDUneCase => ({
+    montre: !montre.legendaire && montre.avatar === e,
+    porte: !profil.legendaire && profil.avatar === e,
+    neuve: neufs?.has(e),
+  })
+  const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dedans: ReactNode, anneau = '') => (
+    <button
+      key={cle}
+      type="button"
+      className={'loge-case case-avatar' + anneau + classesDUnAvatar(etat)}
+      aria-pressed={etat.montre}
+      aria-label={label + ceQueDitLaCase(etat)}
+      onClick={() => essayer(piece)}
+    >
+      {dedans}
+    </button>
+  )
+  // Un médaillon dans sa case, sans finition ni emoji dessous : la finition se voit sur la carte.
+  const medaillon = (cle: string, eclat = false) => <Avatar avatar="" legendaire={cle} eclat={eclat} />
+  const fermes = (n: number, colonnes: number, reste: number, niveaux: readonly number[] = []) =>
+    Array.from({ length: cadenas(n, colonnes, reste) }, (_, i) => (
+      <span key={`ferme-${i}`} className="loge-case loge-ferme" aria-hidden="true">
+        <Icon name="lock" />
+        {niveaux[i] !== undefined && <span className="loge-ferme-niveau">{`niv. ${niveaux[i]}`}</span>}
+      </span>
+    ))
+  const partie = FAMILLES.find(f => f.id === famille)!.partie
+  const aGagner = (reste: number, un: string, plusieurs: string) =>
+    reste > 0 && (
+      <a className="loge-a-gagner" href={`#collection-${partie}`}>
+        {espacesFines(`${reste} ${reste > 1 ? plusieurs : un} à gagner : où ?`)}
+        <Icon name="chevron-right" />
+      </a>
+    )
+
+  if (famille === 'legendaires') {
+    const siens = LEGENDAIRES.filter(l => profil.legendaires.includes(l.key))
+    const divins = DIVINS.filter(d => (profil.divins ?? []).some(x => x.key === d.key))
+    const reste = LEGENDAIRES.length - siens.length
+    return (
+      <>
+        {siens.length === 0 && <p className="muted small">Chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne.</p>}
+        <div className="loge-grille grille-unique" role="group" aria-label="Les légendaires">
+          {siens.map(l =>
+            laCase(l.key, dessine(l.key), `${l.nom}, légendaire${brille(l.key) ? ', éclaté' : ''}`, { legendaire: l.key }, medaillon(l.key, brille(l.key)), ' anneau-legendaire'),
+          )}
+          {fermes(siens.length, 4, reste)}
+        </div>
+        {divins.length > 0 && (
+          <>
+            <p className="loge-grille-titre">
+              Les Divins <span>{`${divins.length} / ${DIVINS.length}`}</span>
+            </p>
+            <div className="loge-grille grille-unique" role="group" aria-label="Les Divins">
+              {divins.map(d => laCase(d.key, dessine(d.key), `${d.nom}, Divin`, { legendaire: d.key }, medaillon(d.key), ' anneau-divin'))}
+            </div>
+          </>
+        )}
+        {aGagner(reste, 'légendaire', 'légendaires')}
+      </>
+    )
+  }
+
+  if (famille === 'portraits') {
+    const ouverts = portraitsOuverts(profil.sentiers ?? {})
+    const siens = PORTRAITS.filter(p => ouverts.includes(p.key))
+    const reste = PORTRAITS.length - siens.length
+    return (
+      <>
+        {siens.length === 0 && (
+          <p className="muted small">
+            {espacesFines('Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers.')}{' '}
+            <a className="link-inline" href="/campagne#sentiers">
+              Les sentiers
+            </a>
+          </p>
+        )}
+        <div className="loge-grille grille-unique" role="group" aria-label="Les portraits des branches">
+          {siens.map(p =>
+            laCase(p.key, dessine(p.key), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${brille(p.key) ? ', éclaté' : ''}`, { legendaire: p.key }, medaillon(p.key, brille(p.key))),
+          )}
+          {fermes(siens.length, 4, reste)}
+        </div>
+        {aGagner(reste, 'portrait', 'portraits')}
+      </>
+    )
+  }
+
+  const collection = COLLECTION.filter(c => profil.niveau >= c.niveau)
+  const aVenir = COLLECTION.filter(c => profil.niveau < c.niveau)
+  return (
+    <>
+      <div className="loge-grille loge-grille-emojis grille-unique" role="group" aria-label="Les emojis">
+        {AVATARS.map(a => laCase(a, emoji(a), `Avatar ${a}${brille(a) ? ', éclaté' : ''}`, { avatar: a }, <Avatar avatar={a} eclat={brille(a)} />))}
+      </div>
+      {/* Un à chaque niveau qui n'ouvre pas de finition, réservés aux profils : les suivants disent leur niveau. */}
+      <p className="loge-grille-titre">
+        De collection <span>{`${collection.length} / ${COLLECTION.length}`}</span>
+      </p>
+      <div className="loge-grille loge-grille-emojis grille-unique" role="group" aria-label="De collection">
+        {collection.map(c =>
+          laCase(
+            c.emoji,
+            emoji(c.emoji),
+            `Avatar ${c.emoji}, de collection · niveau ${c.niveau}${brille(c.emoji) ? ', éclaté' : ''}`,
+            { avatar: c.emoji },
+            <Avatar avatar={c.emoji} eclat={brille(c.emoji)} />,
+            c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut',
+          ),
+        )}
+        {fermes(
+          collection.length,
+          5,
+          aVenir.length,
+          aVenir.map(c => c.niveau),
+        )}
+      </div>
+      {aGagner(aVenir.length, 'emoji de collection', 'emojis de collection')}
+    </>
+  )
 }
 
 const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
-
-/** « Encore 2 paliers du sentier pour Anubis. » — ou le sentier fini. */
-function ceQuiVient(b: Branche, paliers: Paliers): string {
-  const prochain = prochainDansLaBranche(b, paliers)
-  if (!prochain) return 'Sentier complet : les six portraits sont à toi.'
-  return `Encore ${nPaliers(prochain.encore)} du sentier pour ${nomDansLaPhrase(prochain.portrait.nom)}.`
-}
-
-/**
- * L'onglet des branches : douze catégories, six portraits chacune. Une
- * branche se déplie — son compte, sa jauge vers le prochain portrait, ses
- * six cases —, juste sous les onglets ; les autres tiennent sur une ligne,
- * avec leur dernier portrait gagné, ou la silhouette du premier à gagner, et
- * ce qui manque au prochain (« Histoire · encore 17 »). Toucher une ligne la
- * déplie à la place de l'autre. Dépliée à sa place dans la liste, la forêt
- * tombait sous quatre lignes, hors de l'écran d'un téléphone.
- */
-function MesBranches({
-  paliers,
-  porte,
-  montre,
-  neufs,
-  eclats,
-  ouvert,
-  toucher,
-  fiche,
-  onDeplier,
-  aMoi = false,
-}: {
-  paliers: Paliers
-  porte: string | null
-  /** L'avatar dessiné que la carte de la loge montre : celui qu'il essaie, sinon celui qu'il porte. */
-  montre: string | null
-  neufs?: ReadonlySet<string>
-  eclats: string[]
-  ouvert: string | null
-  toucher: (cle: string) => void
-  fiche: (cle: string) => ReactNode
-  /** Une autre branche se déplie : la fiche d'un portrait de la précédente se referme. */
-  onDeplier: () => void
-  /** Seulement ses portraits : les branches où il en a, et dans chacune ceux qu'il a gagnés. */
-  aMoi?: boolean
-}) {
-  // Dans « Mon avatar », les branches où il a déjà un portrait : les autres
-  // n'ont rien à porter.
-  const siennes = BRANCHES.filter(b => !aMoi || ouvertsDansLaBranche(b, paliers) > 0)
-  const [depliee, setDepliee] = useState<CleDeBranche>(() => {
-    const k = brancheDepliee(paliers, porte)
-    return siennes.some(b => b.key === k) ? k : (siennes[0]?.key ?? k)
-  })
-  // La ligne touchée a disparu, remplacée par sa branche dépliée en tête : le
-  // focus qu'elle avait va au nom de la branche, et la page remonte juste ce
-  // qu'il faut pour la montrer.
-  const rayon = useRef<HTMLDivElement>(null)
-  const premiere = useRef(true)
-  useEffect(() => {
-    if (premiere.current) {
-      premiere.current = false
-      return
-    }
-    const nom = rayon.current?.querySelector<HTMLElement>('.rayon-tete b')
-    if (nom) {
-      nom.tabIndex = -1
-      nom.focus({ preventScroll: true })
-    }
-    const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    rayon.current?.scrollIntoView({ block: 'nearest', behavior: calme ? 'auto' : 'smooth' })
-  }, [depliee])
-  const deplier = (cle: CleDeBranche) => {
-    onDeplier()
-    setDepliee(cle)
-  }
-  // La dépliée d'abord, les autres dans l'ordre des catégories.
-  const ordre = [...siennes.filter(b => b.key === depliee), ...siennes.filter(b => b.key !== depliee)]
-  // Les douze branches se montrent — dépliée, ou sur une ligne : leurs
-  // dessins viennent ensemble, à l'ouverture de l'onglet.
-  const dessins = useDessins(...SORTES_DES_BRANCHES)
-  const { Portrait } = dessins
-  const dessin = (cle: string, verrouille: boolean) =>
-    Portrait && dessinDuPortrait(dessins, cle) ? (
-      <Portrait cle={cle} verrouille={verrouille} eclat={eclats.includes(cle)} />
-    ) : (
-      <span className="pt" aria-hidden="true" />
-    )
-  return (
-    <div className="branches">
-      {ordre.map(b => {
-        const valides = paliers[b.key] ?? 0
-        const n = ouvertsDansLaBranche(b, paliers)
-        const compte = `${n} / ${b.portraits.length}`
-        if (b.key !== depliee) {
-          // Sur sa ligne, le dernier portrait gagné — ou le premier, en
-          // silhouette —, sa catégorie et ce qui manque : deux lignes, pas
-          // trois. La phrase entière, portrait nommé, se lit dépliée — et
-          // l'oreille l'entend d'ici.
-          const vitrine = b.portraits[Math.max(0, n - 1)]
-          const encore = prochainDansLaBranche(b, paliers)?.encore
-          return (
-            <button
-              key={b.key}
-              type="button"
-              className="ligne-branche"
-              aria-expanded={false}
-              aria-label={`${b.nom}, ${compte}. ${ceQuiVient(b, paliers)}`}
-              onClick={() => deplier(b.key)}
-            >
-              <span className="ligne-branche-dessin">{dessin(vitrine.key, n === 0)}</span>
-              <span className="ligne-branche-texte">
-                <b>{b.nom}</b>
-                <span className="muted small">{`${b.categorie} · ${encore ? `encore ${nPaliers(encore)}` : 'complète'}`}</span>
-              </span>
-              <span className="ligne-branche-compte">{compte}</span>
-            </button>
-          )
-        }
-        // La jauge va du dernier portrait gagné au prochain : elle bouge à
-        // chaque palier validé.
-        const prochain = prochainDansLaBranche(b, paliers)
-        const depuis = n > 0 ? b.portraits[n - 1].palier : 0
-        const part = prochain ? (valides - depuis) / (prochain.portrait.palier - depuis) : 1
-        return (
-          <div key={b.key} className="rayon" ref={rayon}>
-            <div className="rayon-tete">
-              <b>{b.nom}</b>
-              <span className="detail-famille muted">{b.categorie}</span>
-              <span className="ligne-branche-compte">{compte}</span>
-            </div>
-            <span className="jauge" aria-hidden="true">
-              <span className="jauge-plein" style={{ width: `${Math.round(part * 100)}%` }} />
-            </span>
-            <p className="muted small">{ceQuiVient(b, paliers)}</p>
-            <div className="emoji-grid grille-unique grille-branche" role="group" aria-label={b.nom}>
-              {b.portraits.filter(p => !aMoi || valides >= p.palier).map(p => {
-                const gagne = valides >= p.palier
-                const etat = { montre: montre === p.key, porte: porte === p.key, neuve: neufs?.has(p.key) }
-                return (
-                  <Fragment key={p.key}>
-                    <button
-                      type="button"
-                      className={'emoji-btn case-avatar case-portrait' + (gagne ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === p.key ? ' ouverte' : '')}
-                      aria-expanded={ouvert === p.key}
-                      aria-controls={ouvert === p.key ? 'detail-avatar' : undefined}
-                      aria-label={`${p.nom}${gagne ? (etat.porte ? '' : ', gagné') + etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte }) : `, au palier ${p.palier}`}`}
-                      onClick={() => toucher(p.key)}
-                    >
-                      <span className="case-medaillon">{dessin(p.key, !gagne)}</span>
-                      {!gagne && (
-                        <span className="case-niveau" aria-hidden="true">
-                          {`P${p.palier}`}
-                        </span>
-                      )}
-                    </button>
-                    {fiche(p.key)}
-                  </Fragment>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 /**
  * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, le palier
@@ -736,67 +390,6 @@ export function DetailPortrait({
 }
 
 /**
- * Ce qu'on lit d'un emoji en le touchant dans la grille, comme d'un avatar
- * dessiné : d'où il vient — le niveau, pour un emoji de collection —, s'il a
- * éclaté (seul le lecteur d'écran le disait), et ce que « Le porter »
- * ôterait. Porté, rien à toucher : c'est lui que la salle voit. Sans
- * `onPorter` — la loge, où la case touchée s'essaie —, la fiche ne fait que
- * dire d'où il vient.
- */
-export function DetailEmoji({
-  emoji,
-  avatar,
-  porte,
-  eclat,
-  brille = eclat,
-  busy,
-  onPorter,
-  onEclat,
-}: {
-  emoji: string
-  /** L'emoji du profil : celui qu'il porte, s'il ne porte rien de dessiné. */
-  avatar: string
-  /** Le légendaire ou le Divin qu'il porte, s'il en porte un. */
-  porte: string | null
-  /** Il a éclaté pour lui. */
-  eclat: boolean
-  /** Il en porte la version rare — sinon, il l'a éteint. */
-  brille?: boolean
-  busy: boolean
-  onPorter?: (emoji: string) => void
-  /** Porter sa version rare, ou sa version d'origine. */
-  onEclat?: (brille: boolean) => void
-}) {
-  const collection = COLLECTION.find(c => c.emoji === emoji)
-  const choisi = !porte && emoji === avatar
-  return (
-    <div className="galerie-detail detail-case">
-      {collection ? (
-        <span className={'detail-famille ' + (collection.niveau < COLLECTION_HAUTE ? 'anneau-texte-collection' : 'anneau-texte-collection-haut')}>
-          {`De collection · niveau ${collection.niveau}`}
-        </span>
-      ) : (
-        <span className="detail-famille muted">Emoji</span>
-      )}
-      <b className="galerie-detail-nom detail-emoji">{emoji}</b>
-      {eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
-      {choisi ? (
-        <p className="muted small">C’est lui que la salle voit.</p>
-      ) : (
-        onPorter && (
-          <>
-            <CeQuIlRemplace porte={porte} cle={emoji} />
-            <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onPorter(emoji)}>
-              Le porter
-            </button>
-          </>
-        )
-      )}
-    </div>
-  )
-}
-
-/**
  * « N autres à gagner », sous ce qu'un écran du profil laisse choisir : ce
  * qu'on n'a pas encore vit dans sa ligne de « Ma collection », avec ce qu'il
  * faut pour l'ouvrir. Les fonds, les gerbes et les finitions à gagner se
@@ -815,68 +408,62 @@ export function AGagnerDansLaCollection({ reste, partie, nom }: { reste: number;
 }
 
 /**
- * Sa finition : par défaut, la plus belle qu'il a — chaque niveau qui en
- * ouvre une nouvelle la fait porter d'office. On en épingle une autre si on
- * préfère, parmi celles qu'il a ; les autres se disent dans la collection.
- * Touchée, elle s'essaie sur l'avatar de la carte, comme le reste de la loge.
+ * Sa finition, sur une rangée de pastilles (la maquette 3, que le
+ * propriétaire a voulue le 12 octobre 2026) : « Auto » — la plus belle qu'il
+ * a, que chaque niveau qui en ouvre une nouvelle fait porter d'office —, puis
+ * celles qu'il a, chacune sa couleur ; la prochaine à gagner, éteinte, dit
+ * son niveau et mène à « Ma collection ». Touchée, elle s'essaie sur la
+ * carte de la loge. Elle se cachait derrière une ligne qui se dépliait en
+ * huit grandes cases, un avatar animé dans chacune.
  */
 export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
-  // Les aperçus montrent ce que la salle verra : sous un légendaire porté,
-  // le médaillon cerclé de la finition — pas l'emoji caché dessous, qu'on
-  // choisissait auréolé d'« Aurore » sans voir le Phénix que la salle verrait.
-  // Sous l'avatar qu'il essaie, s'il en essaie un : c'est lui que la carte montre.
   const vu = avecLEssai(profil, essai)
+  // Un Divin ne prend ni finition ni Éclat : la sienne se voit sous ses autres avatars.
   const divinPorte = divin(vu.legendaire)
-  // Sous un Divin, qui n'en prend pas, c'est sous l'emoji que la finition se verra.
-  const legendairePorte = divinPorte ? undefined : (vu.legendaire ?? undefined)
-  const eclat = brilleChez(profil, cibleEclat(legendairePorte, vu.avatar))
   const montree = vu.finitionChoisie
-  // Ce que chaque case dit d'elle : portée — épinglée, pour une finition choisie —, à l'essai, ou ce qu'elle est.
-  const etat = (f: FinitionChoisie, sinon: string, portee: string) =>
-    profil.finitionChoisie === f ? portee : montree === f ? 'à l’essai' : sinon
+  const plusBelle = meilleureFinition(profil.niveau)
+  const prochaine = FINITIONS.find(f => !profil.ouvertes.includes(f))
+  const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition, label: string) => {
+    const montre = montree === cle
+    const porte = profil.finitionChoisie === cle
+    const neuve = cle !== 'auto' && !!neufs?.has(`finition:${cle}`)
+    return (
+      <button
+        key={cle}
+        type="button"
+        className={'finition-choix' + classesDUnAvatar({ montre, porte, neuve })}
+        aria-pressed={montre}
+        aria-label={label + ceQueDitLaCase({ montre, porte, neuve }, 'portée', 'nouvelle')}
+        onClick={() => essayer({ finition: cle })}
+      >
+        <i className={`finition-teinte teinte-${teinte}`} aria-hidden="true">
+          {cle === 'auto' && <Icon name="sparkles" />}
+        </i>
+        <span aria-hidden="true">{nom}</span>
+      </button>
+    )
+  }
   return (
-    <section className="card">
-      <h3>
-        <Icon name="trophy" />
-        Ma finition <span className="muted small titre-compte">{`${profil.ouvertes.length} / ${FINITIONS.length}`}</span>
-      </h3>
-      {/* Un Divin ne prend ni finition ni Éclat : la sienne se choisira sous un autre avatar. */}
+    <div className="loge-finitions">
+      <span className="loge-sous-titre" id="loge-finitions-titre">
+        Finition
+      </span>
       {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta finition se voit sous tes autres avatars.`}</p>}
-      <div className="finitions">
-        <button
-          type="button"
-          className={'finition-btn' + classesDeLaCase({ montre: montree === 'auto', porte: profil.finitionChoisie === 'auto' })}
-          aria-pressed={montree === 'auto'}
-          onClick={() => essayer({ finition: 'auto' })}
-        >
-          <Avatar avatar={vu.avatar} finition={meilleureFinition(profil.niveau)} eclat={eclat} legendaire={legendairePorte} />
-          <span className="finition-nom">La plus belle</span>
-          <span className="muted small">{etat('auto', 'automatique', 'portée')}</span>
-        </button>
-        {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => {
-          const neuve = neufs?.has(`finition:${f}`)
-          return (
-            <button
-              key={f}
-              type="button"
-              className={'finition-btn' + classesDeLaCase({ montre: montree === f, porte: profil.finitionChoisie === f, neuve })}
-              aria-pressed={montree === f}
-              onClick={() => essayer({ finition: f })}
-            >
-              <Avatar avatar={vu.avatar} finition={f} eclat={eclat} legendaire={legendairePorte} />
-              <span className="finition-nom">{NOM_FINITION[f]}</span>
-              <span className="muted small">{etat(f, neuve ? 'nouvelle' : 'ouverte', 'épinglée')}</span>
-            </button>
-          )
-        })}
+      <div className="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre">
+        {pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
+        {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
+        {prochaine && (
+          <a
+            className="finition-choix finition-fermee"
+            href="#collection-finitions"
+            aria-label={`${NOM_FINITION[prochaine]}, au niveau ${NIVEAU_FINITION[prochaine]} : où et comment, dans « Ma collection »`}
+          >
+            <i className={`finition-teinte teinte-${prochaine}`} aria-hidden="true" />
+            <span aria-hidden="true">{`Niv. ${NIVEAU_FINITION[prochaine]}`}</span>
+          </a>
+        )}
       </div>
-      <p className="muted small">
-        Les finitions se gagnent au niveau, jusqu’à Constellation au niveau {NIVEAU_FINITION.constellation}. L’Éclat, lui, ne se
-        gagne pas : une chance sur quarante par soirée jouée à deux ou plus et par quiz du jour, une sur vingt par défi de la
-        semaine, et c’est l’avatar lui-même qui change de couleurs.
-      </p>
-      <AGagnerDansLaCollection reste={FINITIONS.length - profil.ouvertes.length} partie="finitions" nom={FINITIONS.length - profil.ouvertes.length > 1 ? 'finitions' : 'finition'} />
-    </section>
+    </div>
   )
 }
 

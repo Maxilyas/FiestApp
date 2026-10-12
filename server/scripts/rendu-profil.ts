@@ -59,6 +59,8 @@ try {
   }
   const achat = db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)')
   for (const theme of ['neige', 'ocean']) achat.run(id, theme)
+  // Son Phénix a éclaté : la carte de la loge propose sa version rare.
+  db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'lg:phenix', 'une-soiree-d-avant', 1)`).run(id)
   db.close()
   await banc.redemarrer()
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', gerbe: 'etoiles', ...(ivoire && { theme: 'ivoire' }) }, cookie, 'PUT')
@@ -105,18 +107,27 @@ try {
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}-pleine`, true)
   }
-  await page.goto(`${banc.url}/profil#avatar`)
-  await page.waitForSelector('.ma-finition')
-  await page.click('.ma-finition button[aria-expanded]')
-  await page.waitForSelector('#mes-finitions .finitions')
-  await photo('2-loge-avatar-finition')
+  // Ses trois familles d'avatars, chacune sa grille, ses cadenas et le chemin de la collection.
+  for (const famille of ['Portraits', 'Emojis']) {
+    await page.goto(`${banc.url}/profil#avatar`)
+    await page.waitForSelector('.loge-panneau .famille-avatars')
+    await page.click(`.onglets-puces [role="tab"]:has-text("${famille}")`)
+    await photo(`2-loge-avatar-${famille.toLowerCase()}`)
+    await photo(`2-loge-avatar-${famille.toLowerCase()}-pleine`, true)
+  }
 
   // Un essai : un emoji sur la carte, puis un titre — la barre compte deux
   // changements —, puis un thème, qui habille toute la page ; « Porter » garde tout.
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge-panneau .famille-avatars')
-  await page.click('.loge-panneau [role="tab"]:has-text("Emojis")')
-  await page.click('.loge-panneau .emoji-grid .case-avatar >> nth=1')
+  // Sa version d'origine, essayée sur la carte, puis une finition.
+  await page.click('.loge-version')
+  await page.click('.finition-choix:not(.selected) >> nth=1')
+  await page.waitForSelector('.loge-barre')
+  await photo('2b-loge-essai-version-finition')
+  await page.click('.loge-barre .btn-ghost')
+  await page.click('.onglets-puces [role="tab"]:has-text("Emojis")')
+  await page.click('.loge-panneau .loge-grille-emojis .case-avatar >> nth=1')
   await page.waitForSelector('.loge-barre')
   await photo('2b-loge-essai-avatar')
   await page.click('#loge-titre')

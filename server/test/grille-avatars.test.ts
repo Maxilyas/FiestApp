@@ -1,16 +1,17 @@
-// La grille des avatars du profil : un seul geste pour tous. On touche un
-// avatar — portrait d'une branche, emoji, de collection, légendaire ou Divin
-// —, il s'essaie sur la carte de la loge et sa fiche s'ouvre sous sa rangée ;
-// « Porter », dans la barre de la loge, le porte (le 12 octobre 2026 : sa
-// fiche le portait d'un bouton « Le porter », que les autres écrans gardent).
-// Cent vingt-neuf avatars se rangent par famille, un onglet chacune.
+// La grille des avatars de la loge : la maquette 1 validée le 12 octobre 2026.
+// Trois pastilles qui comptent — ses légendaires, ses portraits, ses emojis —,
+// puis la grille de ce qu'il a : un toucher essaie l'avatar — la carte de la
+// loge le montre, la case a son halo d'or —, celui qu'il porte garde sa
+// coche, et « Porter », dans la barre de la loge, le garde. Des cadenas
+// finissent la rangée de ce qui reste ; d'où il vient, et comment gagner les
+// autres, se lit dans « Ma collection ».
 //
-// Un emoji se portait d'un toucher, quand un avatar dessiné ouvrait sa
-// légende : la même grille répondait de deux façons. Le doigt qui voulait
-// voir la grenouille la portait déjà — enregistrée, montrée à la salle — et
-// ôtait le Phénix, dix rangées plus bas. Et la fiche s'ouvrait sous toute la
-// grille, 687 px en 360 × 640 : hors de l'écran, pour une case du haut.
-// Le rendu se regarde dans un navigateur ; ici, ce qui le décide.
+// Avant elle, la même grille répondait de deux façons — un emoji se portait
+// d'un toucher, un avatar dessiné ouvrait sa légende —, puis chaque case
+// ouvrait une fiche sous sa rangée, derrière trois onglets à titres et
+// l'accordéon des branches : on lisait des titres et des lignes avant de voir
+// un avatar (« pas reprendre ce qu'on a déjà », le propriétaire). Les fiches
+// vivent dans « Ma collection » (`AtlasDesAvatars`), qui ne fait que montrer.
 // Pas de serveur : des composants du client, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -52,7 +53,7 @@ function regle(selecteur: string): string {
   return m[1]
 }
 
-/** Un habitué : le Phénix porté, la grenouille dessous, un second légendaire, un Divin, niveau 14. */
+/** Un habitué : le Phénix porté, la grenouille dessous, un second légendaire, un Divin, niveau 14, trois portraits. */
 const HABITUE = {
   id: 'p1',
   login: 'jeanne',
@@ -67,170 +68,158 @@ const HABITUE = {
   legendaires: ['lg:phenix', 'lg:dragon'],
   divins: [{ key: 'dv:seraphin', legende: 'Il est descendu un soir de grand vent.', ton: 'eclat' }],
   hautsFaits: [],
+  sentiers: { foret: 5, mythes: 2 },
 }
 
-/** Les trois familles de « Mes avatars », dans l'ordre des onglets. */
-const FAMILLES = ['branches', 'emojis', 'legendaires']
+/** Le premier jour : niveau 1, rien de dessiné. */
+const DEBUTANT = { ...HABITUE, legendaire: null, legendaires: [], divins: [], niveau: 1, sentiers: {}, eclats: [] }
 
-/** Ce que reçoit une pièce de la loge : rien d'essayé, rien d'enregistré. */
-const loge = { essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} }
+const FAMILLES = ['legendaires', 'portraits', 'emojis'] as const
 
-/** « Mes avatars » ouvert sur une famille. */
-const mesAvatars = (profil: object, familleInitiale?: string) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, familleInitiale })
+/** Ce que reçoit une pièce de la loge : rien d'essayé. */
+const loge = { essai: {}, essayer: () => {}, busy: false }
 
-test('dans chaque famille, chaque case s’essaie et ouvre sa fiche : aucune ne se porte d’un toucher', async () => {
-  const cases: string[] = []
-  for (const famille of FAMILLES) {
-    const html = await mesAvatars(HABITUE, famille)
-    const boutons = [...html.matchAll(/<button\b[^>]*>/g)].map(m => m[0])
-    // Des onglets, les lignes des branches à déplier, et des cases : rien d'autre à toucher.
-    for (const b of boutons) assert.match(b, /role="tab"|class="ligne-branche"|class="emoji-btn case-avatar/, b)
-    cases.push(...boutons.filter(b => /case-avatar/.test(b)))
-    assert.doesNotMatch(html, /id="detail-avatar"/, `${famille} : aucune fiche avant le premier toucher`)
-    // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher fait — il essaie, il ne porte plus.
-    assert.match(html, /Touches-en un : ta carte l’essaie\./)
-    assert.doesNotMatch(html, /touche un avatar, puis «\u202fLe porter\u202f»/)
-  }
-  // Les six portraits de la branche dépliée, vingt-quatre emojis, les dix de
-  // collection ouverts au niveau 14, les légendaires, les Divins.
-  assert.ok(cases.length > 50, `toutes les cases à toucher (${cases.length})`)
-  for (const c of cases) {
-    // Un bouton qui déplie, pas un interrupteur : `aria-pressed` disait qu'un
-    // toucher portait l'emoji.
-    assert.match(c, /aria-expanded="false"/, c)
-    assert.doesNotMatch(c, /aria-pressed/, c)
-    // Rien n'est ouvert : `aria-controls` ne vise que la fiche affichée.
-    assert.doesNotMatch(c, /aria-controls/, c)
-  }
-  // L'emoji sous le Phénix n'est pas « porté » : c'est le Phénix que la salle voit.
-  const portes = cases.filter(c => /aria-label="[^"]*, porté"/.test(c)).map(c => /aria-label="([^"]*)"/.exec(c)![1])
-  assert.deepEqual(portes, ['Le Phénix, légendaire, porté'])
+/** Les cases d'une grille rendue : leurs classes, leur nom, si elles sont pressées. */
+const casesDe = (html: string) =>
+  [...html.matchAll(/<button type="button" class="loge-case case-avatar([^"]*)" aria-pressed="(true|false)" aria-label="([^"]*)"/g)].map(m => ({
+    classes: m[1].trim().split(/\s+/).filter(Boolean),
+    presse: m[2] === 'true',
+    nom: m[3],
+  }))
 
-  // Le geste lui-même : dans les grilles, un toucher n'enregistre rien — il
-  // essaie l'avatar et ouvre sa fiche, ou déplie une branche ; seule la barre
-  // de la loge porte.
-  const composant = source('components/Apparence.tsx')
-  const corps = composant.slice(composant.indexOf('export function MesAvatars'), composant.indexOf('export function DetailPortrait'))
-  assert.match(corps, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*const piece = essaiDe\(cle\)\s*if \(piece\) essayer\(piece\)\s*\}/)
-  // Les fiches de la grille ne portent plus rien : « Porter » est dans la barre de la loge.
-  assert.doesNotMatch(corps, /onPorter=/)
-  const gestes = [...corps.matchAll(/onClick=\{/g)].map(m => {
-    let profondeur = 1
-    let k = m.index! + m[0].length
-    while (profondeur > 0 && k < corps.length) {
-      if (corps[k] === '{') profondeur++
-      else if (corps[k] === '}') profondeur--
-      k++
+/** Une famille de la grille, rendue. */
+const famille = (f: string, profil: object = HABITUE, essai: object = {}) => rendu('components/Apparence', 'FamilleDAvatars', { profil, ...loge, essai, famille: f })
+
+test('dans chaque famille, chaque case essaie son avatar : rien ne se porte ni ne s’enregistre d’un toucher, aucune fiche ne s’ouvre', async () => {
+  const essais: object[] = []
+  const vus: Record<string, object[]> = {}
+  for (const f of FAMILLES) {
+    essais.length = 0
+    const boutons = elements(await arbre('components/Apparence', 'FamilleDAvatars', { profil: HABITUE, ...loge, essayer: (p: object) => essais.push(p), famille: f })).filter(
+      e => e.type === 'button',
+    )
+    for (const b of boutons) {
+      // Une case, pressée si la carte la montre — pas un bouton qui déplie une fiche.
+      assert.match(b.props.className, /^loge-case case-avatar/, f)
+      assert.equal(typeof b.props['aria-pressed'], 'boolean', f)
+      assert.equal(b.props['aria-expanded'], undefined, f)
+      assert.equal(b.props['aria-controls'], undefined, f)
+      b.props.onClick()
     }
-    return corps.slice(m.index! + m[0].length, k - 1).trim()
-  })
-  assert.equal(gestes.filter(g => /^\(\) => toucher\([^)]*\)$/.test(g)).length, 5, 'emojis, collection, légendaires, Divins, portraits')
-  assert.deepEqual(
-    gestes.filter(g => !/^\(\) => toucher\(/.test(g)),
-    ['() => deplier(b.key)'],
-    'une ligne de branche se déplie',
-  )
-})
-
-test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille de ce qu’il porte ; chaque partie dit son compte', async () => {
-  const onglets = (html: string) => [...html.matchAll(/<button[^>]*role="tab"[^>]*>([^<]*)<\/button>/g)].map(m => m[1])
-  const actif = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
-  // Trois noms courts, sans compteur : cinq onglets à compte faisaient trois
-  // rangées au téléphone, un tiers de l'écran avant le premier avatar.
-  assert.deepEqual(onglets(await mesAvatars(HABITUE)), ['Branches', 'Emojis', 'Légendaires'])
-  // Sous le Phénix — ou un Divin —, les légendaires ; sous un emoji de
-  // collection, les emojis ; sous un emoji de l'inscription, les branches :
-  // c'est là que ses sentiers le mènent.
-  assert.equal(actif(await mesAvatars(HABITUE)), 'Légendaires')
-  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: 'dv:seraphin' })), 'Légendaires')
-  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null, avatar: '🐝' })), 'Emojis')
-  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null })), 'Branches')
-  // Chaque partie a son titre et son compte : cinq paliers de la forêt, deux des mythologies.
-  const savant = { ...HABITUE, sentiers: { foret: 5, mythes: 2 } }
-  const titres = async (famille: string) =>
-    [...(await mesAvatars(savant, famille)).matchAll(/<h4 class="famille-titre">([^<]*)<span class="famille-compte">([^<]*)<\/span><\/h4>/g)].map(m => [
-      m[1].trim(),
-      m[2],
-    ])
-  assert.deepEqual(await titres('branches'), [['Les portraits des branches', '3 / 72']])
-  assert.deepEqual(await titres('emojis'), [
-    ['Les emojis', '24'],
-    ['De collection', '10 / 12'],
-  ])
-  // Vingt-six légendaires et six Divins depuis les récompenses du quiz du jour et de la campagne (le 5 octobre 2026).
-  assert.deepEqual(await titres('legendaires'), [
-    ['Les légendaires', '2 / 26'],
-    ['Les Divins', '1 / 6'],
-  ])
-})
-
-test('dans « Mon avatar », seulement ceux qu’il a : ni case fermée, ni branche sans portrait, ni Divin pas encore descendu', async () => {
-  // On y vient pour en changer : cent cases fermées noyaient les quarante
-  // qu'on peut porter. Ce qui reste, et où, se lit dans « Ma collection ».
-  const aMoi = (profil: object, familleInitiale: string) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, familleInitiale, aMoi: true })
-  const savant = { ...HABITUE, sentiers: { foret: 5, mythes: 2 } }
-  for (const famille of FAMILLES) {
-    const html = await aMoi(savant, famille)
-    assert.doesNotMatch(html, /case-avatar[^"]* ferme/, famille)
-    assert.match(html, /<span class="muted small titre-compte">\d+ à toi<\/span>/, famille)
+    vus[f] = [...essais]
   }
-  // Les branches où il a un portrait — la forêt dépliée, les mythologies sur
-  // leur ligne —, et dans chacune ceux qu'il a gagnés.
-  const branches = await aMoi(savant, 'branches')
-  assert.equal([...branches.matchAll(/class="ligne-branche"/g)].length, 1)
-  assert.deepEqual(
-    [...branches.matchAll(/class="emoji-btn case-avatar case-portrait[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1]),
-    ['L’écureuil, gagné', 'Le blaireau, gagné'],
-  )
-  // Ses deux légendaires et son Divin.
-  const legendaires = await aMoi(savant, 'legendaires')
-  assert.equal([...legendaires.matchAll(/class="emoji-btn case-avatar anneau-legendaire/g)].length, 2)
-  assert.equal([...legendaires.matchAll(/class="emoji-btn case-avatar anneau-divin/g)].length, 1)
-  // Les dix emojis de collection du niveau 14, pas les deux d'après.
-  assert.equal([...(await aMoi(savant, 'emojis')).matchAll(/aria-label="Avatar [^"]*, de collection/g)].length, 10)
-  // Rien encore : il le dit, sans titre vide — ni Divins, ni emojis de collection.
-  const debutant = { ...HABITUE, legendaire: null, legendaires: [], divins: [], niveau: 1 }
-  const vide = await aMoi(debutant, 'legendaires')
-  assert.match(vide, /Aucun encore : chacun se réveille par un exploit/)
-  assert.doesNotMatch(vide, /Les Divins/)
-  assert.doesNotMatch(await aMoi(debutant, 'emojis'), /De collection/)
-  // Il s'ouvre sur ce qu'il porte : sous un emoji de l'inscription, ses emojis — pas des branches vides.
-  const actif = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
-  const ouvert = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, aMoi: true })
-  assert.equal(actif(await ouvert(debutant)), 'Emojis')
-  assert.equal(actif(await ouvert({ ...savant, legendaire: 'br:blaireau' })), 'Branches')
-  assert.equal(actif(await ouvert(savant)), 'Légendaires')
+  // Ses deux légendaires et son Divin ; ses trois portraits, rangés comme le catalogue ; vingt-quatre emojis et les dix de collection du niveau 14.
+  assert.deepEqual(vus.legendaires, [{ legendaire: 'lg:phenix' }, { legendaire: 'lg:dragon' }, { legendaire: 'dv:seraphin' }])
+  assert.deepEqual(vus.portraits, [{ legendaire: 'br:minotaure' }, { legendaire: 'br:ecureuil' }, { legendaire: 'br:blaireau' }])
+  assert.equal(vus.emojis.length, 34)
+  assert.ok(vus.emojis.every(e => Object.keys(e).join() === 'avatar'), 'un emoji s’essaie, il ôte le légendaire')
+  // Rien ne s'enregistre d'un toucher dans la grille, ni dans aucune pièce : pas même la version d'un avatar éclaté.
+  const APPARENCE = source('components/Apparence.tsx')
+  assert.doesNotMatch(APPARENCE, /\benregistrer\(|onPorter=|id="detail-avatar"|fiche-case/)
+  // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste.
+  assert.match(await famille('legendaires'), /<a class="loge-a-gagner" href="#collection-legendaires">24 légendaires à gagner : où \?<svg/)
 })
 
-test('l’onglet des branches : une dépliée — celle du portrait porté —, les autres sur une ligne qui dit ce qui vient', async () => {
-  const savant = { ...HABITUE, legendaire: 'br:blaireau', sentiers: { foret: 5, mythes: 2 } }
-  const html = await mesAvatars(savant)
-  // Douze branches : la forêt dépliée, onze lignes à toucher.
-  assert.equal([...html.matchAll(/class="rayon"/g)].length, 1)
-  assert.equal([...html.matchAll(/class="ligne-branche"/g)].length, 11)
-  assert.match(html, /<b>La forêt<\/b><span class="detail-famille muted">Nature<\/span><span class="ligne-branche-compte">2 \/ 6<\/span>/)
-  assert.match(html, /<p class="muted small">Encore 1 palier du sentier pour le lynx\.<\/p>/)
-  // Une ligne tient sur deux : sa catégorie, et ce qui manque. Le lecteur
-  // d'écran entend la phrase entière, le prochain portrait nommé.
-  assert.match(html, /aria-label="Les mythologies, 1 \/ 6\. Encore 2 paliers du sentier pour la Gorgone\."/)
-  assert.match(html, /<span class="muted small">Histoire · encore 2 paliers<\/span>/)
-  assert.match(html, /<span class="muted small">Culture générale · encore 2 paliers<\/span>/)
-  // Ses six cases : deux gagnées, dont celle qu'il porte ; quatre à gagner, avec leur palier.
-  const cases = [...html.matchAll(/<button[^>]*class="(emoji-btn case-avatar case-portrait[^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => [m[1], m[2]])
-  assert.deepEqual(
-    cases.map(([, nom]) => nom),
-    [
-      'L’écureuil, gagné',
-      'Le blaireau, porté',
-      'Le lynx, au palier 6',
-      'Le loup, au palier 8',
-      'L’ours, au palier 10',
-      'Le cerf, au palier 12',
-    ],
-  )
-  assert.ok(cases[1][0].includes('selected') && cases[2][0].includes('ferme'))
-  // Sans un palier encore, c'est la première branche qui se déplie.
-  assert.match(await mesAvatars({ ...HABITUE, legendaire: null }), /<div class="rayon"><div class="rayon-tete"><b>Le tour du monde<\/b>/)
+test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famille de ce qu’il porte', async () => {
+  const pastilles = (html: string) =>
+    [...html.matchAll(/<button id="famille-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*>([^<]*)<span class="onglet-pastille" aria-hidden="true">(\d+)<\/span><span class="sr-only">, \4 à toi<\/span><\/button>/g)].map(m => [
+      m[1],
+      m[2],
+      m[3],
+      m[4],
+    ])
+  const mes = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge })
+  // Deux légendaires et un Divin, trois portraits, vingt-quatre emojis et dix de collection.
+  assert.deepEqual(await pastilles(await mes(HABITUE)), [
+    ['legendaires', 'true', 'Légendaires', '3'],
+    ['portraits', 'false', 'Portraits', '3'],
+    ['emojis', 'false', 'Emojis', '34'],
+  ])
+  // Un seul arrêt de Tab — l'onglet choisi — et `aria-controls` ne vise que le panneau affiché.
+  const html = await mes(HABITUE)
+  assert.match(html, /<div class="onglets onglets-puces" role="tablist" aria-label="Familles d’avatars">/)
+  assert.equal([...html.matchAll(/tabindex="0"/g)].length, 1)
+  assert.equal([...html.matchAll(/aria-controls="famille-avatars"/g)].length, 1)
+  assert.match(html, /<div class="famille-avatars" role="tabpanel" id="famille-avatars" aria-labelledby="famille-legendaires">/)
+  // Sous le Phénix — ou un Divin —, les légendaires ; sous un portrait, les portraits ; sous un emoji, les emojis.
+  const actif = async (profil: object) => (await pastilles(await mes(profil))).find(p => p[1] === 'true')?.[2]
+  assert.equal(await actif(HABITUE), 'Légendaires')
+  assert.equal(await actif({ ...HABITUE, legendaire: 'dv:seraphin' }), 'Légendaires')
+  assert.equal(await actif({ ...HABITUE, legendaire: 'br:blaireau' }), 'Portraits')
+  assert.equal(await actif({ ...HABITUE, legendaire: null, avatar: '🐝' }), 'Emojis')
+  assert.equal(await actif(DEBUTANT), 'Emojis')
+  // Le premier jour : zéro légendaire, zéro portrait — les pastilles disent qu'ils existent.
+  assert.deepEqual((await pastilles(await mes(DEBUTANT))).map(p => p[3]), ['0', '0', '24'])
+  // Les onglets de toute l'application : les flèches passent à la voisine (`petit-ecran.test.ts`).
+  assert.match(source('components/Apparence.tsx'), /<Onglets\s+onglets=\{FAMILLES\.map/)
+})
+
+test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagner : où ? » mène à sa ligne de la collection', async () => {
+  const { cadenas } = await import(url('components/Apparence.tsx'))
+  // La dernière rangée, ou une rangée entière quand elle tombe juste — jamais plus que ce qui reste.
+  assert.deepEqual([cadenas(0, 4, 26), cadenas(2, 4, 24), cadenas(4, 4, 22), cadenas(3, 4, 1), cadenas(5, 4, 0), cadenas(10, 5, 2)], [4, 2, 4, 1, 0, 2])
+  const fermes = (html: string) => [...html.matchAll(/<span class="loge-case loge-ferme" aria-hidden="true"><svg[^>]*>.*?<\/svg>(?:<span class="loge-ferme-niveau">([^<]*)<\/span>)?<\/span>/g)].map(m => m[1] ?? '')
+
+  // Les légendaires : les deux siens et deux cadenas ; son Divin sous son titre, sans cadenas — les Divins ne disent pas comment.
+  const legendaires = await famille('legendaires')
+  assert.equal(casesDe(legendaires).length, 3)
+  assert.deepEqual(fermes(legendaires), ['', ''])
+  assert.match(legendaires, /<p class="loge-grille-titre">Les Divins <span>1 \/ 6<\/span><\/p>/)
+  assert.ok(legendaires.indexOf('loge-ferme') < legendaires.indexOf('Les Divins'), 'les cadenas finissent la rangée des légendaires')
+  // Les portraits : trois, un cadenas, soixante-neuf à gagner sur les sentiers.
+  const portraits = await famille('portraits')
+  assert.deepEqual(casesDe(portraits).map(c => c.nom), ['Le Minotaure, portrait des mythologies', 'L’écureuil, portrait de la forêt', 'Le blaireau, portrait de la forêt'])
+  assert.deepEqual(fermes(portraits), [''])
+  assert.match(portraits, /href="#collection-savoir">69 portraits à gagner : où \?/)
+  // Les emojis : les vingt-quatre de l'inscription, sans cadenas ; dix de collection, et les deux suivants disent leur niveau.
+  const emojis = await famille('emojis')
+  assert.equal(casesDe(emojis).length, 34)
+  assert.match(emojis, /<p class="loge-grille-titre">De collection <span>10 \/ 12<\/span><\/p>/)
+  assert.deepEqual(fermes(emojis), ['niv. 16', 'niv. 17'])
+  assert.match(emojis, /href="#collection-emojis">2 emojis de collection à gagner : où \?/)
+  // Les cadenas sont du décor : ni bouton, ni lien — le lien dessous dit où.
+  assert.doesNotMatch(emojis, /<(button|a)[^>]*loge-ferme/)
+
+  // Le premier jour : ce qui se gagne, et où — une rangée de cadenas dans chaque famille.
+  const rien = await famille('legendaires', DEBUTANT)
+  assert.match(rien, /Chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne\./)
+  assert.deepEqual(fermes(rien), ['', '', '', ''])
+  assert.doesNotMatch(rien, /Les Divins/)
+  const sentiers = await famille('portraits', DEBUTANT)
+  assert.match(sentiers, /Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers\. <a class="link-inline" href="\/campagne#sentiers">Les sentiers<\/a>/)
+  assert.match(sentiers, /72 portraits à gagner/)
+  const collection = await famille('emojis', DEBUTANT)
+  assert.match(collection, /De collection <span>0 \/ 12<\/span>/)
+  assert.deepEqual(fermes(collection), ['niv. 2', 'niv. 4', 'niv. 5', 'niv. 7', 'niv. 8'])
+})
+
+test('la carte montre une case — son halo d’or —, celle qu’il porte garde sa coche, et rien ne bouge sous le doigt', async () => {
+  // Rien d'essayé : le Phénix est montré et porté — pressé, sa coche, sans « porté » redit à l'oreille.
+  const sansEssai = casesDe(await famille('legendaires'))
+  assert.deepEqual(sansEssai.map(c => [c.nom, c.presse, c.classes.join(' ')]), [
+    ['Le Phénix, légendaire', true, 'anneau-legendaire selected porte'],
+    ['Le Dragon d’Or, légendaire', false, 'anneau-legendaire'],
+    ['Le Séraphin, Divin', false, 'anneau-divin'],
+  ])
+  // Le Dragon essayé : son halo ; le Phénix garde sa coche, et l'oreille entend qu'il le porte toujours.
+  const dragon = casesDe(await famille('legendaires', HABITUE, { legendaire: 'lg:dragon' }))
+  assert.deepEqual(dragon.map(c => [c.nom, c.presse, c.classes.join(' ')]), [
+    ['Le Phénix, légendaire, porté', false, 'anneau-legendaire porte'],
+    ['Le Dragon d’Or, légendaire', true, 'anneau-legendaire selected essaye'],
+    ['Le Séraphin, Divin', false, 'anneau-divin'],
+  ])
+  // Les mêmes cases, dans le même ordre : un essai ne change que leur état — rien ne part sous le doigt, ni le focus avec.
+  const sansEtat = (cases: { nom: string }[]) => cases.map(c => c.nom.replace(/, porté$/, ''))
+  assert.deepEqual(sansEtat(dragon), sansEtat(sansEssai))
+  // Sous le Phénix, la grenouille n'est pas portée : c'est le Phénix que la salle voit. Essayée, elle le remplace sur la carte.
+  const avant = casesDe(await famille('emojis')).find(c => c.nom === 'Avatar 🐸')!
+  assert.deepEqual([avant.presse, avant.classes], [false, []])
+  const apres = casesDe(await famille('emojis', HABITUE, { avatar: '🐸' })).find(c => c.nom === 'Avatar 🐸')!
+  assert.deepEqual([apres.presse, apres.classes], [true, ['selected', 'essaye']])
+  // Le halo d'or de l'essai, la coche de ce qu'il porte, le cadre de ce que la carte montre.
+  assert.match(regle('.loge-case.essaye'), /box-shadow:/)
+  assert.match(regle('.loge-case.selected'), /border: 2px solid var\(--accent\)/)
+  assert.match(CSS, /\.case-avatar\.porte::after[^{]*\{ content: '✓';/)
 })
 
 test('la fiche d’un portrait dit le palier qui l’ouvre, et combien il en manque ; gagné, il se porte d’ici', async () => {
@@ -256,16 +245,13 @@ test('la fiche d’un portrait dit le palier qui l’ouvre, et combien il en man
   assert.deepEqual(portes, ['br:blaireau'])
 })
 
-test('touché, un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
-  // À 30 px dans sa case, on ne voyait ni la peinture ni la pellicule, quand
-  // l'emoji s'écrit en grand dans sa fiche et que le portrait l'est déjà
-  // dans sa branche.
-  const composant = source('components/Apparence.tsx')
-  const debut = composant.indexOf('const fiche = ')
-  const corps = composant.slice(debut, composant.indexOf('return (', debut))
+test('touché dans « Ma collection », un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
+  // À 30 px dans sa case, on ne voyait ni la peinture ni la pellicule. La
+  // fiche vit dans la collection, qui raconte d'où il vient.
+  const atlas = source('components/AtlasDesAvatars.tsx')
   // Gagné ou non, éclaté ou non, en grand : ses grands fichiers, et le reflet qui suit le doigt.
-  assert.match(corps, /dessin=\{<Legendaire cle=\{cle\} verrouille=\{!profil\.legendaires\.includes\(cle\)\} eclat=\{brille\(cle\)\} grand \/>\}/)
-  assert.match(corps, /dessin=\{<Divin cle=\{cle\} verrouille=\{!descendu\(cle\)\} grand \/>\}/)
+  assert.match(atlas, /dessin=\{<Legendaire cle=\{l\.key\} verrouille=\{!gagne\} eclat=\{brille\(l\.key\)\} grand \/>\}/)
+  assert.match(atlas, /dessin=\{<Divin cle=\{d\.key\} verrouille=\{!la\} grand \/>\}/)
 
   // La fiche le pose en tête, muet : son nom et son état se lisent juste dessous.
   const { Legendaire } = await import(url('components/Legendaire.tsx'))
@@ -306,128 +292,76 @@ test('touché, un légendaire ou un Divin se montre en grand en tête de sa fich
   assert.match(cadre, /align-self:\s*center/)
   const taille = /font-size:\s*([\d.]+)rem/.exec(cadre)
   assert.ok(taille && Number(taille[1]) >= 8, `en grand : ${taille?.[0]}`)
+  // La fiche s'ouvre juste sous sa case, de toute la largeur de sa grille : `dense` finit la rangée.
+  assert.match(regle('.hud-grille'), /grid-auto-flow:\s*dense/)
+  assert.match(regle('.fiche-case'), /grid-column:\s*1 \/ -1/)
+  assert.match(atlas, /<\/Case>\s*\{ouvert === l\.key && \(\s*<div className="fiche-case hud-fiche">/)
 })
 
-test('un avatar éclaté se porte dans sa version rare ou d’origine, d’un toucher dans sa fiche', async () => {
+test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la carte de la loge, à côté de lui', async () => {
   // Il peut ne pas vouloir de la version rare : il la garde, et porte l'autre.
+  // Dans « Ma collection », la fiche le dit — sans rien régler.
   const choix: boolean[] = []
-  const html = (brille: boolean) =>
-    rendu('components/Carriere', 'ChoixDeLEclat', { brille, busy: false, onChoisir: (b: boolean) => choix.push(b) })
+  const html = (brille: boolean) => rendu('components/Carriere', 'ChoixDeLEclat', { brille, busy: false, onChoisir: (b: boolean) => choix.push(b) })
   const rare = await html(true)
   assert.match(rare, /Il a éclaté : tu portes sa version rare/)
   assert.match(rare, /<div class="choix-eclat" role="group" aria-label="Sa version"><button[^>]*aria-pressed="true"[^>]*>Version rare<\/button><button[^>]*aria-pressed="false"[^>]*>Version d’origine</)
   assert.match(await html(false), /Il a éclaté : sa version rare est à toi, et tu portes pour l’instant sa version d’origine\./)
-
-  // Le bouton de la version portée ne refait rien ; l'autre la change.
   const arbreDuChoix = await arbre('components/Carriere', 'ChoixDeLEclat', { brille: true, busy: false, onChoisir: (b: boolean) => choix.push(b) })
   const [versionRare, versionDOrigine] = elements(arbreDuChoix).filter(e => e.type === 'button')
   versionRare.props.onClick()
   assert.deepEqual(choix, [], 'déjà portée')
   versionDOrigine.props.onClick()
   assert.deepEqual(choix, [false])
-  // Sans enregistrement possible, la phrase seule.
   assert.doesNotMatch(await rendu('components/Carriere', 'ChoixDeLEclat', { brille: true, busy: false }), /<button/)
 
-  // Les trois fiches qui peuvent éclater le proposent — jamais un Divin, qui n'éclate pas.
-  const composant = source('components/Apparence.tsx')
-  const debut = composant.indexOf('const fiche = ')
-  const corps = composant.slice(debut, composant.indexOf('return (', debut))
-  assert.equal(corps.split('onEclat={choisirEclat(cle)}').length - 1, 3)
-  assert.match(composant, /const choisirEclat = \(cle: string\) => \(b: boolean\) => enregistrer\(\{ eclat: \{ cle, brille: b \} \}\)/)
-  // La grille et les fiches montrent la version qu'il porte.
-  assert.match(composant, /const brille = \(cle: string\) => brilleChez\(profil, cle\)/)
-  const legendaire = await rendu('components/Carriere', 'DetailLegendaire', {
-    cle: 'lg:phenix',
-    debloques: ['lg:phenix'],
-    eclats: ['lg:phenix'],
-    eteints: ['lg:phenix'],
-    porte: null,
-    hautsFaits: [],
-    busy: false,
-    onPorter: () => {},
-    onEclat: () => {},
-  })
-  assert.match(legendaire, /tu portes pour l’instant sa version d’origine/)
+  // Dans la loge, la version s'essaie comme le reste : la carte la montre, la barre la dit, « Porter » la garde.
+  const { essayer, avecLEssai, lignesDeLEssai } = await import('../../shared/loge')
+  const porte = { ...HABITUE, eclats: ['lg:phenix'], eclatsEteints: [], titre: null, vitrine: [], vitrineChoisie: null, titresDates: [], fond: null, fonds: [], theme: null, gerbe: null, gerbes: [] } as any
+  const origine = essayer({}, { eclat: { cle: 'lg:phenix', brille: false } }, porte)
+  assert.deepEqual(origine, { eclat: { cle: 'lg:phenix', brille: false } })
+  assert.deepEqual(avecLEssai(porte, origine).eclatsEteints, ['lg:phenix'])
+  assert.deepEqual(lignesDeLEssai(origine, porte), [{ piece: 'avatar', nom: 'Version d’origine', detail: 'Éclat' }])
+  // Revenir à ce qu'il porte, c'est renoncer à l'essai ; un autre avatar essayé laisse la version de celui-ci.
+  assert.deepEqual(essayer(origine, { eclat: { cle: 'lg:phenix', brille: true } }, porte), {})
+  assert.deepEqual(essayer(origine, { legendaire: 'lg:dragon' }, porte), { legendaire: 'lg:dragon' })
+  // Rien sous un Divin, qui n'éclate pas.
+  const { cibleDeLEclat, avatarMontre } = await import('../../shared/loge')
+  assert.equal(cibleDeLEclat(avatarMontre(porte, { legendaire: 'dv:seraphin' })), null)
+  assert.equal(cibleDeLEclat(avatarMontre(porte, { avatar: '🦊' })), '🦊')
+
+  // Sur la carte, à côté de lui : « Version rare », pressée quand c'est elle qu'on montre.
+  const laLoge = (profil: object) => rendu('components/Loge', 'Loge', { profil: { ...porte, ...profil }, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
+  assert.match(await laLoge({}), /<button type="button" class="loge-version" aria-pressed="true"><svg[^>]*>.*?<\/svg>Version rare<\/button>/)
+  assert.match(await laLoge({ eclatsEteints: ['lg:phenix'] }), /class="loge-version" aria-pressed="false"/)
+  // Ni sous un avatar qui n'a pas éclaté, ni sous un Divin.
+  assert.doesNotMatch(await laLoge({ legendaire: 'lg:dragon' }), /loge-version/)
+  assert.doesNotMatch(await laLoge({ legendaire: 'dv:seraphin', eclats: ['lg:phenix', '🐸'] }), /loge-version/)
+  assert.match(source('components/Loge.tsx'), /onClick=\{\(\) => essayer\(\{ eclat: \{ cle: cible, brille: !rare \} \}\)\}/)
 
   // Ce qui brille : éclaté, et pas éteint — un serveur d'avant n'en dit rien, et tout brille.
   const { brilleChez } = await import('../../shared/profil')
   assert.equal(brilleChez({ eclats: ['🦊'] }, '🦊'), true)
   assert.equal(brilleChez({ eclats: ['🦊'], eclatsEteints: ['🦊'] }, '🦊'), false)
   assert.equal(brilleChez({ eclats: [], eclatsEteints: ['🦊'] }, '🦊'), false)
+  // La grille montre la version que la carte montrerait.
+  assert.match(source('components/Apparence.tsx'), /const tenue = avecLEssai\(profil, essai\)\s*const brille = \(cle: string\) => brilleChez\(tenue, cle\)/)
+  assert.match((await famille('emojis')), /aria-label="Avatar 🦊, éclaté"/)
   // Et le lecteur d'écran entend ce qui a changé.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ eclat: { cle: '🦊', brille: false } }), 'Tu portes sa version d’origine.')
   assert.equal(annonceDuChoix({ eclat: { cle: '🦊', brille: true } }), 'Tu portes sa version rare.')
 })
 
-test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la grille', () => {
-  // Juste derrière sa case dans la page ; `dense` finit la rangée avec les
-  // cases d'après et pose la fiche dessous.
-  assert.match(regle('.grille-unique'), /grid-auto-flow:\s*row dense/)
-  assert.match(regle('.fiche-case'), /grid-column:\s*1 \/ -1/)
-  const composant = source('components/Apparence.tsx')
-  const corps = composant.slice(composant.indexOf('export function MesAvatars'), composant.indexOf('export function DetailPortrait'))
-  // Chaque case suivie de sa fiche, dans sa grille — les portraits compris.
-  assert.equal([...corps.matchAll(/<\/button>\s*\{fiche\((a|c\.emoji|l\.key|d\.key|p\.key)\)\}/g)].length, 5)
-  // Une seule fiche, celle qui suit sa case : plus rien sous les grilles.
-  assert.equal(corps.split('id="detail-avatar"').length - 1, 1)
-  // La page défile juste ce qu'il faut pour la montrer entière, et le focus va à son nom.
-  assert.match(corps, /scrollIntoView\(\{ block: 'nearest'/)
-  // Et la case touchée reste au-dessus quand les deux tiennent à l'écran : la
-  // fiche refermée plus haut faisait remonter la case hors de la vue, et
-  // celle d'un légendaire, qui le montre en grand, est haute.
-  assert.match(corps, /const laCase = fiche\.previousElementSibling/)
-  assert.match(corps, /if \(laCase && haut < 0 && bas - haut <= window\.innerHeight\)/)
-  assert.match(corps, /rendreLeFocus\(detail\.current, \['\.galerie-detail-nom'\]\)/)
-})
-
-test('« Le porter » porte l’emoji, et dit d’abord ce qu’il remplace', async () => {
-  const portes: string[] = []
-  const fiche = await arbre('components/Apparence', 'DetailEmoji', {
-    emoji: '🦊',
-    avatar: '🐸',
-    porte: 'lg:phenix',
-    eclat: true,
-    busy: false,
-    onPorter: (e: string) => portes.push(e),
-  })
-  const bouton = elements(fiche).find(e => e.type === 'button')
-  assert.equal(bouton?.props.children, 'Le porter')
-  assert.equal(portes.length, 0, 'rien avant le bouton')
-  bouton.props.onClick()
-  assert.deepEqual(portes, ['🦊'])
-
-  const html = await rendu('components/Apparence', 'DetailEmoji', { emoji: '🦊', avatar: '🐸', porte: 'lg:phenix', eclat: true, busy: false, onPorter: () => {} })
-  assert.match(html, /<span class="detail-famille muted">Emoji<\/span>/)
-  assert.match(html, /<b class="galerie-detail-nom detail-emoji">🦊<\/b>/)
-  // L'Éclat, que seul le lecteur d'écran disait.
-  assert.match(html, /Il a éclaté/)
-  // Le Phénix n'est pas perdu : on le lit avant de toucher.
-  assert.match(html, /Il remplacera Le Phénix, que tu gardes\.<\/p><button/)
-})
-
-test('un emoji de collection dit son niveau ; porté, sa fiche n’a plus rien à toucher', async () => {
-  const collection = await rendu('components/Apparence', 'DetailEmoji', {
-    emoji: '🐝',
-    avatar: '🐸',
-    porte: null,
-    eclat: false,
-    busy: false,
-    onPorter: () => {},
-  })
-  assert.match(collection, /<span class="detail-famille anneau-texte-collection">De collection · niveau 8<\/span>/)
-  // Il ne remplace qu'un emoji : rien à dire.
-  assert.doesNotMatch(collection, /Il remplacera/)
-  assert.match(collection, />Le porter<\/button>/)
-  const haute = await rendu('components/Apparence', 'DetailEmoji', { emoji: '🐳', avatar: '🐸', porte: null, eclat: false, busy: false, onPorter: () => {} })
-  assert.match(haute, /class="detail-famille anneau-texte-collection-haut">De collection · niveau 12</)
-
-  const porte = await rendu('components/Apparence', 'DetailEmoji', { emoji: '🐸', avatar: '🐸', porte: null, eclat: false, busy: true, onPorter: () => {} })
-  assert.doesNotMatch(porte, /<button/)
-  assert.match(porte, /C’est lui que la salle voit\./)
-  // Sous un légendaire, l'emoji du profil n'est pas porté : il se reporte.
-  const dessous = await rendu('components/Apparence', 'DetailEmoji', { emoji: '🐸', avatar: '🐸', porte: 'lg:phenix', eclat: false, busy: false, onPorter: () => {} })
-  assert.match(dessous, />Le porter<\/button>/)
+test('un emoji de collection dit son niveau, à l’oreille et dans la barre de la loge', async () => {
+  const cases = casesDe(await famille('emojis'))
+  const abeille = cases.find(c => c.nom.startsWith('Avatar 🐝'))!
+  assert.equal(abeille.nom, 'Avatar 🐝, de collection · niveau 8')
+  assert.ok(abeille.classes.includes('anneau-collection'))
+  assert.ok(cases.find(c => c.nom.startsWith('Avatar 🐳'))!.classes.includes('anneau-collection-haut'), 'au-delà du niveau 10, son anneau bleu')
+  const { lignesDeLEssai } = await import('../../shared/loge')
+  assert.deepEqual(lignesDeLEssai({ avatar: '🐝' }, HABITUE), [{ piece: 'avatar', nom: '🐝', detail: 'De collection · niveau 8' }])
+  assert.deepEqual(lignesDeLEssai({ avatar: '🦊' }, HABITUE), [{ piece: 'avatar', nom: '🦊', detail: 'Emoji' }])
 })
 
 test('un légendaire et un Divin disent aussi ce qu’ils remplacent — jamais eux-mêmes', async () => {

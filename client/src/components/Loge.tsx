@@ -11,14 +11,15 @@ import type { ChoixDuProfil, PropsDUnePiece } from './choix'
 import { espacesFines } from '../format'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
-import { compteDeLaCollection } from '../../../shared/collection'
 import { cibleEclat } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import { nomDuTitre } from '../../../shared/sentiers'
 import {
   PIECES_DE_LA_LOGE,
+  avatarMontre,
   avecLEssai,
+  cibleDeLEclat,
   ceQuIlAPorter,
   essaiVide,
   essayer as avecUnePiece,
@@ -157,20 +158,10 @@ export function Loge({
     avaitUnEssai.current = aUnEssai
   }, [aUnEssai])
   const pieceDuPanneau = PIECES_DE_LA_LOGE.find(p => p.id === piece)!
-  const props: PropsDUnePiece = {
-    profil,
-    essai,
-    essayer,
-    busy,
-    // Hors de l'essai : la version — rare ou d'origine — d'un avatar éclaté s'enregistre d'un toucher.
-    enregistrer: patch => void enregistrer(patch),
-    neufs: new Set(neufs[piece]),
-  }
-  const avatars = compteDeLaCollection(profil).familles.find(f => f.famille === 'avatars')
-  const reste = avatars ? avatars.total - avatars.acquis : 0
+  const props: PropsDUnePiece = { profil, essai, essayer, busy, neufs: new Set(neufs[piece]) }
   return (
     <div className="loge" ref={loge}>
-      <CarteDeLaLoge profil={profil} essai={essai} />
+      <CarteDeLaLoge profil={profil} essai={essai} essayer={essayer} />
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
       <p className="muted loge-qui">
         <Icon name="eye" />
@@ -179,14 +170,8 @@ export function Loge({
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {piece === 'avatar' && (
           <>
-            <MaFinition {...props} />
-            <MesAvatars {...props} aMoi />
-            {reste > 0 && (
-              <a className="link-inline lien-boutique" href="#collection">
-                <Icon name="award" />
-                {`${reste} autre${reste > 1 ? 's' : ''} à gagner : où et comment, dans « Ma collection »`}
-              </a>
-            )}
+            <MesFinitions {...props} />
+            <MesAvatars {...props} />
           </>
         )}
         {piece === 'titre' && <MonTitre {...props} />}
@@ -256,18 +241,29 @@ export function BarreDEssai({
  * l'essai : son fond, son avatar et sa finition, son prénom, son titre, sa
  * vitrine. « Aperçu » dit que rien n'est encore porté. Collée en haut pendant
  * qu'on choisit : c'est elle qui change.
+ *
+ * L'avatar qu'elle montre a éclaté pour lui ? « Version rare » se touche
+ * sur elle, à côté de lui : sa version rare ou celle d'origine s'essaie aussi.
+ * Dans une fiche sous la case touchée, elle s'enregistrait d'un toucher ;
+ * sous la grille, elle aurait fait sauter les cases sous le doigt.
  */
-function CarteDeLaLoge({ profil, essai }: { profil: PublicProfileDetail; essai: Essai }) {
+function CarteDeLaLoge({ profil, essai, essayer }: { profil: PublicProfileDetail; essai: Essai; essayer: (piece: Essai) => void }) {
   const vu = avecLEssai(profil, essai)
   const titre = nomDuTitre(vu.titre)
   const vitrine = vitrineVue(vu)
-  const apercu = (['avatar', 'legendaire', 'finition', 'titre', 'vitrine', 'fond'] as const).some(k => essai[k] !== undefined)
+  const apercu = (['avatar', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)
+  const cible = cibleDeLEclat(avatarMontre(profil, essai))
+  const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
   // Sous un Divin, qui a sa propre lumière, la finition ne se dit pas.
   const finition = divin(vu.legendaire) ? null : NOM_FINITION[vu.finition]
   return (
     <div className="loge-collante">
       <div className={'loge-carte' + (vu.fond ? ` carte-fond fond-${vu.fond}` : '') + (apercu ? ' loge-en-apercu' : '')}>
-        <span className={'loge-carte-avatar' + (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined ? ' loge-essaye' : '')}>
+        <span
+          className={
+            'loge-carte-avatar' + (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.eclat ? ' loge-essaye' : '')
+          }
+        >
           <Avatar
             className="player-avatar big"
             avatar={vu.avatar}
@@ -294,6 +290,17 @@ function CarteDeLaLoge({ profil, essai }: { profil: PublicProfileDetail; essai: 
           </span>
         </span>
         {apercu ? <span className="loge-apercu">Aperçu</span> : finition && <span className="loge-finition">{finition}</span>}
+        {rare !== null && cible && (
+          <button
+            type="button"
+            className={'loge-version' + (essai.eclat ? ' loge-essaye' : '')}
+            aria-pressed={rare}
+            onClick={() => essayer({ eclat: { cle: cible, brille: !rare } })}
+          >
+            <Icon name="sparkles" />
+            Version rare
+          </button>
+        )}
       </div>
     </div>
   )
@@ -344,40 +351,6 @@ function PiecesDeLaLoge({ actif, onChoisir, neuves }: { actif: PieceDeLaLoge; on
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-/**
- * La finition, sur une ligne qui dit celle que la carte montre ; touchée, sa
- * grille se déplie dessous. Dépliée d'office, ses huit cases repoussaient
- * ses avatars de plus d'un écran — et l'on vient surtout changer d'avatar.
- */
-function MaFinition(props: PropsDUnePiece) {
-  const { profil, essai } = props
-  const [ouverte, setOuverte] = useState(false)
-  const choisie = essai.finition ?? profil.finitionChoisie
-  const vu = avecLEssai(profil, essai)
-  const valeur = choisie === 'auto' ? `Auto · ${NOM_FINITION[vu.finition]}` : NOM_FINITION[vu.finition]
-  return (
-    <div className="ma-finition">
-      <ul className="style-liste">
-        <li>
-          <button type="button" aria-expanded={ouverte} aria-controls="mes-finitions" onClick={() => setOuverte(o => !o)}>
-            <span className="style-icone">
-              <Icon name="sparkles" />
-            </span>
-            <span className="style-nom">Finition</span>
-            <span className="style-valeur">{essai.finition !== undefined ? `${valeur} · à l’essai` : valeur}</span>
-            <Icon name="chevron-down" className="style-chevron" />
-          </button>
-        </li>
-      </ul>
-      {ouverte && (
-        <div id="mes-finitions">
-          <MesFinitions {...props} />
-        </div>
-      )}
     </div>
   )
 }
