@@ -123,6 +123,7 @@ export function GrosBouton({
   pastille,
   compteur,
   principal,
+  allume,
   jauge,
   compte,
   href,
@@ -142,6 +143,12 @@ export function GrosBouton({
   compteur?: { n: number; label: string }
   /** Le geste du moment : plein. */
   principal?: boolean
+  /**
+   * Ce qui vient d'arriver et qu'il n'a pas vu — le résultat d'un duel : le
+   * bord d'or, un halo qui luit, la ligne dorée (la maquette A4, choisie par
+   * le propriétaire le 12 octobre 2026).
+   */
+  allume?: boolean
   /** Où il en est, de 0 à 1 : une jauge fine sous le titre — sa collection. */
   jauge?: number
   /** Le compte au bout de la jauge (« 27 sur 308 ») ; sa place est gardée tant qu'il n'est pas arrivé. */
@@ -149,7 +156,7 @@ export function GrosBouton({
   href?: string
   onClick?: () => void
 }) {
-  const classe = 'gros-bouton' + (principal ? ' gros-principal' : '')
+  const classe = 'gros-bouton' + (principal ? ' gros-principal' : '') + (allume ? ' gros-allume' : '')
   const contenu = (
     <>
       <span className="gros-icone">{icone}</span>

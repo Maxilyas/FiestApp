@@ -119,7 +119,8 @@ test('le relevé des duels rejoue la cote dans l’ordre, et chaque semaine paie
   assert.equal(r.cote, COTE_DE_DEPART + somme, 'la cote est la somme de ses écarts, au point près')
   assert.ok(r.ecarts.get('b')!.avant === COTE_DE_DEPART + r.ecarts.get('a')!.ecart)
   const semaine = semaineDeLInstant(lundi)
-  assert.deepEqual(r.semaines.get(semaine), { duels: 3, meilleure: r.cote })
+  // Et la cote avec laquelle il y est entré : les places que la semaine lui fait gagner se lisent contre elle.
+  assert.deepEqual(r.semaines.get(semaine), { duels: 3, meilleure: r.cote, debut: COTE_DE_DEPART })
   // Close, la semaine paie sa meilleure ligue ; en cours, pas encore.
   assert.equal(confettisDesLigues(r, semaine), 0, 'la semaine qui se joue ne paie qu’au lundi')
   const suivante = semaineDeLInstant(lundi + 7 * JOUR_MS)
@@ -162,8 +163,8 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     assert.equal(fin.rencontre.issue, 'gagnee')
     assert.deepEqual(
       { ...fin.duel, semaine: { ...fin.duel.semaine, minutesRestantes: undefined } },
-      { avant: 1000, apres: 1024, ecart: 24, ligueAvant: 'bronze', ligue: 'bronze', semaine: { duels: 1, ligue: 'bronze', confettis: 0, minutesRestantes: undefined } },
-      'sa fin dit sa cote, sa ligue et sa semaine',
+      { avant: 1000, apres: 1024, ecart: 24, ligueAvant: 'bronze', ligue: 'bronze', semaine: { duels: 1, ligue: 'bronze', confettis: 0, minutesRestantes: undefined }, rang: 1 },
+      'sa fin dit sa cote, sa ligue, sa semaine — et sa place au classement, sa cote d’après comptée',
     )
 
     const apres = (await lire(banc, lea, '/api/duels')).corps

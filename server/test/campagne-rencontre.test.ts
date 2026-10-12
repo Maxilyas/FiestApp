@@ -85,7 +85,9 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
 
     const r = await poster(banc, lea, '/api/campagne/rencontre')
     assert.equal(r.status, 200, r.corps.error)
-    assert.deepEqual(r.corps.adversaire, { nom: 'Tom', avatar: '🐻', justes: 6 })
+    // Qui l'on affronte, sans son score : « à battre : 6 » se lisait avant même la première question
+    // (le souhait du propriétaire du 12 octobre 2026). Il se dit à la dernière réponse.
+    assert.deepEqual(r.corps.adversaire, { nom: 'Tom', avatar: '🐻' })
     assert.equal(r.corps.serie.vies, VIES)
     const id = r.corps.serie.id as string
     assert.deepEqual(
@@ -102,6 +104,8 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
     // Laissée en route, elle se reprend — et ne s'abandonne pas.
     const reprise = (await poster(banc, lea, '/api/campagne/rencontre')).corps
     assert.deepEqual([reprise.serie.id, reprise.serie.question.index, reprise.adversaire.nom, reprise.sesJustes], [id, 1, 'Tom', 1], 'et le score d’en face jusque-là')
+    assert.equal(reprise.adversaire.justes, undefined, 'jusque-là seulement : son score entier attend la fin')
+    assert.equal((await lire(banc, lea, '/api/duels')).corps.enCours.adversaire.justes, undefined, 'sur la page des duels non plus')
     const abandon = await poster(banc, lea, `/api/campagne/serie/${id}/abandon`)
     assert.equal(abandon.status, 400)
     assert.equal(abandon.corps.error, 'Une rencontre se joue jusqu’au bout : elle ne s’abandonne pas')
@@ -115,7 +119,8 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
     // tu perds » (l'experte du jeu solo, le 11 octobre 2026).
     const fin = await repondre(banc, lea, id, 7, true)
     assert.equal(fin.finie, true)
-    assert.deepEqual(fin.rencontre, { lui: false, toi: 7, sesJustes: 6, issue: 'gagnee' })
+    // Finie, son score entier, enfin : la carte du verdict le retourne.
+    assert.deepEqual(fin.rencontre, { lui: false, toi: 7, sesJustes: 6, issue: 'gagnee', enTout: 6 })
     assert.equal(fin.suivante, undefined)
     const apres = await poster(banc, lea, `/api/campagne/serie/${id}/reponse`, { index: 8, choix: 0 })
     assert.equal(apres.corps.error, 'Cette rencontre est finie : cherche un autre adversaire')

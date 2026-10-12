@@ -17,7 +17,7 @@ import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
-import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise } from './duels'
+import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise, SemaineDesDuels } from './duels'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -554,8 +554,12 @@ export function lireCodeDuDuel(brut: unknown): string | null {
 /** La page d'un défi entre amis (`GET /api/campagne/duel/:code`). */
 export interface DuelEntreAmis {
   code: string
-  /** Qui l'a lancé ; `toi` quand c'est lui qui regarde. */
-  auteur: { nom: string; avatar: string; toi?: true }
+  /**
+   * Qui l'a lancé ; `toi` quand c'est lui qui regarde. Un duel classé dit sa
+   * ligue, s'il a fini un duel classé : l'anneau de son avatar, le bord de sa
+   * carte en prennent la couleur.
+   */
+  auteur: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue }
   /** Ce qu'il fait jouer : un sujet, ou des catégories ; ni l'un ni l'autre : toutes. */
   sujet?: string
   categories?: string[]
@@ -567,16 +571,31 @@ export interface DuelEntreAmis {
   prevus?: string[]
   /**
    * Un duel classé (`shared/duels.ts`) : qui a été défié — `toi` quand c'est
-   * lui qui regarde —, et, joué des deux côtés, ce qu'il a fait à sa cote.
+   * lui qui regarde —, sa ligue comme celle de l'auteur, et, joué des deux
+   * côtés, ce qu'il a fait à sa cote.
    */
-  contre?: { nom: string; avatar: string; toi?: true }
+  contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue }
   ecart?: number
   /** Un duel classé qu'il n'a pas encore fini : ce qu'il met en jeu sur sa cote, contre la cote d'en face figée au lancement (`enjeuContre`). */
   enjeu?: EnjeuDuDuel
-  /** Un duel classé que l'autre a fini : son score, à battre. */
+  /**
+   * Un duel classé que l'autre a fini : son score — dit une fois sa propre
+   * tentative finie, ou le duel fermé. Avant, il ne part pas : on le voyait
+   * avant même de jouer (le souhait du propriétaire du 12 octobre 2026).
+   */
   aBattre?: number
   /** Un duel classé joué des deux côtés : sa correction est ouverte — personne d'autre n'y joue. */
   corrige?: true
+  /**
+   * Joué des deux côtés, et vu pour la première fois par qui l'a lancé : la
+   * page retourne sa carte devant lui. Cette lecture l'a retenu vu
+   * (`campagne_duels.vu_le`) : l'accueil ne le compte plus.
+   */
+  nouveau?: true
+  /** Joué des deux côtés : sa cote juste après ce duel, sa ligue, sa place au classement des duels aujourd'hui, et sa semaine. */
+  apres?: { cote: number; ligue: CleDeLigue; rang?: number; semaine?: SemaineDesDuels }
+  /** Joué des deux côtés : celui d'en face, pour la revanche — absent d'un masqué ou d'un profil parti, qu'on ne défie pas. */
+  revanche?: { profileId: string; nom: string; avatar: string }
   joueurs: number
   lignes: LigneDuDefi[]
   moi?: LigneDuDefi
@@ -673,7 +692,7 @@ export interface DefiRecu {
   minutesRestantes: number
   /** Un duel classé : sa cote s'y joue. */
   classe?: true
-  /** Le score à battre de qui l'a lancé, sa tentative finie. */
+  /** Le score à battre de qui l'a lancé, sa tentative finie — un défi entre amis seulement : celui d'un duel classé se dévoile à sa dernière réponse. */
   score?: number
 }
 
@@ -722,10 +741,19 @@ export interface Adversaire {
   justes: number
 }
 
+/**
+ * L'adversaire d'une rencontre qui se joue : son prénom et son avatar. Son
+ * score entier ne part qu'à la dernière réponse (`CoupDeLaRencontre.enTout`)
+ * — « à battre : 8 » se lisait avant même la première question (le souhait du
+ * propriétaire du 12 octobre 2026). Question par question, ce qu'il en avait
+ * fait se dit après sa réponse à soi.
+ */
+export type AdversaireEnJeu = Pick<Adversaire, 'nom' | 'avatar'>
+
 /** Une rencontre, commencée ou reprise (`POST /api/campagne/rencontre`) : la partie, et qui l'on affronte. */
 export interface RencontreDeCampagne {
   serie: SerieDeCampagne
-  adversaire: Adversaire
+  adversaire: AdversaireEnJeu
   /** Ses bonnes réponses sur les questions déjà jouées : le score d'en face, quand on la reprend. */
   sesJustes: number
   /** Ce qu'elle met en jeu sur sa cote, dit avant de jouer (`enjeuDuDuel`) ; absent d'un serveur d'avant. */
@@ -742,6 +770,8 @@ export interface CoupDeLaRencontre {
   toi: number
   sesJustes: number
   issue?: IssueDeRencontre
+  /** Finie : son score entier, enfin dit — la carte du verdict le retourne. */
+  enTout?: number
 }
 
 /** Une rencontre de sa liste (`GET /api/campagne/rencontres`). */

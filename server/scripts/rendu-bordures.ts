@@ -96,7 +96,8 @@ try {
 
   // Le classement des duels : chacun sa bordure.
   await page.goto(`${banc.url}/duels`)
-  await page.getByRole('button', { name: 'Voir le classement' }).click()
+  await page.getByRole('tab', { name: 'Classement' }).click()
+  await page.click('.duels-podium')
   await page.waitForSelector('.duels-ligne .av-bordure')
   await photo('4-classement')
   await photo('4-classement-pleine', true)

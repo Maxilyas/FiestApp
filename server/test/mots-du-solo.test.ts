@@ -49,20 +49,21 @@ test('un prénom ne dit pas « il » ou « elle » : la rencontre, les duels, le
   const campagne = source('views/CampagneApp.tsx')
   assert.match(campagne, /\$\{ecran\.rencontre\.adversaire\.nom\} n’avait pas joué celle-ci\./)
   assert.doesNotMatch(campagne, /s’était arrêté avant/)
+  // Le duel qu'il a lancé, qui attend l'autre : son prénom, jamais « il » (la maquette C2 du 12 octobre 2026).
   const duel = source('views/Duel.tsx')
-  assert.match(duel, /Parti à \$\{contre\.nom\} : vos deux cotes bougeront quand le duel sera joué des deux côtés\./)
-  assert.doesNotMatch(duel, /quand il l’aura joué/)
+  assert.match(duel, /`Chez \$\{enFace\.nom\}, ton score caché\.`/)
+  assert.match(duel, /`Verdict quand \$\{enFace\.nom\} aura joué`/)
+  assert.match(duel, /`Tu joues d’abord : le duel part à \$\{enFace\.nom\} à ta dernière réponse\.`/)
+  assert.doesNotMatch(duel, /quand il l’aura joué|quand il aura joué/)
   // « Comment ça marche ? » des duels : « quelqu'un », puis plus de « il ».
   const { CommentCaMarche } = await import(client('views/Duels.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const regles = renderToStaticMarkup(React.createElement(CommentCaMarche, { ouvert: true }))
+  const regles = renderToStaticMarkup(React.createElement(CommentCaMarche))
+  assert.match(regles, /Tu joues d’abord, le duel lui part à ta dernière réponse/)
   assert.match(regles, /À ta dernière réponse, le duel part dans ses duels, et son téléphone sonne si ses notifications sont activées/)
   assert.match(regles, /Le duel joué des deux côtés, vos deux cotes bougent/)
   assert.doesNotMatch(regles, /s’il a activé|Quand il l’a joué|il reçoit le duel/)
-  // Sous « Défier quelqu'un », et dans l'esquisse de la page.
-  const duels = source('views/Duels.tsx')
-  assert.equal(duels.split('tu joues d’abord, le duel lui part à ta dernière réponse.').length - 1, 2)
-  assert.doesNotMatch(duels, /il reçoit le duel/)
+  assert.doesNotMatch(source('views/Duels.tsx'), /il reçoit le duel/)
 })
 
 test('son propre défi se joue, il ne se relève pas : la page compte ceux qui l’ont joué', () => {

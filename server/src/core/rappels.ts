@@ -93,19 +93,22 @@ export interface MessageDUnDefi extends MessageDuRappel {
 
 /**
  * Le texte d'un défi qu'un ami envoie : qui défie, sur quoi, et le score à
- * battre quand il l'a joué. Le prénom de celui qui l'envoie, cette fois —
- * c'est lui, le message —, jamais celui de qui le reçoit : une notification
- * se lit sur l'écran verrouillé, par qui le tient.
+ * battre quand il l'a joué — jamais celui d'un duel classé (`classe`), qui
+ * se dévoile à la dernière réponse de qui le relève. Le prénom de celui qui
+ * l'envoie, cette fois — c'est lui, le message —, jamais celui de qui le
+ * reçoit : une notification se lit sur l'écran verrouillé, par qui le tient.
  */
-export function messageDUnDefi(d: { auteur: string; quoi: string | null; justes: number | null; code: string }): MessageDUnDefi {
+export function messageDUnDefi(d: { auteur: string; quoi: string | null; justes: number | null; code: string; classe?: true }): MessageDUnDefi {
   const sur = d.quoi ? `${d.quoi} · ` : ''
   const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
   return {
     titre: espacesFines(`${d.auteur} te défie`),
     corps: espacesFines(
-      d.justes === null
-        ? `${sur}les mêmes questions pour vous deux : une seule tentative, avant qu’il ferme.`
-        : `${sur}${bonnes(d.justes)} à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.`,
+      d.classe
+        ? `${sur}son score se dévoile à ta dernière réponse : une seule tentative, avant qu’il ferme.`
+        : d.justes === null
+          ? `${sur}les mêmes questions pour vous deux : une seule tentative, avant qu’il ferme.`
+          : `${sur}${bonnes(d.justes)} à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.`,
     ),
     url: `/duels#duel-${d.code}`,
     tag: `defi-${d.code}`,

@@ -188,10 +188,15 @@ export interface DuelJoue {
   coteAdverse?: number
 }
 
-/** Une semaine de duels : combien, et la meilleure cote qu'elle a vue — celle du lundi comprise. */
+/**
+ * Une semaine de duels : combien, la meilleure cote qu'elle a vue — celle du
+ * lundi comprise —, et celle avec laquelle il y est entré : de quoi dire les
+ * places que la semaine lui a fait gagner (`ClassementDesDuels.progression`).
+ */
 export interface SemaineJouee {
   duels: number
   meilleure: number
+  debut: number
 }
 
 // ── Les bordures de ligue ───────────────────────────────────────────────────
@@ -296,7 +301,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     const resultat = resultatDuDuel(d.justes, d.sesJustes)
     const ecart = ecartContre(cote, d.coteAdverse ?? coteDuScore(d.sesJustes), i, resultat)
     const semaine = semaineDe(d.finiLe)
-    const s = semaines.get(semaine) ?? { duels: 0, meilleure: cote }
+    const s = semaines.get(semaine) ?? { duels: 0, meilleure: cote, debut: cote }
     ecarts.set(d.serie, { avant: cote, ecart })
     if (resultat === 1) {
       const ici = ligueDe(cote).cle
@@ -304,7 +309,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     }
     cote += ecart
     plusHaute = Math.max(plusHaute, cote)
-    semaines.set(semaine, { duels: s.duels + 1, meilleure: Math.max(s.meilleure, cote) })
+    semaines.set(semaine, { duels: s.duels + 1, meilleure: Math.max(s.meilleure, cote), debut: s.debut })
   })
   const atteintes = ordre.length > 0 ? LIGUES.slice(0, LIGUES.indexOf(ligueDe(plusHaute)) + 1) : []
   return {
@@ -319,10 +324,10 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
 }
 
 /** La ligue qu'une semaine retient : la meilleure qu'elle a vue — sans duel, celle qu'il avait. */
-export const ligueDeLaSemaine = (s: SemaineJouee | undefined, cote: number): Ligue => ligueDe(s ? s.meilleure : cote)
+export const ligueDeLaSemaine = (s: Pick<SemaineJouee, 'meilleure'> | undefined, cote: number): Ligue => ligueDe(s ? s.meilleure : cote)
 
 /** Ce qu'une semaine rapporte : sa meilleure ligue, si elle a eu ses duels. */
-export function recompenseDeLaSemaine(s: SemaineJouee | undefined): number {
+export function recompenseDeLaSemaine(s: Pick<SemaineJouee, 'duels' | 'meilleure'> | undefined): number {
   return s && s.duels >= DUELS_POUR_LA_RECOMPENSE ? ligueDe(s.meilleure).confettis : 0
 }
 
@@ -354,6 +359,8 @@ export interface CoteApresLeDuel {
   ligueAvant: CleDeLigue
   ligue: CleDeLigue
   semaine: SemaineDesDuels
+  /** Sa place au classement des duels, sa cote d'après comptée (`rangAuxDuels`) : la carte du verdict la dit sous sa cote. */
+  rang?: number
 }
 
 /** Une ligne du classement des duels : comme celle du défi, sa cote et sa ligue au lieu de bonnes réponses. */
@@ -383,6 +390,18 @@ export interface ClassementDesDuels {
   moi?: LigneDesDuels
   /** Qui regarde, s'il est classé : sa ligne se distingue. */
   sienne?: string
+  /**
+   * Sa ligne entre ses deux voisins — celui juste devant, celui juste
+   * derrière, s'ils existent : l'onglet du classement les montre, même
+   * au-delà des lignes qu'on envoie.
+   */
+  autour?: LigneDesDuels[]
+  /**
+   * Les places qu'il a gagnées depuis lundi (perdues, en négatif) : sa place
+   * d'aujourd'hui contre celle qu'il aurait eue avec la cote de chacun au
+   * lundi. Absente s'il n'était pas classé avant cette semaine.
+   */
+  progression?: number
 }
 
 /**
@@ -456,17 +475,26 @@ export const LETTRES_POUR_CHERCHER = 2
  */
 export interface DuelContre {
   code: string
-  contre: { profileId: string; nom: string; avatar: string }
+  /** Contre qui — sa ligue, s'il a fini un duel classé : l'anneau de son avatar en prend la couleur. */
+  contre: { profileId: string; nom: string; avatar: string; ligue?: CleDeLigue }
   /** C'est lui qui l'a lancé. */
   lance: boolean
   sujet?: string
   categories?: string[]
   /** Ses bonnes réponses, sa tentative finie ; null : pas encore jouée jusqu'au bout. */
   justes: number | null
-  /** Celles d'en face : le score à battre pour qui joue en second, le résultat une fois joué des deux côtés. */
+  /**
+   * Celles d'en face, une fois les deux tentatives finies : le résultat. Le
+   * score à battre ne part jamais avant sa dernière réponse — il se voyait
+   * avant même de jouer (le souhait du propriétaire du 12 octobre 2026).
+   */
   sesJustes: number | null
   /** Ce que le duel a fait à sa cote, joué des deux côtés. */
   ecart?: number
+  /** Quand il a compté : la seconde tentative finie, ou sa fermeture. L'historique s'y range. */
+  le?: number
+  /** Joué des deux côtés, et pas encore vu par qui l'a lancé : son résultat l'attend (`DuelEntreAmis.nouveau`). */
+  nouveau?: true
   /** Les minutes avant qu'il ferme ; 0 : fermé. */
   minutesRestantes: number
 }
@@ -502,6 +530,14 @@ export interface DuelsDAccueil {
   /** Sa semaine : ses duels — la récompense de lundi en demande `DUELS_POUR_LA_RECOMPENSE` —, et sa meilleure ligue, qui la fixe. */
   semaine: Pick<SemaineDesDuels, 'duels' | 'ligue'>
   defisRecus?: { n: number; de: string }
+  /**
+   * Ses duels joués des deux côtés dont il n'a pas encore vu le résultat :
+   * combien, contre qui le dernier, et son code — la bannière de l'accueil y
+   * mène d'un toucher. Il n'y avait ni signe ni message : le résultat se
+   * rangeait dans « Tes duels joués », replié (le retour du propriétaire du
+   * 12 octobre 2026).
+   */
+  resultats?: { n: number; de: string; code: string }
   /** Son duel laissé en route : contre qui. */
   enCours?: Pick<Adversaire, 'nom'>
   /** La semaine passée, si elle a payé : sa ligue et ses confettis — le lundi, l'accueil dit ce qui vient d'arriver au solde. */
