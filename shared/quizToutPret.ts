@@ -7,7 +7,7 @@
 // range le quiz dans sa bibliothèque — une copie à lui, qu'il retouche comme
 // un modèle.
 
-import type { Categorie } from './categories'
+import { CATEGORIES, type Categorie } from './categories'
 import { DEFAULT_DURATION, dureeDeQuestionsS } from './library'
 
 /** La difficulté d'un quiz tout prêt : que des faciles, une montée, ou de quoi départager des connaisseurs. */
@@ -45,8 +45,9 @@ export const DUREE_D_UNE_ESTIMATION = 30
  * ça dure », et seul l'éditeur le disait, après (l'expert du quiz tout
  * prêt, le 11 octobre 2026).
  */
-export function dureeDuQuizToutPretS(nombre: number, estimations: boolean): number {
-  const e = estimations ? Math.round(nombre / UNE_ESTIMATION_SUR) : 0
+export function dureeDuQuizToutPretS(nombre: number, estimations: boolean, reelles?: number): number {
+  // `reelles` : celles que l'aperçu a comptées (`ApercuDuQuiz`) — un sujet en a parfois moins qu'une sur cinq.
+  const e = reelles ?? (estimations ? Math.round(nombre / UNE_ESTIMATION_SUR) : 0)
   return dureeDeQuestionsS([
     { n: nombre - e, secondes: DEFAULT_DURATION },
     { n: e, secondes: DUREE_D_UNE_ESTIMATION },
@@ -64,6 +65,35 @@ export interface ChoixDuQuiz {
   enfants: boolean
   /** Une question sur cinq en estimation (`UNE_ESTIMATION_SUR`), si la base en a. */
   estimations: boolean
+}
+
+/**
+ * Ce que composerait un choix, avant de le composer (`POST
+ * /api/quiz-tout-pret/apercu`, le même tirage, rien d'écrit) : combien de
+ * questions, dont combien d'estimations. « Des estimations », cochées
+ * d'office, promettaient une question sur cinq, et dix-huit réglages sur cent
+ * trois en livraient moins sans rien dire — « Les records » aucune
+ * (l'animatrice exigeante, le 11 octobre 2026).
+ */
+export interface ApercuDuQuiz {
+  questions: number
+  estimations: number
+}
+
+/**
+ * Ses catégories, nommées — « Histoire », « Histoire et Sport », « Histoire,
+ * Sport et Cuisine », « Histoire, Sport et 3 autres » — ; rien pour toutes,
+ * que chacun dit à sa façon (« Un peu de tout » au titre). Le titre et le
+ * résumé de la feuille les nomment de même : « 3 catégories » ne disait pas
+ * lesquelles.
+ */
+export function nommerLesCategories(categories: readonly string[]): string | null {
+  const c = categories
+  if (c.length === 0 || c.length >= CATEGORIES.length) return null
+  if (c.length === 1) return c[0]
+  if (c.length === 2) return `${c[0]} et ${c[1]}`
+  if (c.length === 3) return `${c[0]}, ${c[1]} et ${c[2]}`
+  return `${c[0]}, ${c[1]} et ${c.length - 2} autres`
 }
 
 /** Ce que la base offre (`GET /api/quiz-tout-pret`) : son total, les catégories et les sujets qui ont de quoi faire un quiz. */
