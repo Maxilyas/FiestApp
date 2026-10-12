@@ -9206,29 +9206,33 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 
 /* La gerbe d'une bonne réponse (`Gerbe.tsx`) : des particules par-dessus
    l'écran, une fois. Rien ne se touche à travers elle ; elles ne bougent que
-   par transform et opacity. */
-.gerbe { position: fixed; inset: 0; z-index: 30; overflow: hidden; pointer-events: none; }
-.gerbe i { position: absolute; left: var(--x); font-style: normal; font-size: calc(1.5rem * var(--taille, 1)); line-height: 1; opacity: 0; will-change: transform, opacity; animation: var(--duree) var(--delai) both; }
+   par transform et opacity. Une seule taille de police, celle de la plus
+   grande (`--taille`), et chacune réduite par la sienne (`--echelle`), à
+   chaque image : une police par particule, c'étaient vingt-deux emojis à
+   mettre en forme à chaque bonne réponse, et la révélation en retard de 100 à
+   230 ms au téléphone. */
+.gerbe { position: fixed; inset: 0; z-index: 30; overflow: hidden; pointer-events: none; font-size: calc(1.5rem * var(--taille, 1)); }
+.gerbe i { position: absolute; left: var(--x); font-style: normal; line-height: 1; opacity: 0; will-change: transform, opacity; animation: var(--duree) var(--delai) both; }
 .gerbe-jaillit i { top: 100%; animation-name: gerbe-jaillit; animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
 .gerbe-tombe i { top: -2.5rem; animation-name: gerbe-tombe; animation-timing-function: ease-in; }
 .gerbe-monte i { top: 100%; animation-name: gerbe-monte; animation-timing-function: ease-out; }
 @keyframes gerbe-jaillit {
-  0% { opacity: 1; transform: translate(0, 0) rotate(0deg); }
-  55% { opacity: 1; transform: translate(calc(var(--ecart) * 0.7), -78vh) rotate(calc(var(--tour) * 0.6)); }
-  100% { opacity: 0; transform: translate(var(--ecart), -52vh) rotate(var(--tour)); }
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(var(--echelle, 1)); }
+  55% { opacity: 1; transform: translate(calc(var(--ecart) * 0.7), -78vh) rotate(calc(var(--tour) * 0.6)) scale(var(--echelle, 1)); }
+  100% { opacity: 0; transform: translate(var(--ecart), -52vh) rotate(var(--tour)) scale(var(--echelle, 1)); }
 }
 @keyframes gerbe-tombe {
-  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(var(--echelle, 1)); }
   12% { opacity: 1; }
-  50% { transform: translate(var(--ecart), 55vh) rotate(calc(var(--tour) * 0.5)); }
+  50% { transform: translate(var(--ecart), 55vh) rotate(calc(var(--tour) * 0.5)) scale(var(--echelle, 1)); }
   85% { opacity: 1; }
-  100% { opacity: 0; transform: translate(calc(var(--ecart) * -0.4), 108vh) rotate(var(--tour)); }
+  100% { opacity: 0; transform: translate(calc(var(--ecart) * -0.4), 108vh) rotate(var(--tour)) scale(var(--echelle, 1)); }
 }
 @keyframes gerbe-monte {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  0% { opacity: 0; transform: translate(0, 0) scale(calc(var(--echelle, 1) * 0.6)); }
   15% { opacity: 1; }
   70% { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--ecart), -105vh) scale(1); }
+  100% { opacity: 0; transform: translate(var(--ecart), -105vh) scale(var(--echelle, 1)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .gerbe { display: none; }
