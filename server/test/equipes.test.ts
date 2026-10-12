@@ -12,6 +12,7 @@
 // moyenne de l'équipe est la somme de ces moyennes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import {
   ADMIN,
@@ -529,7 +530,8 @@ test('le verdict des équipes s’explique d’une seule phrase, en points d’�
   // les points de l'équipe divisés par le nombre de personnes, prix en plus.
   const phrase = equipes.regleDesEquipes()
   assert.match(phrase, /Les points d’équipe : ceux de ses membres divisés par leur nombre/)
-  assert.match(phrase, /Les prix en ajoutent/)
+  // Les prix sont pour le plaisir depuis le 12 octobre 2026 : ils n'en ajoutent que si l'animateur leur en donne.
+  assert.match(phrase, /Le plus de points d’équipe l’emporte ; un prix est pour le plaisir, sauf si l’animateur lui donne des points\./)
   assert.doesNotMatch(phrase, /barème|cerclé|à la meilleure|à la suivante/)
   const t = (id: string, average: number, bonus = 0) => ({ id, name: id, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
   const classees = equipes.finalRanking([t('a', 1240), t('b', 980, 100), t('c', 310)])
@@ -549,7 +551,7 @@ async function rendu(fichier: string, composant: string, props: object): Promise
 
 const texteDe = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 
-test('la grille des prix nomme ses points, dit l’effet de chacun, et L’Abstentionniste vaut 0 par défaut', async () => {
+test('la grille des prix nomme ses points et dit l’effet de chacun — pour le plaisir, d’office', async () => {
   const equipe = (id: string, name: string, emoji: string, average: number) =>
     ({ id, name, emoji, position: 0, memberCount: 2, total: average * 2, average, bonus: 0 })
   const teams = [equipe('arra', 'Arrabbiata', '🍝', 1002), equipe('guit', 'Guitaristes', '🎸', 944)]
@@ -568,10 +570,47 @@ test('la grille des prix nomme ses points, dit l’effet de chacun, et L’Abste
     onAward: () => {},
   })
   assert.match(html, /aria-label="Points d’équipe du prix « L&#x27;Éclair »"/)
-  // Un prix vaut une bonne réponse par défaut : il s'ajoute à la moyenne.
-  assert.match(texteDe(html), /\+100 pour 🎸 Guitaristes → prend la tête/)
-  assert.match(texteDe(html), /Pour l’honneur : aucun point d’équipe/, 'L’Abstentionniste ne récompense pas l’absence')
+  // Un prix se remet pour le plaisir (le choix du propriétaire du 12 octobre
+  // 2026) : à zéro point d'office — il en valait cent, et renversait la
+  // victoire qu'on venait d'annoncer —, L'Éclair comme L'Abstentionniste.
+  // L'en-tête de la remise le dit une fois ; sous chaque prix, l'effet ne se
+  // dit que pour des points tapés (`effetDUnPrix`, plus haut).
+  assert.equal(equipes.POINTS_D_UN_PRIX, 0)
+  assert.equal((html.match(/aria-label="Points d’équipe du prix « [^»]+ »"[^>]*value="0"/g) ?? []).length, 2, 'les deux champs partent de zéro')
+  assert.doesNotMatch(html, /class="award-effet"/, 'à zéro, pas d’effet à annoncer')
+  const board = readFileSync(new URL('../../client/src/components/AwardsBoard.tsx', import.meta.url), 'utf8')
+  assert.match(board, /Number\.isFinite\(tape\) && Math\.round\(tape\) !== 0 && \(\s*<p className="award-effet">\{effetDUnPrix\(teams, team\.id, tape\)\}<\/p>/)
   assert.equal((html.match(/class="award-points-unite" aria-hidden="true">pts</g) ?? []).length, 2, 'l’unité se lit à côté de chaque champ')
+})
+
+test('après un quiz, le quiz suivant d’abord : la remise des prix, pour le plaisir, vient à côté', async () => {
+  const source = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')
+  // Au podium d'un quiz en équipes, « Remise des prix » était le bouton principal :
+  // elle décidait de la victoire. « Quiz suivant » le reprend, la remise à sa suite.
+  const vue = source('games/quiz/HostView.tsx')
+  const suite = vue.slice(vue.indexOf('const suiteDuQuiz'), vue.indexOf('if (telecommande)', vue.indexOf('const suiteDuQuiz')))
+  assert.ok(suite.indexOf('Quiz suivant') < suite.indexOf('Remise des prix'), 'le quiz suivant d’abord')
+  assert.match(suite, /<button\s+ref=\{principal\}\s+className="btn btn-primary"\s+disabled=\{apresQuiz\.personne\}\s+onClick=\{garde\(apresQuiz\.suivant\)\}/)
+  assert.match(suite, /\{apresQuiz\?\.prix && \(\s*<button className="btn" onClick=\{garde\(apresQuiz\.prix\)\}>/)
+  // Sous le podium, rien n'annonce plus un renversement que les prix ne font plus — sauf ceux à points.
+  assert.equal(equipes.mentionDesPrix([{ bonus: 0 }, { bonus: 0 }]), null)
+  assert.equal(equipes.mentionDesPrix([{ bonus: 0 }, { bonus: 150 }]), 'Prix à points compris.')
+  assert.match(vue, /\{mentionDesPrix\(teams\) && <p className="muted small">\{mentionDesPrix\(teams\)\}<\/p>\}/)
+  // L'écran de victoire y ramène sous le même nom ; le prix libre part de zéro point, lui aussi.
+  const host = source('views/HostApp.tsx')
+  assert.doesNotMatch(host, /Revenir aux prix/)
+  assert.match(host, /const \[freePoints, setFreePoints\] = useState\(POINTS_D_UN_PRIX\)/)
+
+  // À l'écran de la salle, un prix pour le plaisir ne s'annonce pas « 0 point »
+  // (lu dans son source : elle n'annonce que les prix remis après son
+  // ouverture, qu'un rendu statique ne voit pas venir)…
+  assert.match(source('components/RemiseEnScene.tsx'), /dernier\.points === 0 \? 'Pour l’honneur' : /)
+  // … et le classement des équipes ne se dit « prix compris » que s'il en compte.
+  const equipe = (bonus: number) => ({ id: 'a', name: 'Les Aigles', emoji: '🎲', position: 0, memberCount: 2, total: 400, average: 200, bonus })
+  const scene = async (bonus: number) => texteDe(await rendu('components/RemiseEnScene', 'RemiseEnScene', { bonuses: [], teams: [equipe(bonus)] }))
+  assert.doesNotMatch(await scene(0), /prix compris/)
+  assert.match(await scene(0), /Les équipes/)
+  assert.match(await scene(150), /Les équipes, prix compris/)
 })
 
 test('le téléphone classe les équipes comme la télé, prix compris', async () => {
