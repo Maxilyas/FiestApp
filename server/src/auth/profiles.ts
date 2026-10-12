@@ -1,4 +1,4 @@
-import type { CleDeLigue } from '../../../shared/duels'
+import { AUCUNE_BORDURE, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -154,6 +154,12 @@ export interface ProfileRec {
    * affichage (`gerbePortee`), comme le fond.
    */
   gerbe: string | null
+  /**
+   * La bordure de ligue qu'il porte autour de son avatar (`shared/duels.ts`),
+   * s'il l'a choisie — null : `auto`, sa plus haute qui a un cran ;
+   * `AUCUNE_BORDURE` : aucune. Ses crans se relisent dans ses duels.
+   */
+  bordure: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -608,8 +614,12 @@ export class ProfileStore {
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
 
-  /** Sa ligue des duels et sa cote (`CampagneStore.coteDe`), pour sa carte ; null tant qu'il n'a fini aucun duel classé. */
-  duelsDe?: (profileId: string) => Promise<{ ligue: CleDeLigue; cote: number } | null>
+  /**
+   * Sa ligue des duels, sa cote et ses bordures de ligue (`CampagneStore.coteDe`),
+   * pour sa carte et pour la bordure qu'il choisit ; null tant qu'il n'a fini
+   * aucun duel classé.
+   */
+  duelsDe?: (profileId: string) => Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null>
 
   /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
   moisDuJour?: () => string
@@ -777,6 +787,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'theme', 'TEXT')
     // La gerbe de ses bonnes réponses, qu'il choisit parmi celles qu'il a gagnées.
     await ajouterColonne(this.client, 'profiles', 'gerbe', 'TEXT')
+    // La bordure de ligue qu'il porte, parmi celles de ses duels.
+    await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
     await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
@@ -1449,6 +1461,7 @@ export class ProfileStore {
       // encore la porter, la plus belle qu'il a sinon.
       finition: finitionPortee(p.finition, niveau),
       finitionChoisie: choixDeFinition(p.finition, niveau),
+      bordureChoisie: choixDeBordure(p.bordure),
       xp: p.xp,
       niveau,
       acquis,
@@ -1646,6 +1659,7 @@ export class ProfileStore {
       fond: null,
       theme: null,
       gerbe: null,
+      bordure: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -1702,6 +1716,7 @@ export class ProfileStore {
       fond: null,
       theme: null,
       gerbe: null,
+      bordure: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -1810,13 +1825,14 @@ export class ProfileStore {
       theme?: unknown
       gerbe?: unknown
       eclat?: unknown
+      bordure?: unknown
     },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -1913,6 +1929,18 @@ export class ProfileStore {
         if (!gerbeOuverte(choisie, this.recompensesOf(id))) throw new Error(`Cette gerbe se gagne avec ${choisie.regle}`)
         champs.gerbe = choisie.key
       }
+    }
+    // Une bordure de ligue : `auto` s'écrit null ; une ligue, seulement s'il
+    // l'a atteinte en duel — ses crans, eux, se relisent à chaque lecture.
+    if (patch.bordure !== undefined) {
+      const auto = patch.bordure === null || patch.bordure === '' || patch.bordure === 'auto'
+      const choix = auto ? 'auto' : choixDeBordure(patch.bordure)
+      if (!auto && choix === 'auto') throw new Error('Cette bordure n’existe pas')
+      if (choix !== 'auto' && choix !== AUCUNE_BORDURE) {
+        const duels = await this.duelsDe?.(id)
+        if (!duels?.bordures.some(b => b.ligue === choix)) throw new Error(`Cette bordure s’ouvre en atteignant la ${ligueParCle(choix).nom.toLowerCase()} en duel`)
+      }
+      champs.bordure = choix === 'auto' ? null : choix
     }
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
     // d'origine de l'avatar qui a éclaté, et y revenir. Seulement sur ce qui a
@@ -3145,6 +3173,7 @@ export class ProfileStore {
       fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
       theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
       gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
+      bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

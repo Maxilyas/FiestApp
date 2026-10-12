@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CarteDeLaLoge, PiecesDeLaLoge, QuiLaVoit } from './LogeTete'
-import { MaGerbe, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
+import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
 import type { ChoixDuProfil, PropsDUnePiece } from './choix'
@@ -154,9 +154,9 @@ export function Loge({
       <CarteDeLaLoge
         vu={vu}
         vitrine={vitrineVue(vu)}
-        apercu={(['avatar', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)}
+        apercu={(['avatar', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)}
         essaye={{
-          avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || !!essai.eclat,
+          avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || !!essai.eclat,
           titre: essai.titre !== undefined,
           vitrine: essai.vitrine !== undefined,
         }}
@@ -168,6 +168,7 @@ export function Loge({
         {piece === 'avatar' && (
           <>
             <MesFinitions {...props} />
+            <MesBordures {...props} />
             <MesAvatars {...props} />
           </>
         )}

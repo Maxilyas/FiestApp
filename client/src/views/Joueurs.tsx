@@ -49,7 +49,7 @@ export function LigneDeJoueur({
     <>
       {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage. */}
       <span className={'duel-ami-avatar' + (enLigne ? ' en-ligne' : '')} aria-hidden="true">
-        <Avatar avatar={j.avatar} finition={j.finition} legendaire={j.legendaire} eclat={j.eclat} />
+        <Avatar avatar={j.avatar} finition={j.finition} legendaire={j.legendaire} eclat={j.eclat} bordure={j.bordure} />
       </span>
       <span className="ligne-joueur-nom">
         <b>{j.nom}</b>

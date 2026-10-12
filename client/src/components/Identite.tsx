@@ -8,9 +8,19 @@ import { espacesFines, formatNumber } from '../format'
 import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
 import { nomDuTitre } from '../../../shared/sentiers'
+import { bordurePortee } from '../../../shared/duels'
 
 /** Sa carte, au toucher de sa ligne : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
+
+/**
+ * La bordure de ligue qu'il porte : ses bordures viennent du détail de sa
+ * page, ou, à l'accueil, du bouton des duels — celle qu'il a choisie, sinon
+ * sa plus haute qui a un cran.
+ */
+function saBordure(profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>) {
+  return bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures ?? profil.duels?.bordures)
+}
 
 /**
  * Soi-même, en tête de l'accueil et du profil : son avatar, son prénom, son
@@ -36,6 +46,7 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
           finition={profil.finition}
           eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
+          bordure={saBordure(profil)}
         />
         <span className="identite-texte">
           <span className="identite-nom">
@@ -62,7 +73,7 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
  * profil, il ouvre sa carte comme la salle l'ouvre en touchant son nom
  * (`onCarte`), l'œil au bout pour le dire.
  */
-export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil; onCarte?: () => void }) {
+export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>; onCarte?: () => void }) {
   const contenu = (
     <>
       <Avatar
@@ -71,6 +82,7 @@ export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil; onC
         finition={profil.finition}
         eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
         legendaire={profil.legendaire ?? undefined}
+        bordure={saBordure(profil)}
       />
       <span className="identite-texte">
         <span className="identite-nom">

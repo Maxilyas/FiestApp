@@ -275,9 +275,10 @@ test('chercher quelqu’un par son prénom, l’ajouter à ses amis, le retirer 
       trouves.map((j: any) => j.nom),
       ['Léa', 'Léo'],
     )
+    // Et ce qu'il porte, comme au classement : sa bordure de ligue, quatre victoires en bronze.
     assert.deepEqual(
       trouves.find((j: any) => j.nom === 'Léo'),
-      { profileId: deLeo, nom: 'Léo', avatar: '🐯', cote: coteDeLeo, ligue: ligueDe(coteDeLeo).cle, rang: 1 },
+      { profileId: deLeo, nom: 'Léo', avatar: '🐯', bordure: { ligue: 'bronze', crans: 4 }, cote: coteDeLeo, ligue: ligueDe(coteDeLeo).cle, rang: 1 },
     )
     assert.deepEqual(
       trouves.find((j: any) => j.nom === 'Léa'),
@@ -297,7 +298,7 @@ test('chercher quelqu’un par son prénom, l’ajouter à ses amis, le retirer 
     assert.equal((await poster(banc, tom, `/api/campagne/amis/${deLea}/ajout`)).status, 200)
     assert.equal((await poster(banc, tom, `/api/campagne/amis/${deLeo}/ajout`)).status, 200)
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.amis, [
-      { profileId: deLeo, nom: 'Léo', avatar: '🐯', cote: coteDeLeo, ligue: ligueDe(coteDeLeo).cle, rang: 1 },
+      { profileId: deLeo, nom: 'Léo', avatar: '🐯', bordure: { ligue: 'bronze', crans: 4 }, cote: coteDeLeo, ligue: ligueDe(coteDeLeo).cle, rang: 1 },
       { profileId: deLea, nom: 'Léa', avatar: '🦊' },
     ])
     assert.equal((await lire(banc, tom, '/api/duels/joueurs?q=leo')).corps[0].ami, true, 'la recherche dit qu’il est déjà son ami')

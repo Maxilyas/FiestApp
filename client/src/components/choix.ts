@@ -6,6 +6,7 @@ import { nomDuTitre } from '../../../shared/sentiers'
 import { fond } from '../../../shared/fonds'
 import { gerbe } from '../../../shared/gerbes'
 import { theme } from '../../../shared/themes'
+import { AUCUNE_BORDURE, NOM_DE_LA_BORDURE, type ChoixDeBordure } from '../../../shared/duels'
 import type { Essai } from '../../../shared/loge'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
@@ -31,6 +32,8 @@ export type ChoixDuProfil = {
   vitrine?: string[] | null
   /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */
   eclat?: { cle: string; brille: boolean }
+  /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte en duel. */
+  bordure?: ChoixDeBordure
 }
 
 /**
@@ -50,7 +53,7 @@ export interface PropsDUnePiece {
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'theme', 'gerbe'] as const
+const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -71,6 +74,10 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
     return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
   }
   if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`
+  if (choix.bordure) {
+    if (choix.bordure === 'auto') return 'Ta plus haute bordure, d’office.'
+    return choix.bordure === AUCUNE_BORDURE ? 'Sans bordure.' : `Ta bordure : ${NOM_DE_LA_BORDURE[choix.bordure]}.`
+  }
   if (choix.titre !== undefined) {
     // Un maître, un champion du mois : ce ne sont pas des hauts faits, et ils se disaient « Sans titre ».
     const titre = nomDuTitre(choix.titre)

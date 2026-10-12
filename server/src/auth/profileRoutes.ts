@@ -51,7 +51,7 @@ interface ProfileApiDeps {
    * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
    * celui qu'il avance ; ses duels, pour le leur.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'coteDe'>
 }
 
 /**
@@ -107,13 +107,18 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // dessus. Une base qui se tait ôte la boutique, pas la page.
     // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
     // qui se tait les ôte, pas la page.
-    const [boutique, sentiers] = await Promise.all([
+    const [boutique, sentiers, duels] = await Promise.all([
       profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
       profiles.paliersDe(rec.id).catch(e => {
         console.error('[profil] sentiers illisibles :', e)
+        return undefined
+      }),
+      // Ses bordures de ligue, que la loge propose : une base qui se tait les ôte, pas la page.
+      deps.campagne.coteDe(rec.id).catch(e => {
+        console.error('[profil] duels illisibles :', e)
         return undefined
       }),
     ])
@@ -124,6 +129,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ecussons: ecussonsDe(detail.categories),
       ...(boutique && { boutique }),
       ...(sentiers && { sentiers }),
+      ...(duels && { bordures: duels.bordures }),
     }
   }
 
@@ -538,6 +544,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         theme: req.body?.theme,
         gerbe: req.body?.gerbe,
         eclat: req.body?.eclat,
+        bordure: req.body?.bordure,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
       // instantané, mais rien ne le renvoyait : c'était la veille suivante

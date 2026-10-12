@@ -10,6 +10,7 @@ import { cibleEclat } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import { nomDuTitre } from '../../../shared/sentiers'
+import { bordurePortee } from '../../../shared/duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../../shared/piecesDeLaLoge'
 
 // La tête de la loge — sa carte et la rangée des six pièces —, à part de
@@ -66,6 +67,7 @@ export function CarteDeLaLoge({
               finition={vu.finition}
               eclat={brilleChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
               legendaire={vu.legendaire ?? undefined}
+              bordure={bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)}
             />
           </span>
           <span className="loge-carte-texte">

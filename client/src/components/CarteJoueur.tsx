@@ -10,7 +10,7 @@ import { nomDuTitre } from '../../../shared/sentiers'
 import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
-import { chargerDessinsAuPlus, complets, dessinDuPortrait, sortesDesAvatars, useDessins } from './medaillons'
+import { chargerDessinsAuPlus, complets, dessinDuPortrait, sortesDesAvatars, useDessins, type Sorte } from './medaillons'
 import { justesses, type Chiffre } from './Chiffres'
 import { Flamme, Icon } from './Icon'
 import { Niveau } from './Niveau'
@@ -99,12 +99,12 @@ export function CarteJoueur({
       )
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
-      // La lumière de sa finition aussi : elle s'allumerait après coup.
+      // La lumière de sa finition aussi : elle s'allumerait après coup — et
+      // sa bordure de ligue, qui se poserait autour de lui sous les yeux.
       // Deux secondes et demie au plus : une requête muette ne garde pas la
       // carte fermée, elle s'ouvre sans ses galeries.
       .then(async (c: CarteDeJoueur) => {
-        const galeries = [...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])].map(legendaire => ({ legendaire }))
-        await chargerDessinsAuPlus(sortesDesAvatars([c, ...galeries]))
+        await chargerDessinsAuPlus(dessinsDeLaCarte(c))
         return c
       })
       .then(c => vivant && setCarte(c))
@@ -185,6 +185,7 @@ export function CarteJoueur({
                     finition={carte.finition}
                     eclat={carte.eclat}
                     legendaire={carte.legendaire}
+                    bordure={carte.profil?.bordure}
                   />
                 </button>
                 <div>
@@ -389,6 +390,7 @@ export function AvatarEnGrand({ carte, hauteur, onRevenir }: { carte: CarteDeJou
           finition={carte.finition}
           eclat={carte.eclat}
           legendaire={carte.legendaire}
+          bordure={carte.profil?.bordure}
           grand
         />
       </button>
@@ -451,6 +453,18 @@ function Cadrans({ cases }: { cases: Chiffre[] }) {
       ))}
     </dl>
   )
+}
+
+/**
+ * Les dessins qu'une carte attend avant de s'ouvrir : ceux de l'avatar qu'il
+ * porte — son médaillon, la lumière de sa finition, sa bordure de ligue — et
+ * ceux de ses galeries. Sa bordure vit dans son profil, pas à côté de son
+ * avatar : sans elle, la carte s'ouvrait et sa bordure s'y posait ensuite,
+ * sous les yeux.
+ */
+export function dessinsDeLaCarte(c: CarteDeJoueur): Sorte[] {
+  const galeries = [...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])].map(legendaire => ({ legendaire }))
+  return sortesDesAvatars([{ ...c, bordure: c.profil?.bordure }, ...galeries])
 }
 
 /**

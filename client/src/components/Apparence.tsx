@@ -7,8 +7,18 @@ import { CeQuIlRemplace, ChoixDeLEclat } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
 import { PremierHautFait } from './Trophees'
-import { espacesFines } from '../format'
+import { espacesFines, formatNumber } from '../format'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
+import {
+  AUCUNE_BORDURE,
+  CRANS_D_UNE_BORDURE,
+  LIGUES,
+  NOM_DE_LA_BORDURE,
+  bordurePortee,
+  ligueParCle,
+  type BordureDeLigue,
+  type ChoixDeBordure,
+} from '../../../shared/duels'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
@@ -466,6 +476,99 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
           </a>
         ))}
       </div>
+    </div>
+  )
+}
+
+/** Ce qu'une bordure dit sous la rangée : son nom, et ses crans — ce qui manque pour la sertir. */
+function phraseDeLaBordure(b: BordureDeLigue): string {
+  const nom = NOM_DE_LA_BORDURE[b.ligue]
+  if (b.crans >= CRANS_D_UNE_BORDURE) return `${nom} · sertie, ses douze crans gagnés.`
+  const reste = CRANS_D_UNE_BORDURE - b.crans
+  const crans = b.crans === 0 ? 'aucun cran encore' : `${b.crans} cran${b.crans > 1 ? 's' : ''} sur ${CRANS_D_UNE_BORDURE}`
+  return `${nom} · ${crans} : encore ${reste} victoire${reste > 1 ? 's' : ''} en ${ligueParCle(b.ligue).nom.toLowerCase()} pour la sertir.`
+}
+
+/**
+ * Sa bordure de ligue, sous sa finition (la maquette des alliages, le 12
+ * octobre 2026) : « Auto » — sa plus haute qui a un cran —, « Sans », puis
+ * les bordures des ligues qu'il a atteintes en duel, chacune autour de son
+ * avatar, dans le métal de sa finition ; les autres, éteintes, chacune sa
+ * cote, qui mènent aux duels. Dessous, ce que dit celle que la carte montre :
+ * ses crans, et ce qui manque pour la sertir. Rien n'y bouge.
+ */
+export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
+  const vu = avecLEssai(profil, essai)
+  const bordures = profil.bordures ?? []
+  // Sous un Divin, ni finition ni bordure : il a sa propre lumière.
+  const divinPorte = divin(vu.legendaire)
+  const montree = vu.bordureChoisie ?? 'auto'
+  const portee = profil.bordureChoisie ?? 'auto'
+  const finition = vu.finition
+  if (bordures.length === 0) {
+    return (
+      <div className="loge-bordures">
+        <span className="loge-sous-titre">Bordure</span>
+        <p className="muted small">
+          Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue y sertit un cran. <a href="/duels">Jouer un duel</a>
+        </p>
+      </div>
+    )
+  }
+  const auto = bordurePortee('auto', bordures)
+  const pastille = (cle: ChoixDeBordure, nom: string, bordure: BordureDeLigue | null, label: string) => {
+    const montre = montree === cle
+    const porte = portee === cle
+    const neuve = cle !== 'auto' && cle !== AUCUNE_BORDURE && !!neufs?.has(`bordure:${cle}`)
+    return (
+      <button
+        key={cle}
+        type="button"
+        className={'finition-choix bordure-choix' + classesDUnAvatar({ montre, porte, neuve })}
+        aria-pressed={montre}
+        aria-label={label + ceQueDitLaCase({ montre, porte, neuve }, 'portée', 'nouvelle')}
+        onClick={() => essayer({ bordure: cle })}
+      >
+        <span className="bordure-apercu" aria-hidden="true">
+          {bordure ? <Avatar avatar={vu.avatar} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
+        </span>
+        <span aria-hidden="true">{nom}</span>
+      </button>
+    )
+  }
+  const atteintes = new Set(bordures.map(b => b.ligue))
+  const montreeVue = bordurePortee(montree, bordures)
+  return (
+    <div className="loge-bordures">
+      <span className="loge-sous-titre" id="loge-bordures-titre">
+        Bordure
+      </span>
+      {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta bordure se voit sous tes autres avatars.`}</p>}
+      <div className="loge-finitions-rangee loge-bordures-rangee" role="group" aria-labelledby="loge-bordures-titre">
+        {pastille('auto', 'Auto', auto, auto ? `Auto, ta plus haute : ${NOM_DE_LA_BORDURE[auto.ligue]}` : 'Auto, ta plus haute dès son premier cran')}
+        {pastille(AUCUNE_BORDURE, 'Sans', null, 'Sans bordure')}
+        {bordures.map(b => pastille(b.ligue, ligueParCle(b.ligue).court, b, `${NOM_DE_LA_BORDURE[b.ligue]}, ${ligueParCle(b.ligue).nom.toLowerCase()}`))}
+        {LIGUES.filter(l => !atteintes.has(l.cle)).map(l => (
+          <a
+            key={l.cle}
+            className="finition-choix finition-fermee bordure-fermee"
+            href="/duels"
+            aria-label={`${NOM_DE_LA_BORDURE[l.cle]}, à la cote ${formatNumber(l.depuis)} : jouer un duel`}
+          >
+            <span className="bordure-apercu" aria-hidden="true">
+              <Avatar avatar={vu.avatar} finition={finition} bordure={{ ligue: l.cle, crans: 0 }} />
+            </span>
+            <span aria-hidden="true">{formatNumber(l.depuis)}</span>
+          </a>
+        ))}
+      </div>
+      <p className="muted small loge-bordure-phrase">
+        {montree === AUCUNE_BORDURE
+          ? 'Sans bordure : ton avatar et sa finition, rien autour.'
+          : montreeVue
+            ? phraseDeLaBordure(montreeVue)
+            : 'Auto : ta plus haute bordure, dès que tu y gagnes un duel.'}
+      </p>
     </div>
   )
 }

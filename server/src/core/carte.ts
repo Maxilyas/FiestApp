@@ -9,6 +9,8 @@ import { vitrineDeLaCarte, type CarteDeJoueur } from '../../../shared/carte'
 import { ecussonsDe, plusBeauxEcussons } from '../../../shared/ecussons'
 import { ficheDe } from '../../../shared/profil'
 import { maitresDe } from '../../../shared/sentiers'
+import { bordurePortee } from '../../../shared/duels'
+import { divin } from '../../../shared/divins'
 
 /** La moitié « profil » d'une carte. */
 export async function profilDeCarte(
@@ -40,6 +42,9 @@ export async function profilDeCarte(
   const recompenses = profiles.recompensesOf(profil.id)
   const titre = profiles.titrePorte(profil)
   const fond = profiles.fondPorte(profil, carriere.jour, maitresDe(paliers).length)
+  // La bordure de ligue autour de son avatar, lue avec sa cote — jamais sous un Divin, qui a sa propre lumière.
+  const porte = profiles.legendairePorte(profil)
+  const bordure = duels && !(porte && divin(porte)) ? bordurePortee(profil.bordure, duels.bordures) : null
   return {
     prenom: profil.name,
     niveau: profiles.niveauOf(profil),
@@ -55,7 +60,8 @@ export async function profilDeCarte(
     prix: { eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length, total: PRIX_INDIVIDUELS.length },
     ...(titre && { titre }),
     ...(resume && resume.joues > 0 && { jour: resume }),
-    ...(duels && { duels }),
+    ...(duels && { duels: { ligue: duels.ligue, cote: duels.cote } }),
+    ...(bordure && { bordure }),
     // Absente tant qu'il n'y a rien gagné : l'absence, pas « 0 ».
     ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),

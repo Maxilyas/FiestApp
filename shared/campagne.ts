@@ -17,7 +17,7 @@ import type { Finition } from './profil'
 import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
-import type { CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise } from './duels'
+import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise } from './duels'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -621,6 +621,8 @@ export interface SonApparence {
   finition?: Finition
   legendaire?: string
   eclat?: true
+  /** La bordure de ligue qu'il porte, là où ses duels sont lus avec lui (`bordurePortee`). */
+  bordure?: BordureDeLigue
 }
 
 export interface AmiDeCampagne extends SonApparence {

@@ -5198,6 +5198,69 @@ h3 > .icon {
   .lu * { animation: none !important; }
 }
 
+/* ── Les bordures de ligue ────────────────────────────────────────────────
+
+   La bordure crantée de sa ligue des duels (`Bordure.tsx`, la maquette des
+   alliages du 12 octobre 2026) : une image centrée sur l'avatar et
+   dimensionnée en `em`, comme la lumière des finitions — elle grandit avec
+   lui. Derrière l'emoji ou le médaillon (`.av-emoji`, au-dessus) : ce qui
+   sort d'un médaillon — des ailes, une lance — passe par-dessus elle, comme
+   par-dessus son anneau. Devant ce que la lumière pose derrière, posée
+   après elle. Ses rayons et son reflet ne bougent que par `rotate`.
+
+   1,9 em : le disque de l'avatar (1,12 em pour un médaillon) tient dans sa
+   sertissure, et ses ornements débordent de 0,45 em autour de l'emoji. */
+.av-bordure { isolation: isolate; }
+
+.bo {
+  --d: 1.9em;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.bo > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: var(--d);
+  height: var(--d);
+  max-width: none;
+  /* Centré par des marges, comme la lumière : un `transform` se composerait avec la rotation des rayons. */
+  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
+}
+/* Le Soleil noir : ses rayons tournent lentement, à part du cadre. */
+.bo-rayons { animation: av-tourne 120s linear infinite; }
+/* Le reflet du Perlé, qui fait le tour ; la vague de la Couronne, plus vive. */
+.bo-reflet {
+  border-radius: 50%;
+  background: conic-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75) 14deg, rgba(255, 255, 255, 0) 34deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 64%, #000 95%, transparent 97%);
+  mask: radial-gradient(closest-side, transparent 62%, #000 64%, #000 95%, transparent 97%);
+  opacity: 0.5;
+  animation: av-tourne 6s linear infinite;
+}
+.bo-diamant .bo-reflet { opacity: 0.6; animation-duration: 3.4s; }
+
+/* Là où l'avatar est le sujet — sa carte, la loge, sa ligne en tête du
+   profil —, la page réserve la place de la bordure : sans marge, elle
+   mordait sur le prénom. La lumière, qui déborde davantage, a déjà la sienne. */
+.carte-avatar.av-bordure:not(.av-lumiere),
+.loge-carte .player-avatar.av-bordure:not(.av-lumiere),
+.identite .player-avatar.av-bordure:not(.av-lumiere),
+.identite-ligne .player-avatar.av-bordure:not(.av-lumiere) { margin: 0.45em; }
+/* Dans une ligne, elle s'écarte du rang et du prénom, et l'emoji garde sa taille. */
+.lb-avatar.av-bordure { margin-inline: 0.42em; }
+.duel-ami-avatar:has(.av-bordure) { margin-inline: 0.3rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bo * { animation: none !important; }
+}
+
 /* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
    place de le faire sans mordre sur le nom. */
 .finition-btn .av { margin: 6px 0 8px; }
@@ -5249,12 +5312,14 @@ h3 > .icon {
 .av.lb-avatar:not(.av-sujet) .dv *,
 .av.lb-avatar:not(.av-sujet) .pt *,
 .av.lb-avatar:not(.av-sujet) .lu *,
+.av.lb-avatar:not(.av-sujet) .bo *,
 .av.lb-avatar:not(.av-sujet)::before,
 .av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
 .player-chip .pt *,
 .player-chip .lu *,
+.player-chip .bo *,
 .player-chip .av::before,
 .player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
@@ -7663,6 +7728,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
     radial-gradient(circle at 58% 24%, #fff 0 1px, transparent 1.5px),
     #1b2357;
 }
+/* La bordure de ligue, sous la finition : les mêmes pastilles, chacune son
+   avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
+.loge-bordures { display: flex; flex-direction: column; gap: 6px; }
+.loge-bordures > .muted { margin: 0; }
+.bordure-apercu { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 15px; line-height: 1; }
+.bordure-sans { display: block; width: 26px; height: 26px; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
+.bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+.bordure-fermee .bordure-apercu { opacity: 0.4; }
 /* La version d'un avatar éclaté, sur la carte, à côté de lui : rare (pressée) ou d'origine. */
 .loge-version { position: absolute; right: 0; bottom: 0; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
 .loge-version .icon { width: 13px; height: 13px; }

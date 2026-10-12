@@ -36,6 +36,7 @@ import {
   JOURS_DU_CLASSEMENT,
   LETTRES_POUR_CHERCHER,
   LIGNES_DU_CLASSEMENT,
+  bordurePortee,
   confettisDesLigues,
   enjeuContre,
   enjeuDuDuel,
@@ -59,7 +60,9 @@ import {
   type LigneDesDuels,
   type ReleveDesDuels,
   type SemaineDesDuels,
+  type BordureDeLigue,
 } from '../../../shared/duels'
+import { divin } from '../../../shared/divins'
 import {
   AJOUTS_MONTRES,
   AMIS_MONTRES,
@@ -2360,7 +2363,7 @@ export class CampagneStore {
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
-      ...sonApparence(p, x),
+      ...sonApparence(p, x, cotes.get(x.id)),
       ...(deja.has(x.id) && { deja: deja.get(x.id) }),
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
     }))
@@ -2386,7 +2389,7 @@ export class CampagneStore {
       return [
         {
           code: d.code,
-          auteur: { nom: marques.get(auteur.id) ?? auteur.name, avatar: p.avatarPorte(auteur), ...sonApparence(p, auteur) },
+          auteur: { nom: marques.get(auteur.id) ?? auteur.name, avatar: p.avatarPorte(auteur), ...sonApparence(p, auteur, cotes.get(auteur.id)) },
           ...(d.sujet && { sujet: d.sujet }),
           ...(d.categories && d.categories.length > 0 && { categories: d.categories }),
           minutesRestantes: Math.max(1, Math.ceil((d.fermeLe - maintenant) / 60_000)),
@@ -2481,7 +2484,7 @@ export class CampagneStore {
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
-      ...sonApparence(p, x),
+      ...sonApparence(p, x, cotes.get(x.id)),
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
       ...(sesAmis.has(x.id) && { ami: true as const }),
     }))
@@ -2571,7 +2574,7 @@ export class CampagneStore {
     const marques = nomsAffiches(montres.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
     const ligne = (id: string): AmiDeCampagne[] => {
       const x = lus.get(id)
-      return x ? [{ profileId: x.id, nom: marques.get(x.id) ?? x.name, avatar: p.avatarPorte(x), ...sonApparence(p, x), ...this.saCote(cotes.get(x.id), rangs.get(x.id)) }] : []
+      return x ? [{ profileId: x.id, nom: marques.get(x.id) ?? x.name, avatar: p.avatarPorte(x), ...sonApparence(p, x, cotes.get(x.id)), ...this.saCote(cotes.get(x.id), rangs.get(x.id)) }] : []
     }
     const amis = cercle.amis.flatMap(id => ligne(id).map(a => ({ ...a, ...(cercle.reciproque(id) && p.enLigne?.(id) && { enLigne: true as const }) })))
     amis.sort((a, b) => (b.cote ?? -Infinity) - (a.cote ?? -Infinity) || 0)
@@ -2598,7 +2601,7 @@ export class CampagneStore {
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
       avatar: p.avatarPorte(x),
-      ...sonApparence(p, x),
+      ...sonApparence(p, x, cotes.get(x.id)),
       ...this.saCote(cotes.get(x.id), rangs.get(x.id)),
       croise,
     }))
@@ -2717,7 +2720,7 @@ export class CampagneStore {
         profileId: lui.id,
         nom: lui.name,
         avatar: p.avatarPorte(lui),
-        ...sonApparence(p, lui),
+        ...sonApparence(p, lui, cotes.get(lui.id)),
         ...this.saCote(cotes.get(lui.id), rangs.get(lui.id)),
         ...(cercle.estAmi(lui.id) && { ami: true as const }),
       },
@@ -3066,10 +3069,14 @@ export class CampagneStore {
     return releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
   }
 
-  /** Sa ligue et sa cote, pour sa carte ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
-  async coteDe(profileId: string): Promise<{ ligue: CleDeLigue; cote: number } | null> {
+  /**
+   * Sa ligue, sa cote et ses bordures de ligue, pour sa carte et pour la
+   * bordure qu'il choisit ; null tant qu'il n'a fini aucun duel classé —
+   * l'absence, pas une ligue de bronze.
+   */
+  async coteDe(profileId: string): Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null> {
     const r = await this.releveDesDuels(profileId)
-    return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote } : null
+    return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
   }
 
   /** Sa semaine de duels, telle que sa page la dit : ses duels, sa meilleure ligue, ce qu'elle rapportera lundi. */
@@ -3133,6 +3140,8 @@ export class CampagneStore {
     const classes = classer(joueurs, j => j.releve.cote, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDesDuels => {
       const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
+      // Sa bordure de ligue, lue sur le même relevé que sa cote — jamais sous un Divin.
+      const bordure = legendaire && divin(legendaire) ? null : bordurePortee(j.profil.bordure, j.releve.bordures)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -3142,6 +3151,7 @@ export class CampagneStore {
         ...(legendaire && { legendaire }),
         ...(eclat && { eclat: true as const }),
         ...(laurier && { laurier }),
+        ...(bordure && { bordure }),
         cote: j.releve.cote,
         ligue: ligueDe(j.releve.cote).cle,
         rang,
@@ -3309,6 +3319,8 @@ export class CampagneStore {
       ...(dernier && { defisRecus: { n: auteurs.length, de: dernier.name } }),
       ...(contre && { enCours: { nom: contre.nom } }),
       ...(passee && payee > 0 && { semainePassee: { ligue: ligueDe(passee.meilleure).cle, confettis: payee } }),
+      // Ses bordures de ligue : l'accueil montre celle qu'il porte autour de son avatar.
+      ...(releve.bordures.length > 0 && { bordures: releve.bordures }),
     }
   }
 
@@ -4706,10 +4718,13 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
  * comme au classement (`SonApparence`) : l'emoji seul lui donnait deux
  * visages sur la même page.
  */
-function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec): SonApparence {
+function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
   const { finition, eclat, legendaire } = p.apparenceDe(x)
+  // Sa bordure de ligue, quand ses duels sont lus avec lui — jamais sous un
+  // Divin, qui a sa propre lumière.
+  const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
-  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat: true as const }) }
+  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat: true as const }), ...(bordure && { bordure }) }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */

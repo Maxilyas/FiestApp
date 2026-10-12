@@ -25,7 +25,7 @@ import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
-import type { DuelsDAccueil } from './duels'
+import type { BordureDeLigue, ChoixDeBordure, DuelsDAccueil } from './duels'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -740,6 +740,12 @@ export interface PublicProfile {
   finition: Finition
   /** Ce qu'il a choisi : `auto` porte toujours la plus belle. */
   finitionChoisie: FinitionChoisie
+  /**
+   * La bordure de ligue qu'il a choisie (`shared/duels.ts`) : `auto`, `aucune`
+   * ou une ligue. Celle qu'on voit se lit avec ses bordures (`bordurePortee`),
+   * qui viennent de ses duels. Absente d'un serveur d'avant.
+   */
+  bordureChoisie?: ChoixDeBordure
   xp: number
   niveau: number
   /** Ce qui est acquis dans le niveau courant, et ce qu'il y faut. */
@@ -904,6 +910,12 @@ export interface PublicProfileDetail extends PublicProfile {
   calendrier?: { pages: string[]; dorees: string[]; mois: string; joursCeMois: number }
   /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
   titresDates?: string[]
+  /**
+   * Les bordures de ses ligues atteintes et leurs crans, relues dans ses
+   * duels (`ReleveDesDuels.bordures`) : la loge les propose. Absentes d'un
+   * serveur d'avant, ou si la base s'est tue.
+   */
+  bordures?: BordureDeLigue[]
 }
 
 /**
