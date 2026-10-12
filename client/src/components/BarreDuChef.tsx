@@ -152,12 +152,25 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   }
   const finir = async () => {
     setPlus(false)
-    const ok = await confirmDialog({
-      title: 'Terminer ce quiz ?',
-      message: 'Les questions restantes ne seront pas posées. Ce qui a été joué compte.',
-      confirmLabel: 'Terminer le quiz',
-      danger: true,
-    })
+    // Le dernier quiz du programme, terminé à la main, clôt la soirée tout
+    // de suite (`considererCloture`) : la boîte parlait d'un quiz seul, et le
+    // chef qui voulait encore le podium tombait sur sa fin de soirée (la
+    // revue de la télé branchée, le 12 octobre 2026).
+    const ok = await confirmDialog(
+      v?.dernierDuProgramme
+        ? {
+            title: 'Terminer ce quiz et la soirée ?',
+            message: 'C’est le dernier quiz du programme : les questions restantes ne seront pas posées, et la soirée s’enregistre telle qu’elle a été jouée — chacun reçoit sa fin de soirée.',
+            confirmLabel: 'Terminer la soirée',
+            danger: true,
+          }
+        : {
+            title: 'Terminer ce quiz ?',
+            message: 'Les questions restantes ne seront pas posées. Ce qui a été joué compte.',
+            confirmLabel: 'Terminer le quiz',
+            danger: true,
+          },
+    )
     if (ok) terminer()
   }
 

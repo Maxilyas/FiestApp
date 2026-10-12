@@ -222,6 +222,41 @@ test('une télé branchée tient une soirée, sans glisser — et le dit à qui 
     }
   }))
 
+test('la télé branchée décroche à la fin de sa soirée, même sans faire un geste', () =>
+  // Un écran de salle ne fait rien qui relirait sa session : allumée chez un
+  // ami, la télé recevait encore ses soirées des jours plus tard. Sa
+  // connexion tombe à l'heure de sa fin, et sa page revient à son code.
+  avecBanc(async banc => {
+    const telephone = await connexionAnimateur(banc.url)
+    const { code, jeton } = await demanderCode(banc)
+    assert.equal((await valider(banc, code, telephone)).status, 200)
+    const tele = cookieDe(await attente(banc, jeton))
+    const console_ = connecter(banc.url, telephone)
+    assert.equal((await emitAck<any>(console_, 'host:hello', {})).ok, true)
+
+    // Elle se présente deux secondes avant la fin de sa soirée.
+    const ecran = connecter(banc.url, tele)
+    await new Promise<void>(resolve => ecran.once('connect', () => resolve()))
+    const vraiNow = Date.now
+    Date.now = () => vraiNow() + TELE_BRANCHEE_MS - 2000
+    let hello: any
+    try {
+      hello = await emitAck<any>(ecran, 'host:hello', {})
+    } finally {
+      Date.now = vraiNow
+    }
+    assert.equal(hello.branchee, true, 'une soirée tout juste : elle se présente encore')
+    const motif = await new Promise<string>((resolve, reject) => {
+      const delai = setTimeout(() => reject(new Error('la télé ne décroche pas')), 8000)
+      ecran.once('disconnect', m => {
+        clearTimeout(delai)
+        resolve(m)
+      })
+    })
+    assert.equal(motif, 'io server disconnect', 'c’est le serveur qui la débranche')
+    assert.equal(console_.connected, true, 'la console du téléphone, elle, n’a pas de fin')
+  }))
+
 test('la session d’une télé branchée glisse, mais jamais au-delà de sa soirée', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'quizz-tele-'))
   const url = `file:${path.join(dir, 'auth.db').replace(/\\/g, '/')}`

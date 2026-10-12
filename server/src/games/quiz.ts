@@ -1522,6 +1522,9 @@ export const quizModule: GameModule<QuizState> = {
       qCount: st.pack?.questions.length ?? 0,
       packTitle: st.pack?.title,
       multiplier: st.multiplier,
+      // Lu dans l'état de la partie, pas dans une mémoire de la page : la
+      // barre du chef rechargée en cours de quiz l'oubliait.
+      ...(st.pack && st.programme?.prochain === st.pack.id && !st.programme.ensuite && { dernierDuProgramme: true as const }),
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs, ...(st.programme && { programme: st.programme }) }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
