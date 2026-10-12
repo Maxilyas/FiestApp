@@ -194,3 +194,19 @@ maintenant le plus proche, sa jauge comprise — « L'Alpiniste · Bronze,
 carrière, seul à se commencer (`lePremierHautFait`) —, sinon le plus simple
 pour commencer, L'Alpiniste, qu'une série suffit à gagner, sans personne et
 à toute heure. Dès le premier haut fait, plus rien : il a son titre.
+PR #167.
+
+# Le défi de la semaine sur l'accueil
+
+Le constat 5 de l'experte du jeu solo, laissé en suspens : le défi de la
+semaine, neuf chaque lundi, ne se trouvait qu'au troisième onglet de la
+campagne, et le bouton de l'accueil n'en disait rien. Il le dit maintenant,
+tant qu'il n'est pas fini, à qui a déjà joué la campagne — un débutant garde
+la phrase qui dit ce qu'on y fait : « Le défi de la semaine : 3 joueurs
+l'ont relevé », pastille « À relever » ; commencé, « Ton défi de la semaine
+t'attend : reprends-le », « À finir ». Il ne passe devant le carnet que
+commencé, le lundi, ou pour qui en a déjà relevé un : un joueur assidu a
+presque chaque jour des questions à revoir, et devant elles toute la
+semaine, le défi aurait caché le rendez-vous du carnet à qui ne le joue
+jamais. Le serveur le lit en une requête, de front avec les sentiers et le
+carnet : l'accueil n'attend rien de plus.
