@@ -1458,6 +1458,8 @@ export class JourStore {
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire, laurier } = this.deps.profiles.apparenceDe(j.profil)
+      // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
+      const bordure = this.deps.profiles.bordureDe(j.profil, legendaire)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -1467,6 +1469,7 @@ export class JourStore {
         ...(legendaire && { legendaire }),
         ...(eclat && { eclat: true as const }),
         ...(laurier && { laurier }),
+        ...(bordure && { bordure }),
         points: j.points,
         rang,
         ...(j.enCours && { enCours: true as const }),

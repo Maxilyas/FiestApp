@@ -429,10 +429,6 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Le rattachement, enfin : c'est lui qui fera compter la soirée dans
         // l'expérience du profil.
         if (profile) rt.party.bindProfile(res.id, profile.id)
-        // Sa bordure de ligue se relit en fond, une fois : l'instantané la lit
-        // de mémoire (`badgeDe`), et sa salle se rediffuse quand elle arrive —
-        // l'entrée ne l'attend pas.
-        if (profile) deps.profiles.connaitreSesBordures?.(profile.id)
         // Un invité neuf : la soirée suivante a commencé, et la clôture
         // d'hier quitte la télé pour le QR qui fait entrer.
         if (!known) rt.soireeCommence()

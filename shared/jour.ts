@@ -19,6 +19,7 @@
 // clôture de la nuit vivent dans `server/src/core/jour.ts`.
 
 import type { Finition } from './profil'
+import type { BordureDeLigue } from './duels'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
 export const QUESTIONS_PAR_JOUR = 10
@@ -356,6 +357,8 @@ export interface LigneDuJour {
   eclat?: true
   /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`) — ou l'argent du défi de la semaine. */
   laurier?: LaurierPorte
+  /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
+  bordure?: BordureDeLigue
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */

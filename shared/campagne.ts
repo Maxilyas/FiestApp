@@ -485,6 +485,8 @@ export interface LigneDuDefi {
   legendaire?: string
   eclat?: true
   laurier?: LaurierPorte
+  /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
+  bordure?: BordureDeLigue
   justes: number
   rang: number
   /** Sa tentative n'est pas finie : il peut encore monter. */
