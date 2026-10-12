@@ -34,7 +34,7 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
       {rows.map((p, i) => (
         <div key={i} className="lb-row" role="listitem" style={{ animationDelay: `${i * 60}ms` }}>
           <Rank n={rank[i]} />
-          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
           <span className="lb-name">
             <NomLaure nom={p.name} laurier={p.laurier} />
           </span>
@@ -96,7 +96,7 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
           {/* Le rang d'abord pour l'oreille, comme dans les autres classements ;
               l'œil, lui, le lit sur la marche, sous le nom. */}
           <span className="sr-only">Rang {rank[i]} : </span>
-          <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
+          <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} bordure={row.bordure} />
           {/* Le laurier et le niveau hors de la coupe du nom : coupés avec
               lui, ceux du vainqueur au nom long disparaissaient. */}
           <span className="podium-name">

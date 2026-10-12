@@ -4,6 +4,7 @@ import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import type { Finition } from '../../../shared/profil'
 import type { LaurierPorte } from '../../../shared/jour'
+import type { BordureDeLigue } from '../../../shared/duels'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 
@@ -30,6 +31,8 @@ export interface ProfileBadge {
   laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue à son entrée. */
   champion?: string
+  /** Sa bordure de ligue des duels, lue de mémoire (`ProfileStore.borduresDe`) : la salle la voit autour de son avatar. */
+  bordure?: BordureDeLigue
   /**
    * L'avatar qu'il porte à la place de celui de sa fiche, quand il ne l'ouvre
    * plus : un emoji de collection au-dessus du niveau qu'il vient de perdre.
@@ -403,6 +406,7 @@ export class Party {
       ...(badge?.legendaire && { legendaire: badge.legendaire }),
       ...(badge?.laurier && { laurier: badge.laurier }),
       ...(badge?.champion && { champion: badge.champion }),
+      ...(badge?.bordure && { bordure: badge.bordure }),
       // Même raison : absent tant qu'aucun homonyme ne porte le même avatar.
       ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
     }

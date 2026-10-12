@@ -297,6 +297,8 @@ const ADVERSAIRES_REGARDES = 8
 const RENCONTRES_MONTREES = 10
 /** Les cotes du classement des duels se relisent au plus toutes les dix minutes, et à chaque duel fini ici. */
 const COTES_GARDEES_MS = 10 * 60_000
+/** Les bordures demandées à quelques millisecondes d'écart se lisent ensemble : une vague d'arrivées, une requête. */
+const BORDURES_GROUPEES_MS = 30
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
 /** Ce qu'on lit de chaque source des joueurs croisés : de quoi en garder assez une fois ses amis et les masqués écartés. */
 const CANDIDATS_PAR_SOURCE = 12
@@ -429,6 +431,21 @@ export class CampagneStore {
    * que les quatre semaines du classement glissent.
    */
   private cotes: { lu: number; parProfil: Promise<Map<string, ReleveDesDuels>> } | null = null
+  /**
+   * Les bordures de ligue déjà relues, pour la salle (`borduresEnMemoire`) :
+   * l'instantané les lit à chaque diffusion et n'attend jamais la base.
+   * Retenues à chaque relecture de duels — d'un joueur ou de tous —, et
+   * relues en fond quand un profil entre dans une soirée
+   * (`connaitreLesBordures`) ; celles qu'on relit encore, ou qui viennent
+   * d'échouer, ne se redemandent pas.
+   */
+  private bordures = new Map<string, readonly BordureDeLigue[]>()
+  private borduresEnRoute = new Set<string>()
+  /** Celles qu'on lira à la prochaine requête groupée (`lireLesBorduresAttendues`). */
+  private borduresAttendues = new Set<string>()
+  private lectureDesBordures: ReturnType<typeof setTimeout> | null = null
+  /** Sa bordure vient d'arriver ou de gagner un cran : la salle où il joue se rediffuse (branché au démarrage). */
+  bordureChange?: (profileId: string) => void
   /** La semaine dont toutes les précédentes sont closes : `cloreLesDefis` ne relit rien d'autre jusqu'au lundi suivant. */
   private closAvant: string | null = null
   private semaineGardee: { heure: number; semaine: string; passee: string } | null = null
@@ -1158,9 +1175,14 @@ export class CampagneStore {
       else this.garderEnCours({ ...s, index: position, vies, justes })
       // Le classement des duels se relira : sa cote vient de bouger.
       if (lectureDuDuel >= 0) this.cotes = null
-      const duel = lectureDuDuel >= 0 ? this.coteApres(releverLesDuels(duelsLus(res[lectureDuDuel].rows), semaineDeLInstant), s.id) : null
+      const releve = lectureDuDuel >= 0 ? releverLesDuels(duelsLus(res[lectureDuDuel].rows), semaineDeLInstant) : null
+      // Un cran de plus à sa bordure, peut-être : la salle où il joue le verra.
+      if (releve) this.retenirLesBordures(profileId, releve.bordures)
+      const duel = releve ? this.coteApres(releve, s.id) : null
       // Joué des deux côtés : le téléphone de l'autre sonne, avec le résultat ; sa fin à lui dit le score d'en face.
       if (classe && duel && contre) this.prevenirDuResultat(contre, profileId, justes)
+      // Sa cote à lui a bougé aussi : ses bordures se relisent, s'il en a de retenues.
+      if (classe && duel && contre) this.relireLesBorduresDe(contre.auteur === profileId ? contre.adversaire : contre.auteur)
       const enFace = classe && duel && contre ? await this.enFaceDuDuel(contre, profileId) : null
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
@@ -3064,9 +3086,80 @@ export class CampagneStore {
   // joueur, d'une requête à lui ; celles du classement, d'une lecture de
   // toutes, gardée jusqu'au prochain duel fini (`cotes`).
 
-  /** Ses duels classés, relus : sa cote, ses semaines. */
+  /** Ses duels classés, relus : sa cote, ses semaines — et ses bordures, retenues pour la salle. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
-    return releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
+    const r = releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
+    this.retenirLesBordures(profileId, r.bordures)
+    return r
+  }
+
+  /**
+   * Retient ses bordures pour la salle ; changées — arrivées, un cran de
+   * plus, une ligue de plus —, la salle où il joue se rediffuse.
+   */
+  private retenirLesBordures(profileId: string, bordures: readonly BordureDeLigue[]) {
+    const avant = this.bordures.get(profileId)
+    this.bordures.set(profileId, bordures)
+    if (!avant || JSON.stringify(avant) !== JSON.stringify(bordures)) this.bordureChange?.(profileId)
+  }
+
+  /** Ses bordures de ligue, de mémoire : undefined tant qu'elles ne sont pas relues. */
+  borduresEnMemoire(profileId: string): readonly BordureDeLigue[] | undefined {
+    return this.bordures.get(profileId)
+  }
+
+  /**
+   * Relit ses bordures en fond, une fois — un profil qui entre dans une
+   * soirée : sa salle se rediffuse quand elles arrivent. Jamais attendu ; et
+   * les arrivées proches se lisent d'une seule requête
+   * (`lireLesBorduresAttendues`) : la salle qui revient d'un redémarrage
+   * en faisait une par téléphone.
+   */
+  connaitreLesBordures(profileId: string, relire = false): void {
+    if (this.ferme || this.borduresEnRoute.has(profileId) || (!relire && this.bordures.has(profileId))) return
+    this.borduresEnRoute.add(profileId)
+    this.borduresAttendues.add(profileId)
+    if (!this.lectureDesBordures) {
+      this.lectureDesBordures = setTimeout(() => void this.lireLesBorduresAttendues(), BORDURES_GROUPEES_MS)
+      this.lectureDesBordures.unref()
+    }
+  }
+
+  /**
+   * Les bordures attendues, d'une requête. Une base qui se tait ne se
+   * redemande pas avant une minute : chaque téléphone qui se re-présente
+   * relancerait sinon la même lecture.
+   */
+  private async lireLesBorduresAttendues(): Promise<void> {
+    this.lectureDesBordures = null
+    const ids = [...this.borduresAttendues]
+    this.borduresAttendues.clear()
+    if (ids.length === 0 || this.ferme) return
+    try {
+      const res = await this.client.execute(lectureDesDuels(ids, this.maintenant()))
+      // Chacun ses lignes, dans l'ordre du journal ; sans duel, aucune : il est connu quand même.
+      const parJoueur = new Map<string, Record<string, unknown>[]>(ids.map(id => [id, []]))
+      for (const r of res.rows) parJoueur.get(String(r.profile_id))?.push(r)
+      for (const [id, lignes] of parJoueur) {
+        this.borduresEnRoute.delete(id)
+        this.retenirLesBordures(id, releverLesDuels(duelsLus(lignes), semaineDeLInstant).bordures)
+      }
+    } catch (e) {
+      console.warn('[campagne] les bordures de ligue de la salle ne se lisent pas :', e instanceof Error ? e.message : e)
+      setTimeout(() => {
+        for (const id of ids) this.borduresEnRoute.delete(id)
+      }, 60_000).unref()
+    }
+  }
+
+  /**
+   * Un duel joué des deux côtés bouge aussi la cote de l'autre : ses
+   * bordures, si on les tient déjà, se relisent en fond — gardées pendant
+   * ce temps : effacées, la salle les perdait jusqu'à leur retour. Celles
+   * qu'on n'a jamais lues attendent qu'on les demande.
+   */
+  private relireLesBorduresDe(profileId: string | null | undefined): void {
+    if (profileId && this.bordures.has(profileId)) this.connaitreLesBordures(profileId, true)
   }
 
   /**
@@ -3106,7 +3199,10 @@ export class CampagneStore {
         if (lignes) lignes.push(r)
         else parJoueur.set(id, [r])
       }
-      return new Map([...parJoueur].map(([id, lignes]) => [id, releverLesDuels(duelsLus(lignes), semaineDeLInstant)]))
+      const releves = new Map([...parJoueur].map(([id, lignes]) => [id, releverLesDuels(duelsLus(lignes), semaineDeLInstant)]))
+      // Les bordures que la salle tient déjà se mettent à jour au passage ; pas les autres : personne ne les attend.
+      for (const [id, r] of releves) if (this.bordures.has(id)) this.retenirLesBordures(id, r.bordures)
+      return releves
     })()
     const garde = { lu: maintenant, parProfil }
     this.cotes = garde
@@ -4403,8 +4499,9 @@ export class CampagneStore {
         ],
         'write',
       )
-      // Ses duels sont partis avec ses séries : le classement se relira sans lui.
+      // Ses duels sont partis avec ses séries : le classement se relira sans lui, et ses bordures sont oubliées.
       this.cotes = null
+      this.bordures.delete(profileId)
     })
   }
 
@@ -4436,19 +4533,22 @@ function lectureDesJustes(profileId: string): InStatement {
  * l'adversaire. Une rencontre au gardé illisible ne compte pas : elle ne dit
  * pas ce qu'elle affrontait.
  */
-function lectureDesDuels(profileId: string | null, maintenant: number): InStatement {
+function lectureDesDuels(qui: string | readonly string[] | null, maintenant: number): InStatement {
   // Et ses duels contre quelqu'un, joués des deux côtés : chacun sa tentative,
   // celle d'en face, la cote d'en face figée au lancement — datés du second
   // qui a fini, quand le duel s'est joué. Un seul des deux n'en fait pas un.
   // Commencés tous deux, ils comptent aussi à la fermeture, sur les scores
   // atteints : qui joue en second voit le score à battre, et s'arrêter en
   // route, une fois battu, ne doit pas effacer le duel. Jamais commencé, il
-  // ne compte pas : personne ne perd de points en dormant.
+  // ne compte pas : personne ne perd de points en dormant. Ceux d'un
+  // joueur, de plusieurs à la fois — la salle qui revient —, ou de tous.
+  const ids = qui === null ? null : typeof qui === 'string' ? [qui] : qui
+  const parmi = ids && (ids.length === 1 ? '= ?' : `IN (${ids.map(() => '?').join(', ')})`)
   return {
     sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse FROM (
             SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes, NULL AS cote_adverse
             FROM campagne_series
-            WHERE ${profileId ? 'profile_id = ? AND ' : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
+            WHERE ${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
             UNION ALL
             SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse
@@ -4456,9 +4556,9 @@ function lectureDesDuels(profileId: string | null, maintenant: number): InStatem
             JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
             JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
                                   AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?)
-            WHERE d.adversaire IS NOT NULL${profileId ? ' AND m.profile_id = ?' : ''}
+            WHERE d.adversaire IS NOT NULL${parmi ? ` AND m.profile_id ${parmi}` : ''}
           ) ORDER BY finie_le, id`,
-    args: profileId ? [profileId, maintenant, maintenant, profileId] : [maintenant, maintenant],
+    args: ids ? [...ids, maintenant, maintenant, ...ids] : [maintenant, maintenant],
   }
 }
 

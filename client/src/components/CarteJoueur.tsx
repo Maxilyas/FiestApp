@@ -185,7 +185,7 @@ export function CarteJoueur({
                     finition={carte.finition}
                     eclat={carte.eclat}
                     legendaire={carte.legendaire}
-                    bordure={carte.profil?.bordure}
+                    bordure={carte.bordure}
                   />
                 </button>
                 <div>
@@ -390,7 +390,7 @@ export function AvatarEnGrand({ carte, hauteur, onRevenir }: { carte: CarteDeJou
           finition={carte.finition}
           eclat={carte.eclat}
           legendaire={carte.legendaire}
-          bordure={carte.profil?.bordure}
+          bordure={carte.bordure}
           grand
         />
       </button>
@@ -458,13 +458,12 @@ function Cadrans({ cases }: { cases: Chiffre[] }) {
 /**
  * Les dessins qu'une carte attend avant de s'ouvrir : ceux de l'avatar qu'il
  * porte — son médaillon, la lumière de sa finition, sa bordure de ligue — et
- * ceux de ses galeries. Sa bordure vit dans son profil, pas à côté de son
- * avatar : sans elle, la carte s'ouvrait et sa bordure s'y posait ensuite,
- * sous les yeux.
+ * ceux de ses galeries. Sans sa bordure, la carte s'ouvrait et la bordure
+ * s'y posait ensuite, sous les yeux.
  */
 export function dessinsDeLaCarte(c: CarteDeJoueur): Sorte[] {
   const galeries = [...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])].map(legendaire => ({ legendaire }))
-  return sortesDesAvatars([{ ...c, bordure: c.profil?.bordure }, ...galeries])
+  return sortesDesAvatars([c, ...galeries])
 }
 
 /**

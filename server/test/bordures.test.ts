@@ -14,7 +14,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
-import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { ADMIN, baseDEssai, connexionAnimateur, demarrer, ecranCommun, ecrire, inscrireProfil, instantane, invite, type Banc, type Invite } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES, semaineDe } from '../../shared/campagne'
 import { jourDe } from '../../shared/jour'
@@ -170,12 +170,11 @@ test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’
 })
 
 test('une carte attend sa bordure avant de s’ouvrir, comme la lumière de sa finition', async () => {
-  // Sa bordure vit dans son profil, pas à côté de son avatar : la carte
-  // s'ouvrait sans l'attendre, et la bordure se posait ensuite sous les yeux.
+  // La carte s'ouvrait sans l'attendre, et la bordure se posait ensuite sous les yeux.
   const { dessinsDeLaCarte } = await import(url('components/CarteJoueur.tsx'))
   const carte = (plus: object = {}, profil: object = {}) => ({ nom: 'Tom', avatar: '🐻', finition: 'or', ...plus, profil: { legendaires: [], divins: [], ...profil } })
-  assert.deepEqual(dessinsDeLaCarte(carte({}, { bordure: { ligue: 'maitre', crans: 12 } })), ['bordure'])
-  assert.deepEqual(dessinsDeLaCarte(carte({ finition: 'aurore' }, { bordure: OR_3 })), ['lumiere', 'bordure'])
+  assert.deepEqual(dessinsDeLaCarte(carte({ bordure: { ligue: 'maitre', crans: 12 } })), ['bordure'])
+  assert.deepEqual(dessinsDeLaCarte(carte({ finition: 'aurore', bordure: OR_3 })), ['lumiere', 'bordure'])
   // Sans bordure, rien de plus ; sans profil, rien du tout.
   assert.deepEqual(dessinsDeLaCarte(carte()), [])
   assert.deepEqual(dessinsDeLaCarte({ nom: 'Invité', avatar: '🐸' }), [])
@@ -278,7 +277,9 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
     assert.equal(argent.status, 200, argent.corps.error)
     assert.equal(argent.corps.profile.bordureChoisie, 'argent')
     const carte = (await lire(banc, tom, `/api/joueur/carte/${idLea}`)).corps
-    assert.deepEqual(carte.profil.bordure, { ligue: 'argent', crans: 3 })
+    // Portée avec son avatar, comme sa finition : pas recopiée dans son profil.
+    assert.deepEqual(carte.bordure, { ligue: 'argent', crans: 3 })
+    assert.equal(carte.profil.bordure, undefined)
     assert.deepEqual(carte.profil.duels, { ligue: 'or', cote: 1276 }, 'sa ligue et sa cote, sans ses bordures recopiées')
     assert.deepEqual((await ligneDe(tom)).bordure, { ligue: 'argent', crans: 3 })
 
@@ -294,13 +295,74 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
     // Aucune : ni au classement ni sur sa carte ; puis auto de nouveau.
     assert.equal((await porter(banc, lea, AUCUNE_BORDURE)).status, 200)
     assert.equal((await ligneDe(tom)).bordure, undefined)
-    assert.equal((await lire(banc, tom, `/api/joueur/carte/${idLea}`)).corps.profil.bordure, undefined)
+    assert.equal((await lire(banc, tom, `/api/joueur/carte/${idLea}`)).corps.bordure, undefined)
     const auto = await porter(banc, lea, null)
     assert.equal(auto.corps.profile.bordureChoisie, 'auto')
     assert.deepEqual((await ligneDe(lea)).bordure, { ligue: 'or', crans: 2 })
     // Et l'accueil la reçoit avec ses duels : sa ligne d'identité la montre.
     assert.deepEqual((await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels.bordures, page.bordures)
   } finally {
+    await banc.close()
+  }
+})
+
+// ── 5. La salle : sa bordure le suit jusque sur l'écran commun ─────────────
+
+test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de sa loge, jamais à un anonyme ni sous un Divin', async () => {
+  const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
+  const sockets: { close(): unknown }[] = []
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const nina = await inscrireProfil(banc.url, 'nina', 'Nina', '🐸')
+    const [idLea, idNina] = [idDe(banc, 'lea'), idDe(banc, 'nina')]
+    // Léa et Nina ont gagné huit duels ; Tom n'en a joué aucun. Nina a Hélios, un Divin.
+    for (const id of [idLea, idNina]) HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, id, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    base(banc, db =>
+      db
+        .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'dv:helios', 'une-soiree-d-avant', '', '', '', 1)`)
+        .run(idNina),
+    )
+    await banc.redemarrer()
+
+    const host = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
+    sockets.push(host)
+    const elle = await invite(banc.url, 'Léa', '🦊', { cookie: lea })
+    const lui = await invite(banc.url, 'Tom', '🐻', { cookie: tom })
+    const zoe = await invite(banc.url, 'Zoé', '🐙')
+    const ninaIci = await invite(banc.url, 'Nina', '🐸', { cookie: nina })
+    sockets.push(elle.socket, lui.socket, zoe.socket, ninaIci.socket)
+    const sur = (s: any, qui: Invite) => s.players.find((p: any) => p.id === qui.playerId)
+
+    // Relue en fond à son entrée, sans rien attendre d'elle : la salle la
+    // reçoit d'elle-même — l'écran commun et les téléphones.
+    const salle = await instantane(host, s => !!sur(s, elle)?.bordure && !!sur(s, ninaIci)?.bordure, 'les bordures de Léa et de Nina')
+    assert.deepEqual(sur(salle, elle).bordure, { ligue: 'or', crans: 2 })
+    assert.deepEqual(sur(await instantane(zoe.socket, s => !!sur(s, elle)?.bordure, 'au téléphone de Zoé'), elle).bordure, { ligue: 'or', crans: 2 })
+    // Sans duel classé, rien ; un invité anonyme, rien du tout.
+    assert.equal(sur(salle, lui).bordure, undefined)
+    assert.equal(sur(salle, zoe).bordure, undefined)
+
+    // Elle choisit l'argent dans sa loge : la salle le voit aussitôt, puis plus rien quand elle n'en veut aucune.
+    assert.equal((await porter(banc, lea, 'argent')).status, 200)
+    await instantane(host, s => sur(s, elle)?.bordure?.ligue === 'argent', 'l’argent de Léa')
+    assert.equal((await porter(banc, lea, AUCUNE_BORDURE)).status, 200)
+    await instantane(host, s => !!sur(s, elle) && !sur(s, elle).bordure, 'Léa sans bordure')
+    assert.equal((await porter(banc, lea, null)).status, 200)
+    await instantane(host, s => sur(s, elle)?.bordure?.ligue === 'or', 'Léa revenue à l’or')
+
+    // Sa carte, touchée dans la salle : la bordure relue avec sa cote, au même endroit que sa finition.
+    const carte = (await lire(banc, tom, `/s/${ADMIN.slug}/joueurs/${elle.playerId}.json`)).corps
+    assert.deepEqual(carte.bordure, { ligue: 'or', crans: 2 })
+    assert.equal(carte.profil.bordure, undefined)
+
+    // Nina porte Hélios : un Divin a sa propre lumière, sa bordure s'efface.
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'dv:helios' }, nina, 'PUT')).status, 200)
+    const divine = await instantane(host, s => sur(s, ninaIci)?.legendaire === 'dv:helios', 'Nina sous Hélios')
+    assert.equal(sur(divine, ninaIci).bordure, undefined)
+    assert.equal((await lire(banc, tom, `/s/${ADMIN.slug}/joueurs/${ninaIci.playerId}.json`)).corps.bordure, undefined)
+  } finally {
+    for (const s of sockets) s.close()
     await banc.close()
   }
 })

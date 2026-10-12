@@ -760,7 +760,7 @@ function SalleDuJoueur() {
     <div className="player-shell">
       <ConseilVeille />
       <header className="me-header">
-        <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} legendaire={me?.legendaire} />
+        <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} legendaire={me?.legendaire} bordure={me?.bordure} />
         <div>
           <h2>
             {/* Le prénom tel qu'il s'affiche : s'il porte une marque
