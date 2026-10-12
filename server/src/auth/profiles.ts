@@ -630,8 +630,8 @@ export class ProfileStore {
 
   /**
    * Les faire relire, en fond, une fois (`CampagneStore.connaitreLesBordures`) :
-   * un profil qui entre dans une soirée. Sa salle se rediffuse quand elles
-   * arrivent.
+   * un profil que la salle ou un classement montre avant qu'elles soient
+   * connues. Sa salle se rediffuse quand elles arrivent.
    */
   connaitreSesBordures?: (profileId: string) => void
 
@@ -3125,10 +3125,21 @@ export class ProfileStore {
     const porte = this.peutPorter(profile, avatar) ? avatar : this.avatarPorte(profile)
     // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
     const apparence = this.apparenceDe(profile, porte)
-    // Sa bordure de ligue, de mémoire : relue quand il entre dans la soirée
-    // (`connaitreSesBordures`), absente d'ici là. Jamais sous un Divin.
-    const bordure = apparence.legendaire && divin(apparence.legendaire) ? null : bordurePortee(profile.bordure, this.borduresDe?.(profileId))
+    const bordure = this.bordureDe(profile, apparence.legendaire)
     return { ...apparence, ...(bordure && { bordure }), ...(porte !== avatar && { avatar: porte }) }
+  }
+
+  /**
+   * La bordure de ligue qu'il porte, de mémoire (`borduresDe`) — jamais sous
+   * un Divin : la salle et les classements la lisent sans attendre la base.
+   * Pas encore relue, elle se fait relire en fond (`connaitreSesBordures`),
+   * et la lecture suivante la montre.
+   */
+  bordureDe(p: ProfileRec, legendaire: string | undefined = this.legendairePorte(p) ?? undefined): BordureDeLigue | null {
+    if (legendaire && divin(legendaire)) return null
+    const bordures = this.borduresDe?.(p.id)
+    if (!bordures) this.connaitreSesBordures?.(p.id)
+    return bordurePortee(p.bordure, bordures)
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */

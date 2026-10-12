@@ -432,14 +432,28 @@ export class CampagneStore {
    */
   private cotes: { lu: number; parProfil: Promise<Map<string, ReleveDesDuels>> } | null = null
   /**
-   * Les bordures de ligue déjà relues, pour la salle (`borduresEnMemoire`) :
-   * l'instantané les lit à chaque diffusion et n'attend jamais la base.
-   * Retenues à chaque relecture de duels — d'un joueur ou de tous —, et
-   * relues en fond quand un profil entre dans une soirée
-   * (`connaitreLesBordures`) ; celles qu'on relit encore, ou qui viennent
-   * d'échouer, ne se redemandent pas.
+   * Les bordures de ligue déjà relues, pour la salle et les classements
+   * (`borduresEnMemoire`) : l'instantané les lit à chaque diffusion, et ni
+   * lui ni un classement n'attendent la base. Toutes se lisent une fois en
+   * fond après le démarrage (`prechauffer`) ; puis retenues à chaque
+   * relecture de duels — d'un joueur ou de tous —, et relues en fond quand
+   * un profil inconnu se montre (`connaitreLesBordures`) ; celles qu'on
+   * relit encore, ou qui viennent d'échouer, ne se redemandent pas.
    */
   private bordures = new Map<string, readonly BordureDeLigue[]>()
+  /**
+   * Le tour de la lecture qui a retenu chacune : une lecture partie avant
+   * une plus récente — le classement relu pendant qu'il finissait un duel —
+   * ne l'écrase pas avec ce qu'elle avait lu d'avant.
+   */
+  private tourDesBordures = 0
+  private bordureDuTour = new Map<string, number>()
+  /**
+   * Toutes lues d'un coup (`toutesLesCotes`) : un profil encore inconnu n'a
+   * alors aucun duel classé, et sa bordure n'a plus rien à relire — son
+   * premier duel la retiendra.
+   */
+  private borduresChaudes = false
   private borduresEnRoute = new Set<string>()
   /** Celles qu'on lira à la prochaine requête groupée (`lireLesBorduresAttendues`). */
   private borduresAttendues = new Set<string>()
@@ -456,7 +470,7 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree'>>
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -1164,6 +1178,8 @@ export class CampagneStore {
       const classe = !!contre?.adversaire
       const lectureDuDuel = finie && (s.mode === 'rencontre' || classe) ? lot.push(lectureDesDuels(profileId, this.maintenant())) - 1 : -1
       if (juste) lot.push(...lecturesDeLExperience(profileId))
+      // Le tour de ses bordures, pris avant le lot qui les relit avec son duel.
+      const tourDesBordures = ++this.tourDesBordures
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -1177,7 +1193,7 @@ export class CampagneStore {
       if (lectureDuDuel >= 0) this.cotes = null
       const releve = lectureDuDuel >= 0 ? releverLesDuels(duelsLus(res[lectureDuDuel].rows), semaineDeLInstant) : null
       // Un cran de plus à sa bordure, peut-être : la salle où il joue le verra.
-      if (releve) this.retenirLesBordures(profileId, releve.bordures)
+      if (releve) this.retenirLesBordures(profileId, releve.bordures, tourDesBordures)
       const duel = releve ? this.coteApres(releve, s.id) : null
       // Joué des deux côtés : le téléphone de l'autre sonne, avec le résultat ; sa fin à lui dit le score d'en face.
       if (classe && duel && contre) this.prevenirDuResultat(contre, profileId, justes)
@@ -1328,6 +1344,9 @@ export class CampagneStore {
   /** Lit la base en fond, sans rien attendre : la première série la trouve prête (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`). */
   prechauffer(): void {
     this.base().catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
+    // Les bordures de ligue de tous, d'une lecture : les classements du jour
+    // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
+    this.toutesLesCotes().catch(e => console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e))
   }
 
   /** Cet intitulé est-il dans la base ? La réserve du quiz du jour le refuse alors (`JourStore.dansLaCampagne`). */
@@ -1769,6 +1788,8 @@ export class CampagneStore {
     const classes = classer(joueurs, j => j.justes, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDuDefi => {
       const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
+      // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
+      const bordure = p.bordureDe?.(j.profil, legendaire)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -1778,6 +1799,7 @@ export class CampagneStore {
         ...(legendaire && { legendaire }),
         ...(eclat && { eclat: true as const }),
         ...(laurier && { laurier }),
+        ...(bordure && { bordure }),
         justes: j.justes,
         rang,
         ...(j.enCours && { enCours: true as const }),
@@ -3088,19 +3110,24 @@ export class CampagneStore {
 
   /** Ses duels classés, relus : sa cote, ses semaines — et ses bordures, retenues pour la salle. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
+    const tour = ++this.tourDesBordures
     const r = releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
-    this.retenirLesBordures(profileId, r.bordures)
+    this.retenirLesBordures(profileId, r.bordures, tour)
     return r
   }
 
   /**
-   * Retient ses bordures pour la salle ; changées — arrivées, un cran de
-   * plus, une ligue de plus —, la salle où il joue se rediffuse.
+   * Retient ses bordures pour la salle et les classements, lues au tour
+   * `tour` — sauf si une lecture plus récente les a déjà retenues. Changées
+   * — un cran de plus, une ligue de plus —, la salle où il joue se
+   * rediffuse ; arrivées vides, il n'y a rien à montrer de plus.
    */
-  private retenirLesBordures(profileId: string, bordures: readonly BordureDeLigue[]) {
+  private retenirLesBordures(profileId: string, bordures: readonly BordureDeLigue[], tour: number) {
+    if ((this.bordureDuTour.get(profileId) ?? 0) > tour) return
+    this.bordureDuTour.set(profileId, tour)
     const avant = this.bordures.get(profileId)
     this.bordures.set(profileId, bordures)
-    if (!avant || JSON.stringify(avant) !== JSON.stringify(bordures)) this.bordureChange?.(profileId)
+    if (avant ? JSON.stringify(avant) !== JSON.stringify(bordures) : bordures.length > 0) this.bordureChange?.(profileId)
   }
 
   /** Ses bordures de ligue, de mémoire : undefined tant qu'elles ne sont pas relues. */
@@ -3117,6 +3144,11 @@ export class CampagneStore {
    */
   connaitreLesBordures(profileId: string, relire = false): void {
     if (this.ferme || this.borduresEnRoute.has(profileId) || (!relire && this.bordures.has(profileId))) return
+    // Toutes lues : inconnu, il n'a joué aucun duel classé — rien à relire.
+    if (!relire && this.borduresChaudes) {
+      this.bordures.set(profileId, [])
+      return
+    }
     this.borduresEnRoute.add(profileId)
     this.borduresAttendues.add(profileId)
     if (!this.lectureDesBordures) {
@@ -3135,6 +3167,7 @@ export class CampagneStore {
     const ids = [...this.borduresAttendues]
     this.borduresAttendues.clear()
     if (ids.length === 0 || this.ferme) return
+    const tour = ++this.tourDesBordures
     try {
       const res = await this.client.execute(lectureDesDuels(ids, this.maintenant()))
       // Chacun ses lignes, dans l'ordre du journal ; sans duel, aucune : il est connu quand même.
@@ -3142,7 +3175,7 @@ export class CampagneStore {
       for (const r of res.rows) parJoueur.get(String(r.profile_id))?.push(r)
       for (const [id, lignes] of parJoueur) {
         this.borduresEnRoute.delete(id)
-        this.retenirLesBordures(id, releverLesDuels(duelsLus(lignes), semaineDeLInstant).bordures)
+        this.retenirLesBordures(id, releverLesDuels(duelsLus(lignes), semaineDeLInstant).bordures, tour)
       }
     } catch (e) {
       console.warn('[campagne] les bordures de ligue de la salle ne se lisent pas :', e instanceof Error ? e.message : e)
@@ -3154,12 +3187,12 @@ export class CampagneStore {
 
   /**
    * Un duel joué des deux côtés bouge aussi la cote de l'autre : ses
-   * bordures, si on les tient déjà, se relisent en fond — gardées pendant
-   * ce temps : effacées, la salle les perdait jusqu'à leur retour. Celles
-   * qu'on n'a jamais lues attendent qu'on les demande.
+   * bordures se relisent en fond — gardées pendant ce temps : effacées, la
+   * salle les perdait jusqu'à leur retour. Toujours, même jamais lues :
+   * une fois toutes lues, une bordure inconnue veut dire « aucun duel ».
    */
   private relireLesBorduresDe(profileId: string | null | undefined): void {
-    if (profileId && this.bordures.has(profileId)) this.connaitreLesBordures(profileId, true)
+    if (profileId) this.connaitreLesBordures(profileId, true)
   }
 
   /**
@@ -3191,6 +3224,7 @@ export class CampagneStore {
     const maintenant = this.maintenant()
     if (this.cotes && maintenant - this.cotes.lu < COTES_GARDEES_MS) return this.cotes.parProfil
     const parProfil = (async () => {
+      const tour = ++this.tourDesBordures
       const res = await this.client.execute(lectureDesDuels(null, this.maintenant()))
       const parJoueur = new Map<string, Record<string, unknown>[]>()
       for (const r of res.rows) {
@@ -3200,8 +3234,10 @@ export class CampagneStore {
         else parJoueur.set(id, [r])
       }
       const releves = new Map([...parJoueur].map(([id, lignes]) => [id, releverLesDuels(duelsLus(lignes), semaineDeLInstant)]))
-      // Les bordures que la salle tient déjà se mettent à jour au passage ; pas les autres : personne ne les attend.
-      for (const [id, r] of releves) if (this.bordures.has(id)) this.retenirLesBordures(id, r.bordures)
+      // Les bordures de tous, au passage : la salle et les classements les
+      // lisent de mémoire, et qui n'est pas ici n'a joué aucun duel classé.
+      for (const [id, r] of releves) this.retenirLesBordures(id, r.bordures, tour)
+      this.borduresChaudes = true
       return releves
     })()
     const garde = { lu: maintenant, parProfil }
@@ -4502,6 +4538,7 @@ export class CampagneStore {
       // Ses duels sont partis avec ses séries : le classement se relira sans lui, et ses bordures sont oubliées.
       this.cotes = null
       this.bordures.delete(profileId)
+      this.bordureDuTour.delete(profileId)
     })
   }
 

@@ -2,8 +2,9 @@
 // (360 × 640) sur un serveur jetable : sa ligne en tête du profil, la loge et
 // sa rangée « Bordure » — une autre essayée sur sa carte —, le classement des
 // duels où chacun porte la sienne, la carte d'un maître et son avatar en
-// grand. Six joueurs, chacun ses duels écrits au journal et sa finition, du
-// bronze aux maîtres. Le client construit d'abord (`npm run build -w client`).
+// grand, puis le classement du quiz du jour. Six joueurs, chacun ses duels
+// écrits au journal, sa partie du jour et sa finition, du bronze aux
+// maîtres. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-bordures.ts [dossier]
 import { createRequire } from 'node:module'
@@ -14,6 +15,7 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
+import { jourDe } from '../../shared/jour'
 import { ecrireDesDuels } from './duelsDEssai'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-bordures')
@@ -52,6 +54,10 @@ try {
     }
     // Ses duels, ces derniers jours.
     ecrireDesDuels(db, id, j.ligue, j.crans)
+    // Sa partie du quiz du jour, finie : le classement du jour le montre.
+    db.prepare(
+      `INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, ?, 6, 1, 0)`,
+    ).run(id, jourDe(Date.now()), 400 + j.niveau * 40)
   }
   db.close()
   await banc.redemarrer()
@@ -101,6 +107,11 @@ try {
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe .av-bordure')
   await photo('5-carte-en-grand')
+
+  // Le classement du quiz du jour : chacun sa bordure, lue de mémoire.
+  await page.goto(`${banc.url}/jour#classement`)
+  await page.waitForSelector('.lb-row .av-bordure')
+  await photo('6-classement-du-jour')
 } finally {
   await navigateur.close()
   await banc.close()

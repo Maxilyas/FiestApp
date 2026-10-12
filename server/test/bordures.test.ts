@@ -366,3 +366,65 @@ test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de
     await banc.close()
   }
 })
+
+// ── 6. Les classements du solo : de mémoire, sans attendre la base ────────
+
+test('les classements du quiz du jour et du défi la montrent de mémoire : la page ne l’attend jamais', async () => {
+  const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const [idLea, idTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
+    HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, idLea, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    // Tous deux ont joué le quiz du jour et relevé le défi de la semaine.
+    base(banc, db => {
+      for (const [id, points] of [[idLea, 900], [idTom, 700]] as const) {
+        db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, ?, 5, 1, 0)`).run(id, jourDe(DEBUT), points)
+        db.prepare(
+          `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine)
+           VALUES (?, ?, '[]', 8, 0, ?, ?, ?, 'defi', ?)`,
+        ).run(randomUUID(), id, points / 100, DEBUT - 60_000, DEBUT - 30_000, semaine(DEBUT))
+      }
+    })
+    const auJour = async (id: string) => (await lire(banc, tom, '/api/jour/classement')).corps.lignes.find((l: any) => l.profileId === id)
+    const auDefi = async (id: string) => (await lire(banc, tom, '/api/campagne/defi')).corps.lignes.find((l: any) => l.profileId === id)
+
+    // Pas encore lue : le classement part sans elle — il ne l'attend pas —
+    // et la fait relire en fond ; la lecture suivante la montre.
+    assert.equal((await auJour(idLea)).bordure, undefined, 'la première lecture n’attend pas la base')
+    let ligne: any
+    for (let i = 0; i < 100 && !(ligne = await auJour(idLea)).bordure; i++) await new Promise(r => setTimeout(r, 20))
+    assert.deepEqual(ligne.bordure, { ligue: 'or', crans: 2 })
+    assert.deepEqual((await auDefi(idLea)).bordure, { ligue: 'or', crans: 2 }, 'le défi de la semaine aussi')
+    // Sans duel classé, rien autour de lui.
+    assert.equal((await auJour(idTom)).bordure, undefined)
+    assert.equal((await auDefi(idTom)).bordure, undefined)
+    // Elle n'en veut aucune : aucun classement ne la montre plus.
+    assert.equal((await porter(banc, lea, AUCUNE_BORDURE)).status, 200)
+    assert.equal((await auJour(idLea)).bordure, undefined)
+    assert.equal((await auDefi(idLea)).bordure, undefined)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('toutes lues une fois — le classement des duels, le préchauffage —, une bordure inconnue ne se relit plus : aucun duel', async () => {
+  const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const [idLea, idTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
+    HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, idLea, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    base(banc, db => {
+      for (const id of [idLea, idTom]) db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, 500, 5, 1, 0)`).run(id, jourDe(DEBUT))
+    })
+    // Le classement des duels lit tous les duels d'un coup : chaque bordure est retenue au passage.
+    assert.equal((await lire(banc, tom, '/api/duels')).status, 200)
+    const lignes = (await lire(banc, tom, '/api/jour/classement')).corps.lignes
+    // Dès la première lecture du jour, sans relecture en fond.
+    assert.deepEqual(lignes.find((l: any) => l.profileId === idLea).bordure, { ligue: 'or', crans: 2 })
+    assert.equal(lignes.find((l: any) => l.profileId === idTom).bordure, undefined)
+  } finally {
+    await banc.close()
+  }
+})

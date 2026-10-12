@@ -1311,7 +1311,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
+      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
