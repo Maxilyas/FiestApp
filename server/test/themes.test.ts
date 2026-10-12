@@ -234,9 +234,9 @@ const JEANNE = {
   },
 }
 
-/** La boutique — ce qui reste à prendre — et « Mes thèmes », dans « Mon thème » : ce qu'on a. */
+/** La boutique — ce qui reste à prendre — et « Mes thèmes », la pièce « Thème » de la loge : ce qu'on a. */
 const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, busy: false, acheter: async () => null })
-const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, busy: false, enregistrer: () => {} })
+const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
 
 /** Les cartes d'une vitrine, et ce que chacune dit d'elle à l'oreille. */
 const casesDe = (html: string) =>
@@ -246,8 +246,10 @@ const casesDe = (html: string) =>
   }))
 
 test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni ne s’achète d’un toucher', async () => {
-  // Un thème se portait d'un toucher : le doigt qui voulait le regarder
-  // habillait déjà toute la page. Le geste est celui de « Mes avatars ».
+  // Un thème se portait d'un toucher, enregistré : le doigt qui voulait le
+  // regarder habillait déjà toute la page, pour de bon. Le geste est celui de
+  // « Mes avatars » — dans la loge, le toucher l'essaie aussi, sans rien
+  // enregistrer ; « Porter », dans sa barre, le garde.
   for (const html of [await laBoutique(), await mesThemes()]) {
     const cases = casesDe(html)
     assert.ok(cases.length > 0, 'une vitrine')
@@ -259,11 +261,18 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
     }
     assert.doesNotMatch(html, /id="detail-theme"/, 'aucune fiche avant le premier toucher')
   }
-  // Les espaces fines de `espacesFines`, autour du bouton cité.
-  assert.match(await mesThemes(), /Touche un thème, puis « Le porter »/)
+  // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher
+  // fait, dans la loge — et plus l'ancien geste, qui renvoyait à la fiche.
+  assert.match(await mesThemes(), /Touches-en un : toute la page l’essaie\./)
+  assert.doesNotMatch(await mesThemes(), /Touche un thème, puis« Le porter »/)
   // Le geste lui-même : une carte ouvre sa fiche, une gemme change de
   // rareté ; rien d'autre n'enregistre, et la boutique ne porte rien.
   const source = readFileSync(new URL('../../client/src/components/Boutique.tsx', import.meta.url), 'utf8')
+  // Dans la loge, le toucher ouvre la fiche et essaie le thème — Velours
+  // s'écrit null, comme le serveur le range — sans rien enregistrer.
+  const mes = source.slice(source.indexOf('export function MesThemes'), source.indexOf('export function DetailTheme'))
+  assert.match(mes, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)\s*\}/)
+  assert.doesNotMatch(mes, /\benregistrer\(|onPorter=/)
   const corps = source.slice(source.indexOf('function CarteDeTheme'), source.indexOf('export function DetailTheme'))
   assert.deepEqual(
     [...corps.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),

@@ -2,17 +2,22 @@ import { NOM_FINITION, type FinitionChoisie } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { nomDansLaPhrase, portrait } from '../../../shared/branches'
-import { hautFait } from '../../../shared/hautsfaits'
+import { nomDuTitre } from '../../../shared/sentiers'
 import { fond } from '../../../shared/fonds'
 import { gerbe } from '../../../shared/gerbes'
 import { theme } from '../../../shared/themes'
+import type { Essai } from '../../../shared/loge'
+import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Ce qu'un toucher du profil change, et ce que le lecteur d'écran en entend.
 // À part des onglets qui l'emploient : la page du profil l'annonce, et
 // l'importer depuis `Apparence` faisait partir l'onglet entier — les dessins
 // de tous les médaillons avec lui — chez l'anonyme de l'accueil.
 
-/** Ce qu'un toucher du profil change : un champ à la fois. */
+/**
+ * Ce qu'un enregistrement du profil change : ce que la loge porte d'un coup
+ * — un avatar, un titre, un thème… —, ou l'Éclat d'un avatar.
+ */
 export type ChoixDuProfil = {
   avatar?: string
   finition?: FinitionChoisie
@@ -29,10 +34,36 @@ export type ChoixDuProfil = {
 }
 
 /**
- * Ce qu'un choix enregistré a changé, en une phrase pour le lecteur
- * d'écran : l'état « pressé » d'une case changeait sans rien dire.
+ * Ce que reçoit chaque pièce de la loge (`Loge.tsx`) : ce qu'il porte, ce
+ * qu'il essaie, et de quoi essayer — un toucher essaie, il n'enregistre
+ * rien ; « Porter », dans la barre de la loge, enregistre tout l'essai.
+ */
+export interface PropsDUnePiece {
+  profil: PublicProfileDetail
+  /** L'essai en cours : ce que la carte de la loge montre. */
+  essai: Essai
+  essayer: (piece: Essai) => void
+  busy: boolean
+  /** Ce qui s'enregistre d'un toucher, hors de l'essai : la version — rare ou d'origine — d'un avatar éclaté. */
+  enregistrer: (patch: ChoixDuProfil) => void
+  /** Ce qui est arrivé depuis son dernier passage sur ce téléphone. */
+  neufs?: ReadonlySet<string>
+}
+
+/** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
+const CHAMPS = ['avatar', 'eclat', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'theme', 'gerbe'] as const
+
+/**
+ * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
+ * d'écran : l'état « pressé » d'une case changeait sans rien dire. La loge
+ * porte plusieurs pièces d'un coup : chacune a sa phrase.
  */
 export function annonceDuChoix(choix: ChoixDuProfil): string {
+  const phrases = CHAMPS.filter(k => choix[k] !== undefined).map(k => annonceDUnChamp({ [k]: choix[k] }))
+  return phrases.length > 0 ? phrases.join(' ') : 'C’est enregistré.'
+}
+
+function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
   if (choix.eclat) return choix.eclat.brille ? 'Tu portes sa version rare.' : 'Tu portes sa version d’origine.'
   if (choix.legendaire !== undefined) {
@@ -42,7 +73,8 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
   }
   if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`
   if (choix.titre !== undefined) {
-    const titre = choix.titre ? hautFait(choix.titre)?.title : undefined
+    // Un maître, un champion du mois : ce ne sont pas des hauts faits, et ils se disaient « Sans titre ».
+    const titre = nomDuTitre(choix.titre)
     return titre ? `Ton titre : ${titre}.` : 'Sans titre.'
   }
   if (choix.fond !== undefined) {

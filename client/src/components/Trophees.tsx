@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { formatNumber } from '../format'
-import { rendreLeFocus } from '../focus'
+import type { PropsDUnePiece } from './choix'
 import { VITRINE_MAX, ceQuIlAFallu, cleRangee, hautFait, hautsFaitsGagnes, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { vitrineDeLaCarte } from '../../../shared/carte'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
@@ -10,8 +9,8 @@ import { lePremierHautFait, recompensesDe, type Proche } from '../../../shared/p
 import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
-// que sa carte montre à la salle, qui se règle dans « Ma vitrine » — et un
-// objectif commencé. La liste des collections elle-même vit dans
+// que sa carte montre à la salle, qui se règle dans la loge (« Me changer »,
+// pièce « Vitrine ») — et un objectif commencé. La liste des collections elle-même vit dans
 // `TropheesAtlas`, sous « Ma collection ».
 
 /**
@@ -37,54 +36,71 @@ export function laVitrine(profil: PublicProfileDetail) {
  * choisir — un coup du sort compris, s'il en est fier —, dans l'ordre où la
  * carte les montrera. Un haut fait de carrière s'y montre à son plus haut
  * palier, qui monte avec lui.
+ *
+ * Dans la loge, ses hauts faits se touchent directement : chacun entre
+ * dans la vitrine essayée — la carte en tête la montre —, ou en sort ; sans
+ * aucun, c'est la vitrine d'office. « Choisir moi-même » puis « Montrer
+ * ceux-là » faisaient deux gestes de plus que les autres pièces. La vitrine
+ * d'office est une option de la liste, en tête, comme « Aucun » parmi les
+ * titres : un bouton qui ne paraissait qu'une vitrine choisie partait sous
+ * le doigt qui le touchait, et le focus tombait sur la page.
  */
-export function MaVitrine({
-  profil,
-  busy,
-  enregistrer,
-}: {
-  profil: PublicProfileDetail
-  busy: boolean
-  enregistrer: (patch: { vitrine: string[] | null }) => void
-}) {
-  const [choix, setChoix] = useState<string[] | null>(null)
-  // Le bouton touché — « Choisir moi-même », « Montrer ceux-là » — part avec
-  // la vue qu'il quitte : le focus tombait sur la page. Il se pose sur le
-  // titre de la vue suivante, sauf à l'ouverture de l'onglet.
-  const section = useRef<HTMLElement>(null)
-  const ouverte = useRef(false)
-  const enChoix = choix !== null
-  useEffect(() => {
-    if (ouverte.current) rendreLeFocus(section.current, ['h3'])
-    ouverte.current = true
-  }, [enChoix])
-  const { badgeDe, gagnes, montres } = laVitrine(profil)
+export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
+  const { badgeDe, gagnes } = laVitrine(profil)
   const choisie = profil.vitrineChoisie ?? null
+  // Ce que la carte montre : la vitrine essayée, sinon celle qu'il porte ; null, celle d'office.
+  const montree = essai.vitrine !== undefined ? essai.vitrine : choisie
+  const complet = (montree?.length ?? 0) >= VITRINE_MAX
+  const basculer = (cle: string) => {
+    const avant = montree ?? []
+    const apres = avant.includes(cle) ? avant.filter(k => k !== cle) : complet ? avant : [...avant, cle]
+    essayer({ vitrine: apres.length > 0 ? apres : null })
+  }
+  // La vitrine d'office : montrée par la carte, et portée — ou à l'essai.
+  const office = { montre: montree === null, porte: choisie === null }
+  const plusDurs = Math.min(VITRINE_MAX, gagnes.length)
 
-  if (choix) {
-    const complet = choix.length >= VITRINE_MAX
+  if (gagnes.length > 0) {
     return (
-      <section className="card" ref={section}>
-        {/* Sa page s'appelle « Ma vitrine » : la carte dit ce qu'elle range. */}
+      <section className="card">
+        {/* Sa pièce s'appelle « Vitrine » : la carte dit ce qu'elle range. */}
         <h3>
           <Icon name="award" />
           Mes hauts faits <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>
         </h3>
-        <p className="muted small">{`Jusqu’à ${VITRINE_MAX} hauts faits, dans l’ordre où ta carte les montrera.`}</p>
+        <p className="muted small">{`Touches-en jusqu’à ${VITRINE_MAX}, dans l’ordre où ta carte les montrera.`}</p>
         {/* Une liste, pas un groupe : `role="group"` lui retirait ses éléments. */}
         <ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">
+          <li>
+            <button
+              type="button"
+              className={'vitrine-option' + (office.montre ? ' selected' : '') + (office.montre && !office.porte ? ' essaye' : '')}
+              aria-pressed={office.montre}
+              onClick={() => essayer({ vitrine: null })}
+            >
+              <span className="hf-emoji" aria-hidden="true">
+                ✨
+              </span>
+              <span className="hf-corps">
+                <span className="hf-titre">Les plus durs, d’office</span>
+                <span className="muted small">{plusDurs > 1 ? `Ta carte choisit tes ${plusDurs} plus durs.` : 'Ta carte le montre d’office.'}</span>
+              </span>
+              {office.porte && !office.montre && <span className="titre-etat">porté</span>}
+            </button>
+          </li>
           {gagnes.map(cle => {
             const b = badgeDe(cle)!
-            const rang = choix.indexOf(cle)
+            const rang = montree ? montree.indexOf(cle) : -1
             const pris = rang >= 0
+            const neuf = neufs?.has(cle)
             return (
               <li key={cle}>
                 <button
                   type="button"
-                  className={'vitrine-option' + (pris ? ' selected' : '')}
+                  className={'vitrine-option' + (pris ? ' selected' : '') + (neuf ? ' neuve' : '')}
                   aria-pressed={pris}
-                  disabled={!pris && complet}
-                  onClick={() => setChoix(c => c && (c.includes(cle) ? c.filter(k => k !== cle) : [...c, cle]))}
+                  aria-disabled={(!pris && complet) || undefined}
+                  onClick={() => basculer(cle)}
                 >
                   <span className="hf-emoji" aria-hidden="true">
                     {b.emoji}
@@ -106,80 +122,23 @@ export function MaVitrine({
             )
           })}
         </ul>
-        <div className="row">
-          <button
-            type="button"
-            className="btn btn-primary btn-small"
-            disabled={choix.length === 0}
-            aria-disabled={busy || undefined}
-            onClick={() => {
-              enregistrer({ vitrine: choix })
-              setChoix(null)
-            }}
-          >
-            Montrer ceux-là
-          </button>
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => setChoix(null)}>
-            Annuler
-          </button>
-        </div>
       </section>
     )
   }
 
   return (
-    <section className="card" ref={section}>
+    <section className="card">
       <h3>
         <Icon name="award" />
         Sur ta carte
       </h3>
-      {montres.length === 0 ? (
-        <>
-          <p className="muted small">
-            {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
-                campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
-                (l'experte du jeu solo, le 11 octobre 2026). */}
-            Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
-          </p>
-          {gagnes.length === 0 && <PremierHautFait profil={profil} />}
-        </>
-      ) : (
-        <>
-          <p className="muted small">
-            {choisie
-              ? 'Les hauts faits que ta carte montre à la salle : ceux que tu as choisis.'
-              : 'Les hauts faits que ta carte montre à la salle : les plus durs à obtenir.'}
-          </p>
-          <ul className="vitrine-choix">
-            {montres.map(b => (
-              <li key={b.key}>
-                <span className="hf-emoji" aria-hidden="true">
-                  {b.emoji}
-                </span>
-                <span className="hf-corps">
-                  <span className="hf-titre">
-                    {b.title}
-                    {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
-                  </span>
-                  <span className="muted small">{ceQuIlAFallu(b.key)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {gagnes.length > 0 && (
-        <div className="row vitrine-actions">
-          <button type="button" className="btn btn-small" aria-disabled={busy || undefined} onClick={() => setChoix(choisie ?? [])}>
-            {choisie ? 'Changer' : 'Choisir moi-même'}
-          </button>
-          {choisie && (
-            <button type="button" className="btn btn-small btn-ghost" aria-disabled={busy || undefined} onClick={() => enregistrer({ vitrine: null })}>
-              Les plus durs, d’office
-            </button>
-          )}
-        </div>
-      )}
+      <p className="muted small">
+        {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
+            campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
+            (l'experte du jeu solo, le 11 octobre 2026). */}
+        Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
+      </p>
+      <PremierHautFait profil={profil} />
     </section>
   )
 }

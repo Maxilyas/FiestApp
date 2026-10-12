@@ -33,20 +33,22 @@ import {
 } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
+import { avecLEssai, type Essai } from '../../../shared/loge'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
-import type { ChoixDuProfil } from './choix'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import type { PropsDUnePiece } from './choix'
 
-// « Mon avatar », au profil : ce que la salle voit de lui, son visage —
-// portraits des branches, emojis, légendaires, Divins, rangés par famille —,
-// et sa finition ; puis, chacun dans sa page sous « Me changer », son titre,
-// sa vitrine, son fond, son thème et sa gerbe.
+// Les pièces de la loge (« Me changer », au profil), chacune dans son
+// panneau : son avatar — portraits des branches, emojis, légendaires,
+// Divins, rangés par famille — et sa finition, son titre, son fond, sa
+// gerbe ; sa vitrine vit dans `Trophees`, ses thèmes dans `Boutique`.
 //
-// Tout cela, c'est l'avatar qu'on porte : une seule carte, un onglet par
-// famille, des cases de la même taille ; un anneau de couleur dit ce qui est
-// rare, et chaque case se touche de la même façon : sa fiche s'ouvre, et
-// l'on porte l'avatar de là.
+// Un seul geste partout : toucher une pièce l'essaie — la carte de la loge
+// la montre, rien n'est enregistré —, et « Porter », dans la barre de la
+// loge, enregistre l'essai. Chaque grille dit ce qu'il porte (« porté ») et
+// ce qu'il essaie (« à l'essai »). Les avatars gardent leur fiche, ouverte
+// sous la case touchée : d'où il vient, sa version rare.
 
 /**
  * L'anneau des emojis de collection passe du vert au bleu à partir du
@@ -55,7 +57,18 @@ import type { ChoixDuProfil } from './choix'
  */
 export const COLLECTION_HAUTE = 10
 
-type Patch = Omit<ChoixDuProfil, 'vitrine'>
+/**
+ * Ce qu'une case dit d'elle, après son nom : portée, à l'essai — ce que la
+ * carte montre sans qu'il le porte —, arrivée depuis son dernier passage.
+ */
+function etatsDeLaCase({ porte, essaye, neuve }: { porte: boolean; essaye: boolean; neuve?: boolean }): string {
+  return (porte ? ', porté' : '') + (essaye ? ', à l’essai' : '') + (neuve ? ', nouveau' : '')
+}
+
+/** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
+function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
+  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (!montre && porte ? ' porte' : '') + (neuve ? ' neuve' : '')
+}
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -129,23 +142,24 @@ export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avat
  * changer, et cent cases fermées noyaient les quarante qu'on peut porter. Ce
  * qui reste à gagner, et où, se lit dans « Ma collection ».
  *
- * Chacun se touche de la même façon : sa fiche s'ouvre sous sa rangée, et
- * l'on porte l'avatar de là (« Le porter ») — un emoji comme un portrait ou
- * un légendaire. Un emoji se portait d'un toucher, quand un avatar dessiné
- * ouvrait sa légende : la même grille répondait de deux façons. Le doigt qui
- * voulait voir la grenouille la portait déjà — enregistrée, montrée à la
- * salle — et ôtait le Phénix.
+ * Chacun se touche de la même façon : il s'essaie — la carte de la loge le
+ * porte, rien n'est enregistré — et sa fiche s'ouvre sous sa rangée, qui dit
+ * d'où il vient — un emoji comme un portrait ou un légendaire. Un emoji se
+ * portait d'un toucher, quand un avatar dessiné ouvrait sa légende : la même
+ * grille répondait de deux façons. Le doigt qui voulait voir la grenouille la
+ * portait déjà — enregistrée, montrée à la salle — et ôtait le Phénix.
+ * « Porter », dans la barre de la loge, enregistre l'essai.
  */
 export function MesAvatars({
   profil,
+  essai,
+  essayer,
   busy,
   enregistrer,
+  neufs,
   familleInitiale,
   aMoi = false,
-}: {
-  profil: PublicProfileDetail
-  busy: boolean
-  enregistrer: (patch: Patch) => void
+}: PropsDUnePiece & {
   /** La famille ouverte d'abord ; celle de l'avatar qu'il porte, par défaut (`familleDe`). */
   familleInitiale?: Famille
   /** Seulement ceux qu'il a : l'écran où l'on choisit. */
@@ -167,13 +181,31 @@ export function MesAvatars({
   const divins = profil.divins ?? []
   const descendu = (cle: string) => divins.some(d => d.key === cle)
   const porte = profil.legendaire
+  // Ce que la carte de la loge montre : l'avatar essayé, sinon celui qu'il porte.
+  const montre = essai.legendaire !== undefined ? essai.legendaire : essai.avatar !== undefined ? null : porte
+  const emojiMontre = essai.avatar ?? profil.avatar
   // Ses paliers validés sur les sentiers du savoir : ils ouvrent ses portraits.
   const paliers = profil.sentiers ?? {}
   const portraits = portraitsOuverts(paliers)
   const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
   const possedes = portraits.length + AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = PORTRAITS.length + AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
-  const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
+  /** Ce que toucher cette case essaie : un avatar à lui — ce qui reste à gagner ne fait qu'ouvrir sa fiche. */
+  const essaiDe = (cle: string): Essai | null => {
+    if (portraitDe(cle)) return portraits.includes(cle) ? { legendaire: cle } : null
+    if (legendaire(cle)) return profil.legendaires.includes(cle) ? { legendaire: cle } : null
+    if (divin(cle)) return descendu(cle) ? { legendaire: cle } : null
+    const collection = COLLECTION.find(c => c.emoji === cle)
+    if (collection) return profil.niveau >= collection.niveau ? { avatar: cle } : null
+    return AVATARS.some(a => a === cle) ? { avatar: cle } : null
+  }
+  const toucher = (cle: string) => {
+    setOuvert(o => (o === cle ? null : cle))
+    const piece = essaiDe(cle)
+    if (piece) essayer(piece)
+  }
+  // Ce qu'une case dessinée — portrait, légendaire, Divin — dit d'elle : montrée sur la carte, portée, nouvelle.
+  const etatDessine = (cle: string) => ({ montre: montre === cle, porte: porte === cle, neuve: neufs?.has(cle) })
   // Ce que chaque grille montre : tout, ou ce qu'il a.
   const legendairesVus = LEGENDAIRES.filter(l => !aMoi || profil.legendaires.includes(l.key))
   const divinsVus = DIVINS.filter(d => !aMoi || descendu(d.key))
@@ -219,21 +251,14 @@ export function MesAvatars({
   // `dense`, finit la rangée et la pose dessous, de toute sa largeur
   // (`styles.css`). Sous toute la grille — 687 px en 360 × 640, plus haute
   // que l'écran —, elle s'ouvrait hors de la vue : toucher le Dragon
-  // semblait ne rien faire.
+  // semblait ne rien faire. Elle dit d'où il vient, sa version rare : on ne
+  // porte plus de là — la case touchée s'essaie, « Porter » est dans la
+  // barre de la loge.
   const fiche = (cle: string) =>
     ouvert === cle && (
       <div id="detail-avatar" className="fiche-case" ref={detail}>
         {portraitDe(cle) ? (
-          <DetailPortrait
-            cle={cle}
-            paliers={paliers}
-            porte={porte}
-            eclat={profil.eclats.includes(cle)}
-            brille={brille(cle)}
-            busy={busy}
-            onPorter={k => enregistrer({ legendaire: k })}
-            onEclat={choisirEclat(cle)}
-          />
+          <DetailPortrait cle={cle} paliers={paliers} porte={porte} eclat={profil.eclats.includes(cle)} brille={brille(cle)} busy={busy} onEclat={choisirEclat(cle)} />
         ) : legendaire(cle) ? (
           <DetailLegendaire
             cle={cle}
@@ -243,30 +268,13 @@ export function MesAvatars({
             porte={porte}
             hautsFaits={profil.hautsFaits}
             busy={busy}
-            onPorter={l => enregistrer({ legendaire: l })}
             onEclat={choisirEclat(cle)}
             dessin={<Legendaire cle={cle} verrouille={!profil.legendaires.includes(cle)} eclat={brille(cle)} grand />}
           />
         ) : divin(cle) ? (
-          <DetailDivin
-            cle={cle}
-            descendus={divins}
-            porte={porte}
-            busy={busy}
-            onPorter={d => enregistrer({ legendaire: d })}
-            dessin={<Divin cle={cle} verrouille={!descendu(cle)} grand />}
-          />
+          <DetailDivin cle={cle} descendus={divins} porte={porte} busy={busy} dessin={<Divin cle={cle} verrouille={!descendu(cle)} grand />} />
         ) : (
-          <DetailEmoji
-            emoji={cle}
-            avatar={profil.avatar}
-            porte={porte}
-            eclat={profil.eclats.includes(cle)}
-            brille={brille(cle)}
-            busy={busy}
-            onPorter={a => enregistrer({ avatar: a })}
-            onEclat={choisirEclat(cle)}
-          />
+          <DetailEmoji emoji={cle} avatar={profil.avatar} porte={porte} eclat={profil.eclats.includes(cle)} brille={brille(cle)} busy={busy} onEclat={choisirEclat(cle)} />
         )}
       </div>
     )
@@ -276,9 +284,7 @@ export function MesAvatars({
         <Icon name="users" />
         Mes avatars <span className="muted small titre-compte">{aMoi ? `${possedes} à toi` : `${possedes} / ${total}`}</span>
       </h3>
-      <p className="muted small">
-        {espacesFines('Un seul à la fois : touche un avatar, puis « Le porter ». Un avatar dessiné dit aussi d’où il vient.')}
-      </p>
+      <p className="muted small">{espacesFines('Touches-en un : ta carte l’essaie.')}</p>
       <Onglets
         onglets={FAMILLES}
         actif={famille}
@@ -303,6 +309,8 @@ export function MesAvatars({
             <MesBranches
               paliers={paliers}
               porte={porte}
+              montre={montre}
+              neufs={neufs}
               eclats={profil.eclats.filter(brille)}
               ouvert={ouvert}
               toucher={toucher}
@@ -319,17 +327,17 @@ export function MesAvatars({
             </h4>
             <div className="emoji-grid grille-unique" role="group" aria-label="Les emojis">
               {AVATARS.map(a => {
-                const choisi = !porte && a === profil.avatar
+                const etat = { montre: !montre && a === emojiMontre, porte: !porte && a === profil.avatar, neuve: neufs?.has(a) }
                 return (
                   <Fragment key={a}>
                     <button
                       type="button"
-                      className={'emoji-btn case-avatar' + (choisi ? ' selected' : '') + (ouvert === a ? ' ouverte' : '')}
-                      // Il ouvre sa fiche, dessous, comme un avatar dessiné : un
-                      // bouton qui déplie, plus un interrupteur.
+                      className={'emoji-btn case-avatar' + classesDeLaCase(etat) + (ouvert === a ? ' ouverte' : '')}
+                      // Il s'essaie et ouvre sa fiche, dessous, comme un avatar
+                      // dessiné : un bouton qui déplie, pas un interrupteur.
                       aria-expanded={ouvert === a}
                       aria-controls={ouvert === a ? 'detail-avatar' : undefined}
-                      aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
+                      aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}`}
                       onClick={() => toucher(a)}
                     >
                       <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
@@ -378,15 +386,15 @@ export function MesAvatars({
                         </span>
                       )
                     }
-                    const choisi = !porte && c.emoji === profil.avatar
+                    const etat = { montre: !montre && c.emoji === emojiMontre, porte: !porte && c.emoji === profil.avatar, neuve: neufs?.has(c.emoji) }
                     return (
                       <Fragment key={c.emoji}>
                         <button
                           type="button"
-                          className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '') + (ouvert === c.emoji ? ' ouverte' : '')}
+                          className={'emoji-btn case-avatar' + anneau + classesDeLaCase(etat) + (ouvert === c.emoji ? ' ouverte' : '')}
                           aria-expanded={ouvert === c.emoji}
                           aria-controls={ouvert === c.emoji ? 'detail-avatar' : undefined}
-                          aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
+                          aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}`}
                           onClick={() => toucher(c.emoji)}
                         >
                           <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
@@ -411,20 +419,16 @@ export function MesAvatars({
             <div className="emoji-grid grille-unique" role="group" aria-label="Les légendaires">
               {legendairesVus.map(l => {
                 const gagne = profil.legendaires.includes(l.key)
+                const etat = etatDessine(l.key)
                 return (
                   <Fragment key={l.key}>
                     <button
                       type="button"
-                      className={
-                        'emoji-btn case-avatar anneau-legendaire' +
-                        (gagne ? '' : ' ferme') +
-                        (porte === l.key ? ' selected' : '') +
-                        (ouvert === l.key ? ' ouverte' : '')
-                      }
-                      // Il ouvre sa légende, dessous : un bouton qui déplie, pas un interrupteur.
+                      className={'emoji-btn case-avatar anneau-legendaire' + (gagne ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === l.key ? ' ouverte' : '')}
+                      // Il s'essaie et ouvre sa légende, dessous : un bouton qui déplie, pas un interrupteur.
                       aria-expanded={ouvert === l.key}
                       aria-controls={ouvert === l.key ? 'detail-avatar' : undefined}
-                      aria-label={`${l.nom}, légendaire${gagne ? (porte === l.key ? ', porté' : ', gagné') : ', à gagner'}`}
+                      aria-label={`${l.nom}, légendaire${gagne ? (etat.porte ? '' : ', gagné') + etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte }) : ', à gagner'}`}
                       onClick={() => toucher(l.key)}
                     >
                       <span className="case-medaillon">
@@ -444,19 +448,15 @@ export function MesAvatars({
                 <div className="emoji-grid grille-unique" role="group" aria-label="Les Divins">
                   {divinsVus.map(d => {
                     const la = descendu(d.key)
+                    const etat = etatDessine(d.key)
                     return (
                       <Fragment key={d.key}>
                         <button
                           type="button"
-                          className={
-                            'emoji-btn case-avatar anneau-divin' +
-                            (la ? '' : ' ferme') +
-                            (porte === d.key ? ' selected' : '') +
-                            (ouvert === d.key ? ' ouverte' : '')
-                          }
+                          className={'emoji-btn case-avatar anneau-divin' + (la ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === d.key ? ' ouverte' : '')}
                           aria-expanded={ouvert === d.key}
                           aria-controls={ouvert === d.key ? 'detail-avatar' : undefined}
-                          aria-label={la ? `${d.nom}, Divin${porte === d.key ? ', porté' : ''}` : 'Un Divin, inconnu'}
+                          aria-label={la ? `${d.nom}, Divin${etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte })}` : 'Un Divin, inconnu'}
                           onClick={() => toucher(d.key)}
                         >
                           <span className="case-medaillon">
@@ -520,6 +520,8 @@ function ceQuiVient(b: Branche, paliers: Paliers): string {
 function MesBranches({
   paliers,
   porte,
+  montre,
+  neufs,
   eclats,
   ouvert,
   toucher,
@@ -529,6 +531,9 @@ function MesBranches({
 }: {
   paliers: Paliers
   porte: string | null
+  /** L'avatar dessiné que la carte de la loge montre : celui qu'il essaie, sinon celui qu'il porte. */
+  montre: string | null
+  neufs?: ReadonlySet<string>
   eclats: string[]
   ouvert: string | null
   toucher: (cle: string) => void
@@ -629,19 +634,15 @@ function MesBranches({
             <div className="emoji-grid grille-unique grille-branche" role="group" aria-label={b.nom}>
               {b.portraits.filter(p => !aMoi || valides >= p.palier).map(p => {
                 const gagne = valides >= p.palier
+                const etat = { montre: montre === p.key, porte: porte === p.key, neuve: neufs?.has(p.key) }
                 return (
                   <Fragment key={p.key}>
                     <button
                       type="button"
-                      className={
-                        'emoji-btn case-avatar case-portrait' +
-                        (gagne ? '' : ' ferme') +
-                        (porte === p.key ? ' selected' : '') +
-                        (ouvert === p.key ? ' ouverte' : '')
-                      }
+                      className={'emoji-btn case-avatar case-portrait' + (gagne ? '' : ' ferme') + classesDeLaCase(etat) + (ouvert === p.key ? ' ouverte' : '')}
                       aria-expanded={ouvert === p.key}
                       aria-controls={ouvert === p.key ? 'detail-avatar' : undefined}
-                      aria-label={`${p.nom}${gagne ? (porte === p.key ? ', porté' : ', gagné') : `, au palier ${p.palier}`}`}
+                      aria-label={`${p.nom}${gagne ? (etat.porte ? '' : ', gagné') + etatsDeLaCase({ ...etat, essaye: etat.montre && !etat.porte }) : `, au palier ${p.palier}`}`}
                       onClick={() => toucher(p.key)}
                     >
                       <span className="case-medaillon">{dessin(p.key, !gagne)}</span>
@@ -738,7 +739,9 @@ export function DetailPortrait({
  * Ce qu'on lit d'un emoji en le touchant dans la grille, comme d'un avatar
  * dessiné : d'où il vient — le niveau, pour un emoji de collection —, s'il a
  * éclaté (seul le lecteur d'écran le disait), et ce que « Le porter »
- * ôterait. Porté, rien à toucher : c'est lui que la salle voit.
+ * ôterait. Porté, rien à toucher : c'est lui que la salle voit. Sans
+ * `onPorter` — la loge, où la case touchée s'essaie —, la fiche ne fait que
+ * dire d'où il vient.
  */
 export function DetailEmoji({
   emoji,
@@ -760,7 +763,7 @@ export function DetailEmoji({
   /** Il en porte la version rare — sinon, il l'a éteint. */
   brille?: boolean
   busy: boolean
-  onPorter: (emoji: string) => void
+  onPorter?: (emoji: string) => void
   /** Porter sa version rare, ou sa version d'origine. */
   onEclat?: (brille: boolean) => void
 }) {
@@ -780,12 +783,14 @@ export function DetailEmoji({
       {choisi ? (
         <p className="muted small">C’est lui que la salle voit.</p>
       ) : (
-        <>
-          <CeQuIlRemplace porte={porte} cle={emoji} />
-          <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onPorter(emoji)}>
-            Le porter
-          </button>
-        </>
+        onPorter && (
+          <>
+            <CeQuIlRemplace porte={porte} cle={emoji} />
+            <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onPorter(emoji)}>
+              Le porter
+            </button>
+          </>
+        )
       )}
     </div>
   )
@@ -813,15 +818,22 @@ export function AGagnerDansLaCollection({ reste, partie, nom }: { reste: number;
  * Sa finition : par défaut, la plus belle qu'il a — chaque niveau qui en
  * ouvre une nouvelle la fait porter d'office. On en épingle une autre si on
  * préfère, parmi celles qu'il a ; les autres se disent dans la collection.
+ * Touchée, elle s'essaie sur l'avatar de la carte, comme le reste de la loge.
  */
-export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les aperçus montrent ce que la salle verra : sous un légendaire porté,
   // le médaillon cerclé de la finition — pas l'emoji caché dessous, qu'on
   // choisissait auréolé d'« Aurore » sans voir le Phénix que la salle verrait.
-  const divinPorte = divin(profil.legendaire)
+  // Sous l'avatar qu'il essaie, s'il en essaie un : c'est lui que la carte montre.
+  const vu = avecLEssai(profil, essai)
+  const divinPorte = divin(vu.legendaire)
   // Sous un Divin, qui n'en prend pas, c'est sous l'emoji que la finition se verra.
-  const legendairePorte = divinPorte ? undefined : (profil.legendaire ?? undefined)
-  const eclat = brilleChez(profil, cibleEclat(legendairePorte, profil.avatar))
+  const legendairePorte = divinPorte ? undefined : (vu.legendaire ?? undefined)
+  const eclat = brilleChez(profil, cibleEclat(legendairePorte, vu.avatar))
+  const montree = vu.finitionChoisie
+  // Ce que chaque case dit d'elle : portée — épinglée, pour une finition choisie —, à l'essai, ou ce qu'elle est.
+  const etat = (f: FinitionChoisie, sinon: string, portee: string) =>
+    profil.finitionChoisie === f ? portee : montree === f ? 'à l’essai' : sinon
   return (
     <section className="card">
       <h3>
@@ -833,36 +845,27 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
       <div className="finitions">
         <button
           type="button"
-          className={'finition-btn' + (profil.finitionChoisie === 'auto' ? ' selected' : '')}
-          aria-disabled={busy || undefined}
-          aria-pressed={profil.finitionChoisie === 'auto'}
-          onClick={() => enregistrer({ finition: 'auto' })}
+          className={'finition-btn' + classesDeLaCase({ montre: montree === 'auto', porte: profil.finitionChoisie === 'auto' })}
+          aria-pressed={montree === 'auto'}
+          onClick={() => essayer({ finition: 'auto' })}
         >
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclat} legendaire={legendairePorte} />
+          <Avatar avatar={vu.avatar} finition={meilleureFinition(profil.niveau)} eclat={eclat} legendaire={legendairePorte} />
           <span className="finition-nom">La plus belle</span>
-          {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
-          <span className="muted small" aria-hidden="true">
-            {profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}
-          </span>
+          <span className="muted small">{etat('auto', 'automatique', 'portée')}</span>
         </button>
         {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => {
-          const choisie = profil.finitionChoisie === f
+          const neuve = neufs?.has(`finition:${f}`)
           return (
             <button
               key={f}
               type="button"
-              className={'finition-btn' + (choisie ? ' selected' : '')}
-              aria-disabled={busy || undefined}
-              aria-pressed={choisie}
-              onClick={() => enregistrer({ finition: f })}
+              className={'finition-btn' + classesDeLaCase({ montre: montree === f, porte: profil.finitionChoisie === f, neuve })}
+              aria-pressed={montree === f}
+              onClick={() => essayer({ finition: f })}
             >
-              <Avatar avatar={profil.avatar} finition={f} eclat={eclat} legendaire={legendairePorte} />
+              <Avatar avatar={vu.avatar} finition={f} eclat={eclat} legendaire={legendairePorte} />
               <span className="finition-nom">{NOM_FINITION[f]}</span>
-              {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
-              <span className="muted small" aria-hidden={choisie || undefined}>
-                {choisie ? 'épinglée' : 'ouverte'}
-              </span>
-              {choisie && <span className="sr-only">ouverte</span>}
+              <span className="muted small">{etat(f, neuve ? 'nouvelle' : 'ouverte', 'épinglée')}</span>
             </button>
           )
         })}
@@ -883,44 +886,42 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
  * sentiers du savoir le sien (« Maître de la forêt »). Il s'écrit sur sa
  * carte : la salle le lit en touchant son nom. Ceux qui restent à gagner se
  * comptent, sans se nommer : trente boutons fermés noyaient les siens — sauf
- * pour qui n'en a aucun, à qui la page dit comment gagner le premier.
+ * pour qui n'en a aucun, à qui la page dit comment gagner le premier. Touché,
+ * un titre s'essaie sous son prénom, sur la carte de la loge.
  */
-export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
   // puis les titres datés des champions du mois, du plus récent au plus ancien.
   const dates = profil.titresDates ?? []
   const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
   const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length)
   const porte = profil.titre ?? null
-  // Sa page s'appelle « Mon titre » : la carte dit ce qu'elle range, ceux qu'il a.
+  const montre = essai.titre !== undefined ? essai.titre : porte
+  // Ce que chaque titre dit de lui, à l'oreille comme à l'œil : porté, à l'essai, nouveau.
+  const etat = (cle: string | null) => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
+  const marque = (cle: string | null) => {
+    const e = etat(cle)
+    const mot = e.porte ? 'porté' : e.montre ? 'à l’essai' : e.neuve ? 'nouveau' : null
+    return mot && <span className="titre-etat">{mot}</span>
+  }
+  // Sa pièce s'appelle « Titre » : la carte dit ce qu'elle range, ceux qu'il a.
   return (
     <section className="card">
       <h3>
         <Icon name="star" />
         Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
       </h3>
-      {/* Où il s'écrit, l'en-tête de sa page le dit ; ici, d'où viennent les autres. */}
+      {/* Où il s'écrit, la ligne de la pièce le dit ; ici, d'où viennent les autres. */}
       <p className="muted small">Chaque haut fait gagné ouvre le sien, chaque palier de maître des sentiers aussi.</p>
       <div className="titres" role="group" aria-label="Mon titre">
-        <button
-          type="button"
-          className={'titre-choix' + (!porte ? ' selected' : '')}
-          aria-pressed={!porte}
-          aria-disabled={busy || undefined}
-          onClick={() => enregistrer({ titre: null })}
-        >
+        <button type="button" className={'titre-choix' + classesDeLaCase(etat(null))} aria-pressed={montre === null} onClick={() => essayer({ titre: null })}>
           Aucun
+          {marque(null)}
         </button>
         {gagnes.map(cle => (
-          <button
-            key={cle}
-            type="button"
-            className={'titre-choix' + (porte === cle ? ' selected' : '')}
-            aria-pressed={porte === cle}
-            aria-disabled={busy || undefined}
-            onClick={() => enregistrer({ titre: cle })}
-          >
+          <button key={cle} type="button" className={'titre-choix' + classesDeLaCase(etat(cle))} aria-pressed={montre === cle} onClick={() => essayer({ titre: cle })}>
             {nomDuTitre(cle)}
+            {marque(cle)}
           </button>
         ))}
         {aGagner > 0 && (
@@ -939,12 +940,15 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
  * Le fond de sa carte : ce qu'on voit derrière elle quand quelqu'un touche
  * son nom. Rien d'autre ne change — ni l'écran commun, ni les classements.
  * Ceux qu'il a seulement ; ceux qui restent à gagner se voient dans sa
- * collection, avec ce qu'il faut pour les ouvrir.
+ * collection, avec ce qu'il faut pour les ouvrir. Touché, un fond s'essaie
+ * derrière la carte de la loge.
  */
-export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   if (!profil.fonds) return null
   const porte = profil.fond ?? null
+  const montre = essai.fond !== undefined ? essai.fond : porte
   const reste = FONDS.filter(f => !profil.fonds!.includes(f.key)).length
+  const etat = (cle: string | null, sinon: string) => (porte === cle ? 'porté' : montre === cle ? 'à l’essai' : cle && neufs?.has(cle) ? 'nouveau' : sinon)
   return (
     <section className="card">
       <h3>
@@ -952,42 +956,26 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
         {/* Compté comme sa ligne de la collection : le Velours, à tout le monde, n'en est pas. */}
         Mes fonds {profil.fonds.length > 0 && <span className="muted small titre-compte">{`${profil.fonds.length} à toi`}</span>}
       </h3>
-      <p className="muted small">Touches-en un : ta carte, en haut, le porte aussitôt.</p>
+      <p className="muted small">Touches-en un : ta carte, en haut, l’essaie aussitôt.</p>
       <div className="finitions fonds-choix">
-        <button
-          type="button"
-          className={'finition-btn' + (!porte ? ' selected' : '')}
-          aria-disabled={busy || undefined}
-          aria-pressed={!porte}
-          onClick={() => enregistrer({ fond: null })}
-        >
+        <button type="button" className={'finition-btn' + classesDeLaCase({ montre: !montre, porte: !porte })} aria-pressed={!montre} onClick={() => essayer({ fond: null })}>
           <span className="fond-apercu" aria-hidden="true" />
           <span className="finition-nom">Velours</span>
-          <span className="muted small" aria-hidden="true">
-            {!porte ? 'porté' : 'd’office'}
-          </span>
+          <span className="muted small">{etat(null, 'd’office')}</span>
         </button>
-        {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => {
-          const choisi = porte === f.key
-          return (
-            <button
-              key={f.key}
-              type="button"
-              className={'finition-btn' + (choisi ? ' selected' : '')}
-              aria-disabled={busy || undefined}
-              aria-pressed={choisi}
-              onClick={() => enregistrer({ fond: f.key })}
-            >
-              <span className={`fond-apercu carte-fond fond-${f.key}`} aria-hidden="true" />
-              <span className="finition-nom">{f.nom}</span>
-              {/* « porté » redit `aria-pressed` : l'oreille entend « ouvert ». */}
-              <span className="muted small" aria-hidden={choisi || undefined}>
-                {choisi ? 'porté' : 'ouvert'}
-              </span>
-              {choisi && <span className="sr-only">ouvert</span>}
-            </button>
-          )
-        })}
+        {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => (
+          <button
+            key={f.key}
+            type="button"
+            className={'finition-btn' + classesDeLaCase({ montre: montre === f.key, porte: porte === f.key, neuve: neufs?.has(f.key) })}
+            aria-pressed={montre === f.key}
+            onClick={() => essayer({ fond: f.key })}
+          >
+            <span className={`fond-apercu carte-fond fond-${f.key}`} aria-hidden="true" />
+            <span className="finition-nom">{f.nom}</span>
+            <span className="muted small">{etat(f.key, 'ouvert')}</span>
+          </button>
+        ))}
       </div>
       <AGagnerDansLaCollection reste={reste} partie="fonds" nom={reste > 1 ? 'fonds' : 'fond'} />
     </section>
@@ -998,63 +986,51 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
  * Sa gerbe : ce qui éclate sur son téléphone à une bonne réponse, en soirée,
  * au quiz du jour et en campagne. Pour lui seul — ni la salle ni l'écran
  * commun n'en voient rien. Les confettis d'office, et « Aucune » pour qui
- * n'en veut pas ; celles qu'il a éclatent au toucher, et se portent. Celles
- * qui restent à gagner éclatent dans sa collection, pour qu'on sache ce
- * qu'on vise (`GerbesDeLaCollection`).
+ * n'en veut pas ; celles qu'il a éclatent au toucher, et s'essaient.
+ * Celles qui restent à gagner éclatent dans sa collection, pour qu'on sache
+ * ce qu'on vise (`GerbesDeLaCollection`).
  */
-export function MaGerbe({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+export function MaGerbe({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // L'aperçu : la gerbe qu'on vient de toucher éclate, une fois par toucher.
   const [apercu, setApercu] = useState<{ cle: string; n: number } | null>(null)
   if (!profil.gerbes) return null
+  // La gerbe portée se lit résolue : null, il n'en veut aucune.
   const porte = profil.gerbe ?? null
+  const montre = essai.gerbe !== undefined ? (essai.gerbe === AUCUNE_GERBE ? null : essai.gerbe) : porte
   const montrer = (cle: string) => setApercu(a => ({ cle, n: (a?.n ?? 0) + 1 }))
   const reste = GERBES.filter(g => !profil.gerbes!.includes(g.key)).length
+  const etat = (cle: string | null, sinon: string) => (porte === cle ? 'portée' : montre === cle ? 'à l’essai' : cle && neufs?.has(cle) ? 'nouvelle' : sinon)
   return (
     <section className="card">
       <h3>
         <Icon name="zap" />
         Mes gerbes <span className="muted small titre-compte">{`${profil.gerbes.length} à toi`}</span>
       </h3>
-      <p className="muted small">En soirée, au quiz du jour et en campagne. Touches-en une : elle éclate, et tu la portes.</p>
+      <p className="muted small">En soirée, au quiz du jour et en campagne. Touches-en une : elle éclate, et tu l’essaies.</p>
       <div className="finitions gerbes-choix">
-        <button
-          type="button"
-          className={'finition-btn' + (!porte ? ' selected' : '')}
-          aria-disabled={busy || undefined}
-          aria-pressed={!porte}
-          onClick={() => enregistrer({ gerbe: AUCUNE_GERBE })}
-        >
+        <button type="button" className={'finition-btn' + classesDeLaCase({ montre: !montre, porte: !porte })} aria-pressed={!montre} onClick={() => essayer({ gerbe: AUCUNE_GERBE })}>
           <span className="gerbe-apercu" aria-hidden="true" />
           <span className="finition-nom">Aucune</span>
-          <span className="muted small" aria-hidden="true">
-            {!porte ? 'portée' : 'sobre'}
-          </span>
+          <span className="muted small">{etat(null, 'sobre')}</span>
         </button>
-        {GERBES.filter(g => profil.gerbes!.includes(g.key)).map(g => {
-          const choisie = porte === g.key
-          return (
-            <button
-              key={g.key}
-              type="button"
-              className={'finition-btn' + (choisie ? ' selected' : '')}
-              aria-disabled={busy || undefined}
-              aria-pressed={choisie}
-              onClick={() => {
-                montrer(g.key)
-                if (!choisie) enregistrer({ gerbe: g.key })
-              }}
-            >
-              <span className="gerbe-apercu" aria-hidden="true">
-                {g.particules.slice(0, 3).join('')}
-              </span>
-              <span className="finition-nom">{g.nom}</span>
-              <span className="muted small" aria-hidden={choisie || undefined}>
-                {choisie ? 'portée' : 'ouverte'}
-              </span>
-              {choisie && <span className="sr-only">ouverte</span>}
-            </button>
-          )
-        })}
+        {GERBES.filter(g => profil.gerbes!.includes(g.key)).map(g => (
+          <button
+            key={g.key}
+            type="button"
+            className={'finition-btn' + classesDeLaCase({ montre: montre === g.key, porte: porte === g.key, neuve: neufs?.has(g.key) })}
+            aria-pressed={montre === g.key}
+            onClick={() => {
+              montrer(g.key)
+              essayer({ gerbe: g.key })
+            }}
+          >
+            <span className="gerbe-apercu" aria-hidden="true">
+              {g.particules.slice(0, 3).join('')}
+            </span>
+            <span className="finition-nom">{g.nom}</span>
+            <span className="muted small">{etat(g.key, 'ouverte')}</span>
+          </button>
+        ))}
       </div>
       <AGagnerDansLaCollection reste={reste} partie="gerbes" nom={reste > 1 ? 'gerbes' : 'gerbe'} />
       {apercu && <GerbeDeJuste key={apercu.n} cle={apercu.cle} />}

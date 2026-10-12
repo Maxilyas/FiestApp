@@ -53,7 +53,8 @@ const profil = (h: HautFaitVu[], vitrine: BadgePorte[] = []) => ({
   vitrine,
   vitrineChoisie: null,
 })
-const rien = { busy: false, enregistrer: () => {} }
+/** Une pièce de la loge, rien d'essayé : ce qu'il porte se montre tel quel. */
+const rien = { essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} }
 
 // Une série de campagne à six bonnes réponses, trente en tout, deux soirées.
 const debutant = hautsFaits({ valeurs: { 'hf:alpiniste': 6, 'hf:marathonien': 30, 'hf:habitue': 2 } })

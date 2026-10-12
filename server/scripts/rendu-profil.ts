@@ -1,10 +1,11 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
 // jetable : ses deux groupes — « Me changer », sa carte qu'on touche pièce par
 // pièce, « Me retrouver », ses tuiles —, sa carte et son avatar touché, en
-// grand, la page de chaque pièce — « Mon avatar », « Mon titre », « Ma
-// vitrine », « Mon fond de carte », « Mon thème », « Ma gerbe » —, « Ma
-// collection », ses lignes dépliées, l'album des thèmes et la fiche de l'un
-// d'eux, et la boutique des thèmes, qui ne vend que ce qui s'achète.
+// grand, la loge ouverte sur chaque pièce — avatar, titre, vitrine, fond,
+// thème, gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
+// nouveauté, « Ma collection », ses lignes dépliées, l'album des thèmes et la
+// fiche de l'un d'eux, et la boutique des thèmes, qui ne vend que ce qui
+// s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -87,14 +88,14 @@ try {
   await page.waitForSelector('.carte-loupe')
   await photo('1-carte-avatar-en-grand')
 
-  // La page de chaque pièce, ouverte de sa place sur la carte — et la collection, de sa tuile ; la finition de « Mon avatar », dépliée.
+  // La loge, ouverte de chaque place sur la carte sur sa pièce — et la collection, de sa tuile ; la finition, dépliée.
   for (const [i, nom, piece, attente] of [
-    ['2', 'Mon avatar', '.vestiaire-avatar', '.famille-avatars'],
-    ['3a', 'Mon titre', '.vestiaire-titre', '.titres'],
-    ['3b', 'Ma vitrine', '.vestiaire-vitrine', '.vitrine-choix'],
-    ['3c', 'Mon fond de carte', '.vestiaire-fond', '.fonds-choix'],
-    ['4a', 'Mon thème', '.vestiaire-perso[aria-label^="Mon thème"]', '.mes-themes'],
-    ['4b', 'Ma gerbe', '.vestiaire-perso[aria-label^="Ma gerbe"]', '.gerbes-choix'],
+    ['2', 'loge avatar', '.vestiaire-avatar', '.loge-panneau .famille-avatars'],
+    ['3a', 'loge titre', '.vestiaire-titre', '.loge-panneau .titres'],
+    ['3b', 'loge vitrine', '.vestiaire-vitrine', '.loge-panneau .vitrine-choix'],
+    ['3c', 'loge fond', '.vestiaire-fond', '.loge-panneau .fonds-choix'],
+    ['4a', 'loge theme', '.vestiaire-perso[aria-label^="Mon thème"]', '.loge-panneau .mes-themes'],
+    ['4b', 'loge gerbe', '.vestiaire-perso[aria-label^="Ma gerbe"]', '.loge-panneau .gerbes-choix'],
     ['5', 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)
@@ -108,7 +109,43 @@ try {
   await page.waitForSelector('.ma-finition')
   await page.click('.ma-finition button[aria-expanded]')
   await page.waitForSelector('#mes-finitions .finitions')
-  await photo('2-mon-avatar-finition')
+  await photo('2-loge-avatar-finition')
+
+  // Un essai : un emoji sur la carte, puis un titre — la barre compte deux
+  // changements —, puis un thème, qui habille toute la page ; « Porter » garde tout.
+  await page.goto(`${banc.url}/profil#avatar`)
+  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await page.click('.loge-panneau [role="tab"]:has-text("Emojis")')
+  await page.click('.loge-panneau .emoji-grid .case-avatar >> nth=1')
+  await page.waitForSelector('.loge-barre')
+  await photo('2b-loge-essai-avatar')
+  await page.click('#loge-titre')
+  await page.waitForSelector('.loge-panneau .titres')
+  await page.click('.loge-panneau .titre-choix:not(.selected) >> nth=0')
+  await photo('3a-loge-essai-deux')
+  await page.click('#loge-theme')
+  await page.waitForSelector('.loge-panneau .mes-themes')
+  await page.click('.loge-panneau .theme-vitrine[aria-label^="Océan"]')
+  // Le thème essayé habille la page : sa feuille chargée, la racine le porte.
+  await page.waitForSelector('html[data-theme="ocean"]', { state: 'attached' })
+  await photo('4a-loge-essai-theme')
+  await page.click('.loge-barre .btn-primary')
+  await page.waitForSelector('.loge-barre', { state: 'detached' })
+  await photo('4a-loge-porte')
+  // Ce qu'il portait revient pour la suite : Velours, son Phénix, sans titre.
+  await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', titre: null, theme: ivoire ? 'ivoire' : null }, cookie, 'PUT')
+
+  // Une nouveauté : un thème acheté ailleurs depuis son dernier passage — le
+  // vestiaire en dit la pastille, et la loge marque sa carte.
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  base.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 2)').run(id, 'jungle')
+  base.close()
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.vestiaire .vestiaire-neuf')
+  await photo('1-vestiaire-nouveau')
+  await page.click('.vestiaire-perso[aria-label^="Mon thème"]')
+  await page.waitForSelector('.loge-panneau .theme-vitrine.neuve')
+  await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».
   for (const partie of ['themes', 'legendaires', 'savoir', 'fonds', 'gerbes', 'finitions', 'emojis']) {
@@ -123,7 +160,7 @@ try {
   await page.click('#collection-themes .vignette-theme[aria-label^="Babel,"]')
   await page.waitForSelector('#detail-theme .detail-theme')
   await photo('6-collection-themes-fiche')
-  // Du lien de « Mon thème » à la collection, puis « ← » : on revient à « Mon thème ».
+  // Du lien de la pièce « Thème » à la collection, puis « ← » : on revient à la loge, sur le thème.
   await page.goto(`${banc.url}/profil#theme`)
   await page.waitForSelector('.mes-themes')
   await page.click('a[href="#collection-themes"]')

@@ -12,6 +12,8 @@ import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil'
+// Le type seul : les règles de la loge viennent avec ses panneaux, à la demande.
+import type { PieceDeLaLoge } from '../../../shared/loge'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
@@ -167,6 +169,21 @@ export function ProfilApp() {
     window.addEventListener('popstate', auRetour)
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
+  /**
+   * Passer d'une pièce à l'autre, dans la loge : l'adresse suit (`#titre`),
+   * sans entrée d'historique — le retour quitte la loge, comme on y est
+   * entré, au lieu de repasser par chaque pièce touchée.
+   */
+  const changerDePiece = (piece: PieceDeLaLoge) => {
+    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${piece}`)
+    setEcranOuvert(piece)
+  }
+  // La première fois qu'un profil paraît sur ce téléphone, ce qu'il porte
+  // s'y retient : la prochaine nouveauté aura sa pastille sur le vestiaire.
+  const profilDetaille = profil && 'hautsFaits' in profil ? profil : null
+  useEffect(() => {
+    if (profilDetaille && lesPanneaux && lesPanneaux !== 'perdu') lesPanneaux.retenirLesPremiersVus(profilDetaille)
+  }, [profilDetaille?.id, lesPanneaux])
 
   // L'accueil ne lit que son en-tête, sa série et son solde : le détail —
   // historique, hauts faits, titres des soirées — coûtait quatre ou cinq
@@ -223,11 +240,12 @@ export function ProfilApp() {
     else setTimeout(precharger, 1500)
   }, [aUnProfil])
 
-  const enregistrer = async (patch: ChoixDuProfil) => {
+  /** Enregistre ce que la loge porte — une pièce, ou tout un essai d'un coup — : vrai s'il a pris. */
+  const enregistrer = async (patch: ChoixDuProfil): Promise<boolean> => {
     // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
     // de désactiver chaque case : désactivée, la case touchée perdait le
     // focus, qui tombait sur la page — et le lecteur d'écran n'entendait rien.
-    if (enregistrement.current) return
+    if (enregistrement.current) return false
     enregistrement.current = true
     setBusy(true)
     setErreur('')
@@ -239,8 +257,10 @@ export function ProfilApp() {
       const { profile } = await api.joueur.enregistrer(patch)
       setProfil(p => (p ? { ...p, ...profile, ...(patch.fond !== undefined && { fond: patch.fond }) } : p))
       setAnnonce(annonceDuChoix(patch))
+      return true
     } catch (e) {
       setErreur((e as Error).message)
+      return false
     } finally {
       enregistrement.current = false
       setBusy(false)
@@ -459,40 +479,45 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : un écran ouvert depuis sa tuile ──
+  // ── Le profil : un écran ouvert depuis sa tuile, ou la loge ──
   if (ecran) {
     const e = ECRANS.find(x => x.id === ecran)!
     // « ← » dit où il ramène : l'écran d'où l'on vient, sinon les tuiles.
     const depuis = ECRANS.find(x => x.id === history.state?.[DEPUIS])
+    const sortie = (
+      <a
+        className="lien-discret jour-sortie"
+        href={depuis ? `#${depuis.id}` : '/profil'}
+        onClick={ev => {
+          if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
+          ev.preventDefault()
+          revenir()
+        }}
+      >
+        <Icon name="arrow-left" />
+        {depuis?.nom ?? 'Mon profil'}
+      </a>
+    )
+    // La loge : tout ce qu'on porte, sur un écran — la pièce de l'adresse ouverte.
+    if (e.groupe === 'Me changer') {
+      return (
+        <div className="player-shell loge-page" onClick={suivreUnLien}>
+          <header className="loge-tete">
+            {sortie}
+            <h1>Me changer</h1>
+          </header>
+          {regionDAnnonce}
+          {pret ? <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} /> : enChemin}
+          {erreur && <p className="error">{erreur}</p>}
+          {menu('profil')}
+        </div>
+      )
+    }
     return (
       <div className="player-shell" onClick={suivreUnLien}>
-        <a
-          className="lien-discret jour-sortie"
-          href={depuis ? `#${depuis.id}` : '/profil'}
-          onClick={ev => {
-            if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
-            ev.preventDefault()
-            revenir()
-          }}
-        >
-          <Icon name="arrow-left" />
-          {depuis?.nom ?? 'Mon profil'}
-        </a>
-        <PieceTete piece={e.groupe} titre={e.nom} icone={e.icone}>
-          {e.qui && (
-            <p className="muted qui-le-voit">
-              <Icon name="eye" />
-              {e.qui}
-            </p>
-          )}
-        </PieceTete>
+        {sortie}
+        <PieceTete piece={e.groupe} titre={e.nom} />
         {regionDAnnonce}
-        {ecran === 'avatar' && (pret ? <pret.PanneauMonAvatar profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'titre' && (pret ? <pret.PanneauMonTitre profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'vitrine' && (pret ? <pret.PanneauMaVitrine profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'fond' && (pret ? <pret.PanneauMonFond profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'theme' && (pret ? <pret.PanneauMonTheme profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'gerbe' && (pret ? <pret.PanneauMaGerbe profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
         {ecran === 'collection' && (pret ? <pret.PanneauCollection profil={profil} /> : enChemin)}
         {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
         {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
@@ -601,26 +626,26 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
 }
 
 /**
- * Les écrans du profil, en deux groupes : ce qu'on porte — une page par
- * pièce, chacune ouverte de sa place sur la carte (le vestiaire) — et ce
- * qu'on a, ce qu'on a fait, derrière leurs tuiles. Les onglets d'avant
- * tenaient tout sur trois pages qu'on faisait défiler ; puis cinq tuiles
- * mêlaient ce qu'on porte et ce qu'on collectionne ; puis « Ma carte »
- * rangeait titre, vitrine et fond sur un seul écran, et « Mon thème » la
- * gerbe sous les thèmes : toucher la vitrine faisait tomber au milieu d'une
- * page (le souhait du propriétaire du 11 octobre 2026 : « que chaque
- * composant ait une page dédiée », « gerbes et thèmes pas dans le même
- * onglet »). La boutique a sa page, dans le menu.
+ * Les écrans du profil, en deux groupes : ce qu'on porte — la loge, une
+ * adresse par pièce, chacune ouverte de sa place sur la carte (le
+ * vestiaire) — et ce qu'on a, ce qu'on a fait, derrière leurs tuiles. Les
+ * onglets d'avant tenaient tout sur trois pages qu'on faisait défiler ; puis
+ * cinq tuiles mêlaient ce qu'on porte et ce qu'on collectionne ; puis « Ma
+ * carte » rangeait titre, vitrine et fond sur un seul écran ; puis chaque
+ * pièce eut sa page (le 11 octobre 2026), qu'on quittait et rouvrait pour
+ * changer d'avatar puis de titre ; puis la loge, où les six se touchent sur
+ * une rangée et s'essaient avant de se porter (la maquette validée par le
+ * propriétaire le 12 octobre 2026). La boutique a sa page, dans le menu.
  */
-type EcranDuProfil = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'collection' | 'carriere' | 'soirees'
+type EcranDuProfil = PieceDeLaLoge | 'collection' | 'carriere' | 'soirees'
 
-const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'Me changer' | 'Me retrouver'; icone?: IconName; qui?: string }[] = [
-  { id: 'avatar', nom: 'Mon avatar', groupe: 'Me changer', icone: 'sparkles', qui: 'La salle le voit, à côté de ton prénom.' },
-  { id: 'titre', nom: 'Mon titre', groupe: 'Me changer', icone: 'star', qui: 'Sous ton prénom, sur ta carte : on le lit en touchant ton nom.' },
-  { id: 'vitrine', nom: 'Ma vitrine', groupe: 'Me changer', icone: 'award', qui: 'Trois hauts faits sur ta carte : on les voit en touchant ton nom.' },
-  { id: 'fond', nom: 'Mon fond de carte', groupe: 'Me changer', icone: 'image', qui: 'Derrière ta carte, quand on touche ton nom : rien d’autre ne change.' },
-  { id: 'theme', nom: 'Mon thème', groupe: 'Me changer', icone: 'palette', qui: 'Toi seul le vois : il habille toutes tes pages.' },
-  { id: 'gerbe', nom: 'Ma gerbe', groupe: 'Me changer', icone: 'zap', qui: 'Toi seul la vois : elle éclate à tes bonnes réponses.' },
+const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'Me changer' | 'Me retrouver' }[] = [
+  { id: 'avatar', nom: 'Mon avatar', groupe: 'Me changer' },
+  { id: 'titre', nom: 'Mon titre', groupe: 'Me changer' },
+  { id: 'vitrine', nom: 'Ma vitrine', groupe: 'Me changer' },
+  { id: 'fond', nom: 'Mon fond de carte', groupe: 'Me changer' },
+  { id: 'theme', nom: 'Mon thème', groupe: 'Me changer' },
+  { id: 'gerbe', nom: 'Ma gerbe', groupe: 'Me changer' },
   { id: 'collection', nom: 'Ma collection', groupe: 'Me retrouver' },
   { id: 'carriere', nom: 'Ma carrière', groupe: 'Me retrouver' },
   { id: 'soirees', nom: 'Mes soirées', groupe: 'Me retrouver' },

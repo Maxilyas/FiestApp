@@ -19,7 +19,7 @@ import { SABLIERS_MAX } from '../../../shared/jour'
 import { OBJETS, type CleDObjet, type Objet } from './Objets'
 import { api, motifDe } from '../api'
 import { apercuDe } from '../apercus'
-import type { ChoixDuProfil } from './choix'
+import type { PropsDUnePiece } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
 // quiz, son compte —, sauf l'écran commun, acheté en confettis
@@ -32,9 +32,10 @@ import type { ChoixDuProfil } from './choix'
 // même fiche dit où les gagner.
 //
 // Le geste est celui de « Mes avatars » : toucher un thème ouvre sa fiche
-// sous sa rangée, et l'on porte — ou l'on achète — de là. Un thème se
-// portait d'un toucher : le doigt qui voulait le regarder habillait déjà
-// toute la page.
+// sous sa rangée — on l'achète de là, à la boutique ; dans la loge, le
+// toucher l'essaie aussi, et « Porter », dans sa barre, le garde. Un thème
+// se portait d'un toucher, enregistré : le doigt qui voulait le regarder
+// habillait déjà toute la page, pour de bon.
 
 export type EtatDuTheme = 'porte' | 'a-toi' | 'a-vendre' | 'trop-cher' | 'hors-saison' | 'a-gagner'
 
@@ -106,13 +107,34 @@ export function useFiche(ouvert: string | null, porte: string) {
  * est pour lui. Elle ouvre sa fiche — un bouton qui déplie, pas un
  * interrupteur : `aria-pressed` disait qu'un toucher le portait.
  */
-function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+function CarteDeTheme({
+  t,
+  etat,
+  solde,
+  ouvert,
+  essaye = false,
+  neuf = false,
+  onToucher,
+}: {
+  t: Theme
+  etat: EtatDuTheme
+  solde: number
+  ouvert: boolean
+  /** Dans la loge : la page l'essaie. */
+  essaye?: boolean
+  /** Arrivé depuis son dernier passage. */
+  neuf?: boolean
+  onToucher: () => void
+}) {
   const apercu = apercuDe(t.key)
-  const pied =
-    etat === 'porte'
+  const pied = essaye
+    ? 'À l’essai'
+    : etat === 'porte'
       ? 'Porté'
       : etat === 'a-toi'
-        ? NOM_DE_RARETE[t.rarete]
+        ? neuf
+          ? 'Nouveau'
+          : NOM_DE_RARETE[t.rarete]
         : etat === 'a-gagner'
           ? 'Se gagne'
           : etat === 'trop-cher'
@@ -121,11 +143,18 @@ function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: E
   return (
     <button
       type="button"
-      className={'theme-vitrine' + (etat === 'trop-cher' ? ' theme-cher' : '') + (etat === 'porte' ? ' theme-porte' : '') + (ouvert ? ' ouverte' : '')}
+      className={
+        'theme-vitrine' +
+        (etat === 'trop-cher' ? ' theme-cher' : '') +
+        (etat === 'porte' ? ' theme-porte' : '') +
+        (essaye ? ' theme-essaye' : '') +
+        (neuf ? ' neuve' : '') +
+        (ouvert ? ' ouverte' : '')
+      }
       style={gemme(t.rarete)}
       aria-expanded={ouvert}
       aria-controls={ouvert ? 'detail-theme' : undefined}
-      aria-label={nomDeLaCase(t, etat, solde)}
+      aria-label={nomDeLaCase(t, etat, solde) + (essaye ? ', à l’essai' : '') + (neuf ? ', nouveau' : '')}
       onClick={onToucher}
     >
       <span className="theme-vitrine-image" aria-hidden="true">
@@ -279,14 +308,18 @@ export function RayonDesThemes({
 }
 
 /**
- * « Mes thèmes », dans « Mon thème » : seulement ceux qu'il a, dans les
- * cartes de la boutique, celui qu'il porte en tête. Toucher un thème ouvre
- * sa fiche, d'où on le porte : un thème se portait d'un toucher, et le doigt
- * qui voulait le regarder habillait déjà toute la page.
+ * « Mes thèmes », la pièce « Thème » de la loge : seulement ceux qu'il a,
+ * dans les cartes de la boutique, celui qu'il porte en tête. Toucher un thème
+ * l'essaie — la page entière le porte, rien n'est enregistré — et ouvre sa
+ * fiche ; « Porter », dans la barre de la loge, le garde. Un thème se portait
+ * d'un toucher, enregistré : le doigt qui voulait le regarder habillait déjà
+ * toute la page, pour de bon.
  */
-export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: ChoixDuProfil) => void }) {
+export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const porte = profil.theme ?? 'velours'
+  // Le thème que la page porte : l'essai, sinon le sien.
+  const montre = essai.theme !== undefined ? (essai.theme ?? 'velours') : porte
   const detail = useFiche(ouvert, porte)
   const boutique = profil.boutique
   if (!boutique) return null
@@ -295,9 +328,9 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
   const siens = THEMES.filter(t => possedes.has(t.key)).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
   const aVendre = THEMES.filter(t => !possedes.has(t.key) && enBoutique(t, boutique.jour)).length
   const aGagner = THEMES.filter(t => t.gagne && !possedes.has(t.key)).length
-  const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
-  const porter = (cle: string | null) => {
-    if (!busy) enregistrer({ theme: cle })
+  const toucher = (cle: string) => {
+    setOuvert(o => (o === cle ? null : cle))
+    essayer({ theme: cle === 'velours' ? null : cle })
   }
   return (
     <section className="mes-themes">
@@ -305,18 +338,19 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
         <b>
           {siens.length} thème{siens.length > 1 ? 's' : ''}
         </b>{' '}
-        {/* Ce qu'il habille, l'en-tête de sa page le dit : ici, comment le porter. */}
-        · {espacesFines('de la soirée à tes quiz. Touche un thème, puis « Le porter ».')}
+        {/* Ce qu'il habille, la ligne de la pièce le dit : ici, comment l'essayer. */}
+        · {espacesFines('de la soirée à tes quiz. Touches-en un : toute la page l’essaie.')}
       </p>
       <div className="vitrine-themes" role="group" aria-label="Mes thèmes">
         {siens.map(t => {
           const etat = etatDuTheme(t, porte, possedes, solde, boutique.jour)
+          const essaye = montre === t.key && t.key !== porte
           return (
             <Fragment key={t.key}>
-              <CarteDeTheme t={t} etat={etat} solde={solde} ouvert={ouvert === t.key} onToucher={() => toucher(t.key)} />
+              <CarteDeTheme t={t} etat={etat} solde={solde} ouvert={ouvert === t.key} essaye={essaye} neuf={neufs?.has(t.key)} onToucher={() => toucher(t.key)} />
               {ouvert === t.key && (
                 <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
-                  <DetailTheme theme={t} etat={etat} solde={solde} busy={busy} onPorter={porter} onAcheter={() => {}} />
+                  <DetailTheme theme={t} etat={etat} solde={solde} dansLaLoge essaye={essaye} />
                 </div>
               )}
             </Fragment>
@@ -354,6 +388,8 @@ export function DetailTheme({
   solde,
   busy = false,
   erreur,
+  dansLaLoge = false,
+  essaye = false,
   onPorter,
   onAcheter,
 }: {
@@ -364,6 +400,10 @@ export function DetailTheme({
   busy?: boolean
   /** Le refus d'un achat, dit là où l'on a touché. */
   erreur?: string
+  /** Ouverte dans la loge, où un toucher essaie : « Porter » est dans sa barre. */
+  dansLaLoge?: boolean
+  /** La page l'essaie. */
+  essaye?: boolean
   /** Le porter ; null : Velours, celui de toutes les soirées. */
   onPorter?: (cle: string | null) => void
   onAcheter?: (theme: Theme) => void
@@ -383,7 +423,13 @@ export function DetailTheme({
       )}
       <p className="muted small">{t.humeur}</p>
       {etat === 'porte' && <p className="muted small">C’est lui qui habille tes pages. L’écran commun garde le sien.</p>}
+      {etat === 'a-toi' && dansLaLoge && (
+        <p className="muted small">
+          {essaye ? espacesFines('À l’essai sur toute la page : « Porter », en bas, le garde. L’écran commun garde le sien.') : 'À toi : touche sa carte pour l’essayer.'}
+        </p>
+      )}
       {etat === 'a-toi' &&
+        !dansLaLoge &&
         (onPorter ? (
           <button
             type="button"
