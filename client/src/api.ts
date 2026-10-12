@@ -24,6 +24,7 @@ import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { BaseDuQuizToutPret, ChoixDuQuiz } from '../../shared/quizToutPret'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
+import type { EquipePreparee } from '../../shared/teams'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
@@ -324,8 +325,9 @@ export const api = {
       }),
     /** L'espace du profil (créé la première fois) et sa console ouverte ici, sans ouvrir le salon. */
     espace: () => req<{ espace: PublicSpace; nouveau: boolean }>('/api/joueur/espace', { method: 'POST' }),
-    /** « Ouvrir le salon » : l'espace du profil, sa console ouverte ici, et le code du salon. */
-    salon: () => req<{ espace: PublicSpace; code: string | null; nouveau: boolean }>('/api/joueur/salon', { method: 'POST' }),
+    /** « Ouvrir le salon » : l'espace du profil, sa console ouverte ici, et le code du salon — avec ses équipes préparées, s'il en a. */
+    salon: (corps: { equipes?: EquipePreparee[] } = {}) =>
+      req<{ espace: PublicSpace; code: string | null; nouveau: boolean }>('/api/joueur/salon', { method: 'POST', body: JSON.stringify(corps) }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: {
       name?: string

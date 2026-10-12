@@ -5,7 +5,8 @@
 // Un serveur jetable. Une télé — Chromium en 1920 × 1080, sans souris ni
 // clavier qu'on y toucherait — ouvre `/tele` et montre son code ; le
 // téléphone du chef (360 × 640, son profil) prépare un salon, choisit « Sur
-// une télé », tape le code et ouvre le salon ; des invités arrivent ; la
+// une télé », tape le code, prépare ses équipes et ouvre le salon ; des
+// invités arrivent ; la
 // barre du chef lance le quiz et révèle ; le téléphone du chef quitte la page
 // puis revient ; la télé est rechargée, le serveur redémarre ; la barre mène
 // le quiz jusqu'au podium, puis termine la soirée. Chaque moment est
@@ -84,13 +85,30 @@ try {
   await chef.waitForSelector('.tele-branchee')
   await photo(chef, '03-chef-tele-branchee')
 
+  // ── 2b. Les équipes de ce soir, préparées avant d'ouvrir le salon ────────
+  await chef.getByRole('button', { name: 'En équipes' }).click()
+  await chef.getByRole('button', { name: 'Ajouter une équipe' }).click()
+  await chef.getByRole('button', { name: 'Renommer Les Salseras' }).click()
+  await chef.locator('.feuille-equipe input').fill('Les Flamants')
+  await chef.locator('.equipe-emoji', { hasText: '🦩' }).click()
+  await photo(chef, '03b-chef-renomme-une-equipe')
+  await chef.getByRole('button', { name: 'Enregistrer' }).click()
+  await chef.locator('#salon-equipes').scrollIntoViewIfNeeded()
+  await photo(chef, '03c-chef-equipes-preparees')
+  note(`équipes préparées : ${(await chef.locator('.equipe-du-chef-nom').allTextContents()).join(', ')}`)
+
   // ── 3. La télé branchée, avant que le salon ne s'ouvre ───────────────────
   await tele.waitForFunction(() => !(globalThis as any).document.querySelector('.tv-branchement'), undefined, { timeout: 15000 })
   await photo(tele, '04-tele-branchee-salon-pas-ouvert')
   await etatDeLaTele('branchée, salon pas encore ouvert')
 
   // ── 4. « Ouvrir le salon » : le chef entre dans sa soirée ────────────────
+  // Les équipes y sont déjà : le chef qui joue choisit la sienne en entrant.
   await chef.getByRole('button', { name: 'Ouvrir le salon' }).click()
+  await chef.locator('.team-btn').first().waitFor({ timeout: 15000 })
+  await photo(chef, '04b-chef-choisit-son-equipe')
+  await chef.locator('.team-btn').first().click()
+  await chef.getByRole('button', { name: 'Rejoindre la soirée' }).click()
   await chef.waitForSelector('.barre-chef', { timeout: 15000 })
   const adresseDuChef = chef.url()
   const slug = new URL(adresseDuChef).pathname.split('/')[1]

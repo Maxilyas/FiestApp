@@ -3,11 +3,13 @@ import { api, currentMe, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
 import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
+import { FeuilleDEquipe } from '../components/FeuilleDEquipe'
 import { chefIci, demanderEntree, retenirChef } from '../chef'
 import { spacePath } from '../routes'
 import { porterTheme } from '../themeJoueur'
 import { ecrireDuree, type QuizSummary } from '../../../shared/library'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
+import { EQUIPES_PROPOSEES, MAX_EQUIPES, equipeSuivante, type EquipePreparee } from '../../../shared/teams'
 import type { ModeleResume } from '../../../shared/modeles'
 import type { EntreeDeProgramme, Programme } from '../../../shared/programme'
 import type { PublicSpace } from '../../../shared/space'
@@ -45,8 +47,8 @@ const sansAccent = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 
 /**
  * Créer un salon (`/salon`) : les quiz de ce soir, où l'on voit les
- * questions, et si l'on joue — trois questions, sans mode d'emploi ; le
- * rythme, les équipes et les points doublés repliés dans « Réglages ».
+ * questions, si l'on joue et les équipes — sans mode d'emploi ; le rythme et
+ * les points doublés repliés dans « Réglages ».
  *
  * Tout le monde a son salon : le profil ouvre son espace la première fois,
  * sans compte d'animateur à demander (`/api/joueur/espace`). « Ouvrir le
@@ -68,6 +70,14 @@ export function SalonApp() {
   const [joue, setJoue] = useState(true)
   const [rythme, setRythme] = useState<number | null>(RYTHME_PAR_DEFAUT)
   const [equipes, setEquipes] = useState(false)
+  /**
+   * Les équipes de ce soir, préparées avant d'ouvrir le salon (le souhait du
+   * propriétaire du 12 octobre 2026) : deux proposées d'office, à renommer ;
+   * elles y sont avant le premier invité, qui choisit la sienne en entrant.
+   */
+  const [lesEquipes, setLesEquipes] = useState<EquipePreparee[]>(() => EQUIPES_PROPOSEES.slice(0, 2))
+  /** L'équipe ouverte dans sa feuille, par sa place. */
+  const [equipeOuverte, setEquipeOuverte] = useState<number | null>(null)
   const [choisir, setChoisir] = useState(false)
   /** La feuille du quiz tout prêt, ouverte depuis « Ajouter un quiz ». */
   const [toutPret, setToutPret] = useState(false)
@@ -104,6 +114,7 @@ export function SalonApp() {
         setJoue(avant.joue)
         setRythme(avant.rythme)
         setEquipes(avant.equipes)
+        if (avant.equipesPreparees) setLesEquipes(avant.equipesPreparees)
       }
       setEtat({ e: 'pret', espace })
     })().catch(e => vivant && setEtat({ e: 'erreur', motif: motifDe(e) }))
@@ -198,8 +209,11 @@ export function SalonApp() {
       } else {
         await api.programmes.creer('Ce soir', entrees)
       }
-      const salon = await api.joueur.salon()
-      retenirChef({ slug: salon.espace.slug, joue, rythme, equipes })
+      // Les équipes partent avec l'ouverture : posées par le serveur avant le
+      // premier invité — la barre du chef n'en créait que deux, une fois
+      // ouverte, et les renommer attendait que la salle soit là.
+      const salon = await api.joueur.salon(equipes ? { equipes: lesEquipes } : {})
+      retenirChef({ slug: salon.espace.slug, joue, rythme, equipes, equipesPreparees: lesEquipes })
       demanderEntree(salon.espace.slug)
       // Qu'il joue ou anime seulement, le chef suit la soirée sur l'écran de
       // tout le monde, sa barre en bas : la console d'avant, au téléphone,
@@ -355,15 +369,53 @@ export function SalonApp() {
         )}
       </section>
 
+      {/* Hors des réglages repliés : les équipes se préparent avant d'ouvrir
+          le salon, une ligne chacune, un toucher la renomme (le souhait du
+          propriétaire du 12 octobre 2026). */}
+      <section className="salon-bloc" aria-labelledby="salon-equipes">
+        <span className="label" id="salon-equipes">
+          Les équipes
+        </span>
+        <div className="choix-duo" role="group" aria-labelledby="salon-equipes">
+          <button type="button" className={'choix-tuile' + (!equipes ? ' selected' : '')} aria-pressed={!equipes} onClick={() => setEquipes(false)}>
+            <Icon name="star" />
+            Chacun pour soi
+          </button>
+          <button type="button" className={'choix-tuile' + (equipes ? ' selected' : '')} aria-pressed={equipes} onClick={() => setEquipes(true)}>
+            <Icon name="shield" />
+            En équipes
+          </button>
+        </div>
+        {equipes && (
+          <div className="equipes-du-chef">
+            {lesEquipes.map((e, i) => (
+              <button key={i} type="button" className="equipe-du-chef" aria-label={`Renommer ${e.nom}`} onClick={() => setEquipeOuverte(i)}>
+                <span className="equipe-du-chef-emoji" aria-hidden="true">
+                  {e.emoji}
+                </span>
+                <span className="equipe-du-chef-nom">{e.nom}</span>
+                <Icon name="edit" />
+              </button>
+            ))}
+            {/* D'un toucher, la suivante des proposées : on la renomme ensuite. */}
+            {lesEquipes.length < MAX_EQUIPES && (
+              <button type="button" className="btn btn-block" onClick={() => setLesEquipes(avant => [...avant, equipeSuivante(avant)])}>
+                <Icon name="plus" />
+                Ajouter une équipe
+              </button>
+            )}
+            <p className="muted small salon-aide">Chacun choisit la sienne en arrivant. Tu pourras encore les changer depuis ta barre, en bas de ton téléphone.</p>
+          </div>
+        )}
+      </section>
+
       {/* Ce qu'on ne règle presque jamais : replié, ses valeurs dites dans son titre. */}
       <details className="reglages-salon">
         <summary>
           <Icon name="list" className="reglages-icone" />
           <span>
             <b>Réglages</b>
-            <span className="muted small">
-              {rythme === null ? 'Suivante au clic' : `Suivante après ${rythme} s`} · {equipes ? 'en équipes' : 'chacun pour soi'}
-            </span>
+            <span className="muted small">{rythme === null ? 'Suivante au clic' : `Suivante après ${rythme} s`}</span>
           </span>
           <Icon name="chevron-down" className="repli-chevron" />
         </summary>
@@ -374,15 +426,6 @@ export function SalonApp() {
               {p === null ? 'Au clic' : `${p} s`}
             </button>
           ))}
-        </div>
-        <span className="label">Équipes</span>
-        <div className="enchainement" role="group" aria-label="Équipes">
-          <button type="button" className={'pill-btn' + (!equipes ? ' active' : '')} aria-pressed={!equipes} onClick={() => setEquipes(false)}>
-            Chacun pour soi
-          </button>
-          <button type="button" className={'pill-btn' + (equipes ? ' active' : '')} aria-pressed={equipes} onClick={() => setEquipes(true)}>
-            En équipes
-          </button>
         </div>
         {quiz.length > 0 && <span className="label">Points</span>}
         {quiz.map((q, i) => (
@@ -464,6 +507,19 @@ export function SalonApp() {
             </>
           )}
         </Feuille>
+      )}
+      {/* Une équipe préparée : son nom, son emoji ; deux au moins — une équipe seule ne joue contre personne. */}
+      {equipeOuverte !== null && lesEquipes[equipeOuverte] && (
+        <FeuilleDEquipe
+          key={equipeOuverte}
+          equipe={{ id: String(equipeOuverte), name: lesEquipes[equipeOuverte].nom, emoji: lesEquipes[equipeOuverte].emoji }}
+          equipes={lesEquipes.map((e, i) => ({ id: String(i), name: e.nom, emoji: e.emoji }))}
+          onCreer={(nom, emoji) => setLesEquipes(avant => [...avant, { nom, emoji }])}
+          onModifier={(id, nom, emoji) => setLesEquipes(avant => avant.map((e, i) => (String(i) === id ? { nom, emoji } : e)))}
+          onRetirer={lesEquipes.length > 2 ? id => setLesEquipes(avant => avant.filter((_, i) => String(i) !== id)) : undefined}
+          sansMembres
+          onFermer={() => setEquipeOuverte(null)}
+        />
       )}
       {toutPret && (
         <FeuilleDuQuizToutPretADemande

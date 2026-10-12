@@ -1,19 +1,20 @@
 import { useState, type FormEvent } from 'react'
 import type { PublicTeam } from '../../../shared/types'
-import { EMOJIS_D_EQUIPE } from '../../../shared/teams'
+import { EMOJIS_D_EQUIPE, NOM_D_EQUIPE_MAX } from '../../../shared/teams'
 import { Feuille } from './Pieces'
 import { Icon } from './Icon'
 import { confirmDialog } from './Dialog'
 
-/** Le nom d'une équipe tient sur une ligne de téléphone : le serveur coupe au-delà. */
-const NOM_MAX = 20
+/** Ce que la feuille lit d'une équipe : celle de la soirée, ou une préparée avant qu'elle commence. */
+type UneEquipe = Pick<PublicTeam, 'id' | 'name' | 'emoji'>
 
 /**
- * Créer ou renommer une équipe, depuis la barre du chef : un emoji, un nom,
- * un bouton. « On ne peut pas créer d'équipe facilement » (le propriétaire
- * du dépôt, le 4 octobre 2026) : au téléphone, il fallait passer par
- * l'écran commun. Sobre — l'aperçu de l'équipe telle que la salle la verra,
- * et rien d'autre à lire.
+ * Créer ou renommer une équipe, depuis la barre du chef — ou en créant le
+ * salon, avant que personne n'y soit : un emoji, un nom, un bouton. « On ne
+ * peut pas créer d'équipe facilement » (le propriétaire du dépôt, le
+ * 4 octobre 2026) : au téléphone, il fallait passer par l'écran commun.
+ * Sobre — l'aperçu de l'équipe telle que la salle la verra, et rien d'autre
+ * à lire.
  */
 export function FeuilleDEquipe({
   equipe,
@@ -21,15 +22,19 @@ export function FeuilleDEquipe({
   onCreer,
   onModifier,
   onRetirer,
+  sansMembres,
   onFermer,
 }: {
   /** L'équipe à renommer ; absente, on en crée une. */
-  equipe?: PublicTeam
+  equipe?: UneEquipe
   /** Les équipes de la soirée : l'emoji proposé d'abord est un qu'aucune ne porte. */
-  equipes: readonly PublicTeam[]
+  equipes: readonly UneEquipe[]
   onCreer: (nom: string, emoji: string) => void
   onModifier: (teamId: string, nom: string, emoji: string) => void
-  onRetirer: (teamId: string) => void
+  /** Absent : elle ne se supprime pas d'ici (deux équipes au moins, en créant le salon). */
+  onRetirer?: (teamId: string) => void
+  /** Préparée avant la soirée, elle n'a personne à renvoyer « sans équipe » : rien à confirmer. */
+  sansMembres?: boolean
   onFermer: () => void
 }) {
   const pris = new Set(equipes.filter(t => t.id !== equipe?.id).map(t => t.emoji))
@@ -46,13 +51,15 @@ export function FeuilleDEquipe({
     onFermer()
   }
   const retirer = async () => {
-    if (!equipe) return
-    const ok = await confirmDialog({
-      title: `Supprimer ${equipe.name} ?`,
-      message: 'Ses membres repassent sans équipe et gardent leurs points.',
-      confirmLabel: 'Supprimer l’équipe',
-      danger: true,
-    })
+    if (!equipe || !onRetirer) return
+    const ok =
+      sansMembres ||
+      (await confirmDialog({
+        title: `Supprimer ${equipe.name} ?`,
+        message: 'Ses membres repassent sans équipe et gardent leurs points.',
+        confirmLabel: 'Supprimer l’équipe',
+        danger: true,
+      }))
     if (!ok) return
     onRetirer(equipe.id)
     onFermer()
@@ -77,7 +84,7 @@ export function FeuilleDEquipe({
         <label className="field">
           <span className="label">Son nom</span>
           {/* Pas d'autoFocus : le clavier cacherait l'aperçu et les emojis. */}
-          <input className="input" value={nom} maxLength={NOM_MAX} placeholder="Les Renards" onChange={e => setNom(e.target.value)} />
+          <input className="input" value={nom} maxLength={NOM_D_EQUIPE_MAX} placeholder="Les Renards" onChange={e => setNom(e.target.value)} />
         </label>
         <div className="equipe-emojis" role="group" aria-label="Son emoji">
           {palette.map(e => (
@@ -92,7 +99,7 @@ export function FeuilleDEquipe({
             </button>
           ))}
         </div>
-        {equipe && (
+        {equipe && onRetirer && (
           <button type="button" className="btn btn-block btn-ghost geste-qui-defait" onClick={() => void retirer()}>
             <Icon name="trash" />
             Supprimer l’équipe

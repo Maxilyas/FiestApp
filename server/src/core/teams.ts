@@ -3,7 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { TeamBonus } from '../../../shared/types'
 import { tronquer } from '../../../shared/avatars'
-import { MAX_EQUIPES, PRIX_MAX } from '../../../shared/teams'
+import { EQUIPES_PROPOSEES, MAX_EQUIPES, NOM_D_EQUIPE_MAX, PRIX_MAX } from '../../../shared/teams'
 
 export interface TeamRec {
   id: string
@@ -14,18 +14,10 @@ export interface TeamRec {
 }
 
 /**
- * Les six équipes proposées en un clic, sur le thème de la soirée. Elles se
- * renomment ensuite : ce n'est qu'un point de départ pour éviter de taper six
- * noms au moment où les invités arrivent.
+ * Les six équipes proposées en un clic, sur le thème de la soirée — les
+ * mêmes que le salon propose en se créant (`EQUIPES_PROPOSEES`).
  */
-export const DEFAULT_TEAMS = [
-  { name: 'Les Salseras', emoji: '💃' },
-  { name: 'Les Rumberos', emoji: '🕺' },
-  { name: 'Les Micros', emoji: '🎤' },
-  { name: 'Les Paillettes', emoji: '✨' },
-  { name: 'Les Congas', emoji: '🥁' },
-  { name: 'Les Piments', emoji: '🌶️' },
-]
+export const DEFAULT_TEAMS = EQUIPES_PROPOSEES.map(e => ({ name: e.nom, emoji: e.emoji }))
 
 const MAX_TEAMS = MAX_EQUIPES
 
@@ -33,7 +25,7 @@ const MAX_TEAMS = MAX_EQUIPES
 // unités UTF-16, et « Les Fêtards du soir🎉 » coupé au vingtième gardait une
 // moitié d'emoji, affichée « � » sur le mur et sur tous les téléphones. Un
 // drapeau ou un emoji composé partent entiers, ou pas du tout.
-const nomDEquipe = (name: string | undefined) => tronquer(name?.trim() ?? '', 20).trim()
+const nomDEquipe = (name: string | undefined) => tronquer(name?.trim() ?? '', NOM_D_EQUIPE_MAX).trim()
 const emojiDEquipe = (emoji: string | undefined) => tronquer(emoji?.trim() ?? '', 4)
 
 /**

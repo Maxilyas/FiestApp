@@ -1,4 +1,4 @@
-# La nuit du 12 octobre 2026 — la télé branchée, les prix
+# La nuit du 12 octobre 2026 — la télé branchée, les prix, les équipes
 
 Le propriétaire a demandé, le 12 octobre au soir, « une revue sur le scénario
 où on branche une télé ». Elle a été faite en rejouant le scénario entier sur
@@ -77,4 +77,20 @@ prix pour rire aux Guitaristes, c'était 4-4 » (`2026-09-24/nadia.md`).
 - « Revenir aux prix », à l'écran de victoire, devient « Remise des prix ».
 
 Les soirées passées gardent leurs prix tels qu'ils ont été remis : chaque
-prix porte ses points au journal, rien ne se recalcule.
+prix porte ses points au journal, rien ne se recalcule. PR #159.
+
+# Les équipes, préparées avant d'ouvrir le salon
+
+Le souhait : « préparer les équipes avant de créer le salon ». « En équipes »
+dormait dans les réglages repliés de « Créer un salon », et c'est la barre du
+chef qui créait deux équipes, une fois le salon ouvert : on les renommait la
+salle déjà là, et les premiers arrivés entraient sans.
+
+Désormais « Les équipes » a son bloc, sous « Et toi ? » : « Chacun pour soi »
+ou « En équipes » ; en équipes, deux proposées, une ligne chacune, qu'un
+toucher renomme dans la feuille de la barre du chef (nom, emoji) —
+« Ajouter une équipe » ajoute la suivante, dix au plus, deux au moins.
+« Ouvrir le salon » les envoie, le serveur les pose avant le premier invité,
+et le téléphone les retient pour la fois suivante. Le chef qui joue choisit
+la sienne en entrant, comme ses invités. Une soirée qui a déjà ses équipes
+les garde. Le rendu (`rendu-tele.ts`, étapes 2b et 4) les photographie.

@@ -24,6 +24,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { profilDeCarte } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
 import { jourDe } from '../../../shared/jour'
+import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -36,8 +37,8 @@ interface ProfileApiDeps {
    * « Rejoindre une soirée » redemandait le nom de celle où l'on jouait déjà.
    */
   soireesOuJeJoue: (profileId: string) => string[]
-  /** Ouvre le salon d'un espace et rend son code — le même tant qu'il vaut. */
-  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean; commencer?: boolean }) => Promise<string | null>
+  /** Ouvre le salon d'un espace et rend son code — le même tant qu'il vaut ; les équipes préparées s'y posent s'il n'en a pas. */
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean; commencer?: boolean; equipes?: readonly EquipePreparee[] | null }) => Promise<string | null>
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
@@ -499,15 +500,20 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
-  /** « Ouvrir le salon » : l'espace, sa console, et le code du salon — le même tant qu'il vaut. */
+  /**
+   * « Ouvrir le salon » : l'espace, sa console, et le code du salon — le même
+   * tant qu'il vaut. Avec les équipes préparées en le créant, s'il y en a :
+   * elles y sont avant le premier invité.
+   */
   app.post(
     '/api/joueur/salon',
+    small,
     wrap(async (req, res) => {
       noStore(res)
       const pret = await espaceDuProfil(req, res)
       if (!pret) return
       // Ouvert d'ici, le salon s'enregistre seul après son programme.
-      const code = await deps.ouvrirSalon(pret.id, { auto: true, commencer: true })
+      const code = await deps.ouvrirSalon(pret.id, { auto: true, commencer: true, equipes: lireEquipesPreparees(req.body?.equipes) })
       res.json({ espace: pret.espace, code, nouveau: pret.nouveau })
     }),
   )

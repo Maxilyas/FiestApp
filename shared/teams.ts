@@ -1,4 +1,5 @@
 // Classement des équipes — même calcul côté serveur et côté écrans.
+import { tronquer } from './avatars'
 import { classer, enumerer } from './classement'
 import { formatNumber, rang } from './typographie'
 import type { PublicPlayer, PublicTeam } from './types'
@@ -155,6 +156,63 @@ export const EMOJIS_D_EQUIPE = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️'
 
 /** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
 export const MAX_EQUIPES = 10
+
+/** Le nom d'une équipe tient sur une ligne de téléphone : le serveur coupe au-delà. */
+export const NOM_D_EQUIPE_MAX = 20
+
+/** Une équipe préparée avant que personne n'y soit : en créant le salon (`SalonApp`). */
+export interface EquipePreparee {
+  nom: string
+  emoji: string
+}
+
+/**
+ * Les équipes proposées, sur le thème de la soirée : en créant un salon, les
+ * deux premières ; à l'écran commun, « Les créer d'un coup », de deux à six.
+ * Un point de départ, pour ne pas taper six noms quand les invités arrivent :
+ * elles se renomment.
+ */
+export const EQUIPES_PROPOSEES: readonly EquipePreparee[] = [
+  { nom: 'Les Salseras', emoji: '💃' },
+  { nom: 'Les Rumberos', emoji: '🕺' },
+  { nom: 'Les Micros', emoji: '🎤' },
+  { nom: 'Les Paillettes', emoji: '✨' },
+  { nom: 'Les Congas', emoji: '🥁' },
+  { nom: 'Les Piments', emoji: '🌶️' },
+]
+
+/**
+ * L'équipe qu'« Ajouter une équipe » propose : la première des proposées
+ * dont le nom n'est pas pris, avec un emoji qu'aucune ne porte — deux
+ * équipes au même emoji se confondaient sur le mur.
+ */
+export function equipeSuivante(deja: readonly EquipePreparee[]): EquipePreparee {
+  const noms = new Set(deja.map(e => e.nom))
+  const emojis = new Set(deja.map(e => e.emoji))
+  const nom = EQUIPES_PROPOSEES.find(e => !noms.has(e.nom))?.nom ?? `Équipe ${deja.length + 1}`
+  const emoji = EMOJIS_D_EQUIPE.find(e => !emojis.has(e)) ?? EMOJIS_D_EQUIPE[deja.length % EMOJIS_D_EQUIPE.length]
+  return { nom, emoji }
+}
+
+/**
+ * Des équipes préparées, telles qu'un salon les reçoit — d'une requête ou du
+ * téléphone qui les a retenues : des noms non vides, coupés comme le serveur
+ * les coupe, un emoji, `MAX_EQUIPES` au plus ; et deux au moins, sinon
+ * aucune — une équipe seule ne joue contre personne. Tout le reste ne vaut
+ * rien, sans faire tomber qui le lit.
+ */
+export function lireEquipesPreparees(v: unknown): EquipePreparee[] | null {
+  if (!Array.isArray(v)) return null
+  const equipes: EquipePreparee[] = []
+  for (const e of v.slice(0, MAX_EQUIPES)) {
+    if (!e || typeof e !== 'object') continue
+    const { nom, emoji } = e as Record<string, unknown>
+    const propre = typeof nom === 'string' ? tronquer(nom.trim(), NOM_D_EQUIPE_MAX).trim() : ''
+    const signe = typeof emoji === 'string' ? tronquer(emoji.trim(), 4) : ''
+    if (propre && signe) equipes.push({ nom: propre, emoji: signe })
+  }
+  return equipes.length >= 2 ? equipes : null
+}
 
 /** Trie les équipes à la moyenne seule : leur performance au quiz, prix à part. */
 export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
