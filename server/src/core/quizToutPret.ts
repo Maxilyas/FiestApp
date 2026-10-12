@@ -38,6 +38,9 @@ export const NOMBRE_MAX = 50
  */
 export const idDansLeQuiz = (idDeLaBase: string) => `base-${idDeLaBase}`
 
+/** L'inverse : l'identifiant dans la base d'une question tirée — null pour une question écrite à la main. */
+export const idDeLaBase = (dansLeQuiz: string | undefined) => (dansLeQuiz?.startsWith('base-') ? dansLeQuiz.slice('base-'.length) : null)
+
 /** Le choix envoyé par un navigateur, ou null s'il ne se lit pas. Ce qui manque prend sa valeur par défaut. */
 export function lireChoixDuQuiz(brut: unknown): ChoixDuQuiz | null {
   if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return null

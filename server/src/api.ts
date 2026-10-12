@@ -1,5 +1,5 @@
 import { sujetsDeLaQuestion, type CampagneStore } from './core/campagne'
-import { composerUnQuiz, dejaDansLEspace, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
+import { composerUnQuiz, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
@@ -213,18 +213,41 @@ export function mountApi(app: Express, deps: ApiDeps) {
   )
 
   // Ce que l'historique sait de chaque question de ce quiz : sa dernière
-  // soirée, et qui y a trouvé — « réussie par 23 % le 14 mars ».
+  // soirée, et qui y a trouvé — « réussie par 23 % le 14 mars ». Et la
+  // marche de celles qu'il a tirées de la base, que le quiz ne garde pas :
+  // l'ordre d'un quiz progressif est sa montée (l'expert du quiz tout prêt,
+  // le 11 octobre 2026).
   app.get(
     '/api/quizzes/:id/memoire',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
       const quiz = await deps.store.get(spaceId, req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
-      const memoire = await deps.archives.memoire(spaceId)
+      const tirees = quiz.questions.flatMap(q => {
+        const id = idDeLaBase(q.id)
+        return id ? [{ dansLeQuiz: q.id!, id }] : []
+      })
+      const [memoire, marches] = await Promise.all([
+        deps.archives.memoire(spaceId),
+        // Une base qui se tait n'ôte que les marches : les souvenirs restent.
+        tirees.length > 0
+          ? deps.campagne.marchesDe(tirees.map(t => t.id)).catch(e => {
+              console.error('[quiz] marches illisibles :', e)
+              return null
+            })
+          : null,
+      ])
       const reponse: MemoireDuQuiz = { joue: memoire.quiz.get(quiz.id) ?? null, questions: {} }
       for (const q of quiz.questions) {
         const souvenir = q.id ? memoire.questions.get(q.id) : undefined
         if (souvenir) reponse.questions[q.id!] = souvenir
+      }
+      if (marches && marches.size > 0) {
+        reponse.marches = {}
+        for (const t of tirees) {
+          const marche = marches.get(t.id)
+          if (marche) reponse.marches[t.dansLeQuiz] = marche
+        }
       }
       res.json(reponse)
     }),

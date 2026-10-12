@@ -5,6 +5,7 @@ import { categorieDe } from './categories'
 import { tronquer } from './avatars'
 import { lireNombreEnTete } from './nombres'
 import type { ReglagesDuQuiz } from './hasard'
+import type { Niveau } from './campagne'
 
 export const MIN_ANSWERS = 2
 export const MAX_ANSWERS = 4
@@ -251,6 +252,12 @@ export interface MemoireDuQuiz {
   joue: { fois: number; dernier: number } | null
   /** Par identifiant de question : celles que l'historique a vues passer. */
   questions: Record<string, SouvenirDeQuestion>
+  /**
+   * La marche de chaque question tirée de la base (`base-…`), que le quiz ne
+   * garde pas : l'ordre d'un quiz progressif est sa montée, et l'éditeur la
+   * cassait sans le savoir. Absente : aucune, ou un serveur d'avant.
+   */
+  marches?: Record<string, Niveau>
 }
 
 /** Le résumé d'un quiz, tel que « Mes quiz » le liste. */

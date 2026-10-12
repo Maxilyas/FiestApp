@@ -769,6 +769,22 @@ export class CampagneStore {
     return { questions, mesures }
   }
 
+  /**
+   * La marche de questions de la base, par leur identifiant dans la base — à
+   * leur difficulté lissée par les réponses de campagne, comme au tirage du
+   * quiz tout prêt (`niveauDeQuestion`) : l'éditeur la montre. Une question
+   * qui n'est plus dans la base n'en a pas.
+   */
+  async marchesDe(ids: readonly string[]): Promise<Map<string, Niveau>> {
+    const [base, mesures] = await Promise.all([this.base(), this.mesures()])
+    const marches = new Map<string, Niveau>()
+    for (const id of ids) {
+      const q = base.parId.get(id)
+      if (q) marches.set(id, niveauDeQuestion(q.meta.difficulte, mesures.get(id)))
+    }
+    return marches
+  }
+
   /** Ce que la base offre à un quiz tout prêt : son total, et les catégories et les sujets qui ont de quoi en faire un. */
   async baseDesSoirees(): Promise<BaseDuQuizToutPret> {
     const jouables = await this.jouables()
