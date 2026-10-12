@@ -84,14 +84,16 @@ un arbitrage.
    estimables par catégorie et par sujet).
 2. **Les mots du solo** — P3 · S : le reste du tableau « Les mots qu'un
    joueur ne comprend pas » du rapport (« 1 sur 4 » au carnet contre « 5 sur
-   6 » au sentier, « Ma carte » qui n'existe plus).
+   6 » au sentier, « Ma carte » qui n'existe plus). **Fait le 12 octobre**
+   (#163).
 3. **Les pages d'un débutant** — P3 · S : un titre « Aucun », une vitrine
    vide, sans dire comment gagner le premier (`lesPlusProches` le sait).
 4. **Le geste principal sous le pli** — P3 · S : « Commencer une série »
    et « Jouer le défi » collés en bas, comme `GesteDuBas` ; le bouton du
    bloc des sentiers qui lance l'épreuve.
 5. **La carte d'un joueur qui ne joue qu'en solo** — P3 · M : « Soirées 0 ·
-   Quiz gagnés 0 · Coup d'œil — » ; des cadrans du solo à la place.
+   Quiz gagnés 0 · Coup d'œil — » ; des cadrans du solo à la place. **Fait
+   le 12 octobre** (#164) : son record, ses paliers, ses bonnes réponses.
 6. **La feuille du quiz tout prêt** — P3 · S : nommer les catégories, dire
    les estimations réelles, la description du sujet sous sa tuile.
 7. **« Une autre » sur une question tirée de la base**, et sa marche visible
