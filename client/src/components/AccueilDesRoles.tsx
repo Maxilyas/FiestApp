@@ -117,17 +117,22 @@ function boutonDuDefi(d: DefiDAccueil): { detail: string; href: string; pastille
 /**
  * Le bouton des duels (le souhait du propriétaire du 11 octobre 2026 : une
  * tuile de l'accueil sous le quiz du jour) : un duel qu'on lui a envoyé
- * passe devant — qui le défie, une pastille —, puis son duel laissé en
- * route ; sinon sa ligue, sa cote et ce qui manque à sa récompense de lundi
- * — ou ce qu'elle rapportera. Avant son premier duel, ce qu'on y fait.
+ * passe devant — qui le défie, et combien l'attendent, en rouge —, puis son
+ * duel laissé en route ; sinon sa ligue, sa cote et ce qui manque à sa
+ * récompense de lundi — ou ce qu'elle rapportera. Avant son premier duel, ce
+ * qu'on y fait.
  */
-export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; pastille?: string } {
+export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; compteur?: { n: number; label: string } } {
   if (d?.defisRecus && d.defisRecus.n > 0) {
-    const autres = d.defisRecus.n - 1
+    const { n } = d.defisRecus
+    const autres = n - 1
     // « et 2 autres », sans « amis » : on peut être défié par qui l'on ne connaît pas encore.
     return {
       detail: espacesFines(`${d.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''}` : ''} : à toi de jouer`),
-      pastille: d.defisRecus.n > 1 ? `${d.defisRecus.n} défis` : 'Un défi',
+      // Blanc sur rouge, en haut à droite, comme des messages qui attendent (le souhait du propriétaire du 12 octobre
+      // 2026) : la pastille dorée « 3 défis » se fondait parmi « À relever » et « À jouer », sur les boutons du dessus.
+      // Le serveur n'en lit que dix (`DEFIS_RECUS_MONTRES`) : passé neuf, il peut y en avoir plus.
+      compteur: { n, label: n > 9 ? 'plus de 9 défis à relever' : n > 1 ? `${n} défis à relever` : 'un défi à relever' },
     }
   }
   if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
@@ -216,7 +221,7 @@ export function AccueilJouer({
           icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={26} decoratif /> : <Icon name="swords" />}
           titre="Les duels"
           detail={lesDuels.detail}
-          pastille={lesDuels.pastille}
+          compteur={lesDuels.compteur}
           href="/duels"
         />
       </section>

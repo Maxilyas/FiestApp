@@ -206,10 +206,10 @@ try {
   await jusquAuBout(page, lea, 'duel', 6)
   await page.waitForSelector('.duel-parti')
   await photo(page, '08-parti')
-  // Tom : le bouton de son accueil le dit, et le duel l'attend en tête de ses duels.
+  // Tom : le bouton de son accueil le dit — qui le défie, et combien l'attendent, en rouge —, et le duel l'attend en tête de ses duels.
   const pourTom = await telephone(tom)
   await pourTom.goto(banc.url)
-  await pourTom.waitForSelector('.gros-bouton[href="/duels"] .pastille-attente')
+  await pourTom.waitForSelector('.gros-bouton[href="/duels"] .gros-compteur')
   await photo(pourTom, '09-accueil-de-tom')
   await pourTom.click('.gros-bouton[href="/duels"]')
   await pourTom.waitForSelector('.duel-recus')

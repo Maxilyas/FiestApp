@@ -121,6 +121,7 @@ export function GrosBouton({
   titre,
   detail,
   pastille,
+  compteur,
   principal,
   jauge,
   compte,
@@ -132,6 +133,13 @@ export function GrosBouton({
   detail?: ReactNode
   /** Ce qui attend : « À jouer », « 3 nouveaux ». */
   pastille?: ReactNode
+  /**
+   * Ce que d'autres lui ont envoyé et qui l'attend, compté comme des
+   * messages : un chiffre blanc sur rouge à cheval sur le coin en haut à
+   * droite — 9 au plus, puis « 9+ » : un rond, pas une bulle qui s'allonge —,
+   * et une phrase au lecteur d'écran (« un défi à relever »).
+   */
+  compteur?: { n: number; label: string }
   /** Le geste du moment : plein. */
   principal?: boolean
   /** Où il en est, de 0 à 1 : une jauge fine sous le titre — sa collection. */
@@ -160,6 +168,15 @@ export function GrosBouton({
       {/* La pastille prend la place du chevron : les deux serraient le titre, et
           « Le quiz du jour » laissait « jour » seul sur sa ligne en 360 de large. */}
       {pastille ? <span className="pastille-attente">{pastille}</span> : <Icon name="chevron-down" className="chevron" />}
+      {/* Hors du rang : posé sur le coin, il ne serre ni le titre ni le chevron. */}
+      {compteur && compteur.n > 0 && (
+        <>
+          <span className="gros-compteur" aria-hidden="true">
+            {compteur.n > 9 ? '9+' : compteur.n}
+          </span>
+          <span className="sr-only">{`, ${compteur.label}`}</span>
+        </>
+      )}
     </>
   )
   return href ? (
