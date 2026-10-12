@@ -184,8 +184,16 @@ export function AccountApp() {
               </a>{' '}
               : compose un quiz tout prêt en un geste, pars d'un modèle, importe celui d'un ami, ou écris le tien.
             </li>
-            <li>Ouvre l'écran commun sur l'ordinateur branché à la télé.</li>
-            <li>Tes invités scannent le QR qu'il affiche, et c'est parti.</li>
+            {/* Un profil branche sa télé par son code, sans rien y taper (`/tele`) : la
+                seule voie que la page disait, l'ordinateur relié à la télé, n'est plus la première. */}
+            {me.profil ? (
+              <li>
+                Sur la télé, ouvre <strong>{window.location.host}/tele</strong> : « Créer un salon », sur ton téléphone, la branche par le code qu'elle affiche.
+              </li>
+            ) : (
+              <li>Ouvre l'écran commun sur l'ordinateur branché à la télé.</li>
+            )}
+            <li>Tes invités scannent le QR à l’écran, et c'est parti.</li>
           </ol>
         </section>
       )}

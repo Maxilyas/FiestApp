@@ -458,6 +458,14 @@ export function HostApp() {
    */
   const [coulissesIci, setCoulissesIci] = useState<number | null>(null)
   const reprendreCoulisses = () => setCoulissesIci(numeroDeScene)
+  /**
+   * « Piloter d'ici » : la télé branchée par un code reprend la console, à
+   * la souris — le portable branché à la télé dont le téléphone qui
+   * l'animait s'est éteint pour de bon, ou une télé branchée par erreur sur
+   * un autre espace (« Débrancher » est dans la console). Jusqu'au
+   * rechargement de la page.
+   */
+  const [piloteeIci, setPiloteeIci] = useState(false)
   const finirAnnonces = useCallback(() => setState({ progres: null }), [])
   useEffect(() => {
     if (!screen || screen === 'cloture' || !spaceSlug) return
@@ -644,19 +652,24 @@ export function HostApp() {
   // équipes — pendant que la télé projette la scène.
   const staging = !telecommande && ((!!quizView && quizView.phase !== 'pickPack') || screen !== null)
   /**
-   * La télé branchée par un code, pendant qu'une télécommande anime : un pur
-   * écran de salle. Rien à y toucher — la télécommande d'une télé ne clique
-   * pas —, donc ni console ni panneau des équipes ; en salle d'attente, la
-   * salle vue de loin (`SalleDeLaTele`).
+   * La télé branchée par un code : un pur écran de salle. On la branche
+   * depuis le téléphone qui anime — la barre du chef d'un salon, ou la
+   * télécommande —, et rien ne s'y touche : la télécommande d'une télé ne
+   * clique pas. Ni console ni panneau des équipes ; en salle d'attente, la
+   * salle vue de loin (`SalleDeLaTele`). Elle l'est dès son branchement, et
+   * le reste quand ce téléphone se verrouille : elle ne l'était qu'avec une
+   * télécommande déclarée, que la barre du chef ne déclarait pas — la télé
+   * d'un salon montrait toute la console, « Mes quiz » et « Mon compte »
+   * compris (la revue du 12 octobre 2026, `rendu-tele.ts`).
    */
-  const ecranDeSalle = me.branchee && !telecommande && !!snap.telecommande
+  const ecranDeSalle = me.branchee && !telecommande && !piloteeIci
   /**
-   * Une télécommande est branchée ailleurs : cet écran est celui de la
-   * salle, et les coulisses — la grille des prix, la liste des quiz, la
+   * Une télécommande est branchée ailleurs, ou cet écran est celui de la
+   * salle : les coulisses — la grille des prix, la liste des quiz, la
    * consigne écrite pour l'animateur — restent dans sa main.
    */
   const coulissesAilleurs =
-    !telecommande && coulissesIci !== numeroDeScene && (!!snap.telecommande || telecommandeVue === numeroDeScene)
+    !telecommande && coulissesIci !== numeroDeScene && (ecranDeSalle || !!snap.telecommande || telecommandeVue === numeroDeScene)
   const answering = quizView?.phase === 'question'
 
   /** Ce que la bande d'état annonce au centre : où en est la soirée. */
@@ -730,9 +743,12 @@ export function HostApp() {
    * taper d'adresse ni de mot de passe à la télécommande de la télé.
    */
   const brancherTele = async () => {
+    // `/tele`, comme le salon le dit : la page de la télé s'ouvre sur son
+    // code, sans formulaire de connexion. Et la télé montre la soirée, elle
+    // ne la pilote pas — c'est ce téléphone qui le fait.
     const code = await promptDialog({
       title: 'Brancher la télé',
-      message: 'Ouvre /host sur la télé : elle affiche un code. Tape-le ici — la télé pourra alors piloter ta soirée.',
+      message: `Sur la télé, ouvre ${window.location.host}/tele : elle affiche un code. Tape-le ici, et elle montrera ta soirée.`,
       input: { value: '', placeholder: 'ABC 234', maxLength: 12 },
       confirmLabel: 'Brancher',
     })
@@ -922,9 +938,19 @@ export function HostApp() {
 
         {/* Le repère principal : la scène et ses colonnes, entre le bandeau
             (banner) et la console (contentinfo). */}
-        {ecranDeSalle && !staging && !quizView ? (
+        {/* Pendant le choix du quiz aussi : la liste est dans la main de qui
+            anime, et la télé d'un salon montrait le panneau des invités le
+            temps que la barre lance le quiz du programme. */}
+        {ecranDeSalle && !staging ? (
           <main>
-            <SalleDeLaTele titre={snap.space.title} code={snap.code} entreeUrl={entreeUrl} players={snap.players} chef={me.name} />
+            <SalleDeLaTele
+              titre={snap.space.title}
+              code={snap.code}
+              entreeUrl={entreeUrl}
+              players={snap.players}
+              chef={me.name}
+              onPiloter={snap.telecommande ? undefined : () => setPiloteeIci(true)}
+            />
           </main>
         ) : (
         <main className={'host-grid' + (staging ? ' staging' : '')}>
@@ -1639,6 +1665,15 @@ export function HostApp() {
           <span className="console-label">{telecommande ? 'Télécommande' : 'Console animateur'}</span>
           <div className="console-actions" ref={setConsoleSlot} />
           <div className="console-icons">
+            {/* Personne ne l'anime d'un téléphone en ce moment : la télé
+                branchée se laisse piloter à la souris, d'un geste qu'on fait
+                exprès — un téléphone verrouillé ne lui rend plus la console. */}
+            {ecranDeSalle && !snap.telecommande && (
+              <button className="btn btn-ghost btn-small piloter-ici" onClick={() => setPiloteeIci(true)}>
+                <Icon name="edit" />
+                Piloter d’ici
+              </button>
+            )}
             {/* Qui manque, et les gestes d'un téléphone perdu : ici, parce que
                 pendant un quiz le panneau des invités disparaît. */}
             <Absents

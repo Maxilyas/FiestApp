@@ -284,7 +284,22 @@ export function SalonApp() {
         {ecran === 'tele' &&
           (teleBranchee ? (
             <p className="tele-branchee" role="status">
-              <Icon name="check-circle" /> Télé branchée
+              <Icon name="check-circle" />
+              <span>Télé branchée : elle s’ouvre dans un instant</span>
+              {/* Rechargée entre-temps, la télé montre un code neuf, et celui
+                  qu'on vient de taper n'ouvrait plus rien ; branchée sur la
+                  mauvaise télé, de même. Sans ce geste, le champ ne revenait
+                  qu'en rechargeant la page — et ses choix avec. */}
+              <button
+                type="button"
+                className="link-inline"
+                onClick={() => {
+                  setTeleBranchee(false)
+                  setCodeTele('')
+                }}
+              >
+                Une autre télé ?
+              </button>
             </p>
           ) : (
             <form

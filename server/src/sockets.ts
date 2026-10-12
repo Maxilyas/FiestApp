@@ -160,6 +160,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
   })
 
   io.on('connection', socket => {
+    /** L'heure où la session d'une télé branchée s'éteint : sa connexion tombe avec elle. */
+    let finDeLaTele: ReturnType<typeof setTimeout> | undefined
     let helloFailures = 0
     let placeFailures = 0
     /** La génération de codes à laquelle `placeFailures` se rapporte. */
@@ -725,6 +727,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           name: found.account.name,
           ...(found.session.finMax !== null && { branchee: true as const }),
         })
+        // La télé branchée tient une soirée (invariant 16), mais un écran de
+        // salle ne fait aucun geste qui relirait sa session : allumée chez un
+        // ami, elle recevait encore ses soirées des jours plus tard. Sa
+        // connexion tombe à l'heure dite, et la page revient à son code.
+        clearTimeout(finDeLaTele)
+        if (found.session.finMax !== null) {
+          finDeLaTele = setTimeout(() => socket.disconnect(true), Math.max(0, found.session.finMax - Date.now()))
+          finDeLaTele.unref()
+        }
         // L'annonce de clôture d'abord : l'instantané qui suit dit qu'elle
         // est à l'écran, et un écran rallumé pendant qu'on l'affiche doit
         // avoir de quoi la montrer.
@@ -1046,6 +1057,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     // Un événement de socket.io, pas du client — mais une exception y
     // emporterait le processus tout autant.
     socket.on('disconnect', () => {
+      clearTimeout(finDeLaTele)
       try {
         const playerId = socket.data.playerId
         const rt = socket.data.spaceId ? deps.registry.peek(socket.data.spaceId) : undefined

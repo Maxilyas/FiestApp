@@ -41,7 +41,14 @@ export function brancherLeChef() {
   socket = s
   s.on('connect', () => {
     poser({ connecte: true })
-    s.emit('host:hello', {}, res => poser({ presente: res.ok }))
+    s.emit('host:hello', {}, res => {
+      poser({ presente: res.ok })
+      // La barre est la télécommande du salon : la télé branchée garde ses
+      // coulisses — la liste des quiz — pour le chef, et ne propose pas de se
+      // piloter elle-même tant qu'il est là. À chaque connexion : le serveur
+      // l'oublie avec la précédente.
+      if (res.ok) s.emit('host:telecommande', { active: true })
+    })
   })
   s.on('disconnect', () => poser({ connecte: false }))
   s.on('party:snapshot', snapshot => poser({ snapshot }))
@@ -90,7 +97,6 @@ export function equipesParDefaut() {
   socket?.emit('host:seedTeams', { count: 2 })
 }
 
-/** Enregistre la soirée maintenant : sa fin à chacun, puis la page blanche. */
 /** Une équipe de plus, depuis la barre du chef. */
 export function creerEquipe(name: string, emoji: string) {
   socket?.emit('host:createTeam', { name, emoji })
@@ -106,6 +112,7 @@ export function retirerEquipe(teamId: string) {
   socket?.emit('host:removeTeam', { teamId })
 }
 
+/** Enregistre la soirée maintenant : sa fin à chacun, puis la page blanche. */
 export function clore() {
   poser({ message: null })
   socket?.emit('host:closeParty', {})

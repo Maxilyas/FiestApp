@@ -94,6 +94,7 @@ export function SalleDeLaTele({
   entreeUrl,
   players,
   chef,
+  onPiloter,
 }: {
   titre: string
   code?: string
@@ -101,6 +102,12 @@ export function SalleDeLaTele({
   players: PublicPlayer[]
   /** Qui tient la télécommande : la salle sait de qui viendra le signal. */
   chef: string
+  /**
+   * Personne ne l'anime d'un téléphone en ce moment : la télé se laisse
+   * piloter à la souris, d'un lien discret — l'écran de salle couvre la
+   * console, et le portable branché à la télé n'avait pas d'autre porte.
+   */
+  onPiloter?: () => void
 }) {
   const visages = players.filter(p => p.connected)
   return (
@@ -133,7 +140,14 @@ export function SalleDeLaTele({
           ))}
         </ul>
       </section>
-      <footer className="tv-pied">{espacesFines(`${chef} lance la partie depuis son téléphone`)}</footer>
+      <footer className="tv-pied">
+        {espacesFines(`${chef} lance la partie depuis son téléphone`)}
+        {onPiloter && (
+          <button type="button" className="link-inline tv-connexion" onClick={onPiloter}>
+            Piloter d’ici
+          </button>
+        )}
+      </footer>
     </div>
   )
 }

@@ -295,6 +295,12 @@ export interface QuizHostView {
   // pickPack
   packs?: QuizPackInfo[]
   programme?: ProgrammeDuSoir
+  /**
+   * Le quiz joué est le dernier du programme, tel qu'il était au lancement :
+   * dans un salon, le terminer à la main clôt la soirée, et la barre du chef
+   * le dit avant (`considererCloture`).
+   */
+  dernierDuProgramme?: true
   /** L'intertitre, pendant sa diapo (voir `QuizPlayerView.intertitre`). */
   intertitre?: string
   /** À la révélation : l'anecdote et la photo qui l'accompagne. */

@@ -9,6 +9,7 @@
 // pendant le podium, défait la fin du programme.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   attendre,
   connexionAnimateur,
@@ -20,6 +21,7 @@ import {
   inscrireProfil,
   instantane,
   invite,
+  lancerQuiz,
   patienter,
   qcm,
   type Banc,
@@ -167,6 +169,30 @@ test('le podium regardé, la fin du programme annoncée : « Terminer le quiz »
   const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, tout de suite', 5000)
   ;(s.ecran as any).emit('host:endSession', { sessionId })
   assert.ok((await fin).soiree)
+})
+
+test('la vue d’animateur dit si le quiz joué est le dernier du programme : la barre du chef le dit avant de le terminer', async () => {
+  // La boîte de « Terminer le quiz » parlait d'un quiz seul, et le chef qui
+  // voulait encore le podium tombait sur sa fin de soirée (la revue de la
+  // télé branchée, le 12 octobre 2026). Lu dans l'état de la partie : une
+  // barre rechargée en cours de quiz le sait encore.
+  const s = await salon('chef6')
+  const encore = await creerQuiz(banc.url, s.console_, [qcm('Encore ?')], 'Encore un')
+  assert.ok(
+    (await ecrire(banc.url, `/api/programmes/${s.programme.id}`, { entrees: [{ quizId: s.quiz, multiplier: 1 }, { quizId: encore, multiplier: 1 }] }, s.console_, 'PUT')).ok,
+  )
+  const vues: any[] = []
+  const ecoute = (p: any) => vues.push(p.view)
+  s.ecran.on('session:view', ecoute)
+  await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  s.ecran.off('session:view', ecoute)
+  assert.ok(vues.some(v => v.phase === 'question') && vues.some(v => v.phase === 'finished'))
+  assert.ok(vues.every(v => v.dernierDuProgramme === undefined), 'le premier des deux n’est pas le dernier')
+  const question = attendre<any>(s.ecran, 'session:view', p => p.view.phase === 'question', 'la question du dernier')
+  await lancerQuiz(s.ecran, encore)
+  assert.equal((await question).view.dernierDuProgramme, true, 'le second l’est')
+  const barre = readFileSync(new URL('../../client/src/components/BarreDuChef.tsx', import.meta.url), 'utf8')
+  assert.match(barre, /v\?\.dernierDuProgramme\s*\?\s*\{\s*title: 'Terminer ce quiz et la soirée \?'/)
 })
 
 test('« Terminer le quiz » quand le programme en garde un autre : la soirée continue', async () => {
