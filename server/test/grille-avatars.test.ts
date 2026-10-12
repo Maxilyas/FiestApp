@@ -1,7 +1,9 @@
 // La grille des avatars du profil : un seul geste pour tous. On touche un
 // avatar — portrait d'une branche, emoji, de collection, légendaire ou Divin
-// —, sa fiche s'ouvre sous sa rangée, et « Le porter » le porte. Cent
-// vingt-neuf avatars se rangent par famille, un onglet chacune.
+// —, il s'essaie sur la carte de la loge et sa fiche s'ouvre sous sa rangée ;
+// « Porter », dans la barre de la loge, le porte (le 12 octobre 2026 : sa
+// fiche le portait d'un bouton « Le porter », que les autres écrans gardent).
+// Cent vingt-neuf avatars se rangent par famille, un onglet chacune.
 //
 // Un emoji se portait d'un toucher, quand un avatar dessiné ouvrait sa
 // légende : la même grille répondait de deux façons. Le doigt qui voulait
@@ -70,11 +72,13 @@ const HABITUE = {
 /** Les trois familles de « Mes avatars », dans l'ordre des onglets. */
 const FAMILLES = ['branches', 'emojis', 'legendaires']
 
-/** « Mes avatars » ouvert sur une famille. */
-const mesAvatars = (profil: object, familleInitiale?: string) =>
-  rendu('components/Apparence', 'MesAvatars', { profil, busy: false, enregistrer: () => {}, familleInitiale })
+/** Ce que reçoit une pièce de la loge : rien d'essayé, rien d'enregistré. */
+const loge = { essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} }
 
-test('dans chaque famille, chaque case ouvre sa fiche : aucune ne se porte d’un toucher', async () => {
+/** « Mes avatars » ouvert sur une famille. */
+const mesAvatars = (profil: object, familleInitiale?: string) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, familleInitiale })
+
+test('dans chaque famille, chaque case s’essaie et ouvre sa fiche : aucune ne se porte d’un toucher', async () => {
   const cases: string[] = []
   for (const famille of FAMILLES) {
     const html = await mesAvatars(HABITUE, famille)
@@ -83,8 +87,9 @@ test('dans chaque famille, chaque case ouvre sa fiche : aucune ne se porte d’u
     for (const b of boutons) assert.match(b, /role="tab"|class="ligne-branche"|class="emoji-btn case-avatar/, b)
     cases.push(...boutons.filter(b => /case-avatar/.test(b)))
     assert.doesNotMatch(html, /id="detail-avatar"/, `${famille} : aucune fiche avant le premier toucher`)
-    // Les espaces fines de `espacesFines`, autour du bouton cité.
-    assert.match(html, /touche un avatar, puis «\u202fLe porter\u202f»/)
+    // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher fait — il essaie, il ne porte plus.
+    assert.match(html, /Touches-en un : ta carte l’essaie\./)
+    assert.doesNotMatch(html, /touche un avatar, puis «\u202fLe porter\u202f»/)
   }
   // Les six portraits de la branche dépliée, vingt-quatre emojis, les dix de
   // collection ouverts au niveau 14, les légendaires, les Divins.
@@ -102,9 +107,13 @@ test('dans chaque famille, chaque case ouvre sa fiche : aucune ne se porte d’u
   assert.deepEqual(portes, ['Le Phénix, légendaire, porté'])
 
   // Le geste lui-même : dans les grilles, un toucher n'enregistre rien — il
-  // ouvre la fiche, ou déplie une branche ; seule la fiche porte.
+  // essaie l'avatar et ouvre sa fiche, ou déplie une branche ; seule la barre
+  // de la loge porte.
   const composant = source('components/Apparence.tsx')
   const corps = composant.slice(composant.indexOf('export function MesAvatars'), composant.indexOf('export function DetailPortrait'))
+  assert.match(corps, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*const piece = essaiDe\(cle\)\s*if \(piece\) essayer\(piece\)\s*\}/)
+  // Les fiches de la grille ne portent plus rien : « Porter » est dans la barre de la loge.
+  assert.doesNotMatch(corps, /onPorter=/)
   const gestes = [...corps.matchAll(/onClick=\{/g)].map(m => {
     let profondeur = 1
     let k = m.index! + m[0].length
@@ -158,8 +167,7 @@ test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille 
 test('dans « Mon avatar », seulement ceux qu’il a : ni case fermée, ni branche sans portrait, ni Divin pas encore descendu', async () => {
   // On y vient pour en changer : cent cases fermées noyaient les quarante
   // qu'on peut porter. Ce qui reste, et où, se lit dans « Ma collection ».
-  const aMoi = (profil: object, familleInitiale: string) =>
-    rendu('components/Apparence', 'MesAvatars', { profil, busy: false, enregistrer: () => {}, familleInitiale, aMoi: true })
+  const aMoi = (profil: object, familleInitiale: string) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, familleInitiale, aMoi: true })
   const savant = { ...HABITUE, sentiers: { foret: 5, mythes: 2 } }
   for (const famille of FAMILLES) {
     const html = await aMoi(savant, famille)
@@ -188,7 +196,7 @@ test('dans « Mon avatar », seulement ceux qu’il a : ni case fermée, ni bran
   assert.doesNotMatch(await aMoi(debutant, 'emojis'), /De collection/)
   // Il s'ouvre sur ce qu'il porte : sous un emoji de l'inscription, ses emojis — pas des branches vides.
   const actif = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
-  const ouvert = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, busy: false, enregistrer: () => {}, aMoi: true })
+  const ouvert = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge, aMoi: true })
   assert.equal(actif(await ouvert(debutant)), 'Emojis')
   assert.equal(actif(await ouvert({ ...savant, legendaire: 'br:blaireau' })), 'Branches')
   assert.equal(actif(await ouvert(savant)), 'Légendaires')

@@ -14,7 +14,7 @@ import { theme } from '../../../shared/themes'
 /** Sa carte entière, comme la salle la voit, au toucher : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 
-/** Les pages où l'on change ce qu'on porte : une par pièce, que sa place sur la carte ouvre. */
+/** Les pièces de la loge (« Me changer ») : chacune l'ouvre sur elle, de sa place sur la carte. */
 export type EcranDuVestiaire = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe'
 
 /** Ce que le vestiaire montre en plus de l'en-tête du profil : il vient avec les écrans (`apercusDesTuiles`). */
@@ -25,7 +25,22 @@ export interface ApercusDuVestiaire {
   /** Sa gerbe — trois de ses particules —, ou aucune. */
   gerbe: { nom: string; particules: string[] } | null
   apercuDuTheme: string | undefined
+  /** Ce qui est arrivé depuis son dernier passage dans la loge, pièce par pièce. */
+  nouveautes?: Partial<Record<EcranDuVestiaire, number>>
 }
+
+/** La pastille d'une pièce qui a du nouveau : à l'œil ; l'oreille l'entend dans le nom du bouton. */
+function Neuf({ n }: { n: number | undefined }) {
+  if (!n) return null
+  return (
+    <span className="nouveau-pastille vestiaire-neuf" aria-hidden="true">
+      Nouveau
+    </span>
+  )
+}
+
+/** Ce que l'oreille entend d'une pièce qui a du nouveau, au bout du nom de son bouton. */
+const duNouveau = (n: number | undefined) => (n ? ', du nouveau' : '')
 
 /** Trois cases à la vitrine d'une carte (`VITRINE_MAX`, `shared/carte.ts`). */
 const CASES_DE_LA_VITRINE = 3
@@ -33,11 +48,12 @@ const CASES_DE_LA_VITRINE = 3
 /**
  * Ce qu'on porte, en une image qu'on touche : sa carte telle que la salle la
  * voit — son fond, son avatar, son titre, sa vitrine —, puis ce que lui seul
- * voit, son thème et sa gerbe, côte à côte. Chaque pièce ouvre sa page, en
- * haut (le souhait du propriétaire du 11 octobre 2026 : « quelque chose de
- * visuel qui permettrait de cliquer sur les différents éléments », puis
- * « une page dédiée » à chacun). Trois tuiles disaient « Mon avatar », « Ma
- * carte », « Mon thème » : il fallait savoir ce que chacune rangeait.
+ * voit, son thème et sa gerbe, côte à côte. Chaque pièce ouvre la loge sur
+ * elle (le souhait du propriétaire du 11 octobre 2026 : « quelque chose de
+ * visuel qui permettrait de cliquer sur les différents éléments », puis la
+ * loge, validée le 12 octobre). Trois tuiles disaient « Mon avatar », « Ma
+ * carte », « Mon thème » : il fallait savoir ce que chacune rangeait. Une
+ * pastille dit la pièce qui a du nouveau depuis son dernier passage.
  */
 export function Vestiaire({
   profil,
@@ -59,11 +75,12 @@ export function Vestiaire({
   const vitrine = apercus?.vitrine ?? []
   // Sans gerbe portée, il n'en veut aucune : sans choix, chacun porte les confettis.
   const nomDeLaGerbe = apercus ? (apercus.gerbe?.nom ?? 'Aucune') : ''
+  const neuf = apercus?.nouveautes ?? {}
   return (
     <div className="vestiaire">
       <div className={'vestiaire-carte' + (profil.fond ? ` carte-fond fond-${profil.fond}` : '')}>
         <div className="vestiaire-tete">
-          <button type="button" className="vestiaire-avatar" aria-label={`Mon avatar, ${nomPorte} : le changer`} onClick={() => onOuvrir('avatar')}>
+          <button type="button" className="vestiaire-avatar" aria-label={`Mon avatar, ${nomPorte} : le changer${duNouveau(neuf.avatar)}`} onClick={() => onOuvrir('avatar')}>
             <Avatar
               className="player-avatar big"
               avatar={profil.avatar}
@@ -74,6 +91,7 @@ export function Vestiaire({
             <span className="vestiaire-crayon" aria-hidden="true">
               <Icon name="edit" />
             </span>
+            <Neuf n={neuf.avatar} />
           </button>
           <div className="vestiaire-qui-suis-je">
             <span className="identite-nom">
@@ -85,11 +103,12 @@ export function Vestiaire({
             <button
               type="button"
               className={'vestiaire-titre' + (titre ? '' : ' vestiaire-vide')}
-              aria-label={titre ? `Mon titre, ${titre} : le changer` : 'Choisir un titre'}
+              aria-label={(titre ? `Mon titre, ${titre} : le changer` : 'Choisir un titre') + duNouveau(neuf.titre)}
               onClick={() => onOuvrir('titre')}
             >
               {titre ? espacesFines(`« ${titre} »`) : 'Choisir un titre'}
               <Icon name="edit" />
+              <Neuf n={neuf.titre} />
             </button>
           </div>
         </div>
@@ -97,7 +116,7 @@ export function Vestiaire({
         <button
           type="button"
           className="vestiaire-vitrine"
-          aria-label={vitrine.length > 0 ? `Ma vitrine, ${vitrine.map(b => b.nom).join(', ')} : la changer` : 'Ma vitrine : la remplir'}
+          aria-label={(vitrine.length > 0 ? `Ma vitrine, ${vitrine.map(b => b.nom).join(', ')} : la changer` : 'Ma vitrine : la remplir') + duNouveau(neuf.vitrine)}
           onClick={() => onOuvrir('vitrine')}
         >
           <span className="vestiaire-etiquette">Ma vitrine</span>
@@ -108,17 +127,19 @@ export function Vestiaire({
               </span>
             ))}
           </span>
+          <Neuf n={neuf.vitrine} />
           <Icon name="edit" />
         </button>
         <button
           type="button"
           className="vestiaire-fond"
-          aria-label={`Le fond de ma carte${apercus ? `, ${apercus.fond}` : ''} : le changer`}
+          aria-label={`Le fond de ma carte${apercus ? `, ${apercus.fond}` : ''} : le changer${duNouveau(neuf.fond)}`}
           onClick={() => onOuvrir('fond')}
         >
           <Icon name="image" />
           <span className="vestiaire-etiquette">Fond de carte</span>
           <span className="vestiaire-valeur">{apercus?.fond ?? ''}</span>
+          <Neuf n={neuf.fond} />
           <Icon name="edit" />
         </button>
         <XpMince profil={profil} />
@@ -134,21 +155,23 @@ export function Vestiaire({
           et la gerbe tenaient sur un seul bouton, et la gerbe se cherchait
           sous les thèmes. */}
       <div className="vestiaire-pour-moi">
-        <button type="button" className="vestiaire-perso" aria-label={`Mon thème, ${sonTheme.nom} : le changer`} onClick={() => onOuvrir('theme')}>
+        <button type="button" className="vestiaire-perso" aria-label={`Mon thème, ${sonTheme.nom} : le changer${duNouveau(neuf.theme)}`} onClick={() => onOuvrir('theme')}>
           <span className="mini-theme" aria-hidden="true">
             {apercus?.apercuDuTheme && <img src={apercus.apercuDuTheme} alt="" width={46} height={58} decoding="async" />}
           </span>
           <b>Mon thème</b>
           <span className="vestiaire-valeur">{sonTheme.nom}</span>
           <Icon name="edit" />
+          <Neuf n={neuf.theme} />
         </button>
-        <button type="button" className="vestiaire-perso" aria-label={`Ma gerbe${apercus ? `, ${nomDeLaGerbe}` : ''} : la changer`} onClick={() => onOuvrir('gerbe')}>
+        <button type="button" className="vestiaire-perso" aria-label={`Ma gerbe${apercus ? `, ${nomDeLaGerbe}` : ''} : la changer${duNouveau(neuf.gerbe)}`} onClick={() => onOuvrir('gerbe')}>
           <span className={'mini-gerbe' + (apercus?.gerbe ? '' : ' mini-gerbe-vide')} aria-hidden="true">
             {apercus?.gerbe?.particules.map((p, i) => <span key={i}>{p}</span>)}
           </span>
           <b>Ma gerbe</b>
           <span className="vestiaire-valeur">{nomDeLaGerbe}</span>
           <Icon name="edit" />
+          <Neuf n={neuf.gerbe} />
         </button>
       </div>
       <p className="vestiaire-qui">

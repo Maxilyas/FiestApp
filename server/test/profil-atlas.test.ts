@@ -1,13 +1,13 @@
 // Les écrans du profil, à la manière de la maquette du 5 octobre 2026.
 //
-// Ce qu'on porte, une page par pièce, que sa place sur la carte ouvre (le
-// vestiaire) : « Mon avatar » (la salle — sa finition comprise), « Mon
-// titre », « Ma vitrine », « Mon fond de carte » (qui touche son nom), « Mon
-// thème », « Ma gerbe » (lui seul). Ces pages ne montrent que ce qu'on a ;
+// Ce qu'on porte, dans la loge (la maquette validée le 12 octobre 2026) :
+// chaque place sur la carte du vestiaire l'ouvre sur sa pièce — l'avatar (la
+// salle — sa finition comprise), le titre, la vitrine, le fond (qui touche
+// son nom), le thème, la gerbe (lui seul). La loge ne montre que ce qu'on a ;
 // tout le reste, et où le gagner, vit dans « Ma collection », où les avatars
 // se parcourent en atlas : un rail des douze branches, chacune un orbe dont
 // l'anneau se remplit, puis la branche choisie en chemin ; les légendaires
-// et les Divins en grilles de médaillons.
+// et les Divins en grilles de médaillons. La loge elle-même : `loge.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -60,6 +60,11 @@ const profil = {
   boutique: { confettis: { solde: 12 } },
 }
 const rien = { busy: false, enregistrer: () => {} }
+/** Ce que reçoit une pièce de la loge : rien d'essayé encore. */
+const loge = { ...rien, essai: {}, essayer: () => {} }
+/** La loge ouverte sur une pièce. */
+const laLoge = (piece: string, p: object = complet) =>
+  rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: p, piece, onPiece: () => {}, busy: false, enregistrer: async () => true })
 
 test('le savoir en atlas : douze orbes sur deux rangées, la branche la plus avancée en chemin', async () => {
   const html = await rendu('components/AtlasDesAvatars', 'AtlasDesAvatars', { profil, ...rien, onglet: 'savoir' })
@@ -121,26 +126,21 @@ test('le profil : ce qu’on porte en une image qu’on touche, puis ce qu’on 
     'Me retrouver › Ma carrière (#carriere)',
     'Me retrouver › Mes soirées (#soirees)',
   ])
-  // Chaque page de ce qu'on porte a son icône, et redit en tête qui la voit, l'œil devant.
-  assert.match(app, /<PieceTete piece=\{e\.groupe\} titre=\{e\.nom\} icone=\{e\.icone\}>\s*\{e\.qui && \(\s*<p className="muted qui-le-voit">\s*<Icon name="eye" \/>\s*\{e\.qui\}/)
+  // Chaque pièce de la loge a son icône — celle de sa page d'avant —, et redit sous la rangée qui la voit, l'œil devant.
+  const LOGE = source('components/Loge.tsx')
+  assert.match(LOGE, /<p className="muted loge-qui">\s*<Icon name="eye" \/>\s*\{espacesFines\(pieceDuPanneau\.qui\)\}/)
   for (const [id, icone] of [['avatar', 'sparkles'], ['titre', 'star'], ['vitrine', 'award'], ['fond', 'image'], ['theme', 'palette'], ['gerbe', 'zap']])
-    assert.match(app, new RegExp(`\\{ id: '${id}', nom: '[^']+', groupe: 'Me changer', icone: '${icone}', qui: '`), id)
-  // « Me changer » : le vestiaire, qui ouvre les pages par la même porte que les tuiles.
+    assert.match(LOGE, new RegExp(`const ICONES: Record<PieceDeLaLoge, IconName> = \\{[^}]*\\b${id}: '${icone}'`), id)
+  const PIECES = readFileSync(new URL('../../shared/loge.ts', import.meta.url), 'utf8')
+  for (const id of ['avatar', 'titre', 'vitrine', 'fond', 'theme', 'gerbe']) assert.match(PIECES, new RegExp(`\\{ id: '${id}', nom: '[^']+', groupe: '(salle|moi)', qui: '`), id)
+  // « Me changer » : le vestiaire, qui ouvre la loge par la même porte que les tuiles.
   assert.match(app, /<Vestiaire profil=\{profil\} apercus=\{plus\} nomPorte=\{[^}]+\} onOuvrir=\{ouvrir\} \/>/)
   assert.doesNotMatch(app, /tuiles-trois/)
-  // Plus de partie d'écran où faire défiler (`#carte-vitrine`) : une adresse, une page.
+  // Plus de partie d'écran où faire défiler (`#carte-vitrine`) : une adresse, une pièce.
   assert.doesNotMatch(app, /h\.startsWith\(`\$\{e\.id\}-`\)/)
-  // Chaque écran a son panneau, chargé à la demande.
-  for (const [ecran, panneau] of [
-    ['avatar', 'PanneauMonAvatar'],
-    ['titre', 'PanneauMonTitre'],
-    ['vitrine', 'PanneauMaVitrine'],
-    ['fond', 'PanneauMonFond'],
-    ['theme', 'PanneauMonTheme'],
-    ['gerbe', 'PanneauMaGerbe'],
-    ['collection', 'PanneauCollection'],
-  ])
-    assert.match(app, new RegExp(`\\{ecran === '${ecran}' && \\(pret \\? <pret\\.${panneau} `), ecran)
+  // Les six pièces ouvrent la loge, la collection son panneau — chargés à la demande.
+  assert.match(app, /if \(e\.groupe === 'Me changer'\) \{[\s\S]*?\{pret \? <pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} /)
+  assert.match(app, /\{ecran === 'collection' && \(pret \? <pret\.PanneauCollection /)
 })
 
 test('une tuile montre ce qu’on porte et qui le voit ; la collection se couche, son compte et sa jauge', async () => {
@@ -199,35 +199,37 @@ test('le vestiaire : sa carte telle que la salle la voit, chaque pièce un bouto
 // on tombe au milieu d'une page », et les gerbes et les thèmes, « qui ne
 // devraient pas être dans le même onglet ». « Ma carte » rangeait titre,
 // vitrine et fond, et le vestiaire faisait défiler jusqu'à la pièce touchée ;
-// « Mon thème » posait la gerbe sous les thèmes.
-test('chaque pièce qu’on porte a sa page : sa carte en tête quand la salle la voit, et sa seule pièce', async () => {
-  for (const [panneau, titres] of [
-    ['PanneauMonTitre', ['Mes titres']],
-    ['PanneauMaVitrine', ['Sur ta carte']],
-    ['PanneauMonFond', ['Mes fonds']],
+// « Mon thème » posait la gerbe sous les thèmes. Depuis le 12 octobre, la
+// loge les tient sur un écran : chaque pièce a son panneau, et lui seul.
+test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête, et sa seule pièce', async () => {
+  for (const [piece, titres] of [
+    ['titre', ['Mes titres']],
+    ['vitrine', ['Sur ta carte']],
+    ['fond', ['Mes fonds']],
+    ['gerbe', ['Mes gerbes']],
   ] as const) {
-    const html = await rendu('components/PanneauxDuProfil', panneau, { profil: complet, ...rien })
-    assert.match(html, /^<div class="identite-collante"><button type="button" class="identite"/, `${panneau} : sa carte en tête, qui change sous ses yeux`)
-    assert.deepEqual(cartes(html), titres, panneau)
+    const html = await laLoge(piece)
+    assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, `${piece} : sa carte en tête, qui change sous ses yeux`)
+    assert.deepEqual(cartes(html), titres, piece)
   }
-  // Le reste de la carte se remplit tout seul : la page de la vitrine le dit.
-  assert.match(await rendu('components/PanneauxDuProfil', 'PanneauMaVitrine', { profil: complet, ...rien }), /Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix\./)
-  // Le thème et la gerbe, chacun sa page, sans carte en tête : la salle n'en voit rien.
-  const theme = await rendu('components/PanneauxDuProfil', 'PanneauMonTheme', { profil: complet, ...rien })
-  assert.match(theme, /^<section class="mes-themes">/)
-  assert.doesNotMatch(theme, /gerbes-choix|Mes gerbes/, 'la gerbe a sa page')
-  const gerbe = await rendu('components/PanneauxDuProfil', 'PanneauMaGerbe', { profil: complet, ...rien })
-  assert.match(gerbe, /^<section class="card"><h3>/)
+  // Le reste de la carte se remplit tout seul : la pièce de la vitrine le dit.
+  assert.match(await laLoge('vitrine'), /Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix\./)
+  // Le thème et la gerbe, chacun son panneau : le leur, rien d'autre.
+  const theme = await laLoge('theme')
+  assert.match(theme, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-theme"><section class="mes-themes">/)
+  assert.doesNotMatch(theme, /gerbes-choix|Mes gerbes/, 'la gerbe a son panneau')
+  const gerbe = await laLoge('gerbe')
+  assert.match(gerbe, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-gerbe"><section class="card"><h3>/)
   assert.deepEqual(cartes(gerbe), ['Mes gerbes'])
-  assert.doesNotMatch(gerbe, /mes-themes|theme-vitrine/, 'les thèmes ont leur page')
+  assert.doesNotMatch(gerbe, /mes-themes|theme-vitrine/, 'les thèmes ont leur panneau')
   // Plus rien ne défile jusqu'à une partie : chaque page s'ouvre en haut.
   assert.doesNotMatch(source('components/PanneauxDuProfil.tsx'), /scrollIntoView|ancre-du-vestiaire|PanneauMaCarte/)
   assert.doesNotMatch(source('styles.css'), /\.ancre-du-vestiaire/)
 })
 
-test('« Mon avatar » : sa carte collée en tête, la finition sur sa ligne, ses avatars à lui — le reste, dans la collection', async () => {
-  const html = await rendu('components/PanneauxDuProfil', 'PanneauMonAvatar', { profil: complet, ...rien })
-  assert.match(html, /^<div class="identite-collante"><button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
+test('la loge, sur l’avatar : sa carte collée en tête, la finition sur sa ligne, ses avatars à lui — le reste, dans la collection', async () => {
+  const html = await laLoge('avatar')
+  assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, 'sa carte en tête : c’est elle qui change')
   // La finition se lit sur sa ligne et se déplie : dépliée d'office, ses huit
   // cases repoussaient les avatars de plus d'un écran.
   assert.match(html, /<button type="button" aria-expanded="false" aria-controls="mes-finitions">.*<span class="style-nom">Finition<\/span><span class="style-valeur">Auto · Mat<\/span>/)
@@ -241,12 +243,12 @@ test('« Mon avatar » : sa carte collée en tête, la finition sur sa ligne, se
   const avatars = compteDeLaCollection(complet as any).familles.find(f => f.famille === 'avatars')!
   assert.match(html, new RegExp(`<a class="link-inline lien-boutique" href="#collection">.*${avatars.total - avatars.acquis} autres à gagner : où et comment, dans « Ma collection »</a>`))
   // La carte reste collée pendant qu'on choisit.
-  assert.match(source('styles.css'), /\.identite-collante \{ position: sticky; top: 0;/)
+  assert.match(source('styles.css'), /\.loge-collante \{ position: sticky; top: 0;/)
 })
 
-test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas — sa gerbe a sa page', async () => {
-  const html = await rendu('components/PanneauxDuProfil', 'PanneauMonTheme', { profil: complet, ...rien })
-  assert.doesNotMatch(html, /Mes gerbes|gerbes-choix/, 'la gerbe a sa page')
+test('la loge, sur le thème : ses thèmes, deux liens vers ce qu’il n’a pas — sa gerbe a son panneau', async () => {
+  const html = await laLoge('theme')
+  assert.doesNotMatch(html, /Mes gerbes|gerbes-choix/, 'la gerbe a son panneau')
   // Ce qui s'achète à la boutique, ce qui se gagne dans la collection : pas sur l'écran où l'on choisit.
   assert.match(html, /<a class="link-inline lien-boutique" href="\/boutique"><svg[^>]*>.*?<\/svg>\d+ autres à la boutique<\/a>/)
   assert.match(html, /<a class="link-inline lien-boutique" href="#collection-themes"><svg[^>]*>.*?<\/svg>5 qui ne se vendent pas : où les gagner<\/a>/)
@@ -259,9 +261,10 @@ test('« Mon thème » : ses thèmes, deux liens vers ce qu’il n’a pas — s
 // toucher, sans se porter ; et « Aucune » se demande, puisque sans choix
 // chacun porte les confettis. Puis le 11 octobre 2026 : « que ça ne soit pas
 // mélangé avec la collection » — « Ma gerbe » ne montre que les siennes, et
-// celles à gagner éclatent dans sa collection.
-test('« Ma gerbe » : les siennes seulement, « Aucune » se demande — celles à gagner éclatent dans la collection', async () => {
-  const html = await rendu('components/PanneauxDuProfil', 'PanneauMaGerbe', { profil: complet, ...rien })
+// celles à gagner éclatent dans sa collection. Dans la loge (le 12 octobre),
+// la gerbe touchée éclate et s'essaie : « Porter » la garde.
+test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande — celles à gagner éclatent dans la collection', async () => {
+  const html = await laLoge('gerbe')
   const gerbes = html.slice(html.indexOf('gerbes-choix'))
   assert.doesNotMatch(gerbes, /<button[^>]*disabled=""/, 'aucune gerbe ne se ferme au doigt')
   assert.doesNotMatch(gerbes, /gerbe-a-gagner/)
@@ -269,13 +272,13 @@ test('« Ma gerbe » : les siennes seulement, « Aucune » se demande — celles
   const reste = GERBES.length - complet.gerbes.length
   assert.match(gerbes, new RegExp(`<a class="link-inline lien-boutique" href="#collection-gerbes"><svg[^>]*>.*?</svg>${reste} autres gerbes à gagner : où et comment, dans « Ma collection »</a>`))
   const APPARENCE = source('components/Apparence.tsx')
-  assert.match(APPARENCE, /onClick=\{\(\) => enregistrer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
-  assert.match(APPARENCE, /if \(!choisie\) enregistrer\(\{ gerbe: g\.key \}\)/)
+  assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
+  assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
   // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
-  const carte = await rendu('components/PanneauxDuProfil', 'PanneauMonFond', { profil: complet, ...rien })
+  const carte = await laLoge('fond')
   assert.match(carte, /href="#collection-fonds"><svg[^>]*>.*?<\/svg>7 autres fonds à gagner : où et comment, dans « Ma collection »<\/a>/)
   assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
-  const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...rien })
+  const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...loge })
   assert.match(avatar, /href="#collection-finitions"><svg[^>]*>.*?<\/svg>6 autres finitions à gagner : où et comment, dans « Ma collection »<\/a>/)
   // Dans la collection, chaque gerbe se touche pour éclater, même à gagner.
   const COLLECTION = source('components/Collection.tsx')

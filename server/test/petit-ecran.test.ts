@@ -294,11 +294,19 @@ test('un toast ne s’ancre jamais en haut et en bas à la fois', () => {
 test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber le focus', async () => {
   // Désactivée le temps de l'enregistrement, la case touchée perdait le
   // focus, qui tombait sur la page ; l'état changeait sans rien dire.
-  for (const f of ['components/Apparence.tsx', 'components/Trophees.tsx', 'components/Carriere.tsx']) {
+  for (const f of ['components/Apparence.tsx', 'components/Trophees.tsx', 'components/Carriere.tsx', 'components/Loge.tsx']) {
     const s = source(f)
     assert.doesNotMatch(s, /(?<!aria-)disabled=\{[^}]*busy[^}]*\}/, `${f} désactive encore pendant l’enregistrement`)
-    assert.match(s, /aria-disabled=\{busy \|\| undefined\}/, `${f} dit encore qu’il enregistre`)
   }
+  // Ce qui enregistre le dit sans se désactiver — « Porter », dans la barre
+  // de la loge, compris. La vitrine, elle, n'enregistre plus rien : dans la
+  // loge, ses hauts faits s'essaient, et la barre les porte.
+  for (const f of ['components/Apparence.tsx', 'components/Carriere.tsx', 'components/Loge.tsx']) {
+    assert.match(source(f), /aria-disabled=\{busy \|\| undefined\}/, `${f} dit encore qu’il enregistre`)
+  }
+  assert.doesNotMatch(source('components/Trophees.tsx'), /\bbusy\b|\benregistrer\(/, 'la vitrine essaie, elle n’enregistre pas')
+  // La barre de l'essai part avec « Porter » ou « Annuler » : le focus revient au panneau.
+  assert.match(source('components/Loge.tsx'), /if \(avaitUnEssai\.current && !aUnEssai\) rendreLeFocus\(loge\.current, \['\.loge-panneau'\]\)/)
   const profil = source('views/ProfilApp.tsx')
   assert.match(profil, /if \(enregistrement\.current\) return/, 'un second toucher est ignoré')
   assert.match(profil, /<p className="sr-only" role="status">\s*\{annonce\}\s*<\/p>/)
@@ -315,7 +323,13 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   const trophees = source('components/Trophees.tsx')
   assert.doesNotMatch(trophees, /<ul className="vitrine-choix[^"]*" role="group"/)
   assert.doesNotMatch(trophees, /<span className="vitrine-rang" aria-hidden="true">/)
-  assert.match(trophees, /rendreLeFocus\(section\.current, \['h3'\]\)/)
+  // Rien n'y part sous le doigt : « Les plus durs, d'office », qui ne
+  // paraissait qu'une vitrine choisie et rendait le focus au titre, est une
+  // option de la liste, toujours là (`loge.test.ts` la rend dans les deux
+  // états) ; aucun bouton de la vitrine ne dépend de ce qu'elle montre.
+  const vitrine = trophees.slice(trophees.indexOf('export function MaVitrine'), trophees.indexOf('export function UnProche'))
+  assert.match(vitrine, /<ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">\s*<li>\s*<button\s+type="button"\s+className=\{'vitrine-option' \+ \(office\.montre/)
+  assert.doesNotMatch(vitrine, /\{montree && \(/)
   // La légende d'un avatar dessiné reçoit le focus à l'ouverture.
   assert.match(source('components/Apparence.tsx'), /querySelector<HTMLElement>\('\.galerie-detail-nom'\)/)
 })

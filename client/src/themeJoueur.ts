@@ -34,6 +34,13 @@ let lus = 0
 let porte: string | null = null
 /** L'habit de l'écran commun, le temps d'un aperçu (`commeLEcranCommun`) : il passe devant le thème du profil. */
 let apercu: 'velours' | 'ivoire' | null = null
+/**
+ * Le thème qu'on essaie dans la loge (`essayerTheme`) — null : Velours —,
+ * devant le thème porté ; `undefined` : aucun essai.
+ */
+let essai: string | null | undefined
+/** Le dernier essai demandé : une feuille arrivée en retard ne remplace pas celui qu'on vient de toucher. */
+let essaiDemande = 0
 
 /**
  * Au-delà, la confirmation s'abandonne et le thème retenu reste. Rien
@@ -204,8 +211,49 @@ async function poser(cle: string | null): Promise<void> {
   }
   if (numero !== demande) return
   porte = cible
-  // Un aperçu de l'écran commun ouvert garde son habit : le thème attend sa fermeture.
+  // Un aperçu de l'écran commun ouvert garde son habit, un essai le sien : le thème attend leur fin.
+  if (apercu === null && essai === undefined) habiller(cible)
+}
+
+/**
+ * Essayer un thème, dans la loge : la page entière le porte — rien n'est
+ * enregistré ni retenu pour le prochain démarrage, et la carte, à fond,
+ * garde ses couleurs (`fonds.ts`). `finirLEssai` rend le thème porté.
+ */
+export async function essayerTheme(cle: string | null): Promise<void> {
+  const numero = ++essaiDemande
+  const cible = cle && cle !== 'velours' && connu(cle) ? cle : null
+  if (cible && cible !== 'ivoire') {
+    try {
+      await FEUILLES[`./themes/${cible}.css`]()
+    } catch {
+      return
+    }
+  }
+  if (numero !== essaiDemande) return
+  essai = cible
   if (apercu === null) habiller(cible)
+}
+
+/**
+ * La fin d'un essai : la page reprend le thème porté. `adopte` — on vient de
+ * porter le thème essayé — : il devient le thème porté, sans repasser par
+ * l'ancien le temps que le profil enregistré le redise (`porterTheme`).
+ */
+export function finirLEssai(adopte = false): void {
+  essaiDemande++
+  if (essai === undefined) return
+  if (adopte) {
+    porte = essai
+    try {
+      if (porte) localStorage.setItem(CLE, porte)
+      else localStorage.removeItem(CLE)
+    } catch {
+      // Stockage indisponible : le profil lu au prochain démarrage le redira.
+    }
+  }
+  essai = undefined
+  if (apercu === null) habiller(porte)
 }
 
 /**
@@ -219,7 +267,7 @@ export function commeLEcranCommun(habit: 'velours' | 'ivoire'): () => void {
   habiller(habit === 'ivoire' ? 'ivoire' : null)
   return () => {
     apercu = null
-    habiller(porte)
+    habiller(essai !== undefined ? essai : porte)
   }
 }
 

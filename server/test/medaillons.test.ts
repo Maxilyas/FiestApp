@@ -90,7 +90,7 @@ test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', 
   const chemin = importsStatiques(path.join(client, 'views/ProfilApp.tsx'))
   assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
   assert.ok(chemin.has(path.join(client, 'components/choix.ts')), 'ce que le profil annonce reste là')
-  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx']) {
+  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx', 'components/Loge.tsx']) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’accueil anonyme`)
   }
 })
@@ -368,7 +368,7 @@ test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui q
   // Une famille à la fois (`familleInitiale`) : chacune a sa grille.
   const cases: { classes: string[]; nom: string }[] = []
   for (const familleInitiale of ['branches', 'emojis', 'legendaires']) {
-    const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, busy: false, enregistrer: () => {}, familleInitiale })
+    const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {}, familleInitiale })
     assert.match(html, /class="emoji-grid grille-unique/)
     // Les cases des grilles : pas les lignes des branches, qui déplient sans rien animer.
     for (const m of html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)) {
@@ -382,6 +382,14 @@ test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui q
     cases.filter(c => c.classes.includes('selected')).map(c => c.nom),
     ['Le Phénix, légendaire, porté'],
   )
+  // Sous un essai, `selected` passe à ce que la carte montre — et lui seul
+  // bouge encore ; le porté, marqué `porte`, se fige avec les autres.
+  const essai = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, essai: { legendaire: 'dv:seraphin' }, essayer: () => {}, busy: false, enregistrer: () => {}, familleInitiale: 'legendaires' })
+  const sous = [...essai.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
+  const montres = sous.filter(c => c.classes.includes('selected'))
+  assert.equal(montres.length, 1, 'un seul montré')
+  assert.match(montres[0].nom, /, Divin, à l’essai$/)
+  assert.deepEqual(sous.filter(c => c.classes.includes('porte')).map(c => c.nom), ['Le Phénix, légendaire, porté'])
   for (const dedans of ['.lg *', '.dv *', '.pt *', '.av::before', '.av::after']) {
     const selecteur = `.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) ${dedans}`
     assert.ok(fige(selecteur), selecteur)
@@ -391,7 +399,7 @@ test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui q
 test('les aperçus des finitions bougent portés ou survolés, pas avant', async () => {
   // Sous un légendaire porté, chaque aperçu redessinait son médaillon et son
   // cercle, sans fin (perf-client-1).
-  const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, busy: false, enregistrer: () => {} })
+  const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
   assert.match(html, /<div class="finitions">/)
   const boutons = [...html.matchAll(/<button[^>]*class="(finition-btn[^"]*)"/g)].map(m => m[1].split(' '))
   // La plus belle, et celles qu'il a : les autres se disent dans sa collection (le 11 octobre 2026).
