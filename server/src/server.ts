@@ -479,6 +479,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.statsDeCampagne = id => campagne.statsDe(id)
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)
+  // Sa bordure de ligue, que la salle lit de mémoire à chaque diffusion :
+  // relue en fond quand il entre dans une soirée.
+  profiles.borduresDe = id => campagne.borduresEnMemoire(id)
+  profiles.connaitreSesBordures = id => campagne.connaitreLesBordures(id)
   profiles.moisDuJour = () => jour.aujourdhui()
   profiles.joursDuMois = id => jour.joursDuMois(id)
   // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché
@@ -599,6 +603,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   jour.laurierChange = laurierChange
   campagne.laurierChange = laurierChange
+  // Sa bordure de ligue, arrivée ou sertie d'un cran de plus, se voit dans la
+  // salle où il joue : par l'instantané seul, regroupé. Toute une salle qui
+  // revient d'un redémarrage reçoit les siennes ensemble, et recalculer
+  // toutes les vues à chacune coûterait plus que ce qu'un podium gagne à la
+  // montrer avant sa phase suivante.
+  campagne.bordureChange = profileId => {
+    for (const rt of registry.all()) if (rt.party.findByProfile(profileId)) rt.broadcastSnapshot()
+  }
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 

@@ -149,7 +149,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
               <div className="cloture-montees">
                 {c.montees.map((m, i) => (
                   <span key={`${m.nom}-${i}`} className="cloture-montee">
-                    <Avatar className="lb-avatar" avatar={m.avatar} finition={m.finition} eclat={m.eclat} legendaire={m.legendaire} />
+                    <Avatar className="lb-avatar" avatar={m.avatar} finition={m.finition} eclat={m.eclat} legendaire={m.legendaire} bordure={m.bordure} />
                     <b>{m.nom}</b>
                     <Niveau niveau={m.avant} big />
                     <span aria-hidden="true">→</span>
@@ -169,7 +169,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
             {c.hautsFaits.map((h, i) => (
               <div key={`${h.nom}-${i}`} className="cloture-fait">
                 <span className="cloture-qui">
-                  <Avatar className="lb-avatar" avatar={h.avatar} finition={h.finition} eclat={h.eclat} legendaire={h.legendaire} />
+                  <Avatar className="lb-avatar" avatar={h.avatar} finition={h.finition} eclat={h.eclat} legendaire={h.legendaire} bordure={h.bordure} />
                   <b>{h.nom}</b>
                 </span>
                 <span className="cloture-puces">
@@ -202,7 +202,7 @@ export function AnnoncesDeNiveau({ progres, onFin }: { progres: ProgresDeQuiz; o
     <div className="annonces-niveau" role="status">
       {progres.montees.slice(0, 6).map((m, i) => (
         <span key={`${m.nom}-${i}`} className="annonce-niveau" style={{ animationDelay: `${i * 250}ms` }}>
-          <Avatar className="lb-avatar" avatar={m.avatar} finition={m.finition} eclat={m.eclat} legendaire={m.legendaire} />
+          <Avatar className="lb-avatar" avatar={m.avatar} finition={m.finition} eclat={m.eclat} legendaire={m.legendaire} bordure={m.bordure} />
           <b>{m.nom}</b>
           <span>passe niveau</span>
           <Niveau niveau={m.apres} big />

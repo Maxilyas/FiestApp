@@ -210,7 +210,7 @@ const PuceJoueur = memo(
   function PuceJoueur({ p, teams }: { p: PublicPlayer; teams: PublicTeam[] }) {
     return (
       <div className={'player-chip' + (p.connected ? '' : ' offline')}>
-        <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+        <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
         <Niveau niveau={p.niveau} />
         {/* Les libellés de la puce prennent le nom affiché, marque comprise :
             c'est une porte de plus par où sort un prénom (invariant 17).
@@ -1405,7 +1405,7 @@ export function HostApp() {
                           {ranking.slice(0, 30).map((p, i) => (
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
-                              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+                              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
                               <span className="lb-name">
                                 <NomLaure nom={p.name} laurier={p.laurier} />
                               </span>

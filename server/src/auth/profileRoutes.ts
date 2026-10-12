@@ -21,7 +21,7 @@ import { CATALOGUE_DES_PRIX } from '../core/stats'
 import { ecussonsDe } from '../../../shared/ecussons'
 import { distinctions, type ProfilDAccueil } from '../../../shared/profil'
 import type { CarteDeJoueur } from '../../../shared/carte'
-import { profilDeCarte } from '../core/carte'
+import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
 import { jourDe } from '../../../shared/jour'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
@@ -410,7 +410,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         nom: me.name,
         avatar: profiles.avatarPorte(me),
         ...distinctions(profiles.apparenceDe(me)),
-        profil: await profilDeCarte(profiles, deps.jour, me),
+        ...(await carteDuProfil(profiles, deps.jour, me)),
       }
       res.json(carte)
     }),
@@ -439,7 +439,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         nom: autre.name,
         avatar: profiles.avatarPorte(autre),
         ...distinctions(profiles.apparenceDe(autre)),
-        profil: await profilDeCarte(profiles, deps.jour, autre),
+        ...(await carteDuProfil(profiles, deps.jour, autre)),
       }
       res.json(carte)
     }),

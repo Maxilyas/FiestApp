@@ -33,7 +33,9 @@ import {
 import { jourAvant, jourDe } from '../../shared/jour'
 import { brancheDe, portrait } from '../../shared/branches'
 import { xpDuNiveau } from '../../shared/profil'
+import type { CleDeLigue } from '../../shared/duels'
 import { VERSION_BAREME } from '../src/auth/profiles'
+import { ecrireDesDuels } from './duelsDEssai'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu')
 const ivoire = process.argv.includes('ivoire')
@@ -127,6 +129,22 @@ const MEDAILLONS_PORTES: Record<number, { cle: string; ligne: string; eclat?: bo
   1: { cle: 'lg:phenix', ligne: 'hf:phenix', eclat: true },
   5: { cle: 'dv:helios', ligne: 'dv:helios' },
 }
+
+/**
+ * Leurs bordures de ligue, gagnées en duel, autour de ce qui déborde déjà le
+ * plus : le Soleil noir des maîtres sous l'Astrolabe et le masque de Venise,
+ * les Fleurons sertis autour du Phénix éclaté, la Couronne sous le Diamant
+ * et la danseuse — et Jean-Baptiste, sous Hélios : un Divin n'en prend
+ * aucune. Elles se relisent quand chacun entre dans la salle.
+ */
+const BORDURES: Record<number, [CleDeLigue, number]> = {
+  0: ['maitre', 12],
+  1: ['or', 12],
+  2: ['diamant', 7],
+  3: ['platine', 12],
+  4: ['argent', 3],
+  5: ['bronze', 12],
+}
 {
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   for (const [i, niveau] of Object.entries(NIVEAUX)) {
@@ -145,6 +163,10 @@ const MEDAILLONS_PORTES: Record<number, { cle: string; ligne: string; eclat?: bo
       .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, 'une-soiree-d-avant', ?, '', '', 1)`)
       .run(id, m.ligne, espace)
     if (m.eclat) base.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, 'une-soiree-d-avant', 1)`).run(id, m.cle)
+  }
+  for (const [i, [ligue, crans]] of Object.entries(BORDURES)) {
+    const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get(`joueur${i}`) as { id: string }).id
+    ecrireDesDuels(base, id, ligue, crans)
   }
   base.close()
   await banc.redemarrer()

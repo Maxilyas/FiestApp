@@ -19,7 +19,7 @@ import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { PRIX_INDIVIDUELS, computeStats } from './stats'
-import { profilDeCarte } from './carte'
+import { carteDuProfil } from './carte'
 import { approchesDeLaSoiree, recordsBattus } from './objectifs'
 import { playedPackOf, programmeJoue, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
@@ -677,7 +677,11 @@ export class SpaceRuntime {
     if (!rec.profileId) return carte
     const profil = await this.deps.profiles.byId(rec.profileId)
     if (!profil) return carte
-    carte.profil = await profilDeCarte(this.deps.profiles, this.deps.jour, profil)
+    const { profil: sonProfil, bordure } = await carteDuProfil(this.deps.profiles, this.deps.jour, profil)
+    carte.profil = sonProfil
+    // Sa bordure relue avec sa cote fait foi sur celle que la salle tient de mémoire.
+    if (bordure) carte.bordure = bordure
+    else delete carte.bordure
     return carte
   }
 

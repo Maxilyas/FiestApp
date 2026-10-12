@@ -469,7 +469,7 @@ function Marches({ rows, moi }: { rows: NonNullable<QuizPlayerView['podium']>; m
             style={{ '--metal': METAL[Math.min(2, n - 1)], '--haut': HAUTEUR[Math.min(2, n - 1)] } as CSSProperties}
           >
             {/* Le podium est le sujet : ses médaillons bougent (`av-sujet`). */}
-            <Avatar className="marche-avatar av-sujet" avatar={r.avatar} finition={r.finition} eclat={r.eclat} legendaire={r.legendaire} />
+            <Avatar className="marche-avatar av-sujet" avatar={r.avatar} finition={r.finition} eclat={r.eclat} legendaire={r.legendaire} bordure={r.bordure} />
             <span className="marche-nom">
               <NomLaure nom={r.name} laurier={r.laurier} />
             </span>
@@ -577,7 +577,7 @@ function CetteQuestion({
               className={'dq-ligne' + (l.id === moi ? ' dq-moi' : '') + (l.juste ? ' dq-juste' : ' dq-faux')}
               style={{ '--temps': l.ms / plusLent } as CSSProperties}
             >
-              <Avatar className="dq-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} />
+              <Avatar className="dq-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} bordure={p?.bordure} />
               <span className="dq-nom">
                 <span className="dq-nom-texte">{nomDe(l.id)}</span>
                 <PastilleEquipe equipe={equipeDe(l.id)} avecMoi={!!monEquipe && equipeDe(l.id)?.id === monEquipe} />
@@ -1141,7 +1141,7 @@ function ClassementDeFin({ view: v, salle: { players, teams, myTeamId, moi } }: 
     return (
       <div key={l.id} role="listitem" className={'lb-row' + (soi ? ' me' : '')}>
         {l.points > 0 ? <Rank n={l.rang} /> : <span className="lb-rank" aria-hidden="true">·</span>}
-        <Avatar className="lb-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} />
+        <Avatar className="lb-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} bordure={p?.bordure} />
         <span className="lb-name">
           <NomLaure nom={p ? (p.nomAffiche ?? p.name) : 'Un invité parti'} laurier={p?.laurier} />
           <PastilleEquipe equipe={equipe} avecMoi={!soi && !!equipe && equipe.id === myTeamId} />

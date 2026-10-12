@@ -1,4 +1,4 @@
-import { AUCUNE_BORDURE, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
+import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -620,6 +620,20 @@ export class ProfileStore {
    * aucun duel classé.
    */
   duelsDe?: (profileId: string) => Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null>
+
+  /**
+   * Ses bordures de ligue, de mémoire (`CampagneStore.borduresEnMemoire`) :
+   * l'instantané de la salle les lit à chaque diffusion, sans jamais
+   * attendre la base — undefined tant qu'elles ne sont pas relues.
+   */
+  borduresDe?: (profileId: string) => readonly BordureDeLigue[] | undefined
+
+  /**
+   * Les faire relire, en fond, une fois (`CampagneStore.connaitreLesBordures`) :
+   * un profil qui entre dans une soirée. Sa salle se rediffuse quand elles
+   * arrivent.
+   */
+  connaitreSesBordures?: (profileId: string) => void
 
   /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
   moisDuJour?: () => string
@@ -3110,7 +3124,11 @@ export class ProfileStore {
     // place, que la fiche reprend (`Party.relireAvatars`).
     const porte = this.peutPorter(profile, avatar) ? avatar : this.avatarPorte(profile)
     // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
-    return { ...this.apparenceDe(profile, porte), ...(porte !== avatar && { avatar: porte }) }
+    const apparence = this.apparenceDe(profile, porte)
+    // Sa bordure de ligue, de mémoire : relue quand il entre dans la soirée
+    // (`connaitreSesBordures`), absente d'ici là. Jamais sous un Divin.
+    const bordure = apparence.legendaire && divin(apparence.legendaire) ? null : bordurePortee(profile.bordure, this.borduresDe?.(profileId))
+    return { ...apparence, ...(bordure && { bordure }), ...(porte !== avatar && { avatar: porte }) }
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */

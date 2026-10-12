@@ -684,6 +684,13 @@ export interface Distinctions {
    * le mois.
    */
   champion?: string
+  /**
+   * La bordure de ligue qu'il porte autour de son avatar (`shared/duels.ts`,
+   * `bordurePortee`) — jamais sous un Divin. En soirée, lue de mémoire à
+   * chaque diffusion (`ProfileStore.badgeDe`) ; sur sa carte, relue avec sa
+   * cote.
+   */
+  bordure?: BordureDeLigue
 }
 
 /**
@@ -700,6 +707,7 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
     ...(source.legendaire && { legendaire: source.legendaire }),
     ...(source.laurier && { laurier: source.laurier }),
     ...(source.champion && { champion: source.champion }),
+    ...(source.bordure && { bordure: source.bordure }),
   }
 }
 
