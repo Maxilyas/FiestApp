@@ -284,20 +284,10 @@ export function CarteJoueur({
                       ))}
                     </div>
                   )}
-                  {/* La justesse aux QCM et aux estimations, côte à côte : la
-                      plus longue série, qui ne compte que les QCM, a cédé sa case. */}
-                  <Cadrans
-                    cases={[
-                      ['Soirées', formatNumber(p.fiche.soirees)],
-                      ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
-                      ['Hauts faits', formatNumber(p.hautsFaits)],
-                      ...justesses(p.fiche),
-                      ['Réflexe', secondes(p.fiche.reflexeMoyenMs)],
-                    ]}
-                  />
+                  <Cadrans cases={cadransDeLaCarte(p)} />
                   {/* Ses prix : leur nombre, pas leur liste — ils tombent à
                       chaque soirée. Rien tant qu'il n'en a aucun. */}
-                  {((p.prix && p.prix.eus > 0) || p.jour || p.duels) && (
+                  {((p.prix && p.prix.eus > 0) || p.jour || p.duels || (p.campagne && p.fiche.soirees > 0)) && (
                     <div className="carte-pastilles">
                       {p.prix && p.prix.eus > 0 && (
                         <span className="carte-prix">
@@ -318,6 +308,13 @@ export function CarteJoueur({
                         <span className="carte-prix">
                           <BlasonDeLigue ligue={p.duels.ligue} taille={16} decoratif />
                           {`${ligueParCle(p.duels.ligue).nom} · cote\u00a0${p.duels.cote}`}
+                        </span>
+                      )}
+                      {/* Sa campagne, en une pastille — quand ses cadrans sont ceux des soirées : sinon, elle les tient. */}
+                      {p.campagne && p.fiche.soirees > 0 && (
+                        <span className="carte-prix">
+                          <Icon name="target" />
+                          Campagne · record {formatNumber(p.campagne.record)}
                         </span>
                       )}
                     </div>
@@ -456,6 +453,33 @@ function Cadrans({ cases }: { cases: Chiffre[] }) {
   )
 }
 
+/**
+ * Ses chiffres en cadrans : ceux des soirées qu'il a jouées — la justesse
+ * aux QCM et aux estimations côte à côte, la plus longue série leur a cédé
+ * sa case — ou, sans aucune soirée, ceux de son jeu solo. « Soirées 0 · Quiz
+ * gagnés 0 · Coup d'œil — · Réflexe — » disaient à qui ne joue qu'en solo,
+ * sur la carte qu'on ouvre depuis le classement du défi de la semaine, ce
+ * qu'il n'avait jamais fait (l'experte du jeu solo, le 11 octobre 2026). Sa
+ * précision compte déjà tous les modes de jeu.
+ */
+export function cadransDeLaCarte(p: NonNullable<CarteDeJoueur['profil']>): Chiffre[] {
+  const [precision, coupDOeil] = justesses(p.fiche)
+  const hautsFaits: Chiffre = ['Hauts faits', formatNumber(p.hautsFaits)]
+  if (p.fiche.soirees > 0) {
+    return [['Soirées', formatNumber(p.fiche.soirees)], ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)], hautsFaits, precision, coupDOeil, ['Réflexe', secondes(p.fiche.reflexeMoyenMs)]]
+  }
+  // Chacun s'il a quelque chose à dire : « Sentiers 0 » à qui ne joue que des séries, c'était encore un zéro.
+  const c = p.campagne
+  const solo: Chiffre[] = c
+    ? [
+        ...(c.record > 0 ? [['Record', formatNumber(c.record), 'en série'] satisfies Chiffre] : []),
+        ...(c.paliers > 0 ? [['Sentiers', formatNumber(c.paliers), `palier${c.paliers > 1 ? 's' : ''} validé${c.paliers > 1 ? 's' : ''}`] satisfies Chiffre] : []),
+        ...(c.justes > 0 ? [['Justes', formatNumber(c.justes), 'en campagne'] satisfies Chiffre] : []),
+      ]
+    : []
+  return [hautsFaits, precision, ...solo]
+}
+
 /** Les mots maison qu'une carte affiche vraiment, dans l'ordre où elle les montre. */
 function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: { legendaires: boolean; divins: boolean }, fond: boolean): Mot[] {
   const p = carte.profil
@@ -467,7 +491,8 @@ function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: { legendaires: boolean
   if (avecDessins.legendaires && p.legendaires.length > 0) mots.push('legendaire')
   mots.push('hautsFaits')
   if (p.ecussons && p.ecussons.length > 0) mots.push('ecusson')
-  mots.push('precision', 'coupDOeil', 'reflexe')
+  // Le coup d'œil et le réflexe : des mesures de soirée, sur les cadrans des soirées seulement (`cadransDeLaCarte`).
+  mots.push('precision', ...(p.fiche.soirees > 0 ? (['coupDOeil', 'reflexe'] as const) : []))
   if (p.prix && p.prix.eus > 0) mots.push('prix')
   if (p.duels) mots.push('ligue')
   if (fond) mots.push('fond')

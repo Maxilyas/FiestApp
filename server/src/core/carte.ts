@@ -16,7 +16,7 @@ export async function profilDeCarte(
   jour: Pick<JourStore, 'resumeDe'> | undefined,
   profil: ProfileRec,
 ): Promise<NonNullable<CarteDeJoueur['profil']>> {
-  const [vitrine, carriere, resume, ailleurs, paliers, duels] = await Promise.all([
+  const [vitrine, carriere, resume, ailleurs, paliers, duels, campagne] = await Promise.all([
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
     jour?.resumeDe(profil.id).catch(() => null),
@@ -27,7 +27,11 @@ export async function profilDeCarte(
     profiles.paliersDe(profil.id).catch(() => ({})),
     // Sa ligue des duels : une base qui se tait l'ôte, pas la carte.
     profiles.duelsDe?.(profil.id).catch(() => null) ?? null,
+    // Sa campagne, de même.
+    profiles.statsDeCampagne?.(profil.id).catch(() => null) ?? null,
   ])
+  // Les paliers validés de tous ses sentiers : chacun compte jusqu'au plus haut qu'il a validé.
+  const paliersValides = Object.values(paliers).reduce((n, p) => n + (p ?? 0), 0)
   const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, ailleurs.categories)).map(e => ({
     categorie: e.categorie,
     palier: e.palier as 1 | 2 | 3,
@@ -52,6 +56,8 @@ export async function profilDeCarte(
     ...(titre && { titre }),
     ...(resume && resume.joues > 0 && { jour: resume }),
     ...(duels && { duels }),
+    // Absente tant qu'il n'y a rien gagné : l'absence, pas « 0 ».
+    ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),
     ...(fond && { fond }),
     fiche: {

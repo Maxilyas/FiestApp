@@ -85,6 +85,15 @@ export interface CarteDeJoueur extends Distinctions {
     /** Sa ligue des duels et sa cote (`shared/duels.ts`). Absente tant qu'il n'a fini aucun duel classé. */
     duels?: { ligue: CleDeLigue; cote: number }
     /**
+     * Sa campagne : le record de ses séries, ses bonnes réponses — séries,
+     * épreuves, défis, révisions —, les paliers validés de ses sentiers.
+     * Absente tant qu'il n'y a rien gagné. Qui ne joue qu'en solo y lisait
+     * « Soirées 0 · Quiz gagnés 0 · Coup d'œil — » : des mesures de soirée
+     * qu'il n'a jamais prises (l'experte du jeu solo, le 11 octobre 2026) ;
+     * ses cadrans sont maintenant ceux-là (`cadransDeLaCarte`).
+     */
+    campagne?: { record: number; justes: number; paliers: number }
+    /**
      * Ses écussons de savoir les plus hauts, trois au plus (`plusBeauxEcussons`).
      * Absents tant qu'il n'en a aucun.
      */

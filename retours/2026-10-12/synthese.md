@@ -127,3 +127,25 @@ La fraîcheur passe toujours devant : une jumelle jamais vue bat une question
 déjà vue. Le tirage garde son temps (1 à 3 ms une épreuve, 1 à 15 ms une
 série). Les règles : `core/jumelles.ts` ; les tests :
 `tirage-sans-redite.test.ts`.
+
+# Les mots du solo, et la carte de qui ne joue qu'en solo
+
+Deux points de l'atelier du 11 octobre, encore ouverts.
+
+**Les mots** (#163) — le tableau « Les mots qu'un joueur ne comprend pas » :
+plus de « il » pour un prénom (« Bérénice s'était arrêté avant », « s'il a
+activé les notifications », « quand il l'a joué »), « plus qu'une vie »,
+« haut fait du Tour du monde » (c'est aussi le sentier de la culture
+générale), « Le défi d'Aline », « 1 joueur l'a joué » (son auteur ne le
+relève pas), « Me changer » au lieu de « Ma carte », la vitrine qui se gagne
+aussi en solo, « des portraits à gagner » à l'accueil, « Reprendre à la
+question 2 » au carnet. Regardés en 360 × 640 : le bouton du carnet, avec
+« question 10 sur 10 », aurait débordé ; l'accueil tenait en trois lignes
+avec « des sentiers où gagner des portraits ».
+
+**La carte** (#164) — ouverte depuis le classement du défi de la semaine,
+la carte de qui ne joue qu'en solo disait « Soirées 0 · Quiz gagnés 0 ·
+Coup d'œil — · Réflexe — ». Sans soirée, ses cadrans sont ceux du solo :
+son record de série, les paliers de ses sentiers, ses bonnes réponses de
+campagne — chacun s'il a quelque chose à dire. Qui joue aussi en soirée
+garde les cadrans des soirées, et sa campagne en pastille.
