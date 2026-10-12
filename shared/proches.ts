@@ -8,7 +8,7 @@
 // dérivation pure de ce que le profil reçoit déjà : rien ne s'y calcule au
 // serveur, et rien ne s'écrit.
 
-import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, type HautFaitVu } from './hautsfaits'
+import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, palierDe, type HautFaitVu } from './hautsfaits'
 import { LEGENDAIRES, progresSur, voiesDe } from './legendaires'
 
 /** Un objectif commencé : un légendaire (`lg:…`) ou un palier de carrière (`hf:…:2`), et où il en est. */
@@ -93,4 +93,15 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
     )
     .slice(0, n)
     .map(({ legendaire: _, ...proche }) => proche)
+}
+
+/**
+ * Pour un profil qui n'a encore aucun haut fait : celui qu'il a le plus
+ * avancé, qui lui ouvrira son premier titre et la première place de sa
+ * vitrine — un premier palier de carrière, seul à se commencer : un haut
+ * fait de soirée, du quiz du jour ou de la campagne tombe d'un coup. Null
+ * s'il n'a rien commencé.
+ */
+export function lePremierHautFait(hautsFaits: readonly HautFaitVu[], legendaires: readonly string[]): Proche | null {
+  return lesPlusProches(hautsFaits, legendaires, Infinity).find(p => palierDe(p.key) !== null) ?? null
 }

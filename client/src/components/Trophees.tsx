@@ -6,7 +6,7 @@ import { rendreLeFocus } from '../focus'
 import { VITRINE_MAX, ceQuIlAFallu, cleRangee, hautFait, hautsFaitsGagnes, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { vitrineDeLaCarte } from '../../../shared/carte'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
-import { recompensesDe, type Proche } from '../../../shared/proches'
+import { lePremierHautFait, recompensesDe, type Proche } from '../../../shared/proches'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
@@ -134,12 +134,15 @@ export function MaVitrine({
         Sur ta carte
       </h3>
       {montres.length === 0 ? (
-        <p className="muted small">
-          {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
-              campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
-              (l'experte du jeu solo, le 11 octobre 2026). */}
-          Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
-        </p>
+        <>
+          <p className="muted small">
+            {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
+                campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
+                (l'experte du jeu solo, le 11 octobre 2026). */}
+            Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
+          </p>
+          {gagnes.length === 0 && <PremierHautFait profil={profil} />}
+        </>
       ) : (
         <>
           <p className="muted small">
@@ -214,6 +217,48 @@ export function UnProche({ p }: { p: Proche }) {
         <span className="jauge" aria-label={`${p.acquis} sur ${p.requis}`}>
           <span className="jauge-plein" style={{ width: `${Math.min(100, (p.acquis / p.requis) * 100)}%` }} />
         </span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Le plus simple pour commencer, à qui n'a rien commencé : une série de
+ * campagne y suffit, sans personne et à toute heure — Le Lève-tôt demande de
+ * jouer avant huit heures, Le Sans-Faute un quiz du jour sans une faute.
+ */
+const LE_PLUS_SIMPLE = 'hf:alpiniste'
+
+/**
+ * Ce que disent « Mon titre » et « Ma vitrine » à qui n'a encore aucun haut
+ * fait : « 53 titres à gagner » ne disait pas comment gagner le premier, et
+ * le crayon du vestiaire menait à une page sans choix (l'experte du jeu solo,
+ * le 11 octobre 2026). Celui qu'il a le plus avancé, avec sa jauge ; sinon le
+ * plus simple, sans jauge : « 0 sur 10 » ne s'approche de rien.
+ */
+export function PremierHautFait({ profil }: { profil: Pick<PublicProfileDetail, 'hautsFaits' | 'legendaires'> }) {
+  const proche = lePremierHautFait(profil.hautsFaits, profil.legendaires)
+  if (proche) {
+    return (
+      <div className="proches">
+        <span className="label">Le plus proche</span>
+        <UnProche p={proche} />
+      </div>
+    )
+  }
+  const h = hautFait(LE_PLUS_SIMPLE)
+  if (h?.famille !== 'carriere') return null
+  return (
+    <div className="proches">
+      <span className="label">Le plus simple pour commencer</span>
+      <div className="approche">
+        <span className="approche-emoji" aria-hidden="true">
+          {h.emoji}
+        </span>
+        <div className="approche-corps">
+          <b>{titreDePalier(h, 1)}</b>
+          <span className="muted small">{`${formatNumber(h.paliers[0])} ${h.paliers[0] < 2 ? h.mesureUne : h.mesure}`}</span>
+        </div>
       </div>
     </div>
   )

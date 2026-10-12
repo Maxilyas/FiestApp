@@ -52,7 +52,7 @@ un arbitrage.
 | 7. Quatre sauts à l'ouverture | **Fait pour trois** : les duels réservent la place de leur en-tête (CLS mesuré de 0,044/0,066 à 0,011/0,027) ; ouverte sur le carnet ou le défi, la campagne s'esquisse sur eux, plus sur la série (`surSonOnglet`) ; un sentier ouvert à son adresse se place sur son palier avant la première peinture (`useLayoutEffect`). L'emoji d'inscription avant le portrait : **à arbitrer** (voir les tensions) | #151, après #152 |
 | 8. Les sentiers : « Jouer » sur un palier qui attend | **Fait** : la fiche dit « Reprendre le palier N », ses bonnes réponses et ses fautes, « rien n'est perdu » ; « Racheter » devient « Plus de vies ». Le bouton du bloc qui lancerait l'épreuve : **reste** | #151, après #152 |
 | 10. Une amie a deux visages sur la même page | **Fait** : ses amis, une recherche et l'auteur d'un défi reçu portent ce que porte le classement — finition, portrait ou légendaire, Éclat (`SonApparence`) | après #152 |
-| 11. Les pages vides d'un débutant | **En partie** : la vitrine ne dit plus que les hauts faits « se décernent à la fin de chaque soirée » — ils se gagnent aussi au quiz du jour et en campagne. Le premier titre à gagner sur une page vide : **reste** | après #152 |
+| 11. Les pages vides d'un débutant | **Fait** : la vitrine ne dit plus que les hauts faits « se décernent à la fin de chaque soirée » — ils se gagnent aussi au quiz du jour et en campagne. Puis, le 12 octobre, « Mon titre » et « Ma vitrine » d'un débutant disent le plus proche, sa jauge comprise (« L'Alpiniste · Bronze, 6 sur 10 bonnes réponses dans une série de campagne »), sinon le plus simple pour commencer (`premier-haut-fait.test.ts`). Le fond, « Velours » seul et « 7 autres fonds à gagner » vers leur ligne de la collection : **reste tel quel**, la collection dit où les gagner | après #152, puis le 12 octobre |
 | 13. Une requête en double | **Fait pour le carnet** : ouverte sur lui, la campagne ne demande plus son compte deux fois. Le second « Chargement… » des panneaux du profil : **reste** (un compromis documenté) | après #152 |
 | 9, 12, 14. La carte d'un joueur solo (des zéros), deux gros boutons sous le pli, quatre fois la même question dans une épreuve | **Restent** (voir plus bas) | — |
 
@@ -88,6 +88,9 @@ un arbitrage.
    (#163).
 3. **Les pages d'un débutant** — P3 · S : un titre « Aucun », une vitrine
    vide, sans dire comment gagner le premier (`lesPlusProches` le sait).
+   **Fait le 12 octobre** : « Mon titre » et « Ma vitrine » disent le plus
+   proche, sa jauge comprise, sinon le plus simple pour commencer
+   (`lePremierHautFait`, `premier-haut-fait.test.ts`).
 4. **Le geste principal sous le pli** — P3 · S : « Commencer une série »
    et « Jouer le défi » collés en bas, comme `GesteDuBas` ; le bouton du
    bloc des sentiers qui lance l'épreuve. **Vérifié le 12 octobre** : depuis
