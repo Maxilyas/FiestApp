@@ -739,7 +739,6 @@ export class CampagneStore {
     return parQuestion
   }
 
-  /** Les questions de la base qu'un joueur a déjà vues en campagne : elles passent après les autres. */
   /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`). */
   private async vuesPar(profileId: string): Promise<Map<string, number>> {
     const res = await this.client.execute({
@@ -2046,19 +2045,26 @@ export class CampagneStore {
       // Un duel classé contre quelqu'un : lui seul l'attend, à sa dernière réponse.
       const contre = typeof adversaire === 'string' && adversaire ? await this.adversaireDuDuel(profileId, adversaire) : null
       const voulus = contre ? new Set<string>() : idsVoulus(amis)
-      const [toutes, mesure, sesAmis, cotes] = await Promise.all([
+      const [toutes, mesure, sesAmis, cotes, vues] = await Promise.all([
         this.jouables(suivi ? undefined : categories),
         this.mesures(),
         voulus.size > 0 ? this.idsDesAmis(profileId) : Promise.resolve([]),
         // Les deux cotes au lancement : chacun bougera contre celle de l'autre.
         contre ? Promise.all([this.releveDesDuels(profileId), this.releveDesDuels(contre)]) : null,
+        // Ce que l'un et l'autre ont vu : tiré pour personne, le duel reposait à
+        // son auteur la question vue dix minutes plus tôt dans son épreuve
+        // (l'experte du jeu solo, le 11 octobre 2026).
+        Promise.all([this.vuesPar(profileId), contre ? this.vuesPar(contre) : new Map<string, number>()]).then(([a, b]) => {
+          for (const [id, le] of b) if (le > (a.get(id) ?? -Infinity)) a.set(id, le)
+          return a
+        }),
       ])
       const prevus = contre ? [contre] : sesAmis.filter(id => voulus.has(id))
       const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
       }
-      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure, vues, maintenant), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
       for (let essai = 0; ; essai++) {
         const duel: Duel = {
@@ -5060,6 +5066,98 @@ function marchesDeLaSerie(
   return parNiveau
 }
 
+/** Les mots qui ne disent rien de la forme d'un intitulé. */
+const MOTS_VIDES = new Set(['le', 'la', 'les', 'l', 'de', 'du', 'des', 'd', 'un', 'une', 'a', 'au', 'aux', 'en', 'et', 's', 'est', 'ce', 'cet', 'cette', 'qu', 'que'])
+
+/**
+ * La forme d'un intitulé : ses trois premiers mots pleins, sans accents —
+ * « Qui a réalisé le film… ? » donne « qui realise film ». Les familles
+ * écrites en série en partagent une : deux cent vingt-quatre « Qui a réalisé
+ * le film… » au cinéma, cent quatre « Qui a reçu le prix… » aux lettres.
+ */
+export function gabaritDe(texte: string): string {
+  return sansAccent(texte)
+    .split(/[^a-z0-9]+/)
+    .filter(m => m && !MOTS_VIDES.has(m))
+    .slice(0, 3)
+    .join(' ')
+}
+
+/** Une réponse comparable : sans casse, sans accents, sans son article — « Le chevreau » et « chevreau » sont la même. */
+const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une)\s*/, '')
+
+type Intitule = { texte: string; reponses: readonly string[] }
+type Signe = { forme: string; reponses: string[] } | null
+
+/**
+ * Gardés tant que la question vit : une épreuve en relit des centaines, et
+ * les recalculer à chaque tirage le rendait dix fois plus lent (6 ms au lieu
+ * de 0,6 sur la vraie base).
+ */
+const signesGardes = new WeakMap<Intitule, Signe>()
+
+/** Ce qui fait la jumelle d'une question : sa forme, ses réponses nettes — rien pour un vrai ou faux, un genre et pas une redite. */
+function signeDe(q: Intitule): Signe {
+  if (signesGardes.has(q)) return signesGardes.get(q)!
+  const signe = q.reponses.length < 3 ? null : { forme: gabaritDe(q.texte), reponses: [...new Set(q.reponses.map(reponseNette))] }
+  signesGardes.set(q, signe)
+  return signe
+}
+
+/**
+ * Deux questions jumelles : la même forme (`gabaritDe`), ou deux réponses
+ * proposées en commun — « le petit de la chèvre », « de la vache »,
+ * « du cerf », « du sanglier » ne partagent pas leurs premiers mots pleins,
+ * mais leurs agneau, veau, poulain et chevreau.
+ */
+export function jumelles(a: Intitule, b: Intitule): boolean {
+  const x = signeDe(a)
+  const y = signeDe(b)
+  if (!x || !y) return false
+  if (x.forme === y.forme) return true
+  const deB = new Set(y.reponses)
+  return x.reponses.filter(r => deB.has(r)).length >= 2
+}
+
+/**
+ * Les questions déjà prises d'une épreuve, pour reconnaître d'un coup d'œil
+ * la jumelle de l'une d'elles (`jumelles`) : une épreuve en regarde des
+ * centaines pour chacune de ses seize places, et comparer chaque candidate à
+ * chaque prise, intitulés relus, coûtait des secondes. Les formes et les
+ * réponses de chaque question se lisent une fois (`signesGardes`).
+ */
+class DejaPrises {
+  private formes = new Set<string>()
+  /** Chaque réponse nette, et les prises qui la proposent. */
+  private parReponse = new Map<string, number[]>()
+  private prises = 0
+
+  prendre(q: Intitule) {
+    const s = signeDe(q)
+    const i = this.prises++
+    if (!s) return
+    this.formes.add(s.forme)
+    for (const r of s.reponses) (this.parReponse.get(r) ?? this.parReponse.set(r, []).get(r)!).push(i)
+  }
+
+  jumelle(q: Intitule): boolean {
+    // Rien de pris encore : personne n'a de jumelle — la première place se lit sans rien calculer.
+    if (this.prises === 0) return false
+    const s = signeDe(q)
+    if (!s) return false
+    if (this.formes.has(s.forme)) return true
+    const communes = new Map<number, number>()
+    for (const r of s.reponses) {
+      for (const i of this.parReponse.get(r) ?? []) {
+        const n = (communes.get(i) ?? 0) + 1
+        if (n >= 2) return true
+        communes.set(i, n)
+      }
+    }
+    return false
+  }
+}
+
 /** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
 function passeAvant(a: readonly number[], b: readonly number[]): boolean {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
@@ -5080,8 +5178,9 @@ function passeAvant(a: readonly number[], b: readonly number[]): boolean {
  * reste ne complète que ce que le thème n'a plus de frais. Une marche
  * épuisée de jamais vues reste sa marche : emprunter au voisin changerait la
  * difficulté du palier, que ses mélanges ont mesurée. Pas de vrai ou faux là
- * où le palier n'en veut pas. Dans le désordre : chaque question peut être
- * la difficile.
+ * où le palier n'en veut pas, ni deux questions jumelles quand la marche en a
+ * d'autres aussi fraîches (`jumelles`). Dans le désordre : chaque question
+ * peut être la difficile.
  */
 export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
@@ -5100,20 +5199,26 @@ export function tirerUneEpreuve(
   for (const q of melanger(pool)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
   const usage = new Map<string, number>()
   const prises = new Set<string>()
+  const deja = new DejaPrises()
   const fraicheur = fraicheurDe(vues, maintenant)
   const duChapitre = regle.touteLaCategorie ? new Set<string>() : new Set(chapitre)
   // Le rang d'une question pour la place suivante — le plus petit gagne : une
   // vue d'hier soir en dernier, partout ; puis, aux paliers « toute la
   // catégorie », le sous-thème le moins servi avant la jamais vue ; dans un
   // chapitre, son thème avant tout le reste, puis la jamais vue, puis le
-  // sous-thème le moins servi ; ailleurs, la jamais vue d'abord ; enfin la
-  // plus anciennement vue.
+  // sous-thème le moins servi ; ailleurs, la jamais vue d'abord ; puis la
+  // jumelle d'une question déjà prise après les autres (`jumelles` : quatre
+  // « Comment appelle-t-on le petit de… », mêmes leurres, dans une épreuve de
+  // la forêt — l'experte du jeu solo, le 11 octobre 2026), à fraîcheur et à
+  // sous-thème égaux, jamais devant une jamais vue ; enfin la plus
+  // anciennement vue.
   const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
     const f = fraicheur(q.id)
-    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, f.le]
-    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, servi, f.le]
-    return [f.recente, f.vue, servi, f.le]
+    const jumelle = deja.jumelle(q) ? 1 : 0
+    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, jumelle, f.le]
+    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, servi, jumelle, f.le]
+    return [f.recente, f.vue, servi, jumelle, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
@@ -5133,6 +5238,7 @@ export function tirerUneEpreuve(
         }
         if (meilleure) {
           prises.add(meilleure.id)
+          deja.prendre(meilleure)
           usage.set(meilleure.meta.sousTheme, (usage.get(meilleure.meta.sousTheme) ?? 0) + 1)
           tirees.push({ question: meilleure, niveau: n })
           break
