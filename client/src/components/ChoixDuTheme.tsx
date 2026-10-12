@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Icon, type IconName } from './Icon'
 import { Feuille } from './Pieces'
 import { Onglets } from './Onglets'
@@ -220,37 +220,48 @@ export function GrilleDesCategories({
   )
 }
 
-/** Les sujets, chaque famille sa rangée ; rien sans sujet jouable. */
+/** Les colonnes de `.categories-grille`, à toutes les largeurs : la phrase d'un sujet se pose sous la rangée de sa tuile. */
+const COLONNES = 3
+
+/**
+ * Les sujets, chaque famille sa rangée ; rien sans sujet jouable. La phrase
+ * du sujet choisi se lit sous la rangée de sa tuile : sous la dernière des
+ * trois familles, elle tombait hors de l'écran — on touchait « Les animaux »
+ * sans rien voir s'écrire (l'expert du quiz tout prêt, le 11 octobre 2026).
+ */
 export function GrilleDesSujets({ sujets, sujet, onSujet }: { sujets: readonly Sujet[]; sujet: string | null; onSujet: (choisi: string | null) => void }) {
   if (sujets.length === 0) return null
-  const leSujet = sujet ? sujetParCle(sujet) : undefined
   return (
     <div className="campagne-sujets">
       <p className="sujets-titre">Ou un sujet, au-delà des catégories</p>
       {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
         const ici = sujets.filter(s => s.famille === famille)
         if (ici.length === 0) return null
+        const choisi = ici.findIndex(s => s.cle === sujet)
+        // La dernière tuile de sa rangée — ou de la famille, sur une rangée qui n'est pas pleine.
+        const apres = choisi < 0 ? -1 : Math.min(ici.length, (Math.floor(choisi / COLONNES) + 1) * COLONNES) - 1
         return (
           <div key={famille}>
             <p className="label">{nom}</p>
             <div className="categories-grille" role="group" aria-label={nom}>
-              {ici.map(s => (
-                <button
-                  key={s.cle}
-                  type="button"
-                  className={'categorie-case' + (sujet === s.cle ? ' active' : '')}
-                  aria-pressed={sujet === s.cle}
-                  onClick={() => onSujet(sujet === s.cle ? null : s.cle)}
-                >
-                  <Icon name={iconeDuSujet(s)} />
-                  {s.nom}
-                </button>
+              {ici.map((s, i) => (
+                <Fragment key={s.cle}>
+                  <button
+                    type="button"
+                    className={'categorie-case' + (sujet === s.cle ? ' active' : '')}
+                    aria-pressed={sujet === s.cle}
+                    onClick={() => onSujet(sujet === s.cle ? null : s.cle)}
+                  >
+                    <Icon name={iconeDuSujet(s)} />
+                    {s.nom}
+                  </button>
+                  {i === apres && <p className="muted small sujet-phrase">{espacesFines(ici[choisi].description)}</p>}
+                </Fragment>
               ))}
             </div>
           </div>
         )
       })}
-      {leSujet && <p className="muted small">{espacesFines(leSujet.description)}</p>}
     </div>
   )
 }

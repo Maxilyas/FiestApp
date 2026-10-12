@@ -7,6 +7,7 @@
 // d'estimations, et le résumé le dit.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import React from 'react'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
@@ -101,4 +102,32 @@ test('le résumé nomme ses catégories et dit ses estimations — « seulement 
   assert.equal(resumeDuQuiz({ ...p, categories: ['Cuisine'] }, { questions: 12, estimations: 2 }), 'Cuisine · progressive · ≈ 6 min · 12 questions seulement · dont 2 estimations')
   // Sans estimations demandées, rien à en dire.
   assert.equal(resumeDuQuiz({ ...p, estimations: false }, { questions: 15, estimations: 0 }), 'Toutes les catégories · progressive · ≈ 7 min · que des QCM')
+})
+
+// La phrase du sujet choisi (l'expert du quiz tout prêt, le 11 octobre 2026,
+// recommandation 4) : sous la dernière rangée des trois familles, elle tombait
+// hors de l'écran — on touchait « Les animaux » sans rien voir s'écrire. Elle
+// se lit sous la rangée de sa tuile, de trois tuiles.
+test('la phrase d’un sujet se lit sous la rangée de sa tuile, pas sous la dernière', async () => {
+  const { GrilleDesSujets } = await import(new URL('../../client/src/components/ChoixDuTheme.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { SUJETS } = await import('../../shared/sujets')
+  const grille = (sujet: string | null) => renderToStaticMarkup(React.createElement(GrilleDesSujets, { sujets: SUJETS, sujet, onSujet: () => {} }))
+  assert.doesNotMatch(grille(null), /sujet-phrase/, 'rien de choisi : aucune phrase')
+  const tuile = (html: string, nom: string) => html.indexOf(`>${nom}</button>`)
+  for (const famille of ['theme', 'epoque', 'fil'] as const) {
+    const ici = SUJETS.filter(s => s.famille === famille)
+    ici.forEach((s, i) => {
+      const html = grille(s.cle)
+      const phrase = html.indexOf('class="muted small sujet-phrase"')
+      assert.equal(html.match(/sujet-phrase/g)?.length, 1, s.cle)
+      // Après la dernière tuile de sa rangée — ou de sa famille —, avant la première de la rangée d'après.
+      const derniere = Math.min(ici.length, (Math.floor(i / 3) + 1) * 3) - 1
+      assert.ok(phrase > tuile(html, ici[derniere].nom), `${s.cle} : après ${ici[derniere].nom}`)
+      if (derniere + 1 < ici.length) assert.ok(phrase < tuile(html, ici[derniere + 1].nom), `${s.cle} : avant ${ici[derniere + 1].nom}`)
+      assert.ok(html.slice(phrase).includes(s.description.slice(0, 12)), `${s.cle} : sa phrase`)
+    })
+  }
+  // De toute la largeur de la grille.
+  assert.match(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'), /\.categories-grille \.sujet-phrase \{ grid-column: 1 \/ -1;/)
 })

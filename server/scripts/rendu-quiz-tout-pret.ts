@@ -63,6 +63,11 @@ try {
   await photo(page, '03-feuille-sujets')
   await defiler(page, 1)
   await photo(page, '04-feuille-bas')
+  // Un sujet touché : sa phrase sous la rangée de sa tuile, pas sous la dernière des trois familles ; puis rendu.
+  await page.getByRole('button', { name: 'Les animaux', exact: true }).click()
+  await page.evaluate(`document.querySelector('.sujet-phrase').scrollIntoView({ block: 'center' })`)
+  await photo(page, '04b-sujet-choisi')
+  await page.getByRole('button', { name: 'Les animaux', exact: true }).click()
   // Deux catégories, facile, dix questions — et des enfants.
   await defiler(page, 0)
   await page.getByRole('button', { name: 'Histoire', exact: true }).click()
