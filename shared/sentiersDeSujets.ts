@@ -10,6 +10,12 @@
 // réponses pour passer, sans vies — on y apprend, on n'y perd rien. Ni
 // portrait ni titre : chaque bonne réponse paie comme en série, et les
 // étoiles disent la meilleure note de chaque palier.
+//
+// Depuis le 12 octobre 2026, la page les appelle des parcours de thème, et
+// leurs paliers des étapes : ils ont quitté le dessous des douze sentiers,
+// dont ils n'ont ni les vies ni les avatars, pour l'onglet « Apprendre »,
+// sous le carnet (`client/src/views/Parcours.tsx`). Le code et les tables
+// gardent leurs noms d'avant.
 
 import type { IssueDEpreuve, Melange, RegleDuPalier } from './sentiers'
 import type { QuestionDeCampagne } from './campagne'

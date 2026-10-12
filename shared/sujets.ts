@@ -23,11 +23,14 @@ import type { MetadonneesDeQuestion } from './etiquettes'
 
 export type FamilleDeSujet = 'epoque' | 'fil' | 'theme'
 
-/** Les familles de sujets, dans l'ordre où l'écran les range, chacune sa rangée. */
-export const FAMILLES_DE_SUJETS: readonly { famille: FamilleDeSujet; nom: string }[] = [
-  { famille: 'theme', nom: 'Un thème' },
-  { famille: 'epoque', nom: 'Une époque' },
-  { famille: 'fil', nom: 'Un fil rouge' },
+/**
+ * Les familles de sujets, dans l'ordre où l'écran les range, chacune sa
+ * rangée ; au pluriel, le nom de son onglet parmi les parcours de thème.
+ */
+export const FAMILLES_DE_SUJETS: readonly { famille: FamilleDeSujet; nom: string; pluriel: string }[] = [
+  { famille: 'theme', nom: 'Un thème', pluriel: 'Thèmes' },
+  { famille: 'epoque', nom: 'Une époque', pluriel: 'Époques' },
+  { famille: 'fil', nom: 'Un fil rouge', pluriel: 'Fils rouges' },
 ]
 
 export interface Sujet {

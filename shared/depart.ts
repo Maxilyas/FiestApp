@@ -36,7 +36,9 @@ export const DEPART = {
   duels: '/api/duels',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
-  /** Les sentiers à thème, sous les douze — préchargés avec eux. */
+  /** Le carnet de révision, en tête de l'onglet « Apprendre » — préchargé comme les sentiers. */
+  carnet: '/api/campagne/carnet',
+  /** Les parcours de thème, sous le carnet — préchargés avec lui. */
   sujets: '/api/campagne/sujets',
   /** Les quiz de l'espace (« Mes quiz »). */
   quiz: '/api/quizzes',
@@ -127,6 +129,9 @@ export function versLesSentiers(hash: string): boolean {
   return hash === '#sentiers' || hash.startsWith('#sentier-')
 }
 
+/** L'adresse de l'onglet « Apprendre » — le carnet, puis les parcours de thème (`ADRESSE_DU_CARNET`, `Carnet.tsx`). */
+export const ADRESSE_D_APPRENDRE = '#carnet'
+
 /**
  * Ce que la page demandera dès son code arrivé, et que le serveur ne peut pas
  * précharger : le fragment de l'adresse (`#…`) ne lui parvient pas. Le
@@ -135,10 +140,14 @@ export function versLesSentiers(hash: string): boolean {
  * fragment, par la même règle — sinon la réponse préchargée attendrait un
  * `fetch` plus tardif, et lui rendrait celle d'avant.
  *
- * Les sentiers à thème partent avec les douze : demandés au montage, ils
- * revenaient un aller-retour après la carte et la redessinaient en entier
- * — arrivés avec elle, ils se dessinent dans le même rendu.
+ * Les sentiers seuls ; l'onglet « Apprendre », son carnet et ses parcours de
+ * thème ensemble — sa page les demande à son ouverture, quel que soit le
+ * visiteur. Les parcours partaient avec les sentiers quand ils vivaient sous
+ * eux (jusqu'au 12 octobre 2026) : demandés au montage, ils revenaient un
+ * aller-retour après la carte et la redessinaient en entier.
  */
 export function donneesDuFragment(route: Route, hash: string): string[] {
-  return route.kind === 'account' && route.page === 'campagne' && versLesSentiers(hash) ? [DEPART.sentiers, DEPART.sujets] : []
+  if (route.kind !== 'account' || route.page !== 'campagne') return []
+  if (versLesSentiers(hash)) return [DEPART.sentiers]
+  return hash === ADRESSE_D_APPRENDRE ? [DEPART.carnet, DEPART.sujets] : []
 }

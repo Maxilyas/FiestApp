@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
-import { ChoixDuTheme } from '../components/ChoixDuTheme'
+import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS } from './adressesDesDuels'
 import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
 import { ecartSigne } from './Rencontre'
-import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { COTE_DE_DEPART, RAISON_DU_CROISEMENT, enjeuContre, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
@@ -20,11 +19,11 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
  * mon côté, ça envoie automatiquement une notification, pas de lien à
  * partager »), en trois temps : contre qui — celui dont la carte a dit
  * « Défier » (`GestesDuJoueur`), sinon trouvé par son prénom, parmi ses amis
- * ou parmi les joueurs qu'il a croisés —, sur quoi — la grille de la série,
- * catégories ou sujet —, puis on le joue d'abord. À sa dernière réponse, il
- * lui part : dans ses duels, et son téléphone sonne. Un duel classé : quand
- * il l'a joué, les deux cotes bougent, et ce qui se joue se dit avant
- * (`enjeuContre`). Chaque prénom ouvre sa carte, entière — « Défier » à son
+ * ou parmi les joueurs qu'il a croisés —, sur quoi — une ligne, et la feuille
+ * du choix de la série derrière « Changer » —, puis on le joue d'abord. À sa
+ * dernière réponse, il lui part : dans ses duels, et son téléphone sonne. Un
+ * duel classé : quand il l'a joué, les deux cotes bougent, et ce qui se joue
+ * se dit avant (`enjeuContre`). Chaque prénom ouvre sa carte, entière — « Défier » à son
  * pied le choisit ici même —, et « Choisir » est à côté : on sait contre qui
  * l'on joue avant de le choisir.
  */
@@ -63,13 +62,10 @@ export function LancerUnDefi({
   const [choisi, setChoisi] = useState<JoueurADefier | null>(depart.adversaire ?? null)
   // Sa cote, pour dire ce qui se joue : celle du départ, ou celle que la carte d'un joueur a relue en le défiant.
   const [moi, setMoi] = useState(depart.moi)
-  const [categories, setCategoriesBrut] = useState<string[]>(() => [...depart.categories])
+  const [categories, setCategories] = useState<string[]>(() => [...depart.categories])
   const [sujet, setSujet] = useState<string | null>(depart.sujet)
-  // Toucher une catégorie quitte le sujet, comme dans la série.
-  const setCategories = (c: string[]) => {
-    setCategoriesBrut(c)
-    setSujet(null)
-  }
+  // La feuille du choix, derrière « Changer » : la grille sous les yeux repoussait « Jouer le duel » à trois écrans.
+  const [choixOuvert, setChoixOuvert] = useState(false)
   // « Défier » au pied d'une carte ouverte d'ici le choisit ici même.
   const { ouvrir, carte } = useCarteDUnProfil({
     onDefier: (j, m) => {
@@ -78,7 +74,6 @@ export function LancerUnDefi({
     },
     onAmis,
   })
-  const quoi = nomDuChoix(categories, sujet) ?? 'toutes les catégories'
   const enjeu = choisi && moi ? enjeuContre(moi.cote, choisi.cote ?? COTE_DE_DEPART, moi.joues) : null
   const choisir = (j: JoueurADefier) => (
     <button type="button" className="btn btn-small" aria-label={`Défier ${j.nom}`} onClick={() => setChoisi(j)}>
@@ -165,9 +160,8 @@ export function LancerUnDefi({
             2
           </span>
           Sur quoi ?
-          <span className="defier-choix">{quoi}</span>
         </h2>
-        <ChoixDuTheme categoriesJouables={categoriesJouables} sujets={sujets} categories={categories} sujet={sujet} onCategories={setCategories} onSujet={setSujet} />
+        <LigneDuChoix categories={categories} sujet={sujet} onChanger={() => setChoixOuvert(true)} />
       </section>
 
       {erreur && (
@@ -192,6 +186,19 @@ export function LancerUnDefi({
             : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>
+      {choixOuvert && (
+        <FeuilleDuChoix
+          categoriesJouables={categoriesJouables}
+          sujets={sujets}
+          categories={categories}
+          sujet={sujet}
+          onChoisir={(c, s) => {
+            setCategories(c)
+            setSujet(s)
+          }}
+          onFermer={() => setChoixOuvert(false)}
+        />
+      )}
       {carte}
     </div>
   )

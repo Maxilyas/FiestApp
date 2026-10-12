@@ -309,7 +309,7 @@ export interface RapportDeSignalement {
   le: number
   /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
   traiteLe: number | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un sentier à thème. */
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un parcours de thème (`sujet`). */
   ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
   branche?: string
   palier?: number

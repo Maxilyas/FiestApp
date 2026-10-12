@@ -429,7 +429,7 @@ export const api = {
      * celles de la série.
      */
     carnet: {
-      etat: () => req<EtatDuCarnet>('/api/campagne/carnet'),
+      etat: () => req<EtatDuCarnet>(DEPART.carnet),
       appris: () => req<FaitAppris[]>('/api/campagne/carnet/appris'),
       /**
        * Une révision : celle laissée en route, ou les questions dont le
@@ -439,7 +439,7 @@ export const api = {
       reviser: (o: { tout?: boolean; recommencer?: boolean } = {}) =>
         req<SerieDeCampagne>('/api/campagne/revision', { method: 'POST', body: JSON.stringify(o) }),
     },
-    /** Les sentiers à thème (`shared/sentiersDeSujets.ts`) : une épreuve de sujet est une série d'un autre mode — sa correction et ses signalements passent par celles de la série. */
+    /** Les parcours de thème — les sentiers à thème d'avant (`shared/sentiersDeSujets.ts`) : une épreuve de sujet est une série d'un autre mode — sa correction et ses signalements passent par celles de la série. */
     sujets: {
       etat: () => req<EtatDesSujets>(DEPART.sujets),
       commencer: (sujet: string, palier: number) => req<EpreuveDeSujet>('/api/campagne/sujets/epreuve', { method: 'POST', body: JSON.stringify({ sujet, palier }) }),

@@ -108,11 +108,22 @@ try {
     }
   }
 
-  // 1. La série : ses records par catégorie, dépliés.
+  // 1. La série : le gros bouton, sur quoi en une ligne, ses records par catégorie, dépliés.
   await page.goto(`${banc.url}/campagne`)
   await page.waitForSelector('.campagne-records')
+  await photo('1-serie')
   await page.click('.campagne-records summary')
   await photo('1-records', true)
+  await page.click('.campagne-records summary')
+  // « Changer » ouvre la feuille du choix : ses catégories, puis ses thèmes ; « Fermer » ne change rien.
+  await page.click('.quoi-ligne')
+  await page.waitForSelector('.feuille-du-choix')
+  await photo('1a-sur-quoi')
+  if (await page.getByRole('tab', { name: /^Thèmes/ }).count()) {
+    await page.getByRole('tab', { name: /^Thèmes/ }).click()
+    await photo('1b-sur-quel-theme')
+  }
+  await page.getByRole('button', { name: 'Fermer' }).click()
 
   // 2. Une série de trente : la Grande Série, Sans une égratignure, L'Alpiniste, le Serpent à plumes.
   await page.click('text=Commencer une série')

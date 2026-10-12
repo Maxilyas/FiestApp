@@ -7666,6 +7666,41 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-sujets p { margin: 0; }
 .campagne-sujets .sujets-titre { font-weight: 600; }
 .campagne-sujets .label { margin-top: 4px; }
+/* Sur quoi joue une partie, en une ligne — la série, « Défier quelqu'un » — :
+   ce qui est choisi, « Changer » au bout, qui ouvre sa feuille
+   (`LigneDuChoix` ; le 12 octobre 2026, la grille dépliée faisait trois
+   écrans de cases et repoussait « Jouer le duel » tout en bas). */
+.quoi-ligne { container: quoi / inline-size; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 12px 8px 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.quoi-ligne:hover { border-color: var(--accent); }
+.quoi-ligne > .icon { flex: none; width: 22px; height: 22px; color: var(--accent-text); }
+.quoi-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.3; }
+.quoi-texte b { font-weight: 600; }
+.quoi-changer { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; }
+.quoi-changer .icon { width: 16px; height: 16px; }
+/* Dans la carte de « Défier quelqu'un », plus étroite (son contenu fait
+   254 px en 360 de large, celui de la série 300) : l'icône laisse sa place
+   au nom de ce qu'on joue. */
+@container quoi (max-width: 280px) {
+  .quoi-ligne > .icon { display: none; }
+}
+/* Sa feuille : toutes d'un toucher, puis les douze en deux colonnes ; les
+   sujets en pastilles, une rangée par famille. Sa hauteur ne suit pas son
+   onglet : « Choisir » reste sous le doigt de l'un à l'autre. */
+.carte-feuille.feuille-du-choix { height: 88%; }
+.quoi-panneau { display: flex; flex-direction: column; gap: 10px; }
+.quoi-panneau p { margin: 0; }
+.quoi-toutes { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.quoi-toutes span { flex: 1; }
+.quoi-toutes .icon { flex: none; width: 20px; height: 20px; }
+.quoi-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.quoi-case { min-height: 44px; padding: 6px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
+.quoi-famille { display: flex; flex-direction: column; gap: 8px; }
+.quoi-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
+.quoi-pastille { min-height: 38px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+.quoi-toutes.active, .quoi-case.active, .quoi-pastille.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.quoi-description { margin: 0 0 8px; }
+/* « Choisir · Les grands rendez-vous du sport » : en capitales et sur une ligne, comme un gros bouton, il sortait de l'écran. */
+.quoi-choisir { min-height: 52px; padding: 8px 18px; font-weight: 600; line-height: 1.25; white-space: normal; text-align: center; }
 .campagne-xp-du-jour { margin: 0; text-align: center; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }
@@ -7724,7 +7759,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .onglet-court { display: none; }
 /* Quatre onglets au téléphone, depuis le carnet : sans leurs icônes ni leur
    article, chacun tient sur une ligne — « Les sentiers » et « Le carnet »
-   passaient sur deux. */
+   passaient sur deux. « Apprendre » n'a pas d'article à perdre. */
 @media (max-width: 420px) {
   .onglets-campagne .onglet { gap: 4px; padding: 0 4px; }
   .onglets-campagne .onglet .icon { display: none; }
@@ -7809,7 +7844,6 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .defier-etape p { margin: 0; }
 .defier-titre { display: flex; align-items: center; gap: 10px; margin: 0; font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1.15; }
 .defier-numero { display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-family: var(--sans); font-size: 0.9rem; font-weight: 700; }
-.defier-choix { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); text-align: right; }
 /* À qui il vient de partir — ou partira : une ligne qui rassure, cochée. */
 .duel-parti { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .duel-parti > .icon { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--accent-text); }
@@ -8069,30 +8103,32 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sentier-chapitre b { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
 .sentier-chapitre.chapitre-en-cours > span, .sentier-chapitre.chapitre-en-cours b { color: var(--accent-text); }
 .sentier-chapitre.chapitre-fait { opacity: var(--dim); }
-/* Les sentiers à thème, sous les douze tuiles : repliés, deux colonnes de
-   tuiles par famille — une époque, un fil rouge —, et la fiche d'un sujet en
-   six lignes, une par palier. */
-.sentiers-sujets { margin-top: 12px; }
-.sentiers-sujets > p { margin: 6px 0 8px; }
-.sujets-famille { margin-top: 8px; }
-.sujets-famille .label { display: block; margin-bottom: 6px; }
-.sujets-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.sujet-tuile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 76px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.sujet-tuile .icon { width: 18px; height: 18px; color: var(--accent-text); }
-.sujet-tuile b { font-size: 0.86rem; line-height: 1.2; }
-.sujet-etat { margin-top: auto; font-size: var(--t-label); font-weight: 600; color: var(--muted); }
-/* La difficulté du palier à jouer, sous son état, plus légère. */
-.sujet-difficulte { display: block; font-weight: 400; }
-.sujet-accompli { border-color: var(--edge-strong); background: var(--accent-soft); }
-.sujet-accompli .sujet-etat { color: var(--accent-text); }
-.sujet-paliers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.sujet-paliers li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
-.sujet-palier-num { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--edge-strong); font-weight: 700; font-variant-numeric: tabular-nums; }
-.sujet-palier-fait .sujet-palier-num { border-color: var(--shape-3); color: var(--shape-3); }
-.sujet-palier-vise .sujet-palier-num { border-color: var(--accent); color: var(--accent-text); }
-.sujet-palier-avenir { opacity: var(--dim); }
-.sujet-palier-texte { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
-.sujet-paliers .icon { width: 16px; height: 16px; }
+/* Les parcours de thème, sous le carnet dans « Apprendre » (`Parcours.tsx` ;
+   tuiles repliées sous les douze sentiers jusqu'au 12 octobre 2026) : une
+   ligne chacun — son icône, où il en est, ses étoiles —, une famille à la
+   fois ; leur fiche en six lignes, une par étape. */
+.parcours { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.parcours h2 { margin: 0; }
+.parcours > p { margin: 0; }
+.parcours-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.parcours-liste li { border-bottom: 1px solid var(--edge); }
+.parcours-liste li:last-child { border-bottom: 0; }
+.parcours-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; margin: 0; padding: 6px 4px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.parcours-ligne:hover { background: var(--accent-soft); }
+.parcours-icone { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); }
+.parcours-icone .icon { width: 18px; height: 18px; }
+.parcours-accompli .parcours-icone { background: var(--accent); color: var(--on-accent); }
+.parcours-nom { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.parcours-etoiles { flex: none; font-size: var(--t-label); font-weight: 700; color: var(--accent-text); }
+.parcours-chevron { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.parcours-etapes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.parcours-etapes li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
+.parcours-etapes .icon { width: 16px; height: 16px; }
+.etape-num { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--edge-strong); font-weight: 700; font-variant-numeric: tabular-nums; }
+.etape-faite .etape-num { border-color: var(--shape-3); color: var(--shape-3); }
+.etape-visee .etape-num { border-color: var(--accent); color: var(--accent-text); }
+.etape-avenir { opacity: var(--dim); }
+.etape-texte { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
 .sentier-depart { position: absolute; bottom: 4px; left: 50%; translate: -50% 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .sentier-paliers { list-style: none; margin: 0; padding: 0; }
 .sentier-paliers > li { position: absolute; width: 0; height: 0; }

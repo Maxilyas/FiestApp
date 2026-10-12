@@ -1,15 +1,18 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { LILAS, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
+import { JeuDuParcours, ParcoursDeTheme, type EtapeAJouer } from './Parcours'
+import { ADRESSE_D_APPRENDRE } from '../../../shared/depart'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { XP_PAR_JUSTE, type SerieDeCampagne } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, type EtatDuCarnet, type FaitAppris } from '../../../shared/revision'
+import type { EtatDesSujets } from '../../../shared/sentiersDeSujets'
 
-/** L'adresse de l'onglet du carnet, dans la campagne. */
-export const ADRESSE_DU_CARNET = '#carnet'
+/** L'adresse de l'onglet « Apprendre », dans la campagne : la règle même du préchargement de son carnet et de ses parcours. */
+export const ADRESSE_DU_CARNET = ADRESSE_D_APPRENDRE
 
 const questions = (n: number) => `${n} question${n > 1 ? 's' : ''}`
 
@@ -38,35 +41,70 @@ export function prochaineFois(c: EtatDuCarnet): string {
 }
 
 /**
- * Le carnet de révision, quatrième onglet de la campagne (`#carnet`) : ce
- * qu'il a raté revient le lendemain, puis trois jours après, puis une
- * semaine — retrouvé à chaque rendez-vous, c'est appris (`shared/revision.ts`).
- * Ce qui l'attend aujourd'hui, ce qui revient ensuite, et ce qu'il a appris,
- * à relire. Sans vies : on y vient pour apprendre, pas pour perdre.
+ * « Apprendre », quatrième onglet de la campagne (`#carnet`) : le carnet de
+ * révision d'abord — ce qu'il a raté revient le lendemain, puis trois jours
+ * après, puis une semaine ; retrouvé à chaque rendez-vous, c'est appris
+ * (`shared/revision.ts`) —, puis les parcours de thème (`Parcours.tsx`), qui
+ * vivaient sous les douze sentiers jusqu'au 12 octobre 2026. Sans vies l'un
+ * et l'autre : on y vient pour apprendre, pas pour perdre.
  *
- * La révision elle-même se joue sur l'écran de la série (`CampagneApp`) — la
- * page lui passe la révision.
+ * La révision se joue sur l'écran de la série (`CampagneApp`) — la page lui
+ * passe la révision ; l'étape d'un parcours, ici même, à la place de la page.
  */
 export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode; onReviser: (revision: SerieDeCampagne) => void; onLu?: (carnet: EtatDuCarnet) => void }) {
   const [carnet, setCarnet] = useState<EtatDuCarnet | null>(null)
   const [faits, setFaits] = useState<FaitAppris[] | null>(null)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
+  // Les parcours de thème, sous le carnet : demandés avec lui, ils se taisent s'ils ne répondent pas.
+  const [parcours, setParcours] = useState<EtatDesSujets | null>(null)
+  // L'étape d'un parcours qu'on joue : elle prend la place de la page, sans quitter l'onglet.
+  const [etape, setEtape] = useState<EtapeAJouer | null>(null)
+  // Revenu d'une étape : la page reprend aux parcours, pas en haut du carnet.
+  const auxParcours = useRef(false)
 
-  useEffect(() => {
-    let vivant = true
+  // Les deux partent ensemble, à l'ouverture : préchargés par le premier script (`donneesDuFragment`), c'est ici qu'ils se reprennent.
+  const lire = (vivant: () => boolean) => {
     api.campagne.carnet
       .etat()
       .then(c => {
-        if (!vivant) return
+        if (!vivant()) return
         setCarnet(c)
         onLu?.(c)
       })
-      .catch(e => vivant && setErreur(motifDe(e)))
+      .catch(e => vivant() && setErreur(motifDe(e)))
+    api.campagne.sujets
+      .etat()
+      .then(p => vivant() && setParcours(p))
+      .catch(() => {})
+  }
+  useEffect(() => {
+    let vivant = true
+    lire(() => vivant)
     return () => {
       vivant = false
     }
   }, [])
+  useLayoutEffect(() => {
+    if (etape || !auxParcours.current) return
+    auxParcours.current = false
+    document.getElementById('parcours-titre')?.scrollIntoView({ block: 'start' })
+  }, [etape])
+
+  if (etape) {
+    return (
+      <JeuDuParcours
+        key={etape.id}
+        depart={etape}
+        onRetour={() => {
+          auxParcours.current = true
+          setEtape(null)
+          // Ses erreurs sont allées au carnet, ses étapes ont peut-être avancé : les deux se relisent.
+          lire(() => true)
+        }}
+      />
+    )
+  }
 
   const reviser = async (o: { tout?: boolean; recommencer?: boolean } = {}) => {
     if (busy) return
@@ -206,6 +244,16 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
             </ol>
           )}
         </details>
+      )}
+
+      {parcours && parcours.sujets.length > 0 && (
+        <ParcoursDeTheme
+          etat={parcours}
+          onEtape={e => {
+            setEtape(e)
+            window.scrollTo(0, 0)
+          }}
+        />
       )}
     </div>
   )
