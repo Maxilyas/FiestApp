@@ -291,7 +291,7 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   const apparence = source('components/Apparence.tsx')
   assert.match(apparence, /export function MesFinitions[\s\S]*?const vu = avecLEssai\(profil, essai\)[\s\S]*?const divinPorte = divin\(vu\.legendaire\)/)
   assert.match(
-    source('components/Loge.tsx'),
+    source('components/LogeTete.tsx'),
     /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{brilleChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
   )
   assert.match(apparence, /a sa propre lumière/)

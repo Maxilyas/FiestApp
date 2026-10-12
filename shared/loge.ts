@@ -22,26 +22,11 @@ import { NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
+import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from './piecesDeLaLoge'
 
-export type PieceDeLaLoge = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe'
-
-/**
- * Les six pièces, dans l'ordre de leur rangée : ce que la salle voit d'abord,
- * puis ce que lui seul voit. `qui` le redit sous la rangée, en une ligne :
- * qui le voit, et où.
- */
-export const PIECES_DE_LA_LOGE: readonly { id: PieceDeLaLoge; nom: string; groupe: 'salle' | 'moi'; qui: string }[] = [
-  { id: 'avatar', nom: 'Avatar', groupe: 'salle', qui: 'La salle le voit, à côté de ton prénom.' },
-  { id: 'titre', nom: 'Titre', groupe: 'salle', qui: 'Sous ton prénom, sur ta carte.' },
-  { id: 'vitrine', nom: 'Vitrine', groupe: 'salle', qui: 'Trois hauts faits, sur ta carte.' },
-  { id: 'fond', nom: 'Fond', groupe: 'salle', qui: 'Derrière ta carte : rien d’autre ne change.' },
-  { id: 'theme', nom: 'Thème', groupe: 'moi', qui: 'Toi seul le vois : il habille tes pages.' },
-  { id: 'gerbe', nom: 'Gerbe', groupe: 'moi', qui: 'Toi seul la vois, à tes bonnes réponses.' },
-]
-
-export function estUnePieceDeLaLoge(x: unknown): x is PieceDeLaLoge {
-  return PIECES_DE_LA_LOGE.some(p => p.id === x)
-}
+// Les six pièces vivent à part, sans catalogue : la page du profil montre
+// sa carte et sa rangée avant que ces règles n'arrivent.
+export { PIECES_DE_LA_LOGE, estUnePieceDeLaLoge, type PieceDeLaLoge } from './piecesDeLaLoge'
 
 /**
  * Ce qu'on essaie : les champs d'un enregistrement du profil

@@ -1,18 +1,11 @@
 import { useState } from 'react'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { compteDeLaCollection, type Compte } from '../../../shared/collection'
-import { vitrineDeLaCarte } from '../../../shared/carte'
-import { recompensesDe } from '../../../shared/proches'
-import { gerbe } from '../../../shared/gerbes'
-import { FONDS } from '../../../shared/fonds'
-import { apercuDe } from '../apercus'
 import type { ChoixDuProfil } from './choix'
 import { Onglets, type Onglet } from './Onglets'
 import { CarriereAtlas } from './CarriereAtlas'
 import { RayonDesObjets, RayonDesThemes } from './Boutique'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
-import { nouveautesDuVestiaire } from './Loge'
-import type { ApercusDuVestiaire } from './Vestiaire'
 
 // Le contenu des écrans du profil — la loge, où l'on change ce qu'on porte
 // (son avatar, son titre, sa vitrine, son fond, son thème, sa gerbe), « Ma
@@ -31,29 +24,16 @@ interface Props {
 }
 
 /**
- * Ce que le profil montre en plus de son en-tête : le total de sa
- * collection, et pour le vestiaire les hauts faits de sa vitrine — une case
- * chacun —, sa gerbe, l'aperçu de son thème et ce qui est nouveau depuis son
- * dernier passage dans la loge. Ici, avec les écrans : leurs catalogues —
- * fonds, gerbes, aperçus des thèmes — n'ont rien à faire sur le chemin de
- * l'accueil anonyme, qui partage le fichier du profil (`ProfilApp`) : près
- * de trois kilos de plus.
+ * Ce que les tuiles du profil montrent en plus de son en-tête : le total de
+ * sa collection. Ici, avec les écrans : ses catalogues n'ont rien à faire
+ * sur le chemin de l'accueil anonyme, qui partage le fichier du profil
+ * (`ProfilApp`). La loge, sur la même page, dit le reste elle-même.
  */
-export function apercusDesTuiles(profil: PublicProfileDetail): ApercusDuVestiaire & { collection: Compte } {
-  const saGerbe = gerbe(profil.gerbe)
-  return {
-    collection: compteDeLaCollection(profil).total,
-    vitrine: vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits)).map(b => ({ emoji: b.emoji, nom: b.title })),
-    // Le Velours d'office : il n'est pas du catalogue des fonds.
-    fond: FONDS.find(f => f.key === profil.fond)?.nom ?? 'Velours',
-    // Trois de ses particules au plus, comme sa case dans « Ma gerbe ».
-    gerbe: saGerbe ? { nom: saGerbe.nom, particules: saGerbe.particules.slice(0, 3) } : null,
-    apercuDuTheme: apercuDe(profil.theme ?? 'velours'),
-    nouveautes: nouveautesDuVestiaire(profil),
-  }
+export function apercusDesTuiles(profil: PublicProfileDetail): { collection: Compte } {
+  return { collection: compteDeLaCollection(profil).total }
 }
 
-/** La loge : tout ce qu'on porte, sur un écran (`Loge.tsx`). */
+/** La loge : tout ce qu'on porte, sur la page du profil (`Loge.tsx`). */
 export { Loge as PanneauLoge, retenirLesPremiersVus } from './Loge'
 
 export { MaCollection as PanneauCollection } from './Collection'

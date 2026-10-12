@@ -6,7 +6,7 @@ import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
 import { IdentiteLigne } from '../components/Identite'
 import { BoutonDesAmis, lesAmis } from '../components/FeuilleDesAmisADemande'
-import { Vestiaire } from '../components/Vestiaire'
+import { LogeEnChemin } from '../components/LogeTete'
 import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
@@ -27,10 +27,6 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
-import { divin } from '../../../shared/divins'
-import { portrait } from '../../../shared/branches'
-import { legendaire } from '../../../shared/legendaires'
-import { NOM_FINITION } from '../../../shared/profil'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -38,31 +34,13 @@ const ETAPE_REJOINDRE = 'fiestappRejoindre'
  * Les écrans du profil — « Mon avatar », « Ma collection »… —, à la demande :
  * ils portent les dessins de tous les médaillons, et l'accueil anonyme —
  * « Me connecter », « Rejoindre une soirée » — les téléchargeait avec lui,
- * 21 Ko et 179 ms de plus en 4G. Ils partent dès qu'un profil répond, et tout
- * de suite sur le téléphone qui en a déjà montré un (`profilConnuIci`).
+ * 21 Ko et 179 ms de plus en 4G. Ils partent dès le chargement de la page du
+ * profil et de la boutique, qui ne se montrent pas sans eux (plus bas).
  */
 const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
 
-/** Ce téléphone a montré un profil la dernière fois. */
-const CLE_PROFIL_CONNU = 'quizz.profil.connu'
-
-function profilConnuIci(): boolean {
-  // Sous try/catch : des cookies bloqués donnaient une page noire.
-  try {
-    return localStorage.getItem(CLE_PROFIL_CONNU) === '1'
-  } catch {
-    return false
-  }
-}
-
-function retenirProfil(connu: boolean) {
-  try {
-    if (connu) localStorage.setItem(CLE_PROFIL_CONNU, '1')
-    else localStorage.removeItem(CLE_PROFIL_CONNU)
-  } catch {
-    // Stockage refusé : les onglets attendront la réponse du profil.
-  }
-}
+/** Sa carte entière, comme la salle la voit, au toucher de l'œil : rien ne la télécharge avant. */
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
 
 /**
  * L'accueil (`/`), le profil (`/profil`) et la boutique (`/boutique`) : une
@@ -118,6 +96,9 @@ export function ProfilApp() {
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
   const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
+  /** Sa carte entière, ouverte de l'œil de « Me changer ». */
+  const [carteOuverte, setCarteOuverte] = useState(false)
+  const laCarte = useALaDemande(carteJoueur, carteOuverte)
   /** L'écran ouvert depuis une tuile du profil (`/profil#trophees`), ou ses tuiles. */
   const [ecran, setEcranOuvert] = useState<EcranDuProfil | null>(lireEcran)
   /**
@@ -179,7 +160,8 @@ export function ProfilApp() {
     setEcranOuvert(piece)
   }
   // La première fois qu'un profil paraît sur ce téléphone, ce qu'il porte
-  // s'y retient : la prochaine nouveauté aura sa pastille sur le vestiaire.
+  // s'y retient : la prochaine nouveauté aura sa pastille sur sa pièce de la
+  // loge — même s'il passe par la boutique avant son profil.
   const profilDetaille = profil && 'hautsFaits' in profil ? profil : null
   useEffect(() => {
     if (profilDetaille && lesPanneaux && lesPanneaux !== 'perdu') lesPanneaux.retenirLesPremiersVus(profilDetaille)
@@ -190,7 +172,6 @@ export function ProfilApp() {
   // allers-retours à la base, l'un après l'autre, pour une ligne.
   const relire = () =>
     (VUE === 'accueil' ? api.joueur.moiAccueil() : api.joueur.moi()).then(r => {
-      retenirProfil(!!r.profile)
       if (r.profile && VUE !== 'accueil') void panneaux.charger().catch(() => {})
       setProfil(r.profile)
       setEspace(r.espace)
@@ -479,11 +460,15 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : un écran ouvert depuis sa tuile, ou la loge ──
-  if (ecran) {
+  // ── Le profil : un écran ouvert depuis sa tuile ──
+  // Une pièce de la loge (`#titre`) n'est pas un écran : elle s'ouvre sur la
+  // page du profil, où la loge vit (plus bas).
+  const enLoge = ecran ? ECRANS.find(x => x.id === ecran)!.groupe === 'Me changer' : false
+  if (ecran && !enLoge) {
     const e = ECRANS.find(x => x.id === ecran)!
-    // « ← » dit où il ramène : l'écran d'où l'on vient, sinon les tuiles.
-    const depuis = ECRANS.find(x => x.id === history.state?.[DEPUIS])
+    // « ← » dit où il ramène : l'écran d'où l'on vient, sinon les tuiles —
+    // une pièce de la loge, c'est la page du profil.
+    const depuis = ECRANS.find(x => x.id === history.state?.[DEPUIS] && x.groupe !== 'Me changer')
     const sortie = (
       <a
         className="lien-discret jour-sortie"
@@ -498,21 +483,6 @@ export function ProfilApp() {
         {depuis?.nom ?? 'Mon profil'}
       </a>
     )
-    // La loge : tout ce qu'on porte, sur un écran — la pièce de l'adresse ouverte.
-    if (e.groupe === 'Me changer') {
-      return (
-        <div className="player-shell loge-page" onClick={suivreUnLien}>
-          <header className="loge-tete">
-            {sortie}
-            <h1>Me changer</h1>
-          </header>
-          {regionDAnnonce}
-          {pret ? <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} /> : enChemin}
-          {erreur && <p className="error">{erreur}</p>}
-          {menu('profil')}
-        </div>
-      )
-    }
     return (
       <div className="player-shell" onClick={suivreUnLien}>
         {sortie}
@@ -527,24 +497,20 @@ export function ProfilApp() {
     )
   }
 
-  // ── Le profil : ce qu'on porte, en une image qu'on touche, puis ses tuiles ──
-  // Ce qu'on porte, chaque pièce à sa place sur sa carte ; puis ce qu'on a et
-  // ce qu'on a fait. Cinq tuiles mêlaient les deux (la remarque du 5 octobre
-  // 2026) ; puis trois tuiles rangeaient ce qu'on porte par écran, et l'on
-  // devinait laquelle changeait son titre (le 11 octobre 2026).
+  // ── Le profil : la loge — ce qu'on porte, qu'on essaie et qu'on porte d'un coup —, puis ses tuiles ──
+  // Ce qu'on porte se change ici même (le souhait du propriétaire du 12
+  // octobre 2026 : « la page me changer directement dans le profil ») : un
+  // vestiaire montrait sa carte, et chaque pièce touchée ouvrait la loge sur
+  // un autre écran. Puis ce qu'on a et ce qu'on a fait. Sa carte et la rangée
+  // des pièces paraissent avec le profil (`LogeEnChemin`) ; le panneau de la
+  // pièce, avec les écrans (`PanneauLoge`).
+  const piece: PieceDeLaLoge = enLoge ? (ecran as PieceDeLaLoge) : 'avatar'
   const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
-  // L'avatar porté par son nom — un emoji n'en a pas —, et sa finition, sauf
-  // sous un Divin, qui a sa propre lumière.
-  const nomPorte = legendaire(profil.legendaire)?.nom ?? divin(profil.legendaire)?.nom ?? portrait(profil.legendaire)?.nom ?? null
-  const finition = divin(profil.legendaire) ? null : NOM_FINITION[profil.finition]
-  // Le reste — sa vitrine, sa gerbe, l'aperçu de son thème, le total de sa
-  // collection — vient avec les écrans (`apercusDesTuiles`) : leurs
-  // catalogues alourdissaient de trois kilos l'accueil, qui partage ce
-  // fichier. Ils sont là d'emblée sur un téléphone qui a déjà montré un
-  // profil ; ailleurs, leurs places sont gardées.
+  // Le total de sa collection vient avec les écrans (`apercusDesTuiles`) :
+  // son catalogue alourdissait l'accueil, qui partage ce fichier.
   const plus = pret?.apercusDesTuiles(profil)
   return (
-    <div className="player-shell">
+    <div className="player-shell" onClick={suivreUnLien}>
       {/* Il a gagné hier — ou le défi de la semaine passée : sa page le lui dit, comme la salle le voit. */}
       {profil.laurier && (
         <p className="carte-laurier">
@@ -554,10 +520,21 @@ export function ProfilApp() {
       {regionDAnnonce}
 
       <section className="profil-groupe" aria-labelledby="groupe-changer">
-        <h2 id="groupe-changer" className="profil-groupe-titre">
-          Me changer <span>touche ce que tu veux changer</span>
-        </h2>
-        <Vestiaire profil={profil} apercus={plus} nomPorte={[nomPorte, finition].filter(Boolean).join(' · ') || 'ton emoji'} onOuvrir={ouvrir} />
+        <div className="profil-groupe-tete">
+          <h2 id="groupe-changer" className="profil-groupe-titre">
+            Me changer <span>touche, essaie, porte</span>
+          </h2>
+          {/* Sa carte entière, comme la salle l'ouvre en touchant son nom. */}
+          <button type="button" className="profil-voir-carte" aria-label="Voir ma carte comme la salle" onClick={() => setCarteOuverte(true)}>
+            <Icon name="eye" />
+          </button>
+        </div>
+        {pret ? (
+          <pret.PanneauLoge profil={profil} piece={piece} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} />
+        ) : (
+          <LogeEnChemin profil={profil} piece={piece} onPiece={changerDePiece} attente={enChemin} />
+        )}
+        {carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarteOuverte(false)} />}
       </section>
 
       <section className="profil-groupe" aria-labelledby="groupe-retrouver">
@@ -626,16 +603,18 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
 }
 
 /**
- * Les écrans du profil, en deux groupes : ce qu'on porte — la loge, une
- * adresse par pièce, chacune ouverte de sa place sur la carte (le
- * vestiaire) — et ce qu'on a, ce qu'on a fait, derrière leurs tuiles. Les
- * onglets d'avant tenaient tout sur trois pages qu'on faisait défiler ; puis
- * cinq tuiles mêlaient ce qu'on porte et ce qu'on collectionne ; puis « Ma
+ * Les écrans du profil, en deux groupes : ce qu'on porte — la loge, sur la
+ * page même, une adresse par pièce (`#titre`) — et ce qu'on a, ce qu'on a
+ * fait, derrière leurs tuiles. Les onglets d'avant tenaient tout sur trois
+ * pages qu'on faisait défiler ; puis cinq tuiles mêlaient ce qu'on porte et
+ * ce qu'on collectionne ; puis « Ma
  * carte » rangeait titre, vitrine et fond sur un seul écran ; puis chaque
  * pièce eut sa page (le 11 octobre 2026), qu'on quittait et rouvrait pour
  * changer d'avatar puis de titre ; puis la loge, où les six se touchent sur
  * une rangée et s'essaient avant de se porter (la maquette validée par le
- * propriétaire le 12 octobre 2026). La boutique a sa page, dans le menu.
+ * propriétaire le 12 octobre 2026), ouverte d'un vestiaire — sa carte, dont
+ * chaque pièce menait à la loge —, puis, le même jour, posée sur la page du
+ * profil à sa place. La boutique a sa page, dans le menu.
  */
 type EcranDuProfil = PieceDeLaLoge | 'collection' | 'carriere' | 'soirees'
 
@@ -691,14 +670,13 @@ function lireEcran(): EcranDuProfil | null {
   return ecranDe(window.location.hash.slice(1))
 }
 
-// Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
-// un, les onglets arrivent avec elle, pas un aller-retour après — les
-// vignettes des tuiles aussi. La boutique et un écran du profil
-// (`/profil#avatar`) ne se montrent qu'avec eux : sur un appareil neuf, ils
-// attendaient la réponse du profil pour les demander — un tour de plus,
-// 0,2 s en 4G. Posé ici, après `VUE` et les écrans qu'il lit. Jamais sur
-// l'accueil, qui n'en montre rien : ils y viennent en fond, une fois montré.
-if (VUE === 'boutique' || (VUE === 'profil' && (profilConnuIci() || lireEcran()))) void panneaux.charger().catch(() => {})
+// Sans attendre la réponse du profil : les onglets arrivent avec elle, pas
+// un aller-retour après. La boutique et la page du profil — sa loge, depuis
+// le 12 octobre 2026 — ne se montrent pas en entier sans eux : sur un
+// appareil neuf, ils attendaient la réponse du profil pour les demander, un
+// tour de plus, 0,2 s en 4G. Posé ici, après `VUE`. Jamais sur l'accueil,
+// qui n'en montre rien : ils y viennent en fond, une fois montré.
+if (VUE === 'boutique' || VUE === 'profil') void panneaux.charger().catch(() => {})
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
 // fin de soirée d'une page d'avant y mène encore, et trouve sa page.

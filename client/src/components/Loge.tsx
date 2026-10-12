@@ -1,20 +1,12 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Avatar } from './Avatar'
-import { Niveau } from './Niveau'
-import { Laurier } from './Laurier'
-import { Icon, type IconName } from './Icon'
-import { ongletVise } from './Onglets'
+import { useEffect, useRef, useState } from 'react'
+import { CarteDeLaLoge, PiecesDeLaLoge, QuiLaVoit } from './LogeTete'
 import { MaGerbe, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
 import type { ChoixDuProfil, PropsDUnePiece } from './choix'
-import { espacesFines } from '../format'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
-import { cibleEclat } from '../../../shared/legendaires'
-import { divin } from '../../../shared/divins'
-import { NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
-import { nomDuTitre } from '../../../shared/sentiers'
+import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import {
   PIECES_DE_LA_LOGE,
   avatarMontre,
@@ -33,16 +25,15 @@ import {
   type VusDeLaLoge,
 } from '../../../shared/loge'
 
-// La loge : « Me changer », au profil — tout ce qu'on porte, sur un seul
-// écran (la maquette validée par le propriétaire le 12 octobre 2026). Sa
-// carte en tête montre l'essai ; dessous, les six pièces sur une rangée — ce
-// que la salle voit, puis ce que lui seul voit —, le panneau de la pièce
-// touchée, et, dès qu'on essaie quelque chose, la barre qui le dit :
-// « Annuler », « Porter ». Les règles de l'essai sont pures
-// (`shared/loge.ts`) ; ici, ce qui se voit et ce que ce téléphone retient.
-
-/** L'icône de chaque pièce, sur sa rangée : celles de leurs pages d'avant. */
-const ICONES: Record<PieceDeLaLoge, IconName> = { avatar: 'sparkles', titre: 'star', vitrine: 'award', fond: 'image', theme: 'palette', gerbe: 'zap' }
+// La loge : « Me changer », sur la page du profil — tout ce qu'on porte, au
+// même endroit (la maquette validée par le propriétaire le 12 octobre 2026,
+// puis, le même jour, « directement dans le profil »). Sa carte en tête
+// montre l'essai ; dessous, les six pièces sur une rangée — ce que la salle
+// voit, puis ce que lui seul voit —, le panneau de la pièce touchée, et, dès
+// qu'on essaie quelque chose, la barre qui le dit : « Annuler », « Porter ».
+// Les règles de l'essai sont pures (`shared/loge.ts`) ; la carte et la
+// rangée, légères, à part (`LogeTete.tsx`) ; ici, l'essai et ce que ce
+// téléphone retient.
 
 // ── Ce que ce téléphone a déjà vu ────────────────────────────────────────
 
@@ -72,18 +63,6 @@ function ecrireVus(profil: string, vus: VusDeLaLoge) {
   } catch {
     // Stockage refusé : rien ne se dira nouveau, rien ne casse.
   }
-}
-
-/**
- * Ce que le vestiaire du profil dit de nouveau, pièce par pièce : de quoi
- * poser sa pastille sur ce qui a changé depuis le dernier passage dans la
- * loge. Lu, jamais écrit : c'est la loge qui retient ce qu'on a vu.
- */
-export function nouveautesDuVestiaire(profil: PublicProfileDetail): Partial<Record<PieceDeLaLoge, number>> {
-  const neufs = nouveautes(ceQuIlAPorter(profil), lireVus(profil.id))
-  const n: Partial<Record<PieceDeLaLoge, number>> = {}
-  for (const { id } of PIECES_DE_LA_LOGE) if (neufs[id].length > 0) n[id] = neufs[id].length
-  return n
 }
 
 /**
@@ -157,16 +136,26 @@ export function Loge({
     if (avaitUnEssai.current && !aUnEssai) rendreLeFocus(loge.current, ['.loge-panneau'])
     avaitUnEssai.current = aUnEssai
   }, [aUnEssai])
-  const pieceDuPanneau = PIECES_DE_LA_LOGE.find(p => p.id === piece)!
   const props: PropsDUnePiece = { profil, essai, essayer, busy, neufs: new Set(neufs[piece]) }
+  // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
+  const vu = avecLEssai(profil, essai)
+  const cible = cibleDeLEclat(avatarMontre(profil, essai))
+  const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
   return (
     <div className="loge" ref={loge}>
-      <CarteDeLaLoge profil={profil} essai={essai} essayer={essayer} />
+      <CarteDeLaLoge
+        vu={vu}
+        vitrine={vitrineVue(vu)}
+        apercu={(['avatar', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)}
+        essaye={{
+          avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || !!essai.eclat,
+          titre: essai.titre !== undefined,
+          vitrine: essai.vitrine !== undefined,
+        }}
+        version={rare !== null && cible ? { rare, essayee: !!essai.eclat, basculer: () => essayer({ eclat: { cle: cible, brille: !rare } }) } : null}
+      />
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
-      <p className="muted loge-qui">
-        <Icon name="eye" />
-        {espacesFines(pieceDuPanneau.qui)}
-      </p>
+      <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {piece === 'avatar' && (
           <>
@@ -232,125 +221,6 @@ export function BarreDEssai({
       <button type="button" className="btn btn-primary" aria-disabled={busy || undefined} onClick={onPorter}>
         Porter
       </button>
-    </div>
-  )
-}
-
-/**
- * Sa carte, en tête de la loge, telle que la salle la verrait s'il portait
- * l'essai : son fond, son avatar et sa finition, son prénom, son titre, sa
- * vitrine. « Aperçu » dit que rien n'est encore porté. Collée en haut pendant
- * qu'on choisit : c'est elle qui change.
- *
- * L'avatar qu'elle montre a éclaté pour lui ? « Version rare » se touche
- * sur elle, à côté de lui : sa version rare ou celle d'origine s'essaie aussi.
- * Dans une fiche sous la case touchée, elle s'enregistrait d'un toucher ;
- * sous la grille, elle aurait fait sauter les cases sous le doigt.
- */
-function CarteDeLaLoge({ profil, essai, essayer }: { profil: PublicProfileDetail; essai: Essai; essayer: (piece: Essai) => void }) {
-  const vu = avecLEssai(profil, essai)
-  const titre = nomDuTitre(vu.titre)
-  const vitrine = vitrineVue(vu)
-  const apercu = (['avatar', 'legendaire', 'finition', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)
-  const cible = cibleDeLEclat(avatarMontre(profil, essai))
-  const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
-  // Sous un Divin, qui a sa propre lumière, la finition ne se dit pas.
-  const finition = divin(vu.legendaire) ? null : NOM_FINITION[vu.finition]
-  return (
-    <div className="loge-collante">
-      <div className={'loge-carte' + (vu.fond ? ` carte-fond fond-${vu.fond}` : '') + (apercu ? ' loge-en-apercu' : '')}>
-        <span
-          className={
-            'loge-carte-avatar' + (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.eclat ? ' loge-essaye' : '')
-          }
-        >
-          <Avatar
-            className="player-avatar big"
-            avatar={vu.avatar}
-            finition={vu.finition}
-            eclat={brilleChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
-            legendaire={vu.legendaire ?? undefined}
-          />
-        </span>
-        <span className="loge-carte-texte">
-          <span className="identite-nom">
-            {vu.name}
-            <Laurier laurier={vu.laurier} />
-            <Niveau niveau={vu.niveau} />
-          </span>
-          <span className={'loge-carte-titre' + (titre ? '' : ' loge-sans') + (essai.titre !== undefined ? ' loge-essaye' : '')}>
-            {titre ? espacesFines(`« ${titre} »`) : 'Sans titre'}
-          </span>
-          <span className={'loge-carte-vitrine' + (essai.vitrine !== undefined ? ' loge-essaye' : '')} aria-label={vitrine.length > 0 ? `Vitrine : ${vitrine.map(b => b.title).join(', ')}` : 'Vitrine vide'}>
-            {vitrine.map(b => (
-              <span key={b.key} className="vestiaire-case" aria-hidden="true">
-                {b.emoji}
-              </span>
-            ))}
-          </span>
-        </span>
-        {apercu ? <span className="loge-apercu">Aperçu</span> : finition && <span className="loge-finition">{finition}</span>}
-        {rare !== null && cible && (
-          <button
-            type="button"
-            className={'loge-version' + (essai.eclat ? ' loge-essaye' : '')}
-            aria-pressed={rare}
-            onClick={() => essayer({ eclat: { cle: cible, brille: !rare } })}
-          >
-            <Icon name="sparkles" />
-            Version rare
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Les six pièces, sur une rangée d'onglets : un seul arrêt de Tab, les
- * flèches passent à la voisine (`ongletVise`). « La salle voit » au-dessus
- * des quatre premières, « Toi seul » au-dessus des deux dernières — le
- * lecteur d'écran l'entend dans la ligne qui suit (`qui`). Une pastille dit
- * la pièce qui a du nouveau.
- */
-function PiecesDeLaLoge({ actif, onChoisir, neuves }: { actif: PieceDeLaLoge; onChoisir: (p: PieceDeLaLoge) => void; neuves: ReadonlySet<PieceDeLaLoge> }) {
-  const liste = useRef<HTMLDivElement>(null)
-  const touche = (e: KeyboardEvent, i: number) => {
-    const j = ongletVise(e.key, i, PIECES_DE_LA_LOGE.length)
-    if (j === null) return
-    e.preventDefault()
-    onChoisir(PIECES_DE_LA_LOGE[j].id)
-    liste.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
-  }
-  return (
-    <div className="loge-pieces">
-      <div className="loge-groupes" aria-hidden="true">
-        <span>La salle voit</span>
-        <span>Toi seul</span>
-      </div>
-      <div ref={liste} className="loge-rangee" role="tablist" aria-label="Ce que je change">
-        {PIECES_DE_LA_LOGE.map((p, i) => (
-          <button
-            key={p.id}
-            id={`loge-${p.id}`}
-            type="button"
-            role="tab"
-            aria-selected={actif === p.id}
-            aria-controls={actif === p.id ? 'loge-panneau' : undefined}
-            tabIndex={actif === p.id ? 0 : -1}
-            className={'loge-piece' + (p.groupe === 'moi' ? ' loge-pour-moi' : '')}
-            onClick={() => onChoisir(p.id)}
-            onKeyDown={e => touche(e, i)}
-          >
-            <span className="loge-rond">
-              <Icon name={ICONES[p.id]} />
-              {neuves.has(p.id) && <span className="loge-neuf" aria-hidden="true" />}
-            </span>
-            {p.nom}
-            {neuves.has(p.id) && <span className="sr-only">, du nouveau</span>}
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

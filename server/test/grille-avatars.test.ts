@@ -337,7 +337,9 @@ test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la 
   // Ni sous un avatar qui n'a pas éclaté, ni sous un Divin.
   assert.doesNotMatch(await laLoge({ legendaire: 'lg:dragon' }), /loge-version/)
   assert.doesNotMatch(await laLoge({ legendaire: 'dv:seraphin', eclats: ['lg:phenix', '🐸'] }), /loge-version/)
-  assert.match(source('components/Loge.tsx'), /onClick=\{\(\) => essayer\(\{ eclat: \{ cle: cible, brille: !rare \} \}\)\}/)
+  // Le geste vient de la loge, qui tient l'essai ; la carte, dans sa tête légère, ne fait que le poser sur le bouton.
+  assert.match(source('components/Loge.tsx'), /version=\{rare !== null && cible \? \{ rare, essayee: !!essai\.eclat, basculer: \(\) => essayer\(\{ eclat: \{ cle: cible, brille: !rare \} \}\) \} : null\}/)
+  assert.match(source('components/LogeTete.tsx'), /<button type="button" className=\{'loge-version' \+ \(version\.essayee \? ' loge-essaye' : ''\)\} aria-pressed=\{version\.rare\} onClick=\{version\.basculer\}>/)
 
   // Ce qui brille : éclaté, et pas éteint — un serveur d'avant n'en dit rien, et tout brille.
   const { brilleChez } = await import('../../shared/profil')

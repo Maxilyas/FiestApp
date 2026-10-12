@@ -127,8 +127,9 @@ const PAGES: PageMesuree[] = [
   { cle: 'attente', nom: 'Salle d’attente (retour)', chemin: `/${ADMIN.slug}`, qui: 'invite', pret: '.waiting' },
   { cle: 'accueil-anonyme', nom: 'Accueil sans profil', chemin: '/', qui: 'anonyme', pret: '.entree-choix .btn-big' },
   { cle: 'accueil', nom: 'Accueil d’un profil', chemin: '/', qui: 'profil', pret: '.accueil-gestes .jouer-section' },
-  { cle: 'profil', nom: 'Profil (vestiaire)', chemin: '/profil', qui: 'profil', pret: '.vestiaire' },
-  { cle: 'avatar', nom: 'Mon avatar', chemin: '/profil#avatar', qui: 'profil', pret: '.famille-avatars .case-avatar' },
+  // La loge vit sur la page du profil : sa carte d'abord, puis le panneau de la pièce ouverte — l'avatar, d'office.
+  { cle: 'profil', nom: 'Profil (sa carte)', chemin: '/profil', qui: 'profil', pret: '.loge .loge-carte' },
+  { cle: 'avatar', nom: 'Profil (ses avatars)', chemin: '/profil#avatar', qui: 'profil', pret: '.loge-panneau .famille-avatars .case-avatar' },
   { cle: 'collection', nom: 'Ma collection', chemin: '/profil#collection', qui: 'profil', pret: '.collection .trophees-liste .trophee' },
   { cle: 'boutique', nom: 'Boutique', chemin: '/boutique', qui: 'profil', pret: '.vitrine-themes > *' },
   { cle: 'jour', nom: 'Quiz du jour', chemin: '/jour', qui: 'profil', pret: '.jour-heros' },

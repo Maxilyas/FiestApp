@@ -160,28 +160,22 @@ export function GrosBouton({
 }
 
 /**
- * Une tuile du profil : plus haute qu'un bouton, deux par rangée — ou trois,
- * quand elle montre ce qu'on porte (`apercu`) et qui le voit (`qui`) ; ou
- * toute la rangée, couchée, avec son compte et sa jauge (`large`).
+ * Une tuile du profil : plus haute qu'un bouton, deux par rangée — ou toute
+ * la rangée, couchée, avec son compte et sa jauge (`large`). Ce qu'on porte
+ * n'a plus de tuile : il se change sur la page même, dans la loge.
  */
 export function Tuile({
   icone,
-  apercu,
   titre,
   detail,
-  qui,
   compte,
   jauge,
   pastille,
   onClick,
 }: {
   icone?: IconName
-  /** Ce qu'on porte, en petit, à la place de l'icône. */
-  apercu?: ReactNode
   titre: string
   detail?: ReactNode
-  /** Qui le voit : « la salle », « toi seul ». */
-  qui?: string
   /** Couchée sur la rangée : son compte à droite du titre, et sa jauge dessous (de 0 à 1). */
   compte?: string
   jauge?: number
@@ -190,18 +184,12 @@ export function Tuile({
 }) {
   const large = jauge !== undefined
   return (
-    <button type="button" className={'tuile' + (apercu ? ' tuile-a-apercu' : '') + (large ? ' tuile-large' : '')} onClick={onClick}>
+    <button type="button" className={'tuile' + (large ? ' tuile-large' : '')} onClick={onClick}>
       {pastille && <span className="pastille-attente">{pastille}</span>}
-      {apercu ? (
-        <span className="tuile-apercu" aria-hidden="true">
-          {apercu}
+      {icone && (
+        <span className="gros-icone">
+          <Icon name={icone} />
         </span>
-      ) : (
-        icone && (
-          <span className="gros-icone">
-            <Icon name={icone} />
-          </span>
-        )
       )}
       <b>
         {titre}
@@ -213,12 +201,6 @@ export function Tuile({
         </span>
       )}
       {detail && <span className="gros-detail">{detail}</span>}
-      {qui && (
-        <span className="tuile-qui">
-          <Icon name="eye" />
-          {qui}
-        </span>
-      )}
     </button>
   )
 }
