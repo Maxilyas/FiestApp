@@ -8,6 +8,7 @@ import { Divin } from './Divin'
 import { CeQuIlRemplace, ChoixDeLEclat, DetailDivin, DetailLegendaire } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
+import { PremierHautFait } from './Trophees'
 import { dessinDuPortrait, useDessins } from './medaillons'
 import { espacesFines } from '../format'
 import { rendreLeFocus } from '../focus'
@@ -881,7 +882,8 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
  * nom, « L'Oracle », « La Lanterne Rouge » —, et chaque palier de maître des
  * sentiers du savoir le sien (« Maître de la forêt »). Il s'écrit sur sa
  * carte : la salle le lit en touchant son nom. Ceux qui restent à gagner se
- * comptent, sans se nommer : trente boutons fermés noyaient les siens.
+ * comptent, sans se nommer : trente boutons fermés noyaient les siens — sauf
+ * pour qui n'en a aucun, à qui la page dit comment gagner le premier.
  */
 export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
@@ -928,6 +930,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
           </span>
         )}
       </div>
+      {gagnes.length === 0 && <PremierHautFait profil={profil} />}
     </section>
   )
 }

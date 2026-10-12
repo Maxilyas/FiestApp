@@ -182,3 +182,15 @@ s'écrit au serveur : la carte la prend, et « Enregistrer » la range. Au
 téléphone, le bouton ajoute une ligne aux seules cartes de la base ; la
 marche de chaque question, que le quiz ne garde pas, reste à montrer.
 PR #166.
+
+# Le premier titre d'un débutant
+
+Le constat 11 de l'experte du jeu solo : « Mon titre » disait « Aucun ·
+53 titres à gagner », et rien de plus — le crayon du vestiaire menait à une
+page sans choix, et rien ne disait comment gagner le premier. « Mon titre »
+et « Ma vitrine » d'un profil qui n'a encore aucun haut fait disent
+maintenant le plus proche, sa jauge comprise — « L'Alpiniste · Bronze,
+6 sur 10 bonnes réponses dans une série de campagne » : un premier palier de
+carrière, seul à se commencer (`lePremierHautFait`) —, sinon le plus simple
+pour commencer, L'Alpiniste, qu'une série suffit à gagner, sans personne et
+à toute heure. Dès le premier haut fait, plus rien : il a son titre.
