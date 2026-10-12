@@ -76,7 +76,9 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
       pastille: 'À revoir',
     }
   }
-  if (!c?.avance || !b) return { detail: 'Une série sans fin, ou les sentiers de tes avatars', href: '/campagne' }
+  // « les sentiers de tes avatars » : quels avatars, et qu'est-ce qu'un sentier ? (l'experte du jeu solo, le 11 octobre 2026)
+  // Ce qu'on y gagne, en deux lignes au téléphone.
+  if (!c?.avance || !b) return { detail: 'Une série sans fin, ou des portraits à gagner', href: '/campagne' }
   // Un nombre ne quitte pas son mot à la ligne : « 11 » d'un côté, « vies » de l'autre.
   const palier = c.avance.palier === PALIER_DU_MAITRE ? `palier de maître ${deLaBranche(b)}` : `palier\u00a0${c.avance.palier} ${deLaBranche(b)}`
   const vies = c.vies > 0 ? `${c.vies}\u00a0vie${c.vies > 1 ? 's' : ''}` : 'plus de vie avant minuit'

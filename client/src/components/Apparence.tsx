@@ -39,8 +39,8 @@ import type { ChoixDuProfil } from './choix'
 
 // « Mon avatar », au profil : ce que la salle voit de lui, son visage —
 // portraits des branches, emojis, légendaires, Divins, rangés par famille —,
-// et sa finition ; puis, dans « Ma carte » et « Mon thème », son titre, son
-// fond et sa gerbe.
+// et sa finition ; puis, chacun dans sa page sous « Me changer », son titre,
+// sa vitrine, son fond, son thème et sa gerbe.
 //
 // Tout cela, c'est l'avatar qu'on porte : une seule carte, un onglet par
 // famille, des cases de la même taille ; un anneau de couleur dit ce qui est

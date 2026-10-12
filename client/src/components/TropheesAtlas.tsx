@@ -21,7 +21,7 @@ import { LIEU_DES_TROPHEES, comptesDesTrophees, listesDesTrophees, type LieuDesT
 // « incompréhensible » (un retour du 10 octobre 2026). Une seule ouverte à
 // la fois : des cartes empilées faisaient une page qu'on ne lisait plus.
 // Chaque case dépliée s'ouvre sur sa règle. La vitrine, qui y tenait sa
-// ligne, se règle dans « Ma carte » : c'est la carte qui la montre.
+// ligne, se règle dans « Ma vitrine » : c'est la carte qui la montre.
 
 type Collection = PartieDesTrophees
 
@@ -205,7 +205,8 @@ export function TropheesAtlas({ profil }: { profil: PublicProfileDetail }) {
   const contenus: Record<Collection, ReactNode> = {
     eclats: (
       <>
-        <p className="muted small">Ils se décernent à la fin de chaque soirée, et certains réveillent un légendaire.</p>
+        {/* Pas « à la fin de chaque soirée » : le quiz du jour et la campagne ont les leurs, et qui ne joue qu'en solo croyait la ligne pas pour lui. */}
+        <p className="muted small">Ils se gagnent en soirée, au quiz du jour et en campagne, et certains réveillent un légendaire.</p>
         {grille(eclats, 'Réussi')}
       </>
     ),

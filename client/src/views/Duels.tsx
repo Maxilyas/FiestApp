@@ -150,7 +150,7 @@ function HerosDesDuels({ etat }: { etat: EtatDesDuels | null }) {
  * « Comment ça marche ? » — déplié tant qu'il n'a joué aucun duel : six
  * phrases, dans l'ordre où il les vivra.
  */
-function CommentCaMarche({ ouvert }: { ouvert: boolean }) {
+export function CommentCaMarche({ ouvert }: { ouvert: boolean }) {
   return (
     <details className="reglages-salon duels-regles" open={ouvert}>
       <summary>
@@ -163,8 +163,8 @@ function CommentCaMarche({ ouvert }: { ouvert: boolean }) {
       </summary>
       <ol className="duels-etapes">
         <li>{espacesFines('« Défier quelqu’un » : choisis qui — un prénom, un ami, un joueur du classement : « Défier » est sur sa carte — et sur quoi. Tu joues d’abord, trois vies, sans chrono.')}</li>
-        <li>{espacesFines('À ta dernière réponse, il reçoit le duel dans ses duels, et son téléphone sonne s’il a activé les notifications : aucun lien à envoyer.')}</li>
-        <li>{espacesFines('Quand il l’a joué, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
+        <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son téléphone sonne si ses notifications sont activées : aucun lien à envoyer.')}</li>
+        <li>{espacesFines('Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
         <li>{espacesFines('Pressé ? « Un adversaire au hasard » : la série d’un joueur de ton niveau, son score à battre, tout de suite.')}</li>
         <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>
         <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>
@@ -479,7 +479,7 @@ export function PageDesDuels({
         sous={
           enCours?.enjeu
             ? `Ton duel au hasard, en route — en jeu : ${ecartSigne(enCours.enjeu.gagne)} si tu gagnes, ${ecartSigne(enCours.enjeu.perdu)} si tu perds.`
-            : 'Qui tu veux, sur ce que tu veux : tu joues d’abord, il reçoit le duel à ta dernière réponse.'
+            : 'Qui tu veux, sur ce que tu veux : tu joues d’abord, le duel lui part à ta dernière réponse.'
         }
       />
       <PortesDesDuels amis={amis?.amis.length} onClassement={etat ? () => setClassementOuvert(true) : undefined} onAmis={feuilleDesAmis.ouvrir} />
@@ -543,7 +543,7 @@ export function DuelsEnChemin() {
     <div className="player-shell campagne duels" aria-busy="true">
       <Sortie />
       <HerosDesDuels etat={null} />
-      <BoutonsDesDuels busy auHasard reprendre={null} sous="Qui tu veux, sur ce que tu veux : tu joues d’abord, il reçoit le duel à ta dernière réponse." />
+      <BoutonsDesDuels busy auHasard reprendre={null} sous="Qui tu veux, sur ce que tu veux : tu joues d’abord, le duel lui part à ta dernière réponse." />
       <PortesDesDuels />
     </div>
   )

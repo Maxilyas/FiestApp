@@ -298,10 +298,10 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<\/h2><button type="button" class="quoi-ligne" aria-haspopup="dialog"><svg[^>]*>.*?<\/svg><span class="quoi-texte"><b>Histoire<\/b><\/span><span class="quoi-changer">Changer/)
   assert.doesNotMatch(html, /categorie-case|quoi-case/, 'la feuille ne s’ouvre qu’au toucher')
   assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button>/)
-  assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son téléphone sonne s’il a activé les notifications\./)
+  assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son téléphone sonne si ses notifications sont activées\./)
   // Ce qui se joue se dit avant : contre sa cote à lui.
   const enjeu = enjeuContre(1000, 1240, 0)
-  assert.ok(html.includes(`Quand il l’a joué, vos deux cotes bougent — pour toi, +${enjeu.gagne} si tu gagnes, −${-enjeu.perdu} si tu perds.`))
+  assert.ok(html.includes(`Le duel joué des deux côtés, vos deux cotes bougent — pour toi, +${enjeu.gagne} si tu gagnes, −${-enjeu.perdu} si tu perds.`))
   assert.match(html, /<a class="lien-discret jour-sortie" href="\/duels">/, '« ← Les duels » : la page d’où l’on vient')
   // Personne de choisi : la barre de recherche — sans autoFocus, le clavier pousserait la page —, puis ses amis, chacun « Choisir » ; le bouton attend.
   const libre = composer([tom, hugo], { categories: [], sujet: null })
@@ -340,8 +340,8 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   // Sa fin dit à qui il est parti — sans promettre une notification qu'ils n'ont peut-être pas voulue.
   const fin = (partiA: string[], classe = false) =>
     renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, classe, onClassement: () => {} }))
-  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur téléphone sonne s’ils ont activé les notifications\./)
-  assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son téléphone sonne s’il a activé les notifications\./)
+  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur téléphone sonne si leurs notifications sont activées\./)
+  assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son téléphone sonne si ses notifications sont activées\./)
   assert.doesNotMatch(fin([]), /Parti à/)
   // Un duel classé : parti à celui qu'il défie, rien à envoyer à d'autres — ni lien, ni code.
   const classe = fin(['Tom'], true)
@@ -391,6 +391,9 @@ test('son propre défi se lance et se joue, il ne se relève pas : sa fin et sa 
   assert.deepEqual(ligneDuDuel({ ...resume, auteur: 'toi', joueurs: 0 }), { titre: 'Ton défi', detail: 'Histoire · Ferme dans 7\u00a0jours', score: 'à jouer' })
   // Celui d'un ami, que deux autres ont joué : à relever.
   assert.deepEqual(ligneDuDuel({ ...resume, auteur: 'Léa', joueurs: 2 }), { titre: 'Le défi de Léa', detail: 'Histoire · 2 joueurs · Ferme dans 7\u00a0jours', score: 'à relever' })
+  // L'élision : « Le défi de Aline » (l'experte du jeu solo, le 11 octobre 2026) ; un profil masqué, sans sa majuscule.
+  assert.equal(ligneDuDuel({ ...resume, auteur: 'Aline', joueurs: 1 }).titre, 'Le défi d’Aline')
+  assert.equal(ligneDuDuel({ ...resume, auteur: 'Un joueur', joueurs: 1 }).titre, 'Le défi d’un joueur')
   // Joué : sa place.
   assert.equal(ligneDuDuel({ ...resume, auteur: 'toi', joueurs: 1, justes: 5, rang: 1 }).score, '1er · 5 bonnes')
 })
@@ -409,7 +412,7 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
     return { href: a.match(/href="([^"]*)"/)![1], detail: a.match(/<span class="gros-detail">([^<]*)<\/span>/)![1] }
   }
   // Rien de commencé, ou une base qui s'est tue : les deux modes, la série d'abord.
-  const deuxModes = { href: '/campagne', detail: 'Une série sans fin, ou les sentiers de tes avatars' }
+  const deuxModes = { href: '/campagne', detail: 'Une série sans fin, ou des portraits à gagner' }
   assert.deepEqual(bouton(), deuxModes)
   assert.deepEqual(bouton({ vies: 12, avance: null }), deuxModes)
   assert.deepEqual(bouton({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false } }), {
