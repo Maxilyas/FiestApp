@@ -168,3 +168,17 @@ Mesuré aussi cette nuit, client d'avant la nuit (#157) contre client d'après
 essais, deux tours) : aucune page n'a ralenti — les écarts tiennent dans le
 bruit (±70 ms sur l'écran utile, ±40 ms de script), le JavaScript pèse le
 même poids à un kilo-octet près.
+
+# « Une autre », dans l'éditeur
+
+Le constat 8 de l'animatrice exigeante : rien ne remplaçait une question
+qu'on n'aime pas dans un quiz tout prêt — retirer le Tarantino du quiz des
+enfants le laissait à quatorze. Chaque question tirée de la base a
+maintenant « Une autre » : sa voisine de la même catégorie, de la même
+marche et de la même sorte (une estimation pour une estimation), pas plus
+vieille d'âge, hors de la bibliothèque et du quiz, ni la jumelle d'une autre
+de ses questions — ses sujets d'abord, puis la jamais posée. Rien ne
+s'écrit au serveur : la carte la prend, et « Enregistrer » la range. Au
+téléphone, le bouton ajoute une ligne aux seules cartes de la base ; la
+marche de chaque question, que le quiz ne garde pas, reste à montrer.
+PR #166.

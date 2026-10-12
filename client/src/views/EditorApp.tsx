@@ -77,7 +77,7 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage, ouvrirParLeProfil, refusDuServeur } from '../api'
+import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage, motifDe, ouvrirParLeProfil, refusDuServeur } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { CONSIGNE_DES_VARIANTES, consigneEstimation } from '../games/quiz/consignes'
@@ -1063,6 +1063,7 @@ function QuizEditor({
       insererApres: i => dernieresActions.current?.insererApres(i),
       dupliquer: i => dernieresActions.current?.dupliquer(i),
       supprimer: i => dernieresActions.current?.supprimer(i),
+      uneAutre: id => dernieresActions.current?.uneAutre(id) ?? Promise.resolve(null),
     }),
     [],
   )
@@ -1168,6 +1169,32 @@ function QuizEditor({
 
   const spotlight = (id: string | undefined, focus: Spot['focus']) => {
     if (id) setSpot({ id, focus, at: Date.now() })
+  }
+
+  /**
+   * « Une autre » : la question tirée de la base qu'on n'aime pas laisse sa
+   * place à une voisine — même catégorie, même marche, même sorte —, que le
+   * serveur tire hors de la bibliothèque et du quiz tel qu'il est ici
+   * (`uneAutreQuestion`) ; elle garde sa durée et son intertitre, réglés par
+   * l'animateur. Par l'identifiant : la carte a pu bouger pendant la demande.
+   * Rend ce qui a coincé, à dire sur la carte.
+   */
+  const uneAutre = async (id: string): Promise<string | null> => {
+    const avant = courant.current?.questions.find(q => q.id === id)
+    if (!avant) return null
+    try {
+      const autre = await api.quizToutPret.uneAutre({ id, kind: avant.kind, quiz: (courant.current?.questions ?? []).flatMap(q => (q.id ? [q.id] : [])) })
+      if (!courant.current?.questions.some(q => q.id === id)) return null
+      patch(d => ({
+        ...d,
+        questions: d.questions.map(q => (q.id === id ? { ...autre, duration: q.duration, ...(q.intertitre && { intertitre: q.intertitre }) } : q)),
+      }))
+      setAnnounce(`Question remplacée : ${autre.text}`)
+      spotlight(autre.id, 'text')
+      return null
+    } catch (e) {
+      return motifDe(e)
+    }
   }
 
   /**
@@ -1456,6 +1483,7 @@ function QuizEditor({
     insererApres: insertAfter,
     dupliquer: duplicate,
     supprimer,
+    uneAutre,
   }
 
   if (!quiz) {
@@ -2557,6 +2585,8 @@ interface ActionsDesCartes {
   insererApres: (index: number) => void
   dupliquer: (index: number) => void
   supprimer: (index: number) => void
+  /** Une voisine tirée de la base à la place de cette question (`base-…`) ; ce qui a coincé, à dire sur la carte. */
+  uneAutre: (id: string) => Promise<string | null>
 }
 
 /** La carte d'une question, qui ne se redessine que si ce qu'elle montre change. */
@@ -2564,9 +2594,10 @@ const CarteDeQuestion = memo(function CarteDeQuestion({
   actions,
   index,
   ...reste
-}: Omit<QuestionCardProps, 'onChange' | 'onChangePiece' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete'> & {
+}: Omit<QuestionCardProps, 'onChange' | 'onChangePiece' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete' | 'onUneAutre'> & {
   actions: ActionsDesCartes
 }) {
+  const id = reste.question.id
   return (
     <QuestionCard
       {...reste}
@@ -2577,6 +2608,8 @@ const CarteDeQuestion = memo(function CarteDeQuestion({
       onInsertAfter={() => actions.insererApres(index)}
       onDuplicate={() => actions.dupliquer(index)}
       onDelete={() => actions.supprimer(index)}
+      // Seule une question tirée de la base a une voisine à tirer.
+      onUneAutre={id?.startsWith('base-') ? () => actions.uneAutre(id) : undefined}
     />
   )
 })
@@ -2601,6 +2634,8 @@ interface QuestionCardProps {
   onInsertAfter: () => void
   onDuplicate: () => void
   onDelete: () => void
+  /** Une question tirée de la base : « Une autre » la remplace par une voisine ; rend ce qui a coincé. */
+  onUneAutre?: () => Promise<string | null>
 }
 
 /** Une cible rendue au champ comme on l'écrit : « 0,8 », pas « 0.8 ». */
@@ -2651,8 +2686,11 @@ function QuestionCard({
   onInsertAfter,
   onDuplicate,
   onDelete,
+  onUneAutre,
 }: QuestionCardProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const [autreEnRoute, setAutreEnRoute] = useState(false)
+  const [erreurAutre, setErreurAutre] = useState('')
   const card = useRef<HTMLDivElement>(null)
   const textArea = useRef<HTMLTextAreaElement>(null)
   const numberButton = useRef<HTMLButtonElement>(null)
@@ -2890,6 +2928,27 @@ function QuestionCard({
             <Icon name="eye" />
             Aperçu
           </button>
+          {/* Une question qu'on n'aime pas, dans un quiz tout prêt : sa voisine de la base plutôt qu'un quiz de quatorze. */}
+          {onUneAutre && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              aria-label={`Une autre question à la place de la question ${index + 1}`}
+              title="Une autre de la même catégorie et de la même difficulté, tirée de la base"
+              aria-busy={autreEnRoute || undefined}
+              disabled={autreEnRoute}
+              onClick={async () => {
+                setAutreEnRoute(true)
+                setErreurAutre('')
+                const coince = await onUneAutre()
+                setAutreEnRoute(false)
+                if (coince) setErreurAutre(coince)
+              }}
+            >
+              <Icon name="dice" />
+              {autreEnRoute ? 'Je cherche…' : 'Une autre'}
+            </button>
+          )}
           <button
             className="btn btn-ghost btn-small"
             aria-label={`Supprimer la question ${index + 1}`}
@@ -2915,6 +2974,11 @@ function QuestionCard({
         </div>
       </div>
 
+      {erreurAutre && (
+        <p className="error" role="alert">
+          {erreurAutre}
+        </p>
+      )}
       <textarea
         ref={textArea}
         className="input"

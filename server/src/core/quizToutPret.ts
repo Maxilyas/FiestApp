@@ -443,6 +443,68 @@ export function composerUnQuiz(
   return quiz
 }
 
+/** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
+function passeAvant(a: readonly number[], b: readonly number[]): boolean {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]
+  return false
+}
+
+/**
+ * Une autre question à la place de celle qu'on n'aime pas, dans un quiz tout
+ * prêt (« Une autre », dans l'éditeur). Retirer Tarantino du quiz des
+ * enfants le laissait à quatorze questions, et rien ne tirait sa voisine dans
+ * la base (l'animatrice exigeante, le 11 octobre 2026, constat 8). La
+ * voisine est de la même catégorie, de la même marche — l'ordre d'un quiz
+ * progressif tient —, de la même sorte — une estimation pour une
+ * estimation —, pas plus vieille d'âge — un quiz d'enfants le reste —, ni
+ * de la bibliothèque, ni du quiz, ni la jumelle d'une de ses autres
+ * questions (`jumelles`). Elle partage d'abord les sujets de la remplacée —
+ * son époque, son thème —, puis vient ce que les soirées n'ont jamais posé,
+ * puis le plus anciennement posé ; à égalité, au hasard. Null quand la base
+ * n'a plus rien de semblable — ou que la remplacée n'en vient pas.
+ *
+ * `quiz` : les identifiants des questions du quiz tel que l'éditeur l'a, pas
+ * encore enregistré.
+ */
+export function uneAutreQuestion(
+  questions: readonly QuestionDeLaBase[],
+  sujetsDe: (q: QuestionDeLaBase) => readonly string[],
+  mesures: ReadonlyMap<string, { justes: number; total: number }>,
+  remplacee: { id: string; kind: QuizQuestionDef['kind'] },
+  quiz: readonly string[],
+  deja: DejaDansLEspace,
+  aleatoire: Aleatoire = Math.random,
+): QuizQuestionDef | null {
+  const parId = new Map(questions.map(q => [idDansLeQuiz(q.id), q]))
+  const origine = parId.get(remplacee.id)
+  if (!origine) return null
+  const niveauDe = (q: QuestionDeLaBase) => niveauDeQuestion(q.meta.difficulte, mesures.get(q.id))
+  const niveau = niveauDe(origine)
+  const estimation = remplacee.kind === 'number'
+  const sesSujets = sujetsDe(origine)
+  const exclues = new Set(quiz)
+  const autres = new DejaPrises()
+  for (const id of quiz) {
+    const q = parId.get(id)
+    if (q && id !== remplacee.id) autres.prendre(q)
+  }
+  let meilleure: { q: QuestionDeLaBase; rang: number[] } | null = null
+  for (const q of battre(questions, aleatoire)) {
+    const id = idDansLeQuiz(q.id)
+    if (q === origine || exclues.has(id) || deja.ids.has(id) || deja.empreintes.has(q.empreinte)) continue
+    if (q.meta.categorie !== origine.meta.categorie || q.meta.ageMin > origine.meta.ageMin || niveauDe(q) !== niveau) continue
+    if (estimation ? !cibleDeLEstimation(q) : niveau === 'expert' && q.reponses.length === 2) continue
+    const lesSiens = sujetsDe(q)
+    const posee = deja.posees.get(id)
+    // Le plus petit gagne : ses sujets manquants, la jumelle, puis jamais posée, puis la plus anciennement posée.
+    const rang = [sesSujets.filter(s => !lesSiens.includes(s)).length, autres.jumelle(q) ? 1 : 0, posee === undefined ? 0 : 1, posee ?? 0]
+    if (!meilleure || passeAvant(rang, meilleure.rang)) meilleure = { q, rang }
+  }
+  if (!meilleure) return null
+  const cible = estimation ? cibleDeLEstimation(meilleure.q) : null
+  return cible ? versLEstimation(meilleure.q, cible) : versLeQuiz(meilleure.q)
+}
+
 /**
  * Son titre : « Histoire · 15 questions », « Les années 80 · 10 questions
  * faciles », « Un peu de tout · 30 questions corsées ». Trois catégories

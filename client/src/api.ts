@@ -220,6 +220,9 @@ export const api = {
     composer: (choix: ChoixDuQuiz) => req<QuizDef>('/api/quiz-tout-pret', { method: 'POST', body: JSON.stringify(choix) }),
     /** Ce qu'un choix composerait, sans rien ranger : combien de questions, dont combien d'estimations. */
     apercu: (choix: ChoixDuQuiz) => req<ApercuDuQuiz>('/api/quiz-tout-pret/apercu', { method: 'POST', body: JSON.stringify(choix) }),
+    /** « Une autre » : la voisine d'une question tirée de la base, hors du quiz tel que l'éditeur l'a (`quiz`). */
+    uneAutre: (corps: { id: string; kind: QuizQuestionDef['kind']; quiz: string[] }) =>
+      req<QuizQuestionDef>('/api/quiz-tout-pret/une-autre', { method: 'POST', body: JSON.stringify(corps) }),
   },
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
