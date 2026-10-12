@@ -43,7 +43,7 @@ export function EntreeEnScene({ players }: { players: PublicPlayer[] }) {
   return (
     <div className="entree-en-scene" role="status" key={p.id}>
       <span className="entree-rayons" aria-hidden="true" />
-      <Avatar className="entree-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+      <Avatar className="entree-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
       <span className="entree-texte">
         <span className="label">Place à</span>
         <b>{p.nomAffiche ?? p.name}</b>

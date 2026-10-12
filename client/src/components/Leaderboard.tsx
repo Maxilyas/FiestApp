@@ -74,7 +74,7 @@ const Ligne = memo(function Ligne({ p, rang, moi, onOuvrir }: LigneProps) {
   const contenu = (
     <>
       <Rank n={rang} />
-      <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+      <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
       <span className="lb-name">
         <NomLaure nom={p.nomAffiche ?? p.name} laurier={p.laurier} />
       </span>

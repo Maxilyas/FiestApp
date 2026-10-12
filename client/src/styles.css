@@ -5256,6 +5256,14 @@ h3 > .icon {
 /* Dans une ligne, elle s'écarte du rang et du prénom, et l'emoji garde sa taille. */
 .lb-avatar.av-bordure { margin-inline: 0.42em; }
 .duel-ami-avatar:has(.av-bordure) { margin-inline: 0.3rem; }
+/* En soirée. Le podium du téléphone : le prénom de la troisième marche
+   passait sous la bordure. */
+.marche-avatar.av-bordure { margin-block: 0.4em 0.3em; }
+/* Les puces de la salle d'attente, à l'écran commun : à 1,9 em, elle
+   débordait de la puce ; resserrée, l'emoji tient encore dans sa
+   sertissure, et elle s'écarte du bord arrondi. */
+.player-chip .bo { --d: 1.7em; }
+.player-chip .player-avatar.av-bordure { margin-inline-start: 0.12em; }
 
 @media (prefers-reduced-motion: reduce) {
   .bo * { animation: none !important; }

@@ -10,7 +10,7 @@
 // manque. Un surnom donné par l'animateur ne touche pas au profil : la carte
 // dit les deux, le nom du soir et le prénom du profil.
 
-import type { BordureDeLigue, CleDeLigue } from './duels'
+import type { CleDeLigue } from './duels'
 import type { BadgePorte } from './badges'
 import type { Distinctions, Fiche } from './profil'
 import { VITRINE_MAX, cleRangee, plusBeaux } from './hautsfaits'
@@ -82,14 +82,12 @@ export interface CarteDeJoueur extends Distinctions {
     titre?: string
     /** Son quiz du jour, en une ligne : les jours joués, les victoires. Absent s'il n'y a jamais joué. */
     jour?: { joues: number; victoires: number }
-    /** Sa ligue des duels et sa cote (`shared/duels.ts`). Absente tant qu'il n'a fini aucun duel classé. */
-    duels?: { ligue: CleDeLigue; cote: number }
     /**
-     * La bordure de ligue autour de son avatar (`bordurePortee`) : la carte
-     * la montre partout où elle s'ouvre, en soirée comprise. Absente s'il
-     * n'en porte pas.
+     * Sa ligue des duels et sa cote (`shared/duels.ts`). Absente tant qu'il
+     * n'a fini aucun duel classé. Sa bordure de ligue, elle, se porte avec
+     * l'avatar (`Distinctions.bordure`), relue avec sa cote (`carteDuProfil`).
      */
-    bordure?: BordureDeLigue
+    duels?: { ligue: CleDeLigue; cote: number }
     /**
      * Sa campagne : le record de ses séries, ses bonnes réponses — séries,
      * épreuves, défis, révisions —, les paliers validés de ses sentiers.

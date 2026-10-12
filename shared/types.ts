@@ -3,6 +3,7 @@ import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { PublicSpace } from './space'
 import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { LaurierPorte } from './jour'
+import type { BordureDeLigue } from './duels'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -38,6 +39,12 @@ export interface PublicPlayer {
   laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue quand il entre. */
   champion?: string
+  /**
+   * La bordure de ligue des duels qu'il porte autour de son avatar
+   * (`bordurePortee`) : lue de mémoire à chaque diffusion, absente tant
+   * qu'elle n'est pas relue, et sous un Divin.
+   */
+  bordure?: BordureDeLigue
   /**
    * Le prénom à afficher quand un homonyme porte le même avatar — « Camille
    * (2) ». Absent, et non pas égal au prénom, dans l'immense majorité des

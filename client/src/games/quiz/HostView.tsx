@@ -379,7 +379,7 @@ function VotesDuSondage({ v }: { v: QuizHostView }) {
           {votes.map((x, i) => (
             <div key={i} className="lb-row vote-row" style={{ animationDelay: `${i * 60}ms` }}>
               <Rank n={rangPartage(x.votes, votes.map(o => o.votes))} />
-              <Avatar className="lb-avatar" avatar={x.avatar} finition={x.finition} eclat={x.eclat} legendaire={x.legendaire} />
+              <Avatar className="lb-avatar" avatar={x.avatar} finition={x.finition} eclat={x.eclat} legendaire={x.legendaire} bordure={x.bordure} />
               <span className="lb-name">
                 {/* Les candidats portent la marque « (2) » : elle ne se coupe pas non plus. */}
                 <NomLaure nom={x.name} laurier={x.laurier} />
@@ -889,7 +889,7 @@ export function QuizHost({
                       ) : (
                         <Rank n={g.rank} />
                       )}
-                      <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
+                      <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} bordure={g.bordure} />
                       <span className="lb-name">
                         <NomLaure nom={g.name} laurier={g.laurier} />
                       </span>

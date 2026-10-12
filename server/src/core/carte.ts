@@ -12,12 +12,16 @@ import { maitresDe } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
 import { divin } from '../../../shared/divins'
 
-/** La moitié « profil » d'une carte. */
-export async function profilDeCarte(
+/**
+ * La moitié « profil » d'une carte, et la bordure de ligue autour de son
+ * avatar, lue avec sa cote : en soirée, elle fait foi sur celle que la salle
+ * tient de mémoire (`badgeDe`).
+ */
+export async function carteDuProfil(
   profiles: ProfileStore,
   jour: Pick<JourStore, 'resumeDe'> | undefined,
   profil: ProfileRec,
-): Promise<NonNullable<CarteDeJoueur['profil']>> {
+): Promise<Required<Pick<CarteDeJoueur, 'profil'>> & Pick<CarteDeJoueur, 'bordure'>> {
   const [vitrine, carriere, resume, ailleurs, paliers, duels, campagne] = await Promise.all([
     profiles.badgesOf(profil.id),
     profiles.careerOf(profil.id),
@@ -45,7 +49,7 @@ export async function profilDeCarte(
   // La bordure de ligue autour de son avatar, lue avec sa cote — jamais sous un Divin, qui a sa propre lumière.
   const porte = profiles.legendairePorte(profil)
   const bordure = duels && !(porte && divin(porte)) ? bordurePortee(profil.bordure, duels.bordures) : null
-  return {
+  const sonProfil: NonNullable<CarteDeJoueur['profil']> = {
     prenom: profil.name,
     niveau: profiles.niveauOf(profil),
     legendaires: profiles.legendairesOf(profil.id),
@@ -61,7 +65,6 @@ export async function profilDeCarte(
     ...(titre && { titre }),
     ...(resume && resume.joues > 0 && { jour: resume }),
     ...(duels && { duels: { ligue: duels.ligue, cote: duels.cote } }),
-    ...(bordure && { bordure }),
     // Absente tant qu'il n'y a rien gagné : l'absence, pas « 0 ».
     ...(campagne && (campagne.justes > 0 || paliersValides > 0) && { campagne: { record: campagne.record, justes: campagne.justes, paliers: paliersValides } }),
     ...(ecussons.length > 0 && { ecussons }),
@@ -78,4 +81,5 @@ export async function profilDeCarte(
       meilleureSerie: fiche.meilleureSerie,
     },
   }
+  return { profil: sonProfil, ...(bordure && { bordure }) }
 }
