@@ -182,7 +182,7 @@ export function LancerUnDefi({
       <p className="muted small centre">
         {espacesFines(
           choisi
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son téléphone sonne s’il a activé les notifications. Quand il l’a joué, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son téléphone sonne si ses notifications sont activées. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
             : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>

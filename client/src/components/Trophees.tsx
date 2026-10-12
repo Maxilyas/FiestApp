@@ -10,7 +10,7 @@ import { recompensesDe, type Proche } from '../../../shared/proches'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
-// que sa carte montre à la salle, qui se règle dans « Ma carte » — et un
+// que sa carte montre à la salle, qui se règle dans « Ma vitrine » — et un
 // objectif commencé. La liste des collections elle-même vit dans
 // `TropheesAtlas`, sous « Ma collection ».
 

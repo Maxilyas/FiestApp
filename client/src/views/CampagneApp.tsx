@@ -1038,7 +1038,8 @@ export function CampagneApp() {
                   })
                 }
               >
-                Reprendre ma série · {etat.enCours.justes} bonne{etat.enCours.justes > 1 ? 's' : ''}
+                {/* « · 0 bonne » se lisait mal : laissée avant sa première bonne réponse, elle se reprend, simplement. */}
+                {etat.enCours.justes > 0 ? `Reprendre ma série · ${etat.enCours.justes} bonne${etat.enCours.justes > 1 ? 's' : ''}` : 'Reprendre ma série'}
               </button>
             )}
             <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void commencer(categories, sujetJouable)}>
@@ -1469,7 +1470,7 @@ export function CampagneApp() {
                   <p>
                     {ecran.revision
                       ? 'Pas grave : elle revient demain.'
-                      : `Raté… ${ecran.vies > 0 ? `plus que ${ecran.vies} vie${ecran.vies > 1 ? 's' : ''}` : 'c’était ta dernière vie'}`}
+                      : `Raté… ${viesApresUneFaute(ecran.vies)}`}
                   </p>
                 </>
               )}
@@ -1481,7 +1482,7 @@ export function CampagneApp() {
               {ecran.rencontre && r.rencontre && (
                 <p className="muted small">
                   {r.rencontre.lui === null
-                    ? `${ecran.rencontre.adversaire.nom} s’était arrêté avant.`
+                    ? `${ecran.rencontre.adversaire.nom} n’avait pas joué celle-ci.`
                     : `${ecran.rencontre.adversaire.nom} l’avait ${r.rencontre.lui ? 'trouvée' : 'ratée'}.`}
                 </p>
               )}
@@ -1709,12 +1710,16 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
   )
 }
 
+/** Ce qui reste après une faute : « plus qu'une vie » — « plus que 1 vie » se lisait mal. */
+export const viesApresUneFaute = (vies: number) => (vies > 1 ? `plus que ${vies} vies` : vies === 1 ? 'plus qu’une vie' : 'c’était ta dernière vie')
+
 /**
  * Ses records catégorie par catégorie, d'une série jouée seule : ce que le
  * Tour du monde demande — dix dans chacune. Replié : la page s'ouvre sur le
- * défi, pas sur un tableau.
+ * défi, pas sur un tableau. « Le haut fait du Tour du monde », jamais « le
+ * Tour du monde » seul : c'est aussi le sentier de la culture générale.
  */
-function RecordsParCategorie({ records, categories }: { records: { categorie: string; record: number }[]; categories: string[] }) {
+export function RecordsParCategorie({ records, categories }: { records: { categorie: string; record: number }[]; categories: string[] }) {
   const parCategorie = new Map(records.map(r => [r.categorie, r.record]))
   const atteintes = categories.filter(c => (parCategorie.get(c) ?? 0) >= RECORD_DU_TOUR_DU_MONDE).length
   const fait = atteintes === categories.length
@@ -1725,13 +1730,14 @@ function RecordsParCategorie({ records, categories }: { records: { categorie: st
         <span>
           <b>Mes records par catégorie</b>
           <span className="muted small">
-            {fait ? 'le Tour du monde est fait' : `Tour du monde : ${atteintes} sur ${categories.length}`}
+            {/* « 0 sur 12 », sans « catégories » : le titre le dit, et la ligne tient en 360 px. */}
+            {fait ? 'le haut fait du Tour du monde est à toi' : `haut fait du Tour du monde : ${atteintes} sur ${categories.length}`}
           </span>
         </span>
         <Icon name="chevron-down" className="repli-chevron" />
       </summary>
       <p className="muted small">
-        {`Une série d’une seule catégorie : choisis-la d’un « Changer », sous le gros bouton. ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le Tour du monde est à toi.`}
+        {`Une série d’une seule catégorie : choisis-la d’un « Changer », sous le gros bouton. ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le haut fait du Tour du monde est à toi.`}
       </p>
       <ul className="campagne-records-grille">
         {categories.map(c => {

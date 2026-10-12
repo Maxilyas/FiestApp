@@ -176,8 +176,10 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
           <>
             <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser()}>
               <Icon name="play" />
-              {/* Court : « Reprendre ma révision · 2 sur 10 » débordait du gros bouton en 360 px. */}
-              {`Reprendre · ${enCours.question!.index + 1} sur ${enCours.total}`}
+              {/* Court : « Reprendre ma révision · 2 sur 10 » débordait du gros bouton en 360 px, et « question 10 sur 10 »
+                  l'aurait touché. « à la question 2 » : « 2 sur 10 » se lisait comme les bonnes réponses du sentier
+                  (« 5 bonnes sur 6 »), quand il compte la position. */}
+              {`Reprendre à la question ${enCours.question!.index + 1}`}
             </button>
             {/* Comme une série : celle laissée en route se referme, ses réponses restent au carnet. */}
             <button type="button" className="btn btn-ghost btn-block" aria-disabled={busy || undefined} onClick={() => void reviser({ recommencer: true })}>

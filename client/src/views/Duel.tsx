@@ -8,6 +8,7 @@ import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { OR, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
 import { placeDuJour } from '../../../shared/course'
+import { deNom } from '../../../shared/typographie'
 import { NOM_NIVEAU, type AmiDeCampagne, type CorrectionDeCampagne, type DefiRecu, type DuelEntreAmis, type ResumeDuDuel, type SerieDeCampagne } from '../../../shared/campagne'
 import { LigneDuDefiVue } from './Defi'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
@@ -175,10 +176,15 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
   )
 }
 
-/** « Parti à Tom et Inès : … » — ce qui vient de leur arriver, sans promettre une notification qu'ils n'ont peut-être pas voulue. */
+/**
+ * « Parti à Tom et Inès : … » — ce qui vient de leur arriver, sans promettre
+ * une notification qu'ils n'ont peut-être pas voulue. Sans « il » ni
+ * « elle » : un prénom ne dit pas lequel (« Bérénice s'était arrêté »,
+ * l'experte du jeu solo, le 11 octobre 2026).
+ */
 const partiAvec = (noms: readonly string[]) =>
   espacesFines(
-    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend dans ${noms.length > 1 ? 'leurs' : 'ses'} duels, et ${noms.length > 1 ? 'leur' : 'son'} téléphone sonne s’${noms.length > 1 ? 'ils ont' : 'il a'} activé les notifications.`,
+    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend dans ${noms.length > 1 ? 'leurs' : 'ses'} duels, et ${noms.length > 1 ? 'leur téléphone sonne si leurs' : 'son téléphone sonne si ses'} notifications sont activées.`,
   )
 
 /**
@@ -375,7 +381,8 @@ export function PageDuDuel({
                 </>
               ) : (
                 <>
-                  {duel && duel.joueurs > 1 ? 'joueurs l’ont relevé' : 'joueur l’a relevé'}
+                  {/* Joué, pas relevé : son auteur y compte, et l'on ne relève pas son propre défi. */}
+                  {!duel ? 'joueurs' : duel.joueurs === 0 ? 'personne ne l’a joué' : duel.joueurs > 1 ? 'joueurs l’ont joué' : 'joueur l’a joué'}
                   <br />
                   {duel ? fermeture(duel.minutesRestantes) : '…'}
                 </>
@@ -444,7 +451,7 @@ export function PageDuDuel({
       )}
       {/* Joué le premier : il attend l'autre. */}
       {duel && ouvert && contre && duel.auteur.toi && t?.finie && duel.ecart === undefined && (
-        <p className="muted small centre">{espacesFines(`Parti à ${contre.nom} : vos deux cotes bougeront quand il l’aura joué.`)}</p>
+        <p className="muted small centre">{espacesFines(`Parti à ${contre.nom} : vos deux cotes bougeront quand le duel sera joué des deux côtés.`)}</p>
       )}
       {duel && !ouvert && !t && (
         <p className="muted small centre">{contre ? 'Ce duel est fermé : il ne compte plus. Défie quelqu’un depuis tes duels.' : 'Ce défi est fermé : son classement est figé. Lance le tien depuis tes duels.'}</p>
@@ -645,7 +652,8 @@ export function TesDuelsContre({
 export function ligneDuDuel(d: ResumeDuDuel): { titre: string; detail: string; score: string } {
   const joueurs = d.joueurs > 0 ? `${d.joueurs} joueur${d.joueurs > 1 ? 's' : ''}` : null
   return {
-    titre: d.auteur === 'toi' ? 'Ton défi' : `Le défi de ${d.auteur}`,
+    // « Le défi d’Aline » ; « Un joueur », le nom d'un profil masqué, s'élide sans sa majuscule.
+    titre: d.auteur === 'toi' ? 'Ton défi' : d.auteur === 'Un joueur' ? 'Le défi d’un joueur' : `Le défi ${deNom(d.auteur)}`,
     detail: [nomDuChoix(d.categories ?? [], d.sujet) ?? 'toutes les catégories', joueurs, fermeture(d.minutesRestantes)].filter(Boolean).join(' · '),
     score:
       d.justes !== null && d.rang !== null
