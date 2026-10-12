@@ -36,7 +36,8 @@ export type ChoixDuProfil = {
 /**
  * Ce que reçoit chaque pièce de la loge (`Loge.tsx`) : ce qu'il porte, ce
  * qu'il essaie, et de quoi essayer — un toucher essaie, il n'enregistre
- * rien ; « Porter », dans la barre de la loge, enregistre tout l'essai.
+ * rien, la version d'un avatar éclaté comprise ; « Porter », dans la barre
+ * de la loge, enregistre tout l'essai.
  */
 export interface PropsDUnePiece {
   profil: PublicProfileDetail
@@ -44,8 +45,6 @@ export interface PropsDUnePiece {
   essai: Essai
   essayer: (piece: Essai) => void
   busy: boolean
-  /** Ce qui s'enregistre d'un toucher, hors de l'essai : la version — rare ou d'origine — d'un avatar éclaté. */
-  enregistrer: (patch: ChoixDuProfil) => void
   /** Ce qui est arrivé depuis son dernier passage sur ce téléphone. */
   neufs?: ReadonlySet<string>
 }

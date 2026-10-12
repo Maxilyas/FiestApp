@@ -190,7 +190,8 @@ test('ce qui est nouveau : rien à la première visite, puis ce qui arrive depui
 test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, qui le voit, puis la pièce touchée', async () => {
   const { espacesFines } = await import(url('format.ts'))
   const contenus: Record<string, RegExp> = {
-    avatar: /<h3><svg[^>]*>.*?<\/svg>Mes avatars /,
+    // L'avatar : ses finitions en pastilles, puis ses familles en pastilles (les maquettes 3 et 1).
+    avatar: /<div class="loge-finitions">.*<div class="onglets onglets-puces" role="tablist" aria-label="Familles d’avatars">/,
     titre: /<h3><svg[^>]*>.*?<\/svg>Mes titres /,
     vitrine: /<h3><svg[^>]*>.*?<\/svg>Mes hauts faits /,
     fond: /<h3><svg[^>]*>.*?<\/svg>Mes fonds /,
@@ -247,7 +248,7 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   await toucher('MonFond', 'components/Apparence', /^Nuit étoilée/)
   await toucher('MonFond', 'components/Apparence', /^Velours/)
   await toucher('MesFinitions', 'components/Apparence', /^Argent/)
-  await toucher('MesFinitions', 'components/Apparence', /^La plus belle/)
+  await toucher('MesFinitions', 'components/Apparence', /^Auto$/)
   await toucher('MaVitrine', 'components/Trophees', /L’Oracle/)
   assert.deepEqual(essais, [{ titre: 'hf:oracle' }, { titre: null }, { fond: 'nuit' }, { fond: null }, { finition: 'argent' }, { finition: 'auto' }, { vitrine: ['hf:oracle'] }])
   assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
@@ -280,18 +281,25 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   assert.match(fonds, /class="finition-btn porte" aria-pressed="false"><span class="fond-apercu" aria-hidden="true"><\/span><span class="finition-nom">Velours<\/span><span class="muted small">porté<\/span>/)
   assert.match(fonds, /class="finition-btn selected essaye" aria-pressed="true"><span class="fond-apercu carte-fond fond-nuit" aria-hidden="true"><\/span><span class="finition-nom">Nuit étoilée<\/span><span class="muted small">à l’essai<\/span>/)
 
-  // Les grilles qui gardent un état — les avatars, les gerbes, les thèmes — touchent de même.
+  // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il a son cadenas.
+  essais.length = 0
+  const cases = async (famille: string) =>
+    elements(await arbre('components/Apparence', 'FamilleDAvatars', { ...pieces, famille })).filter(e => e.type === 'button')
+  ;(await cases('legendaires')).find(b => b.props['aria-label'] === 'Le Phénix, légendaire').props.onClick()
+  ;(await cases('emojis')).find(b => b.props['aria-label'] === 'Avatar 🦊').props.onClick()
+  ;(await cases('portraits')).find(b => /^L’écureuil/.test(b.props['aria-label'])).props.onClick()
+  assert.deepEqual(essais, [{ legendaire: 'lg:phenix' }, { avatar: '🦊' }, { legendaire: 'br:ecureuil' }])
+  assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
+
+  // Les grilles qui gardent un état — les gerbes, les thèmes — touchent de même.
   const APPARENCE = source('components/Apparence.tsx')
-  const avatars = APPARENCE.slice(APPARENCE.indexOf('export function MesAvatars'), APPARENCE.indexOf('export function DetailPortrait'))
-  assert.match(avatars, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*const piece = essaiDe\(cle\)\s*if \(piece\) essayer\(piece\)\s*\}/)
-  // Ce qui reste à gagner n'ouvre que sa fiche ; ce qui est à lui s'essaie.
-  assert.match(avatars, /if \(legendaire\(cle\)\) return profil\.legendaires\.includes\(cle\) \? \{ legendaire: cle \} : null/)
   assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
   assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
   assert.match(source('components/Boutique.tsx'), /setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
-  // Une seule chose s'enregistre d'un toucher dans ces grilles : la version, rare ou d'origine, d'un avatar éclaté.
-  assert.deepEqual([...APPARENCE.matchAll(/\benregistrer\(/g)].length, 1)
-  assert.match(APPARENCE, /const choisirEclat = \(cle: string\) => \(b: boolean\) => enregistrer\(\{ eclat: \{ cle, brille: b \} \}\)/)
+  // Rien ne s'enregistre d'un toucher dans ces grilles — pas même la version, rare ou d'origine, d'un avatar éclaté :
+  // elle s'essaie sur la carte de la loge, et « Porter » la garde avec le reste.
+  assert.deepEqual([...APPARENCE.matchAll(/\benregistrer\(/g)].length, 0)
+  assert.doesNotMatch(source('components/Loge.tsx'), /enregistrer\(\{ eclat/)
   assert.doesNotMatch(source('components/Trophees.tsx'), /\benregistrer\(/)
   const boutique = source('components/Boutique.tsx')
   assert.doesNotMatch(boutique.slice(boutique.indexOf('export function MesThemes'), boutique.indexOf('export function DetailTheme')), /\benregistrer\(/)
@@ -368,6 +376,12 @@ test('« Porter » : un seul enregistrement, tout ou rien', async () => {
     assert.match(((await refus.json()) as any).error, /Ce titre se gagne d’abord/)
     const relu = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
     assert.deepEqual([relu.profile.avatar, relu.profile.theme], ['🐼', 'ivoire'])
+    // La version d'un avatar qui n'a pas éclaté pour elle aussi : l'avatar essayé avec reste à quai.
+    const version = await ecrire(banc.url, '/api/joueur/moi', { avatar: '🦊', eclat: { cle: '🦊', brille: false } }, cookie, 'PUT')
+    assert.equal(version.status, 400)
+    assert.match(((await version.json()) as any).error, /Cet avatar n’a pas éclaté pour toi/)
+    const encore = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
+    assert.equal(encore.profile.avatar, '🐼')
   } finally {
     await banc.close()
   }

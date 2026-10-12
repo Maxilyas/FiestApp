@@ -17,8 +17,8 @@ import { divin } from './divins'
 import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
-import { legendaire } from './legendaires'
-import { NOM_FINITION, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { cibleEclat, legendaire } from './legendaires'
+import { NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
@@ -62,10 +62,31 @@ export interface Essai {
   theme?: string | null
   /** `AUCUNE_GERBE` : aucune. */
   gerbe?: string | null
+  /** La version de l'avatar que la carte montre, s'il a éclaté pour lui : rare (`brille`) ou d'origine. */
+  eclat?: { cle: string; brille: boolean }
 }
 
-/** Ce qu'il porte, tel que sa page le reçoit. */
-export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe'>
+/**
+ * Ce qu'il porte, tel que sa page le reçoit — ses Éclats compris, et ceux
+ * qu'il a éteints : la version qu'il montre de chacun.
+ */
+export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe'> &
+  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints'>>
+
+/** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
+export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai: Essai): { avatar: string; legendaire: string | null } {
+  if (essai.avatar !== undefined) return { avatar: essai.avatar, legendaire: null }
+  return { avatar: porte.avatar, legendaire: essai.legendaire !== undefined ? essai.legendaire : (porte.legendaire ?? null) }
+}
+
+/**
+ * Ce qui peut avoir éclaté dans l'avatar montré : le légendaire ou le
+ * portrait, sinon l'emoji (`cibleEclat`) — rien sous un Divin, qui n'éclate
+ * pas et cache l'emoji.
+ */
+export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }): string | null {
+  return divin(montre.legendaire) ? null : cibleEclat(montre.legendaire, montre.avatar)
+}
 
 const memeVitrine = (a: readonly string[] | null, b: readonly string[] | null) =>
   a === b || (!!a && !!b && a.length === b.length && a.every((k, i) => k === b[i]))
@@ -91,6 +112,14 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   if (suivant.theme !== undefined && suivant.theme === (porte.theme === 'velours' ? null : (porte.theme ?? null))) delete suivant.theme
   // La gerbe portée se lit déjà résolue : null, il n'en veut aucune.
   if (suivant.gerbe !== undefined && (suivant.gerbe === AUCUNE_GERBE ? null : suivant.gerbe) === (porte.gerbe ?? null)) delete suivant.gerbe
+  // La version d'un avatar éclaté suit l'avatar montré : en essayer un autre
+  // la laisse — « Porter » aurait réglé un avatar qu'on ne voit plus. Celle
+  // qu'il montre déjà sort de l'essai.
+  if (suivant.eclat) {
+    const { cle, brille } = suivant.eclat
+    if (cle !== cibleDeLEclat(avatarMontre(porte, suivant))) delete suivant.eclat
+    else if (porte.eclats && brille === brilleChez({ eclats: porte.eclats, eclatsEteints: porte.eclatsEteints }, cle)) delete suivant.eclat
+  }
   return suivant
 }
 
@@ -118,6 +147,12 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
   if (essai.fond !== undefined) vu.fond = essai.fond
   if (essai.theme !== undefined) vu.theme = essai.theme
   if (essai.gerbe !== undefined) vu.gerbe = essai.gerbe === AUCUNE_GERBE ? null : essai.gerbe
+  if (essai.eclat) {
+    const eteints = new Set(profil.eclatsEteints ?? [])
+    if (essai.eclat.brille) eteints.delete(essai.eclat.cle)
+    else eteints.add(essai.eclat.cle)
+    vu.eclatsEteints = [...eteints]
+  }
   return vu
 }
 
@@ -158,6 +193,7 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
             : { piece: 'avatar', nom: 'Ton emoji', detail: 'Avatar' },
     )
   }
+  if (essai.eclat) lignes.push({ piece: 'avatar', nom: essai.eclat.brille ? 'Version rare' : 'Version d’origine', detail: 'Éclat' })
   if (essai.finition !== undefined) {
     const f = essai.finition
     lignes.push({ piece: 'avatar', nom: f === 'auto' ? `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}` : NOM_FINITION[f], detail: 'Finition' })

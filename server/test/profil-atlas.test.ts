@@ -227,21 +227,21 @@ test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête
   assert.doesNotMatch(source('styles.css'), /\.ancre-du-vestiaire/)
 })
 
-test('la loge, sur l’avatar : sa carte collée en tête, la finition sur sa ligne, ses avatars à lui — le reste, dans la collection', async () => {
+test('la loge, sur l’avatar : sa carte collée en tête, ses finitions en pastilles, ses avatars à lui — le reste, dans la collection', async () => {
   const html = await laLoge('avatar')
   assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, 'sa carte en tête : c’est elle qui change')
-  // La finition se lit sur sa ligne et se déplie : dépliée d'office, ses huit
-  // cases repoussaient les avatars de plus d'un écran.
-  assert.match(html, /<button type="button" aria-expanded="false" aria-controls="mes-finitions">.*<span class="style-nom">Finition<\/span><span class="style-valeur">Auto · Mat<\/span>/)
-  assert.doesNotMatch(html, /class="finitions"/)
-  assert.ok(html.indexOf('Finition') < html.indexOf('Mes avatars'), 'la finition avant les avatars')
-  // Seulement ce qu'il a : rien de fermé, et le compte dit « à toi ».
-  assert.match(html, /Mes avatars <span class="muted small titre-compte">\d+ à toi<\/span>/)
-  assert.doesNotMatch(html, /case-avatar[^"]* ferme/)
-  // Ce qui reste, et où le gagner : un lien vers la collection, compté.
-  const { compteDeLaCollection } = await import('../../shared/collection')
-  const avatars = compteDeLaCollection(complet as any).familles.find(f => f.famille === 'avatars')!
-  assert.match(html, new RegExp(`<a class="link-inline lien-boutique" href="#collection">.*${avatars.total - avatars.acquis} autres à gagner : où et comment, dans « Ma collection »</a>`))
+  // Ses finitions sur une rangée de pastilles (la maquette 3) : « Auto », celle
+  // qu'il porte d'office ; dépliées en grandes cases, elles repoussaient ses
+  // avatars de plus d'un écran.
+  assert.match(html, /<div class="loge-finitions"><span class="loge-sous-titre" id="loge-finitions-titre">Finition<\/span><div class="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre"><button type="button" class="finition-choix selected porte" aria-pressed="true" aria-label="Auto, toujours la plus belle : Argent">/)
+  assert.doesNotMatch(html, /class="finitions"|aria-controls="mes-finitions"/)
+  assert.ok(html.indexOf('loge-finitions') < html.indexOf('onglets-puces'), 'la finition avant les avatars')
+  // Seulement ce qu'il a : chaque case se touche ; ce qui reste est un cadenas, du décor.
+  assert.doesNotMatch(html, /<button[^>]*loge-ferme/)
+  // Ce qui reste, et où le gagner : un lien vers sa ligne de la collection, compté.
+  const famille = /aria-labelledby="famille-(\w+)"/.exec(html)![1]
+  const partie = { legendaires: 'legendaires', portraits: 'savoir', emojis: 'emojis' }[famille]
+  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-${partie}">\\d+ [^<]* à gagner`))
   // La carte reste collée pendant qu'on choisit.
   assert.match(source('styles.css'), /\.loge-collante \{ position: sticky; top: 0;/)
 })
@@ -278,8 +278,9 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   const carte = await laLoge('fond')
   assert.match(carte, /href="#collection-fonds"><svg[^>]*>.*?<\/svg>7 autres fonds à gagner : où et comment, dans « Ma collection »<\/a>/)
   assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
+  // La finition : la prochaine à gagner, éteinte, dit son niveau et mène à sa ligne de la collection.
   const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...loge })
-  assert.match(avatar, /href="#collection-finitions"><svg[^>]*>.*?<\/svg>6 autres finitions à gagner : où et comment, dans « Ma collection »<\/a>/)
+  assert.match(avatar, /<a class="finition-choix finition-fermee" href="#collection-finitions" aria-label="Argent, au niveau 3 : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-argent" aria-hidden="true"><\/i><span aria-hidden="true">Niv\. 3<\/span><\/a>/)
   // Dans la collection, chaque gerbe se touche pour éclater, même à gagner.
   const COLLECTION = source('components/Collection.tsx')
   assert.match(COLLECTION, /onToucher=\{cle => setGerbeVue\(a => \(\{ cle, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\}/)

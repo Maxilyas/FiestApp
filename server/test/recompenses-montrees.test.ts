@@ -285,12 +285,15 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   // « Ce que la salle voit » et l'en-tête du téléphone oubliaient le laurier.
   assert.match(source('components/Apparence.tsx'), /<NomLaure nom=\{profil\.name\} laurier=\{profil\.laurier\} \/>/)
   assert.match(source('views/PlayerApp.tsx'), /<span className="me-nom">[^\n]*\n(?:\s*\{\/\*[^\n]*\*\/\}\n)?\s*<Laurier laurier=\{me\?\.laurier\} \/>/)
-  // « Ma finition » montre le légendaire porté, pas l'emoji caché dessous —
-  // dans la loge, l'avatar que la carte montre : l'essayé, sinon le porté.
+  // La finition se voit sur le légendaire porté, pas sur l'emoji caché
+  // dessous : dans la loge, sur l'avatar que la carte montre — l'essayé,
+  // sinon le porté —, finition essayée comprise ; ses pastilles n'en dessinent aucun.
   const apparence = source('components/Apparence.tsx')
-  assert.match(apparence, /const vu = avecLEssai\(profil, essai\)\s*const divinPorte = divin\(vu\.legendaire\)/)
-  assert.match(apparence, /const legendairePorte = divinPorte \? undefined : \(vu\.legendaire \?\? undefined\)/)
-  assert.match(apparence, /<Avatar avatar=\{vu\.avatar\} finition=\{f\} eclat=\{eclat\} legendaire=\{legendairePorte\} \/>/)
+  assert.match(apparence, /export function MesFinitions[\s\S]*?const vu = avecLEssai\(profil, essai\)[\s\S]*?const divinPorte = divin\(vu\.legendaire\)/)
+  assert.match(
+    source('components/Loge.tsx'),
+    /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{brilleChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
+  )
   assert.match(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)

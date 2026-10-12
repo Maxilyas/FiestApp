@@ -361,54 +361,53 @@ test('un Divin verrouillé se tient tranquille, comme un légendaire verrouillé
   assert.match(html, /<svg class="dv dv-seraphin dv-voile"/)
 })
 
-test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui qu’on survole', async () => {
+test('dans la grille des avatars, seul bouge ce que la carte montre — et celui qu’on survole', async () => {
   // 219 animations chez un habitué, pour un seul avatar regardé
   // (design-recompenses-4) : les halos de finition sous chaque emoji, les
-  // formes de chaque médaillon.
-  // Une famille à la fois (`familleInitiale`) : chacune a sa grille.
-  const cases: { classes: string[]; nom: string }[] = []
-  for (const familleInitiale of ['branches', 'emojis', 'legendaires']) {
-    const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {}, familleInitiale })
-    assert.match(html, /class="emoji-grid grille-unique/)
-    // Les cases des grilles : pas les lignes des branches, qui déplient sans rien animer.
-    for (const m of html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)) {
-      if (m[1] !== 'ligne-branche') cases.push({ classes: m[1].split(' '), nom: m[2] })
-    }
+  // formes de chaque médaillon. Dans la loge, une famille à la fois : chacune a sa grille.
+  const cases = (html: string) => [...html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
+  const toutes: { classes: string[]; nom: string }[] = []
+  for (const famille of ['legendaires', 'portraits', 'emojis']) {
+    const html = await rendu('components/Apparence', 'FamilleDAvatars', { profil: { ...HABITUE, sentiers: { foret: 5 } }, essai: {}, essayer: () => {}, busy: false, famille })
+    assert.match(html, /class="loge-grille[^"]* grille-unique"/)
+    toutes.push(...cases(html))
   }
-  assert.ok(cases.length > 40, 'les grilles sont rendues')
-  for (const c of cases) assert.ok(c.classes.includes('case-avatar'), c.nom)
-  // Le porté, et lui seul, est `selected` : c'est lui que la feuille laisse bouger.
+  assert.ok(toutes.length > 30, 'les grilles sont rendues')
+  for (const c of toutes) assert.ok(c.classes.includes('case-avatar'), c.nom)
+  // Rien d'essayé : le porté, et lui seul, est `selected` — c'est lui que la feuille laisse bouger.
   assert.deepEqual(
-    cases.filter(c => c.classes.includes('selected')).map(c => c.nom),
-    ['Le Phénix, légendaire, porté'],
+    toutes.filter(c => c.classes.includes('selected')).map(c => c.nom),
+    ['Le Phénix, légendaire'],
   )
   // Sous un essai, `selected` passe à ce que la carte montre — et lui seul
   // bouge encore ; le porté, marqué `porte`, se fige avec les autres.
-  const essai = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, essai: { legendaire: 'dv:seraphin' }, essayer: () => {}, busy: false, enregistrer: () => {}, familleInitiale: 'legendaires' })
-  const sous = [...essai.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
+  const sous = cases(await rendu('components/Apparence', 'FamilleDAvatars', { profil: HABITUE, essai: { legendaire: 'dv:seraphin' }, essayer: () => {}, busy: false, famille: 'legendaires' }))
   const montres = sous.filter(c => c.classes.includes('selected'))
   assert.equal(montres.length, 1, 'un seul montré')
-  assert.match(montres[0].nom, /, Divin, à l’essai$/)
-  assert.deepEqual(sous.filter(c => c.classes.includes('porte')).map(c => c.nom), ['Le Phénix, légendaire, porté'])
+  assert.equal(montres[0].nom, 'Le Séraphin, Divin')
+  assert.deepEqual(sous.filter(c => c.classes.includes('porte')).map(c => [c.nom, c.classes.includes('selected')]), [['Le Phénix, légendaire, porté', false]])
   for (const dedans of ['.lg *', '.dv *', '.pt *', '.av::before', '.av::after']) {
     const selecteur = `.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) ${dedans}`
     assert.ok(fige(selecteur), selecteur)
   }
 })
 
-test('les aperçus des finitions bougent portés ou survolés, pas avant', async () => {
+test('les finitions se choisissent en pastilles de couleur : rien n’y bouge', async () => {
   // Sous un légendaire porté, chaque aperçu redessinait son médaillon et son
-  // cercle, sans fin (perf-client-1).
-  const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
-  assert.match(html, /<div class="finitions">/)
-  const boutons = [...html.matchAll(/<button[^>]*class="(finition-btn[^"]*)"/g)].map(m => m[1].split(' '))
-  // La plus belle, et celles qu'il a : les autres se disent dans sa collection (le 11 octobre 2026).
-  assert.equal(boutons.length, 1 + HABITUE.ouvertes.length, 'la plus belle, et celles qu’il a')
-  assert.equal(boutons.filter(b => b.includes('selected')).length, 1, 'une seule portée')
-  for (const dedans of ['.av::before', '.av::after', '.lg *']) {
-    const selecteur = `.finitions .finition-btn:not(.selected):not(:hover) ${dedans}`
-    assert.ok(fige(selecteur), selecteur)
-  }
+  // cercle, sans fin (perf-client-1) ; la loge les montre en pastilles — la
+  // maquette 3 —, et l'avatar finit sur la carte, seul.
+  const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, essai: {}, essayer: () => {}, busy: false })
+  assert.match(html, /<div class="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre">/)
+  const boutons = [...html.matchAll(/<button[^>]*class="(finition-choix[^"]*)"/g)].map(m => m[1].split(' '))
+  // Auto, et celles qu'il a : les autres se disent dans sa collection (le 11 octobre 2026).
+  assert.equal(boutons.length, 1 + HABITUE.ouvertes.length, 'Auto, et celles qu’il a')
+  assert.equal(boutons.filter(b => b.includes('selected')).length, 1, 'une seule montrée')
+  // Ni avatar, ni médaillon, ni lumière : des pastilles, sans rien qui tourne.
+  assert.doesNotMatch(html, /class="(av|lg|dv|pt|lu)\b/)
+  // Et aucune règle n'anime une pastille ni ce qu'elle porte.
+  const pastilles = regles().filter(r => r.selecteurs.some(sel => /\.(teinte-|finition-teinte|finition-choix|loge-finitions)/.test(sel)))
+  assert.ok(pastilles.length >= 7, 'les règles des pastilles sont trouvées')
+  for (const r of pastilles) assert.doesNotMatch(r.corps, /animation/, r.selecteurs.join(', '))
 })
 
 test('dans les galeries d’une carte, seul le médaillon qu’on regarde bouge', () => {

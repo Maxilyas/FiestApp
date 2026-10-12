@@ -7043,7 +7043,6 @@ span.case-avatar { cursor: default; }
 .case-avatar.ferme { background: rgba(0, 0, 0, 0.25); }
 .case-avatar.selected { border-color: var(--accent); }
 .case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
-.case-medaillon { font-size: 30px; line-height: 0; }
 /* Dans la grille, seuls bougent l'avatar qu'il porte, celui qu'il a ouvert
    et celui qu'il survole : la page a un sujet, pas soixante. Tout tournait
    à la fois — le halo de la finition sous chaque emoji, les formes de
@@ -7068,69 +7067,12 @@ span.case-avatar { cursor: default; }
    centré, le reflet sous le doigt. De l'air autour : ce qui sort du cadre
    d'un éclaté, sa gerbe, les rayons d'un Divin débordent du médaillon. */
 .detail-dessin { align-self: center; font-size: 9.5rem; line-height: 0; margin: 1.5rem 0 1.1rem; }
-.galerie-detail-nom.detail-emoji { font-size: 1.9rem; line-height: 1.15; }
 .detail-famille { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }
 .anneau-texte-divin { color: var(--anneau-divin); }
-.anneau-texte-collection { color: var(--anneau-collection); }
-.anneau-texte-collection-haut { color: var(--anneau-collection-haut); }
-.legende-anneaux { line-height: 1.6; }
 
-/* ── Mes avatars, par famille ──────────────────────────────────────────────
-   Cent vingt-neuf avatars : trois onglets sur une seule rangée, et le
-   compte de chaque partie à côté de son titre, pas dans l'onglet. */
-.onglets-familles { margin: 10px 0 4px; }
-/* Chaque partie d'une famille : son titre et son compte, puis ses cases. */
-.famille-titre {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 16px 0 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
+/* Le compte d'une partie, à côté de son titre (l'album des thèmes). */
 .famille-compte { color: var(--muted); font-size: var(--t-label); font-weight: 600; font-variant-numeric: tabular-nums; }
-.famille-note { margin: -4px 0 10px; }
-
-/* Les branches : une dépliée, les autres sur une ligne chacune. */
-.branches { display: flex; flex-direction: column; gap: 4px; }
-.rayon {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 2px 0 6px;
-  padding: 12px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface-faint);
-}
-.rayon p { margin: 0; }
-.rayon-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.rayon-tete b { font-family: var(--serif); font-size: 1.15rem; }
-.rayon-tete .ligne-branche-compte { margin-left: auto; }
-/* Six portraits : trois par rangée au téléphone, six dès qu'ils tiennent. */
-.grille-branche { grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); margin-top: 2px; }
-.grille-branche .case-medaillon { font-size: 64px; }
-.grille-branche .case-niveau { bottom: -4px; font-variant-numeric: tabular-nums; }
-.ligne-branche {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 56px;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.ligne-branche:hover { border-color: var(--edge); background: var(--surface); }
-.ligne-branche-dessin { flex: none; font-size: 42px; line-height: 0; }
-.ligne-branche-texte { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.ligne-branche-compte { flex: none; color: var(--muted); font-size: 0.86rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .puce { font-size: 0.8em; }
 
 /* Trophées : ce que la carte montre, les médailles du jour, les plus
@@ -7749,6 +7691,68 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .titre-etat { font-family: var(--sans); font-style: normal; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; color: var(--muted); }
 .titre-choix.porte { border-color: var(--edge-strong); }
 .theme-vitrine.theme-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
+
+/* ── La loge, sur l'avatar : la maquette 1 (sa grille) et la 3 (ses finitions)
+   Trois pastilles qui comptent, puis la grille de ce qu'il a, en cases
+   arrondies : la portée garde sa coche, l'essayée son halo d'or, et des
+   cadenas rayés finissent la rangée de ce qui reste à gagner. La finition,
+   au-dessus, en pastilles de couleur : la montrée cerclée d'or, la prochaine
+   à gagner éteinte, son niveau dessous. */
+.loge-avatars { display: flex; flex-direction: column; gap: 12px; }
+/* Les onglets de l'application, en pastilles séparées : chacune sa largeur, son compte en clair. */
+.onglets.onglets-puces { gap: 6px; padding: 0; border: 0; border-radius: 0; background: none; }
+.onglets-puces .onglet { flex: 0 0 auto; gap: 5px; min-height: 36px; padding: 0 11px; border: 1px solid var(--edge); color: var(--ink); font-size: 0.82rem; }
+.onglets-puces .onglet.actif { border-color: var(--accent); color: var(--accent-text); box-shadow: none; }
+.onglets-puces .onglet-pastille { min-width: 0; height: auto; padding: 0; background: none; color: var(--muted); font-size: inherit; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.onglets-puces .onglet.actif .onglet-pastille { color: inherit; }
+.famille-avatars { display: flex; flex-direction: column; gap: 10px; }
+.loge-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.loge-grille-emojis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.loge-case { position: relative; display: grid; place-items: center; height: 72px; padding: 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); cursor: pointer; }
+.loge-grille-emojis .loge-case { height: 58px; border-radius: 14px; }
+.loge-case .av { font-size: 2.9rem; }
+.loge-grille-emojis .loge-case .av { font-size: 1.75rem; }
+.loge-case.porte { border-color: var(--edge-strong); }
+/* Montrée par la carte : un cadre d'or ; à l'essai, son halo — pas le
+   pointillé des autres pièces, que la case arrondie rendait brouillon. */
+.loge-case.selected { border: 2px solid var(--accent); background: var(--accent-soft); }
+.loge-case.essaye { outline: none; box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35); }
+.loge-ferme { cursor: default; color: var(--muted); background: repeating-linear-gradient(135deg, var(--surface-faint) 0 6px, transparent 6px 12px); border-style: dashed; }
+.loge-ferme .icon { width: 18px; height: 18px; opacity: 0.8; }
+.loge-ferme-niveau { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: var(--t-label); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.loge-grille-titre { display: flex; align-items: baseline; gap: 8px; margin: 4px 2px 0; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.loge-grille-titre span { letter-spacing: 0; font-variant-numeric: lining-nums tabular-nums; }
+.loge-a-gagner { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+.loge-a-gagner .icon { width: 16px; height: 16px; }
+.loge-sous-titre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.loge-finitions { display: flex; flex-direction: column; gap: 6px; }
+.loge-finitions-rangee { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.finition-choix { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 44px; padding: 4px 2px 2px; border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; text-decoration: none; cursor: pointer; }
+.finition-choix.selected { color: var(--accent-text); }
+.finition-teinte { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.finition-teinte .icon { width: 15px; height: 15px; color: #fff; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)); }
+.finition-choix.selected .finition-teinte { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.finition-choix.porte:not(.selected) .finition-teinte::after { content: '✓'; position: absolute; top: -5px; right: -6px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.finition-choix.neuve .finition-teinte::before { content: ''; position: absolute; top: -3px; left: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+.finition-fermee { cursor: pointer; }
+.finition-fermee .finition-teinte { opacity: 0.35; }
+.teinte-mat { background: #5d524a; }
+.teinte-argent { background: linear-gradient(135deg, #f4f6f9, #9aa3ad); }
+.teinte-or { background: linear-gradient(135deg, #f6dd94, #b8892f); }
+.teinte-holo { background: conic-gradient(#f7b8e8, #9fe3ff, #fff1a6, #b9f5c6, #f7b8e8); }
+.teinte-prisme { background: conic-gradient(#ff8fa3, #ffd166, #7aa8ff, #3ff0d0, #ff8fa3); }
+.teinte-aurore { background: conic-gradient(#58e6b4, #5aaaff, #be78ff, #58e6b4); }
+.teinte-constellation {
+  background:
+    radial-gradient(circle at 30% 30%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 70% 62%, #fff6d0 0 1.2px, transparent 1.8px),
+    radial-gradient(circle at 58% 24%, #fff 0 1px, transparent 1.5px),
+    #1b2357;
+}
+/* La version d'un avatar éclaté, sur la carte, à côté de lui : rare (pressée) ou d'origine. */
+.loge-version { position: absolute; right: 12px; bottom: 10px; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
+.loge-version .icon { width: 13px; height: 13px; }
+.loge-version[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas
@@ -8629,10 +8633,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .style-nom { flex: 1; font-weight: 600; }
 .style-valeur { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); font-size: 0.9rem; }
 .style-chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }
-/* La finition de « Mon avatar » se déplie sur place : son chevron le dit. */
-.ma-finition { display: flex; flex-direction: column; gap: 10px; }
-.ma-finition .style-chevron { transform: none; transition: transform 0.2s ease; }
-.ma-finition [aria-expanded='true'] .style-chevron { transform: rotate(180deg); }
 
 /* ── Ma collection, en listes ────────────────────────────────────────────
    Trois familles — avatars, style, trophées —, une ligne par collection
