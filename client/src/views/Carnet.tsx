@@ -159,15 +159,10 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
             apprise
           </li>
         </ol>
-        <ul className="campagne-puces">
-          <li>
-            <Icon name="rotate" /> sans vies
-          </li>
-          <li>🎊 un confetti par bonne réponse</li>
-          <li>
-            <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, comme en série
-          </li>
-        </ul>
+        {/* Une ligne, pas trois pastilles : sous elles, les parcours de thème
+            arrivaient sous le premier écran (la maquette validée le 12 octobre
+            2026 montrait un carnet ramassé). */}
+        <p className="carnet-gains">{espacesFines(`Sans vies · un confetti et ${XP_PAR_JUSTE} XP par bonne réponse, comme en série`)}</p>
       </section>
 
       {erreur && (
