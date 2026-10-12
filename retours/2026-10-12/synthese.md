@@ -94,3 +94,36 @@ toucher renomme dans la feuille de la barre du chef (nom, emoji) —
 et le téléphone les retient pour la fois suivante. Le chef qui joue choisit
 la sienne en entrant, comme ses invités. Une soirée qui a déjà ses équipes
 les garde. Le rendu (`rendu-tele.ts`, étapes 2b et 4) les photographie.
+
+# Les tirages sans redites
+
+Le dernier point de l'atelier du 11 octobre (`2026-10-11/synthese.md`,
+« Une question par gabarit dans une épreuve ») : au premier palier de la
+forêt, seize questions en posaient quatre « Comment appelle-t-on le petit
+de… », mêmes leurres. La base a des familles écrites en série — deux cent
+vingt-quatre « Qui a réalisé le film… », cent quatre « Qui a reçu le
+prix… » —, et le tirage ne regardait que la catégorie et le sous-thème.
+
+Mesuré sur la vraie base, avant d'y toucher : une série du petit écran
+posait onze paires de **jumelles** (la même forme d'intitulé, ses trois
+premiers mots pleins, ou deux réponses en commun) dans ses vingt premières
+questions, dont cinq « Qui a créé la série… » ; une série de géographie
+cinq paires, trois capitales ; un quiz tout prêt de géographie deux paires.
+
+- **Les épreuves** des sentiers ne prennent plus deux jumelles quand la
+  marche en a d'autres aussi fraîches ; un **duel** se tire sur ce que ses
+  deux joueurs n'ont pas vu (PR #161).
+- **Les séries, le défi de la semaine, les duels** : les marches se tirent
+  dans l'ordre où la série les pose, et partagent leurs comptes — les
+  catégories tournent d'une marche à l'autre (chacune repartait de zéro, et
+  une même catégorie pouvait ouvrir les quatre), et une jumelle se juge sur
+  tout ce qui a été posé avant elle. Le petit écran passe de 11,4 paires à
+  0,4, la géographie de 5,0 à 0,2, le cinéma de 3,0 à 0.
+- **Les quiz tout prêts** : de chaque sous-thème, une question qui n'est la
+  jumelle d'aucune déjà prise ; plus aucune paire sur huit compositions
+  types.
+
+La fraîcheur passe toujours devant : une jumelle jamais vue bat une question
+déjà vue. Le tirage garde son temps (1 à 3 ms une épreuve, 1 à 15 ms une
+série). Les règles : `core/jumelles.ts` ; les tests :
+`tirage-sans-redite.test.ts`.

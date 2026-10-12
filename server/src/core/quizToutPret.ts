@@ -15,6 +15,7 @@ import {
 import { sujetParCle } from '../../../shared/sujets'
 import type { QuestionDeLaBase } from './baseCampagne'
 import { empreinteDe } from './jour'
+import { DejaPrises } from './jumelles'
 
 /**
  * Un quiz tout prêt, tiré de la base de la campagne (`shared/quizToutPret.ts`
@@ -223,10 +224,11 @@ export function dejaDansLEspace(bibliotheque: readonly Pick<QuizDef, 'questions'
   return { ids, empreintes, posees }
 }
 
-/** Combien de fois chaque catégorie et chaque sous-thème ont déjà servi, d'une marche à l'autre. */
+/** Combien de fois chaque catégorie et chaque sous-thème ont déjà servi, d'une marche à l'autre — et les questions déjà prises, pour reconnaître leurs jumelles. */
 interface Servies {
   categories: Map<string, number>
   sousThemes: Map<string, number>
+  deja: DejaPrises
 }
 
 const compte = (m: ReadonlyMap<string, number>, cle: string) => m.get(cle) ?? 0
@@ -237,7 +239,10 @@ const cleDuSousTheme = (q: QuestionDeLaBase) => `${q.meta.categorie}\u0000${q.me
  * du quiz d'abord, d'une marche à l'autre : sans ce compte commun, chaque
  * marche repartait de zéro, et l'histoire pouvait ouvrir les trois pendant
  * que le sport n'en avait aucune —, puis dans chacune son sous-thème le
- * moins servi ; à égalité, l'ordre reçu.
+ * moins servi, et, de ce sous-thème, une question qui n'est la jumelle
+ * d'aucune déjà prise (`jumelles`) : un quiz de géographie de vingt
+ * questions posait deux capitales, un quiz de cinéma deux « Qui a réalisé le
+ * film… » (le 12 octobre 2026). À égalité, l'ordre reçu.
  */
 function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Servies): QuestionDeLaBase[] {
   const files = new Map<string, QuestionDeLaBase[]>()
@@ -254,14 +259,24 @@ function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Ser
     }
     if (categorie === null) break
     const file = files.get(categorie)!
-    let k = 0
-    for (let i = 1; i < file.length; i++) {
-      if (compte(servies.sousThemes, cleDuSousTheme(file[i])) < compte(servies.sousThemes, cleDuSousTheme(file[k]))) k = i
+    let moins = Infinity
+    for (const q of file) moins = Math.min(moins, compte(servies.sousThemes, cleDuSousTheme(q)))
+    // La première du sous-thème le moins servi qui n'est pas une jumelle ; toutes jumelles, la première.
+    let k = -1
+    let premiere = -1
+    for (let i = 0; i < file.length; i++) {
+      if (compte(servies.sousThemes, cleDuSousTheme(file[i])) !== moins) continue
+      if (premiere < 0) premiere = i
+      if (!servies.deja.jumelle(file[i])) {
+        k = i
+        break
+      }
     }
-    const [q] = file.splice(k, 1)
+    const [q] = file.splice(k < 0 ? premiere : k, 1)
     tirees.push(q)
     servies.categories.set(categorie, compte(servies.categories, categorie) + 1)
     servies.sousThemes.set(cleDuSousTheme(q), compte(servies.sousThemes, cleDuSousTheme(q)) + 1)
+    servies.deja.prendre(q)
   }
   return tirees
 }
@@ -320,7 +335,8 @@ interface Passe {
 
 /**
  * Les questions d'un quiz tout prêt, dans l'ordre où elles se jouent : les
- * marches du plan (`planDuQuiz`), les catégories à tour de rôle dans chacune
+ * marches du plan (`planDuQuiz`), les catégories à tour de rôle dans chacune,
+ * sans deux jumelles quand il y a mieux (`aTourDeRole`)
  * — et, s'il en veut, une estimation sur cinq, tirée d'abord, sur le même
  * plan, placée à intervalles (`placesDesEstimations`). Rien de ce que sa
  * bibliothèque a déjà ; d'abord ce que ses soirées n'ont jamais posé, puis
@@ -383,7 +399,7 @@ export function composerUnQuiz(
     return passe.fraiches ? ici : ici.sort((a, b) => poseeLe(a)! - poseeLe(b)!)
   }
   const prises = new Set<string>()
-  const servies: Servies = { categories: new Map(), sousThemes: new Map() }
+  const servies: Servies = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
   /** Les questions de chaque marche du plan, passe après passe ; une marche qui manque emprunte à sa voisine — jamais hors de `permises`. */
   const tirerLePlan = (plan: readonly { niveau: Niveau; n: number }[], dans: ReadonlyMap<Niveau, readonly QuestionDeLaBase[]>, permises?: ReadonlySet<Niveau>) => {
     const marches: QuestionDeLaBase[][] = plan.map(() => [])

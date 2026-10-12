@@ -101,7 +101,9 @@ un arbitrage.
    à `/admin#campagne`, à relire ; pas un refus, les étymologies sont
    voulues.
 9. **Une question par gabarit dans une épreuve** (quatre fois « Qui a écrit…
-   ? » de suite) — P3 · M.
+   ? » de suite) — P3 · M. **Fait le 12 octobre**, pour les épreuves, les
+   séries, les défis, les duels et les quiz tout prêts (#161, #162 :
+   `2026-10-12/synthese.md`, « Les tirages sans redites »).
 
 ## Ce qui plaît — à ne pas casser
 

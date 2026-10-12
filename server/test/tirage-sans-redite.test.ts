@@ -10,31 +10,44 @@
 // Une épreuve ne prend plus deux questions jumelles — la même forme
 // d'intitulé, ou deux réponses en commun — quand sa marche en a d'autres
 // aussi fraîches ; un duel se tire sur ce que ses deux joueurs n'ont pas vu.
+// Puis une série, un défi, un duel et un quiz tout prêt de même (le 12
+// octobre 2026) : une série du petit écran posait cinq « Qui a créé la
+// série… » en vingt questions, et ses marches, chacune repartie de zéro,
+// pouvaient ouvrir toutes les quatre sur la même catégorie.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
-import { gabaritDe, jumelles, tirerUneEpreuve } from '../src/core/campagne'
+import { sujetsDeLaQuestion, tirerUneEpreuve, tirerUneSerie } from '../src/core/campagne'
+import { gabaritDe, jumelles } from '../src/core/jumelles'
+import { composerUnQuiz } from '../src/core/quizToutPret'
 import { regleDuPalier } from '../../shared/sentiers'
 import { NIVEAUX, QUESTIONS_PAR_MARCHE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
+import { suiteFixe } from '../../shared/hasard'
+import type { Categorie } from '../../shared/categories'
 
 const MAINTENANT = Date.UTC(2026, 9, 12, 20)
 const JOUR_MS = 24 * 3_600_000
 
-/** Une question facile de la Nature, mammifères. */
-function question(n: number, texte: string, reponses: string[]) {
+/** Une question de la base : facile, de la Nature, mammifères, sauf à dire autre chose. */
+function question(
+  n: number,
+  texte: string,
+  reponses: string[],
+  { categorie = 'Nature', sousTheme = 'mammiferes', difficulte = 2 }: { categorie?: Categorie; sousTheme?: string; difficulte?: number } = {},
+) {
   const lu = lireQuestionDeLaBase({
     id: `j${String(n).padStart(7, '0')}`,
     texte,
     reponses,
     bonne: 0,
     anecdote: `L'anecdote ${n}.`,
-    categorie: 'Nature',
-    sousTheme: 'mammiferes',
+    categorie,
+    sousTheme,
     etiquettes: [],
-    difficulte: 2,
+    difficulte,
     ageMin: 10,
     date: null,
     entites: [],
@@ -95,6 +108,81 @@ test('une épreuve ne prend pas deux jumelles quand sa marche en a d’autres au
   const vues = new Map(autres.map((q, i) => [q.id, MAINTENANT - 21 * JOUR_MS + i]))
   const epreuve = tirerUneEpreuve(base.questions, regleDuPalier(1)!, vues, new Map(), MAINTENANT)
   assert.equal(epreuve.filter(x => deLaFamille.has(x.question.id)).length, famille.length)
+})
+
+// ── Une série, un défi, un quiz tout prêt ──────────────────────────────────
+
+/** Quatre réponses à soi : deux questions qui ne partagent rien. */
+const reponsesDe = (mot: string, i: number) => [`${mot} ${i}`, `${mot} ${i}b`, `${mot} ${i}c`, `${mot} ${i}d`]
+/** Facile, moyenne, difficile, experte, à tour de rôle : chaque marche en a sa part. */
+const DIFFICULTES = [2, 3, 4, 5]
+
+/** Le petit écran : des « Qui a créé la série… » écrits en série, d'autres questions de séries, des sagas — à chaque marche. */
+function lePetitEcran() {
+  const cinema = { categorie: 'Cinéma & séries' as const }
+  const creees = Array.from({ length: 24 }, (_, i) =>
+    question(200 + i, `Qui a créé la série « Série ${i} » ?`, reponsesDe('Auteur', i), { ...cinema, sousTheme: 'series', difficulte: DIFFICULTES[i % 4] }),
+  )
+  const series = Array.from({ length: 24 }, (_, i) =>
+    question(300 + i, `Épisode ${i} : où se passe l’intrigue ?`, reponsesDe('Lieu', i), { ...cinema, sousTheme: 'series', difficulte: DIFFICULTES[i % 4] }),
+  )
+  const sagas = Array.from({ length: 48 }, (_, i) => question(400 + i, `Saga ${i} : qui en est le héros ?`, reponsesDe('Héros', i), { ...cinema, sousTheme: 'sagas', difficulte: DIFFICULTES[i % 4] }))
+  return { creees, series, sagas }
+}
+
+test('une série ne pose pas deux jumelles quand ses marches en ont d’autres aussi fraîches — ni ne leur préfère une déjà vue', () => {
+  const { creees, series, sagas } = lePetitEcran()
+  const deLaFamille = new Set(creees.map(q => q.id))
+  for (let essai = 0; essai < 25; essai++) {
+    const serie = tirerUneSerie([...creees, ...series, ...sagas], new Map())
+    // Les vingt premières — cinq de chaque marche — : une seule de la famille, d'une marche à l'autre.
+    assert.ok(serie.slice(0, 20).filter(x => deLaFamille.has(x.question.id)).length <= 1, `essai ${essai} : un « Qui a créé la série… » au plus`)
+  }
+  // La fraîcheur passe devant : les autres séries vues il y a trois semaines, les jumelles, jamais vues, passent d'abord.
+  const vues = new Map(series.map((q, i) => [q.id, MAINTENANT - 21 * JOUR_MS + i]))
+  const serie = tirerUneSerie([...creees, ...series, ...sagas], new Map(), vues, MAINTENANT)
+  assert.deepEqual(
+    serie.slice(0, 20).filter(x => vues.has(x.question.id)),
+    [],
+    'aucune déjà vue tant que la marche a des jamais vues',
+  )
+})
+
+test('une série fait tourner ses catégories d’une marche à l’autre, sans repartir de zéro à chaque marche', () => {
+  const categories: Categorie[] = ['Histoire', 'Sport', 'Cuisine', 'Musique']
+  const sousThemes = ['guerres', 'football', 'desserts', 'pop-rock']
+  const base = categories.flatMap((categorie, c) =>
+    Array.from({ length: 24 }, (_, i) =>
+      question(1000 * (c + 1) + i, `Énigme ${c}-${i} : laquelle est la bonne ?`, reponsesDe(`R${c}`, i), { categorie, sousTheme: sousThemes[c], difficulte: DIFFICULTES[i % 4] }),
+    ),
+  )
+  for (let essai = 0; essai < 10; essai++) {
+    const vingt = tirerUneSerie(base, new Map()).slice(0, 20)
+    assert.deepEqual(
+      categories.map(c => vingt.filter(x => x.question.meta.categorie === c).length),
+      [5, 5, 5, 5],
+      `essai ${essai} : chaque catégorie cinq fois en vingt questions`,
+    )
+  }
+})
+
+test('un quiz tout prêt ne pose pas deux jumelles quand sa marche en a d’autres', () => {
+  const histoire = { categorie: 'Histoire' as const, sousTheme: 'guerres' }
+  const annees = Array.from({ length: 15 }, (_, i) => question(600 + i, `En quelle année eut lieu la bataille numéro ${i} ?`, reponsesDe('An', i), histoire))
+  const autres = Array.from({ length: 15 }, (_, i) => question(700 + i, `Énigme ${i} : quel roi régnait alors ?`, reponsesDe('Roi', i), histoire))
+  const deLaFamille = new Set(annees.map(q => `base-${q.id}`))
+  for (let graine = 1; graine <= 10; graine++) {
+    const quiz = composerUnQuiz(
+      [...annees, ...autres],
+      sujetsDeLaQuestion,
+      new Map(),
+      { categories: ['Histoire'], sujet: null, difficulte: 'facile', nombre: 10, enfants: false, estimations: false },
+      { ids: new Set(), empreintes: new Set(), posees: new Map() },
+      suiteFixe(graine),
+    )
+    assert.equal(quiz.length, 10)
+    assert.ok(quiz.filter(q => q.id !== undefined && deLaFamille.has(q.id)).length <= 1, `graine ${graine} : un « En quelle année… » au plus`)
+  }
 })
 
 // ── Un duel ────────────────────────────────────────────────────────────────
