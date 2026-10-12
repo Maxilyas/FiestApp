@@ -528,7 +528,8 @@ test('l’accueil d’un profil ne fait venir les écrans du profil qu’en fond
   assert.match(page, /useALaDemande\(panneaux, !!profil && VUE !== 'accueil'\)/)
   assert.match(page, /if \(r\.profile && VUE !== 'accueil'\) void panneaux\.charger\(\)/)
   assert.match(page, /onEnvoi=\{VUE === 'accueil' \? undefined : \(\) => void panneaux\.charger\(\)/)
-  assert.match(page, /^if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/m)
+  // La boutique et la page du profil — sa loge — les demandent dès leur chargement ; l'accueil, jamais.
+  assert.match(page, /^if \(VUE === 'boutique' \|\| VUE === 'profil'\) void panneaux\.charger\(\)/m)
   // … qui les fait venir avec la campagne et le quiz du jour, quand le navigateur n'a plus rien à faire.
   assert.match(page, /const precharger = \(\) => \{[\s\S]*?void panneaux\.charger\(\)\.catch\(\(\) => \{\}\)\s*\}/)
   // Et aucune autre porte.

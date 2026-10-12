@@ -225,8 +225,8 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
     PIECES_DE_LA_LOGE.map(p => `${p.groupe} › ${p.nom}`),
     ['salle › Avatar', 'salle › Titre', 'salle › Vitrine', 'salle › Fond', 'moi › Thème', 'moi › Gerbe'],
   )
-  // Chaque pièce garde l'icône de sa page d'avant.
-  assert.match(source('components/Loge.tsx'), /const ICONES: Record<PieceDeLaLoge, IconName> = \{ avatar: 'sparkles', titre: 'star', vitrine: 'award', fond: 'image', theme: 'palette', gerbe: 'zap' \}/)
+  // Chaque pièce garde l'icône de sa page d'avant (sa rangée vit dans la tête légère de la loge).
+  assert.match(source('components/LogeTete.tsx'), /const ICONES: Record<PieceDeLaLoge, IconName> = \{ avatar: 'sparkles', titre: 'star', vitrine: 'award', fond: 'image', theme: 'palette', gerbe: 'zap' \}/)
   // La carte reste collée en haut ; la barre couvre le menu, à sa place.
   const CSS = source('styles.css')
   assert.match(CSS, /\.loge-collante \{ position: sticky; top: 0;/)
@@ -338,23 +338,49 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   const APP = source('views/ProfilApp.tsx')
   assert.match(APP, /const enregistrer = async \(patch: ChoixDuProfil\): Promise<boolean> =>/)
   assert.match(APP, /const changerDePiece = \(piece: PieceDeLaLoge\) => \{\s*history\.replaceState\(/)
-  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} \/>/)
+  // La loge vit sur la page du profil : sa pièce est celle de l'adresse (`#titre`), l'avatar sinon.
+  assert.match(APP, /const piece: PieceDeLaLoge = enLoge \? \(ecran as PieceDeLaLoge\) : 'avatar'/)
+  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{piece\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} \/>/)
   // Et le lecteur d'écran entend chaque pièce portée d'un coup.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ titre: 'maitre:foret', theme: 'ocean', avatar: '🦊' }), 'Tu portes 🦊. Ton titre : Maître de la forêt. Ton thème : Océan.')
 })
 
-test('le vestiaire dit la pièce qui a du nouveau, à l’œil et à l’oreille', async () => {
-  const apercus = { vitrine: [], fond: 'Velours', gerbe: { nom: 'Les confettis', particules: ['🎊'] }, apercuDuTheme: '/apercu.webp' }
-  const avec = await rendu('components/Vestiaire', 'Vestiaire', { profil: LEA, apercus: { ...apercus, nouveautes: { theme: 1, avatar: 2 } }, nomPorte: 'Le Phénix', onOuvrir: () => {} })
-  assert.match(avec, /aria-label="Mon avatar, Le Phénix : le changer, du nouveau"/)
-  assert.match(avec, /aria-label="Mon thème, Velours : le changer, du nouveau"/)
-  assert.equal(avec.match(/<span class="nouveau-pastille vestiaire-neuf" aria-hidden="true">Nouveau<\/span>/g)?.length, 2)
-  const sans = await rendu('components/Vestiaire', 'Vestiaire', { profil: LEA, apercus, nomPorte: 'Le Phénix', onOuvrir: () => {} })
-  assert.doesNotMatch(sans, /du nouveau|vestiaire-neuf/)
-  // La loge retient ce qu'il a vu ; le vestiaire ne fait que le lire — et la première fois, tout se retient.
+test('la loge dit la pièce qui a du nouveau, à l’œil et à l’oreille', async () => {
+  // La rangée : une pastille sur chaque pièce qui a du neuf, et le lecteur d'écran l'entend.
+  const avec = await rendu('components/LogeTete', 'PiecesDeLaLoge', { actif: 'titre', onChoisir: () => {}, neuves: new Set(['theme', 'avatar']) })
+  assert.match(avec, /<button id="loge-avatar"[^>]*><span class="loge-rond"><svg[^>]*>.*?<\/svg><span class="loge-neuf" aria-hidden="true"><\/span><\/span>Avatar<span class="sr-only">, du nouveau<\/span><\/button>/)
+  assert.match(avec, /<button id="loge-theme"[^>]*><span class="loge-rond"><svg[^>]*>.*?<\/svg><span class="loge-neuf" aria-hidden="true"><\/span><\/span>Thème<span class="sr-only">, du nouveau<\/span><\/button>/)
+  assert.equal(avec.match(/<span class="loge-neuf" aria-hidden="true"><\/span>/g)?.length, 2)
+  const sans = await rendu('components/LogeTete', 'PiecesDeLaLoge', { actif: 'titre', onChoisir: () => {}, neuves: new Set() })
+  assert.doesNotMatch(sans, /du nouveau|loge-neuf/)
+
+  // La loge entière, sur un téléphone qui a vu tout ce qu'elle a sauf Ivoire :
+  // le thème a sa pastille ; l'avatar, la pièce ouverte, n'en a pas — on la regarde.
+  const vus = ceQuIlAPorter(LEA as any)
+  assert.ok(vus.theme.includes('ivoire'))
+  const stockage = new Map([[`quizz.loge.vus.${LEA.id}`, JSON.stringify({ ...vus, theme: vus.theme.filter(k => k !== 'ivoire') })]])
+  Object.assign(globalThis, { localStorage: { getItem: (k: string) => stockage.get(k) ?? null, setItem: (k: string, v: string) => void stockage.set(k, v), removeItem: (k: string) => void stockage.delete(k) } })
+  try {
+    const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
+    // Les pièces qui ont leur pastille, bouton par bouton.
+    const pastilles = (h: string) =>
+      h
+        .split('<button id="loge-')
+        .slice(1)
+        .filter(b => b.slice(0, b.indexOf('</button>')).includes('<span class="loge-neuf" aria-hidden="true"></span>'))
+        .map(b => b.slice(0, b.indexOf('"')))
+    assert.deepEqual(pastilles(loge), ['theme'])
+    assert.match(loge, /Thème<span class="sr-only">, du nouveau<\/span>/)
+    // Ouvert sur le thème, plus rien : la pastille d'une pièce s'éteint dès qu'on la regarde.
+    const surLeTheme = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: 'theme', onPiece: () => {}, busy: false, enregistrer: async () => true })
+    assert.doesNotMatch(surLeTheme, /loge-neuf|du nouveau/)
+  } finally {
+    delete (globalThis as Record<string, unknown>).localStorage
+  }
+  // La loge retient ce qu'il a vu — et, la première fois qu'un profil paraît ici, tout se retient (la boutique comprise).
   const LOGE = source('components/Loge.tsx')
-  assert.match(LOGE, /export function nouveautesDuVestiaire[\s\S]*?nouveautes\(ceQuIlAPorter\(profil\), lireVus\(profil\.id\)\)/)
+  assert.match(LOGE, /const \[neufs\] = useState\(\(\) => nouveautes\(ceQuIlAPorter\(profil\), lireVus\(profil\.id\)\)\)/)
   assert.match(source('views/ProfilApp.tsx'), /lesPanneaux\.retenirLesPremiersVus\(profilDetaille\)/)
   // Le stockage du navigateur, sous try/catch : des cookies bloqués donnaient une page noire.
   assert.equal(LOGE.split('localStorage.').length - 1, 2)
@@ -437,4 +463,11 @@ test('la loge vient avec les panneaux, à la demande : l’accueil anonyme ne la
   assert.doesNotMatch(app, /^import \{[^}]*\} from '\.\.\/\.\.\/\.\.\/shared\/loge'/m)
   assert.doesNotMatch(app, /from '\.\.\/components\/Loge'/)
   assert.match(source('components/PanneauxDuProfil.tsx'), /export \{ Loge as PanneauLoge, retenirLesPremiersVus \} from '\.\/Loge'/)
+  // Sa tête — la carte, la rangée — vient avec la page, sans les règles de
+  // l'essai, qui tirent tous les catalogues : seulement les six pièces.
+  assert.match(app, /^import \{ LogeEnChemin \} from '\.\.\/components\/LogeTete'$/m)
+  const tete = source('components/LogeTete.tsx')
+  assert.doesNotMatch(tete, /shared\/loge'|from '\.\/(Loge|Apparence|Trophees|Boutique|PanneauxDuProfil)'/)
+  assert.match(tete, /^import \{ PIECES_DE_LA_LOGE, type PieceDeLaLoge \} from '\.\.\/\.\.\/\.\.\/shared\/piecesDeLaLoge'$/m)
+  assert.doesNotMatch(readFileSync(new URL('../../shared/piecesDeLaLoge.ts', import.meta.url), 'utf8'), /^import /m)
 })

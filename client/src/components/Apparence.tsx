@@ -411,10 +411,12 @@ export function AGagnerDansLaCollection({ reste, partie, nom }: { reste: number;
  * Sa finition, sur une rangée de pastilles (la maquette 3, que le
  * propriétaire a voulue le 12 octobre 2026) : « Auto » — la plus belle qu'il
  * a, que chaque niveau qui en ouvre une nouvelle fait porter d'office —, puis
- * celles qu'il a, chacune sa couleur ; la prochaine à gagner, éteinte, dit
- * son niveau et mène à « Ma collection ». Touchée, elle s'essaie sur la
- * carte de la loge. Elle se cachait derrière une ligne qui se dépliait en
- * huit grandes cases, un avatar animé dans chacune.
+ * celles qu'il a, chacune sa couleur ; celles qui restent à gagner, éteintes,
+ * disent leur niveau et mènent à « Ma collection » — toutes : la seule
+ * prochaine cachait Aurore et Constellation, ce qu'on vise au bout (« il
+ * manque les finitions 15, 20, 25 », le propriétaire). Touchée, elle
+ * s'essaie sur la carte de la loge. Elle se cachait derrière une ligne qui
+ * se dépliait en huit grandes cases, un avatar animé dans chacune.
  */
 export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -422,7 +424,7 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
   const divinPorte = divin(vu.legendaire)
   const montree = vu.finitionChoisie
   const plusBelle = meilleureFinition(profil.niveau)
-  const prochaine = FINITIONS.find(f => !profil.ouvertes.includes(f))
+  const aGagner = FINITIONS.filter(f => !profil.ouvertes.includes(f))
   const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition, label: string) => {
     const montre = montree === cle
     const porte = profil.finitionChoisie === cle
@@ -452,16 +454,17 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
       <div className="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre">
         {pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
         {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
-        {prochaine && (
+        {aGagner.map(f => (
           <a
+            key={f}
             className="finition-choix finition-fermee"
             href="#collection-finitions"
-            aria-label={`${NOM_FINITION[prochaine]}, au niveau ${NIVEAU_FINITION[prochaine]} : où et comment, dans « Ma collection »`}
+            aria-label={`${NOM_FINITION[f]}, au niveau ${NIVEAU_FINITION[f]} : où et comment, dans « Ma collection »`}
           >
-            <i className={`finition-teinte teinte-${prochaine}`} aria-hidden="true" />
-            <span aria-hidden="true">{`Niv. ${NIVEAU_FINITION[prochaine]}`}</span>
+            <i className={`finition-teinte teinte-${f}`} aria-hidden="true" />
+            <span aria-hidden="true">{`Niv. ${NIVEAU_FINITION[f]}`}</span>
           </a>
-        )}
+        ))}
       </div>
     </div>
   )

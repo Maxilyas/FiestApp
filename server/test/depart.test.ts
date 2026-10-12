@@ -520,7 +520,7 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
   )
   assert.match(source('views/Sentiers.tsx'), /const lu = await lesSentiers\(\)/)
   assert.doesNotMatch(source('views/Sentiers.tsx'), /lesSujets|api\.campagne\.sujets/, 'un préchargement que la page ne reprendrait pas partirait pour rien')
-  // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets —
+  // La boutique et la page du profil n'attendent plus le profil pour demander leurs onglets —
   // jamais l'accueil, qui n'en montre rien (`campagne-ouverture.test.ts`).
-  assert.match(source('views/ProfilApp.tsx'), /if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/)
+  assert.match(source('views/ProfilApp.tsx'), /^if \(VUE === 'boutique' \|\| VUE === 'profil'\) void panneaux\.charger\(\)/m)
 })

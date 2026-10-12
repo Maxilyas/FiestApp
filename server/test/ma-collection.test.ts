@@ -356,10 +356,12 @@ test('la boutique ne montre que ce qui se vend : ceux qui se gagnent ont leur li
   for (const t of THEMES.filter(t => t.gagne)) assert.match(t.gagne!.ou.lien, /^\/(campagne|jour)/, t.key)
 })
 
-test('la vitrine d’une carte : une seule règle, que lisent le serveur, la tuile « Ma carte » et le choix de la vitrine', () => {
+test('la vitrine d’une carte : une seule règle, que lisent le serveur, la carte de la loge et le choix de la vitrine', () => {
   assert.match(source('shared/carte.ts'), /export function vitrineDeLaCarte\(/)
   assert.match(source('server/src/core/carte.ts'), /import \{ vitrineDeLaCarte, type CarteDeJoueur \} from '\.\.\/\.\.\/\.\.\/shared\/carte'/)
   assert.doesNotMatch(source('server/src/core/carte.ts'), /function vitrineDeLaCarte/)
   assert.match(source('client/src/components/Trophees.tsx'), /const montres = vitrineDeLaCarte\(profil\.vitrine, choisie, recompenses\)/)
-  assert.match(source('client/src/components/PanneauxDuProfil.tsx'), /vitrine: vitrineDeLaCarte\(profil\.vitrine, profil\.vitrineChoisie \?\? null, recompensesDe\(profil\.hautsFaits\)\)/)
+  // La carte de la loge, sur la page du profil, la lit aussi — l'essai compris : le vestiaire la lisait par ses aperçus.
+  assert.match(source('shared/loge.ts'), /return vitrineDeLaCarte\(profil\.vitrine, profil\.vitrineChoisie \?\? null, recompensesDe\(profil\.hautsFaits\)\)/)
+  assert.match(source('client/src/components/Loge.tsx'), /vitrine=\{vitrineVue\(vu\)\}/)
 })

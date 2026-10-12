@@ -1,11 +1,11 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
-// jetable : ses deux groupes — « Me changer », sa carte qu'on touche pièce par
-// pièce, « Me retrouver », ses tuiles —, sa carte et son avatar touché, en
-// grand, la loge ouverte sur chaque pièce — avatar, titre, vitrine, fond,
-// thème, gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
-// nouveauté, « Ma collection », ses lignes dépliées, l'album des thèmes et la
-// fiche de l'un d'eux, et la boutique des thèmes, qui ne vend que ce qui
-// s'achète.
+// jetable : ses deux groupes — « Me changer », la loge elle-même, sa carte et
+// ses six pièces d'abord, son panneau ensuite, « Me retrouver », ses tuiles —,
+// sa carte entière et son avatar touché, en grand, la loge sur chaque pièce —
+// avatar, titre, vitrine, fond, thème, gerbe —, un essai de trois pièces
+// porté d'un coup, la pastille d'une nouveauté, « Ma collection », ses lignes
+// dépliées, l'album des thèmes et la fiche de l'un d'eux, et la boutique des
+// thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -76,32 +76,42 @@ try {
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
 
-  // Le vestiaire — ce qu'on porte, en une image qu'on touche —, puis ce qu'on a.
+  // La loge en attendant ses panneaux, retenus trois secondes : sa carte et
+  // ses pièces sont déjà là, à la place où la loge les reprendra.
+  await page.route('**/PanneauxDuProfil-*.js', async (route: any) => {
+    await new Promise(r => setTimeout(r, 3000))
+    await route.continue()
+  })
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.vestiaire')
+  await page.waitForSelector('.loge .loge-carte')
+  await photo('1-profil-en-chemin')
+  // La loge — ce qu'on porte, qu'on essaie et qu'on porte d'un coup —, puis ce
+  // qu'on a. Le paquet relâché, la suite ne l'attend plus.
+  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await page.unroute('**/PanneauxDuProfil-*.js')
   await page.waitForSelector('.tuile-compte')
-  await photo('1-tuiles')
-  await photo('1-tuiles-pleine', true)
-  // Sa carte, comme la salle la voit, et son avatar touché : en grand, à sa place.
-  await page.click('.vestiaire-voir')
+  await photo('1-profil')
+  await photo('1-profil-pleine', true)
+  // Sa carte, comme la salle la voit — l'œil au bout de « Me changer » —, et son avatar touché : en grand, à sa place.
+  await page.click('.profil-voir-carte')
   await page.waitForSelector('.carte-joueur .carte-tete')
   await photo('1-carte')
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe')
   await photo('1-carte-avatar-en-grand')
 
-  // La loge, ouverte de chaque place sur la carte sur sa pièce — et la collection, de sa tuile ; la finition, dépliée.
+  // La loge sur chaque pièce, touchée sur sa rangée — et la collection, de sa tuile.
   for (const [i, nom, piece, attente] of [
-    ['2', 'loge avatar', '.vestiaire-avatar', '.loge-panneau .famille-avatars'],
-    ['3a', 'loge titre', '.vestiaire-titre', '.loge-panneau .titres'],
-    ['3b', 'loge vitrine', '.vestiaire-vitrine', '.loge-panneau .vitrine-choix'],
-    ['3c', 'loge fond', '.vestiaire-fond', '.loge-panneau .fonds-choix'],
-    ['4a', 'loge theme', '.vestiaire-perso[aria-label^="Mon thème"]', '.loge-panneau .mes-themes'],
-    ['4b', 'loge gerbe', '.vestiaire-perso[aria-label^="Ma gerbe"]', '.loge-panneau .gerbes-choix'],
+    ['2', 'loge avatar', '#loge-avatar', '.loge-panneau .famille-avatars'],
+    ['3a', 'loge titre', '#loge-titre', '.loge-panneau .titres'],
+    ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .vitrine-choix'],
+    ['3c', 'loge fond', '#loge-fond', '.loge-panneau .fonds-choix'],
+    ['4a', 'loge theme', '#loge-theme', '.loge-panneau .mes-themes'],
+    ['4b', 'loge gerbe', '#loge-gerbe', '.loge-panneau .gerbes-choix'],
     ['5', 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)
-    await page.waitForSelector('.vestiaire')
+    await page.waitForSelector('.loge-panneau .famille-avatars')
     await page.click(piece)
     await page.waitForSelector(attente)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
@@ -146,15 +156,15 @@ try {
   // Ce qu'il portait revient pour la suite : Velours, son Phénix, sans titre.
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', titre: null, theme: ivoire ? 'ivoire' : null }, cookie, 'PUT')
 
-  // Une nouveauté : un thème acheté ailleurs depuis son dernier passage — le
-  // vestiaire en dit la pastille, et la loge marque sa carte.
+  // Une nouveauté : un thème acheté ailleurs depuis son dernier passage — sa
+  // pièce en a la pastille, et le panneau marque sa carte.
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   base.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 2)').run(id, 'jungle')
   base.close()
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.vestiaire .vestiaire-neuf')
-  await photo('1-vestiaire-nouveau')
-  await page.click('.vestiaire-perso[aria-label^="Mon thème"]')
+  await page.waitForSelector('#loge-theme .loge-neuf')
+  await photo('1-loge-nouveau')
+  await page.click('#loge-theme')
   await page.waitForSelector('.loge-panneau .theme-vitrine.neuve')
   await photo('4a-loge-theme-nouveau')
 
@@ -186,13 +196,13 @@ try {
   await page.waitForSelector('.vitrine-themes .theme-vitrine')
   await photo('8-boutique', true)
 
-  // Le vestiaire habillé : un titre porté, et sous la nuit étoilée — posée à
-  // la main sur la carte : ce fond se gagne en trente jours de quiz du jour.
+  // La carte de la loge habillée : un titre porté, et sous la nuit étoilée —
+  // posée à la main : ce fond se gagne en trente jours de quiz du jour.
   await ecrire(banc.url, '/api/joueur/moi', { titre: 'hf:phenix' }, cookie, 'PUT')
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.vestiaire .vestiaire-case:not(.vestiaire-vide)')
-  await page.$eval('.vestiaire-carte', (carte: any) => carte.classList.add('carte-fond', 'fond-nuit'))
-  await photo('9-vestiaire-habille')
+  await page.waitForSelector('.loge-carte-vitrine .loge-vitrine-case')
+  await page.$eval('.loge-carte', (carte: any) => carte.classList.add('carte-fond', 'fond-nuit'))
+  await photo('9-loge-habillee')
 } finally {
   await navigateur.close()
   await banc.close()
