@@ -45,9 +45,10 @@ export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams:
         <div key={apparition.current} className="remise-prix" role="status">
           <span className="remise-motif">{espacesFines(dernier.reason)}</span>
           <span className="remise-equipe">{equipe ? `${equipe.emoji} ${equipe.name}` : '—'}</span>
+          {/* Un prix pour le plaisir — le cas d'office — ne s'annonce pas
+              « 0 point » : la salle lisait une pénalité. */}
           <span className="remise-points">
-            {dernier.points > 0 ? '+' : ''}
-            {dernier.points} point{Math.abs(dernier.points) > 1 ? 's' : ''}
+            {dernier.points === 0 ? 'Pour l’honneur' : `${dernier.points > 0 ? '+' : ''}${dernier.points} point${Math.abs(dernier.points) > 1 ? 's' : ''}`}
           </span>
         </div>
       ) : (
@@ -57,7 +58,7 @@ export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams:
         <div className="remise-equipes">
           <h3>
             <Icon name="users" />
-            Les équipes, prix compris
+            {teams.some(t => t.bonus !== 0) ? 'Les équipes, prix compris' : 'Les équipes'}
           </h3>
           <TeamBoard teams={teams} />
         </div>

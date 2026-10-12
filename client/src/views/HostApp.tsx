@@ -1186,15 +1186,16 @@ export function HostApp() {
                   <Icon name="award" />
                   Remise des prix
                 </h2>
-                {/* « Rien n'est attribué tant que tu ne cliques pas » : vrai des
-                    points, faux du palmarès, qui se relit au souvenir et se
-                    range sur l'étagère des profils remis ou non. Une
-                    animatrice qui avait épargné un prix à voix haute le
-                    retrouvait le lendemain. */}
+                {/* Pour le plaisir, d'office : un prix remis s'annonçait à
+                    cent points et renversait la victoire qu'on venait de
+                    proclamer (le choix du 12 octobre 2026). Et le palmarès
+                    se relit au souvenir et se range sur l'étagère des
+                    profils, remis ou non : une animatrice qui avait épargné
+                    un prix à voix haute le retrouvait le lendemain. */}
                 <p className="muted center">
-                  Chaque prix attribué ajoute ses points à ceux de l'équipe du lauréat — 0 pour
-                  l'honneur — et peut changer la gagnante. Le palmarès reste au souvenir, remis ou
-                  non, sans jamais rapporter d'expérience.
+                  Pour le plaisir : un prix remis s'annonce à la salle sans rien changer au
+                  classement — sauf si tu lui donnes des points d'équipe. Le palmarès reste au
+                  souvenir, remis ou non, sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard
@@ -1429,7 +1430,7 @@ export function HostApp() {
                   </button>
                   <button className="btn" onClick={() => openScreen('awards')}>
                     <Icon name="award" />
-                    Revenir aux prix
+                    Remise des prix
                   </button>
                   {cloreButton}
                   {backButton}

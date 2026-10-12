@@ -22,20 +22,14 @@ interface Props {
 
 
 /**
- * Les prix qui ne rapportent rien par défaut : ils se remettent pour
- * l'honneur. L'Abstentionniste donnait un point d'équipe à l'équipe de celui
- * qui n'avait rien envoyé — une récompense pour l'absence.
- */
-const POUR_L_HONNEUR = new Set(['abstentionniste'])
-const parDefaut = (a: Award) => (POUR_L_HONNEUR.has(a.key) ? 0 : POINTS_D_UN_PRIX)
-
-/**
  * Les prix de fin de soirée.
  *
  * L'application les calcule et les propose ; rien n'est attribué tant que
  * l'animateur ne clique pas. C'est volontaire : le classement du quiz se
  * mérite, les prix se donnent — et devant cinquante personnes, c'est
- * l'animateur qui sait lequel fera rire.
+ * l'animateur qui sait lequel fera rire. Ils se remettent pour le plaisir,
+ * à zéro point d'office (`POINTS_D_UN_PRIX`) : le champ reste, pour qui veut
+ * qu'un prix compte.
  */
 export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues = '' }: Props) {
   const [points, setPoints] = useState<Record<string, number>>({})
@@ -57,6 +51,8 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
       {awards.map(a => {
         const team = teamOf(a.teamId)
         const given = givenTitles?.has(a.title)
+        /** Les points tapés pour ce prix, ou ceux d'office. */
+        const tape = points[a.key] ?? POINTS_D_UN_PRIX
         // Une équipe se nomme avec les équipes de la soirée ; une équipe
         // retirée depuis n'a plus de nom à donner.
         const exAequo =
@@ -99,10 +95,12 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
                   <span className="muted">sans équipe — aucun point à donner</span>
                 )}
               </p>
-              {/* Ce que le clic changerait, dit avant : un prix peut renverser
-                  la victoire, et l'animateur doit le voir venir. */}
-              {onAward && team && Number.isFinite(points[a.key] ?? parDefaut(a)) && (
-                <p className="award-effet">{effetDUnPrix(teams, team.id, points[a.key] ?? parDefaut(a))}</p>
+              {/* Ce que le clic changerait, dit avant : un prix à points peut
+                  renverser la victoire, et l'animateur doit le voir venir. À
+                  zéro — d'office —, rien : l'en-tête de la remise le dit une
+                  fois, et la même ligne sous chaque prix chargeait la grille. */}
+              {onAward && team && Number.isFinite(tape) && Math.round(tape) !== 0 && (
+                <p className="award-effet">{effetDUnPrix(teams, team.id, tape)}</p>
               )}
             </div>
 
@@ -116,7 +114,7 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
                     min={-PRIX_MAX}
                     max={PRIX_MAX}
                     aria-label={`Points d’équipe du prix « ${a.title} »`}
-                    valeur={points[a.key] ?? parDefaut(a)}
+                    valeur={tape}
                     onValeur={n => setPoints(p => ({ ...p, [a.key]: n }))}
                   />
                   <span className="award-points-unite" aria-hidden="true">pts</span>
@@ -125,7 +123,7 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}
                   // La valeur que l'effet annonce : arrondie, comme le serveur la lira.
                   onClick={() => {
-                    const pts = Math.round(points[a.key] ?? parDefaut(a))
+                    const pts = Math.round(tape)
                     const remise = remiseDuClic(remises.current.get(a.key), {
                       quoi: `${team.id}:${pts}`,
                       vus: remisesVues,

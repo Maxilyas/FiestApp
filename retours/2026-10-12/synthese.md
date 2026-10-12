@@ -1,4 +1,4 @@
-# La nuit du 12 octobre 2026 — la télé branchée
+# La nuit du 12 octobre 2026 — la télé branchée, les prix
 
 Le propriétaire a demandé, le 12 octobre au soir, « une revue sur le scénario
 où on branche une télé ». Elle a été faite en rejouant le scénario entier sur
@@ -46,4 +46,35 @@ barre du chef reprennent d'elles-mêmes la question en cours.
 Les tests : `tele-salle.test.ts` (la règle de l'écran de salle, « Piloter
 d'ici », les consignes), `appairage.test.ts` (la connexion qui tombe à la fin
 de la soirée), `cloture-auto.test.ts` (le dernier quiz du programme dans la
-vue d'animateur).
+vue d'animateur). PR #158.
+
+# Les prix : pour le plaisir
+
+La question du propriétaire : « les prix, je pense qu'il n'y a plus de prix
+à décerner vraiment ? Ou du moins uniquement pour le fun. »
+
+**Ce qu'il en restait.** Deux choses portent ce nom. Le **palmarès** — une
+vingtaine de prix calculés tout seuls (L'Éclair, Le Cancre Magnifique,
+L'Abstentionniste…) — ne rapporte plus d'expérience depuis longtemps : il se
+lit au souvenir et se range sur l'étagère des profils, remis ou non. Et la
+**remise des prix**, à l'écran : chaque prix remis ajoutait **cent points
+d'équipe** d'office, de quoi renverser la victoire qu'on venait d'annoncer —
+c'était même le bouton principal au podium d'un quiz en équipes, devant
+« Quiz suivant ». La tablée l'avait déjà vu le 24 septembre : « après deux
+prix pour rire aux Guitaristes, c'était 4-4 » (`2026-09-24/nadia.md`).
+
+**Ce qui change** (un choix de produit, dit ici et dans la PR) :
+
+- un prix remis vaut **zéro point d'office** (`POINTS_D_UN_PRIX`) : la télé
+  l'annonce « pour l'honneur », le classement ne bouge pas ; le champ reste,
+  pour qui veut qu'un prix compte, et ce qu'il changerait se dit alors avant
+  le clic ;
+- au podium d'un quiz, **« Quiz suivant » passe devant « Remise des prix »** ;
+- « Avant les prix : ils peuvent encore changer l'ordre » ne s'écrit plus
+  sous le podium — « Prix à points compris » seulement s'il y en a ;
+- la phrase des équipes, partout : « le plus de points d'équipe l'emporte ;
+  un prix est pour le plaisir, sauf si l'animateur lui donne des points » ;
+- « Revenir aux prix », à l'écran de victoire, devient « Remise des prix ».
+
+Les soirées passées gardent leurs prix tels qu'ils ont été remis : chaque
+prix porte ses points au journal, rien ne se recalcule.

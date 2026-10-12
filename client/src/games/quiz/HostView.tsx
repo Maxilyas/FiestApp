@@ -1040,34 +1040,29 @@ export function QuizHost({
   }
 
   // finished
-  // Ce qui suit, en bouton principal : la remise des prix s'il y a des
-  // équipes, sinon le quiz suivant. « Terminer le quiz » ramène à la salle
-  // d'attente, comme avant.
+  // Ce qui suit, en bouton principal : le quiz suivant. La remise des prix,
+  // s'il y a des équipes, vient à côté : un prix se remet pour le plaisir
+  // (`POINTS_D_UN_PRIX`), il ne décide plus de rien — elle passait devant le
+  // quiz suivant depuis qu'elle renversait la victoire. « Terminer le quiz »
+  // ramène à la salle d'attente, comme avant.
   const suiteDuQuiz = (
     <ConsoleActions>
-      {apresQuiz?.prix ? (
-        <>
-          <button ref={principal} className="btn btn-primary" onClick={garde(apresQuiz.prix)}>
-            <Icon name="award" />
-            Remise des prix
-          </button>
-          <button className="btn" disabled={apresQuiz.personne} onClick={garde(apresQuiz.suivant)}>
-            <Icon name="play" />
-            Quiz suivant
-          </button>
-        </>
-      ) : (
-        apresQuiz && (
-          <button
-            ref={principal}
-            className="btn btn-primary"
-            disabled={apresQuiz.personne}
-            onClick={garde(apresQuiz.suivant)}
-          >
-            <Icon name="play" />
-            Quiz suivant
-          </button>
-        )
+      {apresQuiz && (
+        <button
+          ref={principal}
+          className="btn btn-primary"
+          disabled={apresQuiz.personne}
+          onClick={garde(apresQuiz.suivant)}
+        >
+          <Icon name="play" />
+          Quiz suivant
+        </button>
+      )}
+      {apresQuiz?.prix && (
+        <button className="btn" onClick={garde(apresQuiz.prix)}>
+          <Icon name="award" />
+          Remise des prix
+        </button>
       )}
       <button ref={apresQuiz ? undefined : principal} className={apresQuiz ? 'btn btn-ghost' : 'btn btn-primary'} onClick={garde(endSession)}>
         Terminer le quiz
@@ -1106,10 +1101,9 @@ export function QuizHost({
                 <Coupe>
                   <TeamBoard teams={teams} />
                 </Coupe>
-                {/* Un prix peut encore renverser l'ordre, c'est voulu : dit
-                    ici, le renversement devient un suspense, pas un démenti
-                    de ce que l'animateur vient d'annoncer. */}
-                <p className="muted small">{mentionDesPrix(teams)}</p>
+                {/* Les prix qui y comptent — ceux à qui l'animateur a donné
+                    des points —, dits ici ; les autres sont pour le plaisir. */}
+                {mentionDesPrix(teams) && <p className="muted small">{mentionDesPrix(teams)}</p>}
               </div>
             )}
             {/* Les équipes d'abord : c'est leur classement qui décide de la

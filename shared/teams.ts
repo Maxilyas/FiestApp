@@ -138,11 +138,15 @@ export function teamScores(
 }
 
 /**
- * Ce que vaut un prix remis à l'écran, par défaut : une bonne réponse sans
- * bonus. Il s'ajoute à la moyenne, qui se compte en points de quiz —
- * l'ancien « +1 », sur l'échelle 6, 5, 4…, n'y pèserait plus rien.
+ * Ce que vaut un prix remis à l'écran, par défaut : rien. Un prix se remet
+ * pour le plaisir — on applaudit Jeanne, le classement ne bouge pas —, le
+ * choix du propriétaire du 12 octobre 2026 (« il n'y a plus de prix à
+ * décerner vraiment ? Ou du moins uniquement pour le fun »). Il valait une
+ * bonne réponse sans bonus, cent points ajoutés à la moyenne, et la remise
+ * renversait la victoire qu'on venait d'annoncer. L'animateur peut encore
+ * lui en donner, s'il veut qu'il compte.
  */
-export const POINTS_D_UN_PRIX = 100
+export const POINTS_D_UN_PRIX = 0
 /** Au plus, en plus ou en moins : un prix peut renverser un quiz, pas une soirée entière. */
 export const PRIX_MAX = 500
 
@@ -222,7 +226,7 @@ export function prixRemis<T extends { id: string; teamId: string; createdAt: num
 export function regleDesEquipes(): string {
   return (
     'Les points d’équipe : ceux de ses membres divisés par leur nombre — chacun y compte pour les questions qu’il a jouées dans l’équipe. ' +
-    'Les prix en ajoutent, et le plus de points d’équipe l’emporte.'
+    'Le plus de points d’équipe l’emporte ; un prix est pour le plaisir, sauf si l’animateur lui donne des points.'
   )
 }
 
@@ -274,11 +278,11 @@ export function effetDUnPrix(teams: PublicTeam[], teamId: string, tape: number):
 }
 
 /**
- * Sous le classement d'un podium de quiz : ce que les prix peuvent encore y
- * faire. Annoncé, le renversement devient un suspense au lieu d'un démenti.
+ * Sous le classement d'un podium de quiz : les prix qui y comptent, s'il y
+ * en a. « Avant les prix : ils peuvent encore changer l'ordre » annonçait un
+ * renversement que les prix pour le plaisir ne font plus : rien, tant
+ * qu'aucun n'a reçu de points.
  */
-export function mentionDesPrix(teams: readonly { bonus: number }[]): string {
-  return teams.some(t => t.bonus !== 0)
-    ? 'Prix déjà remis compris — les suivants peuvent encore changer l’ordre.'
-    : 'Avant les prix : ils peuvent encore changer l’ordre.'
+export function mentionDesPrix(teams: readonly { bonus: number }[]): string | null {
+  return teams.some(t => t.bonus !== 0) ? 'Prix à points compris.' : null
 }
