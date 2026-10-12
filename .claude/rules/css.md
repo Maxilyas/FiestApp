@@ -30,3 +30,9 @@ paths:
   `font-variant-numeric` est une seule propriété : `tabular-nums` seul efface
   le `lining-nums` d'une règle plus large — écris les deux
   (`design.test.ts`).
+- **Chaque taille de police d'un emoji se met en forme à part** : des
+  particules à vingt-deux tailles tirées au hasard coûtaient 100 à 230 ms de
+  mise en forme à la révélation, au processeur ×4 ; à une seule taille,
+  réduites par `transform: scale()`, 20 ms (la gerbe, règle `themes.md`).
+  Une taille qui varie d'un élément à l'autre passe par `scale()`, jamais
+  par `font-size` — et se réduit, sans s'agrandir : l'emoji reste net.

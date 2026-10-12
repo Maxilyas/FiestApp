@@ -4,10 +4,15 @@
 // mérite plus cesse de se porter, sans que rien ne soit réécrit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import React from 'react'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ALLURE_PAR_DEFAUT, AUCUNE_GERBE, GERBES, GERBE_PAR_DEFAUT, gerbe, gerbesOuvertes } from '../../shared/gerbes'
 import { hautFait } from '../../shared/hautsfaits'
+
+// Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
+Object.assign(globalThis, { React })
 
 const lire = (banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
@@ -49,6 +54,56 @@ test('chaque gerbe a son allure, et aucune ne charge un petit téléphone ni ne 
   const de = (cle: string) => GERBES.find(g => g.key === cle)!.allure!
   assert.ok(de('ballons').duree[0] > de('etincelles').duree[1], 'un ballon flotte, une étincelle file')
   assert.ok(de('ballons').nombre < de('pixels').nombre)
+})
+
+// Chaque particule avait sa taille de police, tirée au hasard : à chaque bonne
+// réponse, le téléphone mettait en forme vingt-deux emojis à vingt-deux
+// tailles, chacune sa police à préparer. Au processeur d'un téléphone moyen
+// (×4), l'image de la révélation attendait 100 à 230 ms derrière cette mise en
+// forme — dans tous les modes, depuis les confettis d'office (« le retour est
+// plus lent qu'avant », le 12 octobre 2026). À une seule taille, chacune
+// réduite par `transform`, l'image ne coûte plus que 20 ms.
+test('une gerbe ne met en forme qu’une taille d’emoji : chaque particule prend la sienne par transform', async () => {
+  const { GerbeVue, tirerLesParticules } = await import(new URL('../../client/src/components/Gerbe.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  // Les règles de la gerbe et de ses particules — pas celles de son aperçu (`.gerbe-apercu`).
+  const regles = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selecteurs]) =>
+    selecteurs.split(',').some(s => /^\.gerbe(-jaillit|-tombe|-monte)?( i)?$/.test(s.trim())),
+  )
+  assert.ok(regles.length >= 4, `${regles.length} règles de la gerbe lues`)
+  // Ce dont dépend la taille de police d'une particule.
+  const tailles = regles.flatMap(([, , corps]) => [...corps.matchAll(/font-size:([^;]+)/g)].map(m => m[1]))
+  const variablesDeLaTaille = new Set(tailles.flatMap(t => [...t.matchAll(/var\((--[\w-]+)/g)].map(m => m[1])))
+  // Chaque image de ses trois mouvements.
+  const transforms = [...css.matchAll(/@keyframes gerbe-(?:jaillit|tombe|monte)\s*\{((?:[^{}]*\{[^{}]*\})*)[^{}]*\}/g)].flatMap(([, corps]) =>
+    [...corps.matchAll(/transform:([^;}]+)/g)].map(m => m[1].trim()),
+  )
+  assert.ok(transforms.length >= 8, `${transforms.length} images de mouvement lues`)
+  for (const g of GERBES) {
+    const allure = g.allure ?? ALLURE_PAR_DEFAUT
+    const html = renderToStaticMarkup(React.createElement(GerbeVue, { g, particules: tirerLesParticules(allure) }))
+    const particules = [...html.matchAll(/<i style="([^"]*)"/g)].map(
+      m =>
+        new Map(
+          m[1]
+            .split(';')
+            .filter(Boolean)
+            .map(d => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()] as const),
+        ),
+    )
+    assert.equal(particules.length, allure.nombre, `${g.key} : ses particules`)
+    for (const p of particules) {
+      assert.ok(!p.has('font-size'), `${g.key} : une particule ne pose pas sa taille de police`)
+      for (const v of variablesDeLaTaille) assert.ok(!p.has(v), `${g.key} : une particule pose ${v}, d’où sa police tire sa taille`)
+    }
+    // Sa taille à elle, à chaque image du mouvement — jamais au-delà de la police, que l'agrandir rendrait floue.
+    const echelle = [...particules[0].keys()].filter(k => transforms.every(t => new RegExp(`scale\\([^)]*var\\(${k}\\b`).test(t)))
+    assert.equal(echelle.length, 1, `${g.key} : chaque image du mouvement porte l’échelle de la particule (${transforms.join(' | ')})`)
+    const echelles = particules.map(p => Number(p.get(echelle[0])))
+    assert.ok(echelles.every(e => e > 0 && e <= 1), `${g.key} : des échelles dans ]0, 1] (${echelles.join(', ')})`)
+    assert.ok(new Set(echelles).size > 1, `${g.key} : des particules de tailles différentes`)
+  }
 })
 
 test('une gerbe se porte parmi celles qu’on a gagnées, et tombe avec ce qui l’ouvrait', async () => {
