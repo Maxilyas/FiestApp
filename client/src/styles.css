@@ -7474,52 +7474,31 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   white-space: nowrap;
 }
 
-/* ── Le profil : ce qu'on porte, puis ses tuiles ────────────────────────
-   « Me changer » — la loge elle-même, plus bas —, puis « Me retrouver » : la
-   collection couchée sur sa rangée, sa jauge dessous, la carrière et les
-   soirées côte à côte. */
-.profil-groupe { display: flex; flex-direction: column; gap: 8px; }
-/* Le titre du groupe, et l'œil au bout, qui ouvre sa carte comme la salle l'ouvre. */
-.profil-groupe-tete { display: flex; align-items: center; gap: 8px; }
-.profil-groupe-tete .profil-groupe-titre { flex: 1; min-width: 0; }
-.profil-voir-carte { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: -8px -6px -8px 0; padding: 0; border: 1px solid var(--edge); border-radius: 50%; background: var(--surface); color: var(--accent-text); cursor: pointer; }
-.profil-voir-carte:hover { border-color: var(--edge-strong); }
-.profil-voir-carte .icon { width: 18px; height: 18px; }
-.profil-groupe-titre { display: flex; align-items: baseline; gap: 8px; margin: 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--zone, var(--muted)); }
-.profil-groupe-titre span { margin-left: auto; font-size: 0.8rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); text-align: right; }
-.tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.tuile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 140px;
-  padding: 16px 14px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.tuile:hover { border-color: var(--edge-strong); }
-.tuile .gros-icone { margin-bottom: 6px; }
-.tuile b { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.15; }
-.tuile .pastille-attente { position: absolute; top: 12px; right: 12px; }
-/* La collection : couchée sur toute la rangée, son compte au bout du titre, sa jauge dessous. */
-.tuile-large { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 14px; row-gap: 5px; min-height: 0; }
-.tuile-large .gros-icone { grid-row: span 3; margin-bottom: 0; }
-.tuile-large b { display: flex; align-items: baseline; gap: 8px; }
-.tuile-large .jauge-fine { width: 100%; }
-.tuile-compte { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* ── Le profil : qui l'on est, puis quatre gros boutons ─────────────────
+   Épuré : « M'habiller » (la loge, sur son écran), « Ma collection » — sa
+   jauge et son compte —, « Mes soirées », « Ma carrière ». Les gros boutons
+   de l'accueil, la même main. */
+.profil-boutons { display: flex; flex-direction: column; gap: 10px; }
+/* Une jauge sous le titre d'un gros bouton, son compte au bout ; la ligne
+   garde sa hauteur tant que le compte n'est pas arrivé. */
+.gros-jauge { display: flex; align-items: center; gap: 10px; min-height: 1.2rem; }
+.gros-jauge .jauge-fine { flex: 1; }
+.gros-compte { flex: none; font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+/* Au profil, sa ligne ouvre sa carte : un bouton, l'œil au bout pour le dire. */
+button.identite-ligne { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.identite-oeil { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; border: 1px solid var(--edge-strong); border-radius: 50%; background: var(--surface); color: var(--accent-text); }
+.identite-oeil .icon { width: 20px; height: 20px; }
+button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 
-/* ── La loge : « Me changer », tout ce qu'on porte sur un écran ─────────
-   Sa carte collée en tête montre l'essai ; les six pièces sur une rangée
-   — ce que la salle voit, puis ce que lui seul voit — ; le panneau de la
-   pièce touchée ; et la barre de l'essai, qui couvre le menu le temps de
-   choisir : « Annuler », « Porter ». */
+/* ── La loge : « M'habiller », tout ce qu'on porte sur un écran ─────────
+   « ← Mon profil » et son titre ; sa carte collée en tête montre l'essai ;
+   les six pièces sur une rangée — ce que la salle voit, puis ce que lui
+   seul voit — ; le panneau de la pièce touchée ; et la barre de l'essai,
+   qui couvre le menu le temps de choisir : « Annuler », « Porter ». */
+.loge-page { gap: 14px; }
+.loge-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.loge-tete .jour-sortie { margin: 0; }
+.loge-tete h1 { margin: 0; font-size: 1.6rem; line-height: 1.1; }
 .loge { display: flex; flex-direction: column; gap: 12px; }
 .loge-collante { position: sticky; top: 0; z-index: 4; padding-top: 4px; background: var(--bg); }
 .loge-carte {

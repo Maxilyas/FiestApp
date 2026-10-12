@@ -1,4 +1,4 @@
-// La loge : « Me changer », au profil — tout ce qu'on porte, sur un seul
+// La loge : « M'habiller », au profil — tout ce qu'on porte, sur un seul
 // écran (la maquette validée par le propriétaire le 12 octobre 2026). On
 // essaie d'abord : la carte en tête montre l'essai, le thème habille la page,
 // la gerbe éclate ; « Porter » enregistre tout l'essai d'un coup, « Annuler »

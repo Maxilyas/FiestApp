@@ -71,9 +71,9 @@ test('son propre défi se joue, il ne se relève pas : la page compte ceux qui l
   assert.doesNotMatch(duel, /'joueur l’a relevé'/, '« 1 joueur l’a relevé » : l’auteur seul')
 })
 
-test('ce qui se porte se règle sous « Me changer » ; la vitrine se gagne aussi en solo', () => {
+test('ce qui se porte se règle sous « M’habiller » ; la vitrine se gagne aussi en solo', () => {
   const collection = source('components/Collection.tsx')
-  assert.match(collection, /ce qui est à toi se porte depuis « Me changer », sur ton profil\./)
+  assert.match(collection, /ce qui est à toi se porte depuis « M’habiller », sur ton profil\./)
   assert.doesNotMatch(collection, /se porte dans « Mon avatar », « Ma carte »/, '« Ma carte » n’existe plus : chaque pièce a sa page')
   const atlas = source('components/TropheesAtlas.tsx')
   assert.match(atlas, /Ils se gagnent en soirée, au quiz du jour et en campagne, et certains réveillent un légendaire\./)

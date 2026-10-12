@@ -35,6 +35,7 @@ export type IconName =
   | 'eye-off'
   | 'flag'
   | 'hash'
+  | 'hanger'
   | 'home'
   | 'keyboard'
   | 'list'
@@ -374,6 +375,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
     filled: true,
+  },
+  // La loge, où l'on s'habille : un cintre.
+  hanger: {
+    paths: (
+      <>
+        <path d="M12 9.5V8a2.25 2.25 0 1 0-2.25-2.25" />
+        <path d="M12 9.5 3.4 15.6A1.3 1.3 0 0 0 4.2 18h15.6a1.3 1.3 0 0 0 .8-2.4L12 9.5Z" />
+      </>
+    ),
   },
   sparkles: {
     paths: (

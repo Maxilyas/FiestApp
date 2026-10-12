@@ -1,11 +1,12 @@
 // La page du profil, photographiée au téléphone (360 × 640) sur un serveur
-// jetable : ses deux groupes — « Me changer », la loge elle-même, sa carte et
-// ses six pièces d'abord, son panneau ensuite, « Me retrouver », ses tuiles —,
-// sa carte entière et son avatar touché, en grand, la loge sur chaque pièce —
-// avatar, titre, vitrine, fond, thème, gerbe —, un essai de trois pièces
-// porté d'un coup, la pastille d'une nouveauté, « Ma collection », ses lignes
-// dépliées, l'album des thèmes et la fiche de l'un d'eux, et la boutique des
-// thèmes, qui ne vend que ce qui s'achète.
+// jetable : soi-même en tête et ses quatre boutons — « M'habiller », « Ma
+// collection », « Mes soirées », « Ma carrière » —, sa carte entière et son
+// avatar touché, en grand, la loge — sa carte et ses six pièces d'abord, son
+// panneau ensuite —, sur chaque pièce — avatar, titre, vitrine, fond, thème,
+// gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
+// nouveauté, « Ma collection », ses lignes dépliées, l'album des thèmes et la
+// fiche de l'un d'eux, et la boutique des thèmes, qui ne vend que ce qui
+// s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -76,43 +77,50 @@ try {
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
 
-  // La loge en attendant ses panneaux, retenus trois secondes : sa carte et
-  // ses pièces sont déjà là, à la place où la loge les reprendra.
+  // La loge en attendant ses panneaux, retenus trois secondes — d'abord, tant
+  // que le navigateur ne les a pas en cache : sa carte et ses pièces sont
+  // déjà là, à la place où la loge les reprendra. Le paquet relâché, la suite
+  // ne l'attend plus.
   await page.route('**/PanneauxDuProfil-*.js', async (route: any) => {
     await new Promise(r => setTimeout(r, 3000))
     await route.continue()
   })
-  await page.goto(`${banc.url}/profil`)
+  await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge .loge-carte')
-  await photo('1-profil-en-chemin')
-  // La loge — ce qu'on porte, qu'on essaie et qu'on porte d'un coup —, puis ce
-  // qu'on a. Le paquet relâché, la suite ne l'attend plus.
+  await photo('2-loge-en-chemin')
   await page.waitForSelector('.loge-panneau .famille-avatars')
   await page.unroute('**/PanneauxDuProfil-*.js')
-  await page.waitForSelector('.tuile-compte')
+
+  // Le profil, épuré : soi-même en tête, puis ses quatre boutons.
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.profil-boutons .gros-compte')
   await photo('1-profil')
   await photo('1-profil-pleine', true)
-  // Sa carte, comme la salle la voit — l'œil au bout de « Me changer » —, et son avatar touché : en grand, à sa place.
-  await page.click('.profil-voir-carte')
+  // Sa carte, comme la salle la voit — sa ligne en tête se touche —, et son avatar touché : en grand, à sa place.
+  await page.click('button.identite-ligne')
   await page.waitForSelector('.carte-joueur .carte-tete')
   await photo('1-carte')
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe')
   await photo('1-carte-avatar-en-grand')
 
-  // La loge sur chaque pièce, touchée sur sa rangée — et la collection, de sa tuile.
+  // La loge, ouverte de son bouton, sur chaque pièce touchée sur sa rangée — et la collection, de son bouton.
   for (const [i, nom, piece, attente] of [
-    ['2', 'loge avatar', '#loge-avatar', '.loge-panneau .famille-avatars'],
+    ['2', 'loge avatar', null, '.loge-panneau .famille-avatars'],
     ['3a', 'loge titre', '#loge-titre', '.loge-panneau .titres'],
     ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .vitrine-choix'],
     ['3c', 'loge fond', '#loge-fond', '.loge-panneau .fonds-choix'],
     ['4a', 'loge theme', '#loge-theme', '.loge-panneau .mes-themes'],
     ['4b', 'loge gerbe', '#loge-gerbe', '.loge-panneau .gerbes-choix'],
-    ['5', 'Ma collection', '.tuile:has-text("Ma collection")', '.collection'],
+    ['5', 'Ma collection', 'collection', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)
-    await page.waitForSelector('.loge-panneau .famille-avatars')
-    await page.click(piece)
+    await page.waitForSelector('.profil-boutons .gros-compte')
+    await page.click(`.profil-boutons .gros-bouton:has-text("${piece === 'collection' ? 'Ma collection' : 'M’habiller'}")`)
+    if (piece && piece !== 'collection') {
+      await page.waitForSelector('.loge-panneau .famille-avatars')
+      await page.click(piece)
+    }
     await page.waitForSelector(attente)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}-pleine`, true)
@@ -156,12 +164,15 @@ try {
   // Ce qu'il portait revient pour la suite : Velours, son Phénix, sans titre.
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', titre: null, theme: ivoire ? 'ivoire' : null }, cookie, 'PUT')
 
-  // Une nouveauté : un thème acheté ailleurs depuis son dernier passage — sa
-  // pièce en a la pastille, et le panneau marque sa carte.
+  // Une nouveauté : un thème acheté ailleurs depuis son dernier passage —
+  // « M'habiller » en a la pastille, sa pièce aussi, et le panneau marque sa carte.
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   base.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 2)').run(id, 'jungle')
   base.close()
   await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.profil-boutons .gros-bouton:has-text("M’habiller") .pastille-attente')
+  await photo('1-profil-nouveau')
+  await page.click('.profil-boutons .gros-bouton:has-text("M’habiller")')
   await page.waitForSelector('#loge-theme .loge-neuf')
   await photo('1-loge-nouveau')
   await page.click('#loge-theme')
@@ -199,7 +210,7 @@ try {
   // La carte de la loge habillée : un titre porté, et sous la nuit étoilée —
   // posée à la main : ce fond se gagne en trente jours de quiz du jour.
   await ecrire(banc.url, '/api/joueur/moi', { titre: 'hf:phenix' }, cookie, 'PUT')
-  await page.goto(`${banc.url}/profil`)
+  await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge-carte-vitrine .loge-vitrine-case')
   await page.$eval('.loge-carte', (carte: any) => carte.classList.add('carte-fond', 'fond-nuit'))
   await photo('9-loge-habillee')

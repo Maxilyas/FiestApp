@@ -21,9 +21,9 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfil
 // la tuile du profil (`shared/collection.ts`) : les avatars, le style, les
 // trophées.
 //
-// On n'y règle rien : ce qu'on a se porte depuis « Me changer », au profil —
-// une page par pièce —, et chaque ligne le dit, un lien vers l'écran qui le
-// porte. Les écrans où l'on choisit ne montrent que ce qu'on a ; c'est ici
+// On n'y règle rien : ce qu'on a se porte depuis « M'habiller », au profil —
+// la loge, une adresse par pièce —, et chaque ligne le dit, un lien vers
+// l'écran qui le porte. Les écrans où l'on choisit ne montrent que ce qu'on a ; c'est ici
 // que vit tout le reste.
 
 /** Ce que chaque ligne des avatars et du style dit d'elle — les trophées ont les leurs (`TropheesAtlas`). */
@@ -342,8 +342,8 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
         </p>
         <JaugeFine part={total.acquis / Math.max(1, total.total)} />
         <p className="muted small">
-          {/* « Ma carte » n'existe plus : chaque pièce a sa page, sous « Me changer ». */}
-          {espacesFines('Touche une ligne : ce que tu as, ce qui reste, et où le gagner. On n’y change rien — ce qui est à toi se porte depuis « Me changer », sur ton profil.')}
+          {/* « Ma carte » n'existe plus : chaque pièce a sa place dans la loge, derrière « M'habiller ». */}
+          {espacesFines('Touche une ligne : ce que tu as, ce qui reste, et où le gagner. On n’y change rien — ce qui est à toi se porte depuis « M’habiller », sur ton profil.')}
         </p>
       </div>
       {familles.map(f => (

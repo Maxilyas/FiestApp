@@ -25,15 +25,14 @@ import {
   type VusDeLaLoge,
 } from '../../../shared/loge'
 
-// La loge : « Me changer », sur la page du profil — tout ce qu'on porte, au
-// même endroit (la maquette validée par le propriétaire le 12 octobre 2026,
-// puis, le même jour, « directement dans le profil »). Sa carte en tête
-// montre l'essai ; dessous, les six pièces sur une rangée — ce que la salle
-// voit, puis ce que lui seul voit —, le panneau de la pièce touchée, et, dès
-// qu'on essaie quelque chose, la barre qui le dit : « Annuler », « Porter ».
-// Les règles de l'essai sont pures (`shared/loge.ts`) ; la carte et la
-// rangée, légères, à part (`LogeTete.tsx`) ; ici, l'essai et ce que ce
-// téléphone retient.
+// La loge : « M'habiller », derrière son bouton du profil — tout ce qu'on
+// porte, au même endroit (la maquette validée par le propriétaire le 12
+// octobre 2026). Sa carte en tête montre l'essai ; dessous, les six pièces
+// sur une rangée — ce que la salle voit, puis ce que lui seul voit —, le
+// panneau de la pièce touchée, et, dès qu'on essaie quelque chose, la barre
+// qui le dit : « Annuler », « Porter ». Les règles de l'essai sont pures
+// (`shared/loge.ts`) ; la carte et la rangée, légères, à part
+// (`LogeTete.tsx`) ; ici, l'essai et ce que ce téléphone retient.
 
 // ── Ce que ce téléphone a déjà vu ────────────────────────────────────────
 
@@ -74,6 +73,15 @@ export function retenirLesPremiersVus(profil: PublicProfileDetail) {
   const vus = lireVus(profil.id)
   if (PIECES_DE_LA_LOGE.every(p => vus[p.id])) return
   ecrireVus(profil.id, retenirLesVus(ceQuIlAPorter(profil), vus, null))
+}
+
+/**
+ * La loge a-t-elle du nouveau depuis son dernier passage sur ce téléphone ?
+ * Le bouton « M'habiller » le dit, comme la pièce qui l'a dans la rangée.
+ */
+export function aDuNouveau(profil: PublicProfileDetail): boolean {
+  const neufs = nouveautes(ceQuIlAPorter(profil), lireVus(profil.id))
+  return PIECES_DE_LA_LOGE.some(p => neufs[p.id].length > 0)
 }
 
 // ── La loge ──────────────────────────────────────────────────────────────

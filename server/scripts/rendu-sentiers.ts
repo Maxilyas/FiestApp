@@ -201,8 +201,8 @@ try {
   base.close()
   await ecrire(banc.url, '/api/joueur/moi', { fond: 'cabinet', titre: 'maitre:oceans' }, cookie, 'PUT')
   await page.goto(`${banc.url}/profil`)
-  await page.click('.profil-voir-carte')
-  // La carte de la loge porte aussi le fond : c'est la carte ouverte qu'on attend.
+  await page.click('button.identite-ligne')
+  // C'est la carte ouverte, à fond, qu'on attend.
   await page.waitForSelector('.carte-joueur.carte-fond')
   await page.waitForTimeout(800)
   await photo('15-carte-cabinet')

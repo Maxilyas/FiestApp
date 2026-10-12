@@ -22,7 +22,7 @@ import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import type { PropsDUnePiece } from './choix'
 
-// Les pièces de la loge (« Me changer », au profil), chacune dans son
+// Les pièces de la loge (« M'habiller », au profil), chacune dans son
 // panneau : son avatar — portraits des branches, emojis, légendaires,
 // Divins, rangés par famille — et sa finition, son titre, son fond, sa
 // gerbe ; sa vitrine vit dans `Trophees`, ses thèmes dans `Boutique`.

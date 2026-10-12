@@ -122,6 +122,8 @@ export function GrosBouton({
   detail,
   pastille,
   principal,
+  jauge,
+  compte,
   href,
   onClick,
 }: {
@@ -132,6 +134,10 @@ export function GrosBouton({
   pastille?: ReactNode
   /** Le geste du moment : plein. */
   principal?: boolean
+  /** Où il en est, de 0 à 1 : une jauge fine sous le titre — sa collection. */
+  jauge?: number
+  /** Le compte au bout de la jauge (« 27 sur 308 ») ; sa place est gardée tant qu'il n'est pas arrivé. */
+  compte?: string
   href?: string
   onClick?: () => void
 }) {
@@ -141,6 +147,14 @@ export function GrosBouton({
       <span className="gros-icone">{icone}</span>
       <span className="gros-texte">
         <b>{titre}</b>
+        {jauge !== undefined && (
+          <span className="gros-jauge">
+            <span className="jauge-fine" aria-hidden="true">
+              <span style={{ width: `${Math.round(Math.max(0, Math.min(1, jauge)) * 100)}%` }} />
+            </span>
+            {compte && <span className="gros-compte">{compte}</span>}
+          </span>
+        )}
         {detail && <span className="gros-detail">{detail}</span>}
       </span>
       {/* La pastille prend la place du chevron : les deux serraient le titre, et
@@ -155,52 +169,6 @@ export function GrosBouton({
   ) : (
     <button type="button" className={classe} onClick={onClick}>
       {contenu}
-    </button>
-  )
-}
-
-/**
- * Une tuile du profil : plus haute qu'un bouton, deux par rangée — ou toute
- * la rangée, couchée, avec son compte et sa jauge (`large`). Ce qu'on porte
- * n'a plus de tuile : il se change sur la page même, dans la loge.
- */
-export function Tuile({
-  icone,
-  titre,
-  detail,
-  compte,
-  jauge,
-  pastille,
-  onClick,
-}: {
-  icone?: IconName
-  titre: string
-  detail?: ReactNode
-  /** Couchée sur la rangée : son compte à droite du titre, et sa jauge dessous (de 0 à 1). */
-  compte?: string
-  jauge?: number
-  pastille?: ReactNode
-  onClick: () => void
-}) {
-  const large = jauge !== undefined
-  return (
-    <button type="button" className={'tuile' + (large ? ' tuile-large' : '')} onClick={onClick}>
-      {pastille && <span className="pastille-attente">{pastille}</span>}
-      {icone && (
-        <span className="gros-icone">
-          <Icon name={icone} />
-        </span>
-      )}
-      <b>
-        {titre}
-        {compte && <span className="tuile-compte">{compte}</span>}
-      </b>
-      {large && (
-        <span className="jauge-fine" aria-hidden="true">
-          <span style={{ width: `${Math.round(Math.max(0, Math.min(1, jauge)) * 100)}%` }} />
-        </span>
-      )}
-      {detail && <span className="gros-detail">{detail}</span>}
     </button>
   )
 }

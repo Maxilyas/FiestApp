@@ -9,7 +9,7 @@
 //
 //   - le premier affichage (FCP) : souvent le « Chargement… » d'attente ;
 //   - l'écran utile : le premier élément qui dit que la page est là — les
-//     trois boutons de l'entrée, les tuiles du profil… (`pret`), peint ;
+//     trois boutons de l’entrée, les boutons du profil… (`pret`), peint ;
 //   - le plus grand affichage (LCP) et le temps bloqué (TBT : ce que les
 //     tâches longues prennent au-delà de 50 ms, après le premier affichage) ;
 //   - le processeur : script, styles, mise en page ;
@@ -127,9 +127,9 @@ const PAGES: PageMesuree[] = [
   { cle: 'attente', nom: 'Salle d’attente (retour)', chemin: `/${ADMIN.slug}`, qui: 'invite', pret: '.waiting' },
   { cle: 'accueil-anonyme', nom: 'Accueil sans profil', chemin: '/', qui: 'anonyme', pret: '.entree-choix .btn-big' },
   { cle: 'accueil', nom: 'Accueil d’un profil', chemin: '/', qui: 'profil', pret: '.accueil-gestes .jouer-section' },
-  // La loge vit sur la page du profil : sa carte d'abord, puis le panneau de la pièce ouverte — l'avatar, d'office.
-  { cle: 'profil', nom: 'Profil (sa carte)', chemin: '/profil', qui: 'profil', pret: '.loge .loge-carte' },
-  { cle: 'avatar', nom: 'Profil (ses avatars)', chemin: '/profil#avatar', qui: 'profil', pret: '.loge-panneau .famille-avatars .case-avatar' },
+  { cle: 'profil', nom: 'Profil', chemin: '/profil', qui: 'profil', pret: '.profil-boutons .gros-bouton' },
+  // La loge, derrière « M'habiller » : ses avatars, la pièce qu'elle ouvre d'office.
+  { cle: 'avatar', nom: 'M’habiller (ses avatars)', chemin: '/profil#avatar', qui: 'profil', pret: '.loge-panneau .famille-avatars .case-avatar' },
   { cle: 'collection', nom: 'Ma collection', chemin: '/profil#collection', qui: 'profil', pret: '.collection .trophees-liste .trophee' },
   { cle: 'boutique', nom: 'Boutique', chemin: '/boutique', qui: 'profil', pret: '.vitrine-themes > *' },
   { cle: 'jour', nom: 'Quiz du jour', chemin: '/jour', qui: 'profil', pret: '.jour-heros' },
