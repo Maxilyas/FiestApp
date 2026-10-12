@@ -1,5 +1,5 @@
 import { sujetsDeLaQuestion, type CampagneStore } from './core/campagne'
-import { composerUnQuiz, dejaDansLEspace, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret } from './core/quizToutPret'
+import { composerUnQuiz, dejaDansLEspace, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
@@ -16,7 +16,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { MAX_QUESTIONS, horsBornesALEnvoi, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -462,15 +462,38 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
-  /** Le tirage d'un choix dans ce que l'espace n'a pas encore — celui que « Composer » range, celui que l'aperçu compte. */
-  const tirerPourLEspace = async (spaceId: string, choix: ChoixDuQuiz) => {
+  /** Ce que la base offre aux soirées, et ce que l'espace a déjà : sa bibliothèque, ce que ses soirées ont posé. */
+  const contexteDeLEspace = async (spaceId: string) => {
     const [{ questions, mesures }, bibliotheque, memoire] = await Promise.all([
       deps.campagne.pourLesSoirees(),
       deps.store.all(spaceId),
       deps.archives.memoire(spaceId),
     ])
-    return { bibliotheque, tirees: composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, dejaDansLEspace(bibliotheque, dernieresFois(memoire))) }
+    return { questions, mesures, bibliotheque, deja: dejaDansLEspace(bibliotheque, dernieresFois(memoire)) }
   }
+
+  /** Le tirage d'un choix dans ce que l'espace n'a pas encore — celui que « Composer » range, celui que l'aperçu compte. */
+  const tirerPourLEspace = async (spaceId: string, choix: ChoixDuQuiz) => {
+    const { questions, mesures, bibliotheque, deja } = await contexteDeLEspace(spaceId)
+    return { bibliotheque, tirees: composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, deja) }
+  }
+
+  // « Une autre », dans l'éditeur : la voisine d'une question tirée de la
+  // base (`uneAutreQuestion`). Rien d'écrit : la carte la prend, et
+  // « Enregistrer » la range avec le reste.
+  app.post(
+    '/api/quiz-tout-pret/une-autre',
+    wrap(async (req, res) => {
+      const id = typeof req.body?.id === 'string' ? req.body.id : ''
+      if (!id.startsWith('base-')) return res.status(400).json({ error: 'Cette question n’est pas tirée de la base : remplace-la à la main' })
+      const kind = req.body?.kind === 'number' ? 'number' : 'choice'
+      const quiz = Array.isArray(req.body?.quiz) ? (req.body.quiz as unknown[]).filter((x): x is string => typeof x === 'string').slice(0, MAX_QUESTIONS) : []
+      const { questions, mesures, deja } = await contexteDeLEspace(spaceOf(res))
+      const autre = uneAutreQuestion(questions, sujetsDeLaQuestion, mesures, { id, kind }, quiz, deja)
+      if (!autre) return res.status(404).json({ error: 'La base n’a plus rien de semblable : écris-en une toi-même' })
+      res.json(autre)
+    }),
+  )
 
   // Ce qu'un choix composerait, sans rien ranger : la feuille le dit avant
   // « Composer » — dont combien d'estimations, qu'un sujet n'a pas toujours.

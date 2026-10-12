@@ -90,7 +90,10 @@ un arbitrage.
    vide, sans dire comment gagner le premier (`lesPlusProches` le sait).
 4. **Le geste principal sous le pli** — P3 · S : « Commencer une série »
    et « Jouer le défi » collés en bas, comme `GesteDuBas` ; le bouton du
-   bloc des sentiers qui lance l'épreuve.
+   bloc des sentiers qui lance l'épreuve. **Vérifié le 12 octobre** : depuis
+   que le choix tient sur une ligne (#156), ils sont en vue en 360 × 640
+   pour un profil neuf — « Commencer une série » de 494 à 552 px, « Relever
+   le défi » de 479 à 537, « Choisir mon premier sentier » dans son bloc.
 5. **La carte d'un joueur qui ne joue qu'en solo** — P3 · M : « Soirées 0 ·
    Quiz gagnés 0 · Coup d'œil — » ; des cadrans du solo à la place. **Fait
    le 12 octobre** (#164) : son record, ses paliers, ses bonnes réponses.
@@ -100,7 +103,9 @@ un arbitrage.
    donnera vraiment, par un aperçu du serveur — estimations et questions. La
    description du sujet sous sa tuile : **reste**.
 7. **« Une autre » sur une question tirée de la base**, et sa marche visible
-   dans l'éditeur — P3 · M.
+   dans l'éditeur — P3 · M. **« Une autre » fait le 12 octobre** (#166) ; la
+   marche visible : **reste** (le quiz ne garde pas la marche de ses
+   questions).
 8. **Les réponses soufflées par leur racine** (« allumer les réverbères →
    Allumeur de réverbères ») — P3 · S puis M : une liste dans `verifier` et
    à `/admin#campagne`, à relire ; pas un refus, les étymologies sont
