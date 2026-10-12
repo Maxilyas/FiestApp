@@ -7,7 +7,7 @@ import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
 import { espacesFines } from '../format'
 import { branche, deLaBranche } from '../../../shared/branches'
-import { PALIER_DU_MAITRE, type SentiersDAccueil } from '../../../shared/sentiers'
+import { PALIER_DU_MAITRE, type DefiDAccueil, type SentiersDAccueil } from '../../../shared/sentiers'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 import { BlasonDeLigue } from './Blason'
 
@@ -59,11 +59,18 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
  * n'en avance aucun, les deux modes, et la série d'abord. Il ouvre la
  * campagne, jamais un sentier seul : mené à `#sentier-scene`, « la
  * campagne » ouvrait la scène sans les onglets de la campagne. Sur ses
- * sentiers, celui qu'il avance est en tête, à un toucher. Les défis de ses
- * amis sont au bouton des duels (`boutonDesDuels`).
+ * sentiers, celui qu'il avance est en tête, à un toucher. Le défi de la
+ * semaine aussi, tant qu'il ne l'a pas fini. Les défis de ses amis sont au
+ * bouton des duels (`boutonDesDuels`).
  */
 export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string; pastille?: string } {
   const b = branche(c?.avance?.branche)
+  // Le défi de la semaine, neuf chaque lundi, ne se trouvait qu'au troisième onglet de la campagne (l'experte du jeu
+  // solo, le 11 octobre 2026). Commencé, neuf, ou pour qui en relève un chaque semaine, il passe devant le carnet ;
+  // sinon derrière : qui ne le joue jamais garde chaque jour le rendez-vous de son carnet. Jamais devant une épreuve
+  // laissée en route, qui coûtera une vie.
+  const defi = c?.defi && !c.avance?.laissee ? c.defi : undefined
+  if (defi && (defi.commence || defi.neuf || defi.habitue)) return boutonDuDefi(defi)
   // Le carnet passe devant le sentier — pas devant une épreuve laissée en route : c'est le rendez-vous du lendemain,
   // que seul l'onglet comptait, deux écrans plus loin. L'adresse du carnet (`ADRESSE_DU_CARNET`) écrite ici, comme celle des sentiers.
   if (c?.aRevoir && !c.avance?.laissee) {
@@ -76,6 +83,7 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
       pastille: 'À revoir',
     }
   }
+  if (defi) return boutonDuDefi(defi)
   // « les sentiers de tes avatars » : quels avatars, et qu'est-ce qu'un sentier ? (l'experte du jeu solo, le 11 octobre 2026)
   // Ce qu'on y gagne, en deux lignes au téléphone.
   if (!c?.avance || !b) return { detail: 'Une série sans fin, ou des portraits à gagner', href: '/campagne' }
@@ -87,6 +95,22 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
     // L'adresse des sentiers (`ADRESSE_DES_SENTIERS`), écrite ici : l'importer
     // ferait venir toute la page des sentiers dans celle de l'accueil.
     href: '/campagne#sentiers',
+  }
+}
+
+/**
+ * Le défi de la semaine sur le bouton de la campagne : le sien à reprendre, ou
+ * ceux qui l'ont relevé, comme sa page (« joueurs cette semaine »). En deux
+ * lignes en 360 de large, comme les autres boutons : « à toi » restait seul
+ * sur une troisième — la pastille le dit.
+ */
+function boutonDuDefi(d: DefiDAccueil): { detail: string; href: string; pastille: string } {
+  const n = d.joueurs
+  const releve = n > 1 ? `${n} joueurs l’ont relevé` : n === 1 ? 'un joueur l’a relevé' : 'à toi d’ouvrir le bal'
+  return {
+    detail: espacesFines(d.commence ? 'Ton défi de la semaine t’attend : reprends-le' : `Le défi de la semaine : ${releve}`),
+    href: '/campagne#defi',
+    pastille: d.commence ? 'À finir' : 'À relever',
   }
 }
 

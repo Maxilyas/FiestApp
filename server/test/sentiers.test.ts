@@ -414,15 +414,17 @@ test('l’accueil dit ses vies et le sentier qu’il avance, lus avec le reste',
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const accueil = async () => (await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.campagne
     assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: null }, 'rien de commencé')
-    // L'épreuve laissée en cours, c'est elle qui l'attend.
+    // L'épreuve laissée en cours, c'est elle qui l'attend. Et dès qu'il a joué la campagne, le défi de la semaine
+    // aussi, que personne n'a relevé (`campagne-defi.test.ts`).
     const p1 = (await poster(banc, tom, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps
-    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 1, laissee: true } })
+    const defi = { joueurs: 0 }
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 1, laissee: true }, defi })
     // Validée : le palier suivant.
     await jouer(banc, tom, p1, 16)
-    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 2, laissee: false } })
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 2, laissee: false }, defi })
     // Ratée : une vie de moins, et le même palier qui l'attend.
     await jouer(banc, tom, (await poster(banc, tom, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 2 })).corps, 0)
-    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR - 1, avance: { branche: 'foret', palier: 2, laissee: false } })
+    assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR - 1, avance: { branche: 'foret', palier: 2, laissee: false }, defi })
     // Ce sont les vies de la page des sentiers.
     const etat = (await lire(banc, tom, '/api/campagne/sentiers')).corps
     assert.equal(etat.vies.jour + etat.vies.reserve, VIES_PAR_JOUR - 1)

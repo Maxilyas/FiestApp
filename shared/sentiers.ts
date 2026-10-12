@@ -350,8 +350,8 @@ export function sentierQuOnAvance(
 
 /**
  * Ce que l'accueil d'un profil dit de ses sentiers, sur le bouton de la
- * campagne. Les défis que ses amis lui envoient vont aux duels
- * (`DuelsDAccueil`), qui ont quitté la campagne.
+ * campagne — et du défi de la semaine. Les défis que ses amis lui envoient
+ * vont aux duels (`DuelsDAccueil`), qui ont quitté la campagne.
  */
 export interface SentiersDAccueil {
   /** Ses vies : celles du jour et sa réserve ensemble. */
@@ -359,6 +359,20 @@ export interface SentiersDAccueil {
   avance: SentierQuOnAvance | null
   /** Les questions que son carnet a à revoir aujourd'hui (`shared/revision.ts`) ; absent : rien. */
   aRevoir?: number
+  /**
+   * Le défi de la semaine, tant qu'il ne l'a pas fini — à qui a déjà joué la
+   * campagne : ceux qui l'ont relevé (une réponse au moins), le sien s'il l'a
+   * ouvert, s'il en a relevé un une semaine passée, et si c'est lundi, le
+   * jour où il est neuf. Absent : fini, ou rien joué.
+   */
+  defi?: DefiDAccueil
+}
+
+export interface DefiDAccueil {
+  joueurs: number
+  commence?: true
+  habitue?: true
+  neuf?: true
 }
 
 /** Ce que dit une réponse d'épreuve : la bonne, l'anecdote, et l'épreuve d'après. */
