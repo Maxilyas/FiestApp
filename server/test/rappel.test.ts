@@ -352,7 +352,9 @@ test('s’abonner demande un profil et un service connu ; on le coupe, et cinq t
     assert.deepEqual(abonnes(banc), ['3', '5', '6', '7', '8'])
 
     // Couper : celui-là, et seulement s'il est à soi — une cloche à la fois :
-    // le soir coupé, il reste abonné aux défis de ses amis ; les deux, il s'efface.
+    // le soir coupé, il reste abonné aux défis qu'elle a allumés ; les deux, il s'efface.
+    const defis = await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnement('http://127.0.0.1:9/push/3'), quoi: 'defis', activer: true }, lea)
+    assert.deepEqual(await defis.json(), { ok: true, soir: true, defis: true })
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob')
     await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3', quoi: 'defis' }, bob, 'DELETE')
     await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3' }, bob, 'DELETE')
@@ -384,8 +386,12 @@ test('deux cloches par téléphone : le soir et les défis de ses amis — chacu
     const [lea, bob] = await Promise.all([inscrireProfil(banc.url, 'lea', 'Léa'), inscrireProfil(banc.url, 'bob', 'Bob')])
     const [telLea, telBob, renouvele] = ['lea', 'bob', 'renouvele'].map(nom => push.telephone(nom))
     const poster = async (cookie: string, corps: object) => (await ecrire(banc.url, '/api/jour/rappel', corps, cookie)).json()
-    // La cloche du soir — ou une page d'avant, sans `quoi` — : le soir, et les défis avec.
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea) }), { ok: true, soir: true, defis: true })
+    // La cloche du soir — ou une page d'avant, sans `quoi` — : le soir seul. Les
+    // défis sont coupés d'office (le souhait du propriétaire du 12 octobre
+    // 2026) : seule leur cloche les allume, le soir gardé.
+    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea) }), { ok: true, soir: true, defis: false })
+    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea), quoi: 'defis' }), { ok: true, soir: true, defis: false }, 'rattaché par la page des duels, il ne les allume pas')
+    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea), quoi: 'defis', activer: true }), { ok: true, soir: true, defis: true })
     // La cloche des défis, sur un téléphone neuf : les défis seuls, pas de rappel à 18 h.
     assert.deepEqual(await poster(bob, { abonnement: abonnementDe(telBob), quoi: 'defis', activer: true }), { ok: true, soir: false, defis: true })
     // Rattaché à chaque visite de la page du jour, il ne rallume pas le soir qu'on avait laissé éteint.
@@ -399,10 +405,10 @@ test('deux cloches par téléphone : le soir et les défis de ses amis — chacu
     // Le service renouvelle l'abonnement de Bob (`pushsubscriptionchange`) : le nouveau garde ses réglages, l'ancien s'efface.
     assert.deepEqual(await poster(bob, { abonnement: abonnementDe(renouvele), ancien: telBob.endpoint }), { ok: true, soir: false, defis: true })
     assert.deepEqual(abonnes(banc), ['lea', 'renouvele'])
-    // Un téléphone qu'on se prête : Léa y reprend celui de Bob, sans rien garder de ses réglages.
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(renouvele) }), { ok: true, soir: true, defis: true })
+    // Un téléphone qu'on se prête : Léa y reprend celui de Bob, sans rien garder de ses réglages — ni ses défis.
+    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(renouvele) }), { ok: true, soir: true, defis: false })
 
-    // Une table d'avant les cloches : abonné pour le soir, il le reste — et les défis de ses amis le font sonner aussi.
+    // Une table d'avant les cloches : abonné pour le soir, il le reste ; les défis attendent leur cloche, coupés d'office.
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     db.exec('ALTER TABLE jour_rappels DROP COLUMN soir')
     db.exec('ALTER TABLE jour_rappels DROP COLUMN defis')
@@ -411,8 +417,8 @@ test('deux cloches par téléphone : le soir et les défis de ses amis — chacu
     const lus = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
     try {
       assert.deepEqual(lus.prepare('SELECT endpoint, soir, defis FROM jour_rappels ORDER BY endpoint').all(), [
-        { endpoint: telLea.endpoint, soir: 1, defis: 1 },
-        { endpoint: renouvele.endpoint, soir: 1, defis: 1 },
+        { endpoint: telLea.endpoint, soir: 1, defis: 0 },
+        { endpoint: renouvele.endpoint, soir: 1, defis: 0 },
       ])
     } finally {
       lus.close()
@@ -713,7 +719,7 @@ function navigateur({
   abonne = false,
   horsLigne = false,
 }: { installee?: boolean; permission?: 'default' | 'granted' | 'denied'; refuse?: boolean; abonne?: boolean; horsLigne?: boolean } = {}) {
-  // Abonné d'avant : ses deux cloches allumées, comme un abonnement d'avant elles.
+  // Abonné d'avant : ses deux cloches allumées.
   const reglages = { soir: abonne, defis: abonne }
   const journal: string[] = []
   const envois: { methode: string; corps: any }[] = []
@@ -773,8 +779,8 @@ function navigateur({
       envois.push({ methode, corps })
       if (etat.horsLigne) return Promise.reject(new TypeError('Failed to fetch'))
       const quoi: 'soir' | 'defis' = corps.quoi ?? 'soir'
-      // Comme `RappelStore` : un téléphone inconnu prend la cloche de la page, et les défis ; une cloche coupée seule.
-      if (methode === 'POST' && !reglages.soir && !reglages.defis) Object.assign(reglages, { soir: quoi === 'soir', defis: true })
+      // Comme `RappelStore` : un téléphone inconnu prend la cloche de la page, et elle seule ; une cloche coupée seule.
+      if (methode === 'POST' && !reglages.soir && !reglages.defis) Object.assign(reglages, { soir: quoi === 'soir', defis: quoi === 'defis' })
       if (methode === 'POST' && corps.activer) reglages[quoi] = true
       if (methode === 'DELETE') reglages[quoi] = false
       return Promise.resolve(new Response(JSON.stringify({ ok: true, ...reglages })))
@@ -826,6 +832,7 @@ test('la cloche demande la permission au toucher même, puis donne l’abonnemen
   assert.deepEqual(nav.envois, [
     { methode: 'POST', corps: { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/neuf', keys: { p256dh: 'x', auth: 'y' } }, quoi: 'soir', activer: true } },
   ])
+  assert.deepEqual(nav.reglages, { soir: true, defis: false }, 'le rappel du soir n’allume pas les défis')
 
   // Refusée : bloqué, et les réglages du téléphone seuls la rouvrent.
   const refuse = navigateur({ refuse: true })
@@ -919,4 +926,15 @@ test('une petite cloche en haut de la page, à côté de la sortie : un interrup
   assert.equal(page.match(/<BarreDuJour( partie=\{partie\})? \/>/g)?.length, 3)
   assert.match(page, /<div className="jour-barre">\s*<Sortie \/>\s*<span className="jour-barre-fin">[^<]*<SerieDuJour [^\n]*\s*<RappelDuJour \/>\s*<\/span>\s*<\/div>/)
   assert.equal(page.match(/<Sortie \/>/g)?.length, 1, 'la sortie de la page ne vit plus que dans sa barre')
+
+  // La cloche des défis au même endroit, sur la page des duels (le souhait du
+  // propriétaire du 12 octobre 2026) : en haut à droite, au bout de la barre
+  // de la sortie — plus une ligne et sa phrase sous ses amis.
+  const duels = readFileSync(new URL('../../client/src/views/Duels.tsx', import.meta.url), 'utf8')
+  assert.match(duels, /<div className="player-shell campagne duels">\s*\{\/\*[^*]*\*\/\}\s*<div className="jour-barre">\s*<Sortie \/>\s*<span className="jour-barre-fin">\s*<LaClocheDesDefis \/>\s*<\/span>\s*<\/div>/)
+  assert.equal(duels.match(/<LaClocheDesDefis \/>/g)?.length, 1)
+  const defis = readFileSync(new URL('../../client/src/components/ClocheDesDefis.tsx', import.meta.url), 'utf8')
+  assert.match(defis, /return <ClocheVue etat=\{etat\} occupe=\{occupe\} onToucher=\{\(\) => void toucher\(\)\} nom="Notification des défis" titre="[^"]+" \/>/)
+  assert.doesNotMatch(defis, /<p |<span className="small"|cloche-des-defis|Installe l’application/, 'rien qu’une cloche, comme celle du soir')
+  assert.match(defis, /if \(!rappelPossible\(\)\) return/, 'dans l’application installée seulement')
 })

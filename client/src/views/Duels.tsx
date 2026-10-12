@@ -455,7 +455,13 @@ export function PageDesDuels({
   const auHasard = !!enCours || !etat || etat.auHasard !== false
   return (
     <div className="player-shell campagne duels">
-      <Sortie />
+      {/* La sortie, et la cloche des défis au bout : là où la page du jour a celle du soir. */}
+      <div className="jour-barre">
+        <Sortie />
+        <span className="jour-barre-fin">
+          <LaClocheDesDefis />
+        </span>
+      </div>
       <HerosDesDuels etat={etat} />
       {etat?.semainePassee && (
         <p className="card duels-semaine-passee" role="status">
@@ -485,7 +491,6 @@ export function PageDesDuels({
       <PortesDesDuels amis={amis?.amis.length} onClassement={etat ? () => setClassementOuvert(true) : undefined} onAmis={feuilleDesAmis.ouvrir} />
       {debutant && <CommentCaMarche ouvert />}
       {etat?.contre && <TesDuelsContre duels={etat.contre} recus={amis?.recus ?? []} onOuvrir={onOuvrirDuel} />}
-      <LaClocheDesDefis />
       {etat && !debutant && <TesDuelsJoues etat={etat} recus={amis?.recus ?? []} onOuvrir={onOuvrirDuel} />}
       {etat && <LesLigues ligue={etat.ligue} ouvert={debutant} />}
       {etat && !debutant && <CommentCaMarche ouvert={false} />}
