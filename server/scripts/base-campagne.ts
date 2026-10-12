@@ -6,6 +6,7 @@
 //   npx tsx scripts/base-campagne.ts ranger <lot.json> …                        range des lots vérifiés dans la base
 //   npx tsx scripts/base-campagne.ts stats                                      la base, par catégorie, sous-thème et difficulté
 //   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait, et les intitulés presque pareils
+//   npx tsx scripts/base-campagne.ts racines                                    les questions dont l'intitulé souffle la bonne réponse par sa racine, à relire
 //   npx tsx scripts/base-campagne.ts fiche <lot.json> …                         la fiche de relecture : l'essentiel de chaque question, une ligne ou trois
 //   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
 //   npx tsx scripts/base-campagne.ts retirer <id> …                              retire des questions de la base, par identifiant
@@ -21,7 +22,7 @@
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, souffleeParSaRacine, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
 import { lireLEstimation } from '../src/core/quizToutPret'
 import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
@@ -74,6 +75,10 @@ function verifier(fichiers: string[], { nombres = false } = {}): number {
       if (!q.anecdote) avertir('pas d’anecdote')
       if (!q.meta.explication) avertir('pas d’explication')
       if (!q.meta.source) avertir('pas de source')
+      // Pas un refus : une étymologie est souvent voulue. Mais « Les Deux Fridas » souffle Frida Kahlo, et une
+      // question soufflée ne vient qu'en dernier recours au quiz tout prêt.
+      const racines = souffleeParSaRacine(q)
+      if (racines.length > 0) avertir(`la bonne réponse se lit dans l’intitulé par sa racine (${racines.join(', ')}) : reformule, ou garde-la si c’est voulu`)
       if (nombres) {
         const estimation = lireLEstimation(q)
         if ('refus' in estimation) avertir(`ne se jouera pas au plus près : ${estimation.refus}`)
@@ -229,6 +234,20 @@ function appliquer(fichier: string) {
   console.log(`${fait.corrigees} question(s) corrigée(s), ${fait.retirees} retirée(s)${fait.ignorees.length > 0 ? `, ${fait.ignorees.length} correction(s) ignorée(s)` : ''}.`)
 }
 
+/**
+ * Les questions de la base dont l'intitulé souffle la bonne réponse par sa
+ * racine (`souffleeParSaRacine`), à relire : reformuler, monter la
+ * difficulté — ou garder une étymologie voulue. Le quiz tout prêt ne les
+ * prend qu'en dernier recours ; la campagne les pose comme les autres.
+ */
+function racines() {
+  const soufflees = lireLaBase().questions.filter(q => q.soufflee)
+  for (const q of soufflees) {
+    console.log(`${q.id} [${q.meta.categorie} · ${q.meta.difficulte}] ${q.texte} → ${q.reponses[q.bonne]} (${souffleeParSaRacine(q).join(', ')})`)
+  }
+  console.log(`\n${soufflees.length} question(s) à relire.`)
+}
+
 function stats() {
   const { questions, refusees } = lireLaBase()
   console.log(`${questions.length} questions${refusees.length ? `, ${refusees.length} entrée(s) défectueuse(s)` : ''}\n`)
@@ -290,6 +309,8 @@ if (commande === 'verifier') {
 } else if (commande === 'retirer') {
   if (args.length === 0) throw new Error('retirer <id> …')
   retirer(args)
+} else if (commande === 'racines') {
+  racines()
 } else {
-  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | fiche | appliquer | retirer')
+  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | racines | fiche | appliquer | retirer')
 }

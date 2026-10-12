@@ -46,6 +46,12 @@ export interface QuestionDeLaBase {
   meta: MetadonneesDeQuestion
   /** L'intitulé sans casse ni accents (`empreinteDe`) : ce qui la tient à l'écart de la réserve du quiz du jour. */
   empreinte: string
+  /**
+   * Sa bonne réponse soufflée par sa racine (`souffleeParSaRacine`), lue avec
+   * elle, une fois : sur toute la base, la règle prend 50 ms, qu'un tirage ne
+   * doit pas faire attendre. Le quiz tout prêt ne la prend qu'en dernier recours.
+   */
+  soufflee: boolean
 }
 
 const ID = /^[a-z0-9]{8}$/
@@ -107,6 +113,60 @@ function nomEcritDans(texte: string, nom: string): boolean {
     if ((avant === undefined || !LETTRE.test(avant)) && (apres === undefined || !LETTRE.test(apres))) return true
   }
   return false
+}
+
+/** Une racine : les cinq premières lettres d'un mot qui en a cinq au moins (l'heuristique de l'expert du quiz tout prêt). */
+const RACINE = 5
+
+/** Les mots d'une question qui ne soufflent rien, quelle que soit la réponse. */
+const SANS_INDICE = new Set(['comment', 'combien', 'pourquoi', 'appelle', 'appelee', 'nomme', 'nommee', 'celui', 'celle', 'cette', 'autre', 'entre', 'avant', 'apres', 'depuis', 'pendant', 'plusieurs', 'premier', 'premiere', 'grand', 'grande', 'petit', 'petite'])
+
+/**
+ * Les racines que deux mots sans parenté partagent : « roi de France » ne
+ * souffle pas François Ier, ni Saint-Jacques Saint-Brieuc, ni « parc
+ * national » son nom, ni « superficie » le lac Supérieur — à la mesure de la
+ * base, elles faisaient le gros des fausses alertes.
+ */
+const RACINES_SANS_INDICE = new Set(['franc', 'saint', 'natio', 'madam', 'super'])
+
+/** Les racines d'un texte déjà sans accents ni casse ; `sauf` les écarte. */
+function racinesDe(texte: string, sauf: ReadonlySet<string> = new Set()): Set<string> {
+  const racines = new Set<string>()
+  for (const mot of texte.split(/[^a-z]+/)) {
+    const racine = mot.slice(0, RACINE)
+    if (mot.length >= RACINE && !SANS_INDICE.has(mot) && !RACINES_SANS_INDICE.has(racine) && !sauf.has(racine)) racines.add(racine)
+  }
+  return racines
+}
+
+/**
+ * La réponse que l'intitulé souffle par sa racine — pas écrite, ce que le juge
+ * refuse, mais à demi : « Qui a peint *Les Deux Fridas* ? → Frida Kahlo »,
+ * « …la reine d'Égypte, Cléopâtre ? → L'Égypte », « une strophe de quatre
+ * vers → Un quatrain ». Les racines de cinq lettres que la bonne réponse
+ * partage avec l'intitulé et qu'aucun leurre ne partage (l'expert du quiz
+ * tout prêt, le 11 octobre 2026 : 1,4 % de la base). Le nom que la question
+ * demande n'en est pas une — « Quel studio… ? → Studio Ghibli » ne souffle
+ * rien. Pas un refus : une étymologie est souvent voulue, et une sur quatre
+ * environ ne souffle rien ; `verifier` avertit, `racines` les liste, et le
+ * quiz tout prêt ne les prend qu'en dernier recours.
+ */
+export function souffleeParSaRacine(q: Pick<QuestionDeLaBase, 'texte' | 'reponses' | 'bonne'>): string[] {
+  if (q.reponses.length === 2) return []
+  // D'abord ce qui ne coûte presque rien : une racine de la bonne réponse écrite quelque part dans l'intitulé.
+  // Lue sur toute la base, la règle entière prenait 200 ms ; elle ne se déroule plus que pour une question sur vingt.
+  const bonne = racinesDe(sansAccent(q.reponses[q.bonne]))
+  if (bonne.size === 0) return []
+  const texte = sansAccent(q.texte)
+  if (![...bonne].some(r => texte.includes(r))) return []
+  // Le nom que la question demande — « quel studio », « quelle ville », « quel super-héros » —, et ses morceaux.
+  const demande = new Set<string>()
+  for (const m of texte.matchAll(/\bquel(?:le)?s?\s+([a-z-]+)/g)) {
+    for (const mot of m[1].split('-')) if (mot.length >= RACINE) demande.add(mot.slice(0, RACINE))
+  }
+  const intitule = racinesDe(texte, demande)
+  const desLeurres = new Set(q.reponses.flatMap((r, i) => (i === q.bonne ? [] : [...racinesDe(sansAccent(r))])))
+  return [...bonne].filter(r => intitule.has(r) && !desLeurres.has(r))
 }
 
 /**
@@ -187,7 +247,9 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   if (absente !== undefined) return { refus: `mauvaise réponse absente des leurres (à recopier à l'identique) : ${absente}` }
   if (meta.leurres.some(l => sansAccent(l) === juste)) return { refus: 'la bonne réponse est parmi les leurres' }
 
-  return { question: { id, texte, reponses, bonne, anecdote, meta, empreinte: empreinteDe(texte) } }
+  return {
+    question: { id, texte, reponses, bonne, anecdote, meta, empreinte: empreinteDe(texte), soufflee: souffleeParSaRacine({ texte, reponses, bonne }).length > 0 },
+  }
 }
 
 /**
