@@ -113,7 +113,13 @@ un arbitrage.
 8. **Les réponses soufflées par leur racine** (« allumer les réverbères →
    Allumeur de réverbères ») — P3 · S puis M : une liste dans `verifier` et
    à `/admin#campagne`, à relire ; pas un refus, les étymologies sont
-   voulues.
+   voulues. **En partie le 12 octobre** : la règle, lue avec chaque question
+   (`souffleeParSaRacine`, hors le nom que la question demande et quelques
+   racines sans parenté) ; `verifier` l'avertit, `racines` liste les 141 de
+   la base, et le quiz tout prêt — « Une autre » aussi — ne les prend qu'en
+   dernier recours. La relecture des 141 — reformuler, monter la
+   difficulté, ou garder une étymologie — et leur liste à `/admin#campagne` :
+   **restent**.
 9. **Une question par gabarit dans une épreuve** (quatre fois « Qui a écrit…
    ? » de suite) — P3 · M. **Fait le 12 octobre**, pour les épreuves, les
    séries, les défis, les duels et les quiz tout prêts (#161, #162 :

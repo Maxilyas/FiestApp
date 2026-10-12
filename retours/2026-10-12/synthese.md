@@ -229,4 +229,23 @@ marche de ses questions : la mémoire du quiz, que l'éditeur lit déjà à
 l'ouverture, la porte maintenant pour celles tirées de la base, à la
 difficulté lissée du tirage — pas une requête de plus. Chaque carte la
 montre à côté de son numéro (« Question 1 · Facile »), et la voisine que
-tire « Une autre » garde celle de la question qu'elle remplace.
+tire « Une autre » garde celle de la question qu'elle remplace. PR #170.
+
+# Les réponses soufflées par leur racine
+
+Le constat 6 de l'expert du quiz tout prêt : le juge de la base refuse la
+réponse écrite dans l'intitulé, mot pour mot, pas sa racine — « Qui a peint
+*Les Deux Fridas* ? → Frida Kahlo », « …la reine d'Égypte ? → L'Égypte »,
+« le Taj Mahal → Mumtaz Mahal ». La règle de l'expert (une racine de cinq
+lettres que la bonne réponse partage avec l'intitulé, et qu'aucun leurre ne
+partage) en relevait 159 dans la base ; en écartant le nom que la question
+demande (« Quel studio… ? → Studio Ghibli ») et cinq racines sans parenté
+(« roi de France » et François Ier, « superficie » et le lac Supérieur),
+141, presque toutes de vrais indices — et des étymologies voulues (« une
+strophe de quatre vers → Un quatrain »). Pas un refus, donc : la règle se
+lit avec chaque question (50 ms sur toute la base, à sa lecture en fond),
+`verifier` l'avertit pour les lots à venir, `base-campagne.ts racines` liste
+les 141 à relire, et le quiz tout prêt ne les prend qu'en dernier recours,
+après tout le reste, déjà posé compris — « Une autre » aussi. La campagne
+les pose encore : leur relecture — reformuler, monter la difficulté, ou
+garder — reste à faire.

@@ -331,10 +331,15 @@ function versLeQuiz(q: QuestionDeLaBase): QuizQuestionDef {
   }
 }
 
-/** Une passe du tirage : les jamais posées ou les posées ; et, si des enfants jouent, ce qu'un enfant connaît seulement. */
+/**
+ * Une passe du tirage : les jamais posées ou les posées ; si des enfants
+ * jouent, ce qu'un enfant connaît seulement ; et les réponses soufflées par
+ * leur racine, aux dernières passes seulement.
+ */
 interface Passe {
   fraiches: boolean
   enfantines: boolean
+  soufflees: boolean
 }
 
 /**
@@ -387,19 +392,24 @@ export function composerUnQuiz(
     }
   }
   const poseeLe = (q: QuestionDeLaBase) => deja.posees.get(idDansLeQuiz(q.id))
-  const passes: readonly Passe[] = [
+  // Une réponse soufflée par sa racine — « Les Deux Fridas » pour Frida Kahlo — ne vient qu'en dernier recours,
+  // après tout le reste, déjà posé compris : la salle la trouve sans la savoir (l'expert du quiz tout prêt, le
+  // 11 octobre 2026). Ce n'est pas un refus : une sur quatre, à peu près, ne souffle rien.
+  const passes: readonly Passe[] = [false, true].flatMap(soufflees => [
     ...(choix.enfants
       ? [
-          { fraiches: true, enfantines: true },
-          { fraiches: false, enfantines: true },
+          { fraiches: true, enfantines: true, soufflees },
+          { fraiches: false, enfantines: true, soufflees },
         ]
       : []),
-    { fraiches: true, enfantines: false },
-    { fraiches: false, enfantines: false },
-  ]
+    { fraiches: true, enfantines: false, soufflees },
+    { fraiches: false, enfantines: false, soufflees },
+  ])
   /** Ce que la passe prend : les jamais posées, au hasard du battage ; ou les posées, la plus anciennement d'abord. */
   const deLaPasse = (dispo: readonly QuestionDeLaBase[], passe: Passe) => {
-    const ici = dispo.filter(q => !prises.has(q.id) && (poseeLe(q) === undefined) === passe.fraiches && (!passe.enfantines || pourUnEnfant(q)))
+    const ici = dispo.filter(
+      q => !prises.has(q.id) && (poseeLe(q) === undefined) === passe.fraiches && (!passe.enfantines || pourUnEnfant(q)) && (passe.soufflees || !q.soufflee),
+    )
     return passe.fraiches ? ici : ici.sort((a, b) => poseeLe(a)! - poseeLe(b)!)
   }
   const prises = new Set<string>()
@@ -499,8 +509,9 @@ export function uneAutreQuestion(
     if (estimation ? !cibleDeLEstimation(q) : niveau === 'expert' && q.reponses.length === 2) continue
     const lesSiens = sujetsDe(q)
     const posee = deja.posees.get(id)
-    // Le plus petit gagne : ses sujets manquants, la jumelle, puis jamais posée, puis la plus anciennement posée.
-    const rang = [sesSujets.filter(s => !lesSiens.includes(s)).length, autres.jumelle(q) ? 1 : 0, posee === undefined ? 0 : 1, posee ?? 0]
+    // Le plus petit gagne : ses sujets manquants, la jumelle, la réponse soufflée par sa racine, puis jamais posée,
+    // puis la plus anciennement posée.
+    const rang = [sesSujets.filter(s => !lesSiens.includes(s)).length, autres.jumelle(q) ? 1 : 0, q.soufflee ? 1 : 0, posee === undefined ? 0 : 1, posee ?? 0]
     if (!meilleure || passeAvant(rang, meilleure.rang)) meilleure = { q, rang }
   }
   if (!meilleure) return null
