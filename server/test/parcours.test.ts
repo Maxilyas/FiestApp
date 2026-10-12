@@ -129,6 +129,9 @@ test('l’onglet « Apprendre » tient le carnet, puis les parcours — préchar
   assert.match(page, /\{\s*id: 'carnet',\s*nom: 'Apprendre',\s*icone: 'book',/)
   const carnet = readFileSync(client('views/Carnet.tsx'), 'utf8')
   assert.ok(carnet.indexOf('carnet-appris') < carnet.indexOf('<ParcoursDeTheme'), 'le carnet d’abord, les parcours dessous')
+  // Le carnet ramassé, comme la maquette : ce qu'une révision rapporte tient sur une ligne, plus en trois pastilles.
+  assert.doesNotMatch(carnet, /campagne-puces/)
+  assert.match(carnet, /<p className="carnet-gains">/)
   // L'étape prend la place de la page, sans quitter l'onglet ; revenue, la page reprend aux parcours.
   assert.match(carnet, /if \(etape\) \{\s*return \(\s*<JeuDuParcours\s+key=\{etape\.id\}\s+depart=\{etape\}/)
   assert.match(carnet, /document\.getElementById\('parcours-titre'\)\?\.scrollIntoView\(\{ block: 'start' \}\)/)

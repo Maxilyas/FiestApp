@@ -7775,6 +7775,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .onglet-pastille { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 /* Le carnet de révision : ses rendez-vous en frise — trois points qui mènent à « apprise » —, ce qu'il a appris dessous. */
 .carnet-rendez-vous { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+/* Ce qu'une révision rapporte, sur une ligne sous la frise. */
+.carnet-gains { margin: 0; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
 .carnet-rendez-vous li { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; line-height: 1.2; }
 .carnet-rendez-vous i { display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--lueur) 45%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--lueur) 30%, transparent); }
 .carnet-rendez-vous .carnet-apprise { flex-direction: row; align-items: flex-end; gap: 4px; color: var(--ink); }
