@@ -101,10 +101,10 @@ un arbitrage.
    Quiz gagnés 0 · Coup d'œil — » ; des cadrans du solo à la place. **Fait
    le 12 octobre** (#164) : son record, ses paliers, ses bonnes réponses.
 6. **La feuille du quiz tout prêt** — P3 · S : nommer les catégories, dire
-   les estimations réelles, la description du sujet sous sa tuile. **En
-   partie le 12 octobre** (#165) : les catégories nommées, et ce que la base
-   donnera vraiment, par un aperçu du serveur — estimations et questions. La
-   description du sujet sous sa tuile : **reste**.
+   les estimations réelles, la description du sujet sous sa tuile. **Fait
+   le 12 octobre** : les catégories nommées, et ce que la base donnera
+   vraiment, par un aperçu du serveur — estimations et questions (#165) ;
+   puis la phrase du sujet touché, sous la rangée de sa tuile.
 7. **« Une autre » sur une question tirée de la base**, et sa marche visible
    dans l'éditeur — P3 · M. **« Une autre » fait le 12 octobre** (#166) ; la
    marche visible : **reste** (le quiz ne garde pas la marche de ses

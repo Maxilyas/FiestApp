@@ -209,4 +209,13 @@ commencé, le lundi, ou pour qui en a déjà relevé un : un joueur assidu a
 presque chaque jour des questions à revoir, et devant elles toute la
 semaine, le défi aurait caché le rendez-vous du carnet à qui ne le joue
 jamais. Le serveur le lit en une requête, de front avec les sentiers et le
-carnet : l'accueil n'attend rien de plus.
+carnet : l'accueil n'attend rien de plus. PR #168.
+
+# La phrase d'un sujet, sous sa tuile
+
+La recommandation 4 de l'expert du quiz tout prêt : dans la feuille, la
+phrase du sujet touché s'écrivait sous la dernière rangée des trois
+familles — vingt-cinq tuiles plus bas, hors de l'écran : on touchait « Les
+animaux » sans rien voir s'écrire. Elle se lit maintenant sous la rangée de
+sa tuile (« Des mammifères aux dinosaures, et ceux du cinéma »), de toute la
+largeur de la grille ; `rendu-quiz-tout-pret.ts` la photographie.

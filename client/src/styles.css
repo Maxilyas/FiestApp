@@ -7670,6 +7670,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-sujets p { margin: 0; }
 .campagne-sujets .sujets-titre { font-weight: 600; }
 .campagne-sujets .label { margin-top: 4px; }
+/* La phrase du sujet choisi, sous la rangée de sa tuile, de toute la largeur de la grille. */
+.categories-grille .sujet-phrase { grid-column: 1 / -1; padding: 2px 4px 4px; }
 /* Sur quoi joue une partie, en une ligne — la série, « Défier quelqu'un » — :
    ce qui est choisi, « Changer » au bout, qui ouvre sa feuille
    (`LigneDuChoix` ; le 12 octobre 2026, la grille dépliée faisait trois
