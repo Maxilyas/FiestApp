@@ -1,4 +1,4 @@
-// La loge : « Me changer », tout ce qu'on porte sur un écran (la maquette
+// La loge : « M'habiller », tout ce qu'on porte sur un écran (la maquette
 // validée par le propriétaire le 12 octobre 2026). On essaie d'abord — la
 // carte en tête montre l'essai, le thème habille toute la page, la gerbe
 // éclate —, puis « Porter » enregistre tout l'essai d'un coup, et
@@ -338,9 +338,9 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   const APP = source('views/ProfilApp.tsx')
   assert.match(APP, /const enregistrer = async \(patch: ChoixDuProfil\): Promise<boolean> =>/)
   assert.match(APP, /const changerDePiece = \(piece: PieceDeLaLoge\) => \{\s*history\.replaceState\(/)
-  // La loge vit sur la page du profil : sa pièce est celle de l'adresse (`#titre`), l'avatar sinon.
-  assert.match(APP, /const piece: PieceDeLaLoge = enLoge \? \(ecran as PieceDeLaLoge\) : 'avatar'/)
-  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{piece\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} \/>/)
+  // La loge a son écran, derrière « M'habiller » : sa pièce est celle de l'adresse (`#titre`).
+  assert.match(APP, /if \(e\.groupe === 'M’habiller'\) \{/)
+  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} \/>/)
   // Et le lecteur d'écran entend chaque pièce portée d'un coup.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ titre: 'maitre:foret', theme: 'ocean', avatar: '🦊' }), 'Tu portes 🦊. Ton titre : Maître de la forêt. Ton thème : Océan.')
@@ -375,9 +375,20 @@ test('la loge dit la pièce qui a du nouveau, à l’œil et à l’oreille', as
     // Ouvert sur le thème, plus rien : la pastille d'une pièce s'éteint dès qu'on la regarde.
     const surLeTheme = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: 'theme', onPiece: () => {}, busy: false, enregistrer: async () => true })
     assert.doesNotMatch(surLeTheme, /loge-neuf|du nouveau/)
+
+    // Le bouton « M'habiller » du profil le dit aussi, avant qu'on entre dans la loge.
+    const panneaux = await import(url('components/PanneauxDuProfil.tsx'))
+    assert.equal(panneaux.apercusDesTuiles(LEA).nouveau, true)
+    // Tout vu : plus rien.
+    stockage.set(`quizz.loge.vus.${LEA.id}`, JSON.stringify(vus))
+    assert.equal(panneaux.apercusDesTuiles(LEA).nouveau, false)
+    // La première fois qu'un profil paraît sur ce téléphone, rien n'est nouveau : on ne sait pas ce qu'il a déjà vu.
+    stockage.clear()
+    assert.equal(panneaux.apercusDesTuiles(LEA).nouveau, false)
   } finally {
     delete (globalThis as Record<string, unknown>).localStorage
   }
+  assert.match(source('views/ProfilApp.tsx'), /titre="M’habiller"\s*detail="Avatar, titre, vitrine, fond, thème, gerbe"\s*pastille=\{plus\?\.nouveau \? 'Nouveau' : undefined\}/)
   // La loge retient ce qu'il a vu — et, la première fois qu'un profil paraît ici, tout se retient (la boutique comprise).
   const LOGE = source('components/Loge.tsx')
   assert.match(LOGE, /const \[neufs\] = useState\(\(\) => nouveautes\(ceQuIlAPorter\(profil\), lireVus\(profil\.id\)\)\)/)

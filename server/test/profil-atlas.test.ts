@@ -1,9 +1,9 @@
 // Les écrans du profil, à la manière de la maquette du 5 octobre 2026.
 //
 // Ce qu'on porte, dans la loge (la maquette validée le 12 octobre 2026),
-// posée sur la page même du profil : ses six pièces — l'avatar (la salle —
-// sa finition comprise), le titre, la vitrine, le fond, le thème, la gerbe
-// (lui seul) —, sa carte en tête. La loge ne montre que ce qu'on a ;
+// derrière le bouton « M'habiller » du profil : ses six pièces — l'avatar
+// (la salle — sa finition comprise), le titre, la vitrine, le fond, le
+// thème, la gerbe (lui seul) —, sa carte en tête. La loge ne montre que ce qu'on a ;
 // tout le reste, et où le gagner, vit dans « Ma collection », où les avatars
 // se parcourent en atlas : un rail des douze branches, chacune un orbe dont
 // l'anneau se remplit, puis la branche choisie en chemin ; les légendaires
@@ -113,19 +113,22 @@ const complet = {
 /** Les titres des cartes d'un écran, dans l'ordre : ce qu'on y règle. */
 const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
 
-test('le profil : ce qu’on porte en une image qu’on touche, puis ce qu’on a et ce qu’on a fait', () => {
+// Le souhait du propriétaire du 12 octobre 2026 : « un bouton pour la loge…
+// comme ça le profil est épuré, un bouton pour s'habiller, collection,
+// soirée et carrière » — sans la carte, le thème ni la gerbe sur la page.
+test('le profil épuré : qui l’on est, puis quatre boutons — la loge derrière « M’habiller »', async () => {
   const app = source('views/ProfilApp.tsx')
   const ecrans = [...app.matchAll(/\{ id: '(\w+)', nom: '([^']+)', groupe: '([^']+)'/g)].map(([, id, nom, groupe]) => `${groupe} › ${nom} (#${id})`)
   assert.deepEqual(ecrans, [
-    'Me changer › Mon avatar (#avatar)',
-    'Me changer › Mon titre (#titre)',
-    'Me changer › Ma vitrine (#vitrine)',
-    'Me changer › Mon fond de carte (#fond)',
-    'Me changer › Mon thème (#theme)',
-    'Me changer › Ma gerbe (#gerbe)',
-    'Me retrouver › Ma collection (#collection)',
-    'Me retrouver › Ma carrière (#carriere)',
-    'Me retrouver › Mes soirées (#soirees)',
+    'M’habiller › Mon avatar (#avatar)',
+    'M’habiller › Mon titre (#titre)',
+    'M’habiller › Ma vitrine (#vitrine)',
+    'M’habiller › Mon fond de carte (#fond)',
+    'M’habiller › Mon thème (#theme)',
+    'M’habiller › Ma gerbe (#gerbe)',
+    'Mon profil › Ma collection (#collection)',
+    'Mon profil › Ma carrière (#carriere)',
+    'Mon profil › Mes soirées (#soirees)',
   ])
   // Chaque pièce de la loge a son icône — celle de sa page d'avant —, et redit sous la rangée qui la voit, l'œil devant.
   const TETE = source('components/LogeTete.tsx')
@@ -134,43 +137,52 @@ test('le profil : ce qu’on porte en une image qu’on touche, puis ce qu’on 
     assert.match(TETE, new RegExp(`const ICONES: Record<PieceDeLaLoge, IconName> = \\{[^}]*\\b${id}: '${icone}'`), id)
   const PIECES = readFileSync(new URL('../../shared/piecesDeLaLoge.ts', import.meta.url), 'utf8')
   for (const id of ['avatar', 'titre', 'vitrine', 'fond', 'theme', 'gerbe']) assert.match(PIECES, new RegExp(`\\{ id: '${id}', nom: '[^']+', groupe: '(salle|moi)', qui: '`), id)
-  // « Me changer » : la loge elle-même, sur la page du profil (le souhait du
-  // 12 octobre 2026) — sa tête dès que le profil est lu, ses panneaux quand
-  // ils arrivent ; plus de vestiaire qui l'ouvrait sur un autre écran.
+
+  // La page : soi-même en tête — un toucher ouvre sa carte, comme la salle —, puis quatre gros boutons, dans cet ordre.
+  const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis quatre boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
+  assert.match(page, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>\s*\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
+  const boutons = page.slice(page.indexOf('<div className="profil-boutons">'), page.indexOf('<Glossaire'))
+  const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"[\s\S]*?onClick=\{\(\) => ouvrir\('(\w+)'\)\}/g)].map(([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`)
+  assert.deepEqual(gestes, ['M’habiller (hanger) → #avatar', 'Ma collection (award) → #collection', 'Mes soirées (book) → #soirees', 'Ma carrière (bar-chart) → #carriere'])
+  // Sa collection : sa jauge et son compte, qui viennent avec les écrans.
+  assert.match(boutons, /jauge=\{plus \? plus\.collection\.acquis \/ Math\.max\(1, plus\.collection\.total\) : 0\}\s*compte=\{plus && `\$\{formatNumber\(plus\.collection\.acquis\)\} sur \$\{formatNumber\(plus\.collection\.total\)\}`\}/)
+  // Rien de ce qu'on porte sur la page : ni la loge, ni sa carte, ni le thème, ni la gerbe — ils sont derrière « M'habiller ».
+  assert.doesNotMatch(page, /PanneauLoge|LogeEnChemin|CarteDeLaLoge|Vestiaire|apercuDuTheme|profil-groupe|<Tuile/)
+  assert.doesNotMatch(app, /h\.startsWith\(`\$\{e\.id\}-`\)/, 'plus de partie d’écran où faire défiler (`#carte-vitrine`) : une adresse, une pièce')
+
+  // La loge, sur son écran : « ← Mon profil », son titre, sa tête dès que le profil est lu, ses panneaux quand ils arrivent.
   assert.match(
     app,
-    /<section className="profil-groupe" aria-labelledby="groupe-changer">[\s\S]*?\{pret \? \(\s*<pret\.PanneauLoge profil=\{profil\} piece=\{piece\} onPiece=\{changerDePiece\} [^>]*\/>\s*\) : \(\s*<LogeEnChemin profil=\{profil\} piece=\{piece\} onPiece=\{changerDePiece\} attente=\{enChemin\} \/>\s*\)\}/,
+    /if \(e\.groupe === 'M’habiller'\) \{[\s\S]*?<header className="loge-tete">\s*\{sortie\}\s*<h1>M’habiller<\/h1>\s*<\/header>[\s\S]*?\{pret \? \(\s*<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} [^>]*\/>\s*\) : \(\s*<LogeEnChemin profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} attente=\{enChemin\} \/>\s*\)\}/,
   )
-  assert.doesNotMatch(app, /Vestiaire|tuiles-trois/)
-  // Plus de partie d'écran où faire défiler (`#carte-vitrine`) : une adresse, une pièce.
-  assert.doesNotMatch(app, /h\.startsWith\(`\$\{e\.id\}-`\)/)
-  // Une pièce de la loge n'ouvre plus d'écran : seules les tuiles en ouvrent un, la collection son panneau — chargés à la demande.
-  assert.match(app, /const enLoge = ecran \? ECRANS\.find\(x => x\.id === ecran\)!\.groupe === 'Me changer' : false\s*if \(ecran && !enLoge\) \{/)
-  assert.doesNotMatch(app, /e\.groupe === 'Me changer'/)
+  // « ← » dit d'où l'on vient : d'une pièce de la loge, c'est « M'habiller ».
+  assert.match(app, /\{depuis \? \(depuis\.groupe === 'M’habiller' \? 'M’habiller' : depuis\.nom\) : 'Mon profil'\}/)
   assert.match(app, /\{ecran === 'collection' && \(pret \? <pret\.PanneauCollection /)
-  // Sa carte entière s'ouvre de l'œil, au bout du titre du groupe, comme la salle l'ouvre en touchant son nom.
-  assert.match(app, /<button type="button" className="profil-voir-carte" aria-label="Voir ma carte comme la salle" onClick=\{\(\) => setCarteOuverte\(true\)\}>/)
-  assert.match(app, /<laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>/)
+  // Les écrans de « Mon profil » le disent en tête : « Mon profil », puis leur nom.
+  assert.match(app, /<PieceTete piece=\{e\.groupe\} titre=\{e\.nom\} \/>/)
 })
 
-test('une tuile : la collection se couche, son compte et sa jauge — ce qu’on porte n’a plus de tuile, il se change dans la loge', async () => {
-  // Les tuiles à aperçu (« Mon thème », qui le voit) ne servaient plus depuis
-  // le vestiaire ; la loge sur la page du profil montre tout ce qu'on porte.
-  assert.doesNotMatch(source('components/Pieces.tsx'), /tuile-a-apercu|tuile-apercu|tuile-qui/)
-  assert.doesNotMatch(source('styles.css'), /\.tuile-a-apercu|\.tuile-apercu|\.tuile-qui|\.mini-theme|\.mini-gerbe|\.vestiaire/)
-  const large = await rendu('components/Pieces', 'Tuile', { icone: 'award', titre: 'Ma collection', compte: '27 sur 308', jauge: 0.09, detail: 'Avatars', onClick: () => {} })
-  assert.match(large, /^<button type="button" class="tuile tuile-large"><span class="gros-icone">/)
-  assert.match(large, /<b>Ma collection<span class="tuile-compte">27 sur 308<\/span><\/b><span class="jauge-fine" aria-hidden="true"><span style="width:9%"><\/span><\/span>/)
-  // Sans aperçu ni jauge : la tuile de toujours.
-  assert.match(await rendu('components/Pieces', 'Tuile', { icone: 'book', titre: 'Mes soirées', onClick: () => {} }), /^<button type="button" class="tuile"><span class="gros-icone">/)
+test('un gros bouton : sa jauge et son compte sous le titre — la collection ; « Nouveau » à la place du chevron', async () => {
+  const collection = await rendu('components/Pieces', 'GrosBouton', { icone: React.createElement('i'), titre: 'Ma collection', jauge: 0.09, compte: '27 sur 308', detail: 'Avatars', onClick: () => {} })
+  assert.match(collection, /^<button type="button" class="gros-bouton"><span class="gros-icone"><i><\/i><\/span><span class="gros-texte"><b>Ma collection<\/b><span class="gros-jauge"><span class="jauge-fine" aria-hidden="true"><span style="width:9%"><\/span><\/span><span class="gros-compte">27 sur 308<\/span><\/span><span class="gros-detail">Avatars<\/span><\/span>/)
+  // Le compte en route : la jauge vide garde sa ligne, rien ne saute quand il arrive.
+  const enRoute = await rendu('components/Pieces', 'GrosBouton', { icone: React.createElement('i'), titre: 'Ma collection', jauge: 0, detail: 'Avatars', onClick: () => {} })
+  assert.match(enRoute, /<span class="gros-jauge"><span class="jauge-fine" aria-hidden="true"><span style="width:0%"><\/span><\/span><\/span>/)
+  assert.match(source('styles.css'), /\.gros-jauge \{ display: flex; align-items: center; gap: 10px; min-height: 1\.2rem; \}/)
+  // Sans jauge : le gros bouton de toujours. Une pastille prend la place du chevron.
+  const habiller = await rendu('components/Pieces', 'GrosBouton', { icone: React.createElement('i'), titre: 'M’habiller', pastille: 'Nouveau', onClick: () => {} })
+  assert.doesNotMatch(habiller, /gros-jauge|chevron/)
+  assert.match(habiller, /<span class="pastille-attente">Nouveau<\/span><\/button>$/)
+  // Les tuiles, et les groupes qui les rangeaient, ne servent plus : le profil est aux gros boutons de l'accueil.
+  assert.doesNotMatch(source('components/Pieces.tsx'), /export function Tuile|tuile-a-apercu|tuile-qui/)
+  assert.doesNotMatch(source('styles.css'), /\.tuiles? |\.tuile-|\.profil-groupe|\.profil-voir-carte|\.mini-theme|\.mini-gerbe|\.vestiaire/)
 })
 
 // Le souhait du propriétaire du 11 octobre 2026 : « quelque chose de visuel
-// qui permettrait de cliquer sur les différents éléments » — un vestiaire,
-// sa carte dont chaque pièce ouvrait la loge ; puis, le 12 : « la page me
-// changer directement dans le profil ». La loge est sur la page : sa carte
-// et ses six pièces paraissent avec le profil, ses panneaux les rejoignent.
-test('la loge sur la page du profil : sa carte et ses six pièces tout de suite, à la place exacte où la loge les reprend', async () => {
+// qui permettrait de cliquer sur les différents éléments ». La loge, sur son
+// écran : sa carte et ses six pièces paraissent avec le profil, ses panneaux
+// les rejoignent.
+test('la loge sur son écran : sa carte et ses six pièces tout de suite, à la place exacte où la loge les reprend', async () => {
   const touchees: string[] = []
   const props = { profil: complet, piece: 'avatar', onPiece: (p: string) => touchees.push(p), attente: React.createElement('p', { className: 'serif-note' }, 'Chargement…') }
   const html = await rendu('components/LogeTete', 'LogeEnChemin', props)
@@ -178,7 +190,7 @@ test('la loge sur la page du profil : sa carte et ses six pièces tout de suite,
   assert.match(html, /^<div class="loge"><div class="loge-collante"><div class="loge-carte"><div class="loge-carte-haut"><span class="loge-carte-avatar">/)
   assert.match(html, /<span class="loge-carte-titre loge-sans">Sans titre<\/span>/)
   assert.match(html, /<span class="loge-finition">Mat<\/span>/)
-  // Dessous, ce qui lui manque pour le niveau suivant, et ses confettis : la page du profil ne les dit plus ailleurs.
+  // Dessous, ce qui lui manque pour le niveau suivant, et ses confettis.
   assert.match(html, /<\/div><span class="xp-mince" role="progressbar" aria-label="Niveau 3"[^>]*>.*?60 XP → niv\. 4.*?12<span class="sr-only"> confettis<\/span>/)
   // Les six pièces, l'avatar choisi ; qui le voit ; et le panneau qui arrive, à sa place.
   const pieces = [...html.matchAll(/<button id="loge-(\w+)" type="button" role="tab" aria-selected="(true|false)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''}`)
@@ -187,7 +199,7 @@ test('la loge sur la page du profil : sa carte et ses six pièces tout de suite,
   assert.match(html, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-avatar"><p class="serif-note">Chargement…<\/p><\/div><\/div>$/)
   // Aucune pastille « Nouveau » avant que la loge ne sache ce que ce téléphone a vu.
   assert.doesNotMatch(html, /loge-neuf/)
-  // Une pièce touchée d'ici va à la page, qui l'ouvre dès que son panneau arrive.
+  // Une pièce touchée d'ici va à l'écran, qui l'ouvre dès que son panneau arrive.
   const arbre = (await import(new URL('../../client/src/components/LogeTete.tsx', import.meta.url).href)).LogeEnChemin(props)
   const rangee = arbre.props.children.find((e: any) => e?.props?.onChoisir)
   rangee.props.onChoisir('titre')

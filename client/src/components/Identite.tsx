@@ -56,13 +56,15 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
 }
 
 /**
- * Soi-même, sur une ligne, en tête de l'accueil : son avatar, son prénom, sa
- * barre d'expérience et ses confettis — sans cadre, l'accueil est aux gros
- * boutons. Un toucher mène à son profil, où la carte s'ouvre.
+ * Soi-même, sur une ligne, en tête de l'accueil et du profil : son avatar,
+ * son prénom, sa barre d'expérience et ses confettis — sans cadre, ces pages
+ * sont aux gros boutons. À l'accueil, un toucher mène à son profil ; sur son
+ * profil, il ouvre sa carte comme la salle l'ouvre en touchant son nom
+ * (`onCarte`), l'œil au bout pour le dire.
  */
-export function IdentiteLigne({ profil }: { profil: ProfilDAccueil }) {
-  return (
-    <a className="identite-ligne" href="/profil" aria-label={`${profil.name} : mon profil`}>
+export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil; onCarte?: () => void }) {
+  const contenu = (
+    <>
       <Avatar
         className="player-avatar big"
         avatar={profil.avatar}
@@ -78,6 +80,18 @@ export function IdentiteLigne({ profil }: { profil: ProfilDAccueil }) {
         </span>
         <XpMince profil={profil} />
       </span>
+    </>
+  )
+  return onCarte ? (
+    <button type="button" className="identite-ligne" aria-label={`${profil.name} : voir ma carte comme la salle la voit`} onClick={onCarte}>
+      {contenu}
+      <span className="identite-oeil" aria-hidden="true">
+        <Icon name="eye" />
+      </span>
+    </button>
+  ) : (
+    <a className="identite-ligne" href="/profil" aria-label={`${profil.name} : mon profil`}>
+      {contenu}
     </a>
   )
 }

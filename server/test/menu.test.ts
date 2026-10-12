@@ -147,6 +147,12 @@ test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’
   assert.match(ligne, /<a class="identite-ligne" href="\/profil"/)
   assert.doesNotMatch(ligne, /Ma carte/, 'la ligne de l’accueil mène au profil, sans carte')
   assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} \/>/)
+  // Au profil, la même ligne ouvre sa carte, comme la salle l'ouvre en touchant son nom — l'œil au bout le dit.
+  const auProfil = await rendu('components/Identite', 'IdentiteLigne', { profil, onCarte: () => {} })
+  assert.match(auProfil, /^<button type="button" class="identite-ligne" aria-label="Léa : voir ma carte comme la salle la voit">/)
+  assert.match(auProfil, /60 XP → niv\. 4/)
+  assert.match(auProfil, /<span class="identite-oeil" aria-hidden="true"><svg[^>]*>.*<\/svg><\/span><\/button>$/)
+  assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>/)
 })
 
 test('le Compte en lignes : chacune dit son état et ouvre sa feuille, l’administration à part', () => {

@@ -9,7 +9,7 @@ import { lePremierHautFait, recompensesDe, type Proche } from '../../../shared/p
 import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
-// que sa carte montre à la salle, qui se règle dans la loge (« Me changer »,
+// que sa carte montre à la salle, qui se règle dans la loge (« M'habiller »,
 // pièce « Vitrine ») — et un objectif commencé. La liste des collections elle-même vit dans
 // `TropheesAtlas`, sous « Ma collection ».
 
