@@ -524,7 +524,8 @@ export function PageDuDuel({
  * La cloche des défis, chargée avec la page des duels seulement : elle tire
  * le service worker et l'abonnement (`rappel.ts`), que la campagne et
  * l'accueil n'ont pas à télécharger. Son téléphone sonne quand on le défie,
- * et quand un duel qu'il a lancé vient d'être joué.
+ * et quand un duel qu'il a lancé vient d'être joué — si elle est allumée :
+ * elle est coupée d'office. En haut à droite de la page, à côté de la sortie.
  */
 const cloche = aLaDemande(() => import('../components/ClocheDesDefis'))
 export function LaClocheDesDefis() {

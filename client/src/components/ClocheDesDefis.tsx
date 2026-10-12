@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motifDe } from '../api'
 import { activerLeRappel, couperLeRappel, preparerLeRappel, rappelPossible, type EtatDuRappel } from '../rappel'
-import { estInstallee, telephone } from '../installation'
 import { showToast } from '../state'
 import { ClocheVue, gesteDeLaCloche } from './RappelDuJour'
 
@@ -13,20 +12,19 @@ export const DIT_LA_CLOCHE_DES_DEFIS = {
 }
 
 /**
- * La cloche des duels, dans la page des duels (`rappel.ts`, la cloche
- * `defis`) : allumée, son téléphone sonne quand on le défie — à la dernière
- * réponse de qui l'a lancé —, et quand un duel qu'il a lancé vient d'être
- * joué. Une ligne, la cloche devant ce qu'elle fait : seule, une cloche dans
- * une carte ne disait pas de quoi. Dans l'application installée seulement,
- * comme celle du soir ; sur un téléphone qui ne l'a pas installée, une
- * phrase dit où la trouver ; sur un ordinateur, rien.
+ * La cloche des défis, en haut à droite de la page des duels, à côté de la
+ * sortie — là où la page du jour a celle du soir (le souhait du propriétaire
+ * du 12 octobre 2026) : allumée, son téléphone sonne quand on le défie — à
+ * la dernière réponse de qui l'a lancé —, et quand un duel qu'il a lancé
+ * vient d'être joué. Coupée d'office : seul son toucher l'allume. Dans
+ * l'application installée seulement, comme celle du soir ; ailleurs, rien.
+ * Elle tenait une ligne à elle sous ses amis, une phrase à côté.
  */
 export function ClocheDesDefis() {
-  const [possible] = useState(rappelPossible)
   const [etat, setEtat] = useState<EtatDuRappel | null>(null)
   const [occupe, setOccupe] = useState(false)
   useEffect(() => {
-    if (!possible) return
+    if (!rappelPossible()) return
     let vivant = true
     preparerLeRappel('defis')
       .then(e => vivant && setEtat(e))
@@ -34,7 +32,7 @@ export function ClocheDesDefis() {
     return () => {
       vivant = false
     }
-  }, [possible])
+  }, [])
 
   /** Rien n'est attendu avant le geste : l'iPhone ne demande la permission qu'au toucher même (`activerLeRappel`). */
   const toucher = async () => {
@@ -54,21 +52,5 @@ export function ClocheDesDefis() {
       setOccupe(false)
     }
   }
-
-  if (!possible) {
-    let surUnTelephone = false
-    try {
-      surUnTelephone = telephone() !== null && !estInstallee()
-    } catch {
-      // Sans de quoi le savoir, rien à promettre.
-    }
-    return surUnTelephone ? <p className="muted small cloche-des-defis-ailleurs">Installe l’application : ton téléphone sonnera quand on te défie.</p> : null
-  }
-  if (etat === null) return null
-  return (
-    <div className="cloche-des-defis">
-      <ClocheVue etat={etat} occupe={occupe} onToucher={() => void toucher()} nom="Les duels" titre="Une notification quand on te défie, et quand ton duel est joué" />
-      <span className="small">{etat === 'bloque' ? 'Notifications bloquées sur ce téléphone' : 'Mon téléphone sonne quand on me défie'}</span>
-    </div>
-  )
+  return <ClocheVue etat={etat} occupe={occupe} onToucher={() => void toucher()} nom="Notification des défis" titre="Une notification quand on te défie, et quand ton duel est joué" />
 }

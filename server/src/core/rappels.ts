@@ -23,9 +23,11 @@
 // (`prevenirDUnDefi`, le souhait du propriétaire du 11 octobre 2026 : « que
 // ça envoie une notif à la personne »). Deux réglages par téléphone, chacun
 // sa cloche : le rappel du soir (`soir`, la page du jour) et les défis
-// (`defis`, l'onglet du défi). Un téléphone abonné avant eux garde le soir et
-// reçoit les défis — un choix de produit : un défi n'arrive que d'un ami, et
-// sa cloche le coupe ; les deux coupés, l'abonnement s'efface.
+// (`defis`, la page des duels). Les défis sont coupés d'office (le souhait
+// du propriétaire du 12 octobre 2026 : « la notification pour les défis
+// désactivée par défaut ») : seule leur cloche les allume — la cloche du
+// soir les allumait avec elle, et un abonnement d'avant les cloches les
+// recevait. Les deux coupés, l'abonnement s'efface.
 
 import type { InStatement } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
@@ -202,7 +204,7 @@ export class RappelStore {
            vu_le        INTEGER NOT NULL,
            dernier_jour TEXT,
            soir         INTEGER NOT NULL DEFAULT 1,
-           defis        INTEGER NOT NULL DEFAULT 1
+           defis        INTEGER NOT NULL DEFAULT 0
          )`,
         `CREATE INDEX IF NOT EXISTS idx_jour_rappels_profil ON jour_rappels(profile_id)`,
         `CREATE TABLE IF NOT EXISTS jour_rappels_cles (
@@ -223,9 +225,9 @@ export class RappelStore {
     if (!cles) throw new Error('Base permanente illisible : les clés du rappel du soir ne se relisent pas')
     this.cles = { publique: String(cles.publique), privee: String(cles.privee) }
     // Les deux cloches d'un téléphone, sur une table d'avant elles : abonné
-    // pour le soir, il le reste, et les défis de ses amis le font sonner aussi.
+    // pour le soir, il le reste ; les défis attendent leur cloche, coupés d'office.
     await ajouterColonne(this.client, 'jour_rappels', 'soir', 'INTEGER NOT NULL DEFAULT 1')
-    await ajouterColonne(this.client, 'jour_rappels', 'defis', 'INTEGER NOT NULL DEFAULT 1')
+    await ajouterColonne(this.client, 'jour_rappels', 'defis', 'INTEGER NOT NULL DEFAULT 0')
   }
 
   /** La clé publique du serveur, que le téléphone donne à son service de push en s'abonnant. */
@@ -240,9 +242,9 @@ export class RappelStore {
    * dernière session qui compte. `activer` allume la cloche de `quoi` ; sans
    * lui, ses réglages restent. Un téléphone qu'on ne connaît pas — neuf, ou
    * effacé avec une session close — prend la cloche de la page qui le
-   * rattache, et les défis de ses amis avec : un défi n'arrive que d'un ami.
-   * Passé d'un profil à un autre (un téléphone qu'on se prête), il repart
-   * de là, sans rien garder des réglages du premier. Renouvelé par le
+   * rattache, et elle seule : les défis ne sonnent que si leur cloche les a
+   * allumés. Passé d'un profil à un autre (un téléphone qu'on se prête), il
+   * repart de là, sans rien garder des réglages du premier. Renouvelé par le
    * service de push (`ancien`), il garde ceux de l'abonnement qu'il remplace.
    *
    * Le rappel déjà parti aujourd'hui le reste (`dernier_jour`). Abonné après
@@ -256,7 +258,7 @@ export class RappelStore {
     if ('refus' in lu) throw new Error(lu.refus)
     const maintenant = this.deps.maintenant()
     const dejaFait = heureDeParis(maintenant) >= HEURE_DU_RAPPEL ? jourDe(maintenant) : null
-    let neuf = { soir: quoi === 'soir' ? 1 : 0, defis: 1 }
+    let neuf = { soir: quoi === 'soir' ? 1 : 0, defis: quoi === 'defis' ? 1 : 0 }
     const lot: InStatement[] = []
     if (typeof ancien === 'string' && ancien !== lu.endpoint) {
       const avant = await this.client.execute({ sql: 'SELECT soir, defis FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [ancien, profileId] })
