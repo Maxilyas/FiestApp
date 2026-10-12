@@ -323,6 +323,36 @@ test('sous le thème d’un profil, ses quiz, son compte et le souvenir tiennent
   assert.match(regle('.import-example'), /background:\s*color-mix\(in srgb, var\(--bg\)/)
 })
 
+// ── Le compteur de ce qui attend : la convention des messages ─────────────
+
+test('le compteur d’un gros bouton se lit en blanc sur rouge sous tous les thèmes, à cheval sur son coin en haut à droite', () => {
+  // Le souhait du propriétaire du 12 octobre 2026 : « un petit nombre rouge /
+  // blanc, la convention des messages », en haut à droite du bouton des
+  // duels (`campagne-ouverture.test.ts`). Une convention, pas une couleur du
+  // décor : `--alert` vire au jaune sous Braises et au violet sous Héros.
+  assert.match(regle('.gros-bouton'), /position:\s*relative/)
+  const compteur = regle('.gros-compteur')
+  assert.match(compteur, /position:\s*absolute/)
+  assert.match(compteur, /top:\s*-[\d.]+rem/)
+  assert.match(compteur, /right:\s*-[\d.]+rem/)
+  const rouge = /background:\s*(#[0-9a-f]{6});/i.exec(compteur)?.[1]
+  const blanc = /[^-]color:\s*(#[0-9a-f]{6});/i.exec(compteur)?.[1]
+  assert.equal(blanc?.toLowerCase(), '#ffffff')
+  assert.ok(rouge, 'son rouge est écrit en dur')
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(rouge!.slice(i, i + 2), 16))
+  assert.ok(r > 2 * g && r > 2 * b, `${rouge} est un rouge`)
+  const c = contraste(blanc!, rouge!)
+  assert.ok(c >= 4.5, `le chiffre tient ${c.toFixed(2)}:1`)
+  // Aucun thème ne le repeint.
+  const dossier = new URL('../../client/src/themes/', import.meta.url)
+  for (const f of readdirSync(dossier).filter(f => f.endsWith('.css'))) assert.doesNotMatch(readFileSync(new URL(f, dossier), 'utf8'), /gros-compteur/, f)
+  // Il grandit avec le texte : au texte agrandi, un rond en pixels laissait déborder son chiffre.
+  assert.match(compteur, /min-width:\s*[\d.]+rem/)
+  assert.match(compteur, /height:\s*[\d.]+rem/)
+  const taille = Number(/font-size:\s*([\d.]+)rem/.exec(compteur)?.[1])
+  assert.ok(taille >= 0.6875, `son chiffre ne descend pas sous --t-label (${taille}rem)`)
+})
+
 // ── Au texte agrandi ──────────────────────────────────────────────────────
 
 test('T1 · au souvenir, le détail d’une équipe a sa propre case, pas la colonne du nom', async () => {

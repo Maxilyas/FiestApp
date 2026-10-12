@@ -10,6 +10,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
+import { DEFIS_RECUS_MONTRES } from '../../shared/campagne'
 
 const memoire = new Map<string, string>()
 Object.assign(globalThis, {
@@ -492,11 +493,10 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   // Avant son premier duel : qu'on défie qui l'on veut — « Un joueur de ton niveau » promettait un adversaire qu'un petit serveur n'a pas toujours.
   assert.match(bouton(), /<span class="gros-detail">Défie qui tu veux, ou un joueur au hasard : monte de ligue<\/span>/)
   const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
-  // Un défi qu'un ami lui a envoyé passe devant : qui le défie, une pastille (`campagne-amis.test.ts`).
+  // Un défi qu'un ami lui a envoyé passe devant : qui le défie (`campagne-amis.test.ts`), et combien l'attendent, en rouge (l'épreuve d'après).
   const unDefi = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })
   assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
-  assert.match(unDefi, /<span class="pastille-attente">Un défi<\/span>/)
-  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres : à toi de jouer.*3 défis/)
+  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres : à toi de jouer<\/span>/)
   // Puis son duel laissé en route.
   assert.match(bouton({ ...habitue, enCours: { nom: 'Tom' } }), /<span class="gros-detail">Ton duel contre Tom t’attend<\/span>/)
   // Sinon sa ligue, sa cote, et ce qui manque à sa récompense de lundi — ou ce qu'elle rapportera ; son blason à la place de l'icône.
@@ -508,6 +508,51 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.match(bouton(lundi), /<span class="gros-detail">\+30\u00a0confettis pour ta semaine en ligue d\u2019or \u00b7 encore 3\u00a0duels pour la prochaine<\/span>/)
   assert.match(bouton({ ...lundi, semaine: { duels: 1, ligue: 'argent' } }), /encore 2\u00a0duels pour ta r\u00e9compense/, 'son premier duel jou\u00e9, la semaine qui vient')
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /duels=\{'duels' in profil \? profil\.duels : undefined\}/)
+})
+
+// Le souhait du propriétaire du 12 octobre 2026 : « quand on a des duels en
+// attente, un petit nombre rouge / blanc — la convention des messages — sur
+// le bouton des duels de l'accueil, en haut à droite ». Ils s'y disaient d'une
+// pastille dorée, « 3 défis », la même que « À relever » et « À jouer » sur
+// les deux boutons du dessus : elle s'y fondait (`design.test.ts` : ses
+// couleurs et sa place).
+test('sur l’accueil, les duels qu’on lui a envoyés se comptent comme des messages : un chiffre blanc sur rouge, en haut à droite du bouton', async () => {
+  const module = await import(client('components/AccueilDesRoles.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const accueil = (duels?: object) =>
+    renderToStaticMarkup(
+      React.createElement(module.AccueilJouer, {
+        enCours: [],
+        onRejoindre: () => {},
+        lendemain: null,
+        jour: { serie: 0, jours: [] },
+        campagne: { vies: 11, avance: null, defi: { joueurs: 12, neuf: true } },
+        duels,
+      }),
+    )
+  const bouton = (duels?: object) => accueil(duels).split('<a ').find(x => x.includes('<b>Les duels</b>'))!
+  const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
+  // Le chiffre se voit, une phrase se lit : « Les duels, Léa te défie : à toi de jouer, un défi à relever ».
+  const un = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })
+  assert.match(un, /<span class="gros-compteur" aria-hidden="true">1<\/span><span class="sr-only">, un défi à relever<\/span>/)
+  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /<span class="gros-compteur" aria-hidden="true">3<\/span><span class="sr-only">, 3 défis à relever<\/span>/)
+  // Le serveur n'en lit que dix (`DEFIS_RECUS_MONTRES`) : dix, c'est « 9+ » — peut-être plus —, et le rond reste un rond.
+  assert.match(
+    bouton({ ...habitue, defisRecus: { n: DEFIS_RECUS_MONTRES, de: 'Tom' } }),
+    /<span class="gros-compteur" aria-hidden="true">9\+<\/span><span class="sr-only">, plus de 9 défis à relever<\/span>/,
+  )
+  // Il remplace la pastille dorée sans prendre la place du chevron, qui revient au bout.
+  assert.doesNotMatch(un, /pastille-attente/)
+  assert.match(un, /class="icon chevron"/)
+  // Rien à relever, rien de rouge : ni avant son premier duel, ni pour son duel laissé en route — c'est le sien.
+  for (const d of [undefined, habitue, { ...habitue, enCours: { nom: 'Tom' } }, { ...habitue, defisRecus: { n: 0, de: 'Tom' } }]) {
+    assert.doesNotMatch(bouton(d), /gros-compteur|à relever/, JSON.stringify(d))
+  }
+  // Seul ce qu'un autre lui a envoyé se compte en rouge : la campagne et le quiz du jour gardent leur pastille.
+  const tout = accueil({ ...habitue, defisRecus: { n: 3, de: 'Tom' } })
+  assert.equal(tout.match(/class="gros-compteur"/g)?.length, 1)
+  assert.match(tout, /<span class="pastille-attente">À relever<\/span>/)
+  assert.match(tout, /<span class="pastille-attente">À jouer<\/span>/)
 })
 
 test('l’accueil d’un profil télécharge en fond le code de la campagne, des duels et du quiz du jour', () => {

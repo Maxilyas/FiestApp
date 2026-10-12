@@ -7517,6 +7517,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .jouer-section { display: flex; flex-direction: column; gap: 10px; }
 .jouer-section > .label { color: var(--muted); padding-left: 2px; }
 .gros-bouton {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -7544,6 +7545,31 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   color: var(--on-accent);
   font-size: var(--t-label);
   font-weight: 700;
+  white-space: nowrap;
+}
+/* Ce que d'autres lui ont envoyé, compté comme des messages (le souhait du
+   propriétaire du 12 octobre 2026) : blanc sur rouge, à cheval sur le coin en
+   haut à droite. Le même rouge sous tous les thèmes — une convention, pas
+   une couleur du décor : `--alert` vire au jaune sous Braises et au violet
+   sous Héros. L'anneau du fond le détache du bord ; ses mesures en `rem`
+   suivent le texte agrandi. */
+.gros-compteur {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-pill);
+  background: #d93025;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
   white-space: nowrap;
 }
 
