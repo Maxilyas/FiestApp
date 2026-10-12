@@ -22,6 +22,7 @@ import { NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
+import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, type ChoixDeBordure } from './duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from './piecesDeLaLoge'
 
 // Les six pièces vivent à part, sans catalogue : la page du profil montre
@@ -49,13 +50,15 @@ export interface Essai {
   gerbe?: string | null
   /** La version de l'avatar que la carte montre, s'il a éclaté pour lui : rare (`brille`) ou d'origine. */
   eclat?: { cle: string; brille: boolean }
+  /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte. */
+  bordure?: ChoixDeBordure
 }
 
 /**
  * Ce qu'il porte, tel que sa page le reçoit — ses Éclats compris, et ceux
  * qu'il a éteints : la version qu'il montre de chacun.
  */
-export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe'> &
+export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe' | 'bordureChoisie'> &
   Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints'>>
 
 /** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
@@ -91,6 +94,7 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   if (suivant.avatar !== undefined && suivant.avatar === porte.avatar && !porte.legendaire) delete suivant.avatar
   if (suivant.legendaire !== undefined && suivant.legendaire === (porte.legendaire ?? null)) delete suivant.legendaire
   if (suivant.finition !== undefined && suivant.finition === porte.finitionChoisie) delete suivant.finition
+  if (suivant.bordure !== undefined && suivant.bordure === (porte.bordureChoisie ?? 'auto')) delete suivant.bordure
   if (suivant.titre !== undefined && suivant.titre === (porte.titre ?? null)) delete suivant.titre
   if (suivant.vitrine !== undefined && memeVitrine(suivant.vitrine, porte.vitrineChoisie ?? null)) delete suivant.vitrine
   if (suivant.fond !== undefined && suivant.fond === (porte.fond ?? null)) delete suivant.fond
@@ -127,6 +131,7 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
     vu.finitionChoisie = essai.finition
     vu.finition = essai.finition === 'auto' ? meilleureFinition(profil.niveau) : essai.finition
   }
+  if (essai.bordure !== undefined) vu.bordureChoisie = essai.bordure
   if (essai.titre !== undefined) vu.titre = essai.titre
   if (essai.vitrine !== undefined) vu.vitrineChoisie = essai.vitrine
   if (essai.fond !== undefined) vu.fond = essai.fond
@@ -183,6 +188,14 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
     const f = essai.finition
     lignes.push({ piece: 'avatar', nom: f === 'auto' ? `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}` : NOM_FINITION[f], detail: 'Finition' })
   }
+  if (essai.bordure !== undefined) {
+    const b = essai.bordure
+    lignes.push({
+      piece: 'avatar',
+      nom: b === 'auto' ? 'La plus haute, d’office' : b === AUCUNE_BORDURE ? 'Sans bordure' : NOM_DE_LA_BORDURE[b],
+      detail: 'Bordure',
+    })
+  }
   if (essai.titre !== undefined) {
     const t = nomDuTitre(essai.titre)
     lignes.push({ piece: 'titre', nom: t ? `« ${t} »` : 'Sans titre', detail: 'Titre' })
@@ -221,6 +234,8 @@ export function ceQuIlAPorter(profil: PublicProfileDetail): Record<PieceDeLaLoge
       ...COLLECTION.filter(c => profil.niveau >= c.niveau).map(c => c.emoji),
       ...profil.ouvertes.map(f => `finition:${f}`),
       ...profil.eclats.map(e => `eclat:${e}`),
+      // Une ligue atteinte ouvre sa bordure ; au douzième cran, elle est sertie : deux nouveautés.
+      ...(profil.bordures ?? []).flatMap(b => [`bordure:${b.ligue}`, ...(b.crans >= CRANS_D_UNE_BORDURE ? [`bordure:${b.ligue}:sertie`] : [])]),
     ],
     titre: [...maitresDe(paliers).map(cleDeMaitre), ...(profil.titresDates ?? []), ...gagnes],
     // Ceux que « Ma vitrine » propose : gagnés, et rangés sur son étagère.

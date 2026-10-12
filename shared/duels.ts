@@ -194,6 +194,68 @@ export interface SemaineJouee {
   meilleure: number
 }
 
+// ── Les bordures de ligue ───────────────────────────────────────────────────
+//
+// Le souhait du propriétaire du 12 octobre 2026, sur la maquette des
+// alliages : chaque ligue atteinte ouvre sa bordure crantée autour de
+// l'avatar — la ligue en donne la forme et la pierre, la finition le métal —,
+// et chaque duel gagné dans cette ligue en sertit un cran. Rien ne se tient à
+// côté : comme la cote, les crans se relisent dans le journal des duels
+// (`releverLesDuels`), et ne font que monter — redescendre de ligue ne
+// reprend ni la bordure ni ses crans. Seul le choix de celle qu'on porte
+// s'enregistre (`profiles.bordure`).
+
+/** Les crans d'une bordure : un par duel gagné dans sa ligue — au douzième, elle est sertie. */
+export const CRANS_D_UNE_BORDURE = 12
+
+/** La bordure d'une ligue atteinte : ses crans sertis, ses duels gagnés dans la ligue (`CRANS_D_UNE_BORDURE` au plus). */
+export interface BordureDeLigue {
+  ligue: CleDeLigue
+  crans: number
+}
+
+/** Le nom de la bordure de chaque ligue, dans une phrase comme sur une pastille. */
+export const NOM_DE_LA_BORDURE: Record<CleDeLigue, string> = {
+  bronze: 'Le Moletage',
+  argent: 'Le Perlé',
+  or: 'Les Fleurons',
+  platine: 'Le Givre',
+  diamant: 'La Couronne de brillants',
+  maitre: 'Le Soleil noir',
+}
+
+/** Ne porter aucune bordure, même celles qu'on a. */
+export const AUCUNE_BORDURE = 'aucune'
+
+/**
+ * Ce qu'il a choisi de porter : `auto` — sa plus haute bordure qui a un cran
+ * au moins —, `aucune`, ou la bordure d'une ligue qu'il a atteinte.
+ */
+export type ChoixDeBordure = 'auto' | typeof AUCUNE_BORDURE | CleDeLigue
+
+/** Un choix de bordure, tel qu'il arrive d'une page ou de la base : ce qui n'en est pas un vaut `auto`. */
+export function choixDeBordure(brut: unknown): ChoixDeBordure {
+  if (brut === AUCUNE_BORDURE) return AUCUNE_BORDURE
+  return PAR_CLE.has(brut as CleDeLigue) ? (brut as CleDeLigue) : 'auto'
+}
+
+/**
+ * La bordure qu'il porte. `auto` : la plus haute ligue où il a serti un cran
+ * au moins — une bordure encore vide ne s'impose à personne, il la choisit
+ * s'il veut la montrer ; `aucune` : rien. Une ligue qu'il n'a pas (une page
+ * d'avant, une règle changée) se lit `auto`.
+ */
+export function bordurePortee(choix: unknown, bordures: readonly BordureDeLigue[] | undefined): BordureDeLigue | null {
+  const c = choixDeBordure(choix)
+  if (c === AUCUNE_BORDURE || !bordures) return null
+  if (c !== 'auto') {
+    const choisie = bordures.find(b => b.ligue === c)
+    if (choisie) return choisie
+  }
+  for (let i = bordures.length - 1; i >= 0; i--) if (bordures[i].crans > 0) return bordures[i]
+  return null
+}
+
 /** Ce que ses duels disent de lui : sa cote, et de quoi raconter chaque duel et chaque semaine. */
 export interface ReleveDesDuels {
   cote: number
@@ -205,6 +267,12 @@ export interface ReleveDesDuels {
   premierLe: number | null
   /** Son dernier duel fini, ou null : le classement ne nomme que ceux qui jouent encore. */
   dernierLe: number | null
+  /**
+   * Les bordures de ses ligues atteintes, de la plus basse à la plus haute —
+   * toutes celles sous la plus haute cote qu'il a eue —, et leurs crans.
+   * Vide tant qu'il n'a fini aucun duel : l'absence, pas une bordure de bronze.
+   */
+  bordures: BordureDeLigue[]
 }
 
 /**
@@ -213,21 +281,32 @@ export interface ReleveDesDuels {
  * (`semaineDe`, le lundi de Paris) retient ses duels et la meilleure cote
  * qu'elle a vue — celle qu'il avait en y entrant comprise : il était dans sa
  * ligue avant de jouer, et un duel perdu le lundi ne lui reprend pas sa
- * récompense.
+ * récompense. Un duel gagné sertit un cran de la ligue où il l'a joué — celle
+ * de sa cote avant le duel —, et la plus haute cote atteinte ouvre les
+ * bordures de toutes les ligues jusqu'à elle.
  */
 export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant: number) => string): ReleveDesDuels {
   const ordre = [...duels].sort((a, b) => a.finiLe - b.finiLe || (a.serie < b.serie ? -1 : a.serie > b.serie ? 1 : 0))
   let cote = COTE_DE_DEPART
+  let plusHaute = cote
+  const victoires = new Map<CleDeLigue, number>()
   const ecarts = new Map<string, { avant: number; ecart: number }>()
   const semaines = new Map<string, SemaineJouee>()
   ordre.forEach((d, i) => {
-    const ecart = ecartContre(cote, d.coteAdverse ?? coteDuScore(d.sesJustes), i, resultatDuDuel(d.justes, d.sesJustes))
+    const resultat = resultatDuDuel(d.justes, d.sesJustes)
+    const ecart = ecartContre(cote, d.coteAdverse ?? coteDuScore(d.sesJustes), i, resultat)
     const semaine = semaineDe(d.finiLe)
     const s = semaines.get(semaine) ?? { duels: 0, meilleure: cote }
     ecarts.set(d.serie, { avant: cote, ecart })
+    if (resultat === 1) {
+      const ici = ligueDe(cote).cle
+      victoires.set(ici, (victoires.get(ici) ?? 0) + 1)
+    }
     cote += ecart
+    plusHaute = Math.max(plusHaute, cote)
     semaines.set(semaine, { duels: s.duels + 1, meilleure: Math.max(s.meilleure, cote) })
   })
+  const atteintes = ordre.length > 0 ? LIGUES.slice(0, LIGUES.indexOf(ligueDe(plusHaute)) + 1) : []
   return {
     cote,
     joues: ordre.length,
@@ -235,6 +314,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     semaines,
     premierLe: ordre.length > 0 ? ordre[0].finiLe : null,
     dernierLe: ordre.length > 0 ? ordre[ordre.length - 1].finiLe : null,
+    bordures: atteintes.map(l => ({ ligue: l.cle, crans: Math.min(CRANS_D_UNE_BORDURE, victoires.get(l.cle) ?? 0) })),
   }
 }
 
@@ -287,6 +367,8 @@ export interface LigneDesDuels {
   legendaire?: string
   eclat?: true
   laurier?: LaurierPorte
+  /** La bordure de ligue qu'il porte, s'il en porte une (`bordurePortee`). */
+  bordure?: BordureDeLigue
   cote: number
   ligue: CleDeLigue
   rang: number
@@ -424,4 +506,6 @@ export interface DuelsDAccueil {
   enCours?: Pick<Adversaire, 'nom'>
   /** La semaine passée, si elle a payé : sa ligue et ses confettis — le lundi, l'accueil dit ce qui vient d'arriver au solde. */
   semainePassee?: { ligue: CleDeLigue; confettis: number }
+  /** Ses bordures de ligue (`ReleveDesDuels.bordures`) : celle qu'il porte se montre autour de son avatar, en tête de l'accueil. */
+  bordures?: BordureDeLigue[]
 }

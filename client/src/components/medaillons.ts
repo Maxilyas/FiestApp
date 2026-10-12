@@ -6,6 +6,7 @@ import type { Legendaire } from './Legendaire'
 import type { Divin } from './Divin'
 import type { Portrait } from './Portrait'
 import type { Lumiere } from './Lumiere'
+import type { Bordure } from './Bordure'
 import type { DessinDePortrait } from './portraits/outils'
 
 /**
@@ -33,18 +34,19 @@ import type { DessinDePortrait } from './portraits/outils'
  *
  * La lumière des finitions 15, 20 et 25 (`Lumiere.tsx`) vient de même : il
  * faut des dizaines de soirées pour la porter, et une salle d'anonymes ne la
- * verra jamais.
+ * verra jamais. Les bordures de ligue (`Bordure.tsx`) aussi : seules les
+ * pages où l'on en porte une — la loge, la carte, les duels — les font venir.
  */
 
-/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, la lumière des finitions, et chaque branche. */
-export type Sorte = 'legendaire' | 'divin' | 'lumiere' | `branche:${CleDeBranche}`
+/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, la lumière des finitions, les bordures de ligue, et chaque branche. */
+export type Sorte = 'legendaire' | 'divin' | 'lumiere' | 'bordure' | `branche:${CleDeBranche}`
 /**
  * Les médaillons : ce qu'un profil peut gagner d'un coup à la fin d'une
  * soirée, que sa page fait venir d'office. Pas les branches : la fin de
  * soirée fait venir celle du portrait qu'elle annonce.
  */
 const MEDAILLONS: readonly Sorte[] = ['legendaire', 'divin']
-const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', ...BRANCHES.map(b => `branche:${b.key}` as const)]
+const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', 'bordure', ...BRANCHES.map(b => `branche:${b.key}` as const)]
 
 /** Les finitions qui ont leur lumière : le Diamant, les Voiles, l'Astrolabe. */
 export const FINITIONS_LUMINEUSES = ['prisme', 'aurore', 'constellation'] as const
@@ -74,12 +76,13 @@ export function sortesDe(cles: readonly (string | null | undefined)[]): Sorte[] 
 }
 
 /**
- * Ce que demandent ces avatars portés : leurs médaillons, et la lumière de
- * leur finition — sauf sous un Divin, qui n'en prend pas.
+ * Ce que demandent ces avatars portés : leurs médaillons, la lumière de leur
+ * finition et leur bordure de ligue — sauf sous un Divin, qui n'en prend pas.
  */
-export function sortesDesAvatars(avatars: readonly { legendaire?: string | null; finition?: string | null }[]): Sorte[] {
+export function sortesDesAvatars(avatars: readonly { legendaire?: string | null; finition?: string | null; bordure?: unknown }[]): Sorte[] {
   const voulues = new Set<Sorte>(sortesDe(avatars.map(a => a.legendaire)))
   if (avatars.some(a => !divinDe(a.legendaire) && lumineuse(a.finition))) voulues.add('lumiere')
+  if (avatars.some(a => !divinDe(a.legendaire) && a.bordure)) voulues.add('bordure')
   return SORTES.filter(sorte => voulues.has(sorte))
 }
 
@@ -90,6 +93,8 @@ interface Dessins {
   Portrait?: typeof Portrait
   /** La lumière des finitions 15, 20 et 25. */
   Lumiere?: typeof Lumiere
+  /** Les bordures de ligue des duels. */
+  Bordure?: typeof Bordure
   /** Les dessins des branches arrivées, par branche. */
   branches?: Partial<Record<CleDeBranche, Readonly<Record<string, DessinDePortrait>>>>
   /**
@@ -120,7 +125,9 @@ export const chargeur = {
         ? import('./Legendaire')
         : sorte === 'lumiere'
           ? import('./Lumiere')
-          : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
+          : sorte === 'bordure'
+            ? import('./Bordure')
+            : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
 }
 
 /** Chaque branche dans son fichier — des chemins écrits en entier : c'est à eux que le paquet découpe. */
@@ -141,7 +148,7 @@ const BRANCHES_A_IMPORTER: Record<CleDeBranche, () => Promise<unknown>> = {
 
 const brancheDeSorte = (sorte: `branche:${CleDeBranche}`) => sorte.slice('branche:'.length) as CleDeBranche
 
-/** Appelé par `Legendaire.tsx`, `Divin.tsx`, `Lumiere.tsx` et chaque branche des portraits à leur évaluation. */
+/** Appelé par `Legendaire.tsx`, `Divin.tsx`, `Lumiere.tsx`, `Bordure.tsx` et chaque branche des portraits à leur évaluation. */
 export function inscrireDessin(d: Dessins) {
   dessins = { ...dessins, ...d, branches: { ...dessins.branches, ...d.branches } }
   for (const f of abonnes) f()
@@ -152,6 +159,7 @@ function present(d: Dessins, sorte: Sorte): boolean {
   if (sorte === 'divin') return !!d.Divin
   if (sorte === 'legendaire') return !!d.Legendaire
   if (sorte === 'lumiere') return !!d.Lumiere
+  if (sorte === 'bordure') return !!d.Bordure
   return !!d.Portrait && !!d.branches?.[brancheDeSorte(sorte)]
 }
 

@@ -553,7 +553,7 @@ export function DefisRecus({ recus, onOuvrir }: { recus: readonly DefiRecu[]; on
               <span>
                 <b>
                   <span aria-hidden="true">
-                    <Avatar avatar={d.auteur.avatar} finition={d.auteur.finition} legendaire={d.auteur.legendaire} eclat={d.auteur.eclat} />
+                    <Avatar avatar={d.auteur.avatar} finition={d.auteur.finition} legendaire={d.auteur.legendaire} eclat={d.auteur.eclat} bordure={d.auteur.bordure} />
                   </span>{' '}
                   {`${d.auteur.nom} te défie`}
                 </b>

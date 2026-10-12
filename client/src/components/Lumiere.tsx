@@ -200,12 +200,17 @@ const IMAGES = {
  * Un calque : sa classe (qui le place, le dimensionne et le fait bouger) et
  * son image s'il en a une. `emoji` : il fait anneau autour d'un emoji, et
  * ne se pose pas autour d'un médaillon — le cercle du médaillon le remplace
- * (`Cercle.tsx`) : deux anneaux et un disque faisaient une cible.
+ * (`Cercle.tsx`) : deux anneaux et un disque faisaient une cible. `anneau` :
+ * il tombe là où passe une bordure de ligue (`Bordure.tsx`), qui le remplace
+ * et prend sa matière — la bague de cristal, le limbe et l'anneau serti de
+ * l'Astrolabe sous la bordure faisaient trois anneaux. L'atmosphère, elle,
+ * reste : arcs-en-ciel, voiles, nébuleuse, étoile en orbite.
  */
 interface Calque {
   classe: string
   src?: string
   emoji?: boolean
+  anneau?: boolean
 }
 
 /**
@@ -234,11 +239,11 @@ const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: re
       { classe: 'lu-dispersion' },
       { classe: 'lu-spectres lu-spectres-1', src: IMAGES.spectres1 },
       { classe: 'lu-spectres lu-spectres-2', src: IMAGES.spectres2 },
-      { classe: 'lu-feux' },
+      { classe: 'lu-feux', anneau: true },
       { classe: 'lu-glace', emoji: true },
-      { classe: 'lu-cristal', src: IMAGES.cristal },
+      { classe: 'lu-cristal', src: IMAGES.cristal, anneau: true },
     ],
-    avant: [{ classe: 'lu-balayage' }, { classe: 'lu-etincelle', src: IMAGES.blanche }],
+    avant: [{ classe: 'lu-balayage', anneau: true }, { classe: 'lu-etincelle', src: IMAGES.blanche }],
   },
   // Les Voiles.
   aurore: {
@@ -254,8 +259,8 @@ const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: re
     arriere: [
       { classe: 'lu-nebuleuse' },
       { classe: 'lu-poussiere', src: IMAGES.poussiere },
-      { classe: 'lu-astrolabe', src: IMAGES.astrolabe, emoji: true },
-      { classe: 'lu-gemmes', src: IMAGES.gemmes, emoji: true },
+      { classe: 'lu-astrolabe', src: IMAGES.astrolabe, emoji: true, anneau: true },
+      { classe: 'lu-gemmes', src: IMAGES.gemmes, emoji: true, anneau: true },
     ],
     avant: [
       { classe: 'lu-scintille lu-scintille-1', src: IMAGES.doree },
@@ -266,29 +271,40 @@ const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: re
   },
 }
 
-function calques(liste: readonly Calque[], medaillon: boolean) {
+function calques(liste: readonly Calque[], medaillon: boolean, bordure: boolean) {
   return liste
-    .filter(c => !(medaillon && c.emoji))
+    .filter(c => !(medaillon && c.emoji) && !(bordure && c.anneau))
     .map(c => (c.src ? <img key={c.classe} className={c.classe} src={c.src} alt="" draggable={false} /> : <i key={c.classe} className={c.classe} />))
 }
 
 /**
  * La lumière d'une finition, autour de ce qu'elle entoure — l'emoji ou le
- * médaillon, passé en enfant : ce qui est derrière avant lui, ce qui passe
- * devant après.
+ * médaillon, passé en enfant, et sa bordure de ligue avec lui : ce qui est
+ * derrière avant eux, ce qui passe devant après. Sous une bordure, ses
+ * anneaux s'effacent (`anneau`).
  */
-export function Lumiere({ finition, medaillon = false, children }: { finition: FinitionLumineuse; medaillon?: boolean; children: ReactNode }) {
+export function Lumiere({
+  finition,
+  medaillon = false,
+  bordure = false,
+  children,
+}: {
+  finition: FinitionLumineuse
+  medaillon?: boolean
+  bordure?: boolean
+  children: ReactNode
+}) {
   const c = CALQUES[finition]
   return (
     <>
       <span className="lu lu-arriere" aria-hidden="true">
-        {calques(c.arriere, medaillon)}
+        {calques(c.arriere, medaillon, bordure)}
         {c.orbite && orbite('arriere')}
       </span>
       {children}
       <span className="lu lu-avant" aria-hidden="true">
         {c.orbite && orbite('avant')}
-        {calques(c.avant, medaillon)}
+        {calques(c.avant, medaillon, bordure)}
       </span>
     </>
   )
