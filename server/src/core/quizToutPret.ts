@@ -9,6 +9,7 @@ import {
   DUREE_D_UNE_ESTIMATION,
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
   UNE_ESTIMATION_SUR,
+  nommerLesCategories,
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
@@ -452,17 +453,7 @@ export function composerUnQuiz(
 export function titreDuQuizToutPret(choix: ChoixDuQuiz, nombre: number): string {
   const c: readonly Categorie[] = choix.categories
   const sujet = choix.sujet ? sujetParCle(choix.sujet)?.nom : undefined
-  const de =
-    sujet ??
-    (c.length === 0 || c.length === CATEGORIES.length
-      ? 'Un peu de tout'
-      : c.length === 1
-        ? c[0]
-        : c.length === 2
-          ? `${c[0]} et ${c[1]}`
-          : c.length === 3
-            ? `${c[0]}, ${c[1]} et ${c[2]}`
-            : `${c[0]}, ${c[1]} et ${c.length - 2} autres`)
+  const de = sujet ?? nommerLesCategories(c) ?? 'Un peu de tout'
   const adjectif = choix.difficulte === 'facile' ? ' faciles' : choix.difficulte === 'corsee' ? ' corsées' : ''
   return `${de} · ${nombre} question${nombre > 1 ? 's' : ''}${adjectif}${choix.enfants ? ' · en famille' : ''}`
 }

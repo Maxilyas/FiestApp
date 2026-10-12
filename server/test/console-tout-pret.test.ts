@@ -97,11 +97,11 @@ test('la feuille dit ce que durera le quiz, et ce que « Des enfants jouent » p
   memoire.delete('quizz.quizToutPret')
   const html = renderToStaticMarkup(React.createElement(module.FeuilleDuQuizToutPret, { onFermer: () => {}, onCompose: () => {} }))
   // Quinze questions, dont trois estimations de trente secondes : huit minutes, révélations comprises.
-  assert.match(html, /class="tout-pret-resume">Toutes les catégories · progressive · ≈ 8 min</)
+  assert.match(html, /class="tout-pret-resume" aria-live="polite">Toutes les catégories · progressive · ≈ 8 min</)
   assert.match(html, /D’abord ce que les enfants savent/)
   memoire.set('quizz.quizToutPret', JSON.stringify({ nombre: 30, estimations: false, enfants: true }))
   const long = renderToStaticMarkup(React.createElement(module.FeuilleDuQuizToutPret, { onFermer: () => {}, onCompose: () => {} }))
-  assert.match(long, /class="tout-pret-resume">Toutes les catégories · progressive · ≈ 14 min · des enfants jouent · que des QCM</)
+  assert.match(long, /class="tout-pret-resume" aria-live="polite">Toutes les catégories · progressive · ≈ 14 min · des enfants jouent · que des QCM</)
   memoire.delete('quizz.quizToutPret')
 })
 

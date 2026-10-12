@@ -5,7 +5,6 @@ import { GrilleDesCategories, GrilleDesSujets } from './ChoixDuTheme'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { formatNumber } from '../../../shared/typographie'
-import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { sujetParCle, type Sujet } from '../../../shared/sujets'
 import { CATEGORIES, type Categorie } from '../../../shared/categories'
 import { ecrireDuree, type QuizDef } from '../../../shared/library'
@@ -15,10 +14,39 @@ import {
   NOMBRE_DU_QUIZ_PAR_DEFAUT,
   UNE_ESTIMATION_SUR,
   dureeDuQuizToutPretS,
+  nommerLesCategories,
+  type ApercuDuQuiz,
   type BaseDuQuizToutPret,
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
+
+/**
+ * Ce que « Composer » va faire, en une ligne : sur quoi — ses catégories
+ * nommées, trois au plus : « 3 catégories » ne disait pas lesquelles —, la
+ * difficulté, la durée ; et, l'aperçu du serveur venu, ce que la base en
+ * donnera vraiment : moins de questions quand le choix est étroit, et ses
+ * estimations. « Des estimations » promettait une question sur cinq, et un
+ * sujet en a parfois moins, ou aucune — « Les records » (l'animatrice
+ * exigeante, le 11 octobre 2026).
+ */
+export function resumeDuQuiz(choix: ChoixDuQuiz, apercu: ApercuDuQuiz | null): string {
+  const quoi = (choix.sujet && sujetParCle(choix.sujet)?.nom) || nommerLesCategories(choix.categories) || 'Toutes les catégories'
+  const difficulte = DIFFICULTES_DU_QUIZ.find(d => d.cle === choix.difficulte)?.nom.toLowerCase() ?? ''
+  const duree = ecrireDuree(dureeDuQuizToutPretS(apercu?.questions ?? choix.nombre, choix.estimations, apercu?.estimations))
+  const morceaux = [quoi, difficulte, duree]
+  if (apercu && apercu.questions < choix.nombre) morceaux.push(`${apercu.questions} questions seulement`)
+  if (choix.enfants) morceaux.push('des enfants jouent')
+  if (!choix.estimations) morceaux.push('que des QCM')
+  else if (apercu) {
+    // Une sur cinq des questions qu'il aura : un choix étroit en a moins, et ses estimations avec elles.
+    const voulues = Math.round(apercu.questions / UNE_ESTIMATION_SUR)
+    const e = apercu.estimations
+    const s = e > 1 ? 's' : ''
+    morceaux.push(e === 0 ? 'aucune estimation ici' : e < voulues ? `${e} estimation${s} seulement` : `dont ${e} estimation${s}`)
+  }
+  return morceaux.join(' · ')
+}
 
 /**
  * Le dernier choix composé, retenu sur ce téléphone : qui compose un second
@@ -85,6 +113,10 @@ export function FeuilleDuQuizToutPret({
   // Cochées d'office, comme dans les quiz livrés : l'estimation au plus près fait parler la salle.
   const [estimations, setEstimations] = useState(retenu.estimations ?? true)
   const [compose, setCompose] = useState(false)
+  const choix: ChoixDuQuiz = { categories: categories as Categorie[], sujet, difficulte, nombre, enfants, estimations }
+  const cleDuChoix = JSON.stringify(choix)
+  // L'aperçu du choix d'à présent : celui d'un autre choix, en route, ne se lit pas.
+  const [apercu, setApercu] = useState<{ pour: string; lu: ApercuDuQuiz } | null>(null)
 
   useEffect(() => {
     let ouverte = true
@@ -97,12 +129,29 @@ export function FeuilleDuQuizToutPret({
     }
   }, [])
 
+  // Ce que le choix composerait, demandé un quart de seconde après le dernier toucher : pas une requête par pastille effleurée.
+  useEffect(() => {
+    if (!base) return
+    let vivant = true
+    const lu = JSON.parse(cleDuChoix) as ChoixDuQuiz
+    const minuterie = setTimeout(() => {
+      api.quizToutPret
+        .apercu(lu)
+        .then(a => vivant && setApercu({ pour: cleDuChoix, lu: a }))
+        // Sans aperçu, la ligne dit ce qu'elle disait : rien de faux.
+        .catch(() => {})
+    }, 250)
+    return () => {
+      vivant = false
+      clearTimeout(minuterie)
+    }
+  }, [base, cleDuChoix])
+
   const composer = async () => {
     if (compose || !base) return
     setCompose(true)
     setErreur('')
     try {
-      const choix: ChoixDuQuiz = { categories: categories as Categorie[], sujet, difficulte, nombre, enfants, estimations }
       const quiz = await api.quizToutPret.composer(choix)
       retenirLeChoix(choix)
       onCompose(quiz)
@@ -114,8 +163,8 @@ export function FeuilleDuQuizToutPret({
   }
 
   const sujets = (base?.sujets ?? []).map(sujetParCle).filter((s): s is Sujet => !!s)
-  const quoi = nomDuChoix(categories, sujet)
   const laDifficulte = DIFFICULTES_DU_QUIZ.find(d => d.cle === difficulte)!
+  const lu = apercu && apercu.pour === cleDuChoix ? apercu.lu : null
   return (
     <Feuille
       titre="Un quiz tout prêt"
@@ -123,14 +172,13 @@ export function FeuilleDuQuizToutPret({
       pied={
         <>
           {/* Ce que « Composer » va faire, en une ligne — et combien de temps il durera : le bouton, lui, ne tient pas les catégories. */}
-          <p className="tout-pret-resume">
-            {espacesFines(
-              `${quoi ?? 'Toutes les catégories'} · ${laDifficulte.nom.toLowerCase()} · ${ecrireDuree(dureeDuQuizToutPretS(nombre, estimations))}${enfants ? ' · des enfants jouent' : ''}${estimations ? '' : ' · que des QCM'}`,
-            )}
+          <p className="tout-pret-resume" aria-live="polite">
+            {espacesFines(resumeDuQuiz(choix, lu))}
           </p>
           <button type="button" className="btn btn-primary btn-big btn-block" aria-busy={compose || undefined} disabled={!base || compose} onClick={() => void composer()}>
             <Icon name="dice" />
-            {compose ? 'Je compose…' : `${verbe} ${nombre} questions`}
+            {/* Ce que la base donnera vraiment, l'aperçu venu : « Composer 12 questions » quand le choix est étroit. */}
+            {compose ? 'Je compose…' : `${verbe} ${lu && lu.questions > 0 && lu.questions < nombre ? lu.questions : nombre} questions`}
           </button>
         </>
       }

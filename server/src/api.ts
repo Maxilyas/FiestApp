@@ -10,6 +10,7 @@ import type { PartageStore } from './core/partages'
 import { mountPartages } from './partages'
 import type { Programme } from '../../shared/programme'
 import type { EquipePreparee } from '../../shared/teams'
+import type { ApercuDuQuiz, ChoixDuQuiz } from '../../shared/quizToutPret'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
@@ -461,18 +462,35 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
+  /** Le tirage d'un choix dans ce que l'espace n'a pas encore — celui que « Composer » range, celui que l'aperçu compte. */
+  const tirerPourLEspace = async (spaceId: string, choix: ChoixDuQuiz) => {
+    const [{ questions, mesures }, bibliotheque, memoire] = await Promise.all([
+      deps.campagne.pourLesSoirees(),
+      deps.store.all(spaceId),
+      deps.archives.memoire(spaceId),
+    ])
+    return { bibliotheque, tirees: composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, dejaDansLEspace(bibliotheque, dernieresFois(memoire))) }
+  }
+
+  // Ce qu'un choix composerait, sans rien ranger : la feuille le dit avant
+  // « Composer » — dont combien d'estimations, qu'un sujet n'a pas toujours.
+  app.post(
+    '/api/quiz-tout-pret/apercu',
+    wrap(async (req, res) => {
+      const choix = lireChoixDuQuiz(req.body)
+      if (!choix) return res.status(400).json({ error: 'Ce choix ne se lit pas : recharge la page' })
+      const { tirees } = await tirerPourLEspace(spaceOf(res), choix)
+      res.json({ questions: tirees.length, estimations: tirees.filter(q => q.kind === 'number').length } satisfies ApercuDuQuiz)
+    }),
+  )
+
   app.post(
     '/api/quiz-tout-pret',
     wrap(async (req, res) => {
       const choix = lireChoixDuQuiz(req.body)
       if (!choix) return res.status(400).json({ error: 'Ce choix ne se lit pas : recharge la page' })
       const spaceId = spaceOf(res)
-      const [{ questions, mesures }, bibliotheque, memoire] = await Promise.all([
-        deps.campagne.pourLesSoirees(),
-        deps.store.all(spaceId),
-        deps.archives.memoire(spaceId),
-      ])
-      const tirees = composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, dejaDansLEspace(bibliotheque, dernieresFois(memoire)))
+      const { bibliotheque, tirees } = await tirerPourLEspace(spaceId, choix)
       if (tirees.length < NOMBRE_MIN) {
         return res.status(400).json({ error: 'Il ne reste pas assez de questions pour ce choix : ajoute une catégorie, ou change de difficulté' })
       }

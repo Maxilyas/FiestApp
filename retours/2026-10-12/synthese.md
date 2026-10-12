@@ -149,3 +149,22 @@ Coup d'œil — · Réflexe — ». Sans soirée, ses cadrans sont ceux du solo 
 son record de série, les paliers de ses sentiers, ses bonnes réponses de
 campagne — chacun s'il a quelque chose à dire. Qui joue aussi en soirée
 garde les cadrans des soirées, et sa campagne en pastille.
+
+# La feuille du quiz tout prêt dit ce qu'il composera
+
+Le constat 9 de l'animatrice exigeante (atelier du 11 octobre) : « Des
+estimations », cochées d'office, promettaient une question sur cinq, et
+dix-huit réglages sur cent trois en livraient moins sans rien dire — « Les
+records » aucune ; le résumé disait « 3 catégories » sans dire lesquelles.
+Un aperçu du serveur (`POST /api/quiz-tout-pret/apercu`, le même tirage que
+« Composer », rien d'écrit) compte maintenant les questions et les
+estimations, et le résumé le dit : « Toutes les catégories · progressive ·
+≈ 8 min · dont 3 estimations », « Les records · … · aucune estimation ici »,
+« Cuisine · … · 12 questions seulement ». Le bouton dit le vrai nombre de
+questions. PR #165.
+
+Mesuré aussi cette nuit, client d'avant la nuit (#157) contre client d'après
+(#164), en séries entrelacées sur la même machine (4G, processeur ×4, trois
+essais, deux tours) : aucune page n'a ralenti — les écarts tiennent dans le
+bruit (±70 ms sur l'écran utile, ±40 ms de script), le JavaScript pèse le
+même poids à un kilo-octet près.

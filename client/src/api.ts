@@ -21,7 +21,7 @@ import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
-import type { BaseDuQuizToutPret, ChoixDuQuiz } from '../../shared/quizToutPret'
+import type { ApercuDuQuiz, BaseDuQuizToutPret, ChoixDuQuiz } from '../../shared/quizToutPret'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EquipePreparee } from '../../shared/teams'
@@ -218,6 +218,8 @@ export const api = {
   quizToutPret: {
     base: () => req<BaseDuQuizToutPret>('/api/quiz-tout-pret'),
     composer: (choix: ChoixDuQuiz) => req<QuizDef>('/api/quiz-tout-pret', { method: 'POST', body: JSON.stringify(choix) }),
+    /** Ce qu'un choix composerait, sans rien ranger : combien de questions, dont combien d'estimations. */
+    apercu: (choix: ChoixDuQuiz) => req<ApercuDuQuiz>('/api/quiz-tout-pret/apercu', { method: 'POST', body: JSON.stringify(choix) }),
   },
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
