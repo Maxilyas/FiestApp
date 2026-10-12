@@ -12,6 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
+import { DejaPrises } from './jumelles'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
@@ -938,7 +939,7 @@ export class CampagneStore {
    * il ne revoit une question qu'une fois toutes les autres de sa marche
    * passées, la plus anciennement vue d'abord (`parFraicheur`), et la base
    * en compte des milliers ; ses catégories, puis leurs sous-thèmes, y
-   * passent à tour de rôle (`aTourDeRole`). Sur un sujet
+   * passent à tour de rôle, sans deux jumelles (`tirerUneSerie`). Sur un sujet
    * (`shared/sujets.ts`), ses catégories n'y sont pour rien : il les
    * traverse toutes.
    */
@@ -958,7 +959,7 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure, vues, maintenant), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = tirerUneSerie(jouables, mesure, vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -1587,7 +1588,7 @@ export class CampagneStore {
       if (!questions) {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
         if (jouables.length < QUESTIONS_POUR_JOUER) return []
-        const tirees = ordreDeSerie(marchesDeLaSerie(jouables, mesure), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+        const tirees = tirerUneSerie(jouables, mesure).map(x => versQuestionDeSerie(x.question, x.niveau))
         await this.client.execute({
           sql: 'INSERT INTO campagne_defis (semaine, questions, tire_le) VALUES (?, ?, ?) ON CONFLICT(semaine) DO NOTHING',
           args: [semaine, JSON.stringify(tirees), this.maintenant()],
@@ -2064,7 +2065,7 @@ export class CampagneStore {
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
       }
-      const questions = ordreDeSerie(marchesDeLaSerie(jouables, mesure, vues, maintenant), QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = tirerUneSerie(jouables, mesure, vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
       for (let essai = 0; ; essai++) {
         const duel: Duel = {
@@ -4990,6 +4991,24 @@ export function parFraicheur<T extends { id: string }>(questions: readonly T[], 
 }
 
 /**
+ * Ce que les marches d'un même tirage tiennent en commun : combien chaque
+ * catégorie et chaque sous-thème ont servi, et, si l'on veut, les questions
+ * déjà prises, pour reconnaître leurs jumelles (`DejaPrises`).
+ */
+interface Servies<T> {
+  categories: Map<string, number>
+  sousThemes: Map<string, number>
+  deja?: { jumelle(q: T): boolean; prendre(q: T): void }
+}
+
+/**
+ * Combien de questions d'une file se regardent pour en trouver une qui n'est
+ * la jumelle d'aucune déjà prise : au-delà, la file passe pour jumelle — une
+ * famille entière ne se fouille pas à chaque place.
+ */
+const REGARD_DES_JUMELLES = 12
+
+/**
  * Une marche où les catégories passent à tour de rôle, puis, dans chacune,
  * ses sous-thèmes. Tirée au hasard, une série reflétait la base : après les
  * faits de Wikidata, quatre questions expertes sur dix venaient de l'art ou
@@ -4997,8 +5016,106 @@ export function parFraicheur<T extends { id: string }>(questions: readonly T[], 
  * de musique une musique de film sur trois (le 11 octobre 2026). La fraîcheur
  * passe devant — une jamais vue d'une catégorie déjà servie bat une déjà vue
  * d'une autre, une vue d'hier soir reste en dernier — ; à fraîcheur égale, la
- * catégorie la moins servie, puis son sous-thème le moins servi, puis l'ordre
- * reçu : le hasard du battage, ou la plus anciennement vue (`parFraicheur`).
+ * catégorie la moins servie, puis son sous-thème le moins servi, puis une
+ * question qui n'est la jumelle d'aucune déjà prise (`jumelles`) — la file
+ * de son sous-thème en cherche une parmi ses premières —, puis l'ordre reçu :
+ * le hasard du battage, ou la plus anciennement vue (`parFraicheur`). Elle se
+ * tire en plusieurs fois (`prendre`), et plusieurs marches partagent leurs
+ * comptes (`Servies`) : une série prend cinq questions de chacune dans
+ * l'ordre où elle les pose, puis le reste.
+ */
+class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: string } }> {
+  /** Les jamais vues, les vues, celles des dernières vingt-quatre heures : une classe ne s'ouvre qu'une fois la précédente vide. */
+  private readonly classes: T[][] = [[], [], []]
+  private classe = -1
+  /** Une file par sous-thème de la classe ouverte, dans l'ordre reçu : le rang de sa tête départage deux files à égalité. */
+  private files: { categorie: string; cle: string; questions: T[]; rangs: number[] }[] = []
+
+  constructor(
+    questions: readonly T[],
+    vues: ReadonlyMap<string, number>,
+    maintenant: number,
+    private readonly servies: Servies<T> = { categories: new Map(), sousThemes: new Map() },
+  ) {
+    const fraicheur = fraicheurDe(vues, maintenant)
+    for (const q of questions) {
+      const f = fraicheur(q.id)
+      this.classes[f.recente ? 2 : f.vue ? 1 : 0].push(q)
+    }
+  }
+
+  /** Les `n` questions suivantes de la marche, moins quand elle n'en a plus. */
+  prendre(n: number): T[] {
+    const { categories, sousThemes, deja } = this.servies
+    const tirees: T[] = []
+    while (tirees.length < n) {
+      const choix = this.suivante()
+      if (!choix) break
+      const { file, i } = choix
+      const [q] = file.questions.splice(i, 1)
+      file.rangs.splice(i, 1)
+      tirees.push(q)
+      categories.set(file.categorie, (categories.get(file.categorie) ?? 0) + 1)
+      sousThemes.set(file.cle, (sousThemes.get(file.cle) ?? 0) + 1)
+      deja?.prendre(q)
+    }
+    return tirees
+  }
+
+  private suivante(): { file: TourDeRole<T>['files'][number]; i: number } | null {
+    const { categories, sousThemes, deja } = this.servies
+    for (;;) {
+      // Les files de la catégorie la moins servie, et de son sous-thème le moins servi.
+      let moins: number[] | null = null
+      let egales: TourDeRole<T>['files'] = []
+      for (const f of this.files) {
+        if (f.questions.length === 0) continue
+        const r = [categories.get(f.categorie) ?? 0, sousThemes.get(f.cle) ?? 0]
+        if (!moins || passeAvant(r, moins)) {
+          moins = r
+          egales = [f]
+        } else if (!passeAvant(moins, r)) egales.push(f)
+      }
+      if (egales.length === 0) {
+        if (!this.ouvrirLaClasseSuivante()) return null
+        continue
+      }
+      egales.sort((a, b) => a.rangs[0] - b.rangs[0])
+      if (!deja) return { file: egales[0], i: 0 }
+      // La question reçue la première parmi celles qui ne sont pas des
+      // jumelles : les rangs d'une file montent, et une file dont la tête
+      // vient après la meilleure trouvée n'a rien de mieux.
+      let meilleure: { file: (typeof egales)[number]; i: number } | null = null
+      for (const f of egales) {
+        if (meilleure && f.rangs[0] > meilleure.file.rangs[meilleure.i]) break
+        for (let i = 0; i < Math.min(f.questions.length, REGARD_DES_JUMELLES); i++) {
+          if (meilleure && f.rangs[i] > meilleure.file.rangs[meilleure.i]) break
+          if (!deja.jumelle(f.questions[i])) {
+            meilleure = { file: f, i }
+            break
+          }
+        }
+      }
+      return meilleure ?? { file: egales[0], i: 0 }
+    }
+  }
+
+  private ouvrirLaClasseSuivante(): boolean {
+    if (++this.classe >= this.classes.length) return false
+    const files = new Map<string, TourDeRole<T>['files'][number]>()
+    this.classes[this.classe].forEach((q, rang) => {
+      const cle = `${q.meta.categorie}\u0000${q.meta.sousTheme}`
+      const f = files.get(cle) ?? files.set(cle, { categorie: q.meta.categorie, cle, questions: [], rangs: [] }).get(cle)!
+      f.questions.push(q)
+      f.rangs.push(rang)
+    })
+    this.files = [...files.values()]
+    return true
+  }
+}
+
+/**
+ * Une marche seule, catégories et sous-thèmes à tour de rôle (`TourDeRole`).
  * Ne range que les `max` premières : une série n'en lit pas plus, et la base
  * en compte des milliers par marche.
  */
@@ -5008,154 +5125,42 @@ export function aTourDeRole<T extends { id: string; meta: { categorie: string; s
   maintenant: number,
   max = QUESTIONS_PAR_SERIE,
 ): T[] {
-  const fraicheur = fraicheurDe(vues, maintenant)
-  const classes: T[][] = [[], [], []]
-  for (const q of questions) {
-    const f = fraicheur(q.id)
-    classes[f.recente ? 2 : f.vue ? 1 : 0].push(q)
-  }
-  /** Une file par sous-thème, dans l'ordre reçu : le rang de sa tête départage deux files à égalité. */
-  type File = { categorie: string; cle: string; questions: T[]; rangs: number[]; tete: number }
-  const servieLaCategorie = new Map<string, number>()
-  const servieLeSousTheme = new Map<string, number>()
-  const tirees: T[] = []
-  for (const classe of classes) {
-    const files = new Map<string, File>()
-    classe.forEach((q, rang) => {
-      const cle = `${q.meta.categorie}\u0000${q.meta.sousTheme}`
-      const f = files.get(cle) ?? files.set(cle, { categorie: q.meta.categorie, cle, questions: [], rangs: [], tete: 0 }).get(cle)!
-      f.questions.push(q)
-      f.rangs.push(rang)
-    })
-    for (let reste = classe.length; reste > 0 && tirees.length < max; reste--) {
-      let meilleure: File | null = null
-      let sonRang: number[] | null = null
-      for (const f of files.values()) {
-        if (f.tete >= f.questions.length) continue
-        const r = [servieLaCategorie.get(f.categorie) ?? 0, servieLeSousTheme.get(f.cle) ?? 0, f.rangs[f.tete]]
-        if (!sonRang || passeAvant(r, sonRang)) {
-          meilleure = f
-          sonRang = r
-        }
-      }
-      if (!meilleure) break
-      tirees.push(meilleure.questions[meilleure.tete++])
-      servieLaCategorie.set(meilleure.categorie, (servieLaCategorie.get(meilleure.categorie) ?? 0) + 1)
-      servieLeSousTheme.set(meilleure.cle, (servieLeSousTheme.get(meilleure.cle) ?? 0) + 1)
-    }
-  }
-  return tirees
+  return new TourDeRole(questions, vues, maintenant).prendre(max)
 }
 
 /**
- * Les marches d'une série — une série, un défi de la semaine, un défi entre
- * amis —, chacune rangée par fraîcheur puis ses catégories à tour de rôle
- * (`aTourDeRole`). Sans `vues`, toutes passent pour jamais vues : le défi
- * se tire pour tous.
+ * Les questions d'une série — une série, un défi de la semaine, un duel —,
+ * dans l'ordre où elle les pose (`ordreDeSerie`) : chaque marche rangée par
+ * fraîcheur, ses catégories à tour de rôle (`TourDeRole`). Sans `vues`,
+ * toutes passent pour jamais vues : le défi se tire pour tous. Les marches
+ * se tirent dans cet ordre-là — cinq de chacune, de la facile à l'experte,
+ * puis le reste en repartant de l'experte — et partagent leurs comptes :
+ * les catégories et les sous-thèmes tournent d'une marche à l'autre — chaque
+ * marche repartait de zéro, et une même catégorie pouvait ouvrir les
+ * quatre —, et une jumelle se juge sur tout ce que la série a posé avant
+ * elle : une série du petit écran posait cinq « Qui a créé la série… » en
+ * vingt questions, une de géographie trois capitales (le 12 octobre 2026).
  */
-function marchesDeLaSerie(
+export function tirerUneSerie(
   jouables: readonly QuestionDeLaBase[],
   mesure: ReadonlyMap<string, { justes: number; total: number }>,
   vues: ReadonlyMap<string, number> = new Map(),
   maintenant = 0,
-): Record<Niveau, QuestionDeLaBase[]> {
+): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
   // Battues, puis rangées par ce qu'il en a vu : chaque marche garde cet ordre.
   for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
-  for (const n of NIVEAUX) parNiveau[n] = aTourDeRole(parNiveau[n], vues, maintenant)
-  return parNiveau
-}
-
-/** Les mots qui ne disent rien de la forme d'un intitulé. */
-const MOTS_VIDES = new Set(['le', 'la', 'les', 'l', 'de', 'du', 'des', 'd', 'un', 'une', 'a', 'au', 'aux', 'en', 'et', 's', 'est', 'ce', 'cet', 'cette', 'qu', 'que'])
-
-/**
- * La forme d'un intitulé : ses trois premiers mots pleins, sans accents —
- * « Qui a réalisé le film… ? » donne « qui realise film ». Les familles
- * écrites en série en partagent une : deux cent vingt-quatre « Qui a réalisé
- * le film… » au cinéma, cent quatre « Qui a reçu le prix… » aux lettres.
- */
-export function gabaritDe(texte: string): string {
-  return sansAccent(texte)
-    .split(/[^a-z0-9]+/)
-    .filter(m => m && !MOTS_VIDES.has(m))
-    .slice(0, 3)
-    .join(' ')
-}
-
-/** Une réponse comparable : sans casse, sans accents, sans son article — « Le chevreau » et « chevreau » sont la même. */
-const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une)\s*/, '')
-
-type Intitule = { texte: string; reponses: readonly string[] }
-type Signe = { forme: string; reponses: string[] } | null
-
-/**
- * Gardés tant que la question vit : une épreuve en relit des centaines, et
- * les recalculer à chaque tirage le rendait dix fois plus lent (6 ms au lieu
- * de 0,6 sur la vraie base).
- */
-const signesGardes = new WeakMap<Intitule, Signe>()
-
-/** Ce qui fait la jumelle d'une question : sa forme, ses réponses nettes — rien pour un vrai ou faux, un genre et pas une redite. */
-function signeDe(q: Intitule): Signe {
-  if (signesGardes.has(q)) return signesGardes.get(q)!
-  const signe = q.reponses.length < 3 ? null : { forme: gabaritDe(q.texte), reponses: [...new Set(q.reponses.map(reponseNette))] }
-  signesGardes.set(q, signe)
-  return signe
-}
-
-/**
- * Deux questions jumelles : la même forme (`gabaritDe`), ou deux réponses
- * proposées en commun — « le petit de la chèvre », « de la vache »,
- * « du cerf », « du sanglier » ne partagent pas leurs premiers mots pleins,
- * mais leurs agneau, veau, poulain et chevreau.
- */
-export function jumelles(a: Intitule, b: Intitule): boolean {
-  const x = signeDe(a)
-  const y = signeDe(b)
-  if (!x || !y) return false
-  if (x.forme === y.forme) return true
-  const deB = new Set(y.reponses)
-  return x.reponses.filter(r => deB.has(r)).length >= 2
-}
-
-/**
- * Les questions déjà prises d'une épreuve, pour reconnaître d'un coup d'œil
- * la jumelle de l'une d'elles (`jumelles`) : une épreuve en regarde des
- * centaines pour chacune de ses seize places, et comparer chaque candidate à
- * chaque prise, intitulés relus, coûtait des secondes. Les formes et les
- * réponses de chaque question se lisent une fois (`signesGardes`).
- */
-class DejaPrises {
-  private formes = new Set<string>()
-  /** Chaque réponse nette, et les prises qui la proposent. */
-  private parReponse = new Map<string, number[]>()
-  private prises = 0
-
-  prendre(q: Intitule) {
-    const s = signeDe(q)
-    const i = this.prises++
-    if (!s) return
-    this.formes.add(s.forme)
-    for (const r of s.reponses) (this.parReponse.get(r) ?? this.parReponse.set(r, []).get(r)!).push(i)
+  const servies: Servies<QuestionDeLaBase> = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
+  const tours = new Map(NIVEAUX.map(n => [n, new TourDeRole(parNiveau[n], vues, maintenant, servies)]))
+  const marches: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
+  for (const n of NIVEAUX) marches[n].push(...tours.get(n)!.prendre(QUESTIONS_PAR_MARCHE))
+  let reste = QUESTIONS_PAR_SERIE - NIVEAUX.reduce((s, n) => s + marches[n].length, 0)
+  for (const n of [...NIVEAUX].reverse()) {
+    const suite = tours.get(n)!.prendre(reste)
+    marches[n].push(...suite)
+    reste -= suite.length
   }
-
-  jumelle(q: Intitule): boolean {
-    // Rien de pris encore : personne n'a de jumelle — la première place se lit sans rien calculer.
-    if (this.prises === 0) return false
-    const s = signeDe(q)
-    if (!s) return false
-    if (this.formes.has(s.forme)) return true
-    const communes = new Map<number, number>()
-    for (const r of s.reponses) {
-      for (const i of this.parReponse.get(r) ?? []) {
-        const n = (communes.get(i) ?? 0) + 1
-        if (n >= 2) return true
-        communes.set(i, n)
-      }
-    }
-    return false
-  }
+  return ordreDeSerie(marches, QUESTIONS_PAR_SERIE)
 }
 
 /** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */
