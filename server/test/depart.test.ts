@@ -85,7 +85,7 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'sujets', 'quiz']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
@@ -94,17 +94,17 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   assert.match(source('views/PlayerApp.tsx'), /await fetch\(dataUrl\(slug, 'entree\.json'\)\)/)
 })
 
-test('les sentiers, que le serveur ne peut pas précharger, partent du premier script — par la règle qui les fera demander', () => {
+test('les sentiers et l’onglet « Apprendre », que le serveur ne peut pas précharger, partent du premier script — par la règle qui les fera demander', () => {
   // `#sentiers` ne parvient pas au serveur : le premier script de la page les
   // précharge (`main.tsx`), une demi-seconde avant le code de la campagne.
   const campagne = parseRoute('/campagne')
-  // Les sentiers à thème avec eux : demandés au montage, ils revenaient un
-  // aller-retour après la carte, et la redessinaient en entier.
-  const sentiers = ['/api/campagne/sentiers', '/api/campagne/sujets']
+  // Les sentiers seuls : les parcours de thème, qui partaient avec eux, sont dans « Apprendre » (le 12 octobre 2026).
+  const sentiers = ['/api/campagne/sentiers']
   assert.deepEqual(donneesDuFragment(campagne, '#sentiers'), sentiers)
   for (const b of BRANCHES) assert.deepEqual(donneesDuFragment(campagne, `#sentier-${b.key}`), sentiers, b.key)
-  for (const hash of ['', '#defi', '#duel-K7M2QX', '#sentiersx', '#sentier']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
+  for (const hash of ['', '#defi', '#duel-K7M2QX', '#sentiersx', '#sentier', '#carnets']) assert.deepEqual(donneesDuFragment(campagne, hash), [], hash)
   assert.deepEqual(donneesDuFragment(parseRoute('/profil'), '#sentiers'), [], 'ailleurs que la campagne, rien')
+  assert.deepEqual(donneesDuFragment(parseRoute('/profil'), '#carnet'), [], 'ailleurs que la campagne, rien')
   // Les adresses que `Sentiers.tsx` écrit tombent sous la règle.
   assert.match(source('views/Sentiers.tsx'), /export const ADRESSE_DES_SENTIERS = '#sentiers'\nconst PREFIXE = '#sentier-'/)
   assert.ok(versLesSentiers('#sentiers') && versLesSentiers('#sentier-foret'))
@@ -115,12 +115,14 @@ test('les sentiers, que le serveur ne peut pas précharger, partent du premier s
   assert.match(source('main.tsx'), /for \(const adresse of donneesDuFragment\(route, window\.location\.hash\)\) \{/)
   assert.match(source('main.tsx'), /lien\.rel = 'preload'\n\s*lien\.as = 'fetch'\n\s*lien\.href = adresse\n\s*lien\.crossOrigin = 'anonymous'/)
   // Un défi entre amis (`#duel-K7M2QX`) et sa préparation vivent dans la page des duels : la campagne n'y lit jamais un sentier.
-  // Le carnet (`#carnet`) non plus, et il ne précharge rien : sa page demande le sien.
   assert.match(
     source('views/CampagneApp.tsx'),
     /const modeDe = \(hash: string\): Mode =>\s*DUELS\s*\? estLeLancement\(hash\)\s*\? 'defier'\s*: codeDuLien\(hash\)\s*\? 'duel'\s*: 'duels'\s*: hash === ADRESSE_DU_DEFI\s*\? 'defi'\s*: hash === ADRESSE_DU_CARNET\s*\? 'carnet'\s*: versLesSentiers\(hash\)\s*\? 'sentiers'\s*: 'serie'/,
   )
-  assert.deepEqual(donneesDuFragment(campagne, '#carnet'), [], '#carnet')
+  // L'onglet « Apprendre » (`#carnet`) : son carnet et ses parcours de thème, que sa page demande ensemble à son
+  // ouverture, quel que soit le visiteur (`parcours.test.ts`) — par la même adresse que la règle lit.
+  assert.deepEqual(donneesDuFragment(campagne, '#carnet'), ['/api/campagne/carnet', '/api/campagne/sujets'], '#carnet')
+  assert.match(source('views/Carnet.tsx'), /export const ADRESSE_DU_CARNET = ADRESSE_D_APPRENDRE/)
   // La préparation d'un défi non plus — contre quelqu'un compris (`#defier-<id>`) : elle lit l'état de la campagne, que la page demande toujours.
   assert.deepEqual(donneesDuFragment(campagne, '#defier'), [], '#defier')
   assert.deepEqual(donneesDuFragment(campagne, '#defier-a1b2'), [], '#defier-a1b2')
@@ -495,23 +497,18 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
   let sujets = 0
   globalThis.fetch = (async (url: string) => {
     if (url === '/api/campagne/sentiers') demandes++
-    if (url === '/api/campagne/sujets') {
-      const numero = ++sujets
-      return { ok: true, status: 200, text: async () => JSON.stringify({ sujets: [], numero }) }
-    }
+    if (url === '/api/campagne/sujets') sujets++
     return { ok: true, status: 200, text: async () => JSON.stringify({ vies: 12, numero: demandes }) }
   }) as unknown as typeof fetch
   try {
-    const { demanderLesSentiers, lesSentiers, lesSujets } = await import(client('views/Sentiers.tsx').href)
+    const { demanderLesSentiers, lesSentiers } = await import(client('views/Sentiers.tsx').href)
     demanderLesSentiers()
     demanderLesSentiers()
     assert.equal(demandes, 1, 'une seule demande d’avance')
-    assert.equal(sujets, 1, 'les sentiers à thème partent avec eux, une fois')
+    assert.equal(sujets, 0, 'les parcours de thème ne partent plus avec eux : ils sont dans « Apprendre »')
     assert.deepEqual(await lesSentiers(), { vies: 12, numero: 1 }, 'le montage reprend celle d’avance')
     assert.equal(demandes, 1)
     assert.deepEqual(await lesSentiers(), { vies: 12, numero: 2 }, 'les suivants redemandent')
-    assert.deepEqual(await lesSujets(), { sujets: [], numero: 1 }, 'le montage reprend les sentiers à thème d’avance')
-    assert.deepEqual(await lesSujets(), { sujets: [], numero: 2 }, 'les relectures d’après redemandent')
   } finally {
     Object.assign(globalThis, { window: avant.window })
     globalThis.fetch = avant.fetch
@@ -522,7 +519,7 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
     /const etat = DUELS \? null : api\.campagne\.etat\(\)\n\s*etat\?\.catch\(\(\) => \{\}\)\n\s*if \(!DUELS && modeDe\(window\.location\.hash\) === 'sentiers'\) demanderLesSentiers\(\)/,
   )
   assert.match(source('views/Sentiers.tsx'), /const lu = await lesSentiers\(\)/)
-  assert.match(source('views/Sentiers.tsx'), /const relireLesSujets = \(\) => \{\n\s*lesSujets\(\)/)
+  assert.doesNotMatch(source('views/Sentiers.tsx'), /lesSujets|api\.campagne\.sujets/, 'un préchargement que la page ne reprendrait pas partirait pour rien')
   // La boutique et un écran du profil n'attendent plus le profil pour demander leurs onglets —
   // jamais l'accueil, qui n'en montre rien (`campagne-ouverture.test.ts`).
   assert.match(source('views/ProfilApp.tsx'), /if \(VUE === 'boutique' \|\| \(VUE === 'profil' && \(profilConnuIci\(\) \|\| lireEcran\(\)\)\)\) void panneaux\.charger\(\)/)

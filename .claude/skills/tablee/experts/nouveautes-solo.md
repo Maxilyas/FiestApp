@@ -34,11 +34,12 @@ que tu cherches, ce que tu rates :
 2. **Les sentiers** (`/campagne#sentiers`) : avant de jouer, sais-tu ce que
    pose chaque sentier (sa catégorie, son thème) et la difficulté du palier
    à jouer ? Joue une épreuve à moitié, quitte-la par « ← Partir », reviens
-   la reprendre ; finis-en une (validée ou ratée) et lis sa fin. Ouvre
-   « Les sentiers à thème ».
-3. **La série et le carnet** : rate une série exprès ; ouvre le carnet ;
-   « Revoir tout mon carnet » ; au milieu, « Recommencer », puis
-   « ← Partir » : où arrives-tu, qu'as-tu perdu ?
+   la reprendre ; finis-en une (validée ou ratée) et lis sa fin.
+3. **La série et « Apprendre »** : choisis sur quoi jouer (« Changer », sous
+   le gros bouton) ; rate une série exprès ; ouvre l'onglet « Apprendre » —
+   le carnet, puis les parcours de thème — ; « Revoir tout mon carnet » ; au
+   milieu, « Recommencer », puis « ← Partir » : où arrives-tu, qu'as-tu
+   perdu ? Joue une étape d'un parcours de thème.
 4. **Le profil** (`/profil`) : change ton avatar, ta carte (son fond, son
    titre, sa vitrine), ton thème. Trouves-tu chaque réglage du premier coup ?
    La collection (ce qu'on a gagné) se confond-elle avec les réglages ?

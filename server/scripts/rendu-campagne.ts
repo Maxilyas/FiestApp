@@ -4,8 +4,8 @@
 // des séries ratées, une révision et ses réponses (retrouvée, apprise,
 // ratée), sa fin, ce qu'il a appris —, le rappel en fin de série, un duel
 // classé contre un inconnu et les défis entre amis — dans leur page,
-// `/duels` —, et les sentiers à thème. Le client construit d'abord
-// (`npm run build -w client`).
+// `/duels` —, et les parcours de thème, sous le carnet dans « Apprendre ».
+// Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-campagne.ts [dossier]
 import { createRequire } from 'node:module'
@@ -236,26 +236,28 @@ try {
   await page.waitForSelector('.rencontre-final')
   await photo('13-rencontre-gagnee', true)
   await ouvrir('/duels')
+  // « Tes duels joués » sont repliés : ils ne se rendent qu'au dépli (`TesDuelsJoues`).
+  await page.click('.duels-joues summary')
   await page.waitForSelector('.rencontre-liste')
   await page.locator('.rencontre-liste').scrollIntoViewIfNeeded()
   await photo('14-mes-duels')
 
-  // 6. Les sentiers à thème, repliés sous les douze : leurs tuiles, la fiche
-  // d'un sujet, une épreuve sans vies, et sa fin validée.
-  await ouvrir('/campagne#sentiers')
-  await page.waitForSelector('.sentiers-sujets summary')
-  await page.locator('.sentiers-sujets').scrollIntoViewIfNeeded()
-  await photo('15-sentiers-a-theme-replies')
-  await page.click('.sentiers-sujets summary')
-  await page.waitForSelector('.sujet-tuile')
-  await page.locator('.sentiers-sujets .sujets-famille').first().scrollIntoViewIfNeeded()
-  await photo('16-sentiers-a-theme')
-  await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).click()
-  await page.waitForSelector('.sujet-paliers')
-  await photo('17-fiche-d-un-theme')
-  await page.locator('.sujet-paliers button', { hasText: 'Jouer' }).click()
+  // 6. Les parcours de thème, sous le carnet dans « Apprendre » : une famille
+  // à la fois, la fiche d'un parcours, une étape sans vies, sa fin validée,
+  // et le retour aux parcours, où il est en cours.
+  await ouvrir('/campagne#carnet')
+  await page.waitForSelector('.parcours-ligne')
+  await page.locator('#parcours-titre').scrollIntoViewIfNeeded()
+  await photo('15-parcours-de-theme')
+  await page.click('#parcours-epoque')
+  await page.locator('.parcours-ligne', { hasText: 'Les années 80' }).scrollIntoViewIfNeeded()
+  await photo('16-parcours-des-epoques')
+  await page.locator('.parcours-ligne', { hasText: 'Les années 80' }).click()
+  await page.waitForSelector('.parcours-etapes')
+  await photo('17-fiche-d-un-parcours')
+  await page.locator('.parcours-etapes button', { hasText: 'Jouer' }).click()
   await repondre(true)
-  await photo('18-epreuve-de-theme')
+  await photo('18-etape-d-un-parcours')
   for (let i = 1; ; i++) {
     const suite = page.locator('.btn-primary.btn-big')
     if ((await suite.textContent())?.includes('Voir le résultat')) break
@@ -264,12 +266,10 @@ try {
   }
   await page.click('text=Voir le résultat')
   await page.waitForSelector('.epreuve-fin-tete')
-  await photo('19-fin-d-une-epreuve-de-theme', true)
-  await page.click('text=Retour aux sentiers')
-  await page.waitForSelector('.sentiers-sujets summary')
-  if (!(await page.locator('.sujet-tuile').first().isVisible())) await page.click('.sentiers-sujets summary')
-  await page.locator('.sujet-tuile', { hasText: 'Les années 80' }).scrollIntoViewIfNeeded()
-  await photo('20-un-palier-de-theme-valide')
+  await photo('19-fin-d-une-etape', true)
+  await page.click('text=Retour aux parcours')
+  await page.waitForSelector('[aria-label="Tes parcours en cours"]')
+  await photo('20-une-etape-validee')
 
   // 7. Les amis : Tom a relevé un défi de Léa, ils sont amis. Léa le défie
   // depuis ses duels — « Mes amis », sa ligne, « Défier Tom » sur sa carte —,

@@ -117,8 +117,11 @@ test('un sentier à thème se monte palier par palier, sans vies, sur les questi
     // Seuls les sujets qui ont de quoi : les années 80, pas les records ni la France.
     const etat = (await lire(banc, lea, '/api/campagne/sujets')).corps
     assert.deepEqual(etat, { sujets: [{ sujet: 'annees-80', paliers: 0, etoiles: [0, 0, 0, 0, 0, 0] }], epreuve: null })
-    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'records', palier: 1 })).corps.error, 'Ce sentier n’a pas encore assez de questions : reviens bientôt')
-    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'annees-80', palier: 2 })).corps.error, 'Valide d’abord le palier 1')
+    // Ses refus disent les mots de sa page : un parcours de thème, ses étapes (le choix du 12 octobre 2026).
+    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'records', palier: 1 })).corps.error, 'Ce parcours n’a pas encore assez de questions : reviens bientôt')
+    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'annees-80', palier: 2 })).corps.error, 'Valide d’abord l’étape 1')
+    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'astrologie', palier: 1 })).corps.error, 'Ce parcours n’existe pas')
+    assert.equal((await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'annees-80', palier: 7 })).corps.error, 'Cette étape n’existe pas')
 
     // Le premier palier : dix faciles des années 80.
     const p1 = (await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'annees-80', palier: 1 })).corps

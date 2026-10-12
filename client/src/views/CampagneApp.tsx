@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
@@ -15,7 +15,7 @@ import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ou
 import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
-import { ChoixDuTheme } from '../components/ChoixDuTheme'
+import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
@@ -285,9 +285,8 @@ export function CampagneApp() {
     retenirCategories(choisies)
     choisirSujet(null)
   }
-  // Le choix des catégories, déplié quand on vient de la fin d'une série pour en changer.
+  // La feuille du choix (`FeuilleDuChoix`), ouverte par « Changer » — et d'elle-même quand on vient de la fin d'une série pour en changer.
   const [choixOuvert, setChoixOuvert] = useState(false)
-  const choix = useRef<HTMLDetailsElement>(null)
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
   // Son profil, lu en léger : l'Éclat d'un défi s'y montre avec sa finition.
@@ -358,11 +357,11 @@ export function CampagneApp() {
         { id: 'sentiers', nom: 'Les sentiers', court: 'Sentiers', icone: 'target' },
         // Le défi de la semaine ; ceux des amis sont aux duels (`/duels`).
         { id: 'defi', nom: 'Le défi', court: 'Défi', icone: 'trophy' },
+        // Le carnet, puis les parcours de thème (le choix du 12 octobre 2026) : on y apprend, on n'y perd rien.
         // Ce qui l'attend aujourd'hui se compte sur l'onglet : sinon, il faudrait l'ouvrir pour le savoir.
         {
           id: 'carnet',
-          nom: 'Le carnet',
-          court: 'Carnet',
+          nom: 'Apprendre',
           icone: 'book',
           ...(aRevoir > 0 && { pastille: { n: aRevoir, label: `${aRevoir} à revoir aujourd’hui` } }),
         },
@@ -501,7 +500,7 @@ export function CampagneApp() {
     }
   }
 
-  /** Depuis la fin d'une série : l'accueil de la campagne, le choix des catégories déplié sous les yeux. */
+  /** Depuis la fin d'une série : l'accueil de la campagne, la feuille du choix ouverte par-dessus. */
   const changerDeCategorie = async () => {
     setChoixOuvert(true)
     try {
@@ -510,10 +509,6 @@ export function CampagneApp() {
       setErreur(motifDe(e))
     }
   }
-  // Seulement à l'arrivée sur l'accueil : déplié à la main, le choix ne fait rien défiler.
-  useEffect(() => {
-    if (ecran.e === 'accueil' && choixOuvert) choix.current?.scrollIntoView({ block: 'center' })
-  }, [ecran.e])
 
   const repondre = async (choix: number) => {
     if (ecran.e !== 'jeu' || ecran.reponse || busy) return
@@ -1002,13 +997,13 @@ export function CampagneApp() {
     // Les sujets que la base sert ; un sujet retenu qui n'en est plus un — un serveur d'avant, une base qui a changé — ne se joue pas.
     const sujets = SUJETS.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
     const sujetJouable = sujets.some(s => s.cle === sujet) ? sujet : null
-    const leSujet = sujetJouable ? sujetParCle(sujetJouable) : undefined
+    // Un choix à faire : plusieurs catégories, ou des sujets. Sinon, ni ligne ni feuille.
+    const aChoisir = etat.categories.length > 1 || sujets.length > 0
     return (
       <div className="player-shell campagne">
         <Sortie />
         {onglets}
         <Heros etat={etat} />
-        {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
         {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer. */}
         {etat.xpAujourdhui > 0 && (
           <p className="muted small campagne-xp-du-jour">
@@ -1018,28 +1013,6 @@ export function CampagneApp() {
         )}
         {pret ? (
           <>
-            {(etat.categories.length > 1 || sujets.length > 0) && (
-              <details className="reglages-salon" ref={choix} open={choixOuvert} onToggle={e => setChoixOuvert(e.currentTarget.open)}>
-                <summary>
-                  <Icon name="list" className="reglages-icone" />
-                  <span>
-                    <b>{sujets.length > 0 ? 'Catégories et sujets' : 'Catégories'}</b>
-                    <span className="muted small">
-                      {leSujet ? leSujet.nom : categories.length === 0 ? 'toutes' : `${categories.length} choisie${categories.length > 1 ? 's' : ''}`}
-                    </span>
-                  </span>
-                  <Icon name="chevron-down" className="repli-chevron" />
-                </summary>
-                <ChoixDuTheme
-                  categoriesJouables={etat.categories.map(c => c.categorie)}
-                  sujets={sujets}
-                  categories={categories}
-                  sujet={sujetJouable}
-                  onCategories={setCategories}
-                  onSujet={choisirSujet}
-                />
-              </details>
-            )}
             {erreur && (
               <p className="error" role="alert">
                 {erreur}
@@ -1072,9 +1045,26 @@ export function CampagneApp() {
               <Icon name="play" />
               {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
+            {/* Sur quoi, en une ligne sous le gros bouton : la grille dépliée ici, douze catégories et vingt-cinq sujets, faisait trois écrans. */}
+            {aChoisir && <LigneDuChoix categories={categories} sujet={sujetJouable} sur onChanger={() => setChoixOuvert(true)} />}
           </>
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
+        )}
+        {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
+        {pret && aChoisir && choixOuvert && (
+          <FeuilleDuChoix
+            categoriesJouables={etat.categories.map(c => c.categorie)}
+            sujets={sujets}
+            categories={categories}
+            sujet={sujetJouable}
+            onChoisir={(c, s) => {
+              // Ses catégories retenues, même sous un sujet : le quitter les rend.
+              setCategories(c)
+              if (s) choisirSujet(s)
+            }}
+            onFermer={() => setChoixOuvert(false)}
+          />
         )}
       </div>
     )
@@ -1741,7 +1731,7 @@ function RecordsParCategorie({ records, categories }: { records: { categorie: st
         <Icon name="chevron-down" className="repli-chevron" />
       </summary>
       <p className="muted small">
-        {`Une série d’une seule catégorie : choisis-la plus bas, parmi les catégories. ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le Tour du monde est à toi.`}
+        {`Une série d’une seule catégorie : choisis-la d’un « Changer », sous le gros bouton. ${RECORD_DU_TOUR_DU_MONDE} bonnes réponses dans chacune des ${categories.length}, et le Tour du monde est à toi.`}
       </p>
       <ul className="campagne-records-grille">
         {categories.map(c => {

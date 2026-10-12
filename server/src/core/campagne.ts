@@ -3600,7 +3600,9 @@ export class CampagneStore {
   // ── Les sentiers à thème ────────────────────────────────────────────────
   //
   // Un sujet de la campagne (`shared/sujets.ts`) monté en six paliers de dix
-  // questions, sans vies (`shared/sentiersDeSujets.ts`). Une épreuve est une
+  // questions, sans vies (`shared/sentiersDeSujets.ts`) — à l'écran, depuis
+  // le 12 octobre 2026, un parcours de thème et ses étapes, dans l'onglet
+  // « Apprendre » (`Parcours.tsx`). Une épreuve est une
   // série d'un autre mode (`mode = 'sujet'`, son sujet, son palier, son seuil
   // figé) : l'expérience, les confettis, la mesure des difficultés et le
   // carnet la comptent sans rien en savoir ; les vies, les paliers à portrait
@@ -3642,17 +3644,20 @@ export class CampagneStore {
   /**
    * Une épreuve d'un sentier à thème : le palier qui suit le dernier validé,
    * ou un palier validé, rejoué. Celle laissée sur ce palier reprend ; une
-   * autre laissée se referme — sans vies, rien ne se perd à la quitter.
+   * autre laissée se referme — sans vies, rien ne se perd à la quitter. La
+   * page les appelle des parcours de thème, et leurs paliers des étapes (le
+   * choix du 12 octobre 2026, quand ils ont quitté les sentiers pour l'onglet
+   * « Apprendre ») : ses refus disent ses mots.
    */
   commencerUnSujet(profileId: string, cle: unknown, n: unknown): Promise<EpreuveDeSujet> {
     return this.avecVerrou(profileId, async () => {
       const suivi = sujetParCle(cle)
-      if (!suivi) throw new Error('Ce sentier n’existe pas')
+      if (!suivi) throw new Error('Ce parcours n’existe pas')
       const regle = regleDuPalierDeSujet(n)
-      if (!regle) throw new Error('Ce palier n’existe pas')
+      if (!regle) throw new Error('Cette étape n’existe pas')
       const etat = await this.etatDesSujets(profileId)
       const sentier = etat.sujets.find(s => s.sujet === suivi.cle)
-      if (!sentier) throw new Error('Ce sentier n’a pas encore assez de questions : reviens bientôt')
+      if (!sentier) throw new Error('Ce parcours n’a pas encore assez de questions : reviens bientôt')
       const ouverte = etat.epreuve
       if (ouverte) {
         if (ouverte.sujet === suivi.cle && ouverte.palier === regle.n) {
@@ -3665,7 +3670,7 @@ export class CampagneStore {
         await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [this.maintenant(), ouverte.id] })
         this.enCours.delete(profileId)
       }
-      if (regle.n > sentier.paliers + 1) throw new Error(`Valide d’abord le palier ${sentier.paliers + 1}`)
+      if (regle.n > sentier.paliers + 1) throw new Error(`Valide d’abord l’étape ${sentier.paliers + 1}`)
       const [jouables, mesure, vues] = await Promise.all([this.jouablesDuSujet(suivi.cle), this.mesures(), this.vuesPar(profileId)])
       const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
       const e: Serie = {

@@ -4,7 +4,7 @@ import type { Sujet } from '../../shared/sujets'
 /**
  * L'icône d'un sujet (`shared/sujets.ts`) : l'horloge pour une époque, un
  * emblème pour un fil rouge ou un thème. La série les choisit avec, les
- * sentiers à thème les montent avec : une seule table pour les deux — un
+ * parcours de thème les montent avec : une seule table pour les deux — un
  * thème qu'on ajoute y prend la sienne.
  */
 const ICONE_DU_SUJET: Record<string, IconName> = {

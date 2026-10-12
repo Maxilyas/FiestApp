@@ -20,10 +20,10 @@ test('la campagne s’ouvre sur son défi : le record, l’échelle et les règl
   assert.match(heros, /\{XP_PAR_JUSTE\} XP par bonne réponse, sans limite — le double pour les \{JUSTES_DOUBLEES_PAR_JOUR\} premières du jour/)
   // Les cœurs ne se lisent pas deux fois à l'oreille.
   assert.match(heros, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
-  // Les catégories en grille, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher,
-  // qui quitte aussi un sujet choisi : sur un sujet, aucune catégorie ne se dit choisie. La grille
-  // vit à part, la même pour la série et pour un défi entre amis (`ChoixDuTheme`).
-  assert.match(page, /<ChoixDuTheme\s+categoriesJouables=/)
+  // Les catégories se choisissent dans une feuille, derrière « Changer » (`FeuilleDuChoix`, le 12 octobre
+  // 2026). La grille d'avant, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher,
+  // qui quitte aussi un sujet choisi, sert encore le quiz tout prêt : sur un sujet, aucune catégorie ne se dit choisie.
+  assert.match(page, /<FeuilleDuChoix\s+categoriesJouables=/)
   const grille = source('components/ChoixDuTheme.tsx')
   assert.match(grille, /<div className="categories-grille" role="group" aria-label="Catégories">/)
   assert.match(grille, /<Icon name=\{EMBLEME\[c\] \?\? 'star'\} \/>/)

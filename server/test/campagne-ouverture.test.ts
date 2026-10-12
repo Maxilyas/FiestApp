@@ -76,9 +76,12 @@ test('chaque partie de la campagne se quitte d’un « ← Partir » en haut ; r
   assert.match(page, /\{!r\?\.finie && \(\s*<Sortie vers="Partir" href=\{DUELS \? PAGE_DES_DUELS : [^\n]+ onClick=\{partir\} \/>\s*\)\}/)
   assert.match(page, /\{ecran\.revision && !r\?\.finie && \(\s*<GesteDuBas icone="rotate" busy=\{busy\} onClick=\{\(\) => void recommencerLaRevision\(\)\}>/)
   // Les épreuves des sentiers : partir garde l'épreuve en jeu, abandonner
-  // coûte une vie — chacun son geste ; celles d'un thème, sans vies, partent.
+  // coûte une vie — chacun son geste ; l'étape d'un parcours de thème, sans
+  // vies, part vers « Apprendre », où elle se reprend (`Parcours.tsx`).
   const sentiers = readFileSync(client('views/Sentiers.tsx'), 'utf8')
-  assert.equal([...sentiers.matchAll(/<Sortie vers="Partir"/g)].length, 2, 'les deux épreuves')
+  assert.equal([...sentiers.matchAll(/<Sortie vers="Partir"/g)].length, 1, 'l’épreuve d’un sentier')
+  const parcours = readFileSync(client('views/Parcours.tsx'), 'utf8')
+  assert.equal([...parcours.matchAll(/<Sortie vers="Partir" href=\{`\/campagne\$\{ADRESSE_D_APPRENDRE\}`\} onClick=\{onPartir\} \/>/g)].length, 1, 'l’étape d’un parcours')
   // Validée, la même pilule s'arrête là, sans rien coûter : sa fin et le portrait qu'elle ouvre (`sentiers.test.ts`).
   assert.match(
     sentiers,
@@ -112,13 +115,14 @@ test('la fin d’une série la rejoue sur ses catégories, ou en change sans qui
   assert.match(suite(['Histoire', 'Sport']), /Rejouer · Histoire et Sport/)
   assert.match(suite(['Histoire', 'Sport', 'Nature']), /Rejouer · 3 catégories/)
   assert.doesNotMatch(suite([], true), /Mes réponses/, 'la correction ouverte ne se redemande pas')
-  // La page : le choix retenu sur le téléphone, déplié en arrivant de la fin,
-  // et « Recommencer » sous chaque question — jamais au défi, qui n'a qu'une
-  // tentative, ni en révision du carnet, qui n'a rien à perdre, ni en
-  // rencontre, qui se joue jusqu'au bout.
+  // La page : le choix retenu sur le téléphone, sa feuille ouverte d'elle-même
+  // en arrivant de la fin, et « Recommencer » sous chaque question — jamais au
+  // défi, qui n'a qu'une tentative, ni en révision du carnet, qui n'a rien à
+  // perdre, ni en rencontre, qui se joue jusqu'au bout.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string\[\]>\(categoriesRetenues\)/)
-  assert.match(page, /<details className="reglages-salon" ref=\{choix\} open=\{choixOuvert\}/)
+  assert.match(page, /const changerDeCategorie = async \(\) => \{\s*setChoixOuvert\(true\)\s*try \{\s*await relire\(\)/)
+  assert.match(page, /\{pret && aChoisir && choixOuvert && \(\s*<FeuilleDuChoix/)
   assert.match(page, /\{!ecran\.defi && !ecran\.revision && !ecran\.rencontre && !r\?\.finie && \(\s*<GesteDuBas icone="rotate" busy=\{busy\} onClick=\{\(\) => void abandonner\(\)\}>/)
   // Ce que le téléphone a retenu se relit avec méfiance : un stockage abîmé ne casse rien.
   memoire.set('quizz.campagne.categories', JSON.stringify(['Histoire', 42]))
@@ -150,16 +154,81 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   assert.equal(module.sujetRetenu(), null)
   memoire.delete('quizz.campagne.sujet')
   assert.equal(module.sujetRetenu(), null)
-  // La page : un sujet de chaque famille, en grille, sous les catégories ; « Commencer » part sur celui qui se joue.
+  // La page : la ligne du choix sous le gros bouton, et sa feuille — un sujet de chaque famille,
+  // en pastilles, dans l'onglet d'à côté ; « Commencer » part sur celui qui se joue.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string \| null>\(sujetRetenu\)/)
-  // La grille vit à part, la même pour la série et pour un défi entre amis (`ChoixDuTheme`) :
+  // La feuille vit à part, la même pour la série et pour « Défier quelqu'un » (`ChoixDuTheme.tsx`) :
   // chaque famille — un thème, une époque, un fil rouge — sa rangée nommée (`FAMILLES_DE_SUJETS`).
-  assert.match(page, /<ChoixDuTheme\s+categoriesJouables=\{etat\.categories\.map\(c => c\.categorie\)\}\s+sujets=\{sujets\}\s+categories=\{categories\}\s+sujet=\{sujetJouable\}/)
+  assert.match(page, /<FeuilleDuChoix\s+categoriesJouables=\{etat\.categories\.map\(c => c\.categorie\)\}\s+sujets=\{sujets\}\s+categories=\{categories\}\s+sujet=\{sujetJouable\}/)
+  assert.match(page, /<LigneDuChoix categories=\{categories\} sujet=\{sujetJouable\} sur onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>/)
   const grille = readFileSync(client('components/ChoixDuTheme.tsx'), 'utf8')
-  assert.match(grille, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom \}\) =>/)
-  assert.match(grille, /role="group" aria-label=\{nom\}/)
+  assert.match(grille, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom: nomDeLaFamille \}\) =>/)
+  assert.match(grille, /role="group" aria-label=\{nomDeLaFamille\}/)
   assert.match(page, /onClick=\{\(\) => void commencer\(categories, sujetJouable\)\}/)
+  // Le gros bouton d'abord, puis la ligne du choix, puis les records repliés (la maquette validée le 12 octobre 2026).
+  const accueil = page.slice(page.indexOf("if (ecran.e === 'accueil') {"), page.indexOf("if (ecran.e === 'fin' && ecran.revision)"))
+  const bouton = accueil.indexOf('onClick={() => void commencer(categories, sujetJouable)}')
+  const ligne = accueil.indexOf('<LigneDuChoix')
+  const records = accueil.indexOf('<RecordsParCategorie')
+  assert.ok(bouton > 0 && ligne > bouton && records > ligne, 'Commencer, puis « Sur … · Changer », puis les records')
+})
+
+// Le souhait du propriétaire du 12 octobre 2026 : les catégories, quand on
+// défie quelqu'un, dans la série et sur les sentiers à thème, « trop
+// impressionnantes » — douze cases et vingt-cinq sujets dépliés, « Jouer le
+// duel » tout en bas. La proposition 1 de la maquette, validée le même jour :
+// une ligne qui dit le choix, « Changer » au bout, et une feuille.
+test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du choix — les catégories, puis les thèmes, rien ne change avant « Choisir »', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { LigneDuChoix, FeuilleDuChoix } = await import(client('components/ChoixDuTheme.tsx').href)
+  const { SUJETS } = await import('../../shared/sujets')
+  const ligne = (categories: string[], sujet: string | null, sur = false) =>
+    renderToStaticMarkup(React.createElement(LigneDuChoix, { categories, sujet, sur, onChanger: () => {} }))
+  // Toutes : ce qu'on peut choisir d'autre se dit dessous.
+  assert.match(
+    ligne([], null),
+    /^<button type="button" class="quoi-ligne" aria-haspopup="dialog"><svg[^>]*>.*?<\/svg><span class="quoi-texte"><b>Toutes les catégories<\/b><span class="muted small">ou une catégorie, un thème, une époque…<\/span><\/span><span class="quoi-changer">Changer<svg[^>]*>.*?<\/svg><\/span><\/button>$/,
+  )
+  // La série la précède de « Sur » : sous le gros bouton, rien d'autre ne le dit.
+  assert.match(ligne([], null, true), /<span class="quoi-texte"><span class="muted small">Sur<\/span><b>Toutes les catégories<\/b>/)
+  assert.match(ligne(['Histoire'], null), /<b>Histoire<\/b><\/span>/, 'une catégorie : son nom suffit')
+  assert.match(ligne(['Histoire', 'Sport', 'Nature'], null), /<b>3 catégories<\/b><span class="muted small">Histoire, Sport, Nature<\/span>/)
+  assert.match(ligne(['Histoire'], 'annees-80'), /<b>Les années 80<\/b><span class="muted small">De 1980 à 1989/, 'le sujet l’emporte, sa description dessous')
+
+  const feuille = (categories: string[], sujet: string | null, sujets: readonly (typeof SUJETS)[number][] = SUJETS.slice(0, 2)) =>
+    renderToStaticMarkup(
+      React.createElement(FeuilleDuChoix, { categoriesJouables: ['Histoire', 'Sport', 'Nature'], sujets, categories, sujet, onChoisir: () => {}, onFermer: () => {} }),
+    )
+  const toutes = feuille([], null)
+  assert.match(toutes, /role="dialog" aria-modal="true" aria-label="Sur quoi \?"/)
+  // Deux onglets : les catégories d'abord, les sujets à côté, comptés.
+  assert.match(toutes, /role="tab" aria-selected="true"[^>]*>Catégories<\/button>/)
+  assert.match(toutes, /role="tab" aria-selected="false"[^>]*>Thèmes · 2<\/button>/)
+  assert.match(toutes, /<button type="button" class="quoi-toutes active" aria-pressed="true"><svg[^>]*>.*?<\/svg><span>Toutes les catégories<\/span><svg/)
+  assert.match(toutes, /<div class="quoi-grille" role="group" aria-label="Catégories"><button type="button" class="quoi-case" aria-pressed="false">Histoire<\/button>/)
+  assert.doesNotMatch(toutes, /quoi-pastille/, 'les sujets attendent leur onglet')
+  assert.match(toutes, /<footer class="carte-pied">.*Choisir · toutes les catégories<\/button><\/footer>/)
+  // Deux catégories choisies : elles se disent pressées, et « Choisir » les nomme.
+  const deux = feuille(['Histoire', 'Sport'], null)
+  assert.match(deux, /class="quoi-toutes" aria-pressed="false"/)
+  assert.match(deux, /class="quoi-case active" aria-pressed="true">Histoire<\/button>/)
+  assert.match(deux, /class="quoi-case" aria-pressed="false">Nature<\/button>/)
+  assert.match(deux, /Choisir · Histoire et Sport<\/button>/)
+  // Sur un sujet, la feuille s'ouvre sur son onglet : sa pastille pressée, sa description au-dessus de « Choisir ».
+  const sujet = feuille(['Histoire'], SUJETS[0].cle, SUJETS)
+  assert.match(sujet, /role="tab" aria-selected="true"[^>]*>Thèmes · \d+<\/button>/)
+  assert.match(sujet, new RegExp(`class="quoi-pastille active" aria-pressed="true">${SUJETS[0].nom}</button>`))
+  assert.ok(sujet.indexOf('Un thème') < sujet.indexOf('Une époque') && sujet.indexOf('Une époque') < sujet.indexOf('Un fil rouge'), 'chaque famille sa rangée, les thèmes d’abord')
+  assert.match(sujet, new RegExp(`<p class="muted small centre quoi-description">${SUJETS[0].description}</p>`))
+  assert.match(sujet, new RegExp(`Choisir · ${SUJETS[0].nom}</button>`))
+  // Sans sujet à jouer : pas d'onglets, les catégories seules.
+  assert.doesNotMatch(feuille([], null, []), /role="tab"/)
+  // « Défier quelqu'un » s'en sert aussi, et ne déplie plus la grille.
+  const lancer = readFileSync(client('views/LancerUnDefi.tsx'), 'utf8')
+  assert.match(lancer, /<LigneDuChoix categories=\{categories\} sujet=\{sujet\} onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>/)
+  assert.match(lancer, /\{choixOuvert && \(\s*<FeuilleDuChoix/)
+  assert.doesNotMatch(lancer, /GrilleDesCategories|GrilleDesSujets/)
 })
 
 // Le défi entre amis (`campagne-duel.test.ts`) : sa fin l'envoie d'abord —
@@ -225,8 +294,9 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(html, /<b>Tom<\/b><span class="muted small">Or · cote 1240 · 3e<\/span>/)
   assert.match(html, />Changer<\/button>/)
   assert.doesNotMatch(html, /Hugo/, 'choisi, il n’y a plus que lui')
-  assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<span class="defier-choix">Histoire<\/span>/)
-  assert.match(html, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Histoire<\/button>/)
+  // Sur quoi : une ligne, « Changer » au bout — la grille dépliée repoussait « Jouer le duel » tout en bas (le 12 octobre 2026).
+  assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<\/h2><button type="button" class="quoi-ligne" aria-haspopup="dialog"><svg[^>]*>.*?<\/svg><span class="quoi-texte"><b>Histoire<\/b><\/span><span class="quoi-changer">Changer/)
+  assert.doesNotMatch(html, /categorie-case|quoi-case/, 'la feuille ne s’ouvre qu’au toucher')
   assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button>/)
   assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son téléphone sonne s’il a activé les notifications\./)
   // Ce qui se joue se dit avant : contre sa cote à lui.
@@ -241,7 +311,7 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(libre, /<button type="button" class="btn btn-small" aria-label="Défier Hugo"><svg[^>]*>.*?<\/svg>Choisir<\/button>/)
   assert.match(libre, /<b>Hugo<\/b><span class="muted small">pas encore de duel classé<\/span>/, 'sans duel classé : ni ligue ni cote, l’absence')
   assert.match(libre, /aria-disabled="true"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button>/)
-  assert.match(libre, /<span class="defier-choix">toutes les catégories<\/span>/)
+  assert.match(libre, /<span class="quoi-texte"><b>Toutes les catégories<\/b><span class="muted small">ou une catégorie, un thème, une époque…<\/span><\/span>/)
   // Sans ami encore : un prénom, ou un joueur du classement — « Défier » sur sa carte ; avant qu'ils arrivent, leur place.
   assert.match(composer([], { categories: [], sujet: null }), /Cherche un prénom — ou touche un joueur du classement des duels : « Défier » est sur sa carte\./)
   assert.match(composer(null, { categories: [], sujet: null }), /Tes amis arrivent…/)

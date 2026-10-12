@@ -162,7 +162,8 @@ function ouDuRapport(r: RapportDeSignalement): string {
   if (r.ou === 'serie') return 'en série'
   if (r.ou === 'revision') return 'en révision'
   if (r.ou === 'rencontre') return 'en rencontre'
-  if (r.ou === 'sujet') return 'sentier à thème'
+  // Les mots de la page du joueur : un parcours de thème (« sentier à thème » jusqu'au 12 octobre 2026).
+  if (r.ou === 'sujet') return 'parcours de thème'
   const b = brancheParCle(r.branche)
   const palier = r.palier === PALIER_DU_MAITRE ? 'palier de maître' : r.palier !== undefined ? `palier ${r.palier}` : null
   return [b ? `sentier ${deLaBranche(b)}` : 'sentier', palier].filter(Boolean).join(', ')
