@@ -43,6 +43,7 @@ import {
   type QuizSummary,
   type SouvenirDeQuestion,
 } from '../../../shared/library'
+import { NOM_NIVEAU, type Niveau } from '../../../shared/campagne'
 import { CATEGORIES } from '../../../shared/categories'
 import { ecrireNombre, lireNombre } from '../../../shared/nombres'
 import {
@@ -1189,6 +1190,9 @@ function QuizEditor({
         ...d,
         questions: d.questions.map(q => (q.id === id ? { ...autre, duration: q.duration, ...(q.intertitre && { intertitre: q.intertitre }) } : q)),
       }))
+      // La voisine est de la même marche (`uneAutreQuestion`) : sa carte garde la pastille.
+      const voisine = autre.id
+      if (voisine) setMemoire(m => (m?.marches?.[id] ? { ...m, marches: { ...m.marches, [voisine]: m.marches[id] } } : m))
       setAnnounce(`Question remplacée : ${autre.text}`)
       spotlight(autre.id, 'text')
       return null
@@ -1752,6 +1756,7 @@ function QuizEditor({
             melange={!!reglages.melangerReponses}
             piecesDisparues={(question.id && sansPhoto.get(question.id)) || AUCUNE_PIECE}
             souvenir={(question.id && memoire?.questions[question.id]) || null}
+            marche={(question.id && memoire?.marches?.[question.id]) || null}
             spot={spot && spot.id === question.id ? spot : null}
             actions={actions}
           />
@@ -2624,6 +2629,8 @@ interface QuestionCardProps {
   piecesDisparues: readonly PieceDeQuestion[]
   /** Sa dernière soirée, et qui y a trouvé — null si l'historique ne l'a jamais vue passer. */
   souvenir: SouvenirDeQuestion | null
+  /** Tirée de la base : sa marche, que le quiz ne garde pas — null pour une question écrite à la main. */
+  marche: Niveau | null
   /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
   spot: Spot | null
   onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
@@ -2679,6 +2686,7 @@ function QuestionCard({
   melange,
   piecesDisparues,
   souvenir,
+  marche,
   spot,
   onChange,
   onChangePiece,
@@ -2854,6 +2862,13 @@ function QuestionCard({
             </button>
           ) : (
             <span className="pill">Question {index + 1}</span>
+          )}
+          {/* Tirée de la base : sa marche, à côté de son numéro — l'ordre d'un quiz progressif est sa montée, et
+              rien ne le disait (l'expert du quiz tout prêt, le 11 octobre 2026). */}
+          {marche && (
+            <span className="pill pill-marche" title="Sa difficulté dans la base">
+              {NOM_NIVEAU[marche]}
+            </span>
           )}
           <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
             <button

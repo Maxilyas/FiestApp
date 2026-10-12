@@ -12,6 +12,7 @@ import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '.
 import { idDansLeQuiz, uneAutreQuestion, type DejaDansLEspace } from '../src/core/quizToutPret'
 import { sujetsDeLaQuestion } from '../src/core/campagne'
 import { suiteFixe } from '../../shared/hasard'
+import { niveauDeQuestion } from '../../shared/campagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
 import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
@@ -150,4 +151,36 @@ test('sur un vrai serveur : la voisine se demande, rien ne s’écrit ; et l’�
   assert.match(editeur, /onUneAutre=\{id\?\.startsWith\('base-'\) \? \(\) => actions\.uneAutre\(id\) : undefined\}/)
   assert.match(editeur, /questions: d\.questions\.map\(q => \(q\.id === id \? \{ \.\.\.autre, duration: q\.duration, \.\.\.\(q\.intertitre && \{ intertitre: q\.intertitre \}\) \} : q\)\)/)
   assert.match(editeur, /\{autreEnRoute \? 'Je cherche…' : 'Une autre'\}/)
+})
+
+// La marche de chaque question tirée de la base (l'animatrice exigeante, le
+// 11 octobre 2026, constat 8) : le quiz ne la garde pas, l'éditeur ne la
+// disait pas, et l'ordre d'un quiz progressif est sa montée — le changer la
+// cassait sans le savoir. La mémoire du quiz la porte ; la carte la montre à
+// côté de son numéro ; la voisine que tire « Une autre » garde la sienne.
+test('l’éditeur dit la marche des questions tirées de la base : la mémoire du quiz la porte, la carte la montre', async () => {
+  const faciles = Array.from({ length: 6 }, (_, i) => question(200 + i, { difficulte: 1 }))
+  const dures = Array.from({ length: 6 }, (_, i) => question(300 + i, { difficulte: 4 }))
+  const base = new BaseDeLaCampagne([...faciles, ...dures])
+  const banc = await demarrer({ baseDeLaCampagne: base })
+  bancs.push(banc)
+  const cookie = await connexionAnimateur(banc.url)
+  const lire = async (chemin: string) => (await fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } })).json() as Promise<any>
+  const choix = { categories: ['Histoire'], sujet: null, difficulte: 'progressive', nombre: 10, enfants: false, estimations: false }
+  const quiz = (await (await ecrire(banc.url, '/api/quiz-tout-pret', choix, cookie)).json()) as { id: string; questions: { id: string }[] }
+  assert.equal(quiz.questions.length, 10)
+  const memoire = await lire(`/api/quizzes/${quiz.id}/memoire`)
+  const attendue = (id: string) => niveauDeQuestion(base.parId.get(id.slice('base-'.length))!.meta.difficulte)
+  assert.deepEqual(memoire.marches, Object.fromEntries(quiz.questions.map(q => [q.id, attendue(q.id)])))
+  assert.ok(new Set(Object.values(memoire.marches)).size > 1, 'des marches différentes : le quiz monte')
+  // Un quiz écrit à la main n'a rien de la base : pas de marches.
+  const autres = ((await lire('/api/quizzes')) as { id: string }[]).filter(q => q.id !== quiz.id)
+  assert.ok(autres.length > 0)
+  assert.equal((await lire(`/api/quizzes/${autres[0].id}/memoire`)).marches, undefined)
+
+  // La carte la montre à côté de son numéro ; la voisine de « Une autre » garde celle de la question qu'elle remplace.
+  const editeur = readFileSync(new URL('../../client/src/views/EditorApp.tsx', import.meta.url), 'utf8')
+  assert.match(editeur, /marche=\{\(question\.id && memoire\?\.marches\?\.\[question\.id\]\) \|\| null\}/)
+  assert.match(editeur, /<span className="pill pill-marche"[^>]*>\s*\{NOM_NIVEAU\[marche\]\}\s*<\/span>/)
+  assert.match(editeur, /marches: \{ \.\.\.m\.marches, \[voisine\]: m\.marches\[id\] \}/)
 })

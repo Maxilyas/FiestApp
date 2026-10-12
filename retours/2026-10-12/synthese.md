@@ -180,8 +180,8 @@ vieille d'âge, hors de la bibliothèque et du quiz, ni la jumelle d'une autre
 de ses questions — ses sujets d'abord, puis la jamais posée. Rien ne
 s'écrit au serveur : la carte la prend, et « Enregistrer » la range. Au
 téléphone, le bouton ajoute une ligne aux seules cartes de la base ; la
-marche de chaque question, que le quiz ne garde pas, reste à montrer.
-PR #166.
+marche de chaque question, que le quiz ne garde pas, se montre depuis à
+côté de son numéro (plus bas). PR #166.
 
 # Le premier titre d'un débutant
 
@@ -218,4 +218,15 @@ phrase du sujet touché s'écrivait sous la dernière rangée des trois
 familles — vingt-cinq tuiles plus bas, hors de l'écran : on touchait « Les
 animaux » sans rien voir s'écrire. Elle se lit maintenant sous la rangée de
 sa tuile (« Des mammifères aux dinosaures, et ceux du cinéma »), de toute la
-largeur de la grille ; `rendu-quiz-tout-pret.ts` la photographie.
+largeur de la grille ; `rendu-quiz-tout-pret.ts` la photographie. PR #169.
+
+# La marche des questions, dans l'éditeur
+
+Le second volet du constat 8 de l'animatrice exigeante : l'éditeur ne
+disait pas la marche de chaque question, et l'ordre d'un quiz progressif est
+sa montée — le changer la cassait sans le savoir. Le quiz ne garde pas la
+marche de ses questions : la mémoire du quiz, que l'éditeur lit déjà à
+l'ouverture, la porte maintenant pour celles tirées de la base, à la
+difficulté lissée du tirage — pas une requête de plus. Chaque carte la
+montre à côté de son numéro (« Question 1 · Facile »), et la voisine que
+tire « Une autre » garde celle de la question qu'elle remplace.

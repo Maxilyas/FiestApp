@@ -106,9 +106,10 @@ un arbitrage.
    vraiment, par un aperçu du serveur — estimations et questions (#165) ;
    puis la phrase du sujet touché, sous la rangée de sa tuile.
 7. **« Une autre » sur une question tirée de la base**, et sa marche visible
-   dans l'éditeur — P3 · M. **« Une autre » fait le 12 octobre** (#166) ; la
-   marche visible : **reste** (le quiz ne garde pas la marche de ses
-   questions).
+   dans l'éditeur — P3 · M. **Fait le 12 octobre** : « Une autre » (#166),
+   puis la marche à côté du numéro de chaque question tirée de la base — le
+   quiz ne la garde pas : la mémoire du quiz la porte, et la voisine garde
+   celle de la question qu'elle remplace.
 8. **Les réponses soufflées par leur racine** (« allumer les réverbères →
    Allumeur de réverbères ») — P3 · S puis M : une liste dans `verifier` et
    à `/admin#campagne`, à relire ; pas un refus, les étymologies sont
