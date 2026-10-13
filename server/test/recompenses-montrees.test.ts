@@ -297,8 +297,10 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   assert.match(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)
-  // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir.
-  assert.match(source('components/Carriere.tsx'), /\{gagne && eclats\.includes\(choisi\.key\) && <ChoixDeLEclat /)
+  // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir — ni un Divin, qui n'éclate pas.
+  const album = source('components/AlbumDesAvatars.tsx')
+  assert.match(album, /const eclate = aLui && a\.sorte !== 'divin' && profil\.eclats\.includes\(a\.cle\)/)
+  assert.match(album, /\{eclate && <ChoixDeLEclat /)
   // L'entrée d'un anonyme ne reprend pas l'emoji de collection d'un profil.
   assert.match(source('components/Entree.tsx'), /choix && AVATARS\.includes\(choix\.avatar\) \? choix\.avatar : tirage\(\)/)
   // Au podium et sur la carte, le médaillon prend la place d'un emoji auréolé.

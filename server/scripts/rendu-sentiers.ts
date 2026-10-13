@@ -174,9 +174,9 @@ try {
   await page.waitForSelector('.rayon-objets')
   await photo('12-boutique-objets')
 
-  // Les avatars du savoir, dans « Ma collection » : la forêt et ses paliers.
-  await page.goto(`${banc.url}/profil#collection-savoir`)
-  await page.waitForSelector('.atlas-branche')
+  // Les avatars du savoir, dans l'album de « Ma collection » : le visage de chaque sentier, sur la page commune.
+  await page.goto(`${banc.url}/profil#collection-avatars-commune`)
+  await page.waitForSelector('.album-avatars')
   await photo('13-avatars', true)
 
   // L'administration des sentiers — avec un rejeu, compté à part : le premier
