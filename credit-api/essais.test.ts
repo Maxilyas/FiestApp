@@ -17,7 +17,7 @@ import { lireLot } from '../server/scripts/lots-campagne'
 import { CATEGORIES, type Categorie } from '../shared/categories'
 import { SOUS_THEMES } from '../shared/etiquettes'
 import { coutDUnMessage, jsonDe, lireLeCarnet, verrouiller, type API, type Demande, type LotLu } from './api'
-import { champsLus, decisionsDe, jugementDuRelecteur, schemaDesDecisions, systemeDuRelecteur, verdictDe } from './consignes'
+import { champsLus, decisionsDe, demandeDEcriture, demandeDeCorrection, jugementDuRelecteur, schemaDesDecisions, systemeDuRelecteur, verdictDe } from './consignes'
 import { apercu } from './apercu'
 import { appliquer, appliquerALaBase, avancer, carteDe, charger as chargerLaRelecture, decisionsFinales, ecrireLaBase, preparerLaRelecture, type ContexteDeRelecture, type Relecture } from './relire'
 import { avancerLaGeneration, chargerLEtat, commandeDesNombres, preparerLaGeneration, refusDuLot, type ContexteDeGeneration } from './generer'
@@ -414,6 +414,12 @@ test('une génération par l’API : écrite, corrigée là où le juge refuse, 
   assert.ok(!dites.some(l => /redacteur-campagne|À lancer/.test(l)), 'rien qui parle d’agents à lancer')
   assert.ok(dites.some(l => l.includes('ranger')), 'le bilan dit comment ranger')
   assert.ok(!existsSync(path.join(ctx.dossierApi, `generation-${g.nom}`)) || readdirSync(path.join(ctx.dossierApi, `generation-${g.nom}`)).length === 0, 'plus aucun brouillon')
+})
+
+test('une écriture a de quoi finir : le plafond qui coupait sept lots sur quarante-trois est relevé', () => {
+  const l = { categorie: 'Géographie' as Categorie, quotas: [{ cle: SOUS_THEMES['Géographie'][0].cle, n: 30 }], deja: [] }
+  assert.ok(demandeDEcriture('e-x', l).params.max_tokens >= 64_000)
+  assert.ok(demandeDeCorrection('c1-x', l, [], [{ texte: 'x', sousTheme: 'y', difficulte: 2, motif: 'z' }]).params.max_tokens >= 32_000)
 })
 
 test('une part à nombre : là où un nombre se pose déjà, et ce qui ne se joue pas au plus près repart', () => {

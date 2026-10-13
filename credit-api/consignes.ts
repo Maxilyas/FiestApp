@@ -41,8 +41,22 @@ export function consigneDuLot(l: LotAEcrire): string {
   return consigneDEcriture(l.categorie, l.quotas, { sorte: 'routine' }, l.deja, { nombres: l.nombres })
 }
 
-/** La sortie d'un rédacteur : une question en JSON fait trois cents jetons, la pensée basse quelques milliers. */
-export const SORTIE_PAR_QUESTION = 450
+/**
+ * La sortie d'un rédacteur, la pensée comprise : mesurée sur les mille
+ * questions à nombre du 13 octobre 2026, neuf cents jetons par question —
+ * vérifier un nombre exact fait réfléchir, même en réflexion basse —, de neuf
+ * mille à plus de trente mille par lot.
+ */
+export const SORTIE_PAR_QUESTION = 900
+
+/**
+ * Le plafond de sortie d'une écriture, et d'une correction. Une réponse
+ * coupée se paie entière et ne sert à rien : sept lots sur quarante-trois
+ * s'arrêtaient à 32 000 jetons. En lot, un plafond plus haut ne coûte que ce
+ * qui s'écrit, et rien n'y attend la réponse.
+ */
+export const PLAFOND_D_ECRITURE = 64_000
+export const PLAFOND_DE_CORRECTION = 32_000
 
 function parametresDuRedacteur(contenu: string, maxTokens: number, modele: string): Anthropic.MessageCreateParamsNonStreaming {
   return {
@@ -57,7 +71,7 @@ function parametresDuRedacteur(contenu: string, maxTokens: number, modele: strin
 }
 
 export function demandeDEcriture(id: string, l: LotAEcrire, modele: string = MODELES.opus): Demande {
-  return { id, params: parametresDuRedacteur(consigneDuLot(l), 32000, modele) }
+  return { id, params: parametresDuRedacteur(consigneDuLot(l), PLAFOND_D_ECRITURE, modele) }
 }
 
 /** Une question que le juge refuse, telle qu'on la redit au rédacteur. */
@@ -83,7 +97,7 @@ Il refuse celles-là, chacune avec son motif :
 ${refusees.map(r => `- [${r.sousTheme}, difficulté ${String(r.difficulte)}] « ${r.texte} » — ${r.motif}`).join('\n')}
 
 Écris une question pour remplacer chaque refusée : le même sous-thème, la même difficulté, et un autre fait quand le motif dit que la base le pose déjà. Rends seulement le tableau JSON ${refusees.length === 1 ? 'de cette remplaçante' : `de ces ${refusees.length} remplaçantes`}.`
-  return { id, params: parametresDuRedacteur(`${consigneDuLot(l)}\n${juge}`, 16000, modele) }
+  return { id, params: parametresDuRedacteur(`${consigneDuLot(l)}\n${juge}`, PLAFOND_DE_CORRECTION, modele) }
 }
 
 /** Les questions d'une réponse de rédacteur : un tableau, ou rien. */
