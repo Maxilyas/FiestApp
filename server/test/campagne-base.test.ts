@@ -46,8 +46,12 @@ import { sansAccent } from '../../shared/homonymes'
  * une réponse que l'intitulé soufflait (« le blues grec ») et trois faits
  * périmés ou que les sources ne départagent pas (les seuils de la confiture
  * « extra », le krill de la baleine bleue, le berceau du Rummikub) : 11 037.
+ * Puis, le même jour, mille questions à nombre écrites et relues par Opus
+ * pour les estimations du quiz tout prêt, là où elles manquaient le plus
+ * (neuf de difficulté 1 et 137 de difficulté 2 sur 644 jouables au plus
+ * près), 904 : 11 941 — 1 546 jouables au plus près, dont 517 de difficulté 2.
  */
-const AU_MOINS = 11037
+const AU_MOINS = 11941
 
 const { questions, refusees } = lireLaBase()
 
