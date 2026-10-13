@@ -93,9 +93,10 @@ export type IconName =
   | 'help'
   | 'heart'
   | 'spark'
-  // L'album des avatars : où chacun se gagne — sur les sentiers, à sa saison.
+  // L'album des avatars : où chacun se gagne — sur les sentiers, à sa saison, en boutique.
   | 'mountain'
   | 'calendar'
+  | 'bag'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -606,6 +607,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   spark: { paths: <path d="M12 2.5c.6 4.6 2.9 6.9 9.5 9.5-6.6 2.6-8.9 4.9-9.5 9.5-.6-4.6-2.9-6.9-9.5-9.5 6.6-2.6 8.9-4.9 9.5-9.5Z" />, filled: true },
   // Deux sommets, celui du fond plus haut : les sentiers du savoir qu'on gravit.
   mountain: { paths: <path d="m3 20 6.5-11 3.5 6 2.5-4L21 20H3Z" /> },
+  // Le sac de la boutique, celui de la barre du menu : ce qui s'y achète.
+  bag: {
+    paths: (
+      <>
+        <path d="M5 8h14l-1 12.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20.5L5 8Z" />
+        <path d="M9 10V6.5a3 3 0 0 1 6 0V10" />
+      </>
+    ),
+  },
   calendar: {
     paths: (
       <>

@@ -26,6 +26,7 @@ import { SAISONS, type CleDeSaison } from './saisons'
 import { pagesOuvertes, PAGES } from './calendrier'
 import { soireeQuiCompte, type GainSoiree, type ReleveSoiree } from './profil'
 import { formatNumber } from './typographie'
+import type { CompagnonAcquis } from './compagnons'
 
 export type RareteDeTheme = 'offert' | Rarete
 
@@ -328,6 +329,12 @@ export interface BoutiqueDuProfil {
   porte: string | null
   /** Le jour de la boutique (Paris) : les thèmes de saison se lisent dessus. */
   jour: string
+  /**
+   * Ses compagnons, leur plus haute forme et les bonnes réponses données en
+   * les portant (`ProfileStore.compagnonsDe`) : la jauge de la forme
+   * suivante. Absent d'un serveur d'avant.
+   */
+  compagnons?: CompagnonAcquis[]
 }
 
 /**

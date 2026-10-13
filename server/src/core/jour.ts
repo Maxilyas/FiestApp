@@ -447,6 +447,9 @@ export class JourStore {
     // Le bonus de série d'une partie (`xpDeSerie`), venu le 6 octobre 2026 :
     // écrit quand elle commence, à côté de l'expérience de ses points.
     await ajouterColonne(this.client, 'jour_parties', 'xp_serie', 'INTEGER NOT NULL DEFAULT 0')
+    // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
+    // octobre 2026 : ses bonnes réponses le font grandir.
+    await ajouterColonne(this.client, 'jour_reponses', 'compagnon', 'TEXT')
     for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
     await this.amorcer()
   }
@@ -1061,7 +1064,7 @@ export class JourStore {
       const ms = maintenant - partie.servieLe
       const aTemps = ms <= q.duree * 1000 + GRACE_MS
       const retenu = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
-      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms)
+      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms, this.deps.profiles.compagnonPorte(profil))
       return !aTemps && retenu !== null ? { ...revelation, tropTard: true } : revelation
     })
   }
@@ -1076,7 +1079,8 @@ export class JourStore {
     const q = tirage.questions[partie.question]
     const ms = this.maintenant() - partie.servieLe
     if (ms <= q.duree * 1000 + GRACE_MS) return null
-    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null)
+    const profil = this.deps.profiles.cached(partie.profileId)
+    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null, profil ? this.deps.profiles.compagnonPorte(profil) : null)
     return suite ? [suite, revelation] : null
   }
 
@@ -1085,12 +1089,14 @@ export class JourStore {
    * expérience compris. Rend ce que la réponse révèle et la partie d'après,
    * lues dans le même lot que l'écriture : chaque lecture attendait la
    * précédente, six allers-retours en série sous les doigts du joueur.
+   * `compagnon` : celui qu'il porte, que la ligne retient (`compagnonsDe`).
    */
   private async enregistrer(
     partie: Partie,
     tirage: Tirage,
     choix: number | null,
     ms: number | null,
+    compagnon: string | null,
   ): Promise<{ revelation: RevelationDuJour; suite: Partie | null }> {
     const index = partie.question
     const q = tirage.questions[index]
@@ -1103,9 +1109,9 @@ export class JourStore {
     const res = await this.client.batch(
       [
         {
-          sql: `INSERT OR IGNORE INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [partie.profileId, partie.jour, index, choix, ms, juste ? 1 : 0, points, maintenant],
+          sql: `INSERT OR IGNORE INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le, compagnon)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [partie.profileId, partie.jour, index, choix, ms, juste ? 1 : 0, points, maintenant, compagnon],
         },
         {
           sql: `UPDATE jour_parties SET question = ?, servie_le = NULL, points = ?, justes = ?, finie_le = ?, xp = ?
@@ -1137,6 +1143,9 @@ export class JourStore {
     if (derniere) {
       await this.decernerALaFin(partie.profileId, partie.jour, maintenant)
       await this.tirerLEclat(partie.profileId, partie.jour)
+      // Son compagnon grandit à la fin de la partie, jamais pendant une
+      // question ; une base qui hoquette le laisse grandir à la lecture suivante.
+      await this.deps.profiles.faireGrandir(partie.profileId).catch(e => console.error('[jour] compagnon :', e))
     }
     return lu
   }
@@ -1638,6 +1647,23 @@ export class JourStore {
       args: [profileId],
     })
     return savoirDesLignes(res.rows)
+  }
+
+  /**
+   * Ses bonnes réponses au quiz du jour données en portant chaque compagnon
+   * (`loup` → 42) : elles le font grandir (`shared/compagnons.ts`), comme
+   * elles paient ses confettis. Une question annulée pour tous ne compte pas.
+   */
+  async compagnonsDe(profileId: string): Promise<Record<string, number>> {
+    const res = await this.client.execute({
+      sql: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
+            FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+            WHERE r.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+            GROUP BY r.compagnon`,
+      args: [profileId],
+    })
+    return Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)]))
   }
 
   /**

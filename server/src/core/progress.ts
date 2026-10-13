@@ -46,6 +46,13 @@ export interface SoireeGain {
 /** L'écart relatif d'une estimation, borné : une touche restée enfoncée ne fausse pas la moyenne. */
 const ecartRelatif = (value: number, target: number) => Math.min(10, Math.abs(value - target) / Math.max(1, Math.abs(target)))
 
+/** Une bonne réponse de plus pour le compagnon qu'il portait, s'il en portait un : celles qui lui rapportent un confetti. */
+function nourrir(rel: ReleveSoiree, compagnon: string | undefined) {
+  if (!compagnon) return
+  rel.compagnons ??= {}
+  rel.compagnons[compagnon] = (rel.compagnons[compagnon] ?? 0) + 1
+}
+
 /** Le relevé et le gain de chaque invité de la soirée, profils ou non. */
 export function relevesDeSoiree(
   live: ProgressInput,
@@ -100,6 +107,7 @@ export function relevesDeSoiree(
         rel.meilleureSerie = Math.max(rel.meilleureSerie, serie)
         const ms = r.ms ?? 0
         rel.justes++
+        nourrir(rel, r.compagnon)
         rel.tempsJustesMs += ms
         if (rel.meilleurTempsMs === null || ms < rel.meilleurTempsMs) rel.meilleurTempsMs = ms
         if (ms >= r.durationMs - 1000) rel.derniereSeconde++
@@ -121,7 +129,10 @@ export function relevesDeSoiree(
           rel.coupDOeil += part
         }
         const rang = q.rangsEstimation.get(r.playerId)
-        if (rang !== undefined && rang <= q.tiersEstimation) rel.estimationsProches++
+        if (rang !== undefined && rang <= q.tiersEstimation) {
+          rel.estimationsProches++
+          nourrir(rel, r.compagnon)
+        }
         if (valide && rang !== undefined) {
           if (rang === 1) gain.estimation += XP.estimationMeilleure
           else if (rang <= q.tiersEstimation) gain.estimation += XP.estimationProche

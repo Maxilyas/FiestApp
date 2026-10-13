@@ -12,6 +12,7 @@
 
 import { COLLECTION } from './avatars'
 import { brancheDe, portrait, portraitsOuverts } from './branches'
+import { compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
 import { vitrineDeLaCarte } from './carte'
 import { divin } from './divins'
 import { fond } from './fonds'
@@ -70,10 +71,11 @@ export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai:
 /**
  * Ce qui peut avoir éclaté dans l'avatar montré : le légendaire ou le
  * portrait, sinon l'emoji (`cibleEclat`) — rien sous un Divin, qui n'éclate
- * pas et cache l'emoji.
+ * pas et cache l'emoji, ni sous un compagnon : son Éclat n'a pas encore de
+ * version rare à choisir, ses paillettes l'annoncent.
  */
 export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }): string | null {
-  return divin(montre.legendaire) ? null : cibleEclat(montre.legendaire, montre.avatar)
+  return divin(montre.legendaire) || formeDeCompagnon(montre.legendaire) ? null : cibleEclat(montre.legendaire, montre.avatar)
 }
 
 const memeVitrine = (a: readonly string[] | null, b: readonly string[] | null) =>
@@ -173,6 +175,7 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
     const l = legendaire(k)
     const d = divin(k)
     const p = portrait(k)
+    const c = formeDeCompagnon(k)
     lignes.push(
       l
         ? { piece: 'avatar', nom: l.nom, detail: 'Légendaire' }
@@ -180,7 +183,9 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
           ? { piece: 'avatar', nom: d.nom, detail: 'Divin' }
           : p
             ? { piece: 'avatar', nom: p.nom, detail: `Portrait · ${brancheDe(p).nom}` }
-            : { piece: 'avatar', nom: 'Ton emoji', detail: 'Avatar' },
+            : c
+              ? { piece: 'avatar', nom: c.nom, detail: `Compagnon · ${compagnonDe(c).nom}` }
+              : { piece: 'avatar', nom: 'Ton emoji', detail: 'Avatar' },
     )
   }
   if (essai.eclat) lignes.push({ piece: 'avatar', nom: essai.eclat.brille ? 'Version rare' : 'Version d’origine', detail: 'Éclat' })
@@ -231,6 +236,8 @@ export function ceQuIlAPorter(profil: PublicProfileDetail): Record<PieceDeLaLoge
       ...portraitsOuverts(paliers),
       ...profil.legendaires,
       ...(profil.divins ?? []).map(d => d.key),
+      // Chaque forme atteinte : un compagnon qui grandit, c'est du nouveau.
+      ...formesOuvertes(profil.compagnons ?? []),
       ...COLLECTION.filter(c => profil.niveau >= c.niveau).map(c => c.emoji),
       ...profil.ouvertes.map(f => `finition:${f}`),
       ...profil.eclats.map(e => `eclat:${e}`),

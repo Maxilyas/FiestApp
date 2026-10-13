@@ -2,7 +2,7 @@
 paths:
   - "server/src/core/{scores,answers,backup,distante,db}.ts"
   - "server/src/server.ts"
-  - "server/test/{miroir,demarrage,relecture,reprise-rafale,enregistrement,categories}.test.ts"
+  - "server/test/{miroir,demarrage,relecture,reprise-rafale,enregistrement,categories,compagnons}.test.ts"
 ---
 
 # Les deux bases, les journaux et le miroir Turso
@@ -21,6 +21,11 @@ paths:
   et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture
   (`SQL.reponse`, `ligneReponse`) et la restauration dans `backup.ts`. Une
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
+  La dernière venue, `compagnon` — celui qu'il portait quand la ligne s'est
+  écrite (`Party.compagnonDe`), qui grandit de ses bonnes réponses (règle
+  `profil.md`) —, a ses sœurs hors des soirées : `jour_reponses.compagnon`
+  et `campagne_reponses.compagnon`, posées par `ajouterColonne` dans
+  `jour.ts` et `campagne.ts` (`compagnons.test.ts`).
 - **Le démarrage ouvre ses magasins de front** (`deFront`, `server.ts`) :
   après les comptes, le miroir, les profils, le quiz du jour, la
   bibliothèque, les programmes, les partages et l'historique partent
