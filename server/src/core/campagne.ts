@@ -4175,6 +4175,37 @@ export class CampagneStore {
     })
   }
 
+  /** L'épreuve de sentier qu'il a laissée en jeu, pour la fiche d'un joueur au QG : où, depuis quand, et si l'abandonner lui coûterait une vie. */
+  async epreuveLaissee(profileId: string): Promise<{ sentier: string; palier: number; depuis: number; vieEnJeu: boolean } | null> {
+    const ligne = (await this.client.execute(this.lectureDeLEpreuveOuverte(profileId))).rows[0]
+    const e = ligne ? versSerie(ligne) : null
+    const b = e?.branche ? brancheParCle(e.branche) : undefined
+    if (!ligne || !e || !b || !e.palier) return null
+    return { sentier: b.nom, palier: e.palier, depuis: Number(ligne.commencee_le), vieEnJeu: !e.rejeu && e.issue !== 'validee' }
+  }
+
+  /**
+   * Libère l'épreuve qu'il a laissée en jeu (« Libérer une épreuve de
+   * sentier », au QG) : une seule à la fois, et tant qu'elle attend, il n'en
+   * commence aucune autre. Refermée sans coûter de vie — son issue reste
+   * vide, comme un rejeu : ni les vies (`lectureDesEchecs`) ni
+   * l'administration des sentiers ne la comptent ratée. Validée, elle
+   * s'arrête comme « Arrêter là », ses bonnes réponses comptées. Null s'il
+   * n'y avait rien à libérer.
+   */
+  libererEpreuve(profileId: string): Promise<{ sentier: string; palier: number } | null> {
+    return this.avecVerrou(profileId, async () => {
+      const e = await this.epreuveEnCours(profileId)
+      const b = e?.branche ? brancheParCle(e.branche) : undefined
+      if (!e || !b || !e.palier) return null
+      const maintenant = this.maintenant()
+      await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [maintenant, e.id] })
+      this.enCours.delete(profileId)
+      if (e.issue === 'validee') await this.recompenser(profileId, e.id, [], maintenant)
+      return { sentier: b.nom, palier: e.palier }
+    })
+  }
+
   // ── Les sentiers à thème ────────────────────────────────────────────────
   //
   // Un sujet de la campagne (`shared/sujets.ts`) monté en six paliers de dix
