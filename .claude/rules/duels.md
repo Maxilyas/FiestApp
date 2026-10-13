@@ -46,6 +46,22 @@ paths:
   Un champ neuf qui porte un score d'en face attend comme eux : on le lisait
   avant la première question, et c'est ce que le propriétaire a regretté
   d'abord (`duels-contre.test.ts`, `duels-page.test.ts`).
+- **Ce que l'accueil compte, la page le montre.** Le chiffre rouge du
+  bouton des duels (`DuelsDAccueil.resultats`, `defisRecus`) et l'onglet
+  « En cours » lisent la même règle : `sesDuelsContre` (la table `siens` —
+  `ouvert`, `joue`, `a_voir`) et `RESULTATS_A_VOIR` pour les résultats,
+  `DEFI_A_LUI` pour les défis reçus — un duel classé n'est qu'à qui il
+  défie. La page lit tous ses duels en route, ses résultats à voir, puis
+  les dix plus récents des autres pour l'historique
+  (`lecturesDesDuelsContre`) : elle ne lisait que ses dix derniers duels
+  créés, et un duel plus ancien — à jouer, chez l'autre, un résultat à
+  voir — en sortait, compté en rouge, introuvable (le retour du
+  propriétaire du 13 octobre 2026 : « j'ai deux notifications mais je les
+  vois pas dans "En cours" ni dans l'historique »). Un défi entre amis
+  d'avant s'y montre aussi venu de qui l'a mis dans les siens sans
+  réciproque, tant qu'il ne l'a pas retiré. Un compteur neuf lit la règle
+  de ce qu'il compte, jamais une requête à lui (`duels-contre.test.ts`,
+  `campagne-amis.test.ts`).
 - **Lire la page d'un duel le retient vu.** La première lecture de son
   résultat par qui l'a lancé écrit `campagne_duels.vu_le` et répond
   `nouveau` : la carte se retourne, puis l'accueil, la bannière et l'onglet

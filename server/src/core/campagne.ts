@@ -313,7 +313,11 @@ const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 const BLOQUES_MONTRES = 10
 /** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
 const LIGNES_DU_DEFI = 50
-/** Ses défis entre amis qu'on lui rappelle : les plus récents, de quoi retrouver un lien perdu. */
+/**
+ * Ses duels qu'on lui rappelle, les plus récents : ses défis entre amis — de
+ * quoi retrouver un lien perdu —, ses derniers duels joués, ses résultats à
+ * voir. Jamais ce qui l'attend encore : la page montre tous ceux en route.
+ */
 const DUELS_MONTRES = 10
 /** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
 const SIGNALEMENTS_MONTRES = 50
@@ -2637,9 +2641,10 @@ export class CampagneStore {
         // entre amis seulement : celui d'un duel classé se dévoile à la
         // dernière réponse de qui le relève (le souhait du propriétaire du
         // 12 octobre 2026 : on le voyait avant même de jouer).
-        sql: `SELECT e.code, CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score
+        sql: `SELECT e.code, CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score,
+                     EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur) AS retire
               FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
-              WHERE e.profile_id = ? AND d.ferme_le > ?
+              WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
                 AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
                 AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur AND d.adversaire IS NOT NULL AND r.retire_le >= d.cree_le)
               ORDER BY e.envoye_le DESC LIMIT ?`,
@@ -2680,13 +2685,16 @@ export class CampagneStore {
     // Sa liste se lit comme un classement : la plus haute cote d'abord ; ceux
     // qui n'ont fini aucun duel classé ensuite, dans l'ordre où ils sont venus.
     amis.sort((a, b) => (b.cote ?? -Infinity) - (a.cote ?? -Infinity) || 0)
-    // Un défi entre amis ne vient que d'un ami — un retiré ou un masqué
-    // n'envoie rien ; un duel classé, de qui l'a défié, sauf s'il l'avait
-    // retiré de ses amis avant.
+    // Un défi entre amis vient d'un ami, ou de qui l'a mis dans les siens
+    // sans qu'il l'ait mis dans les siens — l'accueil le compte, et la page
+    // ne le montrait qu'à ses amis à lui : compté, introuvable (le
+    // 13 octobre 2026). Un retiré ou un masqué n'envoie rien ; un duel
+    // classé, de qui l'a défié, sauf s'il l'avait retiré de ses amis avant.
     const sesAmis = new Set(ids)
     const score = new Map(envois.rows.map(r => [String(r.code), r.score === null || r.score === undefined ? null : Number(r.score)]))
+    const retire = new Set(envois.rows.filter(r => Number(r.retire) === 1).map(r => String(r.code)))
     const duels = (await Promise.all(envois.rows.map(r => this.duelDe(String(r.code))))).filter(
-      (d): d is Duel => d !== null && !this.masque?.(d.auteur) && (d.adversaire === profileId || sesAmis.has(d.auteur)),
+      (d): d is Duel => d !== null && !this.masque?.(d.auteur) && (d.adversaire === profileId || sesAmis.has(d.auteur) || !retire.has(d.code)),
     )
     const auteurs = new Map(profils.map(x => [x.id, x]))
     // Qui l'a défié sans être son ami : lu d'un coup.
@@ -3738,20 +3746,17 @@ export class CampagneStore {
    */
   async accueilDesDuels(profileId: string): Promise<DuelsDAccueil> {
     const maintenant = this.maintenant()
+    const siens = sesDuelsContre(profileId, maintenant)
     const [duels, recus, ouverte, resultats] = await this.client.batch(
       [
         lectureDesDuels(profileId, maintenant),
         lectureDesDefisRecus(profileId, maintenant),
         { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
-        // Ses duels joués des deux côtés dont il n'a pas vu le résultat — compté comme le
-        // journal les compte (`lectureDesDuels`) : chacun sa tentative finie, ou commencée et le duel fermé.
+        // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
+        // qui les montre sur la page (`lecturesDesDuelsContre`) : compté ici, chacun y paraît.
         {
-          sql: `SELECT d.code, d.adversaire FROM campagne_duels d
-                WHERE d.auteur = ? AND d.adversaire IS NOT NULL AND d.vu_le IS NULL AND d.cree_le > ?
-                  AND EXISTS (SELECT 1 FROM campagne_series m WHERE m.mode = 'duel' AND m.duel = d.code AND m.profile_id = d.auteur AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?))
-                  AND EXISTS (SELECT 1 FROM campagne_series o WHERE o.mode = 'duel' AND o.duel = d.code AND o.profile_id = d.adversaire AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?))
-                ORDER BY d.cree_le DESC LIMIT ?`,
-          args: [profileId, maintenant - 30 * 24 * HEURE_MS, maintenant, maintenant, DUELS_MONTRES],
+          sql: `${siens.sql} SELECT code, adversaire FROM campagne_duels WHERE code IN (${RESULTATS_A_VOIR}) ORDER BY cree_le DESC`,
+          args: [...siens.args, DUELS_MONTRES],
         },
       ],
       'read',
@@ -5074,18 +5079,60 @@ function lectureDesDuels(qui: string | readonly string[] | null, maintenant: num
 }
 
 /**
- * Ses duels contre quelqu'un des trente derniers jours, d'un lot (`duelsContre`) :
- * les duels — sans leurs questions, que la page ne montre pas —, leurs
- * tentatives, et ceux qui lui sont partis.
+ * Ses duels contre quelqu'un des trente derniers jours, chacun ce qui le
+ * range : une table de travail (`WITH siens`) que l'accueil et la page lisent
+ * d'une même règle. `ouvert` ; `joue`, joué des deux côtés — chacun sa
+ * tentative finie, ou commencée et le duel fermé : ce qui compte
+ * (`lectureDesDuels`) ; `a_voir`, lancé par lui et son résultat pas encore vu
+ * (`vu_le`). Un duel qu'on lui a lancé n'est à lui qu'une fois parti
+ * (`campagne_envois`) : avant, il ne prend la place de rien.
+ */
+function sesDuelsContre(profileId: string, maintenant: number): { sql: string; args: (string | number)[] } {
+  return {
+    sql: `WITH siens AS (
+            SELECT d.code, d.cree_le, d.ferme_le > ? AS ouvert, d.auteur = ? AND d.vu_le IS NULL AS a_voir,
+                   (SELECT COUNT(DISTINCT s.profile_id) FROM campagne_series s
+                     WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id IN (d.auteur, d.adversaire)
+                       AND (s.finie_le IS NOT NULL OR d.ferme_le <= ?)) = 2 AS joue
+            FROM campagne_duels d
+            WHERE d.adversaire IS NOT NULL AND (d.auteur = ? OR d.adversaire = ?) AND d.cree_le > ?
+              AND (d.auteur = ? OR EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = ?))
+          )`,
+    args: [maintenant, profileId, maintenant, profileId, profileId, maintenant - 30 * 24 * HEURE_MS, profileId, profileId],
+  }
+}
+
+/**
+ * Ses résultats à voir, parmi `siens`, les plus récents d'abord : ceux que
+ * l'accueil compte sont ceux que la page montre — départagés par leur code,
+ * pour que deux duels de la même milliseconde ne tombent pas chacun d'un côté
+ * de la limite.
+ */
+const RESULTATS_A_VOIR = 'SELECT code FROM siens WHERE joue AND a_voir ORDER BY cree_le DESC, code LIMIT ?'
+
+/**
+ * Ses duels contre quelqu'un, d'un lot (`duelsContre`) : les duels — sans
+ * leurs questions, que la page ne montre pas —, leurs tentatives, et ceux qui
+ * lui sont partis. Tous ceux qui sont en route, à jouer ou chez l'autre ; ses
+ * résultats à voir, comme l'accueil les compte ; puis les plus récents des
+ * autres, joués ou fermés, pour l'historique. Elle ne lisait que ses dix
+ * derniers duels lancés ou reçus : un duel plus ancien qui attendait encore
+ * en sortait, et l'accueil le comptait toujours en rouge — introuvable (le
+ * retour du propriétaire du 13 octobre 2026 : « j'ai deux notifications mais
+ * je les vois pas dans "En cours" ni dans l'historique »).
  */
 function lecturesDesDuelsContre(profileId: string, maintenant: number): InStatement[] {
-  const filtre = `adversaire IS NOT NULL AND (auteur = ? OR adversaire = ?) AND cree_le > ? ORDER BY cree_le DESC LIMIT ?`
-  const args = [profileId, profileId, maintenant - 30 * 24 * HEURE_MS, DUELS_MONTRES]
-  const lesSiens = `SELECT code FROM campagne_duels WHERE ${filtre}`
+  const siens = sesDuelsContre(profileId, maintenant)
+  const montres = `${siens.sql}, montres AS (
+      SELECT code FROM siens WHERE ouvert AND NOT joue
+      UNION SELECT code FROM (${RESULTATS_A_VOIR})
+      UNION SELECT code FROM (SELECT code FROM siens WHERE NOT (ouvert AND NOT joue) AND NOT (joue AND a_voir) ORDER BY cree_le DESC LIMIT ?)
+    )`
+  const args = [...siens.args, DUELS_MONTRES, DUELS_MONTRES]
   return [
-    { sql: `SELECT code, auteur, adversaire, categories, sujet, ferme_le, vu_le FROM campagne_duels WHERE ${filtre}`, args },
-    { sql: `SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (${lesSiens})`, args },
-    { sql: `SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (${lesSiens})`, args: [profileId, ...args] },
+    { sql: `${montres} SELECT code, auteur, adversaire, categories, sujet, ferme_le, vu_le FROM campagne_duels WHERE code IN (SELECT code FROM montres) ORDER BY cree_le DESC`, args },
+    { sql: `${montres} SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (SELECT code FROM montres)`, args },
+    { sql: `${montres} SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (SELECT code FROM montres)`, args: [...args, profileId] },
   ]
 }
 
@@ -5278,14 +5325,20 @@ function sesJustesAvant(s: Serie): number {
 /** Son score entier : celui à battre, qui fait la cote d'en face (`coteDuScore`). */
 const sesJustesEnTout = (a: AdversaireGarde): number => a.reponses.filter(Boolean).length
 
+/** Un défi envoyé (`e`, sur son duel `d`) qui est bien à lui : un défi entre amis, ou le duel classé qui le défie. */
+const DEFI_A_LUI = '(d.adversaire IS NULL OR d.adversaire = e.profile_id)'
+
 /**
  * Les défis que ses amis lui ont envoyés et qu'il n'a pas relevés, les plus
  * récents d'abord : ni ceux d'un ami qu'il a retiré, ni ceux qui ont fermé.
+ * Un duel classé n'est qu'à qui il défie (`DEFI_A_LUI`) : envoyé à un autre
+ * par la porte des défis entre amis, il se comptait ici sans paraître nulle
+ * part — personne d'autre ne peut le jouer.
  */
 function lectureDesDefisRecus(profileId: string, maintenant: number): InStatement {
   return {
     sql: `SELECT d.auteur FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
-          WHERE e.profile_id = ? AND d.ferme_le > ?
+          WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
             AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
             AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur)
           ORDER BY e.envoye_le DESC LIMIT ?`,

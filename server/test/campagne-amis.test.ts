@@ -213,6 +213,40 @@ test('lancer un défi, c’est choisir à qui : il leur part à sa dernière ré
   }
 })
 
+// Le retour du propriétaire du 13 octobre 2026 : « dans les duels, j'ai deux
+// notifications mais je les vois pas ». Un ami s'ajoute d'un seul côté : Léa
+// met Tom dans les siens, et lui envoie son défi — l'accueil de Tom le
+// comptait, et sa page ne le montrait qu'à qui Tom avait mis dans les siens.
+// Ce que l'accueil compte, la page le montre.
+test('un défi d’une amie qui l’a ajouté sans qu’il l’ait ajoutée : compté à l’accueil, il l’attend sur sa page — un duel classé ne compte que pour qui il défie', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
+    const [deTom, deHugo] = ['tom', 'hugo'].map(l => idDe(banc, l))
+    assert.equal((await poster(banc, lea, `/api/campagne/amis/${deTom}/ajout`)).status, 200)
+    const defi = (await poster(banc, lea, '/api/campagne/duel', { categories: ['Histoire'] })).corps
+    await jouer(banc, lea, defi.serie.id, 4)
+    assert.deepEqual((await poster(banc, lea, `/api/campagne/duel/${defi.code}/envoi`, { amis: [deTom] })).corps, { envoyes: 1 })
+    // Un duel classé contre Hugo, envoyé à Tom par la porte des défis entre amis : il n'est pas à lui.
+    const classe = (await poster(banc, lea, '/api/campagne/duel', { adversaire: deHugo })).corps
+    await poster(banc, lea, `/api/campagne/duel/${classe.code}/envoi`, { amis: [deTom] })
+
+    const accueil = (await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.duels
+    assert.deepEqual(accueil.defisRecus, { n: 1, de: 'Léa' }, 'le défi de Léa, pas le duel de Hugo')
+    const page = (await lire(banc, tom, '/api/campagne/amis')).corps
+    assert.deepEqual(
+      page.recus.map((d: any) => [d.code, d.auteur.nom, d.score]),
+      [[defi.code, 'Léa', 4]],
+    )
+    assert.deepEqual(page.amis, [], 'sa liste à lui : il n’a ajouté personne')
+  } finally {
+    await banc.close()
+  }
+})
+
 test('deux amis du même prénom et du même avatar se distinguent à l’affichage, jamais en base', async () => {
   const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE })
   try {
