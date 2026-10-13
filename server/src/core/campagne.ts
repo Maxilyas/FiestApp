@@ -421,6 +421,12 @@ export class CampagneStore {
    * échec — écrite ou non, on ne le sait pas, et la base fait alors foi.
    */
   private enCours = new Map<string, Serie>()
+  /**
+   * La rencontre que le dé a promise à chaque profil sans pouvoir l'écrire
+   * (`commencerUneRencontre` répond avant l'écriture) : sa première réponse
+   * dit quoi faire, au lieu de « introuvable ». Oubliée au dé suivant.
+   */
+  private rencontresPerdues = new Map<string, string>()
   /** Les questions du défi de chaque semaine jouée depuis le démarrage : figées en base, relues une fois. */
   private tirages = new Map<string, QuestionDeSerie[]>()
   /** Les défis entre amis lus depuis le démarrage : leur tirage et leur fermeture sont figés, relus une fois. */
@@ -753,6 +759,27 @@ export class CampagneStore {
       if (this.verrous.get(cle) === garde) this.verrous.delete(cle)
     })
     return suite
+  }
+
+  /**
+   * Un geste qui répond avant d'avoir tout écrit : la réponse part dès
+   * qu'elle est prête, mais le verrou du profil tient jusqu'à ce que
+   * l'écriture aboutisse — le geste d'après l'attend, et ne trouve jamais une
+   * série à moitié commencée. `ecriture` ne rejette pas : elle range
+   * elle-même son échec.
+   */
+  private avecVerrouJusquALEcriture<T>(cle: string, travail: () => Promise<{ reponse: T; ecriture?: Promise<void> }>): Promise<T> {
+    return new Promise<T>((rendre, refuser) => {
+      void this.avecVerrou(cle, async () => {
+        try {
+          const { reponse, ecriture } = await travail()
+          rendre(reponse)
+          await ecriture
+        } catch (e) {
+          refuser(e)
+        }
+      })
+    })
   }
 
   /**
@@ -1159,6 +1186,8 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const gardee = this.enCours.get(profileId)
       const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
+      // Le dé l'a promise sans pouvoir l'écrire (`commencerUneRencontre`) : il n'y a rien à jouer.
+      if (!s && this.rencontresPerdues.get(profileId) === id) throw new Error('Ce duel n’a pas pu commencer : relance le dé')
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
       if (!s || (s.mode !== 'serie' && s.mode !== 'defi' && s.mode !== 'duel' && s.mode !== 'revision' && s.mode !== 'rencontre')) throw new Error('Cette série est introuvable')
       // Lundi à minuit, le défi se clôt : son classement est figé, sa vainqueur rangé.
@@ -3023,15 +3052,21 @@ export class CampagneStore {
    *
    * Tout ce qu'il lui faut de la base permanente part d'un seul aller-retour
    * — sa rencontre laissée, sa cote, ses dernières séries, ce qu'il a vu —,
-   * puis la rencontre s'écrit. Lu en deux fois, puis écrit, le dé attendait
-   * trois allers-retours vers Turso l'un derrière l'autre, 230 ms chacun en
+   * et le dé répond sans attendre que la rencontre s'écrive : le verrou du
+   * profil tient jusque-là, et sa première réponse l'attend
+   * (`avecVerrouJusquALEcriture`) — lire une question prend plus longtemps
+   * qu'un aller-retour. Lu en deux fois, puis écrit, le dé attendait trois
+   * allers-retours vers Turso l'un derrière l'autre, 230 ms chacun en
    * médiane (le retour du propriétaire du 13 octobre 2026 : « l'attente est
-   * perceptible » ; `duels-attente.test.ts`). Une rencontre laissée, qui se
-   * reprend, a lu ses séries et ses vues pour rien : moins cher qu'un
-   * aller-retour de plus à chaque dé.
+   * perceptible » ; `duels-attente.test.ts`) ; il n'en attend plus qu'un. Le
+   * prix, que le propriétaire a accepté le même jour : une écriture ratée ne
+   * se dit plus au toucher, mais à la première réponse (`rencontresPerdues`).
+   * Une rencontre laissée, qui se reprend, a lu ses séries et ses vues pour
+   * rien : moins cher qu'un aller-retour de plus à chaque dé.
    */
   commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
-    return this.avecVerrou(profileId, async () => {
+    return this.avecVerrouJusquALEcriture(profileId, async () => {
+      this.rencontresPerdues.delete(profileId)
       const maintenant = this.maintenant()
       // La base et sa mesure, gardées en mémoire, partent à côté ; une
       // rencontre reprise s'en passe, et leur échec ne compte qu'au tirage.
@@ -3056,10 +3091,12 @@ export class CampagneStore {
       if (ouverte?.adversaire) {
         this.garderEnCours(ouverte)
         return {
-          serie: vueDeSerie(ouverte),
-          adversaire: enJeu(await this.adversaireVu(ouverte.adversaire)),
-          sesJustes: sesJustesAvant(ouverte),
-          enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire), releve.joues),
+          reponse: {
+            serie: vueDeSerie(ouverte),
+            adversaire: enJeu(await this.adversaireVu(ouverte.adversaire)),
+            sesJustes: sesJustesAvant(ouverte),
+            enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire), releve.joues),
+          },
         }
       }
       const [jouables, mesure] = await tirage
@@ -3088,18 +3125,30 @@ export class CampagneStore {
         sujet: null,
         adversaire,
       }
-      await this.client.execute({
-        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, adversaire)
-              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'rencontre', ?, ?, ?)`,
-        args: [serie.id, profileId, JSON.stringify(serie.questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null, serie.sujet ?? null, JSON.stringify(adversaire)],
-      })
-      this.garderEnCours(serie)
-      return {
+      // La réponse d'abord : rien ne doit plus lever entre l'écriture lancée
+      // et le verrou qui l'attend.
+      const reponse: RencontreDeCampagne = {
         serie: vueDeSerie(serie),
         adversaire: enJeu(await this.adversaireVu(adversaire)),
         sesJustes: 0,
         enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(adversaire), releve.joues),
       }
+      // Gardée une fois écrite, comme toute série (`enCours`). Ratée, rien ne
+      // l'est : sa première réponse la cherche en base, et dit de relancer le dé.
+      const ecriture = this.client
+        .execute({
+          sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet, adversaire)
+                VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'rencontre', ?, ?, ?)`,
+          args: [serie.id, profileId, JSON.stringify(serie.questions), VIES, maintenant, serie.categories ? JSON.stringify(serie.categories) : null, serie.sujet ?? null, JSON.stringify(adversaire)],
+        })
+        .then(
+          () => this.garderEnCours(serie),
+          (e: unknown) => {
+            this.rencontresPerdues.set(profileId, serie.id)
+            console.warn('[campagne] une rencontre ne s’est pas écrite :', e instanceof Error ? e.message : e)
+          },
+        )
+      return { reponse, ecriture }
     })
   }
 
