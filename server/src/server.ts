@@ -807,8 +807,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
     // Ce que la routine du matin a déposé dans la base de la campagne : une
-    // routine qui ne tourne plus se voit à sa date.
-    mesurer('campagne', () => ({ campagne: campagne.santeDeLaBase() }))
+    // routine qui ne tourne plus se voit à sa date. Et le modèle du savoir,
+    // qu'Automate lit : quand il s'est ajusté, sur combien, en combien de temps.
+    mesurer('campagne', () => ({ campagne: { ...campagne.santeDeLaBase(), savoir: campagne.santeDuSavoir() } }))
     // La dernière tournée du rappel du soir : combien sont partis, combien
     // ont échoué — un service de push qui refuse tout se voit ici.
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))

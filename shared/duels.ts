@@ -40,7 +40,11 @@ import type { LaurierPorte } from './jour'
 /** La cote de tout le monde au premier duel : celle d'un joueur qui finit sa série vers huit bonnes réponses. */
 export const COTE_DE_DEPART = 1000
 
-/** Le score qui vaut la cote de départ — la marche des moyennes, le niveau d'un joueur sans série (`niveauPourUneRencontre`). */
+/**
+ * Le score qui vaut la cote de départ — la marche des moyennes, le niveau
+ * de qui n'a encore rien répondu, contre qui Automate joue son premier duel
+ * (`core/modeleDuSavoir.ts`).
+ */
 export const SCORE_DE_REFERENCE = 8
 
 /** Ce que vaut une bonne réponse de plus dans la série d'en face : cent points, deux bonnes réponses, une ligue. */
@@ -118,9 +122,9 @@ export const niveauDeLaCote = (cote: number): number => SCORE_DE_REFERENCE + (co
 
 /**
  * Le niveau des adversaires qu'on lui cherche : pendant son placement, celui
- * de ses séries de la campagne (`niveauPourUneRencontre`) — des parties
- * serrées dès le premier duel, quand sa cote ne dit encore rien de lui ;
- * ensuite, celui de sa cote, qui a appris de ses duels.
+ * que ses réponses de campagne disent de lui (le modèle du savoir) — des
+ * parties serrées dès le premier duel, quand sa cote ne dit encore rien de
+ * lui ; ensuite, celui de sa cote, qui a appris de ses duels.
  */
 export const niveauPourLeDuel = (joues: number, cote: number, niveauDeCampagne: number): number =>
   joues < DUELS_DE_PLACEMENT ? niveauDeCampagne : niveauDeLaCote(cote)

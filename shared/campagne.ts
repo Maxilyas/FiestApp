@@ -720,23 +720,10 @@ export interface MesAmis {
 // série finie d'un autre joueur, de son niveau — ses questions, dans le même
 // ordre, et son score à battre. Rien à modérer : on ne s'écrit pas, on ne
 // s'attend pas. Ni classement, ni laurier, ni Éclat : un face-à-face, qui
-// paie comme une série.
-
-/** Les séries finies qui disent son niveau : les dix dernières. */
-export const SERIES_POUR_LE_NIVEAU = 10
-
-/**
- * Son niveau, pour lui trouver un adversaire : la médiane de ses dernières
- * séries finies — une série ratée d'entrée ne le fait pas passer pour un
- * débutant, un coup de chance pour un expert. Sans série, celui d'un joueur
- * qui découvre : huit bonnes réponses, la marche des moyennes.
- */
-export function niveauPourUneRencontre(justes: readonly number[]): number {
-  if (justes.length === 0) return 8
-  const triees = [...justes].sort((a, b) => a - b)
-  const milieu = Math.floor(triees.length / 2)
-  return triees.length % 2 === 1 ? triees[milieu] : (triees[milieu - 1] + triees[milieu]) / 2
-}
+// paie comme une série. Depuis le 13 octobre 2026, c'est toujours Automate,
+// l'adversaire simulé, qui joue comme lui (`core/campagne.ts`) : son niveau
+// ne se lit plus à la médiane de ses dix dernières séries, mais dans toutes
+// ses réponses (`core/modeleDuSavoir.ts`).
 
 export type IssueDeRencontre = 'gagnee' | 'perdue' | 'egalite'
 
