@@ -110,6 +110,7 @@ import {
   type DepotDeLaBase,
   type CorrectionDeCampagne,
   type CorrectionDeQuestion,
+  type ChoixDeLaCampagne,
   type DefiDeLaSemaine,
   type EtatDeCampagne,
   type FinDeSerie,
@@ -479,6 +480,10 @@ export class CampagneStore {
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
+  /** Les questions jouables, toutes catégories, et ce dont elles sont faites : la base, la réserve du jour, les retraits (`jouables`). */
+  private jouablesGardees: { base: BaseDeLaCampagne; duJour: ReadonlySet<string>; retirees: number; questions: readonly QuestionDeLaBase[] } | null = null
+  /** Les catégories et les sujets de chaque liste de jouables (`choixDe`). */
+  private choixGardes = new WeakMap<readonly QuestionDeLaBase[], ChoixDeLaCampagne>()
 
   constructor(
     url: string,
@@ -750,11 +755,24 @@ export class CampagneStore {
     return suite
   }
 
-  /** Les questions que la campagne peut poser : la base, moins les retirées et celles de la réserve du quiz du jour. */
-  private async jouables(categories?: readonly string[]): Promise<QuestionDeLaBase[]> {
+  /**
+   * Les questions que la campagne peut poser : la base, moins les retirées et
+   * celles de la réserve du quiz du jour. Toutes catégories, la liste se garde
+   * jusqu'à ce que l'une des trois change (`jouablesGardees`) : le dé, une
+   * série, la page de la campagne la lisent à chaque fois, onze mille
+   * questions passées au crible au dixième de cœur de l'hébergeur. Elle est
+   * la même pour tous : personne ne la modifie.
+   */
+  private async jouables(categories?: readonly string[]): Promise<readonly QuestionDeLaBase[]> {
     const [duJour, base] = await Promise.all([this.empreintesDuJour(), this.base()])
+    let g = this.jouablesGardees
+    // Un retrait ne se reprend jamais : leur nombre dit qu'il en est venu un.
+    if (!g || g.base !== base || g.duJour !== duJour || g.retirees !== this.retirees.size) {
+      const questions = base.questions.filter(q => !this.retirees.has(q.id) && !duJour.has(q.empreinte))
+      g = this.jouablesGardees = { base, duJour, retirees: this.retirees.size, questions }
+    }
     const filtre = categories && categories.length > 0 ? new Set(categories) : null
-    return base.questions.filter(q => !this.retirees.has(q.id) && !duJour.has(q.empreinte) && (!filtre || filtre.has(q.meta.categorie)))
+    return filtre ? g.questions.filter(q => filtre.has(q.meta.categorie)) : g.questions
   }
 
   /**
@@ -779,12 +797,26 @@ export class CampagneStore {
 
   /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`). */
   private async vuesPar(profileId: string): Promise<Map<string, number>> {
-    const res = await this.client.execute({
-      sql: `SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-            WHERE s.profile_id = ? GROUP BY r.reserve_id`,
-      args: [profileId],
-    })
-    return new Map(res.rows.map(r => [String(r.reserve_id), Number(r.le)]))
+    return vuesLues((await this.client.execute(lectureDesVues(profileId))).rows)
+  }
+
+  /**
+   * Ce que la campagne peut poser — ses catégories, ses sujets jouables —,
+   * les mêmes pour tous : sans toucher à la base, et compté une fois par
+   * liste de jouables (`choixDe`). La préparation d'un duel n'a besoin que
+   * de cela, et l'attendait dans tout l'état de la campagne — quatre lectures
+   * de son passé avant de s'ouvrir, 800 ms en production (le retour du
+   * propriétaire du 13 octobre 2026 : « l'attente est perceptible »).
+   */
+  async choix(): Promise<ChoixDeLaCampagne> {
+    return this.choixDe(await this.jouables())
+  }
+
+  /** Les catégories et les sujets de ces jouables : dix-neuf sujets sur onze mille questions, recomptés à chaque ouverture de la campagne. */
+  private choixDe(jouables: readonly QuestionDeLaBase[]): ChoixDeLaCampagne {
+    let choix = this.choixGardes.get(jouables)
+    if (!choix) this.choixGardes.set(jouables, (choix = { categories: parCategorie(jouables), sujets: this.sujetsJouables(jouables) }))
+    return choix
   }
 
   /** Les sujets qui ont de quoi faire une série, comptés sur ce que la campagne peut poser. */
@@ -845,14 +877,15 @@ export class CampagneStore {
       this.recordsParCategorie(profileId),
     ])
     const aujourdhui = parJour.get(jourDe(this.maintenant())) ?? 0
+    const { categories, sujets } = this.choixDe(jouables)
     return {
       record: Number(series.rows[0]?.record ?? 0),
       series: Number(series.rows[0]?.n ?? 0),
       xpAujourdhui: xpDuJourDeCampagne(aujourdhui),
       justesAujourdhui: aujourdhui,
       enCours: enCours ? vueDeSerie(enCours) : null,
-      categories: parCategorie(jouables),
-      sujets: this.sujetsJouables(jouables),
+      categories,
+      sujets,
       questions: jouables.length,
       records: [...records].map(([categorie, record]) => ({ categorie, record })),
     }
@@ -2950,15 +2983,6 @@ export class CampagneStore {
   // confettis et les hauts faits de série la comptent, le record des séries
   // non. Ni classement, ni laurier, ni Éclat.
 
-  /** Sa rencontre laissée en route, s'il en a une : elle se reprend. */
-  private async rencontreEnCours(profileId: string): Promise<Serie | null> {
-    const res = await this.client.execute({
-      sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`,
-      args: [profileId],
-    })
-    return res.rows[0] ? versSerie(res.rows[0]) : null
-  }
-
   /** Qui l'on affronte, tel que la page le montre : un profil masqué ou parti ne se nomme pas. */
   private async adversaireVu(a: AdversaireGarde): Promise<Adversaire> {
     if (a.simule) return automateVu(a)
@@ -2989,11 +3013,39 @@ export class CampagneStore {
    * ami, sur un serveur de quelques amis — quand il n'était pas là, et
    * « c'est trompeur » (le propriétaire, le 13 octobre 2026). Une série en
    * cours, elle, attend.
+   *
+   * Tout ce qu'il lui faut de la base permanente part d'un seul aller-retour
+   * — sa rencontre laissée, sa cote, ses dernières séries, ce qu'il a vu —,
+   * puis la rencontre s'écrit. Lu en deux fois, puis écrit, le dé attendait
+   * trois allers-retours vers Turso l'un derrière l'autre, 230 ms chacun en
+   * médiane (le retour du propriétaire du 13 octobre 2026 : « l'attente est
+   * perceptible » ; `duels-attente.test.ts`). Une rencontre laissée, qui se
+   * reprend, a lu ses séries et ses vues pour rien : moins cher qu'un
+   * aller-retour de plus à chaque dé.
    */
   commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
     return this.avecVerrou(profileId, async () => {
-      // Sa cote part avec : ce que la rencontre met en jeu se dit avant de jouer.
-      const [ouverte, releve] = await Promise.all([this.rencontreEnCours(profileId), this.releveDesDuels(profileId)])
+      const maintenant = this.maintenant()
+      // La base et sa mesure, gardées en mémoire, partent à côté ; une
+      // rencontre reprise s'en passe, et leur échec ne compte qu'au tirage.
+      const tirage = Promise.all([this.jouables(), this.mesures()])
+      tirage.catch(() => {})
+      const tour = ++this.tourDesBordures
+      const [laissee, duels, miennes, vues] = await this.client.batch(
+        [
+          { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
+          lectureDesDuels(profileId, maintenant),
+          {
+            sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
+            args: [profileId, SERIES_POUR_LE_NIVEAU],
+          },
+          lectureDesVues(profileId),
+        ],
+        'read',
+      )
+      // Sa cote : ce que la rencontre met en jeu se dit avant de jouer.
+      const releve = this.releveLu(profileId, duels.rows, tour)
+      const ouverte = laissee.rows[0] ? versSerie(laissee.rows[0]) : null
       if (ouverte?.adversaire) {
         this.garderEnCours(ouverte)
         return {
@@ -3003,20 +3055,11 @@ export class CampagneStore {
           enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire), releve.joues),
         }
       }
-      const maintenant = this.maintenant()
-      const [miennes, vues, jouables, mesure] = await Promise.all([
-        this.client.execute({
-          sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
-          args: [profileId, SERIES_POUR_LE_NIVEAU],
-        }),
-        this.vuesPar(profileId),
-        this.jouables(),
-        this.mesures(),
-      ])
+      const [jouables, mesure] = await tirage
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('La campagne n’a pas encore de questions à poser : reviens bientôt')
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses séries.
       const niveau = niveauPourLeDuel(releve.joues, releve.cote, niveauPourUneRencontre(miennes.rows.map(r => Number(r.justes))))
-      const tirees = tirerUneSerie(jouables, mesure, vues, maintenant)
+      const tirees = tirerUneSerie(jouables, mesure, vuesLues(vues.rows), maintenant)
       const taux = tirees.map(({ question: q }) => tauxLisse(q.meta.difficulte, mesure.get(q.id)?.justes, mesure.get(q.id)?.total))
       const id = randomUUID()
       const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(taux, niveau), simule: true }
@@ -3122,7 +3165,12 @@ export class CampagneStore {
   /** Ses duels classés, relus : sa cote, ses semaines — et ses bordures, retenues pour la salle. */
   private async releveDesDuels(profileId: string): Promise<ReleveDesDuels> {
     const tour = ++this.tourDesBordures
-    const r = releverLesDuels(duelsLus((await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows), semaineDeLInstant)
+    return this.releveLu(profileId, (await this.client.execute(lectureDesDuels(profileId, this.maintenant()))).rows, tour)
+  }
+
+  /** Ses duels classés, de lignes de `lectureDesDuels` parties au tour `tour` — seules, ou dans un lot : ses bordures retenues avec. */
+  private releveLu(profileId: string, lignes: readonly Record<string, unknown>[], tour: number): ReleveDesDuels {
+    const r = releverLesDuels(duelsLus(lignes), semaineDeLInstant)
     this.retenirLesBordures(profileId, r.bordures, tour)
     return r
   }
@@ -4626,6 +4674,21 @@ function lectureDesJustes(profileId: string): InStatement {
 }
 
 /**
+ * Les questions qu'il a vues, et quand pour la dernière fois : seule
+ * (`vuesPar`), ou dans le lot qui prépare le dé (`commencerUneRencontre`).
+ */
+function lectureDesVues(profileId: string): InStatement {
+  return {
+    sql: `SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+          WHERE s.profile_id = ? GROUP BY r.reserve_id`,
+    args: [profileId],
+  }
+}
+
+/** Des lignes de `lectureDesVues` à ce qu'il a vu, question par question (`parFraicheur`). */
+const vuesLues = (lignes: readonly Record<string, unknown>[]): Map<string, number> => new Map(lignes.map(r => [String(r.reserve_id), Number(r.le)]))
+
+/**
  * Ses duels classés finis (`shared/duels.ts`) — ou ceux de tout le monde,
  * pour le classement : chacun ses bonnes réponses et celles du score à
  * battre, comptées dans la base sans faire voyager les réponses de
@@ -5325,24 +5388,39 @@ export const VUE_RECENTE_MS = 24 * HEURE_MS
 function fraicheurDe(vues: ReadonlyMap<string, number>, maintenant: number) {
   return (id: string): { recente: number; vue: number; le: number } => {
     const le = vues.get(id)
-    return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: maintenant - le < VUE_RECENTE_MS ? 1 : 0, vue: 1, le }
+    return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant) === 2 ? 1 : 0, vue: 1, le }
   }
 }
 
 /**
+ * La même fraîcheur en un chiffre, sans rien bâtir : 0 jamais vue, 1 vue,
+ * 2 vue ces dernières vingt-quatre heures. Un tirage la lit pour chacune des
+ * onze mille questions de la base, deux fois.
+ */
+const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 2 => (le === undefined ? 0 : maintenant - le < VUE_RECENTE_MS ? 2 : 1)
+
+/**
  * Les questions rangées par ce qu'un joueur en a vu : les jamais vues
  * d'abord, puis les déjà vues de la plus anciennement vue à la plus récente,
- * celles des dernières vingt-quatre heures en tout dernier. Le tri est
- * stable : chaque groupe garde l'ordre qu'on lui donne — le hasard du
- * battage, pour les jamais vues.
+ * celles des dernières vingt-quatre heures en tout dernier. Chaque groupe
+ * garde l'ordre qu'on lui donne — le hasard du battage, pour les jamais
+ * vues —, et seules les vues se trient, d'un tri stable. Toute la base
+ * triée, sa fraîcheur relue à chaque comparaison, coûtait 8 ms à chaque
+ * série — onze mille questions, quatre à dix fois plus au dixième de cœur
+ * de l'hébergeur — pour ranger surtout des jamais vues, déjà dans leur ordre
+ * (`duels-attente.test.ts` la compare au tri d'avant).
  */
 export function parFraicheur<T extends { id: string }>(questions: readonly T[], vues: ReadonlyMap<string, number>, maintenant: number): T[] {
-  const fraicheur = fraicheurDe(vues, maintenant)
-  return [...questions].sort((a, b) => {
-    const x = fraicheur(a.id)
-    const y = fraicheur(b.id)
-    return x.recente - y.recente || x.vue - y.vue || x.le - y.le
-  })
+  const jamaisVues: T[] = []
+  const vuesAvant: { q: T; le: number }[] = []
+  const recentes: { q: T; le: number }[] = []
+  for (const q of questions) {
+    const le = vues.get(q.id)
+    if (le === undefined) jamaisVues.push(q)
+    else (classeDeFraicheur(le, maintenant) === 2 ? recentes : vuesAvant).push({ q, le })
+  }
+  const parDate = (a: { le: number }, b: { le: number }) => a.le - b.le
+  return [...jamaisVues, ...vuesAvant.sort(parDate).map(x => x.q), ...recentes.sort(parDate).map(x => x.q)]
 }
 
 /**
@@ -5392,11 +5470,7 @@ class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: s
     maintenant: number,
     private readonly servies: Servies<T> = { categories: new Map(), sousThemes: new Map() },
   ) {
-    const fraicheur = fraicheurDe(vues, maintenant)
-    for (const q of questions) {
-      const f = fraicheur(q.id)
-      this.classes[f.recente ? 2 : f.vue ? 1 : 0].push(q)
-    }
+    for (const q of questions) this.classes[classeDeFraicheur(vues.get(q.id), maintenant)].push(q)
   }
 
   /** Les `n` questions suivantes de la marche, moins quand elle n'en a plus. */
@@ -5457,14 +5531,27 @@ class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: s
 
   private ouvrirLaClasseSuivante(): boolean {
     if (++this.classe >= this.classes.length) return false
-    const files = new Map<string, TourDeRole<T>['files'][number]>()
-    this.classes[this.classe].forEach((q, rang) => {
-      const cle = `${q.meta.categorie}\u0000${q.meta.sousTheme}`
-      const f = files.get(cle) ?? files.set(cle, { categorie: q.meta.categorie, cle, questions: [], rangs: [] }).get(cle)!
+    // Les files se trouvent par catégorie, puis par sous-thème : une clé bâtie
+    // pour chaque question — huit mille à chaque série — coûtait le tiers du
+    // tirage. Elles restent dans l'ordre où leur première question arrive.
+    const parCategorie = new Map<string, Map<string, TourDeRole<T>['files'][number]>>()
+    const files: TourDeRole<T>['files'] = []
+    const classe = this.classes[this.classe]
+    for (let rang = 0; rang < classe.length; rang++) {
+      const q = classe[rang]
+      const { categorie, sousTheme } = q.meta
+      let parSousTheme = parCategorie.get(categorie)
+      if (!parSousTheme) parCategorie.set(categorie, (parSousTheme = new Map()))
+      let f = parSousTheme.get(sousTheme)
+      if (!f) {
+        f = { categorie, cle: `${categorie}\u0000${sousTheme}`, questions: [], rangs: [] }
+        parSousTheme.set(sousTheme, f)
+        files.push(f)
+      }
       f.questions.push(q)
       f.rangs.push(rang)
-    })
-    this.files = [...files.values()]
+    }
+    this.files = files
     return true
   }
 }

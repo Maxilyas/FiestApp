@@ -37,6 +37,17 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // Ce que la campagne peut poser — ses catégories, ses sujets —, le même
+  // pour tous et sans toucher à la base : la préparation d'un duel n'a besoin
+  // que de cela, et la page des duels le demande en fond.
+  app.get(
+    '/api/campagne/choix',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.choix())
+    }),
+  )
+
   app.post(
     '/api/campagne/serie',
     petit,

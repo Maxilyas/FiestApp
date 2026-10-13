@@ -8151,6 +8151,17 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .duels-hasard { flex: none; display: grid; place-items: center; width: 58px; height: 58px; padding: 0; border: 1px solid rgba(var(--accent-rgb), 0.5); border-radius: 50%; background: rgba(var(--accent-rgb), 0.06); color: var(--accent-text); cursor: pointer; }
 .duels-hasard:hover { border-color: var(--accent); }
 .duels-hasard .icon { width: 22px; height: 22px; }
+/* Touché, il s'allume tant que le serveur tire la série, et le dé roule d'un
+   quart de tour en quart de tour — sa face revient la même : rien ne
+   bougeait, et l'attente se lisait comme un toucher perdu. */
+.duels-hasard.roule { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.16); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.16); cursor: progress; }
+.duels-hasard.roule .duels-de { animation: duels-roule 0.5s cubic-bezier(0.55, 0, 0.45, 1) infinite; }
+@keyframes duels-roule {
+  to { rotate: 90deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .duels-hasard.roule .duels-de { animation: none; }
+}
 /* Les trois onglets : une piste, l'onglet choisi souligné d'or. Un résultat à
    voir s'y compte comme un message, au rouge du compteur de l'accueil. */
 .onglets.duels-onglets { gap: 4px; margin-top: 24px; padding: 4px; border-color: rgba(var(--accent-rgb), 0.16); border-radius: 16px; background: var(--surface); }
