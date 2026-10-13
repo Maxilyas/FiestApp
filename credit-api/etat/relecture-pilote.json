@@ -465,9 +465,10 @@
     "ti1jnbaj": {
       "action": "corriger",
       "champs": {
-        "texte": "Quel parc national, qui couvre une grande partie d'un territoire français d'Amérique du Sud, est le plus vaste de France ?"
+        "texte": "Quel parc national, qui couvre une grande partie d'un territoire français d'Amérique du Sud, est le plus vaste de France ?",
+        "difficulte": 2
       },
-      "motif": "Le mot « Guyane » dans l'intitulé souffle la réponse. L'intitulé est reformulé sans changer le fait ni la réponse."
+      "motif": "Le mot « Guyane » dans l'intitulé souffle la réponse. L'intitulé est reformulé sans changer le fait ni la réponse. Difficulté 4 → 2, à la demande du propriétaire : reformulé, l'intitulé ne laisse qu'une réponse hors de la métropole."
     },
     "n3e42hgs": {
       "action": "corriger",
@@ -688,5 +689,6 @@
       "recu": "2026-10-13T17:16:19.431Z",
       "cout": 0.103906
     }
-  ]
+  ],
+  "appliquee": "2026-10-13T17:28:46.763Z"
 }
