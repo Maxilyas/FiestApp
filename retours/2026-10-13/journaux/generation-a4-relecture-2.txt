@@ -1,0 +1,3 @@
+retirée a4-84.json#6 « Quel est le prénom de Cyrano dans la pièce d'Edmond Rostand ? » — Dans la pièce de Rostand, le prénom Savinien n'est pas donné au héros. La réponse attribue à la pièce un fait qui relève du personnage historique : la question est douteuse.
+corrigée (explication) a4-85.json#9 « En 2009, quelle poupée a fêté ses 50 ans, elle qui avait été présentée en 1959 à un salon du jouet de New York ? » — Polly Pocket appartient aujourd'hui à Mattel : il faut préciser qu'elle a été créée par un autre fabricant.
+corrigée (anecdote) a4-85.json#10 « En 2022, quel parc d'attractions de Seine-et-Marne a fêté ses 30 ans, lui qui avait ouvert ses portes en avril 1992 ? » — « Euro Disney Resort » désignait le complexe ; le parc lui-même s'appelait Euro Disneyland.

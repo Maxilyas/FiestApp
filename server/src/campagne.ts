@@ -248,6 +248,15 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // La suite de son historique, au « Voir plus » : après le dernier duel qu'il a sous les yeux (`?le=&cle=`).
+  app.get(
+    '/api/duels/historique',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.historiqueDesDuels(profil.id, req.query.le, req.query.cle))
+    }),
+  )
+
   // Chercher quelqu'un à défier ou à ajouter, par son prénom (`?q=`).
   app.get(
     '/api/duels/joueurs',

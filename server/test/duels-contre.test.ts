@@ -284,6 +284,43 @@ test('un duel joué des deux côtés ne compte plus parmi les ouverts ; fermé, 
   }
 })
 
+// Le choix du propriétaire du 13 octobre 2026 : « je veux pouvoir avoir autant
+// de défis en cours que possible, visibles ». Cinq duels qui attendaient
+// bloquaient le sixième ; un seul ouvert par adversaire suffit.
+test('autant de duels en attente qu’on veut, un par adversaire — tous dans ses duels en cours', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const autres = [
+      ['tom', 'Tom'],
+      ['hugo', 'Hugo'],
+      ['ines', 'Inès'],
+      ['zoe', 'Zoé'],
+      ['max', 'Max'],
+      ['noah', 'Noah'],
+      ['jade', 'Jade'],
+    ]
+    assert.ok(autres.length > DUELS_OUVERTS_MAX)
+    const codes: string[] = []
+    for (const [login, nom] of autres) {
+      await inscrireProfil(banc.url, login, nom, '🐻')
+      horloge.t += 60_000
+      const d = await poster(banc, lea, '/api/campagne/duel', { adversaire: idDe(banc, login) })
+      assert.equal(d.status, 200, d.corps.error)
+      await jouer(banc, lea, d.corps.serie.id, 3)
+      codes.push(d.corps.code)
+    }
+    const { contre } = (await lire(banc, lea, '/api/duels')).corps
+    assert.deepEqual(contre.map((d: any) => d.code).sort(), [...codes].sort())
+    assert.ok(contre.every((d: any) => d.justes === 3 && d.sesJustes === null && d.minutesRestantes > 0), 'chacun chez l’autre, son score caché')
+    // Toujours un seul ouvert par adversaire.
+    assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: idDe(banc, 'tom') })).corps.error, 'Tu as déjà un duel en cours contre Tom : il attend d’être joué')
+  } finally {
+    await banc.close()
+  }
+})
+
 /** Les deux cotes qu'un duel a figées à son lancement. */
 async function coteAuLancement(banc: Banc, code: string): Promise<{ auteur: number; adversaire: number }> {
   return base(banc, db => {
@@ -438,6 +475,78 @@ test('ce qu’il porte suit son avatar dans les duels : ses duels en cours, la p
     const fin = await jouer(banc, lea, (await poster(banc, lea, `/api/campagne/duel/${d.corps.code}`)).corps.id, 4)
     assert.equal(fin.contre.legendaire, 'br:blaireau')
     assert.equal(fin.contre.justes, 3)
+  } finally {
+    await banc.close()
+  }
+})
+
+// Le retour du propriétaire du 13 octobre 2026 : « dans les duels, j'ai deux
+// notifications mais je les vois pas dans "En cours" ni dans l'historique »,
+// puis « un résultat disparu où j'avais fait zéro réponse juste : j'ai
+// toujours un petit 1 ». La page ne lisait que ses dix derniers duels créés,
+// quand l'accueil compte ses résultats sur trente jours : un duel lancé plus
+// tôt, joué ensuite par l'autre, sortait de la page — compté en rouge, et
+// introuvable. Ce qui l'attend, à jouer ou chez l'autre, en sortait de même.
+test('ce que l’accueil compte, la page le montre : un résultat pas vu, un duel à jouer, un duel chez l’autre — même derrière dix duels plus récents', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
+    await inscrireProfil(banc.url, 'ines', 'Inès', '🐙')
+    await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐸')
+    const max = await inscrireProfil(banc.url, 'max', 'Max', '🦉')
+    const [deLea, deTom, deInes, deZoe] = ['lea', 'tom', 'ines', 'zoe'].map(l => idDe(banc, l))
+
+    // Léa défie Tom et ne trouve rien : zéro bonne réponse. Tom ne l'a pas encore joué.
+    const contreTom = await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })
+    assert.equal((await jouer(banc, lea, contreTom.corps.serie.id, 0)).justes, 0)
+    // Elle défie Inès, qui ne l'a pas encore joué, et laisse en route celui de Zoé ; Max la défie.
+    const contreInes = await poster(banc, lea, '/api/campagne/duel', { adversaire: deInes })
+    await jouer(banc, lea, contreInes.corps.serie.id, 4)
+    const contreZoe = await poster(banc, lea, '/api/campagne/duel', { adversaire: deZoe })
+    await jouer(banc, lea, contreZoe.corps.serie.id, 1, 1)
+    const deMax = await poster(banc, max, '/api/campagne/duel', { adversaire: deLea })
+    await jouer(banc, max, deMax.corps.serie.id, 5)
+    // Puis Hugo la défie dix fois, chaque duel joué des deux côtés avant le suivant : les plus récents.
+    const contreHugo: string[] = []
+    for (let i = 0; i < 10; i++) {
+      horloge.t += 60_000
+      const d = await poster(banc, hugo, '/api/campagne/duel', { adversaire: deLea })
+      assert.equal(d.status, 200, d.corps.error)
+      await jouer(banc, hugo, d.corps.serie.id, 3)
+      await jouer(banc, lea, (await poster(banc, lea, `/api/campagne/duel/${d.corps.code}`)).corps.id, 2)
+      contreHugo.push(d.corps.code)
+    }
+    // Tom joue enfin le sien : sa première bonne réponse le gagne.
+    horloge.t += 60_000
+    assert.equal((await jouer(banc, tom, (await poster(banc, tom, `/api/campagne/duel/${contreTom.corps.code}`)).corps.id, 1)).finie, true)
+
+    // L'accueil compte son résultat, et le duel de Max à relever…
+    const accueil = (await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels
+    assert.deepEqual(accueil.resultats, { n: 1, de: 'Tom', code: contreTom.corps.code })
+    assert.deepEqual(accueil.defisRecus, { n: 1, de: 'Max' })
+    // … et la page les montre : le résultat — zéro à un —, ce qui est à elle de jouer, ce qui attend Inès.
+    const { contre } = (await lire(banc, lea, '/api/duels')).corps
+    const ligne = (code: string) => contre.find((d: any) => d.code === code)
+    assert.deepEqual(
+      [contreTom, deMax, contreZoe, contreInes].map(d => {
+        const l = ligne(d.corps.code)
+        return l && [l.contre.nom, l.lance, l.justes, l.sesJustes, l.nouveau === true, l.minutesRestantes > 0]
+      }),
+      [
+        ['Tom', true, 0, 1, true, true],
+        ['Max', false, null, null, false, true],
+        ['Zoé', true, null, null, false, true],
+        ['Inès', true, 4, null, false, true],
+      ],
+    )
+    // Et ses dix duels joués, pour l'historique.
+    assert.deepEqual(
+      contreHugo.filter(code => ligne(code)?.ecart === undefined),
+      [],
+    )
   } finally {
     await banc.close()
   }
