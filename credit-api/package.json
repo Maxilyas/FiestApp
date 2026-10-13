@@ -1,9 +1,0 @@
-{
-  "name": "credit-api",
-  "private": true,
-  "type": "module",
-  "description": "Outillage jetable : dépenser une fois le crédit de l'API d'Anthropic sur la base de la campagne. Retiré avant la fusion.",
-  "dependencies": {
-    "@anthropic-ai/sdk": "0.133.0"
-  }
-}
