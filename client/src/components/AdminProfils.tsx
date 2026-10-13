@@ -3,18 +3,21 @@ import { api } from '../api'
 import { Icon } from './Icon'
 import { confirmDialog } from './Dialog'
 import { Feuille } from './Pieces'
+import { FicheDuJoueurAuQg } from './QgFicheJoueur'
 import { showToast } from '../state'
 import { espacesFines, quand } from '../format'
 import type { ProfilDAdministration } from '../../../shared/profil'
 
 /**
- * « Les profils », à `/admin#profils` : les personnes — les chercher, en
- * supprimer une. Sans recherche, les derniers vus. Une ligne chacun, qui
- * ouvre sa feuille, comme les lignes de « Mon compte » : la corbeille au bout
- * de chaque ligne se touchait en voulant faire défiler. La suppression dit
- * avant le clic ce qu'elle emporte, et ce qui reste : l'espace qu'il tenait
- * — son salon, un compte d'animateur —, détaché, et les soirées jouées, aux
- * autres.
+ * « Les profils », à `/admin#profils` : les personnes — les chercher, ouvrir
+ * la fiche de l'une. Sans recherche, les derniers vus ; les suspendus aussi,
+ * c'est d'ici qu'on les réactive. Une ligne chacun, qui ouvre sa feuille,
+ * comme les lignes de « Mon compte » : la corbeille au bout de chaque ligne
+ * se touchait en voulant faire défiler. La feuille est sa fiche
+ * (`QgFicheJoueur.tsx`) : ce qu'il a joué, et les gestes pour l'aider. La
+ * suppression dit avant le clic ce qu'elle emporte, et ce qui reste :
+ * l'espace qu'il tenait — son salon, un compte d'animateur —, détaché, et
+ * les soirées jouées, aux autres.
  */
 export function AdminProfils() {
   const [cherche, setCherche] = useState('')
@@ -105,6 +108,7 @@ export function AdminProfils() {
                   </span>
                 </span>
                 {p.toi && <span className="etiquette">toi</span>}
+                {p.suspendu && <span className="etiquette admin-etat-ferme">suspendu</span>}
                 <Icon name="chevron-down" className="style-chevron" />
               </button>
             </li>
@@ -113,38 +117,17 @@ export function AdminProfils() {
       )}
       {ouvert && (
         <Feuille titre={ouvert.nom} onFermer={() => setOuvert(null)}>
-          <dl className="admin-fiche">
-            <div>
-              <dt>Identifiant</dt>
-              <dd>@{ouvert.login}</dd>
-            </div>
-            <div>
-              <dt>Niveau</dt>
-              <dd>{ouvert.niveau}</dd>
-            </div>
-            <div>
-              <dt>Soirées</dt>
-              <dd>{ouvert.soirees}</dd>
-            </div>
-            <div>
-              <dt>Espace</dt>
-              <dd>{ouvert.salon ? `${ouvert.salon.propre ? 'Son salon' : 'Le compte d’animateur'} /${ouvert.salon.slug} · ${ouvert.salon.quiz} quiz` : 'Aucun'}</dd>
-            </div>
-            <div>
-              <dt>Vu</dt>
-              <dd>{ouvert.vuLe ? quand(ouvert.vuLe) : 'jamais'}</dd>
-            </div>
-          </dl>
-          {ouvert.toi ? (
-            <p className="muted small">C’est ton profil : il ne se supprime pas d’ici.</p>
-          ) : (
-            <div className="admin-gestes">
-              <button type="button" className="salon-geste admin-geste-danger" disabled={occupe} onClick={() => void supprimer(ouvert)}>
-                <Icon name="trash" />
-                Supprimer le profil
-              </button>
-            </div>
-          )}
+          <FicheDuJoueurAuQg
+            key={ouvert.id}
+            profil={ouvert}
+            onChange={f => {
+              setOuvert(f)
+              setRelire(n => n + 1)
+            }}
+            onSupprimer={p => {
+              if (!occupe) void supprimer(p)
+            }}
+          />
         </Feuille>
       )}
     </>

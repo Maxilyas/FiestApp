@@ -151,14 +151,17 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // La base de la campagne et ses signalements : l'administrateur seul.
   mountCampagneAdmin(app, { campagne: deps.campagne, profiles: deps.profiles })
-  // « Les profils » : les chercher, en supprimer un — l'administrateur seul.
+  // « Les profils » : les chercher, ouvrir la fiche d'un joueur et y agir — l'administrateur seul.
   mountProfilsAdmin(app, {
     profiles: deps.profiles,
     auth: deps.auth,
     store: deps.store,
+    jour: deps.jour,
+    campagne: deps.campagne,
     soireesPasCloses: deps.soireesPasCloses,
     supprimerProfil: deps.supprimerProfil,
     onLibraryChanged: deps.onLibraryChanged,
+    maintenant: deps.maintenant,
   })
   // Le QG : le direct de toutes les soirées et la vue d'ensemble des modes — l'administrateur seul.
   mountQg(app, {

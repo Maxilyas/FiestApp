@@ -90,6 +90,19 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
 
+    // La fiche de Léa : des confettis, un code de secours neuf, sa connexion
+    // rouverte, son épreuve de sentier libérée, suspendue puis réactivée, et
+    // son prénom changé en dernier — les phrases d'avant la nomment encore Léa.
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/confettis`, { confettis: 100, mot: 'Merci pour samedi !' }), 'confettis')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/secours`), 'code de secours')
+    for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' })
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
+    ok(await faire(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'mythes', palier: 1 }), 'épreuve')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/epreuve`), 'libérer l’épreuve')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/suspendre`), 'suspendre')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/reactiver`), 'réactiver')
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/prenom`, { nom: 'Léa B.' }), 'renommer')
+
     // Une soirée laissée en plan : un invité arrive, puis plus un geste pendant six heures.
     const zoe = await invite(banc.url, 'Zoé', '🐼')
     const enPlan = (await lire<DirectDuQg>(banc, admin, '/api/admin/qg/direct')).corps.soirees[0].spaceId
@@ -114,8 +127,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
           .map(m => `${m.toUpperCase()} ${r.path}`)
       }),
     )
-    // Pas une liste vide : les espaces, les profils, le catalogue, le quiz du jour, la campagne et les soirées y sont.
-    assert.ok(routes.size >= 18, `${routes.size} routes trouvées`)
+    // Pas une liste vide : les espaces, les profils et leur fiche, le catalogue, le quiz du jour, la campagne et les soirées y sont.
+    assert.ok(routes.size >= 25, `${routes.size} routes trouvées`)
     const gestes = notes(banc)
     assert.deepEqual([...new Set(gestes.map(g => g.route))].sort(), [...routes].sort(), 'chaque route jouée, et rien d’autre')
     assert.deepEqual(
@@ -140,6 +153,12 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Profil masqué du classement du quiz du jour : Léa (@lea)',
       'Liste collée au quiz du jour : 1 question ajoutée',
       'Soirée laissée en plan close : Antoine — rien n’avait été joué',
+      '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
+      'Code de secours neuf tiré : Léa (@lea)',
+      'Verrou de connexion levé : Léa (@lea)',
+      'Profil suspendu : Léa (@lea)',
+      'Profil réactivé : Léa (@lea)',
+      'Profil renommé : « Léa » devient « Léa B. » (@lea)',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -150,6 +169,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       /^Question de la campagne gardée, ses signalements refermés : « Question d.essai numéro 1 : laquelle est la bonne \? »$/,
       /^Question retirée de la campagne, pour tous : « Question d.essai numéro 2 : laquelle est la bonne \? »$/,
       /^Question de la campagne corrigée : « Question d.essai numéro 3 : laquelle est la bonne \? »$/,
+      /^Épreuve de sentier libérée, sans coûter de vie : Léa \(@lea\) — .+, palier 1$/,
     ]) {
       assert.ok(resumes.some(r => attendu.test(r)), `${attendu} parmi :\n${resumes.join('\n')}`)
     }
@@ -165,8 +185,17 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     assert.equal(journal.suite, null)
     const profils = (await lire<JournalDuQg>(banc, admin, '/api/admin/gestes?sorte=profil')).corps.gestes
     assert.deepEqual(
-      profils.map(g => g.resume),
-      ['Profil supprimé : Tom (@tom)'],
+      profils.map(g => g.resume.replace(/ — [^—]+, palier 1$/, ' — …')),
+      [
+        'Profil renommé : « Léa » devient « Léa B. » (@lea)',
+        'Profil réactivé : Léa (@lea)',
+        'Profil suspendu : Léa (@lea)',
+        'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
+        'Verrou de connexion levé : Léa (@lea)',
+        'Code de secours neuf tiré : Léa (@lea)',
+        '100 confettis offerts : Léa (@lea) — « Merci pour samedi ! »',
+        'Profil supprimé : Tom (@tom)',
+      ],
     )
     // Ni la route, ni qui l'a fait : la page n'en a pas besoin.
     assert.deepEqual(Object.keys(journal.gestes[0]).sort(), ['cible', 'id', 'quand', 'resume', 'sorte'])

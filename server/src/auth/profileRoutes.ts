@@ -144,10 +144,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const aujourdhui = jourDe(deps.maintenant())
     await deps.jour.clorePasses(aujourdhui)
     const rec = (await profiles.byId(me.id)) ?? me
-    const [jour, boutique, campagne, duels] = await Promise.all([
+    const [jour, lue, campagne, duels] = await Promise.all([
       deps.jour.carriereDe(rec.id),
-      // Une base qui se tait ôte le solde, pas la page.
-      profiles.boutiqueDe(rec, aujourdhui).catch(e => {
+      // Une base qui se tait ôte le solde, pas la page. Les dons de
+      // l'administrateur viennent avec lui, dans la même lecture : l'accueil
+      // les annonce sans un aller-retour de plus.
+      profiles.boutiqueEtDons(rec, aujourdhui).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
@@ -162,7 +164,18 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         return undefined
       }),
     ])
-    return { ...profiles.toPublic(rec), jour, aujourdhui, ...(boutique && { boutique }), ...(campagne && { campagne }), ...(duels && { duels }) }
+    const boutique = lue?.boutique
+    // Ce que l'administrateur a fait pour lui : ses dons, son prénom changé — dits une fois, son téléphone retient le reste.
+    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now())
+    return {
+      ...profiles.toPublic(rec),
+      jour,
+      aujourdhui,
+      ...(boutique && { boutique }),
+      ...(campagne && { campagne }),
+      ...(duels && { duels }),
+      ...(annonces.length > 0 && { annonces }),
+    }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */
@@ -289,6 +302,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       if (!verifie) {
         budget.failed(`joueur:${login}`)
         return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
+      // Le bon mot de passe, sur un profil suspendu : le dire, comme pour un
+      // compte en pause. « Incorrect » faisait retaper un mot de passe juste.
+      if (verifie.suspendu) {
+        budget.abandon(`joueur:${login}`)
+        return res.status(403).json({ error: 'Ton profil est suspendu : demande à l’administrateur de le réactiver' })
       }
       budget.succeeded(`joueur:${login}`)
       const found = verifie.profil
