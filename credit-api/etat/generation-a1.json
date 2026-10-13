@@ -437,6 +437,16 @@
         "c2-a1-137",
         "c2-a1-139",
         "c2-a1-140"
+      ],
+      "recu": "2026-10-13T19:26:39.379Z",
+      "cout": 0.193422
+    },
+    {
+      "id": "msgbatch_017bkeKG5gW3qfk3rZViZ4JE",
+      "envoye": "2026-10-13T19:26:42.008Z",
+      "demandes": [
+        "r-fiche-3-1",
+        "r-fiche-3-2"
       ]
     }
   ],
@@ -988,6 +998,14 @@
     },
     "e-a1-140": {
       "lot": "/home/user/FiestApp/.lots-campagne/a1-140.json"
+    },
+    "r-fiche-3-1": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a1/fiche-3-1.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a1/fiche-3-1.decisions.json"
+    },
+    "r-fiche-3-2": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a1/fiche-3-2.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a1/fiche-3-2.decisions.json"
     }
   },
   "tours": {
@@ -1126,11 +1144,11 @@
     "a1-133": 2,
     "a1-134": 2,
     "a1-135": 1,
-    "a1-136": 1,
-    "a1-137": 1,
+    "a1-136": 2,
+    "a1-137": 2,
     "a1-138": 1,
-    "a1-139": 1,
-    "a1-140": 1
+    "a1-139": 2,
+    "a1-140": 2
   },
   "essais": {}
 }
