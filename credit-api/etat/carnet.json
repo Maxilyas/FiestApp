@@ -68,7 +68,27 @@
       "pour": "generer n1",
       "envoye": "2026-10-13T18:21:23.587Z",
       "demandes": 4,
-      "prevu": 0.23899533333333334
+      "prevu": 0.23899533333333334,
+      "recu": "2026-10-13T18:24:29.157Z",
+      "cout": 0.27767000000000003
+    },
+    {
+      "id": "msgbatch_01KUMZNZo9uPVLP5CSbsurTt",
+      "pour": "generer n1",
+      "envoye": "2026-10-13T18:24:30.987Z",
+      "demandes": 2,
+      "prevu": 0.08358133333333333,
+      "recu": "2026-10-13T18:27:35.715Z",
+      "cout": 0.11129800000000001
+    },
+    {
+      "id": "msgbatch_01DsjVH5LgdhPjLMgrSoRQk9",
+      "pour": "generer n1",
+      "envoye": "2026-10-13T18:27:37.626Z",
+      "demandes": 11,
+      "prevu": 1.374052,
+      "recu": "2026-10-13T18:31:42.757Z",
+      "cout": 0.61396
     }
   ]
 }

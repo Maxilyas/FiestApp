@@ -139,7 +139,38 @@
         "c1-n1-18",
         "c1-n1-19",
         "c1-n1-37"
-      ]
+      ],
+      "recu": "2026-10-13T18:24:29.157Z",
+      "cout": 0.27767000000000003
+    },
+    {
+      "id": "msgbatch_01KUMZNZo9uPVLP5CSbsurTt",
+      "envoye": "2026-10-13T18:24:30.987Z",
+      "demandes": [
+        "c2-n1-19",
+        "c2-n1-37"
+      ],
+      "recu": "2026-10-13T18:27:35.715Z",
+      "cout": 0.11129800000000001
+    },
+    {
+      "id": "msgbatch_01DsjVH5LgdhPjLMgrSoRQk9",
+      "envoye": "2026-10-13T18:27:37.626Z",
+      "demandes": [
+        "r-fiche-1-1",
+        "r-fiche-1-2",
+        "r-fiche-1-3",
+        "r-fiche-1-4",
+        "r-fiche-1-5",
+        "r-fiche-1-6",
+        "r-fiche-1-7",
+        "r-fiche-1-8",
+        "r-fiche-1-9",
+        "r-fiche-1-10",
+        "r-fiche-1-11"
+      ],
+      "recu": "2026-10-13T18:31:42.757Z",
+      "cout": 0.61396
     }
   ],
   "cibles": {
@@ -271,6 +302,50 @@
     },
     "e-n1-43": {
       "lot": "/home/user/FiestApp/.lots-campagne/n1-43.json"
+    },
+    "r-fiche-1-1": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-1.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-1.decisions.json"
+    },
+    "r-fiche-1-2": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-2.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-2.decisions.json"
+    },
+    "r-fiche-1-3": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-3.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-3.decisions.json"
+    },
+    "r-fiche-1-4": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-4.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-4.decisions.json"
+    },
+    "r-fiche-1-5": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-5.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-5.decisions.json"
+    },
+    "r-fiche-1-6": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-6.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-6.decisions.json"
+    },
+    "r-fiche-1-7": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-7.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-7.decisions.json"
+    },
+    "r-fiche-1-8": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-8.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-8.decisions.json"
+    },
+    "r-fiche-1-9": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-9.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-9.decisions.json"
+    },
+    "r-fiche-1-10": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-10.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-10.decisions.json"
+    },
+    "r-fiche-1-11": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-11.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/n1/fiche-1-11.decisions.json"
     }
   },
   "tours": {
@@ -310,13 +385,13 @@
     "n1-40": 1,
     "n1-42": 2,
     "n1-43": 1,
-    "n1-08": 1,
+    "n1-08": 2,
     "n1-17": 1,
     "n1-41": 1,
-    "n1-18": 0,
-    "n1-19": 0,
+    "n1-18": 1,
+    "n1-19": 2,
     "n1-35": 0,
-    "n1-37": 0
+    "n1-37": 2
   },
   "essais": {
     "e-n1-08": 1,
