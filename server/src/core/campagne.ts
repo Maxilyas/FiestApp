@@ -502,7 +502,8 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe'>>
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> &
+    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonPorte' | 'faireGrandir'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
@@ -787,6 +788,24 @@ export class CampagneStore {
       await ajouterColonne(this.client, 'campagne_duels', colonne, type)
     }
     await this.client.execute('CREATE INDEX IF NOT EXISTS idx_campagne_duels_adversaire ON campagne_duels(adversaire, ferme_le)')
+    // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
+    // octobre 2026 : ses bonnes réponses le font grandir.
+    await ajouterColonne(this.client, 'campagne_reponses', 'compagnon', 'TEXT')
+  }
+
+  /** Le compagnon qu'il porte (`loup`), que la ligne de sa réponse retient ; null sans compagnon. */
+  private compagnonPorte(profileId: string): string | null {
+    const p = this.profils?.cached?.(profileId)
+    return p && this.profils?.compagnonPorte ? this.profils.compagnonPorte(p) : null
+  }
+
+  /**
+   * Son compagnon grandit à la fin d'une partie — série, épreuve, parcours —,
+   * jamais pendant une question (`ProfileStore.faireGrandir`). Une base qui
+   * hoquette le laisse grandir à la lecture suivante : la partie, elle, est finie.
+   */
+  private async faireGrandir(profileId: string): Promise<void> {
+    await this.profils?.faireGrandir?.(profileId).catch(e => console.error('[campagne] compagnon :', e))
   }
 
   /** Un geste à la fois par profil : deux onglets qui répondent ensemble ne comptent pas deux fois. */
@@ -1356,8 +1375,8 @@ export class CampagneStore {
       // de quoi relire sa ligne d'expérience. Chacun coûtait un aller-retour.
       const lot: InStatement[] = [
         {
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
-          args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
         },
         {
           sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ? WHERE id = ?',
@@ -1420,6 +1439,7 @@ export class CampagneStore {
       const carnet = finie && revision ? await this.carnetApres(profileId) : null
       // Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au lancement.
       const partiA = finie && s.mode === 'duel' && s.duel ? await this.partirAuxPrevus(profileId, s.duel) : []
+      if (finie) await this.faireGrandir(profileId)
       return {
         juste,
         xp,
@@ -1572,6 +1592,24 @@ export class CampagneStore {
     )
     const ligues = confettisDesLigues(releverLesDuels(duelsLus(duels.rows), semaineDeLInstant), this.semaineDeLHeure().semaine)
     return Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiersLus(acquis.rows, validees.rows)) + ligues
+  }
+
+  /**
+   * Ses bonnes réponses de campagne données en portant chaque compagnon
+   * (`loup` → 42) — séries, épreuves, parcours, révisions, défis et duels,
+   * comme ses confettis : elles le font grandir (`shared/compagnons.ts`).
+   * Les étoiles et les ligues, qui paient sans être des réponses, n'y
+   * comptent pas.
+   */
+  async compagnonsDe(profileId: string): Promise<Record<string, number>> {
+    const res = await this.client.execute({
+      sql: `SELECT r.compagnon AS compagnon, COUNT(*) AS n
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.profile_id = ? AND r.juste = 1 AND r.compagnon IS NOT NULL
+            GROUP BY r.compagnon`,
+      args: [profileId],
+    })
+    return Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)]))
   }
 
   /**
@@ -4055,8 +4093,8 @@ export class CampagneStore {
       const maintenant = this.maintenant()
       const lot: InStatement[] = [
         {
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
-          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
         },
         {
           sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?',
@@ -4096,6 +4134,7 @@ export class CampagneStore {
       if (issue === 'ratee' && !e.rejeu) reponse.vies = await this.vies(profileId)
       // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme celles d'une série.
       if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
+      if (finie) await this.faireGrandir(profileId)
       return reponse
     })
   }
@@ -4296,8 +4335,8 @@ export class CampagneStore {
       const maintenant = this.maintenant()
       const lot: InStatement[] = [
         {
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
-          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          args: [e.id, e.index, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId)],
         },
         { sql: 'UPDATE campagne_series SET position = ?, justes = ?, issue = ?, finie_le = ? WHERE id = ?', args: [position, justes, issue, finie ? maintenant : null, e.id] },
       ]
@@ -4335,6 +4374,7 @@ export class CampagneStore {
         } catch (err) {
           console.error('[campagne] récompenses de l’épreuve à thème non rangées :', err)
         }
+        await this.faireGrandir(profileId)
       }
       return reponse
     })

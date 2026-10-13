@@ -4780,6 +4780,25 @@ h3 > .icon {
 @keyframes pt-respire { 0%, 100% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
 @keyframes pt-scintille { 0%, 100% { opacity: 0.35; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
 
+/* Les compagnons (components/Compagnon.tsx) se dessinent dans le cadre d'un
+   portrait : ce qui le fige ou le resserre dans les listes les fige aussi.
+   Seul leur monde vivant est à eux — à la forme ultime, des couches peintes
+   à part qui sortent du cercle et bougent seules (« que l'environnement soit
+   vivant », le propriétaire) : de la lumière, livrée sans son noir — posée en
+   `screen`, elle ne fondait son noir que dans son propre calque, et la carte
+   d'un joueur, isolée, en montrait le carré ; des envols qui dérivent.
+   `transform` et `opacity` seulement. */
+.cp .cp-tourne { transform-origin: 50px 50px; animation: cp-tourne 48s linear infinite; }
+.cp .cp-pulse { transform-origin: 50px 50px; animation: cp-pulse 3.4s ease-in-out infinite; }
+.cp .cp-monte { animation: cp-monte 7s ease-in-out infinite alternate; }
+.cp .cp-derive { animation: cp-derive 10s ease-in-out infinite alternate; }
+.cp .cp-vole { animation: cp-vole 8s ease-in-out infinite alternate; }
+@keyframes cp-tourne { to { transform: rotate(360deg); } }
+@keyframes cp-pulse { 0%, 100% { opacity: 0.45; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
+@keyframes cp-monte { from { transform: translateY(5px); } to { transform: translateY(-7px); } }
+@keyframes cp-derive { from { transform: translateX(-6px); } to { transform: translateX(6px); } }
+@keyframes cp-vole { from { transform: translate(-5px, 3px); } to { transform: translate(5px, -4px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .pt * { animation: none !important; }
 }
@@ -9195,6 +9214,32 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .album-case { transition: none; }
 }
+/* Le rayon des compagnons : une carte par compagnon — sa forme du moment en
+   grand, qui bouge (le sujet de la carte : son monde vivant en sort, il a de
+   la place autour), puis ses quatre formes sur une rangée, chacune la teinte
+   de sa rareté et ce qu'elle demande, figées dans leur disque. Acheté, la
+   carte dit où il en est. */
+.rayon-compagnons { display: flex; flex-direction: column; gap: 14px; }
+.compagnon-carte { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.compagnon-tete { display: flex; align-items: center; gap: 18px; }
+.compagnon-grand { flex: none; font-size: 5.25rem; line-height: 0; margin: 1.1rem 0.6rem 0.8rem; }
+.compagnon-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.compagnon-titre b { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
+.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.compagnon-forme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 12%, transparent); }
+.compagnon-petit { font-size: 2.75rem; line-height: 0; }
+.compagnon-petit .pt-debord,
+.compagnon-petit .pt-aura,
+.compagnon-petit .pt-etoile { display: none; }
+.compagnon-petit .pt * { animation: none; }
+.compagnon-seuil { font-size: var(--t-label); font-weight: 700; color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); font-variant-numeric: lining-nums tabular-nums; }
+.compagnon-a-venir .compagnon-seuil { color: var(--muted); }
+.compagnon-sien { display: flex; flex-direction: column; gap: 8px; }
+.compagnon-sien p { display: flex; align-items: center; gap: 6px; margin: 0; }
+.compagnon-sien .icon { width: 15px; height: 15px; color: var(--accent-text); }
+.compagnon-jauge { display: flex; flex-direction: column; gap: 4px; }
+.compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.compagnon-prix { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

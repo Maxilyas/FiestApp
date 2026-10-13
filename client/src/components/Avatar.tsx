@@ -4,7 +4,8 @@ import type { SonApparence } from '../../../shared/campagne'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
-import { dessinDuPortrait, lumineuse, sortesDe, sortesDesAvatars, useDessins } from './medaillons'
+import { formeDeCompagnon } from '../../../shared/compagnons'
+import { dessinDuCompagnon, dessinDuPortrait, lumineuse, sortesDe, sortesDesAvatars, useDessins } from './medaillons'
 
 interface Props {
   /** L'emoji — il ne change jamais : Alice reste le renard. */
@@ -45,7 +46,9 @@ interface Props {
  * cadre : un halo de niveau par-dessus ne pourrait que l'abîmer.
  *
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
- * la finition devient son cercle, l'Éclat son ciel rare.
+ * la finition devient son cercle, l'Éclat son ciel rare. Un compagnon de la
+ * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat, en attendant sa
+ * métamorphose, n'y pose que ses paillettes.
  *
  * Les trois dernières finitions — Prisme, Aurore, Constellation — ont en
  * plus leur lumière (`Lumiere.tsx`), autour de l'emoji comme du médaillon :
@@ -72,10 +75,12 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
   const tete = legendaire && portraitDe(legendaire) ? legendaire : null
+  const forme = legendaire && formeDeCompagnon(legendaire) ? legendaire : null
   const dessins = useDessins(...sortesDesAvatars([{ legendaire, finition, bordure }]))
-  const { Legendaire, Divin, Portrait, Lumiere, Bordure } = dessins
-  // Son portrait, s'il est arrivé : l'emoji tient la place en attendant.
+  const { Legendaire, Divin, Portrait, Compagnon, Lumiere, Bordure } = dessins
+  // Son portrait, son compagnon, s'il est arrivé : l'emoji tient la place en attendant.
   const portrait = tete && Portrait && dessinDuPortrait(dessins, tete) ? tete : null
+  const compagnon = forme && Compagnon && dessinDuCompagnon(dessins, forme) ? forme : null
   // La lumière de sa finition, si elle est arrivée — jamais sous un Divin, qui a la sienne.
   const lumiere = !divin && Lumiere ? lumineuse(finition) : null
   // Sa bordure de ligue, si elle est arrivée — jamais sous un Divin non plus.
@@ -88,7 +93,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   } else if (porte && Legendaire) {
     classes.push('av-legendaire')
     if (eclat) classes.push('av-eclat')
-  } else if (portrait) {
+  } else if (portrait || compagnon) {
+    // Un compagnon se tient comme un portrait : un disque peint, à sa place.
     classes.push('av-portrait')
     if (eclat) classes.push('av-eclat')
   } else {
@@ -108,6 +114,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
           <Legendaire cle={porte} finition={finition} eclat={eclat} grand={grand} />
         ) : portrait && Portrait ? (
           <Portrait cle={portrait} finition={finition} eclat={eclat} grand={grand} />
+        ) : compagnon && Compagnon ? (
+          <Compagnon cle={compagnon} finition={finition} grand={grand} />
         ) : (
           avatar
         )}
@@ -117,7 +125,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   return (
     <span className={classes.join(' ')}>
       {lumiere && Lumiere ? (
-        <Lumiere finition={lumiere} medaillon={!!((porte && Legendaire) || portrait)} bordure={!!cadre}>
+        <Lumiere finition={lumiere} medaillon={!!((porte && Legendaire) || portrait || compagnon)} bordure={!!cadre}>
           {dedans}
         </Lumiere>
       ) : (
@@ -140,8 +148,8 @@ export function Visage({ avatar, apparence }: { avatar: string; apparence?: SonA
 }
 
 /**
- * Un médaillon seul, légendaire, Divin ou portrait, hors d'un avatar : la
- * fin de soirée, la carte d'un joueur. En attendant son dessin, sa place est
+ * Un médaillon seul, légendaire, Divin, portrait ou compagnon, hors d'un
+ * avatar : la fin de soirée, la carte d'un joueur. En attendant son dessin, sa place est
  * gardée, vide — il n'y a pas d'emoji à montrer à la place d'un médaillon
  * qu'on vient de gagner. Si son dessin n'arrivera plus (`perdus`), c'est à
  * la page de dire autre chose : la carte cache sa galerie, la fin de soirée
@@ -154,10 +162,12 @@ export function Visage({ avatar, apparence }: { avatar: string; apparence?: SonA
 export function Dessin({ cle, verrouille, grand }: { cle: string; verrouille?: boolean; grand?: boolean }) {
   const divin = !!divinDe(cle)
   const portrait = !!portraitDe(cle)
+  const compagnon = !!formeDeCompagnon(cle)
   const dessins = useDessins(...sortesDe([cle]))
-  const { Legendaire, Divin, Portrait } = dessins
+  const { Legendaire, Divin, Portrait, Compagnon } = dessins
   if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} grand={grand} />
   if (portrait && Portrait && dessinDuPortrait(dessins, cle)) return <Portrait cle={cle} verrouille={verrouille} grand={grand} />
-  if (!divin && !portrait && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} grand={grand} />
-  return <span className={divin ? 'dv' : portrait ? 'pt' : 'lg'} aria-hidden="true" />
+  if (compagnon && Compagnon && dessinDuCompagnon(dessins, cle)) return <Compagnon cle={cle} verrouille={verrouille} grand={grand} />
+  if (!divin && !portrait && !compagnon && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} grand={grand} />
+  return <span className={divin ? 'dv' : portrait || compagnon ? 'pt' : 'lg'} aria-hidden="true" />
 }

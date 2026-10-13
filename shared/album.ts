@@ -10,8 +10,10 @@
 // La rareté dit ce qu'il demande. Le visage d'un sentier et les emojis des
 // premiers niveaux sont communs ; plus haut sur le sentier, plus rare ; sa
 // forme ultime, au douzième palier, est légendaire — l'égale des vingt-six
-// légendaires des hauts faits. Les Divins ont leur page, et n'y disent rien
-// d'eux : ni règle, ni lieu, ni progression (invariant 21).
+// légendaires des hauts faits. Les compagnons de la boutique de même, forme
+// par forme : celle qu'on achète est commune, la forme ultime légendaire. Les
+// Divins ont leur page, et n'y disent rien d'eux : ni règle, ni lieu, ni
+// progression (invariant 21).
 //
 // Une dérivation pure de ce que la page du profil reçoit déjà : « Ma
 // collection » compte ses avatars par elle (`compteDeLaCollection`), une seule
@@ -26,6 +28,7 @@ import { NOM_PALIER, clePalier, hautFait, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
+import { FORMES_DES_COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, compagnonDe, enLePortant, formeDeCompagnon, formesOuvertes } from './compagnons'
 import type { PublicProfileDetail } from './profil'
 
 /** Les pages de l'album : les cinq raretés des thèmes, et les Divins à part. */
@@ -35,17 +38,18 @@ export const RARETES_D_AVATAR: readonly RareteDAvatar[] = ['commune', 'peucommun
 
 export const NOM_DE_RARETE_D_AVATAR: Readonly<Record<RareteDAvatar, string>> = { ...NOM_RARETE, divin: 'Divin' }
 
-export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'emoji'
+export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | 'emoji'
 
 /**
  * Où se gagne un avatar : en soirée, au quiz du jour, en campagne — ses
- * séries, ses défis —, sur les sentiers du savoir, en montant de niveau, ou à
- * sa saison. La pastille de sa case, et l'icône de chacune de ses voies.
+ * séries, ses défis —, sur les sentiers du savoir, en montant de niveau, à sa
+ * saison, ou en boutique — un compagnon, qui grandit ensuite en le portant
+ * (`porte`). La pastille de sa case, et l'icône de chacune de ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'porte'
 
 export interface AvatarDeLAlbum {
-  /** `lg:phenix`, `dv:seraphin`, `br:cerf`, ou l'emoji de collection lui-même. */
+  /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
   cle: string
   sorte: SorteDAvatar
   rarete: RareteDAvatar
@@ -74,12 +78,14 @@ const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: 
 
 /**
  * Tout l'album, dans l'ordre du catalogue : les légendaires, les portraits
- * branche après branche, les emojis de collection, les Divins. Pas les
- * vingt-quatre emojis de l'inscription : ils sont à tout le monde.
+ * branche après branche, les compagnons forme après forme, les emojis de
+ * collection, les Divins. Pas les vingt-quatre emojis de l'inscription : ils
+ * sont à tout le monde.
  */
 export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [
   ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l))),
   ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
+  ...FORMES_DES_COMPAGNONS.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'porte'])),
   ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
   ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
 ]
@@ -97,17 +103,21 @@ const DANS: Record<LieuDAvatar, string> = {
   sentiers: 'sur les sentiers',
   niveau: 'en montant de niveau',
   saison: 'à sa saison',
+  boutique: 'en boutique',
+  porte: 'en le portant',
 }
 
 /**
  * Où il se gagne, d'une phrase — ce que sa case dit à l'oreille : « en
  * soirée ou au quiz du jour » quand ses voies sont l'une ou l'autre, « en
  * soirée, au quiz du jour et en campagne » quand une seule les demande
- * toutes ; un emoji, son niveau ; un légendaire de saison, sa fête. Rien pour
- * un Divin.
+ * toutes ; un emoji, son niveau ; un légendaire de saison, sa fête ; une
+ * forme de compagnon, ses bonnes réponses. Rien pour un Divin.
  */
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
+  const f = formeDeCompagnon(a.cle)
+  if (f) return f.rang === 0 ? 'en boutique' : `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${enLePortant(compagnonDe(f))}`
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
   if (s) return `pour ${s.nom}`
@@ -118,7 +128,7 @@ export function ouIlSeGagne(a: AvatarDeLAlbum): string {
 }
 
 /** Ce que l'album lit d'un profil : ce qu'il a. */
-export type ProfilDeLAlbum = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'sentiers'>
+export type ProfilDeLAlbum = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'sentiers' | 'compagnons'>
 
 /** Les avatars de l'album qui sont à lui. */
 export function avatarsALui(p: ProfilDeLAlbum): Set<string> {
@@ -126,6 +136,7 @@ export function avatarsALui(p: ProfilDeLAlbum): Set<string> {
     ...p.legendaires,
     ...(p.divins ?? []).map(d => d.key),
     ...portraitsOuverts(p.sentiers ?? {}),
+    ...formesOuvertes(p.compagnons ?? []),
     ...COLLECTION.filter(c => p.niveau >= c.niveau).map(c => c.emoji),
   ])
 }
@@ -200,8 +211,8 @@ export interface EtapeDUneVoie {
   progres: { acquis: number; requis: number; dit: string } | null
 }
 
-/** Ce que les voies lisent d'un profil : ce qu'il a, et ses hauts faits — où il en est. */
-export type ProfilDesVoies = ProfilDeLAlbum & Pick<PublicProfileDetail, 'hautsFaits'>
+/** Ce que les voies lisent d'un profil : ce qu'il a, et ses hauts faits — où il en est —, sa boutique — ses compagnons. */
+export type ProfilDesVoies = ProfilDeLAlbum & Pick<PublicProfileDetail, 'hautsFaits' | 'boutique'>
 
 const OU: Record<LieuDAvatar, string> = {
   soiree: 'En soirée',
@@ -210,6 +221,8 @@ const OU: Record<LieuDAvatar, string> = {
   sentiers: 'Sur les sentiers',
   niveau: 'En montant de niveau',
   saison: 'À sa saison',
+  boutique: 'En boutique',
+  porte: 'En le portant',
 }
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
@@ -271,6 +284,36 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
           regle: 'Un portrait tous les deux paliers d’un sentier du savoir, dans la campagne',
           tenue: valides >= pt.palier,
           progres: compte(Math.min(valides, pt.palier), pt.palier, 'palier '),
+        },
+      ],
+    ]
+  }
+  if (a.sorte === 'compagnon') {
+    // Une seule voie : l'acheter, puis le faire grandir en le portant.
+    const f = formeDeCompagnon(cle)!
+    const c = compagnonDe(f)
+    const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
+    const achat: EtapeDUneVoie = {
+      lieu: 'boutique',
+      titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`,
+      regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`,
+      tenue: !!sien,
+      progres: null,
+    }
+    if (f.rang === 0) return [[achat]]
+    const requis = JUSTES_DES_FORMES[f.rang]
+    const tenue = !!sien && sien.rang >= f.rang
+    const justes = p.boutique?.compagnons?.find(x => x.compagnon === c.key)?.justes ?? 0
+    return [
+      [
+        achat,
+        {
+          lieu: 'porte',
+          titre: `En ${c.le} portant : ${formatNumber(requis)} bonnes réponses`,
+          regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
+          tenue,
+          // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.
+          progres: sien ? compte(tenue ? requis : Math.min(justes, requis), requis) : null,
         },
       ],
     ]

@@ -471,9 +471,13 @@ export class GameEngine {
       logAnswers: rows => {
         const createdAt = Date.now()
         // L'équipe de chacun à l'instant où la ligne s'écrit : c'est elle
-        // que le verdict des équipes lira, quoi qu'il déménage ensuite.
+        // que le verdict des équipes lira, quoi qu'il déménage ensuite. Le
+        // compagnon qu'il porte aussi : ses bonnes réponses le font grandir.
         this.deps.answers.write(
-          rows.map(r => ({ ...r, sessionId: sess.id, createdAt, teamId: this.deps.party.get(r.playerId)?.teamId ?? null })),
+          rows.map(r => {
+            const compagnon = this.deps.party.compagnonDe(r.playerId)
+            return { ...r, sessionId: sess.id, createdAt, teamId: this.deps.party.get(r.playerId)?.teamId ?? null, ...(compagnon && { compagnon }) }
+          }),
         )
         journal = true
       },

@@ -361,6 +361,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ theme, porter }),
       }),
+    /** Acheter un compagnon, à sa première forme — le porter aussitôt, ou le garder pour plus tard —, comme un thème. */
+    acheterCompagnon: (compagnon: string, porter = true) =>
+      req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/compagnons', {
+        method: 'POST',
+        body: JSON.stringify({ compagnon, porter }),
+      }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête

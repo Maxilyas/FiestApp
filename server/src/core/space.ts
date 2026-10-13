@@ -727,6 +727,7 @@ export class SpaceRuntime {
   ): Promise<(Figure & { avant: number; apres: number })[]> {
     // Tant qu'il n'est pas allé au bout, on ne sait plus ce qui est en base.
     this.dernierCredit = null
+    let grandi = false
     // Chaque profil a ses lignes : les créditer en même temps ne mêle rien.
     // Les montées gardent l'ordre des gains, celui de l'écran commun.
     const parProfil = await enParallele(gains, PROFILS_EN_VOL, async g => {
@@ -754,6 +755,14 @@ export class SpaceRuntime {
         // brillait sans que personne le voie.
         await this.deps.profiles.grantEclat(g.profileId, this.deps.profiles.cibleEclatDe(g.profileId, g.avatar), soireeId)
       }
+      // Ses bonnes réponses de ce quiz ont pu faire grandir son compagnon :
+      // la salle le voit à la fin du quiz, jamais pendant une question. Une
+      // base qui hoquette le laisse grandir à la lecture suivante.
+      const aGrandi = await this.deps.profiles.faireGrandir(g.profileId).catch(e => {
+        console.error('[soirée] compagnon :', e)
+        return false
+      })
+      if (aGrandi) grandi = true
       await this.annoncer(soireeId, g, avant, apres)
       // Un niveau gardé d'une courbe d'avant ne se « gagne » pas une seconde
       // fois : on ne fête que ce qui dépasse le niveau qu'il avait déjà.
@@ -767,6 +776,7 @@ export class SpaceRuntime {
     })
     const montees = parProfil.filter((m): m is NonNullable<typeof m> => m !== null)
     this.dernierCredit = empreinteDuCredit(soireeId, gains)
+    if (grandi) this.broadcastSnapshot()
     return montees
   }
 

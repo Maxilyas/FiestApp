@@ -7,7 +7,7 @@ import { ChoixDeLEclat } from './Carriere'
 import { JaugeFine } from './TropheesAtlas'
 import { gemme, useFiche } from './Boutique'
 import { ongletVise } from './Onglets'
-import { dessinDuPortrait, useDessins } from './medaillons'
+import { dessinDuCompagnon, dessinDuPortrait, useDessins } from './medaillons'
 import { espacesFines } from '../format'
 import {
   NOM_DE_RARETE_D_AVATAR,
@@ -25,6 +25,7 @@ import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
@@ -49,11 +50,11 @@ const COURT: Record<RareteDAvatar, string> = { commune: 'Commune', peucommune: '
 
 /** Ce que range chaque page, sous ses gemmes. */
 const CE_QU_ELLE_RANGE: Record<RareteDAvatar, string> = {
-  commune: 'Le visage de chaque sentier du savoir, et les emojis des premiers niveaux.',
+  commune: 'Le visage de chaque sentier du savoir, chaque compagnon tel qu’on l’achète, et les emojis des premiers niveaux.',
   peucommune: 'Le deuxième portrait de chaque sentier, et les emojis des niveaux suivants.',
-  rare: 'Les troisième et quatrième portraits de chaque sentier.',
-  epique: 'Le cinquième portrait de chaque sentier, celui qui sort de son cadre.',
-  legendaire: 'Les légendaires des hauts faits, et la forme ultime de chaque sentier.',
+  rare: 'Les troisième et quatrième portraits de chaque sentier, et chaque compagnon à sa deuxième forme.',
+  epique: 'Le cinquième portrait de chaque sentier, celui qui sort de son cadre, et chaque compagnon à sa troisième forme.',
+  legendaire: 'Les légendaires des hauts faits, la forme ultime de chaque sentier et celle de chaque compagnon.',
   divin: 'Ils ne disent pas comment.',
 }
 
@@ -64,6 +65,8 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   sentiers: 'mountain',
   niveau: 'star',
   saison: 'calendar',
+  boutique: 'bag',
+  porte: 'paw',
 }
 
 /** La légende des pastilles, sous la grille : un emoji dit son niveau en toutes lettres, il n'y est pas. */
@@ -73,12 +76,13 @@ const LEGENDE_DU_LIEU: Partial<Record<LieuDAvatar, string>> = {
   campagne: 'en campagne',
   sentiers: 'sur les sentiers',
   saison: 'à sa saison',
+  boutique: 'en boutique',
 }
 
 /** Le nom d'un avatar de l'album, tel que sa case et sa fiche le disent. */
 function nomDe(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `Avatar ${a.cle}`
-  return legendaire(a.cle)?.nom ?? portrait(a.cle)?.nom ?? divin(a.cle)?.nom ?? a.cle
+  return legendaire(a.cle)?.nom ?? portrait(a.cle)?.nom ?? formeDeCompagnon(a.cle)?.nom ?? divin(a.cle)?.nom ?? a.cle
 }
 
 /**
@@ -98,6 +102,9 @@ function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean): strin
  * Une soirée n'a pas d'écran — on la rejoint par son code —, un niveau non
  * plus : il vient de tout ce qu'on joue ; ni une saison, qui ne compte que
  * ses jours : « Jouer le quiz du jour » en juin ne la rapprocherait de rien.
+ * Un compagnon à acheter mène à la boutique ; acheté, il grandit en le
+ * portant — partout : rien à ouvrir de plus que « Mon avatar », que sa fiche
+ * cite déjà.
  */
 function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: string } | null {
   for (const e of voies.flat()) {
@@ -105,6 +112,7 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'jour') return { nom: 'Jouer le quiz du jour', href: '/jour' }
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
+    if (e.lieu === 'boutique') return { nom: 'Aller à la boutique', href: '/boutique#compagnons' }
   }
   return null
 }
@@ -183,11 +191,14 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
   const voies = voiesDeLAvatar(a.cle, profil)
   const l = legendaire(a.cle)
   const p = portrait(a.cle)
+  const f = formeDeCompagnon(a.cle)
   const recit = a.sorte === 'divin' ? (profil.divins ?? []).find(d => d.key === a.cle) : undefined
   const inconnu = a.sorte === 'divin' && !recit
   const aller = aLui ? null : ouAller(a.cle, voies)
-  // Un Divin descendu n'éclate jamais ; les autres, s'il est tombé sur eux.
-  const eclate = aLui && a.sorte !== 'divin' && profil.eclats.includes(a.cle)
+  // Un Divin descendu n'éclate jamais ; un compagnon n'a pas encore de
+  // version rare à choisir — ses paillettes la disent ; les autres, s'il est
+  // tombé sur eux.
+  const eclate = aLui && a.sorte !== 'divin' && a.sorte !== 'compagnon' && profil.eclats.includes(a.cle)
   return (
     <div className="galerie-detail detail-case album-detail" style={gemmeDAvatar(a.rarete)}>
       <div className="album-detail-tete">
@@ -207,6 +218,12 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
       </div>
       {l && <p className="serif-note">{espacesFines(`« ${l.legende} »`)}</p>}
       {p && <p className="muted small">{`${brancheDe(p).nom} · ${brancheDe(p).categorie}`}</p>}
+      {f && (
+        <>
+          <p className="serif-note">{f.legende}</p>
+          <p className="muted small">{`${compagnonDe(f).nom} · ${NOM_DE_LA_FORME[f.rang]}`}</p>
+        </>
+      )}
       {a.sorte === 'emoji' && <p className="muted small">Réservé aux profils : l’inscription ne le propose pas.</p>}
       {recit && <p className="serif-note">{recit.legende}</p>}
       {inconnu && <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>}
@@ -268,8 +285,8 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
   useEffect(() => setOuvert(null), [page])
   const porte = profil.legendaire ?? profil.avatar
   const detail = useFiche(ouvert, porte)
-  const dessins = useDessins(...SORTES, 'legendaire', 'divin')
-  const { Portrait } = dessins
+  const dessins = useDessins(...SORTES, 'legendaire', 'divin', 'compagnon')
+  const { Portrait, Compagnon } = dessins
   const brille = (k: string) => brilleChez(profil, k)
   const choisie = pages.find(p => p.rarete === page) ?? pages[0]
   const choisir = (r: RareteDAvatar) => {
@@ -284,6 +301,9 @@ export function AlbumDesAvatars({ profil, page, onPage }: { profil: PublicProfil
     if (a.sorte === 'divin') return <Divin cle={a.cle} verrouille={!aLui} grand={grand} />
     if (a.sorte === 'portrait') {
       return Portrait && dessinDuPortrait(dessins, a.cle) ? <Portrait cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} /> : <span className="pt" aria-hidden="true" />
+    }
+    if (a.sorte === 'compagnon') {
+      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? <Compagnon cle={a.cle} verrouille={!aLui} grand={grand} /> : <span className="pt" aria-hidden="true" />
     }
     return aLui ? <Avatar avatar={a.cle} eclat={brille(a.cle)} /> : <span className="silhouette">{a.cle}</span>
   }

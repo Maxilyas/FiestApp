@@ -491,6 +491,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.confettisDeCampagne = id => campagne.confettisDe(id)
+  // Et celles qu'il donne en portant un compagnon le font grandir.
+  profiles.compagnonsDuJour = id => jour.compagnonsDe(id)
+  profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
   // Sa ligue des duels, sur sa carte.
@@ -1145,6 +1148,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.use('/portraits', express.static(path.join(clientDist, 'portraits'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les légendaires et les Divins peints de même (`server/scripts/anime/legendaires.ts`).
     app.use('/medaillons', express.static(path.join(clientDist, 'medaillons'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les compagnons de la boutique de même (`server/scripts/anime/livrer-compagnons.ts`).
+    app.use('/compagnons', express.static(path.join(clientDist, 'compagnons'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les décors peints — le calendrier, les thèmes peints, les fonds de carte — de même (`server/scripts/anime/decors.ts`).
     app.use('/decors', express.static(path.join(clientDist, 'decors'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change

@@ -1,9 +1,11 @@
-// La boutique a deux rayons — les thèmes, les objets —, chacun son onglet,
-// sous une barre fine (la remarque du propriétaire du 5 octobre 2026) : les
-// vies, posées sous la vitrine des thèmes, ne se trouvaient qu'en la faisant
-// défiler toute. Le rayon des vies est devenu celui des objets — les vies,
-// le sablier de la série, et ce qui viendra —, en icônes : toucher l'une
-// dit ce qu'on achète et combien (la remarque du 5 octobre 2026, au soir).
+// La boutique a trois rayons — les thèmes, les compagnons, les objets —,
+// chacun son onglet, sous une barre fine (la remarque du propriétaire du
+// 5 octobre 2026) : les vies, posées sous la vitrine des thèmes, ne se
+// trouvaient qu'en la faisant défiler toute. Le rayon des vies est devenu
+// celui des objets — les vies, le sablier de la série, et ce qui viendra —,
+// en icônes : toucher l'une dit ce qu'on achète et combien (la remarque du
+// 5 octobre 2026, au soir). Les compagnons sont venus entre les deux le
+// 13 octobre 2026 (`compagnons.test.ts`).
 //
 // Pas de serveur : la page de la boutique, rendue en HTML — la recette de
 // `profil-atlas.test.ts`.
@@ -46,25 +48,37 @@ function onglets(html: string) {
   }))
 }
 
-test('la boutique a deux rayons, chacun son onglet, sous une barre fine', async () => {
+test('la boutique a trois rayons, chacun son onglet, sous une barre fine', async () => {
   const html = await boutique()
   assert.deepEqual(onglets(html), [
     { nom: 'Thèmes', choisi: true },
+    { nom: 'Compagnons', choisi: false },
     { nom: 'Objets', choisi: false },
   ])
   assert.match(html, /class="onglets onglets-fins"/, 'la barre fine, pas les pilules')
   assert.match(html, /role="tabpanel"/)
   assert.match(html, /class="gemmes"/, 'la vitrine des thèmes d’abord')
   assert.doesNotMatch(html, /class="objets-grille"/, 'les objets attendent leur onglet')
+  assert.doesNotMatch(html, /class="rayon-compagnons"/, 'les compagnons aussi')
 
   // À son adresse, le rayon des objets : un lien peut y mener.
   const objets = await boutique('#objets')
   assert.deepEqual(onglets(objets), [
     { nom: 'Thèmes', choisi: false },
+    { nom: 'Compagnons', choisi: false },
     { nom: 'Objets', choisi: true },
   ])
   assert.match(objets, /class="objets-grille"/)
   assert.doesNotMatch(objets, /class="gemmes"/)
+
+  // Celui des compagnons de même : la boutique et l'album y mènent.
+  const compagnons = await boutique('#compagnons')
+  assert.deepEqual(
+    onglets(compagnons).map(o => o.choisi),
+    [false, true, false],
+  )
+  assert.match(compagnons, /class="rayon-compagnons"/)
+  assert.doesNotMatch(compagnons, /class="gemmes"|class="objets-grille"/)
   lieu.hash = ''
 })
 
@@ -112,7 +126,7 @@ test('les objets en icônes : une case par objet, sa fiche au toucher, avec la q
 
   // L'adresse d'avant, quand le rayon ne vendait que les vies, y mène encore.
   const vies = await boutique('#vies')
-  assert.equal(onglets(vies)[1].choisi, true)
+  assert.equal(onglets(vies).find(o => o.nom === 'Objets')?.choisi, true)
   assert.deepEqual(
     cases(vies).map(c => c.ouverte),
     [true, false],

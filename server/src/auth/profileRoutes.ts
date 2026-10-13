@@ -122,8 +122,14 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         return undefined
       }),
     ])
+    // Sa boutique vient de relire ce qui fait grandir ses compagnons : ce
+    // qu'il porte et ses formes se relisent après elle — une forme atteinte
+    // à l'instant se voit dès cette page.
+    const compagnons = profiles.compagnonsOf(rec.id)
     return {
       ...detail,
+      legendaire: profiles.legendairePorte(rec),
+      ...(compagnons.length > 0 && { compagnons }),
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories),
@@ -589,6 +595,26 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
       const jour = jourDe(deps.maintenant())
       const achete = await profiles.acheterTheme(me.id, req.body?.theme, jour, { porter: req.body?.porter !== false })
+      res.json({ profile: profiles.toPublic(achete), boutique: await profiles.boutiqueDe(achete, jour) })
+    }),
+  )
+
+  /**
+   * Acheter un compagnon, en confettis, à sa première forme — et le porter
+   * aussitôt, ou le garder pour plus tard (`porter: false`), comme un thème.
+   * Porté, la salle où il joue le voit : il remplace son avatar.
+   */
+  app.post(
+    '/api/joueur/compagnons',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const jour = jourDe(deps.maintenant())
+      const porter = req.body?.porter !== false
+      const achete = await profiles.acheterCompagnon(me.id, req.body?.compagnon, jour, { porter })
+      if (porter) deps.profilChange(achete.id)
       res.json({ profile: profiles.toPublic(achete), boutique: await profiles.boutiqueDe(achete, jour) })
     }),
   )
