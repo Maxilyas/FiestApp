@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
-import { Shape } from '../components/Shape'
+import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
 import { Visage } from '../components/Avatar'
@@ -10,7 +10,6 @@ import { OR, lueur } from '../components/Atlas'
 import { deNom, espacesFines, rang } from '../format'
 import { placeDuJour } from '../../../shared/course'
 import {
-  NOM_NIVEAU,
   issueDeRencontre,
   type AmiDeCampagne,
   type CorrectionDeCampagne,
@@ -606,25 +605,6 @@ export function FinDuDuel({ code, justes, partiA = [], onClassement }: { code: s
   )
 }
 
-/** La correction d'un duel ou d'un défi : chaque question, la bonne réponse, la sienne, et son anecdote. */
-function CorrectionDuDuel({ correction }: { correction: CorrectionDeCampagne[] }) {
-  return (
-    <ol className="campagne-correction">
-      {correction.map((c, i) => (
-        <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-          <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-          <p>{espacesFines(c.texte)}</p>
-          <p className="muted small">
-            <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-            {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-          </p>
-          {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-        </li>
-      ))}
-    </ol>
-  )
-}
-
 // ── La page d'un duel ─────────────────────────────────────────────────────
 
 /** « ← Les duels », seul en haut : la page d'où l'on vient, sans la recharger. */
@@ -890,7 +870,7 @@ export function PageDuDuel({
           onReponses={(duel.corrige || !ouvert) && !correction ? () => void voirCorrection(t.id) : undefined}
           onFermer={onRetour}
           erreur={erreur}
-          apres={correction && <CorrectionDuDuel correction={correction} />}
+          apres={correction && <SerieCorrigee correction={correction} />}
         />
       )
     }
@@ -1000,7 +980,7 @@ export function PageDuDuel({
           La correction du défi
         </button>
       )}
-      {correction && <CorrectionDuDuel correction={correction} />}
+      {correction && <SerieCorrigee correction={correction} />}
       {carte}
     </div>
   )

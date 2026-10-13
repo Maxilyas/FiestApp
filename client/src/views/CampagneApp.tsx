@@ -13,6 +13,7 @@ import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
@@ -1264,7 +1265,7 @@ export function CampagneApp() {
         onFermer={versMesDuels}
         erreur={erreur}
         extra={tombeAvecLeDuel(ecran)}
-        apres={ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+        apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
       />
     )
   }
@@ -1391,7 +1392,7 @@ export function CampagneApp() {
             onCorrection={() => void voirCorrection()}
           />
         )}
-        {ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+        {ecran.correction && <SerieCorrigee correction={ecran.correction} />}
       </div>
     )
   }
@@ -1621,26 +1622,6 @@ export function SuiteDeLaSerie({
         </a>
       </div>
     </>
-  )
-}
-
-/** « Mes réponses », une série finie : chaque question, sa bonne réponse, la sienne. */
-function CorrectionDeLaSerie({ correction }: { correction: CorrectionDeCampagne[] }) {
-  return (
-    <ol className="campagne-correction">
-      {correction.map((c, i) => (
-        <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-          <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-          <p>{espacesFines(c.texte)}</p>
-          <p className="muted small">
-            <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-            {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-          </p>
-          {/* L'anecdote, qu'on a lue en jouant : la correction la redonne, pour s'en souvenir. */}
-          {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-        </li>
-      ))}
-    </ol>
   )
 }
 

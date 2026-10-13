@@ -4,7 +4,7 @@ import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour 
 import { resetClock, serverNow } from '../clock'
 import { rendreLeFocus } from '../focus'
 import { insister, REESSAI_MS } from '../insister'
-import { deNom, espacesFines, formatNumber, pourcent, pts } from '../format'
+import { deNom, espacesFines, formatNumber, pourcent, pts, secondes } from '../format'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { useSecondesRestantes } from '../decompte'
 import { placeDuJour } from '../../../shared/course'
@@ -17,6 +17,7 @@ import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Onglets, type Onglet } from '../components/Onglets'
 import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
+import { Corrige, verdictDe } from '../components/Corrige'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
 import { CollectionOuverte, EclatTombe, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
@@ -1350,57 +1351,65 @@ export function Correction({ jour, onRetour }: { jour: string; onRetour: () => v
   )
 }
 
-/** Ce qu'est devenue une question de la correction, en un mot. */
-export function verdictDeCorrection(q: CorrectionDuJour['questions'][number]): 'Juste' | 'Faux' | 'Sans réponse' | 'Annulée' {
-  if (q.annulee) return 'Annulée'
-  if (q.juste) return 'Juste'
-  // Une ligne sans choix : la question laissée au temps, ou la réponse
-  // arrivée après la fin ; pas de ligne : la partie s'est arrêtée avant.
-  return q.choix !== null ? 'Faux' : 'Sans réponse'
-}
-
 /**
- * Chaque question de la correction : sa marque, sa bonne réponse, la part de
- * la salle, ce qu'on avait dit. La coche et la croix n'étaient que des
- * dessins : au lecteur d'écran, une réponse juste et une question laissée au
- * temps se lisaient pareil, et une question annulée gardait une croix.
+ * Chaque question de la correction (`Corrige`) : sa marque, ce qu'elle a
+ * rapporté, la bonne réponse — et la sienne, fausse —, puis en combien de
+ * temps la réponse est partie et ce que la rapidité a payé : le total seul ne
+ * disait pas si l'on avait répondu vite (un retour utilisateur du 13 octobre
+ * 2026). Enfin la part de la salle, l'anecdote.
  */
 export function QuestionsCorrigees({ questions }: { questions: CorrectionDuJour['questions'] }) {
   return (
     <ol className="correction">
       {questions.map((q, i) => {
-        const verdict = verdictDeCorrection(q)
+        const verdict = verdictDe(q)
         return (
-          <li key={i} className={MARQUES[verdict].classe}>
-            <span className="correction-marque" role="img" aria-label={verdict}>
-              {MARQUES[verdict].icone ? <Icon name={MARQUES[verdict].icone} /> : '–'}
-            </span>
-            <span className="correction-corps">
-              <span>{espacesFines(q.texte)}</span>
-              <span className="muted small">
-                <b>{espacesFines(q.reponses[q.bonne])}</b>
-                {q.trouveePar !== null && ` · trouvée par ${pourcent(q.trouveePar)}`}
-                {q.annulee && ' · annulée'}
-              </span>
-              {verdict === 'Faux' && q.choix !== null && (
-                <span className="muted small">Tu avais dit : {espacesFines(q.reponses[q.choix])}</span>
+          <Corrige
+            key={i}
+            verdict={verdict}
+            tete={`Question ${i + 1}${q.categorie ? ` · ${q.categorie}` : ''}`}
+            points={verdict !== 'Annulée' && <span className="corrige-points">{verdict === 'Juste' ? `+${pts(q.points)}` : pts(q.points)}</span>}
+            texte={q.texte}
+            reponses={q.reponses}
+            bonne={q.bonne}
+            choix={q.choix}
+          >
+            <div className="corrige-pied muted small">
+              {verdict === 'Annulée' ? (
+                <p>Annulée : elle ne compte pour personne.</p>
+              ) : verdict === 'Sans réponse' ? (
+                // Une ligne sans choix : la question laissée au temps, ou la
+                // réponse arrivée après la fin ; pas de ligne : la partie
+                // s'est arrêtée avant.
+                <p>
+                  <Icon name="clock" /> Sans réponse :{' '}
+                  {!q.repondue ? 'la partie s’est arrêtée avant' : q.tropTard ? 'la tienne est arrivée après la fin' : 'le temps s’est écoulé'}
+                </p>
+              ) : (
+                q.ms !== null && (
+                  <p>
+                    <Icon name="timer" /> Répondu en {secondes(q.ms)} sur {q.duree}
+                  </p>
+                )
               )}
-              {verdict === 'Sans réponse' && <span className="muted small">Sans réponse</span>}
-              {q.anecdote && <span className="small">{espacesFines(q.anecdote)}</span>}
-            </span>
-          </li>
+              {/* Le reste des points est celui de la bonne réponse : « +162 pts » en tête, « +62 » ici. */}
+              {verdict === 'Juste' && q.rapidite !== null && (
+                <p>
+                  <Icon name="zap" /> Bonus de rapidité : +{q.rapidite}
+                </p>
+              )}
+              {q.trouveePar !== null && (
+                <p>
+                  <Icon name="users" /> Trouvée par {pourcent(q.trouveePar)} des joueurs du jour
+                </p>
+              )}
+            </div>
+            {q.anecdote && <p className="corrige-anecdote small">{espacesFines(q.anecdote)}</p>}
+          </Corrige>
         )
       })}
     </ol>
   )
-}
-
-/** La marque de chaque verdict : sa couleur, son dessin — un tiret pour ce qui ne compte pas. */
-const MARQUES: Record<ReturnType<typeof verdictDeCorrection>, { classe: string; icone: 'check' | 'x' | 'clock' | null }> = {
-  Juste: { classe: 'ok', icone: 'check' },
-  Faux: { classe: 'ko', icone: 'x' },
-  'Sans réponse': { classe: 'sans', icone: 'clock' },
-  Annulée: { classe: 'annulee', icone: null },
 }
 
 const capitale = (texte: string) => texte.charAt(0).toUpperCase() + texte.slice(1)

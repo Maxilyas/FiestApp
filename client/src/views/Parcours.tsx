@@ -5,6 +5,7 @@ import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BarreDeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { promptDialog } from '../components/Dialog'
@@ -563,19 +564,7 @@ export function FinDeLEtape({
         Retour aux parcours
       </button>
       {fin.correction ? (
-        <ol className="campagne-correction">
-          {fin.correction.map((c, i) => (
-            <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-              <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-              <p>{espacesFines(c.texte)}</p>
-              <p className="muted small">
-                <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-                {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-              </p>
-              {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-            </li>
-          ))}
-        </ol>
+        <SerieCorrigee correction={fin.correction} />
       ) : (
         <button type="button" className="btn btn-ghost btn-block" onClick={onCorrection}>
           Mes réponses
