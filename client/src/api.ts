@@ -636,7 +636,15 @@ export interface CorrectionDuJour {
     choix: number | null
     juste: boolean
     points: number
+    /** En combien de temps sa réponse est partie — null sans réponse à temps. */
+    ms: number | null
+    /** Le chrono de la question, en secondes. */
+    duree: number
+    /** Ce que la rapidité a payé d'une bonne réponse : le reste de ses points est celui de la bonne réponse. */
+    rapidite: number | null
     repondue: boolean
+    /** Sa réponse est arrivée après l'échéance : elle n'a pas compté. */
+    tropTard?: boolean
     annulee?: boolean
   }[]
 }

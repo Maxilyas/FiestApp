@@ -6440,14 +6440,63 @@ h3 > .icon {
 .page-ouverte h2 { margin: 0; font-size: 1.6rem; }
 .page-ouverte p { margin: 0; }
 .page-ouverte .calendrier-page { animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.correction li { display: flex; gap: 10px; align-items: flex-start; }
-.correction-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; margin-top: 1px; background: var(--surface); color: var(--muted); }
-.correction-marque .icon { width: 14px; height: 14px; }
-.correction .ok .correction-marque { background: var(--accent-soft); color: var(--accent-text); }
-.correction .ko .correction-marque { background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
-.correction-corps { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.correction-corps b { color: var(--ink); font-weight: 600; }
+.correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+/* Le corrigé d'une question (`Corrige`) — au quiz du jour, en série, au défi,
+   en duel, aux sentiers : l'en-tête et sa marque, l'intitulé, puis les
+   réponses au centre, comme à la révélation — la bonne dans son cadre d'or, la
+   sienne barrée dessous, dans un pointillé d'alerte —, chacune sa légende.
+   Elles se lisaient en petit sous l'intitulé, la bonne en gras, la sienne en
+   gris, et l'on prenait l'une pour l'autre (un retour utilisateur du
+   13 octobre 2026). Le filet de la carte dit le verdict, comme au bilan. */
+.corrige {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--edge);
+  background: var(--surface-faint);
+}
+.corrige.ok { border-color: rgba(var(--accent-rgb), 0.6); }
+.corrige.ko { border-color: rgba(var(--alert-rgb), 0.5); }
+.corrige p { margin: 0; }
+.corrige-tete { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.corrige-tete .label { flex: 1; min-width: 0; }
+.corrige-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; background: var(--surface); color: var(--muted); }
+.corrige-marque .icon { width: 14px; height: 14px; }
+.corrige.ok .corrige-marque { background: var(--accent-soft); color: var(--accent-text); }
+.corrige.ko .corrige-marque { background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
+/* Ce qu'elle a rapporté, au bout de l'en-tête, comme au bilan d'une soirée. */
+.corrige-points { flex: none; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.corrige.ok .corrige-points { color: var(--accent-text); }
+.corrige-texte { font-size: 1.05rem; line-height: 1.35; }
+.corrige-reponses { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.corrige-reponse {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: min(100%, 14rem);
+  max-width: 100%;
+  padding: 8px 16px 10px;
+  border-radius: var(--radius-xs);
+  text-align: center;
+}
+.corrige-bonne { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+.corrige-sienne { border: 1.5px dashed rgba(var(--alert-rgb), 0.7); }
+.corrige-legende { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.corrige-legende .icon { width: 12px; height: 12px; flex: none; }
+.corrige-bonne .corrige-legende { color: var(--accent-text); }
+.corrige-sienne .corrige-legende { color: var(--alert); }
+.corrige-mot { font-size: 1.1rem; font-weight: 600; line-height: 1.3; color: var(--ink); overflow-wrap: break-word; hyphens: auto; text-wrap: balance; }
+.corrige-sienne .corrige-mot { font-weight: 500; color: var(--muted); }
+.corrige-sienne s { text-decoration-color: var(--alert); text-decoration-thickness: 2px; }
+/* Le temps, la rapidité, la part de la salle : une ligne chacun, leur icône devant. */
+.corrige-pied { display: flex; flex-direction: column; gap: 3px; }
+.corrige-pied .icon { width: 1em; height: 1em; vertical-align: -0.14em; margin-right: 2px; }
+.corrige-anecdote { color: var(--ink); line-height: 1.4; }
 
 /* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
    profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une
@@ -7862,12 +7911,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 }
 .campagne-fin .big { font-variant-numeric: lining-nums tabular-nums; }
 .campagne-suite { justify-content: center; gap: 8px; }
-.campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.campagne-correction li { display: flex; flex-direction: column; gap: 4px; }
-.campagne-correction p { margin: 0; }
-.campagne-juste { border-left: 3px solid var(--accent); }
-.campagne-rate { border-left: 3px solid var(--alert); }
-/* Le record battu, au cœur du résultat ; l'anecdote redonnée sous chaque question corrigée. */
+/* « Mes réponses » : une carte par question, le corrigé du quiz du jour (`.corrige`). */
+.campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+/* Le record battu, au cœur du résultat ; l'anecdote d'une question apprise, au carnet. */
 .campagne-record-battu { margin: 0; font-weight: 600; color: var(--or-text); }
 .campagne-anecdote { color: var(--ink); line-height: 1.4; }
 /* Ce qu'une série a fait tomber, sous son résultat : une ligne par haut fait ou palier. */
