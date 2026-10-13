@@ -23,7 +23,16 @@
       "pour": "relire base",
       "envoye": "2026-10-13T17:29:58.775Z",
       "demandes": 274,
-      "prevu": 37.47202333333332
+      "prevu": 37.47202333333332,
+      "recu": "2026-10-13T17:37:35.190Z",
+      "cout": 14.001001400000002
+    },
+    {
+      "id": "msgbatch_01WxgtLHzjkGWoQd2XPjviMc",
+      "pour": "relire base",
+      "envoye": "2026-10-13T17:37:35.759Z",
+      "demandes": 20,
+      "prevu": 2.2291126666666665
     }
   ]
 }
