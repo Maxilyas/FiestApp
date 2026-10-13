@@ -245,6 +245,97 @@
         "c2-a3-084",
         "c2-a3-086",
         "c2-a3-087"
+      ],
+      "recu": "2026-10-13T20:46:03.180Z",
+      "cout": 3.203433999999999
+    },
+    {
+      "id": "msgbatch_016gEpaNihrgEAQ7yZH8PeVX",
+      "envoye": "2026-10-13T20:46:35.678Z",
+      "demandes": [
+        "r-fiche-1-1",
+        "r-fiche-1-2",
+        "r-fiche-1-3",
+        "r-fiche-1-4",
+        "r-fiche-1-5",
+        "r-fiche-1-6",
+        "r-fiche-1-7",
+        "r-fiche-1-8",
+        "r-fiche-1-9",
+        "r-fiche-1-10",
+        "r-fiche-1-11",
+        "r-fiche-1-12",
+        "r-fiche-1-13",
+        "r-fiche-1-14",
+        "r-fiche-1-15",
+        "r-fiche-1-16",
+        "r-fiche-1-17",
+        "r-fiche-1-18",
+        "r-fiche-1-19",
+        "e-a3-088",
+        "e-a3-089",
+        "e-a3-090",
+        "e-a3-091",
+        "e-a3-092",
+        "e-a3-093",
+        "e-a3-094",
+        "e-a3-095",
+        "e-a3-096",
+        "e-a3-097",
+        "e-a3-098",
+        "e-a3-099",
+        "e-a3-100",
+        "e-a3-101",
+        "e-a3-102",
+        "e-a3-103",
+        "e-a3-104",
+        "e-a3-105",
+        "e-a3-106",
+        "e-a3-107",
+        "e-a3-108",
+        "e-a3-109",
+        "e-a3-110",
+        "e-a3-111",
+        "e-a3-112",
+        "e-a3-113",
+        "e-a3-114",
+        "e-a3-115",
+        "e-a3-116",
+        "e-a3-117",
+        "e-a3-118",
+        "e-a3-119",
+        "e-a3-120",
+        "e-a3-121",
+        "e-a3-122",
+        "e-a3-123",
+        "e-a3-124",
+        "e-a3-125",
+        "e-a3-126",
+        "e-a3-127",
+        "e-a3-128",
+        "e-a3-129",
+        "e-a3-130",
+        "e-a3-131",
+        "e-a3-132",
+        "e-a3-133",
+        "e-a3-134",
+        "e-a3-135",
+        "e-a3-136",
+        "e-a3-137",
+        "e-a3-138",
+        "e-a3-139",
+        "e-a3-140",
+        "e-a3-141",
+        "e-a3-142",
+        "e-a3-143",
+        "e-a3-144",
+        "e-a3-145",
+        "e-a3-146",
+        "e-a3-147",
+        "e-a3-148",
+        "e-a3-149",
+        "e-a3-150",
+        "e-a3-151"
       ]
     }
   ],
@@ -509,96 +600,364 @@
     },
     "e-a3-087": {
       "lot": "/home/user/FiestApp/.lots-campagne/a3-087.json"
+    },
+    "r-fiche-1-1": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-1.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-1.decisions.json"
+    },
+    "r-fiche-1-2": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-2.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-2.decisions.json"
+    },
+    "r-fiche-1-3": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-3.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-3.decisions.json"
+    },
+    "r-fiche-1-4": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-4.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-4.decisions.json"
+    },
+    "r-fiche-1-5": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-5.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-5.decisions.json"
+    },
+    "r-fiche-1-6": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-6.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-6.decisions.json"
+    },
+    "r-fiche-1-7": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-7.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-7.decisions.json"
+    },
+    "r-fiche-1-8": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-8.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-8.decisions.json"
+    },
+    "r-fiche-1-9": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-9.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-9.decisions.json"
+    },
+    "r-fiche-1-10": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-10.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-10.decisions.json"
+    },
+    "r-fiche-1-11": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-11.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-11.decisions.json"
+    },
+    "r-fiche-1-12": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-12.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-12.decisions.json"
+    },
+    "r-fiche-1-13": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-13.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-13.decisions.json"
+    },
+    "r-fiche-1-14": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-14.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-14.decisions.json"
+    },
+    "r-fiche-1-15": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-15.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-15.decisions.json"
+    },
+    "r-fiche-1-16": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-16.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-16.decisions.json"
+    },
+    "r-fiche-1-17": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-17.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-17.decisions.json"
+    },
+    "r-fiche-1-18": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-18.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-18.decisions.json"
+    },
+    "r-fiche-1-19": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-19.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a3/fiche-1-19.decisions.json"
+    },
+    "e-a3-088": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-088.json"
+    },
+    "e-a3-089": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-089.json"
+    },
+    "e-a3-090": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-090.json"
+    },
+    "e-a3-091": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-091.json"
+    },
+    "e-a3-092": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-092.json"
+    },
+    "e-a3-093": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-093.json"
+    },
+    "e-a3-094": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-094.json"
+    },
+    "e-a3-095": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-095.json"
+    },
+    "e-a3-096": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-096.json"
+    },
+    "e-a3-097": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-097.json"
+    },
+    "e-a3-098": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-098.json"
+    },
+    "e-a3-099": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-099.json"
+    },
+    "e-a3-100": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-100.json"
+    },
+    "e-a3-101": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-101.json"
+    },
+    "e-a3-102": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-102.json"
+    },
+    "e-a3-103": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-103.json"
+    },
+    "e-a3-104": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-104.json"
+    },
+    "e-a3-105": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-105.json"
+    },
+    "e-a3-106": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-106.json"
+    },
+    "e-a3-107": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-107.json"
+    },
+    "e-a3-108": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-108.json"
+    },
+    "e-a3-109": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-109.json"
+    },
+    "e-a3-110": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-110.json"
+    },
+    "e-a3-111": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-111.json"
+    },
+    "e-a3-112": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-112.json"
+    },
+    "e-a3-113": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-113.json"
+    },
+    "e-a3-114": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-114.json"
+    },
+    "e-a3-115": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-115.json"
+    },
+    "e-a3-116": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-116.json"
+    },
+    "e-a3-117": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-117.json"
+    },
+    "e-a3-118": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-118.json"
+    },
+    "e-a3-119": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-119.json"
+    },
+    "e-a3-120": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-120.json"
+    },
+    "e-a3-121": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-121.json"
+    },
+    "e-a3-122": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-122.json"
+    },
+    "e-a3-123": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-123.json"
+    },
+    "e-a3-124": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-124.json"
+    },
+    "e-a3-125": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-125.json"
+    },
+    "e-a3-126": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-126.json"
+    },
+    "e-a3-127": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-127.json"
+    },
+    "e-a3-128": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-128.json"
+    },
+    "e-a3-129": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-129.json"
+    },
+    "e-a3-130": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-130.json"
+    },
+    "e-a3-131": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-131.json"
+    },
+    "e-a3-132": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-132.json"
+    },
+    "e-a3-133": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-133.json"
+    },
+    "e-a3-134": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-134.json"
+    },
+    "e-a3-135": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-135.json"
+    },
+    "e-a3-136": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-136.json"
+    },
+    "e-a3-137": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-137.json"
+    },
+    "e-a3-138": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-138.json"
+    },
+    "e-a3-139": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-139.json"
+    },
+    "e-a3-140": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-140.json"
+    },
+    "e-a3-141": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-141.json"
+    },
+    "e-a3-142": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-142.json"
+    },
+    "e-a3-143": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-143.json"
+    },
+    "e-a3-144": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-144.json"
+    },
+    "e-a3-145": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-145.json"
+    },
+    "e-a3-146": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-146.json"
+    },
+    "e-a3-147": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-147.json"
+    },
+    "e-a3-148": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-148.json"
+    },
+    "e-a3-149": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-149.json"
+    },
+    "e-a3-150": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-150.json"
+    },
+    "e-a3-151": {
+      "lot": "/home/user/FiestApp/.lots-campagne/a3-151.json"
     }
   },
   "tours": {
     "a3-001": 1,
-    "a3-002": 1,
-    "a3-003": 1,
+    "a3-002": 2,
+    "a3-003": 2,
     "a3-004": 1,
     "a3-005": 1,
     "a3-006": 0,
     "a3-007": 0,
-    "a3-008": 1,
-    "a3-009": 1,
+    "a3-008": 2,
+    "a3-009": 2,
     "a3-010": 1,
-    "a3-011": 1,
-    "a3-012": 1,
-    "a3-013": 1,
-    "a3-014": 1,
-    "a3-015": 1,
-    "a3-016": 1,
-    "a3-017": 1,
-    "a3-018": 1,
-    "a3-019": 1,
-    "a3-020": 1,
-    "a3-021": 1,
-    "a3-022": 1,
-    "a3-023": 1,
-    "a3-024": 1,
-    "a3-025": 1,
+    "a3-011": 2,
+    "a3-012": 2,
+    "a3-013": 2,
+    "a3-014": 2,
+    "a3-015": 2,
+    "a3-016": 2,
+    "a3-017": 2,
+    "a3-018": 2,
+    "a3-019": 2,
+    "a3-020": 2,
+    "a3-021": 2,
+    "a3-022": 2,
+    "a3-023": 2,
+    "a3-024": 2,
+    "a3-025": 2,
     "a3-026": 0,
-    "a3-027": 1,
+    "a3-027": 2,
     "a3-028": 1,
     "a3-029": 1,
     "a3-030": 1,
     "a3-031": 1,
-    "a3-032": 1,
+    "a3-032": 2,
     "a3-033": 1,
     "a3-034": 1,
     "a3-035": 0,
-    "a3-036": 1,
+    "a3-036": 2,
     "a3-037": 0,
-    "a3-038": 1,
-    "a3-039": 1,
-    "a3-040": 1,
-    "a3-041": 1,
-    "a3-042": 1,
-    "a3-043": 1,
-    "a3-044": 1,
-    "a3-045": 1,
+    "a3-038": 2,
+    "a3-039": 2,
+    "a3-040": 2,
+    "a3-041": 2,
+    "a3-042": 2,
+    "a3-043": 2,
+    "a3-044": 2,
+    "a3-045": 2,
     "a3-046": 1,
-    "a3-047": 1,
-    "a3-048": 1,
-    "a3-049": 1,
-    "a3-050": 1,
-    "a3-051": 1,
-    "a3-052": 1,
+    "a3-047": 2,
+    "a3-048": 2,
+    "a3-049": 2,
+    "a3-050": 2,
+    "a3-051": 2,
+    "a3-052": 2,
     "a3-053": 1,
     "a3-054": 1,
-    "a3-055": 1,
-    "a3-056": 1,
+    "a3-055": 2,
+    "a3-056": 2,
     "a3-057": 1,
     "a3-058": 1,
-    "a3-059": 1,
-    "a3-060": 1,
+    "a3-059": 2,
+    "a3-060": 2,
     "a3-061": 1,
     "a3-062": 1,
     "a3-063": 1,
-    "a3-064": 1,
+    "a3-064": 2,
     "a3-065": 1,
     "a3-066": 1,
-    "a3-067": 1,
+    "a3-067": 2,
     "a3-068": 1,
-    "a3-069": 1,
-    "a3-070": 1,
-    "a3-071": 1,
-    "a3-072": 1,
-    "a3-073": 1,
-    "a3-074": 1,
+    "a3-069": 2,
+    "a3-070": 2,
+    "a3-071": 2,
+    "a3-072": 2,
+    "a3-073": 2,
+    "a3-074": 2,
     "a3-075": 0,
     "a3-076": 1,
-    "a3-077": 1,
-    "a3-078": 1,
+    "a3-077": 2,
+    "a3-078": 2,
     "a3-079": 0,
     "a3-080": 1,
-    "a3-081": 1,
-    "a3-082": 1,
-    "a3-083": 1,
-    "a3-084": 1,
+    "a3-081": 2,
+    "a3-082": 2,
+    "a3-083": 2,
+    "a3-084": 2,
     "a3-085": 0,
-    "a3-086": 1,
-    "a3-087": 1
+    "a3-086": 2,
+    "a3-087": 2
   },
   "essais": {}
 }

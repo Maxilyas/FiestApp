@@ -266,7 +266,16 @@
       "pour": "generer a3",
       "envoye": "2026-10-13T20:41:19.554Z",
       "demandes": 56,
-      "prevu": 2.8764186666666673
+      "prevu": 2.8764186666666673,
+      "recu": "2026-10-13T20:46:03.180Z",
+      "cout": 3.203433999999999
+    },
+    {
+      "id": "msgbatch_016gEpaNihrgEAQ7yZH8PeVX",
+      "pour": "generer a3",
+      "envoye": "2026-10-13T20:46:35.678Z",
+      "demandes": 83,
+      "prevu": 14.997302
     }
   ]
 }
