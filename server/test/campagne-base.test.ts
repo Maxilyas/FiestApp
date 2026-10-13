@@ -50,8 +50,13 @@ import { sansAccent } from '../../shared/homonymes'
  * pour les estimations du quiz tout prêt, là où elles manquaient le plus
  * (neuf de difficulté 1 et 137 de difficulté 2 sur 644 jouables au plus
  * près), 904 : 11 941 — 1 546 jouables au plus près, dont 517 de difficulté 2.
+ * Puis le reste du crédit en questions neuves écrites par Opus, par tranches
+ * de trois mille, 250 par catégorie là où les sous-thèmes manquaient le plus :
+ * la première, 2 873 rangées sur 3 000 demandées (88 refusées comme un fait,
+ * un intitulé ou une question que la base avait déjà, 20 retirées à la
+ * relecture) : 14 814.
  */
-const AU_MOINS = 11941
+const AU_MOINS = 14814
 
 const { questions, refusees } = lireLaBase()
 
