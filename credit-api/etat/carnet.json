@@ -5,7 +5,18 @@
       "pour": "relire pilote",
       "envoye": "2026-10-13T17:10:17.548Z",
       "demandes": 13,
-      "prevu": 1.0844293333333335
+      "prevu": 1.0844293333333335,
+      "recu": "2026-10-13T17:13:14.651Z",
+      "cout": 0.5276831
+    },
+    {
+      "id": "msgbatch_01ESGAjYg5txxhqfiY23i7E2",
+      "pour": "relire pilote",
+      "envoye": "2026-10-13T17:13:15.151Z",
+      "demandes": 1,
+      "prevu": 0.11141333333333334,
+      "recu": "2026-10-13T17:16:19.431Z",
+      "cout": 0.103906
     }
   ]
 }

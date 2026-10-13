@@ -369,9 +369,293 @@
       ]
     }
   ],
-  "relues": [],
-  "decisions": {},
-  "verifiees": {},
+  "relues": [
+    "f001",
+    "f002",
+    "f003",
+    "f004",
+    "f005",
+    "f006",
+    "f007",
+    "f008",
+    "f009",
+    "f010",
+    "f011",
+    "f012",
+    "f013"
+  ],
+  "decisions": {
+    "kuvgb8qi": {
+      "action": "corriger",
+      "champs": {
+        "explication": "Le 17 décembre 1903, le premier essai d'Orville Wright dure douze secondes seulement."
+      },
+      "motif": "Faute d'élision dans l'explication : « de Orville » devient « d'Orville »."
+    },
+    "zuxprh1d": {
+      "action": "corriger",
+      "champs": {
+        "texte": "En 1871, quel mouvement insurrectionnel prend le pouvoir dans la capitale française pendant plus de deux mois ?"
+      },
+      "motif": "L'intitulé souffle la réponse par « à Paris » : reformulé sans changer le fait."
+    },
+    "6kmru1oj": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Comment appelle-t-on les aventuriers espagnols qui soumirent les empires aztèque et inca au XVIe siècle ?"
+      },
+      "motif": "L'intitulé souffle la réponse par « conquérir » : reformulé sans changer le fait."
+    },
+    "mrhp5wru": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "La question ne porte pas sur l'origine du mot : seule l'anecdote en parle. L'étiquette etymologie ne s'applique donc pas à la lettre."
+    },
+    "z947phc0": {
+      "action": "corriger",
+      "champs": {
+        "texte": "En 1906, la pire catastrophe minière d'Europe, une explosion qui fait plus de mille morts, porte le nom de quelle commune du Pas-de-Calais ?"
+      },
+      "motif": "La catastrophe tient son nom de la Compagnie des mines de Courrières. Les puits touchés se trouvaient surtout à Méricourt, Sallaumines et Billy-Montigny : dire que l'explosion « frappe » Courrières est inexact."
+    },
+    "lw4t0c2r": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "L'étiquette etymologie ne s'applique qu'à l'anecdote. La question demande la capitale, pas l'origine du nom."
+    },
+    "wyho8zbq": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "L'étiquette surnom ne s'applique pas : la question ne donne aucun surnom à identifier. « L'île des dieux » n'apparaît que dans l'anecdote."
+    },
+    "7vyz7i09": {
+      "action": "corriger",
+      "champs": {
+        "difficulte": 3
+      },
+      "motif": "Une bonne part des adultes sait que l'on parle persan (farsi) en Iran. La difficulté d5 est surestimée, d3 convient malgré le piège de l'arabe."
+    },
+    "5k0x8bvb": {
+      "action": "corriger",
+      "champs": {
+        "explication": "Le courant de Humboldt remonte des eaux froides venues des abords de l'Antarctique vers le nord, le long de l'Amérique du Sud ; Benguela longe l'Afrique australe."
+      },
+      "motif": "« remonte l'Antarctique » est inexact : le courant vient des eaux subantarctiques et remonte vers le nord le long des côtes."
+    },
+    "7ukjxxeb": {
+      "action": "corriger",
+      "champs": {
+        "difficulte": 3
+      },
+      "motif": "H2O2 est une formule assez connue, que l'intitulé et les leurres (H2O, HO, O3) rendent facile à trouver : d5 est trop haut, d3 convient."
+    },
+    "qo8vghrx": {
+      "action": "corriger",
+      "champs": {
+        "difficulte": 2
+      },
+      "motif": "Le papyrus comme « papier » de l'Égypte antique est un savoir scolaire très répandu. La difficulté 4 est surestimée d'au moins deux crans."
+    },
+    "ti1jnbaj": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel parc national, qui couvre une grande partie d'un territoire français d'Amérique du Sud, est le plus vaste de France ?"
+      },
+      "motif": "Le mot « Guyane » dans l'intitulé souffle la réponse. L'intitulé est reformulé sans changer le fait ni la réponse."
+    },
+    "n3e42hgs": {
+      "action": "corriger",
+      "champs": {
+        "explication": "Agnès Varda y suit, presque en temps réel, une chanteuse qui erre dans Paris en attendant les résultats d'un examen médical."
+      },
+      "motif": "Le film ne couvre pas deux heures : il suit Cléo de 17 h à 18 h 30 environ, en quasi temps réel."
+    },
+    "gwqlbl7z": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Le film de Sean Baker a aussi remporté l'Oscar du meilleur film en 2025.",
+        "etiquettes": [
+          "cannes"
+        ]
+      },
+      "motif": "L'intitulé nomme le Festival de Cannes : il faut l'étiquette cannes. L'anecdote ne faisait que répéter la réponse."
+    },
+    "kwri1b1h": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Dans quelle saga entend-on : « Et puisse le sort vous être favorable » avant un tirage au sort ?",
+        "difficulte": 3
+      },
+      "motif": "La formule française consacrée, dans les livres comme dans les films, est « Et puisse le sort vous être favorable ». La réplique est très connue : d5 est trop haut."
+    },
+    "cuo4ftto": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Cinéma & séries",
+        "sousTheme": "sagas"
+      },
+      "motif": "Le savoir demandé est un terme de l'univers de la saga, pas une réplique culte."
+    },
+    "woj6314b": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Cinéma & séries",
+        "sousTheme": "animation"
+      },
+      "motif": "La question porte sur l'intrigue d'un film d'animation (le nombre de vœux), pas sur une réplique."
+    },
+    "5imull03": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel film a remporté l'Oscar du meilleur film lors de la cérémonie de mars 2024 ?"
+      },
+      "motif": "« En 2024 » est ambigu : il peut désigner la cérémonie de 2024 (Oppenheimer) ou les films de 2024, primés en 2025 (Anora). Préciser la cérémonie lève l'ambiguïté."
+    },
+    "uhnkva99": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "L'étiquette surnom ne s'applique pas : la question donne la personne et demande son surnom, alors que la définition exige l'inverse (un surnom donné, ce qu'il désigne à trouver)."
+    },
+    "h6visq2x": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Cinéma & séries",
+        "sousTheme": "cinema-monde"
+      },
+      "motif": "Le savoir demandé est l'acteur principal d'un film, pas sa musique : la question relève du cinéma."
+    },
+    "1rrgsxdg": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Qui a écrit « Le Horla », nouvelle fantastique parue en 1886, puis réécrite en 1887 sous forme de journal intime ?"
+      },
+      "motif": "La version de 1886 est un récit fait à des médecins. Seule la version de 1887 prend la forme d'un journal intime : l'intitulé mêlait les deux."
+    },
+    "jgoulyoi": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Arts & lettres",
+        "sousTheme": "philo"
+      },
+      "motif": "La question demande l'auteur d'un ouvrage de philosophie : elle relève du sous-thème philo, pas de la littérature française."
+    },
+    "9puybtml": {
+      "action": "corriger",
+      "champs": {
+        "explication": "Le Stade de Reims de Raymond Kopa et Michel Hidalgo s'incline 4-3 devant le Real Madrid ; Just Fontaine n'arrive au club qu'après cette finale."
+      },
+      "motif": "Just Fontaine n'a rejoint Reims (venant de Nice) qu'à l'été 1956, après la finale : il ne l'a pas jouée. Hidalgo, buteur ce jour-là, le remplace dans l'explication."
+    },
+    "ykgafcqu": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "La question demande le nom du geste, pas l'origine du mot : l'étiquette etymologie ne s'applique pas à la lettre. L'étymologie n'apparaît que dans l'anecdote."
+    },
+    "bv63x5e8": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Ce cépage délicat est aussi l'un des trois principaux cépages du champagne, avec le chardonnay et le meunier."
+      },
+      "motif": "Le champagne autorise sept cépages. Le pinot noir est l'un des trois principaux, pas l'un des trois seuls."
+    },
+    "gqtxb11p": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Ses deux fondateurs, les journalistes Henri Gault et Christian Millau, ont popularisé l'expression « nouvelle cuisine » au début des années 1970."
+      },
+      "motif": "La date de lancement du guide est discutable : le magazine paraît en 1969, le guide annuel en 1972. L'anecdote est remplacée par un fait sûr."
+    },
+    "4bpnlzzz": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Comment appelle-t-on le jouet dont un personnage à ressort surgit dès qu'on ouvre le couvercle ?"
+      },
+      "motif": "L'intitulé soufflait la réponse par « boîte » : reformulé sans changer le fait."
+    },
+    "7ko8nnli": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "L'étiquette « femmes » ne s'applique pas. Aucune femme ayant marqué son domaine n'est au cœur de la question : elle porte sur un couturier, Yves Saint Laurent, et sur un vêtement pour femme."
+    },
+    "j8i7uh2r": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Cinéma & séries",
+        "sousTheme": "animation",
+        "etiquettes": [
+          "enfance"
+        ]
+      },
+      "motif": "Le savoir demandé porte sur un film d'animation Disney (Aladdin) : la question relève de Cinéma & séries › animation, pas de la fête."
+    },
+    "xvrsfo19": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Culture générale",
+        "sousTheme": "mesures",
+        "etiquettes": []
+      },
+      "motif": "Les mois du calendrier républicain sont un savoir de calendrier, donc Culture générale › mesures. La question n'a aucun lien avec le Nouvel An."
+    },
+    "0yyhngnp": {
+      "action": "douter",
+      "motif": "Vérifier l'année de création du Village Halloween Parade de New York : 1974 ou 1973 ? Certaines sources, dont le site officiel, évoquent 1973 avec Ralph Lee."
+    },
+    "wy7pav52": {
+      "action": "corriger",
+      "champs": {
+        "categorie": "Cinéma & séries",
+        "sousTheme": "cinema-monde",
+        "etiquettes": []
+      },
+      "motif": "Le savoir demandé est l'acteur principal d'un film américain : Cinéma & séries › cinema-monde. Le film n'est d'ailleurs pas lié à Halloween."
+    },
+    "e0ga0iru": {
+      "action": "corriger",
+      "champs": {
+        "etiquettes": []
+      },
+      "motif": "L'étiquette ete ne s'applique pas : la question ne nomme ni l'été ni les vacances."
+    },
+    "bw1e6uc9": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel agrume est pressé dans le verre d'une caïpirinha ?"
+      },
+      "motif": "« Agrume vert » souffle la réponse « citron vert », seul leurre vert : il faut retirer l'adjectif de l'intitulé."
+    }
+  },
+  "verifiees": {
+    "0yyhngnp": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Dans quelle ville américaine se déroule, le soir d'Halloween, le célèbre défilé de Greenwich Village ?",
+        "anecdote": "Ce défilé costumé est ouvert à tous : n'importe qui peut s'y joindre, déguisé, aux côtés de marionnettes géantes et de nombreuses fanfares.",
+        "explication": "Le Village Halloween Parade se tient à New York, dans le quartier de Greenwich Village. Il a été créé au début des années 1970 par le marionnettiste Ralph Lee (1973 selon les organisateurs, 1974 selon d'autres sources).",
+        "difficulte": 2
+      },
+      "motif": "New York est juste et les mauvaises réponses sont fausses. En revanche, la date de création n'est pas sûre : 1974 selon Wikipédia et l'office du tourisme de New York, 1973 selon le site officiel et Village Preservation. On retire la date de l'intitulé, on nuance l'explication, on assouplit l'anecdote (rien ne confirme que les marionnettes ouvrent le cortège) et on baisse la difficulté, car « Greenwich Village » donne presque la réponse.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/New_York's_Village_Halloween_Parade",
+        "https://halloween-nyc.com/about-us/",
+        "https://www.villagepreservation.org/2024/10/30/from-stroll-to-spectacle-the-evolution-of-the-village-halloween-parade/",
+        "https://www.nyctourism.com/articles/guide-to-the-village-halloween-parade/",
+        "https://culturenow.org/site/5d13161d-ce89-4a29-a8fe-887eee55a56d"
+      ]
+    }
+  },
   "essais": {},
   "lots": [
     {
@@ -391,7 +675,18 @@
         "p1-f011",
         "p1-f012",
         "p1-f013"
-      ]
+      ],
+      "recu": "2026-10-13T17:13:14.651Z",
+      "cout": 0.5276831
+    },
+    {
+      "id": "msgbatch_01ESGAjYg5txxhqfiY23i7E2",
+      "envoye": "2026-10-13T17:13:15.151Z",
+      "demandes": [
+        "p2-0yyhngnp"
+      ],
+      "recu": "2026-10-13T17:16:19.431Z",
+      "cout": 0.103906
     }
   ]
 }
