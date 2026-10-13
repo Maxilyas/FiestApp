@@ -2,6 +2,7 @@ import { NOM_FINITION, type FinitionChoisie } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { nomDansLaPhrase, portrait } from '../../../shared/branches'
+import { formeDeCompagnon } from '../../../shared/compagnons'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { fond } from '../../../shared/fonds'
 import { gerbe } from '../../../shared/gerbes'
@@ -69,7 +70,7 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
   if (choix.eclat) return choix.eclat.brille ? 'Tu portes sa version rare.' : 'Tu portes sa version d’origine.'
   if (choix.legendaire !== undefined) {
-    const tete = portrait(choix.legendaire)
+    const tete = portrait(choix.legendaire) ?? formeDeCompagnon(choix.legendaire)
     const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom ?? (tete && nomDansLaPhrase(tete.nom))
     return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
   }

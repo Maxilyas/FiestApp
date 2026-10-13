@@ -23,6 +23,7 @@ import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { BRANCHES, PORTRAITS } from '../../shared/branches'
 import { AVATARS, COLLECTION } from '../../shared/avatars'
+import { COMPAGNONS, FORMES_DES_COMPAGNONS } from '../../shared/compagnons'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 
 /** Un haut fait du catalogue, tel que la page du profil le reçoit. */
@@ -51,12 +52,14 @@ const LEA = {
 }
 
 test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en six pages', () => {
-  // Les légendaires, les portraits, les emojis de collection, les Divins — pas ceux de l'inscription, à tout le monde.
-  assert.equal(AVATARS_DE_L_ALBUM.length, LEGENDAIRES.length + PORTRAITS.length + COLLECTION.length + DIVINS.length)
+  // Les légendaires, les portraits, les formes des compagnons, les emojis de
+  // collection, les Divins — pas ceux de l'inscription, à tout le monde.
+  assert.equal(AVATARS_DE_L_ALBUM.length, LEGENDAIRES.length + PORTRAITS.length + FORMES_DES_COMPAGNONS.length + COLLECTION.length + DIVINS.length)
   assert.equal(new Set(AVATARS_DE_L_ALBUM.map(a => a.cle)).size, AVATARS_DE_L_ALBUM.length)
   for (const emoji of AVATARS) assert.equal(avatarDeLAlbum(emoji), undefined, emoji)
   const parPage = Object.fromEntries(RARETES_D_AVATAR.map(r => [r, AVATARS_DE_L_ALBUM.filter(a => a.rarete === r).length]))
-  assert.deepEqual(parPage, { commune: 18, peucommune: 18, rare: 24, epique: 12, legendaire: 38, divin: 6 })
+  // Trois compagnons, une forme sur chacune des pages commune, rare, épique et légendaire.
+  assert.deepEqual(parPage, { commune: 21, peucommune: 18, rare: 27, epique: 15, legendaire: 41, divin: 6 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -112,6 +115,8 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji)!.lieux, ['niveau'], c.emoji)
   for (const d of DIVINS) assert.deepEqual(avatarDeLAlbum(d.key)!.lieux, [], d.key)
+  // Un compagnon s'achète ; ses formes suivantes, en le portant.
+  for (const f of FORMES_DES_COMPAGNONS) assert.deepEqual(avatarDeLAlbum(f.key)!.lieux, f.rang === 0 ? ['boutique'] : ['boutique', 'porte'], f.key)
   // D'une phrase, à l'oreille : ses voies sont l'une ou l'autre, les étapes d'une voie toutes à la fois.
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle)!)
   assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
@@ -122,6 +127,10 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   assert.equal(dit('br:lynx'), 'sur les sentiers')
   assert.equal(dit('🐳'), 'au niveau 12')
   assert.equal(dit('dv:seraphin'), '')
+  assert.equal(dit('cp:loup-louveteau'), 'en boutique')
+  assert.equal(dit('cp:chat-adulte'), 'en boutique, puis à 300 bonnes réponses en le portant')
+  // Chacun à son genre : « en le portant » se lisait de travers sous la tortue.
+  assert.equal(dit('cp:tortue-ile'), 'en boutique, puis à 500 bonnes réponses en la portant')
 })
 
 test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun dans l’ordre du catalogue — le compte de la collection est le sien', () => {
@@ -129,7 +138,7 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   assert.deepEqual(
     pages.map(p => `${p.rarete} ${p.acquis}/${p.total}`),
     // Le blaireau (palier 4) et l'écureuil (palier 2) ; cinq emojis jusqu'au niveau 8 ; le Phénix ; le Séraphin.
-    ['commune 6/18', 'peucommune 1/18', 'rare 0/24', 'epique 0/12', 'legendaire 1/38', 'divin 1/6'],
+    ['commune 6/21', 'peucommune 1/18', 'rare 0/27', 'epique 0/15', 'legendaire 1/41', 'divin 1/6'],
   )
   const commune = pages[0].avatars
   assert.deepEqual(
@@ -137,16 +146,61 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
     ['br:ecureuil', '🦚', '🐢', '🦈', '🦔', '🐝'],
   )
   assert.ok(commune.findIndex(a => !a.aLui) === 6 && commune.slice(6).every(a => !a.aLui), 'ce qui reste vient ensuite')
-  // Le Phénix d'abord, puis les vingt-cinq autres légendaires, puis les douze formes ultimes.
+  // Le Phénix d'abord, puis les vingt-cinq autres légendaires, puis les douze
+  // formes ultimes des sentiers et les trois des compagnons.
   const legendaires = pages[4].avatars.map(a => a.avatar.cle)
   assert.equal(legendaires[0], 'lg:phenix')
   assert.deepEqual(legendaires.slice(1, 26), LEGENDAIRES.filter(l => l.key !== 'lg:phenix').map(l => l.key))
-  assert.deepEqual(legendaires.slice(26), BRANCHES.map(b => b.portraits[5].key))
+  assert.deepEqual(legendaires.slice(26, 38), BRANCHES.map(b => b.portraits[5].key))
+  assert.deepEqual(legendaires.slice(38), COMPAGNONS.map(c => c.formes[3].key))
   // Une seule règle compte l'album, sa ligne de « Ma collection » et son total.
-  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 116 })
+  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 128 })
   assert.deepEqual(compteDeLAlbum(LEA), { acquis: pages.reduce((s, p) => s + p.acquis, 0), total: pages.reduce((s, p) => s + p.total, 0) })
   const avatars = compteDeLaCollection({ ...LEA, ouvertes: [], prix: [], ecussons: [] } as any).familles.find(f => f.famille === 'avatars')!
-  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 116 }])
+  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 128 }])
+})
+
+test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies en le portant', () => {
+  for (const c of COMPAGNONS) {
+    assert.deepEqual(
+      c.formes.map(f => avatarDeLAlbum(f.key)!.rarete),
+      ['commune', 'rare', 'epique', 'legendaire'],
+      c.key,
+    )
+  }
+  // Le loup acheté et grandi d'une forme : ses deux premières sont à lui, le reste à gagner.
+  const AVEC_LE_LOUP = {
+    ...LEA,
+    legendaire: 'cp:loup-jeune',
+    compagnons: [{ compagnon: 'loup' as const, rang: 1 }],
+    boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: [], porte: null, jour: '2026-10-13', compagnons: [{ compagnon: 'loup' as const, rang: 1, justes: 162 }] },
+  }
+  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 128 })
+  assert.equal(pageDuDebut(AVEC_LE_LOUP), 'rare', 'il porte le jeune loup : la page rare')
+  assert.equal(pageDuProchain(LEA, 'compagnon'), 'commune', 'aucun acheté : la première forme de chacun')
+  assert.equal(pageDuProchain(AVEC_LE_LOUP, 'compagnon'), 'commune', 'le chat et la tortue restent à acheter')
+  // Comment l'obtenir : l'acheter ; puis tant de bonnes réponses en le portant, et où il en est.
+  assert.deepEqual(voiesDeLAvatar('cp:tortue-bebe', LEA), [
+    [{ lieu: 'boutique', titre: 'En boutique : 1000 confettis', regle: 'La Tortue-île s’achète à sa première forme, puis grandit avec toi', tenue: false, progres: null }],
+  ])
+  const [[achat, adulte]] = voiesDeLAvatar('cp:loup-adulte', AVEC_LE_LOUP)
+  assert.equal(achat.tenue, true)
+  assert.deepEqual(adulte, {
+    lieu: 'porte',
+    titre: 'En le portant : 300 bonnes réponses',
+    regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
+    tenue: false,
+    progres: { acquis: 162, requis: 300, dit: '162 sur 300' },
+  })
+  // Pas encore acheté : rien à compter.
+  assert.equal(voiesDeLAvatar('cp:chat-jeune', AVEC_LE_LOUP)[0][1].progres, null)
+  assert.equal(voiesDeLAvatar('cp:tortue-jeune', AVEC_LE_LOUP)[0][1].titre, 'En la portant : 100 bonnes réponses')
+  // Atteinte, une forme le reste : sa jauge est pleine, même si ses bonnes réponses ont redescendu.
+  assert.deepEqual(voiesDeLAvatar('cp:loup-jeune', { ...AVEC_LE_LOUP, boutique: { ...AVEC_LE_LOUP.boutique, compagnons: [{ compagnon: 'loup', rang: 1, justes: 40 }] } })[0][1].progres, {
+    acquis: 100,
+    requis: 100,
+    dit: '100 sur 100',
+  })
 })
 
 test('l’album s’ouvre sur la page de ce qu’il porte, sinon sur la première où il reste à gagner', () => {

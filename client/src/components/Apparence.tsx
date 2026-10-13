@@ -24,6 +24,7 @@ import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires
 import { DIVINS, divin } from '../../../shared/divins'
 import { pageDuProchain, type SorteDAvatar } from '../../../shared/album'
 import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts } from '../../../shared/branches'
+import { FORMES_DES_COMPAGNONS, NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon, formesOuvertes } from '../../../shared/compagnons'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
@@ -86,14 +87,15 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 /**
  * Les familles de la grille des avatars, dans l'ordre de leurs pastilles :
  * les légendaires — les Divins dessous —, les portraits des branches, les
- * emojis — ceux de collection dessous. Chacune mène à l'album de « Ma
- * collection », sur la page de son prochain avatar à gagner (`sorte`) : ce
- * qui reste s'y lit, et où le gagner.
+ * compagnons de la boutique, les emojis — ceux de collection dessous. Chacune
+ * mène à l'album de « Ma collection », sur la page de son prochain avatar à
+ * gagner (`sorte`) : ce qui reste s'y lit, et où le gagner.
  */
-export type Famille = 'legendaires' | 'portraits' | 'emojis'
+export type Famille = 'legendaires' | 'portraits' | 'compagnons' | 'emojis'
 export const FAMILLES: readonly { id: Famille; nom: string; sorte: SorteDAvatar }[] = [
   { id: 'legendaires', nom: 'Légendaires', sorte: 'legendaire' },
   { id: 'portraits', nom: 'Portraits', sorte: 'portrait' },
+  { id: 'compagnons', nom: 'Compagnons', sorte: 'compagnon' },
   { id: 'emojis', nom: 'Emojis', sorte: 'emoji' },
 ]
 
@@ -103,6 +105,7 @@ export const FAMILLES: readonly { id: Famille; nom: string; sorte: SorteDAvatar 
  */
 export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avatar'>): Famille {
   if (portraitDe(profil.legendaire)) return 'portraits'
+  if (formeDeCompagnon(profil.legendaire)) return 'compagnons'
   if (legendaire(profil.legendaire) || divin(profil.legendaire)) return 'legendaires'
   return 'emojis'
 }
@@ -143,8 +146,9 @@ export function cadenas(n: number, colonnes: number, reste: number): number {
 
 /**
  * Ses avatars, dans la loge (la maquette 1 validée le 12 octobre 2026) :
- * trois pastilles — ses légendaires, ses portraits, ses emojis, chacune son
- * compte —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
+ * quatre pastilles — ses légendaires, ses portraits, ses compagnons, ses
+ * emojis, chacune son compte ; deux rangées au téléphone depuis les
+ * compagnons —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
  * la carte collée en tête le montre, la case a son halo d'or, celle qu'il
  * porte garde sa coche, et « Porter », dans la barre de la loge, le garde.
  * Trois familles en onglets à titres, l'accordéon des branches et une fiche
@@ -181,6 +185,7 @@ export function comptesDesFamilles(profil: PublicProfileDetail): Record<Famille,
   return {
     legendaires: profil.legendaires.length + (profil.divins ?? []).length,
     portraits: portraitsOuverts(profil.sentiers ?? {}).length,
+    compagnons: formesOuvertes(profil.compagnons ?? []).length,
     emojis: AVATARS.length + COLLECTION.filter(c => profil.niveau >= c.niveau).length,
   }
 }
@@ -282,6 +287,38 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
           {fermes(siens.length, 4, reste)}
         </div>
         {aGagner(reste, 'portrait', 'portraits')}
+      </>
+    )
+  }
+
+  if (famille === 'compagnons') {
+    // Chaque compagnon acheté, ses formes atteintes : une forme d'avant se porte aussi.
+    const ouvertes = formesOuvertes(profil.compagnons ?? [])
+    const siennes = FORMES_DES_COMPAGNONS.filter(f => ouvertes.includes(f.key))
+    const reste = FORMES_DES_COMPAGNONS.length - siennes.length
+    return (
+      <>
+        {siennes.length === 0 && (
+          <p className="muted small">
+            {espacesFines('Ils s’achètent à la boutique, puis grandissent avec les bonnes réponses que tu donnes en les portant.')}{' '}
+            <a className="link-inline" href="/boutique#compagnons">
+              La boutique
+            </a>
+          </p>
+        )}
+        <div className="loge-grille grille-unique" role="group" aria-label="Les compagnons">
+          {siennes.map(f =>
+            laCase(
+              f.key,
+              dessine(f.key),
+              `${f.nom}, ${compagnonDe(f).nom}, ${NOM_DE_LA_FORME[f.rang].toLowerCase()}${brille(f.key) ? ', éclaté' : ''}`,
+              { legendaire: f.key },
+              medaillon(f.key, brille(f.key)),
+            ),
+          )}
+          {fermes(siennes.length, 4, reste)}
+        </div>
+        {aGagner(reste, 'forme de compagnon', 'formes de compagnons')}
       </>
     )
   }

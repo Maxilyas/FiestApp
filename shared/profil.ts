@@ -26,6 +26,7 @@ import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
 import type { BordureDeLigue, ChoixDeBordure, DuelsDAccueil } from './duels'
+import { formeDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -377,6 +378,13 @@ export interface ReleveSoiree {
   avatar: string
   /** Par catégorie de question : posées, justes. */
   categories: Record<string, { questions: number; justes: number }>
+  /**
+   * Par compagnon porté (`loup`) : ses bonnes réponses données en le portant,
+   * comptées comme ses confettis — un QCM juste, une estimation parmi les
+   * plus proches (`confettisDeSoiree`). Elles le font grandir
+   * (`shared/compagnons.ts`). Absent sans compagnon.
+   */
+  compagnons?: Record<string, number>
 }
 
 export function releveVide(): ReleveSoiree {
@@ -777,6 +785,13 @@ export interface PublicProfile {
   /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
   divins: DivinDescendu[]
   /**
+   * Ses compagnons achetés en boutique (`shared/compagnons.ts`), et la plus
+   * haute forme de chacun : elle et celles d'avant se portent. Absent sans
+   * compagnon, et d'un serveur d'avant ; ce qui les fait grandir se lit dans
+   * sa boutique (`BoutiqueDuProfil.compagnons`).
+   */
+  compagnons?: CompagnonPossede[]
+  /**
    * Le titre qu'il porte sous son prénom — la clé d'un haut fait gagné, qui
    * s'écrit de son nom (`hautFait(cle).title`) —, ou rien. Absent d'un
    * serveur d'avant.
@@ -812,10 +827,21 @@ export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 
  * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint : il peut
  * garder la version d'origine d'un avatar qui a éclaté. La même règle que le
  * serveur (`ProfileStore.brilleChez`), pour tout ce que sa page montre de
- * lui.
+ * lui. Un compagnon brille sous toutes ses formes : l'Éclat tombé sur le
+ * louveteau suit le loup qui grandit (`clesQuiBrillent`).
  */
 export function brilleChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints'>, cle: string): boolean {
-  return profil.eclats.includes(cle) && !(profil.eclatsEteints ?? []).includes(cle)
+  return clesQuiBrillent(profil.eclats, cle).some(k => !(profil.eclatsEteints ?? []).includes(k))
+}
+
+/**
+ * Les Éclats de ses `eclats` qui font briller cet avatar : le sien, et pour
+ * une forme de compagnon, celui de n'importe quelle forme du même compagnon
+ * — l'Éclat tombe sur ce qu'il porte, et le compagnon grandit ensuite.
+ */
+export function clesQuiBrillent(eclats: Iterable<string>, cle: string): string[] {
+  const forme = formeDeCompagnon(cle)
+  return [...eclats].filter(k => k === cle || (!!forme && formeDeCompagnon(k)?.compagnon === forme.compagnon))
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */

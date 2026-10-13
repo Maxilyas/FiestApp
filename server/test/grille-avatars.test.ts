@@ -121,7 +121,7 @@ test('dans chaque famille, chaque case essaie son avatar : rien ne se porte ni n
   assert.match(await famille('legendaires'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">24 légendaires à gagner : où \?<svg/)
 })
 
-test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famille de ce qu’il porte', async () => {
+test('quatre pastilles, chacune son compte, ouvertes sur la famille de ce qu’il porte', async () => {
   const pastilles = (html: string) =>
     [...html.matchAll(/<button id="famille-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*>([^<]*)<span class="onglet-pastille" aria-hidden="true">(\d+)<\/span><span class="sr-only">, \4 à toi<\/span><\/button>/g)].map(m => [
       m[1],
@@ -130,10 +130,11 @@ test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famil
       m[4],
     ])
   const mes = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge })
-  // Deux légendaires et un Divin, trois portraits, vingt-quatre emojis et dix de collection.
+  // Deux légendaires et un Divin, trois portraits, aucun compagnon, vingt-quatre emojis et dix de collection.
   assert.deepEqual(await pastilles(await mes(HABITUE)), [
     ['legendaires', 'true', 'Légendaires', '3'],
     ['portraits', 'false', 'Portraits', '3'],
+    ['compagnons', 'false', 'Compagnons', '0'],
     ['emojis', 'false', 'Emojis', '34'],
   ])
   // Un seul arrêt de Tab — l'onglet choisi — et `aria-controls` ne vise que le panneau affiché.
@@ -147,10 +148,11 @@ test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famil
   assert.equal(await actif(HABITUE), 'Légendaires')
   assert.equal(await actif({ ...HABITUE, legendaire: 'dv:seraphin' }), 'Légendaires')
   assert.equal(await actif({ ...HABITUE, legendaire: 'br:blaireau' }), 'Portraits')
+  assert.equal(await actif({ ...HABITUE, legendaire: 'cp:loup-jeune', compagnons: [{ compagnon: 'loup', rang: 1 }] }), 'Compagnons')
   assert.equal(await actif({ ...HABITUE, legendaire: null, avatar: '🐝' }), 'Emojis')
   assert.equal(await actif(DEBUTANT), 'Emojis')
-  // Le premier jour : zéro légendaire, zéro portrait — les pastilles disent qu'ils existent.
-  assert.deepEqual((await pastilles(await mes(DEBUTANT))).map(p => p[3]), ['0', '0', '24'])
+  // Le premier jour : zéro légendaire, zéro portrait, zéro compagnon — les pastilles disent qu'ils existent.
+  assert.deepEqual((await pastilles(await mes(DEBUTANT))).map(p => p[3]), ['0', '0', '0', '24'])
   // Les onglets de toute l'application : les flèches passent à la voisine (`petit-ecran.test.ts`).
   assert.match(source('components/Apparence.tsx'), /<Onglets\s+onglets=\{FAMILLES\.map/)
 })
@@ -181,6 +183,14 @@ test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagn
   assert.match(emojis, /href="#collection-avatars-peucommune">2 emojis de collection à gagner : où \?/)
   // Les cadenas sont du décor : ni bouton, ni lien — le lien dessous dit où.
   assert.doesNotMatch(emojis, /<(button|a)[^>]*loge-ferme/)
+  // Les compagnons : le loup acheté et grandi d'une forme — ses deux formes se portent —, deux cadenas, dix à gagner.
+  const compagnons = await famille('compagnons', { ...HABITUE, compagnons: [{ compagnon: 'loup', rang: 1 }] })
+  assert.deepEqual(
+    casesDe(compagnons).map(c => c.nom),
+    ['Le louveteau, Le Loup, première forme', 'Le jeune loup, Le Loup, deuxième forme'],
+  )
+  assert.deepEqual(fermes(compagnons), ['', ''])
+  assert.match(compagnons, /href="#collection-avatars-commune">10 formes de compagnons à gagner\s: où\s\?/)
 
   // Le premier jour : ce qui se gagne, et où — une rangée de cadenas dans chaque famille.
   const rien = await famille('legendaires', DEBUTANT)
@@ -193,6 +203,10 @@ test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagn
   const collection = await famille('emojis', DEBUTANT)
   assert.match(collection, /De collection <span>0 \/ 12<\/span>/)
   assert.deepEqual(fermes(collection), ['niv. 2', 'niv. 4', 'niv. 5', 'niv. 7', 'niv. 8'])
+  const boutique = await famille('compagnons', DEBUTANT)
+  assert.match(boutique, /Ils s’achètent à la boutique, puis grandissent avec les bonnes réponses que tu donnes en les portant\. <a class="link-inline" href="\/boutique#compagnons">La boutique<\/a>/)
+  assert.deepEqual(fermes(boutique), ['', '', '', ''])
+  assert.match(boutique, /12 formes de compagnons à gagner/)
 })
 
 test('la carte montre une case — son halo d’or —, celle qu’il porte garde sa coche, et rien ne bouge sous le doigt', async () => {

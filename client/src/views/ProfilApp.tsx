@@ -274,6 +274,25 @@ export function ProfilApp() {
     }
   }
 
+  /** Acheter un compagnon : comme un thème, le serveur compte, achète, et le fait porter si on le veut. */
+  const acheterCompagnon = async (cle: string, porter: boolean): Promise<string | null> => {
+    if (enregistrement.current) return null
+    enregistrement.current = true
+    setBusy(true)
+    setAnnonce('')
+    try {
+      const { profile, boutique } = await api.joueur.acheterCompagnon(cle, porter)
+      setProfil(p => (p ? { ...p, ...profile, boutique } : p))
+      if (porter && profile.legendaire) setAnnonce(annonceDuChoix({ legendaire: profile.legendaire }))
+      return null
+    } catch (e) {
+      return motifDe(e)
+    } finally {
+      enregistrement.current = false
+      setBusy(false)
+    }
+  }
+
   // Le lendemain, l'accueil ne connaissait aucune soirée jouée : il fallait
   // taper `/<espace>/bilan`. La dernière gardée sur ce téléphone, tous
   // espaces confondus — rien ne quitte le téléphone —, en une ligne sous
@@ -449,6 +468,7 @@ export function ProfilApp() {
             busy={busy}
             enregistrer={enregistrer}
             acheter={acheter}
+            acheterCompagnon={acheterCompagnon}
             onSolde={solde =>
               setProfil(p =>
                 p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,

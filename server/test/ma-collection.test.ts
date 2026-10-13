@@ -102,8 +102,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
   const lignes = familles.map(f => [f.famille, `${f.acquis}/${f.total}`, f.parties.map(p => `${p.partie} ${p.acquis}/${p.total}`)])
   assert.deepEqual(lignes, [
     // Deux portraits, le Phénix et le Séraphin, les cinq emojis de collection
-    // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle.
-    ['avatars', '9/116', ['avatars 9/116']],
+    // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle —
+    // les douze formes des compagnons comprises.
+    ['avatars', '9/128', ['avatars 9/128']],
     ['style', '9/59', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7']],
     // Les lignes des trophées, comptées comme elles se montrent, rangées par
     // où elles se gagnent : le quiz du jour avec les pages de son calendrier,
@@ -126,7 +127,7 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
       ],
     ],
   ])
-  assert.deepEqual(total, { acquis: 26, total: 199 })
+  assert.deepEqual(total, { acquis: 26, total: 211 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
@@ -179,9 +180,9 @@ test('les trophées se rangent par où ils se gagnent : en soirée, au quiz du j
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>26<\/b> sur 199<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>26<\/b> sur 211<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 116', 'Style 9 sur 59', 'Trophées 8 sur 24'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Style 9 sur 59', 'Trophées 8 sur 24'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -311,11 +312,11 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   // Six gemmes, une par page — les onglets de l'application : un seul arrêt de Tab, le panneau de la choisie seulement.
   const gemmes = [...html.matchAll(/<button id="gemme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''} ${m[3]}`)
   assert.deepEqual(gemmes, [
-    'commune Commune, 6 sur 18',
+    'commune Commune, 6 sur 21',
     'peucommune Peu commune, 1 sur 18',
-    'rare Rare, 0 sur 24',
-    'epique Épique, 0 sur 12',
-    'legendaire* Légendaire, 1 sur 38',
+    'rare Rare, 0 sur 27',
+    'epique Épique, 0 sur 15',
+    'legendaire* Légendaire, 1 sur 41',
     'divin Divin, 1 sur 6',
   ])
   assert.match(html, /<div class="gemmes gemmes-album" role="tablist" aria-label="Les raretés">/)
@@ -323,10 +324,11 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   assert.equal(html.match(/aria-controls="album-page"/g)?.length, 1)
   assert.match(html, /<div class="album-avatars" role="tabpanel" id="album-page" aria-labelledby="gemme-legendaire"/)
   // Ce que range la page, compté.
-  assert.match(html, /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 38\.<\/b> Les légendaires des hauts faits, et la forme ultime de chaque sentier\.<\/p>/)
-  // Trente-huit cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste, chacun dit où il se gagne.
+  assert.match(html, /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 41\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier et celle de chaque compagnon\.<\/p>/)
+  // Quarante et une cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
+  // formes ultimes des sentiers et des compagnons —, chacun dit où il se gagne.
   const cases = [...html.matchAll(/<button type="button" class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ classes: m[1], nom: m[2] }))
-  assert.equal(cases.length, LEGENDAIRES.length + 12)
+  assert.equal(cases.length, LEGENDAIRES.length + 12 + 3)
   assert.deepEqual(cases[0], { classes: '', nom: 'Le Phénix, légendaire, porté' })
   assert.equal(html.match(/class="album-coche"/g)?.length, 1)
   assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))
@@ -335,12 +337,13 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne',
     'La Citrouille, légendaire, à gagner pour Halloween',
     'L’Éléphant, légendaire, à gagner en campagne',
+    'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses en le portant',
   ])
     assert.ok(cases.some(c => c.nom === nom), nom)
   // Une pastille sur chaque case qui reste, et leur légende sous la grille.
   assert.equal(html.match(/class="album-lieu"/g)?.length, cases.length - 1)
   const legende = [...html.slice(html.indexOf('album-legende')).matchAll(/<\/svg>([^<]+)<\/span>/g)].map(m => m[1])
-  assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers'])
+  assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers', 'en boutique'])
   // Aucune fiche avant le premier toucher ; rien ne s'y porte.
   assert.doesNotMatch(html, /id="fiche-avatar"|Le porter|aria-pressed/)
 

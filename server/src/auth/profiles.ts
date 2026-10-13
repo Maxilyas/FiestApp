@@ -10,6 +10,7 @@ import {
   CHANCE_ECLAT,
   carriereDe,
   choixDeFinition,
+  clesQuiBrillent,
   ficheDe,
   finitionPortee,
   finitionsOuvertes,
@@ -19,6 +20,7 @@ import {
   niveauSurCourbe,
   progression,
   releveVide,
+  soireeQuiCompte,
   xpDuNiveau,
   XP,
   type Carriere,
@@ -77,7 +79,20 @@ import {
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { brancheDe, deLaBranche, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
+import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
+import {
+  COMPAGNONS,
+  JUSTES_DES_FORMES,
+  PRIX_D_UN_COMPAGNON,
+  compagnon as compagnonDuCatalogue,
+  compagnonDe,
+  enLePortant,
+  formeDeCompagnon,
+  rangAtteint,
+  type CleDeCompagnon,
+  type CompagnonAcquis,
+  type CompagnonPossede,
+} from '../../../shared/compagnons'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
@@ -321,6 +336,12 @@ function lireCondition(brut: unknown): Condition | null {
  */
 const PROFILS_PAR_PAQUET = 200
 
+/** Une ligne de `profile_compagnons`, rangée avec ses compagnons : un compagnon que le catalogue ne connaît plus ne se garde pas. */
+function lireCompagnon(siens: Map<CleDeCompagnon, number> | undefined, r: Record<string, unknown>) {
+  const c = compagnonDuCatalogue(String(r.compagnon))
+  if (siens && c) siens.set(c.key, Math.max(0, Math.min(c.formes.length - 1, Number(r.rang) || 0)))
+}
+
 /** Les prénoms qu'une recherche parcourt (`chercher`), relus au plus une fois la minute. */
 const ANNUAIRE_GARDE_MS = 60_000
 
@@ -507,6 +528,12 @@ export class ProfileStore {
    */
   private recompenses = new Map<string, Map<string, number>>()
   /**
+   * Ses compagnons achetés, et le rang de la plus haute forme atteinte par
+   * chacun — jamais perdue. Chargés avec le profil : l'instantané de la salle
+   * lit la forme qu'il porte sans aller-retour (`legendairePorte`).
+   */
+  private compagnons = new Map<string, Map<CleDeCompagnon, number>>()
+  /**
    * Les légendaires qu'il avait gagnés avant que leurs règles se durcissent,
    * avec la règle d'alors : il les garde tant qu'elle tient. Écrits au
    * démarrage qui durcit une règle (`DURCISSEMENTS`), et tous chargés au
@@ -610,6 +637,15 @@ export class ProfileStore {
    * campagne. Branchés au démarrage comme `justesDuJour`.
    */
   confettisDeCampagne?: (profileId: string) => Promise<number>
+
+  /**
+   * Ses bonnes réponses du quiz du jour et de la campagne données en portant
+   * chaque compagnon (`JourStore.compagnonsDe`, `CampagneStore.compagnonsDe`) :
+   * avec celles de ses soirées, elles le font grandir (`compagnonsDe`).
+   * Branchées au démarrage comme `justesDuJour`.
+   */
+  compagnonsDuJour?: (profileId: string) => Promise<Record<string, number>>
+  compagnonsDeCampagne?: (profileId: string) => Promise<Record<string, number>>
 
   /** Ce que sa campagne compte pour ses paliers (`CampagneStore.statsDe`) : les jauges de sa page. */
   statsDeCampagne?: (profileId: string) => Promise<StatsDeCampagne>
@@ -789,6 +825,20 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_sabliers ON profile_sabliers(profile_id)',
+        // Les compagnons achetés en confettis (`shared/compagnons.ts`), une
+        // ligne par compagnon, jamais effacée, avec ce qu'il a coûté — comme
+        // un thème. Et le rang de la plus haute forme qu'il a atteinte : ses
+        // bonnes réponses se relisent dans les journaux, mais une forme
+        // atteinte ne se perd jamais, même quand une soirée retirée en
+        // reprend (`compagnonsDe`).
+        `CREATE TABLE IF NOT EXISTS profile_compagnons (
+           profile_id TEXT NOT NULL,
+           compagnon  TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           rang       INTEGER NOT NULL DEFAULT 0,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, compagnon)
+         )`,
       ],
       'write',
     )
@@ -876,7 +926,7 @@ export class ProfileStore {
     for (let i = 0; i < manquants.length; i += PROFILS_PAR_PAQUET) {
       const paquet = manquants.slice(i, i + PROFILS_PAR_PAQUET)
       const marques = paquet.map(() => '?').join(', ')
-      const [lignes, eclats, badges] = await this.client.batch(
+      const [lignes, eclats, badges, compagnons] = await this.client.batch(
         [
           { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, avatar, eteint FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
@@ -884,6 +934,7 @@ export class ProfileStore {
             sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
             args: paquet,
           },
+          { sql: `SELECT profile_id, compagnon, rang FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
         ],
         'read',
       )
@@ -895,6 +946,8 @@ export class ProfileStore {
       }
       const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
+      const compagnonsDe = new Map<string, Map<CleDeCompagnon, number>>(paquet.map(id => [id, new Map()]))
+      for (const r of compagnons.rows) lireCompagnon(compagnonsDe.get(String(r.profile_id)), r)
       for (const r of lignes.rows) {
         const id = String(r.id)
         // Arrivé en mémoire pendant l'aller-retour — un geste, un renommage —,
@@ -906,6 +959,7 @@ export class ProfileStore {
           this.eteints.set(id, eteintsDe.get(id)!)
         }
         if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
+        if (!this.compagnons.has(id)) this.compagnons.set(id, compagnonsDe.get(id)!)
       }
     }
     return ids.map(id => {
@@ -999,9 +1053,9 @@ export class ProfileStore {
     return [...(this.eteints.get(id) ?? [])].filter(k => siens?.has(k))
   }
 
-  /** Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint. */
+  /** Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint — un compagnon, sous toutes ses formes (`clesQuiBrillent`). */
   brilleChez(id: string, cle: string): boolean {
-    return !!this.eclats.get(id)?.has(cle) && !this.eteints.get(id)?.has(cle)
+    return clesQuiBrillent(this.eclats.get(id) ?? [], cle).some(k => !this.eteints.get(id)?.has(k))
   }
 
   /** Ses récompenses rangées : chaque clé d'étagère, et le nombre de soirées où elle est tombée. */
@@ -1056,13 +1110,14 @@ export class ProfileStore {
     return themeDuCatalogue(p.theme)?.key ?? null
   }
 
-  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers et ses sabliers : un seul aller-retour. */
-  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number; sabliers: number }> {
-    const [themes, vies, sabliers] = await this.client.batch(
+  /** Les thèmes qu'il a achetés et ce qu'il les a payés, et ce que lui ont coûté ses vies des sentiers, ses sabliers et ses compagnons : un seul aller-retour. */
+  private async achatsDe(profileId: string): Promise<{ themes: Map<string, number>; vies: number; sabliers: number; compagnons: number }> {
+    const [themes, vies, sabliers, compagnons] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
       ],
       'read',
     )
@@ -1070,17 +1125,18 @@ export class ProfileStore {
       themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])),
       vies: Number(vies.rows[0]?.prix ?? 0),
       sabliers: Number(sabliers.rows[0]?.prix ?? 0),
+      compagnons: Number(compagnons.rows[0]?.prix ?? 0),
     }
   }
 
   /**
    * Sa boutique : ses confettis, les thèmes qu'il a — les offerts, ceux
-   * qu'il a achetés —, celui qu'il porte.
+   * qu'il a achetés —, celui qu'il porte, et ses compagnons.
    *
    * Une bonne réponse, un confetti : ses soirées qui comptent
    * (`confettisDeSoiree`), son quiz du jour et sa campagne — et les étoiles
    * de ses sentiers —, moins ce qu'il a dépensé : ses thèmes, ses vies des
-   * sentiers, ses sabliers.
+   * sentiers, ses sabliers, ses compagnons.
    * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
    * soirée retirée de l'historique emporte les siens. Le solde peut alors
    * passer sous zéro ; un achat, lui, ne se reprend jamais.
@@ -1092,8 +1148,9 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
   ): Promise<BoutiqueDuProfil> {
-    const [lues, achats, duJour, deCampagne, maitres] = await Promise.all([
-      soirees ?? this.historiqueOf(p.id),
+    const historique = soirees ?? this.historiqueOf(p.id)
+    const [lues, achats, duJour, deCampagne, maitres, compagnons] = await Promise.all([
+      historique,
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
       this.confettisDeCampagne?.(p.id) ?? 0,
@@ -1102,9 +1159,10 @@ export class ProfileStore {
         x => maitresDe(x).length,
         () => 0,
       ),
+      this.compagnonsDe(p, historique),
     ])
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
-    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers
+    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers + achats.compagnons
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
       possedes: THEMES.filter(
@@ -1112,7 +1170,132 @@ export class ProfileStore {
       ).map(t => t.key),
       porte: this.themePorte(p),
       jour,
+      // Absents sans compagnon : rien de plus à lire pour qui n'en a pas.
+      ...(compagnons.length > 0 && { compagnons }),
     }
+  }
+
+  /** Ses compagnons achetés, et la plus haute forme de chacun : de mémoire, dans l'ordre du catalogue. */
+  compagnonsOf(id: string): CompagnonPossede[] {
+    const siens = this.compagnons.get(id)
+    if (!siens?.size) return []
+    return COMPAGNONS.flatMap(c => (siens.has(c.key) ? [{ compagnon: c.key, rang: siens.get(c.key)! }] : []))
+  }
+
+  /**
+   * Ses compagnons, et ce qui les fait grandir : ses bonnes réponses données
+   * en portant chacun — celles qui lui rapportent un confetti : ses soirées
+   * qui comptent, son quiz du jour, sa campagne (le choix du 13 octobre
+   * 2026). Relues dans les journaux à chaque lecture, comme ses confettis.
+   *
+   * Une forme atteinte ne se perd jamais : le rang monte ici dès que ses
+   * bonnes réponses passent un seuil (`JUSTES_DES_FORMES`), et ne redescend
+   * plus, même quand une soirée retirée en reprend. Et il grandit pour de
+   * bon : qui portait sa plus haute forme porte la nouvelle — qui avait
+   * choisi d'en porter une d'avant la garde.
+   *
+   * `soirees`, quand on vient de relire son historique — ou qu'on le relit.
+   */
+  async compagnonsDe(
+    p: ProfileRec,
+    soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[] | Promise<readonly { gain: GainSoiree; releve: ReleveSoiree }[]>,
+  ): Promise<CompagnonAcquis[]> {
+    const possedes = this.compagnonsOf(p.id)
+    if (possedes.length === 0) return []
+    const muette = (mode: string) => (e: unknown): Record<string, number> => {
+      console.error(`[profil] ${mode} illisible pour ses compagnons :`, e)
+      return {}
+    }
+    const rien: Record<string, number> = {}
+    const [lues, duJour, deCampagne] = await Promise.all([
+      soirees ?? this.historiqueOf(p.id),
+      this.compagnonsDuJour?.(p.id).catch(muette('quiz du jour')) ?? rien,
+      this.compagnonsDeCampagne?.(p.id).catch(muette('campagne')) ?? rien,
+    ])
+    const justesDe = (c: CleDeCompagnon) =>
+      lues.reduce((n, s) => n + (soireeQuiCompte(s.gain) ? (s.releve.compagnons?.[c] ?? 0) : 0), 0) + (duJour[c] ?? 0) + (deCampagne[c] ?? 0)
+    const acquis = possedes.map(a => {
+      const justes = justesDe(a.compagnon)
+      return { compagnon: a.compagnon, rang: Math.max(a.rang, rangAtteint(justes)), justes }
+    })
+    const grandis = acquis.filter((a, i) => a.rang > possedes[i].rang)
+    if (grandis.length > 0) await this.grandir(p, grandis, possedes)
+    return acquis
+  }
+
+  /**
+   * Fait grandir le compagnon qu'il porte, si ses bonnes réponses l'ont mené
+   * à sa forme suivante : à la fin d'un quiz, d'une partie du quiz du jour,
+   * d'une série — jamais pendant une question. Rend vrai s'il a grandi : la
+   * salle où il joue le voit alors. Sans compagnon porté, rien ne se lit.
+   */
+  async faireGrandir(profileId: string): Promise<boolean> {
+    const p = this.profiles.get(profileId)
+    if (!p || !this.compagnonPorte(p)) return false
+    const avant = this.compagnonsOf(profileId)
+    const apres = await this.compagnonsDe(p)
+    return apres.some(a => a.rang > (avant.find(x => x.compagnon === a.compagnon)?.rang ?? 0))
+  }
+
+  /**
+   * Retient les formes que ses compagnons viennent d'atteindre, et fait
+   * porter la nouvelle à qui portait la plus haute d'avant. Une seule
+   * écriture : le rang ne fait que monter (`MAX`), même si deux lectures se
+   * croisent.
+   */
+  private async grandir(p: ProfileRec, grandis: readonly CompagnonPossede[], avant: readonly CompagnonPossede[]): Promise<void> {
+    const lu = p.legendaire
+    const porte = formeDeCompagnon(lu)
+    const suit = grandis.find(g => porte?.compagnon === g.compagnon && porte.rang === avant.find(a => a.compagnon === g.compagnon)?.rang)
+    const nouvelle = suit && compagnonDuCatalogue(suit.compagnon)?.formes[suit.rang]
+    await this.client.batch(
+      [
+        ...grandis.map(g => ({
+          sql: 'UPDATE profile_compagnons SET rang = MAX(rang, ?) WHERE profile_id = ? AND compagnon = ?',
+          args: [g.rang, p.id, g.compagnon],
+        })),
+        ...(nouvelle ? [{ sql: 'UPDATE profiles SET legendaire = ? WHERE id = ? AND legendaire = ?', args: [nouvelle.key, p.id, lu] }] : []),
+      ],
+      'write',
+    )
+    const siens = this.compagnons.get(p.id)
+    for (const g of grandis) siens?.set(g.compagnon, Math.max(siens.get(g.compagnon) ?? 0, g.rang))
+    // Un avatar choisi pendant l'écriture l'emporte, en base comme ici : la
+    // condition de l'`UPDATE` l'a déjà gardé.
+    if (nouvelle && p.legendaire === lu) p.legendaire = nouvelle.key
+  }
+
+  /**
+   * Achète un compagnon, à sa première forme (`PRIX_D_UN_COMPAGNON`) — et
+   * le porte, ou le garde pour plus tard, comme un thème. Refusé en clair :
+   * déjà à lui, pas assez de confettis — un autre onglet a pu dépenser
+   * entre-temps.
+   */
+  acheterCompagnon(id: string, cle: unknown, jour: string, { porter = true }: { porter?: boolean } = {}): Promise<ProfileRec> {
+    return this.unAchatALaFois(id, async () => {
+      const rec = await this.require(id)
+      const c = compagnonDuCatalogue(cle)
+      if (!c) throw new Error('Ce compagnon n’existe pas')
+      if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
+      const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
+      const premiere = c.formes[0]
+      await this.client.batch(
+        [
+          {
+            sql: 'INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, ?, 0, ?)',
+            args: [id, c.key, PRIX_D_UN_COMPAGNON, Date.now()],
+          },
+          ...(porter ? [{ sql: 'UPDATE profiles SET legendaire = ? WHERE id = ?', args: [premiere.key, id] }] : []),
+        ],
+        'write',
+      )
+      let siens = this.compagnons.get(id)
+      if (!siens) this.compagnons.set(id, (siens = new Map()))
+      siens.set(c.key, 0)
+      if (porter) rec.legendaire = premiere.key
+      return rec
+    })
   }
 
   /** Ce que sa fin de soirée dit de ses confettis : ceux de ce soir, son solde, le thème qu'il vise. */
@@ -1370,13 +1553,22 @@ export class ProfileStore {
    * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire ou un
    * Divin rendu avec sa soirée (exclusion, essai effacé) ne se porte plus.
    * Un portrait, lui, s'est vérifié quand il l'a pris (`update`) : un palier
-   * validé ne se reprend jamais — ni soirée retirée, ni épreuve effacée.
+   * validé ne se reprend jamais — ni soirée retirée, ni épreuve effacée. Un
+   * compagnon, s'il l'a acheté et a atteint sa forme — une forme atteinte ne
+   * se perd jamais.
    */
   legendairePorte(p: ProfileRec): string | null {
     if (!p.legendaire) return null
     if (portrait(p.legendaire)) return p.legendaire
+    const forme = formeDeCompagnon(p.legendaire)
+    if (forme) return (this.compagnons.get(p.id)?.get(forme.compagnon) ?? -1) >= forme.rang ? forme.key : null
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
+  }
+
+  /** Le compagnon qu'il porte (`loup`), s'il en porte un : la ligne de chacune de ses réponses le retient, et ses bonnes réponses le font grandir. */
+  compagnonPorte(p: ProfileRec): string | null {
+    return formeDeCompagnon(this.legendairePorte(p))?.compagnon ?? null
   }
 
   /**
@@ -1473,6 +1665,7 @@ export class ProfileStore {
     const { niveau, acquis, requis } = progression(p.xp, this.gardesOf(p.id))
     const laurier = this.laurierPorte(p.id)
     const champion = this.championDe?.(p.id)
+    const compagnons = this.compagnonsOf(p.id)
     return {
       id: p.id,
       login: p.login,
@@ -1496,6 +1689,8 @@ export class ProfileStore {
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
+      // Absents sans compagnon, comme le laurier : rien de plus à lire pour qui n'en a pas.
+      ...(compagnons.length > 0 && { compagnons }),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
       ...(laurier && { laurier }),
@@ -1708,6 +1903,7 @@ export class ProfileStore {
     this.eclats.set(rec.id, new Set())
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
+    this.compagnons.set(rec.id, new Map())
     // Né à l'instant, il se trouve tout de suite : l'ami qui le cherche est souvent à côté de lui.
     this.annuaire = null
     return { profile: rec, recovery }
@@ -1754,6 +1950,7 @@ export class ProfileStore {
     this.eclats.set(rec.id, new Set())
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
+    this.compagnons.set(rec.id, new Map())
     this.annuaire = null
     return rec
   }
@@ -1880,6 +2077,15 @@ export class ProfileStore {
           throw new Error(`Ce portrait se gagne au palier ${p.palier} du sentier ${deLaBranche(brancheDe(p))}`)
         }
         champs.legendaire = p.key
+      } else if (formeDeCompagnon(patch.legendaire)) {
+        // Sa forme se vérifie sur ses bonnes réponses du moment : une forme
+        // qu'il vient d'atteindre se porte sans attendre une autre lecture.
+        const f = formeDeCompagnon(patch.legendaire)!
+        const c = compagnonDe(f)
+        const sien = (await this.compagnonsDe(rec)).find(a => a.compagnon === f.compagnon)
+        if (!sien) throw new Error(`${c.nom} s’achète d’abord, à la boutique`)
+        if (sien.rang < f.rang) throw new Error(`${f.nom} arrive à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses données ${enLePortant(c)}`)
+        champs.legendaire = f.key
       } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
     }
     // Un titre, une vitrine : seulement ce qu'il a gagné. La page ne propose
@@ -2379,11 +2585,14 @@ export class ProfileStore {
 
   /**
    * Ce qui éclatera si l'Éclat tombe sur ce profil ce soir : le légendaire
-   * qu'il porte, ou l'emoji qu'il a joué (`cibleEclat`).
+   * qu'il porte, ou l'emoji qu'il a joué (`cibleEclat`). Un compagnon n'éclate
+   * qu'une fois, quelle que soit sa forme : déjà éclaté, la cible est son
+   * Éclat d'avant, et le tirage tombe dans le vide (`grantEclat`).
    */
   cibleEclatDe(profileId: string, emoji: string): string {
     const p = this.profiles.get(profileId)
-    return cibleEclat(p ? this.legendairePorte(p) : null, emoji)
+    const cible = cibleEclat(p ? this.legendairePorte(p) : null, emoji)
+    return clesQuiBrillent(this.eclats.get(profileId) ?? [], cible)[0] ?? cible
   }
 
   /**
@@ -2918,7 +3127,18 @@ export class ProfileStore {
   async supprimer(profileId: string): Promise<void> {
     await this.client.batch(
       [
-        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats', 'profile_vies', 'profile_sabliers'].map(table => ({
+        ...[
+          'profile_sessions',
+          'profile_xp',
+          'profile_badges',
+          'profile_eclats',
+          'profile_legendaires',
+          'profile_niveaux',
+          'profile_achats',
+          'profile_vies',
+          'profile_sabliers',
+          'profile_compagnons',
+        ].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
         })),
@@ -2927,7 +3147,7 @@ export class ProfileStore {
       'write',
     )
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
-    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.achatsEnCours, this.vus]) {
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.compagnons, this.acquis, this.gardes, this.achatsEnCours, this.vus]) {
       carte.delete(profileId)
     }
     // La rareté des hauts faits se compte sur la population : elle a changé.
@@ -3221,6 +3441,12 @@ export class ProfileStore {
       this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
       this.eteints.set(rec.id, new Set(eclats.rows.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
       await this.recompterRecompenses([rec.id])
+    }
+    if (!this.compagnons.has(rec.id)) {
+      const siens = new Map<CleDeCompagnon, number>()
+      const res = await this.client.execute({ sql: 'SELECT compagnon, rang FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
+      for (const r of res.rows) lireCompagnon(siens, r)
+      this.compagnons.set(rec.id, siens)
     }
     return rec.disabledAt ? null : rec
   }

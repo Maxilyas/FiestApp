@@ -45,11 +45,17 @@ export interface AnswerRow {
    * des lignes d'avant : celles-là retombent sur la composition du moment.
    */
   teamId?: string | null
+  /**
+   * Le compagnon qu'il portait quand la ligne s'est écrite (`loup`), s'il en
+   * portait un (`shared/compagnons.ts`) : ses bonnes réponses le font
+   * grandir. Absent sans compagnon, et des lignes d'avant.
+   */
+  compagnon?: string
   createdAt: number
 }
 
 const COLUMNS =
-  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id'
+  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, compagnon'
 
 export class AnswerLog {
   private insertStmt
@@ -76,7 +82,7 @@ export class AnswerLog {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const rows = db
       .prepare('SELECT player_id, session_id, q_index, points, team_id FROM answer_log WHERE space_id = ?')
@@ -117,6 +123,7 @@ export class AnswerLog {
           r.createdAt,
           r.category ?? null,
           colonneEquipe(r.teamId),
+          r.compagnon ?? null,
           this.spaceId,
         )
       }
@@ -222,6 +229,8 @@ export function toRow(r: any): AnswerRow {
     observed: Number(r.observed) === 1,
     category: r.category === null || r.category === undefined ? null : String(r.category),
     ...equipeDeColonne(r.team_id),
+    // Seulement s'il en portait un : la ligne de tous les autres reste celle d'avant.
+    ...(r.compagnon ? { compagnon: String(r.compagnon) } : {}),
     createdAt: Number(r.created_at),
   }
 }
