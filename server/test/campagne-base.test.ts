@@ -58,9 +58,11 @@ import { sansAccent } from '../../shared/homonymes'
  * comme un fait que la base posait déjà — plus elle grandit, plus le
  * rédacteur y retombe —, 22 retirées à la relecture) : 17 607 ; la
  * troisième, 2 753 (194 refusées, dont 180 pour un fait déjà posé, 25
- * retirées à la relecture) : 20 360.
+ * retirées à la relecture) : 20 360 ; la dernière, mille sept cents pour
+ * finir le crédit à dix dollars près, 1 527 (165 refusées, dont 153 pour un
+ * fait déjà posé, 8 retirées à la relecture) : 21 887.
  */
-const AU_MOINS = 20360
+const AU_MOINS = 21887
 
 const { questions, refusees } = lireLaBase()
 
