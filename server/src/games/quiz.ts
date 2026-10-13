@@ -215,6 +215,13 @@ export function pointsDuChoix(ms: number, dureeMs: number, lectureMs: number): n
 }
 
 /**
+ * Le bonus de rapidité d'une bonne réponse à un QCM, lu dans ses points : ce
+ * qu'elle a rapporté au-delà de la bonne réponse. La correction du quiz du
+ * jour le dit à part — un total seul ne disait pas si l'on avait répondu vite.
+ */
+export const bonusDeRapidite = (points: number): number => Math.max(0, points - CHOICE_POINTS)
+
+/**
  * Les points de chaque estimation d'une question, dans l'ordre des valeurs.
  *
  * C'est la distance qui paie, plus le rang. Au rang, le plus proche touchait

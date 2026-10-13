@@ -6,13 +6,13 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
-import { Shape } from '../components/Shape'
 import { RecompenseTombee } from '../components/Ouverts'
+import { SerieCorrigee } from '../components/SerieCorrigee'
 import { OR, lueur } from '../components/Atlas'
-import { deNom, espacesFines } from '../format'
+import { deNom } from '../format'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { placeDuJour } from '../../../shared/course'
-import { NOM_NIVEAU, type CorrectionDeCampagne, type DefiDeLaSemaine, type LigneDuDefi, type SerieDeCampagne } from '../../../shared/campagne'
+import type { CorrectionDeCampagne, DefiDeLaSemaine, LigneDuDefi, SerieDeCampagne } from '../../../shared/campagne'
 
 /** L'adresse de l'onglet du défi, dans la campagne. */
 export const ADRESSE_DU_DEFI = '#defi'
@@ -205,21 +205,7 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
         </section>
       )}
 
-      {correction && (
-        <ol className="campagne-correction">
-          {correction.map((c, i) => (
-            <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-              <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-              <p>{espacesFines(c.texte)}</p>
-              <p className="muted small">
-                <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-                {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-              </p>
-              {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-            </li>
-          ))}
-        </ol>
-      )}
+      {correction && <SerieCorrigee correction={correction} />}
       {carte}
     </div>
   )

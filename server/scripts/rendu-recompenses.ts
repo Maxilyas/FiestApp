@@ -163,7 +163,10 @@ try {
   await photo('7-defi-semaine-passee', true)
   await page.click('text=La correction du défi')
   await page.waitForSelector('.campagne-correction')
+  // Elle s'ouvre sous la semaine passée, hors de l'écran : on y descend.
+  await page.locator('.campagne-correction').evaluate((e: any) => e.scrollIntoView({ block: 'start' }))
   await photo('8-defi-correction')
+  await photo('8-defi-correction-entiere', true)
   await page.goto(`${banc.url}/profil`)
   await page.waitForTimeout(1200)
   await photo('9-profil-laurier-argent')

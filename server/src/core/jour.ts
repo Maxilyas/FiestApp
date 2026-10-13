@@ -21,7 +21,7 @@ import { niveauMesure, type Niveau } from '../../../shared/campagne'
 import { HORS_LIGNES_A_PART, cleDuJour, cleDuMois, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { JOURS_DE_CHRONOS, chronosDescend, raconter } from './divins'
 import { JOURS_POUR_UNE_PAGE, cleDeLaPage, moisDeLaPage } from '../../../shared/calendrier'
-import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
+import { GRACE_MS, POINTS_MAX_PAR_QUESTION, bonusDeRapidite, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
 import { normalizeQuestions, toPlayable, type PlayableQuestion, type QuizQuestionDef } from '../../../shared/library'
@@ -2320,7 +2320,7 @@ export class JourStore {
     if (!(await this.estClos(jour)) && !partie?.finieLe) return null
     const [siennes, salle] = await this.client.batch(
       [
-        { sql: 'SELECT question, choix, juste, points FROM jour_reponses WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
+        { sql: 'SELECT question, choix, juste, points, ms FROM jour_reponses WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
         { sql: 'SELECT question, COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? GROUP BY question', args: [jour] },
       ],
       'read',
@@ -2332,6 +2332,13 @@ export class JourStore {
       questions: tirage.questions.map((q, i) => {
         const r = sienne.get(i)
         const annulee = tirage.annulees.includes(i)
+        const choix = r?.choix == null ? null : Number(r.choix)
+        const juste = Number(r?.juste ?? 0) === 1
+        const points = annulee ? 0 : Number(r?.points ?? 0)
+        // Une ligne sans choix mais avec son temps, passé l'échéance : la
+        // réponse est arrivée après la fin, et la révélation l'a dit (« Trop
+        // tard ! ») — la correction le redit, au lieu du temps écoulé.
+        const tropTard = choix === null && r?.ms != null && Number(r.ms) > q.duree * 1000 + GRACE_MS
         return {
           texte: q.texte,
           reponses: q.reponses,
@@ -2339,10 +2346,19 @@ export class JourStore {
           categorie: q.categorie,
           anecdote: q.anecdote,
           trouveePar: trouvee.get(i) ?? null,
-          choix: r?.choix == null ? null : Number(r.choix),
-          juste: Number(r?.juste ?? 0) === 1,
-          points: annulee ? 0 : Number(r?.points ?? 0),
+          choix,
+          juste,
+          points,
+          // En combien de temps sa réponse est partie, sur combien de
+          // secondes, et ce que la rapidité en a payé : la correction ne
+          // disait que le total, et pas si l'on avait répondu vite (un retour
+          // utilisateur du 13 octobre 2026). Une réponse arrivée après
+          // l'échéance n'a pas compté : pas de temps à dire.
+          ms: choix === null || r?.ms == null ? null : Number(r.ms),
+          duree: q.duree,
+          rapidite: juste && !annulee ? bonusDeRapidite(points) : null,
           repondue: !!r,
+          ...(tropTard && { tropTard: true }),
           ...(annulee && { annulee: true }),
         }
       }),
