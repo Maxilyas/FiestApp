@@ -13,6 +13,19 @@ import {
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
 import { DejaPrises } from './jumelles'
+import {
+  CHANCES_PAR_TRANCHE,
+  ajusterSansBloquer,
+  chancesSurLaSerie,
+  difficulteSansModele,
+  forceDuJoueur,
+  forcePourLeNiveau,
+  scoreAttendu,
+  scoreDeReference,
+  serieDeReference,
+  type ModeleDuSavoir,
+  type SerieDeReference,
+} from './modeleDuSavoir'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
@@ -34,6 +47,7 @@ import {
   JOURS_DU_CLASSEMENT,
   LETTRES_POUR_CHERCHER,
   LIGNES_DU_CLASSEMENT,
+  SCORE_DE_REFERENCE,
   bordurePortee,
   confettisDesLigues,
   enjeuContre,
@@ -83,18 +97,15 @@ import {
   JOUEURS_POUR_LE_DEFI,
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
-  SERIES_POUR_LE_NIVEAU,
   SIGNALEMENT_MAX,
   VIES,
   bonneReponseChange,
   issueDeRencontre,
-  niveauPourUneRencontre,
   minutesAvantLundi,
   niveauDeQuestion,
   semaineAvant,
   semaineDe,
   ordreDeSerie,
-  tauxLisse,
   xpDeCampagne,
   xpDeLaBonneReponse,
   xpDuJourDeCampagne,
@@ -254,9 +265,9 @@ interface AdversaireGarde {
   profil: string
   reponses: boolean[]
   /**
-   * Automate, l'adversaire simulé (`simulerUnAdversaire`) : ni série ni
-   * profil — `serie` est celle de la rencontre, `profil` vide —, ses réponses
-   * tirées au départ et gardées comme celles d'un joueur.
+   * Automate, l'adversaire simulé (`partieDAutomate`) : ni série ni profil —
+   * `serie` est celle de la rencontre, `profil` vide —, ses réponses tirées
+   * au départ et gardées comme celles d'un joueur.
    */
   simule?: true
 }
@@ -282,6 +293,15 @@ interface Duel {
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
 const MESURES_GARDEES_MS = 10 * 60_000
+/**
+ * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
+ * quand un dé le demande : il relit les réponses de tout le monde, et ses
+ * difficultés bougent lentement — la force de qui lance le dé, elle, se
+ * relit à chaque dé.
+ */
+const MODELE_GARDE_MS = 30 * 60_000
+/** Un ajustement raté ne se retente pas avant une minute : une base muette ne se fait pas relire à chaque dé. */
+const MODELE_RETENTE_MS = 60_000
 /** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
 const SERIES_GARDEES = 500
 const HEURE_MS = 3600_000
@@ -486,6 +506,24 @@ export class CampagneStore {
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
+  /**
+   * Le modèle du savoir (`core/modeleDuSavoir.ts`) : les difficultés de la
+   * base et la force de chacun, ajustées ensemble sur les premières réponses
+   * de tous. Refait en fond, à la demande du dé, au plus toutes les
+   * demi-heures (`MODELE_GARDE_MS`) — jamais sur son chemin : le dé lit celui
+   * qu'il y a, et avant le premier, la part de ceux qui ont trouvé chaque
+   * question (`difficulteSansModele`).
+   */
+  private savoir: { a: number; modele: ModeleDuSavoir; dureeMs: number } | null = null
+  private savoirEnRoute: Promise<void> | null = null
+  private savoirRateLe = Number.NEGATIVE_INFINITY
+  /** La série de référence du dé, refaite quand les jouables, leur mesure ou le modèle changent : onze mille questions à ranger. */
+  private referenceGardee: {
+    jouables: readonly QuestionDeLaBase[]
+    mesure: ReadonlyMap<string, { justes: number; total: number }>
+    modele: ModeleDuSavoir | null
+    reference: SerieDeReference
+  } | null = null
   /** Les questions jouables, toutes catégories, et ce dont elles sont faites : la base, la réserve du jour, les retraits (`jouables`). */
   private jouablesGardees: { base: BaseDeLaCampagne; duJour: ReadonlySet<string>; retirees: number; questions: readonly QuestionDeLaBase[] } | null = null
   /** Les catégories et les sujets de chaque liste de jouables (`choixDe`). */
@@ -829,9 +867,94 @@ export class CampagneStore {
     return parQuestion
   }
 
+  /**
+   * Le modèle du savoir tel qu'il est — null avant le premier ajustement —,
+   * et, s'il a vieilli, le suivant lancé en fond : qui le demande ne
+   * l'attend jamais.
+   */
+  private modeleDuSavoir(): ModeleDuSavoir | null {
+    const garde = this.savoir
+    const maintenant = this.maintenant()
+    const vieilli = !garde || maintenant - garde.a >= MODELE_GARDE_MS
+    if (vieilli && !this.savoirEnRoute && !this.ferme && maintenant - this.savoirRateLe >= MODELE_RETENTE_MS) {
+      this.savoirEnRoute = this.ajusterLeSavoir()
+        .catch(e => {
+          this.savoirRateLe = this.maintenant()
+          if (!this.ferme) console.warn('[campagne] le modèle du savoir ne s’est pas ajusté — le dé garde celui d’avant :', e instanceof Error ? e.message : e)
+        })
+        .finally(() => {
+          this.savoirEnRoute = null
+        })
+    }
+    return garde?.modele ?? null
+  }
+
+  /**
+   * L'ajustement du modèle du savoir, en fond et par tranches
+   * (`ajusterSansBloquer`), reparti de celui d'avant : sur les premières
+   * réponses de tout le monde, d'une lecture (`LECTURE_DU_SAVOIR`), et sur
+   * toute la base — une question retirée depuis dit encore la force de qui
+   * l'a jouée.
+   */
+  private async ajusterLeSavoir(): Promise<void> {
+    const debut = performance.now()
+    const [base, jouables, mesure, lu] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.client.execute(LECTURE_DU_SAVOIR)])
+    const depart = this.savoir?.modele ?? null
+    const joueurs = await premieresDeTous(lu.rows)
+    const modele = await ajusterSansBloquer(
+      {
+        questions: new Map(base.questions.map(q => [q.id, q.meta])),
+        joueurs,
+        forceDeDepart: this.referencePour(jouables, mesure, depart).forceDeDepart,
+        depart,
+      },
+      () => this.ferme,
+    )
+    if (modele) this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+  }
+
+  /**
+   * Ce que `/healthz` dit du modèle du savoir — agrégé, sans un nom : quand il
+   * s'est ajusté, sur combien, et ce que ça a duré, rendu de main compris —
+   * au dixième de cœur de l'hébergeur, c'est lui qu'on surveille.
+   */
+  santeDuSavoir(): { ajusteLe: number | null; joueurs: number; reponses: number; passes: number; dureeMs: number | null; rateLe: number | null } {
+    const s = this.savoir
+    return {
+      ajusteLe: s && Number.isFinite(s.a) ? s.a : null,
+      joueurs: s?.modele.forces.size ?? 0,
+      reponses: s?.modele.reponses ?? 0,
+      passes: s?.modele.passes ?? 0,
+      dureeMs: s?.dureeMs ?? null,
+      rateLe: Number.isFinite(this.savoirRateLe) ? this.savoirRateLe : null,
+    }
+  }
+
+  /**
+   * La série de référence du dé (`serieDeReference`) : les marches du tirage
+   * (`niveauDeQuestion`), et les difficultés du modèle — ou, sans lui, celles
+   * de la part qui a trouvé (`difficulteSansModele`). Gardée tant que rien de
+   * cela ne change.
+   */
+  private referencePour(
+    jouables: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, { justes: number; total: number }>,
+    modele: ModeleDuSavoir | null,
+  ): SerieDeReference {
+    const g = this.referenceGardee
+    if (g && g.jouables === jouables && g.mesure === mesure && g.modele === modele) return g.reference
+    const reference = serieDeReference(
+      jouables,
+      q => niveauDeQuestion(q.meta.difficulte, mesure.get(q.id)),
+      q => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id)),
+    )
+    this.referenceGardee = { jouables, mesure, modele, reference }
+    return reference
+  }
+
   /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`). */
   private async vuesPar(profileId: string): Promise<Map<string, number>> {
-    return vuesLues((await this.client.execute(lectureDesVues(profileId))).rows)
+    return lireLesVues((await this.client.execute(lectureDesVues(profileId))).rows).vues
   }
 
   /**
@@ -1420,6 +1543,8 @@ export class CampagneStore {
     // Les bordures de ligue de tous, d'une lecture : les classements du jour
     // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
     this.toutesLesCotes().catch(e => console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e))
+    // Le modèle du savoir : le premier dé le trouve ajusté.
+    this.modeleDuSavoir()
   }
 
   /** Cet intitulé est-il dans la base ? La réserve du quiz du jour le refuse alors (`JourStore.dansLaCampagne`). */
@@ -3033,36 +3158,76 @@ export class CampagneStore {
   }
 
   /**
-   * Les réponses d'Automate sur une série neuve, son score tenu à son niveau
-   * (`automateASonNiveau`). Un test qui le remplace fixe son score : la cote
-   * d'un duel s'y vérifie au point près, comme contre un joueur.
+   * Les réponses d'Automate sur une série neuve, son score tenu à ce qu'on
+   * attend de lui (`partieDAutomate`). Un test qui le remplace fixe son
+   * score : la cote d'un duel s'y vérifie au point près, comme contre un
+   * joueur.
    */
-  static reponsesDAutomate(taux: readonly number[], niveau: number): boolean[] {
-    return automateASonNiveau(taux, niveau)
+  static reponsesDAutomate(automate: AutomateDuDe): boolean[] {
+    return partieDAutomate(automate.chances, automate.cible)
+  }
+
+  /**
+   * Ce qu'Automate jouera contre lui sur ces questions (`AutomateDuDe`) : sa
+   * force, relue de toutes ses premières réponses (`forceDuJoueur`) — la
+   * série qu'il vient de finir comprise —, ses écarts de catégorie, et le
+   * niveau de son placement ou de sa cote ; puis ses chances sur chaque
+   * question, aux difficultés du modèle. Sans un seul ajustement encore, la
+   * part de ceux qui ont trouvé chaque question en tient lieu.
+   */
+  private automatePour(
+    premieres: ReadonlyMap<string, boolean>,
+    releve: ReleveDesDuels,
+    questions: readonly QuestionDeLaBase[],
+    base: BaseDeLaCampagne,
+    jouables: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, { justes: number; total: number }>,
+  ): AutomateDuDe {
+    const modele = this.savoir?.modele ?? null
+    const difficulteDe = (q: QuestionDeLaBase) => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id))
+    const reference = this.referencePour(jouables, mesure, modele)
+    const lui = forceDuJoueur(
+      premieres,
+      id => {
+        const q = base.parId.get(id)
+        return q && { categorie: q.meta.categorie, difficulte: difficulteDe(q) }
+      },
+      reference.forceDeDepart,
+    )
+    // Sans une réponse, le joueur de la cote de départ : huit bonnes réponses.
+    const sonNiveau = lui.reponses === 0 ? SCORE_DE_REFERENCE : scoreDeReference(lui.force, lui.ecarts, reference)
+    const niveau = niveauPourLeDuel(releve.joues, releve.cote, sonNiveau)
+    const force = forcePourLeNiveau(niveau, lui.ecarts, reference)
+    const chances = chancesSurLaSerie(
+      questions.map(q => ({ difficulte: difficulteDe(q), categorie: q.meta.categorie })),
+      force,
+      lui.ecarts,
+    )
+    return { chances, cible: scoreAttendu(chances), niveau }
   }
 
   /**
    * Le dé : celle qu'il a laissée en route reprend ; sinon, Automate,
    * l'adversaire simulé, sur une série neuve tirée pour lui comme une série
-   * de la campagne, qui joue comme un joueur de son niveau. Jamais plus la
-   * série finie d'un autre joueur : elle montrait son profil — celui d'un
-   * ami, sur un serveur de quelques amis — quand il n'était pas là, et
+   * de la campagne, qui joue comme lui à son niveau (`automatePour`). Jamais
+   * plus la série finie d'un autre joueur : elle montrait son profil — celui
+   * d'un ami, sur un serveur de quelques amis — quand il n'était pas là, et
    * « c'est trompeur » (le propriétaire, le 13 octobre 2026). Une série en
    * cours, elle, attend.
    *
    * Tout ce qu'il lui faut de la base permanente part d'un seul aller-retour
-   * — sa rencontre laissée, sa cote, ses dernières séries, ce qu'il a vu —,
-   * et le dé répond sans attendre que la rencontre s'écrive : le verrou du
-   * profil tient jusque-là, et sa première réponse l'attend
-   * (`avecVerrouJusquALEcriture`) — lire une question prend plus longtemps
-   * qu'un aller-retour. Lu en deux fois, puis écrit, le dé attendait trois
-   * allers-retours vers Turso l'un derrière l'autre, 230 ms chacun en
-   * médiane (le retour du propriétaire du 13 octobre 2026 : « l'attente est
-   * perceptible » ; `duels-attente.test.ts`) ; il n'en attend plus qu'un. Le
-   * prix, que le propriétaire a accepté le même jour : une écriture ratée ne
-   * se dit plus au toucher, mais à la première réponse (`rencontresPerdues`).
-   * Une rencontre laissée, qui se reprend, a lu ses séries et ses vues pour
-   * rien : moins cher qu'un aller-retour de plus à chaque dé.
+   * — sa rencontre laissée, sa cote, ce qu'il a vu et ses premières
+   * réponses, d'un même texte —, et le dé répond sans attendre que la
+   * rencontre s'écrive : le verrou du profil tient jusque-là, et sa première
+   * réponse l'attend (`avecVerrouJusquALEcriture`) — lire une question prend
+   * plus longtemps qu'un aller-retour. Lu en deux fois, puis écrit, le dé
+   * attendait trois allers-retours vers Turso l'un derrière l'autre, 230 ms
+   * chacun en médiane (le retour du propriétaire du 13 octobre 2026 :
+   * « l'attente est perceptible » ; `duels-attente.test.ts`) ; il n'en attend
+   * plus qu'un. Le prix, que le propriétaire a accepté le même jour : une
+   * écriture ratée ne se dit plus au toucher, mais à la première réponse
+   * (`rencontresPerdues`). Une rencontre laissée, qui se reprend, a lu ses
+   * vues pour rien : moins cher qu'un aller-retour de plus à chaque dé.
    */
   commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
     return this.avecVerrouJusquALEcriture(profileId, async () => {
@@ -3070,17 +3235,16 @@ export class CampagneStore {
       const maintenant = this.maintenant()
       // La base et sa mesure, gardées en mémoire, partent à côté ; une
       // rencontre reprise s'en passe, et leur échec ne compte qu'au tirage.
-      const tirage = Promise.all([this.jouables(), this.mesures()])
+      const tirage = Promise.all([this.base(), this.jouables(), this.mesures()])
       tirage.catch(() => {})
+      // Le modèle du savoir, s'il a vieilli, se refait en fond : sa lecture
+      // part avec celles du dé, que rien n'attend derrière elle.
+      this.modeleDuSavoir()
       const tour = ++this.tourDesBordures
-      const [laissee, duels, miennes, vues] = await this.client.batch(
+      const [laissee, duels, vues] = await this.client.batch(
         [
           { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`, args: [profileId] },
           lectureDesDuels(profileId, maintenant),
-          {
-            sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
-            args: [profileId, SERIES_POUR_LE_NIVEAU],
-          },
           lectureDesVues(profileId),
         ],
         'read',
@@ -3099,14 +3263,14 @@ export class CampagneStore {
           },
         }
       }
-      const [jouables, mesure] = await tirage
+      const [base, jouables, mesure] = await tirage
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('La campagne n’a pas encore de questions à poser : reviens bientôt')
-      // Placé, il affronte le niveau de sa cote ; avant, celui de ses séries.
-      const niveau = niveauPourLeDuel(releve.joues, releve.cote, niveauPourUneRencontre(miennes.rows.map(r => Number(r.justes))))
-      const tirees = tirerUneSerie(jouables, mesure, vuesLues(vues.rows), maintenant)
-      const taux = tirees.map(({ question: q }) => tauxLisse(q.meta.difficulte, mesure.get(q.id)?.justes, mesure.get(q.id)?.total))
+      const { vues: sesVues, premieres } = lireLesVues(vues.rows)
+      const tirees = tirerUneSerie(jouables, mesure, sesVues, maintenant)
+      // Placé, il affronte le niveau de sa cote ; avant, celui de ses réponses.
+      const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, jouables, mesure)
       const id = randomUUID()
-      const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(taux, niveau), simule: true }
+      const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(automate), simule: true }
       const serie: Serie = {
         id,
         profileId,
@@ -4706,6 +4870,12 @@ export class CampagneStore {
       this.cotes = null
       this.bordures.delete(profileId)
       this.bordureDuTour.delete(profileId)
+      // Ses réponses aussi : le modèle du savoir l'oublie, et se refera sans elles au prochain dé.
+      if (this.savoir) {
+        const forces = new Map(this.savoir.modele.forces)
+        forces.delete(profileId)
+        this.savoir = { ...this.savoir, a: Number.NEGATIVE_INFINITY, modele: { ...this.savoir.modele, forces } }
+      }
     })
   }
 
@@ -4731,28 +4901,80 @@ function lectureDesJustes(profileId: string): InStatement {
 }
 
 /**
- * Les questions qu'il a vues, et quand pour la dernière fois : seule
- * (`vuesPar`), ou dans le lot qui prépare le dé (`commencerUneRencontre`).
- * En un seul texte (`json_group_object`) : une ligne par question — des
- * milliers pour un fidèle — se décodait ligne à ligne à chaque série et à
- * chaque dé, 235 Ko et 9,6 ms pour trois mille, quatre à dix fois plus au
- * dixième de cœur de l'hébergeur ; en un texte, 79 Ko et 2,3 ms.
+ * Sa première réponse à une question, dans une agrégation SQL : celle de son
+ * premier instant — `MIN(repondue_le * 2 + juste)` range par instant, et sa
+ * parité dit si elle était juste. Une révision ne pose que ce qu'il a déjà
+ * vu : sa première réponse n'y est jamais.
+ */
+const PREMIERE_REPONSE = 'MIN(r.repondue_le * 2 + r.juste) % 2'
+
+/**
+ * Les questions qu'il a vues, quand pour la dernière fois, et sa première
+ * réponse à chacune — le modèle du savoir la lit au dé (`forceDuJoueur`) :
+ * seule (`vuesPar`), ou dans le lot qui prépare le dé
+ * (`commencerUneRencontre`). En un seul texte (`json_group_object`) : une
+ * ligne par question — des milliers pour un fidèle — se décodait ligne à
+ * ligne à chaque série et à chaque dé, 235 Ko et 9,6 ms pour trois mille,
+ * quatre à dix fois plus au dixième de cœur de l'hébergeur ; en un texte,
+ * 79 Ko et 2,3 ms. Sa première réponse y passe dans le même texte : lue à
+ * part, elle reparcourait toutes ses réponses une seconde fois.
  */
 function lectureDesVues(profileId: string): InStatement {
   return {
-    sql: `SELECT json_group_object(reserve_id, le) AS vues FROM (
-            SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+    sql: `SELECT json_group_object(reserve_id, json_array(le, juste)) AS vues FROM (
+            SELECT r.reserve_id, MAX(r.repondue_le) AS le, ${PREMIERE_REPONSE} AS juste
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
             WHERE s.profile_id = ? GROUP BY r.reserve_id
           )`,
     args: [profileId],
   }
 }
 
-/** Le texte de `lectureDesVues` à ce qu'il a vu, question par question (`parFraicheur`). */
-function vuesLues(lignes: readonly Record<string, unknown>[]): Map<string, number> {
+/** Le texte de `lectureDesVues` : ce qu'il a vu, question par question (`parFraicheur`), et sa première réponse à chacune. */
+function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<string, number>; premieres: Map<string, boolean> } {
   const texte = lignes[0]?.vues
   const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
-  return new Map(Object.entries(lu).map(([id, le]) => [id, Number(le)]))
+  const vues = new Map<string, number>()
+  const premieres = new Map<string, boolean>()
+  for (const [id, valeur] of Object.entries(lu)) {
+    if (!Array.isArray(valeur)) continue
+    vues.set(id, Number(valeur[0]))
+    premieres.set(id, Number(valeur[1]) === 1)
+  }
+  return { vues, premieres }
+}
+
+/**
+ * Les premières réponses de tout le monde, pour ajuster le modèle du savoir
+ * (`ajusterLeSavoir`) : une ligne par joueur, ses réponses en un texte. En un
+ * seul texte, cent mille réponses se décodaient d'un bloc, et le serveur ne
+ * répondait plus à personne ; une ligne par réponse, chacune se décodait à
+ * coups de `defineProperty`. Une ligne par joueur se lit entre deux tranches
+ * (`premieresDeTous`).
+ */
+const LECTURE_DU_SAVOIR = `SELECT profile_id, json_group_object(reserve_id, juste) AS premieres FROM (
+    SELECT s.profile_id AS profile_id, r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
+    FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+    GROUP BY s.profile_id, r.reserve_id
+  ) GROUP BY profile_id`
+
+/** Les lignes de `LECTURE_DU_SAVOIR`, joueur par joueur — en rendant la main de temps en temps : des milliers de réponses chacun. */
+async function premieresDeTous(lignes: readonly Record<string, unknown>[]): Promise<Map<string, Map<string, boolean>>> {
+  const joueurs = new Map<string, Map<string, boolean>>()
+  let lues = 0
+  for (const r of lignes) {
+    const texte = r.premieres
+    const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
+    const siennes = new Map<string, boolean>()
+    for (const [id, juste] of Object.entries(lu)) siennes.set(id, Number(juste) === 1)
+    joueurs.set(String(r.profile_id), siennes)
+    lues += siennes.size
+    if (lues >= CHANCES_PAR_TRANCHE) {
+      lues = 0
+      await new Promise<void>(rendre => setImmediate(rendre))
+    }
+  }
+  return joueurs
 }
 
 /**
@@ -5037,10 +5259,27 @@ const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 // Automate le relayait (le dé « tout le temps disponible »), puis l'a
 // remplacé — la série d'un ami qui n'était pas là, sous son profil, « c'est
 // trompeur » (le propriétaire, le même jour). Une série neuve, présentée
-// comme simulée : ses réponses se tirent de la difficulté mesurée de chaque
-// question (`tauxLisse`), décalées pour que son score soit, en moyenne, le
-// niveau de qui le joue (`niveauPourLeDuel`), et tenu à deux bonnes réponses
-// de lui au plus (`ECART_D_AUTOMATE`). Sa série finit à sa troisième faute,
+// comme simulée.
+//
+// Il joue comme qui lance le dé, tel que le modèle du savoir le mesure
+// (`core/modeleDuSavoir.ts`, le choix du propriétaire du même soir, après
+// « est-ce que l'automate pourrait apprendre du niveau des personnes et
+// s'adapter en continu ? ») : ses écarts de catégorie sont les siens — il
+// rate où il rate —, à la force de son niveau. Pendant le placement, ce
+// niveau est ce que toutes ses réponses de campagne disent de lui, relues à
+// chaque dé ; ensuite, celui de sa cote (`niveauPourLeDuel`), qui a appris
+// de ses duels. Il vaut sur une série tirée pour lui, en moyenne
+// (`serieDeReference`) : sur celle qu'on lui tire, plus dure pour lui — ses
+// catégories faibles, des questions que les réponses ont dites plus
+// dures —, Automate fait moins bien lui aussi. Avant, ses chances se
+// décalaient pour que son score attendu soit ce niveau sur chaque série,
+// quelles qu'en soient les questions : une série tombée sur les points
+// faibles de qui jouait le désavantageait d'autant. L'effet reste modeste
+// tant que la base est si grande : le dé fait tourner les douze catégories,
+// et une question n'a presque jamais assez de réponses pour qu'on la sache
+// plus dure que son estimation d'écriture (`scripts/calibrage-automate.ts`).
+// Son score se tient à deux bonnes réponses de ce qu'on attend de lui sur
+// cette série (`ECART_D_AUTOMATE`), et sa série finit à sa troisième faute,
 // comme celle d'un joueur allé au bout de ses vies : la cote de son score se
 // lit pareil (`coteDuScore`).
 
@@ -5048,13 +5287,28 @@ const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 export const AUTOMATE = { nom: 'Automate', avatar: '🤖' } as const
 
 /**
- * L'écart le plus grand entre le score d'Automate et le niveau de qui le
- * joue : deux bonnes réponses — un choix de produit, celui du propriétaire
- * du 13 octobre 2026, après « parfois la différence était énorme ». Libre,
- * son score s'en écartait de quatre ou plus un duel sur cinq — de cinq à
- * onze au niveau huit, huit fois sur dix — : des défaites de dix réponses,
- * des victoires sans partie, un enjeu de « +7 / −17 » à « +17 / −7 ». À une
- * seule, tous les duels se ressembleraient, et l'enjeu trahirait son score.
+ * Ce que le dé demande à Automate (`CampagneStore.reponsesDAutomate`) : ses
+ * chances question par question, le score qu'on attend de lui sur cette
+ * série, et le niveau qu'il vise — son score moyen sur une série tirée pour
+ * qui le joue.
+ */
+export interface AutomateDuDe {
+  chances: number[]
+  cible: number
+  niveau: number
+}
+
+/**
+ * L'écart le plus grand entre le score d'Automate et ce qu'on attend de lui
+ * sur la série : deux bonnes réponses — un choix de produit, celui du
+ * propriétaire du 13 octobre 2026, après « parfois la différence était
+ * énorme ». Libre, son score s'en écartait de quatre ou plus un duel sur
+ * cinq — de cinq à onze au niveau huit, huit fois sur dix — : des défaites de
+ * dix réponses, des victoires sans partie, un enjeu de « +7 / −17 » à
+ * « +17 / −7 ». À une seule, tous les duels se ressembleraient, et l'enjeu
+ * trahirait son score. Depuis le modèle du savoir, ce qu'on attend de lui
+ * suit la série : son score peut s'écarter un peu plus du niveau de la cote,
+ * quand la série est plus dure ou plus facile pour qui la joue.
  */
 export const ECART_D_AUTOMATE = 2
 
@@ -5064,44 +5318,8 @@ const PARTIES_D_AUTOMATE = 50
 /** Automate tel que la page le montre : son nom, son avatar, et qu'il est simulé. */
 const automateVu = (a: AdversaireGarde): Adversaire => ({ ...AUTOMATE, simule: true, justes: a.reponses.filter(Boolean).length })
 
-/** Une chance tenue loin de 0 et de 1 : son logit reste fini. */
-const borne = (p: number) => Math.min(0.995, Math.max(0.005, p))
-const logit = (p: number) => Math.log(borne(p) / (1 - borne(p)))
-const logistique = (x: number) => 1 / (1 + Math.exp(-x))
-
-/**
- * Le score qu'on attend, en moyenne, de ces chances question par question :
- * les bonnes réponses données avant la troisième faute. On suit, question
- * après question, la probabilité d'y arriver avec zéro, une ou deux fautes.
- */
-export function scoreAttendu(chances: readonly number[]): number {
-  let [zero, une, deux] = [1, 0, 0]
-  let attendu = 0
-  for (const c of chances) {
-    attendu += (zero + une + deux) * c
-    ;[zero, une, deux] = [zero * c, une * c + zero * (1 - c), deux * c + une * (1 - c)]
-  }
-  return attendu
-}
-
-/**
- * Les chances d'Automate à ce niveau : celles de la base, toutes décalées du
- * même pas (en logit) — une question difficile le reste pour lui —, le pas
- * cherché par dichotomie pour que son score attendu soit `niveau`.
- */
-export function chancesAuNiveau(taux: readonly number[], niveau: number): number[] {
-  const decalees = (pas: number) => taux.map(t => logistique(logit(t) + pas))
-  let [bas, haut] = [-12, 12]
-  for (let i = 0; i < 60; i++) {
-    const milieu = (bas + haut) / 2
-    if (scoreAttendu(decalees(milieu)) < niveau) bas = milieu
-    else haut = milieu
-  }
-  return decalees((bas + haut) / 2)
-}
-
 /** Une partie, ses chances données : juste ou faux, question par question, jusqu'à la troisième faute, ou au bout des questions. */
-function jouerSesChances(chances: readonly number[], hasard: () => number): boolean[] {
+export function jouerSesChances(chances: readonly number[], hasard: () => number = Math.random): boolean[] {
   const reponses: boolean[] = []
   let fautes = 0
   for (const chance of chances) {
@@ -5113,22 +5331,14 @@ function jouerSesChances(chances: readonly number[], hasard: () => number): bool
 }
 
 /**
- * Les réponses d'Automate sur une série — juste ou faux, question par
- * question —, jusqu'à sa troisième faute, ou au bout de ses questions.
+ * La partie d'Automate, son score tenu à `ECART_D_AUTOMATE` de `cible` — ce
+ * qu'on attend de lui sur cette série : elle se retire tant qu'elle tombe
+ * plus loin. Sa façon de jouer ne change pas, il rate toujours d'abord ce
+ * qui est difficile pour lui. Au bout de `PARTIES_D_AUTOMATE`, la plus
+ * proche : un score qu'une série ne laisse pas atteindre ne bloque rien.
  */
-export function simulerUnAdversaire(taux: readonly number[], niveau: number, hasard: () => number = Math.random): boolean[] {
-  return jouerSesChances(chancesAuNiveau(taux, niveau), hasard)
-}
-
-/**
- * Sa partie, son score tenu à `ECART_D_AUTOMATE` de son niveau : elle se
- * retire tant qu'elle tombe plus loin — sa façon de jouer ne change pas, il
- * rate toujours d'abord les difficiles. Au bout de `PARTIES_D_AUTOMATE`, la
- * plus proche : un niveau qu'une série ne laisse pas atteindre ne bloque rien.
- */
-export function automateASonNiveau(taux: readonly number[], niveau: number, hasard: () => number = Math.random): boolean[] {
-  const chances = chancesAuNiveau(taux, niveau)
-  const ecart = (r: readonly boolean[]) => Math.abs(r.filter(Boolean).length - niveau)
+export function partieDAutomate(chances: readonly number[], cible: number, hasard: () => number = Math.random): boolean[] {
+  const ecart = (r: readonly boolean[]) => Math.abs(r.filter(Boolean).length - cible)
   let meilleure = jouerSesChances(chances, hasard)
   for (let i = 1; i < PARTIES_D_AUTOMATE && ecart(meilleure) > ECART_D_AUTOMATE; i++) {
     const autre = jouerSesChances(chances, hasard)

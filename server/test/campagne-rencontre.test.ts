@@ -12,8 +12,9 @@ import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
-import { VIES, issueDeRencontre, niveauPourUneRencontre, xpDeLaBonneReponse } from '../../shared/campagne'
-import { CampagneStore, ECART_D_AUTOMATE, automateASonNiveau, chancesAuNiveau, scoreAttendu, simulerUnAdversaire } from '../src/core/campagne'
+import { NIVEAUX, VIES, issueDeRencontre, xpDeLaBonneReponse, type Niveau } from '../../shared/campagne'
+import { CampagneStore, ECART_D_AUTOMATE, jouerSesChances, partieDAutomate } from '../src/core/campagne'
+import { AUCUN_ECART, chancesDeReference, forcePourLeNiveau, scoreAttendu, serieDeReference } from '../src/core/modeleDuSavoir'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -61,10 +62,11 @@ async function serieFinie(banc: Banc, cookie: string, justes: number) {
   return s.id as string
 }
 
-test('son niveau est la médiane de ses dernières séries ; l’issue se lit contre le score entier d’en face', () => {
-  assert.equal(niveauPourUneRencontre([]), 8, 'sans série : la marche des moyennes')
-  assert.equal(niveauPourUneRencontre([3, 30, 12]), 12, 'une série ratée d’entrée ou un coup de chance ne le déplacent pas')
-  assert.equal(niveauPourUneRencontre([10, 14]), 12)
+// Son niveau ne se lit plus à la médiane de ses dix dernières séries, mais
+// dans toutes ses réponses (le modèle du savoir) : `modele-du-savoir.test.ts`
+// en vérifie la règle — sans réponse, huit bonnes réponses ; ni une série
+// ratée d'entrée ni un coup de chance ne le déplacent beaucoup.
+test('l’issue se lit contre le score entier d’en face', () => {
   assert.deepEqual([issueDeRencontre(11, 9), issueDeRencontre(9, 9), issueDeRencontre(8, 9)], ['gagnee', 'egalite', 'perdue'])
 })
 
@@ -80,17 +82,40 @@ function hasardFixe(graine: number): () => number {
   }
 }
 
+/**
+ * Une série qui monte : des faciles que 90 % des joueurs trouvent, des
+ * moyennes 75 %, des difficiles 45 %, puis des expertes 15 % — cinq de
+ * chaque, puis les expertes (`serieDeReference`, à la place de chacune des
+ * douze catégories). À la force nulle, ses chances sont ces parts.
+ */
+const SERIE_QUI_MONTE = (() => {
+  const parts: Record<Niveau, number> = { facile: 0.9, moyen: 0.75, difficile: 0.45, expert: 0.15 }
+  const questions = NIVEAUX.flatMap(niveau =>
+    CATEGORIES.flatMap(categorie => Array.from({ length: 5 }, () => ({ niveau, meta: { categorie }, difficulte: -Math.log(parts[niveau] / (1 - parts[niveau])) }))),
+  )
+  return serieDeReference(questions, q => q.niveau, q => q.difficulte)
+})()
+
+/** Les chances d'Automate à ce niveau sur la série qui monte, sans écart de catégorie : toutes décalées du même pas. */
+const chancesAuNiveau = (niveau: number): number[] =>
+  chancesDeReference(forcePourLeNiveau(niveau, AUCUN_ECART, SERIE_QUI_MONTE), AUCUN_ECART, SERIE_QUI_MONTE)
+
 // Automate, l'adversaire du dé : une série neuve, ses réponses tirées de la
-// difficulté mesurée de chaque question, réglées pour que son score soit, en
+// difficulté de chaque question, réglées pour que son score soit, en
 // moyenne, le niveau de qui le joue.
 test('Automate joue comme un joueur de son niveau : ses fautes sur les questions difficiles, sa série finie à la troisième', () => {
-  // Une série qui monte : des faciles, des moyennes, des difficiles, puis des expertes.
-  const taux = [...Array(5).fill(0.9), ...Array(5).fill(0.75), ...Array(5).fill(0.45), ...Array(45).fill(0.15)]
+  // À la force nulle, ses chances sont les parts de la série : cinq de chaque marche, puis les expertes.
+  const taux = chancesDeReference(0, AUCUN_ECART, SERIE_QUI_MONTE)
+  assert.deepEqual(
+    taux.map(x => Math.round(x * 100)),
+    [...Array(5).fill(90), ...Array(5).fill(75), ...Array(5).fill(45), ...Array(45).fill(15)],
+  )
   for (const niveau of [4, 8, 12, 16]) {
     // En moyenne, son niveau : la cote de ce score est la force qu'on attend en face.
-    assert.ok(Math.abs(scoreAttendu(chancesAuNiveau(taux, niveau)) - niveau) < 0.05, `niveau ${niveau}`)
+    const chances = chancesAuNiveau(niveau)
+    assert.ok(Math.abs(scoreAttendu(chances) - niveau) < 0.05, `niveau ${niveau}`)
     const hasard = hasardFixe(niveau)
-    const series = Array.from({ length: 400 }, () => simulerUnAdversaire(taux, niveau, hasard))
+    const series = Array.from({ length: 400 }, () => jouerSesChances(chances, hasard))
     const moyenne = series.reduce((s, r) => s + r.filter(Boolean).length, 0) / series.length
     assert.ok(Math.abs(moyenne - niveau) < 0.8, `niveau ${niveau} : ${moyenne} en moyenne`)
     // Chaque série finit à sa troisième faute — comme celle d'un joueur allé au bout de ses vies —, ou au bout de ses questions.
@@ -105,8 +130,9 @@ test('Automate joue comme un joueur de son niveau : ses fautes sur les questions
   const hasard = hasardFixe(42)
   const posees = Array(taux.length).fill(0)
   const ratees = Array(taux.length).fill(0)
+  const douze = chancesAuNiveau(12)
   for (let n = 0; n < 2000; n++) {
-    simulerUnAdversaire(taux, 12, hasard).forEach((juste, i) => {
+    jouerSesChances(douze, hasard).forEach((juste, i) => {
       posees[i]++
       if (!juste) ratees[i]++
     })
@@ -117,16 +143,18 @@ test('Automate joue comme un joueur de son niveau : ses fautes sur les questions
 
 // Le choix du propriétaire du 13 octobre 2026, après « parfois la différence
 // était énorme » : libre, son score s'écartait de son niveau de quatre ou plus
-// un duel sur cinq. Il s'y tient à deux bonnes réponses près.
+// un duel sur cinq. Il s'y tient à deux bonnes réponses près de ce qu'on
+// attend de lui sur la série — ici, une série moyenne : son niveau.
 test('Automate se tient à deux bonnes réponses de son niveau au plus — sans changer sa façon de jouer', () => {
   assert.equal(ECART_D_AUTOMATE, 2, 'un choix de produit')
-  const taux = [...Array(5).fill(0.9), ...Array(5).fill(0.75), ...Array(5).fill(0.45), ...Array(45).fill(0.15)]
+  const taux = chancesDeReference(0, AUCUN_ECART, SERIE_QUI_MONTE)
   const justes = (r: boolean[]) => r.filter(Boolean).length
   for (const niveau of [4, 8, 9.5, 12, 16]) {
     const hasard = hasardFixe(Math.round(niveau * 10))
-    const libres = Array.from({ length: 400 }, () => justes(simulerUnAdversaire(taux, niveau, hasard)))
+    const chances = chancesAuNiveau(niveau)
+    const libres = Array.from({ length: 400 }, () => justes(jouerSesChances(chances, hasard)))
     assert.ok(libres.some(s => Math.abs(s - niveau) > ECART_D_AUTOMATE + 1), `libre, il s’écarte bien plus (niveau ${niveau})`)
-    const tenus = Array.from({ length: 400 }, () => justes(automateASonNiveau(taux, niveau, hasard)))
+    const tenus = Array.from({ length: 400 }, () => justes(partieDAutomate(chances, niveau, hasard)))
     assert.ok(
       tenus.every(s => Math.abs(s - niveau) <= ECART_D_AUTOMATE),
       `niveau ${niveau} : de ${Math.min(...tenus)} à ${Math.max(...tenus)}`,
@@ -139,8 +167,9 @@ test('Automate se tient à deux bonnes réponses de son niveau au plus — sans 
   const hasard = hasardFixe(7)
   const posees = Array(taux.length).fill(0)
   const ratees = Array(taux.length).fill(0)
+  const douze = chancesAuNiveau(12)
   for (let n = 0; n < 2000; n++) {
-    automateASonNiveau(taux, 12, hasard).forEach((juste, i) => {
+    partieDAutomate(douze, 12, hasard).forEach((juste, i) => {
       posees[i]++
       if (!juste) ratees[i]++
     })
@@ -148,14 +177,15 @@ test('Automate se tient à deux bonnes réponses de son niveau au plus — sans 
   const partRatee = (de: number, a: number) => ratees.slice(de, a).reduce((s, x) => s + x, 0) / posees.slice(de, a).reduce((s, x) => s + x, 0)
   assert.ok(partRatee(0, 5) < partRatee(5, 10) && partRatee(5, 10) < partRatee(10, 15), 'les faciles, puis les moyennes, puis les difficiles')
   // Et c'est lui que le dé affronte : la partie que le serveur tire d'office.
-  for (let n = 0; n < 200; n++) assert.ok(Math.abs(justes(CampagneStore.reponsesDAutomate(taux, 8)) - 8) <= ECART_D_AUTOMATE)
+  const huit = chancesAuNiveau(8)
+  for (let n = 0; n < 200; n++) assert.ok(Math.abs(justes(CampagneStore.reponsesDAutomate({ chances: huit, cible: 8, niveau: 8 })) - 8) <= ECART_D_AUTOMATE)
 })
 
 test('le dé ne joue que contre Automate, même quand un ami a fini une série : jamais son profil — et le duel se joue comme contre un joueur', async () => {
   // Les réponses d'Automate, fixées : six bonnes, puis trois fautes. Le niveau qu'on lui demande, retenu.
   const avant = CampagneStore.reponsesDAutomate
   const niveaux: number[] = []
-  CampagneStore.reponsesDAutomate = (_taux, niveau) => (niveaux.push(niveau), [...Array(6).fill(true), ...Array(VIES).fill(false)])
+  CampagneStore.reponsesDAutomate = ({ niveau }) => (niveaux.push(niveau), [...Array(6).fill(true), ...Array(VIES).fill(false)])
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
   try {
@@ -195,7 +225,11 @@ test('le dé ne joue que contre Automate, même quand un ami a fini une série :
     const r = await poster(banc, lea, '/api/campagne/rencontre')
     assert.equal(r.status, 200, r.corps.error)
     assert.deepEqual(r.corps.adversaire, { nom: 'Automate', avatar: '🤖', simule: true })
-    assert.equal(niveaux.at(-1), 12, 'de son niveau : la médiane de ses séries, avant son placement')
+    // De son niveau, avant son placement : ce que ses réponses disent d'elle,
+    // prudemment — une série à douze ne fait pas une experte (le modèle du
+    // savoir, plutôt que la médiane de ses séries d'avant le 13 octobre 2026).
+    const sonNiveau = niveaux.at(-1)!
+    assert.ok(sonNiveau > 9 && sonNiveau < 12, `de son niveau : ${sonNiveau}`)
     assert.equal(r.corps.serie.vies, VIES)
     const id = r.corps.serie.id as string
     assert.notDeepEqual(
