@@ -33,6 +33,7 @@ import {
   AVANT_LE_LEVE_TOT,
   DEPUIS_LE_DERNIER_METRO,
   QUESTIONS_PAR_JOUR,
+  SABLIERS_MAX,
   cleDuChampion,
   jourAvant,
   jourDe,
@@ -59,6 +60,8 @@ import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../..
 import { periodeDu } from '../../../shared/saisons'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
+import { minuitDe } from '../../../shared/qg'
+import { recueilDeLaQuestion, type PartDesBonnes, type QuestionDuSuivi } from '../../../shared/qgDuJour'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -254,6 +257,23 @@ const MESURES_GARDEES_MS = 10 * 60_000
 
 /** Les dernières questions posées dont la consigne dit la difficulté mesurée. */
 const MESUREES_POUR_LA_CONSIGNE = 60
+
+/** Les séries en cours, au QG, se relisent au plus toutes les dix minutes (`seriesEnCours`). */
+const SERIES_GARDEES_MS = 10 * 60_000
+
+/** La série d'un profil qui tient encore, telle que le QG la compte. */
+export interface SerieDUnProfil {
+  profileId: string
+  serie: number
+  /** Aujourd'hui déjà joué. */
+  tenue: boolean
+}
+
+export interface SeriesLues {
+  /** La plus longue d'abord. */
+  series: SerieDUnProfil[]
+  sabliersDuMois: number
+}
 
 export class JourStore {
   private client: Client
@@ -2495,6 +2515,166 @@ export class JourStore {
       args: [jourDe(depuis), depuis],
     })
     return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le) }))
+  }
+
+  // ── Le suivi du QG ──────────────────────────────────────────────────────
+
+  /**
+   * Le tirage d'aujourd'hui question par question, pour le QG : ce que
+   * chaque réponse a recueilli, les questions laissées au temps, le temps
+   * moyen d'une réponse, les signalements ouverts — et les parties du jour.
+   * Le tirage ne se tire pas d'ici : sans joueur, il n'y a rien à suivre.
+   * Les choix voyagent en un seul texte — Turso décode chaque ligne —, et
+   * l'index des réponses du jour (`idx_jour_reponses_question`) les trouve.
+   */
+  async suiviDAujourdhui(): Promise<{ jour: string; parties: { commencees: number; finies: number }; questions: QuestionDuSuivi[] }> {
+    const jour = jourDe(this.maintenant())
+    const [tirage, [parties, choix, signales]] = await Promise.all([
+      this.tirage(jour),
+      this.client.batch(
+        [
+          { sql: 'SELECT COUNT(*) AS n, COUNT(finie_le) AS finies FROM jour_parties WHERE jour = ?', args: [jour] },
+          {
+            sql: `SELECT json_group_array(json_array(question, choix, n, ms, chronometrees)) AS lignes FROM (
+                    SELECT question, choix, COUNT(*) AS n, SUM(CASE WHEN choix IS NOT NULL THEN ms END) AS ms,
+                           COUNT(CASE WHEN choix IS NOT NULL THEN ms END) AS chronometrees
+                    FROM jour_reponses WHERE jour = ? GROUP BY question, choix)`,
+            args: [jour],
+          },
+          { sql: 'SELECT question, COUNT(*) AS n FROM jour_signalements WHERE jour = ? AND traite_le IS NULL GROUP BY question', args: [jour] },
+        ],
+        'read',
+      ),
+    ])
+    const parQuestion = new Map<number, [number | null, number, number | null, number][]>()
+    for (const [question, c, n, ms, chronometrees] of JSON.parse(String(choix.rows[0]?.lignes ?? '[]')) as [number, number | null, number, number | null, number][]) {
+      parQuestion.set(question, [...(parQuestion.get(question) ?? []), [c, n, ms, chronometrees]])
+    }
+    const signalements = new Map(signales.rows.map(r => [Number(r.question), Number(r.n)]))
+    return {
+      jour,
+      parties: { commencees: Number(parties.rows[0]?.n ?? 0), finies: Number(parties.rows[0]?.finies ?? 0) },
+      questions: (tirage?.questions ?? []).map((q, index) => ({
+        index,
+        reserveId: q.reserveId,
+        texte: q.texte,
+        categorie: q.categorie,
+        reponses: q.reponses,
+        bonne: q.bonne,
+        ...recueilDeLaQuestion(q.reponses.length, parQuestion.get(index) ?? []),
+        annulee: tirage!.annulees.includes(index),
+        signalements: signalements.get(index) ?? 0,
+      })),
+    }
+  }
+
+  /** Les bonnes réponses d'un jour clos, gardées : passé minuit, rien ne s'y annule plus. */
+  private bonnesGardees: { jour: string; part: Promise<PartDesBonnes | null> } | null = null
+
+  /**
+   * Les bonnes réponses d'un jour clos, sur ses questions qui comptent — les
+   * annulées écartées, une question laissée au temps comptée comme une
+   * faute : la même règle que `partDesBonnes`. Hier, au QG, à côté
+   * d'aujourd'hui.
+   */
+  bonnesDUnJourClos(jour: string): Promise<PartDesBonnes | null> {
+    if (this.bonnesGardees?.jour !== jour) {
+      const part = (async () => {
+        const tirage = await this.tirage(jour)
+        if (!tirage) return null
+        const res = await this.client.execute({
+          sql: 'SELECT question, COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? GROUP BY question',
+          args: [jour],
+        })
+        let justes = 0
+        let sur = 0
+        for (const r of res.rows) {
+          if (tirage.annulees.includes(Number(r.question))) continue
+          justes += Number(r.justes)
+          sur += Number(r.n)
+        }
+        return { justes, sur }
+      })()
+      // Un échec ne reste pas en mémoire : la page suivante relit la base.
+      part.catch(() => {
+        if (this.bonnesGardees?.part === part) this.bonnesGardees = null
+      })
+      this.bonnesGardees = { jour, part }
+    }
+    return this.bonnesGardees.part
+  }
+
+  /** Les séries en cours, gardées dix minutes : elles bougent avec les parties, pas avec les clics. */
+  private seriesGardees: { a: number; jour: string; lues: Promise<SeriesLues> } | null = null
+
+  /**
+   * Les séries qui tiennent encore, pour le QG, la plus longue d'abord. Une
+   * série ne s'écrit nulle part : elle se relit des jours joués, des soirées
+   * et des sabliers (`serieAvecSabliers`), comme sur la page de chacun. Les
+   * candidats ont joué ces derniers jours — deux sabliers couvrent au plus
+   * deux jours manqués, et aujourd'hui ne coûte rien avant minuit —, et
+   * chacun relit tous ses jours : une série de cent jours se compte depuis
+   * son premier. Une ligne par joueur, ses jours en un texte ; les profils
+   * suspendus n'y sont pas. Et les sabliers achetés depuis le premier du
+   * mois, dans le même aller-retour.
+   */
+  seriesEnCours(): Promise<SeriesLues> {
+    const maintenant = this.maintenant()
+    const aujourdhui = jourDe(maintenant)
+    const garde = this.seriesGardees
+    if (garde && garde.jour === aujourdhui && maintenant - garde.a < SERIES_GARDEES_MS) return garde.lues
+    // Joué il y a trois jours, deux sabliers couvrent les deux d'après : un jour de plus, pour le minuit de Paris.
+    const depuis = jourAvant(aujourdhui, SABLIERS_MAX + 2)
+    const apres = Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10)))
+    const candidats = `WITH candidats AS (
+        SELECT c.profile_id FROM (
+          SELECT profile_id FROM jour_parties WHERE jour >= ?
+          UNION SELECT profile_id FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}
+        ) c JOIN profiles pr ON pr.id = c.profile_id AND pr.disabled_at IS NULL)`
+    const deSesCandidats = (table: string, colonne: string, filtre = '') => ({
+      sql: `${candidats} SELECT profile_id, json_group_array(${colonne}) AS dates FROM ${table}
+            WHERE profile_id IN (SELECT profile_id FROM candidats)${filtre} GROUP BY profile_id`,
+      args: [depuis, apres],
+    })
+    const premierDuMois = minuitDe(Date.UTC(Number(aujourdhui.slice(0, 4)), Number(aujourdhui.slice(5, 7)) - 1, 1, 12))
+    const lues = this.client
+      .batch(
+        [
+          deSesCandidats('jour_parties', 'jour'),
+          deSesCandidats('profile_xp', 'created_at', ` AND ${HORS_LIGNES_A_PART}`),
+          deSesCandidats('profile_sabliers', 'created_at'),
+          { sql: 'SELECT COUNT(*) AS n FROM profile_sabliers WHERE created_at >= ?', args: [premierDuMois] },
+        ],
+        'read',
+      )
+      .then(([parties, soirees, achats, duMois]) => {
+        const lire = (rs: ResultSet, enJour: (d: string | number) => string) =>
+          new Map(rs.rows.map(r => [String(r.profile_id), (JSON.parse(String(r.dates)) as (string | number)[]).map(enJour)]))
+        const desParties = lire(parties, String)
+        const desSoirees = lire(soirees, q => jourDe(Number(q)))
+        const desSabliers = lire(achats, q => jourDe(Number(q)))
+        const series: SerieDUnProfil[] = []
+        // Seul aux soirées, sans partie du jour, sa série tient aussi.
+        for (const profileId of new Set([...desParties.keys(), ...desSoirees.keys()])) {
+          const joues = new Set([...(desParties.get(profileId) ?? []), ...(desSoirees.get(profileId) ?? [])])
+          const s = serieAvecSabliers(joues, desSabliers.get(profileId) ?? [], aujourdhui)
+          if (s.serie > 0) series.push({ profileId, serie: s.serie, tenue: s.tenue })
+        }
+        series.sort((a, b) => b.serie - a.serie || a.profileId.localeCompare(b.profileId))
+        return { series, sabliersDuMois: Number(duMois.rows[0]?.n ?? 0) }
+      })
+    const entree = { a: maintenant, jour: aujourdhui, lues }
+    this.seriesGardees = entree
+    // Un échec ne reste pas en mémoire : la page suivante relit la base.
+    lues.catch(() => {
+      if (this.seriesGardees === entree) this.seriesGardees = null
+    })
+    return lues
+  }
+
+  /** Combien de profils sont masqués du classement : le QG les compte à côté du classement du mois. */
+  nombreDeMasques(): number {
+    return this.masques.size
   }
 
   /** « Garder » : la question est juste, les signalements se referment. */
