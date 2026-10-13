@@ -38,9 +38,31 @@ import { sansAccent } from '../../shared/homonymes'
  * cents aux sous-thèmes maigres du cinéma et des arts — répliques, coulisses,
  * sagas, bande dessinée, philosophie… —, 489 : 10 769. Puis, le même jour,
  * des questions à nombre pour les estimations du quiz tout prêt
- * (`consigne --nombres`), 290 : 11 059.
+ * (`consigne --nombres`), 290 : 11 059. Le 13 octobre 2026, la base relue
+ * en entier une seconde fois, par Opus et sur le crédit de l'API, en a
+ * retiré vingt-deux : neuf doublons d'un fait déjà posé, sept dont un leurre
+ * était juste aussi (un caméléon est un lézard, deux ans de mariage font
+ * les noces de cuir en France), deux autres noces de la liste américaine,
+ * une réponse que l'intitulé soufflait (« le blues grec ») et trois faits
+ * périmés ou que les sources ne départagent pas (les seuils de la confiture
+ * « extra », le krill de la baleine bleue, le berceau du Rummikub) : 11 037.
+ * Puis, le même jour, mille questions à nombre écrites et relues par Opus
+ * pour les estimations du quiz tout prêt, là où elles manquaient le plus
+ * (neuf de difficulté 1 et 137 de difficulté 2 sur 644 jouables au plus
+ * près), 904 : 11 941 — 1 546 jouables au plus près, dont 517 de difficulté 2.
+ * Puis le reste du crédit en questions neuves écrites par Opus, par tranches
+ * de trois mille, 250 par catégorie là où les sous-thèmes manquaient le plus :
+ * la première, 2 873 rangées sur 3 000 demandées (88 refusées comme un fait,
+ * un intitulé ou une question que la base avait déjà, 20 retirées à la
+ * relecture) : 14 814 ; la deuxième, 2 793 (163 refusées, 151 d'entre elles
+ * comme un fait que la base posait déjà — plus elle grandit, plus le
+ * rédacteur y retombe —, 22 retirées à la relecture) : 17 607 ; la
+ * troisième, 2 753 (194 refusées, dont 180 pour un fait déjà posé, 25
+ * retirées à la relecture) : 20 360 ; la dernière, mille sept cents pour
+ * finir le crédit à dix dollars près, 1 527 (165 refusées, dont 153 pour un
+ * fait déjà posé, 8 retirées à la relecture) : 21 887.
  */
-const AU_MOINS = 11050
+const AU_MOINS = 21887
 
 const { questions, refusees } = lireLaBase()
 
