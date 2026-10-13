@@ -244,7 +244,9 @@ interface Serie {
 /**
  * L'adversaire d'une rencontre, tel qu'elle le garde : sa série, son profil,
  * et ses réponses dans l'ordre — recopiées au départ : un profil supprimé
- * emporte ses séries, la rencontre garde ce qu'il avait fait.
+ * emporte ses séries, la rencontre garde ce qu'il avait fait. Automate
+ * depuis le 13 octobre 2026 (`simule`) ; avant, la série finie d'un autre
+ * joueur, que les rencontres d'alors gardent et montrent.
  */
 interface AdversaireGarde {
   serie: string
@@ -296,11 +298,6 @@ const DUELS_MONTRES = 10
 const SIGNALEMENTS_MONTRES = 50
 /** Ce que le carnet redonne de ce qu'il a appris : les plus récents, de quoi relire sans tout charger. */
 const FAITS_MONTRES = 100
-/** Les séries finies où l'on cherche un adversaire : les plus récentes, des trois derniers mois. */
-const CANDIDATS_A_UNE_RENCONTRE = 200
-const RENCONTRE_SUR_MS = 90 * 24 * HEURE_MS
-/** Les adversaires les plus proches de son niveau, dont on regarde ce qu'il a déjà vu de leurs questions. */
-const ADVERSAIRES_REGARDES = 8
 /** Ses rencontres qu'on lui rappelle : les plus récentes. */
 const RENCONTRES_MONTREES = 10
 /** Les cotes du classement des duels se relisent au plus toutes les dix minutes, et à chaque duel fini ici. */
@@ -1137,7 +1134,7 @@ export class CampagneStore {
               : s.mode === 'revision'
                 ? 'Cette révision est finie : ton carnet t’attend'
                 : s.mode === 'rencontre'
-                  ? 'Cette rencontre est finie : cherche un autre adversaire'
+                  ? 'Ce duel est fini : relance le dé pour en jouer un autre'
                   : 'Cette série est finie : commence-en une autre',
         )
       }
@@ -2976,12 +2973,22 @@ export class CampagneStore {
   }
 
   /**
-   * Affronter un inconnu : celle qu'il a laissée en route reprend ; sinon,
-   * parmi les séries finies des trois derniers mois — d'autres joueurs, pas
-   * masqués, jamais deux fois la même —, celle de son niveau dont il a vu le
-   * moins de questions (`choisirUnAdversaire`). Seules les séries allées au
-   * bout de leurs vies comptent : une série abandonnée sous-estime qui l'a
-   * jouée. Une série en cours, elle, attend.
+   * Les réponses d'Automate sur une série neuve (`simulerUnAdversaire`). Un
+   * test qui le remplace fixe son score : la cote d'un duel s'y vérifie au
+   * point près, comme contre un joueur.
+   */
+  static reponsesDAutomate(taux: readonly number[], niveau: number): boolean[] {
+    return simulerUnAdversaire(taux, niveau)
+  }
+
+  /**
+   * Le dé : celle qu'il a laissée en route reprend ; sinon, Automate,
+   * l'adversaire simulé, sur une série neuve tirée pour lui comme une série
+   * de la campagne, qui joue comme un joueur de son niveau. Jamais plus la
+   * série finie d'un autre joueur : elle montrait son profil — celui d'un
+   * ami, sur un serveur de quelques amis — quand il n'était pas là, et
+   * « c'est trompeur » (le propriétaire, le 13 octobre 2026). Une série en
+   * cours, elle, attend.
    */
   commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
     return this.avecVerrou(profileId, async () => {
@@ -2997,80 +3004,26 @@ export class CampagneStore {
         }
       }
       const maintenant = this.maintenant()
-      const [miennes, deja, candidats, vues] = await Promise.all([
+      const [miennes, vues, jouables, mesure] = await Promise.all([
         this.client.execute({
           sql: `SELECT justes FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND position > 0 AND ${SERIES} ORDER BY finie_le DESC LIMIT ?`,
           args: [profileId, SERIES_POUR_LE_NIVEAU],
         }),
-        this.client.execute({ sql: `SELECT json_extract(adversaire, '$.serie') AS serie FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre'`, args: [profileId] }),
-        this.client.execute({
-          sql: `SELECT id, profile_id, justes, finie_le FROM campagne_series
-                WHERE ${SERIES} AND finie_le IS NOT NULL AND vies = 0 AND position > 0 AND profile_id <> ? AND finie_le > ?
-                ORDER BY finie_le DESC LIMIT ?`,
-          args: [profileId, maintenant - RENCONTRE_SUR_MS, CANDIDATS_A_UNE_RENCONTRE],
-        }),
         this.vuesPar(profileId),
+        this.jouables(),
+        this.mesures(),
       ])
+      if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('La campagne n’a pas encore de questions à poser : reviens bientôt')
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses séries.
       const niveau = niveauPourLeDuel(releve.joues, releve.cote, niveauPourUneRencontre(miennes.rows.map(r => Number(r.justes))))
-      const dejaAffrontees = new Set(deja.rows.map(r => String(r.serie)))
-      // Les plus proches de son niveau, battus d'abord : à écart égal, ni l'ordre de la base ni l'heure ne décide.
-      const proches = melanger(candidats.rows.filter(r => !dejaAffrontees.has(String(r.id)) && !this.masque?.(String(r.profile_id))))
-        .sort((a, b) => Math.floor(Math.abs(Number(a.justes) - niveau) / 2) - Math.floor(Math.abs(Number(b.justes) - niveau) / 2))
-        .slice(0, ADVERSAIRES_REGARDES)
+      const tirees = tirerUneSerie(jouables, mesure, vues, maintenant)
+      const taux = tirees.map(({ question: q }) => tauxLisse(q.meta.difficulte, mesure.get(q.id)?.justes, mesure.get(q.id)?.total))
       const id = randomUUID()
-      let partie: Pick<Serie, 'questions' | 'categories' | 'sujet'> & { adversaire: AdversaireGarde }
-      if (proches.length === 0) {
-        // Personne de neuf à affronter — sur un serveur de quelques amis, on a vite affronté toutes leurs
-        // séries, et le dé ne menait qu'à « personne à affronter » : Automate, sur une série neuve tirée
-        // pour lui comme une série de la campagne, joue comme un joueur de son niveau (le souhait du
-        // propriétaire du 13 octobre 2026 : le dé « tout le temps disponible »).
-        const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
-        if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('La campagne n’a pas encore de questions à poser : reviens bientôt')
-        const tirees = tirerUneSerie(jouables, mesure, vues, maintenant)
-        const taux = tirees.map(({ question: q }) => tauxLisse(q.meta.difficulte, mesure.get(q.id)?.justes, mesure.get(q.id)?.total))
-        partie = {
-          questions: tirees.map(x => versQuestionDeSerie(x.question, x.niveau)),
-          categories: null,
-          sujet: null,
-          adversaire: { serie: id, profil: '', reponses: simulerUnAdversaire(taux, niveau), simule: true },
-        }
-      } else {
-        // Ce qu'il a déjà vu de leurs questions jouées, et des trois d'après : lues dans la base, sans charger leurs séries entières.
-        const ids = proches.map(r => String(r.id))
-        const premieres = await this.client.execute({
-          sql: `SELECT s.id AS serie, COALESCE(json_extract(j.value, '$.id'), json_extract(j.value, '$.reserveId')) AS question
-                FROM campagne_series s, json_each(s.questions) j
-                WHERE s.id IN (${ids.map(() => '?').join(', ')}) AND CAST(j.key AS INTEGER) < s.position + 3`,
-          args: ids,
-        })
-        const vuesParSerie = new Map<string, number>()
-        for (const r of premieres.rows) if (vues.has(String(r.question))) vuesParSerie.set(String(r.serie), (vuesParSerie.get(String(r.serie)) ?? 0) + 1)
-        const choisi = choisirUnAdversaire(
-          proches.map(r => ({ serie: String(r.id), profil: String(r.profile_id), justes: Number(r.justes), finieLe: Number(r.finie_le), dejaVues: vuesParSerie.get(String(r.id)) ?? 0 })),
-          niveau,
-        )!
-        const [ligne, reponses] = await this.client.batch(
-          [
-            { sql: 'SELECT * FROM campagne_series WHERE id = ?', args: [choisi.serie] },
-            { sql: 'SELECT juste FROM campagne_reponses WHERE serie_id = ? ORDER BY position', args: [choisi.serie] },
-          ],
-          'read',
-        )
-        if (!ligne.rows[0]) throw new Error('Cet adversaire vient de partir : cherches-en un autre')
-        const sienne = versSerie(ligne.rows[0])
-        partie = {
-          questions: sienne.questions,
-          categories: sienne.categories ?? null,
-          sujet: sienne.sujet ?? null,
-          adversaire: { serie: sienne.id, profil: sienne.profileId, reponses: reponses.rows.map(r => Number(r.juste) === 1) },
-        }
-      }
-      const { adversaire } = partie
+      const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(taux, niveau), simule: true }
       const serie: Serie = {
         id,
         profileId,
-        questions: partie.questions,
+        questions: tirees.map(x => versQuestionDeSerie(x.question, x.niveau)),
         index: 0,
         vies: VIES,
         justes: 0,
@@ -3081,8 +3034,8 @@ export class CampagneStore {
         seuil: null,
         rejeu: false,
         issue: null,
-        categories: partie.categories ?? null,
-        sujet: partie.sujet ?? null,
+        categories: null,
+        sujet: null,
         adversaire,
       }
       await this.client.execute({
@@ -4919,46 +4872,19 @@ function coupDeLaRencontre(a: AdversaireGarde, index: number, toi: number, finie
 /** L'adversaire d'une rencontre qui se joue : son prénom, son avatar, ce qu'il porte — son score entier attend la dernière réponse. */
 const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 
-/** Un adversaire possible : une série finie d'un autre joueur, et ce qu'on a déjà vu de ses premières questions. */
-export interface CandidatALaRencontre {
-  serie: string
-  profil: string
-  justes: number
-  finieLe: number
-  /** Ses questions jouées — et les trois d'après, qu'on peut atteindre — que celui qui cherche a déjà vues. */
-  dejaVues: number
-}
-
-/**
- * L'adversaire d'une rencontre : de son niveau d'abord — à un point près,
- * c'est pareil : deux bonnes réponses d'écart font une autre partie —, puis
- * celui dont il a vu le moins de questions — une rencontre sur des questions
- * qu'on connaît n'en est pas une —, puis au hasard. Null : personne.
- */
-export function choisirUnAdversaire(candidats: readonly CandidatALaRencontre[], niveau: number, hasard: () => number = Math.random): CandidatALaRencontre | null {
-  let meilleur: CandidatALaRencontre | null = null
-  let sonRang: number[] | null = null
-  for (const c of candidats) {
-    const r = [Math.floor(Math.abs(c.justes - niveau) / 2), c.dejaVues, hasard()]
-    if (!sonRang || passeAvant(r, sonRang)) {
-      meilleur = c
-      sonRang = r
-    }
-  }
-  return meilleur
-}
-
 // ── Automate, l'adversaire simulé ────────────────────────────────────────
 //
-// Le dé « tout le temps disponible » (le souhait du propriétaire du
-// 13 octobre 2026) : sur un serveur de quelques amis, on avait vite affronté
-// toutes leurs séries, et le dé disparaissait. Quand il n'y a plus personne,
-// une série neuve contre Automate, présenté comme simulé : ses réponses se
-// tirent de la difficulté mesurée de chaque question (`tauxLisse`), décalées
-// pour que son score soit, en moyenne, le niveau de qui le joue — celui
-// qu'on lui cherche chez les vrais joueurs (`niveauPourLeDuel`). Sa série
-// finit à sa troisième faute, comme celle d'un joueur allé au bout de ses
-// vies : la cote de son score se lit pareil (`coteDuScore`).
+// Le dé ne joue que contre lui (le 13 octobre 2026). Il rejouait d'abord la
+// série finie d'un autre joueur — son prénom, son avatar —, et disparaissait
+// sur un serveur de quelques amis, qui les avaient vite toutes affrontées :
+// Automate le relayait (le dé « tout le temps disponible »), puis l'a
+// remplacé — la série d'un ami qui n'était pas là, sous son profil, « c'est
+// trompeur » (le propriétaire, le même jour). Une série neuve, présentée
+// comme simulée : ses réponses se tirent de la difficulté mesurée de chaque
+// question (`tauxLisse`), décalées pour que son score soit, en moyenne, le
+// niveau de qui le joue (`niveauPourLeDuel`). Sa série finit à sa troisième
+// faute, comme celle d'un joueur allé au bout de ses vies : la cote de son
+// score se lit pareil (`coteDuScore`).
 
 /** Le nom et l'avatar d'Automate : sans article, il se lit partout — « Toi 7 – Automate 6 », « le score d'Automate ». */
 export const AUTOMATE = { nom: 'Automate', avatar: '🤖' } as const

@@ -1,8 +1,8 @@
 // Les duels, photographiés au téléphone sur un serveur jetable — en 360 × 640,
 // ou à la taille des maquettes choisies le 12 octobre 2026 (`ECRAN=390x844`),
 // sous le thème qu'on veut (`THEME=ivoire`) : le bouton de l'accueil, la page
-// d'un débutant et « Comment ça marche ? » ; un duel au hasard jusqu'à sa
-// carte du verdict, scellée puis retournée ; la page d'un habitué — ses trois
+// d'un débutant et « Comment ça marche ? » ; un duel au dé, contre Automate,
+// jusqu'à sa carte du verdict, scellée puis retournée ; la page d'un habitué — ses trois
 // onglets : en cours, historique, classement —, la feuille du classement, sa
 // place en tête, et la carte d'un joueur, ses gestes au pied ; une montée de
 // ligue ; puis défier quelqu'un : Tom touché au classement, « Défier Tom » sur
@@ -32,6 +32,10 @@ import { CATEGORIES } from '../../shared/categories'
 import { VIES } from '../../shared/campagne'
 import { gainVide, releveVide } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
+import { CampagneStore } from '../src/core/campagne'
+
+// Automate, l'adversaire du dé : huit bonnes réponses, puis trois fautes — chaque photo, la même partie.
+CampagneStore.reponsesDAutomate = () => [...Array(8).fill(true), ...Array(VIES).fill(false)]
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-duels')
 mkdirSync(sortie, { recursive: true })
@@ -49,18 +53,6 @@ const base = (banc: Banc) => new Database(banc.quizDbUrl.replace(/^file:/, ''), 
 async function idDe(banc: Banc, cookie: string): Promise<string> {
   const r = await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })
   return ((await r.json()) as { profile: { id: string } }).profile.id
-}
-
-/** Une série jouée jusqu'à sa dernière vie : de quoi servir d'adversaire. */
-async function serieFinie(banc: Banc, cookie: string, justes: number) {
-  const s = (await (await ecrire(banc.url, '/api/campagne/serie', {}, cookie)).json()) as { id: string }
-  const db = base(banc)
-  const qs = JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(s.id) as { questions: string }).questions) as { bonne: number; reponses: string[] }[]
-  db.close()
-  for (let i = 0; i < justes + VIES; i++) {
-    const q = qs[i]
-    await ecrire(banc.url, `/api/campagne/serie/${s.id}/reponse`, { index: i, choix: i < justes ? q.bonne : (q.bonne + 1) % q.reponses.length }, cookie)
-  }
 }
 
 /** Des duels classés déjà joués, écrits dans le journal : `n` fois `justes` contre `sesJustes`. */
@@ -114,8 +106,6 @@ try {
     db.close()
   }
   duelsJoues(banc, deLaSoiree[3], 3, 10, 8)
-  // Max finit des séries de huit : les scores à battre.
-  for (let i = 0; i < 4; i++) await serieFinie(banc, max, 8)
   // Les autres ont déjà joué : Inès chez les maîtres, Hugo en platine, Tom en argent, Zoé tout près de l'argent.
   duelsJoues(banc, await idDe(banc, ines), 12, 30, 25)
   duelsJoues(banc, await idDe(banc, hugo), 12, 30, 14)
@@ -165,9 +155,9 @@ try {
       if (derniere) break
     }
   }
-  /** Un duel au hasard joué jusqu'au bout depuis la page : sa carte du verdict arrive. */
+  /** Un duel au dé, contre Automate, joué jusqu'au bout depuis la page : sa carte du verdict arrive. */
   const jouerLeDuel = async (page: any, cookie: string, justes: number, avant?: () => Promise<void>) => {
-    await page.getByRole('button', { name: /Un adversaire au hasard|Reprendre ton duel contre/ }).click()
+    await page.getByRole('button', { name: /Un duel contre Automate|Reprendre ton duel contre/ }).click()
     await page.waitForSelector('.ans-btn')
     if (avant) await avant()
     await jusquAuBout(page, cookie, 'rencontre', justes)
@@ -195,7 +185,7 @@ try {
   await page.waitForSelector('.duels-ligues-liste')
   await photo(page, '02b-regles')
   await page.getByRole('button', { name: 'Fermer' }).click()
-  // Un duel au hasard : l'enjeu en jeu, puis la carte du verdict.
+  // Un duel au dé, contre Automate : l'enjeu en jeu, puis la carte du verdict.
   await jouerLeDuel(page, lea, 9, () => photo(page, '03-en-jeu'))
   await verdict(page, '04-gagne')
   await photo(page, '04-gagne-pleine', true)

@@ -162,12 +162,13 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
 }
 
 /**
- * « Défier », en grand — qui, sur quoi, il joue d'abord —, et le dé à côté :
- * un adversaire au hasard, toujours — quand il a affronté toutes les séries
- * des autres, Automate, l'adversaire simulé (le souhait du propriétaire du
- * 13 octobre 2026 : il disparaissait sur un serveur de quelques amis) —, ou
- * celui qu'il a laissé en route, qui se reprend. La même place pendant que la
- * page arrive.
+ * « Défier », en grand — qui, sur quoi, il joue d'abord —, et le dé à côté,
+ * toujours : un duel contre Automate, l'adversaire simulé de son niveau, ou
+ * celui qu'il a laissé en route, qui se reprend. Le dé rejouait la série
+ * d'un autre joueur sous son profil, et disparaissait quand il les avait
+ * toutes affrontées (le propriétaire, le 13 octobre 2026 : « tout le temps
+ * disponible », puis « c'est trompeur »). La même place pendant que la page
+ * arrive.
  */
 function BoutonsDesDuels({ busy, onDefier, onAuHasard, reprendre }: { busy: boolean; onDefier?: () => void; onAuHasard?: () => void; reprendre: string | null }) {
   return (
@@ -179,7 +180,7 @@ function BoutonsDesDuels({ busy, onDefier, onAuHasard, reprendre }: { busy: bool
       <button
         type="button"
         className="duels-hasard"
-        aria-label={reprendre ? `Reprendre ton duel contre ${reprendre}` : 'Un adversaire au hasard'}
+        aria-label={reprendre ? `Reprendre ton duel contre ${reprendre}` : 'Un duel contre Automate'}
         aria-disabled={busy || !onAuHasard || undefined}
         onClick={onAuHasard}
       >
@@ -532,7 +533,7 @@ export function CommentCaMarche() {
       <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
       <li>
         {espacesFines(
-          'Pressé ? Le dé : la série d’un joueur de ton niveau, tout de suite — son score se dévoile à la fin. Toutes affrontées, c’est Automate : un adversaire simulé, qui joue comme un joueur de ton niveau.',
+          'Pressé ? Le dé : Automate, tout de suite — un adversaire simulé, qui joue comme un joueur de ton niveau ; son score se dévoile à la fin.',
         )}
       </li>
       <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>

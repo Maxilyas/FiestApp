@@ -511,8 +511,9 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.ok(tout.indexOf('<b>Le quiz du jour</b>') < tout.indexOf('<b>Les duels</b>'))
   assert.ok(tout.indexOf('<b>Les duels</b>') < tout.indexOf('<b>Créer un salon</b>'))
   assert.match(bouton(), /href="\/duels"/)
-  // Avant son premier duel : qu'on défie qui l'on veut — « Un joueur de ton niveau » promettait un adversaire qu'un petit serveur n'a pas toujours.
-  assert.match(bouton(), /<span class="gros-detail">Défie qui tu veux, ou un joueur au hasard : monte de ligue<\/span>/)
+  // Avant son premier duel : qu'on défie qui l'on veut, ou Automate — « Un joueur de ton niveau » promettait un adversaire qu'un
+  // petit serveur n'a pas toujours, « un joueur au hasard » quelqu'un, quand le dé ne joue que contre Automate (le 13 octobre 2026).
+  assert.match(bouton(), /<span class="gros-detail">Défie qui tu veux, ou Automate : monte de ligue<\/span>/)
   const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
   // Un défi qu'un ami lui a envoyé passe devant : qui le défie (`campagne-amis.test.ts`), et combien l'attendent, en rouge (l'épreuve d'après).
   const unDefi = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })

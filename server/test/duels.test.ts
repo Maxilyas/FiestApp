@@ -1,9 +1,10 @@
 // Les duels classés (le souhait du propriétaire du 11 octobre 2026 : « Défier
 // un joueur » hors de la campagne, une tuile de l'accueil sous le quiz du
 // jour, « un classement ELO et des récompenses par semaine avec des ligues »).
-// Un duel classé est une rencontre : la série finie d'un autre, rejouée contre
-// son score. La cote se relit dans le journal des rencontres ; seule celle de
-// qui joue bouge ; ses ligues paient chaque lundi, dès trois duels.
+// Le dé est une rencontre : contre Automate, l'adversaire simulé — la série
+// finie d'un autre joueur jusqu'au 13 octobre 2026 —, joué contre son score.
+// La cote se relit dans le journal des rencontres ; seule celle de qui joue
+// bouge ; ses ligues paient chaque lundi, dès trois duels.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -29,8 +30,12 @@ import {
   type DuelJoue,
 } from '../../shared/duels'
 import { ProfileStore } from '../src/auth/profiles'
+import { CampagneStore } from '../src/core/campagne'
 
 ProfileStore.tirageEclat = () => false
+// Automate, l'adversaire du dé, fait toujours huit bonnes réponses, puis trois fautes : un score à la cote de
+// départ (`coteDuScore(8)`), pour que chaque cote se vérifie au point près.
+CampagneStore.reponsesDAutomate = () => [...Array(8).fill(true), ...Array(VIES).fill(false)]
 
 // Un mardi : la semaine a de quoi se jouer avant son lundi.
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
@@ -59,7 +64,7 @@ async function repondre(banc: Banc, cookie: string, serie: string, index: number
   return r.corps
 }
 
-/** Une série jouée jusqu'à sa dernière vie : `justes` bonnes réponses, puis trois fautes — de quoi servir d'adversaire. */
+/** Une série jouée jusqu'à sa dernière vie : `justes` bonnes réponses, puis trois fautes — celle que le dé rejouait. */
 async function serieFinie(banc: Banc, cookie: string, justes: number) {
   const s = (await poster(banc, cookie, '/api/campagne/serie')).corps
   for (let i = 0; i < justes; i++) await repondre(banc, cookie, s.id, i, true)
@@ -67,9 +72,9 @@ async function serieFinie(banc: Banc, cookie: string, justes: number) {
 }
 
 /**
- * Un duel classé joué jusqu'au bout : `justes` bonnes réponses, puis trois
- * fautes — gagné, il finit à la bonne réponse qui dépasse le score d'en face.
- * Rend son départ et sa dernière réponse.
+ * Un duel au dé joué jusqu'au bout, contre Automate : `justes` bonnes
+ * réponses, puis trois fautes — gagné, il finit à la bonne réponse qui
+ * dépasse le score d'en face. Rend son départ et sa dernière réponse.
  */
 async function duelJoue(banc: Banc, cookie: string, justes: number) {
   const depart = await poster(banc, cookie, '/api/campagne/rencontre')
@@ -148,7 +153,7 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
-    // Tom finit une série de huit : le score à battre, à la cote de départ.
+    // Tom finit une série de huit : le dé la rejouait, sous son nom ; il ne joue plus qu'Automate.
     await serieFinie(banc, tom, 8)
     horloge.t += 60_000
 
@@ -171,15 +176,15 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     assert.deepEqual([apres.cote, apres.joues, apres.semaine.duels], [1024, 1, 1])
     assert.deepEqual(
       apres.dernieres.map((r: any) => [r.adversaire.nom, r.justes, r.issue, r.ecart]),
-      [['Tom', 9, 'gagnee', 24]],
-      'chaque duel dit ce qu’il a fait à sa cote',
+      [['Automate', 9, 'gagnee', 24]],
+      'chaque duel dit ce qu’il a fait à sa cote — contre Automate, jamais la série de Tom',
     )
     assert.deepEqual(
       apres.classement.lignes.map((l: any) => [l.nom, l.cote, l.ligue, l.rang, l.duels]),
       [['Léa', 1024, 'bronze', 1, 1]],
     )
     assert.equal(apres.classement.sienne, apres.classement.lignes[0].profileId)
-    // L'adversaire n'était pas là : sa cote n'a pas bougé, et il n'est pas classé.
+    // Tom n'a rien joué : sa cote n'a pas bougé, et il n'est pas classé.
     const deTom = (await lire(banc, tom, '/api/duels')).corps
     assert.deepEqual([deTom.cote, deTom.joues], [COTE_DE_DEPART, 0])
     // Classée, sa carte s'ouvre à qui la touche au classement — sa ligue et sa cote dessus.
@@ -207,9 +212,6 @@ test('les ligues paient chaque lundi, dans le solde de confettis : dès trois du
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
-    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
-    for (let i = 0; i < DUELS_POUR_LA_RECOMPENSE; i++) await serieFinie(banc, tom, 8)
-    horloge.t += 60_000
     const solde = async () => (await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.boutique.confettis.solde as number
 
     // Deux duels : la semaine n'a pas encore sa récompense.
@@ -247,9 +249,6 @@ test('le classement des duels : rang partagé, les masqués écartés, ceux qui 
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
-    const max = await inscrireProfil(banc.url, 'max', 'Max', '🐯')
-    for (let i = 0; i < 4; i++) await serieFinie(banc, max, 8)
-    horloge.t += 60_000
     // Léa et Tom gagnent leur duel pareil — ex æquo —, Zoé perd le sien.
     await duelJoue(banc, lea, 9)
     await duelJoue(banc, tom, 9)

@@ -153,7 +153,8 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
     }
   }
   if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
-  if (!d || d.joues === 0) return { detail: espacesFines('Défie qui tu veux, ou un joueur au hasard : monte de ligue') }
+  // Le dé ne joue que contre Automate (le 13 octobre 2026) : « un joueur au hasard » promettait quelqu'un.
+  if (!d || d.joues === 0) return { detail: espacesFines('Défie qui tu veux, ou Automate : monte de ligue') }
   const manque = DUELS_POUR_LA_RECOMPENSE - d.semaine.duels
   // Le lundi, ce que la semaine passée vient de verser — tant que la nouvelle n'a pas son premier duel :
   // sans lui, la récompense arrivait au solde sans un mot, et la tuile redisait « encore 3 duels ».

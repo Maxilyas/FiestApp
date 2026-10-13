@@ -3,7 +3,7 @@
 // l'horloge avance à la main : le carnet de révision — vide, puis rempli par
 // des séries ratées, une révision et ses réponses (retrouvée, apprise,
 // ratée), sa fin, ce qu'il a appris —, le rappel en fin de série, un duel
-// classé contre un inconnu et les défis entre amis — dans leur page,
+// au dé contre Automate et les défis entre amis — dans leur page,
 // `/duels` —, et les parcours de thème, sous le carnet dans « Apprendre ».
 // Le client construit d'abord (`npm run build -w client`).
 //
@@ -16,10 +16,13 @@ import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { ProfileStore } from '../src/auth/profiles'
+import { CampagneStore } from '../src/core/campagne'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 
 ProfileStore.tirageEclat = () => false
+// Automate, l'adversaire du dé : cinq bonnes réponses, sa troisième faute à la huitième question — chaque photo, la même partie.
+CampagneStore.reponsesDAutomate = () => [true, true, true, true, true, false, false, false]
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-campagne')
 mkdirSync(sortie, { recursive: true })
@@ -215,16 +218,15 @@ try {
   await page.waitForSelector('.carnet-rappel')
   await photo('9-fin-de-serie', true)
 
-  // 5. Un duel classé : Tom a fini une série — cinq bonnes réponses, sa
-  // troisième faute à la huitième question —, Léa le trouve dans ses duels.
-  await jouerParLAPI(tom, await nouvelleSerie(tom), [true, true, true, true, true, false, false, false])
+  // 5. Un duel au dé, contre Automate — cinq bonnes réponses, sa troisième
+  // faute à la huitième question —, depuis ses duels.
   await ouvrir('/duels')
   await page.waitForSelector('.duels-cadran-point')
-  await photo('10-trouver-un-adversaire')
-  await page.getByRole('button', { name: 'Un adversaire au hasard' }).click()
+  await photo('10-lancer-le-de')
+  await page.getByRole('button', { name: 'Un duel contre Automate' }).click()
   await repondre(true)
   await photo('11-rencontre-reponse')
-  // Une faute à la quatrième ; la bonne réponse qui dépasse les cinq de Tom la gagne, et la finit.
+  // Une faute à la quatrième ; la bonne réponse qui dépasse les cinq d'Automate la gagne, et la finit.
   for (let i = 1; ; i++) {
     const suite = page.locator('.btn-primary.btn-big')
     if ((await suite.textContent())?.includes('Voir qui a gagné')) break
