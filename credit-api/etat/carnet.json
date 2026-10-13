@@ -62,6 +62,13 @@
       "prevu": 1.9122686666666666,
       "recu": "2026-10-13T18:20:34.084Z",
       "cout": 2.495956
+    },
+    {
+      "id": "msgbatch_01XXEgUUK1UH1BEgj2AztU3P",
+      "pour": "generer n1",
+      "envoye": "2026-10-13T18:21:23.587Z",
+      "demandes": 4,
+      "prevu": 0.23899533333333334
     }
   ]
 }
