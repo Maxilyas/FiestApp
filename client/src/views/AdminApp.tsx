@@ -360,7 +360,7 @@ export function AdminApp() {
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
-        {ecran === 'jour' && <AdminDuJour />}
+        {ecran === 'jour' && <AdminDuJour vue={vue} />}
         {ecran === 'campagne' && <AdminCampagne />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}

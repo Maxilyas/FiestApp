@@ -9,8 +9,9 @@ import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
-import { HEURE_DU_RAPPEL, jourDe, jourValide, moisDe } from '../../shared/jour'
+import { HEURE_DU_RAPPEL, jourAvant, jourDe, jourValide, moisDe } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
+import { LIGNES_DU_MOIS_AU_QG, SERIES_NOMMEES, TOURNEES_MONTREES, partDesBonnes, repartirLesSeries, type SuiviDuJour } from '../../shared/qgDuJour'
 
 interface JourDeps {
   jour: JourStore
@@ -284,9 +285,10 @@ const ETIQUETER_PAR_ENVOI = 50
 
 /**
  * La réserve, les signalements et les profils masqués, pour l'administrateur
- * seul (`/admin`). Passe derrière la porte des animateurs.
+ * seul (`/admin`), et ce que le QG suit du quiz du jour. Passe derrière la
+ * porte des animateurs.
  */
-export function mountJourAdmin(app: Express, deps: JourDeps) {
+export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<RappelStore, 'suivi'> }) {
   /** Une question d'un jour joué, telle que le journal du QG la cite — et ce qu'elle était dans la réserve. */
   const questionDuJour = async (jour: unknown, index: number) => {
     const q = jourValide(jour) ? (await deps.jour.tirage(jour))?.questions[index] : undefined
@@ -310,6 +312,47 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
         aujourdhui: jourDe(deps.maintenant()),
         mois: moisDe(jourDe(deps.maintenant())),
       })
+    }),
+  )
+
+  // Ce que le QG suit du quiz du jour (`shared/qgDuJour.ts`) : le tirage
+  // d'aujourd'hui question par question, le classement du mois, les séries
+  // qui tiennent, le rappel du soir. À part de la réserve, que la page
+  // montre d'abord sans attendre les séries.
+  app.get(
+    '/api/admin/jour/suivi',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      const maintenant = deps.maintenant()
+      const jour = jourDe(maintenant)
+      const mois = moisDe(jour)
+      const [aujourdhui, hier, classement, lues, rappel] = await Promise.all([
+        deps.jour.suiviDAujourdhui(),
+        deps.jour.bonnesDUnJourClos(jourAvant(jour)),
+        deps.jour.classementDuMois(mois, null),
+        deps.jour.seriesEnCours(),
+        deps.rappels.suivi(TOURNEES_MONTREES),
+      ])
+      // Les plus longues, nommées : un profil qui ne se lit plus laisse sa place au suivant.
+      const candidates = lues.series.slice(0, SERIES_NOMMEES * 2)
+      const profils = await deps.profiles.byIds(candidates.map(s => s.profileId))
+      const plusLongues = candidates
+        .flatMap((s, i) => {
+          const p = profils[i]
+          return p ? [{ profileId: s.profileId, nom: p.name, avatar: deps.profiles.avatarPorte(p), serie: s.serie, tenue: s.tenue }] : []
+        })
+        .slice(0, SERIES_NOMMEES)
+      const suivi: SuiviDuJour = {
+        maintenant,
+        jour,
+        parties: aujourdhui.parties,
+        bonnes: { aujourdhui: partDesBonnes(aujourdhui.questions), hier },
+        questions: aujourdhui.questions,
+        mois: { mois, joueurs: classement.joueurs, lignes: classement.lignes.slice(0, LIGNES_DU_MOIS_AU_QG), masques: deps.jour.nombreDeMasques() },
+        series: { parTranche: repartirLesSeries(lues.series.map(s => s.serie)), total: lues.series.length, plusLongues, sabliersDuMois: lues.sabliersDuMois },
+        rappel,
+      }
+      res.json(suivi)
     }),
   )
 

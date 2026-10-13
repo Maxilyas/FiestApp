@@ -36,6 +36,7 @@ import type { ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
 import { FIN_DU_RAPPEL, HEURE_DU_RAPPEL, heureDeParis, jourDe, minutesAvantMinuit, type ReglagesDesNotifications } from '../../../shared/jour'
 import { espacesFines } from '../../../shared/typographie'
+import type { TourneeDuRappel } from '../../../shared/qgDuJour'
 
 /** L'heure se regarde chaque minute : la tournée part à 18 h, pas à 18 h 59. */
 const INTERVALLE_MS = 60_000
@@ -61,16 +62,8 @@ function reglagesDe(r: Record<string, unknown> | undefined): ReglagesDesNotifica
   return { soir: !!r && Number(r.soir) === 1 }
 }
 
-/** Ce que la dernière tournée a fait, pour `/healthz` : des nombres, jamais un nom. */
-export interface BilanDeTournee {
-  jour: string
-  envoyes: number
-  /** Ceux qui avaient déjà fini leur partie. */
-  finis: number
-  /** Les abonnements défaits : session close, ou le service les dit morts. */
-  retires: number
-  echecs: number
-}
+/** Ce que la dernière tournée a fait, pour `/healthz` et le QG : des nombres, jamais un nom. */
+export type BilanDeTournee = TourneeDuRappel
 
 /** Ce que la notification dit, en un titre et une phrase. */
 export interface MessageDuRappel {
@@ -162,6 +155,17 @@ export class RappelStore {
            publique TEXT NOT NULL,
            privee   TEXT NOT NULL,
            cree_le  INTEGER NOT NULL
+         )`,
+        // Le bilan de chaque soir, pour le QG : la tournée ne le gardait qu'en
+        // mémoire, la dernière seulement, et un réveil l'effaçait. Des
+        // nombres, jamais un nom ; une ligne par soir.
+        `CREATE TABLE IF NOT EXISTS jour_rappels_tournees (
+           jour    TEXT PRIMARY KEY,
+           envoyes INTEGER NOT NULL,
+           finis   INTEGER NOT NULL,
+           retires INTEGER NOT NULL,
+           echecs  INTEGER NOT NULL,
+           faite_le INTEGER NOT NULL
          )`,
         {
           sql: 'INSERT OR IGNORE INTO jour_rappels_cles (id, publique, privee, cree_le) VALUES (1, ?, ?, ?)',
@@ -267,6 +271,52 @@ export class RappelStore {
     return this.derniere
   }
 
+  /**
+   * Le bilan d'un soir, gardé pour le QG. Une seconde tournée le même soir —
+   * un redémarrage, un second serveur — s'y ajoute : chaque envoi, échec ou
+   * abonnement défait a été réservé en base, il ne se compte qu'une fois. Ceux
+   * qui avaient déjà fini, eux, ne réservent rien et se recomptent à chaque
+   * tournée : le plus grand des deux comptes. Un échec ne défait pas la
+   * tournée, déjà partie : il se dit au journal du serveur.
+   */
+  private async garderLaTournee(b: BilanDeTournee) {
+    try {
+      await this.client.execute({
+        sql: `INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, faite_le) VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(jour) DO UPDATE SET envoyes = envoyes + excluded.envoyes, finis = MAX(finis, excluded.finis),
+                retires = retires + excluded.retires, echecs = echecs + excluded.echecs, faite_le = excluded.faite_le`,
+        args: [b.jour, b.envoyes, b.finis, b.retires, b.echecs, Date.now()],
+      })
+    } catch (e) {
+      if (!this.ferme) console.warn('[rappels] le bilan du soir ne s’est pas gardé :', e instanceof Error ? e.message : e)
+    }
+  }
+
+  /**
+   * Ce que le QG montre du rappel du soir : les téléphones qui le veulent, les
+   * profils qu'ils tiennent, et les derniers soirs. Des nombres seulement.
+   */
+  async suivi(soirs: number): Promise<{ telephones: number; profils: number; tournees: TourneeDuRappel[] }> {
+    const [abonnes, tournees] = await this.client.batch(
+      [
+        'SELECT COUNT(*) AS telephones, COUNT(DISTINCT profile_id) AS profils FROM jour_rappels WHERE soir = 1',
+        { sql: 'SELECT jour, envoyes, finis, retires, echecs FROM jour_rappels_tournees ORDER BY jour DESC LIMIT ?', args: [soirs] },
+      ],
+      'read',
+    )
+    return {
+      telephones: Number(abonnes.rows[0]?.telephones ?? 0),
+      profils: Number(abonnes.rows[0]?.profils ?? 0),
+      tournees: tournees.rows.map(r => ({
+        jour: String(r.jour),
+        envoyes: Number(r.envoyes),
+        finis: Number(r.finis),
+        retires: Number(r.retires),
+        echecs: Number(r.echecs),
+      })),
+    }
+  }
+
   /** Regarde l'heure chaque minute, jusqu'à la fermeture. */
   demarrer() {
     if (this.minuteur || this.ferme) return
@@ -323,6 +373,7 @@ export class RappelStore {
     }
     this.derniere = bilan
     if (dus.rows.length > 0) {
+      await this.garderLaTournee(bilan)
       console.log(
         `[rappels] ${jour} : ${bilan.envoyes} rappel${bilan.envoyes > 1 ? 's' : ''} envoyé${bilan.envoyes > 1 ? 's' : ''}, ` +
           `${bilan.finis} partie${bilan.finis > 1 ? 's' : ''} déjà finie${bilan.finis > 1 ? 's' : ''}, ` +

@@ -9738,6 +9738,61 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 /* Le tableau du mois : le salon à gauche, et il se replie ; les questions à l'ordinateur seulement — au téléphone, le salon n'avait plus de place. */
 .qg-tableau .qg-tableau-texte { text-align: left; white-space: normal; }
 .qg-tableau .qg-colonne-large { display: none; }
+/* Les pages des modes (`QgModes.tsx`) : un chiffre jour par jour, sa légende dessous. */
+.qg-jours { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* Une piste : une barre couchée, la part de quelque chose — sa couleur dans
+   l'écran nocturne seulement (`.qg-ecran`), où les couleurs des modes ont été
+   vérifiées. Le reste d'une répartition en gris, sous la couleur. */
+.qg-piste { display: block; min-width: 0; height: 12px; border-radius: 0 4px 4px 0; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
+.qg-piste > i { display: block; height: 100%; border-radius: 0 4px 4px 0; }
+.qg-piste-autre { background: rgba(255, 255, 255, 0.28); }
+.qg-pistes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.qg-piste-ligne { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 3.5rem; align-items: center; gap: 10px; font-size: 0.9rem; }
+.qg-piste-nom { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.qg-piste-nom .icon { flex: none; width: 14px; height: 14px; color: var(--mode-jour); }
+.qg-piste-ligne > b { font-weight: 600; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+/* Le tirage du jour, question par question : au téléphone, l'intitulé sur
+   toute la largeur et la piste dessous ; à l'ordinateur, tout sur une ligne. */
+.qg-questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.qg-questions > li + li { border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.qg-question {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  grid-template-areas: 'n texte part' 'n piste marques';
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.qg-question-n { grid-area: n; color: var(--muted); text-align: right; }
+.qg-question-texte { grid-area: texte; min-width: 0; overflow-wrap: anywhere; }
+.qg-question > .qg-piste { grid-area: piste; }
+.qg-question-part { grid-area: part; font-weight: 600; text-align: right; white-space: nowrap; }
+.qg-question-marques { grid-area: marques; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.qg-question-annulee .qg-question-texte { text-decoration: line-through; color: var(--muted); }
+.qg-drapeau { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--qg-erreur); white-space: nowrap; }
+.qg-drapeau .icon { width: 13px; height: 13px; }
+.qg-question-detail { display: flex; flex-direction: column; gap: 10px; margin: 0 0 12px 2rem; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
+.qg-question-detail p { margin: 0; }
+/* Le classement du mois : la place, l'avatar, le prénom, les points, puis « Masquer ». */
+.qg-rang { display: grid; grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto; grid-template-areas: 'place avatar nom points' 'place avatar geste geste'; align-items: center; gap: 4px 10px; padding: 8px 0; }
+.qg-rang-place { grid-area: place; color: var(--muted); text-align: right; }
+.qg-rang > .qg-avatar { grid-area: avatar; }
+.qg-rang > .qg-ligne-texte { grid-area: nom; }
+.qg-rang-points { grid-area: points; font-weight: 600; white-space: nowrap; }
+.qg-rang > .salon-geste { grid-area: geste; justify-self: start; }
+/* Leurs chiffres en sans-serif, comme les tableaux du QG : en Cormorant, « 78 % » paraissait d'un autre corps que l'intitulé d'à côté. */
+.qg-question .num,
+.qg-rang .num,
+.qg-piste-ligne > b { font-family: var(--sans); }
 /* La fiche d'un joueur, dans sa feuille : qui il est, ses chiffres, ce qu'on
    peut faire pour lui, puis ce qu'on a déjà fait. Le code de secours tiré
    s'encadre en pointillé : il ne sera plus affiché. */
@@ -9818,6 +9873,9 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-deux { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
   .qg-tableau .qg-colonne-large { display: table-cell; }
+  .qg-question { grid-template-columns: 1.5rem minmax(0, 1.3fr) minmax(0, 1fr) 3.5rem 8.5rem; grid-template-areas: 'n texte piste part marques'; }
+  .qg-question-texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qg-rang { grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto auto; grid-template-areas: 'place avatar nom points geste'; }
 }
 @media (min-width: 1400px) {
   .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }

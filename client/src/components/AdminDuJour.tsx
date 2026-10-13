@@ -2,25 +2,33 @@ import { useEffect, useState } from 'react'
 import { api, motifDe, type AdminDuJour as Etat, type ProfilMasquable } from '../api'
 import { confirmDialog } from './Dialog'
 import { Flamme, Icon } from './Icon'
+import { AujourdhuiDuJour, ClassementDuMoisAuQg, JoueursParJour, QuestionsDuJour, RappelDuSoirAuQg, SeriesDuJourAuQg } from './QgDuJour'
 import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import type { QuizQuestionDef } from '../../../shared/library'
+import type { SuiviDuJour } from '../../../shared/qgDuJour'
 // Le même seuil que « À traiter », à la vue d'ensemble du QG : écrit deux fois, il pouvait s'allumer ici et pas là.
-import { ALERTE_JOURS_D_AVANCE as ALERTE_JOURS } from '../../../shared/qg'
+import { ALERTE_JOURS_D_AVANCE as ALERTE_JOURS, type VueDEnsemble } from '../../../shared/qg'
 
 const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste collée', ia: 'Écrite par l’IA' }
 
 /**
- * Le quiz du jour, côté administrateur : la réserve et ses jours d'avance,
- * de quoi la remplir (« Coller une liste », le format de l'éditeur), les
- * signalements des joueurs — annuler une question pour tous, la retirer, la
- * garder —, et les profils à masquer du classement.
+ * Le quiz du jour, côté administrateur : les chiffres d'aujourd'hui, la
+ * réserve et ses jours d'avance, de quoi la remplir (« Coller une liste », le
+ * format de l'éditeur), le tirage question par question, les signalements
+ * des joueurs — annuler une question pour tous, la retirer, la garder —, les
+ * joueurs des trente derniers jours, le classement du mois, les séries, le
+ * rappel du soir, et les profils à masquer du classement (`QgDuJour.tsx`).
+ * La vue d'ensemble du QG lui prête ses trente jours : déjà lus, ils ne se
+ * relisent pas ici.
  */
-export function AdminDuJour() {
+export function AdminDuJour({ vue }: { vue: VueDEnsemble | null }) {
   const [etat, setEtat] = useState<Etat | null>(null)
   const [erreur, setErreur] = useState('')
+  const [suivi, setSuivi] = useState<SuiviDuJour | null>(null)
+  const [suiviEnPanne, setSuiviEnPanne] = useState(false)
   const [liste, setListe] = useState<string | null>(null)
   const [prochaines, setProchaines] = useState<{ id: string; question: QuizQuestionDef; source: string }[] | null>(null)
   const [cherche, setCherche] = useState('')
@@ -34,8 +42,18 @@ export function AdminDuJour() {
       .jour()
       .then(setEtat)
       .catch(e => setErreur(motifDe(e)))
+  // Le suivi à part : la réserve se montre sans attendre les séries, et une panne de l'un n'ôte pas l'autre.
+  const chargerLeSuivi = () =>
+    api.admin.suiviDuJour().then(
+      s => {
+        setSuivi(s)
+        setSuiviEnPanne(false)
+      },
+      () => setSuiviEnPanne(true),
+    )
   useEffect(() => {
     void charger()
+    void chargerLeSuivi()
   }, [])
 
   const faire = async (appel: () => Promise<unknown>, merci: string) => {
@@ -43,12 +61,24 @@ export function AdminDuJour() {
     try {
       await appel()
       showToast({ kind: 'info', message: merci })
-      await charger()
+      await Promise.all([charger(), chargerLeSuivi()])
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
     } finally {
       setOccupe(false)
     }
+  }
+
+  /** Annuler une question d'aujourd'hui pour tous, signalée ou non : ses points repartent, rien ne la rend. */
+  const annuler = async (jour: string, index: number) => {
+    const ok = await confirmDialog({
+      title: `Annuler la question ${index + 1} pour tous ?`,
+      message:
+        'Ses points s’effacent pour tous ceux qui l’ont jouée aujourd’hui, du classement du jour comme de celui du mois, et l’expérience de chacun suit. Elle reste dans le tirage, annulée : on ne peut pas revenir en arrière.',
+      confirmLabel: 'Annuler ses points',
+      danger: true,
+    })
+    if (ok) await faire(() => api.admin.annulerDuJour(jour, index), 'Points annulés pour tous')
   }
 
   const coller = async () => {
@@ -106,9 +136,19 @@ export function AdminDuJour() {
     }
   }, [cherche])
 
-  const masquer = async (p: ProfilMasquable, masque: boolean) => {
-    if (masque && !(await confirmDialog({ title: `Masquer ${p.nom} du classement ?`, message: 'Il ne paraîtra plus au classement du quiz du jour, ni sur son podium. Il n’en est pas averti : lui continue de s’y voir.', confirmLabel: 'Masquer' }))) return
-    await faire(() => api.admin.masquerDuJour(p.id, masque), masque ? `${p.nom} est masqué du classement` : `${p.nom} revient au classement`)
+  // Les phrases parlent du profil, jamais de la personne : un prénom ne dit pas qui l'on est.
+  const masquer = async (p: Pick<ProfilMasquable, 'id' | 'nom'>, masque: boolean) => {
+    if (
+      masque &&
+      !(await confirmDialog({
+        title: `Masquer ${p.nom} du classement ?`,
+        message:
+          'Le profil ne paraîtra plus aux classements du quiz du jour et des duels, ni sur les podiums et les lauriers, et on ne pourra plus le défier. Personne ne l’en avertit : sur son téléphone, sa ligne reste.',
+        confirmLabel: 'Masquer',
+      }))
+    )
+      return
+    await faire(() => api.admin.masquerDuJour(p.id, masque), masque ? `Profil masqué du classement : ${p.nom}` : `Profil remis au classement : ${p.nom}`)
     setTrouves(ts => ts.map(t => (t.id === p.id ? { ...t, masque } : t)))
   }
 
@@ -118,7 +158,8 @@ export function AdminDuJour() {
   const dernierDepot = reserve.apports.find(a => a.source === 'ia')
   return (
     <>
-      {/* La réserve en tête, dans le cadre du tableau de bord : c'est ce
+      <AujourdhuiDuJour suivi={suivi} vue={vue} />
+      {/* La réserve d'abord, dans le cadre du tableau de bord : c'est ce
           qu'on vient vérifier, et ce qui s'allume quand elle baisse. */}
       <section className={'admin-hud' + (reserve.joursDAvance < ALERTE_JOURS ? ' admin-hud-alerte' : '')} aria-labelledby="reserve-titre">
         <span className="salon-hud-label" id="reserve-titre">
@@ -249,6 +290,14 @@ export function AdminDuJour() {
         )}
       </section>
 
+      <QuestionsDuJour
+        suivi={suivi}
+        enPanne={suiviEnPanne}
+        occupe={occupe}
+        annuler={q => suivi && void annuler(suivi.jour, q.index)}
+        retirer={q => suivi && void faire(() => api.admin.retirerDuJour(q.reserveId, suivi.jour, q.index), 'Retirée de la réserve')}
+      />
+
       <section className="admin-groupe" aria-labelledby="signalements-titre">
         <h2 className="compte-groupe" id="signalements-titre">
           Signalements {etat.signalements.length > 0 && <span className="compte-rond">{etat.signalements.length}</span>}
@@ -268,11 +317,7 @@ export function AdminDuJour() {
             </p>
             <div className="row">
               {s.annulable && !s.annulee && (
-                <button
-                  className="btn btn-small btn-danger"
-                  disabled={occupe}
-                  onClick={() => void faire(() => api.admin.annulerDuJour(s.jour, s.index), 'Points annulés pour tous')}
-                >
+                <button className="btn btn-small btn-danger" disabled={occupe} onClick={() => void annuler(s.jour, s.index)}>
                   Annuler ses points pour tous
                 </button>
               )}
@@ -291,13 +336,20 @@ export function AdminDuJour() {
         ))}
       </section>
 
-      <section className="admin-groupe" aria-labelledby="classement-titre">
+      <JoueursParJour vue={vue} />
+      <div className="qg-deux">
+        <ClassementDuMoisAuQg suivi={suivi} occupe={occupe} masquer={l => void masquer({ id: l.profileId, nom: l.nom }, true)} />
+        <SeriesDuJourAuQg suivi={suivi} />
+      </div>
+      <RappelDuSoirAuQg suivi={suivi} />
+
+      <section className="admin-groupe" id="masques" aria-labelledby="classement-titre">
         <h2 className="compte-groupe" id="classement-titre">
-          Le classement
+          Masquer un profil
         </h2>
         <p className="muted small">
-          Tous les profils du serveur qui jouent. Un prénom qui ne va pas se masque ici : le profil ne paraît plus au
-          classement, ni sur le podium, et il n’en est pas averti.
+          Tous les profils du serveur qui jouent. Un prénom qui ne va pas se masque ici : le profil ne paraît plus aux
+          classements, ni sur les podiums, et il n’en est pas averti. Les profils masqués se remettent d’ici.
         </p>
         <input className="input" placeholder="Chercher un profil" value={cherche} onChange={e => setCherche(e.target.value)} aria-label="Chercher un profil" />
         {[...trouves, ...etat.masques.filter(m => !trouves.some(t => t.id === m.id))].map(p => (
