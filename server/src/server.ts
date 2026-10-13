@@ -701,7 +701,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
   // l'ancien rythme de 30 secondes aussi inutile que coûteux.
-  const charge = new Charge()
+  // Chaque relevé de charge porte aussi les invités connectés : la page « Le serveur » du QG les montre à côté.
+  const charge = new Charge(undefined, { invites: () => registry.all().reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0) })
   const resync = setInterval(() => {
     for (const runtime of registry.all()) runtime.sendSnapshot(true)
   }, 300_000)

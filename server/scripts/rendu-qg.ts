@@ -125,9 +125,14 @@ try {
         const heureDeParis = Math.floor(minutesDeParis(heure) / 60)
         const r = releveDe(heure, heureDeParis >= 20)
         const erreurs: Record<string, number> = {}
-        if (id === 'hier-matin' && heure === Math.floor(fin / H) * H) erreurs['POST /api/jour/reponse'] = 3
+        // Les erreurs de sa dernière heure : celles qui ont précédé l'arrêt net.
+        if (id === 'hier-matin' && heure === Math.floor((fin - 1) / H) * H) erreurs['POST /api/jour/reponse'] = 3
         if (id === 'avant-hier' && heureDeParis === 14) erreurs['socket host:launch'] = 1
         const base = id === 'mise-en-ligne' && heureDeParis === 18 ? 1240 : r.base
+        // La charge suit la salle : une soirée le soir, quelques joueurs du jour la journée.
+        const soiree = heureDeParis >= 20
+        const vague = 0.5 + 0.5 * Math.abs(Math.sin(heure / H / 3.1))
+        const invites = soiree ? Math.round(8 + 22 * vague) : Math.round(3 * vague)
         heureDeSante.run(
           heure,
           id,
@@ -137,6 +142,14 @@ try {
             lentes: [{ route: 'POST /api/campagne/serie/:id/reponse', n: 60, p95: Math.round(r.routes * 1.4) }],
             erreurs,
             miroir: 0,
+            charge: {
+              n: 360,
+              processeur: Math.round((1.2 + invites * 0.27) * 10) / 10,
+              processeurMax: Math.round((2 + invites * 0.36) * 10) / 10,
+              boucleMaxMs: Math.round(18 + invites * (soiree ? 11 : 4)),
+              memoireMaxMo: Math.round(150 + invites * 3.4),
+              invitesMax: invites,
+            },
           }),
           heure,
         )

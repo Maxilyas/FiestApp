@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
-import { ReleveHoraire } from '../src/core/pouls'
+import { Charge, ReleveHoraire } from '../src/core/pouls'
 import {
   alertesDuServeur,
   arreteNet,
@@ -42,7 +42,11 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   r.erreur('POST /api/x')
   r.erreur('socket host:launch')
   r.echecDuMiroir()
+  // La charge, toutes les dix secondes : la moyenne et les pics de l'heure ; une mémoire qui se tait ne compte pas.
+  r.charge({ processeur: 4, boucleMaxMs: 120, memoireMo: 200, invites: 12 })
+  r.charge({ processeur: 8, boucleMaxMs: 30, memoireMo: null, invites: 20 })
   const [h] = r.lignes('d1')
+  assert.deepEqual(h.charge, { n: 2, processeur: 6, processeurMax: 8, boucleMaxMs: 120, memoireMaxMo: 200, invitesMax: 20 })
   assert.deepEqual([h.heure, h.demarrage], [Date.UTC(2026, 9, 13, 19), 'd1'])
   assert.deepEqual(h.base, { n: 30, p50: 35, p95: 48, max: 49 })
   assert.equal(h.routes?.n, 7)
@@ -68,9 +72,25 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   // Un serveur neuf part de zéro.
   r.remettreAZero()
   assert.deepEqual(
-    r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir]),
-    [[null, null, {}, 0]],
+    r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir, l.charge]),
+    [[null, null, {}, 0, null]],
   )
+})
+
+test('le pouls nourrit le relevé de l’heure : le processeur, le pire gel, la mémoire et les invités connectés, à chaque relevé', async () => {
+  const r = new ReleveHoraire()
+  const charge = new Charge(20, { releve: r, invites: () => 7 })
+  try {
+    // Deux relevés au moins, sans parier sur l'horloge d'une machine chargée.
+    for (let i = 0; i < 100 && (r.lignes('d1').at(-1)!.charge?.n ?? 0) < 2; i++) await patienter(20)
+  } finally {
+    charge.arreter()
+  }
+  const lue = r.lignes('d1').at(-1)!.charge
+  assert.ok(lue && lue.n >= 2, `des relevés : ${JSON.stringify(lue)}`)
+  assert.equal(lue.invitesMax, 7)
+  assert.ok(lue.memoireMaxMo > 0, 'la mémoire du processus')
+  assert.ok(lue.processeur >= 0 && lue.processeurMax >= lue.processeur)
 })
 
 // Une semaine de démarrages : un réveil, un arrêt net puis son redémarrage,
@@ -107,6 +127,7 @@ const ligne = (heure: number, demarrage: string, l: Partial<HeureDeSante>): Heur
   lentes: [],
   erreurs: {},
   miroir: 0,
+  charge: null,
   ...l,
 })
 const LIGNES: HeureDeSante[] = [
@@ -115,12 +136,14 @@ const LIGNES: HeureDeSante[] = [
     base: { n: 10, p50: 30, p95: 60, max: 80 },
     routes: { n: 20, p50: 100, p95: 300, max: 500 },
     erreurs: { 'POST /api/jour/reponse': 2 },
+    charge: { n: 60, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18 },
   }),
   ligne(a(4, 14), 'c', {
     base: { n: 30, p50: 50, p95: 90, max: 120 },
     routes: { n: 10, p50: 200, p95: 250, max: 260 },
     erreurs: { 'POST /api/jour/reponse': 1, 'socket host:launch': 1 },
     miroir: 2,
+    charge: { n: 180, processeur: 7, processeurMax: 11, boucleMaxMs: 80, memoireMaxMo: 260, invitesMax: 25 },
   }),
   ligne(a(3, 19), 'd', { base: { n: 12, p50: 40, p95: 100, max: 130 }, routes: { n: 50, p50: 90, p95: 300, max: 400 } }),
   ligne(a(3, 20), 'd', { base: { n: 15, p50: 45, p95: 120, max: 150 }, routes: { n: 45, p50: 95, p95: 320, max: 410 } }),
@@ -139,12 +162,35 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
   assert.deepEqual(page.enMarche, { depuis: a(0, 7, 2), version: 'bbbbbbb', env: 'production' })
 
   const heure = (t: number) => page.heures.find(h => h.heure === t)!
-  // b et c dans la même heure : le pire des 95ᵉ centiles, les erreurs additionnées.
-  assert.deepEqual(heure(a(4, 14)), { heure: a(4, 14), eveille: true, base: 90, routes: 300, erreurs: 4, miroir: 2 })
+  // b et c dans la même heure : le pire des 95ᵉ centiles, les erreurs additionnées ; la charge
+  // moyenne pondérée par ses relevés, ses pics au pire des deux.
+  assert.deepEqual(heure(a(4, 14)), {
+    heure: a(4, 14),
+    eveille: true,
+    base: 90,
+    routes: 300,
+    erreurs: 4,
+    miroir: 2,
+    processeur: 6.5,
+    boucle: 300,
+    memoire: 260,
+    invites: 25,
+  })
   // La nuit, l'hébergeur dort ; le matin, le réveil de 7 h 02 compte son heure.
   assert.equal(heure(a(0, 3)).eveille, false)
   assert.equal(heure(a(0, 7)).eveille, true)
-  assert.deepEqual(heure(a(1, 23)), { heure: a(1, 23), eveille: true, base: null, routes: null, erreurs: 0, miroir: 0 })
+  assert.deepEqual(heure(a(1, 23)), {
+    heure: a(1, 23),
+    eveille: true,
+    base: null,
+    routes: null,
+    erreurs: 0,
+    miroir: 0,
+    processeur: null,
+    boucle: null,
+    memoire: null,
+    invites: null,
+  })
 
   assert.deepEqual(
     page.evenements.map(e => [e.sorte, e.quand]),
@@ -333,6 +379,11 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'POST /api/jour/reponse',
     'serveur-routes-endormi',
     'Les chiffres des',
+    // La charge : ses quatre graphiques, leurs plafonds, et l'heure lue dans les quatre.
+    'La charge, heure par heure',
+    'Invités connectés',
+    'plafond',
+    'ven. 9 oct., 14 h : processeur 6,5 % · boucle 300 ms · mémoire 260 Mo · 25 invités',
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }

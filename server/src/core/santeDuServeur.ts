@@ -49,6 +49,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       lentes: Array.isArray(releve.lentes) ? releve.lentes : [],
       erreurs: releve.erreurs && typeof releve.erreurs === 'object' ? releve.erreurs : {},
       miroir: Number(releve.miroir ?? 0),
+      charge: releve.charge ?? null,
     }
   } catch {
     return null

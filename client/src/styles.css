@@ -9528,6 +9528,13 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .qg-serveur-erreur { fill: var(--qg-erreur); }
 .qg-endormi-trait { stroke: rgba(255, 255, 255, 0.07); stroke-width: 2px; }
 .qg-graphe-grille .qg-graphe-jour { stroke: rgba(255, 255, 255, 0.12); }
+/* La charge : quatre graphiques l'un sous l'autre, le même temps pour tous, et en pointillé les plafonds de l'hébergeur gratuit. */
+.qg-charge { display: flex; flex-direction: column; gap: 2px; }
+.qg-charge + .qg-charge { margin-top: 4px; }
+.qg-charge-nom { font-size: 0.85rem; color: var(--muted); }
+.qg-charge-nom b { font-weight: 600; color: var(--ink); }
+.qg-graphe-plafond { stroke: var(--qg-erreur); stroke-width: 1px; stroke-dasharray: 4 3; opacity: 0.85; }
+.qg-graphe-plafond-nom { fill: var(--qg-erreur); font-size: var(--t-label); }
 /* Le détail d'une tuile du serveur se coupe n'importe où : une route (« /api/campagne/serie/:id/reponse ») n'a pas d'espace, et poussait la page hors de l'écran au téléphone. */
 .qg-tuile-detail { display: block; min-width: 0; overflow-wrap: anywhere; }
 .qg-sources > li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.85rem; }

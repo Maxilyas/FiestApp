@@ -5,7 +5,14 @@ import { barreArrondie, useLargeur } from './QgVueDEnsemble'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
 import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege, jourDeLaSemaine, quandEcrit } from '../../../shared/qg'
-import { tempsDeReponse, type EvenementDuServeur, type HeureDuServeur, type PageDuServeur } from '../../../shared/santeDuServeur'
+import {
+  MEMOIRE_DE_L_HEBERGEUR_MO,
+  PROCESSEUR_DE_L_HEBERGEUR_PCT,
+  tempsDeReponse,
+  type EvenementDuServeur,
+  type HeureDuServeur,
+  type PageDuServeur,
+} from '../../../shared/santeDuServeur'
 
 /** Une semaine de réveils en compte une quinzaine : les douze derniers d'emblée, le reste sur demande. */
 const EVENEMENTS_MONTRES = 12
@@ -34,9 +41,9 @@ const erreurs = (n: number) => `${formatNumber(n)} erreur${n > 1 ? 's' : ''}`
 /**
  * La santé du serveur au QG (`/admin#serveur`, les choix du 13 octobre 2026) :
  * sept jours heure par heure, gardés dans la base permanente — ce que les
- * joueurs attendent, les réveils et les arrêts, les erreurs. Pas la charge :
- * le direct la dit à l'instant, sur la vue d'ensemble. La page se lit à son
- * ouverture ; le serveur ne relit la base qu'une fois la minute.
+ * joueurs attendent, la charge à côté des invités connectés, les erreurs,
+ * les réveils et les arrêts. La page se lit à son ouverture ; le serveur ne
+ * relit la base qu'une fois la minute.
  */
 export function QgServeur() {
   const [page, setPage] = useState<PageDuServeur | null>(null)
@@ -50,7 +57,7 @@ export function QgServeur() {
   return <SanteDuServeurAuQg page={page} />
 }
 
-/** La page lue : quatre chiffres, trois graphiques, les réveils et les arrêts, le tableau. */
+/** La page lue : quatre chiffres, les temps de réponse, la charge, les erreurs, les réveils et les arrêts, le tableau. */
 export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
   const { chiffres: c, enMarche, maintenant } = page
   return (
@@ -118,6 +125,7 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         classe="qg-serveur-temps"
         maintenant={maintenant}
       />
+      <LaCharge heures={page.heures} maintenant={maintenant} />
       <Heures
         id="serveur-erreurs"
         titre="Les erreurs serveur"
@@ -162,13 +170,17 @@ function Tuile({ nom, valeur, detail, alerte }: { nom: string; valeur: string; d
   )
 }
 
-const MARGE = { gauche: 52, droite: 4, haut: 14, bas: 22 }
+/** Sans survol, la dernière heure mesurée : celle-ci, à peine commencée, n'a souvent rien encore. */
+function derniereMesuree(valeurs: readonly (number | null)[]): number {
+  let i = valeurs.length - 1
+  while (i > 0 && valeurs[i] === null) i--
+  return i
+}
 
 /**
- * Sept jours heure par heure, en barres d'une seule série dans l'écran
- * nocturne : cent soixante-huit heures, la nuit endormie hachurée. Le jour
- * survolé — touché, au téléphone — se lit sous le graphique : à cent
- * soixante-huit barres, aucune ne porte son chiffre.
+ * Une carte, un graphique : sept jours heure par heure, et l'heure survolée
+ * — touchée, au téléphone — sous lui : à cent soixante-huit barres, aucune
+ * ne porte son chiffre.
  */
 function Heures({
   id,
@@ -191,18 +203,148 @@ function Heures({
   maintenant: number
   children?: ReactNode
 }) {
-  const [boite, largeur] = useLargeur(640)
   const [choisie, setChoisie] = useState<number | null>(null)
-  const hauteur = Math.round(Math.min(190, Math.max(130, largeur * 0.22)))
+  const h = heures[choisie ?? derniereMesuree(heures.map(valeur))]
+  const v = valeur(h)
+  return (
+    <section className="qg-carte qg-ecran" aria-labelledby={id}>
+      <div className="qg-carte-tete qg-carte-tete-pile">
+        <h2 id={id}>{titre}</h2>
+        <span className="muted small">{sousTitre}</span>
+      </div>
+      <GrapheDesHeures id={id} nom={titre} heures={heures} valeur={valeur} ecrire={ecrire} classe={classe} maintenant={maintenant} choisie={choisie} choisir={setChoisie} />
+      <p className="qg-legende-jour" aria-live="polite">
+        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : ecrire(v)}
+      </p>
+      {children}
+    </section>
+  )
+}
+
+const pourcentsDUnCoeur = (v: number) => `${formatNumber(v)} %`
+const megaOctets = (v: number) => `${formatNumber(v)} Mo`
+const invites = (v: number) => `${formatNumber(v)} invité${v > 1 ? 's' : ''}`
+
+/** Les quatre graphiques de la charge, l'un sous l'autre, le même temps pour tous. */
+const MESURES_DE_CHARGE: {
+  cle: string
+  nom: string
+  detail: string
+  valeur: (h: HeureDuServeur) => number | null
+  ecrire: (v: number) => string
+  ecrireAxe?: (v: number) => string
+  plafond?: number
+}[] = [
+  { cle: 'processeur', nom: 'Processeur', detail: 'la moyenne de l’heure, en part d’un cœur', valeur: h => h.processeur, ecrire: pourcentsDUnCoeur, plafond: PROCESSEUR_DE_L_HEBERGEUR_PCT },
+  { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
+  { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: MEMOIRE_DE_L_HEBERGEUR_MO },
+  { cle: 'invites', nom: 'Invités connectés', detail: 'le pic de l’heure, toutes soirées confondues', valeur: h => h.invites, ecrire: invites, ecrireAxe: formatNumber },
+]
+
+/**
+ * La charge, heure par heure (le conseil suivi le 13 octobre 2026) : les
+ * temps de réponse disent qu'une soirée a été lente, la charge dit pourquoi
+ * — le processeur au plafond de l'hébergeur, un gel de la boucle, la mémoire
+ * —, à côté de la salle qui la fait. Les traits pointillés : les plafonds de
+ * l'hébergeur gratuit, un dixième de cœur et 512 Mo.
+ */
+function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+  const [choisie, setChoisie] = useState<number | null>(null)
+  const h = heures[choisie ?? derniereMesuree(heures.map(x => x.processeur))]
+  return (
+    <section className="qg-carte qg-ecran" aria-labelledby="serveur-charge">
+      <div className="qg-carte-tete qg-carte-tete-pile">
+        <h2 id="serveur-charge">La charge, heure par heure</h2>
+        <span className="muted small">relevée toutes les dix secondes ; en pointillé, les plafonds de l’hébergeur gratuit</span>
+      </div>
+      {MESURES_DE_CHARGE.map((m, i) => (
+        <div key={m.cle} className="qg-charge">
+          <span className="qg-charge-nom">
+            <b>{m.nom}</b> · {m.detail}
+          </span>
+          <GrapheDesHeures
+            id={`serveur-${m.cle}`}
+            nom={m.nom}
+            heures={heures}
+            valeur={m.valeur}
+            ecrire={m.ecrire}
+            ecrireAxe={m.ecrireAxe}
+            classe="qg-serveur-temps"
+            maintenant={maintenant}
+            choisie={choisie}
+            choisir={setChoisie}
+            plafond={m.plafond}
+            compact
+            sansJours={i < MESURES_DE_CHARGE.length - 1}
+          />
+        </div>
+      ))}
+      <p className="qg-legende-jour" aria-live="polite">
+        {heureDuReleve(h.heure, maintenant)} :{' '}
+        {!h.eveille
+          ? 'endormi'
+          : h.processeur === null
+            ? 'rien de mesuré'
+            : MESURES_DE_CHARGE.map(m => {
+                const v = m.valeur(h)
+                return m.cle === 'invites' ? invites(v ?? 0) : `${m.nom.toLowerCase()} ${v === null ? '–' : m.ecrire(v)}`
+              }).join(' · ')}
+      </p>
+    </section>
+  )
+}
+
+const MARGE = { gauche: 52, droite: 4, haut: 14, bas: 22 }
+
+/**
+ * Sept jours heure par heure, en barres d'une seule série dans l'écran
+ * nocturne : cent soixante-huit heures, la nuit endormie hachurée. Le
+ * survol se partage : dans la pile de la charge, une heure choisie l'est
+ * dans les quatre graphiques.
+ */
+function GrapheDesHeures({
+  id,
+  nom,
+  heures,
+  valeur,
+  ecrire,
+  ecrireAxe = ecrire,
+  classe,
+  maintenant,
+  choisie,
+  choisir,
+  plafond,
+  compact = false,
+  sansJours = false,
+}: {
+  id: string
+  nom: string
+  heures: HeureDuServeur[]
+  valeur: (h: HeureDuServeur) => number | null
+  ecrire: (v: number) => string
+  ecrireAxe?: (v: number) => string
+  classe: string
+  maintenant: number
+  choisie: number | null
+  choisir: (i: number | null) => void
+  /** Un trait pointillé : le plafond de l'hébergeur. L'échelle le contient toujours. */
+  plafond?: number
+  compact?: boolean
+  /** Sans les jours sous l'axe : un graphique de la pile, sous lequel un autre les porte. */
+  sansJours?: boolean
+}) {
+  const [boite, largeur] = useLargeur(640)
+  const hauteur = compact ? Math.round(Math.min(110, Math.max(80, largeur * 0.12))) : Math.round(Math.min(190, Math.max(130, largeur * 0.22)))
+  const marge = { ...MARGE, bas: sansJours ? 6 : MARGE.bas }
   const valeurs = heures.map(valeur)
-  const crans = graduations(Math.max(0, ...valeurs.map(v => v ?? 0)))
+  const crans = graduations(Math.max(0, plafond ?? 0, ...valeurs.map(v => v ?? 0)))
   const sommet = crans[crans.length - 1] || 1
-  const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - MARGE.haut - MARGE.bas }
+  const utile = { l: Math.max(1, largeur - marge.gauche - marge.droite), h: hauteur - marge.haut - marge.bas }
   const n = heures.length
   const pas = utile.l / n
   const barre = Math.max(1, pas * 0.7)
-  const y = (v: number) => MARGE.haut + utile.h - (v / sommet) * utile.h
-  const xDe = (i: number) => MARGE.gauche + i * pas
+  const y = (v: number) => marge.haut + utile.h - (v / sommet) * utile.h
+  const xDe = (i: number) => marge.gauche + i * pas
 
   // Les jours, et les plages endormies : des indices consécutifs.
   const jours: { debut: number; fin: number }[] = []
@@ -217,49 +359,39 @@ function Heures({
     else endormies.push({ debut: i, fin: i })
   })
 
-  // Sans survol, la dernière heure mesurée : celle-ci, à peine commencée, n'a souvent rien encore.
-  let derniereMesuree = n - 1
-  while (derniereMesuree > 0 && valeurs[derniereMesuree] === null) derniereMesuree--
-  const lue = choisie ?? derniereMesuree
-  const h = heures[lue]
-  const v = valeurs[lue]
   const mesurees = valeurs.filter((x): x is number => x !== null)
   const resume = mesurees.length
-    ? `${titre}, sept jours : de ${ecrire(Math.min(...mesurees))} à ${ecrire(Math.max(...mesurees))} selon l’heure.`
-    : `${titre}, sept jours : rien de mesuré.`
+    ? `${nom}, sept jours : de ${ecrire(Math.min(...mesurees))} à ${ecrire(Math.max(...mesurees))} selon l’heure.`
+    : `${nom}, sept jours : rien de mesuré.`
 
   return (
-    <section className="qg-carte qg-ecran" aria-labelledby={id}>
-      <div className="qg-carte-tete qg-carte-tete-pile">
-        <h2 id={id}>{titre}</h2>
-        <span className="muted small">{sousTitre}</span>
-      </div>
-      <div ref={boite} className="qg-graphe">
-        <svg viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={resume} onPointerLeave={() => setChoisie(null)}>
-          <defs>
-            <pattern id={`${id}-endormi`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="6" className="qg-endormi-trait" />
-            </pattern>
-          </defs>
-          {endormies.map(p => (
-            <rect key={p.debut} x={xDe(p.debut)} y={MARGE.haut} width={(p.fin - p.debut + 1) * pas} height={utile.h} fill={`url(#${id}-endormi)`} />
+    <div ref={boite} className="qg-graphe">
+      <svg viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={resume} onPointerLeave={() => choisir(null)}>
+        <defs>
+          <pattern id={`${id}-endormi`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" className="qg-endormi-trait" />
+          </pattern>
+        </defs>
+        {endormies.map(p => (
+          <rect key={p.debut} x={xDe(p.debut)} y={marge.haut} width={(p.fin - p.debut + 1) * pas} height={utile.h} fill={`url(#${id}-endormi)`} />
+        ))}
+        {choisie !== null && <rect className="qg-graphe-choisi" x={xDe(choisie)} y={marge.haut} width={Math.max(pas, 2)} height={utile.h} />}
+        <g className="qg-graphe-grille">
+          {crans.map(cran => (
+            <line key={cran} x1={marge.gauche} x2={largeur - marge.droite} y1={y(cran)} y2={y(cran)} />
           ))}
-          {choisie !== null && <rect className="qg-graphe-choisi" x={xDe(choisie)} y={MARGE.haut} width={Math.max(pas, 2)} height={utile.h} />}
-          <g className="qg-graphe-grille">
-            {crans.map(cran => (
-              <line key={cran} x1={MARGE.gauche} x2={largeur - MARGE.droite} y1={y(cran)} y2={y(cran)} />
-            ))}
-            {jours.slice(1).map(j => (
-              <line key={j.debut} className="qg-graphe-jour" x1={xDe(j.debut)} x2={xDe(j.debut)} y1={MARGE.haut} y2={MARGE.haut + utile.h} />
-            ))}
-          </g>
-          <g className="qg-graphe-axe" textAnchor="end">
-            {crans.map(cran => (
-              <text key={cran} x={MARGE.gauche - 8} y={y(cran) + 4}>
-                {cran === 0 ? '0' : ecrire(cran)}
-              </text>
-            ))}
-          </g>
+          {jours.slice(1).map(j => (
+            <line key={j.debut} className="qg-graphe-jour" x1={xDe(j.debut)} x2={xDe(j.debut)} y1={marge.haut} y2={marge.haut + utile.h} />
+          ))}
+        </g>
+        <g className="qg-graphe-axe" textAnchor="end">
+          {crans.map(cran => (
+            <text key={cran} x={marge.gauche - 8} y={y(cran) + 4}>
+              {cran === 0 ? '0' : ecrireAxe(cran)}
+            </text>
+          ))}
+        </g>
+        {!sansJours && (
           <g className="qg-graphe-axe" textAnchor="middle">
             {jours.map(j => {
               const large = (j.fin - j.debut + 1) * pas
@@ -272,28 +404,32 @@ function Heures({
               )
             })}
           </g>
-          {valeurs.map((val, i) =>
-            val !== null && val > 0 ? <path key={i} className={classe} d={barreArrondie(xDe(i) + (pas - barre) / 2, y(val), barre, (val / sommet) * utile.h)} /> : null,
-          )}
-          {heures.map((heure, i) => (
-            <rect
-              key={heure.heure}
-              className="qg-graphe-cible"
-              x={xDe(i)}
-              y={MARGE.haut}
-              width={pas}
-              height={utile.h}
-              onPointerEnter={() => setChoisie(i)}
-              onClick={() => setChoisie(i)}
-            />
-          ))}
-        </svg>
-      </div>
-      <p className="qg-legende-jour" aria-live="polite">
-        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : ecrire(v)}
-      </p>
-      {children}
-    </section>
+        )}
+        {valeurs.map((val, i) =>
+          val !== null && val > 0 ? <path key={i} className={classe} d={barreArrondie(xDe(i) + (pas - barre) / 2, y(val), barre, (val / sommet) * utile.h)} /> : null,
+        )}
+        {plafond !== undefined && (
+          <g>
+            <line className="qg-graphe-plafond" x1={marge.gauche} x2={largeur - marge.droite} y1={y(plafond)} y2={y(plafond)} />
+            <text className="qg-graphe-plafond-nom" x={largeur - marge.droite} y={y(plafond) - 4} textAnchor="end">
+              plafond
+            </text>
+          </g>
+        )}
+        {heures.map((heure, i) => (
+          <rect
+            key={heure.heure}
+            className="qg-graphe-cible"
+            x={xDe(i)}
+            y={marge.haut}
+            width={pas}
+            height={utile.h}
+            onPointerEnter={() => choisir(i)}
+            onClick={() => choisir(i)}
+          />
+        ))}
+      </svg>
+    </div>
   )
 }
 
@@ -371,6 +507,16 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                 <th scope="col">Routes</th>
                 <th scope="col">Turso</th>
                 <th scope="col">Erreurs</th>
+                {/* La charge, à l'ordinateur seulement : au téléphone, l'heure n'avait plus de place. */}
+                <th scope="col" className="qg-colonne-large">
+                  Processeur
+                </th>
+                <th scope="col" className="qg-colonne-large">
+                  Mémoire
+                </th>
+                <th scope="col" className="qg-colonne-large">
+                  Invités
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -380,6 +526,9 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                   <td className="num">{h.routes === null ? '–' : tempsDeReponse(h.routes)}</td>
                   <td className="num">{h.base === null ? '–' : tempsDeReponse(h.base)}</td>
                   <td className="num">{formatNumber(h.erreurs)}</td>
+                  <td className="num qg-colonne-large">{h.processeur === null ? '–' : pourcentsDUnCoeur(h.processeur)}</td>
+                  <td className="num qg-colonne-large">{h.memoire === null ? '–' : megaOctets(h.memoire)}</td>
+                  <td className="num qg-colonne-large">{h.invites === null ? '–' : formatNumber(h.invites)}</td>
                 </tr>
               ))}
             </tbody>

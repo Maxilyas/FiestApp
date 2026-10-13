@@ -1,10 +1,13 @@
 // La santé du serveur sur sept jours, au QG (`/admin#serveur`, les choix du
 // 13 octobre 2026) : ce que les joueurs attendent — un aller-retour vers
-// Turso, une route d'API —, les réveils et les arrêts, les erreurs, heure par
-// heure, gardés dans la base permanente : la mémoire et la base locale
-// s'effacent à chaque réveil de l'hébergeur, et `/healthz` ne dit que la
-// minute en cours. La charge — processeur, boucle, mémoire — reste à
-// l'instant, au direct du QG : le choix du propriétaire.
+// Turso, une route d'API —, les réveils et les arrêts, les erreurs, et la
+// charge — processeur, boucle, mémoire, à côté des invités connectés —,
+// heure par heure, gardés dans la base permanente : la mémoire et la base
+// locale s'effacent à chaque réveil de l'hébergeur, et `/healthz` ne dit que
+// la minute en cours. La charge, d'abord laissée au direct, a rejoint la
+// page le même jour : sans elle, la page disait qu'une soirée avait été
+// lente, pas pourquoi — et seule la production dira combien d'invités le
+// dixième de cœur de l'hébergeur tient (`core/pouls.ts`).
 //
 // Des dérivations pures : le serveur les calcule sur ce que la base garde
 // (`server/src/core/santeDuServeur.ts`), les tests les jouent sans serveur.
@@ -37,6 +40,8 @@ export const ALLERS_RETOURS_POUR_JUGER = 20
 /** L'hébergeur gratuit donne 512 Mo et tue l'instance au-delà : l'alerte s'allume un peu avant. */
 export const MEMOIRE_PLAFOND_MO = 450
 export const MEMOIRE_DE_L_HEBERGEUR_MO = 512
+/** Et un dixième de cœur : au-delà, le processus attend son tour — le trait du graphique du processeur. */
+export const PROCESSEUR_DE_L_HEBERGEUR_PCT = 10
 /** Un arrêt net se signale un jour durant. */
 export const ARRET_RECENT_MS = 24 * HEURE_MS
 /** Une route n'est « la plus lente » que sur assez d'appels : un seul appel lent au réveil n'en dit rien. */
@@ -68,6 +73,22 @@ export interface RouteLente {
   p95: number
 }
 
+/**
+ * La charge d'une heure, relevée toutes les dix secondes (`Charge`,
+ * `core/pouls.ts`) : le processeur en moyenne et au pire, le pire gel de la
+ * boucle, le pic de mémoire, et le pic d'invités connectés — la salle qui la
+ * fait. `n` : les relevés, pour fondre deux démarrages de la même heure.
+ */
+export interface ChargeDeLHeure {
+  n: number
+  /** En pour cent d'un cœur : l'hébergeur gratuit n'en donne qu'un dixième. */
+  processeur: number
+  processeurMax: number
+  boucleMaxMs: number
+  memoireMaxMo: number
+  invitesMax: number
+}
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -82,6 +103,8 @@ export interface HeureDeSante {
   erreurs: Record<string, number>
   /** Les envois au miroir qui ont échoué : l'écran commun le dit déjà, la semaine s'en souvient. */
   miroir: number
+  /** Null sans un relevé de charge — une heure à peine commencée, ou une ligne d'avant. */
+  charge: ChargeDeLHeure | null
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -126,6 +149,11 @@ export interface HeureDuServeur {
   routes: number | null
   erreurs: number
   miroir: number
+  /** La charge de l'heure : le processeur en moyenne (en pour cent d'un cœur), le pire gel, les pics de mémoire et d'invités ; null sans relevé. */
+  processeur: number | null
+  boucle: number | null
+  memoire: number | null
+  invites: number | null
 }
 
 export interface PageDuServeur {
@@ -173,6 +201,21 @@ export function fondreReleves(a: Releve | null, b: Releve | null): Releve | null
   return { n, p50: Math.round((a.p50 * a.n + b.p50 * b.n) / n), p95: Math.max(a.p95, b.p95), max: Math.max(a.max, b.max) }
 }
 
+/** La charge de deux démarrages dans la même heure : la moyenne se pondère par les relevés, les pics gardent le pire. */
+export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null): ChargeDeLHeure | null {
+  if (!a || a.n === 0) return b && b.n > 0 ? b : null
+  if (!b || b.n === 0) return a
+  const n = a.n + b.n
+  return {
+    n,
+    processeur: Math.round(((a.processeur * a.n + b.processeur * b.n) / n) * 10) / 10,
+    processeurMax: Math.max(a.processeurMax, b.processeurMax),
+    boucleMaxMs: Math.max(a.boucleMaxMs, b.boucleMaxMs),
+    memoireMaxMo: Math.max(a.memoireMaxMo, b.memoireMaxMo),
+    invitesMax: Math.max(a.invitesMax, b.invitesMax),
+  }
+}
+
 /** Les lignes d'une même heure, tous démarrages confondus. */
 export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante, 'demarrage'> | null {
   if (lignes.length === 0) return null
@@ -180,10 +223,13 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
   const lentes = new Map<string, RouteLente>()
   let base: Releve | null = null
   let routes: Releve | null = null
+  let charge: ChargeDeLHeure | null = null
   let miroir = 0
   for (const l of lignes) {
     base = fondreReleves(base, l.base)
     routes = fondreReleves(routes, l.routes)
+    // Une ligne d'avant la charge n'en porte pas.
+    charge = fondreCharges(charge, l.charge ?? null)
     miroir += l.miroir
     for (const [source, n] of Object.entries(l.erreurs)) erreurs[source] = (erreurs[source] ?? 0) + n
     for (const r of l.lentes) {
@@ -198,6 +244,7 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
     lentes: [...lentes.values()].sort((a, b) => b.p95 - a.p95).slice(0, 3),
     erreurs,
     miroir,
+    charge,
   }
 }
 
@@ -268,6 +315,10 @@ export function pageDuServeur(
       routes: h?.routes?.p95 ?? null,
       erreurs: h ? totalDesErreurs(h.erreurs) : 0,
       miroir: h?.miroir ?? 0,
+      processeur: h?.charge?.processeur ?? null,
+      boucle: h?.charge?.boucleMaxMs ?? null,
+      memoire: h?.charge?.memoireMaxMo ?? null,
+      invites: h?.charge?.invitesMax ?? null,
     })
   }
 

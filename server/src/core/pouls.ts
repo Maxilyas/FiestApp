@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
-import { APPELS_POUR_UNE_LENTE, debutDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
+import { APPELS_POUR_UNE_LENTE, debutDeLHeure, type ChargeDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -256,8 +256,32 @@ class Heure {
   private parRoute = new Map<string, Mesure>()
   private erreurs = new Map<string, number>()
   miroir = 0
+  private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
 
   constructor(readonly debut: number) {}
+
+  noterCharge(c: ReleveDeCharge) {
+    const k = this.charge
+    k.n++
+    k.processeur += c.processeur
+    k.processeurMax = Math.max(k.processeurMax, c.processeur)
+    k.boucleMaxMs = Math.max(k.boucleMaxMs, c.boucleMaxMs)
+    if (c.memoireMo !== null) k.memoireMaxMo = Math.max(k.memoireMaxMo, c.memoireMo)
+    k.invitesMax = Math.max(k.invitesMax, c.invites)
+  }
+
+  private chargeLue(): ChargeDeLHeure | null {
+    const k = this.charge
+    if (k.n === 0) return null
+    return {
+      n: k.n,
+      processeur: Math.round((k.processeur / k.n) * 10) / 10,
+      processeurMax: Math.round(k.processeurMax * 10) / 10,
+      boucleMaxMs: Math.round(k.boucleMaxMs),
+      memoireMaxMo: Math.round(k.memoireMaxMo),
+      invitesMax: k.invitesMax,
+    }
+  }
 
   route(modele: string, ms: number) {
     this.routes.noter(ms)
@@ -281,8 +305,25 @@ class Heure {
       .map(r => ({ route: r.route, n: r.l.n, p95: r.l.p95 }))
       .sort((a, b) => b.p95 - a.p95)
       .slice(0, 3)
-    return { heure: this.debut, demarrage, base: this.base.lire(), routes: this.routes.lire(), lentes, erreurs: Object.fromEntries(this.erreurs), miroir: this.miroir }
+    return {
+      heure: this.debut,
+      demarrage,
+      base: this.base.lire(),
+      routes: this.routes.lire(),
+      lentes,
+      erreurs: Object.fromEntries(this.erreurs),
+      miroir: this.miroir,
+      charge: this.chargeLue(),
+    }
   }
+}
+
+/** Un relevé de charge, toutes les dix secondes (`Charge`) : le processeur en pour cent d'un cœur, le pire gel, la mémoire, les invités connectés. */
+export interface ReleveDeCharge {
+  processeur: number
+  boucleMaxMs: number
+  memoireMo: number | null
+  invites: number
 }
 
 /**
@@ -328,6 +369,10 @@ export class ReleveHoraire {
     this.heure().miroir++
   }
 
+  charge(c: ReleveDeCharge) {
+    this.heure().noterCharge(c)
+  }
+
   /** L'heure d'avant, si elle reste, et celle-ci : ce qu'un relevé écrit sous son démarrage. */
   lignes(demarrage: string): HeureDeSante[] {
     const courante = this.heure()
@@ -366,8 +411,18 @@ export class Charge {
   private elu = performance.eventLoopUtilization()
   private instant = performance.now()
   private releves: { cpuPct: number; occupePct: number; p99Ms: number; maxMs: number }[] = []
+  private readonly versLHeure: ReleveHoraire
+  private readonly invites: () => number
 
-  constructor(periodeMs = 10_000) {
+  /**
+   * Chaque relevé part aussi au relevé de l'heure (`releve`), avec la mémoire
+   * et les invités connectés — `invites`, que le serveur compte dans ses
+   * soirées : la page « Le serveur » du QG montre la charge à côté de la
+   * salle qui la fait.
+   */
+  constructor(periodeMs = 10_000, deps: { releve?: ReleveHoraire; invites?: () => number } = {}) {
+    this.versLHeure = deps.releve ?? releve
+    this.invites = deps.invites ?? (() => 0)
     this.histogramme = monitorEventLoopDelay({ resolution: RESOLUTION_MS })
     this.histogramme.enable()
     this.minuterie = setInterval(() => this.relever(), periodeMs)
@@ -379,15 +434,29 @@ export class Charge {
     const ecoule = maintenant - this.instant
     const cpu = process.cpuUsage(this.cpu)
     const elu = performance.eventLoopUtilization(this.elu)
-    this.releves.push({
+    const r = {
       cpuPct: ((cpu.user + cpu.system) / 1000 / ecoule) * 100,
       occupePct: elu.utilization * 100,
       // L'histogramme compte en nanosecondes, résolution comprise : c'est le
       // retard au-delà de ce qu'on attendait qu'on veut lire.
       p99Ms: Math.max(0, this.histogramme.percentile(99) / 1e6 - RESOLUTION_MS),
       maxMs: Math.max(0, this.histogramme.max / 1e6 - RESOLUTION_MS),
-    })
+    }
+    this.releves.push(r)
     if (this.releves.length > 6) this.releves.shift()
+    // Au relevé de l'heure, sous son propre filet : une mesure qui tombe —
+    // la mémoire lève EMFILE sous `ulimit -n 64` — ne doit pas arrêter le pouls.
+    try {
+      let memoireMo: number | null = null
+      try {
+        memoireMo = Math.round(process.memoryUsage().rss / 1024 / 1024)
+      } catch {
+        // La mémoire se tait, le reste du relevé part.
+      }
+      this.versLHeure.charge({ processeur: r.cpuPct, boucleMaxMs: r.maxMs, memoireMo, invites: this.invites() })
+    } catch (e) {
+      console.error('[pouls] le relevé de charge n’a pas pu s’écrire dans l’heure :', e)
+    }
     this.histogramme.reset()
     this.cpu = process.cpuUsage()
     this.elu = performance.eventLoopUtilization()
