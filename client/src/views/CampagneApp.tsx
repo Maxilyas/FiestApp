@@ -1434,6 +1434,8 @@ export function CampagneApp() {
               <Visage avatar={ecran.rencontre.adversaire.avatar} apparence={ceQuIlPorte(ecran.rencontre.adversaire)} />
             </span>
             <b>{scoreDeRencontre(ecran.justes, ecran.rencontre.adversaire, ecran.rencontre.sesJustes)}</b>
+            {/* Automate se dit simulé : on n'affronte pas une personne (le choix du 13 octobre 2026). */}
+            {ecran.rencontre.adversaire.simule && <span className="muted small">simulé, de ton niveau</span>}
           </p>
         )}
         {/* Un duel contre quelqu'un : son score attend sa dernière réponse — question par question, on ne sait pas ce qu'il a fait. */}
