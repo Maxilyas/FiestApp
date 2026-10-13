@@ -5,6 +5,7 @@ import { Sortie } from '../components/Pieces'
 import { Shape } from '../components/Shape'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
+import { Visage } from '../components/Avatar'
 import { OR, lueur } from '../components/Atlas'
 import { deNom, espacesFines, rang } from '../format'
 import { placeDuJour } from '../../../shared/course'
@@ -17,6 +18,7 @@ import {
   type IssueDeRencontre,
   type ResumeDuDuel,
   type SerieDeCampagne,
+  type SonApparence,
 } from '../../../shared/campagne'
 import {
   DUELS_POUR_LA_RECOMPENSE,
@@ -34,7 +36,7 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
-import { ecartSigne, type ContreEnJeu } from './Rencontre'
+import { ceQuIlPorte, ecartSigne, type ContreEnJeu } from './Rencontre'
 
 export { ADRESSE_DU_LANCEMENT, adresseDuDuel } from './adressesDesDuels'
 
@@ -91,10 +93,10 @@ function mouvementReduit(): boolean {
  * Sans ligue — aucun duel classé fini —, un anneau neutre : l'absence, pas
  * une ligue de bronze.
  */
-export function Anneau({ avatar, ligue, petit, className }: { avatar: string; ligue?: CleDeLigue; petit?: boolean; className?: string }) {
+export function Anneau({ avatar, apparence, ligue, petit, className }: { avatar: string; apparence?: SonApparence; ligue?: CleDeLigue; petit?: boolean; className?: string }) {
   return (
     <span className={'duels-anneau' + (ligue ? ` ligue-${ligue}` : '') + (petit ? ' petit' : '') + (className ? ` ${className}` : '')} aria-hidden="true">
-      {avatar}
+      <Visage avatar={avatar} apparence={apparence} />
     </span>
   )
 }
@@ -161,8 +163,9 @@ function GestesDuBas({ children }: { children: ReactNode }) {
 export interface VerdictVu {
   /** Sur quoi : « Cinéma » — le surtitre. */
   quoi: string
-  toi: { avatar: string; justes: number }
-  lui: { nom: string; avatar: string; justes: number; ligue?: CleDeLigue }
+  /** Les deux avatars, chacun avec ce qu'il porte (`ceQuIlPorte`). */
+  toi: { avatar: string; justes: number; apparence?: SonApparence }
+  lui: { nom: string; avatar: string; justes: number; ligue?: CleDeLigue; apparence?: SonApparence }
   /** Ce qu'il a fait à sa cote ; absent : un duel qui ne compte pas. */
   ecart?: number
   /** Sa cote d'après, sa ligue, sa place au classement des duels. */
@@ -265,13 +268,17 @@ export function VerdictDuDuel({
               <span className="num duels-face-titre">{TITRE_DU_VERDICT[issue]}</span>
               <span className="duels-face-scores">
                 <span className="duels-face-joueur">
-                  <span className="duels-face-avatar toi">{v.toi.avatar}</span>
+                  <span className="duels-face-avatar toi">
+                    <Visage avatar={v.toi.avatar} apparence={v.toi.apparence} />
+                  </span>
                   <span className={'num duels-face-score' + (v.toi.justes >= v.lui.justes ? ' devant' : '')}>{v.toi.justes}</span>
                   <span className="duels-face-nom">Toi</span>
                 </span>
                 <span className="duels-face-trait" />
                 <span className="duels-face-joueur">
-                  <span className={'duels-face-avatar' + (v.lui.ligue ? ` ligue-${v.lui.ligue}` : '')}>{v.lui.avatar}</span>
+                  <span className={'duels-face-avatar' + (v.lui.ligue ? ` ligue-${v.lui.ligue}` : '')}>
+                    <Visage avatar={v.lui.avatar} apparence={v.lui.apparence} />
+                  </span>
                   <span className={'num duels-face-score' + (v.lui.justes >= v.toi.justes ? ' devant' : '')}>{v.lui.justes}</span>
                   <span className="duels-face-nom">{v.lui.nom}</span>
                 </span>
@@ -357,8 +364,8 @@ export function DuelEnvoye({
 }: {
   quoi: string
   justes: number
-  toi: { avatar: string; ligue?: CleDeLigue }
-  lui: { nom: string; avatar: string; ligue?: CleDeLigue }
+  toi: { avatar: string; ligue?: CleDeLigue; apparence?: SonApparence }
+  lui: { nom: string; avatar: string; ligue?: CleDeLigue; apparence?: SonApparence }
   confettis: number
   xp: number
   /** Ce qui est tombé avec la partie — hauts faits, légendaires, un niveau —, au-dessus des gestes. */
@@ -382,13 +389,13 @@ export function DuelEnvoye({
       </div>
       {/* De lui à l'autre : trois points qui voyagent, le score caché dedans. */}
       <div className="duels-transmission" aria-hidden="true">
-        <Anneau avatar={toi.avatar} ligue={toi.ligue} />
+        <Anneau avatar={toi.avatar} apparence={toi.apparence} ligue={toi.ligue} />
         <span className="duels-transmission-fil">
           <i />
           <i />
           <i />
         </span>
-        <Anneau avatar={lui.avatar} ligue={lui.ligue} className="en-face" />
+        <Anneau avatar={lui.avatar} apparence={lui.apparence} ligue={lui.ligue} className="en-face" />
       </div>
       <p className="duels-envoye-chez">
         {`Chez ${lui.nom}, `}
@@ -638,9 +645,11 @@ function contreEnJeu(duel: DuelEntreAmis): ContreEnJeu | undefined {
   if (!duel.contre) return undefined
   const enFace = duel.auteur.toi ? duel.contre : duel.auteur
   const moi = duel.auteur.toi ? duel.auteur : duel.contre
+  const apparence = ceQuIlPorte(enFace)
   return {
     nom: enFace.nom,
     avatar: enFace.avatar,
+    ...(apparence && { apparence }),
     ...(enFace.ligue && { ligue: enFace.ligue }),
     ...(moi.ligue && { maLigue: moi.ligue }),
     ...(!duel.auteur.toi && { aDejaJoue: true as const }),
@@ -698,7 +707,9 @@ export function DuelFaceCachee({
           <span className="duels-carte duels-carte-dos">
             <span className="duels-balaye" />
             <span className="duels-carte-nom">
-              <span aria-hidden="true">{enFace.avatar}</span>
+              <span aria-hidden="true">
+                <Visage avatar={enFace.avatar} apparence={ceQuIlPorte(enFace)} />
+              </span>
               <span>{enFace.nom}</span>
             </span>
             {cache ? (
@@ -719,7 +730,7 @@ export function DuelFaceCachee({
         </span>
         <span className={'duels-carte duels-carte-toi' + (moi.ligue ? ` ligue-${moi.ligue}` : '')}>
           <span className="duels-carte-avatar" aria-hidden="true">
-            {moi.avatar}
+            <Visage avatar={moi.avatar} apparence={ceQuIlPorte(moi)} />
           </span>
           <span className="num duels-carte-toi-nom">Toi</span>
           {joue && t ? (
@@ -868,8 +879,8 @@ export function PageDuDuel({
         <VerdictDuDuel
           verdict={{
             quoi: surQuoi(duel),
-            toi: { avatar: moi.avatar, justes: t.justes },
-            lui: { nom: enFace.nom, avatar: enFace.avatar, justes: duel.aBattre, ...(enFace.ligue && { ligue: enFace.ligue }) },
+            toi: { avatar: moi.avatar, justes: t.justes, apparence: ceQuIlPorte(moi) },
+            lui: { nom: enFace.nom, avatar: enFace.avatar, justes: duel.aBattre, apparence: ceQuIlPorte(enFace), ...(enFace.ligue && { ligue: enFace.ligue }) },
             ecart: duel.ecart,
             ...(duel.apres && { apres: duel.apres, semaine: duel.apres.semaine }),
           }}

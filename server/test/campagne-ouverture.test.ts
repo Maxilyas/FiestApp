@@ -400,7 +400,7 @@ test('son propre défi se lance et se joue, il ne se relève pas : sa fin et sa 
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /<h1>\{ecran\.lance \? \(ecran\.classe \? 'Duel lancé' : 'Défi lancé'\) : ecran\.defi \? 'Défi relevé' :/)
   // Lancé de la préparation, ou repris de sa page : le drapeau va jusqu'à la fin.
-  assert.match(page, /jouerLeDuel\(serie, code, true, \{ nom: adversaire\.nom/)
+  assert.match(page, /jouerLeDuel\(serie, code, true, \{\s*nom: adversaire\.nom/)
   assert.match(page, /duel: code,\s*\.\.\.\(lance && \{ lance: true as const \}\),/)
   assert.match(page, /\.\.\.\(ecran\.duel && \{ duel: ecran\.duel \}\),\s*\.\.\.\(ecran\.lance && \{ lance: true as const \}\),/)
   assert.match(readFileSync(client('views/Duel.tsx'), 'utf8'), /onJouer\(tentative, code, !!duel\?\.auteur\.toi, /)

@@ -7,7 +7,8 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { ceQuIlPorte, ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
@@ -26,7 +27,8 @@ import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
-import { CHANCE_ECLAT_DU_DEFI, type PublicProfile } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
+import { cibleEclat } from '../../../shared/legendaires'
 import { SUJETS, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
@@ -822,7 +824,16 @@ export function CampagneApp() {
       }
       // Sa ligue et la sienne — s'ils ont fini un duel classé — : les deux anneaux de « Duel envoyé ».
       const moi = depart.moi && depart.moi.joues > 0 ? { maLigue: ligueDe(depart.moi.cote).cle } : null
-      jouerLeDuel(serie, code, true, { nom: adversaire.nom, avatar: adversaire.avatar, ...(adversaire.ligue && { ligue: adversaire.ligue }), ...moi, ...(enJeu && { enjeu: enJeu }) })
+      // Et ce qu'il porte : son légendaire pendant la partie et sur « Duel envoyé », comme sur sa carte.
+      const apparence = ceQuIlPorte(adversaire)
+      jouerLeDuel(serie, code, true, {
+        nom: adversaire.nom,
+        avatar: adversaire.avatar,
+        ...(apparence && { apparence }),
+        ...(adversaire.ligue && { ligue: adversaire.ligue }),
+        ...moi,
+        ...(enJeu && { enjeu: enJeu }),
+      })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -1172,6 +1183,14 @@ export function CampagneApp() {
       ))}
     </>
   )
+  // Ce qu'il porte, sur l'avatar d'une fin de duel : son légendaire, pas l'emoji d'en dessous.
+  const monApparence =
+    profil &&
+    ceQuIlPorte({
+      finition: profil.finition,
+      ...(profil.legendaire && { legendaire: profil.legendaire }),
+      ...(brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar)) && { eclat: true as const }),
+    })
   // La page des duels, d'où il est parti : sans la recharger.
   const versMesDuels = () => {
     choisirMode('duels')
@@ -1193,8 +1212,8 @@ export function CampagneApp() {
       <laPageDesDuels.VerdictDuDuel
         verdict={{
           quoi: nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories',
-          toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes },
-          lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
+          toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes, apparence: monApparence || undefined },
+          lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, apparence: ceQuIlPorte(adversaire), ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
           ...(ecran.cote && {
             ecart: ecran.cote.ecart,
             apres: { cote: ecran.cote.apres, ligue: ecran.cote.ligue, ...(ecran.cote.rang !== undefined && { rang: ecran.cote.rang }) },
@@ -1234,8 +1253,8 @@ export function CampagneApp() {
       <laPageDesDuels.DuelEnvoye
         quoi={nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories'}
         justes={ecran.justes}
-        toi={{ avatar: profil?.avatar ?? '🙂', ...(ecran.enFace?.maLigue && { ligue: ecran.enFace.maLigue }) }}
-        lui={{ nom: enFace.nom, avatar: enFace.avatar, ...('ligue' in enFace && enFace.ligue && { ligue: enFace.ligue }) }}
+        toi={{ avatar: profil?.avatar ?? '🙂', apparence: monApparence || undefined, ...(ecran.enFace?.maLigue && { ligue: ecran.enFace.maLigue }) }}
+        lui={{ nom: enFace.nom, avatar: enFace.avatar, apparence: ecran.enFace?.apparence, ...('ligue' in enFace && enFace.ligue && { ligue: enFace.ligue }) }}
         confettis={ecran.justes}
         xp={ecran.xp}
         extra={tombeAvecLeDuel(ecran)}
@@ -1412,7 +1431,7 @@ export function CampagneApp() {
         {ecran.rencontre && (
           <p className="rencontre-score" aria-live="polite">
             <span className="rencontre-adversaire" aria-hidden="true">
-              {ecran.rencontre.adversaire.avatar}
+              <Visage avatar={ecran.rencontre.adversaire.avatar} apparence={ceQuIlPorte(ecran.rencontre.adversaire)} />
             </span>
             <b>{scoreDeRencontre(ecran.justes, ecran.rencontre.adversaire, ecran.rencontre.sesJustes)}</b>
           </p>
@@ -1421,7 +1440,7 @@ export function CampagneApp() {
         {ecran.contre && (
           <p className="rencontre-score" aria-live="polite">
             <span className="rencontre-adversaire" aria-hidden="true">
-              {ecran.contre.avatar}
+              <Visage avatar={ecran.contre.avatar} apparence={ecran.contre.apparence} />
             </span>
             <b>{`Toi ${ecran.justes}`}</b>
             <span className="muted small">{ecran.contre.aDejaJoue ? 'son score : à ta dernière réponse' : `${ecran.contre.nom} jouera après toi`}</span>

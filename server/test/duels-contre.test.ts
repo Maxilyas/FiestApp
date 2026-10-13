@@ -399,3 +399,46 @@ test('chercher quelqu’un par son prénom, l’ajouter à ses amis, le retirer 
     await banc.close()
   }
 })
+
+// Le retour du propriétaire du 13 octobre 2026 : « dans le classement, j'ai
+// un emoji et non mon avatar légendaire ». Les écrans des duels montraient
+// l'emoji d'en dessous à qui porte un légendaire ou un portrait ; ils
+// reçoivent ce qu'il porte, comme ses lignes d'ami et de recherche
+// (`SonApparence`).
+test('ce qu’il porte suit son avatar dans les duels : ses duels en cours, la page du duel des deux côtés, la fin de qui le joue en second', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const deLea = idDe(banc, 'lea')
+    const deTom = idDe(banc, 'tom')
+    // Tous deux portent le blaireau de la forêt.
+    for (const [id, cookie] of [
+      [deLea, lea],
+      [deTom, tom],
+    ]) {
+      base(banc, db => db.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, ?)').run(id, 'foret', 5, horloge.t))
+      assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'br:blaireau' }, cookie, 'PUT')).status, 200)
+    }
+
+    // Tom défie Léa : la page de son duel la montre telle qu'elle se porte, et lui aussi.
+    const d = await poster(banc, tom, '/api/campagne/duel', { adversaire: deLea })
+    assert.equal(d.status, 200, d.corps.error)
+    const chezTom = (await lire(banc, tom, `/api/campagne/duel/${d.corps.code}`)).corps
+    assert.deepEqual([chezTom.auteur.legendaire, chezTom.contre.legendaire], ['br:blaireau', 'br:blaireau'])
+    await jouer(banc, tom, d.corps.serie.id, 3)
+    // « En cours », chez l'un comme chez l'autre.
+    assert.equal((await lire(banc, tom, '/api/duels')).corps.contre[0].contre.legendaire, 'br:blaireau')
+    assert.equal((await lire(banc, lea, '/api/duels')).corps.contre[0].contre.legendaire, 'br:blaireau')
+    const chezLea = (await lire(banc, lea, `/api/campagne/duel/${d.corps.code}`)).corps
+    assert.deepEqual([chezLea.auteur.legendaire, chezLea.contre.legendaire], ['br:blaireau', 'br:blaireau'])
+
+    // Léa le joue : sa fin — la carte du verdict — porte celui de Tom.
+    const fin = await jouer(banc, lea, (await poster(banc, lea, `/api/campagne/duel/${d.corps.code}`)).corps.id, 4)
+    assert.equal(fin.contre.legendaire, 'br:blaireau')
+    assert.equal(fin.contre.justes, 3)
+  } finally {
+    await banc.close()
+  }
+})

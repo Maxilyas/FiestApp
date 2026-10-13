@@ -475,8 +475,12 @@ export const LETTRES_POUR_CHERCHER = 2
  */
 export interface DuelContre {
   code: string
-  /** Contre qui — sa ligue, s'il a fini un duel classé : l'anneau de son avatar en prend la couleur. */
-  contre: { profileId: string; nom: string; avatar: string; ligue?: CleDeLigue }
+  /**
+   * Contre qui — sa ligue, s'il a fini un duel classé : l'anneau de son
+   * avatar en prend la couleur ; et ce qu'il porte, son légendaire comme au
+   * classement (`SonApparence`).
+   */
+  contre: { profileId: string; nom: string; avatar: string; ligue?: CleDeLigue } & SonApparence
   /** C'est lui qui l'a lancé. */
   lance: boolean
   sujet?: string

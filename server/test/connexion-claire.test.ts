@@ -62,6 +62,24 @@ test('un profil naît d’un prénom et d’un mot de passe : l’identifiant s�
   assert.match(connexion, /id="pf-login"/)
 })
 
+// Le retour du propriétaire du 13 octobre 2026 : « Me connecter », un essai
+// raté, puis « Je n'en ai pas encore » ouvrait une autre page que « Créer un
+// profil » — le champ de l'identifiant ouvert, l'identifiant de l'essai
+// dedans (son prénom), et le mot de passe refusé.
+test('la création s’ouvre toujours comme « Créer un profil » : rien de ce qu’on a tapé pour se connecter n’y passe', async () => {
+  const { champsAuChangement } = await import(client('components/ProfilForm.tsx'))
+  const essai = { login: 'antoine', loginTouche: true, loginOuvert: false, password: 'mauvais-mot', name: '' }
+  assert.deepEqual(champsAuChangement('inscription', essai), { login: '', loginTouche: false, loginOuvert: false, password: '' })
+  // Un prénom déjà tapé à la création, puis un détour par la connexion : l'identifiant s'en déduit, sur sa ligne.
+  assert.deepEqual(champsAuChangement('inscription', { ...essai, name: 'Antoine' }), { login: 'antoine', loginTouche: false, loginOuvert: false, password: '' })
+  // Vers la connexion, l'identifiant deviné du prénom ne suit pas — ses échecs fermeraient le vrai « camille » ; tapé à la main, il suit.
+  const creation = { login: 'camille', loginTouche: false, loginOuvert: false, password: 'motdepasse1', name: 'Camille' }
+  assert.equal(champsAuChangement('connexion', creation).login, '')
+  assert.equal(champsAuChangement('connexion', { ...creation, login: 'camille42', loginTouche: true }).login, 'camille42')
+  // Et le retour au choix ne garde pas l'essai pour la création d'après.
+  assert.deepEqual(champsAuChangement('inscription', { ...champsAuChangement('choix', essai), name: '' }), { login: '', loginTouche: false, loginOuvert: false, password: '' })
+})
+
 test('un identifiant deviné et pris prend celui que le serveur propose ; tapé à la main, jamais en silence', async () => {
   const { api, ApiError } = await import(client('api.ts'))
   const { inscrireAvecRepli } = await import(client('components/IdentifiantDiscret.tsx'))

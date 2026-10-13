@@ -1980,7 +1980,10 @@ export class CampagneStore {
     const [[p], t] = await Promise.all([this.profils ? this.profils.byIds([autre]) : Promise.resolve([null]), this.tentativeDuDuel(autre, duel.code)])
     if (!t) return null
     const nomme = p && this.profils && !this.masque?.(p.id)
-    return nomme ? { nom: p.name, avatar: this.profils!.avatarPorte(p), justes: t.justes, profileId: p.id } : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
+    // Ce qu'il porte avec : son légendaire sur la carte du verdict, pas l'emoji d'en dessous.
+    return nomme
+      ? { nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p), justes: t.justes, profileId: p.id }
+      : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
   }
 
   /** Sa tentative à un défi entre amis, s'il l'a commencée. */
@@ -2264,6 +2267,9 @@ export class CampagneStore {
             avatar: defie && this.profils ? this.profils.avatarPorte(defie) : '🎲',
             ...(duel.adversaire === profileId && { toi: true as const }),
             ...(defieNomme && saLigue(defie.id)),
+            // Ce qu'il porte : son légendaire sur sa carte, pas l'emoji d'en dessous. Sans sa bordure : l'anneau
+            // de sa ligue la dit déjà, et la page ne la montre pas.
+            ...(defieNomme && this.profils && sonApparence(this.profils, defie)),
           }
         : null
     // Le sien, ouvert : à qui il partira à sa dernière réponse — ou, joué
@@ -2294,6 +2300,7 @@ export class CampagneStore {
         avatar: nomme && this.profils ? this.profils.avatarPorte(auteur) : '🎲',
         ...(duel.auteur === profileId && { toi: true as const }),
         ...(nomme && saLigue(auteur.id)),
+        ...(nomme && this.profils && sonApparence(this.profils, auteur)),
       },
       ...(duel.sujet && { sujet: duel.sujet }),
       ...(duel.categories && duel.categories.length > 0 && { categories: duel.categories }),
@@ -3014,7 +3021,12 @@ export class CampagneStore {
   private async adversaireVu(a: AdversaireGarde): Promise<Adversaire> {
     const p = this.profils ? ((await this.profils.byIds([a.profil]))[0] ?? null) : null
     const nomme = p && !this.masque?.(p.id)
-    return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: a.reponses.filter(Boolean).length }
+    return {
+      nom: nomme ? p.name : 'Un joueur',
+      avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲',
+      ...(nomme && this.profils && sonApparence(this.profils, p)),
+      justes: a.reponses.filter(Boolean).length,
+    }
   }
 
   /**
@@ -3142,7 +3154,12 @@ export class CampagneStore {
     const vu = (s: Serie, i: number): Adversaire => {
       const p = profils[i]
       const nomme = p && !this.masque?.(p.id)
-      return { nom: nomme ? p.name : 'Un joueur', avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲', justes: s.adversaire!.reponses.filter(Boolean).length }
+      return {
+        nom: nomme ? p.name : 'Un joueur',
+        avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲',
+        ...(nomme && this.profils && sonApparence(this.profils, p)),
+        justes: s.adversaire!.reponses.filter(Boolean).length,
+      }
     }
     const i = rencontres.findIndex(s => s.finieLe === null)
     const ouverte = i >= 0 ? rencontres[i] : null
@@ -3525,6 +3542,9 @@ export class CampagneStore {
             nom: nomme ? p.name : 'Un joueur',
             avatar: nomme && this.profils ? this.profils.avatarPorte(p) : '🎲',
             ...(nomme && saCote && saCote.joues > 0 && { ligue: ligueDe(saCote.cote).cle }),
+            // Ce qu'il porte : son légendaire dans « En cours », comme au classement de la même page — sans sa
+            // bordure, que l'anneau de sa ligue dit déjà.
+            ...(nomme && this.profils && sonApparence(this.profils, p)),
           },
           lance,
           ...(d.sujet && { sujet: d.sujet }),
@@ -4955,8 +4975,8 @@ function coupDeLaRencontre(a: AdversaireGarde, index: number, toi: number, finie
   }
 }
 
-/** L'adversaire d'une rencontre qui se joue : son prénom et son avatar — son score entier attend la dernière réponse. */
-const enJeu = ({ nom, avatar }: Adversaire): AdversaireEnJeu => ({ nom, avatar })
+/** L'adversaire d'une rencontre qui se joue : son prénom, son avatar, ce qu'il porte — son score entier attend la dernière réponse. */
+const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 
 /** Un adversaire possible : une série finie d'un autre joueur, et ce qu'on a déjà vu de ses premières questions. */
 export interface CandidatALaRencontre {
