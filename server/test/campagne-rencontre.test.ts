@@ -106,6 +106,15 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
     assert.deepEqual([reprise.serie.id, reprise.serie.question.index, reprise.adversaire.nom, reprise.sesJustes], [id, 1, 'Tom', 1], 'et le score d’en face jusque-là')
     assert.equal(reprise.adversaire.justes, undefined, 'jusque-là seulement : son score entier attend la fin')
     assert.equal((await lire(banc, lea, '/api/duels')).corps.enCours.adversaire.justes, undefined, 'sur la page des duels non plus')
+    // Et ce qu'il porte : Tom prend le blaireau de la forêt — la partie et la page des duels le montrent, pas
+    // l'emoji d'en dessous (le retour du propriétaire du 13 octobre 2026 : « un emoji et non mon avatar légendaire »).
+    const deTom = (await lire(banc, tom, '/api/joueur/moi')).corps.profile.id
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    db.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, ?)').run(deTom, 'foret', 5, horloge.t)
+    db.close()
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'br:blaireau' }, tom, 'PUT')).status, 200)
+    assert.equal((await poster(banc, lea, '/api/campagne/rencontre')).corps.adversaire.legendaire, 'br:blaireau')
+    assert.equal((await lire(banc, lea, '/api/duels')).corps.enCours.adversaire.legendaire, 'br:blaireau')
     const abandon = await poster(banc, lea, `/api/campagne/serie/${id}/abandon`)
     assert.equal(abandon.status, 400)
     assert.equal(abandon.corps.error, 'Une rencontre se joue jusqu’au bout : elle ne s’abandonne pas')
@@ -135,6 +144,7 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
       miennes.passees.map((x: any) => [x.adversaire.nom, x.adversaire.justes, x.justes, x.issue]),
       [['Tom', 6, 7, 'gagnee']],
     )
+    assert.equal(miennes.passees[0].adversaire.legendaire, 'br:blaireau', 'son historique le montre aussi')
     // Jamais deux fois la même série : Tom n'en a pas d'autre.
     assert.equal((await poster(banc, lea, '/api/campagne/rencontre')).status, 400)
 

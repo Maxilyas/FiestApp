@@ -557,9 +557,10 @@ export interface DuelEntreAmis {
   /**
    * Qui l'a lancé ; `toi` quand c'est lui qui regarde. Un duel classé dit sa
    * ligue, s'il a fini un duel classé : l'anneau de son avatar, le bord de sa
-   * carte en prennent la couleur.
+   * carte en prennent la couleur. Et ce qu'il porte, son légendaire comme au
+   * classement (`SonApparence`).
    */
-  auteur: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue }
+  auteur: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue } & SonApparence
   /** Ce qu'il fait jouer : un sujet, ou des catégories ; ni l'un ni l'autre : toutes. */
   sujet?: string
   categories?: string[]
@@ -571,10 +572,10 @@ export interface DuelEntreAmis {
   prevus?: string[]
   /**
    * Un duel classé (`shared/duels.ts`) : qui a été défié — `toi` quand c'est
-   * lui qui regarde —, sa ligue comme celle de l'auteur, et, joué des deux
-   * côtés, ce qu'il a fait à sa cote.
+   * lui qui regarde —, sa ligue et ce qu'il porte comme l'auteur, et, joué
+   * des deux côtés, ce qu'il a fait à sa cote.
    */
-  contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue }
+  contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue } & SonApparence
   ecart?: number
   /** Un duel classé qu'il n'a pas encore fini : ce qu'il met en jeu sur sa cote, contre la cote d'en face figée au lancement (`enjeuContre`). */
   enjeu?: EnjeuDuDuel
@@ -734,21 +735,25 @@ export type IssueDeRencontre = 'gagnee' | 'perdue' | 'egalite'
 /** L'issue d'une rencontre finie : plus de bonnes réponses que lui, autant, ou moins. */
 export const issueDeRencontre = (toi: number, lui: number): IssueDeRencontre => (toi > lui ? 'gagnee' : toi === lui ? 'egalite' : 'perdue')
 
-/** Un adversaire : son prénom, son avatar, et ses bonnes réponses sur ces questions — le score à battre. */
-export interface Adversaire {
+/**
+ * Un adversaire : son prénom, son avatar et ce qu'il porte (`SonApparence` :
+ * son légendaire, pas l'emoji d'en dessous), et ses bonnes réponses sur ces
+ * questions — le score à battre.
+ */
+export interface Adversaire extends SonApparence {
   nom: string
   avatar: string
   justes: number
 }
 
 /**
- * L'adversaire d'une rencontre qui se joue : son prénom et son avatar. Son
- * score entier ne part qu'à la dernière réponse (`CoupDeLaRencontre.enTout`)
- * — « à battre : 8 » se lisait avant même la première question (le souhait du
- * propriétaire du 12 octobre 2026). Question par question, ce qu'il en avait
- * fait se dit après sa réponse à soi.
+ * L'adversaire d'une rencontre qui se joue : son prénom, son avatar, ce qu'il
+ * porte. Son score entier ne part qu'à la dernière réponse
+ * (`CoupDeLaRencontre.enTout`) — « à battre : 8 » se lisait avant même la
+ * première question (le souhait du propriétaire du 12 octobre 2026). Question
+ * par question, ce qu'il en avait fait se dit après sa réponse à soi.
  */
-export type AdversaireEnJeu = Pick<Adversaire, 'nom' | 'avatar'>
+export type AdversaireEnJeu = Omit<Adversaire, 'justes'>
 
 /** Une rencontre, commencée ou reprise (`POST /api/campagne/rencontre`) : la partie, et qui l'on affronte. */
 export interface RencontreDeCampagne {

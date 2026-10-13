@@ -8081,6 +8081,13 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .duels-gestes-paire > .btn { flex: 1 1 0; min-width: 0; }
 .duels-anneau { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bg-raised); font-size: 24px; line-height: 1; box-shadow: 0 0 0 2px var(--lueur, rgba(var(--accent-rgb), 0.3)); }
 .duels-anneau.petit { width: 32px; height: 32px; font-size: 18px; }
+/* Un légendaire ou un portrait dans un anneau le remplit comme l'emoji : à
+   sa taille de liste, un disque sombre l'entourait. Tout l'avatar grandit,
+   sa lumière avec lui. */
+.duels-anneau > .av-legendaire,
+.duels-anneau > .av-portrait,
+.duels-face-avatar > .av-legendaire,
+.duels-face-avatar > .av-portrait { font-size: 1.3em; }
 /* Ce qui tombe avec un duel — un niveau, des hauts faits, un légendaire — : sous la carte ou le cadran. */
 .duels-extra { display: flex; flex-direction: column; gap: 18px; margin-top: 24px; }
 .duels-extra:empty { display: none; }

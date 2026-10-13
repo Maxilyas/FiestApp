@@ -1,5 +1,6 @@
 import type { Finition } from '../../../shared/profil'
 import type { BordureDeLigue } from '../../../shared/duels'
+import type { SonApparence } from '../../../shared/campagne'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
@@ -124,6 +125,18 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
       )}
     </span>
   )
+}
+
+/**
+ * Un avatar tel que son joueur le porte — sa finition, son légendaire ou son
+ * portrait, son Éclat (`SonApparence`) —, l'emoji seul, tel quel, s'il ne
+ * porte rien : les écrans des duels et la partie qui les joue. L'emoji seul y
+ * montrait l'écureuil d'en dessous à qui porte un légendaire, que le
+ * classement de la même page montrait peint (le retour du propriétaire du
+ * 13 octobre 2026). Sans bordure : là, l'anneau de sa ligue la dit déjà.
+ */
+export function Visage({ avatar, apparence }: { avatar: string; apparence?: SonApparence }) {
+  return apparence ? <Avatar avatar={avatar} finition={apparence.finition} legendaire={apparence.legendaire} eclat={apparence.eclat} /> : <>{avatar}</>
 }
 
 /**

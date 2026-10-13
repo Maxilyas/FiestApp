@@ -91,6 +91,19 @@ try {
   const jade = await inscrireProfil(banc.url, 'jade', 'Jade', '🦄')
   // Le thème voulu, porté par Léa, Tom et Zoé : leurs pages s'en habillent.
   if (process.env.THEME) for (const cookie of [lea, tom, zoe]) await ecrire(banc.url, '/api/joueur/moi', { theme: process.env.THEME }, cookie, 'PUT')
+  // Ce qu'ils portent : Léa le loup de la forêt, Tom son blaireau, Inès le cerf — les écrans des duels les
+  // montrent peints, jamais l'emoji d'en dessous (le retour du propriétaire du 13 octobre 2026).
+  for (const [cookie, paliers, portrait] of [
+    [lea, 8, 'br:loup'],
+    [tom, 4, 'br:blaireau'],
+    [ines, 12, 'br:cerf'],
+  ] as const) {
+    const id = await idDe(banc, cookie)
+    const db = base(banc)
+    db.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, ?)').run(id, 'foret', paliers, Date.now())
+    db.close()
+    await ecrire(banc.url, '/api/joueur/moi', { legendaire: portrait }, cookie, 'PUT')
+  }
   // Une soirée chez Léa, hier, avec Camille, Noah et Jade : des joueurs croisés, qu'elle n'a pas en amis.
   const deLaSoiree = await Promise.all([lea, camille, noah, jade].map(c => idDe(banc, c)))
   {

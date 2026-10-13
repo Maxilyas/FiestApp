@@ -8,6 +8,7 @@
 // écrit nulle part.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import React from 'react'
 
 Object.assign(globalThis, {
@@ -187,4 +188,42 @@ test('un duel reçu : sa carte face cachée — son score écrit nulle part avan
   assert.match(attend, /<\/svg>Verdict quand Tom aura joué<\/p>/)
   // Fermé sans avoir été joué : il ne compte plus, rien à relever.
   assert.match(rendre({ ...recu, minutesRestantes: 0, enjeu: undefined }), /Ce duel est fermé : il ne compte plus\.|Ce duel est fermé\s: il ne compte plus\./)
+})
+
+// Le retour du propriétaire du 13 octobre 2026 : « dans le classement, j'ai
+// un emoji et non mon avatar légendaire ». Partout sur les écrans des duels,
+// l'avatar se porte comme au classement entier : son légendaire ou son
+// portrait, sa finition, son Éclat — sans sa bordure dans un anneau, qui dit
+// déjà sa ligue.
+test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l’emoji d’en dessous', async () => {
+  const { ceQuIlPorte } = await import(client('views/Rencontre.tsx').href)
+  assert.deepEqual(ceQuIlPorte({ legendaire: 'lg:phenix', finition: 'or', eclat: true, bordure: { ligue: 'or', crans: 3 } }), { finition: 'or', legendaire: 'lg:phenix', eclat: true })
+  assert.equal(ceQuIlPorte({ finition: 'mat' }), undefined, 'un emoji mat : rien à porter')
+  assert.equal(ceQuIlPorte(undefined), undefined)
+
+  const { lignesEnCours, histoireDesDuels } = await import(client('views/Duels.tsx').href)
+  const contre = [{ code: 'ATOI', contre: { profileId: 'tom', nom: 'Tom', avatar: '🐻', legendaire: 'br:blaireau' }, lance: false, justes: null, sesJustes: null, minutesRestantes: OUVERT }]
+  const recus = [{ code: 'AMIS', auteur: { nom: 'Léa', avatar: '🦊', finition: 'or' }, minutesRestantes: OUVERT }]
+  const enCours = { serie: { id: 's', vies: 3, justes: 2, total: 4, finie: false, question: { index: 4 } }, adversaire: { nom: 'Max', avatar: '🦉', legendaire: 'lg:phenix' }, sesJustes: 3 }
+  assert.deepEqual(
+    lignesEnCours({ contre, enCours }, recus).map((l: { apparence?: object }) => l.apparence),
+    [{ legendaire: 'br:blaireau' }, { finition: 'or' }, { legendaire: 'lg:phenix' }],
+  )
+  const joue = [{ ...contre[0], code: 'JOUE', justes: 6, sesJustes: 4, ecart: 12, le: 1 }]
+  assert.deepEqual(histoireDesDuels({ contre: joue, dernieres: [] })[0].apparence, { legendaire: 'br:blaireau' })
+
+  // L'anneau pose l'avatar tel qu'il se porte (`Visage`) ; sans rien porté, l'emoji seul, comme avant.
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { Anneau } = await import(client('views/Duel.tsx').href)
+  assert.equal(renderToStaticMarkup(React.createElement(Anneau, { avatar: '🐻', apparence: { finition: 'or' } })), '<span class="duels-anneau" aria-hidden="true"><span class="av av-or"><span class="av-emoji">🐻</span></span></span>')
+  assert.equal(renderToStaticMarkup(React.createElement(Anneau, { avatar: '🐻' })), '<span class="duels-anneau" aria-hidden="true">🐻</span>')
+
+  // L'onglet du classement : chaque ligne comme au classement entier, sa bordure comprise ; le podium, ce qu'il porte.
+  const page = readFileSync(client('views/Duels.tsx'), 'utf8')
+  assert.match(page, /<Avatar className="duels-rang-avatar" avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} eclat=\{l\.eclat\} bordure=\{l\.bordure\} \/>/)
+  assert.match(page, /<Anneau key=\{l\.profileId\} avatar=\{l\.avatar\} apparence=\{ceQuIlPorte\(l\)\} ligue=\{l\.ligue\} petit \/>/)
+  // La carte du verdict, les cartes d'un duel reçu, la partie elle-même : jamais l'emoji nu de qui porte quelque chose.
+  const duel = readFileSync(client('views/Duel.tsx'), 'utf8')
+  assert.doesNotMatch(duel, />\s*\{(v\.toi|v\.lui|enFace|moi)\.avatar\}\s*</)
+  assert.doesNotMatch(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), />\s*\{ecran\.(rencontre\.adversaire|contre)\.avatar\}\s*</)
 })

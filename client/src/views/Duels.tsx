@@ -3,7 +3,7 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Feuille, Sortie } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
-import { Avatar } from '../components/Avatar'
+import { Avatar, Visage } from '../components/Avatar'
 import { NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
 import { BlasonDeLigue } from '../components/Blason'
@@ -11,7 +11,7 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
 import { Anneau, LaClocheDesDefis, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
-import { ecartSigne } from './Rencontre'
+import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
   COTE_DE_DEPART,
   DUELS_DE_PLACEMENT,
@@ -25,7 +25,7 @@ import {
   type JoueurADefier,
   type LigneDesDuels,
 } from '../../../shared/duels'
-import type { DefiRecu, MesAmis, RencontreDeCampagne } from '../../../shared/campagne'
+import type { DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
 
 /** Sa cote et ses duels joués : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
 export type MaCote = { cote: number; joues: number }
@@ -215,6 +215,8 @@ export interface LigneEnCours {
   sorte: 'resultat' | 'a-toi' | 'attente'
   nom: string
   avatar: string
+  /** Ce qu'il porte (`ceQuIlPorte`) : son légendaire, comme à l'onglet du classement. */
+  apparence?: SonApparence
   ligue?: CleDeLigue
   quoi: string
   /** Le code de son duel, que la ligne ouvre ; absent : le duel au hasard laissé en route, qui se reprend. */
@@ -233,11 +235,17 @@ export interface LigneEnCours {
  */
 export function lignesEnCours(etat: Pick<EtatDesDuels, 'contre' | 'enCours'>, recus: readonly DefiRecu[]): LigneEnCours[] {
   const contre = etat.contre ?? []
+  // Ce qu'il porte, s'il porte quelque chose : sinon, la ligne n'en dit rien.
+  const porte = (x: SonApparence) => {
+    const apparence = ceQuIlPorte(x)
+    return apparence && { apparence }
+  }
   const deSonDuel = (d: (typeof contre)[number], sorte: LigneEnCours['sorte']): LigneEnCours => ({
     cle: d.code,
     sorte,
     nom: d.contre.nom,
     avatar: d.contre.avatar,
+    ...porte(d.contre),
     ...(d.contre.ligue && { ligue: d.contre.ligue }),
     quoi: surQuoi(d),
     code: d.code,
@@ -250,8 +258,8 @@ export function lignesEnCours(etat: Pick<EtatDesDuels, 'contre' | 'enCours'>, re
     ...contre.filter(d => duelEnRoute(d) && d.justes === null).map(d => deSonDuel(d, 'a-toi')),
     ...recus
       .filter(r => !connus.has(r.code))
-      .map((r): LigneEnCours => ({ cle: r.code, sorte: 'a-toi', nom: r.auteur.nom, avatar: r.auteur.avatar, quoi: r.classe ? surQuoi(r) : 'Défi entre amis', code: r.code })),
-    ...(enCours ? [{ cle: 'au-hasard', sorte: 'a-toi' as const, nom: enCours.adversaire.nom, avatar: enCours.adversaire.avatar, quoi: 'Au hasard' }] : []),
+      .map((r): LigneEnCours => ({ cle: r.code, sorte: 'a-toi', nom: r.auteur.nom, avatar: r.auteur.avatar, ...porte(r.auteur), quoi: r.classe ? surQuoi(r) : 'Défi entre amis', code: r.code })),
+    ...(enCours ? [{ cle: 'au-hasard', sorte: 'a-toi' as const, nom: enCours.adversaire.nom, avatar: enCours.adversaire.avatar, ...porte(enCours.adversaire), quoi: 'Au hasard' }] : []),
     ...contre.filter(d => duelEnRoute(d) && d.justes !== null).map(d => deSonDuel(d, 'attente')),
   ]
 }
@@ -275,7 +283,7 @@ function PanneauEnCours({ lignes, debutant, onOuvrir, onReprendre, onRegles }: {
       {lignes.map(l => (
         <li key={l.cle}>
           <button type="button" className={`duels-ligne-duel duels-${l.sorte}`} onClick={() => (l.code ? onOuvrir(l.code) : onReprendre())}>
-            <Anneau avatar={l.avatar} ligue={l.ligue} />
+            <Anneau avatar={l.avatar} apparence={l.apparence} ligue={l.ligue} />
             <span className="duels-ligne-texte">
               <b>{l.nom}</b>
               <span>{l.quoi}</span>
@@ -309,6 +317,8 @@ export interface DuelDeLHistoire {
   cle: string
   nom: string
   avatar: string
+  /** Ce qu'il porte (`ceQuIlPorte`), comme partout sur la page. */
+  apparence?: SonApparence
   justes: number
   sesJustes: number
   ecart: number
@@ -323,12 +333,18 @@ export interface DuelDeLHistoire {
  * l'historique le lui soufflerait avant que la carte se retourne.
  */
 export function histoireDesDuels(etat: Pick<EtatDesDuels, 'contre' | 'dernieres'>, n = 10): DuelDeLHistoire[] {
+  const porte = (x: SonApparence) => {
+    const apparence = ceQuIlPorte(x)
+    return apparence && { apparence }
+  }
   const auHasard = etat.dernieres.flatMap((r): DuelDeLHistoire[] =>
-    r.issue && r.ecart !== undefined ? [{ cle: r.serie, nom: r.adversaire.nom, avatar: r.adversaire.avatar, justes: r.justes, sesJustes: r.adversaire.justes, ecart: r.ecart, le: r.le }] : [],
+    r.issue && r.ecart !== undefined
+      ? [{ cle: r.serie, nom: r.adversaire.nom, avatar: r.adversaire.avatar, ...porte(r.adversaire), justes: r.justes, sesJustes: r.adversaire.justes, ecart: r.ecart, le: r.le }]
+      : [],
   )
   const contre = (etat.contre ?? []).flatMap((d): DuelDeLHistoire[] =>
     !d.nouveau && d.ecart !== undefined && d.le !== undefined && d.justes !== null && d.sesJustes !== null
-      ? [{ cle: d.code, nom: d.contre.nom, avatar: d.contre.avatar, justes: d.justes, sesJustes: d.sesJustes, ecart: d.ecart, le: d.le, code: d.code }]
+      ? [{ cle: d.code, nom: d.contre.nom, avatar: d.contre.avatar, ...porte(d.contre), justes: d.justes, sesJustes: d.sesJustes, ecart: d.ecart, le: d.le, code: d.code }]
       : [],
   )
   return [...auHasard, ...contre].sort((a, b) => b.le - a.le).slice(0, n)
@@ -403,7 +419,7 @@ function PanneauHistorique({ duels, onOuvrir }: { duels: DuelDeLHistoire[]; onOu
               </span>
               <span className="sr-only">{`${motDeLIssue[issue]}, `}</span>
               <span className="duels-joue-avatar" aria-hidden="true">
-                {d.avatar}
+                <Visage avatar={d.avatar} apparence={d.apparence} />
               </span>
               <span className="duels-joue-nom">{d.nom}</span>
               <span className="num duels-joue-score">{`${d.justes}–${d.sesJustes}`}</span>
@@ -439,9 +455,9 @@ function LigneDuRang({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: b
         onClick={() => onOuvrir(l.profileId)}
       >
         <span className="num duels-rang-place">{l.rang}</span>
-        <span className="duels-rang-avatar" aria-hidden="true">
-          {l.avatar}
-        </span>
+        {/* Ce qu'il porte, sa bordure comprise, comme au classement entier : l'emoji seul y montrait
+            l'écureuil d'en dessous à qui porte son légendaire (le retour du propriétaire du 13 octobre 2026). */}
+        <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
         <span className="duels-rang-nom">{moi ? 'Toi' : l.nom}</span>
         <span className="num duels-rang-cote">{l.cote}</span>
       </button>
@@ -489,7 +505,7 @@ function PanneauClassement({ classement, onOuvrir, onToutVoir }: { classement: E
         <span className="duels-surtitre">Top 3</span>
         <span className="duels-podium-avatars" aria-hidden="true">
           {podium.map(l => (
-            <Anneau key={l.profileId} avatar={l.avatar} ligue={l.ligue} petit />
+            <Anneau key={l.profileId} avatar={l.avatar} apparence={ceQuIlPorte(l)} ligue={l.ligue} petit />
           ))}
         </span>
         <span className="duels-tout-voir">Tout voir ›</span>
