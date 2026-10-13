@@ -54,8 +54,13 @@ paths:
   propose se lit en mémoire, la réserve du jour relue au plus toutes les
   dix minutes. Turso répondait en 230 ms de médiane, 765 au 95ᵉ centile,
   le 13 octobre 2026 (`/healthz`) : une lecture qui attend la précédente se
-  sent au toucher. `duels-attente.test.ts` compte ceux qui se suivent,
-  comme `jour-charge.test.ts`.
+  sent au toucher. La page s'ouvre d'un seul : ses duels contre quelqu'un se
+  lisent de front avec ses rencontres, d'un lot, sans leurs questions
+  (`lecturesDesDuelsContre`) — ils attendaient le premier lot puis se
+  lisaient en deux fois —, et le profil d'Automate ne se demande jamais :
+  son identifiant vide repartait vers la base à chaque ouverture
+  (`rencontresEtDuels`). `duels-attente.test.ts` compte ceux qui se
+  suivent, comme `jour-charge.test.ts`.
 - **Le classement relit toutes les rencontres finies** : gardé (`cotes`)
   jusqu'au prochain duel fini ici ou au départ d'un profil, dix minutes au
   plus (`COTES_GARDEES_MS`) — celles d'un joueur, elles, se relisent

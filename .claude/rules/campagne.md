@@ -32,3 +32,10 @@ paths:
   18 à 8 ms le 13 octobre 2026. Une retouche du tirage se vérifie au même
   hasard contre l'ancien, question pour question ; `duels-attente.test.ts`
   compare `parFraicheur` au tri d'avant.
+- **Une ligne par question ne voyage plus** : ce qu'il a vu
+  (`lectureDesVues`) et la mesure des difficultés (`mesures`) se lisent en
+  un seul texte JSON (`json_group_object`). Le client de Turso décode chaque
+  ligne à coups de `defineProperty` : trois mille questions vues faisaient
+  235 Ko et 9,6 ms à chaque série et à chaque dé, 79 Ko et 2,3 ms en un
+  texte ; la mesure, onze mille lignes, toutes les dix minutes, sur le
+  chemin de la requête qui la trouvait périmée.

@@ -851,8 +851,11 @@ export class ProfileStore {
   async byId(id: string): Promise<ProfileRec | null> {
     const known = this.profiles.get(id)
     if (known) return known.disabledAt ? null : known
-    const rows = await this.client.execute({ sql: 'SELECT * FROM profiles WHERE id = ?', args: [id] })
-    return this.remember(rows.rows[0])
+    // D'un aller-retour, ses Éclats et ses récompenses avec (`byIds`) : sa
+    // fiche, puis ses Éclats, puis ses récompenses en faisaient trois, l'un
+    // derrière l'autre, à sa première requête après chaque réveil de
+    // l'hébergeur — avant tout ce que sa page avait à lire.
+    return (await this.byIds([id]))[0]
   }
 
   /**
