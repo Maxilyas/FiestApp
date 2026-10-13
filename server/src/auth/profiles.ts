@@ -832,6 +832,8 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_sabliers ON profile_sabliers(profile_id)',
+        // Les sabliers du mois, au QG : lus par leur date, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_profile_sabliers_quand ON profile_sabliers(created_at)',
         // Les compagnons achetés en confettis (`shared/compagnons.ts`), une
         // ligne par compagnon, jamais effacée, avec ce qu'il a coûté — comme
         // un thème. Et le rang de la plus haute forme qu'il a atteinte : ses

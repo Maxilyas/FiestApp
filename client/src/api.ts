@@ -36,6 +36,7 @@ import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
+import type { SuiviDuJour } from '../../shared/qgDuJour'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -605,6 +606,8 @@ export const api = {
       req<{ ok: true }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ statut }) }),
     /** Le quiz du jour : la réserve, les signalements, les profils masqués. */
     jour: () => req<AdminDuJour>('/api/admin/jour'),
+    /** Ce que le QG suit du quiz du jour : le tirage question par question, le classement du mois, les séries, le rappel du soir. */
+    suiviDuJour: () => req<SuiviDuJour>('/api/admin/jour/suivi'),
     prochainesDuJour: () => req<{ id: string; question: QuizQuestionDef; source: string }[]>('/api/admin/jour/prochaines'),
     /** La consigne à coller dans une IA, celle que suit la routine : trente questions. */
     consigneDuJour: () => req<{ consigne: string; joursDAvance: number; aEcrire: number }>('/api/admin/jour/consigne'),

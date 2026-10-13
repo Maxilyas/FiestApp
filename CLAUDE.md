@@ -71,7 +71,7 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 | Les duels : la cote, les ligues, les défis entre amis | `duels.md` |
 | Les quiz : l'éditeur, la liste collée, l'import, le partage | `bibliotheque.md` |
 | Les comptes, les profils, les sessions, la télé, l'administration | `auth-et-admin.md` |
-| Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, la santé du serveur, les soirées, la fiche d'un joueur | `qg.md` |
+| Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, la santé du serveur, les soirées, la fiche d'un joueur, les pages des modes | `qg.md` |
 | La mise en ligne : Render, le paquet, `/healthz` | `exploitation.md` |
 | Les tests · la tablée · les images peintes | `tests.md` · `tablee.md` · `peintures.md` |
 
