@@ -744,6 +744,12 @@ export interface Adversaire extends SonApparence {
   nom: string
   avatar: string
   justes: number
+  /**
+   * Automate, l'adversaire simulé — quand il a affronté toutes les séries
+   * des autres, le dé ne disparaît plus (le souhait du propriétaire du
+   * 13 octobre 2026) : la page le dit simulé.
+   */
+  simule?: true
 }
 
 /**

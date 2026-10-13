@@ -299,7 +299,8 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(html, /<span class="defier-numero" aria-hidden="true">2<\/span>Sur quoi \?<\/h2><button type="button" class="quoi-ligne" aria-haspopup="dialog"><svg[^>]*>.*?<\/svg><span class="quoi-texte"><b>Histoire<\/b><\/span><span class="quoi-changer">Changer/)
   assert.doesNotMatch(html, /categorie-case|quoi-case/, 'la feuille ne s’ouvre qu’au toucher')
   assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button>/)
-  assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son téléphone sonne si ses notifications sont activées\./)
+  assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son accueil le lui dit\./)
+  assert.doesNotMatch(html, /téléphone|notification/, 'sans notification depuis le 13 octobre 2026')
   // Ce qui se joue se dit avant : contre sa cote à lui.
   const enjeu = enjeuContre(1000, 1240, 0)
   assert.ok(html.includes(`Le duel joué des deux côtés, vos deux cotes bougent — pour toi, +${enjeu.gagne} si tu gagnes, −${-enjeu.perdu} si tu perds.`))
@@ -339,10 +340,11 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(surSaCarte({ ...tom, ami: true }), /aria-label="Retirer Tom de mes amis"/)
   assert.match(surSaCarte(hugo), /<\/svg>Ajouter à mes amis<\/button>/)
   assert.match(readFileSync(client('views/Amis.tsx'), 'utf8'), /<ChampDUnPrenom libelle="Chercher un ami, ou quelqu’un à ajouter, par son prénom"/)
-  // Sa fin dit à qui il est parti — sans promettre une notification qu'ils n'ont peut-être pas voulue.
+  // Sa fin dit à qui il est parti, et où ils le trouvent — sans notification depuis le 13 octobre 2026.
   const fin = (partiA: string[]) => renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, onClassement: () => {} }))
-  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur téléphone sonne si leurs notifications sont activées\./)
-  assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son téléphone sonne si ses notifications sont activées\./)
+  assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur accueil le leur dit\./)
+  assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son accueil le lui dit\./)
+  assert.doesNotMatch(fin(['Tom']), /téléphone|notification/)
   assert.doesNotMatch(fin([]), /Parti à/)
   // Un duel classé (la maquette A3, choisie par le propriétaire le 12 octobre 2026 : « il manque un bouton pour revenir
   // à l'accueil ») : « Duel envoyé », son score parti caché chez celui qu'il défie, le verdict quand il l'aura joué —

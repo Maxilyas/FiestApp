@@ -9,7 +9,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES, issueDeRencontre, niveauPourUneRencontre, xpDeLaBonneReponse } from '../../shared/campagne'
-import { choisirUnAdversaire, type CandidatALaRencontre } from '../src/core/campagne'
+import { chancesAuNiveau, choisirUnAdversaire, scoreAttendu, simulerUnAdversaire, type CandidatALaRencontre } from '../src/core/campagne'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -63,6 +63,54 @@ test('son niveau est la médiane de ses dernières séries ; l’adversaire, le 
   assert.equal(choisirUnAdversaire([], 12, hasard), null)
 })
 
+/** Un hasard qui se rejoue : le même tirage à chaque passage, pour qu'une moyenne se vérifie sans trembler. */
+function hasardFixe(graine: number): () => number {
+  let a = graine >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Le souhait du propriétaire du 13 octobre 2026 : le dé « tout le temps
+// disponible ». Quand il a affronté toutes les séries des autres, c'est
+// Automate : une série neuve, ses réponses tirées de la difficulté mesurée de
+// chaque question, réglées pour que son score soit, en moyenne, son niveau.
+test('Automate joue comme un joueur de son niveau : ses fautes sur les questions difficiles, sa série finie à la troisième', () => {
+  // Une série qui monte : des faciles, des moyennes, des difficiles, puis des expertes.
+  const taux = [...Array(5).fill(0.9), ...Array(5).fill(0.75), ...Array(5).fill(0.45), ...Array(45).fill(0.15)]
+  for (const niveau of [4, 8, 12, 16]) {
+    // En moyenne, son niveau : la cote de ce score est la force qu'on attend en face.
+    assert.ok(Math.abs(scoreAttendu(chancesAuNiveau(taux, niveau)) - niveau) < 0.05, `niveau ${niveau}`)
+    const hasard = hasardFixe(niveau)
+    const series = Array.from({ length: 400 }, () => simulerUnAdversaire(taux, niveau, hasard))
+    const moyenne = series.reduce((s, r) => s + r.filter(Boolean).length, 0) / series.length
+    assert.ok(Math.abs(moyenne - niveau) < 0.8, `niveau ${niveau} : ${moyenne} en moyenne`)
+    // Chaque série finit à sa troisième faute — comme celle d'un joueur allé au bout de ses vies —, ou au bout de ses questions.
+    for (const r of series) {
+      const fautes = r.filter(x => !x).length
+      assert.ok(fautes === VIES ? r.at(-1) === false : fautes < VIES && r.length === taux.length, JSON.stringify(r))
+    }
+    // Pas toujours le même score : c'est un joueur, pas une constante.
+    assert.ok(new Set(series.map(r => r.filter(Boolean).length)).size > 3)
+  }
+  // Ses fautes tombent sur les questions difficiles, pas au hasard.
+  const hasard = hasardFixe(42)
+  const posees = Array(taux.length).fill(0)
+  const ratees = Array(taux.length).fill(0)
+  for (let n = 0; n < 2000; n++) {
+    simulerUnAdversaire(taux, 12, hasard).forEach((juste, i) => {
+      posees[i]++
+      if (!juste) ratees[i]++
+    })
+  }
+  const partRatee = (de: number, a: number) => ratees.slice(de, a).reduce((s, x) => s + x, 0) / posees.slice(de, a).reduce((s, x) => s + x, 0)
+  assert.ok(partRatee(0, 5) < partRatee(5, 10) && partRatee(5, 10) < partRatee(10, 15), 'les faciles, puis les moyennes, puis les difficiles')
+})
+
 test('une rencontre rejoue la série finie d’un autre, contre son score — ce qu’il avait fait de chaque question, après la sienne', async () => {
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
@@ -70,10 +118,34 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
-    // Personne n'a fini de série : personne à affronter.
-    const seule = await poster(banc, lea, '/api/campagne/rencontre')
-    assert.equal(seule.status, 400)
-    assert.equal(seule.corps.error, 'Personne à affronter pour l’instant : d’autres joueurs doivent d’abord finir des séries')
+    // Personne n'a fini de série : Zoé affronte Automate, l'adversaire simulé — le dé ne mène plus à
+    // « personne à affronter » (le souhait du propriétaire du 13 octobre 2026 : « tout le temps disponible »).
+    const seule = await poster(banc, zoe, '/api/campagne/rencontre')
+    assert.equal(seule.status, 200, seule.corps.error)
+    assert.deepEqual(seule.corps.adversaire, { nom: 'Automate', avatar: '🤖', simule: true }, 'dit simulé, et sans son score')
+    assert.ok(seule.corps.enjeu, 'ce qui se joue sur sa cote, comme contre un joueur')
+    // Une série neuve, tirée pour elle : ses réponses à lui gardées au départ, comme celles d'un joueur.
+    const garde = (() => {
+      const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true, fileMustExist: true })
+      try {
+        return JSON.parse((db.prepare('SELECT adversaire FROM campagne_series WHERE id = ?').get(seule.corps.serie.id) as { adversaire: string }).adversaire)
+      } finally {
+        db.close()
+      }
+    })()
+    assert.deepEqual([garde.simule, garde.profil, garde.serie], [true, '', seule.corps.serie.id])
+    assert.ok(garde.reponses.filter((x: boolean) => !x).length <= VIES)
+    // Trois fautes : elle finit, et compte comme un duel — la cote de son score, comme celle d'un joueur.
+    let derniere: any = null
+    for (let i = 0; i < VIES; i++) derniere = await repondre(banc, zoe, seule.corps.serie.id, i, false)
+    assert.equal(derniere.finie, true)
+    assert.equal(derniere.rencontre.enTout, garde.reponses.filter(Boolean).length, 'son score entier, enfin')
+    const pourZoe = (await lire(banc, zoe, '/api/duels')).corps
+    assert.equal(pourZoe.joues, 1)
+    assert.equal('auHasard' in pourZoe, false, 'le dé est toujours là : plus rien à demander')
+    assert.deepEqual(pourZoe.dernieres[0].adversaire, { nom: 'Automate', avatar: '🤖', simule: true, justes: garde.reponses.filter(Boolean).length })
+    // Ni parmi les joueurs croisés : il n'a pas de carte.
+    assert.deepEqual((await lire(banc, zoe, '/api/duels/croises')).corps, [])
 
     // Zoé abandonne la sienne : une série laissée avant sa dernière vie ne dit pas son niveau, elle ne sert pas.
     const laissee = (await poster(banc, zoe, '/api/campagne/serie')).corps
@@ -145,16 +217,26 @@ test('une rencontre rejoue la série finie d’un autre, contre son score — ce
       [['Tom', 6, 7, 'gagnee']],
     )
     assert.equal(miennes.passees[0].adversaire.legendaire, 'br:blaireau', 'son historique le montre aussi')
-    // Jamais deux fois la même série : Tom n'en a pas d'autre.
-    assert.equal((await poster(banc, lea, '/api/campagne/rencontre')).status, 400)
+    // Jamais deux fois la même série : Tom n'en a pas d'autre — c'est Automate, sur une série neuve.
+    const encore = (await poster(banc, lea, '/api/campagne/rencontre')).corps
+    assert.equal(encore.adversaire.nom, 'Automate')
+    assert.notDeepEqual(
+      questions(banc, encore.serie.id).map(q => q.id),
+      questions(banc, sienne).map(q => q.id),
+      'pas la série de Tom une seconde fois',
+    )
+    for (let i = 0; i < VIES; i++) await repondre(banc, lea, encore.serie.id, i, false)
 
     // Masqué au quiz du jour, Tom ne s'affronte plus — sa nouvelle série non plus —, et ne se nomme plus.
     await serieFinie(banc, tom, 4)
     const admin = await connexionAnimateur(banc.url)
     const idTom = (await lire(banc, tom, '/api/joueur/moi')).corps.profile.id
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: idTom, masque: true })).status, 200)
-    assert.equal((await poster(banc, lea, '/api/campagne/rencontre')).status, 400)
-    assert.deepEqual((await lire(banc, lea, '/api/campagne/rencontres')).corps.passees[0].adversaire, { nom: 'Un joueur', avatar: '🎲', justes: 6 })
+    assert.equal((await poster(banc, lea, '/api/campagne/rencontre')).corps.adversaire.nom, 'Automate', 'ni sa nouvelle série : Automate, encore')
+    assert.deepEqual(
+      (await lire(banc, lea, '/api/campagne/rencontres')).corps.passees.find((x: any) => !x.adversaire.simule).adversaire,
+      { nom: 'Un joueur', avatar: '🎲', justes: 6 },
+    )
   } finally {
     await banc.close()
   }

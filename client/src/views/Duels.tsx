@@ -10,7 +10,7 @@ import { BlasonDeLigue } from '../components/Blason'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
-import { Anneau, LaClocheDesDefis, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
+import { Anneau, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
 import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
   COTE_DE_DEPART,
@@ -140,7 +140,11 @@ function CadranDesLigues({ cote }: { cote: number | null }) {
   )
 }
 
-/** En haut : la sortie ; au bout, « Comment ça marche ? », ses amis et la cloche des défis — trois icônes. */
+/**
+ * En haut : la sortie ; au bout, « Comment ça marche ? » et ses amis. La
+ * cloche des défis y était la troisième, partie le 13 octobre 2026 : seul le
+ * quiz du jour fait sonner un téléphone (règle `rappel-et-installation.md`).
+ */
 function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: () => void }) {
   return (
     <div className="jour-barre duels-barre-haut">
@@ -152,7 +156,6 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
         <button type="button" className="duels-icone" aria-label="Mes amis" aria-disabled={!onAmis || undefined} onClick={onAmis}>
           <Icon name="users" />
         </button>
-        <LaClocheDesDefis />
       </span>
     </div>
   )
@@ -160,28 +163,28 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
 
 /**
  * « Défier », en grand — qui, sur quoi, il joue d'abord —, et le dé à côté :
- * un adversaire au hasard, seulement s'il y en a un (`EtatDesDuels.auHasard`),
- * ou celui qu'il a laissé en route, qui se reprend. La même place pendant que
- * la page arrive.
+ * un adversaire au hasard, toujours — quand il a affronté toutes les séries
+ * des autres, Automate, l'adversaire simulé (le souhait du propriétaire du
+ * 13 octobre 2026 : il disparaissait sur un serveur de quelques amis) —, ou
+ * celui qu'il a laissé en route, qui se reprend. La même place pendant que la
+ * page arrive.
  */
-function BoutonsDesDuels({ busy, onDefier, auHasard, onAuHasard, reprendre }: { busy: boolean; onDefier?: () => void; auHasard: boolean; onAuHasard?: () => void; reprendre: string | null }) {
+function BoutonsDesDuels({ busy, onDefier, onAuHasard, reprendre }: { busy: boolean; onDefier?: () => void; onAuHasard?: () => void; reprendre: string | null }) {
   return (
     <div className="duels-gestes">
       <button type="button" className="btn btn-primary btn-big btn-duel duels-defier" aria-disabled={!onDefier || undefined} onClick={onDefier}>
         <Icon name="swords" />
         Défier
       </button>
-      {auHasard && (
-        <button
-          type="button"
-          className="duels-hasard"
-          aria-label={reprendre ? `Reprendre ton duel contre ${reprendre}` : 'Un adversaire au hasard'}
-          aria-disabled={busy || !onAuHasard || undefined}
-          onClick={onAuHasard}
-        >
-          <Icon name={reprendre ? 'play' : 'dice'} />
-        </button>
-      )}
+      <button
+        type="button"
+        className="duels-hasard"
+        aria-label={reprendre ? `Reprendre ton duel contre ${reprendre}` : 'Un adversaire au hasard'}
+        aria-disabled={busy || !onAuHasard || undefined}
+        onClick={onAuHasard}
+      >
+        <Icon name={reprendre ? 'play' : 'dice'} />
+      </button>
     </div>
   )
 }
@@ -525,9 +528,13 @@ export function CommentCaMarche() {
   return (
     <ol className="duels-etapes">
       <li>{espacesFines('« Défier » : choisis qui — un prénom, un ami, un joueur du classement : « Défier » est sur sa carte — et sur quoi. Tu joues d’abord, le duel lui part à ta dernière réponse : trois vies, sans chrono.')}</li>
-      <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son téléphone sonne si ses notifications sont activées : aucun lien à envoyer.')}</li>
+      <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son accueil le lui dit : aucun lien à envoyer.')}</li>
       <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
-      <li>{espacesFines('Pressé ? Le dé : la série d’un joueur de ton niveau, tout de suite — son score se dévoile à la fin.')}</li>
+      <li>
+        {espacesFines(
+          'Pressé ? Le dé : la série d’un joueur de ton niveau, tout de suite — son score se dévoile à la fin. Toutes affrontées, c’est Automate : un adversaire simulé, qui joue comme un joueur de ton niveau.',
+        )}
+      </li>
       <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>
       <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>
     </ol>
@@ -671,9 +678,9 @@ export function FeuilleDuClassement({
  * 12 octobre 2026) : le cadran de sa ligue et sa cote, sa semaine, « Défier »
  * et le dé ; puis trois onglets — ses duels en cours, à commencer par les
  * résultats qu'il n'a pas vus ; son historique ; sa place au classement.
- * « Comment ça marche ? », ses amis et la cloche des défis, en icônes en
- * haut ; le classement entier et ses amis, chacun sa feuille, où un toucher
- * ouvre la carte d'un joueur, « Défier » à son pied.
+ * « Comment ça marche ? » et ses amis, en icônes en haut ; le classement
+ * entier et ses amis, chacun sa feuille, où un toucher ouvre la carte d'un
+ * joueur, « Défier » à son pied.
  */
 export function PageDesDuels({
   amis,
@@ -734,8 +741,6 @@ export function PageDesDuels({
   // Sa cote, pour que la préparation dise ce que chaque duel met en jeu.
   const moi = etat ? { cote: etat.cote, joues: etat.joues } : undefined
   const defier = (j?: JoueurADefier) => onDefier(j, moi)
-  // Sans série finie d'un autre, le dé ne menait qu'à « personne à affronter » ; en attendant la page, il garde sa place.
-  const auHasard = !!enCours || !etat || etat.auHasard !== false
   const lignes = etat ? lignesEnCours(etat, amis?.recus ?? []) : []
   const nouveaux = lignes.filter(l => l.sorte === 'resultat').length
   return (
@@ -749,7 +754,7 @@ export function PageDesDuels({
           {erreur}
         </p>
       )}
-      <BoutonsDesDuels busy={busy} onDefier={() => defier()} auHasard={auHasard} onAuHasard={() => void chercher()} reprendre={enCours ? enCours.adversaire.nom : null} />
+      <BoutonsDesDuels busy={busy} onDefier={() => defier()} onAuHasard={() => void chercher()} reprendre={enCours ? enCours.adversaire.nom : null} />
       <OngletsDesDuels actif={onglet} nouveaux={nouveaux} onChoisir={setOnglet} />
       <div id="duels-panneau" className="duels-panneau" role="tabpanel" aria-labelledby={`duels-onglet-${onglet}`}>
         {!etat ? null : onglet === 'cours' ? (
@@ -779,7 +784,7 @@ export function DuelsEnChemin() {
       <BarreDesDuels />
       <CadranDesLigues cote={null} />
       <SemaineEnLosanges semaine={null} />
-      <BoutonsDesDuels busy auHasard reprendre={null} />
+      <BoutonsDesDuels busy reprendre={null} />
       <OngletsDesDuels actif="cours" nouveaux={0} onChoisir={() => {}} />
       <div className="duels-panneau" />
     </div>

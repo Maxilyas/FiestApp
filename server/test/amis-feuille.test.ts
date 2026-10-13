@@ -193,7 +193,7 @@ test('la page des duels : le classement derrière « Tout voir », les amis derr
   assert.doesNotMatch(page, /ClassementDesDuelsVue|TesAmis|duels-epee|PortesDesDuels|TesDuelsJoues|Voir le classement/)
   assert.doesNotMatch(source('views/Duel.tsx'), /export function (TesAmis|DefisRecus|TesDuelsContre)/)
   // Le squelette garde la place des onglets : rien ne saute quand la page arrive.
-  assert.match(page, /<BoutonsDesDuels busy auHasard reprendre=\{null\} \/>\s*<OngletsDesDuels actif="cours" nouveaux=\{0\} onChoisir=\{\(\) => \{\}\} \/>/)
+  assert.match(page, /<BoutonsDesDuels busy reprendre=\{null\} \/>\s*<OngletsDesDuels actif="cours" nouveaux=\{0\} onChoisir=\{\(\) => \{\}\} \/>/)
   // Ses duels en route sont l'onglet d'arrivée ; ses duels joués, l'historique — et seul l'onglet ouvert se rend.
   assert.match(page, /useState<OngletDesDuels>\('cours'\)/)
   assert.match(page, /onglet === 'cours' \? \(\s*<PanneauEnCours /)

@@ -21,7 +21,8 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
  * « Défier » (`GestesDuJoueur`), sinon trouvé par son prénom, parmi ses amis
  * ou parmi les joueurs qu'il a croisés —, sur quoi — une ligne, et la feuille
  * du choix de la série derrière « Changer » —, puis on le joue d'abord. À sa
- * dernière réponse, il lui part : dans ses duels, et son téléphone sonne. Un
+ * dernière réponse, il lui part : dans ses duels, et son accueil le lui dit —
+ * sans notification depuis le 13 octobre 2026 : seul le quiz du jour en a. Un
  * duel classé : quand il l'a joué, les deux cotes bougent, et ce qui se joue
  * se dit avant (`enjeuContre`). Chaque prénom ouvre sa carte, entière — « Défier » à son
  * pied le choisit ici même —, et « Choisir » est à côté : on sait contre qui
@@ -182,7 +183,7 @@ export function LancerUnDefi({
       <p className="muted small centre">
         {espacesFines(
           choisi
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son téléphone sonne si ses notifications sont activées. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
             : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>

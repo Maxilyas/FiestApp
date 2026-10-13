@@ -227,3 +227,19 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
   assert.doesNotMatch(duel, />\s*\{(v\.toi|v\.lui|enFace|moi)\.avatar\}\s*</)
   assert.doesNotMatch(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), />\s*\{ecran\.(rencontre\.adversaire|contre)\.avatar\}\s*</)
 })
+
+// Le souhait du propriétaire du 13 octobre 2026 : le dé « tout le temps
+// disponible ». Il ne paraissait que s'il restait une série d'un autre à
+// affronter ; quand il n'y en a plus, c'est Automate, l'adversaire simulé —
+// le dé n'a plus de raison de disparaître, ni la page de le demander.
+test('le dé est toujours là, à côté de « Défier »', async () => {
+  const page = readFileSync(client('views/Duels.tsx'), 'utf8')
+  assert.match(page, /Défier\s*<\/button>\s*<button\s+type="button"\s+className="duels-hasard"/, 'jamais sous une condition')
+  assert.doesNotMatch(readFileSync(client('../../shared/duels.ts'), 'utf8'), /auHasard/)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { DuelsEnChemin } = await import(client('views/Duels.tsx').href)
+  assert.match(renderToStaticMarkup(React.createElement(DuelsEnChemin)), /class="duels-hasard" aria-label="Un adversaire au hasard"/)
+  // Et ce qu'il est se dit : un adversaire simulé, de son niveau — dans les règles et pendant la partie.
+  assert.match(page, /Toutes affrontées, c’est Automate : un adversaire simulé/)
+  assert.match(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), /ecran\.rencontre\.adversaire\.simule && <span className="muted small">simulé, de ton niveau<\/span>/)
+})

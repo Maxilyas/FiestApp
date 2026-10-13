@@ -60,9 +60,10 @@ test('un prénom ne dit pas « il » ou « elle » : la rencontre, les duels, le
   const { renderToStaticMarkup } = await import('react-dom/server')
   const regles = renderToStaticMarkup(React.createElement(CommentCaMarche))
   assert.match(regles, /Tu joues d’abord, le duel lui part à ta dernière réponse/)
-  assert.match(regles, /À ta dernière réponse, le duel part dans ses duels, et son téléphone sonne si ses notifications sont activées/)
+  assert.match(regles, /À ta dernière réponse, le duel part dans ses duels, et son accueil le lui dit/)
   assert.match(regles, /Le duel joué des deux côtés, vos deux cotes bougent/)
-  assert.doesNotMatch(regles, /s’il a activé|Quand il l’a joué|il reçoit le duel/)
+  // Plus de notification pour les duels (le 13 octobre 2026) : les règles n'en promettent pas.
+  assert.doesNotMatch(regles, /s’il a activé|Quand il l’a joué|il reçoit le duel|téléphone|notification/)
   assert.doesNotMatch(source('views/Duels.tsx'), /il reçoit le duel/)
 })
 

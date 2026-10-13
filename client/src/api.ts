@@ -30,7 +30,7 @@ import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings }
 import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
-import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour, SujetDeNotification } from '../../shared/jour'
+import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
@@ -498,16 +498,14 @@ export const api = {
     /** Des sabliers pour sa série, en confettis — deux au plus en tout : ceux qui l'attendent, et son solde. */
     sablier: (nombre = 1) => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST', body: JSON.stringify({ nombre }) }),
     /**
-     * Les notifications de ce téléphone (`rappel.ts`) : la clé du serveur, puis
-     * l'abonnement — une cloche par sujet, le rappel du soir ou les défis de
-     * ses amis. Chaque réponse dit ses réglages.
+     * Le rappel du soir de ce téléphone (`rappel.ts`) : la clé du serveur,
+     * puis l'abonnement. Chaque réponse dit son réglage.
      */
     rappel: {
       cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),
-      abonner: (abonnement: PushSubscriptionJSON, quoi: SujetDeNotification, activer = false) =>
-        req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'POST', body: JSON.stringify({ abonnement, quoi, ...(activer && { activer }) }) }),
-      desabonner: (endpoint: string, quoi: SujetDeNotification) =>
-        req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'DELETE', body: JSON.stringify({ endpoint, quoi }) }),
+      abonner: (abonnement: PushSubscriptionJSON, activer = false) =>
+        req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'POST', body: JSON.stringify({ abonnement, ...(activer && { activer }) }) }),
+      desabonner: (endpoint: string) => req<ReglagesDesNotifications>('/api/jour/rappel', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
     },
   },
   space: {

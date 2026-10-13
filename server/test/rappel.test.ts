@@ -1,6 +1,8 @@
 // Le rappel du soir du quiz du jour : une notification, une seule par
 // téléphone et par jour, vers 18 h à Paris, à ceux qui l'ont demandée dans
 // l'application installée et n'ont pas fini leur partie (`core/rappels.ts`).
+// C'est la seule : ni un défi ni un duel ne font plus sonner un téléphone
+// (le souhait du propriétaire du 13 octobre 2026).
 //
 // Le protocole (`core/pousser.ts`) se prouve sur l'exemple de la RFC 8291,
 // octet pour octet, et sur sa signature VAPID ; la tournée, sur un vrai
@@ -12,11 +14,11 @@ import assert from 'node:assert/strict'
 import { createServer, type IncomingHttpHeaders } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { createDecipheriv, createECDH, createPublicKey, hkdfSync, randomBytes, verify, type ECDH } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import Database from 'better-sqlite3'
 import React from 'react'
-import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
+import { baseDEssai, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { ProfileStore } from '../src/auth/profiles'
 import { chiffrer, enteteVapid, lireAbonnement, nouvellesCles } from '../src/core/pousser'
@@ -351,74 +353,97 @@ test('s’abonner demande un profil et un service connu ; on le coupe, et cinq t
     await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnement('http://127.0.0.1:9/push/8') }, lea)
     assert.deepEqual(abonnes(banc), ['3', '5', '6', '7', '8'])
 
-    // Couper : celui-là, et seulement s'il est à soi — une cloche à la fois :
-    // le soir coupé, il reste abonné aux défis qu'elle a allumés ; les deux, il s'efface.
-    const defis = await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnement('http://127.0.0.1:9/push/3'), quoi: 'defis', activer: true }, lea)
-    assert.deepEqual(await defis.json(), { ok: true, soir: true, defis: true })
+    // Couper : celui-là, et seulement s'il est à soi — il s'efface.
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob')
-    await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3', quoi: 'defis' }, bob, 'DELETE')
     await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3' }, bob, 'DELETE')
     assert.deepEqual(abonnes(banc), ['3', '5', '6', '7', '8'], 'Bob ne coupe pas le téléphone de Léa')
-    const soir = await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3' }, lea, 'DELETE')
-    assert.equal(soir.status, 200)
-    assert.deepEqual(await soir.json(), { ok: true, soir: false, defis: true }, 'sans `quoi`, une page d’avant : le rappel du soir')
-    assert.deepEqual(abonnes(banc), ['3', '5', '6', '7', '8'], 'abonné encore, pour les défis')
-    assert.deepEqual(await (await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3', quoi: 'defis' }, lea, 'DELETE')).json(), {
-      ok: true,
-      soir: false,
-      defis: false,
-    })
+    const coupe = await ecrire(banc.url, '/api/jour/rappel', { endpoint: 'http://127.0.0.1:9/push/3' }, lea, 'DELETE')
+    assert.equal(coupe.status, 200)
+    assert.deepEqual(await coupe.json(), { ok: true, soir: false })
     assert.deepEqual(abonnes(banc), ['5', '6', '7', '8'])
   } finally {
     await banc.close()
   }
 })
 
-// Le souhait du propriétaire du 11 octobre 2026 : un défi « envoie une notif à
-// la personne pour faire le même ». Le même abonnement, deux cloches : le
-// rappel du soir (la page du jour) et les défis de ses amis (l'onglet du
-// défi), chacune à couper seule.
-test('deux cloches par téléphone : le soir et les défis de ses amis — chacune se coupe seule, et un abonnement d’avant reçoit les défis', async () => {
+/**
+ * Une base d'avant le 13 octobre 2026, quand les duels avaient leur cloche :
+ * sa colonne, allumée pour ces téléphones — et le soir éteint pour ceux-là,
+ * qui n'avaient allumé qu'elle.
+ */
+function desCloches(banc: Banc, defis: readonly Telephone[], sansLeSoir: readonly Telephone[] = []) {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const colonnes = db.prepare('PRAGMA table_info(jour_rappels)').all() as { name: string }[]
+    if (!colonnes.some(c => c.name === 'defis')) db.exec('ALTER TABLE jour_rappels ADD COLUMN defis INTEGER NOT NULL DEFAULT 0')
+    for (const t of defis) db.prepare('UPDATE jour_rappels SET defis = 1 WHERE endpoint = ?').run(t.endpoint)
+    for (const t of sansLeSoir) db.prepare('UPDATE jour_rappels SET soir = 0 WHERE endpoint = ?').run(t.endpoint)
+  } finally {
+    db.close()
+  }
+}
+
+// Le souhait du propriétaire du 13 octobre 2026 : « je ne veux pas que les
+// gens reçoivent trop de notifications, uniquement le quiz du jour ». Les
+// duels ont eu leur cloche du 11 au 13 octobre, sur l'abonnement du soir :
+// partie, une page d'avant qui la touche encore n'y change rien — ni pour les
+// défis, ni pour le soir —, et les bases d'alors gardent le soir de chacun.
+test('une seule cloche, celle du soir : une page d’avant ne rallume pas les défis, et les couper ne coupe pas le soir', async () => {
   const push = await serviceDePush()
-  const horloge = { t: aParis(26, 10) }
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, rappels: { intervalleMs: 20, servicesDePush: url => url.hostname === '127.0.0.1' } })
+  const banc = await demarrer({ rappels: { servicesDePush: url => url.hostname === '127.0.0.1' } })
   try {
     const [lea, bob] = await Promise.all([inscrireProfil(banc.url, 'lea', 'Léa'), inscrireProfil(banc.url, 'bob', 'Bob')])
     const [telLea, telBob, renouvele] = ['lea', 'bob', 'renouvele'].map(nom => push.telephone(nom))
-    const poster = async (cookie: string, corps: object) => (await ecrire(banc.url, '/api/jour/rappel', corps, cookie)).json()
-    // La cloche du soir — ou une page d'avant, sans `quoi` — : le soir seul. Les
-    // défis sont coupés d'office (le souhait du propriétaire du 12 octobre
-    // 2026) : seule leur cloche les allume, le soir gardé.
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea) }), { ok: true, soir: true, defis: false })
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea), quoi: 'defis' }), { ok: true, soir: true, defis: false }, 'rattaché par la page des duels, il ne les allume pas')
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(telLea), quoi: 'defis', activer: true }), { ok: true, soir: true, defis: true })
-    // La cloche des défis, sur un téléphone neuf : les défis seuls, pas de rappel à 18 h.
-    assert.deepEqual(await poster(bob, { abonnement: abonnementDe(telBob), quoi: 'defis', activer: true }), { ok: true, soir: false, defis: true })
-    // Rattaché à chaque visite de la page du jour, il ne rallume pas le soir qu'on avait laissé éteint.
-    assert.deepEqual(await poster(bob, { abonnement: abonnementDe(telBob), quoi: 'soir' }), { ok: true, soir: false, defis: true })
-    horloge.t = aParis(26, 18, 5)
-    assert.deepEqual(await tournee(banc, '2026-09-26'), { jour: '2026-09-26', envoyes: 1, finis: 0, retires: 0, echecs: 0 })
-    assert.deepEqual(push.noms(), ['lea'], 'Bob n’a pas demandé le rappel du soir')
-    // Léa coupe ses défis : le soir reste.
-    const coupe = await ecrire(banc.url, '/api/jour/rappel', { endpoint: telLea.endpoint, quoi: 'defis' }, lea, 'DELETE')
-    assert.deepEqual(await coupe.json(), { ok: true, soir: true, defis: false })
-    // Le service renouvelle l'abonnement de Bob (`pushsubscriptionchange`) : le nouveau garde ses réglages, l'ancien s'efface.
-    assert.deepEqual(await poster(bob, { abonnement: abonnementDe(renouvele), ancien: telBob.endpoint }), { ok: true, soir: false, defis: true })
-    assert.deepEqual(abonnes(banc), ['lea', 'renouvele'])
-    // Un téléphone qu'on se prête : Léa y reprend celui de Bob, sans rien garder de ses réglages — ni ses défis.
-    assert.deepEqual(await poster(lea, { abonnement: abonnementDe(renouvele) }), { ok: true, soir: true, defis: false })
+    const poster = async (cookie: string, corps: object) => {
+      const r = await ecrire(banc.url, '/api/jour/rappel', corps, cookie)
+      return { statut: r.status, corps: (await r.json()) as Record<string, unknown> }
+    }
+    // La cloche du soir : un réglage, le sien — pas un mot des défis.
+    assert.deepEqual((await poster(lea, { abonnement: abonnementDe(telLea), activer: true })).corps, { ok: true, soir: true })
 
-    // Une table d'avant les cloches : abonné pour le soir, il le reste ; les défis attendent leur cloche, coupés d'office.
-    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
-    db.exec('ALTER TABLE jour_rappels DROP COLUMN soir')
-    db.exec('ALTER TABLE jour_rappels DROP COLUMN defis')
-    db.close()
+    // Une page d'avant, ouverte sur les duels, rattache leur cloche : rien ne
+    // change, elle la lit éteinte — et un téléphone inconnu n'y naît pas.
+    assert.deepEqual((await poster(lea, { abonnement: abonnementDe(telLea), quoi: 'defis' })).corps, { ok: true, soir: true })
+    assert.deepEqual((await poster(bob, { abonnement: abonnementDe(telBob), quoi: 'defis' })).corps, { ok: true, soir: false })
+    assert.deepEqual(abonnes(banc), ['lea'])
+    // L'allumer est refusé, et le refus dit où est la seule cloche.
+    const allumer = await poster(bob, { abonnement: abonnementDe(telBob), quoi: 'defis', activer: true })
+    assert.equal(allumer.statut, 400)
+    assert.equal(allumer.corps.error, 'Les duels ne sonnent plus : seul le quiz du jour a son rappel, sur sa page')
+    assert.deepEqual(abonnes(banc), ['lea'])
+    // La couper ne coupe pas le soir : la page d'avant le lit allumé, et le téléphone reste abonné chez son service.
+    const couper = await ecrire(banc.url, '/api/jour/rappel', { endpoint: telLea.endpoint, quoi: 'defis' }, lea, 'DELETE')
+    assert.deepEqual(await couper.json(), { ok: true, soir: true })
+    assert.deepEqual(abonnes(banc), ['lea'])
+
+    // Renouvelé par le service (`pushsubscriptionchange`), il garde son réglage ; l'ancien s'efface.
+    assert.deepEqual((await poster(lea, { abonnement: abonnementDe(renouvele), ancien: telLea.endpoint })).corps, { ok: true, soir: true })
+    assert.deepEqual(abonnes(banc), ['renouvele'])
+    // Un téléphone qu'on se prête : Bob y reprend celui de Léa — le soir de la page qui le rattache.
+    assert.deepEqual((await poster(bob, { abonnement: abonnementDe(renouvele) })).corps, { ok: true, soir: true })
+
+    // Une base des deux cloches : leur colonne reste, que plus rien ne lit. Le
+    // téléphone de Léa n'avait allumé que les défis : rattaché par la page du
+    // jour, il garde son soir éteint (la page l'efface alors, plus bas). Une
+    // ligne neuve s'y écrit comme ailleurs.
+    assert.deepEqual((await poster(lea, { abonnement: abonnementDe(telLea) })).corps, { ok: true, soir: true })
+    desCloches(banc, [telLea], [telLea])
+    await banc.redemarrer()
+    assert.deepEqual((await poster(lea, { abonnement: abonnementDe(telLea) })).corps, { ok: true, soir: false })
+    assert.deepEqual((await poster(bob, { abonnement: abonnementDe(telBob) })).corps, { ok: true, soir: true })
+
+    // Une table d'avant les cloches : abonné pour le soir, il le reste.
+    const avant = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    avant.exec('ALTER TABLE jour_rappels DROP COLUMN soir')
+    avant.exec('ALTER TABLE jour_rappels DROP COLUMN defis')
+    avant.close()
     await banc.redemarrer()
     const lus = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
     try {
-      assert.deepEqual(lus.prepare('SELECT endpoint, soir, defis FROM jour_rappels ORDER BY endpoint').all(), [
-        { endpoint: telLea.endpoint, soir: 1, defis: 0 },
-        { endpoint: renouvele.endpoint, soir: 1, defis: 0 },
+      assert.deepEqual(lus.prepare('SELECT endpoint, soir FROM jour_rappels ORDER BY endpoint').all(), [
+        { endpoint: telBob.endpoint, soir: 1 },
+        { endpoint: telLea.endpoint, soir: 1 },
+        { endpoint: renouvele.endpoint, soir: 1 },
       ])
     } finally {
       lus.close()
@@ -444,130 +469,93 @@ async function jouerLaTentative(banc: Banc, cookie: string, serie: string, juste
   throw new Error('la tentative ne finit pas')
 }
 
-/** Attend que le service de push ait reçu `n` messages : l'envoi d'un défi n'est jamais attendu par la réponse du joueur. */
-async function arrives(push: Awaited<ReturnType<typeof serviceDePush>>, n: number) {
-  const fin = Date.now() + 10_000
-  while (push.recus.length < n && Date.now() < fin) await patienter(20)
-  assert.equal(push.recus.length, n)
+/** L'identifiant d'un profil, lu dans la base. */
+function idDe(banc: Banc, login: string): string {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+  try {
+    return (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
+  } finally {
+    db.close()
+  }
 }
 
-test('un défi parti à un ami fait sonner son téléphone : qui le défie, sur quoi, le score à battre — un masqué n’envoie rien', async () => {
+/** Ce que son accueil dit de ses duels (`DuelsDAccueil`) : là où l'attend ce qui sonnait. */
+async function sesDuels(banc: Banc, cookie: string): Promise<any> {
+  return ((await (await fetch(`${banc.url}/api/joueur/moi?accueil`, { headers: { Cookie: cookie } })).json()) as any).profile.duels
+}
+
+// Le souhait du propriétaire du 13 octobre 2026 : « retire la cloche de
+// notification pour les duels […] on a déjà un visuel quand on arrive sur
+// l'accueil ». Un défi qui part à des amis ne fait plus sonner leur
+// téléphone — pas même celui qui avait allumé la cloche des défis : il les
+// attend dans leurs duels, et leur accueil le dit.
+test('un défi parti à des amis ne fait plus sonner leur téléphone, même la cloche des défis allumée : leur accueil le dit', async () => {
   const push = await serviceDePush()
-  const horloge = { t: aParis(26, 10) }
-  const banc = await demarrer({
-    horlogeDuJour: () => horloge.t,
-    baseDeLaCampagne: BASE_DES_DEFIS,
-    rappels: { servicesDePush: url => url.hostname === '127.0.0.1' },
-  })
+  const banc = await demarrer({ baseDeLaCampagne: BASE_DES_DEFIS, rappels: { servicesDePush: url => url.hostname === '127.0.0.1' } })
   try {
     const [lea, tom, hugo] = await Promise.all([inscrireProfil(banc.url, 'lea', 'Léa'), inscrireProfil(banc.url, 'tom', 'Tom'), inscrireProfil(banc.url, 'hugo', 'Hugo')])
-    const idDe = (login: string) => {
-      const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
-      try {
-        return (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
-      } finally {
-        db.close()
-      }
-    }
-    const [deTom, deHugo] = [idDe('tom'), idDe('hugo')]
-    // Tom et Hugo relèvent un premier défi de Léa : ils sont ses amis.
+    const [deTom, deHugo] = [idDe(banc, 'tom'), idDe(banc, 'hugo')]
+    // Tom avait allumé les deux cloches ; Hugo, celle des défis seule.
+    const [telTom, telHugo] = [push.telephone('tom'), push.telephone('hugo')]
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telTom) }, tom)
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telHugo) }, hugo)
+    desCloches(banc, [telTom, telHugo], [telHugo])
+
+    // Tom et Hugo relèvent un premier défi de Léa : ils sont ses amis. Puis elle leur en lance un.
     const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as any
     await jouerLaTentative(banc, lea, premier.serie.id, 2)
     for (const cookie of [tom, hugo]) await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, cookie)
-    // Tom a la cloche des défis ; Hugo, le soir seulement.
-    const [telTom, telHugo] = [push.telephone('tom'), push.telephone('hugo')]
-    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telTom), quoi: 'defis', activer: true }, tom)
-    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telHugo) }, hugo)
-    await ecrire(banc.url, '/api/jour/rappel', { endpoint: telHugo.endpoint, quoi: 'defis' }, hugo, 'DELETE')
-
-    // Léa lance un défi d'histoire pour eux deux : rien ne sonne tant qu'elle joue.
     const second = (await (await ecrire(banc.url, '/api/campagne/duel', { categories: ['Histoire'], amis: [deTom, deHugo] }, lea)).json()) as any
-    await patienter(100)
-    assert.equal(push.recus.length, 0, 'il part à sa dernière réponse, pas avant')
     const fin = await jouerLaTentative(banc, lea, second.serie.id, 4)
-    assert.deepEqual([...fin.partiA].sort(), ['Hugo', 'Tom'])
-    await arrives(push, 1)
-    const [pourTom] = push.recus
-    assert.equal(pourTom.nom, 'tom', 'Hugo a coupé sa cloche des défis : rien chez lui')
-    assert.equal(pourTom.entetes.topic, `defi-${second.code}`, 'un sujet par défi : resté en attente, il n’arrive qu’une fois')
-    assert.ok(Number(pourTom.entetes.ttl) > 6 * 24 * 3600 && Number(pourTom.entetes.ttl) <= 7 * 24 * 3600, 'gardé jusqu’à sa fermeture')
-    assert.deepEqual(dechiffrer(pourTom.corps, telTom), {
-      titre: 'Léa te défie',
-      corps: 'Histoire · 4 bonnes réponses à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.',
-      url: `/duels#duel-${second.code}`,
-      tag: `defi-${second.code}`,
-    })
-
-    // Renvoyé à la main, il ne sonne pas de nouveau : Tom l'a déjà.
-    assert.deepEqual(await (await ecrire(banc.url, `/api/campagne/duel/${second.code}/envoi`, { amis: [deTom] }, lea)).json(), { envoyes: 1 })
-    await patienter(150)
-    assert.equal(push.recus.length, 1)
-
-    // Masquée par l'administrateur, Léa n'envoie plus rien qui sonne.
-    const admin = await connexionAnimateur(banc.url)
-    const masquer = await ecrire(banc.url, '/api/admin/jour/masquer', { profileId: idDe('lea'), masque: true }, admin)
-    assert.equal(masquer.status, 200)
-    const troisieme = (await (await ecrire(banc.url, '/api/campagne/duel', { amis: [deTom] }, lea)).json()) as any
-    await jouerLaTentative(banc, lea, troisieme.serie.id, 3)
-    await ecrire(banc.url, `/api/campagne/duel/${troisieme.code}/envoi`, { amis: [deTom] }, lea)
-    await patienter(150)
-    assert.equal(push.recus.length, 1, 'un masqué n’est l’ami de personne')
+    assert.deepEqual([...fin.partiA].sort(), ['Hugo', 'Tom'], 'il leur part à sa dernière réponse')
+    // Envoyé encore à la main : il les attend déjà.
+    assert.deepEqual(await (await ecrire(banc.url, `/api/campagne/duel/${second.code}/envoi`, { amis: [deTom, deHugo] }, lea)).json(), { envoyes: 2 })
+    await patienter(300)
+    assert.deepEqual(push.noms(), [], 'aucun téléphone n’a sonné')
+    for (const cookie of [tom, hugo]) assert.deepEqual((await sesDuels(banc, cookie)).defisRecus, { n: 1, de: 'Léa' }, 'son accueil le dit')
   } finally {
     await banc.close()
     await push.fermer()
   }
 })
 
-// Le souhait du propriétaire du 11 octobre 2026 : « une fois le quiz fait de
-// mon côté, ça envoie automatiquement une notification pour faire le défi,
-// pas de lien à partager ». Un duel classé part à qui l'on défie, ami ou
-// non ; joué des deux côtés, le téléphone de qui l'a lancé sonne avec le
-// résultat.
-test('un duel classé sonne chez qui l’on défie, même sans être son ami ; joué, il sonne chez qui l’a lancé, avec le résultat et sa cote', async () => {
+// Un duel classé non plus : ni quand il part à qui l'on défie, ni quand il
+// revient joué à qui l'a lancé — le résultat l'attend sur son accueil. Le
+// rappel du soir, lui, sonne, chez qui l'avait demandé.
+test('un duel classé ne fait plus sonner personne, ni lancé ni joué : l’accueil le dit — et le rappel du soir, lui, sonne', async () => {
   const push = await serviceDePush()
   const horloge = { t: aParis(26, 10) }
   const banc = await demarrer({
     horlogeDuJour: () => horloge.t,
     baseDeLaCampagne: BASE_DES_DEFIS,
-    rappels: { servicesDePush: url => url.hostname === '127.0.0.1' },
+    rappels: { intervalleMs: 20, servicesDePush: url => url.hostname === '127.0.0.1' },
   })
   try {
     const [lea, tom] = await Promise.all([inscrireProfil(banc.url, 'lea', 'Léa'), inscrireProfil(banc.url, 'tom', 'Tom')])
-    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
-    const deTom = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('tom') as { id: string }).id
-    db.close()
+    // Léa avait allumé les deux cloches ; Tom, celle des défis seule.
     const [telLea, telTom] = [push.telephone('lea'), push.telephone('tom')]
-    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telLea), quoi: 'defis', activer: true }, lea)
-    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telTom), quoi: 'defis', activer: true }, tom)
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telLea) }, lea)
+    await ecrire(banc.url, '/api/jour/rappel', { abonnement: abonnementDe(telTom) }, tom)
+    desCloches(banc, [telLea, telTom], [telTom])
 
-    // Léa défie Tom — ils ne sont pas amis — sur l'histoire : rien ne sonne tant qu'elle joue.
-    const duel = (await (await ecrire(banc.url, '/api/campagne/duel', { categories: ['Histoire'], adversaire: deTom }, lea)).json()) as any
-    await patienter(100)
-    assert.equal(push.recus.length, 0)
+    // Léa défie Tom — ils ne sont pas amis — et le joue : il l'attend, sans un bruit.
+    const duel = (await (await ecrire(banc.url, '/api/campagne/duel', { categories: ['Histoire'], adversaire: idDe(banc, 'tom') }, lea)).json()) as any
     await jouerLaTentative(banc, lea, duel.serie.id, 4)
-    await arrives(push, 1)
-    assert.equal(push.recus[0].nom, 'tom')
-    // Son score ne sonne pas : classé, il se dévoile à la dernière réponse de Tom (le souhait du propriétaire du 12 octobre 2026).
-    assert.deepEqual(dechiffrer(push.recus[0].corps, telTom), {
-      titre: 'Léa te défie',
-      corps: 'Histoire · son score se dévoile à ta dernière réponse : une seule tentative, avant qu’il ferme.',
-      url: `/duels#duel-${duel.code}`,
-      tag: `defi-${duel.code}`,
-    })
-
-    // Tom le joue et gagne : le téléphone de Léa sonne, le résultat et sa cote dedans.
+    await patienter(300)
+    assert.deepEqual(push.noms(), [])
+    assert.deepEqual((await sesDuels(banc, tom)).defisRecus, { n: 1, de: 'Léa' })
+    // Tom le joue : le résultat attend Léa sur son accueil, sans un bruit non plus.
     const tentative = (await (await ecrire(banc.url, `/api/campagne/duel/${duel.code}`, {}, tom)).json()) as any
     await jouerLaTentative(banc, tom, tentative.id, 6)
-    await arrives(push, 2)
-    assert.equal(push.recus[1].nom, 'lea')
-    const ecart = ((await (await fetch(`${banc.url}/api/duels`, { headers: { Cookie: lea } })).json()) as any).contre[0].ecart as number
-    assert.ok(ecart < 0)
-    assert.deepEqual(dechiffrer(push.recus[1].corps, telLea), {
-      titre: 'Tom a joué votre duel',
-      corps: `4 à 5, tu perds : ta cote −${-ecart}.`,
-      url: `/duels#duel-${duel.code}`,
-      tag: `duel-${duel.code}`,
-    })
+    await patienter(300)
+    assert.deepEqual(push.noms(), [], 'ni le duel, ni son résultat n’ont sonné')
+    assert.deepEqual((await sesDuels(banc, lea)).resultats, { n: 1, de: 'Tom', code: duel.code })
+
+    // 18 h : le rappel du soir sonne chez Léa, qui l'avait ; Tom n'avait allumé que les défis.
+    horloge.t = aParis(26, 18, 5)
+    assert.deepEqual(await tournee(banc, '2026-09-26'), { jour: '2026-09-26', envoyes: 1, finis: 0, retires: 0, echecs: 0 })
+    assert.deepEqual(push.noms(), ['lea'])
+    assert.equal(dechiffrer(push.recus[0].corps, telLea).url, '/jour')
   } finally {
     await banc.close()
     await push.fermer()
@@ -658,10 +646,13 @@ test('le service worker montre le rappel — une seule notification à la fois �
   assert.deepEqual([deja.ouvertes, deja.focalisees], [[], ['/jour']])
 })
 
-test('un défi a son étiquette, et la page des duels déjà ouverte va droit à lui', async () => {
+// Les défis d'amis sonnaient avec leur étiquette, jusqu'au 13 octobre 2026 :
+// ceux encore en route chez le service de push — gardés une semaine au plus —
+// arrivent après lui, et se montrent comme avant.
+test('un message qui dit son étiquette la garde, et la page déjà ouverte va droit à son adresse', async () => {
   const sw = serviceWorker(['/chez-nadia', '/duels'])
   await sw.declencher('push', { data: { json: () => ({ titre: 'Léa te défie', corps: 'Histoire.', url: '/duels#duel-K7M2QX', tag: 'defi-K7M2QX' }) } })
-  // Le sien : il ne chasse ni le rappel du soir, ni le défi d'un autre ami.
+  // La sienne : il ne chasse ni le rappel du soir, ni le défi d'un autre ami.
   assert.deepEqual(JSON.parse(JSON.stringify(sw.notifications[0].options)), {
     body: 'Histoire.',
     lang: 'fr',
@@ -683,7 +674,7 @@ test('un abonnement renouvelé par le service rejoint le serveur, avec l’en-t�
   assert.equal(init.method, 'POST')
   assert.equal(init.headers['X-Requested-With'], 'quizz', 'sans lui, la protection contre les requêtes forgées le refuserait')
   assert.deepEqual(JSON.parse(init.body), { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/renouvele' } })
-  // L'ancien connu, son adresse part avec : le nouveau en garde les réglages — le soir, les défis.
+  // L'ancien connu, son adresse part avec : le nouveau en garde le réglage.
   const relaye = serviceWorker()
   await relaye.declencher('pushsubscriptionchange', {
     oldSubscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/ancien', options: { applicationServerKey: new Uint8Array([1]) } },
@@ -711,17 +702,18 @@ test('un abonnement renouvelé par le service rejoint le serveur, avec l’en-t�
 /**
  * Un navigateur de téléphone, juste ce que le rappel en lit : l'application
  * installée ou non, la permission, le service de push — et le serveur, qui
- * tient les deux cloches du téléphone (`reglages`) comme le vrai.
+ * tient la ligne du téléphone (`serveur`) comme le vrai.
  */
 function navigateur({
   installee = true,
   permission = 'default',
   refuse = false,
   abonne = false,
+  soirEteint = false,
   horsLigne = false,
-}: { installee?: boolean; permission?: 'default' | 'granted' | 'denied'; refuse?: boolean; abonne?: boolean; horsLigne?: boolean } = {}) {
-  // Abonné d'avant : ses deux cloches allumées.
-  const reglages = { soir: abonne, defis: abonne }
+}: { installee?: boolean; permission?: 'default' | 'granted' | 'denied'; refuse?: boolean; abonne?: boolean; soirEteint?: boolean; horsLigne?: boolean } = {}) {
+  // Abonné d'avant : sa ligne au serveur, le soir allumé — ou éteint, abonné pour la seule cloche des défis d'alors.
+  const serveur = { ligne: abonne, soir: abonne && !soirEteint }
   const journal: string[] = []
   const envois: { methode: string; corps: any }[] = []
   const options: any[] = []
@@ -779,15 +771,13 @@ function navigateur({
       const corps = JSON.parse(String(init.body))
       envois.push({ methode, corps })
       if (etat.horsLigne) return Promise.reject(new TypeError('Failed to fetch'))
-      const quoi: 'soir' | 'defis' = corps.quoi ?? 'soir'
-      // Comme `RappelStore` : un téléphone inconnu prend la cloche de la page, et elle seule ; une cloche coupée seule.
-      if (methode === 'POST' && !reglages.soir && !reglages.defis) Object.assign(reglages, { soir: quoi === 'soir', defis: quoi === 'defis' })
-      if (methode === 'POST' && corps.activer) reglages[quoi] = true
-      if (methode === 'DELETE') reglages[quoi] = false
-      return Promise.resolve(new Response(JSON.stringify({ ok: true, ...reglages })))
+      // Comme `RappelStore` : un téléphone inconnu prend le soir, un connu garde le sien ; coupé, il s'efface.
+      if (methode === 'POST') Object.assign(serveur, { ligne: true, soir: !serveur.ligne || serveur.soir || corps.activer === true })
+      if (methode === 'DELETE') Object.assign(serveur, { ligne: false, soir: false })
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, soir: serveur.soir })))
     },
   }
-  return { globaux, journal, envois, options, etat, reglages }
+  return { globaux, journal, envois, options, etat, serveur }
 }
 
 const CLE = nouvellesCles().publique
@@ -830,10 +820,9 @@ test('la cloche demande la permission au toucher même, puis donne l’abonnemen
   })
   assert.equal(nav.options[0].userVisibleOnly, true)
   assert.deepEqual([...nav.options[0].applicationServerKey], [...Buffer.from(CLE, 'base64url')], 'la clé du serveur, en octets')
-  assert.deepEqual(nav.envois, [
-    { methode: 'POST', corps: { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/neuf', keys: { p256dh: 'x', auth: 'y' } }, quoi: 'soir', activer: true } },
-  ])
-  assert.deepEqual(nav.reglages, { soir: true, defis: false }, 'le rappel du soir n’allume pas les défis')
+  // Une seule cloche : rien ne dit laquelle.
+  assert.deepEqual(nav.envois, [{ methode: 'POST', corps: { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/neuf', keys: { p256dh: 'x', auth: 'y' } }, activer: true } }])
+  assert.deepEqual(nav.serveur, { ligne: true, soir: true })
 
   // Refusée : bloqué, et les réglages du téléphone seuls la rouvrent.
   const refuse = navigateur({ refuse: true })
@@ -846,40 +835,37 @@ test('actif, il se rattache à chaque visite à la session du moment ; coupé, l
   const nav = navigateur({ permission: 'granted', abonne: true })
   await sous(nav, async rappel => {
     assert.equal(await rappel.preparerLeRappel(), 'actif')
-    assert.deepEqual(nav.envois.map(e => [e.methode, e.corps.abonnement?.endpoint, e.corps.quoi, e.corps.activer]), [['POST', 'https://fcm.googleapis.com/fcm/send/deja', 'soir', undefined]])
+    assert.deepEqual(nav.envois, [{ methode: 'POST', corps: { abonnement: { endpoint: 'https://fcm.googleapis.com/fcm/send/deja', keys: { p256dh: 'x', auth: 'y' } } } }])
     assert.equal(await rappel.couperLeRappel(), 'inactif')
   })
-  // La cloche des défis allumée aussi : le service garde l'abonnement, qui sert encore.
-  assert.deepEqual(nav.journal.at(-1), 'DELETE /api/jour/rappel')
-  assert.deepEqual(nav.envois.at(-1), { methode: 'DELETE', corps: { endpoint: 'https://fcm.googleapis.com/fcm/send/deja', quoi: 'soir' } })
-  assert.deepEqual(nav.reglages, { soir: false, defis: true })
-  // Les deux coupées : le serveur l'oublie, puis le service.
-  await sous(nav, async rappel => {
-    assert.equal(await rappel.preparerLeRappel('defis'), 'actif')
-    assert.equal(await rappel.preparerLeRappel('soir'), 'inactif', 'chaque cloche lit la sienne')
-    assert.equal(await rappel.couperLeRappel('defis'), 'inactif')
-  })
   assert.deepEqual(nav.journal.slice(-2), ['DELETE /api/jour/rappel', 'unsubscribe'])
-  assert.deepEqual(nav.envois.at(-1), { methode: 'DELETE', corps: { endpoint: 'https://fcm.googleapis.com/fcm/send/deja', quoi: 'defis' } })
+  assert.deepEqual(nav.envois.at(-1), { methode: 'DELETE', corps: { endpoint: 'https://fcm.googleapis.com/fcm/send/deja' } })
+  assert.deepEqual(nav.serveur, { ligne: false, soir: false })
+  // Sans réseau, la cloche se coupe quand même : le service le dira mort au serveur au prochain envoi.
+  const horsLigne = navigateur({ permission: 'granted', abonne: true })
+  await sous(horsLigne, async rappel => {
+    assert.equal(await rappel.preparerLeRappel(), 'actif')
+    horsLigne.etat.horsLigne = true
+    assert.equal(await rappel.couperLeRappel(), 'inactif')
+  })
+  assert.equal(horsLigne.journal.at(-1), 'unsubscribe')
 })
 
-test('la cloche des défis s’allume seule ; sans réseau, elle ne coupe rien de ce que l’autre tient', async () => {
-  // Un téléphone neuf : la cloche des défis l'abonne, sans le rappel du soir.
-  const neuf = navigateur()
-  await sous(neuf, async rappel => {
-    assert.equal(await rappel.preparerLeRappel('defis'), 'inactif')
-    assert.equal(await rappel.activerLeRappel('defis'), 'actif')
-  })
-  assert.deepEqual(neuf.envois.at(-1)?.corps.quoi, 'defis')
-  assert.deepEqual(neuf.reglages, { soir: false, defis: true })
-  // Le soir allumé, sans réseau : couper les défis ne peut se faire seul — rien ne change, et la page le dit.
-  const deux = navigateur({ permission: 'granted', abonne: true })
-  await sous(deux, async rappel => {
-    assert.equal(await rappel.preparerLeRappel('defis'), 'actif')
-    deux.etat.horsLigne = true
-    await assert.rejects(rappel.couperLeRappel('defis'), /Pas de réseau : la cloche n’a pas pu se couper, réessaie/)
-  })
-  assert.ok(!deux.journal.includes('unsubscribe'), 'l’abonnement sert encore le rappel du soir')
+// Un téléphone abonné du temps de la cloche des défis, pour elle seule (du 11
+// au 13 octobre 2026) : plus rien ne sonne pour lui, mais son abonnement
+// restait chez le service — et une session close l'aurait fait rattacher par
+// la page du jour, le soir allumé, à qui ne l'avait jamais demandé.
+test('abonné pour la seule cloche des défis, partie : la page du jour le dit éteint, et l’efface chez le serveur puis chez son service', async () => {
+  const nav = navigateur({ permission: 'granted', abonne: true, soirEteint: true })
+  await sous(nav, async rappel => assert.equal(await rappel.preparerLeRappel(), 'inactif'))
+  assert.deepEqual(nav.journal.slice(-3), ['POST /api/jour/rappel', 'DELETE /api/jour/rappel', 'unsubscribe'])
+  assert.deepEqual(nav.serveur, { ligne: false, soir: false })
+  // Revenu : plus rien à rattacher.
+  await sous(nav, async rappel => assert.equal(await rappel.preparerLeRappel(), 'inactif'))
+  assert.equal(nav.envois.length, 2, 'rien de plus au serveur')
+  // Sa cloche touchée, il sonne le soir, comme un autre.
+  await sous(nav, async rappel => assert.equal(await rappel.activerLeRappel(), 'actif'))
+  assert.deepEqual(nav.serveur, { ligne: true, soir: true })
 })
 
 /** Le module de la cloche, chargé sous l'adresse de la page du jour : `state.ts` la lit au chargement. */
@@ -928,17 +914,18 @@ test('une petite cloche en haut de la page, à côté de la sortie : un interrup
   assert.match(page, /<div className="jour-barre">\s*<Sortie \/>\s*<span className="jour-barre-fin">[^<]*<SerieDuJour [^\n]*\s*<RappelDuJour \/>\s*<\/span>\s*<\/div>/)
   assert.equal(page.match(/<Sortie \/>/g)?.length, 1, 'la sortie de la page ne vit plus que dans sa barre')
 
-  // La cloche des défis au même endroit, sur la page des duels (le souhait du
-  // propriétaire du 12 octobre 2026) : en haut à droite, au bout de la barre
-  // de la sortie — plus une ligne et sa phrase sous ses amis —, après
-  // « Comment ça marche ? » et ses amis : trois icônes (la maquette A1, du
-  // même jour), et la barre en tête de la page.
+  // La page des duels n'a plus de cloche (le souhait du propriétaire du
+  // 13 octobre 2026 : « uniquement le quiz du jour ») : en haut à droite,
+  // « Comment ça marche ? » et ses amis seulement, la barre en tête de la page.
   const duels = readFileSync(new URL('../../client/src/views/Duels.tsx', import.meta.url), 'utf8')
-  assert.match(duels, /<div className="jour-barre duels-barre-haut">\s*<Sortie \/>\s*<span className="jour-barre-fin">[\s\S]*?<LaClocheDesDefis \/>\s*<\/span>\s*<\/div>/)
+  assert.match(
+    duels,
+    /<div className="jour-barre duels-barre-haut">\s*<Sortie \/>\s*<span className="jour-barre-fin">\s*<button type="button" className="duels-icone" aria-label="Comment ça marche \?"[^]*?<\/button>\s*<button type="button" className="duels-icone" aria-label="Mes amis"[^]*?<\/button>\s*<\/span>\s*<\/div>/,
+  )
   assert.match(duels, /<div className="player-shell campagne duels">\s*<BarreDesDuels onRegles=/)
-  assert.equal(duels.match(/<LaClocheDesDefis \/>/g)?.length, 1)
-  const defis = readFileSync(new URL('../../client/src/components/ClocheDesDefis.tsx', import.meta.url), 'utf8')
-  assert.match(defis, /return <ClocheVue etat=\{etat\} occupe=\{occupe\} onToucher=\{\(\) => void toucher\(\)\} nom="Notification des défis" titre="[^"]+" \/>/)
-  assert.doesNotMatch(defis, /<p |<span className="small"|cloche-des-defis|Installe l’application/, 'rien qu’une cloche, comme celle du soir')
-  assert.match(defis, /if \(!rappelPossible\(\)\) return/, 'dans l’application installée seulement')
+  for (const vue of ['views/Duels.tsx', 'views/Duel.tsx', 'views/LancerUnDefi.tsx', 'views/CampagneApp.tsx']) {
+    const source = readFileSync(new URL(`../../client/src/${vue}`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /Cloche|RappelDuJour|from '\.\.\/rappel'|t[ée]l[ée]phone sonne/, `${vue} : rien qui sonne`)
+  }
+  assert.equal(existsSync(new URL('../../client/src/components/ClocheDesDefis.tsx', import.meta.url)), false)
 })

@@ -8,8 +8,8 @@
 // pouvait défier personne en particulier.
 //
 // Un duel classé entre deux vrais joueurs : celui qui défie joue d'abord ; à
-// sa dernière réponse, l'autre le reçoit — dans ses duels, à l'accueil, et
-// son téléphone sonne (`rappel.test.ts`). Joué des deux côtés, chacun bouge
+// sa dernière réponse, l'autre le reçoit — dans ses duels, à l'accueil ; son
+// téléphone ne sonne plus depuis le 13 octobre 2026 (`rappel.test.ts`). Joué des deux côtés, chacun bouge
 // contre la cote de l'autre, figée au lancement. Un troisième ne le voit
 // pas ; un seul duel ouvert par paire ; un ami retiré ne le reçoit pas, sans
 // que l'autre l'apprenne ; fermé, un duel commencé des deux côtés compte sur

@@ -1,8 +1,7 @@
-// Les notifications, côté téléphone (`server/src/core/rappels.ts`) — le
-// rappel du soir, les défis de ses amis, chacun sa cloche (`quoi`) : s'y
-// abonner, les couper, et rattacher le téléphone à chaque visite à la session
-// du moment. Un seul abonnement chez le service de push pour les deux : il
-// ne se défait que les deux cloches coupées.
+// Le rappel du soir, côté téléphone (`server/src/core/rappels.ts`) : s'y
+// abonner, le couper, et rattacher le téléphone à chaque visite à la session
+// du moment. C'est la seule notification : les duels ont eu leur cloche,
+// partie le 13 octobre 2026 — l'accueil dit ce qui attend.
 //
 // Seulement dans l'application installée : un onglet du navigateur ne le
 // propose pas. C'est ce qu'on attend d'une application, pas d'un site — et
@@ -16,7 +15,6 @@
 
 import { api, ApiError } from './api'
 import { estInstallee } from './installation'
-import type { ReglagesDesNotifications, SujetDeNotification } from '../../shared/jour'
 
 /** Actif : ce téléphone sonnera. Bloqué : les notifications sont refusées, seuls les réglages du téléphone les rouvrent. */
 export type EtatDuRappel = 'actif' | 'inactif' | 'bloque'
@@ -39,12 +37,6 @@ interface Pret {
 /** Une fois prêts, gardés tels quels : le toucher s'en sert sans rien attendre. */
 let pret: Pret | null = null
 let enPreparation: Promise<Pret> | null = null
-
-/** Les réglages de ce téléphone, tels que le serveur les a dits la dernière fois : l'autre cloche garde l'abonnement. */
-let connus: ReglagesDesNotifications | null = null
-
-/** L'autre cloche que celle-ci est-elle allumée ? Alors l'abonnement du service reste : il sert encore. */
-const lAutreSonne = (quoi: SujetDeNotification) => !!connus && (quoi === 'soir' ? connus.defis : connus.soir)
 
 function preparer(): Promise<Pret> {
   if (pret) return Promise.resolve(pret)
@@ -79,12 +71,11 @@ function memeCle(abonnement: PushSubscription, cle: Uint8Array): boolean {
 const permission = (): NotificationPermission => Notification.permission
 
 /**
- * Où en est la cloche `quoi` de ce téléphone. Abonné, il se rattache à la
- * session du moment : celle d'avant a pu se fermer — un mot de passe changé,
- * une reconnexion —, et le serveur ne prévient qu'un téléphone resté
- * connecté.
+ * Où en est le rappel de ce téléphone. Abonné, il se rattache à la session du
+ * moment : celle d'avant a pu se fermer — un mot de passe changé, une
+ * reconnexion —, et le serveur ne prévient qu'un téléphone resté connecté.
  */
-export async function preparerLeRappel(quoi: SujetDeNotification = 'soir'): Promise<EtatDuRappel> {
+export async function preparerLeRappel(): Promise<EtatDuRappel> {
   if (permission() === 'denied') return 'bloque'
   const { enregistrement, cle } = await preparer()
   let abonnement = await enregistrement.pushManager.getSubscription()
@@ -94,10 +85,14 @@ export async function preparerLeRappel(quoi: SujetDeNotification = 'soir'): Prom
   }
   if (!abonnement || permission() !== 'granted') return 'inactif'
   // Sans réseau, il reste actif : il se rattachera à la prochaine visite.
-  const lus = await api.jour.rappel.abonner(abonnement.toJSON(), quoi).catch(() => null)
-  if (!lus) return 'actif'
-  connus = lus
-  return lus[quoi] ? 'actif' : 'inactif'
+  const lus = await api.jour.rappel.abonner(abonnement.toJSON()).catch(() => null)
+  if (!lus || lus.soir) return 'actif'
+  // Abonné, le soir éteint : il ne l'était que pour la cloche des défis,
+  // partie, et plus rien ne sonne pour lui. Le serveur l'oublie, puis le
+  // service — gardé, sa session close l'aurait fait rattacher par cette page
+  // même, le soir allumé, à qui ne l'avait jamais demandé.
+  await couperLeRappel().catch(() => {})
+  return 'inactif'
 }
 
 /**
@@ -105,7 +100,7 @@ export async function preparerLeRappel(quoi: SujetDeNotification = 'soir'): Prom
  * du navigateur — demandés sans rien attendre, au toucher même —, puis le
  * serveur.
  */
-export async function activerLeRappel(quoi: SujetDeNotification = 'soir'): Promise<EtatDuRappel> {
+export async function activerLeRappel(): Promise<EtatDuRappel> {
   const { enregistrement, cle } = pret ?? (await preparer())
   let abonnement: PushSubscription
   try {
@@ -118,30 +113,25 @@ export async function activerLeRappel(quoi: SujetDeNotification = 'soir'): Promi
     throw new ApiError('Ce téléphone n’a pas pu s’abonner : réessaie dans un instant')
   }
   try {
-    connus = await api.jour.rappel.abonner(abonnement.toJSON(), quoi, true)
+    await api.jour.rappel.abonner(abonnement.toJSON(), true)
   } catch (e) {
-    // Le serveur ne l'a pas : le téléphone non plus, pour que l'écran dise
-    // vrai — sauf s'il sert déjà l'autre cloche.
-    if (!lAutreSonne(quoi)) await abonnement.unsubscribe().catch(() => false)
+    // Le serveur ne l'a pas : le téléphone non plus, pour que l'écran dise vrai.
+    await abonnement.unsubscribe().catch(() => false)
     throw e
   }
   return 'actif'
 }
 
 /**
- * La cloche touchée une seconde fois : le serveur l'oublie, puis — l'autre
- * cloche coupée aussi — le service de push. Sans réseau, le service le dira
- * mort au serveur au prochain envoi ; mais l'autre cloche allumée, on ne peut
- * couper celle-ci seule : rien ne change, et la page le dit.
+ * La cloche touchée une seconde fois : le serveur l'oublie, puis le service
+ * de push. Sans réseau, le service le dira mort au serveur au prochain envoi.
  */
-export async function couperLeRappel(quoi: SujetDeNotification = 'soir'): Promise<EtatDuRappel> {
+export async function couperLeRappel(): Promise<EtatDuRappel> {
   const { enregistrement } = pret ?? (await preparer())
   const abonnement = await enregistrement.pushManager.getSubscription()
   if (abonnement) {
-    const lus = await api.jour.rappel.desabonner(abonnement.endpoint, quoi).catch(() => null)
-    if (!lus && lAutreSonne(quoi)) throw new ApiError('Pas de réseau : la cloche n’a pas pu se couper, réessaie')
-    if (lus) connus = lus
-    if (!lus || (!lus.soir && !lus.defis)) await abonnement.unsubscribe()
+    await api.jour.rappel.desabonner(abonnement.endpoint).catch(() => null)
+    await abonnement.unsubscribe()
   }
   return 'inactif'
 }

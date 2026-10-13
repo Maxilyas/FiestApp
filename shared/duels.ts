@@ -518,8 +518,6 @@ export interface EtatDesDuels {
   dernieres: ResumeDeRencontre[]
   /** Ses duels contre quelqu'un : ceux qui attendent, puis les derniers joués (absent d'un serveur d'avant). */
   contre?: DuelContre[]
-  /** Un adversaire au hasard est-il là, tout de suite ? Sans série finie d'un autre, le bouton ne paraît pas (absent d'un serveur d'avant). */
-  auHasard?: boolean
 }
 
 /**

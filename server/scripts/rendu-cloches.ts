@@ -1,10 +1,11 @@
-// Les deux cloches des notifications, photographiées au téléphone (360 × 640)
-// sur un serveur jetable, comme dans l'application installée — elles ne
-// paraissent qu'elle : celle du soir, en haut à droite de la page du jour, et
-// celle des défis, au même endroit de la page des duels, coupée d'office.
-// Chromium sans écran refuse les notifications : la permission se dit vierge
-// ici, comme sur un téléphone qui n'a encore rien demandé. Le client
-// construit d'abord (`npm run build -w client`).
+// La cloche des notifications, photographiée au téléphone (360 × 640) sur un
+// serveur jetable, comme dans l'application installée — elle ne paraît
+// qu'elle : celle du soir, en haut à droite de la page du jour. Puis la page
+// des duels, au même endroit, qui n'en a plus depuis le 13 octobre 2026 —
+// « Comment ça marche ? » et ses amis seulement. Chromium sans écran refuse
+// les notifications : la permission se dit vierge ici, comme sur un téléphone
+// qui n'a encore rien demandé. Le client construit d'abord
+// (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-cloches.ts [dossier]
 import { createRequire } from 'node:module'
@@ -49,8 +50,11 @@ try {
   await photo('1-jour')
 
   await page.goto(`${banc.url}/duels`)
-  await page.waitForSelector('.duels .jour-barre .cloche-du-rappel')
-  console.log('cloche des défis :', await page.$eval('.duels .jour-barre .cloche-du-rappel', (b: any) => `${b.getAttribute('aria-label')} · aria-pressed=${b.getAttribute('aria-pressed')}`))
+  await page.waitForSelector('.duels .duels-barre-haut .duels-icone')
+  // Le temps que la page ait tout rendu : une cloche venue à la demande arriverait après les icônes.
+  await page.waitForTimeout(600)
+  const enHaut = await page.$$eval('.duels .duels-barre-haut .jour-barre-fin > *', (l: any[]) => l.map(b => b.getAttribute('aria-label')))
+  console.log('en haut des duels :', enHaut.join(' · '), '— cloches :', await page.locator('.duels .cloche-du-rappel').count())
   await photo('2-duels')
 } finally {
   await navigateur.close()
