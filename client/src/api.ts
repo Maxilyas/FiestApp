@@ -28,12 +28,14 @@ import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EquipePreparee } from '../../shared/teams'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FicheDuJoueur, FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
+import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
+import type { PageDuServeur } from '../../shared/santeDuServeur'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -359,6 +361,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ theme, porter }),
       }),
+    /** Acheter un compagnon, à sa première forme — le porter aussitôt, ou le garder pour plus tard —, comme un thème. */
+    acheterCompagnon: (compagnon: string, porter = true) =>
+      req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/compagnons', {
+        method: 'POST',
+        body: JSON.stringify({ compagnon, porter }),
+      }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête
@@ -526,6 +534,27 @@ export const api = {
   },
   /** Réservé à l'administrateur : les comptes des autres animateurs. */
   admin: {
+    /** Le QG, ce qui se passe en ce moment : lu en mémoire, la page le redemande toutes les dix secondes. */
+    qgDirect: () => req<DirectDuQg>('/api/admin/qg/direct'),
+    /** Le QG, la vue d'ensemble : trente jours lus dans la base permanente, redemandés toutes les cinq minutes. */
+    qg: () => req<VueDEnsemble>('/api/admin/qg'),
+    /** Le journal des gestes, une page à la fois : par sorte, à partir du curseur de la page d'avant. */
+    gestes: ({ sorte, cible, suite }: { sorte?: SorteDeGeste | null; cible?: string | null; suite?: string | null } = {}) => {
+      const q = new URLSearchParams()
+      if (sorte) q.set('sorte', sorte)
+      if (cible) q.set('cible', cible)
+      if (suite) q.set('suite', suite)
+      // Pas `q.size` : un Safari d'avant 17 ne l'a pas, et le filtre se perdait.
+      const s = q.toString()
+      return req<JournalDuQg>(`/api/admin/gestes${s ? `?${s}` : ''}`)
+    },
+    /** Le bilan des soirées : trente jours en chiffres, quand on joue, la taille des salles, l'historique du mois. */
+    soirees: () => req<PageDesSoirees>('/api/admin/soirees'),
+    /** La santé du serveur sur sept jours : les temps de réponse, les réveils et les arrêts, les erreurs. */
+    serveur: () => req<PageDuServeur>('/api/admin/serveur'),
+    /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */
+    cloreLaSoiree: (spaceId: string) =>
+      req<{ close: true; rangee: boolean }>(`/api/admin/soirees/${encodeURIComponent(spaceId)}/clore`, { method: 'POST' }),
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */
@@ -550,6 +579,23 @@ export const api = {
     /** Supprime un profil et ce qui n'était qu'à lui ; l'espace qu'il tenait reste, détaché. */
     supprimerProfil: (id: string) =>
       req<{ ok: true; salon: 'detache' | null }>(`/api/admin/profils/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** La fiche d'un joueur : où il en est dans chaque mode, ses confettis, sa connexion, l'épreuve qui l'attend. */
+    fiche: (id: string) => req<FicheDuJoueur>(`/api/admin/profils/${encodeURIComponent(id)}`),
+    /** Les gestes de la fiche d'un joueur, chacun noté au journal. */
+    offrirDesConfettis: (id: string, confettis: number, mot: string) =>
+      req<{ ok: true; confettis: number; mot: string | null }>(`/api/admin/profils/${encodeURIComponent(id)}/confettis`, {
+        method: 'POST',
+        body: JSON.stringify({ confettis, mot }),
+      }),
+    codeDeSecours: (id: string) =>
+      req<{ code: string; login: string }>(`/api/admin/profils/${encodeURIComponent(id)}/secours`, { method: 'POST', body: '{}' }),
+    renommer: (id: string, nom: string) =>
+      req<{ ok: true; nom: string }>(`/api/admin/profils/${encodeURIComponent(id)}/prenom`, { method: 'POST', body: JSON.stringify({ nom }) }),
+    suspendre: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/suspendre`, { method: 'POST', body: '{}' }),
+    reactiver: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/reactiver`, { method: 'POST', body: '{}' }),
+    rouvrirLaConnexion: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/connexion`, { method: 'POST', body: '{}' }),
+    libererLEpreuve: (id: string) =>
+      req<{ ok: true; sentier: string; palier: number }>(`/api/admin/profils/${encodeURIComponent(id)}/epreuve`, { method: 'POST', body: '{}' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */
@@ -636,7 +682,15 @@ export interface CorrectionDuJour {
     choix: number | null
     juste: boolean
     points: number
+    /** En combien de temps sa réponse est partie — null sans réponse à temps. */
+    ms: number | null
+    /** Le chrono de la question, en secondes. */
+    duree: number
+    /** Ce que la rapidité a payé d'une bonne réponse : le reste de ses points est celui de la bonne réponse. */
+    rapidite: number | null
     repondue: boolean
+    /** Sa réponse est arrivée après l'échéance : elle n'a pas compté. */
+    tropTard?: boolean
     annulee?: boolean
   }[]
 }

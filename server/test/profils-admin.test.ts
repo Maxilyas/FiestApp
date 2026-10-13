@@ -88,7 +88,7 @@ test('l’administrateur cherche les profils : son niveau, ses soirées, son sal
     const par = (login: string) => tout.profils.find((p: any) => p.login === login)
     assert.deepEqual(
       { ...par('lea'), id: undefined, vuLe: undefined },
-      { id: undefined, login: 'lea', nom: 'Léa', avatar: '🦊', niveau: 1, soirees: 0, vuLe: undefined, salon: null, toi: false },
+      { id: undefined, login: 'lea', nom: 'Léa', avatar: '🦊', niveau: 1, soirees: 0, vuLe: undefined, salon: null, toi: false, suspendu: false },
     )
     assert.deepEqual([par('bob').salon.propre, par('bob').salon.quiz, /^s-/.test(par('bob').salon.slug)], [true, 0, true], 'le salon de Bob, à lui')
     assert.deepEqual([par('antoine-joue').toi, par('antoine-joue').salon.propre], [true, false], 'l’espace de l’administrateur n’est pas un salon de profil')

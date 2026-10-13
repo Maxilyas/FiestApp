@@ -17,6 +17,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
 import { LIEU_DES_TROPHEES, compteDeLaCollection, comptesDesTrophees, listesDesTrophees } from '../../shared/collection'
+import { avatarDeLAlbum } from '../../shared/album'
+import { DIVINS } from '../../shared/divins'
+import { LEGENDAIRES } from '../../shared/legendaires'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES } from '../../shared/themes'
 import { GERBES } from '../../shared/gerbes'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
@@ -98,8 +101,10 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
   const { familles, total } = compteDeLaCollection(LEA as any)
   const lignes = familles.map(f => [f.famille, `${f.acquis}/${f.total}`, f.parties.map(p => `${p.partie} ${p.acquis}/${p.total}`)])
   assert.deepEqual(lignes, [
-    // Deux portraits, le Phénix et le Séraphin, les cinq emojis de collection du niveau 8.
-    ['avatars', '9/116', ['savoir 2/72', 'legendaires 2/32', 'emojis 5/12']],
+    // Deux portraits, le Phénix et le Séraphin, les cinq emojis de collection
+    // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle —
+    // les douze formes des compagnons comprises.
+    ['avatars', '9/128', ['avatars 9/128']],
     ['style', '9/59', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7']],
     // Les lignes des trophées, comptées comme elles se montrent, rangées par
     // où elles se gagnent : le quiz du jour avec les pages de son calendrier,
@@ -122,7 +127,7 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
       ],
     ],
   ])
-  assert.deepEqual(total, { acquis: 26, total: 199 })
+  assert.deepEqual(total, { acquis: 26, total: 211 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
@@ -175,14 +180,14 @@ test('les trophées se rangent par où ils se gagnent : en soirée, au quiz du j
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>26<\/b> sur 199<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>26<\/b> sur 211<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 116', 'Style 9 sur 59', 'Trophées 8 sur 24'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Style 9 sur 59', 'Trophées 8 sur 24'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
-    'Le savoir',
-    'Légendaires et Divins',
-    'Emojis de collection',
+    // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
+    // rendaient les gens « confus » : un album, une page par rareté.
+    'L’album des avatars',
     'Thèmes',
     'Fonds de carte',
     'Gerbes',
@@ -201,9 +206,9 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.equal(html.match(/aria-expanded="true"/g), null, 'tout replié à l’ouverture')
   // On n'y règle rien : on y regarde. Les avatars s'y parcourent sans « Le porter ».
   const page = source('client/src/components/Collection.tsx')
-  assert.match(page, /<AtlasDesAvatars profil=\{profil\} onglet="savoir" \/>/)
-  assert.match(page, /<AtlasDesAvatars profil=\{profil\} onglet="legendaires" \/>/)
+  assert.match(page, /<AlbumDesAvatars profil=\{profil\} page=\{page\} onPage=\{choisirLaPage\} \/>/)
   assert.doesNotMatch(page, /enregistrer|busy/)
+  assert.doesNotMatch(source('client/src/components/AlbumDesAvatars.tsx'), /enregistrer|onPorter|onEclat|aria-pressed/)
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
 })
 
@@ -282,9 +287,7 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   assert.match(source('client/src/styles.css'), /html:has\(> body\.avec-menu\) \{ scroll-padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom\)\); \}/)
   // Chaque autre ligne dit où se porte ce qu'on a.
   for (const [partie, ecran] of [
-    ['savoir', 'avatar'],
-    ['legendaires', 'avatar'],
-    ['emojis', 'avatar'],
+    ['avatars', 'avatar'],
     ['fonds', 'fond'],
     ['gerbes', 'gerbe'],
     ['finitions', 'avatar'],
@@ -302,18 +305,155 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   lieu.hash = ''
 })
 
-test('une fiche de la collection ne porte rien : sans `onPorter`, ni bouton ni « Il remplacera »', async () => {
-  const communs = { busy: false, porte: 'lg:phenix' }
-  const legendaire = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', debloques: ['lg:dragon'], eclats: [], hautsFaits: [] })
-  assert.doesNotMatch(legendaire, /<button|Il remplacera/)
-  assert.match(legendaire, /<b class="galerie-detail-nom">Le Dragon d’Or<\/b>/)
-  const divin = await rendu('components/Carriere', 'DetailDivin', { ...communs, cle: 'dv:seraphin', descendus: LEA.divins })
-  assert.doesNotMatch(divin, /<button|Il remplacera/)
-  const portrait = await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', paliers: { foret: 5 }, eclat: false })
-  assert.doesNotMatch(portrait, /<button|Il remplacera/)
-  assert.match(portrait, /Gagné au palier 4/)
-  // Avec, comme dans « Mon avatar » : on porte d'ici.
-  assert.match(await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', paliers: { foret: 5 }, eclat: false, onPorter: () => {} }), />Le porter</)
+// La maquette 1, choisie le 13 octobre 2026 : un album, une page par rareté.
+test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur, le reste en silhouette — et où le gagner', async () => {
+  const album = (page: string) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: LEA, page, onPage: () => {} })
+  const html = await album('legendaire')
+  // Six gemmes, une par page — les onglets de l'application : un seul arrêt de Tab, le panneau de la choisie seulement.
+  const gemmes = [...html.matchAll(/<button id="gemme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''} ${m[3]}`)
+  assert.deepEqual(gemmes, [
+    'commune Commune, 6 sur 21',
+    'peucommune Peu commune, 1 sur 18',
+    'rare Rare, 0 sur 27',
+    'epique Épique, 0 sur 15',
+    'legendaire* Légendaire, 1 sur 41',
+    'divin Divin, 1 sur 6',
+  ])
+  assert.match(html, /<div class="gemmes gemmes-album" role="tablist" aria-label="Les raretés">/)
+  assert.equal(html.match(/tabindex="0"/g)?.length, 1)
+  assert.equal(html.match(/aria-controls="album-page"/g)?.length, 1)
+  assert.match(html, /<div class="album-avatars" role="tabpanel" id="album-page" aria-labelledby="gemme-legendaire"/)
+  // Ce que range la page, compté.
+  assert.match(html, /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 41\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier et celle de chaque compagnon\.<\/p>/)
+  // Quarante et une cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
+  // formes ultimes des sentiers et des compagnons —, chacun dit où il se gagne.
+  const cases = [...html.matchAll(/<button type="button" class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ classes: m[1], nom: m[2] }))
+  assert.equal(cases.length, LEGENDAIRES.length + 12 + 3)
+  assert.deepEqual(cases[0], { classes: '', nom: 'Le Phénix, légendaire, porté' })
+  assert.equal(html.match(/class="album-coche"/g)?.length, 1)
+  assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))
+  for (const nom of [
+    'La Licorne Astrale, légendaire, à gagner en soirée ou au quiz du jour',
+    'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne',
+    'La Citrouille, légendaire, à gagner pour Halloween',
+    'L’Éléphant, légendaire, à gagner en campagne',
+    'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses en le portant',
+  ])
+    assert.ok(cases.some(c => c.nom === nom), nom)
+  // Une pastille sur chaque case qui reste, et leur légende sous la grille.
+  assert.equal(html.match(/class="album-lieu"/g)?.length, cases.length - 1)
+  const legende = [...html.slice(html.indexOf('album-legende')).matchAll(/<\/svg>([^<]+)<\/span>/g)].map(m => m[1])
+  assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers', 'en boutique'])
+  // Aucune fiche avant le premier toucher ; rien ne s'y porte.
+  assert.doesNotMatch(html, /id="fiche-avatar"|Le porter|aria-pressed/)
+
+  // La page commune : les emojis qu'elle a, en couleur ; les autres en silhouette, leur niveau sur l'anneau.
+  const commune = await album('commune')
+  assert.match(commune, /aria-label="Avatar 🐝, commune, à toi"/)
+  assert.match(commune, /aria-label="Avatar 🦩, commune, à gagner au niveau 9"><span class="album-medaillon" aria-hidden="true"><span class="silhouette">🦩<\/span><\/span><span class="case-niveau" aria-hidden="true">niv\. 9<\/span>/)
+  assert.match(commune, /aria-label="L’écureuil, commune, à toi"/)
+  assert.match(commune, /aria-label="Le kangourou, commune, à gagner sur les sentiers"/)
+
+  // Les Divins : le sien, et cinq voiles qui ne disent rien d'eux — ni nom, ni lieu (invariant 21).
+  const divins = await album('divin')
+  const voiles = [...divins.matchAll(/class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => m[2])
+  assert.deepEqual(voiles, ['Le Séraphin, divin, à toi', ...Array(5).fill('Un Divin, inconnu')])
+  for (const d of DIVINS.filter(d => d.key !== 'dv:seraphin')) assert.ok(!divins.includes(d.nom), d.nom)
+  assert.doesNotMatch(divins, /album-lieu|album-legende/)
+  assert.match(divins, /Ils ne disent pas comment\./)
+
+  // La fiche suit sa rangée, de toute la largeur ; la grille finit la rangée avec les cases d'après.
+  const CSS = source('client/src/styles.css')
+  assert.match(CSS, /\.album-avatars \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);[^}]*grid-auto-flow: dense;/)
+  assert.match(CSS, /\.fiche-case \{ grid-column: 1 \/ -1; \}/)
+  assert.match(source('client/src/components/AlbumDesAvatars.tsx'), /<\/button>\s*\{ouvert === a\.cle && \(\s*<div id="fiche-avatar" className="fiche-case album-fiche" ref=\{detail\}>/)
+})
+
+test('l’album a ses pages à son adresse — et les lignes d’avant y mènent, sur la page de leur prochain avatar', async () => {
+  const choisie = async (hash: string) => {
+    lieu.hash = hash
+    const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
+    lieu.hash = ''
+    assert.match(html, /<li id="collection-avatars" class="trophee trophee-ouvert"/, hash)
+    return /<button id="gemme-(\w+)" type="button" role="tab" aria-selected="true"/.exec(html)?.[1]
+  }
+  // Ouverte sans page : celle de ce qu'elle porte, le Phénix.
+  assert.equal(await choisie('#collection-avatars'), 'legendaire')
+  assert.equal(await choisie('#collection-avatars-rare'), 'rare')
+  // « 24 légendaires à gagner : où ? », les sentiers, les emojis : un lien d'avant, un favori.
+  assert.equal(await choisie('#collection-legendaires'), 'legendaire')
+  assert.equal(await choisie('#collection-savoir'), 'commune')
+  assert.equal(await choisie('#collection-emojis'), 'commune')
+  // La page choisie s'écrit dans l'adresse, sans entrée de plus : revenu du sentier qu'une fiche a ouvert, on la retrouve.
+  assert.match(source('client/src/components/Collection.tsx'), /const choisirLaPage = \(r: RareteDAvatar\) => \{\s*ecrire\(`-avatars-\$\{r\}`\)/)
+  assert.match(source('client/src/components/Collection.tsx'), /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{ADRESSE\}\$\{suite\}`\)/)
+})
+
+// La fiche de la maquette : comment l'obtenir, voie par voie, où il en est, et le chemin de l'écran où le gagner.
+test('la fiche d’un avatar à gagner : ses voies — « ou » entre elles, « et » dans une voie —, où il en est, et où aller', async () => {
+  const fiche = (cle: string, profil: object = LEA) => rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle), aLui: false, porte: false, profil, dessin: null })
+  const etapes = (html: string) => [...html.matchAll(/<span class="album-etape-texte"><b>([^<]+)<\/b>(?:<span class="muted small">([^<]+)<\/span>)?(?:<span class="album-progres">.*?<span>([^<]+)<\/span><\/span>)?<\/span>/g)].map(m => [m[1], m[3] ?? null])
+  const licorne = await fiche('lg:licorne', { ...LEA, hautsFaits: [...LEA.hautsFaits, vu('hf:seul-contre-tous', 1)] })
+  assert.match(licorne, /<b class="galerie-detail-nom">La Licorne Astrale<\/b><span class="album-detail-rarete"><i aria-hidden="true"><\/i>Légendaire<\/span>/)
+  assert.match(licorne, /<p class="serif-note">« Seul contre tous, et trois fois raison\. »<\/p>/)
+  assert.match(licorne, /<span class="label album-etiquette">Comment l’obtenir<\/span>/)
+  assert.deepEqual(etapes(licorne), [
+    ['En soirée : 3 fois « Seul contre tous »', '1 sur 3'],
+    ['Au quiz du jour : 3 fois « Seul au monde »', '0 sur 3'],
+  ])
+  assert.equal(licorne.match(/<span class="album-ou">ou<\/span>/g)?.length, 1)
+  assert.match(licorne, /<a class="btn btn-small album-aller" href="\/jour">Jouer le quiz du jour<\/a>/)
+  // La Chimère : une voie, trois étapes à la fois.
+  const chimere = await fiche('lg:chimere')
+  assert.equal(chimere.match(/<span class="album-et">et<\/span>/g)?.length, 2)
+  assert.doesNotMatch(chimere, /album-ou/)
+  // Un légendaire des soirées seulement : pas d'écran où aller, on rejoint une soirée par son code.
+  assert.doesNotMatch(await fiche('lg:oracle'), /album-aller/)
+  // Un légendaire de saison non plus : ses dates seules, sans jauge — le quiz du jour ne compte que pendant elles.
+  const citrouille = await fiche('lg:citrouille')
+  assert.match(citrouille, /Pour Halloween, du 25 octobre au 1er novembre/)
+  assert.doesNotMatch(citrouille, /album-aller|album-progres/)
+  // Un portrait : le palier de son sentier, et le chemin du sentier.
+  const lynx = await fiche('br:lynx')
+  assert.deepEqual(etapes(lynx), [['Sur les sentiers : le palier 6 du sentier de la forêt', 'palier 5 sur 6']])
+  assert.match(lynx, /<a class="btn btn-small album-aller" href="\/campagne#sentier-foret">Aller au sentier<\/a>/)
+  // Un emoji : son niveau, rien où aller — il vient de tout ce qu'on joue.
+  const baleine = await fiche('🐳')
+  assert.deepEqual(etapes(baleine), [['Au niveau 12', 'niveau 8 sur 12']])
+  assert.doesNotMatch(baleine, /album-aller/)
+  // Un Divin pas encore descendu : son mystère, rien d'autre — ni nom, ni voie, ni jauge (invariant 21).
+  const voile = await fiche('dv:lotus')
+  assert.match(voile, /<b class="galerie-detail-nom">\?<\/b>/)
+  assert.match(voile, /Personne ne sait ce qui le fait descendre\./)
+  assert.doesNotMatch(voile, /Lotus|Comment l’obtenir|album-etape|album-aller|jauge/)
+  // Aucune fiche n'a de bouton : on y lit, on n'y porte rien.
+  for (const html of [licorne, chimere, lynx, baleine, voile]) assert.doesNotMatch(html, /<button/)
+  // L'Éclat ne se dit que sur ce qui est à lui : verrouillé, rien n'éclate.
+  const eclate = { ...LEA, eclats: ['lg:licorne', 'lg:phenix'] }
+  assert.doesNotMatch(await fiche('lg:licorne', eclate), /Il a éclaté/)
+  assert.match(
+    await rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum('lg:phenix'), aLui: true, porte: true, profil: eclate, dessin: null }),
+    /Il a éclaté : tu portes sa version rare/,
+  )
+})
+
+test('une fiche de la collection ne porte rien : ni bouton ni « Le porter » — ce qui est à lui se porte dans « Mon avatar »', async () => {
+  // La fiche de l'album, sous sa case : à lui, elle le dit et mène à la loge ;
+  // porté, elle le dit aussi. Rien ne s'y porte ni ne s'y règle.
+  const fiche = (cle: string, aLui: boolean, porte = false) =>
+    rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle), aLui, porte, profil: LEA, dessin: null })
+  for (const [cle, nom] of [
+    ['lg:phenix', 'Le Phénix'],
+    ['dv:seraphin', 'Le Séraphin'],
+    ['br:blaireau', 'Le blaireau'],
+    ['🐝', 'Emoji de collection'],
+  ] as const) {
+    const html = await fiche(cle, true)
+    assert.doesNotMatch(html, /<button|Le porter|Il remplacera/, cle)
+    assert.match(html, new RegExp(`<b class="galerie-detail-nom">${nom}</b>`), cle)
+    assert.match(html, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">« Mon avatar »<\/a>\./, cle)
+  }
+  assert.match(await fiche('lg:phenix', true, true), /À toi, et tu le portes\. On en change dans <a class="link-inline" href="#avatar">/)
   // Un thème non plus : un lien mène à l'écran qui le porte, ou qui le vend.
   const theme = (cle: string, etat: string) => rendu('components/Boutique', 'DetailTheme', { theme: THEMES.find(t => t.key === cle), etat, solde: 350 })
   const aToi = await theme('velours', 'a-toi')

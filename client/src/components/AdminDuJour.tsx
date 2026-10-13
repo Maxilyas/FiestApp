@@ -7,9 +7,8 @@ import { quand } from '../format'
 import { showToast } from '../state'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import type { QuizQuestionDef } from '../../../shared/library'
-
-/** Sous ce nombre de jours d'avance, l'administration le dit : une semaine pour coller une liste. */
-const ALERTE_JOURS = 7
+// Le même seuil que « À traiter », à la vue d'ensemble du QG : écrit deux fois, il pouvait s'allumer ici et pas là.
+import { ALERTE_JOURS_D_AVANCE as ALERTE_JOURS } from '../../../shared/qg'
 
 const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste collée', ia: 'Écrite par l’IA' }
 

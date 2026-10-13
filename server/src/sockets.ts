@@ -10,7 +10,7 @@ import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
 import { sansAccent } from '../../shared/homonymes'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
-import { pouls } from './core/pouls'
+import { pouls, releve } from './core/pouls'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -142,6 +142,41 @@ function entreesDuProxy(socket: Socket): number {
   return typeof forwarded === 'string' && forwarded.trim() ? forwarded.split(',').length : 0
 }
 
+/**
+ * Clôt la soirée d'un espace et tient les comptes de toute clôture — qu'elle
+ * vienne de son écran commun ou du QG, qui clôt une soirée laissée en plan
+ * (`server/src/qg.ts`) : la mesure des inscriptions, les adresses vues, la
+ * ligne du journal. Le refus d'une clôture par-dessus un essai qui s'efface
+ * se dit avant, à qui l'a demandée.
+ */
+export function cloreLaSoiree(rt: SpaceRuntime, deps: Pick<SocketDeps, 'auth' | 'inscriptions'>, title?: string): ReturnType<SpaceRuntime['closeParty']> {
+  // Une seconde clôture attend la première et en reçoit l'issue, sans la
+  // compter une seconde fois — ni au journal, ni dans la mesure des
+  // inscriptions.
+  const premier = rt.finEnRoute() === null
+  const invites = rt.party.count()
+  // De quoi dire au journal ce que la clôture a coûté — lu avant : elle efface tout.
+  const soiree = rt.currentSummary()
+  const debut = Date.now()
+  return rt.closeParty(title).then(archived => {
+    if (premier) {
+      deps.inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+      // Remises à zéro même quand rien n'a été joué : sinon les adresses
+      // d'une soirée vierge s'ajoutaient à celles de la suivante.
+      const adresses = pouls.adressesVues(rt.spaceId)
+      if (soiree) {
+        console.log(
+          `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
+            `${soiree.questions} questions` +
+            (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
+            ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
+        )
+      }
+    }
+    return archived
+  })
+}
+
 export function wireSockets(io: IoServer, deps: SocketDeps) {
   const { inscriptions } = deps
 
@@ -206,6 +241,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         }
         const panne = (e: unknown) => {
           console.error(`[socket] « ${event} » a échoué :`, e)
+          releve.erreur(`socket ${event}`)
           if (enPanne !== undefined) repondre(enPanne)
         }
         try {
@@ -968,31 +1004,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (rt.finEnRoute() === 'discard') {
         return void socket.emit('toast', { kind: 'error', message: 'L’essai est en train de s’effacer — attends qu’il ait fini' })
       }
-      // Un second « Clore » attend le premier et en dit l'issue à sa console,
-      // sans la compter une seconde fois — ni au journal, ni dans la mesure
-      // des inscriptions.
-      const premier = rt.finEnRoute() === null
-      const invites = rt.party.count()
-      // De quoi dire au journal ce que la clôture a coûté — lu avant : elle efface tout.
-      const soiree = rt.currentSummary()
-      const debut = Date.now()
-      return rt
-        .closeParty(title)
+      return cloreLaSoiree(rt, deps, title)
         .then(archived => {
-          if (premier) {
-            inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
-            // Remises à zéro même quand rien n'a été joué : sinon les adresses
-            // d'une soirée vierge s'ajoutaient à celles de la suivante.
-            const adresses = pouls.adressesVues(rt.spaceId)
-            if (soiree) {
-              console.log(
-                `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
-                  `${soiree.questions} questions` +
-                  (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
-                  ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
-              )
-            }
-          }
           socket.emit(
             'toast',
             archived

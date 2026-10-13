@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
+import { releve } from './core/pouls'
 import { SERVEUR } from './racine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -112,11 +113,14 @@ function echecDuDemarrage(e: unknown): string {
  * avec un code d'erreur, pour que l'hébergeur le voie et le redise.
  */
 function poserLeFilet() {
+  // Le serveur continue, mais la page « Le serveur » du QG s'en souvient.
   process.on('unhandledRejection', raison => {
     console.error('[filet] promesse rejetée sans personne pour l’attendre — le serveur continue :', raison)
+    releve.erreur('exception échappée')
   })
   process.on('uncaughtException', (e, origine) => {
     console.error(`[filet] exception échappée (${origine}) — le serveur continue :`, e)
+    releve.erreur('exception échappée')
   })
 }
 

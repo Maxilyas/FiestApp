@@ -6,6 +6,7 @@ import type { Finition } from '../../../shared/profil'
 import type { LaurierPorte } from '../../../shared/jour'
 import type { BordureDeLigue } from '../../../shared/duels'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
+import { formeDeCompagnon } from '../../../shared/compagnons'
 import { nomsAffiches } from '../../../shared/homonymes'
 
 export interface PlayerRec {
@@ -376,6 +377,17 @@ export class Party {
       this.db.prepare('UPDATE players SET avatar = ? WHERE id = ?').run(p.avatar, p.id)
       this.backup?.savePlayer(p, p.createdAt)
     }
+  }
+
+  /**
+   * Le compagnon qu'il porte en ce moment (`loup`), s'il en porte un : la
+   * ligne de sa réponse le retient, et ses bonnes réponses le font grandir.
+   * Lu comme l'instantané le lit (`badgeOf`), de mémoire.
+   */
+  compagnonDe(playerId: string): string | undefined {
+    const p = this.players.get(playerId)
+    if (!p?.profileId) return undefined
+    return formeDeCompagnon(this.badgeOf?.(p.profileId, p.avatar)?.legendaire)?.compagnon
   }
 
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {

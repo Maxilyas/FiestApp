@@ -5,7 +5,7 @@ import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { Soiree } from './archive'
 import { colonneEquipe, toRow, type AnswerRow } from './answers'
-import { pouls } from './pouls'
+import { pouls, releve } from './pouls'
 import type { TeamBonus } from '../../../shared/types'
 
 /** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
@@ -144,8 +144,8 @@ const SQL = {
   gain: `INSERT INTO party_scores (id, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
   reponse: `INSERT INTO party_answers (id, session_id, quiz_title, q_index, kind, player_id, answered,
-              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, compagnon, space_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING`,
   partie: `INSERT INTO party_sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -236,6 +236,7 @@ const ligneReponse = (spaceId: string, r: ReponseMiroir) =>
     r.createdAt,
     r.category ?? null,
     colonneEquipe(r.teamId),
+    r.compagnon ?? null,
     spaceId,
   ])
 const lignePartie = (spaceId: string, s: SessionRow) =>
@@ -437,6 +438,9 @@ export class PartyBackup {
     // restauration sur disque effacé rendait le verdict des équipes à la
     // composition du moment.
     await ajouterColonne(this.client, 'party_answers', 'team_id', 'TEXT')
+    // Le compagnon porté à chaque réponse (`AnswerRow.compagnon`) : sans lui,
+    // une restauration sur disque effacé oubliait ce qui l'avait fait grandir.
+    await ajouterColonne(this.client, 'party_answers', 'compagnon', 'TEXT')
     await this.client.batch(
       [
         ...MIRROR_TABLES.map(table => `CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`),
@@ -521,6 +525,11 @@ export class PartyBackup {
         voie.surRetard = ecouteur
       },
     }
+  }
+
+  /** Le miroir de cet espace est-il en retard ? Lu sans ouvrir de file : un espace qui n'en a pas n'attend rien. */
+  enRetardPour(spaceId: string): boolean {
+    return this.voies.get(spaceId)?.enRetard ?? false
   }
 
   private voieDe(spaceId: string): Voie {
@@ -753,6 +762,8 @@ export class PartyBackup {
 
   private echec(voie: Voie, e: unknown) {
     voie.echecs++
+    // La santé du serveur s'en souvient, heure par heure : le QG voit les nuits où le miroir a peiné.
+    releve.echecDuMiroir()
     const message = e instanceof Error ? e.message : String(e)
     if (voie.enEchecDepuis === null) {
       voie.enEchecDepuis = Date.now()
@@ -1104,8 +1115,8 @@ export class PartyBackup {
     )
     const insertAnswer = db.prepare(
       `INSERT OR IGNORE INTO answer_log (uid, session_id, quiz_title, q_index, kind, player_id, answered, correct,
-         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, compagnon, space_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const insertSession = db.prepare(
       `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
@@ -1184,6 +1195,7 @@ export class PartyBackup {
           r.createdAt,
           r.category ?? null,
           colonneEquipe(r.teamId),
+          r.compagnon ?? null,
           spaceOf(raw),
         )
       }

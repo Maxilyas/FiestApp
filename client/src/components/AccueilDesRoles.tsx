@@ -10,6 +10,8 @@ import { espacesFines } from '../format'
 import { branche, deLaBranche } from '../../../shared/branches'
 import { PALIER_DU_MAITRE, type DefiDAccueil, type SentiersDAccueil } from '../../../shared/sentiers'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
+import { formatNumber } from '../../../shared/typographie'
+import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { BlasonDeLigue } from './Blason'
 
 // L'accueil, selon qui le tient.
@@ -261,6 +263,70 @@ export function AccueilJouer({
       </section>
       {lendemain}
     </div>
+  )
+}
+
+/** Les annonces de l'administrateur déjà montrées sur ce téléphone, profil par profil. */
+const cleDesAnnoncesVues = (profileId: string) => `quizz.annonces.vues.${profileId}`
+
+/** Celles qu'il n'a pas encore vues ici — retenues aussitôt comme vues : elles ne se montrent qu'une fois. */
+function annoncesNouvelles(profileId: string, annonces: readonly AnnonceDeLAdministrateur[]): AnnonceDeLAdministrateur[] {
+  try {
+    const vues = new Set<string>(JSON.parse(localStorage.getItem(cleDesAnnoncesVues(profileId)) ?? '[]'))
+    const nouvelles = annonces.filter(a => !vues.has(a.id))
+    // On ne garde que celles que le serveur dit encore : un mois au plus, la liste ne grossit pas.
+    if (nouvelles.length > 0) localStorage.setItem(cleDesAnnoncesVues(profileId), JSON.stringify(annonces.map(a => a.id)))
+    return nouvelles
+  } catch {
+    // Sans stockage, elles reviendraient à chaque passage : elles se taisent, comme la bannière des duels.
+    return []
+  }
+}
+
+/**
+ * Ce que l'administrateur a fait pour lui — des confettis offerts et son
+ * mot, son prénom changé (la maquette validée le 13 octobre 2026) —, en tête
+ * de l'accueil, une fois : sur ce téléphone, elles sont retenues dès
+ * qu'elles paraissent, et « Merci » les range.
+ */
+export function AnnoncesDeLAdministrateur({ profileId, annonces }: { profileId: string; annonces?: readonly AnnonceDeLAdministrateur[] }) {
+  const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
+  const cle = annonces?.map(a => a.id).join('|') ?? ''
+  useEffect(() => {
+    if (annonces && annonces.length > 0) setMontrees(annoncesNouvelles(profileId, annonces))
+    // Relues seulement quand le serveur en dit d'autres.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId, cle])
+  if (montrees.length === 0) return null
+  return (
+    <ul className="annonces-admin" aria-label="De l’administrateur">
+      {montrees.map(a => (
+        <li key={a.id} className="annonce-admin">
+          <span className="annonce-admin-icone" aria-hidden="true">
+            <Icon name={a.sorte === 'confettis' ? 'sparkles' : 'edit'} />
+          </span>
+          <span className="annonce-admin-texte">
+            {a.sorte === 'confettis' ? (
+              <>
+                <b>
+                  +{formatNumber(a.confettis)} confetti{a.confettis > 1 ? 's' : ''}
+                </b>
+                {a.mot && <span>{espacesFines(`« ${a.mot} »`)}</span>}
+                <span className="muted small">— de l’administrateur</span>
+              </>
+            ) : (
+              <>
+                <b>Ton prénom a changé</b>
+                <span>{espacesFines(`L’administrateur l’a changé en « ${a.nom} ».`)}</span>
+              </>
+            )}
+          </span>
+          <button type="button" className="annonce-admin-merci" onClick={() => setMontrees(m => m.filter(x => x.id !== a.id))}>
+            Merci
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 

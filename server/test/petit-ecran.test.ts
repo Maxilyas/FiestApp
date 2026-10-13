@@ -300,11 +300,14 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   }
   // Ce qui enregistre le dit sans se désactiver — « Porter », dans la barre
   // de la loge, compris. La vitrine, elle, n'enregistre plus rien : dans la
-  // loge, ses hauts faits s'essaient, et la barre les porte.
-  for (const f of ['components/Apparence.tsx', 'components/Carriere.tsx', 'components/Loge.tsx']) {
+  // loge, ses hauts faits s'essaient, et la barre les porte. Les avatars non
+  // plus : la fiche d'un portrait, qui seule portait encore d'ici, vit dans
+  // l'album de la collection, qui ne fait que montrer.
+  for (const f of ['components/Carriere.tsx', 'components/Loge.tsx']) {
     assert.match(source(f), /aria-disabled=\{busy \|\| undefined\}/, `${f} dit encore qu’il enregistre`)
   }
   assert.doesNotMatch(source('components/Trophees.tsx'), /\bbusy\b|\benregistrer\(/, 'la vitrine essaie, elle n’enregistre pas')
+  assert.doesNotMatch(source('components/Apparence.tsx'), /\bbusy\b|\benregistrer\(/, 'les avatars s’essaient, ils ne s’enregistrent pas')
   // La barre de l'essai part avec « Porter » ou « Annuler » : le focus revient au panneau.
   assert.match(source('components/Loge.tsx'), /if \(avaitUnEssai\.current && !aUnEssai\) rendreLeFocus\(loge\.current, \['\.loge-panneau'\]\)/)
   const profil = source('views/ProfilApp.tsx')

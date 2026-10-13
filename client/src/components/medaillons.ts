@@ -2,9 +2,11 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { divin as divinDe } from '../../../shared/divins'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { BRANCHES, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
+import { formeDeCompagnon } from '../../../shared/compagnons'
 import type { Legendaire } from './Legendaire'
 import type { Divin } from './Divin'
 import type { Portrait } from './Portrait'
+import type { Compagnon, DessinDeCompagnon } from './Compagnon'
 import type { Lumiere } from './Lumiere'
 import type { Bordure } from './Bordure'
 import type { DessinDePortrait } from './portraits/outils'
@@ -36,17 +38,20 @@ import type { DessinDePortrait } from './portraits/outils'
  * faut des dizaines de soirées pour la porter, et une salle d'anonymes ne la
  * verra jamais. Les bordures de ligue (`Bordure.tsx`) aussi : seules les
  * pages où l'on en porte une — la loge, la carte, les duels — les font venir.
+ *
+ * Les compagnons de la boutique (`Compagnon.tsx`) viennent ensemble, leurs
+ * douze formes d'un fichier : une salle n'en voit que si quelqu'un en porte un.
  */
 
-/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, la lumière des finitions, les bordures de ligue, et chaque branche. */
-export type Sorte = 'legendaire' | 'divin' | 'lumiere' | 'bordure' | `branche:${CleDeBranche}`
+/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, la lumière des finitions, les bordures de ligue, les compagnons, et chaque branche. */
+export type Sorte = 'legendaire' | 'divin' | 'lumiere' | 'bordure' | 'compagnon' | `branche:${CleDeBranche}`
 /**
  * Les médaillons : ce qu'un profil peut gagner d'un coup à la fin d'une
  * soirée, que sa page fait venir d'office. Pas les branches : la fin de
  * soirée fait venir celle du portrait qu'elle annonce.
  */
 const MEDAILLONS: readonly Sorte[] = ['legendaire', 'divin']
-const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', 'bordure', ...BRANCHES.map(b => `branche:${b.key}` as const)]
+const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', 'bordure', 'compagnon', ...BRANCHES.map(b => `branche:${b.key}` as const)]
 
 /** Les finitions qui ont leur lumière : le Diamant, les Voiles, l'Astrolabe. */
 export const FINITIONS_LUMINEUSES = ['prisme', 'aurore', 'constellation'] as const
@@ -62,13 +67,14 @@ function sorteDe(cle: string | null | undefined): Sorte | null {
   if (!cle) return null
   if (divinDe(cle)) return 'divin'
   if (legendaireDe(cle)) return 'legendaire'
+  if (formeDeCompagnon(cle)) return 'compagnon'
   const p = portraitDe(cle)
   return p ? `branche:${p.branche}` : null
 }
 
 /**
  * Les sortes de dessins que demandent ces avatars — légendaires, Divins,
- * branches ; un emoji ou une clé inconnue ne demande rien.
+ * compagnons, branches ; un emoji ou une clé inconnue ne demande rien.
  */
 export function sortesDe(cles: readonly (string | null | undefined)[]): Sorte[] {
   const voulues = new Set(cles.map(sorteDe))
@@ -91,6 +97,9 @@ interface Dessins {
   Divin?: typeof Divin
   /** Le cadre des portraits — le disque, la silhouette, le cercle de la finition —, venu avec la première branche. */
   Portrait?: typeof Portrait
+  /** Les compagnons de la boutique, venus avec leurs fichiers (`compagnons`). */
+  Compagnon?: typeof Compagnon
+  compagnons?: Readonly<Record<string, DessinDeCompagnon>>
   /** La lumière des finitions 15, 20 et 25. */
   Lumiere?: typeof Lumiere
   /** Les bordures de ligue des duels. */
@@ -127,7 +136,9 @@ export const chargeur = {
           ? import('./Lumiere')
           : sorte === 'bordure'
             ? import('./Bordure')
-            : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
+            : sorte === 'compagnon'
+              ? import('./compagnons-peints')
+              : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
 }
 
 /** Chaque branche dans son fichier — des chemins écrits en entier : c'est à eux que le paquet découpe. */
@@ -148,7 +159,7 @@ const BRANCHES_A_IMPORTER: Record<CleDeBranche, () => Promise<unknown>> = {
 
 const brancheDeSorte = (sorte: `branche:${CleDeBranche}`) => sorte.slice('branche:'.length) as CleDeBranche
 
-/** Appelé par `Legendaire.tsx`, `Divin.tsx`, `Lumiere.tsx`, `Bordure.tsx` et chaque branche des portraits à leur évaluation. */
+/** Appelé par `Legendaire.tsx`, `Divin.tsx`, `Lumiere.tsx`, `Bordure.tsx`, `compagnons-peints.ts` et chaque branche des portraits à leur évaluation. */
 export function inscrireDessin(d: Dessins) {
   dessins = { ...dessins, ...d, branches: { ...dessins.branches, ...d.branches } }
   for (const f of abonnes) f()
@@ -160,6 +171,7 @@ function present(d: Dessins, sorte: Sorte): boolean {
   if (sorte === 'legendaire') return !!d.Legendaire
   if (sorte === 'lumiere') return !!d.Lumiere
   if (sorte === 'bordure') return !!d.Bordure
+  if (sorte === 'compagnon') return !!d.Compagnon && !!d.compagnons
   return !!d.Portrait && !!d.branches?.[brancheDeSorte(sorte)]
 }
 
@@ -167,6 +179,11 @@ function present(d: Dessins, sorte: Sorte): boolean {
 export function dessinDuPortrait(d: Dessins, cle: string): DessinDePortrait | undefined {
   const p = portraitDe(cle)
   return p && d.Portrait ? d.branches?.[p.branche]?.[cle] : undefined
+}
+
+/** Le dessin d'une forme de compagnon, s'il est arrivé. */
+export function dessinDuCompagnon(d: Dessins, cle: string): DessinDeCompagnon | undefined {
+  return d.Compagnon ? d.compagnons?.[cle] : undefined
 }
 
 /** Le dessin de cette sorte ne viendra plus : son chargement a échoué. */

@@ -4780,6 +4780,25 @@ h3 > .icon {
 @keyframes pt-respire { 0%, 100% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
 @keyframes pt-scintille { 0%, 100% { opacity: 0.35; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
 
+/* Les compagnons (components/Compagnon.tsx) se dessinent dans le cadre d'un
+   portrait : ce qui le fige ou le resserre dans les listes les fige aussi.
+   Seul leur monde vivant est à eux — à la forme ultime, des couches peintes
+   à part qui sortent du cercle et bougent seules (« que l'environnement soit
+   vivant », le propriétaire) : de la lumière, livrée sans son noir — posée en
+   `screen`, elle ne fondait son noir que dans son propre calque, et la carte
+   d'un joueur, isolée, en montrait le carré ; des envols qui dérivent.
+   `transform` et `opacity` seulement. */
+.cp .cp-tourne { transform-origin: 50px 50px; animation: cp-tourne 48s linear infinite; }
+.cp .cp-pulse { transform-origin: 50px 50px; animation: cp-pulse 3.4s ease-in-out infinite; }
+.cp .cp-monte { animation: cp-monte 7s ease-in-out infinite alternate; }
+.cp .cp-derive { animation: cp-derive 10s ease-in-out infinite alternate; }
+.cp .cp-vole { animation: cp-vole 8s ease-in-out infinite alternate; }
+@keyframes cp-tourne { to { transform: rotate(360deg); } }
+@keyframes cp-pulse { 0%, 100% { opacity: 0.45; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
+@keyframes cp-monte { from { transform: translateY(5px); } to { transform: translateY(-7px); } }
+@keyframes cp-derive { from { transform: translateX(-6px); } to { transform: translateX(6px); } }
+@keyframes cp-vole { from { transform: translate(-5px, 3px); } to { transform: translate(5px, -4px); } }
+
 @media (prefers-reduced-motion: reduce) {
   .pt * { animation: none !important; }
 }
@@ -6440,14 +6459,63 @@ h3 > .icon {
 .page-ouverte h2 { margin: 0; font-size: 1.6rem; }
 .page-ouverte p { margin: 0; }
 .page-ouverte .calendrier-page { animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.correction li { display: flex; gap: 10px; align-items: flex-start; }
-.correction-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; margin-top: 1px; background: var(--surface); color: var(--muted); }
-.correction-marque .icon { width: 14px; height: 14px; }
-.correction .ok .correction-marque { background: var(--accent-soft); color: var(--accent-text); }
-.correction .ko .correction-marque { background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
-.correction-corps { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.correction-corps b { color: var(--ink); font-weight: 600; }
+.correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+
+/* Le corrigé d'une question (`Corrige`) — au quiz du jour, en série, au défi,
+   en duel, aux sentiers : l'en-tête et sa marque, l'intitulé, puis les
+   réponses au centre, comme à la révélation — la bonne dans son cadre d'or, la
+   sienne barrée dessous, dans un pointillé d'alerte —, chacune sa légende.
+   Elles se lisaient en petit sous l'intitulé, la bonne en gras, la sienne en
+   gris, et l'on prenait l'une pour l'autre (un retour utilisateur du
+   13 octobre 2026). Le filet de la carte dit le verdict, comme au bilan. */
+.corrige {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--edge);
+  background: var(--surface-faint);
+}
+.corrige.ok { border-color: rgba(var(--accent-rgb), 0.6); }
+.corrige.ko { border-color: rgba(var(--alert-rgb), 0.5); }
+.corrige p { margin: 0; }
+.corrige-tete { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.corrige-tete .label { flex: 1; min-width: 0; }
+.corrige-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; background: var(--surface); color: var(--muted); }
+.corrige-marque .icon { width: 14px; height: 14px; }
+.corrige.ok .corrige-marque { background: var(--accent-soft); color: var(--accent-text); }
+.corrige.ko .corrige-marque { background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
+/* Ce qu'elle a rapporté, au bout de l'en-tête, comme au bilan d'une soirée. */
+.corrige-points { flex: none; font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1; white-space: nowrap; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.corrige.ok .corrige-points { color: var(--accent-text); }
+.corrige-texte { font-size: 1.05rem; line-height: 1.35; }
+.corrige-reponses { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.corrige-reponse {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: min(100%, 14rem);
+  max-width: 100%;
+  padding: 8px 16px 10px;
+  border-radius: var(--radius-xs);
+  text-align: center;
+}
+.corrige-bonne { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+.corrige-sienne { border: 1.5px dashed rgba(var(--alert-rgb), 0.7); }
+.corrige-legende { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.corrige-legende .icon { width: 12px; height: 12px; flex: none; }
+.corrige-bonne .corrige-legende { color: var(--accent-text); }
+.corrige-sienne .corrige-legende { color: var(--alert); }
+.corrige-mot { font-size: 1.1rem; font-weight: 600; line-height: 1.3; color: var(--ink); overflow-wrap: break-word; hyphens: auto; text-wrap: balance; }
+.corrige-sienne .corrige-mot { font-weight: 500; color: var(--muted); }
+.corrige-sienne s { text-decoration-color: var(--alert); text-decoration-thickness: 2px; }
+/* Le temps, la rapidité, la part de la salle : une ligne chacun, leur icône devant. */
+.corrige-pied { display: flex; flex-direction: column; gap: 3px; }
+.corrige-pied .icon { width: 1em; height: 1em; vertical-align: -0.14em; margin-right: 2px; }
+.corrige-anecdote { color: var(--ink); line-height: 1.4; }
 
 /* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
    profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une
@@ -7092,8 +7160,8 @@ h3 > .icon {
 .case-avatar.anneau-collection { border-color: var(--anneau-collection); }
 .case-avatar.anneau-collection-haut { border-color: var(--anneau-collection-haut); }
 /* Un emoji de collection encore fermé : sa silhouette, et le niveau qui
-   l'ouvre à cheval sur l'anneau. Centré par les bords, pas par un
-   `transform` qu'une animation écraserait. */
+   l'ouvre à cheval sur l'anneau (l'album des avatars). Centré par les bords,
+   pas par un `transform` qu'une animation écraserait. */
 /* Claire, comme la silhouette dorée des légendaires : noire sur une case
    assombrie, elle ne s'en détachait qu'à 1,1:1, et les douze emojis que
    gagne un profil neuf se lisaient comme douze cercles vides. Sombre sur
@@ -7113,7 +7181,6 @@ span.case-avatar { cursor: default; }
   color: var(--ink);
   text-shadow: 0 0 3px var(--bg), 0 0 3px var(--bg);
 }
-.case-avatar.ferme { background: rgba(0, 0, 0, 0.25); }
 .case-avatar.selected { border-color: var(--accent); }
 .case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
 /* Dans la grille, seuls bougent l'avatar qu'il porte, celui qu'il a ouvert
@@ -7136,10 +7203,6 @@ span.case-avatar { cursor: default; }
    place à « Le porter ». */
 .choix-eclat { display: flex; flex-wrap: wrap; gap: 6px; }
 .choix-eclat .btn[aria-pressed='true'] { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
-/* Un légendaire ou un Divin touché se montre en grand en tête de sa fiche,
-   centré, le reflet sous le doigt. De l'air autour : ce qui sort du cadre
-   d'un éclaté, sa gerbe, les rayons d'un Divin débordent du médaillon. */
-.detail-dessin { align-self: center; font-size: 9.5rem; line-height: 0; margin: 1.5rem 0 1.1rem; }
 .detail-famille { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }
 .anneau-texte-divin { color: var(--anneau-divin); }
@@ -7862,12 +7925,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 }
 .campagne-fin .big { font-variant-numeric: lining-nums tabular-nums; }
 .campagne-suite { justify-content: center; gap: 8px; }
-.campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.campagne-correction li { display: flex; flex-direction: column; gap: 4px; }
-.campagne-correction p { margin: 0; }
-.campagne-juste { border-left: 3px solid var(--accent); }
-.campagne-rate { border-left: 3px solid var(--alert); }
-/* Le record battu, au cœur du résultat ; l'anecdote redonnée sous chaque question corrigée. */
+/* « Mes réponses » : une carte par question, le corrigé du quiz du jour (`.corrige`). */
+.campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+/* Le record battu, au cœur du résultat ; l'anecdote d'une question apprise, au carnet. */
 .campagne-record-battu { margin: 0; font-weight: 600; color: var(--or-text); }
 .campagne-anecdote { color: var(--ink); line-height: 1.4; }
 /* Ce qu'une série a fait tomber, sous son résultat : une ligne par haut fait ou palier. */
@@ -8795,19 +8855,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   border-left: 1px solid var(--edge-strong);
 }
 .rail-separe span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-/* Les douze branches en deux rangées, sans défiler de côté. */
-.rail-compact {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px 4px;
-  margin-inline: 0;
-  padding: 2px 0 0;
-  overflow: visible;
-}
-.rail-compact .atlas-orbe { width: auto; padding: 0; }
-.rail-compact .atlas-anneau { width: 46px; height: 46px; padding: 2.5px; }
-.rail-compact .atlas-coeur { font-size: 36px; }
-.rail-compact .atlas-orbe[aria-selected='true'] .atlas-anneau { transform: scale(1.12); }
 /* Les six collections des trophées, en deux rangées. */
 .rail-grille {
   display: grid;
@@ -8853,79 +8900,13 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .atlas-fleche-suivante .icon { transform: rotate(-90deg); }
 .atlas-objectif { margin: 0; text-align: center; font-size: 0.92rem; color: var(--muted); }
 .atlas-objectif b { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
-
-/* Le chemin : un trait qui s'allume jusqu'au dernier portrait gagné. */
-.atlas-chemin { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.atlas-chemin::before {
-  content: '';
-  position: absolute;
-  left: 35px;
-  top: 30px;
-  bottom: 30px;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(to bottom, var(--lueur) calc(var(--fait) * 100%), color-mix(in srgb, var(--lueur) 18%, transparent) 0);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--lueur) 45%, transparent);
-}
-.atlas-etape { position: relative; }
-.atlas-noeud {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 6px 8px 6px 4px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.atlas-noeud[aria-expanded='true'] { border-color: color-mix(in srgb, var(--lueur) 45%, transparent); background: color-mix(in srgb, var(--lueur) 8%, transparent); }
-.atlas-medaillon {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--bg);
-  font-size: 60px;
-  line-height: 0;
-}
-.atlas-gagne .atlas-medaillon { box-shadow: 0 0 0 2px var(--lueur), 0 0 16px color-mix(in srgb, var(--lueur) 50%, transparent); }
-.atlas-prochain .atlas-medaillon::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-  border: 2px dashed var(--lueur);
-  border-radius: 50%;
-  animation: atlas-palpite 2.4s ease-in-out infinite;
-}
-.atlas-ferme .atlas-medaillon { opacity: 0.55; box-shadow: 0 0 0 1px var(--edge); }
-.atlas-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.atlas-texte b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
 .atlas-seuil { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.atlas-gagne .atlas-seuil { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
-.atlas-ferme .atlas-texte b { color: var(--muted); }
-.atlas-fiche { margin: 6px 0 4px 78px; }
-.detail-portrait-grand { display: grid; place-items: center; font-size: 140px; line-height: 0; margin: 6px auto 14px; }
-@keyframes atlas-palpite {
-  0%, 100% { opacity: 0.35; transform: scale(0.96); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .atlas-prochain .atlas-medaillon::after { animation: none; opacity: 0.8; }
   .atlas-anneau { transition: none; }
 }
 
 /* Les grilles de collection : des médaillons qui brillent quand on les a. */
-.hud-titre { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
-.hud-titre span { font-weight: 500; letter-spacing: 0.02em; text-transform: none; color: var(--muted); font-size: 0.8rem; }
 .hud-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; grid-auto-flow: dense; }
-.hud-grille-divins { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .hud-case { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .hud-medaillon {
   position: relative;
@@ -8939,14 +8920,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   line-height: 0;
   transition: transform 0.2s ease;
 }
-.hud-grille-divins .hud-medaillon { width: 50px; height: 50px; font-size: 46px; }
 .hud-gagne .hud-medaillon { box-shadow: 0 0 0 2px var(--lueur), 0 0 14px color-mix(in srgb, var(--lueur) 45%, transparent); }
 .hud-ferme .hud-medaillon { box-shadow: 0 0 0 1px var(--edge); }
 .hud-porte .hud-medaillon { box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent); }
 .hud-ouverte .hud-medaillon { transform: scale(1.08); }
 .hud-marque { min-height: 1em; font-size: var(--t-label); font-weight: 600; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); font-variant-numeric: tabular-nums; }
 .hud-fiche { grid-column: 1 / -1; }
-.hud-divins { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); }
 @media (prefers-reduced-motion: reduce) { .hud-medaillon { transition: none; } }
 
 /* Les jauges en anneau de la carrière. */
@@ -9137,6 +9116,130 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .vignette-manque img { filter: grayscale(1); opacity: 0.4; }
 .vignette-portee { box-shadow: 0 0 0 2px var(--accent); }
 .vignette-theme:hover, .vignette-theme.ouverte { box-shadow: 0 0 0 2px var(--gemme); }
+/* L'album des avatars (la maquette 1, le 13 octobre 2026) : une page par
+   rareté — six gemmes, les Divins à part, iridescents —, quatre avatars par
+   rangée. Ce qu'on a dans l'anneau de sa gemme ; ce qui reste en silhouette
+   dorée sur la nuit, comme un légendaire à gagner, et une pastille qui dit
+   où il se gagne. La fiche suit sa rangée, de toute la largeur (`dense`). */
+.album { display: flex; flex-direction: column; gap: 12px; }
+/* Chaque gemme à la largeur de son nom, sur une ligne : à colonnes égales,
+   « Peu com. » passait sur deux, et son compte sur une troisième. */
+.gemmes-album { grid-template-columns: repeat(6, auto); justify-content: space-between; gap: 0; }
+.gemmes-album .gemme { gap: 5px; padding: 8px 4px 6px; white-space: nowrap; }
+.gemmes-album .gemme b { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.gemme-divin i { background: conic-gradient(#f7b8e8, #9fe3ff, #fff1a6, #b9f5c6, #f7b8e8); }
+/* Au texte agrandi, six gemmes ne tiennent plus côte à côte : deux rangées de trois. */
+@media (max-width: 330px) {
+  .gemmes-album { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+}
+.album-avatars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 8px; grid-auto-flow: dense; padding: 4px 0; }
+.album-case {
+  position: relative;
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--gemme), 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease;
+}
+.album-medaillon { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; font-size: 58px; line-height: 0; }
+.album-emoji .album-medaillon { font-size: 34px; line-height: 1; }
+.album-manque { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--gemme) 40%, transparent); }
+/* Le disque sombre d'un légendaire à gagner, sous tous les thèmes : la silhouette s'y lit en or. */
+.album-manque.album-emoji { background: #211915; }
+.album-avatars .silhouette,
+.album-detail .silhouette { filter: none; opacity: 1; color: transparent; text-shadow: 0 0 0 rgba(var(--accent-rgb), 0.5); }
+.album-case[aria-expanded='true'] { transform: scale(1.08); box-shadow: 0 0 0 2px var(--gemme), 0 0 16px color-mix(in srgb, var(--gemme) 60%, transparent); }
+.album-coche,
+.album-lieu { position: absolute; right: -4px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; line-height: 0; box-shadow: 0 0 0 2px var(--bg); }
+.album-coche { top: -4px; background: var(--accent); color: var(--on-accent); }
+.album-lieu { bottom: -4px; background: color-mix(in srgb, var(--gemme) 22%, var(--bg)); color: var(--ink); }
+.album-coche .icon,
+.album-lieu .icon { width: 12px; height: 12px; }
+.album-case .case-niveau { bottom: -8px; }
+/* Dans la grille, chaque avatar tient dans son disque — ni gerbe, ni débord,
+   ni rayons —, et seul celui qu'on touche ou survole bouge : trente-huit
+   médaillons qui tournaient ensemble, pour un seul regardé. */
+.album-case .lg-gerbe,
+.album-case .lg-debord,
+.album-case .dv-rayons,
+.album-case .dv-etincelles,
+.album-case .pt-debord,
+.album-case .pt-aura,
+.album-case .pt-etoile { display: none; }
+.album-case:not([aria-expanded='true']):not(:hover) .lg *,
+.album-case:not([aria-expanded='true']):not(:hover) .dv *,
+.album-case:not([aria-expanded='true']):not(:hover) .pt *,
+.album-case:not([aria-expanded='true']):not(:hover) .av::before,
+.album-case:not([aria-expanded='true']):not(:hover) .av::after { animation: none; }
+.album-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
+.album-legende span { display: inline-flex; align-items: center; gap: 5px; }
+.album-legende .icon { width: 13px; height: 13px; color: var(--accent-text); }
+/* Sa fiche : en grand, le reflet sous le doigt, et de l'air autour — ce qui
+   sort du cadre d'un éclaté, les rayons d'un Divin —, puis comment l'obtenir,
+   voie par voie, chacune son lieu et où il en est. */
+.album-detail { border-left-color: var(--gemme); }
+.album-detail-tete { align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.album-detail-dessin { font-size: 8rem; line-height: 0; margin: 1.4rem 0 1rem; }
+.album-detail-titre { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.album-detail-rarete { display: inline-flex; align-items: center; gap: 7px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); }
+.album-detail-rarete i { width: 9px; height: 9px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); box-shadow: 0 0 8px var(--gemme); }
+.album-detail > .serif-note,
+.album-detail > .muted { align-self: stretch; text-align: center; }
+.album-a-toi { display: flex; align-items: center; gap: 6px; }
+.album-a-toi .icon { flex: none; width: 15px; height: 15px; color: var(--accent-text); }
+.album-etiquette { margin-top: 8px; }
+.album-voies { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.album-voie { display: flex; flex-direction: column; gap: 6px; }
+.album-ou,
+.album-et { display: block; text-align: center; font-size: 0.85rem; color: var(--muted); }
+.album-ou { margin-bottom: 6px; }
+.album-etape { display: flex; gap: 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--gemme) 25%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 6%, transparent); }
+.album-etape-icone { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--gemme) 18%, transparent); color: var(--ink); }
+.album-etape-icone .icon { width: 17px; height: 17px; }
+.album-tenue .album-etape-icone { background: var(--accent); color: var(--on-accent); }
+.album-etape-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.album-etape-texte b { font-weight: 600; }
+.album-progres { display: flex; align-items: center; gap: 10px; margin-top: 3px; font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.album-progres .jauge-fine { flex: 1; }
+.album-aller { align-self: stretch; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .album-case { transition: none; }
+}
+/* Le rayon des compagnons : une carte par compagnon — sa forme du moment en
+   grand, qui bouge (le sujet de la carte : son monde vivant en sort, il a de
+   la place autour), puis ses quatre formes sur une rangée, chacune la teinte
+   de sa rareté et ce qu'elle demande, figées dans leur disque. Acheté, la
+   carte dit où il en est. */
+.rayon-compagnons { display: flex; flex-direction: column; gap: 14px; }
+.compagnon-carte { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.compagnon-tete { display: flex; align-items: center; gap: 18px; }
+.compagnon-grand { flex: none; font-size: 5.25rem; line-height: 0; margin: 1.1rem 0.6rem 0.8rem; }
+.compagnon-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.compagnon-titre b { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
+.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.compagnon-forme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 12%, transparent); }
+.compagnon-petit { font-size: 2.75rem; line-height: 0; }
+.compagnon-petit .pt-debord,
+.compagnon-petit .pt-aura,
+.compagnon-petit .pt-etoile { display: none; }
+.compagnon-petit .pt * { animation: none; }
+.compagnon-seuil { font-size: var(--t-label); font-weight: 700; color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); font-variant-numeric: lining-nums tabular-nums; }
+.compagnon-a-venir .compagnon-seuil { color: var(--muted); }
+.compagnon-sien { display: flex; flex-direction: column; gap: 8px; }
+.compagnon-sien p { display: flex; align-items: center; gap: 6px; margin: 0; }
+.compagnon-sien .icon { width: 15px; height: 15px; color: var(--accent-text); }
+.compagnon-jauge { display: flex; flex-direction: column; gap: 4px; }
+.compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.compagnon-prix { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on
@@ -9343,7 +9446,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .admin-fiche { display: grid; margin: 0; }
 .admin-fiche div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--edge); }
 .admin-fiche div:first-child { border-top: 0; }
-.admin-fiche dt { color: var(--muted); }
+/* Le nom de la ligne tient sur une ligne : c'est la valeur qui passe à la suivante (« Quiz du / jour » au téléphone). */
+.admin-fiche dt { flex: none; color: var(--muted); }
 .admin-fiche dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .admin-gestes { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-gestes .salon-geste:disabled { opacity: 0.5; cursor: default; }
@@ -9376,6 +9480,265 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .admin-hud::after { animation: none; display: none; }
   .admin-pouls { animation: none; }
+}
+
+/* ── Le QG (`/admin`) ─────────────────────────────────────────────────────
+   La tour de contrôle des maquettes du 13 octobre 2026 : au téléphone, une
+   colonne — le direct, ce qui attend un geste, les chiffres du jour, les
+   participations, les soirées, le serveur, puis la liste des pages — et la
+   barre du menu ; à l'ordinateur, une barre de côté qui mène à chaque page,
+   et la vue d'ensemble en grille. */
+.qg-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.qg-quand { font-size: 0.85rem; color: var(--muted); }
+.qg-titre { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.qg-titre h1 { margin: 0; font-size: 2rem; }
+.qg-a-l-ordinateur { display: none; }
+.qg-vif { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+.qg-vif-point { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--en-ligne); box-shadow: 0 0 8px color-mix(in srgb, var(--en-ligne) 60%, transparent); }
+.qg-vif-perdu { color: var(--alert); }
+.qg-vif-perdu .qg-vif-point { background: var(--alert); box-shadow: none; }
+/* La barre de côté n'existe qu'à l'ordinateur ; au téléphone, la liste des pages la remplace. */
+.qg-cote { display: none; }
+.qg-marque { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; }
+.qg-marque-nom { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1; }
+.qg-groupe { display: flex; flex-direction: column; gap: 2px; }
+.qg-groupe-titre { padding: 0 10px 4px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border-radius: var(--radius-xs); color: var(--ink); font-size: 0.95rem; text-decoration: none; }
+.qg-lien:hover { background: var(--surface-strong); }
+.qg-lien[aria-current='page'] { background: color-mix(in srgb, var(--lueur) 14%, transparent); font-weight: 600; }
+.qg-lien .icon { flex: none; width: 18px; height: 18px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-compte { margin-left: auto; font-size: 0.8rem; font-weight: 600; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille-alerte { border-color: var(--alert); background: var(--alert); color: var(--on-alert); }
+.qg-retour { margin-top: 8px; padding: 0 10px; }
+/* Le direct se lit, il ne s'ouvre pas : ses cadrans n'ont ni main ni survol. */
+.admin-cadran-fixe { cursor: default; }
+.admin-cadran-fixe:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
+.qg-vue { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.qg-carte { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.qg-carte-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.qg-carte-tete h2 { margin: 0; font-size: 1.35rem; }
+.qg-jour { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.qg-section-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.qg-section-tete .compte-groupe { margin: 0; }
+.qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.qg-tuile { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
+.qg-tuile-nom { font-size: 0.85rem; color: var(--muted); }
+.qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.qg-ecart { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.qg-ecart .icon { flex: none; width: 13px; height: 13px; }
+.qg-ecart-plus .icon { color: var(--en-ligne); }
+.qg-ecart-moins .icon { color: var(--alert); }
+/* Les douze derniers jours d'une tuile : le trait en sourdine, aujourd'hui en point de lueur. */
+.qg-etincelle { display: block; width: 100%; height: 30px; overflow: visible; }
+.qg-etincelle-ligne { fill: none; stroke: var(--muted); stroke-width: 1.5px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.qg-etincelle-point { fill: none; stroke: color-mix(in srgb, var(--lueur) 80%, var(--ink)); stroke-width: 6px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+/* L'écran des participations, nocturne sous tous les thèmes : ses quatre
+   couleurs ont été vérifiées sur ce fond — voisines dans la pile, elles se
+   distinguent encore aux trois daltonismes —, et les trente-quatre thèmes
+   en ont de clairs, où elles ne tenaient plus. Ses jetons y redeviennent
+   ceux du Velours. L'ordre de la pile est celui de `MODES_DU_QG` : il ne se
+   change pas sans refaire la vérification. */
+.qg-ecran {
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --edge: rgba(217, 181, 106, 0.22);
+  --accent-text: #d9b56a;
+  --focus: #d9b56a;
+  --mode-soiree: #c98500;
+  --mode-campagne: #199e70;
+  --mode-jour: #d95926;
+  --mode-duel: #3987e5;
+  /* La page « Le serveur » : ses temps de réponse dans l'or du Velours, ses erreurs dans son rouge — une série par graphique. */
+  --qg-temps: #d9b56a;
+  --qg-erreur: #e06c6c;
+  color-scheme: dark;
+  border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
+  background: radial-gradient(120% 70% at 50% -10%, #2b211b 0%, #1a1412 65%);
+  color: var(--ink);
+}
+.qg-graphe { min-width: 0; }
+.qg-graphe svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.qg-graphe-grille line { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1px; }
+.qg-graphe-axe text { fill: var(--muted); font-size: 0.75rem; font-variant-numeric: lining-nums tabular-nums; }
+.qg-graphe-total { fill: var(--ink); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.qg-graphe-cible { fill: transparent; cursor: crosshair; }
+.qg-graphe-choisi { fill: rgba(255, 255, 255, 0.06); }
+.qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
+.qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
+.qg-mode-jour { fill: var(--mode-jour); background: var(--mode-jour); }
+.qg-mode-duel { fill: var(--mode-duel); background: var(--mode-duel); }
+/* La santé du serveur, heure par heure : la nuit endormie hachurée en sourdine, un filet à chaque minuit. */
+.qg-serveur-temps { fill: var(--qg-temps); }
+.qg-serveur-erreur { fill: var(--qg-erreur); }
+.qg-endormi-trait { stroke: rgba(255, 255, 255, 0.07); stroke-width: 2px; }
+.qg-graphe-grille .qg-graphe-jour { stroke: rgba(255, 255, 255, 0.12); }
+/* La charge : quatre graphiques l'un sous l'autre, le même temps pour tous, et en pointillé les plafonds de l'hébergeur gratuit. */
+.qg-charge { display: flex; flex-direction: column; gap: 2px; }
+.qg-charge + .qg-charge { margin-top: 4px; }
+.qg-charge-nom { font-size: 0.85rem; color: var(--muted); }
+.qg-charge-nom b { font-weight: 600; color: var(--ink); }
+.qg-graphe-plafond { stroke: var(--qg-erreur); stroke-width: 1px; stroke-dasharray: 4 3; opacity: 0.85; }
+.qg-graphe-plafond-nom { fill: var(--qg-erreur); font-size: var(--t-label); }
+/* Le détail d'une tuile du serveur se coupe n'importe où : une route (« /api/campagne/serie/:id/reponse ») n'a pas d'espace, et poussait la page hors de l'écran au téléphone. */
+.qg-tuile-detail { display: block; min-width: 0; overflow-wrap: anywhere; }
+.qg-sources > li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.85rem; }
+.qg-source { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; }
+/* La légende dit aussi les chiffres du jour qu'on survole — aujourd'hui sinon : au toucher, pas d'infobulle. */
+.qg-legende { display: flex; flex-direction: column; gap: 6px; }
+.qg-legende-jour { font-size: 0.85rem; font-weight: 600; }
+.qg-legende ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--muted); }
+.qg-legende li { display: inline-flex; align-items: center; gap: 6px; }
+.qg-legende b { font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille-mode { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.qg-tableau { overflow-x: auto; }
+.qg-tableau > summary { display: inline-flex; align-items: center; min-height: 32px; color: var(--accent-text); font-size: 0.85rem; cursor: pointer; }
+.qg-tableau table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.85rem; }
+.qg-tableau th, .qg-tableau td { padding: 6px 0 6px 10px; border-top: 1px solid var(--edge); text-align: right; white-space: nowrap; }
+.qg-tableau th[scope='row'] { padding-left: 0; text-align: left; font-weight: 500; }
+/* Les chiffres d'un tableau en sans-serif, comme le texte qu'ils côtoient : en Cormorant, ils paraissaient d'un corps plus petit. */
+.qg-tableau td.num { font-family: var(--sans); font-weight: 500; }
+.qg-tableau thead th { border-top: 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.qg-tableau thead th:first-child { padding-left: 0; text-align: left; }
+.qg-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.qg-liste > li + li { border-top: 1px solid var(--edge); }
+.qg-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 2px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.qg-ligne { cursor: pointer; }
+button.qg-ligne:hover .qg-chevron { color: var(--ink); }
+.qg-ligne-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.qg-ligne-texte b { font-weight: 600; }
+.qg-rond { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 12%, transparent); color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-rond .icon { width: 16px; height: 16px; }
+.qg-rond-alerte { background: color-mix(in srgb, var(--alert) 16%, transparent); color: var(--alert); }
+.qg-chevron { flex: none; width: 16px; height: 16px; color: var(--muted); }
+/* Une soirée : son avatar, ce qu'on en lit, sa sauvegarde — sous le texte au
+   téléphone, où elle serrait sa colonne sur trois lignes ; au bout à l'ordinateur. */
+.qg-soiree { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 10px 0; }
+.qg-soiree > .qg-etat { grid-column: 2; }
+.qg-avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 12%, transparent); color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); font-size: 1.25rem; }
+.qg-avatar .icon { width: 16px; height: 16px; }
+.qg-soiree-en-plan .qg-avatar { opacity: var(--dim); }
+.qg-etat { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; }
+.qg-etat .icon { width: 14px; height: 14px; }
+.qg-etat-ok { color: var(--muted); }
+.qg-etat-ok .icon { color: var(--en-ligne); }
+.qg-etat-alerte { color: var(--alert); }
+.qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
+.qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
+/* Le journal des gestes : un jour, puis ses gestes — la phrase d'abord, l'heure et la sorte dessous. */
+.qg-journal { display: flex; flex-direction: column; gap: 18px; }
+.qg-journal-jour { display: flex; flex-direction: column; gap: 2px; }
+.qg-journal-jour .compte-groupe { margin: 0; }
+.qg-geste { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; }
+.qg-geste .qg-rond { margin-top: 2px; }
+.qg-journal-avant { align-self: center; }
+/* La carte des soirées en cours mène à leur page. */
+.qg-suite { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.qg-suite .icon { width: 14px; height: 14px; }
+/* Le geste d'une soirée laissée en plan : sous son texte au téléphone, au bout de la ligne à l'ordinateur. */
+.qg-soiree > .qg-soiree-geste { grid-column: 2; justify-self: start; }
+/* Le bilan des soirées : ses deux graphiques l'un sous l'autre, côte à côte à l'ordinateur. */
+.qg-deux { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+/* Le titre d'une carte et sa ligne d'explication l'un sous l'autre : côte à côte, l'une passait à la ligne et l'autre non, et deux graphiques voisins ne partaient plus de la même hauteur. */
+.qg-carte-tete-pile { flex-direction: column; align-items: flex-start; gap: 2px; }
+/* Une rangée de barres d'une seule série, dans l'écran nocturne : l'or des
+   soirées, vérifié sur ce fond. Le chiffre sur la barre, en sans-serif — en
+   Cormorant, il paraissait plus petit que les noms dessous —, le bout
+   arrondi, la base carrée, et le fond entre deux barres. La zone garde en
+   haut la place du chiffre de la plus haute ; la ligne de base court sous
+   toute la rangée, au bas des zones (140 px). */
+.qg-barres { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; background: linear-gradient(var(--edge), var(--edge)) no-repeat 0 139px / 100% 1px; }
+.qg-barre { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; }
+.qg-barre-zone { box-sizing: border-box; height: 140px; padding-top: 22px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.qg-barre-n { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.qg-barre-trait { flex: none; width: min(100%, 32px); min-height: 3px; border-radius: 4px 4px 0 0; background: var(--mode-soiree); }
+.qg-barre-nom { font-size: 0.75rem; color: var(--muted); text-align: center; white-space: nowrap; }
+/* Le tableau du mois : le salon à gauche, et il se replie ; les questions à l'ordinateur seulement — au téléphone, le salon n'avait plus de place. */
+.qg-tableau .qg-tableau-texte { text-align: left; white-space: normal; }
+.qg-tableau .qg-colonne-large { display: none; }
+/* La fiche d'un joueur, dans sa feuille : qui il est, ses chiffres, ce qu'on
+   peut faire pour lui, puis ce qu'on a déjà fait. Le code de secours tiré
+   s'encadre en pointillé : il ne sera plus affiché. */
+.qg-fiche { display: flex; flex-direction: column; gap: 14px; }
+.qg-fiche-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qg-fiche-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
+.qg-fiche-note .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-fiche-code { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; border: 1px dashed color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-xs); }
+.qg-fiche-code .code-secours { align-self: stretch; }
+.qg-fiche-don { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
+.qg-fiche-don .admin-gestes { margin-top: 6px; }
+.qg-fiche-groupe { display: flex; flex-direction: column; gap: 8px; }
+.qg-fiche-groupe .label { margin: 0; }
+.qg-fiche-gestes { display: flex; flex-direction: column; gap: 4px; }
+.qg-fiche-gestes .label { margin: 0; }
+.qg-fiche-geste { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; overflow-wrap: anywhere; }
+/* Ce que l'administrateur a fait pour un joueur, en tête de son accueil, une
+   fois : des confettis offerts, son prénom changé. Aux couleurs de l'accueil,
+   pas du QG : `--lueur` n'y existe pas, et la carte s'y dessinait sans bord ni fond. */
+.annonces-admin { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.annonce-admin { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid rgba(var(--accent-rgb), 0.45); border-radius: var(--radius); background: rgba(var(--accent-rgb), 0.08); }
+.annonce-admin-icone { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.15); color: var(--accent-text); }
+.annonce-admin-icone .icon { width: 16px; height: 16px; }
+.annonce-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.annonce-admin-merci { flex: none; align-self: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+@media (min-width: 1101px) {
+  /* La barre de côté dans la première colonne, l'en-tête et la page dans la
+     seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
+     barre de côté. */
+  .player-shell.qg {
+    max-width: 1440px;
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+    gap: 0 40px;
+    padding: 28px 32px 40px;
+  }
+  .qg > .qg-tete { grid-column: 2; grid-row: 1; margin-bottom: 20px; }
+  .qg > .nav-animateur { grid-column: 2; grid-row: 2; margin-bottom: 20px; }
+  /* Son écart à lui : il héritait de celui de la grille, nul entre les rangées, et ses sections se collaient. */
+  .qg > .page-corps { grid-column: 2; grid-row: 3; gap: 18px; }
+  .qg > .qg-cote {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-right: 20px;
+    border-right: 1px solid color-mix(in srgb, var(--lueur) 18%, transparent);
+  }
+  .qg > .menu-barre { display: none; }
+  body.avec-menu:has(.qg) { padding-bottom: 0; }
+  .qg-tete > .jour-sortie { display: none; }
+  .qg-au-telephone { display: none; }
+  .qg-a-l-ordinateur { display: inline; }
+  .qg-titre h1 { font-size: 2.4rem; }
+  .qg-vue {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    grid-template-areas: 'direct direct' 'jour jour' 'graphe traiter' 'soirees serveur';
+    gap: 20px;
+  }
+  .qg-direct { grid-area: direct; }
+  .qg-jour { grid-area: jour; }
+  .qg-participations { grid-area: graphe; }
+  .qg-traiter { grid-area: traiter; }
+  .qg-soirees { grid-area: soirees; }
+  .qg-serveur { grid-area: serveur; }
+  .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .qg-soiree { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  .qg-soiree > .qg-etat { grid-column: 3; }
+  .qg-soiree:has(> .qg-soiree-geste) { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
+  .qg-soiree > .qg-soiree-geste { grid-column: 4; }
+  .qg-sommaire { display: none; }
+  .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-deux { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .qg-tableau .qg-colonne-large { display: table-cell; }
+}
+@media (min-width: 1400px) {
+  .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
 /* ── Le quiz du jour : un panneau qui donne envie ────────────────────────

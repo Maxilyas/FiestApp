@@ -78,7 +78,14 @@ test('le téléphone de l’invité n’importe les dessins qu’à la demande',
   // Le parcours voit bien le chemin : sinon ce test ne garderait rien.
   assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
   assert.ok(chemin.has(path.join(client, 'components/medaillons.ts')), 'medaillons est sur le chemin')
-  for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Carriere.tsx']) {
+  for (const dessin of [
+    'components/Legendaire.tsx',
+    'components/Divin.tsx',
+    'components/Lumiere.tsx',
+    'components/Carriere.tsx',
+    'components/Compagnon.tsx',
+    'components/compagnons-peints.ts',
+  ]) {
     assert.ok(!chemin.has(path.join(client, dessin)), `${dessin} ne part pas avec la page de l’invité`)
   }
 })
@@ -90,7 +97,18 @@ test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', 
   const chemin = importsStatiques(path.join(client, 'views/ProfilApp.tsx'))
   assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
   assert.ok(chemin.has(path.join(client, 'components/choix.ts')), 'ce que le profil annonce reste là')
-  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx', 'components/Loge.tsx']) {
+  for (const f of [
+    'components/Legendaire.tsx',
+    'components/Divin.tsx',
+    'components/Lumiere.tsx',
+    'components/Apparence.tsx',
+    'components/Trophees.tsx',
+    'components/Loge.tsx',
+    // Les compagnons et leurs fichiers : le rayon de la boutique les importe, l'accueil anonyme jamais.
+    'components/Compagnon.tsx',
+    'components/compagnons-peints.ts',
+    'components/RayonDesCompagnons.tsx',
+  ]) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’accueil anonyme`)
   }
 })
@@ -209,6 +227,9 @@ test('un légendaire ne fait pas venir les Divins', async () => {
   assert.deepEqual(m.sortesDe(['dv:seraphin']), ['divin'])
   assert.deepEqual(m.sortesDe(['🦊', null]), [], 'une salle d’anonymes ne demande rien')
   assert.deepEqual(m.sortesDe(['dv:lotus', 'lg:phenix']), ['legendaire', 'divin'])
+  // Un compagnon fait venir les compagnons — leurs douze formes ensemble —, et rien d'autre.
+  assert.deepEqual(m.sortesDe(['cp:loup-jeune', '🦊']), ['compagnon'])
+  assert.deepEqual(m.sortesDe(['cp:tortue-ile', 'br:cerf']), ['compagnon', 'branche:foret'])
   await m.chargerDessins(m.sortesDe(salle))
   await m.chargerDessinsAuPlus(m.sortesDe(salle), 10)
   assert.deepEqual(appels, ['legendaire'], 'les Divins ne sont pas venus')

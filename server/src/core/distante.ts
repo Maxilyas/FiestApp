@@ -1,5 +1,5 @@
 import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
-import { pouls } from './pouls'
+import { pouls, releve } from './pouls'
 
 export type { Client }
 
@@ -113,8 +113,11 @@ export function avecDelai(delaiMs: number) {
     try {
       const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
       // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce
-      // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`).
-      pouls.base.noter(performance.now() - debut)
+      // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`), et la
+      // page « Le serveur » du QG s'en souvient heure par heure (`releve`).
+      const ms = performance.now() - debut
+      pouls.base.noter(ms)
+      releve.base(ms)
       return reponse
     } catch (e) {
       // L'erreur d'origine (« The operation was aborted due to timeout ») ne

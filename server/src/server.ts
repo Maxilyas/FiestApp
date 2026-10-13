@@ -21,6 +21,8 @@ import { Budget } from './core/budget'
 import { clientIp, readPlayerToken } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { JournalDesGestes } from './core/journalDesGestes'
+import { SanteDuServeur } from './core/santeDuServeur'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
@@ -29,7 +31,7 @@ import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
-import { Charge, pouls } from './core/pouls'
+import { Charge, pouls, releve } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -39,7 +41,7 @@ import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
-import { wireSockets } from './sockets'
+import { cloreLaSoiree, wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
@@ -235,6 +237,10 @@ async function deFront(...travaux: Promise<unknown>[]): Promise<void> {
 
 export async function createQuizServer(opts: QuizServerOptions) {
   const debutDuDemarrage = Date.now()
+  // Le relevé de l'heure part de zéro avec le serveur : un serveur d'avant,
+  // dans le même processus — les tests —, n'a rien à lui léguer. Ce que le
+  // démarrage coûte à Turso, en revanche, compte dans sa première heure.
+  releve.remettreAZero()
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
@@ -255,7 +261,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const debut = performance.now()
     res.on('finish', () => {
       const modele: unknown = req.route?.path
-      if (typeof modele === 'string') pouls.noterRoute(`${req.method} ${modele}`, performance.now() - debut)
+      if (typeof modele !== 'string') return
+      const ms = performance.now() - debut
+      pouls.noterRoute(`${req.method} ${modele}`, ms)
+      // Et heure par heure, pour la page « Le serveur » du QG.
+      releve.route(`${req.method} ${modele}`, ms)
     })
     next()
   })
@@ -381,6 +391,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
+  // Le journal des gestes de l'administrateur, que le QG relit : il raconte
+  // ce qui a changé dans la base permanente, et vit avec elle.
+  const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
+  // La santé du serveur sur sept jours, que la page « Le serveur » du QG relit :
+  // dans la base permanente, la seule qui survive à un réveil.
+  const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken)
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -439,6 +455,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     partages.init(),
     salons.init(),
     campagne.init(),
+    gestes.init(),
+    sante.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -473,6 +491,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.confettisDeCampagne = id => campagne.confettisDe(id)
+  // Et celles qu'il donne en portant un compagnon le font grandir.
+  profiles.compagnonsDuJour = id => jour.compagnonsDe(id)
+  profiles.compagnonsDeCampagne = id => campagne.compagnonsDe(id)
   // Ses paliers de campagne, pour les jauges de sa page ; son calendrier du quiz du jour.
   profiles.statsDeCampagne = id => campagne.statsDe(id)
   // Sa ligue des duels, sur sa carte.
@@ -683,7 +704,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
   // l'ancien rythme de 30 secondes aussi inutile que coûteux.
-  const charge = new Charge()
+  // Chaque relevé de charge porte aussi les invités connectés : la page « Le serveur » du QG les montre à côté.
+  const charge = new Charge(undefined, { invites: () => registry.all().reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0) })
   const resync = setInterval(() => {
     for (const runtime of registry.all()) runtime.sendSnapshot(true)
   }, 300_000)
@@ -807,8 +829,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
     // Ce que la routine du matin a déposé dans la base de la campagne : une
-    // routine qui ne tourne plus se voit à sa date.
-    mesurer('campagne', () => ({ campagne: campagne.santeDeLaBase() }))
+    // routine qui ne tourne plus se voit à sa date. Et le modèle du savoir,
+    // qu'Automate lit : quand il s'est ajusté, sur combien, en combien de temps.
+    mesurer('campagne', () => ({ campagne: { ...campagne.santeDeLaBase(), savoir: campagne.santeDuSavoir() } }))
     // La dernière tournée du rappel du soir : combien sont partis, combien
     // ont échoué — un service de push qui refuse tout se voit ici.
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))
@@ -1030,6 +1053,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
+    qg: {
+      db,
+      registry,
+      io,
+      backup,
+      charge,
+      sante,
+      env: opts.appEnv ?? 'production',
+      version: opts.version ?? null,
+      // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
+      clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
+    },
+    gestes,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -1112,6 +1148,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.use('/portraits', express.static(path.join(clientDist, 'portraits'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les légendaires et les Divins peints de même (`server/scripts/anime/legendaires.ts`).
     app.use('/medaillons', express.static(path.join(clientDist, 'medaillons'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les compagnons de la boutique de même (`server/scripts/anime/livrer-compagnons.ts`).
+    app.use('/compagnons', express.static(path.join(clientDist, 'compagnons'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // Les décors peints — le calendrier, les thèmes peints, les fonds de carte — de même (`server/scripts/anime/decors.ts`).
     app.use('/decors', express.static(path.join(clientDist, 'decors'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
@@ -1218,11 +1256,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   boundPort = port
   // Sur l'hébergeur, le seul endroit où lire ce que vaut vraiment
   // `MAX_PLAYERS` : c'est son tableau de bord qui fait foi, pas render.yaml.
+  const pretEnMs = Date.now() - debutDuDemarrage
   console.log(
-    `[serveur] prêt en ${Date.now() - debutDuDemarrage} ms — au plus ${maxPlayersCeiling} invités par soirée` +
+    `[serveur] prêt en ${pretEnMs} ms — au plus ${maxPlayersCeiling} invités par soirée` +
       (opts.maxPlayers ? '' : ' (MAX_PLAYERS non défini : le plafond du code)') +
       (opts.version ? ` — version ${opts.version}` : ''),
   )
+  // Le démarrage s'écrit une fois le port ouvert : un réveil n'attend pas un aller-retour de plus.
+  sante.demarrer({ demarreLe: debutDuDemarrage, pretEnMs, version: opts.version ?? null, env: opts.appEnv ?? 'production' })
   // La base de la campagne, en fond et par tranches qui rendent la main
   // (`lireLaBaseSansBloquer`) : personne ne l'attend plus à sa première série.
   const prechauffage = setTimeout(() => campagne.prechauffer(), opts.prechauffageCampagneMs ?? PRECHAUFFAGE_CAMPAGNE_MS)
@@ -1238,6 +1279,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
       new Promise<void>(resolve => {
         clearInterval(resync)
         clearTimeout(prechauffage)
+        // L'extinction propre s'écrit tout de suite, à côté du miroir qui se
+        // vide : l'hébergeur coupe net trente secondes après avoir prévenu, et
+        // un démarrage sans elle passerait pour arrêté net.
+        const santeArretee = sante.arreter()
         // Plus un rappel ne part : la tournée en route s'arrête au téléphone suivant.
         rappels.arreter()
         charge.arreter()
@@ -1246,7 +1291,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
           // la base locale doit rester ouverte d'ici là — une resynchronisation
           // en attente la relit.
-          await backup.close()
+          await Promise.all([backup.close(), santeArretee])
           db.close()
           store.close()
           programmes.close()

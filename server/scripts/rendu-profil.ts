@@ -4,9 +4,9 @@
 // avatar touché, en grand, la loge — sa carte et ses six pièces d'abord, son
 // panneau ensuite —, sur chaque pièce — avatar, titre, vitrine, fond, thème,
 // gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
-// nouveauté, « Ma collection », ses lignes dépliées, l'album des thèmes et la
-// fiche de l'un d'eux, et la boutique des thèmes, qui ne vend que ce qui
-// s'achète.
+// nouveauté, « Ma collection », ses lignes dépliées, l'album des avatars — ses
+// six pages et trois fiches —, l'album des thèmes et la fiche de l'un d'eux,
+// et la boutique des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -180,10 +180,27 @@ try {
   await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».
-  for (const partie of ['themes', 'legendaires', 'savoir', 'fonds', 'gerbes', 'finitions', 'emojis']) {
+  for (const partie of ['themes', 'avatars', 'fonds', 'gerbes', 'finitions']) {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
+  }
+  // L'album des avatars, page par page — son adresse nomme la page —, puis trois fiches : à gagner, à gagner sur un sentier, et la sienne.
+  for (const rarete of ['commune', 'peucommune', 'rare', 'epique', 'legendaire', 'divin']) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector(`#gemme-${rarete}[aria-selected="true"]`)
+    await photo(`6-album-${rarete}`, true)
+  }
+  for (const [rarete, debut, nom] of [
+    ['legendaire', 'La Licorne Astrale,', 'licorne'],
+    ['legendaire', 'Le Phénix,', 'phenix'],
+    ['rare', 'Le lynx,', 'lynx'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector('.album-avatars')
+    await page.click(`.album-case[aria-label^="${debut}"]`)
+    await page.waitForSelector('#fiche-avatar .album-detail')
+    await photo(`6-album-fiche-${nom}`)
   }
   // L'album des thèmes : toucher celui qui se gagne ouvre sa fiche, et le lieu qui le donne.
   await page.goto(`${banc.url}/profil#collection-themes`)
@@ -214,6 +231,67 @@ try {
   await page.waitForSelector('.loge-carte-vitrine .loge-vitrine-case')
   await page.$eval('.loge-carte', (carte: any) => carte.classList.add('carte-fond', 'fond-nuit'))
   await photo('9-loge-habillee')
+
+  // Les compagnons : leur rayon avant l'achat ; puis le loup acheté et mené
+  // à sa forme ultime — cinq cent vingt bonnes réponses en le portant, en
+  // campagne —, la tortue achetée sans la porter et grandie d'une forme ; le
+  // rayon, la loge, l'album et la carte.
+  const avecCompagnons = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  avecCompagnons
+    .prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-09-20', 1, 10, NULL, 0, 2500, 1, 0)`)
+    .run(id)
+  avecCompagnons.close()
+  await page.goto(`${banc.url}/boutique#compagnons`)
+  await page.waitForSelector('.rayon-compagnons .compagnon-carte')
+  await photo('10-boutique-compagnons')
+  await photo('10-boutique-compagnons-pleine', true)
+  await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)
+  await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'tortue', porter: false }, cookie)
+  const nourrir = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  for (const [serie, n, compagnon] of [
+    ['avec-le-loup', 520, 'loup'],
+    ['avec-la-tortue', 160, 'tortue'],
+  ] as const) {
+    nourrir.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le) VALUES (?, ?, '[]', ?, 3, ?, 1, 2)`).run(serie, id, n, n)
+    const reponse = nourrir.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon) VALUES (?, ?, ?, 0, 1, 2, ?)')
+    for (let i = 0; i < n; i++) reponse.run(serie, i, `${serie}-${i}`, compagnon)
+  }
+  nourrir.close()
+  // La même adresse ne recharge pas la page : elle relirait la boutique d'avant l'achat.
+  await page.goto('about:blank')
+  await page.goto(`${banc.url}/boutique#compagnons`)
+  await page.waitForSelector('.rayon-compagnons .compagnon-sien')
+  await photo('10-boutique-compagnons-a-toi')
+  await photo('10-boutique-compagnons-a-toi-pleine', true)
+  await page.goto(`${banc.url}/profil#avatar`)
+  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await photo('10-loge-loup-ultime')
+  await page.click('.onglets-puces [role="tab"]:has-text("Compagnons")')
+  await photo('10-loge-compagnons')
+  for (const rarete of ['commune', 'legendaire']) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector(`#gemme-${rarete}[aria-selected="true"]`)
+    await photo(`10-album-${rarete}`, true)
+  }
+  for (const [rarete, debut, nom] of [
+    ['legendaire', 'Le loup des étoiles,', 'loup-des-etoiles'],
+    ['legendaire', 'L’esprit des lanternes,', 'esprit-des-lanternes'],
+    ['epique', 'La tortue-bosquet,', 'tortue-bosquet'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector('.album-avatars')
+    await page.click(`.album-case[aria-label^="${debut}"]`)
+    await page.waitForSelector('#fiche-avatar .album-detail')
+    await photo(`10-album-fiche-${nom}`)
+  }
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.profil-boutons .gros-compte')
+  await page.click('button.identite-ligne')
+  await page.waitForSelector('.carte-joueur .carte-tete')
+  await photo('10-carte-loup')
+  await page.click('.carte-avatar-bouton')
+  await page.waitForSelector('.carte-loupe')
+  await photo('10-carte-loup-en-grand')
 } finally {
   await navigateur.close()
   await banc.close()

@@ -3,12 +3,11 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
-import { CeQuIlRemplace, ChoixDeLEclat } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
 import { PremierHautFait } from './Trophees'
 import { espacesFines, formatNumber } from '../format'
-import { AVATARS, COLLECTION } from '../../../shared/avatars'
+import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import {
   AUCUNE_BORDURE,
   CRANS_D_UNE_BORDURE,
@@ -23,7 +22,9 @@ import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS, divin } from '../../../shared/divins'
-import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts, type Paliers } from '../../../shared/branches'
+import { pageDuProchain, type SorteDAvatar } from '../../../shared/album'
+import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts } from '../../../shared/branches'
+import { FORMES_DES_COMPAGNONS, NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon, formesOuvertes } from '../../../shared/compagnons'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
@@ -41,14 +42,7 @@ import type { PropsDUnePiece } from './choix'
 // la montre, rien n'est enregistré —, et « Porter », dans la barre de la
 // loge, enregistre l'essai. Chaque grille dit ce qu'il porte (« porté ») et
 // ce qu'il essaie (« à l'essai »). D'où vient un avatar, et comment gagner
-// les autres, se lit dans « Ma collection » (`AtlasDesAvatars`).
-
-/**
- * L'anneau des emojis de collection passe du vert au bleu à partir du
- * niveau 10 : les premiers viennent en quelques soirées, les autres en une
- * année, et la grille le dit d'un coup d'œil.
- */
-export const COLLECTION_HAUTE = 10
+// les autres, se lit dans « Ma collection » (`AlbumDesAvatars`).
 
 /** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
 function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
@@ -93,14 +87,16 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 /**
  * Les familles de la grille des avatars, dans l'ordre de leurs pastilles :
  * les légendaires — les Divins dessous —, les portraits des branches, les
- * emojis — ceux de collection dessous. Chacune mène à sa ligne de « Ma
- * collection » (`partie`), où se lit ce qui reste, et où le gagner.
+ * compagnons de la boutique, les emojis — ceux de collection dessous. Chacune
+ * mène à l'album de « Ma collection », sur la page de son prochain avatar à
+ * gagner (`sorte`) : ce qui reste s'y lit, et où le gagner.
  */
-export type Famille = 'legendaires' | 'portraits' | 'emojis'
-export const FAMILLES: readonly { id: Famille; nom: string; partie: string }[] = [
-  { id: 'legendaires', nom: 'Légendaires', partie: 'legendaires' },
-  { id: 'portraits', nom: 'Portraits', partie: 'savoir' },
-  { id: 'emojis', nom: 'Emojis', partie: 'emojis' },
+export type Famille = 'legendaires' | 'portraits' | 'compagnons' | 'emojis'
+export const FAMILLES: readonly { id: Famille; nom: string; sorte: SorteDAvatar }[] = [
+  { id: 'legendaires', nom: 'Légendaires', sorte: 'legendaire' },
+  { id: 'portraits', nom: 'Portraits', sorte: 'portrait' },
+  { id: 'compagnons', nom: 'Compagnons', sorte: 'compagnon' },
+  { id: 'emojis', nom: 'Emojis', sorte: 'emoji' },
 ]
 
 /**
@@ -109,6 +105,7 @@ export const FAMILLES: readonly { id: Famille; nom: string; partie: string }[] =
  */
 export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avatar'>): Famille {
   if (portraitDe(profil.legendaire)) return 'portraits'
+  if (formeDeCompagnon(profil.legendaire)) return 'compagnons'
   if (legendaire(profil.legendaire) || divin(profil.legendaire)) return 'legendaires'
   return 'emojis'
 }
@@ -149,8 +146,9 @@ export function cadenas(n: number, colonnes: number, reste: number): number {
 
 /**
  * Ses avatars, dans la loge (la maquette 1 validée le 12 octobre 2026) :
- * trois pastilles — ses légendaires, ses portraits, ses emojis, chacune son
- * compte —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
+ * quatre pastilles — ses légendaires, ses portraits, ses compagnons, ses
+ * emojis, chacune son compte ; deux rangées au téléphone depuis les
+ * compagnons —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
  * la carte collée en tête le montre, la case a son halo d'or, celle qu'il
  * porte garde sa coche, et « Porter », dans la barre de la loge, le garde.
  * Trois familles en onglets à titres, l'accordéon des branches et une fiche
@@ -187,6 +185,7 @@ export function comptesDesFamilles(profil: PublicProfileDetail): Record<Famille,
   return {
     legendaires: profil.legendaires.length + (profil.divins ?? []).length,
     portraits: portraitsOuverts(profil.sentiers ?? {}).length,
+    compagnons: formesOuvertes(profil.compagnons ?? []).length,
     emojis: AVATARS.length + COLLECTION.filter(c => profil.niveau >= c.niveau).length,
   }
 }
@@ -230,10 +229,10 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
         {niveaux[i] !== undefined && <span className="loge-ferme-niveau">{`niv. ${niveaux[i]}`}</span>}
       </span>
     ))
-  const partie = FAMILLES.find(f => f.id === famille)!.partie
+  const page = pageDuProchain(profil, FAMILLES.find(f => f.id === famille)!.sorte)
   const aGagner = (reste: number, un: string, plusieurs: string) =>
     reste > 0 && (
-      <a className="loge-a-gagner" href={`#collection-${partie}`}>
+      <a className="loge-a-gagner" href={`#collection-avatars${page ? `-${page}` : ''}`}>
         {espacesFines(`${reste} ${reste > 1 ? plusieurs : un} à gagner : où ?`)}
         <Icon name="chevron-right" />
       </a>
@@ -292,6 +291,38 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
     )
   }
 
+  if (famille === 'compagnons') {
+    // Chaque compagnon acheté, ses formes atteintes : une forme d'avant se porte aussi.
+    const ouvertes = formesOuvertes(profil.compagnons ?? [])
+    const siennes = FORMES_DES_COMPAGNONS.filter(f => ouvertes.includes(f.key))
+    const reste = FORMES_DES_COMPAGNONS.length - siennes.length
+    return (
+      <>
+        {siennes.length === 0 && (
+          <p className="muted small">
+            {espacesFines('Ils s’achètent à la boutique, puis grandissent avec les bonnes réponses que tu donnes en les portant.')}{' '}
+            <a className="link-inline" href="/boutique#compagnons">
+              La boutique
+            </a>
+          </p>
+        )}
+        <div className="loge-grille grille-unique" role="group" aria-label="Les compagnons">
+          {siennes.map(f =>
+            laCase(
+              f.key,
+              dessine(f.key),
+              `${f.nom}, ${compagnonDe(f).nom}, ${NOM_DE_LA_FORME[f.rang].toLowerCase()}${brille(f.key) ? ', éclaté' : ''}`,
+              { legendaire: f.key },
+              medaillon(f.key, brille(f.key)),
+            ),
+          )}
+          {fermes(siennes.length, 4, reste)}
+        </div>
+        {aGagner(reste, 'forme de compagnon', 'formes de compagnons')}
+      </>
+    )
+  }
+
   const collection = COLLECTION.filter(c => profil.niveau >= c.niveau)
   const aVenir = COLLECTION.filter(c => profil.niveau < c.niveau)
   return (
@@ -323,79 +354,6 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
       </div>
       {aGagner(aVenir.length, 'emoji de collection', 'emojis de collection')}
     </>
-  )
-}
-
-const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
-
-/**
- * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, le palier
- * de son sentier qui l'ouvre — et, s'il manque encore, combien de paliers,
- * avec le chemin du sentier. Gagné, il se porte d'ici ; porté, on revient à
- * son emoji. Sans `onPorter` — « Ma collection », qui ne fait que montrer —,
- * rien à toucher que le sentier.
- */
-export function DetailPortrait({
-  cle,
-  paliers,
-  porte,
-  eclat,
-  brille = eclat,
-  busy,
-  onPorter,
-  onEclat,
-}: {
-  cle: string
-  paliers: Paliers
-  /** L'avatar dessiné qu'il porte, s'il en porte un. */
-  porte: string | null
-  /** Il a éclaté pour lui. */
-  eclat: boolean
-  /** Il en porte la version rare — sinon, il l'a éteint. */
-  brille?: boolean
-  busy: boolean
-  onPorter?: (cle: string | null) => void
-  /** Porter sa version rare, ou sa version d'origine. */
-  onEclat?: (brille: boolean) => void
-}) {
-  const p = portraitDe(cle)
-  if (!p) return null
-  const b = brancheDe(p)
-  const valides = paliers[b.key] ?? 0
-  const gagne = valides >= p.palier
-  return (
-    <div className="galerie-detail detail-case">
-      <span className="detail-famille muted">{`${b.nom} · ${b.categorie}`}</span>
-      <b className="galerie-detail-nom">{p.nom}</b>
-      {gagne ? (
-        <p className="small">{`Gagné au palier ${p.palier} du sentier ${deLaBranche(b)}.`}</p>
-      ) : (
-        <>
-          <p className="small">
-            {`Se gagne au palier ${p.palier} du sentier ${deLaBranche(b)} : `}
-            <b>{`encore ${nPaliers(p.palier - valides)}`}</b>, dans la campagne.
-          </p>
-          <a className="btn btn-small" href={`/campagne#sentier-${b.key}`}>
-            Aller au sentier
-          </a>
-        </>
-      )}
-      {/* Gagné seulement : un portrait verrouillé n'a rien qui éclate. */}
-      {gagne && eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
-      {gagne && onPorter && (
-        <>
-          <CeQuIlRemplace porte={porte} cle={p.key} />
-          <button
-            type="button"
-            className={'btn btn-small ' + (porte === p.key ? 'btn-ghost' : 'btn-primary')}
-            aria-disabled={busy || undefined}
-            onClick={() => onPorter(porte === p.key ? null : p.key)}
-          >
-            {porte === p.key ? 'Revenir à mon emoji' : 'Le porter'}
-          </button>
-        </>
-      )}
-    </div>
   )
 }
 

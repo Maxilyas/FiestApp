@@ -7,10 +7,7 @@
 // lui, et la page ne dit rien de plus que ce qu'il sait déjà — ni jauge ni
 // progression vers les autres (invariant 21).
 
-import { PORTRAITS, portraitsOuverts } from './branches'
-import { LEGENDAIRES } from './legendaires'
-import { DIVINS } from './divins'
-import { COLLECTION } from './avatars'
+import { compteDeLAlbum } from './album'
 import { THEMES } from './themes'
 import { FONDS } from './fonds'
 import { GERBES } from './gerbes'
@@ -19,11 +16,12 @@ import { FINITIONS, type PublicProfileDetail } from './profil'
 
 export type FamilleDeLaCollection = 'avatars' | 'style' | 'trophees'
 
-/** Une ligne de la collection : les avatars en trois, le style en quatre, les trophées en dix, rangés par où ils se gagnent. */
+/**
+ * Une ligne de la collection : les avatars en un album (`shared/album.ts`),
+ * le style en quatre, les trophées en dix, rangés par où ils se gagnent.
+ */
 export type PartieDeLaCollection =
-  | 'savoir'
-  | 'legendaires'
-  | 'emojis'
+  | 'avatars'
   | 'themes'
   | 'fonds'
   | 'gerbes'
@@ -155,11 +153,9 @@ const somme = (parties: LigneDuCompte[]): Compte => ({
  * compte pas : le total n'annonce jamais ce que la page ne saurait montrer.
  */
 export function compteDeLaCollection(p: ProfilDeLaCollection): { familles: FamilleDuCompte[]; total: Compte } {
-  const avatars: LigneDuCompte[] = [
-    { partie: 'savoir', acquis: portraitsOuverts(p.sentiers ?? {}).length, total: PORTRAITS.length },
-    { partie: 'legendaires', acquis: p.legendaires.length + p.divins.length, total: LEGENDAIRES.length + DIVINS.length },
-    { partie: 'emojis', acquis: COLLECTION.filter(c => p.niveau >= c.niveau).length, total: COLLECTION.length },
-  ]
+  // Un seul album : trois lignes — le savoir, les légendaires, les emojis —
+  // rendaient les gens « confus » (le 13 octobre 2026).
+  const avatars: LigneDuCompte[] = [{ partie: 'avatars', ...compteDeLAlbum(p) }]
   const style: LigneDuCompte[] = [
     ...(p.boutique ? [{ partie: 'themes' as const, acquis: p.boutique.possedes.length, total: THEMES.length }] : []),
     ...(p.fonds ? [{ partie: 'fonds' as const, acquis: p.fonds.length, total: FONDS.length }] : []),

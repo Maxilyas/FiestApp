@@ -6,7 +6,7 @@ import { choixDialog, confirmDialog, promptDialog } from './Dialog'
 import { showToast } from '../state'
 import { deNom, espacesFines, quand } from '../format'
 import { copierTexte } from '../copier'
-import { normalizeSlug, type EspaceDAdministration } from '../../../shared/space'
+import { nomDeLEspace as nomDe, normalizeSlug, type EspaceDAdministration } from '../../../shared/space'
 
 type Filtre = 'tous' | 'orphelins' | 'fermes'
 const FILTRES: [Filtre, string][] = [
@@ -16,12 +16,6 @@ const FILTRES: [Filtre, string][] = [
 ]
 const garder = (f: Filtre) => (e: EspaceDAdministration) =>
   f === 'tous' ? true : f === 'orphelins' ? e.salon && !e.titulaire : e.status === 'disabled'
-
-/** Le nom qu'on lit : un salon porte celui de son titulaire — son identifiant `p-…` ne disait rien. */
-function nomDe(e: EspaceDAdministration): string {
-  if (!e.salon) return e.name
-  return e.titulaire ? `Le salon ${deNom(e.titulaire.nom)}` : `Un salon sans titulaire · ${e.name}`
-}
 
 /**
  * « Les salons », à `/admin#salons` : tous les espaces du serveur — les

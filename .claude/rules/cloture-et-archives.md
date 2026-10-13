@@ -88,7 +88,12 @@ paths:
 18. **L'historique s'écrit tout seul, et la soirée n'a qu'un geste de fin.**
     Elle se range après chaque quiz (`apresQuiz`) ; `host:closeParty` la clôt
     — dernier rangement, crédits de clôture, fin de soirée à chaque téléphone
-    et à la salle, puis la page blanche. Pour un salon ouvert depuis un
+    et à la salle, puis la page blanche. Laissée en plan — six heures sans
+    un geste —, l'administrateur la clôt aussi depuis le QG
+    (`POST /api/admin/soirees/:spaceId/clore`, règle `qg.md`), par le même
+    chemin que l'écran commun (`cloreLaSoiree`, `sockets.ts`) : une clôture
+    qui contournerait ce chemin oublierait la mesure des inscriptions de
+    l'espace. Pour un salon ouvert depuis un
     téléphone (`SalonStore.clotureAuto`), le verdict du dernier quiz de son
     programme n'arme rien : il annonce la fin du programme
     (`considererCloture`, `finDuProgramme` dans l'instantané), et la barre

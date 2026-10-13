@@ -25,7 +25,8 @@ import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
-import type { BordureDeLigue, ChoixDeBordure, DuelsDAccueil } from './duels'
+import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
+import { formeDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -377,6 +378,13 @@ export interface ReleveSoiree {
   avatar: string
   /** Par catégorie de question : posées, justes. */
   categories: Record<string, { questions: number; justes: number }>
+  /**
+   * Par compagnon porté (`loup`) : ses bonnes réponses données en le portant,
+   * comptées comme ses confettis — un QCM juste, une estimation parmi les
+   * plus proches (`confettisDeSoiree`). Elles le font grandir
+   * (`shared/compagnons.ts`). Absent sans compagnon.
+   */
+  compagnons?: Record<string, number>
 }
 
 export function releveVide(): ReleveSoiree {
@@ -777,6 +785,13 @@ export interface PublicProfile {
   /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
   divins: DivinDescendu[]
   /**
+   * Ses compagnons achetés en boutique (`shared/compagnons.ts`), et la plus
+   * haute forme de chacun : elle et celles d'avant se portent. Absent sans
+   * compagnon, et d'un serveur d'avant ; ce qui les fait grandir se lit dans
+   * sa boutique (`BoutiqueDuProfil.compagnons`).
+   */
+  compagnons?: CompagnonPossede[]
+  /**
    * Le titre qu'il porte sous son prénom — la clé d'un haut fait gagné, qui
    * s'écrit de son nom (`hautFait(cle).title`) —, ou rien. Absent d'un
    * serveur d'avant.
@@ -812,10 +827,21 @@ export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 
  * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint : il peut
  * garder la version d'origine d'un avatar qui a éclaté. La même règle que le
  * serveur (`ProfileStore.brilleChez`), pour tout ce que sa page montre de
- * lui.
+ * lui. Un compagnon brille sous toutes ses formes : l'Éclat tombé sur le
+ * louveteau suit le loup qui grandit (`clesQuiBrillent`).
  */
 export function brilleChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints'>, cle: string): boolean {
-  return profil.eclats.includes(cle) && !(profil.eclatsEteints ?? []).includes(cle)
+  return clesQuiBrillent(profil.eclats, cle).some(k => !(profil.eclatsEteints ?? []).includes(k))
+}
+
+/**
+ * Les Éclats de ses `eclats` qui font briller cet avatar : le sien, et pour
+ * une forme de compagnon, celui de n'importe quelle forme du même compagnon
+ * — l'Éclat tombe sur ce qu'il porte, et le compagnon grandit ensuite.
+ */
+export function clesQuiBrillent(eclats: Iterable<string>, cle: string): string[] {
+  const forme = formeDeCompagnon(cle)
+  return [...eclats].filter(k => k === cle || (!!forme && formeDeCompagnon(k)?.compagnon === forme.compagnon))
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */
@@ -868,7 +894,53 @@ export interface ProfilDAdministration {
   salon: { slug: string; quiz: number; propre: boolean } | null
   /** Le profil de l'administrateur qui regarde : il ne se supprime pas d'ici. */
   toi: boolean
+  /** Suspendu par l'administrateur : il ne se connecte plus, et personne ne le voit. */
+  suspendu: boolean
 }
+
+/**
+ * La fiche d'un joueur, au QG (`/admin#profils`) : de quoi l'aider sans lui
+ * demander — où il en est dans chaque mode, ses confettis, sa connexion,
+ * l'épreuve qui l'attend. Ses gestes se relisent à part, au journal
+ * (`/api/admin/gestes?cible=`).
+ */
+export interface FicheDuJoueur extends ProfilDAdministration {
+  creeLe: number
+  /** Passé ces cinq dernières minutes. */
+  enLigne: boolean
+  /** Masqué des classements, depuis la page du quiz du jour : lui n'en sait rien. */
+  masque: boolean
+  /** Depuis quand il est suspendu ; null s'il ne l'est pas. */
+  suspenduLe: number | null
+  /** Ses quiz du jour : joués, gagnés. Null si la base s'est tue. */
+  jour: { joues: number; victoires: number } | null
+  campagne: { record: number; justes: number } | null
+  /** Sa ligue et sa cote, dès son premier duel classé. */
+  duels: { ligue: CleDeLigue; cote: number } | null
+  /** Son solde, et ce que l'administrateur lui a offert en tout. */
+  confettis: { solde: number; offerts: number } | null
+  /** Sa connexion, fermée un quart d'heure après cinq essais manqués — par son mot de passe ou son code de secours. */
+  connexion: { fermeeJusquA: number | null }
+  /** L'épreuve de sentier qui l'attend : une seule à la fois, et il ne peut en commencer aucune autre. */
+  epreuve: { sentier: string; palier: number; depuis: number; vieEnJeu: boolean } | null
+}
+
+/** Ce qu'un don de l'administrateur offre au plus : un geste pour quelqu'un, pas une économie à côté. */
+export const CONFETTIS_PAR_DON_MAX = 500
+/** Le mot qui l'accompagne, au plus : il tient sur la bannière de l'accueil. */
+export const MOT_D_UN_DON_MAX = 140
+
+/**
+ * Ce que l'administrateur a fait pour un joueur et qu'on lui dit, une fois,
+ * en tête de son accueil : des confettis offerts, son prénom changé. Retenu
+ * sur son téléphone une fois montré (`AnnoncesDeLAdministrateur`).
+ */
+export type AnnonceDeLAdministrateur =
+  | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
+  | { id: string; sorte: 'prenom'; nom: string; le: number }
+
+/** Combien de temps une annonce attend sa prochaine visite : un mois, puis elle se tait. */
+export const ANNONCE_MS = 30 * 24 * 3_600_000
 
 export interface PublicProfileDetail extends PublicProfile {
   vitrine: BadgePorte[]
@@ -945,6 +1017,8 @@ export type ProfilDAccueil = PublicProfile &
      * son premier écran. Absent d'un serveur d'avant.
      */
     aujourdhui?: string
+    /** Ce que l'administrateur a fait pour lui ce dernier mois, à lui dire une fois. Absent s'il n'y a rien. */
+    annonces?: AnnonceDeLAdministrateur[]
   }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

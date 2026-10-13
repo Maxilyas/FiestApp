@@ -5,9 +5,9 @@
 // (la salle — sa finition comprise), le titre, la vitrine, le fond, le
 // thème, la gerbe (lui seul) —, sa carte en tête. La loge ne montre que ce qu'on a ;
 // tout le reste, et où le gagner, vit dans « Ma collection », où les avatars
-// se parcourent en atlas : un rail des douze branches, chacune un orbe dont
-// l'anneau se remplit, puis la branche choisie en chemin ; les légendaires
-// et les Divins en grilles de médaillons. La loge elle-même : `loge.test.ts`.
+// se rangent en album, une page par rareté (la maquette 1 du 13 octobre 2026 ;
+// un rail des douze branches et des grilles de légendaires l'avaient
+// précédé). La loge elle-même : `loge.test.ts` ; l'album : `ma-collection.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -15,6 +15,7 @@ import React from 'react'
 import { BRANCHES, ouvertsDansLaBranche } from '../../shared/branches'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
+import { COMPAGNONS } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION } from '../../shared/profil'
 
@@ -32,8 +33,8 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-// La branche la plus avancée ouvre l'atlas : trois portraits sur six, au
-// palier de son sentier qui ouvre le troisième.
+// Une branche avancée : trois portraits sur six, au palier de son sentier qui
+// ouvre le troisième.
 const avancee = BRANCHES[2]
 const paliers = { [avancee.key]: avancee.portraits[2].palier }
 
@@ -67,32 +68,50 @@ const loge = { ...rien, essai: {}, essayer: () => {} }
 const laLoge = (piece: string, p: object = complet) =>
   rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: p, piece, onPiece: () => {}, busy: false, enregistrer: async () => true })
 
-test('le savoir en atlas : douze orbes sur deux rangées, la branche la plus avancée en chemin', async () => {
-  const html = await rendu('components/AtlasDesAvatars', 'AtlasDesAvatars', { profil, ...rien, onglet: 'savoir' })
-  assert.match(html, /<div class="atlas-rail rail-compact" role="tablist" aria-label="Les douze branches">/)
-  assert.equal(html.match(/class="atlas-orbe"/g)?.length, BRANCHES.length)
-  // Chaque orbe dit où il en est, en chiffres : l'anneau seul ne se lit pas.
-  for (const b of BRANCHES) assert.match(html, new RegExp(`${ouvertsDansLaBranche(b, paliers)}/${b.portraits.length}`), b.nom)
-  // La branche ouverte d'abord est celle où l'on avance — trois portraits gagnés, le quatrième qui palpite.
-  assert.match(html, /<section class="atlas-branche"/)
-  assert.equal(html.match(/class="atlas-etape atlas-gagne"/g)?.length, 3)
-  assert.equal(html.match(/class="atlas-etape atlas-prochain"/g)?.length, 1)
-  assert.equal(html.match(/class="atlas-etape atlas-ferme"/g)?.length, 2)
-  // On passe d'une branche à l'autre aux flèches, sans repasser par le rail.
-  assert.match(html, /aria-label="Branche précédente"/)
-  assert.match(html, /aria-label="Branche suivante"/)
+/** L'album des avatars de « Ma collection », ouvert sur une page. */
+const album = (page: string, p: object = profil) => rendu('components/AlbumDesAvatars', 'AlbumDesAvatars', { profil: p, page, onPage: () => {} })
+
+/** Les cases d'une page de l'album, par ce qu'elles disent à l'oreille. */
+const casesDeLAlbum = (html: string) => [...html.matchAll(/class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ aLui: !m[1].includes('album-manque'), nom: m[2] }))
+
+test('le savoir dans l’album : chaque portrait sur la page de sa rareté — trois portraits d’une branche, trois pages qui s’allument', async () => {
+  const { pageDuDebut } = await import('../../shared/album')
+  // Rien de porté : l'album s'ouvre sur la première page où il reste à gagner.
+  assert.equal(pageDuDebut(profil as any), 'commune')
+  // Le visage, le deuxième et le troisième portrait de sa branche : en couleur, chacun sur sa page, en tête.
+  for (const [page, rang] of [['commune', 0], ['peucommune', 1], ['rare', 2]] as const) {
+    const cases = casesDeLAlbum(await album(page))
+    assert.deepEqual(cases[0], { aLui: true, nom: `${avancee.portraits[rang].nom}, ${{ commune: 'commune', peucommune: 'peu commune', rare: 'rare' }[page]}, à toi` }, page)
+  }
+  // Les autres portraits de sa branche attendent sur leurs pages, en silhouette, et disent où se gagner —
+  // à côté de la troisième forme de chaque compagnon.
+  const epique = casesDeLAlbum(await album('epique'))
+  assert.equal(epique.length, BRANCHES.length + COMPAGNONS.length)
+  assert.equal(epique.filter(c => !c.aLui && c.nom.endsWith(', épique, à gagner sur les sentiers')).length, BRANCHES.length)
+  // Chacun à son genre : « en la portant », pour la tortue.
+  for (const c of COMPAGNONS) {
+    assert.equal(epique.filter(x => !x.aLui && x.nom === `${c.formes[2].nom}, épique, à gagner en boutique, puis à 300 bonnes réponses en ${c.le} portant`).length, 1, c.key)
+  }
+  assert.ok(epique.some(x => x.nom === 'La tortue-bosquet, épique, à gagner en boutique, puis à 300 bonnes réponses en la portant'))
+  // Chaque gemme dit où il en est, en chiffres : la couleur seule ne se lit pas.
+  // Les compagnons y ont aussi leur forme, une par page : trois de plus.
+  const html = await album('commune')
+  assert.match(html, /aria-label="Rare, 1 sur 27"/)
+  assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length}"`))
+  assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })
 
-test('les légendaires et les Divins en grilles de médaillons, le compte en tête', async () => {
-  const html = await rendu('components/AtlasDesAvatars', 'AtlasDesAvatars', { profil, ...rien, onglet: 'legendaires' })
-  assert.doesNotMatch(html, /atlas-rail/, 'les légendaires n’ont pas le rail des branches')
-  assert.match(html, new RegExp(`1 sur ${LEGENDAIRES.length}`))
-  assert.equal(html.match(/class="hud-case[^"]*"/g)?.length, LEGENDAIRES.length + DIVINS.length)
-  assert.equal(html.match(/class="hud-case hud-gagne"/g)?.length, 1)
+test('les légendaires et les Divins dans l’album, le compte en tête — un Divin voilé ne dit rien de lui', async () => {
+  const html = await album('legendaire')
+  assert.match(html, new RegExp(`<b>Légendaire · 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length}\\.</b>`))
+  const cases = casesDeLAlbum(html)
+  assert.equal(cases.length, LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length)
+  assert.deepEqual(cases.filter(c => c.aLui).map(c => c.nom), [`${LEGENDAIRES[0].nom}, légendaire, à toi`])
   // Un Divin verrouillé ne dit rien de lui, pas même son nom (invariant 21).
-  assert.match(html, /<div class="hud-grille hud-grille-divins">/)
-  for (const d of DIVINS) assert.doesNotMatch(html, new RegExp(`aria-label="${d.nom}`), d.nom)
-  assert.match(html, /Ils ne disent pas comment/)
+  const divins = await album('divin')
+  assert.equal(casesDeLAlbum(divins).length, DIVINS.length)
+  for (const d of DIVINS) assert.ok(!divins.includes(d.nom), d.nom)
+  assert.match(divins, /Ils ne disent pas comment/)
 })
 
 // ── Ce qu'on porte : une page par pièce ────────────────────────────────
@@ -261,10 +280,11 @@ test('la loge, sur l’avatar : sa carte collée en tête, ses finitions en past
   assert.ok(html.indexOf('loge-finitions') < html.indexOf('onglets-puces'), 'la finition avant les avatars')
   // Seulement ce qu'il a : chaque case se touche ; ce qui reste est un cadenas, du décor.
   assert.doesNotMatch(html, /<button[^>]*loge-ferme/)
-  // Ce qui reste, et où le gagner : un lien vers sa ligne de la collection, compté.
+  // Ce qui reste, et où le gagner : un lien vers l'album de la collection, sur la page du prochain à gagner, compté.
+  const { pageDuProchain } = await import('../../shared/album')
   const famille = /aria-labelledby="famille-(\w+)"/.exec(html)![1]
-  const partie = { legendaires: 'legendaires', portraits: 'savoir', emojis: 'emojis' }[famille]
-  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-${partie}">\\d+ [^<]* à gagner`))
+  const sorte = ({ legendaires: 'legendaire', portraits: 'portrait', emojis: 'emoji' } as const)[famille as 'legendaires']
+  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-avatars-${pageDuProchain(complet as any, sorte)}">\\d+ [^<]* à gagner`))
   // La carte reste collée pendant qu'on choisit.
   assert.match(source('styles.css'), /\.loge-collante \{ position: sticky; top: 0;/)
 })

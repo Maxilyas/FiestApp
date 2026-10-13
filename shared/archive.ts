@@ -56,6 +56,8 @@ export interface ArchivedAnswer {
   observed: boolean
   /** La catégorie de la question, si elle en portait une. Absente des archives d'avant. */
   category?: string | null
+  /** Le compagnon qu'il portait (`loup`), s'il en portait un : le recalcul en relit la croissance. */
+  compagnon?: string
   createdAt: number
 }
 
