@@ -1,11 +1,11 @@
 ---
 paths:
   - "server/src/core/{hautsfaits,recalcul,divins,saisons}.ts"
-  - "shared/{hautsfaits,legendaires,divins,saisons,badges,ecussons}.ts"
+  - "shared/{hautsfaits,legendaires,divins,saisons,badges,ecussons,pistes,gains}.ts"
   - "server/src/auth/profiles.ts"
   - "server/scripts/calibrage.ts"
-  - "client/src/components/{Ecusson,Trophees,Trophies,Carriere,CarriereAtlas,Niveau,BarreDeNiveau}.tsx"
-  - "server/test/{hautsfaits,legendaires,divins,eclat,eclat-hors-soiree,experience,niveaux,recalcul,saisons,saisons-relues,sphinx,ecussons,bareme,recompenses-montrees}.test.ts"
+  - "client/src/components/{Ecusson,Trophees,Trophies,Carriere,CarriereAtlas,Niveau,Gains,Etoiles}.tsx"
+  - "server/test/{hautsfaits,legendaires,divins,eclat,eclat-hors-soiree,experience,niveaux,recalcul,saisons,saisons-relues,sphinx,ecussons,bareme,recompenses-montrees,gains}.test.ts"
 ---
 
 # L'expérience, les hauts faits, les légendaires, les Divins, le recalcul
@@ -19,9 +19,21 @@ paths:
 - `shared/ecussons.ts` · `client/src/components/Ecusson.tsx` — les écussons de savoir : les bonnes réponses d'une catégorie dans tous les modes de jeu — soirées (`Carriere.categories`), quiz du jour (`JourStore.savoirDe`), campagne : séries, épreuves des sentiers, défis (`CampagneStore.savoirDe`, la catégorie que la série a gardée de sa question) —, au bronze, à l'argent, à l'or (`SEUILS_ECUSSON`) — dérivation pure, sans expérience ; ce que chaque mode sait (`Savoir` : ses catégories, et la base de sa précision — ses QCM répondus, classés ou non), lu en une requête par mode (`savoirDesLignes`), et la part hors des soirées d'un coup (`ProfileStore.savoirHorsSoirees`) par la page du profil et par la carte ; « Ma carrière » par catégorie (`additionnerCategories`, `PublicProfileDetail.categories`) et la précision de la fiche (`ficheDe(carriere, ailleurs)` — le réflexe et le flair gardent la base des soirées) font la même addition ; les trois plus hauts sur la carte (`plusBeauxEcussons`), les douze sur la page du profil
 - `shared/divins.ts` · `core/divins.ts` — les six Divins — Chronos, le sixième, descend au quiz du jour : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement
 - `server/scripts/calibrage.ts` — combien de quiz demande chaque légendaire, combien de soirées chaque niveau, et la rareté de chaque haut fait (que `PART_DES_JOUEURS` recopie) : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable)
+- `shared/pistes.ts` — les pistes : un trophée de carrière, ses trois métaux, et ce que chaque étape ouvre en chemin — laurier, gerbe, fond, thème, légendaire (`etapesDeLaPiste`, `ceQuIlOuvre`, `ditLaRecompense`) ; les maîtres des sentiers et les pages du calendrier ont la leur (`PisteAPart`). Une dérivation des règles qui ouvrent chaque chose — les gerbes, les thèmes et les légendaires disent les leurs ; les fonds n'ont qu'une fonction, leur étape est écrite ici (`ETAPES_DES_FONDS`), et `trophees.test.ts` la vérifie contre `fondsOuverts`. Une victoire au quiz du jour faisait tomber Le Laurier et un palier du Champion du jour, aux mêmes seuils sous deux noms : la piste l'absorbe (`ABSORBES`), une seule ligne partout. Rien n'y change au barème : on montre autrement ce qui existe (l'album : règle `profil.md`)
+- `shared/gains.ts` · `client/src/components/Gains.tsx` — l'écran des gains, le même à la fin de chaque mode (l'écran A choisi par le propriétaire le 13 octobre 2026) — la soirée (`FinDeSoiree`, règle `cloture-et-archives.md`), le quiz du jour, la série, la révision, le défi, le duel, l'épreuve d'un sentier, l'étape d'un parcours : « Ce que tu gagnes » (`CeQueTuGagnes`) — l'expérience en un total, ses parts quand il y en a plusieurs (`partsDeLXp` : « ta partie +124 · ta série de 7 jours +70 · tes trophées +175 » ; jamais un « +0 »), les confettis, le niveau, relu après la partie (`useNiveauRelu`, la barre seulement quand le serveur dit où il en est), sa nouvelle finition —, « Nouveaux trophées » (`NouveauxTrophees`, `tropheesTombes`) — trois au plus (`TROPHEES_MONTRES`), les exploits avant les coups du sort, les plus rares d'abord, les métaux d'une piste fondus (« L'Alpiniste · Bronze → Or »), chacun menant à sa page de l'album —, et « À porter » (`APorter`, `aPorterDesTrophees`, `emojisAPorter`) : ce que ses paliers ouvrent et les emojis de collection d'un niveau gagné, chacun son « Essayer », qui ouvre la loge avec l'objet essayé (`/profil?essayer=<clé>#<pièce>`, `essaiDemande`, `shared/loge.ts` : rien qu'il n'ait). Seul un palier dit à coup sûr ce qu'il ouvre — un exploit qui se regagne ouvre à un compte que la fin ne connaît pas. Les duels gardent leur carte du verdict : « Ce que tu gagnes » n'y paraît qu'à un niveau gagné (`GainsDeCampagne` `duel`, règle `duels.md`) ; la fin de chaque quiz d'une soirée, son expérience seule (invariant 10). `gains.test.ts` rend chaque fin et vérifie qu'elle passe par ces pièces
 
 ## Les pièges
 
+- **Les mots des récompenses sont fixés, partout** (le 13 octobre 2026, avec
+  l'album et l'écran des gains) : un **trophée**, tout ce qui se gagne par
+  un exploit — hauts faits, paliers, prix, maîtres, ligues ; **Bronze ·
+  Argent · Or**, les étapes d'une piste, et rien d'autre ; **★ ★★ ★★★**, la
+  note d'une partie — le quiz du jour (`ETOILES_DE_LA_MEDAILLE`,
+  `NOM_DE_LA_NOTE`, `phraseDesEtoiles` ; sa « médaille d'or » se lisait
+  comme un palier d'or), les sentiers, les parcours (`Etoiles.tsx`) ; un
+  **palier**, à l'écran, l'étape d'un sentier — le code garde `palierDe` et
+  `clePalier` pour les métaux d'une piste. Une « médaille » ou un « badge »
+  de plus rendrait l'écran confus que ce lexique a remplacé.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait

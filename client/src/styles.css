@@ -5406,16 +5406,12 @@ h3 > .icon {
 .retour-avatar .lu,
 .identite .player-avatar .lu,
 .fin-avatar .lu,
-.fin-apercu .lu,
-.fin-collection-emoji .lu,
 .finition-btn .lu { scale: 1; }
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
 .identite .player-avatar.av-lumiere,
 .fin-avatar.av-lumiere,
 .bilan-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
-.fin-apercu.av-lumiere { margin: 0.55em; }
-.fin-collection-emoji .av-lumiere { margin-block: 0.55em; }
 .finition-btn .av-lumiere { margin: 0.6em 0; }
 /* Resserrée, elle déborde encore un peu : le prénom de l'en-tête s'écarte. */
 .me-header .player-avatar.av-lumiere { margin-inline-end: 0.2em; }
@@ -5459,24 +5455,8 @@ h3 > .icon {
 .fin-avatar { font-size: 3.2rem; }
 .fin-rang b { font-family: var(--serif); font-size: 1.5rem; color: var(--accent-text); }
 
-.fin-gain { display: flex; flex-direction: column; gap: 12px; text-align: center; }
-.fin-gain h3 { margin-top: 4px; }
-.fin-niveaux { justify-content: center; gap: 10px; margin-bottom: 8px; }
-.fin-fleche { color: var(--muted); }
-.fin-niveau-neuf { animation: pop 0.5s ease-out 0.7s both; }
+/* La montée de niveau d'une fin, sous son total (`Gains.tsx`). */
 .fin-monte { font-family: var(--serif); font-size: 1.3rem; color: var(--accent-text); }
-.fin-finition { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0; }
-.fin-apercu { font-size: 1.8rem; }
-
-/* Les emojis de collection que la soirée vient d'ouvrir, chacun avec de
-   quoi le porter tout de suite. */
-.fin-collection { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-.fin-collection p { margin: 0; }
-.fin-collection-emojis { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
-.fin-collection-emoji { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 3.2rem; line-height: 1; }
-/* Le halo d'une finition déborde de l'emoji d'un quart de sa taille (1,45 em
-   pour 1) : sans cette marge, il mordait sur le titre et sur le bouton. */
-.fin-collection-emoji .av { margin-block: 0.25em; }
 
 .fin-legendaire {
   display: flex;
@@ -5745,8 +5725,7 @@ h3 > .icon {
   .cloture-legendaire,
   .celebration,
   .annonces-niveau,
-  .annonce-niveau,
-  .fin-niveau-neuf { animation: none; }
+  .annonce-niveau { animation: none; }
 }
 
 /* ── La page profil : légendaires, hauts faits, fiche ──────────────────── */
@@ -6126,23 +6105,17 @@ h3 > .icon {
 .serie-feuille-sabliers .sablier { width: 2.2rem; height: 2.2rem; }
 /* Sur le bouton plein, le sablier prend la couleur du texte : à l'or, il s'y fondait. */
 .carte-pied .btn .sablier { width: 1.2em; height: 1.2em; color: inherit; }
-/* La fin de partie : ce qu'elle rapporte, sous le résultat, dans la même carte. */
-.jour-fin-gain { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--edge); }
-.jour-fin-gain p { margin: 0; }
+/* La fin de partie : sa place pour l'instant, en or sous ses étoiles. */
+.jour-fin-place { margin: 0; font-weight: 600; color: var(--accent-text); }
 /* La veille : un lien pour sa correction, puis le mois d'avant dans la même carte. */
 .jour-lien { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
 .jour-lien .icon { width: 16px; height: 16px; }
 .jour-mois-suite { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; border-top: 1px solid var(--edge); }
 .flamme { width: 1.1em; height: 1.1em; }
-.medaille { width: 1.2em; height: 1.2em; flex: none; vertical-align: -0.25em; }
-.medaille-texte { width: 1.25em; height: 1.25em; }
-.medaille-grande { width: 34px; height: 34px; }
-.medaille-geante { width: 54px; height: 54px; }
 .jour-bandeau { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 -6px; }
 .jour-trouvee { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 6px; }
 .jour-rappel { margin: 0; font-family: var(--serif); font-size: 1.25rem; line-height: 1.25; text-wrap: balance; }
 .lien-signaler { align-self: center; background: none; border: 0; color: var(--muted); font-family: var(--sans); cursor: pointer; }
-.jour-recompenses { display: flex; flex-direction: column; gap: 14px; }
 .jour-ligne { display: flex; align-items: center; gap: 12px; }
 .jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .jour-ligne h2 { font-size: 1.8rem; margin: 0; font-variant-numeric: lining-nums; }
@@ -7930,8 +7903,6 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Le record battu, au cœur du résultat ; l'anecdote d'une question apprise, au carnet. */
 .campagne-record-battu { margin: 0; font-weight: 600; color: var(--or-text); }
 .campagne-anecdote { color: var(--ink); line-height: 1.4; }
-/* Ce qu'une série a fait tomber, sous son résultat : une ligne par haut fait ou palier. */
-.campagne-recompenses { display: flex; flex-direction: column; gap: 10px; }
 /* Ses records par catégorie, repliés sous le héros : le Tour du monde en vue. */
 .campagne-records > p { margin: 4px 0 8px; }
 .campagne-records-grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
@@ -8789,9 +8760,6 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .epreuve-perte p { margin: 0; font-size: 0.88rem; }
 .epreuve-moins { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 1.2rem; color: var(--alert); }
 .epreuve-moins .coeur { width: 20px; height: 20px; }
-.epreuve-gains { display: flex; gap: 8px; }
-.epreuve-gains span { flex: 1; padding: 10px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: 0.84rem; color: var(--muted); }
-.epreuve-gains b { display: block; font-size: 1.1rem; color: var(--ink); }
 .epreuve-revelation { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0 4px; text-align: center; background: radial-gradient(70% 45% at 50% 45%, color-mix(in srgb, var(--lueur) 30%, transparent), transparent 70%); }
 .epreuve-revelation h1 { margin: 0; font-size: 2.2rem; }
 .epreuve-revelation p { margin: 0; max-width: 30ch; }
@@ -8982,13 +8950,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .atlas-fleche-suivante .icon { transform: rotate(-90deg); }
 .atlas-objectif { margin: 0; text-align: center; font-size: 0.92rem; color: var(--muted); }
 .atlas-objectif b { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
-.atlas-seuil { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   .atlas-anneau { transition: none; }
 }
 
-/* Les grilles de collection : des médaillons qui brillent quand on les a. */
-.hud-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; grid-auto-flow: dense; }
+/* Les cases de collection : des médaillons qui brillent quand on les a. */
 .hud-case { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .hud-medaillon {
   position: relative;
@@ -9007,7 +8973,6 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .hud-porte .hud-medaillon { box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent); }
 .hud-ouverte .hud-medaillon { transform: scale(1.08); }
 .hud-marque { min-height: 1em; font-size: var(--t-label); font-weight: 600; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); font-variant-numeric: tabular-nums; }
-.hud-fiche { grid-column: 1 / -1; }
 @media (prefers-reduced-motion: reduce) { .hud-medaillon { transition: none; } }
 
 /* Les jauges en anneau de la carrière. */
@@ -9064,13 +9029,12 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .a-gagner-marque { flex: none; width: 16px; height: 16px; color: var(--muted); }
 .a-gagner-a-toi .a-gagner-marque { color: var(--accent-text); }
 
-/* ── Les trophées, en liste ──────────────────────────────────────────────
-   Dix collections qu'on déplie sur place, dans « Ma collection », rangées
-   par où elles se gagnent — une section par lieu, son nom au-dessus de sa
-   liste : une seule ouverte, la page tient en peu d'écrans. */
+/* ── Les lignes de « Ma collection » ────────────────────────────────────
+   Une ligne par collection, qu'on déplie sur place : une seule ouverte, la
+   page tient en peu d'écrans. Les sections de l'album des trophées en
+   reprennent l'espacement. */
 .trophees-section { display: flex; flex-direction: column; gap: 6px; }
 .trophees-section + .trophees-section { margin-top: 10px; }
-.trophees-lieu { margin: 0 0 0 4px; }
 .trophees-proches { margin: 0 0 12px; }
 .trophees-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .trophee + .trophee { border-top: 1px solid var(--edge); }
@@ -9084,36 +9048,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .trophee-ouvert { background: color-mix(in srgb, var(--lueur) 5%, transparent); }
 .trophee-ouvert .trophee-chevron { transform: rotate(180deg); }
 .trophee-contenu { display: flex; flex-direction: column; gap: 10px; padding: 4px 14px 16px; }
-.trophee-contenu .hud-grille { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.trophee-contenu .hud-medaillon { width: 48px; height: 48px; }
-.hud-emoji { font-size: 22px; line-height: 1; }
-.hud-ferme .hud-emoji { filter: grayscale(1) brightness(0.45); opacity: 0.6; }
-.hud-detail { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px; border: 1px solid color-mix(in srgb, var(--lueur) 40%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--lueur) 8%, var(--bg)); text-align: center; }
-.hud-detail p { margin: 0; }
-.hud-detail-emoji { font-size: 2.2rem; line-height: 1.1; }
-.hud-detail b { font-family: var(--serif); font-size: 1.3rem; }
-.hud-detail-compte { color: var(--accent-text); font-weight: 600; }
 .jauge-fine { display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--lueur, var(--accent)) 16%, transparent); overflow: hidden; }
 .jauge-fine > span { display: block; height: 100%; border-radius: 2px; background: var(--lueur, var(--accent)); box-shadow: 0 0 8px var(--lueur, var(--accent)); }
-.paliers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.palier-ligne { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--lueur) 18%, transparent); }
-.palier-ligne:last-child { border-bottom: 0; }
-.palier-emoji { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 50%, transparent); font-size: 18px; }
-.palier-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.palier-texte b { font-weight: 600; }
-.palier-metaux { display: flex; gap: 5px; }
-.palier-metal { width: 22px; height: 6px; border-radius: 3px; background: var(--track); }
-.palier-bronze.allume { background: #c98a52; box-shadow: 0 0 6px #c98a52; }
-.palier-argent.allume { background: #d9dee6; box-shadow: 0 0 6px #d9dee6; }
-.palier-or.allume { background: #e3b04b; box-shadow: 0 0 6px #e3b04b; }
-.hud-ecussons { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
-.hud-ecussons li { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.hud-ecussons li.hud-ferme .ecusson { opacity: 0.55; }
-.hud-ecussons .jauge-fine { width: 80%; }
-.medailles-du-jour { display: flex; justify-content: center; gap: 22px; }
-.medailles-du-jour > span { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.medailles-du-jour > .hud-ferme .medaille { opacity: 0.4; }
-.medailles-du-jour b { font-family: var(--serif); font-size: 1.5rem; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .trophee-chevron { transition: none; } }
 
 /* ── La carrière : trois jauges, des chiffres en cases, quatre vues ───── */
@@ -9296,6 +9232,129 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (prefers-reduced-motion: reduce) {
   .album-case { transition: none; }
 }
+/* L'album des trophées (la maquette 1, le 13 octobre 2026) : une page par
+   mode — six onglets, trois par rangée, chacun son icône et son compte —,
+   puis ses sections. Chaque trophée dans le cercle de sa rareté, ses métaux
+   dessous s'il monte, combien de fois s'il se regagne ; ce qui reste en
+   silhouette dorée sur la nuit, comme un avatar à gagner. La fiche suit sa
+   rangée, de toute la largeur (`dense`), et déroule la piste : chaque
+   étape, son métal, ce qu'elle ouvre. */
+.trophees-onglets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.trophees-onglet { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 9px 4px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-size: 0.8rem; font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
+.trophees-onglet .icon { width: 18px; height: 18px; }
+.trophees-onglet b { font-size: var(--t-label); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+.trophees-onglet[aria-selected='true'] { color: var(--ink); border-color: var(--edge-strong); background: var(--accent-soft); }
+.trophees-onglet[aria-selected='true'] .icon,
+.trophees-onglet[aria-selected='true'] b { color: var(--accent-text); }
+.trophees-page { display: flex; flex-direction: column; gap: 22px; }
+.trophees-page .trophees-section + .trophees-section { margin-top: 0; }
+.trophees-section > p { margin: 0; }
+.trophees-section-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.trophees-section-tete h3 { margin: 0; }
+.trophees-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 8px; grid-auto-flow: dense; padding: 8px 0 2px; }
+.trophee-case { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 4px 0 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.trophee-medaillon { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font-size: 28px; line-height: 1; background: color-mix(in srgb, var(--gemme) 15%, var(--bg)); box-shadow: 0 0 0 2px var(--gemme); transition: transform 0.2s ease; }
+.trophee-manque { color: var(--muted); }
+/* Le disque sombre d'un trophée à gagner, sous tous les thèmes : la silhouette s'y lit en or. */
+.trophee-manque .trophee-medaillon { background: #211915; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--gemme) 40%, transparent); }
+.trophee-medaillon .silhouette,
+.trophee-fiche-visuel .silhouette { filter: none; opacity: 1; color: transparent; text-shadow: 0 0 0 rgba(var(--accent-rgb), 0.5); }
+.trophee-case[aria-expanded='true'] .trophee-medaillon { transform: scale(1.08); box-shadow: 0 0 0 2px var(--gemme), 0 0 16px color-mix(in srgb, var(--gemme) 60%, transparent); }
+.trophee-fois { position: absolute; top: -7px; right: -12px; min-width: 24px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: lining-nums tabular-nums; box-shadow: 0 0 0 2px var(--bg); }
+.trophee-fois-ombre { background: #b9a6ff; color: #1a1412; }
+.trophee-metaux { display: flex; gap: 4px; }
+.trophee-metaux i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 30%, transparent); }
+.trophee-metaux .metal-1 { background: var(--bronze-text); box-shadow: none; }
+.trophee-metaux .metal-2 { background: var(--argent-text); box-shadow: none; }
+.trophee-metaux .metal-3 { background: var(--or-text); box-shadow: none; }
+.trophee-nom { max-width: 100%; font-size: 0.78rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.trophee-sous { margin-top: -4px; font-size: var(--t-label); color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+/* Les ligues : leur blason ; les bordures : l'avatar dans la sienne ; les maîtres : la couronne de leur sentier ; les écussons : le leur. */
+.trophee-ligue .trophee-medaillon,
+.trophee-bordure .trophee-medaillon { font-size: 22px; }
+.trophee-manque .blason,
+.trophee-manque .av { filter: grayscale(1) brightness(0.75); opacity: 0.6; }
+.trophee-couronne { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; color: var(--lueur); }
+.trophee-couronne .icon { width: 26px; height: 26px; }
+.trophee-manque .trophee-couronne { color: rgba(var(--accent-rgb), 0.5); }
+.trophee-ecusson .trophee-medaillon { width: auto; height: auto; min-height: 56px; border-radius: 0; background: none; box-shadow: none; }
+.trophee-manque.trophee-ecusson .trophee-medaillon { background: none; box-shadow: none; }
+.trophee-fiche-visuel { display: grid; place-items: center; width: 76px; height: 76px; margin: 6px 0 2px; border-radius: 50%; font-size: 40px; line-height: 1; background: color-mix(in srgb, var(--gemme) 14%, transparent); box-shadow: 0 0 0 2px var(--gemme); }
+.trophee-fiche-visuel .av { font-size: 30px; }
+/* Dans la fiche, le nom est dessous, en titre : l'écusson n'y écrit pas le sien. */
+.trophee-fiche-visuel .ecusson-nom { display: none; }
+.trophee-ecusson .ecusson { width: auto; max-width: 100%; }
+.trophee-ecusson .ecusson-nom { font-size: 0.78rem; font-weight: 600; }
+.trophee-fiche .trophee-regle { align-self: stretch; margin: 0; text-align: center; }
+/* La piste : ses étapes reliées d'un filet d'or, plein jusqu'à la dernière atteinte. */
+.piste { align-self: stretch; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.piste-etape { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+.piste-etape:last-child { padding-bottom: 0; }
+.piste-etape:not(:last-child)::before { content: ''; position: absolute; left: 11px; top: 26px; bottom: 2px; width: 2px; border-radius: 1px; background: rgba(var(--accent-rgb), 0.22); }
+.piste-etape.atteinte:not(:last-child)::before { background: var(--accent); }
+.piste-jalon { flex: none; display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid rgba(var(--accent-rgb), 0.4); border-radius: 50%; background: var(--bg); color: var(--muted); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.piste-etape.atteinte .piste-jalon { border: 0; background: var(--accent); color: var(--on-accent); }
+.piste-etape.prochaine .piste-jalon { border: 2px solid var(--accent); color: var(--accent-text); }
+.piste-jalon .icon { width: 14px; height: 14px; }
+.piste-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.piste-texte b { font-weight: 600; }
+.metal-texte-1 { color: var(--bronze-text); }
+.metal-texte-2 { color: var(--argent-text); }
+.metal-texte-3 { color: var(--or-text); }
+.trophee-ouvre { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; text-align: left; }
+.trophee-ouvre li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.9rem; color: var(--muted); }
+.trophee-ouvre li.tenue { color: var(--ink); }
+.trophee-ouvre .icon { flex: none; width: 15px; height: 15px; margin-top: 2px; }
+.trophee-ouvre li.tenue .icon { color: var(--accent-text); }
+.trophees-etapes { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.trophees-titres { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; }
+.trophees-titre { padding: 2px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.85rem; color: var(--accent-text); }
+.trophees-legende { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--edge); }
+.trophees-legende p { margin: 0; }
+.trophees-legende .album-legende i { width: 8px; height: 8px; transform: rotate(45deg); border-radius: 2px; background: var(--gemme); }
+@media (prefers-reduced-motion: reduce) {
+  .trophee-medaillon { transition: none; }
+}
+/* L'écran de gains, le même dans chaque mode (l'écran A, le 13 octobre 2026) :
+   ce que tu gagnes — un total, ce qui le fait, les confettis, le niveau —,
+   les nouveaux trophées dans le cercle de leur rareté, comme dans l'album,
+   et ce qu'ils ouvrent à porter. */
+.gains,
+.gains-trophees,
+.gains-a-porter { display: flex; flex-direction: column; gap: 10px; }
+.gains-total { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.gains-total b { font-family: var(--serif); font-size: 2.3rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.gains-confettis { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.gains-parts { margin: 0; }
+.gains-niveau { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.gains-niveau p { margin: 0; }
+.gains-finition b { font-weight: 600; color: var(--accent-text); }
+.gains-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.gains-liste { display: flex; flex-direction: column; }
+.gains-reste { align-self: flex-start; }
+.trophee-tombe { display: flex; align-items: center; gap: 12px; padding: 10px 0; color: inherit; text-decoration: none; }
+.trophee-tombe + .trophee-tombe { border-top: 1px solid var(--edge); }
+.gains-liste .trophee-tombe:first-child { padding-top: 2px; }
+.gains-liste .trophee-tombe:last-child { padding-bottom: 2px; }
+a.trophee-tombe:hover b { color: var(--accent-text-hover); }
+.trophee-tombe-emoji { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; font-size: 22px; line-height: 1; background: color-mix(in srgb, var(--gemme) 14%, var(--bg)); box-shadow: 0 0 0 2px var(--gemme); }
+.trophee-tombe-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.trophee-tombe-titre { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.trophee-tombe-titre b { font-weight: 600; }
+.trophee-tombe-chevron { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.a-porter { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.a-porter li { display: flex; align-items: center; gap: 12px; }
+.a-porter-apercu { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-xs); background: var(--surface); box-shadow: inset 0 0 0 1px var(--edge-strong); overflow: hidden; font-size: 22px; line-height: 1; }
+.a-porter-apercu .fond-apercu { width: 44px; height: 44px; margin: 0; border: 0; }
+.a-porter-apercu .gerbe-apercu { min-height: 0; font-size: 0.85rem; letter-spacing: 0; }
+.a-porter-apercu img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.a-porter-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.a-porter-texte b { font-weight: 600; }
+.a-porter-essayer { flex: none; }
+/* Les records battus d'une soirée, dans son tableau de bord, sous sa place. */
+.fin-record { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
+.fin-record .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
+.fin-record b { font-weight: 600; }
 /* Le rayon des compagnons : une carte par compagnon — sa forme du moment en
    grand, qui bouge (le sujet de la carte : son monde vivant en sort, il a de
    la place autour), puis ses quatre formes sur une rangée, chacune la teinte
@@ -9389,7 +9448,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 /* ── La fin de soirée, épurée (la remarque du 3 octobre 2026) ──────────────
    Le tableau de bord de l'administration — quadrillage, coins de visée,
    chiffres lumineux, une lueur qui balaie — dans l'or de la soirée ; puis
-   « Nouveau » en lignes fines, deux boutons côte à côte, et « Plus ». */
+   l'écran de gains de toutes les fins, deux boutons côte à côte, et « Plus ». */
 .fin-soiree { --lueur: var(--accent-text); gap: 14px; }
 .fin-hud { gap: 14px; }
 .fin-hud .fin-tete { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; }
@@ -9397,17 +9456,13 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .fin-hud .fin-moi { position: relative; z-index: 1; gap: 12px; }
 .fin-hud .fin-moi h2 { margin: 0; font-size: 1.3rem; }
 .fin-hud .fin-avatar { font-size: 2.4rem; }
-.fin-hud .fin-niveau, .fin-hud .fin-finition { position: relative; z-index: 1; }
-/* Les quatre sur une ligne, au téléphone : ce sont des chiffres à lire, pas des tuiles à toucher. Le cadran de l'administration, déclaré plus bas, se resserre ici par une règle plus précise. */
+/* Sur une ligne, au téléphone : ce sont des chiffres à lire, pas des tuiles à toucher. Le cadran de l'administration, déclaré plus bas, se resserre ici par une règle plus précise. */
 .fin-hud .fin-cadrans { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
 .fin-cadrans .fin-chiffre { min-height: 0; padding: 9px 7px 8px; gap: 3px; cursor: default; }
 .fin-cadrans .fin-chiffre:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
 .fin-chiffre .admin-cadran-chiffre { font-size: 1.3rem; white-space: nowrap; }
 /* En minuscules : « CONFETTIS » en capitales espacées sortait de son cadran à 360 px. */
 .fin-chiffre .admin-cadran-nom { text-transform: none; letter-spacing: 0.02em; line-height: 1.2; }
-.fin-nouveautes { gap: 2px; }
-.fin-nouveautes .nouveautes li, .fin-plus .nouveautes li { gap: 12px; padding: 8px 0; }
-.fin-nouveautes .nouveaute-emoji, .fin-plus .nouveaute-emoji { width: 28px; font-size: 1.4rem; }
 .fin-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
 .fin-chef-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .fin-chef-ligne > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -9897,17 +9952,11 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .code-coupe { margin-left: 12px; }
 
 /* ── La fin de soirée, allégée ───────────────────────────────────────────
-   Les nouveautés et ce qui se replie sous « Plus » : la tête en cadrans
-   est plus bas, avec le reste de la fin épurée. */
-.fin-nouveautes { display: flex; flex-direction: column; gap: 8px; }
-.nouveautes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.nouveautes li { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
-.nouveautes li:last-child { border-bottom: 0; }
-.nouveaute-emoji { flex: none; width: 36px; text-align: center; font-size: 1.8rem; line-height: 1; }
-.nouveaute-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.nouveaute-texte b { font-weight: 600; }
+   Ce qui se replie sous « Plus » : la tête en cadrans est plus bas, avec le
+   reste de la fin épurée ; ce qu'elle rapporte passe par l'écran de gains
+   de tous les modes (`Gains.tsx`). */
 .fin-plus > div + div { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge); }
-.fin-demain, .fin-ombres { display: flex; flex-direction: column; gap: 8px; }
+.fin-demain { display: flex; flex-direction: column; gap: 8px; }
 
 /* ── La télé, quand on anime depuis son téléphone ────────────────────────
    La trame de l'atlas, une lueur d'or, de très gros caractères, et en bas

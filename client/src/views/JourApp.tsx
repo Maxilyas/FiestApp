@@ -19,18 +19,21 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { Corrige, verdictDe } from '../components/Corrige'
 import { promptDialog } from '../components/Dialog'
-import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, EclatTombe, LegendaireOuvert, Medaillon, RecompenseTombee } from '../components/Ouverts'
+import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
+import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
+import { APorter, CeQueTuGagnes, LigneDeTrophee, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
+import { Etoiles } from '../components/Etoiles'
 import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { PucesDeSabliers, Sablier, adresseDeLObjet } from '../components/Objets'
 import { createPortal } from 'react-dom'
-import { CHANCE_ECLAT_DU_JOUR, NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
+  ETOILES_DE_LA_MEDAILLE,
+  NOM_DE_LA_NOTE,
   NOM_DU_LAURIER,
-  NOM_MEDAILLE,
   PRIX_D_UN_SABLIER,
   SABLIERS_MAX,
   XP_DE_SERIE_MAX,
@@ -41,7 +44,7 @@ import {
   minutesAvantMinuit,
   moisDe,
   moisEnToutesLettres,
-  seuilsDesMedailles,
+  phraseDesEtoiles,
   type ClassementDuJour,
   type LigneDuJour,
   type PartieDuJour,
@@ -49,7 +52,8 @@ import {
   type RevelationDuJour,
   type NiveauDeLaurier,
 } from '../../../shared/jour'
-import { ceQuIlAFallu } from '../../../shared/hautsfaits'
+import { aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
+import { DU_CHAMPION_DU_MOIS } from '../../../shared/pistes'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { gesteAccepte } from '../../../shared/console'
@@ -718,7 +722,14 @@ function Revelation({ r }: { r: RevelationDuJour }) {
   )
 }
 
-/** La fin de la partie : le score, l'expérience, la médaille, la série, la place pour l'instant. */
+/**
+ * La fin de la partie, sur l'écran de gains de tous les modes (l'écran A,
+ * choisi par le propriétaire le 13 octobre 2026) : le score, ses étoiles et
+ * sa place pour l'instant ; ce que la partie rapporte — la partie, la
+ * série, les trophées —, les confettis et le niveau ; les Divins, l'Éclat,
+ * la page du calendrier et les légendaires en grand ; les trophées, les plus
+ * rares d'abord ; ce qu'ils ouvrent à porter.
+ */
 export function Fin({
   partie,
   profil,
@@ -731,12 +742,12 @@ export function Fin({
   onCorrection: () => void
 }) {
   const comptees = partie.comptees
-  const seuils = seuilsDesMedailles(comptees)
-  const monte = partie.niveauAvant !== undefined && partie.niveauApres !== undefined && partie.niveauApres > partie.niveauAvant
-  const finitionsNeuves = monte
-    ? finitionsOuvertes(partie.niveauApres!).filter(f => !finitionsOuvertes(partie.niveauAvant!).includes(f))
-    : []
-  const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
+  const s = partie.justes > 1 ? 's' : ''
+  const tombes = [...(partie.paliers ?? []), ...(partie.hautsFaits ?? [])]
+  const cles = tombes.map(t => t.key)
+  // Le niveau d'après la partie : le profil relu le dit — tant qu'il ne l'est pas, la barre attend.
+  const niveau = partie.niveauApres === undefined || profil.niveau === partie.niveauApres ? niveauDe(profil, partie.niveauAvant ?? null) : null
+  const place = placeDuJour(partie.rang, partie.joueurs, partie.points)
   return (
     <div className="player-shell fin-soiree">
       {/* La sortie, dès l'arrivée : la fin dépasse l'écran d'un téléphone —
@@ -749,79 +760,37 @@ export function Fin({
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
       </header>
-      {/* Le résultat et ce qu'il rapporte dans une seule carte : à la file,
-          elles en faisaient deux de plus avant les récompenses. */}
+      {/* Le résultat : les points, ses étoiles — la note d'une partie, comme
+          aux sentiers —, sa place pour l'instant, et sa série. */}
       <section className="card result-banner result-ok jour-fin-resultat">
         <span className="big">{pts(partie.points)}</span>
-        <p>
-          {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {comptees}
-        </p>
-        {placeDuJour(partie.rang, partie.joueurs, partie.points) && (
-          <p className="muted">
-            Pour l’instant : {placeDuJour(partie.rang, partie.joueurs, partie.points)}
-            {partie.devant && ` · à ${pts(partie.devant.ecart)} de ${partie.devant.nom}`}
+        <p>{`${partie.justes} bonne${s} réponse${s} sur ${comptees}`}</p>
+        <Etoiles n={partie.medaille ? ETOILES_DE_LA_MEDAILLE[partie.medaille] : 0} grandes />
+        <p className="muted small">{phraseDesEtoiles(partie.medaille, comptees)}</p>
+        {place && (
+          <p className="jour-fin-place">
+            Pour l’instant : {place}
+            {partie.devant && <span className="muted">{` · à ${pts(partie.devant.ecart)} de ${partie.devant.nom}`}</span>}
           </p>
         )}
-        <div className="fin-gain jour-fin-gain">
-          <p className="fin-xp">
-            +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
-            {/* Une bonne réponse, un confetti : au quiz du jour comme en soirée. */}
-            {partie.justes > 0 && <span className="fin-confettis"> · 🎊 +{nConfettis(partie.justes)}</span>}
-          </p>
-          <p className="muted small">
-            {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
-            {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
-          </p>
-          {/* Le bonus de série, à part : c'est la régularité qui le paie, pas le score. */}
-          {!!partie.xpSerie && (
-            <p className="muted small">
-              +{formatNumber(partie.xpSerie)} XP de série : {partie.serie} jour{partie.serie > 1 ? 's' : ''} d’affilée
-            </p>
-          )}
-          <div className="xp-bar" role="progressbar" aria-label={`Niveau ${profil.niveau}`} aria-valuemin={0} aria-valuemax={profil.requis || 1} aria-valuenow={profil.requis > 0 ? profil.acquis : 1}>
-            <div className="xp-fill" style={{ width: `${part}%` }} />
-          </div>
-          <p className="muted small">
-            {profil.requis > 0
-              ? `Niveau ${profil.niveau} · ${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
-              : `Niveau ${profil.niveau} · au sommet`}
-          </p>
-          {/* La montée de niveau de cette partie, dite comme en fin de soirée. */}
-          {monte && <p className="fin-monte">Niveau {partie.niveauApres} !</p>}
-          {finitionsNeuves.length > 0 && (
-            <p className="fin-finition">
-              Nouvelle finition : <b>{finitionsNeuves.map(f => NOM_FINITION[f]).join(', ')}</b>
-            </p>
-          )}
-        </div>
-      </section>
-      {partie.niveauAvant !== undefined && partie.niveauApres !== undefined && (
-        <CollectionOuverte avant={partie.niveauAvant} apres={partie.niveauApres} finition={profil.finition} />
-      )}
-      <section className="card jour-recompenses">
-        <div className="jour-ligne">
-          {partie.medaille ? (
-            <Medaille medaille={partie.medaille} className="medaille-grande" />
-          ) : (
-            <span className="jour-pastille">
-              <Icon name="target" />
-            </span>
-          )}
-          <div>
-            <b>{partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'Pas de médaille aujourd’hui'}</b>
-            <span className="muted small">
-              Le bronze à {seuils.bronze} bonnes réponses, l’argent à {seuils.argent}, l’or à {seuils.or}.
-            </span>
-          </div>
-        </div>
+        <p className="muted small">
+          {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
+          {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
+        </p>
         {partie.serie > 0 && <SerieDuJour jours={partie.serie} sabliers={partie.sabliers ?? 0} forme="ligne" />}
-        {(partie.paliers ?? []).map(p => (
-          <RecompenseTombee key={p.key} recompense={p} />
-        ))}
-        {(partie.hautsFaits ?? []).map(h => (
-          <RecompenseTombee key={h.key} recompense={h} />
-        ))}
       </section>
+      {/* Ce qu'elle rapporte, en un total : la partie à ses points, la série
+          — c'est la régularité qui la paie —, les trophées, payés à part ; une
+          bonne réponse, un confetti, comme en soirée. */}
+      <CeQueTuGagnes
+        parts={partsDeLXp([
+          { nom: 'ta partie', xp: partie.xp },
+          { nom: `ta série de ${partie.serie} jour${partie.serie > 1 ? 's' : ''}`, xp: partie.xpSerie ?? 0 },
+          { nom: 'tes trophées', xp: xpDesTrophees(cles) },
+        ])}
+        confettis={partie.justes}
+        niveau={niveau}
+      />
       {/* Un Divin passe avant tout le reste, comme en fin de soirée. */}
       {(partie.divins ?? []).map(d => (
         <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={profil.legendaire === d.key} />
@@ -832,6 +801,9 @@ export function Fin({
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
+      {/* Les trophées, les plus rares d'abord, chacun menant à sa page de l'album ; et ce qu'ils ouvrent, à essayer. */}
+      <NouveauxTrophees trophees={tropheesTombes(tombes)} lien />
+      <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
       {partie.saison && <Saison saison={partie.saison} />}
       {/* L'enjeu que la page taisait : le laurier est la seule récompense du
           jour que les autres voient. Et le rendez-vous, pour tous. */}
@@ -924,15 +896,13 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
         <span className="label">Le quiz du jour · joué</span>
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         <div className="jour-resultat">
-          {partie.medaille ? (
-            <Medaille medaille={partie.medaille} className="medaille-grande" />
-          ) : (
-            <span className="jour-pastille">
-              <Icon name="target" />
-            </span>
-          )}
+          <span className="jour-pastille">
+            <Icon name="target" />
+          </span>
           <span>
             <b className="num">{pts(partie.points)}</b>
+            {/* Sa note, en étoiles : celles des sentiers. */}
+            {partie.medaille && <NoteDuJour medaille={partie.medaille} />}
             {/* « 7 sur 10 », seul sous les points, se lisait comme une place :
                 « je suis 7ᵉ sur 10 », quand quinze avaient joué (le
                 propriétaire du dépôt, le 4 octobre 2026). La place se dit
@@ -946,7 +916,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
             )}
             <span className="muted small">
               {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {partie.comptees} ·{' '}
-              {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
+              {partie.medaille ? NOM_DE_LA_NOTE[partie.medaille].toLowerCase() : 'pas d’étoile'} · +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
             </span>
           </span>
         </div>
@@ -1041,6 +1011,8 @@ function MoisDernier({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> 
 /** Le mois d'avant en quelques lignes : sous la veille, dans sa carte, ou seul s'il n'y a pas de veille à raconter. */
 function LignesDuMois({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']> }) {
   const sa = placeDuJour(mois.rang, mois.joueurs, mois.points)
+  const titres = mois.recompenses.filter(r => r.key.startsWith('mois:'))
+  const autres = mois.recompenses.filter(r => !r.key.startsWith('mois:'))
   return (
     <>
       <span className="label">{capitale(moisEnToutesLettres(mois.mois))}, au quiz du jour</span>
@@ -1053,22 +1025,36 @@ function LignesDuMois({ mois }: { mois: NonNullable<PartieDuJour['moisDernier']>
           <span className="muted small">{sa ? `${pts(mois.points)} sur le mois` : `sur ${mois.joueurs} joueurs`}</span>
         </div>
       </div>
-      {mois.recompenses.map(r => (
+      {/* Son titre de champion : il se porte sous le prénom, et ouvre le Triomphe pour sa carte. */}
+      {titres.map(r => (
         <div key={r.key} className="jour-ligne">
           <span className="jour-pastille jour-palier" aria-hidden="true">
             {r.emoji}
           </span>
           <div>
-            <b>{r.key.startsWith('mois:') ? `Ton titre : ${r.title}` : `Nouveau haut fait : ${r.title}`}</b>
+            <b>{`Ton titre : ${r.title}`}</b>
             <span className="muted small">
-              {r.key.startsWith('mois:') ? 'Il se porte sous ton prénom, depuis « Ma carte ». La salle te saluera tout le mois.' : ceQuIlAFallu(r.key)}
+              Il se porte sous ton prénom :{' '}
+              <a className="link-inline" href="/profil#titre">
+                {espacesFines('« Mon titre »')}
+              </a>
+              . La salle te saluera tout le mois.
             </span>
           </div>
         </div>
       ))}
+      {/* Le reste — le Mois complet —, comme à la fin d'une partie : les trophées de l'album. */}
+      {autres.length > 0 && (
+        <div className="gains-liste">
+          {tropheesTombes(autres).map(t => (
+            <LigneDeTrophee key={t.cle} t={t} lien />
+          ))}
+        </div>
+      )}
       {(mois.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
+      {titres.length > 0 && <APorter objets={objetsAPorter(DU_CHAMPION_DU_MOIS.map(recompense => ({ recompense, par: titres[0].title })))} nu />}
     </>
   )
 }
@@ -1078,26 +1064,31 @@ function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; la
   const h = partie.sonHier!
   // Le rang s'il est bon à dire, sinon les points en titre (`placeDuJour`).
   const sa = placeDuJour(h.rang, h.joueurs, h.points)
+  // Ce que la nuit lui a décerné — le palier du Champion du jour et Le Laurier
+  // de la même victoire sur une ligne —, comme à la fin d'une partie.
+  const tombes = [...(h.paliers ?? []), ...(h.hautsFaits ?? [])]
   return (
     <section className="card jour-annonce">
       <span className="label">Hier, au quiz du jour</span>
       <div className="jour-ligne">
-        {h.medaille && <Medaille medaille={h.medaille} className="medaille-geante" />}
         <div>
           <h2>{sa ?? pts(h.points)}</h2>
           <span className="muted">
-            {[sa && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_MEDAILLE[h.medaille].toLowerCase()]
+            {[sa && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_DE_LA_NOTE[h.medaille].toLowerCase()]
               .filter(Boolean)
               .join(' · ')}
           </span>
         </div>
+        {h.medaille && <NoteDuJour medaille={h.medaille} grande />}
       </div>
-      {(h.paliers ?? []).map(p => (
-        <RecompenseTombee key={p.key} recompense={p} />
-      ))}
-      {(h.hautsFaits ?? []).map(hf => (
-        <RecompenseTombee key={hf.key} recompense={hf} />
-      ))}
+      {tombes.length > 0 && (
+        <div className="gains-liste">
+          {tropheesTombes(tombes).map(t => (
+            <LigneDeTrophee key={t.cle} t={t} lien />
+          ))}
+        </div>
+      )}
+      <APorter objets={aPorterDesTrophees(tombes.map(t => t.key))} nu />
       {/* Le vainqueur d'hier le lisait sous son prénom, jamais ce qu'il vaut. */}
       {laurier && (
         <p className="jour-enjeu">

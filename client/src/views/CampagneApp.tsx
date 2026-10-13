@@ -12,9 +12,9 @@ import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
-import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
+import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
@@ -56,6 +56,7 @@ import {
   type SerieDeCampagne,
 } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
+import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../shared/gains'
 import { ligueDe, type CoteApresLeDuel, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 
 type Ecran =
@@ -1138,24 +1139,8 @@ export function CampagneApp() {
             </p>
           )}
           {ratees > 0 && <p className="muted small">{ratees > 1 ? `Les ${ratees} autres reviennent demain : c’est comme ça qu’on apprend.` : 'L’autre revient demain : c’est comme ça qu’on apprend.'}</p>}
-          {ecran.justes > 0 && (
-            <p className="muted">
-              🎊 +{ecran.justes} confetti{s}
-              {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
-            </p>
-          )}
         </section>
-        {ecran.justes > 0 && <BarreDeNiveau />}
-        {ecran.recompenses.length > 0 && (
-          <section className="card campagne-recompenses">
-            {ecran.recompenses.map(r => (
-              <RecompenseTombee key={r.key} recompense={r} />
-            ))}
-          </section>
-        )}
-        {ecran.legendaires.map(cle => (
-          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
-        ))}
+        <GainsDeCampagne fin={ecran} profil={profil} />
         {erreur && <p className="error">{erreur}</p>}
         {carnet && carnet.aRevoir > 0 ? (
           <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
@@ -1189,23 +1174,9 @@ export function CampagneApp() {
     )
   }
 
-  // Ce qu'une fin de duel fait tomber avec elle — hauts faits, légendaires, un niveau — : sous sa carte ou son cadran.
-  // La barre de niveau n'y paraît qu'à une montée : la carte dit déjà ce que le duel a rapporté.
-  const tombeAvecLeDuel = (f: Extract<Ecran, { e: 'fin' }>) => (
-    <>
-      {f.justes > 0 && <BarreDeNiveau seulementSiMonte />}
-      {f.recompenses.length > 0 && (
-        <section className="card campagne-recompenses">
-          {f.recompenses.map(r => (
-            <RecompenseTombee key={r.key} recompense={r} />
-          ))}
-        </section>
-      )}
-      {f.legendaires.map(cle => (
-        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
-      ))}
-    </>
-  )
+  // Ce qu'une fin de duel fait tomber avec elle — trophées, légendaires, un niveau — : sous sa carte ou son cadran.
+  const tombeAvecLeDuel = (f: Extract<Ecran, { e: 'fin' }>) => <GainsDeCampagne fin={f} profil={profil} duel />
+
   // Ce qu'il porte, sur l'avatar d'une fin de duel : son légendaire, pas l'emoji d'en dessous.
   const monApparence =
     profil &&
@@ -1329,13 +1300,6 @@ export function CampagneApp() {
           ) : (
             !!ecran.recordAvant && <p className="muted small">Ton record : {ecran.recordAvant}</p>
           )}
-          {/* Rien à compter, rien à dire : « +0 confetti » sonnait comme un reproche. */}
-          {ecran.justes > 0 && (
-            <p className="muted">
-              🎊 +{ecran.justes} confetti{s}
-              {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
-            </p>
-          )}
         </section>
         {/* Ses erreurs ne sont pas perdues : le carnet les repose demain. Pas celles d'un défi, qui attendent sa clôture. */}
         {!ecran.defi && ecran.erreurs > 0 && (
@@ -1347,20 +1311,7 @@ export function CampagneApp() {
             .
           </p>
         )}
-        {/* Où il en est : la barre de niveau, relue après la série, et la montée qu'elle a faite. */}
-        {ecran.justes > 0 && <BarreDeNiveau />}
-        {ecran.recompenses.length > 0 && (
-          <section className="card campagne-recompenses">
-            {ecran.recompenses.map(r => (
-              <RecompenseTombee key={r.key} recompense={r} />
-            ))}
-          </section>
-        )}
-        {/* L'Éclat du défi : une chance sur vingt, à sa tentative finie. */}
-        {ecran.eclat && <EclatTombe cle={ecran.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} />}
-        {ecran.legendaires.map(cle => (
-          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
-        ))}
+        <GainsDeCampagne fin={ecran} profil={profil} />
         {erreur && <p className="error">{erreur}</p>}
         {ecran.duel ? (
           // L'envoyer d'abord : celui qui vient de le lancer n'a encore défié personne.
@@ -1572,6 +1523,44 @@ export function CampagneApp() {
       </div>
       {toastVu}
     </div>
+  )
+}
+
+/**
+ * Ce qu'une fin de la campagne rapporte — une série, un défi, une révision,
+ * un duel —, sur l'écran de gains de tous les modes (l'écran A) :
+ * l'expérience en un total — les bonnes réponses, les trophées, payés à part
+ * —, les confettis et le niveau relu ; l'Éclat du défi et les légendaires en
+ * grand ; les trophées, les plus rares d'abord ; ce qu'ils ouvrent à porter.
+ * Une fin de duel ne montre le total qu'à une montée de niveau : sa carte dit
+ * déjà ce que le duel a fait, et un bloc de plus repoussait le verdict sous
+ * le pli (la maquette choisie par le propriétaire le 12 octobre 2026).
+ */
+function GainsDeCampagne({ fin, profil, duel = false }: { fin: Extract<Ecran, { e: 'fin' }>; profil: PublicProfile | null; duel?: boolean }) {
+  const cles = fin.recompenses.map(r => r.key)
+  const niveau = useNiveauRelu(fin.justes > 0 || cles.length > 0)
+  const monte = !!niveau && niveau.avant !== null && niveau.niveau > niveau.avant
+  const nom = duel ? 'ton duel' : fin.revision ? 'ta révision' : fin.defi ? 'ton défi' : 'ta série'
+  return (
+    <>
+      {(!duel || monte) && (
+        <CeQueTuGagnes
+          parts={partsDeLXp([
+            { nom, xp: fin.xp },
+            { nom: 'tes trophées', xp: xpDesTrophees(cles) },
+          ])}
+          confettis={duel ? 0 : fin.justes}
+          niveau={niveau}
+        />
+      )}
+      {/* L'Éclat du défi : une chance sur vingt, à sa tentative finie. */}
+      {fin.eclat && <EclatTombe cle={fin.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} />}
+      {fin.legendaires.map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+      <NouveauxTrophees trophees={tropheesTombes(fin.recompenses as readonly Tombe[])} lien />
+      <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
+    </>
   )
 }
 

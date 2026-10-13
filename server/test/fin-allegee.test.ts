@@ -1,13 +1,14 @@
 // La fin de soirée, épurée sans rien perdre (la remarque du propriétaire du
 // 3 octobre 2026 : « trop gros, des blocs trop compliqués, deux fois Retour
-// à l'accueil »).
+// à l'accueil »), puis au format de toutes les fins (l'écran A, choisi le
+// 13 octobre 2026 : « c'est très confus, les trophées que les gens gagnent »).
 //
-// L'essentiel sans défiler, dans le cadre du tableau de bord : qui, sa
-// place, ses points, l'expérience et les confettis en cadrans ; puis trois
-// nouveautés ; puis deux boutons, « Mon bilan » et « Accueil ». Tout le
-// reste — le souvenir, les nouveautés d'après la troisième, ce qu'on
-// approche, le quiz du jour, les coups du sort — attend sous « Plus »,
-// replié, son résumé sur sa ligne : rien ne disparaît.
+// L'essentiel sans défiler, dans le cadre du tableau de bord : qui, sa place,
+// ses points, ses records ; puis « Ce que tu gagnes » — l'expérience en un
+// total, ce qui la fait, les confettis, le niveau — ; les nouveaux trophées,
+// trois en vue, les plus rares d'abord ; deux boutons, « Mon bilan » et
+// « Accueil ». Le reste — le souvenir, ce qu'on approche, le quiz du jour —
+// attend sous « Plus », replié, son résumé sur sa ligne : rien ne disparaît.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
@@ -56,31 +57,35 @@ const FIN: FinDeSoiree = {
   },
 }
 
-async function rendu(fin: FinDeSoiree): Promise<string> {
+async function rendu(fin: FinDeSoiree, profil: object | null = null): Promise<string> {
   Object.assign(globalThis, { window: { location: { pathname: `/${SLUG}`, search: '', hash: '' } } })
   const module = await import(new URL('../../client/src/components/FinDeSoiree.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  return renderToStaticMarkup(React.createElement(module.FinDeSoiree, { fin, profil: null, onSuivante: () => {} }))
+  return renderToStaticMarkup(React.createElement(module.FinDeSoiree, { fin, profil, onSuivante: () => {} }))
 }
 
-test('la fin en trois étages : le tableau de bord, « Nouveau », deux boutons — puis « Plus », replié', async () => {
+const PROFIL = { id: 'p', name: 'Jeanne', avatar: '🦊', niveau: 9, acquis: 120, requis: 400, legendaire: null }
+
+test('la fin en étages : le tableau de bord, ce que tu gagnes, les trophées, deux boutons — puis « Plus », replié', async () => {
   const html = await rendu(FIN)
   const ou = (marque: string) => {
     const i = html.indexOf(marque)
     assert.ok(i >= 0, marque)
     return i
   }
-  const ordre = ['class="admin-hud fin-hud"', 'class="fin-nouveautes"', 'class="fin-actions fin-duo"', 'class="fin-plus"'].map(ou)
+  const ordre = ['class="admin-hud fin-hud"', 'class="card gains"', 'class="card gains-trophees"', 'class="fin-actions fin-duo"', 'class="fin-plus"'].map(ou)
   assert.deepEqual(ordre, [...ordre].sort((a, b) => a - b), 'dans cet ordre')
-  // Plus de cartes empilées : la place, les points, ce que la soirée rapporte, en cadrans.
+  // Plus de cartes empilées pour la soirée : sa place et ses points en cadrans.
   assert.doesNotMatch(html, /class="card fin-(moi|gain|nouveautes|suite)"/)
   const cadrans = [...html.matchAll(/<span class="admin-cadran-chiffre num">([^<]+)<\/span><span class="admin-cadran-nom">([^<]+)<\/span>/g)].map(m => `${m[1]} ${m[2]}`)
-  // L'expérience de la soirée, sans les paliers, qui ont leur ligne dans « Plus ».
   // (Le séparateur des milliers dépend de l'ICU de Node : on ne le lit pas.)
   assert.deepEqual(
     cadrans.map(c => c.replace(/\s(?=\d{3}\b)/g, '')),
-    ['1ʳᵉ sur 6', '1200 points', '+214 XP', '+13 confettis'],
+    ['1ʳᵉ sur 6', '1200 points'],
   )
+  // Ses records, avec sa place : le score de la soirée.
+  const hud = html.slice(ou('class="admin-hud fin-hud"'), ou('class="card gains"'))
+  assert.match(hud, /<b>Record battu<\/b> · 11 bonnes réponses d’affilée · ton record était de 9/)
   // Deux boutons, un seul « Accueil ».
   const actions = html.slice(ou('class="fin-actions fin-duo"'), ou('class="fin-plus"'))
   assert.equal([...actions.matchAll(/<a class="btn[^"]*"/g)].length, 2)
@@ -89,38 +94,55 @@ test('la fin en trois étages : le tableau de bord, « Nouveau », deux boutons 
   assert.equal(html.match(/Accueil<\/a>/g)?.length, 1, 'un seul retour à l’accueil')
 })
 
-test('« Nouveau » montre trois nouveautés, la plus durable d’abord ; le reste attend sous « Plus »', async () => {
+test('ce que tu gagnes : un total, et ce qui le fait — la soirée, que « Mes soirées » lui compte, et ses pistes, payées à part', async () => {
   const html = await rendu(FIN)
-  const titres = (bloc: string) => [...bloc.matchAll(/<span class="nouveaute-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
-  const nouveau = html.slice(html.indexOf('class="fin-nouveautes"'), html.indexOf('class="fin-actions fin-duo"'))
-  const plus = html.slice(html.indexOf('class="fin-plus"'))
-  // Le palier, le record, les prix, puis les exploits ; jamais un coup du sort.
-  assert.deepEqual(titres(nouveau), ['Le Bavard · Argent', 'Record battu', 'L’Éclair'], 'trois tiennent au-dessus des boutons')
-  assert.deepEqual(titres(plus), ['Le Mouton', 'La Foudre', 'Le Flair'])
-  assert.match(nouveau, /11 bonnes réponses d’affilée · ton record était de 9/)
-  assert.match(nouveau, /Il rejoint ta collection : 10 prix sur 20/)
-  assert.doesNotMatch(nouveau, /Kamikaze/)
+  const gains = html.slice(html.indexOf('class="card gains"'), html.indexOf('class="card gains-trophees"'))
+  // Toute l'expérience de la soirée, pistes comprises : celle que la barre vient de prendre.
+  assert.match(gains, /<b class="num">\+238 XP<\/b>/)
+  assert.match(gains, /🎊<\/span> \+13 confettis/)
+  // « Mes soirées » ne compte que la soirée — ses exploits compris — : la fin dit les deux.
+  assert.match(gains, /ta soirée \+214 · tes pistes \+24/)
+  // Un invité anonyme n'a rien de tout ça, sans rien qui le lui reproche.
+  assert.doesNotMatch(await rendu({ ...FIN, profil: undefined }), /class="card gains"|Ce que tu gagnes/)
 })
 
-test('« Plus » : replié, il dit ce qu’il garde — les nouveautés d’après, ce qu’on approche, le quiz du jour, les coups du sort', async () => {
+test('les nouveaux trophées : trois en vue, les plus rares d’abord — les coups du sort derrière —, le reste d’un toucher', async () => {
+  const html = await rendu(FIN)
+  const trophees = html.slice(html.indexOf('class="card gains-trophees"'), html.indexOf('class="fin-actions fin-duo"'))
+  const titres = [...trophees.matchAll(/<span class="trophee-tombe-titre"><b>([^<]+)<\/b>/g)].map(m => m[1])
+  // Les prix d'abord — un sur six joueurs —, puis les trophées que le moins de joueurs ont ; le Kamikaze attend.
+  assert.deepEqual(titres, ['L’Éclair', 'Le Mouton', 'Le Bavard · Argent'], 'trois tiennent au-dessus des boutons')
+  assert.match(trophees, /2,7 s de moyenne · un prix du palmarès/)
+  assert.match(trophees, /500 réponses envoyées · \+100 XP/)
+  assert.match(trophees, /<button type="button" class="link-inline small gains-reste">Et 3 autres<\/button>/)
+  assert.match(trophees, /Il rejoint ta collection : 10 prix sur 20/)
+  // Sans profil, pas d'album où les retrouver : des lignes, pas des liens.
+  assert.doesNotMatch(trophees, /<a class="trophee-tombe"|Ma collection<\/a>/)
+  // Avec un profil, chacun mène à sa page de l'album.
+  const avecProfil = await rendu(FIN, PROFIL)
+  assert.match(avecProfil, /<a class="trophee-tombe" href="\/profil#collection-trophees-soiree"/)
+  assert.match(avecProfil, /<a class="link-inline small" href="\/profil#collection-trophees-soiree">Ma collection<\/a>/)
+  // Le niveau relu, sous le total : où il en est dans le suivant.
+  assert.match(avecProfil, /Niveau 9 · 120 \/ 400 XP vers le niveau 10/)
+})
+
+test('« Plus » : replié, il dit ce qu’il garde — ce qu’on approche, le quiz du jour —, et le souvenir, la boutique', async () => {
   const html = await rendu(FIN)
   const plus = html.slice(html.indexOf('<details class="fin-plus">'))
   assert.ok(plus.length > 0)
   assert.doesNotMatch(plus.slice(0, 30), /open/, 'replié à l’ouverture : les boutons restent en vue')
-  assert.match(plus, /<b>Plus<\/b><span class="muted small">3 nouveautés · 2 objectifs en vue · le quiz du jour t’attend · 1 coup du sort<\/span>/)
+  assert.match(plus, /<b>Plus<\/b><span class="muted small">2 objectifs en vue · le quiz du jour t’attend<\/span>/)
   // Tout y est encore.
   assert.match(plus, /Revoir la soirée<\/a>/)
   assert.match(plus, /<a class="link-inline" href="\/boutique">La boutique des thèmes<\/a>/)
-  assert.match(plus, /\+24 XP de paliers de carrière/)
   assert.match(plus, /Tu t’en approches/)
   assert.match(plus, /\+41 ce soir/)
   assert.match(plus, /<a class="link-inline" href="\/jour">Jouer celui d’aujourd’hui<\/a>/)
-  assert.match(plus, /Le Kamikaze/)
 })
 
-test('une fin sans rien de nouveau ni à suivre ne garde ni « Nouveau » ni de quoi déplier', async () => {
+test('une fin sans rien de nouveau ni à suivre ne garde ni trophées ni de quoi déplier', async () => {
   const sans = { ...FIN, prix: [], hautsFaits: [], profil: undefined }
-  assert.doesNotMatch(await rendu(sans), /fin-nouveautes/)
+  assert.doesNotMatch(await rendu(sans), /gains-trophees|Nouveaux trophées/)
   // L'invité qui n'a pas joué : ni bilan, ni souvenir à revoir sous « Plus » — rien à déplier.
   assert.doesNotMatch(await rendu({ ...sans, joueurId: undefined, aJoue: false }), /fin-plus/)
 })

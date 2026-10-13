@@ -16,7 +16,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import { LIEU_DES_TROPHEES, compteDeLaCollection, comptesDesTrophees, listesDesTrophees } from '../../shared/collection'
+import { compteDeLaCollection } from '../../shared/collection'
+import { albumDesTrophees, compteDesTrophees } from '../../shared/trophees'
 import { avatarDeLAlbum } from '../../shared/album'
 import { DIVINS } from '../../shared/divins'
 import { LEGENDAIRES } from '../../shared/legendaires'
@@ -92,7 +93,8 @@ const LEA = {
     { categorie: 'Histoire', palier: 1, justes: 30 },
     { categorie: 'Sciences', palier: 0, justes: 3 },
   ],
-  calendrier: { pages: ['heures:01'], dorees: [], mois: '2026-10', joursCeMois: 3 },
+  // Ses pages ouvertes, comme le serveur les dit : leurs mois (`pagesOuvertes`).
+  calendrier: { pages: ['01'], dorees: [], mois: '2026-10', joursCeMois: 3 },
   jour: { joues: 4, victoires: 1, medailles: { or: 1, argent: 0, bronze: 0 }, record: 3, meilleurScore: 900 },
   boutique: { confettis: { gagnes: 500, depenses: 150, solde: 350 }, possedes: ['velours', 'ivoire', 'sommet'], porte: null, jour: '2026-10-05' },
 }
@@ -105,29 +107,16 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle —
     // les douze formes des compagnons comprises.
     ['avatars', '9/128', ['avatars 9/128']],
+    // Les trophées aussi, en un album — une page par mode (la maquette 1, le
+    // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
+    // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
+    // rouge et l'Éclair ; au quiz du jour, la page de janvier ; partout, le
+    // bronze de l'écusson d'histoire.
+    ['trophees', '7/132', ['trophees 7/132']],
     ['style', '9/59', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7']],
-    // Les lignes des trophées, comptées comme elles se montrent, rangées par
-    // où elles se gagnent : le quiz du jour avec les pages de son calendrier,
-    // un palier de carrière par métal — ceux des soirées, du jour, de la
-    // campagne et de toujours chacun dans sa section.
-    [
-      'trophees',
-      '8/24',
-      [
-        'eclats 1/2',
-        'ombres 1/1',
-        'prix 1/2',
-        'paliers 2/3',
-        'jour 2/13',
-        'paliersDuJour 0/0',
-        'campagne 0/1',
-        'paliersDeCampagne 0/0',
-        'ecussons 1/2',
-        'paliersDeToujours 0/0',
-      ],
-    ],
   ])
-  assert.deepEqual(total, { acquis: 26, total: 211 })
+  assert.deepEqual(total, { acquis: 25, total: 319 })
+  assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 132 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
@@ -135,73 +124,81 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     avant.familles.find(f => f.famille === 'style')!.parties.map(p => p.partie),
     ['finitions'],
   )
-  assert.deepEqual(comptesDesTrophees({ ...LEA, calendrier: undefined } as any).find(c => c.partie === 'jour'), { partie: 'jour', acquis: 1, total: 1 })
+  const jour = albumDesTrophees({ ...LEA, calendrier: undefined } as any).find(p => p.page === 'jour')!
+  assert.deepEqual([jour.acquis, jour.total, jour.sections.map(s => s.cle)], [0, 24, ['pistes', 'exploits', 'coups']])
 })
 
-test('les trophées se comptent par la même règle que la collection', async () => {
-  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: LEA })
-  const montres = [...html.matchAll(/<span class="trophee-compte">([^<]+)<span class="jauge-fine"/g)].map(m => m[1])
-  const comptes = comptesDesTrophees(LEA as any)
-  // Toutes comme le compte, le quiz du jour compris : « 1 victoire » sur une
-  // jauge de hauts faits ne disait pas la même chose qu'elle.
+test('les trophées se comptent par la même règle que la collection : chaque page sur son onglet', async () => {
+  const html = await rendu('components/AlbumDesTrophees', 'AlbumDesTrophees', { profil: LEA, page: 'soiree', onPage: () => {} })
+  const onglets = [...html.matchAll(/<button id="trophees-onglet-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''} ${m[3]}`)
+  // Chaque onglet dit son compte, en chiffres : la couleur seule ne se lit pas.
   assert.deepEqual(
-    montres,
-    comptes.map(c => `${c.acquis}/${c.total}`),
+    onglets,
+    albumDesTrophees(LEA as any).map(p => `${p.page}${p.page === 'soiree' ? '*' : ''} ${{ soiree: 'Soirée', jour: 'Quiz du jour', campagne: 'Campagne', duels: 'Duels', sentiers: 'Sentiers', partout: 'Partout' }[p.page]}, ${p.acquis} sur ${p.total}`),
   )
-  assert.match(source('client/src/components/TropheesAtlas.tsx'), /const comptes = new Map\(comptesDesTrophees\(profil\)\.map\(c => \[c\.partie, c\]\)\)/)
+  const pages = albumDesTrophees(LEA as any)
+  assert.deepEqual(
+    pages.reduce((n, p) => ({ acquis: n.acquis + p.acquis, total: n.total + p.total }), { acquis: 0, total: 0 }),
+    compteDesTrophees(LEA as any),
+  )
+  // Les onglets de l'application : un seul arrêt de Tab, le panneau de la page choisie seulement.
+  assert.match(html, /<div class="trophees-onglets" role="tablist" aria-label="Les modes de jeu">/)
+  assert.equal(html.match(/role="tab"[^>]*tabindex="0"/g)?.length, 1)
+  assert.match(html, /<div class="trophees-page" role="tabpanel" id="trophees-page" aria-labelledby="trophees-onglet-soiree">/)
+  // La ligne de la collection lit la même règle.
+  assert.match(source('shared/collection.ts'), /\{ partie: 'trophees', \.\.\.compteDesTrophees\(p\) \}/)
 })
 
 // « La partie haut fait de la collection est incompréhensible : il faudrait
 // cloisonner par gagné en campagne / quiz du jour / quiz » (un retour du
-// 10 octobre 2026). Chaque trophée se range là où on le gagne.
-test('les trophées se rangent par où ils se gagnent : en soirée, au quiz du jour, en campagne, partout', async () => {
-  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: LEA })
-  const sections = [...html.matchAll(/<h3 id="trophees-(\w+)" class="label trophees-lieu">([^<]+)<\/h3>/g)].map(m => `${m[1]} ${m[2]}`)
-  assert.deepEqual(sections, ['soiree En soirée', 'jour Au quiz du jour', 'campagne En campagne', 'partout Partout'])
-  // Chaque ligne dans la section de son lieu.
-  const parSection = html.split('<section ').slice(1).map(s => [...s.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1]))
-  assert.deepEqual(parSection, [
-    ['Hauts faits', 'Coups du sort', 'Prix', 'Paliers des soirées'],
-    ['Hauts faits du jour', 'Paliers du jour'],
-    ['Hauts faits de campagne', 'Paliers de campagne'],
-    ['Écussons', 'Paliers de toujours'],
-  ])
-  // Les paliers de carrière se rangent par ce qu'ils comptent : le niveau et les Éclats de partout, à part.
-  const vus = [vu('hf:habitue', 1), vu('hf:assidu', 1, { origine: 'jour' }), vu('hf:alpiniste', 2, { origine: 'campagne' }), vu('hf:legende', 1), vu('hf:eclats', 0)]
-  const listes = listesDesTrophees({ hautsFaits: vus, prix: [], ecussons: [] })
+// 10 octobre 2026), puis « c'est très confus, les trophées que les gens
+// gagnent » (le 13 octobre 2026). Chaque trophée a sa page : celle du mode où
+// il se gagne.
+test('les trophées se rangent par où ils se gagnent : une page par mode, ses pistes, ses exploits et ce qu’il a en propre', () => {
+  const pages = albumDesTrophees(LEA as any)
   assert.deepEqual(
-    [listes.paliers, listes.paliersDuJour, listes.paliersDeCampagne, listes.paliersDeToujours].map(l => l.map(h => h.key)),
-    [['hf:habitue'], ['hf:assidu'], ['hf:alpiniste'], ['hf:legende', 'hf:eclats']],
+    pages.map(p => `${p.page} : ${p.sections.map(s => s.cle).join(', ')}`),
+    [
+      'soiree : pistes, exploits, coups, palmares',
+      'jour : pistes, exploits, coups, calendrier',
+      'campagne : pistes, exploits',
+      'duels : ligues, bordures',
+      'sentiers : maitres',
+      'partout : ecussons, niveau',
+    ],
   )
-  // Chaque ligne a sa section, et aucune n'est oubliée.
-  assert.deepEqual(Object.keys(LIEU_DES_TROPHEES).sort(), comptesDesTrophees(LEA as any).map(c => c.partie).sort())
+  // Les pistes se rangent par ce qu'elles comptent : le niveau et les Éclats, de partout, à part.
+  const pistes = (page: string, section = 'pistes') => pages.find(p => p.page === page)!.sections.find(s => s.cle === section)!.cases.map(c => c.cle).sort()
+  assert.deepEqual(pistes('jour'), ['hf:assidu', 'hf:champion-du-jour', 'hf:elite', 'hf:infatigable', 'hf:sans-faute'])
+  assert.deepEqual(pistes('campagne'), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
+  assert.deepEqual(pistes('partout', 'niveau'), ['hf:eclats', 'hf:legende'])
+  // Le Laurier n'a plus sa case : la piste du Champion du jour le compte, la même victoire.
+  assert.ok(!pistes('jour', 'exploits').includes('hf:laurier'))
+  const champion = pages.find(p => p.page === 'jour')!.sections[0].cases.find(c => c.cle === 'hf:champion-du-jour')!
+  assert.deepEqual(champion.absorbe, { cle: 'hf:laurier', titre: 'Le Laurier', emoji: '🌿', xp: 50, fois: 1 })
+  // Ce qu'on a d'abord, puis le reste : L'Habitué en tête des pistes de la soirée.
+  assert.equal(pages[0].sections[0].cases[0].cle, 'hf:habitue')
+  // Les duels se montrent avant le premier duel classé : le serveur tait ses bordures jusque-là.
+  assert.deepEqual([pages[3].acquis, pages[3].total], [0, 12])
 })
 
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>26<\/b> sur 211<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 319<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Style 9 sur 59', 'Trophées 8 sur 24'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 59'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
-    // rendaient les gens « confus » : un album, une page par rareté.
+    // rendaient les gens « confus » : un album, une page par rareté. Dix
+    // lignes de trophées aussi : un album, une page par mode.
     'L’album des avatars',
+    'L’album des trophées',
     'Thèmes',
     'Fonds de carte',
     'Gerbes',
     'Finitions',
-    'Hauts faits',
-    'Coups du sort',
-    'Prix',
-    'Paliers des soirées',
-    'Hauts faits du jour',
-    'Paliers du jour',
-    'Hauts faits de campagne',
-    'Paliers de campagne',
-    'Écussons',
-    'Paliers de toujours',
   ])
   assert.equal(html.match(/aria-expanded="true"/g), null, 'tout replié à l’ouverture')
   // On n'y règle rien : on y regarde. Les avatars s'y parcourent sans « Le porter ».
@@ -288,6 +285,8 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   // Chaque autre ligne dit où se porte ce qu'on a.
   for (const [partie, ecran] of [
     ['avatars', 'avatar'],
+    // Un trophée se porte en titre, ou dans la vitrine de sa carte.
+    ['trophees', 'titre'],
     ['fonds', 'fond'],
     ['gerbes', 'gerbe'],
     ['finitions', 'avatar'],
@@ -387,6 +386,36 @@ test('l’album a ses pages à son adresse — et les lignes d’avant y mènent
   // La page choisie s'écrit dans l'adresse, sans entrée de plus : revenu du sentier qu'une fiche a ouvert, on la retrouve.
   assert.match(source('client/src/components/Collection.tsx'), /const choisirLaPage = \(r: RareteDAvatar\) => \{\s*ecrire\(`-avatars-\$\{r\}`\)/)
   assert.match(source('client/src/components/Collection.tsx'), /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{ADRESSE\}\$\{suite\}`\)/)
+})
+
+test('l’album des trophées a ses pages à son adresse — et les dix lignes d’avant y mènent, sur la page de leur mode', async () => {
+  const choisie = async (hash: string) => {
+    lieu.hash = hash
+    const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
+    lieu.hash = ''
+    assert.match(html, /<li id="collection-trophees" class="trophee trophee-ouvert"/, hash)
+    return /<button id="trophees-onglet-(\w+)" type="button" role="tab" aria-selected="true"/.exec(html)?.[1]
+  }
+  // Ouvert sans page : celle du mode où elle a le plus — ses soirées.
+  assert.equal(await choisie('#collection-trophees'), 'soiree')
+  // La fin d'une partie y mène sur la page de ce qu'elle vient de faire tomber.
+  assert.equal(await choisie('#collection-trophees-duels'), 'duels')
+  assert.equal(await choisie('#collection-trophees-jour'), 'jour')
+  // Un lien d'avant, un favori : chaque ligne d'avant, la page de son mode.
+  for (const [ancienne, page] of [
+    ['eclats', 'soiree'],
+    ['ombres', 'soiree'],
+    ['prix', 'soiree'],
+    ['paliers', 'soiree'],
+    ['jour', 'jour'],
+    ['paliersDuJour', 'jour'],
+    ['campagne', 'campagne'],
+    ['paliersDeCampagne', 'campagne'],
+    ['ecussons', 'partout'],
+    ['paliersDeToujours', 'partout'],
+  ])
+    assert.equal(await choisie(`#collection-${ancienne}`), page, ancienne)
+  assert.match(source('client/src/components/Collection.tsx'), /const choisirLaPageDesTrophees = \(p: PageDesTrophees\) => \{\s*ecrire\(`-trophees-\$\{p\}`\)/)
 })
 
 // La fiche de la maquette : comment l'obtenir, voie par voie, où il en est, et le chemin de l'écran où le gagner.

@@ -128,7 +128,8 @@ try {
   // 2. Une série de trente : la Grande Série, Sans une égratignure, L'Alpiniste, le Serpent à plumes.
   await page.click('text=Commencer une série')
   await jouer(30)
-  await page.waitForSelector('.campagne-recompenses')
+  // L'écran de gains de tous les modes : ses trophées, et ce qu'ils ouvrent à porter.
+  await page.waitForSelector('.gains-trophees')
   // Le médaillon arrive à la demande : on attend que son image soit peinte.
   await page
     .waitForFunction(() => [...(globalThis as any).document.querySelectorAll('.fin-legendaire img')].some((i: any) => i.naturalWidth > 0), undefined, { timeout: 10000 })
