@@ -20373,7 +20373,258 @@
       "motif": "La question porte sur la coupe à champagne, une boisson alcoolisée : l'étiquette alcool s'applique."
     }
   },
-  "verifiees": {},
+  "verifiees": {
+    "r47v66wn": {
+      "action": "retirer",
+      "motif": "Le leurre « Le Black Jack » n'est pas certainement faux : au moins une source présente « Black Jack » comme autre nom du drapeau noir des pirates, par analogie avec l'Union Jack (« jack » = pavillon en anglais). Aucune source sérieuse ne l'exclut. La bonne réponse « Jolly Roger » est exacte, mais un des leurres peut être défendu comme juste.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Jolly_Roger",
+        "https://fr.wikipedia.org/wiki/Pavillons_pirates_et_corsaires",
+        "https://wewererogue.tumblr.com/post/619980505617694720/pirate-flags-jolly-roger/amp"
+      ]
+    },
+    "kfiubck5": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "La première limitation de vitesse sur autoroute date de décembre 1973, en plein choc pétrolier : 120 km/h. Elle est passée à 140 km/h en mars 1974, puis à 130 km/h en novembre 1974."
+      },
+      "motif": "La réponse 130 km/h et l'explication (110 km/h sous la pluie) sont exactes. Mais l'anecdote se trompe de date : la première limite sur autoroute (120 km/h) date de décembre 1973, avant le passage à 140 km/h en mars 1974 puis à 130 km/h en novembre 1974.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/R%C3%A9glementation_de_la_vitesse_sur_route_en_France",
+        "https://www.europe1.fr/societe/dou-vient-la-limitation-a-130-kmh-sur-les-autoroutes-francaises-4176073"
+      ]
+    },
+    "5xgfp5g0": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel oiseau marin pond son unique œuf, très pointu d'un côté (en forme de poire), à même la roche de corniches étroites au bord des falaises ?",
+        "explication": "On a longtemps cru que la forme en poire faisait tourner l'œuf en cercle pour l'empêcher de tomber. Les essais sur de vraies corniches ont réfuté cette idée : l'arc décrit est trop large. Selon les travaux de Tim Birkhead (2017-2018), cette forme rend surtout l'œuf plus stable sur les corniches en pente, qui sont fréquentes, et l'empêche de se mettre à rouler."
+      },
+      "motif": "La réponse (guillemot de Troïl) est exacte, mais l'idée que l'œuf « roule en cercle » pour ne pas tomber est réfutée (Ingold 1980, Birkhead et al. 2017-2018). La forme en poire stabilise surtout l'œuf sur les corniches en pente. L'intitulé et l'explication sont réécrits ; l'anecdote est gardée.",
+      "sources": [
+        "https://britishbirds.co.uk/content/bb-eye-%E2%80%93%C2%A0-shape-birds%E2%80%99-eggs",
+        "https://onlinelibrary.wiley.com/doi/full/10.1111/ibi.12458",
+        "https://academic.oup.com/auk/article/135/4/1020/5149021",
+        "https://www.discoverwildlife.com/news/cracking-the-mystery-of-the-guillemots-egg"
+      ]
+    },
+    "sxehnu8v": {
+      "action": "retirer",
+      "motif": "La bonne réponse « jusqu'à 4000 kg » est dépassée : l'étude Savoca et al. (Nature, 2021) estime qu'une baleine bleue avale en moyenne environ 16 tonnes de krill par jour en saison d'alimentation, un chiffre repris par National Geographic, Reuters et Radio-Canada. Un maximum de 4 tonnes est donc faux, et aucune des réponses proposées ne correspond au chiffre actuel. À réécrire, par exemple avec 16 000 kg comme bonne réponse.",
+      "sources": [
+        "https://www.nationalgeographic.com/animals/article/whales-eat-three-times-more-than-thought",
+        "https://ici.radio-canada.ca/nouvelle/1836852/baleines-alimentation-estimation-krill",
+        "https://www.taipeitimes.com/News/world/archives/2021/11/05/2003767373",
+        "https://baleinesendirect.org/en/how-much-food-does-a-blue-whale-eat/"
+      ]
+    },
+    "25jn1s0y": {
+      "action": "garder",
+      "motif": "Le film est sorti le 15 juillet 2026 en France et le 17 juillet aux États-Unis et au Royaume-Uni. Christopher Nolan l'a écrit et réalisé. Wikipédia en français le classe comme « péplum mythologique ». L'anecdote (Homère) et l'explication (cinéaste britannico-américain) sont exactes, et les trois autres noms n'ont pas participé au film.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/L'Odyss%C3%A9e_(film,_2026)",
+        "https://en.wikipedia.org/wiki/The_Odyssey_(2026_film)",
+        "https://www.britannica.com/topic/The-Odyssey-film-by-Nolan",
+        "https://www.allocine.fr/film/fichefilm_gen_cfilm=1000013045.html",
+        "https://www.franceinfo.fr/culture/cinema/sorties-de-films/l-odyssee-christopher-nolan-a-l-assaut-de-son-epopee-la-plus-ambitieuse-a-ce-jour_8102894.html"
+      ]
+    },
+    "41prp7f2": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel réalisateur français a cofondé la société de production EuropaCorp ?",
+        "explication": "Luc Besson a fondé la société avec Pierre-Ange Le Pogam. Créée en 1992 sous le nom de Leeloo Productions, elle a pris le nom d'EuropaCorp vers 2000."
+      },
+      "motif": "La réponse Luc Besson est sûre, mais « fondée en 2000 » est inexact : selon Wikipédia (fr et en), la société a été créée en 1992 sous le nom de Leeloo Productions puis rebaptisée EuropaCorp vers 1999-2000. Les sources ne s'accordent pas sur l'année exacte. On retire donc la date de l'intitulé et on précise l'explication.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Europa_Corp",
+        "https://en.wikipedia.org/wiki/EuropaCorp"
+      ]
+    },
+    "ngi7oml1": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel chanteur est l'auteur de « Avec le temps », chanson écrite en 1969 ?",
+        "anecdote": "Écartée du disque « Amour Anarchie » par la maison de disques, la chanson est finalement sortie seule en 45 tours. Elle est devenue l'une des chansons françaises les plus reprises au monde : Dalida et Catherine Sauvage la chantaient déjà en 1971.",
+        "explication": "Léo Ferré a écrit et composé « Avec le temps » en 1969 et l'a enregistrée en octobre 1970. C'est sans doute sa chanson la plus célèbre."
+      },
+      "motif": "Léo Ferré est bien l'auteur-compositeur. En revanche, l'année de sortie est disputée : Wikipédia en français, la discographie de Ferré et histoiredeschansons.com donnent 1971 (45 tours Barclay 61 427), alors que l'encadré de Wikipédia en anglais et Cadence Info donnent 1970. On retire donc « sorti en 1970 » de l'intitulé pour ne garder que l'année d'écriture (1969), qui n'est pas contestée.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Avec_le_temps_(chanson)",
+        "https://en.wikipedia.org/wiki/Avec_le_temps_(L%C3%A9o_Ferr%C3%A9_song)",
+        "https://fr.wikipedia.org/wiki/Discographie_de_L%C3%A9o_Ferr%C3%A9",
+        "https://www.histoiredeschansons.com/leo-ferre-avec-le-temps/"
+      ]
+    },
+    "sl2h195h": {
+      "action": "garder",
+      "motif": "La sortie commerciale date de 1977 (album Les Murs de poussière), d'après Wikipédia FR, Wikidata et Histoire des chansons. Le 45 tours de 1974 n'était qu'un disque promotionnel envoyé aux radios, jamais mis en vente. La chanson est bien dédiée à Mariette, c'est le premier tube de Cabrel, et aucun des trois autres chanteurs ne l'a interprétée.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Petite_Marie",
+        "https://www.histoiredeschansons.com/petite-marie-francis-cabrel/",
+        "https://www.wikidata.org/wiki/Q21053499?uselang=fr",
+        "https://www.cheriefm.fr/artistes/francis-cabrel/actus/francis-cabrel-les-secrets-de-petite-marie-son-premier-tube-71392267"
+      ]
+    },
+    "dkiy8nmv": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Ce tableau est né d'une commande informelle de l'administration des Beaux-Arts, poussée par Mallarmé et Roger Marx : l'État l'a acheté en 1892 pour 4 000 francs, pour le musée du Luxembourg. C'était le premier Renoir à entrer dans un musée national ; le peintre en a réalisé plusieurs versions très proches.",
+        "explication": "Cette scène d'intérieur est d'Auguste Renoir. Elle a été peinte en 1892, pendant sa « période nacrée », où il revient à une facture plus souple après sa période dite « ingresque ».",
+        "difficulte": 3
+      },
+      "motif": "La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue.",
+      "sources": [
+        "https://pop.culture.gouv.fr/notice/joconde/000PE004063",
+        "https://www.musee-orsay.fr/en/artworks/jeunes-filles-au-piano-1164",
+        "https://en.wikipedia.org/wiki/Girls_at_the_Piano"
+      ]
+    },
+    "spalvocu": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Le maillot rose a été porté pour la première fois en septembre 2005, lors d'un match de championnat à Perpignan.",
+        "explication": "Le Stade français est le club au maillot rose, une couleur lancée en 2005 par son président d'alors, Max Guazzini."
+      },
+      "motif": "La bonne réponse et les mauvaises réponses sont confirmées. Mais le rose n'est pas apparu à la fin des années 1990 : il date de septembre 2005, avec un maillot de l'extérieur porté à Perpignan sous Max Guazzini. L'anecdote est corrigée, l'explication précisée.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Stade_fran%C3%A7ais_Paris_rugby",
+        "https://www.therugbyjournal.com/shirt-stories/stade-franais-2005-06",
+        "https://www.stade.fr/equipe-premiere/actualites/paris-est-rose-un-nouveau-regard-sur-le-stade-francais-paris/"
+      ]
+    },
+    "a60bas32": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Sa compagne d'alors, Estelle Mossely, est elle aussi devenue championne olympique à Rio, chez les poids légers (-60 kg)."
+      },
+      "motif": "Tony Yoka est bien champion olympique des super-lourds à Rio en 2016 (finale contre Joe Joyce) et les trois mauvaises réponses sont fausses. Mais l'anecdote dit « son épouse » : ils n'étaient pas mariés en 2016 (la presse parle de sa compagne), et ils ont divorcé depuis. Formulation retenue : « sa compagne d'alors ».",
+      "sources": [
+        "https://www.eurosport.fr/jeux-olympiques/paris-2024/2024/jeux-olympiques-rio-2016-tony-yoka-champion-olympique-des-super-lourds_vid2077300/video.shtml",
+        "https://www.france24.com/fr/20160821-jo-rio-france-francais-tony-yoka-or-champion-olympique-boxe-91-kilos-estelle-mossely",
+        "https://www.purepeople.com/article/-apres-mon-divorce-tony-yoka-revient-sur-sa-separation-avec-estelle-mossely-et-les-difficultes-qu-il-a-du-affronter_a517181/1",
+        "https://en.wikipedia.org/wiki/Tony_Yoka"
+      ]
+    },
+    "f2knwiqc": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Faites depuis longtemps par les boulangers du pays, les galettes de Pont-Aven sont fabriquées par des biscuitiers depuis 1890 (Isidore Penven), à l'époque où Gauguin et l'école de Pont-Aven peignaient dans la ville. La biscuiterie Traou Mad a suivi en 1920.",
+        "explication": "Pont-Aven, la « Cité des peintres » de Gauguin, est aussi célèbre pour ses galettes pur beurre, fabriquées par ses biscuitiers depuis 1890.",
+        "difficulte": 2
+      },
+      "motif": "La réponse Pont-Aven est exacte et les mauvaises réponses sont fausses. Mais « nées au XIXe siècle » est contestable : les boulangers locaux en faisaient depuis le XVIIe siècle et la fabrication par des biscuitiers date de 1890 (Penven), Traou Mad datant de 1920. J'ai repris l'anecdote et l'explication et baissé la difficulté, trop haute pour une spécialité aussi connue.",
+      "sources": [
+        "https://www.pontaven.fr/Galettes-307",
+        "https://www.deconcarneauapontaven.com/en/explore/savoir-faire-bretons/galettes-pont-aven/biscuits-factories-pont-aven/",
+        "https://guide-du-bien-manger.com/galettes-de-pont-aven-biscuit-breton/"
+      ]
+    },
+    "vyeqqd4h": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Le caillé est versé dans le moule en plusieurs passages successifs, traditionnellement cinq, espacés d'environ 40 minutes.",
+        "explication": "Le cahier des charges de l'AOP impose un moulage à la louche, dont témoigne la mention « moulé à la louche ». Ce n'est pas forcément à la main : certaines fromageries utilisent des robots mouleurs équipés de louches."
+      },
+      "motif": "Moulage à la louche confirmé (ministère de l'Agriculture). « À la main » est faux puisque des robots mouleurs à louche sont utilisés en AOP. Les sources donnent cinq passages, mais le cahier des charges pourrait dire « au moins quatre » (texte officiel non consulté) : l'anecdote est reformulée sans chiffre impératif, et l'explication précise que le moulage n'est pas forcément manuel.",
+      "sources": [
+        "https://agriculture.gouv.fr/camembert-de-normandie-aop-le-gout-unique-du-lait-cru-et-des-paturages",
+        "https://www.routedesfromagesdenormandie.fr/les-4-fromages-de-normandie/le-camembert/",
+        "https://www.lafrenchfab.fr/2021/12/02/a-la-fromagerie-gillot-des-robots-reproduiront-le-geste-ancestral-du-mouleur/"
+      ]
+    },
+    "k9wuifo7": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel pâtissier normand a ouvert en 1957, rue d'Auteuil à Paris, une boutique devenue célèbre ?"
+      },
+      "motif": "La première boutique parisienne de Gaston Lenôtre, ouverte en 1957, se trouvait au 44 rue d'Auteuil (16e), et non rue Saint-Didier. Le site de la maison Lenôtre, Wikipédia et La Presse (AFP) le confirment. La bonne réponse et les mauvaises réponses restent valables.",
+      "sources": [
+        "https://www.lenotre.com/notre-histoire",
+        "https://fr.wikipedia.org/wiki/Len%C3%B4tre",
+        "https://www.lapresse.ca/vivre/200901/08/01-815835-gaston-lenotre-precurseur-de-la-patisserie-moderne.php",
+        "https://www.sortiraparis.com/en/where-to-eat-in-paris/brunch-cafe-tea-time/articles/334995-histoire-patisserie-traiteur-maison-lenotre-paris"
+      ]
+    },
+    "dzmthxmt": {
+      "action": "corriger",
+      "champs": {
+        "explication": "Gastón Acurio a étudié au Cordon Bleu de Paris avant de devenir le grand ambassadeur de la cuisine péruvienne. Virgilio Martínez (Central) est lui aussi péruvien, mais il a été formé au Cordon Bleu d'Ottawa et de Londres, pas en France ; Atala est brésilien, Olvera mexicain."
+      },
+      "motif": "Martínez a été formé au Cordon Bleu d'Ottawa et de Londres, pas en France : seul Acurio (Cordon Bleu Paris) répond au critère, donc une seule bonne réponse. L'anecdote est exacte (Astrid y Gastón, 1994). L'explication doit préciser pourquoi Martínez, un leurre très proche, est faux.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Virgilio_Mart%C3%ADnez_V%C3%A9liz",
+        "https://reportergourmet.com/en/chef/153-virgilio-martinez-veliz",
+        "https://www.cordonbleu.edu/paris/gaston-acurio-alumnus-graduate-cuisine-diploma/en",
+        "https://reportergourmet.com/en/chef/835-gaston-acurio"
+      ]
+    },
+    "o6wmr80a": {
+      "action": "retirer",
+      "motif": "Les sources se contredisent sur le lieu de l'invention. Wikipédia (article Ephraim Hertzano) et Unpacked situent l'invention dans la Roumanie communiste des années 1940, avant l'émigration de Hertzano en Palestine mandataire. JTA la situe à Tel-Aviv vers 1950. Le leurre « Roumanie » peut donc être juste, et la date avancée par certains (années 1940) est antérieure à l'État d'Israël. Accessoirement, Wikipédia rapproche le jeu du rami et du mah-jong, pas des dominos.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Ephraim_Hertzano",
+        "https://en.wikipedia.org/wiki/Rummikub",
+        "https://www.jta.org/archive/behind-the-headlines-from-romania-to-israel-to-the-rhine-rummikub-makes-waves-among-devoted",
+        "https://unpacked.media/the-jewish-history-of-rummikub-how-an-israeli-entrepreneur-created-an-international-sensation/",
+        "https://rummikub.com/newsroom/"
+      ]
+    },
+    "sjjubazl": {
+      "action": "corriger",
+      "champs": {
+        "anecdote": "Lancés le 29 avril 1968 sur la première chaîne de l'ORTF, leurs épisodes ne duraient que deux à trois minutes, et la série a divisé la France entre « shadokophiles » et « shadokophobes »."
+      },
+      "motif": "La bonne réponse et les mauvaises réponses tiennent. L'horaire de l'anecdote (« avant le journal de 20 heures ») est contesté : l'INA dit avant, alors que France Bleu et d'autres sources disent après le journal, vers 20 h 30. On garde seulement les faits sûrs : la date de lancement, la chaîne, la durée des épisodes et l'accueil partagé du public.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Shadok",
+        "https://fresques.ina.fr/artsonores/fiche-media/InaGrm00017/robert-cohen-solal-les-shadoks.html",
+        "https://www.francebleu.fr/infos/medias-people/il-y-a-50-ans-les-shadoks-commencaient-a-pomper-a-la-television-francaise-1524819433",
+        "https://chez-jeannette-fleurs.over-blog.com/2020/04/le-29-avril-1968-le-jour-ou-les-shadoks-entrent-en-grande-pompe-a-l-ortf.html"
+      ]
+    },
+    "xb5318lc": {
+      "action": "corriger",
+      "champs": {
+        "explication": "« .io » est le code du territoire britannique de l'océan Indien (archipel des Chagos) ; les Caïmans ont « .ky », les îles Cocos « .cc » et les Falkland « .fk ». En mai 2025, le Royaume-Uni a signé un traité qui cède les Chagos à Maurice, mais ce traité n'est pas ratifié : le territoire existe toujours, et son domaine aussi."
+      },
+      "motif": "Le traité Royaume-Uni–Maurice signé le 22 mai 2025 n'est pas ratifié : le débat aux Lords a été reporté en janvier 2026, puis Londres a décidé de revoir l'accord après l'opposition de Donald Trump (septembre 2026). Le territoire britannique de l'océan Indien et le « .io » existent donc toujours, et la bonne réponse reste exacte. Les mauvaises réponses sont fausses et l'anecdote est juste. On précise l'explication pour éviter que des joueurs contestent la réponse à cause de la cession annoncée. À revoir si le traité est ratifié.",
+      "sources": [
+        "https://policyexchange.org.uk/wp-content/uploads/Parliaments-role-in-ratifying-the-UK-Mauritius-Agreement-concerning-the-Chagos-Islands.pdf",
+        "https://www.chathamhouse.org/2026/01/uk-ratification-chagos-archipelago-treaty-will-not-violate-international-law",
+        "https://fr.allafrica.com/stories/202609250346.html",
+        "https://domainincite.com/31642-io-safe-for-now-as-trump-puts-chagos-deal-on-ice",
+        "https://www.theregister.com/off-prem/2024/10/10/the-io-domain-isnt-going-anywhere-in-the-next-few-years/479311",
+        "https://resellerinterface.com/en/blog/io-domain-is-the-popular-tech-domain-extension-facing-an-end/"
+      ]
+    },
+    "5rebah6y": {
+      "action": "garder",
+      "motif": "Wikipédia (fr et en), Universalis, la BnF et RetroNews donnent toutes Hélène Gordon-Lazareff comme fondatrice d'Elle en 1945. Françoise Giroud a été recrutée par elle pour diriger la rédaction : elle n'est pas présentée comme cofondatrice, donc le leurre reste faux. L'anecdote (Pierre Lazareff à France-Soir) est confirmée.",
+      "sources": [
+        "https://fr.wikipedia.org/wiki/Elle_(revue)",
+        "https://en.wikipedia.org/wiki/H%C3%A9l%C3%A8ne_Gordon-Lazareff",
+        "https://www.universalis.fr/encyclopedie/francoise-giroud/",
+        "https://www.bnf.fr/fr/francoise-giroud-1916-2003-une-femme-de-presse-bibliographie",
+        "https://www.retronews.fr/histoire-de-la-presse/interview/2023/12/04/helene-gordon-lazareff",
+        "https://en.wikipedia.org/wiki/Fran%C3%A7oise_Giroud"
+      ]
+    },
+    "8ao2rzb1": {
+      "action": "corriger",
+      "champs": {
+        "texte": "Quel fruit géant descendait d'une tour à minuit, le soir du Nouvel An, à Atlanta ?",
+        "explication": "Depuis 1989, Atlanta faisait descendre une pêche géante, emblème de la Géorgie, le long d'une tour de 42 m. Fin 2025, la ville l'a remplacée par une pêche dessinée par des drones. La pomme évoque New York, d'où le piège."
+      },
+      "motif": "La réponse Pêche est juste (Peach Drop, depuis 1989). Mais en décembre 2025, la ville l'a remplacé par « Countdown Over ATL », un spectacle de drones, après plusieurs annulations (2020-2022, 2024). L'explication au présent est donc périmée. La pêche descendait le long d'une tour de 42 m, pas d'un mât.",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Peach_Drop",
+        "https://www.fox5atlanta.com/news/peach-drop-atlanta-new-years-eve-drones-countdown-over-atl",
+        "https://www.fox5atlanta.com/news/peach-drop-atlanta-news-years-eve-big-boy-nye-watch-live",
+        "https://www.ajc.com/news/local-govt--politics/atlanta-peach-drop-postponed-but-peach-display-for-selfies/rdCcBHIzD8M2lVBHtPLFsO/"
+      ]
+    }
+  },
   "essais": {},
   "lots": [
     {
@@ -20682,7 +20933,9 @@
         "p2-xb5318lc",
         "p2-5rebah6y",
         "p2-8ao2rzb1"
-      ]
+      ],
+      "recu": "2026-10-13T17:41:41.156Z",
+      "cout": 2.772234
     }
   ]
 }
