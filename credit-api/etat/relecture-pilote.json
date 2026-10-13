@@ -373,5 +373,25 @@
   "decisions": {},
   "verifiees": {},
   "essais": {},
-  "lots": []
+  "lots": [
+    {
+      "id": "msgbatch_01XuGYsMFqu282cFWyqT12Qw",
+      "envoye": "2026-10-13T17:10:17.548Z",
+      "demandes": [
+        "p1-f001",
+        "p1-f002",
+        "p1-f003",
+        "p1-f004",
+        "p1-f005",
+        "p1-f006",
+        "p1-f007",
+        "p1-f008",
+        "p1-f009",
+        "p1-f010",
+        "p1-f011",
+        "p1-f012",
+        "p1-f013"
+      ]
+    }
+  ]
 }
