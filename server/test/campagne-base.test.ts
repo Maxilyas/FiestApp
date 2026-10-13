@@ -56,9 +56,11 @@ import { sansAccent } from '../../shared/homonymes'
  * un intitulé ou une question que la base avait déjà, 20 retirées à la
  * relecture) : 14 814 ; la deuxième, 2 793 (163 refusées, 151 d'entre elles
  * comme un fait que la base posait déjà — plus elle grandit, plus le
- * rédacteur y retombe —, 22 retirées à la relecture) : 17 607.
+ * rédacteur y retombe —, 22 retirées à la relecture) : 17 607 ; la
+ * troisième, 2 753 (194 refusées, dont 180 pour un fait déjà posé, 25
+ * retirées à la relecture) : 20 360.
  */
-const AU_MOINS = 17607
+const AU_MOINS = 20360
 
 const { questions, refusees } = lireLaBase()
 
