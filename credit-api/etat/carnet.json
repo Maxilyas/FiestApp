@@ -50,7 +50,16 @@
       "pour": "generer n1",
       "envoye": "2026-10-13T18:00:42.970Z",
       "demandes": 38,
-      "prevu": 2.436362
+      "prevu": 2.436362,
+      "recu": "2026-10-13T18:10:06.409Z",
+      "cout": 4.570418
+    },
+    {
+      "id": "msgbatch_01UF5ad45Jr7zeZjAEo6HGfn",
+      "pour": "generer n1",
+      "envoye": "2026-10-13T18:10:16.761Z",
+      "demandes": 23,
+      "prevu": 1.9122686666666666
     }
   ]
 }
