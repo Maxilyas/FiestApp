@@ -15,8 +15,9 @@ import {
   setSessionCookie,
   readPlayerToken,
 } from './http'
-import type { AccountRec } from './store'
-import { normalizeLogin } from '../../../shared/space'
+import { estUnSalon, type AccountRec } from './store'
+import { noterLeGeste } from '../core/journalDesGestes'
+import { nomDeLEspace, normalizeLogin } from '../../../shared/space'
 import type { ProfilDeLEspace } from '../../../shared/profil'
 
 interface AuthApiDeps {
@@ -345,6 +346,12 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
 
   // ── Administration ──────────────────────────────────────────────────────
 
+  /** Le nom qu'on lit d'un espace au journal du QG : un salon porte celui de son titulaire. */
+  const nomLu = async (a: AccountRec): Promise<string> => {
+    const titulaire = a.profileId ? await deps.profiles.byId(a.profileId) : null
+    return nomDeLEspace({ salon: estUnSalon(a), titulaire: titulaire ? { nom: titulaire.name } : null, name: a.name })
+  }
+
   app.get(
     '/api/admin/accounts',
     account,
@@ -362,6 +369,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const created = await auth.create({ login: req.body?.login, name: req.body?.name, slug: req.body?.slug })
       const activation = await auth.createActivation(created.id)
+      noterLeGeste(res, { sorte: 'salon', resume: `Compte créé : ${created.name} (@${created.login}), à /${created.slug}`, cible: created.id })
       res.status(201).json({ account: auth.toPublic(created), activation })
     }),
   )
@@ -383,7 +391,9 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       // Un lien pour un compte en pause ouvrait une session sur un espace
       // que l'administrateur venait de fermer.
       if (target.disabledAt) return res.status(400).json({ error: 'Réactive d’abord le compte' })
-      res.json({ activation: await auth.createActivation(target.id) })
+      const activation = await auth.createActivation(target.id)
+      noterLeGeste(res, { sorte: 'salon', resume: `Lien d’activation donné à ${target.name} (@${target.login})`, cible: target.id })
+      res.json({ activation })
     }),
   )
 
@@ -395,7 +405,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
       if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Tu ne peux pas désactiver ton propre compte' })
-      res.json({ account: auth.toPublic(await auth.setDisabled(target.id, true)) })
+      const nom = await nomLu(target)
+      const fait = await auth.setDisabled(target.id, true)
+      noterLeGeste(res, { sorte: 'salon', resume: `Espace désactivé : ${nom}`, cible: target.id })
+      res.json({ account: auth.toPublic(fait) })
     }),
   )
 
@@ -406,7 +419,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
-      res.json({ account: auth.toPublic(await auth.setDisabled(target.id, false)) })
+      const nom = await nomLu(target)
+      const fait = await auth.setDisabled(target.id, false)
+      noterLeGeste(res, { sorte: 'salon', resume: `Espace réactivé : ${nom}`, cible: target.id })
+      res.json({ account: auth.toPublic(fait) })
     }),
   )
 
@@ -418,7 +434,18 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
+      // Lus avant : le magasin change la fiche en mémoire.
+      const avant = { nom: await nomLu(target), name: target.name, slug: target.slug }
       const updated = await auth.update(target.id, { name: req.body?.name, slug: req.body?.slug })
+      const adresse = updated.slug !== avant.slug ? `adresse /${avant.slug} → /${updated.slug}` : null
+      noterLeGeste(res, {
+        sorte: 'salon',
+        resume:
+          updated.name !== avant.name
+            ? `Espace « ${avant.nom} » renommé « ${updated.name} »${adresse ? `, ${adresse}` : ''}`
+            : `Espace « ${avant.nom} » ${adresse ? `: ${adresse}` : 'enregistré sans changement'}`,
+        cible: target.id,
+      })
       res.json({ account: auth.toPublic(updated) })
     }),
   )
@@ -442,7 +469,14 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
         return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
       }
       if (!target.disabledAt) return res.status(400).json({ error: 'Désactive d’abord le compte' })
-      await deps.removeAccount(target.id, { reprendre: req.query.credits === 'reprendre' })
+      const nom = await nomLu(target)
+      const reprendre = req.query.credits === 'reprendre'
+      await deps.removeAccount(target.id, { reprendre })
+      noterLeGeste(res, {
+        sorte: 'salon',
+        resume: `Espace supprimé : ${nom} — ce que ses soirées avaient crédité est ${reprendre ? 'repris' : 'laissé aux joueurs'}`,
+        cible: target.id,
+      })
       res.json({ ok: true })
     }),
   )

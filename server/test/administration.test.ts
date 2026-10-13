@@ -1,10 +1,11 @@
 // L'administration (`/admin`), refaite à la manière de « Mon compte » (la
-// remarque du propriétaire du 3 octobre 2026) : un tableau de bord, puis une
-// ligne par sujet qui ouvre son écran à son adresse — les profils, les
-// salons, le catalogue, le quiz du jour. Plus de « Créer un compte » —
-// chacun ouvre son salon depuis son profil — ni de tableau des comptes, où
-// « p-k3x9… en attente » ne disait à qui était quoi : « Les salons » nomme
-// chaque espace par son titulaire, et garde celui qui n'en a plus.
+// remarque du propriétaire du 3 octobre 2026), puis devenue le QG (le
+// 13 octobre, `qg.test.ts`) : une vue d'ensemble, puis une page par sujet à
+// son adresse — les profils, les salons, le catalogue, le quiz du jour, la
+// campagne. Plus de « Créer un compte » — chacun ouvre son salon depuis son
+// profil — ni de tableau des comptes, où « p-k3x9… en attente » ne disait à
+// qui était quoi : « Les salons » nomme chaque espace par son titulaire, et
+// garde celui qui n'en a plus.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -41,27 +42,36 @@ test('« Les salons » : chaque espace, son titulaire, ses quiz — et le salon 
   }
 })
 
-test('/admin : la structure de « Mon compte » — un tableau de bord, cinq sujets, chacun son écran et son adresse', () => {
+test('/admin : le QG — la vue d’ensemble d’abord, son journal, puis six pages, chacune à son adresse', () => {
+  // Le QG (le souhait du propriétaire du 13 octobre 2026) a remplacé le
+  // tableau de bord à la manière de « Mon compte » : la vue d'ensemble, une
+  // barre de côté à l'ordinateur, la liste des pages au téléphone.
   const page = source('views/AdminApp.tsx')
   // Ce qui ne sert plus est parti : la création de compte et le tableau des comptes.
   assert.doesNotMatch(page, /CreateForm|<h2>Créer un compte|accounts-table|<h2>Tous les comptes/)
   assert.doesNotMatch(source('api.ts'), /create: \(input: \{ login: string; name: string; slug: string \}\)/)
-  // Les cinq écrans, à leur adresse ; les ancres d'avant y mènent encore.
-  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['profils', 'salons', 'catalogue', 'jour', 'campagne'\]/)
+  // Le journal et les six écrans, à leur adresse ; les ancres d'avant y mènent encore.
+  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne'\]/)
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
-  assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', `\/admin#\$\{e\}`\)/)
-  // Le tableau de bord ouvre chaque écran qui a un chiffre à dire ; la liste dit ce qu'on fait dans chacun —
-  // la campagne y compte ses signalements, sans cadran de plus.
-  for (const e of ['profils', 'salons', 'catalogue', 'jour']) assert.match(page, new RegExp(`<Cadran(?:(?!<Cadran)[\\s\\S])*?onClick=\\{\\(\\) => ouvrir\\('${e}'\\)\\}`), e)
-  for (const nom of ['Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour']) assert.match(page, new RegExp(`<Ligne icone="[a-z]+" nom="${nom}"`), nom)
+  assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
+  // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
+  // liste des pages, qui dit ce qu'on y trouve — la campagne y compte ses
+  // signalements.
+  for (const e of ['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']) assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
+  for (const nom of ['Le journal', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour']) assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
   assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)
   // La barre du menu, comme « Mon compte » ; celle de l'animateur pour qui n'a pas de profil.
   assert.match(page, /<MenuBarre ici="compte" \/>/)
   assert.match(page, /\{!me\.profil && <NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>\}/)
+  // Le direct et la vue se relisent tant que l'onglet se voit — jamais derrière un autre, à lire Turso pour personne.
+  assert.match(page, /document\.visibilityState === 'visible'/)
   // La lueur balaie, sauf si le système demande moins de mouvement.
   const css = source('styles.css')
   assert.match(css, /\.admin-hud::after \{[^}]*animation: admin-balayage/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.admin-hud::after \{ animation: none; display: none; \}\s*\.admin-pouls \{ animation: none; \}/)
+  // Les couleurs des modes ont été vérifiées sur l'écran nocturne, dans cet
+  // ordre de pile : on ne les change pas sans refaire la vérification.
+  assert.match(css, /\.qg-ecran \{[^}]*--mode-soiree: #c98500;\s*--mode-campagne: #199e70;\s*--mode-jour: #d95926;\s*--mode-duel: #3987e5;/)
   // Une ligne ouvre sa feuille : la corbeille au bout d'une ligne se touchait en faisant défiler.
   assert.doesNotMatch(source('components/AdminProfils.tsx'), /aria-label=\{`Supprimer le profil de/)
   assert.match(source('components/AdminProfils.tsx'), /<Feuille titre=\{ouvert\.nom\}/)

@@ -5,7 +5,9 @@ import { estSalonDuProfil, estUnSalon } from './auth/store'
 import type { QuizStore } from './core/quizStore'
 import { accountOf } from './auth/http'
 import { wrap } from './core/http'
+import { noterLeGeste } from './core/journalDesGestes'
 import { tronquer } from '../../shared/avatars'
+import { deNom } from '../../shared/typographie'
 import type { ProfilDAdministration } from '../../shared/profil'
 import type { EspaceDAdministration } from '../../shared/space'
 import { titreLibre } from '../../shared/library'
@@ -112,6 +114,11 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       }
       await deps.auth.linkProfile(cible.id, profil.id)
       if (recopies > 0) await deps.onLibraryChanged(cible.id)
+      noterLeGeste(res, {
+        sorte: 'salon',
+        resume: `Espace « ${cible.name} » rattaché au profil ${deNom(profil.name)} (@${profil.login})${recopies > 0 ? `, ${recopies} quiz recopié${recopies > 1 ? 's' : ''} de son ancien salon` : ''}`,
+        cible: profil.id,
+      })
       res.json({ ok: true, recopies, ancien: ancien ? ancien.slug : null })
     }),
   )
@@ -134,7 +141,13 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         const chez = deps.auth.byId(ailleurs[0])?.name ?? 'un autre animateur'
         return res.status(409).json({ error: `${profil.name} joue une soirée pas encore close chez ${chez} : elle doit être close d’abord` })
       }
-      res.json({ ok: true, ...(await deps.supprimerProfil(profil.id)) })
+      const fait = await deps.supprimerProfil(profil.id)
+      noterLeGeste(res, {
+        sorte: 'profil',
+        resume: `Profil supprimé : ${profil.name} (@${profil.login})${fait.salon === 'detache' ? ' — son salon reste, sans titulaire' : ''}`,
+        cible: profil.id,
+      })
+      res.json({ ok: true, ...fait })
     }),
   )
 }

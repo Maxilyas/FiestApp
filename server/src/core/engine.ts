@@ -211,6 +211,18 @@ export class GameEngine {
     return typeof phase === 'string' ? phase : null
   }
 
+  /**
+   * Où en est la partie en cours, sans rien de son contenu : sa phase, la
+   * question (comptée depuis 0) et le nombre de questions. Ce que le QG dit
+   * d'une soirée qui n'est pas la sienne — ni le quiz, ni la question.
+   */
+  avancement(): { phase: string; question: number | null; questions: number | null } | null {
+    const st = this.session?.state as { phase?: unknown; qIndex?: unknown; pack?: { questions?: unknown } | null } | null | undefined
+    if (!st || typeof st.phase !== 'string') return null
+    const questions = Array.isArray(st.pack?.questions) ? st.pack.questions.length : null
+    return { phase: st.phase, question: questions !== null && typeof st.qIndex === 'number' ? st.qIndex : null, questions }
+  }
+
   launch(config?: unknown): string {
     if (this.session) this.endSession(this.session.id)
     this.lastSent.clear()

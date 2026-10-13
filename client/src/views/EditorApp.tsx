@@ -460,7 +460,7 @@ export function EditorApp() {
 
   useEffect(() => {
     reload()
-    // Le lien « Les comptes » n'a de sens que pour l'administrateur ; celui de
+    // Le lien du QG n'a de sens que pour l'administrateur ; celui de
     // l'historique a besoin du nom de l'espace.
     api.auth
       .me()

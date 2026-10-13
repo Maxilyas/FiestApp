@@ -236,7 +236,7 @@ export function AccountApp() {
           <h2 className="compte-groupe">
             Administration <span className="etiquette">Toi seul</span>
           </h2>
-          <ul className="style-liste">{ligne('sparkles', 'L’administration', '', '/admin')}</ul>
+          <ul className="style-liste">{ligne('bar-chart', 'Le QG', 'Tous les modes de jeu', '/admin')}</ul>
         </>
       )}
 

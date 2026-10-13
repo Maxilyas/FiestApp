@@ -2,9 +2,19 @@ import type { Express, Response } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { Instantane, PartageStore } from './core/partages'
 import { wrap } from './core/http'
+import { noterLeGeste } from './core/journalDesGestes'
 import { accountOf, requireAdmin } from './auth/http'
 import { titreLibre } from '../../shared/library'
 import { STATUTS_AU_CATALOGUE, lireCode, type StatutAuCatalogue } from '../../shared/partage'
+import { deNom } from '../../shared/typographie'
+
+/** Ce que le journal du QG dit d'une copie qui change de statut. */
+const GESTE_AU_CATALOGUE: Record<StatutAuCatalogue, string> = {
+  publie: 'Copie publiée au catalogue',
+  refuse: 'Copie refusée au catalogue',
+  retire: 'Copie retirée du catalogue',
+  propose: 'Copie remise à relire',
+}
 
 interface PartagesDeps {
   store: QuizStore
@@ -164,7 +174,9 @@ export function mountPartages(app: Express, deps: PartagesDeps) {
     wrap(async (req, res) => {
       const statut = req.body?.statut as StatutAuCatalogue
       if (!STATUTS_AU_CATALOGUE.includes(statut)) return res.status(400).json({ error: 'Statut inconnu' })
-      if (!(await deps.partages.changerStatut(req.params.id, statut))) return res.status(404).json({ error: 'Entrée introuvable' })
+      const avant = await deps.partages.entree(req.params.id)
+      if (!avant || !(await deps.partages.changerStatut(req.params.id, statut))) return res.status(404).json({ error: 'Entrée introuvable' })
+      noterLeGeste(res, { sorte: 'catalogue', resume: `${GESTE_AU_CATALOGUE[statut]} : « ${avant.entree.titre} », ${deNom(avant.entree.auteur)}`, cible: req.params.id })
       res.json({ ok: true })
     }),
   )
