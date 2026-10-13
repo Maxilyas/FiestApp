@@ -4,9 +4,9 @@
 // avatar touché, en grand, la loge — sa carte et ses six pièces d'abord, son
 // panneau ensuite —, sur chaque pièce — avatar, titre, vitrine, fond, thème,
 // gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
-// nouveauté, « Ma collection », ses lignes dépliées, l'album des thèmes et la
-// fiche de l'un d'eux, et la boutique des thèmes, qui ne vend que ce qui
-// s'achète.
+// nouveauté, « Ma collection », ses lignes dépliées, l'album des avatars — ses
+// six pages et trois fiches —, l'album des thèmes et la fiche de l'un d'eux,
+// et la boutique des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
 // des portraits, une gerbe, deux thèmes achetés. Le client construit d'abord
 // (`npm run build -w client`).
@@ -180,10 +180,27 @@ try {
   await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».
-  for (const partie of ['themes', 'legendaires', 'savoir', 'fonds', 'gerbes', 'finitions', 'emojis']) {
+  for (const partie of ['themes', 'avatars', 'fonds', 'gerbes', 'finitions']) {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
+  }
+  // L'album des avatars, page par page — son adresse nomme la page —, puis trois fiches : à gagner, à gagner sur un sentier, et la sienne.
+  for (const rarete of ['commune', 'peucommune', 'rare', 'epique', 'legendaire', 'divin']) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector(`#gemme-${rarete}[aria-selected="true"]`)
+    await photo(`6-album-${rarete}`, true)
+  }
+  for (const [rarete, debut, nom] of [
+    ['legendaire', 'La Licorne Astrale,', 'licorne'],
+    ['legendaire', 'Le Phénix,', 'phenix'],
+    ['rare', 'Le lynx,', 'lynx'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)
+    await page.waitForSelector('.album-avatars')
+    await page.click(`.album-case[aria-label^="${debut}"]`)
+    await page.waitForSelector('#fiche-avatar .album-detail')
+    await photo(`6-album-fiche-${nom}`)
   }
   // L'album des thèmes : toucher celui qui se gagne ouvre sa fiche, et le lieu qui le donne.
   await page.goto(`${banc.url}/profil#collection-themes`)

@@ -3,12 +3,11 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
-import { CeQuIlRemplace, ChoixDeLEclat } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
 import { PremierHautFait } from './Trophees'
 import { espacesFines, formatNumber } from '../format'
-import { AVATARS, COLLECTION } from '../../../shared/avatars'
+import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import {
   AUCUNE_BORDURE,
   CRANS_D_UNE_BORDURE,
@@ -23,7 +22,8 @@ import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS, divin } from '../../../shared/divins'
-import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts, type Paliers } from '../../../shared/branches'
+import { pageDuProchain, type SorteDAvatar } from '../../../shared/album'
+import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
@@ -41,14 +41,7 @@ import type { PropsDUnePiece } from './choix'
 // la montre, rien n'est enregistré —, et « Porter », dans la barre de la
 // loge, enregistre l'essai. Chaque grille dit ce qu'il porte (« porté ») et
 // ce qu'il essaie (« à l'essai »). D'où vient un avatar, et comment gagner
-// les autres, se lit dans « Ma collection » (`AtlasDesAvatars`).
-
-/**
- * L'anneau des emojis de collection passe du vert au bleu à partir du
- * niveau 10 : les premiers viennent en quelques soirées, les autres en une
- * année, et la grille le dit d'un coup d'œil.
- */
-export const COLLECTION_HAUTE = 10
+// les autres, se lit dans « Ma collection » (`AlbumDesAvatars`).
 
 /** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
 function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
@@ -93,14 +86,15 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 /**
  * Les familles de la grille des avatars, dans l'ordre de leurs pastilles :
  * les légendaires — les Divins dessous —, les portraits des branches, les
- * emojis — ceux de collection dessous. Chacune mène à sa ligne de « Ma
- * collection » (`partie`), où se lit ce qui reste, et où le gagner.
+ * emojis — ceux de collection dessous. Chacune mène à l'album de « Ma
+ * collection », sur la page de son prochain avatar à gagner (`sorte`) : ce
+ * qui reste s'y lit, et où le gagner.
  */
 export type Famille = 'legendaires' | 'portraits' | 'emojis'
-export const FAMILLES: readonly { id: Famille; nom: string; partie: string }[] = [
-  { id: 'legendaires', nom: 'Légendaires', partie: 'legendaires' },
-  { id: 'portraits', nom: 'Portraits', partie: 'savoir' },
-  { id: 'emojis', nom: 'Emojis', partie: 'emojis' },
+export const FAMILLES: readonly { id: Famille; nom: string; sorte: SorteDAvatar }[] = [
+  { id: 'legendaires', nom: 'Légendaires', sorte: 'legendaire' },
+  { id: 'portraits', nom: 'Portraits', sorte: 'portrait' },
+  { id: 'emojis', nom: 'Emojis', sorte: 'emoji' },
 ]
 
 /**
@@ -230,10 +224,10 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
         {niveaux[i] !== undefined && <span className="loge-ferme-niveau">{`niv. ${niveaux[i]}`}</span>}
       </span>
     ))
-  const partie = FAMILLES.find(f => f.id === famille)!.partie
+  const page = pageDuProchain(profil, FAMILLES.find(f => f.id === famille)!.sorte)
   const aGagner = (reste: number, un: string, plusieurs: string) =>
     reste > 0 && (
-      <a className="loge-a-gagner" href={`#collection-${partie}`}>
+      <a className="loge-a-gagner" href={`#collection-avatars${page ? `-${page}` : ''}`}>
         {espacesFines(`${reste} ${reste > 1 ? plusieurs : un} à gagner : où ?`)}
         <Icon name="chevron-right" />
       </a>
@@ -323,79 +317,6 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
       </div>
       {aGagner(aVenir.length, 'emoji de collection', 'emojis de collection')}
     </>
-  )
-}
-
-const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
-
-/**
- * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, le palier
- * de son sentier qui l'ouvre — et, s'il manque encore, combien de paliers,
- * avec le chemin du sentier. Gagné, il se porte d'ici ; porté, on revient à
- * son emoji. Sans `onPorter` — « Ma collection », qui ne fait que montrer —,
- * rien à toucher que le sentier.
- */
-export function DetailPortrait({
-  cle,
-  paliers,
-  porte,
-  eclat,
-  brille = eclat,
-  busy,
-  onPorter,
-  onEclat,
-}: {
-  cle: string
-  paliers: Paliers
-  /** L'avatar dessiné qu'il porte, s'il en porte un. */
-  porte: string | null
-  /** Il a éclaté pour lui. */
-  eclat: boolean
-  /** Il en porte la version rare — sinon, il l'a éteint. */
-  brille?: boolean
-  busy: boolean
-  onPorter?: (cle: string | null) => void
-  /** Porter sa version rare, ou sa version d'origine. */
-  onEclat?: (brille: boolean) => void
-}) {
-  const p = portraitDe(cle)
-  if (!p) return null
-  const b = brancheDe(p)
-  const valides = paliers[b.key] ?? 0
-  const gagne = valides >= p.palier
-  return (
-    <div className="galerie-detail detail-case">
-      <span className="detail-famille muted">{`${b.nom} · ${b.categorie}`}</span>
-      <b className="galerie-detail-nom">{p.nom}</b>
-      {gagne ? (
-        <p className="small">{`Gagné au palier ${p.palier} du sentier ${deLaBranche(b)}.`}</p>
-      ) : (
-        <>
-          <p className="small">
-            {`Se gagne au palier ${p.palier} du sentier ${deLaBranche(b)} : `}
-            <b>{`encore ${nPaliers(p.palier - valides)}`}</b>, dans la campagne.
-          </p>
-          <a className="btn btn-small" href={`/campagne#sentier-${b.key}`}>
-            Aller au sentier
-          </a>
-        </>
-      )}
-      {/* Gagné seulement : un portrait verrouillé n'a rien qui éclate. */}
-      {gagne && eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
-      {gagne && onPorter && (
-        <>
-          <CeQuIlRemplace porte={porte} cle={p.key} />
-          <button
-            type="button"
-            className={'btn btn-small ' + (porte === p.key ? 'btn-ghost' : 'btn-primary')}
-            aria-disabled={busy || undefined}
-            onClick={() => onPorter(porte === p.key ? null : p.key)}
-          >
-            {porte === p.key ? 'Revenir à mon emoji' : 'Le porter'}
-          </button>
-        </>
-      )}
-    </div>
   )
 }
 

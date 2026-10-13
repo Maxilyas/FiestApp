@@ -11,7 +11,8 @@
 // ouvrait une fiche sous sa rangée, derrière trois onglets à titres et
 // l'accordéon des branches : on lisait des titres et des lignes avant de voir
 // un avatar (« pas reprendre ce qu'on a déjà », le propriétaire). Les fiches
-// vivent dans « Ma collection » (`AtlasDesAvatars`), qui ne fait que montrer.
+// vivent dans l'album de « Ma collection » (`AlbumDesAvatars`), qui ne fait
+// que montrer.
 // Pas de serveur : des composants du client, rendus en HTML.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -116,8 +117,8 @@ test('dans chaque famille, chaque case essaie son avatar : rien ne se porte ni n
   // Rien ne s'enregistre d'un toucher dans la grille, ni dans aucune pièce : pas même la version d'un avatar éclaté.
   const APPARENCE = source('components/Apparence.tsx')
   assert.doesNotMatch(APPARENCE, /\benregistrer\(|onPorter=|id="detail-avatar"|fiche-case/)
-  // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste.
-  assert.match(await famille('legendaires'), /<a class="loge-a-gagner" href="#collection-legendaires">24 légendaires à gagner : où \?<svg/)
+  // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste — la page de l'album où ils sont.
+  assert.match(await famille('legendaires'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">24 légendaires à gagner : où \?<svg/)
 })
 
 test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famille de ce qu’il porte', async () => {
@@ -154,7 +155,7 @@ test('trois pastilles sur une rangée, chacune son compte, ouvertes sur la famil
   assert.match(source('components/Apparence.tsx'), /<Onglets\s+onglets=\{FAMILLES\.map/)
 })
 
-test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagner : où ? » mène à sa ligne de la collection', async () => {
+test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagner : où ? » mène à sa page de l’album de la collection', async () => {
   const { cadenas } = await import(url('components/Apparence.tsx'))
   // La dernière rangée, ou une rangée entière quand elle tombe juste — jamais plus que ce qui reste.
   assert.deepEqual([cadenas(0, 4, 26), cadenas(2, 4, 24), cadenas(4, 4, 22), cadenas(3, 4, 1), cadenas(5, 4, 0), cadenas(10, 5, 2)], [4, 2, 4, 1, 0, 2])
@@ -170,13 +171,14 @@ test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagn
   const portraits = await famille('portraits')
   assert.deepEqual(casesDe(portraits).map(c => c.nom), ['Le Minotaure, portrait des mythologies', 'L’écureuil, portrait de la forêt', 'Le blaireau, portrait de la forêt'])
   assert.deepEqual(fermes(portraits), [''])
-  assert.match(portraits, /href="#collection-savoir">69 portraits à gagner : où \?/)
+  // Le prochain portrait est un visage, d'une autre branche : la page commune de l'album.
+  assert.match(portraits, /href="#collection-avatars-commune">69 portraits à gagner : où \?/)
   // Les emojis : les vingt-quatre de l'inscription, sans cadenas ; dix de collection, et les deux suivants disent leur niveau.
   const emojis = await famille('emojis')
   assert.equal(casesDe(emojis).length, 34)
   assert.match(emojis, /<p class="loge-grille-titre">De collection <span>10 \/ 12<\/span><\/p>/)
   assert.deepEqual(fermes(emojis), ['niv. 16', 'niv. 17'])
-  assert.match(emojis, /href="#collection-emojis">2 emojis de collection à gagner : où \?/)
+  assert.match(emojis, /href="#collection-avatars-peucommune">2 emojis de collection à gagner : où \?/)
   // Les cadenas sont du décor : ni bouton, ni lien — le lien dessous dit où.
   assert.doesNotMatch(emojis, /<(button|a)[^>]*loge-ferme/)
 
@@ -222,80 +224,67 @@ test('la carte montre une case — son halo d’or —, celle qu’il porte gard
   assert.match(CSS, /\.case-avatar\.porte::after[^{]*\{ content: '✓';/)
 })
 
-test('la fiche d’un portrait dit le palier qui l’ouvre, et combien il en manque ; gagné, il se porte d’ici', async () => {
-  const portes: (string | null)[] = []
-  const communs = { paliers: { foret: 5 }, eclat: false, busy: false, onPorter: (k: string | null) => portes.push(k) }
-  const blaireau = await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', porte: 'lg:phenix' })
-  assert.match(blaireau, /<span class="detail-famille muted">La forêt · Nature<\/span><b class="galerie-detail-nom">Le blaireau<\/b>/)
-  assert.match(blaireau, /Gagné au palier 4 du sentier de la forêt\./)
-  assert.match(blaireau, /Il remplacera Le Phénix, que tu gardes\.<\/p><button[^>]*>Le porter</)
-  const lynx = await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:lynx', porte: null })
-  assert.match(lynx, /Se gagne au palier 6 du sentier de la forêt : <b>encore 1 palier<\/b>, dans la campagne\./)
-  // À gagner : rien à porter, le chemin du sentier.
-  assert.doesNotMatch(lynx, /<button/, 'à gagner : rien à porter')
-  assert.match(lynx, /<a class="btn btn-small" href="\/campagne#sentier-foret">Aller au sentier<\/a>/)
-  const loup = await rendu('components/Apparence', 'DetailPortrait', { ...communs, paliers: { foret: 8 }, cle: 'br:loup', porte: 'br:loup' })
-  assert.match(loup, /Gagné au palier 8/)
-  assert.match(loup, />Revenir à mon emoji</)
+/** La fiche d'un avatar dans l'album de « Ma collection », sans rien d'autre autour. */
+async function ficheDeLAlbum(cle: string, plus: { aLui?: boolean; porte?: boolean; profil?: object; dessin?: unknown } = {}) {
+  const { avatarDeLAlbum } = await import('../../shared/album')
+  return rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle), aLui: false, porte: false, profil: HABITUE, dessin: null, ...plus })
+}
 
-  const fiche = await arbre('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', porte: null })
-  const bouton = elements(fiche).find(e => e.type === 'button')
-  assert.equal(portes.length, 0, 'rien avant le bouton')
-  bouton.props.onClick()
-  assert.deepEqual(portes, ['br:blaireau'])
+test('la fiche d’un portrait dit le palier qui l’ouvre, et où il en est ; à lui, où le porter — rien ne s’y porte', async () => {
+  // Le blaireau, au palier 4 de la forêt : à lui. Il se porte dans la loge, pas d'ici.
+  const blaireau = await ficheDeLAlbum('br:blaireau', { aLui: true })
+  assert.match(blaireau, /<b class="galerie-detail-nom">Le blaireau<\/b><span class="album-detail-rarete"><i aria-hidden="true"><\/i>Peu commune<\/span>/)
+  assert.match(blaireau, /<p class="muted small">La forêt · Nature<\/p>/)
+  assert.match(blaireau, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">« Mon avatar »<\/a>\./)
+  assert.match(blaireau, /<span class="label album-etiquette">Comment il se gagne<\/span>/)
+  // À lui, plus de jauge ni de chemin : il l'a.
+  assert.doesNotMatch(blaireau, /<button|Le porter|album-progres|album-aller/)
+  // Le lynx, au palier 6 : où il en est sur son sentier, et le chemin du sentier.
+  const lynx = await ficheDeLAlbum('br:lynx')
+  assert.match(lynx, /Sur les sentiers : le palier 6 du sentier de la forêt<\/b>/)
+  assert.match(lynx, /<span class="album-progres"><span class="jauge-fine" aria-hidden="true"><span style="width:83%"><\/span><\/span><span>palier 5 sur 6<\/span><\/span>/)
+  assert.doesNotMatch(lynx, /<button/, 'à gagner : rien à porter')
+  assert.match(lynx, /<a class="btn btn-small album-aller" href="\/campagne#sentier-foret">Aller au sentier<\/a>/)
+  // Le Loup, au palier 8 : à lui, et porté.
+  const loup = await ficheDeLAlbum('br:loup', { aLui: true, porte: true, profil: { ...HABITUE, sentiers: { foret: 8 } } })
+  assert.match(loup, /À toi, et tu le portes\./)
 })
 
-test('touché dans « Ma collection », un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
+test('touché dans l’album, un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
   // À 30 px dans sa case, on ne voyait ni la peinture ni la pellicule. La
   // fiche vit dans la collection, qui raconte d'où il vient.
-  const atlas = source('components/AtlasDesAvatars.tsx')
+  const album = source('components/AlbumDesAvatars.tsx')
   // Gagné ou non, éclaté ou non, en grand : ses grands fichiers, et le reflet qui suit le doigt.
-  assert.match(atlas, /dessin=\{<Legendaire cle=\{l\.key\} verrouille=\{!gagne\} eclat=\{brille\(l\.key\)\} grand \/>\}/)
-  assert.match(atlas, /dessin=\{<Divin cle=\{d\.key\} verrouille=\{!la\} grand \/>\}/)
+  assert.match(album, /<FicheDeLAvatar a=\{a\} aLui=\{aLui\} porte=\{lePorte\} profil=\{profil\} dessin=\{dessin\(a, aLui, true\)\} \/>/)
+  assert.match(album, /<Legendaire cle=\{a\.cle\} verrouille=\{!aLui\} eclat=\{aLui && brille\(a\.cle\)\} grand=\{grand\} \/>/)
+  assert.match(album, /<Divin cle=\{a\.cle\} verrouille=\{!aLui\} grand=\{grand\} \/>/)
 
   // La fiche le pose en tête, muet : son nom et son état se lisent juste dessous.
   const { Legendaire } = await import(url('components/Legendaire.tsx'))
   const { Divin } = await import(url('components/Divin.tsx'))
-  const communs = { eclats: [], porte: null, hautsFaits: [], busy: false, onPorter: () => {} }
-  const dragon = await rendu('components/Carriere', 'DetailLegendaire', {
-    ...communs,
-    cle: 'lg:dragon',
-    debloques: ['lg:dragon'],
-    dessin: React.createElement(Legendaire, { cle: 'lg:dragon', grand: true }),
-  })
-  assert.match(dragon, /<div class="galerie-detail detail-case"><span class="detail-dessin" aria-hidden="true"><span class="lg lg-eclat lg-dragon lg-touche-libre"/)
+  const dragon = await ficheDeLAlbum('lg:dragon', { aLui: true, dessin: React.createElement(Legendaire, { cle: 'lg:dragon', grand: true }) })
+  assert.match(dragon, /<div class="galerie-detail detail-case album-detail"[^>]*><div class="album-detail-tete"><span class="album-detail-dessin" aria-hidden="true"><span class="lg lg-eclat lg-dragon lg-touche-libre"/)
   assert.match(dragon, /dragon-art-512\./, 'ses grands fichiers')
-  assert.ok(dragon.indexOf('detail-dessin') < dragon.indexOf('galerie-detail-nom'), 'le médaillon, puis son nom')
+  assert.ok(dragon.indexOf('album-detail-dessin') < dragon.indexOf('galerie-detail-nom'), 'le médaillon, puis son nom')
   // Sans dessin — une page qui n'a pas les médaillons —, la fiche reste du texte.
-  assert.doesNotMatch(await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', debloques: [] }), /detail-dessin/)
+  assert.doesNotMatch(await ficheDeLAlbum('lg:dragon'), /album-detail-dessin/)
 
-  const seraphin = await rendu('components/Carriere', 'DetailDivin', {
-    ...communs,
-    cle: 'dv:seraphin',
-    descendus: HABITUE.divins,
-    dessin: React.createElement(Divin, { cle: 'dv:seraphin', grand: true }),
-  })
-  assert.match(seraphin, /<span class="detail-dessin" aria-hidden="true"><span class="dv dv-seraphin dv-peint"/)
+  const seraphin = await ficheDeLAlbum('dv:seraphin', { aLui: true, dessin: React.createElement(Divin, { cle: 'dv:seraphin', grand: true }) })
+  assert.match(seraphin, /<span class="album-detail-dessin" aria-hidden="true"><span class="dv dv-seraphin dv-peint"/)
   assert.match(seraphin, /seraphin-badge-512\./)
+  assert.match(seraphin, /<p class="serif-note">Il est descendu un soir de grand vent\.<\/p>/)
   // Pas encore descendu : son voile en grand, et toujours rien de lui.
-  const inconnu = await rendu('components/Carriere', 'DetailDivin', {
-    ...communs,
-    cle: 'dv:lotus',
-    descendus: HABITUE.divins,
-    dessin: React.createElement(Divin, { cle: 'dv:lotus', verrouille: true, grand: true }),
-  })
-  assert.match(inconnu, /<span class="detail-dessin" aria-hidden="true"><svg class="dv dv-lotus dv-voile"/)
+  const inconnu = await ficheDeLAlbum('dv:lotus', { dessin: React.createElement(Divin, { cle: 'dv:lotus', verrouille: true, grand: true }) })
+  assert.match(inconnu, /<span class="album-detail-dessin" aria-hidden="true"><svg class="dv dv-lotus dv-voile"/)
   assert.doesNotMatch(inconnu, /Lotus|badge|medaillons/)
 
   // Centré, grand, et de l'air autour pour ce qui déborde.
-  const cadre = regle('.detail-dessin')
-  assert.match(cadre, /align-self:\s*center/)
-  const taille = /font-size:\s*([\d.]+)rem/.exec(cadre)
+  assert.match(regle('.album-detail-tete'), /align-items:\s*center/)
+  const taille = /font-size:\s*([\d.]+)rem/.exec(regle('.album-detail-dessin'))
   assert.ok(taille && Number(taille[1]) >= 8, `en grand : ${taille?.[0]}`)
   // La fiche s'ouvre juste sous sa case, de toute la largeur de sa grille : `dense` finit la rangée.
-  assert.match(regle('.hud-grille'), /grid-auto-flow:\s*dense/)
+  assert.match(regle('.album-avatars'), /grid-auto-flow:\s*dense/)
   assert.match(regle('.fiche-case'), /grid-column:\s*1 \/ -1/)
-  assert.match(atlas, /<\/Case>\s*\{ouvert === l\.key && \(\s*<div className="fiche-case hud-fiche">/)
 })
 
 test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la carte de la loge, à côté de lui', async () => {
@@ -366,24 +355,16 @@ test('un emoji de collection dit son niveau, à l’oreille et dans la barre de 
   assert.deepEqual(lignesDeLEssai({ avatar: '🦊' }, HABITUE), [{ piece: 'avatar', nom: '🦊', detail: 'Emoji' }])
 })
 
-test('un légendaire et un Divin disent aussi ce qu’ils remplacent — jamais eux-mêmes', async () => {
-  const communs = { debloques: ['lg:phenix', 'lg:dragon'], eclats: [], hautsFaits: [], busy: false, onPorter: () => {} }
-  const dragon = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', porte: 'lg:phenix' })
-  assert.match(dragon, /Il remplacera Le Phénix, que tu gardes\.<\/p><button[^>]*>Le porter</)
-  const phenix = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:phenix', porte: 'lg:phenix' })
-  assert.doesNotMatch(phenix, /Il remplacera/)
-  assert.match(phenix, />Revenir à mon emoji</)
-  // Sous un emoji, rien à dire : il reste dessous, et « Revenir à mon emoji » le rend.
-  const sousEmoji = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', porte: null })
-  assert.doesNotMatch(sousEmoji, /Il remplacera/)
-  // À gagner : pas de bouton, rien à remplacer.
-  const aGagner = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:oracle', porte: 'lg:phenix' })
-  assert.doesNotMatch(aGagner, /Il remplacera|Le porter/)
-
-  const descendus = [{ key: 'dv:seraphin', legende: 'Il est descendu un soir de grand vent.', ton: 'eclat' }]
-  const seraphin = await rendu('components/Carriere', 'DetailDivin', { cle: 'dv:seraphin', descendus, porte: 'lg:phenix', busy: false, onPorter: () => {} })
-  assert.match(seraphin, /Il remplacera Le Phénix, que tu gardes\.<\/p><button[^>]*>Le porter</)
-  // Un Divin porté, et le Dragon regardé : c'est le Divin qu'on garde.
-  const sousDivin = await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', porte: 'dv:seraphin' })
-  assert.match(sousDivin, /Il remplacera Le Séraphin, que tu gardes\./)
+test('dans l’album, la fiche d’un avatar à lui dit qu’il l’a, et s’il le porte — en changer se fait dans la loge, qui l’essaie d’abord', async () => {
+  // « Le porter » vivait dans les fiches, et disait ce qu'il remplaçait : la
+  // loge essaie désormais sur la carte, et sa barre le dit. L'album ne fait
+  // que montrer, légendaire, Divin, portrait ou emoji.
+  const dragon = await ficheDeLAlbum('lg:dragon', { aLui: true })
+  assert.match(dragon, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">« Mon avatar »<\/a>\./)
+  assert.match(await ficheDeLAlbum('lg:phenix', { aLui: true, porte: true }), /À toi, et tu le portes\./)
+  assert.match(await ficheDeLAlbum('dv:seraphin', { aLui: true }), /À toi\./)
+  const aGagner = await ficheDeLAlbum('lg:oracle')
+  assert.doesNotMatch(aGagner, /À toi/)
+  for (const html of [dragon, aGagner]) assert.doesNotMatch(html, /<button|Le porter|Il remplacera|Revenir à mon emoji/)
+  assert.doesNotMatch(source('components/AlbumDesAvatars.tsx'), /enregistrer|onPorter|onEclat/)
 })
