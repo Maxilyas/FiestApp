@@ -2973,12 +2973,12 @@ export class CampagneStore {
   }
 
   /**
-   * Les réponses d'Automate sur une série neuve (`simulerUnAdversaire`). Un
-   * test qui le remplace fixe son score : la cote d'un duel s'y vérifie au
-   * point près, comme contre un joueur.
+   * Les réponses d'Automate sur une série neuve, son score tenu à son niveau
+   * (`automateASonNiveau`). Un test qui le remplace fixe son score : la cote
+   * d'un duel s'y vérifie au point près, comme contre un joueur.
    */
   static reponsesDAutomate(taux: readonly number[], niveau: number): boolean[] {
-    return simulerUnAdversaire(taux, niveau)
+    return automateASonNiveau(taux, niveau)
   }
 
   /**
@@ -4882,12 +4882,27 @@ const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 // trompeur » (le propriétaire, le même jour). Une série neuve, présentée
 // comme simulée : ses réponses se tirent de la difficulté mesurée de chaque
 // question (`tauxLisse`), décalées pour que son score soit, en moyenne, le
-// niveau de qui le joue (`niveauPourLeDuel`). Sa série finit à sa troisième
-// faute, comme celle d'un joueur allé au bout de ses vies : la cote de son
-// score se lit pareil (`coteDuScore`).
+// niveau de qui le joue (`niveauPourLeDuel`), et tenu à deux bonnes réponses
+// de lui au plus (`ECART_D_AUTOMATE`). Sa série finit à sa troisième faute,
+// comme celle d'un joueur allé au bout de ses vies : la cote de son score se
+// lit pareil (`coteDuScore`).
 
 /** Le nom et l'avatar d'Automate : sans article, il se lit partout — « Toi 7 – Automate 6 », « le score d'Automate ». */
 export const AUTOMATE = { nom: 'Automate', avatar: '🤖' } as const
+
+/**
+ * L'écart le plus grand entre le score d'Automate et le niveau de qui le
+ * joue : deux bonnes réponses — un choix de produit, celui du propriétaire
+ * du 13 octobre 2026, après « parfois la différence était énorme ». Libre,
+ * son score s'en écartait de quatre ou plus un duel sur cinq — de cinq à
+ * onze au niveau huit, huit fois sur dix — : des défaites de dix réponses,
+ * des victoires sans partie, un enjeu de « +7 / −17 » à « +17 / −7 ». À une
+ * seule, tous les duels se ressembleraient, et l'enjeu trahirait son score.
+ */
+export const ECART_D_AUTOMATE = 2
+
+/** Les parties d'Automate qu'on tire au plus pour tomber dans cet écart : plus d'une sur deux y tombe. */
+const PARTIES_D_AUTOMATE = 50
 
 /** Automate tel que la page le montre : son nom, son avatar, et qu'il est simulé. */
 const automateVu = (a: AdversaireGarde): Adversaire => ({ ...AUTOMATE, simule: true, justes: a.reponses.filter(Boolean).length })
@@ -4928,19 +4943,41 @@ export function chancesAuNiveau(taux: readonly number[], niveau: number): number
   return decalees((bas + haut) / 2)
 }
 
-/**
- * Les réponses d'Automate sur une série — juste ou faux, question par
- * question —, jusqu'à sa troisième faute, ou au bout de ses questions.
- */
-export function simulerUnAdversaire(taux: readonly number[], niveau: number, hasard: () => number = Math.random): boolean[] {
+/** Une partie, ses chances données : juste ou faux, question par question, jusqu'à la troisième faute, ou au bout des questions. */
+function jouerSesChances(chances: readonly number[], hasard: () => number): boolean[] {
   const reponses: boolean[] = []
   let fautes = 0
-  for (const chance of chancesAuNiveau(taux, niveau)) {
+  for (const chance of chances) {
     const juste = hasard() < chance
     reponses.push(juste)
     if (!juste && ++fautes >= VIES) break
   }
   return reponses
+}
+
+/**
+ * Les réponses d'Automate sur une série — juste ou faux, question par
+ * question —, jusqu'à sa troisième faute, ou au bout de ses questions.
+ */
+export function simulerUnAdversaire(taux: readonly number[], niveau: number, hasard: () => number = Math.random): boolean[] {
+  return jouerSesChances(chancesAuNiveau(taux, niveau), hasard)
+}
+
+/**
+ * Sa partie, son score tenu à `ECART_D_AUTOMATE` de son niveau : elle se
+ * retire tant qu'elle tombe plus loin — sa façon de jouer ne change pas, il
+ * rate toujours d'abord les difficiles. Au bout de `PARTIES_D_AUTOMATE`, la
+ * plus proche : un niveau qu'une série ne laisse pas atteindre ne bloque rien.
+ */
+export function automateASonNiveau(taux: readonly number[], niveau: number, hasard: () => number = Math.random): boolean[] {
+  const chances = chancesAuNiveau(taux, niveau)
+  const ecart = (r: readonly boolean[]) => Math.abs(r.filter(Boolean).length - niveau)
+  let meilleure = jouerSesChances(chances, hasard)
+  for (let i = 1; i < PARTIES_D_AUTOMATE && ecart(meilleure) > ECART_D_AUTOMATE; i++) {
+    const autre = jouerSesChances(chances, hasard)
+    if (ecart(autre) < ecart(meilleure)) meilleure = autre
+  }
+  return meilleure
 }
 
 /** Un code de défi entre amis, à recopier sans se tromper (`LETTRES_D_UN_CODE`). */

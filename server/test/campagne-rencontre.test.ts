@@ -13,7 +13,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES, issueDeRencontre, niveauPourUneRencontre, xpDeLaBonneReponse } from '../../shared/campagne'
-import { CampagneStore, chancesAuNiveau, scoreAttendu, simulerUnAdversaire } from '../src/core/campagne'
+import { CampagneStore, ECART_D_AUTOMATE, automateASonNiveau, chancesAuNiveau, scoreAttendu, simulerUnAdversaire } from '../src/core/campagne'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -113,6 +113,42 @@ test('Automate joue comme un joueur de son niveau : ses fautes sur les questions
   }
   const partRatee = (de: number, a: number) => ratees.slice(de, a).reduce((s, x) => s + x, 0) / posees.slice(de, a).reduce((s, x) => s + x, 0)
   assert.ok(partRatee(0, 5) < partRatee(5, 10) && partRatee(5, 10) < partRatee(10, 15), 'les faciles, puis les moyennes, puis les difficiles')
+})
+
+// Le choix du propriétaire du 13 octobre 2026, après « parfois la différence
+// était énorme » : libre, son score s'écartait de son niveau de quatre ou plus
+// un duel sur cinq. Il s'y tient à deux bonnes réponses près.
+test('Automate se tient à deux bonnes réponses de son niveau au plus — sans changer sa façon de jouer', () => {
+  assert.equal(ECART_D_AUTOMATE, 2, 'un choix de produit')
+  const taux = [...Array(5).fill(0.9), ...Array(5).fill(0.75), ...Array(5).fill(0.45), ...Array(45).fill(0.15)]
+  const justes = (r: boolean[]) => r.filter(Boolean).length
+  for (const niveau of [4, 8, 9.5, 12, 16]) {
+    const hasard = hasardFixe(Math.round(niveau * 10))
+    const libres = Array.from({ length: 400 }, () => justes(simulerUnAdversaire(taux, niveau, hasard)))
+    assert.ok(libres.some(s => Math.abs(s - niveau) > ECART_D_AUTOMATE + 1), `libre, il s’écarte bien plus (niveau ${niveau})`)
+    const tenus = Array.from({ length: 400 }, () => justes(automateASonNiveau(taux, niveau, hasard)))
+    assert.ok(
+      tenus.every(s => Math.abs(s - niveau) <= ECART_D_AUTOMATE),
+      `niveau ${niveau} : de ${Math.min(...tenus)} à ${Math.max(...tenus)}`,
+    )
+    assert.ok(new Set(tenus).size >= 3, 'pas toujours le même score : un peu de surprise')
+    // Toujours de son niveau en moyenne.
+    assert.ok(Math.abs(tenus.reduce((s, x) => s + x, 0) / tenus.length - niveau) < 0.8, `niveau ${niveau}`)
+  }
+  // Ses fautes tombent toujours sur les questions difficiles d'abord.
+  const hasard = hasardFixe(7)
+  const posees = Array(taux.length).fill(0)
+  const ratees = Array(taux.length).fill(0)
+  for (let n = 0; n < 2000; n++) {
+    automateASonNiveau(taux, 12, hasard).forEach((juste, i) => {
+      posees[i]++
+      if (!juste) ratees[i]++
+    })
+  }
+  const partRatee = (de: number, a: number) => ratees.slice(de, a).reduce((s, x) => s + x, 0) / posees.slice(de, a).reduce((s, x) => s + x, 0)
+  assert.ok(partRatee(0, 5) < partRatee(5, 10) && partRatee(5, 10) < partRatee(10, 15), 'les faciles, puis les moyennes, puis les difficiles')
+  // Et c'est lui que le dé affronte : la partie que le serveur tire d'office.
+  for (let n = 0; n < 200; n++) assert.ok(Math.abs(justes(CampagneStore.reponsesDAutomate(taux, 8)) - 8) <= ECART_D_AUTOMATE)
 })
 
 test('le dé ne joue que contre Automate, même quand un ami a fini une série : jamais son profil — et le duel se joue comme contre un joueur', async () => {
