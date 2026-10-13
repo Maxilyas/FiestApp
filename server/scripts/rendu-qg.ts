@@ -4,8 +4,9 @@
 // invités, une autre laissée en plan, deux signalements d'une question du
 // jour ; au téléphone
 // (360 × 640, la page entière), en 1366 × 768 et en 1920 × 1080, sous le
-// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté. Le
-// client construit d'abord (`npm run build -w client`).
+// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, et le
+// journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
+// d'hier. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
@@ -49,6 +50,15 @@ try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   await ecrire(banc.url, '/api/jour/commencer', {}, lea)
 
+  // Quelques gestes d'aujourd'hui, par les vraies routes : le journal les note
+  // de lui-même. Avant les milliers d'écritures qui suivent : une connexion
+  // restée ouverte pendant ce temps, le serveur la fermait sous `fetch`.
+  const leaId = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: lea } })).json()) as { profile: { id: string } }).profile.id
+  await ecrire(banc.url, '/api/admin/jour/garder', { jour: jourDe(Date.now()), index: 2 }, admin)
+  await ecrire(banc.url, '/api/admin/jour/liste', { texte: 'Quel fleuve traverse Lyon et Avignon ?\n*Le Rhône\nLa Loire\nLa Garonne' }, admin)
+  await ecrire(banc.url, '/api/admin/jour/masquer', { profileId: leaId, masque: true }, admin)
+  await ecrire(banc.url, '/api/admin/campagne/retirer', { questionId: 'essai005' }, admin)
+
   // Trente jours d'activité, écrits dans la base permanente : chaque jour son
   // lot, plus fourni le week-end, aujourd'hui jusqu'à l'heure qu'il est.
   const maintenant = Date.now()
@@ -80,6 +90,10 @@ try {
     })
     signalement.run(jourDe(maintenant), 2, 'p-1', 'Deux bonnes réponses ?', maintenant)
     signalement.run(jourDe(maintenant), 2, 'p-2', 'Canberra, pas Sydney', maintenant)
+    // Le journal d'hier : deux gestes, pour voir les jours se ranger.
+    const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
+    geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
+    geste.run('hier-2', minuits[minuits.length - 1] - 2 * H, 'catalogue', 'Copie publiée au catalogue : « Les années 80 en chansons », de Nadia')
   }
   permanente.close()
 
@@ -108,6 +122,8 @@ try {
   await photographier('4-ordinateur-ivoire', 1366, 768, { theme: 'ivoire' })
   await photographier('5-telephone-ivoire', 360, 640, { theme: 'ivoire' })
   await photographier('6-page-du-jour', 1366, 768, { adresse: '/admin#jour', pleine: false })
+  await photographier('7-journal', 1366, 768, { adresse: '/admin#journal', pleine: false })
+  await photographier('8-journal-telephone', 360, 640, { adresse: '/admin#journal' })
   host.disconnect()
 } finally {
   await navigateur.close()

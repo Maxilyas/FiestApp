@@ -475,3 +475,69 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   }
   return choses
 }
+
+// ── Le journal des gestes ─────────────────────────────────────────────────
+
+/**
+ * Ce que l'administrateur fait d'ici se note — un profil supprimé, un salon
+ * renommé, une question retirée —, rangé par ce que le geste touche : la page
+ * du journal filtre par là. « Autre » : une route qui n'a pas dit sa phrase
+ * (`server/src/core/journalDesGestes.ts`).
+ */
+export const SORTES_DE_GESTES = ['profil', 'salon', 'catalogue', 'jour', 'campagne', 'autre'] as const
+export type SorteDeGeste = (typeof SORTES_DE_GESTES)[number]
+
+export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
+  profil: 'Profils',
+  salon: 'Salons',
+  catalogue: 'Catalogue',
+  jour: 'Quiz du jour',
+  campagne: 'Campagne',
+  autre: 'Autres',
+}
+
+/** Un geste de l'administrateur, tel que le journal le rend. */
+export interface GesteDuQg {
+  id: string
+  quand: number
+  sorte: SorteDeGeste
+  /** Ce qu'on lit, une phrase : « Profil supprimé : Léa (@lea) ». */
+  resume: string
+  /** Ce qu'il visait — un profil, un espace, une question —, pour retrouver les gestes d'un même joueur. */
+  cible: string | null
+}
+
+export interface JournalDuQg {
+  gestes: GesteDuQg[]
+  /** De quoi demander la page d'après ; null, le journal commence là. */
+  suite: string | null
+}
+
+/** Ce qu'une page du journal montre d'un coup : une soirée d'administration y tient. */
+export const GESTES_PAR_PAGE = 50
+
+/**
+ * Les gestes rangés par jour de Paris, dans l'ordre où ils arrivent — le plus
+ * récent d'abord : « Aujourd’hui », « Hier », « lundi 12 octobre », et
+ * l'année quand ce n'est pas celle d'aujourd'hui.
+ */
+export function gestesParJour(gestes: readonly GesteDuQg[], maintenant: number): { jour: string; titre: string; gestes: GesteDuQg[] }[] {
+  const aujourdhui = jourDe(maintenant)
+  const groupes: { jour: string; titre: string; gestes: GesteDuQg[] }[] = []
+  for (const g of gestes) {
+    const jour = jourDe(g.quand)
+    let groupe = groupes.at(-1)
+    if (groupe?.jour !== jour) {
+      const titre =
+        jour === aujourdhui
+          ? 'Aujourd’hui'
+          : jour === jourAvant(aujourdhui)
+            ? 'Hier'
+            : `${jourEnToutesLettres(jour)}${jour.slice(0, 4) === aujourdhui.slice(0, 4) ? '' : ` ${jour.slice(0, 4)}`}`
+      groupe = { jour, titre, gestes: [] }
+      groupes.push(groupe)
+    }
+    groupe.gestes.push(g)
+  }
+  return groupes
+}

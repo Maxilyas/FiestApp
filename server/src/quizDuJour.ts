@@ -4,6 +4,7 @@ import type { JourStore } from './core/jour'
 import type { RappelStore } from './core/rappels'
 import { idDeSession, type ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
+import { extrait, noterLeGeste } from './core/journalDesGestes'
 import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { consigneDEtiquetage } from './core/etiquetage'
@@ -286,6 +287,12 @@ const ETIQUETER_PAR_ENVOI = 50
  * seul (`/admin`). Passe derrière la porte des animateurs.
  */
 export function mountJourAdmin(app: Express, deps: JourDeps) {
+  /** Une question d'un jour joué, telle que le journal du QG la cite — et ce qu'elle était dans la réserve. */
+  const questionDuJour = async (jour: unknown, index: number) => {
+    const q = jourValide(jour) ? (await deps.jour.tirage(jour))?.questions[index] : undefined
+    return { cite: q ? `« ${extrait(q.texte)} »` : `la question ${index + 1} du ${String(jour)}`, reserveId: q?.reserveId ?? null }
+  }
+
   app.get(
     '/api/admin/jour',
     requireAdmin,
@@ -333,6 +340,10 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
       if (!texte.trim()) return res.status(400).json({ error: 'Colle une liste de questions' })
       const lu = parseImportedQuestions(texte)
       const { ajoutees, ecartees } = await deps.jour.ajouter(lu.questions, 'liste')
+      noterLeGeste(res, {
+        sorte: 'jour',
+        resume: `Liste collée au quiz du jour : ${ajoutees} question${ajoutees > 1 ? 's' : ''} ajoutée${ajoutees > 1 ? 's' : ''}${ecartees.length > 0 ? `, ${ecartees.length} écartée${ecartees.length > 1 ? 's' : ''}` : ''}`,
+      })
       res.json({ ajoutees, ecartees, ignores: lu.ignores })
     }),
   )
@@ -342,6 +353,8 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
     requireAdmin,
     wrap(async (req, res) => {
       await deps.jour.garder(String(req.body?.jour ?? ''), Number(req.body?.index))
+      const q = await questionDuJour(req.body?.jour, Number(req.body?.index))
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du jour gardée, ses signalements refermés : ${q.cite}`, cible: q.reserveId })
       res.json({ ok: true })
     }),
   )
@@ -351,6 +364,8 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
     requireAdmin,
     wrap(async (req, res) => {
       await deps.jour.annuler(String(req.body?.jour ?? ''), Number(req.body?.index))
+      const q = await questionDuJour(req.body?.jour, Number(req.body?.index))
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du jour annulée pour tous : ${q.cite}`, cible: q.reserveId })
       res.json({ ok: true })
     }),
   )
@@ -359,10 +374,13 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
     '/api/admin/jour/retirer',
     requireAdmin,
     wrap(async (req, res) => {
-      const retiree = await deps.jour.retirer(String(req.body?.reserveId ?? ''))
+      const reserveId = String(req.body?.reserveId ?? '')
+      const texte = await deps.jour.texteDeLaReserve(reserveId)
+      const retiree = await deps.jour.retirer(reserveId)
       if (!retiree) return res.status(404).json({ error: 'Cette question n’est plus dans la réserve' })
       // Ses signalements, s'il y en avait, n'ont plus rien à attendre.
       if (jourValide(req.body?.jour)) await deps.jour.garder(req.body.jour, Number(req.body?.index))
+      noterLeGeste(res, { sorte: 'jour', resume: `Question retirée de la réserve du quiz du jour : « ${extrait(texte ?? reserveId)} »`, cible: reserveId })
       res.json({ ok: true })
     }),
   )
@@ -381,7 +399,13 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
     wrap(async (req, res) => {
       const profil = await deps.profiles.byId(String(req.body?.profileId ?? ''))
       if (!profil) return res.status(404).json({ error: 'Profil introuvable' })
-      await deps.jour.masquer(profil.id, req.body?.masque !== false)
+      const masque = req.body?.masque !== false
+      await deps.jour.masquer(profil.id, masque)
+      noterLeGeste(res, {
+        sorte: 'jour',
+        resume: `Profil ${masque ? 'masqué du' : 'remis au'} classement du quiz du jour : ${profil.name} (@${profil.login})`,
+        cible: profil.id,
+      })
       res.json({ ok: true })
     }),
   )

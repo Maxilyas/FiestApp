@@ -9500,6 +9500,13 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-etat-alerte { color: var(--alert); }
 .qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
 .qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
+/* Le journal des gestes : un jour, puis ses gestes — la phrase d'abord, l'heure et la sorte dessous. */
+.qg-journal { display: flex; flex-direction: column; gap: 18px; }
+.qg-journal-jour { display: flex; flex-direction: column; gap: 2px; }
+.qg-journal-jour .compte-groupe { margin: 0; }
+.qg-geste { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; }
+.qg-geste .qg-rond { margin-top: 2px; }
+.qg-journal-avant { align-self: center; }
 @media (min-width: 1101px) {
   /* La barre de côté dans la première colonne, l'en-tête et la page dans la
      seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
@@ -9515,7 +9522,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   }
   .qg > .qg-tete { grid-column: 2; grid-row: 1; margin-bottom: 20px; }
   .qg > .nav-animateur { grid-column: 2; grid-row: 2; margin-bottom: 20px; }
-  .qg > .page-corps { grid-column: 2; grid-row: 3; }
+  /* Son écart à lui : il héritait de celui de la grille, nul entre les rangées, et ses sections se collaient. */
+  .qg > .page-corps { grid-column: 2; grid-row: 3; gap: 18px; }
   .qg > .qg-cote {
     grid-column: 1;
     grid-row: 1 / -1;

@@ -4593,6 +4593,11 @@ export class CampagneStore {
     return sortie.sort((a, b) => b.dernier - a.dernier)
   }
 
+  /** L'intitulé d'une question de la base, retirée comprise : ce que le journal du QG en dit. */
+  async texteDeLaQuestion(questionId: string): Promise<string | null> {
+    return (await this.base()).parId.get(questionId)?.texte ?? null
+  }
+
   /** « Garder » : la question est juste, ses signalements se referment. */
   async garder(questionId: string): Promise<void> {
     await this.client.execute({

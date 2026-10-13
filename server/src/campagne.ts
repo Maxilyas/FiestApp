@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from 'express'
 import type { CampagneStore } from './core/campagne'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
+import { extrait, noterLeGeste } from './core/journalDesGestes'
 import { readPlayerToken, requireAdmin } from './auth/http'
 import { porteDeLaReserve } from './quizDuJour'
 import { CATEGORIES } from '../../shared/categories'
@@ -412,6 +413,9 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
  * animateurs, sous `/api/admin`.
  */
 export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
+  /** Une question de la base, telle que le journal du QG la cite. */
+  const citee = async (questionId: string) => `« ${extrait((await deps.campagne.texteDeLaQuestion(questionId)) ?? questionId)} »`
+
   app.get(
     '/api/admin/campagne',
     requireAdmin,
@@ -435,7 +439,9 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
     '/api/admin/campagne/garder',
     requireAdmin,
     wrap(async (req, res) => {
-      await deps.campagne.garder(String(req.body?.questionId ?? ''))
+      const questionId = String(req.body?.questionId ?? '')
+      await deps.campagne.garder(questionId)
+      noterLeGeste(res, { sorte: 'campagne', resume: `Question de la campagne gardée, ses signalements refermés : ${await citee(questionId)}`, cible: questionId })
       res.json({ ok: true })
     }),
   )
@@ -444,7 +450,9 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
     '/api/admin/campagne/retirer',
     requireAdmin,
     wrap(async (req, res) => {
-      await deps.campagne.retirer(String(req.body?.questionId ?? ''))
+      const questionId = String(req.body?.questionId ?? '')
+      await deps.campagne.retirer(questionId)
+      noterLeGeste(res, { sorte: 'campagne', resume: `Question retirée de la campagne, pour tous : ${await citee(questionId)}`, cible: questionId })
       res.json({ ok: true })
     }),
   )
@@ -454,7 +462,16 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
     '/api/admin/campagne/corriger',
     requireAdmin,
     wrap(async (req, res) => {
-      res.json(await deps.campagne.corriger(String(req.body?.questionId ?? ''), req.body?.correction))
+      const questionId = String(req.body?.questionId ?? '')
+      // Citée telle qu'elle était : c'est elle qu'on a signalée, et corrigée.
+      const avant = await citee(questionId)
+      const corrigee = await deps.campagne.corriger(questionId, req.body?.correction)
+      noterLeGeste(res, {
+        sorte: 'campagne',
+        resume: `Question de la campagne corrigée${corrigee.nouvelle ? ', sous un identifiant neuf' : ''} : ${avant}`,
+        cible: questionId,
+      })
+      res.json(corrigee)
     }),
   )
 

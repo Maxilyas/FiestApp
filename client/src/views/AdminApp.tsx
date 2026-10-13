@@ -7,6 +7,7 @@ import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
+import { QgJournal } from '../components/QgJournal'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -21,10 +22,11 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
  * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
  * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
- * (`QgVueDEnsemble.tsx`), puis une page par sujet, chacune à son adresse
- * (`/admin#jour`) : le quiz du jour, la campagne, les profils, les salons,
- * le catalogue. Au téléphone, la liste des pages sous la vue d'ensemble et
- * la barre du menu ; à l'ordinateur, une barre de côté.
+ * (`QgVueDEnsemble.tsx`) et le journal de ses gestes (`QgJournal.tsx`), puis
+ * une page par sujet, chacune à son adresse (`/admin#jour`) : le quiz du
+ * jour, la campagne, les profils, les salons, le catalogue. Au téléphone, la
+ * liste des pages sous la vue d'ensemble et la barre du menu ; à
+ * l'ordinateur, une barre de côté.
  *
  * Il remplace une page à la manière de « Mon compte » (le 3 octobre 2026) —
  * quatre cadrans et cinq lignes —, qui ne disait rien de ce qui se jouait.
@@ -33,8 +35,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
-const ECRANS: readonly Ecran[] = ['profils', 'salons', 'catalogue', 'jour', 'campagne']
+type Ecran = 'journal' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
+const ECRANS: readonly Ecran[] = ['journal', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -43,7 +45,14 @@ function lireEcran(): Ecran | null {
   return (ECRANS as readonly string[]).includes(h) ? (h as Ecran) : (ANCIENNES[h] ?? null)
 }
 
-const TITRE: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour', campagne: 'La campagne' }
+const TITRE: Record<Ecran, string> = {
+  journal: 'Le journal',
+  profils: 'Les profils',
+  salons: 'Les salons',
+  catalogue: 'Le catalogue',
+  jour: 'Le quiz du jour',
+  campagne: 'La campagne',
+}
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
@@ -51,7 +60,13 @@ const TITRE: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salo
  * la rejoindront à leur tour.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
-  { groupe: 'Piloter', pages: [{ ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' }] },
+  {
+    groupe: 'Piloter',
+    pages: [
+      { ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' },
+      { ecran: 'journal', nom: 'Journal', icone: 'list' },
+    ],
+  },
   {
     groupe: 'Les modes',
     pages: [
@@ -310,10 +325,12 @@ export function AdminApp() {
                 <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
                 <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
                 <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
+                <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
               </ul>
             </nav>
           </>
         )}
+        {ecran === 'journal' && <QgJournal />}
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}

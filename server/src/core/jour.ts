@@ -766,6 +766,13 @@ export class JourStore {
     return res.rows.map(r => ({ id: String(r.id), question: JSON.parse(String(r.question)), source: String(r.source) }))
   }
 
+  /** L'intitulé d'une question de la réserve : ce que le journal du QG en dit quand on la retire. */
+  async texteDeLaReserve(reserveId: string): Promise<string | null> {
+    const res = await this.client.execute({ sql: "SELECT json_extract(question, '$.text') AS texte FROM jour_reserve WHERE id = ?", args: [reserveId] })
+    const texte = res.rows[0]?.texte
+    return typeof texte === 'string' ? texte : null
+  }
+
   /** Retire une question de la réserve : elle ne sera plus jamais tirée. Le jour qui l'a posée la garde. */
   async retirer(reserveId: string): Promise<boolean> {
     const res = await this.client.execute({

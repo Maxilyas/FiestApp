@@ -11,10 +11,13 @@ import type { PartageStore } from './core/partages'
 import type { RappelStore } from './core/rappels'
 import type { PartyBackup } from './core/backup'
 import { pouls, type Charge } from './core/pouls'
+import type { JournalDesGestes } from './core/journalDesGestes'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
+import { tronquer } from '../../shared/avatars'
 import {
   JOURS_DU_QG,
+  SORTES_DE_GESTES,
   compteDuJour,
   etatDeLaSoiree,
   minuitsDeParis,
@@ -23,6 +26,7 @@ import {
   type DirectDuQg,
   type ModeDuQg,
   type SoireeDuQg,
+  type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
 import { jourDe } from '../../shared/jour'
@@ -41,6 +45,7 @@ export interface QgDeps {
   rappels: RappelStore
   backup: PartyBackup
   charge: Charge
+  gestes: JournalDesGestes
   /** L'heure du serveur — celle du quiz du jour, que les tests avancent. */
   maintenant: () => number
   env: string
@@ -289,6 +294,22 @@ export function mountQg(app: Express, deps: QgDeps) {
     '/api/admin/qg',
     wrap(async (_req, res) => {
       res.json(await vueDEnsemble())
+    }),
+  )
+  // Le journal des gestes, une page à la fois : par sorte (`?sorte=profil`),
+  // par ce qu'il visait (`?cible=`, la fiche d'un joueur), à partir du curseur
+  // que la page d'avant a rendu (`?suite=`).
+  app.get(
+    '/api/admin/gestes',
+    wrap(async (req, res) => {
+      const { sorte, cible, suite } = req.query
+      res.json(
+        await deps.gestes.lire({
+          sorte: typeof sorte === 'string' && (SORTES_DE_GESTES as readonly string[]).includes(sorte) ? (sorte as SorteDeGeste) : null,
+          cible: typeof cible === 'string' && cible ? tronquer(cible, 80) : null,
+          suite: typeof suite === 'string' ? suite : null,
+        }),
+      )
     }),
   )
 }

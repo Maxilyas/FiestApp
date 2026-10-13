@@ -21,6 +21,7 @@ import { Budget } from './core/budget'
 import { clientIp, readPlayerToken } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { JournalDesGestes } from './core/journalDesGestes'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
@@ -381,6 +382,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
+  // Le journal des gestes de l'administrateur, que le QG relit : il raconte
+  // ce qui a changé dans la base permanente, et vit avec elle.
+  const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -439,6 +443,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     partages.init(),
     salons.init(),
     campagne.init(),
+    gestes.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -1031,6 +1036,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     qg: { db, registry, io, backup, charge, env: opts.appEnv ?? 'production', version: opts.version ?? null },
+    gestes,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

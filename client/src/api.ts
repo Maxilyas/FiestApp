@@ -34,7 +34,7 @@ import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
-import type { DirectDuQg, VueDEnsemble } from '../../shared/qg'
+import type { DirectDuQg, JournalDuQg, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -529,8 +529,17 @@ export const api = {
   admin: {
     /** Le QG, ce qui se passe en ce moment : lu en mémoire, la page le redemande toutes les dix secondes. */
     qgDirect: () => req<DirectDuQg>('/api/admin/qg/direct'),
-    /** Le QG, la vue d'ensemble : trente jours lus dans la base permanente, redemandés à la minute. */
+    /** Le QG, la vue d'ensemble : trente jours lus dans la base permanente, redemandés toutes les cinq minutes. */
     qg: () => req<VueDEnsemble>('/api/admin/qg'),
+    /** Le journal des gestes, une page à la fois : par sorte, à partir du curseur de la page d'avant. */
+    gestes: ({ sorte, suite }: { sorte?: SorteDeGeste | null; suite?: string | null } = {}) => {
+      const q = new URLSearchParams()
+      if (sorte) q.set('sorte', sorte)
+      if (suite) q.set('suite', suite)
+      // Pas `q.size` : un Safari d'avant 17 ne l'a pas, et le filtre se perdait.
+      const s = q.toString()
+      return req<JournalDuQg>(`/api/admin/gestes${s ? `?${s}` : ''}`)
+    },
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */

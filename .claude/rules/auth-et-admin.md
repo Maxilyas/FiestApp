@@ -25,6 +25,10 @@ paths:
 
 ## Les pièges
 
+- **Une route de l'administration qui change quelque chose dit sa phrase au
+  journal du QG** (`noterLeGeste`, règle `qg.md`) — un profil supprimé, un
+  espace renommé, une question retirée : `journal.test.ts` lit les routes
+  dans le routeur et rougit tant qu'une seule n'en a pas.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
   ouvrent une console partagent la même réserve d'essais. Et tout essai
   qu'`allow(ip, clé)` accepte se juge — `failed`, `succeeded`, ou `abandon`
