@@ -104,10 +104,15 @@ const REFERENCE =
 
 const RANGS = ['first', 'second', 'third', 'fourth']
 
-const DECOR_SEUL =
-  'Edit the attached illustration: remove the animal entirely, with its shadow, and repaint the setting where it stood, continuing naturally ' +
+// Ce qu'on efface est ce que la découpe garde : sans le dire, la tortue-île
+// effacée laissait son île flotter dans le ciel, et l'île passait deux fois.
+// L'esprit du chat revenait tel quel, chat compris : l'effacement se dit deux
+// fois, et ce qui doit rester se dit aussi.
+const DECOR_SEUL = (garde: string) =>
+  `Edit the attached illustration: erase ${garde} completely, with its shadow, and repaint the setting where it was, continuing naturally ` +
   'what lies behind it — the same place, the same light, the same style. Change nothing else: same composition, same colors, same details. ' +
-  'No animal, no creature, no character, no text, no frame. Output one square image (1:1 aspect ratio).'
+  'The result shows only the empty setting: there is no animal, no creature and no character anywhere in it. No text, no frame. ' +
+  'Output one square image (1:1 aspect ratio).'
 
 const DECOUPE = (garde: string, retirer: string, c: Chroma) =>
   `Edit the attached image. Keep ${garde} exactly as it is — same pose, same position, same size, same outline, same colors and details, untouched. ` +
@@ -132,7 +137,7 @@ const EXPRESSION = (quoi: string, c: Chroma) =>
   `Only the head, ears, eyes, mouth and tail may move. Keep the background ${fondUni(c)}. Do not use any ${CHROMAS[c].proscrit} on the animal. ` +
   'No text, no frame. Output one square image (1:1 aspect ratio).'
 
-// ── Le loup ───────────────────────────────────────────────────────────────
+// ── Les compagnons ────────────────────────────────────────────────────────
 
 interface Forme {
   id: string
@@ -140,16 +145,30 @@ interface Forme {
   decor?: string
   /** Ce qui sort du disque par le haut, s'il en sort : sans le dire, le modèle ramène tout dans le cadre. */
   deborde?: string
+  /**
+   * Elle sort du disque de tous côtés, l'animal et le monde qui l'entoure (une
+   * forme ultime : « que l'environnement soit vivant et sorte du cercle », le
+   * propriétaire, le 13 octobre 2026) : sa découpe garde ce monde avec lui.
+   */
+  entier?: boolean
   /** Sa place dans le cadre, quand elle dit son âge. */
   taille?: string
   /** Ce que sa découpe garde, et ce qu'elle retire. */
   garde: string
   retirer?: string
+  /** Le fond uni de ses découpes : vert, sauf pour qui porte du vert (la carapace moussue de la tortue). */
+  chroma?: Chroma
 }
 
-/** Une métamorphose de l'Éclat, peinte d'après la forme ultime. */
+/**
+ * Une métamorphose, peinte d'après la forme ultime. Chaque compagnon en a deux
+ * (le choix du 13 octobre 2026) : la lumière, que l'Éclat fait tomber, et
+ * l'ombre, qui se gagne par cent mauvaises réponses données en le portant ;
+ * l'une et l'autre ne se montrent qu'à la forme ultime.
+ */
 interface Eclat {
   nom: string
+  voie: 'lumiere' | 'ombre' | 'ecartee'
   consigne: string
   garde: string
   retirer: string
@@ -159,6 +178,35 @@ interface Eclat {
   /** Ses expressions à lui, quand celles de tous ne suffisent pas. */
   expressions?: Partial<Record<Expression, string>>
 }
+
+/**
+ * Une couche du monde vivant de la forme ultime, peinte à part, qui déborde
+ * du cercle et bouge seule : de la lumière peinte sur du noir (posée en
+ * `screen`, le noir s'efface), ou des choses détourées (des oiseaux).
+ */
+interface Vivant {
+  cle: string
+  mode: 'lumiere' | 'detoure'
+  consigne: string
+  chroma?: Chroma
+}
+
+const VIVANT = (v: Vivant) =>
+  `Using the attached illustration only as the reference for its style, light and colors, paint ONLY ${v.consigne}, on ` +
+  (v.mode === 'lumiere'
+    ? 'a pure, perfectly flat black background (#000000). This is a light layer that will be blended over the picture: everything that is not ' +
+      'light stays pure black.'
+    : `${fondUni(v.chroma ?? 'vert')}. Do not use any ${CHROMAS[v.chroma ?? 'vert'].proscrit} on what you paint.`) +
+  ' Nothing else: no creature, no ground, no sky, no scenery. No text, no frame. Output one square image (1:1 aspect ratio).'
+
+/** Une métamorphose recomposée : l'illustration d'origine ne dit plus que qui il est (voir `FEROCE`, la première). */
+const METAMORPHOSE = (reference: string, metamorphose: string, elan: string, c: Chroma) =>
+  `Using the attached illustration only as a reference for who this creature is — ${reference}, the painting style — paint its rare variant: ` +
+  `a true metamorphosis, recomposed from scratch, nothing like a recolor of the original. ${metamorphose} ` +
+  `It is far more dramatic than the original. ${elan} ` +
+  'Framing: the creature is huge, filling about 90% of the canvas width and height, its whole body inside the canvas with a small margin on ' +
+  'every side — nothing cut off by the edges; its scene fills the background behind it. ' +
+  `Do not use any ${CHROMAS[c].proscrit}. No gold leaf, no text, no frame. Output one square image (1:1 aspect ratio).`
 
 // Sur une bête qui grogne, « ravi » gardait le grognement : le loup d'ombre
 // ravi était son neutre au pixel près (99 % de la même silhouette).
@@ -173,10 +221,14 @@ interface Compagnon {
   /** Ses quatre âges, tels que la planche de modèle les montre, de gauche à droite. */
   ages: [string, string, string, string]
   formes: [Forme, Forme, Forme, Forme]
-  /** Les métamorphoses de l'Éclat essayées ; `--eclat=` dit lesquelles on achève. */
+  /** Ses expressions à lui : une tortue ne remue pas la queue, un chat ne hurle pas. */
+  expressions?: Partial<Record<Expression, string>>
+  /** Les métamorphoses essayées ; `--eclat=` dit lesquelles on achève. */
   eclats: Record<string, Eclat>
-  /** La pose de son entrée en scène, repeinte sur la découpe de la forme ultime. */
-  bond: string
+  /** Les couches vivantes de sa forme ultime. */
+  vivant?: Vivant[]
+  /** La pose de son entrée en scène, repeinte sur la découpe de la forme ultime — si l'entrée se fait. */
+  bond?: string
 }
 
 // Une métamorphose qui garde la pose ne change que le monde autour : « que ça
@@ -240,6 +292,7 @@ const LOUP: Compagnon = {
     // La première : même pose, un autre monde. Trop proche de la forme ultime.
     aurore: {
       nom: 'Le loup d’aurore',
+      voie: 'ecartee',
       consigne:
         'Edit the attached illustration into its rare variant, a metamorphosis a player may find once in forty evenings: keep exactly the same ' +
         'composition, pose, framing, scale and level of detail, the same individual and its crescent mark — and move it into another world. ' +
@@ -253,6 +306,7 @@ const LOUP: Compagnon = {
     },
     tempete: {
       nom: 'Le loup-tempête',
+      voie: 'lumiere',
       consigne: FEROCE(
         'It becomes a storm spirit of the polar night: its fur turned into crackling ribbons of green and cyan aurora lightning, its eyes ' +
           'blazing white-cyan, the crescent mark flaring like a star; ice shards and snow explode around it, against a dark sky torn by a raging ' +
@@ -267,6 +321,7 @@ const LOUP: Compagnon = {
     },
     ombre: {
       nom: 'Le loup d’ombre',
+      voie: 'ombre',
       consigne: FEROCE(
         'It becomes a shadow beast of black smoke and blue fire: its fur turning into black smoke, its mane and tail flaring into blue flames, ' +
           'its eyes burning electric blue, the crescent mark blazing white; embers and the shards of a broken moon fly around it, against a deep ' +
@@ -280,6 +335,16 @@ const LOUP: Compagnon = {
       expressions: { ravi: RAVI_FEROCE },
     },
   },
+  // Sa forme ultime, peinte avant le monde vivant, gardait ses rubans d'étoiles
+  // dans le disque : ils en sortent maintenant, en lumière, et tournent autour de lui.
+  vivant: [
+    {
+      cle: 'rubans',
+      mode: 'lumiere',
+      consigne:
+        'swirling ribbons of starlight and tiny sparkling stars, like a luminous wind forming a loose ring around the frame, the center left empty',
+    },
+  ],
   bond:
     'Edit the attached image: the same wolf in its mythic form — same individual, same colors, same style, same starlight in its fur — now in ' +
     'full motion, leaping to the right through the air, all four legs stretched, its mane and tail streaming behind it, mouth slightly open, ' +
@@ -287,7 +352,207 @@ const LOUP: Compagnon = {
     'No motion lines, no text, no frame. Output one square image (1:1 aspect ratio).',
 }
 
-const COMPAGNONS: Compagnon[] = [LOUP]
+/** Le chat des lanternes : le plus « fête » des compagnons, un soir de festival qui grandit avec lui. */
+const CHAT: Compagnon = {
+  id: 'chat',
+  // Le chat de Schrödinger (`br:chat`) existe déjà parmi les portraits de l'espace.
+  identite:
+    'Its identity never changes from one age to the next: a soft cream coat washed with warm apricot; a deep plum mask around its eyes, and ' +
+    'plum tips on its ears and tail; big luminous golden-amber eyes; a tiny ember-orange flame mark on its forehead; a red silk cord tied around ' +
+    'its neck with a small brass bell. It must look nothing like an ordinary tabby or a black cat.',
+  ages: [
+    'a tiny kitten, round and fluffy, with oversized ears and big eyes, sitting beside a tiny glowing paper lantern, its tail curled around it',
+    'a half-grown young cat, visibly younger and smaller than the adult — a slim, lanky body on long legs, oversized ears and paws, a round, ' +
+      'curious face',
+    'the adult cat, graceful, elegant and confident',
+    'its spirit form — larger and majestic, with two long flowing tails whose tips burn with soft lantern flames, glowing festival patterns ' +
+      'running through its fur like light through lantern paper, the flame mark on its forehead shining',
+  ],
+  formes: [
+    { id: 'chaton', garde: 'the kitten and its little lantern' },
+    {
+      id: 'jeune',
+      decor: 'a tiled rooftop on a warm summer festival night, strings of glowing paper lanterns and a few sky lanterns rising into a deep blue sky',
+      taille: 'It is still small: it fills only about 55% of the canvas height, with plenty of setting around it.',
+      garde: 'the young cat — its head, ears, body, legs, paws and tail',
+      retirer: 'the rooftop, the lanterns, the strings and the sky',
+    },
+    {
+      id: 'adulte',
+      decor: 'the heart of a night festival: a street lined with glowing lanterns and food stalls, sky lanterns rising, the first fireworks blooming high above',
+      deborde: 'its raised head and pointed ears',
+      garde: 'the cat — its head, ears, body, legs, paws and tail',
+      retirer: 'the street, the stalls, the lanterns, the fireworks and the sky',
+    },
+    {
+      id: 'esprit',
+      entier: true,
+      decor: 'high above the festival rooftops, an immense night sky full of fireworks bursting in gold, coral and violet, hundreds of sky lanterns rising',
+      garde: 'the spirit cat with its two flaming tails, and the paper lanterns floating right around it',
+      retirer: 'the sky, the fireworks, the rooftops and the distant lanterns',
+    },
+  ],
+  expressions: {
+    triomphe: 'TRIUMPHANT — chest out, chin held high, eyes half closed in a proud smile, mouth open in a victorious meow, tail raised high and curled',
+  },
+  eclats: {
+    soleil: {
+      nom: 'Le chat-soleil',
+      voie: 'lumiere',
+      consigne: METAMORPHOSE(
+        'its plum mask, its flame mark on the forehead, its red cord and brass bell',
+        'It becomes a sun spirit of the festival: its fur turned into woven gold and sunrise light, its two tails blazing like comets, golden ' +
+          'fireworks bursting all around it in a dazzling dawn sky.',
+        'It leaps straight at the viewer, seen from the front, wild and joyful, claws out, mouth open in a fierce yowl.',
+        'vert',
+      ),
+      garde: 'the sun cat with its two blazing tails',
+      retirer: 'the sky, the fireworks and the sparks around it',
+      chroma: 'vert',
+      entier: true,
+      expressions: {
+        ravi:
+          'GLEEFUL — its yowl turns into a wide, delighted grin, eyes bright and happy instead of fierce, ears forward, tail held high and ' +
+          'curling — still a blazing spirit, just thrilled',
+      },
+    },
+    fantome: {
+      nom: 'Le chat-fantôme',
+      voie: 'ombre',
+      consigne: METAMORPHOSE(
+        'its mask, its flame mark on the forehead, its cord and bell',
+        'It becomes a ghost cat of the night: its fur turned into black smoke and ink, its mask turned to black, its eyes burning pale ' +
+          'green-white, its two tails trailing ghostly pale-green flames, torn paper lanterns and will-o’-wisps swirling around it in a black night.',
+        'It lunges straight at the viewer, seen from the front, hissing, fangs bared, claws out, fur bristling.',
+        'magenta',
+      ),
+      garde: 'the ghost cat with the pale-green flames of its two tails',
+      retirer: 'the night sky, the torn lanterns and the will-o’-wisps around it',
+      chroma: 'magenta',
+      entier: true,
+      expressions: {
+        ravi:
+          'GLEEFUL — its hiss turns into a wide, mischievous grin, eyes bright and amused instead of furious, ears forward — still a ghost, ' +
+          'just delighted',
+      },
+    },
+  },
+  vivant: [
+    {
+      cle: 'feux',
+      mode: 'lumiere',
+      consigne: 'bursts of fireworks in gold, coral and violet with long trailing sparks, spread around the frame, the center left empty',
+    },
+    {
+      cle: 'lanternes',
+      mode: 'lumiere',
+      consigne: 'a scattering of glowing paper sky lanterns of different sizes floating upward, spread around the frame, the center left empty',
+    },
+  ],
+}
+
+/**
+ * La tortue-île : son décor, c'est son dos — une pousse, un jardin, un
+ * bosquet, une île entière. Magenta partout : sa carapace et son île sont
+ * vertes, et l'Éclat en fleurs les garde blanches et dorées, jamais roses.
+ */
+const TORTUE: Compagnon = {
+  id: 'tortue',
+  // La tortue de mer (`br:tortue`) existe déjà parmi les portraits des océans.
+  identite:
+    'Its identity never changes from one age to the next: a shell of mossy jade-green plates edged in warm sandstone; a sea-blue head and ' +
+    'flippers dappled with pale freckles; kind deep-amber eyes; a small white star-shaped mark on top of its head. It must look nothing like an ' +
+    'ordinary sea turtle.',
+  ages: [
+    'a tiny hatchling, round-eyed and clumsy, with a single green sprout growing from the top of its shell',
+    'a half-grown young turtle, visibly younger and smaller than the adult, with a little garden of moss, ferns and small white flowers on its shell',
+    'the large adult turtle, calm and wise, carrying a small grove on its shell — a few trees, mossy rocks and a tiny waterfall',
+    'its colossal ultimate form — a gentle giant carrying a whole living island on its back: tall trees, cliffs, waterfalls pouring off the edges ' +
+      'of its shell, birds circling above',
+  ],
+  formes: [
+    { id: 'bebe', garde: 'the hatchling and its sprout', chroma: 'magenta' },
+    {
+      id: 'jeune',
+      decor: 'a turquoise lagoon at golden hour, gentle waves around a sandy islet, a few seabirds',
+      taille: 'It is still small: it fills only about 55% of the canvas height, with plenty of setting around it.',
+      garde: 'the young turtle and the little garden on its shell',
+      retirer: 'the sea, the waves, the islet, the birds and the sky',
+      chroma: 'magenta',
+    },
+    {
+      id: 'adulte',
+      decor: 'the open sea at sunset, the turtle swimming at the surface, warm light on the waves',
+      deborde: 'the trees of the grove on its shell',
+      garde: 'the turtle and the grove on its shell — its trees, rocks and waterfall',
+      retirer: 'the sea, the waves and the sky',
+      chroma: 'magenta',
+    },
+    {
+      id: 'ile',
+      entier: true,
+      decor: 'a vast ocean under a glowing dawn sky with towering clouds, the sea foaming around the island turtle',
+      garde: 'the turtle and the whole island on its back — its trees, cliffs, waterfalls and the birds circling it',
+      retirer: 'the sea, the foam, the sky and the clouds',
+      chroma: 'magenta',
+    },
+  ],
+  expressions: {
+    ravi: 'JOYFUL — bright smiling eyes, mouth open in a happy smile, head raised with delight',
+    depite: 'DISAPPOINTED, in a cute and gentle way, never tragic — head drooping and half pulled back into its shell, big sad eyes, a small pout',
+    triomphe: 'TRIUMPHANT — head stretched high and proud, mouth open in a joyful bellow, one front flipper raised',
+  },
+  eclats: {
+    fleurs: {
+      nom: 'L’île en fleurs',
+      voie: 'lumiere',
+      consigne: METAMORPHOSE(
+        'its jade shell edged in sandstone, its sea-blue freckled head, the white star on its head',
+        'It becomes a sacred blossom island: every tree on its back bursts into white and golden blossoms, petals swirling everywhere in a ' +
+          'warm golden dawn, its waterfalls turned to falling light.',
+        'It surges up out of the sea toward the viewer, head raised high, majestic and radiant, the sea parting around it.',
+        'magenta',
+      ),
+      garde: 'the turtle and its blossoming island with the swirling petals',
+      retirer: 'the sea, the sky and the clouds',
+      chroma: 'magenta',
+      entier: true,
+    },
+    volcan: {
+      nom: 'La tortue-volcan',
+      voie: 'ombre',
+      consigne: METAMORPHOSE(
+        'its shell, its freckled head, the star on its head',
+        'It becomes a volcano turtle: the island on its back turned into an erupting volcano of black rock and glowing lava, rivers of lava ' +
+          'pouring off its shell, ash and embers filling a red-black sky.',
+        'It charges out of a boiling sea toward the viewer, jaws wide open in a roar, eyes blazing orange.',
+        'vert',
+      ),
+      garde: 'the volcano turtle with its erupting island and the lava pouring off its shell',
+      retirer: 'the boiling sea, the sky, the ash clouds and the embers around it',
+      chroma: 'vert',
+      entier: true,
+      expressions: {
+        ravi: 'GLEEFUL — its roar turns into a broad, delighted grin, eyes bright and happy instead of furious — still a force of nature, just thrilled',
+      },
+    },
+  },
+  vivant: [
+    {
+      cle: 'brume',
+      mode: 'lumiere',
+      consigne: 'drifting sea mist, sea spray and floating motes of golden light, spread around the frame, the center left empty',
+    },
+    {
+      cle: 'oiseaux',
+      mode: 'detoure',
+      chroma: 'magenta',
+      consigne: 'a flock of white seabirds in flight, seen from different angles, spread around the frame, the center left empty',
+    },
+  ],
+}
+
+const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE]
 
 const FEUILLE = (c: Compagnon, style: string) =>
   [
@@ -306,15 +571,19 @@ function consigneDeForme(c: Compagnon, i: number, style: string): string {
   const sujet =
     `Subject: its ${RANGS[i]} form — ${c.ages[i]} (the ${RANGS[i]} from the left on the model sheet), calm and attentive, ` +
     'looking at the viewer, in a three-quarter view.'
+  const chroma = f.chroma ?? 'vert'
   const cadrage = !f.decor
     ? 'Sitting, its whole body visible, centered, filling about 70% of the canvas height, well away from the edges. ' +
-      `Background: ${fondUni('vert')}. Draw nothing behind it — no ground, no scenery, no glow: only the flat background color. ` +
-      `Do not use any ${CHROMAS.vert.proscrit} on the animal.`
+      `Background: ${fondUni(chroma)}. Draw nothing behind it — no ground, no scenery, no glow: only the flat background color. ` +
+      `Do not use any ${CHROMAS[chroma].proscrit} on the animal.`
     : `Setting: ${f.decor}. The setting fills the whole canvas edge to edge behind it. ` +
-      (f.deborde
-        ? `Framing: the wolf large and centered, standing in the lower part of the canvas; ${f.deborde} rise high, up into the top band of the ` +
-          'canvas close to the top edge — that is what this form is about. Its paws and body stay well inside the canvas.'
-        : 'Framing: the wolf centered, its head, ears, paws and tail well inside the canvas and away from the four corners, which will be cut off.') +
+      (f.entier
+        ? `Framing: ${f.garde}, large, spreading toward all four edges of the canvas — this form overflows its round frame on every side — ` +
+          'while everything stays inside the canvas with a small margin; the setting shows behind and between them.'
+        : f.deborde
+          ? `Framing: the animal large and centered, in the lower part of the canvas; ${f.deborde} rise high, up into the top band of the ` +
+            'canvas close to the top edge — that is what this form is about. Its body stays well inside the canvas.'
+          : 'Framing: the animal centered, its head, ears, paws and tail well inside the canvas and away from the four corners, which will be cut off.') +
       (f.taille ? ` ${f.taille}` : '')
   return [AVATAR, REFERENCE, style, ORIGINAL, c.identite, sujet, cadrage].join('\n\n')
 }
@@ -332,21 +601,26 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
   if (!style) return Object.entries(STYLES).map(([cle, s]) => ({ nom: `feuille-${cle}`, consigne: FEUILLE(c, s.consigne), sources: [], format: '16:9' }))
   const s = STYLES[style]
   if (!s) throw new Error(`--style=${style} : pas un style de l'essai (${Object.keys(STYLES).join(', ')})`)
+  // Un style déjà choisi n'a plus d'essai : sa planche de modèle se peint seule,
+  // la première, pour un compagnon qui n'en a pas encore.
   const feuille = `feuille-${style}`
-  const t: Travail[] = []
+  const t: Travail[] = [{ nom: feuille, consigne: FEUILLE(c, s.consigne), sources: [], format: '16:9' }]
   c.formes.forEach((f, i) => {
     t.push({ nom: f.id, sources: [feuille], consigne: consigneDeForme(c, i, s.consigne) })
     if (f.decor) {
-      t.push({ nom: `${f.id}-decor`, sources: [f.id], consigne: DECOR_SEUL })
-      t.push({ nom: `${f.id}-decoupe`, sources: [f.id], consigne: DECOUPE(f.garde, f.retirer ?? 'the setting', 'vert') })
+      t.push({ nom: `${f.id}-decor`, sources: [f.id], consigne: DECOR_SEUL(f.garde) })
+      t.push({ nom: `${f.id}-decoupe`, sources: [f.id], consigne: DECOUPE(f.garde, f.retirer ?? 'the setting', f.chroma ?? 'vert') })
     }
   })
   for (const f of c.formes) {
     const base = f.decor ? `${f.id}-decoupe` : f.id
-    for (const e of Object.keys(EXPRESSIONS) as Expression[]) t.push({ nom: `${f.id}-${e}`, sources: [base], consigne: EXPRESSION(EXPRESSIONS[e], 'vert') })
+    for (const e of Object.keys(EXPRESSIONS) as Expression[]) {
+      t.push({ nom: `${f.id}-${e}`, sources: [base], consigne: EXPRESSION(c.expressions?.[e] ?? EXPRESSIONS[e], f.chroma ?? 'vert') })
+    }
   }
   const ultime = c.formes[3].id
-  t.push({ nom: 'bond', sources: [`${ultime}-decoupe`], consigne: c.bond })
+  if (c.bond) t.push({ nom: 'bond', sources: [`${ultime}-decoupe`], consigne: c.bond })
+  for (const v of c.vivant ?? []) t.push({ nom: `${ultime}-vivant-${v.cle}`, sources: [ultime], consigne: VIVANT(v) })
   // Les métamorphoses : chacune son illustration, pour choisir ; celles qu'on
   // garde (`--eclat=`), leur décor seul, leur découpe et leurs expressions.
   if (eclats.some(x => !(x in c.eclats))) throw new Error(`--eclat=${eclats.join(',')} : pas une métamorphose (${Object.keys(c.eclats).join(', ')})`)
@@ -354,10 +628,11 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
     const nom = `eclat-${cle}`
     t.push({ nom, sources: [ultime], consigne: e.consigne })
     if (!eclats.includes(cle)) continue
-    t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL })
+    t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL(e.garde) })
     t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma) })
     for (const x of Object.keys(EXPRESSIONS) as Expression[]) {
-      t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(e.expressions?.[x] ?? EXPRESSIONS[x], e.chroma) })
+      const quoi = e.expressions?.[x] ?? c.expressions?.[x] ?? EXPRESSIONS[x]
+      t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(quoi, e.chroma) })
     }
   }
   return t
@@ -412,16 +687,25 @@ function ranger(nom: string, r: Rendu) {
   console.log(`  ${nom} : environ ${cout.toFixed(3)} $ en ${r.secondes.toFixed(0)} s (total ${depense().toFixed(2)} $)`)
 }
 
-/** Une image, sans arrêter les autres : celle qui échoue se redemande à la passe suivante. */
-async function peindre(t: Travail) {
+/**
+ * Une image, sans arrêter les autres : celle qui échoue se redemande à la
+ * passe suivante. Rend vrai quand Google a refusé pour le débit (429) : un
+ * plafond de dépense par minute, que deux compagnons peints d'affilée ont
+ * atteint, et que six passes redemandées dans la même seconde ne levaient pas.
+ */
+async function peindre(t: Travail): Promise<boolean> {
   writeFileSync(fichier(`consigne-${t.nom}.txt`), t.consigne + '\n')
   const parties: Partie[] = [...t.sources.map(s => enPartie(existant(s)!)), { text: t.consigne }]
   try {
     ranger(t.nom, await generer(parties, { modele: MODELE, taille: TAILLE, format: t.format }))
+    return false
   } catch (e) {
-    console.log(`  ✗ ${t.nom} : ${(e as Error).message.slice(0, 300)}`)
+    const message = (e as Error).message
+    console.log(`  ✗ ${t.nom} : ${message.slice(0, 300)}`)
+    return message.includes('HTTP 429')
   }
 }
+const pause = (ms: number) => new Promise(ok => setTimeout(ok, ms))
 
 // ── Le tout ───────────────────────────────────────────────────────────────
 
@@ -434,11 +718,16 @@ for (let passe = 1; passe <= 6; passe++) {
   }
   console.log(`Passe ${passe} : ${aFaire.map(t => t.nom).join(', ')}`)
   const file = [...aFaire]
+  let freine = false
   await Promise.all(
     Array.from({ length: Math.min(EN_MEME_TEMPS, file.length) }, async () => {
-      for (let t = file.shift(); t; t = file.shift()) await peindre(t)
+      for (let t = file.shift(); t; t = file.shift()) freine = (await peindre(t)) || freine
     }),
   )
+  if (freine) {
+    console.log('  Google freine : une minute de pause avant la passe suivante')
+    await pause(60_000)
+  }
 }
 const manquent = TRAVAUX.filter(t => !existant(t.nom)).map(t => t.nom)
 if (manquent.length) console.log(`Manquent encore : ${manquent.join(', ')}`)
@@ -448,23 +737,26 @@ if (manquent.length) console.log(`Manquent encore : ${manquent.join(', ')}`)
 // la part de l'image que couvre le disque, et le cadre du personnage — le
 // carré, ou plus large quand il en sort.
 
-/** La part de la largeur de l'image que couvre le carré du disque, forme par forme (le louveteau, puis les trois du décor). */
-export const DISQUE: Record<string, number> = { louveteau: 0.94, jeune: 0.92, adulte: 0.76, ultime: 0.84 }
-/** Le cadre du personnage dans le repère du disque (origine, côté). */
-export const CADRE: Record<string, [number, number]> = { louveteau: [0, 100], jeune: [0, 100], adulte: [-20, 140], ultime: [-20, 140] }
+/** La part de la largeur de l'image que couvre le carré du disque, forme par forme (la première, puis les trois du décor). */
+export const DISQUE = [0.94, 0.92, 0.76, 0.84]
+/** Le cadre du personnage dans le repère du disque (origine, côté), forme par forme. */
+export const CADRE: [number, number][] = [[0, 100], [0, 100], [-20, 140], [-20, 140]]
 /**
- * Une métamorphose entière : le disque ne prend que le centre de l'image (70 %),
- * et l'animal, peint immense, en sort de tous côtés — son cadre couvre toute
- * l'image (de −21,4 à 121,4 unités du disque). À 62 %, le loup-tempête cachait
- * son disque tout entier : on ne voyait plus qu'il en sortait.
+ * Une forme ou une métamorphose entière : le disque ne prend que le centre de
+ * l'image (70 %), et ce qu'elle garde, peint immense, en sort de tous côtés —
+ * son cadre couvre toute l'image (de −21,4 à 121,4 unités du disque). À 62 %,
+ * le loup-tempête cachait son disque tout entier : on ne voyait plus qu'il en
+ * sortait.
  */
 export const ECLAT_ENTIER = { disque: 0.7, cadre: [-22, 144] as [number, number] }
 
-/** Le disque et le cadre d'une forme, ou d'une métamorphose (`eclat-tempete`). */
+/** Le disque et le cadre d'une forme (`adulte`), ou d'une métamorphose (`eclat-tempete`). */
 function cadrageDe(id: string): { disque: number; cadre: [number, number] } {
   const eclat = id.startsWith('eclat-') ? compagnon!.eclats[id.slice('eclat-'.length)] : undefined
-  if (eclat) return eclat.entier ? ECLAT_ENTIER : { disque: DISQUE.ultime, cadre: CADRE.ultime }
-  return { disque: DISQUE[id], cadre: CADRE[id] }
+  if (eclat) return eclat.entier ? ECLAT_ENTIER : { disque: DISQUE[3], cadre: CADRE[3] }
+  const rang = compagnon!.formes.findIndex(f => f.id === id)
+  if (compagnon!.formes[rang]?.entier) return ECLAT_ENTIER
+  return { disque: DISQUE[rang], cadre: CADRE[rang] }
 }
 const QUALITE = 0.86
 
@@ -539,14 +831,26 @@ try {
   const poser = (nom: string, data: string) => writeFileSync(path.join(app, `${nom}.webp`), deDataUrl(data))
 
   // Les planches de modèle et les illustrations, réduites pour être regardées.
-  for (const f of readdirSync(sortie).filter(f => /^(feuille-[a-z0-9]+|louveteau|jeune|adulte|ultime|eclat-[a-z]+|bond)\.(png|jpg|webp)$/.test(f))) {
+  const illustrations = new RegExp(`^(feuille-[a-z0-9]+|${compagnon.formes.map(f => f.id).join('|')}|eclat-[a-z]+|bond)\\.(png|jpg|webp)$`)
+  for (const f of readdirSync(sortie).filter(f => illustrations.test(f))) {
     const nom = f.replace(/\.[a-z]+$/, '')
     poser(`apercu-${nom}`, await dansLaPage<string>(page, 'reduireA', enDataUrl(fichier(f)), nom.startsWith('feuille') ? 1280 : 768, QUALITE))
   }
 
+  // Le monde vivant de la forme ultime : la lumière garde son noir — la page
+  // la pose en `screen`, qui l'efface —, le reste se détoure.
+  for (const v of compagnon.vivant ?? []) {
+    const nom = `${compagnon.formes[3].id}-vivant-${v.cle}`
+    const src = existant(nom)
+    if (!src) continue
+    const image = v.mode === 'lumiere' ? enDataUrl(src) : (await dansLaPage<any>(page, 'detourer', enDataUrl(src), null, CHROMAS[v.chroma ?? 'vert'].rvb)).plein
+    poser(nom, await dansLaPage<string>(page, 'reduireA', image, 768, QUALITE))
+    console.log(`  ${nom} : ${v.mode === 'lumiere' ? 'lumière' : 'détouré'}`)
+  }
+
   const expressions = ['neutre', ...Object.keys(EXPRESSIONS)] as const
   const formes = [
-    ...compagnon.formes.map(f => ({ id: f.id, decor: !!f.decor, chroma: 'vert' as Chroma })),
+    ...compagnon.formes.map(f => ({ id: f.id, decor: !!f.decor, chroma: f.chroma ?? ('vert' as Chroma) })),
     ...Object.entries(compagnon.eclats).map(([cle, e]) => ({ id: `eclat-${cle}`, decor: true, chroma: e.chroma })),
   ]
   for (const f of formes) {
