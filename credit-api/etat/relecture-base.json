@@ -13997,12 +13997,11 @@
     "81hag4r4": {
       "action": "corriger",
       "champs": {
-        "difficulte": 4,
         "categorie": "Géographie",
         "sousTheme": "sites",
         "etiquettes": []
       },
-      "motif": "Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient."
+      "motif": "Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026."
     },
     "qdhn0vqj": {
       "action": "corriger",
@@ -14107,10 +14106,9 @@
     "gnxuagvc": {
       "action": "corriger",
       "champs": {
-        "anecdote": "La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine.",
-        "difficulte": 4
+        "anecdote": "La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine."
       },
-      "motif": "Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé."
+      "motif": "Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026."
     },
     "s03chjam": {
       "action": "corriger",
@@ -14641,14 +14639,13 @@
     "t4wh6632": {
       "action": "corriger",
       "champs": {
-        "difficulte": 5,
         "categorie": "Histoire",
         "sousTheme": "faits-divers",
         "etiquettes": [
           "animaux"
         ]
       },
-      "motif": "La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3."
+      "motif": "La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026."
     },
     "759u1mhb": {
       "action": "corriger",
@@ -14779,19 +14776,11 @@
     "vcwntcz0": {
       "action": "corriger",
       "champs": {
-        "difficulte": 5,
         "categorie": "Nature",
         "sousTheme": "ecologie",
         "etiquettes": []
       },
-      "motif": "Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3."
-    },
-    "8qm13yk8": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 5
-      },
-      "motif": "Durée d'incubation précise d'une race de canard : savoir très spécialisé, d5 plutôt que d3."
+      "motif": "Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026."
     },
     "vqt0vn1h": {
       "action": "corriger",
@@ -15798,13 +15787,6 @@
       },
       "motif": "Alerte racine : l'intitulé « studio d'animation » soufflait « DreamWorks Animation », il est reformulé."
     },
-    "c0m15mwf": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Connaître la durée exacte d'un film en minutes est un savoir pointu que peu d'adultes ont : d2 est très sous-estimé, d4 convient mieux."
-    },
     "3wff4u0w": {
       "action": "corriger",
       "champs": {
@@ -16190,20 +16172,6 @@
       },
       "motif": "L'anecdote donnait la réponse de la question tm0jfb8q (« Wight is Wight » de Michel Delpech) : on la remplace par un autre succès."
     },
-    "mlnj0fpz": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Peu de joueurs connaissent l'année du Grand prix de poésie décerné à Brassens. Avec des leurres plausibles comme 1975, la difficulté d2 est sous-estimée."
-    },
-    "1st7009r": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "L'année des concerts de Johnny au Parc des Princes (1993) est un fait pointu. La difficulté d2 est nettement sous-estimée."
-    },
     "ywp4vmfq": {
       "action": "corriger",
       "champs": {
@@ -16318,13 +16286,6 @@
         "explication": "« Les Contes d'Hoffmann » est l'opéra le plus célèbre de Jacques Offenbach, maître de l'opérette."
       },
       "motif": "« L'unique grand opéra » est inexact : Offenbach a aussi écrit un opéra romantique, « Die Rheinnixen » (1864)."
-    },
-    "m7yqdqlz": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Le nombre exact de symphonies de Haydn (104) est un savoir de spécialiste. Peu d'adultes le connaissent, et d2 sous-estime nettement la difficulté."
     },
     "sy1mmffu": {
       "action": "corriger",
@@ -16562,27 +16523,6 @@
         "etiquettes": []
       },
       "motif": "Étiquette etymologie injustifiée : la question porte sur la filiation de l'instrument, pas sur l'origine d'un mot. L'étymologie n'apparaît que dans l'anecdote."
-    },
-    "ziuiyuue": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Difficulté sous-estimée : l'année exacte du brevet (1846) est peu connue du grand public, d4 plutôt que d2."
-    },
-    "4ayqc437": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 5
-      },
-      "motif": "Difficulté sous-estimée : le nombre de touches d'un manuel d'orgue Hammond B-3 est un savoir de spécialiste, d5 plutôt que d3."
-    },
-    "ii2fqc35": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "La longueur exacte d'un Steinway D (2,74 m) est une donnée de spécialiste : peu de joueurs la connaissent. La difficulté passe de 2 à 4."
     },
     "g5w56qht": {
       "action": "corriger",
@@ -16860,17 +16800,9 @@
     "cpdsc1sh": {
       "action": "corriger",
       "champs": {
-        "texte": "Combien de sonnets compte le recueil de Shakespeare publié en 1609 ?",
-        "difficulte": 4
+        "texte": "Combien de sonnets compte le recueil de Shakespeare publié en 1609 ?"
       },
-      "motif": "Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4."
-    },
-    "7709mozh": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Le nombre exact de chapitres de Moby Dick est très peu connu : la difficulté passe de d2 à d4."
+      "motif": "Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026."
     },
     "yy58nh2z": {
       "action": "corriger",
@@ -17080,13 +17012,6 @@
       "action": "douter",
       "motif": "Vérifier l'année de la commande de l'État à Renoir pour « Jeunes Filles au piano ». Plusieurs sources la placent en 1892, à l'instigation de Mallarmé et de Roger Marx, l'année même où le tableau est peint, et non en 1891 comme le dit l'anecdote."
     },
-    "29jwbm6r": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "La largeur exacte de Guernica, 7,76 m, est connue de très peu de joueurs, et le leurre 3,49 m est sa hauteur réelle. La difficulté d2 est trop basse de deux crans au moins, d'autant que la hauteur de la Joconde, plus connue, est estimée d3."
-    },
     "7d6yzy12": {
       "action": "corriger",
       "champs": {
@@ -17165,13 +17090,6 @@
         "sousTheme": "pouvoirs"
       },
       "motif": "La réponse est le roi qui a fait bâtir le monument (qui l'a bâti) : Histoire › pouvoirs, et non un savoir d'architecture."
-    },
-    "1bohbsi9": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Le nombre exact de losanges (603) est un chiffre pointu que peu d'adultes connaissent ; d2 sous-estime nettement la difficulté."
     },
     "vhv17z90": {
       "action": "corriger",
@@ -19007,13 +18925,6 @@
       },
       "motif": "Le « soit trente-deux niveaux » de l'anecdote est illogique : un château par monde ne donne pas trente-deux niveaux. Je reformule l'anecdote."
     },
-    "uw8l3aca": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Le nombre exact de pastilles (240) est un savoir de spécialiste. La question est cotée d2 alors qu'elle vaut au moins d4."
-    },
     "a24p29q3": {
       "action": "corriger",
       "champs": {
@@ -19120,13 +19031,6 @@
         "anecdote": "Un casse-noisettes est le héros du conte d'Hoffmann dont Tchaïkovski a tiré son ballet Casse-noisette, créé en 1892."
       },
       "motif": "Ce n'est pas le jouet de l'Erzgebirge qui a directement inspiré le ballet : celui-ci vient du conte d'Hoffmann (1816), via l'adaptation de Dumas."
-    },
-    "9hcoa5nv": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "Donner l'année exacte du changement de nom est une question pointue : la difficulté d2 est trop basse."
     },
     "bq5z34bq": {
       "action": "corriger",
@@ -19416,9 +19320,9 @@
     "xcbgochh": {
       "action": "corriger",
       "champs": {
-        "texte": "Quelle ville du Pas-de-Calais, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ?"
+        "texte": "Quelle ville du nord de la France, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ?"
       },
-      "motif": "Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact."
+      "motif": "Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact. — Retouché à la main : « du Pas-de-Calais » écrivait la réponse dans l'intitulé, et le juge l'aurait retirée."
     },
     "m0h8yj6j": {
       "action": "corriger",
@@ -19930,13 +19834,6 @@
       },
       "motif": "La réforme julienne du calendrier relève de Culture générale (mesures)."
     },
-    "kn9tar4l": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "La date du premier gala de CCTV est très peu connue d'un public français : d2 sous-estime nettement la difficulté."
-    },
     "3dsg7ku4": {
       "action": "corriger",
       "champs": {
@@ -20265,20 +20162,6 @@
       },
       "motif": "La traversée du Mayflower est un événement daté. L'intitulé ne parle d'aucune fête : la question relève d'Histoire › explorations, pas des traditions festives."
     },
-    "54wtca6i": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "L'année du premier défilé Macy's (1924) est très peu connue des adultes français. La difficulté d2 est sous-estimée d'au moins deux crans."
-    },
-    "gntl21km": {
-      "action": "corriger",
-      "champs": {
-        "difficulte": 4
-      },
-      "motif": "La date du premier Tournoi des Roses de Pasadena (1890) est obscure pour un public français. La difficulté d2 est nettement sous-estimée."
-    },
     "g2v1rfln": {
       "action": "corriger",
       "champs": {
@@ -20469,11 +20352,11 @@
     "dkiy8nmv": {
       "action": "corriger",
       "champs": {
-        "anecdote": "Ce tableau est né d'une commande informelle de l'administration des Beaux-Arts, poussée par Mallarmé et Roger Marx : l'État l'a acheté en 1892 pour 4 000 francs, pour le musée du Luxembourg. C'était le premier Renoir à entrer dans un musée national ; le peintre en a réalisé plusieurs versions très proches.",
+        "anecdote": "Commandé de façon informelle par les Beaux-Arts, à l'instigation de Mallarmé et de Roger Marx, le tableau a été acheté par l'État en 1892 : c'était le premier Renoir à entrer dans un musée national.",
         "explication": "Cette scène d'intérieur est d'Auguste Renoir. Elle a été peinte en 1892, pendant sa « période nacrée », où il revient à une facture plus souple après sa période dite « ingresque ».",
         "difficulte": 3
       },
-      "motif": "La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue.",
+      "motif": "La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue. — Anecdote raccourcie à la main sous les 280 caractères que le juge permet.",
       "sources": [
         "https://pop.culture.gouv.fr/notice/joconde/000PE004063",
         "https://www.musee-orsay.fr/en/artworks/jeunes-filles-au-piano-1164",
@@ -20937,5 +20820,6 @@
       "recu": "2026-10-13T17:41:41.156Z",
       "cout": 2.772234
     }
-  ]
+  ],
+  "appliquee": "2026-10-13T17:49:04.259Z"
 }

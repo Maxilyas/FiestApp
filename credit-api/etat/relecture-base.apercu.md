@@ -2,9 +2,9 @@
 
 10759 questions en 274 fiches (274 rendues), réflexion high.
 
-- Première passe : 19 à retirer, 985 à corriger, 20 en doute.
+- Première passe : 19 à retirer, 969 à corriger, 20 en doute.
 - Doutes vérifiés sur le web : 20 — 3 gardés, 14 à corriger, 3 à retirer.
-- Appliquée, elle ferait : 24 retirée(s), 525 corrigée(s), 506 reclassée(s) ; la base passerait de 11059 à 11035 questions.
+- Appliquée, elle ferait : 22 retirée(s), 508 corrigée(s), 506 reclassée(s) ; la base passerait de 11059 à 11037 questions.
 
 ## Les retraits (19)
 
@@ -160,7 +160,7 @@
 
 - **retirer** — Dans la liste française des noces, 40 ans correspond aux noces d'émeraude, et le rubis aux 35 ans. Les noces de rubis à 40 ans relèvent de la tradition anglo-saxonne, où le corail, proposé comme leurre, marque justement les 35 ans. Pour un public français, la bonne réponse est donc fausse ou ambiguë.
 
-## Les corrections et les reclassements (985)
+## Les corrections et les reclassements (969)
 
 **[enfzm40o]** Culture générale › langue · etymologie · d4
 > La langue espéranto doit son nom au pseudonyme de son créateur. Que veut dire ce mot ?
@@ -1808,7 +1808,7 @@
 > *Anecdote :* Elle a été le plus haut édifice du monde pendant plus de deux siècles.
 > *Explication :* La flèche de la cathédrale de Strasbourg culmine à 142 mètres.
 
-- **corriger** — Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient. — `difficulte` → « 4 » ; `categorie` → « Géographie » ; `sousTheme` → « sites » ; `etiquettes` → « (aucune) »
+- **corriger** — Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026. — `categorie` → « Géographie » ; `sousTheme` → « sites » ; `etiquettes` → « (aucune) »
 
 **[qdhn0vqj]** Géographie › france · sans étiquette · d4
 > Quelle année marque l'achèvement du Palais idéal du facteur Cheval, à Hauterives ?
@@ -1912,7 +1912,7 @@
 > *Anecdote :* La cathédrale a survécu aux bombardements de 1945 malgré de nombreux impacts, alors que la ville était en ruine.
 > *Explication :* Les deux flèches de la cathédrale de Cologne atteignent environ 157 mètres.
 
-- **corriger** — Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé. — `anecdote` → « La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine. » ; `difficulte` → « 4 »
+- **corriger** — Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026. — `anecdote` → « La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine. »
 
 **[s03chjam]** Géographie › peuples · sans étiquette · d3
 > Quelle est la langue officielle de la Roumanie ?
@@ -2480,7 +2480,7 @@
 > *Anecdote :* Partie de Marseille, elle a fait la route à pied jusqu'à la capitale, où elle a déclenché une véritable « girafomanie ».
 > *Explication :* Zarafa a rejoint Paris en 1827, après un long voyage depuis l'Égypte puis Marseille.
 
-- **corriger** — La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3. — `difficulte` → « 5 » ; `categorie` → « Histoire » ; `sousTheme` → « faits-divers » ; `etiquettes` → « animaux »
+- **corriger** — La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026. — `categorie` → « Histoire » ; `sousTheme` → « faits-divers » ; `etiquettes` → « animaux »
 
 **[759u1mhb]** Nature › mammiferes · etymologie · d5
 > Que signifie « orang-outan » en malais ?
@@ -2616,15 +2616,7 @@
 > *Anecdote :* Elle est née pour sauver les macareux moines des Sept-Îles, en Bretagne, alors chassés en nombre.
 > *Explication :* La LPO a été créée en 1912 pour protéger les oiseaux marins des Sept-Îles.
 
-- **corriger** — Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3. — `difficulte` → « 5 » ; `categorie` → « Nature » ; `sousTheme` → « ecologie » ; `etiquettes` → « (aucune) »
-
-**[8qm13yk8]** Nature › oiseaux · sans étiquette · d3
-> Combien de jours dure l'incubation d'un œuf de cane de Barbarie ?
-> ✓ 35 jours · ✗ 28 jours · 42 jours · 30 jours
-> *Anecdote :* Croisé avec la cane commune, le canard de Barbarie mâle donne le mulard.
-> *Explication :* Les œufs de cane de Barbarie éclosent au bout de 35 jours, contre 28 pour le canard commun.
-
-- **corriger** — Durée d'incubation précise d'une race de canard : savoir très spécialisé, d5 plutôt que d3. — `difficulte` → « 5 »
+- **corriger** — Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026. — `categorie` → « Nature » ; `sousTheme` → « ecologie » ; `etiquettes` → « (aucune) »
 
 **[vqt0vn1h]** Nature › aquatique · sans étiquette · d2
 > Quel animal d'Amazonie peut produire une forte décharge électrique ?
@@ -3546,14 +3538,6 @@
 
 - **corriger** — Alerte racine : l'intitulé « studio d'animation » soufflait « DreamWorks Animation », il est reformulé. — `texte` → « Quel studio a produit le film « Kung Fu Panda » (2008) ? »
 
-**[c0m15mwf]** Cinéma & séries › animation · sans étiquette · d2
-> Quelle est la durée du « Voyage de Chihiro » de Hayao Miyazaki, en minutes ?
-> ✓ 125 min · ✗ 80 min · 160 min · 100 min
-> *Anecdote :* Miyazaki a imaginé ce film pour la fille d'une amie, une fillette d'une dizaine d'années.
-> *Explication :* Le film dure 2 h 05, soit 125 minutes : long pour un film d'animation.
-
-- **corriger** — Connaître la durée exacte d'un film en minutes est un savoir pointu que peu d'adultes ont : d2 est très sous-estimé, d4 convient mieux. — `difficulte` → « 4 »
-
 **[3wff4u0w]** Cinéma & séries › sagas · sans étiquette · d2
 > Quel acteur britannique incarne Batman dans la trilogie de Christopher Nolan, de 2005 à 2012 ?
 > ✓ Christian Bale · ✗ Ben Affleck · Michael Keaton · George Clooney
@@ -3937,22 +3921,6 @@
 
 - **corriger** — L'anecdote donnait la réponse de la question tm0jfb8q (« Wight is Wight » de Michel Delpech) : on la remplace par un autre succès. — `anecdote` → « Il a aussi connu un grand succès avec « Le Loir-et-Cher » en 1977. »
 
-**[mlnj0fpz]** Musique › chanson-fr · sans étiquette · d2
-> En quelle année l'Académie française a-t-elle décerné son Grand prix de poésie à Georges Brassens ?
-> ✓ 1967 · ✗ 1952 · 1982 · 1975
-> *Anecdote :* Brassens a mis en musique des poèmes de Victor Hugo, d'Aragon ou de Verlaine.
-> *Explication :* L'Académie française a couronné Brassens en 1967, pour l'ensemble de son œuvre de poète.
-
-- **corriger** — Peu de joueurs connaissent l'année du Grand prix de poésie décerné à Brassens. Avec des leurres plausibles comme 1975, la difficulté d2 est sous-estimée. — `difficulte` → « 4 »
-
-**[1st7009r]** Musique › chanson-fr · sans étiquette · d2
-> En quelle année Johnny Hallyday a-t-il rempli le Parc des Princes pour une série de concerts ?
-> ✓ 1993 · ✗ 1978 · 2008 · 1985
-> *Anecdote :* Cette enceinte parisienne est aussi le stade du Paris Saint-Germain.
-> *Explication :* Johnny Hallyday s'est produit au Parc des Princes en 1993.
-
-- **corriger** — L'année des concerts de Johnny au Parc des Princes (1993) est un fait pointu. La difficulté d2 est nettement sous-estimée. — `difficulte` → « 4 »
-
 **[ywp4vmfq]** Musique › pop-rock · sans étiquette · d2
 > Quel duo américain a écrit « The Sound of Silence » ?
 > ✓ Simon & Garfunkel · ✗ Everly Brothers · Sonny & Cher · Hall & Oates
@@ -4080,14 +4048,6 @@
 > *Explication :* « Les Contes d'Hoffmann » est l'unique grand opéra de Jacques Offenbach, maître de l'opérette.
 
 - **corriger** — « L'unique grand opéra » est inexact : Offenbach a aussi écrit un opéra romantique, « Die Rheinnixen » (1864). — `explication` → « « Les Contes d'Hoffmann » est l'opéra le plus célèbre de Jacques Offenbach, maître de l'opérette. »
-
-**[m7yqdqlz]** Musique › classique · sans étiquette · d2
-> Combien de symphonies Joseph Haydn a-t-il composées, selon le catalogue habituel ?
-> ✓ 104 symphonies · ✗ 75 symphonies · 125 symphonies · 60 symphonies
-> *Anecdote :* Les douze dernières, écrites pour Londres, sont appelées « symphonies londoniennes ».
-> *Explication :* Le catalogue habituel de Haydn compte 104 symphonies.
-
-- **corriger** — Le nombre exact de symphonies de Haydn (104) est un savoir de spécialiste. Peu d'adultes le connaissent, et d2 sous-estime nettement la difficulté. — `difficulte` → « 4 »
 
 **[sy1mmffu]** Musique › jazz-monde · etymologie · d2
 > Quel instrument à soufflet, d'origine allemande, est l'âme du tango argentin ?
@@ -4328,30 +4288,6 @@
 > *Explication :* La sacqueboute, déjà dotée d'une coulisse, a donné naissance au trombone.
 
 - **corriger** — Étiquette etymologie injustifiée : la question porte sur la filiation de l'instrument, pas sur l'origine d'un mot. L'étymologie n'apparaît que dans l'anecdote. — `etiquettes` → « (aucune) »
-
-**[ziuiyuue]** Musique › instruments · sans étiquette · d2
-> En quelle année Adolphe Sax a-t-il fait breveter le saxophone ?
-> ✓ 1846 · ✗ 1820 · 1870 · 1800
-> *Anecdote :* Ce Belge installé à Paris avait aussi inventé toute une famille de bugles, les saxhorns.
-> *Explication :* Adolphe Sax a déposé son brevet de saxophone à Paris en 1846.
-
-- **corriger** — Difficulté sous-estimée : l'année exacte du brevet (1846) est peu connue du grand public, d4 plutôt que d2. — `difficulte` → « 4 »
-
-**[4ayqc437]** Musique › instruments · sans étiquette · d3
-> Combien de touches compte chacun des deux claviers d'un orgue Hammond B-3 ?
-> ✓ 61 touches · ✗ 49 touches · 73 touches · 44 touches
-> *Anecdote :* Il est associé aux haut-parleurs Leslie, dont les rotors font onduler le son.
-> *Explication :* Chaque clavier de l'orgue Hammond B-3 compte 61 touches, soit cinq octaves.
-
-- **corriger** — Difficulté sous-estimée : le nombre de touches d'un manuel d'orgue Hammond B-3 est un savoir de spécialiste, d5 plutôt que d3. — `difficulte` → « 5 »
-
-**[ii2fqc35]** Musique › instruments · sans étiquette · d2
-> Quelle est la longueur, en mètres, d'un piano à queue de concert Steinway modèle D ?
-> ✓ 2,74 m · ✗ 2,1 m · 3,4 m · 2,4 m
-> *Anecdote :* Le modèle D est le piano de concert de référence sur de nombreuses grandes scènes.
-> *Explication :* Le Steinway modèle D mesure 274 cm de long, soit 2,74 m.
-
-- **corriger** — La longueur exacte d'un Steinway D (2,74 m) est une donnée de spécialiste : peu de joueurs la connaissent. La difficulté passe de 2 à 4. — `difficulte` → « 4 »
 
 **[g5w56qht]** Musique › instruments · sans étiquette · d4
 > En quelle année la maison de pianos Steinway & Sons a-t-elle été fondée à New York ?
@@ -4638,15 +4574,7 @@
 > *Anecdote :* Ces sonnets sont en grande partie adressés à un jeune homme et à une « dame brune ».
 > *Explication :* Le recueil de 1609 rassemble cent cinquante-quatre sonnets.
 
-- **corriger** — Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4. — `texte` → « Combien de sonnets compte le recueil de Shakespeare publié en 1609 ? » ; `difficulte` → « 4 »
-
-**[7709mozh]** Arts & lettres › litterature-monde · sans étiquette · d2
-> Combien de chapitres numérotés compte le roman Moby Dick, sans compter l'épilogue ?
-> ✓ 135 · ✗ 80 · 200 · 60
-> *Anecdote :* Le roman s'ouvre sur la phrase célèbre « Call me Ishmael », qui désigne le narrateur.
-> *Explication :* Le roman de 1851 compte cent trente-cinq chapitres, suivis d'un épilogue.
-
-- **corriger** — Le nombre exact de chapitres de Moby Dick est très peu connu : la difficulté passe de d2 à d4. — `difficulte` → « 4 »
+- **corriger** — Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026. — `texte` → « Combien de sonnets compte le recueil de Shakespeare publié en 1609 ? »
 
 **[yy58nh2z]** Arts & lettres › poesie-theatre · premiere · d3
 > Quel poète sénégalais, premier président de son pays, est aussi le premier Africain élu à l'Académie française, en 1983 ?
@@ -4872,14 +4800,6 @@
 
 - **corriger** — L'oreille bandée désigne Van Gogh pour presque tout le monde : la question est bien plus facile que d4. — `difficulte` → « 2 »
 
-**[29jwbm6r]** Arts & lettres › peinture · sans étiquette · d2
-> Quelle est la largeur, en mètres, de la toile Guernica de Picasso ?
-> ✓ 7,76 m · ✗ 3,49 m · 5,5 m · 10,2 m
-> *Anecdote :* La toile, peinte en quelques semaines pour le pavillon espagnol de l'Exposition de 1937, est aujourd'hui à Madrid.
-> *Explication :* La toile mesure 7,76 m de large pour 3,49 m de haut : c'est une fresque de grand format.
-
-- **corriger** — La largeur exacte de Guernica, 7,76 m, est connue de très peu de joueurs, et le leurre 3,49 m est sa hauteur réelle. La difficulté d2 est trop basse de deux crans au moins, d'autant que la hauteur de la Joconde, plus connue, est estimée d3. — `difficulte` → « 4 »
-
 **[7d6yzy12]** Arts & lettres › sculpture-archi · etymologie · d2
 > Quel style médiéval, aux murs épais et aux voûtes en plein cintre, précède l'architecture gothique ?
 > ✓ Le roman · ✗ Le byzantin · Le baroque · La Renaissance
@@ -4959,14 +4879,6 @@
 > *Explication :* Louis IX, futur Saint Louis, fit bâtir la chapelle, consacrée en 1248, pour abriter ses reliques.
 
 - **corriger** — La réponse est le roi qui a fait bâtir le monument (qui l'a bâti) : Histoire › pouvoirs, et non un savoir d'architecture. — `categorie` → « Histoire » ; `sousTheme` → « pouvoirs »
-
-**[1bohbsi9]** Arts & lettres › sculpture-archi · sans étiquette · d2
-> Combien de losanges de verre compte la pyramide du Louvre ?
-> ✓ 603 · ✗ 666 · 400 · 1000
-> *Anecdote :* Une rumeur affirme qu'elle compte 666 vitres ; le décompte des architectes la dément.
-> *Explication :* L'architecte Pei l'a bâtie avec 603 losanges et 70 triangles de verre.
-
-- **corriger** — Le nombre exact de losanges (603) est un chiffre pointu que peu d'adultes connaissent ; d2 sous-estime nettement la difficulté. — `difficulte` → « 4 »
 
 **[vhv17z90]** Arts & lettres › philo · citation · d3
 > Quelle question Montaigne a-t-il fait graver sur une médaille, résumant son scepticisme ?
@@ -6710,14 +6622,6 @@
 
 - **corriger** — Le « soit trente-deux niveaux » de l'anecdote est illogique : un château par monde ne donne pas trente-deux niveaux. Je reformule l'anecdote. — `anecdote` → « Chaque monde s'achève dans un château ; dans les sept premiers, un Toad annonce à Mario que la princesse se trouve dans un autre château. »
 
-**[uw8l3aca]** Jeux & pop culture › jeux-video · sans étiquette · d2
-> Combien de petites pastilles, énergisants exclus, Pac-Man doit-il manger dans le labyrinthe du jeu d'origine ?
-> ✓ 240 pastilles · ✗ 180 pastilles · 360 pastilles · 120 pastilles
-> *Anecdote :* Le niveau se termine quand toutes les pastilles sont mangées, énergisants compris.
-> *Explication :* Le labyrinthe contient deux cent quarante petites pastilles, auxquelles s'ajoutent quatre gros énergisants.
-
-- **corriger** — Le nombre exact de pastilles (240) est un savoir de spécialiste. La question est cotée d2 alors qu'elle vaut au moins d4. — `difficulte` → « 4 »
-
 **[a24p29q3]** Jeux & pop culture › jeux-societe · sans étiquette · d3
 > De quel pays vient le mah-jong, jeu de tuiles à quatre joueurs ?
 > ✓ La Chine · ✗ Le Japon · La Corée · Le Vietnam
@@ -6821,14 +6725,6 @@
 > *Explication :* Ce soldat de bois sert à casser des noix en abaissant sa mâchoire ; la tradition vient des monts Métallifères allemands.
 
 - **corriger** — Ce n'est pas le jouet de l'Erzgebirge qui a directement inspiré le ballet : celui-ci vient du conte d'Hoffmann (1816), via l'adaptation de Dumas. — `anecdote` → « Un casse-noisettes est le héros du conte d'Hoffmann dont Tchaïkovski a tiré son ballet Casse-noisette, créé en 1892. »
-
-**[9hcoa5nv]** Jeux & pop culture › jouets · sans étiquette · d2
-> En quelle année Wham-O a-t-elle rebaptisé son disque volant « Frisbee » ?
-> ✓ 1957 · ✗ 1932 · 1975 · 1988
-> *Anecdote :* Wham-O est aussi à l'origine du Hula Hoop, autre folie de jouet des années 1950.
-> *Explication :* Le disque, d'abord vendu sous un autre nom, a pris celui de Frisbee en 1957.
-
-- **corriger** — Donner l'année exacte du changement de nom est une question pointue : la difficulté d2 est trop basse. — `difficulte` → « 4 »
 
 **[bq5z34bq]** Jeux & pop culture › tele · sans étiquette · d2
 > Sur quelle chaîne française la première saison de Koh-Lanta a-t-elle été diffusée en 2001 ?
@@ -7108,7 +7004,7 @@
 > *Anecdote :* La dentelle de Calais se fabrique encore sur des métiers Leavers, venus d'Angleterre au XIXe siècle.
 > *Explication :* La Cité de la dentelle et de la mode est installée dans une ancienne manufacture de Calais.
 
-- **corriger** — Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact. — `texte` → « Quelle ville du Pas-de-Calais, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? »
+- **corriger** — Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact. — Retouché à la main : « du Pas-de-Calais » écrivait la réponse dans l'intitulé, et le juge l'aurait retirée. — `texte` → « Quelle ville du nord de la France, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? »
 
 **[m0h8yj6j]** Jeux & pop culture › mode · sans étiquette · d3
 > Quelle marque américaine a lancé en 1937 les lunettes de soleil « aviator », pensées pour les pilotes ?
@@ -7598,14 +7494,6 @@
 
 - **corriger** — La réforme julienne du calendrier relève de Culture générale (mesures). — `categorie` → « Culture générale » ; `sousTheme` → « mesures »
 
-**[kn9tar4l]** Autour de la fête › nouvel-an · sans étiquette · d2
-> En quelle année a été diffusé le premier grand gala télévisé de la fête du Printemps, rendez-vous du Nouvel An chinois ?
-> ✓ 1983 · ✗ 1963 · 1993 · 2003
-> *Anecdote :* Ce spectacle de la télévision d'État chinoise est regardé chaque année par des centaines de millions de téléspectateurs.
-> *Explication :* La télévision centrale de Chine a diffusé son premier gala de la fête du Printemps en 1983.
-
-- **corriger** — La date du premier gala de CCTV est très peu connue d'un public français : d2 sous-estime nettement la difficulté. — `difficulte` → « 4 »
-
 **[3dsg7ku4]** Autour de la fête › nouvel-an · sans étiquette · d3
 > Combien de jours séparent, entre 1900 et 2099, une date du calendrier julien de la même date du calendrier grégorien ?
 > ✓ 13 jours · ✗ 10 jours · 12 jours · 14 jours
@@ -7926,22 +7814,6 @@
 
 - **corriger** — La traversée du Mayflower est un événement daté. L'intitulé ne parle d'aucune fête : la question relève d'Histoire › explorations, pas des traditions festives. — `categorie` → « Histoire » ; `sousTheme` → « explorations » ; `etiquettes` → « (aucune) »
 
-**[54wtca6i]** Autour de la fête › traditions · sans étiquette · d2
-> En quelle année a eu lieu à New York le premier défilé de Thanksgiving organisé par les grands magasins Macy's ?
-> ✓ 1924 · ✗ 1894 · 1954 · 1984
-> *Anecdote :* Les premiers figurants étaient des animaux du zoo de Central Park ; les ballons géants ne sont apparus qu'en 1927.
-> *Explication :* Le premier défilé est organisé en 1924 par des employés de Macy's, souvent immigrés, pour fêter Thanksgiving comme dans leur pays d'origine.
-
-- **corriger** — L'année du premier défilé Macy's (1924) est très peu connue des adultes français. La difficulté d2 est sous-estimée d'au moins deux crans. — `difficulte` → « 4 »
-
-**[gntl21km]** Autour de la fête › traditions · sans étiquette · d2
-> En quelle année a eu lieu à Pasadena, en Californie, le tout premier défilé du Tournoi des Roses, un 1er janvier ?
-> ✓ 1890 · ✗ 1860 · 1920 · 1950
-> *Anecdote :* Un club local l'a imaginé pour vanter à ses amis de l'Est le doux climat californien en plein hiver, avec des calèches couvertes de fleurs.
-> *Explication :* La première fête a eu lieu le 1er janvier 1890, organisée par le Valley Hunt Club de Pasadena.
-
-- **corriger** — La date du premier Tournoi des Roses de Pasadena (1890) est obscure pour un public français. La difficulté d2 est nettement sous-estimée. — `difficulte` → « 4 »
-
 **[g2v1rfln]** Autour de la fête › cocktails · alcool · d4
 > Quel fruit est mixé avec du prosecco dans le bellini, cocktail né au Harry's Bar de Venise ?
 > ✓ Pêche · ✗ Abricot · Framboise · Poire
@@ -8127,7 +7999,7 @@
 > *Explication :* Cette scène d'intérieur est d'Auguste Renoir, dans sa période plus linéaire des années 1890.
 
 - **Le doute :** Vérifier l'année de la commande de l'État à Renoir pour « Jeunes Filles au piano ». Plusieurs sources la placent en 1892, à l'instigation de Mallarmé et de Roger Marx, l'année même où le tableau est peint, et non en 1891 comme le dit l'anecdote.
-- **Le verdict : corriger** — La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue. — `anecdote` → « Ce tableau est né d'une commande informelle de l'administration des Beaux-Arts, poussée par Mallarmé et Roger Marx : l'État l'a acheté en 1892 pour 4 000 francs, pour le musée du Luxembourg. C'était le premier Renoir à entrer dans un musée national ; le peintre en a réalisé plusieurs versions très proches. » ; `explication` → « Cette scène d'intérieur est d'Auguste Renoir. Elle a été peinte en 1892, pendant sa « période nacrée », où il revient à une facture plus souple après sa période dite « ingresque ». » ; `difficulte` → « 3 »
+- **Le verdict : corriger** — La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue. — Anecdote raccourcie à la main sous les 280 caractères que le juge permet. — `anecdote` → « Commandé de façon informelle par les Beaux-Arts, à l'instigation de Mallarmé et de Roger Marx, le tableau a été acheté par l'État en 1892 : c'était le premier Renoir à entrer dans un musée national. » ; `explication` → « Cette scène d'intérieur est d'Auguste Renoir. Elle a été peinte en 1892, pendant sa « période nacrée », où il revient à une facture plus souple après sa période dite « ingresque ». » ; `difficulte` → « 3 »
 - Sources : https://pop.culture.gouv.fr/notice/joconde/000PE004063 ; https://www.musee-orsay.fr/en/artworks/jeunes-filles-au-piano-1164 ; https://en.wikipedia.org/wiki/Girls_at_the_Piano
 
 **[spalvocu]** Sport › rugby · surnom · d3
@@ -8459,8 +8331,7 @@
 - corrigée [qa9yfytd] (Géographie › france) « Quelle ville est la préfecture de l'Ariège ? » → Foix — anecdote : « Son château domine la ville depuis un rocher et ses trois tours. » → « Son château aux trois tours domine la ville du haut d'un rocher. » — Anecdote mal construite : on ne domine pas une ville « depuis ses trois tours ».
 - reclassée [6uzcsas6] (Géographie › france) « Quelle est l'année de la découverte de la grotte de Lascaux, en Dordogne, par des adolescents ? » → 1940 — categorie : « Géographie » → « Histoire » ; sousTheme : « france » → « faits-divers » ; etiquettes : «  » → «  » — La réponse est une date d'événement : selon les règles de partage, c'est de l'Histoire.
 - reclassée [s4ufspwp] (Géographie › france) « Quelle hauteur la tour Montparnasse atteint-elle, à Paris, en mètres ? » → 210 m — categorie : « Géographie » → « Géographie » ; sousTheme : « france » → « sites » ; etiquettes : «  » → «  » — Un fait sur un monument célèbre relève de Géographie › sites, pas de « Régions et départements ».
-- corrigée [81hag4r4] (Géographie › france) « Quelle est la hauteur de la flèche de la cathédrale de Strasbourg, en mètres ? » → 142 m — difficulte : « 2 » → « 4 » — Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient.
-- reclassée [81hag4r4] (Géographie › france) « Quelle est la hauteur de la flèche de la cathédrale de Strasbourg, en mètres ? » → 142 m — categorie : « Géographie » → « Géographie » ; sousTheme : « france » → « sites » ; etiquettes : «  » → «  » — Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient.
+- reclassée [81hag4r4] (Géographie › france) « Quelle est la hauteur de la flèche de la cathédrale de Strasbourg, en mètres ? » → 142 m — categorie : « Géographie » → « Géographie » ; sousTheme : « france » → « sites » ; etiquettes : «  » → «  » — Un fait sur un monument relève de Géographie › sites. La hauteur précise de la flèche (142 m) est peu connue : d2 est trop bas, d4 convient. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026.
 - reclassée [qdhn0vqj] (Géographie › france) « Quelle année marque l'achèvement du Palais idéal du facteur Cheval, à Hauterives ? » → 1912 — categorie : « Géographie » → « Histoire » ; sousTheme : « france » → « faits-divers » ; etiquettes : «  » → «  » — La réponse est une date d'achèvement d'un monument : selon les règles de partage, c'est de l'Histoire.
 - retirée [n35jafab] (Géographie › sites) « Dans quel département se dresse la cité médiévale fortifiée de Carcassonne ? » → Aude — Même fait que goo8p15d (Carcassonne, préfecture de l'Aude).
 - retirée [s6fdq66m] (Géographie › sites) « Quelle ville lorraine est célèbre pour sa place Stanislas, inscrite à l'Unesco ? » → Nancy — Même fait que rdxodsjx (Nancy et sa place Stanislas).
@@ -8476,7 +8347,7 @@
 - reclassée [x40jn89d] (Géographie › sites) « La statue de la Liberté est inaugurée à New York : en quelle année ? » → 1886 — categorie : « Géographie » → « Histoire » ; sousTheme : « sites » → « faits-divers » — La réponse est une date (en quelle année) : d'après les règles de partage, c'est de l'Histoire, pas de la Géographie › sites.
 - reclassée [uc2c8wjf] (Géographie › sites) « Quelle est l'année d'inauguration de l'opéra de Sydney ? » → 1973 — categorie : « Géographie » → « Histoire » ; sousTheme : « sites » → « faits-divers » — La réponse est une année d'inauguration : c'est de l'Histoire d'après les règles de partage.
 - corrigée [pf8hsxld] (Géographie › sites) « Quelle est la hauteur de la tour Burj Khalifa, à Dubaï, en mètres ? » → 828 m — explication : « La tour mesure 828 metres, fleche comprise, soit plus du double de la hauteur du toit de l'Empire State Building (381 m). » → « La tour mesure 828 mètres, flèche comprise, soit plus du double de la hauteur du toit de l'Empire State Building (381 m). » — Accents manquants dans l'explication (« metres », « fleche »).
-- corrigée [gnxuagvc] (Géographie › sites) « Quelle est la hauteur des flèches de la cathédrale de Cologne, en mètres ? » → 157 m — anecdote : « La cathédrale a survécu aux bombardements de 1945 malgré de nombreux impacts, alors que la ville était en ruine. » → « La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine. » ; difficulte : « 2 » → « 4 » — Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé.
+- corrigée [gnxuagvc] (Géographie › sites) « Quelle est la hauteur des flèches de la cathédrale de Cologne, en mètres ? » → 157 m — anecdote : « La cathédrale a survécu aux bombardements de 1945 malgré de nombreux impacts, alors que la ville était en ruine. » → « La cathédrale a survécu aux bombardements de la Seconde Guerre mondiale malgré de nombreux impacts, alors que la ville était en ruine. » — Les bombardements de Cologne s'étalent de 1942 à 1945, pas seulement en 1945. L'anecdote est donc corrigée. La hauteur précise des flèches (157 m) est peu connue : d2 est nettement sous-estimé. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026.
 - corrigée [s03chjam] (Géographie › peuples) « Quelle est la langue officielle de la Roumanie ? » → Roumain — texte : « Quelle est la langue officielle de la Roumanie ? » → « Quelle est la langue officielle du pays dont Bucarest est la capitale ? » ; difficulte : « 3 » → « 2 » — L'intitulé soufflait la réponse (Roumanie → roumain). Il est reformulé sans changer le fait. La question reste facile, d'où la difficulté 2.
 - reclassée [ufph2yxg] (Géographie › peuples) « Comment s'appelle la communauté francophone de Louisiane, descendante des Acadiens ? » → Cajuns — categorie : « Géographie » → « Géographie » ; sousTheme : « peuples » → « peuples » ; etiquettes : « etymologie » → «  » — La question ne porte pas sur l'origine du mot : seule l'anecdote en parle. L'étiquette etymologie ne s'applique donc pas à la lettre.
 - corrigée [4cpx4jng] (Géographie › peuples) « Quelle langue celtique, nommée gaeilge, est la première langue officielle de la république d'Irlande ? » → Irlandais — texte : « Quelle langue celtique, nommée gaeilge, est la première langue officielle de la république d'Irlande ? » → « Quelle langue celtique, nommée gaeilge, est la première langue officielle de la république dont Dublin est la capitale ? » — Le mot « Irlande » soufflait la réponse : l'intitulé passe par Dublin.
@@ -8548,8 +8419,7 @@
 - corrigée [7s9ghcan] (Nature › mammiferes) « Comment appelle-t-on le petit de la chèvre ? » → Le chevreau — texte : « Comment appelle-t-on le petit de la chèvre ? » → « Comment appelle-t-on le petit du bouc et de la bique ? » — ⚠ racine : « chèvre » soufflait « chevreau ». L'intitulé est reformulé sans changer le fait ni la réponse.
 - corrigée [bycy83p1] (Nature › mammiferes) « Comment appelle-t-on la femelle du chevreuil ? » → La chevrette — texte : « Comment appelle-t-on la femelle du chevreuil ? » → « Comment appelle-t-on la femelle du brocard ? » ; anecdote : « Le mâle s'appelle le brocard et le petit le faon. » → « Le brocard est le mâle du chevreuil ; leur petit s'appelle le faon. » — Racine : « chevreuil » souffle « chevrette ». On désigne l'espèce par son mâle, le brocard, et l'anecdote donne désormais le nom de l'espèce.
 - corrigée [dimjihkb] (Nature › mammiferes) « Quel mammifère sauvage creuse des terriers réunis en « garenne » ? » → Le lapin de garenne — texte : « Quel mammifère sauvage creuse des terriers réunis en « garenne » ? » → « Quel mammifère sauvage d'Europe, aux longues oreilles, vit en colonie dans un réseau de terriers ? » — Racine : « garenne » dans l'intitulé donne la réponse « lapin de garenne ». Nouvel intitulé sans le mot, où le lièvre reste le leurre.
-- corrigée [t4wh6632] (Nature › mammiferes) « En quelle année la girafe Zarafa, offerte à Charles X, est-elle arrivée à Paris ? » → 1827 — difficulte : « 3 » → « 5 » — La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3.
-- reclassée [t4wh6632] (Nature › mammiferes) « En quelle année la girafe Zarafa, offerte à Charles X, est-elle arrivée à Paris ? » → 1827 — categorie : « Nature » → « Histoire » ; sousTheme : « mammiferes » → « faits-divers » ; etiquettes : «  » → « animaux » — La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3.
+- reclassée [t4wh6632] (Nature › mammiferes) « En quelle année la girafe Zarafa, offerte à Charles X, est-elle arrivée à Paris ? » → 1827 — categorie : « Nature » → « Histoire » ; sousTheme : « mammiferes » → « faits-divers » ; etiquettes : «  » → « animaux » — La question demande la date d'un événement : elle relève de l'Histoire, et l'étiquette animaux s'applique. Trouver l'année exacte (1827) parmi des dates voisines est très difficile : d5 plutôt que d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026.
 - corrigée [759u1mhb] (Nature › mammiferes) « Que signifie « orang-outan » en malais ? » → Homme de la forêt — difficulte : « 5 » → « 3 » — « Homme de la forêt » est un sens classique et largement connu : d5 est surestimé, d3 convient mieux.
 - corrigée [72raa34l] (Nature › oiseaux) « Quel oiseau est célèbre pour retrouver son pigeonnier de très loin, ce qui lui a valu de porter des messages ? » → Le pigeon voyageur — texte : « Quel oiseau est célèbre pour retrouver son pigeonnier de très loin, ce qui lui a valu de porter des messages ? » → « Quel oiseau est célèbre pour retrouver son colombier de très loin, ce qui lui a valu de porter des messages ? » — « Pigeonnier » souffle la réponse « pigeon voyageur » : on le remplace par « colombier ».
 - corrigée [csysgo2c] (Nature › oiseaux) « Quel oiseau européen minuscule porte une huppe jaune d'or bordée de noir sur la tête ? » → Le roitelet huppé — texte : « Quel oiseau européen minuscule porte une huppe jaune d'or bordée de noir sur la tête ? » → « Quel oiseau européen minuscule porte une calotte jaune d'or bordée de noir sur la tête ? » — « Huppe » souffle la réponse « roitelet huppé » : on le remplace par « calotte ».
@@ -8567,9 +8437,7 @@
 - corrigée [8v0a9djd] (Nature › oiseaux) « Quel grand oiseau des Andes figure sur les armoiries de la Colombie, de l'Équateur et de la Bolivie ? » → Condor des Andes — texte : « Quel grand oiseau des Andes figure sur les armoiries de la Colombie, de l'Équateur et de la Bolivie ? » → « Quel grand rapace sud-américain figure sur les armoiries de la Colombie, de l'Équateur et de la Bolivie ? » — L'intitulé souffle la réponse (« des Andes ») : reformulé sans changer le fait.
 - corrigée [kqtncj2j] (Nature › aquatique) « Quel reptile marin vient pondre ses œufs sur le sable d'une plage ? » → La tortue marine — texte : « Quel reptile marin vient pondre ses œufs sur le sable d'une plage ? » → « Quel reptile, qui passe sa vie en mer, vient pondre ses œufs sur le sable d'une plage ? » — L'intitulé souffle la réponse (« marin » → « marine ») : reformulé.
 - reclassée [lt7ykxe6] (Nature › oiseaux) « Quel immense oiseau de Madagascar, aujourd'hui disparu, est surnommé « oiseau-éléphant » ? » → Aepyornis — categorie : « Nature » → « Nature » ; sousTheme : « oiseaux » → « disparus » ; etiquettes : « surnom » → « surnom » — L'Aepyornis est une espèce disparue : sous-thème « Dinosaures et espèces disparues ».
-- corrigée [vcwntcz0] (Nature › oiseaux) « En quelle année la Ligue pour la protection des oiseaux a-t-elle été fondée ? » → 1912 — difficulte : « 3 » → « 5 » — Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3.
-- reclassée [vcwntcz0] (Nature › oiseaux) « En quelle année la Ligue pour la protection des oiseaux a-t-elle été fondée ? » → 1912 — categorie : « Nature » → « Nature » ; sousTheme : « oiseaux » → « ecologie » ; etiquettes : «  » → «  » — Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3.
-- corrigée [8qm13yk8] (Nature › oiseaux) « Combien de jours dure l'incubation d'un œuf de cane de Barbarie ? » → 35 jours — difficulte : « 3 » → « 5 » — Durée d'incubation précise d'une race de canard : savoir très spécialisé, d5 plutôt que d3.
+- reclassée [vcwntcz0] (Nature › oiseaux) « En quelle année la Ligue pour la protection des oiseaux a-t-elle été fondée ? » → 1912 — categorie : « Nature » → « Nature » ; sousTheme : « oiseaux » → « ecologie » ; etiquettes : «  » → «  » — Question sur une association de protection de la nature, pas sur un oiseau : sous-thème écologie. Une année de fondation aussi pointue relève de d5, pas d3. — Difficulté laissée à 3 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026.
 - corrigée [vqt0vn1h] (Nature › aquatique) « Quel animal d'Amazonie peut produire une forte décharge électrique ? » → L'anguille électrique — texte : « Quel animal d'Amazonie peut produire une forte décharge électrique ? » → « Quel poisson d'Amazonie peut étourdir une proie ou un prédateur par une décharge de plusieurs centaines de volts ? » — ⚠ racine : « électrique » dans l'intitulé soufflait « L'anguille électrique ». L'intitulé est reformulé sans changer le fait ni la réponse.
 - retirée [kax1qz0k] (Nature › aquatique) « Quel poisson des grandes profondeurs attire ses proies avec un leurre lumineux au bout d'une tige ? » → La baudroie abyssale — Le poisson-vipère (Chauliodus), proposé comme leurre, porte lui aussi un leurre lumineux au bout d'un long rayon de sa nageoire dorsale, une tige terminée par un photophore. Il répond donc lui aussi à l'intitulé, et la question est ambiguë.
 - corrigée [tchuqayi] (Nature › aquatique) « Chez les poissons-clowns, que devient le mâle dominant d'un groupe quand la femelle disparaît ? » → Il devient femelle — texte : « Chez les poissons-clowns, que devient le mâle dominant d'un groupe quand la femelle disparaît ? » → « Chez les poissons-clowns, qu'arrive-t-il au mâle dominant d'un groupe quand la seule pondeuse du groupe disparaît ? » — L'intitulé soufflait la réponse « Il devient femelle » par les mots « devient » et « femelle ». Il est reformulé sans changer le fait.
@@ -8692,7 +8560,6 @@
 - corrigée [t759iu1n] (Cinéma & séries › animation) « Quel animal est Fleur, le petit ami de Bambi dans le film Disney ? » → Une mouffette — texte : « Quel animal est Fleur, le petit ami de Bambi dans le film Disney ? » → « Quel animal est Fleur, l'ami de Bambi dans le film Disney ? » ; difficulte : « 5 » → « 3 » — « Petit ami » prête à confusion, car il évoque un amoureux. La mouffette Fleur est l'un des personnages emblématiques du film : d5 est trop élevé, d3 convient mieux.
 - reclassée [s96m8nfu] (Cinéma & séries › animation) « Quel compositeur français a écrit « L'Apprenti sorcier », la musique du segment de « Fantasia » avec Mickey ? » → Paul Dukas — categorie : « Cinéma & séries » → « Musique » ; sousTheme : « animation » → « classique » — La question demande le compositeur d'un poème symphonique de 1897, une œuvre classique antérieure au film. Le savoir demandé relève de la musique classique, pas de l'animation.
 - corrigée [4b6lpw8g] (Cinéma & séries › animation) « Quel studio d'animation a produit « Kung Fu Panda » (2008) ? » → DreamWorks Animation — texte : « Quel studio d'animation a produit « Kung Fu Panda » (2008) ? » → « Quel studio a produit le film « Kung Fu Panda » (2008) ? » — Alerte racine : l'intitulé « studio d'animation » soufflait « DreamWorks Animation », il est reformulé.
-- corrigée [c0m15mwf] (Cinéma & séries › animation) « Quelle est la durée du « Voyage de Chihiro » de Hayao Miyazaki, en minutes ? » → 125 min — difficulte : « 2 » → « 4 » — Connaître la durée exacte d'un film en minutes est un savoir pointu que peu d'adultes ont : d2 est très sous-estimé, d4 convient mieux.
 - corrigée [3wff4u0w] (Cinéma & séries › sagas) « Quel acteur britannique incarne Batman dans la trilogie de Christopher Nolan, de 2005 à 2012 ? » → Christian Bale — texte : « Quel acteur britannique incarne Batman dans la trilogie de Christopher Nolan, de 2005 à 2012 ? » → « Quel acteur britannique incarne Batman dans « Batman Begins », « The Dark Knight » et « The Dark Knight Rises » (2005-2012) ? » — Le prénom du réalisateur, Christopher Nolan, souffle Christian Bale : la trilogie est désignée par ses titres.
 - corrigée [a50h0o8n] (Cinéma & séries › sagas) « Quel acteur français incarne Obélix dans les films d'Astérix en prises de vues réelles ? » → Gérard Depardieu — texte : « Quel acteur français incarne Obélix dans les films d'Astérix en prises de vues réelles ? » → « Quel acteur français incarne Obélix dans les quatre premiers films d'Astérix en prises de vues réelles, de 1999 à 2012 ? » ; anecdote : « Christian Clavier incarne Astérix, son compagnon à l'écran. » → « Christian Clavier incarne Astérix à ses côtés dans les deux premiers films ; Clovis Cornillac puis Édouard Baer lui succèdent. » ; explication : « Depardieu joue Obélix dans les quatre films sortis de 1999 à 2012. » → « Depardieu joue Obélix dans les quatre films sortis de 1999 à 2012 ; Gilles Lellouche reprend le rôle en 2023 dans « L'Empire du Milieu ». » — Depuis « Astérix et Obélix : L'Empire du Milieu » (2023), Obélix est joué par Gilles Lellouche : l'intitulé doit se limiter aux films de 1999 à 2012. Clavier n'a joué Astérix que dans les deux premiers films.
 - corrigée [896sgozh] (Cinéma & séries › series) « Quel est le métier de Sheldon Cooper dans « The Big Bang Theory » ? » → Physicien théoricien — texte : « Quel est le métier de Sheldon Cooper dans « The Big Bang Theory » ? » → « Quel est le métier de Sheldon Cooper, colocataire de Leonard dans la sitcom américaine créée en 2007 par Chuck Lorre et Bill Prady ? » — Le titre « The Big Bang Theory » souffle « théoricien » : on reformule l'intitulé sans changer ni le fait ni la réponse.
@@ -8745,8 +8612,6 @@
 - corrigée [qc5py3gc] (Musique › chanson-fr) « Dans quel pays se trouve le Connemara, chanté en 1981 par Michel Sardou ? » → Irlande — anecdote : « Les paroles de la chanson sont de Pierre Delanoë. » → « Les paroles de la chanson sont de Pierre Delanoë et Michel Sardou, sur une musique de Jacques Revaux. » — Les paroles des « Lacs du Connemara » sont cosignées par Pierre Delanoë et Michel Sardou, pas par Delanoë seul.
 - corrigée [ngi7oml1] (Musique › chanson-fr) « Quel chanteur est l'auteur de « Avec le temps », sorti en 1970 ? » → Léo Ferré — texte : « Quel chanteur est l'auteur de « Avec le temps », sorti en 1970 ? » → « Quel chanteur est l'auteur de « Avec le temps », chanson écrite en 1969 ? » ; anecdote : « La chanson a été reprise par de très nombreux interprètes. » → « Écartée du disque « Amour Anarchie » par la maison de disques, la chanson est finalement sortie seule en 45 tours. Elle est devenue l'une des chansons françaises les plus reprises au monde : Dalida et Catherine Sauvage la chantaient déjà en 1971. » ; explication : « Léo Ferré a écrit et composé « Avec le temps », l'une de ses chansons les plus connues. » → « Léo Ferré a écrit et composé « Avec le temps » en 1969 et l'a enregistrée en octobre 1970. C'est sans doute sa chanson la plus célèbre. » — Léo Ferré est bien l'auteur-compositeur. En revanche, l'année de sortie est disputée : Wikipédia en français, la discographie de Ferré et histoiredeschansons.com donnent 1971 (45 tours Barclay 61 427), alors que l'encadré de Wikipédia en anglais et Cadence Info donnent 1970. On retire donc « sorti en 1970 » de l'intitulé pour ne garder que l'année d'écriture (1969), qui n'est pas contestée. (sources : https://fr.wikipedia.org/wiki/Avec_le_temps_(chanson) ; https://en.wikipedia.org/wiki/Avec_le_temps_(L%C3%A9o_Ferr%C3%A9_song) ; https://fr.wikipedia.org/wiki/Discographie_de_L%C3%A9o_Ferr%C3%A9 ; https://www.histoiredeschansons.com/leo-ferre-avec-le-temps/)
 - corrigée [negrioho] (Musique › chanson-fr) « Quel chanteur a sorti « Pour un flirt » en 1971 ? » → Michel Delpech — anecdote : « Il a aussi connu un grand succès avec « Wight Is Wight » en 1969. » → « Il a aussi connu un grand succès avec « Le Loir-et-Cher » en 1977. » — L'anecdote donnait la réponse de la question tm0jfb8q (« Wight is Wight » de Michel Delpech) : on la remplace par un autre succès.
-- corrigée [mlnj0fpz] (Musique › chanson-fr) « En quelle année l'Académie française a-t-elle décerné son Grand prix de poésie à Georges Brassens ? » → 1967 — difficulte : « 2 » → « 4 » — Peu de joueurs connaissent l'année du Grand prix de poésie décerné à Brassens. Avec des leurres plausibles comme 1975, la difficulté d2 est sous-estimée.
-- corrigée [1st7009r] (Musique › chanson-fr) « En quelle année Johnny Hallyday a-t-il rempli le Parc des Princes pour une série de concerts ? » → 1993 — difficulte : « 2 » → « 4 » — L'année des concerts de Johnny au Parc des Princes (1993) est un fait pointu. La difficulté d2 est nettement sous-estimée.
 - corrigée [ywp4vmfq] (Musique › pop-rock) « Quel duo américain a écrit « The Sound of Silence » ? » → Simon & Garfunkel — anecdote : « Une première version acoustique, sortie en 1964, passa presque inaperçue ; elle fut réenregistrée avec batterie et guitare électrique. » → « Une première version acoustique, sortie en 1964, passa presque inaperçue. En 1965, le producteur Tom Wilson y ajouta batterie et guitare électrique sans prévenir le duo : ce fut un succès. » — La chanson n'a pas été réenregistrée. Le producteur Tom Wilson a ajouté, en 1965, batterie et guitare électrique sur l'enregistrement acoustique d'origine, sans prévenir Simon & Garfunkel.
 - corrigée [6hrdsnk4] (Musique › pop-rock) « Quelle chanteuse a lancé sa carrière en 1998 avec « ...Baby One More Time » ? » → Britney Spears — explication : « Britney Spears a chanté ce titre, premier single de son premier album, sorti en 1998. » → « Britney Spears a chanté ce titre, sorti en single en 1998 ; il a ouvert son premier album, paru en janvier 1999. » — L'explication laisse croire que le premier album est sorti en 1998. Le single date d'octobre 1998, mais l'album « ...Baby One More Time » est paru en janvier 1999.
 - corrigée [q0dpna04] (Musique › pop-rock) « Quel groupe de heavy metal américain a sorti « Enter Sandman » en 1991 ? » → Metallica — texte : « Quel groupe de heavy metal américain a sorti « Enter Sandman » en 1991 ? » → « Quel groupe américain a sorti « Enter Sandman » en 1991 ? » — L'intitulé « groupe de heavy metal » souffle Metallica par la racine « metal » : on le retire, sans changer le fait ni la réponse.
@@ -8764,7 +8629,6 @@
 - reclassée [tlx048iq] (Musique › classique) « Dans quelle ville allemande Ludwig van Beethoven est-il né ? » → Bonn — etiquettes : « piege » → «  » — L'explication invoque Vienne comme mauvaise réponse attirante, alors que Vienne ne figure pas parmi les choix et que l'intitulé demande une ville allemande. L'étiquette piege ne s'applique donc pas : aucun leurre évident parmi Hambourg, Leipzig et Cologne.
 - corrigée [lc3m82o6] (Musique › classique) « Dans quel pays Antonín Dvořák a-t-il composé sa Symphonie « du Nouveau Monde », créée en 1893 ? » → Aux États-Unis — anecdote : « Dvořák dirigeait alors le Conservatoire national de New York, où la symphonie a été créée en décembre 1893. » → « Dvořák dirigeait alors le Conservatoire national de musique de New York ; la symphonie a été créée au Carnegie Hall en décembre 1893. » — La symphonie n'a pas été créée au Conservatoire mais au Carnegie Hall, par le Philharmonique de New York, le 16 décembre 1893.
 - corrigée [row1fck3] (Musique › classique) « Qui a composé l'opéra fantastique « Les Contes d'Hoffmann », créé à titre posthume en 1881 ? » → Jacques Offenbach — explication : « « Les Contes d'Hoffmann » est l'unique grand opéra de Jacques Offenbach, maître de l'opérette. » → « « Les Contes d'Hoffmann » est l'opéra le plus célèbre de Jacques Offenbach, maître de l'opérette. » — « L'unique grand opéra » est inexact : Offenbach a aussi écrit un opéra romantique, « Die Rheinnixen » (1864).
-- corrigée [m7yqdqlz] (Musique › classique) « Combien de symphonies Joseph Haydn a-t-il composées, selon le catalogue habituel ? » → 104 symphonies — difficulte : « 2 » → « 4 » — Le nombre exact de symphonies de Haydn (104) est un savoir de spécialiste. Peu d'adultes le connaissent, et d2 sous-estime nettement la difficulté.
 - reclassée [sy1mmffu] (Musique › jazz-monde) « Quel instrument à soufflet, d'origine allemande, est l'âme du tango argentin ? » → Le bandonéon — etiquettes : « etymologie » → «  » — L'étiquette etymologie ne s'applique pas : la question demande l'instrument, pas l'origine de son nom. Seule l'anecdote en parle.
 - reclassée [89ki0h4n] (Musique › jazz-monde) « Quel petit instrument à quatre cordes, adapté d'un instrument portugais, est devenu l'emblème d'Hawaï ? » → Le ukulélé — etiquettes : « etymologie » → «  » — L'étiquette etymologie ne s'applique pas : la question porte sur l'instrument, pas sur l'origine de son nom. Seule l'anecdote l'évoque.
 - corrigée [9uddim3k] (Musique › jazz-monde) « De quel instrument à cordes indien jouait Ravi Shankar ? » → Du sitar — anecdote : « George Harrison a pris des cours de sitar avec lui et l'a utilisé dans « Norwegian Wood », en 1965. » → « George Harrison, qui avait déjà joué du sitar dans « Norwegian Wood » en 1965, a ensuite pris des cours avec lui, à partir de 1966. » — La chronologie de l'anecdote est inversée. Harrison joue du sitar sur « Norwegian Wood » en 1965 et ne rencontre Shankar, pour ses cours, qu'en 1966.
@@ -8797,9 +8661,6 @@
 - corrigée [xn3ac5km] (Musique › instruments) « Quel plus gros tambour d'une fanfare, porté sur le ventre et frappé d'une mailloche, marque le rythme ? » → La grosse caisse — texte : « Quel plus gros tambour d'une fanfare, porté sur le ventre et frappé d'une mailloche, marque le rythme ? » → « Quel est le plus gros tambour d'une fanfare, porté sur le ventre et frappé d'une mailloche pour marquer le rythme ? » — L'intitulé « Quel plus gros tambour » est mal construit : il est reformulé sans changer le fait ni la réponse.
 - reclassée [mh7wi8t3] (Musique › instruments) « Combien de cordes compte une harpe de concert à pédales ? » → 47 — etiquettes : « calcul » → «  » — Étiquette calcul injustifiée : aucune opération n'est nécessaire, le nombre de cordes se sait ou ne se sait pas.
 - reclassée [ou494k06] (Musique › instruments) « De quel instrument moderne la sacqueboute de la Renaissance est-elle l'ancêtre ? » → Le trombone — etiquettes : « etymologie » → «  » — Étiquette etymologie injustifiée : la question porte sur la filiation de l'instrument, pas sur l'origine d'un mot. L'étymologie n'apparaît que dans l'anecdote.
-- corrigée [ziuiyuue] (Musique › instruments) « En quelle année Adolphe Sax a-t-il fait breveter le saxophone ? » → 1846 — difficulte : « 2 » → « 4 » — Difficulté sous-estimée : l'année exacte du brevet (1846) est peu connue du grand public, d4 plutôt que d2.
-- corrigée [4ayqc437] (Musique › instruments) « Combien de touches compte chacun des deux claviers d'un orgue Hammond B-3 ? » → 61 touches — difficulte : « 3 » → « 5 » — Difficulté sous-estimée : le nombre de touches d'un manuel d'orgue Hammond B-3 est un savoir de spécialiste, d5 plutôt que d3.
-- corrigée [ii2fqc35] (Musique › instruments) « Quelle est la longueur, en mètres, d'un piano à queue de concert Steinway modèle D ? » → 2,74 m — difficulte : « 2 » → « 4 » — La longueur exacte d'un Steinway D (2,74 m) est une donnée de spécialiste : peu de joueurs la connaissent. La difficulté passe de 2 à 4.
 - corrigée [g5w56qht] (Musique › instruments) « En quelle année la maison de pianos Steinway & Sons a-t-elle été fondée à New York ? » → 1853 — anecdote : « Son fondateur, Heinrich Steinweg, avait quitté l'Allemagne en changeant son nom en Steinway. » → « Son fondateur, Heinrich Steinweg, avait émigré d'Allemagne en 1850 ; la famille a ensuite anglicisé son nom en Steinway. » — L'anecdote est imprécise : Steinweg n'a pas changé de nom en quittant l'Allemagne. Le nom Steinway n'a été officiellement adopté par la famille qu'en 1864, après son émigration.
 - corrigée [sftnx2u0] (Arts & lettres › litterature-fr) « Quelle autrice, née en Russie, a écrit Les Malheurs de Sophie, paru en 1858 ? » → La comtesse de Ségur — explication : « La comtesse de Ségur, née à Saint-Pétersbourg, est l'autrice des Malheurs de Sophie et de Sophie, Camille et Madeleine. » → « La comtesse de Ségur, née à Saint-Pétersbourg, est l'autrice des Malheurs de Sophie et des Petites Filles modèles. » — Aucun livre de la comtesse de Ségur ne s'intitule « Sophie, Camille et Madeleine ». Ces trois personnages sont ceux des Petites Filles modèles.
 - reclassée [84vuldax] (Arts & lettres › litterature-fr) « Quel est le véritable nom de l'écrivain connu sous le pseudonyme de Stendhal ? » → Henri Beyle — etiquettes : « etymologie » → «  » — La question demande le vrai nom de l'auteur, pas l'origine d'un mot ou d'un nom. Seule l'anecdote parle de l'origine du pseudonyme : l'étiquette etymologie ne s'applique pas.
@@ -8838,8 +8699,7 @@
 - reclassée [39djxynn] (Arts & lettres › litterature-monde) « Qui a écrit « Le Gai Savoir », livre philosophique paru en 1882 ? » → Friedrich Nietzsche — categorie : « Arts & lettres » → « Arts & lettres » ; sousTheme : « litterature-monde » → « philo » ; etiquettes : «  » → «  » — La question porte sur un ouvrage de philosophie de Nietzsche : le sous-thème est philo.
 - corrigée [bekgdt46] (Arts & lettres › litterature-monde) « Qui a écrit le roman « Demian », paru en 1919 ? » → Hermann Hesse — anecdote : « Le livre fut d'abord publié sous un pseudonyme, et l'auteur ne le signa de son vrai nom que quelques années plus tard. » → « Le livre fut d'abord publié sous le pseudonyme d'Emil Sinclair, et l'auteur n'en reconnut la paternité que l'année suivante. » — Hesse a reconnu être l'auteur de Demian dès 1920, soit l'année suivant la parution, et non « quelques années plus tard ».
 - corrigée [pcaleidn] (Arts & lettres › litterature-monde) « En combien d'épisodes James Joyce divise-t-il son roman Ulysse ? » → 18 — anecdote : « Les épisodes répondent aux chants de l'Odyssée, d'où le titre, forme latine du nom d'Ulysse. » → « Les épisodes répondent aux chants de l'Odyssée, d'où le titre : Ulysses est la forme latine du nom d'Odysseus. » — L'anecdote parle de la « forme latine du nom d'Ulysse », ce qui est circulaire : Ulysses est la forme latine du grec Odysseus.
-- corrigée [cpdsc1sh] (Arts & lettres › litterature-monde) « Combien de sonnets compte le recueil publié par Shakespeare en 1609 ? » → 154 — texte : « Combien de sonnets compte le recueil publié par Shakespeare en 1609 ? » → « Combien de sonnets compte le recueil de Shakespeare publié en 1609 ? » ; difficulte : « 2 » → « 4 » — Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4.
-- corrigée [7709mozh] (Arts & lettres › litterature-monde) « Combien de chapitres numérotés compte le roman Moby Dick, sans compter l'épilogue ? » → 135 — difficulte : « 2 » → « 4 » — Le nombre exact de chapitres de Moby Dick est très peu connu : la difficulté passe de d2 à d4.
+- corrigée [cpdsc1sh] (Arts & lettres › litterature-monde) « Combien de sonnets compte le recueil publié par Shakespeare en 1609 ? » → 154 — texte : « Combien de sonnets compte le recueil publié par Shakespeare en 1609 ? » → « Combien de sonnets compte le recueil de Shakespeare publié en 1609 ? » — Le recueil a été publié par l'éditeur Thomas Thorpe, peut-être sans l'aval de Shakespeare. Le chiffre exact de 154 est peu connu : la difficulté passe de d2 à d4. — Difficulté laissée à 2 : une question à nombre se note sur ce que la plupart approchent (la consigne des nombres) : sa difficulté reste la sienne, le choix du propriétaire du 13 octobre 2026.
 - corrigée [yy58nh2z] (Arts & lettres › poesie-theatre) « Quel poète sénégalais, premier président de son pays, est aussi le premier Africain élu à l'Académie française, en 1983 ? » → Léopold Sédar Senghor — explication : « Senghor est entré sous la Coupole en 1983 ; Césaire, poète martiniquais, n'y a jamais siégé. » → « Senghor est élu à l'Académie française en 1983 et y est reçu en 1984 ; Césaire, poète martiniquais, n'y a jamais siégé. » — Senghor est élu en 1983 mais n'est reçu sous la Coupole qu'en mars 1984 : « entré sous la Coupole en 1983 » est inexact.
 - corrigée [a60moypq] (Arts & lettres › poesie-theatre) « Quel maître japonais du XVIIe siècle est célèbre pour son haïku du vieil étang où plonge une grenouille ? » → Matsuo Bashō — explication : « Le poème de la grenouille est le plus célèbre de Bashō ; Issa et Buson vivent au XVIIIe siècle, Shiki au XIXe. » → « Le poème de la grenouille est le plus célèbre de Bashō ; Buson vit au XVIIIe siècle, Issa entre le XVIIIe et le XIXe, et Shiki à la fin du XIXe. » — Issa (1763-1828) a vécu une grande partie de sa vie au XIXe siècle : il ne vit pas seulement au XVIIIe.
 - corrigée [9yc2wzn6] (Arts & lettres › poesie-theatre) « Quel poète publie en 1668 les six premiers livres de ses Fables ? » → Jean de La Fontaine — difficulte : « 3 » → « 1 » — Presque tous les adultes associent les Fables à La Fontaine : d3 est surestimé de deux crans.
@@ -8869,8 +8729,7 @@
 - corrigée [bq9kt930] (Arts & lettres › peinture) « Qui a peint en 1888 « Les Roses d'Héliogabale », scène antique où des pétales tombent sur les convives ? » → Lawrence Alma-Tadema — anecdote : « Selon l'Histoire Auguste, l'empereur romain Héliogabale fit étouffer ses invités sous une pluie de pétales de roses lors d'un banquet. » → « Selon l'Histoire Auguste, l'empereur romain Héliogabale fit étouffer des convives sous une avalanche de violettes et d'autres fleurs lors d'un banquet ; le peintre en a fait une pluie de pétales de roses. » — L'Histoire Auguste parle de violettes et d'autres fleurs, pas de roses : les roses sont le choix du peintre.
 - corrigée [gzt4uqgb] (Arts & lettres › peinture) « Qui a peint « Les Poseuses », grand tableau de 1886 conservé à la Fondation Barnes ? » → Georges Seurat — texte : « Qui a peint « Les Poseuses », grand tableau de 1886 conservé à la Fondation Barnes ? » → « Qui a peint « Les Poseuses », grand tableau achevé en 1888 et conservé à la Fondation Barnes ? » — Les Poseuses ont été peintes de 1886 à 1888. Ce n'est pas un tableau de 1886.
 - corrigée [pgls36mu] (Arts & lettres › peinture) « Qui a peint « Autoportrait à l'oreille bandée », tableau de janvier 1889 ? » → Vincent van Gogh — difficulte : « 4 » → « 2 » — L'oreille bandée désigne Van Gogh pour presque tout le monde : la question est bien plus facile que d4.
-- retirée [dkiy8nmv] (Arts & lettres › peinture) « Qui a peint « Jeunes Filles au piano », version de 1892 conservée au musée d'Orsay ? » → Auguste Renoir — sa correction (anecdote, explication, difficulte) est refusée par le juge : anecdote de plus de 280 caractères — La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue.
-- corrigée [29jwbm6r] (Arts & lettres › peinture) « Quelle est la largeur, en mètres, de la toile Guernica de Picasso ? » → 7,76 m — difficulte : « 2 » → « 4 » — La largeur exacte de Guernica, 7,76 m, est connue de très peu de joueurs, et le leurre 3,49 m est sa hauteur réelle. La difficulté d2 est trop basse de deux crans au moins, d'autant que la hauteur de la Joconde, plus connue, est estimée d3.
+- corrigée [dkiy8nmv] (Arts & lettres › peinture) « Qui a peint « Jeunes Filles au piano », version de 1892 conservée au musée d'Orsay ? » → Auguste Renoir — anecdote : « L'État français a commandé un tableau à ce peintre en 1891 ; il en a réalisé plusieurs versions très proches, et celle d'Orsay fut achetée par l'État. » → « Commandé de façon informelle par les Beaux-Arts, à l'instigation de Mallarmé et de Roger Marx, le tableau a été acheté par l'État en 1892 : c'était le premier Renoir à entrer dans un musée national. » ; explication : « Cette scène d'intérieur est d'Auguste Renoir, dans sa période plus linéaire des années 1890. » → « Cette scène d'intérieur est d'Auguste Renoir. Elle a été peinte en 1892, pendant sa « période nacrée », où il revient à une facture plus souple après sa période dite « ingresque ». » ; difficulte : « 5 » → « 3 » — La bonne réponse (Renoir) est confirmée et les autres choix sont faux. Mais aucune source ne date la commande de 1891 : POP et Orsay indiquent une commande de la direction des Beaux-Arts suivie d'un achat en 1892 (2 mai 1892, 4 000 F ; arrêté du 21/09/1892). L'expression « période plus linéaire » est inexacte : c'est la période nacrée. La difficulté 5 est trop élevée pour une œuvre aussi connue. — Anecdote raccourcie à la main sous les 280 caractères que le juge permet. (sources : https://pop.culture.gouv.fr/notice/joconde/000PE004063 ; https://www.musee-orsay.fr/en/artworks/jeunes-filles-au-piano-1164 ; https://en.wikipedia.org/wiki/Girls_at_the_Piano)
 - reclassée [7d6yzy12] (Arts & lettres › sculpture-archi) « Quel style médiéval, aux murs épais et aux voûtes en plein cintre, précède l'architecture gothique ? » → Le roman — etiquettes : « etymologie » → «  » — La question demande le nom du style, pas l'origine du mot : seule l'anecdote évoque l'étymologie. L'étiquette etymologie ne s'applique donc pas à la lettre.
 - corrigée [335275zo] (Arts & lettres › sculpture-archi) « Quelle sculptrice, élève puis collaboratrice de Rodin, est l'auteure de La Valse et de L'Âge mûr ? » → Camille Claudel — anecdote : « Son frère aîné est l'écrivain Paul Claudel ; un musée de Nogent-sur-Seine porte son nom. » → « Son frère cadet est l'écrivain Paul Claudel ; un musée de Nogent-sur-Seine porte son nom. » — Paul Claudel, né en 1868, est le frère cadet de Camille Claudel, née en 1864, et non son frère aîné.
 - reclassée [lsg3w6jl] (Arts & lettres › sculpture-archi) « Quel ordre de l'architecture grecque se reconnaît à ses chapiteaux ornés de deux volutes en spirale ? » → Ionique — categorie : « Arts & lettres » → « Arts & lettres » ; sousTheme : « sculpture-archi » → « sculpture-archi » ; etiquettes : « etymologie » → «  » — La question porte sur les volutes du chapiteau ionique, pas sur l'origine du mot. Seule l'anecdote parle d'étymologie : l'étiquette etymologie ne s'applique pas.
@@ -8881,7 +8740,6 @@
 - reclassée [ehdin1ra] (Arts & lettres › sculpture-archi) « Quel pont de Londres, aux deux tours gothiques, relève ses deux volets pour laisser passer les bateaux ? » → Tower Bridge — categorie : « Arts & lettres » → « Géographie » ; sousTheme : « sculpture-archi » → « sites » — La réponse est un monument célèbre identifié par sa description : Géographie › sites.
 - reclassée [8mguh1l6] (Arts & lettres › sculpture-archi) « Quel monument parisien, voulu par Napoléon, se dresse au centre de la place de l'Étoile ? » → L'Arc de triomphe — categorie : « Arts & lettres » → « Géographie » ; sousTheme : « sculpture-archi » → « sites » — La réponse est un monument célèbre situé par son emplacement : Géographie › sites.
 - reclassée [tarq2f3j] (Arts & lettres › sculpture-archi) « Quel roi de France a fait construire la Sainte-Chapelle, à Paris, pour abriter de précieuses reliques ? » → Louis IX — categorie : « Arts & lettres » → « Histoire » ; sousTheme : « sculpture-archi » → « pouvoirs » — La réponse est le roi qui a fait bâtir le monument (qui l'a bâti) : Histoire › pouvoirs, et non un savoir d'architecture.
-- corrigée [1bohbsi9] (Arts & lettres › sculpture-archi) « Combien de losanges de verre compte la pyramide du Louvre ? » → 603 — difficulte : « 2 » → « 4 » — Le nombre exact de losanges (603) est un chiffre pointu que peu d'adultes connaissent ; d2 sous-estime nettement la difficulté.
 - reclassée [vhv17z90] (Arts & lettres › philo) « Quelle question Montaigne a-t-il fait graver sur une médaille, résumant son scepticisme ? » → Que sais-je ? — categorie : « Arts & lettres » → « Arts & lettres » ; sousTheme : « philo » → « philo » ; etiquettes : « citation » → «  » — L'étiquette citation ne convient pas. La question donne l'auteur, Montaigne, et demande la phrase. La définition exige l'inverse : citer une phrase et demander qui l'a dite.
 - corrigée [y8kze41c] (Arts & lettres › philo) « Où est inscrite la maxime « Connais-toi toi-même », que Socrate fit sienne ? » → À Delphes — texte : « Où est inscrite la maxime « Connais-toi toi-même », que Socrate fit sienne ? » → « Où était inscrite la maxime « Connais-toi toi-même », que Socrate fit sienne ? » — L'étiquette citation ne convient pas : la question demande un lieu, pas qui a dit la phrase. L'intitulé passe aussi à l'imparfait, car le temple d'Apollon est en ruine.
 - reclassée [y8kze41c] (Arts & lettres › philo) « Où est inscrite la maxime « Connais-toi toi-même », que Socrate fit sienne ? » → À Delphes — categorie : « Arts & lettres » → « Arts & lettres » ; sousTheme : « philo » → « philo » ; etiquettes : « citation » → «  » — L'étiquette citation ne convient pas : la question demande un lieu, pas qui a dit la phrase. L'intitulé passe aussi à l'imparfait, car le temple d'Apollon est en ruine.
@@ -9119,7 +8977,6 @@
 - corrigée [g8ktmt2k] (Jeux & pop culture › jeux-video) « Dans quel jeu vidéo de construction en blocs le héros par défaut s'appelle-t-il Steve ? » → Minecraft — anecdote : « Le jeu propose aussi un second personnage par défaut, nommé Alex. » → « Alex l'a rejoint en 2014 comme second personnage par défaut, puis sept autres personnages par défaut sont arrivés en 2022. » — L'anecdote est périmée : depuis 2022, Minecraft propose neuf apparences par défaut, et non plus seulement Steve et Alex.
 - corrigée [i4lfeqkm] (Jeux & pop culture › jeux-video) « Quel studio français a développé Life is Strange, jeu d'aventure épisodique sorti en 2015 ? » → Dontnod Entertainment — explication : « Life is Strange est l'œuvre du studio français Dontnod, installé près de Paris. » → « Life is Strange est l'œuvre du studio français Dontnod, installé à Paris. » — Le studio est installé à Paris même et non « près de Paris ». L'explication contredisait aussi l'anecdote, qui parle de « studio parisien ».
 - corrigée [ke3uadfb] (Jeux & pop culture › jeux-video) « Combien de mondes compte le Super Mario Bros. original, sorti en 1985 ? » → 8 — anecdote : « Chaque monde se termine par un château, soit trente-deux niveaux au total. » → « Chaque monde s'achève dans un château ; dans les sept premiers, un Toad annonce à Mario que la princesse se trouve dans un autre château. » — Le « soit trente-deux niveaux » de l'anecdote est illogique : un château par monde ne donne pas trente-deux niveaux. Je reformule l'anecdote.
-- corrigée [uw8l3aca] (Jeux & pop culture › jeux-video) « Combien de petites pastilles, énergisants exclus, Pac-Man doit-il manger dans le labyrinthe du jeu d'origine ? » → 240 pastilles — difficulte : « 2 » → « 4 » — Le nombre exact de pastilles (240) est un savoir de spécialiste. La question est cotée d2 alors qu'elle vaut au moins d4.
 - corrigée [a24p29q3] (Jeux & pop culture › jeux-societe) « De quel pays vient le mah-jong, jeu de tuiles à quatre joueurs ? » → La Chine — anecdote : « Le jeu traditionnel se joue avec 144 tuiles et s'est répandu en Occident dans les années 1920. » → « Le jeu s'est répandu en Occident dans les années 1920, où il a connu un véritable engouement. » — L'anecdote donne le nombre de tuiles (144), qui est la réponse d'une autre question de la fiche (j805759u).
 - retirée [o6wmr80a] (Jeux & pop culture › jeux-societe) « Dans quel pays a été mis au point le Rummikub, devenu célèbre dans le monde dans les années 1970 ? » → Israël — Les sources se contredisent sur le lieu de l'invention. Wikipédia (article Ephraim Hertzano) et Unpacked situent l'invention dans la Roumanie communiste des années 1940, avant l'émigration de Hertzano en Palestine mandataire. JTA la situe à Tel-Aviv vers 1950. Le leurre « Roumanie » peut donc être juste, et la date avancée par certains (années 1940) est antérieure à l'État d'Israël. Accessoirement, Wikipédia rapproche le jeu du rami et du mah-jong, pas des dominos. (sources : https://en.wikipedia.org/wiki/Ephraim_Hertzano ; https://en.wikipedia.org/wiki/Rummikub ; https://www.jta.org/archive/behind-the-headlines-from-romania-to-israel-to-the-rhine-rummikub-makes-waves-among-devoted ; https://unpacked.media/the-jewish-history-of-rummikub-how-an-israeli-entrepreneur-created-an-international-sensation/ ; https://rummikub.com/newsroom/)
 - corrigée [ztrjcbi4] (Jeux & pop culture › jeux-societe) « Quel est le grade le plus élevé du jeu de stratégie Stratego, Drapeau mis à part ? » → Maréchal — anecdote : « Seul l'Espion peut le battre, mais s'il l'attaque le premier. » → « L'Espion peut le battre, à condition d'attaquer le premier ; un Maréchal qui attaque une Bombe est lui aussi éliminé. » — L'anecdote dit que seul l'Espion peut battre le Maréchal. C'est faux : une Bombe l'élimine aussi quand il l'attaque.
@@ -9134,7 +8991,6 @@
 - corrigée [g450kgde] (Jeux & pop culture › jouets) « Quel jeu de cour consiste à sauter par-dessus le dos d'un camarade penché en avant ? » → Le saute-mouton — texte : « Quel jeu de cour consiste à sauter par-dessus le dos d'un camarade penché en avant ? » → « Quel jeu de cour consiste à franchir d'un bond le dos d'un camarade penché en avant ? » — Le verbe « sauter » soufflait « saute-mouton ».
 - corrigée [nb47tcwz] (Jeux & pop culture › jouets) « Dinky Toys, voitures miniatures en métal lancées en 1934, sont produites par quelle marque de jeu de construction ? » → Meccano — texte : « Dinky Toys, voitures miniatures en métal lancées en 1934, sont produites par quelle marque de jeu de construction ? » → « Les Dinky Toys, voitures miniatures en métal lancées en 1934, étaient produites par quelle marque de jeu de construction ? » — Meccano Ltd a fermé en 1979 et la marque Dinky a changé de mains depuis : le présent est inexact.
 - corrigée [dozxnov9] (Jeux & pop culture › jouets) « Quel jouet traditionnel de l'Erzgebirge, en bois peint, représente un soldat à grande mâchoire ? » → Un casse-noisettes — anecdote : « Il a inspiré le ballet de Tchaïkovski, Casse-noisette, créé en 1892. » → « Un casse-noisettes est le héros du conte d'Hoffmann dont Tchaïkovski a tiré son ballet Casse-noisette, créé en 1892. » — Ce n'est pas le jouet de l'Erzgebirge qui a directement inspiré le ballet : celui-ci vient du conte d'Hoffmann (1816), via l'adaptation de Dumas.
-- corrigée [9hcoa5nv] (Jeux & pop culture › jouets) « En quelle année Wham-O a-t-elle rebaptisé son disque volant « Frisbee » ? » → 1957 — difficulte : « 2 » → « 4 » — Donner l'année exacte du changement de nom est une question pointue : la difficulté d2 est trop basse.
 - corrigée [bq5z34bq] (Jeux & pop culture › tele) « Sur quelle chaîne française la première saison de Koh-Lanta a-t-elle été diffusée en 2001 ? » → TF1 — anecdote : « La première saison a été tournée en Malaisie, sur une île où les aventuriers vivaient avec très peu de moyens. » → « La première saison a été tournée en Thaïlande, sur l'île de Ko Lanta, qui a donné son nom à l'émission. » — La première saison de Koh-Lanta a été tournée en Thaïlande, sur l'île de Ko Lanta, et non en Malaisie.
 - corrigée [sjjubazl] (Jeux & pop culture › tele) « Quels oiseaux absurdes, dont la devise est « Pourquoi faire simple quand on peut faire compliqué ? », ont fait rire la télévision française en 1968 ? » → Les Shadoks — anecdote : « Ils étaient diffusés en courts épisodes avant le journal de 20 heures. » → « Lancés le 29 avril 1968 sur la première chaîne de l'ORTF, leurs épisodes ne duraient que deux à trois minutes, et la série a divisé la France entre « shadokophiles » et « shadokophobes ». » — La bonne réponse et les mauvaises réponses tiennent. L'horaire de l'anecdote (« avant le journal de 20 heures ») est contesté : l'INA dit avant, alors que France Bleu et d'autres sources disent après le journal, vers 20 h 30. On garde seulement les faits sûrs : la date de lancement, la chaîne, la durée des épisodes et l'accueil partagé du public. (sources : https://fr.wikipedia.org/wiki/Shadok ; https://fresques.ina.fr/artsonores/fiche-media/InaGrm00017/robert-cohen-solal-les-shadoks.html ; https://www.francebleu.fr/infos/medias-people/il-y-a-50-ans-les-shadoks-commencaient-a-pomper-a-la-television-francaise-1524819433 ; https://chez-jeannette-fleurs.over-blog.com/2020/04/le-29-avril-1968-le-jour-ou-les-shadoks-entrent-en-grande-pompe-a-l-ortf.html)
 - corrigée [ymjvor06] (Jeux & pop culture › tele) « Dans quel pays est produit le feuilleton américain Les Feux de l'amour, diffusé en France depuis des décennies ? » → États-Unis — texte : « Dans quel pays est produit le feuilleton américain Les Feux de l'amour, diffusé en France depuis des décennies ? » → « Dans quel pays est produit le feuilleton Les Feux de l'amour, diffusé en France depuis des décennies ? » — L'intitulé donnait la réponse en qualifiant le feuilleton d'« américain ».
@@ -9172,7 +9028,7 @@
 - reclassée [sg7vhkxl] (Jeux & pop culture › celebrites) « En 2005, quelle navigatrice britannique a battu le record du tour du monde à la voile en solitaire ? » → Ellen MacArthur — categorie : « Jeux & pop culture » → « Sport » ; sousTheme : « celebrites » → « glisse » ; etiquettes : « femmes,record » → « femmes,record » — Le savoir demandé est un record de voile.
 - reclassée [hwm3uq3m] (Jeux & pop culture › celebrites) « Quel pilote autrichien a survécu à un grave accident au Nürburgring en 1976 ? » → Niki Lauda — categorie : « Jeux & pop culture » → « Sport » ; sousTheme : « celebrites » → « mecaniques » ; etiquettes : «  » → «  » — Le savoir demandé est un fait de course de Formule 1.
 - reclassée [spec630r] (Jeux & pop culture › mode) « Quelle marque de sport a pour emblème une virgule stylisée, nommée « swoosh » ? » → Nike — etiquettes : « etymologie » → «  » — L'étiquette etymologie ne convient pas : la question porte sur le logo, pas sur l'origine du nom. L'étymologie n'apparaît que dans l'anecdote.
-- retirée [xcbgochh] (Jeux & pop culture › mode) « Quelle ville du Nord, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? » → Calais — sa correction (texte) est refusée par le juge : la bonne réponse est écrite dans l’intitulé — Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact.
+- corrigée [xcbgochh] (Jeux & pop culture › mode) « Quelle ville du Nord, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? » → Calais — texte : « Quelle ville du Nord, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? » → « Quelle ville du nord de la France, face à l'Angleterre, abrite la Cité internationale de la dentelle et de la mode ? » — Calais n'est pas dans le département du Nord mais dans le Pas-de-Calais. Toutes les réponses proposées se trouvent dans ce département, ce qui rend l'intitulé corrigé exact. — Retouché à la main : « du Pas-de-Calais » écrivait la réponse dans l'intitulé, et le juge l'aurait retirée.
 - corrigée [m0h8yj6j] (Jeux & pop culture › mode) « Quelle marque américaine a lancé en 1937 les lunettes de soleil « aviator », pensées pour les pilotes ? » → Ray-Ban — explication : « Ray-Ban, marque de Bausch & Lomb, a lancé l'Aviator en 1937. » → « Ray-Ban, marque alors détenue par l'Américain Bausch & Lomb, a lancé l'Aviator en 1937. » — L'explication est périmée : Ray-Ban n'appartient plus à Bausch & Lomb depuis 1999, la marque a été rachetée par Luxottica.
 - reclassée [xb5fpsqj] (Jeux & pop culture › mode) « Quelle chaussure de toile à semelle de corde tressée est typique de l'été ? » → Espadrille — etiquettes : «  » → « ete » — L'intitulé nomme l'été (« typique de l'été ») : l'étiquette calendrier « ete » s'applique.
 - corrigée [lqiqqxby] (Jeux & pop culture › mode) « Quel créateur britannique a lancé au début des années 1990 le pantalon « bumster », à la taille très basse ? » → Alexander McQueen — anecdote : « Ce créateur est mort en 2010 ; sa maison, qui porte son nom, a continué sous la direction de Sarah Burton. » → « Ce créateur est mort en 2010 ; sa maison, qui porte son nom, a continué sous la direction de Sarah Burton jusqu'en 2023. » — Sarah Burton a quitté la maison McQueen en 2023, remplacée par Seán McGirr : l'anecdote laissait croire qu'elle la dirige encore.
@@ -9242,7 +9098,6 @@
 - reclassée [jes8x9xs] (Autour de la fête › nouvel-an) « Quel nom porte la bulle de 1582 par laquelle le pape Grégoire XIII a instauré son calendrier ? » → Inter gravissimas — categorie : « Autour de la fête » → « Culture générale » ; sousTheme : « nouvel-an » → « mesures » — La réforme grégorienne du calendrier relève de Culture générale (mesures).
 - reclassée [yb7zfsa9] (Autour de la fête › nouvel-an) « En quelle année s'est tenu, à Vienne, le tout premier concert du Nouvel An de l'orchestre philharmonique ? » → 1939 — etiquettes : « premiere,nouvel-an » → « premiere » — L'étiquette nouvel-an répète le sous-thème.
 - reclassée [odkk5suy] (Autour de la fête › nouvel-an) « Combien de jours a compté l'année 46 av. J.-C., allongée par César avant la réforme de son calendrier ? » → 445 jours — categorie : « Autour de la fête » → « Culture générale » ; sousTheme : « nouvel-an » → « mesures » — La réforme julienne du calendrier relève de Culture générale (mesures).
-- corrigée [kn9tar4l] (Autour de la fête › nouvel-an) « En quelle année a été diffusé le premier grand gala télévisé de la fête du Printemps, rendez-vous du Nouvel An chinois ? » → 1983 — difficulte : « 2 » → « 4 » — La date du premier gala de CCTV est très peu connue d'un public français : d2 sous-estime nettement la difficulté.
 - reclassée [3dsg7ku4] (Autour de la fête › nouvel-an) « Combien de jours séparent, entre 1900 et 2099, une date du calendrier julien de la même date du calendrier grégorien ? » → 13 jours — categorie : « Autour de la fête » → « Culture générale » ; sousTheme : « nouvel-an » → « mesures » — L'écart entre calendriers julien et grégorien relève de Culture générale (mesures).
 - reclassée [tk2ke5a7] (Autour de la fête › halloween) « À quelle date fête-t-on Halloween ? » → Le 31 octobre — etiquettes : « halloween » → «  » — L'étiquette halloween répète le sous-thème.
 - reclassée [rw7kz225] (Autour de la fête › halloween) « Quel duo de couleurs domine la décoration d'Halloween ? » → Orange et noir — etiquettes : « halloween » → «  » — L'étiquette halloween répète le sous-thème.
@@ -9283,8 +9138,6 @@
 - corrigée [q84qh1pp] (Autour de la fête › traditions) « Quel pain sucré, décoré de bandes de pâte figurant des os, prépare-t-on pour le Día de Muertos ? » → Pan de muerto — texte : « Quel pain sucré, décoré de bandes de pâte figurant des os, prépare-t-on pour le Día de Muertos ? » → « Quel pain sucré, décoré de bandes de pâte figurant des os, prépare-t-on au Mexique début novembre pour honorer les défunts ? » — Racine commune : « Día de Muertos » dans l'intitulé souffle « Pan de muerto ».
 - corrigée [c6u1vsdb] (Autour de la fête › traditions) « Dans quelle ville suisse brûle-t-on le Böögg, bonhomme de neige en ouate, pour la fête du Sechseläuten ? » → Zurich — anecdote : « Plus le Böögg met de temps à exploser, plus l'été sera beau, dit-on. » → « Plus la tête du Böögg explose vite, plus l'été sera beau, dit-on. » — La croyance est inversée : selon la tradition zurichoise, une explosion rapide annonce un bel été.
 - reclassée [e8tq89pa] (Autour de la fête › traditions) « En quelle année le Mayflower a-t-il quitté l'Angleterre avec les pèlerins fondateurs de Plymouth, en Amérique ? » → 1620 — categorie : « Autour de la fête » → « Histoire » ; sousTheme : « traditions » → « explorations » ; etiquettes : «  » → «  » — La traversée du Mayflower est un événement daté. L'intitulé ne parle d'aucune fête : la question relève d'Histoire › explorations, pas des traditions festives.
-- corrigée [54wtca6i] (Autour de la fête › traditions) « En quelle année a eu lieu à New York le premier défilé de Thanksgiving organisé par les grands magasins Macy's ? » → 1924 — difficulte : « 2 » → « 4 » — L'année du premier défilé Macy's (1924) est très peu connue des adultes français. La difficulté d2 est sous-estimée d'au moins deux crans.
-- corrigée [gntl21km] (Autour de la fête › traditions) « En quelle année a eu lieu à Pasadena, en Californie, le tout premier défilé du Tournoi des Roses, un 1er janvier ? » → 1890 — difficulte : « 2 » → « 4 » — La date du premier Tournoi des Roses de Pasadena (1890) est obscure pour un public français. La difficulté d2 est nettement sous-estimée.
 - corrigée [g2v1rfln] (Autour de la fête › cocktails) « Quel fruit est mixé avec du prosecco dans le bellini, cocktail né au Harry's Bar de Venise ? » → Pêche — explication : « Le bellini associe du prosecco et de la purée de pêche blanche ; l'abricot, plus courant, est le leurre. » → « Le bellini associe du prosecco et de la purée de pêche blanche, dont la teinte rosée fait sa signature. » — L'explication contenait une remarque de rédaction (« l'abricot, plus courant, est le leurre ») qui n'a pas sa place devant le joueur.
 - corrigée [bqvs20pi] (Autour de la fête › cocktails) « Quel ingrédient donne sa mousse blanche au pisco sour ? » → Un blanc d'œuf — texte : « Quel ingrédient donne sa mousse blanche au pisco sour ? » → « Quel ingrédient, battu au shaker, forme la mousse qui coiffe le pisco sour ? » — ⚠ racine : « mousse blanche » soufflait « blanc d'œuf ». L'intitulé est reformulé sans changer le fait.
 - corrigée [l2emwc47] (Autour de la fête › cocktails) « Quel peintre vénitien du XVe siècle a donné son nom au bellini ? » → Giovanni Bellini — texte : « Quel peintre vénitien du XVe siècle a donné son nom au bellini ? » → « Quel peintre vénitien du XVe siècle a donné son nom au cocktail de prosecco et de purée de pêche créé au Harry's Bar de Venise ? » — ⚠ racine : nommer le « bellini » donnait la réponse Giovanni Bellini. L'intitulé décrit désormais le cocktail sans le nommer.

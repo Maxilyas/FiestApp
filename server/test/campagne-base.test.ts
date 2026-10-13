@@ -38,9 +38,16 @@ import { sansAccent } from '../../shared/homonymes'
  * cents aux sous-thèmes maigres du cinéma et des arts — répliques, coulisses,
  * sagas, bande dessinée, philosophie… —, 489 : 10 769. Puis, le même jour,
  * des questions à nombre pour les estimations du quiz tout prêt
- * (`consigne --nombres`), 290 : 11 059.
+ * (`consigne --nombres`), 290 : 11 059. Le 13 octobre 2026, la base relue
+ * en entier une seconde fois, par Opus et sur le crédit de l'API, en a
+ * retiré vingt-deux : neuf doublons d'un fait déjà posé, sept dont un leurre
+ * était juste aussi (un caméléon est un lézard, deux ans de mariage font
+ * les noces de cuir en France), deux autres noces de la liste américaine,
+ * une réponse que l'intitulé soufflait (« le blues grec ») et trois faits
+ * périmés ou que les sources ne départagent pas (les seuils de la confiture
+ * « extra », le krill de la baleine bleue, le berceau du Rummikub) : 11 037.
  */
-const AU_MOINS = 11050
+const AU_MOINS = 11037
 
 const { questions, refusees } = lireLaBase()
 
