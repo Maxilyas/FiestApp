@@ -126,7 +126,7 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
     'La campagneUne série sans fin, ou des portraits à gagner → /campagne',
     'Le quiz du jourDix questions, les mêmes pour tous → /jour',
     // Sous le quiz du jour (le souhait du propriétaire du 11 octobre 2026) : défier un joueur, sorti de la campagne.
-    'Les duelsDéfie qui tu veux, ou un joueur au hasard\u00a0: monte de ligue → /duels',
+    'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
     'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
     'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
   ]

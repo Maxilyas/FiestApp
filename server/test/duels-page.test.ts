@@ -228,18 +228,23 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
   assert.doesNotMatch(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), />\s*\{ecran\.(rencontre\.adversaire|contre)\.avatar\}\s*</)
 })
 
-// Le souhait du propriétaire du 13 octobre 2026 : le dé « tout le temps
-// disponible ». Il ne paraissait que s'il restait une série d'un autre à
-// affronter ; quand il n'y en a plus, c'est Automate, l'adversaire simulé —
-// le dé n'a plus de raison de disparaître, ni la page de le demander.
-test('le dé est toujours là, à côté de « Défier »', async () => {
+// Les souhaits du propriétaire du 13 octobre 2026 : le dé « tout le temps
+// disponible » — il ne paraissait que s'il restait une série d'un autre à
+// affronter —, puis contre Automate seulement — la série d'un ami qui n'était
+// pas là, sous son profil, « c'est trompeur ». Il se dit pour ce qu'il est.
+test('le dé est toujours là, à côté de « Défier », et se dit contre Automate', async () => {
   const page = readFileSync(client('views/Duels.tsx'), 'utf8')
   assert.match(page, /Défier\s*<\/button>\s*<button\s+type="button"\s+className="duels-hasard"/, 'jamais sous une condition')
   assert.doesNotMatch(readFileSync(client('../../shared/duels.ts'), 'utf8'), /auHasard/)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const { DuelsEnChemin } = await import(client('views/Duels.tsx').href)
-  assert.match(renderToStaticMarkup(React.createElement(DuelsEnChemin)), /class="duels-hasard" aria-label="Un adversaire au hasard"/)
-  // Et ce qu'il est se dit : un adversaire simulé, de son niveau — dans les règles et pendant la partie.
-  assert.match(page, /Toutes affrontées, c’est Automate : un adversaire simulé/)
-  assert.match(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), /ecran\.rencontre\.adversaire\.simule && <span className="muted small">simulé, de ton niveau<\/span>/)
+  const { DuelsEnChemin, CommentCaMarche } = await import(client('views/Duels.tsx').href)
+  assert.match(renderToStaticMarkup(React.createElement(DuelsEnChemin)), /class="duels-hasard" aria-label="Un duel contre Automate"/)
+  // Ce qu'il est se dit : un adversaire simulé, de son niveau — dans les règles, pendant la partie, après elle.
+  const regles = renderToStaticMarkup(React.createElement(CommentCaMarche))
+  assert.match(regles, /Pressé\s\? Le dé\s: Automate, tout de suite — un adversaire simulé, qui joue comme un joueur de ton niveau/)
+  assert.doesNotMatch(regles, /la série d’un joueur|Toutes affrontées/, 'plus la série d’un autre')
+  const partie = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(partie, /ecran\.rencontre\.adversaire\.simule && <span className="muted small">simulé, de ton niveau<\/span>/)
+  assert.match(partie, /\{ texte: 'Un autre duel', icone: 'dice', onClick: \(\) => void uneAutreRencontre\(\) \}/)
+  assert.doesNotMatch(partie + page, /Un autre adversaire|Un adversaire au hasard/)
 })

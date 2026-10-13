@@ -207,7 +207,7 @@ export function phraseDuVerdict(v: VerdictVu): string {
  * voir — sur la victoire ou la défaite, les deux scores, et ce que le duel a
  * fait à sa cote, sa ligue et sa place. Revue, elle arrive ouverte ; touchée,
  * elle se retourne encore. Dessous, sa semaine, le geste d'après en or — la
- * revanche, un autre adversaire —, l'accueil et ses réponses. La croix ramène
+ * revanche, ou un autre duel au dé —, l'accueil et ses réponses. La croix ramène
  * à ses duels.
  */
 export function VerdictDuDuel({
@@ -227,7 +227,7 @@ export function VerdictDuDuel({
   dos: string
   /** Un résultat qu'il découvre : la carte arrive scellée, puis se retourne. */
   aRetourner: boolean
-  /** Le geste d'or : « Revanche », « Un autre adversaire » — rien sans lui. */
+  /** Le geste d'or : « Revanche », « Un autre duel » — rien sans lui. */
   suite?: { texte: string; icone: IconName; onClick: () => void }
   busy?: boolean
   /** Ses réponses et la correction ; absent, déjà ouvertes. */

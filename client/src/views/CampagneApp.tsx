@@ -633,7 +633,7 @@ export function CampagneApp() {
     })
   }
 
-  /** De la fin d'une rencontre à une autre : un autre adversaire, tout de suite. */
+  /** De la fin d'une rencontre à une autre : Automate encore, sur une série neuve, tout de suite. */
   const uneAutreRencontre = async () => {
     if (busy) return
     setBusy(true)
@@ -1234,7 +1234,8 @@ export function CampagneApp() {
                   void relire()
                 },
               }
-            : { texte: 'Un autre adversaire', icone: 'dice', onClick: () => void uneAutreRencontre() }
+            : // Le dé, encore : Automate. « Un autre » adversaire promettait quelqu'un ; « Rejouer contre Automate » touchait le bord du bouton en 360.
+              { texte: 'Un autre duel', icone: 'dice', onClick: () => void uneAutreRencontre() }
         }
         busy={busy}
         onReponses={ecran.correction ? undefined : () => void voirCorrection()}
