@@ -1,0 +1,189 @@
+{
+  "nom": "n1",
+  "nombres": true,
+  "redacteur": "claude-opus-5-5",
+  "lots": [
+    {
+      "id": "msgbatch_01E4A8fzeM6sF2Zy2rY9E8Y2",
+      "envoye": "2026-10-13T17:51:11.389Z",
+      "demandes": [
+        "e-n1-01",
+        "e-n1-02",
+        "e-n1-03",
+        "e-n1-04",
+        "e-n1-05",
+        "e-n1-06",
+        "e-n1-07",
+        "e-n1-08",
+        "e-n1-09",
+        "e-n1-10",
+        "e-n1-11",
+        "e-n1-12",
+        "e-n1-13",
+        "e-n1-14",
+        "e-n1-15",
+        "e-n1-16",
+        "e-n1-17",
+        "e-n1-18",
+        "e-n1-19",
+        "e-n1-20",
+        "e-n1-21",
+        "e-n1-22",
+        "e-n1-23",
+        "e-n1-24",
+        "e-n1-25",
+        "e-n1-26",
+        "e-n1-27",
+        "e-n1-28",
+        "e-n1-29",
+        "e-n1-30",
+        "e-n1-31",
+        "e-n1-32",
+        "e-n1-33",
+        "e-n1-34",
+        "e-n1-35",
+        "e-n1-36",
+        "e-n1-37",
+        "e-n1-38",
+        "e-n1-39",
+        "e-n1-40",
+        "e-n1-41",
+        "e-n1-42",
+        "e-n1-43"
+      ]
+    }
+  ],
+  "cibles": {
+    "e-n1-01": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-01.json"
+    },
+    "e-n1-02": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-02.json"
+    },
+    "e-n1-03": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-03.json"
+    },
+    "e-n1-04": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-04.json"
+    },
+    "e-n1-05": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-05.json"
+    },
+    "e-n1-06": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-06.json"
+    },
+    "e-n1-07": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-07.json"
+    },
+    "e-n1-08": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-08.json"
+    },
+    "e-n1-09": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-09.json"
+    },
+    "e-n1-10": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-10.json"
+    },
+    "e-n1-11": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-11.json"
+    },
+    "e-n1-12": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-12.json"
+    },
+    "e-n1-13": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-13.json"
+    },
+    "e-n1-14": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-14.json"
+    },
+    "e-n1-15": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-15.json"
+    },
+    "e-n1-16": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-16.json"
+    },
+    "e-n1-17": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-17.json"
+    },
+    "e-n1-18": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-18.json"
+    },
+    "e-n1-19": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-19.json"
+    },
+    "e-n1-20": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-20.json"
+    },
+    "e-n1-21": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-21.json"
+    },
+    "e-n1-22": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-22.json"
+    },
+    "e-n1-23": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-23.json"
+    },
+    "e-n1-24": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-24.json"
+    },
+    "e-n1-25": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-25.json"
+    },
+    "e-n1-26": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-26.json"
+    },
+    "e-n1-27": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-27.json"
+    },
+    "e-n1-28": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-28.json"
+    },
+    "e-n1-29": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-29.json"
+    },
+    "e-n1-30": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-30.json"
+    },
+    "e-n1-31": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-31.json"
+    },
+    "e-n1-32": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-32.json"
+    },
+    "e-n1-33": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-33.json"
+    },
+    "e-n1-34": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-34.json"
+    },
+    "e-n1-35": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-35.json"
+    },
+    "e-n1-36": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-36.json"
+    },
+    "e-n1-37": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-37.json"
+    },
+    "e-n1-38": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-38.json"
+    },
+    "e-n1-39": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-39.json"
+    },
+    "e-n1-40": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-40.json"
+    },
+    "e-n1-41": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-41.json"
+    },
+    "e-n1-42": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-42.json"
+    },
+    "e-n1-43": {
+      "lot": "/home/user/FiestApp/.lots-campagne/n1-43.json"
+    }
+  },
+  "tours": {},
+  "essais": {}
+}
