@@ -219,9 +219,9 @@ try {
   // troisième faute à la huitième question —, Léa le trouve dans ses duels.
   await jouerParLAPI(tom, await nouvelleSerie(tom), [true, true, true, true, true, false, false, false])
   await ouvrir('/duels')
-  await page.waitForSelector('.duels-ligues-liste')
+  await page.waitForSelector('.duels-cadran-point')
   await photo('10-trouver-un-adversaire')
-  await page.click('text=Un adversaire au hasard')
+  await page.getByRole('button', { name: 'Un adversaire au hasard' }).click()
   await repondre(true)
   await photo('11-rencontre-reponse')
   // Une faute à la quatrième ; la bonne réponse qui dépasse les cinq de Tom la gagne, et la finit.
@@ -233,13 +233,14 @@ try {
     if (i === 3) await photo('12-rencontre-ratee')
   }
   await page.click('text=Voir qui a gagné')
-  await page.waitForSelector('.rencontre-final')
+  // La carte du verdict arrive scellée, puis se retourne d'elle-même.
+  await page.waitForSelector('.duels-carte3d.ouverte')
+  await page.waitForTimeout(400)
   await photo('13-rencontre-gagnee', true)
   await ouvrir('/duels')
-  // « Tes duels joués » sont repliés : ils ne se rendent qu'au dépli (`TesDuelsJoues`).
-  await page.click('.duels-joues summary')
-  await page.waitForSelector('.rencontre-liste')
-  await page.locator('.rencontre-liste').scrollIntoViewIfNeeded()
+  // Ses duels joués : l'onglet « Historique », la forme en barres.
+  await page.getByRole('tab', { name: 'Historique' }).click()
+  await page.waitForSelector('.duels-barres')
   await photo('14-mes-duels')
 
   // 6. Les parcours de thème, sous le carnet dans « Apprendre » : une famille
@@ -293,7 +294,7 @@ try {
     await repondre(false)
   }
   await page.click('text=Voir mon duel')
-  await page.waitForSelector('.duel-parti')
+  await page.waitForSelector('.duels-envoye')
   await photo('22-parti-a-mes-amis', true)
   await entrer(tom)
   // Son accueil le lui dit, sur le bouton des duels.
@@ -301,7 +302,7 @@ try {
   await page.waitForSelector('text=Léa te défie')
   await photo('22a-accueil-defi-recu')
   await ouvrir('/duels')
-  await page.waitForSelector('.duel-recus')
+  await page.waitForSelector('.duels-a-toi')
   await photo('23-defis-recus')
   await page.getByRole('button', { name: /Mes amis/ }).click()
   await page.waitForSelector('.amis-sections .ligne-joueur-ouvrable')

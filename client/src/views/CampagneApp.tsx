@@ -7,7 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { MOT_DE_L_ISSUE, ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
@@ -18,7 +18,7 @@ import { EMBLEME } from '../components/Ecusson'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
@@ -40,6 +40,7 @@ import {
   issueDeRencontre,
   lireCodeDuDuel,
   type Adversaire,
+  type AdversaireEnJeu,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type IssueDeRencontre,
@@ -51,7 +52,7 @@ import {
   type SerieDeCampagne,
 } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
-import type { CoteApresLeDuel, EnjeuDuDuel, JoueurADefier, JoueurCroise } from '../../../shared/duels'
+import { ligueDe, type CoteApresLeDuel, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 
 type Ecran =
   | { e: 'chargement' }
@@ -85,9 +86,13 @@ type Ecran =
       revision?: true
       /** Les questions que cette révision vient de faire apprendre. */
       apprises?: number
-      /** Une rencontre — un duel classé : qui l'on affronte, ses bonnes réponses jusqu'à la question qu'on vient de jouer, et ce qu'elle met en jeu sur sa cote. */
-      rencontre?: { adversaire: Adversaire; sesJustes: number; enjeu?: EnjeuDuDuel }
-      /** Un duel contre quelqu'un : qui l'on affronte, son score à battre s'il l'a joué, et ce qui se joue sur sa cote. */
+      /**
+       * Une rencontre — un duel classé : qui l'on affronte, ses bonnes réponses
+       * jusqu'à la question qu'on vient de jouer, et ce qu'elle met en jeu sur sa
+       * cote. Son score entier attend la dernière réponse.
+       */
+      rencontre?: { adversaire: AdversaireEnJeu; sesJustes: number; enjeu?: EnjeuDuDuel }
+      /** Un duel contre quelqu'un : qui l'on affronte, s'il a déjà joué, et ce qui se joue sur sa cote. */
       contre?: ContreEnJeu
     }
   | {
@@ -102,10 +107,12 @@ type Ecran =
       erreurs: number
       /** Une révision du carnet : ses questions, ce qu'elle a fait apprendre, et le carnet relu. */
       revision?: { total: number; apprises: number; carnet: EtatDuCarnet | null }
-      /** Une rencontre — ou un duel contre quelqu'un joué des deux côtés : qui l'on affrontait, et qui l'a gagnée. */
+      /** Une rencontre — ou un duel contre quelqu'un joué des deux côtés : qui l'on affrontait, son score entier, et qui l'a gagnée. */
       rencontre?: { adversaire: Adversaire; issue: IssueDeRencontre }
       /** Un duel contre quelqu'un qu'il vient de jouer le premier : il est parti, sa cote bougera quand l'autre l'aura joué. */
       classe?: true
+      /** Un duel contre quelqu'un : qui l'on affrontait, sa ligue et la sienne — les anneaux de sa fin. */
+      enFace?: ContreEnJeu
       /** Un duel contre quelqu'un joué des deux côtés : de quoi en relancer un, contre le même. */
       revanche?: JoueurADefier
       /** Un duel classé : ce qu'il a fait à sa cote, à sa ligue et à sa semaine. */
@@ -548,13 +555,18 @@ export function CampagneApp() {
         justes: r.justes,
         erreurs: VIES - r.vies,
         ...(ecran.revision && { revision: { total: ecran.total, apprises: ecran.apprises ?? 0, carnet: r.carnet ?? null } }),
-        ...(ecran.rencontre && r.rencontre?.issue && { rencontre: { adversaire: ecran.rencontre.adversaire, issue: r.rencontre.issue } }),
+        // Son score entier arrive avec la dernière réponse (`enTout`) : la carte du verdict le retourne.
+        ...(ecran.rencontre &&
+          r.rencontre?.issue && {
+            rencontre: { adversaire: { ...ecran.rencontre.adversaire, justes: r.rencontre.enTout ?? r.rencontre.sesJustes }, issue: r.rencontre.issue },
+          }),
         // Un duel contre quelqu'un, joué le second : sa fin se lit comme celle d'une rencontre — les deux scores, qui l'a gagné.
         ...(r.contre && {
           rencontre: { adversaire: r.contre, issue: issueDeRencontre(r.justes, r.contre.justes) },
           ...(r.contre.profileId && { revanche: { profileId: r.contre.profileId, nom: r.contre.nom, avatar: r.contre.avatar } }),
         }),
         ...(r.classe && { classe: true as const }),
+        ...(ecran.contre && { enFace: ecran.contre }),
         ...(r.duel && { cote: r.duel }),
         record: !!r.record,
         recordAvant: r.recordAvant ?? null,
@@ -808,7 +820,9 @@ export function CampagneApp() {
         setMode('duels')
         setContreQui(null)
       }
-      jouerLeDuel(serie, code, true, { nom: adversaire.nom, avatar: adversaire.avatar, justes: null, ...(enJeu && { enjeu: enJeu }) })
+      // Sa ligue et la sienne — s'ils ont fini un duel classé — : les deux anneaux de « Duel envoyé ».
+      const moi = depart.moi && depart.moi.joues > 0 ? { maLigue: ligueDe(depart.moi.cote).cle } : null
+      jouerLeDuel(serie, code, true, { nom: adversaire.nom, avatar: adversaire.avatar, ...(adversaire.ligue && { ligue: adversaire.ligue }), ...moi, ...(enJeu && { enjeu: enJeu }) })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -940,7 +954,7 @@ export function CampagneApp() {
     if (mode === 'duel' && codeDuDuel) {
       return (
         <>
-          <laPageDesDuels.PageDuDuel key={codeDuDuel} code={codeDuDuel} onRetour={quitterLeDuel} onJouer={jouerLeDuel} />
+          <laPageDesDuels.PageDuDuel key={codeDuDuel} code={codeDuDuel} onRetour={quitterLeDuel} onJouer={jouerLeDuel} onRevanche={j => ouvrirLeLancement(j)} />
           {toastVu}
         </>
       )
@@ -1141,113 +1155,92 @@ export function CampagneApp() {
     )
   }
 
-  if (ecran.e === 'fin' && ecran.rencontre) {
-    const { adversaire, issue } = ecran.rencontre
-    const s = ecran.justes > 1 ? 's' : ''
+  // Ce qu'une fin de duel fait tomber avec elle — hauts faits, légendaires, un niveau — : sous sa carte ou son cadran.
+  // La barre de niveau n'y paraît qu'à une montée : la carte dit déjà ce que le duel a rapporté.
+  const tombeAvecLeDuel = (f: Extract<Ecran, { e: 'fin' }>) => (
+    <>
+      {f.justes > 0 && <BarreDeNiveau seulementSiMonte />}
+      {f.recompenses.length > 0 && (
+        <section className="card campagne-recompenses">
+          {f.recompenses.map(r => (
+            <RecompenseTombee key={r.key} recompense={r} />
+          ))}
+        </section>
+      )}
+      {f.legendaires.map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
+      ))}
+    </>
+  )
+  // La page des duels, d'où il est parti : sans la recharger.
+  const versMesDuels = () => {
+    choisirMode('duels')
+    void relire().catch(() => {})
+  }
+
+  // Un duel joué jusqu'au verdict — au hasard, ou contre quelqu'un qui l'avait joué d'abord : la carte qui se retourne (la maquette C5).
+  if (ecran.e === 'fin' && ecran.rencontre && laPageDesDuels && laPageDesDuels !== 'perdu') {
+    const { adversaire } = ecran.rencontre
+    const fin = ecran
     const voirCorrection = async () => {
       try {
-        setEcranBrut({ ...ecran, correction: await api.campagne.correction(ecran.serie) })
+        setEcranBrut({ ...fin, correction: await api.campagne.correction(fin.serie) })
       } catch (e) {
         setErreur(motifDe(e))
       }
     }
     return (
-      <div className="player-shell campagne">
-        <header className="fin-tete">
-          <span className="label">{`${ecran.duel ? 'Duel classé' : 'Duel'} contre ${adversaire.nom}`}</span>
-          <h1>{issue === 'gagnee' ? 'Gagné !' : issue === 'egalite' ? 'Égalité' : adversaire.justes - ecran.justes <= 2 ? 'Perdu de peu' : 'Perdu'}</h1>
-        </header>
-        <section className={'card result-banner campagne-fin ' + (issue === 'perdue' ? 'result-ko' : 'result-ok')}>
-          {/* Les deux scores, côte à côte : le sien d'abord. */}
-          <p className="rencontre-final" aria-label={scoreDeRencontre(ecran.justes, adversaire)}>
-            <span>
-              <b>{ecran.justes}</b>
-              <span className="muted small">toi</span>
-            </span>
-            <span className="rencontre-contre" aria-hidden="true">
-              –
-            </span>
-            <span>
-              <b>{adversaire.justes}</b>
-              <span className="muted small">{`${adversaire.avatar} ${adversaire.nom}`}</span>
-            </span>
-          </p>
-          <p>{`${MOT_DE_L_ISSUE[issue]} : ${ecran.justes} bonne${s} réponse${s} contre ${adversaire.justes}, sur les mêmes questions.`}</p>
-          {ecran.justes > 0 && (
-            <p className="muted">
-              🎊 +{ecran.justes} confetti{s}
-              {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
-            </p>
-          )}
-        </section>
-        {/* Un duel classé : sa cote, sa ligue, sa semaine — ce pour quoi on l'a joué. */}
-        {ecran.cote && laPageDesDuels && laPageDesDuels !== 'perdu' && <laPageDesDuels.CoteApresLeDuelVue cote={ecran.cote} />}
-        {/* Celles d'un duel contre quelqu'un attendent sa fermeture, comme celles d'un défi. */}
-        {!ecran.defi && ecran.erreurs > 0 && (
-          <p className="muted small centre carnet-rappel">
-            <Icon name="book" /> {ecran.erreurs > 1 ? 'Tes erreurs reviendront' : 'Ton erreur reviendra'} demain dans{' '}
-            <button type="button" className="link-inline" onClick={() => void ouvrirLeCarnet()}>
-              ton carnet de révision
-            </button>
-            .
-          </p>
-        )}
-        {ecran.justes > 0 && <BarreDeNiveau />}
-        {ecran.recompenses.length > 0 && (
-          <section className="card campagne-recompenses">
-            {ecran.recompenses.map(r => (
-              <RecompenseTombee key={r.key} recompense={r} />
-            ))}
-          </section>
-        )}
-        {ecran.legendaires.map(cle => (
-          <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
-        ))}
-        {erreur && <p className="error">{erreur}</p>}
-        {ecran.duel ? (
-          // Joué des deux côtés : on en relance un contre le même, d'un toucher — lui déjà choisi.
-          ecran.revanche && (
-            <button
-              type="button"
-              className="btn btn-primary btn-big btn-block"
-              onClick={() => {
-                ouvrirLeLancement(ecran.revanche)
-                void relire()
-              }}
-            >
-              <Icon name="swords" />
-              {`Revanche contre ${ecran.revanche.nom}`}
-            </button>
-          )
-        ) : (
-          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void uneAutreRencontre()}>
-            <Icon name="swords" />
-            Un autre adversaire
-          </button>
-        )}
-        <div className="row campagne-suite">
-          {!ecran.correction && (
-            <button type="button" className="btn btn-ghost" onClick={() => void voirCorrection()}>
-              Mes réponses
-            </button>
-          )}
-          {/* Le classement, sa ligue, ses amis : la page d'où il est parti. */}
-          <a
-            className="btn btn-ghost"
-            href={PAGE_DES_DUELS}
-            onClick={e => {
-              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
-              e.preventDefault()
-              choisirMode('duels')
-              void relire()
-            }}
-          >
-            <Icon name="trophy" />
-            Les duels
-          </a>
-        </div>
-        {ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
-      </div>
+      <laPageDesDuels.VerdictDuDuel
+        verdict={{
+          quoi: nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories',
+          toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes },
+          lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
+          ...(ecran.cote && {
+            ecart: ecran.cote.ecart,
+            apres: { cote: ecran.cote.apres, ligue: ecran.cote.ligue, ...(ecran.cote.rang !== undefined && { rang: ecran.cote.rang }) },
+            semaine: ecran.cote.semaine,
+          }),
+        }}
+        // Sa carte se retourne à sa dernière réponse : son score, caché jusque-là.
+        dos={`Le score ${deNom(adversaire.nom)}`}
+        aRetourner
+        suite={
+          ecran.duel
+            ? // Joué des deux côtés : on en relance un contre le même, d'un toucher — lui déjà choisi.
+              ecran.revanche && {
+                texte: 'Revanche',
+                icone: 'rotate',
+                onClick: () => {
+                  ouvrirLeLancement(fin.revanche)
+                  void relire()
+                },
+              }
+            : { texte: 'Un autre adversaire', icone: 'dice', onClick: () => void uneAutreRencontre() }
+        }
+        busy={busy}
+        onReponses={ecran.correction ? undefined : () => void voirCorrection()}
+        onFermer={versMesDuels}
+        erreur={erreur}
+        extra={tombeAvecLeDuel(ecran)}
+        apres={ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+      />
+    )
+  }
+
+  // Un duel classé qu'il vient de jouer le premier : parti à l'autre, son score caché (la maquette A3).
+  if (ecran.e === 'fin' && ecran.classe && laPageDesDuels && laPageDesDuels !== 'perdu') {
+    const enFace = ecran.enFace ?? { nom: ecran.partiA?.[0] ?? 'l’autre', avatar: '🎲' }
+    return (
+      <laPageDesDuels.DuelEnvoye
+        quoi={nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories'}
+        justes={ecran.justes}
+        toi={{ avatar: profil?.avatar ?? '🙂', ...(ecran.enFace?.maLigue && { ligue: ecran.enFace.maLigue }) }}
+        lui={{ nom: enFace.nom, avatar: enFace.avatar, ...('ligue' in enFace && enFace.ligue && { ligue: enFace.ligue }) }}
+        confettis={ecran.justes}
+        xp={ecran.xp}
+        extra={tombeAvecLeDuel(ecran)}
+        onMesDuels={versMesDuels}
+      />
     )
   }
 
@@ -1330,7 +1323,7 @@ export function CampagneApp() {
           // L'envoyer d'abord : celui qui vient de le lancer n'a encore défié personne.
           laPageDesDuels &&
           laPageDesDuels !== 'perdu' && (
-            <laPageDesDuels.FinDuDuel code={ecran.duel} justes={ecran.justes} partiA={ecran.partiA} classe={!!ecran.classe} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
+            <laPageDesDuels.FinDuDuel code={ecran.duel} justes={ecran.justes} partiA={ecran.partiA} onClassement={() => void ouvrirLeDuel(ecran.duel!)} />
           )
         ) : ecran.defi ? (
           <>
@@ -1414,24 +1407,24 @@ export function CampagneApp() {
             </>
           )}
         </div>
-        {/* Le face-à-face : les deux scores sur les mêmes questions, et celui d'en face à battre. */}
+        {/* Le face-à-face : les deux scores sur les mêmes questions, au fil des réponses — son score entier se dévoile à la
+            dernière (le souhait du propriétaire du 12 octobre 2026 : « à battre : 8 » se lisait avant la première question). */}
         {ecran.rencontre && (
           <p className="rencontre-score" aria-live="polite">
             <span className="rencontre-adversaire" aria-hidden="true">
               {ecran.rencontre.adversaire.avatar}
             </span>
             <b>{scoreDeRencontre(ecran.justes, ecran.rencontre.adversaire, ecran.rencontre.sesJustes)}</b>
-            <span className="muted small">{`à battre : ${ecran.rencontre.adversaire.justes}`}</span>
           </p>
         )}
-        {/* Un duel contre quelqu'un : son score à battre s'il l'a joué — question par question, on ne sait pas ce qu'il a fait. */}
+        {/* Un duel contre quelqu'un : son score attend sa dernière réponse — question par question, on ne sait pas ce qu'il a fait. */}
         {ecran.contre && (
           <p className="rencontre-score" aria-live="polite">
             <span className="rencontre-adversaire" aria-hidden="true">
               {ecran.contre.avatar}
             </span>
             <b>{`Toi ${ecran.justes}`}</b>
-            <span className="muted small">{ecran.contre.justes !== null ? `à battre : ${ecran.contre.justes}` : `${ecran.contre.nom} jouera après toi`}</span>
+            <span className="muted small">{ecran.contre.aDejaJoue ? 'son score : à ta dernière réponse' : `${ecran.contre.nom} jouera après toi`}</span>
           </p>
         )}
         {/* Ce que le duel met en jeu sur sa cote, dit à chaque question : on sait pour quoi on joue. */}

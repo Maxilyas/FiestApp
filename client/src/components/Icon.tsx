@@ -87,6 +87,12 @@ export type IconName =
   | 'paw'
   | 'planet'
   | 'medal'
+  // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
+  | 'hourglass'
+  | 'infinity'
+  | 'help'
+  | 'heart'
+  | 'spark'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -580,6 +586,21 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
+  // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
+  // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
+  // une vie, et l'étincelle d'un résultat qui attend d'être vu.
+  hourglass: { paths: <path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9" /> },
+  infinity: { paths: <path d="M6.5 15.5a3.5 3.5 0 1 1 0-7c3 0 8 7 11 7a3.5 3.5 0 1 0 0-7c-3 0-8 7-11 7Z" /> },
+  help: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.6-2.8 2.6M12 16.8h.01" />
+      </>
+    ),
+  },
+  heart: { paths: <path d="M12 20.5s-8-4.9-8-11A4.5 4.5 0 0 1 12 6.6 4.5 4.5 0 0 1 20 9.5c0 6.1-8 11-8 11Z" />, filled: true },
+  spark: { paths: <path d="M12 2.5c.6 4.6 2.9 6.9 9.5 9.5-6.6 2.6-8.9 4.9-9.5 9.5-.6-4.6-2.9-6.9-9.5-9.5 6.6-2.6 8.9-4.9 9.5-9.5Z" />, filled: true },
 }
 
 export function Icon({ name, size, className }: { name: IconName; size?: number; className?: string }) {

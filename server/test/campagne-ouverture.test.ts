@@ -317,16 +317,17 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(composer([], { categories: [], sujet: null }), /Cherche un prénom — ou touche un joueur du classement des duels : « Défier » est sur sa carte\./)
   assert.match(composer(null, { categories: [], sujet: null }), /Tes amis arrivent…/)
 
-  // La page des duels : « Défier quelqu'un » en grand — plus de carte à part pour les amis.
+  // La page des duels : « Défier » en grand, le dé à côté (la maquette A1) — plus de carte à part pour les amis.
   const page0 = readFileSync(client('views/Duels.tsx'), 'utf8')
-  assert.match(page0, /Défier quelqu’un\s*<\/button>/)
+  assert.match(page0, /<Icon name="swords" \/>\s*Défier\s*<\/button>/)
   assert.doesNotMatch(page0, /DefierUnAmi/, 'plus de carte à part pour les amis : on défie qui l’on veut')
   // Ses amis, derrière « Mes amis » (le souhait du propriétaire du 11 octobre 2026, le soir : une feuille par-dessus la page) :
   // leur ligue, leur cote, leur place ; chacun ouvre sa carte, où il se défie et se retire ; d'autres s'ajoutent par leur prénom, au même champ.
   const amis = await import(client('views/Amis.tsx').href)
   const liste = renderToStaticMarkup(React.createElement(amis.ListeDesAmis, { cercle: { amis: [tom], tOntAjoute: [] }, texte: '', trouves: null, onOuvrir: () => {} }))
   assert.match(readFileSync(client('views/Amis.tsx'), 'utf8'), /titre=\{cercle && cercle\.amis\.length > 0 \? `Mes amis · \$\{cercle\.amis\.length\}` : 'Mes amis'\}/)
-  assert.match(readFileSync(client('views/Duels.tsx'), 'utf8'), /\{amis \? `Mes amis · \$\{amis\}` : 'Mes amis'\}/)
+  // Sur la page, leur icône en haut (la maquette A1) : la feuille dit combien ils sont.
+  assert.match(readFileSync(client('views/Duels.tsx'), 'utf8'), /<button type="button" className="duels-icone" aria-label="Mes amis" aria-disabled=\{!onAmis \|\| undefined\} onClick=\{onAmis\}>/)
   assert.match(liste, /<span class="muted small">Or · cote 1240 · 3e<\/span>/)
   assert.match(liste, /<button type="button" class="ligne-joueur ligne-joueur-ouvrable" aria-label="La carte de Tom — Or · cote 1240 · 3e">/)
   const gestes = await import(client('components/GestesDuJoueur.tsx').href)
@@ -339,16 +340,34 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(surSaCarte(hugo), /<\/svg>Ajouter à mes amis<\/button>/)
   assert.match(readFileSync(client('views/Amis.tsx'), 'utf8'), /<ChampDUnPrenom libelle="Chercher un ami, ou quelqu’un à ajouter, par son prénom"/)
   // Sa fin dit à qui il est parti — sans promettre une notification qu'ils n'ont peut-être pas voulue.
-  const fin = (partiA: string[], classe = false) =>
-    renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, classe, onClassement: () => {} }))
+  const fin = (partiA: string[]) => renderToStaticMarkup(React.createElement(duel.FinDuDuel, { code: 'K7M2QX', justes: 5, partiA, onClassement: () => {} }))
   assert.match(fin(['Tom', 'Hugo']), /Parti à Tom et Hugo\u00a0: il les attend dans leurs duels, et leur téléphone sonne si leurs notifications sont activées\./)
   assert.match(fin(['Tom']), /Parti à Tom\u00a0: il l’attend dans ses duels, et son téléphone sonne si ses notifications sont activées\./)
   assert.doesNotMatch(fin([]), /Parti à/)
-  // Un duel classé : parti à celui qu'il défie, rien à envoyer à d'autres — ni lien, ni code.
-  const classe = fin(['Tom'], true)
-  assert.match(classe, /Ta cote bougera quand Tom l’aura joué\./)
-  assert.match(classe, /<\/svg>Voir le duel<\/button>/)
-  assert.doesNotMatch(classe, /duel-lien|Envoie ce défi|son code/)
+  // Un duel classé (la maquette A3, choisie par le propriétaire le 12 octobre 2026 : « il manque un bouton pour revenir
+  // à l'accueil ») : « Duel envoyé », son score parti caché chez celui qu'il défie, le verdict quand il l'aura joué —
+  // rien à envoyer à d'autres, ni lien ni code —, puis « Accueil » en or, et ses duels.
+  const envoye = renderToStaticMarkup(
+    React.createElement(duel.DuelEnvoye, {
+      quoi: 'Histoire',
+      justes: 5,
+      toi: { avatar: '🦊', ligue: 'argent' },
+      lui: { nom: 'Tom', avatar: '🐻', ligue: 'platine' },
+      confettis: 5,
+      xp: 50,
+      onMesDuels: () => {},
+    }),
+  )
+  assert.match(envoye, /<p class="duels-surtitre">Duel classé · Histoire<\/p><h1 class="duels-envoye-titre">Duel envoyé<\/h1>/)
+  assert.match(envoye, /<b class="num">5<\/b><span>bonnes réponses<\/span>/)
+  assert.match(envoye, /<span class="duels-anneau ligue-argent" aria-hidden="true">🦊<\/span>.*<span class="duels-anneau ligue-platine en-face" aria-hidden="true">🐻<\/span>/)
+  assert.match(envoye, /Chez Tom, <span>ton score caché<\/span>/)
+  assert.match(envoye, /<\/svg>Verdict quand Tom aura joué<\/p>/)
+  assert.match(envoye, /<a class="btn btn-primary btn-big btn-block btn-duel" href="\/"><svg[^>]*>.*?<\/svg>Accueil<\/a><a class="btn btn-block duels-contour" href="\/duels"><svg[^>]*>.*?<\/svg>Mes duels<\/a>/)
+  assert.doesNotMatch(envoye, /duel-lien|Envoie ce défi|son code|Voir le duel/)
+  const campagne = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(campagne, /if \(ecran\.e === 'fin' && ecran\.classe && laPageDesDuels && laPageDesDuels !== 'perdu'\) \{/)
+  assert.match(campagne, /<laPageDesDuels\.DuelEnvoye\s/)
 
   // La page : `/duels#defier` est son adresse ; « Défier quelqu'un », « Défier » sur la carte d'un joueur — du classement, d'un ami — y mènent ; celui qu'on défie part avec le tirage.
   // La campagne ne le propose plus : défier un joueur a sa page (le souhait du propriétaire du 11 octobre 2026).
@@ -553,6 +572,52 @@ test('sur l’accueil, les duels qu’on lui a envoyés se comptent comme des me
   assert.equal(tout.match(/class="gros-compteur"/g)?.length, 1)
   assert.match(tout, /<span class="pastille-attente">À relever<\/span>/)
   assert.match(tout, /<span class="pastille-attente">À jouer<\/span>/)
+})
+
+// Le retour du propriétaire du 12 octobre 2026 : « on ne sait pas quand
+// quelqu'un a terminé si on a gagné ou pas — pas de popup ou d'indicateur
+// visuel qu'un match est terminé ». La maquette A4, choisie le même jour : la
+// tuile des duels s'allume, son résultat compté en rouge avec les défis reçus,
+// et une bannière tombe en haut de l'accueil, une fois par résultat.
+test('sur l’accueil, le duel qu’il a lancé et que l’autre vient de jouer allume la tuile, compté en rouge, et une bannière tombe une fois', async () => {
+  const module = await import(client('components/AccueilDesRoles.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const bouton = (duels?: object) =>
+    renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, duels }))
+      .split('<a ')
+      .find(x => x.includes('<b>Les duels</b>'))!
+  const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
+  const un = bouton({ ...habitue, resultats: { n: 1, de: 'Hugo', code: 'K7M2QX' } })
+  assert.match(un, /^class="gros-bouton gros-allume" href="\/duels">/)
+  assert.match(un, /<span class="gros-detail">Hugo a joué ton duel<\/span>/)
+  assert.match(un, /<span class="pastille-attente"><span class="pastille-resultat"><svg[^>]*>.*?<\/svg>Résultat<\/span><\/span>/)
+  assert.match(un, /<span class="gros-compteur" aria-hidden="true">1<\/span><span class="sr-only">, un résultat à voir<\/span>/)
+  // Devant les défis reçus — c'est ce qui vient d'arriver —, et compté avec eux.
+  const avecDefis = bouton({ ...habitue, resultats: { n: 2, de: 'Hugo', code: 'K7M2QX' }, defisRecus: { n: 3, de: 'Léa' } })
+  assert.match(avecDefis, /<span class="gros-detail">Hugo et 1 autre ont joué tes duels<\/span>/)
+  assert.match(avecDefis, /<span class="gros-compteur" aria-hidden="true">5<\/span><span class="sr-only">, 2 résultats à voir et 3 défis à relever<\/span>/)
+  assert.equal(module.boutonDesDuels({ ...habitue, resultats: { n: 3, de: 'Hugo', code: 'X' } }).detail, 'Hugo et 2 autres ont joué tes duels')
+  // Rien à voir, rien ne luit : ni la tuile, ni sa pastille.
+  for (const d of [undefined, habitue, { ...habitue, defisRecus: { n: 1, de: 'Léa' } }, { ...habitue, resultats: { n: 0, de: 'Hugo', code: 'X' } }]) {
+    assert.doesNotMatch(bouton(d), /gros-allume|pastille-resultat/, JSON.stringify(d))
+  }
+
+  // La bannière : « Duel terminé », qui l'a joué, et « Voir », qui mène à sa carte du verdict.
+  const vue = renderToStaticMarkup(React.createElement(module.BanniereVue, { resultats: { n: 1, de: 'Hugo', code: 'K7M2QX' } }))
+  assert.match(vue, /^<div class="banniere-duel">/)
+  assert.match(vue, /<b>Duel terminé<\/b><span>Hugo a joué ton duel<\/span><\/span><a class="banniere-duel-voir" href="\/duels#duel-K7M2QX">Voir<\/a>/)
+  // Sa région d'annonce est là, vide, avant elle : une région qui apparaît avec son texte n'est pas toujours lue.
+  assert.equal(
+    renderToStaticMarkup(React.createElement(module.BanniereDuResultat, { resultats: { n: 1, de: 'Hugo', code: 'K7M2QX' } })),
+    '<div class="banniere-duel-annonce" role="status"></div>',
+  )
+  // Hors du flux : vide, posée dans la colonne de l'accueil, elle y ajoutait un écart de plus sous les gros boutons.
+  assert.match(readFileSync(client('styles.css'), 'utf8'), /\.banniere-duel-annonce \{ position: absolute; \}/)
+  // Une fois par résultat, sur ce téléphone — sous try/catch : sans stockage, elle se tait, la tuile reste allumée.
+  const source = readFileSync(client('components/AccueilDesRoles.tsx'), 'utf8')
+  assert.match(source, /if \(!code \|\| dejaAnnonce\(code\)\) return\s*retenirLAnnonce\(code\)/)
+  assert.match(source, /function dejaAnnonce\(code: string\): boolean \{\s*try \{/)
+  assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /<BanniereDuResultat resultats=\{'duels' in profil \? profil\.duels\?\.resultats : undefined\} \/>/)
 })
 
 test('l’accueil d’un profil télécharge en fond le code de la campagne, des duels et du quiz du jour', () => {

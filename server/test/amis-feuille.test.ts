@@ -165,7 +165,7 @@ test('les gestes au pied de la carte : « Défier » en grand, l’ajouter ou le
   for (const page of ['views/Defi.tsx', 'views/Duel.tsx', 'views/Duels.tsx', 'views/Amis.tsx']) assert.match(source(page), /useCarteDUnProfil\(/, page)
 })
 
-test('la page des duels : le classement derrière « Voir le classement », les amis derrière « Mes amis » — et sa place en tête du classement', async () => {
+test('la page des duels : le classement derrière « Tout voir », les amis derrière leur icône — et sa place en tête du classement', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server')
   const { FeuilleDuClassement } = await import(client('views/Duels.tsx').href)
   const ligne = (profileId: string, nom: string, cote: number, ligue: string, rang: number) => ({ profileId, nom, avatar: '🐻', niveau: 3, cote, ligue, rang, duels: 12 })
@@ -180,18 +180,23 @@ test('la page des duels : le classement derrière « Voir le classement », les 
   assert.doesNotMatch(sansLui, /Tu es/)
   assert.match(sansLui, /Un duel joué te place ici, quatre semaines durant\./)
 
-  // La page : deux portes sous « Défier quelqu'un », chacune sa feuille ; plus de classement ni de liste d'amis en entier.
+  // La page (la maquette A1, choisie par le propriétaire le 12 octobre 2026 : « trop de texte en bas ») : trois onglets
+  // sous « Défier » — en cours, historique, classement —, sa place au classement et le podium dans le sien, le
+  // classement entier derrière « Tout voir », ses amis derrière leur icône, en haut ; plus de liste en entier.
   const page = source('views/Duels.tsx')
-  assert.match(page, /<PortesDesDuels amis=\{amis\?\.amis\.length\} onClassement=\{etat \? \(\) => setClassementOuvert\(true\) : undefined\} onAmis=\{feuilleDesAmis\.ouvrir\} \/>/)
-  assert.match(page, /Voir le classement\s*<\/button>/)
+  assert.match(page, /<BarreDesDuels onRegles=\{\(\) => setReglesOuvertes\(true\)\} onAmis=\{feuilleDesAmis\.ouvrir\} \/>/)
+  assert.match(page, /<button type="button" className="duels-icone" aria-label="Mes amis"/)
+  assert.match(page, /<OngletsDesDuels actif=\{onglet\} nouveaux=\{nouveaux\} onChoisir=\{setOnglet\} \/>/)
+  assert.match(page, /<PanneauClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onToutVoir=\{\(\) => setClassementOuvert\(true\)\} \/>/)
+  assert.match(page, /<span className="duels-tout-voir">Tout voir ›<\/span>/)
   assert.match(page, /\{classementOuvert && etat && <FeuilleDuClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>\}/)
-  assert.doesNotMatch(page, /ClassementDesDuelsVue|TesAmis|duels-epee/)
-  assert.doesNotMatch(source('views/Duel.tsx'), /export function TesAmis/)
-  // Le squelette garde la place des portes : rien ne saute quand la page arrive.
-  assert.match(page, /<BoutonsDesDuels busy auHasard reprendre=\{null\}[^/]*\/>\s*<PortesDesDuels \/>/)
-  // Ses duels joués, repliés : ils ne se rendent — ni ses défis d'avant ne se demandent — qu'au dépli.
-  assert.match(page, /\{ouvert && \(\s*<div className="duels-joues-corps">/)
-  assert.match(page, /\{etat\?\.contre && <TesDuelsContre duels=\{etat\.contre\} recus=\{amis\?\.recus \?\? \[\]\} onOuvrir=\{onOuvrirDuel\} \/>\}/, 'ses duels en route restent en vue')
+  assert.doesNotMatch(page, /ClassementDesDuelsVue|TesAmis|duels-epee|PortesDesDuels|TesDuelsJoues|Voir le classement/)
+  assert.doesNotMatch(source('views/Duel.tsx'), /export function (TesAmis|DefisRecus|TesDuelsContre)/)
+  // Le squelette garde la place des onglets : rien ne saute quand la page arrive.
+  assert.match(page, /<BoutonsDesDuels busy auHasard reprendre=\{null\} \/>\s*<OngletsDesDuels actif="cours" nouveaux=\{0\} onChoisir=\{\(\) => \{\}\} \/>/)
+  // Ses duels en route sont l'onglet d'arrivée ; ses duels joués, l'historique — et seul l'onglet ouvert se rend.
+  assert.match(page, /useState<OngletDesDuels>\('cours'\)/)
+  assert.match(page, /onglet === 'cours' \? \(\s*<PanneauEnCours /)
   const { duelEnRoute } = await import(client('views/Duel.tsx').href)
   const duel = { code: 'K7M2QX', contre: { profileId: 't', nom: 'Tom', avatar: '🐻' }, lance: true, justes: 5, sesJustes: null, minutesRestantes: 60 }
   assert.equal(duelEnRoute(duel), true, 'à l’autre de jouer : en route')

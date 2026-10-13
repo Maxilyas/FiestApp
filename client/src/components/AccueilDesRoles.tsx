@@ -1,8 +1,9 @@
-import { type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { GrosBouton } from './Pieces'
 import { LienConsole } from './LienConsole'
 import { spacePath } from '../routes'
+import { PAGE_DES_DUELS, adresseDuDuel } from '../views/adressesDesDuels'
 import type { PublicSpace } from '../../../shared/space'
 import { jourDe, type CarriereDuJour } from '../../../shared/jour'
 import { espacesFines } from '../format'
@@ -114,15 +115,31 @@ function boutonDuDefi(d: DefiDAccueil): { detail: string; href: string; pastille
   }
 }
 
+/** « un résultat à voir », « 3 défis à relever » : ce que compte le chiffre rouge, pour l'oreille. */
+const aVoir = (n: number) => (n > 9 ? 'plus de 9 résultats à voir' : n > 1 ? `${n} résultats à voir` : 'un résultat à voir')
+const aRelever = (n: number) => (n > 9 ? 'plus de 9 défis à relever' : n > 1 ? `${n} défis à relever` : 'un défi à relever')
+
 /**
  * Le bouton des duels (le souhait du propriétaire du 11 octobre 2026 : une
- * tuile de l'accueil sous le quiz du jour) : un duel qu'on lui a envoyé
- * passe devant — qui le défie, et combien l'attendent, en rouge —, puis son
- * duel laissé en route ; sinon sa ligue, sa cote et ce qui manque à sa
+ * tuile de l'accueil sous le quiz du jour) : un duel qu'il a lancé et que
+ * l'autre vient de jouer passe devant — la tuile s'allume, « X a joué ton
+ * duel » (la maquette A4, choisie par le propriétaire le 12 octobre 2026 :
+ * « on ne sait pas quand quelqu'un a terminé si on a gagné ou pas ») —, puis
+ * un duel qu'on lui a envoyé — qui le défie —, tous comptés en rouge, puis
+ * son duel laissé en route ; sinon sa ligue, sa cote et ce qui manque à sa
  * récompense de lundi — ou ce qu'elle rapportera. Avant son premier duel, ce
  * qu'on y fait.
  */
-export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; compteur?: { n: number; label: string } } {
+export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; compteur?: { n: number; label: string }; allume?: true } {
+  if (d?.resultats && d.resultats.n > 0) {
+    const { n, de } = d.resultats
+    const recus = d.defisRecus?.n ?? 0
+    return {
+      detail: espacesFines(n > 1 ? `${de} et ${n - 1} autre${n > 2 ? 's' : ''} ont joué tes duels` : `${de} a joué ton duel`),
+      compteur: { n: n + recus, label: recus > 0 ? `${aVoir(n)} et ${aRelever(recus)}` : aVoir(n) },
+      allume: true,
+    }
+  }
   if (d?.defisRecus && d.defisRecus.n > 0) {
     const { n } = d.defisRecus
     const autres = n - 1
@@ -132,7 +149,7 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; 
       // Blanc sur rouge, en haut à droite, comme des messages qui attendent (le souhait du propriétaire du 12 octobre
       // 2026) : la pastille dorée « 3 défis » se fondait parmi « À relever » et « À jouer », sur les boutons du dessus.
       // Le serveur n'en lit que dix (`DEFIS_RECUS_MONTRES`) : passé neuf, il peut y en avoir plus.
-      compteur: { n, label: n > 9 ? 'plus de 9 défis à relever' : n > 1 ? `${n} défis à relever` : 'un défi à relever' },
+      compteur: { n, label: aRelever(n) },
     }
   }
   if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
@@ -221,7 +238,16 @@ export function AccueilJouer({
           icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={26} decoratif /> : <Icon name="swords" />}
           titre="Les duels"
           detail={lesDuels.detail}
+          pastille={
+            lesDuels.allume && (
+              <span className="pastille-resultat">
+                <Icon name="spark" />
+                Résultat
+              </span>
+            )
+          }
           compteur={lesDuels.compteur}
+          allume={lesDuels.allume}
           href="/duels"
         />
       </section>
@@ -233,6 +259,82 @@ export function AccueilJouer({
         <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Avec son code, ou le QR de l’hôte" onClick={onRejoindre} />
       </section>
       {lendemain}
+    </div>
+  )
+}
+
+/** Le dernier résultat que la bannière a annoncé sur ce téléphone : elle ne tombe qu'une fois par résultat. */
+const CLE_RESULTAT_ANNONCE = 'quizz.duels.resultatAnnonce'
+/** Le temps qu'elle reste, son trait d'or qui se vide. */
+const BANNIERE_MS = 6000
+/** Et celui qu'elle met à repartir. */
+const DEPART_MS = 400
+
+function dejaAnnonce(code: string): boolean {
+  try {
+    return localStorage.getItem(CLE_RESULTAT_ANNONCE) === code
+  } catch {
+    // Sans stockage, elle tomberait à chaque passage : elle se tait.
+    return true
+  }
+}
+
+function retenirLAnnonce(code: string) {
+  try {
+    localStorage.setItem(CLE_RESULTAT_ANNONCE, code)
+  } catch {
+    // Sans stockage, rien à retenir : `dejaAnnonce` l'a déjà tue.
+  }
+}
+
+/**
+ * La bannière d'un résultat (la maquette A4, choisie par le propriétaire le
+ * 12 octobre 2026 : « on n'a pas de popup ou d'indicateur visuel qu'un match
+ * est terminé ») : quand un duel qu'il a lancé vient d'être joué, elle tombe
+ * en haut de l'accueil — « Duel terminé · Hugo a joué ton duel », « Voir »,
+ * qui mène à sa carte du verdict —, puis repart d'elle-même, son trait d'or
+ * vidé. Une fois par résultat, sur ce téléphone : la tuile des duels, elle,
+ * reste allumée tant qu'il ne l'a pas vu.
+ */
+export function BanniereDuResultat({ resultats }: { resultats?: DuelsDAccueil['resultats'] }) {
+  const [etat, setEtat] = useState<'cachee' | 'montree' | 'repart'>('cachee')
+  const code = resultats && resultats.n > 0 ? resultats.code : null
+  useEffect(() => {
+    if (!code || dejaAnnonce(code)) return
+    retenirLAnnonce(code)
+    setEtat('montree')
+    const repart = window.setTimeout(() => setEtat('repart'), BANNIERE_MS)
+    const partie = window.setTimeout(() => setEtat('cachee'), BANNIERE_MS + DEPART_MS)
+    return () => {
+      window.clearTimeout(repart)
+      window.clearTimeout(partie)
+    }
+    // Une fois par résultat : c'est son code qui la relance.
+  }, [code])
+  // Toujours là, vide d'abord : une région qui apparaît avec son texte n'est pas toujours lue. Hors du flux
+  // (`banniere-duel-annonce`) : vide dans la colonne de l'accueil, elle y ajoutait un écart sous les gros boutons.
+  return (
+    <div className="banniere-duel-annonce" role="status">
+      {etat !== 'cachee' && resultats && <BanniereVue resultats={resultats} repart={etat === 'repart'} />}
+    </div>
+  )
+}
+
+/** Ce que la bannière montre : le duel terminé, qui l'a joué, « Voir » — et son trait d'or qui se vide. */
+export function BanniereVue({ resultats, repart = false }: { resultats: NonNullable<DuelsDAccueil['resultats']>; repart?: boolean }) {
+  return (
+    <div className={'banniere-duel' + (repart ? ' repart' : '')}>
+      <span className="banniere-duel-icone" aria-hidden="true">
+        <Icon name="swords" />
+      </span>
+      <span className="banniere-duel-texte">
+        <b>Duel terminé</b>
+        <span>{resultats.n > 1 ? `${resultats.de} et ${resultats.n - 1} autre${resultats.n > 2 ? 's' : ''} ont joué tes duels` : `${resultats.de} a joué ton duel`}</span>
+      </span>
+      <a className="banniere-duel-voir" href={`${PAGE_DES_DUELS}${adresseDuDuel(resultats.code)}`}>
+        Voir
+      </a>
+      <i className="banniere-duel-temps" aria-hidden="true" />
     </div>
   )
 }

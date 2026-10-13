@@ -22,7 +22,7 @@ import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
-import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
+import { AccueilJouer, BanniereDuResultat, JAnime } from '../components/AccueilDesRoles'
 import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
@@ -385,6 +385,9 @@ export function ProfilApp() {
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
       <div className="player-shell accueil">
+        {/* Un duel qu'il a lancé vient d'être joué : une bannière tombe en haut, une fois (la maquette A4) —
+            en tête de la page comme à l'écran, son « Voir » le premier au clavier. */}
+        <BanniereDuResultat resultats={'duels' in profil ? profil.duels?.resultats : undefined} />
         {/* Soi-même en une ligne : un toucher mène au profil. Au bout, ses
             amis : leur feuille monte sur l'accueil (le souhait du
             propriétaire du 11 octobre 2026) — un profil seulement, l'invité

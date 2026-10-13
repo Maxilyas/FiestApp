@@ -21,9 +21,12 @@ export function retenirLeNiveau(niveau: number | undefined): void {
  * après elle. Le quiz du jour la montrait ; la campagne ne disait que
  * « +12 XP », et l'on ne voyait pas qu'on avançait (le 6 octobre 2026). La
  * montée qu'elle a faite se dit comme au quiz du jour : « Niveau 8 ! », la
- * finition, l'emoji de collection à porter.
+ * finition, l'emoji de collection à porter. La fin d'un duel ne la montre
+ * qu'à une montée (`seulementSiMonte`) : sa carte dit déjà l'expérience
+ * gagnée, et la barre repoussait le verdict sous le pli (la maquette choisie
+ * par le propriétaire le 12 octobre 2026).
  */
-export function BarreDeNiveau() {
+export function BarreDeNiveau({ seulementSiMonte = false }: { seulementSiMonte?: boolean } = {}) {
   // Le niveau d'avant se lit au premier rendu : la relecture le remplace.
   const [avant] = useState(() => niveauVu)
   const [profil, setProfil] = useState<PublicProfile | null>(null)
@@ -44,6 +47,7 @@ export function BarreDeNiveau() {
   }, [])
   if (!profil) return null
   const monte = avant !== null && profil.niveau > avant
+  if (seulementSiMonte && !monte) return null
   const finitions = monte && avant !== null ? finitionsOuvertes(profil.niveau).filter(f => !finitionsOuvertes(avant).includes(f)) : []
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   return (

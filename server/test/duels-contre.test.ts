@@ -138,7 +138,9 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     assert.equal(fin.classe, true)
     assert.equal(fin.duel, undefined, 'pas encore de cote : Tom ne l’a pas joué')
     assert.equal(fin.defi, undefined, 'un duel classé n’a pas de classement')
-    // Tom le trouve en tête de ses duels — classé, le score à battre —, et l'accueil le dit.
+    // Tom le trouve en tête de ses duels — classé, son score caché : il se dévoile à sa dernière
+    // réponse (le souhait du propriétaire du 12 octobre 2026 : on le voyait avant même de jouer) —,
+    // et l'accueil le dit.
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [
       {
         code,
@@ -146,7 +148,6 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
         categories: ['Histoire'],
         minutesRestantes: (DUREE_D_UN_DUEL_MS - 60_000) / 60_000,
         classe: true,
-        score: 4,
       },
     ])
     assert.deepEqual((await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.duels.defisRecus, { n: 1, de: 'Léa' })
@@ -157,17 +158,24 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     const tropTot = await lire(banc, lea, `/api/campagne/serie/${lance.corps.serie.id}/correction`)
     assert.equal(tropTot.status, 400)
     assert.equal(tropTot.corps.error, 'La correction du duel s’ouvre quand vous l’aurez joué tous les deux')
-    // Sa page, pour Léa : à qui il est parti ; pour Tom : le score à battre et ce qui se joue.
+    // Sa page, pour Léa : à qui il est parti ; pour Tom : ce qui se joue — le score de Léa, ni sur
+    // la page, ni sur la ligne du score, ni dans ses duels : il se dévoile à sa dernière réponse.
+    // Chacun à la couleur de sa ligue — l'anneau de son avatar, le bord de sa carte —, s'il a fini un duel classé :
+    // Léa n'en a fini aucun, l'absence, pas une ligue de bronze.
     const pourLea = (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps
-    assert.deepEqual(pourLea.contre, { nom: 'Tom', avatar: '🐻' })
+    assert.deepEqual(pourLea.contre, { nom: 'Tom', avatar: '🐻', ligue: ligueDe(coteDeTom).cle })
+    assert.deepEqual(pourLea.auteur, { nom: 'Léa', avatar: '🦊', toi: true })
     assert.equal(pourLea.enjeu, undefined, 'joué : plus rien à annoncer')
+    assert.equal(pourLea.aBattre, undefined, 'Tom ne l’a pas joué')
+    assert.equal(pourLea.nouveau, undefined, 'rien de joué des deux côtés : rien de nouveau')
     const pourTom = (await lire(banc, tom, `/api/campagne/duel/${code}`)).corps
-    assert.deepEqual(pourTom.contre, { nom: 'Tom', avatar: '🐻', toi: true })
+    assert.deepEqual(pourTom.contre, { nom: 'Tom', avatar: '🐻', toi: true, ligue: ligueDe(coteDeTom).cle })
     assert.deepEqual(pourTom.auteur, { nom: 'Léa', avatar: '🦊' })
-    assert.equal(pourTom.aBattre, 4)
+    assert.equal(pourTom.aBattre, undefined, 'son score se dévoile à sa dernière réponse')
+    assert.deepEqual(pourTom.lignes, [], 'ni sur la ligne du score')
     assert.deepEqual(pourTom.enjeu, enjeuContre(coteDeTom, COTE_DE_DEPART, 6))
     assert.deepEqual((await lire(banc, tom, '/api/duels')).corps.contre, [
-      { code, contre: { profileId: deLea, nom: 'Léa', avatar: '🦊' }, lance: false, categories: ['Histoire'], justes: null, sesJustes: 4, minutesRestantes: (DUREE_D_UN_DUEL_MS - 60_000) / 60_000 },
+      { code, contre: { profileId: deLea, nom: 'Léa', avatar: '🦊' }, lance: false, categories: ['Histoire'], justes: null, sesJustes: null, minutesRestantes: (DUREE_D_UN_DUEL_MS - 60_000) / 60_000 },
     ])
 
     // Entre-temps, Tom gagne un duel au hasard : sa cote monte — celle que Léa affronte reste celle du lancement.
@@ -186,22 +194,50 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     assert.equal(finTom.duel.avant, avantTom.cote)
     assert.equal(finTom.duel.ecart, ecartDeTom, 'Tom bouge contre la cote de Léa au lancement')
     assert.equal(finTom.duel.apres, avantTom.cote + ecartDeTom)
+    assert.equal(finTom.duel.rang, 1, 'et sa place au classement, sa cote d’après comptée')
     // Léa bouge contre la cote de Tom au lancement — pas celle d'après son duel au hasard, ni celle de son score.
     const ecartDeLea = ecartContre(COTE_DE_DEPART, coteDeTom, 0, 0)
     const apresLea = (await lire(banc, lea, '/api/duels')).corps
     assert.equal(apresLea.cote, COTE_DE_DEPART + ecartDeLea)
     assert.equal(apresLea.joues, 1)
     assert.equal(apresLea.ligue, ligueDe(COTE_DE_DEPART + ecartDeLea).cle)
+    // Son résultat l'attend : nouveau tant qu'elle ne l'a pas vu, daté du second qui a fini, Tom à la couleur de sa ligue.
     assert.deepEqual(apresLea.contre, [
-      { code, contre: { profileId: deTom, nom: 'Tom', avatar: '🐻' }, lance: true, categories: ['Histoire'], justes: 4, sesJustes: 5, ecart: ecartDeLea, minutesRestantes: (DUREE_D_UN_DUEL_MS - 2 * 60_000) / 60_000 },
+      {
+        code,
+        contre: { profileId: deTom, nom: 'Tom', avatar: '🐻', ligue: ligueDe(avantTom.cote + ecartDeTom).cle },
+        lance: true,
+        categories: ['Histoire'],
+        justes: 4,
+        sesJustes: 5,
+        ecart: ecartDeLea,
+        le: horloge.t,
+        nouveau: true,
+        minutesRestantes: (DUREE_D_UN_DUEL_MS - 2 * 60_000) / 60_000,
+      },
     ])
+    // L'accueil le compte, et mène à lui : il n'y avait ni signe ni message (le retour du propriétaire du 12 octobre 2026).
+    assert.deepEqual((await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels.resultats, { n: 1, de: 'Tom', code })
+    assert.equal((await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.duels.resultats, undefined, 'Tom l’a vu à sa dernière réponse')
     assert.equal((await lire(banc, tom, '/api/duels')).corps.cote, avantTom.cote + ecartDeTom)
-    // Joué des deux côtés, il n'attend plus personne : sa correction s'ouvre, sa page le dit, la revanche se lance.
+    // Joué des deux côtés, il n'attend plus personne : sa correction s'ouvre, sa page le dit — sa carte se retourne, une fois —, la revanche se lance.
     assert.equal((await lire(banc, lea, `/api/campagne/serie/${lance.corps.serie.id}/correction`)).status, 200)
     const joue = (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps
     assert.equal(joue.corrige, true)
     assert.equal(joue.ecart, ecartDeLea)
     assert.equal(joue.aBattre, 5)
+    assert.equal(joue.nouveau, true, 'vu pour la première fois : la page retourne sa carte')
+    // Sa cote juste après, sa ligue, sa place — et sa semaine, que la carte du verdict dit en losanges.
+    const { semaine, ...apres } = joue.apres
+    assert.deepEqual(apres, { cote: COTE_DE_DEPART + ecartDeLea, ligue: ligueDe(COTE_DE_DEPART + ecartDeLea).cle, rang: 2 }, 'sa cote juste après, sa ligue, sa place')
+    assert.deepEqual([semaine.duels, semaine.ligue], [1, ligueDe(Math.max(COTE_DE_DEPART, COTE_DE_DEPART + ecartDeLea)).cle], 'sa meilleure ligue de la semaine, celle d’avant comprise')
+    // Les deux à la couleur de leur ligue d'après : Léa a maintenant la sienne.
+    assert.equal(joue.auteur.ligue, ligueDe(COTE_DE_DEPART + ecartDeLea).cle)
+    assert.equal(joue.contre.ligue, ligueDe(avantTom.cote + ecartDeTom).cle)
+    assert.deepEqual(joue.revanche, { profileId: deTom, nom: 'Tom', avatar: '🐻' }, 'la revanche, d’un toucher')
+    assert.equal((await lire(banc, lea, `/api/campagne/duel/${code}`)).corps.nouveau, undefined, 'vu : plus nouveau')
+    assert.equal((await lire(banc, lea, '/api/duels')).corps.contre[0].nouveau, undefined)
+    assert.equal((await lire(banc, lea, '/api/joueur/moi?accueil')).corps.profile.duels.resultats, undefined, 'l’accueil ne le compte plus')
     assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })).status, 200, 'la revanche')
   } finally {
     await banc.close()
@@ -339,8 +375,9 @@ test('chercher quelqu’un par son prénom, l’ajouter à ses amis, le retirer 
       ['Tom'],
     )
     assert.deepEqual(
-      (await lire(banc, lea, '/api/campagne/amis')).corps.recus.map((d: any) => [d.code, d.auteur.nom, d.score]),
-      [[retenu.corps.code, 'Tom', 3]],
+      (await lire(banc, lea, '/api/campagne/amis')).corps.recus.map((d: any) => [d.code, d.auteur.nom, d.classe, d.score]),
+      [[retenu.corps.code, 'Tom', true, undefined]],
+      'classé : son score se dévoile à sa dernière réponse',
     )
     assert.equal(
       (await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })).corps.error,

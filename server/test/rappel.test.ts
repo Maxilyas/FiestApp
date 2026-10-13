@@ -547,9 +547,10 @@ test('un duel classé sonne chez qui l’on défie, même sans être son ami ; j
     await jouerLaTentative(banc, lea, duel.serie.id, 4)
     await arrives(push, 1)
     assert.equal(push.recus[0].nom, 'tom')
+    // Son score ne sonne pas : classé, il se dévoile à la dernière réponse de Tom (le souhait du propriétaire du 12 octobre 2026).
     assert.deepEqual(dechiffrer(push.recus[0].corps, telTom), {
       titre: 'Léa te défie',
-      corps: 'Histoire · 4 bonnes réponses à battre, sur les mêmes questions : une seule tentative, avant qu’il ferme.',
+      corps: 'Histoire · son score se dévoile à ta dernière réponse : une seule tentative, avant qu’il ferme.',
       url: `/duels#duel-${duel.code}`,
       tag: `defi-${duel.code}`,
     })
@@ -929,9 +930,12 @@ test('une petite cloche en haut de la page, à côté de la sortie : un interrup
 
   // La cloche des défis au même endroit, sur la page des duels (le souhait du
   // propriétaire du 12 octobre 2026) : en haut à droite, au bout de la barre
-  // de la sortie — plus une ligne et sa phrase sous ses amis.
+  // de la sortie — plus une ligne et sa phrase sous ses amis —, après
+  // « Comment ça marche ? » et ses amis : trois icônes (la maquette A1, du
+  // même jour), et la barre en tête de la page.
   const duels = readFileSync(new URL('../../client/src/views/Duels.tsx', import.meta.url), 'utf8')
-  assert.match(duels, /<div className="player-shell campagne duels">\s*\{\/\*[^*]*\*\/\}\s*<div className="jour-barre">\s*<Sortie \/>\s*<span className="jour-barre-fin">\s*<LaClocheDesDefis \/>\s*<\/span>\s*<\/div>/)
+  assert.match(duels, /<div className="jour-barre duels-barre-haut">\s*<Sortie \/>\s*<span className="jour-barre-fin">[\s\S]*?<LaClocheDesDefis \/>\s*<\/span>\s*<\/div>/)
+  assert.match(duels, /<div className="player-shell campagne duels">\s*<BarreDesDuels onRegles=/)
   assert.equal(duels.match(/<LaClocheDesDefis \/>/g)?.length, 1)
   const defis = readFileSync(new URL('../../client/src/components/ClocheDesDefis.tsx', import.meta.url), 'utf8')
   assert.match(defis, /return <ClocheVue etat=\{etat\} occupe=\{occupe\} onToucher=\{\(\) => void toucher\(\)\} nom="Notification des défis" titre="[^"]+" \/>/)
