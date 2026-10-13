@@ -7,7 +7,10 @@
 // Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
-// clic. Le client construit d'abord (`npm run build -w client`).
+// clic ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
+// offerts, sa connexion fermée —, le don qu'on prépare, le code de secours
+// tiré pour elle, et son accueil qui annonce le don, une fois. Le client
+// construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
@@ -59,6 +62,12 @@ try {
   await ecrire(banc.url, '/api/admin/jour/liste', { texte: 'Quel fleuve traverse Lyon et Avignon ?\n*Le Rhône\nLa Loire\nLa Garonne' }, admin)
   await ecrire(banc.url, '/api/admin/jour/masquer', { profileId: leaId, masque: true }, admin)
   await ecrire(banc.url, '/api/admin/campagne/retirer', { questionId: 'essai005' }, admin)
+  // De quoi remplir sa fiche : une épreuve de sentier laissée en route, des
+  // confettis offerts avec un mot — son accueil l'annoncera —, et sa
+  // connexion fermée par cinq mauvais mots de passe.
+  await ecrire(banc.url, '/api/campagne/sentiers/epreuve', { branche: 'mythes', palier: 1 }, lea)
+  await ecrire(banc.url, `/api/admin/profils/${leaId}/confettis`, { confettis: 120, mot: 'Merci d’avoir tenu le buzzer samedi !' }, admin)
+  for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' }, '')
 
   // Trente jours d'activité, écrits dans la base permanente : chaque jour son
   // lot, plus fourni le week-end, aujourd'hui jusqu'à l'heure qu'il est.
@@ -157,6 +166,62 @@ try {
     await page.waitForTimeout(600)
     await page.screenshot({ path: path.join(sortie, '14-clore-fait.png'), fullPage: true })
     console.log(path.join(sortie, '14-clore-fait.png'))
+    await contexte.close()
+  }
+
+  // La fiche de Léa, ouverte depuis « Les profils » : au téléphone — son
+  // premier écran, puis entière —, à l'ordinateur, sous l'Ivoire ; puis le
+  // don qu'on prépare, et le code de secours tiré pour elle.
+  const ficheDeLea = async (nom: string, largeur: number, hauteur: number, { theme, geste }: { theme?: string; geste?: 'don' | 'code' } = {}) => {
+    const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#profils`)
+    await page.getByRole('button', { name: /Léa/ }).first().click()
+    await page.waitForSelector('.qg-fiche dl')
+    if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
+    if (geste === 'don') {
+      await page.getByRole('button', { name: 'Offrir des confettis' }).click()
+      await page.waitForSelector('.qg-fiche-don')
+    }
+    if (geste === 'code') {
+      await page.getByRole('button', { name: 'Tirer un code de secours' }).click()
+      await page.getByRole('button', { name: 'Tirer un code neuf' }).click()
+      await page.waitForSelector('.qg-fiche-code')
+    }
+    await page.waitForTimeout(600)
+    const deborde = (await page.evaluate('document.querySelector(".carte-corps").scrollWidth - document.querySelector(".carte-corps").clientWidth')) as number
+    if (deborde > 0) console.error(`[${nom}] la fiche déborde de ${deborde} px en largeur`)
+    await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
+    console.log(path.join(sortie, `${nom}.png`))
+    await contexte.close()
+  }
+  await ficheDeLea('15-fiche-telephone', 360, 640)
+  await ficheDeLea('16-fiche-telephone-entiere', 360, 1500)
+  await ficheDeLea('17-fiche-ordinateur', 1366, 768)
+  await ficheDeLea('18-fiche-ivoire', 360, 1500, { theme: 'ivoire' })
+  await ficheDeLea('19-fiche-don', 360, 1500, { geste: 'don' })
+  await ficheDeLea('20-fiche-code', 360, 1500, { geste: 'code' })
+
+  // L'accueil de Léa : les confettis offerts et leur mot, une fois, en tête.
+  {
+    const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+    const [cle, valeur] = lea.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/`)
+    await page.waitForSelector('.annonce-admin')
+    await page.waitForTimeout(600)
+    await page.screenshot({ path: path.join(sortie, '21-accueil-annonce.png') })
+    console.log(path.join(sortie, '21-accueil-annonce.png'))
+    // Revenue, la bannière ne retombe pas.
+    await page.reload()
+    await page.waitForSelector('.accueil-tete')
+    await page.waitForTimeout(600)
+    if (await page.locator('.annonce-admin').count()) console.error('[22] l’annonce retombe à la seconde visite')
     await contexte.close()
   }
   host.disconnect()

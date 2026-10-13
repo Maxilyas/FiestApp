@@ -9401,7 +9401,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .admin-fiche { display: grid; margin: 0; }
 .admin-fiche div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--edge); }
 .admin-fiche div:first-child { border-top: 0; }
-.admin-fiche dt { color: var(--muted); }
+/* Le nom de la ligne tient sur une ligne : c'est la valeur qui passe à la suivante (« Quiz du / jour » au téléphone). */
+.admin-fiche dt { flex: none; color: var(--muted); }
 .admin-fiche dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .admin-gestes { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-gestes .salon-geste:disabled { opacity: 0.5; cursor: default; }
@@ -9591,6 +9592,31 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 /* Le tableau du mois : le salon à gauche, et il se replie ; les questions à l'ordinateur seulement — au téléphone, le salon n'avait plus de place. */
 .qg-tableau .qg-tableau-texte { text-align: left; white-space: normal; }
 .qg-tableau .qg-colonne-large { display: none; }
+/* La fiche d'un joueur, dans sa feuille : qui il est, ses chiffres, ce qu'on
+   peut faire pour lui, puis ce qu'on a déjà fait. Le code de secours tiré
+   s'encadre en pointillé : il ne sera plus affiché. */
+.qg-fiche { display: flex; flex-direction: column; gap: 14px; }
+.qg-fiche-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qg-fiche-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
+.qg-fiche-note .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-fiche-code { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; border: 1px dashed color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-xs); }
+.qg-fiche-code .code-secours { align-self: stretch; }
+.qg-fiche-don { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
+.qg-fiche-don .admin-gestes { margin-top: 6px; }
+.qg-fiche-groupe { display: flex; flex-direction: column; gap: 8px; }
+.qg-fiche-groupe .label { margin: 0; }
+.qg-fiche-gestes { display: flex; flex-direction: column; gap: 4px; }
+.qg-fiche-gestes .label { margin: 0; }
+.qg-fiche-geste { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; overflow-wrap: anywhere; }
+/* Ce que l'administrateur a fait pour un joueur, en tête de son accueil, une
+   fois : des confettis offerts, son prénom changé. Aux couleurs de l'accueil,
+   pas du QG : `--lueur` n'y existe pas, et la carte s'y dessinait sans bord ni fond. */
+.annonces-admin { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.annonce-admin { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid rgba(var(--accent-rgb), 0.45); border-radius: var(--radius); background: rgba(var(--accent-rgb), 0.08); }
+.annonce-admin-icone { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.15); color: var(--accent-text); }
+.annonce-admin-icone .icon { width: 16px; height: 16px; }
+.annonce-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.annonce-admin-merci { flex: none; align-self: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 @media (min-width: 1101px) {
   /* La barre de côté dans la première colonne, l'en-tête et la page dans la
      seconde ; la barre du menu s'efface : « Mon compte » est au pied de la

@@ -28,7 +28,7 @@ import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EquipePreparee } from '../../shared/teams'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FicheDuJoueur, FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
@@ -532,9 +532,10 @@ export const api = {
     /** Le QG, la vue d'ensemble : trente jours lus dans la base permanente, redemandés toutes les cinq minutes. */
     qg: () => req<VueDEnsemble>('/api/admin/qg'),
     /** Le journal des gestes, une page à la fois : par sorte, à partir du curseur de la page d'avant. */
-    gestes: ({ sorte, suite }: { sorte?: SorteDeGeste | null; suite?: string | null } = {}) => {
+    gestes: ({ sorte, cible, suite }: { sorte?: SorteDeGeste | null; cible?: string | null; suite?: string | null } = {}) => {
       const q = new URLSearchParams()
       if (sorte) q.set('sorte', sorte)
+      if (cible) q.set('cible', cible)
       if (suite) q.set('suite', suite)
       // Pas `q.size` : un Safari d'avant 17 ne l'a pas, et le filtre se perdait.
       const s = q.toString()
@@ -569,6 +570,23 @@ export const api = {
     /** Supprime un profil et ce qui n'était qu'à lui ; l'espace qu'il tenait reste, détaché. */
     supprimerProfil: (id: string) =>
       req<{ ok: true; salon: 'detache' | null }>(`/api/admin/profils/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** La fiche d'un joueur : où il en est dans chaque mode, ses confettis, sa connexion, l'épreuve qui l'attend. */
+    fiche: (id: string) => req<FicheDuJoueur>(`/api/admin/profils/${encodeURIComponent(id)}`),
+    /** Les gestes de la fiche d'un joueur, chacun noté au journal. */
+    offrirDesConfettis: (id: string, confettis: number, mot: string) =>
+      req<{ ok: true; confettis: number; mot: string | null }>(`/api/admin/profils/${encodeURIComponent(id)}/confettis`, {
+        method: 'POST',
+        body: JSON.stringify({ confettis, mot }),
+      }),
+    codeDeSecours: (id: string) =>
+      req<{ code: string; login: string }>(`/api/admin/profils/${encodeURIComponent(id)}/secours`, { method: 'POST', body: '{}' }),
+    renommer: (id: string, nom: string) =>
+      req<{ ok: true; nom: string }>(`/api/admin/profils/${encodeURIComponent(id)}/prenom`, { method: 'POST', body: JSON.stringify({ nom }) }),
+    suspendre: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/suspendre`, { method: 'POST', body: '{}' }),
+    reactiver: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/reactiver`, { method: 'POST', body: '{}' }),
+    rouvrirLaConnexion: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/connexion`, { method: 'POST', body: '{}' }),
+    libererLEpreuve: (id: string) =>
+      req<{ ok: true; sentier: string; palier: number }>(`/api/admin/profils/${encodeURIComponent(id)}/epreuve`, { method: 'POST', body: '{}' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */

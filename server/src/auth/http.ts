@@ -213,6 +213,22 @@ export class LoginBudget {
     this.juger(key)
   }
 
+  /** Jusqu'à quand ce secret est fermé, s'il l'est : la fiche d'un joueur, au QG, le dit. */
+  fermeJusquA(key: string): number | null {
+    const lock = this.locks.get(key)
+    return lock && lock.until > Date.now() ? lock.until : null
+  }
+
+  /**
+   * L'administrateur rouvre ce secret (« Lever le verrou de connexion », au
+   * QG) : ses échecs s'oublient, la réserve de l'adresse reste. Un essai
+   * encore en vol, jugé ensuite, ne retrouve rien à juger.
+   */
+  rouvrir(key: string) {
+    this.locks.delete(key)
+    this.enVol.delete(key)
+  }
+
   private juger(key: string) {
     const vol = this.enVol.get(key)
     vol?.shift()

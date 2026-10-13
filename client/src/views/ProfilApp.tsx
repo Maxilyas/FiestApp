@@ -22,7 +22,7 @@ import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
-import { AccueilJouer, BanniereDuResultat, JAnime } from '../components/AccueilDesRoles'
+import { AccueilJouer, AnnoncesDeLAdministrateur, BanniereDuResultat, JAnime } from '../components/AccueilDesRoles'
 import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
@@ -396,6 +396,8 @@ export function ProfilApp() {
           <IdentiteLigne profil={profil} />
           <BoutonDesAmis />
         </div>
+        {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé —, dit une fois. */}
+        <AnnoncesDeLAdministrateur profileId={profil.id} annonces={'annonces' in profil ? profil.annonces : undefined} />
         <AccueilJouer
           enCours={enCours}
           onRejoindre={() => setRejoindre(true)}
