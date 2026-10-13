@@ -35,7 +35,7 @@ export const LILAS = '#b9a6ff'
 export const lueur = (couleur: string) => ({ '--lueur': couleur }) as CSSProperties
 
 /** Le rail : les orbes qu'on fait glisser ; le choisi vient au milieu, sans faire défiler la page. */
-export function Rail({ choisi, label, grille, compact, children }: { choisi: string; label: string; /** Tout tient à l'écran, sur deux rangées : rien à faire glisser. */ grille?: boolean; /** Douze petits orbes en deux rangées, sans leur nom : le panneau le dit. */ compact?: boolean; children: ReactNode }) {
+export function Rail({ choisi, label, grille, children }: { choisi: string; label: string; /** Tout tient à l'écran, sur deux rangées : rien à faire glisser. */ grille?: boolean; children: ReactNode }) {
   const rail = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const r = rail.current
@@ -45,7 +45,7 @@ export function Rail({ choisi, label, grille, compact, children }: { choisi: str
     r.scrollTo({ left: orbe.offsetLeft - (r.clientWidth - orbe.offsetWidth) / 2, behavior: calme ? 'auto' : 'smooth' })
   }, [choisi])
   return (
-    <div className={compact ? 'atlas-rail rail-compact' : grille ? 'atlas-rail rail-grille' : 'atlas-rail'} ref={rail} role="tablist" aria-label={label}>
+    <div className={grille ? 'atlas-rail rail-grille' : 'atlas-rail'} ref={rail} role="tablist" aria-label={label}>
       {children}
     </div>
   )
@@ -58,7 +58,6 @@ export function Orbe({
   part,
   couleur,
   choisi,
-  compact,
   nouveau,
   onClick,
   children,
@@ -69,8 +68,6 @@ export function Orbe({
   part: number
   couleur: string
   choisi: boolean
-  /** Petit, sans nom ni compte à l'écran (le lecteur d'écran les entend). */
-  compact?: boolean
   /** Ce qu'une fin y a rangé sans l'annoncer : un point lumineux. */
   nouveau?: boolean
   onClick: () => void
@@ -91,8 +88,8 @@ export function Orbe({
         <span className="atlas-coeur">{children}</span>
         {nouveau && <span className="orbe-nouveau" aria-hidden="true" />}
       </span>
-      {!compact && <span className="atlas-orbe-nom">{nom}</span>}
-      {!compact && <span className="atlas-orbe-compte">{compte}</span>}
+      <span className="atlas-orbe-nom">{nom}</span>
+      <span className="atlas-orbe-compte">{compte}</span>
     </button>
   )
 }

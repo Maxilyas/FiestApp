@@ -1,25 +1,24 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
-import { AtlasDesAvatars } from './AtlasDesAvatars'
-import { COLLECTION_HAUTE } from './Apparence'
+import { AlbumDesAvatars, pageNommee } from './AlbumDesAvatars'
 import { JaugeFine, LigneDeCollection, TropheesAtlas } from './TropheesAtlas'
 import { GerbeDeJuste } from './Gerbe'
 import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
-import { CIEL, LILAS, OR } from './Atlas'
+import { LILAS, OR } from './Atlas'
 import { espacesFines, formatNumber } from '../format'
 import { apercuDe } from '../apercus'
 import { compteDeLaCollection, type FamilleDeLaCollection, type LigneDuCompte, type PartieDeLaCollection } from '../../../shared/collection'
-import { COLLECTION } from '../../../shared/avatars'
+import { pageDuDebut, pageDuProchain, type RareteDAvatar } from '../../../shared/album'
 import { FONDS } from '../../../shared/fonds'
 import { GERBES } from '../../../shared/gerbes'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES, type Theme } from '../../../shared/themes'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
 
 // « Ma collection » : tout ce qui se gagne, d'un coup d'œil — ce qu'on a, ce
 // qui reste, et où le gagner. Trois familles, comptées par la même règle que
-// la tuile du profil (`shared/collection.ts`) : les avatars, le style, les
-// trophées.
+// la tuile du profil (`shared/collection.ts`) : les avatars — un album, une
+// page par rareté (`AlbumDesAvatars`) —, le style, les trophées.
 //
 // On n'y règle rien : ce qu'on a se porte depuis « M'habiller », au profil —
 // la loge, une adresse par pièce —, et chaque ligne le dit, un lien vers
@@ -28,9 +27,7 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfil
 
 /** Ce que chaque ligne des avatars et du style dit d'elle — les trophées ont les leurs (`TropheesAtlas`). */
 const LIGNES: Partial<Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }>> = {
-  savoir: { emoji: '🧭', nom: 'Le savoir', detail: 'Six portraits par branche, sur les sentiers', couleur: '#7ccf6a' },
-  legendaires: { emoji: '🐉', nom: 'Légendaires et Divins', detail: 'Un exploit chacun — les Divins ne disent pas comment', couleur: OR },
-  emojis: { emoji: '🐳', nom: 'Emojis de collection', detail: 'Un à chaque niveau qui n’ouvre pas de finition', couleur: CIEL },
+  avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits et emojis, par rareté', couleur: OR },
   themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent toutes tes pages', couleur: LILAS },
   fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte, quand on touche ton nom', couleur: '#5fa8ff' },
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate à chaque bonne réponse', couleur: '#ff9f5a' },
@@ -39,13 +36,32 @@ const LIGNES: Partial<Record<PartieDeLaCollection, { emoji: string; nom: string;
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', style: 'Style', trophees: 'Trophées' }
 
-/** L'adresse d'une ligne : `#collection-themes`. « Mon thème » y mène, ouverte sur ses thèmes — ceux qui se gagnent compris. */
+/**
+ * L'adresse d'une ligne : `#collection-themes`. « Mon thème » y mène, ouverte
+ * sur ses thèmes — ceux qui se gagnent compris. L'album des avatars a aussi
+ * sa page (`#collection-avatars-legendaire`) : « 24 légendaires à gagner :
+ * où ? », dans la loge, l'ouvre sur eux.
+ */
 const ADRESSE = 'collection'
 
-function partieDeLAdresse(): PartieDeLaCollection | null {
+/**
+ * Les trois lignes d'avant l'album — un lien d'une page d'avant, un favori —
+ * mènent à la page où se trouve leur prochain avatar.
+ */
+const AVANT_L_ALBUM: Record<string, (p: PublicProfileDetail) => RareteDAvatar | null> = {
+  legendaires: () => 'legendaire',
+  savoir: p => pageDuProchain(p, 'portrait'),
+  emojis: p => pageDuProchain(p, 'emoji'),
+}
+
+/** La ligne que l'adresse ouvre, et la page de l'album qu'elle nomme. */
+function lireLAdresse(profil: PublicProfileDetail): { partie: PartieDeLaCollection | null; page: RareteDAvatar | null } {
   const h = window.location.hash.slice(1)
-  const partie = h.startsWith(`${ADRESSE}-`) ? h.slice(ADRESSE.length + 1) : ''
-  return partie in LIGNES ? (partie as PartieDeLaCollection) : null
+  const reste = h.startsWith(`${ADRESSE}-`) ? h.slice(ADRESSE.length + 1) : ''
+  if (reste in LIGNES) return { partie: reste as PartieDeLaCollection, page: null }
+  if (reste.startsWith('avatars-')) return { partie: 'avatars', page: pageNommee(reste.slice('avatars-'.length)) }
+  if (reste in AVANT_L_ALBUM) return { partie: 'avatars', page: AVANT_L_ALBUM[reste](profil) }
+  return { partie: null, page: null }
 }
 
 /** « Le porter : Mon avatar » — l'écran où ce qu'on a se porte, sous chaque ligne. */
@@ -106,34 +122,6 @@ function ListeAGagner({
 }
 
 const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-
-/** Les emojis de collection, à regarder : ceux qu'on a, et la silhouette des autres avec leur niveau. */
-function EmojisDeCollection({ profil }: { profil: PublicProfileDetail }) {
-  return (
-    <div className="emoji-grid" role="group" aria-label="Les emojis de collection">
-      {COLLECTION.map(c => {
-        const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
-        if (profil.niveau < c.niveau) {
-          return (
-            <span key={c.emoji} className={'emoji-btn case-avatar ferme' + anneau} role="img" aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}>
-              <span className="silhouette" aria-hidden="true">
-                {c.emoji}
-              </span>
-              <span className="case-niveau" aria-hidden="true">
-                niv. {c.niveau}
-              </span>
-            </span>
-          )
-        }
-        return (
-          <span key={c.emoji} className={'emoji-btn case-avatar' + anneau} role="img" aria-label={`Avatar ${c.emoji}, de collection, à toi`}>
-            <Avatar avatar={c.emoji} finition={profil.finition} eclat={brilleChez(profil, c.emoji)} />
-          </span>
-        )
-      })}
-    </div>
-  )
-}
 
 /**
  * Une vignette de l'album : l'aperçu seul, en couleur s'il est à lui, en gris
@@ -212,24 +200,36 @@ function ThemesDeLaCollection({ profil }: { profil: PublicProfileDetail }) {
 
 export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
   const { familles, total } = compteDeLaCollection(profil)
-  const [ouverte, setOuverte] = useState<PartieDeLaCollection | null>(partieDeLAdresse)
+  const [ouverte, setOuverte] = useState<PartieDeLaCollection | null>(() => lireLAdresse(profil).partie)
+  // La page de l'album : celle que l'adresse nomme, sinon celle de ce qu'il porte.
+  const [page, setPage] = useState<RareteDAvatar>(() => lireLAdresse(profil).page ?? pageDuDebut(profil))
   // Ouverte d'un lien (`#collection-themes`), la ligne vient sous les yeux.
   useEffect(() => {
     if (ouverte) document.getElementById(`${ADRESSE}-${ouverte}`)?.scrollIntoView({ block: 'start' })
     // Une fois, à l'ouverture : ensuite, c'est le doigt qui parcourt.
   }, [])
-  // Une autre ligne tapée dans l'adresse, la page déjà là : elle s'ouvre.
+  // Une autre ligne tapée dans l'adresse, la page déjà là : elle s'ouvre — sur sa page de l'album, si elle en nomme une.
   useEffect(() => {
-    const relire = () => setOuverte(partieDeLAdresse())
+    const relire = () => {
+      const lue = lireLAdresse(profil)
+      setOuverte(lue.partie)
+      if (lue.page) setPage(lue.page)
+    }
     window.addEventListener('hashchange', relire)
     return () => window.removeEventListener('hashchange', relire)
-  }, [])
+  }, [profil])
+  const ecrire = (suite: string) => history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${ADRESSE}${suite}`)
   // La ligne ouverte s'écrit dans l'adresse, sans entrée de plus : revenu
   // d'un écran qu'elle a ouvert (« Les porter »), on la retrouve ouverte.
   const toucher = (p: PartieDeLaCollection) => {
     const suivante = ouverte === p ? null : p
-    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${ADRESSE}${suivante ? `-${suivante}` : ''}`)
+    ecrire(suivante ? `-${suivante}` : '')
     setOuverte(suivante)
+  }
+  // La page de l'album aussi : revenu du sentier qu'une fiche a ouvert, on retrouve la sienne.
+  const choisirLaPage = (r: RareteDAvatar) => {
+    ecrire(`-avatars-${r}`)
+    setPage(r)
   }
   const fonds = profil.fonds ?? []
   const gerbes = profil.gerbes ?? []
@@ -237,27 +237,9 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
   const [gerbeVue, setGerbeVue] = useState<{ cle: string; n: number } | null>(null)
 
   const contenus: Partial<Record<PartieDeLaCollection, ReactNode>> = {
-    savoir: (
+    avatars: (
       <>
-        <p className="muted small">
-          Un portrait tous les deux paliers d’un sentier du savoir, dans la campagne.{' '}
-          <a className="link-inline" href="/campagne#sentiers">
-            Les sentiers
-          </a>
-        </p>
-        <AtlasDesAvatars profil={profil} onglet="savoir" />
-        <OuLePorter ecran="avatar" nom="Mon avatar" />
-      </>
-    ),
-    legendaires: (
-      <>
-        <AtlasDesAvatars profil={profil} onglet="legendaires" />
-        <OuLePorter ecran="avatar" nom="Mon avatar" />
-      </>
-    ),
-    emojis: (
-      <>
-        <EmojisDeCollection profil={profil} />
+        <AlbumDesAvatars profil={profil} page={page} onPage={choisirLaPage} />
         <OuLePorter ecran="avatar" nom="Mon avatar" />
       </>
     ),

@@ -39,6 +39,14 @@ export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
   { emoji: '🪐', niveau: 17 },
 ]
 
+/**
+ * L'anneau des emojis de collection passe du vert au bleu à partir du
+ * niveau 10 : les premiers viennent en quelques soirées, les autres en une
+ * année, et la grille de la loge le dit d'un coup d'œil. L'album des avatars
+ * les range au même seuil, communs puis peu communs (`shared/album.ts`).
+ */
+export const COLLECTION_HAUTE = 10
+
 const NIVEAU_DE_COLLECTION = new Map(COLLECTION.map(c => [c.emoji, c.niveau]))
 
 /**
