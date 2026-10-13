@@ -36,3 +36,19 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   vérifie avant d'entrer (`verifier`), et une épreuve qui joue la campagne
   donne sa base (`baseDEssai`, `banc.ts`) : celle du dépôt grandit à chaque
   lot rangé.
+- **La base a été relue en entier une seconde fois**, classement compris, le
+  13 octobre 2026, par Opus et sur le crédit de l'API (une fois, jamais
+  d'autre ; `retours/2026-10-13/credit-api.md`, et chaque décision dans ses
+  journaux) : 22 retirées, 528 corrigées sous leur identifiant, 521
+  reclassées à la lettre des règles de partage et des définitions des
+  étiquettes — « etymologie » ne vaut que pour une question qui demande
+  l'origine d'un mot, pas pour une anecdote qui la raconte (148 retirées,
+  « L'origine des mots » passée de 420 à 272) —, puis agrandie de 904
+  questions à nombre et de 9 946 neuves, jusqu'à 21 887. Ce qu'elle a
+  appris : une question à nombre se note sur ce que la plupart approchent, et
+  un correcteur qui la juge comme un QCM au chiffre près la relève de deux
+  crans (21, laissées à leur difficulté) ; une correction se relit comme une
+  question — « du Pas-de-Calais » écrivait sa réponse dans l'intitulé, et le
+  juge retire alors la question ; et passé vingt mille questions, le
+  rédacteur retombe sur un fait déjà posé une fois sur seize (de 77 à 180
+  refus par tranche de trois mille), et chaque correction se paie.
