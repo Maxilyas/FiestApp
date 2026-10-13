@@ -1,7 +1,7 @@
-// Le service worker de l'application installée, et rien d'autre que ses
-// notifications (`server/src/core/rappels.ts`) — le rappel du soir du quiz du
-// jour, le défi qu'un ami vient d'envoyer : il montre la notification que le
-// serveur envoie, et ouvre sa page quand on la touche.
+// Le service worker de l'application installée, et rien d'autre que sa
+// notification (`server/src/core/rappels.ts`) — le rappel du soir du quiz du
+// jour : il montre ce que le serveur envoie, et ouvre sa page quand on la
+// touche.
 //
 // Il ne garde rien en cache et n'intercepte aucune requête : l'application
 // reste celle que le serveur sert, à jour à chaque ouverture. Écrit à la
@@ -27,8 +27,10 @@ self.addEventListener('push', evenement => {
       lang: 'fr',
       icon: '/icone-192.png',
       // Une seule à la fois par sujet : le rappel suivant remplace celui
-      // qu'on n'a pas lu ; un défi a la sienne (`defi-K7M2QX`), qui ne chasse
-      // ni le rappel ni le défi d'un autre ami.
+      // qu'on n'a pas lu. Un message qui dit son étiquette garde la sienne :
+      // les défis d'amis en avaient une (`defi-K7M2QX`) — leur cloche est
+      // partie le 13 octobre 2026, ceux encore en route chez le service de
+      // push, gardés une semaine au plus, arrivent tels quels.
       tag: typeof message.tag === 'string' && message.tag ? message.tag : 'quiz-du-jour',
       data: { url: message.url },
     }),
@@ -61,7 +63,7 @@ async function ouvrir(url) {
 
 // Le service de push a renouvelé l'abonnement (Firefox le fait) : le nouveau
 // rejoint le serveur, avec la session de ce téléphone, que la requête porte,
-// et l'adresse de l'ancien — il en garde les réglages : le soir, les défis.
+// et l'adresse de l'ancien — il en garde le réglage.
 self.addEventListener('pushsubscriptionchange', evenement => {
   evenement.waitUntil(
     (async () => {

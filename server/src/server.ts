@@ -459,8 +459,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.argentDe = id => campagne.vainqueursDuDefi().has(id) && !jour.estMasque(id)
   campagne.profils = profiles
   campagne.masque = id => jour.estMasque(id)
-  // Un défi qui part à des amis fait sonner leurs téléphones, comme le rappel du soir.
-  campagne.prevenir = (ids, message, ttlS) => rappels.prevenirDUnDefi(ids, message, ttlS)
   // Ce que le quiz du jour et la campagne savent de lui : ses écussons et sa
   // précision, avec les soirées. Les catégories du quiz du jour ouvraient
   // aussi ses portraits : la reprise les relit une fois

@@ -68,24 +68,10 @@ export function RappelDuJour() {
   return <ClocheVue etat={etat} occupe={occupe} onToucher={() => void toucher()} />
 }
 
-/**
- * La cloche telle qu'on la voit, selon l'état : rendue seule dans les
- * épreuves. Celle du soir d'office ; celle des défis de ses amis dit son nom
- * et ce qu'elle fait (`ClocheDesDefis`).
- */
-export function ClocheVue({
-  etat,
-  occupe,
-  onToucher,
-  nom = 'Rappel du soir',
-  titre = `Une notification vers ${HEURE_DU_RAPPEL} h, les jours où ta partie n’est pas finie`,
-}: {
-  etat: EtatDuRappel | null
-  occupe: boolean
-  onToucher: () => void
-  nom?: string
-  titre?: string
-}) {
+/** La cloche telle qu'on la voit, selon l'état : rendue seule dans les épreuves. */
+export function ClocheVue({ etat, occupe, onToucher }: { etat: EtatDuRappel | null; occupe: boolean; onToucher: () => void }) {
+  const nom = 'Rappel du soir'
+  const titre = `Une notification vers ${HEURE_DU_RAPPEL} h, les jours où ta partie n’est pas finie`
   if (etat === null) return null
   // Bloquée, elle ne bascule plus : un bouton qui dit où se débloquer, pas un interrupteur.
   if (etat === 'bloque') {

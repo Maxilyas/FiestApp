@@ -33,7 +33,6 @@ import {
 } from '../../../shared/duels'
 import { LigneDuDefiVue } from './Defi'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
-import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
 import { ceQuIlPorte, ecartSigne, type ContreEnJeu } from './Rencontre'
@@ -460,7 +459,7 @@ const enPhrase = (noms: readonly string[]) => (noms.length <= 1 ? (noms[0] ?? ''
 /**
  * L'envoyer à d'autres amis, d'un toucher — ceux avec qui il a joué un défi
  * entre amis (`shared/campagne.ts`) : il les attend dans leurs duels, sans
- * lien à faire suivre, et leur téléphone sonne. Rien de coché
+ * lien à faire suivre, et leur accueil le leur dit. Rien de coché
  * d'office : ceux qu'il voulait défier, il les a choisis en le lançant
  * (`LancerUnDefi`) — tous cochés, la fin poussait à défier toute sa liste.
  * Celui qui l'a déjà — reçu ou relevé — ne se coche plus. Sans ami encore,
@@ -568,14 +567,15 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
 }
 
 /**
- * « Parti à Tom et Inès : … » — ce qui vient de leur arriver, sans promettre
- * une notification qu'ils n'ont peut-être pas voulue. Sans « il » ni
- * « elle » : un prénom ne dit pas lequel (« Bérénice s'était arrêté »,
- * l'experte du jeu solo, le 11 octobre 2026).
+ * « Parti à Tom et Inès : … » — ce qui vient de leur arriver : le défi les
+ * attend, et leur accueil le dit ; aucun téléphone ne sonne — seul le quiz du
+ * jour a sa notification, depuis le 13 octobre 2026. Sans « il » ni
+ * « elle » pour eux : un prénom ne dit pas lequel (« Bérénice s'était
+ * arrêté », l'experte du jeu solo, le 11 octobre 2026).
  */
 const partiAvec = (noms: readonly string[]) =>
   espacesFines(
-    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend dans ${noms.length > 1 ? 'leurs' : 'ses'} duels, et ${noms.length > 1 ? 'leur téléphone sonne si leurs' : 'son téléphone sonne si ses'} notifications sont activées.`,
+    `Parti à ${enPhrase(noms)} : il ${noms.length > 1 ? 'les ' : 'l’'}attend dans ${noms.length > 1 ? 'leurs duels, et leur accueil le leur' : 'ses duels, et son accueil le lui'} dit.`,
   )
 
 /**
@@ -1004,19 +1004,6 @@ export function PageDuDuel({
       {carte}
     </div>
   )
-}
-
-/**
- * La cloche des défis, chargée avec la page des duels seulement : elle tire
- * le service worker et l'abonnement (`rappel.ts`), que la campagne et
- * l'accueil n'ont pas à télécharger. Son téléphone sonne quand on le défie,
- * et quand un duel qu'il a lancé vient d'être joué — si elle est allumée :
- * elle est coupée d'office. En haut à droite de la page, à côté de la sortie.
- */
-const cloche = aLaDemande(() => import('../components/ClocheDesDefis'))
-export function LaClocheDesDefis() {
-  const laCloche = useALaDemande(cloche)
-  return laCloche && laCloche !== 'perdu' ? <laCloche.ClocheDesDefis /> : null
 }
 
 /** Un duel contre quelqu'un encore en route : ouvert, et pas encore joué des deux côtés — à lui, ou à l'autre. */

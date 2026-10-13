@@ -10,7 +10,7 @@ import { BlasonDeLigue } from '../components/Blason'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
-import { Anneau, LaClocheDesDefis, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
+import { Anneau, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
 import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
   COTE_DE_DEPART,
@@ -140,7 +140,11 @@ function CadranDesLigues({ cote }: { cote: number | null }) {
   )
 }
 
-/** En haut : la sortie ; au bout, « Comment ça marche ? », ses amis et la cloche des défis — trois icônes. */
+/**
+ * En haut : la sortie ; au bout, « Comment ça marche ? » et ses amis. La
+ * cloche des défis y était la troisième, partie le 13 octobre 2026 : seul le
+ * quiz du jour fait sonner un téléphone (règle `rappel-et-installation.md`).
+ */
 function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: () => void }) {
   return (
     <div className="jour-barre duels-barre-haut">
@@ -152,7 +156,6 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
         <button type="button" className="duels-icone" aria-label="Mes amis" aria-disabled={!onAmis || undefined} onClick={onAmis}>
           <Icon name="users" />
         </button>
-        <LaClocheDesDefis />
       </span>
     </div>
   )
@@ -525,7 +528,7 @@ export function CommentCaMarche() {
   return (
     <ol className="duels-etapes">
       <li>{espacesFines('« Défier » : choisis qui — un prénom, un ami, un joueur du classement : « Défier » est sur sa carte — et sur quoi. Tu joues d’abord, le duel lui part à ta dernière réponse : trois vies, sans chrono.')}</li>
-      <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son téléphone sonne si ses notifications sont activées : aucun lien à envoyer.')}</li>
+      <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son accueil le lui dit : aucun lien à envoyer.')}</li>
       <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
       <li>
         {espacesFines(
@@ -675,9 +678,9 @@ export function FeuilleDuClassement({
  * 12 octobre 2026) : le cadran de sa ligue et sa cote, sa semaine, « Défier »
  * et le dé ; puis trois onglets — ses duels en cours, à commencer par les
  * résultats qu'il n'a pas vus ; son historique ; sa place au classement.
- * « Comment ça marche ? », ses amis et la cloche des défis, en icônes en
- * haut ; le classement entier et ses amis, chacun sa feuille, où un toucher
- * ouvre la carte d'un joueur, « Défier » à son pied.
+ * « Comment ça marche ? » et ses amis, en icônes en haut ; le classement
+ * entier et ses amis, chacun sa feuille, où un toucher ouvre la carte d'un
+ * joueur, « Défier » à son pied.
  */
 export function PageDesDuels({
   amis,

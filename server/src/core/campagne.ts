@@ -26,9 +26,7 @@ import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, typ
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
-import { nomDuChoix } from '../../../shared/nomDuChoix'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
-import { messageDUnDefi, messageDUnDuelJoue, type MessageDUnDefi } from './rappels'
 import {
   COTE_DE_DEPART,
   JOUEURS_CROISES,
@@ -483,12 +481,6 @@ export class CampagneStore {
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> & Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
-  /**
-   * Faire sonner les téléphones d'amis à qui un défi vient de partir
-   * (`RappelStore.prevenirDUnDefi`), branché au démarrage. Jamais attendu :
-   * un service de push lent ne retient pas la réponse du joueur.
-   */
-  prevenir?: (profileIds: readonly string[], message: MessageDUnDefi, ttlS: number) => Promise<unknown>
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
 
   constructor(
@@ -1211,9 +1203,8 @@ export class CampagneStore {
       // Et sa place au classement, sa cote d'après comptée : la carte du verdict la dit.
       const rang = coteApres ? await this.rangAuxDuels(profileId) : undefined
       const duel = coteApres && rang !== undefined ? { ...coteApres, rang } : coteApres
-      // Joué des deux côtés : le téléphone de l'autre sonne, avec le résultat ; sa fin à lui dit le score d'en face.
-      if (classe && duel && contre) this.prevenirDuResultat(contre, profileId, justes)
-      // Sa cote à lui a bougé aussi : ses bordures se relisent, s'il en a de retenues.
+      // Joué des deux côtés : la cote de l'autre a bougé aussi — ses bordures
+      // se relisent, s'il en a de retenues —, et sa fin à lui dit le score d'en face.
       if (classe && duel && contre) this.relireLesBorduresDe(contre.auteur === profileId ? contre.adversaire : contre.auteur)
       const enFace = classe && duel && contre ? await this.enFaceDuDuel(contre, profileId) : null
       const avant = record ? Number(res[0].rows[0]?.record ?? 0) : 0
@@ -1236,8 +1227,8 @@ export class CampagneStore {
             : null
       // Finie, une révision redit son carnet : ce qu'elle a appris, ce qui reste à revoir.
       const carnet = finie && revision ? await this.carnetApres(profileId) : null
-      // Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au lancement, son score avec lui.
-      const partiA = finie && s.mode === 'duel' && s.duel ? await this.partirAuxPrevus(profileId, s.duel, justes) : []
+      // Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au lancement.
+      const partiA = finie && s.mode === 'duel' && s.duel ? await this.partirAuxPrevus(profileId, s.duel) : []
       return {
         juste,
         xp,
@@ -2283,7 +2274,7 @@ export class CampagneStore {
     // jusqu'au bout et resté en route (un envoi raté), il part maintenant.
     let prevus: string[] = []
     if (duel.auteur === profileId && ouvert) {
-      if (tentative?.finieLe != null) await this.partirAuxPrevus(profileId, duel.code, tentative.justes)
+      if (tentative?.finieLe != null) await this.partirAuxPrevus(profileId, duel.code)
       else prevus = await this.prenomsDesPrevus(duel.code)
     }
     // Le score d'en face d'un duel classé ne part qu'une fois sa propre
@@ -2572,21 +2563,18 @@ export class CampagneStore {
     // maintenant : retenu, il bloquait la paire jusqu'à sa fermeture — un
     // duel ouvert qu'il ne voyait nulle part.
     const retenus = await this.client.execute({
-      sql: `SELECT d.code, s.justes FROM campagne_duels d
+      sql: `SELECT d.code FROM campagne_duels d
             JOIN campagne_series s ON s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL
             WHERE d.auteur = ? AND d.adversaire = ? AND d.ferme_le > ?
               AND NOT EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = d.adversaire)
               AND NOT EXISTS (SELECT 1 FROM campagne_series t WHERE t.mode = 'duel' AND t.duel = d.code AND t.profile_id = d.adversaire)`,
       args: [lui.id, profileId, this.maintenant()],
     })
-    for (const r of retenus.rows) {
-      const duel = await this.duelDe(String(r.code))
-      if (!duel) continue
-      const ecrit = await this.client.execute({
-        sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)',
-        args: [duel.code, profileId, this.maintenant()],
-      })
-      if (ecrit.rowsAffected > 0) this.prevenirDuDefi(duel, [profileId], Number(r.justes))
+    if (retenus.rows.length > 0) {
+      await this.client.batch(
+        retenus.rows.map(r => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [String(r.code), profileId, this.maintenant()] })),
+        'write',
+      )
     }
     return { ok: true }
   }
@@ -2868,17 +2856,10 @@ export class CampagneStore {
     const voulus = idsVoulus(amis)
     const destinataires = (await this.idsDesAmis(profileId)).filter(id => voulus.has(id))
     if (destinataires.length > 0) {
-      const [ecrits, tentative] = await Promise.all([
-        this.client.batch(
-          destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
-          'write',
-        ),
-        this.tentativeDuDuel(profileId, duel.code),
-      ])
-      // Leur téléphone sonne — une fois : déjà reçu, il ne sonne pas de nouveau.
-      // Son score à battre, s'il l'a joué jusqu'au bout.
-      const nouveaux = destinataires.filter((_, i) => ecrits[i].rowsAffected > 0)
-      this.prevenirDuDefi(duel, nouveaux, tentative?.finieLe != null ? tentative.justes : null)
+      await this.client.batch(
+        destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
+        'write',
+      )
     }
     return { envoyes: destinataires.length }
   }
@@ -2886,11 +2867,11 @@ export class CampagneStore {
   /**
    * Le défi qu'il a lancé, joué jusqu'au bout : il part aux amis choisis au
    * lancement — encore ses amis, et qui ne l'ont pas déjà relevé par son
-   * lien —, son score à battre avec lui, et leur téléphone sonne. Rend leurs
-   * prénoms, pour la fin de sa tentative. Une seule fois : les prévus
-   * s'effacent en partant.
+   * lien —, sans faire sonner leur téléphone : seul le quiz du jour a sa
+   * notification, et leur accueil le dit. Rend leurs prénoms, pour la fin de
+   * sa tentative. Une seule fois : les prévus s'effacent en partant.
    */
-  private async envoyerLesPrevus(duel: Duel, justes: number): Promise<string[]> {
+  private async envoyerLesPrevus(duel: Duel): Promise<string[]> {
     const prevus = await this.client.execute({
       sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = p.profile_id AND s.mode = 'duel' AND s.duel = p.code) AS joue
             FROM campagne_envois_prevus p WHERE p.code = ?`,
@@ -2908,18 +2889,13 @@ export class CampagneStore {
       .filter(r => !Number(r.joue))
       .map(r => String(r.profile_id))
       .filter(id => (amis ? amis.has(id) : !bloque && id === duel.adversaire))
-    const ecrits = await this.client.batch(
+    // Envoyé à la main avant sa dernière réponse, il les attend déjà : l'envoi ne se double pas.
+    await this.client.batch(
       [
         ...destinataires.map(id => ({ sql: 'INSERT OR IGNORE INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)', args: [duel.code, id, this.maintenant()] })),
         { sql: 'DELETE FROM campagne_envois_prevus WHERE code = ?', args: [duel.code] },
       ],
       'write',
-    )
-    // Envoyé à la main avant sa dernière réponse, il a déjà sonné chez eux.
-    this.prevenirDuDefi(
-      duel,
-      destinataires.filter((_, i) => ecrits[i].rowsAffected > 0),
-      justes,
     )
     // Un duel classé se dit parti même retenu : celui qui défie n'apprend pas qu'on l'a retiré.
     return this.prenomsDe(duel.adversaire ? [duel.adversaire] : destinataires)
@@ -2930,11 +2906,11 @@ export class CampagneStore {
    * choisis. Un envoi raté ne coûte pas sa réponse, déjà écrite : les prévus
    * restent, et sa page les envoie à sa prochaine visite (`duel`).
    */
-  private async partirAuxPrevus(profileId: string, code: string, justes: number): Promise<string[]> {
+  private async partirAuxPrevus(profileId: string, code: string): Promise<string[]> {
     const duel = await this.duelDe(code)
     if (!duel || duel.auteur !== profileId) return []
     try {
-      return await this.envoyerLesPrevus(duel, justes)
+      return await this.envoyerLesPrevus(duel)
     } catch (e) {
       console.warn('[campagne] un défi n’est pas parti à ses amis choisis, il partira de sa page :', e instanceof Error ? e.message : e)
       return []
@@ -2954,45 +2930,6 @@ export class CampagneStore {
     const profils = (await p.byIds([...ids])).filter((x): x is ProfileRec => x !== null)
     const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
     return profils.map(x => marques.get(x.id) ?? x.name)
-  }
-
-  /**
-   * Les téléphones des amis à qui un défi vient de partir sonnent : qui les
-   * défie, sur quoi, et le score à battre (`messageDUnDefi`) — celui d'un
-   * duel classé reste caché jusqu'à la dernière réponse de qui le relève.
-   * Jamais attendu — la réponse du joueur ne guette pas un service de push —,
-   * et un masqué n'envoie rien : ses défis ne parviennent à personne.
-   */
-  private prevenirDuDefi(duel: Duel, ids: readonly string[], justes: number | null): void {
-    const prevenir = this.prevenir
-    if (ids.length === 0 || !prevenir || !this.profils || this.masque?.(duel.auteur)) return
-    const profils = this.profils
-    void (async () => {
-      const [auteur] = await profils.byIds([duel.auteur])
-      if (!auteur) return
-      const quoi = nomDuChoix(duel.categories ?? [], duel.sujet)
-      const message = messageDUnDefi(duel.adversaire ? { auteur: auteur.name, quoi, justes: null, classe: true, code: duel.code } : { auteur: auteur.name, quoi, justes, code: duel.code })
-      // Gardé chez le service jusqu'à sa fermeture : après, il n'y a plus rien à relever.
-      await prevenir(ids, message, Math.floor((duel.fermeLe - this.maintenant()) / 1000))
-    })().catch(e => console.warn('[campagne] la notification d’un défi n’est pas partie :', e instanceof Error ? e.message : e))
-  }
-
-  /**
-   * Un duel classé vient de se jouer des deux côtés : le téléphone de
-   * l'autre sonne, avec les deux scores et ce que le duel a fait à sa cote
-   * (`messageDUnDuelJoue`). Jamais attendu, et un masqué ne fait rien sonner.
-   */
-  private prevenirDuResultat(duel: Duel, joueur: string, justes: number): void {
-    const prevenir = this.prevenir
-    const autre = joueur === duel.auteur ? duel.adversaire : duel.auteur
-    if (!prevenir || !autre || !this.profils || this.masque?.(joueur)) return
-    const profils = this.profils
-    void (async () => {
-      const [[lui], tentative, releve] = await Promise.all([profils.byIds([joueur]), this.tentativeDuDuel(autre, duel.code), this.releveDesDuels(autre)])
-      if (!lui || !tentative || tentative.finieLe === null) return
-      const ecart = releve.ecarts.get(tentative.id)?.ecart ?? null
-      await prevenir([autre], messageDUnDuelJoue({ adversaire: lui.name, justes: tentative.justes, sesJustes: justes, ecart, code: duel.code }), 7 * 24 * 3600)
-    })().catch(e => console.warn('[campagne] la notification d’un duel joué n’est pas partie :', e instanceof Error ? e.message : e))
   }
 
   /** Retirer un ami de sa liste : ni lui ni ses défis n'y paraissent plus, jusqu'à ce qu'ils jouent de nouveau ensemble. */
