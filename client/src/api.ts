@@ -33,7 +33,7 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
-import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise } from '../../shared/duels'
+import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
@@ -484,6 +484,8 @@ export const api = {
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {
     etat: () => req<EtatDesDuels>(DEPART.duels),
+    /** La suite de son historique, au « Voir plus » : après le dernier duel qu'il a sous les yeux, sa date puis sa série. */
+    historique: (apres: { le: number; cle: string }) => req<PageDHistoire>(`/api/duels/historique?le=${apres.le}&cle=${encodeURIComponent(apres.cle)}`),
     /** Quelqu'un à défier ou à ajouter, par son prénom. */
     chercher: (texte: string) => req<JoueurADefier[]>(`/api/duels/joueurs?q=${encodeURIComponent(texte)}`),
     /** Un joueur touché — sa carte, la préparation ouverte à son adresse : ce que la recherche dirait de lui, s'il est son ami, et sa propre cote. */

@@ -346,6 +346,163 @@ export function confettisDesLigues(r: Pick<ReleveDesDuels, 'semaines'>, semaineE
   return n
 }
 
+// ── Le bilan de ses duels ────────────────────────────────────────────────────
+//
+// Le souhait du propriétaire du 13 octobre 2026 : un historique « un peu
+// pauvre niveau métriques » — trois lignes et des barres. Son bilan, ses
+// records, ses face-à-face, la courbe de sa cote, tous ses duels : comme la
+// cote, tout se relit dans le journal de ses duels à chaque lecture
+// (`bilanDesDuels`), rien ne se tient à côté. Un résultat qu'il n'a pas encore
+// vu n'y compte pas : sa carte se retourne d'abord.
+
+/** Un duel classé fini, et contre qui : un profil — '' pour Automate, qui n'en a pas. */
+export interface DuelRaconte extends DuelJoue {
+  contre: string
+  /** Un duel contre quelqu'un : son code, que sa ligne d'historique rouvre — sans lui, un duel au dé. */
+  code?: string
+  /** Son résultat, qu'il n'a pas encore vu : le bilan le tait. */
+  aVoir?: true
+}
+
+/** Ses face-à-face qu'on montre : ses adversaires les plus affrontés. */
+export const FACE_A_FACE_MONTRES = 6
+
+/** La courbe de sa cote : ses derniers duels, un point chacun. */
+export const POINTS_DE_LA_COURBE = 30
+
+/** Contre qui, tel que sa page le dit : un joueur — sa ligue, ce qu'il porte —, ou Automate, sans profil. */
+export interface QuiAffronte extends SonApparence {
+  profileId?: string
+  nom: string
+  avatar: string
+  ligue?: CleDeLigue
+}
+
+/** Son bilan contre un adversaire : une ligne de ses face-à-face (`FaceAFace`, lui, dit un joueur touché). */
+export interface BilanContre<Qui = QuiAffronte> {
+  contre: Qui
+  victoires: number
+  defaites: number
+  egalites: number
+}
+
+/** Ce que ses duels disent de lui, tous ceux qu'il a vus : de quoi remplir son historique. */
+export interface BilanDesDuels<Qui = QuiAffronte> {
+  joues: number
+  victoires: number
+  defaites: number
+  egalites: number
+  /** Ses victoires d'affilée jusqu'à son dernier duel : 0 s'il ne l'a pas gagné. */
+  serie: number
+  meilleureSerie: number
+  /** La plus haute cote qu'il ait tenue, celle de départ comprise. */
+  plusHaute: number
+  /** Sa plus belle victoire : celle qui a le plus rapporté — la plus récente, à égalité. */
+  plusBelle?: { contre: Qui; justes: number; sesJustes: number; ecart: number; le: number }
+  /** Ses adversaires, les plus affrontés d'abord — les plus récents, à nombre égal. */
+  faceAFace: BilanContre<Qui>[]
+  /** Sa cote avant ses derniers duels (`POINTS_DE_LA_COURBE`), puis après chacun. */
+  courbe: number[]
+}
+
+/** L'ordre du journal : celui où `releverLesDuels` les relit. */
+const dansLOrdre = (a: DuelJoue, b: DuelJoue) => a.finiLe - b.finiLe || (a.serie < b.serie ? -1 : a.serie > b.serie ? 1 : 0)
+
+/**
+ * Le bilan de ses duels, relu dans son journal : chaque duel compté une fois,
+ * avec l'écart que la cote lui a donné (`ReleveDesDuels.ecarts`) — un duel
+ * que le relevé ne connaît pas ne compte pas plus ici. Une égalité rompt une
+ * série de victoires comme une défaite. Pur : une archive se relit pareil.
+ */
+export function bilanDesDuels(duels: readonly DuelRaconte[], ecarts: ReleveDesDuels['ecarts']): BilanDesDuels<string> {
+  const vus = duels.filter(d => !d.aVoir && ecarts.has(d.serie)).sort(dansLOrdre)
+  const bilan: BilanDesDuels<string> = { joues: vus.length, victoires: 0, defaites: 0, egalites: 0, serie: 0, meilleureSerie: 0, plusHaute: COTE_DE_DEPART, faceAFace: [], courbe: [] }
+  const parAdversaire = new Map<string, BilanContre<string> & { dernier: number }>()
+  const apres: number[] = []
+  vus.forEach((d, i) => {
+    const { avant, ecart } = ecarts.get(d.serie)!
+    const resultat = resultatDuDuel(d.justes, d.sesJustes)
+    const face = parAdversaire.get(d.contre) ?? { contre: d.contre, victoires: 0, defaites: 0, egalites: 0, dernier: i }
+    face.dernier = i
+    if (resultat === 1) {
+      bilan.victoires++
+      face.victoires++
+      bilan.serie++
+      bilan.meilleureSerie = Math.max(bilan.meilleureSerie, bilan.serie)
+      if (!bilan.plusBelle || ecart >= bilan.plusBelle.ecart) bilan.plusBelle = { contre: d.contre, justes: d.justes, sesJustes: d.sesJustes, ecart, le: d.finiLe }
+    } else {
+      bilan.serie = 0
+      if (resultat === 0) {
+        bilan.defaites++
+        face.defaites++
+      } else {
+        bilan.egalites++
+        face.egalites++
+      }
+    }
+    parAdversaire.set(d.contre, face)
+    bilan.plusHaute = Math.max(bilan.plusHaute, avant + ecart)
+    apres.push(avant + ecart)
+  })
+  const total = (f: BilanContre<string>) => f.victoires + f.defaites + f.egalites
+  bilan.faceAFace = [...parAdversaire.values()]
+    .sort((a, b) => total(b) - total(a) || b.dernier - a.dernier)
+    .map(({ dernier: _, ...face }) => face)
+  const derniers = vus.slice(-POINTS_DE_LA_COURBE)
+  if (derniers.length > 0) bilan.courbe = [ecarts.get(derniers[0].serie)!.avant, ...apres.slice(-POINTS_DE_LA_COURBE)]
+  return bilan
+}
+
+/**
+ * Un duel joué, tel que l'historique le dit : contre qui, les deux scores, ce
+ * qu'il a fait à sa cote, quand — et ce qu'un toucher rouvre : la page d'un
+ * duel contre quelqu'un, sa correction comprise ; la correction d'un duel au
+ * dé, qui n'a pas de page.
+ */
+export interface DuelDeLHistoire {
+  cle: string
+  contre: QuiAffronte
+  justes: number
+  sesJustes: number
+  ecart: number
+  le: number
+  /** Un duel contre quelqu'un : sa page. */
+  code?: string
+  /** Un duel au dé : sa série, dont la ligne ouvre la correction. */
+  serie?: string
+}
+
+/** Ses duels joués, une page de son historique : la suite, s'il y en a, se demande (`GET /api/duels/historique`). */
+export interface PageDHistoire {
+  duels: DuelDeLHistoire[]
+  suite: boolean
+}
+
+/** L'historique se lit page par page : les dix premiers avec la page des duels, vingt à chaque « Voir plus ». */
+export const DUELS_DE_L_HISTOIRE = 10
+export const DUELS_PAR_SUITE = 20
+
+/** L'historique remonte un mois : au-delà, son bilan le dit. */
+export const JOURS_DE_L_HISTOIRE = 30
+
+/**
+ * Une page de son historique : ses duels vus, finis depuis `depuis`, après le
+ * curseur — le dernier de la page d'avant, sa date puis sa série : deux duels
+ * de la même milliseconde ne se perdent pas entre deux pages —, les plus
+ * récents d'abord, chacun avec ce qu'il a fait à sa cote.
+ */
+export function pageDeLHistoire(
+  duels: readonly DuelRaconte[],
+  ecarts: ReleveDesDuels['ecarts'],
+  depuis: number,
+  n: number,
+  apres?: { le: number; cle: string },
+): { duels: (DuelRaconte & { ecart: number })[]; suite: boolean } {
+  const plusAncien = (d: DuelRaconte) => !apres || d.finiLe < apres.le || (d.finiLe === apres.le && d.serie < apres.cle)
+  const vus = duels.filter(d => !d.aVoir && ecarts.has(d.serie) && d.finiLe >= depuis && plusAncien(d)).sort((a, b) => dansLOrdre(b, a))
+  return { duels: vus.slice(0, n).map(d => ({ ...d, ecart: ecarts.get(d.serie)!.ecart })), suite: vus.length > n }
+}
+
 /** Cette semaine, telle que sa page la dit : ses duels, sa meilleure ligue, ce qu'elle rapportera lundi, et quand. */
 export interface SemaineDesDuels {
   duels: number
@@ -385,7 +542,16 @@ export interface LigneDesDuels {
   rang: number
   /** Ses duels classés, tous : un débutant chanceux se distingue d'un habitué. */
   duels: number
+  /**
+   * Les places qu'il a gagnées depuis lundi (perdues, en négatif), comme un
+   * tableau sportif : absent s'il n'a pas bougé, ou n'était pas classé avant
+   * cette semaine.
+   */
+  progression?: number
 }
+
+/** « À ta portée » : les joueurs juste au-dessus de sa cote qu'on lui propose de défier. */
+export const JOUEURS_A_PORTEE = 3
 
 export interface ClassementDesDuels {
   joueurs: number
@@ -406,6 +572,15 @@ export interface ClassementDesDuels {
    * lundi. Absente s'il n'était pas classé avant cette semaine.
    */
   progression?: number
+  /**
+   * Ceux qu'il peut aller chercher, le plus proche d'abord : les joueurs
+   * juste au-dessus de sa cote (`JOUEURS_A_PORTEE`) — classé ou pas, de sa
+   * cote à lui. En tête, personne au-dessus : ceux qui le talonnent
+   * (`enTete`). L'onglet les montre avec ce qu'il gagnerait, et « Défier ».
+   */
+  aPortee?: LigneDesDuels[]
+  /** En tête du classement : `aPortee` dit ceux qui le talonnent. */
+  enTete?: true
 }
 
 /**
@@ -522,6 +697,10 @@ export interface EtatDesDuels {
   dernieres: ResumeDeRencontre[]
   /** Ses duels contre quelqu'un : ceux qui attendent, puis les derniers joués (absent d'un serveur d'avant). */
   contre?: DuelContre[]
+  /** Son bilan, ses records, ses face-à-face, la courbe de sa cote (absent d'un serveur d'avant). */
+  bilan?: BilanDesDuels
+  /** Ses derniers duels joués, au dé et contre quelqu'un mêlés, les plus récents d'abord (absent d'un serveur d'avant). */
+  historique?: PageDHistoire
 }
 
 /**

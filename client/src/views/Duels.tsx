@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { api, motifDe } from '../api'
-import { Icon } from '../components/Icon'
+import { Icon, type IconName } from '../components/Icon'
 import { Feuille, Sortie } from '../components/Pieces'
-import { Onglets } from '../components/Onglets'
+import { SerieCorrigee } from '../components/SerieCorrigee'
+import { Onglets, ongletVise } from '../components/Onglets'
 import { Avatar, Visage } from '../components/Avatar'
 import { NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
@@ -10,22 +11,29 @@ import { BlasonDeLigue } from '../components/Blason'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
+import { classer } from '../../../shared/classement'
 import { Anneau, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
 import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
   COTE_DE_DEPART,
+  DUELS_DE_L_HISTOIRE,
   DUELS_DE_PLACEMENT,
   DUELS_POUR_LA_RECOMPENSE,
   LIGUES,
+  enjeuContre,
   ligueDe,
   ligueParCle,
   ligueSuivante,
+  type BilanContre,
+  type BilanDesDuels,
   type CleDeLigue,
+  type DuelContre,
+  type DuelDeLHistoire,
   type EtatDesDuels,
   type JoueurADefier,
   type LigneDesDuels,
 } from '../../../shared/duels'
-import type { DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
+import type { CorrectionDeCampagne, DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
 
 /** Sa cote et ses duels joués : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
 export type MaCote = { cote: number; joues: number }
@@ -331,8 +339,8 @@ function PanneauEnCours({ lignes, debutant, onOuvrir, onReprendre, onRegles }: {
   )
 }
 
-/** Un duel joué, tel que l'historique le dit : contre qui, les deux scores, ce qu'il a fait à sa cote, quand. */
-export interface DuelDeLHistoire {
+/** Un duel joué, tel que l'historique le dit : contre qui, les deux scores, ce qu'il a fait à sa cote, quand — et ce qu'un toucher rouvre. */
+export interface LigneDHistoire {
   cle: string
   nom: string
   avatar: string
@@ -344,24 +352,45 @@ export interface DuelDeLHistoire {
   le: number
   /** Un duel contre quelqu'un : sa page, qu'un toucher rouvre — sa correction y est. */
   code?: string
+  /** Un duel au dé : sa série, dont un toucher ouvre la correction — il n'a pas de page. */
+  serie?: string
+}
+
+/** Une ligne de son historique telle que le serveur la raconte (`DuelDeLHistoire`), telle que la page la dit. */
+export function ligneDHistoire(d: DuelDeLHistoire): LigneDHistoire {
+  const apparence = ceQuIlPorte(d.contre)
+  return {
+    cle: d.cle,
+    nom: d.contre.nom,
+    avatar: d.contre.avatar,
+    ...(apparence && { apparence }),
+    justes: d.justes,
+    sesJustes: d.sesJustes,
+    ecart: d.ecart,
+    le: d.le,
+    ...(d.code && { code: d.code }),
+    ...(d.serie && { serie: d.serie }),
+  }
 }
 
 /**
  * Ses derniers duels joués, au hasard et contre quelqu'un mêlés, du plus
- * récent au plus ancien. Un résultat qu'il n'a pas encore vu n'y paraît pas :
- * l'historique le lui soufflerait avant que la carte se retourne.
+ * récent au plus ancien, tels qu'un serveur d'avant les donnait — sans son
+ * historique (`EtatDesDuels.historique`). Un résultat qu'il n'a pas encore vu
+ * n'y paraît pas : l'historique le lui soufflerait avant que la carte se
+ * retourne.
  */
-export function histoireDesDuels(etat: Pick<EtatDesDuels, 'contre' | 'dernieres'>, n = 10): DuelDeLHistoire[] {
+export function histoireDesDuels(etat: Pick<EtatDesDuels, 'contre' | 'dernieres'>, n = 10): LigneDHistoire[] {
   const porte = (x: SonApparence) => {
     const apparence = ceQuIlPorte(x)
     return apparence && { apparence }
   }
-  const auHasard = etat.dernieres.flatMap((r): DuelDeLHistoire[] =>
+  const auHasard = etat.dernieres.flatMap((r): LigneDHistoire[] =>
     r.issue && r.ecart !== undefined
-      ? [{ cle: r.serie, nom: r.adversaire.nom, avatar: r.adversaire.avatar, ...porte(r.adversaire), justes: r.justes, sesJustes: r.adversaire.justes, ecart: r.ecart, le: r.le }]
+      ? [{ cle: r.serie, nom: r.adversaire.nom, avatar: r.adversaire.avatar, ...porte(r.adversaire), justes: r.justes, sesJustes: r.adversaire.justes, ecart: r.ecart, le: r.le, serie: r.serie }]
       : [],
   )
-  const contre = (etat.contre ?? []).flatMap((d): DuelDeLHistoire[] =>
+  const contre = (etat.contre ?? []).flatMap((d): LigneDHistoire[] =>
     !d.nouveau && d.ecart !== undefined && d.le !== undefined && d.justes !== null && d.sesJustes !== null
       ? [{ cle: d.code, nom: d.contre.nom, avatar: d.contre.avatar, ...porte(d.contre), justes: d.justes, sesJustes: d.sesJustes, ecart: d.ecart, le: d.le, code: d.code }]
       : [],
@@ -369,34 +398,215 @@ export function histoireDesDuels(etat: Pick<EtatDesDuels, 'contre' | 'dernieres'
   return [...auHasard, ...contre].sort((a, b) => b.le - a.le).slice(0, n)
 }
 
-/** Les duels que l'historique détaille sous ses barres : les trois derniers, la forme dit le reste. */
-const DUELS_DETAILLES = 3
-
 /** V, D ou = : l'issue d'un duel joué, en une lettre. */
-const lettreDeLIssue = (d: Pick<DuelDeLHistoire, 'justes' | 'sesJustes'>) => (d.justes > d.sesJustes ? 'V' : d.justes < d.sesJustes ? 'D' : '=')
+const lettreDeLIssue = (d: Pick<LigneDHistoire, 'justes' | 'sesJustes'>) => (d.justes > d.sesJustes ? 'V' : d.justes < d.sesJustes ? 'D' : '=')
 const motDeLIssue = { V: 'victoire', D: 'défaite', '=': 'égalité' } as const
 
+const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+
 /**
- * « Historique » : ses dix derniers duels en barres — ce que chacun a fait à
- * sa cote, au-dessus du trait gagné, en dessous perdu, du plus ancien au plus
- * récent —, leur somme, puis les trois derniers, une ligne chacun.
+ * Quand un duel s'est joué, d'un mot : « aujourd’hui », « hier », « 12 oct. ».
+ * Écrit à la main : le premier `Intl` d'une page charge les données du
+ * français (règle `client.md`), pour trois lettres de mois. `maintenant` :
+ * pour les tests.
  */
-function PanneauHistorique({ duels, onOuvrir }: { duels: DuelDeLHistoire[]; onOuvrir: (code: string) => void }) {
-  if (duels.length === 0) {
-    return (
-      <div className="duels-vide">
-        <p>{espacesFines('Tes duels joués viendront ici : chacun dit ce qu’il a fait à ta cote.')}</p>
-        <MesDuels onOuvrir={onOuvrir} />
-      </div>
-    )
+export function quandCourt(le: number, maintenant = Date.now()): string {
+  const jour = (t: number) => {
+    const d = new Date(t)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   }
+  // Arrondi : un jour d'heure d'été n'a que vingt-trois heures.
+  const avant = Math.round((jour(maintenant) - jour(le)) / 86_400_000)
+  if (avant <= 0) return 'aujourd’hui'
+  if (avant === 1) return 'hier'
+  const d = new Date(le)
+  return `${d.getDate() === 1 ? '1er' : d.getDate()} ${MOIS[d.getMonth()]}`
+}
+
+/** « 12 victoires », « 1 défaite » : un nombre et son mot, au singulier jusqu'à un, comme en français. */
+const compte = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
+
+/**
+ * Son bilan en trois chiffres — ses victoires, ses défaites, la part qu'il en
+ * gagne —, puis ses records, une ligne chacun : sa série, la meilleure, sa
+ * plus haute cote, sa plus belle victoire (le souhait du propriétaire du
+ * 13 octobre 2026 : un historique « un peu pauvre niveau métriques »). Une
+ * série d'une seule victoire n'en est pas une : elle ne se dit pas.
+ */
+function BilanDuJoueur({ bilan }: { bilan: BilanDesDuels }) {
+  const part = Math.round((100 * bilan.victoires) / bilan.joues)
+  const plusHaute = ligueDe(bilan.plusHaute)
+  const records: { icone: IconName; titre: string; valeur: string; detail?: string; ligue?: CleDeLigue }[] = [
+    ...(bilan.serie >= 2 ? [{ icone: 'zap' as const, titre: 'Série en cours', valeur: compte(bilan.serie, 'victoire') }] : []),
+    ...(bilan.meilleureSerie >= 2 ? [{ icone: 'award' as const, titre: 'Meilleure série', valeur: compte(bilan.meilleureSerie, 'victoire') }] : []),
+    { icone: 'mountain', titre: 'Plus haute cote', valeur: String(bilan.plusHaute), detail: plusHaute.court, ligue: plusHaute.cle },
+    ...(bilan.plusBelle
+      ? [{ icone: 'star' as const, titre: 'Plus belle victoire', valeur: ecartSigne(bilan.plusBelle.ecart), detail: `${bilan.plusBelle.justes}–${bilan.plusBelle.sesJustes} contre ${bilan.plusBelle.contre.nom}` }]
+      : []),
+  ]
+  return (
+    <section className="duels-bilan" aria-labelledby="duels-bilan-titre">
+      <h3 id="duels-bilan-titre" className="duels-surtitre">
+        Ton bilan
+      </h3>
+      <p className="sr-only">
+        {`${compte(bilan.joues, 'duel')} : ${compte(bilan.victoires, 'victoire')}, ${compte(bilan.defaites, 'défaite')}${bilan.egalites > 0 ? `, ${compte(bilan.egalites, 'égalité')}` : ''}, ${part} % de victoires.`}
+      </p>
+      <div className="duels-chiffres" aria-hidden="true">
+        <span className="duels-chiffre duels-chiffre-v">
+          <b className="num">{bilan.victoires}</b>
+          {bilan.victoires > 1 ? 'victoires' : 'victoire'}
+        </span>
+        <span className="duels-chiffre duels-chiffre-d">
+          <b className="num">{bilan.defaites}</b>
+          {bilan.defaites > 1 ? 'défaites' : 'défaite'}
+        </span>
+        <span className="duels-chiffre">
+          <b className="num">
+            {part}
+            <small>%</small>
+          </b>
+          gagnés
+        </span>
+      </div>
+      <p className="duels-bilan-pied" aria-hidden="true">
+        {espacesFines(`${bilan.joues > 1 ? `${bilan.joues} duels joués` : 'Un duel joué'}${bilan.egalites > 0 ? ` · ${compte(bilan.egalites, 'égalité')}` : ''}`)}
+      </p>
+      <ul className="duels-records">
+        {records.map(r => (
+          <li key={r.titre} className="duels-record">
+            <span className={'duels-record-icone' + (r.ligue ? ` ligue-${r.ligue}` : '')}>
+              <Icon name={r.icone} />
+            </span>
+            <span className="duels-record-titre">{r.titre}</span>
+            <span className="duels-record-valeur">
+              <b>{r.valeur}</b>
+              {r.detail && <span>{espacesFines(r.detail)}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * La courbe de sa cote : avant ses derniers duels, puis après chacun — un
+ * point par duel, pas par jour : dix duels d'un soir ne s'y tassent pas. Les
+ * ligues qu'elle traverse en traits, leur nom au bout ; son dernier point, sa
+ * cote.
+ */
+export function CourbeDeLaCote({ courbe }: { courbe: number[] }) {
+  if (courbe.length < 2) return null
+  const largeur = 350
+  const hauteur = 112
+  // En haut, la place de sa cote au-dessus du dernier point ; à droite, celle du nom des ligues.
+  const [haut, bas, gauche, droite] = [20, 6, 4, 46]
+  const min = Math.min(...courbe)
+  const max = Math.max(...courbe)
+  const marge = Math.max(12, (max - min) * 0.12)
+  const [y0, y1] = [min - marge, max + marge]
+  const x = (i: number) => gauche + (i / (courbe.length - 1)) * (largeur - gauche - droite)
+  const y = (cote: number) => haut + ((y1 - cote) / (y1 - y0)) * (hauteur - haut - bas)
+  const points = courbe.map((c, i) => `${x(i).toFixed(1)},${y(c).toFixed(1)}`)
+  const [debut, fin] = [courbe[0], courbe[courbe.length - 1]]
+  const n = courbe.length - 1
+  const seuils = LIGUES.filter(l => l.depuis > y0 && l.depuis < y1)
+  return (
+    <section className="duels-courbe">
+      <div className="duels-historique-tete">
+        <span className="duels-surtitre">{n > 1 ? `Ta cote · ${n} derniers duels` : 'Ta cote · ton dernier duel'}</span>
+        <b className={'num ' + (fin >= debut ? 'duels-plus' : 'duels-moins')}>{ecartSigne(fin - debut)}</b>
+      </div>
+      <svg className="duels-courbe-dessin" viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={`Ta cote sur ${n > 1 ? `tes ${n} derniers duels` : 'ton dernier duel'} : de ${debut} à ${fin}, au plus haut ${max}.`}>
+        <defs>
+          <linearGradient id="duels-courbe-fond" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="currentColor" stopOpacity="0.28" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {seuils.map(l => (
+          <g key={l.cle} className={`ligue-${l.cle}`}>
+            <line className="duels-courbe-seuil" x1={gauche} x2={largeur - droite + 6} y1={y(l.depuis)} y2={y(l.depuis)} />
+            <text className="duels-courbe-ligue" x={largeur - 2} y={y(l.depuis) + 4} textAnchor="end">
+              {l.court}
+            </text>
+          </g>
+        ))}
+        <path className="duels-courbe-aire" d={`M${x(0)},${hauteur - bas} L${points.join(' L')} L${x(n)},${hauteur - bas} Z`} />
+        <polyline className="duels-courbe-trait" points={points.join(' ')} />
+        <circle className="duels-courbe-point" cx={x(n)} cy={y(fin)} r={4.5} />
+        <text className="duels-courbe-cote" x={x(n)} y={y(fin) - 9} textAnchor="middle">
+          {fin}
+        </text>
+      </svg>
+    </section>
+  )
+}
+
+/**
+ * Ses face-à-face : contre ses adversaires les plus affrontés — Automate
+ * compris —, ses victoires et ses défaites, une jauge qui les montre. Un
+ * joueur se touche : sa carte s'ouvre, « Défier » à son pied.
+ */
+function FacesAFaces({ faces, onOuvrir }: { faces: BilanContre[]; onOuvrir: (profileId: string) => void }) {
+  return (
+    <section className="duels-rivaux" aria-labelledby="duels-rivaux-titre">
+      <h3 id="duels-rivaux-titre" className="duels-surtitre">
+        Face-à-face
+      </h3>
+      <ul>
+        {faces.map(f => {
+          const total = f.victoires + f.defaites + f.egalites
+          const contenu = (
+            <>
+              <Anneau avatar={f.contre.avatar} apparence={ceQuIlPorte(f.contre)} ligue={f.contre.ligue} petit />
+              <span className="duels-rival-texte">
+                <b>{f.contre.nom}</b>
+                <span className="duels-rival-jauge" aria-hidden="true">
+                  {f.victoires > 0 && <i className="duels-rival-v" style={{ flexGrow: f.victoires }} />}
+                  {f.egalites > 0 && <i className="duels-rival-e" style={{ flexGrow: f.egalites }} />}
+                  {f.defaites > 0 && <i className="duels-rival-d" style={{ flexGrow: f.defaites }} />}
+                </span>
+              </span>
+              <span className="num duels-rival-bilan" aria-hidden="true">
+                <span className="duels-plus">{f.victoires}</span>–<span className="duels-moins">{f.defaites}</span>
+                {f.egalites > 0 && <span className="duels-rival-egal">{` · ${f.egalites} =`}</span>}
+              </span>
+              <span className="sr-only">{`, ${compte(f.victoires, 'victoire')}, ${compte(f.defaites, 'défaite')}${f.egalites > 0 ? `, ${compte(f.egalites, 'égalité')}` : ''} en ${compte(total, 'duel')}`}</span>
+            </>
+          )
+          return (
+            <li key={f.contre.profileId ?? 'automate'}>
+              {f.contre.profileId ? (
+                <button type="button" className="duels-rival" onClick={() => onOuvrir(f.contre.profileId!)}>
+                  {contenu}
+                </button>
+              ) : (
+                <span className="duels-rival">{contenu}</span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Ses dix derniers duels en barres — ce que chacun a fait à sa cote,
+ * au-dessus du trait gagné, en dessous perdu, du plus ancien au plus récent —
+ * et leur somme.
+ */
+function BarresDesDuels({ duels: tous }: { duels: LigneDHistoire[] }) {
+  const duels = tous.slice(0, DUELS_DE_L_HISTOIRE)
   const somme = duels.reduce((s, d) => s + d.ecart, 0)
   const plusFort = Math.max(...duels.map(d => Math.abs(d.ecart)), 1)
   const victoires = duels.filter(d => d.justes > d.sesJustes).length
   const defaites = duels.filter(d => d.justes < d.sesJustes).length
   const dansLOrdre = [...duels].reverse()
   return (
-    <div className="duels-historique">
+    <>
       <div className="duels-historique-tete">
         <span className="duels-surtitre">{duels.length > 1 ? `${duels.length} derniers duels` : 'Ton dernier duel'}</span>
         <b className={'num ' + (somme >= 0 ? 'duels-plus' : 'duels-moins')}>{ecartSigne(somme)}</b>
@@ -428,97 +638,428 @@ function PanneauHistorique({ duels, onOuvrir }: { duels: DuelDeLHistoire[]; onOu
           )
         })}
       </svg>
-      <ul className="duels-joues">
-        {duels.slice(0, DUELS_DETAILLES).map(d => {
-          const issue = lettreDeLIssue(d)
-          const contenu = (
-            <>
-              <span className={`duels-issue duels-issue-${issue === 'V' ? 'v' : issue === 'D' ? 'd' : 'e'}`} aria-hidden="true">
-                {issue}
-              </span>
-              <span className="sr-only">{`${motDeLIssue[issue]}, `}</span>
-              <span className="duels-joue-avatar" aria-hidden="true">
-                <Visage avatar={d.avatar} apparence={d.apparence} />
-              </span>
+    </>
+  )
+}
+
+/** L'issue d'un duel en tête de sa correction : le mot entier. */
+const ISSUE_EN_TETE = { V: 'Victoire', D: 'Défaite', '=': 'Égalité' } as const
+
+/** La pastille d'une issue : V, D ou =, à sa couleur. */
+const classeDeLIssue = (issue: keyof typeof ISSUE_EN_TETE) => `duels-issue duels-issue-${issue === 'V' ? 'v' : issue === 'D' ? 'd' : 'e'}`
+
+/**
+ * Tous ses duels joués, une ligne chacun : l'issue, contre qui et quand, les
+ * deux scores, ce qu'il a fait à sa cote. Trois seulement s'y lisaient, le
+ * reste n'était qu'une barre (le propriétaire, le 13 octobre 2026 : « ça en
+ * affiche un maximum de 3 »). Un toucher rouvre un duel contre quelqu'un — sa
+ * carte, sa correction —, ou la correction d'un duel au dé.
+ */
+function ListeDesDuels({ duels, onOuvrir, onCorrection }: { duels: LigneDHistoire[]; onOuvrir: (code: string) => void; onCorrection: (d: LigneDHistoire) => void }) {
+  const maintenant = Date.now()
+  return (
+    <ul className="duels-joues">
+      {duels.map(d => {
+        const issue = lettreDeLIssue(d)
+        const contenu = (
+          <>
+            <span className={classeDeLIssue(issue)} aria-hidden="true">
+              {issue}
+            </span>
+            <span className="sr-only">{`${motDeLIssue[issue]}, `}</span>
+            <span className="duels-joue-avatar" aria-hidden="true">
+              <Visage avatar={d.avatar} apparence={d.apparence} />
+            </span>
+            <span className="duels-joue-texte">
               <span className="duels-joue-nom">{d.nom}</span>
-              <span className="num duels-joue-score">{`${d.justes}–${d.sesJustes}`}</span>
-              <span className={'duels-joue-ecart ' + (d.ecart >= 0 ? 'duels-plus' : 'duels-moins')}>{ecartSigne(d.ecart)}</span>
-            </>
-          )
-          return (
-            <li key={d.cle}>
-              {d.code ? (
-                <button type="button" className="duels-joue" onClick={() => onOuvrir(d.code!)}>
-                  {contenu}
-                </button>
-              ) : (
-                <span className="duels-joue">{contenu}</span>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+              <span className="duels-joue-quand">{quandCourt(d.le, maintenant)}</span>
+            </span>
+            <span className="num duels-joue-score">{`${d.justes}–${d.sesJustes}`}</span>
+            <span className={'duels-joue-ecart ' + (d.ecart >= 0 ? 'duels-plus' : 'duels-moins')}>{ecartSigne(d.ecart)}</span>
+          </>
+        )
+        return (
+          <li key={d.cle}>
+            {d.code ? (
+              <button type="button" className="duels-joue" onClick={() => onOuvrir(d.code!)}>
+                {contenu}
+              </button>
+            ) : d.serie ? (
+              <button type="button" className="duels-joue" onClick={() => onCorrection(d)}>
+                {contenu}
+              </button>
+            ) : (
+              <span className="duels-joue">{contenu}</span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/**
+ * La correction d'un duel au dé, dans sa feuille : il n'a pas de page, et ses
+ * réponses ne se relisaient qu'à sa fin, d'un toucher sur « Réponses ».
+ */
+export function FeuilleDeLaCorrection({ duel, onFermer }: { duel: LigneDHistoire; onFermer: () => void }) {
+  const [correction, setCorrection] = useState<CorrectionDeCampagne[] | null>(null)
+  const [erreur, setErreur] = useState('')
+  useEffect(() => {
+    if (!duel.serie) return
+    let vivant = true
+    api.campagne
+      .correction(duel.serie)
+      .then(c => vivant && setCorrection(c))
+      .catch(e => vivant && setErreur(motifDe(e)))
+    return () => {
+      vivant = false
+    }
+  }, [duel.serie])
+  const issue = lettreDeLIssue(duel)
+  return (
+    <Feuille titre={`Ton duel contre ${duel.nom}`} onFermer={onFermer}>
+      <p className="duels-correction-tete">
+        <span className={classeDeLIssue(issue)} aria-hidden="true">
+          {issue}
+        </span>
+        <span>{espacesFines(`${ISSUE_EN_TETE[issue]} ${duel.justes}–${duel.sesJustes} · ${quandCourt(duel.le)}`)}</span>
+        <b className={duel.ecart >= 0 ? 'duels-plus' : 'duels-moins'}>{ecartSigne(duel.ecart)}</b>
+      </p>
+      {erreur ? (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      ) : correction ? (
+        <SerieCorrigee correction={correction} />
+      ) : (
+        <p className="muted small">Chargement…</p>
+      )}
+    </Feuille>
+  )
+}
+
+/**
+ * « Historique » : son bilan et ses records, la courbe de sa cote, ses
+ * face-à-face, puis ses derniers duels — dix en barres, tous en lignes — et
+ * « Voir plus », un mois en arrière ; enfin ses défis entre amis d'avant.
+ */
+export function PanneauHistorique({
+  etat,
+  onOuvrir,
+  onCorrection,
+  onJoueur,
+}: {
+  etat: EtatDesDuels
+  onOuvrir: (code: string) => void
+  onCorrection: (d: LigneDHistoire) => void
+  onJoueur: (profileId: string) => void
+}) {
+  const [suite, setSuite] = useState<LigneDHistoire[]>([])
+  const [encore, setEncore] = useState(etat.historique?.suite ?? false)
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const premiers = etat.historique ? etat.historique.duels.map(ligneDHistoire) : histoireDesDuels(etat)
+  const duels = [...premiers, ...suite]
+  const bilan = etat.bilan && etat.bilan.joues > 0 ? etat.bilan : null
+  const voirPlus = async () => {
+    const dernier = duels[duels.length - 1]
+    if (busy || !dernier) return
+    setBusy(true)
+    setErreur('')
+    try {
+      const page = await api.duels.historique({ le: dernier.le, cle: dernier.cle })
+      setSuite(avant => [...avant, ...page.duels.map(ligneDHistoire)])
+      setEncore(page.suite)
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (duels.length === 0 && !bilan) {
+    return (
+      <div className="duels-vide">
+        <p>{espacesFines('Tes duels joués viendront ici : chacun dit ce qu’il a fait à ta cote.')}</p>
+        <MesDuels onOuvrir={onOuvrir} />
+      </div>
+    )
+  }
+  return (
+    <div className="duels-historique">
+      {bilan && <BilanDuJoueur bilan={bilan} />}
+      {bilan && <CourbeDeLaCote courbe={bilan.courbe} />}
+      {bilan && bilan.faceAFace.length > 0 && <FacesAFaces faces={bilan.faceAFace} onOuvrir={onJoueur} />}
+      {duels.length > 0 ? (
+        <section className="duels-derniers">
+          <BarresDesDuels duels={premiers} />
+          <ListeDesDuels duels={duels} onOuvrir={onOuvrir} onCorrection={onCorrection} />
+          {encore && (
+            <button type="button" className="btn btn-block duels-voir-plus" aria-disabled={busy || undefined} onClick={() => void voirPlus()}>
+              <Icon name="chevron-down" />
+              Voir plus
+            </button>
+          )}
+          {erreur && (
+            <p className="error" role="alert">
+              {erreur}
+            </p>
+          )}
+        </section>
+      ) : (
+        <p className="duels-vide">{espacesFines('Aucun duel ce mois-ci : ton bilan compte tous les autres.')}</p>
+      )}
       <MesDuels onOuvrir={onOuvrir} />
     </div>
   )
 }
 
-/** Une ligne du classement de l'onglet : sa place, son avatar, son prénom — « Toi » pour la sienne —, sa cote. Un toucher ouvre sa carte. */
-function LigneDuRang({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void }) {
+/**
+ * Les places gagnées ou perdues depuis lundi, en flèche, comme un tableau
+ * sportif (le souhait du propriétaire du 13 octobre 2026) : rien quand elles
+ * n'ont pas bougé, ni pour qui n'était pas classé avant cette semaine.
+ */
+function Mouvement({ n }: { n?: number }) {
+  if (!n) return null
   return (
-    <li>
+    <span className={'duels-mouvement ' + (n > 0 ? 'duels-plus' : 'duels-moins')} aria-hidden="true">
+      {`${n > 0 ? '▲' : '▼'}${Math.abs(n)}`}
+    </span>
+  )
+}
+
+/** Ce que la flèche dit, à l'oreille : dans le nom d'un bouton, qui remplace tout son contenu. */
+const motDuMouvement = (n?: number) =>
+  n ? `, ${Math.abs(n)} place${Math.abs(n) > 1 ? 's' : ''} ${n > 0 ? 'gagnée' : 'perdue'}${Math.abs(n) > 1 ? 's' : ''} depuis lundi` : ''
+
+/** Ce qu'une ligne de classement montre d'un joueur : de sa ligne du classement, ou de sa ligne d'ami. */
+type LigneDeRang = Pick<LigneDesDuels, 'profileId' | 'nom' | 'avatar' | 'cote' | 'ligue' | 'rang' | 'progression'> & SonApparence
+
+/** Sa place dans un classement : son rang — absent tant qu'il n'y est pas —, sur combien, et ses places depuis lundi. */
+interface SaPlace {
+  rang?: number
+  sur: number
+  progression?: number
+}
+
+type QuelClassement = 'tous' | 'amis'
+
+/**
+ * Ses deux places côte à côte, comme un tableau de scores — parmi tous, entre
+ * amis —, et chacune l'onglet qui montre sa liste dessous : la choisie
+ * allumée d'or, l'autre en retrait. Deux pastilles « Tous » et « Mes amis »,
+ * posées entre les onglets et sa place, « sortaient un peu de nulle part » (le
+ * propriétaire, le 13 octobre 2026) : on choisit la place qu'on regarde. Au
+ * clavier, le motif des onglets (`ongletVise`).
+ */
+function DeuxPlaces({
+  qui,
+  onChoisir,
+  tous,
+  amis,
+}: {
+  qui: QuelClassement
+  onChoisir: (qui: QuelClassement) => void
+  tous: SaPlace
+  /** Sa place parmi ses amis ; null tant qu'ils arrivent, « aucun » sans ami. */
+  amis: SaPlace | 'aucun' | null
+}) {
+  const rangee = useRef<HTMLDivElement>(null)
+  const places = [
+    { id: 'tous' as const, titre: 'Parmi tous', place: tous },
+    { id: 'amis' as const, titre: 'Entre amis', place: amis },
+  ]
+  const touche = (e: KeyboardEvent, i: number) => {
+    const j = ongletVise(e.key, i, places.length)
+    if (j === null) return
+    e.preventDefault()
+    onChoisir(places[j].id)
+    rangee.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
+  }
+  return (
+    <div ref={rangee} className={'duels-places' + (qui === 'amis' ? ' sur-amis' : '')} role="tablist" aria-label="Quel classement">
+      {places.map(({ id, titre, place }, i) => {
+        const sienne = place && place !== 'aucun' ? place : undefined
+        const rang = sienne?.rang
+        // Sous son rang, sur combien ; sans rang, pourquoi.
+        const sous = place === null ? 'chargement…' : !sienne ? 'aucun ami' : rang === undefined ? 'pas encore classé' : `sur ${sienne.sur}`
+        return (
+          <button
+            key={id}
+            id={`duels-qui-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={qui === id}
+            aria-controls={qui === id ? `duels-qui-${id}-panneau` : undefined}
+            tabIndex={qui === id ? 0 : -1}
+            className={'duels-place' + (qui === id ? ' actif' : '')}
+            // Le nom remplace tout son contenu : « 4e sur 9 », pas un « 4 » et un « e » en exposant.
+            aria-label={`${titre} : ${rang === undefined ? sous : `${rang}${rang === 1 ? 're' : 'e'} ${sous}${motDuMouvement(sienne?.progression)}`}`}
+            onClick={() => onChoisir(id)}
+            onKeyDown={e => touche(e, i)}
+          >
+            <span className="duels-place-titre">{titre}</span>
+            <span className="duels-place-rang">
+              <b className="num">
+                {rang === undefined ? (
+                  '–'
+                ) : (
+                  <>
+                    {rang}
+                    <sup>{rang === 1 ? 're' : 'e'}</sup>
+                  </>
+                )}
+              </b>
+              <Mouvement n={sienne?.progression} />
+            </span>
+            <span className="duels-place-sous">{sous}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Un joueur du classement, tel que la préparation d'un duel le reçoit : ce qu'il porte, sa cote, sa place. */
+const joueurDeLaLigne = (l: LigneDesDuels): JoueurADefier => ({
+  profileId: l.profileId,
+  nom: l.nom,
+  avatar: l.avatar,
+  ...(l.finition && l.finition !== 'mat' && { finition: l.finition }),
+  ...(l.legendaire && { legendaire: l.legendaire }),
+  ...(l.eclat && { eclat: true as const }),
+  ...(l.bordure && { bordure: l.bordure }),
+  cote: l.cote,
+  ligue: l.ligue,
+  rang: l.rang,
+})
+
+/**
+ * Un échelon de son échelle, ou de ses amis : un joueur — sa place, sa cote,
+ * ses places depuis lundi — et, s'il est à sa portée, ce qu'il gagnerait à le
+ * battre et « Défier » ; un duel déjà ouvert entre eux, « En cours », qui le
+ * rouvre. Deux boutons côte à côte, jamais l'un dans l'autre : sa carte, et
+ * le geste.
+ */
+function Echelon({
+  ligne: l,
+  moi,
+  gain,
+  enCours,
+  onOuvrir,
+  onDefier,
+  onOuvrirDuel,
+}: {
+  ligne: LigneDeRang
+  moi: boolean
+  /** Ce qu'il gagnerait à le battre (`enjeuContre`) ; absent : rien à défier — lui-même, celui qui le suit, un ami. */
+  gain?: number
+  /** Le code d'un duel déjà ouvert entre eux : un seul à la fois. */
+  enCours?: string
+  onOuvrir: (profileId: string) => void
+  onDefier?: () => void
+  onOuvrirDuel?: (code: string) => void
+}) {
+  return (
+    <li className={'duels-echelon' + (moi ? ' moi' : '')}>
       <button
         type="button"
-        className={'duels-rang-ligne' + (moi ? ' moi' : '')}
-        aria-label={`${moi ? 'Ta carte' : `La carte ${deNom(l.nom)}`} — rang ${l.rang}, ${ligueParCle(l.ligue).nom.toLowerCase()}, cote ${l.cote}`}
+        className="duels-echelon-joueur"
+        aria-label={`${moi ? 'Ta carte' : `La carte ${deNom(l.nom)}`} — rang ${l.rang}, ${ligueParCle(l.ligue).nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}`}
         onClick={() => onOuvrir(l.profileId)}
       >
         <span className="num duels-rang-place">{l.rang}</span>
         {/* Ce qu'il porte, sa bordure comprise, comme au classement entier : l'emoji seul y montrait
             l'écureuil d'en dessous à qui porte son légendaire (le retour du propriétaire du 13 octobre 2026). */}
         <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
-        <span className="duels-rang-nom">{moi ? 'Toi' : l.nom}</span>
-        <span className="num duels-rang-cote">{l.cote}</span>
+        <span className="duels-echelon-texte">
+          <b>{moi ? 'Toi' : l.nom}</b>
+          <span>
+            <span className="num">{l.cote}</span>
+            <Mouvement n={l.progression} />
+          </span>
+        </span>
       </button>
+      {gain !== undefined &&
+        (enCours ? (
+          <button type="button" className="duels-echelon-geste en-cours" aria-label={`Ton duel contre ${l.nom}, en cours`} onClick={() => onOuvrirDuel?.(enCours)}>
+            <Icon name="hourglass" />
+            En cours
+          </button>
+        ) : (
+          <button type="button" className="duels-echelon-geste" aria-label={`Défier ${l.nom} : ${ecartSigne(gain)} si tu gagnes`} onClick={onDefier}>
+            <span className="duels-echelon-defier">
+              <Icon name="swords" />
+              Défier
+            </span>
+            <span className="duels-echelon-gain">{espacesFines(`${ecartSigne(gain)} si tu gagnes`)}</span>
+          </button>
+        ))}
     </li>
   )
 }
 
 /**
- * « Classement » : sa place sur combien, les places gagnées depuis lundi,
- * ses deux voisins (`ClassementDesDuels.autour`), puis le podium d'un coup
- * d'œil — qui ouvre le classement entier dans sa feuille.
+ * « Parmi tous », sous ses deux places : son échelle — ceux à sa portée,
+ * juste au-dessus, avec ce qu'il gagnerait et « Défier », puis lui et celui
+ * qui le suit ; en tête, lui et ceux qui le talonnent — ; enfin le podium,
+ * qui ouvre le classement entier. On regardait le classement sans pouvoir en
+ * rien faire (le souhait du propriétaire du 13 octobre 2026).
  */
-function PanneauClassement({ classement, onOuvrir, onToutVoir }: { classement: EtatDesDuels['classement']; onOuvrir: (profileId: string) => void; onToutVoir: () => void }) {
+function ClassementDeTous({
+  classement,
+  maCote,
+  contre,
+  onOuvrir,
+  onToutVoir,
+  onDefier,
+  onOuvrirDuel,
+}: {
+  classement: EtatDesDuels['classement']
+  maCote: MaCote
+  contre: readonly DuelContre[]
+  onOuvrir: (profileId: string) => void
+  onToutVoir: () => void
+  onDefier: (joueur: JoueurADefier) => void
+  onOuvrirDuel: (code: string) => void
+}) {
   const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
-  const p = classement.progression
   const podium = classement.lignes.slice(0, 3)
   if (classement.joueurs === 0) return <p className="duels-vide">{espacesFines('Personne n’a encore joué de duel : la première place t’attend.')}</p>
+  const aPortee = classement.aPortee ?? []
+  const autour = classement.autour ?? []
+  const suivant = sienne && !classement.enTete ? autour[autour.findIndex(l => l.profileId === sienne.profileId) + 1] : undefined
+  // De haut en bas : ceux qu'il va chercher, le plus haut d'abord, lui, et celui qui le suit — en tête, lui puis ceux qui le talonnent.
+  // Personne au-dessus de sa cote : ceux qui le suivent, le plus proche d'abord — en tête, ou pas encore classé au-dessus de tous.
+  const auDessous = classement.enTete || (aPortee[0] !== undefined && aPortee[0].cote < maCote.cote)
+  const echelle = auDessous ? [...(sienne ? [sienne] : []), ...aPortee] : [...[...aPortee].reverse(), ...(sienne ? [sienne] : []), ...(suivant ? [suivant] : [])]
+  const vises = new Set(aPortee.map(l => l.profileId))
+  const enCours = (profileId: string) => contre.find(d => d.contre.profileId === profileId && duelEnRoute(d))?.code
   return (
-    <div className="duels-classement-onglet">
-      {sienne ? (
-        <div className="duels-ta-place-onglet">
-          <b className="num">
-            {sienne.rang}
-            <sup>{sienne.rang === 1 ? 're' : 'e'}</sup>
-          </b>
-          <span className="duels-sur">{`sur ${classement.joueurs}`}</span>
-          {p !== undefined && p !== 0 && (
-            <span className={'duels-progression ' + (p > 0 ? 'duels-plus' : 'duels-moins')}>
-              <span aria-hidden="true">{`${p > 0 ? '▲' : '▼'} ${Math.abs(p)}`}</span>
-              <span className="sr-only">{`${Math.abs(p)} place${Math.abs(p) > 1 ? 's' : ''} ${p > 0 ? 'gagnée' : 'perdue'}${Math.abs(p) > 1 ? 's' : ''} depuis lundi`}</span>
-            </span>
-          )}
-        </div>
-      ) : (
-        <p className="duels-vide">{espacesFines('Un duel joué te place ici, quatre semaines durant.')}</p>
+    <>
+      {!sienne && (
+        <p className="duels-vide">{espacesFines(`Ta cote : ${maCote.cote}. Un duel joué te place au classement, quatre semaines durant.`)}</p>
       )}
-      {sienne && classement.autour && (
-        <ol className="duels-rang">
-          {classement.autour.map(l => (
-            <LigneDuRang key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={onOuvrir} />
-          ))}
-        </ol>
+      {aPortee.length > 0 && (
+        <section className="duels-echelle" aria-labelledby="duels-echelle-titre">
+          <h3 id="duels-echelle-titre" className="duels-surtitre">
+            {classement.enTete ? 'Ils te talonnent' : 'À ta portée'}
+          </h3>
+          <ol className="duels-echelons">
+            {echelle.map(l => (
+              <Echelon
+                key={l.profileId}
+                ligne={l}
+                moi={l.profileId === classement.sienne}
+                gain={vises.has(l.profileId) ? enjeuContre(maCote.cote, l.cote, maCote.joues).gagne : undefined}
+                enCours={enCours(l.profileId)}
+                onOuvrir={onOuvrir}
+                onDefier={() => onDefier(joueurDeLaLigne(l))}
+                onOuvrirDuel={onOuvrirDuel}
+              />
+            ))}
+          </ol>
+        </section>
       )}
       <button type="button" className="duels-podium" onClick={onToutVoir}>
         <span className="duels-surtitre">Top 3</span>
@@ -530,6 +1071,107 @@ function PanneauClassement({ classement, onOuvrir, onToutVoir }: { classement: E
         <span className="duels-tout-voir">Tout voir ›</span>
         <span className="sr-only">{`, ${podium.map(l => l.nom).join(', ')} : le classement entier`}</span>
       </button>
+    </>
+  )
+}
+
+/**
+ * Son classement parmi ses amis classés — ceux qui ont joué un duel ces
+ * quatre dernières semaines, comme le classement de tous —, rang partagé
+ * (invariant 15) : lu de la liste de ses amis, que la page a déjà. Les places
+ * depuis lundi y sont celles du classement de tous : elles n'y figurent pas.
+ */
+function entreAmis(amis: MesAmis, sienne?: LigneDesDuels) {
+  const classes = amis.amis.flatMap((a): LigneDeRang[] =>
+    a.rang !== undefined && a.cote !== undefined && a.ligue !== undefined
+      ? [{ profileId: a.profileId, nom: a.nom, avatar: a.avatar, ...ceQuIlPorte(a), ...(a.bordure && { bordure: a.bordure }), cote: a.cote, ligue: a.ligue, rang: 0 }]
+      : [],
+  )
+  const lignes = classer([...classes, ...(sienne ? [{ ...sienne, progression: undefined }] : [])], l => l.cote, l => l.nom, l => l.profileId).map(({ item, rang }) => ({ ...item, rang }))
+  return { lignes, moi: sienne && lignes.find(l => l.profileId === sienne.profileId), sansDuel: amis.amis.length - classes.length }
+}
+
+/**
+ * « Entre amis », sous ses deux places : ses amis classés et lui, chacun sa
+ * carte, comme son échelle, puis combien n'ont pas joué ces quatre semaines.
+ * Sans ami, comment en ajouter.
+ */
+export function ClassementDesAmis({ amis, sienne, onOuvrir, onAmis }: { amis: MesAmis | null; sienne?: LigneDesDuels; onOuvrir: (profileId: string) => void; onAmis: () => void }) {
+  if (!amis) return <p className="duels-vide">Chargement…</p>
+  if (amis.amis.length === 0) {
+    return (
+      <div className="duels-vide">
+        <p>{espacesFines('Ajoute des amis : tu verras ta place parmi eux.')}</p>
+        <button type="button" className="link-inline" onClick={onAmis}>
+          Ajouter des amis
+        </button>
+      </div>
+    )
+  }
+  const { lignes, moi, sansDuel } = entreAmis(amis, sienne)
+  return (
+    <>
+      {!moi && <p className="duels-vide">{espacesFines('Un duel joué te place parmi eux.')}</p>}
+      {lignes.length > 0 && (
+        <ol className="duels-echelons">
+          {lignes.map(l => (
+            <Echelon key={l.profileId} ligne={l} moi={l.profileId === sienne?.profileId} onOuvrir={onOuvrir} />
+          ))}
+        </ol>
+      )}
+      {sansDuel > 0 && (
+        <p className="duels-amis-sans">{espacesFines(`${sansDuel > 1 ? `Et ${sansDuel} qui n’ont` : 'Et un qui n’a'} pas joué de duel ces quatre dernières semaines.`)}</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * « Classement » : ses deux places, parmi tous et entre amis, chacune
+ * l'onglet de sa liste, dessous (le souhait du propriétaire du 13 octobre
+ * 2026).
+ */
+export function PanneauClassement({
+  classement,
+  maCote,
+  contre,
+  amis,
+  onOuvrir,
+  onToutVoir,
+  onDefier,
+  onOuvrirDuel,
+  onAmis,
+}: {
+  classement: EtatDesDuels['classement']
+  maCote: MaCote
+  contre: readonly DuelContre[]
+  /** Ses amis, leur cote et leur place ; null tant qu'ils arrivent. */
+  amis: MesAmis | null
+  onOuvrir: (profileId: string) => void
+  onToutVoir: () => void
+  onDefier: (joueur: JoueurADefier) => void
+  onOuvrirDuel: (code: string) => void
+  /** La feuille des amis : pour en ajouter. */
+  onAmis: () => void
+}) {
+  const [qui, setQui] = useState<QuelClassement>('tous')
+  const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
+  const parmiSesAmis = amis && amis.amis.length > 0 ? entreAmis(amis, sienne) : undefined
+  return (
+    <div className="duels-classement-onglet">
+      <DeuxPlaces
+        qui={qui}
+        onChoisir={setQui}
+        tous={{ rang: sienne?.rang, sur: classement.joueurs, progression: classement.progression }}
+        amis={!amis ? null : !parmiSesAmis ? 'aucun' : { rang: parmiSesAmis.moi?.rang, sur: parmiSesAmis.lignes.length }}
+      />
+      <div id={`duels-qui-${qui}-panneau`} className="duels-places-panneau" role="tabpanel" aria-labelledby={`duels-qui-${qui}`}>
+        {qui === 'tous' ? (
+          <ClassementDeTous classement={classement} maCote={maCote} contre={contre} onOuvrir={onOuvrir} onToutVoir={onToutVoir} onDefier={onDefier} onOuvrirDuel={onOuvrirDuel} />
+        ) : (
+          <ClassementDesAmis amis={amis} sienne={sienne} onOuvrir={onOuvrir} onAmis={onAmis} />
+        )}
+      </div>
     </div>
   )
 }
@@ -604,8 +1246,8 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
     <button
       type="button"
       className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
-      // Le nom du bouton remplace tout son contenu : le rang, la ligue et la cote doivent y être.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}`}
+      // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote et les places depuis lundi doivent y être.
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}`}
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
@@ -613,6 +1255,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>
+      <Mouvement n={l.progression} />
       <BlasonDeLigue ligue={l.ligue} taille={22} decoratif />
       <span className="lb-score">{l.cote}</span>
     </button>
@@ -721,6 +1364,8 @@ export function PageDesDuels({
   const [onglet, setOnglet] = useState<OngletDesDuels>('cours')
   const [classementOuvert, setClassementOuvert] = useState(false)
   const [reglesOuvertes, setReglesOuvertes] = useState(false)
+  // Un duel au dé touché dans l'historique : sa correction, dans sa feuille.
+  const [correction, setCorrection] = useState<LigneDHistoire | null>(null)
   // « Défier » sur la carte d'un joueur — du classement, de ses amis — ouvre la préparation ici même, sa cote relue avec lui.
   const gestes = { onDefier: (j: JoueurADefier, m: MaCote) => onDefier(j, m), onAmis }
   const { ouvrir, carte } = useCarteDUnProfil(gestes)
@@ -776,13 +1421,24 @@ export function PageDesDuels({
         {!etat ? null : onglet === 'cours' ? (
           <PanneauEnCours lignes={lignes} debutant={etat.joues === 0} onOuvrir={onOuvrirDuel} onReprendre={() => void chercher()} onRegles={() => setReglesOuvertes(true)} />
         ) : onglet === 'histo' ? (
-          <PanneauHistorique duels={histoireDesDuels(etat)} onOuvrir={onOuvrirDuel} />
+          <PanneauHistorique etat={etat} onOuvrir={onOuvrirDuel} onCorrection={setCorrection} onJoueur={ouvrir} />
         ) : (
-          <PanneauClassement classement={etat.classement} onOuvrir={ouvrir} onToutVoir={() => setClassementOuvert(true)} />
+          <PanneauClassement
+            classement={etat.classement}
+            maCote={{ cote: etat.cote, joues: etat.joues }}
+            contre={etat.contre ?? []}
+            amis={amis}
+            onOuvrir={ouvrir}
+            onToutVoir={() => setClassementOuvert(true)}
+            onDefier={j => defier(j)}
+            onOuvrirDuel={onOuvrirDuel}
+            onAmis={feuilleDesAmis.ouvrir}
+          />
         )}
       </div>
       {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}
       {reglesOuvertes && <FeuilleDesRegles ligue={etat?.ligue ?? 'bronze'} onFermer={() => setReglesOuvertes(false)} />}
+      {correction && <FeuilleDeLaCorrection duel={correction} onFermer={() => setCorrection(null)} />}
       {feuilleDesAmis.feuille}
       {carte}
     </div>

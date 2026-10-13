@@ -228,6 +228,121 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
   assert.doesNotMatch(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), />\s*\{ecran\.(rencontre\.adversaire|contre)\.avatar\}\s*</)
 })
 
+// Les souhaits du propriétaire du 13 octobre 2026 pour l'onglet du
+// classement : on le regardait sans pouvoir en rien faire. Son échelle — ceux
+// à sa portée, ce qu'il gagnerait à les battre, « Défier » —, les places
+// depuis lundi sur chaque ligne, et sa place parmi ses amis — ses deux places
+// côte à côte, chacune l'onglet de sa liste : deux pastilles « Tous » et
+// « Mes amis » au-dessus « sortaient un peu de nulle part ».
+test('le classement : ses deux places, parmi tous et entre amis ; son échelle — ceux à sa portée, ce qu’il gagnerait, « Défier », un duel déjà en cours — ; les places depuis lundi', async () => {
+  const { PanneauClassement, ClassementDesAmis } = await import(client('views/Duels.tsx').href)
+  const { ecartSigne } = await import(client('views/Rencontre.tsx').href)
+  const { enjeuContre } = await import('../../shared/duels')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const ligne = (nom: string, rang: number, cote: number, plus: object = {}) => ({ profileId: nom.toLowerCase(), nom, avatar: '🐻', niveau: 3, cote, ligue: cote >= 1200 ? 'or' : 'argent', rang, duels: 12, ...plus })
+  const lea = ligne('Léa', 12, 1150, { progression: 3 })
+  const classement = {
+    joueurs: 34,
+    lignes: [ligne('Inès', 1, 1500), ligne('Hugo', 2, 1450), ligne('Zoé', 3, 1400)],
+    moi: lea,
+    sienne: 'léa',
+    autour: [ligne('Max', 11, 1160), lea, ligne('Noé', 13, 1140)],
+    progression: 3,
+    aPortee: [ligne('Max', 11, 1160, { progression: -2 }), ligne('Tom', 10, 1185), ligne('Jade', 9, 1210, { progression: 1 })],
+  }
+  // Un duel l'attend déjà chez Tom : un seul ouvert entre eux.
+  const contre = [{ code: 'TOM1', contre: { profileId: 'tom', nom: 'Tom', avatar: '🐻' }, lance: true, justes: 6, sesJustes: null, minutesRestantes: 600 }]
+  const props = { maCote: { cote: 1150, joues: 30 }, contre, amis: null, onOuvrir() {}, onToutVoir() {}, onDefier() {}, onOuvrirDuel() {}, onAmis() {} }
+  const html = renderToStaticMarkup(React.createElement(PanneauClassement, { classement, ...props }))
+  // Ses deux places, chacune l'onglet de sa liste : parmi tous — sur combien, ses places depuis lundi, dites à
+  // l'oreille —, puis entre amis, qui arrivent encore ; plus de pastilles au-dessus.
+  assert.match(html, /<div class="duels-places" role="tablist" aria-label="Quel classement">/)
+  assert.match(
+    html,
+    /<button id="duels-qui-tous" type="button" role="tab" aria-selected="true" aria-controls="duels-qui-tous-panneau" tabindex="0" class="duels-place actif" aria-label="Parmi tous : 12e sur 34, 3 places gagnées depuis lundi"><span class="duels-place-titre">Parmi tous<\/span><span class="duels-place-rang"><b class="num">12<sup>e<\/sup><\/b><span class="duels-mouvement duels-plus" aria-hidden="true">▲3<\/span><\/span><span class="duels-place-sous">sur 34<\/span><\/button>/,
+  )
+  assert.match(html, /<button id="duels-qui-amis" type="button" role="tab" aria-selected="false" tabindex="-1" class="duels-place" aria-label="Entre amis : chargement…">/)
+  assert.match(html, /<div id="duels-qui-tous-panneau" class="duels-places-panneau" role="tabpanel" aria-labelledby="duels-qui-tous">/)
+  assert.doesNotMatch(html, />(Tous|Mes amis)<\/button>/)
+  // De haut en bas : ceux qu'il va chercher, le plus haut d'abord, lui, celui qui le suit.
+  assert.deepEqual(
+    [...html.matchAll(/<span class="duels-echelon-texte"><b>([^<]+)<\/b>/g)].map(m => m[1]),
+    ['Jade', 'Tom', 'Max', 'Toi', 'Noé'],
+  )
+  assert.match(html, />À ta portée<\/h3>/)
+  // Chacun ce qu'il gagnerait à le battre — contre sa cote, comme la préparation le dira —, et « Défier ».
+  for (const [nom, cote] of [
+    ['Jade', 1210],
+    ['Max', 1160],
+  ] as const) {
+    const gain = ecartSigne(enjeuContre(1150, cote, 30).gagne)
+    assert.match(html, new RegExp(`aria-label="Défier ${nom} : \\${gain} si tu gagnes"`))
+    assert.match(html, new RegExp(`<span class="duels-echelon-gain">\\${gain} si tu gagnes</span>`))
+  }
+  assert.match(html, /aria-label="Ton duel contre Tom, en cours"/, 'déjà défié : son duel, pas un second')
+  assert.equal(html.match(/class="duels-echelon-geste"/g)?.length, 2, 'ni lui ni celui qui le suit ne se défient d’ici')
+  // Les places depuis lundi, sur chaque ligne qui en a bougé — et dites à l'oreille.
+  assert.match(html, /<span class="duels-mouvement duels-moins" aria-hidden="true">▼2<\/span>/)
+  assert.match(html, /<span class="duels-mouvement duels-plus" aria-hidden="true">▲1<\/span>/)
+  assert.match(html, /aria-label="La carte de Max — rang 11, ligue d’argent, cote 1160, 2 places perdues depuis lundi"/)
+  // En tête : ceux qui le talonnent.
+  const tete = renderToStaticMarkup(
+    React.createElement(PanneauClassement, {
+      classement: { ...classement, moi: undefined, sienne: 'inès', autour: [classement.lignes[0], classement.lignes[1]], progression: 0, aPortee: [classement.lignes[1], classement.lignes[2]], enTete: true },
+      ...props,
+    }),
+  )
+  assert.match(tete, />Ils te talonnent<\/h3>/)
+  assert.match(tete, /aria-label="Parmi tous : 1re sur 34"><span class="duels-place-titre">Parmi tous<\/span><span class="duels-place-rang"><b class="num">1<sup>re<\/sup><\/b><\/span>/)
+  assert.deepEqual(
+    [...tete.matchAll(/<span class="duels-echelon-texte"><b>([^<]+)<\/b>/g)].map(m => m[1]),
+    ['Toi', 'Hugo', 'Zoé'],
+  )
+  // Pas encore classé, sa cote au-dessus de tous : ceux qui le suivent, le plus proche en haut — à l'envers, l'échelle
+  // montait —, et sa place dit pourquoi elle manque.
+  const neuf = renderToStaticMarkup(
+    React.createElement(PanneauClassement, {
+      classement: { joueurs: 2, lignes: [ligne('Noé', 1, 990), ligne('Zoé', 2, 980)], aPortee: [ligne('Noé', 1, 990), ligne('Zoé', 2, 980)] },
+      ...props,
+      maCote: { cote: 1000, joues: 0 },
+    }),
+  )
+  assert.deepEqual(
+    [...neuf.matchAll(/<span class="duels-echelon-texte"><b>([^<]+)<\/b>/g)].map(m => m[1]),
+    ['Noé', 'Zoé'],
+  )
+  assert.match(neuf, /aria-label="Parmi tous : pas encore classé"><span class="duels-place-titre">Parmi tous<\/span><span class="duels-place-rang"><b class="num">–<\/b><\/span><span class="duels-place-sous">pas encore classé<\/span>/)
+
+  // Parmi ses amis classés : rang partagé (invariant 15), sans les flèches du classement de tous — sa place dans la
+  // carte, leurs lignes comme son échelle, sans « Défier » : sa carte le porte.
+  const amis = {
+    amis: [
+      { profileId: 'tom', nom: 'Tom', avatar: '🐻', cote: 1185, ligue: 'argent', rang: 10 },
+      { profileId: 'max', nom: 'Max', avatar: '🦉', cote: 1150, ligue: 'argent', rang: 12 },
+      { profileId: 'ines', nom: 'Inès', avatar: '🐙' },
+    ],
+    recus: [],
+  }
+  assert.match(
+    renderToStaticMarkup(React.createElement(PanneauClassement, { classement, ...props, amis })),
+    /aria-label="Entre amis : 2e sur 3"><span class="duels-place-titre">Entre amis<\/span><span class="duels-place-rang"><b class="num">2<sup>e<\/sup><\/b><\/span><span class="duels-place-sous">sur 3<\/span>/,
+  )
+  const entreAmis = renderToStaticMarkup(React.createElement(ClassementDesAmis, { amis, sienne: lea, onOuvrir() {}, onAmis() {} }))
+  assert.deepEqual(
+    [...entreAmis.matchAll(/<span class="num duels-rang-place">(\d+)<\/span>.*?<span class="duels-echelon-texte"><b>([^<]+)<\/b>/g)].map(m => [Number(m[1]), m[2]]),
+    [
+      [1, 'Tom'],
+      [2, 'Toi'],
+      [2, 'Max'],
+    ],
+  )
+  assert.doesNotMatch(entreAmis, /duels-mouvement|duels-echelon-geste/)
+  assert.match(entreAmis, /Et un qui n’a pas joué de duel ces quatre dernières semaines\./)
+  // Sans ami : sa place le dit, et sa liste comment en ajouter.
+  assert.match(renderToStaticMarkup(React.createElement(PanneauClassement, { classement, ...props, amis: { amis: [], recus: [] } })), /aria-label="Entre amis : aucun ami"/)
+  assert.match(renderToStaticMarkup(React.createElement(ClassementDesAmis, { amis: { amis: [], recus: [] }, sienne: lea, onOuvrir() {}, onAmis() {} })), /Ajouter des amis<\/button>/)
+})
+
 // Les souhaits du propriétaire du 13 octobre 2026 : le dé « tout le temps
 // disponible » — il ne paraissait que s'il restait une série d'un autre à
 // affronter —, puis contre Automate seulement — la série d'un ami qui n'était
