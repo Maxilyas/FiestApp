@@ -2290,10 +2290,11 @@ export class CampagneStore {
    * marche par marche comme une série — sans « jamais vues d'abord », qui ne
    * vaut que pour lui —, figé sous un code neuf ; et sa propre tentative,
    * qui commence là. Une série en cours, elle, attend. Pas plus de
-   * `DUELS_OUVERTS_MAX` ouverts à la fois. Les amis choisis (`amis`) — les
-   * siens seulement : un identifiant qui n'en est pas un ne reçoit rien,
-   * sans qu'il l'apprenne — l'attendent à sa dernière réponse
-   * (`campagne_envois_prevus`, `envoyerLesPrevus`).
+   * `DUELS_OUVERTS_MAX` défis entre amis ouverts à la fois ; un duel classé
+   * n'a pas de plafond, un seul ouvert par adversaire (`adversaireDuDuel`).
+   * Les amis choisis (`amis`) — les siens seulement : un identifiant qui n'en
+   * est pas un ne reçoit rien, sans qu'il l'apprenne — l'attendent à sa
+   * dernière réponse (`campagne_envois_prevus`, `envoyerLesPrevus`).
    */
   creerUnDuel(
     profileId: string,
@@ -2304,15 +2305,17 @@ export class CampagneStore {
   ): Promise<{ code: string; serie: SerieDeCampagne; enjeu?: EnjeuDuDuel }> {
     return this.avecVerrou(profileId, async () => {
       const maintenant = this.maintenant()
-      // Un duel classé joué des deux côtés n'attend plus personne : il ne compte
-      // plus parmi les ouverts — sinon cinq duels joués dans la journée
-      // bloquaient les suivants une semaine.
-      const ouverts = await this.client.execute({
-        sql: `SELECT COUNT(*) AS n FROM campagne_duels d WHERE d.auteur = ? AND d.ferme_le > ?
-                AND (d.adversaire IS NULL OR (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND s.profile_id IN (d.auteur, d.adversaire)) < 2)`,
-        args: [profileId, maintenant],
-      })
-      if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} duels qui attendent d’être joués : attends que l’un d’eux le soit, ou qu’il ferme`)
+      // Un duel classé n'a pas de plafond : un seul ouvert par adversaire
+      // (`adversaireDuDuel`) — cinq qui attendaient bloquaient le sixième, et le
+      // propriétaire veut « autant de défis en cours que possible » (le
+      // 13 octobre 2026). Un défi entre amis d'avant garde le sien.
+      if (typeof adversaire !== 'string' || !adversaire) {
+        const ouverts = await this.client.execute({
+          sql: 'SELECT COUNT(*) AS n FROM campagne_duels WHERE auteur = ? AND ferme_le > ? AND adversaire IS NULL',
+          args: [profileId, maintenant],
+        })
+        if (Number(ouverts.rows[0]?.n ?? 0) >= DUELS_OUVERTS_MAX) throw new Error(`Tu as déjà ${DUELS_OUVERTS_MAX} duels qui attendent d’être joués : attends que l’un d’eux le soit, ou qu’il ferme`)
+      }
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
       // Un duel classé contre quelqu'un : lui seul l'attend, à sa dernière réponse.

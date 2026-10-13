@@ -542,9 +542,10 @@ export interface DefiDeLaSemaine {
 export const DUREE_D_UN_DUEL_MS = 7 * 24 * 3_600_000
 
 /**
- * Les défis qu'un joueur tient ouverts à la fois : chacun fige son tirage en
- * base. Un duel classé joué des deux côtés n'en est plus un : il n'attend
- * plus personne.
+ * Les défis entre amis d'avant qu'un joueur tient ouverts à la fois : chacun
+ * fige son tirage en base. Un duel classé n'a pas de plafond — un seul ouvert
+ * par adversaire suffit (le choix du propriétaire du 13 octobre 2026 : « je
+ * veux pouvoir avoir autant de défis en cours que possible »).
  */
 export const DUELS_OUVERTS_MAX = 5
 

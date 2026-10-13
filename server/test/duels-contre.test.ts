@@ -284,6 +284,43 @@ test('un duel joué des deux côtés ne compte plus parmi les ouverts ; fermé, 
   }
 })
 
+// Le choix du propriétaire du 13 octobre 2026 : « je veux pouvoir avoir autant
+// de défis en cours que possible, visibles ». Cinq duels qui attendaient
+// bloquaient le sixième ; un seul ouvert par adversaire suffit.
+test('autant de duels en attente qu’on veut, un par adversaire — tous dans ses duels en cours', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const autres = [
+      ['tom', 'Tom'],
+      ['hugo', 'Hugo'],
+      ['ines', 'Inès'],
+      ['zoe', 'Zoé'],
+      ['max', 'Max'],
+      ['noah', 'Noah'],
+      ['jade', 'Jade'],
+    ]
+    assert.ok(autres.length > DUELS_OUVERTS_MAX)
+    const codes: string[] = []
+    for (const [login, nom] of autres) {
+      await inscrireProfil(banc.url, login, nom, '🐻')
+      horloge.t += 60_000
+      const d = await poster(banc, lea, '/api/campagne/duel', { adversaire: idDe(banc, login) })
+      assert.equal(d.status, 200, d.corps.error)
+      await jouer(banc, lea, d.corps.serie.id, 3)
+      codes.push(d.corps.code)
+    }
+    const { contre } = (await lire(banc, lea, '/api/duels')).corps
+    assert.deepEqual(contre.map((d: any) => d.code).sort(), [...codes].sort())
+    assert.ok(contre.every((d: any) => d.justes === 3 && d.sesJustes === null && d.minutesRestantes > 0), 'chacun chez l’autre, son score caché')
+    // Toujours un seul ouvert par adversaire.
+    assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: idDe(banc, 'tom') })).corps.error, 'Tu as déjà un duel en cours contre Tom : il attend d’être joué')
+  } finally {
+    await banc.close()
+  }
+})
+
 /** Les deux cotes qu'un duel a figées à son lancement. */
 async function coteAuLancement(banc: Banc, code: string): Promise<{ auteur: number; adversaire: number }> {
   return base(banc, db => {
