@@ -10,6 +10,7 @@
 
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { formatNumber } from './typographie'
+import { MEMOIRE_DE_L_HEBERGEUR_MO, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
 
 /**
  * Les quatre modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -141,6 +142,8 @@ export interface ATraiterDuQg {
   rappel: { jour: string; envoyes: number; echecs: number } | null
   /** Le dernier dépôt de la routine du matin, dans la réserve du jour et dans la base de la campagne. */
   routine: { jour: number | null; campagne: number | null }
+  /** Le serveur : un arrêt net, des erreurs, Turso lent, la mémoire près du plafond (`shared/santeDuServeur.ts`). */
+  serveur: AlertesDuServeur
 }
 
 export interface VueDEnsemble {
@@ -395,17 +398,19 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'campagne' | 'catalogue' | null
+  ecran: 'soirees' | 'jour' | 'campagne' | 'catalogue' | 'serveur' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
 
 /**
  * La liste de ce qui attend un geste, la plus pressée d'abord : le miroir en
- * panne et la réserve qui baisse s'allument, le reste s'aligne. Rien qui
- * n'attende pas : une liste qui dit toujours quelque chose ne se lit plus.
+ * panne, le serveur arrêté net ou en erreur, la réserve qui baisse
+ * s'allument, le reste s'aligne. Rien qui n'attende pas : une liste qui dit
+ * toujours quelque chose ne se lit plus. `maintenant` date un arrêt net
+ * (« hier à 23 h 10 ») ; sans lui, l'heure seule.
  */
-export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir'> | null): ChoseATraiter[] {
+export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir'> | null, maintenant?: number): ChoseATraiter[] {
   const choses: ChoseATraiter[] = []
   const miroir = direct?.miroir
   if (miroir && (miroir.enEchecDepuis !== null || miroir.espacesEnRetard > 0)) {
@@ -415,6 +420,45 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       titre: 'Le miroir Turso est en panne',
       detail: `${pluriel(miroir.enAttente, 'écriture')} en attente${miroir.espacesEnRetard > 0 ? `, ${pluriel(miroir.espacesEnRetard, 'salon')} en retard` : ''}`,
       ecran: null,
+    })
+  }
+  const serveur = vue?.serveur
+  if (serveur?.arretNet) {
+    const vers = serveur.arretNet.vers
+    choses.push({
+      cle: 'arret-net',
+      alerte: true,
+      titre: 'Le serveur s’est arrêté net',
+      detail: `${maintenant === undefined ? `vers ${heureEcrite(vers)}` : quandEcrit(vers, maintenant)}, sans s’éteindre proprement`,
+      ecran: 'serveur',
+    })
+  }
+  if (serveur?.erreurs) {
+    const e = serveur.erreurs
+    choses.push({
+      cle: 'erreurs',
+      alerte: true,
+      titre: e.n > 1 ? `${formatNumber(e.n)} erreurs serveur` : 'Une erreur serveur',
+      detail: `depuis ${heureEcrite(e.depuis)} · ${e.source}`,
+      ecran: 'serveur',
+    })
+  }
+  if (serveur?.memoireMo) {
+    choses.push({
+      cle: 'memoire',
+      alerte: true,
+      titre: 'La mémoire approche du plafond',
+      detail: `${formatNumber(serveur.memoireMo)} Mo sur ${MEMOIRE_DE_L_HEBERGEUR_MO} : au-delà, l’hébergeur arrête le serveur`,
+      ecran: 'serveur',
+    })
+  }
+  if (serveur?.tursoLent) {
+    choses.push({
+      cle: 'turso-lent',
+      alerte: false,
+      titre: 'Turso répond lentement',
+      detail: `${tempsDeReponse(serveur.tursoLent.p95)} au 95ᵉ centile depuis ${heureEcrite(serveur.tursoLent.depuis)}`,
+      ecran: 'serveur',
     })
   }
   if (vue?.reserve && vue.reserve.joursDAvance < ALERTE_JOURS_D_AVANCE) {

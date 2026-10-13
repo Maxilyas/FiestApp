@@ -80,7 +80,7 @@ interface ApiDeps {
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
   jetonDeLaReserve: string | null
   /** Ce que le QG lit de plus que les autres routes : la soirée de chaque espace, le miroir, la charge — et de quoi clore une soirée laissée en plan. */
-  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'env' | 'version' | 'clore'>
+  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore'>
   /** Le journal des gestes de l'administrateur : chaque route de `/api/admin` qui change quelque chose s'y note. */
   gestes: JournalDesGestes
 }

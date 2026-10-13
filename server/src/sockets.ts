@@ -10,7 +10,7 @@ import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
 import { sansAccent } from '../../shared/homonymes'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
-import { pouls } from './core/pouls'
+import { pouls, releve } from './core/pouls'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -241,6 +241,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         }
         const panne = (e: unknown) => {
           console.error(`[socket] « ${event} » a échoué :`, e)
+          releve.erreur(`socket ${event}`)
           if (enPanne !== undefined) repondre(enPanne)
         }
         try {

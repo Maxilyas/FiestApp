@@ -9,6 +9,7 @@ import { AdminSalons } from '../components/AdminSalons'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
+import { QgServeur } from '../components/QgServeur'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -23,7 +24,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
  * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
  * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
- * (`QgVueDEnsemble.tsx`) et le journal de ses gestes (`QgJournal.tsx`), puis
+ * (`QgVueDEnsemble.tsx`), le journal de ses gestes (`QgJournal.tsx`) et la
+ * santé du serveur sur sept jours (`QgServeur.tsx`), puis
  * une page par sujet, chacune à son adresse (`/admin#jour`) : les soirées
  * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
  * le catalogue. Au téléphone, la liste des pages sous la vue d'ensemble et
@@ -36,8 +38,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
-const ECRANS: readonly Ecran[] = ['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
+type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -48,6 +50,7 @@ function lireEcran(): Ecran | null {
 
 const TITRE: Record<Ecran, string> = {
   journal: 'Le journal',
+  serveur: 'Le serveur',
   soirees: 'Les soirées',
   profils: 'Les profils',
   salons: 'Les salons',
@@ -67,6 +70,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     pages: [
       { ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
+      { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
     ],
   },
   {
@@ -237,8 +241,9 @@ export function AdminApp() {
     )
   }
 
-  const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct)
   const instant = direct?.maintenant ?? vue?.maintenant
+  const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, instant)
+  const duServeur = choses.filter(c => c.ecran === 'serveur').length
   const reserve = vue?.aTraiter.reserve
   const signalements = vue?.aTraiter.signalementsDeLaCampagne.questions ?? 0
   const aRelire = vue?.aTraiter.catalogue ?? 0
@@ -343,11 +348,13 @@ export function AdminApp() {
                 <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
                 <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
+                <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
               </ul>
             </nav>
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
+        {ecran === 'serveur' && <QgServeur />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}
         {ecran === 'profils' && <AdminProfils />}

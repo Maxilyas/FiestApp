@@ -12,6 +12,7 @@ import type { RappelStore } from './core/rappels'
 import type { PartyBackup } from './core/backup'
 import { pouls, type Charge } from './core/pouls'
 import { noterLeGeste, type JournalDesGestes } from './core/journalDesGestes'
+import type { SanteDuServeur } from './core/santeDuServeur'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -48,6 +49,8 @@ export interface QgDeps {
   rappels: RappelStore
   backup: PartyBackup
   charge: Charge
+  /** La santé du serveur sur sept jours, dans la base permanente : la page « Le serveur » et ses alertes. */
+  sante: Pick<SanteDuServeur, 'page' | 'alertes'>
   gestes: JournalDesGestes
   /**
    * Clôt la soirée d'un espace comme son écran commun l'aurait close, et en
@@ -135,6 +138,16 @@ function boutABout(a: Journaux, b: Journaux): Journaux {
 /** Les parties d'une soirée pas encore close dont une question a été jouée. */
 const partiesJouees = (l: LigneDeSoiree) => (l.parties ?? '').split(',').filter(Boolean)
 
+/** La mémoire du processus, en Mo ; null si la mesure échoue. */
+function memoireDuProcessus(): number | null {
+  try {
+    return Math.round(process.memoryUsage().rss / 1024 / 1024)
+  } catch {
+    // Sous `ulimit -n 64`, la mesure lève EMFILE : le QG s'en passe, comme `/healthz`.
+    return null
+  }
+}
+
 /** Le salon d'un espace qui n'existe plus : ses soirées se lisent encore, son nom non. */
 const ESPACE_SUPPRIME: SoireeDuQg['salon'] = { nom: 'Un espace supprimé', avatar: null }
 
@@ -200,12 +213,7 @@ export function mountQg(app: Express, deps: QgDeps) {
     // Les soirées vivantes d'abord, la plus récente en tête ; celles laissées en plan derrière.
     soirees.sort((a, b) => (a.etat === b.etat ? b.dernierSigne - a.dernierSigne : a.etat === 'en-cours' ? -1 : 1))
 
-    let memoireMo: number | null = null
-    try {
-      memoireMo = Math.round(process.memoryUsage().rss / 1024 / 1024)
-    } catch {
-      // Sous `ulimit -n 64`, la mesure lève EMFILE : le QG s'en passe, comme `/healthz`.
-    }
+    const memoireMo = memoireDuProcessus()
     const base = pouls.base.lireAvecMediane()
     const sante = deps.backup.sante()
     const charge = deps.charge.lire()
@@ -292,13 +300,14 @@ export function mountQg(app: Express, deps: QgDeps) {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
-    const [{ parties, series, activite }, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire] = await Promise.all([
+    const [{ parties, series, activite }, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur] = await Promise.all([
       lesTrenteJours(minuits),
       lesSoireesDepuis(depuis),
       deps.jour.avanceDeLaReserve(),
       deps.jour.signalementsATraiter(),
       deps.campagne.signalementsATraiter(),
       deps.partages.catalogue('propose'),
+      deps.sante.alertes(memoireDuProcessus()),
     ])
 
     const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
@@ -328,6 +337,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         catalogue: aRelire.length,
         rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
         routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
+        serveur,
       },
     }
   }
@@ -377,6 +387,13 @@ export function mountQg(app: Express, deps: QgDeps) {
     '/api/admin/soirees',
     wrap(async (_req, res) => {
       res.json(await pageDesSoirees())
+    }),
+  )
+  // La santé du serveur sur sept jours : relue au plus une fois la minute, à l'ouverture de sa page.
+  app.get(
+    '/api/admin/serveur',
+    wrap(async (_req, res) => {
+      res.json(await deps.sante.page())
     }),
   )
   // Le seul geste du QG sur la soirée d'un autre (le choix du 13 octobre
