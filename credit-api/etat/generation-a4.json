@@ -286,6 +286,15 @@
         "c2-a4-83",
         "c2-a4-84",
         "c2-a4-85"
+      ],
+      "recu": "2026-10-13T21:43:09.206Z",
+      "cout": 0.348368
+    },
+    {
+      "id": "msgbatch_01MPW58DucjSDPxvCvexxZB9",
+      "envoye": "2026-10-13T21:43:13.355Z",
+      "demandes": [
+        "r-fiche-2-1"
       ]
     }
   ],
@@ -608,6 +617,10 @@
     },
     "e-a4-85": {
       "lot": "/home/user/FiestApp/.lots-campagne/a4-85.json"
+    },
+    "r-fiche-2-1": {
+      "fiche": "/home/user/FiestApp/.lots-campagne/a4/fiche-2-1.txt",
+      "decisions": "/home/user/FiestApp/.lots-campagne/a4/fiche-2-1.decisions.json"
     }
   },
   "tours": {
@@ -692,10 +705,10 @@
     "a4-79": 2,
     "a4-80": 1,
     "a4-81": 1,
-    "a4-82": 1,
-    "a4-83": 1,
-    "a4-84": 1,
-    "a4-85": 1
+    "a4-82": 2,
+    "a4-83": 2,
+    "a4-84": 2,
+    "a4-85": 2
   },
   "essais": {}
 }
