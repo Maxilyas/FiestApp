@@ -2398,6 +2398,56 @@ export class JourStore {
     return sortie
   }
 
+  /**
+   * Ce que le QG compte des signalements à traiter : les questions, et les
+   * joueurs qui les signalent. Ceux que `signalements` montre, et eux seuls —
+   * une question de son tirage : le QG en annonçait que la page ne listait pas.
+   */
+  async signalementsATraiter(): Promise<{ questions: number; joueurs: number }> {
+    const res = await this.client.execute(
+      `SELECT COUNT(DISTINCT s.jour || '#' || s.question) AS questions, COUNT(DISTINCT s.profile_id) AS joueurs
+       FROM jour_signalements s JOIN jour_tirages t ON t.jour = s.jour
+       WHERE s.traite_le IS NULL AND s.question < json_array_length(t.questions)`,
+    )
+    return { questions: Number(res.rows[0]?.questions ?? 0), joueurs: Number(res.rows[0]?.joueurs ?? 0) }
+  }
+
+  /**
+   * L'avance de la réserve, et le dernier dépôt de la routine du matin : ce
+   * que le QG en dit à chaque relecture. Les questions prêtes seules, par
+   * l'index des questions pas encore posées — `etatDeLaReserve` parcourt
+   * toute la réserve, posées comprises, pour la page qui la détaille.
+   */
+  async avanceDeLaReserve(): Promise<{ joursDAvance: number; dernierDepotIa: number | null }> {
+    const [pretes, ia] = await this.client.batch(
+      [
+        'SELECT COUNT(*) AS n FROM jour_reserve WHERE posee_le IS NULL AND retiree_le IS NULL',
+        "SELECT MAX(quand) AS quand FROM jour_apports WHERE source = 'ia'",
+      ],
+      'read',
+    )
+    const quand = ia.rows[0]?.quand
+    return {
+      joursDAvance: Math.floor(Number(pretes.rows[0]?.n ?? 0) / QUESTIONS_PAR_JOUR),
+      dernierDepotIa: quand === null || quand === undefined ? null : Number(quand),
+    }
+  }
+
+  /**
+   * Les parties commencées depuis un instant, qui et quand : le QG en tire
+   * les chiffres du jour et la participation des trente derniers jours. Deux
+   * colonnes seulement — une partie se lit ailleurs en entier. Cherchées par
+   * leur jour, que l'index connaît, puis à l'instant près : le QG les relit
+   * depuis minuit à chaque relecture.
+   */
+  async partiesDepuis(depuis: number): Promise<{ qui: string; quand: number }[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT profile_id, commencee_le FROM jour_parties WHERE jour >= ? AND commencee_le >= ?',
+      args: [jourDe(depuis), depuis],
+    })
+    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le) }))
+  }
+
   /** « Garder » : la question est juste, les signalements se referment. */
   async garder(jour: string, index: number) {
     await this.client.execute({

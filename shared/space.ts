@@ -208,3 +208,13 @@ export interface EspaceDAdministration extends PublicAccount {
   /** L'espace de l'administrateur qui regarde : il ne se désactive ni ne se supprime d'ici. */
   toi: boolean
 }
+
+/**
+ * Le nom qu'on lit d'un espace, à l'administration : un salon porte celui de
+ * son titulaire — son identifiant `p-…` ne disait rien. Une règle pour « Les
+ * salons » et pour les soirées du QG : deux copies diraient deux choses.
+ */
+export function nomDeLEspace(e: { salon: boolean; titulaire: { nom: string } | null; name: string }): string {
+  if (!e.salon) return e.name
+  return e.titulaire ? `Le salon ${deNom(e.titulaire.nom)}` : `Un salon sans titulaire · ${e.name}`
+}

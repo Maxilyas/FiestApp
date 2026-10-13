@@ -685,6 +685,8 @@ export class ProfileStore {
            last_seen_at  INTEGER,
            disabled_at   INTEGER
          )`,
+        // Les inscriptions depuis minuit, que le QG relit (`activiteDepuis`) : sans index, tous les profils à chaque fois.
+        `CREATE INDEX IF NOT EXISTS idx_profiles_cree ON profiles(created_at)`,
         `CREATE TABLE IF NOT EXISTS profile_sessions (
            id           TEXT PRIMARY KEY,
            profile_id   TEXT NOT NULL,
@@ -708,6 +710,8 @@ export class ProfileStore {
          )`,
         // Lue par soirée — qui l'a jouée avec lui (`compagnonsDeSoiree`) — : sans index, la table entière à chaque lecture.
         `CREATE INDEX IF NOT EXISTS idx_profile_xp_soiree ON profile_xp(soiree_id, space_id)`,
+        // Lue depuis minuit par le QG, à chaque relecture (`activiteDepuis`) : sans index, la table entière.
+        `CREATE INDEX IF NOT EXISTS idx_profile_xp_quand ON profile_xp(created_at)`,
         // Une ligne par badge ET par soirée où il est tombé : la clé rend la
         // consolidation idempotente, et compter les lignes donne gratuitement
         // le nombre de fois où un prix a été décroché.
@@ -2057,6 +2061,41 @@ export class ProfileStore {
   enLigne(profileId: string, maintenant = Date.now()): boolean {
     const vu = this.vus.get(profileId)
     return vu !== undefined && maintenant - vu < EN_LIGNE_MS
+  }
+
+  /** Combien de profils sont en ligne : le direct du QG, lu en mémoire comme `enLigne`. */
+  combienEnLigne(maintenant = Date.now()): number {
+    let n = 0
+    for (const vu of this.vus.values()) if (maintenant - vu < EN_LIGNE_MS) n++
+    return n
+  }
+
+  /**
+   * Ce que le QG compte d'un profil depuis un instant, d'un seul lot : les
+   * inscriptions, les achats — thèmes, vies, sabliers — et les soirées où il
+   * a été crédité, à l'heure de leur dernier crédit (les lignes à part,
+   * `#jour` ou `#campagne`, n'en sont pas). Des dates, et qui pour les
+   * soirées : de quoi compter le jour et les profils actifs.
+   */
+  async activiteDepuis(depuis: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }> {
+    const [inscrits, achats, soirees] = await this.client.batch(
+      [
+        { sql: 'SELECT created_at FROM profiles WHERE created_at >= ?', args: [depuis] },
+        {
+          sql: `SELECT created_at FROM profile_achats WHERE created_at >= ?
+                UNION ALL SELECT created_at FROM profile_vies WHERE created_at >= ?
+                UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?`,
+          args: [depuis, depuis, depuis],
+        },
+        { sql: `SELECT profile_id, created_at FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
+      ],
+      'read',
+    )
+    return {
+      inscriptions: inscrits.rows.map(r => Number(r.created_at)),
+      achats: achats.rows.map(r => Number(r.created_at)),
+      soirees: soirees.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.created_at) })),
+    }
   }
 
   /**

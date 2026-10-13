@@ -681,6 +681,22 @@ export class ArchiveStore {
     return res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id) }))
   }
 
+  /**
+   * Les soirées commencées depuis un instant, tous espaces confondus, et
+   * combien d'invités y ont joué — avec ou sans profil : le QG en tire la
+   * participation des soirées. Lu dans les fiches, jamais dans les archives,
+   * et sans un prénom. Une fiche d'avant les fiches ne compte personne.
+   */
+  async joueursDepuis(depuis: number): Promise<{ spaceId: string; id: string; quand: number; joueurs: number }[]> {
+    const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
+    return res.rows.map(r => ({
+      spaceId: String(r.space_id),
+      id: String(r.id),
+      quand: Number(r.held_at),
+      joueurs: lireFiche(String(r.summary))?.invites.filter(i => i.joue).length ?? 0,
+    }))
+  }
+
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */
   async removeSpace(spaceId: string): Promise<number> {
     const res = await this.ecrire(spaceId, () =>

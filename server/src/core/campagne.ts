@@ -563,6 +563,8 @@ export class CampagneStore {
            finie_le     INTEGER
          )`,
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_profil ON campagne_series(profile_id, commencee_le)',
+        // Le QG relit les séries de tout le monde depuis minuit, toutes les cinq minutes : sans index, la table entière.
+        'CREATE INDEX IF NOT EXISTS idx_campagne_series_commencee ON campagne_series(commencee_le)',
         // reserve_id : l'identifiant de la question dans la base de la
         // campagne — dans la réserve du quiz du jour, pour une réponse
         // d'avant la base. Le nom est resté.
@@ -4478,6 +4480,28 @@ export class CampagneStore {
   /** Pour `/healthz` : agrégé, lu en mémoire, sans un intitulé — la route est publique. */
   santeDeLaBase(): { ajoutees: number; dernierApport: number | null } {
     return { ajoutees: this.ajouts.length, dernierApport: this.ajouts.at(-1)?.ajouteeLe ?? null }
+  }
+
+  /**
+   * Les séries commencées depuis un instant, de tous les modes — série,
+   * épreuve, parcours, révision, défi, duel, rencontre — : qui, quand, et
+   * dans quel mode. Le QG en tire ses chiffres du jour et ses participations ;
+   * une série d'avant les modes n'en a pas (null) : c'est une série.
+   */
+  async seriesDepuis(depuis: number): Promise<{ qui: string; quand: number; mode: string | null }[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT profile_id, commencee_le, mode FROM campagne_series WHERE commencee_le >= ?',
+      args: [depuis],
+    })
+    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le), mode: r.mode === null ? null : String(r.mode) }))
+  }
+
+  /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */
+  async signalementsATraiter(): Promise<{ questions: number; joueurs: number }> {
+    const res = await this.client.execute(
+      'SELECT COUNT(DISTINCT question_id) AS questions, COUNT(DISTINCT profile_id) AS joueurs FROM campagne_signalements WHERE traite_le IS NULL',
+    )
+    return { questions: Number(res.rows[0]?.questions ?? 0), joueurs: Number(res.rows[0]?.joueurs ?? 0) }
   }
 
   // ── Les signalements ────────────────────────────────────────────────────

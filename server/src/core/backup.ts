@@ -523,6 +523,11 @@ export class PartyBackup {
     }
   }
 
+  /** Le miroir de cet espace est-il en retard ? Lu sans ouvrir de file : un espace qui n'en a pas n'attend rien. */
+  enRetardPour(spaceId: string): boolean {
+    return this.voies.get(spaceId)?.enRetard ?? false
+  }
+
   private voieDe(spaceId: string): Voie {
     let voie = this.voies.get(spaceId)
     if (!voie) {

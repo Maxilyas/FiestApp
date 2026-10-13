@@ -9378,6 +9378,182 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   .admin-pouls { animation: none; }
 }
 
+/* ── Le QG (`/admin`) ─────────────────────────────────────────────────────
+   La tour de contrôle des maquettes du 13 octobre 2026 : au téléphone, une
+   colonne — le direct, ce qui attend un geste, les chiffres du jour, les
+   participations, les soirées, le serveur, puis la liste des pages — et la
+   barre du menu ; à l'ordinateur, une barre de côté qui mène à chaque page,
+   et la vue d'ensemble en grille. */
+.qg-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.qg-quand { font-size: 0.85rem; color: var(--muted); }
+.qg-titre { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.qg-titre h1 { margin: 0; font-size: 2rem; }
+.qg-a-l-ordinateur { display: none; }
+.qg-vif { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+.qg-vif-point { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--en-ligne); box-shadow: 0 0 8px color-mix(in srgb, var(--en-ligne) 60%, transparent); }
+.qg-vif-perdu { color: var(--alert); }
+.qg-vif-perdu .qg-vif-point { background: var(--alert); box-shadow: none; }
+/* La barre de côté n'existe qu'à l'ordinateur ; au téléphone, la liste des pages la remplace. */
+.qg-cote { display: none; }
+.qg-marque { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; }
+.qg-marque-nom { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1; }
+.qg-groupe { display: flex; flex-direction: column; gap: 2px; }
+.qg-groupe-titre { padding: 0 10px 4px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border-radius: var(--radius-xs); color: var(--ink); font-size: 0.95rem; text-decoration: none; }
+.qg-lien:hover { background: var(--surface-strong); }
+.qg-lien[aria-current='page'] { background: color-mix(in srgb, var(--lueur) 14%, transparent); font-weight: 600; }
+.qg-lien .icon { flex: none; width: 18px; height: 18px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-compte { margin-left: auto; font-size: 0.8rem; font-weight: 600; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille-alerte { border-color: var(--alert); background: var(--alert); color: var(--on-alert); }
+.qg-retour { margin-top: 8px; padding: 0 10px; }
+/* Le direct se lit, il ne s'ouvre pas : ses cadrans n'ont ni main ni survol. */
+.admin-cadran-fixe { cursor: default; }
+.admin-cadran-fixe:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
+.qg-vue { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.qg-carte { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.qg-carte-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.qg-carte-tete h2 { margin: 0; font-size: 1.35rem; }
+.qg-jour { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.qg-section-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.qg-section-tete .compte-groupe { margin: 0; }
+.qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.qg-tuile { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
+.qg-tuile-nom { font-size: 0.85rem; color: var(--muted); }
+.qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.qg-ecart { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.qg-ecart .icon { flex: none; width: 13px; height: 13px; }
+.qg-ecart-plus .icon { color: var(--en-ligne); }
+.qg-ecart-moins .icon { color: var(--alert); }
+/* Les douze derniers jours d'une tuile : le trait en sourdine, aujourd'hui en point de lueur. */
+.qg-etincelle { display: block; width: 100%; height: 30px; overflow: visible; }
+.qg-etincelle-ligne { fill: none; stroke: var(--muted); stroke-width: 1.5px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.qg-etincelle-point { fill: none; stroke: color-mix(in srgb, var(--lueur) 80%, var(--ink)); stroke-width: 6px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+/* L'écran des participations, nocturne sous tous les thèmes : ses quatre
+   couleurs ont été vérifiées sur ce fond — voisines dans la pile, elles se
+   distinguent encore aux trois daltonismes —, et les trente-quatre thèmes
+   en ont de clairs, où elles ne tenaient plus. Ses jetons y redeviennent
+   ceux du Velours. L'ordre de la pile est celui de `MODES_DU_QG` : il ne se
+   change pas sans refaire la vérification. */
+.qg-ecran {
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --edge: rgba(217, 181, 106, 0.22);
+  --accent-text: #d9b56a;
+  --focus: #d9b56a;
+  --mode-soiree: #c98500;
+  --mode-campagne: #199e70;
+  --mode-jour: #d95926;
+  --mode-duel: #3987e5;
+  color-scheme: dark;
+  border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
+  background: radial-gradient(120% 70% at 50% -10%, #2b211b 0%, #1a1412 65%);
+  color: var(--ink);
+}
+.qg-graphe { min-width: 0; }
+.qg-graphe svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.qg-graphe-grille line { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1px; }
+.qg-graphe-axe text { fill: var(--muted); font-size: 0.75rem; font-variant-numeric: lining-nums tabular-nums; }
+.qg-graphe-total { fill: var(--ink); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.qg-graphe-cible { fill: transparent; cursor: crosshair; }
+.qg-graphe-choisi { fill: rgba(255, 255, 255, 0.06); }
+.qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
+.qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
+.qg-mode-jour { fill: var(--mode-jour); background: var(--mode-jour); }
+.qg-mode-duel { fill: var(--mode-duel); background: var(--mode-duel); }
+/* La légende dit aussi les chiffres du jour qu'on survole — aujourd'hui sinon : au toucher, pas d'infobulle. */
+.qg-legende { display: flex; flex-direction: column; gap: 6px; }
+.qg-legende-jour { font-size: 0.85rem; font-weight: 600; }
+.qg-legende ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--muted); }
+.qg-legende li { display: inline-flex; align-items: center; gap: 6px; }
+.qg-legende b { font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille-mode { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.qg-tableau { overflow-x: auto; }
+.qg-tableau > summary { display: inline-flex; align-items: center; min-height: 32px; color: var(--accent-text); font-size: 0.85rem; cursor: pointer; }
+.qg-tableau table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.85rem; }
+.qg-tableau th, .qg-tableau td { padding: 6px 0 6px 10px; border-top: 1px solid var(--edge); text-align: right; white-space: nowrap; }
+.qg-tableau th[scope='row'] { padding-left: 0; text-align: left; font-weight: 500; }
+.qg-tableau thead th { border-top: 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.qg-tableau thead th:first-child { padding-left: 0; text-align: left; }
+.qg-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.qg-liste > li + li { border-top: 1px solid var(--edge); }
+.qg-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 2px; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.qg-ligne { cursor: pointer; }
+button.qg-ligne:hover .qg-chevron { color: var(--ink); }
+.qg-ligne-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.qg-ligne-texte b { font-weight: 600; }
+.qg-rond { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 12%, transparent); color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
+.qg-rond .icon { width: 16px; height: 16px; }
+.qg-rond-alerte { background: color-mix(in srgb, var(--alert) 16%, transparent); color: var(--alert); }
+.qg-chevron { flex: none; width: 16px; height: 16px; color: var(--muted); }
+/* Une soirée : son avatar, ce qu'on en lit, sa sauvegarde — sous le texte au
+   téléphone, où elle serrait sa colonne sur trois lignes ; au bout à l'ordinateur. */
+.qg-soiree { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 10px 0; }
+.qg-soiree > .qg-etat { grid-column: 2; }
+.qg-avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 12%, transparent); color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); font-size: 1.25rem; }
+.qg-avatar .icon { width: 16px; height: 16px; }
+.qg-soiree-en-plan .qg-avatar { opacity: var(--dim); }
+.qg-etat { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; }
+.qg-etat .icon { width: 14px; height: 14px; }
+.qg-etat-ok { color: var(--muted); }
+.qg-etat-ok .icon { color: var(--en-ligne); }
+.qg-etat-alerte { color: var(--alert); }
+.qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
+.qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
+@media (min-width: 1101px) {
+  /* La barre de côté dans la première colonne, l'en-tête et la page dans la
+     seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
+     barre de côté. */
+  .player-shell.qg {
+    max-width: 1440px;
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    align-items: start;
+    gap: 0 40px;
+    padding: 28px 32px 40px;
+  }
+  .qg > .qg-tete { grid-column: 2; grid-row: 1; margin-bottom: 20px; }
+  .qg > .nav-animateur { grid-column: 2; grid-row: 2; margin-bottom: 20px; }
+  .qg > .page-corps { grid-column: 2; grid-row: 3; }
+  .qg > .qg-cote {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    position: sticky;
+    top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-right: 20px;
+    border-right: 1px solid color-mix(in srgb, var(--lueur) 18%, transparent);
+  }
+  .qg > .menu-barre { display: none; }
+  body.avec-menu:has(.qg) { padding-bottom: 0; }
+  .qg-tete > .jour-sortie { display: none; }
+  .qg-au-telephone { display: none; }
+  .qg-a-l-ordinateur { display: inline; }
+  .qg-titre h1 { font-size: 2.4rem; }
+  .qg-vue {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    grid-template-areas: 'direct direct' 'jour jour' 'graphe traiter' 'soirees serveur';
+    gap: 20px;
+  }
+  .qg-direct { grid-area: direct; }
+  .qg-jour { grid-area: jour; }
+  .qg-participations { grid-area: graphe; }
+  .qg-traiter { grid-area: traiter; }
+  .qg-soirees { grid-area: soirees; }
+  .qg-serveur { grid-area: serveur; }
+  .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .qg-soiree { grid-template-columns: 36px minmax(0, 1fr) auto; }
+  .qg-soiree > .qg-etat { grid-column: 3; }
+  .qg-sommaire { display: none; }
+}
+@media (min-width: 1400px) {
+  .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
 /* ── Le quiz du jour : un panneau qui donne envie ────────────────────────
    La carte d'aujourd'hui sur la trame de l'atlas, un soleil qui se lève au
    coin, la date en grand, « Jouer » qui respire. */

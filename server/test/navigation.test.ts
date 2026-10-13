@@ -60,10 +60,10 @@ test('les pages de l’animateur ont la même barre, dans le même ordre, et ell
     'Mes quiz (ici)',
     'Mon compte → /compte',
     'Historique → /chez-bob/soirees',
-    'Les comptes → /admin',
+    'Le QG → /admin',
   ])
-  assert.deepEqual(gestes(await barre('admin', true)).at(-1), 'Les comptes (ici)')
-  // « Mon compte » et « Les comptes » la portent, chacun à sa place ; leurs
+  assert.deepEqual(gestes(await barre('admin', true)).at(-1), 'Le QG (ici)')
+  // « Mon compte » et le QG la portent, chacun à sa place ; leurs
   // anciennes barres, qui changeaient d'ordre et de taille, sont parties.
   // « Mes quiz », pièce du menu de tout profil, a la barre du menu à sa
   // place (menu.test.ts) : deux barres l'une sur l'autre ne disaient plus où

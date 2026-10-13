@@ -1030,6 +1030,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
+    qg: { db, registry, io, backup, charge, env: opts.appEnv ?? 'production', version: opts.version ?? null },
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, motifDe, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
@@ -6,27 +6,30 @@ import { AdminCampagne } from '../components/AdminCampagne'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
+import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
 import { formatNumber } from '../../../shared/typographie'
+import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
+import { heureEcrite, lesChosesATraiter, type DirectDuQg, type VueDEnsemble } from '../../../shared/qg'
 import type { EspaceDAdministration } from '../../../shared/space'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
 
 /**
- * L'administration (`/admin`), pour l'administrateur seul, à la manière de
- * « Mon compte » : un tableau de bord qui dit l'état du serveur d'un coup
- * d'œil, puis une ligne par sujet, chacune ouvrant son écran à son adresse
- * (`/admin#salons`) — les profils, les salons, le catalogue, le quiz du jour,
- * la campagne.
+ * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
+ * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
+ * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
+ * (`QgVueDEnsemble.tsx`), puis une page par sujet, chacune à son adresse
+ * (`/admin#jour`) : le quiz du jour, la campagne, les profils, les salons,
+ * le catalogue. Au téléphone, la liste des pages sous la vue d'ensemble et
+ * la barre du menu ; à l'ordinateur, une barre de côté.
  *
- * C'était une seule page de cartes et de tableaux, sortie de l'application :
- * une barre d'animateur, un formulaire « Créer un compte » qui ne sert plus
- * — chacun ouvre son salon depuis son profil — et la liste des comptes en
- * tableau large, où « p-k3x9… en attente » ne disait à qui était quoi (la
- * remarque du propriétaire du 3 octobre 2026). Les quiz et les soirées des
- * autres ne se voient toujours pas d'ici, sauf les copies proposées au
+ * Il remplace une page à la manière de « Mon compte » (le 3 octobre 2026) —
+ * quatre cadrans et cinq lignes —, qui ne disait rien de ce qui se jouait.
+ * Les quiz et les soirées des autres ne s'y voient toujours pas : des
+ * soirées, rien que des chiffres ; des quiz, les copies proposées au
  * catalogue.
  */
 
@@ -40,33 +43,91 @@ function lireEcran(): Ecran | null {
   return (ECRANS as readonly string[]).includes(h) ? (h as Ecran) : (ANCIENNES[h] ?? null)
 }
 
-/** Sous ce nombre de jours d'avance, la réserve du quiz du jour s'allume (`AdminDuJour`). */
-const ALERTE_JOURS = 7
+const TITRE: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour', campagne: 'La campagne' }
 
-/** Ce que le tableau de bord résume : chaque chiffre arrive quand il peut, sans retenir les autres. */
-interface Resume {
-  profils?: number
-  espaces?: EspaceDAdministration[]
-  aRelire?: number
-  jour?: { jours: number; signalements: number }
-  campagne?: { signalements: number }
-}
+/**
+ * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
+ * pages qui existent : les soirées, les duels, l'économie et « Animer »
+ * la rejoindront à leur tour.
+ */
+const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
+  { groupe: 'Piloter', pages: [{ ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' }] },
+  {
+    groupe: 'Les modes',
+    pages: [
+      { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
+      { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
+    ],
+  },
+  {
+    groupe: 'Les joueurs',
+    pages: [
+      { ecran: 'profils', nom: 'Profils', icone: 'users' },
+      { ecran: 'salons', nom: 'Salons', icone: 'home' },
+    ],
+  },
+  { groupe: 'Le contenu', pages: [{ ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' }] },
+]
+
+/**
+ * Le direct se relit toutes les dix secondes — en mémoire et dans la base
+ * locale, sans un aller-retour vers Turso ; la vue d'ensemble, qui lit
+ * Turso, toutes les cinq minutes, et en revenant d'une page : un QG reste
+ * ouvert sur un écran toute la journée, et chaque relecture compte au quota.
+ * Rien tant que l'onglet est caché.
+ */
+const DIRECT_MS = 10_000
+const VUE_MS = 300_000
 
 export function AdminApp() {
   const { toast } = useAppState()
   const [me, setMe] = useState<Me | null>(null)
   const [error, setError] = useState('')
-  const [resume, setResume] = useState<Resume>({})
   const [ecran, setEcran] = useState<Ecran | null>(lireEcran)
+  const [direct, setDirect] = useState<DirectDuQg | null>(null)
+  const [directEnPanne, setDirectEnPanne] = useState(false)
+  const [vue, setVue] = useState<VueDEnsemble | null>(null)
+  const [vueEnPanne, setVueEnPanne] = useState(false)
+  const [profils, setProfils] = useState<number>()
+  const [espaces, setEspaces] = useState<EspaceDAdministration[]>()
+  // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
+  const enVol = useRef({ direct: false, vue: false })
+  const derniereVue = useRef(0)
+  const estAdmin = me?.account.role === 'admin'
 
-  /** Les chiffres du tableau de bord, relus en revenant d'un écran : on y a peut-être supprimé, publié, rempli. */
-  const relireLeResume = () => {
-    const poser = (morceau: Resume) => setResume(r => ({ ...r, ...morceau }))
-    api.admin.profils('').then(l => poser({ profils: l.total }), () => {})
-    api.admin.espaces().then(espaces => poser({ espaces }), () => {})
-    api.admin.catalogue().then(c => poser({ aRelire: c.filter(e => e.statut === 'propose').length }), () => {})
-    api.admin.jour().then(j => poser({ jour: { jours: j.reserve.joursDAvance, signalements: j.signalements.length } }), () => {})
-    api.admin.campagne().then(c => poser({ campagne: { signalements: c.signalements.length } }), () => {})
+  const relireLeDirect = () => {
+    if (enVol.current.direct) return
+    enVol.current.direct = true
+    api.admin
+      .qgDirect()
+      .then(
+        d => {
+          setDirect(d)
+          setDirectEnPanne(false)
+        },
+        () => setDirectEnPanne(true),
+      )
+      .finally(() => (enVol.current.direct = false))
+  }
+  const relireLaVue = () => {
+    if (enVol.current.vue) return
+    enVol.current.vue = true
+    derniereVue.current = Date.now()
+    api.admin
+      .qg()
+      .then(
+        v => {
+          setVue(v)
+          setVueEnPanne(false)
+        },
+        () => setVueEnPanne(true),
+      )
+      .finally(() => (enVol.current.vue = false))
+  }
+  /** Les comptes de la barre de côté et de la liste des pages, relus en revenant d'une page : on y a peut-être supprimé, rattaché. */
+  const relireLesComptes = () => {
+    api.admin.profils('').then(l => setProfils(l.total), () => {})
+    api.admin.espaces().then(setEspaces, () => {})
   }
 
   useEffect(() => {
@@ -75,7 +136,6 @@ export function AdminApp() {
       .then(m => {
         setMe(m)
         if (m.account.role !== 'admin') setError('Cette page est réservée à l’administrateur.')
-        else relireLeResume()
       })
       .catch(e => {
         if (e instanceof UnauthorizedError) window.location.replace('/connexion?next=/admin')
@@ -87,17 +147,44 @@ export function AdminApp() {
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
 
-  const ouvrir = (e: Ecran) => {
-    history.pushState({ ...history.state, depuisAdmin: true }, '', `/admin#${e}`)
+  useEffect(() => {
+    if (!estAdmin) return
+    relireLeDirect()
+    relireLaVue()
+    relireLesComptes()
+    const visible = () => document.visibilityState === 'visible'
+    const relire = () => {
+      if (!visible()) return
+      relireLeDirect()
+      if (Date.now() - derniereVue.current >= VUE_MS) relireLaVue()
+    }
+    // De retour sur l'onglet, sans attendre le tour suivant : le direct, et la vue si elle date.
+    const tour = setInterval(relire, DIRECT_MS)
+    document.addEventListener('visibilitychange', relire)
+    return () => {
+      clearInterval(tour)
+      document.removeEventListener('visibilitychange', relire)
+    }
+  }, [estAdmin])
+
+  /** Une page du QG, à son adresse : la barre de côté y va de l'une à l'autre, le retour du navigateur revient. */
+  const aller = (e: Ecran | null) => {
+    if (e === ecran) return
+    history.pushState({ ...history.state, depuisAdmin: true }, '', e ? `/admin#${e}` : '/admin')
     setEcran(e)
+    if (e === null) {
+      relireLesComptes()
+      relireLaVue()
+    }
     window.scrollTo(0, 0)
   }
-  /** D'un cran si l'écran a été ouvert d'ici ; venu d'un lien, on remplace l'adresse. */
+  /** « ← Le QG », au téléphone : d'un cran si l'écran a été ouvert d'ici ; venu d'un lien, on remplace l'adresse. */
   const revenir = () => {
     if (history.state?.depuisAdmin) history.back()
     else history.replaceState(history.state, '', '/admin')
     setEcran(null)
-    relireLeResume()
+    relireLesComptes()
+    relireLaVue()
     window.scrollTo(0, 0)
   }
 
@@ -132,67 +219,103 @@ export function AdminApp() {
     )
   }
 
-  const { espaces } = resume
-  // Tous les espaces : les salons des profils, et les comptes d'avant, à mot de passe — ceux que l'écran liste.
-  const salons = espaces?.length
-  const sansTitulaire = espaces?.filter(e => e.salon && !e.titulaire).length ?? 0
-  const titre: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour', campagne: 'La campagne' }
-  const signalementsDeCampagne = resume.campagne?.signalements ?? 0
+  const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct)
+  const instant = direct?.maintenant ?? vue?.maintenant
+  const reserve = vue?.aTraiter.reserve
+  const signalements = vue?.aTraiter.signalementsDeLaCampagne.questions ?? 0
+  const aRelire = vue?.aTraiter.catalogue ?? 0
+  const comptes: Partial<Record<Ecran, number>> = { profils, salons: espaces?.length }
 
   return (
-    <div className="player-shell compte admin">
-      {ecran ? (
-        <header className="admin-ecran-tete">
-          <Sortie vers="Administration" href="/admin" onClick={revenir} />
-          <h1>{titre[ecran]}</h1>
-        </header>
-      ) : (
-        <header className="compte-tete">
-          <h1>Administration</h1>
-          <span className="etiquette">Toi seul</span>
-        </header>
-      )}
+    <div className="player-shell compte admin qg">
+      <header className="qg-tete">
+        {ecran ? (
+          <Sortie vers="Le QG" href="/admin" onClick={revenir} />
+        ) : (
+          <span className="qg-quand">{instant ? `${jourEnToutesLettres(jourDe(instant))} · ${heureEcrite(instant)}` : 'Toi seul'}</span>
+        )}
+        <div className="qg-titre">
+          <h1>
+            {ecran ? (
+              TITRE[ecran]
+            ) : (
+              <>
+                <span className="qg-au-telephone">Le QG</span>
+                <span className="qg-a-l-ordinateur">Vue d’ensemble</span>
+              </>
+            )}
+          </h1>
+          {!ecran && <EnDirect direct={direct} enPanne={directEnPanne} />}
+        </div>
+      </header>
 
       {/* Un administrateur sans profil n'a pas d'accueil à lui : sa barre garde l'écran commun et l'historique. */}
       {!me.profil && <NavAnimateur ici="admin" slug={me.space.slug} admin />}
+      <nav className="qg-cote" aria-label="Les pages du QG">
+        <div className="qg-marque">
+          <span className="qg-marque-nom">Le QG</span>
+          {direct && <span className="etiquette">{direct.serveur.env === 'production' ? 'Production' : direct.serveur.env}</span>}
+        </div>
+        {PAGES_DU_QG.map(({ groupe, pages }) => (
+          <div key={groupe} className="qg-groupe">
+            <span className="qg-groupe-titre">{groupe}</span>
+            {pages.map(p => {
+              // Ce qui attend un geste sur la page : tout, pour la vue d'ensemble.
+              const siennes = p.ecran === null ? choses : choses.filter(c => c.ecran === p.ecran)
+              const compte = p.ecran ? comptes[p.ecran] : undefined
+              return (
+                <LienDuQg key={p.nom} ici={ecran === p.ecran} href={p.ecran ? `/admin#${p.ecran}` : '/admin'} icone={p.icone} onAller={() => aller(p.ecran)}>
+                  {p.nom}
+                  {siennes.length > 0 ? (
+                    <span className={'qg-pastille' + (siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
+                      {siennes.length}
+                      <span className="sr-only"> à traiter</span>
+                    </span>
+                  ) : (
+                    compte !== undefined && <span className="qg-compte">{formatNumber(compte)}</span>
+                  )}
+                </LienDuQg>
+              )
+            })}
+          </div>
+        ))}
+        <a className="lien-discret qg-retour" href="/compte">
+          <Icon name="arrow-left" />
+          Mon compte
+        </a>
+      </nav>
+
       <main className="page-corps">
         {ecran === null && (
           <>
-            <section className="admin-hud" aria-labelledby="admin-hud-titre">
-              <span className="salon-hud-label" id="admin-hud-titre">
-                <span className="admin-pouls" aria-hidden="true" />
-                Le serveur
-              </span>
-              <div className="admin-cadrans">
-                <Cadran chiffre={resume.profils} nom="profils" onClick={() => ouvrir('profils')} />
-                <Cadran chiffre={salons} nom="salons" detail={sansTitulaire > 0 ? `${sansTitulaire} sans titulaire` : undefined} onClick={() => ouvrir('salons')} />
-                <Cadran chiffre={resume.aRelire} nom="à relire" alerte={!!resume.aRelire} onClick={() => ouvrir('catalogue')} />
-                <Cadran
-                  chiffre={resume.jour?.jours}
-                  nom={`jour${resume.jour?.jours === 1 ? '' : 's'} d’avance`}
-                  detail={resume.jour?.signalements ? `${resume.jour.signalements} signalement${resume.jour.signalements > 1 ? 's' : ''}` : undefined}
-                  alerte={!!resume.jour && (resume.jour.jours < ALERTE_JOURS || resume.jour.signalements > 0)}
-                  onClick={() => ouvrir('jour')}
+            <VueDEnsembleDuQg vue={vue} direct={direct} vueEnPanne={vueEnPanne} directEnPanne={directEnPanne} ouvrir={aller} />
+            {/* Au téléphone, les pages sous la vue d'ensemble ; à l'ordinateur, la barre de côté les tient. */}
+            <nav className="qg-sommaire" aria-labelledby="qg-pages-titre">
+              <h2 className="compte-groupe" id="qg-pages-titre">
+                Toutes les pages
+              </h2>
+              <ul className="style-liste">
+                <Ligne
+                  icone="sun"
+                  nom="Le quiz du jour"
+                  valeur={reserve ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance` : 'La réserve'}
+                  onClick={() => aller('jour')}
                 />
-              </div>
-            </section>
-
-            <ul className="style-liste">
-              <Ligne icone="users" nom="Les profils" valeur="Chercher, supprimer" onClick={() => ouvrir('profils')} />
-              <Ligne icone="home" nom="Les salons" valeur="Renommer, fermer" onClick={() => ouvrir('salons')} />
-              <Ligne icone="globe" nom="Le catalogue" valeur="Relire, publier" onClick={() => ouvrir('catalogue')} />
-              <Ligne icone="sun" nom="Le quiz du jour" valeur="La réserve" onClick={() => ouvrir('jour')} />
-              <Ligne
-                icone="target"
-                nom="La campagne"
-                valeur={signalementsDeCampagne > 0 ? `${signalementsDeCampagne} signalement${signalementsDeCampagne > 1 ? 's' : ''}` : 'La base'}
-                onClick={() => ouvrir('campagne')}
-              />
-            </ul>
+                <Ligne
+                  icone="target"
+                  nom="La campagne"
+                  valeur={signalements > 0 ? `${signalements} signalement${signalements > 1 ? 's' : ''}` : 'La base'}
+                  onClick={() => aller('campagne')}
+                />
+                <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
+                <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
+                <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
+              </ul>
+            </nav>
           </>
         )}
         {ecran === 'profils' && <AdminProfils />}
-        {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLeResume} />}
+        {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && <AdminDuJour />}
         {ecran === 'campagne' && <AdminCampagne />}
@@ -204,18 +327,37 @@ export function AdminApp() {
   )
 }
 
-/** Un chiffre du tableau de bord : ce qu'il compte, et l'écran qui le montre. Un tiret tant qu'il n'est pas arrivé. */
-function Cadran({ chiffre, nom, detail, alerte, onClick }: { chiffre?: number; nom: string; detail?: string; alerte?: boolean; onClick: () => void }) {
+/** Le direct vit ou se tait : « En direct », ou l'heure du dernier relevé qui a répondu. */
+function EnDirect({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: boolean }) {
+  if (!direct && !enPanne) return null
   return (
-    <button type="button" className={'admin-cadran' + (alerte ? ' admin-cadran-alerte' : '')} onClick={onClick}>
-      <span className="admin-cadran-chiffre num">{chiffre === undefined ? '–' : formatNumber(chiffre)}</span>
-      <span className="admin-cadran-nom">{nom}</span>
-      {detail && <span className="admin-cadran-detail">{detail}</span>}
-    </button>
+    <span className={'qg-vif' + (enPanne ? ' qg-vif-perdu' : '')}>
+      <span className="qg-vif-point" aria-hidden="true" />
+      {!enPanne ? 'En direct' : direct ? `Dernier relevé à ${heureEcrite(direct.maintenant)}` : 'Le serveur ne répond pas'}
+    </span>
   )
 }
 
-/** Une ligne de la liste des sujets, comme celles de « Mon compte ». */
+/** Un lien de la barre de côté : une vraie adresse, pour l'onglet d'à côté ; un clic simple reste dans la page. */
+function LienDuQg({ ici, href, icone, onAller, children }: { ici: boolean; href: string; icone: IconName; onAller: () => void; children: ReactNode }) {
+  return (
+    <a
+      className="qg-lien"
+      href={href}
+      aria-current={ici ? 'page' : undefined}
+      onClick={e => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+        e.preventDefault()
+        onAller()
+      }}
+    >
+      <Icon name={icone} />
+      {children}
+    </a>
+  )
+}
+
+/** Une ligne de la liste des pages, comme celles de « Mon compte ». */
 function Ligne({ icone, nom, valeur, onClick }: { icone: IconName; nom: string; valeur: ReactNode; onClick: () => void }) {
   return (
     <li>

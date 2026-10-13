@@ -8,7 +8,7 @@ export type PageAnimateur = 'quiz' | 'compte' | 'admin'
 /**
  * Les pages de l'animateur, dans le même ordre et sous les mêmes noms
  * partout : l'accueil, l'écran commun, ses quiz, son compte, l'historique de
- * son espace — et les comptes, pour l'administrateur.
+ * son espace — et le QG, pour l'administrateur.
  *
  * Chaque page avait sa barre : « Mes quiz » manquait à /admin, l'accueil à
  * toutes, et les mêmes pages y changeaient d'ordre et de taille. Qui animait
@@ -37,8 +37,8 @@ export function NavAnimateur({ ici, slug, admin }: { ici: PageAnimateur; slug: s
         </a>
       )}
       {admin && (
-        <Page ici={ici === 'admin'} href="/admin" icone="sparkles">
-          Les comptes
+        <Page ici={ici === 'admin'} href="/admin" icone="bar-chart">
+          Le QG
         </Page>
       )}
     </nav>
