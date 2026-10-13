@@ -338,7 +338,16 @@
       "pour": "generer a4",
       "envoye": "2026-10-13T21:27:59.352Z",
       "demandes": 20,
-      "prevu": 2.9226746666666665
+      "prevu": 2.9226746666666665,
+      "recu": "2026-10-13T21:33:20.097Z",
+      "cout": 1.560906
+    },
+    {
+      "id": "msgbatch_013Nrxcek45DkRytG82AzhN1",
+      "pour": "generer a4",
+      "envoye": "2026-10-13T21:33:23.849Z",
+      "demandes": 4,
+      "prevu": 0.513674
     }
   ]
 }
