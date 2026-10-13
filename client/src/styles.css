@@ -8851,6 +8851,20 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sentiers-admin-infos { grid-column: 2 / 4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
 .sentiers-admin-effort { grid-column: 2 / 4; }
 .sentiers-admin-puce { padding: 1px 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--shape-0) 16%, transparent); color: var(--ink); font-size: var(--t-label); font-weight: 700; }
+/* « Régler » à côté du mélange qu'il change ; un palier réglé au QG le dit sous ses chiffres ; l'éditeur s'ouvre dessous, sur toute la largeur. */
+.sentiers-admin-melange { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.sentiers-admin-regler { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 10px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: none; color: var(--accent-text); font: inherit; font-size: var(--t-label); font-weight: 700; cursor: pointer; }
+.sentiers-admin-regler:hover { color: var(--accent-text-hover); border-color: currentColor; }
+.sentiers-admin-regler[aria-expanded='true'] { border-color: currentColor; }
+.sentiers-admin-regler .icon { width: 12px; height: 12px; }
+.sentiers-admin-reglage { grid-column: 2 / 4; }
+.sentiers-admin-editeur { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
+.sentiers-admin-editeur p { margin: 0; }
+.sentiers-admin-reglables { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.sentiers-admin-reglables li { display: inline-flex; align-items: center; gap: 8px; }
+.sentiers-admin-reglables li > span { min-width: 5.5rem; }
+.sentiers-admin-reglables output { min-width: 2ch; font-family: var(--sans); font-size: 1.05rem; font-weight: 700; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.sentiers-admin-avertissement { color: var(--alert); font-weight: 600; }
 .sentiers-admin-maitre > b:first-child { color: var(--shape-2); }
 .sentiers-admin-maitre .sentiers-admin-premier { background: var(--shape-2); }
 .sentiers-admin-maitre .sentiers-admin-ensuite { background: color-mix(in srgb, var(--shape-2) 45%, transparent); }
@@ -9634,6 +9648,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   /* La page « Le serveur » : ses temps de réponse dans l'or du Velours, ses erreurs dans son rouge — une série par graphique. */
   --qg-temps: #d9b56a;
   --qg-erreur: #e06c6c;
+  /* Ce qu'une tuile ou un écart y prend aussi, ceux du Velours : sous l'Ivoire, la tuile du défi s'y peignait d'un gris clair, son texte clair dessus. */
+  --surface: rgba(255, 255, 255, 0.035);
+  --alert: #e06c6c;
+  --en-ligne: #6fd08c;
   color-scheme: dark;
   border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
   background: radial-gradient(120% 70% at 50% -10%, #2b211b 0%, #1a1412 65%);
@@ -9793,6 +9811,21 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-question .num,
 .qg-rang .num,
 .qg-piste-ligne > b { font-family: var(--sans); }
+/* La campagne : ce qu'on joue en petits multiples — un par sous-mode, côte à
+   côte dès qu'ils tiennent, l'un sous l'autre au téléphone —, le nom et le
+   total des trente jours au-dessus, ce qu'il est dessous. */
+.qg-multiples { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px 20px; }
+.qg-multiple { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.qg-multiple-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.qg-multiple-tete .num { font-family: var(--sans); font-size: 1.15rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+/* Un intertitre dans une carte : « Les scores », et ce qu'ils comptent à côté. */
+.qg-sous-titre { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 6px 0 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.qg-sous-titre .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* Les questions les plus ratées du défi : au téléphone, l'intitulé sur toute la largeur et sa piste dessous ; à l'ordinateur, sur une ligne, coupé d'une ellipse. */
+.qg-ratees .qg-piste-ligne { grid-template-columns: minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte texte' 'piste part'; gap: 4px 10px; }
+.qg-ratees .qg-piste-nom { grid-area: texte; }
+.qg-ratees .qg-piste { grid-area: piste; }
+.qg-ratees .qg-piste-ligne > b { grid-area: part; }
 /* La fiche d'un joueur, dans sa feuille : qui il est, ses chiffres, ce qu'on
    peut faire pour lui, puis ce qu'on a déjà fait. Le code de secours tiré
    s'encadre en pointillé : il ne sera plus affiché. */
@@ -9876,6 +9909,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-question { grid-template-columns: 1.5rem minmax(0, 1.3fr) minmax(0, 1fr) 3.5rem 8.5rem; grid-template-areas: 'n texte piste part marques'; }
   .qg-question-texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qg-rang { grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto auto; grid-template-areas: 'place avatar nom points geste'; }
+  .qg-ratees .qg-piste-ligne { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte piste part'; }
+  .qg-ratee-texte { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (min-width: 1400px) {
   .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }

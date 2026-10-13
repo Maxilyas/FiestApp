@@ -110,7 +110,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/soirees/${enPlan}/clore`), 'clore la soirée en plan')
     zoe.socket.disconnect()
 
-    // La campagne : garder, retirer, corriger.
+    // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
+    ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
     ok(await faire(banc, admin, '/api/admin/campagne/garder', { questionId: 'essai001' }), 'garder en campagne')
     ok(await faire(banc, admin, '/api/admin/campagne/retirer', { questionId: 'essai002' }), 'retirer en campagne')
     const correction = { texte: 'Question d’essai numéro 3 : laquelle est la bonne ?', reponses: ['Bonne 3', 'Autre A3', 'Autre B3', 'Autre C3'], bonne: 0, anecdote: 'Une anecdote reprise.' }
@@ -159,6 +160,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Profil suspendu : Léa (@lea)',
       'Profil réactivé : Léa (@lea)',
       'Profil renommé : « Léa » devient « Léa B. » (@lea)',
+      'Mélange du palier 2 des sentiers réglé : 14 faciles et 2 moyennes → 12 faciles et 4 moyennes',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }

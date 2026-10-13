@@ -488,6 +488,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.paliersDesSentiers = id => campagne.paliersDe(id)
   campagne.viesAchetees = id => profiles.viesAcheteesDe(id)
   campagne.viesAcheteesDepuis = depuis => profiles.viesAcheteesDepuis(depuis)
+  campagne.achatsDeViesDepuis = depuis => profiles.achatsDeViesDepuis(depuis)
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.confettisDeCampagne = id => campagne.confettisDe(id)

@@ -24,6 +24,8 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrire, inscrireProfil, invite, lancerQuiz, qcm } from '../test/banc'
 import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
+import { semaineAvant, semaineDe } from '../../shared/campagne'
+import { regleDuPalier } from '../../shared/sentiers'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
@@ -90,6 +92,39 @@ try {
   await ecrire(banc.url, `/api/admin/profils/${leaId}/confettis`, { confettis: 120, mot: 'Merci d’avoir tenu le buzzer samedi !' }, admin)
   for (let i = 0; i < 5; i++) await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'pas-le-bon-1' }, '')
 
+  // La campagne : vingt-quatre joueurs de plus, chacun sa force, et le défi
+  // de la semaine relevé par tous par les vraies routes — le premier le tire ;
+  // chacun trouve selon la marche de la question et sa force, et s'arrête à
+  // sa troisième faute ; quatre le laissent en route. Puis le cinquième palier
+  // réglé au QG, par sa route : la page le dit « réglé au QG ».
+  const NOMS = ['Arthur', 'Zoé', 'Louis', 'Chloé', 'Gabriel', 'Manon', 'Jules', 'Lina', 'Adam', 'Rose', 'Nathan', 'Anna', 'Paul', 'Mila', 'Victor', 'Alice', 'Basile', 'Léna', 'Martin', 'Eva', 'Noé', 'Julia', 'Sacha', 'Lou']
+  const AVATARS_DU_RENDU = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐷', '🐶', '🐱', '🐵', '🦉', '🦖', '🍕', '🌮', '🍩', '🎸', '🚀', '⚽', '🎲', '👑', '🌵', '🍉']
+  const joueurs: { cookie: string; id: string; force: number }[] = []
+  for (const [k, nom] of NOMS.entries()) {
+    const cookie = await inscrireProfil(banc.url, `joueur${k}`, nom, AVATARS_DU_RENDU[k])
+    const id = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as { profile: { id: string } }).profile.id
+    joueurs.push({ cookie, id, force: -1 + (k % 6) * 0.45 })
+  }
+  let graine = 11
+  const hasard = () => (graine = (graine * 16807) % 2147483647) / 2147483647
+  const TAUX = { facile: 0.85, moyen: 0.55, difficile: 0.3, expert: 0.1 } as const
+  type Marche = keyof typeof TAUX
+  const chance = (niveau: Marche, force: number) => 1 / (1 + Math.exp(-(Math.log(TAUX[niveau] / (1 - TAUX[niveau])) + force)))
+  for (const [k, j] of joueurs.entries()) {
+    const serie = (await (await ecrire(banc.url, '/api/campagne/defi', {}, j.cookie)).json()) as { id: string }
+    const lue = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    const posees = JSON.parse((lue.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(serie.id) as { questions: string }).questions) as { bonne: number; reponses: string[]; niveau: Marche }[]
+    lue.close()
+    const jusqua = k % 6 === 5 ? 3 + (k % 4) : posees.length
+    let fautes = 0
+    for (let i = 0; fautes < 3 && i < jusqua; i++) {
+      const juste = hasard() < chance(posees[i].niveau, j.force)
+      if (!juste) fautes++
+      await ecrire(banc.url, `/api/campagne/serie/${serie.id}/reponse`, { index: i, choix: juste ? posees[i].bonne : (posees[i].bonne + 1) % posees[i].reponses.length }, j.cookie)
+    }
+  }
+  await ecrire(banc.url, '/api/admin/campagne/paliers/5/melange', { melange: { facile: 5, moyen: 11 } }, admin)
+
   // Trente jours d'activité, écrits dans la base permanente : chaque jour son
   // lot, plus fourni le week-end, aujourd'hui jusqu'à l'heure qu'il est.
   const maintenant = Date.now()
@@ -111,7 +146,7 @@ try {
       const series = Math.round(120 * vague)
       for (let k = 0; k < series; k++) {
         const quand = a(k, series)
-        const mode = k % 4 === 0 ? 'duel' : k % 9 === 0 ? 'rencontre' : k % 5 === 0 ? 'sentier' : 'serie'
+        const mode = k % 4 === 0 ? 'duel' : k % 9 === 0 ? 'rencontre' : k % 5 === 0 ? 'sentier' : k % 7 === 0 ? 'sujet' : k % 11 === 0 ? 'revision' : k % 13 === 0 ? 'defi' : 'serie'
         if (quand <= maintenant) serie.run(`s-${n++}`, `p-${(k * 7) % 80}`, quand, mode)
       }
     })
@@ -240,6 +275,78 @@ try {
         tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, minuit + 18 * H)
       })
     }
+    // La campagne en détail : trente jours d'épreuves des sentiers — chacun
+    // monte palier par palier à sa force, une ratée coûte sa vie —, des
+    // paliers validés aujourd'hui, Malik qui perd quinze vies ce matin, des
+    // vies achetées, des parcours de thème, et le défi de la semaine passée, clos.
+    {
+      const epreuve = permanente.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, branche, palier, seuil, rejeu, issue)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, 'sentier', ?, ?, 10, 0, ?)`,
+      )
+      const reponseDEpreuve = permanente.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)')
+      let e = 0
+      /** Une épreuve jouée à sa force : elle s'arrête à la septième faute, ou va au bout. */
+      const jouerLEpreuve = (profil: string, force: number, branche: string, palier: number, quand: number): boolean => {
+        const marches = (Object.entries(regleDuPalier(palier)!.melange) as [Marche, number][]).flatMap(([niveau, n]) => Array.from({ length: n }, () => niveau))
+        const id = `ep-${e++}`
+        let justes = 0
+        let i = 0
+        for (; i < marches.length && i - justes <= 6; i++) {
+          const juste = hasard() < chance(marches[i], force)
+          if (juste) justes++
+          reponseDEpreuve.run(id, i, `q-${palier}-${i}`, juste ? 0 : 1, juste ? 1 : 0, quand + i * 20_000)
+        }
+        const questions = marches.map((niveau, q) => ({ id: `q-${palier}-${q}`, texte: `Question ${q + 1}`, reponses: ['A', 'B', 'C', 'D'], bonne: 0, categorie: null, anecdote: null, niveau }))
+        epreuve.run(id, profil, JSON.stringify(questions), i, justes, quand, quand + i * 20_000, branche, palier, justes >= 10 ? 'validee' : 'ratee')
+        return justes >= 10
+      }
+      for (const [k, j] of joueurs.entries()) {
+        for (const branche of ['foret', 'stade']) {
+          let palier = 1
+          const visee = 3 + ((k * 5 + branche.length) % 7)
+          let quand = minuits[(k * 3 + branche.length) % 20] + 9 * H
+          while (palier <= visee && quand < minuits[minuits.length - 1]) {
+            if (jouerLEpreuve(j.id, j.force - 0.06 * palier, branche, palier, quand)) palier++
+            quand += (6 + Math.floor(hasard() * 30)) * H
+          }
+          // Aujourd'hui, un palier de plus pour la moitié d'entre eux.
+          if (k % 2 === 0 && palier <= 12) jouerLEpreuve(j.id, j.force + 0.6, branche, palier, Math.min(maintenant - 60_000, minuits[minuits.length - 1] + (7 + (k % 5)) * H))
+        }
+      }
+      // Malik perd quinze vies aujourd'hui : trois au-delà des douze du jour, prises dans sa réserve.
+      const debutDeMalik = Math.max(minuits[minuits.length - 1] + 60_000, maintenant - 40 * 60_000)
+      for (let k = 0; k < 15; k++) epreuve.run(`malik-${k}`, idsDesHabitues[7], '[]', 7, 0, debutDeMalik + k * 60_000, debutDeMalik + k * 60_000 + 30_000, 'monde', 3, 'ratee')
+      const achat = permanente.prepare('INSERT INTO profile_vies (id, profile_id, nombre, prix, created_at) VALUES (?, ?, ?, ?, ?)')
+      minuits.forEach((minuit, d) => {
+        for (let k = 0; k < (d * 7) % 5; k++) {
+          const quand = minuit + (10 + k * 3) * H
+          const nombre = 1 + ((d + k) % 4)
+          if (quand <= maintenant) achat.run(`vie-${d}-${k}`, joueurs[(d + k) % joueurs.length].id, nombre, 25 * nombre, quand)
+        }
+      })
+      const etape = permanente.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet, palier, seuil, issue) VALUES (?, ?, '[]', 10, 0, ?, ?, ?, 'sujet', ?, ?, 7, ?)`,
+      )
+      const sujets = ['animaux', 'avant-1800', 'terre-espace', 'annees-80', 'mythes-legendes', 'france', 'records']
+      for (const [k, j] of joueurs.entries()) {
+        for (let s = 0; s < 1 + (k % 3); s++) {
+          const sujet = sujets[(k + s * 2) % sujets.length]
+          const validees = (k * 7 + s) % 7
+          let quand = minuits[(k + s * 5) % 25] + 19 * H
+          for (let p = 1; p <= Math.min(6, validees + 1) && quand <= maintenant; p++, quand += 20 * H) {
+            etape.run(`et-${k}-${s}-${p}`, j.id, p <= validees ? 8 : 5, quand, quand + 4 * 60_000, sujet, p, p <= validees ? 'validee' : 'ratee')
+          }
+        }
+      }
+      const passee = semaineAvant(semaineDe(jourDe(maintenant)))
+      permanente
+        .prepare('INSERT INTO campagne_defis (semaine, questions, tire_le, clos_le, vainqueurs) VALUES (?, ?, ?, ?, ?)')
+        .run(passee, '[]', maintenant - 8 * 24 * H, maintenant - 2 * 24 * H, JSON.stringify([joueurs[2].id, joueurs[9].id]))
+      const tentative = permanente.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine) VALUES (?, ?, '[]', ?, 0, ?, ?, ?, 'defi', ?)`)
+      joueurs.forEach((j, k) => tentative.run(`passee-${k}`, j.id, 10 + (k % 6), 4 + (k % 9), maintenant - 7 * 24 * H + k * H, maintenant - 7 * 24 * H + k * H + 600_000, passee))
+      idsDesHabitues.forEach((id, k) => tentative.run(`passee-h-${k}`, id, 9, 3 + k, maintenant - 6 * 24 * H + k * H, maintenant - 6 * 24 * H + k * H + 600_000, passee))
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
@@ -259,6 +366,11 @@ try {
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
     if (adresse === '/admin#jour') await page.waitForSelector('.qg-question', { timeout: 15000 })
+    if (adresse === '/admin#campagne') {
+      await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
+      await page.waitForSelector('.qg-ratees, .sentiers-admin-ligne', { timeout: 15000 })
+      await page.waitForSelector('.sentiers-admin-ligne', { timeout: 15000 })
+    }
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -278,6 +390,10 @@ try {
   await photographier('26-jour-1920', 1920, 1080, { adresse: '/admin#jour' })
   await photographier('27-jour-telephone', 360, 640, { adresse: '/admin#jour' })
   await photographier('28-jour-ivoire', 360, 640, { adresse: '/admin#jour', theme: 'ivoire' })
+  await photographier('30-campagne', 1366, 768, { adresse: '/admin#campagne' })
+  await photographier('31-campagne-1920', 1920, 1080, { adresse: '/admin#campagne' })
+  await photographier('32-campagne-telephone', 360, 640, { adresse: '/admin#campagne' })
+  await photographier('33-campagne-ivoire', 360, 640, { adresse: '/admin#campagne', theme: 'ivoire' })
   await photographier('7-journal', 1366, 768, { adresse: '/admin#journal', pleine: false })
   await photographier('8-journal-telephone', 360, 640, { adresse: '/admin#journal' })
   await photographier('9-soirees', 1366, 768, { adresse: '/admin#soirees' })
@@ -326,6 +442,30 @@ try {
     await contexte.close()
   }
 
+  // Régler un palier : l'éditeur ouvert sur le sixième, deux moyennes changées
+  // en faciles — l'estimation, la difficulté lue, le palier d'avant comparé.
+  for (const [nom, largeur, hauteur] of [
+    ['34-campagne-regler', 1366, 768],
+    ['35-campagne-regler-telephone', 360, 640],
+  ] as const) {
+    const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#campagne`)
+    await page.waitForSelector('.sentiers-admin-ligne', { timeout: 15000 })
+    await page.locator('.sentiers-admin-ligne').nth(5).getByRole('button', { name: 'Régler' }).click()
+    for (const geste of ['Une moyenne de moins', 'Une moyenne de moins', 'Une facile de plus', 'Une facile de plus']) await page.getByRole('button', { name: geste }).click()
+    await page.locator('.sentiers-admin-editeur').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(400)
+    const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
+    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
+    await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
+    console.log(path.join(sortie, `${nom}.png`))
+    await contexte.close()
+  }
+
   // La fiche de Léa, ouverte depuis « Les profils » : au téléphone — son
   // premier écran, puis entière —, à l'ordinateur, sous l'Ivoire ; puis le
   // don qu'on prépare, et le code de secours tiré pour elle.
@@ -336,6 +476,8 @@ try {
     const page = await contexte.newPage()
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
     await page.goto(`${banc.url}/admin#profils`)
+    // Cherchée : sans recherche, la page montre les derniers vus, et les joueurs de la campagne sont passés après elle.
+    await page.getByRole('searchbox', { name: 'Chercher un profil' }).fill('lea')
     await page.getByRole('button', { name: /Léa/ }).first().click()
     await page.waitForSelector('.qg-fiche dl')
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)

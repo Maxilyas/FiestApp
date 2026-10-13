@@ -115,8 +115,11 @@ test('la difficulté d’un palier se dit d’un mot, lu sur son mélange — su
   assert.equal(difficulteDuMelange({ facile: 2, moyen: 8 }), 'moyen', 'un mélange de sentier à thème se lit pareil')
   const page = readFileSync(path.join(SERVEUR, '..', 'client', 'src', 'views', 'Sentiers.tsx'), 'utf8')
   assert.match(page, /<span className="sentiers-difficulte" aria-hidden="true">/, 'la tuile la dit sous le palier à jouer')
-  assert.match(page, /` · \$\{difficulteDuMelange\(regleDuPalier\(c\)!\.melange\)\}`/, 'le bloc du haut, après le thème')
+  // Lue sur le mélange réglé au QG s'il en a un (`etat.melanges`, le choix du 13 octobre 2026) : partout où elle se dit.
+  assert.match(page, /` · \$\{difficulteDuMelange\(regleDuPalier\(c, etat\.melanges\)!\.melange\)\}`/, 'le bloc du haut, après le thème')
+  assert.match(page, /difficulteDuMelange\(regleDuPalier\(s\.paliers \+ 1, etat\.melanges\)!\.melange\)/, 'la tuile')
   assert.match(page, /<dt>Difficulté<\/dt>/, 'la fiche du palier')
+  assert.match(page, /regleDuPalier\(fiche, etat\.melanges\)/, 'la fiche lit le mélange réglé, son texte et sa difficulté')
 })
 
 test('une épreuve se valide dès le seuil, continue pour les étoiles, s’arrête à la faute de trop', () => {

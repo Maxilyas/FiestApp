@@ -17,7 +17,7 @@ import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
-import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, type QuestionDeCampagne } from '../../../shared/campagne'
+import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
 import {
@@ -34,10 +34,10 @@ import {
   etoilesDuSentier,
   regleDuPalier,
   sentierQuOnAvance,
+  texteDuMelange,
   titreDeMaitre,
   type EpreuveDeSentier,
   type EtatDesSentiers,
-  type Melange,
   type FinDEpreuve,
   type RegleDuPalier,
   type ReponseDEpreuve,
@@ -86,20 +86,6 @@ type Ecran =
   /** Sa fin : la dernière réponse, ou — arrêtée là une fois validée — la fin que le serveur rend (`FinDEpreuve`). */
   | { e: 'fin'; reponse: FinDEpreuve; xp: number; xpPalier: number; justesIci: number; correction: CorrectionDeCampagne[] | null; porte: boolean }
   | { e: 'vies'; branche: CleDeBranche | null }
-
-/** Les niveaux d'une épreuve, au féminin : ce sont des questions. */
-const NIVEAU_DES_QUESTIONS: Record<Niveau, [string, string]> = {
-  facile: ['facile', 'faciles'],
-  moyen: ['moyenne', 'moyennes'],
-  difficile: ['difficile', 'difficiles'],
-  expert: ['experte', 'expertes'],
-}
-
-/** « 14 faciles et 2 moyennes ». */
-export function texteDuMelange(m: Melange): string {
-  const parts = (Object.entries(m) as [Niveau, number][]).filter(([, n]) => n > 0).map(([niveau, n]) => `${n} ${NIVEAU_DES_QUESTIONS[niveau][n > 1 ? 1 : 0]}`)
-  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : (parts[0] ?? '')
-}
 
 /** « dans 3 h 12 », « dans 8 min » : jusqu'au retour des vies. */
 export function dansCombien(ms: number): string {
@@ -590,8 +576,8 @@ export function CarteDesSentiers({
           const n = ouvertsDansLaBranche(b, { [b.key]: s.paliers })
           const v = vitrineDe(b, s)
           const etatDuSentier = s.paliers >= PALIER_DU_MAITRE ? 'Maître' : s.paliers >= PALIERS_DU_SENTIER ? 'Maître à tenter' : s.paliers === 0 ? 'À commencer' : `Palier ${s.paliers + 1}`
-          // La difficulté du palier à jouer, d'un mot : on sait contre quoi on joue avant d'entrer.
-          const difficulte = s.paliers >= PALIER_DU_MAITRE ? null : difficulteDuMelange(regleDuPalier(s.paliers + 1)!.melange)
+          // La difficulté du palier à jouer, d'un mot — lue sur le mélange réglé au QG s'il en a un : on sait contre quoi on joue avant d'entrer.
+          const difficulte = s.paliers >= PALIER_DU_MAITRE ? null : difficulteDuMelange(regleDuPalier(s.paliers + 1, etat.melanges)!.melange)
           const etoilesIci = etoilesDuSentier(s)
           return (
             <button
@@ -773,7 +759,7 @@ function HautDesSentiers({
           {`Ses questions : ${b.categorie}`}
           {/* Le thème du chapitre que le palier à jouer ouvre, s'il en a un, et sa difficulté en un mot. */}
           {c !== null && chapitreDuPalier(b.key, c) && ` · ${chapitreDuPalier(b.key, c)!.nom}`}
-          {c !== null && regleDuPalier(c) && ` · ${difficulteDuMelange(regleDuPalier(c)!.melange)}`}
+          {c !== null && regleDuPalier(c) && ` · ${difficulteDuMelange(regleDuPalier(c, etat.melanges)!.melange)}`}
           {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
         </p>
       </div>
@@ -988,7 +974,8 @@ export function SentierVu({
   }, [b.key])
   const points = PLACES.map(p => ({ x: p.x, y: HAUTEUR_DU_CHEMIN - p.y }))
   const iCourant = Math.min(s.paliers, PALIERS.length - 1)
-  const regle = fiche ? regleDuPalier(fiche) : null
+  // La fiche dit le mélange que le palier tirera : réglé au QG, ou celui du code.
+  const regle = fiche ? regleDuPalier(fiche, etat.melanges) : null
   const sansVie = etat.vies.jour + etat.vies.reserve === 0
   return (
     <div className="player-shell campagne sentiers sentier" style={lueur(LUEUR[b.key])}>

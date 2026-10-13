@@ -16,7 +16,7 @@ import type {
   ResumeDuDuel,
   SerieDeCampagne,
 } from '../../shared/campagne'
-import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, ReponseDEpreuve } from '../../shared/sentiers'
+import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
@@ -37,6 +37,7 @@ import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise,
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
+import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -636,6 +637,14 @@ export const api = {
       req<QuestionCorrigee>('/api/admin/campagne/corriger', { method: 'POST', body: JSON.stringify({ questionId, correction }) }),
     /** Les sentiers, palier par palier : toutes les branches, ou une seule. */
     sentiers: (branche?: string) => req<AdminDesSentiers>(`/api/admin/campagne/sentiers${branche ? `?branche=${encodeURIComponent(branche)}` : ''}`),
+    /** Ce que le QG suit de la campagne : les paliers du jour, le défi de la semaine, les parcours de thème, les vies. */
+    suiviDeLaCampagne: () => req<SuiviDeLaCampagne>('/api/admin/campagne/suivi'),
+    /** Régler le mélange d'un palier pour les douze sentiers ; null le rend à celui d'origine. */
+    reglerLeMelange: (palier: number, melange: Melange | null) =>
+      req<{ palier: number; avant: Melange; apres: Melange; origine: boolean }>(`/api/admin/campagne/paliers/${palier}/melange`, {
+        method: 'POST',
+        body: JSON.stringify({ melange }),
+      }),
   },
 }
 

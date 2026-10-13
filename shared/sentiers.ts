@@ -16,7 +16,9 @@
 //
 // Tout ici est pur et partagé : le serveur l'applique (`core/campagne.ts`),
 // la page le montre. Les seuils, les mélanges et le prix d'une vie sont des
-// choix de produit : mesurés avant d'être changés, et dits.
+// choix de produit : mesurés avant d'être changés, et dits. Les mélanges se
+// règlent aussi au QG, palier par palier (`MelangesRegles`), sur les vraies
+// épreuves — le seuil, jamais.
 
 import { BRANCHES, branche, deLaBranche, type Branche, type CleDeBranche, type Paliers } from './branches'
 import { hautFait } from './hautsfaits'
@@ -118,8 +120,81 @@ export const PALIERS: readonly RegleDuPalier[] = [
   { n: PALIER_DU_MAITRE, melange: { expert: QUESTIONS_PAR_EPREUVE }, seuil: SEUIL_DU_MAITRE, avatar: null, maitre: true, sansVraiFaux: true, touteLaCategorie: true },
 ]
 
-export function regleDuPalier(n: unknown): RegleDuPalier | null {
-  return typeof n === 'number' && Number.isInteger(n) ? (PALIERS[n - 1] ?? null) : null
+/**
+ * Les mélanges réglés depuis le QG (le choix du 13 octobre 2026 : « régler
+ * la difficulté des paliers en fonction de ce que je vois ») : un par palier
+ * réglé, pour les douze sentiers ensemble ; celui du code sinon. Le seuil,
+ * lui, reste dix partout — la règle se dit en une phrase.
+ */
+export type MelangesRegles = Readonly<Partial<Record<number, Melange>>>
+
+/**
+ * Un mélange réglé, tel que le QG le montre : quand, et ce que les épreuves
+ * commencées depuis en disent — trois mois de chiffres mêlent l'ancien
+ * mélange et le nouveau, et le réglage ne s'y verrait pas avant longtemps.
+ */
+export interface ReglageDuMelange {
+  palier: number
+  melange: Melange
+  regleLe: number
+  /** Les épreuves commencées depuis, hors rejeu et sur trois mois au plus, et celles validées. */
+  essais: number
+  validees: number
+}
+
+/** Les mélanges en vigueur, palier par palier, lus dans les réglages. */
+export const melangesDesReglages = (reglages: readonly ReglageDuMelange[]): MelangesRegles => Object.fromEntries(reglages.map(r => [r.palier, r.melange]))
+
+/** La règle d'un palier, son mélange réglé s'il en a un (`MelangesRegles`). */
+export function regleDuPalier(n: unknown, regles?: MelangesRegles): RegleDuPalier | null {
+  const regle = typeof n === 'number' && Number.isInteger(n) ? (PALIERS[n - 1] ?? null) : null
+  const melange = regle && regles?.[regle.n]
+  return regle && melange ? { ...regle, melange } : regle
+}
+
+/** Les marches qu'un des douze paliers pose : jamais d'experte, le maître seul en pose. */
+export const MARCHES_D_UN_PALIER = ['facile', 'moyen', 'difficile'] as const
+
+/** Pourquoi ce mélange ne se règle pas sur le palier `n` ; null s'il se règle. */
+export function refusDuMelange(n: unknown, melange: unknown): string | null {
+  const regle = regleDuPalier(n)
+  if (!regle) return 'Ce palier n’existe pas'
+  if (regle.maitre) return 'Le palier de maître garde ses seize expertes : seuls les douze paliers se règlent'
+  if (!melange || typeof melange !== 'object' || Array.isArray(melange)) return 'Dis combien de questions de chaque marche'
+  let total = 0
+  for (const [niveau, k] of Object.entries(melange as Record<string, unknown>)) {
+    if (typeof k !== 'number' || !Number.isInteger(k) || k < 0) return 'Un nombre de questions est un entier, zéro ou plus'
+    if (k === 0) continue
+    if (niveau === 'expert') return 'Pas d’experte sur un palier : le maître les garde'
+    if (!(MARCHES_D_UN_PALIER as readonly string[]).includes(niveau)) return 'Une marche se dit facile, moyenne ou difficile'
+    total += k
+  }
+  if (total !== QUESTIONS_PAR_EPREUVE) return `Un palier pose ${QUESTIONS_PAR_EPREUVE} questions : ce mélange en a ${total}`
+  return null
+}
+
+/** Un mélange tel qu'il se garde : ses marches dans l'ordre, sans celles qu'il ne pose pas. */
+export function melangePropre(m: Melange): Melange {
+  return Object.fromEntries(MARCHES_D_UN_PALIER.flatMap(niveau => ((m[niveau] ?? 0) > 0 ? [[niveau, m[niveau]]] : [])))
+}
+
+/** Deux mélanges qui posent les mêmes questions. */
+export function memeMelange(a: Melange, b: Melange): boolean {
+  return (['facile', 'moyen', 'difficile', 'expert'] as const).every(n => (a[n] ?? 0) === (b[n] ?? 0))
+}
+
+/** Les niveaux d'une épreuve, au féminin : ce sont des questions. */
+const NIVEAU_DES_QUESTIONS: Record<Niveau, [string, string]> = {
+  facile: ['facile', 'faciles'],
+  moyen: ['moyenne', 'moyennes'],
+  difficile: ['difficile', 'difficiles'],
+  expert: ['experte', 'expertes'],
+}
+
+/** « 14 faciles et 2 moyennes » : la fiche d'un palier, et le journal du QG qui en règle un. */
+export function texteDuMelange(m: Melange): string {
+  const parts = (Object.entries(m) as [Niveau, number][]).filter(([, n]) => n > 0).map(([niveau, n]) => `${n} ${NIVEAU_DES_QUESTIONS[niveau][n > 1 ? 1 : 0]}`)
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : (parts[0] ?? '')
 }
 
 /** L'ordre des marches, pour lire un mélange : facile, moyenne, difficile, experte. */
@@ -134,14 +209,19 @@ const RANG_DES_MARCHES: Readonly<Record<Niveau, number>> = { facile: 0, moyen: 1
  * trois fois, moyen à difficile trois fois, difficile, puis expert.
  */
 export function difficulteDuMelange(melange: Melange): string {
+  const m = marcheMoyenne(melange)
+  return m < 0.25 ? 'facile' : m < 0.75 ? 'facile à moyen' : m < 1.25 ? 'moyen' : m < 1.75 ? 'moyen à difficile' : m < 2.5 ? 'difficile' : 'expert'
+}
+
+/** La marche moyenne d'un mélange, de 0 (facile) à 3 (experte) : sa difficulté, et de quoi dire qu'un palier devient plus facile que celui d'avant. */
+export function marcheMoyenne(melange: Melange): number {
   let questions = 0
   let marches = 0
   for (const [niveau, k] of Object.entries(melange) as [Niveau, number][]) {
     questions += k
     marches += RANG_DES_MARCHES[niveau] * k
   }
-  const m = questions > 0 ? marches / questions : 0
-  return m < 0.25 ? 'facile' : m < 0.75 ? 'facile à moyen' : m < 1.25 ? 'moyen' : m < 1.75 ? 'moyen à difficile' : m < 2.5 ? 'difficile' : 'expert'
+  return questions > 0 ? marches / questions : 0
 }
 
 /**
@@ -320,6 +400,8 @@ export interface EtatDesSentiers {
   epreuve: EpreuveDeSentier | null
   /** Son solde de confettis, pour racheter des vies ; absent si la base s'est tue. */
   confettis?: number
+  /** Les mélanges réglés depuis le QG : la difficulté d'un palier se lit dessus. Absent : ceux du code. */
+  melanges?: MelangesRegles
 }
 
 /** Le sentier qu'on avance, et le palier qui l'y attend. */
@@ -502,6 +584,97 @@ export function lectureDuPalier(p: StatsDuPalier): LectureDuPalier {
  */
 export const TAUX_DU_CALIBRAGE: Readonly<Record<Niveau, number>> = { facile: 0.85, moyen: 0.55, difficile: 0.3, expert: 0.1 }
 
+/** Les réponses d'épreuve qu'il faut sur un palier pour estimer un autre mélange : dix épreuves. */
+export const REPONSES_POUR_ESTIMER = 10 * QUESTIONS_PAR_EPREUVE
+
+const logit = (p: number) => Math.log(p / (1 - p))
+const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
+
+/**
+ * La chance d'au moins `seuil` bonnes réponses, chaque question trouvée avec
+ * la chance de sa marche : la loi de leur somme, question par question — le
+ * calcul de `calibrage-sentiers.ts`.
+ */
+export function chanceDeValider(melange: Melange, seuil: number, taux: Readonly<Record<Niveau, number>>): number {
+  let loi = [1]
+  for (const [niveau, k] of Object.entries(melange) as [Niveau, number][]) {
+    const p = taux[niveau]
+    for (let i = 0; i < k; i++) {
+      const suite = new Array<number>(loi.length + 1).fill(0)
+      loi.forEach((q, j) => {
+        suite[j] += q * (1 - p)
+        suite[j + 1] += q * p
+      })
+      loi = suite
+    }
+  }
+  return Math.min(1, loi.slice(seuil).reduce((a, b) => a + b, 0))
+}
+
+/**
+ * Ce que trouvent, marche par marche, ceux qui jouent un palier. Le calibrage
+ * suppose un joueur moyen (`TAUX_DU_CALIBRAGE`) ; les vraies épreuves disent
+ * ce que ce palier-là trouve. Un seul décalage pour toutes ses marches — en
+ * logit, comme `calibrage-sentiers.ts` décale un joueur fort ou faible —,
+ * celui qui fait coller le calcul à ses bonnes réponses mesurées : une marche
+ * qu'il ne pose pas encore s'en déduit. Null sous dix épreuves : rien ne le
+ * fonde.
+ */
+export function tauxDuPalier(mesures: readonly { niveau: Niveau; questions: number; justes: number }[]): Record<Niveau, number> | null {
+  const questions = mesures.reduce((n, m) => n + m.questions, 0)
+  if (questions < REPONSES_POUR_ESTIMER) return null
+  const visees = mesures.reduce((n, m) => n + m.justes, 0)
+  const predites = (decalage: number) => mesures.reduce((n, m) => n + m.questions * sigmoide(logit(TAUX_DU_CALIBRAGE[m.niveau]) + decalage), 0)
+  // Plus le décalage monte, plus il en trouve : une bissection le trouve.
+  let bas = -8
+  let haut = 8
+  for (let i = 0; i < 60; i++) {
+    const milieu = (bas + haut) / 2
+    if (predites(milieu) < visees) bas = milieu
+    else haut = milieu
+  }
+  const decalage = (bas + haut) / 2
+  return Object.fromEntries((Object.keys(TAUX_DU_CALIBRAGE) as Niveau[]).map(n => [n, sigmoide(logit(TAUX_DU_CALIBRAGE[n]) + decalage)])) as Record<Niveau, number>
+}
+
+/** Les essais qu'il faut pour croire une chance mesurée : ceux qu'il faut déjà pour dire qu'un palier remonte. */
+export const ESSAIS_POUR_CROIRE = 10
+
+export interface EstimationDuMelange {
+  /** La chance d'un essai, estimée avec ce mélange. */
+  chance: number
+  /** Sur quoi elle se fonde : les épreuves de ce palier, ou le calcul seul, pour un joueur moyen. */
+  sur: 'mesures' | 'calcul'
+}
+
+/**
+ * La chance d'un essai qu'un autre mélange donnerait à un palier. Sur assez
+ * d'épreuves, elle part de la chance mesurée sous le mélange qu'elles ont
+ * joué (`reference`), et le calcul n'y ajoute que ce que le mélange change,
+ * en cote (logit), avec ce que les joueurs de ce palier trouvent vraiment à
+ * chaque marche (`tauxDuPalier`) : le calcul seul supposait des joueurs tous
+ * pareils, et annonçait pour un mélange inchangé une autre chance que celle
+ * qu'on voyait. Un même mélange redonne donc la chance mesurée. Sans assez
+ * d'épreuves, le calcul seul, pour un joueur moyen (`TAUX_DU_CALIBRAGE`).
+ */
+export function estimationDuMelange(
+  reference: { melange: Melange; parEssai: number | null; essais: number },
+  melange: Melange,
+  seuil: number,
+  reponses: readonly { niveau: Niveau; questions: number; justes: number }[],
+): EstimationDuMelange {
+  const taux = tauxDuPalier(reponses)
+  const { parEssai, essais } = reference
+  if (taux && parEssai !== null && essais >= ESSAIS_POUR_CROIRE) {
+    if (memeMelange(melange, reference.melange)) return { chance: parEssai, sur: 'mesures' }
+    // Une chance de 0 ou de 1 n'a pas de cote : une demi-épreuve de marge, la mesure ne dit rien de plus fin.
+    const borne = (p: number, marge: number) => Math.min(1 - marge, Math.max(marge, p))
+    const ecart = logit(borne(chanceDeValider(melange, seuil, taux), 1e-9)) - logit(borne(chanceDeValider(reference.melange, seuil, taux), 1e-9))
+    return { chance: sigmoide(logit(borne(parEssai, 0.5 / essais)) + ecart), sur: 'mesures' }
+  }
+  return { chance: chanceDeValider(melange, seuil, TAUX_DU_CALIBRAGE), sur: 'calcul' }
+}
+
 /** Un joueur bloqué, côté administrateur : le palier qui l'attend, et ce qu'il y a laissé. */
 export interface JoueurBloque {
   profileId: string
@@ -523,6 +696,10 @@ export interface AdminDesSentiers {
   paliers: StatsDuPalier[]
   /** Les bonnes réponses en épreuve, hors rejeu, par marche de question — trois derniers mois. */
   niveaux: { niveau: Niveau; questions: number; justes: number }[]
+  /** Les mêmes, palier par palier : de quoi estimer un autre mélange (`tauxDuPalier`). */
+  niveauxParPalier: { palier: number; niveau: Niveau; questions: number; justes: number }[]
+  /** Les mélanges réglés depuis le QG, en vigueur pour les épreuves qui commencent (`melangesDesReglages`). */
+  reglages: ReglageDuMelange[]
   /**
    * Ceux qui ont le plus d'échecs sur le palier qui les attend — deux au
    * moins, le maître à part : il est facultatif, et seize expertes en font
