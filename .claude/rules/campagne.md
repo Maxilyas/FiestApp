@@ -39,3 +39,10 @@ paths:
   235 Ko et 9,6 ms à chaque série et à chaque dé, 79 Ko et 2,3 ms en un
   texte ; la mesure, onze mille lignes, toutes les dix minutes, sur le
   chemin de la requête qui la trouvait périmée.
+- **L'en-tête d'une partie passe à la ligne au téléphone** : en 360 de
+  large, à côté des cœurs, « Contre Automate · question 1 » laissait le
+  « 1 » seul sur sa seconde ligne (contre Tom, il tenait sur une). « question
+  N » s'y écrit d'un bloc et chaque « · » se colle au mot d'avant, par des
+  espaces insécables : coupé, il se lit « Contre Automate · », puis
+  « question 1 », et le texte ne change pas (`TeteDeLaQuestion`,
+  `campagne-en-tete.test.ts`). Une forme neuve de l'en-tête fait de même.

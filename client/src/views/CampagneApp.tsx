@@ -1767,22 +1767,26 @@ export function RecordsParCategorie({ records, categories }: { records: { catego
 export function TeteDeLaQuestion({ ecran }: { ecran: Extract<Ecran, { e: 'jeu' }> }) {
   const { question: q, justes } = ecran
   const s = justes > 1 ? 's' : ''
+  // « question 1 » d'un bloc, et chaque « · » collé au mot d'avant : en 360 de large, « Contre Automate · question 1 »
+  // passait à la ligne à côté des cœurs et y laissait le « 1 » seul. Coupé, il se lit « Contre Automate · », puis
+  // « question 1 » — un séparateur ne commence pas plus une ligne qu'un point d'interrogation (`espacesFines`).
+  const numero = `question\u00a0${q.index + 1}`
   return (
     <div className="quiz-topbar">
       {ecran.revision ? (
         // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
-        <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
+        <span className="label">{`Révision\u00a0· ${numero}\u00a0sur\u00a0${ecran.total}`}</span>
       ) : ecran.rencontre || ecran.contre ? (
         <>
-          <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom} · question ${q.index + 1}`}</span>
+          <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom}\u00a0· ${numero}`}</span>
           <Vies restantes={ecran.vies} />
         </>
       ) : (
         <>
           <span className="campagne-ou">
             <span className="label">
-              {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
-              {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
+              {ecran.defi && (ecran.duel ? 'Défi entre amis\u00a0· ' : 'Le défi\u00a0· ')}
+              {`${NOM_NIVEAU[q.niveau]}\u00a0· ${numero}`}
             </span>
             <span className="campagne-bonnes">
               <b className={ecran.reponse?.juste ? 'campagne-bonne-de-plus' : undefined}>{justes}</b>
