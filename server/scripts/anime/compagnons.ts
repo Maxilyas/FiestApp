@@ -6,12 +6,14 @@
 // précédente : le louveteau seul sur son disque, le jeune loup dans son décor,
 // l'adulte qui sort du cercle, la forme ultime et son aura. À chaque forme,
 // quatre expressions, que la révélation montre (neutre, ravi, dépité,
-// triomphant) ; l'Éclat, une métamorphose de la forme ultime ; et la pose du
-// bond de son entrée en scène à l'écran commun. Jamais de feuille d'or : elle
-// reste la signature des légendaires.
+// triomphant) ; l'Éclat, une vraie métamorphose de la forme ultime — un autre
+// loup, plus féroce, qui sort tout entier de son disque ; et la pose du bond
+// de son entrée en scène à l'écran commun. Jamais de feuille d'or : elle reste
+// la signature des légendaires.
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/compagnons.ts loup                 # l'essai des styles
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/compagnons.ts loup --style=cine3d  # puis tout le reste, dans ce style
+//   … --eclat=tempete                  # la métamorphose gardée : son décor, sa découpe, ses expressions
 //   … --regenerer=adulte,adulte-ravi   # repayer ces images, et ce qui part d'elles
 //
 // Une expression ne se pose pas sur une illustration qui porte déjà le loup
@@ -35,6 +37,8 @@ import { dansLaPage, deDataUrl, pagePixels } from './pixels'
 const args = process.argv.slice(2)
 const ID = args.find(a => !a.startsWith('--')) ?? ''
 const STYLE = args.find(a => a.startsWith('--style='))?.slice('--style='.length)
+/** Les métamorphoses de l'Éclat qu'on garde : sans elles, seules leurs illustrations se peignent, pour choisir. */
+const ECLATS = (args.find(a => a.startsWith('--eclat='))?.slice('--eclat='.length) ?? '').split(',').filter(Boolean)
 const MODELE = process.env.MODELE ?? 'gemini-3-pro-image'
 const TAILLE = process.env.TAILLE ?? '1K'
 /** Le plafond, en dollars, de tout ce que le journal a payé : au-delà, rien ne part. */
@@ -143,6 +147,17 @@ interface Forme {
   retirer?: string
 }
 
+/** Une métamorphose de l'Éclat, peinte d'après la forme ultime. */
+interface Eclat {
+  nom: string
+  consigne: string
+  garde: string
+  retirer: string
+  chroma: Chroma
+  /** Il sort du disque tout entier : le disque ne prend qu'une part de l'image, et l'animal en déborde de tous côtés. */
+  entier?: boolean
+}
+
 interface Compagnon {
   id: string
   /** Ce qui le fait reconnaître d'une forme à l'autre, et d'un autre loup. */
@@ -150,11 +165,26 @@ interface Compagnon {
   /** Ses quatre âges, tels que la planche de modèle les montre, de gauche à droite. */
   ages: [string, string, string, string]
   formes: [Forme, Forme, Forme, Forme]
-  /** La métamorphose de l'Éclat, repeinte sur la forme ultime. */
-  eclat: { consigne: string; garde: string; retirer: string }
+  /** Les métamorphoses de l'Éclat essayées ; `--eclat=` dit lesquelles on achève. */
+  eclats: Record<string, Eclat>
   /** La pose de son entrée en scène, repeinte sur la découpe de la forme ultime. */
   bond: string
 }
+
+// Une métamorphose qui garde la pose ne change que le monde autour : « que ça
+// change complètement l'image, beaucoup plus féroce, qui sort complet » (le
+// propriétaire, le 13 octobre 2026). L'illustration d'origine ne dit plus que
+// qui il est ; le reste se recompose, et l'animal, immense, bondit vers nous —
+// tout entier dans l'image, pour que sa découpe déborde du disque de tous côtés.
+const FEROCE = (metamorphose: string, c: Chroma) =>
+  'Using the attached illustration only as a reference for who this wolf is — its crescent mark on the forehead, its midnight-blue saddle, ' +
+  'the painting style — paint its rare variant: a true metamorphosis a player may find once in forty evenings, recomposed from scratch, ' +
+  `nothing like a recolor of the original. ${metamorphose} ` +
+  'It is far fiercer than the original: the wolf leaps straight at the viewer, seen from the front, jaws wide open in a snarl, long fangs bared, ' +
+  'hackles raised, front paws and claws reaching forward, as if bursting out of the picture. ' +
+  'Framing: the wolf is huge, filling about 90% of the canvas width and height, its whole body inside the canvas with a small margin on every ' +
+  'side — nothing cut off by the edges; its scene fills the background behind it. ' +
+  `Do not use any ${CHROMAS[c].proscrit}. No gold leaf, no text, no frame. Output one square image (1:1 aspect ratio).`
 
 const LOUP: Compagnon = {
   id: 'loup',
@@ -198,16 +228,47 @@ const LOUP: Compagnon = {
       retirer: 'the summit, the sky, the moon, the stars and the ribbons of starlight around it',
     },
   ],
-  eclat: {
-    consigne:
-      'Edit the attached illustration into its rare variant, a metamorphosis a player may find once in forty evenings: keep exactly the same ' +
-      'composition, pose, framing, scale and level of detail, the same individual and its crescent mark — and move it into another world. ' +
-      'Its fur becomes flowing ribbons of aurora light, emerald, teal and cyan, translucent and glowing from within; the starry saddle turns into ' +
-      'a living aurora; the crescent mark on its forehead becomes a bright white star. The summit is now blue ice, and the sky behind is a deep ' +
-      'teal polar night lit by a great curtain of green and cyan aurora, the moon a pale cyan crescent. The same painting style. ' +
-      'Do not use any pink, magenta or violet. No gold leaf, no text, no frame. Output one square image (1:1 aspect ratio).',
-    garde: 'the aurora wolf with the glowing ribbons of its fur and mane',
-    retirer: 'the ice summit, the sky, the aurora curtain, the moon and the stars',
+  eclats: {
+    // La première : même pose, un autre monde. Trop proche de la forme ultime.
+    aurore: {
+      nom: 'Le loup d’aurore',
+      consigne:
+        'Edit the attached illustration into its rare variant, a metamorphosis a player may find once in forty evenings: keep exactly the same ' +
+        'composition, pose, framing, scale and level of detail, the same individual and its crescent mark — and move it into another world. ' +
+        'Its fur becomes flowing ribbons of aurora light, emerald, teal and cyan, translucent and glowing from within; the starry saddle turns into ' +
+        'a living aurora; the crescent mark on its forehead becomes a bright white star. The summit is now blue ice, and the sky behind is a deep ' +
+        'teal polar night lit by a great curtain of green and cyan aurora, the moon a pale cyan crescent. The same painting style. ' +
+        'Do not use any pink, magenta or violet. No gold leaf, no text, no frame. Output one square image (1:1 aspect ratio).',
+      garde: 'the aurora wolf with the glowing ribbons of its fur and mane',
+      retirer: 'the ice summit, the sky, the aurora curtain, the moon and the stars',
+      chroma: 'magenta',
+    },
+    tempete: {
+      nom: 'Le loup-tempête',
+      consigne: FEROCE(
+        'It becomes a storm spirit of the polar night: its fur turned into crackling ribbons of green and cyan aurora lightning, its eyes ' +
+          'blazing white-cyan, the crescent mark flaring like a star; ice shards and snow explode around it, against a dark sky torn by a raging ' +
+          'aurora storm. High contrast, a dark stormy palette lit by electric aurora light.',
+        'magenta',
+      ),
+      garde: 'the storm wolf with the lightning and aurora ribbons of its fur',
+      retirer: 'the sky, the storm, the aurora, the snow and the flying ice shards around it',
+      chroma: 'magenta',
+      entier: true,
+    },
+    ombre: {
+      nom: 'Le loup d’ombre',
+      consigne: FEROCE(
+        'It becomes a shadow beast of black smoke and blue fire: its fur turning into black smoke, its mane and tail flaring into blue flames, ' +
+          'its eyes burning electric blue, the crescent mark blazing white; embers and the shards of a broken moon fly around it, against a deep ' +
+          'night sky cracked with blue fire. High contrast, deep blacks and midnight blue lit by blue flames.',
+        'vert',
+      ),
+      garde: 'the shadow wolf with the blue flames of its mane and tail',
+      retirer: 'the sky, the broken moon, the embers and the cracks of fire around it',
+      chroma: 'vert',
+      entier: true,
+    },
   },
   bond:
     'Edit the attached image: the same wolf in its mythic form — same individual, same colors, same style, same starlight in its fur — now in ' +
@@ -256,8 +317,8 @@ interface Travail {
   format?: FormatDImage
 }
 
-/** Ce que l'on peint : l'essai des styles, ou, un style choisi, tout le compagnon. */
-function travaux(c: Compagnon, style?: string): Travail[] {
+/** Ce que l'on peint : l'essai des styles, ou, un style choisi, tout le compagnon et l'essai de ses métamorphoses. */
+function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Travail[] {
   if (!style) return Object.entries(STYLES).map(([cle, s]) => ({ nom: `feuille-${cle}`, consigne: FEUILLE(c, s.consigne), sources: [], format: '16:9' }))
   const s = STYLES[style]
   if (!s) throw new Error(`--style=${style} : pas un style de l'essai (${Object.keys(STYLES).join(', ')})`)
@@ -270,17 +331,23 @@ function travaux(c: Compagnon, style?: string): Travail[] {
       t.push({ nom: `${f.id}-decoupe`, sources: [f.id], consigne: DECOUPE(f.garde, f.retirer ?? 'the setting', 'vert') })
     }
   })
-  const ultime = c.formes[3].id
-  t.push({ nom: 'eclat', sources: [ultime], consigne: c.eclat.consigne })
-  t.push({ nom: 'eclat-decor', sources: ['eclat'], consigne: DECOR_SEUL })
-  t.push({ nom: 'eclat-decoupe', sources: ['eclat'], consigne: DECOUPE(c.eclat.garde, c.eclat.retirer, 'magenta') })
-  for (const [id, base, chroma] of [
-    ...c.formes.map(f => [f.id, f.decor ? `${f.id}-decoupe` : f.id, 'vert'] as const),
-    ['eclat', 'eclat-decoupe', 'magenta'] as const,
-  ]) {
-    for (const e of Object.keys(EXPRESSIONS) as Expression[]) t.push({ nom: `${id}-${e}`, sources: [base], consigne: EXPRESSION(EXPRESSIONS[e], chroma) })
+  for (const f of c.formes) {
+    const base = f.decor ? `${f.id}-decoupe` : f.id
+    for (const e of Object.keys(EXPRESSIONS) as Expression[]) t.push({ nom: `${f.id}-${e}`, sources: [base], consigne: EXPRESSION(EXPRESSIONS[e], 'vert') })
   }
+  const ultime = c.formes[3].id
   t.push({ nom: 'bond', sources: [`${ultime}-decoupe`], consigne: c.bond })
+  // Les métamorphoses : chacune son illustration, pour choisir ; celles qu'on
+  // garde (`--eclat=`), leur décor seul, leur découpe et leurs expressions.
+  if (eclats.some(x => !(x in c.eclats))) throw new Error(`--eclat=${eclats.join(',')} : pas une métamorphose (${Object.keys(c.eclats).join(', ')})`)
+  for (const [cle, e] of Object.entries(c.eclats)) {
+    const nom = `eclat-${cle}`
+    t.push({ nom, sources: [ultime], consigne: e.consigne })
+    if (!eclats.includes(cle)) continue
+    t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL })
+    t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma) })
+    for (const x of Object.keys(EXPRESSIONS) as Expression[]) t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(EXPRESSIONS[x], e.chroma) })
+  }
   return t
 }
 
@@ -302,7 +369,7 @@ function mettreDeCote(nom: string) {
   renameSync(f, f.slice(0, -ext.length) + `.ancien-${Date.now()}${ext}`)
 }
 
-const TRAVAUX = travaux(compagnon, STYLE)
+const TRAVAUX = travaux(compagnon, STYLE, ECLATS)
 
 // Ce qu'on repaie, et tout ce qui part de lui : une découpe repeinte change la
 // place des expressions qui en partent.
@@ -369,10 +436,24 @@ if (manquent.length) console.log(`Manquent encore : ${manquent.join(', ')}`)
 // la part de l'image que couvre le disque, et le cadre du personnage — le
 // carré, ou plus large quand il en sort.
 
-/** La part de la largeur de l'image que couvre le carré du disque, forme par forme (le louveteau, puis les trois du décor, puis l'Éclat). */
-export const DISQUE: Record<string, number> = { louveteau: 0.94, jeune: 0.92, adulte: 0.76, ultime: 0.84, eclat: 0.84 }
+/** La part de la largeur de l'image que couvre le carré du disque, forme par forme (le louveteau, puis les trois du décor). */
+export const DISQUE: Record<string, number> = { louveteau: 0.94, jeune: 0.92, adulte: 0.76, ultime: 0.84 }
 /** Le cadre du personnage dans le repère du disque (origine, côté). */
-export const CADRE: Record<string, [number, number]> = { louveteau: [0, 100], jeune: [0, 100], adulte: [-20, 140], ultime: [-20, 140], eclat: [-20, 140] }
+export const CADRE: Record<string, [number, number]> = { louveteau: [0, 100], jeune: [0, 100], adulte: [-20, 140], ultime: [-20, 140] }
+/**
+ * Une métamorphose entière : le disque ne prend que le centre de l'image (70 %),
+ * et l'animal, peint immense, en sort de tous côtés — son cadre couvre toute
+ * l'image (de −21,4 à 121,4 unités du disque). À 62 %, le loup-tempête cachait
+ * son disque tout entier : on ne voyait plus qu'il en sortait.
+ */
+export const ECLAT_ENTIER = { disque: 0.7, cadre: [-22, 144] as [number, number] }
+
+/** Le disque et le cadre d'une forme, ou d'une métamorphose (`eclat-tempete`). */
+function cadrageDe(id: string): { disque: number; cadre: [number, number] } {
+  const eclat = id.startsWith('eclat-') ? compagnon!.eclats[id.slice('eclat-'.length)] : undefined
+  if (eclat) return eclat.entier ? ECLAT_ENTIER : { disque: DISQUE.ultime, cadre: CADRE.ultime }
+  return { disque: DISQUE[id], cadre: CADRE[id] }
+}
 const QUALITE = 0.86
 
 // Ce que `pixels.ts` ne fait pas : déplacer une image entière (une expression
@@ -446,13 +527,16 @@ try {
   const poser = (nom: string, data: string) => writeFileSync(path.join(app, `${nom}.webp`), deDataUrl(data))
 
   // Les planches de modèle et les illustrations, réduites pour être regardées.
-  for (const f of readdirSync(sortie).filter(f => /^(feuille-[a-z0-9]+|louveteau|jeune|adulte|ultime|eclat|bond)\.(png|jpg|webp)$/.test(f))) {
+  for (const f of readdirSync(sortie).filter(f => /^(feuille-[a-z0-9]+|louveteau|jeune|adulte|ultime|eclat-[a-z]+|bond)\.(png|jpg|webp)$/.test(f))) {
     const nom = f.replace(/\.[a-z]+$/, '')
     poser(`apercu-${nom}`, await dansLaPage<string>(page, 'reduireA', enDataUrl(fichier(f)), nom.startsWith('feuille') ? 1280 : 768, QUALITE))
   }
 
   const expressions = ['neutre', ...Object.keys(EXPRESSIONS)] as const
-  const formes = [...compagnon.formes.map(f => ({ id: f.id, decor: !!f.decor, chroma: 'vert' as Chroma })), { id: 'eclat', decor: true, chroma: 'magenta' as Chroma }]
+  const formes = [
+    ...compagnon.formes.map(f => ({ id: f.id, decor: !!f.decor, chroma: 'vert' as Chroma })),
+    ...Object.entries(compagnon.eclats).map(([cle, e]) => ({ id: `eclat-${cle}`, decor: true, chroma: e.chroma })),
+  ]
   for (const f of formes) {
     const rvb = CHROMAS[f.chroma].rvb
     // La silhouette neutre d'une forme : la forme elle-même pour le louveteau,
@@ -463,10 +547,11 @@ try {
       continue
     }
     const neutre = await dansLaPage<any>(page, 'detourer', enDataUrl(base), null, rvb)
+    const { disque, cadre } = cadrageDe(f.id)
     let place = { s: 1, dx: 0, dy: 0, ecart: 0 }
     if (f.decor) {
       const decor = existant(`${f.id}-decor`)
-      if (decor) poser(`${f.id}-disque`, await dansLaPage<string>(page, 'disqueDe', enDataUrl(decor), DISQUE[f.id], 512, QUALITE))
+      if (decor) poser(`${f.id}-disque`, await dansLaPage<string>(page, 'disqueDe', enDataUrl(decor), disque, 512, QUALITE))
       place = await dansLaPage<any>(page, 'aligner', enDataUrl(existant(f.id)!), neutre.plein)
     }
     for (const e of expressions) {
@@ -474,7 +559,7 @@ try {
       if (!src) continue
       const d = e === 'neutre' ? neutre : await dansLaPage<any>(page, 'detourer', enDataUrl(src), null, rvb)
       const deplace = await dansLaPage<string>(page, 'deplacer', d.plein, place.s, place.dx, place.dy)
-      const r = await dansLaPage<any>(page, 'assembler', { image: deplace, disque: DISQUE[f.id], cadre: CADRE[f.id], tailles: [512], qualite: QUALITE })
+      const r = await dansLaPage<any>(page, 'assembler', { image: deplace, disque, cadre, tailles: [512], qualite: QUALITE })
       poser(`${f.id}-${e}`, r.perso[512])
       // Une expression dont le corps a bougé fait sauter le loup sur son disque.
       const commun = e === 'neutre' ? 1 : await dansLaPage<number>(page, 'recouvrement', neutre.plein, d.plein)
