@@ -7,9 +7,10 @@
 // `jour-charge.test.ts`.
 //
 // Le dé en attendait trois, l'un derrière l'autre : sa rencontre laissée et
-// sa cote, puis ses séries et ce qu'il a vu, puis l'écriture. « Défier »
-// attendait tout l'état de la campagne — quatre lectures de son passé, 800 ms
-// en production — pour n'en lire que les catégories et les sujets, les mêmes
+// sa cote, puis ses séries et ce qu'il a vu, puis l'écriture — qu'il
+// n'attend plus : sa première réponse s'en charge. « Défier » attendait tout
+// l'état de la campagne — quatre lectures de son passé, 800 ms en
+// production — pour n'en lire que les catégories et les sujets, les mêmes
 // pour tous.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -29,7 +30,11 @@ ProfileStore.tirageEclat = () => false
 /** Ce que la base permanente a servi pendant une mesure : chaque lecture, et ses lignes. */
 const compte = { actif: false, mesure: 0, appels: 0, finis: 0, sqls: [] as string[], lectures: [] as { sql: string; lignes: number }[] }
 
-const enClair = (s: unknown) => (typeof s === 'string' ? s : (s as { sql: string }).sql).replace(/\s+/g, ' ').trim().slice(0, 70)
+const sqlDe = (s: unknown) => (typeof s === 'string' ? s : (s as { sql: string }).sql)
+const enClair = (s: unknown) => sqlDe(s).replace(/\s+/g, ' ').trim().slice(0, 70)
+
+/** L'écriture d'une rencontre, retenue tant que le test ne la lâche pas : ce que le dé n'attend plus, et que sa première réponse attend. */
+let retenue: Promise<void> | null = null
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
@@ -43,6 +48,7 @@ for (const methode of ['execute', 'batch'] as const) {
     const mesure = compte.actif ? compte.mesure : 0
     const rang = compte.finis + 1
     if (mesure) await new Promise<void>(r => setImmediate(r))
+    if (retenue && methode === 'execute' && /^\s*INSERT INTO campagne_series[\s\S]*'rencontre'/.test(sqlDe(args[0]))) await retenue
     const res = await origine.apply(this, args)
     if (mesure && compte.actif && mesure === compte.mesure) {
       compte.appels++
@@ -77,12 +83,15 @@ const lire = (chemin: string) =>
     assert.equal(r.status, 200, `${chemin} : ${r.status} ${lu.error ?? ''}`)
     return lu
   })
-const poster = (chemin: string, corps: unknown = {}) =>
-  ecrire(banc.url, chemin, corps, cookie).then(async r => {
+const poster = (chemin: string, corps: unknown = {}, qui = cookie) =>
+  ecrire(banc.url, chemin, corps, qui).then(async r => {
     const lu = (await r.json()) as any
     assert.equal(r.status, 200, `${chemin} : ${lu.error}`)
     return lu
   })
+/** Ce qui vient d'abord : la requête — aboutie ou refusée —, ou le délai. */
+const premier = (requete: Promise<unknown>, ms: number) =>
+  Promise.race([requete.then(() => 'arrivée', () => 'arrivée'), new Promise<string>(r => setTimeout(() => r('en attente'), ms))])
 
 before(async () => {
   // Le préchauffage de la campagne lit la base : loin des mesures.
@@ -114,24 +123,76 @@ after(() => banc.close())
 
 // ── Le dé ─────────────────────────────────────────────────────────────────
 
-test('le dé lit d’un aller-retour sa rencontre laissée, sa cote, ses séries et ce qu’il a vu, puis écrit : deux en série, pas trois', async () => {
-  const m = await mesurer(() => poster('/api/campagne/rencontre'))
-  assert.ok(m.resultat.serie.question, 'une question à jouer')
-  assert.equal(m.resultat.adversaire.nom, 'Automate')
-  assert.equal(m.enSerie, 2, `${m.enSerie} allers-retours l’un derrière l’autre :\n${m.sqls.join('\n')}`)
-  // Ce qu'il a vu, et ce que tous ont trouvé, en un texte chacun : une ligne par
-  // question — des milliers pour un fidèle — se décodait ligne à ligne, à
-  // chaque dé (2,3 ms au lieu de 9,6 pour trois mille, et trois fois moins à
-  // transférer).
-  const parQuestion = m.lectures.filter(l => l.lignes >= 100)
-  assert.deepEqual(parQuestion, [], `une ligne par question vue ou mesurée :\n${m.lectures.map(l => `${l.lignes} · ${l.sql}`).join('\n')}`)
-  assert.ok(m.lectures.some(l => /json_group_object/.test(l.sql) && l.lignes === 1), 'ce qu’il a vu, d’un seul texte')
+test('le dé répond d’un aller-retour — sa rencontre laissée, sa cote, ses séries et ce qu’il a vu — sans attendre que la rencontre s’écrive : sa première réponse l’attend', async () => {
+  let lacher = () => {}
+  retenue = new Promise<void>(r => (lacher = r))
+  let rencontre = ''
+  try {
+    const de = mesurer(() => poster('/api/campagne/rencontre'))
+    assert.equal(await premier(de, 3000), 'arrivée', 'le dé attend que sa rencontre s’écrive')
+    const m = await de
+    rencontre = m.resultat.serie.id
+    assert.ok(m.resultat.serie.question, 'une question à jouer')
+    assert.equal(m.resultat.adversaire.nom, 'Automate')
+    assert.equal(m.enSerie, 1, `${m.enSerie} allers-retours l’un derrière l’autre avant de répondre :\n${m.sqls.join('\n')}`)
+    // Ce qu'il a vu, et ce que tous ont trouvé, en un texte chacun : une ligne par
+    // question — des milliers pour un fidèle — se décodait ligne à ligne, à
+    // chaque dé (2,3 ms au lieu de 9,6 pour trois mille, et trois fois moins à
+    // transférer).
+    const parQuestion = m.lectures.filter(l => l.lignes >= 100)
+    assert.deepEqual(parQuestion, [], `une ligne par question vue ou mesurée :\n${m.lectures.map(l => `${l.lignes} · ${l.sql}`).join('\n')}`)
+    assert.ok(m.lectures.some(l => /json_group_object/.test(l.sql) && l.lignes === 1), 'ce qu’il a vu, d’un seul texte')
+
+    // Sa première réponse, elle, attend l'écriture — le verrou du profil la
+    // retient : elle compterait sur une rencontre que la base n'a pas.
+    const reponse = poster(`/api/campagne/serie/${rencontre}/reponse`, { index: 0, choix: 0 })
+    assert.equal(await premier(reponse, 300), 'en attente', 'la réponse est passée avant que la rencontre soit écrite')
+    lacher()
+    const r = await reponse
+    assert.equal(typeof r.juste, 'boolean', 'la rencontre écrite, la réponse compte')
+  } finally {
+    lacher()
+    retenue = null
+  }
 
   // Laissée en route, elle se reprend d'un seul aller-retour, sans rien écrire.
   const reprise = await mesurer(() => poster('/api/campagne/rencontre'))
-  assert.equal(reprise.resultat.serie.id, m.resultat.serie.id, 'la même rencontre, reprise')
+  assert.equal(reprise.resultat.serie.id, rencontre, 'la même rencontre, reprise')
   assert.equal(reprise.enSerie, 1, reprise.sqls.join('\n'))
   assert.equal(reprise.appels, 1, `une seule requête vers la base :\n${reprise.sqls.join('\n')}`)
+})
+
+test('une rencontre que la base refuse d’écrire : le dé a répondu, sa première réponse dit de le relancer — sans rien écrire —, et le suivant en tire une neuve', async () => {
+  const nina = await inscrireProfil(banc.url, 'nina', 'Nina')
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  const compter = (table: string, colonne: string, id: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${colonne} = ?`).get(id) as { n: number }).n
+  try {
+    // La base refuse la rencontre, comme Turso en panne (`miroir.test.ts`).
+    db.exec(`CREATE TRIGGER panne BEFORE INSERT ON campagne_series WHEN NEW.mode = 'rencontre' BEGIN SELECT RAISE(ABORT, 'base en panne'); END`)
+    let perdue: any
+    try {
+      perdue = await poster('/api/campagne/rencontre', {}, nina)
+    } finally {
+      db.exec('DROP TRIGGER panne')
+    }
+    assert.ok(perdue.serie.question, 'le dé a répondu, sans attendre l’écriture')
+    const r = await ecrire(banc.url, `/api/campagne/serie/${perdue.serie.id}/reponse`, { index: 0, choix: 0 }, nina)
+    assert.equal(r.status, 400)
+    assert.equal(((await r.json()) as any).error, 'Ce duel n’a pas pu commencer : relance le dé')
+    // Ni la rencontre, ni une réponse orpheline sous son identifiant.
+    assert.equal(compter('campagne_series', 'id', perdue.serie.id), 0)
+    assert.equal(compter('campagne_reponses', 'serie_id', perdue.serie.id), 0)
+
+    // Le dé suivant en tire une neuve, écrite, qui se joue.
+    const neuve = await poster('/api/campagne/rencontre', {}, nina)
+    assert.notEqual(neuve.serie.id, perdue.serie.id)
+    const jouee = await poster(`/api/campagne/serie/${neuve.serie.id}/reponse`, { index: 0, choix: 0 }, nina)
+    assert.equal(typeof jouee.juste, 'boolean')
+    assert.equal(compter('campagne_series', 'id', neuve.serie.id), 1)
+    assert.equal(compter('campagne_reponses', 'serie_id', neuve.serie.id), 1)
+  } finally {
+    db.close()
+  }
 })
 
 // ── « Défier » ────────────────────────────────────────────────────────────
