@@ -45,6 +45,7 @@ import {
   DUELS_DE_L_HISTOIRE,
   DUELS_PAR_SUITE,
   FACE_A_FACE_MONTRES,
+  JOUEURS_A_PORTEE,
   JOUEURS_CROISES,
   JOUEURS_TROUVES,
   JOURS_DE_L_HISTOIRE,
@@ -3580,10 +3581,13 @@ export class CampagneStore {
     const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil) })))
     const nom = (j: (typeof joueurs)[number]) => marques.get(j.profil.id) ?? j.profil.name
     const classes = classer(joueurs, j => j.releve.cote, nom, j => j.profil.id)
+    // La place de chacun au lundi : les flèches de chaque ligne, comme un tableau sportif.
+    const auLundi = this.rangsAuLundi(joueurs, nom)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDesDuels => {
       const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, lue sur le même relevé que sa cote — jamais sous un Divin.
       const bordure = legendaire && divin(legendaire) ? null : bordurePortee(j.profil.bordure, j.releve.bordures)
+      const avant = auLundi.get(j)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -3598,11 +3602,13 @@ export class CampagneStore {
         ligue: ligueDe(j.releve.cote).cle,
         rang,
         duels: j.releve.joues,
+        ...(avant !== undefined && avant !== rang && { progression: avant - rang }),
       }
     }
     const montrees = classes.slice(0, LIGNES_DU_CLASSEMENT)
     const i = pour ? classes.findIndex(c => c.item.profil.id === pour) : -1
     const sienne = i >= 0 ? classes[i] : undefined
+    const sonLundi = sienne && auLundi.get(sienne.item)
     return {
       joueurs: joueurs.length,
       lignes: montrees.map(ligne),
@@ -3610,30 +3616,24 @@ export class CampagneStore {
       ...(sienne && { sienne: sienne.item.profil.id }),
       // Sa ligne entre ses deux voisins : l'onglet du classement les montre, même au-delà des lignes envoyées.
       ...(sienne && { autour: classes.slice(Math.max(0, i - 1), i + 2).map(ligne) }),
-      ...(sienne && this.progressionDeLaSemaine(sienne.item, sienne.rang, joueurs, nom)),
+      ...(sienne && sonLundi !== undefined && { progression: sonLundi - sienne.rang }),
+      ...(pour && aSaPortee(classes, pour, cotes.get(pour)?.cote ?? COTE_DE_DEPART, !!sienne, ligne)),
     }
   }
 
   /**
-   * Les places qu'il a gagnées depuis lundi : sa place d'aujourd'hui contre
-   * celle que donnerait la cote de chacun au lundi (`SemaineJouee.debut` —
-   * sans duel cette semaine, sa cote n'a pas bougé). Ceux qui ont joué leur
-   * premier duel cette semaine n'étaient pas classés : ils ne comptent pas
-   * devant lui, et lui-même, tout neuf, n'a rien gagné qu'on puisse dire.
-   * La règle des rangs reste celle de tous les classements (invariant 15).
+   * La place de chacun au lundi : celle que donnerait la cote de chacun au
+   * lundi (`SemaineJouee.debut` — sans duel cette semaine, sa cote n'a pas
+   * bougé). Ceux qui ont joué leur premier duel cette semaine n'étaient pas
+   * classés : ils ne comptent devant personne, et eux-mêmes, tout neufs,
+   * n'ont rien gagné qu'on puisse dire — ils n'y sont pas. La règle des
+   * rangs reste celle de tous les classements (invariant 15).
    */
-  private progressionDeLaSemaine<T extends { profil: ProfileRec; releve: ReleveDesDuels }>(
-    lui: T,
-    aujourdhui: number,
-    joueurs: readonly T[],
-    nom: (j: T) => string,
-  ): { progression?: number } {
+  private rangsAuLundi<T extends { profil: ProfileRec; releve: ReleveDesDuels }>(joueurs: readonly T[], nom: (j: T) => string): Map<T, number> {
     const semaine = this.semaineDeLHeure().semaine
     const auLundi = (j: T) => j.releve.semaines.get(semaine)?.debut ?? j.releve.cote
     const dejaClasse = (j: T) => j.releve.joues > (j.releve.semaines.get(semaine)?.duels ?? 0)
-    if (!dejaClasse(lui)) return {}
-    const avant = classer(joueurs.filter(dejaClasse), auLundi, nom, j => j.profil.id).find(c => c.item === lui)
-    return avant ? { progression: avant.rang - aujourdhui } : {}
+    return new Map(classer(joueurs.filter(dejaClasse), auLundi, nom, j => j.profil.id).map(c => [c.item, c.rang]))
   }
 
   /**
@@ -5207,6 +5207,28 @@ function duelsRacontes(duels: readonly DuelJoue[], adversaires: readonly Record<
       },
     ]
   })
+}
+
+/**
+ * Ceux qu'il peut aller chercher (`ClassementDesDuels.aPortee`) : les joueurs
+ * classés juste au-dessus de sa cote, le plus proche d'abord — une cote égale
+ * n'est pas devant lui (invariant 15) ; classé ou pas, de sa cote à lui. Sans
+ * personne au-dessus, ceux qui le suivent : en tête du classement, ceux qui
+ * le talonnent (`enTete`). `classes` : du plus haut au plus bas.
+ */
+function aSaPortee<C extends { item: { profil: ProfileRec; releve: ReleveDesDuels } }>(
+  classes: readonly C[],
+  pour: string,
+  cote: number,
+  classe: boolean,
+  ligne: (c: C) => LigneDesDuels,
+): Pick<ClassementDesDuels, 'aPortee' | 'enTete'> {
+  const autres = classes.filter(c => c.item.profil.id !== pour)
+  const dessus = autres.filter(c => c.item.releve.cote > cote).slice(-JOUEURS_A_PORTEE).reverse()
+  if (dessus.length > 0) return { aPortee: dessus.map(ligne) }
+  const dessous = autres.filter(c => c.item.releve.cote < cote).slice(0, JOUEURS_A_PORTEE)
+  if (dessous.length === 0) return {}
+  return { aPortee: dessous.map(ligne), ...(classe && { enTete: true as const }) }
 }
 
 /** Un adversaire qu'on ne nomme plus — masqué, ou parti —, comme ses duels en cours le disent. */

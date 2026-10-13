@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { Feuille, Sortie } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { Onglets } from '../components/Onglets'
+import { Onglets, ongletVise } from '../components/Onglets'
 import { Avatar, Visage } from '../components/Avatar'
 import { NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
@@ -11,6 +11,7 @@ import { BlasonDeLigue } from '../components/Blason'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
+import { classer } from '../../../shared/classement'
 import { Anneau, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
 import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
@@ -19,12 +20,14 @@ import {
   DUELS_DE_PLACEMENT,
   DUELS_POUR_LA_RECOMPENSE,
   LIGUES,
+  enjeuContre,
   ligueDe,
   ligueParCle,
   ligueSuivante,
   type BilanContre,
   type BilanDesDuels,
   type CleDeLigue,
+  type DuelContre,
   type DuelDeLHistoire,
   type EtatDesDuels,
   type JoueurADefier,
@@ -811,62 +814,252 @@ export function PanneauHistorique({
   )
 }
 
-/** Une ligne du classement de l'onglet : sa place, son avatar, son prénom — « Toi » pour la sienne —, sa cote. Un toucher ouvre sa carte. */
-function LigneDuRang({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void }) {
+/**
+ * Les places gagnées ou perdues depuis lundi, en flèche, comme un tableau
+ * sportif (le souhait du propriétaire du 13 octobre 2026) : rien quand elles
+ * n'ont pas bougé, ni pour qui n'était pas classé avant cette semaine.
+ */
+function Mouvement({ n }: { n?: number }) {
+  if (!n) return null
   return (
-    <li>
+    <span className={'duels-mouvement ' + (n > 0 ? 'duels-plus' : 'duels-moins')} aria-hidden="true">
+      {`${n > 0 ? '▲' : '▼'}${Math.abs(n)}`}
+    </span>
+  )
+}
+
+/** Ce que la flèche dit, à l'oreille : dans le nom d'un bouton, qui remplace tout son contenu. */
+const motDuMouvement = (n?: number) =>
+  n ? `, ${Math.abs(n)} place${Math.abs(n) > 1 ? 's' : ''} ${n > 0 ? 'gagnée' : 'perdue'}${Math.abs(n) > 1 ? 's' : ''} depuis lundi` : ''
+
+/** Ce qu'une ligne de classement montre d'un joueur : de sa ligne du classement, ou de sa ligne d'ami. */
+type LigneDeRang = Pick<LigneDesDuels, 'profileId' | 'nom' | 'avatar' | 'cote' | 'ligue' | 'rang' | 'progression'> & SonApparence
+
+/** Sa place dans un classement : son rang — absent tant qu'il n'y est pas —, sur combien, et ses places depuis lundi. */
+interface SaPlace {
+  rang?: number
+  sur: number
+  progression?: number
+}
+
+type QuelClassement = 'tous' | 'amis'
+
+/**
+ * Ses deux places côte à côte, comme un tableau de scores — parmi tous, entre
+ * amis —, et chacune l'onglet qui montre sa liste dessous : la choisie
+ * allumée d'or, l'autre en retrait. Deux pastilles « Tous » et « Mes amis »,
+ * posées entre les onglets et sa place, « sortaient un peu de nulle part » (le
+ * propriétaire, le 13 octobre 2026) : on choisit la place qu'on regarde. Au
+ * clavier, le motif des onglets (`ongletVise`).
+ */
+function DeuxPlaces({
+  qui,
+  onChoisir,
+  tous,
+  amis,
+}: {
+  qui: QuelClassement
+  onChoisir: (qui: QuelClassement) => void
+  tous: SaPlace
+  /** Sa place parmi ses amis ; null tant qu'ils arrivent, « aucun » sans ami. */
+  amis: SaPlace | 'aucun' | null
+}) {
+  const rangee = useRef<HTMLDivElement>(null)
+  const places = [
+    { id: 'tous' as const, titre: 'Parmi tous', place: tous },
+    { id: 'amis' as const, titre: 'Entre amis', place: amis },
+  ]
+  const touche = (e: KeyboardEvent, i: number) => {
+    const j = ongletVise(e.key, i, places.length)
+    if (j === null) return
+    e.preventDefault()
+    onChoisir(places[j].id)
+    rangee.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
+  }
+  return (
+    <div ref={rangee} className={'duels-places' + (qui === 'amis' ? ' sur-amis' : '')} role="tablist" aria-label="Quel classement">
+      {places.map(({ id, titre, place }, i) => {
+        const sienne = place && place !== 'aucun' ? place : undefined
+        const rang = sienne?.rang
+        // Sous son rang, sur combien ; sans rang, pourquoi.
+        const sous = place === null ? 'chargement…' : !sienne ? 'aucun ami' : rang === undefined ? 'pas encore classé' : `sur ${sienne.sur}`
+        return (
+          <button
+            key={id}
+            id={`duels-qui-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={qui === id}
+            aria-controls={qui === id ? `duels-qui-${id}-panneau` : undefined}
+            tabIndex={qui === id ? 0 : -1}
+            className={'duels-place' + (qui === id ? ' actif' : '')}
+            // Le nom remplace tout son contenu : « 4e sur 9 », pas un « 4 » et un « e » en exposant.
+            aria-label={`${titre} : ${rang === undefined ? sous : `${rang}${rang === 1 ? 're' : 'e'} ${sous}${motDuMouvement(sienne?.progression)}`}`}
+            onClick={() => onChoisir(id)}
+            onKeyDown={e => touche(e, i)}
+          >
+            <span className="duels-place-titre">{titre}</span>
+            <span className="duels-place-rang">
+              <b className="num">
+                {rang === undefined ? (
+                  '–'
+                ) : (
+                  <>
+                    {rang}
+                    <sup>{rang === 1 ? 're' : 'e'}</sup>
+                  </>
+                )}
+              </b>
+              <Mouvement n={sienne?.progression} />
+            </span>
+            <span className="duels-place-sous">{sous}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Un joueur du classement, tel que la préparation d'un duel le reçoit : ce qu'il porte, sa cote, sa place. */
+const joueurDeLaLigne = (l: LigneDesDuels): JoueurADefier => ({
+  profileId: l.profileId,
+  nom: l.nom,
+  avatar: l.avatar,
+  ...(l.finition && l.finition !== 'mat' && { finition: l.finition }),
+  ...(l.legendaire && { legendaire: l.legendaire }),
+  ...(l.eclat && { eclat: true as const }),
+  ...(l.bordure && { bordure: l.bordure }),
+  cote: l.cote,
+  ligue: l.ligue,
+  rang: l.rang,
+})
+
+/**
+ * Un échelon de son échelle, ou de ses amis : un joueur — sa place, sa cote,
+ * ses places depuis lundi — et, s'il est à sa portée, ce qu'il gagnerait à le
+ * battre et « Défier » ; un duel déjà ouvert entre eux, « En cours », qui le
+ * rouvre. Deux boutons côte à côte, jamais l'un dans l'autre : sa carte, et
+ * le geste.
+ */
+function Echelon({
+  ligne: l,
+  moi,
+  gain,
+  enCours,
+  onOuvrir,
+  onDefier,
+  onOuvrirDuel,
+}: {
+  ligne: LigneDeRang
+  moi: boolean
+  /** Ce qu'il gagnerait à le battre (`enjeuContre`) ; absent : rien à défier — lui-même, celui qui le suit, un ami. */
+  gain?: number
+  /** Le code d'un duel déjà ouvert entre eux : un seul à la fois. */
+  enCours?: string
+  onOuvrir: (profileId: string) => void
+  onDefier?: () => void
+  onOuvrirDuel?: (code: string) => void
+}) {
+  return (
+    <li className={'duels-echelon' + (moi ? ' moi' : '')}>
       <button
         type="button"
-        className={'duels-rang-ligne' + (moi ? ' moi' : '')}
-        aria-label={`${moi ? 'Ta carte' : `La carte ${deNom(l.nom)}`} — rang ${l.rang}, ${ligueParCle(l.ligue).nom.toLowerCase()}, cote ${l.cote}`}
+        className="duels-echelon-joueur"
+        aria-label={`${moi ? 'Ta carte' : `La carte ${deNom(l.nom)}`} — rang ${l.rang}, ${ligueParCle(l.ligue).nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}`}
         onClick={() => onOuvrir(l.profileId)}
       >
         <span className="num duels-rang-place">{l.rang}</span>
         {/* Ce qu'il porte, sa bordure comprise, comme au classement entier : l'emoji seul y montrait
             l'écureuil d'en dessous à qui porte son légendaire (le retour du propriétaire du 13 octobre 2026). */}
         <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
-        <span className="duels-rang-nom">{moi ? 'Toi' : l.nom}</span>
-        <span className="num duels-rang-cote">{l.cote}</span>
+        <span className="duels-echelon-texte">
+          <b>{moi ? 'Toi' : l.nom}</b>
+          <span>
+            <span className="num">{l.cote}</span>
+            <Mouvement n={l.progression} />
+          </span>
+        </span>
       </button>
+      {gain !== undefined &&
+        (enCours ? (
+          <button type="button" className="duels-echelon-geste en-cours" aria-label={`Ton duel contre ${l.nom}, en cours`} onClick={() => onOuvrirDuel?.(enCours)}>
+            <Icon name="hourglass" />
+            En cours
+          </button>
+        ) : (
+          <button type="button" className="duels-echelon-geste" aria-label={`Défier ${l.nom} : ${ecartSigne(gain)} si tu gagnes`} onClick={onDefier}>
+            <span className="duels-echelon-defier">
+              <Icon name="swords" />
+              Défier
+            </span>
+            <span className="duels-echelon-gain">{espacesFines(`${ecartSigne(gain)} si tu gagnes`)}</span>
+          </button>
+        ))}
     </li>
   )
 }
 
 /**
- * « Classement » : sa place sur combien, les places gagnées depuis lundi,
- * ses deux voisins (`ClassementDesDuels.autour`), puis le podium d'un coup
- * d'œil — qui ouvre le classement entier dans sa feuille.
+ * « Parmi tous », sous ses deux places : son échelle — ceux à sa portée,
+ * juste au-dessus, avec ce qu'il gagnerait et « Défier », puis lui et celui
+ * qui le suit ; en tête, lui et ceux qui le talonnent — ; enfin le podium,
+ * qui ouvre le classement entier. On regardait le classement sans pouvoir en
+ * rien faire (le souhait du propriétaire du 13 octobre 2026).
  */
-function PanneauClassement({ classement, onOuvrir, onToutVoir }: { classement: EtatDesDuels['classement']; onOuvrir: (profileId: string) => void; onToutVoir: () => void }) {
+function ClassementDeTous({
+  classement,
+  maCote,
+  contre,
+  onOuvrir,
+  onToutVoir,
+  onDefier,
+  onOuvrirDuel,
+}: {
+  classement: EtatDesDuels['classement']
+  maCote: MaCote
+  contre: readonly DuelContre[]
+  onOuvrir: (profileId: string) => void
+  onToutVoir: () => void
+  onDefier: (joueur: JoueurADefier) => void
+  onOuvrirDuel: (code: string) => void
+}) {
   const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
-  const p = classement.progression
   const podium = classement.lignes.slice(0, 3)
   if (classement.joueurs === 0) return <p className="duels-vide">{espacesFines('Personne n’a encore joué de duel : la première place t’attend.')}</p>
+  const aPortee = classement.aPortee ?? []
+  const autour = classement.autour ?? []
+  const suivant = sienne && !classement.enTete ? autour[autour.findIndex(l => l.profileId === sienne.profileId) + 1] : undefined
+  // De haut en bas : ceux qu'il va chercher, le plus haut d'abord, lui, et celui qui le suit — en tête, lui puis ceux qui le talonnent.
+  // Personne au-dessus de sa cote : ceux qui le suivent, le plus proche d'abord — en tête, ou pas encore classé au-dessus de tous.
+  const auDessous = classement.enTete || (aPortee[0] !== undefined && aPortee[0].cote < maCote.cote)
+  const echelle = auDessous ? [...(sienne ? [sienne] : []), ...aPortee] : [...[...aPortee].reverse(), ...(sienne ? [sienne] : []), ...(suivant ? [suivant] : [])]
+  const vises = new Set(aPortee.map(l => l.profileId))
+  const enCours = (profileId: string) => contre.find(d => d.contre.profileId === profileId && duelEnRoute(d))?.code
   return (
-    <div className="duels-classement-onglet">
-      {sienne ? (
-        <div className="duels-ta-place-onglet">
-          <b className="num">
-            {sienne.rang}
-            <sup>{sienne.rang === 1 ? 're' : 'e'}</sup>
-          </b>
-          <span className="duels-sur">{`sur ${classement.joueurs}`}</span>
-          {p !== undefined && p !== 0 && (
-            <span className={'duels-progression ' + (p > 0 ? 'duels-plus' : 'duels-moins')}>
-              <span aria-hidden="true">{`${p > 0 ? '▲' : '▼'} ${Math.abs(p)}`}</span>
-              <span className="sr-only">{`${Math.abs(p)} place${Math.abs(p) > 1 ? 's' : ''} ${p > 0 ? 'gagnée' : 'perdue'}${Math.abs(p) > 1 ? 's' : ''} depuis lundi`}</span>
-            </span>
-          )}
-        </div>
-      ) : (
-        <p className="duels-vide">{espacesFines('Un duel joué te place ici, quatre semaines durant.')}</p>
+    <>
+      {!sienne && (
+        <p className="duels-vide">{espacesFines(`Ta cote : ${maCote.cote}. Un duel joué te place au classement, quatre semaines durant.`)}</p>
       )}
-      {sienne && classement.autour && (
-        <ol className="duels-rang">
-          {classement.autour.map(l => (
-            <LigneDuRang key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={onOuvrir} />
-          ))}
-        </ol>
+      {aPortee.length > 0 && (
+        <section className="duels-echelle" aria-labelledby="duels-echelle-titre">
+          <h3 id="duels-echelle-titre" className="duels-surtitre">
+            {classement.enTete ? 'Ils te talonnent' : 'À ta portée'}
+          </h3>
+          <ol className="duels-echelons">
+            {echelle.map(l => (
+              <Echelon
+                key={l.profileId}
+                ligne={l}
+                moi={l.profileId === classement.sienne}
+                gain={vises.has(l.profileId) ? enjeuContre(maCote.cote, l.cote, maCote.joues).gagne : undefined}
+                enCours={enCours(l.profileId)}
+                onOuvrir={onOuvrir}
+                onDefier={() => onDefier(joueurDeLaLigne(l))}
+                onOuvrirDuel={onOuvrirDuel}
+              />
+            ))}
+          </ol>
+        </section>
       )}
       <button type="button" className="duels-podium" onClick={onToutVoir}>
         <span className="duels-surtitre">Top 3</span>
@@ -878,6 +1071,107 @@ function PanneauClassement({ classement, onOuvrir, onToutVoir }: { classement: E
         <span className="duels-tout-voir">Tout voir ›</span>
         <span className="sr-only">{`, ${podium.map(l => l.nom).join(', ')} : le classement entier`}</span>
       </button>
+    </>
+  )
+}
+
+/**
+ * Son classement parmi ses amis classés — ceux qui ont joué un duel ces
+ * quatre dernières semaines, comme le classement de tous —, rang partagé
+ * (invariant 15) : lu de la liste de ses amis, que la page a déjà. Les places
+ * depuis lundi y sont celles du classement de tous : elles n'y figurent pas.
+ */
+function entreAmis(amis: MesAmis, sienne?: LigneDesDuels) {
+  const classes = amis.amis.flatMap((a): LigneDeRang[] =>
+    a.rang !== undefined && a.cote !== undefined && a.ligue !== undefined
+      ? [{ profileId: a.profileId, nom: a.nom, avatar: a.avatar, ...ceQuIlPorte(a), ...(a.bordure && { bordure: a.bordure }), cote: a.cote, ligue: a.ligue, rang: 0 }]
+      : [],
+  )
+  const lignes = classer([...classes, ...(sienne ? [{ ...sienne, progression: undefined }] : [])], l => l.cote, l => l.nom, l => l.profileId).map(({ item, rang }) => ({ ...item, rang }))
+  return { lignes, moi: sienne && lignes.find(l => l.profileId === sienne.profileId), sansDuel: amis.amis.length - classes.length }
+}
+
+/**
+ * « Entre amis », sous ses deux places : ses amis classés et lui, chacun sa
+ * carte, comme son échelle, puis combien n'ont pas joué ces quatre semaines.
+ * Sans ami, comment en ajouter.
+ */
+export function ClassementDesAmis({ amis, sienne, onOuvrir, onAmis }: { amis: MesAmis | null; sienne?: LigneDesDuels; onOuvrir: (profileId: string) => void; onAmis: () => void }) {
+  if (!amis) return <p className="duels-vide">Chargement…</p>
+  if (amis.amis.length === 0) {
+    return (
+      <div className="duels-vide">
+        <p>{espacesFines('Ajoute des amis : tu verras ta place parmi eux.')}</p>
+        <button type="button" className="link-inline" onClick={onAmis}>
+          Ajouter des amis
+        </button>
+      </div>
+    )
+  }
+  const { lignes, moi, sansDuel } = entreAmis(amis, sienne)
+  return (
+    <>
+      {!moi && <p className="duels-vide">{espacesFines('Un duel joué te place parmi eux.')}</p>}
+      {lignes.length > 0 && (
+        <ol className="duels-echelons">
+          {lignes.map(l => (
+            <Echelon key={l.profileId} ligne={l} moi={l.profileId === sienne?.profileId} onOuvrir={onOuvrir} />
+          ))}
+        </ol>
+      )}
+      {sansDuel > 0 && (
+        <p className="duels-amis-sans">{espacesFines(`${sansDuel > 1 ? `Et ${sansDuel} qui n’ont` : 'Et un qui n’a'} pas joué de duel ces quatre dernières semaines.`)}</p>
+      )}
+    </>
+  )
+}
+
+/**
+ * « Classement » : ses deux places, parmi tous et entre amis, chacune
+ * l'onglet de sa liste, dessous (le souhait du propriétaire du 13 octobre
+ * 2026).
+ */
+export function PanneauClassement({
+  classement,
+  maCote,
+  contre,
+  amis,
+  onOuvrir,
+  onToutVoir,
+  onDefier,
+  onOuvrirDuel,
+  onAmis,
+}: {
+  classement: EtatDesDuels['classement']
+  maCote: MaCote
+  contre: readonly DuelContre[]
+  /** Ses amis, leur cote et leur place ; null tant qu'ils arrivent. */
+  amis: MesAmis | null
+  onOuvrir: (profileId: string) => void
+  onToutVoir: () => void
+  onDefier: (joueur: JoueurADefier) => void
+  onOuvrirDuel: (code: string) => void
+  /** La feuille des amis : pour en ajouter. */
+  onAmis: () => void
+}) {
+  const [qui, setQui] = useState<QuelClassement>('tous')
+  const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
+  const parmiSesAmis = amis && amis.amis.length > 0 ? entreAmis(amis, sienne) : undefined
+  return (
+    <div className="duels-classement-onglet">
+      <DeuxPlaces
+        qui={qui}
+        onChoisir={setQui}
+        tous={{ rang: sienne?.rang, sur: classement.joueurs, progression: classement.progression }}
+        amis={!amis ? null : !parmiSesAmis ? 'aucun' : { rang: parmiSesAmis.moi?.rang, sur: parmiSesAmis.lignes.length }}
+      />
+      <div id={`duels-qui-${qui}-panneau`} className="duels-places-panneau" role="tabpanel" aria-labelledby={`duels-qui-${qui}`}>
+        {qui === 'tous' ? (
+          <ClassementDeTous classement={classement} maCote={maCote} contre={contre} onOuvrir={onOuvrir} onToutVoir={onToutVoir} onDefier={onDefier} onOuvrirDuel={onOuvrirDuel} />
+        ) : (
+          <ClassementDesAmis amis={amis} sienne={sienne} onOuvrir={onOuvrir} onAmis={onAmis} />
+        )}
+      </div>
     </div>
   )
 }
@@ -952,8 +1246,8 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
     <button
       type="button"
       className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
-      // Le nom du bouton remplace tout son contenu : le rang, la ligue et la cote doivent y être.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}`}
+      // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote et les places depuis lundi doivent y être.
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}`}
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
@@ -961,6 +1255,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>
+      <Mouvement n={l.progression} />
       <BlasonDeLigue ligue={l.ligue} taille={22} decoratif />
       <span className="lb-score">{l.cote}</span>
     </button>
@@ -1128,7 +1423,17 @@ export function PageDesDuels({
         ) : onglet === 'histo' ? (
           <PanneauHistorique etat={etat} onOuvrir={onOuvrirDuel} onCorrection={setCorrection} onJoueur={ouvrir} />
         ) : (
-          <PanneauClassement classement={etat.classement} onOuvrir={ouvrir} onToutVoir={() => setClassementOuvert(true)} />
+          <PanneauClassement
+            classement={etat.classement}
+            maCote={{ cote: etat.cote, joues: etat.joues }}
+            contre={etat.contre ?? []}
+            amis={amis}
+            onOuvrir={ouvrir}
+            onToutVoir={() => setClassementOuvert(true)}
+            onDefier={j => defier(j)}
+            onOuvrirDuel={onOuvrirDuel}
+            onAmis={feuilleDesAmis.ouvrir}
+          />
         )}
       </div>
       {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}

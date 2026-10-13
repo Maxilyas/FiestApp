@@ -182,12 +182,17 @@ test('la page des duels : le classement derrière « Tout voir », les amis derr
 
   // La page (la maquette A1, choisie par le propriétaire le 12 octobre 2026 : « trop de texte en bas ») : trois onglets
   // sous « Défier » — en cours, historique, classement —, sa place au classement et le podium dans le sien, le
-  // classement entier derrière « Tout voir », ses amis derrière leur icône, en haut ; plus de liste en entier.
+  // classement entier derrière « Tout voir », ses amis derrière leur icône, en haut ; plus de liste en entier. Depuis
+  // le 13 octobre 2026, l'onglet du classement défie ceux à sa portée — la préparation s'ouvre ici même — et, entre
+  // amis, mène à leur feuille pour en ajouter.
   const page = source('views/Duels.tsx')
   assert.match(page, /<BarreDesDuels onRegles=\{\(\) => setReglesOuvertes\(true\)\} onAmis=\{feuilleDesAmis\.ouvrir\} \/>/)
   assert.match(page, /<button type="button" className="duels-icone" aria-label="Mes amis"/)
   assert.match(page, /<OngletsDesDuels actif=\{onglet\} nouveaux=\{nouveaux\} onChoisir=\{setOnglet\} \/>/)
-  assert.match(page, /<PanneauClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onToutVoir=\{\(\) => setClassementOuvert\(true\)\} \/>/)
+  assert.match(
+    page,
+    /<PanneauClassement\s+classement=\{etat\.classement\}[\s\S]*?onOuvrir=\{ouvrir\}\s+onToutVoir=\{\(\) => setClassementOuvert\(true\)\}\s+onDefier=\{j => defier\(j\)\}[\s\S]*?onAmis=\{feuilleDesAmis\.ouvrir\}\s*\/>/,
+  )
   assert.match(page, /<span className="duels-tout-voir">Tout voir ›<\/span>/)
   assert.match(page, /\{classementOuvert && etat && <FeuilleDuClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>\}/)
   assert.doesNotMatch(page, /ClassementDesDuelsVue|TesAmis|duels-epee|PortesDesDuels|TesDuelsJoues|Voir le classement/)

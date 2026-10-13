@@ -542,7 +542,16 @@ export interface LigneDesDuels {
   rang: number
   /** Ses duels classés, tous : un débutant chanceux se distingue d'un habitué. */
   duels: number
+  /**
+   * Les places qu'il a gagnées depuis lundi (perdues, en négatif), comme un
+   * tableau sportif : absent s'il n'a pas bougé, ou n'était pas classé avant
+   * cette semaine.
+   */
+  progression?: number
 }
+
+/** « À ta portée » : les joueurs juste au-dessus de sa cote qu'on lui propose de défier. */
+export const JOUEURS_A_PORTEE = 3
 
 export interface ClassementDesDuels {
   joueurs: number
@@ -563,6 +572,15 @@ export interface ClassementDesDuels {
    * lundi. Absente s'il n'était pas classé avant cette semaine.
    */
   progression?: number
+  /**
+   * Ceux qu'il peut aller chercher, le plus proche d'abord : les joueurs
+   * juste au-dessus de sa cote (`JOUEURS_A_PORTEE`) — classé ou pas, de sa
+   * cote à lui. En tête, personne au-dessus : ceux qui le talonnent
+   * (`enTete`). L'onglet les montre avec ce qu'il gagnerait, et « Défier ».
+   */
+  aPortee?: LigneDesDuels[]
+  /** En tête du classement : `aPortee` dit ceux qui le talonnent. */
+  enTete?: true
 }
 
 /**
