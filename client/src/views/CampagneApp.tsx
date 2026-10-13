@@ -1407,25 +1407,7 @@ export function CampagneApp() {
         {!r?.finie && (
           <Sortie vers="Partir" href={DUELS ? PAGE_DES_DUELS : `/campagne${ouAttend === 'carnet' ? ADRESSE_DU_CARNET : ouAttend === 'defi' ? ADRESSE_DU_DEFI : ''}`} onClick={partir} />
         )}
-        <div className="quiz-topbar">
-          {ecran.revision ? (
-            // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
-            <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
-          ) : ecran.rencontre || ecran.contre ? (
-            <>
-              <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom} · question ${q.index + 1}`}</span>
-              <Vies restantes={ecran.vies} />
-            </>
-          ) : (
-            <>
-              <span className="label">
-                {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
-                {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
-              </span>
-              <Vies restantes={ecran.vies} />
-            </>
-          )}
-        </div>
+        <TeteDeLaQuestion ecran={ecran} />
         {/* Le face-à-face : les deux scores sur les mêmes questions, au fil des réponses — son score entier se dévoile à la
             dernière (le souhait du propriétaire du 12 octobre 2026 : « à battre : 8 » se lisait avant la première question). */}
         {ecran.rencontre && (
@@ -1766,6 +1748,47 @@ export function RecordsParCategorie({ records, categories }: { records: { catego
         })}
       </ul>
     </details>
+  )
+}
+
+/**
+ * L'en-tête d'une question : où l'on en est, et ce qui reste. Une série — et
+ * le défi, de la semaine ou entre amis, qui en est une — dit ses bonnes
+ * réponses sous son numéro : seul, « question 10 » se lisait comme un score,
+ * et chaque vie perdue en route le faisait mentir d'une (un retour de joueur
+ * du 13 octobre 2026 : « tu es peut-être à 8 en score »). Le compte monte dès
+ * la révélation. Une révision n'a ni vies ni score à battre ; un duel dit le
+ * sien dessous, face à l'autre.
+ */
+export function TeteDeLaQuestion({ ecran }: { ecran: Extract<Ecran, { e: 'jeu' }> }) {
+  const { question: q, justes } = ecran
+  const s = justes > 1 ? 's' : ''
+  return (
+    <div className="quiz-topbar">
+      {ecran.revision ? (
+        // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
+        <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
+      ) : ecran.rencontre || ecran.contre ? (
+        <>
+          <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom} · question ${q.index + 1}`}</span>
+          <Vies restantes={ecran.vies} />
+        </>
+      ) : (
+        <>
+          <span className="campagne-ou">
+            <span className="label">
+              {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
+              {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
+            </span>
+            <span className="campagne-bonnes">
+              <b className={ecran.reponse?.juste ? 'campagne-bonne-de-plus' : undefined}>{justes}</b>
+              {` bonne${s} réponse${s}`}
+            </span>
+          </span>
+          <Vies restantes={ecran.vies} />
+        </>
+      )}
+    </div>
   )
 }
 
