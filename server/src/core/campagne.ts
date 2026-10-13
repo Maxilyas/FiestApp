@@ -42,12 +42,17 @@ import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import {
   COTE_DE_DEPART,
+  DUELS_DE_L_HISTOIRE,
+  DUELS_PAR_SUITE,
+  FACE_A_FACE_MONTRES,
   JOUEURS_CROISES,
   JOUEURS_TROUVES,
+  JOURS_DE_L_HISTOIRE,
   JOURS_DU_CLASSEMENT,
   LETTRES_POUR_CHERCHER,
   LIGNES_DU_CLASSEMENT,
   SCORE_DE_REFERENCE,
+  bilanDesDuels,
   bordurePortee,
   confettisDesLigues,
   enjeuContre,
@@ -55,14 +60,18 @@ import {
   ligueDe,
   ligueDeLaSemaine,
   niveauPourLeDuel,
+  pageDeLHistoire,
   recompenseDeLaSemaine,
   releverLesDuels,
+  type BilanDesDuels,
   type ClassementDesDuels,
   type CleDeLigue,
   type CoteApresLeDuel,
   type Croisement,
   type DuelContre,
+  type DuelDeLHistoire,
   type DuelJoue,
+  type DuelRaconte,
   type DuelsDAccueil,
   type EnjeuDuDuel,
   type EtatDesDuels,
@@ -70,6 +79,8 @@ import {
   type JoueurADefier,
   type JoueurCroise,
   type LigneDesDuels,
+  type PageDHistoire,
+  type QuiAffronte,
   type ReleveDesDuels,
   type SemaineDesDuels,
   type BordureDeLigue,
@@ -3337,17 +3348,20 @@ export class CampagneStore {
   /**
    * Ses rencontres, et ses duels classés relus — d'un aller-retour : chaque
    * rencontre finie dit ce qu'elle a fait à sa cote, celle en route ce
-   * qu'elle met en jeu.
+   * qu'elle met en jeu. Et, pour sa page, contre qui chacun s'est joué
+   * (`racontes`), dans le même lot : son bilan et son historique.
    */
-  private async rencontresEtDuels(profileId: string): Promise<{ rencontres: MesRencontres; releve: ReleveDesDuels }> {
-    const [res, duels] = await this.client.batch(
+  private async rencontresEtDuels(profileId: string, racontes = false): Promise<{ rencontres: MesRencontres; releve: ReleveDesDuels; racontes: DuelRaconte[] }> {
+    const [res, duels, adversaires] = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`, args: [profileId, RENCONTRES_MONTREES + 1] },
         lectureDesDuels(profileId, this.maintenant()),
+        ...(racontes ? [lectureDesAdversaires(profileId)] : []),
       ],
       'read',
     )
-    const releve = releverLesDuels(duelsLus(duels.rows), semaineDeLInstant)
+    const joues = duelsLus(duels.rows)
+    const releve = releverLesDuels(joues, semaineDeLInstant)
     const rencontres = res.rows.map(versSerie).filter(s => s.adversaire)
     // Les joueurs qu'il a affrontés au dé, avant Automate : Automate n'a pas de
     // profil — demandé quand même, son identifiant vide repartait vers la base
@@ -3369,6 +3383,7 @@ export class CampagneStore {
     const ouverte = rencontres.find(s => s.finieLe === null) ?? null
     return {
       releve,
+      racontes: adversaires ? duelsRacontes(joues, adversaires.rows) : [],
       rencontres: {
         enCours: ouverte
           ? {
@@ -3648,13 +3663,15 @@ export class CampagneStore {
    */
   async etatDesDuels(profileId: string): Promise<EtatDesDuels> {
     const maintenant = this.maintenant()
-    const [{ rencontres, releve }, classement, sesDuels] = await Promise.all([
-      this.rencontresEtDuels(profileId),
+    const [{ rencontres, releve, racontes }, classement, sesDuels] = await Promise.all([
+      this.rencontresEtDuels(profileId, true),
       this.classementDesDuels(profileId),
       this.client.batch(lecturesDesDuelsContre(profileId, maintenant), 'read'),
     ])
     // Les cotes de tous, que le classement vient de lire : la ligue de chacun de ses adversaires.
-    const contre = await this.duelsContre(profileId, maintenant, sesDuels, releve, await this.toutesLesCotes())
+    const cotes = await this.toutesLesCotes()
+    // Son bilan et son historique de front avec ses duels en cours : chacun lit ses adversaires, de mémoire le plus souvent.
+    const [contre, { bilan, historique }] = await Promise.all([this.duelsContre(profileId, maintenant, sesDuels, releve, cotes), this.bilanEtHistoire(racontes, releve, maintenant, cotes)])
     const passee = releve.semaines.get(this.semaineDeLHeure().passee)
     const payee = recompenseDeLaSemaine(passee)
     return {
@@ -3667,7 +3684,80 @@ export class CampagneStore {
       enCours: rencontres.enCours,
       dernieres: rencontres.passees,
       contre,
+      bilan,
+      historique,
     }
+  }
+
+  /**
+   * Son bilan — ses records, ses face-à-face, la courbe de sa cote — et la
+   * première page de son historique, relus de son journal raconté. Un
+   * face-à-face ne nomme ni un masqué ni un profil parti, il n'y paraît pas ;
+   * une ligne d'historique dit « Un joueur », comme ses duels en cours.
+   */
+  private async bilanEtHistoire(
+    racontes: readonly DuelRaconte[],
+    releve: ReleveDesDuels,
+    maintenant: number,
+    cotes: ReadonlyMap<string, ReleveDesDuels>,
+  ): Promise<{ bilan: BilanDesDuels; historique: PageDHistoire }> {
+    const { plusBelle, faceAFace, ...chiffres } = bilanDesDuels(racontes, releve.ecarts)
+    const page = pageDeLHistoire(racontes, releve.ecarts, maintenant - JOURS_DE_L_HISTOIRE * 24 * HEURE_MS, DUELS_DE_L_HISTOIRE)
+    // Un masqué se sait en mémoire, sans rien lire ; un profil parti, à sa lecture : de quoi en remplacer quelques-uns.
+    const faces = faceAFace.filter(f => f.contre === '' || !this.masque?.(f.contre)).slice(0, 2 * FACE_A_FACE_MONTRES)
+    const qui = await this.quiAffrontes([...faces.map(f => f.contre), ...(plusBelle ? [plusBelle.contre] : []), ...page.duels.map(d => d.contre)], cotes)
+    const nommes = faces.flatMap(f => (qui.get(f.contre) ? [{ ...f, contre: qui.get(f.contre)! }] : [])).slice(0, FACE_A_FACE_MONTRES)
+    // Deux adversaires du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17).
+    const marques = nomsAffiches(nommes.map(f => ({ id: f.contre.profileId ?? '', name: f.contre.nom, avatar: f.contre.avatar })))
+    return {
+      bilan: {
+        ...chiffres,
+        ...(plusBelle && { plusBelle: { ...plusBelle, contre: qui.get(plusBelle.contre) ?? UN_JOUEUR } }),
+        faceAFace: nommes.map(f => ({ ...f, contre: { ...f.contre, nom: marques.get(f.contre.profileId ?? '') ?? f.contre.nom } })),
+      },
+      historique: { duels: page.duels.map(d => ligneDHistoire(d, qui.get(d.contre) ?? UN_JOUEUR)), suite: page.suite },
+    }
+  }
+
+  /**
+   * Contre qui, tel que son bilan et son historique le disent : chaque profil
+   * nommé — sa ligue, ce qu'il porte, sans sa bordure : l'anneau dit déjà sa
+   * ligue —, Automate pour '' ; `null` pour un masqué ou un profil parti. Lus
+   * d'un coup, de mémoire le plus souvent (`byIds`).
+   */
+  private async quiAffrontes(ids: readonly string[], cotes: ReadonlyMap<string, ReleveDesDuels>): Promise<Map<string, QuiAffronte | null>> {
+    const profils = [...new Set(ids)].filter(id => id !== '')
+    const lus = profils.length > 0 && this.profils ? await this.profils.byIds(profils) : []
+    const qui = new Map<string, QuiAffronte | null>([['', { nom: AUTOMATE.nom, avatar: AUTOMATE.avatar }]])
+    profils.forEach((id, i) => {
+      const p = lus[i] ?? null
+      if (!p || this.masque?.(p.id) || !this.profils) return void qui.set(id, null)
+      const saCote = cotes.get(id)
+      qui.set(id, {
+        profileId: id,
+        nom: p.name,
+        avatar: this.profils.avatarPorte(p),
+        ...(saCote && saCote.joues > 0 && { ligue: ligueDe(saCote.cote).cle }),
+        ...sonApparence(this.profils, p),
+      })
+    })
+    return qui
+  }
+
+  /**
+   * La suite de son historique, au « Voir plus » : vingt duels de plus, après
+   * le dernier qu'il a sous les yeux — sa date et sa série —, un mois au plus.
+   */
+  async historiqueDesDuels(profileId: string, le: unknown, cle: unknown): Promise<PageDHistoire> {
+    const apres = { le: typeof le === 'string' ? Number(le) : NaN, cle: typeof cle === 'string' ? tronquer(cle, 64) : '' }
+    if (!Number.isFinite(apres.le) || !apres.cle) throw new Error('Cette page de ton historique est introuvable : recharge la page')
+    const maintenant = this.maintenant()
+    const [duels, adversaires] = await this.client.batch([lectureDesDuels(profileId, maintenant), lectureDesAdversaires(profileId)], 'read')
+    const joues = duelsLus(duels.rows)
+    const releve = releverLesDuels(joues, semaineDeLInstant)
+    const page = pageDeLHistoire(duelsRacontes(joues, adversaires.rows), releve.ecarts, maintenant - JOURS_DE_L_HISTOIRE * 24 * HEURE_MS, DUELS_PAR_SUITE, apres)
+    const qui = await this.quiAffrontes(page.duels.map(d => d.contre), await this.toutesLesCotes())
+    return { duels: page.duels.map(d => ligneDHistoire(d, qui.get(d.contre) ?? UN_JOUEUR)), suite: page.suite }
   }
 
   /**
@@ -5080,6 +5170,58 @@ function lectureDesDuels(qui: string | readonly string[] | null, maintenant: num
     args: ids ? [...ids, maintenant, maintenant, ...ids] : [maintenant, maintenant],
   }
 }
+
+/**
+ * Contre qui il a joué chacun de ses duels classés, sous sa série : un profil
+ * — celui qu'il a défié ou qui l'a défié, celui dont une rencontre d'avant
+ * rejouait la série —, '' pour Automate ; le code d'un duel contre quelqu'un,
+ * que sa ligne d'historique rouvre ; s'il n'en a pas vu le résultat. Le
+ * journal (`lectureDesDuels`) ne le dit pas : le classement le lit pour tout
+ * le monde, sans en avoir besoin.
+ */
+function lectureDesAdversaires(profileId: string): InStatement {
+  return {
+    sql: `SELECT id, CASE WHEN json_extract(adversaire, '$.simule') THEN '' ELSE json_extract(adversaire, '$.profil') END AS contre, NULL AS code, 0 AS a_voir
+          FROM campagne_series
+          WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
+          UNION ALL
+          SELECT m.id, CASE WHEN d.auteur = m.profile_id THEN d.adversaire ELSE d.auteur END, d.code, d.auteur = m.profile_id AND d.vu_le IS NULL
+          FROM campagne_series m JOIN campagne_duels d ON d.code = m.duel
+          WHERE m.profile_id = ? AND m.mode = 'duel' AND d.adversaire IS NOT NULL`,
+    args: [profileId, profileId],
+  }
+}
+
+/** Ses duels du journal, chacun contre qui (`lectureDesAdversaires`) : un duel dont on ne sait pas contre qui ne se raconte pas. */
+function duelsRacontes(duels: readonly DuelJoue[], adversaires: readonly Record<string, unknown>[]): DuelRaconte[] {
+  const parSerie = new Map(adversaires.map(r => [String(r.id), r]))
+  return duels.flatMap((d): DuelRaconte[] => {
+    const a = parSerie.get(d.serie)
+    if (!a || typeof a.contre !== 'string') return []
+    return [
+      {
+        ...d,
+        contre: a.contre,
+        ...(typeof a.code === 'string' && { code: a.code }),
+        ...(Number(a.a_voir) === 1 && { aVoir: true as const }),
+      },
+    ]
+  })
+}
+
+/** Un adversaire qu'on ne nomme plus — masqué, ou parti —, comme ses duels en cours le disent. */
+const UN_JOUEUR: QuiAffronte = { nom: 'Un joueur', avatar: '🎲' }
+
+/** Une ligne de son historique, et ce qu'un toucher rouvre : la page d'un duel contre quelqu'un, la correction d'un duel au dé. */
+const ligneDHistoire = (d: DuelRaconte & { ecart: number }, contre: QuiAffronte): DuelDeLHistoire => ({
+  cle: d.serie,
+  contre,
+  justes: d.justes,
+  sesJustes: d.sesJustes,
+  ecart: d.ecart,
+  le: d.finiLe,
+  ...(d.code ? { code: d.code } : { serie: d.serie }),
+})
 
 /**
  * Ses duels contre quelqu'un des trente derniers jours, chacun ce qui le

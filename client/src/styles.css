@@ -8119,7 +8119,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    second en filet, les gestes posés en bas d'un écran court — la sortie
    toujours au même endroit —, et l'avatar dans l'anneau de sa ligue (sans
    ligue, un anneau neutre : l'absence, pas une ligue de bronze). */
-.duels-surtitre { margin: 0; font-size: var(--t-label); font-weight: 700; line-height: 1.2; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+/* Sa police aussi : un titre de section (`h3`) prenait Cormorant, les autres surtitres non. */
+.duels-surtitre { margin: 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 700; line-height: 1.2; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
 .duels-surtitre.or { color: var(--accent-text); }
 .btn-duel { gap: 10px; font-size: 0.9375rem; font-weight: 800; letter-spacing: 0.16em; box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.28); }
 .btn-duel .icon { width: 20px; height: 20px; stroke-width: 2; }
@@ -8231,8 +8232,53 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .duels-pastille-a-toi .icon { width: 11px; height: 11px; }
 .duels-chez-l-autre { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.8125rem; }
 .duels-chez-l-autre .icon { width: 16px; height: 16px; }
-/* « Historique » : la forme en barres, leur somme, les trois derniers. */
-.duels-historique { margin-top: 2px; }
+/* « Historique » : son bilan en trois chiffres et ses records, la courbe de
+   sa cote, ses face-à-face, puis ses derniers duels — en barres, leur somme,
+   et tous en lignes. */
+.duels-historique { display: flex; flex-direction: column; gap: 28px; margin-top: 2px; }
+.duels-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.duels-chiffre { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px 10px; border: 1px solid rgba(var(--accent-rgb), 0.16); border-radius: 16px; background: var(--surface); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.duels-chiffre b { font-size: 34px; line-height: 1; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.duels-chiffre small { margin-left: 2px; font-size: 0.55em; }
+.duels-chiffre-v b { color: var(--accent-text); }
+.duels-chiffre-d b { color: var(--alert); }
+.duels-bilan-pied { margin: 8px 0 0; font-size: 0.8125rem; text-align: center; color: var(--muted); }
+.duels-records { list-style: none; margin: 10px 0 0; padding: 0; }
+.duels-record { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.duels-record + .duels-record { border-top: 1px solid color-mix(in srgb, var(--track) 60%, transparent); }
+.duels-record-icone { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(var(--accent-rgb), 0.12); color: var(--accent-text); }
+/* La plus haute cote, à la couleur de sa ligue. */
+.duels-record-icone[class*='ligue-'] { background: color-mix(in srgb, var(--lueur) 22%, transparent); color: var(--ligue-vif); }
+.duels-record-icone .icon { width: 16px; height: 16px; }
+.duels-record-titre { flex: 1; min-width: 0; font-size: 0.9375rem; }
+.duels-record-valeur { flex: none; display: flex; flex-direction: column; align-items: flex-end; max-width: 58%; text-align: right; }
+.duels-record-valeur b { font-size: 1rem; font-weight: 700; }
+.duels-record-valeur span { overflow: hidden; max-width: 100%; font-size: 0.75rem; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+/* La courbe de sa cote : son trait d'or sur son ombre, les ligues qu'elle traverse en pointillés, à leur couleur. */
+.duels-courbe-dessin { display: block; width: 100%; height: auto; margin-top: 10px; overflow: visible; color: var(--accent); }
+.duels-courbe-aire { fill: url(#duels-courbe-fond); }
+.duels-courbe-trait { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.duels-courbe-point { fill: currentColor; stroke: var(--bg); stroke-width: 2; }
+.duels-courbe-cote { fill: var(--accent-text); font-size: 13px; font-weight: 700; }
+.duels-courbe-seuil { stroke: var(--ligue-vif); stroke-opacity: 0.45; stroke-width: 1; stroke-dasharray: 3 4; }
+.duels-courbe-ligue { fill: var(--ligue-vif); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; }
+/* Ses face-à-face : un anneau, un prénom et sa jauge, son bilan. */
+.duels-rivaux ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.duels-rivaux li + li { border-top: 1px solid color-mix(in srgb, var(--track) 60%, transparent); }
+.duels-rival { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 6px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+button.duels-rival { cursor: pointer; }
+.duels-rival-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.duels-rival-texte b { overflow: hidden; font-size: 0.9375rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.duels-rival-jauge { display: flex; gap: 2px; height: 5px; overflow: hidden; border-radius: var(--radius-pill); background: var(--track); }
+.duels-rival-jauge i { display: block; min-width: 4px; }
+.duels-rival-v { background: var(--accent); }
+.duels-rival-e { background: var(--muted); }
+.duels-rival-d { background: var(--alert); }
+.duels-rival-bilan { flex: none; font-size: 21px; line-height: 1; }
+.duels-rival-egal { font-family: var(--sans); font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+.duels-voir-plus { gap: 8px; margin-top: 12px; }
+.duels-correction-tete { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.duels-correction-tete > span:nth-child(2) { flex: 1; min-width: 0; }
 .duels-historique-tete { display: flex; align-items: baseline; justify-content: space-between; }
 .duels-historique-tete b { font-size: 28px; line-height: 1; }
 .duels-barres { display: block; width: 100%; height: auto; margin-top: 10px; }
@@ -8242,14 +8288,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .duels-barre-perdu { fill: var(--alert); }
 .duels-joues { list-style: none; display: flex; flex-direction: column; margin: 12px 0 0; padding: 0; }
 .duels-joues li + li { border-top: 1px solid color-mix(in srgb, var(--track) 60%, transparent); }
-.duels-joue { width: 100%; height: 48px; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
+.duels-joue { width: 100%; min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; }
 button.duels-joue { cursor: pointer; }
 .duels-issue { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; font-size: 0.75rem; font-weight: 800; }
 .duels-issue-v { background: rgba(var(--accent-rgb), 0.16); color: var(--accent-text); }
 .duels-issue-d { background: rgba(var(--alert-rgb), 0.16); color: var(--alert); }
 .duels-issue-e { background: var(--surface-strong); color: var(--muted); }
 .duels-joue-avatar { flex: none; font-size: 22px; line-height: 1; }
-.duels-joue-nom { flex: 1; min-width: 0; overflow: hidden; font-size: 0.9375rem; text-overflow: ellipsis; white-space: nowrap; }
+.duels-joue-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.duels-joue-nom { overflow: hidden; font-size: 0.9375rem; text-overflow: ellipsis; white-space: nowrap; }
+.duels-joue-quand { font-size: 0.75rem; color: var(--muted); }
 .duels-joue-score { flex: none; font-size: 21px; line-height: 1; }
 .duels-joue-ecart { flex: none; width: 46px; font-weight: 700; text-align: right; }
 /* « Classement » : sa place en grand, ses deux voisins, le podium d'un coup d'œil. */
