@@ -16,7 +16,7 @@ const TITRES: Record<AccountPage, string> = {
   connexion: 'Espace animateur',
   activer: 'Activer mon compte',
   compte: 'Mon compte',
-  admin: 'Les comptes',
+  admin: 'Le QG',
   profil: 'Mon profil',
   jour: 'Le quiz du jour',
   salon: 'Nouveau salon',

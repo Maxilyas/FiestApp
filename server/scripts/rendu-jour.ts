@@ -2,26 +2,31 @@
 // téléphone (360 × 640) sur un serveur jetable : l'accueil du jour avec une
 // série en cours et la veille à raconter, une partie jouée jusqu'à sa fin —
 // et l'Éclat qu'elle fait tomber, forcé —, le jour joué qu'on retrouve en
-// revenant, et la boutique — ses objets, la
-// fiche d'un objet touché. Le client construit d'abord
-// (`npm run build -w client`).
+// revenant, sa correction, et la boutique — ses objets, la
+// fiche d'un objet touché — sous le thème qu'on veut (`THEME=ivoire`). Le
+// client construit d'abord (`npm run build -w client`).
 //
-//   npx tsx scripts/rendu-jour.ts [dossier]
+//   [THEME=ivoire] npx tsx scripts/rendu-jour.ts [dossier]
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { demarrer, inscrireProfil } from '../test/banc'
+import { demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-jour')
 mkdirSync(sortie, { recursive: true })
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
-/** Mardi 6 octobre 2026, 10 h à Paris. */
+/**
+ * Mardi 6 octobre 2026, 10 h à Paris — puis l'heure avance pour de vrai : la
+ * correction dit en combien de temps chaque réponse est partie, et la
+ * question laissée sans réponse doit expirer.
+ */
 const horloge = { t: Date.UTC(2026, 9, 6, 8, 0) }
-const banc = await demarrer({ horlogeDuJour: () => horloge.t })
+const depart = Date.now()
+const banc = await demarrer({ horlogeDuJour: () => horloge.t + (Date.now() - depart) })
 const navigateur = await chromium.launch({ headless: true })
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -46,6 +51,7 @@ try {
     db.close()
   }
   void hugo
+  if (process.env.THEME) await ecrire(banc.url, '/api/joueur/moi', { theme: process.env.THEME }, lea, 'PUT')
 
   const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
   const [nom, valeur] = lea.split('=')
@@ -70,18 +76,32 @@ try {
     await page.locator('.carte-fermer').click()
   }
 
-  // 2. Une partie jouée jusqu'au bout, la première réponse à chaque fois ;
-  // l'Éclat tombe à coup sûr, pour photographier sa carte.
+  // 2. Une partie jouée jusqu'au bout, mêlée pour que la correction ait de
+  // tout : chaque question sa réponse — la bonne parfois, une autre souvent —,
+  // plus ou moins vite, et la quatrième laissée au temps. L'Éclat tombe à coup
+  // sûr, pour photographier sa carte.
   ProfileStore.tirageEclat = () => true
   await page.locator('.jour-heros .btn-primary').click()
+  // Le tirage du jour est figé par sa date : la 2ᵉ, la 7ᵉ et la 9ᵉ tombent
+  // justes, deux d'entre elles après le temps de lecture — un bonus de
+  // rapidité entamé.
+  const ATTENTES_MS = [0, 9000, 6000, 0, 1000, 8000, 12000, 3500, 1500, 5000]
   for (let i = 0; i < 12; i++) {
     await page.waitForSelector('.ans-btn, .fin-tete', { timeout: 15000 })
     if (await page.locator('.fin-tete').count()) break
-    // Le temps de lecture d'abord, et rien dans la première demi-seconde : on
-    // retouche jusqu'à ce que la réponse parte.
-    for (let essai = 0; essai < 20 && !(await page.locator('.result-banner').count()); essai++) {
-      await page.waitForTimeout(500)
-      await page.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
+    if (i === 3) {
+      // Laissée au temps : la page demande la révélation à l'échéance.
+      await page.waitForSelector('.result-banner', { timeout: 45000 })
+    } else {
+      await page.waitForTimeout(ATTENTES_MS[i % ATTENTES_MS.length])
+      // Le temps de lecture d'abord, et rien dans la première demi-seconde : on
+      // retouche jusqu'à ce que la réponse parte.
+      for (let essai = 0; essai < 20 && !(await page.locator('.result-banner').count()); essai++) {
+        await page.waitForTimeout(500)
+        const reponses = page.locator('.ans-btn')
+        const n = await reponses.count()
+        if (n > 0) await reponses.nth(i % n).click({ timeout: 2000 }).catch(() => {})
+      }
     }
     await page.waitForSelector('.result-banner')
     await page.waitForTimeout(650)
@@ -90,26 +110,30 @@ try {
   await page.waitForSelector('.fin-tete')
   await photo('3-fin', true)
 
-  // 3. Le jour joué, qu'on retrouve en revenant.
+  // 3. Le jour joué, qu'on retrouve en revenant, puis sa correction.
   await page.reload()
   await page.waitForSelector('.jour-joue')
   await photo('4-jour-joue', true)
+  await page.click('text=Revoir mes réponses')
+  await page.waitForSelector('ol.correction li')
+  await photo('5-correction')
+  await photo('5-correction-entiere', true)
 
   // 4. La boutique : ses objets, puis la fiche du sablier.
   await page.goto(`${banc.url}/boutique#objets`)
   await page.reload()
   await page.waitForTimeout(1200)
-  await photo('5-boutique-objets', true)
+  await photo('6-boutique-objets', true)
   const sablier = page.locator('.objet-case', { hasText: 'Sablier' })
   if (await sablier.count()) {
     await sablier.first().click()
     await page.waitForTimeout(300)
-    await photo('6-fiche-sablier', true)
+    await photo('7-fiche-sablier', true)
   }
   await page.goto(`${banc.url}/boutique#objet-vie`)
   await page.reload()
   await page.waitForSelector('#fiche-objet')
-  await photo('7-fiche-vie')
+  await photo('8-fiche-vie')
 } finally {
   await navigateur.close()
   await banc.close()

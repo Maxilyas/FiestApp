@@ -3,6 +3,8 @@ import { composerUnQuiz, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MI
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
+import { mountQg, type QgDeps } from './qg'
+import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ProgrammeStore } from './core/programmes'
@@ -77,6 +79,10 @@ interface ApiDeps {
   maintenant: () => number
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
   jetonDeLaReserve: string | null
+  /** Ce que le QG lit de plus que les autres routes : la soirée de chaque espace, le miroir, la charge — et de quoi clore une soirée laissée en plan. */
+  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'env' | 'version' | 'clore'>
+  /** Le journal des gestes de l'administrateur : chaque route de `/api/admin` qui change quelque chose s'y note. */
+  gestes: JournalDesGestes
 }
 
 /**
@@ -98,6 +104,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // épreuve — n'importe quel animateur aurait masqué un joueur ou lu les
   // questions à venir du quiz du jour. Jamais depuis une télé branchée.
   app.use('/api/admin', requireAccount(deps.auth), requireAdmin, refuserLesTeles(deps.auth))
+  // Derrière la porte, avant toute route : chaque geste qui change quelque
+  // chose se note au journal du QG, celui d'une route à venir compris.
+  app.use('/api/admin', journaliser(deps.gestes))
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
@@ -150,6 +159,19 @@ export function mountApi(app: Express, deps: ApiDeps) {
     soireesPasCloses: deps.soireesPasCloses,
     supprimerProfil: deps.supprimerProfil,
     onLibraryChanged: deps.onLibraryChanged,
+  })
+  // Le QG : le direct de toutes les soirées et la vue d'ensemble des modes — l'administrateur seul.
+  mountQg(app, {
+    ...deps.qg,
+    gestes: deps.gestes,
+    auth: deps.auth,
+    profiles: deps.profiles,
+    jour: deps.jour,
+    campagne: deps.campagne,
+    archives: deps.archives,
+    partages: deps.partages,
+    rappels: deps.rappels,
+    maintenant: deps.maintenant,
   })
 
   /**

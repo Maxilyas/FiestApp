@@ -13,6 +13,7 @@ import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BarreDeNiveau, retenirLeNiveau } from '../components/BarreDeNiveau'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
@@ -1264,7 +1265,7 @@ export function CampagneApp() {
         onFermer={versMesDuels}
         erreur={erreur}
         extra={tombeAvecLeDuel(ecran)}
-        apres={ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+        apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
       />
     )
   }
@@ -1391,7 +1392,7 @@ export function CampagneApp() {
             onCorrection={() => void voirCorrection()}
           />
         )}
-        {ecran.correction && <CorrectionDeLaSerie correction={ecran.correction} />}
+        {ecran.correction && <SerieCorrigee correction={ecran.correction} />}
       </div>
     )
   }
@@ -1624,26 +1625,6 @@ export function SuiteDeLaSerie({
   )
 }
 
-/** « Mes réponses », une série finie : chaque question, sa bonne réponse, la sienne. */
-function CorrectionDeLaSerie({ correction }: { correction: CorrectionDeCampagne[] }) {
-  return (
-    <ol className="campagne-correction">
-      {correction.map((c, i) => (
-        <li key={i} className={'card ' + (c.juste ? 'campagne-juste' : 'campagne-rate')}>
-          <span className="label">{NOM_NIVEAU[c.niveau]}</span>
-          <p>{espacesFines(c.texte)}</p>
-          <p className="muted small">
-            <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
-            {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
-          </p>
-          {/* L'anecdote, qu'on a lue en jouant : la correction la redonne, pour s'en souvenir. */}
-          {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
-        </li>
-      ))}
-    </ol>
-  )
-}
-
 /**
  * La page des duels sans son code, le temps qu'il arrive — `main.tsx` le
  * demande avec celui-ci, il est presque toujours là —, ou s'il ne viendra
@@ -1786,22 +1767,26 @@ export function RecordsParCategorie({ records, categories }: { records: { catego
 export function TeteDeLaQuestion({ ecran }: { ecran: Extract<Ecran, { e: 'jeu' }> }) {
   const { question: q, justes } = ecran
   const s = justes > 1 ? 's' : ''
+  // « question 1 » d'un bloc, et chaque « · » collé au mot d'avant : en 360 de large, « Contre Automate · question 1 »
+  // passait à la ligne à côté des cœurs et y laissait le « 1 » seul. Coupé, il se lit « Contre Automate · », puis
+  // « question 1 » — un séparateur ne commence pas plus une ligne qu'un point d'interrogation (`espacesFines`).
+  const numero = `question\u00a0${q.index + 1}`
   return (
     <div className="quiz-topbar">
       {ecran.revision ? (
         // Une révision n'a pas de vies : ce qui compte, c'est où l'on en est.
-        <span className="label">{`Révision · question ${q.index + 1} sur ${ecran.total}`}</span>
+        <span className="label">{`Révision\u00a0· ${numero}\u00a0sur\u00a0${ecran.total}`}</span>
       ) : ecran.rencontre || ecran.contre ? (
         <>
-          <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom} · question ${q.index + 1}`}</span>
+          <span className="label">{`Contre ${(ecran.rencontre?.adversaire ?? ecran.contre!).nom}\u00a0· ${numero}`}</span>
           <Vies restantes={ecran.vies} />
         </>
       ) : (
         <>
           <span className="campagne-ou">
             <span className="label">
-              {ecran.defi && (ecran.duel ? 'Défi entre amis · ' : 'Le défi · ')}
-              {NOM_NIVEAU[q.niveau]} · question {q.index + 1}
+              {ecran.defi && (ecran.duel ? 'Défi entre amis\u00a0· ' : 'Le défi\u00a0· ')}
+              {`${NOM_NIVEAU[q.niveau]}\u00a0· ${numero}`}
             </span>
             <span className="campagne-bonnes">
               <b className={ecran.reponse?.juste ? 'campagne-bonne-de-plus' : undefined}>{justes}</b>

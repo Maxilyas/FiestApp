@@ -21,6 +21,7 @@ import { Budget } from './core/budget'
 import { clientIp, readPlayerToken } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { JournalDesGestes } from './core/journalDesGestes'
 import type { BadgeLookup } from './core/party'
 import { recalculerHistorique } from './core/recalcul'
 import { reprendreLesPortraits } from './core/repriseDesPortraits'
@@ -39,7 +40,7 @@ import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
-import { wireSockets } from './sockets'
+import { cloreLaSoiree, wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
@@ -381,6 +382,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
+  // Le journal des gestes de l'administrateur, que le QG relit : il raconte
+  // ce qui a changé dans la base permanente, et vit avec elle.
+  const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -439,6 +443,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     partages.init(),
     salons.init(),
     campagne.init(),
+    gestes.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -807,8 +812,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
     // Ce que la routine du matin a déposé dans la base de la campagne : une
-    // routine qui ne tourne plus se voit à sa date.
-    mesurer('campagne', () => ({ campagne: campagne.santeDeLaBase() }))
+    // routine qui ne tourne plus se voit à sa date. Et le modèle du savoir,
+    // qu'Automate lit : quand il s'est ajusté, sur combien, en combien de temps.
+    mesurer('campagne', () => ({ campagne: { ...campagne.santeDeLaBase(), savoir: campagne.santeDuSavoir() } }))
     // La dernière tournée du rappel du soir : combien sont partis, combien
     // ont échoué — un service de push qui refuse tout se voit ici.
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))
@@ -1030,6 +1036,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
+    qg: {
+      db,
+      registry,
+      io,
+      backup,
+      charge,
+      env: opts.appEnv ?? 'production',
+      version: opts.version ?? null,
+      // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
+      clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
+    },
+    gestes,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

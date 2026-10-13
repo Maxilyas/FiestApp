@@ -267,22 +267,72 @@ test('dans la correction, chaque marque dit juste, faux, sans réponse ou annul�
     choix: null,
     juste: false,
     points: 0,
+    ms: null,
+    duree: 20,
+    rapidite: null,
     repondue: true,
     ...o,
   })
   const html = await rendu('QuestionsCorrigees', {
-    questions: [q({ choix: 0, juste: true, points: 900 }), q({ choix: 1 }), q({}), q({ choix: 1, annulee: true }), q({ repondue: false })],
+    questions: [q({ choix: 0, juste: true, points: 162, ms: 4100, rapidite: 62 }), q({ choix: 1, ms: 5000 }), q({}), q({ choix: 1, annulee: true }), q({ repondue: false })],
   })
-  const marques = [...html.matchAll(/<span class="correction-marque" role="img" aria-label="([^"]+)">(.*?)<\/span>/g)]
+  const marques = [...html.matchAll(/<span class="corrige-marque" role="img" aria-label="([^"]+)">(.*?)<\/span>/g)]
   assert.deepEqual(
     marques.map(m => m[1]),
     ['Juste', 'Faux', 'Sans réponse', 'Annulée', 'Sans réponse'],
   )
   assert.doesNotMatch(marques[3][2], /<svg/, 'une question annulée ne garde pas de croix')
   const lignes = html.split('<li').slice(1)
-  assert.match(lignes[1], /Tu avais dit : Milan/)
-  assert.match(lignes[2], /<span class="muted small">Sans réponse<\/span>/, 'pour l’œil aussi')
-  assert.doesNotMatch(lignes[0], /Sans réponse|Tu avais dit/)
+  assert.match(lignes[1], /Ta réponse<\/span><span class="corrige-mot">.*<s>Milan<\/s>/)
+  // Pour l'œil aussi — et pourquoi : le temps écoulé, ou la partie arrêtée avant elle.
+  assert.match(lignes[2], /Sans réponse : le temps s’est écoulé/)
+  assert.match(lignes[4], /Sans réponse : la partie s’est arrêtée avant/)
+  assert.doesNotMatch(lignes[0], /Sans réponse|Ta réponse/)
+})
+
+test('dans la correction, chaque question dit ce qu’elle a rapporté, en combien de temps on a répondu, et ce que la rapidité a payé', async () => {
+  // Un retour utilisateur du 13 octobre 2026 : « est-ce qu'il est possible
+  // de savoir le nombre de points par réponse, et si on a répondu vite ou
+  // pas ? » La correction ne disait ni l'un ni l'autre. Ses réponses, la
+  // bonne au centre, la sienne barrée : `corrige.test.ts`.
+  const q = (o: object) => ({
+    texte: 'Question ?',
+    reponses: ['Rome', 'Milan'],
+    bonne: 0,
+    categorie: 'Géographie',
+    anecdote: null,
+    trouveePar: null,
+    choix: null,
+    juste: false,
+    points: 0,
+    ms: null,
+    duree: 20,
+    rapidite: null,
+    repondue: true,
+    ...o,
+  })
+  const html = await rendu('QuestionsCorrigees', {
+    questions: [
+      q({ choix: 0, juste: true, points: 162, ms: 4100, rapidite: 62, trouveePar: 0.4 }),
+      q({ choix: 1, ms: 12_345, duree: 15 }),
+      q({ choix: 0, juste: true, ms: 3000, annulee: true }),
+      q({ tropTard: true }),
+    ],
+  })
+  const [juste, fausse, annulee, tardive] = html.split('<li').slice(1)
+  assert.match(juste, /<span class="label">Question 1 · Géographie<\/span><span class="corrige-points">\+162 pts<\/span>/)
+  assert.match(juste, /Répondu en 4,1 s sur 20/)
+  assert.match(juste, /Bonus de rapidité : \+62/)
+  assert.match(juste, /Trouvée par 40 % des joueurs du jour/)
+  assert.match(fausse, /<span class="corrige-points">0 pt<\/span>/)
+  assert.match(fausse, /Répondu en 12,3 s sur 15/)
+  assert.doesNotMatch(fausse, /Bonus de rapidité/, 'une réponse fausse ne gagne rien à sa vitesse')
+  // Annulée, elle ne compte pour personne : ni points, ni temps.
+  assert.doesNotMatch(annulee, /corrige-points|Répondu en|Bonus/)
+  assert.match(annulee, /Annulée : elle ne compte pour personne\./)
+  // Partie après l'échéance : la correction redit ce que la révélation a dit, « Trop tard ! ».
+  assert.match(tardive, /Sans réponse : la tienne est arrivée après la fin/)
+  assert.match(tardive, /<span class="corrige-points">0 pt<\/span>/)
 })
 
 // ── 8. Sans réseau au chargement ──────────────────────────────────────────
