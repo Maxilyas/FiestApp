@@ -548,7 +548,7 @@ export function CommentCaMarche() {
       <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
       <li>
         {espacesFines(
-          'Pressé ? Le dé : Automate, tout de suite — un adversaire simulé, qui joue comme un joueur de ton niveau ; son score se dévoile à la fin.',
+          'Pressé ? Le dé : Automate, tout de suite — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates ; son score se dévoile à la fin.',
         )}
       </li>
       <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>

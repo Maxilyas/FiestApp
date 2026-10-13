@@ -42,7 +42,7 @@ const poster = (banc: Banc, cookie: string, chemin: string, corps: unknown = {})
   ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
 /** Le tirage du jour, lu en base : les bonnes réponses que le téléphone ne voit jamais. */
-function tirage(banc: Banc, jour = JOUR): { bonne: number; reponses: string[]; anecdote: string | null; texte: string }[] {
+function tirage(banc: Banc, jour = JOUR): { bonne: number; reponses: string[]; anecdote: string | null; texte: string; duree: number }[] {
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true, fileMustExist: true })
   try {
     const r = db.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(jour) as { questions: string } | undefined
@@ -214,6 +214,71 @@ test('une partie parfaite : l’or, 200 XP et le bonus de série, la correction 
     const correction = (await lire(banc, alice, `/api/jour/correction/${JOUR}`)).corps
     assert.equal(correction.questions.length, 10)
     assert.ok(correction.questions.every((q: any) => q.juste && q.repondue))
+  }))
+
+test('la correction dit, question par question, en combien de temps la réponse est partie et ce que la rapidité a rapporté', () =>
+  avecBanc(async (banc, horloge) => {
+    // Un retour utilisateur du 13 octobre 2026 : « est-ce qu'il est
+    // possible de savoir le nombre de points par réponse, et si on a répondu
+    // vite ou pas ? » Les points y étaient, pas le temps.
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await poster(banc, alice, '/api/jour/commencer')
+    const questions = tirage(banc)
+    const repondre = async (index: number, apres: number, juste: boolean) => {
+      horloge.t += apres
+      const bonne = questions[index].bonne
+      await poster(banc, alice, '/api/jour/repondre', { jour: JOUR, index, choix: juste ? bonne : (bonne + 1) % questions[index].reponses.length })
+      await poster(banc, alice, '/api/jour/suivante')
+    }
+    const apresLEcheance = (index: number) => questions[index].duree * 1000 + 2000
+    // Aux trois quarts du chrono : le temps de lecture, jamais plus de la moitié, est passé.
+    const tard = questions[1].duree * 750
+    await repondre(0, 500, true) // pendant le temps de lecture
+    await repondre(1, tard, true)
+    await repondre(2, 2000, false)
+    await repondre(3, apresLEcheance(3), true) // partie après l'échéance : trop tard
+    // La cinquième, laissée au temps : la page la trouve expirée.
+    horloge.t += apresLEcheance(4)
+    await lire(banc, alice, '/api/jour')
+    await poster(banc, alice, '/api/jour/suivante')
+    for (let i = 5; i < 10; i++) await repondre(i, 1000, true)
+
+    const c = (await lire(banc, alice, `/api/jour/correction/${JOUR}`)).corps.questions
+    assert.deepEqual(
+      c.map((q: any) => q.duree),
+      questions.map(q => q.duree),
+      'la durée de chaque question, pour dire « en 4,1 s sur 20 »',
+    )
+    assert.deepEqual(
+      c.slice(0, 5).map((q: any) => [q.juste, q.ms, q.points, q.rapidite]),
+      [
+        [true, 500, 200, 100],
+        [true, tard, c[1].points, c[1].points - 100],
+        [false, 2000, 0, null],
+        [false, null, 0, null],
+        [false, null, 0, null],
+      ],
+      'le temps de sa réponse, quand elle a compté ; le bonus de rapidité, quand elle était juste',
+    )
+    assert.ok(c[1].rapidite > 0 && c[1].rapidite < 100, `aux trois quarts du chrono, une part du bonus seulement : ${c[1].rapidite}`)
+    assert.equal(c[1].points - c[1].rapidite, 100, 'cent points pour la bonne réponse, le reste pour la rapidité')
+    // Sans réponse, deux raisons : la sienne arrivée après la fin, ou le temps écoulé.
+    assert.deepEqual(
+      c.slice(0, 5).map((q: any) => q.tropTard ?? false),
+      [false, false, false, true, false],
+    )
+
+    // Le temps ne se dit qu'à qui a répondu : la correction d'un autre n'a que la sienne.
+    await poster(banc, bob, '/api/jour/commencer')
+    horloge.t += 3000
+    await poster(banc, bob, '/api/jour/repondre', { jour: JOUR, index: 0, choix: questions[0].bonne })
+    horloge.t = Date.UTC(2026, 8, 27, 6, 0)
+    const deBob = (await lire(banc, bob, `/api/jour/correction/${JOUR}`)).corps.questions
+    assert.deepEqual(
+      deBob.map((q: any) => q.ms),
+      [3000, null, null, null, null, null, null, null, null, null],
+    )
   }))
 
 test('minuit clôt la journée : le podium est payé une fois, le lendemain le raconte, la série continue', () =>

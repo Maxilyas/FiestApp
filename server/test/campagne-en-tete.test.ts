@@ -33,11 +33,19 @@ const aLaDixieme = (autres: Record<string, unknown> = {}) => ({
 })
 
 /** L'en-tête rendu, ses séparateurs de texte ôtés : « Moyen · question 10 » se lit d'un bloc. */
-async function enTete(ecran: Record<string, unknown>): Promise<string> {
+async function rendu(ecran: Record<string, unknown>): Promise<string> {
   const { TeteDeLaQuestion } = await import(client('views/CampagneApp.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   return renderToStaticMarkup(React.createElement(TeteDeLaQuestion, { ecran })).replace(/<!-- -->/g, '')
 }
+
+/** Ce qu'on y lit : une espace insécable se lit comme une autre. Où le libellé peut se couper, c'est `morceaux`. */
+const enTete = async (ecran: Record<string, unknown>) => (await rendu(ecran)).replace(/\u00a0/g, ' ')
+
+const libelle = (html: string) => html.match(/<span class="label">([^<]*)<\/span>/)![1]
+
+/** Le libellé découpé là où le navigateur peut passer à la ligne : à ses espaces ordinaires — une insécable tient ses deux voisins. */
+const morceaux = (html: string) => libelle(html).split(' ')
 
 const compte = (html: string) => html.match(/<span class="campagne-bonnes"><b[^>]*>(\d+)<\/b>([^<]*)<\/span>/)
 
@@ -92,4 +100,27 @@ test('une révision n’a pas de score, un duel dit le sien sous l’en-tête : 
   const contre = await enTete(aLaDixieme({ defi: true, duel: 'K7M2QX', contre: { ...adversaire, aDejaJoue: true } }))
   assert.match(contre, /<span class="label">Contre Bérénice · question 10<\/span>/)
   assert.doesNotMatch(contre, /campagne-bonnes/)
+})
+
+test('au téléphone, le numéro de la question ne reste jamais seul sur sa ligne, et le « · » n’en commence jamais une', async () => {
+  // En 360 × 640, « Contre Automate · question 1 » passait à la ligne à gauche des cœurs, et y laissait le « 1 » seul ;
+  // contre Tom, il tenait sur une. Coupé, il se lit « Contre Automate · », puis « question 1 ».
+  const premiere = { ...aLaDixieme().question, index: 0 }
+  const enTetes: [string, Record<string, unknown>, string][] = [
+    ['le dé', aLaDixieme({ question: premiere, rencontre: { adversaire: { nom: 'Automate', avatar: '🤖', simule: true }, sesJustes: 0 } }), 'Contre Automate · question 1'],
+    ['un duel contre Tom', aLaDixieme({ defi: true, duel: 'K7M2QX', contre: { nom: 'Tom', avatar: '🐻' } }), 'Contre Tom · question 10'],
+    ['la série', aLaDixieme(), 'Moyen · question 10'],
+    ['le défi', aLaDixieme({ defi: true }), 'Le défi · Moyen · question 10'],
+    ['un défi entre amis', aLaDixieme({ defi: true, duel: 'K7M2QX' }), 'Défi entre amis · Moyen · question 10'],
+    ['une révision', aLaDixieme({ revision: true, total: 10, vies: 3, question: { ...premiere, index: 2 } }), 'Révision · question 3 sur 10'],
+  ]
+  for (const [quoi, ecran, lu] of enTetes) {
+    const html = await rendu(ecran)
+    const coupe = morceaux(html)
+    const seul = coupe.find(m => /^\d+$/.test(m))
+    assert.equal(seul, undefined, `${quoi} : « ${coupe.join(' | ')} » peut laisser le ${seul} seul sur sa ligne`)
+    assert.ok(!coupe.some(m => m.startsWith('·')), `${quoi} : « ${coupe.join(' | ')} » peut commencer une ligne par « · »`)
+    // Le texte ne change pas : ce qu'on lit reste le même, seules ses coupures se choisissent.
+    assert.equal(libelle(await enTete(ecran)), lu, `${quoi} : le libellé se lit comme avant`)
+  }
 })
