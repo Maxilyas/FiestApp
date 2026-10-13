@@ -296,6 +296,14 @@ export interface EtatDeCampagne {
 }
 
 /**
+ * Ce que la campagne peut poser, le même pour tous : ses catégories et ses
+ * sujets jouables (`GET /api/campagne/choix`). La préparation d'un duel n'a
+ * besoin que de cela, et l'attendait dans tout l'état de la campagne
+ * (`EtatDeCampagne`) — quatre lectures de son passé avant de s'ouvrir.
+ */
+export type ChoixDeLaCampagne = Required<Pick<EtatDeCampagne, 'categories' | 'sujets'>>
+
+/**
  * Un joueur qui signale une question : qui, ce qu'il en dit, où il l'a
  * jouée et ce qu'il y a répondu — « la B est juste aussi » ne se lit pas
  * de la même façon venant de celui qui a répondu B.

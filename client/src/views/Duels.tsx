@@ -168,9 +168,24 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
  * d'un autre joueur sous son profil, et disparaissait quand il les avait
  * toutes affrontées (le propriétaire, le 13 octobre 2026 : « tout le temps
  * disponible », puis « c'est trompeur »). La même place pendant que la page
- * arrive.
+ * arrive. Touché, il s'allume tant que le serveur tire la série, et le dé
+ * roule (`roule`) : rien ne bougeait, et l'attente se lisait comme un
+ * toucher perdu (le retour du propriétaire du 13 octobre 2026 : « l'attente
+ * est perceptible »).
  */
-function BoutonsDesDuels({ busy, onDefier, onAuHasard, reprendre }: { busy: boolean; onDefier?: () => void; onAuHasard?: () => void; reprendre: string | null }) {
+function BoutonsDesDuels({
+  busy,
+  roule,
+  onDefier,
+  onAuHasard,
+  reprendre,
+}: {
+  busy: boolean
+  roule?: boolean
+  onDefier?: () => void
+  onAuHasard?: () => void
+  reprendre: string | null
+}) {
   return (
     <div className="duels-gestes">
       <button type="button" className="btn btn-primary btn-big btn-duel duels-defier" aria-disabled={!onDefier || undefined} onClick={onDefier}>
@@ -179,12 +194,12 @@ function BoutonsDesDuels({ busy, onDefier, onAuHasard, reprendre }: { busy: bool
       </button>
       <button
         type="button"
-        className="duels-hasard"
+        className={'duels-hasard' + (roule ? ' roule' : '')}
         aria-label={reprendre ? `Reprendre ton duel contre ${reprendre}` : 'Un duel contre Automate'}
         aria-disabled={busy || !onAuHasard || undefined}
         onClick={onAuHasard}
       >
-        <Icon name={reprendre ? 'play' : 'dice'} />
+        <Icon name={reprendre ? 'play' : 'dice'} className={reprendre ? undefined : 'duels-de'} />
       </button>
     </div>
   )
@@ -755,7 +770,7 @@ export function PageDesDuels({
           {erreur}
         </p>
       )}
-      <BoutonsDesDuels busy={busy} onDefier={() => defier()} onAuHasard={() => void chercher()} reprendre={enCours ? enCours.adversaire.nom : null} />
+      <BoutonsDesDuels busy={busy} roule={busy} onDefier={() => defier()} onAuHasard={() => void chercher()} reprendre={enCours ? enCours.adversaire.nom : null} />
       <OngletsDesDuels actif={onglet} nouveaux={nouveaux} onChoisir={setOnglet} />
       <div id="duels-panneau" className="duels-panneau" role="tabpanel" aria-labelledby={`duels-onglet-${onglet}`}>
         {!etat ? null : onglet === 'cours' ? (

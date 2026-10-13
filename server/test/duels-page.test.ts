@@ -234,7 +234,7 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
 // pas là, sous son profil, « c'est trompeur ». Il se dit pour ce qu'il est.
 test('le dé est toujours là, à côté de « Défier », et se dit contre Automate', async () => {
   const page = readFileSync(client('views/Duels.tsx'), 'utf8')
-  assert.match(page, /Défier\s*<\/button>\s*<button\s+type="button"\s+className="duels-hasard"/, 'jamais sous une condition')
+  assert.match(page, /Défier\s*<\/button>\s*<button\s+type="button"\s+className=\{'duels-hasard' \+ \(roule \? ' roule' : ''\)\}/, 'jamais sous une condition')
   assert.doesNotMatch(readFileSync(client('../../shared/duels.ts'), 'utf8'), /auHasard/)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const { DuelsEnChemin, CommentCaMarche } = await import(client('views/Duels.tsx').href)

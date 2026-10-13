@@ -230,5 +230,5 @@ test('la préparation d’un duel s’ouvre à son adresse, contre celui que la 
   assert.match(source('components/GestesDuJoueur.tsx'), /window\.location\.assign\(`\$\{PAGE_DES_DUELS\}\$\{adresseDuLancementContre\(joueur\.profileId\)\}`\)/)
   const campagne = source('views/CampagneApp.tsx')
   assert.match(campagne, /\.joueur\(contreQui\)\s*\.then\(f => vivant && setDepart\(\{ categories, sujet, adversaire: f\.joueur, moi: f\.moi \}\)\)/)
-  assert.match(campagne, /if \(!laPreparation \|\| laPreparation === 'perdu' \|\| !etatPourLancer \|\| adversaireAttendu\) \{/, 'la préparation attend celui qu’elle défie : elle ne s’ouvre pas libre pour sauter sur lui')
+  assert.match(campagne, /if \(!laPreparation \|\| laPreparation === 'perdu' \|\| !choixPourLancer \|\| adversaireAttendu\) \{/, 'la préparation attend celui qu’elle défie : elle ne s’ouvre pas libre pour sauter sur lui')
 })

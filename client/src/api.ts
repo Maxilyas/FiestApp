@@ -1,6 +1,7 @@
 import type {
   AdminDeLaCampagne,
   AmisDeLaFeuille,
+  ChoixDeLaCampagne,
   CorrectionDeCampagne,
   CorrectionDeQuestion,
   DefiDeLaSemaine,
@@ -382,6 +383,8 @@ export const api = {
   /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
   campagne: {
     etat: () => req<EtatDeCampagne>(DEPART.campagne),
+    /** Ses catégories et ses sujets jouables, les mêmes pour tous : ce que la préparation d'un duel propose. */
+    choix: () => req<ChoixDeLaCampagne>('/api/campagne/choix'),
     /** Une série neuve : sur ces catégories (aucune : toutes), ou sur un sujet qui les traverse (`shared/sujets.ts`). */
     commencer: (categories: string[], sujet?: string | null) =>
       req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories, ...(sujet && { sujet }) }) }),

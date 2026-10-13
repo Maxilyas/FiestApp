@@ -43,6 +43,7 @@ import {
   lireCodeDuDuel,
   type Adversaire,
   type AdversaireEnJeu,
+  type ChoixDeLaCampagne,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type IssueDeRencontre,
@@ -190,6 +191,25 @@ export const chargerLesDuels = () => lesDuels.charger()
 const lancement = aLaDemande(() => import('./LancerUnDefi'))
 
 /**
+ * Ce que la préparation propose — les catégories et les sujets que la
+ * campagne peut poser, les mêmes pour tous, lus sans toucher à la base
+ * (`GET /api/campagne/choix`) —, demandé une fois par page, en fond avec son
+ * code : « Défier » touché, elle s'ouvre sans attendre le serveur. Elle
+ * attendait tout l'état de la campagne — quatre lectures de son passé,
+ * 800 ms en production — pour n'en lire que cela (le retour du propriétaire
+ * du 13 octobre 2026 : « l'attente est perceptible »). Raté, il se redemande
+ * à l'ouverture suivante.
+ */
+let choixEnRoute: Promise<ChoixDeLaCampagne> | null = null
+function lesChoix(): Promise<ChoixDeLaCampagne> {
+  choixEnRoute ??= api.campagne.choix().catch(e => {
+    choixEnRoute = null
+    throw e
+  })
+  return choixEnRoute
+}
+
+/**
  * Les catégories de sa dernière série, retenues sur ce téléphone : la page
  * s'ouvre sur elles. Le choix repartait sur « toutes » à chaque passage par
  * l'accueil, et changer de catégorie entre deux séries coûtait cinq ou six
@@ -304,8 +324,8 @@ export function CampagneApp() {
   const [aRevoir, setARevoir] = useState(0)
   // Ses amis et les défis qu'ils lui ont envoyés : lus après la page des duels, pour elle et pour la préparation d'un défi.
   const [mesAmis, setMesAmis] = useState<MesAmis | null>(null)
-  // Ce que la campagne peut poser — ses catégories, ses sujets —, pour préparer un défi entre amis depuis les duels : lu à la demande.
-  const [etatPourLancer, setEtatPourLancer] = useState<EtatDeCampagne | null>(null)
+  // Ce que la campagne peut poser — ses catégories, ses sujets —, pour préparer un duel : demandé en fond avec la page des duels (`lesChoix`).
+  const [choixPourLancer, setChoixPourLancer] = useState<ChoixDeLaCampagne | null>(null)
   // Le code de la page des duels, sur elle seulement.
   const laPageDesDuels = useALaDemande(lesDuels, DUELS)
   const relireMesAmis = () =>
@@ -408,6 +428,8 @@ export function CampagneApp() {
         setEcran({ e: 'duels' })
         // La préparation d'un défi, en fond : « Lancer un défi » s'ouvre sans attendre.
         void lancement.charger().catch(() => {})
+        // Et ce qu'elle propose, avec : « Défier » touché, elle n'attend plus le serveur (`lesChoix`).
+        void lesChoix().then(c => vivant && setChoixPourLancer(c), () => {})
         // Ses amis et ce qu'ils lui ont envoyé : la page des duels les montre en tête.
         void relireMesAmis()
         return
@@ -730,8 +752,9 @@ export function CampagneApp() {
    * catégories ou le sujet de sa dernière série d'abord, le joueur touché
    * (« Défier » sur sa carte) déjà choisi. Une entrée d'historique : le
    * retour du téléphone, comme « ← Les duels », ramène d'où l'on vient. Ce
-   * que la campagne peut poser se lit à l'arrivée — la page des duels n'en a
-   * pas besoin. Contre quelqu'un, son adresse le nomme (`#defier-<id>`) : la
+   * que la campagne peut poser part en fond avec la page des duels
+   * (`lesChoix`) ; ouverte à son adresse, la préparation le demande en
+   * arrivant. Contre quelqu'un, son adresse le nomme (`#defier-<id>`) : la
    * carte d'un joueur y mène de l'accueil, du quiz du jour ou d'un défi, et
    * la préparation le relit en arrivant, sa propre cote avec.
    */
@@ -741,16 +764,15 @@ export function CampagneApp() {
   })
   const laPreparation = useALaDemande(lancement, mode === 'defier')
   useEffect(() => {
-    if (mode !== 'defier' || etatPourLancer || ecran.e !== 'duels') return
+    if (mode !== 'defier' || choixPourLancer || ecran.e !== 'duels') return
     let vivant = true
-    api.campagne
-      .etat()
-      .then(e => vivant && setEtatPourLancer(e))
+    lesChoix()
+      .then(c => vivant && setChoixPourLancer(c))
       .catch(e => vivant && setErreur(motifDe(e)))
     return () => {
       vivant = false
     }
-  }, [mode, etatPourLancer, ecran.e])
+  }, [mode, choixPourLancer, ecran.e])
   // Les joueurs qu'il a croisés, pour « Contre qui ? » : lus à l'arrivée, en même temps, et relus quand sa liste d'amis change.
   // Sans eux — un échec —, la préparation garde la recherche et ses amis.
   const [croises, setCroises] = useState<JoueurCroise[] | null>(null)
@@ -925,11 +947,11 @@ export function CampagneApp() {
   if (ecran.e === 'duels' && laPageDesDuels && laPageDesDuels !== 'perdu') {
     if (mode === 'defier') {
       // Pas encore arrivée (un réseau lent, ouverte à son adresse — celui qu'elle défie compris) : sa place, ou ce qui l'empêche.
-      if (!laPreparation || laPreparation === 'perdu' || !etatPourLancer || adversaireAttendu) {
+      if (!laPreparation || laPreparation === 'perdu' || !choixPourLancer || adversaireAttendu) {
         return (
           <div className="player-shell campagne">
             <Sortie vers="Les duels" href={PAGE_DES_DUELS} onClick={quitterLeLancement} />
-            {laPreparation === 'perdu' || (erreur && !etatPourLancer) ? (
+            {laPreparation === 'perdu' || (erreur && !choixPourLancer) ? (
               <p className="error">{erreur || 'Cette page n’a pas pu se charger : vérifie ta connexion, puis recharge-la.'}</p>
             ) : (
               <p className="serif-note">Chargement…</p>
@@ -938,7 +960,7 @@ export function CampagneApp() {
         )
       }
       // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
-      const sujets = SUJETS.filter(x => etatPourLancer.sujets?.some(y => y.sujet === x.cle))
+      const sujets = SUJETS.filter(x => choixPourLancer.sujets.some(y => y.sujet === x.cle))
       return (
         <>
           <laPreparation.LancerUnDefi
@@ -946,7 +968,7 @@ export function CampagneApp() {
             key={depart.adversaire?.profileId ?? 'libre'}
             amis={mesAmis?.amis ?? null}
             croises={croises}
-            categoriesJouables={etatPourLancer.categories.map(c => c.categorie)}
+            categoriesJouables={choixPourLancer.categories.map(c => c.categorie)}
             sujets={sujets}
             depart={{ ...depart, sujet: sujets.some(x => x.cle === depart.sujet) ? depart.sujet : null }}
             busy={busy}
