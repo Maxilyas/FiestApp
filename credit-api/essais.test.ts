@@ -18,7 +18,8 @@ import { CATEGORIES, type Categorie } from '../shared/categories'
 import { SOUS_THEMES } from '../shared/etiquettes'
 import { coutDUnMessage, jsonDe, lireLeCarnet, verrouiller, type API, type Demande, type LotLu } from './api'
 import { champsLus, decisionsDe, jugementDuRelecteur, schemaDesDecisions, systemeDuRelecteur, verdictDe } from './consignes'
-import { appliquer, appliquerALaBase, avancer, carteDe, charger as chargerLaRelecture, decisionsFinales, ecrireLaBase, preparerLaRelecture, type ContexteDeRelecture } from './relire'
+import { apercu } from './apercu'
+import { appliquer, appliquerALaBase, avancer, carteDe, charger as chargerLaRelecture, decisionsFinales, ecrireLaBase, preparerLaRelecture, type ContexteDeRelecture, type Relecture } from './relire'
 import { avancerLaGeneration, chargerLEtat, commandeDesNombres, preparerLaGeneration, refusDuLot, type ContexteDeGeneration } from './generer'
 
 // ── Des questions que le juge accepte ───────────────────────────────────
@@ -313,6 +314,34 @@ test('une correction que le juge refuse, ou qui reprend l’intitulé d’une au
   )
   assert.match(fait.journal[0], /refusée par le juge : la bonne réponse est écrite dans l’intitulé/)
   assert.match(fait.journal[1], /reprend l'intitulé de \[base0003\]/)
+})
+
+test('l’aperçu dit chaque décision sous sa question, avant et après, sans rien écrire', () => {
+  const [a, b, c] = [1, 2, 3].map(n => question(n))
+  const r: Relecture = {
+    nom: 'essai',
+    creee: '2026-10-13T00:00:00.000Z',
+    effort: 'high',
+    fiches: [{ nom: 'f001', ids: ['base0001', 'base0002', 'base0003'] }],
+    relues: ['f001'],
+    decisions: {
+      base0001: { action: 'retirer', motif: 'la bonne réponse est fausse' },
+      base0002: { action: 'corriger', champs: { anecdote: 'Une anecdote juste.' }, motif: 'anecdote fausse' },
+      base0003: { action: 'douter', motif: 'la date a-t-elle changé ?' },
+    },
+    verifiees: { base0003: { action: 'garder', motif: 'confirmé', sources: ['https://fr.wikipedia.org/wiki/Lieu'] } },
+    essais: {},
+    lots: [],
+  }
+  const avant = JSON.stringify([a, b, c])
+  const md = apercu(r, [a, b, c])
+  assert.equal(JSON.stringify([a, b, c]), avant, 'les questions restent telles quelles')
+  assert.match(md, /1 retirée\(s\), 1 corrigée\(s\), 0 reclassée\(s\) ; la base passerait de 3 à 2 questions/)
+  assert.match(md, /## Les retraits \(1\)\n\n\*\*\[base0001\]\*\* Géographie › /)
+  assert.ok(md.includes(`> ${b.texte}`), 'la question telle que les joueurs la lisent')
+  assert.match(md, /- \*\*corriger\*\* — anecdote fausse — `anecdote` → « Une anecdote juste\. »/)
+  assert.match(md, /- \*\*Le verdict : garder\*\* — confirmé\n- Sources : https:\/\/fr\.wikipedia\.org\/wiki\/Lieu/)
+  assert.match(md, /- corrigée \[base0002\].*anecdote : « Une anecdote vraie\. » → « Une anecdote juste\. »/, 'le journal qu’« appliquer » écrirait')
 })
 
 test('un lot qui ferait passer le budget ne part pas', async () => {

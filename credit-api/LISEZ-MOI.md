@@ -53,8 +53,10 @@ npx tsx credit-api/relire.ts preparer --limite=300 --nom=pilote
 NODE_USE_ENV_PROXY=1 npx tsx credit-api/relire.ts avancer pilote --attendre
 ```
 
-Avant d'appliquer, **lis ses décisions** (`credit-api/etat/relecture-pilote.json`) :
-les retraits sont-ils justes ? Les doutes, les reclassements, raisonnables ?
+Avant d'appliquer, **lis ses décisions** : `npx tsx credit-api/apercu.ts pilote`
+les met sous leur question, avant et après, avec le verdict de chaque doute
+(`credit-api/etat/relecture-pilote.apercu.md`, rien n'est écrit dans la base).
+Les retraits sont-ils justes ? Les doutes, les reclassements, raisonnables ?
 Un correcteur qui retire ou reclasse trop se reprend dans
 `systemeDuRelecteur` (`consignes.ts`) ; refais alors un pilote sur un autre
 tirage. Puis :
@@ -76,11 +78,17 @@ quoi juger le reste.
 ```bash
 npx tsx credit-api/relire.ts preparer --nom=base      # sans les 300 du pilote
 NODE_USE_ENV_PROXY=1 npx tsx credit-api/relire.ts avancer base --attendre
+npx tsx credit-api/apercu.ts base                     # les décisions, avant de les appliquer
 npx tsx credit-api/relire.ts appliquer base
 ```
 
 La première passe part d'un lot (283 fiches de 40), puis les doutes d'un
 second, avec la recherche web. Même vérification, même commit.
+
+Mesuré au pilote du 13 octobre 2026 : 0,53 $ les 300 questions — 98 jetons
+de sortie par question en réflexion `high`, la moitié de l'estimation —, et
+un seul doute (0,10 $). La base entière coûterait donc de l'ordre de 19 $,
+et quelques dollars de doutes.
 
 ## 3. Les questions à nombre (≈ 8 $ les mille)
 
