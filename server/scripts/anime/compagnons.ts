@@ -156,7 +156,15 @@ interface Eclat {
   chroma: Chroma
   /** Il sort du disque tout entier : le disque ne prend qu'une part de l'image, et l'animal en déborde de tous côtés. */
   entier?: boolean
+  /** Ses expressions à lui, quand celles de tous ne suffisent pas. */
+  expressions?: Partial<Record<Expression, string>>
 }
+
+// Sur une bête qui grogne, « ravi » gardait le grognement : le loup d'ombre
+// ravi était son neutre au pixel près (99 % de la même silhouette).
+const RAVI_FEROCE =
+  'GLEEFUL — its snarl turns into a wild, happy grin: mouth wide open but relaxed, tongue lolling out, eyes bright and delighted instead of ' +
+  'angry, ears forward, tail wagging — still a powerful beast, just thrilled, no longer snarling'
 
 interface Compagnon {
   id: string
@@ -255,6 +263,7 @@ const LOUP: Compagnon = {
       retirer: 'the sky, the storm, the aurora, the snow and the flying ice shards around it',
       chroma: 'magenta',
       entier: true,
+      expressions: { ravi: RAVI_FEROCE },
     },
     ombre: {
       nom: 'Le loup d’ombre',
@@ -268,6 +277,7 @@ const LOUP: Compagnon = {
       retirer: 'the sky, the broken moon, the embers and the cracks of fire around it',
       chroma: 'vert',
       entier: true,
+      expressions: { ravi: RAVI_FEROCE },
     },
   },
   bond:
@@ -346,7 +356,9 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
     if (!eclats.includes(cle)) continue
     t.push({ nom: `${nom}-decor`, sources: [nom], consigne: DECOR_SEUL })
     t.push({ nom: `${nom}-decoupe`, sources: [nom], consigne: DECOUPE(e.garde, e.retirer, e.chroma) })
-    for (const x of Object.keys(EXPRESSIONS) as Expression[]) t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(EXPRESSIONS[x], e.chroma) })
+    for (const x of Object.keys(EXPRESSIONS) as Expression[]) {
+      t.push({ nom: `${nom}-${x}`, sources: [`${nom}-decoupe`], consigne: EXPRESSION(e.expressions?.[x] ?? EXPRESSIONS[x], e.chroma) })
+    }
   }
   return t
 }
