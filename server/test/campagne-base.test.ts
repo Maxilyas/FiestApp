@@ -54,9 +54,11 @@ import { sansAccent } from '../../shared/homonymes'
  * de trois mille, 250 par catégorie là où les sous-thèmes manquaient le plus :
  * la première, 2 873 rangées sur 3 000 demandées (88 refusées comme un fait,
  * un intitulé ou une question que la base avait déjà, 20 retirées à la
- * relecture) : 14 814.
+ * relecture) : 14 814 ; la deuxième, 2 793 (163 refusées, 151 d'entre elles
+ * comme un fait que la base posait déjà — plus elle grandit, plus le
+ * rédacteur y retombe —, 22 retirées à la relecture) : 17 607.
  */
-const AU_MOINS = 14814
+const AU_MOINS = 17607
 
 const { questions, refusees } = lireLaBase()
 
