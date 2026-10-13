@@ -1,12 +1,13 @@
 // Le QG de l'administrateur (`/admin`), photographié sur un serveur jetable :
 // trente jours d'activité inventée — parties du quiz du jour, séries de la
-// campagne, duels, soirées archivées —, une vraie soirée en cours avec deux
-// invités, une autre laissée en plan, deux signalements d'une question du
-// jour ; au téléphone
+// campagne, duels — et quatre-vingt-dix de soirées archivées, une vraie
+// soirée en cours avec deux invités, une autre laissée en plan, deux
+// signalements d'une question du jour ; au téléphone
 // (360 × 640, la page entière), en 1366 × 768 et en 1920 × 1080, sous le
-// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, et le
+// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
-// d'hier. Le client construit d'abord (`npm run build -w client`).
+// d'hier —, la page des soirées, et la soirée laissée en plan close d'un
+// clic. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
@@ -38,7 +39,7 @@ try {
   // Une soirée laissée en plan dans le salon de Tom : trois invités arrivés il y a huit heures, partis depuis.
   const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🦉')
   await ecrire(banc.url, '/api/joueur/espace', {}, tom)
-  const espaces = (await (await fetch(`${banc.url}/api/admin/espaces`, { headers: { Cookie: admin } })).json()) as { id: string; slug: string; titulaire: { nom: string } | null }[]
+  const espaces = (await (await fetch(`${banc.url}/api/admin/espaces`, { headers: { Cookie: admin } })).json()) as { id: string; slug: string; toi: boolean; titulaire: { nom: string } | null }[]
   const salonDeTom = espaces.find(e => e.titulaire?.nom === 'Tom')!
   for (const [nom, avatar] of [['Inès', '🐼'], ['Malo', '🐯'], ['Jade', '🐨']]) (await invite(banc.url, nom, avatar, { slug: salonDeTom.slug })).socket.disconnect()
   {
@@ -82,11 +83,20 @@ try {
         const mode = k % 4 === 0 ? 'duel' : k % 9 === 0 ? 'rencontre' : k % 5 === 0 ? 'sentier' : 'serie'
         if (quand <= maintenant) serie.run(`s-${n++}`, `p-${(k * 7) % 80}`, quand, mode)
       }
-      if (weekEnd && d < minuits.length - 1) {
-        const joueurs = 8 + (d % 5) * 3
-        const fiche = { v: 3, invites: Array.from({ length: joueurs }, (_, i) => ({ id: `i-${i}`, joue: true })) }
-        soiree.run('banc-archive', `soiree-${d}`, minuit + 21 * H, minuit + 23 * H, JSON.stringify(fiche))
-      }
+    })
+    // Quatre-vingt-dix jours de soirées, chez l'administrateur et chez Tom :
+    // le vendredi et le samedi presque toujours, le dimanche et le mercredi
+    // parfois — des salles de trois à vingt-quatre invités.
+    const salons = [espaces.find(e => e.toi)!.id, salonDeTom.id]
+    minuitsDeParis(maintenant, 90).forEach((minuit, d, tous) => {
+      if (d === tous.length - 1) return
+      const jour = new Date(minuit + 12 * H).getUTCDay()
+      const ce = jour === 5 || jour === 6 ? d % 7 !== 3 : jour === 0 ? d % 3 === 0 : jour === 3 ? d % 4 === 0 : false
+      if (!ce) return
+      const joueurs = 3 + ((d * 7) % 22)
+      const quiz = 1 + (d % 4)
+      const fiche = { v: 3, invites: Array.from({ length: joueurs + 1 }, (_, i) => ({ id: `i-${i}`, joue: i < joueurs })), quiz, questions: quiz * 12 }
+      soiree.run(salons[d % 2], `soiree-${d}`, minuit + 21 * H, minuit + 23 * H, JSON.stringify(fiche))
     })
     signalement.run(jourDe(maintenant), 2, 'p-1', 'Deux bonnes réponses ?', maintenant)
     signalement.run(jourDe(maintenant), 2, 'p-2', 'Canberra, pas Sydney', maintenant)
@@ -106,6 +116,7 @@ try {
     await page.goto(`${banc.url}${adresse}`)
     await page.waitForSelector('.qg-tete')
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
+    if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -124,6 +135,30 @@ try {
   await photographier('6-page-du-jour', 1366, 768, { adresse: '/admin#jour', pleine: false })
   await photographier('7-journal', 1366, 768, { adresse: '/admin#journal', pleine: false })
   await photographier('8-journal-telephone', 360, 640, { adresse: '/admin#journal' })
+  await photographier('9-soirees', 1366, 768, { adresse: '/admin#soirees' })
+  await photographier('10-soirees-1920', 1920, 1080, { adresse: '/admin#soirees' })
+  await photographier('11-soirees-telephone', 360, 640, { adresse: '/admin#soirees' })
+  await photographier('12-soirees-ivoire', 360, 640, { adresse: '/admin#soirees', theme: 'ivoire' })
+
+  // La soirée laissée en plan, close d'ici : la confirmation, puis la page qui s'en remet.
+  {
+    const contexte = await navigateur.newContext({ viewport: { width: 1366, height: 768 } })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#soirees`)
+    await page.getByRole('button', { name: 'Clore la soirée' }).click()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, '13-clore-confirmer.png') })
+    console.log(path.join(sortie, '13-clore-confirmer.png'))
+    await page.getByRole('dialog').getByRole('button', { name: 'Clore la soirée' }).click()
+    await page.waitForSelector('.toast')
+    await page.waitForTimeout(600)
+    await page.screenshot({ path: path.join(sortie, '14-clore-fait.png'), fullPage: true })
+    console.log(path.join(sortie, '14-clore-fait.png'))
+    await contexte.close()
+  }
   host.disconnect()
 } finally {
   await navigateur.close()

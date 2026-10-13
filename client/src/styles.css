@@ -9473,6 +9473,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .qg-tableau table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 0.85rem; }
 .qg-tableau th, .qg-tableau td { padding: 6px 0 6px 10px; border-top: 1px solid var(--edge); text-align: right; white-space: nowrap; }
 .qg-tableau th[scope='row'] { padding-left: 0; text-align: left; font-weight: 500; }
+/* Les chiffres d'un tableau en sans-serif, comme le texte qu'ils côtoient : en Cormorant, ils paraissaient d'un corps plus petit. */
+.qg-tableau td.num { font-family: var(--sans); font-weight: 500; }
 .qg-tableau thead th { border-top: 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .qg-tableau thead th:first-child { padding-left: 0; text-align: left; }
 .qg-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -9507,6 +9509,30 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-geste { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; }
 .qg-geste .qg-rond { margin-top: 2px; }
 .qg-journal-avant { align-self: center; }
+/* La carte des soirées en cours mène à leur page. */
+.qg-suite { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.qg-suite .icon { width: 14px; height: 14px; }
+/* Le geste d'une soirée laissée en plan : sous son texte au téléphone, au bout de la ligne à l'ordinateur. */
+.qg-soiree > .qg-soiree-geste { grid-column: 2; justify-self: start; }
+/* Le bilan des soirées : ses deux graphiques l'un sous l'autre, côte à côte à l'ordinateur. */
+.qg-deux { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+/* Le titre d'une carte et sa ligne d'explication l'un sous l'autre : côte à côte, l'une passait à la ligne et l'autre non, et deux graphiques voisins ne partaient plus de la même hauteur. */
+.qg-carte-tete-pile { flex-direction: column; align-items: flex-start; gap: 2px; }
+/* Une rangée de barres d'une seule série, dans l'écran nocturne : l'or des
+   soirées, vérifié sur ce fond. Le chiffre sur la barre, en sans-serif — en
+   Cormorant, il paraissait plus petit que les noms dessous —, le bout
+   arrondi, la base carrée, et le fond entre deux barres. La zone garde en
+   haut la place du chiffre de la plus haute ; la ligne de base court sous
+   toute la rangée, au bas des zones (140 px). */
+.qg-barres { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; background: linear-gradient(var(--edge), var(--edge)) no-repeat 0 139px / 100% 1px; }
+.qg-barre { display: flex; flex-direction: column; align-items: stretch; gap: 6px; min-width: 0; }
+.qg-barre-zone { box-sizing: border-box; height: 140px; padding-top: 22px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.qg-barre-n { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.qg-barre-trait { flex: none; width: min(100%, 32px); min-height: 3px; border-radius: 4px 4px 0 0; background: var(--mode-soiree); }
+.qg-barre-nom { font-size: 0.75rem; color: var(--muted); text-align: center; white-space: nowrap; }
+/* Le tableau du mois : le salon à gauche, et il se replie ; les questions à l'ordinateur seulement — au téléphone, le salon n'avait plus de place. */
+.qg-tableau .qg-tableau-texte { text-align: left; white-space: normal; }
+.qg-tableau .qg-colonne-large { display: none; }
 @media (min-width: 1101px) {
   /* La barre de côté dans la première colonne, l'en-tête et la page dans la
      seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
@@ -9556,7 +9582,12 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qg-soiree { grid-template-columns: 36px minmax(0, 1fr) auto; }
   .qg-soiree > .qg-etat { grid-column: 3; }
+  .qg-soiree:has(> .qg-soiree-geste) { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
+  .qg-soiree > .qg-soiree-geste { grid-column: 4; }
   .qg-sommaire { display: none; }
+  .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-deux { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .qg-tableau .qg-colonne-large { display: table-cell; }
 }
 @media (min-width: 1400px) {
   .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }

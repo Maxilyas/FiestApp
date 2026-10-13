@@ -394,13 +394,14 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
   // Le direct : une soirée en cours, l'autre laissée en plan ; le miroir à jour.
   assert.match(html, /<span class="admin-cadran-chiffre num">1<\/span><span class="admin-cadran-nom">soirée en cours<\/span><span class="admin-cadran-detail">et 1 laissée en plan<\/span>/)
   assert.match(html, /miroir à jour · Turso 84 ms/)
-  // Ce qui attend un geste, le plus pressé d'abord ; ce qui a sa page s'ouvre d'un toucher, le reste se lit.
+  // Ce qui attend un geste, le plus pressé d'abord ; ce qui a sa page s'ouvre d'un toucher, le reste se lit
+  // — la soirée laissée en plan, sur la page des soirées qui la clôt.
   const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne">.*?<b>([^<]+)<\/b>/g)].map(m => [m[1] === 'div' ? 'lu' : 'ouvre', m[2]])
   assert.deepEqual(lignes, [
     ['ouvre', 'La réserve du quiz du jour'],
     ['ouvre', 'Signalements du quiz du jour'],
     ['ouvre', 'Une copie à relire'],
-    ['lu', 'Une soirée laissée en plan'],
+    ['ouvre', 'Une soirée laissée en plan'],
   ])
   // Les tuiles : le chiffre, l'écart qui se dit aussi au lecteur d'écran.
   assert.match(html, /5 %<span class="sr-only"> de plus que d’habitude<\/span>/)

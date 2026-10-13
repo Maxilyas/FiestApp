@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import express from 'express'
 import Database from 'better-sqlite3'
-import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecrire, inscrireProfil, qcm, type Banc } from './banc'
-import { GESTES_PAR_PAGE, gestesParJour, type GesteDuQg, type JournalDuQg } from '../../shared/qg'
+import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecrire, inscrireProfil, invite, qcm, type Banc } from './banc'
+import { EN_PLAN_MS, GESTES_PAR_PAGE, gestesParJour, type DirectDuQg, type GesteDuQg, type JournalDuQg } from '../../shared/qg'
 import { JournalDesGestes, journaliser, noterLeGeste } from '../src/core/journalDesGestes'
 
 // L'application Express du serveur, attrapée à sa première requête.
@@ -45,7 +45,8 @@ function notes(banc: Banc): { route: string; sorte: string; resume: string; cibl
 }
 
 test('chaque route de l’administration qui change quelque chose se note avec sa phrase — lue dans le routeur', async () => {
-  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40) })
+  const horloge = { decalage: 0 }
+  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), horlogeDuJour: () => Date.now() + horloge.decalage })
   try {
     const admin = await connexionAnimateur(banc.url)
     const ok = (r: { status: number; corps: any }, quoi: string) => assert.ok(r.status < 300, `${quoi} : ${r.status} ${r.corps?.error ?? ''}`)
@@ -89,6 +90,13 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
 
+    // Une soirée laissée en plan : un invité arrive, puis plus un geste pendant six heures.
+    const zoe = await invite(banc.url, 'Zoé', '🐼')
+    const enPlan = (await lire<DirectDuQg>(banc, admin, '/api/admin/qg/direct')).corps.soirees[0].spaceId
+    horloge.decalage = EN_PLAN_MS + 60_000
+    ok(await faire(banc, admin, `/api/admin/soirees/${enPlan}/clore`), 'clore la soirée en plan')
+    zoe.socket.disconnect()
+
     // La campagne : garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/garder', { questionId: 'essai001' }), 'garder en campagne')
     ok(await faire(banc, admin, '/api/admin/campagne/retirer', { questionId: 'essai002' }), 'retirer en campagne')
@@ -106,8 +114,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
           .map(m => `${m.toUpperCase()} ${r.path}`)
       }),
     )
-    // Pas une liste vide : les espaces, les profils, le catalogue, le quiz du jour et la campagne y sont.
-    assert.ok(routes.size >= 17, `${routes.size} routes trouvées`)
+    // Pas une liste vide : les espaces, les profils, le catalogue, le quiz du jour, la campagne et les soirées y sont.
+    assert.ok(routes.size >= 18, `${routes.size} routes trouvées`)
     const gestes = notes(banc)
     assert.deepEqual([...new Set(gestes.map(g => g.route))].sort(), [...routes].sort(), 'chaque route jouée, et rien d’autre')
     assert.deepEqual(
@@ -131,6 +139,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Copie publiée au catalogue : « Les capitales », d’Antoine',
       'Profil masqué du classement du quiz du jour : Léa (@lea)',
       'Liste collée au quiz du jour : 1 question ajoutée',
+      'Soirée laissée en plan close : Antoine — rien n’avait été joué',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -147,6 +156,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // Ce que visait un geste sur un joueur : son profil, pour la fiche qui relira les siens.
     assert.equal(gestes.find(g => g.resume.startsWith('Profil masqué'))?.cible, idLea)
     assert.equal(gestes.find(g => g.resume === 'Profil supprimé : Tom (@tom)')?.cible, idTom)
+    assert.equal(gestes.find(g => g.resume.startsWith('Soirée laissée en plan'))?.cible, enPlan)
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.
     const journal = (await lire<JournalDuQg>(banc, admin, '/api/admin/gestes')).corps

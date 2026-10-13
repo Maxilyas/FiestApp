@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
@@ -19,6 +19,7 @@ import {
   type CompteDuJour,
   type DirectDuQg,
   type ParticipationsDuJour,
+  type SoireeDuQg,
   type VueDEnsemble,
 } from '../../../shared/qg'
 
@@ -57,7 +58,7 @@ export function VueDEnsembleDuQg({
       <ATraiter choses={choses} chargement={!vue && !direct && !vueEnPanne} ouvrir={ouvrir} />
       <Aujourdhui vue={vue} />
       <Participations vue={vue} enPanne={vueEnPanne} />
-      <SoireesEnCours direct={direct} />
+      <SoireesEnCours direct={direct} ouvrir={() => ouvrir('soirees')} />
       <LeServeur direct={direct} vue={vue} />
     </div>
   )
@@ -110,7 +111,7 @@ function EnCeMoment({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: b
   )
 }
 
-/** Un chiffre du direct : un tiret tant qu'il n'est pas arrivé. Il se lit, il ne s'ouvre pas — le direct n'a pas encore ses pages. */
+/** Un chiffre du direct : un tiret tant qu'il n'est pas arrivé. Il se lit, il ne s'ouvre pas — les soirées mènent à leur page par leur carte, plus bas. */
 function Cadran({ chiffre, nom, detail, alerte }: { chiffre?: number; nom: string; detail?: string; alerte?: boolean }) {
   return (
     <div className={'admin-cadran admin-cadran-fixe' + (alerte ? ' admin-cadran-alerte' : '')}>
@@ -422,7 +423,7 @@ function Graphe({ jours, choisi, choisir }: { jours: ParticipationsDuJour[]; cho
 
 // ── Les soirées en cours ──────────────────────────────────────────────────
 
-function SoireesEnCours({ direct }: { direct: DirectDuQg | null }) {
+function SoireesEnCours({ direct, ouvrir }: { direct: DirectDuQg | null; ouvrir: () => void }) {
   const soirees = direct?.soirees ?? []
   return (
     <section className="qg-carte qg-soirees" aria-labelledby="qg-soirees-titre">
@@ -437,38 +438,54 @@ function SoireesEnCours({ direct }: { direct: DirectDuQg | null }) {
       ) : (
         <ul className="qg-liste">
           {soirees.map(s => (
-            <li key={s.spaceId} className={'qg-soiree' + (s.etat === 'en-plan' ? ' qg-soiree-en-plan' : '')}>
-              <span className="qg-avatar" aria-hidden="true">
-                {s.salon.avatar ?? <Icon name="home" />}
-              </span>
-              <span className="qg-ligne-texte">
-                <b>{s.salon.nom}</b>
-                <span className="muted small">
-                  {ouEnEstLaSoiree(s)} ·{' '}
-                  {s.etat === 'en-plan' ? `sans un geste depuis ${dureeEcrite(direct.maintenant - s.dernierSigne)}` : `depuis ${dureeEcrite(direct.maintenant - s.depuis)}`}
-                </span>
-                <span className="small">
-                  {formatNumber(s.connectes)} sur {formatNumber(s.inscrits)} connecté{s.inscrits > 1 ? 's' : ''}
-                  {s.etat === 'en-cours' && !s.ecran && ' · aucun écran branché'}
-                </span>
-              </span>
-              {/* Au téléphone, sous le texte ; à l'ordinateur, au bout de la ligne. */}
-              {s.sauvegardeEnRetard ? (
-                <span className="qg-etat qg-etat-alerte">
-                  <Icon name="alert" />
-                  sauvegarde en retard
-                </span>
-              ) : (
-                <span className="qg-etat qg-etat-ok">
-                  <Icon name="check-circle" />
-                  sauvegardée
-                </span>
-              )}
-            </li>
+            <LigneDeSoiree key={s.spaceId} s={s} maintenant={direct.maintenant} />
           ))}
         </ul>
       )}
+      <button type="button" className="lien-discret qg-suite" onClick={ouvrir}>
+        Toutes les soirées
+        <Icon name="chevron-right" />
+      </button>
     </section>
+  )
+}
+
+/**
+ * Une soirée pas encore close : son salon, où elle en est, depuis quand,
+ * combien de téléphones, sa sauvegarde — et, sur la page des soirées, le
+ * geste qui la clôt (`children`). Des chiffres seulement.
+ */
+export function LigneDeSoiree({ s, maintenant, children }: { s: SoireeDuQg; maintenant: number; children?: ReactNode }) {
+  return (
+    <li className={'qg-soiree' + (s.etat === 'en-plan' ? ' qg-soiree-en-plan' : '')}>
+      <span className="qg-avatar" aria-hidden="true">
+        {s.salon.avatar ?? <Icon name="home" />}
+      </span>
+      <span className="qg-ligne-texte">
+        <b>{s.salon.nom}</b>
+        <span className="muted small">
+          {ouEnEstLaSoiree(s)} ·{' '}
+          {s.etat === 'en-plan' ? `sans un geste depuis ${dureeEcrite(maintenant - s.dernierSigne)}` : `depuis ${dureeEcrite(maintenant - s.depuis)}`}
+        </span>
+        <span className="small">
+          {formatNumber(s.connectes)} sur {formatNumber(s.inscrits)} connecté{s.inscrits > 1 ? 's' : ''}
+          {s.etat === 'en-cours' && !s.ecran && ' · aucun écran branché'}
+        </span>
+      </span>
+      {/* Au téléphone, sous le texte ; à l'ordinateur, au bout de la ligne. */}
+      {s.sauvegardeEnRetard ? (
+        <span className="qg-etat qg-etat-alerte">
+          <Icon name="alert" />
+          sauvegarde en retard
+        </span>
+      ) : (
+        <span className="qg-etat qg-etat-ok">
+          <Icon name="check-circle" />
+          sauvegardée
+        </span>
+      )}
+      {children && <span className="qg-soiree-geste">{children}</span>}
+    </li>
   )
 }
 

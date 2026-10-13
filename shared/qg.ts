@@ -1,7 +1,8 @@
 // Le QG de l'administrateur (`/admin`) : ce qu'il montre se dérive ici, à
 // l'écart des magasins qui le lisent — la vue d'ensemble, le direct, ce qui
-// attend un geste. Des dérivations pures : le serveur les calcule, le client
-// les écrit, les tests les jouent l'horloge à la main.
+// attend un geste, le bilan des soirées, le journal des gestes. Des
+// dérivations pures : le serveur les calcule, le client les écrit, les tests
+// les jouent l'horloge à la main.
 //
 // Des chiffres, jamais un contenu : des soirées des autres, le QG ne voit ni
 // les quiz, ni les questions, ni les prénoms des invités — seulement où elles
@@ -394,7 +395,7 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'jour' | 'campagne' | 'catalogue' | null
+  ecran: 'soirees' | 'jour' | 'campagne' | 'catalogue' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
@@ -461,7 +462,8 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       alerte: false,
       titre: 'Une soirée laissée en plan',
       detail: `${s.salon.nom}, ${pluriel(s.inscrits, 'invité')}`,
-      ecran: null,
+      // La page des soirées la clôt.
+      ecran: 'soirees',
     })
   }
   if (vue?.rappel && vue.rappel.echecs > 0) {
@@ -476,18 +478,140 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   return choses
 }
 
+// ── La page des soirées ───────────────────────────────────────────────────
+
+/** Quand on joue, et la taille des salles, se lisent sur quatre-vingt-dix jours : trente n'en disent pas assez — quatre samedis. */
+export const JOURS_DES_SOIREES = 90
+
+/** Les jours de la semaine, lundi d'abord : le nom que lit le lecteur d'écran, et celui qui tient sous une barre au téléphone. */
+export const JOURS_DE_LA_SEMAINE = [
+  { nom: 'lundi', court: 'lun.' },
+  { nom: 'mardi', court: 'mar.' },
+  { nom: 'mercredi', court: 'mer.' },
+  { nom: 'jeudi', court: 'jeu.' },
+  { nom: 'vendredi', court: 'ven.' },
+  { nom: 'samedi', court: 'sam.' },
+  { nom: 'dimanche', court: 'dim.' },
+] as const
+
+/** Le jour de la semaine d'un instant, du lundi (0) au dimanche (6) : lu dans le jour de Paris, jamais dans celui du serveur. */
+export function jourDeLaSemaine(instant: number): number {
+  const [annee, mois, quantieme] = jourDe(instant).split('-').map(Number)
+  return (new Date(Date.UTC(annee, mois - 1, quantieme)).getUTCDay() + 6) % 7
+}
+
+/**
+ * La taille d'une salle : les invités qui y ont joué, par tranches de cinq, et
+ * une seule au-delà de vingt — le nom entier pour le lecteur d'écran, le court
+ * sous une barre.
+ */
+export const TRANCHES_DE_SALLE = [
+  { jusqua: 5, nom: '1 à 5 invités', court: '1 à 5' },
+  { jusqua: 10, nom: '6 à 10 invités', court: '6 à 10' },
+  { jusqua: 15, nom: '11 à 15 invités', court: '11 à 15' },
+  { jusqua: 20, nom: '16 à 20 invités', court: '16 à 20' },
+  { jusqua: Infinity, nom: '21 invités et plus', court: '21 et +' },
+] as const
+
+export function trancheDeSalle(joueurs: number): number {
+  return TRANCHES_DE_SALLE.findIndex(t => joueurs <= t.jusqua)
+}
+
+/** Une soirée de l'historique, telle que le QG la voit : son salon et ses chiffres — ni son titre, ni un prénom d'invité. */
+export interface SoireeRangeeDuQg {
+  /** Son nom : sa date et deux empreintes, rien de ce que son animateur a écrit (`archiveIdOf`). */
+  id: string
+  spaceId: string
+  salon: SoireeDuQg['salon']
+  /** Sa première question jouée. */
+  quand: number
+  /** Les invités qui y ont joué. */
+  invites: number
+  quiz: number
+  questions: number
+  /** Pas encore close : elle se joue encore, ou on l'a laissée en plan. */
+  ouverte: boolean
+}
+
+/** Ce que le bilan lit d'une soirée. */
+export interface ChiffresDUneSoiree {
+  quand: number
+  /** Les invités qui y ont joué. */
+  joueurs: number
+  quiz: number
+  questions: number
+}
+
+export interface BilanDesSoirees {
+  /** Les trente derniers jours, aujourd'hui compris — et combien de soirées les trente d'avant. */
+  trenteJours: { soirees: number; avant: number; invites: number; quiz: number; questions: number; invitesMediane: number | null }
+  /** Les soirées des quatre-vingt-dix jours, par jour de la semaine de leur première question, lundi d'abord. */
+  parJourDeLaSemaine: number[]
+  /** Les mêmes, par taille de salle (`TRANCHES_DE_SALLE`). */
+  parTaille: number[]
+}
+
+export interface PageDesSoirees extends BilanDesSoirees {
+  maintenant: number
+  /** Les soirées des trente jours, la plus récente d'abord. */
+  historique: SoireeRangeeDuQg[]
+}
+
+/** La médiane : une salle de quatre-vingts ne la tire pas à elle comme une moyenne. Null sans valeur. */
+function mediane(valeurs: readonly number[]): number | null {
+  if (valeurs.length === 0) return null
+  const triees = [...valeurs].sort((a, b) => a - b)
+  const milieu = Math.floor(triees.length / 2)
+  return triees.length % 2 === 1 ? triees[milieu] : (triees[milieu - 1] + triees[milieu]) / 2
+}
+
+/**
+ * Ce que disent les soirées : les trente derniers jours en chiffres, puis
+ * quand on joue et la taille des salles, sur quatre-vingt-dix. `minuits`
+ * vient de `minuitsDeParis(maintenant, JOURS_DES_SOIREES)` ; une soirée compte
+ * au jour de sa première question.
+ */
+export function bilanDesSoirees(soirees: readonly ChiffresDUneSoiree[], minuits: readonly number[], maintenant: number): BilanDesSoirees {
+  const n = minuits.length
+  const debutDuMois = minuits[Math.max(0, n - JOURS_DU_QG)]
+  const debutDAvant = minuits[Math.max(0, n - 2 * JOURS_DU_QG)]
+  const vues = soirees.filter(s => s.quand >= minuits[0] && s.quand <= maintenant)
+  const duMois = vues.filter(s => s.quand >= debutDuMois)
+  const somme = (f: (s: ChiffresDUneSoiree) => number) => duMois.reduce((t, s) => t + f(s), 0)
+  const parJourDeLaSemaine = JOURS_DE_LA_SEMAINE.map(() => 0)
+  const parTaille = TRANCHES_DE_SALLE.map(() => 0)
+  for (const s of vues) {
+    parJourDeLaSemaine[jourDeLaSemaine(s.quand)]++
+    // Une fiche d'avant les fiches ne compte personne : elle n'a pas de taille.
+    if (s.joueurs > 0) parTaille[trancheDeSalle(s.joueurs)]++
+  }
+  return {
+    trenteJours: {
+      soirees: duMois.length,
+      avant: vues.filter(s => s.quand >= debutDAvant && s.quand < debutDuMois).length,
+      invites: somme(s => s.joueurs),
+      quiz: somme(s => s.quiz),
+      questions: somme(s => s.questions),
+      invitesMediane: mediane(duMois.filter(s => s.joueurs > 0).map(s => s.joueurs)),
+    },
+    parJourDeLaSemaine,
+    parTaille,
+  }
+}
+
 // ── Le journal des gestes ─────────────────────────────────────────────────
 
 /**
  * Ce que l'administrateur fait d'ici se note — un profil supprimé, un salon
- * renommé, une question retirée —, rangé par ce que le geste touche : la page
- * du journal filtre par là. « Autre » : une route qui n'a pas dit sa phrase
- * (`server/src/core/journalDesGestes.ts`).
+ * renommé, une question retirée, une soirée laissée en plan close —, rangé par
+ * ce que le geste touche : la page du journal filtre par là. « Autre » : une
+ * route qui n'a pas dit sa phrase (`server/src/core/journalDesGestes.ts`).
  */
-export const SORTES_DE_GESTES = ['profil', 'salon', 'catalogue', 'jour', 'campagne', 'autre'] as const
+export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'autre'] as const
 export type SorteDeGeste = (typeof SORTES_DE_GESTES)[number]
 
 export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
+  soiree: 'Soirées',
   profil: 'Profils',
   salon: 'Salons',
   catalogue: 'Catalogue',

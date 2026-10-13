@@ -429,7 +429,11 @@ export class ArchiveStore {
    * démarrage, et rien n'est migré.
    */
   async init(defaultSpace: string) {
-    await this.client.execute(`CREATE TABLE IF NOT EXISTS soirees (${SOIREES_COLUMNS})`)
+    // Le QG lit les soirées par date, tous espaces confondus (`soireesDepuis`) :
+    // sans index, l'historique entier à chaque lecture. Posé dans le même lot
+    // que la table — pas un aller-retour de plus au réveil.
+    const parDate = 'CREATE INDEX IF NOT EXISTS idx_soirees_held_at ON soirees(held_at)'
+    await this.client.batch([`CREATE TABLE IF NOT EXISTS soirees (${SOIREES_COLUMNS})`, parDate], 'write')
     const colonnes = (await this.client.execute('PRAGMA table_info(soirees)')).rows.map(c => String(c.name))
     if (colonnes.includes('space_id')) return
     // Une table qu'on vient de créer et dont le schéma revient vide : la base
@@ -445,6 +449,8 @@ export class ArchiveStore {
         },
         'DROP TABLE soirees',
         'ALTER TABLE soirees_v2 RENAME TO soirees',
+        // L'index de la table d'avant est parti avec elle.
+        parDate,
       ],
       'write',
     )
@@ -682,19 +688,25 @@ export class ArchiveStore {
   }
 
   /**
-   * Les soirées commencées depuis un instant, tous espaces confondus, et
-   * combien d'invités y ont joué — avec ou sans profil : le QG en tire la
-   * participation des soirées. Lu dans les fiches, jamais dans les archives,
-   * et sans un prénom. Une fiche d'avant les fiches ne compte personne.
+   * Les soirées commencées depuis un instant, tous espaces confondus, et leurs
+   * chiffres — combien d'invités y ont joué, avec ou sans profil, combien de
+   * quiz et de questions : le QG en tire la participation des soirées et leur
+   * bilan. Lu dans les fiches, jamais dans les archives, et sans un prénom ni
+   * un titre. Une fiche d'avant les fiches ne compte rien.
    */
-  async joueursDepuis(depuis: number): Promise<{ spaceId: string; id: string; quand: number; joueurs: number }[]> {
+  async soireesDepuis(depuis: number): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number }[]> {
     const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
-    return res.rows.map(r => ({
-      spaceId: String(r.space_id),
-      id: String(r.id),
-      quand: Number(r.held_at),
-      joueurs: lireFiche(String(r.summary))?.invites.filter(i => i.joue).length ?? 0,
-    }))
+    return res.rows.map(r => {
+      const fiche = lireFiche(String(r.summary))
+      return {
+        spaceId: String(r.space_id),
+        id: String(r.id),
+        quand: Number(r.held_at),
+        joueurs: fiche?.invites.filter(i => i.joue).length ?? 0,
+        quiz: fiche?.quiz ?? 0,
+        questions: fiche?.questions ?? 0,
+      }
+    })
   }
 
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */

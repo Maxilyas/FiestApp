@@ -7,9 +7,17 @@ import { gestesParJour, heureEcrite, NOM_DE_LA_SORTE, type GesteDuQg, type Sorte
 
 /** Les filtres du journal : tout, ou une sorte de gestes. « Autre » ne se filtre pas : il n'existe que si une route a oublié sa phrase. */
 type Filtre = 'tous' | Exclude<SorteDeGeste, 'autre'>
-const FILTRES: readonly Filtre[] = ['tous', 'profil', 'salon', 'catalogue', 'jour', 'campagne']
+const FILTRES: readonly Filtre[] = ['tous', 'soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne']
 
-const ICONE: Record<SorteDeGeste, IconName> = { profil: 'users', salon: 'home', catalogue: 'globe', jour: 'sun', campagne: 'target', autre: 'clipboard' }
+const ICONE: Record<SorteDeGeste, IconName> = {
+  soiree: 'glass',
+  profil: 'users',
+  salon: 'home',
+  catalogue: 'globe',
+  jour: 'sun',
+  campagne: 'target',
+  autre: 'clipboard',
+}
 
 /**
  * Le journal des gestes (`/admin#journal`) : ce que l'administrateur a fait
@@ -67,8 +75,8 @@ export function QgJournal() {
   return (
     <>
       <p className="muted small">
-        Ce que tu as fait d’ici, du plus récent au plus ancien. Chaque geste qui change quelque chose s’y note de lui-même : un profil
-        supprimé, un salon renommé, une question retirée pour tous.
+        Ce que tu as fait d’ici, du plus récent au plus ancien. Chaque geste qui change quelque chose s’y note de lui-même : une soirée
+        laissée en plan close, un profil supprimé, un salon renommé, une question retirée pour tous.
       </p>
       <Onglets
         onglets={FILTRES.map(f => ({ id: f, nom: f === 'tous' ? 'Tous' : NOM_DE_LA_SORTE[f] }))}

@@ -40,7 +40,7 @@ import { erreurDeRequete, repondreErreur } from './core/http'
 import { ecrireAttente, espaceDeLEntree, pageDEntree, prechargerDonnees } from './core/page'
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
-import { wireSockets } from './sockets'
+import { cloreLaSoiree, wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
@@ -1035,7 +1035,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
-    qg: { db, registry, io, backup, charge, env: opts.appEnv ?? 'production', version: opts.version ?? null },
+    qg: {
+      db,
+      registry,
+      io,
+      backup,
+      charge,
+      env: opts.appEnv ?? 'production',
+      version: opts.version ?? null,
+      // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
+      clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
+    },
     gestes,
     online: !!opts.online,
     publicOrigin: allowedOrigin,

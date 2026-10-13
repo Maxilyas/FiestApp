@@ -8,6 +8,7 @@ import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
+import { QgSoirees } from '../components/QgSoirees'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -23,10 +24,10 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
  * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
  * (`QgVueDEnsemble.tsx`) et le journal de ses gestes (`QgJournal.tsx`), puis
- * une page par sujet, chacune à son adresse (`/admin#jour`) : le quiz du
- * jour, la campagne, les profils, les salons, le catalogue. Au téléphone, la
- * liste des pages sous la vue d'ensemble et la barre du menu ; à
- * l'ordinateur, une barre de côté.
+ * une page par sujet, chacune à son adresse (`/admin#jour`) : les soirées
+ * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
+ * le catalogue. Au téléphone, la liste des pages sous la vue d'ensemble et
+ * la barre du menu ; à l'ordinateur, une barre de côté.
  *
  * Il remplace une page à la manière de « Mon compte » (le 3 octobre 2026) —
  * quatre cadrans et cinq lignes —, qui ne disait rien de ce qui se jouait.
@@ -35,8 +36,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
-const ECRANS: readonly Ecran[] = ['journal', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
+type Ecran = 'journal' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
+const ECRANS: readonly Ecran[] = ['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -47,6 +48,7 @@ function lireEcran(): Ecran | null {
 
 const TITRE: Record<Ecran, string> = {
   journal: 'Le journal',
+  soirees: 'Les soirées',
   profils: 'Les profils',
   salons: 'Les salons',
   catalogue: 'Le catalogue',
@@ -56,8 +58,8 @@ const TITRE: Record<Ecran, string> = {
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
- * pages qui existent : les soirées, les duels, l'économie et « Animer »
- * la rejoindront à leur tour.
+ * pages qui existent : les duels, l'économie et « Animer » la rejoindront à
+ * leur tour.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -70,6 +72,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   {
     groupe: 'Les modes',
     pages: [
+      { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
     ],
@@ -239,7 +242,9 @@ export function AdminApp() {
   const reserve = vue?.aTraiter.reserve
   const signalements = vue?.aTraiter.signalementsDeLaCampagne.questions ?? 0
   const aRelire = vue?.aTraiter.catalogue ?? 0
-  const comptes: Partial<Record<Ecran, number>> = { profils, salons: espaces?.length }
+  const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
+  const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
+  const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, salons: espaces?.length }
 
   return (
     <div className="player-shell compte admin qg">
@@ -311,6 +316,18 @@ export function AdminApp() {
               </h2>
               <ul className="style-liste">
                 <Ligne
+                  icone="glass"
+                  nom="Les soirées"
+                  valeur={
+                    enPlan > 0
+                      ? `${enPlan} laissée${enPlan > 1 ? 's' : ''} en plan`
+                      : enCours
+                        ? `${enCours} en cours`
+                        : 'Le bilan du mois'
+                  }
+                  onClick={() => aller('soirees')}
+                />
+                <Ligne
                   icone="sun"
                   nom="Le quiz du jour"
                   valeur={reserve ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance` : 'La réserve'}
@@ -331,6 +348,8 @@ export function AdminApp() {
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
+        {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
+        {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
