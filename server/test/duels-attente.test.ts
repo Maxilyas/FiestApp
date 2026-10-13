@@ -26,8 +26,10 @@ ProfileStore.tirageEclat = () => false
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
-/** Ce que la base permanente a servi pendant une mesure. */
-const compte = { actif: false, appels: 0, finis: 0, sqls: [] as string[] }
+/** Ce que la base permanente a servi pendant une mesure : chaque lecture, et ses lignes. */
+const compte = { actif: false, mesure: 0, appels: 0, finis: 0, sqls: [] as string[], lectures: [] as { sql: string; lignes: number }[] }
+
+const enClair = (s: unknown) => (typeof s === 'string' ? s : (s as { sql: string }).sql).replace(/\s+/g, ' ').trim().slice(0, 70)
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
@@ -35,25 +37,30 @@ for (const methode of ['execute', 'batch'] as const) {
   proto[methode] = async function (this: unknown, ...args: unknown[]) {
     // Un aller-retour dure au moins un tour de boucle, comme sur le réseau :
     // ce qui part ensemble est en vol ensemble, et le rang d'un appel dit
-    // combien d'allers-retours il a attendus (`enSerie`).
+    // combien d'allers-retours il a attendus (`enSerie`). Seuls comptent ceux
+    // qui partent pendant la mesure : une clôture de fond lancée par la
+    // requête d'avant n'est pas à elle.
+    const mesure = compte.actif ? compte.mesure : 0
     const rang = compte.finis + 1
-    if (compte.actif) await new Promise<void>(r => setImmediate(r))
+    if (mesure) await new Promise<void>(r => setImmediate(r))
     const res = await origine.apply(this, args)
-    if (compte.actif) {
+    if (mesure && compte.actif && mesure === compte.mesure) {
       compte.appels++
       compte.finis = Math.max(compte.finis, rang)
-      const premiere = (methode === 'batch' ? (args[0] as unknown[])[0] : args[0]) as string | { sql: string }
-      compte.sqls.push(`${rang}. ${(typeof premiere === 'string' ? premiere : premiere.sql).replace(/\s+/g, ' ').trim().slice(0, 70)}`)
+      const instructions = methode === 'batch' ? (args[0] as unknown[]) : [args[0]]
+      compte.sqls.push(`${rang}. ${enClair(instructions[0])}`)
+      const resultats = (methode === 'batch' ? res : [res]) as { rows: unknown[] }[]
+      resultats.forEach((r, i) => compte.lectures.push({ sql: enClair(instructions[i]), lignes: r.rows.length }))
     }
     return res
   }
 }
 
-async function mesurer<T>(travail: () => Promise<T>): Promise<{ appels: number; enSerie: number; sqls: string[]; resultat: T }> {
-  Object.assign(compte, { actif: true, appels: 0, finis: 0, sqls: [] })
+async function mesurer<T>(travail: () => Promise<T>): Promise<{ appels: number; enSerie: number; sqls: string[]; lectures: { sql: string; lignes: number }[]; resultat: T }> {
+  Object.assign(compte, { actif: true, mesure: compte.mesure + 1, appels: 0, finis: 0, sqls: [], lectures: [] })
   try {
     const resultat = await travail()
-    return { appels: compte.appels, enSerie: compte.finis, sqls: compte.sqls, resultat }
+    return { appels: compte.appels, enSerie: compte.finis, sqls: compte.sqls, lectures: compte.lectures, resultat }
   } finally {
     compte.actif = false
   }
@@ -83,10 +90,11 @@ before(async () => {
   banc = await demarrer({ baseDeLaCampagne: base, prechauffageCampagneMs: 3_600_000 })
   cookie = await inscrireProfil(banc.url, 'lea', 'Léa')
   const profileId = ((await lire('/api/joueur/moi?leger')) as any).profile.id as string
-  // Trois séries finies d'avant, écrites dans la base permanente : son niveau, ce qu'il a vu.
+  // Trois séries finies d'avant, écrites dans la base permanente : son niveau,
+  // et cent vingt questions qu'il a vues — un fidèle en a des milliers.
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   const serie = db.prepare(
-    `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 12, 0, 9, ?, ?, 'serie')`,
+    `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 40, 0, 30, ?, ?, 'serie')`,
   )
   const reponse = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, 0, ?, ?)')
   db.transaction(() => {
@@ -94,10 +102,12 @@ before(async () => {
       const id = randomUUID()
       const quand = Date.now() - (3 - s) * 86400_000
       serie.run(id, profileId, quand - 600_000, quand)
-      for (let p = 0; p < 12; p++) reponse.run(id, p, base.questions[s * 12 + p].id, p < 9 ? 1 : 0, quand - 600_000 + p * 10_000)
+      for (let p = 0; p < 40; p++) reponse.run(id, p, base.questions[s * 40 + p].id, p < 30 ? 1 : 0, quand - 600_000 + p * 10_000)
     }
   })()
   db.close()
+  // La réserve du quiz du jour lue une fois, comme sur un serveur réveillé depuis un moment : la mesure du dé ne compte que lui.
+  await lire('/api/campagne/choix')
 })
 
 after(() => banc.close())
@@ -109,6 +119,13 @@ test('le dé lit d’un aller-retour sa rencontre laissée, sa cote, ses séries
   assert.ok(m.resultat.serie.question, 'une question à jouer')
   assert.equal(m.resultat.adversaire.nom, 'Automate')
   assert.equal(m.enSerie, 2, `${m.enSerie} allers-retours l’un derrière l’autre :\n${m.sqls.join('\n')}`)
+  // Ce qu'il a vu, et ce que tous ont trouvé, en un texte chacun : une ligne par
+  // question — des milliers pour un fidèle — se décodait ligne à ligne, à
+  // chaque dé (2,3 ms au lieu de 9,6 pour trois mille, et trois fois moins à
+  // transférer).
+  const parQuestion = m.lectures.filter(l => l.lignes >= 100)
+  assert.deepEqual(parQuestion, [], `une ligne par question vue ou mesurée :\n${m.lectures.map(l => `${l.lignes} · ${l.sql}`).join('\n')}`)
+  assert.ok(m.lectures.some(l => /json_group_object/.test(l.sql) && l.lignes === 1), 'ce qu’il a vu, d’un seul texte')
 
   // Laissée en route, elle se reprend d'un seul aller-retour, sans rien écrire.
   const reprise = await mesurer(() => poster('/api/campagne/rencontre'))
@@ -127,6 +144,37 @@ test('« Défier » : ce que la préparation propose — les catégories et les 
   assert.equal(m.appels, 0, `rien de son passé n’y sert :\n${m.sqls.join('\n')}`)
   // Comme toute la campagne : pour les profils.
   assert.equal((await fetch(`${banc.url}/api/campagne/choix`)).status, 401)
+})
+
+// ── La page ───────────────────────────────────────────────────────────────
+
+test('la page des duels s’ouvre d’un aller-retour, ses duels contre quelqu’un compris', async () => {
+  // Trois duels lancés contre d'autres : leur liste attendait le premier lot,
+  // dont elle ne dépend pas, puis se lisait en deux fois — trois
+  // allers-retours l'un derrière l'autre à chaque ouverture de la page.
+  for (const login of ['tom', 'hugo', 'ines']) {
+    const autre = await inscrireProfil(banc.url, login, login)
+    const id = ((await (await fetch(`${banc.url}/api/joueur/moi?leger`, { headers: { Cookie: autre } })).json()) as any).profile.id
+    await poster('/api/campagne/duel', { categories: [], adversaire: id })
+  }
+  // Le classement et les profils lus une fois, comme sur un serveur réveillé depuis un moment.
+  assert.equal((await lire('/api/duels')).contre.length, 3)
+  const m = await mesurer(() => lire('/api/duels'))
+  assert.deepEqual(
+    m.resultat.contre.map((d: any) => d.contre.nom).sort(),
+    ['hugo', 'ines', 'tom'],
+  )
+  assert.equal(m.enSerie, 1, `${m.enSerie} allers-retours l’un derrière l’autre :\n${m.sqls.join('\n')}`)
+})
+
+test('au réveil, son profil se charge d’un aller-retour, ses Éclats et ses récompenses avec', async () => {
+  // Sa fiche, puis ses Éclats, puis ses récompenses : trois allers-retours l'un
+  // derrière l'autre à sa première requête après chaque réveil de
+  // l'hébergeur — sur la page des duels, avant tout le reste.
+  await banc.redemarrer()
+  const m = await mesurer(() => lire('/api/campagne/choix'))
+  const duProfil = m.sqls.filter(s => /FROM profiles WHERE|FROM profile_eclats|FROM profile_badges/.test(s))
+  assert.equal(duProfil.length, 1, `son profil en ${duProfil.length} fois :\n${m.sqls.join('\n')}`)
 })
 
 const client = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')

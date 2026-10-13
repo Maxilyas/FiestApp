@@ -338,9 +338,15 @@ test('des profils chargés d’un coup n’écrasent pas celui qui a changé pen
     const batch = client.batch.bind(client)
     let lacher!: () => void
     const retenue = new Promise<void>(r => (lacher = r))
+    // Celle-là seule : le changement d'Alice charge son profil par la même
+    // lecture groupée (`byId`), qui doit passer.
+    let aRetenir = true
     client.batch = async (...args: unknown[]) => {
       const res = await batch(...args)
-      if (JSON.stringify(args[0]).includes('FROM profiles WHERE id IN')) await retenue
+      if (aRetenir && JSON.stringify(args[0]).includes('FROM profiles WHERE id IN')) {
+        aRetenir = false
+        await retenue
+      }
       return res
     }
     const enVol = froid.byIds([alice.id, bob.id, 'inconnu'])

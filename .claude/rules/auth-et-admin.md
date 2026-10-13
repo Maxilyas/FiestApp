@@ -36,6 +36,12 @@ paths:
   inscriptions d'invités, elle, se compte **par espace**
   (`core/inscriptions.ts`) : commune à tout le serveur, la vague d'une salle
   fermait la porte à la salle voisine derrière la même box.
+- **Un profil qui n'est pas en mémoire se charge d'un aller-retour** : sa
+  fiche, ses Éclats et ses récompenses ensemble (`byId` passe par `byIds`).
+  L'un après l'autre, ils coûtaient trois allers-retours à la première
+  requête de chacun après chaque réveil de l'hébergeur (le 13 octobre 2026,
+  `duels-attente.test.ts`). Une fiche lue avant un changement n'écrase pas
+  celle qui est arrivée à jour pendant l'aller-retour (`jour-charge.test.ts`).
 
 ## L'invariant 16, en entier
 

@@ -785,12 +785,19 @@ export class CampagneStore {
     if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.parQuestion
     // Sans les révisions du carnet : elles ne reposent que ce qu'on a raté,
     // dont on a lu la bonne réponse la veille — comptées, elles feraient
-    // passer pour faciles les questions que tout le monde rate une fois.
+    // passer pour faciles les questions que tout le monde rate une fois. En
+    // un seul texte, comme ce qu'il a vu (`lectureDesVues`) : une ligne par
+    // question jouée — onze mille — se décodait sur le chemin de la requête
+    // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes.
     const res = await this.client.execute(
-      `SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
-       WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id`,
+      `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+         SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
+         WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
+       )`,
     )
-    const parQuestion = new Map(res.rows.map(r => [String(r.reserve_id), { justes: Number(r.justes), total: Number(r.total) }]))
+    const texte = res.rows[0]?.mesures
+    const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, [unknown, unknown]>) : {}
+    const parQuestion = new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
     this.mesuresGardees = { a: this.maintenant(), parQuestion }
     return parQuestion
   }
@@ -3116,10 +3123,15 @@ export class CampagneStore {
     )
     const releve = releverLesDuels(duelsLus(duels.rows), semaineDeLInstant)
     const rencontres = res.rows.map(versSerie).filter(s => s.adversaire)
-    const profils = this.profils ? await this.profils.byIds(rencontres.map(s => s.adversaire!.profil)) : []
-    const vu = (s: Serie, i: number): Adversaire => {
+    // Les joueurs qu'il a affrontés au dé, avant Automate : Automate n'a pas de
+    // profil — demandé quand même, son identifiant vide repartait vers la base
+    // à chaque ouverture de la page, introuvable et jamais gardé.
+    const affrontes = [...new Set(rencontres.filter(s => !s.adversaire!.simule).map(s => s.adversaire!.profil))]
+    const lus = affrontes.length > 0 && this.profils ? await this.profils.byIds(affrontes) : []
+    const profilDe = new Map(affrontes.map((id, i) => [id, lus[i] ?? null]))
+    const vu = (s: Serie): Adversaire => {
       if (s.adversaire!.simule) return automateVu(s.adversaire!)
-      const p = profils[i]
+      const p = profilDe.get(s.adversaire!.profil)
       const nomme = p && !this.masque?.(p.id)
       return {
         nom: nomme ? p.name : 'Un joueur',
@@ -3128,25 +3140,23 @@ export class CampagneStore {
         justes: s.adversaire!.reponses.filter(Boolean).length,
       }
     }
-    const i = rencontres.findIndex(s => s.finieLe === null)
-    const ouverte = i >= 0 ? rencontres[i] : null
+    const ouverte = rencontres.find(s => s.finieLe === null) ?? null
     return {
       releve,
       rencontres: {
         enCours: ouverte
           ? {
               serie: vueDeSerie(ouverte),
-              adversaire: enJeu(vu(ouverte, i)),
+              adversaire: enJeu(vu(ouverte)),
               sesJustes: sesJustesAvant(ouverte),
               enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire!), releve.joues),
             }
           : null,
         passees: rencontres
-          .map((s, j) => ({ s, j }))
-          .filter(({ s }) => s.finieLe !== null)
+          .filter(s => s.finieLe !== null)
           .slice(0, RENCONTRES_MONTREES)
-          .map(({ s, j }): ResumeDeRencontre => {
-            const adversaire = vu(s, j)
+          .map((s): ResumeDeRencontre => {
+            const adversaire = vu(s)
             const ecart = releve.ecarts.get(s.id)?.ecart
             return { serie: s.id, adversaire, justes: s.justes, issue: issueDeRencontre(s.justes, adversaire.justes), le: s.finieLe!, ...(ecart !== undefined && { ecart }) }
           }),
@@ -3405,12 +3415,20 @@ export class CampagneStore {
    * La page des duels (`GET /api/duels`) : sa cote et sa ligue, sa semaine —
    * et la passée, si elle a payé —, le classement, son duel en route et ses
    * derniers. Ses rencontres et ses duels d'un aller-retour, le classement
-   * de front.
+   * et ses duels contre quelqu'un de front : ceux-ci attendaient le premier
+   * lot, dont ils ne dépendent pas, puis se lisaient en deux fois — trois
+   * allers-retours l'un derrière l'autre à chaque ouverture de la page (le
+   * 13 octobre 2026 ; `duels-attente.test.ts`).
    */
   async etatDesDuels(profileId: string): Promise<EtatDesDuels> {
-    const [{ rencontres, releve }, classement] = await Promise.all([this.rencontresEtDuels(profileId), this.classementDesDuels(profileId)])
+    const maintenant = this.maintenant()
+    const [{ rencontres, releve }, classement, sesDuels] = await Promise.all([
+      this.rencontresEtDuels(profileId),
+      this.classementDesDuels(profileId),
+      this.client.batch(lecturesDesDuelsContre(profileId, maintenant), 'read'),
+    ])
     // Les cotes de tous, que le classement vient de lire : la ligue de chacun de ses adversaires.
-    const contre = await this.duelsContre(profileId, releve, await this.toutesLesCotes())
+    const contre = await this.duelsContre(profileId, maintenant, sesDuels, releve, await this.toutesLesCotes())
     const passee = releve.semaines.get(this.semaineDeLHeure().passee)
     const payee = recompenseDeLaSemaine(passee)
     return {
@@ -3432,28 +3450,18 @@ export class CampagneStore {
    * les fermés, les plus récents d'abord. Un duel qu'on lui a lancé ne paraît
    * qu'une fois parti : avant la dernière réponse de qui le défie, il
    * n'existe pas pour lui. Le score d'en face ne s'y lit qu'une fois sa
-   * propre tentative finie ; chaque adversaire, sa ligue (`cotes`).
+   * propre tentative finie ; chaque adversaire, sa ligue (`cotes`). Lus d'un
+   * lot (`lecturesDesDuelsContre`).
    */
-  private async duelsContre(profileId: string, releve: ReleveDesDuels, cotes?: ReadonlyMap<string, ReleveDesDuels>): Promise<DuelContre[]> {
-    const maintenant = this.maintenant()
-    const res = await this.client.execute({
-      sql: `SELECT code FROM campagne_duels
-            WHERE adversaire IS NOT NULL AND (auteur = ? OR adversaire = ?) AND cree_le > ?
-            ORDER BY cree_le DESC LIMIT ?`,
-      args: [profileId, profileId, maintenant - 30 * 24 * HEURE_MS, DUELS_MONTRES],
-    })
-    const duels = (await Promise.all(res.rows.map(r => this.duelDe(String(r.code))))).filter((d): d is Duel => d !== null && d.adversaire !== null)
+  private async duelsContre(
+    profileId: string,
+    maintenant: number,
+    [lignes, tentatives, recus]: readonly ResultSet[],
+    releve: ReleveDesDuels,
+    cotes?: ReadonlyMap<string, ReleveDesDuels>,
+  ): Promise<DuelContre[]> {
+    const duels = lignes.rows.map(duelContreLu).filter(d => d.adversaire)
     if (duels.length === 0) return []
-    const [tentatives, recus] = await this.client.batch(
-      [
-        {
-          sql: `SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (${duels.map(() => '?').join(', ')})`,
-          args: duels.map(d => d.code),
-        },
-        { sql: `SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (${duels.map(() => '?').join(', ')})`, args: [profileId, ...duels.map(d => d.code)] },
-      ],
-      'read',
-    )
     const recu = new Set(recus.rows.map(r => String(r.code)))
     const tentative = (code: string, id: string) => tentatives.rows.find(r => String(r.duel) === code && String(r.profile_id) === id)
     const autres = [...new Set(duels.map(d => (d.auteur === profileId ? d.adversaire! : d.auteur)))]
@@ -4676,17 +4684,27 @@ function lectureDesJustes(profileId: string): InStatement {
 /**
  * Les questions qu'il a vues, et quand pour la dernière fois : seule
  * (`vuesPar`), ou dans le lot qui prépare le dé (`commencerUneRencontre`).
+ * En un seul texte (`json_group_object`) : une ligne par question — des
+ * milliers pour un fidèle — se décodait ligne à ligne à chaque série et à
+ * chaque dé, 235 Ko et 9,6 ms pour trois mille, quatre à dix fois plus au
+ * dixième de cœur de l'hébergeur ; en un texte, 79 Ko et 2,3 ms.
  */
 function lectureDesVues(profileId: string): InStatement {
   return {
-    sql: `SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-          WHERE s.profile_id = ? GROUP BY r.reserve_id`,
+    sql: `SELECT json_group_object(reserve_id, le) AS vues FROM (
+            SELECT r.reserve_id, MAX(r.repondue_le) AS le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.profile_id = ? GROUP BY r.reserve_id
+          )`,
     args: [profileId],
   }
 }
 
-/** Des lignes de `lectureDesVues` à ce qu'il a vu, question par question (`parFraicheur`). */
-const vuesLues = (lignes: readonly Record<string, unknown>[]): Map<string, number> => new Map(lignes.map(r => [String(r.reserve_id), Number(r.le)]))
+/** Le texte de `lectureDesVues` à ce qu'il a vu, question par question (`parFraicheur`). */
+function vuesLues(lignes: readonly Record<string, unknown>[]): Map<string, number> {
+  const texte = lignes[0]?.vues
+  const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
+  return new Map(Object.entries(lu).map(([id, le]) => [id, Number(le)]))
+}
 
 /**
  * Ses duels classés finis (`shared/duels.ts`) — ou ceux de tout le monde,
@@ -4723,6 +4741,33 @@ function lectureDesDuels(qui: string | readonly string[] | null, maintenant: num
     args: ids ? [...ids, maintenant, maintenant, ...ids] : [maintenant, maintenant],
   }
 }
+
+/**
+ * Ses duels contre quelqu'un des trente derniers jours, d'un lot (`duelsContre`) :
+ * les duels — sans leurs questions, que la page ne montre pas —, leurs
+ * tentatives, et ceux qui lui sont partis.
+ */
+function lecturesDesDuelsContre(profileId: string, maintenant: number): InStatement[] {
+  const filtre = `adversaire IS NOT NULL AND (auteur = ? OR adversaire = ?) AND cree_le > ? ORDER BY cree_le DESC LIMIT ?`
+  const args = [profileId, profileId, maintenant - 30 * 24 * HEURE_MS, DUELS_MONTRES]
+  const lesSiens = `SELECT code FROM campagne_duels WHERE ${filtre}`
+  return [
+    { sql: `SELECT code, auteur, adversaire, categories, sujet, ferme_le, vu_le FROM campagne_duels WHERE ${filtre}`, args },
+    { sql: `SELECT id, duel, profile_id, justes, finie_le FROM campagne_series WHERE mode = 'duel' AND duel IN (${lesSiens})`, args },
+    { sql: `SELECT code FROM campagne_envois WHERE profile_id = ? AND code IN (${lesSiens})`, args: [profileId, ...args] },
+  ]
+}
+
+/** Un duel contre quelqu'un, tel que `lecturesDesDuelsContre` le lit : ce que sa ligne dit de lui. */
+const duelContreLu = (r: Record<string, unknown>): Pick<Duel, 'code' | 'auteur' | 'categories' | 'sujet' | 'fermeLe' | 'vuLe'> & { adversaire: string } => ({
+  code: String(r.code),
+  auteur: String(r.auteur),
+  adversaire: typeof r.adversaire === 'string' ? r.adversaire : '',
+  categories: lireCategories(r.categories),
+  sujet: typeof r.sujet === 'string' ? r.sujet : null,
+  fermeLe: Number(r.ferme_le),
+  vuLe: r.vu_le === null || r.vu_le === undefined ? null : Number(r.vu_le),
+})
 
 /** Des lignes de `lectureDesDuels` aux duels qu'elles racontent. */
 const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[] =>
