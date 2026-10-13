@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express'
+import { releve } from './pouls'
 
 /** Ce que lit l'utilisateur quand la panne ne le regarde pas. */
 export const ERREUR_SERVEUR = 'Erreur serveur — réessaie dans un instant'
@@ -32,6 +33,8 @@ export function repondreErreur(req: Request, res: Response, e: unknown) {
     return
   }
   console.error(`[http] ${req.method} ${req.path} :`, e)
+  // Au relevé de l'heure, la route sous son modèle — jamais son adresse, qui peut porter un identifiant.
+  releve.erreur(`${req.method} ${typeof req.route?.path === 'string' ? req.route.path : 'hors route'}`)
   if (!res.headersSent) res.status(500).json({ error: ERREUR_SERVEUR })
 }
 
@@ -50,6 +53,7 @@ export const wrap =
 export function messagePourEcran(e: unknown, contexte: string): string {
   if (erreurMontrable(e)) return e.message
   console.error(`[socket] ${contexte} :`, e)
+  releve.erreur(`socket ${contexte}`)
   return ERREUR_SERVEUR
 }
 
@@ -70,5 +74,6 @@ export function erreurDeRequete(err: unknown, req: Request, res: Response, next:
     return
   }
   console.error(`[http] ${req.method} ${req.path} :`, err)
+  releve.erreur('requête illisible')
   res.status(500).json({ error: ERREUR_SERVEUR })
 }

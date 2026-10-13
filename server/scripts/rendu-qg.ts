@@ -7,7 +7,8 @@
 // Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
-// clic ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
+// clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
+// en ligne, un arrêt net hier soir — ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée —, le don qu'on prépare, le code de secours
 // tiré pour elle, et son accueil qui annonce le don, une fois. Le client
 // construit d'abord (`npm run build -w client`).
@@ -19,7 +20,7 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrire, inscrireProfil, invite, lancerQuiz, qcm } from '../test/banc'
-import { jourDe } from '../../shared/jour'
+import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
@@ -107,6 +108,65 @@ try {
       const fiche = { v: 3, invites: Array.from({ length: joueurs + 1 }, (_, i) => ({ id: `i-${i}`, joue: i < joueurs })), quiz, questions: quiz * 12 }
       soiree.run(salons[d % 2], `soiree-${d}`, minuit + 21 * H, minuit + 23 * H, JSON.stringify(fiche))
     })
+    // Sept jours de santé du serveur : réveillé vers 7 h, endormi vers minuit,
+    // une mise en ligne il y a trois jours, un arrêt net hier soir et son
+    // redémarrage, et ce matin un réveil éteint juste avant le banc.
+    const heureDeSante = permanente.prepare('INSERT INTO qg_sante (heure, demarrage, releve, maj_le) VALUES (?, ?, ?, ?)')
+    const unDemarrage = permanente.prepare('INSERT INTO qg_demarrages (id, demarre_le, pret_en_ms, version, env, vu_le, arrete_le) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const minuitsDeLaSemaine = minuitsDeParis(maintenant, 8)
+    // Le soir, une soirée charge le serveur : les temps montent un peu.
+    const releveDe = (heure: number, soiree: boolean) => {
+      const vague = 1 + 0.35 * Math.sin(heure / H / 2.7)
+      return { base: Math.round((soiree ? 95 : 62) * vague), routes: Math.round((soiree ? 330 : 190) * vague) }
+    }
+    const vie = (id: string, debut: number, fin: number, version: string, pretEnMs: number, propre: boolean) => {
+      unDemarrage.run(id, debut, pretEnMs, version, 'production', fin, propre ? fin : null)
+      for (let heure = Math.floor(debut / H) * H; heure < fin; heure += H) {
+        const heureDeParis = Math.floor(minutesDeParis(heure) / 60)
+        const r = releveDe(heure, heureDeParis >= 20)
+        const erreurs: Record<string, number> = {}
+        // Les erreurs de sa dernière heure : celles qui ont précédé l'arrêt net.
+        if (id === 'hier-matin' && heure === Math.floor((fin - 1) / H) * H) erreurs['POST /api/jour/reponse'] = 3
+        if (id === 'avant-hier' && heureDeParis === 14) erreurs['socket host:launch'] = 1
+        const base = id === 'mise-en-ligne' && heureDeParis === 18 ? 1240 : r.base
+        // La charge suit la salle : une soirée le soir, quelques joueurs du jour la journée.
+        const soiree = heureDeParis >= 20
+        const vague = 0.5 + 0.5 * Math.abs(Math.sin(heure / H / 3.1))
+        const invites = soiree ? Math.round(8 + 22 * vague) : Math.round(3 * vague)
+        heureDeSante.run(
+          heure,
+          id,
+          JSON.stringify({
+            base: { n: 140, p50: Math.round(base * 0.45), p95: base, max: base * 2 },
+            routes: { n: 260, p50: Math.round(r.routes * 0.4), p95: r.routes, max: r.routes * 3 },
+            lentes: [{ route: 'POST /api/campagne/serie/:id/reponse', n: 60, p95: Math.round(r.routes * 1.4) }],
+            erreurs,
+            miroir: 0,
+            charge: {
+              n: 360,
+              processeur: Math.round((1.2 + invites * 0.27) * 10) / 10,
+              processeurMax: Math.round((2 + invites * 0.36) * 10) / 10,
+              boucleMaxMs: Math.round(18 + invites * (soiree ? 11 : 4)),
+              memoireMaxMo: Math.round(150 + invites * 3.4),
+              invitesMax: invites,
+            },
+          }),
+          heure,
+        )
+      }
+    }
+    const a = (jour: number, heure: number, minutes = 0) => minuitsDeLaSemaine[jour] + heure * H + minutes * 60_000
+    vie('j1', a(1, 7, 2), a(1, 23, 54), 'a1b2c3d', 1150, true)
+    vie('j2', a(2, 7, 1), a(2, 23, 57), 'a1b2c3d', 980, true)
+    vie('j3', a(3, 7, 4), a(3, 23, 51), 'a1b2c3d', 1320, true)
+    vie('j4', a(4, 7, 2), a(4, 18, 41), 'a1b2c3d', 1050, true)
+    vie('mise-en-ligne', a(4, 18, 40), a(4, 23, 58), 'e4f5a6b', 2480, true)
+    vie('avant-hier', a(5, 7, 3), a(5, 23, 56), 'e4f5a6b', 1010, true)
+    // L'arrêt net d'hier, vingt heures avant le banc (borné à la journée d'hier) : moins d'un jour, « À traiter » le montre.
+    const arretNet = Math.max(a(6, 9), Math.min(a(6, 23), maintenant - 20 * H))
+    vie('hier-matin', a(6, 7, 2), arretNet, 'e4f5a6b', 1180, false)
+    vie('hier-soir', arretNet + 15 * 60_000, a(6, 23, 59), 'e4f5a6b', 3920, true)
+    vie('ce-matin', a(7, 7, 2), maintenant - 5 * 60_000, 'e4f5a6b', 1090, true)
     signalement.run(jourDe(maintenant), 2, 'p-1', 'Deux bonnes réponses ?', maintenant)
     signalement.run(jourDe(maintenant), 2, 'p-2', 'Canberra, pas Sydney', maintenant)
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
@@ -126,6 +186,7 @@ try {
     await page.waitForSelector('.qg-tete')
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
+    if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -148,6 +209,10 @@ try {
   await photographier('10-soirees-1920', 1920, 1080, { adresse: '/admin#soirees' })
   await photographier('11-soirees-telephone', 360, 640, { adresse: '/admin#soirees' })
   await photographier('12-soirees-ivoire', 360, 640, { adresse: '/admin#soirees', theme: 'ivoire' })
+  await photographier('22-serveur', 1366, 768, { adresse: '/admin#serveur' })
+  await photographier('23-serveur-1920', 1920, 1080, { adresse: '/admin#serveur' })
+  await photographier('24-serveur-telephone', 360, 640, { adresse: '/admin#serveur' })
+  await photographier('25-serveur-ivoire', 360, 640, { adresse: '/admin#serveur', theme: 'ivoire' })
 
   // La soirée laissée en plan, close d'ici : la confirmation, puis la page qui s'en remet.
   {

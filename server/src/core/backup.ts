@@ -5,7 +5,7 @@ import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { Soiree } from './archive'
 import { colonneEquipe, toRow, type AnswerRow } from './answers'
-import { pouls } from './pouls'
+import { pouls, releve } from './pouls'
 import type { TeamBonus } from '../../../shared/types'
 
 /** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
@@ -762,6 +762,8 @@ export class PartyBackup {
 
   private echec(voie: Voie, e: unknown) {
     voie.echecs++
+    // La santé du serveur s'en souvient, heure par heure : le QG voit les nuits où le miroir a peiné.
+    releve.echecDuMiroir()
     const message = e instanceof Error ? e.message : String(e)
     if (voie.enEchecDepuis === null) {
       voie.enEchecDepuis = Date.now()

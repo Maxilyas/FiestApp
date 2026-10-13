@@ -133,6 +133,7 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
     catalogue: 0,
     rappel: { jour: '2026-10-12', envoyes: 87, echecs: 0 },
     routine: { jour: null, campagne: null },
+    serveur: { arretNet: null, erreurs: null, tursoLent: null, memoireMo: null },
   }
   assert.deepEqual(lesChosesATraiter(calme, { soirees: [], miroir: { enAttente: 0, echecsConsecutifs: 0, enEchecDepuis: null, espacesEnRetard: 0 } }), [])
   const enPlan = { spaceId: 'tom', salon: { nom: 'Le salon de Tom', avatar: '🦉' }, etat: 'en-plan', inscrits: 9 } as SoireeDuQg
@@ -356,6 +357,7 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
       catalogue: 1,
       rappel: null,
       routine: { jour: maintenant - 14 * H, campagne: null },
+      serveur: { arretNet: null, erreurs: null, tursoLent: null, memoireMo: null },
     },
   }
   const soiree = (s: Partial<SoireeDuQg>): SoireeDuQg => ({

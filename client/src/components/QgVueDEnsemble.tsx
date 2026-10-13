@@ -51,7 +51,7 @@ export function VueDEnsembleDuQg({
   directEnPanne: boolean
   ouvrir: (e: EcranATraiter) => void
 }) {
-  const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct)
+  const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, direct?.maintenant ?? vue?.maintenant)
   return (
     <div className="qg-vue">
       <EnCeMoment direct={direct} enPanne={directEnPanne} />
@@ -59,7 +59,7 @@ export function VueDEnsembleDuQg({
       <Aujourdhui vue={vue} />
       <Participations vue={vue} enPanne={vueEnPanne} />
       <SoireesEnCours direct={direct} ouvrir={() => ouvrir('soirees')} />
-      <LeServeur direct={direct} vue={vue} />
+      <LeServeur direct={direct} vue={vue} ouvrir={() => ouvrir('serveur')} />
     </div>
   )
 }
@@ -322,7 +322,7 @@ function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: b
 }
 
 /** La largeur d'une boîte, suivie : le graphique se dessine au pixel près, ses textes à leur taille. */
-function useLargeur(defaut: number) {
+export function useLargeur(defaut: number) {
   const boite = useRef<HTMLDivElement>(null)
   const [largeur, setLargeur] = useState(defaut)
   useEffect(() => {
@@ -339,7 +339,7 @@ function useLargeur(defaut: number) {
 }
 
 /** Une barre arrondie en haut — le bout de la donnée —, carrée sur sa base. */
-function barreArrondie(x: number, y: number, l: number, h: number): string {
+export function barreArrondie(x: number, y: number, l: number, h: number): string {
   const r = Math.min(4, l / 2, h)
   return `M${x} ${y + h}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + l - r}Q${x + l} ${y} ${x + l} ${y + r}V${y + h}Z`
 }
@@ -493,7 +493,7 @@ export function LigneDeSoiree({ s, maintenant, children }: { s: SoireeDuQg; main
 
 const pourcents = (n: number | null) => (n === null ? '–' : `${formatNumber(n)} %`)
 
-function LeServeur({ direct, vue }: { direct: DirectDuQg | null; vue: VueDEnsemble | null }) {
+function LeServeur({ direct, vue, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; ouvrir: () => void }) {
   const s = direct?.serveur
   const routine = vue?.aTraiter.routine
   const maintenant = vue?.maintenant ?? direct?.maintenant ?? 0
@@ -540,6 +540,11 @@ function LeServeur({ direct, vue }: { direct: DirectDuQg | null; vue: VueDEnsemb
           <dd>{routine ? depot(routine.campagne) : '–'}</dd>
         </div>
       </dl>
+      {/* L'instant ici ; la semaine — les temps de réponse, les réveils, les erreurs — sur sa page. */}
+      <button type="button" className="lien-discret qg-suite" onClick={ouvrir}>
+        Les sept derniers jours
+        <Icon name="chevron-right" />
+      </button>
     </section>
   )
 }

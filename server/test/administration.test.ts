@@ -42,7 +42,7 @@ test('« Les salons » : chaque espace, son titulaire, ses quiz — et le salon 
   }
 })
 
-test('/admin : le QG — la vue d’ensemble d’abord, son journal, puis six pages, chacune à son adresse', () => {
+test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serveur, puis six pages, chacune à son adresse', () => {
   // Le QG (le souhait du propriétaire du 13 octobre 2026) a remplacé le
   // tableau de bord à la manière de « Mon compte » : la vue d'ensemble, une
   // barre de côté à l'ordinateur, la liste des pages au téléphone.
@@ -50,15 +50,15 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal, puis six pa
   // Ce qui ne sert plus est parti : la création de compte et le tableau des comptes.
   assert.doesNotMatch(page, /CreateForm|<h2>Créer un compte|accounts-table|<h2>Tous les comptes/)
   assert.doesNotMatch(source('api.ts'), /create: \(input: \{ login: string; name: string; slug: string \}\)/)
-  // Le journal et les six écrans, à leur adresse ; les ancres d'avant y mènent encore.
-  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne'\]/)
+  // Le journal, le serveur et les six écrans, à leur adresse ; les ancres d'avant y mènent encore.
+  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne'\]/)
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
   // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
   // liste des pages, qui dit ce qu'on y trouve — la campagne y compte ses
   // signalements.
-  for (const e of ['journal', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']) assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
-  for (const nom of ['Le journal', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour']) assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
+  for (const e of ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']) assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
+  for (const nom of ['Le journal', 'Le serveur', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour']) assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
   assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)
   // La barre du menu, comme « Mon compte » ; celle de l'animateur pour qui n'a pas de profil.
   assert.match(page, /<MenuBarre ici="compte" \/>/)
