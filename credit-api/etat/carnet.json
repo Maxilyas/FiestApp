@@ -131,7 +131,16 @@
       "pour": "generer a1",
       "envoye": "2026-10-13T18:59:59.784Z",
       "demandes": 50,
-      "prevu": 3.2609179999999993
+      "prevu": 3.2609179999999993,
+      "recu": "2026-10-13T19:04:32.731Z",
+      "cout": 3.2037860000000005
+    },
+    {
+      "id": "msgbatch_01HF9h57tpiRc7toz1skemGK",
+      "pour": "generer a1",
+      "envoye": "2026-10-13T19:04:50.920Z",
+      "demandes": 29,
+      "prevu": 1.2149986666666668
     }
   ]
 }
