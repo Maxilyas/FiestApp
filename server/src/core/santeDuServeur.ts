@@ -50,6 +50,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       erreurs: releve.erreurs && typeof releve.erreurs === 'object' ? releve.erreurs : {},
       miroir: Number(releve.miroir ?? 0),
       charge: releve.charge ?? null,
+      connexions: releve.connexions ?? null,
     }
   } catch {
     return null

@@ -115,16 +115,7 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         classe="qg-serveur-temps"
         maintenant={maintenant}
       />
-      <Heures
-        id="serveur-turso"
-        titre="Turso"
-        sousTitre="le 95ᵉ centile d’un aller-retour vers la base, heure par heure"
-        heures={page.heures}
-        valeur={h => h.base}
-        ecrire={tempsDeReponse}
-        classe="qg-serveur-temps"
-        maintenant={maintenant}
-      />
+      <Turso heures={page.heures} maintenant={maintenant} />
       <LaCharge heures={page.heures} maintenant={maintenant} />
       <Heures
         id="serveur-erreurs"
@@ -224,6 +215,84 @@ function Heures({
 const pourcentsDUnCoeur = (v: number) => `${formatNumber(v)} %`
 const megaOctets = (v: number) => `${formatNumber(v)} Mo`
 const invites = (v: number) => `${formatNumber(v)} invité${v > 1 ? 's' : ''}`
+
+const pourcents = (v: number) => `${formatNumber(v)} %`
+
+/** Ce que les connexions d'une heure disent, après son temps : la part des neuves, la garde, et ce qu'une garde trop longue ferait voir. */
+function connexionsDeLHeure(h: HeureDuServeur): string[] {
+  const c = h.connexions
+  if (!c) return []
+  const morceaux = h.connexionsNeuves === null ? [] : [`${pourcents(h.connexionsNeuves)} de connexions neuves`]
+  morceaux.push(`gardées ${tempsDeReponse(c.gardeMs)}`)
+  // Annoncé, le délai de Turso passe avant la garde : c'est lui qui vaut.
+  if (c.annonceeMs !== null && c.annonceeMs !== undefined) morceaux.push(`Turso annonce ${tempsDeReponse(c.annonceeMs)}`)
+  if (c.refermeesParLaBase > 0) {
+    const plusJeune = c.plusJeuneRefermeeMs === null ? '' : `, la plus jeune à ${tempsDeReponse(c.plusJeuneRefermeeMs)}`
+    morceaux.push(`${formatNumber(c.refermeesParLaBase)} refermée${c.refermeesParLaBase > 1 ? 's' : ''} par Turso${plusJeune}`)
+  }
+  if (c.echecs > 0) morceaux.push(`${formatNumber(c.echecs)} ${c.echecs > 1 ? 'allers-retours tombés' : 'aller-retour tombé'} en route`)
+  return morceaux
+}
+
+/**
+ * Turso et ses connexions, heure par heure (la revue du 14 octobre 2026) : le
+ * temps d'un aller-retour dit qu'il a été lent, la part des connexions neuves
+ * dit pourquoi — à 100 %, chacun a refait sa poignée de main, 225 ms au lieu
+ * de 29 en production. La légende dit la garde en vigueur, et ce qu'une garde
+ * plus longue que le délai de Turso ferait voir : des connexions qu'il
+ * referme, des allers-retours tombés en route.
+ */
+function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+  const [choisie, setChoisie] = useState<number | null>(null)
+  const h = heures[choisie ?? derniereMesuree(heures.map(x => x.base))]
+  return (
+    <section className="qg-carte qg-ecran" aria-labelledby="serveur-turso">
+      <div className="qg-carte-tete qg-carte-tete-pile">
+        <h2 id="serveur-turso">Turso</h2>
+        <span className="muted small">un aller-retour vers la base, et les connexions qu’il a fallu ouvrir, heure par heure</span>
+      </div>
+      <div className="qg-charge">
+        <span className="qg-charge-nom">
+          <b>Temps</b> · le 95ᵉ centile d’un aller-retour
+        </span>
+        <GrapheDesHeures
+          id="serveur-turso-temps"
+          nom="Turso"
+          heures={heures}
+          valeur={x => x.base}
+          ecrire={tempsDeReponse}
+          classe="qg-serveur-temps"
+          maintenant={maintenant}
+          choisie={choisie}
+          choisir={setChoisie}
+          compact
+          sansJours
+        />
+      </div>
+      <div className="qg-charge">
+        <span className="qg-charge-nom">
+          <b>Connexions neuves</b> · la part des allers-retours qui ont refait leur poignée de main
+        </span>
+        <GrapheDesHeures
+          id="serveur-connexions"
+          nom="Connexions neuves"
+          heures={heures}
+          valeur={x => x.connexionsNeuves}
+          ecrire={pourcents}
+          classe="qg-serveur-temps"
+          maintenant={maintenant}
+          choisie={choisie}
+          choisir={setChoisie}
+          compact
+        />
+      </div>
+      <p className="qg-legende-jour" aria-live="polite">
+        {heureDuReleve(h.heure, maintenant)} :{' '}
+        {!h.eveille ? 'endormi' : h.base === null ? 'rien de mesuré' : [`95ᵉ centile ${tempsDeReponse(h.base)}`, ...connexionsDeLHeure(h)].join(' · ')}
+      </p>
+    </section>
+  )
+}
 
 /** Les quatre graphiques de la charge, l'un sous l'autre, le même temps pour tous. */
 const MESURES_DE_CHARGE: {
@@ -506,6 +575,9 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                 <th scope="col">Heure</th>
                 <th scope="col">Routes</th>
                 <th scope="col">Turso</th>
+                <th scope="col" className="qg-colonne-large">
+                  Connexions neuves
+                </th>
                 <th scope="col">Erreurs</th>
                 {/* La charge, à l'ordinateur seulement : au téléphone, l'heure n'avait plus de place. */}
                 <th scope="col" className="qg-colonne-large">
@@ -525,6 +597,7 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                   <th scope="row">{heureDuReleve(h.heure, maintenant)}</th>
                   <td className="num">{h.routes === null ? '–' : tempsDeReponse(h.routes)}</td>
                   <td className="num">{h.base === null ? '–' : tempsDeReponse(h.base)}</td>
+                  <td className="num qg-colonne-large">{h.connexionsNeuves === null ? '–' : pourcents(h.connexionsNeuves)}</td>
                   <td className="num">{formatNumber(h.erreurs)}</td>
                   <td className="num qg-colonne-large">{h.processeur === null ? '–' : pourcentsDUnCoeur(h.processeur)}</td>
                   <td className="num qg-colonne-large">{h.memoire === null ? '–' : megaOctets(h.memoire)}</td>

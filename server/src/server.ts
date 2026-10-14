@@ -32,6 +32,7 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls, releve } from './core/pouls'
+import { gardeAnnoncee, gardeDeLaBase, reglerLaGarde } from './core/connexions'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -114,6 +115,12 @@ export interface QuizServerOptions {
    * laquelle tournait.
    */
   version?: string
+  /**
+   * Combien de temps garder une connexion inactive vers la base permanente
+   * (`QUIZ_DB_KEEPALIVE_MS`, `core/connexions.ts`) ; absente, les 4 s du
+   * `fetch` de Node.
+   */
+  gardeDeLaBaseMs?: number
 }
 
 /** L'avance de la réserve du quiz du jour ne se relit pas plus souvent : `/healthz` se sonde toutes les quelques secondes. */
@@ -241,6 +248,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // dans le même processus — les tests —, n'a rien à lui léguer. Ce que le
   // démarrage coûte à Turso, en revanche, compte dans sa première heure.
   releve.remettreAZero()
+  // La garde des connexions vers la base, avant la première requête : elle
+  // vaut pour le processus, et chaque serveur pose la sienne — un serveur
+  // d'avant ne lègue pas plus sa garde que son relevé.
+  reglerLaGarde(opts.gardeDeLaBaseMs)
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
@@ -838,7 +849,25 @@ export async function createQuizServer(opts: QuizServerOptions) {
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))
     mesurer('base', () => {
       const base = pouls.base.lireAvecMediane()
-      return { base: { allersRetoursParMin: base.n, p50Ms: base.p50, p95Ms: base.p95, maxMs: base.max } }
+      return {
+        base: {
+          allersRetoursParMin: base.n,
+          p50Ms: base.p50,
+          p95Ms: base.p95,
+          maxMs: base.max,
+          // Ce que coûtent ses connexions (`core/connexions.ts`) : une neuve par
+          // aller-retour, c'est une poignée de main à chacun ; la garde en
+          // vigueur, pour voir qu'un réglage a pris, et le délai que la base
+          // annonce, qu'undici lui préfère.
+          connexions: {
+            ouvertesParMin: pouls.connexions.lire().n,
+            refermeesParLaBaseParMin: pouls.refermeesParLaBase.lire().n,
+            echecsParMin: pouls.echecsDeLaBase.lire().n,
+            gardeMs: gardeDeLaBase(),
+            gardeAnnonceeMs: gardeAnnoncee(),
+          },
+        },
+      }
     })
     mesurer('routes', () => ({ routes: pouls.lireRoutes() }))
     res.json(corps)

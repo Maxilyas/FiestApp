@@ -1,4 +1,5 @@
 import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
+import { dispatcherDeLaBase, noterLaReponse, noterUnEchec, suivreLaBase } from './connexions'
 import { pouls, releve } from './pouls'
 
 export type { Client }
@@ -41,6 +42,8 @@ export function clientDistant(
   reglages: { delaiMs?: number; intMode?: IntMode } = {},
 ): Client {
   const delaiMs = reglages.delaiMs ?? DELAI_DISTANT_MS
+  // Ses connexions se comptent par l'hôte de son adresse (`connexions.ts`).
+  suivreLaBase(url)
   return createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs) })
 }
 
@@ -111,15 +114,21 @@ export function avecDelai(delaiMs: number) {
   return async (requete: Request): Promise<Response> => {
     const debut = performance.now()
     try {
-      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+      // La garde réglée de ses connexions, s'il y en a une (`QUIZ_DB_KEEPALIVE_MS`).
+      const dispatcher = dispatcherDeLaBase()
+      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs), ...(dispatcher && { dispatcher }) })
       // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce
       // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`), et la
       // page « Le serveur » du QG s'en souvient heure par heure (`releve`).
       const ms = performance.now() - debut
       pouls.base.noter(ms)
       releve.base(ms)
+      noterLaReponse(reponse.headers)
       return reponse
     } catch (e) {
+      // Une garde trop longue se verrait ici d'abord : une connexion que la
+      // base avait fermée, et la requête qui tombe avec.
+      noterUnEchec()
       // L'erreur d'origine (« The operation was aborted due to timeout ») ne
       // dit ni quoi, ni combien de temps : on la remplace par une phrase.
       if (e instanceof DOMException && e.name === 'TimeoutError') throw new BaseMuette(delaiMs)

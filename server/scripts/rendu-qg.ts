@@ -222,6 +222,18 @@ try {
         const soiree = heureDeParis >= 20
         const vague = 0.5 + 0.5 * Math.abs(Math.sin(heure / H / 3.1))
         const invites = soiree ? Math.round(8 + 22 * vague) : Math.round(3 * vague)
+        // Ses connexions vers Turso : avant la mise en ligne, la garde de Node —
+        // le jour, clairsemé, rouvre presque à chaque aller-retour ; le soir, la
+        // salle les tient chaudes —, après, gardées trente secondes.
+        const gardee = version !== 'a1b2c3d'
+        const connexions = {
+          ouvertes: gardee ? (soiree ? 6 : 14) : soiree ? 35 : 120,
+          refermeesParLaBase: 0,
+          plusJeuneRefermeeMs: null,
+          echecs: erreurs['POST /api/jour/reponse'] ? 1 : 0,
+          gardeMs: gardee ? 30_000 : 4_000,
+          annonceeMs: null,
+        }
         heureDeSante.run(
           heure,
           id,
@@ -239,6 +251,7 @@ try {
               memoireMaxMo: Math.round(150 + invites * 3.4),
               invitesMax: invites,
             },
+            connexions,
           }),
           heure,
         )
