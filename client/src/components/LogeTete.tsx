@@ -34,6 +34,12 @@ const ICONES: Record<PieceDeLaLoge, IconName> = { avatar: 'sparkles', titre: 'st
  * sur elle, à côté de lui : sa version rare ou celle d'origine s'essaie aussi.
  * Dans une fiche sous la case touchée, elle s'enregistrait d'un toucher ;
  * sous la grille, elle aurait fait sauter les cases sous le doigt.
+ *
+ * Touchée ailleurs, elle s'ouvre en grand (`onOuvrir`) : sa carte entière,
+ * telle que la salle la verra — le retour d'un joueur du 14 octobre 2026,
+ * qui la touchait pour la voir. Un bouton tendu sur toute la carte, après
+ * elle : posé autour, il aurait enfermé « Version rare », et le lecteur
+ * d'écran lit la carte avant son geste.
  */
 export function CarteDeLaLoge({
   vu,
@@ -41,6 +47,7 @@ export function CarteDeLaLoge({
   apercu = false,
   essaye = {},
   version = null,
+  onOuvrir,
 }: {
   /** Le profil tel que la carte le montre : ce qu'il porte, l'essai par-dessus (`avecLEssai`). */
   vu: PublicProfileDetail
@@ -52,6 +59,8 @@ export function CarteDeLaLoge({
   essaye?: { avatar?: boolean; titre?: boolean; vitrine?: boolean }
   /** La version de l'avatar montré, s'il a éclaté : rare ou d'origine, et de quoi l'essayer. */
   version?: { rare: boolean; essayee: boolean; basculer: () => void } | null
+  /** Sa carte entière, en grand. */
+  onOuvrir?: () => void
 }) {
   const titre = nomDuTitre(vu.titre)
   // Sous un Divin, qui a sa propre lumière, la finition ne se dit pas.
@@ -106,6 +115,11 @@ export function CarteDeLaLoge({
             toute la largeur : le vestiaire les disait, et la page du profil
             ne les dit plus ailleurs. */}
         <XpMince profil={vu} />
+        {onOuvrir && (
+          <button type="button" className="loge-carte-ouvrir" title="Voir en grand" onClick={onOuvrir}>
+            <span className="sr-only">{apercu ? 'Voir l’aperçu de ma carte en grand' : 'Voir ma carte en grand'}</span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -175,12 +189,25 @@ export function QuiLaVoit({ piece }: { piece: PieceDeLaLoge }) {
  * La loge en attendant ses panneaux : sa carte — ce qu'il porte — et la
  * rangée de ses pièces, tout de suite, à la place exacte où la loge les
  * reprendra ; le panneau de la pièce suit avec son code (`attente`). Une
- * pièce touchée d'ici s'ouvre dès qu'il arrive.
+ * pièce touchée d'ici s'ouvre dès qu'il arrive ; sa carte, en grand, tout de
+ * suite (`onOuvrir`) : rien n'est encore à l'essai.
  */
-export function LogeEnChemin({ profil, piece, onPiece, attente }: { profil: PublicProfileDetail; piece: PieceDeLaLoge; onPiece: (p: PieceDeLaLoge) => void; attente: ReactNode }) {
+export function LogeEnChemin({
+  profil,
+  piece,
+  onPiece,
+  onOuvrir,
+  attente,
+}: {
+  profil: PublicProfileDetail
+  piece: PieceDeLaLoge
+  onPiece: (p: PieceDeLaLoge) => void
+  onOuvrir?: () => void
+  attente: ReactNode
+}) {
   return (
     <div className="loge">
-      <CarteDeLaLoge vu={profil} vitrine={null} />
+      <CarteDeLaLoge vu={profil} vitrine={null} onOuvrir={onOuvrir} />
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set()} />
       <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>

@@ -11,7 +11,8 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { DUREE_D_UN_DUEL_MS, VIES, xpDeLaBonneReponse } from '../../shared/campagne'
-import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, suiteDeLaRevision, suiviDeLaQuestion } from '../../shared/revision'
+import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, TOUT_LE_CARNET, partVisee, suiteDeLaRevision, suiviDeLaQuestion } from '../../shared/revision'
+import { sujetsDe } from '../../shared/sujets'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -28,7 +29,7 @@ const poster = (banc: Banc, cookie: string, chemin: string, corps: unknown = {})
   ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
 /** Les questions qu'une série a reçues, telles qu'elle les garde. */
-function questions(banc: Banc, serie: string): { id: string; bonne: number; reponses: string[]; etape?: number }[] {
+function questions(banc: Banc, serie: string): { id: string; bonne: number; reponses: string[]; categorie: string; etape?: number; enAvance?: object }[] {
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true, fileMustExist: true })
   try {
     return JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(serie) as { questions: string }).questions)
@@ -45,9 +46,12 @@ async function repondre(banc: Banc, cookie: string, serie: string, index: number
   return r.corps
 }
 
-/** Ce que le carnet compte, sans la révision en cours. */
+/** Ce que le carnet compte en tout, sans ses comptes par catégorie et par sujet — leur épreuve est plus bas. */
+const enTout = ({ categories: _, sujets: __, ...reste }: any) => reste
+
+/** Ce que le carnet compte en tout, sans la révision en cours. */
 const compte = async (banc: Banc, cookie: string) => {
-  const { enCours: _, ...reste } = (await lire(banc, cookie, '/api/campagne/carnet')).corps
+  const { enCours: _, ...reste } = enTout((await lire(banc, cookie, '/api/campagne/carnet')).corps)
   return reste
 }
 
@@ -89,7 +93,16 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-    assert.deepEqual((await lire(banc, lea, '/api/campagne/carnet')).corps, { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: null })
+    assert.deepEqual((await lire(banc, lea, '/api/campagne/carnet')).corps, {
+      aRevoir: 0,
+      demain: 0,
+      plusTard: 0,
+      prochainJour: null,
+      appris: 0,
+      enCours: null,
+      categories: [],
+      sujets: [],
+    })
     const vide = await poster(banc, lea, '/api/campagne/revision')
     assert.equal(vide.status, 400)
     assert.equal(vide.corps.error, 'Ton carnet est vide : une question ratée t’y attendra le lendemain')
@@ -139,7 +152,7 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
     assert.equal(r2.niveauAtteint, undefined, 'une révision ne monte pas de marche')
     assert.equal(r2.recordAvant, undefined, 'ni ne bat de record')
     // Finie, elle redit son carnet : une demain, deux dans trois jours.
-    assert.deepEqual(r2.carnet, { aRevoir: 0, demain: 1, plusTard: 2, prochainJour: '2026-10-08', appris: 0, enCours: null })
+    assert.deepEqual(enTout(r2.carnet), { aRevoir: 0, demain: 1, plusTard: 2, prochainJour: '2026-10-08', appris: 0, enCours: null })
     // Deux bonnes réponses : deux confettis, et l'expérience d'une série.
     const apres = await solde()
     assert.equal(apres.boutique.confettis.gagnes, avant.boutique.confettis.gagnes + 2, 'une bonne réponse, un confetti')
@@ -160,7 +173,7 @@ test('ce qu’il a raté revient le lendemain, sans vies ; une bonne réponse pa
     const rev3 = (await poster(banc, lea, '/api/campagne/revision')).corps
     let fin: any
     for (let i = 0; i < 3; i++) fin = await repondre(banc, lea, rev3.id, i, true)
-    assert.deepEqual(fin.carnet, { aRevoir: 0, demain: 0, plusTard: 1, prochainJour: '2026-10-24', appris: 2, enCours: null })
+    assert.deepEqual(enTout(fin.carnet), { aRevoir: 0, demain: 0, plusTard: 1, prochainJour: '2026-10-24', appris: 2, enCours: null })
     // Le carnet les redonne, avec leur réponse : il les sait.
     const appris = (await lire(banc, lea, '/api/campagne/carnet/appris')).corps
     const retrouvees = new Set(ratees.filter(id => id !== questions(banc, rev.id)[0].id))
@@ -223,7 +236,95 @@ test('tout le carnet se revoit, en avance — retrouvée, une question garde sa 
     assert.deepEqual((await repondre(banc, lea, encore.id, 0, true)).revision, { etape: INTERVALLES_DE_REVISION.length, apprise: true, enAvance: true })
     assert.deepEqual((await repondre(banc, lea, encore.id, 1, false)).revision, { etape: 0, dans: 1 }, 'oubliée : elle revient demain')
     const fin = await repondre(banc, lea, encore.id, 2, true)
-    assert.deepEqual(fin.carnet, { aRevoir: 0, demain: 1, plusTard: 0, prochainJour: '2026-10-18', appris: 2, enCours: null })
+    assert.deepEqual(enTout(fin.carnet), { aRevoir: 0, demain: 1, plusTard: 0, prochainJour: '2026-10-18', appris: 2, enCours: null })
+  } finally {
+    await banc.close()
+  }
+})
+
+test('le carnet se compte par catégorie et par sujet ; une révision vise l’un ou l’autre, et recommencée, vise ce que visait l’autre', async () => {
+  // Le retour d'un joueur du 14 octobre 2026 : « cibler un thème à revoir, et
+  // savoir combien de questions on a à revoir dans tel thème ». Dans la base
+  // d'essai, chaque question de Nature est des animaux, et l'Histoire n'a
+  // aucun sujet.
+  assert.deepEqual(sujetsDe(BASE.questions.find(q => q.meta.categorie === 'Nature')!.meta), ['animaux'])
+  assert.deepEqual(sujetsDe(BASE.questions.find(q => q.meta.categorie === 'Histoire')!.meta), [])
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    // Une série : il rate les trois premières questions d'Histoire ou de Nature, et trouve les autres.
+    const serie = (await poster(banc, lea, '/api/campagne/serie')).corps
+    const qs = questions(banc, serie.id)
+    const ratees: typeof qs = []
+    for (let i = 0; ratees.length < 3; i++) {
+      const rater = qs[i].categorie === 'Histoire' || qs[i].categorie === 'Nature'
+      await repondre(banc, lea, serie.id, i, !rater)
+      if (rater) ratees.push(qs[i])
+    }
+    // Les catégories passent à tour de rôle : l'Histoire et la Nature y sont chacune.
+    const histoire = ratees.filter(q => q.categorie === 'Histoire').length
+    const nature = ratees.filter(q => q.categorie === 'Nature').length
+    assert.ok(histoire > 0 && nature > 0, `${histoire} d’Histoire, ${nature} de Nature`)
+    const parts = (dues: boolean) => ({
+      categories: CATEGORIES.filter(c => c === 'Histoire' || c === 'Nature').map(categorie => {
+        const n = categorie === 'Histoire' ? histoire : nature
+        return { categorie, aRevoir: dues ? n : 0, enTout: n }
+      }),
+      sujets: [{ sujet: 'animaux', aRevoir: dues ? nature : 0, enTout: nature }],
+    })
+    const detail = async () => {
+      const { categories, sujets } = (await lire(banc, lea, '/api/campagne/carnet')).corps
+      return { categories, sujets }
+    }
+    // Le jour même, tout attend son rendez-vous ; le lendemain, chaque catégorie, chaque sujet dit ce qui y est à revoir.
+    assert.deepEqual(await detail(), parts(false))
+    horloge.t = DEBUT + JOUR
+    assert.deepEqual(await detail(), parts(true))
+    const carnet = (await lire(banc, lea, '/api/campagne/carnet')).corps
+    assert.deepEqual(partVisee(carnet, TOUT_LE_CARNET), { aRevoir: 3, enTout: 3 })
+    assert.deepEqual(partVisee(carnet, { categories: ['Histoire'], sujet: null }), { aRevoir: histoire, enTout: histoire })
+    assert.deepEqual(partVisee(carnet, { categories: ['Histoire', 'Nature'], sujet: null }), { aRevoir: 3, enTout: 3 })
+    assert.deepEqual(partVisee(carnet, { categories: ['Histoire'], sujet: 'animaux' }), { aRevoir: nature, enTout: nature }, 'un sujet passe devant les catégories, comme en série')
+
+    // Une révision sur l'Histoire : ses questions seules, et elle dit ce qu'elle vise.
+    const rev = (await poster(banc, lea, '/api/campagne/revision', { categories: ['Histoire'] })).corps
+    assert.deepEqual([rev.total, rev.categories, rev.sujet], [histoire, ['Histoire'], undefined])
+    assert.ok(questions(banc, rev.id).every(q => q.categorie === 'Histoire'))
+    // Recommencée, elle vise encore l'Histoire ; laissée, elle se reprend telle quelle, quoi qu'on vise.
+    const neuve = (await poster(banc, lea, '/api/campagne/revision', { recommencer: true })).corps
+    assert.notEqual(neuve.id, rev.id)
+    assert.deepEqual([neuve.total, neuve.categories], [histoire, ['Histoire']])
+    assert.equal((await poster(banc, lea, '/api/campagne/revision', { categories: ['Nature'] })).corps.id, neuve.id)
+    for (let i = 0; i < histoire; i++) await repondre(banc, lea, neuve.id, i, true)
+    // L'Histoire est revue : plus rien n'y est dû, la Nature attend toujours.
+    const apres = (await lire(banc, lea, '/api/campagne/carnet')).corps
+    assert.deepEqual(apres.categories, [
+      { categorie: 'Histoire', aRevoir: 0, enTout: histoire },
+      { categorie: 'Nature', aRevoir: nature, enTout: nature },
+    ])
+    assert.equal(apres.aRevoir, nature)
+    const rien = await poster(banc, lea, '/api/campagne/revision', { categories: ['Histoire'] })
+    assert.deepEqual([rien.status, rien.corps.error], [400, 'Rien à revoir aujourd’hui sur ce choix : revois-le en avance, ou choisis autre chose'])
+    // En avance, elle se revoit : retrouvée, chacune garde son rendez-vous.
+    const enAvance = (await poster(banc, lea, '/api/campagne/revision', { categories: ['Histoire'], tout: true })).corps
+    assert.equal(enAvance.total, histoire)
+    assert.ok(questions(banc, enAvance.id).every(q => q.categorie === 'Histoire' && q.enAvance))
+    for (let i = 0; i < histoire; i++) await repondre(banc, lea, enAvance.id, i, true)
+    // Une catégorie absente du carnet, un sujet inconnu : refusés, avec ce qu'il faut faire.
+    const vide = await poster(banc, lea, '/api/campagne/revision', { categories: ['Sport'] })
+    assert.deepEqual([vide.status, vide.corps.error], [400, 'Rien sur ce choix dans ton carnet : choisis autre chose'])
+    const inconnu = await poster(banc, lea, '/api/campagne/revision', { sujet: 'atlantide' })
+    assert.deepEqual([inconnu.status, inconnu.corps.error], [400, 'Ce sujet n’existe plus : choisis-en un autre'])
+
+    // Un sujet qui traverse les catégories : les animaux — ici, ceux de la Nature.
+    const animaux = (await poster(banc, lea, '/api/campagne/revision', { sujet: 'animaux' })).corps
+    assert.deepEqual([animaux.total, animaux.sujet, animaux.categories], [nature, 'animaux', undefined])
+    assert.ok(questions(banc, animaux.id).every(q => q.categorie === 'Nature'))
+    let fin: any
+    for (let i = 0; i < nature; i++) fin = await repondre(banc, lea, animaux.id, i, true)
+    // Sa fin redit le carnet, ses comptes compris : de quoi réviser encore sur le même choix.
+    assert.deepEqual([fin.carnet.aRevoir, fin.carnet.sujets], [0, [{ sujet: 'animaux', aRevoir: 0, enTout: nature }]])
   } finally {
     await banc.close()
   }

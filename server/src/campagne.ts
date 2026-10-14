@@ -209,8 +209,16 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       // `tout` : tout le carnet, en avance compris ; `recommencer` : celle laissée en route se referme. Un vrai booléen, rien d'autre.
-      const corps = (req.body && typeof req.body === 'object' ? req.body : {}) as { tout?: unknown; recommencer?: unknown }
-      if (profil) res.json(await deps.campagne.commencerRevision(profil.id, { tout: corps.tout === true, recommencer: corps.recommencer === true }))
+      // `categories`, `sujet` : ce qu'elle vise, comme une série — les catégories de la liste fixe seulement, le reste ne
+      // viserait rien ; un sujet inconnu est refusé avec son motif.
+      const corps = (req.body && typeof req.body === 'object' ? req.body : {}) as { tout?: unknown; recommencer?: unknown; categories?: unknown; sujet?: unknown }
+      const categories = Array.isArray(corps.categories)
+        ? corps.categories.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length)
+        : undefined
+      const sujet = typeof corps.sujet === 'string' && corps.sujet ? corps.sujet : undefined
+      if (profil) {
+        res.json(await deps.campagne.commencerRevision(profil.id, { tout: corps.tout === true, recommencer: corps.recommencer === true, ...(categories && { categories }), ...(sujet && { sujet }) }))
+      }
     }),
   )
 

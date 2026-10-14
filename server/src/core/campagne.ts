@@ -216,6 +216,7 @@ import {
   type EnAvance,
   type EtatDuCarnet,
   type FaitAppris,
+  type PartDuCarnet,
   type SuiviDeRevision,
 } from '../../../shared/revision'
 
@@ -1779,24 +1780,40 @@ export class CampagneStore {
   /**
    * Son carnet : ce qui est à revoir aujourd'hui, ce qui revient demain et
    * plus tard, ce qu'il a appris — parmi les questions que la campagne pose
-   * encore : retirée ou remplacée depuis, une question n'y est plus.
+   * encore : retirée ou remplacée depuis, une question n'y est plus. Puis ce
+   * qu'il tient de chaque catégorie et de chaque sujet, de quoi viser une
+   * révision (`commencerRevision`).
    */
   async carnet(profileId: string): Promise<EtatDuCarnet> {
     const [suivis, jouables, ouverte] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.revisionEnCours(profileId)])
-    const ids = new Set(jouables.map(q => q.id))
+    const parId = new Map(jouables.map(q => [q.id, q]))
     const aujourdhui = jourDe(this.maintenant())
     const demain = jourAvant(aujourdhui, -1)
-    const carnet: EtatDuCarnet = { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: ouverte ? vueDeSerie(ouverte) : null }
+    const carnet: EtatDuCarnet = { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: ouverte ? vueDeSerie(ouverte) : null, categories: [], sujets: [] }
+    const parCategorie = new Map<string, PartDuCarnet>()
+    const parSujet = new Map<string, PartDuCarnet>()
+    const compter = (parts: Map<string, PartDuCarnet>, cle: string, due: boolean) => {
+      const part = parts.get(cle) ?? { aRevoir: 0, enTout: 0 }
+      part.enTout++
+      if (due) part.aRevoir++
+      parts.set(cle, part)
+    }
     for (const [id, s] of suivis) {
-      if (!ids.has(id)) continue
+      const q = parId.get(id)
+      if (!q) continue
+      const due = !s.apprise && s.revientLe <= aujourdhui
       if (s.apprise) carnet.appris++
-      else if (s.revientLe <= aujourdhui) carnet.aRevoir++
+      else if (due) carnet.aRevoir++
       else {
         if (s.revientLe === demain) carnet.demain++
         else carnet.plusTard++
         if (!carnet.prochainJour || s.revientLe < carnet.prochainJour) carnet.prochainJour = s.revientLe
       }
+      compter(parCategorie, q.meta.categorie, due)
+      for (const sujet of sujetsDeLaQuestion(q)) compter(parSujet, sujet, due)
     }
+    carnet.categories = CATEGORIES.filter(c => parCategorie.has(c)).map(categorie => ({ categorie, ...parCategorie.get(categorie)! }))
+    carnet.sujets = SUJETS.filter(s => parSujet.has(s.cle)).map(s => ({ sujet: s.cle, ...parSujet.get(s.cle)! }))
     return carnet
   }
 
@@ -1837,16 +1854,27 @@ export class CampagneStore {
    * était une impasse (le choix du 11 octobre 2026) ; revue en avance, une
    * question retrouvée garde sa place (`apresUnPassage`), ratée, elle revient
    * demain. Une série en cours, elle, attend : la révision ne la clôt pas.
+   *
+   * Elle vise des catégories ou un sujet (`categories`, `sujet`), comme une
+   * série : seules leurs questions du carnet y entrent, et la révision les
+   * garde — recommencée, elle vise ce que visait l'autre (le retour d'un
+   * joueur du 14 octobre 2026 : « cibler un thème à revoir »).
    */
-  commencerRevision(profileId: string, o: { tout?: boolean; recommencer?: boolean } = {}): Promise<SerieDeCampagne> {
+  commencerRevision(profileId: string, o: { tout?: boolean; recommencer?: boolean; categories?: readonly string[]; sujet?: string } = {}): Promise<SerieDeCampagne> {
     return this.avecVerrou(profileId, async () => {
       const ouverte = await this.revisionEnCours(profileId)
       if (ouverte && !o.recommencer) {
         this.garderEnCours(ouverte)
         return vueDeSerie(ouverte)
       }
-      // Recommencée, elle revoit ce que revoyait l'autre : tout le carnet si l'autre le revoyait.
+      // Recommencée, elle revoit ce que revoyait l'autre : tout le carnet si l'autre le revoyait, et sur ce qu'il visait.
       const tout = !!o.tout || !!ouverte?.questions.some(q => q.enAvance)
+      const sujet = ouverte ? (ouverte.sujet ?? undefined) : o.sujet
+      const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
+      // Celle qu'on recommence suivait un sujet qui n'est plus : la neuve revoit tout le carnet, plutôt que de refuser.
+      if (sujet !== undefined && !suivi && !ouverte) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
+      const categories = suivi ? null : lireCategories(categoriesRetenues(ouverte ? (ouverte.categories ?? undefined) : o.categories))
+      const visee = (q: QuestionDeLaBase) => (suivi ? sujetsDeLaQuestion(q).includes(suivi.cle) : !categories || categories.includes(q.meta.categorie))
       const [suivis, jouables, mesure] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.mesures()])
       const aujourdhui = jourDe(this.maintenant())
       const parId = new Map(jouables.map(q => [q.id, q]))
@@ -1855,7 +1883,7 @@ export class CampagneStore {
       const apprises: { q: QuestionDeLaBase; le: string }[] = []
       for (const [id, s] of suivis) {
         const q = parId.get(id)
-        if (!q) continue
+        if (!q || !visee(q)) continue
         if (s.apprise) apprises.push({ q, le: s.le })
         else if (s.revientLe <= aujourdhui) dues.push({ q, etape: s.etape, revientLe: s.revientLe })
         else enRoute.push({ q, etape: s.etape, revientLe: s.revientLe })
@@ -1869,7 +1897,15 @@ export class CampagneStore {
         for (const a of melanger(apprises).sort((x, y) => x.le.localeCompare(y.le))) tirees.push({ q: a.q, etape: INTERVALLES_DE_REVISION.length, enAvance: { apprise: true } })
       }
       if (tirees.length === 0) {
-        throw new Error(suivis.size === 0 ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain' : 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet')
+        throw new Error(
+          suivis.size === 0
+            ? 'Ton carnet est vide : une question ratée t’y attendra le lendemain'
+            : !suivi && !categories
+              ? 'Rien à revoir aujourd’hui : reviens demain, ou revois tout ton carnet'
+              : enRoute.length + apprises.length === 0
+                ? 'Rien sur ce choix dans ton carnet : choisis autre chose'
+                : 'Rien à revoir aujourd’hui sur ce choix : revois-le en avance, ou choisis autre chose',
+        )
       }
       if (ouverte) {
         await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [this.maintenant(), ouverte.id] })
@@ -1894,12 +1930,13 @@ export class CampagneStore {
         seuil: null,
         rejeu: false,
         issue: null,
-        categories: null,
+        categories,
+        sujet: suivi?.cle ?? null,
       }
       await this.client.execute({
-        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode)
-              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'revision')`,
-        args: [serie.id, profileId, JSON.stringify(questions), VIES, this.maintenant()],
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, categories, sujet)
+              VALUES (?, ?, ?, 0, ?, 0, ?, NULL, 'revision', ?, ?)`,
+        args: [serie.id, profileId, JSON.stringify(questions), VIES, this.maintenant(), categories ? JSON.stringify(categories) : null, serie.sujet ?? null],
       })
       this.garderEnCours(serie)
       return vueDeSerie(serie)
@@ -6257,6 +6294,8 @@ function questionMontree(q: QuestionDeSerie, index: number): QuestionDeCampagne 
 
 function vueDeSerie(s: Serie): SerieDeCampagne {
   const finie = s.finieLe !== null
+  // Une révision dit aussi ce qu'elle vise : sa fin propose d'en revoir encore, sur le même choix.
+  const choisie = s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre' || s.mode === 'revision'
   return {
     id: s.id,
     vies: s.vies,
@@ -6264,8 +6303,8 @@ function vueDeSerie(s: Serie): SerieDeCampagne {
     total: s.questions.length,
     finie,
     ...(!finie && s.questions[s.index] && { question: questionMontree(s.questions[s.index], s.index) }),
-    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.categories && s.categories.length > 0 && { categories: s.categories }),
-    ...((s.mode === 'serie' || s.mode === 'duel' || s.mode === 'rencontre') && s.sujet && { sujet: s.sujet }),
+    ...(choisie && s.categories && s.categories.length > 0 && { categories: s.categories }),
+    ...(choisie && s.sujet && { sujet: s.sujet }),
   }
 }
 

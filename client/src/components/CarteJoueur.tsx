@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
@@ -52,12 +52,17 @@ const lesGestes = aLaDemande(() => import('./GestesDuJoueur'))
  * Son avatar se touche : il s'ouvre en grand, à la place de ce que la carte
  * raconte (`AvatarEnGrand`), et un nouveau toucher — ou Échap — rend la
  * carte.
+ *
+ * La loge l'ouvre aussi, sur ce qu'on y essaie (`retouche`) : « Aperçu de ta
+ * carte », et « Porter » au pied (`pied`).
  */
 export function CarteJoueur({
   slug,
   playerId,
   adresse,
   gestes,
+  retouche,
+  pied,
   onFermer,
 }: {
   slug?: string
@@ -66,11 +71,18 @@ export function CarteJoueur({
   adresse?: string
   /** Un profil touché hors d'une soirée : ce qu'on peut en faire, au pied de la carte (`GestesDuJoueur`). */
   gestes?: GestesDeLaCarte
+  /** Sa carte telle qu'il l'essaie, dans la loge (`carteAvecLEssai`) : un aperçu, rien de porté. */
+  retouche?: (carte: CarteDeJoueur) => CarteDeJoueur
+  /** Ce qui se pose au pied de la carte, hors de ce qui défile — l'aperçu de la loge y met « Porter ». */
+  pied?: ReactNode
   onFermer: () => void
 }) {
   const [carte, setCarte] = useState<CarteDeJoueur | null>(null)
   const [erreur, setErreur] = useState('')
   const boite = useRef<HTMLDivElement>(null)
+  // L'essai ne bouge pas tant que la carte est ouverte — la loge, derrière, est inerte : il se lit une fois, à l'arrivée.
+  const retoucher = useRef(retouche)
+  retoucher.current = retouche
   const desGestes = useALaDemande(lesGestes, !!gestes)
   // L'avatar en grand, et la hauteur du contenu qu'il remplace : il la
   // garde, et la carte ne rapetisse pas sous le doigt — centrée dans
@@ -103,8 +115,10 @@ export function CarteJoueur({
       // La lumière de sa finition aussi : elle s'allumerait après coup — et
       // sa bordure de ligue, qui se poserait autour de lui sous les yeux.
       // Deux secondes et demie au plus : une requête muette ne garde pas la
-      // carte fermée, elle s'ouvre sans ses galeries.
-      .then(async (c: CarteDeJoueur) => {
+      // carte fermée, elle s'ouvre sans ses galeries. Retouchée de l'essai,
+      // avant : ce sont les dessins de l'avatar essayé qu'elle attend.
+      .then(async (lue: CarteDeJoueur) => {
+        const c = retoucher.current ? retoucher.current(lue) : lue
         await chargerDessinsAuPlus(dessinsDeLaCarte(c))
         return c
       })
@@ -153,7 +167,7 @@ export function CarteJoueur({
         <header className="carte-joueur-barre">
           <span className="salon-hud-label">
             <span className="admin-pouls" aria-hidden="true" />
-            Carte de joueur
+            {retouche ? 'Aperçu de ta carte' : 'Carte de joueur'}
           </span>
           <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
             <Icon name="x" />
@@ -337,6 +351,8 @@ export function CarteJoueur({
             ce qu'il faut pendant que la carte arrive —, cachés sous l'avatar
             en grand. */}
         {gestes && desGestes && desGestes !== 'perdu' && <desGestes.GestesDuJoueur gestes={gestes} visibles={!loupe} onFermer={onFermer} />}
+        {/* Le pied de l'aperçu, comme celui des gestes : « Porter » reste en vue sous une carte bien remplie. */}
+        {pied && !loupe && <footer className="carte-gestes">{pied}</footer>}
       </div>
     </div>
   )

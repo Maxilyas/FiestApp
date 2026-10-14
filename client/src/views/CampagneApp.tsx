@@ -6,7 +6,7 @@ import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, demanderLesSentiers }
 import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { ADRESSE_DU_CARNET, PageDuCarnet, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
+import { ADRESSE_DU_CARNET, PageDuCarnet, corpsDeLaVisee, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
 import { apresLaPerte, ceQuIlPorte, ecartSigne, scoreDeRencontre, siTuPerds, type ContreEnJeu } from './Rencontre'
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
@@ -55,7 +55,7 @@ import {
   type ReponseDeCampagne,
   type SerieDeCampagne,
 } from '../../../shared/campagne'
-import { INTERVALLES_DE_REVISION, type EtatDuCarnet } from '../../../shared/revision'
+import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, partVisee, type EtatDuCarnet, type ViseeDuCarnet } from '../../../shared/revision'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../shared/gains'
 import { ligueDe, type CoteApresLeDuel, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 
@@ -621,7 +621,7 @@ export function CampagneApp() {
     setEcran({ e: 'jeu', serie: t.id, question: t.question, vies: t.vies, justes: t.justes, total: t.total, reponse: null, choix: null, xp: 0, categories: [], sujet: null, defi: true })
   }
 
-  /** Une révision du carnet, commencée ou reprise depuis son onglet : la partie de la série, sans vies. */
+  /** Une révision du carnet, commencée ou reprise depuis son onglet : la partie de la série, sans vies — et ce qu'elle vise, que sa fin reprend. */
   const jouerLaRevision = (t: SerieDeCampagne) => {
     if (!t.question) return
     setEcran({
@@ -634,8 +634,8 @@ export function CampagneApp() {
       reponse: null,
       choix: null,
       xp: 0,
-      categories: [],
-      sujet: null,
+      categories: t.categories ?? [],
+      sujet: t.sujet ?? null,
       revision: true,
       apprises: 0,
     })
@@ -674,13 +674,17 @@ export function CampagneApp() {
     }
   }
 
-  /** De la fin d'une révision à une autre, tant qu'il reste à revoir — ou tout le carnet, en avance (`tout`). */
-  const reviserEncore = async (tout = false) => {
+  /**
+   * De la fin d'une révision à une autre, tant qu'il reste à revoir — ou tout
+   * le carnet, en avance (`tout`) ; sur ce qu'elle visait, tant qu'il y reste
+   * à revoir (`visee`).
+   */
+  const reviserEncore = async (tout = false, visee?: ViseeDuCarnet) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      jouerLaRevision(await api.campagne.carnet.reviser({ tout }))
+      jouerLaRevision(await api.campagne.carnet.reviser({ tout, ...(visee && corpsDeLaVisee(visee)) }))
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -1128,10 +1132,15 @@ export function CampagneApp() {
     const { total, apprises, carnet } = ecran.revision
     const ratees = total - ecran.justes
     const s = ecran.justes > 1 ? 's' : ''
+    // Elle visait une catégorie ou un sujet : « Réviser encore » y reste, tant qu'il y a à revoir.
+    const visee: ViseeDuCarnet = { categories: ecran.categories, sujet: ecran.sujet }
+    const nomDeLaVisee = nomDuChoix(visee.categories, visee.sujet)
+    const encore = carnet && nomDeLaVisee ? partVisee(carnet, visee).aRevoir : 0
+    const questions = (n: number) => `${n} question${n > 1 ? 's' : ''}`
     return (
       <div className="player-shell campagne">
         <header className="fin-tete">
-          <span className="label">Le carnet de révision</span>
+          <span className="label">{nomDeLaVisee ? `Le carnet de révision · ${nomDeLaVisee}` : 'Le carnet de révision'}</span>
           <h1>Révision terminée</h1>
         </header>
         <section className="card result-banner result-ok campagne-fin">
@@ -1146,11 +1155,21 @@ export function CampagneApp() {
         </section>
         <GainsDeCampagne fin={ecran} profil={profil} />
         {erreur && <p className="error">{erreur}</p>}
-        {carnet && carnet.aRevoir > 0 ? (
-          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
+        {carnet && encore > 0 ? (
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore(false, visee)}>
             <Icon name="rotate" />
-            {`Réviser encore · ${Math.min(carnet.aRevoir, total)} question${Math.min(carnet.aRevoir, total) > 1 ? 's' : ''}`}
+            {`Réviser encore · ${questions(Math.min(encore, QUESTIONS_PAR_REVISION))}`}
           </button>
+        ) : carnet && carnet.aRevoir > 0 ? (
+          <>
+            {/* Ce qu'elle visait est revu : la suite reprend tout le carnet, et le dit. */}
+            {nomDeLaVisee && <p className="muted small centre">{espacesFines(`${nomDeLaVisee} : rien de plus à revoir aujourd’hui.`)}</p>}
+            <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
+              <Icon name="rotate" />
+              {/* Dix au plus, quoi qu'elle ait posé : une révision visée n'en posait parfois que trois. */}
+              {`Réviser encore · ${questions(Math.min(carnet.aRevoir, QUESTIONS_PAR_REVISION))}`}
+            </button>
+          </>
         ) : (
           carnet && (
             <>

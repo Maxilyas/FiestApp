@@ -3,12 +3,24 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { LILAS, lueur } from '../components/Atlas'
+import { FeuilleDuChoix, LigneDuChoix, type CompteDuChoix } from '../components/ChoixDuTheme'
 import { espacesFines } from '../format'
 import { JeuDuParcours, ParcoursDeTheme, type EtapeAJouer } from './Parcours'
 import { ADRESSE_D_APPRENDRE } from '../../../shared/depart'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { XP_PAR_JUSTE, type SerieDeCampagne } from '../../../shared/campagne'
-import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, type EtatDuCarnet, type FaitAppris } from '../../../shared/revision'
+import { nomDuChoix } from '../../../shared/nomDuChoix'
+import { SUJETS } from '../../../shared/sujets'
+import {
+  INTERVALLES_DE_REVISION,
+  QUESTIONS_PAR_REVISION,
+  TOUT_LE_CARNET,
+  partVisee,
+  type EtatDuCarnet,
+  type FaitAppris,
+  type PartDuCarnet,
+  type ViseeDuCarnet,
+} from '../../../shared/revision'
 import type { EtatDesSujets } from '../../../shared/sentiersDeSujets'
 
 /** L'adresse de l'onglet « Apprendre », dans la campagne : la règle même du préchargement de son carnet et de ses parcours. */
@@ -40,6 +52,36 @@ export function prochaineFois(c: EtatDuCarnet): string {
   return `Ton carnet est ${c.appris > 0 ? 'à jour' : 'vide'} : une question ratée en série, sur un sentier ou au défi t’y attendra le lendemain.`
 }
 
+/** Ce qu'une révision envoie de ce qu'elle vise : rien pour tout le carnet. */
+export function corpsDeLaVisee(v: ViseeDuCarnet): { categories?: readonly string[]; sujet?: string } {
+  if (v.sujet) return { sujet: v.sujet }
+  return v.categories.length > 0 ? { categories: v.categories } : {}
+}
+
+/** Ce qu'une case de la feuille dit de ce qu'il tient d'une catégorie ou d'un sujet : ce qui est à revoir aujourd'hui, sinon tout ce qui y attend. */
+export function compteDe(p: PartDuCarnet): CompteDuChoix {
+  return p.aRevoir > 0 ? { texte: `${p.aRevoir} à revoir`, vif: true } : { texte: `${p.enTout} au carnet` }
+}
+
+/**
+ * Ce que la ligne du choix dit sous ce qu'on vise, sur une ligne : sur tout
+ * le carnet, chaque catégorie et ce qui y est à revoir — rien de dû, tout ce
+ * qui y attend —, la plus chargée d'abord ; de quoi savoir où l'on en est
+ * sans ouvrir la feuille, qui les dit toutes. Sur une catégorie ou un sujet,
+ * ce qui y attend.
+ */
+export function ceQuiYAttend(carnet: EtatDuCarnet, v: ViseeDuCarnet): string | undefined {
+  if (v.sujet || v.categories.length > 0) {
+    const p = partVisee(carnet, v)
+    return p.aRevoir > 0 ? `${p.aRevoir} à revoir aujourd’hui` : `${p.enTout} au carnet`
+  }
+  const dues = carnet.aRevoir > 0
+  const compte = (c: PartDuCarnet) => (dues ? c.aRevoir : c.enTout)
+  // À compte égal, l'ordre de la liste fixe : `sort` garde celui d'où elles viennent.
+  const rangees = carnet.categories.filter(c => compte(c) > 0).sort((a, b) => compte(b) - compte(a))
+  return rangees.length > 0 ? rangees.map(c => `${c.categorie} ${compte(c)}`).join(' · ') : undefined
+}
+
 /**
  * « Apprendre », quatrième onglet de la campagne (`#carnet`) : le carnet de
  * révision d'abord — ce qu'il a raté revient le lendemain, puis trois jours
@@ -62,6 +104,9 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
   const [etape, setEtape] = useState<EtapeAJouer | null>(null)
   // Revenu d'une étape : la page reprend aux parcours, pas en haut du carnet.
   const auxParcours = useRef(false)
+  // Ce que la révision vise : tout le carnet d'office ; une catégorie, plusieurs ou un sujet, choisis dans la feuille.
+  const [visee, setVisee] = useState<ViseeDuCarnet>(TOUT_LE_CARNET)
+  const [choixOuvert, setChoixOuvert] = useState(false)
 
   // Les deux partent ensemble, à l'ouverture : préchargés par le premier script (`donneesDuFragment`), c'est ici qu'ils se reprennent.
   const lire = (vivant: () => boolean) => {
@@ -106,12 +151,20 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
     )
   }
 
+  // Une visée que le carnet ne tient plus — revue jusqu'à la dernière, ou retirée de la campagne — rend tout le carnet.
+  const v = carnet && partVisee(carnet, visee).enTout === 0 ? TOUT_LE_CARNET : visee
+  const part = carnet ? partVisee(carnet, v) : null
+  const nomDeLaVisee = nomDuChoix(v.categories, v.sujet)
+  // Un choix à faire : plusieurs catégories au carnet, ou des sujets. Sinon, ni ligne ni feuille.
+  const aChoisir = !!carnet && (carnet.categories.length > 1 || carnet.sujets.length > 0)
+
   const reviser = async (o: { tout?: boolean; recommencer?: boolean } = {}) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const revision = await api.campagne.carnet.reviser(o)
+      // Recommencée, elle vise ce que visait l'autre : le serveur le sait.
+      const revision = await api.campagne.carnet.reviser(o.recommencer ? o : { ...o, ...corpsDeLaVisee(v) })
       if (revision.question) onReviser(revision)
     } catch (e) {
       setErreur(motifDe(e))
@@ -131,6 +184,13 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
 
   const enCours = carnet?.enCours?.question ? carnet.enCours : null
   const enRoute = carnet ? carnet.demain + carnet.plusTard : 0
+  const viseeEnCours = enCours ? nomDuChoix(enCours.categories ?? [], enCours.sujet) : null
+  // Sur quoi, en une ligne sous le gros bouton — comme la série : ce qui attend dans chaque catégorie se lit dessous, et
+  // dans la feuille qu'elle ouvre. Sans « Sur », et sa ligne coupée au bout : plus haute, elle poussait les parcours de
+  // thème hors du premier écran (le carnet ramassé de la maquette du 12 octobre 2026).
+  const ligne = carnet && aChoisir && (
+    <LigneDuChoix categories={v.categories} sujet={v.sujet} toutes="Tout le carnet" detail={ceQuiYAttend(carnet, v)} uneLigne onChanger={() => setChoixOuvert(true)} />
+  )
   return (
     <div className="player-shell campagne">
       <Sortie />
@@ -181,30 +241,35 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
                   (« 5 bonnes sur 6 »), quand il compte la position. */}
               {`Reprendre à la question ${enCours.question!.index + 1}`}
             </button>
+            {/* Ce qu'elle vise, si elle vise quelque chose : « Reprendre » ne disait pas laquelle. */}
+            {viseeEnCours && <p className="muted small centre">{espacesFines(`Ta révision · ${viseeEnCours}`)}</p>}
             {/* Comme une série : celle laissée en route se referme, ses réponses restent au carnet. */}
             <button type="button" className="btn btn-ghost btn-block" aria-disabled={busy || undefined} onClick={() => void reviser({ recommencer: true })}>
               <Icon name="rotate" />
               Recommencer une révision
             </button>
           </>
-        ) : carnet.aRevoir > 0 ? (
+        ) : part && part.aRevoir > 0 ? (
           <>
             <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser()}>
               <Icon name="play" />
-              {`Réviser · ${questions(Math.min(carnet.aRevoir, QUESTIONS_PAR_REVISION))}`}
+              {`Réviser · ${questions(Math.min(part.aRevoir, QUESTIONS_PAR_REVISION))}`}
             </button>
-            {carnet.aRevoir > QUESTIONS_PAR_REVISION && <p className="muted small centre">{`${QUESTIONS_PAR_REVISION} à la fois, les plus en retard d’abord.`}</p>}
+            {ligne}
+            {part.aRevoir > QUESTIONS_PAR_REVISION && <p className="muted small centre">{`${QUESTIONS_PAR_REVISION} à la fois, les plus en retard d’abord.`}</p>}
           </>
         ) : (
           <>
-            <p className="muted centre carnet-prochaine">{prochaineFois(carnet)}</p>
-            {/* Rien à revoir aujourd'hui n'est plus une impasse : tout le carnet se revoit, en avance. */}
-            {tailleDuCarnet(carnet) > 0 && (
+            {/* Une catégorie ou un sujet visé se nomme d'abord : « Les animaux » garde sa capitale. */}
+            <p className="muted centre carnet-prochaine">{nomDeLaVisee ? espacesFines(`${nomDeLaVisee} : rien à revoir aujourd’hui.`) : prochaineFois(carnet)}</p>
+            {/* Rien à revoir aujourd'hui n'est plus une impasse : tout le carnet se revoit, en avance — ou ce qu'on vise. */}
+            {part && part.enTout > 0 && (
               <>
                 <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviser({ tout: true })}>
                   <Icon name="book" />
-                  {`Tout revoir · ${questions(Math.min(tailleDuCarnet(carnet), QUESTIONS_PAR_REVISION))}`}
+                  {`Tout revoir · ${questions(Math.min(part.enTout, QUESTIONS_PAR_REVISION))}`}
                 </button>
+                {ligne}
                 <p className="muted small centre">Retrouvée en avance, une question garde son rendez-vous ; ratée, elle revient demain.</p>
               </>
             )}
@@ -250,6 +315,24 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
             setEtape(e)
             window.scrollTo(0, 0)
           }}
+        />
+      )}
+
+      {/* La feuille du choix de la série, chaque case disant ce qui y attend : « 4 à revoir », ou « 9 au carnet ». */}
+      {carnet && aChoisir && choixOuvert && (
+        <FeuilleDuChoix
+          categoriesJouables={carnet.categories.map(c => c.categorie)}
+          sujets={SUJETS.filter(s => carnet.sujets.some(x => x.sujet === s.cle))}
+          categories={v.categories}
+          sujet={v.sujet}
+          toutes="Tout le carnet"
+          comptes={{
+            toutes: compteDe(partVisee(carnet, TOUT_LE_CARNET)),
+            categories: new Map(carnet.categories.map(c => [c.categorie, compteDe(c)])),
+            sujets: new Map(carnet.sujets.map(s => [s.sujet, compteDe(s)])),
+          }}
+          onChoisir={(categories, sujet) => setVisee({ categories, sujet })}
+          onFermer={() => setChoixOuvert(false)}
         />
       )}
     </div>

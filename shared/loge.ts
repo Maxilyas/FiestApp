@@ -13,7 +13,7 @@
 import { COLLECTION } from './avatars'
 import { brancheDe, portrait, portraitsOuverts } from './branches'
 import { compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
-import { vitrineDeLaCarte } from './carte'
+import { vitrineDeLaCarte, type CarteDeJoueur } from './carte'
 import { divin } from './divins'
 import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
@@ -23,7 +23,7 @@ import { NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
-import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, type ChoixDeBordure } from './duels'
+import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, bordurePortee, type ChoixDeBordure } from './duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from './piecesDeLaLoge'
 
 // Les six pièces vivent à part, sans catalogue : la page du profil montre
@@ -175,6 +175,53 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
 /** Les hauts faits que sa carte montrerait : ceux qu'il a choisis, sinon les plus durs (`vitrineDeLaCarte`). */
 export function vitrineVue(profil: Pick<PublicProfileDetail, 'vitrine' | 'vitrineChoisie' | 'hautsFaits'>) {
   return vitrineDeLaCarte(profil.vitrine, profil.vitrineChoisie ?? null, recompensesDe(profil.hautsFaits))
+}
+
+/**
+ * Sa carte entière, telle que la salle la verrait s'il portait l'essai : la
+ * carte que le serveur compose (`/api/joueur/carte`), retouchée de ce qu'il
+ * essaie et de rien d'autre — l'avatar, sa finition, son Éclat et sa
+ * bordure, comme le serveur les lit (`apparenceDe`, `carteDuProfil`) ; son
+ * titre, sa vitrine, son fond. Ses chiffres, ses écussons, ses légendaires ne
+ * s'essaient pas. La carte de la loge, touchée, s'ouvre en grand sur elle (le
+ * retour d'un joueur du 14 octobre 2026 : « cliquer sur la carte pour
+ * l'afficher en grand »).
+ */
+export function carteAvecLEssai(
+  carte: CarteDeJoueur,
+  profil: Tenue & Pick<PublicProfileDetail, 'finition' | 'niveau' | 'eclats' | 'vitrine' | 'hautsFaits' | 'bordures'>,
+  essai: Essai,
+): CarteDeJoueur {
+  const vu = avecLEssai(profil, essai)
+  const retouchee: CarteDeJoueur = { ...carte }
+  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.eclat) {
+    const legendaire = vu.legendaire ?? undefined
+    // Ni bordure sous un Divin, qui a sa propre lumière.
+    const bordure = divin(legendaire) ? null : bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)
+    retouchee.avatar = vu.avatar
+    retouchee.finition = vu.finition
+    // Absents plutôt que faux, comme le serveur les envoie (`distinctions`).
+    delete retouchee.eclat
+    delete retouchee.legendaire
+    delete retouchee.bordure
+    if (brilleChez(vu, cibleEclat(legendaire, vu.avatar))) retouchee.eclat = true
+    if (legendaire) retouchee.legendaire = legendaire
+    if (bordure) retouchee.bordure = bordure
+  }
+  if (carte.profil && (essai.titre !== undefined || essai.vitrine !== undefined || essai.fond !== undefined)) {
+    const p = { ...carte.profil }
+    if (essai.titre !== undefined) {
+      delete p.titre
+      if (vu.titre) p.titre = vu.titre
+    }
+    if (essai.vitrine !== undefined) p.vitrine = vitrineVue(vu)
+    if (essai.fond !== undefined) {
+      delete p.fond
+      if (vu.fond) p.fond = vu.fond
+    }
+    retouchee.profil = p
+  }
+  return retouchee
 }
 
 /** Une ligne de ce qu'on essaie : son nom, et ce qu'il est. */

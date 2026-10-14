@@ -51,6 +51,14 @@ export function suiviDeLaQuestion(passages: readonly { le: number; juste: boolea
   return suivi
 }
 
+/** Ce que le carnet tient d'une catégorie, ou d'un sujet. */
+export interface PartDuCarnet {
+  /** Ses questions dont le rendez-vous est arrivé, ou passé. */
+  aRevoir: number
+  /** Tout ce qu'il en tient — à revoir, en route, appris : ce que « Tout revoir » y reprendrait. */
+  enTout: number
+}
+
 /** La page du carnet (`GET /api/campagne/carnet`). */
 export interface EtatDuCarnet {
   /** Les questions dont le rendez-vous est arrivé, ou passé. */
@@ -64,6 +72,48 @@ export interface EtatDuCarnet {
   appris: number
   /** La révision laissée en route : elle se reprend. */
   enCours: SerieDeCampagne | null
+  /**
+   * Ce qu'il tient de chaque catégorie, dans l'ordre de la liste fixe —
+   * celles où il a quelque chose seulement : de quoi viser une révision, et
+   * savoir combien attendent dans chacune (le retour d'un joueur du 14 octobre
+   * 2026 : « cibler un thème à revoir, et savoir combien de questions »).
+   */
+  categories: ({ categorie: string } & PartDuCarnet)[]
+  /**
+   * De même par sujet — thème, époque, fil rouge (`shared/sujets.ts`) —, dans
+   * l'ordre de `SUJETS`. Une question en a plusieurs, ou aucun : leurs comptes
+   * ne s'additionnent pas.
+   */
+  sujets: ({ sujet: string } & PartDuCarnet)[]
+}
+
+/** Ce qu'une révision vise : des catégories — aucune, tout le carnet —, ou un sujet qui les traverse. */
+export interface ViseeDuCarnet {
+  categories: readonly string[]
+  sujet: string | null
+}
+
+/** Tout le carnet : la visée d'office. */
+export const TOUT_LE_CARNET: ViseeDuCarnet = { categories: [], sujet: null }
+
+/**
+ * Ce que le carnet tient de ce qu'on vise : ce qui est à revoir aujourd'hui,
+ * et tout ce qu'il en a. Plusieurs catégories s'additionnent — une question
+ * n'en a qu'une ; un sujet se lit seul.
+ */
+export function partVisee(carnet: Pick<EtatDuCarnet, 'aRevoir' | 'demain' | 'plusTard' | 'appris' | 'categories' | 'sujets'>, visee: ViseeDuCarnet): PartDuCarnet {
+  if (visee.sujet) {
+    const s = carnet.sujets.find(x => x.sujet === visee.sujet)
+    return { aRevoir: s?.aRevoir ?? 0, enTout: s?.enTout ?? 0 }
+  }
+  if (visee.categories.length === 0) return { aRevoir: carnet.aRevoir, enTout: carnet.aRevoir + carnet.demain + carnet.plusTard + carnet.appris }
+  const part = { aRevoir: 0, enTout: 0 }
+  for (const c of carnet.categories) {
+    if (!visee.categories.includes(c.categorie)) continue
+    part.aRevoir += c.aRevoir
+    part.enTout += c.enTout
+  }
+  return part
 }
 
 /** Un fait appris, tel que le carnet le redonne : la question, sa réponse, son anecdote. */

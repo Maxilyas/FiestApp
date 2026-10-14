@@ -456,9 +456,10 @@ export const api = {
       /**
        * Une révision : celle laissée en route, ou les questions dont le
        * rendez-vous est arrivé — tout le carnet (`tout`), en avance compris ;
-       * `recommencer` referme celle laissée en route et en tire une neuve.
+       * `recommencer` referme celle laissée en route et en tire une neuve, sur
+       * ce qu'elle visait. `categories` ou `sujet` la visent, comme une série.
        */
-      reviser: (o: { tout?: boolean; recommencer?: boolean } = {}) =>
+      reviser: (o: { tout?: boolean; recommencer?: boolean; categories?: readonly string[]; sujet?: string } = {}) =>
         req<SerieDeCampagne>('/api/campagne/revision', { method: 'POST', body: JSON.stringify(o) }),
     },
     /** Les parcours de thème — les sentiers à thème d'avant (`shared/sentiersDeSujets.ts`) : une épreuve de sujet est une série d'un autre mode — sa correction et ses signalements passent par celles de la série. */

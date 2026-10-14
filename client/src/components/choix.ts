@@ -38,6 +38,20 @@ export type ChoixDuProfil = {
 }
 
 /**
+ * Ce que la page demande à la loge avant de la quitter — « ← Mon profil »,
+ * un lien, le retour du navigateur — : un essai attend-il (`enCours`), et
+ * que faire de lui (`demander` : « Porter », « Partir sans » ou « Rester » —
+ * vrai si l'on peut partir, l'essai porté ou laissé). Un essai pas porté se
+ * perdait en silence (le retour d'un joueur du 14 octobre 2026). Ici, et pas
+ * dans `Loge.tsx` : la page n'importe rien de la loge, qui vient avec ses
+ * panneaux.
+ */
+export interface GardeDeLaLoge {
+  enCours: () => boolean
+  demander: () => Promise<boolean>
+}
+
+/**
  * Ce que reçoit chaque pièce de la loge (`Loge.tsx`) : ce qu'il porte, ce
  * qu'il essaie, et de quoi essayer — un toucher essaie, il n'enregistre
  * rien, la version d'un avatar éclaté comprise ; « Porter », dans la barre
