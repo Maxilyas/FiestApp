@@ -16,10 +16,11 @@
 // Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
 // ceux qui attendent leur adversaire — et l'un d'eux annulé ; la page de
 // l'économie — trente jours de thèmes, de compagnons et de soirées, des Éclats,
-// dix-sept légendaires portés — ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
-// offerts, sa connexion fermée —, le don qu'on prépare, le code de secours
-// tiré pour elle, et son accueil qui annonce le don, une fois. Le client
-// construit d'abord (`npm run build -w client`).
+// dix-sept légendaires portés — ; puis la fiche d'une joueuse — une épreuve en route, des confettis
+// offerts, sa connexion fermée, masquée du classement —, le don qu'on prépare, le code de secours
+// tiré pour elle, et son accueil qui annonce le don, une fois ; elle, remise
+// au classement depuis la page des duels ; enfin la fiche de l'administrateur,
+// qui s'offre des confettis. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
@@ -696,6 +697,58 @@ try {
     await page.waitForSelector('.accueil-tete')
     await page.waitForTimeout(600)
     if (await page.locator('.annonce-admin').count()) console.error('[22] l’annonce retombe à la seconde visite')
+    await contexte.close()
+  }
+
+  // Les profils masqués sous le classement des duels, au téléphone — Léa,
+  // masquée du quiz du jour —, puis remise au classement d'un toucher : la
+  // liste s'en remet. Après sa fiche, qui la montre « hors classement ».
+  {
+    const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#duels`)
+    const masques = 'ul[aria-labelledby="duels-masques"] > li'
+    await page.waitForSelector(masques, { timeout: 15000 })
+    await page.locator('#duels-masques').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, '46-duels-masques.png') })
+    console.log(path.join(sortie, '46-duels-masques.png'))
+    await page.locator(masques).first().getByRole('button', { name: 'Remettre au classement' }).click()
+    await page.waitForSelector('.toast')
+    await page.waitForTimeout(600)
+    if (await page.locator(masques).count()) console.error('[47] Léa reste parmi les masqués')
+    await page.screenshot({ path: path.join(sortie, '47-duels-remise.png') })
+    console.log(path.join(sortie, '47-duels-remise.png'))
+    await contexte.close()
+  }
+
+  // L'administrateur rattache son profil à son espace : sa propre fiche lui
+  // offre des confettis à lui aussi, « Pour toi » — le don préparé, puis fait.
+  {
+    await inscrireProfil(banc.url, 'antoine', 'Antoine', '🦁')
+    await ecrire(banc.url, '/api/space/profil', { login: 'antoine', password: 'motdepasse1' }, admin)
+    const contexte = await navigateur.newContext({ viewport: { width: 360, height: 1100 }, deviceScaleFactor: 2 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#profils`)
+    await page.getByRole('searchbox', { name: 'Chercher un profil' }).fill('antoine')
+    await page.getByRole('button', { name: /Antoine/ }).first().click()
+    await page.waitForSelector('.qg-fiche dl')
+    await page.getByRole('button', { name: 'T’offrir des confettis' }).click()
+    await page.waitForSelector('.qg-fiche-don')
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, '48-fiche-a-soi.png') })
+    console.log(path.join(sortie, '48-fiche-a-soi.png'))
+    await page.getByRole('button', { name: 'T’offrir 50 confettis' }).click()
+    await page.waitForSelector('.toast')
+    await page.waitForTimeout(600)
+    await page.screenshot({ path: path.join(sortie, '49-fiche-a-soi-fait.png') })
+    console.log(path.join(sortie, '49-fiche-a-soi-fait.png'))
     await contexte.close()
   }
   host.disconnect()

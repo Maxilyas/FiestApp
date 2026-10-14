@@ -99,7 +99,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `scripts/rendu-bordures.ts` · `scripts/duelsDEssai.ts` (des duels écrits au
   journal pour les rendus, `rendu-ecran.ts` compris) — client construit
   d'abord
-- `shared/qgDuels.ts` · `CampagneStore.suiviDesDuelsAuQg` · `annulerUnDuel` — les duels vus du QG (`/admin#duels`, règle `qg.md`) : les duels par jour, les ligues et le classement — « Masquer » —, les duels classés qui attendent leur adversaire. L'administrateur peut **annuler un duel classé que l'adversaire n'a pas commencé** (le choix du 13 octobre 2026, « Annuler un duel pas joué ») : il se ferme tout de suite, comme à son expiration, et ne compte pour personne — l'adversaire ne peut plus le relever (« Ce défi est fermé »). Commencé de l'autre côté, il compte déjà : il ne s'annule plus (`qg-duels.test.ts`)
+- `shared/qgDuels.ts` · `CampagneStore.suiviDesDuelsAuQg` · `annulerUnDuel` — les duels vus du QG (`/admin#duels`, règle `qg.md`) : les duels par jour, les ligues et le classement — « Masquer », et les masqués à y remettre —, les duels classés qui attendent leur adversaire. L'administrateur peut **annuler un duel classé que l'adversaire n'a pas commencé** (le choix du 13 octobre 2026, « Annuler un duel pas joué ») : il se ferme tout de suite, comme à son expiration, et ne compte pour personne — l'adversaire ne peut plus le relever (« Ce défi est fermé »). Commencé de l'autre côté, il compte déjà : il ne s'annule plus (`qg-duels.test.ts`)
 
 ## Les pièges
 

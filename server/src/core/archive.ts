@@ -7,7 +7,7 @@ import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
 import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe } from '../../../shared/teams'
-import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
+import { nomAffiche, nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
 import { apparenceDeLAvatar } from '../../../shared/profil'
@@ -191,10 +191,14 @@ export function buildArchive(live: LiveParty): { id: string; heldAt: number; arc
 function archivePlayers(a: PartyArchive, apparences?: BadgeLookup): PublicPlayer[] {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
+  const badges = new Map(a.players.map(p => [p.id, p.profileId ? apparences?.(p.profileId, p.avatar) : undefined]))
   // Les marques d'homonymie se recalculent à la relecture, dans l'ordre
   // d'arrivée : une soirée rangée avant que cette règle existe les gagne donc
-  // elle aussi, sans qu'on ait réécrit une seule archive.
-  const marques = nomsAffiches([...a.players].sort((x, y) => x.createdAt - y.createdAt))
+  // elle aussi, sans qu'on ait réécrit une seule archive. Elles comparent ce
+  // que la page montre — ce que chacun porte aujourd'hui —, comme la salle.
+  const marques = nomsAffiches(
+    [...a.players].sort((x, y) => x.createdAt - y.createdAt).map(p => ({ id: p.id, name: p.name, avatar: p.avatar, legendaire: badges.get(p.id)?.legendaire })),
+  )
   return a.players.map(p => ({
     id: p.id,
     name: p.name,
@@ -202,7 +206,7 @@ function archivePlayers(a: PartyArchive, apparences?: BadgeLookup): PublicPlayer
     connected: false,
     score: totals.get(p.id) ?? 0,
     teamId: p.teamId,
-    ...apparenceDeLAvatar(p.profileId ? apparences?.(p.profileId, p.avatar) : undefined),
+    ...apparenceDeLAvatar(badges.get(p.id)),
     ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
   }))
 }
@@ -343,7 +347,7 @@ function lireFiche(texte: string): FicheSoiree | null {
  * les équipes la règle de l'écran de victoire — prix compris.
  */
 function resumer(meta: MetaSoiree, fiche: FicheSoiree, apparences?: BadgeLookup): ArchiveSummary {
-  const { joueurs, joue, enTete } = joueursDeLaFiche(fiche)
+  const { joueurs, joue, enTete } = joueursDeLaFiche(fiche, apparences)
   const profilDe = new Map(fiche.invites.flatMap(i => (i.profileId ? [[i.id, i.profileId] as const] : [])))
   // Ce que chaque vainqueur porte aujourd'hui, par la règle de la salle, comme
   // le souvenir et le bilan d'une archive : un profil supprimé, ou une fiche
@@ -366,9 +370,15 @@ function resumer(meta: MetaSoiree, fiche: FicheSoiree, apparences?: BadgeLookup)
   }
 }
 
-/** Ses invités en joueurs — leur marque d'homonymie comprise —, ceux qui ont joué, et ceux qui finissent en tête (la règle commune). */
-function joueursDeLaFiche(fiche: FicheSoiree): { joueurs: PublicPlayer[]; joue: Set<string>; enTete: PublicPlayer[] } {
-  const marques = nomsAffiches(fiche.invites)
+/**
+ * Ses invités en joueurs — leur marque d'homonymie comprise, sur ce que
+ * chacun porte aujourd'hui (`apparences`) —, ceux qui ont joué, et ceux qui
+ * finissent en tête (la règle commune).
+ */
+function joueursDeLaFiche(fiche: FicheSoiree, apparences?: BadgeLookup): { joueurs: PublicPlayer[]; joue: Set<string>; enTete: PublicPlayer[] } {
+  const marques = nomsAffiches(
+    fiche.invites.map(i => ({ id: i.id, name: i.name, avatar: i.avatar, legendaire: i.profileId ? apparences?.(i.profileId, i.avatar)?.legendaire : undefined })),
+  )
   const joueurs: PublicPlayer[] = fiche.invites.map(i => ({
     id: i.id,
     name: i.name,
@@ -388,10 +398,15 @@ function joueursDeLaFiche(fiche: FicheSoiree): { joueurs: PublicPlayer[]; joue: 
   return { joueurs, joue, enTete }
 }
 
-/** Les profils de ses vainqueurs : ceux que la liste fait lire, et pas un de plus. */
+/**
+ * Les profils que la liste fait lire, et pas un de plus : ceux de ses
+ * vainqueurs, et ceux de leurs homonymes — ce qu'ils portent décide de la
+ * marque « (2) » d'un vainqueur. Qui finit en tête ne dépend pas des
+ * marques : elles ne font que ranger les ex æquo.
+ */
 function profilsDesVainqueurs(fiche: FicheSoiree): string[] {
-  const enTete = new Set(joueursDeLaFiche(fiche).enTete.map(p => p.id))
-  return fiche.invites.flatMap(i => (i.profileId && enTete.has(i.id) ? [i.profileId] : []))
+  const prenoms = new Set(joueursDeLaFiche(fiche).enTete.map(p => sansAccent(p.name)))
+  return fiche.invites.flatMap(i => (i.profileId && prenoms.has(sansAccent(i.name)) ? [i.profileId] : []))
 }
 
 function questionsDeLaFiche(fiche: FicheSoiree): Map<string, QuestionDEquipe[]> {

@@ -118,14 +118,14 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
   )
 
   // Offrir des confettis : un geste pour quelqu'un — un mot facultatif, dit
-  // une fois sur son accueil —, jamais pour soi, et jamais à un profil
-  // suspendu, qui ne le verrait pas.
+  // une fois sur son accueil —, jamais à un profil suspendu, qui ne le
+  // verrait pas. À soi aussi : c'est son serveur (« je peux pas m'octroyer des
+  // confettis », le propriétaire, le 14 octobre 2026 — la route le refusait).
   app.post(
     '/api/admin/profils/:id/confettis',
     wrap(async (req, res) => {
       const p = await leProfil(req, res)
       if (!p) return
-      if (estLeSien(res, p)) return res.status(400).json({ error: 'Pas pour toi : tes confettis se gagnent en jouant' })
       if (p.disabledAt) return res.status(400).json({ error: 'Réactive d’abord ce profil' })
       const don = await deps.profiles.offrirDesConfettis(p.id, req.body?.confettis, req.body?.mot)
       noterLeGeste(res, {

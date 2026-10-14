@@ -21,7 +21,7 @@ paths:
 - `components/BarreDuChef.tsx` · `socketDuChef.ts` — la barre du chef, en bas de son téléphone de joueur une fois entré, chargée à la demande sur le seul téléphone qui a ouvert le salon (`chefIci`) : le code et son QR, le quiz lancé au programme, la pause, révéler, la suite, et à l'écart, dans « ⋯ », ce qui défait quelque chose — et les équipes : celles préparées en créant le salon, sinon deux d'office (une page d'avant), un toucher en renomme une, « Ajouter une équipe » en crée une (`FeuilleDEquipe`, son nom et son emoji). Ses gestes passent par une seconde liaison, celle de l'animateur (`socketDuChef`) — une seule ne tient pas les deux rôles —, qui se dit télécommande à chaque connexion (`host:telecommande` : la télé garde ses coulisses pour lui, et ne propose pas de se piloter tant qu'il est là). De la vue d'animateur, la barre ne lit rien de la question — ni texte, ni réponses, ni note (`barre-du-chef.test.ts`) : sa phase, son tour, le compte des réponses, le programme, et si le quiz est le dernier (`dernierDuProgramme` : « Terminer le quiz » le dit avant de clore la soirée — `cloture-auto.test.ts`). Le dernier quiz joué, sa barre dit « Terminer la soirée », et le podium reste jusqu'à ce geste — rien ne se décompte. Sous sa fin de soirée, une ligne « Ton salon » ouvre sa feuille : « Encore un quiz, avec eux », « C'était un essai » — un seul « Accueil » sur la page
 - `sockets.ts` — tout le protocole temps réel — chaque message passe par `ecouter()`, et chaque geste d'animateur relit la session de sa poignée de main (`requireHost`). Une nouvelle fiche passe ses garde-fous : le plafond de l'espace (`maxPlayers`, borné par `MAX_PLAYERS`), le prénom avant la réserve d'inscriptions (`core/inscriptions.ts`, règle `auth-et-admin.md`), trois identités par connexion (`JOINS_PER_SOCKET`) ; cinq présentations d'écran refusées coupent la connexion (`HELLO_MAX_FAILURES`)
 - `shared/events.ts` — le contrat socket, typé des deux côtés : 27 messages du client, 11 du serveur, `toast` compris
-- `shared/homonymes.ts` — « Camille (2) » : la dérivation pure qui distingue deux invités identiques — le même prénom sans casse ni accents, et le même avatar
+- `shared/homonymes.ts` — « Camille (2) » : la dérivation pure qui distingue deux invités identiques — le même prénom sans casse ni accents, et le même avatar qu'on voit : le dessin porté, sinon l'emoji (`visageDe`, la décision du 14 octobre 2026) — deux Camille sous le même Phénix se ressemblent, quels que soient leurs emojis ; ni la finition, ni l'Éclat, ni la bordure ne comptent. La soirée, le souvenir et l'historique, le quiz du jour, la campagne et les duels la lisent tous ainsi (`homonymes.test.ts`) ; l'export garde l'emoji, que ses fichiers écrivent
 - `client/src/components/Liaison.tsx` — ce que voit l'invité quand la liaison tombe
 - `client/src/components/Absents.tsx` · `Reprendre.tsx` — le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), le code tapé par l'invité, et l'avis « Un « Rachid » est hors ligne », que le serveur ne dit qu'au téléphone qui le demande (`player:horsLigne`) : l'instantané des téléphones ne dit pas qui est connecté
 
@@ -60,8 +60,13 @@ paths:
   poignée de main du WebSocket qui pèse (340 ms). Et un second `connect()`
   sur un transport déjà ouvert renverrait la présentation de l'espace de
   noms : une seconde socket au serveur, sur la même liaison.
-- **Toute mutation de `Party` qui touche un prénom, un avatar ou la
-  composition invalide le cache des marques** d'homonymie.
+- **Toute mutation de `Party` qui touche un prénom, un avatar, un profil
+  rattaché ou la composition invalide le cache des marques** d'homonymie. Ce
+  qu'un profil porte change sans passer par une fiche — un légendaire pris
+  dans la loge, un compagnon qui grandit, un profil relu après un
+  redémarrage — : l'instantané, qui lit déjà le profil de chacun, compare
+  ce que chaque ligne montre à ce que les marques ont comparé
+  (`revoirLesVisages`), sans lecture de plus.
 - **Un `player:join` qui porte une équipe la pose, même en plein quiz** :
   seul `player:setTeam` refuse pendant une partie. L'entrée d'un profil déjà
   présent ce soir passe par le choix d'équipe, et déplace sa fiche.

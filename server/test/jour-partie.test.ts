@@ -541,6 +541,35 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     assert.equal((await lire(banc, seconde, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
   }))
 
+test('deux Camille sous le même portrait se distinguent au classement, quels que soient leurs emojis — et un portrait distingue deux renards', () =>
+  // La marque compare l'avatar qu'on voit (la décision du 14 octobre 2026),
+  // pas l'emoji qu'un portrait cache.
+  avecBanc(async (banc, horloge) => {
+    const premiere = await inscrireProfil(banc.url, 'camille', 'Camille', '🦊')
+    const seconde = await inscrireProfil(banc.url, 'camille2', 'Camille', '🐻')
+    await jouer(banc, horloge, premiere, i => i < 5)
+    horloge.t += 60_000
+    await jouer(banc, horloge, seconde, () => true)
+    const noms = async () => (await lire(banc, premiere, '/api/jour/classement')).corps.lignes.map((l: any) => l.nom)
+    assert.deepEqual(await noms(), ['Camille', 'Camille'], 'un renard, un ours')
+    const base = (sql: string) => {
+      const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+      try {
+        db.exec(sql)
+      } finally {
+        db.close()
+      }
+    }
+    // Toutes deux portent le même portrait de la forêt (un palier validé se croit, `legendairePorte`).
+    base(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login IN ('camille', 'camille2')`)
+    await banc.redemarrer()
+    assert.deepEqual(await noms(), ['Camille (2)', 'Camille'], 'deux fois le même blaireau : la seconde arrivée marquée')
+    // La première quitte le sien, la seconde passe au renard sous le sien : deux renards en base, un seul à l'écran.
+    base(`UPDATE profiles SET legendaire = NULL WHERE login = 'camille'; UPDATE profiles SET avatar = '🦊' WHERE login = 'camille2'`)
+    await banc.redemarrer()
+    assert.deepEqual(await noms(), ['Camille', 'Camille'])
+  }))
+
 test('une annulation tombée en panne à mi-chemin se rejoue : le second clic recompte ceux que le premier n’a pas eus', () =>
   avecBanc(async (banc, horloge) => {
     const admin = await connexionAnimateur(banc.url)

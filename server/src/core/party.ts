@@ -7,7 +7,7 @@ import type { LaurierPorte } from '../../../shared/jour'
 import type { BordureDeLigue } from '../../../shared/duels'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { formeDeCompagnon } from '../../../shared/compagnons'
-import { nomsAffiches } from '../../../shared/homonymes'
+import { nomsAffiches, visageDe } from '../../../shared/homonymes'
 
 export interface PlayerRec {
   id: string
@@ -66,8 +66,13 @@ export class Party {
    * à chaque question.
    */
   private connections = new Map<string, Set<string>>()
-  /** Les marques d'homonymie, tant que personne n'arrive, ne part ni ne change de prénom ou d'avatar. */
-  private marquesCache: Map<string, string> | null = null
+  /**
+   * Les marques d'homonymie, tant que personne n'arrive, ne part ni ne change
+   * de prénom ou d'avatar — et ce que chaque ligne montrait quand elles se
+   * sont faites (`visageDe`) : un légendaire pris en pleine soirée ne passe
+   * par aucune fiche, l'instantané le remarque (`revoirLesVisages`).
+   */
+  private marquesCache: { marques: Map<string, string>; visages: Map<string, string> } | null = null
   /**
    * Avance à chaque arrivée, départ ou changement d'équipe : l'instantané
    * garde la moyenne des équipes tant qu'elle ne bouge pas (`SpaceRuntime`),
@@ -230,6 +235,9 @@ export class Party {
     const rec = this.players.get(playerId)
     if (!rec || rec.profileId === profileId) return false
     rec.profileId = profileId
+    // Son profil peut lui mettre un légendaire au cou : sa ligne change, et
+    // les marques d'homonymie qui la comparent avec.
+    this.marquesCache = null
     this.db.prepare('UPDATE players SET profile_id = ? WHERE id = ?').run(profileId, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
     this.revision++
@@ -339,9 +347,41 @@ export class Party {
    * serveur figé pendant ce temps. Tout ce qui change un prénom, un avatar
    * ou la composition de la salle (arrivée, renommage, exclusion, remise à
    * zéro) remet la mémoire à zéro ; un rechargement part d'une mémoire vide.
+   *
+   * Elles comparent ce que chaque ligne montre — le légendaire qu'il porte,
+   * sinon l'emoji de sa fiche —, lu comme l'instantané le lit (`badgeOf`),
+   * ou pris dans ce que l'instantané vient de lire (`badges`).
    */
-  private marques(): Map<string, string> {
-    return (this.marquesCache ??= nomsAffiches(this.all()))
+  private marques(badges?: ReadonlyMap<string, ProfileBadge | undefined>): Map<string, string> {
+    if (!this.marquesCache) {
+      const joueurs = this.all().map(p => ({ id: p.id, name: p.name, avatar: p.avatar, legendaire: (badges ? badges.get(p.id) : this.badgeDe(p))?.legendaire }))
+      this.marquesCache = { marques: nomsAffiches(joueurs), visages: new Map(joueurs.map(j => [j.id, visageDe(j)])) }
+    }
+    return this.marquesCache.marques
+  }
+
+  /**
+   * Les marques se refont quand une ligne ne montre plus ce qu'elles ont
+   * comparé : un légendaire pris ou quitté dans la loge, un compagnon qui
+   * grandit, un profil relu après un redémarrage. Rien de cela ne passe par
+   * une fiche de la soirée ; l'instantané, qui lit déjà le profil de chacun,
+   * le remarque — un parcours sans lecture de plus, et les vues qui suivent
+   * nomment juste.
+   */
+  private revoirLesVisages(badges: ReadonlyMap<string, ProfileBadge | undefined>): void {
+    const vus = this.marquesCache?.visages
+    if (!vus) return
+    for (const p of this.players.values()) {
+      if (vus.get(p.id) !== visageDe({ avatar: p.avatar, legendaire: badges.get(p.id)?.legendaire })) {
+        this.marquesCache = null
+        return
+      }
+    }
+  }
+
+  /** Ce que la salle voit de son profil, lu de mémoire (`badgeOf`) ; rien pour un invité anonyme. */
+  private badgeDe(p: PlayerRec): ProfileBadge | undefined {
+    return p.profileId ? this.badgeOf?.(p.profileId, p.avatar) : undefined
   }
 
   /**
@@ -362,8 +402,9 @@ export class Party {
    * redescendait en pleine soirée (une soirée retirée ailleurs, une question
    * du jour annulée) : le paon à côté de « Niv. 1 », que le relevé et l'Éclat
    * prenaient pour cible. La fiche prend l'avatar qu'il porte à la place — et
-   * les marques d'homonymie se refont, qui comparent les avatars des fiches.
-   * Seuls les emojis de collection se relisent : le reste ne se perd pas.
+   * les marques d'homonymie se refont, qui comparent l'emoji d'un invité sans
+   * dessin. Seuls les emojis de collection se relisent : le reste ne se perd
+   * pas.
    */
   relireAvatars(): void {
     if (!this.badgeOf) return
@@ -387,23 +428,25 @@ export class Party {
   compagnonDe(playerId: string): string | undefined {
     const p = this.players.get(playerId)
     if (!p?.profileId) return undefined
-    return formeDeCompagnon(this.badgeOf?.(p.profileId, p.avatar)?.legendaire)?.compagnon
+    return formeDeCompagnon(this.badgeDe(p)?.legendaire)?.compagnon
   }
 
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {
     this.relireAvatars()
-    const marques = this.marques()
-    return [...this.players.values()].map(p => this.toPublic(p, totals.get(p.id) ?? 0, marques))
+    // Chaque profil lu une fois : sa ligne, et les marques qui le comparent.
+    const badges = new Map([...this.players.values()].map(p => [p.id, this.badgeDe(p)]))
+    this.revoirLesVisages(badges)
+    const marques = this.marques(badges)
+    return [...this.players.values()].map(p => this.toPublic(p, totals.get(p.id) ?? 0, marques, badges.get(p.id)))
   }
 
   publicOne(playerId: string, score: number): PublicPlayer | undefined {
     this.relireAvatars()
     const p = this.players.get(playerId)
-    return p ? this.toPublic(p, score, this.marques()) : undefined
+    return p ? this.toPublic(p, score, this.marques(), this.badgeDe(p)) : undefined
   }
 
-  private toPublic(p: PlayerRec, score: number, marques: Map<string, string>): PublicPlayer {
-    const badge = p.profileId ? this.badgeOf?.(p.profileId, p.avatar) : undefined
+  private toPublic(p: PlayerRec, score: number, marques: Map<string, string>, badge: ProfileBadge | undefined): PublicPlayer {
     return {
       id: p.id,
       name: p.name,
