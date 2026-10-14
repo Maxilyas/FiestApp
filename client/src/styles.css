@@ -7480,10 +7480,9 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .zone-compte { --zone: var(--zone-compte); }
 
 /* ── Soi, sur une ligne : l'identité et sa barre d'expérience ───────────
-   En tête de l'accueil et du profil, sans cadre : ces pages sont aux gros
-   boutons. À l'accueil, un lien vers le profil ; au profil, elle ouvre sa
-   carte de joueur. */
-/* L'accueil : « Amis » au bout de la ligne, à côté du lien, jamais dedans. */
+   En tête de l'accueil et du profil, un bouton qui ouvre sa carte de
+   joueur, sans cadre : ces pages sont aux gros boutons. */
+/* L'accueil : « Amis » au bout de la ligne, à côté du bouton, jamais dedans. */
 .accueil-tete { display: flex; align-items: center; gap: 8px; }
 .accueil-tete > .identite-ligne { flex: 1; min-width: 0; }
 .bouton-des-amis { display: inline-flex; flex: none; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; padding: 2px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; cursor: pointer; }
@@ -7491,7 +7490,7 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .bouton-des-amis-rond .icon { width: 20px; height: 20px; }
 .bouton-des-amis:hover { color: var(--ink); }
 .bouton-des-amis:hover .bouton-des-amis-rond { border-color: var(--accent); }
-.identite-ligne { display: flex; align-items: center; gap: 14px; padding: 2px 0; color: inherit; text-decoration: none; }
+.identite-ligne { display: flex; align-items: center; gap: 14px; padding: 2px 0; color: inherit; }
 .identite-ligne .player-avatar.big { flex: none; font-size: 2.4rem; }
 .identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 /* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
@@ -7576,7 +7575,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .gros-jauge { display: flex; align-items: center; gap: 10px; min-height: 1.2rem; }
 .gros-jauge .jauge-fine { flex: 1; }
 .gros-compte { flex: none; font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
-/* Au profil, sa ligne ouvre sa carte : un bouton, l'œil au bout pour le dire. */
+/* Sa ligne ouvre sa carte : un bouton — au profil, l'œil au bout pour le dire ;
+   à l'accueil, « Amis » tient le bout. */
 button.identite-ligne { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .identite-oeil { display: inline-grid; flex: none; place-items: center; width: 44px; height: 44px; border: 1px solid var(--edge-strong); border-radius: 50%; background: var(--surface); color: var(--accent-text); }
 .identite-oeil .icon { width: 20px; height: 20px; }

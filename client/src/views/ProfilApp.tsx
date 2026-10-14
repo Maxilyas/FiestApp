@@ -40,7 +40,7 @@ const ETAPE_REJOINDRE = 'fiestappRejoindre'
  */
 const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
 
-/** Sa carte entière, comme la salle la voit, au toucher de l'œil : rien ne la télécharge avant. */
+/** Sa carte entière, comme la salle la voit, au toucher de sa ligne : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
 
 /**
@@ -97,7 +97,7 @@ export function ProfilApp() {
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
   const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
-  /** Sa carte entière, ouverte de sa ligne en tête du profil — ou de la carte de la loge, avant ses panneaux. */
+  /** Sa carte entière, ouverte de sa ligne en tête de l'accueil et du profil — ou de la carte de la loge, avant ses panneaux. */
   const [carteOuverte, setCarteOuverte] = useState(false)
   const laCarte = useALaDemande(carteJoueur, carteOuverte)
   const ouvrirLaCarte = () => setCarteOuverte(true)
@@ -271,7 +271,9 @@ export function ProfilApp() {
   // profil lu, leurs douze morceaux passaient devant le premier écran de
   // l'accueil, qui n'en montre rien (mesuré le 11 octobre 2026 :
   // `PanneauxDuProfil`, 21 ko, arrivait juste avant lui). La feuille des amis
-  // de même : « Amis », touché, l'ouvre tout de suite.
+  // et sa carte de même : « Amis » ou sa ligne, touchés, les ouvrent tout de
+  // suite — les écrans du profil n'apportent pas la carte : la loge aussi ne
+  // la fait venir qu'au toucher.
   const aUnProfil = !!profil
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
@@ -281,6 +283,7 @@ export function ProfilApp() {
       void import('./JourApp').catch(() => {})
       void panneaux.charger().catch(() => {})
       void lesAmis.charger().catch(() => {})
+      void carteJoueur.charger().catch(() => {})
     }
     const attente = window as Window & { requestIdleCallback?: (f: () => void) => number }
     if (attente.requestIdleCallback) attente.requestIdleCallback(precharger)
@@ -472,14 +475,17 @@ export function ProfilApp() {
         {/* Un duel qu'il a lancé vient d'être joué : une bannière tombe en haut, une fois (la maquette A4) —
             en tête de la page comme à l'écran, son « Voir » le premier au clavier. */}
         <BanniereDuResultat resultats={'duels' in profil ? profil.duels?.resultats : undefined} />
-        {/* Soi-même en une ligne : un toucher mène au profil. Au bout, ses
-            amis : leur feuille monte sur l'accueil (le souhait du
-            propriétaire du 11 octobre 2026) — un profil seulement, l'invité
-            anonyme n'a rien ici. */}
+        {/* Soi-même en une ligne : un toucher ouvre sa carte, comme au
+            profil — il menait au profil, que le menu ouvre déjà (le souhait
+            du propriétaire du 14 octobre 2026). Au bout, ses amis : leur
+            feuille monte sur l'accueil (le souhait du propriétaire du
+            11 octobre 2026) — un profil seulement, l'invité anonyme n'a rien
+            ici. */}
         <div className="accueil-tete">
-          <IdentiteLigne profil={profil} />
+          <IdentiteLigne profil={profil} onCarte={ouvrirLaCarte} sansOeil />
           <BoutonDesAmis />
         </div>
+        {carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarteOuverte(false)} />}
         {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé, un merci pour ses signalements —, dit une fois. */}
         <AnnoncesDeLAdministrateur profileId={profil.id} prenom={profil.name} annonces={'annonces' in profil ? profil.annonces : undefined} />
         <AccueilJouer
