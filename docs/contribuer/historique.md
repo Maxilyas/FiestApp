@@ -15,8 +15,9 @@ Les détails de chaque livraison vivent dans sa proposition de modification sur 
 | 3 – 6 octobre | La nouvelle architecture du joueur, la campagne, les sentiers du savoir, le rappel du soir |
 | 10 – 11 octobre | La base de la campagne en milliers de questions, les duels, le quiz tout prêt, les défis entre amis |
 | 12 – 13 octobre | La télé branchée, la loge, les bordures de ligue, Automate, les compagnons, le QG, l'album des trophées et l'écran des gains |
+| 14 octobre | Le style en albums, les duels et l'économie au QG, la documentation réécrite et la vitrine |
 
-Près de deux cents propositions de modification ont été fusionnées entre le 19 septembre et le 13 octobre 2026, chacune vérifiée par l'intégration continue (`.github/workflows/ci.yml`).
+Environ deux cents propositions de modification ont été fusionnées entre le 19 septembre et le 14 octobre 2026, chacune vérifiée par l'intégration continue (`.github/workflows/ci.yml`).
 
 ## Les fondations
 
@@ -53,12 +54,12 @@ Avant la première proposition de modification suivie sur GitHub, douze lots ont
 
 **12 – 13 octobre.** La télé branchée par un code (n° 158). Les prix se remettent pour le plaisir (n° 159). Les équipes se préparent avant d'ouvrir le salon (n° 160). Des tirages sans redites (n° 161, 162). La loge : essayer, puis tout porter d'un coup (n° 172 à 175). Les bordures de ligue autour de l'avatar, jusque sur l'écran commun (n° 178, 179). Les duels en cockpit, et Automate, l'adversaire toujours disponible, tenu à deux niveaux du sien (n° 182 à 189). Les compagnons peints et l'album des avatars par rareté (n° 190), puis leur boutique (n° 199). Le modèle du savoir, qui apprend à Automate ce que les joueurs savent (n° 193). La base de la campagne relue une seconde fois et portée à 21 887 questions (n° 194). Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, les soirées (n° 195), la fiche d'un joueur (n° 198), la santé du serveur (n° 201), puis la première page d'un mode, le quiz du jour : son tirage question par question, son classement du mois, ses séries, son rappel du soir (n° 202) ; la page de la campagne — ce qu'on joue sous-mode par sous-mode, le défi de la semaine, les parcours, les vies — et le mélange de chaque palier des sentiers, réglé au QG sur ce que les joueurs trouvent vraiment (n° 204). Les duels : historique et classement refaits (n° 200). Les trophées, après « très confus, les trophées que les gens gagnent » : un album par mode dans « Ma collection », le même écran des gains à la fin de chaque mode — « Ce que tu gagnes », « Nouveaux trophées », « À porter » —, et des mots fixés : un trophée, bronze · argent · or pour les étapes d'une piste, des étoiles pour la note d'une partie, un palier pour l'étape d'un sentier (n° 203).
 
-**Le 14 octobre.** La documentation réécrite contre le code, rangée par besoin du lecteur dans `docs/`, gardée par `server/test/documentation.test.ts`, et cette vitrine : [`docs/vitrine/index.html`](../vitrine/index.html).
+**Le 14 octobre.** Le style de « Ma collection » en petits albums — les fonds, les gerbes, les finitions et les bordures de ligue —, et la loge rangée comme l'album, par rareté, sans ce qu'on n'a pas (n° 206). Au QG, la page des duels — et annuler un duel classé que l'adversaire n'a pas commencé (n° 207) —, puis celle de l'économie, à lire sans geste : les confettis gagnés et dépensés, ce qui circule, les ventes (n° 208). La documentation réécrite contre le code, rangée par besoin du lecteur dans `docs/`, gardée par `server/test/documentation.test.ts`, et cette vitrine : [`docs/vitrine/index.html`](../vitrine/index.html).
 
 ## Ce qui est en chantier
 
-- **Le QG, mode par mode.** Après la vue d'ensemble, le journal, les soirées, la fiche d'un joueur, la santé du serveur, la page du quiz du jour (n° 202) et celle de la campagne (n° 204), deux pages restent annoncées : les duels, l'économie. Elles arrivent une par une.
-- **Les trophées.** L'album par mode et l'écran des gains (n° 203) ouvrent une refonte qui continue.
+- **Le QG, « Animer ».** Après la vue d'ensemble, le journal, les soirées, la fiche d'un joueur, la santé du serveur et les pages des modes — le quiz du jour (n° 202), la campagne (n° 204), les duels (n° 207) — et de l'économie (n° 208), le plan du QG annonce un dernier lot : « Animer » — les annonces, les événements, le défi de la semaine, la mise en avant.
+- **Les trophées.** L'album par mode et l'écran des gains (n° 203), puis le style en albums et la loge rangée comme eux (n° 206), ont repris tout ce qu'on gagne ; la refonte peut continuer.
 - **La Conquête.** Un brief pour un troisième mode de jeu, et sa maquette, attend une décision ; rien n'en est dans le code.
 
 ## Les chemins ouverts
