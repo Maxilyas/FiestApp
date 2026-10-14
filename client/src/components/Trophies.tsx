@@ -1,6 +1,6 @@
 import type { Recap } from '../../../shared/types'
-import { enumerer } from '../../../shared/classement'
 import { Icon } from './Icon'
+import { AvatarEnLigne, Nommes } from './Avatar'
 
 type VainqueurDeQuiz = Recap['quizWinners'][number]
 
@@ -57,7 +57,7 @@ export function Trophies({ recap }: { recap: Recap }) {
           <h3>Le plus beau coup</h3>
           <p>
             <strong>
-              {recap.bestShot.avatar} {recap.bestShot.name}
+              <AvatarEnLigne de={recap.bestShot} /> {recap.bestShot.name}
             </strong>{' '}
             — {recap.bestShot.points} points sur une seule question
           </p>
@@ -73,7 +73,7 @@ export function Trophies({ recap }: { recap: Recap }) {
           <h3>Le plus régulier</h3>
           <p>
             <strong>
-              {recap.steadiest.avatar} {recap.steadiest.name}
+              <AvatarEnLigne de={recap.steadiest} /> {recap.steadiest.name}
             </strong>{' '}
             — {recap.steadiest.count} {recap.steadiest.count > 1 ? 'questions marquées' : 'question marquée'}
           </p>
@@ -88,7 +88,10 @@ export function Trophies({ recap }: { recap: Recap }) {
           </span>
           <h3>{carte[0].title}</h3>
           <p>
-            <strong>{enumerer(carte.map(w => `${w.avatar} ${w.name}`))}</strong> — {carte[0].points} points
+            <strong>
+              <Nommes joueurs={carte.map(w => ({ ...w, nom: w.name }))} />
+            </strong>{' '}
+            — {carte[0].points} points
           </p>
           <p className="muted">{carte.length > 1 ? 'Vainqueurs ex æquo de ce quiz' : 'Vainqueur de ce quiz'}</p>
         </div>

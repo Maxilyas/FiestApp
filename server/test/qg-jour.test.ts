@@ -303,7 +303,8 @@ test('la page lit le tirage, le classement, les séries et le rappel sans rien l
     'Masquer',
     '1 profil masqué',
     '100 jours et plus',
-    'Les plus longues : 🦁 Hugo, 141 jours.',
+    // L'avatar qu'il porte (`AvatarEnLigne`), comme au classement.
+    'Les plus longues : <span class="av av-en-ligne"><span class="av-emoji">🦁</span></span> Hugo, 141 jours.',
     'Ce mois-ci, 14 sabliers achetés pour sauver une série.',
     'la veille : 2',
   ]) {

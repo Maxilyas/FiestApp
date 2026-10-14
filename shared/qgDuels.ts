@@ -7,6 +7,7 @@
 
 import { compteDuJour, jourDeLInstant, joursDesMinuits, type CompteDuJour } from './qg'
 import type { CleDeLigue, LigneDesDuels } from './duels'
+import type { ApparenceDeLAvatar } from './profil'
 
 /** Les duels dans la vue d'ensemble : tirés des séries qu'elle a déjà lues, comme la campagne. */
 export interface DuelsDeLaVue {
@@ -44,8 +45,8 @@ export const LIGNES_DU_CLASSEMENT_AU_QG = 10
 /** Les duels en attente que la page nomme : les plus près d'expirer d'abord. */
 export const DUELS_EN_ATTENTE_MONTRES = 20
 
-/** Un joueur d'un duel, nommé pour l'administrateur. */
-export interface JoueurDuDuel {
+/** Un joueur d'un duel, nommé pour l'administrateur — avec ce qu'il porte, comme les joueurs le voient. */
+export interface JoueurDuDuel extends ApparenceDeLAvatar {
   id: string
   nom: string
   avatar: string

@@ -2142,7 +2142,7 @@ export class CampagneStore {
     const profils = ids.length > 0 && this.profils ? await this.profils.byIds(ids) : []
     return {
       ids,
-      montres: profils.flatMap(p => (p ? [{ nom: p.name, avatar: this.profils!.avatarPorte(p) }] : [])),
+      montres: profils.flatMap(p => (p ? [{ nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p) }] : [])),
     }
   }
 
@@ -2599,7 +2599,11 @@ export class CampagneStore {
     if (nouveau) await this.retenirLeResultatVu(duel)
     // La revanche, contre celui d'en face : jamais un masqué, ni un profil parti.
     const enFaceDeLui = duel.auteur === profileId ? defie : auteur
-    const revanche = sonEcart && enFaceDeLui && !this.masque?.(enFaceDeLui.id) && this.profils ? { profileId: enFaceDeLui.id, nom: enFaceDeLui.name, avatar: this.profils.avatarPorte(enFaceDeLui) } : null
+    // Avec ce qu'il porte : la préparation de la revanche le montrait en emoji.
+    const revanche =
+      sonEcart && enFaceDeLui && !this.masque?.(enFaceDeLui.id) && this.profils
+        ? { profileId: enFaceDeLui.id, nom: enFaceDeLui.name, avatar: this.profils.avatarPorte(enFaceDeLui), ...sonApparence(this.profils, enFaceDeLui) }
+        : null
     return {
       code: duel.code,
       auteur: {
@@ -5029,7 +5033,18 @@ export class CampagneStore {
       joueurs: joueurs.length,
       finies: finies.length,
       scores,
-      meilleur: premier && this.profils ? { justes: haut, nom: premier.profil.name, avatar: this.profils.avatarPorte(premier.profil), quand: premier.finieLe, exAequo: enTete.length - 1 } : null,
+      meilleur:
+        premier && this.profils
+          ? {
+              justes: haut,
+              nom: premier.profil.name,
+              avatar: this.profils.avatarPorte(premier.profil),
+              // Ce qu'il porte, comme au classement du défi.
+              ...sonApparence(this.profils, premier.profil),
+              quand: premier.finieLe,
+              exAequo: enTete.length - 1,
+            }
+          : null,
       ratees: lesPlusRatees(
         parQuestion.rows.flatMap(x => {
           const q = questions[Number(x.position)]
@@ -5193,7 +5208,8 @@ export class CampagneStore {
     const parId = new Map(ids.map((id, i) => [id, profils[i]]))
     const joueur = (id: string): JoueurDuDuel => {
       const p = parId.get(id)
-      return { id, nom: p?.name ?? 'Un profil parti', avatar: p && this.profils ? this.profils.avatarPorte(p) : '·' }
+      // Ce qu'il porte, comme les joueurs le voient : l'emoji seul montrait autrement qui porte un légendaire.
+      return { id, nom: p?.name ?? 'Un profil parti', avatar: p && this.profils ? this.profils.avatarPorte(p) : '·', ...(p && this.profils && sonApparence(this.profils, p)) }
     }
     return {
       duels: montres.map(r => ({

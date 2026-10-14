@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
+import { AvatarEnLigne } from './Avatar'
 import { Feuille } from './Pieces'
 import { confirmDialog, promptDialog } from './Dialog'
 import { showToast } from '../state'
@@ -177,9 +178,18 @@ function DateDeSoiree({ quand }: { quand: number | null }) {
 
 const chiffres = (s: { players: number; quizzes: number }) => `${s.players} joueur${s.players > 1 ? 's' : ''} · ${s.quizzes} quiz`
 
-/** Le vainqueur en quelques mots — ses points sont au souvenir : la ligne tient sur une ligne. Plusieurs, le premier et « ex æquo ». */
-function vainqueur(a: ArchiveSummary): string {
+/**
+ * Le vainqueur en quelques mots — ses points sont au souvenir : la ligne
+ * tient sur une ligne. Plusieurs, le premier et « ex æquo ». Avec l'avatar
+ * qu'il porte : un légendaire s'y montrait en emoji.
+ */
+function vainqueur(a: ArchiveSummary): ReactNode {
   const [premier] = a.winners
-  if (!premier) return ''
-  return ` · 🏆 ${premier.avatar} ${premier.name}${a.winners.length > 1 ? ' ex æquo' : ''}`
+  if (!premier) return null
+  return (
+    <>
+      {' · 🏆 '}
+      <AvatarEnLigne de={premier} /> {`${premier.name}${a.winners.length > 1 ? ' ex æquo' : ''}`}
+    </>
+  )
 }

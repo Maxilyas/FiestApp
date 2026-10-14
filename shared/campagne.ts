@@ -515,8 +515,8 @@ export interface DefiDeLaSemaine {
   moi?: LigneDuDefi
   /** Qui regarde, s'il est classé : sa ligne se distingue. */
   sienne?: string
-  /** Les premiers de la semaine passée : le laurier d'argent est à eux cette semaine. */
-  vainqueurs: { nom: string; avatar: string }[]
+  /** Les premiers de la semaine passée : le laurier d'argent est à eux cette semaine. Avec ce qu'ils portent : l'emoji seul les montrait autrement qu'au classement. */
+  vainqueurs: ({ nom: string; avatar: string } & SonApparence)[]
   /**
    * Sa semaine passée, s'il a relevé le défi : sa place, ce qu'elle lui a
    * valu, et de quoi relire sa correction — qui attend la clôture, pour ne
@@ -604,8 +604,8 @@ export interface DuelEntreAmis {
   nouveau?: true
   /** Joué des deux côtés : sa cote juste après ce duel, sa ligue, sa place au classement des duels aujourd'hui, et sa semaine. */
   apres?: { cote: number; ligue: CleDeLigue; rang?: number; semaine?: SemaineDesDuels }
-  /** Joué des deux côtés : celui d'en face, pour la revanche — absent d'un masqué ou d'un profil parti, qu'on ne défie pas. */
-  revanche?: { profileId: string; nom: string; avatar: string }
+  /** Joué des deux côtés : celui d'en face, pour la revanche — absent d'un masqué ou d'un profil parti, qu'on ne défie pas —, avec ce qu'il porte. */
+  revanche?: { profileId: string; nom: string; avatar: string } & SonApparence
   joueurs: number
   lignes: LigneDuDefi[]
   moi?: LigneDuDefi

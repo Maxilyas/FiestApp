@@ -1,6 +1,6 @@
 // Vues et actions du Quiz (QCM style Kahoot + estimation chiffrée).
 import type { QuestionKind, Variante } from '../library'
-import type { Distinctions } from '../profil'
+import type { ApparenceDeLAvatar, Distinctions } from '../profil'
 import type { Multiplicateur } from '../programme'
 
 /**
@@ -182,6 +182,8 @@ export interface QuizPlayerView {
   answers?: string[]
   /** « Qui dans la salle ? » : l'avatar de chaque candidat, qui distingue deux Camille. */
   avatars?: string[]
+  /** Et ce que chacun porte à sa place, au même rang — absent quand personne ne porte rien. */
+  apparences?: ApparenceDeLAvatar[]
   unit?: string
   /** La catégorie de la question, si elle en porte une : l'écran l'affiche au-dessus. */
   category?: string
@@ -266,8 +268,8 @@ export interface QuizPlayerView {
 /** Les lignes du classement qu'un téléphone reçoit au podium : une salle entière, sauf les très grandes. */
 export const CLASSEMENT_DE_FIN = 60
 
-/** Un invité que la question attend encore, tel que la console le montre. */
-export interface QuizAttendu {
+/** Un invité que la question attend encore, tel que la console le montre — avec ce qu'il porte. */
+export interface QuizAttendu extends ApparenceDeLAvatar {
   playerId: string
   /** Le nom affiché, marque d'homonymie comprise : « Camille (2) ». */
   name: string

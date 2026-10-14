@@ -5,7 +5,7 @@ import type { Review, ReviewPlayer } from '../../../shared/review'
 import { Icon } from '../components/Icon'
 import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
-import { Avatar } from '../components/Avatar'
+import { Avatar, AvatarEnLigne } from '../components/Avatar'
 import { RoomReview } from '../components/BilanRoom'
 import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable, pousserDansLaPage, useIsHost } from '../components/SpaceNav'
 import { BoutonCopier } from '../components/Partage'
@@ -215,7 +215,9 @@ function TousLesLiens({ slug, soireeId, players }: { slug: string; soireeId: str
     window.location.origin,
     slug,
     soireeId,
-    players.map(p => ({ id: p.id, nom: `${p.avatar} ${p.name}` })),
+    // Ce qu'il porte, quand ça s'écrit : son emoji. Un légendaire ne se tape
+    // pas, et l'emoji d'en dessous, qu'il ne porte pas, le désignait.
+    players.map(p => ({ id: p.id, nom: p.legendaire ? p.name : `${p.avatar} ${p.name}` })),
   )
   return (
     <details className="card tous-les-liens">
@@ -225,13 +227,14 @@ function TousLesLiens({ slug, soireeId, players }: { slug: string; soireeId: str
       </summary>
       <BoutonCopier className="btn btn-small" texte={texteDesLiens(liens)} libelle="Copier tous les liens" />
       <ul>
-        {liens.map(l => (
+        {liens.map((l, i) => (
           <li key={l.url}>
             {/* Un lien, pas un texte : sans presse-papier (la page en http sur
                 l'adresse du PC), « Copier » ne s'affiche pas, et la liste
-                ne montrait plus aucune adresse. Un appui long la copie. */}
+                ne montrait plus aucune adresse. Un appui long la copie. Ses
+                liens suivent l'ordre des invités : chacun son avatar porté. */}
             <a className="link-inline" href={l.url}>
-              {l.nom}
+              <AvatarEnLigne de={players[i]} /> {players[i].name}
             </a>
             <BoutonCopier className="btn btn-small btn-ghost" texte={l.url} libelle="Copier" />
           </li>

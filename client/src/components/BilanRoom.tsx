@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Icon, type IconName } from './Icon'
 import { espacesFines, pts } from '../format'
 import { classer, enumerer } from '../../../shared/classement'
@@ -6,7 +7,7 @@ import { detailDesPoints, regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from './PrixRemis'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { ReviewQuestion } from '../../../shared/review'
-import { QuestionCard, playerName, type BilanCtx } from './BilanQuestion'
+import { JoueurDuBilan, QuestionCard, type BilanCtx } from './BilanQuestion'
 
 /**
  * La soirée relue par tout le monde : les questions qui ont marqué, les
@@ -137,7 +138,14 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
               <p className="muted small">
                 {gagnants.length > 0 && (
                   <>
-                    <Icon name="trophy" /> {enumerer(gagnants.map(w => playerName(ctx, w.playerId)))}{' '}
+                    <Icon name="trophy" />{' '}
+                    {/* Chacun avec l'avatar qu'il porte, à la française : « Léa et Tom », « Léa, Tom et Zoé ». */}
+                    {gagnants.map((w, i) => (
+                      <Fragment key={w.playerId}>
+                        {i > 0 && (i === gagnants.length - 1 ? ' et ' : ', ')}
+                        <JoueurDuBilan ctx={ctx} id={w.playerId} />
+                      </Fragment>
+                    ))}{' '}
                     {gagnants.length > 1 ? 'remportent ce quiz ex æquo' : 'remporte ce quiz'} avec {pts(gagnants[0].points)}
                   </>
                 )}

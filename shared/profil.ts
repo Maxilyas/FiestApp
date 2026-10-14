@@ -728,12 +728,15 @@ export type ApparenceDeLAvatar = Pick<Distinctions, 'finition' | 'eclat' | 'lege
  * celui qui portait un légendaire ne se reconnaissait pas dans son propre
  * bilan (le propriétaire du dépôt, le 4 octobre 2026). Le laurier dit
  * « hier, au quiz du jour » : relu sur une soirée d'il y a un mois, il
- * mentirait.
+ * mentirait. Mat, autour d'un emoji, ne dessine rien : il ne voyage pas —
+ * autour d'un médaillon, il est son cercle, et reste. Depuis qu'il part avec
+ * chaque joueur nommé (les vainqueurs d'hier, la régie, l'avis « hors
+ * ligne »), le 14 octobre 2026.
  */
 export function apparenceDeLAvatar(source: Distinctions | undefined | null): ApparenceDeLAvatar {
   if (!source) return {}
   return {
-    ...(source.finition && { finition: source.finition }),
+    ...(source.finition && (source.finition !== 'mat' || source.legendaire) && { finition: source.finition }),
     ...(source.eclat && { eclat: true }),
     ...(source.legendaire && { legendaire: source.legendaire }),
   }

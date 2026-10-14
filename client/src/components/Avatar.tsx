@@ -1,4 +1,5 @@
-import type { Finition } from '../../../shared/profil'
+import { Fragment } from 'react'
+import type { ApparenceDeLAvatar, Finition } from '../../../shared/profil'
 import type { BordureDeLigue } from '../../../shared/duels'
 import type { SonApparence } from '../../../shared/campagne'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
@@ -145,6 +146,47 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
  */
 export function Visage({ avatar, apparence }: { avatar: string; apparence?: SonApparence }) {
   return apparence ? <Avatar avatar={avatar} finition={apparence.finition} legendaire={apparence.legendaire} eclat={apparence.eclat} /> : <>{avatar}</>
+}
+
+/** Un avatar tel qu'une ligne le reçoit : son emoji, et ce qu'il porte à sa place, à plat (`ApparenceDeLAvatar`). */
+export type AvatarAPlat = { avatar: string } & ApparenceDeLAvatar
+
+/**
+ * Son avatar dans une phrase, à la taille du texte : celui qu'il porte. Ces
+ * phrases recopiaient l'emoji — qui portait le Phénix y redevenait renard,
+ * aux vainqueurs du défi de la semaine, d'hier au quiz du jour, au souvenir,
+ * au bilan (le retour du propriétaire du 14 octobre 2026 : « cela doit être
+ * une seule entité »).
+ */
+export function AvatarEnLigne({ de }: { de: AvatarAPlat }) {
+  return <Avatar className="av-en-ligne" avatar={de.avatar} finition={de.finition} legendaire={de.legendaire} eclat={de.eclat} />
+}
+
+/** Des joueurs nommés dans une phrase, chacun son avatar, à la française : « 🦊 Léa », « 🦊 Léa et 🐻 Tom », « 🦊 Léa, 🐻 Tom et 🐸 Zoé ». */
+export function Nommes({ joueurs }: { joueurs: readonly (AvatarAPlat & { nom: string })[] }) {
+  return (
+    <>
+      {joueurs.map((j, i) => (
+        <Fragment key={i}>
+          {i > 0 && (i === joueurs.length - 1 ? ' et ' : ', ')}
+          <AvatarEnLigne de={j} /> {j.nom}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
+/** Leurs avatars seuls, à la file, devant la phrase qui les nomme : « 🦊 🐻 Hugo et Zoé ont gagné hier. » */
+export function AvatarsEnLigne({ joueurs }: { joueurs: readonly AvatarAPlat[] }) {
+  return (
+    <>
+      {joueurs.map((j, i) => (
+        <Fragment key={i}>
+          <AvatarEnLigne de={j} />{' '}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 /**

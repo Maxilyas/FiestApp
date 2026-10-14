@@ -56,7 +56,7 @@ import {
   type RevelationDuJour,
   type SerieDuJour,
 } from '../../../shared/jour'
-import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, apparenceDeLAvatar, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
@@ -1529,7 +1529,7 @@ export class JourStore {
    * masqué depuis la nuit — le prénom qui n'allait pas — ne s'annonce plus
    * sur tous les accueils, et un homonyme y garde sa marque.
    */
-  private async vainqueursDe(jour: string): Promise<{ nom: string; avatar: string }[]> {
+  private async vainqueursDe(jour: string): Promise<PartieDuJour['vainqueursDHier']> {
     // Les lauriers d'hier sont ses vainqueurs, lus à la nuit : les relire en
     // base coûtait un aller-retour à chaque vue. Les masqués s'écartent au
     // classement, d'un côté comme de l'autre.
@@ -1546,7 +1546,8 @@ export class JourStore {
     const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     return joueurs
       .filter(j => premiers.has(j.profil.id))
-      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil) }))
+      // Avec ce qu'ils portent, comme au classement : l'emoji seul les montrait autrement.
+      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil), ...apparenceDeLAvatar(this.deps.profiles.apparenceDe(j.profil)) }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }
 

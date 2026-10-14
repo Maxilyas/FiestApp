@@ -1,7 +1,7 @@
 import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../core/types'
 import { dureeDesJouables, playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { MAX_ENTREES, avancementDuProgramme, type EntreeDeProgramme } from '../../../shared/programme'
-import { distinctions } from '../../../shared/profil'
+import { apparenceDeLAvatar, distinctions, type ApparenceDeLAvatar } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, decimales, ecartEstimation, groupesDExAequo, rangDansLesTries, rangPartage, type Classe } from '../../../shared/classement'
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
@@ -630,6 +630,8 @@ function attendus(sess: GameSessionRec<QuizState>, vctx: ViewContext): { liste: 
     // La troisième porte du prénom (invariant 17) : « Camille (2) », pas « Camille ».
     name: vctx.playerName(id),
     avatar: vctx.player(id)?.avatar ?? '🎉',
+    // Ce qu'il porte, comme dans la salle d'attente : la régie le montrait en emoji.
+    ...apparenceDeLAvatar(vctx.player(id)),
     ...(horsLigne && { horsLigne: true as const }),
     ...(st.dispenses?.includes(id) && { dispense: true as const }),
   }))
@@ -946,6 +948,20 @@ function reponsesMontrees(sess: GameSessionRec<QuizState>, q: PlayableQuestion, 
 function avatarsDesCandidats(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext): string[] | undefined {
   if (q.kind !== 'choice' || q.variante !== 'sondage') return undefined
   return vctx.memo('quiz:avatars-candidats', () => (sess.state.candidats ?? []).map(id => vctx.player(id)?.avatar ?? ''))
+}
+
+/**
+ * Ce que chaque candidat porte à la place de son emoji — un légendaire, sa
+ * finition, son Éclat —, à côté de `avatars` : le bouton le montrait en emoji
+ * (le 14 octobre 2026). Rien quand personne ne porte rien, et une page
+ * d'avant, qui ne le lit pas, garde l'emoji.
+ */
+function apparencesDesCandidats(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext): ApparenceDeLAvatar[] | undefined {
+  if (q.kind !== 'choice' || q.variante !== 'sondage') return undefined
+  return vctx.memo('quiz:apparences-candidats', () => {
+    const apparences = (sess.state.candidats ?? []).map(id => apparenceDeLAvatar(vctx.player(id)))
+    return apparences.some(a => Object.keys(a).length > 0) ? apparences : undefined
+  })
 }
 
 /**
@@ -1452,12 +1468,14 @@ export const quizModule: GameModule<QuizState> = {
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
       const justArrived = (st.playFrom[playerId] ?? 0) > st.qIndex
+      const apparences = apparencesDesCandidats(sess, q, vctx)
       return {
         ...base,
         kind: q.kind,
         text: q.text,
         answers: reponsesMontrees(sess, q, vctx),
         ...(q.kind === 'choice' && q.variante === 'sondage' && { avatars: avatarsDesCandidats(sess, q, vctx) }),
+        ...(apparences && { apparences }),
         ...(q.kind === 'choice' && q.variante && { variante: q.variante }),
         unit: q.kind === 'number' ? q.unit : undefined,
         category: q.category ?? undefined,

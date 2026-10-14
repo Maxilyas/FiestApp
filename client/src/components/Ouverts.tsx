@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { portrait as portraitDe } from '../../../shared/branches'
+import { formeDeCompagnon } from '../../../shared/compagnons'
 import { api } from '../api'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
@@ -87,7 +88,9 @@ const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
  * la place d'un légendaire ou d'un portrait le temps que son dessin arrive.
  */
 export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; avatar: string; finition?: Finition; chance: number }) {
-  const dessine = legendaire(cle) ?? portraitDe(cle)
+  // Un compagnon porté éclate aussi (`cibleEclat`) : sans lui, sa clé s'écrivait en toutes lettres — « Ton cp:loup-jeune a éclaté ! ».
+  const compagnon = formeDeCompagnon(cle)
+  const dessine = legendaire(cle) ?? portraitDe(cle) ?? compagnon
   return (
     <section className="card fin-eclat">
       <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
@@ -95,7 +98,10 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
         {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
       </span>
       <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
-      <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
+      {/* Un compagnon n'a pas encore de version rare : ses paillettes le suivent sous toutes ses formes (`clesQuiBrillent`). */}
+      <p className="serif-note">
+        {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
+      </p>
     </section>
   )
 }

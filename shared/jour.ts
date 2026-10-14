@@ -18,7 +18,7 @@
 // Ce fichier est pur et partagé ; la réserve, le tirage, la partie et la
 // clôture de la nuit vivent dans `server/src/core/jour.ts`.
 
-import type { Finition } from './profil'
+import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { BordureDeLigue } from './duels'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
@@ -491,9 +491,10 @@ export interface PartieDuJour {
   serieTenue?: boolean
   /**
    * Qui a gagné hier — tous les ex æquo en tête (invariant 15) —, vide sans
-   * podium.
+   * podium. Avec ce qu'ils portent : l'emoji seul montrait en renard qui
+   * porte le Phénix au classement.
    */
-  vainqueursDHier: { nom: string; avatar: string }[]
+  vainqueursDHier: ({ nom: string; avatar: string } & ApparenceDeLAvatar)[]
   /**
    * Hier, pour lui : sa place et ce qu'elle lui a rapporté — le lendemain le
    * raconte —, avec le palier du Champion du jour que la nuit lui a donné.
