@@ -4,86 +4,104 @@ La demande : « Les routes sur Turso ont doublé par rapport à hier en temps de
 latence, tu pourrais me faire une review complète niveau perf et ce que l'on
 peut améliorer ? »
 
-Sans accès à la production — ni Turso, ni Render, ni les journaux —, la
-revue s'appuie sur trois choses : le code ; ce que le dépôt sait déjà de la
-production (la page « Le serveur » du QG, et ce que `/healthz` disait le 13
-octobre, noté dans `server/test/duels-attente.test.ts`) ; et **un banc qui
-rejoue le vrai chemin de la production** : un faux Turso qui parle le
-protocole HTTP de libsql, une latence réglable par aller-retour, et une
-activité jouée par les vraies routes — sur le code d'hier soir et sur celui
-d'aujourd'hui. Tout se rejoue (`reproductions/`, son `README.md`). Aucun
-fichier de l'application n'a été modifié.
+La revue s'appuie sur le code ; sur ce que la production dit d'elle-même par
+`/healthz`, public, lu le 14 octobre au matin ; et sur **un banc qui rejoue
+le vrai chemin de la production** : un faux Turso qui parle le protocole
+HTTP de libsql, une latence réglable par aller-retour, une activité jouée
+par les vraies routes — sur le code d'hier soir et sur celui d'aujourd'hui.
+Tout se rejoue (`reproductions/`, son `README.md`). Aucun fichier de
+l'application n'a été modifié.
 
 ## En bref
 
-1. **Le code n'a ajouté aucun aller-retour depuis hier soir.** Le même banc,
+1. **La production tourne encore sur `d4cd799`** (13 octobre, 13 h 59, la
+   PR #189 des duels) : son `/healthz` le dit (`version`). Elle n'a ni la
+   page « Le serveur » ni son relevé, ni la base doublée, ni les pages
+   neuves du QG, ni le modèle du savoir. La page qui montre le doublement
+   est donc celle de la **préproduction**, redéployée à chaque fusion sur
+   `main` — neuf fois aujourd'hui, chaque fois un démarrage.
+2. **En production, au repos, un aller-retour vers Turso coûte 29 ms sur
+   une connexion gardée, et 225 ms sur une connexion à rouvrir** — mesuré
+   par le serveur lui-même, processeur à 0 %, aucun joueur : douze lectures
+   d'affilée, puis douze espacées de 6 s. Les 230 ms de médiane du 13
+   octobre, ce sont des connexions rouvertes. Le `fetch` de Node referme
+   une connexion inactive au bout de 4 s quand le serveur n'annonce pas son
+   délai ; hors soirée, presque chaque requête arrive après une pause, et
+   repaie TCP et TLS.
+3. **Le chiffre de « Turso » suit donc surtout le rythme du trafic** :
+   dense, les connexions restent chaudes ; clairsemé, elles se rouvrent.
+   D'un jour à l'autre, il peut doubler sans que rien ne change. En
+   préproduction, chaque déploiement ouvre une vingtaine de connexions
+   neuves à la fois — au réveil de ce matin, 74 allers-retours dans la
+   minute, 93 ms de médiane, 408 au 95ᵉ centile, 633 au pire —, et qui passe
+   d'une page du QG à l'autre, une pause entre chaque, ne trouve que des
+   connexions froides.
+4. **Le code n'a ajouté aucun aller-retour depuis hier soir.** Le même banc,
    rejoué sur `c3b2f99` (13 octobre, 21 h 14 : la PR #195, celle qui a mis
    en route la page « Le serveur ») et sur `ea5b144` (aujourd'hui), compte
    les mêmes allers-retours, et les mêmes en série, sur toutes les routes
-   des joueurs et tous les gestes de jeu. Le réveil en a trois à cinq de plus
-   (68 → 71, ou 70 → 75 selon l'état de la base).
-2. **Ce qui a doublé cette nuit, c'est la base de la campagne** : 11 059 →
-   21 887 questions, 10 → 20 Mo de JSON (la PR #194, fusionnée à 0 h 06).
-   Sa lecture, à chaque réveil, coûte 1,8 fois plus de processeur (776 →
-   1 416 ms sur la machine du banc — de l'ordre de 6 s au dixième de cœur
-   de Render, qui en mettait 3,5 pour l'ancienne) et 19 Mo de tas de plus ;
-   le tirage d'une série passe de 30 à 43 ms de processeur, le dé de 15 à
-   25, une épreuve et les sujets prennent 30 à 40 % de plus.
-3. **Ce que la page appelle « Turso » compte aussi le processeur du
-   serveur.** Le chrono part avant le `fetch` et s'arrête quand la boucle
-   d'événements reprend la main après lui (`core/distante.ts:112-120`) : au
-   dixième de cœur, une boucle occupée, ou un processus que l'hébergeur met
-   en pause faute de quota, s'y ajoute. Le 13 octobre, `/healthz` disait
-   **230 ms de médiane et 765 ms au 95ᵉ centile par aller-retour** ; pour
-   une base en Europe, le réseau seul en coûte de 2 à 30. Et près de la
-   saturation, l'attente ne suit pas la charge : un processeur occupé à
-   50 % qui passe à 75 % fait attendre trois fois plus (une file d'attente,
-   ρ/(1−ρ)). Les 40 % de calcul que la base a ajoutés aux gestes de la
-   campagne peuvent suffire à doubler les temps.
-4. **« Ce qu'un joueur attend » compte aussi l'administrateur**, et Turso
-   compte tout ce qui part en fond. Le 95ᵉ centile des routes mêle
-   `/api/admin/*` à celles des joueurs (`server.ts:259-271`) — et quatre
-   pages neuves du QG sont arrivées depuis cette nuit (le quiz du jour, la
-   campagne, les duels, l'économie), chacune avec ses grosses lectures. Avec
-   quelques dizaines d'appels dans l'heure, le 95ᵉ centile, c'est le
-   deuxième ou le troisième appel le plus lent : ouvrir ces pages un matin
-   suffit à le déplacer.
-5. **Le vrai multiplicateur, ce sont les allers-retours en série.** À
-   230 ms pièce : la page du profil en attend 6 (≈ 1,4 s), « Commencer » le
-   quiz du jour 7, chaque question 6 — la réponse 3, « Question suivante »
-   3 —, la dernière réponse 10 (≈ 2,3 s), un réveil 35 (≈ 8 s avant
-   d'ouvrir le port). Tout ce qui alourdit un aller-retour se paie autant de
-   fois.
+   des joueurs et tous les gestes de jeu. Le réveil en a trois à cinq de
+   plus (68 → 71, ou 70 → 75 selon l'état de la base).
+5. **La base de la campagne a doublé cette nuit** (11 059 → 21 887
+   questions, la PR #194) — en préproduction, et en production au prochain
+   déploiement. Elle se revalide entière à chaque réveil (776 → 1 416 ms de
+   processeur sur la machine du banc, tas 20 → 39 Mo) et se parcourt à
+   chaque tirage (une série 30 → 43 ms, le dé 15 → 25). Le processeur compte
+   aussi dans le chrono de Turso (`core/distante.ts:112-120`) : au dixième
+   de cœur, c'est le second terme, derrière les connexions. Et le 95ᵉ
+   centile des routes compte aussi celles de l'administration
+   (`server.ts:259-271`), dont les quatre pages neuves du QG.
+6. **Le multiplicateur, ce sont les allers-retours en série** : à 225 ms la
+   connexion froide, la page du profil en attend 6 (≈ 1,4 s), « Commencer »
+   le quiz du jour 7, chaque question 6 — la réponse 3, « Question
+   suivante » 3 —, la dernière réponse 10 (≈ 2,3 s), un réveil 35.
 
-Le doublement vient donc, selon toute vraisemblance, du **processeur** — la
-base doublée, amplifiée par la saturation du dixième de cœur — et du **QG**
-ouvert ce matin, compté dans la même mesure ; peut-être aussi des
-**connexions** (plus bas, à vérifier). Pas des allers-retours du code. La
-page « Le serveur » permet de trancher en dix minutes.
+Le premier levier est donc le transport — garder les connexions chaudes, ou
+n'en ouvrir qu'une ([perf-turso-13]) : il ramènerait l'aller-retour d'un
+trafic clairsemé de ~225 ms vers ~30. Puis les allers-retours en série, les
+parcours complets, et le processeur, avant que la base doublée n'arrive en
+production.
 
-## Ce qu'il faut regarder pour trancher (sans rien changer)
+## Ce que la production a dit (14 octobre, au matin)
 
-Sur la page « Le serveur » (`/admin#serveur`), pour les heures qui ont
-doublé :
+| Mesure (côté serveur, `/healthz`) | médiane | 95ᵉ centile | pire |
+|---|---|---|---|
+| Production au repos, douze lectures espacées de 6 s | 225 ms | 566 ms | 566 ms |
+| Production au repos, douze lectures d'affilée | 29 ms | 263 ms (la première) | 263 ms |
+| Préproduction, la minute de son réveil (74 allers-retours) | 93 ms | 408 ms | 633 ms |
+| Production, le 13 octobre (`duels-attente.test.ts`) | 230 ms | 765 ms | — |
 
-- **Les trois routes les plus lentes de l'heure** (sous les graphiques, les
-  `lentes` du relevé). Des `/api/admin/…` : ce sont les pages neuves du QG,
-  ouvertes ce matin, qui pèsent dans « ce qu'un joueur attend ». Des
-  `POST /api/campagne/serie`, `/rencontre`, `/sentiers/epreuve`,
-  `GET /api/joueur/moi` : c'est le calcul.
-- **Le processeur et le pire gel de la boucle**, contre le pointillé des
-  10 % de l'hébergeur. Au plafond pendant les heures lentes : le chrono de
-  Turso mesure l'attente du processeur.
-- **Les démarrages** : « prêt en » d'aujourd'hui contre ceux d'hier. Un
-  réveil attend 35 allers-retours l'un derrière l'autre : son temps, divisé
-  par 35, dit ce que vaut un aller-retour ce jour-là.
+La lecture : la page publique de l'historique d'un espace
+(`/s/:slug/soirees.json`), un seul aller-retour sans cache
+(`archives.list`). Le processeur était à 0 %, la boucle libre (pire retard
+12 à 16 ms) : rien d'autre que la connexion ne sépare les deux premières
+lignes. La production : `d4cd799`, levée depuis quatre heures et demie,
+142 Mo de mémoire résidente, 69 Mo de tas, aucun joueur connecté. Le
+script : `reproductions/sonde.mjs`.
 
-Dans `/healthz` : `base.p50Ms` — si la médiane a doublé aussi, c'est tout le
-chemin qui ralentit, pas une requête lourde de temps en temps ;
-`charge.cpuPct` et `charge.retardBoucleMaxMs` ; `campagne.savoir.dureeMs`,
-ce que le dernier ajustement du modèle d'Automate a duré, rendu de main
-compris. Et une fois : `turso db show fiestapp`, pour la région de la base
-(le service Render est à Francfort).
+Ce qui reste à lire, avec l'accès à la base de production (deux variables
+d'environnement que le propriétaire a ajoutées, visibles d'une session
+neuve) : les volumes des tables, ce que coûtent vraiment les parcours
+complets ([perf-turso-3], [8] à [11]), les plans sur les index de la
+production, et les en-têtes que Turso renvoie — dont `Keep-Alive`, qui dit
+combien de temps il garde une connexion, et donc jusqu'où allonger la nôtre.
+
+## Sur la page « Le serveur » de la préproduction
+
+- **Les démarrages** : chaque fusion en est un. Chacun ouvre ses connexions
+  à froid, puis lance le préchauffage — base, cotes, mesure, modèle. Les
+  heures des déploiements de la journée sont celles qui tirent le 95ᵉ
+  centile ; « prêt en », divisé par 35 vagues, dit ce que valait un
+  aller-retour ce matin-là.
+- **Les trois routes les plus lentes de l'heure** (les `lentes` du relevé) :
+  des `/api/admin/…`, ce sont les pages neuves du QG, comptées dans « ce
+  qu'un joueur attend ».
+- **Le processeur et le pire gel**, contre le pointillé des 10 % : au
+  plafond, le calcul s'ajoute aux connexions.
+
+Et une fois : `turso db show fiestapp`, pour la région de la base (le
+service Render est à Francfort). À 29 ms la connexion gardée, elle n'est
+pas loin ; c'est la poignée de main qui coûte.
 
 ## Ce qui a changé depuis hier soir, mesuré
 
@@ -113,7 +131,34 @@ processeur en même temps que les premières requêtes.
 ## Les constats
 
 Chacun son identifiant, repris dans `constats.json` avec sa preuve. Les
-gains sont estimés à 230 ms par aller-retour, la médiane du 13 octobre.
+gains sont estimés à 225 ms par aller-retour, ce que coûte en production
+une connexion à rouvrir — le cas le plus courant hors soirée.
+
+### Le transport
+
+**[perf-turso-13] Une connexion vers Turso tient 4 s de calme, puis se
+rouvre — et c'est elle qui fait la latence.** En production, au repos :
+225 ms de médiane par aller-retour quand la connexion est à rouvrir, 29 ms
+quand elle est gardée (ci-dessus, `reproductions/sonde.mjs`). Le `fetch` de
+Node referme une connexion inactive au bout de 4 s quand le serveur ne dit
+rien de son délai (`keepAliveTimeout` d'undici, démontré par
+`reproductions/connexions.mjs`) ; la requête suivante repaie TCP et TLS,
+et le chiffrement au dixième de cœur. Et chaque requête simultanée — une
+vague de six lectures, un réveil qui en lance vingt — ouvre sa propre
+connexion : en HTTP/1.1, une connexion porte une requête à la fois.
+**Pistes**, une fois connu le délai d'inactivité de Turso (ses en-têtes, et
+des essais à 10, 30, 60 et 90 s de calme — la lecture de la base de
+production le dira) :
+un agent au `keepAliveTimeout` plus long pour les seules requêtes de Turso,
+sous ce délai — une connexion que Turso aurait fermée ferait échouer
+l'écriture qui l'emprunte ; HTTP/2 (`allowH2` du même agent), si Turso
+l'accepte : toutes les requêtes simultanées sur une seule connexion chaude ;
+à défaut, un `SELECT 1` toutes les quelques secondes tant que des joueurs
+sont là, qui ne lit aucune ligne. L'agent se pose sans dépendance — le
+dispatcher global de Node remplacé par un autre de sa classe — ou par
+`undici` en dépendance (une de plus : au propriétaire d'en décider, le
+dépôt en veut peu). Le gain, sur un trafic clairsemé : de ~225 ms à ~30 par
+aller-retour, sur chacun.
 
 ### Le processeur
 
@@ -257,32 +302,19 @@ boucle met à revenir. **Pistes**, toutes agrégées et sans un nom comme le
 reste du relevé : les routes `/api/admin` à part ; Turso « sous une route »
 et « en fond », séparés par un `AsyncLocalStorage` posé dans le minutage des
 routes ; les connexions neuves vers Turso, comptées par le canal de
-diagnostic `undici:client:connected` (sans dépendance) ; le gel imposé par
+diagnostic `undici:client:connected` (sans dépendance) — la part des
+allers-retours qui repaient leur poignée de main ; le gel imposé par
 l'hébergeur, lu dans `/sys/fs/cgroup/cpu.stat` (`throttled_usec`, sous
-try/catch) — la preuve directe que le processeur fait la latence.
-
-### Le transport
-
-**[perf-turso-13] Une connexion vers Turso tient 4 s de calme, puis se
-rouvre** — si Turso n'annonce pas son délai. Le `fetch` de Node referme une
-connexion inactive au bout de 4 s quand le serveur ne dit rien
-(`keepAliveTimeout` d'undici, démontré par
-`reproductions/connexions.mjs`) ; la requête suivante repaie alors TCP et
-TLS — deux allers-retours réseau de plus, et le chiffrement au dixième de
-cœur. Hors soirée, la plupart des requêtes arrivent sans doute après plus de
-4 s de calme.
-**Piste**, après la mesure de [perf-turso-12] : un agent au délai plus long
-pour les seules requêtes de Turso — `undici` en dépendance (une de plus :
-au propriétaire d'en décider, le dépôt en veut peu) ou le dispatcher global
-de Node, remplacé sans dépendance par un autre de sa classe —, toujours sous
-le délai d'inactivité de Turso :
-une connexion que Turso aurait fermée ferait échouer l'écriture qui
-l'emprunte.
+try/catch) — la part du processeur. Et la préproduction, redéployée à chaque
+fusion, mesure surtout ses démarrages : ses heures ne se comparent pas à
+celles de la production.
 
 ## Le plan proposé
 
-1. **Trancher**, aujourd'hui : la page « Le serveur » et `/healthz`
-   (ci-dessus).
+1. **Le transport** [13] : lire le délai d'inactivité de Turso (la session
+   de lecture de la base de production), puis garder les connexions —
+   l'agent au délai plus long, HTTP/2 s'il passe. C'est le seul levier qui
+   divise chaque aller-retour ; il se mesure tout de suite à `base.p50Ms`.
 2. **Une petite PR sûre**, chaque correction avec son test au compteur
    d'allers-retours que les tests ont déjà (`duels-attente.test.ts`,
    `jour-charge.test.ts`) : le carnet [8], l'économie [9], les séries du QG
@@ -290,15 +322,14 @@ l'emprunte.
    [12].
 3. **Les allers-retours en série**, un par un : le quiz du jour [4], le
    profil [5], le réveil [7].
-4. **Le processeur** : la base validée au build [1], le préchauffage étalé
-   [2], la mesure et le modèle en delta [3].
-5. **Le transport** [13], si la mesure montre des connexions neuves à la
-   plupart des requêtes.
+4. **Le processeur**, avant que la base doublée n'arrive en production : la
+   base validée au build [1], le préchauffage étalé [2], la mesure et le
+   modèle en delta [3].
 
-Hors du code, le levier le plus direct : le processeur. Au dixième de cœur,
-chaque milliseconde de calcul en coûte jusqu'à dix d'attente ; la plus petite
-offre payante de Render (un demi-cœur, jamais endormie) diviserait ce terme
-et supprimerait les réveils — un choix de budget, pas une correction.
+Hors du code : la plus petite offre payante de Render (un demi-cœur, jamais
+endormie) diviserait le terme du processeur et supprimerait les réveils —
+un choix de budget, pas une correction ; elle ne change rien aux
+connexions.
 
 ## Le banc
 

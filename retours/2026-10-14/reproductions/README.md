@@ -26,6 +26,14 @@ node ../retours/2026-10-14/reproductions/plans.mjs
 node ../retours/2026-10-14/reproductions/connexions.mjs
 ```
 
+Sur un service déployé, au repos et rarement (chaque série compte dans sa
+minute de `/healthz` et dans son relevé de l'heure) : une connexion vers
+Turso rouverte contre gardée, mesurée par le serveur lui-même.
+
+```bash
+BASE=https://<le service> SLUG=<un espace> node ../retours/2026-10-14/reproductions/sonde.mjs
+```
+
 Comparer deux commits : un autre arbre, mesuré avec les modules de celui-ci.
 
 ```bash
