@@ -5,6 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FiestApp</title>
 <meta name="description" content="Le quiz de la soirée, sur ton téléphone : un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit et auto-hébergé.">
+<!--
+  Publiée telle quelle sur GitHub Pages, sous /FiestApp/
+  (.github/workflows/vitrine.yml) : chaque lien et chaque image de la page
+  restent relatifs — un chemin qui commence par « / » sortirait du site.
+  Seules les balises d'aperçu portent l'adresse complète : WhatsApp,
+  Messenger, Signal ou LinkedIn n'en lisent pas d'autre. Leur image,
+  apercu.jpg, se compose par server/scripts/rendu-apercu-vitrine.ts ;
+  server/test/vitrine.test.ts garde les deux.
+-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FiestApp">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:url" content="https://maxilyas.github.io/FiestApp/">
+<meta property="og:title" content="FiestApp — le quiz de la soirée, sur ton téléphone">
+<meta property="og:description" content="Un écran pour la salle, un téléphone pour chacun : rien à installer, aucun compte à créer. Gratuit et auto-hébergé.">
+<meta property="og:image" content="https://maxilyas.github.io/FiestApp/apercu.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FiestApp, le quiz de la soirée sur ton téléphone : l'écran commun pose une question à la salle, le téléphone d'une invitée y répond.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Figtree:wght@400;500;600&display=swap">
@@ -17,10 +38,6 @@
   Avant ▲, Pendant ◆, Après ●, Entre deux soirées ■ —, chaque temps marqué
   par l'une des quatre formes des réponses ; les écrans en grand, qui
   débordent la colonne du texte.
-
-  Publiée telle quelle sur GitHub Pages, sous /FiestApp/
-  (.github/workflows/vitrine.yml) : chaque lien et chaque image restent
-  relatifs — un chemin qui commence par « / » sortirait du site.
 */
 :root {
   --fond: #1a1412;

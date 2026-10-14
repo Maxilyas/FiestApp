@@ -169,6 +169,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/banc.test.ts` — le banc lui-même : une question jouée, un réveil sur disque effacé qui ne perd rien.
 - `server/test/notes-pour-claude.test.ts` — `CLAUDE.md` sous 200 lignes et 24 000 caractères, l'en-tête `paths:` de chaque règle, la carte, les fichiers cités.
 - `server/test/documentation.test.ts` — `README.md` et `docs/` relus contre le code : fichiers cités, liens, sommaire, `npm run`, et la référence des routes, événements, variables, tables, adresses et barèmes.
+- `server/test/vitrine.test.ts` — la vitrine publiée telle quelle sur GitHub Pages : chaque image et chaque lien dans le site, et l'aperçu d'un lien partagé publié avec la page, à la taille dite, sous 300 Ko.
 - `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
 - `server/test/divins.test.ts` — les Divins rares, et leurs règles hors du navigateur, des réponses d'API, de l'étagère et de la documentation.
