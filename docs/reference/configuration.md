@@ -93,7 +93,7 @@ de l'hébergeur.
 
 | Variable | Rôle | Défaut | Obligatoire | Où le code la lit |
 |---|---|---|---|---|
-| `ADMIN_LOGIN` | L'identifiant de l'administrateur : 2 à 32 caractères, lettres, chiffres, point, tiret. `server/scripts/login.mjs` s'en sert pour connecter le test de charge et l'écran commun en ligne de commande | `antoine` | non | `server/src/index.ts`, `server/scripts/login.mjs` |
+| `ADMIN_LOGIN` | L'identifiant de l'administrateur : 2 à 32 caractères, lettres, chiffres, point, tiret ou tiret bas, mis en minuscules. `server/scripts/login.mjs` s'en sert pour connecter le test de charge et l'écran commun en ligne de commande | `antoine` | non | `server/src/index.ts`, `server/scripts/login.mjs` |
 | `ADMIN_PASSWORD` | Son mot de passe d'amorçage. Les mêmes scripts s'en servent | `demo` | **en ligne sur une base sans compte, oui**, et différent de `demo` : sinon le serveur refuse de démarrer (« ❌ ADMIN_PASSWORD manquant… ») | `server/src/index.ts`, `server/src/server.ts`, `server/scripts/login.mjs` |
 | `ADMIN_SLUG` | Le nom de son espace dans l'adresse (`/chez-antoine`) : 2 à 24 caractères, minuscules, chiffres, tirets, ni un mot réservé (une page de l'application), ni six chiffres (un code de salon) | `demo` | non | `server/src/index.ts` |
 | `ADMIN_NAME` | Son prénom, affiché partout, titre de soirée par défaut compris | `Antoine` | non | `server/src/index.ts` |
