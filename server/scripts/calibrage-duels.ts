@@ -14,6 +14,7 @@
 //   … --participation 5            ce que chaque duel rapporte sous l'Or, avec la montée
 //
 // Sous PowerShell : $env:PROD_LECTURE_URL="libsql://…"; $env:PROD_LECTURE_TOKEN="…"; npx tsx scripts/calibrage-duels.ts
+// Dans le cloud, derrière son proxy : NODE_USE_ENV_PROXY=1 devant la commande.
 //
 // Jamais QUIZ_DB_URL : posée dans un environnement pour mesurer, le serveur,
 // `npm run dev` et le smoke la liraient aussi, et écriraient dans la vraie
@@ -170,7 +171,14 @@ const maintenant = Date.now()
 const client = clientDistant(url, jeton)
 const [series, journal, contre] = await client
   .batch([SERIES_FINIES, lectureDesDuels(null, maintenant), DUELS_CONTRE].map(lecture), 'read')
-  .catch((e: unknown) => echouer(`lecture impossible — ${pourquoiInjoignable(e) ?? (e instanceof Error ? e.message : String(e))}`))
+  .catch((e: unknown) => {
+    // Dans le cloud, le réseau passe par un proxy que le `fetch` de Node ne
+    // suit que sous NODE_USE_ENV_PROXY=1 : sans, il ne trouve même pas
+    // l'hôte (ENOTFOUND), et l'on accusait la politique réseau.
+    const proxy = process.env.HTTPS_PROXY && process.env.NODE_USE_ENV_PROXY !== '1'
+    const pourquoi = pourquoiInjoignable(e) ?? (e instanceof Error ? e.message : String(e))
+    echouer(`lecture impossible — ${pourquoi}${proxy ? '. Le réseau passe par un proxy que fetch ne suit pas seul : relance avec NODE_USE_ENV_PROXY=1 devant la commande.' : ''}`)
+  })
   .finally(() => client.close())
 
 // ── Écrire ────────────────────────────────────────────────────────────────

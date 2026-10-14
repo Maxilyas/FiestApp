@@ -28,11 +28,13 @@ const ZOE = 'profil-secret-zoe'
 
 /**
  * Le script, lancé comme on le lance — jamais avec une base de
- * l'environnement : sur un poste de mesure, ce serait la vraie.
+ * l'environnement : sur un poste de mesure, ce serait la vraie. Ni le proxy
+ * de la machine : chaque épreuve dit le sien.
  */
-function mesurer(...args: string[]): Promise<{ code: number | null; sortie: string; erreurs: string }> {
+function mesurer(args: string[] = [], plus: NodeJS.ProcessEnv = {}): Promise<{ code: number | null; sortie: string; erreurs: string }> {
   const env: NodeJS.ProcessEnv = { ...process.env }
-  for (const cle of ['PROD_LECTURE_URL', 'PROD_LECTURE_TOKEN', 'QUIZ_DB_URL', 'QUIZ_DB_TOKEN', 'INIT_CWD']) delete env[cle]
+  for (const cle of ['PROD_LECTURE_URL', 'PROD_LECTURE_TOKEN', 'QUIZ_DB_URL', 'QUIZ_DB_TOKEN', 'INIT_CWD', 'HTTPS_PROXY', 'NODE_USE_ENV_PROXY']) delete env[cle]
+  Object.assign(env, plus)
   return new Promise((resolve, reject) => {
     const proc = spawn(process.execPath, ['--import', 'tsx', 'scripts/calibrage-duels.ts', ...args], { cwd: SERVEUR, env, stdio: ['ignore', 'pipe', 'pipe'] })
     let sortie = ''
@@ -114,7 +116,7 @@ test('le script relit le journal que la cote relit, rejoue les règles à l’es
       duel(db, TOM, null, [8, 4], T0 + 7 * HEURE_MS, null)
     })
     const avant = compter(banc)
-    const { code, sortie, erreurs } = await mesurer(banc.quizDbUrl)
+    const { code, sortie, erreurs } = await mesurer([banc.quizDbUrl])
     assert.equal(code, 0, erreurs)
 
     assert.match(sortie, /Séries de campagne finies : 11 — allées au bout \(trois fautes\) : 10 · abandonnées en route : 1/)
@@ -143,7 +145,7 @@ test('le script relit le journal que la cote relit, rejoue les règles à l’es
   }
 })
 
-test('sans base, sur un fichier absent ou une échelle illisible, il refuse et dit quoi faire — sans rien créer', async () => {
+test('sans base, sur un fichier absent, une échelle illisible ou un hôte injoignable, il refuse et dit quoi faire — sans rien créer', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'calibrage-duels-'))
   try {
     const sansBase = await mesurer()
@@ -152,16 +154,25 @@ test('sans base, sur un fichier absent ou une échelle illisible, il refuse et d
     assert.match(sansBase.erreurs, /Jamais QUIZ_DB_URL/)
 
     const absente = path.join(dir, 'absente.db')
-    const introuvable = await mesurer(`file:${absente}`)
+    const introuvable = await mesurer([`file:${absente}`])
     assert.equal(introuvable.code, 1)
     assert.match(introuvable.erreurs, /Base introuvable/)
     assert.ok(!existsSync(absente), 'libsql aurait créé une base vide, et l’on aurait mesuré du vide')
 
     const vide = path.join(dir, 'vide.db')
     writeFileSync(vide, '')
-    const illisible = await mesurer(`file:${vide}`, '--echelles', '7')
+    const illisible = await mesurer([`file:${vide}`, '--echelles', '7'])
     assert.equal(illisible.code, 1)
     assert.match(illisible.erreurs, /Échelle illisible : « 7 »/)
+
+    // Le cloud, la première fois : derrière son proxy, sans NODE_USE_ENV_PROXY,
+    // le `fetch` de Node ne trouvait pas l'hôte (ENOTFOUND), et l'on accusait la
+    // politique réseau. `.invalid` ne se résout nulle part.
+    const injoignable = await mesurer(['libsql://hote-introuvable.invalid'], { HTTPS_PROXY: 'http://127.0.0.1:9', PROD_LECTURE_TOKEN: 'jeton-d-essai' })
+    assert.equal(injoignable.code, 1)
+    assert.match(injoignable.erreurs, /lecture impossible/)
+    assert.match(injoignable.erreurs, /relance avec NODE_USE_ENV_PROXY=1/)
+    assert.ok(!`${injoignable.sortie}${injoignable.erreurs}`.includes('jeton-d-essai'), 'le jeton ne s’écrit jamais')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
