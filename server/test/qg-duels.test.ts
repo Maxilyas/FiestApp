@@ -324,4 +324,7 @@ test('la page des duels au QG : les chiffres du jour, les duels par jour, les li
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }
+  // Sous un classement qui montre ce que chacun porte, un masqué ne reparaît
+  // pas par son emoji enregistré : la liste ne connaît que lui.
+  assert.ok(!html.includes('🐸'), 'un masqué sans son emoji enregistré')
 })

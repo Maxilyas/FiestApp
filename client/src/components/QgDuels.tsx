@@ -191,12 +191,14 @@ export function ClassementDesDuelsAuQg({
           <h3 className="label" id="duels-masques">
             Hors classement
           </h3>
+          {/* Sans avatar : la liste ne connaît que l'emoji enregistré, et sous un
+              classement qui montre ce que chacun porte, le même joueur y
+              reparaissait en emoji — la confusion qu'« un seul avatar » a ôtée
+              (`un-seul-avatar.test.ts`). Son prénom et son identifiant le
+              reconnaissent, alignés sur les prénoms du classement. */}
           <ul className="qg-liste" aria-labelledby="duels-masques">
             {masques.map(p => (
-              <li key={p.id} className="qg-rang qg-rang-masque">
-                <span className="qg-avatar" aria-hidden="true">
-                  {p.avatar}
-                </span>
+              <li key={p.id} className="qg-rang">
                 <span className="qg-ligne-texte">
                   <b>{p.nom}</b>
                   <span className="muted small">@{p.login}</span>

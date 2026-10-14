@@ -9885,8 +9885,6 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-rang > .qg-ligne-texte { grid-area: nom; }
 .qg-rang-points { grid-area: points; font-weight: 600; white-space: nowrap; }
 .qg-rang > .salon-geste { grid-area: geste; justify-self: start; }
-/* Un masqué, sous le classement des duels : sans place ni points, son avatar éteint — il n'y paraît plus. */
-.qg-rang-masque > .qg-avatar { opacity: var(--dim); }
 /* Leurs chiffres en sans-serif, comme les tableaux du QG : en Cormorant, « 78 % » paraissait d'un autre corps que l'intitulé d'à côté. */
 .qg-question .num,
 .qg-rang .num,
