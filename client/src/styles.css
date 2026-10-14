@@ -5275,7 +5275,6 @@ h3 > .icon {
    mordait sur le prénom. La lumière, qui déborde davantage, a déjà la sienne. */
 .carte-avatar.av-bordure:not(.av-lumiere),
 .loge-carte .player-avatar.av-bordure:not(.av-lumiere),
-.identite .player-avatar.av-bordure:not(.av-lumiere),
 .identite-ligne .player-avatar.av-bordure:not(.av-lumiere) { margin: 0.45em; }
 /* Dans une ligne, elle s'écarte du rang et du prénom, et l'emoji garde sa taille. */
 .lb-avatar.av-bordure { margin-inline: 0.42em; }
@@ -5400,7 +5399,7 @@ h3 > .icon {
    à côte, plus encore. */
 .av-lumiere .lu { scale: 0.72; }
 .emoji-grid .lu { scale: 0.55; }
-/* Là où il l'est — le podium, sa carte, l'entrée, sa page, la fin de
+/* Là où il l'est — le podium, sa carte, son bilan, l'entrée, la fin de
    soirée, le choix des finitions —, elle prend toute sa place, et la page
    la lui réserve : sans marge, elle recouvrait « Te revoilà », le nom d'une
    finition, et le bord de la carte d'un joueur la coupait net. */
@@ -5409,12 +5408,10 @@ h3 > .icon {
 .carte-loupe-avatar .lu,
 .bilan-avatar .lu,
 .retour-avatar .lu,
-.identite .player-avatar .lu,
 .fin-avatar .lu,
 .finition-btn .lu { scale: 1; }
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
-.identite .player-avatar.av-lumiere,
 .fin-avatar.av-lumiere,
 .bilan-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
 .finition-btn .av-lumiere { margin: 0.6em 0; }
@@ -7106,9 +7103,6 @@ h3 > .icon {
    le pli, et ne saute pas quand il arrive. */
 .onglet-en-chemin { min-height: 100vh; padding-top: 12px; text-align: center; }
 .titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
-.apercu { display: flex; flex-direction: column; gap: 10px; }
-.apercu-carte { align-self: flex-start; }
-.apercu-ligne { animation: none; }
 
 /* La grille unique : les emojis, ceux de collection, les légendaires, les
    Divins, de la même taille ; un anneau de couleur dit ce qui est rare.
@@ -7486,31 +7480,10 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .zone-compte { --zone: var(--zone-compte); }
 
 /* ── Soi, sur une ligne : l'identité et sa barre d'expérience ───────────
-   En tête de l'accueil et du profil, une carte qu'on touche pour voir sa
-   carte de joueur : le liseré d'or dit qu'elle s'ouvre. */
-.identite {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: var(--radius);
-  background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--surface);
-  /* L'encre, pas celle dont il hérite : sous un fond de carte, c'est l'encre
-     claire du décor. Héritée, elle restait celle de la page — sombre sous
-     l'Ivoire ou un thème clair, et le prénom disparaissait dans la nuit. */
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  isolation: isolate;
-}
-.identite .player-avatar.big { flex: none; font-size: 2.9rem; }
-/* L'accueil : la même identité, sans cadre — un lien vers le profil —, et
-   « Amis » au bout de la ligne, à côté du lien, jamais dedans. */
+   En tête de l'accueil et du profil, sans cadre : ces pages sont aux gros
+   boutons. À l'accueil, un lien vers le profil ; au profil, elle ouvre sa
+   carte de joueur. */
+/* L'accueil : « Amis » au bout de la ligne, à côté du lien, jamais dedans. */
 .accueil-tete { display: flex; align-items: center; gap: 8px; }
 .accueil-tete > .identite-ligne { flex: 1; min-width: 0; }
 .bouton-des-amis { display: inline-flex; flex: none; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; padding: 2px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; cursor: pointer; }
@@ -7520,16 +7493,11 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .bouton-des-amis:hover .bouton-des-amis-rond { border-color: var(--accent); }
 .identite-ligne { display: flex; align-items: center; gap: 14px; padding: 2px 0; color: inherit; text-decoration: none; }
 .identite-ligne .player-avatar.big { flex: none; font-size: 2.4rem; }
-.identite-ligne .identite-nom { padding-right: 0; }
 .identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 /* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
    l'écran : au texte agrandi à 200 %, « Marie-Charlotte » ne cédait pas, et
    la pastille élargissait la page de 47 px. */
-.identite-nom { display: flex; align-items: center; gap: 6px; padding-right: 64px; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
-.identite-titre { font-family: var(--serif); font-style: italic; font-size: 0.95rem; color: var(--accent-text); }
-.identite-carte { position: absolute; top: 10px; right: 12px; display: inline-flex; align-items: center; gap: 2px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.04em; color: var(--muted); }
-.identite-carte .icon { width: 12px; height: 12px; transform: rotate(-90deg); }
-.identite:hover .identite-carte { color: var(--accent-text-hover); }
+.identite-nom { display: flex; align-items: center; gap: 6px; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
 .xp-mince { display: flex; flex-direction: column; gap: 3px; width: 100%; max-width: 260px; margin-top: 3px; }
 .xp-mince-barre { display: block; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
 .xp-mince-barre span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, transparent), var(--accent)); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
@@ -7643,7 +7611,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
      tombe, et la carte reste opaque. */
   background-color: var(--bg);
   background-image: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), linear-gradient(var(--surface), var(--surface));
-  /* L'encre du décor sous un fond de carte, comme `.identite`. */
+  /* L'encre, pas celle dont elle hérite : sous un fond de carte, c'est
+     l'encre claire du décor. Héritée, elle resterait celle de la page —
+     sombre sous l'Ivoire ou un thème clair : le prénom de l'identité d'avant,
+     en tête du profil, disparaissait ainsi dans la nuit. */
   color: var(--ink);
   overflow: hidden;
   isolation: isolate;
@@ -7655,7 +7626,6 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-carte > .xp-mince { max-width: none; margin-top: 0; }
 .loge-carte-avatar { flex: none; border-radius: 50%; line-height: 0; }
 .loge-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-right: 56px; }
-.loge-carte .identite-nom { padding-right: 0; }
 .loge-carte-titre { max-width: 100%; font-family: var(--serif); font-style: italic; font-size: 1rem; line-height: 1.2; color: var(--accent-text); overflow-wrap: anywhere; }
 .loge-carte-titre.loge-sans { color: var(--muted); }
 .loge-carte-vitrine { display: inline-flex; gap: 5px; min-height: 28px; }

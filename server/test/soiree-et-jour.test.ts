@@ -201,8 +201,8 @@ test('« Voir ma carte » : sa carte telle que la salle la verra, sans « ce soi
     assert.equal(corps.profil.niveau, 1)
     assert.ok(Array.isArray(corps.profil.vitrine))
     assert.equal('ceSoir' in corps, false, 'il n’est dans aucune soirée ici')
-    // La page y mène, par la même carte que la salle ouvre.
-    assert.match(source('components/Apparence.tsx'), /<CarteJoueur adresse="\/api\/joueur\/carte"/)
+    // La page y mène, par la même carte que la salle ouvre : sa ligne en tête du profil se touche.
+    assert.match(source('views/ProfilApp.tsx'), /<laCarte\.CarteJoueur adresse="\/api\/joueur\/carte"/)
     // Et la carte explique ses mots, ceux qu'elle montre.
     assert.match(source('components/CarteJoueur.tsx'), /<Glossaire mots=\{motsDeLaCarte\(/)
   } finally {

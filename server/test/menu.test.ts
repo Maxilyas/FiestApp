@@ -125,7 +125,7 @@ test('chaque pièce a sa couleur, que la barre du menu pose sur la page', () => 
   assert.match(css, /\.menu-barre a\[aria-current='page'\] \{ color: var\(--zone, var\(--accent-text\)\); font-weight: 600; \}/)
 })
 
-test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’expérience qui manque, les confettis au bout', async () => {
+test('soi-même en tête : une ligne à l’accueil, la même au profil, qui ouvre sa carte — l’expérience qui manque, les confettis au bout', async () => {
   const profil = {
     id: 'p',
     login: 'lea',
@@ -142,13 +142,10 @@ test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’
     eclats: [],
     boutique: { confettis: { solde: 291 } },
   }
-  const carte = await rendu('components/Identite', 'Identite', { profil })
-  assert.match(carte, /<button type="button" class="identite" aria-label="Ma carte : la voir comme la salle la voit">/)
-  assert.match(carte, /60 XP → niv\. 4/)
-  assert.match(carte, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
-  assert.match(carte, /Ma carte/)
   const ligne = await rendu('components/Identite', 'IdentiteLigne', { profil })
   assert.match(ligne, /<a class="identite-ligne" href="\/profil"/)
+  assert.match(ligne, /60 XP → niv\. 4/)
+  assert.match(ligne, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
   assert.doesNotMatch(ligne, /Ma carte/, 'la ligne de l’accueil mène au profil, sans carte')
   assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} \/>/)
   // Au profil, la même ligne ouvre sa carte, comme la salle l'ouvre en touchant son nom — l'œil au bout le dit.

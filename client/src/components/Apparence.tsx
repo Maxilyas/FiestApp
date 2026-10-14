@@ -1,9 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
-import { Niveau } from './Niveau'
-import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
-import { CarteJoueur } from './CarteJoueur'
 import { Gemmes } from './Gemmes'
 import { AGagner } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
@@ -12,7 +9,7 @@ import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
-import { cibleEclat, legendaire } from '../../../shared/legendaires'
+import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import {
   NOM_COURT_DE_RARETE_D_AVATAR,
@@ -51,41 +48,6 @@ import type { PropsDUnePiece } from './choix'
 /** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
 function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
   return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (!montre && porte ? ' porte' : '') + (neuve ? ' neuve' : '')
-}
-
-/**
- * Sa ligne telle que la salle la voit, dans les classements et la salle
- * d'attente : son visage, sa finition, son niveau. On change d'avatar
- * plus bas, et l'on se voit changer ici.
- */
-export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
-  // Sa carte, telle que la salle l'ouvre en touchant son nom : il composait
-  // titre, vitrine et fond sans jamais la voir.
-  const [carte, setCarte] = useState(false)
-  return (
-    <section className="card apercu" aria-label="Ce que la salle voit">
-      <span className="label">Ce que la salle voit</span>
-      <div className="lb-row me apercu-ligne">
-        <Avatar
-          className="lb-avatar"
-          avatar={profil.avatar}
-          finition={profil.finition}
-          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-          legendaire={profil.legendaire ?? undefined}
-        />
-        {/* Sa ligne telle que la salle la voit : son laurier compris. */}
-        <span className="lb-name">
-          <NomLaure nom={profil.name} laurier={profil.laurier} />
-        </span>
-        <Niveau niveau={profil.niveau} />
-      </div>
-      <button type="button" className="btn btn-small apercu-carte" onClick={() => setCarte(true)}>
-        <Icon name="eye" />
-        Voir ma carte
-      </button>
-      {carte && <CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarte(false)} />}
-    </section>
-  )
 }
 
 /**

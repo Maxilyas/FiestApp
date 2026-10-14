@@ -197,9 +197,11 @@ function reglesDe(css: string): { selecteurs: string[]; corps: string }[] {
 
 /**
  * Ce qu'une carte à fond montre : les classes que posent la carte d'un
- * joueur, l'identité en tête du profil et ce qu'elles affichent — lues dans
- * leur code, pour qu'une case de plus y entre d'elle-même —, les familles
- * des avatars (finitions, lumière, médaillons, portraits), et les balises.
+ * joueur et ce qu'elle affiche — lues dans leur code, pour qu'une case de
+ * plus y entre d'elle-même —, celles de `Identite.tsx`, dont la carte de la
+ * loge reprend le prénom et la barre d'expérience (`identite-nom`,
+ * `XpMince`), les familles des avatars (finitions, lumière, médaillons,
+ * portraits), et les balises.
  */
 const DANS_LA_CARTE = (() => {
   const classes = new Set<string>()
@@ -265,7 +267,8 @@ test('aucun thème ne peint une carte à fond : son décor reste nocturne sous t
   for (const jeton of ['--bg', '--bg-raised', '--surface', '--accent', '--accent-soft', '--track', '--bronze-text', 'color-scheme']) {
     assert.match(velours, new RegExp(`^\\s*${jeton}:`, 'm'), `la carte à fond reprend ${jeton} du Velours`)
   }
-  // L'identité en tête du profil écrit à l'encre, pas à celle de la page :
-  // héritée, elle restait sombre sous un thème clair, sur le décor de nuit.
-  assert.match(/\n\.identite \{([^}]*)\}/.exec(commune)?.[1] ?? '', /\bcolor:\s*var\(--ink\);/)
+  // La carte de la loge, que son fond tapisse, écrit à l'encre, pas à celle
+  // de la page : héritée, elle resterait sombre sous un thème clair, sur le
+  // décor de nuit — le prénom de l'identité d'avant, en tête du profil, y disparaissait.
+  assert.match(/\n\.loge-carte \{([^}]*)\}/.exec(commune)?.[1] ?? '', /\bcolor:\s*var\(--ink\);/)
 })

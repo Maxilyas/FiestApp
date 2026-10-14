@@ -194,7 +194,8 @@ try {
         )
         if (ecran === 'question') await telephone.locator('.ans-btn').first().waitFor({ timeout: 15_000 })
         if (ecran === 'carte') {
-          await telephone.getByRole('button', { name: /Ma carte/ }).first().click()
+          // Sa ligne en tête du profil l'ouvre : le bouton « Ma carte » de l'identité encadrée n'existe plus.
+          await telephone.click('button.identite-ligne')
           await telephone.locator('.carte-joueur').waitFor({ timeout: 15_000 })
         }
         await telephone.evaluate('document.fonts.ready')
