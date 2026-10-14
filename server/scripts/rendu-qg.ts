@@ -32,6 +32,7 @@ import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrir
 import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
 import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
+import { coteDuScore } from '../../shared/duels'
 import { regleDuPalier } from '../../shared/sentiers'
 import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
@@ -421,7 +422,7 @@ try {
           const lance = minuit + (11 + i * 2) * H
           const justes = (a: { force: number }) => Math.max(0, Math.round(8 + a.force * 8 + (hasard() - 0.5) * 6))
           // Les deux cotes figées au lancement : celles de leur force.
-          duelClasse.run(code, auteur.id, lance, lance + DUREE_D_UN_DUEL_MS, adversaire.id, 1000 + (niveauDe(auteur) - 8) * 50, 1000 + (niveauDe(adversaire) - 8) * 50)
+          duelClasse.run(code, auteur.id, lance, lance + DUREE_D_UN_DUEL_MS, adversaire.id, coteDuScore(niveauDe(auteur)), coteDuScore(niveauDe(adversaire)))
           const sesJustes = justes(auteur)
           tentative.run(`duel-${code}-a`, auteur.id, sesJustes + VIES, sesJustes, lance, lance + 5 * 60_000, code)
           envoi.run(code, adversaire.id, lance + 5 * 60_000)

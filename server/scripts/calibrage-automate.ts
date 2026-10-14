@@ -52,7 +52,7 @@ import {
 } from '../src/core/modeleDuSavoir'
 import { VIES, niveauDeQuestion, tauxLisse } from '../../shared/campagne'
 import { CATEGORIES } from '../../shared/categories'
-import { SCORE_DE_REFERENCE, coteDuScore, ecartDuDuel, enjeuDuDuel, niveauPourLeDuel, resultatDuDuel, COTE_DE_DEPART } from '../../shared/duels'
+import { SCORE_DE_REFERENCE, coteDuScore, ecartDuDuel, niveauPourLeDuel, resultatDuDuel, COTE_DE_DEPART } from '../../shared/duels'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
@@ -274,8 +274,8 @@ function jouerLesDuels(monde: 'avant' | 'modele'): Bilan {
       else if (resultat === 0.5) bilan.egalites++
       else bilan.perdus++
       bilan.ecarts.push(sienScore - a.niveau)
-      const enjeu = enjeuDuDuel(cote, sienScore, d)
-      bilan.desequilibres.push(Math.abs(enjeu.gagne + enjeu.perdu))
+      // Le déséquilibre de l'enjeu sur la cote cachée, l'ELO seul — celle qu'Automate suit, et que ce calibrage simule.
+      bilan.desequilibres.push(Math.abs(ecartDuDuel(cote, sienScore, d, 1) + ecartDuDuel(cote, sienScore, d, 0)))
       const durete = scoreAttendu(vraies) - sonVraiNiveau
       if (durete <= -1) {
         bilan.durs++

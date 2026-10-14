@@ -22,26 +22,26 @@ Les duels demandent un profil, où restent ta cote, ta ligue et tes confettis : 
 
 ## Où les trouver
 
-**À l'accueil**, la tuile « Les duels », sous « Le quiz du jour » dans la section « Seul » — des épées, puis le blason de ta ligue —, dit d'abord ce qui t'attend : un résultat (« Hugo a joué ton duel », la tuile allumée d'or), un duel reçu (« Léa te défie : à toi de jouer »), ton duel au dé laissé en route ; sinon ta ligue, ta cote et ta semaine (« Ligue de bronze · cote 1024 · encore 2 duels pour ta récompense »). Un chiffre blanc sur rouge additionne les résultats à voir et les duels à relever, et une bannière « Duel terminé » tombe une fois en haut de l'accueil quand un résultat arrive.
+**À l'accueil**, la tuile « Les duels », sous « Le quiz du jour » dans la section « Seul » — des épées, puis le blason de ta ligue —, dit d'abord ce qui t'attend : un résultat (« Hugo a joué ton duel », la tuile allumée d'or), un duel reçu (« Léa te défie : à toi de jouer »), ton duel au dé laissé en route ; sinon ta ligue, ta cote et ta semaine (« Ligue de bronze · cote 1017 · encore 2 duels pour ta récompense »). Un chiffre blanc sur rouge additionne les résultats à voir et les duels à relever, et une bannière « Duel terminé » tombe une fois en haut de l'accueil quand un résultat arrive.
 
 **La page `/duels`** : le cadran des six ligues autour de ta cote ; ta semaine en trois losanges ; « Défier », en grand, et le dé à côté ; trois onglets, « En cours », « Historique », « Classement » ; en haut, « Comment ça marche ? » et tes amis. « En cours » range d'abord les résultats que tu n'as pas vus, puis ce qui est à toi de jouer (« À toi »), puis ce qui attend l'autre, avec le temps restant.
 
 ## Le duel au dé, contre Automate
 
 1. Touche le dé : un duel neuf contre Automate commence aussitôt — ou celui que tu avais laissé reprend : le dé finit toujours le précédent avant d'en tirer un autre.
-2. Au-dessus de chaque question : « Toi 7 – Automate 6 » (son score sur les questions déjà jouées), « simulé, de ton niveau », et l'enjeu, « En jeu : +24 si tu gagnes, −24 si tu perds ». Après ta réponse, ce qu'il en avait fait (« Automate l'avait trouvée. », ou « ratée ») — ou « Automate n'avait pas joué celle-ci. » si sa série s'était arrêtée à sa troisième faute.
+2. Au-dessus de chaque question : « Toi 7 – Automate 6 » (son score sur les questions déjà jouées), « simulé, de ton niveau », et l'enjeu, « En jeu : +17 si tu gagnes, +2 même si tu perds » ([la cote](#la-cote)). Après ta réponse, ce qu'il en avait fait (« Automate l'avait trouvée. », ou « ratée ») — ou « Automate n'avait pas joué celle-ci. » si sa série s'était arrêtée à sa troisième faute.
 3. Le duel finit dès que tu dépasses son score total (tu as gagné : plus rien à jouer), à ta troisième faute, ou au bout des questions. « Voir qui a gagné » mène à la carte du verdict, qui se retourne d'elle-même : victoire, défaite ou égalité, les deux scores, ce que ta cote a gagné ou perdu, ta ligue et ta place. Dessous, ta semaine, puis ce que le duel a fait tomber, par l'écran des gains de toute la campagne : « Nouveaux trophées » et « À porter » ; « Ce que tu gagnes » n'y paraît qu'à un niveau gagné — la carte dit déjà ce que le duel a fait. Enfin « Un autre duel », « Accueil », « Réponses ».
 
 « ← Partir » ne perd rien : le duel t'attend. Il ne s'abandonne pas, ne ferme jamais, et ne compte qu'une fois fini.
 
-**Automate** joue comme toi, tel que tes réponses de campagne te décrivent : il rate où tu rates (le modèle du savoir, [plus bas](#comment-cest-construit)). Sa force : pendant tes 10 premiers duels, ton niveau de campagne — le score que tes réponses font attendre de toi, 8 sans aucune réponse ; ensuite, celui de ta cote, 8 + (cote − 1 000) ÷ 50. Ses réponses sont tirées au départ, et son score se tient à 2 bonnes réponses au plus de ce qu'on attend de lui sur la série (`ECART_D_AUTOMATE`) : sa partie se retire jusqu'à 50 fois, la plus proche est gardée. Libre, il s'en écartait de quatre ou plus un duel sur cinq : des défaites de dix réponses.
+**Automate** joue comme toi, tel que tes réponses de campagne te décrivent : il rate où tu rates (le modèle du savoir, [plus bas](#comment-cest-construit)). Sa force : pendant tes 10 premiers duels, ton niveau de campagne — le score que tes réponses font attendre de toi, 7 sans aucune réponse ; ensuite, celui de ta cote cachée, 7 + (cote cachée − 1 000) ÷ 50 — jamais celle qu'on voit, qui monte au-dessus de ton niveau. Ses réponses sont tirées au départ, et son score se tient à 2 bonnes réponses au plus de ce qu'on attend de lui sur la série (`ECART_D_AUTOMATE`) : sa partie se retire jusqu'à 50 fois, la plus proche est gardée. Libre, il s'en écartait de quatre ou plus un duel sur cinq : des défaites de dix réponses.
 
 ## Défier quelqu'un
 
 **Toi, qui défies.**
 
 1. Ouvre « Défier quelqu'un » : « Défier » sur la page ou sur une ligne « À ta portée », « Défier Tom » au pied de la carte d'un joueur, ou « Revanche » sous un verdict.
-2. « Contre qui ? » : un prénom, « Tes amis » ou « Joueurs croisés », « Choisir » à côté. « Sur quoi ? » : « Toutes les catégories », ou « Changer » pour des catégories ou un sujet. Sous « Jouer le duel », l'enjeu : « +31 si tu gagnes, −17 si tu perds ».
+2. « Contre qui ? » : un prénom, « Tes amis » ou « Joueurs croisés », « Choisir » à côté. « Sur quoi ? » : « Toutes les catégories », ou « Changer » pour des catégories ou un sujet. Sous « Jouer le duel », l'enjeu, ta part de lanceur comprise : « +21 si tu gagnes, +4 même si tu perds ».
 3. Tu joues d'abord, trois vies, sans chrono : « Tom jouera après toi ».
 4. À ta dernière réponse, le duel part chez lui — aucun lien à envoyer : « Duel envoyé », « Chez Tom, ton score caché », « Verdict quand Tom aura joué », tes confettis et ton expérience, et ce que la partie a fait tomber, comme sous un verdict. Laissé avant, il ne part à personne.
 5. Il attend dans « En cours ». Quand Tom l'a joué, la tuile de l'accueil s'allume, la bannière tombe, et la carte du verdict se retourne la première fois que tu ouvres le duel.
@@ -62,32 +62,44 @@ Chaque partie paie comme une série de la campagne : un confetti et l'expérienc
 
 ## La cote
 
-Tout le monde part de **1 000** (`COTE_DE_DEPART`). Un duel se gagne au nombre de bonnes réponses — gagné vaut 1, égalité 0,5, perdu 0 — et déplace ta cote, à la manière de l'ELO :
+Tout le monde part de **1 000** (`COTE_DE_DEPART`), et chacun a **deux cotes** depuis le 14 octobre 2026 — la montée, après une joueuse qui lançait beaucoup de duels et « ne faisait que reculer » :
 
-- **tes chances** contre une force d'en face : 1 ÷ (1 + 10^((force − cote) ÷ 400)), soit 0,5 à égalité et 0,24 contre 200 points de plus ;
-- **l'écart**, en points entiers : le poids du duel × (résultat − chances), arrondi. Le poids vaut 48 pendant tes 10 premiers duels, qui comptent double (`POIDS_DU_PLACEMENT`, `DUELS_DE_PLACEMENT`), puis 24 (`POIDS_D_UN_DUEL`) ;
-- **la force d'en face** : contre Automate, la cote de son score, 1 000 + 50 × (bonnes réponses − 8) (`POINTS_PAR_BONNE_REPONSE`, `SCORE_DE_REFERENCE`) ; contre quelqu'un, **sa cote au lancement du duel**, jamais son score — un second profil qui rejouerait les questions, réponses connues, choisirait son score, pas sa cote.
+- **la cote qu'on voit** — celle des ligues, du classement, des bordures et des confettis du lundi — avance pour qui joue ;
+- **la cote cachée**, l'ELO seul, dit ton niveau : Automate se règle sur elle. Elle ne se montre nulle part.
 
-Ce qui se joue, à 1 000 :
+Un duel se gagne au nombre de bonnes réponses — gagné vaut 1, égalité 0,5, perdu 0. **Tes chances** contre une force d'en face : E = 1 ÷ (1 + 10^((force − cote) ÷ 400)), soit 0,5 à égalité et 0,24 contre 200 points de plus. **La force d'en face** : contre Automate, la cote de son score, 1 000 + 50 × (bonnes réponses − 7) (`POINTS_PAR_BONNE_REPONSE`, `SCORE_DE_REFERENCE` : sept, la médiane des séries allées au bout) ; contre quelqu'un, **ses cotes au lancement du duel** — celle qu'on voit contre ta cote qu'on voit, sa cachée contre ta cachée —, jamais son score : un second profil qui rejouerait les questions, réponses connues, choisirait son score, pas sa cote.
 
-| En face | Placement : gagné / égalité / perdu | Ensuite |
-|---|---|---|
-| 800 | +12 / −12 / −36 | +6 / −6 / −18 |
-| 900 | +17 / −7 / −31 | +9 / −3 / −15 |
-| 1 000 | +24 / 0 / −24 | +12 / 0 / −12 |
-| 1 100 | +31 / +7 / −17 | +15 / +3 / −9 |
-| 1 200 | +36 / +12 / −12 | +18 / +6 / −6 |
+**La cote qu'on voit** avance d'un écart en points entiers :
 
-Battre plus fort que soi rapporte plus ; rien ne passe d'un profil à l'autre, et contre Automate seule ta cote bouge.
+- **sous l'Or**, chaque duel rapporte 5 (`PARTICIPATION_SOUS_L_OR`), plus 24 × (1 − E) s'il est gagné ; perdu, il ne coûte que le quart de ce que l'ELO ferait payer, 24 × E × 0,25 (`PERTE_SOUS_L_OR`) : au pire un point. Une égalité rapporte, contre plus fort, ce que l'ELO lui donnerait ; contre plus faible, elle coûte la moitié d'une défaite ;
+- **dès l'Or**, chaque duel rapporte 1 (`PARTICIPATION_AU_DESSUS`), et l'enjeu suit l'écart : une défaite coûte 24 × E² — presque rien contre plus fort, beaucoup contre plus faible ;
+- **qui lance un défi** gagne 1 de plus, quelle qu'en soit l'issue (`PART_DU_LANCEUR`) : provoquer paie ;
+- **l'Argent et l'Or**, une fois atteints, ne se perdent plus (`LIGUES_GARDEES`) : ta cote ne redescend plus sous leur seuil.
+
+Ce qui se joue, gagné / égalité / perdu :
+
+| En face | À 1 000 | À 1 000, qui a lancé le défi | À 1 300 |
+|---|---|---|---|
+| 200 de moins | +11 / +3 / 0 | +12 / +4 / +1 | +7 / −6 / −13 |
+| 100 de moins | +14 / +3 / +1 | +15 / +4 / +2 | +10 / −4 / −9 |
+| autant | +17 / +4 / +2 | +18 / +5 / +3 | +13 / −2 / −5 |
+| 100 de plus | +20 / +8 / +3 | +21 / +9 / +4 | +16 / +4 / −2 |
+| 200 de plus | +23 / +11 / +4 | +24 / +12 / +5 | +19 / +7 / 0 |
+
+Sous l'Or, même une défaite fait avancer — la page le dit, « +2 même si tu perds », jamais en rouge, et « rien à perdre » quand elle ne coûte rien. Contre Automate, réglé sur ton niveau, chacun gagne à peu près quatre duels sur dix : qui joue monte en Or, même pas très fort — un joueur qui n'en gagne qu'un sur trois y arrive en moins de cent duels (`server/test/duels-montee.test.ts`). Dès l'Or, c'est ton niveau qui parle : battre plus fort que soi rapporte gros, s'acharner sur plus faible ne paie pas.
+
+**La cote cachée** suit l'ELO tel qu'il était avant la montée : le poids du duel × (résultat − chances), arrondi ; 48 pendant tes 10 premiers duels, qui comptent double (`POIDS_DU_PLACEMENT`, `DUELS_DE_PLACEMENT`), puis 24 (`POIDS_D_UN_DUEL`). Réglé sur la cote qu'on voit, qui monte au-dessus du niveau, Automate se renforcerait, et l'on perdrait plus souvent.
+
+Rien ne passe d'un profil à l'autre, et contre Automate seules tes cotes bougent.
 
 > [!NOTE]
-> **Seule la cote d'en face est figée.** La tienne est celle que tu as quand le duel compte, avec le poids de ce moment : l'enjeu dit au lancement peut différer de l'écart final. Lancé à 1 000 contre 1 100 après neuf duels, un duel annonce « +31 si tu gagnes » ; qu'un duel au dé fasse passer ta cote à 1 024 avant que l'autre joue — ton placement fini —, et la victoire ne rapporte plus que +15.
+> **Seules les cotes d'en face sont figées.** Les tiennes sont celles que tu as quand le duel compte : l'enjeu dit au lancement peut différer de l'écart final. Lancé à 1 190 contre 1 100, un duel annonce « +15 si tu gagnes, +2 même si tu perds » ; qu'un duel au dé te fasse passer l'Or — 1 207 — avant que l'autre joue, et la victoire ne rapporte plus que +10, la défaite en coûte 7.
 
-La cote n'est écrite nulle part : elle se relit de tout ton journal de duels, du plus ancien au plus récent, à chaque lecture. Une règle changée vaut donc aussitôt, pour tout le monde et pour tout le passé — sauf les cotes figées des duels déjà lancés. Ces valeurs sont des choix de produit, dans le code (aucun réglage au QG) : voir [les barèmes](../reference/baremes.md).
+Les cotes ne sont écrites nulle part : elles se relisent de tout ton journal de duels, du plus ancien au plus récent, à chaque lecture. Une règle changée vaut donc aussitôt, pour tout le monde et pour tout le passé — la montée comprise : ceux qui avaient reculé l'ont regagné le jour même —, sauf les cotes figées des duels déjà lancés ; un duel lancé avant la montée n'a figé qu'une cote, et ta cachée bouge contre elle. Ces valeurs sont des choix de produit, dans le code (aucun réglage au QG), mesurés sur les vrais duels (`server/scripts/calibrage-duels.ts`) : voir [les barèmes](../reference/baremes.md).
 
 ## Les ligues et leurs bordures
 
-Une ligue tous les 100 points, deux bonnes réponses de mieux en moyenne (`LIGUES`, voir [les barèmes](../reference/baremes.md)) :
+Une ligue tous les 100 points, deux bonnes réponses de mieux en moyenne (`LIGUES`, voir [les barèmes](../reference/baremes.md)) ; l'argent et l'or, une fois atteints, ne se perdent plus :
 
 | Ligue | Dès la cote | Confettis chaque lundi | Blason | Sa bordure |
 |---|---|---|---|---|
@@ -144,12 +156,12 @@ La page ne le lance plus — « Jouer le duel » demande un adversaire —, mais
 
 ## Comment c'est construit
 
-- `shared/duels.ts`, pur : la cote, les ligues, les bordures, le bilan, et `releverLesDuels`, qui relit un journal de duels — la cote, chaque semaine et ses confettis, les crans.
-- `server/src/core/campagne.ts` (`CampagneStore`, sa moitié duels) : Automate, les duels, les amis, les joueurs croisés, le classement et toutes leurs requêtes. Une partie de duel est une série de la campagne d'un autre mode (`campagne_series.mode` : `rencontre` pour le dé, `duel` sinon) ; à côté, `campagne_duels` (le tirage, les deux cotes figées), les envois et les listes d'amis, dans la base permanente.
+- `shared/duels.ts`, pur : la cote, la montée, les ligues, les bordures, le bilan, et `releverLesDuels`, qui relit un journal de duels — les deux cotes, chaque semaine et ses confettis, les crans.
+- `server/src/core/campagne.ts` (`CampagneStore`, sa moitié duels) : Automate, les duels, les amis, les joueurs croisés, le classement et toutes leurs requêtes. Une partie de duel est une série de la campagne d'un autre mode (`campagne_series.mode` : `rencontre` pour le dé, `duel` sinon) ; à côté, `campagne_duels` (le tirage, les cotes figées de chacun — celle qu'on voit et la cachée), les envois et les listes d'amis, dans la base permanente.
 - `server/src/core/modeleDuSavoir.ts`, le modèle du savoir, que seul Automate lit : la chance de trouver une question suit la force du joueur, plus son écart dans la catégorie, moins la difficulté de la question (un modèle de Rasch), ajustés sur la première réponse de chacun à chaque question. Il se refait en fond, jamais sur le chemin du dé.
 - `server/src/campagne.ts` : les routes, derrière une session de profil (voir [l'API HTTP](../reference/api-http.md)) ; `client/src/views/Duels.tsx` et `client/src/views/Duel.tsx`, la page ; les parties se jouent dans `client/src/views/CampagneApp.tsx`, qui sert `/duels`.
 
-**Ce qui se relit** : tout, sauf les deux cotes figées d'un duel contre quelqu'un — rien n'écrit la cote, les ligues, les semaines, les crans ni le modèle. Le serveur n'en garde qu'une copie en mémoire : toutes les cotes, dix minutes au plus, et le modèle, refait au plus toutes les trente minutes. Voir [les données](../architecture/donnees.md).
+**Ce qui se relit** : tout, sauf les cotes figées d'un duel contre quelqu'un — rien n'écrit les cotes, les ligues, les semaines, les crans ni le modèle. Le serveur n'en garde qu'une copie en mémoire : toutes les cotes, dix minutes au plus, et le modèle, refait au plus toutes les trente minutes. Voir [les données](../architecture/donnees.md).
 
 ## Pour aller plus loin
 

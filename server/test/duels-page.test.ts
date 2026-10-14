@@ -270,12 +270,12 @@ test('le classement : ses deux places, parmi tous et entre amis ; son échelle �
     ['Jade', 'Tom', 'Max', 'Toi', 'Noé'],
   )
   assert.match(html, />À ta portée<\/h3>/)
-  // Chacun ce qu'il gagnerait à le battre — contre sa cote, comme la préparation le dira —, et « Défier ».
+  // Chacun ce qu'il gagnerait à le battre — contre sa cote, et sa part de lanceur, comme la préparation le dira —, et « Défier ».
   for (const [nom, cote] of [
     ['Jade', 1210],
     ['Max', 1160],
   ] as const) {
-    const gain = ecartSigne(enjeuContre(1150, cote, 30).gagne)
+    const gain = ecartSigne(enjeuContre({ cote: 1150 }, cote, true).gagne)
     assert.match(html, new RegExp(`aria-label="Défier ${nom} : \\${gain} si tu gagnes"`))
     assert.match(html, new RegExp(`<span class="duels-echelon-gain">\\${gain} si tu gagnes</span>`))
   }

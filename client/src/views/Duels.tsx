@@ -17,9 +17,10 @@ import { ceQuIlPorte, ecartSigne } from './Rencontre'
 import {
   COTE_DE_DEPART,
   DUELS_DE_L_HISTOIRE,
-  DUELS_DE_PLACEMENT,
   DUELS_POUR_LA_RECOMPENSE,
   LIGUES,
+  PARTICIPATION_SOUS_L_OR,
+  PART_DU_LANCEUR,
   enjeuContre,
   ligueDe,
   ligueParCle,
@@ -35,8 +36,8 @@ import {
 } from '../../../shared/duels'
 import type { CorrectionDeCampagne, DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
 
-/** Sa cote et ses duels joués : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
-export type MaCote = { cote: number; joues: number }
+/** Sa cote, ses duels joués et sa ligue gardée : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
+export type MaCote = { cote: number; joues: number; plancher?: number }
 
 // La page des duels (`/duels`, le souhait du propriétaire du 11 octobre 2026 :
 // « Défier un joueur » hors de la campagne, « un classement ELO et des
@@ -1051,7 +1052,7 @@ function ClassementDeTous({
                 key={l.profileId}
                 ligne={l}
                 moi={l.profileId === classement.sienne}
-                gain={vises.has(l.profileId) ? enjeuContre(maCote.cote, l.cote, maCote.joues).gagne : undefined}
+                gain={vises.has(l.profileId) ? enjeuContre(maCote, l.cote, true).gagne : undefined}
                 enCours={enCours(l.profileId)}
                 onOuvrir={onOuvrir}
                 onDefier={() => onDefier(joueurDeLaLigne(l))}
@@ -1187,13 +1188,18 @@ export function CommentCaMarche() {
     <ol className="duels-etapes">
       <li>{espacesFines('« Défier » : choisis qui — un prénom, un ami, un joueur du classement : « Défier » est sur sa carte — et sur quoi. Tu joues d’abord, le duel lui part à ta dernière réponse : trois vies, sans chrono.')}</li>
       <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son accueil le lui dit : aucun lien à envoyer.')}</li>
-      <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent : gagné, la tienne monte ; perdu, elle baisse. Battre plus fort que toi rapporte plus : avant de jouer, tu sais combien.')}</li>
+      <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent. Battre plus fort que toi rapporte gros, et perdre contre lui ne coûte presque rien : avant de jouer, tu sais combien.')}</li>
       <li>
         {espacesFines(
           'Pressé ? Le dé : Automate, tout de suite — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates ; son score se dévoile à la fin.',
         )}
       </li>
-      <li>{espacesFines(`Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres ; tes ${DUELS_DE_PLACEMENT} premiers duels comptent double.`)}</li>
+      {/* La montée (le 14 octobre 2026, `shared/duels.ts`) : « je veux que tout le monde monte en Or s'il joue, même s'il n'est pas très bon ». */}
+      <li>
+        {espacesFines(
+          `Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres. Jusqu’à la ligue d’or, chaque duel te fait avancer : +${PARTICIPATION_SOUS_L_OR} rien qu’en le jouant, +${PART_DU_LANCEUR} de plus si tu as lancé le défi, et une défaite ne coûte presque rien. L’argent et l’or, une fois atteints, ne se perdent plus ; au-dessus, c’est ton niveau qui parle.`,
+        )}
+      </li>
       <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>
     </ol>
   )
@@ -1399,8 +1405,8 @@ export function PageDesDuels({
   }
 
   const enCours = etat?.enCours?.serie.question ? etat.enCours : null
-  // Sa cote, pour que la préparation dise ce que chaque duel met en jeu.
-  const moi = etat ? { cote: etat.cote, joues: etat.joues } : undefined
+  // Sa cote, pour que la préparation dise ce que chaque duel met en jeu — sa ligue gardée comprise.
+  const moi: MaCote | undefined = etat ? { cote: etat.cote, joues: etat.joues, ...(etat.plancher !== undefined && { plancher: etat.plancher }) } : undefined
   const defier = (j?: JoueurADefier) => onDefier(j, moi)
   const lignes = etat ? lignesEnCours(etat, amis?.recus ?? []) : []
   const nouveaux = lignes.filter(l => l.sorte === 'resultat').length
@@ -1425,7 +1431,7 @@ export function PageDesDuels({
         ) : (
           <PanneauClassement
             classement={etat.classement}
-            maCote={{ cote: etat.cote, joues: etat.joues }}
+            maCote={moi!}
             contre={etat.contre ?? []}
             amis={amis}
             onOuvrir={ouvrir}

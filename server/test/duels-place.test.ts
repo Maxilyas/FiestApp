@@ -122,7 +122,8 @@ test('chaque ligne dit ses places depuis lundi ; « À ta portée » : les joueu
     duelsJoues(banc, deZoe, 1, 12, 8, semainePassee)
     duelsJoues(banc, deLea, 1, 5, 8, semainePassee)
     duelsJoues(banc, deLea, 4, 12, 8, horloge.t - 3_600_000)
-    duelsJoues(banc, deNeo, 1, 5, 8, horloge.t - 2 * 3_600_000)
+    // Néo perd contre un petit score : sous l'Or, ça ne lui coûte rien, mais ne lui rapporte rien non plus (la montée).
+    duelsJoues(banc, deNeo, 1, 0, 1, horloge.t - 2 * 3_600_000)
 
     // Chaque ligne, ses places depuis lundi : Léa en a gagné deux, Tom et Zoé une de perdue, Néo n'était pas classé.
     const pourLea = (await lire(banc, lea, '/api/duels')).corps.classement
@@ -153,7 +154,7 @@ test('chaque ligne dit ses places depuis lundi ; « À ta portée » : les joueu
       (await lire(banc, neo, '/api/duels')).corps.classement.aPortee.map((l: any) => l.nom),
       ['Zoé', 'Tom', 'Léa'],
     )
-    // Max n'a jamais joué : ceux juste au-dessus de sa cote de départ — pas Néo, descendu sous elle —, et il n'est en tête de rien.
+    // Max n'a jamais joué : ceux juste au-dessus de sa cote de départ — pas Néo, resté à elle —, et il n'est en tête de rien.
     const pourMax = (await lire(banc, max, '/api/duels')).corps.classement
     assert.equal(pourMax.sienne, undefined)
     assert.deepEqual(
