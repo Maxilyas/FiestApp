@@ -11,6 +11,8 @@
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { formatNumber } from './typographie'
 import { MEMOIRE_DE_L_HEBERGEUR_MO, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
+// Un type seulement : `qgCampagne.ts` lit ses jours ici, et rien ne tourne en rond à l'exécution.
+import type { CampagneDeLaVue } from './qgCampagne'
 
 /**
  * Les quatre modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -152,6 +154,8 @@ export interface VueDEnsemble {
   jour: string
   aujourdhui: Record<TuileDuQg, CompteDuJour>
   participations: ParticipationsDuJour[]
+  /** La campagne sous-mode par sous-mode, tirée des mêmes séries : la page de la campagne ne les relit pas. */
+  campagne: CampagneDeLaVue
   aTraiter: ATraiterDuQg
 }
 
@@ -183,7 +187,7 @@ export function minuitsDeParis(maintenant: number, n: number): number[] {
 }
 
 /** L'indice du jour d'un instant parmi les minuits ; -1 avant le premier. */
-function jourDeLInstant(minuits: readonly number[], quand: number): number {
+export function jourDeLInstant(minuits: readonly number[], quand: number): number {
   let bas = -1
   let haut = minuits.length - 1
   while (bas < haut) {

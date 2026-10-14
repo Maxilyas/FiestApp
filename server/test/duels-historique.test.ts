@@ -263,6 +263,21 @@ test('sa page dit son bilan, ses face-à-face nommés et ses dix derniers duels 
 
 // ── À l'écran ───────────────────────────────────────────────────────────────
 
+/**
+ * Rend à l'heure dite : la liste des duels date ses lignes à `Date.now()`.
+ * Rendues à l'horloge de la machine, des lignes du 13 octobre 2026 ne
+ * disaient « aujourd'hui » que ce jour-là : la suite a rougi le lendemain.
+ */
+function aLHeure<T>(maintenant: number, rendre: () => T): T {
+  const vraie = Date.now
+  Date.now = () => maintenant
+  try {
+    return rendre()
+  } finally {
+    Date.now = vraie
+  }
+}
+
 test('à l’écran : son bilan en trois chiffres et ses records, la courbe et ses ligues, ses face-à-face, puis tous ses duels — pas trois —, et « Voir plus »', async () => {
   const { PanneauHistorique, quandCourt } = await import(client('views/Duels.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
@@ -295,7 +310,7 @@ test('à l’écran : son bilan en trois chiffres et ses records, la courbe et s
     },
     historique: { duels: Array.from({ length: 10 }, (_, i) => ligne(i + 1)), suite: true },
   }
-  const html = renderToStaticMarkup(React.createElement(PanneauHistorique, { etat, onOuvrir() {}, onCorrection() {}, onJoueur() {} }))
+  const html = aLHeure(maintenant, () => renderToStaticMarkup(React.createElement(PanneauHistorique, { etat, onOuvrir() {}, onCorrection() {}, onJoueur() {} })))
   // Le bilan : trois chiffres, la phrase entière pour qui ne les voit pas.
   assert.match(html, /<span class="duels-chiffre duels-chiffre-v"><b class="num">12<\/b>victoires<\/span>/)
   assert.match(html, /<b class="num">57<small>%<\/small><\/b>gagnés/)

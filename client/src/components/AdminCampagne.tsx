@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
-import { quand } from '../format'
+import { confirmDialog } from './Dialog'
+import { Icon } from './Icon'
+import { AujourdhuiDeLaCampagne, CeQuOnJoue, DefiDeLaSemaineAuQg, ParcoursDeThemeAuQg, ViesDesSentiersAuQg } from './QgCampagne'
+import { espacesFines, quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
+import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
+import type { VueDEnsemble } from '../../../shared/qg'
+import type { SuiviDeLaCampagne } from '../../../shared/qgCampagne'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { MAX_ANECDOTE, MAX_TEXT } from '../../../shared/library'
 import {
@@ -17,7 +23,26 @@ import {
   type SignalementDeCampagne,
 } from '../../../shared/campagne'
 import { BRANCHES, branche as brancheParCle, deLaBranche } from '../../../shared/branches'
-import { PALIERS, PALIER_DU_MAITRE, QUESTIONS_PAR_EPREUVE, TAUX_DU_CALIBRAGE, lectureDuPalier, type AdminDesSentiers, type StatsDuPalier } from '../../../shared/sentiers'
+import {
+  ESSAIS_POUR_CROIRE,
+  MARCHES_D_UN_PALIER,
+  PALIERS,
+  PALIER_DU_MAITRE,
+  QUESTIONS_PAR_EPREUVE,
+  TAUX_DU_CALIBRAGE,
+  difficulteDuMelange,
+  estimationDuMelange,
+  lectureDuPalier,
+  marcheMoyenne,
+  melangesDesReglages,
+  memeMelange,
+  regleDuPalier,
+  texteDuMelange,
+  type AdminDesSentiers,
+  type Melange,
+  type MelangesRegles,
+  type StatsDuPalier,
+} from '../../../shared/sentiers'
 import { texteDuMelangeCourt } from './melanges'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
@@ -25,16 +50,22 @@ const nomDuSousTheme = (categorie: string, cle: string) =>
   (SOUS_THEMES as Record<string, readonly { cle: string; nom: string }[]>)[categorie]?.find(s => s.cle === cle)?.nom ?? cle
 
 /**
- * La campagne, côté administrateur (`/admin#campagne`) : sa base — combien
+ * La campagne, côté administrateur (`/admin#campagne`) : les chiffres
+ * d'aujourd'hui, ce qu'on joue sous-mode par sous-mode, le défi de la
+ * semaine, les parcours de thème, les vies (`QgCampagne.tsx`) ; les sentiers
+ * palier par palier, et le mélange de chacun à régler ; sa base — combien
  * de questions, par catégorie —, et les questions que les joueurs signalent,
  * avec qui les signale et ce qu'il y a répondu. « Corriger » la reprend ici
  * même — sous son identifiant, ou sous un neuf quand la bonne réponse change
  * (`bonneReponseChange`) ; « Retirer » la sort de la campagne pour tous ;
- * « Garder » referme les signalements.
+ * « Garder » referme les signalements. La vue d'ensemble du QG lui prête ses
+ * trente jours : déjà lus, ils ne se relisent pas ici.
  */
-export function AdminCampagne() {
+export function AdminCampagne({ vue }: { vue: VueDEnsemble | null }) {
   const [etat, setEtat] = useState<AdminDeLaCampagne | null>(null)
   const [erreur, setErreur] = useState('')
+  const [suivi, setSuivi] = useState<SuiviDeLaCampagne | null>(null)
+  const [suiviEnPanne, setSuiviEnPanne] = useState(false)
   const [occupe, setOccupe] = useState(false)
 
   const charger = () =>
@@ -42,8 +73,18 @@ export function AdminCampagne() {
       .campagne()
       .then(setEtat)
       .catch(e => setErreur(motifDe(e)))
+  // Le suivi à part : la base se montre sans attendre le défi, et une panne de l'un n'ôte pas l'autre.
+  const chargerLeSuivi = () =>
+    api.admin.suiviDeLaCampagne().then(
+      s => {
+        setSuivi(s)
+        setSuiviEnPanne(false)
+      },
+      () => setSuiviEnPanne(true),
+    )
   useEffect(() => {
     void charger()
+    void chargerLeSuivi()
   }, [])
 
   const faire = async (appel: () => Promise<unknown>, merci: string) => {
@@ -59,12 +100,28 @@ export function AdminCampagne() {
     }
   }
 
-  if (erreur) return <p className="error">{erreur}</p>
-  if (!etat) return <p className="serif-note">Chargement…</p>
   return (
     <>
+      <AujourdhuiDeLaCampagne vue={vue} suivi={suivi} />
+      {suiviEnPanne && <p className="serif-note">La base permanente ne répond pas : le défi, les parcours et les vies reviendront en rouvrant la page.</p>}
+      <CeQuOnJoue vue={vue} />
+      <DefiDeLaSemaineAuQg suivi={suivi} />
+      <div className="qg-deux">
+        <ParcoursDeThemeAuQg suivi={suivi} />
+        <ViesDesSentiersAuQg suivi={suivi} />
+      </div>
+
       <AdminSentiers />
 
+      {erreur ? <p className="error">{erreur}</p> : !etat ? <p className="serif-note">Chargement…</p> : <BaseDeLaCampagne etat={etat} occupe={occupe} faire={faire} />}
+    </>
+  )
+}
+
+/** La base de la campagne, la routine du matin qui l'agrandit, et les questions signalées. */
+function BaseDeLaCampagne({ etat, occupe, faire }: { etat: AdminDeLaCampagne; occupe: boolean; faire: Faire }) {
+  return (
+    <>
       <section className="admin-groupe" aria-labelledby="campagne-base-titre">
         <h2 className="compte-groupe" id="campagne-base-titre">
           La base
@@ -462,13 +519,17 @@ const MARCHES: Record<Niveau, string> = { facile: 'Faciles', moyen: 'Moyennes', 
  * que les essais coûtent. Au-dessus, les bonnes réponses par marche, à côté
  * de ce que le calibrage suppose : une marche plus dure qu'annoncé fait un
  * mur que le calcul ne voyait pas. Dessous, les plus bloqués. Un palier
- * plus facile que celui d'avant se signale : c'est un mélange à revoir. Les
- * seuils et les mélanges se règlent dans le code, sur ces chiffres-là.
+ * plus facile que celui d'avant se signale : c'est un mélange à revoir. Le
+ * seuil se règle dans le code ; le mélange de chaque palier, ici même
+ * (« Régler », le choix du 13 octobre 2026), pour les douze sentiers.
  */
 function AdminSentiers() {
   const [branche, setBranche] = useState('')
   const [stats, setStats] = useState<AdminDesSentiers | null>(null)
   const [erreur, setErreur] = useState('')
+  /** Le palier qu'on règle, son éditeur ouvert sous sa ligne. */
+  const [reglant, setReglant] = useState<number | null>(null)
+  const [relecture, setRelecture] = useState(0)
   useEffect(() => {
     let vivant = true
     setErreur('')
@@ -479,7 +540,8 @@ function AdminSentiers() {
     return () => {
       vivant = false
     }
-  }, [branche])
+  }, [branche, relecture])
+  const melanges = stats ? melangesDesReglages(stats.reglages) : {}
   return (
     <section className="admin-groupe" aria-labelledby="campagne-sentiers-titre">
       <h2 className="compte-groupe" id="campagne-sentiers-titre">
@@ -546,11 +608,17 @@ function AdminSentiers() {
             Les bonnes réponses en épreuve, hors rejeux, par marche de question — le calibrage des paliers suppose les chiffres « au calcul », ceux d’un joueur moyen. Elles
             se mesurent sur ceux qui y répondent : les difficiles ne tombent qu’à partir du huitième palier, devant des joueurs déjà forts. En face de chaque palier, la
             chance d’un essai au seuil du jour ; la barre :<span className="sentiers-admin-legende sentiers-admin-premier">validé du premier coup</span>{' '}
-            <span className="sentiers-admin-legende sentiers-admin-ensuite">validé ensuite</span> <span className="sentiers-admin-legende sentiers-admin-bloque">bloqué</span>.
+            <span className="sentiers-admin-legende sentiers-admin-ensuite">validé ensuite</span> <span className="sentiers-admin-legende sentiers-admin-bloque">bloqué</span>.{' '}
+            {espacesFines(
+              branche
+                ? 'Un mélange se règle pour les douze sentiers ensemble : « Tous les sentiers » ouvre « Régler » sur chaque palier.'
+                : '« Régler » change le mélange d’un palier pour les douze sentiers : les épreuves qui commencent le tirent, celles en cours gardent leurs questions.',
+            )}
           </p>
           <ol className="sentiers-admin-paliers">
             {stats.paliers.map((p, i) => {
-              const regle = PALIERS[p.palier - 1]
+              const regle = regleDuPalier(p.palier, melanges)!
+              const reglage = stats.reglages.find(r => r.palier === p.palier)
               const parEssai = parEssaiAuSeuil(p, regle.seuil)
               const essaisAuSeuil = p.seuils.find(c => c.seuil === regle.seuil)?.essais ?? 0
               const avant = i > 0 ? stats.paliers[i - 1] : null
@@ -564,7 +632,23 @@ function AdminSentiers() {
               return (
                 <li key={p.palier} className={'sentiers-admin-ligne' + (remonte ? ' sentiers-admin-alerte' : '') + (regle.maitre ? ' sentiers-admin-maitre' : '')}>
                   <b>{regle.maitre ? 'Maître' : `P${p.palier}`}</b>
-                  <span className="muted">{`${texteDuMelangeCourt(regle.melange)} · ${regle.seuil}/${QUESTIONS_PAR_EPREUVE}`}</span>
+                  {/* « Régler » à côté du mélange qu'il change : sur sa propre ligne, il doublait la hauteur de chaque palier. */}
+                  <span className="sentiers-admin-melange">
+                    <span className="muted">{`${texteDuMelangeCourt(regle.melange)} · ${regle.seuil}/${QUESTIONS_PAR_EPREUVE}`}</span>
+                    {!regle.maitre && !branche && (
+                      <button
+                        type="button"
+                        className="sentiers-admin-regler"
+                        aria-expanded={reglant === p.palier}
+                        aria-controls={`regler-p${p.palier}`}
+                        onClick={() => setReglant(reglant === p.palier ? null : p.palier)}
+                      >
+                        <Icon name="edit" />
+                        Régler
+                        <span className="sr-only">{` le palier ${p.palier}`}</span>
+                      </button>
+                    )}
+                  </span>
                   <span className="sentiers-admin-chance">
                     <b className="num">{pc(parEssai)}</b>
                     <small>par essai</small>
@@ -579,10 +663,34 @@ function AdminSentiers() {
                     {remonte && <span className="sentiers-admin-puce">{`plus facile que P${p.palier - 1}`}</span>}
                   </span>
                   {effort && <span className="muted small sentiers-admin-effort">{effort}</span>}
+                  {reglage && (
+                    <span className="small sentiers-admin-reglage">
+                      <span className="sentiers-admin-puce">réglé au QG</span>{' '}
+                      <span className="muted">{`le ${jourEnToutesLettres(jourDe(reglage.regleLe), true)} · d’origine ${texteDuMelangeCourt(PALIERS[p.palier - 1].melange)} · depuis : ${reglage.essais > 0 ? `${pluriel(reglage.essais, 'essai')}, ${pc(reglage.validees / reglage.essais)} par essai` : 'aucun essai encore'}`}</span>
+                    </span>
+                  )}
+                  {reglant === p.palier && !branche && (
+                    <ReglerLeMelange
+                      id={`regler-p${p.palier}`}
+                      stats={stats}
+                      palier={p}
+                      melanges={melanges}
+                      onFermer={() => setReglant(null)}
+                      onRegle={() => {
+                        setReglant(null)
+                        setRelecture(n => n + 1)
+                      }}
+                    />
+                  )}
                 </li>
               )
             })}
           </ol>
+          {stats.reglages.length > 0 && (
+            <p className="muted small">
+              {`Un palier réglé au QG pose son mélange aux épreuves commencées depuis ; « depuis » dit ce qu’elles en ont fait — trois mois de chiffres mêlent l’ancien mélange et le nouveau.`}
+            </p>
+          )}
           <h3 className="sentiers-admin-sous-titre">Les plus bloqués</h3>
           {stats.bloques.length === 0 ? (
             <p className="muted small">Personne n’a encore raté deux fois le palier qui l’attend.</p>
@@ -605,5 +713,140 @@ function AdminSentiers() {
         </>
       )}
     </section>
+  )
+}
+
+type Marche = (typeof MARCHES_D_UN_PALIER)[number]
+
+/**
+ * Régler le mélange d'un palier (le choix du 13 octobre 2026 : « régler la
+ * difficulté des paliers en fonction de ce que je vois ») : combien de
+ * faciles, de moyennes, de difficiles — seize en tout, jamais d'experte —, la
+ * difficulté que les joueurs liront, et la chance d'un essai qu'il donnerait,
+ * estimée sur ce que les joueurs de ce palier trouvent vraiment
+ * (`estimationDuMelange`). Il vaut pour les douze sentiers, aux épreuves qui
+ * commencent ; « Revenir au mélange d'origine » le défait.
+ */
+function ReglerLeMelange({
+  id,
+  stats,
+  palier: p,
+  melanges,
+  onFermer,
+  onRegle,
+}: {
+  id: string
+  stats: AdminDesSentiers
+  palier: StatsDuPalier
+  melanges: MelangesRegles
+  onFermer: () => void
+  onRegle: () => void
+}) {
+  const regle = regleDuPalier(p.palier, melanges)!
+  const duCode = PALIERS[p.palier - 1]
+  const reglage = stats.reglages.find(r => r.palier === p.palier)
+  const [brouillon, setBrouillon] = useState(() => Object.fromEntries(MARCHES_D_UN_PALIER.map(m => [m, regle.melange[m] ?? 0])) as Record<Marche, number>)
+  const [occupe, setOccupe] = useState(false)
+  const total = MARCHES_D_UN_PALIER.reduce((n, m) => n + brouillon[m], 0)
+  const complet = total === QUESTIONS_PAR_EPREUVE
+  // D'où partir : les épreuves depuis le réglage, s'il y en a assez ; sinon les trois mois, joués pour l'essentiel sous le mélange d'origine.
+  const depuis = reglage && reglage.essais >= ESSAIS_POUR_CROIRE ? reglage : null
+  const reference = depuis
+    ? { melange: depuis.melange, parEssai: depuis.validees / depuis.essais, essais: depuis.essais }
+    : { melange: duCode.melange, parEssai: parEssaiAuSeuil(p, regle.seuil), essais: p.seuils.find(c => c.seuil === regle.seuil)?.essais ?? 0 }
+  const estimation = complet ? estimationDuMelange(reference, brouillon, regle.seuil, stats.niveauxParPalier.filter(x => x.palier === p.palier)) : null
+  // Un palier plus facile que celui d'avant, ou plus dur que le suivant : la difficulté lue ne monterait plus d'un palier à l'autre.
+  const voisin = (n: number) => (n >= 1 && n < PALIER_DU_MAITRE ? regleDuPalier(n, melanges) : null)
+  const avant = voisin(p.palier - 1)
+  const apres = voisin(p.palier + 1)
+  const marche = marcheMoyenne(brouillon)
+
+  const regler = async (vers: Melange | null) => {
+    const texte = texteDuMelange(vers ?? duCode.melange)
+    const ok = await confirmDialog({
+      title: vers ? `Régler le palier ${p.palier} ?` : `Rendre au palier ${p.palier} son mélange d’origine ?`,
+      message: `Sur les douze sentiers, les épreuves qui commencent poseront ${texte}. Celles en cours gardent leurs questions, et aucun palier validé ne se reprend.`,
+      confirmLabel: vers ? 'Régler' : 'Revenir à l’origine',
+    })
+    if (!ok) return
+    setOccupe(true)
+    try {
+      await api.admin.reglerLeMelange(p.palier, vers)
+      showToast({ kind: 'info', message: vers ? `Palier ${p.palier} réglé : ${texte}` : `Palier ${p.palier} rendu à son mélange d’origine : ${texte}` })
+      onRegle()
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  return (
+    <div className="sentiers-admin-editeur" id={id}>
+      <p className="small">
+        <b>{`Le mélange du palier ${p.palier}`}</b> <span className="muted">— seize questions, jamais d’experte, pour les douze sentiers</span>
+      </p>
+      <ul className="sentiers-admin-reglables">
+        {MARCHES_D_UN_PALIER.map(m => (
+          <li key={m}>
+            <span>{MARCHES[m]}</span>
+            <button
+              type="button"
+              className="btn btn-small"
+              aria-label={`Une ${QUESTION_DE_NIVEAU[m]} de moins`}
+              disabled={occupe || brouillon[m] === 0}
+              onClick={() => setBrouillon(b => ({ ...b, [m]: b[m] - 1 }))}
+            >
+              −
+            </button>
+            <output className="num" aria-live="polite">
+              {brouillon[m]}
+            </output>
+            <button
+              type="button"
+              className="btn btn-small"
+              aria-label={`Une ${QUESTION_DE_NIVEAU[m]} de plus`}
+              disabled={occupe || total >= QUESTIONS_PAR_EPREUVE}
+              onClick={() => setBrouillon(b => ({ ...b, [m]: b[m] + 1 }))}
+            >
+              +
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="small">
+        {espacesFines(
+          complet
+            ? `${QUESTIONS_PAR_EPREUVE} questions · les joueurs liront « ${difficulteDuMelange(brouillon)} »`
+            : `${total} sur ${QUESTIONS_PAR_EPREUVE} : encore ${pluriel(QUESTIONS_PAR_EPREUVE - total, 'question')} à placer`,
+        )}
+      </p>
+      {estimation && (
+        <p className="small">
+          {estimation.sur === 'mesures'
+            ? `${pc(reference.parEssai)} par essai mesurés${depuis ? ' depuis le réglage' : ''} · environ ${pc(estimation.chance)} avec ce mélange`
+            : `Au calcul, pour un joueur moyen : ${pc(estimation.chance)} par essai — trop peu d’épreuves sur ce palier pour l’estimer sur les vraies.`}
+        </p>
+      )}
+      {complet && avant && marche < marcheMoyenne(avant.melange) && (
+        <p className="small sentiers-admin-avertissement">{`Plus facile que le palier ${p.palier - 1} (${texteDuMelangeCourt(avant.melange)}) : la difficulté redescendrait d’un palier à l’autre.`}</p>
+      )}
+      {complet && apres && marche > marcheMoyenne(apres.melange) && (
+        <p className="small sentiers-admin-avertissement">{`Plus dur que le palier ${p.palier + 1} (${texteDuMelangeCourt(apres.melange)}).`}</p>
+      )}
+      <div className="admin-gestes">
+        <button type="button" className="btn btn-small btn-primary" disabled={occupe || !complet || memeMelange(brouillon, regle.melange)} onClick={() => void regler(brouillon)}>
+          Appliquer
+        </button>
+        {reglage && (
+          <button type="button" className="btn btn-small" disabled={occupe} onClick={() => void regler(null)}>
+            Revenir au mélange d’origine
+          </button>
+        )}
+        <button type="button" className="btn btn-small btn-ghost" disabled={occupe} onClick={onFermer}>
+          Fermer
+        </button>
+      </div>
+    </div>
   )
 }
