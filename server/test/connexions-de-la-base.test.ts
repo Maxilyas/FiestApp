@@ -16,6 +16,7 @@ import { avecDelai, BaseMuette, clientDistant } from '../src/core/distante'
 import { GARDE_MAX_MS, GARDE_MIN_MS, gardeAnnoncee, gardeDeLaBase, gardeDemandee, reglerLaGarde } from '../src/core/connexions'
 import { pouls, releve } from '../src/core/pouls'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
+import { demarrer } from './banc'
 
 const attendre = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -186,6 +187,22 @@ test('le délai que la base annonce se lit à chaque aller-retour — undici le 
   } finally {
     await muette.fermer()
     await bavarde.fermer()
+  }
+})
+
+test('chaque serveur pose sa garde, et /healthz dit celle qui vaut — un serveur d’avant ne lègue pas la sienne', async () => {
+  const gardeLue = async (url: string) => ((await (await fetch(`${url}/healthz`)).json()) as { base: { connexions: { gardeMs: number } } }).base.connexions.gardeMs
+  const garde = await demarrer({ gardeDeLaBaseMs: 30_000 })
+  try {
+    assert.equal(await gardeLue(garde.url), 30_000)
+  } finally {
+    await garde.close()
+  }
+  const neuf = await demarrer()
+  try {
+    assert.equal(await gardeLue(neuf.url), GARDE_DE_NODE_MS)
+  } finally {
+    await neuf.close()
   }
 })
 

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
-import { gardeDemandee, reglerLaGarde } from './core/connexions'
+import { gardeDemandee } from './core/connexions'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
 import { releve } from './core/pouls'
 import { SERVEUR } from './racine'
@@ -56,10 +56,8 @@ const quizDbToken = process.env.QUIZ_DB_TOKEN
 // la page « Le serveur » du QG et `/healthz` disent ce qu'elle change.
 const garde = gardeDemandee(process.env.QUIZ_DB_KEEPALIVE_MS)
 if (garde && 'refus' in garde) console.warn(`[base] ${garde.refus}`)
-else if (garde) {
-  reglerLaGarde(garde.ms)
-  console.log(`[base] connexions vers la base gardées ${garde.ms / 1000} s (QUIZ_DB_KEEPALIVE_MS)`)
-}
+else if (garde) console.log(`[base] connexions vers la base gardées ${garde.ms / 1000} s (QUIZ_DB_KEEPALIVE_MS)`)
+const gardeDeLaBaseMs = garde && 'ms' in garde ? garde.ms : undefined
 // Le plafond d'invités par soirée, que même le réglage d'un espace ne dépasse
 // pas : au-delà, l'instance gratuite de l'hébergeur ne suit plus.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
@@ -139,7 +137,7 @@ function poserLeFilet() {
 // Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
 const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version }).then(
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version, gardeDeLaBaseMs }).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
