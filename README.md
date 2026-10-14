@@ -26,7 +26,7 @@ Un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit 
 
 **Une fin qu'on garde.** Un podium, des prix calculés tout seuls, des hauts faits ; sur chaque téléphone, sa fin de soirée et ses nouveaux trophées ; un souvenir à partager, un bilan question par question, des fiches à imprimer et l'historique de toutes les soirées. → [Après la soirée](docs/produit/apres-la-soiree.md)
 
-**Le jeu continue entre deux soirées.** Avec un profil : le quiz du jour, la campagne et son défi de la semaine, les sentiers du savoir, les duels contre ses amis ou contre Automate. → [Le quiz du jour](docs/produit/le-quiz-du-jour.md) · [La campagne](docs/produit/la-campagne.md) · [Les sentiers](docs/produit/les-sentiers-du-savoir.md) · [Les duels](docs/produit/les-duels.md)
+**Le jeu continue entre deux soirées.** Avec un profil : le quiz du jour, la campagne et son défi de la semaine, les sentiers du savoir, les duels contre un autre joueur ou contre Automate. → [Le quiz du jour](docs/produit/le-quiz-du-jour.md) · [La campagne](docs/produit/la-campagne.md) · [Les sentiers](docs/produit/les-sentiers-du-savoir.md) · [Les duels](docs/produit/les-duels.md)
 
 **Un profil qui se porte.** Des niveaux, des finitions autour de l'avatar, des trophées que la collection range mode par mode, vingt-six avatars légendaires peints, six Divins aux règles secrètes, une boutique de thèmes et de compagnons — et jamais un avantage de jeu. → [Le profil](docs/produit/le-profil.md) · [Les récompenses](docs/produit/les-recompenses.md) · [La boutique](docs/produit/la-boutique.md)
 
@@ -75,7 +75,7 @@ Un monorepo npm : `client/` (React et Vite), `server/` (Node, Express et Socket.
 npm run verify   # typage, tests, construction, puis une soirée entière rejouée sur un vrai serveur
 ```
 
-C'est ce que fait l'intégration continue (`.github/workflows/ci.yml`) sur chaque proposition de modification. Les tests (`server/test/`, plus de deux cents fichiers) démarrent chacun leur serveur jetable ; l'un d'eux relit cette documentation contre le code. → [Contribuer](docs/contribuer/demarrer.md) · [Les tests](docs/contribuer/tests.md)
+C'est ce que fait l'intégration continue (`.github/workflows/ci.yml`) sur chaque proposition de modification. Les tests (`server/test/`, plus de deux cents fichiers) démarrent chacun leur serveur jetable quand il leur en faut un ; l'un d'eux relit cette documentation contre le code. → [Contribuer](docs/contribuer/demarrer.md) · [Les tests](docs/contribuer/tests.md)
 
 Le dépôt se travaille aussi avec Claude Code : `CLAUDE.md` et les règles de `.claude/rules/` lui donnent les invariants et les pièges de chaque domaine. → [Travailler avec Claude](docs/contribuer/outillage-claude.md)
 

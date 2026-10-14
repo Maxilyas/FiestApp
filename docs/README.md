@@ -19,20 +19,20 @@ Pour une présentation en images, ouvre [la vitrine](vitrine/index.html).
 
 ## Le produit
 
-Ce que fait FiestApp, mode par mode, pour tout le monde — sans code.
+Ce que fait FiestApp, mode par mode, pour tout le monde — le code n'y vient qu'en fin de page, dans « Comment c'est construit ».
 
 - [FiestApp en une page](produit/vue-d-ensemble.md) — les modes de jeu, les publics, les partis pris, la carte des pages
 - [La soirée](produit/la-soiree.md) — de la salle d'attente au podium : le cycle d'une question, les équipes, le programme
 - [Les questions](produit/les-questions.md) — chaque sorte de question, ce que voient l'invité et la salle, comment elle se note
-- [Après la soirée](produit/apres-la-soiree.md) — la clôture, la fin de soirée sur chaque téléphone, le souvenir, le bilan, les prix, l'historique
+- [Après la soirée](produit/apres-la-soiree.md) — la clôture, la fin de soirée sur chaque téléphone et son écran des gains, le souvenir, le bilan, les prix, l'historique
 - [Les quiz](produit/les-quiz.md) — la bibliothèque : écrire, coller une liste, importer, partager, les modèles, le quiz tout prêt
 - [Le quiz du jour](produit/le-quiz-du-jour.md) — dix questions par jour, la série, le classement, le calendrier, le rappel du soir
 - [La campagne](produit/la-campagne.md) — les séries, le carnet de révision, le défi de la semaine, la base de questions
 - [Les sentiers du savoir](produit/les-sentiers-du-savoir.md) — les branches, les paliers, les vies, les portraits à gagner
 - [Les duels](produit/les-duels.md) — la cote, les ligues, Automate, les défis entre amis
 - [Le profil](produit/le-profil.md) — l'accueil, la loge, la collection, la carrière, la carte d'un joueur, la sécurité du profil
-- [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons, l'écran des gains
-- [La boutique](produit/la-boutique.md) — les confettis, et ce qu'ils achètent : thèmes, fonds, gerbes, compagnons
+- [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons
+- [La boutique](produit/la-boutique.md) — les confettis, ce qu'ils achètent, et le catalogue : thèmes, fonds, gerbes, compagnons
 
 ## Les guides
 
@@ -57,7 +57,7 @@ Comment c'est construit, et pourquoi.
 
 ## La référence
 
-Exhaustive, en tableaux, gardée par un test qui la relit contre le code.
+Exhaustive, et gardée pour l'essentiel par un test qui la relit contre le code.
 
 - [Les adresses](reference/adresses.md) — chaque page de l'application
 - [L'API HTTP](reference/api-http.md) — chaque route : méthode, chemin, accès, rôle
@@ -84,7 +84,7 @@ Exhaustive, en tableaux, gardée par un test qui la relit contre le code.
 
 ## Comment cette documentation reste juste
 
-Elle a été réécrite le 14 octobre 2026 à partir du code, domaine par domaine, chaque affirmation vérifiée contre sa source. Ce qui peut se vérifier sans la relire l'est à chaque `npm test`, par `server/test/documentation.test.ts` : chaque fichier cité existe, chaque lien mène à une page, chaque route, événement, variable d'environnement, table et adresse de l'application a sa ligne dans la référence — et aucune ligne n'y survit à ce qu'elle décrit —, et chaque barème numérique de [la page des barèmes](reference/baremes.md) vaut bien ce que dit le code.
+Elle a été réécrite le 14 octobre 2026 à partir du code, domaine par domaine, chaque affirmation vérifiée contre sa source. Ce qui peut se vérifier sans la relire l'est à chaque `npm test`, par `server/test/documentation.test.ts` : chaque fichier cité existe, chaque lien mène à une page, chaque route, événement, variable d'environnement, table et adresse de l'application a sa ligne dans la référence — et, adresses mises à part, aucune ligne n'y survit à ce qu'elle décrit —, et chaque barème numérique de [la page des barèmes](reference/baremes.md) vaut bien ce que dit le code.
 
 Le reste tient à une habitude : **une modification qui change un comportement change la page qui le décrit, dans la même proposition de modification.** Chaque page dit, dans sa section « Comment c'est construit » ou ses chemins cités, où vit ce qu'elle décrit.
 
