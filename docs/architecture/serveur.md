@@ -278,14 +278,14 @@ flowchart TD
   G["un geste : réponse, commande,<br/>chronomètre, arrivée, exclusion"] --> O["ouvrirLot()"]
   O --> H["le module joue son passage<br/>avec le GameContext"]
   H --> FIN{"ctx.end() ?"}
-  FIN -->|oui| E["endSession — partie close,<br/>session:ended à tout l'espace"]
+  FIN -->|oui| E["endSession — partie close,<br/>session:ended à tout l'espace,<br/>onSessionEnded — apresQuiz"]
   FIN -->|non| VV{"une simple réponse ?<br/>ni phase, ni chronomètre, ni journal"}
   VV -->|oui| P1["persistBientot, fanoutCible<br/>sa vue, l'écran commun à sa cadence"]
   VV -->|non| P2["persist — l'état en local, puis au miroir<br/>fanout — chaque vue qui a changé"]
   E --> F["fermerLot() — une transaction<br/>vers la file du miroir"]
   P1 --> F
   P2 --> F
-  F --> A["onScoresChanged — l'instantané regroupé<br/>onVerdict, onSessionEnded — apresQuiz"]
+  F --> A["onScoresChanged — l'instantané regroupé<br/>onVerdict, si la partie continue — apresQuiz"]
 ```
 
 - **Un lot par passage** : gains, réponses et état partent ensemble, sans quoi
