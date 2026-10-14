@@ -7,7 +7,7 @@ import { readPlayerToken, requireAdmin } from './auth/http'
 import { porteDeLaReserve } from './quizDuJour'
 import { CATEGORIES } from '../../shared/categories'
 import { jourDe } from '../../shared/jour'
-import type { EtatDesSentiers } from '../../shared/sentiers'
+import { texteDuMelange, type EtatDesSentiers } from '../../shared/sentiers'
 
 interface CampagneDeps {
   campagne: CampagneStore
@@ -484,7 +484,7 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
     }),
   )
 
-  // Les sentiers palier par palier : de quoi régler un seuil sur des faits.
+  // Les sentiers palier par palier : de quoi régler un mélange sur des faits.
   // Les plus bloqués y sont nommés : leurs profils se lisent d'un coup.
   app.get(
     '/api/admin/campagne/sentiers',
@@ -494,6 +494,35 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
       const profils = await deps.profiles.byIds(stats.bloques.map(x => x.profileId))
       stats.bloques = stats.bloques.map((x, i) => (profils[i] ? { ...x, prenom: profils[i]!.name } : x))
       res.json(stats)
+    }),
+  )
+
+  // Ce que le QG suit de la campagne : les paliers du jour, le défi de la semaine, les parcours, les vies.
+  app.get(
+    '/api/admin/campagne/suivi',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      res.json(await deps.campagne.suiviAuQg())
+    }),
+  )
+
+  // Régler le mélange d'un palier, pour les douze sentiers ensemble — ou le
+  // rendre à celui du code (`melange: null`). Le choix du 13 octobre 2026 :
+  // le mélange, jamais le seuil, qui reste dix partout.
+  app.post(
+    '/api/admin/campagne/paliers/:n/melange',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const melange: unknown = req.body?.melange
+      if (melange === undefined) throw new Error('Dis combien de questions de chaque marche')
+      const r = await deps.campagne.reglerLeMelange(Number(req.params.n), melange)
+      const changement = `${texteDuMelange(r.avant)} → ${texteDuMelange(r.apres)}`
+      noterLeGeste(res, {
+        sorte: 'campagne',
+        resume: r.origine ? `Palier ${r.palier} des sentiers rendu à son mélange d’origine : ${changement}` : `Mélange du palier ${r.palier} des sentiers réglé : ${changement}`,
+        cible: `palier:${r.palier}`,
+      })
+      res.json(r)
     }),
   )
 }

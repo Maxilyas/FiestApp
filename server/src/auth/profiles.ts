@@ -821,6 +821,8 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_vies ON profile_vies(profile_id)',
+        // Les vies des trente derniers jours, au QG : lues par leur date, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_profile_vies_quand ON profile_vies(created_at)',
         // Les sabliers de la série du quiz du jour, achetés en confettis, un
         // par ligne, jamais effacée : comme une vie, un achat ne se reprend
         // pas. Ceux qui restent se relisent des jours joués
@@ -1480,6 +1482,12 @@ export class ProfileStore {
   async viesAcheteesDepuis(depuis: number): Promise<number> {
     const res = await this.client.execute({ sql: 'SELECT COALESCE(SUM(nombre), 0) AS n FROM profile_vies WHERE created_at > ?', args: [depuis] })
     return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /** Les achats de vies depuis cet instant, tous profils, avec ce qu'ils ont coûté : le QG les dit jour par jour. */
+  async achatsDeViesDepuis(depuis: number): Promise<{ quand: number; nombre: number; prix: number }[]> {
+    const res = await this.client.execute({ sql: 'SELECT created_at, nombre, prix FROM profile_vies WHERE created_at >= ?', args: [depuis] })
+    return res.rows.map(r => ({ quand: Number(r.created_at), nombre: Number(r.nombre), prix: Number(r.prix) }))
   }
 
   /**

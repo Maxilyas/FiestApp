@@ -33,6 +33,7 @@ import {
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
+import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { jourDe } from '../../shared/jour'
 
 export interface QgDeps {
@@ -330,6 +331,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         achats: compteDuJour(activite.achats.map(quand => ({ quand })), minuits, maintenant),
       },
       participations: participationsParJour(solo, soirees, minuits, maintenant),
+      campagne: campagneDeLaVue(series, minuits, maintenant),
       aTraiter: {
         reserve: { joursDAvance: reserve.joursDAvance },
         signalementsDuJour,

@@ -15,10 +15,10 @@ import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { iconeDuSujet } from '../iconeDuSujet'
-import { BarreDEpreuve, texteDuMelange } from './Sentiers'
+import { BarreDEpreuve } from './Sentiers'
 import { ADRESSE_D_APPRENDRE } from '../../../shared/depart'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
-import { difficulteDuMelange } from '../../../shared/sentiers'
+import { difficulteDuMelange, texteDuMelange } from '../../../shared/sentiers'
 import { FAMILLES_DE_SUJETS, sujetParCle, type FamilleDeSujet } from '../../../shared/sujets'
 import {
   PALIERS_DES_SUJETS,

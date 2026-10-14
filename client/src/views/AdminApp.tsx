@@ -361,7 +361,7 @@ export function AdminApp() {
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && <AdminDuJour vue={vue} />}
-        {ecran === 'campagne' && <AdminCampagne />}
+        {ecran === 'campagne' && <AdminCampagne vue={vue} />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>

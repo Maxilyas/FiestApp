@@ -157,12 +157,17 @@ import {
   epreuveFinie,
   etoilesDe,
   issueDe,
+  melangePropre,
+  memeMelange,
+  refusDuMelange,
   regleDuPalier,
   sentierQuOnAvance,
   titreDeMaitre,
   viesDe,
   xpDuPalier,
   type AdminDesSentiers,
+  type Melange,
+  type MelangesRegles,
   type DefiDAccueil,
   type EpreuveDeSentier,
   type EtatDesSentiers,
@@ -189,6 +194,17 @@ import {
   type ReponseDuSujet,
   type SentierDeSujet,
 } from '../../../shared/sentiersDeSujets'
+import { JOURS_DU_QG, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
+import {
+  PARCOURS_AU_QG,
+  lesPlusRatees,
+  viesAcheteesParJour,
+  viesPerduesParJour,
+  type DefiAuQg,
+  type ParcoursAuQg,
+  type SuiviDeLaCampagne,
+  type ViesAuQg,
+} from '../../../shared/qgCampagne'
 import {
   INTERVALLES_DE_REVISION,
   QUESTIONS_PAR_REVISION,
@@ -323,6 +339,18 @@ const SERIES = "COALESCE(mode, 'serie') = 'serie'"
 const STATS_DES_SENTIERS_MS = 90 * 24 * HEURE_MS
 /** Les plus bloqués que l'administration nomme : de quoi voir qui décroche, pas un annuaire. */
 const BLOQUES_MONTRES = 10
+/**
+ * Les trente jours des parcours et des vies, au QG, se gardent dix minutes :
+ * la page de la campagne se rouvre à chaque passage, et chaque relecture de
+ * trente jours compte au quota de Turso — comme les séries du quiz du jour.
+ */
+const TRENTE_JOURS_GARDES_MS = 10 * 60_000
+/**
+ * Une épreuve ratée coûte sa vie au jour de sa fin, mais se cherche par le
+ * jour où elle a commencé (`idx_campagne_series_commencee`) : une semaine de
+ * marge couvre celle laissée en route puis reprise.
+ */
+const MARGE_D_UNE_EPREUVE_MS = 7 * 24 * HEURE_MS
 /** Ce qu'un classement du défi montre ; au-delà, sa propre ligne à part — comme au quiz du jour. */
 const LIGNES_DU_DEFI = 50
 /**
@@ -465,6 +493,13 @@ export class CampagneStore {
   private rencontresPerdues = new Map<string, string>()
   /** Les questions du défi de chaque semaine jouée depuis le démarrage : figées en base, relues une fois. */
   private tirages = new Map<string, QuestionDeSerie[]>()
+  /**
+   * Les mélanges réglés depuis le QG (`sentier_melanges`), en mémoire : chaque
+   * épreuve qui commence les lit, et chaque page des sentiers les montre. Peu
+   * nombreux — un par palier au plus —, lus au démarrage, tenus à jour à
+   * chaque réglage.
+   */
+  private melanges = new Map<number, { melange: Melange; regleLe: number }>()
   /** Les défis entre amis lus depuis le démarrage : leur tirage et leur fermeture sont figés, relus une fois. */
   private duels = new Map<string, Duel>()
   /** Le score fini de qui a lancé un duel classé, par code : celui qu'il a défié le joue pour le battre (`scoreABattre`). */
@@ -511,6 +546,8 @@ export class CampagneStore {
   /** La semaine dont toutes les précédentes sont closes : `cloreLesDefis` ne relit rien d'autre jusqu'au lundi suivant. */
   private closAvant: string | null = null
   private semaineGardee: { heure: number; semaine: string; passee: string } | null = null
+  /** Les trente jours des parcours et des vies au QG, gardés dix minutes (`TRENTE_JOURS_GARDES_MS`). */
+  private trenteJoursGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> } | null = null
   private ferme = false
   /**
    * Les profils, pour nommer le classement du défi et ses vainqueurs
@@ -662,15 +699,30 @@ export class CampagneStore {
            entree      TEXT NOT NULL,
            corrigee_le INTEGER NOT NULL
          )`,
+        // Les mélanges que l'administrateur a réglés depuis le QG, palier par
+        // palier, pour les douze sentiers : ceux du code ailleurs (`PALIERS`).
+        `CREATE TABLE IF NOT EXISTS sentier_melanges (
+           palier   INTEGER PRIMARY KEY,
+           melange  TEXT NOT NULL,
+           regle_le INTEGER NOT NULL
+         )`,
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
         'SELECT question_id, entree, corrigee_le FROM campagne_corrections',
+        'SELECT palier, melange, regle_le FROM sentier_melanges',
       ],
       'write',
     )
-    const [retraits, ajouts, corrections] = resultats.slice(-3)
+    const [retraits, ajouts, corrections, melanges] = resultats.slice(-4)
     for (const r of retraits.rows) this.retirees.add(String(r.question_id))
+    // Un mélange que les règles du jour refusent — une marche de plus, un palier de moins — se tait : le palier reprend celui du code.
+    for (const r of melanges.rows) {
+      const palier = Number(r.palier)
+      const m = lireMelange(r.melange)
+      if (m && refusDuMelange(palier, m) === null) this.melanges.set(palier, { melange: melangePropre(m), regleLe: Number(r.regle_le) })
+      else console.warn(`[campagne] le mélange réglé du palier ${palier} n’est plus valable : le palier reprend celui du code`)
+    }
     // Relues par le juge du jour : une règle durcie depuis les écarte, comme une ligne du dépôt.
     let illisibles = 0
     for (const r of ajouts.rows) {
@@ -3959,6 +4011,8 @@ export class CampagneStore {
   viesAchetees?: (profileId: string) => Promise<number>
   /** Les vies achetées depuis un instant, tous profils : l'administration le dit. */
   viesAcheteesDepuis?: (depuis: number) => Promise<number>
+  /** Les achats de vies depuis un instant, un par ligne, avec leur prix : le QG les dit jour par jour (`ProfileStore.achatsDeViesDepuis`). */
+  achatsDeViesDepuis?: (depuis: number) => Promise<{ quand: number; nombre: number; prix: number }[]>
 
   /** Ce qu'il tenait d'avant les sentiers, et ses épreuves validées : les deux lectures de ses sentiers. */
   private lecturesDesSentiers(profileId: string): InStatement[] {
@@ -4039,7 +4093,47 @@ export class CampagneStore {
   /** La page des sentiers : ses vies, chaque sentier — ses paliers, ses étoiles —, et l'épreuve qu'il a laissée. */
   async etatDesSentiers(profileId: string): Promise<EtatDesSentiers> {
     const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
-    return { vies, sentiers, epreuve: ouverte ? vueDEpreuve(ouverte) : null }
+    // Les mélanges réglés au QG : la page lit la difficulté d'un palier dessus, pas sur celui du code.
+    return { vies, sentiers, epreuve: ouverte ? vueDEpreuve(ouverte) : null, ...(this.melanges.size > 0 && { melanges: this.melangesRegles() }) }
+  }
+
+  /** Les mélanges réglés depuis le QG, palier par palier ; vide : ceux du code. */
+  melangesRegles(): MelangesRegles {
+    return Object.fromEntries([...this.melanges].map(([palier, r]) => [palier, r.melange]))
+  }
+
+  /**
+   * Règle le mélange d'un palier, pour les douze sentiers — ou le rend à
+   * celui du code (`null`). Seules les épreuves qui commencent le tirent :
+   * une épreuve en cours garde ses questions, un palier validé ne se reprend
+   * jamais, et les étoiles se lisent au seuil de leur épreuve. Rend le
+   * mélange d'avant et celui d'après, pour le journal du QG. Un réglage qui
+   * ne changerait rien se refuse : le journal ne note que ce qui a changé.
+   */
+  async reglerLeMelange(n: unknown, melange: unknown): Promise<{ palier: number; avant: Melange; apres: Melange; origine: boolean }> {
+    const refus = melange === null ? null : refusDuMelange(n, melange)
+    if (refus) throw new Error(refus)
+    const regle = regleDuPalier(n)
+    if (!regle) throw new Error('Ce palier n’existe pas')
+    if (regle.maitre) throw new Error('Le palier de maître garde ses seize expertes : seuls les douze paliers se règlent')
+    const avant = this.melanges.get(regle.n)?.melange ?? regle.melange
+    const apres = melange === null ? regle.melange : melangePropre(melange as Melange)
+    if (memeMelange(apres, avant)) throw new Error(melange === null ? 'Ce palier a déjà son mélange d’origine' : 'Ce palier pose déjà ce mélange')
+    // Celui du code : pas un réglage, le palier y revient.
+    const origine = memeMelange(apres, regle.melange)
+    const maintenant = this.maintenant()
+    await this.client.execute(
+      origine
+        ? { sql: 'DELETE FROM sentier_melanges WHERE palier = ?', args: [regle.n] }
+        : {
+            sql: `INSERT INTO sentier_melanges (palier, melange, regle_le) VALUES (?, ?, ?)
+                  ON CONFLICT(palier) DO UPDATE SET melange = excluded.melange, regle_le = excluded.regle_le`,
+            args: [regle.n, JSON.stringify(apres), maintenant],
+          },
+    )
+    if (origine) this.melanges.delete(regle.n)
+    else this.melanges.set(regle.n, { melange: apres, regleLe: maintenant })
+    return { palier: regle.n, avant, apres, origine }
   }
 
   /**
@@ -4111,7 +4205,8 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       const b = brancheParCle(cle)
       if (!b) throw new Error('Ce sentier n’existe pas')
-      const regle = regleDuPalier(n)
+      // Le mélange du jour, réglé au QG ou celui du code : l'épreuve le tire maintenant, et ses questions ne bougent plus.
+      const regle = regleDuPalier(n, this.melangesRegles())
       if (!regle) throw new Error('Ce palier n’existe pas')
       const [paliers, ouverte] = await Promise.all([this.paliersDe(profileId), this.epreuveEnCours(profileId)])
       if (ouverte) {
@@ -4519,7 +4614,7 @@ export class CampagneStore {
       this.client.batch(
         [
           {
-            sql: `SELECT profile_id, branche, palier, issue, rejeu, seuil, position, justes FROM campagne_series
+            sql: `SELECT profile_id, branche, palier, issue, rejeu, seuil, position, justes, commencee_le FROM campagne_series
                   WHERE mode = 'sentier' AND issue IS NOT NULL AND commencee_le > ?${filtre}
                   ORDER BY commencee_le`,
             args: avec(depuis),
@@ -4534,12 +4629,13 @@ export class CampagneStore {
           // Chaque réponse retrouve la marche de sa question dans l'épreuve
           // qui la gardait : le JSON de l'épreuve se lit une fois pour ses
           // seize réponses (`CROSS JOIN` garde cet ordre-là).
+          // Palier par palier : de quoi estimer, au QG, un autre mélange (`tauxDuPalier`).
           {
-            sql: `SELECT json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
+            sql: `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
                   FROM campagne_series s CROSS JOIN json_each(s.questions) q
                   JOIN campagne_reponses r ON r.serie_id = s.id AND r.position = q.key
                   WHERE s.mode = 'sentier' AND s.rejeu = 0 AND s.commencee_le > ?${b ? ' AND s.branche = ?' : ''}
-                  GROUP BY niveau`,
+                  GROUP BY s.palier, niveau`,
             args: avec(depuis),
           },
           // Où chacun en est, sur toutes ses épreuves : un résumé par joueur, sentier et palier.
@@ -4559,6 +4655,8 @@ export class CampagneStore {
     // Les essais de chacun sur chaque palier, dans l'ordre : le premier dit « du premier coup ».
     const essais = new Map<string, { issue: IssueDEpreuve; seuil: number; abandon: boolean; questions: number; justes: number }[]>()
     const rejeux = new Map<number, { joues: number; valides: number }>()
+    // Ce que disent les épreuves commencées depuis chaque réglage : trois mois mêlent l'ancien mélange et le nouveau.
+    const reglages = [...this.melanges].map(([palier, r]) => ({ palier, melange: r.melange, regleLe: r.regleLe, essais: 0, validees: 0 }))
     for (const r of lignes.rows) {
       const palier = Number(r.palier)
       const issue: IssueDEpreuve = r.issue === 'validee' ? 'validee' : 'ratee'
@@ -4568,6 +4666,11 @@ export class CampagneStore {
         if (issue === 'validee') c.valides++
         rejeux.set(palier, c)
         continue
+      }
+      const reglage = reglages.find(x => x.palier === palier && Number(r.commencee_le) >= x.regleLe)
+      if (reglage) {
+        reglage.essais++
+        if (issue === 'validee') reglage.validees++
       }
       const seuil = Number(r.seuil ?? regleDuPalier(palier)?.seuil ?? QUESTIONS_PAR_EPREUVE)
       const questions = Number(r.position ?? 0)
@@ -4655,9 +4758,13 @@ export class CampagneStore {
       branche: b?.key ?? null,
       paliers,
       niveaux: NIVEAUX.map(niveau => {
-        const r = parNiveau.rows.find(x => x.niveau === niveau)
-        return { niveau, questions: Number(r?.n ?? 0), justes: Number(r?.justes ?? 0) }
+        const lignes = parNiveau.rows.filter(x => x.niveau === niveau)
+        return { niveau, questions: lignes.reduce((n, r) => n + Number(r.n ?? 0), 0), justes: lignes.reduce((n, r) => n + Number(r.justes ?? 0), 0) }
       }),
+      niveauxParPalier: parNiveau.rows.flatMap(r =>
+        NIVEAUX.includes(r.niveau as Niveau) ? [{ palier: Number(r.palier), niveau: r.niveau as Niveau, questions: Number(r.n ?? 0), justes: Number(r.justes ?? 0) }] : [],
+      ),
+      reglages: reglages.sort((x, y) => x.palier - y.palier),
       bloques: bloques.slice(0, BLOQUES_MONTRES),
     }
   }
@@ -4835,6 +4942,151 @@ export class CampagneStore {
       'SELECT COUNT(DISTINCT question_id) AS questions, COUNT(DISTINCT profile_id) AS joueurs FROM campagne_signalements WHERE traite_le IS NULL',
     )
     return { questions: Number(res.rows[0]?.questions ?? 0), joueurs: Number(res.rows[0]?.joueurs ?? 0) }
+  }
+
+  /**
+   * La campagne au QG (`/admin#campagne`) : les paliers validés aujourd'hui,
+   * le défi de la semaine, les parcours de thème et les vies des trente
+   * derniers jours. Ce qu'on joue jour par jour vient de la vue d'ensemble,
+   * qui l'a déjà lu (`campagneDeLaVue`).
+   */
+  async suiviAuQg(): Promise<SuiviDeLaCampagne> {
+    const maintenant = this.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const [paliers, defi, trente] = await Promise.all([this.paliersDuJourAuQg(minuits[minuits.length - 1]), this.defiAuQg(), this.trenteJoursAuQg(minuits)])
+    return { maintenant, jours: joursDesMinuits(minuits), paliers, defi, ...trente }
+  }
+
+  /** Les paliers validés depuis minuit, hors rejeu, et ceux du premier coup : aucune épreuve d'avant sur ce palier de ce sentier. */
+  private async paliersDuJourAuQg(minuit: number): Promise<SuiviDeLaCampagne['paliers']> {
+    const res = await this.client.execute({
+      sql: `SELECT COUNT(*) AS valides,
+                   SUM(CASE WHEN EXISTS (SELECT 1 FROM campagne_series p
+                                         WHERE p.profile_id = s.profile_id AND p.mode = 'sentier' AND p.branche = s.branche AND p.palier = s.palier
+                                           AND p.rejeu = 0 AND p.commencee_le < s.commencee_le) THEN 0 ELSE 1 END) AS premier_coup
+            FROM campagne_series s
+            WHERE s.commencee_le >= ? AND s.mode = 'sentier' AND s.rejeu = 0 AND s.issue = 'validee'`,
+      args: [minuit],
+    })
+    return { valides: Number(res.rows[0]?.valides ?? 0), premierCoup: Number(res.rows[0]?.premier_coup ?? 0) }
+  }
+
+  /**
+   * Le défi de la semaine, au QG : ses joueurs comptés comme son classement
+   * — ni les masqués ni les suspendus —, ses scores, sa question la plus
+   * ratée, la semaine d'avant. Sans jamais le tirer (`tirageDuDefi` le
+   * ferait, et l'administrateur n'est pas un joueur) ni clore la semaine
+   * passée : la première demande d'un joueur le fait.
+   */
+  private async defiAuQg(): Promise<DefiAuQg> {
+    const { semaine, passee } = this.semaineDeLHeure()
+    const gardees = this.tirages.get(semaine)
+    const [tirage, tentatives, parQuestion, avant, close] = await this.client.batch(
+      [
+        // Un tirage déjà lu ne se relit pas : soixante questions figées, avec leurs réponses.
+        { sql: `SELECT ${gardees ? "'[]'" : 'questions'} AS questions FROM campagne_defis WHERE semaine = ?`, args: [semaine] },
+        { sql: `SELECT profile_id, justes, finie_le, commencee_le FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`, args: [semaine] },
+        {
+          sql: `SELECT r.position AS position, COUNT(*) AS n, SUM(r.juste) AS justes
+                FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
+                WHERE s.mode = 'defi' AND s.semaine = ? GROUP BY r.position`,
+          args: [semaine],
+        },
+        { sql: `SELECT profile_id FROM campagne_series WHERE mode = 'defi' AND semaine = ? AND position > 0`, args: [passee] },
+        { sql: 'SELECT vainqueurs, clos_le FROM campagne_defis WHERE semaine = ?', args: [passee] },
+      ],
+      'read',
+    )
+    const tire = tirage.rows.length > 0
+    const questions = gardees ?? (tire ? (JSON.parse(String(tirage.rows[0].questions)) as QuestionDeSerie[]) : [])
+    const [profils, profilsDAvant] = this.profils
+      ? await Promise.all([this.profils.byIds(tentatives.rows.map(r => String(r.profile_id))), this.profils.byIds(avant.rows.map(r => String(r.profile_id)))])
+      : [[], []]
+    const compte = (p: ProfileRec | null | undefined): p is ProfileRec => !!p && !this.masque?.(p.id)
+    const joueurs = tentatives.rows.flatMap((r, i) => {
+      const p = profils[i]
+      return compte(p) ? [{ profil: p, justes: Number(r.justes), finieLe: r.finie_le === null ? null : Number(r.finie_le), commenceeLe: Number(r.commencee_le) }] : []
+    })
+    const finies = joueurs.filter(j => j.finieLe !== null)
+    const scores = new Array<number>(finies.length > 0 ? Math.max(...finies.map(j => j.justes)) + 1 : 0).fill(0)
+    for (const j of finies) scores[j.justes]++
+    const haut = joueurs.length > 0 ? Math.max(...joueurs.map(j => j.justes)) : 0
+    // Celui qui tient le meilleur score le premier — commencé le premier : une égalité ne départage pas mieux.
+    const enTete = joueurs.filter(j => j.justes === haut).sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
+    const premier = enTete[0]
+    const r = close.rows[0]
+    return {
+      semaine,
+      tire,
+      minutesRestantes: minutesAvantLundi(this.maintenant()),
+      joueurs: joueurs.length,
+      finies: finies.length,
+      scores,
+      meilleur: premier && this.profils ? { justes: haut, nom: premier.profil.name, avatar: this.profils.avatarPorte(premier.profil), quand: premier.finieLe, exAequo: enTete.length - 1 } : null,
+      ratees: lesPlusRatees(
+        parQuestion.rows.flatMap(x => {
+          const q = questions[Number(x.position)]
+          return q ? [{ index: Number(x.position), texte: q.texte, categorie: q.categorie, reponses: Number(x.n), justes: Number(x.justes ?? 0) }] : []
+        }),
+      ),
+      passee: r ? { semaine: passee, joueurs: profilsDAvant.filter(compte).length, vainqueurs: r.clos_le === null ? null : lireVainqueurs(r.vainqueurs).length } : null,
+    }
+  }
+
+  /**
+   * Les parcours de thème et les vies des trente derniers jours, lus ensemble
+   * et gardés dix minutes : rien n'y bouge d'une minute à l'autre que la
+   * page doive voir, et trente jours relus à chaque ouverture comptaient au
+   * quota de Turso. Une lecture qui échoue ne se garde pas.
+   */
+  private trenteJoursAuQg(minuits: readonly number[]): Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> {
+    const maintenant = this.maintenant()
+    const minuit = minuits[minuits.length - 1]
+    const garde = this.trenteJoursGardes
+    if (garde && garde.minuit === minuit && maintenant < garde.jusqua) return garde.lus
+    const lus = this.lireTrenteJoursAuQg(minuits, maintenant)
+    this.trenteJoursGardes = { minuit, jusqua: maintenant + TRENTE_JOURS_GARDES_MS, lus }
+    lus.catch(() => {
+      if (this.trenteJoursGardes?.lus === lus) this.trenteJoursGardes = null
+    })
+    return lus
+  }
+
+  private async lireTrenteJoursAuQg(minuits: readonly number[], maintenant: number): Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> {
+    const depuis = minuits[0]
+    const derniere = PALIERS_DES_SUJETS.length
+    const [[parcours, echecs], achats] = await Promise.all([
+      this.client.batch(
+        [
+          {
+            sql: `SELECT sujet, COUNT(DISTINCT profile_id) AS joueurs,
+                         COUNT(DISTINCT CASE WHEN issue = 'validee' THEN profile_id || '|' || palier END) AS etapes,
+                         COUNT(DISTINCT CASE WHEN issue = 'validee' AND palier = ? THEN profile_id END) AS finis
+                  FROM campagne_series WHERE commencee_le >= ? AND mode = 'sujet' AND sujet IS NOT NULL
+                  GROUP BY sujet`,
+            args: [derniere, depuis],
+          },
+          // Chaque joueur ses échecs en un texte : une ligne par épreuve ratée ferait décoder des milliers de lignes.
+          {
+            sql: `SELECT profile_id, json_group_array(finie_le) AS fins FROM campagne_series
+                  WHERE commencee_le >= ? AND mode = 'sentier' AND rejeu = 0 AND issue = 'ratee' AND finie_le >= ?
+                  GROUP BY profile_id`,
+            args: [depuis - MARGE_D_UNE_EPREUVE_MS, depuis],
+          },
+        ],
+        'read',
+      ),
+      this.achatsDeViesDepuis?.(depuis) ?? [],
+    ])
+    const lignes = parcours.rows.map(r => {
+      const sujet = String(r.sujet)
+      return { sujet, nom: sujetParCle(sujet)?.nom ?? sujet, joueurs: Number(r.joueurs), etapes: Number(r.etapes), finis: Number(r.finis) }
+    })
+    lignes.sort((a, b) => b.joueurs - a.joueurs || b.etapes - a.etapes || a.nom.localeCompare(b.nom, 'fr'))
+    const epreuvesRatees = echecs.rows.flatMap(r => (JSON.parse(String(r.fins)) as number[]).map(quand => ({ qui: String(r.profile_id), quand })))
+    const vies: ViesAuQg = { ...viesPerduesParJour(epreuvesRatees, minuits, maintenant), ...viesAcheteesParJour(achats, minuits, maintenant) }
+    const suivis: ParcoursAuQg = { lignes: lignes.slice(0, PARCOURS_AU_QG), commences: lignes.reduce((n, l) => n + l.joueurs, 0), sujets: lignes.length }
+    return { parcours: suivis, vies }
   }
 
   // ── Les signalements ────────────────────────────────────────────────────
@@ -5474,6 +5726,17 @@ function tombee(cle: string): PalierTombe {
   const p = palierDe(cle)
   const h = hautFait(cle)
   return { key: cle, emoji: p ? p.hautFait.emoji : (h?.emoji ?? '✨'), title: p ? titreDePalier(p.hautFait, p.palier) : (h?.title ?? cle) }
+}
+
+/** Un mélange réglé, tel que `sentier_melanges` le garde ; null s'il ne se lit pas. */
+function lireMelange(brut: unknown): Melange | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const lu: unknown = JSON.parse(brut)
+    return lu && typeof lu === 'object' && !Array.isArray(lu) ? (lu as Melange) : null
+  } catch {
+    return null
+  }
 }
 
 /** Les vainqueurs d'un défi clos, tels que la clôture les a écrits. */
