@@ -5664,9 +5664,10 @@ async function premieresDeTous(lignes: readonly Record<string, unknown>[]): Prom
  * pour le classement : chacun ses bonnes réponses et celles du score à
  * battre, comptées dans la base sans faire voyager les réponses de
  * l'adversaire. Une rencontre au gardé illisible ne compte pas : elle ne dit
- * pas ce qu'elle affrontait.
+ * pas ce qu'elle affrontait. `scripts/calibrage-duels.ts` la lit telle quelle :
+ * il mesure sur une vraie base le journal même que la cote relit.
  */
-function lectureDesDuels(qui: string | readonly string[] | null, maintenant: number): InStatement {
+export function lectureDesDuels(qui: string | readonly string[] | null, maintenant: number): InStatement {
   // Et ses duels contre quelqu'un, joués des deux côtés : chacun sa tentative,
   // celle d'en face, la cote d'en face figée au lancement — datés du second
   // qui a fini, quand le duel s'est joué. Un seul des deux n'en fait pas un.
@@ -5839,7 +5840,7 @@ const duelContreLu = (r: Record<string, unknown>): Pick<Duel, 'code' | 'auteur' 
 })
 
 /** Des lignes de `lectureDesDuels` aux duels qu'elles racontent. */
-const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[] =>
+export const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[] =>
   lignes.map(r => ({
     serie: String(r.id),
     justes: Number(r.justes),

@@ -143,6 +143,7 @@ Des simulations sur le vrai code, qui mesurent ce qu'un barème ou un seuil fait
 | `server/scripts/calibrage.ts` | Combien de quiz demande chaque légendaire, combien de soirées chaque niveau, la rareté de chaque haut fait (que recopie `PART_DES_JOUEURS`, `shared/hautsfaits.ts`), les écussons de savoir : des bandes d'amis inventées jouent des soirées entières par les mêmes fonctions que la clôture | `npx tsx scripts/calibrage.ts [--quiz 2] [--questions 50] [--estimations 0.17] [--joueurs 12] [--bandes 120] [--soirees 40] [--graine 1] [--themes 0.3] [--classees 0.5] [--jour 0.3] [--jours 6]` (les valeurs d'office) |
 | `server/scripts/calibrage-sentiers.ts` | La chance de valider chaque palier des sentiers du premier coup, les vies qu'on y laisse et le temps qu'il faut, pour des joueurs de plus en plus forts | `npx tsx scripts/calibrage-sentiers.ts [--seuil <n>] [--maitre <n>]` — sans option, les seuils du code (`SEUIL_DES_PALIERS`, `SEUIL_DU_MAITRE`) |
 | `server/scripts/calibrage-automate.ts` | Ce que le modèle du savoir change aux duels contre Automate, sur des joueurs simulés qui jouent la vraie base au vrai tirage : les duels gagnés, nuls et perdus, l'écart d'Automate au niveau de la cote | `npx tsx scripts/calibrage-automate.ts [--joueurs 40] [--passe 15] [--duels 30] [--une-sur 1] [--categories 0.5] [--graine 1]` |
+| `server/scripts/calibrage-duels.ts` | Pas une simulation : une vraie base, en lecture seule. Ce que les joueurs font par série, où en sont les duels, et leurs vrais duels rejoués avec la « montée » à l'essai, sur plusieurs échelles de la cote ; rejoué aux règles d'aujourd'hui, il doit retrouver la cote de chacun. Rien que des totaux, sans un nom | `PROD_LECTURE_URL=… PROD_LECTURE_TOKEN=… npx tsx scripts/calibrage-duels.ts [--echelles 8/50,7/75,7/100] [--participation 5]`, ou `npx tsx scripts/calibrage-duels.ts file:<base restaurée>` |
 
 ### Les images peintes
 
@@ -171,7 +172,8 @@ Celles que lisent le serveur et le client sont dans [la configuration](configura
 | `DB_PATH`, `WIFI_SSID`, `WIFI_PASS` | posées par `server/scripts/qa-start.ts` s'il n'y en a pas | La base locale jetable et le wifi de démonstration |
 | `QUIZ_DB_URL`, `QUIZ_DB_TOKEN` | `sauvegarde.ts`, `export-party.ts`, `migrate-library.ts` | La base permanente à lire (ou, pour la migration, à remplir) |
 | `QUIZ_DB_URL_FROM`, `QUIZ_DB_TOKEN_FROM` | `server/scripts/migrate-library.ts` | La base d'où vient la bibliothèque |
-| `INIT_CWD` | `server/scripts/sauvegarde.ts`, `server/scripts/tablee/regie.ts` | Posée par npm : le dossier où la commande a été tapée, d'où se lit un chemin relatif |
+| `PROD_LECTURE_URL`, `PROD_LECTURE_TOKEN` | `server/scripts/calibrage-duels.ts` | La base à mesurer, et un jeton en lecture seule (`turso db tokens create <base> --read-only`). Jamais `QUIZ_DB_URL` pour mesurer : posée dans un environnement, le serveur, `npm run dev` et le smoke la liraient aussi, et y écriraient |
+| `INIT_CWD` | `server/scripts/sauvegarde.ts`, `server/scripts/calibrage-duels.ts`, `server/scripts/tablee/regie.ts` | Posée par npm : le dossier où la commande a été tapée, d'où se lit un chemin relatif |
 | `TABLEE` | `server/scripts/tablee/pilote.mjs` | La fiche de la régie à viser, quand ce n'est pas la dernière démarrée |
 | `THEME` | `rendu-jour.ts`, `rendu-duels.ts` | Le thème que portent les profils photographiés |
 | `ECRAN` | `rendu-duels.ts`, `rendu-themes.ts` | La taille du téléphone, `390x844` par exemple ; 360 × 640 sinon |

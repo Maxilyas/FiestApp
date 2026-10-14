@@ -6,8 +6,8 @@ paths:
   - "client/src/views/{Duels,Duel,LancerUnDefi,Joueurs,Amis}.tsx"
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
-  - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate}.ts"
-  - "server/test/{duels,duels-attente,duels-contre,duels-historique,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir}.test.ts"
+  - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
+  - "server/test/{duels,duels-attente,duels-contre,duels-historique,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -99,6 +99,21 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `scripts/rendu-bordures.ts` · `scripts/duelsDEssai.ts` (des duels écrits au
   journal pour les rendus, `rendu-ecran.ts` compris) — client construit
   d'abord
+- `scripts/calibrage-duels.ts` — les duels mesurés sur une vraie base, en
+  lecture seule (le 14 octobre 2026 : « avoir exactement les métriques
+  utilisateur » avant de toucher à la cote, dont l'échelle — 1000 = 8 bonnes
+  réponses, 50 points chacune — avait été posée sans mesure) : les scores par
+  série — allées au bout : une série abandonnée garde des vies —, l'état des
+  duels relu par `releverLesDuels` sur `lectureDesDuels` et `duelsLus`
+  (exportées pour lui), puis tous les vrais duels rejoués ensemble, dans
+  l'ordre où ils ont fini, avec la « montée » à l'essai sur plusieurs échelles
+  (`--echelles 8/50,7/75,7/100`, `--participation`). Son contrôle : aux règles
+  d'aujourd'hui, le rejeu retrouve la cote de chacun. Il lit
+  `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN` (un jeton en lecture seule),
+  **jamais `QUIZ_DB_URL`** : posée pour mesurer, le serveur, `npm run dev` et
+  le smoke la liraient et y écriraient dès leur démarrage. Rien que des
+  SELECT, dans une transaction en lecture seule, et des totaux sans un nom
+  (`calibrage-duels.test.ts`)
 - `shared/qgDuels.ts` · `CampagneStore.suiviDesDuelsAuQg` · `annulerUnDuel` — les duels vus du QG (`/admin#duels`, règle `qg.md`) : les duels par jour, les ligues et le classement — « Masquer », et les masqués à y remettre —, les duels classés qui attendent leur adversaire. L'administrateur peut **annuler un duel classé que l'adversaire n'a pas commencé** (le choix du 13 octobre 2026, « Annuler un duel pas joué ») : il se ferme tout de suite, comme à son expiration, et ne compte pour personne — l'adversaire ne peut plus le relever (« Ce défi est fermé »). Commencé de l'autre côté, il compte déjà : il ne s'annule plus (`qg-duels.test.ts`)
 
 ## Les pièges
