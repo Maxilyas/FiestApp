@@ -33,9 +33,9 @@ import { ProfileStore } from '../src/auth/profiles'
 import { CampagneStore } from '../src/core/campagne'
 
 ProfileStore.tirageEclat = () => false
-// Automate, l'adversaire du dé, fait toujours huit bonnes réponses, puis trois fautes : un score à la cote de
-// départ (`coteDuScore(8)`), pour que chaque cote se vérifie au point près.
-CampagneStore.reponsesDAutomate = () => [...Array(8).fill(true), ...Array(VIES).fill(false)]
+// Automate, l'adversaire du dé, fait toujours sept bonnes réponses, puis trois fautes : un score à la cote de
+// départ (`coteDuScore(7)`), pour que chaque cote se vérifie au point près.
+CampagneStore.reponsesDAutomate = () => [...Array(7).fill(true), ...Array(VIES).fill(false)]
 
 // Un mardi : la semaine a de quoi se jouer avant son lundi.
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
@@ -87,20 +87,24 @@ async function duelJoue(banc: Banc, cookie: string, justes: number) {
 }
 
 test('la cote : un score à battre a sa cote, une victoire contre plus fort rapporte plus, les dix premiers duels comptent double', () => {
-  assert.equal(coteDuScore(8), COTE_DE_DEPART, 'huit bonnes réponses : la cote de départ')
-  assert.equal(coteDuScore(10), 1100, 'deux de mieux : une ligue de plus')
-  assert.equal(niveauDeLaCote(1100), 10)
+  assert.equal(coteDuScore(7), COTE_DE_DEPART, 'sept bonnes réponses, la médiane mesurée : la cote de départ')
+  assert.equal(coteDuScore(9), 1100, 'deux de mieux : une ligue de plus')
+  assert.equal(niveauDeLaCote(1100), 9)
   assert.equal(chancesDeGagner(1000, 1000), 0.5)
   assert.ok(Math.abs(chancesDeGagner(1000, 1200) - 0.24) < 0.01)
-  // Le placement : les dix premiers duels comptent double.
-  assert.deepEqual(enjeuDuDuel(1000, 8, 0), { cote: 1000, gagne: 24, egalite: 0, perdu: -24 })
-  assert.deepEqual(enjeuDuDuel(1000, 8, DUELS_DE_PLACEMENT), { cote: 1000, gagne: 12, egalite: 0, perdu: -12 })
+  // Le placement : les dix premiers duels comptent double — sur la cote cachée, celle qui cherche son niveau.
+  assert.equal(ecartDuDuel(1000, 7, 0, 1), 24)
+  assert.equal(ecartDuDuel(1000, 7, DUELS_DE_PLACEMENT, 1), 12)
+  assert.equal(ecartDuDuel(1000, 7, DUELS_DE_PLACEMENT, 0), -12)
+  // Celle qu'on voit monte sous l'Or : à cotes égales, même une défaite rapporte.
+  assert.deepEqual(enjeuDuDuel({ cote: 1000 }, 7), { cote: 1000, gagne: 17, egalite: 4, perdu: 2 })
   // Battre un gros score rapporte plus ; perdre contre un petit coûte plus.
   assert.ok(ecartDuDuel(1000, 12, 20, 1) > ecartDuDuel(1000, 8, 20, 1))
   assert.ok(ecartDuDuel(1000, 4, 20, 0) < ecartDuDuel(1000, 8, 20, 0))
-  // Placé, on lui cherche des adversaires de sa cote ; avant, de ses séries.
+  assert.ok(enjeuDuDuel({ cote: 1000 }, 12).gagne > enjeuDuDuel({ cote: 1000 }, 8).gagne)
+  // Placé, on lui cherche des adversaires de sa cote cachée ; avant, de ses séries.
   assert.equal(niveauPourLeDuel(3, 1300, 9), 9)
-  assert.equal(niveauPourLeDuel(DUELS_DE_PLACEMENT, 1300, 9), 14)
+  assert.equal(niveauPourLeDuel(DUELS_DE_PLACEMENT, 1300, 9), 13)
   // Les ligues : une tous les cent points, la bronze sans plancher.
   assert.deepEqual(
     [700, 1099, 1100, 1250, 1499, 1500, 2000].map(c => ligueDe(c).cle),
@@ -135,8 +139,8 @@ test('le relevé des duels rejoue la cote dans l’ordre, et chaque semaine paie
   // Un duel perdu ne reprend pas la ligue qu'il avait en entrant dans la semaine.
   const haut = releverLesDuels(
     [
-      // La semaine d'avant, il bat douze gros scores : il entre dans celle-ci chez les maîtres…
-      ...Array.from({ length: 12 }, (_, i) => duel(`h${i}`, 30, 25, lundi - 7 * JOUR_MS + i * 60_000)),
+      // La semaine d'avant, il bat vingt et un gros scores : il entre dans celle-ci chez les maîtres…
+      ...Array.from({ length: 21 }, (_, i) => duel(`h${i}`, 30, 25, lundi - 7 * JOUR_MS + i * 60_000)),
       // … puis perd trois fois contre un score d'une bonne réponse : il redescend.
       ...Array.from({ length: 3 }, (_, i) => duel(`p${i}`, 0, 1, lundi + i * 60_000)),
     ],
@@ -164,24 +168,25 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     assert.equal(avant.enCours, null)
 
     const { depart, fin } = await duelJoue(banc, lea, 9)
-    assert.deepEqual(depart.enjeu, { cote: COTE_DE_DEPART, gagne: 24, egalite: 0, perdu: -24 }, 'ce que le duel met en jeu, dit avant de jouer')
+    // Sous l'Or, la montée : même perdu, ce duel-là rapporterait.
+    assert.deepEqual(depart.enjeu, { cote: COTE_DE_DEPART, gagne: 17, egalite: 4, perdu: 2 }, 'ce que le duel met en jeu, dit avant de jouer')
     assert.equal(fin.rencontre.issue, 'gagnee')
     assert.deepEqual(
       { ...fin.duel, semaine: { ...fin.duel.semaine, minutesRestantes: undefined } },
-      { avant: 1000, apres: 1024, ecart: 24, ligueAvant: 'bronze', ligue: 'bronze', semaine: { duels: 1, ligue: 'bronze', confettis: 0, minutesRestantes: undefined }, rang: 1 },
+      { avant: 1000, apres: 1017, ecart: 17, ligueAvant: 'bronze', ligue: 'bronze', semaine: { duels: 1, ligue: 'bronze', confettis: 0, minutesRestantes: undefined }, rang: 1 },
       'sa fin dit sa cote, sa ligue, sa semaine — et sa place au classement, sa cote d’après comptée',
     )
 
     const apres = (await lire(banc, lea, '/api/duels')).corps
-    assert.deepEqual([apres.cote, apres.joues, apres.semaine.duels], [1024, 1, 1])
+    assert.deepEqual([apres.cote, apres.joues, apres.semaine.duels], [1017, 1, 1])
     assert.deepEqual(
       apres.dernieres.map((r: any) => [r.adversaire.nom, r.justes, r.issue, r.ecart]),
-      [['Automate', 9, 'gagnee', 24]],
+      [['Automate', 8, 'gagnee', 17]],
       'chaque duel dit ce qu’il a fait à sa cote — contre Automate, jamais la série de Tom',
     )
     assert.deepEqual(
       apres.classement.lignes.map((l: any) => [l.nom, l.cote, l.ligue, l.rang, l.duels]),
-      [['Léa', 1024, 'bronze', 1, 1]],
+      [['Léa', 1017, 'bronze', 1, 1]],
     )
     assert.equal(apres.classement.sienne, apres.classement.lignes[0].profileId)
     // Tom n'a rien joué : sa cote n'a pas bougé, et il n'est pas classé.
@@ -191,7 +196,7 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     const idLea = apres.classement.lignes[0].profileId as string
     const carte = await lire(banc, tom, `/api/joueur/carte/${idLea}`)
     assert.equal(carte.status, 200)
-    assert.deepEqual(carte.corps.profil.duels, { ligue: 'bronze', cote: 1024 })
+    assert.deepEqual(carte.corps.profil.duels, { ligue: 'bronze', cote: 1017 })
     // Sans duel classé, rien : l'absence, pas une ligue de bronze.
     assert.equal((await lire(banc, tom, '/api/joueur/carte')).corps.profil.duels, undefined)
 
@@ -201,7 +206,7 @@ test('un duel classé dit son enjeu avant de jouer, sa cote à la fin — et ne 
     const tentative = lance.corps.serie.id as string
     for (let i = 0; i < 12; i++) await repondre(banc, lea, tentative, i, true)
     for (let i = 12; i < 12 + VIES; i++) await repondre(banc, lea, tentative, i, false)
-    assert.equal((await lire(banc, lea, '/api/duels')).corps.cote, 1024, 'amical : la cote ne bouge pas')
+    assert.equal((await lire(banc, lea, '/api/duels')).corps.cote, 1017, 'amical : la cote ne bouge pas')
   } finally {
     await banc.close()
   }
@@ -249,7 +254,7 @@ test('le classement des duels : rang partagé, les masqués écartés, ceux qui 
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
-    // Léa et Tom gagnent leur duel pareil — ex æquo —, Zoé perd le sien.
+    // Léa et Tom gagnent leur duel pareil — ex æquo —, Zoé perd le sien : sous l'Or, il lui rapporte un peu.
     await duelJoue(banc, lea, 9)
     await duelJoue(banc, tom, 9)
     await duelJoue(banc, zoe, 2)
@@ -257,9 +262,9 @@ test('le classement des duels : rang partagé, les masqués écartés, ceux qui 
     assert.deepEqual(
       classement.lignes.map((l: any) => [l.nom, l.cote, l.rang]),
       [
-        ['Léa', 1024, 1],
-        ['Tom', 1024, 1],
-        ['Zoé', 976, 3],
+        ['Léa', 1017, 1],
+        ['Tom', 1017, 1],
+        ['Zoé', 1002, 3],
       ],
       'deux premiers ex æquo, puis une troisième (invariant 15)',
     )
@@ -280,7 +285,7 @@ test('le classement des duels : rang partagé, les masqués écartés, ceux qui 
       tard.classement.lignes.map((l: any) => l.nom),
       ['Zoé'],
     )
-    assert.equal(tard.cote, 1024, 'sa cote reste à lui')
+    assert.equal(tard.cote, 1017, 'sa cote reste à lui')
   } finally {
     await banc.close()
   }

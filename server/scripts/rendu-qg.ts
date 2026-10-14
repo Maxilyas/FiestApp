@@ -32,6 +32,7 @@ import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrir
 import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
 import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
+import { coteDuScore } from '../../shared/duels'
 import { regleDuPalier } from '../../shared/sentiers'
 import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
@@ -221,6 +222,18 @@ try {
         const soiree = heureDeParis >= 20
         const vague = 0.5 + 0.5 * Math.abs(Math.sin(heure / H / 3.1))
         const invites = soiree ? Math.round(8 + 22 * vague) : Math.round(3 * vague)
+        // Ses connexions vers Turso : avant la mise en ligne, la garde de Node —
+        // le jour, clairsemé, rouvre presque à chaque aller-retour ; le soir, la
+        // salle les tient chaudes —, après, gardées trente secondes.
+        const gardee = version !== 'a1b2c3d'
+        const connexions = {
+          ouvertes: gardee ? (soiree ? 6 : 14) : soiree ? 35 : 120,
+          refermeesParLaBase: 0,
+          plusJeuneRefermeeMs: null,
+          echecs: erreurs['POST /api/jour/reponse'] ? 1 : 0,
+          gardeMs: gardee ? 30_000 : 4_000,
+          annonceeMs: null,
+        }
         heureDeSante.run(
           heure,
           id,
@@ -238,6 +251,7 @@ try {
               memoireMaxMo: Math.round(150 + invites * 3.4),
               invitesMax: invites,
             },
+            connexions,
           }),
           heure,
         )
@@ -421,7 +435,7 @@ try {
           const lance = minuit + (11 + i * 2) * H
           const justes = (a: { force: number }) => Math.max(0, Math.round(8 + a.force * 8 + (hasard() - 0.5) * 6))
           // Les deux cotes figées au lancement : celles de leur force.
-          duelClasse.run(code, auteur.id, lance, lance + DUREE_D_UN_DUEL_MS, adversaire.id, 1000 + (niveauDe(auteur) - 8) * 50, 1000 + (niveauDe(adversaire) - 8) * 50)
+          duelClasse.run(code, auteur.id, lance, lance + DUREE_D_UN_DUEL_MS, adversaire.id, coteDuScore(niveauDe(auteur)), coteDuScore(niveauDe(adversaire)))
           const sesJustes = justes(auteur)
           tentative.run(`duel-${code}-a`, auteur.id, sesJustes + VIES, sesJustes, lance, lance + 5 * 60_000, code)
           envoi.run(code, adversaire.id, lance + 5 * 60_000)

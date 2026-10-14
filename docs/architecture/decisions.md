@@ -1182,6 +1182,15 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `client/src/components/AccueilDesRoles.tsx`, `server/src/core/campagne.ts`, `client/src/views/Duels.tsx`*
 
+### Deux cotes : le niveau caché, la montée qu'on voit
+**Contexte** : une joueuse qui lançait beaucoup de duels « ne faisait que reculer » ; le propriétaire, le 14 octobre 2026 : « je veux que tout le monde monte en Or s'il joue, même s'il n'est pas très bon ». Mesuré sur la production (`server/scripts/calibrage-duels.ts`, en lecture seule) : tout le monde en Bronze, les trois joueurs les plus actifs sous 1 000, une partie sur deux qui faisait reculer — l'ELO seul mesure un niveau, il ne récompense pas l'envie de jouer. Et l'échelle, posée sans mesure, mettait 1 000 à huit bonnes réponses quand la médiane des séries en fait sept.
+
+**Décision** : deux cotes. La cachée, l'ELO d'avant, placement compris, dit le niveau et règle Automate. Celle qu'on voit — ligues, classement, bordures, confettis — suit la montée : sous l'Or, chaque duel rapporte cinq points et une défaite n'en coûte qu'un au plus ; dès l'Or, un point par duel, et l'enjeu suit l'écart (une défaite coûte 24 × E²) ; l'argent et l'or ne se perdent plus ; qui lance un défi gagne un point de plus. `SCORE_DE_REFERENCE` passe de 8 à 7. Des échelles plus larges (75 ou 100 points par bonne réponse), rejouées sur les vrais duels, ne changeaient presque rien : la montée l'emporte.
+
+**Conséquence** : qui joue monte en Or, même en ne gagnant qu'un duel sur trois (`server/test/duels-montee.test.ts`), et au-dessus c'est le niveau qui parle ; Automate, réglé sur la cachée, ne se renforce pas avec la cote qu'on voit — réglé sur elle, on perdait la moitié des duels au lieu de quatre sur dix. La règle se relit du journal : le jour même, ceux qui avaient reculé l'ont regagné, et le duel d'avant la montée, qui n'a figé qu'une cote, sert aux deux. La cote cachée ne part jamais au téléphone.
+
+*Fichiers : `shared/duels.ts`, `server/src/core/campagne.ts`, `client/src/views/Duels.tsx`, `server/scripts/calibrage-duels.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

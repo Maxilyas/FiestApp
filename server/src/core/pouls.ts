@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
-import { APPELS_POUR_UNE_LENTE, debutDeLHeure, type ChargeDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
+import { APPELS_POUR_UNE_LENTE, GARDE_DE_NODE_MS, debutDeLHeure, type ChargeDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -122,6 +122,14 @@ export class Pouls {
    * Turso coûte vraiment d'ici, et donc ce que vaut un aller-retour de moins.
    */
   readonly base: Fenetre
+  /**
+   * Les connexions vers la base (`connexions.ts`) : celles qui s'ouvrent —
+   * chacune refait sa poignée de main —, celles que la base referme
+   * d'elle-même pendant qu'on les garde, et les allers-retours tombés en route.
+   */
+  readonly connexions: Fenetre
+  readonly refermeesParLaBase: Fenetre
+  readonly echecsDeLaBase: Fenetre
   /** Le temps de chaque route d'API, sous son modèle (`GET /api/jour`) — jamais l'adresse, qui peut porter un identifiant. */
   private routes = new Map<string, Fenetre>()
 
@@ -133,6 +141,9 @@ export class Pouls {
     this.tropTard = new Fenetre(now)
     this.refus = new Fenetre(now)
     this.base = new Fenetre(now)
+    this.connexions = new Fenetre(now)
+    this.refermeesParLaBase = new Fenetre(now)
+    this.echecsDeLaBase = new Fenetre(now)
     this.adressesDebut = now()
   }
 
@@ -257,8 +268,27 @@ class Heure {
   private erreurs = new Map<string, number>()
   miroir = 0
   private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
+  private liaison = { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null as number | null, echecs: 0, annonceeMs: null as number | null }
 
   constructor(readonly debut: number) {}
+
+  connexion() {
+    this.liaison.ouvertes++
+  }
+
+  annonceDeLaBase(ms: number) {
+    this.liaison.annonceeMs = Math.max(this.liaison.annonceeMs ?? 0, ms)
+  }
+
+  refermeeParLaBase(ageMs: number) {
+    const l = this.liaison
+    l.refermeesParLaBase++
+    l.plusJeuneRefermeeMs = l.plusJeuneRefermeeMs === null ? ageMs : Math.min(l.plusJeuneRefermeeMs, ageMs)
+  }
+
+  echecDeLaBase() {
+    this.liaison.echecs++
+  }
 
   noterCharge(c: ReleveDeCharge) {
     const k = this.charge
@@ -298,7 +328,8 @@ class Heure {
     this.erreurs.set(cle, (this.erreurs.get(cle) ?? 0) + 1)
   }
 
-  ligne(demarrage: string): HeureDeSante {
+  ligne(demarrage: string, gardeMs: number): HeureDeSante {
+    const l = this.liaison
     const lentes = [...this.parRoute]
       .map(([route, m]) => ({ route, l: m.lire() }))
       .filter((r): r is { route: string; l: Releve } => r.l !== null && r.l.n >= APPELS_POUR_UNE_LENTE)
@@ -314,6 +345,14 @@ class Heure {
       erreurs: Object.fromEntries(this.erreurs),
       miroir: this.miroir,
       charge: this.chargeLue(),
+      connexions: {
+        ouvertes: l.ouvertes,
+        refermeesParLaBase: l.refermeesParLaBase,
+        plusJeuneRefermeeMs: l.plusJeuneRefermeeMs === null ? null : Math.round(l.plusJeuneRefermeeMs),
+        echecs: l.echecs,
+        gardeMs,
+        annonceeMs: l.annonceeMs,
+      },
     }
   }
 }
@@ -339,6 +378,8 @@ export interface ReleveDeCharge {
 export class ReleveHoraire {
   private courante: Heure
   private precedente: Heure | null = null
+  /** La garde des connexions vers la base, réglée une fois pour le processus (`connexions.ts`) : chaque heure l'écrit à côté de ses comptes. */
+  private gardeMs = GARDE_DE_NODE_MS
 
   constructor(private readonly now: () => number = Date.now) {
     this.courante = new Heure(debutDeLHeure(now()))
@@ -373,10 +414,32 @@ export class ReleveHoraire {
     this.heure().noterCharge(c)
   }
 
+  /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */
+  connexion() {
+    this.heure().connexion()
+  }
+
+  annonceDeLaBase(ms: number) {
+    this.heure().annonceDeLaBase(ms)
+  }
+
+  refermeeParLaBase(ageMs: number) {
+    this.heure().refermeeParLaBase(ageMs)
+  }
+
+  echecDeLaBase() {
+    this.heure().echecDeLaBase()
+  }
+
+  garde(ms: number) {
+    this.gardeMs = ms
+  }
+
   /** L'heure d'avant, si elle reste, et celle-ci : ce qu'un relevé écrit sous son démarrage. */
   lignes(demarrage: string): HeureDeSante[] {
     const courante = this.heure()
-    return this.precedente ? [this.precedente.ligne(demarrage), courante.ligne(demarrage)] : [courante.ligne(demarrage)]
+    const g = this.gardeMs
+    return this.precedente ? [this.precedente.ligne(demarrage, g), courante.ligne(demarrage, g)] : [courante.ligne(demarrage, g)]
   }
 
   /** Un serveur neuf part de zéro : celui d'avant, dans le même processus — les tests —, n'a rien à lui léguer. */

@@ -106,11 +106,12 @@ try {
     db.close()
   }
   duelsJoues(banc, deLaSoiree[3], 3, 10, 8)
-  // Les autres ont déjà joué : Inès chez les maîtres, Hugo en platine, Tom en argent, Zoé tout près de l'argent.
-  duelsJoues(banc, await idDe(banc, ines), 12, 30, 25)
-  duelsJoues(banc, await idDe(banc, hugo), 12, 30, 14)
+  // Les autres ont déjà joué : Inès chez les maîtres, Hugo en platine, Tom en argent, Zoé tout près de l'argent —
+  // dès l'Or, la montée ne donne qu'un point par duel : il en faut plus pour les hautes ligues.
+  duelsJoues(banc, await idDe(banc, ines), 22, 30, 25)
+  duelsJoues(banc, await idDe(banc, hugo), 14, 30, 18)
   duelsJoues(banc, await idDe(banc, tom), 6, 12, 8)
-  duelsJoues(banc, await idDe(banc, zoe), 4, 12, 8)
+  duelsJoues(banc, await idDe(banc, zoe), 5, 12, 8)
   // Un premier défi de Léa, que Tom, Hugo et Inès relèvent : ses amis.
   const premier = (await (await ecrire(banc.url, '/api/campagne/duel', {}, lea)).json()) as { code: string }
   for (const cookie of [tom, hugo, ines]) await ecrire(banc.url, `/api/campagne/duel/${premier.code}`, {}, cookie)
@@ -221,7 +222,8 @@ try {
   await page.getByRole('tab', { name: 'Classement' }).click()
   await page.click('.duels-podium')
   await page.locator('.duels-ligne', { hasText: 'Tom' }).click()
-  await page.getByRole('button', { name: 'Défier Tom' }).click()
+  // Le bouton de sa carte, exactement : « À ta portée », derrière elle, dit aussi « Défier Tom : +21 si tu gagnes ».
+  await page.getByRole('button', { name: 'Défier Tom', exact: true }).click()
   await page.waitForSelector('.defier-etape')
   await photo(page, '07-lancer')
   // Sur quoi : une ligne, « Changer » au bout, qui ouvre la feuille du choix — ses catégories, puis ses thèmes.

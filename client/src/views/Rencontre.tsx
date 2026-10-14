@@ -16,6 +16,17 @@ export const MOT_DE_L_ISSUE: Record<IssueDeRencontre, string> = { gagnee: 'Gagn�
 export const ecartSigne = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '±0')
 
 /**
+ * Ce qu'une défaite ferait à sa cote, dans une phrase. Sous l'Or, la montée
+ * la rend souvent payante (`shared/duels.ts`) : « +2 même si tu perds »,
+ * « rien à perdre » — « +2 si tu perds » en rouge se lisait comme une
+ * menace, et c'est elle qui faisait dire « je fais que reculer ».
+ */
+export const siTuPerds = (perdu: number) => (perdu === 0 ? 'rien à perdre' : `${ecartSigne(perdu)}${apresLaPerte(perdu)}`)
+
+/** Ce qui suit l'écart d'une défaite qui n'est pas nulle : « même si tu perds » quand elle rapporte. */
+export const apresLaPerte = (perdu: number) => (perdu > 0 ? ' même si tu perds' : ' si tu perds')
+
+/**
  * Ce qu'un joueur porte, sur l'avatar d'un écran de duel : sa finition, son
  * légendaire ou son portrait, son Éclat (`SonApparence`). L'emoji seul
  * montrait l'écureuil d'en dessous à qui porte un légendaire — au classement

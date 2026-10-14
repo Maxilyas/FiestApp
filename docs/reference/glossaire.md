@@ -103,8 +103,9 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Correction | La relecture d'un jour question par question, ouverte à qui a fini sa partie, puis à tous une fois le jour clos | `JourStore.correction` |
 | Correction (d'une partie) | « Mes réponses » : chaque question d'une partie finie, avec la bonne réponse et celle du joueur | `client/src/components/SerieCorrigee.tsx` |
 | Correction (d'une question) | La version corrigée d'une question, rangée dans la base permanente. Elle remplace la ligne du fichier, sans déploiement | `campagne_corrections` |
-| Cote | Le nombre de type ELO d'un joueur aux duels, 1 000 au départ, relu de tout son journal de duels à chaque lecture | `releverLesDuels` |
-| Cote figée | La cote de chacun des deux joueurs, écrite au lancement d'un duel contre quelqu'un : l'autre bouge contre elle | `campagne_duels.cote_auteur` |
+| Cote | La cote qu'on voit d'un joueur aux duels — ses ligues, son classement, ses bordures —, 1 000 au départ, qui avance par la montée ; relue de tout son journal de duels à chaque lecture | `releverLesDuels` |
+| Cote cachée | L'ELO seul d'un joueur aux duels, placement compris : son niveau, sur lequel Automate se règle. Elle ne se montre nulle part | `ReleveDesDuels.cachee` |
+| Cote figée | Les cotes de chacun des deux joueurs — celle qu'on voit et la cachée —, écrites au lancement d'un duel contre quelqu'un : l'autre bouge contre elles | `campagne_duels.cote_auteur`, `cote_cachee_auteur` |
 | Coulisses | Ce que l'écran projeté laisse à la télécommande : la liste des quiz, la grille des prix | `coulissesAilleurs` (`client/src/views/HostApp.tsx`) |
 | Coup d'œil | La part de la salle qu'une estimation bat ou égale ; celui d'un joueur est la moyenne des siens | `coupDOeil` (`server/src/core/journal.ts`) |
 | Cran (d'une bordure) | Un duel gagné dans une ligue, serti sur sa bordure ; douze la sertissent | `CRANS_D_UNE_BORDURE` |
@@ -137,7 +138,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
-| Écart (d'un duel) | Ce qu'un duel joué a fait à la cote, en points entiers | `ecartContre` |
+| Écart (d'un duel) | Ce qu'un duel joué a fait à la cote qu'on voit, en points entiers, plancher compris | `apresLeDuel` |
 | Écart (d'une estimation) | La distance d'une estimation à la bonne réponse, comptée sur les nombres tapés | `ecartEstimation` |
 | Écart typique | La médiane des écarts de la salle à une estimation, bornée par deux crans et par la bonne réponse : la moitié de la proximité s'y gagne | `pointsDesEstimations` |
 | Échec passager | Un échec qui passe tout seul — le réseau qui revient, l'hébergeur qui se réveille — et qu'une écriture rejouable peut attendre | `statutPassager`, `echecPassager` (`shared/erreurs.ts`), `auReveil` (`client/src/api.ts`) |
@@ -152,7 +153,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Emoji récent | Un emoji d'Unicode 13 ou après, que l'écran commun sous Windows 10 dessine en carré vide | `emojisRecents` |
 | En ligne | Un ami réciproque passé ces 5 dernières minutes, tenu en mémoire seulement | `EN_LIGNE_MS` |
 | Enchaînement | La question suivante qui part seule après la révélation, au délai choisi (5, 10 ou 20 secondes) ; suspendu après une question sans une seule réponse | `autoNextSeconds`, `PALIERS_ENCHAINEMENT` |
-| Enjeu | Ce qu'un duel ferait à la cote — gagné, à égalité ou perdu —, dit avant et pendant la partie | `enjeuContre` |
+| Enjeu | Ce qu'un duel ferait à la cote qu'on voit — gagné, à égalité ou perdu —, dit avant et pendant la partie ; sous l'Or, une défaite rapporte souvent : « +2 même si tu perds » | `enjeuContre` |
 | Entourage | Ce qui entoure une question jouée : l'anecdote, la note, l'intertitre, la photo de la révélation, l'extrait — le moteur décide qui les reçoit, et quand | `Entourage` |
 | Entrée de départ | L'état de l'entrée d'un invité — l'instantané des téléphones, le profil du cookie —, servi avant la liaison temps réel | `EntreeDeDepart` (`shared/depart.ts`), `/s/<espace>/entree.json` |
 | Épreuve (d'un sentier) | La partie de seize questions qui valide un palier : une série de la campagne d'un autre mode | `campagne_series.mode = 'sentier'` |
@@ -291,6 +292,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Mode « en ligne » | Ce que le serveur active quand `RENDER` est posée ou que `NODE_ENV` vaut `production` : refus sans base permanente, cookies `Secure`, origine publique imposée | `online` |
 | Modèle | Un des onze quiz livrés, fichier de `server/content/quiz/`, qu'on copie dans sa bibliothèque | `lireModeles` |
 | Modèle du savoir | L'ajustement, sur la première réponse de chacun, des forces des joueurs, de leurs écarts par catégorie et des difficultés des questions ; seul Automate le lit | `server/src/core/modeleDuSavoir.ts` |
+| Montée | La règle de la cote qu'on voit aux duels, depuis le 14 octobre 2026 : sous l'Or, chaque duel rapporte et une défaite ne coûte presque rien ; dès l'Or, l'enjeu suit l'écart ; l'argent et l'or ne se perdent plus ; qui lance un défi gagne un point de plus | `apresLeDuel`, `MONTEE` |
 | Module de jeu | Les règles d'un jeu branchées sur le moteur : phases, chronomètres, barème et vues | `quizModule` |
 | Mois complet | Le haut fait de qui a joué chaque jour de quiz d'un mois qui en a eu vingt-huit au moins | `JOURS_D_UN_MOIS_COMPLET` |
 | Motif | Le message en français qu'une page montre quand une requête échoue, et qui dit quoi faire | `MOTIFS` (`shared/erreurs.ts`) |
@@ -342,7 +344,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Pilote | La commande par laquelle un agent de la tablée fait un geste — voir, toucher, écrire, répondre —, un geste par commande | `server/scripts/tablee/pilote.mjs` |
 | Piste | Un trophée qui se cumule sur la carrière et monte en trois étapes — bronze, argent, or —, chacune disant ce qu'elle ouvre ; le code dit « haut fait de carrière » | `shared/pistes.ts` |
 | Piste du jour | Un trophée de carrière en trois étapes que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) ; le code appelle chaque étape un palier | `accorderPaliersDuJour` |
-| Placement | Les 10 premiers duels d'un joueur, qui comptent double ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
+| Placement | Les 10 premiers duels d'un joueur, qui comptent double sur sa cote cachée ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
+| Plancher (d'une cote) | Le seuil de la plus haute ligue gardée qu'un joueur a atteinte — l'argent, puis l'or : sa cote qu'on voit ne redescend plus dessous | `plancherApres`, `LIGUES_GARDEES` |
 | Planche | Une image où chaque dessin peint paraît dans tous ses états, rendue par les vrais composants, sans serveur | `server/scripts/planche-medaillons.ts` |
 | Les plus beaux | Les trois trophées qu'une carte montre quand son profil n'a pas choisi sa vitrine — exploits et plus hautes étapes de piste, les plus rares d'après une rareté mesurée d'avance | `plusBeaux` |
 | Les plus proches | Les trois objectifs commencés les plus avancés : un légendaire, ou l'étape suivante d'une piste | `lesPlusProches` |

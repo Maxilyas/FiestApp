@@ -21,7 +21,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { DUELS_OUVERTS_MAX, DUREE_D_UN_DUEL_MS, VIES } from '../../shared/campagne'
-import { COTE_DE_DEPART, coteDuScore, ecartContre, enjeuContre, ligueDe, releverLesDuels, type DuelJoue } from '../../shared/duels'
+import { COTE_DE_DEPART, PART_DU_LANCEUR, coteDuScore, ecartContre, ecartDeLaMontee, enjeuContre, ligueDe, releverLesDuels, type DuelJoue } from '../../shared/duels'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -80,19 +80,35 @@ test('le relevé d’un duel contre quelqu’un se joue contre la cote d’en fa
   const t = Date.UTC(2026, 9, 6, 10)
   const semaine = () => '2026-10-05'
   const contreFort: DuelJoue = { serie: 'a', justes: 9, sesJustes: 8, finiLe: t, coteAdverse: 1400 }
-  const ecart = releverLesDuels([contreFort], semaine).ecarts.get('a')!.ecart
-  assert.equal(ecart, ecartContre(COTE_DE_DEPART, 1400, 0, 1))
-  // Huit bonnes réponses en face valent la cote de départ : battre un joueur classé à 1400 rapporte bien plus.
+  const releve = releverLesDuels([contreFort], semaine)
+  const ecart = releve.ecarts.get('a')!.ecart
+  assert.equal(ecart, ecartDeLaMontee(COTE_DE_DEPART, 1400, 1))
+  // Huit bonnes réponses en face valent à peine plus que la cote de départ : battre un joueur classé à 1400 rapporte bien plus.
   const contreSonScore = releverLesDuels([{ ...contreFort, coteAdverse: undefined }], semaine).ecarts.get('a')!.ecart
-  assert.equal(contreSonScore, ecartContre(COTE_DE_DEPART, coteDuScore(8), 0, 1))
+  assert.equal(contreSonScore, ecartDeLaMontee(COTE_DE_DEPART, coteDuScore(8), 1))
   assert.ok(ecart > contreSonScore)
   // Ce que la préparation dit avant de jouer, c'est ce que le relevé fera.
-  assert.deepEqual(enjeuContre(COTE_DE_DEPART, 1400, 0), {
+  assert.deepEqual(enjeuContre({ cote: COTE_DE_DEPART }, 1400), {
     cote: COTE_DE_DEPART,
     gagne: ecart,
-    egalite: ecartContre(COTE_DE_DEPART, 1400, 0, 0.5),
-    perdu: ecartContre(COTE_DE_DEPART, 1400, 0, 0),
+    egalite: ecartDeLaMontee(COTE_DE_DEPART, 1400, 0.5),
+    perdu: ecartDeLaMontee(COTE_DE_DEPART, 1400, 0),
   })
+  // Qui l'a lancé y gagne un point de plus, quoi qu'il arrive : provoquer paie.
+  assert.equal(releverLesDuels([{ ...contreFort, lance: true }], semaine).ecarts.get('a')!.ecart, ecart + PART_DU_LANCEUR)
+  const enjeu = enjeuContre({ cote: COTE_DE_DEPART }, 1400)
+  assert.deepEqual(enjeuContre({ cote: COTE_DE_DEPART }, 1400, true), {
+    cote: COTE_DE_DEPART,
+    gagne: enjeu.gagne + PART_DU_LANCEUR,
+    egalite: enjeu.egalite + PART_DU_LANCEUR,
+    perdu: enjeu.perdu + PART_DU_LANCEUR,
+  })
+  // La cote cachée, l'ELO seul, bouge contre la cote cachée d'en face, figée avec l'autre — un duel d'avant la montée n'en a
+  // pas : contre la seule qu'il a figée.
+  assert.equal(releve.cachee, COTE_DE_DEPART + ecartContre(COTE_DE_DEPART, 1400, 0, 1))
+  const deuxCotes = releverLesDuels([{ ...contreFort, coteCacheeAdverse: 1100 }], semaine)
+  assert.equal(deuxCotes.cachee, COTE_DE_DEPART + ecartContre(COTE_DE_DEPART, 1100, 0, 1))
+  assert.equal(deuxCotes.cote, releve.cote, 'celle qu’on voit bouge toujours contre celle qu’on voyait en face')
 })
 
 test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; joué des deux côtés, chacun bouge contre la cote de l’autre, figée au lancement', async () => {
@@ -105,18 +121,25 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     const [deLea, deTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
     // Tom a déjà joué : six duels au hasard gagnés, la semaine passée.
     duelsJoues(banc, deTom, 6, 12, 8, horloge.t - 3 * JOUR_MS)
-    const coteDeTom = (await lire(banc, tom, '/api/duels')).corps.cote
+    const { cote: coteDeTom, plancher: plancherDeTom } = (await lire(banc, tom, '/api/duels')).corps
     assert.ok(coteDeTom > COTE_DE_DEPART)
 
     // On ne se défie pas soi-même, ni un inconnu.
     assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: deLea })).corps.error, 'Tu ne peux pas te défier toi-même : choisis quelqu’un d’autre')
     assert.equal((await poster(banc, lea, '/api/campagne/duel', { adversaire: 'personne' })).corps.error, 'Ce joueur est introuvable : cherche-le de nouveau')
 
-    // Léa le défie, sur l'histoire : ce qui se joue se dit contre sa cote à lui.
+    // Léa le défie, sur l'histoire : ce qui se joue se dit contre sa cote à lui — et elle a lancé le défi.
     const lance = await poster(banc, lea, '/api/campagne/duel', { categories: ['Histoire'], adversaire: deTom })
     assert.equal(lance.status, 200, lance.corps.error)
     const code: string = lance.corps.code
-    assert.deepEqual(lance.corps.enjeu, enjeuContre(COTE_DE_DEPART, coteDeTom, 0))
+    assert.deepEqual(lance.corps.enjeu, enjeuContre({ cote: COTE_DE_DEPART }, coteDeTom, true))
+    // Les deux cotes de chacun, figées au lancement : celle qu'on voit, et la cachée — celle de Tom, son ELO, sur le même journal.
+    const sixDuels = Array.from({ length: 6 }, (_, i): DuelJoue => ({ serie: `t${i}`, justes: 12, sesJustes: 8, finiLe: i }))
+    assert.deepEqual(await coteAuLancement(banc, code), {
+      auteur: COTE_DE_DEPART,
+      adversaire: coteDeTom,
+      cachees: { auteur: COTE_DE_DEPART, adversaire: releverLesDuels(sixDuels, () => '').cachee },
+    })
     // Tant qu'elle joue, rien n'arrive chez Tom : ni dans ses duels, ni à l'accueil.
     assert.deepEqual((await lire(banc, tom, '/api/campagne/amis')).corps.recus, [])
     assert.deepEqual((await lire(banc, tom, '/api/duels')).corps.contre, [])
@@ -173,7 +196,8 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     assert.deepEqual(pourTom.auteur, { nom: 'Léa', avatar: '🦊' })
     assert.equal(pourTom.aBattre, undefined, 'son score se dévoile à sa dernière réponse')
     assert.deepEqual(pourTom.lignes, [], 'ni sur la ligne du score')
-    assert.deepEqual(pourTom.enjeu, enjeuContre(coteDeTom, COTE_DE_DEPART, 6))
+    // Pour Tom, défié : sans la part du lanceur, et jamais sous la ligue qu'il garde.
+    assert.deepEqual(pourTom.enjeu, enjeuContre({ cote: coteDeTom, plancher: plancherDeTom }, COTE_DE_DEPART))
     assert.deepEqual((await lire(banc, tom, '/api/duels')).corps.contre, [
       { code, contre: { profileId: deLea, nom: 'Léa', avatar: '🦊' }, lance: false, categories: ['Histoire'], justes: null, sesJustes: null, minutesRestantes: (DUREE_D_UN_DUEL_MS - 60_000) / 60_000 },
     ])
@@ -190,13 +214,15 @@ test('défier quelqu’un : il le reçoit à sa dernière réponse, sans lien ; 
     assert.deepEqual([finTom.finie, finTom.justes, finTom.vies, finTom.suivante], [true, 5, VIES, undefined], 'gagné : plus rien à jouer')
     assert.deepEqual(finTom.contre, { nom: 'Léa', avatar: '🦊', justes: 4, profileId: deLea }, 'sa fin dit qui l’a lancé, et son score')
     assert.equal(finTom.classe, undefined)
-    const ecartDeTom = ecartContre(avantTom.cote, COTE_DE_DEPART, avantTom.joues, 1)
+    const ecartDeTom = enjeuContre({ cote: avantTom.cote, plancher: avantTom.plancher }, COTE_DE_DEPART).gagne
     assert.equal(finTom.duel.avant, avantTom.cote)
     assert.equal(finTom.duel.ecart, ecartDeTom, 'Tom bouge contre la cote de Léa au lancement')
     assert.equal(finTom.duel.apres, avantTom.cote + ecartDeTom)
     assert.equal(finTom.duel.rang, 1, 'et sa place au classement, sa cote d’après comptée')
     // Léa bouge contre la cote de Tom au lancement — pas celle d'après son duel au hasard, ni celle de son score.
-    const ecartDeLea = ecartContre(COTE_DE_DEPART, coteDeTom, 0, 0)
+    // Perdu, sous l'Or, et lancé par elle : il lui rapporte quand même.
+    const ecartDeLea = enjeuContre({ cote: COTE_DE_DEPART }, coteDeTom, true).perdu
+    assert.ok(ecartDeLea > 0, `qui provoque ne recule pas sous l’Or : ${ecartDeLea}`)
     const apresLea = (await lire(banc, lea, '/api/duels')).corps
     assert.equal(apresLea.cote, COTE_DE_DEPART + ecartDeLea)
     assert.equal(apresLea.joues, 1)
@@ -274,7 +300,7 @@ test('un duel joué des deux côtés ne compte plus parmi les ouverts ; fermé, 
     horloge.t += DUREE_D_UN_DUEL_MS + 60_000
     const deHugoApres = (await lire(banc, hugo, '/api/duels')).corps
     assert.equal(deHugoApres.joues, 1)
-    assert.equal(deHugoApres.cote, COTE_DE_DEPART + ecartContre(COTE_DE_DEPART, (await coteAuLancement(banc, contreLea.corps.code)).adversaire, 0, 1))
+    assert.equal(deHugoApres.cote, COTE_DE_DEPART + enjeuContre({ cote: COTE_DE_DEPART }, (await coteAuLancement(banc, contreLea.corps.code)).adversaire, true).gagne)
     const ligne = deHugoApres.contre.find((d: any) => d.code === contreLea.corps.code)
     assert.deepEqual([ligne.justes, ligne.sesJustes, ligne.minutesRestantes], [5, 2, 0])
     assert.equal(deHugoApres.contre.find((d: any) => d.code === contreTom.corps.code).ecart, undefined, 'jamais ouvert : personne ne perd de points en dormant')
@@ -321,11 +347,11 @@ test('autant de duels en attente qu’on veut, un par adversaire — tous dans s
   }
 })
 
-/** Les deux cotes qu'un duel a figées à son lancement. */
-async function coteAuLancement(banc: Banc, code: string): Promise<{ auteur: number; adversaire: number }> {
+/** Les cotes qu'un duel a figées à son lancement : celles qu'on voit, et les cachées. */
+async function coteAuLancement(banc: Banc, code: string): Promise<{ auteur: number; adversaire: number; cachees: { auteur: number; adversaire: number } }> {
   return base(banc, db => {
-    const r = db.prepare('SELECT cote_auteur, cote_adversaire FROM campagne_duels WHERE code = ?').get(code) as { cote_auteur: number; cote_adversaire: number }
-    return { auteur: r.cote_auteur, adversaire: r.cote_adversaire }
+    const r = db.prepare('SELECT cote_auteur, cote_adversaire, cote_cachee_auteur, cote_cachee_adversaire FROM campagne_duels WHERE code = ?').get(code) as Record<string, number>
+    return { auteur: r.cote_auteur, adversaire: r.cote_adversaire, cachees: { auteur: r.cote_cachee_auteur, adversaire: r.cote_cachee_adversaire } }
   })
 }
 

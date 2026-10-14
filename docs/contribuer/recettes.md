@@ -19,7 +19,7 @@ Chaque recette suit les règles du dépôt. Un nouveau comportement arrive avec 
 - **Le quiz du jour** — [Ajouter un haut fait du quiz du jour](#ajouter-un-haut-fait-du-quiz-du-jour) · [Changer le barème du quiz du jour](#changer-le-barème-du-quiz-du-jour) · [Apprendre une nouvelle sorte de question au quiz du jour](#apprendre-une-nouvelle-sorte-de-question-au-quiz-du-jour)
 - **La campagne** — [Agrandir la base de la campagne](#agrandir-la-base-de-la-campagne) · [Ajouter un haut fait de campagne](#ajouter-un-haut-fait-de-campagne)
 - **Les sentiers du savoir** — [Changer un seuil ou un mélange de paliers](#changer-un-seuil-ou-un-mélange-de-paliers) · [Ajouter un parcours de thème](#ajouter-un-parcours-de-thème)
-- **Les duels** — [Changer la cote, une ligue ou la récompense du lundi](#changer-la-cote-une-ligue-ou-la-récompense-du-lundi) · [Ajouter une ligue](#ajouter-une-ligue) · [Régler Automate](#régler-automate)
+- **Les duels** — [Changer la cote, la montée, une ligue ou la récompense du lundi](#changer-la-cote-la-montée-une-ligue-ou-la-récompense-du-lundi) · [Ajouter une ligue](#ajouter-une-ligue) · [Régler Automate](#régler-automate)
 - **L'outillage** — [Écrire un test sur un serveur jetable](#écrire-un-test-sur-un-serveur-jetable) · [Ajouter une règle pour Claude](#ajouter-une-règle-pour-claude) · [Ajouter un personnage à la tablée](#ajouter-un-personnage-à-la-tablée)
 
 ## Le quiz
@@ -397,17 +397,17 @@ Rien d'autre : la série, la feuille du choix et la liste des parcours le lisent
 
 ## Les duels
 
-### Changer la cote, une ligue ou la récompense du lundi
+### Changer la cote, la montée, une ligue ou la récompense du lundi
 
-Ce sont des choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis-le avant de toucher, car tout se relit à chaque lecture — la cote, les ligues, les crans et les confettis de **tout le monde**, semaines passées comprises, changent d'un coup, sans `VERSION_BAREME` ni recalcul au démarrage.
+Ce sont des choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis-le avant de toucher, car tout se relit à chaque lecture — les deux cotes, les ligues, les crans et les confettis de **tout le monde**, semaines passées comprises, changent d'un coup, sans `VERSION_BAREME` ni recalcul au démarrage.
 
-1. Mesure d'abord ce que la règle neuve fait aux duels : `npx tsx scripts/calibrage-automate.ts` (depuis `server/`, options en tête de `server/scripts/calibrage-automate.ts`) rejoue des joueurs simulés sur la vraie base, au vrai tirage, avec la vraie règle de la cote.
-2. Change la constante dans `shared/duels.ts` (`COTE_DE_DEPART`, `POINTS_PAR_BONNE_REPONSE`, `DUELS_DE_PLACEMENT`, `POIDS_DU_PLACEMENT`, `POIDS_D_UN_DUEL`, `LIGUES`, `DUELS_POUR_LA_RECOMPENSE`, `JOURS_DU_CLASSEMENT`, `CRANS_D_UNE_BORDURE`).
-3. Relis les phrases qui l'écrivent en toutes lettres : « Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points » et « quatre semaines » dans `client/src/views/Duels.tsx` ; « cinq dernières minutes » dans `client/src/views/Amis.tsx` (pour `EN_LIGNE_MS`, `server/src/auth/profiles.ts`). Les autres lisent la constante.
-4. Corrige sa ligne dans `docs/reference/baremes.md` : `server/test/documentation.test.ts` compare la valeur écrite à celle du code.
-5. Ajuste les attentes de `server/test/duels.test.ts` (la cote, l'enjeu, la récompense du lundi), `server/test/duels-place.test.ts` et `server/test/bordures.test.ts` — sans supprimer une assertion.
+1. Mesure d'abord ce que la règle neuve fait aux duels. Sur les vrais duels : `npx tsx scripts/calibrage-duels.ts` (depuis `server/`, en lecture seule, sur `PROD_LECTURE_URL` — jamais `QUIZ_DB_URL` ; `--echelles`, `--participation`) les rejoue tous, à l'ELO d'avant, aux règles du code et à l'essai. Pour Automate : `npx tsx scripts/calibrage-automate.ts` rejoue des joueurs simulés sur la vraie base, au vrai tirage, avec la vraie règle de la cote cachée.
+2. Change la constante dans `shared/duels.ts` (`COTE_DE_DEPART`, `SCORE_DE_REFERENCE`, `POINTS_PAR_BONNE_REPONSE`, `DUELS_DE_PLACEMENT`, `POIDS_DU_PLACEMENT`, `POIDS_D_UN_DUEL`, `PARTICIPATION_SOUS_L_OR`, `PARTICIPATION_AU_DESSUS`, `PART_DU_LANCEUR`, `PERTE_SOUS_L_OR`, `LIGUES_GARDEES`, `LIGUES`, `DUELS_POUR_LA_RECOMPENSE`, `JOURS_DU_CLASSEMENT`, `CRANS_D_UNE_BORDURE`).
+3. Relis les phrases qui l'écrivent en toutes lettres : « Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points », « L'argent et l'or, une fois atteints, ne se perdent plus » et « quatre semaines » dans `client/src/views/Duels.tsx` ; « cinq dernières minutes » dans `client/src/views/Amis.tsx` (pour `EN_LIGNE_MS`, `server/src/auth/profiles.ts`). Les autres lisent la constante.
+4. Corrige sa ligne dans `docs/reference/baremes.md` : `server/test/documentation.test.ts` compare la valeur écrite à celle du code ; et le tableau de ce qui se joue dans `docs/produit/les-duels.md`.
+5. Ajuste les attentes de `server/test/duels.test.ts` (la cote, l'enjeu, la récompense du lundi), `server/test/duels-place.test.ts`, `server/test/bordures.test.ts` et `server/test/duels-montee.test.ts` — sans supprimer une assertion : ce dernier garde la promesse du propriétaire, qui joue monte en Or, même pas très bon.
 
-À ne pas oublier : les deux cotes d'un duel contre quelqu'un, écrites à son lancement (`campagne_duels.cote_auteur`, `cote_adversaire`), ne se relisent pas — les duels déjà lancés gardent la force d'en face de l'ancienne règle.
+À ne pas oublier : les cotes d'un duel contre quelqu'un, écrites à son lancement (`campagne_duels.cote_auteur`, `cote_adversaire`, et leurs cachées `cote_cachee_auteur`, `cote_cachee_adversaire`), ne se relisent pas — les duels déjà lancés gardent la force d'en face de l'ancienne règle.
 
 ### Ajouter une ligue
 
@@ -422,8 +422,8 @@ Ce sont des choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis
 
 ### Régler Automate
 
-1. `server/src/core/campagne.ts` : `ECART_D_AUTOMATE` (l'écart permis autour de ce qu'on attend de lui), `partieDAutomate` (les tirages), `automatePour` (son niveau : `niveauPourLeDuel`, de `shared/duels.ts`) ; les a priori du modèle dans `server/src/core/modeleDuSavoir.ts` (`ECART_DES_FORCES`, `ECART_DES_CATEGORIES`).
-2. Mesure avant et après avec `server/scripts/calibrage-automate.ts` : la part des duels gagnés, à égalité, perdus, l'écart de son score au niveau de la cote, et les enjeux déséquilibrés.
+1. `server/src/core/campagne.ts` : `ECART_D_AUTOMATE` (l'écart permis autour de ce qu'on attend de lui), `partieDAutomate` (les tirages), `automatePour` (son niveau : `niveauPourLeDuel`, de `shared/duels.ts`, sur la cote cachée — jamais celle qu'on voit, que la montée porte au-dessus du niveau) ; les a priori du modèle dans `server/src/core/modeleDuSavoir.ts` (`ECART_DES_FORCES`, `ECART_DES_CATEGORIES`).
+2. Mesure avant et après avec `server/scripts/calibrage-automate.ts` : la part des duels gagnés, à égalité, perdus, l'écart de son score au niveau de la cote cachée, et les enjeux déséquilibrés de l'ELO seul. Un Automate plus fort fait gagner moins souvent : relance `server/test/duels-montee.test.ts`, qui garde la promesse de la montée.
 3. Corrige les lignes de `docs/reference/baremes.md`.
 
 À ne pas oublier : ses réponses sont tirées au lancement du dé et gardées dans la série (`campagne_series.adversaire`) — une règle neuve ne vaut que pour les dés suivants. Le modèle du savoir ne règle que lui : n'en fais pas lire les marches des séries, des sentiers ou du quiz tout prêt sans recalibrer leurs mélanges. Les tests : `server/test/campagne-rencontre.test.ts` (son niveau, l'écart tenu, la fin anticipée) et `server/test/modele-du-savoir.test.ts`.

@@ -13,6 +13,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX, VIES, issueDeRencontre, xpDeLaBonneReponse, type Niveau } from '../../shared/campagne'
+import { SCORE_DE_REFERENCE } from '../../shared/duels'
 import { CampagneStore, ECART_D_AUTOMATE, jouerSesChances, partieDAutomate } from '../src/core/campagne'
 import { AUCUN_ECART, chancesDeReference, forcePourLeNiveau, scoreAttendu, serieDeReference } from '../src/core/modeleDuSavoir'
 import { ProfileStore } from '../src/auth/profiles'
@@ -64,7 +65,7 @@ async function serieFinie(banc: Banc, cookie: string, justes: number) {
 
 // Son niveau ne se lit plus à la médiane de ses dix dernières séries, mais
 // dans toutes ses réponses (le modèle du savoir) : `modele-du-savoir.test.ts`
-// en vérifie la règle — sans réponse, huit bonnes réponses ; ni une série
+// en vérifie la règle — sans réponse, le score de référence ; ni une série
 // ratée d'entrée ni un coup de chance ne le déplacent beaucoup.
 test('l’issue se lit contre le score entier d’en face', () => {
   assert.deepEqual([issueDeRencontre(11, 9), issueDeRencontre(9, 9), issueDeRencontre(8, 9)], ['gagnee', 'egalite', 'perdue'])
@@ -197,7 +198,7 @@ test('le dé ne joue que contre Automate, même quand un ami a fini une série :
     assert.equal(seule.status, 200, seule.corps.error)
     assert.deepEqual(seule.corps.adversaire, { nom: 'Automate', avatar: '🤖', simule: true }, 'dit simulé, et sans son score')
     assert.ok(seule.corps.enjeu, 'ce qui se joue sur sa cote, comme contre un joueur')
-    assert.equal(niveaux.at(-1), 8, 'sans série ni duel : la marche des moyennes')
+    assert.equal(niveaux.at(-1), SCORE_DE_REFERENCE, 'sans série ni duel : le niveau de la cote de départ')
     const garde = adversaireGarde(banc, seule.corps.serie.id)
     assert.deepEqual([garde.simule, garde.profil, garde.serie], [true, '', seule.corps.serie.id])
     assert.deepEqual(garde.reponses, [...Array(6).fill(true), ...Array(VIES).fill(false)], 'ses réponses, gardées au départ comme celles d’un joueur')

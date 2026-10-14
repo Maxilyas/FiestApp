@@ -35,6 +35,14 @@ export const RELEVE_MS = 10 * 60_000
 export const SILENCE_D_UN_ARRET_MS = 2 * RELEVE_MS
 /** Au-delà d'une seconde au 95ᵉ centile, chaque page attend la base. */
 export const TURSO_LENT_MS = 1000
+/**
+ * La garde du `fetch` de Node : undici referme une connexion restée inactive
+ * 4 s quand le serveur ne dit pas son délai (`keepAliveTimeout`). Turso ne le
+ * dit pas, et chaque connexion rouverte repayait sa poignée de main — 225 ms
+ * l'aller-retour contre 29 sur une connexion gardée, en production, le 14
+ * octobre 2026 (`server/src/core/connexions.ts`).
+ */
+export const GARDE_DE_NODE_MS = 4_000
 /** Un 95ᵉ centile ne se juge pas sur trois allers-retours : ceux du réveil, plus lents, le feraient mentir. */
 export const ALLERS_RETOURS_POUR_JUGER = 20
 /** L'hébergeur gratuit donne 512 Mo et tue l'instance au-delà : l'alerte s'allume un peu avant. */
@@ -89,6 +97,31 @@ export interface ChargeDeLHeure {
   invitesMax: number
 }
 
+/**
+ * Les connexions vers Turso d'une heure (`core/connexions.ts`, la revue du 14
+ * octobre 2026) : celles qui se sont ouvertes — chacune a refait sa poignée
+ * de main —, celles que la base a refermées d'elle-même, les allers-retours
+ * tombés en route, et la garde en vigueur. Une garde plus longue que le délai
+ * de Turso se voit aux deux comptes du milieu.
+ */
+export interface ConnexionsDeLHeure {
+  ouvertes: number
+  /** Refermées par la base pendant que le serveur les gardait : son délai d'inactivité est plus court que la garde. */
+  refermeesParLaBase: number
+  /** L'âge de la plus jeune qu'elle a refermée : le délai de Turso tient en dessous. Null si elle n'en a refermé aucune. */
+  plusJeuneRefermeeMs: number | null
+  /** Réseau coupé, connexion fermée sous la requête, délai dépassé. */
+  echecs: number
+  /** Combien de temps une connexion inactive se garde : celle de Node (`GARDE_DE_NODE_MS`), ou `QUIZ_DB_KEEPALIVE_MS`. */
+  gardeMs: number
+  /**
+   * Le délai que la base annonce (`Keep-Alive: timeout=…`), le plus long de
+   * l'heure ; null si elle n'en dit rien. Undici le préfère à la garde : une
+   * garde plus longue ne sert à rien, la base referme à son heure.
+   */
+  annonceeMs: number | null
+}
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -105,6 +138,8 @@ export interface HeureDeSante {
   miroir: number
   /** Null sans un relevé de charge — une heure à peine commencée, ou une ligne d'avant. */
   charge: ChargeDeLHeure | null
+  /** Null pour une ligne d'avant le compte des connexions. */
+  connexions: ConnexionsDeLHeure | null
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -154,6 +189,9 @@ export interface HeureDuServeur {
   boucle: number | null
   memoire: number | null
   invites: number | null
+  /** La part des allers-retours vers Turso qui ont ouvert leur connexion, en pour cent ; null sans aller-retour, ou pour une heure d'avant le compte. */
+  connexionsNeuves: number | null
+  connexions: ConnexionsDeLHeure | null
 }
 
 export interface PageDuServeur {
@@ -216,6 +254,33 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
   }
 }
 
+/** Les connexions de deux démarrages dans la même heure : les comptes s'ajoutent, la plus jeune refermée reste la plus jeune, la garde la plus longue l'emporte. */
+export function fondreConnexions(a: ConnexionsDeLHeure | null, b: ConnexionsDeLHeure | null): ConnexionsDeLHeure | null {
+  if (!a) return b
+  if (!b) return a
+  const ages = [a.plusJeuneRefermeeMs, b.plusJeuneRefermeeMs].filter((ms): ms is number => ms !== null)
+  const annonces = [a.annonceeMs, b.annonceeMs].filter((ms): ms is number => typeof ms === 'number')
+  return {
+    ouvertes: a.ouvertes + b.ouvertes,
+    refermeesParLaBase: a.refermeesParLaBase + b.refermeesParLaBase,
+    plusJeuneRefermeeMs: ages.length ? Math.min(...ages) : null,
+    echecs: a.echecs + b.echecs,
+    gardeMs: Math.max(a.gardeMs, b.gardeMs),
+    annonceeMs: annonces.length ? Math.max(...annonces) : null,
+  }
+}
+
+/**
+ * La part des allers-retours qui ont ouvert leur connexion, en pour cent :
+ * à 100, chacun a refait sa poignée de main. Un aller-retour tombé en route
+ * a pu ouvrir la sienne sans compter parmi ceux qui ont abouti — d'où la
+ * borne.
+ */
+export function partDesConnexionsNeuves(base: Releve | null, connexions: ConnexionsDeLHeure | null): number | null {
+  if (!connexions || !base || base.n === 0) return null
+  return Math.min(100, Math.round((connexions.ouvertes / base.n) * 100))
+}
+
 /** Les lignes d'une même heure, tous démarrages confondus. */
 export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante, 'demarrage'> | null {
   if (lignes.length === 0) return null
@@ -224,12 +289,14 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
   let base: Releve | null = null
   let routes: Releve | null = null
   let charge: ChargeDeLHeure | null = null
+  let connexions: ConnexionsDeLHeure | null = null
   let miroir = 0
   for (const l of lignes) {
     base = fondreReleves(base, l.base)
     routes = fondreReleves(routes, l.routes)
-    // Une ligne d'avant la charge n'en porte pas.
+    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions.
     charge = fondreCharges(charge, l.charge ?? null)
+    connexions = fondreConnexions(connexions, l.connexions ?? null)
     miroir += l.miroir
     for (const [source, n] of Object.entries(l.erreurs)) erreurs[source] = (erreurs[source] ?? 0) + n
     for (const r of l.lentes) {
@@ -245,6 +312,7 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
     erreurs,
     miroir,
     charge,
+    connexions,
   }
 }
 
@@ -319,6 +387,8 @@ export function pageDuServeur(
       boucle: h?.charge?.boucleMaxMs ?? null,
       memoire: h?.charge?.memoireMaxMo ?? null,
       invites: h?.charge?.invitesMax ?? null,
+      connexionsNeuves: h ? partDesConnexionsNeuves(h.base, h.connexions) : null,
+      connexions: h?.connexions ?? null,
     })
   }
 

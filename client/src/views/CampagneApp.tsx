@@ -7,7 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, corpsDeLaVisee, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { ceQuIlPorte, ecartSigne, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { apresLaPerte, ceQuIlPorte, ecartSigne, scoreDeRencontre, siTuPerds, type ContreEnJeu } from './Rencontre'
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
@@ -767,7 +767,8 @@ export function CampagneApp() {
    * carte d'un joueur y mène de l'accueil, du quiz du jour ou d'un défi, et
    * la préparation le relit en arrivant, sa propre cote avec.
    */
-  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }>({
+  // Sa cote avec son plancher — la ligue qu'il garde : sans lui, la préparation annonçait une perte qu'il empêche.
+  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number; plancher?: number } }>({
     categories: [],
     sujet: null,
   })
@@ -815,7 +816,7 @@ export function CampagneApp() {
     }
     // Ses catégories et son sujet du moment : lus à l'arrivée, ils ne relancent rien.
   }, [adversaireAttendu, contreQui, ecran.e])
-  const ouvrirLeLancement = (adversaire?: JoueurADefier, moi?: { cote: number; joues: number }) => {
+  const ouvrirLeLancement = (adversaire?: JoueurADefier, moi?: { cote: number; joues: number; plancher?: number }) => {
     setDepart({ categories, sujet, ...(adversaire && { adversaire }), ...(moi && { moi }) })
     setContreQui(adversaire?.profileId ?? null)
     history.pushState(
@@ -1427,10 +1428,19 @@ export function CampagneApp() {
             <span className="muted small">{ecran.contre.aDejaJoue ? 'son score : à ta dernière réponse' : `${ecran.contre.nom} jouera après toi`}</span>
           </p>
         )}
-        {/* Ce que le duel met en jeu sur sa cote, dit à chaque question : on sait pour quoi on joue. */}
+        {/* Ce que le duel met en jeu sur sa cote, dit à chaque question : on sait pour quoi on joue. Sous l'Or, une défaite
+            rapporte souvent quelque chose (la montée) : elle se dit en vert, « même si tu perds », jamais en menace. */}
         {enjeu && !r?.finie && (
           <p className="muted small duels-enjeu">
-            En jeu : <b className="duels-plus">{ecartSigne(enjeu.gagne)}</b> si tu gagnes, <b className="duels-moins">{ecartSigne(enjeu.perdu)}</b> si tu perds
+            En jeu : <b className="duels-plus">{ecartSigne(enjeu.gagne)}</b> si tu gagnes,{' '}
+            {enjeu.perdu === 0 ? (
+              siTuPerds(enjeu.perdu)
+            ) : (
+              <>
+                <b className={enjeu.perdu > 0 ? 'duels-plus' : 'duels-moins'}>{ecartSigne(enjeu.perdu)}</b>
+                {apresLaPerte(enjeu.perdu)}
+              </>
+            )}
           </p>
         )}
         {q.categorie && <span className="label quiz-categorie">{q.categorie}</span>}
