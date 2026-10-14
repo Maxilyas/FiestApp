@@ -18,7 +18,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Administrateur | Le compte créé au premier démarrage, seul à entrer au QG | `role: 'admin'` |
 | Adresse inconnue | Une adresse qui ne mène à aucune page : le serveur répond 404 et la page propose « Rejoindre une soirée » | `parseRoute` (sorte `unknown`), `client/src/views/LandingApp.tsx` |
 | Album des avatars | La partie avatars de « Ma collection » : une page par rareté, de « Commune » à « Divin » | `shared/album.ts` |
-| Album du style | La partie de « Ma collection » qui range les fonds de carte, les gerbes, les finitions et les bordures de ligue (les thèmes ont leur album) : en couleur ce qu'on a, éteint le reste, ce qu'il faut sous chaque case, et au toucher sa fiche — comment l'avoir, où l'on en est, « Essayer » | `AlbumDuStyle` (`client/src/components/AlbumDuStyle.tsx`), `objetsDuStyle` (`shared/style.ts`) |
+| Album du style | La partie de « Ma collection » qui range les fonds de carte, les gerbes, les finitions et les bordures de ligue (les thèmes ont leur album) : en couleur ce qu'on a, éteint le reste, ce qu'il faut sous chaque case, et au toucher sa fiche — comment l'avoir, où l'on en est, et « Essayer » pour ce qu'on a sans le porter | `AlbumDuStyle` (`client/src/components/AlbumDuStyle.tsx`), `objetsDuStyle` (`shared/style.ts`) |
 | Allure (d'une gerbe) | Son nombre de particules, leur taille et leur durée : un ballon flotte, une étincelle file | `AllureDeGerbe` |
 | Ami | Un profil qu'on a mis dans sa liste, sans demande, ou avec qui on a joué un défi entre amis | `idsDesAmis` |
 | Amorce (de la bibliothèque) | Les deux modèles marqués `"amorce": true`, qui entrent une seule fois, au premier démarrage d'une base, dans la bibliothèque de l'administrateur | `seedLibrary` |
@@ -123,7 +123,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Désactiver (un espace) | Fermer un espace sans rien effacer : ni console, ni invités ; ses pages publiques restent lisibles | `accounts.disabled_at` |
 | Difficulté estimée | La note de 1 à 5 donnée à une question quand on l'écrit. Elle sert d'a priori à sa marche | `TAUX_A_PRIORI` |
 | Distinctions du souvenir | Le plus beau coup, le plus régulier, le vainqueur de chaque quiz, au souvenir | `client/src/components/Trophies.tsx` |
-| Divin | Un des six avatars à part, dont les règles et les récits sont secrets et ne quittent jamais le serveur | `server/src/core/divins.ts` |
+| Divin | Un des six avatars à part, dont les règles et les récits sont secrets : les règles ne quittent jamais le serveur, et le récit n'est dit qu'à son porteur | `server/src/core/divins.ts` |
 | Don (de confettis) | Des confettis que l'administrateur offre depuis la fiche d'un joueur, avec un mot, annoncés une fois sur son accueil et jamais repris | `offrirDesConfettis` |
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |
@@ -222,7 +222,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Heure du serveur | L'horloge que lisent tous les chronomètres d'un écran, mesurée sur sa liaison | `serverNow`, `bestSample` (`shared/clock.ts`) |
 | Hook de démarrage | Le script qui installe les dépendances au début d'une session de Claude Code sur le web, et ne fait rien en local | `.claude/hooks/session-start.sh` |
 | Hors classement | Le chef d'un salon qui anime seulement : il répond pour le plaisir, et rien de lui ne compte | `horsClassement` |
-| Hors ligne | Un invité dont aucune connexion n'est ouverte ; seuls les écrans d'animateur le savent | `Party.isConnected`, `connected` |
+| Hors ligne | Un invité dont aucune connexion n'est ouverte ; seul l'instantané des écrans d'animateur le dit | `Party.isConnected`, `connected` |
 
 ## I
 
@@ -382,7 +382,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Rangement | Ce sous quoi une récompense est rangée — le nom d'une soirée, un jour, un mois, une série, une semaine — et qui l'emporte s'il est retiré | `soiree_id` |
 | Ranger | Faire entrer un lot vérifié dans le dépôt, sous des identifiants neufs | `server/scripts/base-campagne.ts` |
 | Rappel du soir | La seule notification de FiestApp : vers 18 h, aux téléphones abonnés dont la partie du jour n'est pas finie | `server/src/core/rappels.ts` |
-| Rareté | La part des profils actifs qui ont un trophée, de « Commune » à « Légendaire », muette sous dix profils | `rareteDe` |
+| Rareté | La part des profils non suspendus qui ont un trophée, de « Commune » à « Légendaire », muette sous dix profils | `rareteDe` |
 | Rareté (d'un thème) | Son rang, de Commune à Légendaire, décrété avec son prix plutôt que mesuré | `PRIX_DES_THEMES` |
 | Rattrapage | L'expérience versée une fois aux profils dont le niveau gardé dépassait la courbe du jour, pour qu'elle le leur donne | `rattraperLesNiveauxGeles` |
 | Rayon | Le rangement des modèles : « Pour une fête — tu écris les réponses » (`fete`) et « Pour jouer tout de suite » (`jeu`) | `rayon` |

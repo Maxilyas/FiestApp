@@ -168,7 +168,7 @@ Les sessions d'animateur : écrans communs, consoles, télés branchées.
 - **Espace** : par `account_id`.
 - **Écrite par** : `AuthStore` (connexion, appairage d'une télé, glissement de l'échéance).
 - **Lue par** : `AuthStore`.
-- **Effacée par** : la déconnexion, un changement de mot de passe ou de titulaire, la suppression de l'espace ; les sessions expirées, au démarrage.
+- **Effacée par** : la déconnexion, un changement de mot de passe ou de titulaire, la désactivation ou la suppression de l'espace ; les sessions expirées, au démarrage.
 
 ### `activations`
 
@@ -224,7 +224,7 @@ hauts faits hors des soirées), `#jour`, `#campagne`, `#rattrapage`.
 - **Colonnes clés** : `profile_id` et `soiree_id` (la clé), `space_id`, `xp`, `detail` (JSON versionné : `{ v, gain, releve }`), `created_at`, `joueur_id` (sa fiche dans la soirée).
 - **Espace** : oui pour une soirée ; vide pour les lignes à part.
 - **Écrite par** : `ProfileStore` — les crédits d'après chaque quiz et de la clôture, le quiz du jour, la campagne, le recalcul au démarrage.
-- **Lue par** : `ProfileStore` (total, niveau, historique) ; `JourStore` (une soirée jouée compte un jour de la série du jour).
+- **Lue par** : `ProfileStore` (total, niveau, historique) ; `JourStore` (une soirée jouée compte un jour de la série du jour) ; le QG (les participations, l'économie).
 - **Effacée par** : l'essai effacé, une soirée retirée de l'historique, l'exclusion (sa ligne de la soirée), l'espace supprimé « en reprenant », la suppression du profil.
 
 ### `profile_badges`
@@ -284,10 +284,10 @@ Les thèmes achetés en confettis, au prix payé.
 
 Les vies des sentiers du savoir achetées en confettis.
 
-- **Colonnes clés** : `id`, `profile_id`, `nombre`, `prix`, `created_at`.
+- **Colonnes clés** : `id`, `profile_id`, `nombre`, `prix`, `created_at` (indexée : le QG lit les achats jour par jour).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (`acheterVies`), jamais modifiée.
-- **Lue par** : `ProfileStore`, la campagne.
+- **Lue par** : `ProfileStore`, la campagne ; le QG (la page de la campagne, l'économie).
 - **Effacée par** : la suppression du profil.
 
 ### `profile_sabliers`
@@ -297,7 +297,7 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 - **Colonnes clés** : `id`, `profile_id`, `prix`, `created_at` (indexée : le QG compte ceux du mois).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (`acheterSablier`), jamais modifiée.
-- **Lue par** : `ProfileStore` ; `JourStore` (la série, le QG).
+- **Lue par** : `ProfileStore` ; `JourStore` (la série, le QG) ; l'économie du QG.
 - **Effacée par** : la suppression du profil.
 
 ### `profile_compagnons`
@@ -667,7 +667,7 @@ Les questions de la base de la campagne retirées pour tous.
 - **Colonnes clés** : `question_id` (la clé), `retiree_le`.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (« Retirer » au QG ; une correction qui change la bonne réponse).
-- **Lue par** : `CampagneStore`, à chaque tirage.
+- **Lue par** : `CampagneStore`, au démarrage, puis tenue en mémoire : chaque tirage écarte ses questions.
 - **Effacée par** : rien.
 
 ### `campagne_ajouts`
@@ -751,7 +751,7 @@ Les duels lancés : contre quelqu'un (classés), ou entre amis (d'avant).
 - **Colonnes clés** : `code` et `profile_id` (la clé), `envoye_le`.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
-- **Lue par** : `CampagneStore` (les défis reçus).
+- **Lue par** : `CampagneStore` (les défis reçus, les duels en attente du QG).
 - **Effacée par** : la suppression du profil, d'un côté ou de l'autre.
 
 ### `campagne_envois_prevus`

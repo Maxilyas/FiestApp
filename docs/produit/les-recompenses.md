@@ -271,7 +271,7 @@ Un écusson par catégorie, douze en tout (`shared/categories.ts`) : bronze à 2
 
 ## La rareté
 
-Chaque trophée de ton étagère a une rareté, **mesurée et non décrétée** : la part des profils actifs du serveur qui l'ont (`rareteDe`, `shared/badges.ts`).
+Chaque trophée de ton étagère a une rareté, **mesurée et non décrétée** : la part des profils du serveur, suspendus mis à part, qui l'ont (`rareteDe`, `shared/badges.ts`).
 
 | Commune | Peu commune | Rare | Épique | Légendaire |
 |---|---|---|---|---|
