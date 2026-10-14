@@ -277,14 +277,14 @@ Chaque trophée de ton étagère a une rareté, **mesurée et non décrétée** 
 |---|---|---|---|---|
 | la moitié au moins | un quart au moins | un sur dix au moins | trois sur cent au moins | moins |
 
-Elle bouge avec la population : un trophée que tout le monde finit par décrocher redevient commun. Sous dix profils (`PROFILS_POUR_RARETE`), elle se tait — à cinq inscrits, « légendaire » ne voudrait dire que « une seule personne l'a ». Les plus beaux d'une carte se rangent, eux, sur une rareté mesurée d'avance (`PART_DES_JOUEURS`, `shared/hautsfaits.ts`) : la part des joueurs qui ont chaque haut fait après quarante soirées simulées, estimée pour ceux du quiz du jour et de la campagne. L'expérience disait mal la rareté : L'Oracle paie 50, et trois joueurs sur quatre l'ont.
+Elle bouge avec la population : un trophée que tout le monde finit par décrocher redevient commun. Sous dix profils (`PROFILS_POUR_RARETE`), elle se tait — à cinq inscrits, « légendaire » ne voudrait dire que « une seule personne l'a ». Les plus beaux d'une carte se rangent, eux, sur une rareté mesurée d'avance (`PART_DES_JOUEURS`, `shared/hautsfaits.ts`) : la part des joueurs qui ont chaque haut fait, en moyenne sur quarante soirées simulées, estimée pour ceux du quiz du jour et de la campagne. L'expérience disait mal la rareté : L'Oracle paie 50, et trois joueurs sur quatre l'ont.
 
 ## Les Divins
 
 Six avatars à part : **Hélios**, **Le Séraphin**, **Le Lotus Sacré**, **L'Arbre-Monde**, **L'Ange Déchu** et **Chronos**.
 
 - **Leurs règles sont secrètes.** Elles vivent au serveur seul, dans `server/src/core/divins.ts`, avec leurs récits ; ni les pages de l'application ni cette documentation ne les disent. Le code des pages ne connaît que leurs noms (`shared/divins.ts`), et le récit d'un Divin ne va qu'à celui qui l'a reçu. Pas de jauge, pas de progression, pas de ligne sur l'étagère, aucun compte qui bougerait avant qu'un Divin descende. Tant qu'il n'est pas à toi, « Ma collection » le dit « Un Divin, inconnu ».
-- **Ils s'annoncent.** Cinq descendent à la clôture d'une soirée : sur le téléphone de qui le reçoit, avant tout le reste, avec son récit — « Un Divin est descendu sur toi » —, et à toute la salle, qui voit son nom et celui qui le porte, jamais le récit. Chronos descend sur une partie du quiz du jour : la fin de la partie le révèle, sur ton téléphone.
+- **Ils s'annoncent.** Cinq descendent à la clôture d'une soirée : sur le téléphone de qui le reçoit, juste sous « Ce que tu gagnes », avec son récit — « Un Divin est descendu sur toi » —, et à toute la salle, qui voit son nom et celui qui le porte, jamais le récit. Chronos descend sur une partie du quiz du jour : la fin de la partie le révèle, sur ton téléphone.
 - **Ce qu'ils sont.** Un avatar qui se porte comme un légendaire, une fois descendu sur toi ; ta carte montre ceux que tu as. Il a sa propre lumière : ni finition, ni Éclat, ni bordure de ligue. Aucune expérience, aucun avantage de jeu.
 - **Ce qui les reprend.** Un Divin de soirée part avec sa soirée, si elle est retirée ; Chronos, rangé sous son jour, ne se reprend jamais.
 

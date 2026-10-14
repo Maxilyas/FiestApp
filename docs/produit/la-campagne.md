@@ -35,9 +35,9 @@ Chaque valeur citée ici a sa ligne dans [les barèmes](../reference/baremes.md)
 - **« Ce que tu gagnes »** : l'expérience en un total, et ce qui la fait quand elle vient de plusieurs côtés (« ta série +60 · tes trophées +100 ») ; tes confettis ; ton niveau, relu après la partie, et « Niveau 12 ! » s'il monte ;
 - en grand, l'Éclat du défi et les légendaires ;
 - **« Nouveaux trophées »** : trois au plus, les plus rares d'abord — les étapes d'une même piste sur une ligne, « L'Alpiniste · Bronze → Or » —, chacun menant à sa page de l'album des trophées ;
-- **« À porter »** : ce qu'ils viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné ; « Essayer » ouvre la loge, l'essai déjà sur ta carte.
+- **« À porter »** : ce que leurs étapes de piste viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné ; « Essayer » ouvre la loge, l'essai déjà sur ta carte.
 
-Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de catégorie » (« Changer de sujet »), « Mes réponses » (la correction, avec la bonne réponse centrée et la tienne barrée dessous) et « Accueil ».
+Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de catégorie » (« Changer de sujet » après un sujet), « Mes réponses » (la correction, avec la bonne réponse centrée et la tienne barrée dessous) et « Accueil ».
 
 ## La série à trois vies
 

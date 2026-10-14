@@ -43,8 +43,8 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 
 | Adresse | Écran |
 |---|---|
-| `/profil#avatar`, `#titre`, `#vitrine`, `#fond`, `#theme`, `#gerbe` | la loge (« M'habiller »), ouverte sur une pièce |
-| `/profil#collection` (et `#collection-…`), `#soirees`, `#carriere` | « Ma collection » (sur une ligne ou une page de l'album), « Mes soirées », « Ma carrière » |
+| `/profil#avatar`, `#titre`, `#vitrine`, `#fond`, `#theme`, `#gerbe` | la loge (« M'habiller »), ouverte sur une pièce ; avec `?essayer=<clé>` (`/profil?essayer=nuit#fond`), l'objet qu'une fin de partie propose sous « À porter » déjà essayé sur la carte — seulement s'il est au profil, et la requête s'efface aussitôt de l'adresse (`essaiDemande`) |
+| `/profil#collection` (et `#collection-<ligne>`, `#collection-avatars-<rareté>`, `#collection-trophees-<mode>`), `#soirees`, `#carriere` | « Ma collection » (sur une ligne, une page de l'album des avatars — `#collection-avatars-rare` — ou de l'album des trophées — `#collection-trophees-jour`, où mène chaque ligne de « Nouveaux trophées »), « Mes soirées », « Ma carrière » |
 | `/boutique#compagnons`, `#objets`, `#objet-<objet>` | un rayon de la boutique, la fiche d'un objet |
 | `/jour#classement`, `#classement-hier`, `#classement-mois`, `#correction` | le classement d'une période, la correction de sa partie |
 | `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine, le carnet |
@@ -55,7 +55,7 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 | `/<espace>/bilan#p=<invité>`, `#salle` | le bilan d'un invité, le bilan de la soirée |
 | `/activer#t=<jeton>` | le jeton d'activation, que le navigateur garde pour lui |
 
-Les fragments d'avant mènent à l'écran qui les a repris : sur `/profil`, `#avatars`, `#style-…`, `#carte-…`, `#trophees` (et `#mes-themes`, vers `/boutique`) ; sur `/campagne`, `#duel-<code>` et `#defier`, réécrits sur `/duels` ; sur `/boutique`, `#vies`, la fiche de la vie.
+Les fragments d'avant mènent à l'écran qui les a repris : sur `/profil`, `#avatars`, `#style-…`, `#carte-…`, `#trophees` (et `#mes-themes`, vers `/boutique`) ; dans « Ma collection », les trois lignes d'avatars d'avant (`#collection-legendaires`, `#collection-savoir`, `#collection-emojis`) mènent à leur page de l'album des avatars, et les dix lignes de trophées d'avant (`#collection-paliers`, `#collection-jour`…) à la page de leur mode dans l'album des trophées ; sur `/campagne`, `#duel-<code>` et `#defier`, réécrits sur `/duels` ; sur `/boutique`, `#vies`, la fiche de la vie.
 
 ## Les pages d'un espace
 

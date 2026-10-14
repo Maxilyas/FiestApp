@@ -298,8 +298,10 @@ qu'on oublie, écrit sur le vidéoprojecteur. → [Le temps réel](./temps-reel.
 **10. L'expérience d'un quiz se crédite dès son verdict**, puis à la fin de la
 partie si quelque chose a changé, puis à la clôture : la ligne (profil,
 soirée) est remplacée, jamais ajoutée. Podium de la soirée, prix, hauts faits
-et paliers ne se décident qu'à la clôture, en un lot
-(`remplacerRecompensesDeSoiree`). Attendre l'archive ne donnait rien à qui
+et paliers de carrière — à l'écran, les étapes des pistes — ne se décident
+qu'à la clôture : prix et hauts faits en un lot
+(`remplacerRecompensesDeSoiree`), les paliers en dernier (`accorderPaliers`).
+Attendre l'archive ne donnait rien à qui
 venait de gagner. → [Les récompenses](../produit/les-recompenses.md)
 
 **19. L'expérience se mérite, et ne redescend jamais en cours de soirée.**
@@ -346,7 +348,7 @@ avec un `new Error('…')` nu ([Les routes](./serveur.md#les-routes),
 | L'écran commun et la télé | `client/src/views/HostApp.tsx`, `client/src/games/quiz/HostView.tsx` | [Animer une soirée](../guides/animer-une-soiree.md) | [Le client](./client.md) |
 | La fin de soirée, l'historique | `server/src/core/archive.ts`, `server/src/core/recap.ts`, `server/src/core/review.ts`, `shared/fin.ts` | [Après la soirée](../produit/apres-la-soiree.md) | [Les données](./donnees.md) |
 | Les bases, les journaux, le miroir | `server/src/core/db.ts`, `server/src/core/backup.ts`, `server/src/core/distante.ts` | — | [Les données](./donnees.md), [Les tables](../reference/base-de-donnees.md) |
-| Les récompenses | `shared/profil.ts`, `shared/hautsfaits.ts`, `shared/legendaires.ts`, `server/src/core/recalcul.ts` | [Les récompenses](../produit/les-recompenses.md) | [Les barèmes](../reference/baremes.md) |
+| Les récompenses | `shared/profil.ts`, `shared/hautsfaits.ts`, `shared/legendaires.ts`, `shared/pistes.ts`, `server/src/core/recalcul.ts` ; l'écran des gains de toutes les fins, `shared/gains.ts` et `client/src/components/Gains.tsx` ; l'album des trophées, `shared/trophees.ts` et `client/src/components/AlbumDesTrophees.tsx` | [Les récompenses](../produit/les-recompenses.md) | [Les barèmes](../reference/baremes.md) |
 | Le profil et les avatars | `server/src/auth/profiles.ts`, `client/src/views/ProfilApp.tsx`, `client/src/components/Avatar.tsx` | [Le profil](../produit/le-profil.md) | [Le client](./client.md) |
 | Les thèmes, la boutique | `shared/themes.ts`, `client/src/themes/`, `client/src/components/Boutique.tsx` | [La boutique](../produit/la-boutique.md) | [Le client](./client.md) |
 | Ce que la page charge | `client/src/main.tsx`, `shared/adresses.ts`, `shared/depart.ts`, `server/src/core/apercus.ts` | [Jouer](../guides/jouer.md) | [Les adresses](../reference/adresses.md) |

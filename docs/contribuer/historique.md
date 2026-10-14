@@ -14,7 +14,7 @@ Les détails de chaque livraison vivent dans sa proposition de modification sur 
 | 26 – 29 septembre | Le quiz du jour, la collection, les avatars du savoir, les médaillons peints, les confettis et les thèmes |
 | 3 – 6 octobre | La nouvelle architecture du joueur, la campagne, les sentiers du savoir, le rappel du soir |
 | 10 – 11 octobre | La base de la campagne en milliers de questions, les duels, le quiz tout prêt, les défis entre amis |
-| 12 – 13 octobre | La télé branchée, la loge, les bordures de ligue, Automate, les compagnons, le QG |
+| 12 – 13 octobre | La télé branchée, la loge, les bordures de ligue, Automate, les compagnons, le QG, l'album des trophées et l'écran des gains |
 
 Près de deux cents propositions de modification ont été fusionnées entre le 19 septembre et le 13 octobre 2026, chacune vérifiée par l'intégration continue (`.github/workflows/ci.yml`).
 
@@ -51,14 +51,13 @@ Avant la première proposition de modification suivie sur GitHub, douze lots ont
 
 **10 – 11 octobre.** La mémoire de Claude : une racine courte, le détail par domaine (n° 117). Le carnet de révision, les sentiers à thème, la rencontre d'un inconnu (n° 119). La base de la campagne grandit de milliers de questions, dont 1 333 tirées de Wikidata (n° 120 à 130). Les défis entre amis (n° 125, 135). Les duels : une cote, des ligues qui paient chaque lundi (n° 141). Le quiz tout prêt, composé d'un geste dans la base de la campagne, jusqu'à l'écran commun (n° 143 à 145).
 
-**12 – 13 octobre.** La télé branchée par un code (n° 158). Les prix se remettent pour le plaisir (n° 159). Les équipes se préparent avant d'ouvrir le salon (n° 160). Des tirages sans redites (n° 161, 162). La loge : essayer, puis tout porter d'un coup (n° 172 à 175). Les bordures de ligue autour de l'avatar, jusque sur l'écran commun (n° 178, 179). Les duels en cockpit, et Automate, l'adversaire toujours disponible, tenu à deux niveaux du sien (n° 182 à 189). Les compagnons peints et l'album des avatars par rareté (n° 190), puis leur boutique (n° 199). Le modèle du savoir, qui apprend à Automate ce que les joueurs savent (n° 193). La base de la campagne relue une seconde fois et portée à 21 887 questions (n° 194). Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, les soirées (n° 195), la fiche d'un joueur (n° 198), la santé du serveur (n° 201). Les duels : historique et classement refaits (n° 200).
+**12 – 13 octobre.** La télé branchée par un code (n° 158). Les prix se remettent pour le plaisir (n° 159). Les équipes se préparent avant d'ouvrir le salon (n° 160). Des tirages sans redites (n° 161, 162). La loge : essayer, puis tout porter d'un coup (n° 172 à 175). Les bordures de ligue autour de l'avatar, jusque sur l'écran commun (n° 178, 179). Les duels en cockpit, et Automate, l'adversaire toujours disponible, tenu à deux niveaux du sien (n° 182 à 189). Les compagnons peints et l'album des avatars par rareté (n° 190), puis leur boutique (n° 199). Le modèle du savoir, qui apprend à Automate ce que les joueurs savent (n° 193). La base de la campagne relue une seconde fois et portée à 21 887 questions (n° 194). Le QG de l'administrateur : la vue d'ensemble, le journal des gestes, les soirées (n° 195), la fiche d'un joueur (n° 198), la santé du serveur (n° 201). Les duels : historique et classement refaits (n° 200). Les trophées, après « très confus, les trophées que les gens gagnent » : un album par mode dans « Ma collection », le même écran des gains à la fin de chaque mode — « Ce que tu gagnes », « Nouveaux trophées », « À porter » —, et des mots fixés : un trophée, bronze · argent · or pour les étapes d'une piste, des étoiles pour la note d'une partie, un palier pour l'étape d'un sentier (n° 203).
 
 **Le 14 octobre.** La documentation réécrite contre le code, rangée par besoin du lecteur dans `docs/`, gardée par `server/test/documentation.test.ts`, et cette vitrine : [`docs/vitrine/index.html`](../vitrine/index.html).
 
 ## Ce qui est en chantier
 
 - **Le QG, mode par mode.** Après la vue d'ensemble, le journal, les soirées, la fiche d'un joueur et la santé du serveur, quatre pages par mode de jeu sont annoncées : le quiz du jour, la campagne et le réglage des paliers, les duels, l'économie. Elles arrivent une par une.
-- **La clarté des trophées.** Une refonte de la présentation des récompenses est en préparation : ce que [les récompenses](../produit/les-recompenses.md) disent des règles reste vrai, leur mise en page changera.
 - **La Conquête.** Un brief pour un troisième mode de jeu, et sa maquette, attend une décision ; rien n'en est dans le code.
 
 ## Les chemins ouverts

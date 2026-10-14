@@ -162,7 +162,7 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 
 ## Les fichiers de test, par thème
 
-Deux cent cinq fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ; cent quarante démarrent le banc. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître.
+Deux cent sept fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ; cent quarante démarrent le banc. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître.
 
 ### L'outillage, la mémoire de Claude, la documentation
 
@@ -230,7 +230,7 @@ Deux cent cinq fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ;
 - `server/test/cloture-auto.test.ts` — la fin du programme : « Terminer la soirée ».
 - `server/test/cloture-reprise.test.ts` — une clôture refusée puis reprise.
 - `server/test/une-fin.test.ts` — une fin de soirée à la fois.
-- `server/test/fin-allegee.test.ts` — la fin de soirée épurée, sans rien perdre.
+- `server/test/fin-allegee.test.ts` — la fin de soirée épurée, sans rien perdre, au format de toutes les fins : le tableau de bord, « Ce que tu gagnes », les trophées, deux boutons, « Plus ».
 - `server/test/fin-de-soiree.test.ts` — record battu, objectifs proches, prix dans la collection.
 - `server/test/fin-gardee.test.ts` — la fin gardée par le téléphone, jamais le récit d'un Divin.
 - `server/test/entre-deux-soirees.test.ts` — la fin ne se rouvre qu'au retour sur la page.
@@ -293,7 +293,8 @@ Deux cent cinq fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ;
 - `server/test/loge.test.ts` — la loge : essayer, puis « Porter ».
 - `server/test/grille-avatars.test.ts` — la grille des avatars.
 - `server/test/album-des-avatars.test.ts` — l'album rangé par rareté.
-- `server/test/ma-collection.test.ts` — tout ce qui se gagne, l'album des thèmes.
+- `server/test/ma-collection.test.ts` — tout ce qui se gagne : trois familles, les albums des avatars, des trophées et des thèmes, les adresses d'avant.
+- `server/test/trophees.test.ts` — l'album des trophées : une page par mode, chaque piste et ce que chaque étape ouvre, relus contre les règles des fonds, des gerbes, des thèmes et des légendaires.
 - `server/test/collection.test.ts` — les emojis de collection, réservés aux profils.
 - `server/test/carte.test.ts` — la carte d'un joueur.
 - `server/test/carte-du-solo.test.ts` — la carte de qui ne joue qu'en solo.
@@ -318,6 +319,7 @@ Deux cent cinq fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ;
 - `server/test/saisons-relues.test.ts` — les saisons des soirées déjà rangées.
 - `server/test/sphinx.test.ts` — le Sphinx.
 - `server/test/recompenses-montrees.test.ts` — ce que les récompenses montrent.
+- `server/test/gains.test.ts` — l'écran des gains de toutes les fins : une ligne par piste, les plus rares d'abord, « À porter » et son « Essayer », les étoiles du quiz du jour ; chaque fin passe par les mêmes pièces.
 
 ### Les dessins
 

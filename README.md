@@ -24,11 +24,11 @@ Un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit 
 
 **L'animateur aux commandes.** Une console pour révéler, mettre en pause, reposer, annuler des points ; une télécommande sur son téléphone ; une télé qui se branche par son code ; des équipes préparées avant d'ouvrir. → [Animer une soirée](docs/guides/animer-une-soiree.md)
 
-**Une fin qu'on garde.** Un podium, des prix calculés tout seuls, des hauts faits ; sur chaque téléphone, sa fin de soirée ; un souvenir à partager, un bilan question par question, des fiches à imprimer et l'historique de toutes les soirées. → [Après la soirée](docs/produit/apres-la-soiree.md)
+**Une fin qu'on garde.** Un podium, des prix calculés tout seuls, des hauts faits ; sur chaque téléphone, sa fin de soirée et ses nouveaux trophées ; un souvenir à partager, un bilan question par question, des fiches à imprimer et l'historique de toutes les soirées. → [Après la soirée](docs/produit/apres-la-soiree.md)
 
 **Le jeu continue entre deux soirées.** Avec un profil : le quiz du jour, la campagne et son défi de la semaine, les sentiers du savoir, les duels contre ses amis ou contre Automate. → [Le quiz du jour](docs/produit/le-quiz-du-jour.md) · [La campagne](docs/produit/la-campagne.md) · [Les sentiers](docs/produit/les-sentiers-du-savoir.md) · [Les duels](docs/produit/les-duels.md)
 
-**Un profil qui se porte.** Des niveaux, des finitions autour de l'avatar, des hauts faits, vingt-six avatars légendaires peints, six Divins aux règles secrètes, une collection, une boutique de thèmes et de compagnons — et jamais un avantage de jeu. → [Le profil](docs/produit/le-profil.md) · [Les récompenses](docs/produit/les-recompenses.md) · [La boutique](docs/produit/la-boutique.md)
+**Un profil qui se porte.** Des niveaux, des finitions autour de l'avatar, des trophées que la collection range mode par mode, vingt-six avatars légendaires peints, six Divins aux règles secrètes, une boutique de thèmes et de compagnons — et jamais un avantage de jeu. → [Le profil](docs/produit/le-profil.md) · [Les récompenses](docs/produit/les-recompenses.md) · [La boutique](docs/produit/la-boutique.md)
 
 <p align="center">
   <img src="docs/vitrine/captures/telephone-repondu.jpg" width="200" alt="Le téléphone d'une invitée pendant une question : la photo, quatre réponses, « Mars » cochée.">

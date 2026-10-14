@@ -31,7 +31,7 @@ En haut de `/jour` : « ← Accueil », la pastille de ta **série** (une flamme
 - **« Ce que tu gagnes »** : l'expérience en un total, et ce qui la fait quand elle vient de plusieurs côtés (« ta partie +124 · ta série de 7 jours +70 · tes trophées +175 ») ; tes confettis, un par bonne réponse ; ton niveau, sa barre, « Niveau 12 ! » s'il monte et la finition qu'il ouvre ;
 - en grand, ce qui est rare : Chronos s'il descend, l'Éclat, une page du calendrier, un légendaire ;
 - **« Nouveaux trophées »** : trois au plus, les plus rares d'abord, chacun menant à sa page de l'album des trophées ; « Et 2 autres » déplie le reste ;
-- **« À porter »** : ce que ces trophées viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné ; « Essayer » ouvre la loge, l'essai déjà sur ta carte.
+- **« À porter »** : ce que leurs étapes de piste viennent d'ouvrir — un fond, une gerbe, un thème — et l'emoji de collection d'un niveau gagné ; « Essayer » ouvre la loge, l'essai déjà sur ta carte.
 
 Puis « Le classement se fige à minuit. », et « Voir le classement », « Revoir mes réponses », « Continuer en solo : la campagne », « Retour à l'accueil ».
 
@@ -101,7 +101,7 @@ La Légende, qui suit le niveau, se juge aussi au quiz du jour.
 
 ### Les hauts faits du jour
 
-Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les range en exploits, et en coups du sort pour La Lanterne du jour, Le Courant d'air et Le Dernier Métro. Ceux qui se mesurent aux autres ne se jugent que dans une salle de **8 joueurs au moins** (`SALLE_DU_JOUR`) ; un profil masqué n'y compte ni n'y gagne.
+Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les range en exploits — Le Laurier, lui, se compte dans la piste du Champion du jour — et en coups du sort pour La Lanterne du jour, Le Courant d'air et Le Dernier Métro. Ceux qui se mesurent aux autres ne se jugent que dans une salle de **8 joueurs au moins** (`SALLE_DU_JOUR`) ; un profil masqué n'y compte ni n'y gagne.
 
 | Haut fait | Ce qu'il faut | XP | Quand |
 |---|---|---|---|
