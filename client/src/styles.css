@@ -7638,7 +7638,13 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-tete .jour-sortie { margin: 0; }
 .loge-tete h1 { margin: 0; font-size: 1.6rem; line-height: 1.1; }
 .loge { display: flex; flex-direction: column; gap: 12px; }
-.loge-collante { position: sticky; top: 0; z-index: 4; padding-top: 4px; background: var(--bg); }
+/* Collée, la carte touche le haut de l'écran ; sa marge ne vaut qu'au repos.
+   La bande ne peint rien : son fond uni posait un rectangle à angles droits
+   sous les coins arrondis de la carte, plus sombre que le halo de la page et
+   coupant net le décor d'un thème — « un rectangle noir en dessous de la
+   carte » (le propriétaire, le 14 octobre 2026). C'est la carte, opaque sur
+   sa seule forme, qui cache ce qui défile dessous. */
+.loge-collante { position: sticky; top: 0; z-index: 4; margin-top: 4px; }
 .loge-carte {
   position: relative;
   display: flex;
@@ -7647,7 +7653,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   padding: 10px 14px 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: var(--radius);
-  background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--surface);
+  /* Le sol à part du reste : sans `color-mix` (un vieux téléphone), l'image
+     tombe, et la carte reste opaque. */
+  background-color: var(--bg);
+  background-image: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), linear-gradient(var(--surface), var(--surface));
   /* L'encre du décor sous un fond de carte, comme `.identite`. */
   color: var(--ink);
   overflow: hidden;
@@ -7673,6 +7682,17 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-apercu { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); text-shadow: none; }
 .loge-finition { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: none; }
 .loge-carte.loge-en-apercu { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18); }
+/* Au théâtre, le lambrequin de la vignette, sous ce que la carte montre :
+   celui de la carte en grand — trente pixels de velours et ses franges d'or,
+   par-dessus le contenu — cachait le prénom et le niveau ; repousser la tête
+   dessous, comme la carte en grand, la ferait grandir sous le doigt qui
+   essaie ce fond. */
+.loge-collante .loge-carte.carte-fond.fond-theatre::before {
+  z-index: -1;
+  background:
+    radial-gradient(circle at 50% 0, var(--fond-or) 0 3px, transparent 3.5px) 0 12px / 9px 7px repeat-x,
+    linear-gradient(180deg, var(--lambrequin) 0 10px, var(--fond-or) 10px 11px, transparent 11px);
+}
 /* Toute la carte se touche pour s'ouvrir en grand : un bouton tendu sur elle,
    « Version rare » au-dessus. Son anneau de focus se pose en dedans : la
    carte rogne ce qui dépasse. */
