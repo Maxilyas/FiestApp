@@ -8098,6 +8098,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .carte-gestes p { margin: 0; }
 .carte-gestes .btn-primary { min-width: 0; }
 .carte-gestes-nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Sous « Défier » : ce que le duel mettrait en jeu, comme au-dessus de chaque question d'une partie. */
+.carte-gestes-enjeu { color: var(--muted); text-align: center; }
 .carte-gestes-ami { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
 .carte-gestes-ami > span { display: inline-flex; align-items: center; gap: 6px; }
 .carte-gestes-ami .icon { width: 14px; height: 14px; color: var(--accent-text); }
@@ -8373,6 +8375,9 @@ button.duels-joue { cursor: pointer; }
 .duels-echelon-defier { display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 700; }
 .duels-echelon-defier .icon { width: 15px; height: 15px; }
 .duels-echelon-gain { font-size: var(--t-label); font-weight: 600; color: var(--ink); }
+/* Ce qu'une défaite coûterait, sous le gain : en retrait, au rouge d'une perte seulement — sous l'Or, elle rapporte souvent. */
+.duels-echelon-perte { font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+.duels-echelon-perte.duels-moins { color: var(--alert); }
 .duels-echelon-geste.en-cours { flex-direction: row; gap: 6px; border-color: var(--edge); background: none; color: var(--muted); font-size: 0.8125rem; font-weight: 600; }
 .duels-echelon-geste.en-cours .icon { width: 14px; height: 14px; }
 .duels-amis-sans { font-size: 0.8125rem; text-align: center; color: var(--muted); }
@@ -8441,6 +8446,18 @@ button.duels-joue { cursor: pointer; }
 .duels-jeton span { color: var(--muted); font-size: var(--t-label); }
 .duels-jeton.perdu { border-color: rgba(var(--alert-rgb), 0.5); background: rgba(var(--alert-rgb), 0.06); }
 .duels-jeton.perdu b { color: var(--alert); }
+/* Petits, sous l'adversaire choisi d'une préparation : le nombre et son mot sur une ligne, les deux d'un bord à
+   l'autre — en grand, ils repoussaient « Jouer le duel » hors de l'écran du téléphone. */
+.duels-jetons.petits { gap: 10px; margin-top: 0; }
+.duels-jetons.petits .duels-jeton { flex: 1 1 0; flex-direction: row; align-items: baseline; gap: 6px; width: auto; min-width: 0; height: auto; min-height: 40px; padding: 7px 10px; border-radius: 12px; }
+.duels-jetons.petits .duels-jeton b { font-size: 22px; }
+/* Le dé tiré : contre qui, ce qui se joue, comment — puis « Jouer le duel » au pied de sa feuille. */
+.duels-de-qui { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0 0; }
+.duels-de-qui > span:last-child { display: flex; flex-direction: column; gap: 1px; }
+.duels-de-qui b { font-size: 1.0625rem; }
+.feuille-du-de .duels-jetons { margin-top: 8px; }
+.feuille-du-de .duels-regles-ligne { margin-top: 8px; }
+.feuille-du-de .carte-pied .btn-duel { min-height: 56px; }
 .duels-regles-ligne { list-style: none; display: flex; justify-content: center; gap: 22px; margin: 26px 0 0; padding: 0; color: var(--muted); font-size: 0.8125rem; }
 .duels-regles-ligne li { display: flex; align-items: center; gap: 6px; }
 .duels-regles-ligne .icon { width: 15px; height: 15px; color: var(--accent-text); }

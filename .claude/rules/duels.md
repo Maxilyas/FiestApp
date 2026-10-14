@@ -7,7 +7,7 @@ paths:
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
   - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
-  - "server/test/{duels,duels-attente,duels-contre,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
+  - "server/test/{duels,duels-attente,duels-contre,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -77,13 +77,21 @@ jour a sa notification (règle `rappel-et-installation.md`).
   cadran, semaine, « Défier » et le dé, les onglets (`lignesEnCours`,
   `PanneauHistorique`, `PanneauClassement`) et ses feuilles ;
   `views/Duel.tsx` — les pièces (`Anneau`, `SemaineEnLosanges`,
-  `VerdictDuDuel`, `DuelEnvoye`), la page d'un duel (`PageDuDuel`,
-  `DuelFaceCachee`) et le défi d'avant (`FinDuDuel`, `EnvoyerAuxAmis`,
-  `MesDuels`) ; `views/LancerUnDefi.tsx` — la préparation (`/duels#defier`,
-  `#defier-<id>`) ; `views/Joueurs.tsx` — la recherche et `LigneDeJoueur` ;
-  `views/Amis.tsx` — la feuille des amis ; `views/Rencontre.tsx` et
-  `views/adressesDesDuels.ts` — ce que l'écran de jeu écrit d'un duel, et les
-  adresses
+  `VerdictDuDuel`, `DuelEnvoye`, la feuille du dé tiré `FeuilleDuDe`), la
+  page d'un duel (`PageDuDuel`, `DuelFaceCachee`) et le défi d'avant
+  (`FinDuDuel`, `EnvoyerAuxAmis`, `MesDuels`) ; `views/LancerUnDefi.tsx` — la
+  préparation (`/duels#defier`, `#defier-<id>`) ; `views/Joueurs.tsx` — la
+  recherche et `LigneDeJoueur` ; `views/Amis.tsx` — la feuille des amis ;
+  `views/Rencontre.tsx` et `views/adressesDesDuels.ts` — ce que l'écran de
+  jeu écrit d'un duel, et les adresses. Ce qu'un duel met en jeu se dit d'une
+  seule façon, partout où l'on choisit un adversaire (le souhait du
+  propriétaire du 14 octobre 2026 : « voir ce que je gagne / perds ») — la
+  phrase (`phraseDeLEnjeu` : l'échelle du classement, le nom d'un bouton),
+  la ligne « En jeu » (`EnJeu` : la partie, la carte d'un joueur sous
+  « Défier »), les deux jetons (`JetonsDeLEnjeu` : un duel reçu, le dé tiré,
+  petits sous l'adversaire choisi d'une préparation), et quand le dé demande
+  avant de jouer (`aConfirmerAuDe`) — dans `Rencontre.tsx`
+  (`duels-enjeu.test.ts`)
 - `components/GestesDuJoueur.tsx` · `components/CarteDUnProfil.tsx` ·
   `components/FeuilleDesAmisADemande.tsx` · `components/Blason.tsx` — les
   gestes au pied de la carte d'un profil hors d'une soirée (« Défier »,
@@ -202,6 +210,26 @@ jour a sa notification (règle `rappel-et-installation.md`).
   aller-retour, et le profil d'Automate ne se demande jamais (son
   identifiant vide repartait vers la base, `rencontresEtDuels`).
   `duels-attente.test.ts` compte ceux qui se suivent.
+- **Le dé tire avant de demander, et ne se relance pas.** Sa feuille
+  (`FeuilleDuDe`) dit l'enjeu de la rencontre déjà tirée, contre le score
+  qu'Automate vient de jouer : dit d'avance, à son niveau, il aurait
+  annoncé une autre valeur que la partie — et la cote cachée qui le règle ne
+  part jamais au téléphone. Fermée, la rencontre reste en route — la page la
+  pose dans `EtatDesDuels.enCours` sans relire — et le dé la reprend, sa
+  feuille avec tant qu'elle n'a pas de réponse ; reprise après une réponse,
+  elle se joue tout de suite. Ne la jette ni ne la referme jamais à la
+  fermeture de la feuille : relancer le dé jusqu'à un enjeu plus doux, c'est
+  choisir un Automate plus faible. « Un autre duel », sous un verdict, passe
+  par la même feuille (`CampagneApp`).
+- **L'enjeu d'une préparation se lit sur les deux cotes.** Sans la sienne —
+  la revanche, qui ne porte que le prénom d'en face, la préparation ouverte
+  à son adresse, « Défier » touché avant que la page ait dit la sienne —, la
+  page relit ce que les duels savent de celui qu'il défie, sa cote à lui
+  avec (`GET /api/duels/joueurs/:id` : `adversaireAttendu`, puis
+  `LancerUnDefi` lui-même) : sans elle, rien ne se disait, ou l'enjeu se
+  calculait contre une cote de 1000. `Rencontre.tsx`, que la carte d'un
+  joueur importe aussi (`GestesDuJoueur`), a son propre morceau du paquet, à
+  part de `Defi.tsx` : un petit morceau de plus sur la page de la campagne.
 - **Le modèle du savoir se refait en fond, jamais sur le chemin du dé.** Le
   dé lit celui qu'il y a, et lance le suivant **avant** son `batch` s'il a
   vieilli : partie derrière, sa lecture serait un aller-retour de plus. Il
@@ -226,6 +254,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
   (`Duels.tsx`, et ce qu'il tire : `Duel.tsx`) vient à la demande
   (`lesDuels`), demandé par `main.tsx` en même temps que la campagne sur
   `/duels` : un import statique de l'un d'eux dans `CampagneApp` le ferait
-  télécharger à chaque ouverture de la campagne. Ce que la partie écrit d'un
-  duel tient dans `Rencontre.tsx` et `adressesDesDuels.ts`, qui n'importent
-  rien.
+  télécharger à chaque ouverture de la campagne — la feuille du dé, sous un
+  verdict, s'y rend par `laPageDesDuels.FeuilleDuDe`. Ce que la partie écrit
+  d'un duel tient dans `Rencontre.tsx` et `adressesDesDuels.ts`, qui
+  n'importent rien que React.

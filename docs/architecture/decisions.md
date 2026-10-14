@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 132 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 135 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -1199,6 +1199,15 @@ Le détail : [les duels](../produit/les-duels.md).
 **Conséquence** : qui joue monte en Or, même en ne gagnant qu'un duel sur trois (`server/test/duels-montee.test.ts`), et au-dessus c'est le niveau qui parle ; Automate, réglé sur la cachée, ne se renforce pas avec la cote qu'on voit — réglé sur elle, on perdait la moitié des duels au lieu de quatre sur dix. La règle se relit du journal : le jour même, ceux qui avaient reculé l'ont regagné, et le duel d'avant la montée, qui n'a figé qu'une cote, sert aux deux. La cote cachée ne part jamais au téléphone.
 
 *Fichiers : `shared/duels.ts`, `server/src/core/campagne.ts`, `client/src/views/Duels.tsx`, `server/scripts/calibrage-duels.ts`*
+
+### L'enjeu se dit partout où l'on choisit un adversaire, et le dé tire avant de demander
+**Contexte** : l'échelle du classement ne disait que le gain (« +21 si tu gagnes ») ; la préparation d'un défi rangeait l'enjeu dans une phrase sous « Jouer le duel », hors de l'écran du téléphone, et le taisait sans sa propre cote — après une revanche ; le dé lançait la partie d'un toucher. Le propriétaire, le 14 octobre 2026 : « savoir aussi combien je perds si je défie quelqu'un et que je perds », « une confirmation avec le dé pour jouer contre l'automate : combien je gagne ou je perds si je joue », et « de manière globale, quand je lance un défi et que je choisis quelqu'un, voir ce que je gagne / perds ».
+
+**Décision** : la victoire et la défaite, dites de la même règle que la cote (`enjeuContre`) et des mêmes pièces, là où l'on choisit : l'échelle du classement, la carte d'un joueur sous « Défier », deux jetons sous l'adversaire choisi d'une préparation — les deux cotes relues quand la sienne manque. Le dé tire d'abord la rencontre, puis une feuille dit son enjeu avant « Jouer le duel ».
+
+**Conséquence** : l'enjeu du dé est exact — il se lit contre le score qu'Automate vient de jouer, quand une estimation d'avant le tirage aurait annoncé une autre valeur que la partie —, mais la rencontre existe dès le dé touché : fermée, la feuille la laisse dans « En cours », et le dé la reprend au lieu d'en tirer une autre — sinon on relancerait le dé jusqu'à un Automate plus faible. « Un autre duel », sous un verdict, passe par la même feuille.
+
+*Fichiers : `client/src/views/Rencontre.tsx`, `client/src/views/Duel.tsx`, `client/src/views/Duels.tsx`, `client/src/views/LancerUnDefi.tsx`, `client/src/components/GestesDuJoueur.tsx`*
 
 ## L'outillage
 

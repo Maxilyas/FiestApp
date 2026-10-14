@@ -12,8 +12,8 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
 import { classer } from '../../../shared/classement'
-import { Anneau, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
-import { ceQuIlPorte, ecartSigne } from './Rencontre'
+import { Anneau, FeuilleDuDe, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
+import { aConfirmerAuDe, ceQuIlPorte, ecartSigne, phraseDeLEnjeu, siTuPerds } from './Rencontre'
 import {
   COTE_DE_DEPART,
   DUELS_DE_L_HISTOIRE,
@@ -30,6 +30,7 @@ import {
   type CleDeLigue,
   type DuelContre,
   type DuelDeLHistoire,
+  type EnjeuDuDuel,
   type EtatDesDuels,
   type JoueurADefier,
   type LigneDesDuels,
@@ -54,7 +55,7 @@ export type MaCote = { cote: number; joues: number; plancher?: number }
 // et le dé, puis trois onglets — en cours, historique, classement. Les règles
 // et les ligues, qui tenaient trois replis de phrases, sont derrière « ? ».
 
-export { DuelEnvoye, FinDuDuel, PageDuDuel, VerdictDuDuel } from './Duel'
+export { DuelEnvoye, FeuilleDuDe, FinDuDuel, PageDuDuel, VerdictDuDuel } from './Duel'
 
 // ── Le cadran des ligues ─────────────────────────────────────────────────
 
@@ -180,7 +181,8 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
  * arrive. Touché, il s'allume tant que le serveur tire la série, et le dé
  * roule (`roule`) : rien ne bougeait, et l'attente se lisait comme un
  * toucher perdu (le retour du propriétaire du 13 octobre 2026 : « l'attente
- * est perceptible »).
+ * est perceptible »). Tirée, sa feuille dit ce qu'elle met en jeu avant la
+ * première question (`FeuilleDuDe`).
  */
 function BoutonsDesDuels({
   busy,
@@ -937,15 +939,18 @@ const joueurDeLaLigne = (l: LigneDesDuels): JoueurADefier => ({
 
 /**
  * Un échelon de son échelle, ou de ses amis : un joueur — sa place, sa cote,
- * ses places depuis lundi — et, s'il est à sa portée, ce qu'il gagnerait à le
- * battre et « Défier » ; un duel déjà ouvert entre eux, « En cours », qui le
- * rouvre. Deux boutons côte à côte, jamais l'un dans l'autre : sa carte, et
- * le geste.
+ * ses places depuis lundi — et, s'il est à sa portée, « Défier » et ce que le
+ * duel mettrait en jeu : ce qu'il gagnerait à le battre, et ce qu'une défaite
+ * lui coûterait — le gain seul ne disait pas le risque (le souhait du
+ * propriétaire du 14 octobre 2026 : « savoir aussi combien je perds si je
+ * défie quelqu'un et que je perds ») ; un duel déjà ouvert entre eux, « En
+ * cours », qui le rouvre. Deux boutons côte à côte, jamais l'un dans l'autre :
+ * sa carte, et le geste.
  */
 function Echelon({
   ligne: l,
   moi,
-  gain,
+  enjeu,
   enCours,
   onOuvrir,
   onDefier,
@@ -953,8 +958,8 @@ function Echelon({
 }: {
   ligne: LigneDeRang
   moi: boolean
-  /** Ce qu'il gagnerait à le battre (`enjeuContre`) ; absent : rien à défier — lui-même, celui qui le suit, un ami. */
-  gain?: number
+  /** Ce qu'il mettrait en jeu à le défier (`enjeuContre`) ; absent : rien à défier — lui-même, celui qui le suit, un ami. */
+  enjeu?: EnjeuDuDuel
   /** Le code d'un duel déjà ouvert entre eux : un seul à la fois. */
   enCours?: string
   onOuvrir: (profileId: string) => void
@@ -981,19 +986,21 @@ function Echelon({
           </span>
         </span>
       </button>
-      {gain !== undefined &&
+      {enjeu !== undefined &&
         (enCours ? (
           <button type="button" className="duels-echelon-geste en-cours" aria-label={`Ton duel contre ${l.nom}, en cours`} onClick={() => onOuvrirDuel?.(enCours)}>
             <Icon name="hourglass" />
             En cours
           </button>
         ) : (
-          <button type="button" className="duels-echelon-geste" aria-label={`Défier ${l.nom} : ${ecartSigne(gain)} si tu gagnes`} onClick={onDefier}>
+          <button type="button" className="duels-echelon-geste" aria-label={`Défier ${l.nom} : ${phraseDeLEnjeu(enjeu)}`} onClick={onDefier}>
             <span className="duels-echelon-defier">
               <Icon name="swords" />
               Défier
             </span>
-            <span className="duels-echelon-gain">{espacesFines(`${ecartSigne(gain)} si tu gagnes`)}</span>
+            <span className="duels-echelon-gain">{espacesFines(`${ecartSigne(enjeu.gagne)} si tu gagnes`)}</span>
+            {/* Sous l'Or, la défaite rapporte souvent (la montée) : « +4 même si tu perds », en rouge seulement quand elle coûte. */}
+            <span className={'duels-echelon-perte' + (enjeu.perdu < 0 ? ' duels-moins' : '')}>{espacesFines(siTuPerds(enjeu.perdu))}</span>
           </button>
         ))}
     </li>
@@ -1002,7 +1009,7 @@ function Echelon({
 
 /**
  * « Parmi tous », sous ses deux places : son échelle — ceux à sa portée,
- * juste au-dessus, avec ce qu'il gagnerait et « Défier », puis lui et celui
+ * juste au-dessus, avec ce qu'il gagnerait ou perdrait et « Défier », puis lui et celui
  * qui le suit ; en tête, lui et ceux qui le talonnent — ; enfin le podium,
  * qui ouvre le classement entier. On regardait le classement sans pouvoir en
  * rien faire (le souhait du propriétaire du 13 octobre 2026).
@@ -1052,7 +1059,7 @@ function ClassementDeTous({
                 key={l.profileId}
                 ligne={l}
                 moi={l.profileId === classement.sienne}
-                gain={vises.has(l.profileId) ? enjeuContre(maCote, l.cote, true).gagne : undefined}
+                enjeu={vises.has(l.profileId) ? enjeuContre(maCote, l.cote, true) : undefined}
                 enCours={enCours(l.profileId)}
                 onOuvrir={onOuvrir}
                 onDefier={() => onDefier(joueurDeLaLigne(l))}
@@ -1372,6 +1379,8 @@ export function PageDesDuels({
   const [reglesOuvertes, setReglesOuvertes] = useState(false)
   // Un duel au dé touché dans l'historique : sa correction, dans sa feuille.
   const [correction, setCorrection] = useState<LigneDHistoire | null>(null)
+  // Le dé tiré, pas encore joué : ce qu'il met en jeu, dans sa feuille, avant la première question.
+  const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
   // « Défier » sur la carte d'un joueur — du classement, de ses amis — ouvre la préparation ici même, sa cote relue avec lui.
   const gestes = { onDefier: (j: JoueurADefier, m: MaCote) => onDefier(j, m), onAmis }
   const { ouvrir, carte } = useCarteDUnProfil(gestes)
@@ -1396,7 +1405,12 @@ export function PageDesDuels({
     setErreur('')
     try {
       const r = await api.campagne.rencontre.commencer()
-      if (r.serie.question) onJouer(r)
+      if (!r.serie.question) return
+      if (aConfirmerAuDe(r)) {
+        // Tirée, elle est à lui : la feuille fermée, elle attend dans « En cours », et le dé la reprend.
+        setEtat(e => e && { ...e, enCours: r })
+        setDeTire(r)
+      } else onJouer(r)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -1445,6 +1459,7 @@ export function PageDesDuels({
       {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}
       {reglesOuvertes && <FeuilleDesRegles ligue={etat?.ligue ?? 'bronze'} onFermer={() => setReglesOuvertes(false)} />}
       {correction && <FeuilleDeLaCorrection duel={correction} onFermer={() => setCorrection(null)} />}
+      {deTire && <FeuilleDuDe rencontre={deTire} onJouer={() => onJouer(deTire)} onFermer={() => setDeTire(null)} />}
       {feuilleDesAmis.feuille}
       {carte}
     </div>

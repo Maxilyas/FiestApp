@@ -236,7 +236,7 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
 // « Mes amis » au-dessus « sortaient un peu de nulle part ».
 test('le classement : ses deux places, parmi tous et entre amis ; son échelle — ceux à sa portée, ce qu’il gagnerait, « Défier », un duel déjà en cours — ; les places depuis lundi', async () => {
   const { PanneauClassement, ClassementDesAmis } = await import(client('views/Duels.tsx').href)
-  const { ecartSigne } = await import(client('views/Rencontre.tsx').href)
+  const { ecartSigne, siTuPerds } = await import(client('views/Rencontre.tsx').href)
   const { enjeuContre } = await import('../../shared/duels')
   const { renderToStaticMarkup } = await import('react-dom/server')
   const ligne = (nom: string, rang: number, cote: number, plus: object = {}) => ({ profileId: nom.toLowerCase(), nom, avatar: '🐻', niveau: 3, cote, ligue: cote >= 1200 ? 'or' : 'argent', rang, duels: 12, ...plus })
@@ -270,13 +270,15 @@ test('le classement : ses deux places, parmi tous et entre amis ; son échelle �
     ['Jade', 'Tom', 'Max', 'Toi', 'Noé'],
   )
   assert.match(html, />À ta portée<\/h3>/)
-  // Chacun ce qu'il gagnerait à le battre — contre sa cote, et sa part de lanceur, comme la préparation le dira —, et « Défier ».
+  // Chacun ce qu'il gagnerait à le battre — contre sa cote, et sa part de lanceur, comme la préparation le dira —, ce
+  // qu'une défaite lui ferait (le 14 octobre 2026, `duels-enjeu.test.ts`), et « Défier ».
   for (const [nom, cote] of [
     ['Jade', 1210],
     ['Max', 1160],
   ] as const) {
-    const gain = ecartSigne(enjeuContre({ cote: 1150 }, cote, true).gagne)
-    assert.match(html, new RegExp(`aria-label="Défier ${nom} : \\${gain} si tu gagnes"`))
+    const enjeu = enjeuContre({ cote: 1150 }, cote, true)
+    const gain = ecartSigne(enjeu.gagne)
+    assert.match(html, new RegExp(`aria-label="Défier ${nom} : \\${gain} si tu gagnes, ${siTuPerds(enjeu.perdu).replace('+', '\\+')}"`))
     assert.match(html, new RegExp(`<span class="duels-echelon-gain">\\${gain} si tu gagnes</span>`))
   }
   assert.match(html, /aria-label="Ton duel contre Tom, en cours"/, 'déjà défié : son duel, pas un second')

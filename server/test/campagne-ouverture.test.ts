@@ -301,16 +301,18 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button>/)
   assert.match(html, /À ta dernière réponse, Tom reçoit le duel\u00a0: dans ses duels, et son accueil le lui dit\./)
   assert.doesNotMatch(html, /téléphone|notification/, 'sans notification depuis le 13 octobre 2026')
-  // Ce qui se joue se dit avant : contre sa cote à lui, sa part de lanceur comprise. Sous l'Or, la montée : même perdu, le
-  // duel lui rapporte — « +5 si tu perds » se lisait comme une menace.
+  // Ce qui se joue se dit avant : contre sa cote à lui, sa part de lanceur comprise — en deux jetons sous lui, depuis le
+  // 14 octobre 2026 (`duels-enjeu.test.ts`) : dans la phrase sous « Jouer le duel », il sortait de l'écran. Sous l'Or, la
+  // montée : même perdu, le duel lui rapporte — « +5 si tu perds » en rouge se lisait comme une menace.
   const enjeu = enjeuContre({ cote: 1000 }, 1240, true)
   assert.ok(enjeu.perdu > 0)
-  assert.ok(html.includes(`Le duel joué des deux côtés, vos deux cotes bougent — pour toi, +${enjeu.gagne} si tu gagnes, +${enjeu.perdu} même si tu perds.`))
+  assert.ok(html.includes(`<span class="duels-jeton"><b class="num">+${enjeu.gagne}</b><span>victoire</span></span><span class="duels-jeton"><b class="num">+${enjeu.perdu}</b><span>défaite</span></span>`))
+  assert.ok(html.includes('Le duel joué des deux côtés, vos deux cotes bougent.'))
   // Au-dessus de l'Or, contre plus faible, une défaite coûte : elle le dit en moins.
   const enOr = composer([tom], { categories: ['Histoire'], sujet: null, adversaire: { ...tom, cote: 1000 }, moi: { cote: 1350, joues: 40, plancher: 1200 } })
   const enjeuEnOr = enjeuContre({ cote: 1350, plancher: 1200 }, 1000, true)
   assert.ok(enjeuEnOr.perdu < 0)
-  assert.ok(enOr.includes(`pour toi, +${enjeuEnOr.gagne} si tu gagnes, −${-enjeuEnOr.perdu} si tu perds.`))
+  assert.ok(enOr.includes(`<span class="duels-jeton perdu"><b class="num">−${-enjeuEnOr.perdu}</b><span>défaite</span></span>`))
   assert.match(html, /<a class="lien-discret jour-sortie" href="\/duels">/, '« ← Les duels » : la page d’où l’on vient')
   // Personne de choisi : la barre de recherche — sans autoFocus, le clavier pousserait la page —, puis ses amis, chacun « Choisir » ; le bouton attend.
   const libre = composer([tom, hugo], { categories: [], sujet: null })

@@ -7,7 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, corpsDeLaVisee, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { apresLaPerte, ceQuIlPorte, ecartSigne, scoreDeRencontre, siTuPerds, type ContreEnJeu } from './Rencontre'
+import { EnJeu, aConfirmerAuDe, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
@@ -660,13 +660,20 @@ export function CampagneApp() {
     })
   }
 
-  /** De la fin d'une rencontre à une autre : Automate encore, sur une série neuve, tout de suite. */
+  /**
+   * De la fin d'une rencontre à une autre : Automate encore, sur une série
+   * neuve — ce qu'elle met en jeu dit d'abord, dans la feuille du dé
+   * (`FeuilleDuDe`), comme sur la page des duels.
+   */
+  const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
   const uneAutreRencontre = async () => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      jouerLaRencontre(await api.campagne.rencontre.commencer())
+      const r = await api.campagne.rencontre.commencer()
+      if (aConfirmerAuDe(r)) setDeTire(r)
+      else jouerLaRencontre(r)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -798,7 +805,9 @@ export function CampagneApp() {
       vivant = false
     }
   }, [mode, ecran.e, croisesLus])
-  const adversaireAttendu = mode === 'defier' && !!contreQui && depart.adversaire?.profileId !== contreQui
+  // Sa propre cote manque aussi à la revanche, qui ne porte que le prénom d'en face : relus ensemble, sans quoi ce qui se
+  // joue ne se disait pas — ou se disait contre une cote de 1000.
+  const adversaireAttendu = mode === 'defier' && !!contreQui && (depart.adversaire?.profileId !== contreQui || !depart.moi)
   useEffect(() => {
     if (!adversaireAttendu || !contreQui || ecran.e !== 'duels') return
     let vivant = true
@@ -1226,41 +1235,54 @@ export function CampagneApp() {
       }
     }
     return (
-      <laPageDesDuels.VerdictDuDuel
-        verdict={{
-          quoi: nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories',
-          toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes, apparence: monApparence || undefined },
-          lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, apparence: ceQuIlPorte(adversaire), ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
-          ...(ecran.cote && {
-            ecart: ecran.cote.ecart,
-            apres: { cote: ecran.cote.apres, ligue: ecran.cote.ligue, ...(ecran.cote.rang !== undefined && { rang: ecran.cote.rang }) },
-            semaine: ecran.cote.semaine,
-          }),
-        }}
-        // Sa carte se retourne à sa dernière réponse : son score, caché jusque-là.
-        dos={`Le score ${deNom(adversaire.nom)}`}
-        aRetourner
-        suite={
-          ecran.duel
-            ? // Joué des deux côtés : on en relance un contre le même, d'un toucher — lui déjà choisi.
-              ecran.revanche && {
-                texte: 'Revanche',
-                icone: 'rotate',
-                onClick: () => {
-                  ouvrirLeLancement(fin.revanche)
-                  void relire()
-                },
-              }
-            : // Le dé, encore : Automate. « Un autre » adversaire promettait quelqu'un ; « Rejouer contre Automate » touchait le bord du bouton en 360.
-              { texte: 'Un autre duel', icone: 'dice', onClick: () => void uneAutreRencontre() }
-        }
-        busy={busy}
-        onReponses={ecran.correction ? undefined : () => void voirCorrection()}
-        onFermer={versMesDuels}
-        erreur={erreur}
-        extra={tombeAvecLeDuel(ecran)}
-        apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
-      />
+      <>
+        <laPageDesDuels.VerdictDuDuel
+          verdict={{
+            quoi: nomDuChoix(ecran.categories, ecran.sujet) ?? 'Toutes les catégories',
+            toi: { avatar: profil?.avatar ?? '🙂', justes: ecran.justes, apparence: monApparence || undefined },
+            lui: { nom: adversaire.nom, avatar: adversaire.avatar, justes: adversaire.justes, apparence: ceQuIlPorte(adversaire), ...(ecran.enFace?.ligue && { ligue: ecran.enFace.ligue }) },
+            ...(ecran.cote && {
+              ecart: ecran.cote.ecart,
+              apres: { cote: ecran.cote.apres, ligue: ecran.cote.ligue, ...(ecran.cote.rang !== undefined && { rang: ecran.cote.rang }) },
+              semaine: ecran.cote.semaine,
+            }),
+          }}
+          // Sa carte se retourne à sa dernière réponse : son score, caché jusque-là.
+          dos={`Le score ${deNom(adversaire.nom)}`}
+          aRetourner
+          suite={
+            ecran.duel
+              ? // Joué des deux côtés : on en relance un contre le même, d'un toucher — lui déjà choisi.
+                ecran.revanche && {
+                  texte: 'Revanche',
+                  icone: 'rotate',
+                  onClick: () => {
+                    ouvrirLeLancement(fin.revanche)
+                    void relire()
+                  },
+                }
+              : // Le dé, encore : Automate. « Un autre » adversaire promettait quelqu'un ; « Rejouer contre Automate » touchait le bord du bouton en 360.
+                { texte: 'Un autre duel', icone: 'dice', onClick: () => void uneAutreRencontre() }
+          }
+          busy={busy}
+          onReponses={ecran.correction ? undefined : () => void voirCorrection()}
+          onFermer={versMesDuels}
+          erreur={erreur}
+          extra={tombeAvecLeDuel(ecran)}
+          apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
+        />
+        {/* « Un autre duel » tiré : ce qu'il met en jeu, avant de le jouer. Fermée, la feuille le laisse en route : ses duels le reprennent. */}
+        {deTire && (
+          <laPageDesDuels.FeuilleDuDe
+            rencontre={deTire}
+            onJouer={() => {
+              setDeTire(null)
+              jouerLaRencontre(deTire)
+            }}
+            onFermer={() => setDeTire(null)}
+          />
+        )}
+      </>
     )
   }
 
@@ -1430,19 +1452,7 @@ export function CampagneApp() {
         )}
         {/* Ce que le duel met en jeu sur sa cote, dit à chaque question : on sait pour quoi on joue. Sous l'Or, une défaite
             rapporte souvent quelque chose (la montée) : elle se dit en vert, « même si tu perds », jamais en menace. */}
-        {enjeu && !r?.finie && (
-          <p className="muted small duels-enjeu">
-            En jeu : <b className="duels-plus">{ecartSigne(enjeu.gagne)}</b> si tu gagnes,{' '}
-            {enjeu.perdu === 0 ? (
-              siTuPerds(enjeu.perdu)
-            ) : (
-              <>
-                <b className={enjeu.perdu > 0 ? 'duels-plus' : 'duels-moins'}>{ecartSigne(enjeu.perdu)}</b>
-                {apresLaPerte(enjeu.perdu)}
-              </>
-            )}
-          </p>
-        )}
+        {enjeu && !r?.finie && <EnJeu enjeu={enjeu} className="muted small duels-enjeu" />}
         {q.categorie && <span className="label quiz-categorie">{q.categorie}</span>}
         <h2 className={'quiz-question' + questionSizeClass(q.texte)}>{espacesFines(q.texte)}</h2>
         {!r ? (
