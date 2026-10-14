@@ -156,14 +156,19 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const racine = useRef<HTMLSpanElement>(null)
   const l = legendaireDe(cle)
   const images = IMAGES[cle]
-  // Verrouillé, il n'a pas de version éclatée : il n'est pas encore à lui.
+  // Verrouillé, il n'a ni version éclatée ni cercle : il n'est pas encore à lui.
   const eclate = !!eclat && !verrouille
+  const cercle = !!finition && !verrouille
   const fond = (eclate ? FONDS_ECLAT : FONDS)[cle]
   if (!l || !images || !fond) return null
   // `useId` rend des deux-points, que `url(#…)` n'aime pas. La clé du
-  // légendaire entre dans l'identifiant : deux médaillons différents ne
-  // partagent jamais un dégradé, même rendus par deux racines React.
-  const base = `${cle.replace(':', '-')}${brut.replace(/[^a-zA-Z0-9_-]/g, '')}`
+  // légendaire et ce qui change ses dégradés — sa version, éclatée ou non, la
+  // finition de son cercle — entrent dans l'identifiant : deux racines React
+  // numérotent chacune depuis zéro, et le premier dégradé d'un nom gagne.
+  // Sans eux, l'Argent d'une planche prenait l'Or posé avant lui, et
+  // l'éclaté le disque de l'ordinaire.
+  const etat = (eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '')
+  const base = `${cle.replace(':', '-')}-${etat}${brut.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const id = (nom: string) => `${base}-${nom}`
   const bord = l.ton === 'ombre' ? OMBRE : OR
   const taille = grand ? 0 : 1
@@ -244,7 +249,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
               <stop offset="100%" stopColor={bord[2]} />
             </linearGradient>
           </defs>
-          {finition && !verrouille ? (
+          {cercle ? (
             <Cercle finition={finition} id={id} />
           ) : (
             <circle className="lg-bord" cx="50" cy="50" r="49" fill={`url(#${id('bord')})`} />
@@ -253,7 +258,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
           {/* Un légendaire de l'ombre garde son filet violet quand la finition
               prend son cercle : on doit voir d'un coup d'œil qu'il s'est gagné
               en jouant mal. */}
-          {finition && !verrouille && l.ton === 'ombre' && (
+          {cercle && l.ton === 'ombre' && (
             <circle cx="50" cy="50" r="45.3" fill="none" stroke="#b48cff" strokeWidth="1.3" />
           )}
         </svg>

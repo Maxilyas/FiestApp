@@ -12,6 +12,7 @@ import path from 'node:path'
 import React from 'react'
 import { demarrer } from './banc'
 import { COMPAGNONS, FORMES_DES_COMPAGNONS } from '../../shared/compagnons'
+import { FINITIONS } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -210,6 +211,32 @@ test('pas encore à lui : sa silhouette dorée sur un disque sombre — ni aura,
   assert.doesNotMatch(porte, /stroke="#5fa8ff"/)
   // En Mat, rien ne change : l'anneau de sa rareté reste.
   assert.match(await compagnon({ cle: 'cp:chat-jeune', finition: 'mat' }), /stroke="#5fa8ff"/)
+})
+
+/** Chaque identifiant d'un rendu, avec l'élément qui le porte tout entier : ce qu'un `url(#…)` de la page ira chercher. */
+const definitions = (html: string) =>
+  new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
+
+/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition => [false, true].flatMap(verrouille => [false, true].map(grand => ({ finition, verrouille, grand }))))
+
+test('rendus chacun dans sa racine, comme sur une planche, deux états d’un compagnon ne se prennent jamais un dégradé', async () => {
+  // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
+  // dégradé d'un nom gagne : sur une planche, l'Or d'un compagnon avait le
+  // dégradé de l'Argent posé avant lui.
+  const argent = definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'argent' }))
+  for (const id of definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'or' })).keys()) assert.ok(!argent.has(id), id)
+  // Quels que soient la forme et son état, un nom ne dit jamais deux choses.
+  const vus = new Map<string, string>()
+  for (const f of FORMES_DES_COMPAGNONS) {
+    for (const etat of ETATS) {
+      for (const [id, definition] of definitions(await compagnon({ cle: f.key, ...etat }))) {
+        const avant = vus.get(id)
+        if (avant) assert.equal(definition, avant, `${id}, ${JSON.stringify(etat)}`)
+        vus.set(id, definition)
+      }
+    }
+  }
 })
 
 test('porté, il prend la place de l’emoji comme un portrait — et ce qui l’anime se fige s’il le faut', async () => {
