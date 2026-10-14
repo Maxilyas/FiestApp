@@ -43,7 +43,9 @@ Dans `server/src/api.ts`, avant toute route :
 | 400 | Une erreur faite pour être lue, levée par la route (`new Error('…')` nu) | La phrase de l'erreur, en français, qui dit quoi faire |
 | 400 | Un corps illisible (JSON cassé) | « Requête illisible — recharge la page et réessaie » |
 | 401, 403, 404, 409 | Une porte fermée, un geste refusé, un identifiant d'un autre espace (toujours « introuvable »), un conflit — répondus à la main par la route | La phrase de la route |
+| 410 | Un code de partage expiré ou annulé (`/api/partages/recevoir`) | « Ce code a expiré ou a été annulé : demande-en un nouveau » |
 | 413 | Un corps trop lourd | « Envoi trop lourd — allège-le et réessaie » |
+| 429 | Trop d'essais ou d'arrivées d'un coup — les réserves d'essais, d'inscriptions, de salons et de télés | La phrase de la réserve (« Trop d'essais — réessaie dans un quart d'heure »…) |
 | 500 | Toute autre erreur (base, code) — son détail part au journal du serveur, et elle compte aux « Erreurs serveur » du QG | « Erreur serveur — réessaie dans un instant » |
 
 Le pourquoi de cette règle : [les conventions](../contribuer/conventions.md) et `server/src/core/http.ts`.
@@ -103,7 +105,7 @@ Se connecter, l'espace d'un animateur, sa télé branchée, et le QG de l'admini
 
 Toute route sous `/api/admin` passe d'un bloc `requireAccount`, `requireAdmin` et `refuserLesTeles` (`server/src/api.ts`) : 401 « Connexion requise » sans console, 403 « Réservé à l'administrateur » pour un animateur ordinaire, 403 « Pas depuis une télé branchée : fais-le depuis ta console » pour une télé ; chaque écriture acceptée s'y note au journal du QG. « compte » veut dire une session de console (`qz_session`, `requireAccount`), « pas une télé » une session sans `fin_max` (`refuserLesTeles`).
 
-Les portes qui vérifient un secret puisent dans une seule réserve par serveur (`loginBudgetOf`) : 20 essais d'un coup puis 20 par minute par adresse, et 5 échecs ferment un secret un quart d'heure — clés `compte:` (`/api/auth/login`, `/api/auth/password`), `joueur:` (`/api/joueur/connexion`, `/api/space/profil`, `/api/joueur/mot-de-passe` par l'actuel), `secours:` (`/api/joueur/secours`, `/api/joueur/mot-de-passe` par le code), `appairage:<session>` (`/api/auth/appairage/valider`) ; `/api/auth/activation`, `/api/auth/activate` et `/api/auth/appairage` ne comptent que l'adresse, `/api/auth/appairage/attente` rien. Refus : 429 « Trop d'essais — réessaie dans un quart d'heure ». `/api/joueur/inscription` a sa propre réserve : 10 d'un coup puis 5 par minute par adresse (429 « Trop d'inscriptions d'un coup — réessaie dans une minute »), l'adresse locale exemptée.
+Les portes qui vérifient un secret puisent dans une seule réserve par serveur (`loginBudgetOf`) : 20 essais d'un coup puis 20 par minute par adresse, et 5 échecs ferment un secret un quart d'heure — clés `compte:` (`/api/auth/login`, `/api/auth/password`, la preuve de `/api/space/profil`), `joueur:` (`/api/joueur/connexion`, `/api/space/profil`, `/api/joueur/mot-de-passe` par l'actuel), `secours:` (`/api/joueur/secours`, `/api/joueur/mot-de-passe` par le code), `appairage:<session>` (`/api/auth/appairage/valider`) ; `/api/auth/activation`, `/api/auth/activate` et `/api/auth/appairage` ne comptent que l'adresse, `/api/auth/appairage/attente` rien. Refus : 429 « Trop d'essais — réessaie dans un quart d'heure ». `/api/joueur/inscription` a sa propre réserve : 10 d'un coup puis 5 par minute par adresse (429 « Trop d'inscriptions d'un coup — réessaie dans une minute »), l'adresse locale exemptée.
 
 Les routes de `server/src/auth/` lisent un corps de quelques kilo-octets (8 Ko pour `server/src/auth/routes.ts`, 4 Ko pour le profil, 1 Ko pour la télé) ; celles de `server/src/profilsAdmin.ts` et `server/src/qg.ts`, derrière la porte, passent par le lecteur de 4 Mo. Les réponses qui portent un secret ou une session sont `Cache-Control: no-store`.
 
@@ -163,7 +165,7 @@ La bibliothèque de l'animateur : ses quiz, leurs images, les modèles, le progr
 | `GET` | `/api/programmes` | compte | Les programmes de soirée de l'espace, chacun réduit aux quiz encore dans la bibliothèque | `server/src/api.ts` |
 | `POST` | `/api/programmes` | compte | Crée un programme (`titre`, `entrees`), qui devient celui de ce soir — « Ouvrir le salon » ; une entrée qui désigne le quiz d'un autre espace est écartée ; 201 | `server/src/api.ts` |
 | `PUT` | `/api/programmes/:id` | compte | Change le titre ou les entrées d'un programme — « Ouvrir le salon » réécrit celui de ce soir | `server/src/api.ts` |
-| `POST` | `/api/programmes/:id/activer` | compte | En fait le programme de ce soir (`{ actif: true }`, d'office) ou le range (`false`) | `server/src/api.ts` |
+| `POST` | `/api/programmes/:id/activer` | compte | En fait le programme de ce soir (`{ actif: true }`, d'office) ; avec `false`, l'espace n'a plus de programme actif | `server/src/api.ts` |
 | `DELETE` | `/api/programmes/:id` | compte | Supprime un programme | `server/src/api.ts` |
 | `POST` | `/api/quizzes/:id/partage` | compte | « Partager par un code » : un instantané du quiz et son code de six caractères, valable sept jours (`{ code, expiresAt }`) ; 400 sans question ou au-delà de trente codes en cours ; 201 | `server/src/partages.ts` |
 | `GET` | `/api/quizzes/:id/partages` | compte | Les codes en cours d'un quiz, leur échéance et combien de fois chacun a été reçu | `server/src/partages.ts` |
@@ -237,7 +239,7 @@ Les dix questions du jour, la série, le classement, le rappel du soir, et la r�
 | `POST` | `/api/admin/jour/liste` | admin | « Coller une liste » (`{ texte }`) dans la réserve ; rend les ajoutées et les écartées | `server/src/quizDuJour.ts` |
 | `POST` | `/api/admin/jour/garder` | admin | Garde une question signalée (`{ jour, index }`) : ses signalements se referment | `server/src/quizDuJour.ts` |
 | `POST` | `/api/admin/jour/annuler` | admin | Annule une question du jour pour tous (`{ jour, index }`), le jour même seulement : chaque joueur se recompte | `server/src/quizDuJour.ts` |
-| `POST` | `/api/admin/jour/retirer` | admin | Retire une question de la réserve (`{ reserveId, jour?, index? }`) : plus jamais tirée ; ses signalements se referment si le jour est donné | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/retirer` | admin | Retire une question de la réserve (`{ reserveId, jour?, index? }`) : plus jamais tirée ; ses signalements se referment si le jour et l'index sont donnés | `server/src/quizDuJour.ts` |
 | `GET` | `/api/admin/jour/profils` | admin | Les profils masqués (50 au plus), ou ceux que trouve `?q=` (12 au plus) | `server/src/quizDuJour.ts` |
 | `POST` | `/api/admin/jour/masquer` | admin | Masque un profil du quiz du jour, ou l'y remet (`{ profileId, masque }`) | `server/src/quizDuJour.ts` |
 
