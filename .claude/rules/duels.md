@@ -175,7 +175,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   recherche ne renvoie jamais l'identifiant de connexion (elle le compare,
   `ProfileStore.chercher`). Retiré de ses amis, un joueur ne lui fait plus
   rien parvenir (`aRetire`, `lectureDesDefisRecus`) sans l'apprendre : sa fin
-  dit « Parti à » quand même.
+  reste la fin normale — « Duel envoyé » et « Chez » son prénom pour un duel
+  classé (`DuelEnvoye`), « Parti à » pour un défi entre amis (`FinDuDuel`).
 - **La page des duels est servie par le code de la campagne** (`CampagneApp`,
   `DUELS`) : ses parties se jouent sur l'écran de la série. Son code à elle
   (`Duels.tsx`, et ce qu'il tire : `Duel.tsx`) vient à la demande

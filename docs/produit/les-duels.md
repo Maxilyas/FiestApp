@@ -52,7 +52,7 @@ Les duels demandent un profil, où restent ta cote, ta ligue et tes confettis : 
 
 - **Un seul duel ouvert par paire**, dans les deux sens, tant qu'il n'est pas joué des deux côtés ni fermé. Le refus dit quoi faire : « Tom t'a déjà défié : relève son duel d'abord, en tête de tes duels ». Au-delà, aucun plafond : autant de duels en attente que d'adversaires.
 - **Les questions** sont tirées comme une série, d'abord parmi celles que ni l'un ni l'autre n'a vues.
-- **Sept jours** pour le jouer (`DUREE_D_UN_DUEL_MS`). Il compte quand les deux l'ont fini, daté de la seconde partie ; à la fermeture, s'ils l'ont tous deux commencé, sur ce qu'ils ont atteint ; jamais commencé par l'un, il ne compte pas : « Ce duel est fermé : il ne compte plus. » Personne ne perd de points en dormant.
+- **Sept jours** pour le jouer (`DUREE_D_UN_DUEL_MS`). Il compte quand les deux l'ont fini, daté de la seconde partie ; à la fermeture, s'ils l'ont tous deux commencé, sur ce qu'ils ont atteint ; jamais commencé par l'un, il ne compte pas : « Ce duel est fermé : il ne compte plus. » Personne ne perd de points en dormant. L'administrateur peut aussi annuler, depuis le QG, un duel que l'adversaire n'a pas commencé : il se ferme tout de suite, comme à son expiration, et ne compte pour personne.
 - **La correction** s'ouvre quand le duel est joué des deux côtés, ou fermé. Ses erreurs n'entrent au [carnet](la-campagne.md) qu'à la fermeture : ouvert, il soufflerait ses réponses.
 - Personne d'autre ne le voit, même avec son code.
 
@@ -126,7 +126,7 @@ L'onglet « Historique » relit tous tes duels : « Ton bilan » (victoires, dé
 
 - **Ajouter est à sens unique** : ni demande ni acceptation — ta liste, comme un carnet d'adresses. L'autre te voit dans « Ils t'ont ajouté ».
 - **Être ami ne donne aucun droit de plus** : tu défies n'importe quel profil, ami ou non. Un ami, c'est un nom dans ta liste, ta place « Entre amis », et le point vert « en ligne » (passé ces 5 dernières minutes), montré seulement entre amis réciproques : sinon un inconnu guetterait quand tu te connectes.
-- **Retirer est le seul blocage** : « Ses duels ne te parviendront plus ». Il ne l'apprend pas — sa fin dit quand même « Parti à » ton prénom — jusqu'à ce que tu le rajoutes (le duel retenu t'arrive alors) ou que vous rejouiez un duel ensemble. On ne bloque pas un joueur absent de sa liste.
+- **Retirer est le seul blocage** : « Ses duels ne te parviendront plus ». Il ne l'apprend pas — sa fin dit quand même « Duel envoyé » et « Chez » ton prénom — jusqu'à ce que tu le rajoutes (le duel retenu t'arrive alors) ou que vous rejouiez un duel ensemble. On ne bloque pas un joueur absent de sa liste.
 
 **La recherche** part de 2 lettres (`LETTRES_POUR_CHERCHER`) et rend 12 joueurs au plus : un prénom qui contient le texte, sans accents ni majuscules, ou un identifiant de connexion qui commence par lui — l'identifiant n'est jamais montré. **Les joueurs croisés** (6 au plus) viennent de tes 5 dernières soirées, de tes duels, du défi de la semaine, puis de ta cote — chacun dit pourquoi, « en soirée avec toi » ou « de ton niveau » ; jamais un ami, un retiré, ni Automate.
 
