@@ -10,8 +10,8 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
 // que sa carte montre à la salle, qui se règle dans la loge (« M'habiller »,
-// pièce « Vitrine ») — et un objectif commencé. La liste des collections elle-même vit dans
-// `TropheesAtlas`, sous « Ma collection ».
+// pièce « Vitrine ») — et un objectif commencé. L'album lui-même vit dans
+// `AlbumDesTrophees`, sous « Ma collection ».
 
 /**
  * Ce que sa vitrine montre — celle qu'il a choisie, sinon ses trois plus

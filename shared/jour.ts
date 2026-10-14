@@ -84,7 +84,28 @@ export function xpDuPodium(rang: number, joueurs: number): number {
 
 export type Medaille = 'or' | 'argent' | 'bronze'
 
-export const NOM_MEDAILLE: Record<Medaille, string> = { or: 'Médaille d’or', argent: 'Médaille d’argent', bronze: 'Médaille de bronze' }
+/**
+ * La médaille d'une partie se montre en étoiles, comme la note d'une épreuve
+ * des sentiers : une au bronze, deux à l'argent, trois à l'or. Bronze,
+ * argent et or nommaient aussi les étapes des trophées, et l'on ne savait
+ * plus ce qu'on gagnait (le lexique de la maquette du 13 octobre 2026 :
+ * « ★ ★★ ★★★, la note d'une partie »). Le serveur garde ses médailles.
+ */
+export const ETOILES_DE_LA_MEDAILLE: Record<Medaille, 1 | 2 | 3> = { bronze: 1, argent: 2, or: 3 }
+
+export const NOM_DE_LA_NOTE: Record<Medaille, string> = { or: 'Trois étoiles', argent: 'Deux étoiles', bronze: 'Une étoile' }
+
+/**
+ * Ce que disent ses étoiles, sous elles : celles qu'il a, et la suivante —
+ * « Deux étoiles · la troisième au sans-faute ».
+ */
+export function phraseDesEtoiles(medaille: Medaille | null, questions: number): string {
+  const s = seuilsDesMedailles(questions)
+  if (!medaille) return `Une étoile à ${s.bronze} bonnes réponses, deux à ${s.argent}, trois au sans-faute`
+  if (medaille === 'bronze') return `Une étoile · la deuxième à ${s.argent} bonnes réponses`
+  if (medaille === 'argent') return 'Deux étoiles · la troisième au sans-faute'
+  return 'Trois étoiles : un sans-faute'
+}
 
 /**
  * La médaille d'une partie, au nombre de bonnes réponses : l'or pour un

@@ -13,6 +13,7 @@ import {
   avecLEssai,
   cibleDeLEclat,
   ceQuIlAPorter,
+  essaiDemande,
   essaiVide,
   essayer as avecUnePiece,
   lignesDeLEssai,
@@ -84,6 +85,26 @@ export function aDuNouveau(profil: PublicProfileDetail): boolean {
   return PIECES_DE_LA_LOGE.some(p => neufs[p.id].length > 0)
 }
 
+// ── L'essai qu'une fin de partie demande ─────────────────────────────────
+
+/** Ce qu'une fin de partie demande d'essayer (`/profil?essayer=nuit#fond`), lu une fois, à l'ouverture. */
+function lireLEssaiDemande(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get('essayer')
+  } catch {
+    return null
+  }
+}
+
+/** L'essai posé, l'adresse l'oublie : un rechargement ou une autre pièce ne le reposeraient pas. */
+function oublierLEssaiDemande() {
+  const q = new URLSearchParams(window.location.search)
+  if (!q.has('essayer')) return
+  q.delete('essayer')
+  const reste = q.toString()
+  history.replaceState(history.state, '', `${window.location.pathname}${reste ? `?${reste}` : ''}${window.location.hash}`)
+}
+
 // ── La loge ──────────────────────────────────────────────────────────────
 
 export function Loge({
@@ -103,7 +124,9 @@ export function Loge({
   /** Le refus du dernier enregistrement, que la barre de l'essai dit. */
   erreur?: string
 }) {
-  const [essai, setEssai] = useState<Essai>({})
+  // « Essayer », à la fin d'une partie : ce qu'elle vient d'ouvrir arrive déjà sur la carte.
+  const [essai, setEssai] = useState<Essai>(() => essaiDemande(piece, lireLEssaiDemande(), profil))
+  useEffect(() => oublierLEssaiDemande(), [])
   // Ce qui était nouveau à l'ouverture le reste le temps de la visite ; la
   // pastille d'une pièce, elle, s'éteint dès qu'on l'a regardée.
   const [neufs] = useState(() => nouveautes(ceQuIlAPorter(profil), lireVus(profil.id)))

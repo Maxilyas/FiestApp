@@ -6,8 +6,9 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
-import { RecompenseTombee } from '../components/Ouverts'
+import { LigneDeTrophee } from '../components/Gains'
 import { SerieCorrigee } from '../components/SerieCorrigee'
+import { tropheesTombes } from '../../../shared/gains'
 import { OR, lueur } from '../components/Atlas'
 import { deNom } from '../format'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
@@ -191,9 +192,14 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
                   <span className="muted small">{placeDuJour(passee.rang, passee.joueurs, passee.justes) ? bonnes(passee.justes) : `sur ${passee.joueurs} joueur${passee.joueurs > 1 ? 's' : ''}`}</span>
                 </div>
               </div>
-              {passee.recompenses.map(r => (
-                <RecompenseTombee key={r.key} recompense={r} />
-              ))}
+              {/* Le Vainqueur du défi, et ce qu'il ouvre : les trophées de l'album, comme à la fin d'une partie. */}
+              {passee.recompenses.length > 0 && (
+                <div className="gains-liste">
+                  {tropheesTombes(passee.recompenses).map(t => (
+                    <LigneDeTrophee key={t.cle} t={t} lien />
+                  ))}
+                </div>
+              )}
               {!correction && (
                 <button type="button" className="btn btn-block" onClick={() => void voirCorrection(passee.serie)}>
                   <Icon name="book" />

@@ -118,6 +118,23 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
 export const essaiVide = (essai: Essai) => Object.keys(essai).length === 0
 
 /**
+ * L'essai qu'une fin de partie demande en ouvrant la loge — « Essayer »,
+ * sous « À porter » (`/profil?essayer=nuit#fond`) : le fond, la gerbe, le
+ * thème ou l'emoji de collection qu'elle vient d'ouvrir, déjà sur la carte.
+ * Seulement ce qui est à lui, et sur la pièce de l'adresse : une adresse
+ * tapée n'essaie rien qu'il n'ait.
+ */
+export function essaiDemande(piece: PieceDeLaLoge, cle: string | null, profil: PublicProfileDetail): Essai {
+  if (!cle) return {}
+  const a = ceQuIlAPorter(profil)
+  if (piece === 'fond' && a.fond.includes(cle)) return essayer({}, { fond: cle }, profil)
+  if (piece === 'gerbe' && a.gerbe.includes(cle)) return essayer({}, { gerbe: cle }, profil)
+  if (piece === 'theme' && a.theme.includes(cle)) return essayer({}, { theme: cle }, profil)
+  if (piece === 'avatar' && COLLECTION.some(c => c.emoji === cle) && a.avatar.includes(cle)) return essayer({}, { avatar: cle }, profil)
+  return {}
+}
+
+/**
  * Le profil tel que la carte de la loge le montre, l'essai porté : son
  * avatar, sa finition, son titre, sa vitrine, son fond. Rien n'est
  * enregistré — la salle voit toujours ce qu'il porte.

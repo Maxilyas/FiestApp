@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import type { Finition, PublicProfile } from '../../../shared/profil'
-import { collectionGagnee } from '../../../shared/avatars'
-import { ceQuIlAFallu, palierDe, xpDe } from '../../../shared/hautsfaits'
+import type { Finition } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { portrait as portraitDe } from '../../../shared/branches'
 import { api } from '../api'
@@ -9,66 +7,15 @@ import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 
-// Ce qu'une partie vient d'ouvrir, qu'on porte d'ici : à la fin d'une
-// soirée (`FinDeSoiree.tsx`), du quiz du jour (`JourApp.tsx`), d'une série
-// de campagne ou d'un défi (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
+// Ce qu'une partie vient d'ouvrir de grand, qu'on porte d'ici — un
+// légendaire, l'Éclat, et le médaillon d'un Divin — : à la fin d'une soirée
+// (`FinDeSoiree.tsx`), du quiz du jour (`JourApp.tsx`), d'une série de
+// campagne ou d'un défi (`CampagneApp.tsx`) ou d'une épreuve des sentiers.
 // À part de la fin de soirée : le quiz du jour l'importait pour ces
 // composants, et téléchargeait toute la fin de soirée à chaque ouverture de
-// sa page. (Les portraits des branches s'y annonçaient aussi : ils se
-// gagnent maintenant sur les sentiers, qui ont leur révélation.)
-
-/**
- * Les emojis de collection qu'une montée de niveau vient d'ouvrir, qu'on
- * porte d'ici : en fin de soirée comme à la fin du quiz du jour, qui les
- * ouvrait sans un mot.
- */
-export function CollectionOuverte({
-  avant,
-  apres,
-  finition,
-  onPorte,
-}: {
-  avant: number
-  apres: number
-  finition?: Finition
-  onPorte?: (profil: PublicProfile) => void
-}) {
-  const [emojiPorte, setEmojiPorte] = useState<string | null>(null)
-  const nouveaux = collectionGagnee(avant, apres)
-  if (nouveaux.length === 0) return null
-  const porterEmoji = async (emoji: string) => {
-    try {
-      const { profile } = await api.joueur.enregistrer({ avatar: emoji })
-      setEmojiPorte(profile.avatar)
-      onPorte?.(profile)
-      showToast({ kind: 'info', message: `Tu portes ${emoji}` })
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
-    }
-  }
-  return (
-    <section className="card fin-collection">
-      <span className="label">{nouveaux.length > 1 ? 'Nouveaux avatars de collection' : 'Nouvel avatar de collection'}</span>
-      <div className="fin-collection-emojis">
-        {nouveaux.map(e => (
-          <div key={e} className="fin-collection-emoji">
-            <Avatar avatar={e} finition={finition} />
-            {emojiPorte !== e && (
-              <button className="btn btn-small" aria-label={`Porter ${e}`} onClick={() => void porterEmoji(e)}>
-                Le porter
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="muted small">
-        {emojiPorte && nouveaux.includes(emojiPorte)
-          ? `C’est ${emojiPorte} que la salle verra, dès la prochaine soirée.`
-          : 'Réservés aux profils : un emoji à chaque niveau qui n’ouvre pas de finition, jusqu’au 17.'}
-      </p>
-    </section>
-  )
-}
+// sa page. Le reste — l'expérience, les trophées, ce qu'ils ouvrent, les
+// emojis de collection — passe par l'écran de gains de tous les modes
+// (`Gains.tsx`).
 
 /**
  * Un médaillon gagné ce soir, dans son cadre. Si son dessin n'a pas pu venir
@@ -150,30 +97,5 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
       <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
       <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
     </section>
-  )
-}
-
-/**
- * Un haut fait ou un palier qui vient de tomber — le Lève-tôt, le
- * Funambule, L'Alpiniste · Argent —, avec ce qu'il a fallu faire : un titre
- * seul ne dit rien à qui ne l'a jamais chassé.
- */
-export function RecompenseTombee({ recompense }: { recompense: { key: string; emoji: string; title: string } }) {
-  // Ce qu'il rapporte, dit avec lui : les hauts faits du quiz du jour et de
-  // la campagne paient depuis le 6 octobre 2026, et personne ne le voyait.
-  const xp = xpDe(recompense.key)
-  return (
-    <div className="jour-ligne">
-      <span className="jour-pastille jour-palier" aria-hidden="true">
-        {recompense.emoji}
-      </span>
-      <div>
-        <b>{`${palierDe(recompense.key) ? 'Nouveau palier' : 'Nouveau haut fait'} : ${recompense.title}`}</b>
-        <span className="muted small">
-          {ceQuIlAFallu(recompense.key)}
-          {xp > 0 && ` · +${xp} XP`}
-        </span>
-      </div>
-    </div>
   )
 }

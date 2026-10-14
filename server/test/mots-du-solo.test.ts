@@ -77,9 +77,10 @@ test('ce qui se porte se règle sous « M’habiller » ; la vitrine se gagne au
   const collection = source('components/Collection.tsx')
   assert.match(collection, /ce qui est à toi se porte depuis « M’habiller », sur ton profil\./)
   assert.doesNotMatch(collection, /se porte dans « Mon avatar », « Ma carte »/, '« Ma carte » n’existe plus : chaque pièce a sa page')
-  const atlas = source('components/TropheesAtlas.tsx')
-  assert.match(atlas, /Ils se gagnent en soirée, au quiz du jour et en campagne, et certains réveillent un légendaire\./)
-  assert.doesNotMatch(atlas, /se décernent à la fin de chaque soirée/)
+  // L'album des trophées a une page par mode — le solo en a quatre —, et chacune dit où ils se gagnent.
+  const album = readFileSync(new URL('../../shared/trophees.ts', import.meta.url), 'utf8')
+  assert.match(album, /jour: 'Au quiz du jour',\s*campagne: 'En campagne',\s*duels: 'Aux duels',\s*sentiers: 'Sur les sentiers'/)
+  assert.doesNotMatch(album + source('components/AlbumDesTrophees.tsx'), /se décernent à la fin de chaque soirée/)
 })
 
 test('le carnet reprend « à la question 2 » : une position, pas des bonnes réponses', () => {

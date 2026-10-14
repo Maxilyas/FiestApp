@@ -3,9 +3,10 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, GesteDuBas, Sortie } from '../components/Pieces'
-import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { BarreDeNiveau } from '../components/BarreDeNiveau'
+import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
+import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
 import { LUEUR, lueur } from '../components/Atlas'
@@ -20,6 +21,8 @@ import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
 import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
+import { aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
+import { etapesDeLaPiste } from '../../../shared/pistes'
 import {
   CONFETTIS_DES_ETOILES,
   PALIERS,
@@ -465,19 +468,6 @@ function ViesDuJour({ vies }: { vies: VieDesSentiers }) {
       <Coeur plein={vies.jour + vies.reserve > 0} />
       {vies.jour}
       {vies.reserve > 0 && <small>+{vies.reserve}</small>}
-    </span>
-  )
-}
-
-/** Trois étoiles, pleines jusqu'à `n` — celles d'un palier, ou d'une étape d'un parcours de thème (`Parcours.tsx`). */
-export function Etoiles({ n, grandes }: { n: number; grandes?: boolean }) {
-  return (
-    <span className={'sentier-etoiles' + (grandes ? ' sentier-etoiles-grandes' : '')} role="img" aria-label={`${n} étoile${n > 1 ? 's' : ''} sur 3`}>
-      {[1, 2, 3].map(i => (
-        <svg key={i} viewBox="0 0 24 24" className={i <= n ? 'pleine' : undefined} aria-hidden="true">
-          <path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z" />
-        </svg>
-      ))}
     </span>
   )
 }
@@ -1534,36 +1524,36 @@ function FinDEpreuve({
   // Une meilleure note qui paie : ses étoiles s'ajoutent aux bonnes réponses (`CONFETTIS_DES_ETOILES`).
   const pourLesEtoiles = r.confettisDesEtoiles ?? 0
   const confettis = fin.justesIci + pourLesEtoiles
-  const gains = (
-    <>
-      <div className="epreuve-gains">
-        <span>
-          <b>🎊 +{confettis}</b>
-          {pourLesEtoiles > 0 ? `confettis, dont ${pourLesEtoiles} pour tes étoiles` : `confetti${confettis > 1 ? 's' : ''}`}
-        </span>
-        <span>
-          <b>+{fin.xp}</b>
-          {fin.xpPalier > 0 ? `XP, dont ${fin.xpPalier} pour le palier` : 'XP'}
-        </span>
-      </div>
-      {/* Où il en est : la barre de niveau, relue après l'épreuve, et la montée qu'elle a faite. */}
-      {fin.xp > 0 && <BarreDeNiveau />}
-    </>
-  )
   // Les paliers de la campagne qu'elle a fait tomber — Le Marathonien,
   // L'Érudit —, validée ou non : ils comptent toutes les bonnes réponses.
+  const recompenses = r.recompenses ?? []
+  const cles = recompenses.map(x => x.key)
+  // Où il en est : le niveau, relu après l'épreuve, et la montée qu'elle a faite.
+  const niveau = useNiveauRelu(fin.xp > 0 || cles.length > 0)
+  // Ce que ses maîtres ouvrent à porter — le Cabinet au troisième, Babel au douzième —, à la fin de celui qui les y fait arriver.
+  const desMaitres = r.maitre ? (etapesDeLaPiste('maitres').find(x => x.seuil === maitres)?.recompenses ?? []).map(recompense => ({ recompense, par: `${maitres} maîtres des sentiers` })) : []
+  // L'écran de gains de tous les modes (l'écran A) : l'expérience en un total, ce qui la fait, les confettis, le niveau.
+  const gains = (
+    <CeQueTuGagnes
+      parts={partsDeLXp([
+        { nom: 'tes bonnes réponses', xp: fin.xp - fin.xpPalier },
+        { nom: 'le palier', xp: fin.xpPalier },
+        { nom: 'tes trophées', xp: xpDesTrophees(cles) },
+      ])}
+      confettis={confettis}
+      niveau={niveau}
+    >
+      {pourLesEtoiles > 0 && <p className="muted small">{`Dont ${pourLesEtoiles} confettis pour tes étoiles.`}</p>}
+    </CeQueTuGagnes>
+  )
+  // Puis les légendaires, en grand ; les trophées, les plus rares d'abord ; ce qu'ils ouvrent à porter.
   const tombees = (
     <>
-      {!!r.recompenses?.length && (
-        <section className="card campagne-recompenses">
-          {r.recompenses.map(x => (
-            <RecompenseTombee key={x.key} recompense={x} />
-          ))}
-        </section>
-      )}
       {(r.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
+      <NouveauxTrophees trophees={tropheesTombes(recompenses)} lien />
+      <APorter objets={[...aPorterDesTrophees(cles), ...objetsAPorter(desMaitres), ...emojisAPorter(niveau)]} />
     </>
   )
   const correction = fin.correction ? (

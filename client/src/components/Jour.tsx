@@ -3,7 +3,8 @@ import { api } from '../api'
 import { formatNumber, pts } from '../format'
 import { placeDuJour } from '../../../shared/course'
 import {
-  NOM_MEDAILLE,
+  ETOILES_DE_LA_MEDAILLE,
+  NOM_DE_LA_NOTE,
   jourDe,
   jourEnToutesLettres,
   type CarriereDuJour,
@@ -13,29 +14,21 @@ import {
 } from '../../../shared/jour'
 import type { PointJoue } from './Carriere'
 import { Flamme, Icon } from './Icon'
+import { Etoiles } from './Etoiles'
 import { enumerer } from '../../../shared/classement'
 
-// Les petites pièces du quiz du jour : la médaille, la flamme de la série, et
+// Les petites pièces du quiz du jour : sa note, la flamme de la série, et
 // la carte de l'accueil. Elles suivent le trait des icônes de l'application
 // — jamais un emoji dans l'interface.
 
-const TEINTE: Record<TypeDeMedaille, string> = { or: 'var(--accent)', argent: 'var(--argent-text)', bronze: 'var(--bronze-text)' }
-const RANG: Record<TypeDeMedaille, number> = { or: 1, argent: 2, bronze: 3 }
-
-/** Une médaille dessinée : or, argent, bronze, avec son chiffre. */
-export function Medaille({ medaille, className }: { medaille: TypeDeMedaille; className?: string }) {
-  const teinte = TEINTE[medaille]
-  return (
-    <svg className={'medaille' + (className ? ` ${className}` : '')} viewBox="0 0 24 24" role="img" aria-label={NOM_MEDAILLE[medaille]}>
-      <path d="M7 1.5h4l2.2 7.2h-4z" fill={teinte} opacity="0.55" />
-      <path d="M17 1.5h-4l-2.2 7.2h4z" fill={teinte} opacity="0.8" />
-      <circle cx="12" cy="15" r="7.2" fill={teinte} />
-      <circle cx="12" cy="15" r="5.2" fill="none" stroke="#1a1412" strokeOpacity="0.35" strokeWidth="1" />
-      <text x="12" y="18.4" textAnchor="middle" fontFamily="Cormorant Garamond, Georgia, serif" fontWeight="600" fontSize="9.5" fill="#1a1412">
-        {RANG[medaille]}
-      </text>
-    </svg>
-  )
+/**
+ * La note d'une partie du jour, en étoiles — une, deux, trois —, celles des
+ * sentiers. Elle se dessinait en médaille de bronze, d'argent ou d'or : les
+ * métaux des trophées, et l'on confondait la note d'un jour avec un trophée
+ * (la maquette du 13 octobre 2026).
+ */
+export function NoteDuJour({ medaille, grande }: { medaille: TypeDeMedaille; grande?: boolean }) {
+  return <Etoiles n={ETOILES_DE_LA_MEDAILLE[medaille]} grandes={grande} />
 }
 
 /** « 6 jours » : la série, avec sa flamme — rien tant qu'elle ne compte pas. */
@@ -113,7 +106,7 @@ export function CarteDuJour() {
             )}
           </p>
           <p className="jour-meta">
-            {partie.medaille && <Medaille medaille={partie.medaille} className="medaille-texte" />}
+            {partie.medaille && <NoteDuJour medaille={partie.medaille} />}
             {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} · +{partie.xp + (partie.xpSerie ?? 0)} XP
           </p>
           <a className="btn btn-accent btn-block" href="/jour#classement">
@@ -174,7 +167,7 @@ export function MesJours({ jour }: { jour?: CarriereDuJour }) {
             <span className="soiree-quand">{capitale(jourEnToutesLettres(j.jour))}</span>
             <span className="soiree-detail">
               {[pts(j.points), placeDuJour(j.rang, j.joueurs, j.points)].filter(Boolean).join(' · ')}
-              {j.medaille && ` · ${NOM_MEDAILLE[j.medaille].toLowerCase()}`}
+              {j.medaille && ` · ${NOM_DE_LA_NOTE[j.medaille].toLowerCase()}`}
             </span>
           </div>
           <span className="soiree-xp">+{formatNumber(j.xp)} XP</span>
