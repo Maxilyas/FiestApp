@@ -3,8 +3,9 @@
 // l'attend — et les gestes qui l'aident sans rien lui demander : lui offrir
 // des confettis, lui tirer un code de secours neuf, changer un prénom qui ne
 // va pas, le suspendre et le réactiver, rouvrir sa connexion fermée, libérer
-// son épreuve de sentier. Chacun se joue ici pour de vrai — le joueur le
-// voit, ou ne le voit plus —, et se note au journal, sur son profil.
+// son épreuve de sentier, le remettre au classement. Chacun se joue ici pour
+// de vrai — le joueur le voit, ou ne le voit plus —, et se note au journal,
+// sur son profil.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, invite, type Banc } from './banc'
@@ -171,7 +172,7 @@ test('suspendre : plus de connexion — le bon mot de passe le dit —, plus per
   }
 })
 
-test('sur son propre profil, l’administrateur ne s’offre rien, ne se renomme ni ne se suspend d’ici', async () => {
+test('sur son propre profil, l’administrateur s’offre des confettis, mais ne se renomme ni ne se suspend d’ici', async () => {
   const { banc, admin } = await avecLea()
   try {
     // L'administrateur tient son espace avec son profil à lui.
@@ -179,10 +180,43 @@ test('sur son propre profil, l’administrateur ne s’offre rien, ne se renomme
     assert.equal((await ecrire(banc.url, '/api/space/profil', { login: 'antoine-joue', password: 'motdepasse1' }, admin)).status, 200)
     const id = (await lire(banc, sien, '/api/joueur/moi')).corps.profile.id as string
     assert.equal((await fiche(banc, admin, id)).toi, true)
-    assert.match((await faire(banc, admin, `/api/admin/profils/${id}/confettis`, { confettis: 10 })).corps.error, /Pas pour toi/)
+    // Ses confettis, il se les offre comme à n'importe qui (« je peux pas
+    // m'octroyer des confettis », le propriétaire, le 14 octobre 2026 — le
+    // QG le refusait) : son solde les compte, son accueil les annonce.
+    const don = await faire(banc, admin, `/api/admin/profils/${id}/confettis`, { confettis: 10 })
+    assert.equal(don.status, 200, don.corps.error)
+    assert.deepEqual((await fiche(banc, admin, id)).confettis, { solde: 10, offerts: 10 })
+    const accueil = (await lire<{ profile: ProfilDAccueil }>(banc, sien, '/api/joueur/moi?accueil')).corps.profile
+    assert.equal(accueil.boutique?.confettis.solde, 10)
     assert.match((await faire(banc, admin, `/api/admin/profils/${id}/prenom`, { nom: 'Toto' })).corps.error, /depuis ton profil/)
     assert.match((await faire(banc, admin, `/api/admin/profils/${id}/suspendre`)).corps.error, /ton propre profil/)
-    assert.deepEqual(await sesGestes(banc, admin, id), [], 'un refus ne se note pas')
+    assert.deepEqual(await sesGestes(banc, admin, id), ['10 confettis offerts : Antoine (@antoine-joue)'], 'le don se note, un refus jamais')
+  } finally {
+    await banc.close()
+  }
+})
+
+test('masqué des classements, la fiche le dit — et il s’y remet, suspendu compris', async () => {
+  const { banc, admin, id } = await avecLea()
+  try {
+    assert.equal((await faire(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: true })).status, 200)
+    assert.equal((await fiche(banc, admin, id)).masque, true)
+    // Suspendu, il reste dans la liste des masqués, que la page du quiz du
+    // jour et celle des duels montrent : « Remettre au classement » y
+    // répondait « Profil introuvable », et le masque ne se levait plus.
+    assert.equal((await faire(banc, admin, `/api/admin/profils/${id}/suspendre`)).status, 200)
+    assert.deepEqual((await lire<{ id: string }[]>(banc, admin, '/api/admin/jour/profils?q=')).corps.map(p => p.id), [id])
+    const remis = await faire(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: false })
+    assert.equal(remis.status, 200, remis.corps.error)
+    assert.equal((await fiche(banc, admin, id)).masque, false)
+    assert.deepEqual((await lire<unknown[]>(banc, admin, '/api/admin/jour/profils?q=')).corps, [])
+    assert.deepEqual(await sesGestes(banc, admin, id), [
+      'Profil remis au classement du quiz du jour : Léa (@lea)',
+      'Profil suspendu : Léa (@lea)',
+      'Profil masqué du classement du quiz du jour : Léa (@lea)',
+    ])
+    // Un profil qui n'existe pas reste introuvable.
+    assert.equal((await faire(banc, admin, '/api/admin/jour/masquer', { profileId: 'inconnu', masque: false })).status, 404)
   } finally {
     await banc.close()
   }

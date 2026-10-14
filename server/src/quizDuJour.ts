@@ -444,7 +444,9 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
     '/api/admin/jour/masquer',
     requireAdmin,
     wrap(async (req, res) => {
-      const profil = await deps.profiles.byId(String(req.body?.profileId ?? ''))
+      // Suspendu compris, que `byId` tait : la liste des masqués le montre
+      // encore, et « Remettre au classement » y répondait « Profil introuvable ».
+      const profil = await deps.profiles.pourLAdministrateur(String(req.body?.profileId ?? ''))
       if (!profil) return res.status(404).json({ error: 'Profil introuvable' })
       const masque = req.body?.masque !== false
       await deps.jour.masquer(profil.id, masque)
