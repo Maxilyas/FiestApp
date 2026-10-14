@@ -320,6 +320,16 @@ Les confettis offerts par l'administrateur, avec leur mot.
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
+### `profile_loge_vus`
+
+Ce que chaque profil a déjà vu dans sa loge, pièce par pièce : la pastille rouge de « Profil », de « M'habiller » et des pièces compte ce qu'il a et qui n'y est pas.
+
+- **Colonnes clés** : `profile_id` (la clé), `vus` (`VusDeLaLoge` en JSON, réduit par `lireLesVus`), `retenu_le`.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.retenirLesVusDeLaLoge` — la loge à chaque pièce regardée (`PUT /api/joueur/vus`), et `GET /api/joueur/nouveautes` la première fois, tout ce qu'il a vu d'un coup ; la ligne d'avant se remplace.
+- **Lue par** : `ProfileStore.vusDeLaLoge` (le détail du profil, le compte des nouveautés).
+- **Effacée par** : la suppression du profil.
+
 **Le miroir de la soirée** (`server/src/core/backup.ts`) — la copie, dans la
 base permanente, des sept tables locales. Il n'existe que pour survivre à un
 disque effacé : rien ne le lit en marche normale. Toutes ses écritures passent

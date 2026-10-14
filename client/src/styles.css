@@ -7457,6 +7457,27 @@ body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe
   border-radius: 0 0 2px 2px;
   background: var(--zone, var(--accent));
 }
+/* Ce qu'il a de neuf à porter, sur « Profil » : le compteur des messages,
+   blanc sur rouge et écrit en dur comme celui des gros boutons — aucun thème
+   ne le repeint (`.gros-compteur`) —, posé sur l'épaule de l'icône. */
+.menu-compteur {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 4px);
+  display: grid;
+  place-items: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-pill);
+  background: #d93025;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px var(--bg-raised);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+}
 /* La page ne passe jamais sous la barre. */
 body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 /* Ce que la page fait défiler jusqu'à soi — la fiche ouverte d'un thème,
@@ -7701,8 +7722,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-piece[aria-selected='true'] .loge-rond { border-color: var(--accent); background: var(--accent); color: var(--on-accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.4); }
 /* Le filet entre ce que la salle voit et ce que lui seul voit. */
 .loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: 36px; background: var(--edge); }
-.loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
-.loge-piece[aria-selected='true'] .loge-neuf { background: var(--ink); }
+/* Le neuf se dit en rouge, comme sur « Profil » et « M'habiller » : un point d'or se perdait dans l'or de la pièce choisie. */
+.loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .loge-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.82rem; line-height: 1.3; }
 .loge-qui .icon { flex: none; width: 13px; height: 13px; }
 .loge-panneau { display: flex; flex-direction: column; gap: 14px; }
@@ -7752,7 +7773,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .case-avatar.neuve::before,
 .finition-btn.neuve::before,
 .vitrine-option.neuve::before,
-.theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+.theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .vitrine-option[aria-disabled='true'] { opacity: 0.45; cursor: default; }
 .titre-etat { font-family: var(--sans); font-style: normal; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; color: var(--muted); }
 .titre-choix.porte { border-color: var(--edge-strong); }

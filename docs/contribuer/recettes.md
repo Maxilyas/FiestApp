@@ -168,7 +168,7 @@ Le test : jouer la route dans le scénario de la première épreuve de `server/t
 ### Garder quelque chose sur l'appareil
 
 1. **Est-ce une commodité ?** Tout ce qui doit survivre ou se partager va au serveur ; l'appareil ne garde que de quoi se re-présenter et des préférences.
-2. **Une clé `quizz.…`**, rangée par espace (`quizz.me.<espace>`) ou par profil (`quizz.loge.vus.<profil>`) quand sa valeur en dépend : un jeton d'un espace ne vaut rien dans un autre.
+2. **Une clé `quizz.…`**, rangée par espace (`quizz.me.<espace>`) ou par profil (`quizz.annonces.vues.<profil>`) quand sa valeur en dépend : un jeton d'un espace ne vaut rien dans un autre.
 3. **Chaque lecture et chaque écriture sous `try/catch`** — `writeSafe` (`client/src/state.ts`) en est le modèle —, et la page qui marche sans : un stockage refusé ne doit coûter que la commodité. Rien ne le vérifie automatiquement ; un module qui lit le stockage à son chargement le simule dans son test (`server/test/installation.test.ts`).
 4. **Ne renomme jamais une clé en service** : chaque téléphone oublierait ce qu'il gardait (`quizz.profile.<espace>` garde son vieux nom pour cela). Une valeur dont la forme change porte sa version (`VERSION_GARDEE`).
 5. **Sa ligne** dans la table du stockage de `docs/architecture/client.md`.

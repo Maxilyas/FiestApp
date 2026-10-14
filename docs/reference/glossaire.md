@@ -309,7 +309,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Nom d'espace | Le nom d'un espace dans l'adresse (`chez-nadia`) : 2 à 24 minuscules, chiffres ou tirets, ni réservé ni fait de six chiffres | `isValidSlug`, `SLUG` (`shared/space.ts`) |
 | Nom d'une soirée | Son identifiant figé : le jour et l'instant de sa première question jouée, et une empreinte de l'espace | `archiveIdOf`, `soireeEnCours` |
 | Nom réservé | Un premier segment d'adresse que l'application emploie elle-même, et qu'aucun espace ne peut porter | `RESERVED_SLUGS` (`shared/space.ts`) |
-| « Nouveau » | La pastille de ce qu'une pièce a gagné depuis le dernier passage, sur ce téléphone | `nouveautes` |
+| « Nouveau » | La pastille rouge de ce qu'une pièce a gagné depuis le dernier passage dans la loge — comptée sur « Profil », dans la barre du menu, et sur « M'habiller » ; retenue par le serveur, pour tous ses appareils | `nouveautes`, `compteDesNouveautes` |
 | La nuit | La clôture des jours passés — classement relu, podium payé, hauts faits de la nuit, laurier passé — faite à la première demande du lendemain, rien ne tournant à minuit | `clorePasses` |
 
 ## O

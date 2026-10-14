@@ -83,6 +83,7 @@ import {
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import {
   COMPAGNONS,
@@ -868,6 +869,15 @@ export class ProfileStore {
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_dons ON profile_dons(profile_id)',
         'CREATE INDEX IF NOT EXISTS idx_profile_dons_quand ON profile_dons(created_at)',
+        // Ce qu'il a déjà vu dans sa loge, pièce par pièce (`VusDeLaLoge`, en
+        // JSON) : la pastille rouge de « Profil » compte ce qu'il a et qui n'y
+        // est pas. Retenu sur le téléphone jusqu'au 14 octobre 2026, ce qu'on
+        // regardait sur l'ordinateur se redisait nouveau sur le téléphone.
+        `CREATE TABLE IF NOT EXISTS profile_loge_vus (
+           profile_id TEXT PRIMARY KEY,
+           vus        TEXT NOT NULL,
+           retenu_le  INTEGER NOT NULL
+         )`,
       ],
       'write',
     )
@@ -1241,6 +1251,31 @@ export class ProfileStore {
       },
       dons: achats.dons,
     }
+  }
+
+  /**
+   * Ce qu'il a déjà vu de chaque pièce de sa loge, null s'il n'y est jamais
+   * passé. Une ligne illisible vaut une loge jamais vue : la page la refait,
+   * plutôt que de crier « nouveau » sur tout ce qu'il a.
+   */
+  async vusDeLaLoge(profileId: string): Promise<VusDeLaLoge | null> {
+    const res = await this.client.execute({ sql: 'SELECT vus FROM profile_loge_vus WHERE profile_id = ?', args: [profileId] })
+    const brut = res.rows[0]?.vus
+    if (brut == null) return null
+    try {
+      return lireLesVus(JSON.parse(String(brut)))
+    } catch {
+      return null
+    }
+  }
+
+  /** Retient ce qu'il a vu, tel que la page le calcule (`retenirLesVus`, réduit par `lireLesVus`) : la ligne d'avant s'efface. */
+  async retenirLesVusDeLaLoge(profileId: string, vus: VusDeLaLoge): Promise<void> {
+    await this.client.execute({
+      sql: `INSERT INTO profile_loge_vus (profile_id, vus, retenu_le) VALUES (?, ?, ?)
+            ON CONFLICT(profile_id) DO UPDATE SET vus = excluded.vus, retenu_le = excluded.retenu_le`,
+      args: [profileId, JSON.stringify(vus), Date.now()],
+    })
   }
 
   /**
@@ -3470,6 +3505,7 @@ export class ProfileStore {
           'profile_sabliers',
           'profile_compagnons',
           'profile_dons',
+          'profile_loge_vus',
         ].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],

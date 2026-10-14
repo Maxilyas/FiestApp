@@ -24,11 +24,11 @@ import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, bordurePortee, type ChoixDeBordure } from './duels'
-import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from './piecesDeLaLoge'
+import { PIECES_DE_LA_LOGE, type PieceDeLaLoge, type VusDeLaLoge } from './piecesDeLaLoge'
 
 // Les six pièces vivent à part, sans catalogue : la page du profil montre
 // sa carte et sa rangée avant que ces règles n'arrivent.
-export { PIECES_DE_LA_LOGE, estUnePieceDeLaLoge, type PieceDeLaLoge } from './piecesDeLaLoge'
+export { PIECES_DE_LA_LOGE, estUnePieceDeLaLoge, type PieceDeLaLoge, type VusDeLaLoge } from './piecesDeLaLoge'
 
 /**
  * Ce qu'on essaie : les champs d'un enregistrement du profil
@@ -327,13 +327,10 @@ export function ceQuIlAPorter(profil: PublicProfileDetail): Record<PieceDeLaLoge
   }
 }
 
-/** Ce que ce téléphone a déjà vu de chaque pièce (`quizz.loge.vus.<profil>`). */
-export type VusDeLaLoge = Partial<Record<PieceDeLaLoge, readonly string[]>>
-
 /**
  * Ce qui est nouveau depuis son dernier passage, pièce par pièce. Une pièce
- * jamais vue sur ce téléphone n'a rien de nouveau : la première visite ne
- * crie pas « nouveau » sur tout ce qu'il a.
+ * jamais vue n'a rien de nouveau : la première visite ne crie pas « nouveau »
+ * sur tout ce qu'il a.
  */
 export function nouveautes(a: Record<PieceDeLaLoge, string[]>, vus: VusDeLaLoge): Record<PieceDeLaLoge, string[]> {
   const n = {} as Record<PieceDeLaLoge, string[]>
@@ -345,7 +342,7 @@ export function nouveautes(a: Record<PieceDeLaLoge, string[]>, vus: VusDeLaLoge)
 }
 
 /**
- * Ce que ce téléphone retient après un passage : chaque pièce jamais vue,
+ * Ce que le serveur retient après un passage : chaque pièce jamais vue,
  * telle qu'elle est — la prochaine nouveauté s'y verra —, et la pièce
  * regardée, à jour.
  */

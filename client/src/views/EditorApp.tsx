@@ -87,6 +87,7 @@ import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/pa
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, MenuBarre } from '../components/Pieces'
+import { useNouveautesDuMenu } from '../nouveautes'
 import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { CarteDeQuiz, FicheDeQuiz } from '../components/MesQuiz'
 import { ChampNombre } from '../components/ChampNombre'
@@ -168,6 +169,8 @@ function telecharger(nom: string, contenu: string) {
 
 export function EditorApp() {
   const [needLogin, setNeedLogin] = useState(false)
+  /** Ce que son profil a de neuf à porter : la pastille de « Profil », dans la barre. */
+  const nouveautes = useNouveautesDuMenu(true)
   /** La console s'ouvre par le profil une fois au plus : sans profil, la connexion. */
   const essaiParLeProfil = useRef(false)
   const [loginError, setLoginError] = useState('')
@@ -887,7 +890,7 @@ export function EditorApp() {
           </div>
         </Feuille>
       )}
-      <MenuBarre ici="quiz" />
+      <MenuBarre ici="quiz" nouveautes={nouveautes} />
     </div>
   )
 }

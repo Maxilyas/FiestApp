@@ -14,6 +14,8 @@ import { pageDeRetour } from '../../../shared/securite'
 import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil'
 // Le type seul : les règles de la loge viennent avec ses panneaux, à la demande.
 import type { PieceDeLaLoge } from '../../../shared/loge'
+import { nouveautesAPorter, premierePieceNeuve, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
+import { retenirLeCompte, useNouveautesDuMenu } from '../nouveautes'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil, type GardeDeLaLoge } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
@@ -225,13 +227,22 @@ export function ProfilApp() {
     history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${piece}`)
     setEcranOuvert(piece)
   }
-  // La première fois qu'un profil paraît sur ce téléphone, ce qu'il porte
-  // s'y retient : la prochaine nouveauté aura sa pastille sur « M'habiller »
-  // et sur sa pièce de la loge — même s'il passe par la boutique d'abord.
+  // La première fois qu'un profil paraît, ce qu'il porte se retient vu : la
+  // prochaine nouveauté aura sa pastille sur « Profil », « M'habiller » et sa
+  // pièce de la loge — même s'il passe par la boutique d'abord.
   const profilDetaille = profil && 'hautsFaits' in profil ? profil : null
+  /** Ce qu'il vient de voir dans sa loge : la page le garde, et ses pastilles se recomptent. */
+  const retenirLesVusDeLaLoge = (vus: VusDeLaLoge) => setProfil(p => (p && 'hautsFaits' in p ? { ...p, vusDeLaLoge: vus } : p))
   useEffect(() => {
-    if (profilDetaille && lesPanneaux && lesPanneaux !== 'perdu') lesPanneaux.retenirLesPremiersVus(profilDetaille)
+    if (profilDetaille && lesPanneaux && lesPanneaux !== 'perdu') lesPanneaux.retenirLesPremiersVus(profilDetaille, retenirLesVusDeLaLoge)
   }, [profilDetaille?.id, lesPanneaux])
+  // Ce que la loge a de neuf, recompté sur le détail dès que ses règles sont là ;
+  // l'onglet le garde, et l'accueil ou le compte le montrent en attendant le serveur.
+  const lesRegles = lesPanneaux && lesPanneaux !== 'perdu' ? lesPanneaux : null
+  const nouveautesDuDetail = profilDetaille && lesRegles ? lesRegles.nouveautesDuProfil(profilDetaille) : null
+  useEffect(() => {
+    if (nouveautesDuDetail) retenirLeCompte(nouveautesDuDetail.nouveautes)
+  }, [nouveautesDuDetail?.nouveautes])
 
   // L'accueil ne lit que son en-tête, sa série et son solde : le détail —
   // historique, hauts faits, titres des soirées — coûtait quatre ou cinq
@@ -273,6 +284,8 @@ export function ProfilApp() {
   // `PanneauxDuProfil`, 21 ko, arrivait juste avant lui). La feuille des amis
   // de même : « Amis », touché, l'ouvre tout de suite.
   const aUnProfil = !!profil
+  // L'accueil ne lit pas le détail : sa barre demande au serveur ce qui est neuf, une fois l'accueil montré.
+  const compteDuMenu = useNouveautesDuMenu(VUE === 'accueil' && aUnProfil)
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
     const precharger = () => {
@@ -461,7 +474,7 @@ export function ProfilApp() {
       {annonce}
     </p>
   )
-  const menu = (ici: Piece) => <MenuBarre ici={ici} />
+  const menu = (ici: Piece) => <MenuBarre ici={ici} nouveautes={nouveautesDuDetail?.nouveautes ?? compteDuMenu} />
 
   // ── L'accueil : qui l'on est en une ligne, puis ce qu'on vient faire ──
   if (VUE === 'accueil') {
@@ -583,7 +596,7 @@ export function ProfilApp() {
           </header>
           {regionDAnnonce}
           {pret ? (
-            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} garde={gardeDeLaLoge} />
+            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} onVus={retenirLesVusDeLaLoge} garde={gardeDeLaLoge} />
           ) : (
             <LogeEnChemin profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} onOuvrir={ouvrirLaCarte} attente={enChemin} />
           )}
@@ -619,6 +632,7 @@ export function ProfilApp() {
   // les écrans (`apercusDesTuiles`) : leurs catalogues alourdissaient
   // l'accueil, qui partage ce fichier.
   const plus = pret?.apercusDesTuiles(profil)
+  const pieceNeuve = plus ? premierePieceNeuve(plus.nouveautes) : null
   return (
     <div className="player-shell" onClick={suivreUnLien}>
       <h1 className="sr-only">Mon profil</h1>
@@ -634,12 +648,15 @@ export function ProfilApp() {
       {regionDAnnonce}
 
       <div className="profil-boutons">
+        {/* Ce qu'il a de neuf à porter, compté en rouge comme les défis reçus (le souhait du propriétaire du
+            14 octobre 2026) — la pastille dorée « Nouveau » se fondait parmi les autres —, et la loge
+            s'ouvre sur la première pièce qui en a. */}
         <GrosBouton
           icone={<Icon name="hanger" />}
           titre="M’habiller"
           detail="Avatar, titre, vitrine, fond, thème, gerbe"
-          pastille={plus?.nouveau ? 'Nouveau' : undefined}
-          onClick={() => ouvrir('avatar')}
+          compteur={plus && plus.nouveautes.nouveautes > 0 ? { n: plus.nouveautes.nouveautes, label: nouveautesAPorter(plus.nouveautes.nouveautes) } : undefined}
+          onClick={() => ouvrir(pieceNeuve ?? 'avatar')}
         />
         <GrosBouton
           icone={<Icon name="award" />}

@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
+import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
 
 // Les petites pièces des pages du téléphone : l'en-tête d'une page, le lien
 // qui en sort, une feuille qui monte du bas et ses lignes de choix. Sans
@@ -248,7 +249,18 @@ const PIECES: { piece: Piece; nom: string; href: string; icone: ReactNode }[] = 
 /** La couleur de chaque pièce (`--zone`, `styles.css`) : l'accueil garde le champagne. */
 const ZONE: Record<Piece, string> = { accueil: 'zone-jouer', quiz: 'zone-quiz', profil: 'zone-profil', boutique: 'zone-boutique', compte: 'zone-compte' }
 
-export function MenuBarre({ ici }: { ici: Piece | null }) {
+export function MenuBarre({
+  ici,
+  nouveautes = 0,
+}: {
+  ici: Piece | null
+  /**
+   * Ce qu'il a de neuf à porter : sur « Profil », le compteur des messages,
+   * blanc sur rouge, comme les défis reçus des duels (`useNouveautesDuMenu`,
+   * ou la page du profil qui le recompte).
+   */
+  nouveautes?: number
+}) {
   useEffect(() => {
     // La page ne passe jamais sous la barre ; et elle prend la couleur de sa
     // pièce — son titre, ses icônes, le filet de la barre —, sans que chaque
@@ -267,6 +279,14 @@ export function MenuBarre({ ici }: { ici: Piece | null }) {
         <a key={p.piece} href={p.href} aria-current={ici === p.piece ? 'page' : undefined}>
           {p.icone}
           {p.nom}
+          {p.piece === 'profil' && nouveautes > 0 && (
+            <>
+              <span className="menu-compteur" aria-hidden="true">
+                {nouveautes > 9 ? '9+' : nouveautes}
+              </span>
+              <span className="sr-only">{`, ${nouveautesAPorter(nouveautes)}`}</span>
+            </>
+          )}
         </a>
       ))}
     </nav>

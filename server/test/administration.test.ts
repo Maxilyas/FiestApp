@@ -69,8 +69,8 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)
   assert.match(page, /<Ligne\s+icone="swords"\s+nom="Les duels"/)
   assert.match(page, /<Ligne\s+icone="bag"\s+nom="L’économie"/)
-  // La barre du menu, comme « Mon compte » ; celle de l'animateur pour qui n'a pas de profil.
-  assert.match(page, /<MenuBarre ici="compte" \/>/)
+  // La barre du menu, comme « Mon compte » — son compteur des nouveautés de la loge sur « Profil » ; celle de l'animateur pour qui n'a pas de profil.
+  assert.match(page, /<MenuBarre ici="compte" nouveautes=\{nouveautes\} \/>/)
   assert.match(page, /\{!me\.profil && <NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>\}/)
   // Le direct et la vue se relisent tant que l'onglet se voit — jamais derrière un autre, à lire Turso pour personne.
   assert.match(page, /document\.visibilityState === 'visible'/)

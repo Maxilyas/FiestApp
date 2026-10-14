@@ -33,6 +33,7 @@ import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '..
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
+import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
@@ -345,6 +346,10 @@ export const api = {
     salon: (corps: { equipes?: EquipePreparee[] } = {}) =>
       req<{ espace: PublicSpace; code: string | null; nouveau: boolean }>('/api/joueur/salon', { method: 'POST', body: JSON.stringify(corps) }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
+    /** Ce qu'il a de neuf à porter, compté : la pastille rouge de « Profil » — rien sans profil. */
+    nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
+    /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
+    retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     enregistrer: (patch: {
       name?: string
       avatar?: string

@@ -25,6 +25,8 @@ import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
 import { jourDe } from '../../../shared/jour'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
+import { ceQuIlAPorter, nouveautes, retenirLesVus } from '../../../shared/loge'
+import { compteDesNouveautes, lireLesVus, type NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -65,6 +67,8 @@ interface ProfileApiDeps {
 export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   const { profiles } = deps
   const small = express.json({ limit: '4kb' })
+  // Ce qu'il a vu dans sa loge, pièce par pièce : deux cents clés et plus pour qui a beaucoup gagné.
+  const moyen = express.json({ limit: '32kb' })
   // La même réserve que `/api/auth/login` : un profil rattaché ouvre la
   // console de son espace, ses portes comptent donc avec celle du compte.
   const budget = loginBudgetOf(app)
@@ -108,7 +112,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // dessus. Une base qui se tait ôte la boutique, pas la page.
     // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
     // qui se tait les ôte, pas la page.
-    const [boutique, sentiers, duels] = await Promise.all([
+    const [boutique, sentiers, duels, vusDeLaLoge] = await Promise.all([
       profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
@@ -120,6 +124,11 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // Ses bordures de ligue, que la loge propose : une base qui se tait les ôte, pas la page.
       deps.campagne.coteDe(rec.id).catch(e => {
         console.error('[profil] duels illisibles :', e)
+        return undefined
+      }),
+      // Ce qu'il a déjà vu dans sa loge : une base qui se tait ôte la pastille, pas la page.
+      profiles.vusDeLaLoge(rec.id).catch(e => {
+        console.error('[profil] loge illisible :', e)
         return undefined
       }),
     ])
@@ -137,6 +146,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(boutique && { boutique }),
       ...(sentiers && { sentiers }),
       ...(duels && { bordures: duels.bordures }),
+      ...(vusDeLaLoge !== undefined && { vusDeLaLoge }),
     }
   }
 
@@ -430,6 +440,49 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       res.json({ theme: me ? profiles.themePorte(me) : null })
+    }),
+  )
+
+  // Ce qu'il a de neuf à porter depuis son dernier passage dans sa loge, compté :
+  // la pastille rouge de « Profil », sur les pages qui ne lisent pas son détail —
+  // l'accueil, ses quiz, son compte. La règle de la loge (`ceQuIlAPorter`,
+  // `nouveautes`), sur le même détail : un compteur lit la règle de ce qu'il
+  // compte, jamais une requête à lui. Sans profil, rien : un invité, pas une
+  // erreur. Jamais passé par sa loge, tout ce qu'il a se retient vu : la
+  // première visite ne crie pas « nouveau » sur tout ce qu'il a.
+  app.get(
+    '/api/joueur/nouveautes',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      const rien: NouveautesDeLaLoge = { nouveautes: 0, pieces: {} }
+      if (!me) return res.json(rien)
+      const detail = await detailDe(me)
+      // La base s'est tue sur ce qu'il a vu : rien de nouveau, plutôt que tout.
+      if (detail.vusDeLaLoge === undefined) return res.json(rien)
+      const a = ceQuIlAPorter(detail)
+      if (detail.vusDeLaLoge === null) {
+        await profiles.retenirLesVusDeLaLoge(me.id, retenirLesVus(a, {}, null))
+        return res.json(rien)
+      }
+      res.json(compteDesNouveautes(nouveautes(a, detail.vusDeLaLoge)))
+    }),
+  )
+
+  // Ce qu'il vient de voir dans sa loge : la page calcule ce qu'elle retient
+  // (`retenirLesVus`), le serveur le garde pour tous ses appareils — regardé
+  // sur l'ordinateur, rien ne se redit nouveau sur le téléphone.
+  app.put(
+    '/api/joueur/vus',
+    moyen,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const vus = lireLesVus(req.body?.vus)
+      if (!vus) throw new Error('Rien à retenir : recharge la page.')
+      await profiles.retenirLesVusDeLaLoge(me.id, vus)
+      res.json({ ok: true })
     }),
   )
 

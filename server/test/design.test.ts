@@ -353,6 +353,29 @@ test('le compteur d’un gros bouton se lit en blanc sur rouge sous tous les th�
   assert.ok(taille >= 0.6875, `son chiffre ne descend pas sous --t-label (${taille}rem)`)
 })
 
+test('la pastille des nouveautés se lit dans le rouge des messages, sur « Profil » comme dans la loge, sous tous les thèmes', () => {
+  // Le souhait du propriétaire du 14 octobre 2026 : « un petit indicateur rouge un peu comme les
+  // notifications de duels ». Le point d'or de la loge se perdait dans l'or de la pièce choisie.
+  const rougeDe = (selecteur: string) => /background:\s*(#[0-9a-f]{6});/i.exec(regle(selecteur))?.[1]?.toLowerCase()
+  const rouge = rougeDe('.gros-compteur')
+  for (const s of ['.menu-compteur', '.loge-neuf']) assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
+  const compteur = regle('.menu-compteur')
+  assert.match(compteur, /[^-]color:\s*#ffffff;/i)
+  // Posé sur l'épaule de l'icône, sans pousser son nom.
+  assert.match(regle('.menu-barre a'), /position:\s*relative/)
+  assert.match(compteur, /position:\s*absolute/)
+  // Il grandit avec le texte, et ne descend pas sous --t-label.
+  assert.match(compteur, /min-width:\s*[\d.]+rem/)
+  assert.match(compteur, /height:\s*[\d.]+rem/)
+  const taille = Number(/font-size:\s*([\d.]+)rem/.exec(compteur)?.[1])
+  assert.ok(taille >= 0.6875, `son chiffre ne descend pas sous --t-label (${taille}rem)`)
+  // Un chiffre lu seul : Cormorant l'écrirait à l'ancienne.
+  assert.match(compteur, /font-variant-numeric:\s*lining-nums tabular-nums/)
+  // Aucun thème ne les repeint.
+  const dossier = new URL('../../client/src/themes/', import.meta.url)
+  for (const f of readdirSync(dossier).filter(f => f.endsWith('.css'))) assert.doesNotMatch(readFileSync(new URL(f, dossier), 'utf8'), /menu-compteur|loge-neuf/, f)
+})
+
 // ── Au texte agrandi ──────────────────────────────────────────────────────
 
 test('T1 · au souvenir, le détail d’une équipe a sa propre case, pas la colonne du nom', async () => {

@@ -15,6 +15,7 @@ import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
+import { useNouveautesDuMenu } from '../nouveautes'
 import { formatDay } from '../../../shared/archive'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
@@ -127,6 +128,8 @@ export function AdminApp() {
   const [vueEnPanne, setVueEnPanne] = useState(false)
   const [profils, setProfils] = useState<number>()
   const [espaces, setEspaces] = useState<EspaceDAdministration[]>()
+  /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
+  const nouveautes = useNouveautesDuMenu(true)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
   const enVol = useRef({ direct: false, vue: false })
   const derniereVue = useRef(0)
@@ -389,7 +392,7 @@ export function AdminApp() {
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
-      <MenuBarre ici="compte" />
+      <MenuBarre ici="compte" nouveautes={nouveautes} />
     </div>
   )
 }
