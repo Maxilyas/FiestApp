@@ -43,3 +43,13 @@ paths:
   le détail porte — le fond de carte (`fondPorte`) — s'y recopie de l'essai
   envoyé, sinon la carte de la loge garderait l'ancien. Une pièce de plus
   qui ne vivrait que dans `PublicProfileDetail` suit le même chemin.
+- **La carte de la loge se colle sans bande** : `.loge-collante` ne peint
+  rien, c'est la carte, opaque sur sa seule forme, qui cache ce qui défile
+  dessous (`background-color: var(--bg)`, à part de ses dégradés, qu'un
+  téléphone sans `color-mix` laisse tomber). Le fond uni de la bande posait
+  un rectangle à angles droits sous ses coins arrondis — plus sombre que le
+  halo, coupant net le décor d'un thème : « un rectangle noir en dessous
+  de la carte » (le propriétaire, le 14 octobre 2026). Un calque de fond posé
+  par-dessus le contenu de la carte en grand (le lambrequin du théâtre,
+  `z-index: 1`) passe dessous sur elle, à la taille de la vignette : il
+  cachait le prénom (`loge.test.ts`).
