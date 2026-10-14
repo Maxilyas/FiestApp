@@ -67,7 +67,7 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 
 ## La loge
 
-![La loge au téléphone : la carte de Léa en tête, « Version rare » à côté de son avatar, les six pièces sur une rangée, puis ses finitions et sa bordure](../vitrine/captures/telephone-loge.jpg)
+![La loge au téléphone : la carte de Léa en tête, « Version rare » à côté de son avatar, les six pièces sur une rangée, puis ses finitions — « +3 à gagner » au bout de la rangée — et sa bordure](../vitrine/captures/telephone-loge.jpg)
 
 « M'habiller » ouvre la loge : tout ce que tu portes, au même endroit. En tête, **ta carte**, collée en haut pendant que tu choisis — ton fond, ton avatar, ton titre (« Sans titre » sinon), ta vitrine, ta finition —, puis ta barre d'expérience et tes confettis. Dessous, six pièces sur une rangée, et qui voit celle qui est ouverte :
 
