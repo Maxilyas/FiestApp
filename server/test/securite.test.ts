@@ -322,6 +322,92 @@ describe('les requêtes illisibles', () => {
     assert.equal(res.status, 413)
     assert.deepEqual(await res.json(), { error: 'Envoi trop lourd — allège-le et réessaie' })
   })
+
+  // Le 14 octobre 2026, « Les profils » du QG a répondu une fois, à un
+  // téléphone : « Requête illisible ». Pour une lecture, seul le lecteur JSON
+  // pouvait le dire, à qui la requête annonçait un corps qu'il n'a pas su lire.
+  test('une lecture n’a pas de corps : ce qui en arrive avec elle ne la rend pas illisible', async () => {
+    const admin = await connexionAnimateur(banc.url)
+    const { port } = new URL(banc.url)
+    const lire = (entetes: http.OutgoingHttpHeaders, corps: string) =>
+      new Promise<{ statut: number; texte: string }>((resolve, reject) => {
+        const requete = http.request(
+          {
+            host: 'localhost',
+            port,
+            method: 'GET',
+            path: '/api/admin/profils?q=',
+            headers: { Cookie: admin, 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...entetes },
+          },
+          res => {
+            let texte = ''
+            res.setEncoding('utf8')
+            res.on('data', morceau => (texte += morceau))
+            res.on('end', () => resolve({ statut: res.statusCode ?? 0, texte }))
+          },
+        )
+        requete.on('error', reject)
+        requete.end(corps)
+      })
+    // Un JSON qui n'est pas un objet, puis un encodage que le lecteur ne sait pas défaire.
+    const cas: [http.OutgoingHttpHeaders, string][] = [
+      [{ 'Content-Length': 4 }, 'null'],
+      [{ 'Content-Length': 0, 'Content-Encoding': 'gzip' }, ''],
+    ]
+    for (const [entetes, corps] of cas) {
+      const { statut, texte } = await lire(entetes, corps)
+      assert.equal(statut, 200, `${JSON.stringify(entetes)} : ${texte}`)
+      assert.equal(typeof JSON.parse(texte).total, 'number', 'la liste des profils, comme sans corps')
+    }
+  })
+
+  test('un refus dit au journal ce qui n’a pas pu se lire et comment le corps s’annonçait — jamais le corps', async () => {
+    const journal: string[] = []
+    const warnAvant = console.warn
+    console.warn = (...args: unknown[]) => journal.push(args.map(String).join(' '))
+    try {
+      const res = await fetch(`${banc.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
+        body: '{"login":"antoine","password":"secret-du-banc"',
+      })
+      assert.equal(res.status, 400)
+    } finally {
+      console.warn = warnAvant
+    }
+    const lignes = journal.filter(l => l.startsWith('[http]'))
+    assert.equal(lignes.length, 1, 'un refus, une ligne')
+    assert.match(lignes[0], /POST \/api\/auth\/login/)
+    assert.match(lignes[0], /entity\.parse\.failed/)
+    assert.match(lignes[0], /content-type: application\/json/)
+    assert.match(lignes[0], /content-length: \d+/)
+    // Le lecteur JSON cite le début du corps dans son message : un mot de passe n'a rien à faire au journal.
+    assert.doesNotMatch(lignes[0], /secret-du-banc/)
+  })
+
+  test('le client n’annonce du JSON qu’avec un corps', async () => {
+    // Le module de la page, tel que le navigateur l'exécute, devant un `fetch` qui note ce qu'on lui envoie.
+    const { api } = await import(new URL('../../client/src/api.ts', import.meta.url).href)
+    const envois: Record<string, string>[] = []
+    const fetchAvant = globalThis.fetch
+    globalThis.fetch = (async (_chemin: string, init?: RequestInit) => {
+      envois.push({ ...(init?.headers as Record<string, string>) })
+      return new Response('{}', { status: 200 })
+    }) as typeof fetch
+    try {
+      await api.admin.profils('')
+      await api.admin.suspendre('un-profil')
+      await api.admin.supprimerProfil('un-profil')
+    } finally {
+      globalThis.fetch = fetchAvant
+    }
+    const [lecture, ecriture, suppression] = envois
+    assert.equal(lecture['Content-Type'], undefined, 'une lecture n’a pas de corps à annoncer')
+    assert.equal(ecriture['Content-Type'], 'application/json', 'une écriture avec un corps l’annonce')
+    assert.equal(suppression['Content-Type'], undefined, 'une suppression sans corps non plus')
+    // Le garde contre les requêtes forgées l'exige de toute écriture, corps ou non.
+    for (const envoi of envois) assert.equal(envoi['X-Requested-With'], 'quizz')
+  })
 })
 
 describe('les toasts de l’écran commun', () => {

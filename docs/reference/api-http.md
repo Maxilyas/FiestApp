@@ -35,7 +35,7 @@ Dans `server/src/api.ts`, avant toute route :
 
 ### Les corps et les réponses
 
-- Les corps sont en JSON. Leur taille est bornée route par route : 1 Ko à 8 Ko pour un geste des comptes, du profil, du jour ou de la campagne, 256 Ko et 512 Ko pour les dépôts de la routine, 4 Mo derrière la porte des animateurs (les photos d'un quiz arrivent en dataURL).
+- Les corps sont en JSON. Leur taille est bornée route par route : 1 Ko à 8 Ko pour un geste des comptes, du profil, du jour ou de la campagne, 256 Ko et 512 Ko pour les dépôts de la routine, 4 Mo derrière la porte des animateurs (les photos d'un quiz arrivent en dataURL). Une lecture (`GET`, `HEAD`) n'en a pas : le serveur ne lit jamais le sien, et la page n'annonce `Content-Type: application/json` qu'avec un corps.
 - Une réponse d'erreur est du JSON, `{ "error": "…" }` — sauf le 404 sans corps de `/media/image/:id` :
 
 | Statut | Quand | Le message |
