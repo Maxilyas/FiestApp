@@ -63,14 +63,14 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   if (gagnes.length > 0) {
     return (
       <section className="card">
-        {/* Sa pièce s'appelle « Vitrine » : la carte dit ce qu'elle range. */}
+        {/* Sa pièce s'appelle « Vitrine » : la carte dit ce qu'elle range — des trophées, le mot de l'album et des fins de partie. */}
         <h3>
           <Icon name="award" />
-          Mes hauts faits <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>
+          Mes trophées <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>
         </h3>
         <p className="muted small">{`Touches-en jusqu’à ${VITRINE_MAX}, dans l’ordre où ta carte les montrera.`}</p>
         {/* Une liste, pas un groupe : `role="group"` lui retirait ses éléments. */}
-        <ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">
+        <ul className="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte">
           <li>
             <button
               type="button"
@@ -136,7 +136,7 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
             campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui
             (l'experte du jeu solo, le 11 octobre 2026). */}
-        Ta carte montrera tes trois plus beaux hauts faits : ils se gagnent en soirée, au quiz du jour et en campagne.
+        Ta carte montrera tes trois plus beaux trophées : ils se gagnent en soirée, au quiz du jour et en campagne.
       </p>
       <PremierHautFait profil={profil} />
     </section>

@@ -7,7 +7,7 @@ import { gestesParJour, heureEcrite, NOM_DE_LA_SORTE, type GesteDuQg, type Sorte
 
 /** Les filtres du journal : tout, ou une sorte de gestes. « Autre » ne se filtre pas : il n'existe que si une route a oublié sa phrase. */
 type Filtre = 'tous' | Exclude<SorteDeGeste, 'autre'>
-const FILTRES: readonly Filtre[] = ['tous', 'soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne']
+const FILTRES: readonly Filtre[] = ['tous', 'soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel']
 
 const ICONE: Record<SorteDeGeste, IconName> = {
   soiree: 'glass',
@@ -16,6 +16,7 @@ const ICONE: Record<SorteDeGeste, IconName> = {
   catalogue: 'globe',
   jour: 'sun',
   campagne: 'target',
+  duel: 'swords',
   autre: 'clipboard',
 }
 

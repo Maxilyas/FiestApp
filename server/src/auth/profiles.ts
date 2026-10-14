@@ -98,7 +98,8 @@ import {
   type CompagnonPossede,
 } from '../../../shared/compagnons'
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
-import { PRIX_D_UN_SABLIER, SABLIERS_MAX, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
+import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
+import type { Achat, Mouvement } from '../../../shared/qgEconomie'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
@@ -776,6 +777,8 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, avatar)
          )`,
+        // Les Éclats tombés ces trente jours, au QG (« Éclats et légendaires ») : lus par leur date, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_profile_eclats_quand ON profile_eclats(created_at)',
         // Les niveaux atteints sur une courbe d'avant, quand elle s'est durcie.
         `CREATE TABLE IF NOT EXISTS profile_niveaux (
            profile_id TEXT NOT NULL,
@@ -808,6 +811,8 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, theme)
          )`,
+        // Les achats des trente derniers jours, au QG (`economieDepuis`) : lus par leur date, comme les vies et les sabliers.
+        'CREATE INDEX IF NOT EXISTS idx_profile_achats_quand ON profile_achats(created_at)',
         // Les vies des sentiers achetées en confettis, un achat par ligne,
         // jamais effacée, avec ce qu'il a coûté : comme un thème, un achat ne
         // se reprend pas, et un prix changé ne refait payer personne. Les
@@ -850,6 +855,7 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, compagnon)
          )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_compagnons_quand ON profile_compagnons(created_at)',
         // Les confettis que l'administrateur offre, un don par ligne, jamais
         // effacée : comptés dans le solde à chaque lecture (`boutiqueDe`),
         // comme ce qu'il gagne en jouant, et dits une fois sur son accueil.
@@ -861,6 +867,7 @@ export class ProfileStore {
            created_at INTEGER NOT NULL
          )`,
         'CREATE INDEX IF NOT EXISTS idx_profile_dons ON profile_dons(profile_id)',
+        'CREATE INDEX IF NOT EXISTS idx_profile_dons_quand ON profile_dons(created_at)',
       ],
       'write',
     )
@@ -1488,6 +1495,134 @@ export class ProfileStore {
   async achatsDeViesDepuis(depuis: number): Promise<{ quand: number; nombre: number; prix: number }[]> {
     const res = await this.client.execute({ sql: 'SELECT created_at, nombre, prix FROM profile_vies WHERE created_at >= ?', args: [depuis] })
     return res.rows.map(r => ({ quand: Number(r.created_at), nombre: Number(r.nombre), prix: Number(r.prix) }))
+  }
+
+  /**
+   * Ce que la page de l'économie lit des profils depuis un instant (le QG,
+   * `/admin#economie`), tous profils, d'un aller-retour et par les index des
+   * dates : les confettis de chaque soirée, au barème du solde
+   * (`confettisDeSoiree`) et à sa première ligne de crédit ; les dons de
+   * l'administrateur ; chaque achat, au prix payé ; les Éclats tombés.
+   */
+  async economieDepuis(depuis: number): Promise<{ soirees: Mouvement[]; dons: Mouvement[]; achats: Achat[]; eclats: { quand: number; soiree: string }[] }> {
+    const [soirees, dons, themes, compagnons, vies, sabliers, eclats] = await this.client.batch(
+      [
+        // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
+        // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
+        { sql: 'SELECT detail, created_at FROM profile_xp WHERE soiree_id >= ? AND created_at >= ?', args: [jourAvant(jourDe(depuis), 1), depuis] },
+        { sql: 'SELECT confettis, created_at FROM profile_dons WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT theme, prix, created_at FROM profile_achats WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT compagnon, prix, created_at FROM profile_compagnons WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ?', args: [depuis] },
+      ],
+      'read',
+    )
+    const achat = (sorte: Achat['sorte'], r: Record<string, unknown>, objets: number, article: string | null): Achat => ({
+      sorte,
+      quand: Number(r.created_at),
+      confettis: Number(r.prix),
+      objets,
+      article,
+    })
+    return {
+      soirees: soirees.rows
+        .map(r => {
+          const { gain, releve } = decodeDetail(String(r.detail))
+          return { quand: Number(r.created_at), confettis: confettisDeSoiree(gain, releve) }
+        })
+        .filter(m => m.confettis > 0),
+      dons: dons.rows.map(r => ({ quand: Number(r.created_at), confettis: Number(r.confettis) })),
+      achats: [
+        ...themes.rows.map(r => achat('themes', r, 1, String(r.theme))),
+        ...compagnons.rows.map(r => achat('compagnons', r, 1, String(r.compagnon))),
+        ...vies.rows.map(r => achat('vies', r, Number(r.nombre), null)),
+        ...sabliers.rows.map(r => achat('sabliers', r, 1, null)),
+      ],
+      eclats: eclats.rows.map(r => ({ quand: Number(r.created_at), soiree: String(r.soiree_id) })),
+    }
+  }
+
+  /**
+   * La part des profils dans chaque solde, tous profils, aux règles de
+   * `boutiqueEtDons` sans rien écrire — sans les compagnons qui grandissent
+   * à sa lecture : ce que chacun a gagné en soirée, ses dons, ses dépenses.
+   * Le quiz du jour et la campagne viennent de leurs magasins. Toutes les
+   * lignes, soirées comprises : le QG ne relit les soldes qu'une fois par
+   * jour (`/admin#economie`).
+   */
+  async partsDesSoldes(): Promise<Map<string, { soirees: number; dons: number; depenses: number; vuLe: number | null; suspendu: boolean }>> {
+    const [profils, soirees, dons, ...depenses] = await this.client.batch(
+      [
+        'SELECT id, last_seen_at, disabled_at FROM profiles',
+        `SELECT profile_id, detail FROM profile_xp WHERE ${HORS_LIGNES_A_PART}`,
+        'SELECT profile_id, SUM(confettis) AS n FROM profile_dons GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_achats GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_vies GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_sabliers GROUP BY profile_id',
+        'SELECT profile_id, SUM(prix) AS n FROM profile_compagnons GROUP BY profile_id',
+      ],
+      'read',
+    )
+    const parts = new Map(
+      profils.rows.map(r => [
+        String(r.id),
+        { soirees: 0, dons: 0, depenses: 0, vuLe: r.last_seen_at == null ? null : Number(r.last_seen_at), suspendu: r.disabled_at != null },
+      ]),
+    )
+    for (const r of soirees.rows) {
+      const part = parts.get(String(r.profile_id))
+      if (!part) continue
+      const { gain, releve } = decodeDetail(String(r.detail))
+      part.soirees += confettisDeSoiree(gain, releve)
+    }
+    for (const r of dons.rows) {
+      const part = parts.get(String(r.profile_id))
+      if (part) part.dons += Number(r.n)
+    }
+    for (const res of depenses) {
+      for (const r of res.rows) {
+        const part = parts.get(String(r.profile_id))
+        if (part) part.depenses += Number(r.n)
+      }
+    }
+    return parts
+  }
+
+  /** Les thèmes et les compagnons vendus, chacun ses ventes depuis toujours et depuis un instant : le QG, « Les meilleures ventes ». */
+  async ventesDepuis(depuis: number): Promise<{ sorte: 'theme' | 'compagnon'; article: string; ventes: number; recentes: number }[]> {
+    const [themes, compagnons] = await this.client.batch(
+      [
+        // Un thème offert ne se vend pas : à prix nul, ce n'est pas une vente.
+        { sql: 'SELECT theme AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_achats WHERE prix > 0 GROUP BY theme', args: [depuis] },
+        { sql: 'SELECT compagnon AS article, COUNT(*) AS ventes, SUM(created_at >= ?) AS recentes FROM profile_compagnons WHERE prix > 0 GROUP BY compagnon', args: [depuis] },
+      ],
+      'read',
+    )
+    const lire = (sorte: 'theme' | 'compagnon') => (r: Record<string, unknown>) => ({
+      sorte,
+      article: String(r.article),
+      ventes: Number(r.ventes),
+      recentes: Number(r.recentes ?? 0),
+    })
+    return [...themes.rows.map(lire('theme')), ...compagnons.rows.map(lire('compagnon'))]
+  }
+
+  /**
+   * Les légendaires portés, clé par clé : ceux qu'un profil porte vraiment
+   * (`legendairePorte` — rendu avec sa soirée, il ne se porte plus), ni
+   * suspendu, ni Divin, ni portrait, ni compagnon. Les porteurs se chargent
+   * d'un aller-retour (`byIds`) : le QG ne les compte qu'une fois par jour.
+   */
+  async legendairesPortes(): Promise<Map<string, number>> {
+    const res = await this.client.execute("SELECT id FROM profiles WHERE legendaire LIKE 'lg:%' AND disabled_at IS NULL")
+    const portes = new Map<string, number>()
+    for (const p of await this.byIds(res.rows.map(r => String(r.id)))) {
+      const porte = p ? this.legendairePorte(p) : null
+      if (porte?.startsWith('lg:')) portes.set(porte, (portes.get(porte) ?? 0) + 1)
+    }
+    return portes
   }
 
   /**

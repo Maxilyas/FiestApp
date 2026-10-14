@@ -58,7 +58,8 @@ paths:
   téléphone qu'on n'attend plus y restent désignables.
 - **Un geste qui fait avancer la partie porte sa visée** (invariant 12) :
   `perimee` ne juge que `next`, `cancel`, `replay` et `cible` ; les réponses
-  portent `qIndex` et `round`, jamais la phase. Une commande de plus qui
+  portent `qIndex` et `round`, jamais la phase ; `host:scene` porte l'écran
+  qu'il quittait, `host:launch` la partie qu'il remplace. Une commande de plus qui
   change la phase s'y range, sinon un double clic la joue deux fois. Et
   `cancel` désarme l'enchaînement : la révélation d'une question annulée
   attend le clic.

@@ -22,6 +22,14 @@ paths:
 
 ## Les pièges
 
+- **Une source ou une dépense de confettis de plus s'ajoute aussi au QG**
+  (`/admin#economie`, règle `qg.md`) : la page relit chaque source à ses
+  règles, sans rien écrire — `SOURCES_DE_CONFETTIS` et
+  `DEPENSES_DE_CONFETTIS` (`shared/qgEconomie.ts`), les mouvements des
+  trois magasins (`economieDepuis`) et la part de chaque profil
+  (`partsDesSoldes`, `justesDeTous`, `confettisDeTous`). Oubliée, sa
+  circulation ne vaudrait plus la somme des soldes, que
+  `qg-economie.test.ts` compare au confetti près.
 - **Un thème de plus** entre au catalogue dans le bloc de sa rareté — le
   catalogue va du moins cher au plus cher, et `themes.test.ts` comme
   `ma-collection.test.ts` en figent les comptes —, avec sa feuille

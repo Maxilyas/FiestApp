@@ -44,7 +44,11 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   // Les tuiles ouvrent leurs écrans, chacun à son adresse ; le retour du navigateur y ramène.
   // L'entrée retient l'écran d'où l'on vient : « ← » y revient d'un cran — « Mon thème »
   // mène à la collection, et la collection y ramène.
-  assert.match(profil, /history\.pushState\(\{ \.\.\.history\.state, \[DEPUIS\]: lireEcran\(\) \}, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{adresse\}`\)/)
+  // L'adresse garde sa requête, sauf « Essayer » d'une fiche de la collection, qui porte la sienne (`?essayer=…#pièce`, `style.test.ts`).
+  assert.match(
+    profil,
+    /const ouvrir = \(e: EcranDuProfil, adresse: string = e, requete: string = window\.location\.search\) => \{\s*history\.pushState\(\{ \.\.\.history\.state, \[DEPUIS\]: lireEcran\(\) \}, '', `\$\{window\.location\.pathname\}\$\{requete\}#\$\{adresse\}`\)/,
+  )
   assert.match(profil, /if \(history\.state\?\.\[DEPUIS\] !== undefined\) return history\.back\(\)/)
   // Ouvert d'un lien, il remplace l'adresse par les tuiles : le retour ne sort pas du profil.
   assert.match(profil, /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\)\s*setEcranOuvert\(null\)/)

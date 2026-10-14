@@ -13,6 +13,7 @@ import { THEMES } from './themes'
 import { FONDS } from './fonds'
 import { GERBES } from './gerbes'
 import { FINITIONS, type PublicProfileDetail } from './profil'
+import { LIGUES } from './duels'
 
 /**
  * Les trois familles, dans l'ordre de la page : deux albums — les avatars,
@@ -24,9 +25,10 @@ export type FamilleDeLaCollection = 'avatars' | 'trophees' | 'style'
 
 /**
  * Une ligne de la collection : les avatars en un album (`shared/album.ts`),
- * les trophées en un autre (`shared/trophees.ts`), le style en quatre.
+ * les trophées en un autre (`shared/trophees.ts`), le style en cinq — les
+ * thèmes, puis ce que range `shared/style.ts`.
  */
-export type PartieDeLaCollection = 'avatars' | 'trophees' | 'themes' | 'fonds' | 'gerbes' | 'finitions'
+export type PartieDeLaCollection = 'avatars' | 'trophees' | 'themes' | 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
 export interface Compte {
   acquis: number
@@ -66,6 +68,10 @@ export function compteDeLaCollection(p: ProfilDeLaCollection): { familles: Famil
     ...(p.fonds ? [{ partie: 'fonds' as const, acquis: p.fonds.length, total: FONDS.length }] : []),
     ...(p.gerbes ? [{ partie: 'gerbes' as const, acquis: p.gerbes.length, total: GERBES.length }] : []),
     { partie: 'finitions', acquis: p.ouvertes.length, total: FINITIONS.length },
+    // Une par ligue atteinte en duel, qu'il porte autour de son avatar : la
+    // loge les proposait, la collection ne les rangeait nulle part. Le
+    // serveur les tait jusqu'au premier duel classé : zéro, pas absentes.
+    { partie: 'bordures', acquis: (p.bordures ?? []).length, total: LIGUES.length },
   ]
   const familles: FamilleDuCompte[] = [
     { famille: 'avatars', ...somme(avatars), parties: avatars },

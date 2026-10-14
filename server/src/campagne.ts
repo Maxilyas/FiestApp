@@ -525,6 +525,31 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
       res.json(r)
     }),
   )
+
+  // Les duels au QG : les duels classés lancés, les ligues, le classement, ceux qui attendent leur adversaire.
+  app.get(
+    '/api/admin/duels/suivi',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      res.json(await deps.campagne.suiviDesDuelsAuQg())
+    }),
+  )
+
+  // Annuler un duel classé que celui qu'il défie n'a pas commencé (le choix
+  // du 13 octobre 2026) : fermé tout de suite, il ne compte pour personne,
+  // comme un duel expiré sans réponse.
+  app.post(
+    '/api/admin/duels/:code/annuler',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const r = await deps.campagne.annulerUnDuel(req.params.code)
+      // Nommés comme au journal : le profil, jamais la personne — un suspendu se lit encore pour l'administrateur.
+      const [auteur, adversaire] = await Promise.all([deps.profiles.pourLAdministrateur(r.auteur), deps.profiles.pourLAdministrateur(r.adversaire)])
+      const nomme = (p: { name: string; login: string } | null) => (p ? `${p.name} (@${p.login})` : 'un profil parti')
+      noterLeGeste(res, { sorte: 'duel', resume: `Duel classé annulé avant d’être joué : ${nomme(auteur)} → ${nomme(adversaire)}`, cible: r.auteur })
+      res.json({ ok: true, code: r.code })
+    }),
+  )
 }
 
 /**

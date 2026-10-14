@@ -36,6 +36,7 @@ import {
 } from '../../shared/qg'
 import { jourDe } from '../../shared/jour'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
+import { duelsDeLaVue } from '../../shared/qgDuels'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -352,6 +353,7 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
     aujourdhui: Object.fromEntries(TUILES_DU_QG.map(t => [t, tuile])) as VueDEnsemble['aujourdhui'],
     participations: jours.map((jour, i) => ({ jour, modes: { soiree: i % 7 === 0 ? 20 : 0, campagne: 70, jour: 110, duel: 35 } })),
     campagne: campagneDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
+    duels: duelsDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
     aTraiter: {
       reserve: { joursDAvance: 6 },
       signalementsDuJour: { questions: 1, joueurs: 3 },

@@ -74,7 +74,9 @@ test('« Mon titre » d’un débutant : le plus proche, avec sa jauge ; rien de
   const html = await rendu('components/Apparence', 'MonTitre', { profil: profil(hautsFaits({ valeurs: { 'hf:alpiniste': 7, 'hf:marathonien': 30 } })), ...rien })
   assert.match(html, /<div class="proches"><span class="label">Le plus proche<\/span><div class="approche">/)
   assert.match(html, /<b>L’Alpiniste · Bronze<\/b><span class="muted small">7 sur 10 bonnes réponses dans une série de campagne<\/span><span class="jauge" aria-label="7 sur 10">/)
-  assert.ok(html.indexOf('titres à gagner') < html.indexOf('Le plus proche'), 'sous les titres à gagner')
+  // Puis ce qui reste, compté, et le chemin de l'album des trophées : le lien de toutes les pièces de la loge.
+  assert.ok(html.indexOf('Le plus proche') < html.indexOf('titres à gagner'), 'le plus proche, puis tout ce qui reste')
+  assert.match(html, /<a class="loge-a-gagner" href="#collection-trophees">\d+ titres à gagner\s:\soù\s\?<svg/)
 
   // Rien de commencé : le plus simple, sans jauge — « 0 sur 10 » ne s'approche de rien.
   const neuf = await rendu('components/Apparence', 'MonTitre', { profil: profil(hautsFaits()), ...rien })
@@ -92,7 +94,8 @@ test('« Mon titre » d’un débutant : le plus proche, avec sa jauge ; rien de
 
 test('« Ma vitrine » d’un débutant aussi : le plus proche sous ce qu’elle montrera ; plus rien dès le premier haut fait', async () => {
   const html = await rendu('components/Trophees', 'MaVitrine', { profil: profil(debutant), ...rien })
-  assert.match(html, /Ta carte montrera tes trois plus beaux hauts faits/)
+  // Des trophées : le mot de l'album et des fins de partie (le 13 octobre 2026).
+  assert.match(html, /Ta carte montrera tes trois plus beaux trophées/)
   assert.match(html, /<span class="label">Le plus proche<\/span>.*<b>L’Habitué · Bronze<\/b><span class="muted small">2 sur 3 soirées jouées<\/span>/)
 
   const leveTot = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:leve-tot')!

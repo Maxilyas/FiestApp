@@ -34,6 +34,8 @@ import {
   type VueDEnsemble,
 } from '../../shared/qg'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
+import { duelsDeLaVue } from '../../shared/qgDuels'
+import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
 
 export interface QgDeps {
@@ -332,6 +334,7 @@ export function mountQg(app: Express, deps: QgDeps) {
       },
       participations: participationsParJour(solo, soirees, minuits, maintenant),
       campagne: campagneDeLaVue(series, minuits, maintenant),
+      duels: duelsDeLaVue(series, minuits, maintenant),
       aTraiter: {
         reserve: { joursDAvance: reserve.joursDAvance },
         signalementsDuJour,
@@ -389,6 +392,25 @@ export function mountQg(app: Express, deps: QgDeps) {
     '/api/admin/soirees',
     wrap(async (_req, res) => {
       res.json(await pageDesSoirees())
+    }),
+  )
+
+  // L'économie : ses profils actifs sont ceux de la vue d'ensemble — ils ont
+  // joué ces trente jours —, lus dans les mêmes journaux, déjà gardés.
+  const economie = economieDuQg({
+    profiles: deps.profiles,
+    jour: deps.jour,
+    campagne: deps.campagne,
+    maintenant: deps.maintenant,
+    actifsDepuis: async minuits => {
+      const { parties, series, activite } = await lesTrenteJours(minuits)
+      return new Set([...parties, ...series, ...activite.soirees].map(e => e.qui))
+    },
+  })
+  app.get(
+    '/api/admin/economie',
+    wrap(async (_req, res) => {
+      res.json(await economie.page())
     }),
   )
   // La santé du serveur sur sept jours : relue au plus une fois la minute, à l'ouverture de sa page.

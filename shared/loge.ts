@@ -118,11 +118,12 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
 export const essaiVide = (essai: Essai) => Object.keys(essai).length === 0
 
 /**
- * L'essai qu'une fin de partie demande en ouvrant la loge — « Essayer »,
- * sous « À porter » (`/profil?essayer=nuit#fond`) : le fond, la gerbe, le
- * thème ou l'emoji de collection qu'elle vient d'ouvrir, déjà sur la carte.
- * Seulement ce qui est à lui, et sur la pièce de l'adresse : une adresse
- * tapée n'essaie rien qu'il n'ait.
+ * L'essai qu'une adresse demande en ouvrant la loge — « Essayer », sous
+ * « À porter » à la fin d'une partie (`/profil?essayer=nuit#fond`), ou dans
+ * une fiche de « Ma collection » (`?essayer=finition:or#avatar`) : le fond,
+ * la gerbe, le thème, l'avatar, la finition ou la bordure, déjà sur la
+ * carte. Seulement ce qui est à lui, et sur la pièce de l'adresse : une
+ * adresse tapée n'essaie rien qu'il n'ait.
  */
 export function essaiDemande(piece: PieceDeLaLoge, cle: string | null, profil: PublicProfileDetail): Essai {
   if (!cle) return {}
@@ -130,7 +131,13 @@ export function essaiDemande(piece: PieceDeLaLoge, cle: string | null, profil: P
   if (piece === 'fond' && a.fond.includes(cle)) return essayer({}, { fond: cle }, profil)
   if (piece === 'gerbe' && a.gerbe.includes(cle)) return essayer({}, { gerbe: cle }, profil)
   if (piece === 'theme' && a.theme.includes(cle)) return essayer({}, { theme: cle }, profil)
-  if (piece === 'avatar' && COLLECTION.some(c => c.emoji === cle) && a.avatar.includes(cle)) return essayer({}, { avatar: cle }, profil)
+  // L'avatar : ses clés sont celles de ses nouveautés — `finition:or`, `bordure:or`, un emoji, un médaillon.
+  if (piece !== 'avatar' || !a.avatar.includes(cle)) return {}
+  if (cle.startsWith('finition:')) return essayer({}, { finition: cle.slice('finition:'.length) as FinitionChoisie }, profil)
+  // `bordure:or:sertie` dit une nouveauté, pas une bordure à porter.
+  if (/^bordure:[a-z]+$/.test(cle)) return essayer({}, { bordure: cle.slice('bordure:'.length) as ChoixDeBordure }, profil)
+  if (COLLECTION.some(c => c.emoji === cle)) return essayer({}, { avatar: cle }, profil)
+  if (legendaire(cle) || divin(cle) || portrait(cle) || formeDeCompagnon(cle)) return essayer({}, { legendaire: cle }, profil)
   return {}
 }
 

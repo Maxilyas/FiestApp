@@ -4,45 +4,48 @@ import { Niveau } from './Niveau'
 import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
 import { CarteJoueur } from './CarteJoueur'
-import { Onglets } from './Onglets'
+import { Gemmes } from './Gemmes'
+import { AGagner } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
-import { espacesFines, formatNumber } from '../format'
+import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
-import {
-  AUCUNE_BORDURE,
-  CRANS_D_UNE_BORDURE,
-  LIGUES,
-  NOM_DE_LA_BORDURE,
-  bordurePortee,
-  ligueParCle,
-  type BordureDeLigue,
-  type ChoixDeBordure,
-} from '../../../shared/duels'
+import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
-import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
-import { DIVINS, divin } from '../../../shared/divins'
-import { pageDuProchain, type SorteDAvatar } from '../../../shared/album'
-import { PORTRAITS, brancheDe, deLaBranche, portrait as portraitDe, portraitsOuverts } from '../../../shared/branches'
-import { FORMES_DES_COMPAGNONS, NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon, formesOuvertes } from '../../../shared/compagnons'
+import { cibleEclat, legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
+import {
+  NOM_COURT_DE_RARETE_D_AVATAR,
+  NOM_DE_RARETE_D_AVATAR,
+  avatarDeLAlbum,
+  avatarsALui,
+  compteDeLAlbum,
+  sesPagesDeLAlbum,
+  type RareteDAvatar,
+} from '../../../shared/album'
+import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/branches'
+import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import type { PropsDUnePiece } from './choix'
 
 // Les pièces de la loge (« M'habiller », au profil), chacune dans son
-// panneau : son avatar — portraits des branches, emojis, légendaires,
-// Divins, rangés par famille — et sa finition, son titre, son fond, sa
-// gerbe ; sa vitrine vit dans `Trophees`, ses thèmes dans `Boutique`.
+// panneau : son avatar — rangé par rareté, comme l'album de « Ma
+// collection » — et sa finition, sa bordure, son titre, son fond, sa gerbe ;
+// sa vitrine vit dans `Trophees`, ses thèmes dans `Boutique`.
 //
 // Un seul geste partout : toucher une pièce l'essaie — la carte de la loge
 // la montre, rien n'est enregistré —, et « Porter », dans la barre de la
 // loge, enregistre l'essai. Chaque grille dit ce qu'il porte (« porté ») et
-// ce qu'il essaie (« à l'essai »). D'où vient un avatar, et comment gagner
-// les autres, se lit dans « Ma collection » (`AlbumDesAvatars`).
+// ce qu'il essaie (« à l'essai »). La loge ne montre que ce qu'il a : ce qui
+// reste se compte, et un lien mène à « Ma collection », qui dit d'où vient
+// chaque chose et comment la gagner (le souhait du propriétaire du 13
+// octobre 2026 : des finitions et des bordures qu'il n'avait pas s'y
+// mêlaient aux siennes).
 
 /** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
 function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
@@ -85,29 +88,52 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /**
- * Les familles de la grille des avatars, dans l'ordre de leurs pastilles :
- * les légendaires — les Divins dessous —, les portraits des branches, les
- * compagnons de la boutique, les emojis — ceux de collection dessous. Chacune
- * mène à l'album de « Ma collection », sur la page de son prochain avatar à
- * gagner (`sorte`) : ce qui reste s'y lit, et où le gagner.
+ * Les pages de la grille des avatars, celles de l'album de « Ma collection »
+ * (le 13 octobre 2026 : la loge les rangeait en familles — légendaires,
+ * portraits, compagnons, emojis — quand l'album les rangeait en raretés, et
+ * l'on ne se retrouvait pas d'un écran à l'autre) : les emojis de
+ * l'inscription d'abord, offerts à tous comme le Velours, puis chaque rareté
+ * où il a quelque chose.
  */
-export type Famille = 'legendaires' | 'portraits' | 'compagnons' | 'emojis'
-export const FAMILLES: readonly { id: Famille; nom: string; sorte: SorteDAvatar }[] = [
-  { id: 'legendaires', nom: 'Légendaires', sorte: 'legendaire' },
-  { id: 'portraits', nom: 'Portraits', sorte: 'portrait' },
-  { id: 'compagnons', nom: 'Compagnons', sorte: 'compagnon' },
-  { id: 'emojis', nom: 'Emojis', sorte: 'emoji' },
-]
+export type PageDeLaLoge = 'offert' | RareteDAvatar
+
+export interface PageDAvatars {
+  page: PageDeLaLoge
+  /** Ce qu'il a sur la page : les emojis de l'inscription, ou ses avatars de l'album, dans son ordre. */
+  cles: readonly string[]
+  /** Ce qui reste à gagner sur la même page de l'album — pour les offerts, dans tout l'album. */
+  reste: number
+}
+
+/** Le nom entier d'une page : sous ses gemmes, à l'oreille. */
+export const NOM_DE_LA_PAGE: Readonly<Record<PageDeLaLoge, string>> = { offert: 'Offerts à tous', ...NOM_DE_RARETE_D_AVATAR }
+
+/** Ses pages, dans l'ordre des gemmes de l'album : celles où il n'a rien ne se montrent pas. */
+export function pagesDeLaLoge(profil: PublicProfileDetail): PageDAvatars[] {
+  const album = compteDeLAlbum(profil)
+  return [
+    { page: 'offert', cles: AVATARS, reste: album.total - album.acquis },
+    ...sesPagesDeLAlbum(profil).map(p => ({ page: p.rarete, cles: p.avatars.map(a => a.cle), reste: p.reste })),
+  ]
+}
 
 /**
- * La famille où la grille s'ouvre : celle de l'avatar qu'il porte — on vient
+ * La page où la grille s'ouvre : celle de l'avatar qu'il porte — on vient
  * souvent pour en changer, et ce qu'on quitte est juste à côté.
  */
-export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avatar'>): Famille {
-  if (portraitDe(profil.legendaire)) return 'portraits'
-  if (formeDeCompagnon(profil.legendaire)) return 'compagnons'
-  if (legendaire(profil.legendaire) || divin(profil.legendaire)) return 'legendaires'
-  return 'emojis'
+export function pageDuPorte(profil: PublicProfileDetail): PageDeLaLoge {
+  const a = avatarDeLAlbum(profil.legendaire) ?? avatarDeLAlbum(profil.avatar)
+  return a && avatarsALui(profil).has(a.cle) ? a.rarete : 'offert'
+}
+
+/** Ce qui reste d'une page, au singulier et au pluriel : « 12 avatars rares à gagner : où ? ». */
+const QUI_RESTE: Readonly<Record<Exclude<PageDeLaLoge, 'divin'>, readonly [string, string]>> = {
+  offert: ['avatar', 'avatars'],
+  commune: ['avatar commun', 'avatars communs'],
+  peucommune: ['avatar peu commun', 'avatars peu communs'],
+  rare: ['avatar rare', 'avatars rares'],
+  epique: ['avatar épique', 'avatars épiques'],
+  legendaire: ['avatar légendaire', 'avatars légendaires'],
 }
 
 /** Ce qu'une case de la grille dit d'elle : montrée par la carte, portée, nouvelle. */
@@ -136,67 +162,55 @@ function ceQueDitLaCase({ montre, porte, neuve }: EtatDUneCase, portee = 'porté
 }
 
 /**
- * Combien de cadenas finissent la grille, s'il reste à gagner : sa dernière
- * rangée, ou une rangée entière quand elle tombe juste — jamais plus que ce
- * qui reste. Ils disent qu'il y en a d'autres ; où, le lien dessous le dit.
- */
-export function cadenas(n: number, colonnes: number, reste: number): number {
-  return reste > 0 ? Math.min(reste, colonnes - (n % colonnes)) : 0
-}
-
-/**
- * Ses avatars, dans la loge (la maquette 1 validée le 12 octobre 2026) :
- * quatre pastilles — ses légendaires, ses portraits, ses compagnons, ses
- * emojis, chacune son compte ; deux rangées au téléphone depuis les
- * compagnons —, puis la grille de ce qu'il a. Un toucher essaie, rien d'autre :
- * la carte collée en tête le montre, la case a son halo d'or, celle qu'il
- * porte garde sa coche, et « Porter », dans la barre de la loge, le garde.
- * Trois familles en onglets à titres, l'accordéon des branches et une fiche
- * dépliée sous chaque case touchée l'avaient précédée : on lisait des titres
- * et des lignes avant de voir un avatar (« pas reprendre ce qu'on a déjà »,
- * le propriétaire, le 12 octobre 2026). Ce qui reste à gagner se lit dans
- * « Ma collection », d'où il vient et comment.
+ * Ses avatars, dans la loge : les gemmes de l'album de « Ma collection » —
+ * les offerts, puis chaque rareté où il a quelque chose, chacune son compte
+ * —, puis la grille de ce qu'il a sur la page choisie. Un toucher essaie,
+ * rien d'autre : la carte collée en tête le montre, la case a son halo d'or,
+ * celle qu'il porte garde sa coche, et « Porter », dans la barre de la loge,
+ * le garde. Ce qui reste se compte sous la grille, et mène à sa page de
+ * l'album. Quatre familles en pastilles — légendaires, portraits,
+ * compagnons, emojis —, des cadenas au bout de chaque rangée, l'avaient
+ * précédée (la maquette 1 du 12 octobre 2026).
  */
 export function MesAvatars(props: PropsDUnePiece) {
   const { profil } = props
-  const [famille, setFamille] = useState<Famille>(() => familleDe(profil))
-  const comptes = comptesDesFamilles(profil)
+  const pages = pagesDeLaLoge(profil)
+  const [choisie, setChoisie] = useState<PageDeLaLoge>(() => pageDuPorte(profil))
+  // Une page qu'il n'a plus (un profil relu) : la première, les offerts.
+  const page = pages.find(p => p.page === choisie) ?? pages[0]
   return (
     <section className="loge-avatars">
-      {/* Les onglets de toute l'application, en pastilles : un seul arrêt de Tab, les flèches passent à la voisine. */}
-      <Onglets
-        onglets={FAMILLES.map(f => ({ id: f.id, nom: f.nom, pastille: { n: comptes[f.id], label: `${comptes[f.id]} à toi` } }))}
-        actif={famille}
-        onChoisir={setFamille}
-        label="Familles d’avatars"
-        idOnglet={f => `famille-${f}`}
-        idPanneau={() => 'famille-avatars'}
-        className="onglets-puces"
+      <Gemmes
+        gemmes={pages.map(p => ({
+          id: p.page,
+          court: p.page === 'offert' ? 'Offerts' : NOM_COURT_DE_RARETE_D_AVATAR[p.page],
+          label: `${NOM_DE_LA_PAGE[p.page]}, ${p.cles.length} à toi`,
+          compte: String(p.cles.length),
+          style: gemmeDAvatar(p.page),
+          divin: p.page === 'divin',
+        }))}
+        choisie={page.page}
+        onChoisir={setChoisie}
+        label="Mes avatars, par rareté"
+        idDe={p => `loge-gemme-${p}`}
+        panneau="loge-page-avatars"
+        className="gemmes-loge"
       />
-      <div className="famille-avatars" role="tabpanel" id="famille-avatars" aria-labelledby={`famille-${famille}`}>
-        <FamilleDAvatars {...props} famille={famille} />
+      <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
+        <PageDAvatars {...props} page={page} />
       </div>
     </section>
   )
 }
 
-/** Ce que chaque pastille compte : ce qu'il peut porter, Divins et emojis de collection compris. */
-export function comptesDesFamilles(profil: PublicProfileDetail): Record<Famille, number> {
-  return {
-    legendaires: profil.legendaires.length + (profil.divins ?? []).length,
-    portraits: portraitsOuverts(profil.sentiers ?? {}).length,
-    compagnons: formesOuvertes(profil.compagnons ?? []).length,
-    emojis: AVATARS.length + COLLECTION.filter(c => profil.niveau >= c.niveau).length,
-  }
-}
-
 /**
- * La grille d'une famille, sans état : ses cases — chacune essaie son
- * avatar —, les cadenas de ce qui reste, et le chemin de « Ma collection ».
+ * La grille d'une page, sans état : ses cases — chacune essaie son avatar —,
+ * puis ce qui reste sur la même page de l'album, compté, et son chemin.
  * Chaque case est dessinée par `Avatar`, qui fait venir son dessin : un
- * portrait, un légendaire ou un Divin, sans l'emoji dessous en attendant.
+ * portrait, un légendaire, un compagnon ou un Divin, sans l'emoji dessous en
+ * attendant.
  */
-export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: PropsDUnePiece & { famille: Famille }) {
+export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUnePiece & { page: PageDAvatars }) {
   // Ce que la carte montre — l'avatar essayé, sinon celui qu'il porte — et
   // la version de chaque Éclat qu'elle montrerait.
   const montre = avatarMontre(profil, essai)
@@ -222,169 +236,78 @@ export function FamilleDAvatars({ profil, essai, essayer, neufs, famille }: Prop
   )
   // Un médaillon dans sa case, sans finition ni emoji dessous : la finition se voit sur la carte.
   const medaillon = (cle: string, eclat = false) => <Avatar avatar="" legendaire={cle} eclat={eclat} />
-  const fermes = (n: number, colonnes: number, reste: number, niveaux: readonly number[] = []) =>
-    Array.from({ length: cadenas(n, colonnes, reste) }, (_, i) => (
-      <span key={`ferme-${i}`} className="loge-case loge-ferme" aria-hidden="true">
-        <Icon name="lock" />
-        {niveaux[i] !== undefined && <span className="loge-ferme-niveau">{`niv. ${niveaux[i]}`}</span>}
-      </span>
-    ))
-  const page = pageDuProchain(profil, FAMILLES.find(f => f.id === famille)!.sorte)
-  const aGagner = (reste: number, un: string, plusieurs: string) =>
-    reste > 0 && (
-      <a className="loge-a-gagner" href={`#collection-avatars${page ? `-${page}` : ''}`}>
-        {espacesFines(`${reste} ${reste > 1 ? plusieurs : un} à gagner : où ?`)}
-        <Icon name="chevron-right" />
-      </a>
-    )
-
-  if (famille === 'legendaires') {
-    const siens = LEGENDAIRES.filter(l => profil.legendaires.includes(l.key))
-    const divins = DIVINS.filter(d => (profil.divins ?? []).some(x => x.key === d.key))
-    const reste = LEGENDAIRES.length - siens.length
-    return (
-      <>
-        {siens.length === 0 && <p className="muted small">Chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne.</p>}
-        <div className="loge-grille grille-unique" role="group" aria-label="Les légendaires">
-          {siens.map(l =>
-            laCase(l.key, dessine(l.key), `${l.nom}, légendaire${brille(l.key) ? ', éclaté' : ''}`, { legendaire: l.key }, medaillon(l.key, brille(l.key)), ' anneau-legendaire'),
-          )}
-          {fermes(siens.length, 4, reste)}
-        </div>
-        {divins.length > 0 && (
-          <>
-            <p className="loge-grille-titre">
-              Les Divins <span>{`${divins.length} / ${DIVINS.length}`}</span>
-            </p>
-            <div className="loge-grille grille-unique" role="group" aria-label="Les Divins">
-              {divins.map(d => laCase(d.key, dessine(d.key), `${d.nom}, Divin`, { legendaire: d.key }, medaillon(d.key), ' anneau-divin'))}
-            </div>
-          </>
-        )}
-        {aGagner(reste, 'légendaire', 'légendaires')}
-      </>
-    )
+  const eclate = (cle: string) => (brille(cle) ? ', éclaté' : '')
+  /** La case d'un avatar : son dessin, ce qu'elle dit à l'oreille, son anneau, ce qu'elle essaie. */
+  const uneCase = (cle: string) => {
+    if (page.page === 'offert') return laCase(cle, emoji(cle), `Avatar ${cle}${eclate(cle)}`, { avatar: cle }, <Avatar avatar={cle} eclat={brille(cle)} />)
+    const c = COLLECTION.find(x => x.emoji === cle)
+    if (c) {
+      const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
+      return laCase(cle, emoji(cle), `Avatar ${cle}, de collection · niveau ${c.niveau}${eclate(cle)}`, { avatar: cle }, <Avatar avatar={cle} eclat={brille(cle)} />, anneau)
+    }
+    const l = legendaire(cle)
+    if (l) return laCase(cle, dessine(cle), `${l.nom}, légendaire${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)), ' anneau-legendaire')
+    const d = divin(cle)
+    if (d) return laCase(cle, dessine(cle), `${d.nom}, Divin`, { legendaire: cle }, medaillon(cle), ' anneau-divin')
+    const p = portraitDe(cle)
+    if (p) return laCase(cle, dessine(cle), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
+    // Une forme de compagnon : une forme d'avant se porte aussi.
+    const f = formeDeCompagnon(cle)
+    if (f) return laCase(cle, dessine(cle), `${f.nom}, ${compagnonDe(f).nom}, ${NOM_DE_LA_FORME[f.rang].toLowerCase()}${eclate(cle)}`, { legendaire: cle }, medaillon(cle, brille(cle)))
+    return null
   }
-
-  if (famille === 'portraits') {
-    const ouverts = portraitsOuverts(profil.sentiers ?? {})
-    const siens = PORTRAITS.filter(p => ouverts.includes(p.key))
-    const reste = PORTRAITS.length - siens.length
-    return (
-      <>
-        {siens.length === 0 && (
-          <p className="muted small">
-            {espacesFines('Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers.')}{' '}
-            <a className="link-inline" href="/campagne#sentiers">
-              Les sentiers
-            </a>
-          </p>
-        )}
-        <div className="loge-grille grille-unique" role="group" aria-label="Les portraits des branches">
-          {siens.map(p =>
-            laCase(p.key, dessine(p.key), `${p.nom}, portrait ${deLaBranche(brancheDe(p))}${brille(p.key) ? ', éclaté' : ''}`, { legendaire: p.key }, medaillon(p.key, brille(p.key))),
-          )}
-          {fermes(siens.length, 4, reste)}
-        </div>
-        {aGagner(reste, 'portrait', 'portraits')}
-      </>
-    )
-  }
-
-  if (famille === 'compagnons') {
-    // Chaque compagnon acheté, ses formes atteintes : une forme d'avant se porte aussi.
-    const ouvertes = formesOuvertes(profil.compagnons ?? [])
-    const siennes = FORMES_DES_COMPAGNONS.filter(f => ouvertes.includes(f.key))
-    const reste = FORMES_DES_COMPAGNONS.length - siennes.length
-    return (
-      <>
-        {siennes.length === 0 && (
-          <p className="muted small">
-            {espacesFines('Ils s’achètent à la boutique, puis grandissent avec les bonnes réponses que tu donnes en les portant.')}{' '}
-            <a className="link-inline" href="/boutique#compagnons">
-              La boutique
-            </a>
-          </p>
-        )}
-        <div className="loge-grille grille-unique" role="group" aria-label="Les compagnons">
-          {siennes.map(f =>
-            laCase(
-              f.key,
-              dessine(f.key),
-              `${f.nom}, ${compagnonDe(f).nom}, ${NOM_DE_LA_FORME[f.rang].toLowerCase()}${brille(f.key) ? ', éclaté' : ''}`,
-              { legendaire: f.key },
-              medaillon(f.key, brille(f.key)),
-            ),
-          )}
-          {fermes(siennes.length, 4, reste)}
-        </div>
-        {aGagner(reste, 'forme de compagnon', 'formes de compagnons')}
-      </>
-    )
-  }
-
-  const collection = COLLECTION.filter(c => profil.niveau >= c.niveau)
-  const aVenir = COLLECTION.filter(c => profil.niveau < c.niveau)
   return (
     <>
-      <div className="loge-grille loge-grille-emojis grille-unique" role="group" aria-label="Les emojis">
-        {AVATARS.map(a => laCase(a, emoji(a), `Avatar ${a}${brille(a) ? ', éclaté' : ''}`, { avatar: a }, <Avatar avatar={a} eclat={brille(a)} />))}
+      <div className={'loge-grille grille-unique' + (page.page === 'offert' ? ' loge-grille-emojis' : '')} role="group" aria-label={NOM_DE_LA_PAGE[page.page]}>
+        {page.cles.map(uneCase)}
       </div>
-      {/* Un à chaque niveau qui n'ouvre pas de finition, réservés aux profils : les suivants disent leur niveau. */}
-      <p className="loge-grille-titre">
-        De collection <span>{`${collection.length} / ${COLLECTION.length}`}</span>
-      </p>
-      <div className="loge-grille loge-grille-emojis grille-unique" role="group" aria-label="De collection">
-        {collection.map(c =>
-          laCase(
-            c.emoji,
-            emoji(c.emoji),
-            `Avatar ${c.emoji}, de collection · niveau ${c.niveau}${brille(c.emoji) ? ', éclaté' : ''}`,
-            { avatar: c.emoji },
-            <Avatar avatar={c.emoji} eclat={brille(c.emoji)} />,
-            c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut',
-          ),
-        )}
-        {fermes(
-          collection.length,
-          5,
-          aVenir.length,
-          aVenir.map(c => c.niveau),
-        )}
-      </div>
-      {aGagner(aVenir.length, 'emoji de collection', 'emojis de collection')}
+      {/* Les Divins ne disent pas comment : rien à compter, nulle part où aller (invariant 21). */}
+      {page.page !== 'divin' && (
+        <AGagner
+          n={page.reste}
+          un={QUI_RESTE[page.page][0]}
+          plusieurs={QUI_RESTE[page.page][1]}
+          href={page.page === 'offert' ? '#collection-avatars' : `#collection-avatars-${page.page}`}
+        />
+      )}
     </>
   )
 }
 
 /**
- * « N autres à gagner », sous ce qu'un écran du profil laisse choisir : ce
- * qu'on n'a pas encore vit dans sa ligne de « Ma collection », avec ce qu'il
- * faut pour l'ouvrir. Les fonds, les gerbes et les finitions à gagner se
- * montraient fermés au milieu de ceux qu'on choisit (le souhait du
- * propriétaire du 11 octobre 2026 : que le profil « ne soit pas mélangé avec
- * la collection »).
+ * « +3 », au bout d'une rangée de pastilles : ce qui reste se compte sans se
+ * montrer — des finitions et des bordures éteintes, au bout de la rangée, se
+ * prenaient pour des siennes (le 13 octobre 2026). Il mène à leur ligne de
+ * « Ma collection », qui dit le niveau ou la ligue de chacune.
  */
-export function AGagnerDansLaCollection({ reste, partie, nom }: { reste: number; partie: string; nom: string }) {
-  if (reste <= 0) return null
+function PastilleAGagner({ n, nom, href }: { n: number; nom: string; href: string }) {
+  if (n <= 0) return null
   return (
-    <a className="link-inline lien-boutique" href={`#collection-${partie}`}>
-      <Icon name="award" />
-      {`${reste} ${reste > 1 ? 'autres' : 'autre'} ${nom} à gagner : où et comment, dans « Ma collection »`}
+    <a className="finition-choix pastille-a-gagner" href={href} aria-label={`${n} ${nom} à gagner : où et comment, dans « Ma collection »`}>
+      <i className="finition-teinte teinte-a-gagner" aria-hidden="true">{`+${n}`}</i>
+      <span aria-hidden="true">à gagner</span>
     </a>
   )
 }
 
 /**
+ * Une rangée de pastilles : serrées d'un bord à l'autre quand elles sont
+ * nombreuses — huit tiennent en 360 —, alignées à gauche quand elles sont
+ * peu, au lieu de s'écarter d'un bord à l'autre.
+ */
+const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte' : '')
+
+/**
  * Sa finition, sur une rangée de pastilles (la maquette 3, que le
  * propriétaire a voulue le 12 octobre 2026) : « Auto » — la plus belle qu'il
  * a, que chaque niveau qui en ouvre une nouvelle fait porter d'office —, puis
- * celles qu'il a, chacune sa couleur ; celles qui restent à gagner, éteintes,
- * disent leur niveau et mènent à « Ma collection » — toutes : la seule
- * prochaine cachait Aurore et Constellation, ce qu'on vise au bout (« il
- * manque les finitions 15, 20, 25 », le propriétaire). Touchée, elle
- * s'essaie sur la carte de la loge. Elle se cachait derrière une ligne qui
- * se dépliait en huit grandes cases, un avatar animé dans chacune.
+ * celles qu'il a, chacune sa couleur, et ce qui reste compté au bout (« +3 »),
+ * qui mène à leur ligne de « Ma collection », chacune son niveau. Les
+ * restantes s'y montraient éteintes, chacune son niveau (le 12 octobre :
+ * « il manque les finitions 15, 20, 25 ») ; le lendemain, le propriétaire
+ * ne voulait plus y voir que les siennes. Touchée, elle s'essaie sur la
+ * carte de la loge. Elle se cachait derrière une ligne qui se dépliait en
+ * huit grandes cases, un avatar animé dans chacune.
  */
 export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -392,7 +315,8 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
   const divinPorte = divin(vu.legendaire)
   const montree = vu.finitionChoisie
   const plusBelle = meilleureFinition(profil.niveau)
-  const aGagner = FINITIONS.filter(f => !profil.ouvertes.includes(f))
+  const siennes = FINITIONS.filter(f => profil.ouvertes.includes(f))
+  const reste = FINITIONS.length - siennes.length
   const pastille = (cle: FinitionChoisie, nom: string, teinte: Finition, label: string) => {
     const montre = montree === cle
     const porte = profil.finitionChoisie === cle
@@ -419,20 +343,10 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
         Finition
       </span>
       {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta finition se voit sous tes autres avatars.`}</p>}
-      <div className="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre">
+      <div className={rangee(1 + siennes.length + (reste > 0 ? 1 : 0))} role="group" aria-labelledby="loge-finitions-titre">
         {pastille('auto', 'Auto', plusBelle, `Auto, toujours la plus belle : ${NOM_FINITION[plusBelle]}`)}
-        {FINITIONS.filter(f => profil.ouvertes.includes(f)).map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
-        {aGagner.map(f => (
-          <a
-            key={f}
-            className="finition-choix finition-fermee"
-            href="#collection-finitions"
-            aria-label={`${NOM_FINITION[f]}, au niveau ${NIVEAU_FINITION[f]} : où et comment, dans « Ma collection »`}
-          >
-            <i className={`finition-teinte teinte-${f}`} aria-hidden="true" />
-            <span aria-hidden="true">{`Niv. ${NIVEAU_FINITION[f]}`}</span>
-          </a>
-        ))}
+        {siennes.map(f => pastille(f, NOM_FINITION[f], f, NOM_FINITION[f]))}
+        <PastilleAGagner n={reste} nom={reste > 1 ? 'finitions' : 'finition'} href="#collection-finitions" />
       </div>
     </div>
   )
@@ -451,9 +365,11 @@ function phraseDeLaBordure(b: BordureDeLigue): string {
  * Sa bordure de ligue, sous sa finition (la maquette des alliages, le 12
  * octobre 2026) : « Auto » — sa plus haute qui a un cran —, « Sans », puis
  * les bordures des ligues qu'il a atteintes en duel, chacune autour de son
- * avatar, dans le métal de sa finition ; les autres, éteintes, chacune sa
- * cote, qui mènent aux duels. Dessous, ce que dit celle que la carte montre :
- * ses crans, et ce qui manque pour la sertir. Rien n'y bouge.
+ * avatar, dans le métal de sa finition, et ce qui reste compté au bout, qui
+ * mène à leur ligne de « Ma collection » — les autres s'y montraient
+ * éteintes, chacune sa cote, jusqu'au 13 octobre 2026. Dessous, ce que dit
+ * celle que la carte montre : ses crans, et ce qui manque pour la sertir.
+ * Rien n'y bouge.
  */
 export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -494,7 +410,7 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
       </button>
     )
   }
-  const atteintes = new Set(bordures.map(b => b.ligue))
+  const reste = LIGUES.length - bordures.length
   const montreeVue = bordurePortee(montree, bordures)
   return (
     <div className="loge-bordures">
@@ -502,23 +418,11 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         Bordure
       </span>
       {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta bordure se voit sous tes autres avatars.`}</p>}
-      <div className="loge-finitions-rangee loge-bordures-rangee" role="group" aria-labelledby="loge-bordures-titre">
+      <div className={rangee(2 + bordures.length + (reste > 0 ? 1 : 0)) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-bordures-titre">
         {pastille('auto', 'Auto', auto, auto ? `Auto, ta plus haute : ${NOM_DE_LA_BORDURE[auto.ligue]}` : 'Auto, ta plus haute dès son premier cran')}
         {pastille(AUCUNE_BORDURE, 'Sans', null, 'Sans bordure')}
         {bordures.map(b => pastille(b.ligue, ligueParCle(b.ligue).court, b, `${NOM_DE_LA_BORDURE[b.ligue]}, ${ligueParCle(b.ligue).nom.toLowerCase()}`))}
-        {LIGUES.filter(l => !atteintes.has(l.cle)).map(l => (
-          <a
-            key={l.cle}
-            className="finition-choix finition-fermee bordure-fermee"
-            href="/duels"
-            aria-label={`${NOM_DE_LA_BORDURE[l.cle]}, à la cote ${formatNumber(l.depuis)} : jouer un duel`}
-          >
-            <span className="bordure-apercu" aria-hidden="true">
-              <Avatar avatar={vu.avatar} finition={finition} bordure={{ ligue: l.cle, crans: 0 }} />
-            </span>
-            <span aria-hidden="true">{formatNumber(l.depuis)}</span>
-          </a>
-        ))}
+        <PastilleAGagner n={reste} nom={reste > 1 ? 'bordures' : 'bordure'} href="#collection-bordures" />
       </div>
       <p className="muted small loge-bordure-phrase">
         {montree === AUCUNE_BORDURE
@@ -563,7 +467,7 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
       </h3>
       {/* Où il s'écrit, la ligne de la pièce le dit ; ici, d'où viennent les autres. */}
-      <p className="muted small">Chaque haut fait gagné ouvre le sien, chaque palier de maître des sentiers aussi.</p>
+      <p className="muted small">Chaque trophée gagné ouvre le sien, chaque palier de maître des sentiers aussi.</p>
       <div className="titres" role="group" aria-label="Mon titre">
         <button type="button" className={'titre-choix' + classesDeLaCase(etat(null))} aria-pressed={montre === null} onClick={() => essayer({ titre: null })}>
           Aucun
@@ -575,14 +479,10 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
             {marque(cle)}
           </button>
         ))}
-        {aGagner > 0 && (
-          <span className="titre-choix ferme">
-            <Icon name="lock" />
-            {gagnes.length === 0 ? `${aGagner} titres à gagner` : `et ${aGagner} autre${aGagner > 1 ? 's' : ''} à gagner`}
-          </span>
-        )}
       </div>
       {gagnes.length === 0 && <PremierHautFait profil={profil} />}
+      {/* Chaque trophée ouvre le sien : ceux qui restent se comptent, et l'album dit comment les gagner. */}
+      <AGagner n={aGagner} un="titre" plusieurs="titres" href="#collection-trophees" />
     </section>
   )
 }
@@ -628,7 +528,7 @@ export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
           </button>
         ))}
       </div>
-      <AGagnerDansLaCollection reste={reste} partie="fonds" nom={reste > 1 ? 'fonds' : 'fond'} />
+      <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
     </section>
   )
 }
@@ -683,7 +583,7 @@ export function MaGerbe({ profil, essai, essayer, neufs }: PropsDUnePiece) {
           </button>
         ))}
       </div>
-      <AGagnerDansLaCollection reste={reste} partie="gerbes" nom={reste > 1 ? 'gerbes' : 'gerbe'} />
+      <AGagner n={reste} un="gerbe" plusieurs="gerbes" href="#collection-gerbes" />
       {apercu && <GerbeDeJuste key={apercu.n} cle={apercu.cle} />}
     </section>
   )

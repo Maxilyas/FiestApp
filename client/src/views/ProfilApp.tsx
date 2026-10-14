@@ -114,8 +114,8 @@ export function ProfilApp() {
    * vient : le retour du navigateur y ramène, pas hors du profil. Et chaque
    * écran commence en haut, comme une page qu'on ouvre.
    */
-  const ouvrir = (e: EcranDuProfil, adresse: string = e) => {
-    history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${window.location.search}#${adresse}`)
+  const ouvrir = (e: EcranDuProfil, adresse: string = e, requete: string = window.location.search) => {
+    history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${requete}#${adresse}`)
     setEcranOuvert(e)
     window.scrollTo(0, 0)
   }
@@ -136,15 +136,20 @@ export function ProfilApp() {
    * Un lien d'un écran vers un autre (`#avatar`, `#collection-themes`) passe
    * par `ouvrir` : son entrée d'historique retient d'où l'on vient. Laissé au
    * navigateur, il changeait l'adresse sans rien retenir, et « ← » ramenait
-   * aux tuiles au lieu de l'écran qu'on quittait.
+   * aux tuiles au lieu de l'écran qu'on quittait. « Essayer », dans une fiche
+   * de la collection (`?essayer=or#fond`), de même : l'essai voyage dans
+   * l'adresse, que la loge lit en s'ouvrant — laissé au navigateur, il
+   * rechargeait toute la page.
    */
   const suivreUnLien = (e: MouseEvent<HTMLElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-    const adresse = (e.target as Element).closest?.('a[href^="#"]')?.getAttribute('href')?.slice(1)
+    const lien = (e.target as Element).closest?.('a[href^="#"], a[href^="?essayer="]')?.getAttribute('href')
+    const diese = lien ? lien.indexOf('#') : -1
+    const adresse = lien && diese >= 0 ? lien.slice(diese + 1) : ''
     const cible = adresse ? ecranDe(adresse) : null
-    if (!cible || !adresse) return
+    if (!lien || !cible) return
     e.preventDefault()
-    ouvrir(cible, adresse)
+    ouvrir(cible, adresse, lien.startsWith('?') ? lien.slice(0, diese) : window.location.search)
   }
   useEffect(() => {
     const auRetour = () => setEcranOuvert(lireEcran())

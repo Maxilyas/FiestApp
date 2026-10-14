@@ -14,7 +14,7 @@ export type PieceDeLaLoge = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 
 export const PIECES_DE_LA_LOGE: readonly { id: PieceDeLaLoge; nom: string; groupe: 'salle' | 'moi'; qui: string }[] = [
   { id: 'avatar', nom: 'Avatar', groupe: 'salle', qui: 'La salle le voit, à côté de ton prénom.' },
   { id: 'titre', nom: 'Titre', groupe: 'salle', qui: 'Sous ton prénom, sur ta carte.' },
-  { id: 'vitrine', nom: 'Vitrine', groupe: 'salle', qui: 'Trois hauts faits, sur ta carte.' },
+  { id: 'vitrine', nom: 'Vitrine', groupe: 'salle', qui: 'Trois trophées, sur ta carte.' },
   { id: 'fond', nom: 'Fond', groupe: 'salle', qui: 'Derrière ta carte : rien d’autre ne change.' },
   { id: 'theme', nom: 'Thème', groupe: 'moi', qui: 'Toi seul le vois : il habille tes pages.' },
   { id: 'gerbe', nom: 'Gerbe', groupe: 'moi', qui: 'Toi seul la vois, à tes bonnes réponses.' },
