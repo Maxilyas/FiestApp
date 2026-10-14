@@ -65,9 +65,10 @@ paths:
 - **Un `player:join` qui porte une équipe la pose, même en plein quiz** :
   seul `player:setTeam` refuse pendant une partie. L'entrée d'un profil déjà
   présent ce soir passe par le choix d'équipe, et déplace sa fiche.
-- **Une nouvelle commande `host:*`** s'ajoute à la liste de
-  `garde-fous.test.ts`, qui vérifie qu'un téléphone ne peut pas la jouer — le
-  typecheck le rappelle. **Une route d'administration vit sous
+- **Une nouvelle commande `host:*`** s'ajoute aux deux listes de
+  `garde-fous.test.ts`, qui vérifie qu'un téléphone ne peut pas la jouer :
+  `COMMANDES` — le typecheck le rappelle — et son geste dans `gestes`, sans
+  quoi le test rougit. **Une route d'administration vit sous
   `/api/admin`** : gardée d'un bloc (`api.ts`, administrateur seul, jamais
   une télé branchée), elle entre d'elle-même dans `admin-seulement.test.ts`.
 

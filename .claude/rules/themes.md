@@ -46,8 +46,9 @@ paths:
   choisie, le gros bouton, la pastille du niveau) reçoit un fond plein :
   translucides, ils laissaient passer le tableau sous le texte. Sa
   lisibilité se mesure sur ce qui est vraiment peint derrière chaque ligne
-  (`scripts/rendu-themes.ts <clé> --contraste`), pas sur `--bg` seul, le
-  seul que compare `design.test.ts`.
+  (`scripts/rendu-themes.ts <clé> --contraste`), pas sur ses jetons
+  (`--bg`, `--surface`, `--accent`…), les seuls que compare
+  `design.test.ts`, jamais au décor peint.
 - **Un achat de plus** s'écrit avec son prix, sur une ligne jamais
   modifiée, et touche cinq endroits de `ProfileStore` : sa table, `achatsDe`,
   les dépenses de `boutiqueEtDons`, `unAchatALaFois` et la liste de

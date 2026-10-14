@@ -82,7 +82,11 @@ paths:
   emporte toutes, et ce qui les vérifie — la reprise d'un brouillon — les
   vérifie toutes : la photo de la révélation oubliée restait l'adresse de
   l'autre espace, et partait au premier ménage du sien. Une quatrième pièce
-  rejoint cette liste. Le ménage, qui ne passe qu'après un enregistrement ou
+  rejoint `PIECES_DE_QUESTION`, mais l'export la nomme à la main
+  (`shared/echange.ts`) : sa forme dans `FORME` — le typage la réclame —,
+  sa mise en clair dans `emporterQuiz`, sa nouvelle adresse dans
+  `importerQuiz`. Oubliée là, elle se perd à l'import sans qu'un test
+  rougisse : `variantes.test.ts` ne vérifie que les trois. Le ménage, qui ne passe qu'après un enregistrement ou
   une suppression de quiz, n'efface une pièce qu'une heure après qu'aucun
   quiz ne la cite plus (`orpheline_depuis`, posé par l'enregistrement qui la
   retire ou la suppression du quiz) — et jamais celle qu'une partie encore
