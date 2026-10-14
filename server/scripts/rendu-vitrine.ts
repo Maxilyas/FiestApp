@@ -202,7 +202,8 @@ await patienter(2000)
 
 /** Une photo sans le contour de focus qu'un titre garde pour le lecteur d'écran. */
 async function photo(page: any, nom: string) {
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.())
+  // En texte, comme les autres rendus : le serveur se type sans le DOM.
+  await page.evaluate('document.activeElement?.blur?.()')
   await page.screenshot({ path: path.join(sortie, `${nom}.jpg`), type: 'jpeg', quality: 82 })
   console.log(`  ${nom}`)
 }
