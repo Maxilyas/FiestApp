@@ -241,7 +241,7 @@ Les dix questions du jour, la série, le classement, le rappel du soir, et la r�
 | `POST` | `/api/admin/jour/annuler` | admin | Annule une question du jour pour tous (`{ jour, index }`), le jour même seulement : chaque joueur se recompte | `server/src/quizDuJour.ts` |
 | `POST` | `/api/admin/jour/retirer` | admin | Retire une question de la réserve (`{ reserveId, jour?, index? }`) : plus jamais tirée ; ses signalements se referment si le jour et l'index sont donnés | `server/src/quizDuJour.ts` |
 | `GET` | `/api/admin/jour/profils` | admin | Les profils masqués (50 au plus), ou ceux que trouve `?q=` (12 au plus) | `server/src/quizDuJour.ts` |
-| `POST` | `/api/admin/jour/masquer` | admin | Masque un profil du quiz du jour, ou l'y remet (`{ profileId, masque }`) | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/masquer` | admin | Masque un profil du quiz du jour, ou l'y remet (`{ profileId, masque }`), même suspendu : le profil se trouve comme au QG (`pourLAdministrateur`) | `server/src/quizDuJour.ts` |
 
 **À savoir :**
 - **Toute écriture** (`POST`, `DELETE`) demande l'en-tête `X-Requested-With: quizz`, sinon 403 « Requête refusée » — en ligne, une origine étrangère aussi (`csrfGuard`, `server/src/auth/http.ts`). La routine de la réserve le pose comme toute écriture.

@@ -29,7 +29,7 @@ La page de la soirée s'ouvre sur trois gros boutons : « Jouer sans compte », 
 - **Avec un profil**, on est reconnu et l'on entre sans rien rechoisir (« Entrer dans la soirée »). Un profil retient le niveau et les prix d'une soirée à l'autre ; il ne change rien aux points de ce soir.
 - **S'il y a des équipes**, un second écran propose de gros boutons — l'emoji, le nom, les avatars de ceux qui y sont déjà. Pendant un quiz, « Entrer sans équipe » laisse entrer tout de suite : on la choisira à la fin.
 
-Deux invités au même prénom et au même avatar se distinguent à l'affichage (« Camille (2) ») : personne n'est refusé, personne n'est renommé.
+Deux invités au même prénom et au même avatar — celui qu'on voit : le dessin porté, sinon l'emoji — se distinguent à l'affichage (« Camille (2) ») : personne n'est refusé, personne n'est renommé.
 
 ## La salle d'attente
 

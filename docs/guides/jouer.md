@@ -123,7 +123,7 @@ Le code vaut trois minutes, une seule fois. Personne ne reprend une place en ret
 
 Personne n'est refusé pour son prénom, et personne n'est renommé. À l'entrée, si une Camille est déjà là, la page le dit — « Il y a déjà un « Camille » — ton 🐼 vous distinguera. » — et les avatars déjà portés par une Camille sont éteints : choisis-en un autre, et la salle vous distinguera d'un coup d'œil. Majuscules et accents n'y changent rien : « camille » et « Camille » sont le même prénom.
 
-Si deux invités se retrouvent malgré tout avec le même prénom et le même avatar, l'affichage ajoute une marque au second : « Camille (2) ». Elle ne vaut qu'à l'écran, et disparaît quand l'homonyme s'en va.
+Si deux invités se retrouvent malgré tout avec le même prénom et le même avatar — celui qu'on voit —, l'affichage ajoute une marque au second : « Camille (2) ». Elle ne vaut qu'à l'écran, et disparaît quand l'homonyme s'en va.
 
 ## La fin de soirée
 

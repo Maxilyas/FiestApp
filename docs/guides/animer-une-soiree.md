@@ -144,7 +144,7 @@ Il entre, même en plein quiz : il joue la question en cours si elle est encore 
 
 ### Deux Camille
 
-Personne n'est refusé ni renommé. À l'entrée, les avatars d'un homonyme sont éteints ; si deux invités ont malgré tout le même prénom et le même avatar, l'écran marque le second « Camille (2) » — à l'affichage seulement, et la marque s'en va avec l'homonyme. Pour les départager à voix haute, donne un surnom : toucher le prénom, « Un surnom pour « Camille (2) » ce soir », « Donner ce surnom ». Il s'affiche partout ce soir ; un profil garde son prénom, que la soirée suivante lui rend.
+Personne n'est refusé ni renommé. À l'entrée, les avatars d'un homonyme sont éteints ; si deux invités ont malgré tout le même prénom et le même avatar — celui qu'on voit, le dessin porté sinon l'emoji —, l'écran marque le second « Camille (2) » — à l'affichage seulement, et la marque s'en va avec l'homonyme. Pour les départager à voix haute, donne un surnom : toucher le prénom, « Un surnom pour « Camille (2) » ce soir », « Donner ce surnom ». Il s'affiche partout ce soir ; un profil garde son prénom, que la soirée suivante lui rend.
 
 ### Une coupure de réseau
 

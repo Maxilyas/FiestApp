@@ -288,7 +288,7 @@ la soirée, de la bibliothèque, du miroir et de toutes les archives.
 → [La sécurité](./securite.md)
 
 **17. Les homonymes se règlent à l'affichage.** `nomsAffiches()` marque
-« Camille (2) » quand prénom **et** avatar sont partagés, sans jamais l'écrire
+« Camille (2) » quand prénom **et** avatar qu'on voit (`visageDe` : le dessin porté, sinon l'emoji) sont partagés, sans jamais l'écrire
 en base. Un prénom sort par trois portes — `publicPlayers`, `publicOne`
 (`server/src/core/party.ts`), `ViewContext.playerName` — et la troisième,
 qu'on oublie, écrit sur le vidéoprojecteur. → [Le temps réel](./temps-reel.md)
