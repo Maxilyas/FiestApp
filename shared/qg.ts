@@ -405,7 +405,7 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'campagne' | 'catalogue' | 'serveur' | null
+  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
@@ -477,24 +477,23 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       ecran: 'jour',
     })
   }
-  if (vue && vue.signalementsDuJour.questions > 0) {
-    const s = vue.signalementsDuJour
+  // Les deux modes se relisent sur une seule page (le choix du 14 octobre
+  // 2026) : une seule ligne, qui dit d'où viennent ses questions. Les joueurs
+  // se comptent par mode — le même signale peut-être aux deux.
+  const signalees = vue ? vue.signalementsDuJour.questions + vue.signalementsDeLaCampagne.questions : 0
+  if (vue && signalees > 0) {
+    const { signalementsDuJour: j, signalementsDeLaCampagne: c } = vue
     choses.push({
-      cle: 'signalements-jour',
+      cle: 'signalements',
       alerte: false,
-      titre: 'Signalements du quiz du jour',
-      detail: `${pluriel(s.questions, 'question')}, ${pluriel(s.joueurs, 'joueur')}`,
-      ecran: 'jour',
-    })
-  }
-  if (vue && vue.signalementsDeLaCampagne.questions > 0) {
-    const s = vue.signalementsDeLaCampagne
-    choses.push({
-      cle: 'signalements-campagne',
-      alerte: false,
-      titre: 'Signalements de la campagne',
-      detail: `${pluriel(s.questions, 'question')}, ${pluriel(s.joueurs, 'joueur')}`,
-      ecran: 'campagne',
+      titre: signalees > 1 ? `${signalees} questions signalées` : 'Une question signalée',
+      detail: [
+        j.questions > 0 && `${j.questions} au quiz du jour (${pluriel(j.joueurs, 'joueur')})`,
+        c.questions > 0 && `${c.questions} en campagne (${pluriel(c.joueurs, 'joueur')})`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      ecran: 'signalements',
     })
   }
   if (vue && vue.catalogue > 0) {

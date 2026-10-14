@@ -1245,17 +1245,24 @@ export class ProfileStore {
 
   /**
    * Ce que l'administrateur a fait pour lui ce dernier mois, à lui dire une
-   * fois sur son accueil (`ANNONCE_MS`) : ses dons, son prénom changé — le
-   * plus récent d'abord. Son téléphone retient ce qu'il a déjà montré.
+   * fois sur son accueil (`ANNONCE_MS`) : ses dons, son prénom changé, et les
+   * mercis de ses signalements qui ont servi — que le quiz du jour et la
+   * campagne ont déjà lus sur le mois —, le plus récent d'abord. Son
+   * téléphone retient ce qu'il a déjà montré.
    */
-  annoncesDe(p: ProfileRec, dons: readonly { id: string; confettis: number; mot: string | null; le: number }[], maintenant: number): AnnonceDeLAdministrateur[] {
+  annoncesDe(
+    p: ProfileRec,
+    dons: readonly { id: string; confettis: number; mot: string | null; le: number }[],
+    maintenant: number,
+    mercis: readonly AnnonceDeLAdministrateur[] = [],
+  ): AnnonceDeLAdministrateur[] {
     const annonces: AnnonceDeLAdministrateur[] = dons
       .filter(d => maintenant - d.le < ANNONCE_MS)
       .map(d => ({ id: `don:${d.id}`, sorte: 'confettis' as const, confettis: d.confettis, mot: d.mot, le: d.le }))
     if (p.renommeLe !== null && maintenant - p.renommeLe < ANNONCE_MS) {
       annonces.push({ id: `prenom:${p.renommeLe}`, sorte: 'prenom', nom: p.name, le: p.renommeLe })
     }
-    return annonces.sort((a, b) => b.le - a.le)
+    return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
   }
 
   /** Ses compagnons achetés, et la plus haute forme de chacun : de mémoire, dans l'ordre du catalogue. */

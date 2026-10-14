@@ -97,6 +97,8 @@ export type IconName =
   | 'mountain'
   | 'calendar'
   | 'bag'
+  // Les signalements du QG : reclasser une question.
+  | 'tag'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -621,6 +623,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
         <path d="M3.5 10h17M8 3v4M16 3v4" />
+      </>
+    ),
+  },
+  // Une étiquette, son œillet : « Reclasser » une question — sa catégorie, son sous-thème, sa difficulté.
+  tag: {
+    paths: (
+      <>
+        <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0L3.5 12.2Z" />
+        <circle cx="8" cy="8" r="1.4" />
       </>
     ),
   },

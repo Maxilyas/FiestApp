@@ -16,15 +16,46 @@
 import { randomUUID } from 'node:crypto'
 import type { InStatement, ResultSet } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
-import { lireEtiquetage } from '../../../shared/etiquettes'
-import { niveauMesure, type Niveau } from '../../../shared/campagne'
+import { extrait } from './journalDesGestes'
+import { lireEtiquetage, type MetadonneesDeQuestion } from '../../../shared/etiquettes'
+import { bonneReponseChange, niveauMesure, type Niveau } from '../../../shared/campagne'
+import {
+  ISSUES_QUI_SERVENT,
+  QUESTION_DU_MERCI,
+  RELUS_MONTRES,
+  SIGNALEMENTS_MONTRES_AU_QG,
+  classementEcrit,
+  corrigeAussiLeJour,
+  detailDeLaCorrection,
+  lireIssue,
+  lireLaCorrection,
+  lireLeClassement,
+  memeLecture,
+  placesDuJour,
+  type Classement,
+  type IssueDUnSignalement,
+  type SignalementDuJour,
+  type SignalementRelu,
+  type VersionDeLaReserve,
+  type VersionLue,
+} from '../../../shared/qgSignalements'
 import { HORS_LIGNES_A_PART, cleDuJour, cleDuMois, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { JOURS_DE_CHRONOS, chronosDescend, raconter } from './divins'
 import { JOURS_POUR_UNE_PAGE, cleDeLaPage, moisDeLaPage } from '../../../shared/calendrier'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, bonusDeRapidite, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
-import { normalizeQuestions, toPlayable, type PlayableQuestion, type QuizQuestionDef } from '../../../shared/library'
+import {
+  MAX_ANECDOTE,
+  MAX_ANSWERS,
+  MAX_ANSWER_TEXT,
+  MAX_TEXT,
+  MIN_ANSWERS,
+  normalizeQuestions,
+  toPlayable,
+  type PlayableQuestion,
+  type QuizQuestionDef,
+} from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
 import { classer, rangDansLesTries } from '../../../shared/classement'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
@@ -56,7 +87,7 @@ import {
   type RevelationDuJour,
   type SerieDuJour,
 } from '../../../shared/jour'
-import { CHANCE_ECLAT_DU_JOUR, apparenceDeLAvatar, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, apparenceDeLAvatar, niveauDuProfil, type AnnonceDeLAdministrateur, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
@@ -449,6 +480,9 @@ export class JourStore {
            traite_le  INTEGER,
            PRIMARY KEY (jour, question, profile_id)
          )`,
+        // Ses signalements relus ce dernier mois, que chaque accueil relit pour
+        // le remercier (`mercisDe`) : sans index, la table entière à chaque visite.
+        'CREATE INDEX IF NOT EXISTS idx_jour_signalements_profil ON jour_signalements(profile_id, traite_le)',
         `CREATE TABLE IF NOT EXISTS jour_masques (
            profile_id TEXT PRIMARY KEY,
            masque_le  INTEGER NOT NULL
@@ -471,6 +505,12 @@ export class JourStore {
     // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
     // octobre 2026 : ses bonnes réponses le font grandir.
     await ajouterColonne(this.client, 'jour_reponses', 'compagnon', 'TEXT')
+    // Ce qu'un geste du QG a fait d'une question signalée, et comment
+    // (`IssueDUnSignalement`), venus le 14 octobre 2026 avec la page des
+    // signalements : son historique les relit, et le joueur dont la remarque
+    // a servi l'apprend sur son accueil. Relus avant, ils n'en ont pas.
+    await ajouterColonne(this.client, 'jour_signalements', 'issue', 'TEXT')
+    await ajouterColonne(this.client, 'jour_signalements', 'detail', 'TEXT')
     for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
     await this.amorcer()
   }
@@ -797,13 +837,32 @@ export class JourStore {
     return typeof texte === 'string' ? texte : null
   }
 
-  /** Retire une question de la réserve : elle ne sera plus jamais tirée. Le jour qui l'a posée la garde. */
-  async retirer(reserveId: string): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: 'UPDATE jour_reserve SET retiree_le = ? WHERE id = ? AND retiree_le IS NULL',
-      args: [this.maintenant(), reserveId],
-    })
-    return res.rowsAffected > 0
+  /**
+   * Retire une question de la réserve : elle ne sera plus jamais tirée. Le
+   * jour qui l'a posée la garde. Signalée (`signalee`), ses signalements se
+   * referment dans le même lot — à part, une panne entre les deux la
+   * laissait retirée et toujours à relire —, et seulement si ce geste-ci l'a
+   * retirée : déjà retirée, rien ne bouge.
+   */
+  async retirer(reserveId: string, signalee?: { jour: string; index: number }): Promise<boolean> {
+    const maintenant = this.maintenant()
+    const [retrait] = await this.client.batch(
+      [
+        { sql: 'UPDATE jour_reserve SET retiree_le = ? WHERE id = ? AND retiree_le IS NULL', args: [maintenant, reserveId] },
+        ...(signalee
+          ? [
+              {
+                sql: `UPDATE jour_signalements SET traite_le = ?, issue = 'retiree', detail = NULL
+                      WHERE jour = ? AND question = ? AND traite_le IS NULL
+                        AND EXISTS (SELECT 1 FROM jour_reserve WHERE id = ? AND retiree_le = ?)`,
+                args: [maintenant, signalee.jour, signalee.index, reserveId, maintenant],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
+    return retrait.rowsAffected > 0
   }
 
   // ── Le tirage ───────────────────────────────────────────────────────────
@@ -2451,10 +2510,171 @@ export class JourStore {
       args: [profil.id, jour, index],
     })
     if (res.rows.length === 0) throw new Error('Réponds d’abord à cette question')
+    // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
       sql: `INSERT INTO jour_signalements (jour, question, profile_id, texte, cree_le) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(jour, question, profile_id) DO UPDATE SET texte = excluded.texte, cree_le = excluded.cree_le, traite_le = NULL`,
+            ON CONFLICT(jour, question, profile_id) DO UPDATE SET texte = excluded.texte, cree_le = excluded.cree_le, traite_le = NULL, issue = NULL, detail = NULL`,
       args: [jour, index, profil.id, propre, this.maintenant()],
+    })
+  }
+
+  /**
+   * Les questions du jour signalées et pas encore relues, pour la page des
+   * signalements du QG (`/admin#signalements`) : telles que leur jour les a
+   * posées — et ce que chaque réponse y a recueilli —, leur version de la
+   * réserve, celle que « Corriger » et « Reclasser » reprennent, et qui les
+   * signale — ce qu'il en dit, ce qu'il avait répondu —, ceux déjà relus
+   * avec. Un aller-retour pour les signalements, un pour tout le reste : les
+   * tirages se lisent en mémoire. Les prénoms, au profil, dans la route.
+   */
+  async signalementsAuQg(): Promise<SignalementDuJour[]> {
+    const res = await this.client.execute({
+      sql: `SELECT s.jour, s.question, s.profile_id, s.texte, s.cree_le, s.traite_le, s.issue, r.choix, r.juste
+            FROM jour_signalements s
+            LEFT JOIN jour_reponses r ON r.profile_id = s.profile_id AND r.jour = s.jour AND r.question = s.question
+            WHERE (s.jour, s.question) IN (
+              SELECT jour, question FROM jour_signalements WHERE traite_le IS NULL
+              GROUP BY jour, question ORDER BY MAX(cree_le) DESC LIMIT ?
+            )
+            ORDER BY s.cree_le DESC`,
+      args: [SIGNALEMENTS_MONTRES_AU_QG],
+    })
+    const parQuestion = new Map<string, Record<string, unknown>[]>()
+    for (const r of res.rows) {
+      const cle = `${r.jour}#${r.question}`
+      const lignes = parQuestion.get(cle)
+      if (lignes) lignes.push(r)
+      else parQuestion.set(cle, [r])
+    }
+    if (parQuestion.size === 0) return []
+    const jours = [...new Set(res.rows.map(r => String(r.jour)))]
+    const tirages = new Map(await Promise.all(jours.map(async j => [j, await this.tirageLu(j)] as const)))
+    const questions = [...parQuestion.values()].flatMap(lignes => {
+      const jour = String(lignes[0].jour)
+      const index = Number(lignes[0].question)
+      const tirage = tirages.get(jour)
+      const q = tirage?.questions[index]
+      return tirage && q ? [{ jour, index, tirage, q, lignes }] : []
+    })
+    if (questions.length === 0) return []
+    const aujourdhui = jourDe(this.maintenant())
+    // Ce que chaque réponse a recueilli, leur version de la réserve, et si la
+    // nuit a déjà clos aujourd'hui : d'un seul lot.
+    const [reserve, clos, ...recueils] = await this.client.batch(
+      [
+        {
+          sql: `SELECT id, question, categorie, metadonnees, retiree_le FROM jour_reserve WHERE id IN (${questions.map(() => '?').join(', ')})`,
+          args: questions.map(x => x.q.reserveId),
+        },
+        { sql: 'SELECT 1 FROM jour_clotures WHERE jour = ?', args: [aujourdhui] },
+        ...questions.map(x => ({
+          sql: 'SELECT choix, COUNT(*) AS n FROM jour_reponses WHERE jour = ? AND question = ? GROUP BY choix',
+          args: [x.jour, x.index],
+        })),
+      ],
+      'read',
+    )
+    const versions = new Map(reserve.rows.map(r => [String(r.id), versionDeLaReserve(r)]))
+    const aujourdhuiClos = clos.rows.length > 0
+    return questions
+      .map(({ jour, index, tirage, q, lignes }, i): SignalementDuJour => {
+        const parReponse = q.reponses.map(() => 0)
+        let sansReponse = 0
+        for (const r of recueils[i].rows) {
+          if (r.choix === null) sansReponse += Number(r.n)
+          else if (parReponse[Number(r.choix)] !== undefined) parReponse[Number(r.choix)] += Number(r.n)
+        }
+        const rapports = lignes.map(r => ({
+          profileId: String(r.profile_id),
+          prenom: null,
+          login: null,
+          texte: String(r.texte),
+          le: Number(r.cree_le),
+          traiteLe: r.traite_le === null ? null : Number(r.traite_le),
+          issue: lireIssue(r.issue),
+          // Telle qu'il l'a lue : le jour garde l'ordre de ses réponses.
+          reponse: r.choix === null || r.choix === undefined ? null : (q.reponses[Number(r.choix)] ?? null),
+          juste: Number(r.juste ?? 0) === 1,
+        }))
+        const ouverts = rapports.filter(r => r.traiteLe === null)
+        return {
+          jour,
+          index,
+          reserveId: q.reserveId,
+          texte: q.texte,
+          reponses: q.reponses,
+          bonne: q.bonne,
+          anecdote: q.anecdote,
+          categorie: q.categorie,
+          parReponse,
+          sansReponse,
+          reserve: versions.get(q.reserveId) ?? null,
+          annulee: tirage.annulees.includes(index),
+          // On annule tant que le jour court : après minuit, son podium est payé.
+          annulable: jour === aujourdhui && !aujourdhuiClos,
+          joueurs: ouverts.length,
+          rapports,
+          dernier: Math.max(...ouverts.map(r => r.le)),
+        }
+      })
+      .filter(s => s.joueurs > 0)
+      .sort((a, b) => b.dernier - a.dernier)
+  }
+
+  /**
+   * Les questions du jour relues depuis `depuis`, la plus récente d'abord :
+   * l'historique de la page des signalements. Une relecture referme d'un
+   * coup les signalements ouverts d'une question, au même instant et sous
+   * la même issue : ils se regroupent par là. L'intitulé, tel que son jour
+   * le garde — corrigé, s'il l'a été partout.
+   */
+  async signalementsRelus(depuis: number): Promise<SignalementRelu[]> {
+    const res = await this.client.execute({
+      sql: `SELECT s.jour, s.question, s.traite_le, MAX(s.issue) AS issue, MAX(s.detail) AS detail, COUNT(*) AS n,
+                   json_extract(t.questions, '$[' || s.question || '].texte') AS texte,
+                   json_extract(t.questions, '$[' || s.question || '].categorie') AS categorie
+            FROM jour_signalements s LEFT JOIN jour_tirages t ON t.jour = s.jour
+            WHERE s.traite_le >= ?
+            GROUP BY s.jour, s.question, s.traite_le ORDER BY s.traite_le DESC LIMIT ?`,
+      args: [depuis, RELUS_MONTRES],
+    })
+    return res.rows.flatMap((r): SignalementRelu[] =>
+      typeof r.texte !== 'string'
+        ? []
+        : [
+            {
+              source: 'jour',
+              cle: `${r.jour}#${r.question}`,
+              texte: r.texte,
+              categorie: typeof r.categorie === 'string' ? r.categorie : null,
+              issue: lireIssue(r.issue),
+              detail: typeof r.detail === 'string' ? r.detail : null,
+              quand: Number(r.traite_le),
+              joueurs: Number(r.n),
+              jour: String(r.jour),
+            },
+          ],
+    )
+  }
+
+  /**
+   * Les questions du jour qu'il a signalées et dont sa remarque a servi —
+   * corrigée, reclassée, retirée, ses points annulés pour tous —, relues
+   * depuis `depuis` : son accueil le remercie, une fois par téléphone. Une
+   * question gardée ne dit rien. Une requête par son index, dans le lot de
+   * l'accueil : rien n'attend derrière elle.
+   */
+  async mercisDe(profileId: string, depuis: number): Promise<AnnonceDeLAdministrateur[]> {
+    const res = await this.client.execute({
+      sql: `SELECT s.jour, s.question, s.traite_le, s.issue, json_extract(t.questions, '$[' || s.question || '].texte') AS texte
+            FROM jour_signalements s LEFT JOIN jour_tirages t ON t.jour = s.jour
+            WHERE s.profile_id = ? AND s.traite_le >= ? AND s.issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
+      args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
+    })
+    return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
+      const issue = lireIssue(r.issue)
+      if (!issue || issue === 'gardee' || typeof r.texte !== 'string') return []
+      return [{ id: `merci:jour:${r.jour}#${r.question}:${r.traite_le}`, sorte: 'merci', mode: 'jour', issue, question: extrait(r.texte, QUESTION_DU_MERCI), le: Number(r.traite_le) }]
     })
   }
 
@@ -2701,9 +2921,154 @@ export class JourStore {
 
   /** « Garder » : la question est juste, les signalements se referment. */
   async garder(jour: string, index: number) {
-    await this.client.execute({
-      sql: 'UPDATE jour_signalements SET traite_le = ? WHERE jour = ? AND question = ? AND traite_le IS NULL',
-      args: [this.maintenant(), jour, index],
+    await this.client.execute(this.refermerLes(jour, index, 'gardee'))
+  }
+
+  /**
+   * L'écriture qui referme les signalements ouverts d'une question, en
+   * disant ce qui en a été fait (`IssueDUnSignalement`) et, pour
+   * l'historique, comment — « nouvelle bonne réponse : 1997 ». Dans le lot
+   * du geste : à part, une panne entre les deux laissait la question
+   * corrigée et toujours à relire. Le joueur dont la remarque a servi
+   * l'apprend sur son accueil (`mercisDe`).
+   */
+  private refermerLes(jour: string, index: number, issue: IssueDUnSignalement, detail: string | null = null): InStatement {
+    return {
+      sql: 'UPDATE jour_signalements SET traite_le = ?, issue = ?, detail = ? WHERE jour = ? AND question = ? AND traite_le IS NULL',
+      args: [this.maintenant(), issue, detail, jour, index],
+    }
+  }
+
+  /**
+   * « Corriger » une question du jour signalée (le choix du 14 octobre
+   * 2026, « Même réponse : partout ; autre réponse : pour la suite ») : sa
+   * version de la réserve — celle que ses prochains tirages poseront —,
+   * relue comme une liste collée. La même bonne réponse, à la même place :
+   * une faute, un leurre, une anecdote — le jour qui l'a posée la prend
+   * aussi, sur l'écran de correction de chacun, ses réponses dans l'ordre de
+   * ce jour-là, et ceux qui la jouent encore aujourd'hui la lisent corrigée ;
+   * son temps de lecture ne bouge pas, une question en cours garde son
+   * échéance. Une autre bonne réponse ne vaut que pour la suite : le jour
+   * garde la sienne. Ses points s'annulent pour tous si on le demande
+   * (`annuler`), tant qu'il court — une réponse fausse, ou une question
+   * ambiguë qu'on précise : ses signalements refermés, la page ne la
+   * montrerait plus pour le faire après. Ils se referment.
+   */
+  async corriger(
+    jour: string,
+    index: number,
+    brut: unknown,
+    { annuler = false }: { annuler?: boolean } = {},
+  ): Promise<{ jourAussi: boolean; nouvelle: boolean; annulee: boolean }> {
+    if (!jourValide(jour) || !Number.isInteger(index)) throw new Error('Question introuvable')
+    const proposee = lireLaCorrection(brut)
+    if (!proposee) throw new Error('Envoie l’intitulé, les réponses, l’index de la bonne et l’anecdote')
+    if (proposee.reponses.length < MIN_ANSWERS || proposee.reponses.length > MAX_ANSWERS) throw new Error(`Une question du jour a de ${MIN_ANSWERS} à ${MAX_ANSWERS} réponses`)
+    if (proposee.reponses.some(r => !r)) throw new Error('Une réponse est vide : écris-la, ou retire-la')
+    if (new Set(proposee.reponses.map(r => empreinteDe(r))).size < proposee.reponses.length) throw new Error('Deux réponses disent la même chose')
+    if (proposee.bonne < 0 || proposee.bonne >= proposee.reponses.length) throw new Error('Coche la bonne réponse')
+    // Coupée en silence, une correction trop longue perdait sa fin : on le dit plutôt.
+    const trop = (t: string, max: number) => tronquer(t, max) !== t
+    if (trop(proposee.texte, MAX_TEXT) || proposee.reponses.some(r => trop(r, MAX_ANSWER_TEXT)) || (proposee.anecdote !== null && trop(proposee.anecdote, MAX_ANECDOTE))) {
+      throw new Error(`Trop long : l’intitulé tient en ${MAX_TEXT} caractères, une réponse en ${MAX_ANSWER_TEXT}, l’anecdote en ${MAX_ANECDOTE}`)
+    }
+    const corrigee = await this.avecVerrou('#tirage', async () => {
+      const tirage = await this.tirageLu(jour)
+      const q = tirage?.questions[index]
+      if (!tirage || !q) throw new Error('Question introuvable')
+      const ligne = (await this.client.execute({ sql: 'SELECT question, empreinte, retiree_le FROM jour_reserve WHERE id = ?', args: [q.reserveId] })).rows[0]
+      if (!ligne) throw new Error('Cette question n’est plus dans la réserve')
+      if (ligne.retiree_le !== null) throw new Error('Cette question est retirée de la réserve : on ne la corrige plus')
+      const def = JSON.parse(String(ligne.question)) as QuizQuestionDef
+      const avant = lectureDe(def, q.reserveId)
+      if (!avant) throw new Error('Cette question ne se joue plus : retire-la de la réserve')
+      // Relue comme une liste collée — ses espaces, ce que le quiz du jour
+      // sait jouer —, sous son identifiant de toujours.
+      const nouvelle = { ...normalizeQuestions([{ ...def, text: proposee.texte, answers: proposee.reponses, correct: proposee.bonne, anecdote: proposee.anecdote }])[0], id: def.id }
+      const raison = raisonDEcarter(nouvelle)
+      const apres = lectureDe(nouvelle, q.reserveId)
+      if (raison || !apres) throw new Error(`Correction refusée : ${raison ?? 'incomplète'}`)
+      if (memeLecture(avant, apres)) throw new Error('Rien n’a changé : « Garder » referme ses signalements')
+      const empreinte = empreinteDe(nouvelle.text)
+      if (empreinte !== String(ligne.empreinte)) {
+        const deja = await this.client.execute({ sql: 'SELECT 1 FROM jour_reserve WHERE empreinte = ? AND id <> ?', args: [empreinte, q.reserveId] })
+        if (deja.rows.length > 0) throw new Error('Cet intitulé est déjà celui d’une autre question de la réserve')
+        if (await this.dansLaCampagne?.(empreinte)) throw new Error('Cet intitulé est déjà dans la campagne')
+      }
+      const autreReponse = bonneReponseChange(avant, apres)
+      const duJour = copieCorrigee(q, avant, apres)
+      const annuleAussi = annuler && !tirage.annulees.includes(index)
+      if (annuleAussi && (jour !== jourDe(this.maintenant()) || (await this.estClos(jour)))) {
+        throw new Error('Ce jour est clos : on ne peut plus annuler ses points. Corrige-la sans annuler.')
+      }
+      const detail = detailDeLaCorrection(avant, apres) + (annuleAussi ? ' · ses points annulés pour tous' : '')
+      const questions = duJour ? tirage.questions.map((x, i) => (i === index ? duJour : x)) : null
+      await this.client.batch(
+        [
+          {
+            sql: 'UPDATE jour_reserve SET question = ?, empreinte = ? WHERE id = ?',
+            args: [JSON.stringify(nouvelle), empreinte, q.reserveId],
+          },
+          ...(questions ? [{ sql: 'UPDATE jour_tirages SET questions = ? WHERE jour = ?', args: [JSON.stringify(questions), jour] }] : []),
+          this.refermerLes(jour, index, 'corrigee', detail),
+        ],
+        'write',
+      )
+      if (questions) this.garderTirage({ ...tirage, questions })
+      if (empreinte !== String(ligne.empreinte)) this.empreintesGardees = null
+      return { jourAussi: !!questions, nouvelle: autreReponse, annulee: annuleAussi }
+    })
+    // Hors du verrou du tirage, que l'annulation reprend.
+    if (corrigee.annulee) await this.annuler(jour, index)
+    return corrigee
+  }
+
+  /**
+   * « Reclasser » une question du jour signalée : sa catégorie — et, quand
+   * la routine l'a déjà décrite, son sous-thème et sa difficulté estimée —,
+   * pour ses prochains tirages. Le jour qui l'a posée garde la sienne : les
+   * réponses déjà données comptent pour la catégorie de ce jour-là, et les
+   * écussons de chacun ne bougent pas. Ses signalements se referment. Sous
+   * le verrou du tirage, comme « Corriger » : les deux relisent puis
+   * réécrivent la même question de la réserve, et l'un effaçait l'autre.
+   */
+  reclasser(jour: string, index: number, brut: unknown): Promise<{ avant: Classement; apres: Classement }> {
+    return this.avecVerrou('#tirage', async () => {
+      const tirage = jourValide(jour) && Number.isInteger(index) ? await this.tirageLu(jour) : null
+      const q = tirage?.questions[index]
+      if (!q) throw new Error('Question introuvable')
+      const ligne = (await this.client.execute({ sql: 'SELECT question, categorie, metadonnees, retiree_le FROM jour_reserve WHERE id = ?', args: [q.reserveId] })).rows[0]
+      if (!ligne) throw new Error('Cette question n’est plus dans la réserve')
+      if (ligne.retiree_le !== null) throw new Error('Cette question est retirée de la réserve : on ne la reclasse plus')
+      const meta = metadonneesDe(ligne.metadonnees)
+      const lu = lireLeClassement(brut, { avecMeta: !!meta })
+      if (typeof lu === 'string') throw new Error(lu)
+      const categorie = ligne.categorie === null ? null : String(ligne.categorie)
+      const avant: Classement = {
+        categorie: categorie ?? '',
+        sousTheme: meta && meta.categorie === categorie ? meta.sousTheme : null,
+        difficulte: meta?.difficulte ?? null,
+      }
+      if (avant.categorie === lu.categorie && avant.sousTheme === lu.sousTheme && avant.difficulte === lu.difficulte) {
+        throw new Error('Rien n’a changé : « Garder » referme ses signalements')
+      }
+      const def = JSON.parse(String(ligne.question)) as QuizQuestionDef
+      await this.client.batch(
+        [
+          {
+            sql: 'UPDATE jour_reserve SET categorie = ?, question = ?, metadonnees = COALESCE(?, metadonnees) WHERE id = ?',
+            args: [
+              lu.categorie,
+              JSON.stringify({ ...def, category: lu.categorie }),
+              meta ? JSON.stringify({ ...meta, categorie: lu.categorie, sousTheme: lu.sousTheme, difficulte: lu.difficulte }) : null,
+              q.reserveId,
+            ],
+          },
+          this.refermerLes(jour, index, 'reclassee', classementEcrit(lu)),
+        ],
+        'write',
+      )
+      return { avant, apres: lu }
     })
   }
 
@@ -2722,13 +3087,7 @@ export class JourStore {
       if (!tirage || !Number.isInteger(index) || index < 0 || index >= tirage.questions.length) throw new Error('Question introuvable')
       if (tirage.annulees.includes(index)) return
       const annulees = [...tirage.annulees, index].sort((a, b) => a - b)
-      await this.client.batch(
-        [
-          { sql: 'UPDATE jour_tirages SET annulees = ? WHERE jour = ?', args: [JSON.stringify(annulees), jour] },
-          { sql: 'UPDATE jour_signalements SET traite_le = ? WHERE jour = ? AND question = ? AND traite_le IS NULL', args: [this.maintenant(), jour, index] },
-        ],
-        'write',
-      )
+      await this.client.batch([{ sql: 'UPDATE jour_tirages SET annulees = ? WHERE jour = ?', args: [JSON.stringify(annulees), jour] }, this.refermerLes(jour, index, 'annulee')], 'write')
       // Toujours sous le verrou du tirage : chaque recompte, sous celui de
       // son profil, lit l'annulation la plus récente — comme il la lisait
       // en base. Lui passer le tirage de cette annulation-ci laissait payée
@@ -2919,6 +3278,63 @@ export class JourStore {
 /** Les points possibles d'un jour : deux cents par question qui compte encore. */
 function possiblesDe(tirage: Tirage): number {
   return POINTS_MAX_PAR_QUESTION * (tirage.questions.length - tirage.annulees.length)
+}
+
+/** Ce que le joueur lit d'une question de la réserve, ses réponses dans l'ordre écrit ; null : elle ne se joue pas. */
+function lectureDe(def: QuizQuestionDef, id: string): VersionLue | null {
+  const p = toPlayable({ ...def, id })
+  return p && p.kind === 'choice' ? { texte: p.text, reponses: p.answers, bonne: p.correct, anecdote: p.anecdote ?? null } : null
+}
+
+/**
+ * La copie d'un jour, corrigée : ses réponses dans l'ordre de ce jour-là,
+ * chacune remplacée par la version corrigée de sa place dans la réserve ;
+ * sa bonne à la même place, son temps de lecture tel quel. Null quand le
+ * jour ne la prend pas (`corrigeAussiLeJour`) : on ne devine pas.
+ */
+function copieCorrigee(q: QuestionTiree, avant: VersionLue, apres: VersionLue): QuestionTiree | null {
+  const places = placesDuJour(q, avant)
+  if (!places || !corrigeAussiLeJour(q, avant, apres)) return null
+  return { ...q, texte: apres.texte, reponses: places.map(p => apres.reponses[p]), anecdote: apres.anecdote }
+}
+
+/** Les métadonnées d'une question de la réserve, quand la routine l'a décrite ; null sans elles, ou hors de la base. */
+function metadonneesDe(brut: unknown): MetadonneesDeQuestion | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const m = JSON.parse(brut) as Partial<MetadonneesDeQuestion> & { horsBase?: unknown }
+    return m && typeof m === 'object' && !m.horsBase && typeof m.categorie === 'string' && typeof m.sousTheme === 'string' && Number.isInteger(m.difficulte)
+      ? (m as MetadonneesDeQuestion)
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Une question de la réserve telle que la page des signalements la montre :
+ * celle que « Corriger » reprend, et son classement, que « Reclasser »
+ * change — son sous-thème, s'il est de sa catégorie.
+ */
+function versionDeLaReserve(r: Record<string, unknown>): VersionDeLaReserve | null {
+  let def: QuizQuestionDef
+  try {
+    def = JSON.parse(String(r.question)) as QuizQuestionDef
+  } catch {
+    return null
+  }
+  const lue = lectureDe(def, String(r.id))
+  if (!lue) return null
+  const categorie = r.categorie === null || r.categorie === undefined ? null : String(r.categorie)
+  const meta = metadonneesDe(r.metadonnees)
+  return {
+    ...lue,
+    reponses: [...lue.reponses],
+    categorie,
+    sousTheme: meta && meta.categorie === categorie ? meta.sousTheme : null,
+    difficulte: meta?.difficulte ?? null,
+    retiree: r.retiree_le !== null && r.retiree_le !== undefined,
+  }
 }
 
 /**

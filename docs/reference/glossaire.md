@@ -445,7 +445,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Service worker | Le script du navigateur qui affiche la notification et ouvre sa page — sans cache ni interception des requêtes | `client/public/sw.js` |
 | Seuil | Les bonnes réponses qui valident un palier — dix sur seize, neuf au maître —, figé dans l'épreuve à son départ | `SEUIL_DES_PALIERS` |
 | Une seule fin à la fois | Un second « Clore » attend le premier et en reçoit l'issue ; le geste contraire est refusé | `finEnRoute` |
-| Signalement | Une phrase qu'un joueur écrit sur une question qu'il croit fausse, relue par l'administrateur | `campagne_signalements` |
+| Signalement | Une phrase qu'un joueur écrit sur une question qu'il croit fausse, relue par l'administrateur ; le geste qui la referme écrit son issue — gardée, corrigée, reclassée, retirée, ses points annulés —, et le joueur dont la remarque a servi en est remercié sur son accueil | `jour_signalements`, `campagne_signalements`, `IssueDUnSignalement` (`shared/qgSignalements.ts`) |
+| Signalements (au QG) | La page « Les signalements » de l'administrateur (`/admin#signalements`) : les questions signalées au quiz du jour et en campagne, chacune ses gestes — corriger, reclasser, retirer, garder, annuler ses points au quiz du jour —, et celles relues ces trente jours avec leur issue | `PageDesSignalements` (`shared/qgSignalements.ts`), `AdminSignalements` |
 | Skill | Une procédure en plusieurs étapes — la tablée, les rendus, la base de la campagne, les images peintes — que Claude Code charge quand la tâche la demande | `.claude/skills/` |
 | Smoke | Le test de bout en bout : de vrais serveurs sur des bases jetables, une soirée entière rejouée, arrêtée à la première assertion fausse | `server/scripts/smoke.ts` |
 | Soirée laissée en plan | Une soirée pas close, sans un geste depuis six heures, que l'administrateur peut clore depuis le QG | `EN_PLAN_MS` (`shared/qg.ts`) |

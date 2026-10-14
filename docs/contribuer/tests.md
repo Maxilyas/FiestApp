@@ -285,6 +285,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
 - `server/test/qg-jour.test.ts` — le quiz du jour au QG : le tirage question par question, le classement du mois, les séries, le rappel du soir.
 - `server/test/qg-campagne.test.ts` — la campagne au QG : le mélange d'un palier réglé pour les épreuves qui commencent, jamais celles en cours ; les paliers du jour, le défi sans jamais le tirer, les parcours, les vies.
+- `server/test/qg-signalements.test.ts` — la page des signalements : corriger une question du jour — le jour qui l'a posée compris quand la bonne réponse ne change pas, ses points annulés dans le même geste —, reclasser au quiz du jour et en campagne — et les deux partis ensemble, chaque requête attendant son tour de boucle comme une réponse de Turso —, l'issue de chaque geste, l'historique, le merci sur l'accueil du joueur.
 - `server/test/fiche-joueur.test.ts` — la fiche d'un joueur et ses gestes.
 
 ### Les profils et la collection

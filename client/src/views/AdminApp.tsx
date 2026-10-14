@@ -8,6 +8,7 @@ import { AdminEconomie } from '../components/AdminEconomie'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
+import { AdminSignalements } from '../components/AdminSignalements'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
@@ -30,8 +31,9 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * santé du serveur sur sept jours (`QgServeur.tsx`), puis
  * une page par sujet, chacune à son adresse (`/admin#jour`) : les soirées
  * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
- * le catalogue. Au téléphone, la liste des pages sous la vue d'ensemble et
- * la barre du menu ; à l'ordinateur, une barre de côté.
+ * le catalogue, les signalements (`AdminSignalements.tsx`). Au téléphone, la
+ * liste des pages sous la vue d'ensemble et la barre du menu ; à
+ * l'ordinateur, une barre de côté.
  *
  * Il remplace une page à la manière de « Mon compte » (le 3 octobre 2026) —
  * quatre cadrans et cinq lignes —, qui ne disait rien de ce qui se jouait.
@@ -40,8 +42,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie']
+type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -61,6 +63,7 @@ const TITRE: Record<Ecran, string> = {
   campagne: 'La campagne',
   duels: 'Les duels',
   economie: 'L’économie',
+  signalements: 'Les signalements',
 }
 
 /**
@@ -94,7 +97,13 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: 'economie', nom: 'Économie', icone: 'bag' },
     ],
   },
-  { groupe: 'Le contenu', pages: [{ ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' }] },
+  {
+    groupe: 'Le contenu',
+    pages: [
+      { ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' },
+      { ecran: 'signalements', nom: 'Signalements', icone: 'flag' },
+    ],
+  },
 ]
 
 /**
@@ -251,7 +260,8 @@ export function AdminApp() {
   const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, instant)
   const duServeur = choses.filter(c => c.ecran === 'serveur').length
   const reserve = vue?.aTraiter.reserve
-  const signalements = vue?.aTraiter.signalementsDeLaCampagne.questions ?? 0
+  // Les questions à relire aux deux modes : la pastille de leur page les compte, pas la ligne qui les annonce.
+  const signalees = vue ? vue.aTraiter.signalementsDuJour.questions + vue.aTraiter.signalementsDeLaCampagne.questions : 0
   const aRelire = vue?.aTraiter.catalogue ?? 0
   const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
   const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
@@ -293,14 +303,15 @@ export function AdminApp() {
             {pages.map(p => {
               // Ce qui attend un geste sur la page : tout, pour la vue d'ensemble.
               const siennes = p.ecran === null ? choses : choses.filter(c => c.ecran === p.ecran)
+              const pastille = p.ecran === 'signalements' ? signalees : siennes.length
               const compte = p.ecran ? comptes[p.ecran] : undefined
               return (
                 <LienDuQg key={p.nom} ici={ecran === p.ecran} href={p.ecran ? `/admin#${p.ecran}` : '/admin'} icone={p.icone} onAller={() => aller(p.ecran)}>
                   {p.nom}
-                  {siennes.length > 0 ? (
+                  {pastille > 0 ? (
                     <span className={'qg-pastille' + (siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
-                      {siennes.length}
-                      <span className="sr-only"> à traiter</span>
+                      {pastille}
+                      <span className="sr-only">{p.ecran === 'signalements' ? ' à relire' : ' à traiter'}</span>
                     </span>
                   ) : (
                     compte !== undefined && <span className="qg-compte">{formatNumber(compte)}</span>
@@ -344,17 +355,18 @@ export function AdminApp() {
                   valeur={reserve ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance` : 'La réserve'}
                   onClick={() => aller('jour')}
                 />
-                <Ligne
-                  icone="target"
-                  nom="La campagne"
-                  valeur={signalements > 0 ? `${signalements} signalement${signalements > 1 ? 's' : ''}` : 'La base'}
-                  onClick={() => aller('campagne')}
-                />
+                <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi" onClick={() => aller('campagne')} />
                 <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
                 <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
                 <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
                 <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
                 <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
+                <Ligne
+                  icone="flag"
+                  nom="Les signalements"
+                  valeur={signalees > 0 ? `${signalees} à relire` : 'Corriger, reclasser'}
+                  onClick={() => aller('signalements')}
+                />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
               </ul>
@@ -368,10 +380,12 @@ export function AdminApp() {
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
-        {ecran === 'jour' && <AdminDuJour vue={vue} />}
-        {ecran === 'campagne' && <AdminCampagne vue={vue} />}
+        {ecran === 'jour' && <AdminDuJour vue={vue} versLesSignalements={() => aller('signalements')} />}
+        {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} />}
         {ecran === 'duels' && <AdminDuels vue={vue} />}
         {ecran === 'economie' && <AdminEconomie />}
+        {/* Un geste referme des signalements : ce qui attend, et la pastille de la barre de côté, se relisent. */}
+        {ecran === 'signalements' && <AdminSignalements apresUnGeste={relireLaVue} />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>

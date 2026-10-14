@@ -1,8 +1,9 @@
 // Le QG de l'administrateur (`/admin`), photographié sur un serveur jetable :
 // trente jours d'activité inventée — parties du quiz du jour, séries de la
 // campagne, duels — et quatre-vingt-dix de soirées archivées, une vraie
-// soirée en cours avec deux invités, une autre laissée en plan, deux
-// signalements d'une question du jour ; au téléphone
+// soirée en cours avec deux invités, une autre laissée en plan, des
+// questions du jour signalées par des habitués qui y ont répondu, et la
+// première du défi de la semaine par deux de ses joueurs ; au téléphone
 // (360 × 640, la page entière), en 1366 × 768 et en 1920 × 1080, sous le
 // Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
@@ -18,9 +19,13 @@
 // l'économie — trente jours de thèmes, de compagnons et de soirées, des Éclats,
 // dix-sept légendaires portés — ; puis la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée, masquée du classement —, le don qu'on prépare, le code de secours
-// tiré pour elle, et son accueil qui annonce le don, une fois ; elle, remise
-// au classement depuis la page des duels ; enfin la fiche de l'administrateur,
-// qui s'offre des confettis. Le client construit d'abord (`npm run build -w client`).
+// tiré pour elle, et son accueil qui annonce le don — et le merci d'une
+// question qu'elle avait signalée —, une fois ; elle, remise au classement
+// depuis la page des duels ; la fiche de l'administrateur, qui s'offre des
+// confettis ; enfin la page des signalements — trois questions à relire,
+// quatre relues par les vraies routes —, « Corriger » ouvert sur la question
+// piège, « Reclasser » sur celle du défi, et l'onglet des relues. Le client
+// construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 import { createRequire } from 'node:module'
@@ -37,6 +42,8 @@ import { regleDuPalier } from '../../shared/sentiers'
 import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
+import { SOUS_THEMES } from '../../shared/etiquettes'
+import type { PageDesSignalements } from '../../shared/qgSignalements'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
@@ -83,8 +90,10 @@ try {
     ['malik', 'Malik', '🐯', 1, false],
   ]
   const idsDesHabitues: string[] = []
+  const cookiesDesHabitues: string[] = []
   for (const [login, nom, avatar] of habitues) {
     const cookie = await inscrireProfil(banc.url, login, nom, avatar)
+    cookiesDesHabitues.push(cookie)
     idsDesHabitues.push(((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as { profile: { id: string } }).profile.id)
   }
 
@@ -111,6 +120,8 @@ try {
   const NOMS = ['Arthur', 'Zoé', 'Louis', 'Chloé', 'Gabriel', 'Manon', 'Jules', 'Lina', 'Adam', 'Rose', 'Nathan', 'Anna', 'Paul', 'Mila', 'Victor', 'Alice', 'Basile', 'Léna', 'Martin', 'Eva', 'Noé', 'Julia', 'Sacha', 'Lou']
   const AVATARS_DU_RENDU = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐷', '🐶', '🐱', '🐵', '🦉', '🦖', '🍕', '🌮', '🍩', '🎸', '🚀', '⚽', '🎲', '👑', '🌵', '🍉']
   const joueurs: { cookie: string; id: string; force: number }[] = []
+  /** Les séries du défi des premiers joueurs : ils en signalent des questions, plus bas. */
+  const defis: { cookie: string; serie: string }[] = []
   for (const [k, nom] of NOMS.entries()) {
     const cookie = await inscrireProfil(banc.url, `joueur${k}`, nom, AVATARS_DU_RENDU[k])
     const id = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as { profile: { id: string } }).profile.id
@@ -133,8 +144,42 @@ try {
       if (!juste) fautes++
       await ecrire(banc.url, `/api/campagne/serie/${serie.id}/reponse`, { index: i, choix: juste ? posees[i].bonne : (posees[i].bonne + 1) % posees[i].reponses.length }, j.cookie)
     }
+    if (k < 3) defis.push({ cookie: j.cookie, serie: serie.id })
   }
   await ecrire(banc.url, '/api/admin/campagne/paliers/5/melange', { melange: { facile: 5, moyen: 11 } }, admin)
+  // Le défi de la semaine signalé, par les vraies routes : Arthur et Zoé — la
+  // même série pour tous — sa première question, Louis la deuxième.
+  await ecrire(banc.url, `/api/campagne/serie/${defis[0].serie}/signalement`, { index: 0, texte: 'Deux réponses se valent : la question ne dit pas laquelle on attend' }, defis[0].cookie)
+  await ecrire(banc.url, `/api/campagne/serie/${defis[1].serie}/signalement`, { index: 0, texte: 'Ambiguë' }, defis[1].cookie)
+  await ecrire(banc.url, `/api/campagne/serie/${defis[2].serie}/signalement`, { index: 1, texte: 'C’est une question de géographie, pas d’histoire' }, defis[2].cookie)
+  // Deux questions du jour signalées par Nadia et Sam, qui y ont répondu, puis
+  // relues par le QG — l'anecdote de la sixième corrigée, la huitième gardée —,
+  // et celle du défi que Louis signale, reclassée : par les vraies routes,
+  // avant les milliers d'écritures qui suivent. L'historique les dit, et Nadia
+  // et Louis l'apprendront sur leur accueil.
+  {
+    const aujourdhui = jourDe(Date.now())
+    const ecriture = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const tirees = JSON.parse((ecriture.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(aujourdhui) as { questions: string }).questions) as { bonne: number; reponses: string[] }[]
+    const repond = ecriture.prepare('INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, 7200, ?, ?, ?)')
+    repond.run(idsDesHabitues[6], aujourdhui, 5, tirees[5].bonne, 1, 150, Date.now() - 5 * H)
+    repond.run(idsDesHabitues[5], aujourdhui, 7, (tirees[7].bonne + 1) % tirees[7].reponses.length, 0, 0, Date.now() - 6 * H)
+    ecriture.close()
+    await ecrire(banc.url, '/api/jour/signaler', { jour: aujourdhui, index: 5, texte: 'Une faute dans l’anecdote' }, cookiesDesHabitues[6])
+    await ecrire(banc.url, '/api/jour/signaler', { jour: aujourdhui, index: 7, texte: 'Je ne suis pas d’accord' }, cookiesDesHabitues[5])
+    const aRelire = (await (await fetch(`${banc.url}/api/admin/signalements`, { headers: { Cookie: admin } })).json()) as PageDesSignalements
+    const sixieme = aRelire.jour.find(s => s.index === 5)
+    if (sixieme?.reserve) {
+      const correction = { ...sixieme.reserve, anecdote: 'Une anecdote reprise : la date était fausse d’un siècle.' }
+      await ecrire(banc.url, '/api/admin/jour/corriger', { jour: aujourdhui, index: 5, correction }, admin)
+    }
+    await ecrire(banc.url, '/api/admin/jour/garder', { jour: aujourdhui, index: 7 }, admin)
+    const deLouis = aRelire.campagne.find(s => s.rapports.some(r => r.prenom === 'Louis'))
+    if (deLouis) {
+      const classement = { categorie: 'Géographie', sousTheme: SOUS_THEMES['Géographie'][0].cle, difficulte: 3 }
+      await ecrire(banc.url, '/api/admin/campagne/reclasser', { questionId: deLouis.questionId, classement }, admin)
+    }
+  }
 
   // Les duels classés d'aujourd'hui, par les vraies routes : six lancés et
   // joués par qui défie — ils partent à l'autre à sa dernière réponse —, la
@@ -269,8 +314,6 @@ try {
     vie('hier-matin', a(6, 7, 2), arretNet, 'e4f5a6b', 1180, false)
     vie('hier-soir', arretNet + 15 * 60_000, a(6, 23, 59), 'e4f5a6b', 3920, true)
     vie('ce-matin', a(7, 7, 2), maintenant - 5 * 60_000, 'e4f5a6b', 1090, true)
-    signalement.run(jourDe(maintenant), 2, 'p-1', 'Deux bonnes réponses ?', maintenant)
-    signalement.run(jourDe(maintenant), 2, 'p-2', 'Canberra, pas Sydney', maintenant)
     // Le quiz du jour en détail : les séries et les points des habitués, les
     // réponses d'aujourd'hui question par question — la quatrième, piège, où
     // une mauvaise réponse l'emporte —, des sabliers, le rappel du soir.
@@ -320,6 +363,24 @@ try {
         const minuit = minuits[minuits.length - 2 - d]
         tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, minuit + 18 * H)
       })
+      // Les signalements d'aujourd'hui, par des habitués qui y ont répondu
+      // (la page des signalements, le 14 octobre 2026) : la question piège —
+      // Hugo et Inès l'ont manquée, Camille trouvée —, et la troisième.
+      const signaler = (i: number, qui: number, juste: boolean, texte: string, il: number) => {
+        const q = questions[i]
+        if (!q) return
+        reponse.run(idsDesHabitues[qui], aujourdhui, i, juste ? q.bonne : (q.bonne + 1) % q.reponses.length, 7200, juste ? 1 : 0, juste ? 150 : 0, maintenant - il - 60_000)
+        signalement.run(aujourdhui, i, idsDesHabitues[qui], texte, maintenant - il)
+      }
+      signaler(3, 1, false, 'La réponse qu’on dit fausse est juste aussi : tout dépend du pays', 2 * H)
+      signaler(3, 2, true, 'Ambiguë, même si j’ai trouvé', 70 * 60_000)
+      signaler(3, 0, false, 'Deux bonnes réponses ?', 20 * 60_000)
+      signaler(2, 3, true, 'L’anecdote se trompe de siècle', 3 * H)
+      // Léa avait signalé une question de la campagne, que le QG a retirée
+      // depuis : son accueil la remercie, avec les confettis offerts.
+      permanente
+        .prepare('INSERT INTO campagne_signalements (question_id, profile_id, serie_id, texte, cree_le, traite_le, issue) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run('essai005', leaId, 'serie-de-lea', 'Deux réponses se valent', maintenant - 26 * H, maintenant - 4 * H, 'retiree')
     }
     // La campagne en détail : trente jours d'épreuves des sentiers — chacun
     // monte palier par palier à sa force, une ratée coûte sa vie —, des
@@ -530,6 +591,7 @@ try {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
     }
+    if (adresse === '/admin#signalements') await page.waitForSelector('.signalement-carte', { timeout: 15000 })
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -571,6 +633,45 @@ try {
   await photographier('23-serveur-1920', 1920, 1080, { adresse: '/admin#serveur' })
   await photographier('24-serveur-telephone', 360, 640, { adresse: '/admin#serveur' })
   await photographier('25-serveur-ivoire', 360, 640, { adresse: '/admin#serveur', theme: 'ivoire' })
+  await photographier('50-signalements', 1366, 768, { adresse: '/admin#signalements' })
+  await photographier('51-signalements-1920', 1920, 1080, { adresse: '/admin#signalements' })
+  await photographier('52-signalements-telephone', 360, 640, { adresse: '/admin#signalements' })
+  await photographier('53-signalements-ivoire', 360, 640, { adresse: '/admin#signalements', theme: 'ivoire' })
+
+  // Les signalements : « Corriger » ouvert sur la question piège — une autre
+  // bonne réponse cochée, et ses points annulés avec —, « Reclasser » sur
+  // celle du défi au téléphone, puis l'onglet des relues.
+  const surLesSignalements = async (nom: string, largeur: number, hauteur: number, geste: (page: any) => Promise<void>, pleine = false) => {
+    const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#signalements`)
+    await page.waitForSelector('.signalement-carte', { timeout: 15000 })
+    await geste(page)
+    await page.waitForTimeout(400)
+    const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
+    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
+    await page.screenshot({ path: path.join(sortie, `${nom}.png`), fullPage: pleine })
+    console.log(path.join(sortie, `${nom}.png`))
+    await contexte.close()
+  }
+  await surLesSignalements('54-signalements-corriger', 1366, 768, async page => {
+    await page.getByRole('button', { name: /^Corriger « / }).first().click()
+    await page.locator('.correction-question input[type="radio"]:not(:checked)').first().check()
+    await page.locator('.correction-question').first().scrollIntoViewIfNeeded()
+  })
+  await surLesSignalements('55-signalements-reclasser-telephone', 360, 640, async page => {
+    await page.locator('article[aria-label^="Campagne"]').first().getByRole('button', { name: /^Reclasser « / }).click()
+    await page.locator('.reclassement-crans').first().scrollIntoViewIfNeeded()
+  })
+  const versLesRelues = async (page: any) => {
+    await page.getByRole('tab', { name: /Relues/ }).click()
+    await page.waitForSelector('.signalement-relu')
+  }
+  await surLesSignalements('56-signalements-relues', 1366, 768, versLesRelues, true)
+  await surLesSignalements('57-signalements-relues-telephone', 360, 640, versLesRelues, true)
 
   // La soirée laissée en plan, close d'ici : la confirmation, puis la page qui s'en remet.
   {

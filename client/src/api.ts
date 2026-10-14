@@ -40,6 +40,7 @@ import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
+import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -638,6 +639,24 @@ export const api = {
     /** Corriger une question signalée : sous le même identifiant, ou un neuf si la bonne réponse change. */
     corrigerDansLaCampagne: (questionId: string, correction: CorrectionDeQuestion) =>
       req<QuestionCorrigee>('/api/admin/campagne/corriger', { method: 'POST', body: JSON.stringify({ questionId, correction }) }),
+    /** La reclasser : sa catégorie, son sous-thème, sa difficulté estimée. */
+    reclasserDansLaCampagne: (questionId: string, classement: Classement) =>
+      req<{ ok: true }>('/api/admin/campagne/reclasser', { method: 'POST', body: JSON.stringify({ questionId, classement }) }),
+    /** Les signalements : à relire, au quiz du jour et en campagne, et ce qui a été fait des questions relues ces trente jours. */
+    signalements: () => req<PageDesSignalements>('/api/admin/signalements'),
+    /**
+     * Corriger une question du jour signalée : sa version de la réserve, et le
+     * jour qui l'a posée quand la bonne réponse ne change pas ; `annuler`
+     * annule aussi ses points pour tous quand elle change.
+     */
+    corrigerDuJour: (jour: string, index: number, correction: CorrectionDeQuestion, annuler: boolean) =>
+      req<{ jourAussi: boolean; nouvelle: boolean; annulee: boolean }>('/api/admin/jour/corriger', {
+        method: 'POST',
+        body: JSON.stringify({ jour, index, correction, annuler }),
+      }),
+    /** La reclasser pour ses prochains tirages : sa catégorie — son sous-thème et sa difficulté, si la routine l'a décrite. */
+    reclasserDuJour: (jour: string, index: number, classement: Classement) =>
+      req<{ ok: true }>('/api/admin/jour/reclasser', { method: 'POST', body: JSON.stringify({ jour, index, classement }) }),
     /** Les sentiers, palier par palier : toutes les branches, ou une seule. */
     sentiers: (branche?: string) => req<AdminDesSentiers>(`/api/admin/campagne/sentiers${branche ? `?branche=${encodeURIComponent(branche)}` : ''}`),
     /** Ce que le QG suit de la campagne : les paliers du jour, le défi de la semaine, les parcours de thème, les vies. */

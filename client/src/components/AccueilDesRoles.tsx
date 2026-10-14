@@ -11,7 +11,8 @@ import { branche, deLaBranche } from '../../../shared/branches'
 import { PALIER_DU_MAITRE, type DefiDAccueil, type SentiersDAccueil } from '../../../shared/sentiers'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 import { formatNumber } from '../../../shared/typographie'
-import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
+// Déjà sur l'accueil par son en-tête (`Identite.tsx`) : le merci n'y ajoute rien à télécharger.
+import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { BlasonDeLigue } from './Blason'
 
 // L'accueil, selon qui le tient.
@@ -285,11 +286,13 @@ function annoncesNouvelles(profileId: string, annonces: readonly AnnonceDeLAdmin
 
 /**
  * Ce que l'administrateur a fait pour lui — des confettis offerts et son
- * mot, son prénom changé (la maquette validée le 13 octobre 2026) —, en tête
- * de l'accueil, une fois : sur ce téléphone, elles sont retenues dès
- * qu'elles paraissent, et « Merci » les range.
+ * mot, son prénom changé (la maquette validée le 13 octobre 2026), une
+ * question qu'il a signalée et dont sa remarque a servi (celle du 14
+ * octobre 2026, « Remercier le joueur ») —, en tête de l'accueil, une fois :
+ * sur ce téléphone, elles sont retenues dès qu'elles paraissent, et
+ * « Merci » les range — « Avec plaisir », sous un merci.
  */
-export function AnnoncesDeLAdministrateur({ profileId, annonces }: { profileId: string; annonces?: readonly AnnonceDeLAdministrateur[] }) {
+export function AnnoncesDeLAdministrateur({ profileId, prenom, annonces }: { profileId: string; prenom: string; annonces?: readonly AnnonceDeLAdministrateur[] }) {
   const [montrees, setMontrees] = useState<AnnonceDeLAdministrateur[]>([])
   const cle = annonces?.map(a => a.id).join('|') ?? ''
   useEffect(() => {
@@ -301,9 +304,9 @@ export function AnnoncesDeLAdministrateur({ profileId, annonces }: { profileId: 
   return (
     <ul className="annonces-admin" aria-label="De l’administrateur">
       {montrees.map(a => (
-        <li key={a.id} className="annonce-admin">
+        <li key={a.id} className={'annonce-admin' + (a.sorte === 'merci' ? ' annonce-admin-pile' : '')}>
           <span className="annonce-admin-icone" aria-hidden="true">
-            <Icon name={a.sorte === 'confettis' ? 'sparkles' : 'edit'} />
+            <Icon name={a.sorte === 'confettis' ? 'sparkles' : a.sorte === 'merci' ? 'heart' : 'edit'} />
           </span>
           <span className="annonce-admin-texte">
             {a.sorte === 'confettis' ? (
@@ -314,6 +317,12 @@ export function AnnoncesDeLAdministrateur({ profileId, annonces }: { profileId: 
                 {a.mot && <span>{espacesFines(`« ${a.mot} »`)}</span>}
                 <span className="muted small">— de l’administrateur</span>
               </>
+            ) : a.sorte === 'merci' ? (
+              <>
+                <b>{espacesFines(`Merci, ${prenom} !`)}</b>
+                <span>{espacesFines(phraseDuMerci(a))}</span>
+                <span className="muted small">— de l’administrateur</span>
+              </>
             ) : (
               <>
                 <b>Ton prénom a changé</b>
@@ -322,7 +331,7 @@ export function AnnoncesDeLAdministrateur({ profileId, annonces }: { profileId: 
             )}
           </span>
           <button type="button" className="annonce-admin-merci" onClick={() => setMontrees(m => m.filter(x => x.id !== a.id))}>
-            Merci
+            {a.sorte === 'merci' ? 'Avec plaisir' : 'Merci'}
           </button>
         </li>
       ))}

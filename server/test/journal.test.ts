@@ -15,6 +15,9 @@ import express from 'express'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecrire, inscrireProfil, invite, qcm, type Banc } from './banc'
 import { EN_PLAN_MS, GESTES_PAR_PAGE, gestesParJour, type DirectDuQg, type GesteDuQg, type JournalDuQg } from '../../shared/qg'
+import { CATEGORIES } from '../../shared/categories'
+import { SOUS_THEMES } from '../../shared/etiquettes'
+import { toPlayable } from '../../shared/library'
 import { JournalDesGestes, journaliser, noterLeGeste } from '../src/core/journalDesGestes'
 
 // L'application Express du serveur, attrapée à sa première requête.
@@ -86,6 +89,21 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/jour/liste', { texte: 'Quel fleuve traverse Lyon et Avignon ?\n*Le Rhône\nLa Loire\nLa Garonne' }), 'liste')
     ok(await faire(banc, admin, '/api/admin/jour/garder', { jour, index: 0 }), 'garder')
     ok(await faire(banc, admin, '/api/admin/jour/annuler', { jour, index: 1 }), 'annuler')
+    // La page des signalements : corriger une question du jour — son anecdote —, en reclasser une autre.
+    const { duJour, categorie } = (() => {
+      const base = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+      try {
+        const tirees = JSON.parse((base.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(jour) as { questions: string }).questions) as { reserveId: string }[]
+        const reserve = (id: string) => base.prepare('SELECT question, categorie FROM jour_reserve WHERE id = ?').get(id) as { question: string; categorie: string | null }
+        return { duJour: toPlayable({ ...JSON.parse(reserve(tirees[2].reserveId).question), id: tirees[2].reserveId }), categorie: reserve(tirees[3].reserveId).categorie }
+      } finally {
+        base.close()
+      }
+    })()
+    assert.ok(duJour && duJour.kind === 'choice')
+    const correctionDuJour = { texte: duJour.text, reponses: duJour.answers, bonne: duJour.correct, anecdote: 'Une anecdote reprise au QG.' }
+    ok(await faire(banc, admin, '/api/admin/jour/corriger', { jour, index: 2, correction: correctionDuJour }), 'corriger au quiz du jour')
+    ok(await faire(banc, admin, '/api/admin/jour/reclasser', { jour, index: 3, classement: { categorie: CATEGORIES.find(c => c !== categorie) } }), 'reclasser au quiz du jour')
     const prochaines = (await lire<{ id: string }[]>(banc, admin, '/api/admin/jour/prochaines')).corps
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
@@ -135,6 +153,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
     ok(await faire(banc, admin, '/api/admin/campagne/garder', { questionId: 'essai001' }), 'garder en campagne')
     ok(await faire(banc, admin, '/api/admin/campagne/retirer', { questionId: 'essai002' }), 'retirer en campagne')
+    ok(
+      await faire(banc, admin, '/api/admin/campagne/reclasser', { questionId: 'essai004', classement: { categorie: 'Géographie', sousTheme: SOUS_THEMES['Géographie'][0].cle, difficulte: 2 } }),
+      'reclasser en campagne',
+    )
     const correction = { texte: 'Question d’essai numéro 3 : laquelle est la bonne ?', reponses: ['Bonne 3', 'Autre A3', 'Autre B3', 'Autre C3'], bonne: 0, anecdote: 'Une anecdote reprise.' }
     ok(await faire(banc, admin, '/api/admin/campagne/corriger', { questionId: 'essai003', correction }), 'corriger')
 
@@ -193,6 +215,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       /^Question de la campagne gardée, ses signalements refermés : « Question d.essai numéro 1 : laquelle est la bonne \? »$/,
       /^Question retirée de la campagne, pour tous : « Question d.essai numéro 2 : laquelle est la bonne \? »$/,
       /^Question de la campagne corrigée : « Question d.essai numéro 3 : laquelle est la bonne \? »$/,
+      // L'anecdote seule : le jour qui l'a posée la prend aussi.
+      /^Question du jour corrigée, le jour qui l’a posée compris : « .+ »$/,
+      /^Question du jour reclassée, .+ → .+ : « .+ »$/,
+      /^Question de la campagne reclassée, Histoire › .+ · difficulté 5 → Géographie › .+ · difficulté 2 : « Question d.essai numéro 4 : laquelle est la bonne \? »$/,
       /^Épreuve de sentier libérée, sans coûter de vie : Léa \(@lea\) — .+, palier 1$/,
     ]) {
       assert.ok(resumes.some(r => attendu.test(r)), `${attendu} parmi :\n${resumes.join('\n')}`)

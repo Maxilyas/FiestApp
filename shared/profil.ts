@@ -934,16 +934,42 @@ export const CONFETTIS_PAR_DON_MAX = 500
 export const MOT_D_UN_DON_MAX = 140
 
 /**
+ * Ce qu'un geste du QG a fait d'une question signalée, quand la remarque du
+ * joueur a servi (`shared/qgSignalements.ts`) : « Garder » n'en est pas un.
+ */
+export type IssueQuiSert = 'corrigee' | 'reclassee' | 'retiree' | 'annulee'
+
+/**
  * Ce que l'administrateur a fait pour un joueur et qu'on lui dit, une fois,
- * en tête de son accueil : des confettis offerts, son prénom changé. Retenu
- * sur son téléphone une fois montré (`AnnoncesDeLAdministrateur`).
+ * en tête de son accueil : des confettis offerts, son prénom changé, une
+ * question qu'il a signalée et dont sa remarque a servi. Retenu sur son
+ * téléphone une fois montré (`AnnoncesDeLAdministrateur`).
  */
 export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
+  | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
 
 /** Combien de temps une annonce attend sa prochaine visite : un mois, puis elle se tait. */
 export const ANNONCE_MS = 30 * 24 * 3_600_000
+
+/**
+ * Le merci d'une question signalée, sous « Merci, Léa ! » : quelle question
+ * — son début, tel qu'il l'a lu —, et ce que sa remarque a changé.
+ */
+export function phraseDuMerci(a: { mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string }): string {
+  const ce =
+    a.issue === 'corrigee'
+      ? 'elle a été corrigée'
+      : a.issue === 'reclassee'
+        ? 'elle a été reclassée'
+        : a.issue === 'annulee'
+          ? 'ses points ont été annulés pour tous'
+          : a.mode === 'jour'
+            ? 'elle ne sera plus posée'
+            : 'elle a quitté la campagne'
+  return `La question ${a.mode === 'jour' ? 'du quiz du jour' : 'de la campagne'} que tu as signalée, « ${a.question} », a servi : ${ce}.`
+}
 
 export interface PublicProfileDetail extends PublicProfile {
   vitrine: BadgePorte[]

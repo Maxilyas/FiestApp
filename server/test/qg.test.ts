@@ -150,20 +150,30 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
     },
     { soirees: [enPlan], miroir: { enAttente: 12, echecsConsecutifs: 4, enEchecDepuis: '2026-10-13T19:00:00.000Z', espacesEnRetard: 1 } },
   )
+  // Les signalements des deux modes se relisent sur une seule page depuis le
+  // 14 octobre 2026 (« Une page qui remplace les sections ») : une seule
+  // ligne, qui dit d'où viennent ses questions — deux lignes menaient à deux
+  // pages qui ne les montrent plus.
   assert.deepEqual(
     choses.map(c => c.cle),
-    ['miroir', 'reserve', 'signalements-jour', 'signalements-campagne', 'catalogue', 'en-plan-tom', 'rappel'],
+    ['miroir', 'reserve', 'signalements', 'catalogue', 'en-plan-tom', 'rappel'],
   )
   assert.deepEqual(
     choses.filter(c => c.alerte).map(c => c.cle),
     ['miroir', 'reserve'],
   )
   assert.equal(choses[1].detail, '6 jours d’avance, l’alerte est à 7')
-  assert.equal(choses[2].detail, '1 question, 3 joueurs')
-  assert.equal(choses[4].titre, '2 copies à relire')
-  assert.equal(choses[5].detail, 'Le salon de Tom, 9 invités')
-  assert.equal(choses[6].detail, '3 envois en échec sur 90')
+  assert.deepEqual(
+    [choses[2].titre, choses[2].detail, choses[2].ecran],
+    ['3 questions signalées', '1 au quiz du jour (3 joueurs) · 2 en campagne (4 joueurs)', 'signalements'],
+    'les joueurs se comptent par mode : le même signale peut-être aux deux',
+  )
+  assert.equal(choses[3].titre, '2 copies à relire')
+  assert.equal(choses[4].detail, 'Le salon de Tom, 9 invités')
+  assert.equal(choses[5].detail, '3 envois en échec sur 90')
   assert.equal(lesChosesATraiter({ ...calme, catalogue: 1 }, null)[0].detail, 'proposée au catalogue')
+  const uneSeule = lesChosesATraiter({ ...calme, signalementsDeLaCampagne: { questions: 1, joueurs: 1 } }, null)
+  assert.deepEqual([uneSeule[0].titre, uneSeule[0].detail], ['Une question signalée', '1 en campagne (1 joueur)'])
 })
 
 test('l’écart à l’habitude : en pour cent au-delà de vingt, en chiffre en deçà — trois contre deux ne font pas « 50 % de plus »', () => {
@@ -405,7 +415,8 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
   const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne">.*?<b>([^<]+)<\/b>/g)].map(m => [m[1] === 'div' ? 'lu' : 'ouvre', m[2]])
   assert.deepEqual(lignes, [
     ['ouvre', 'La réserve du quiz du jour'],
-    ['ouvre', 'Signalements du quiz du jour'],
+    // Une ligne pour les deux modes, qui ouvre leur page (le 14 octobre 2026).
+    ['ouvre', 'Une question signalée'],
     ['ouvre', 'Une copie à relire'],
     ['ouvre', 'Une soirée laissée en plan'],
   ])

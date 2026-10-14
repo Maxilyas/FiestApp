@@ -338,7 +338,7 @@ Ce que le profil garde et montre : [le profil](../produit/le-profil.md).
 | `PRIX_D_UN_COMPAGNON` | 1 000 | `shared/compagnons.ts` | Le prix d'un compagnon, en confettis, à sa première forme | un choix de produit : un achat garde le prix qu'il a payé (`profile_compagnons.prix`), et le solde se relit |
 | `JUSTES_DES_FORMES` | `[0, 100, 300, 500]` | `shared/compagnons.ts` | Les bonnes réponses données en le portant, comptées depuis l'achat, qu'il faut pour chaque forme d'un compagnon | relevés, ils ne reprennent aucune forme atteinte (`profile_compagnons.rang` ne fait que monter) ; abaissés, la forme suivante tombe à la prochaine lecture |
 | `RARETE_DES_FORMES` | commune, rare, épique, légendaire | `shared/compagnons.ts` | La rareté de chaque forme d'un compagnon : sa page dans l'album des avatars | les comptes des pages de l'album changent (`album-des-avatars.test.ts`) |
-| `ANNONCE_MS` | 30 jours | `shared/profil.ts` | Combien de temps un don de confettis ou un prénom changé par l'administrateur s'annonce sur l'accueil du joueur, une fois par téléphone | relu à chaque lecture de l'accueil |
+| `ANNONCE_MS` | 30 jours | `shared/profil.ts` | Combien de temps un don de confettis, un prénom changé par l'administrateur ou le merci d'une question signalée qui a servi s'annonce sur l'accueil du joueur, une fois par téléphone | relu à chaque lecture de l'accueil |
 
 ## Les confettis et la boutique
 
@@ -455,6 +455,10 @@ Les sessions, les essais, les codes, et ce que le QG surveille : [administrer](.
 | `LEGENDAIRES_AU_QG` | 6 | `shared/qgEconomie.ts` | Les légendaires les plus portés que la page de l'économie nomme | Affichage seul : « Légendaires portés » compte les porteurs de tous |
 | `CONFETTIS_PAR_DON_MAX` | 500 | `shared/profil.ts` | Un don de confettis du QG, au plus (au moins 1) | Un choix de produit, à dire : un don ne se reprend pas, et il s'ajoute au solde à chaque lecture |
 | `MOT_D_UN_DON_MAX` | 140 | `shared/profil.ts` | Le mot d'un don, en caractères | Affiché sur l'accueil du joueur |
+| `SIGNALEMENTS_MONTRES_AU_QG` | 50 | `shared/qgSignalements.ts` | Les questions à relire que la page des signalements lit de chaque mode, les plus récemment signalées d'abord | Affichage seul : à ce compte, la page dit que d'autres attendent, et elles paraissent à mesure |
+| `JOURS_DES_RELUS` | 30 | `shared/qgSignalements.ts` | Les jours que l'onglet « Relues » de la page des signalements remonte | Affichage seul : chaque signalement garde son issue en base |
+| `RELUS_MONTRES` | 100 | `shared/qgSignalements.ts` | Les questions relues que l'onglet « Relues » montre, les plus récentes d'abord | Affichage seul |
+| `QUESTION_DU_MERCI` | 70 | `shared/qgSignalements.ts` | Le début de la question que le merci cite sur l'accueil du joueur, en caractères | Affichage seul |
 | `JOURS_DE_SANTE` | 7 | `shared/santeDuServeur.ts` | Les jours que la page « Le serveur » montre, heure par heure | La base en garde un de plus (`SANTE_GARDEE_MS`) |
 | `SANTE_GARDEE_MS` | 8 jours | `shared/santeDuServeur.ts` | Ce que la base permanente garde du relevé de l'heure et des démarrages | Purgé au plus une fois l'heure ; plus long, plus de lignes dans Turso |
 | `RELEVE_MS` | 10 min | `shared/santeDuServeur.ts` | Le relevé de l'heure se réécrit, et le serveur donne signe de vie, à ce rythme | Change aussi le délai d'un arrêt net (`SILENCE_D_UN_ARRET_MS`, deux relevés) et le nombre d'écritures vers Turso |
