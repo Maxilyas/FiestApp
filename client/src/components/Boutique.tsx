@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { gemme } from '../gemmes'
 import { Icon } from './Icon'
 import { choixDialog } from './Dialog'
 import { rendreLeFocus } from '../focus'
@@ -66,16 +67,8 @@ export function nomDeLaCase(t: Theme, etat: EtatDuTheme, solde: number): string 
   return `${t.nom}, ${prix}`
 }
 
-/** La couleur de chaque rareté : sa gemme, le bord de ses cartes, son prix. Jamais un texte long. */
-const GEMMES: Record<RareteDeTheme, string> = {
-  offert: '#d9b56a',
-  commune: '#a8b3bf',
-  peucommune: '#6fcf8a',
-  rare: '#5fa8ff',
-  epique: '#b77bff',
-  legendaire: '#f2b84b',
-}
-export const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
+// La couleur de chaque rareté vit à part (`gemmes.ts`) : la fin d'une partie la lit sans la boutique.
+export { gemme }
 
 /**
  * La fiche ouverte s'ouvre juste sous sa case, et reçoit le focus sur son

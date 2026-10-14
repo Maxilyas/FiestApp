@@ -180,10 +180,27 @@ try {
   await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».
-  for (const partie of ['themes', 'avatars', 'fonds', 'gerbes', 'finitions']) {
+  for (const partie of ['themes', 'avatars', 'trophees', 'fonds', 'gerbes', 'finitions']) {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
+  }
+  // L'album des trophées, page par page — son adresse nomme la page —, puis trois fiches : une piste commencée et ce qu'ouvre chaque étape, une à gagner, un exploit.
+  for (const p of ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'partout']) {
+    await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
+    await page.waitForSelector(`#trophees-onglet-${p}[aria-selected="true"]`)
+    await photo(`6-trophees-${p}`, true)
+  }
+  for (const [p, debut, nom] of [
+    ['jour', 'Le Sans-Faute,', 'sans-faute'],
+    ['jour', 'Le Champion du jour,', 'champion-du-jour'],
+    ['soiree', 'Le Phénix,', 'phenix'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
+    await page.waitForSelector('.trophees-grille')
+    await page.click(`.trophee-case[aria-label^="${debut}"]`)
+    await page.waitForSelector('#fiche-trophee .trophee-fiche')
+    await photo(`6-trophees-fiche-${nom}`)
   }
   // L'album des avatars, page par page — son adresse nomme la page —, puis trois fiches : à gagner, à gagner sur un sentier, et la sienne.
   for (const rarete of ['commune', 'peucommune', 'rare', 'epique', 'legendaire', 'divin']) {

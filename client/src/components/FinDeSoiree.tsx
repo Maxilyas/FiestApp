@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  ligneDeRang,
-  nJoueurs,
-  type Approche,
-  type FinDeSoiree as Fin,
-  type GainAnnonce,
-  type HautFaitAnnonce,
-  type RecordBattu,
-} from '../../../shared/fin'
+import { ligneDeRang, nJoueurs, type Approche, type FinDeSoiree as Fin, type GainAnnonce, type RecordBattu } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { CHANCE_ECLAT, NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
@@ -15,6 +7,7 @@ import { divin } from '../../../shared/divins'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { collectionGagnee } from '../../../shared/avatars'
 import { phraseDesConfettis } from '../../../shared/themes'
+import { aPorterDesTrophees, partsDeLXp, tropheesTombes } from '../../../shared/gains'
 import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts, rang as rangEcrit } from '../format'
@@ -23,24 +16,28 @@ import { confirmDialog } from './Dialog'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
-import { CollectionOuverte, EclatTombe, Medaillon } from './Ouverts'
+import { EclatTombe, Medaillon } from './Ouverts'
+import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu, type NiveauDeLaFin } from './Gains'
 import { lienBilan } from './Lendemain'
 import { Feuille } from './Pieces'
 
 /**
- * La fin de soirée, sur le téléphone — allégée : l’essentiel sans défiler,
- * « Nouveau » en trois lignes, les gestes, puis « Pour la suite » replié.
+ * La fin de soirée, sur le téléphone, au format de toutes les fins (l'écran
+ * A, choisi par le propriétaire le 13 octobre 2026) : sa soirée dans le cadre
+ * du tableau de bord — sa place, ses points, ses records —, puis « Ce que tu
+ * gagnes », les Divins, l'Éclat et les légendaires en grand, les nouveaux
+ * trophées, ce qu'ils ouvrent à porter, les deux gestes, et « Plus » replié.
  *
  * Le téléphone ne savait jamais que la soirée était finie : il restait sur
  * « En attente du prochain quiz… » jusqu'à ce qu'on le range. Il raconte
- * maintenant la soirée de son porteur — son rang, ses hauts faits, éclats
- * et ombres —, et à qui a un profil ce qu'elle lui a rapporté : les niveaux,
- * les finitions, les paliers, les portraits de ses branches, et surtout les
- * avatars légendaires, qu'on peut porter tout de suite — et, une fois dans
- * une vie peut-être, un Divin.
+ * maintenant la soirée de son porteur — son rang, ses trophées, exploits et
+ * coups du sort, ses prix — et à qui a un profil ce qu'elle lui a rapporté :
+ * l'expérience et le niveau, les finitions, et surtout les avatars
+ * légendaires, qu'on peut porter tout de suite — et, une fois dans une vie
+ * peut-être, un Divin.
  *
- * Un invité anonyme a sa soirée aussi, entière. Le bloc du profil lui manque,
- * sans rien qui le lui reproche.
+ * Un invité anonyme a sa soirée aussi, entière. Ce que rapporte un profil lui
+ * manque, sans rien qui le lui reproche.
  */
 export function FinDeSoiree({
   fin,
@@ -58,12 +55,15 @@ export function FinDeSoiree({
   chef?: boolean
 }) {
   const [porte, setPorte] = useState<string | null>(profil?.legendaire ?? null)
-  const ombres = fin.hautsFaits.filter(h => h.ton === 'ombre')
   const gain = fin.profil
   const approches = gain?.approches ?? []
-  const nouveautes = nouveautesDe(fin)
-  // Les niveaux gagnés ce soir disent seuls ce qu'ils ouvrent : le serveur
-  // n'a rien à annoncer de plus.
+  // Le niveau relu : où il en est dans le suivant. La fin gardée se rouvre
+  // des jours après — un autre niveau, peut-être : la montée de ce soir
+  // seulement, sans barre.
+  const relu = useNiveauRelu(!!gain)
+  const niveau = niveauDeLaSoiree(gain, relu, profil)
+  const paliers = gain?.paliers ?? []
+  const trophees = tropheesTombes([...paliers, ...fin.hautsFaits], { prix: fin.prix ?? [], joueurs: fin.joueurs })
 
   const porter = async (cle: string) => {
     try {
@@ -76,18 +76,14 @@ export function FinDeSoiree({
   }
 
   const rang = ligneDeRang(fin)
-  const plus = nouveautes.slice(MONTREES)
-  const xpDeLaSoiree = gain ? gain.xp - (gain.xpPaliers ?? 0) : 0
   const resumeDuPlus = [
-    plus.length > 0 && `${plus.length} nouveauté${plus.length > 1 ? 's' : ''}`,
     approches.length > 0 && `${approches.length} objectif${approches.length > 1 ? 's' : ''} en vue`,
     gain?.jour && (gain.jour.aJoue ? 'le quiz de demain' : 'le quiz du jour t’attend'),
-    ombres.length > 0 && `${ombres.length} coup${ombres.length > 1 ? 's' : ''} du sort`,
   ]
     .filter(Boolean)
     .join(' · ')
   const liens = !!fin.joueurId || !!profil || !!gain?.confettis
-  const aPlus = liens || !!resumeDuPlus || (gain?.xpPaliers ?? 0) > 0
+  const aPlus = liens || !!resumeDuPlus
 
   return (
     <div className="player-shell fin-soiree">
@@ -108,9 +104,9 @@ export function FinDeSoiree({
       )}
 
       {/* La soirée en un coup d'œil, dans le cadre du tableau de bord : qui,
-          sa place, ses points, ce qu'elle rapporte. Elle s'empilait en cinq
-          cartes et deux boutons dorés — trop gros, trop de blocs (la
-          remarque du propriétaire du 3 octobre 2026). */}
+          sa place, ses points, ses records. Elle s'empilait en cinq cartes et
+          deux boutons dorés — trop gros, trop de blocs (la remarque du
+          propriétaire du 3 octobre 2026). */}
       <section className="admin-hud fin-hud" aria-labelledby="fin-titre">
         <header className="fin-tete">
           <span className="salon-hud-label">
@@ -132,26 +128,36 @@ export function FinDeSoiree({
             {rang.cas === 'rang' ? <p className="muted small">{nJoueurs(rang.joueurs)} ce soir</p> : <LigneRang fin={fin} />}
           </div>
         </div>
-        {(rang.cas === 'rang' || xpDeLaSoiree > 0 || (gain?.confettis?.gagnes ?? 0) > 0) && (
+        {rang.cas === 'rang' && (
           <div className="admin-cadrans fin-cadrans">
-            {rang.cas === 'rang' && <Chiffre chiffre={rangEcrit(rang.rang)} nom={`sur ${rang.joueurs}`} />}
-            {rang.cas === 'rang' && <Chiffre chiffre={formatNumber(rang.points)} nom="points" />}
-            {/* L'expérience de la soirée — les paliers ont leur ligne, dans « Plus » :
-                « Mes soirées » ne compte que la soirée. */}
-            {/* Rien à compter, rien d'affiché : un « +0 » seul dans son cadran
-                ressemblait à une panne. */}
-            {xpDeLaSoiree > 0 && <Chiffre chiffre={`+${formatNumber(xpDeLaSoiree)}`} nom="XP" />}
-            {(gain?.confettis?.gagnes ?? 0) > 0 && <Chiffre chiffre={`+${formatNumber(gain!.confettis!.gagnes)}`} nom="confettis" />}
+            <Chiffre chiffre={rangEcrit(rang.rang)} nom={`sur ${rang.joueurs}`} />
+            <Chiffre chiffre={formatNumber(rang.points)} nom="points" />
           </div>
         )}
-        {gain && <BarreDeNiveau avant={gain.niveauAvant} apres={gain.niveauApres} profil={profil} />}
-        {gain && gain.finitions.length > 0 && (
-          <p className="fin-finition">
-            Nouvelle finition : <b>{gain.finitions.map(f => NOM_FINITION[f]).join(', ')}</b>
-            <Avatar className="fin-apercu" avatar={fin.avatar} finition={gain.finitions[gain.finitions.length - 1]} />
+        {/* Ses records battus ce soir : le score de la soirée, à côté de sa place. */}
+        {(gain?.records ?? []).map(r => (
+          <p key={r.key} className="fin-record">
+            <Icon name="bar-chart" />
+            <span>
+              <b>Record battu</b> · {texteDuRecord(r)}
+            </span>
           </p>
-        )}
+        ))}
       </section>
+
+      {/* Ce que la soirée rapporte, en un total : la soirée — ce que « Mes
+          soirées » lui compte, ses exploits compris — et ses pistes, payées à
+          part ; les confettis, le niveau. */}
+      {gain && (
+        <CeQueTuGagnes
+          parts={partsDeLXp([
+            { nom: 'ta soirée', xp: gain.xp - (gain.xpPaliers ?? 0) },
+            { nom: 'tes pistes', xp: gain.xpPaliers ?? 0 },
+          ])}
+          confettis={gain.confettis?.gagnes ?? 0}
+          niveau={niveau}
+        />
+      )}
 
       {/* Un Divin passe avant tout le reste : c'est la nouvelle de la soirée.
           Une page d'avant ne connaît pas le champ — il peut manquer. */}
@@ -180,18 +186,6 @@ export function FinDeSoiree({
           légendaire, personne ne le voyait jamais. */}
       {gain?.eclat && <EclatTombe cle={gain.eclat} avatar={fin.avatar} finition={fin.finition} chance={CHANCE_ECLAT} />}
 
-      {/* Un emoji de collection à chaque niveau qui n'ouvre pas de finition :
-          il se porte d'ici, comme un légendaire. Porter un emoji ôte le
-          légendaire : c'est l'un ou l'autre. */}
-      {gain && (
-        <CollectionOuverte
-          avant={gain.niveauAvant}
-          apres={gain.niveauApres}
-          finition={fin.finition}
-          onPorte={p => setPorte(p.legendaire)}
-        />
-      )}
-
       {gain?.legendaires.map(cle => {
         const l = legendaire(cle)
         if (!l) return null
@@ -212,9 +206,22 @@ export function FinDeSoiree({
         )
       })}
 
-      {/* Ce que la soirée a rangé dans ses trophées : les trois plus beaux ;
-          le reste attend dans « Plus ». */}
-      <Nouveautes liste={nouveautes.slice(0, MONTREES)} collection={gain?.collection} />
+      {/* Ses trophées de la soirée — pistes, exploits, prix, puis coups du
+          sort —, les plus rares d'abord : trois en vue, le reste d'un toucher.
+          Avec un profil, chacun mène à sa page de l'album. */}
+      <NouveauxTrophees
+        trophees={trophees}
+        lien={!!profil}
+        apres={
+          (gain?.collection?.nouveaux.length ?? 0) > 0 && (
+            <p className="collection-neuf">
+              <span className="nouveau-pastille">Nouveau</span>
+              {gain!.collection!.nouveaux.length > 1 ? 'Ils rejoignent' : 'Il rejoint'} ta collection : {gain!.collection!.eus} prix sur {gain!.collection!.total}
+            </p>
+          )
+        }
+      />
+      {gain && <APorter objets={[...aPorterDesTrophees(paliers.map(p => p.key)), ...emojisAPorter(niveau)]} />}
 
       {/* Deux gestes, côte à côte : relire sa soirée — « Mon bilan » s'ouvre
           sur lui, sans « Qui es-tu ? » —, ou rentrer. Un seul « Accueil » sur
@@ -250,10 +257,9 @@ export function FinDeSoiree({
       )}
       {chef && <GestesDuChef fin={fin} />}
 
-      {/* Tout le reste, replié : le souvenir, son profil, les nouveautés
-          d'après la troisième, ce qu'on approche, le quiz du jour, les coups
-          du sort, les confettis. Le résumé dit ce qu'il y a dedans ; rien ne
-          se perd, rien ne pousse les boutons hors de l'écran. */}
+      {/* Le reste, replié : le souvenir, son profil, les confettis, ce qu'on
+          approche, le quiz du jour. Le résumé dit ce qu'il y a dedans ; rien
+          ne se perd, rien ne pousse les boutons hors de l'écran. */}
       {aPlus && (
         <details className="fin-plus">
           <summary>
@@ -283,8 +289,6 @@ export function FinDeSoiree({
             </p>
           )}
           {gain?.confettis && <p className="muted small">{phraseDesConfettis(gain.confettis)}</p>}
-          {(gain?.xpPaliers ?? 0) > 0 && <p className="muted small">+{formatNumber(gain?.xpPaliers ?? 0)} XP de paliers de carrière</p>}
-          {plus.length > 0 && <ul className="nouveautes">{plus.map(ligneDeNouveaute)}</ul>}
           {approches.length > 0 && (
             <div className="fin-approches">
               <h3>
@@ -317,16 +321,22 @@ export function FinDeSoiree({
               )}
             </div>
           )}
-          {ombres.length > 0 && (
-            <div className="fin-ombres">
-              <Faits titre="Tes coups du sort" faits={ombres} />
-              <p className="muted small">Ils comptent aussi : certains avatars légendaires ne se gagnent qu’ainsi.</p>
-            </div>
-          )}
         </details>
       )}
     </div>
   )
+}
+
+/**
+ * Le niveau de la fin de soirée : sa montée de ce soir, et — si le profil
+ * relu, ou celui de la page, est encore à ce niveau — où il en est dans le
+ * suivant. Une fin gardée, rouverte après d'autres parties, ne montre que sa
+ * montée : la barre d'aujourd'hui aurait menti sur ce soir-là.
+ */
+function niveauDeLaSoiree(gain: Fin['profil'], relu: NiveauDeLaFin | null, profil: PublicProfile | null): NiveauDeLaFin | null {
+  if (!gain) return null
+  const lu = [relu, profil && { niveau: profil.niveau, acquis: profil.acquis, requis: profil.requis }].find(n => !!n && n.niveau === gain.niveauApres)
+  return { niveau: gain.niveauApres, avant: gain.niveauAvant, ...(lu && { acquis: lu.acquis, requis: lu.requis }) }
 }
 
 /** Un chiffre du tableau de bord de la fin : ce qu'il compte, sans rien à toucher. */
@@ -414,95 +424,12 @@ function lienCreation(nom: string, avatar: string): string {
   return `/?${params}`
 }
 
-/** Une rangée de hauts faits : l'emoji en grand, le titre dessous. */
-function Faits({ titre, faits }: { titre: string; faits: HautFaitAnnonce[] }) {
-  return (
-    <>
-      <h3>{titre}</h3>
-      <ul className="faits">
-        {faits.map(h => (
-          <li key={h.key} className={`fait fait-${h.ton}`}>
-            <span className="fait-emoji" aria-hidden="true">
-              {h.emoji}
-            </span>
-            <span className="fait-titre">{h.title}</span>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
 /** Un record battu, en une phrase : ce soir, et l'ancien. */
 function texteDuRecord(r: RecordBattu): string {
   if (r.key === 'precision') {
     return `${pourcent(r.valeur)} de bonnes réponses${r.sur !== undefined ? `, sur ${formatNumber(r.sur)} QCM` : ''} · ton record était de ${pourcent(r.avant)}`
   }
   return `${formatNumber(r.valeur)} bonnes réponses ${r.key === 'serie' ? 'd’affilée' : 'dans la soirée'} · ton record était de ${formatNumber(r.avant)}`
-}
-
-/** Une nouveauté de la soirée, comme la liste la montre : un emoji, un titre, ce qu'elle est. */
-interface Nouveaute {
-  cle: string
-  emoji: string
-  titre: string
-  detail: string
-}
-
-/**
- * Ce que la soirée a rangé dans ses trophées, du plus durable au plus
- * fugace : les paliers de carrière, les records, les prix, les exploits.
- * Les coups du sort n'en sont pas : ils attendent « Pour la suite ».
- */
-export function nouveautesDe(fin: Fin): Nouveaute[] {
-  const gain = fin.profil
-  return [
-    ...(gain?.paliers ?? []).map(p => ({ cle: p.key, emoji: p.emoji, titre: p.title, detail: 'Palier de carrière' })),
-    ...(gain?.records ?? []).map(r => ({ cle: `record:${r.key}`, emoji: '📈', titre: 'Record battu', detail: texteDuRecord(r) })),
-    ...(fin.prix ?? []).map(p => ({ cle: p.key, emoji: p.emoji, titre: p.title, detail: p.detail })),
-    ...fin.hautsFaits.filter(h => h.ton === 'eclat').map(h => ({ cle: h.key, emoji: h.emoji, titre: h.title, detail: 'Haut fait de la soirée' })),
-  ]
-}
-
-/** Combien « Nouveau » en montre : trois tiennent au-dessus des boutons, le reste attend dans « Plus ». */
-export const MONTREES = 3
-
-/** Une nouveauté en une ligne : son emoji, son titre, ce qu'elle est. */
-function ligneDeNouveaute(x: Nouveaute) {
-  return (
-    <li key={x.cle}>
-      <span className="nouveaute-emoji" aria-hidden="true">
-        {x.emoji}
-      </span>
-      <span className="nouveaute-texte">
-        <b>{x.titre}</b>
-        <span className="muted small">{x.detail}</span>
-      </span>
-    </li>
-  )
-}
-
-/**
- * « Nouveau » : les trois plus durables, en lignes fines sous le tableau de
- * bord. Un prix qui entre dans la collection le dit dessous : c'est la
- * première fois qui compte.
- */
-function Nouveautes({ liste, collection }: { liste: Nouveaute[]; collection?: NonNullable<Fin['profil']>['collection'] }) {
-  if (liste.length === 0) return null
-  return (
-    <section className="fin-nouveautes" aria-labelledby="fin-nouveau">
-      <span className="salon-hud-label" id="fin-nouveau">
-        Nouveau
-      </span>
-      <ul className="nouveautes">{liste.map(ligneDeNouveaute)}</ul>
-      {(collection?.nouveaux.length ?? 0) > 0 && (
-        <p className="collection-neuf">
-          <span className="nouveau-pastille">Nouveau</span>
-          {collection!.nouveaux.length > 1 ? 'Ils rejoignent' : 'Il rejoint'} ta collection : {collection!.eus} prix sur {collection!.total}
-        </p>
-      )}
-    </section>
-  )
 }
 
 /**
@@ -559,40 +486,10 @@ function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
 }
 
 /**
- * La barre du niveau : elle part de là où elle était, et se remplit. Une
- * montée de niveau se voit — c'est tout l'intérêt de l'avoir gagnée ce soir.
- */
-function BarreDeNiveau({ avant, apres, profil }: { avant: number; apres: number; profil: PublicProfile | null }) {
-  const [plein, setPlein] = useState(false)
-  useEffect(() => {
-    const t = setTimeout(() => setPlein(true), 250)
-    return () => clearTimeout(t)
-  }, [])
-  const part = profil ? Math.min(100, Math.round((profil.acquis / Math.max(1, profil.requis)) * 100)) : 100
-  return (
-    <div className="fin-niveau">
-      <div className="row fin-niveaux">
-        <span className="niveau big">{avant}</span>
-        {apres > avant ? (
-          <>
-            <span className="fin-fleche" aria-hidden="true">→</span>
-            <span className="niveau big fin-niveau-neuf">{apres}</span>
-            <b className="fin-monte">Niveau {apres} !</b>
-          </>
-        ) : (
-          <span className="muted small">Niveau {apres}</span>
-        )}
-      </div>
-      <div className="xp-bar">
-        <div className="xp-fill" style={{ width: plein ? `${part}%` : '0%' }} />
-      </div>
-    </div>
-  )
-}
-
-/**
  * Ce que le dernier podium vient de rapporter : un instant de fête, par-dessus
- * l'écran, qui s'efface de lui-même. Un niveau gagné se fête plus fort.
+ * l'écran, qui s'efface de lui-même. Un niveau gagné se fête plus fort. Les
+ * trophées attendent la clôture : ils ne se décident qu'une fois tout joué
+ * (invariant 10).
  */
 export function Celebration({ gain, onFin }: { gain: GainAnnonce; onFin: () => void }) {
   useEffect(() => {

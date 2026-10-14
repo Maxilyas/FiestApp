@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from './Icon'
 import { choixDialog } from './Dialog'
-import { JaugeFine } from './TropheesAtlas'
+import { JaugeFine } from './LigneDeCollection'
 import { gemme } from './Boutique'
 import { Compagnon } from './Compagnon'
 // Les fichiers des compagnons, inscrits à l'évaluation : le rayon les montre dès son premier rendu.

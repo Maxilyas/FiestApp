@@ -4,9 +4,10 @@ import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { Feuille, Sortie } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
-import { LegendaireOuvert, RecompenseTombee } from '../components/Ouverts'
+import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { BarreDeNiveau } from '../components/BarreDeNiveau'
+import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
+import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
@@ -14,8 +15,9 @@ import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { iconeDuSujet } from '../iconeDuSujet'
-import { BarreDEpreuve, Etoiles } from './Sentiers'
+import { BarreDEpreuve } from './Sentiers'
 import { ADRESSE_D_APPRENDRE } from '../../../shared/depart'
+import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
 import { difficulteDuMelange, texteDuMelange } from '../../../shared/sentiers'
 import { FAMILLES_DE_SUJETS, sujetParCle, type FamilleDeSujet } from '../../../shared/sujets'
 import {
@@ -507,6 +509,10 @@ export function FinDeLEtape({
   const etoiles = r.etoiles ?? etoilesDuSujet(e.justes, e.seuil)
   const derniere = e.palier >= PALIERS_D_UN_SUJET
   const s = e.justes > 1 ? 's' : ''
+  // Le Marathonien et ce qu'il ouvre, validée ou non : il compte toutes les bonnes réponses.
+  const recompenses = r.recompenses ?? []
+  const cles = recompenses.map(x => x.key)
+  const niveau = useNiveauRelu(fin.xp > 0 || cles.length > 0)
   return (
     <div className="player-shell campagne sentiers">
       <header className="fin-tete epreuve-fin-tete">
@@ -517,28 +523,20 @@ export function FinDeLEtape({
         {r.record && <p className="campagne-record-battu">Ta meilleure note sur cette étape</p>}
       </header>
       <BarreDEpreuve justes={e.justes} fausses={e.fausses} seuil={e.seuil} total={e.total} />
-      <div className="epreuve-gains">
-        <span>
-          <b>🎊 +{fin.justesIci}</b>
-          {`confetti${fin.justesIci > 1 ? 's' : ''}`}
-        </span>
-        <span>
-          <b>+{fin.xp}</b>
-          XP
-        </span>
-      </div>
-      {fin.xp > 0 && <BarreDeNiveau />}
-      {/* Le Marathonien et ce qu'il ouvre, validée ou non : il compte toutes les bonnes réponses. */}
-      {!!r.recompenses?.length && (
-        <section className="card campagne-recompenses">
-          {r.recompenses.map(x => (
-            <RecompenseTombee key={x.key} recompense={x} />
-          ))}
-        </section>
-      )}
+      {/* L'écran de gains de tous les modes (l'écran A) : le total, ce qui le fait, les confettis, le niveau ; puis les légendaires, les trophées, ce qu'ils ouvrent. */}
+      <CeQueTuGagnes
+        parts={partsDeLXp([
+          { nom: 'tes bonnes réponses', xp: fin.xp },
+          { nom: 'tes trophées', xp: xpDesTrophees(cles) },
+        ])}
+        confettis={fin.justesIci}
+        niveau={niveau}
+      />
       {(r.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
+      <NouveauxTrophees trophees={tropheesTombes(recompenses)} lien />
+      <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
       {erreur && <p className="error">{erreur}</p>}
       {validee && !derniere && !e.rejeu ? (
         <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>

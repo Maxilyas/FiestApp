@@ -472,7 +472,8 @@ test('revenue après la partie, la page du jour montre le jour joué, pas la fê
     'Le quiz du jour · joué',
     '2ᵉ place sur 3 pour l’instant',
     '8 bonnes réponses sur 10',
-    'Médaille d’argent',
+    // Sa note, en étoiles — celles des sentiers : la médaille d'argent en vaut deux.
+    'deux étoiles',
     'Revoir mes réponses',
     'Le classement du jour',
     'Voir tout le classement',

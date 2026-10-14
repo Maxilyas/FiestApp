@@ -2,7 +2,8 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { AlbumDesAvatars, pageNommee } from './AlbumDesAvatars'
-import { JaugeFine, LigneDeCollection, TropheesAtlas } from './TropheesAtlas'
+import { AlbumDesTrophees } from './AlbumDesTrophees'
+import { JaugeFine, LigneDeCollection } from './LigneDeCollection'
 import { GerbeDeJuste } from './Gerbe'
 import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { LILAS, OR } from './Atlas'
@@ -10,6 +11,8 @@ import { espacesFines, formatNumber } from '../format'
 import { apercuDe } from '../apercus'
 import { compteDeLaCollection, type FamilleDeLaCollection, type LigneDuCompte, type PartieDeLaCollection } from '../../../shared/collection'
 import { pageDuDebut, pageDuProchain, type RareteDAvatar } from '../../../shared/album'
+import { pageDuDebutDesTrophees } from '../../../shared/trophees'
+import { pageDesTropheesNommee, type PageDesTrophees } from '../../../shared/pagesDesTrophees'
 import { FONDS } from '../../../shared/fonds'
 import { GERBES } from '../../../shared/gerbes'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES, type Theme } from '../../../shared/themes'
@@ -17,30 +20,33 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } fr
 
 // « Ma collection » : tout ce qui se gagne, d'un coup d'œil — ce qu'on a, ce
 // qui reste, et où le gagner. Trois familles, comptées par la même règle que
-// la tuile du profil (`shared/collection.ts`) : les avatars — un album, une
-// page par rareté (`AlbumDesAvatars`) —, le style, les trophées.
+// la tuile du profil (`shared/collection.ts`) : deux albums — les avatars,
+// une page par rareté (`AlbumDesAvatars`) ; les trophées, une page par mode
+// (`AlbumDesTrophees`) —, puis le style.
 //
 // On n'y règle rien : ce qu'on a se porte depuis « M'habiller », au profil —
 // la loge, une adresse par pièce —, et chaque ligne le dit, un lien vers
 // l'écran qui le porte. Les écrans où l'on choisit ne montrent que ce qu'on a ; c'est ici
 // que vit tout le reste.
 
-/** Ce que chaque ligne des avatars et du style dit d'elle — les trophées ont les leurs (`TropheesAtlas`). */
-const LIGNES: Partial<Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }>> = {
+/** Ce que chaque ligne dit d'elle. */
+const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }> = {
   avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits et emojis, par rareté', couleur: OR },
+  trophees: { emoji: '🏆', nom: 'L’album des trophées', detail: 'Ce que tu as réussi, mode par mode', couleur: OR },
   themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent toutes tes pages', couleur: LILAS },
   fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte, quand on touche ton nom', couleur: '#5fa8ff' },
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate à chaque bonne réponse', couleur: '#ff9f5a' },
   finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar, au fil des niveaux', couleur: '#ffd36e' },
 }
 
-const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', style: 'Style', trophees: 'Trophées' }
+const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
 
 /**
  * L'adresse d'une ligne : `#collection-themes`. « Mon thème » y mène, ouverte
- * sur ses thèmes — ceux qui se gagnent compris. L'album des avatars a aussi
- * sa page (`#collection-avatars-legendaire`) : « 24 légendaires à gagner :
- * où ? », dans la loge, l'ouvre sur eux.
+ * sur ses thèmes — ceux qui se gagnent compris. Les albums ont aussi leurs
+ * pages (`#collection-avatars-legendaire`, `#collection-trophees-jour`) :
+ * « 24 légendaires à gagner : où ? », dans la loge, l'ouvre sur eux ; la
+ * fin d'une partie, sur la page de ce qu'elle vient de faire tomber.
  */
 const ADRESSE = 'collection'
 
@@ -54,14 +60,31 @@ const AVANT_L_ALBUM: Record<string, (p: PublicProfileDetail) => RareteDAvatar | 
   emojis: p => pageDuProchain(p, 'emoji'),
 }
 
+/** Les dix lignes des trophées d'avant l'album mènent à la page du mode où elles se gagnaient. */
+const AVANT_LES_TROPHEES: Record<string, PageDesTrophees> = {
+  eclats: 'soiree',
+  ombres: 'soiree',
+  prix: 'soiree',
+  paliers: 'soiree',
+  jour: 'jour',
+  paliersDuJour: 'jour',
+  campagne: 'campagne',
+  paliersDeCampagne: 'campagne',
+  ecussons: 'partout',
+  paliersDeToujours: 'partout',
+}
+
 /** La ligne que l'adresse ouvre, et la page de l'album qu'elle nomme. */
-function lireLAdresse(profil: PublicProfileDetail): { partie: PartieDeLaCollection | null; page: RareteDAvatar | null } {
+function lireLAdresse(profil: PublicProfileDetail): { partie: PartieDeLaCollection | null; page: RareteDAvatar | null; trophees: PageDesTrophees | null } {
   const h = window.location.hash.slice(1)
   const reste = h.startsWith(`${ADRESSE}-`) ? h.slice(ADRESSE.length + 1) : ''
-  if (reste in LIGNES) return { partie: reste as PartieDeLaCollection, page: null }
-  if (reste.startsWith('avatars-')) return { partie: 'avatars', page: pageNommee(reste.slice('avatars-'.length)) }
-  if (reste in AVANT_L_ALBUM) return { partie: 'avatars', page: AVANT_L_ALBUM[reste](profil) }
-  return { partie: null, page: null }
+  const rien = { page: null, trophees: null }
+  if (reste in LIGNES) return { ...rien, partie: reste as PartieDeLaCollection }
+  if (reste.startsWith('avatars-')) return { ...rien, partie: 'avatars', page: pageNommee(reste.slice('avatars-'.length)) }
+  if (reste.startsWith('trophees-')) return { ...rien, partie: 'trophees', trophees: pageDesTropheesNommee(reste.slice('trophees-'.length)) }
+  if (reste in AVANT_L_ALBUM) return { ...rien, partie: 'avatars', page: AVANT_L_ALBUM[reste](profil) }
+  if (reste in AVANT_LES_TROPHEES) return { ...rien, partie: 'trophees', trophees: AVANT_LES_TROPHEES[reste] }
+  return { ...rien, partie: null }
 }
 
 /** « Le porter : Mon avatar » — l'écran où ce qu'on a se porte, sous chaque ligne. */
@@ -203,6 +226,8 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
   const [ouverte, setOuverte] = useState<PartieDeLaCollection | null>(() => lireLAdresse(profil).partie)
   // La page de l'album : celle que l'adresse nomme, sinon celle de ce qu'il porte.
   const [page, setPage] = useState<RareteDAvatar>(() => lireLAdresse(profil).page ?? pageDuDebut(profil))
+  // Celle des trophées : celle que l'adresse nomme, sinon le mode où il en a le plus.
+  const [pageDesTrophees, setPageDesTrophees] = useState<PageDesTrophees>(() => lireLAdresse(profil).trophees ?? pageDuDebutDesTrophees(profil))
   // Ouverte d'un lien (`#collection-themes`), la ligne vient sous les yeux.
   useEffect(() => {
     if (ouverte) document.getElementById(`${ADRESSE}-${ouverte}`)?.scrollIntoView({ block: 'start' })
@@ -214,6 +239,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
       const lue = lireLAdresse(profil)
       setOuverte(lue.partie)
       if (lue.page) setPage(lue.page)
+      if (lue.trophees) setPageDesTrophees(lue.trophees)
     }
     window.addEventListener('hashchange', relire)
     return () => window.removeEventListener('hashchange', relire)
@@ -231,6 +257,10 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
     ecrire(`-avatars-${r}`)
     setPage(r)
   }
+  const choisirLaPageDesTrophees = (p: PageDesTrophees) => {
+    ecrire(`-trophees-${p}`)
+    setPageDesTrophees(p)
+  }
   const fonds = profil.fonds ?? []
   const gerbes = profil.gerbes ?? []
   // La gerbe qu'on vient de toucher éclate, une fois par toucher — celles à gagner aussi.
@@ -241,6 +271,23 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
       <>
         <AlbumDesAvatars profil={profil} page={page} onPage={choisirLaPage} />
         <OuLePorter ecran="avatar" nom="Mon avatar" />
+      </>
+    ),
+    trophees: (
+      <>
+        <AlbumDesTrophees profil={profil} page={pageDesTrophees} onPage={choisirLaPageDesTrophees} />
+        {/* Un trophée se porte en titre, ou dans la vitrine de sa carte : la loge les choisit. */}
+        <p className="muted small">
+          Un trophée gagné se porte en titre sous ton prénom, ou dans la vitrine de ta carte :{' '}
+          <a className="link-inline" href="#titre">
+            {espacesFines('« Mon titre »')}
+          </a>
+          ,{' '}
+          <a className="link-inline" href="#vitrine">
+            {espacesFines('« Ma vitrine »')}
+          </a>
+          .
+        </p>
       </>
     ),
     themes: <ThemesDeLaCollection profil={profil} />,
@@ -297,7 +344,6 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
 
   const ligne = (c: LigneDuCompte) => {
     const l = LIGNES[c.partie]
-    if (!l) return null
     return (
       <LigneDeCollection
         key={c.partie}
@@ -333,8 +379,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
           <h2 id={`famille-${f.famille}`}>
             {NOM_DE_FAMILLE[f.famille]} <span className="collection-compte">{`${formatNumber(f.acquis)} sur ${formatNumber(f.total)}`}</span>
           </h2>
-          {/* Les trophées gardent leurs sept lignes, et ce qu'elles déplient. */}
-          {f.famille === 'trophees' ? <TropheesAtlas profil={profil} /> : <ul className="trophees-liste">{f.parties.map(ligne)}</ul>}
+          <ul className="trophees-liste">{f.parties.map(ligne)}</ul>
         </section>
       ))}
     </div>

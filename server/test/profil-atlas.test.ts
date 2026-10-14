@@ -391,30 +391,20 @@ const vecu = {
   prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
 }
 
-test('les trophées : dix collections qu’on déplie, une à la fois, rangées par où elles se gagnent — la vitrine se règle dans « Ma vitrine »', async () => {
-  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu })
+test('les trophées : un album, une page par mode, chaque trophée dans sa case — la vitrine se règle dans « Ma vitrine »', async () => {
+  const html = await rendu('components/AlbumDesTrophees', 'AlbumDesTrophees', { profil: vecu, page: 'soiree', onPage: () => {} })
   assert.doesNotMatch(html, /vitrine/i, 'la vitrine a sa page, « Ma vitrine »')
-  const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
-  // La campagne a les siennes depuis ses hauts faits de série (le 5 octobre
-  // 2026) ; chacune dans la section de son lieu depuis le 10 octobre 2026.
-  assert.deepEqual(lignes, [
-    'Hauts faits',
-    'Coups du sort',
-    'Prix',
-    'Paliers des soirées',
-    'Hauts faits du jour',
-    'Paliers du jour',
-    'Hauts faits de campagne',
-    'Paliers de campagne',
-    'Écussons',
-    'Paliers de toujours',
-  ])
-  // Toutes repliées à l'ouverture.
-  assert.equal(html.match(/aria-expanded="false"/g)?.length, 10)
-  assert.doesNotMatch(html, /trophee-contenu/)
-  assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
-  // Elles vivent dans « Ma collection », sous les avatars et le style.
-  assert.match(source('components/Collection.tsx'), /f\.famille === 'trophees' \? <TropheesAtlas profil=\{profil\} \/>/)
+  // Six pages, une par mode : la campagne, les duels et les sentiers ont les leurs.
+  const onglets = [...html.matchAll(/role="tab"[^>]*aria-label="([^",]+),/g)].map(([, nom]) => nom)
+  assert.deepEqual(onglets, ['Soirée', 'Quiz du jour', 'Campagne', 'Duels', 'Sentiers', 'Partout'])
+  // La page de la soirée : ses pistes, ses exploits, ses coups du sort, son palmarès — chacun son titre et son compte.
+  const sections = [...html.matchAll(/<h3 id="trophees-soiree-(\w+)" class="label">([^<]+)<\/h3><span class="famille-compte">([^<]+)<\/span>/g)].map(m => `${m[2]} ${m[3]}`)
+  assert.deepEqual(sections.map(s => s.replace(/ \d+\/\d+$/, '')), ['Les pistes', 'Les exploits', 'Les coups du sort', 'Le palmarès'])
+  assert.ok(sections.includes('Le palmarès 1/1'), 'les prix : un sur un')
+  // Toutes ses cases repliées à l'ouverture : la fiche s'ouvre au toucher, sous sa rangée.
+  assert.doesNotMatch(html, /aria-expanded="true"|id="fiche-trophee"/)
+  // L'album vit dans « Ma collection », juste après celui des avatars.
+  assert.match(source('components/Collection.tsx'), /<AlbumDesTrophees profil=\{profil\} page=\{pageDesTrophees\} onPage=\{choisirLaPageDesTrophees\} \/>/)
 })
 
 test('la carrière : trois jauges jamais fondues, les chiffres en cases, quatre vues', async () => {
