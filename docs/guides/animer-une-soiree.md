@@ -43,13 +43,13 @@ Tes quiz s'écrivent dans « Mes quiz » : [Les quiz](../produit/les-quiz.md). L
 
 - **Au salon**, « En équipes » en propose deux : un toucher en renomme une, « Ajouter une équipe » en ajoute une (dix au plus). Elles sont posées avant le premier invité, qui choisit la sienne en entrant.
 - **À l'écran commun**, en salle d'attente : « Nouvelle équipe » puis « Ajouter » ; ou, tant qu'il n'y en a aucune, un nombre (« 4 équipes ») puis « Les créer d'un coup » — de deux à six, une pour quatre invités proposée d'office. Supprimer une équipe n'exclut personne : ses membres repassent « sans équipe » et gardent leurs points.
-- **Pendant un quiz**, un invité ne change pas d'équipe lui-même ; toi, tu peux le déplacer à tout moment, par le menu d'équipe de sa puce. Il l'apprend sur son téléphone. Comment se comptent les points d'une équipe : [La soirée](../produit/la-soiree.md).
+- **Pendant un quiz**, un invité ne change pas d'équipe lui-même ; toi, tu peux le déplacer à tout moment, par le menu d'équipe de sa puce — pendant un quiz, depuis la télécommande : l'écran projeté range alors le panneau des invités. Il l'apprend sur son téléphone. Comment se comptent les points d'une équipe : [La soirée](../produit/la-soiree.md).
 
 ### La télé
 
 - **Au salon**, « Sur une télé » : sur la télé, ouvre `<adresse du serveur>/tele`. Elle affiche un code de six caractères, qui change toutes les cinq minutes ; tape-le dans « Le code affiché sur la télé », puis « Brancher ». Rechargée entre-temps, la télé a changé de code : « Une autre télé ? » rouvre le champ.
 - **À la télécommande** (ton téléphone sur `/host`), « Brancher la télé », en salle d'attente, fait de même.
-- **Une télé branchée est un écran de salle** : rien à y toucher. Elle montre la salle vue de loin — le code, le QR, qui est là —, puis le quiz, pendant 24 heures au plus. « Débrancher » la ferme si un autre animateur l'a validée par erreur ; quand personne ne l'anime d'un téléphone, « Piloter d'ici » lui rend la console, à la souris.
+- **Une télé branchée est un écran de salle** : rien à y toucher. Elle montre la salle vue de loin — le code, le QR, qui est là —, puis le quiz, pendant 24 heures au plus. Quand personne ne l'anime d'un téléphone, « Piloter d'ici » lui rend la console, à la souris ; on y trouve « Débrancher », qui la ferme si un autre animateur l'a validée par erreur.
 
 ### La salle d'attente
 
@@ -90,15 +90,15 @@ Les boutons gardent leur place, ceux qui ne servent pas sont grisés : à gauche
 | « Suivante » : « au clic », « 5 s », « 10 s », « 20 s » | de l'intertitre à la révélation | règle l'enchaînement | — |
 | « Reposer » | la révélation, la mesure | retire les points de la question à tous, et la repose de zéro | « Reposer cette question ? » — « Les points gagnés sur cette question sont retirés à tout le monde, puis elle repart de zéro, chronomètre compris. » — « Reposer la question » |
 | « Annuler les points » | la révélation, la mesure | retire les points de la question à tous : « Points annulés » | « Annuler les points de cette question ? » — « Les points gagnés sur cette question sont retirés à tout le monde. » (pendant la mesure : « Elle se révèle sans bonne réponse, et ne rapporte rien à personne. ») — « Retirer les points » ou « Garder les points » |
-| « Terminer » | de l'intertitre à la révélation | referme le quiz ; ce qui a été gagné reste | « Terminer le quiz maintenant ? » — à la révélation : « Les questions suivantes ne seront pas posées, et le podium du quiz ne s'affichera pas. Les points déjà gagnés restent acquis. » ; avant : « La question en cours ne comptera pas, et les suivantes ne seront pas posées. Les points déjà gagnés restent acquis. » — « Terminer le quiz » |
+| « Terminer » | de l'intertitre à la révélation | referme le quiz ; ce qui a été gagné reste. Sur le dernier quiz du programme d'un salon, la soirée se clôt avec lui | « Terminer le quiz maintenant ? » — à la révélation : « Les questions suivantes ne seront pas posées, et le podium du quiz ne s'affichera pas. Les points déjà gagnés restent acquis. » ; avant : « La question en cours ne comptera pas, et les suivantes ne seront pas posées. Les points déjà gagnés restent acquis. » — « Terminer le quiz » |
 
 Un double clic ne saute rien : la console ignore les gestes de la partie une demi-seconde après chaque changement de phase, et chaque geste dit au serveur ce qu'il visait — un « Révéler » qui croise la révélation automatique ne passe pas à la question suivante.
 
 **L'enchaînement.** Un délai choisi, la question suivante part seule après la révélation (« Question suivante dans 5 s »). Il s'arrête quand une question se ferme sans une seule réponse — « Personne n'a répondu — la suite attend l'animateur » : retouche le délai allumé pour relancer ; et après « Annuler les points », la suite attend ton clic. Le réglage passe au quiz suivant ; au salon, ta barre remet ton rythme à chaque quiz.
 
-**Au podium du quiz** : « Quiz suivant », « Remise des prix » (s'il y a des équipes : le quiz se referme, et la remise des prix s'ouvre sur tous tes écrans), et « Terminer le quiz », qui ramène à la salle d'attente sans rien demander. Le podium reste tant que tu ne le refermes pas.
+**Au podium du quiz** : « Quiz suivant », « Remise des prix » (s'il y a des équipes : le quiz se referme, et la remise des prix s'ouvre sur tous tes écrans), et « Terminer le quiz », qui ramène à la salle d'attente sans rien demander — sauf sur le dernier quiz du programme d'un salon, où il clôt la soirée tout de suite. Le podium reste tant que tu ne le refermes pas.
 
-**En salle d'attente**, les écrans de fin — « Podium » dès qu'un point est marqué, « Prix » et « Victoire » avec des équipes — passent sur tous tes écrans d'animateur ensemble ; « Les chiffres » s'ouvrent dans un onglet. La remise des prix : [Après la soirée](../produit/apres-la-soiree.md).
+**En salle d'attente**, les écrans de fin — « Podium » dès qu'un point est marqué, « Prix » avec des équipes, « Victoire » dès qu'une équipe a marqué un point ou reçu un prix — passent sur tous tes écrans d'animateur ensemble ; « Les chiffres » s'ouvrent dans un onglet. La remise des prix : [Après la soirée](../produit/apres-la-soiree.md).
 
 ### La télécommande
 

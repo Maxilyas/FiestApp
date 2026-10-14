@@ -26,7 +26,7 @@ Un monorepo npm à deux espaces de travail, `client` et `server` (déclarés dan
 
 | Dossier | Ce qu'il contient | Comment il se construit |
 |---|---|---|
-| `client/` | L'application React : une page par fichier (`client/src/views/`), les briques (`client/src/components/`), les vues du quiz (`client/src/games/quiz/`), la liaison (`client/src/socket.ts`), l'état (`client/src/state.ts`), l'API cliente (`client/src/api.ts`) | `vite build` vers `client/dist/`, chaque fichier compressé d'avance en brotli et gzip (`client/vite.config.ts`) |
+| `client/` | L'application React : une page par fichier (`client/src/views/`), les briques (`client/src/components/`), les vues du quiz (`client/src/games/quiz/`), la liaison (`client/src/socket.ts`), l'état (`client/src/state.ts`), l'API cliente (`client/src/api.ts`) | `vite build` vers `client/dist/`, ses scripts et ses styles compressés d'avance en brotli et gzip (`client/vite.config.ts`) |
 | `server/` | `server/src/` (démarrage, routes, protocole), `server/src/core/` (registres, moteur, magasins, dérivations), `server/src/auth/` (comptes, profils, sessions), `server/src/games/` (les règles du quiz) ; les quiz livrés et la base de la campagne (`server/content/`), les scripts (`server/scripts/`), les tests (`server/test/`) | esbuild en fait un seul fichier, `server/dist/index.mjs` ([Le paquet](./serveur.md#le-paquet)) |
 | `shared/` | Les types et les fonctions **pures** que client, serveur et tests partagent : le protocole (`shared/events.ts`), les adresses, le classement, les niveaux, la bibliothèque… | Rien : ce n'est pas un espace de travail. Les deux `tsconfig.json` l'incluent, le code l'importe par chemin relatif (`../../shared/…`), Vite et esbuild l'emportent dans leur paquet, tsx l'exécute tel quel |
 
@@ -137,10 +137,10 @@ sequenceDiagram
   M->>Q: onTimer('settle') — la révélation
   Q->>M: ctx.award(…), ctx.logAnswers(…)
   M->>L: score_entries et answer_log (uid tiré ici), sessions
-  M->>F: fermerLot() — gains, réponses et état ensemble
-  F->>F: batch(…, 'write') vers Turso, réessayé jusqu'au succès
   M-->>T: session:view — la révélation, à chaque participant
   M-->>E: session:view
+  M->>F: fermerLot() — gains, réponses et état ensemble
+  F->>F: batch(…, 'write') vers Turso, réessayé jusqu'au succès
   M->>R: onScoresChanged()
   R-->>E: party:snapshot — regroupé, 120 ms
   R-->>T: party:snapshot — regroupé, 120 ms + 2 ms par invité
@@ -210,7 +210,7 @@ survivre va dans la permanente : le disque de l'hébergeur s'efface à chaque
 réveil, et la soirée vit en local pour que le moteur reste synchrone.
 → [Les données](./donnees.md)
 
-**3. Tout est cloisonné par `space_id`.** Une route lit l'espace dans la
+**3. Tout est cloisonné par `space_id`.** Une route d'animateur lit l'espace dans la
 session, jamais dans la requête ; une connexion s'attache à un espace une fois
 pour toutes. Un identifiant d'ailleurs vaut « introuvable », et le voisin n'en
 sait rien : aucun animateur ne voit rien des autres. → [La sécurité](./securite.md)
@@ -245,7 +245,7 @@ parfois jamais, et deux clôtures croisées recréditaient.
 ### Le temps réel
 
 **4. L'instantané est dédoublonné et regroupé.** Deux versions — les écrans
-d'animateur (wifi, santé du miroir, scène, télécommande en plus) et les
+d'animateur (wifi, santé du miroir, scène, télécommande, fin en route en plus) et les
 téléphones (sans `connected`) —, chacune envoyée seulement si elle change :
 120 ms pour les écrans, 120 ms plus 2 ms par invité pour les téléphones, et
 l'auteur d'un geste reçoit la sienne aussitôt. Chaque veille d'écran renvoyait
@@ -318,10 +318,13 @@ tout se relisait à chaque réveil —, et une base qui hoquette fait échouer l
 démarrage plutôt que de remettre des lignes au barème sans les relire.
 → [Les données](./donnees.md)
 
-**22. Durcir une règle ne reprend rien à personne.** Un légendaire durci
-ajoute une entrée à `DURCISSEMENTS`, une courbe des niveaux à
-`COURBES_D_AVANT`, sous un drapeau neuf, sans jamais en modifier une ; un
-palier validé ne se perd jamais, et tout niveau passe par `niveauDuProfil`.
+**22. Durcir un légendaire, la courbe des niveaux ou le palier d'un portrait
+ne reprend rien à personne.** Un légendaire durci ajoute une entrée à
+`DURCISSEMENTS`, une courbe des niveaux à `COURBES_D_AVANT`, sous un drapeau
+neuf, sans jamais en modifier une ; un palier validé ne se perd jamais, et
+tout niveau passe par `niveauDuProfil`. Un portrait, un haut fait de soirée,
+un prix ou un Divin n'ont pas de tel registre : durcis, ils reprendraient ce
+qu'ils ont donné — on retient d'abord ce que chacun a.
 Légendaires et niveaux se dérivent à chaque lecture : relever un seuil
 reprenait le légendaire porté, durcir la courbe faisait redescendre de niveau.
 → [Les récompenses](../produit/les-recompenses.md)

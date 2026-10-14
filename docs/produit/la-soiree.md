@@ -142,7 +142,7 @@ Ces écrans se commandent de la console de l'animateur, et tous les écrans d'an
 
 ## Qui pilote
 
-L'animateur garde la main à chaque instant — révéler, mettre en pause, reposer une question, annuler ses points, régler l'enchaînement, ne plus attendre un téléphone mort, rendre une place —, depuis l'écran commun, une télécommande ou la barre du chef. Le pas à pas : [Animer une soirée](../guides/animer-une-soiree.md).
+L'animateur garde la main à chaque instant — révéler, mettre en pause, reposer une question, annuler ses points, régler l'enchaînement, ne plus attendre un téléphone mort, rendre une place —, depuis l'écran commun, une télécommande ou la barre du chef ; les deux derniers gestes, à la console et à la télécommande seulement. Le pas à pas : [Animer une soirée](../guides/animer-une-soiree.md).
 
 ## Pour aller plus loin
 

@@ -51,9 +51,11 @@ paths:
   révélée, en mesure, finie, la salle qui avait fini, ou moins de temps
   qu'il n'en faut pour la lire (`onPlayerJoin`) — et `dispenses` — le
   hors-ligne qu'on n'attend plus. L'attente (`awaited`), le journal
-  (`logQuestion`), le classement et les candidats d'un sondage les
-  appliquent tous : un compte de plus qui en oublie un fait attendre la
-  salle pour un fantôme, ou baisser la moyenne d'une équipe.
+  (`logQuestion`) et le classement les appliquent tous : un compte de plus
+  qui en oublie un fait attendre la salle pour un fantôme, ou baisser la
+  moyenne d'une équipe. Les candidats d'un sondage, eux, ne passent que par
+  `playFrom` (`startQuestion`) : le chef qui anime seulement et un
+  téléphone qu'on n'attend plus y restent désignables.
 - **Un geste qui fait avancer la partie porte sa visée** (invariant 12) :
   `perimee` ne juge que `next`, `cancel`, `replay` et `cible` ; les réponses
   portent `qIndex` et `round`, jamais la phase. Une commande de plus qui

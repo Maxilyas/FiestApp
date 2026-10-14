@@ -51,9 +51,9 @@ sequenceDiagram
   T->>H: GET /‹espace› — la page, qui précharge /s/‹espace›/entree.json
   H-->>T: l'entrée — l'instantané des téléphones, le profil du cookie
   T->>S: connexion WebSocket, cookie qz_joueur dans la poignée de main
-  T->>S: time:sync, trois fois
-  S-->>T: serverNow
+  T->>S: time:sync — la première des trois mesures d'horloge
   T->>S: party:watch — slug
+  S-->>T: serverNow
   S->>R: bindSpace — la connexion suit cet espace pour toujours
   S-->>T: accusé — ok, profil du cookie
   S-->>T: party:snapshot — version des téléphones, à lui seul
@@ -105,7 +105,7 @@ sequenceDiagram
   T->>S: player:action rejouée avant connect — avec slug et jeton
   S->>R: rattache la connexion à l'espace et à la fiche du jeton
   S-->>T: accusé — retenue, ou too-late si la question s'est close
-  T->>S: time:sync, trois fois — l'horloge se remesure
+  T->>S: time:sync — la première des trois mesures, l'horloge se remesure
   T->>S: party:watch, puis player:join avec le seul jeton, sans attendre
   S-->>T: accusé de party:watch, puis party:snapshot
   S->>R: re-présentation — prénom, avatar et équipe viennent de la fiche
@@ -140,7 +140,7 @@ Un renvoi est sans danger parce que chaque geste dit ce qu'il vise ([plus bas](#
 
 ## Répondre
 
-Une réponse porte la partie (`sessionId`), son contenu et la question qu'elle vise (`qIndex`, `round`), plus l'espace et le jeton de l'invité. Le moteur la juge (`GameEngine.handlePlayerAction`) ; sa vue et celle de l'écran commun repartent, puis l'accusé. Le chemin complet jusqu'aux journaux et au miroir est dans [la vue d'ensemble](vue-d-ensemble.md).
+Une réponse porte la partie (`sessionId`), son contenu et la question qu'elle vise (`qIndex`, `round`), plus l'espace et le jeton de l'invité. Le moteur la confie au module de jeu, qui la juge (`GameEngine.handlePlayerAction`) ; sa vue repart, puis l'accusé — celle de l'écran commun, dans les 250 ms. Le chemin complet jusqu'aux journaux et au miroir est dans [la vue d'ensemble](vue-d-ensemble.md).
 
 Sans accusé en quatre secondes, le téléphone ne conclut pas que la réponse est perdue, seulement qu'il n'en sait rien. Il dit « Ta réponse n'est pas encore partie — elle partira dès que le réseau revient » si socket.io se savait déconnecté (la réponse attend dans sa file), sinon « Ta réponse n'est pas partie — touche-la à nouveau ». Puis, si c'est sa dernière réponse et que la question est encore ouverte à l'heure du serveur, hors pause, il sonde la liaison et la renvoie une fois — seule la dernière a ce droit : renvoyer un premier choix après qu'on en a tapé un second écraserait le bon. Un accusé tardif qui contredit ce qu'on a affiché se dit après coup (« Ta réponse est bien arrivée »).
 

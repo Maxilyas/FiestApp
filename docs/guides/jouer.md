@@ -110,7 +110,7 @@ Le bandeau « Connexion perdue — reconnexion… » paraît, et le téléphone 
 
 Prends un autre téléphone et ouvre la soirée. Tape ton prénom : si ta place est restée sans téléphone, la page le remarque — « Un « Rachid » 🦁 est hors ligne : si c'est toi, demande à l'animateur de te rendre ta place. » — et propose « J'ai un code ».
 
-1. Demande à l'animateur : dans « Qui manque ? » — l'icône des invités, sur sa console —, il touche « Rendre sa place » puis « Montrer le code », et te montre un code à six chiffres.
+1. Demande à l'animateur : dans le panneau des absents — l'icône des invités, sur sa console : « Qui n’a pas répondu ? » pendant une question, « Invités hors ligne » sinon —, il touche « Rendre sa place » puis « Montrer le code », et te montre un code à six chiffres.
 2. Touche « J'ai un code » — à l'entrée, en salle d'attente ou entre deux questions —, tape le code dans « Le code de l'animateur », puis « Reprendre ma place ».
 3. « Te revoilà, Rachid 🦁 » : ton prénom, ton avatar, ton équipe et tes points sont revenus.
 
@@ -175,4 +175,4 @@ Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'admi
 - [Les questions](../produit/les-questions.md) — chaque sorte de question, et comment elle se note
 - [Après la soirée](../produit/apres-la-soiree.md) — la fin de soirée, le souvenir, le bilan, les prix
 - [Le profil](../produit/le-profil.md) — ce qu'un profil garde, et tout ce qu'il ouvre
-- [Animer une soirée](animer-une-soiree.md) — l'autre côté : la console, « Qui manque ? », la clôture
+- [Animer une soirée](animer-une-soiree.md) — l'autre côté : la console, le panneau des absents, la clôture
