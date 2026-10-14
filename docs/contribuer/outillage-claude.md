@@ -61,7 +61,7 @@ Une recherche large passe par l'agent Explore de Claude Code : il ne charge pas 
 
 ## Le démarrage d'une session et les permissions
 
-- **Le hook de démarrage** (`.claude/hooks/session-start.sh`, déclaré dans `.claude/settings.json`) n'agit que dans une session de Claude Code sur le web (`CLAUDE_CODE_REMOTE=true`) : il fait `npm install --no-save --no-audit --no-fund`, puis dit « [hook] dépendances prêtes ». `install` repart d'un `node_modules` déjà chaud ; `--no-save` empêche le npm du conteneur de réécrire `package-lock.json` à chaque session. En local, il ne fait rien. Il n'installe ni Playwright ni Chromium.
+- **Le hook de démarrage** (`.claude/hooks/session-start.sh`, déclaré dans `.claude/settings.json`) n'agit que dans une session de Claude Code sur le web (`CLAUDE_CODE_REMOTE=true`) : il fait `npm install --no-save --no-audit --no-fund`, puis dit « [hook] dépendances prêtes — npm run verify enchaîne typecheck, tests, build et smoke ». `install` repart d'un `node_modules` déjà chaud ; `--no-save` empêche le npm du conteneur de réécrire `package-lock.json` à chaque session. En local, il ne fait rien. Il n'installe ni Playwright ni Chromium.
 - **Les commandes pré-approuvées** (`.claude/settings.json`) passent sans demande : `npm run check`, `build`, `smoke`, `verify`, `dev`, `npm install`, `npx tsc`, `npx tsx`, les commandes de git qui lisent, committent et poussent, `ls`, `cat`, `grep`, `find`, `sed -n` et leurs voisins, `node -e`, `curl -s` vers `localhost`, `npm run tablee` et le pilote de la tablée. Ni `npm test` ni `node --import tsx --test` n'y sont : ils demandent.
 - **Les tests répondent en points** quand Claude Code les lance : il pose `CLAUDECODE=1`, et `server/scripts/tests.mjs` passe alors au compte rendu `dot` ([les tests](tests.md)). `npm run verify` dure une dizaine de minutes : Claude le lance en arrière-plan.
 - **L'aperçu** (`.claude/launch.json`) a deux configurations : `quizz`, le vrai serveur sur des bases jetables (`npm run start:qa -w server`, port 3001, un autre s'il est pris), et `client`, Vite sur 5173 — dont le relais vise toujours le port 3001.
@@ -96,7 +96,7 @@ Les archives de ce que des agents ont trouvé : une synthèse vérifiée, les re
 | `retours/2026-09-27/` | L'audit du code après #58 et #59 : la synthèse, tous les constats et leur verdict (`constats.json`), les rapports, les contre-expertises et les épreuves qui les prouvent (`reproductions/`) |
 | `retours/2026-10-05/` | Ce que chaque page fait attendre à un téléphone, mesuré |
 | `retours/2026-10-10/` | La mémoire de Claude : pourquoi `CLAUDE.md` s'est coupé en règles |
-| `retours/2026-10-11/` | L'atelier des nouveautés du jeu solo : la synthèse et les rapports des experts |
+| `retours/2026-10-11/` | L'atelier des nouveautés — le jeu solo et le quiz tout prêt : la synthèse et les rapports des experts |
 | `retours/2026-10-12/` | Une revue de nuit : la télé branchée, les prix, les équipes |
 | `retours/2026-10-13/` | La base de la campagne relue et agrandie sur le crédit de l'API, et les journaux de ses relectures |
 

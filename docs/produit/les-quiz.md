@@ -69,12 +69,12 @@ Toute sorte peut porter ceci ; les quatre derniers se replient sous « Anecdote,
 | Élément | Ce qu'on écrit | Qui le voit |
 |---|---|---|
 | Photo | « Ajouter une photo » : le navigateur la réduit à 1 280 px et la recompresse | l'écran et les téléphones |
-| Photo à mémoriser | « La photo disparaît avant la question » : 2 à 30 s, 5 d'office | l'écran et les téléphones, seule ; elle disparaît, puis revient à la révélation |
+| Photo à mémoriser | « La photo disparaît avant la question » : 2 à 30 s, 5 d'office | l'écran et les téléphones, seule ; elle disparaît, puis revient à la révélation, sur l'écran commun |
 | Extrait (blind test) | « Ajouter un son » : 1,5 Mo au plus, envoyé tel quel — MP3, M4A, AAC, OGG, WAV ou WebM | l'écran commun seul, pendant la question |
-| Anecdote | « Le saviez-vous ? », 280 caractères | à la révélation : écran, téléphones, bilan |
+| Anecdote | « Le saviez-vous ? », 280 caractères | à la révélation : écran, téléphones |
 | Note pour toi | 280 caractères | ta télécommande seulement |
 | Intertitre | une diapo avant la question, 80 caractères | toute la salle |
-| Photo de la révélation | « Photo de la révélation — le bébé, puis l’adulte » | l'écran et les téléphones, à la révélation |
+| Photo de la révélation | « Photo de la révélation — le bébé, puis l’adulte » | l'écran commun, à la révélation |
 
 « Mise de côté » garde une question écrite sans la jouer. Les bornes vivent dans `shared/library.ts` — 100 questions (`MAX_QUESTIONS`), 300 caractères par intitulé (`MAX_TEXT`), 120 par réponse (`MAX_ANSWER_TEXT`), 5 à 120 s par question, 20 d'office (`MIN_DURATION`, `MAX_DURATION`, `DEFAULT_DURATION`) — et chacune a sa ligne dans [les barèmes](../reference/baremes.md).
 
@@ -131,7 +131,7 @@ Onze quiz livrés avec l'application, en deux rayons :
 | « Pour une fête — tu écris les réponses » | ⭐ Qui connaît le mieux [Prénom] ? (8) · 🎂 L'anniversaire de [Prénom] · 💍 Le mariage de [Prénom 1] et [Prénom 2] · 🎉 L'enterrement de vie de [Prénom] · 🥂 Le pot de départ de [Prénom] · 🎄 Noël en famille (10 chacun) |
 | « Pour jouer tout de suite » | 🌍 Culture générale (10) · 📏 Les estimations folles (13) · ✅ Vrai ou faux express (15) · 📸 Le quiz de mémoire (8, à photo qui disparaît) · 🧒 Le quiz des 8-12 ans (14) |
 
-« Partir de ce modèle » range une copie à toi, réponses mélangées à chaque partie, et l'ouvre. Les modèles de fête n'ont aucune question prête : leurs réponses, marquées ✏️, sont à écrire — toi seul les connais. Sur les cinq à prénoms, « Pour qui ? » remplit le reste d'un geste : le prénom de la personne fêtée, ou les deux d'un couple, et l'accord (« Elle », « Il », « Sans accord ») ; « Créer le quiz » remplace chaque « [Prénom] », titre compris. « Copier sans personnaliser » prend le modèle tel quel.
+« Partir de ce modèle » range une copie à toi, réponses mélangées à chaque partie, et l'ouvre. Les modèles de fête n'ont aucune question prête : leurs réponses, marquées ✏️, sont à écrire — toi seul les connais. Sur les cinq à prénoms, « Pour qui ? » remplit le reste d'un geste : le prénom de la personne fêtée et l'accord (« Elle », « Il », « Sans accord »), ou les deux prénoms d'un couple ; « Créer le quiz » remplace chaque « [Prénom] », titre compris. « Copier sans personnaliser » prend le modèle tel quel.
 
 Au premier démarrage d'une base, seuls Culture générale et Qui connaît le mieux [Prénom] ? entrent dans la bibliothèque de l'administrateur ; les autres espaces partent vides. Les modèles restent des fichiers (`server/content/quiz/`), relus à chaque demande : un modèle ajouté au dépôt se propose dès sa mise en ligne.
 

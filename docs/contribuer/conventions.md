@@ -30,9 +30,9 @@ Une dépendance de plus se justifie : chacune pèse sur le téléphone d'un invi
 
 ## Les textes que lisent les invités
 
-- **Courts, en français, et ils disent quoi faire.** Un message d'erreur est lu dans le noir, sur un téléphone, par quelqu'un qui n'a pas lu de documentation : « Le serveur redémarre — réessaie dans un instant », pas « Erreur 503 ».
+- **Courts, en français, et ils disent quoi faire.** Un message d'erreur est lu dans le noir, sur un téléphone, par quelqu'un qui n'a pas lu de documentation : « Le serveur redémarre — patiente une minute, puis réessaie », pas « Erreur 503 ».
 - **Le tutoiement**, partout où l'application parle à quelqu'un.
-- **Une erreur faite pour être lue se lève avec un `new Error('…')` nu**, sans code. Toute autre erreur — une panne de base, une exception de bibliothèque — devient un message neutre : un 500 « Erreur serveur » dans une route (`repondreErreur`), « Erreur serveur » dans un toast de l'écran commun (`messagePourEcran`), et son détail part au journal. Les deux portes vivent dans `server/src/core/http.ts`.
+- **Une erreur faite pour être lue se lève avec un `new Error('…')` nu**, sans code. Toute autre erreur — une panne de base, une exception de bibliothèque — devient un message neutre : un 500 « Erreur serveur — réessaie dans un instant » dans une route (`repondreErreur`), le même dans un toast de l'écran commun (`messagePourEcran`), et son détail part au journal. Les deux portes vivent dans `server/src/core/http.ts`.
 - **La typographie française** est gardée par des fonctions (`shared/typographie.ts` : élision de « de », rangs, espaces insécables) et par `server/test/typographie.test.ts`.
 
 ## Les emojis antérieurs à Unicode 13
@@ -52,7 +52,7 @@ Chacune remplace une façon naïve d'écrire qui a déjà cassé quelque chose.
 | saisir un entier borné | `ChampNombre`, `client/src/components/ChampNombre.tsx` | un `<input type="number">` borné à chaque frappe | vidé, le champ valait 0 et le 45 tapé derrière faisait « 2045 » |
 | classer des joueurs | `shared/classement.ts` | un tri maison | cinq règles de départage donnaient trois vainqueurs à un même quiz |
 | comparer deux estimations | `ecartEstimation()`, `shared/classement.ts` | `Math.abs(valeur - cible)` | la virgule flottante séparait 0,7 et 0,9 pour 0,8 |
-| lire une échéance | `serverNow()` (`shared/clock.ts`, `client/src/clock.ts`) | `Date.now()` | l'horloge d'un téléphone dérive : des réponses se perdaient |
+| lire une échéance | `serverNow()`, `client/src/clock.ts` (son écart : `shared/clock.ts`) | `Date.now()` | l'horloge d'un téléphone dérive : des réponses se perdaient |
 | écouter un message d'un client | `ecouter()`, `server/src/sockets.ts` | `socket.on` nu | un message sans charge ou sans accusé faisait tomber le serveur, et les soirées de tous les espaces avec |
 | afficher un prénom | `nomsAffiches()`, `shared/homonymes.ts` | le prénom brut | deux « Camille » au même avatar ne se distinguaient pas — la marque « (2) » ne s'écrit jamais en base |
 | écrire dans le stockage du navigateur | un `try`/`catch` (par exemple `writeSafe`, `client/src/state.ts`) | un accès nu | des cookies bloqués donnaient une page noire |
@@ -65,10 +65,10 @@ Deux règles de lecture complètent le tableau :
 ## Le CSS et la typographie
 
 ### Des jetons, pas des couleurs
-- Le client tient dans `client/src/styles.css`, ses couleurs dans des jetons posés sur `:root, .carte-fond` — le Velours : `--bg`, `--ink`, `--muted`, `--accent`… Une règle lit un jeton, jamais une couleur en dur : Ivoire (`:root[data-theme='ivoire']`) et les thèmes ne redéfinissent que des jetons.
+- Le client tient dans `client/src/styles.css`, ses couleurs dans des jetons posés sur `:root, .carte-fond` — le Velours : `--bg`, `--ink`, `--muted`, `--accent`… Une règle lit un jeton, jamais une couleur en dur : Ivoire (`:root[data-theme='ivoire']`) et les thèmes redéfinissent surtout des jetons.
 - Ce qui s'écrit prend `--accent-text` (`--accent-text-hover` au survol), un aplat `--accent` : écrit sur la crème d'Ivoire, l'or des aplats ne tenait que 3,1:1. Les métaux écrivent en `--bronze-text`, `--argent-text`, `--or-text`.
 - Le focus n'a qu'un anneau, `--focus`, posé une fois pour tout élément (`:where(…):focus-visible`) ; un composant n'en règle que l'`outline-offset`.
-- Les petites boîtes prennent `--radius-xs`, l'or du décor des fonds `--fond-or`. Aucun texte ne descend sous `--t-label` (0,6875 rem, les 11 px de `.label`, en `rem` pour suivre le texte agrandi).
+- Les petites boîtes prennent `--radius-xs`, l'or du décor des fonds `--fond-or`. Aucun texte ne descend sous `--t-label` (0,6875 rem, les 11 px de `.label`, en `rem` pour suivre le texte agrandi) — sauf `.chiffre dt` (10 px) et `.bilan-you` (0,68 rem), que la garde ne relit pas.
 - Une convention s'écrit en dur, et aucun thème ne la repeint : le compteur des gros boutons reste blanc sur rouge (`.gros-compteur`) — `--alert` vire au jaune sous Braises, au violet sous Héros.
 
 ### Une feuille de thème

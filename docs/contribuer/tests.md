@@ -36,7 +36,7 @@ Un seul fichier, ou une seule épreuve, depuis `server/` :
 ```bash
 node scripts/tests.mjs test/miroir.test.ts                                  # les délais de npm test
 node --import tsx --test --test-reporter=spec test/miroir.test.ts           # tous les journaux, sans délai : peut pendre
-node --import tsx --test --test-name-pattern="Turso" test/miroir.test.ts    # les épreuves dont le titre correspond
+node --import tsx --test --test-name-pattern="panne" test/miroir.test.ts    # les épreuves dont le titre correspond
 ```
 
 ### Le test de bout en bout
@@ -162,7 +162,7 @@ Un écran se teste rendu : pose `React` sur `globalThis` avant d'importer le com
 
 ## Les fichiers de test, par thème
 
-Deux cent sept fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ; cent quarante démarrent le banc. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître.
+Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; cent quarante et un démarrent le banc. Chaque ligne résume le commentaire de tête du fichier, qui dit le reste — souvent le bug qui l'a fait naître.
 
 ### L'outillage, la mémoire de Claude, la documentation
 
@@ -284,6 +284,7 @@ Deux cent sept fichiers au 14 octobre 2026, quelque mille cinq cents épreuves ;
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
 - `server/test/qg-jour.test.ts` — le quiz du jour au QG : le tirage question par question, le classement du mois, les séries, le rappel du soir.
+- `server/test/qg-campagne.test.ts` — la campagne au QG : le mélange d'un palier réglé pour les épreuves qui commencent, jamais celles en cours ; les paliers du jour, le défi sans jamais le tirer, les parcours, les vies.
 - `server/test/fiche-joueur.test.ts` — la fiche d'un joueur et ses gestes.
 
 ### Les profils et la collection

@@ -15,7 +15,7 @@ Les questions s'affichent sur ton téléphone, et souvent aussi sur un grand éc
 Trois portes, au choix :
 
 - **Le QR code** de l'écran commun, ou celui que l'animateur montre sur son téléphone : ton appareil photo ouvre la soirée.
-- **Le lien** que l'animateur t'a envoyé : l'adresse de sa soirée, du genre `…/chez-nadia`.
+- **Le lien** que l'animateur t'a envoyé (« Copier le lien », sur sa barre) : l'adresse du serveur suivie du code du salon, du genre `…/482157` — ou, chez un animateur d'avant les salons, l'adresse de son espace, du genre `…/chez-nadia`.
 - **Le code du salon**, six chiffres (« 482 157 ») : sur l'accueil de FiestApp — l'adresse du serveur, sans rien derrière —, touche « Jouer sans compte », tape les chiffres dans « Le code du salon », puis « Rejoindre la soirée ». Avec un profil, c'est le gros bouton « Rejoindre une soirée ».
 
 > [!TIP]
@@ -110,7 +110,7 @@ Le bandeau « Connexion perdue — reconnexion… » paraît, et le téléphone 
 
 Prends un autre téléphone et ouvre la soirée. Tape ton prénom : si ta place est restée sans téléphone, la page le remarque — « Un « Rachid » 🦁 est hors ligne : si c'est toi, demande à l'animateur de te rendre ta place. » — et propose « J'ai un code ».
 
-1. Demande à l'animateur : dans « Qui manque ? », il touche « Rendre sa place » puis « Montrer le code », et te montre un code à six chiffres.
+1. Demande à l'animateur : dans « Qui manque ? » — l'icône des invités, sur sa console —, il touche « Rendre sa place » puis « Montrer le code », et te montre un code à six chiffres.
 2. Touche « J'ai un code » — à l'entrée, en salle d'attente ou entre deux questions —, tape le code dans « Le code de l'animateur », puis « Reprendre ma place ».
 3. « Te revoilà, Rachid 🦁 » : ton prénom, ton avatar, ton équipe et tes points sont revenus.
 

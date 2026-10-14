@@ -125,7 +125,7 @@ Ta barre ne montre rien de la question : tu la lis sur la même page que tes inv
 
 ### Un téléphone mort
 
-1. Ouvre **« Qui manque ? »** : l'icône des invités, à droite de la console, avec un nombre — « Qui n'a pas répondu ? » pendant une question, « Invités hors ligne » sinon. Elle ne paraît que si quelqu'un manque.
+1. Ouvre **l'icône des invités**, à droite de la console, avec un nombre — « Qui n'a pas répondu ? » pendant une question, « Invités hors ligne » sinon. Elle ne paraît que si quelqu'un manque.
 2. Pendant une question, **« Ne plus l'attendre »** : la question ne l'attend plus. S'il revient, il est de nouveau attendu à la question suivante.
 3. **« Rendre sa place »**, puis « Montrer le code » : six chiffres, « À montrer à Rachid, pas à la salle. » — ta console est peut-être projetée. Le code vaut trois minutes, une seule fois.
 4. Sur son nouveau téléphone, sous son prénom, il touche « J'ai un code » — à l'entrée, en salle d'attente ou entre deux questions —, tape le code, puis « Reprendre ma place » : « Te revoilà, Rachid 🦁 ». Ta console lit « Rachid a repris sa place ».
@@ -148,7 +148,7 @@ Personne n'est refusé ni renommé. À l'entrée, les avatars d'un homonyme sont
 
 ### Une coupure de réseau
 
-- **Chez un invité** : « Connexion perdue — reconnexion… », puis son téléphone revient seul et retrouve sa place, son équipe et ses points. Une réponse touchée pendant la coupure part au retour du réseau ; si la question s'est close entre-temps, il lit « Trop tard — la question était finie ». Il reste attendu à chaque question : « Ne plus l'attendre » évite à la salle de patienter jusqu'au bout du chrono.
+- **Chez un invité** : « Connexion perdue — reconnexion… », puis son téléphone revient seul et retrouve sa place, son équipe et ses points. Une réponse touchée pendant la coupure part au retour du réseau ; si la question s'est close entre-temps, il lit « Trop tard ! Ta réponse est arrivée après la fin. ». Il reste attendu à chaque question : « Ne plus l'attendre » évite à la salle de patienter jusqu'au bout du chrono.
 - **Chez toi** : « reconnexion… » dans la bande de l'écran ; le quiz, lui, continue au serveur. Un geste de la console sans réponse en trois secondes est renvoyé une fois, sans risque de jouer deux fois ; ceux de la barre du chef ne se renvoient pas : retouche si rien ne bouge.
 
 ### Un serveur qui redémarre

@@ -7,7 +7,7 @@
 - **Node.js 20 ou plus** (`engines`, `package.json`) ; la CI tourne en Node 22. npm et git.
 - `npm install` à la racine installe les deux espaces de travail npm, `client` et `server`. `shared/` n'est pas un paquet : les deux `tsconfig.json` l'incluent.
 - Très peu de dépendances, et c'est voulu : n'en ajoute pas sans raison forte ([les conventions](conventions.md)).
-- Pour les scripts qui photographient l'application, la tablée et `npm run mesure` seulement : Playwright et son Chromium, installés globalement (`npm install -g playwright`). Ce n'est pas une dépendance du dépôt.
+- Pour les scripts qui photographient l'application, la chaîne des images peintes, la tablée et `npm run mesure` seulement : Playwright et son Chromium, installés globalement (`npm install -g playwright`). Ce n'est pas une dépendance du dépôt.
 
 > [!WARNING]
 > `package-lock.json` bouge tout seul selon la version de npm. Ne le committe pas si ce n'est pas le sujet.
@@ -18,7 +18,7 @@
 npm run dev
 ```
 
-Le serveur (`tsx watch`, port 3001, relancé à chaque retouche de son code) et Vite (port 5173, qui recharge la page) démarrent ensemble. Vite relaie vers le port 3001 le temps réel (`/socket.io`), `/api`, `/media` et `/s/` (`client/vite.config.ts`) : le serveur doit rester sur 3001. Les deux bases vivent dans `server/data/`, que git ignore — `quizz.db`, la locale, jetable, et `quizzes.db`, qui tient le rôle de la base permanente (Turso, en ligne). Au premier démarrage, le serveur y crée le compte de l'administrateur, `antoine` / `demo`, son espace `demo`, et deux quiz dans sa bibliothèque.
+Le serveur (`tsx watch`, port 3001, relancé à chaque retouche de son code) et Vite (port 5173, qui recharge la page) démarrent ensemble. Vite relaie vers le port 3001 le temps réel (`/socket.io`), `/api`, `/media`, `/s/` et les adresses d'avant les espaces (`client/vite.config.ts`) : le serveur doit rester sur 3001. Les deux bases vivent dans `server/data/`, que git ignore — `quizz.db`, la locale, jetable, et `quizzes.db`, qui tient le rôle de la base permanente (Turso, en ligne). Au premier démarrage, le serveur y crée le compte de l'administrateur, `antoine` / `demo`, son espace `demo`, et deux quiz dans sa bibliothèque.
 
 | Adresse | Ce qu'on y trouve |
 |---|---|

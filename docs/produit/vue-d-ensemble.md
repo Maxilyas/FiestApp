@@ -24,7 +24,7 @@ Les questions des soirées viennent de la bibliothèque de l'animateur — écri
 
 ## Les gens
 
-**L'invité.** Il arrive par le QR de l'écran commun ou par le code du salon, et l'entrée lui propose trois gros boutons : « Jouer sans compte » d'abord, puis « Me connecter » et « Créer un profil ». Sans compte, un prénom et un avatar suffisent ; son téléphone retient sa place, et il la retrouve après une coupure. Rien de lui ne s'affiche hors de la soirée : un invité anonyme n'a ni niveau ni pastille, pas même un « niveau 0 ». Voir [Jouer](../guides/jouer.md).
+**L'invité.** Il arrive par le QR de l'écran commun ou par le code du salon, et l'entrée lui propose trois gros boutons : « Jouer sans compte » d'abord, puis « Me connecter » et « Créer un profil ». Sans compte, un prénom et un avatar suffisent ; son téléphone retient sa place, et il la retrouve après une coupure. Rien ne le marque : un invité anonyme n'a ni niveau ni pastille, pas même un « niveau 0 ». Voir [Jouer](../guides/jouer.md).
 
 **Le joueur à profil.** Un prénom, un mot de passe, un code de secours pour le jour où il l'oublie — ni adresse e-mail, ni téléphone. Il ne rechoisit jamais son prénom ni son avatar en entrant dans une soirée, garde son expérience, ses prix et sa collection, joue aux modes solo, et s'habille dans sa loge. Voir [Le profil](le-profil.md) et [Les récompenses](les-recompenses.md).
 

@@ -11,7 +11,7 @@ Le contrat tient dans `shared/events.ts` : `ClientToServerEvents` (27 messages) 
 - **Tout message d'un client passe par `ecouter()`** (`server/src/sockets.ts`, invariant 7). La charge devient toujours un objet — absente, `null` ou un tableau, elle vaut `{}` —, chaque champ se relit à son type (un texte attendu qui n'en est pas un vaut « absent »), l'accusé est toujours une fonction (vide si le client n'en a pas donné), et une exception, synchrone ou dans la promesse du gestionnaire, part au journal (`[socket] « … » a échoué`) et au relevé des erreurs (`server/src/core/pouls.ts`). Quand le message a un accusé, le client reçoit alors la **réponse de panne** que donne sa fiche.
 - **Les salles.** `space:<espace>` réunit toute connexion rattachée à un espace — qui suit, qui joue, les écrans ; `hosts:<espace>` les écrans d'animateur (console, télécommande, télé branchée, liaison du chef) ; `player:<invité>` les connexions qui incarnent un invité. `<espace>` est l'identifiant du compte. Le serveur n'émet jamais à tout le monde : les espaces ne se voient pas.
 - **Une connexion ne suit qu'un espace**, fixé par le premier message qui en nomme un (`bindSpace`). Un autre espace ensuite : « Cette connexion suit déjà une autre soirée ».
-- **Qui peut émettre.** « Tout le monde » : n'importe quelle connexion, même anonyme. « L'invité » : une connexion qui incarne une fiche — par `player:join`, `player:reprendre` ou une réponse qui porte son jeton —, une seule à la fois. « Un écran d'animateur » : une connexion dont le cookie de session `qz_session`, porté par la poignée de main, désigne une session ouverte ; chaque message `host:*` relit cette session (`requireHost`). Venu d'un téléphone, d'une connexion anonyme ou de l'écran d'un autre espace, un `host:*` ne fait rien et ne répond rien ; une connexion qui était un écran et dont la session s'est éteinte est coupée. `server/test/garde-fous.test.ts` tient la liste de tous les `host:*`, que le typecheck impose complète.
+- **Qui peut émettre.** « Tout le monde » : n'importe quelle connexion, même anonyme. « L'invité » : une connexion qui incarne une fiche — par `player:join`, `player:reprendre` ou une réponse qui porte son jeton —, une seule à la fois. « Un écran d'animateur » : une connexion dont le cookie de session `qz_session`, porté par la poignée de main, désigne une session ouverte ; chaque message `host:*` relit cette session (`requireHost`). Venu d'un téléphone, d'une connexion anonyme ou de l'écran d'un autre espace, un `host:*` ne fait rien et ne répond rien — sauf le refus qu'attendent les accusés de `host:command` et de `host:rendrePlace` ; une connexion qui était un écran et dont la session s'est éteinte est coupée. `server/test/garde-fous.test.ts` tient la liste de tous les `host:*`, `host:hello` mis à part, que le typecheck impose complète.
 - **Les messages du serveur** n'ont ni accusé ni refus : ils partent à une salle, ou à une seule connexion.
 - **Côté client**, la page d'un invité et l'écran commun ont chacun une liaison, `client/src/socket.ts` ; le chef d'un salon en ouvre une seconde, celle de l'animateur (`client/src/socketDuChef.ts`). Les délais d'accusé, les sondes et les renvois du client sont dans [Le temps réel](../architecture/temps-reel.md).
 
@@ -21,7 +21,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `time:sync`
 
-- **Qui l'émet** : tout le monde, sans identité ni espace. Chaque liaison à sa connexion, trois fois (`syncClock`, `client/src/socket.ts`) ; la sonde de liaison (`verifierLiaison`), au retour au premier plan, au retour du réseau, ou quand un accusé tarde.
+- **Qui l'émet** : tout le monde, sans identité ni espace. La liaison de `client/src/socket.ts` à chaque connexion, trois fois (`syncClock`) — celle du chef, jamais ; la sonde de liaison (`verifierLiaison`), au retour au premier plan, au retour du réseau, ou quand un accusé tarde.
 - **Charge** : `{}`.
 - **Accusé** : `{ serverNow }`, l'heure du serveur en millisecondes.
 - **Effet** : aucun au serveur. Le client en tire l'écart de son horloge (`applySample`, `client/src/clock.ts`) ; la sonde ne regarde que si la réponse arrive dans les deux secondes.
@@ -74,7 +74,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
   | `no-party` | la connexion ne suit aucun espace, et la réponse n'en nomme pas | « Ta réponse n'est pas partie — reconnexion en cours, réessaie » |
   | `unknown-player` | ni identité ni jeton reconnu | « Ta réponse n'est pas partie — reconnexion en cours, réessaie » |
   | `ended` | `sessionId` n'est pas la partie en cours — celle d'un autre espace comprise | « Ce quiz est terminé » |
-  | `not-participant` | l'invité n'est pas de la partie | « Tu n'es pas dans cette partie — tu joues à la prochaine question » |
+  | `not-participant` | l'invité n'est pas de la partie, ou n'y joue qu'à partir de la question suivante (arrivé quand celle-ci était close) | « Tu n'es pas dans cette partie — tu joues à la prochaine question » |
   | `too-late` | la question n'est plus ouverte, ou la réponse vise une autre question ou un autre tour | « Trop tard — la question était finie » |
   | `paused` | le chronomètre est figé | « Le quiz est en pause — regarde l'écran commun » |
   | `invalid` | ni un choix valable, ni un nombre | « Réponse non comprise — réessaie » |
@@ -192,7 +192,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `host:rendrePlace`
 
-- **Qui l'émet** : un écran d'animateur — « Rendre sa place » ou « Un autre code », dans « Qui manque ? » (`rendrePlace`, `client/src/components/Absents.tsx`).
+- **Qui l'émet** : un écran d'animateur — « Rendre sa place » ou « Un autre code », dans le panneau des absents — « Qui n'a pas répondu ? » pendant une question, « Invités hors ligne » sinon (`rendrePlace`, `client/src/components/Absents.tsx`).
 - **Charge** : `{ playerId }`.
 - **Accusé** (`PlaceRendue`) : `{ ok: true, code, expiresAt }` — six chiffres, et leur échéance à l'heure du serveur — ou `{ ok: false, error }`. Panne : `{ ok: false, error: 'Erreur serveur — réessaie' }`.
 - **Effet** : un code à usage unique pour cette fiche, valable trois minutes (`VIE_DU_CODE_MS`, `server/src/core/places.ts`), en mémoire seulement. Il remplace le code précédent de la même fiche, et rend leurs essais à l'espace comme à chaque connexion. L'invité le tape sur son nouveau téléphone (`player:reprendre`).
