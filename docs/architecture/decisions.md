@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 129 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 132 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -447,11 +447,20 @@ Le détail : [la sécurité](../architecture/securite.md).
 ### Des soirées des autres, le QG ne voit que des chiffres
 **Contexte** : l'administrateur doit voir ce qui se joue sur son serveur ; les quiz, les questions, les prénoms des invités et les titres des soirées appartiennent à leurs animateurs.
 
-**Décision** : le direct et le bilan des soirées ne portent que des chiffres (`SoireeDuQg`) — le salon, où en est la soirée, combien d'invités, depuis quand —, et un seul geste sur la soirée d'un autre : clore celle laissée en plan depuis six heures, par le même chemin que l'écran commun (`cloreLaSoiree`).
+**Décision** : le direct et le bilan des soirées ne portent que des chiffres (`SoireeDuQg`, `SoireeRangeeDuQg`) — le salon, où en est la soirée, combien d'invités, depuis quand —, et un seul geste sur la soirée d'un autre : clore celle laissée en plan depuis six heures, par le même chemin que l'écran commun (`cloreLaSoiree`).
 
 **Conséquence** : un champ de plus dans ces réponses ne porte jamais de contenu — `server/test/qg.test.ts` et `server/test/qg-soirees.test.ts` relisent les réponses entières.
 
 *Fichiers : `server/src/qg.ts`, `shared/qg.ts`*
+
+### Au QG, un duel classé s'annule tant que l'adversaire ne l'a pas commencé
+**Contexte** : la page des duels du QG (`/admin#duels`, choisie sur maquettes le 13 octobre 2026) montre, à côté des duels par jour, des ligues et du classement, les duels classés partis que l'adversaire n'a pas commencés, les plus près d'expirer d'abord : sans réponse, un duel attend sa fermeture, sept jours après son lancement. Le propriétaire y a choisi « Annuler un duel pas joué ».
+
+**Décision** : « Annuler », sur chacun d'eux (`POST /api/admin/duels/:code/annuler`, `CampagneStore.annulerUnDuel`), le ferme tout de suite, comme à son expiration : il ne compte pour personne, et l'adversaire ne peut plus le relever. Le geste passe sous le verrou de l'adversaire, qui ne peut pas le commencer entre la vérification et la fermeture ; commencé de son côté, le duel compte déjà et ne s'annule plus. Ni rouvrir un duel, ni en défaire un joué : la cote se relit des duels joués, et l'administrateur n'en choisit aucun.
+
+**Conséquence** : annuler, c'est poser `ferme_le` à l'instant, rien d'autre — la ligne reste, fermée comme à son expiration, et un duel fermé que l'adversaire n'a jamais commencé ne compte pour personne (`lectureDesDuels`) ; le geste se note au journal du QG sous le profil qui l'avait lancé (« Duel classé annulé avant d'être joué : … »).
+
+*Fichiers : `server/src/core/campagne.ts`, `server/src/campagne.ts`, `client/src/components/AdminDuels.tsx`, `server/test/qg-duels.test.ts`*
 
 ### Le QG ne touche aux règles que par le mélange d'un palier
 **Contexte** : le QG agit sur le contenu, sur les joueurs et sur l'animation du serveur. Mais l'administrateur voyait sur les vraies épreuves des paliers trop durs, et chaque retouche de `PALIERS` attendait une mise en ligne (« Est-ce que ça serait possible de régler la difficulté des paliers en fonction de ce que je vois ? », le 13 octobre 2026).
@@ -461,6 +470,15 @@ Le détail : [la sécurité](../architecture/securite.md).
 **Conséquence** : seules les épreuves qui commencent tirent un mélange réglé — une épreuve en cours garde ses questions, un palier validé ne se reprend jamais —, et les joueurs lisent la difficulté d'un palier sur son mélange réglé. Un réglage vit dans `sentier_melanges`, lu au démarrage puis tenu en mémoire ; chacun se note au journal, et « Revenir au mélange d'origine » efface sa ligne.
 
 *Fichiers : `shared/sentiers.ts`, `server/src/core/campagne.ts`, `client/src/components/AdminCampagne.tsx`*
+
+### L'économie se lit au QG, elle ne s'y règle pas
+**Contexte** : après les pages des modes, le plan du QG prévoyait celle de l'économie ; mais les confettis ne s'écrivent nulle part — un solde se relit à chaque lecture —, et les étoiles des sentiers comme les ligues des duels ne laissent aucune ligne.
+
+**Décision** : une page à lire, sans un geste (`/admin#economie`, `GET /api/admin/economie`), choisie sur maquettes le 13 octobre 2026 : les confettis gagnés et dépensés, jour par jour, d'où ils viennent (`SOURCES_DE_CONFETTIS` — les dons de l'administrateur y sont une source, « Tes dons ») et où ils partent (`DEPENSES_DE_CONFETTIS`), ce qui circule, les meilleures ventes, les Éclats tombés et les légendaires portés. Chaque source se relit à ses règles — les étoiles datées à l'épreuve qui atteint la note, les ligues au lundi qui paie la semaine. Les prix, les seuils et les barèmes restent dans le code : un choix de produit, dit au propriétaire, jamais un réglage du QG.
+
+**Conséquence** : rien ne s'écrit pour la page ; tous les soldes se relisent une fois par jour, et la page dit l'heure de la lecture ; leur somme vaut celle des soldes des fiches, au confetti près (`qg-economie.test.ts`) — une source ou une dépense de confettis de plus s'y ajoute donc aussi (`economieDepuis`, `partsDesSoldes`). Les légendaires portés ne comptent ni les Divins — le QG n'en dit rien, pas même un compte —, ni les portraits, ni les compagnons.
+
+*Fichiers : `shared/qgEconomie.ts`, `server/src/economie.ts`, `client/src/components/QgEconomie.tsx`, `server/test/qg-economie.test.ts`*
 
 ### Une panne ne se raconte qu'au journal
 **Contexte** : une erreur de base ou de code lue à l'écran parle de tables et de chemins du serveur — rien qui aide un invité, tout ce qui renseigne un curieux.
@@ -552,7 +570,7 @@ Le détail : [le client](../architecture/client.md).
 Le détail : [les récompenses](../produit/les-recompenses.md).
 
 ### L'expérience se mérite, et ne redescend pas en cours de soirée
-**Contexte** : cinquante points pour une question jouée faisaient presque la moitié d'une soirée ; sous des seuils de joueurs, les petites tablées de trois à six ne gagnaient rien ; et recalculée d'un quiz à l'autre, l'expérience redescendait en silence.
+**Contexte** : cinquante points pour une question jouée faisaient presque la moitié d'une soirée ; sous des seuils de trois ou quatre joueurs, les petites tablées ne gagnaient rien ; et recalculée d'un quiz à l'autre, l'expérience redescendait en silence.
 
 **Décision** : rien pour la présence, rien seul — tout se gagne dès deux joueurs, et ce sont des seuils de questions (cinq pour le podium d'un quiz, quinze pour celui de la soirée) et un podium à une marche de moins que la salle qui ferment les parties fabriquées ; ce qu'un quiz rapporte se crédite à son verdict et ne bouge plus, et le podium de la soirée, l'assiduité et les trophées — hauts faits, prix, étapes des pistes, ces dernières en dernier — ne se décident qu'à la clôture, en un lot ; la ligne `(profil, soirée)` est remplacée, jamais ajoutée.
 
@@ -590,7 +608,7 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 ### La rareté se mesure, elle ne se décrète pas
 **Contexte** : l'expérience disait mal la rareté — L'Oracle paie 50, et trois joueurs sur quatre l'ont —, et la rareté de l'étagère se tait sous dix profils.
 
-**Décision** : la carte range ses trois plus beaux sur `PART_DES_JOUEURS`, la part mesurée par `calibrage.ts` en moyenne de trois formats — à deux quiz par soirée, le Triplé est impossible —, estimée pour le quiz du jour et la campagne ; l'étagère dit la part des profils actifs (`rareteDe`), qui bouge avec la population.
+**Décision** : la carte range ses trois plus beaux sur `PART_DES_JOUEURS`, la part mesurée par `calibrage.ts` en moyenne de trois formats — à deux quiz par soirée, le Triplé est impossible —, estimée pour le quiz du jour et la campagne ; l'étagère dit la part des profils non suspendus (`rareteDe`), qui bouge avec la population.
 
 **Conséquence** : un haut fait de plus prend sa part dans `PART_DES_JOUEURS`, sinon il ne paraît jamais sur une carte (`hautsfaits.test.ts` la réclame).
 
@@ -599,7 +617,7 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 ### L'Éclat : la même chance pour tous, une fois par soirée
 **Contexte** : il fallait une récompense où le premier et le dernier de la salle soient à égalité ; tiré à chaque crédit, chaque quiz aurait donné une chance de plus ; et sous un légendaire, il tombait sur l'emoji caché que personne ne voyait.
 
-**Décision** : un tirage par soirée qui compte (1/40), par partie du jour finie (1/40), par tentative du défi de la semaine (1/20) — le calendrier y tient lieu de garde-fou, d'où ni séries, ni sentiers, ni duels — sur ce qu'on porte, l'emoji sous un Divin.
+**Décision** : un tirage par soirée qui compte (1/40), par partie du jour finie (1/40), par tentative finie du défi de la semaine (1/20) — le calendrier y tient lieu de garde-fou, d'où ni séries, ni sentiers, ni duels — sur ce qu'on porte, l'emoji sous un Divin.
 
 **Conséquence** : un Éclat est définitif et ne part qu'avec sa soirée ; un test qui compte l'expérience au point près neutralise `ProfileStore.tirageEclat`.
 
@@ -617,7 +635,7 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 ### Les trophées se rangent par mode, et se disent avec les mêmes mots
 **Contexte** : « très confus, les trophées que les gens gagnent » — dix lignes les rangeaient selon la logique du code (« Paliers des soirées », « Paliers de toujours »…), un même exploit tombait sous deux noms (Le Laurier et le palier du Champion du jour, aux mêmes seuils), et chaque fin de partie montrait ses gains à sa façon.
 
-**Décision** : un album par mode dans « Ma collection » — pistes en bronze, argent, or, chaque étape disant ce qu'elle ouvre (`shared/pistes.ts`), puis exploits, coups du sort, palmarès, ligues, maîtres, écussons (`shared/trophees.ts`) ; un seul écran des gains à la fin de chaque mode (`shared/gains.ts`) ; et des mots fixés : un trophée, tout ce qui se gagne par un exploit ; bronze, argent, or, les étapes d'une piste ; des étoiles, la note d'une partie ; un palier, l'étape d'un sentier. Aucun barème ne change.
+**Décision** : un album dans « Ma collection », une page par mode — pistes en bronze, argent, or, chaque étape disant ce qu'elle ouvre (`shared/pistes.ts`), puis exploits, coups du sort, palmarès, ligues, maîtres, écussons (`shared/trophees.ts`) ; un seul écran des gains à la fin de chaque mode (`shared/gains.ts`) ; et des mots fixés : un trophée, tout ce qui se gagne par un exploit ; bronze, argent, or, les étapes d'une piste ; des étoiles, la note d'une partie ; un palier, l'étape d'un sentier. Aucun barème ne change.
 
 **Conséquence** : une « médaille » ou un « badge » de plus rendrait l'écran confus que ce lexique a remplacé ; Le Laurier se compte dans la piste du Champion du jour (`ABSORBES`) ; le code garde ses anciens noms (`HAUTS_FAITS_DE_CARRIERE`, `clePalier`, `XP_PALIER`).
 
@@ -666,7 +684,7 @@ Le détail : [le profil](../produit/le-profil.md).
 ### La carte : une règle, trois portes
 **Contexte** : la carte ne s'ouvrait qu'en soirée, sur un nom ; chacun composait sa tenue sans jamais la voir, et la carte d'un autre, hors soirée, était réduite à deux gestes.
 
-**Décision** : `carteDuProfil` calcule la moitié profil pour la carte d'un invité, la sienne et celle de tout profil non masqué ; la vitrine n'a qu'une règle, `vitrineDeLaCarte` ; la vitrine d'office ne montre jamais un coup du sort — la carte se montre à la salle, et elle rangeait six fois L'Éclair.
+**Décision** : `carteDuProfil` calcule la moitié profil pour la carte d'un invité, la sienne et celle de tout profil non masqué ; la vitrine n'a qu'une règle, `vitrineDeLaCarte` ; la vitrine d'office ne montre jamais un coup du sort ni un prix du palmarès — la carte se montre à la salle, et elle rangeait six fois L'Éclair.
 
 **Conséquence** : un champ de plus sur la carte s'ajoute là, pas dans une route ; aucune porte ne rend d'identifiant de connexion.
 
@@ -680,6 +698,15 @@ Le détail : [le profil](../produit/le-profil.md).
 **Conséquence** : un avatar ajouté au catalogue entre de lui-même dans l'album et dans les comptes de « Ma collection », que les tests fixent.
 
 *Fichiers : `shared/album.ts`, `shared/collection.ts`, `client/src/components/AlbumDesAvatars.tsx`*
+
+### La loge se range comme la collection, et ne montre que ce qu'on a
+**Contexte** : la loge rangeait les avatars en quatre familles — légendaires, portraits, compagnons, emojis — quand l'album les rangeait par rareté, et l'on ne se retrouvait pas d'un écran à l'autre ; au bout de ses rangées, des cadenas, des finitions et des bordures éteintes montraient ce qu'on n'avait pas — les éteintes se prenaient pour des siennes —, et le propriétaire ne voulait plus y voir que ce qu'on a. Dans « Ma collection », trois listes cochées disaient ce qui manquait du style sans dire où l'on en était, et les bordures, qu'on porte dans la loge, n'y avaient pas de ligne : il voulait un ensemble « homogène, cohérent et design » (le 13 octobre 2026).
+
+**Décision** : « M'habiller » range les avatars comme l'album, en gemmes — les offerts à tous d'abord, puis chaque rareté où l'on a quelque chose, ouverte sur celle de ce qu'on porte (`pagesDeLaLoge`, `pageDuPorte`) ; chaque pièce n'y montre que ce qu'on a, et le reste se compte vers sa ligne de « Ma collection » : « +N à gagner » au bout des finitions et des bordures, « N à gagner : où ? » sous les avatars, les titres, les fonds, les gerbes et les thèmes (`AGagner`). Dans la collection, les fonds, les gerbes, les finitions et les bordures de ligue ont chacun leur petit album, fait comme celui des trophées (`objetsDuStyle`) : en couleur ce qu'on a, éteint le reste, et la fiche de chacun dit comment l'avoir et où l'on en est — avec, s'il est à soi, « Essayer », qui ouvre la loge avec lui sur la carte.
+
+**Conséquence** : on choisit dans la loge et l'on découvre dans la collection, un toucher plus loin ; une adresse d'essai n'essaie rien qu'on n'ait (`essaiDemande`) ; un avatar ou un objet ajouté au catalogue prend de lui-même sa gemme, sa case et ses comptes, des dérivations pures de ce que la page reçoit déjà. Sous les Divins, rien ne se compte : ils ne disent pas comment.
+
+*Fichiers : `client/src/components/Apparence.tsx`, `client/src/components/LigneDeCollection.tsx`, `shared/style.ts`, `client/src/components/AlbumDuStyle.tsx`*
 
 ### Les dessins viennent à la demande, sorte par sorte
 **Contexte** : importés par le composant de l'avatar, les dessins partaient chez chaque téléphone qui scannait le QR, même si personne n'en portait.
@@ -858,7 +885,7 @@ Le détail : [le quiz du jour](../produit/le-quiz-du-jour.md).
 ### Rien ne tourne à minuit
 **Contexte** : l'hébergeur gratuit endort le serveur la nuit ; un minuteur de minuit ne partirait pas.
 
-**Décision** : le tirage d'un jour se fait à sa première demande, et la nuit — la veille close, son podium payé, ses hauts faits décernés, le laurier passé, puis les mois finis — à la première demande du lendemain, chacun sous son verrou (`#tirage`, `#nuit`), une fois.
+**Décision** : le tirage d'un jour se fait à sa première demande, et la nuit — la veille close, son podium payé, ses hauts faits décernés, les mois finis, puis le laurier passé — à la première demande du lendemain, chacun sous son verrou (`#tirage`, `#nuit`), une fois.
 
 **Conséquence** : un jour sans visite n'a pas de tirage ; tout chemin qui lit le jour (sa page, l'accueil, le profil léger, le classement, la correction, les lauriers d'une soirée) déclenche `clorePasses` ; seul le rappel du soir a un minuteur.
 
@@ -878,12 +905,12 @@ Le détail : [le quiz du jour](../produit/le-quiz-du-jour.md).
 
 **Décision** : ces questions ne sortent qu'un jour où la réserve n'a plus rien d'autre à poser, pas même ses anciennes — l'arbitrage du 27 septembre 2026.
 
-**Conséquence** : tant que la routine nourrit la réserve, elles dorment ; elles sauvent seulement un jour à sec, et le journal du serveur le dit (`[jour] réserve à sec`).
+**Conséquence** : tant que la routine nourrit la réserve, elles dorment ; elles sauvent seulement un jour à sec, et le journal du serveur dit le jour qu'elles ne suffisent pas à remplir (`[jour] réserve à sec`).
 
 *Fichiers : `server/src/core/jour.ts`*
 
 ### Une partie fige son expérience
-**Contexte** : l'expérience d'une partie était de 75 au plus ; qui ne faisait que le quiz du jour gagnait une quarantaine de points par jour — au niveau 10, vingt-cinq parties pour un seul niveau. Le propriétaire l'a voulue « bien plus généreuse » le 6 octobre 2026.
+**Contexte** : l'expérience d'une partie était de 75 au plus ; qui ne faisait que le quiz du jour gagnait une quarantaine de points par jour — au niveau 10, vingt-cinq parties pour un seul niveau. Le propriétaire a voulu le barème « bien plus généreux » le 6 octobre 2026.
 
 **Décision** : chaque partie écrit son expérience (`jour_parties.xp`, `xp_serie`) et chaque podium la sienne (`jour_podiums.xp`) ; le nouveau barème s'est appliqué au passé une seule fois, au démarrage qui l'apportait, sous un drapeau (`bareme-du-solo-2026-10-06`).
 
