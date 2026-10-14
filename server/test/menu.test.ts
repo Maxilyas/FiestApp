@@ -125,7 +125,7 @@ test('chaque pièce a sa couleur, que la barre du menu pose sur la page', () => 
   assert.match(css, /\.menu-barre a\[aria-current='page'\] \{ color: var\(--zone, var\(--accent-text\)\); font-weight: 600; \}/)
 })
 
-test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’expérience qui manque, les confettis au bout', async () => {
+test('soi-même en tête : une ligne qui ouvre sa carte, à l’accueil comme au profil — l’expérience qui manque, les confettis au bout', async () => {
   const profil = {
     id: 'p',
     login: 'lea',
@@ -147,16 +147,26 @@ test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’
   assert.match(carte, /60 XP → niv\. 4/)
   assert.match(carte, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
   assert.match(carte, /Ma carte/)
-  const ligne = await rendu('components/Identite', 'IdentiteLigne', { profil })
-  assert.match(ligne, /<a class="identite-ligne" href="\/profil"/)
-  assert.doesNotMatch(ligne, /Ma carte/, 'la ligne de l’accueil mène au profil, sans carte')
-  assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} \/>/)
-  // Au profil, la même ligne ouvre sa carte, comme la salle l'ouvre en touchant son nom — l'œil au bout le dit.
+  // Au profil, sa ligne ouvre sa carte, comme la salle l'ouvre en touchant son nom — l'œil au bout le dit.
   const auProfil = await rendu('components/Identite', 'IdentiteLigne', { profil, onCarte: () => {} })
   assert.match(auProfil, /^<button type="button" class="identite-ligne" aria-label="Léa : voir ma carte comme la salle la voit">/)
   assert.match(auProfil, /60 XP → niv\. 4/)
   assert.match(auProfil, /<span class="identite-oeil" aria-hidden="true"><svg[^>]*>.*<\/svg><\/span><\/button>$/)
-  assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>/)
+  const app = source('views/ProfilApp.tsx')
+  assert.match(app, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>/)
+  // À l'accueil aussi (le souhait du propriétaire du 14 octobre 2026) : elle menait au profil, que le menu
+  // ouvre déjà. Sans l'œil : « Amis » tient le bout de la ligne, et deux ronds s'y seraient côtoyés.
+  const aLAccueil = await rendu('components/Identite', 'IdentiteLigne', { profil, onCarte: () => {}, sansOeil: true })
+  assert.match(aLAccueil, /^<button type="button" class="identite-ligne" aria-label="Léa : voir ma carte comme la salle la voit">/)
+  assert.match(aLAccueil, /60 XP → niv\. 4/)
+  assert.doesNotMatch(aLAccueil, /identite-oeil/)
+  const accueil = app.slice(app.indexOf("if (VUE === 'accueil') {"), app.indexOf("// Hors de l'accueil"))
+  assert.match(accueil, /<IdentiteLigne profil=\{profil\} onCarte=\{ouvrirLaCarte\} sansOeil \/>/)
+  assert.match(accueil, /\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
+  assert.doesNotMatch(source('components/Identite.tsx'), /href="\/profil"/, 'plus aucune ligne ne mène au profil : le menu y mène')
+  // Son code vient en fond, l'accueil montré, comme la feuille des amis : les écrans du profil ne l'apportent pas.
+  const precharger = app.slice(app.indexOf('const precharger = () => {'), app.indexOf('const attente = window'))
+  assert.match(precharger, /void carteJoueur\.charger\(\)\.catch\(\(\) => \{\}\)/)
 })
 
 test('le Compte en lignes : chacune dit son état et ouvre sa feuille, l’administration à part', () => {
