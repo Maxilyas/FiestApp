@@ -269,7 +269,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar, jamais écrit en base | `nomsAffiches` (`shared/homonymes.ts`), `nomAffiche` |
 | Masquer (un profil) | Retirer un profil des classements et des récompenses de la nuit du quiz du jour, sans qu'il en soit averti ; il se voit toujours | `jour_masques` |
-| Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes | `Melange` |
+| Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes : celle du code, ou celle que l'administrateur règle au QG pour les douze sentiers | `Melange`, `PALIERS`, `sentier_melanges` |
 | Même fait | Deux intitulés différents qui posent le même fait. Ils sont refusés comme un doublon | `memeFait` |
 | Mémoire des quiz | Ce que l'historique sait de chaque quiz et de chaque question — joué combien de fois, trouvée par combien —, dérivé des fiches des soirées | `server/src/core/memoire.ts` |
 | Ménage | L'effacement des pièces que plus aucun quiz ne cite, une heure après, jamais celles d'une partie, d'une soirée archivée ou d'un partage vivant | `pruneImages` |

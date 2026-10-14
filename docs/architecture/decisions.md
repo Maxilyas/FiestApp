@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 128 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 129 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -452,6 +452,15 @@ Le détail : [la sécurité](../architecture/securite.md).
 **Conséquence** : un champ de plus dans ces réponses ne porte jamais de contenu — `server/test/qg.test.ts` et `server/test/qg-soirees.test.ts` relisent les réponses entières.
 
 *Fichiers : `server/src/qg.ts`, `shared/qg.ts`*
+
+### Le QG ne touche aux règles que par le mélange d'un palier
+**Contexte** : le QG agit sur le contenu, sur les joueurs et sur l'animation du serveur. Mais l'administrateur voyait sur les vraies épreuves des paliers trop durs, et chaque retouche de `PALIERS` attendait une mise en ligne (« Est-ce que ça serait possible de régler la difficulté des paliers en fonction de ce que je vois ? », le 13 octobre 2026).
+
+**Décision** : les barèmes restent dans le code, à une exception près : le mélange de chaque palier des sentiers, réglé au QG pour les douze sentiers ensemble — seize questions, jamais d'experte —, avec la chance d'un essai estimée sur ce que les joueurs de ce palier trouvent vraiment. Ni le seuil, qui reste dix partout, ni l'expérience, ni un prix.
+
+**Conséquence** : seules les épreuves qui commencent tirent un mélange réglé — une épreuve en cours garde ses questions, un palier validé ne se reprend jamais —, et les joueurs lisent la difficulté d'un palier sur son mélange réglé. Un réglage vit dans `sentier_melanges`, lu au démarrage puis tenu en mémoire ; chacun se note au journal, et « Revenir au mélange d'origine » efface sa ligne.
+
+*Fichiers : `shared/sentiers.ts`, `server/src/core/campagne.ts`, `client/src/components/AdminCampagne.tsx`*
 
 ### Une panne ne se raconte qu'au journal
 **Contexte** : une erreur de base ou de code lue à l'écran parle de tables et de chemins du serveur — rien qui aide un invité, tout ce qui renseigne un curieux.

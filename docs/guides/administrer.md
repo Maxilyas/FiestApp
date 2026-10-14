@@ -5,7 +5,7 @@
 **Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
-> Le QG grandit : chaque mode de jeu y reçoit sa page, l'une après l'autre — le quiz du jour d'abord ; la campagne, les duels et l'économie suivront. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
+> Le QG grandit : chaque mode de jeu y reçoit sa page, l'une après l'autre — le quiz du jour, puis la campagne ; les duels et l'économie suivront. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
 
 ## Entrer au QG
 
@@ -23,7 +23,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Le serveur | `/admin#serveur` | sept jours de santé, heure par heure |
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
-| La campagne | `/admin#campagne` | les sentiers, la base, la routine du matin, les signalements |
+| La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin, les signalements |
 | Les profils | `/admin#profils` | chaque joueur, et sa fiche |
 | Les salons | `/admin#salons` | chaque espace du serveur |
 | Le catalogue | `/admin#catalogue` | les copies de quiz proposées à tous |
@@ -148,7 +148,12 @@ Les règles du mode vivent dans [Le quiz du jour](../produit/le-quiz-du-jour.md)
 
 Les règles vivent dans [La campagne](../produit/la-campagne.md) et [Les sentiers du savoir](../produit/les-sentiers-du-savoir.md).
 
-- **Les sentiers** : les sept derniers jours (joueurs, épreuves, paliers validés, vies perdues et achetées), puis, sur trois mois, chaque palier de tous les sentiers ou d'un seul — la chance d'un essai au seuil du jour, qui l'a validé (du premier coup ou non), qui y reste bloqué et ses échecs, les abandons, les rejeux à part ; les bonnes réponses par marche (faciles, moyennes, difficiles, expertes) à côté de ce que le calibrage suppose ; un palier plus facile que celui d'avant se signale (« plus facile que P3 ») ; enfin « Les plus bloqués ». Les seuils et les mélanges se règlent dans le code, sur ces chiffres.
+- **Aujourd'hui** : les joueurs (dont ceux des sentiers) et les parties (séries et épreuves), comparés à la même heure des sept jours d'avant ; les paliers validés, et ceux du premier coup ; les joueurs du défi de la semaine.
+- **Ce qu'on joue** : les parties commencées chaque jour, sur trente jours, un petit graphique par sous-mode — Séries, Sentiers, Parcours de thème, Révisions, Défi de la semaine.
+- **Le défi de la semaine** : ses joueurs, comptés comme son classement (sans les profils masqués ni suspendus), son meilleur score, le score médian des tentatives finies, la semaine dernière et ses vainqueurs ; puis la répartition des scores, et les trois questions les plus ratées, jugées à partir de cinq réponses. Le QG ne tire jamais le défi : tant que personne ne l'a ouvert, la page dit qu'il se tirera à la première ouverture.
+- **Les parcours de thème** les plus suivis sur trente jours (joueurs, étapes validées, parcours finis), et **les vies** : achetées jour par jour, perdues, et celles prises dans la réserve au-delà des douze du jour.
+- **Les sentiers** : les sept derniers jours (joueurs, épreuves, paliers validés, vies perdues et achetées), puis, sur trois mois, chaque palier de tous les sentiers ou d'un seul — la chance d'un essai au seuil du jour, qui l'a validé (du premier coup ou non), qui y reste bloqué et ses échecs, les abandons, les rejeux à part ; les bonnes réponses par marche (faciles, moyennes, difficiles, expertes) à côté de ce que le calibrage suppose ; un palier plus facile que celui d'avant se signale (« plus facile que P3 ») ; enfin « Les plus bloqués ».
+- **Régler un palier** : sous « Tous les sentiers », « Régler » ouvre le mélange d'un palier — combien de faciles, de moyennes, de difficiles, seize en tout, jamais d'experte —, la difficulté que les joueurs liront, et la chance d'un essai que donnerait ce mélange, estimée sur ce que les joueurs de ce palier trouvent vraiment (au calcul, pour un joueur moyen, tant que le palier a trop peu d'épreuves). Un avertissement dit si le palier deviendrait plus facile que celui d'avant, ou plus dur que le suivant. « Appliquer » vaut pour les douze sentiers ensemble, et pour les épreuves qui commencent : celles en cours gardent leurs questions, aucun palier validé ne se reprend, et le seuil reste à dix. Un palier réglé porte « réglé au QG », son mélange d'origine et ce que disent les épreuves commencées depuis ; « Revenir au mélange d'origine » le défait. Chaque réglage va au journal, avec l'ancien mélange et le nouveau. Le palier du maître ne se règle pas, et les seuils restent dans le code.
 - **La base** : ses questions à jouer et retirées, par catégorie et par difficulté (de 1 à 5). **La routine du matin** : ce qu'elle a déposé aujourd'hui, ces sept jours et en tout, et ses dernières questions — c'est la première fois qu'un humain les lit ; « Retirer » en sort une, pour tous.
 - **Signalements** : qui signale, où il a joué, ce qu'il a répondu et ce qu'il en dit ; ce que toutes les réponses en disent ; d'où vient la question, et son identifiant. « Corriger » (l'intitulé, les réponses et la bonne, l'anecdote : la même bonne réponse garde l'identifiant et les mesures de la question ; une autre la fait repartir sous un nouvel identifiant et retire l'ancienne ; les séries déjà tirées gardent la version qu'elles ont lue), « Retirer de la campagne » (pour tous, pour toujours), « Garder » (referme les signalements).
 

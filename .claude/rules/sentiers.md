@@ -42,8 +42,8 @@ Les sentiers (`/campagne#sentiers`, `#sentier-foret`) : un par branche, douze pa
 - **Un seuil et un mélange se figent à l'épreuve** (`campagne_series.seuil`,
   ses questions), et son issue écrite ne se relit pas : changer
   `SEUIL_DES_PALIERS` ou `PALIERS`, ou régler un mélange au QG, ne vaut que
-  pour les épreuves qui commencent. Mais `sentiersLus` ignore un palier que `PALIERS` ne connaît
-  plus.
+  pour les épreuves qui commencent. Mais `sentiersLus` ignore un palier
+  que `PALIERS` ne connaît plus.
 - **Monter `PALIER_DU_PORTRAIT` reprendrait des portraits** (invariant 22) :
   la collection les relit des paliers à chaque fois, et aucune table ne les
   retient — seul le porté reste, `legendairePorte` croit tout portrait.

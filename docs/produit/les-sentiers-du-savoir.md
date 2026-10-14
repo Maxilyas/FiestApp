@@ -117,6 +117,8 @@ Seize questions par épreuve (`QUESTIONS_PAR_EPREUVE`), dix pour valider (`SEUIL
 | 12 | 3 M · 13 D | le 6e portrait | difficile |
 | Maître | 16 expertes | le titre | expert |
 
+Ce sont les mélanges du code. L'administrateur peut régler celui d'un palier depuis le QG (`/admin#campagne`), pour les douze sentiers ensemble : seize questions, jamais d'experte, le seuil intouché, et rien au maître. La difficulté affichée suit alors le mélange réglé (voir [administrer](../guides/administrer.md#la-campagne-et-les-sentiers)).
+
 - **Aucune experte avant le maître** : moins d'un joueur sur cinq en trouve une, et un portrait qui en dépendrait se gagnerait à l'usure. **Pas de vrai ou faux** dès le cinquième palier : une chance sur deux au hasard.
 - La **difficulté affichée** est la marche moyenne des seize questions (`difficulteDuMelange`) ; le niveau d'une question est celui de toute la campagne (voir [la campagne](la-campagne.md)).
 - **Les étoiles** d'une épreuve validée : une au seuil, deux à treize bonnes réponses, trois sans faute ; seule la meilleure note de chaque palier compte.
@@ -170,7 +172,7 @@ Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai »
 
 ### Quand une règle change
 
-- **Une épreuve garde son seuil et ses questions** : un seuil ou un mélange changé ne vaut que pour les épreuves qui commencent, et une issue écrite ne se relit pas — une épreuve validée le reste.
+- **Une épreuve garde son seuil et ses questions** : un seuil ou un mélange changé — dans le code, ou réglé au QG — ne vaut que pour les épreuves qui commencent, et une issue écrite ne se relit pas — une épreuve validée le reste.
 - **Les étoiles paient à chaque lecture du solde** : changer `CONFETTIS_DES_ETOILES` — ou `PRIX_D_UNE_VIE`, que vaut la troisième étoile — change d'un coup le solde de tout le monde, rétroactivement.
 - **Les portraits ouverts ne sont retenus nulle part** : ils se relisent des paliers. Repousser le palier d'un portrait le reprendrait à qui n'a pas le nouveau.
 
@@ -180,7 +182,7 @@ Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai »
 
 **Rien ne se compte à côté.** Une épreuve est une série de la campagne d'un autre mode, dans la base permanente : ses réponses, son seuil, son issue. Paliers, étoiles et vies se relisent de ce journal à chaque lecture, avec les paliers repris des anciens portraits (`sentier_acquis`) et les vies achetées (`profile_vies`) : aucun compteur qu'un hoquet de la base pourrait fausser. Le détail : [les données](../architecture/donnees.md).
 
-**Le calibrage.** Mélanges et seuils ont été calculés avant d'être fixés (`server/scripts/calibrage-sentiers.ts`), une question étant trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche. À dix sur seize, un joueur moyen passe du premier coup le cinquième palier 79 fois sur cent, le huitième 23 ; un bon joueur, le douzième 46. À douze, le seuil d'avant, le joueur moyen ne passait plus le cinquième que 38 fois sur cent, le huitième 4 : les vraies épreuves butaient là. Le QG (`/admin#campagne`, « Les sentiers ») mesure chaque palier sur les épreuves de trois mois, et signale celui qui passe mieux que le précédent : son mélange est à revoir.
+**Le calibrage.** Mélanges et seuils ont été calculés avant d'être fixés (`server/scripts/calibrage-sentiers.ts`), une question étant trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche. À dix sur seize, un joueur moyen passe du premier coup le cinquième palier 79 fois sur cent, le huitième 23 ; un bon joueur, le douzième 46. À douze, le seuil d'avant, le joueur moyen ne passait plus le cinquième que 38 fois sur cent, le huitième 4 : les vraies épreuves butaient là. Le QG (`/admin#campagne`, « Les sentiers ») mesure chaque palier sur les épreuves de trois mois, et signale celui qui passe mieux que le précédent : son mélange est à revoir, et s'y règle (`sentier_melanges`).
 
 **Libérer une épreuve.** Depuis la fiche d'un joueur, au QG, l'administrateur peut libérer l'épreuve qui l'attend (« Libérer l’épreuve ») : elle se referme telle quelle, sans coûter de vie ni compter comme un échec (voir [administrer](../guides/administrer.md)).
 

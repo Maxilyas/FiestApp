@@ -19,15 +19,15 @@
 | Ce qu'elle garde | la soirée en cours de chaque espace, et rien d'autre | tout ce qui doit survivre — comptes, profils, quiz, historique, quiz du jour, campagne, QG — et le **miroir** de la soirée |
 | Sa durée de vie | **jetable** : le disque de l'hébergeur gratuit s'efface à chaque réveil | permanente |
 | Qui l'ouvre | `initDb` (`server/src/core/db.ts`), une seule connexion synchrone | chaque magasin ouvre son client (`clientDistant`, `server/src/core/distante.ts`), avec un délai de dix secondes par aller-retour |
-| Ses tables | 7 | 60, plus `soirees_v2`, qui ne vit que le temps d'une migration |
+| Ses tables | 7 | 61, plus `soirees_v2`, qui ne vit que le temps d'une migration |
 
 Chaque table se crée au démarrage, dans le magasin qui la possède
 (`CREATE TABLE IF NOT EXISTS`) ; une colonne venue après coup s'ajoute par
 `addColumn` dans la base locale (`server/src/core/db.ts`) et par
 `ajouterColonne` dans la permanente (`server/src/core/distante.ts`), qui lit
 le schéma au lieu de deviner, et dont l'échec arrête le démarrage. `meta` est
-créée par trois magasins, d'où soixante-dix `CREATE TABLE` pour
-soixante-huit tables.
+créée par trois magasins, d'où soixante et onze `CREATE TABLE` pour
+soixante-neuf tables.
 
 **L'espace.** Un compte d'animateur **est** un espace : `accounts.id` sert de
 `space_id` à tout ce qui appartient à une soirée ou à une bibliothèque. Ce
@@ -142,7 +142,7 @@ Le nom de la soirée en cours, tiré une seule fois : une ligne par espace.
 
 ## La base permanente
 
-Soixante tables, rangées ici par famille, plus une table de migration. La
+Soixante et une tables, rangées ici par famille, plus une table de migration. La
 plupart des magasins gardent ce qu'ils lisent en mémoire et écrivent d'abord
 en base ; chaque écriture qui doit tenir ensemble part en une transaction
 (`batch(…, 'write')`).
@@ -722,6 +722,17 @@ sentiers, repris une fois.
 - **Écrite par** : la reprise des portraits (`server/src/core/repriseDesPortraits.ts`), une fois, sous son drapeau.
 - **Lue par** : `CampagneStore` (les sentiers).
 - **Effacée par** : la suppression du profil.
+
+### `sentier_melanges`
+
+Les mélanges réglés au QG : un par palier réglé, pour les douze sentiers
+ensemble. Un palier sans ligne tire celui du code (`PALIERS`).
+
+- **Colonnes clés** : `palier` (la clé), `melange` (JSON : combien de questions de chaque marche), `regle_le`.
+- **Espace** : non.
+- **Écrite par** : `CampagneStore.reglerLeMelange` (`POST /api/admin/campagne/paliers/:n/melange`).
+- **Lue par** : `CampagneStore`, au démarrage, puis gardée en mémoire. Un mélange que les règles du jour refusent se tait.
+- **Effacée par** : le retour d'un palier à son mélange d'origine, qui efface sa ligne.
 
 ### `campagne_duels`
 
