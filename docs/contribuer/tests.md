@@ -258,7 +258,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 
 ### Le client : chargement, entrée, navigation, mots
 
-- `server/test/chargement.test.ts` — les fichiers du paquet servis déjà compressés.
+- `server/test/chargement.test.ts` — les fichiers du paquet servis déjà compressés ; un téléchargement abandonné en route n'est pas une erreur serveur.
 - `server/test/client.test.ts` — ce que le téléphone dit quand un appel échoue.
 - `server/test/connexion-claire.test.ts` — trois gros boutons, « Jouer sans compte » d'abord.
 - `server/test/depart.test.ts` — ce que la page demande dès son arrivée.

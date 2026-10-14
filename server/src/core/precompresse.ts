@@ -45,7 +45,12 @@ export function servirPrecompresse(dossier: string, options: { maxAge: string; i
     res.type(path.extname(req.path))
     res.set('Content-Encoding', encodage)
     res.sendFile(fichier, { maxAge: options.maxAge, immutable: options.immutable }, e => {
-      if (e) next(e)
+      // Un téléphone qui change de page, qu'on ferme ou qui perd le réseau
+      // laisse son téléchargement en route, et `sendFile` le dit par
+      // ECONNABORTED : plus personne à qui répondre, et rien de cassé. Passé
+      // au dernier filet, il s'écrivait au journal et comptait aux erreurs
+      // serveur du QG, sous « requête illisible » (`chargement.test.ts`).
+      if (e && (e as NodeJS.ErrnoException).code !== 'ECONNABORTED') next(e)
     })
   }
 }
