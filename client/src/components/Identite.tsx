@@ -69,13 +69,24 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
 /**
  * Soi-même, sur une ligne, en tête de l'accueil et du profil : son avatar,
  * son prénom, sa barre d'expérience et ses confettis — sans cadre, ces pages
- * sont aux gros boutons. À l'accueil, un toucher mène à son profil ; sur son
- * profil, il ouvre sa carte comme la salle l'ouvre en touchant son nom
- * (`onCarte`), l'œil au bout pour le dire.
+ * sont aux gros boutons. Un toucher ouvre sa carte comme la salle l'ouvre en
+ * touchant son nom (`onCarte`), l'œil au bout pour le dire. À l'accueil, il
+ * menait au profil, que le menu ouvre déjà (le souhait du propriétaire du
+ * 14 octobre 2026) ; l'œil n'y est pas (`sansOeil`) : « Amis » tient le bout
+ * de la ligne, et les deux ronds côte à côte passaient « 1500 XP → niv. 15 »
+ * sur deux lignes en 360.
  */
-export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>; onCarte?: () => void }) {
-  const contenu = (
-    <>
+export function IdentiteLigne({
+  profil,
+  onCarte,
+  sansOeil,
+}: {
+  profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>
+  onCarte: () => void
+  sansOeil?: boolean
+}) {
+  return (
+    <button type="button" className="identite-ligne" aria-label={`${profil.name} : voir ma carte comme la salle la voit`} onClick={onCarte}>
       <Avatar
         className="player-avatar big"
         avatar={profil.avatar}
@@ -92,19 +103,12 @@ export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil & Pi
         </span>
         <XpMince profil={profil} />
       </span>
-    </>
-  )
-  return onCarte ? (
-    <button type="button" className="identite-ligne" aria-label={`${profil.name} : voir ma carte comme la salle la voit`} onClick={onCarte}>
-      {contenu}
-      <span className="identite-oeil" aria-hidden="true">
-        <Icon name="eye" />
-      </span>
+      {!sansOeil && (
+        <span className="identite-oeil" aria-hidden="true">
+          <Icon name="eye" />
+        </span>
+      )}
     </button>
-  ) : (
-    <a className="identite-ligne" href="/profil" aria-label={`${profil.name} : mon profil`}>
-      {contenu}
-    </a>
   )
 }
 
