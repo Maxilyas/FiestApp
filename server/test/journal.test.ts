@@ -90,6 +90,27 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
 
+    // Les duels : Ana défie Max et finit son duel — il part à Max, qui ne le commence pas ; le QG l'annule.
+    const ana = await inscrireProfil(banc.url, 'ana', 'Ana', '🐸')
+    const max = await inscrireProfil(banc.url, 'max', 'Max', '🐻')
+    const idMax = (await lire(banc, max, '/api/joueur/moi')).corps.profile.id as string
+    const lance = await faire(banc, ana, '/api/campagne/duel', { categories: ['Histoire'], adversaire: idMax })
+    ok(lance, 'lancer un duel')
+    const posees = (() => {
+      const base = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+      try {
+        return JSON.parse((base.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(lance.corps.serie.id) as { questions: string }).questions) as { bonne: number; reponses: string[] }[]
+      } finally {
+        base.close()
+      }
+    })()
+    for (let i = 0, finie = false; !finie; i++) {
+      const r = await faire(banc, ana, `/api/campagne/serie/${lance.corps.serie.id}/reponse`, { index: i, choix: (posees[i].bonne + 1) % posees[i].reponses.length })
+      ok(r, 'répondre au duel')
+      finie = Boolean(r.corps.finie)
+    }
+    ok(await faire(banc, admin, `/api/admin/duels/${lance.corps.code}/annuler`), 'annuler un duel')
+
     // La fiche de Léa : des confettis, un code de secours neuf, sa connexion
     // rouverte, son épreuve de sentier libérée, suspendue puis réactivée, et
     // son prénom changé en dernier — les phrases d'avant la nomment encore Léa.
@@ -161,6 +182,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Profil réactivé : Léa (@lea)',
       'Profil renommé : « Léa » devient « Léa B. » (@lea)',
       'Mélange du palier 2 des sentiers réglé : 14 faciles et 2 moyennes → 12 faciles et 4 moyennes',
+      'Duel classé annulé avant d’être joué : Ana (@ana) → Max (@max)',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }

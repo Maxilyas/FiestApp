@@ -3,6 +3,7 @@ import { api, motifDe, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminCampagne } from '../components/AdminCampagne'
+import { AdminDuels } from '../components/AdminDuels'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
@@ -38,8 +39,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne']
+type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -57,12 +58,12 @@ const TITRE: Record<Ecran, string> = {
   catalogue: 'Le catalogue',
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
+  duels: 'Les duels',
 }
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
- * pages qui existent : les duels, l'économie et « Animer » la rejoindront à
- * leur tour.
+ * pages qui existent : l'économie et « Animer » la rejoindront à leur tour.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -79,6 +80,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
+      { ecran: 'duels', nom: 'Duels', icone: 'swords' },
     ],
   },
   {
@@ -344,6 +346,7 @@ export function AdminApp() {
                   valeur={signalements > 0 ? `${signalements} signalement${signalements > 1 ? 's' : ''}` : 'La base'}
                   onClick={() => aller('campagne')}
                 />
+                <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
                 <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
                 <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
                 <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
@@ -362,6 +365,7 @@ export function AdminApp() {
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && <AdminDuJour vue={vue} />}
         {ecran === 'campagne' && <AdminCampagne vue={vue} />}
+        {ecran === 'duels' && <AdminDuels vue={vue} />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>

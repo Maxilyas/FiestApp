@@ -11,8 +11,9 @@
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { formatNumber } from './typographie'
 import { MEMOIRE_DE_L_HEBERGEUR_MO, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
-// Un type seulement : `qgCampagne.ts` lit ses jours ici, et rien ne tourne en rond à l'exécution.
+// Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
+import type { DuelsDeLaVue } from './qgDuels'
 
 /**
  * Les quatre modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -156,6 +157,8 @@ export interface VueDEnsemble {
   participations: ParticipationsDuJour[]
   /** La campagne sous-mode par sous-mode, tirée des mêmes séries : la page de la campagne ne les relit pas. */
   campagne: CampagneDeLaVue
+  /** Les duels contre Automate et contre un joueur, jour par jour, des mêmes séries. */
+  duels: DuelsDeLaVue
   aTraiter: ATraiterDuQg
 }
 
@@ -655,7 +658,7 @@ export function bilanDesSoirees(soirees: readonly ChiffresDUneSoiree[], minuits:
  * ce que le geste touche : la page du journal filtre par là. « Autre » : une
  * route qui n'a pas dit sa phrase (`server/src/core/journalDesGestes.ts`).
  */
-export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'autre'] as const
+export const SORTES_DE_GESTES = ['soiree', 'profil', 'salon', 'catalogue', 'jour', 'campagne', 'duel', 'autre'] as const
 export type SorteDeGeste = (typeof SORTES_DE_GESTES)[number]
 
 export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
@@ -665,6 +668,7 @@ export const NOM_DE_LA_SORTE: Record<SorteDeGeste, string> = {
   catalogue: 'Catalogue',
   jour: 'Quiz du jour',
   campagne: 'Campagne',
+  duel: 'Duels',
   autre: 'Autres',
 }
 

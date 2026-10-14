@@ -10,7 +10,11 @@
 // clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
 // en ligne, un arrêt net hier soir — ; la page du quiz du jour — huit
 // habitués et leurs séries, cent réponses par question, une question piège
-// touchée, sept soirs de rappel — ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
+// touchée, sept soirs de rappel — ; la page de la campagne — le défi relevé
+// par vingt-quatre joueurs, trente jours d'épreuves, un palier réglé — et
+// « Régler » ouvert ; la page des duels — quatre semaines de duels contre
+// Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
+// ceux qui attendent leur adversaire — et l'un d'eux annulé ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée —, le don qu'on prépare, le code de secours
 // tiré pour elle, et son accueil qui annonce le don, une fois. Le client
 // construit d'abord (`npm run build -w client`).
@@ -24,7 +28,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrire, inscrireProfil, invite, lancerQuiz, qcm } from '../test/banc'
 import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
-import { semaineAvant, semaineDe } from '../../shared/campagne'
+import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
 import { regleDuPalier } from '../../shared/sentiers'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
@@ -124,6 +128,28 @@ try {
     }
   }
   await ecrire(banc.url, '/api/admin/campagne/paliers/5/melange', { melange: { facile: 5, moyen: 11 } }, admin)
+
+  // Les duels classés d'aujourd'hui, par les vraies routes : six lancés et
+  // joués par qui défie — ils partent à l'autre à sa dernière réponse —, la
+  // moitié relevés de l'autre côté ; les trois autres l'attendent.
+  const jouerLaTentative = async (cookie: string, serie: string, justes: number) => {
+    const lue = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    const posees = JSON.parse((lue.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(serie) as { questions: string }).questions) as { bonne: number; reponses: string[] }[]
+    lue.close()
+    for (let i = 0; i < posees.length; i++) {
+      const choix = i < justes ? posees[i].bonne : (posees[i].bonne + 1) % posees[i].reponses.length
+      if (((await (await ecrire(banc.url, `/api/campagne/serie/${serie}/reponse`, { index: i, choix }, cookie)).json()) as { finie?: boolean }).finie) break
+    }
+  }
+  for (let k = 0; k < 6; k++) {
+    const [auteur, adversaire] = [joueurs[k * 2], joueurs[k * 2 + 1]]
+    const lance = (await (await ecrire(banc.url, '/api/campagne/duel', { adversaire: adversaire.id }, auteur.cookie)).json()) as { code: string; serie: { id: string } }
+    await jouerLaTentative(auteur.cookie, lance.serie.id, 6 + k)
+    if (k % 2 === 0) {
+      const releve = (await (await ecrire(banc.url, `/api/campagne/duel/${lance.code}`, {}, adversaire.cookie)).json()) as { id: string }
+      await jouerLaTentative(adversaire.cookie, releve.id, 7 + (k % 3))
+    }
+  }
 
   // Trente jours d'activité, écrits dans la base permanente : chaque jour son
   // lot, plus fourni le week-end, aujourd'hui jusqu'à l'heure qu'il est.
@@ -347,6 +373,58 @@ try {
       joueurs.forEach((j, k) => tentative.run(`passee-${k}`, j.id, 10 + (k % 6), 4 + (k % 9), maintenant - 7 * 24 * H + k * H, maintenant - 7 * 24 * H + k * H + 600_000, passee))
       idsDesHabitues.forEach((id, k) => tentative.run(`passee-h-${k}`, id, 9, 3 + k, maintenant - 6 * 24 * H + k * H, maintenant - 6 * 24 * H + k * H + 600_000, passee))
     }
+    // Les duels en détail : quatre semaines de duels contre Automate, chacun
+    // à sa force — de quoi répartir les ligues, du bronze aux maîtres —, et
+    // trente jours de duels classés entre joueurs, joués des deux côtés le
+    // plus souvent ; un sur six n'a jamais eu de réponse — ceux de la semaine
+    // attendent encore, les plus vieux ont fermé sans elle.
+    {
+      // Le score de sa force, en bonnes réponses : huit valent la cote de départ, chacune de plus cinquante points.
+      const niveauDe = (j: { force: number }) => Math.max(2, Math.round(8 + j.force * 8))
+      const rencontre = permanente.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, adversaire) VALUES (?, ?, '[]', ?, 0, ?, ?, ?, 'rencontre', ?)`,
+      )
+      for (const [k, j] of joueurs.entries()) {
+        // Automate joue à son niveau — de quatre bonnes réponses à dix-huit, du
+        // bronze aux maîtres —, et les plus forts jouent plus et gagnent plus
+        // souvent : leur cote monte jusqu'aux maîtres en quatre semaines.
+        const niveau = niveauDe(j)
+        const n = 12 + (k % 6) * 5 + ((k * 5) % 7)
+        const gagne = 0.58 + 0.04 * (k % 6)
+        for (let i = 0; i < n; i++) {
+          const quand = maintenant - Math.floor(((i + 1) / (n + 1)) * 27 * 24 * H)
+          const sesJustes = Math.max(0, niveau + Math.round((hasard() - 0.5) * 4))
+          const ecart = 1 + Math.floor(hasard() * 3)
+          const justes = Math.max(0, hasard() < gagne ? sesJustes + ecart : sesJustes - ecart)
+          const automate = { serie: `automate-${k}-${i}`, profil: '', simule: true, reponses: [...Array(sesJustes).fill(true), ...Array(VIES).fill(false)] }
+          rencontre.run(`rencontre-${k}-${i}`, j.id, justes + VIES, justes, quand, quand + 4 * 60_000, JSON.stringify(automate))
+        }
+      }
+      const codeDe = (n: number) => Array.from({ length: LONGUEUR_D_UN_CODE }, (_, i) => LETTRES_D_UN_CODE[Math.floor(n / LETTRES_D_UN_CODE.length ** i) % LETTRES_D_UN_CODE.length]).join('')
+      const duelClasse = permanente.prepare(
+        `INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire) VALUES (?, ?, '[]', NULL, NULL, ?, ?, ?, ?, ?)`,
+      )
+      const tentative = permanente.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, duel) VALUES (?, ?, '[]', ?, 0, ?, ?, ?, 'duel', ?)`)
+      const envoi = permanente.prepare('INSERT INTO campagne_envois (code, profile_id, envoye_le) VALUES (?, ?, ?)')
+      let c = 1000
+      minuits.slice(0, -1).forEach((minuit, d) => {
+        for (let i = 0; i < 2 + ((d * 3) % 5); i++) {
+          const auteur = joueurs[(d * 5 + i * 7) % joueurs.length]
+          const adversaire = joueurs[(d * 5 + i * 7 + 1 + (i % 5)) % joueurs.length]
+          const code = codeDe(c++)
+          const lance = minuit + (11 + i * 2) * H
+          const justes = (a: { force: number }) => Math.max(0, Math.round(8 + a.force * 8 + (hasard() - 0.5) * 6))
+          // Les deux cotes figées au lancement : celles de leur force.
+          duelClasse.run(code, auteur.id, lance, lance + DUREE_D_UN_DUEL_MS, adversaire.id, 1000 + (niveauDe(auteur) - 8) * 50, 1000 + (niveauDe(adversaire) - 8) * 50)
+          const sesJustes = justes(auteur)
+          tentative.run(`duel-${code}-a`, auteur.id, sesJustes + VIES, sesJustes, lance, lance + 5 * 60_000, code)
+          envoi.run(code, adversaire.id, lance + 5 * 60_000)
+          if ((d + i) % 6 === 0) continue
+          const lesSiennes = justes(adversaire)
+          tentative.run(`duel-${code}-b`, adversaire.id, lesSiennes + VIES, lesSiennes, lance + 3 * H, lance + 3 * H + 5 * 60_000, code)
+        }
+      })
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
@@ -371,6 +449,10 @@ try {
       await page.waitForSelector('.qg-ratees, .sentiers-admin-ligne', { timeout: 15000 })
       await page.waitForSelector('.sentiers-admin-ligne', { timeout: 15000 })
     }
+    if (adresse === '/admin#duels') {
+      await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
+      await page.waitForSelector('.qg-classement, .qg-attente', { timeout: 15000 })
+    }
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -394,6 +476,10 @@ try {
   await photographier('31-campagne-1920', 1920, 1080, { adresse: '/admin#campagne' })
   await photographier('32-campagne-telephone', 360, 640, { adresse: '/admin#campagne' })
   await photographier('33-campagne-ivoire', 360, 640, { adresse: '/admin#campagne', theme: 'ivoire' })
+  await photographier('36-duels', 1366, 768, { adresse: '/admin#duels' })
+  await photographier('37-duels-1920', 1920, 1080, { adresse: '/admin#duels' })
+  await photographier('38-duels-telephone', 360, 640, { adresse: '/admin#duels' })
+  await photographier('39-duels-ivoire', 360, 640, { adresse: '/admin#duels', theme: 'ivoire' })
   await photographier('7-journal', 1366, 768, { adresse: '/admin#journal', pleine: false })
   await photographier('8-journal-telephone', 360, 640, { adresse: '/admin#journal' })
   await photographier('9-soirees', 1366, 768, { adresse: '/admin#soirees' })
@@ -463,6 +549,29 @@ try {
     if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
     await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
     console.log(path.join(sortie, `${nom}.png`))
+    await contexte.close()
+  }
+
+  // Annuler un duel en attente, au téléphone : la confirmation, puis la liste
+  // qui s'en remet — un de moins, le geste au journal.
+  {
+    const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#duels`)
+    await page.waitForSelector('.qg-attente', { timeout: 15000 })
+    await page.locator('.qg-attente').first().getByRole('button', { name: 'Annuler' }).click()
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, '40-duels-annuler.png') })
+    console.log(path.join(sortie, '40-duels-annuler.png'))
+    await page.getByRole('dialog').getByRole('button', { name: 'Annuler le duel' }).click()
+    await page.waitForSelector('.toast')
+    await page.locator('#duels-attente').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(600)
+    await page.screenshot({ path: path.join(sortie, '41-duels-annule.png') })
+    console.log(path.join(sortie, '41-duels-annule.png'))
     await contexte.close()
   }
 
