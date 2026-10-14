@@ -117,7 +117,7 @@ export function Regie({ view: v }: { view: QuizHostView }) {
           <ul className="regie-visages" aria-label="On attend">
             {v.attendus!.map(a => (
               <li key={a.playerId} className={'regie-visage' + (a.horsLigne ? ' regie-hors-ligne' : '')}>
-                <Avatar className="regie-avatar" avatar={a.avatar} />
+                <Avatar className="regie-avatar" avatar={a.avatar} finition={a.finition} legendaire={a.legendaire} eclat={a.eclat} />
                 <span className="regie-prenom">{a.name}</span>
               </li>
             ))}

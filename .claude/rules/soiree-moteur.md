@@ -6,7 +6,7 @@ paths:
   - "shared/games/**"
   - "client/src/games/**"
   - "client/src/components/{Shape,Rank,PastilleEquipe}.tsx"
-  - "server/test/{moteur,variantes,hasard,programme,equipes,equipes-choisies,classement-en-cours,resultats,enchainement,regie,scene,chef-hors-classement,bareme,console,entourage,salle-vide,protocole,grande-salle}.test.ts"
+  - "server/test/{moteur,variantes,hasard,programme,equipes,equipes-choisies,classement-en-cours,resultats,enchainement,regie,scene,chef-hors-classement,bareme,console,entourage,salle-vide,protocole,grande-salle,finitions}.test.ts"
 ---
 
 # Le quiz : ses règles, son barème, ses vues

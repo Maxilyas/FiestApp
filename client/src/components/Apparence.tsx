@@ -28,6 +28,7 @@ import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/
 import { FONDS } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
+import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NOM_FINITION, brilleChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
@@ -404,7 +405,8 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         onClick={() => essayer({ bordure: cle })}
       >
         <span className="bordure-apercu" aria-hidden="true">
-          {bordure ? <Avatar avatar={vu.avatar} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
+          {/* Autour de ce qu'il porte, un légendaire compris : l'emoji d'en dessous s'y montrait (le 14 octobre 2026). */}
+          {bordure ? <Avatar {...avatarDeLApercu(vu)} finition={finition} bordure={bordure} /> : <i className="bordure-sans" />}
         </span>
         <span aria-hidden="true">{nom}</span>
       </button>

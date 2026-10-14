@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
-import { Avatar } from '../components/Avatar'
+import { Avatar, Nommes } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
@@ -174,7 +174,9 @@ export function PageDuDefi({ onglets, onJouer }: { onglets: ReactNode; onJouer: 
                 <Laurier laurier="argent" decoratif />
               </span>
               <div>
-                <b>{`${defi.vainqueurs.map(v => `${v.avatar} ${v.nom}`).join(', ')}`}</b>
+                <b>
+                  <Nommes joueurs={defi.vainqueurs} />
+                </b>
                 <span className="muted small">
                   {defi.vainqueurs.length > 1 ? 'En tête ex æquo : le laurier d’argent suit leur prénom cette semaine.' : 'En tête : le laurier d’argent suit son prénom cette semaine.'}
                 </span>

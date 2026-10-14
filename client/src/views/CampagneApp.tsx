@@ -589,7 +589,10 @@ export function CampagneApp() {
         // Un duel contre quelqu'un, joué le second : sa fin se lit comme celle d'une rencontre — les deux scores, qui l'a gagné.
         ...(r.contre && {
           rencontre: { adversaire: r.contre, issue: issueDeRencontre(r.justes, r.contre.justes) },
-          ...(r.contre.profileId && { revanche: { profileId: r.contre.profileId, nom: r.contre.nom, avatar: r.contre.avatar } }),
+          // Avec ce qu'il porte : la préparation de la revanche le montrait en emoji.
+          ...(r.contre.profileId && {
+            revanche: { profileId: r.contre.profileId, nom: r.contre.nom, avatar: r.contre.avatar, ...ceQuIlPorte(r.contre), ...(r.contre.bordure && { bordure: r.contre.bordure }) },
+          }),
         }),
         ...(r.classe && { classe: true as const }),
         ...(ecran.contre && { enFace: ecran.contre }),

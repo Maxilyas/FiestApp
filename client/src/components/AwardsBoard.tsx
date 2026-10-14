@@ -3,6 +3,7 @@ import type { Award, PublicTeam } from '../../../shared/types'
 import { enumerer } from '../../../shared/classement'
 import { POINTS_D_UN_PRIX, PRIX_MAX, effetDUnPrix } from '../../../shared/teams'
 import { ChampNombre } from './ChampNombre'
+import { AvatarEnLigne } from './Avatar'
 import { remiseDuClic, type RemiseEnRoute } from '../remise'
 
 interface Props {
@@ -67,7 +68,7 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
                 {a.player ? (
                   <>
                     <strong>
-                      {a.player.avatar} {a.player.name}
+                      <AvatarEnLigne de={a.player} /> {a.player.name}
                     </strong>{' '}
                     — {a.detail}
                   </>
