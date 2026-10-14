@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, motifDe } from '../api'
+import { api, motifDe, type ProfilMasquable } from '../api'
 import { confirmDialog } from './Dialog'
 import { AujourdhuiDesDuels, ClassementDesDuelsAuQg, DuelsEnAttente, DuelsParJour, LiguesAuQg } from './QgDuels'
 import { confirmerLeMasque } from './QgModes'
@@ -11,24 +11,30 @@ import type { DuelEnAttente, SuiviDesDuels } from '../../../shared/qgDuels'
 /**
  * Les duels, côté administrateur (`/admin#duels`, le choix du 13 octobre
  * 2026, sur maquettes) : les chiffres d'aujourd'hui, les duels par jour, les
- * ligues et le classement — « Masquer » sur chaque ligne —, les duels qui
- * attendent leur adversaire — « Annuler » sur chacun (`QgDuels.tsx`). La vue
- * d'ensemble du QG lui prête ses trente jours : déjà lus, ils ne se relisent
- * pas ici.
+ * ligues et le classement — « Masquer » sur chaque ligne, et les masqués à y
+ * remettre —, les duels qui attendent leur adversaire — « Annuler » sur
+ * chacun (`QgDuels.tsx`). La vue d'ensemble du QG lui prête ses trente
+ * jours : déjà lus, ils ne se relisent pas ici.
  */
 export function AdminDuels({ vue }: { vue: VueDEnsemble | null }) {
   const [suivi, setSuivi] = useState<SuiviDesDuels | null>(null)
+  const [masques, setMasques] = useState<ProfilMasquable[] | null>(null)
   const [enPanne, setEnPanne] = useState(false)
   const [occupe, setOccupe] = useState(false)
 
   const charger = () =>
-    api.admin.suiviDesDuels().then(
-      s => {
-        setSuivi(s)
-        setEnPanne(false)
-      },
-      () => setEnPanne(true),
-    )
+    Promise.all([
+      api.admin.suiviDesDuels().then(
+        s => {
+          setSuivi(s)
+          setEnPanne(false)
+        },
+        () => setEnPanne(true),
+      ),
+      // Le masque est celui du quiz du jour : sa liste aussi. Sans elle, la
+      // page garde ses duels, et « Masquer » reste à sa place.
+      api.admin.profilsDuJour('').then(setMasques, () => {}),
+    ])
   useEffect(() => {
     void charger()
   }, [])
@@ -49,6 +55,8 @@ export function AdminDuels({ vue }: { vue: VueDEnsemble | null }) {
   const masquer = async (l: LigneDesDuels) => {
     if (await confirmerLeMasque(l.nom)) await faire(() => api.admin.masquerDuJour(l.profileId, true), `Profil masqué du classement : ${l.nom}`)
   }
+  // Sans confirmation, comme en bas de la page du quiz du jour : rien ne se perd à remettre un profil.
+  const remettre = (p: ProfilMasquable) => void faire(() => api.admin.masquerDuJour(p.id, false), `Profil remis au classement : ${p.nom}`)
 
   // Les phrases parlent du profil défié, jamais de la personne.
   const annuler = async (d: DuelEnAttente) => {
@@ -69,7 +77,7 @@ export function AdminDuels({ vue }: { vue: VueDEnsemble | null }) {
       <DuelsParJour vue={vue} suivi={suivi} />
       <div className="qg-deux qg-deux-haut">
         <LiguesAuQg suivi={suivi} />
-        <ClassementDesDuelsAuQg suivi={suivi} occupe={occupe} masquer={masquer} />
+        <ClassementDesDuelsAuQg suivi={suivi} occupe={occupe} masquer={masquer} masques={masques} remettre={remettre} />
       </div>
       <DuelsEnAttente suivi={suivi} occupe={occupe} annuler={annuler} />
     </>

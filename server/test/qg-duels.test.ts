@@ -290,7 +290,14 @@ test('la page des duels au QG : les chiffres du jour, les duels par jour, les li
       React.createElement(AujourdhuiDesDuels, { key: 1, vue, suivi }),
       React.createElement(DuelsParJour, { key: 2, vue, suivi }),
       React.createElement(LiguesAuQg, { key: 3, suivi }),
-      React.createElement(ClassementDesDuelsAuQg, { key: 4, suivi, occupe: false, masquer: () => {} }),
+      React.createElement(ClassementDesDuelsAuQg, {
+        key: 4,
+        suivi,
+        occupe: false,
+        masquer: () => {},
+        masques: [{ id: 'p9', login: 'zoe', nom: 'Zoé', avatar: '🐸', masque: true }],
+        remettre: () => {},
+      }),
       React.createElement(DuelsEnAttente, { key: 5, suivi, occupe: false, annuler: () => {} }),
     ]),
   ).replace(/[  ]/g, ' ')
@@ -305,6 +312,10 @@ test('la page des duels au QG : les chiffres du jour, les duels par jour, les li
     'Nadia',
     'Maîtres · 64 duels',
     'Masquer',
+    // Le masque se lève d'ici aussi : il se posait sur cette page, et ne se levait qu'en bas de celle du quiz du jour.
+    'Hors classement',
+    '@zoe',
+    'Remettre au classement',
     'parti il y a 6 j · expire dans 1 j',
     'Annuler',
     'Et 16 autres, qui expirent plus tard.',

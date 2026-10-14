@@ -44,13 +44,14 @@ export const enPourcentsEcrits = (n: number | null) => (n === null ? '–' : `${
 /**
  * « Masquer » d'un classement — celui du mois du quiz du jour, celui des
  * duels : un seul masque pour les deux, une seule confirmation. Elle parle
- * du profil, jamais de la personne : un prénom ne dit pas qui l'on est.
+ * du profil, jamais de la personne : un prénom ne dit pas qui l'on est. Et
+ * elle dit où il se lève : on le cherchait sans le trouver (le 14 octobre 2026).
  */
 export function confirmerLeMasque(nom: string): Promise<boolean> {
   return confirmDialog({
     title: `Masquer ${nom} du classement ?`,
     message:
-      'Le profil ne paraîtra plus aux classements du quiz du jour et des duels, ni sur les podiums et les lauriers, et on ne pourra plus le défier. Personne ne l’en avertit : sur son téléphone, sa ligne reste.',
+      'Le profil ne paraîtra plus aux classements du quiz du jour et des duels, ni sur les podiums et les lauriers, et on ne pourra plus le défier. Personne ne l’en avertit : sur son téléphone, sa ligne reste. Il se remet au classement d’un geste, depuis sa fiche ou la liste des profils masqués.',
     confirmLabel: 'Masquer',
   })
 }

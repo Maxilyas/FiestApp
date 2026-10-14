@@ -4,14 +4,15 @@ import { formatNumber } from '../../../shared/typographie'
 import { dureeEcrite, type VueDEnsemble } from '../../../shared/qg'
 import { LIGUES, ligueParCle, type LigneDesDuels } from '../../../shared/duels'
 import type { DuelEnAttente, SuiviDesDuels } from '../../../shared/qgDuels'
+import type { ProfilMasquable } from '../api'
 
 /**
  * Ce que le QG suit des duels (`/admin#duels`, le choix du 13 octobre 2026,
  * sur maquettes) : les chiffres d'aujourd'hui, les duels contre Automate et
  * ceux classés entre joueurs jour par jour, les ligues et le classement — et
- * son « Masquer » —, les duels qui attendent leur adversaire — et les
- * annuler. Les parties jour par jour viennent de la vue d'ensemble : déjà
- * lues, elles ne se relisent pas ici.
+ * son « Masquer », et les masqués à y remettre —, les duels qui attendent
+ * leur adversaire — et les annuler. Les parties jour par jour viennent de la
+ * vue d'ensemble : déjà lues, elles ne se relisent pas ici.
  */
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
@@ -131,8 +132,27 @@ export function LiguesAuQg({ suivi }: { suivi: SuiviDesDuels | null }) {
   )
 }
 
-/** Le classement des duels, tel que les joueurs le voient, et « Masquer » au bout de chaque ligne. */
-export function ClassementDesDuelsAuQg({ suivi, occupe, masquer }: { suivi: SuiviDesDuels | null; occupe: boolean; masquer: (l: LigneDesDuels) => void }) {
+/**
+ * Le classement des duels, tel que les joueurs le voient, et « Masquer » au
+ * bout de chaque ligne ; dessous, les profils masqués et « Remettre au
+ * classement » : le masque se posait ici et ne se levait qu'en bas de la
+ * page du quiz du jour (« Je ne peux pas annuler l'action de masquer un
+ * profil ? », le propriétaire, le 14 octobre 2026).
+ */
+export function ClassementDesDuelsAuQg({
+  suivi,
+  occupe,
+  masquer,
+  masques,
+  remettre,
+}: {
+  suivi: SuiviDesDuels | null
+  occupe: boolean
+  masquer: (l: LigneDesDuels) => void
+  /** Les profils masqués — le masque du quiz du jour, sa liste aussi ; null tant qu'elle n'est pas lue. */
+  masques: ProfilMasquable[] | null
+  remettre: (p: ProfilMasquable) => void
+}) {
   const c = suivi?.classement
   return (
     <section className="qg-carte" aria-labelledby="duels-classement">
@@ -163,6 +183,31 @@ export function ClassementDesDuelsAuQg({ suivi, occupe, masquer }: { suivi: Suiv
         </ol>
       )}
       {c && <p className="muted small">Masqué, un profil sort de ce classement et de celui du quiz du jour, et on ne peut plus le défier.</p>}
+      {masques && masques.length > 0 && (
+        <>
+          {/* Sans compte : en Cormorant, les capitales de `.label` écrivaient le « 1 » à l'ancienne, un « ı ». */}
+          <h3 className="label" id="duels-masques">
+            Hors classement
+          </h3>
+          <ul className="qg-liste" aria-labelledby="duels-masques">
+            {masques.map(p => (
+              <li key={p.id} className="qg-rang qg-rang-masque">
+                <span className="qg-avatar" aria-hidden="true">
+                  {p.avatar}
+                </span>
+                <span className="qg-ligne-texte">
+                  <b>{p.nom}</b>
+                  <span className="muted small">@{p.login}</span>
+                </span>
+                <button type="button" className="salon-geste" disabled={occupe} onClick={() => remettre(p)}>
+                  <Icon name="eye" />
+                  Remettre au classement
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   )
 }
