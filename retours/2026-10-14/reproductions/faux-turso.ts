@@ -14,7 +14,11 @@
 //   node --import tsx faux-turso.ts <fichier.db> <port>
 //
 // Contrôle : POST /__etiquette {etiquette}, POST /__latence {ms}, GET /__releve,
-// POST /__remise (remet les compteurs à zéro).
+// POST /__remise (remet les compteurs à zéro), POST /__connexions
+// {refermeApresMs, poigneeMs} — le délai d'inactivité de Turso (5 s, lu en
+// production le 14 octobre 2026, sans en-tête `Keep-Alive`) et ce que coûte
+// une connexion neuve (TCP, TLS, le chiffrement au dixième de cœur : 225 ms
+// l'aller-retour contre 29), ajouté à sa première réponse ; zéro, comme avant.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -35,6 +39,13 @@ db.pragma('busy_timeout = 5000')
 
 let latenceMs = 0
 let etiquette = '(démarrage)'
+/** Le délai d'inactivité, comme Turso : la connexion se referme, sans rien annoncer. Zéro : jamais. */
+let refermeApresMs = 0
+/** Le prix d'une connexion neuve, ajouté à sa première réponse. */
+let poigneeMs = 0
+let connexions = 0
+const neuves = new WeakSet<object>()
+const minuteries = new WeakMap<object, ReturnType<typeof setTimeout>>()
 
 interface Aller { etiquette: string; t: number; ms: number; sqliteMs: number; instructions: number; sqls: string[]; octets: number }
 let allers: Aller[] = []
@@ -233,16 +244,28 @@ const serveur = createServer(async (req, res) => {
   }
   if (req.method === 'POST' && url === '/__remise') {
     allers = []
+    connexions = 0
     for (const p of plans.values()) { p.n = 0; p.ms = 0; p.lignes = 0; p.etiquettes.clear() }
+    return json(res, 200, { ok: true })
+  }
+  if (req.method === 'POST' && url === '/__connexions') {
+    const r = JSON.parse(await lireCorps(req))
+    refermeApresMs = Number(r.refermeApresMs ?? 0)
+    poigneeMs = Number(r.poigneeMs ?? 0)
+    // Turso ne dit pas son délai : sans délai à lui, Node n'envoie pas d'en-tête `Keep-Alive`.
+    if (refermeApresMs > 0) serveur.keepAliveTimeout = 0
     return json(res, 200, { ok: true })
   }
   if (req.method === 'GET' && url === '/__releve') {
     return json(res, 200, {
       allers,
+      connexions,
       plans: [...plans.values()].map(p => ({ ...p, etiquettes: [...p.etiquettes] })),
     })
   }
   if (req.method === 'POST' && (url === '/v2/pipeline' || url.endsWith('/v2/pipeline'))) {
+    const socket = req.socket
+    clearTimeout(minuteries.get(socket))
     const texte = await lireCorps(req)
     const { reponse, instructions, sqliteMs, vus } = pipeline(JSON.parse(texte))
     const corps = JSON.stringify(reponse)
@@ -250,12 +273,22 @@ const serveur = createServer(async (req, res) => {
       allers.push({ etiquette, t, ms: performance.now() - debut, sqliteMs, instructions, sqls: vus, octets: Buffer.byteLength(corps) })
       res.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(corps) })
       res.end(corps)
+      // Inactive aussi longtemps, Turso la referme de lui-même.
+      if (refermeApresMs > 0) res.once('finish', () => minuteries.set(socket, setTimeout(() => socket.end(), refermeApresMs)))
     }
-    if (latenceMs > 0) setTimeout(envoyer, latenceMs)
+    // La première réponse d'une connexion neuve paie la poignée de main.
+    const attente = latenceMs + (neuves.has(socket) ? poigneeMs : 0)
+    neuves.delete(socket)
+    if (attente > 0) setTimeout(envoyer, attente)
     else envoyer()
     return
   }
   json(res, 404, { message: 'introuvable' })
+})
+
+serveur.on('connection', socket => {
+  connexions++
+  neuves.add(socket)
 })
 
 serveur.listen(port, '127.0.0.1', () => {

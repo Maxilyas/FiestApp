@@ -218,12 +218,24 @@ const invites = (v: number) => `${formatNumber(v)} invité${v > 1 ? 's' : ''}`
 
 const pourcents = (v: number) => `${formatNumber(v)} %`
 
-/** Ce que les connexions d'une heure disent, après son temps : la part des neuves, la garde, et ce qu'une garde trop longue ferait voir. */
+/**
+ * Ce que les connexions d'une heure disent, après son temps : la part des
+ * neuves, la garde — ou l'entretien qui les garde chaudes, ses battements et
+ * ce qu'il a dû rouvrir —, et ce qu'une garde trop longue faisait voir.
+ */
 function connexionsDeLHeure(h: HeureDuServeur): string[] {
   const c = h.connexions
   if (!c) return []
   const morceaux = h.connexionsNeuves === null ? [] : [`${pourcents(h.connexionsNeuves)} de connexions neuves`]
-  morceaux.push(`gardées ${tempsDeReponse(c.gardeMs)}`)
+  if (c.chaudes) {
+    // Le nombre tient à son mot : au téléphone, « 260 » finissait une ligne et « battements » ouvrait la suivante.
+    const n = c.battements ?? 0
+    morceaux.push(n > 0 ? `gardées chaudes par ${formatNumber(n)} battement${n > 1 ? 's' : ''}` : 'gardées chaudes')
+    const tombes = c.battementsTombes ?? 0
+    if (tombes > 0) morceaux.push(`${formatNumber(tombes)} ${tombes > 1 ? 'battements tombés' : 'battement tombé'}`)
+    const rouvertes = c.ouvertesParUnBattement ?? 0
+    if (rouvertes > 0) morceaux.push(`${formatNumber(rouvertes)} rouverte${rouvertes > 1 ? 's' : ''} par un battement`)
+  } else morceaux.push(`gardées ${tempsDeReponse(c.gardeMs)}`)
   // Annoncé, le délai de Turso passe avant la garde : c'est lui qui vaut.
   if (c.annonceeMs !== null && c.annonceeMs !== undefined) morceaux.push(`Turso annonce ${tempsDeReponse(c.annonceeMs)}`)
   if (c.refermeesParLaBase > 0) {
@@ -238,9 +250,10 @@ function connexionsDeLHeure(h: HeureDuServeur): string[] {
  * Turso et ses connexions, heure par heure (la revue du 14 octobre 2026) : le
  * temps d'un aller-retour dit qu'il a été lent, la part des connexions neuves
  * dit pourquoi — à 100 %, chacun a refait sa poignée de main, 225 ms au lieu
- * de 29 en production. La légende dit la garde en vigueur, et ce qu'une garde
- * plus longue que le délai de Turso ferait voir : des connexions qu'il
- * referme, des allers-retours tombés en route.
+ * de 29 en production. La légende dit la garde en vigueur ou l'entretien qui
+ * les garde chaudes, et ce qu'une garde plus longue que le délai de Turso
+ * faisait voir : des connexions qu'il referme, des allers-retours tombés en
+ * route — c'est ainsi qu'on a lu ses 5 s.
  */
 function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
   const [choisie, setChoisie] = useState<number | null>(null)

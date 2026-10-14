@@ -250,6 +250,67 @@ dépendance. Sur le banc, par le vrai client libsql : après six secondes de
 calme, la page du profil ouvrait huit à neuf connexions, aucune avec une
 garde de trente secondes. Reste à la poser en préproduction et à lire sa page.
 
+**La suite, le même jour : Turso referme à 5 s, et la garde est retirée.**
+Posée à 30 s directement en production (déployée à 16 h 06, `47682f8`), la
+garde a fait dire à la page « Le serveur » le délai que la session de
+lecture ne pouvait pas lire : Turso referme lui-même une connexion après
+5 s de calme, sans l'annoncer — 838 connexions sur 839 refermées par lui
+entre 16 h et 17 h, 783 sur 782 l'heure suivante (une venait d'avant), la
+plus jeune chaque fois à 5,0 s (5 022 ms). La garde ne gardait donc rien
+au-delà de 5 s, et une requête partie juste à 5 s empruntait la connexion
+qu'il fermait : six allers-retours tombés entre 17 h et 18 h, et quatre
+erreurs 500 — `GET /api/duels`, `GET /api/duels/croises` et
+`GET /api/campagne/duel/:code`, qui attendent la même lecture partagée des
+cotes de tous (`toutesLesCotes`), et `POST /api/campagne/serie/:id/reponse`,
+la réponse d'un joueur. Ce qu'elle gagnait, lu dans les réponses de la
+production (sept jours) : seule une réponse arrivée entre 4 et 5 s après la
+précédente gardait sa connexion — 4,3 % en campagne, 8,7 % au quiz du jour ;
+85 à 92 % arrivent après 5 s, les joueurs répondant le plus souvent toutes
+les six à huit secondes. `QUIZ_DB_KEEPALIVE_MS` est retirée du code, et le
+démarrage dit de l'ôter des variables d'un service qui la garderait.
+
+**L'entretien des connexions, prototypé à la suite** (`QUIZ_DB_KEEPWARM=1`,
+`core/connexions.ts`) : puisqu'une connexion ne se garde qu'en servant, le
+serveur la fait servir tant qu'un joueur est là — une route d'API hors de
+`/api/admin`, une minute durant (`CHAUDES_MS` ; 99 % des pauses d'une même
+partie de campagne et 96 % d'un joueur entre deux parties durent moins
+d'une minute, quatorze jours de production) : avant que la plus anciennement
+servie des connexions qu'il garde ait trois secondes de calme
+(`BATTEMENT_MS`, avant les 4 s de Node, loin des 5 de Turso), un `SELECT 1`
+— qui ne lit aucune ligne — sur chaque connexion libre, six au plus (`CHAUDES_AU_PLUS` : une réponse en emprunte deux, la campagne
+et les duels quatre à six). Le `fetch` donne à
+chaque requête la première connexion libre, et referme une connexion
+inactive à 4,0 s pile (mesuré sous Node 22) : la seconde de marge couvre une
+boucle en retard. Ses battements passent par un client à eux, et ne
+comptent ni dans le temps de Turso, ni dans ses échecs, ni parmi les
+connexions neuves d'un joueur : la page « Le serveur » les dit à part.
+Sur le banc (`reproductions/connexions-chaudes.ts`) — le vrai serveur, le
+vrai client libsql, un faux Turso qui referme à 5 s et fait payer 196 ms à
+une connexion neuve, une joueuse qui ouvre l'accueil, la campagne, joue
+douze réponses aux écarts de la production, revient sur les duels après
+vingt secondes, puis sur l'accueil :
+
+| | sans l'entretien | avec |
+|---|---|---|
+| Une réponse de série, médiane | 465 ms | 70 ms |
+| Réponses qui ont ouvert une connexion | 11 sur 12 | 1 sur 12 |
+| La campagne (4 allers-retours) | 342 ms | 109 ms |
+| Les duels, après 20 s de pause | 244 ms | 43 ms |
+| L'accueil (13 allers-retours de front) | 264 ms, 13 neuves | 248 ms, 7 neuves |
+| Connexions neuves, en tout (59 allers-retours) | 52 | 15 |
+| Battements | — | 281 en 2 min 40, aucun tombé |
+
+Une bonne réponse fait deux allers-retours enchaînés, et chacun ouvrait sa
+connexion : 465 ms de Turso par réponse, ce que la production paie aussi.
+L'accueil ne gagne rien : treize allers-retours de front, six connexions
+chaudes, et la page attend la plus lente — c'est le terrain d'HTTP/2 ou de
+moins d'allers-retours ([perf-turso-5]). Le banc a aussi trouvé le défaut
+d'une première version, qui comptait le calme sur toutes les connexions à
+la fois : une réponse toutes les une à deux secondes n'en laissait jamais
+trois, et les connexions qu'elle n'empruntait pas se refermaient — onze
+neuves à l'accueil d'après. Le calme se compte donc connexion par
+connexion (`connexions-de-la-base.test.ts` le garde).
+
 ### Le processeur
 
 **[perf-turso-1] La base de la campagne se valide entièrement à chaque
@@ -445,13 +506,14 @@ ses heures ne se comparent pas à celles de la production.
 
 ## Le plan proposé
 
-1. **Le transport** [13] — la mesure et le réglage sont dans cette PR :
-   poser `QUIZ_DB_KEEPALIVE_MS=30000` en préproduction, lire sa page « Le
-   serveur » — la part des connexions neuves doit tomber, sans connexion
-   refermée par Turso ni aller-retour tombé en route ; si Turso annonce
-   un délai, c'est lui qui vaut —, puis la production. HTTP/2 ensuite,
-   s'il passe. C'est le seul levier qui divise chaque aller-retour ; il se
-   mesure tout de suite à `base.p50Ms`.
+1. **Le transport** [13] — la mesure est dans cette PR, et la garde
+   réglable n'a pas tenu : Turso referme à 5 s (lu en production le même
+   jour, plus haut). À la place, l'entretien des connexions : poser
+   `QUIZ_DB_KEEPWARM=1` en préproduction, lire sa page « Le serveur » — la
+   part des connexions neuves doit tomber, sans battement ni aller-retour
+   tombé en route —, puis la production. HTTP/2 ensuite, s'il passe : une
+   seule connexion chaude pour toute une vague. C'est le seul levier qui
+   divise chaque aller-retour ; il se mesure tout de suite à `base.p50Ms`.
 2. **Une petite PR sûre**, chaque correction avec son test au compteur
    d'allers-retours que les tests ont déjà (`duels-attente.test.ts`,
    `jour-charge.test.ts`) : les lectures partagées [6], la mesure séparée

@@ -40,7 +40,8 @@ export const TURSO_LENT_MS = 1000
  * 4 s quand le serveur ne dit pas son délai (`keepAliveTimeout`). Turso ne le
  * dit pas, et chaque connexion rouverte repayait sa poignée de main — 225 ms
  * l'aller-retour contre 29 sur une connexion gardée, en production, le 14
- * octobre 2026 (`server/src/core/connexions.ts`).
+ * octobre 2026. Une garde plus longue n'y pouvait rien : Turso referme
+ * lui-même à 5 s (`server/src/core/connexions.ts`).
  */
 export const GARDE_DE_NODE_MS = 4_000
 /** Un 95ᵉ centile ne se juge pas sur trois allers-retours : ceux du réveil, plus lents, le feraient mentir. */
@@ -101,10 +102,12 @@ export interface ChargeDeLHeure {
  * Les connexions vers Turso d'une heure (`core/connexions.ts`, la revue du 14
  * octobre 2026) : celles qui se sont ouvertes — chacune a refait sa poignée
  * de main —, celles que la base a refermées d'elle-même, les allers-retours
- * tombés en route, et la garde en vigueur. Une garde plus longue que le délai
- * de Turso se voit aux deux comptes du milieu.
+ * tombés en route, la garde en vigueur, et l'entretien qui les garde chaudes.
+ * Une garde plus longue que le délai de Turso se voyait aux deux comptes du
+ * milieu : c'est ainsi qu'on l'a lu, 5 s, le 14 octobre 2026.
  */
 export interface ConnexionsDeLHeure {
+  /** Ouvertes pour un joueur — celles qu'un battement a ouvertes comptent à part. */
   ouvertes: number
   /** Refermées par la base pendant que le serveur les gardait : son délai d'inactivité est plus court que la garde. */
   refermeesParLaBase: number
@@ -112,7 +115,7 @@ export interface ConnexionsDeLHeure {
   plusJeuneRefermeeMs: number | null
   /** Réseau coupé, connexion fermée sous la requête, délai dépassé. */
   echecs: number
-  /** Combien de temps une connexion inactive se garde : celle de Node (`GARDE_DE_NODE_MS`), ou `QUIZ_DB_KEEPALIVE_MS`. */
+  /** Combien de temps une connexion inactive se garde : celle de Node (`GARDE_DE_NODE_MS`) — 30 s dans les heures du 14 octobre 2026 où `QUIZ_DB_KEEPALIVE_MS` valait. */
   gardeMs: number
   /**
    * Le délai que la base annonce (`Keep-Alive: timeout=…`), le plus long de
@@ -120,6 +123,12 @@ export interface ConnexionsDeLHeure {
    * garde plus longue ne sert à rien, la base referme à son heure.
    */
   annonceeMs: number | null
+  /** Gardées chaudes cette heure-là (`QUIZ_DB_KEEPWARM`) ; absent d'une ligne d'avant l'entretien. */
+  chaudes?: boolean
+  /** Les battements de l'entretien — un `SELECT 1` avant qu'une connexion ait trois secondes de calme, tant qu'un joueur est là —, ceux qui sont tombés, et les connexions qu'ils ont dû ouvrir. */
+  battements?: number
+  battementsTombes?: number
+  ouvertesParUnBattement?: number
 }
 
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
@@ -254,12 +263,19 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
   }
 }
 
-/** Les connexions de deux démarrages dans la même heure : les comptes s'ajoutent, la plus jeune refermée reste la plus jeune, la garde la plus longue l'emporte. */
+/**
+ * Les connexions de deux démarrages dans la même heure : les comptes
+ * s'ajoutent, la plus jeune refermée reste la plus jeune, la garde la plus
+ * longue l'emporte, et l'heure est gardée chaude si l'un des deux l'a été.
+ * Deux lignes d'avant l'entretien n'en disent rien.
+ */
 export function fondreConnexions(a: ConnexionsDeLHeure | null, b: ConnexionsDeLHeure | null): ConnexionsDeLHeure | null {
   if (!a) return b
   if (!b) return a
   const ages = [a.plusJeuneRefermeeMs, b.plusJeuneRefermeeMs].filter((ms): ms is number => ms !== null)
   const annonces = [a.annonceeMs, b.annonceeMs].filter((ms): ms is number => typeof ms === 'number')
+  const entretien = a.chaudes !== undefined || b.chaudes !== undefined
+  const somme = (cle: 'battements' | 'battementsTombes' | 'ouvertesParUnBattement') => (a[cle] ?? 0) + (b[cle] ?? 0)
   return {
     ouvertes: a.ouvertes + b.ouvertes,
     refermeesParLaBase: a.refermeesParLaBase + b.refermeesParLaBase,
@@ -267,6 +283,12 @@ export function fondreConnexions(a: ConnexionsDeLHeure | null, b: ConnexionsDeLH
     echecs: a.echecs + b.echecs,
     gardeMs: Math.max(a.gardeMs, b.gardeMs),
     annonceeMs: annonces.length ? Math.max(...annonces) : null,
+    ...(entretien && {
+      chaudes: !!(a.chaudes || b.chaudes),
+      battements: somme('battements'),
+      battementsTombes: somme('battementsTombes'),
+      ouvertesParUnBattement: somme('ouvertesParUnBattement'),
+    }),
   }
 }
 

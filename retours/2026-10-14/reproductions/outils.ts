@@ -41,8 +41,10 @@ export interface Faux {
   enfant: ChildProcess
   etiquette(e: string): Promise<void>
   latence(ms: number): Promise<void>
+  /** Le délai d'inactivité de Turso et le prix d'une connexion neuve (`faux-turso.ts`) ; zéro, comme avant. */
+  connexions(reglage: { refermeApresMs?: number; poigneeMs?: number }): Promise<void>
   remise(): Promise<void>
-  releve(): Promise<{ allers: Aller[]; plans: Plan[] }>
+  releve(): Promise<{ allers: Aller[]; connexions: number; plans: Plan[] }>
   fermer(): void
 }
 
@@ -61,14 +63,20 @@ export async function fauxTurso(fichier: string, { neuf = true } = {}): Promise<
     })
   })
   const url = `http://127.0.0.1:${port}`
-  const poster = (chemin: string, corps: unknown) => fetch(`${url}${chemin}`, { method: 'POST', body: JSON.stringify(corps) }).then(r => r.json())
+  // Ses réglages passent par un autre nom : sous le même, leurs connexions
+  // entraient dans celles du serveur — reprises par lui, mais ouvertes avant
+  // qu'il suive l'hôte, elles échappaient au compte de l'entretien
+  // (`connexions-chaudes.ts`) et lui prenaient un battement à chaque tour.
+  const controle = `http://localhost:${port}`
+  const poster = (chemin: string, corps: unknown) => fetch(`${controle}${chemin}`, { method: 'POST', body: JSON.stringify(corps) }).then(r => r.json())
   return {
     url,
     enfant,
     etiquette: async e => void (await poster('/__etiquette', { etiquette: e })),
     latence: async ms => void (await poster('/__latence', { ms })),
+    connexions: async reglage => void (await poster('/__connexions', reglage)),
     remise: async () => void (await poster('/__remise', {})),
-    releve: async () => (await fetch(`${url}/__releve`)).json(),
+    releve: async () => (await fetch(`${controle}/__releve`)).json(),
     fermer: () => void enfant.kill(),
   }
 }

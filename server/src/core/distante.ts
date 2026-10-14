@@ -1,5 +1,5 @@
 import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
-import { dispatcherDeLaBase, noterLaReponse, noterUnEchec, suivreLaBase } from './connexions'
+import { noterLaReponse, noterUnEchec, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
 
 export type { Client }
@@ -34,17 +34,18 @@ export class BaseMuette extends Error {
  * Le délai enveloppe le `fetch` du client HTTP (celui qu'emprunte une URL
  * `libsql://` de Turso) : il borne l'aller-retour entier, réponse lue
  * comprise. Une base `file:` ne passe jamais par `fetch` — pour elle, rien ne
- * change.
+ * change. `battement` : le client de l'entretien des connexions, dont les
+ * allers-retours ne comptent pas comme ceux qu'on attend (`connexions.ts`).
  */
 export function clientDistant(
   url: string,
   authToken?: string,
-  reglages: { delaiMs?: number; intMode?: IntMode } = {},
+  reglages: { delaiMs?: number; intMode?: IntMode; battement?: boolean } = {},
 ): Client {
   const delaiMs = reglages.delaiMs ?? DELAI_DISTANT_MS
   // Ses connexions se comptent par l'hôte de son adresse (`connexions.ts`).
   suivreLaBase(url)
-  return createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs) })
+  return createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs, { battement: reglages.battement }) })
 }
 
 /** Les colonnes d'une table de la base permanente, telles que son schéma les dit. */
@@ -110,29 +111,35 @@ export async function ajouterColonne(client: Client, table: string, colonne: str
   return true
 }
 
-export function avecDelai(delaiMs: number) {
+export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {}) {
   return async (requete: Request): Promise<Response> => {
     const debut = performance.now()
+    // Un battement de l'entretien (`connexions.ts`) n'est pas un aller-retour
+    // qu'on attend : ses trente millisecondes feraient passer Turso pour plus
+    // rapide qu'il ne l'est pour un joueur, et l'entretien les compte à part.
+    const arrive = reglages.battement ? null : unAllerRetourPart()
     try {
-      // La garde réglée de ses connexions, s'il y en a une (`QUIZ_DB_KEEPALIVE_MS`).
-      const dispatcher = dispatcherDeLaBase()
-      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs), ...(dispatcher && { dispatcher }) })
+      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
       // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce
       // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`), et la
       // page « Le serveur » du QG s'en souvient heure par heure (`releve`).
       const ms = performance.now() - debut
-      pouls.base.noter(ms)
-      releve.base(ms)
+      if (arrive) {
+        pouls.base.noter(ms)
+        releve.base(ms)
+      }
       noterLaReponse(reponse.headers)
       return reponse
     } catch (e) {
-      // Une garde trop longue se verrait ici d'abord : une connexion que la
-      // base avait fermée, et la requête qui tombe avec.
-      noterUnEchec()
+      // Une connexion que la base avait fermée se verrait ici d'abord, et la
+      // requête qui tombe avec. Un battement tombé, l'entretien le compte.
+      if (arrive) noterUnEchec()
       // L'erreur d'origine (« The operation was aborted due to timeout ») ne
       // dit ni quoi, ni combien de temps : on la remplace par une phrase.
       if (e instanceof DOMException && e.name === 'TimeoutError') throw new BaseMuette(delaiMs)
       throw e
+    } finally {
+      arrive?.()
     }
   }
 }

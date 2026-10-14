@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
-import { gardeDemandee } from './core/connexions'
+import { chaudesDemandees } from './core/connexions'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
 import { releve } from './core/pouls'
 import { SERVEUR } from './racine'
@@ -49,15 +49,22 @@ if (online && !quizDbUrlDonnee) {
 }
 const quizDbUrl = quizDbUrlDonnee || `file:${path.resolve(path.dirname(dbPath), 'quizzes.db').replace(/\\/g, '/')}`
 const quizDbToken = process.env.QUIZ_DB_TOKEN
-// Combien de temps garder une connexion inactive vers la base (la revue du 14
-// octobre 2026) : sans réglage, les 4 s du `fetch` de Node, et chaque
-// requête après une pause repaie sa poignée de main. Plus longue que le délai
-// de Turso, elle ferait tomber des requêtes : elle s'essaie en préproduction,
-// la page « Le serveur » du QG et `/healthz` disent ce qu'elle change.
-const garde = gardeDemandee(process.env.QUIZ_DB_KEEPALIVE_MS)
-if (garde && 'refus' in garde) console.warn(`[base] ${garde.refus}`)
-else if (garde) console.log(`[base] connexions vers la base gardées ${garde.ms / 1000} s (QUIZ_DB_KEEPALIVE_MS)`)
-const gardeDeLaBaseMs = garde && 'ms' in garde ? garde.ms : undefined
+// Garder les connexions vers la base chaudes tant que des joueurs jouent (la
+// revue du 14 octobre 2026, perf-turso-13) : sans elle, les 4 s du `fetch` de
+// Node, et chaque requête après une pause repaie sa poignée de main — 225 ms
+// au lieu de 29. Elle s'essaie en préproduction : la page « Le serveur » du
+// QG et `/healthz` disent ce qu'elle change.
+const chaudes = chaudesDemandees(process.env.QUIZ_DB_KEEPWARM)
+if ('refus' in chaudes) console.warn(`[base] ${chaudes.refus}`)
+else if (chaudes.chaudes) console.log('[base] connexions vers la base gardées chaudes tant que des joueurs jouent (QUIZ_DB_KEEPWARM)')
+const connexionsChaudes = 'chaudes' in chaudes && chaudes.chaudes
+// L'ancienne garde, retirée : Turso referme lui-même à 5 s, et la garde de
+// 30 s posée en production le 14 octobre 2026 faisait tomber des requêtes.
+// Restée dans les variables d'un service, elle ne ferait plus rien — sans un
+// mot, on la croirait encore en vigueur.
+if (process.env.QUIZ_DB_KEEPALIVE_MS?.trim()) {
+  console.warn('[base] QUIZ_DB_KEEPALIVE_MS ne sert plus : Turso referme une connexion après 5 s de calme, une garde plus longue faisait tomber des requêtes. Retire-la des variables du service ; QUIZ_DB_KEEPWARM=1 garde les connexions chaudes.')
+}
 // Le plafond d'invités par soirée, que même le réglage d'un espace ne dépasse
 // pas : au-delà, l'instance gratuite de l'hébergeur ne suit plus.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
@@ -137,7 +144,7 @@ function poserLeFilet() {
 // Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
 const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version, gardeDeLaBaseMs }).then(
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version, connexionsChaudes }).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)

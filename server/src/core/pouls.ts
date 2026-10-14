@@ -130,6 +130,15 @@ export class Pouls {
   readonly connexions: Fenetre
   readonly refermeesParLaBase: Fenetre
   readonly echecsDeLaBase: Fenetre
+  /**
+   * L'entretien des connexions (`QUIZ_DB_KEEPWARM`) : ses battements — un
+   * `SELECT 1` avant qu'une connexion ait trois secondes de calme —, ceux qui sont tombés, et les
+   * connexions qu'ils ont dû ouvrir. À part : ni le temps de Turso, ni ses
+   * échecs, ni la part des connexions neuves ne les comptent.
+   */
+  readonly battements: Fenetre
+  readonly battementsTombes: Fenetre
+  readonly ouvertesParUnBattement: Fenetre
   /** Le temps de chaque route d'API, sous son modèle (`GET /api/jour`) — jamais l'adresse, qui peut porter un identifiant. */
   private routes = new Map<string, Fenetre>()
 
@@ -144,6 +153,9 @@ export class Pouls {
     this.connexions = new Fenetre(now)
     this.refermeesParLaBase = new Fenetre(now)
     this.echecsDeLaBase = new Fenetre(now)
+    this.battements = new Fenetre(now)
+    this.battementsTombes = new Fenetre(now)
+    this.ouvertesParUnBattement = new Fenetre(now)
     this.adressesDebut = now()
   }
 
@@ -268,12 +280,33 @@ class Heure {
   private erreurs = new Map<string, number>()
   miroir = 0
   private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
-  private liaison = { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null as number | null, echecs: 0, annonceeMs: null as number | null }
+  private liaison = {
+    ouvertes: 0,
+    refermeesParLaBase: 0,
+    plusJeuneRefermeeMs: null as number | null,
+    echecs: 0,
+    annonceeMs: null as number | null,
+    battements: 0,
+    battementsTombes: 0,
+    ouvertesParUnBattement: 0,
+  }
 
   constructor(readonly debut: number) {}
 
   connexion() {
     this.liaison.ouvertes++
+  }
+
+  connexionParUnBattement() {
+    this.liaison.ouvertesParUnBattement++
+  }
+
+  battements(n: number) {
+    this.liaison.battements += n
+  }
+
+  battementTombe() {
+    this.liaison.battementsTombes++
   }
 
   annonceDeLaBase(ms: number) {
@@ -328,7 +361,7 @@ class Heure {
     this.erreurs.set(cle, (this.erreurs.get(cle) ?? 0) + 1)
   }
 
-  ligne(demarrage: string, gardeMs: number): HeureDeSante {
+  ligne(demarrage: string, chaudes: boolean): HeureDeSante {
     const l = this.liaison
     const lentes = [...this.parRoute]
       .map(([route, m]) => ({ route, l: m.lire() }))
@@ -350,8 +383,12 @@ class Heure {
         refermeesParLaBase: l.refermeesParLaBase,
         plusJeuneRefermeeMs: l.plusJeuneRefermeeMs === null ? null : Math.round(l.plusJeuneRefermeeMs),
         echecs: l.echecs,
-        gardeMs,
+        gardeMs: GARDE_DE_NODE_MS,
         annonceeMs: l.annonceeMs,
+        chaudes,
+        battements: l.battements,
+        battementsTombes: l.battementsTombes,
+        ouvertesParUnBattement: l.ouvertesParUnBattement,
       },
     }
   }
@@ -378,8 +415,8 @@ export interface ReleveDeCharge {
 export class ReleveHoraire {
   private courante: Heure
   private precedente: Heure | null = null
-  /** La garde des connexions vers la base, réglée une fois pour le processus (`connexions.ts`) : chaque heure l'écrit à côté de ses comptes. */
-  private gardeMs = GARDE_DE_NODE_MS
+  /** Les connexions vers la base gardées chaudes, réglé une fois pour le processus (`connexions.ts`) : chaque heure l'écrit à côté de ses comptes. */
+  private gardeesChaudes = false
 
   constructor(private readonly now: () => number = Date.now) {
     this.courante = new Heure(debutDeLHeure(now()))
@@ -419,6 +456,19 @@ export class ReleveHoraire {
     this.heure().connexion()
   }
 
+  /** L'entretien des connexions : ses battements, ceux qui sont tombés, les connexions qu'ils ont ouvertes. */
+  battements(n: number) {
+    this.heure().battements(n)
+  }
+
+  battementTombe() {
+    this.heure().battementTombe()
+  }
+
+  connexionParUnBattement() {
+    this.heure().connexionParUnBattement()
+  }
+
   annonceDeLaBase(ms: number) {
     this.heure().annonceDeLaBase(ms)
   }
@@ -431,15 +481,15 @@ export class ReleveHoraire {
     this.heure().echecDeLaBase()
   }
 
-  garde(ms: number) {
-    this.gardeMs = ms
+  chaudes(oui: boolean) {
+    this.gardeesChaudes = oui
   }
 
   /** L'heure d'avant, si elle reste, et celle-ci : ce qu'un relevé écrit sous son démarrage. */
   lignes(demarrage: string): HeureDeSante[] {
     const courante = this.heure()
-    const g = this.gardeMs
-    return this.precedente ? [this.precedente.ligne(demarrage, g), courante.ligne(demarrage, g)] : [courante.ligne(demarrage, g)]
+    const c = this.gardeesChaudes
+    return this.precedente ? [this.precedente.ligne(demarrage, c), courante.ligne(demarrage, c)] : [courante.ligne(demarrage, c)]
   }
 
   /** Un serveur neuf part de zéro : celui d'avant, dans le même processus — les tests —, n'a rien à lui léguer. */
