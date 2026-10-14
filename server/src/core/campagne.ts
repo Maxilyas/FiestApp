@@ -52,6 +52,7 @@ import {
   JOURS_DU_CLASSEMENT,
   LETTRES_POUR_CHERCHER,
   LIGNES_DU_CLASSEMENT,
+  LIGUES,
   SCORE_DE_REFERENCE,
   bilanDesDuels,
   bordurePortee,
@@ -194,7 +195,8 @@ import {
   type ReponseDuSujet,
   type SentierDeSujet,
 } from '../../../shared/sentiersDeSujets'
-import { JOURS_DU_QG, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
+import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
+import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -548,6 +550,8 @@ export class CampagneStore {
   private semaineGardee: { heure: number; semaine: string; passee: string } | null = null
   /** Les trente jours des parcours et des vies au QG, gardés dix minutes (`TRENTE_JOURS_GARDES_MS`). */
   private trenteJoursGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> } | null = null
+  /** Les duels classés lancés sur trente jours, au QG : gardés de même. */
+  private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> } | null = null
   private ferme = false
   /**
    * Les profils, pour nommer le classement du défi et ses vainqueurs
@@ -804,6 +808,8 @@ export class CampagneStore {
            clos_le    INTEGER
          )`,
         'CREATE INDEX IF NOT EXISTS idx_campagne_duels_auteur ON campagne_duels(auteur, ferme_le)',
+        // Les duels de tous par leur date, au QG — lancés sur trente jours, en attente, fermés sans réponse : sans index, la table entière.
+        'CREATE INDEX IF NOT EXISTS idx_campagne_duels_cree ON campagne_duels(cree_le)',
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_duel ON campagne_series(mode, duel)',
         // Un défi envoyé à un ami : il l'attend sous son onglet du défi, sans lien à faire suivre.
         `CREATE TABLE IF NOT EXISTS campagne_envois (
@@ -5087,6 +5093,145 @@ export class CampagneStore {
     const vies: ViesAuQg = { ...viesPerduesParJour(epreuvesRatees, minuits, maintenant), ...viesAcheteesParJour(achats, minuits, maintenant) }
     const suivis: ParcoursAuQg = { lignes: lignes.slice(0, PARCOURS_AU_QG), commences: lignes.reduce((n, l) => n + l.joueurs, 0), sujets: lignes.length }
     return { parcours: suivis, vies }
+  }
+
+  /**
+   * Les duels au QG (`/admin#duels`) : les duels classés lancés jour par jour
+   * sur trente jours, les ligues et le classement tels que les joueurs les
+   * voient, ce que la semaine passée a versé en confettis de ligue, et les
+   * duels qui attendent leur adversaire. Les cotes sont celles du classement
+   * (`toutesLesCotes`), gardées : rien ne se relit pour le QG.
+   */
+  async suiviDesDuelsAuQg(): Promise<SuiviDesDuels> {
+    const maintenant = this.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const [lances, attente, cotes, classement] = await Promise.all([
+      this.duelsLancesAuQg(minuits),
+      this.duelsEnAttenteAuQg(maintenant),
+      this.toutesLesCotes(),
+      this.classementDesDuels(null),
+    ])
+    // Les ligues de ceux que le classement compte : ces quatre semaines, ni masqués ni suspendus.
+    const depuis = maintenant - JOURS_DU_CLASSEMENT * 24 * HEURE_MS
+    const actifs = [...cotes].filter(([, r]) => r.dernierLe !== null && r.dernierLe >= depuis)
+    const profils = this.profils ? await this.profils.byIds(actifs.map(([id]) => id)) : []
+    const classes = actifs.filter(([id], i) => profils[i] && !this.masque?.(id)).map(([, r]) => ligueDe(r.cote).cle)
+    // Ce que la semaine passée a versé : à chacun, masqué ou non — les confettis sont à lui.
+    const { passee } = this.semaineDeLHeure()
+    let payes = 0
+    let confettis = 0
+    for (const r of cotes.values()) {
+      const paye = recompenseDeLaSemaine(r.semaines.get(passee))
+      if (paye > 0) {
+        payes++
+        confettis += paye
+      }
+    }
+    return {
+      maintenant,
+      jours: joursDesMinuits(minuits),
+      ...lances,
+      ligues: joueursParLigue(classes, LIGUES.map(l => l.cle)),
+      semainePassee: { semaine: passee, payes, confettis },
+      classement: { joueurs: classement.joueurs, lignes: classement.lignes.slice(0, LIGNES_DU_CLASSEMENT_AU_QG) },
+      attente,
+    }
+  }
+
+  /** Les duels classés lancés chaque jour sur trente jours, et ceux joués des deux côtés : gardés dix minutes, comme les vies. */
+  private duelsLancesAuQg(minuits: readonly number[]): Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> {
+    const maintenant = this.maintenant()
+    const minuit = minuits[minuits.length - 1]
+    const garde = this.lancesGardes
+    if (garde && garde.minuit === minuit && maintenant < garde.jusqua) return garde.lus
+    const lus = (async () => {
+      const res = await this.client.execute({
+        sql: `SELECT d.cree_le AS quand,
+                     (SELECT COUNT(DISTINCT s.profile_id) FROM campagne_series s
+                       WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id IN (d.auteur, d.adversaire) AND s.finie_le IS NOT NULL) = 2 AS joue
+              FROM campagne_duels d WHERE d.cree_le >= ? AND d.adversaire IS NOT NULL`,
+        args: [minuits[0]],
+      })
+      const lances = minuits.map(() => 0)
+      let joues = 0
+      for (const r of res.rows) {
+        const quand = Number(r.quand)
+        const i = quand <= maintenant ? jourDeLInstant(minuits, quand) : -1
+        if (i >= 0) lances[i]++
+        if (Number(r.joue) === 1) joues++
+      }
+      return { lances, jouesDesDeuxCotes: joues }
+    })()
+    this.lancesGardes = { minuit, jusqua: maintenant + TRENTE_JOURS_GARDES_MS, lus }
+    lus.catch(() => {
+      if (this.lancesGardes?.lus === lus) this.lancesGardes = null
+    })
+    return lus
+  }
+
+  /**
+   * Les duels classés partis à celui qu'ils défient (`campagne_envois`) et
+   * qu'il n'a pas commencés : ceux qui attendent encore, les plus près
+   * d'expirer d'abord, et ceux fermés ainsi ces sept derniers jours — ils ne
+   * comptent pour personne. Lus par leur date de lancement : un duel ouvert
+   * a été lancé il y a moins d'une semaine (`DUREE_D_UN_DUEL_MS`).
+   */
+  private async duelsEnAttenteAuQg(maintenant: number): Promise<SuiviDesDuels['attente']> {
+    const res = await this.client.execute({
+      sql: `SELECT d.code, d.auteur, d.adversaire, d.ferme_le, e.envoye_le
+            FROM campagne_duels d JOIN campagne_envois e ON e.code = d.code AND e.profile_id = d.adversaire
+            WHERE d.cree_le > ? AND d.adversaire IS NOT NULL AND d.ferme_le > ?
+              AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.adversaire)
+            ORDER BY d.ferme_le, d.code`,
+      args: [maintenant - 2 * DUREE_D_UN_DUEL_MS, maintenant - 7 * 24 * HEURE_MS],
+    })
+    const ouverts = res.rows.filter(r => Number(r.ferme_le) > maintenant)
+    const montres = ouverts.slice(0, DUELS_EN_ATTENTE_MONTRES)
+    const ids = [...new Set(montres.flatMap(r => [String(r.auteur), String(r.adversaire)]))]
+    const profils = this.profils ? await this.profils.byIds(ids) : []
+    const parId = new Map(ids.map((id, i) => [id, profils[i]]))
+    const joueur = (id: string): JoueurDuDuel => {
+      const p = parId.get(id)
+      return { id, nom: p?.name ?? 'Un profil parti', avatar: p && this.profils ? this.profils.avatarPorte(p) : '·' }
+    }
+    return {
+      duels: montres.map(r => ({
+        code: String(r.code),
+        auteur: joueur(String(r.auteur)),
+        adversaire: joueur(String(r.adversaire)),
+        envoyeLe: Number(r.envoye_le),
+        fermeLe: Number(r.ferme_le),
+      })),
+      total: ouverts.length,
+      plusAncien: ouverts.length > 0 ? Math.min(...ouverts.map(r => Number(r.envoye_le))) : null,
+      fermesSansReponse: res.rows.length - ouverts.length,
+    }
+  }
+
+  /**
+   * Annuler un duel classé que celui qu'il défie n'a pas commencé (le choix
+   * du 13 octobre 2026) : il se ferme tout de suite, comme à son expiration —
+   * il ne compte pour personne, et sort des duels « à jouer » de l'autre.
+   * Sous le verrou de l'adversaire : il ne peut pas le commencer pendant ce
+   * temps. Commencé, il compte déjà : il se refuse.
+   */
+  async annulerUnDuel(brut: unknown): Promise<{ code: string; auteur: string; adversaire: string }> {
+    const duel = await this.duelDe(lireCodeDuDuel(brut))
+    if (!duel || !duel.adversaire) throw new Error('Ce duel classé n’existe pas')
+    const adversaire = duel.adversaire
+    return this.avecVerrou(adversaire, async () => {
+      const maintenant = this.maintenant()
+      if (maintenant >= duel.fermeLe) throw new Error('Ce duel est déjà fermé')
+      const commence = await this.client.execute({
+        sql: `SELECT 1 FROM campagne_series WHERE mode = 'duel' AND duel = ? AND profile_id = ? LIMIT 1`,
+        args: [duel.code, adversaire],
+      })
+      if (commence.rows.length > 0) throw new Error('Ce duel est commencé des deux côtés : il compte déjà, il ne s’annule plus')
+      await this.client.execute({ sql: 'UPDATE campagne_duels SET ferme_le = ? WHERE code = ? AND ferme_le > ?', args: [maintenant, duel.code, maintenant] })
+      // Le duel gardé en mémoire se ferme avec : la page de l'un et de l'autre le lit là.
+      duel.fermeLe = maintenant
+      return { code: duel.code, auteur: duel.auteur, adversaire }
+    })
   }
 
   // ── Les signalements ────────────────────────────────────────────────────

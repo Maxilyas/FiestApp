@@ -9888,6 +9888,12 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 /* Un intertitre dans une carte : « Les scores », et ce qu'ils comptent à côté. */
 .qg-sous-titre { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 6px 0 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 .qg-sous-titre .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* Deux cartes de hauteurs très différentes — les six ligues, les dix du classement : chacune la sienne, la plus courte ne s'étire pas sur du vide. */
+.qg-deux-haut { align-items: start; }
+/* Les duels par jour : deux petits multiples, côte à côte dès qu'ils tiennent. */
+.qg-multiples-deux { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+/* Un duel en attente : qui défie qui, la flèche à la taille du texte. */
+.qg-attente b .icon { width: 12px; height: 12px; vertical-align: -1px; }
 /* Les questions les plus ratées du défi : au téléphone, l'intitulé sur toute la largeur et sa piste dessous ; à l'ordinateur, sur une ligne, coupé d'une ellipse. */
 .qg-ratees .qg-piste-ligne { grid-template-columns: minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte texte' 'piste part'; gap: 4px 10px; }
 .qg-ratees .qg-piste-nom { grid-area: texte; }

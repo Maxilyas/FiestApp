@@ -3,6 +3,7 @@ import { api, motifDe, type AdminDuJour as Etat, type ProfilMasquable } from '..
 import { confirmDialog } from './Dialog'
 import { Flamme, Icon } from './Icon'
 import { AujourdhuiDuJour, ClassementDuMoisAuQg, JoueursParJour, QuestionsDuJour, RappelDuSoirAuQg, SeriesDuJourAuQg } from './QgDuJour'
+import { confirmerLeMasque } from './QgModes'
 import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
@@ -138,16 +139,7 @@ export function AdminDuJour({ vue }: { vue: VueDEnsemble | null }) {
 
   // Les phrases parlent du profil, jamais de la personne : un prénom ne dit pas qui l'on est.
   const masquer = async (p: Pick<ProfilMasquable, 'id' | 'nom'>, masque: boolean) => {
-    if (
-      masque &&
-      !(await confirmDialog({
-        title: `Masquer ${p.nom} du classement ?`,
-        message:
-          'Le profil ne paraîtra plus aux classements du quiz du jour et des duels, ni sur les podiums et les lauriers, et on ne pourra plus le défier. Personne ne l’en avertit : sur son téléphone, sa ligne reste.',
-        confirmLabel: 'Masquer',
-      }))
-    )
-      return
+    if (masque && !(await confirmerLeMasque(p.nom))) return
     await faire(() => api.admin.masquerDuJour(p.id, masque), masque ? `Profil masqué du classement : ${p.nom}` : `Profil remis au classement : ${p.nom}`)
     setTrouves(ts => ts.map(t => (t.id === p.id ? { ...t, masque } : t)))
   }
