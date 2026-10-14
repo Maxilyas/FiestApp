@@ -203,7 +203,7 @@ Une panne ne se raconte qu'au journal du serveur (`server/src/core/http.ts`) :
 
 - Une erreur faite pour être lue se lève avec un `Error` nu, sans `code` (`erreurMontrable`) : la route répond son message en **400** — un 404 ou un 409 se répond à la main.
 - Toute autre — `LibsqlError`, `TypeError`, une erreur système à `code` — devient « Erreur serveur — réessaie dans un instant » : un 500 dans une route (`repondreErreur`, que `wrap` appelle pour toute promesse rejetée), un toast à l'écran commun (`messagePourEcran`). Son détail part au journal du serveur, et elle compte aux « Erreurs serveur » du QG.
-- Une requête illisible reçoit du JSON (`erreurDeRequete`) : « Requête illisible — recharge la page et réessaie », « Envoi trop lourd — allège-le et réessaie » — jamais la page d'Express, pile d'appels et chemins du serveur compris.
+- Une requête illisible reçoit du JSON (`erreurDeRequete`) : « Requête illisible — recharge la page et réessaie », « Envoi trop lourd — allège-le et réessaie » — jamais la page d'Express, pile d'appels et chemins du serveur compris. Le journal du serveur en garde une ligne — la sorte du refus et les en-têtes qui annonçaient le corps —, jamais le corps ni le message du lecteur JSON, qui en cite le début : un mot de passe y passe.
 
 ## Les textes, les photos et l'export
 

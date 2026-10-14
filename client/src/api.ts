@@ -134,7 +134,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       signal: abandon.signal,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...init?.headers },
+      // Du JSON s'annonce avec un corps, et seulement avec lui : une lecture
+      // qui s'annonçait en JSON invitait le serveur à lire un corps qu'elle
+      // n'a pas — « Requête illisible » au QG, le 14 octobre 2026.
+      headers: { ...(init?.body != null && { 'Content-Type': 'application/json' }), 'X-Requested-With': 'quizz', ...init?.headers },
     })
     // Le corps se lit sous le même délai : une réponse qui arrive au
     // compte-gouttes n'est pas une réponse.

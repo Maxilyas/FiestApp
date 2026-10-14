@@ -134,8 +134,13 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountBaseDeLaCampagne(app, { campagne: deps.campagne, jeton: deps.jetonDeLaReserve })
   app.use('/api', requireAccount(deps.auth))
 
-  // Les photos arrivent en dataURL dans le corps JSON.
-  app.use('/api', express.json({ limit: '4mb' }))
+  // Les photos arrivent en dataURL dans le corps JSON. Une lecture (GET, HEAD)
+  // n'a pas de corps, et ce lecteur ne lui en cherche jamais : le 14 octobre
+  // 2026, « Les profils » du QG a répondu une fois « Requête illisible » à un
+  // téléphone — pour une lecture, seul ce lecteur pouvait le dire, à qui la
+  // requête annonçait un corps qu'il n'a pas su lire.
+  const corpsJson = express.json({ limit: '4mb' })
+  app.use('/api', (req, res, next) => (req.method === 'GET' || req.method === 'HEAD' ? next() : corpsJson(req, res, next)))
 
   /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
   const spaceOf = (res: express.Response) => accountOf(res).id

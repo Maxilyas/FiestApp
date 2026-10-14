@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import { releve } from './pouls'
+import { tronquer } from '../../../shared/avatars'
 
 /** Ce que lit l'utilisateur quand la panne ne le regarde pas. */
 export const ERREUR_SERVEUR = 'Erreur serveur — réessaie dans un instant'
@@ -57,6 +58,9 @@ export function messagePourEcran(e: unknown, contexte: string): string {
   return ERREUR_SERVEUR
 }
 
+/** Les en-têtes par lesquels une requête annonce un corps : ce qu'un refus du lecteur JSON laisse au journal. */
+const ANNONCE_DU_CORPS = ['content-type', 'content-length', 'transfer-encoding', 'content-encoding'] as const
+
 /**
  * Le dernier filet d'Express : une requête qu'il n'a pas su lire — un JSON
  * cassé, un corps trop lourd. Sans lui, Express répondait par sa propre page
@@ -68,6 +72,17 @@ export function erreurDeRequete(err: unknown, req: Request, res: Response, next:
   if (res.headersSent) return next(err)
   const status = (err as { status?: unknown } | null)?.status
   if (typeof status === 'number' && status >= 400 && status < 500) {
+    // Un refus ne laissait rien au journal : le « Requête illisible » vu une
+    // fois au téléphone (le 14 octobre 2026) ne disait ni ce qui n'avait pas
+    // pu se lire, ni comment la requête annonçait son corps. La sorte du
+    // lecteur (`entity.parse.failed`…) et ces en-têtes le disent ; jamais le
+    // corps, ni le message du lecteur, qui en cite le début — un mot de passe
+    // y passe. Un fichier absent (404) est l'ordinaire : il se tait.
+    if (status !== 404) {
+      const type = (err as { type?: unknown }).type
+      const annonce = ANNONCE_DU_CORPS.map(h => `${h}: ${tronquer(String(req.headers[h] ?? '—'), 60)}`).join(', ')
+      console.warn(`[http] ${req.method} ${req.path} : ${status} ${typeof type === 'string' ? type : err instanceof Error ? err.name : typeof err} (${annonce})`)
+    }
     res.status(status).json({
       error: status === 413 ? 'Envoi trop lourd — allège-le et réessaie' : 'Requête illisible — recharge la page et réessaie',
     })

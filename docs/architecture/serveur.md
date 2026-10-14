@@ -211,8 +211,9 @@ Chaque route, sa méthode et son accès : [l'API HTTP](../reference/api-http.md)
    4. `requireAccount` sur tout le reste : 401 « Connexion requise », vérifié
       **avant** de lire le corps — sinon n'importe qui faisait analyser quatre
       mégaoctets de JSON ;
-   5. le lecteur JSON de 4 Mo (les photos arrivent en dataURL), puis les
-      routes réservées aux animateurs et à l'administrateur.
+   5. le lecteur JSON de 4 Mo (les photos arrivent en dataURL) — jamais pour
+      une lecture (`GET`, `HEAD`), qui n'a pas de corps —, puis les routes
+      réservées aux animateurs et à l'administrateur.
 4. `/media/quiz` ; puis toute adresse inconnue sous `/api`, `/media` ou `/s` :
    404 en JSON, jamais la page d'accueil.
 5. `/robots.txt` et le client compilé : `/assets` déjà compressé, les dossiers
@@ -231,8 +232,8 @@ tranche par `erreurMontrable` :
 |---|---|---|
 | un `Error` nu, sans `code` : `new Error('Cet identifiant est déjà pris')` | 400, son message | rien |
 | toute autre : `LibsqlError`, `TypeError`, `ENOENT`… | 500, « Erreur serveur — réessaie dans un instant » | le détail, et une erreur au relevé de l'heure |
-| un JSON cassé | 400, « Requête illisible — recharge la page et réessaie » | rien |
-| un corps trop lourd | 413, « Envoi trop lourd — allège-le et réessaie » | rien |
+| un JSON cassé | 400, « Requête illisible — recharge la page et réessaie » | une ligne : sa sorte (`entity.parse.failed`…) et les en-têtes qui annonçaient le corps — jamais le corps |
+| un corps trop lourd | 413, « Envoi trop lourd — allège-le et réessaie » | la même ligne |
 
 La règle tient à la classe : un message fait pour l'invité se lève par un
 `new Error('…')` nu, en français, et dit quoi faire ; le reste parle de tables
