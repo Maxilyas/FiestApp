@@ -3,7 +3,8 @@ import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS, adresseDuLancementContre } from '../views/adressesDesDuels'
-import type { FaceAFace, JoueurADefier } from '../../../shared/duels'
+import { EnJeu } from '../views/Rencontre'
+import { COTE_DE_DEPART, enjeuContre, type EnjeuDuDuel, type FaceAFace, type JoueurADefier } from '../../../shared/duels'
 
 /**
  * Ce qu'on fait d'un joueur, au pied de sa carte (le souhait du propriétaire
@@ -80,6 +81,8 @@ export function GestesDuJoueur({ gestes, visibles = true, onFermer }: { gestes: 
   return (
     <GestesVue
       joueur={joueur}
+      // Ce que le défier mettrait en jeu, comme la préparation le dira : sa cote contre la sienne, sa part de lanceur comprise.
+      enjeu={enjeuContre(moi, joueur.cote ?? COTE_DE_DEPART, true)}
       aConfirmer={aConfirmer}
       busy={busy}
       erreur={erreur}
@@ -92,9 +95,15 @@ export function GestesDuJoueur({ gestes, visibles = true, onFermer }: { gestes: 
   )
 }
 
-/** Les gestes tels qu'ils se montrent : « Défier » en grand, puis l'ajouter — ou, son ami, le retirer, confirmé sur place. */
+/**
+ * Les gestes tels qu'ils se montrent : « Défier » en grand, ce que le duel
+ * mettrait en jeu dessous — partout où l'on choisit qui défier, on voit ce
+ * qu'on gagne et ce qu'on perd (le souhait du propriétaire du 14 octobre
+ * 2026) —, puis l'ajouter — ou, son ami, le retirer, confirmé sur place.
+ */
 export function GestesVue({
   joueur,
+  enjeu,
   aConfirmer,
   busy,
   erreur,
@@ -105,6 +114,8 @@ export function GestesVue({
   onGarder,
 }: {
   joueur: JoueurADefier
+  /** Ce que le défier mettrait en jeu sur sa cote (`enjeuContre`). */
+  enjeu?: EnjeuDuDuel
   aConfirmer: boolean
   busy: boolean
   erreur: string
@@ -139,6 +150,7 @@ export function GestesVue({
             <Icon name="swords" />
             <span className="carte-gestes-nom">{`Défier ${joueur.nom}`}</span>
           </button>
+          {enjeu && <EnJeu enjeu={enjeu} className="small carte-gestes-enjeu" />}
           {joueur.ami ? (
             <p className="carte-gestes-ami small">
               <span>

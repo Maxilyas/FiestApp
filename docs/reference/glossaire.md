@@ -153,7 +153,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Emoji récent | Un emoji d'Unicode 13 ou après, que l'écran commun sous Windows 10 dessine en carré vide | `emojisRecents` |
 | En ligne | Un ami réciproque passé ces 5 dernières minutes, tenu en mémoire seulement | `EN_LIGNE_MS` |
 | Enchaînement | La question suivante qui part seule après la révélation, au délai choisi (5, 10 ou 20 secondes) ; suspendu après une question sans une seule réponse | `autoNextSeconds`, `PALIERS_ENCHAINEMENT` |
-| Enjeu | Ce qu'un duel ferait à la cote qu'on voit — gagné, à égalité ou perdu —, dit avant et pendant la partie ; sous l'Or, une défaite rapporte souvent : « +2 même si tu perds » | `enjeuContre` |
+| Enjeu | Ce qu'un duel ferait à la cote qu'on voit — gagné, à égalité ou perdu —, dit avant — partout où l'on choisit un adversaire, et au dé avant la première question — et pendant la partie ; sous l'Or, une défaite rapporte souvent : « +2 même si tu perds » | `enjeuContre`, `phraseDeLEnjeu` |
 | Entourage | Ce qui entoure une question jouée : l'anecdote, la note, l'intertitre, la photo de la révélation, l'extrait — le moteur décide qui les reçoit, et quand | `Entourage` |
 | Entrée de départ | L'état de l'entrée d'un invité — l'instantané des téléphones, le profil du cookie —, servi avant la liaison temps réel | `EntreeDeDepart` (`shared/depart.ts`), `/s/<espace>/entree.json` |
 | Épreuve (d'un sentier) | La partie de seize questions qui valide un palier : une série de la campagne d'un autre mode | `campagne_series.mode = 'sentier'` |

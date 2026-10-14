@@ -224,6 +224,10 @@ try {
   await page.waitForSelector('.duels-cadran-point')
   await photo('10-lancer-le-de')
   await page.getByRole('button', { name: 'Un duel contre Automate' }).click()
+  // Tiré, sa feuille dit ce qu'il met en jeu ; « Jouer le duel » le commence.
+  await page.waitForSelector('.feuille-du-de')
+  await photo('10b-le-de-tire')
+  await page.locator('.feuille-du-de').getByRole('button', { name: 'Jouer le duel' }).click()
   await repondre(true)
   await photo('11-rencontre-reponse')
   // Une faute à la quatrième ; la bonne réponse qui dépasse les cinq d'Automate la gagne, et la finit.

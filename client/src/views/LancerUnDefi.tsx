@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
@@ -7,7 +8,7 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS } from './adressesDesDuels'
 import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
-import { ecartSigne, siTuPerds } from './Rencontre'
+import { JetonsDeLEnjeu } from './Rencontre'
 import { COTE_DE_DEPART, RAISON_DU_CROISEMENT, enjeuContre, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
@@ -24,9 +25,13 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
  * dernière réponse, il lui part : dans ses duels, et son accueil le lui dit —
  * sans notification depuis le 13 octobre 2026 : seul le quiz du jour en a. Un
  * duel classé : quand il l'a joué, les deux cotes bougent, et ce qui se joue
- * se dit avant (`enjeuContre`). Chaque prénom ouvre sa carte, entière — « Défier » à son
- * pied le choisit ici même —, et « Choisir » est à côté : on sait contre qui
- * l'on joue avant de le choisir.
+ * se voit dès qu'on l'a choisi, en deux jetons sous lui (`enjeuContre` ; le
+ * souhait du propriétaire du 14 octobre 2026 : « quand je lance un défi et
+ * que je choisis quelqu'un, voir ce que je gagne / perds ») — dit dans la
+ * phrase sous « Jouer le duel », il sortait de l'écran du téléphone. Chaque
+ * prénom ouvre sa carte, entière — « Défier » à son pied le choisit ici même
+ * —, et « Choisir » est à côté : on sait contre qui l'on joue avant de le
+ * choisir.
  */
 export function LancerUnDefi({
   amis,
@@ -75,6 +80,24 @@ export function LancerUnDefi({
     },
     onAmis,
   })
+  // Sa cote inconnue — la préparation ouverte telle quelle à son adresse, « Défier » touché avant que la page ait dit la
+  // sienne — : ce que les duels savent du joueur choisi la dit (`GET /api/duels/joueurs/:id`), sa cote à lui fraîche avec.
+  useEffect(() => {
+    if (!choisi || moi) return
+    let vivant = true
+    api.duels
+      .joueur(choisi.profileId)
+      .then(f => {
+        if (!vivant) return
+        setMoi(f.moi)
+        setChoisi(f.joueur)
+      })
+      // Introuvable ou sans réseau : la préparation reste, sans enjeu ; le lancement dira l'erreur.
+      .catch(() => {})
+    return () => {
+      vivant = false
+    }
+  }, [choisi?.profileId, moi])
   // Ce qui se joue pour lui, qui lance le défi : sa part de lanceur comprise, et sa ligue gardée.
   const enjeu = choisi && moi ? enjeuContre(moi, choisi.cote ?? COTE_DE_DEPART, true) : null
   const choisir = (j: JoueurADefier) => (
@@ -117,11 +140,15 @@ export function LancerUnDefi({
           Contre qui ?
         </h2>
         {choisi ? (
-          <LigneDeJoueur joueur={choisi} onOuvrir={() => ouvrir(choisi.profileId)}>
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => setChoisi(null)}>
-              Changer
-            </button>
-          </LigneDeJoueur>
+          <>
+            <LigneDeJoueur joueur={choisi} onOuvrir={() => ouvrir(choisi.profileId)}>
+              <button type="button" className="btn btn-ghost btn-small" onClick={() => setChoisi(null)}>
+                Changer
+              </button>
+            </LigneDeJoueur>
+            {/* Sous lui, ce que le duel met en jeu : on le voit en le choisissant. */}
+            {enjeu && <JetonsDeLEnjeu enjeu={enjeu} petits />}
+          </>
         ) : (
           <>
             <ChercherUnJoueur libelle="Chercher un joueur par son prénom" rendre={j => ligne(j)} />
@@ -184,7 +211,7 @@ export function LancerUnDefi({
       <p className="muted small centre">
         {espacesFines(
           choisi
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${siTuPerds(enjeu.perdu)}` : ''}.`
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent.`
             : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>
