@@ -49,7 +49,7 @@ Le détail : [la vue d'ensemble de l'architecture](../architecture/vue-d-ensembl
 ### Un compte est un espace, cloisonné par son identifiant
 **Contexte** : plusieurs animateurs partagent un serveur, et aucun ne doit voir les soirées, les quiz ni les archives d'un autre.
 
-**Décision** : l'identifiant d'un compte est le `space_id` de chaque ligne de la soirée, du miroir, de la bibliothèque et de l'historique ; une route lit l'espace dans la session, jamais dans la requête ; une connexion temps réel s'attache à un espace une fois pour toutes ; la personne, elle, est un profil, dans une autre table.
+**Décision** : l'identifiant d'un compte est le `space_id` de chaque ligne de la soirée, du miroir, de la bibliothèque et de l'historique ; une route d'animateur lit l'espace dans la session, jamais dans la requête — une page publique, dans son adresse ; une connexion temps réel s'attache à un espace une fois pour toutes ; la personne, elle, est un profil, dans une autre table.
 
 **Conséquence** : un identifiant d'un autre espace vaut « introuvable », et le voisin n'en sait rien ; `accounts.id` ne bouge jamais, et comptes et profils ne se fusionnent pas (`accounts.profile_id` dit qui tient l'espace).
 
@@ -532,7 +532,7 @@ Le détail : [le client](../architecture/client.md).
 ### Le service worker ne fait que la notification
 **Contexte** : installé par l'application, un service worker couvre toute l'origine, onglets compris : un cache servirait une vieille application à toute une salle, un `fetch` qui échoue ferait une page blanche.
 
-**Décision** : `client/public/sw.js`, écrit à la main hors du paquet, affiche le rappel du soir et ouvre sa page au toucher — ni cache, ni `fetch` —, inscrit seulement par l'application installée qui prépare le rappel.
+**Décision** : `client/public/sw.js`, écrit à la main hors du paquet, affiche le rappel du soir, ouvre sa page au toucher et rend au serveur l'abonnement que son service renouvelle — ni cache, ni requête interceptée —, inscrit seulement par l'application installée qui prépare le rappel.
 
 **Conséquence** : pas de mode hors ligne ; l'application est toujours celle que le serveur sert, à jour à chaque ouverture.
 
@@ -543,7 +543,7 @@ Le détail : [le client](../architecture/client.md).
 
 **Décision** : tout ce qui compte est au serveur ; l'appareil ne garde que de quoi se re-présenter et des préférences, chaque accès sous `try/catch` (`writeSafe`), une clé par espace ou par profil quand elle en dépend.
 
-**Conséquence** : un stockage refusé ne coûte qu'un rechargement de plus ; rien ne le vérifie automatiquement, une clé de plus se relit à la main et rejoint la table de `docs/architecture/client.md`.
+**Conséquence** : un stockage refusé ne coûte que la mémoire : un rafraîchissement ramène à l'entrée ; rien ne le vérifie partout, une clé de plus se relit à la main et rejoint la table de `docs/architecture/client.md`.
 
 *Fichiers : `client/src/state.ts`, `client/src/main.tsx`*
 
@@ -791,7 +791,7 @@ Le détail : [les quiz](../produit/les-quiz.md).
 ### Un enregistrement dit d'où il part
 **Contexte** : le même quiz ouvert sur deux appareils, le second « Enregistrer » écrasait le premier en silence ; et l'essai d'un clic rejoué au réveil, dont la première réponse s'était perdue, se prenait pour un conflit avec lui-même.
 
-**Décision** : `PUT /api/quizzes/:id` porte la version d'où part l'éditeur (`base`), un `jeton` par clic et le numéro de l'essai (`essai`) ; le serveur répond 409 si le quiz a été enregistré ailleurs depuis, jamais à un essai de son propre clic, enregistre un quiz à la fois (`unParUn`), et un essai plus ancien que le dernier écrit ne réécrit rien.
+**Décision** : `PUT /api/quizzes/:id` porte la version d'où part l'éditeur (`base`), un `jeton` par clic et le numéro de l'essai (`essai`) ; le serveur répond 409 si le quiz a été enregistré ailleurs depuis, jamais à un essai de son propre clic, fait passer les enregistrements d'un même quiz l'un après l'autre (`unParUn`), et un essai plus ancien que le dernier écrit ne réécrit rien.
 
 **Conséquence** : « Rien n'est écrasé : choisis la version à garder » — « Garder la mienne » ou « Prendre l'autre version ». Le dernier essai (`derniers`) ne vit qu'en mémoire : après un redémarrage, un faux conflit reste possible, que le brouillon rattrape. Une page d'avant, sans `base`, écrit comme avant, bornée en silence.
 
@@ -952,7 +952,7 @@ Le détail : [la campagne](../produit/la-campagne.md).
 ### Le tirage tient compte de la fraîcheur, fait tourner les catégories et écarte les jumelles
 **Contexte** : un joueur revoyait le soir même les questions qu'il venait de rater. Une série tirée au hasard reflétait la base : après l'arrivée des faits de Wikidata, quatre expertes sur dix venaient de l'art ou du cinéma. Une série du petit écran posait cinq « Qui a créé la série… » en vingt questions.
 
-**Décision** : chaque marche tire d'abord les questions jamais vues, puis celles vues il y a le plus longtemps ; celles des dernières 24 heures ne viennent qu'en dernier recours. À fraîcheur égale, les catégories puis les sous-thèmes passent à tour de rôle, et les marches partagent leurs comptes. Deux jumelles ne sont jamais tirées ensemble tant que la marche a d'autres questions aussi fraîches.
+**Décision** : chaque marche tire d'abord les questions jamais vues, puis celles vues il y a le plus longtemps ; celles des dernières 24 heures ne viennent qu'en dernier recours. À fraîcheur égale, les catégories puis les sous-thèmes passent à tour de rôle, et les marches partagent leurs comptes. Deux jumelles s'évitent tant que la marche a d'autres questions aussi fraîches, après la rotation des catégories et des sous-thèmes, qui passe d'abord.
 
 **Conséquence** : chaque tirage passe toute la base au crible, et la liste des questions jouables est gardée tant que rien ne change. Une retouche du tirage se vérifie au même hasard contre l'ancien tirage.
 
@@ -961,9 +961,9 @@ Le détail : [la campagne](../produit/la-campagne.md).
 ### Le carnet se recalcule à partir du journal des réponses, avec des rendez-vous espacés
 **Contexte** : un joueur voulait « un mode qui incite à l'apprentissage, où l'on gagne toujours quelque chose ». La série, elle, punit l'erreur d'une vie en moins.
 
-**Décision** : une question ratée revient le lendemain, trois jours après, puis une semaine après, jusqu'à être apprise. Rien n'est stocké à côté : le carnet se recalcule à partir du journal des réponses à chaque lecture. Une révision rapporte comme une série, mais ne compte ni pour la mesure des difficultés, ni pour la précision, ni pour L'Érudit, puisqu'elle repose des questions dont on a lu la réponse la veille.
+**Décision** : une question ratée revient le lendemain, trois jours après, puis une semaine après, jusqu'à être apprise. Rien n'est stocké à côté : le carnet se recalcule à partir du journal des réponses à chaque lecture. Une révision paie ses bonnes réponses comme une série, mais ne compte ni pour la mesure des difficultés, ni pour la précision, ni pour L'Érudit, puisqu'elle repose des questions dont on a lu la réponse la veille.
 
-**Conséquence** : une règle changée vaut aussitôt pour tout le passé. Le défi et les duels n'entrent au carnet qu'à leur clôture, pour ne pas souffler les réponses à ceux qui jouent encore.
+**Conséquence** : une règle changée vaut aussitôt pour tout le passé. Le défi et les duels contre quelqu'un n'entrent au carnet qu'à leur clôture, pour ne pas souffler les réponses à ceux qui jouent encore.
 
 *Fichiers : `shared/revision.ts`, `server/src/core/campagne.ts`*
 
@@ -999,7 +999,7 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 **Décision** : deux agents du projet font le travail avec une réflexion basse. Le rédacteur (Sonnet) écrit un lot et le vérifie jusqu'à zéro refus ; le relecteur (Opus) le relit et retire au moindre doute. Le script `generer-campagne.ts` fait le plan et la paperasse d'une génération en nombre. Le script `faits-wikidata.ts` fournit des faits sûrs, pour deux fois moins de jetons. Chaque lot est relu.
 
-**Conséquence** : le dépôt n'a ni clé ni SDK. Chaque vague consomme les limites du forfait que partage la routine du matin, si bien qu'aucune vague ne se lance dans l'heure qui la précède.
+**Conséquence** : le dépôt n'a ni clé ni SDK — une seule exception, hors du dépôt : le crédit offert du 13 octobre 2026, qui a relu la base et l'a doublée (`retours/2026-10-13/credit-api.md`). Chaque vague consomme les limites du forfait que partage la routine du matin, si bien qu'aucune vague ne se lance dans l'heure qui la précède.
 
 *Fichiers : `server/scripts/generer-campagne.ts`, `server/scripts/faits-wikidata.ts`, `.claude/agents/redacteur-campagne.md`, `.claude/agents/relecteur-campagne.md`*
 
@@ -1030,7 +1030,7 @@ Le détail : [les sentiers du savoir](../produit/les-sentiers-du-savoir.md).
 
 **Décision** : une épreuve est une ligne de `campagne_series` (`mode = 'sentier'`, sa branche, son palier, son seuil, `rejeu`, `issue`). Paliers, étoiles, vies et confettis se relisent du journal à chaque lecture (`sentiersLus`, `lectureDesEchecs`, `viesDe`) ; seuls s'écrivent à part les vies achetées (`profile_vies`) et les paliers repris (`sentier_acquis`).
 
-**Conséquence** : l'expérience, les confettis, la mesure des difficultés, les écussons et le carnet comptent une épreuve sans rien en savoir. Une règle changée vaut aussitôt pour le passé : les confettis des étoiles sont rétroactifs, pour tous. Une vie perdue, c'est `rejeu = 0` et `issue = 'ratee'` : ce qui ne doit rien coûter reste hors de `'ratee'`.
+**Conséquence** : l'expérience, les confettis, la mesure des difficultés, les écussons et le carnet comptent une épreuve sans rien en savoir. Une règle de lecture changée vaut aussitôt pour le passé : les confettis des étoiles sont rétroactifs, pour tous. Une vie perdue, c'est `rejeu = 0` et `issue = 'ratee'` : ce qui ne doit rien coûter reste hors de `'ratee'`.
 
 *Fichiers : `server/src/core/campagne.ts`, `shared/sentiers.ts`*
 
@@ -1055,9 +1055,9 @@ Le détail : [les sentiers du savoir](../produit/les-sentiers-du-savoir.md).
 ### Le tirage ne repose ni la veille ni deux jumelles, et une marche reste sa marche
 **Contexte** : qui usait ses vies sur un palier revoyait le soir même les questions qu'il venait de rater ; une épreuve de la forêt posait quatre « Comment appelle-t-on le petit de… », mêmes leurres.
 
-**Décision** : une question vue ces dernières vingt-quatre heures ne revient qu'en dernier recours (`VUE_RECENTE_MS`) ; pas deux jumelles — même forme d'intitulé, ou deux réponses proposées en commun — quand la marche en a d'aussi fraîches ; une marche épuisée de jamais vues reprend ses déjà vues plutôt que d'emprunter à la voisine, ce qui changerait la difficulté mesurée, et n'emprunte que vide.
+**Décision** : une question vue ces dernières vingt-quatre heures ne revient qu'en dernier recours (`VUE_RECENTE_MS`) ; pas deux jumelles — même forme d'intitulé, ou deux réponses proposées en commun — quand la marche en a d'aussi fraîches et que le tour des sous-thèmes le permet ; une marche épuisée de jamais vues reprend ses déjà vues plutôt que d'emprunter à la voisine, ce qui changerait la difficulté mesurée, et n'emprunte que vide.
 
-**Conséquence** : la série, le défi, les duels et le quiz tout prêt partagent la règle des jumelles. Une marche vide emprunte d'abord à la plus dure (`EMPRUNTS`) : une catégorie maigre en difficiles poserait une experte à un palier à portrait.
+**Conséquence** : la série, le défi, les duels et le quiz tout prêt partagent la règle des jumelles. Une marche vide emprunte d'abord à sa voisine plus dure (`EMPRUNTS`) : une catégorie maigre en difficiles poserait une experte à un palier à portrait.
 
 *Fichiers : `server/src/core/campagne.ts`, `server/src/core/jumelles.ts`*
 
@@ -1196,7 +1196,7 @@ Le détail : [les tests](../contribuer/tests.md).
 *Fichiers : `CLAUDE.md`, `.claude/rules/`, `server/test/notes-pour-claude.test.ts`*
 
 ### Les agents du projet sans `CLAUDE.md`
-**Contexte** : trente-cinq agents de la tablée qui recevaient chacun 122 000 caractères ont vidé en vingt-cinq minutes la réserve d'usage de cinq heures ; un personnage, de toute façon, ne doit pas connaître le code.
+**Contexte** : lancé en `general-purpose`, chaque convive de la tablée recevait tout `CLAUDE.md` — 122 000 caractères début octobre ; le 24 septembre, trente-cinq agents en parallèle avaient vidé en vingt-cinq minutes la réserve d'usage de cinq heures. Un personnage, de toute façon, ne doit pas connaître le code.
 
 **Décision** : les agents du projet — le convive, le rédacteur et le relecteur de la campagne — s'en dispensent (`omitClaudeMd: true`), lisent leurs seules consignes, et les invités jouent sur un modèle rapide ; les experts du code, eux, gardent la mémoire.
 
