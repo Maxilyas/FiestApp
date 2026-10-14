@@ -67,7 +67,7 @@ Toutes les adresses, leurs variantes et leurs redirections : [la référence des
 
 ## Pour aller plus loin
 
-- [La vitrine](../vitrine/index.html) — FiestApp en images, sur l'application réelle
+- [La vitrine](https://maxilyas.github.io/FiestApp/) — FiestApp en images, sur l'application réelle
 - [La première soirée](../guides/premiere-soiree.md) — lancer FiestApp chez soi et jouer un premier quiz
 - [La vue d'ensemble de l'architecture](../architecture/vue-d-ensemble.md) — comment c'est construit
 - [L'historique](../contribuer/historique.md) — comment on en est arrivé là

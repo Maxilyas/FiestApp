@@ -54,9 +54,9 @@ Chaque commande, ses options et ses variables : [les commandes](../reference/com
 | `server/test/` | Un fichier par thème, un serveur jetable par fichier ou par épreuve |
 | `client/src/` | L'application React : `views/` (une page, un fichier), `components/`, `games/quiz/` (ce que l'écran commun et le téléphone montrent d'un quiz), `themes/` (une feuille par thème) |
 | `client/public/` | Ce qui est servi tel quel : le manifeste, le service worker du rappel du soir, les polices, les images peintes |
-| `docs/` | Cette documentation ; `docs/vitrine/`, la page qui présente FiestApp |
+| `docs/` | Cette documentation ; `docs/vitrine/`, la page qui présente FiestApp, publiée sur GitHub Pages |
 | `.claude/` | La mémoire et les outils de Claude Code ([travailler avec Claude](outillage-claude.md)) |
-| `.github/workflows/` | La CI |
+| `.github/workflows/` | La CI (`ci.yml`) et la publication de la vitrine (`vitrine.yml`, [la mise en ligne](../exploitation/mise-en-ligne.md#11-la-vitrine-sur-github-pages)) |
 | `retours/` | Les archives des tablées et des audits |
 
 À la racine aussi : `CLAUDE.md` (la mémoire de Claude), `render.yaml` (la référence des deux services Render, dont le tableau de bord fait foi). Git ignore `node_modules/`, `dist/`, `server/data/`, `export/` (sauvegardes, rendus, tablées), `.lots-campagne/` et `.faits-wikidata/` (la base de la campagne en cours d'écriture).

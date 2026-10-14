@@ -34,7 +34,8 @@ Un monorepo npm à deux espaces de travail, `client` et `server` (déclarés dan
 de disque, pas de base. Serveur et téléphone y appliquent **la même** règle —
 un rang, une adresse, une durée —, et les tests la vérifient sans serveur.
 Autour : `render.yaml` (la référence des services en ligne),
-`.github/workflows/ci.yml`, `.claude/` (les règles des agents,
+`.github/workflows/ci.yml` (la CI) et `.github/workflows/vitrine.yml` (la
+vitrine, sur GitHub Pages), `.claude/` (les règles des agents,
 [l'outillage Claude](../contribuer/outillage-claude.md)) et `retours/` (ce que
 tablées et audits ont trouvé).
 
