@@ -12,6 +12,7 @@ import path from 'node:path'
 import React from 'react'
 import { demarrer } from './banc'
 import { COMPAGNONS, FORMES_DES_COMPAGNONS } from '../../shared/compagnons'
+import { FINITIONS } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -210,6 +211,24 @@ test('pas encore à lui : sa silhouette dorée sur un disque sombre — ni aura,
   assert.doesNotMatch(porte, /stroke="#5fa8ff"/)
   // En Mat, rien ne change : l'anneau de sa rareté reste.
   assert.match(await compagnon({ cle: 'cp:chat-jeune', finition: 'mat' }), /stroke="#5fa8ff"/)
+})
+
+test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la finition passe sous son disque, comme sous un portrait', async () => {
+  // Le cercle d'un métal est un disque plein, dont le disque peint ne laisse
+  // voir que le bord (`Cercle.tsx`). Posé par-dessus la scène, il cachait
+  // l'animal entier — « cela remplit le cercle intégralement et on ne voit
+  // plus l'image » (le retour du propriétaire du 14 octobre 2026) ; Holo, un
+  // simple anneau, passait.
+  for (const f of FORMES_DES_COMPAGNONS) {
+    // Mat n'a pas de cercle : l'anneau de sa rareté reste (plus haut).
+    for (const finition of FINITIONS.filter(x => x !== 'mat')) {
+      const html = await compagnon({ cle: f.key, finition })
+      const cercle = html.indexOf(`<g class="lg-cercle lg-cercle-${finition}">`)
+      const scene = html.indexOf(' clip-path="url(#')
+      assert.ok(cercle > 0, `${f.key} en ${finition} : son cercle`)
+      assert.ok(scene > cercle, `${f.key} en ${finition} : son cercle passe sous le disque, sinon il le couvre`)
+    }
+  }
 })
 
 test('porté, il prend la place de l’emoji comme un portrait — et ce qui l’anime se fige s’il le faut', async () => {
