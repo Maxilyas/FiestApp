@@ -96,7 +96,7 @@ sous un identifiant inconnu.
 
 Chaque registre tient un compteur d'écritures (`revision`) : les pages
 publiques — le souvenir et le bilan — se calculent une fois pour toute la
-salle et se gardent tant qu'aucun compteur n'a bougé
+salle et se gardent tant qu'aucun compteur n'a bougé, une minute au plus
 (`server/src/core/pages.ts`).
 
 ## Le miroir
@@ -107,9 +107,9 @@ de l'eau, et abandonnait une écriture refusée après un avertissement : une
 panne pendant l'arrivée de Bob laissait, au réveil, Alice à zéro et Bob
 inconnu. Il tient désormais quatre promesses.
 
-**Une file par espace, ordonnée, qui insiste.** Chaque écriture locale
-rejoint la file (la « voie ») de son espace, dans l'ordre, une seule requête
-en vol à la fois. Un refus ne se perd pas : la file réessaie — 250 ms, 500 ms,
+**Une file par espace, ordonnée, qui insiste.** Chaque écriture locale —
+sauf le nom de la soirée, plus bas — rejoint la file (la « voie ») de son
+espace, dans l'ordre, une seule requête en vol à la fois. Un refus ne se perd pas : la file réessaie — 250 ms, 500 ms,
 1 s, 2 s, 4 s, 8 s, puis toutes les 15 s — jusqu'au succès, et le journal le
 dit (« [sauvegarde] écriture distante refusée (…) : elle reste en file et
 repartira — la soirée continue »). Dix secondes d'échecs sans interruption,
@@ -165,8 +165,8 @@ lots de 200 lignes, chaque partie avec ses lignes, la partie en cours en
 dernier. Elle n'efface rien au miroir : un PC de secours lancé sur de vieux
 essais et pointé sur la base de production viderait sinon la vraie soirée.
 
-**La remise à zéro efface le miroir avant la base locale.** Clore la soirée,
-effacer un essai ou supprimer un espace passe par `remettreAZero` : la file
+**La remise à zéro efface le miroir avant la base locale.** Clore la soirée
+ou effacer un essai passe par `remettreAZero` : la file
 de l'espace se suspend, ce qui est en vol va au bout, puis les sept tables
 `party_*` de l'espace s'effacent en une transaction. Si la base refuse,
 l'erreur remonte et rien de local n'a bougé — l'écran commun lit « Rien n’a
@@ -255,8 +255,8 @@ crédité, en un seul lot, avant d'effacer son archive. Le détail :
 ## Les dérivations
 
 Le souvenir, le bilan, les chiffres, le palmarès, les relevés d'expérience et
-les hauts faits ne sont stockés nulle part : ce sont des fonctions **pures**
-des journaux.
+les hauts faits ne sont stockés nulle part, sinon en crédits des profils
+(plus haut) : ce sont des fonctions **pures** des journaux.
 
 | Ce qu'on lit | La dérivation |
 |---|---|
@@ -370,9 +370,10 @@ ne se perd en route vers le miroir » vaut tant que le processus vit
 
 ## Ce qui ne vit qu'en mémoire
 
-Un redémarrage oublie, sans dommage pour la soirée : la file du miroir, les
-instantanés et leur regroupement, les codes « Rendre sa place », la réserve
-d'inscriptions, le pouls de la dernière minute et le relevé de l'heure en
+Un redémarrage oublie, sans dommage pour la soirée : la file du miroir une
+fois vidée à l'arrêt, les instantanés et leur regroupement, les codes
+« Rendre sa place », la réserve d'inscriptions, le pouls de la dernière
+minute et le relevé de l'heure en
 cours (réécrit dans la base permanente toutes les dix minutes), les pages
 publiques gardées, les fins de la dernière clôture, la scène des écrans
 d'animateur. Le navigateur, lui, garde ce qui est à lui — le jeton d'un

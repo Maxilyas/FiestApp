@@ -92,7 +92,8 @@ flowchart TD
    `soiree`), `reprendreLesPortraits`, `jour.relireLesJours`,
    `campagne.relireLesSeries`, `appliquerLeBaremeDuSolo`. Une base qui hoquette
    ici fait échouer le démarrage, que l'hébergeur relance : le recalcul ne
-   remet jamais au barème du jour une ligne qu'il n'a pas pu relire.
+   remet jamais au barème du jour les lignes d'une archive que la base n'a
+   pas rendue.
 9. **La salle** : le QR du wifi (`WIFI_SSID`, `WIFI_PASS`), `SpaceRegistry`,
    puis `wakeRunning()`, qui réveille chaque espace dont une partie était
    `running` dans `sessions` — son moteur réarme ses chronomètres. Les autres
@@ -198,7 +199,8 @@ Chaque route, sa méthode et son accès : [l'API HTTP](../reference/api-http.md)
    « Soirée introuvable »), les anciennes adresses.
 3. Sous `/api` :
    1. `csrfGuard` : toute écriture porte `X-Requested-With: quizz` et, en
-      ligne, l'origine publique — sinon 403 « Requête refusée » ;
+      ligne, ne dit pas d'autre origine que la publique — sinon 403
+      « Requête refusée » ;
    2. `/api/admin` gardé d'un bloc (`requireAccount`, `requireAdmin`,
       `refuserLesTeles`), puis `journaliser`, qui note au journal du QG chaque
       geste accepté — posé route par route, un garde retiré ne faisait rougir
@@ -306,7 +308,7 @@ flowchart TD
 
 Ses phases (`pickPack`, `getReady`, `intertitre`, `observe`, `question`,
 `cible`, `reveal`, `finished`) et ses chronomètres (`ready`, `intertitre`,
-`observe`, `question`, `settle`, `autoNext`) vivent dans l'état. Il garde trois
+`observe`, `question`, `settle`, `autoNext`) s'écrivent avec la partie. Il garde trois
 mémoires par espace, relues après chaque écriture : la bibliothèque jouable
 (`setQuizLibrary`), le programme de ce soir (`setProgramme`), la dernière pose
 de chaque question (`setQuestionsPosees`) ; deux relectures revenaient de

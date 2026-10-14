@@ -20,7 +20,7 @@ L'`id` d'un compte est le `space_id` de tout ce qui appartient à l'espace. Le r
 Un espace naît de deux façons :
 
 - **Le salon d'un profil** : au premier `POST /api/joueur/espace` (ou `/api/joueur/salon`), sans rien demander (`creerEspaceDuProfil`). Identifiant `p-` et dix signes, adresse `s-` et six signes, tirés dans un alphabet sans lettres qu'on confond ; aucun mot de passe : son profil est sa porte (`estUnSalon`). Cinq créations d'un coup par adresse, puis une toutes les six minutes.
-- **Le compte d'avant** : un identifiant, un mot de passe, une adresse choisie — celui de l'administrateur, et ceux créés avant les salons. Il reçoit son mot de passe par un lien d'activation (plus bas).
+- **Le compte d'avant** : un identifiant, un mot de passe, une adresse choisie — celui de l'administrateur, et ceux créés avant les salons. Hors celui de l'administrateur, il reçoit son mot de passe par un lien d'activation (plus bas).
 
 `accounts.profile_id` dit quel profil tient l'espace : un profil en tient au plus un, un espace n'a qu'un titulaire, vérifié en mémoire puis en base dans la même écriture (`linkProfile`). Se connecter à son profil ouvre alors la console de cet espace (`ouvrirConsole`). L'animateur rattache son profil depuis « Compte » (`POST /api/space/profil`) en prouvant les deux identités : sa console, et le mot de passe du profil — son identifiant aussi, sauf si ce profil est déjà ouvert dans ce navigateur. Remplacer ou détacher le profil d'un espace demande une preuve fraîche, le mot de passe du profil rattaché ou celui du compte (`prouver`, `server/src/auth/routes.ts`) : le téléphone prêté, console ouverte par le cookie du profil, rattachait sinon l'emprunteur, qui gardait la console. L'administrateur, seul, rattache sans preuve un espace sans titulaire (`POST /api/admin/espaces/:id/titulaire`, `server/src/profilsAdmin.ts`).
 
@@ -47,7 +47,7 @@ Ce qui ferme des sessions :
 
 | Geste | Ce qui tombe |
 |---|---|
-| « Me déconnecter » de la console | cette session |
+| Se déconnecter de la console (`POST /api/auth/logout`) | cette session |
 | Se déconnecter de son profil | sa session de joueur, et la console de ce navigateur si **ce** profil l'a ouverte — jamais une console ouverte au mot de passe du compte, l'écran commun de la soirée |
 | Mot de passe du compte changé, lien d'activation servi | toutes les sessions du compte ; une neuve s'ouvre pour qui a fait le geste |
 | Mot de passe du profil changé, code de secours servi | ses sessions de joueur et toutes les consoles qu'il a ouvertes ; une neuve s'ouvre ici |
@@ -55,12 +55,12 @@ Ce qui ferme des sessions :
 | Espace désactivé | toutes ses sessions |
 | Profil suspendu ou supprimé | ses sessions de joueur et ses consoles |
 
-Chaque session révoquée coupe les écrans qu'elle avait ouverts (`onRevoke`) : leur connexion temps réel tombe.
+Chaque session de console révoquée coupe les écrans qu'elle avait ouverts (`onRevoke`) : leur connexion temps réel tombe.
 
 ## Les mots de passe et le code de secours
 
 - **Le hachage** : scrypt (natif à Node) — N = 32768, r = 8, p = 1, une clé de 64 octets, un sel de 16, la saisie normalisée NFKC (`server/src/auth/password.ts`). Le haché se décrit lui-même (`scrypt$N$r$p$sel$clé`) : durcir les paramètres ne casse aucun mot de passe existant. Le calcul part dans le pool de threads de Node, et une connexion ne fige jamais une partie. La vérification compare en temps constant ; un haché illisible vaut faux.
-- **Un identifiant inconnu** se vérifie contre un haché factice (`dummyHash`) : il coûte le même temps qu'un mot de passe faux, et rien ne dit qu'un compte existe.
+- **Un identifiant inconnu** se vérifie contre un haché factice (`dummyHash`) : il coûte le même temps qu'un mot de passe faux, et la connexion ne dit pas si un compte existe.
 - **Un mot de passe choisi** fait de 8 à 200 caractères (`MIN_PASSWORD`, `MAX_PASSWORD`) — sauf celui d'amorçage de l'administrateur, `demo` en local, que le serveur refuse en ligne sur une base vide.
 - **La session s'ouvre sur le haché vérifié** : un changement de mot de passe parti pendant le calcul de scrypt referme la session à peine ouverte (401).
 - **Changer de mot de passe exige l'actuel** — ou, pour un profil, son code de secours : une session restée ouverte sur un téléphone prêté ne suffit pas.
@@ -107,7 +107,7 @@ En ligne, l'adresse lue est la dernière de `x-forwarded-for`, celle qu'écrit l
 
 1. `csrfGuard` sur tout `/api`.
 2. Sur `/api/admin`, d'un bloc : `requireAccount`, `requireAdmin`, `refuserLesTeles` — puis `journaliser`, qui note au journal du QG chaque geste accepté.
-3. Les routes publiques — connexion, activation, télé, profil, quiz du jour, campagne, porte de la réserve à jeton —, chacune avec son petit lecteur de JSON (de 1 à 8 Ko ; 256 et 512 Ko pour les dépôts de la réserve).
+3. Les routes publiques — connexion, activation, télé, profil, quiz du jour, campagne, porte de la réserve à jeton —, chacune avec son petit lecteur de JSON (de 1 à 8 Ko ; 256 Ko pour les dépôts de la réserve, 512 Ko pour ceux de la base de la campagne).
 4. `requireAccount` sur tout le reste de `/api`, puis le lecteur de JSON de 4 Mo — les photos arrivent en dataURL : ces 4 Mo ne se lisent qu'une session vérifiée.
 5. La bibliothèque, les partages, l'administration du quiz du jour et de la campagne, les profils, le QG.
 
@@ -163,7 +163,7 @@ L'espace lui-même est la ligne de `accounts` ; ses sessions (`auth_sessions`) e
 
 Comment il tient :
 
-- Une route de compte lit l'espace dans la session ; une page publique, dans son adresse (`/<espace>/…`) ; jamais dans une charge utile. Les magasins filtrent par `space_id` à la requête même.
+- Une route de compte lit l'espace dans la session, jamais dans une charge utile ; une page publique, dans son adresse (`/<espace>/…`). Les magasins filtrent par `space_id` à la requête même.
 - Une connexion temps réel s'attache à un espace une fois pour toutes (`bindSpace`, `server/src/sockets.ts`) : présentée à la soirée A, elle ne lira jamais la soirée B. L'écran d'un animateur se présente par la session de sa poignée de main, jamais par la page.
 - Un espace désactivé ne se trouve plus : `party:watch` et `player:join` ne l'atteignent pas, son `entree.json` répond 404 ; ses pages publiques restent lisibles.
 
@@ -182,11 +182,11 @@ Les exceptions, voulues : le souvenir, le bilan et l'historique d'une soirée se
 - **La partie** (invariant 1) : les clients reçoivent `playerView` et `hostView`, jamais l'état brut. La bonne réponse, l'anecdote, la photo de la révélation, les bonnes réponses de « plusieurs » et le bon ordre n'arrivent qu'à la révélation ; la note de l'animateur, l'extrait d'un blind test et le programme de la soirée ne partent jamais aux téléphones des invités.
 - **Les Divins** (invariant 21) : leurs règles et leurs légendes vivent dans `server/src/core/divins.ts`, que ni `shared/` ni `client/` n'importent (`server/test/divins.test.ts`). Le serveur n'envoie que la liste des Divins descendus, et le récit à son seul porteur.
 - **Les soirées des autres** : le QG n'en reçoit que des chiffres (`SoireeDuQg`, `shared/qg.ts`) — ni quiz, ni question, ni prénom d'invité, ni titre ; `server/test/qg.test.ts` et `server/test/qg-soirees.test.ts` relisent les réponses entières.
-- **Les secrets** : des jetons, la base ne garde que l'empreinte ; des mots de passe et des codes de secours, le haché ; un code tiré au QG ne va jamais au journal des gestes.
+- **Les secrets** : des jetons de session et d'activation, la base ne garde que l'empreinte ; des mots de passe et des codes de secours, le haché ; un code tiré au QG ne va jamais au journal des gestes.
 
 ## Les en-têtes HTTP
 
-Chaque réponse porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, et une `Permissions-Policy` qui coupe caméra, micro, position et paiement ; Express ne s'annonce pas (`x-powered-by` désactivé). La politique de contenu se construit à chaque requête (`contentPolicy`, `server/src/server.ts`) :
+Chaque réponse d'Express porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, et une `Permissions-Policy` qui coupe caméra, micro, position et paiement ; Express ne s'annonce pas (`x-powered-by` désactivé). La politique de contenu se construit à chaque requête (`contentPolicy`, `server/src/server.ts`) :
 
 ```
 default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
