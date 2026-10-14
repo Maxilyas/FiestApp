@@ -738,7 +738,7 @@ ensemble. Un palier sans ligne tire celui du code (`PALIERS`).
 
 Les duels lancés : contre quelqu'un (classés), ou entre amis (d'avant).
 
-- **Colonnes clés** : `code` (la clé), `auteur`, `questions`, `categories`, `sujet`, `cree_le` (indexé : le QG lit les duels par leur date de lancement), `ferme_le`, `clos_le`, `adversaire` (vide pour un défi entre amis), `cote_auteur` et `cote_adversaire` (figées au lancement), `vu_le` (le résultat vu par qui l'a lancé).
+- **Colonnes clés** : `code` (la clé), `auteur`, `questions`, `categories`, `sujet`, `cree_le` (indexé : le QG lit les duels par leur date de lancement), `ferme_le`, `clos_le`, `adversaire` (vide pour un défi entre amis), `cote_auteur` et `cote_adversaire` (les cotes qu'on voit, figées au lancement), `cote_cachee_auteur` et `cote_cachee_adversaire` (les cotes cachées, figées avec elles depuis la montée du 14 octobre 2026 — vides avant : la cachée bouge alors contre la seule cote figée), `vu_le` (le résultat vu par qui l'a lancé).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (lancer, fermer, retenir le résultat vu ; l'administrateur qui annule un duel classé pas encore commencé, `annulerUnDuel`, qui pose `ferme_le` à l'instant).
 - **Lue par** : `CampagneStore` (la page des duels, la cote relue du journal ; le QG, `suiviDesDuelsAuQg` : les duels classés lancés, ceux qui attendent leur adversaire).

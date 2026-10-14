@@ -34,8 +34,12 @@ const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url)
 /** Un duel classé fini, tel que le journal le relit : ses bonnes réponses, celles d'en face. */
 const duel = (i: number, justes: number, sesJustes: number): DuelJoue => ({ serie: `s${String(i).padStart(3, '0')}`, justes, sesJustes, finiLe: DEBUT + i * 60_000 })
 
-/** Huit victoires contre des scores de quatorze : trois en bronze, trois en argent, deux en or — une cote de 1 276. */
-const HUIT_VICTOIRES = [...Array(8)].map((_, i) => duel(i, 15, 14))
+/** Dix victoires contre des scores de quinze : quatre en bronze, quatre en argent, deux en or — une cote de 1 241. */
+const DIX_VICTOIRES = [...Array(10)].map((_, i) => duel(i, 16, 15))
+
+/** Les mêmes, écrites au journal de qui les a jouées, finies ces dernières heures. */
+const dixVictoiresAuJournal = (banc: Banc, profileId: string) =>
+  DIX_VICTOIRES.forEach((d, i) => duelAuJournal(banc, profileId, d.justes, d.sesJustes, DEBUT - (DIX_VICTOIRES.length - i) * 3_600_000))
 
 // ── 1. Les crans se relisent dans le journal ──────────────────────────────
 
@@ -43,25 +47,27 @@ test('un duel gagné sertit un cran de la ligue où il s’est joué ; rien ne s
   // Aucun duel : aucune bordure — l'absence, pas une bordure de bronze.
   assert.deepEqual(releverLesDuels([], semaine).bordures, [])
   // Chaque victoire compte dans la ligue de sa cote avant le duel ; atteindre l'or ouvre sa bordure.
-  const huit = releverLesDuels(HUIT_VICTOIRES, semaine)
-  assert.equal(huit.cote, 1276)
-  assert.deepEqual(huit.bordures, [
-    { ligue: 'bronze', crans: 3 },
-    { ligue: 'argent', crans: 3 },
+  const dix = releverLesDuels(DIX_VICTOIRES, semaine)
+  assert.equal(dix.cote, 1241)
+  assert.deepEqual(dix.bordures, [
+    { ligue: 'bronze', crans: 4 },
+    { ligue: 'argent', crans: 4 },
     { ligue: 'or', crans: 2 },
   ])
   // Une défaite, une égalité ne sertissent rien — mais le premier duel ouvre la bordure de sa ligue.
   assert.deepEqual(releverLesDuels([duel(0, 3, 14), duel(1, 8, 8)], semaine).bordures, [{ ligue: 'bronze', crans: 0 }])
-  // Redescendre en argent ne reprend ni l'or ni ses crans ; une victoire en argent y sertit le sien.
-  const chute = [...HUIT_VICTOIRES, ...[8, 9, 10, 11].map(i => duel(i, 1, 9))]
+  // Monté en platine, redescendre en or ne reprend ni la platine ni ses crans ; une victoire en or y sertit le sien.
+  // (L'argent et l'or, une fois atteints, ne se perdent plus : c'est de la platine qu'on redescend.)
+  const montee = [...DIX_VICTOIRES, ...[10, 11, 12, 13, 14].map(i => duel(i, 21, 20))]
+  const chute = [...montee, ...[15, 16, 17, 18].map(i => duel(i, 1, 9))]
   const apres = releverLesDuels(chute, semaine)
-  assert.ok(apres.cote < 1200, `redescendu en argent (${apres.cote})`)
-  assert.deepEqual(apres.bordures.find(b => b.ligue === 'or'), { ligue: 'or', crans: 2 })
-  const relevee = releverLesDuels([...chute, duel(12, 15, 14)], semaine)
-  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'argent'), { ligue: 'argent', crans: 4 })
-  // Douze crans au plus : vingt victoires en bronze la sertissent, sans rien de plus.
-  const vingt = releverLesDuels([...Array(20)].map((_, i) => duel(i, 3, 0)), semaine)
-  assert.deepEqual(vingt.bordures, [{ ligue: 'bronze', crans: CRANS_D_UNE_BORDURE }])
+  assert.ok(apres.cote >= 1200 && apres.cote < 1300, `redescendu en or (${apres.cote})`)
+  assert.deepEqual(apres.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 2 })
+  const relevee = releverLesDuels([...chute, duel(19, 16, 15)], semaine)
+  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'or'), { ligue: 'or', crans: 6 })
+  // Douze crans au plus : treize victoires en bronze la sertissent, sans rien de plus.
+  const treize = releverLesDuels([...Array(13)].map((_, i) => duel(i, 3, 0)), semaine)
+  assert.deepEqual(treize.bordures, [{ ligue: 'bronze', crans: CRANS_D_UNE_BORDURE }])
 })
 
 test('la bordure portée : auto, la plus haute qui a un cran ; une ligue choisie, même vide ; aucune', () => {
@@ -260,12 +266,12 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
     assert.equal(tropTot.status, 400)
     assert.equal(tropTot.corps.error, 'Cette bordure s’ouvre en atteignant la ligue de bronze en duel')
 
-    // Huit duels gagnés, ces dernières heures : le bronze, l'argent et l'or, leurs crans.
-    HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, idLea, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    // Dix duels gagnés, ces dernières heures : le bronze, l'argent et l'or, leurs crans.
+    dixVictoiresAuJournal(banc, idLea)
     const page = (await lire(banc, lea, '/api/joueur/moi')).corps.profile
     assert.deepEqual(page.bordures, [
-      { ligue: 'bronze', crans: 3 },
-      { ligue: 'argent', crans: 3 },
+      { ligue: 'bronze', crans: 4 },
+      { ligue: 'argent', crans: 4 },
       { ligue: 'or', crans: 2 },
     ])
     // Au classement des duels, d'office : sa plus haute qui a un cran.
@@ -278,10 +284,10 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
     assert.equal(argent.corps.profile.bordureChoisie, 'argent')
     const carte = (await lire(banc, tom, `/api/joueur/carte/${idLea}`)).corps
     // Portée avec son avatar, comme sa finition : pas recopiée dans son profil.
-    assert.deepEqual(carte.bordure, { ligue: 'argent', crans: 3 })
+    assert.deepEqual(carte.bordure, { ligue: 'argent', crans: 4 })
     assert.equal(carte.profil.bordure, undefined)
-    assert.deepEqual(carte.profil.duels, { ligue: 'or', cote: 1276 }, 'sa ligue et sa cote, sans ses bordures recopiées')
-    assert.deepEqual((await ligneDe(tom)).bordure, { ligue: 'argent', crans: 3 })
+    assert.deepEqual(carte.profil.duels, { ligue: 'or', cote: 1241 }, 'sa ligue et sa cote, sans ses bordures recopiées')
+    assert.deepEqual((await ligneDe(tom)).bordure, { ligue: 'argent', crans: 4 })
 
     // Une ligue qu'elle n'a pas atteinte, ou qui n'existe pas : refusées en clair, rien n'est écrit.
     const platine = await porter(banc, lea, 'platine')
@@ -316,8 +322,8 @@ test('en soirée, sa bordure suit son avatar : relue à son entrée, changée de
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const nina = await inscrireProfil(banc.url, 'nina', 'Nina', '🐸')
     const [idLea, idNina] = [idDe(banc, 'lea'), idDe(banc, 'nina')]
-    // Léa et Nina ont gagné huit duels ; Tom n'en a joué aucun. Nina a Hélios, un Divin.
-    for (const id of [idLea, idNina]) HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, id, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    // Léa et Nina ont gagné dix duels ; Tom n'en a joué aucun. Nina a Hélios, un Divin.
+    for (const id of [idLea, idNina]) dixVictoiresAuJournal(banc, id)
     base(banc, db =>
       db
         .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'dv:helios', 'une-soiree-d-avant', '', '', '', 1)`)
@@ -375,7 +381,7 @@ test('les classements du quiz du jour et du défi la montrent de mémoire : la p
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const [idLea, idTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
-    HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, idLea, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    dixVictoiresAuJournal(banc, idLea)
     // Tous deux ont joué le quiz du jour et relevé le défi de la semaine.
     base(banc, db => {
       for (const [id, points] of [[idLea, 900], [idTom, 700]] as const) {
@@ -414,7 +420,7 @@ test('toutes lues une fois — le classement des duels, le préchauffage —, un
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const [idLea, idTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
-    HUIT_VICTOIRES.forEach((_, i) => duelAuJournal(banc, idLea, 15, 14, DEBUT - (8 - i) * 3_600_000))
+    dixVictoiresAuJournal(banc, idLea)
     base(banc, db => {
       for (const id of [idLea, idTom]) db.prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, 500, 5, 1, 0)`).run(id, jourDe(DEBUT))
     })

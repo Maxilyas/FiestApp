@@ -72,13 +72,24 @@ function auDe(db: Database.Database, joueur: string, justes: number, sesJustes: 
   ).run(randomUUID(), joueur, justes + VIES, justes, finieLe - 60_000, finieLe, JSON.stringify(adversaire))
 }
 
-/** Un duel lancé à quelqu'un — classé avec ses deux cotes figées, ou un défi entre amis d'avant, sans —, joué des deux côtés. */
-function duel(db: Database.Database, auteur: string, adversaire: string | null, justes: [number, number], lanceLe: number, cotes: [number, number] | null) {
+/**
+ * Un duel lancé à quelqu'un — classé avec ses deux cotes figées, et depuis la montée ses deux cotes cachées, ou un
+ * défi entre amis d'avant, sans —, joué des deux côtés.
+ */
+function duel(
+  db: Database.Database,
+  auteur: string,
+  adversaire: string | null,
+  justes: [number, number],
+  lanceLe: number,
+  cotes: [number, number] | null,
+  cachees: [number, number] | null = null,
+) {
   const code = randomUUID().slice(0, 6)
   db.prepare(
-    `INSERT INTO campagne_duels (code, auteur, questions, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire)
-     VALUES (?, ?, '[]', ?, ?, ?, ?, ?)`,
-  ).run(code, auteur, lanceLe, lanceLe + 7 * JOUR_MS, adversaire, cotes?.[0] ?? null, cotes?.[1] ?? null)
+    `INSERT INTO campagne_duels (code, auteur, questions, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire, cote_cachee_auteur, cote_cachee_adversaire)
+     VALUES (?, ?, '[]', ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(code, auteur, lanceLe, lanceLe + 7 * JOUR_MS, adversaire, cotes?.[0] ?? null, cotes?.[1] ?? null, cachees?.[0] ?? null, cachees?.[1] ?? null)
   const second = adversaire ?? ZOE
   for (const [joueur, siennes, fin] of [
     [auteur, justes[0], lanceLe + 60_000],
@@ -111,8 +122,9 @@ test('le script relit le journal que la cote relit, rejoue les règles à l’es
       auDe(db, LEA, 10, 7, T0 + 4 * HEURE_MS)
       auDe(db, TOM, 6, 9, T0 + 1.5 * HEURE_MS)
       auDe(db, TOM, 7, 6, T0 + 2.5 * HEURE_MS)
-      // Léa défie Zoé, qui gagne ; puis un défi entre amis d'avant, amical : il ne compte pas.
-      duel(db, LEA, ZOE, [7, 9], T0 + 5 * HEURE_MS, [1012, 1000])
+      // Léa défie Zoé, qui gagne — leurs cotes cachées figées avec les autres, depuis la montée ; puis un défi entre
+      // amis d'avant, amical : il ne compte pas.
+      duel(db, LEA, ZOE, [7, 9], T0 + 5 * HEURE_MS, [1040, 1000], [1012, 1000])
       duel(db, TOM, null, [8, 4], T0 + 7 * HEURE_MS, null)
     })
     const avant = compter(banc)
@@ -131,12 +143,21 @@ test('le script relit le journal que la cote relit, rejoue les règles à l’es
     assert.match(sortie, /Issues au dé : gagnées 50 % · nulles 17 % · perdues 33 % — contre quelqu’un : gagnées 50 % · nulles 0 % · perdues 50 %/)
     assert.match(sortie, /Ligues : Bronze 3 · Argent 0 · Or 0 · Platine 0 · Diamant 0 · Maîtres 0/)
 
-    // Rejouées aux règles d'aujourd'hui, les cotes sont celles que l'application calcule : le rejeu est fidèle.
+    // Rejouées aux règles d'aujourd'hui — la montée —, les deux cotes sont celles que l'application calcule : le rejeu est fidèle.
     assert.match(sortie, /retrouve la cote de chacun — 3 sur 3\./)
-    assert.match(sortie, /Aujourd’hui \(1000 = 8, 50 points\)\s+3\s+0\s+0\s+0\s+0\s+0\s/)
-    for (const regles of ['Montée · 1000 = 8, 50 points', 'Montée · 1000 = 7, 75 points', 'Montée · 1000 = 7, 100 points']) {
+    assert.match(sortie, /Aujourd’hui \(1000 = 7, 50 points\)\s+3\s+0\s+0\s+0\s+0\s+0\s/)
+    assert.match(sortie, /Avant la montée \(1000 = 8, 50 points\)\s+3\s+0\s+0\s+0\s+0\s+0\s/, 'l’ELO seul d’avant, pour comparer')
+    for (const regles of ['Montée · 1000 = 7, 50 points', 'Montée · 1000 = 7, 75 points', 'Montée · 1000 = 7, 100 points']) {
       assert.ok(sortie.includes(regles), regles)
     }
+    // Sous l'Or, la montée : le duel perdu de Léa ne la fait pas reculer, ni aucune partie au dé.
+    assert.match(sortie, /Reculs : 0 % des parties font baisser la cote/)
+    assert.match(sortie, /Cote cachée : p10 \d+/)
+    // Une autre participation s'essaie : elle se dit sur chaque ligne essayée, pas sur celle d'aujourd'hui.
+    const essai = await mesurer([banc.quizDbUrl, '--participation', '3'])
+    assert.equal(essai.code, 0, essai.erreurs)
+    assert.ok(essai.sortie.includes('Montée · 1000 = 7, 50 points · +3 sous l’Or'))
+    assert.match(essai.sortie, /retrouve la cote de chacun — 3 sur 3\./)
 
     assert.ok(!sortie.includes('profil-secret'), 'la sortie ne nomme personne : elle se colle dans une conversation')
     assert.deepEqual(compter(banc), avant, 'rien n’est écrit')

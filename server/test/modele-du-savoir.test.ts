@@ -214,7 +214,7 @@ test('sans réponse, le joueur de la cote de départ ; tout trouvé, une force f
   }
   const rien = forceDuJoueur(new Map(), question, reference.forceDeDepart)
   assert.deepEqual([rien.force, rien.reponses], [reference.forceDeDepart, 0])
-  assert.ok(Math.abs(scoreDeReference(rien.force, rien.ecarts, reference) - SCORE_DE_REFERENCE) < 1e-6, 'huit bonnes réponses, la cote de départ')
+  assert.ok(Math.abs(scoreDeReference(rien.force, rien.ecarts, reference) - SCORE_DE_REFERENCE) < 1e-6, 'le score de la cote de départ')
   // Tout trouvé : fort, mais pas infiniment.
   const tout = forceDuJoueur(new Map(base.map(q => [q.id, true])), question, reference.forceDeDepart)
   assert.ok(Number.isFinite(tout.force) && tout.force > reference.forceDeDepart + 2)
@@ -287,7 +287,7 @@ test('son niveau suit ses réponses : une série ratée d’entrée ne fait pas 
 
 // ── La série de référence, et Automate ───────────────────────────────────
 
-test('la série de référence : le joueur de la cote de départ y fait huit bonnes réponses, et la force monte avec le niveau', () => {
+test('la série de référence : le joueur de la cote de départ y fait le score de référence, et la force monte avec le niveau', () => {
   const base = baseSimulee(hasardFixe(7))
   const reference = serieDeReference(base, marcheDe, q => q.vraie)
   assert.equal(reference.places.length, 60)
@@ -541,7 +541,7 @@ test('en fond, le modèle s’ajuste sur la première réponse de chacun — et 
   }
 })
 
-test('le dé : sans une réponse, huit bonnes réponses ; ses réponses comptent dès le dé suivant', async () => {
+test('le dé : sans une réponse, le score de référence ; ses réponses comptent dès le dé suivant', async () => {
   const base = baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] })
   const avant = CampagneStore.reponsesDAutomate
   const demandes: AutomateDuDe[] = []

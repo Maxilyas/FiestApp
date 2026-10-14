@@ -2,16 +2,19 @@
 // font vraiment par série, où en sont leurs duels, et où chacun serait avec
 // d'autres règles — ses vrais duels rejoués. Le souhait du propriétaire du
 // 14 octobre 2026, « avoir exactement les métriques utilisateur » avant de
-// toucher à la cote : l'échelle d'aujourd'hui (1000 = 8 bonnes réponses, 50
-// points chacune) a été posée sans mesure, et un joueur qui trouve chaque
-// marche au taux qui la définit fait 6,6 de moyenne et ne dépasse 10 qu'une
-// série sur vingt — l'Or, à 12, ne s'atteignait qu'en étant très fort.
+// toucher à la cote : l'échelle d'alors (1000 = 8 bonnes réponses, 50 points
+// chacune) avait été posée sans mesure, et un joueur qui trouve chaque marche
+// au taux qui la définit fait 6,6 de moyenne et ne dépasse 10 qu'une série
+// sur vingt — l'Or, à 12, ne s'atteignait qu'en étant très fort. Mesurée, la
+// médiane valait 7 ; la montée, rejouée ici, est devenue la règle le jour même
+// (`shared/duels.ts`). Le script la relit depuis, et la compare à l'ELO
+// d'avant.
 //
 //   cd server
 //   PROD_LECTURE_URL=libsql://ta-base.turso.io PROD_LECTURE_TOKEN=… npx tsx scripts/calibrage-duels.ts
 //   npx tsx scripts/calibrage-duels.ts file:chemin/vers/restauree.db
-//   … --echelles 8/50,7/75,7/100   les échelles que la montée essaie : 1000 = tant de bonnes réponses / points de chacune
-//   … --participation 5            ce que chaque duel rapporte sous l'Or, avec la montée
+//   … --echelles 7/50,7/75,7/100   les échelles que la montée essaie : 1000 = tant de bonnes réponses / points de chacune
+//   … --participation 4            ce que chaque duel rapporte sous l'Or, à l'essai
 //
 // Sous PowerShell : $env:PROD_LECTURE_URL="libsql://…"; $env:PROD_LECTURE_TOKEN="…"; npx tsx scripts/calibrage-duels.ts
 // Dans le cloud, derrière son proxy : NODE_USE_ENV_PROXY=1 devant la commande.
@@ -35,16 +38,22 @@ import {
   COTE_DE_DEPART,
   DUELS_DE_PLACEMENT,
   LIGUES,
-  POIDS_D_UN_DUEL,
+  LIGUES_GARDEES,
+  MONTEE,
+  PARTICIPATION_AU_DESSUS,
+  PARTICIPATION_SOUS_L_OR,
+  PART_DU_LANCEUR,
+  PERTE_SOUS_L_OR,
   POINTS_PAR_BONNE_REPONSE,
   SCORE_DE_REFERENCE,
-  chancesDeGagner,
+  apresLeDuel,
   ecartContre,
   ligueDe,
+  ligueParCle,
   releverLesDuels,
   resultatDuDuel,
   type DuelJoue,
-  type Resultat,
+  type ReglagesDeLaMontee,
 } from '../../shared/duels'
 
 // ── Ce qu'on lui demande ──────────────────────────────────────────────────
@@ -108,6 +117,8 @@ interface Echelle {
 }
 
 const ECHELLE_D_AUJOURDHUI: Echelle = { reference: SCORE_DE_REFERENCE, pente: POINTS_PAR_BONNE_REPONSE }
+/** Celle d'avant la montée : 1000 valait huit bonnes réponses, posé sans mesure. */
+const ECHELLE_D_AVANT: Echelle = { reference: 8, pente: 50 }
 
 function lireLesEchelles(texte: string): Echelle[] {
   return texte.split(',').map(e => {
@@ -118,41 +129,20 @@ function lireLesEchelles(texte: string): Echelle[] {
 }
 const echelles = lireLesEchelles(options.get('echelles') ?? `${SCORE_DE_REFERENCE}/${POINTS_PAR_BONNE_REPONSE},7/75,7/100`)
 
-// ── La montée, à l'essai ──────────────────────────────────────────────────
+// ── La montée, et ce qu'on essaie ─────────────────────────────────────────
 //
 // Les règles proposées au propriétaire le 14 octobre 2026, après « je fais
-// que reculer » d'une joueuse qui lançait beaucoup de duels : deux chiffres —
-// la cote d'aujourd'hui, cachée, règle Automate ; celle qu'on voit avance —,
-// et l'Or pour qui joue. Sous l'Or, chaque duel rapporte, et une défaite ne
-// coûte qu'un quart ; dès l'Or, l'enjeu suit l'écart — perdre contre plus fort
-// ne coûte presque rien, contre plus faible beaucoup (24·E²) ; l'Argent et
-// l'Or ne se perdent plus une fois atteints. Des choix de produit à mesurer,
-// pas encore la règle.
-
-/** Ce que chaque duel rapporte sous l'Or, au-dessus, et de plus à qui a lancé le défi. */
-const PARTICIPATION_SOUS_L_OR = 5
-const PARTICIPATION_AU_DESSUS = 1
-const PART_DU_LANCEUR = 1
-/** Ce qu'une défaite coûte sous l'Or, de ce que l'ELO lui ferait payer. */
-const PERTE_SOUS_L_OR = 0.25
+// que reculer » d'une joueuse qui lançait beaucoup de duels, et devenues la
+// règle le même jour (`shared/duels.ts`) : deux chiffres — la cote cachée,
+// l'ELO, règle Automate ; celle qu'on voit avance —, et l'Or pour qui joue.
+// Le rejeu les prend au code, formule comprise (`apresLeDuel`) : seule la
+// participation sous l'Or s'essaie d'ici (`--participation`).
 
 const participation = options.has('participation') ? (lireNombre(options.get('participation')!) ?? NaN) : PARTICIPATION_SOUS_L_OR
 if (!(participation >= 0)) echouer(`Participation illisible : « ${options.get('participation')} ». Écris un nombre de points, 5 par exemple.`)
+const essayee: ReglagesDeLaMontee = { ...MONTEE, sousLOr: participation }
 
-const seuilDe = (cle: string) => LIGUES.find(l => l.cle === cle)!.depuis
-const SEUIL_DE_L_ARGENT = seuilDe('argent')
-const SEUIL_DE_L_OR = seuilDe('or')
-
-/** Ce qu'un duel fait à la cote qu'on voit, avec la montée — contre la cote d'en face qu'on voit aussi. */
-function ecartDeLaMontee(cote: number, enFace: number, r: Resultat, lance: boolean): number {
-  const e = chancesDeGagner(cote, enFace)
-  const sousLOr = cote < SEUIL_DE_L_OR
-  const part = (sousLOr ? participation : PARTICIPATION_AU_DESSUS) + (lance ? PART_DU_LANCEUR : 0)
-  const perte = sousLOr ? POIDS_D_UN_DUEL * e * PERTE_SOUS_L_OR : POIDS_D_UN_DUEL * e * e
-  if (r === 1) return Math.round(part + POIDS_D_UN_DUEL * (1 - e))
-  if (r === 0.5) return Math.round(part + (e < 0.5 ? POIDS_D_UN_DUEL * (0.5 - e) : -perte / 2))
-  return Math.round(part - perte)
-}
+const SEUIL_DE_L_OR = ligueParCle('or').depuis
 
 // ── La lecture ────────────────────────────────────────────────────────────
 
@@ -277,10 +267,10 @@ console.log('  (Les duels n’y comptent pas : gagnés en second, ils s’arrêt
 
 // ── 2. Les duels aujourd'hui ──────────────────────────────────────────────
 
-/** Un côté d'un duel classé fini, et qui l'a joué — contre quelqu'un : qui, quand ce fut lancé, et s'il l'a lancé. */
+/** Un côté d'un duel classé fini, et qui l'a joué — contre quelqu'un : qui, et quand ce fut lancé (s'il l'a lancé, le journal le dit). */
 interface Partie extends DuelJoue {
   joueur: string
-  contre?: { profil: string; lanceLe: number; lance: boolean }
+  contre?: { profil: string; lanceLe: number }
 }
 
 const lignesDe = new Map<string, Record<string, unknown>[]>()
@@ -297,7 +287,7 @@ const parties: Partie[] = []
 for (const [joueur, duels] of journaux) {
   for (const d of duels) {
     const l = d.coteAdverse === undefined ? undefined : lances.get(d.serie)
-    parties.push({ ...d, joueur, ...(l && { contre: { profil: l.joueur === l.auteur ? l.adversaire : l.auteur, lanceLe: l.creeLe, lance: l.joueur === l.auteur } }) })
+    parties.push({ ...d, joueur, ...(l && { contre: { profil: l.joueur === l.auteur ? l.adversaire : l.auteur, lanceLe: l.creeLe } }) })
   }
 }
 // L'ordre du journal, celui où `releverLesDuels` relit chacun.
@@ -311,15 +301,18 @@ const releves = new Map([...journaux].map(([joueur, duels]) => [joueur, releverL
 interface Regles {
   nom: string
   echelle: Echelle
-  montee: boolean
+  /** Les réglages de la montée — sans eux, l'ELO seul, comme avant le 14 octobre 2026. */
+  montee: ReglagesDeLaMontee | null
+  /** Les règles de l'application : contre quelqu'un, les cotes figées au lancement, comme `releverLesDuels`. */
+  figees: boolean
 }
 
 interface Etat {
-  /** La cote d'aujourd'hui, l'ELO seul — cachée avec la montée : elle règle Automate. */
+  /** La cote cachée, l'ELO seul : elle règle Automate. */
   cachee: number
   /** Celle qu'on voit : la même sans la montée. */
   cote: number
-  plancher: number
+  plancher: number | null
   joues: number
   plusHaute: number
   /** Son duel où la cote qu'on voit a passé l'Or, compté depuis le premier ; null : jamais. */
@@ -344,22 +337,23 @@ function rejouer(regles: Regles): Map<string, Etat> {
   const etatDe = (joueur: string): Etat => {
     let e = etats.get(joueur)
     if (!e) {
-      e = { cachee: COTE_DE_DEPART, cote: COTE_DE_DEPART, plancher: -Infinity, joues: 0, plusHaute: COTE_DE_DEPART, orA: null, histoire: [] }
+      e = { cachee: COTE_DE_DEPART, cote: COTE_DE_DEPART, plancher: null, joues: 0, plusHaute: COTE_DE_DEPART, orA: null, histoire: [] }
       etats.set(joueur, e)
     }
     return e
   }
   const { reference, pente } = regles.echelle
-  const figees = !regles.montee && reference === ECHELLE_D_AUJOURDHUI.reference && pente === ECHELLE_D_AUJOURDHUI.pente
   const coteDuScore = (justes: number) => COTE_DE_DEPART + pente * (justes - reference)
   for (const p of parties) {
     const moi = etatDe(p.joueur)
     const r = resultatDuDuel(p.justes, p.sesJustes)
     let enFace: { cachee: number; cote: number }
     if (p.coteAdverse === undefined) enFace = { cachee: coteDuScore(p.sesJustes), cote: coteDuScore(p.sesJustes) }
-    else if (figees || !p.contre) {
+    // Comme `releverLesDuels` : un duel d'avant la montée n'a figé qu'une cote, la cachée bouge contre elle.
+    else if (regles.figees) enFace = { cachee: p.coteCacheeAdverse ?? p.coteAdverse, cote: p.coteAdverse }
+    else if (!p.contre) {
       // Sans qui ni quand, la cote figée, ramenée à l'échelle essayée.
-      const c = figees ? p.coteAdverse : COTE_DE_DEPART + ((p.coteAdverse - COTE_DE_DEPART) * pente) / POINTS_PAR_BONNE_REPONSE
+      const c = COTE_DE_DEPART + ((p.coteAdverse - COTE_DE_DEPART) * pente) / POINTS_PAR_BONNE_REPONSE
       enFace = { cachee: c, cote: c }
     } else {
       const lui = etats.get(p.contre.profil)
@@ -367,12 +361,7 @@ function rejouer(regles: Regles): Map<string, Etat> {
     }
     moi.cachee += ecartContre(moi.cachee, enFace.cachee, moi.joues, r)
     if (!regles.montee) moi.cote = moi.cachee
-    else {
-      const cote = moi.cote + ecartDeLaMontee(moi.cote, enFace.cote, r, p.contre?.lance === true)
-      if (cote >= SEUIL_DE_L_ARGENT) moi.plancher = Math.max(moi.plancher, SEUIL_DE_L_ARGENT)
-      if (cote >= SEUIL_DE_L_OR) moi.plancher = Math.max(moi.plancher, SEUIL_DE_L_OR)
-      moi.cote = Math.max(cote, moi.plancher)
-    }
+    else ({ cote: moi.cote, plancher: moi.plancher } = apresLeDuel(moi.cote, moi.plancher, enFace.cote, r, p.lance === true, regles.montee))
     moi.joues++
     moi.plusHaute = Math.max(moi.plusHaute, moi.cote)
     if (moi.orA === null && moi.cote >= SEUIL_DE_L_OR) moi.orA = moi.joues
@@ -382,12 +371,14 @@ function rejouer(regles: Regles): Map<string, Etat> {
 }
 
 const echelleLue = (e: Echelle) => `1000 = ${nombre(e.reference)}, ${nombre(e.pente)} points`
+const aLEssai = participation === PARTICIPATION_SOUS_L_OR ? '' : ` · +${nombre(participation)} sous l’Or`
 const variantes: Regles[] = [
-  { nom: `Aujourd’hui (${echelleLue(ECHELLE_D_AUJOURDHUI)})`, echelle: ECHELLE_D_AUJOURDHUI, montee: false },
-  ...echelles.map(e => ({ nom: `Montée · ${echelleLue(e)}`, echelle: e, montee: true })),
+  { nom: `Avant la montée (${echelleLue(ECHELLE_D_AVANT)})`, echelle: ECHELLE_D_AVANT, montee: null, figees: false },
+  { nom: `Aujourd’hui (${echelleLue(ECHELLE_D_AUJOURDHUI)})`, echelle: ECHELLE_D_AUJOURDHUI, montee: MONTEE, figees: true },
+  ...echelles.map(e => ({ nom: `Montée · ${echelleLue(e)}${aLEssai}`, echelle: e, montee: essayee, figees: false })),
 ]
 const rejoues = variantes.map(v => ({ regles: v, etats: rejouer(v) }))
-const dAujourdhui = rejoues[0].etats
+const dAujourdhui = rejoues[1].etats
 
 console.log('\n2. Les duels aujourd’hui')
 const joueurs = [...releves.keys()]
@@ -418,6 +409,8 @@ else {
   )
   const cotes = [...releves.values()].map(r => r.cote)
   console.log(`Cote : ${resume(cotes, x => String(Math.round(x)))}`)
+  // La cachée, son niveau : celle sur laquelle Automate se règle.
+  console.log(`Cote cachée : ${resume([...releves.values()].map(r => r.cachee), x => String(Math.round(x)))}`)
   console.log(`Ligues : ${LIGUES.map(l => `${l.court} ${cotes.filter(c => ligueDe(c).cle === l.cle).length}`).join(' · ')}`)
   const sousLeRecord = joueurs.map(j => dAujourdhui.get(j)!.plusHaute - releves.get(j)!.cote)
   console.log(
@@ -431,13 +424,15 @@ else {
 
 console.log('\n3. Leurs vrais duels, rejoués avec d’autres règles')
 if (joueurs.length > 0) {
-  const retrouves = joueurs.filter(j => dAujourdhui.get(j)!.cote === releves.get(j)!.cote).length
+  // Ses deux cotes : la cachée aussi, qui ne se voit nulle part ailleurs.
+  const retrouves = joueurs.filter(j => dAujourdhui.get(j)!.cote === releves.get(j)!.cote && dAujourdhui.get(j)!.cachee === releves.get(j)!.cachee).length
   console.log(`Contrôle : le rejeu des règles d’aujourd’hui retrouve la cote de chacun — ${retrouves} sur ${joueurs.length}.`)
   console.log(
-    `La montée : +${nombre(participation)} par duel sous l’Or, +${PARTICIPATION_AU_DESSUS} au-dessus, +${PART_DU_LANCEUR} de plus pour qui lance un défi ; ` +
-      `une défaite au quart sous l’Or, selon l’écart au-dessus ; l’Argent et l’Or gardés une fois atteints. ` +
-      `Automate reste réglé sur la cote cachée.`,
+    `La montée, la règle depuis le 14 octobre 2026 : +${PARTICIPATION_SOUS_L_OR} par duel sous l’Or, +${PARTICIPATION_AU_DESSUS} au-dessus, ` +
+      `+${PART_DU_LANCEUR} de plus pour qui lance un défi ; une défaite à ${Math.round(PERTE_SOUS_L_OR * 100)} % de l’ELO sous l’Or, selon l’écart au-dessus ; ` +
+      `${LIGUES_GARDEES.map(c => ligueParCle(c).court).join(' et ')} gardés une fois atteints. Automate réglé sur la cote cachée.`,
   )
+  console.log('Avant la montée : l’ELO seul, une seule cote. « Montée · … » : comme si elle avait toujours été la règle — la cote d’en face rejouée, pas celle figée au lancement.')
   const largeur = Math.max(...variantes.map(v => v.nom.length)) + 2
   const entete = `${''.padEnd(largeur + 2)}${LIGUES.map(l => l.court.padStart(8)).join('')}   médiane   l’Or atteint`
   const groupes: [string, (j: string) => boolean][] = [

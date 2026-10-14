@@ -7,7 +7,7 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS } from './adressesDesDuels'
 import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
-import { ecartSigne } from './Rencontre'
+import { ecartSigne, siTuPerds } from './Rencontre'
 import { COTE_DE_DEPART, RAISON_DU_CROISEMENT, enjeuContre, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
@@ -51,7 +51,7 @@ export function LancerUnDefi({
    * série, l'adversaire touché — « Défier » sur sa carte —, et sa propre
    * cote, pour dire ce qui se joue.
    */
-  depart: { categories: readonly string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number } }
+  depart: { categories: readonly string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number; plancher?: number } }
   busy: boolean
   erreur: string
   /** Lancer le duel : ce qu'il fait jouer, contre qui — et ce qu'il met en jeu, que la partie redit à chaque question. */
@@ -75,7 +75,8 @@ export function LancerUnDefi({
     },
     onAmis,
   })
-  const enjeu = choisi && moi ? enjeuContre(moi.cote, choisi.cote ?? COTE_DE_DEPART, moi.joues) : null
+  // Ce qui se joue pour lui, qui lance le défi : sa part de lanceur comprise, et sa ligue gardée.
+  const enjeu = choisi && moi ? enjeuContre(moi, choisi.cote ?? COTE_DE_DEPART, true) : null
   const choisir = (j: JoueurADefier) => (
     <button type="button" className="btn btn-small" aria-label={`Défier ${j.nom}`} onClick={() => setChoisi(j)}>
       <Icon name="swords" />
@@ -183,7 +184,7 @@ export function LancerUnDefi({
       <p className="muted small centre">
         {espacesFines(
           choisi
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${ecartSigne(enjeu.perdu)} si tu perds` : ''}.`
+            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent${enjeu ? ` — pour toi, ${ecartSigne(enjeu.gagne)} si tu gagnes, ${siTuPerds(enjeu.perdu)}` : ''}.`
             : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>

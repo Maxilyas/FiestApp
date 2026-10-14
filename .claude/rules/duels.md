@@ -7,7 +7,7 @@ paths:
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
   - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
-  - "server/test/{duels,duels-attente,duels-contre,duels-historique,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
+  - "server/test/{duels,duels-attente,duels-contre,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -22,11 +22,14 @@ jour a sa notification (règle `rappel-et-installation.md`).
 
 ## Les fichiers
 
-- `shared/duels.ts` — tout ce qui se calcule, pur : la cote ELO
-  (`coteDuScore`, `chancesDeGagner`, `ecartContre`, `enjeuContre`, le
-  placement `DUELS_DE_PLACEMENT`), les ligues (`LIGUES`, `ligueDe`), la
-  relecture du journal (`releverLesDuels` : la cote, chaque semaine, les
-  crans des bordures), la récompense du lundi (`recompenseDeLaSemaine`,
+- `shared/duels.ts` — tout ce qui se calcule, pur : les deux cotes — la
+  cachée, l'ELO seul (`coteDuScore`, `chancesDeGagner`, `ecartContre`, le
+  placement `DUELS_DE_PLACEMENT`), et celle qu'on voit, la montée
+  (`ecartDeLaMontee`, `apresLeDuel`, `plancherApres`, `MONTEE` et ses
+  constantes, `LIGUES_GARDEES` ; ce qu'un duel mettrait en jeu :
+  `enjeuContre`, `enjeuDuDuel`) —, les ligues (`LIGUES`, `ligueDe`), la
+  relecture du journal (`releverLesDuels` : les deux cotes, le plancher,
+  chaque semaine, les crans des bordures), la récompense du lundi (`recompenseDeLaSemaine`,
   `confettisDesLigues`, dans le solde par `CampagneStore.confettisDe`), la
   bordure portée (`bordurePortee`), le bilan et l'historique
   (`bilanDesDuels`, `pageDeLHistoire`), les types de la page
@@ -48,7 +51,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   (`borduresEnMemoire`, `connaitreLesBordures`) ; les lectures du journal
   (`lectureDesDuels`, `lectureDesAdversaires`, `sesDuelsContre`,
   `lecturesDesDuelsContre`, `lectureDesDefisRecus`). Ses tables, dans la base
-  permanente : `campagne_duels` (les deux cotes figées au lancement, `vu_le`),
+  permanente : `campagne_duels` (les cotes de chacun figées au lancement —
+  `cote_auteur`, `cote_adversaire`, et depuis la montée leurs cachées
+  `cote_cachee_auteur`, `cote_cachee_adversaire` —, `vu_le`),
   `campagne_envois`, `campagne_envois_prevus`, `campagne_amis_ajoutes`,
   `campagne_amis_retires`
 - `core/modeleDuSavoir.ts` — le modèle du savoir, que seul Automate lit
@@ -106,9 +111,13 @@ jour a sa notification (règle `rappel-et-installation.md`).
   série — allées au bout : une série abandonnée garde des vies —, l'état des
   duels relu par `releverLesDuels` sur `lectureDesDuels` et `duelsLus`
   (exportées pour lui), puis tous les vrais duels rejoués ensemble, dans
-  l'ordre où ils ont fini, avec la « montée » à l'essai sur plusieurs échelles
-  (`--echelles 8/50,7/75,7/100`, `--participation`). Son contrôle : aux règles
-  d'aujourd'hui, le rejeu retrouve la cote de chacun. Il lit
+  l'ordre où ils ont fini : à l'ELO seul d'avant la montée, aux règles du
+  code, et la montée à l'essai sur d'autres échelles ou une autre
+  participation (`--echelles 7/50,7/75,7/100`, `--participation`), avec la
+  vraie formule (`apresLeDuel` et ses réglages, `ReglagesDeLaMontee`). Son
+  contrôle : aux règles du code, sur les cotes figées, le rejeu retrouve les
+  deux cotes de chacun — une règle copiée dans le script s'en écarterait
+  sans un mot. Il lit
   `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN` (un jeton en lecture seule),
   **jamais `QUIZ_DB_URL`** : posée pour mesurer, le serveur, `npm run dev` et
   le smoke la liraient et y écriraient dès leur démarrage. Dans le cloud,
@@ -121,20 +130,37 @@ jour a sa notification (règle `rappel-et-installation.md`).
 
 ## Les pièges
 
-- **Rien ne s'écrit que le journal.** La cote, les ligues, les semaines,
-  leurs confettis et les crans des bordures se relisent à chaque lecture
-  (`releverLesDuels` sur `lectureDesDuels`) : une donnée de plus se dérive du
-  journal, jamais d'une colonne tenue à côté. Changer une constante de la
-  cote ou des ligues change donc tout, pour tous, rétroactivement — solde de
-  confettis compris —, sauf `cote_auteur` et `cote_adversaire`, figées en
-  base au lancement d'un duel contre quelqu'un et qui ne se recalculent pas.
-- **Contre quelqu'un, seule la cote d'en face est figée.** Chacun bouge
-  contre la cote de l'autre au lancement (`DuelJoue.coteAdverse`), jamais
-  contre son score — un second profil qui rejouerait les questions,
-  réponses connues, choisirait son score, pas sa cote —, mais depuis sa
-  propre cote au moment où le duel compte : l'enjeu dit au lancement peut
-  différer de l'écart final. Un défi entre amis d'avant ne touche jamais la
-  cote : `lectureDesDuels` ne lit que `adversaire IS NOT NULL`.
+- **Rien ne s'écrit que le journal.** Les deux cotes, le plancher, les
+  ligues, les semaines, leurs confettis et les crans des bordures se relisent
+  à chaque lecture (`releverLesDuels` sur `lectureDesDuels`) : une donnée de
+  plus se dérive du journal, jamais d'une colonne tenue à côté — qui a lancé
+  un duel aussi (`DuelJoue.lance`, lu de `campagne_duels.auteur`). Changer
+  une constante de la cote, de la montée ou des ligues change donc tout, pour
+  tous, rétroactivement — solde de confettis compris —, sauf les cotes figées
+  en base au lancement d'un duel contre quelqu'un (`cote_auteur`,
+  `cote_adversaire`, `cote_cachee_*`), qui ne se recalculent pas.
+- **Deux cotes, et chacune son usage** (la montée, le choix du propriétaire
+  du 14 octobre 2026 : « je veux que tout le monde monte en Or s'il joue,
+  même s'il n'est pas très bon »). Celle qu'on voit — `ReleveDesDuels.cote` —
+  fait les ligues, le classement, les bordures, les confettis et tout ce qui
+  s'affiche ; la cachée — `cachee`, l'ELO seul — ne règle qu'Automate
+  (`niveauPourLeDuel`) et ne part jamais au téléphone (`duels-montee.test.ts`).
+  Automate réglé sur celle qu'on voit, qui monte au-dessus du niveau, se
+  renforcerait : on perdrait la moitié des duels au lieu de quatre sur dix,
+  et la promesse tomberait. Un enjeu se dit avec le plancher
+  (`enjeuContre(moi: SaCote, …)`, `EtatDesDuels.plancher`,
+  `FaceAFace.moi.plancher`) et la part du lanceur (`lance`) : sans eux, la
+  page annonçait une perte que le plancher empêche, ou un point de moins.
+- **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
+  contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
+  sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée
+  (`coteCacheeAdverse` ; un duel d'avant la montée n'en a pas, la seule cote
+  figée en tient lieu) —, jamais contre son score — un second profil qui
+  rejouerait les questions, réponses connues, choisirait son score, pas sa
+  cote —, mais depuis ses propres cotes au moment où le duel compte : l'enjeu
+  dit au lancement peut différer de l'écart final. Un défi entre amis
+  d'avant ne touche jamais la cote : `lectureDesDuels` ne lit que
+  `adversaire IS NOT NULL`.
 - **Un duel compte quand ses deux tentatives existent** : joué des deux
   côtés, ou, fermé, commencé des deux côtés (`lectureDesDuels` joint les deux
   séries) ; jamais commencé, il ne compte pas — personne ne perd de points en

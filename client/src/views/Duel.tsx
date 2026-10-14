@@ -134,7 +134,11 @@ export function SemaineEnLosanges({ semaine, passee, className }: { semaine: Sem
   )
 }
 
-/** Ce qu'un duel met en jeu sur sa cote, en deux jetons : ce que la victoire rapporte, ce que la défaite coûte. */
+/**
+ * Ce qu'un duel met en jeu sur sa cote, en deux jetons : ce que la victoire
+ * rapporte, ce que la défaite coûte — ou rapporte encore, sous l'Or (la
+ * montée) : le jeton ne prend alors pas la couleur d'une perte.
+ */
 function JetonsDeLEnjeu({ enjeu }: { enjeu: EnjeuDuDuel }) {
   return (
     <div className="duels-jetons" role="group" aria-label="Ce qui se joue sur ta cote">
@@ -142,7 +146,7 @@ function JetonsDeLEnjeu({ enjeu }: { enjeu: EnjeuDuDuel }) {
         <b className="num">{ecartSigne(enjeu.gagne)}</b>
         <span>victoire</span>
       </span>
-      <span className="duels-jeton perdu">
+      <span className={'duels-jeton' + (enjeu.perdu < 0 ? ' perdu' : '')}>
         <b className="num">{ecartSigne(enjeu.perdu)}</b>
         <span>défaite</span>
       </span>

@@ -854,11 +854,15 @@ export class CampagneStore {
     // et les deux cotes au lancement — chacun bouge contre celle de l'autre.
     // Puis quand qui l'a lancé a vu son résultat : joué le second, l'autre le
     // voit à sa dernière réponse ; lui l'apprenait au hasard d'une liste.
+    // Puis, avec la montée (le 14 octobre 2026), leurs deux cotes cachées au
+    // lancement : la cote cachée de chacun bouge contre celle de l'autre.
     for (const [colonne, type] of [
       ['adversaire', 'TEXT'],
       ['cote_auteur', 'INTEGER'],
       ['cote_adversaire', 'INTEGER'],
       ['vu_le', 'INTEGER'],
+      ['cote_cachee_auteur', 'INTEGER'],
+      ['cote_cachee_adversaire', 'INTEGER'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_duels', colonne, type)
     }
@@ -2470,8 +2474,11 @@ export class CampagneStore {
           // Le défi, ses amis choisis et sa première tentative dans le même lot : l'un ne va pas sans l'autre.
           const serie = await this.releverLeDuel(profileId, duel, [
             {
-              sql: `INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              // Les deux cotes de chacun, figées : celle qu'on voit, contre laquelle bouge celle
+              // de l'autre ; la cachée, contre laquelle bouge sa cachée (la montée, `shared/duels.ts`).
+              sql: `INSERT INTO campagne_duels (code, auteur, questions, categories, sujet, cree_le, ferme_le, adversaire, cote_auteur, cote_adversaire,
+                                                cote_cachee_auteur, cote_cachee_adversaire)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               args: [
                 duel.code,
                 profileId,
@@ -2483,13 +2490,15 @@ export class CampagneStore {
                 duel.adversaire,
                 duel.coteAuteur,
                 duel.coteAdversaire,
+                cotes ? cotes[0].cachee : null,
+                cotes ? cotes[1].cachee : null,
               ],
             },
             ...prevus.map(id => ({ sql: 'INSERT INTO campagne_envois_prevus (code, profile_id) VALUES (?, ?)', args: [duel.code, id] })),
           ])
           this.duels.set(duel.code, duel)
-          // Ce qu'il met en jeu, que sa partie redit à chaque question : contre la cote d'en face, figée ici.
-          return { code: duel.code, serie: vueDeSerie(serie), ...(cotes && { enjeu: enjeuContre(cotes[0].cote, cotes[1].cote, cotes[0].joues) }) }
+          // Ce qu'il met en jeu, que sa partie redit à chaque question : contre la cote d'en face, figée ici — lui l'a lancé.
+          return { code: duel.code, serie: vueDeSerie(serie), ...(cotes && { enjeu: enjeuContre(cotes[0], cotes[1].cote, true) }) }
         } catch (e) {
           // Un code déjà pris — une chance sur des centaines de millions — : on en tire un autre, une fois.
           if (essai > 0 || !String((e as Error).message).includes('UNIQUE')) throw e
@@ -2563,9 +2572,10 @@ export class CampagneStore {
     // Masqué au quiz du jour, l'auteur ne se nomme pas plus ici, sauf à lui-même.
     const nomme = auteur && (!this.masque?.(auteur.id) || auteur.id === profileId)
     const ecart = releve && tentative ? releve.ecarts.get(tentative.id)?.ecart : undefined
-    // Pas encore joué jusqu'au bout : ce qu'il met en jeu, contre la cote d'en face figée au lancement — on sait pour quoi on joue.
+    // Pas encore joué jusqu'au bout : ce qu'il met en jeu, contre la cote d'en face figée au lancement — on sait pour quoi on joue —,
+    // et la part de qui l'a lancé.
     const coteDEnFace = duel.auteur === profileId ? duel.coteAdversaire : duel.coteAuteur
-    const enjeu = releve && ouvert && tentative?.finieLe == null && coteDEnFace !== null ? enjeuContre(releve.cote, coteDEnFace, releve.joues) : null
+    const enjeu = releve && ouvert && tentative?.finieLe == null && coteDEnFace !== null ? enjeuContre(releve, coteDEnFace, duel.auteur === profileId) : null
     const defieNomme = defie && (!this.masque?.(defie.id) || defie.id === profileId)
     const contre =
       duel.adversaire && defie !== undefined
@@ -3156,7 +3166,7 @@ export class CampagneStore {
         ...this.saCote(cotes.get(lui.id), rangs.get(lui.id)),
         ...(cercle.estAmi(lui.id) && { ami: true as const }),
       },
-      moi: { cote: moi.cote, joues: moi.joues },
+      moi: { cote: moi.cote, joues: moi.joues, ...(moi.plancher !== null && { plancher: moi.plancher }) },
     }
   }
 
@@ -3320,9 +3330,10 @@ export class CampagneStore {
       },
       reference.forceDeDepart,
     )
-    // Sans une réponse, le joueur de la cote de départ : huit bonnes réponses.
+    // Sans une réponse, le joueur de la cote de départ (`SCORE_DE_REFERENCE`). Placé,
+    // celui de sa cote cachée : la montée porte celle qu'on voit au-dessus de son niveau.
     const sonNiveau = lui.reponses === 0 ? SCORE_DE_REFERENCE : scoreDeReference(lui.force, lui.ecarts, reference)
-    const niveau = niveauPourLeDuel(releve.joues, releve.cote, sonNiveau)
+    const niveau = niveauPourLeDuel(releve.joues, releve.cachee, sonNiveau)
     const force = forcePourLeNiveau(niveau, lui.ecarts, reference)
     const chances = chancesSurLaSerie(
       questions.map(q => ({ difficulte: difficulteDe(q), categorie: q.meta.categorie })),
@@ -3385,7 +3396,7 @@ export class CampagneStore {
             serie: vueDeSerie(ouverte),
             adversaire: enJeu(await this.adversaireVu(ouverte.adversaire)),
             sesJustes: sesJustesAvant(ouverte),
-            enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire), releve.joues),
+            enjeu: enjeuDuDuel(releve, sesJustesEnTout(ouverte.adversaire)),
           },
         }
       }
@@ -3421,7 +3432,7 @@ export class CampagneStore {
         serie: vueDeSerie(serie),
         adversaire: enJeu(await this.adversaireVu(adversaire)),
         sesJustes: 0,
-        enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(adversaire), releve.joues),
+        enjeu: enjeuDuDuel(releve, sesJustesEnTout(adversaire)),
       }
       // Gardée une fois écrite, comme toute série (`enCours`). Ratée, rien ne
       // l'est : sa première réponse la cherche en base, et dit de relancer le dé.
@@ -3492,7 +3503,7 @@ export class CampagneStore {
               serie: vueDeSerie(ouverte),
               adversaire: enJeu(vu(ouverte)),
               sesJustes: sesJustesAvant(ouverte),
-              enjeu: enjeuDuDuel(releve.cote, sesJustesEnTout(ouverte.adversaire!), releve.joues),
+              enjeu: enjeuDuDuel(releve, sesJustesEnTout(ouverte.adversaire!)),
             }
           : null,
         passees: rencontres
@@ -3779,6 +3790,8 @@ export class CampagneStore {
       cote: releve.cote,
       ligue: ligueDe(releve.cote).cle,
       joues: releve.joues,
+      // La ligue gardée, que ce que la page dit d'un duel ne traverse pas (`enjeuContre`).
+      ...(releve.plancher !== null && { plancher: releve.plancher }),
       semaine: this.semaineDesDuels(releve),
       ...(passee && payee > 0 && { semainePassee: { ligue: ligueDe(passee.meilleure).cle, duels: passee.duels, confettis: payee } }),
       classement,
@@ -5676,16 +5689,21 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
   // route, une fois battu, ne doit pas effacer le duel. Jamais commencé, il
   // ne compte pas : personne ne perd de points en dormant. Ceux d'un
   // joueur, de plusieurs à la fois — la salle qui revient —, ou de tous.
+  // Avec la montée, la cote cachée d'en face figée avec l'autre, et s'il l'a
+  // lancé : qui provoque y gagne un point de plus (`shared/duels.ts`).
   const ids = qui === null ? null : typeof qui === 'string' ? [qui] : qui
   const parmi = ids && (ids.length === 1 ? '= ?' : `IN (${ids.map(() => '?').join(', ')})`)
   return {
-    sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse FROM (
-            SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes, NULL AS cote_adverse
+    sql: `SELECT id, profile_id, justes, finie_le, ses_justes, cote_adverse, cote_cachee_adverse, lance FROM (
+            SELECT id, profile_id, justes, finie_le, (SELECT COUNT(*) FROM json_each(adversaire, '$.reponses') WHERE type = 'true') AS ses_justes,
+                   NULL AS cote_adverse, NULL AS cote_cachee_adverse, 0 AS lance
             FROM campagne_series
             WHERE ${parmi ? `profile_id ${parmi} AND ` : ''}mode = 'rencontre' AND finie_le IS NOT NULL AND adversaire IS NOT NULL AND json_valid(adversaire)
             UNION ALL
             SELECT m.id, m.profile_id, m.justes, MAX(COALESCE(m.finie_le, d.ferme_le), COALESCE(o.finie_le, d.ferme_le)) AS finie_le, o.justes AS ses_justes,
-                   CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse
+                   CASE WHEN m.profile_id = d.auteur THEN d.cote_adversaire ELSE d.cote_auteur END AS cote_adverse,
+                   CASE WHEN m.profile_id = d.auteur THEN d.cote_cachee_adversaire ELSE d.cote_cachee_auteur END AS cote_cachee_adverse,
+                   CASE WHEN m.profile_id = d.auteur THEN 1 ELSE 0 END AS lance
             FROM campagne_duels d
             JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
             JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
@@ -5847,6 +5865,8 @@ export const duelsLus = (lignes: readonly Record<string, unknown>[]): DuelJoue[]
     sesJustes: Number(r.ses_justes),
     finiLe: Number(r.finie_le),
     ...(r.cote_adverse !== null && r.cote_adverse !== undefined && { coteAdverse: Number(r.cote_adverse) }),
+    ...(r.cote_cachee_adverse !== null && r.cote_cachee_adverse !== undefined && { coteCacheeAdverse: Number(r.cote_cachee_adverse) }),
+    ...(Number(r.lance) === 1 && { lance: true as const }),
   }))
 
 /** La semaine de Paris d'un instant : la clé sous laquelle ses duels se comptent. */
