@@ -9685,6 +9685,9 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .qg-section-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
 .qg-section-tete .compte-groupe { margin: 0; }
 .qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* Des tuiles dans une carte — les duels en attente, la circulation, les Éclats — se partagent sa largeur : les six
+   colonnes des grands écrans sont celles de la vue d'ensemble, et deux tuiles d'une demi-carte y tenaient un mot par ligne. */
+.qg-carte .qg-tuiles:not(.qg-tuiles-quatre) { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 .qg-tuile { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
 .qg-tuile-nom { font-size: 0.85rem; color: var(--muted); }
 .qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
@@ -9715,6 +9718,8 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
   /* La page « Le serveur » : ses temps de réponse dans l'or du Velours, ses erreurs dans son rouge — une série par graphique. */
   --qg-temps: #d9b56a;
   --qg-erreur: #e06c6c;
+  /* La page de l'économie : les confettis dans le même or, une seule couleur — une source n'est pas un mode. */
+  --qg-confettis: #d9b56a;
   /* Ce qu'une tuile ou un écart y prend aussi, ceux du Velours : sous l'Ivoire, la tuile du défi s'y peignait d'un gris clair, son texte clair dessus. */
   --surface: rgba(255, 255, 255, 0.035);
   --alert: #e06c6c;
@@ -9738,6 +9743,7 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 /* La santé du serveur, heure par heure : la nuit endormie hachurée en sourdine, un filet à chaque minuit. */
 .qg-serveur-temps { fill: var(--qg-temps); }
 .qg-serveur-erreur { fill: var(--qg-erreur); }
+.qg-confettis { fill: var(--qg-confettis); background: var(--qg-confettis); }
 .qg-endormi-trait { stroke: rgba(255, 255, 255, 0.07); stroke-width: 2px; }
 .qg-graphe-grille .qg-graphe-jour { stroke: rgba(255, 255, 255, 0.12); }
 /* La charge : quatre graphiques l'un sous l'autre, le même temps pour tous, et en pointillé les plafonds de l'hébergeur gratuit. */
