@@ -48,7 +48,7 @@ Sur l'ordinateur, ouvre `http://localhost:5173/host` : c'est l'écran que la sal
 
 ## 4. Évite le piège du QR
 
-Le QR ne mène pas à Vite (5173) mais **au serveur** (3001) : c'est l'adresse qui marchera aussi en ligne, quand le serveur servira tout. Or le serveur ne sert que la page **construite** (`client/dist/`), et `npm run dev` ne construit rien : un téléphone qui scanne maintenant n'obtient qu'une erreur.
+L'écran commun ouvert en `localhost`, comme ici, le QR ne mène pas à Vite (5173) mais **au serveur** (3001) : c'est l'adresse qui marchera aussi en ligne, quand le serveur servira tout. Or le serveur ne sert que la page **construite** (`client/dist/`), et `npm run dev` ne construit rien : un téléphone qui scanne maintenant n'obtient qu'une erreur. Garde `localhost` sur l'ordinateur : ouvert par son adresse réseau, l'écran commun ferait mener le QR à Vite, qui ne redirige pas un code de salon.
 
 Construis la page une fois, puis relance — le serveur ne regarde `client/dist/` qu'à son démarrage :
 
