@@ -234,6 +234,7 @@ tranche par `erreurMontrable` :
 | toute autre : `LibsqlError`, `TypeError`, `ENOENT`… | 500, « Erreur serveur — réessaie dans un instant » | le détail, et une erreur au relevé de l'heure |
 | un JSON cassé | 400, « Requête illisible — recharge la page et réessaie » | une ligne : sa sorte (`entity.parse.failed`…) et les en-têtes qui annonçaient le corps — jamais le corps |
 | un corps trop lourd | 413, « Envoi trop lourd — allège-le et réessaie » | la même ligne |
+| un fichier du paquet que le téléphone laisse en route — il change de page, perd le réseau : `ECONNABORTED`, que `servirPrecompresse` tait | aucune : plus personne pour la lire | rien, et rien au relevé de l'heure |
 
 La règle tient à la classe : un message fait pour l'invité se lève par un
 `new Error('…')` nu, en français, et dit quoi faire ; le reste parle de tables

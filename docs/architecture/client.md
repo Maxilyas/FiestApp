@@ -251,7 +251,7 @@ Hors du stockage, l'historique de la page (`history.state`) porte quelques repè
 | `server/test/depart.test.ts` | les données de départ de chaque page, le préchargement du fragment, l'attente écrite identique à `Patience`, aucun `lazy` et un seul rendu, `entree.json` égal à ce que dirait `party:watch` |
 | `server/test/medaillons.test.ts` | ce que chaque chemin n'importe pas (dessins, carte, fin de soirée, quiz du jour, Socket.io) ; `aLaDemande` |
 | `server/test/page.test.ts` · `server/test/portes.test.ts` | le statut de chaque adresse, les redirections, les balises d'aperçu sans prénom, `noindex`, les fichiers absents |
-| `server/test/chargement.test.ts` | les fichiers précompressés, servis selon ce que le téléphone accepte |
+| `server/test/chargement.test.ts` | les fichiers précompressés, servis selon ce que le téléphone accepte ; un téléchargement abandonné, ni au journal ni aux erreurs serveur |
 | `server/test/connexion-claire.test.ts` | les trois gros boutons de l'entrée et de l'accueil, dans l'ordre, sans champ ; la création d'un profil en deux champs |
 | `server/test/navigation.test.ts` | les barres de navigation, les sorties des pages d'erreur |
 | `server/test/client.test.ts` | les motifs de `shared/erreurs.ts` : en français, courts, et qui disent quoi faire |
