@@ -1,17 +1,11 @@
-import { useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { Icon } from './Icon'
-import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber } from '../format'
+import { formatNumber } from '../format'
 import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { nomDuTitre } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
-
-/** Sa carte, au toucher de sa ligne : rien ne la télécharge avant. */
-const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 
 /**
  * La bordure de ligue qu'il porte : ses bordures viennent du détail de sa
@@ -20,50 +14,6 @@ const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
  */
 function saBordure(profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>) {
   return bordurePortee(profil.bordureChoisie ?? 'auto', profil.bordures ?? profil.duels?.bordures)
-}
-
-/**
- * Soi-même, en tête de l'accueil et du profil : son avatar, son prénom, son
- * titre, sa barre d'expérience et ses confettis au bout — une ligne qu'on
- * touche pour voir sa carte comme la salle la voit. Le fond de carte qu'il
- * porte la tapisse : on le voit sans ouvrir la carte.
- */
-export function Identite({ profil, titreVisible = true }: { profil: PublicProfileDetail; titreVisible?: boolean }) {
-  const [ouverte, setOuverte] = useState(false)
-  const laCarte = useALaDemande(carteJoueur, ouverte)
-  const titre = titreVisible ? nomDuTitre(profil.titre) : null
-  return (
-    <>
-      <button
-        type="button"
-        className={'identite' + (profil.fond ? ` carte-fond fond-${profil.fond}` : '')}
-        aria-label="Ma carte : la voir comme la salle la voit"
-        onClick={() => setOuverte(true)}
-      >
-        <Avatar
-          className="player-avatar big"
-          avatar={profil.avatar}
-          finition={profil.finition}
-          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-          legendaire={profil.legendaire ?? undefined}
-          bordure={saBordure(profil)}
-        />
-        <span className="identite-texte">
-          <span className="identite-nom">
-            {profil.name}
-            <Laurier laurier={profil.laurier} />
-            <Niveau niveau={profil.niveau} />
-          </span>
-          {titre && <span className="identite-titre">{espacesFines(`« ${titre} »`)}</span>}
-          <XpMince profil={profil} />
-        </span>
-        <span className="identite-carte">
-          Ma carte <Icon name="chevron-down" />
-        </span>
-      </button>
-      {ouverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setOuverte(false)} />}
-    </>
-  )
 }
 
 /**

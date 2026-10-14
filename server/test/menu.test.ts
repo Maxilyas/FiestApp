@@ -142,15 +142,11 @@ test('soi-même en tête : une ligne qui ouvre sa carte, à l’accueil comme au
     eclats: [],
     boutique: { confettis: { solde: 291 } },
   }
-  const carte = await rendu('components/Identite', 'Identite', { profil })
-  assert.match(carte, /<button type="button" class="identite" aria-label="Ma carte : la voir comme la salle la voit">/)
-  assert.match(carte, /60 XP → niv\. 4/)
-  assert.match(carte, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
-  assert.match(carte, /Ma carte/)
   // Au profil, sa ligne ouvre sa carte, comme la salle l'ouvre en touchant son nom — l'œil au bout le dit.
   const auProfil = await rendu('components/Identite', 'IdentiteLigne', { profil, onCarte: () => {} })
   assert.match(auProfil, /^<button type="button" class="identite-ligne" aria-label="Léa : voir ma carte comme la salle la voit">/)
   assert.match(auProfil, /60 XP → niv\. 4/)
+  assert.match(auProfil, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
   assert.match(auProfil, /<span class="identite-oeil" aria-hidden="true"><svg[^>]*>.*<\/svg><\/span><\/button>$/)
   const app = source('views/ProfilApp.tsx')
   assert.match(app, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>/)
