@@ -204,10 +204,13 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   const eclate = !!eclat && !verrouille
   const cercle = !!finition && finition !== 'mat' && !verrouille
   // `useId` rend des deux-points, que `url(#…)` n'aime pas. La clé du
-  // portrait et son état entrent dans le préfixe : deux racines React
-  // numérotent chacune depuis zéro, et le cerf éclaté de l'une prenait le
-  // ciel du cerf ordinaire de l'autre — le premier dégradé d'un nom gagne.
-  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' : '')
+  // portrait et tout ce qui change ses définitions entrent dans le préfixe —
+  // son état, la finition de son cercle, sa taille (l'image du masque de sa
+  // silhouette) : deux racines React numérotent chacune depuis zéro, et le
+  // premier dégradé d'un nom gagne. Le cerf éclaté de l'une prenait le ciel
+  // du cerf ordinaire de l'autre, et le classement en Argent d'une planche
+  // l'or de la case d'avant.
+  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
   const u = `pt-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
   // Des chaînes écrites dans ce fichier et dans `portraits/`, jamais une
   // donnée d'invité, posées d'un bloc — et peintes une fois par état : React

@@ -231,6 +231,32 @@ test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la fini
   }
 })
 
+/** Chaque identifiant d'un rendu, avec l'élément qui le porte tout entier : ce qu'un `url(#…)` de la page ira chercher. */
+const definitions = (html: string) =>
+  new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
+
+/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition => [false, true].flatMap(verrouille => [false, true].map(grand => ({ finition, verrouille, grand }))))
+
+test('rendus chacun dans sa racine, comme sur une planche, deux états d’un compagnon ne se prennent jamais un dégradé', async () => {
+  // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
+  // dégradé d'un nom gagne : sur une planche, l'Or d'un compagnon avait le
+  // dégradé de l'Argent posé avant lui.
+  const argent = definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'argent' }))
+  for (const id of definitions(await compagnon({ cle: 'cp:loup-jeune', finition: 'or' })).keys()) assert.ok(!argent.has(id), id)
+  // Quels que soient la forme et son état, un nom ne dit jamais deux choses.
+  const vus = new Map<string, string>()
+  for (const f of FORMES_DES_COMPAGNONS) {
+    for (const etat of ETATS) {
+      for (const [id, definition] of definitions(await compagnon({ cle: f.key, ...etat }))) {
+        const avant = vus.get(id)
+        if (avant) assert.equal(definition, avant, `${id}, ${JSON.stringify(etat)}`)
+        vus.set(id, definition)
+      }
+    }
+  }
+})
+
 test('porté, il prend la place de l’emoji comme un portrait — et ce qui l’anime se fige s’il le faut', async () => {
   await import(url('components/compagnons-peints.ts'))
   const avatar = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-jeune', finition: 'mat' })

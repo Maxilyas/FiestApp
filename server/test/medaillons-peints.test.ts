@@ -13,6 +13,7 @@ import React from 'react'
 import { demarrer } from './banc'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
+import { FINITIONS } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -235,6 +236,36 @@ test('deux médaillons sur une page ne partagent jamais un dégradé', async () 
   const b = ids(await legendaire({ cle: 'lg:lion' }))
   assert.ok(a.length >= 2)
   for (const id of a) assert.ok(!b.includes(id), id)
+})
+
+/** Chaque identifiant d'un rendu, avec l'élément qui le porte tout entier : ce qu'un `url(#…)` de la page ira chercher. */
+const definitions = (html: string) =>
+  new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
+
+/** Tous les états d'un médaillon : chaque finition ou aucune, verrouillé ou non, éclaté ou non, en grand ou non. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition =>
+  [false, true].flatMap(verrouille => [false, true].flatMap(eclat => [false, true].map(grand => ({ finition, verrouille, eclat, grand })))),
+)
+
+test('rendus chacun dans sa racine, comme sur une planche, deux états d’un médaillon ne se prennent jamais un dégradé', async () => {
+  // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
+  // dégradé d'un nom gagne : l'Argent d'une planche prenait l'Or posé avant
+  // lui, et l'éclaté le disque de l'ordinaire.
+  const argent = definitions(await legendaire({ cle: 'lg:phenix', finition: 'argent' }))
+  for (const id of definitions(await legendaire({ cle: 'lg:phenix', finition: 'or' })).keys()) assert.ok(!argent.has(id), id)
+  const ordinaire = definitions(await legendaire({ cle: 'lg:phenix' }))
+  for (const id of definitions(await legendaire({ cle: 'lg:phenix', eclat: true })).keys()) assert.ok(!ordinaire.has(id), id)
+  // Quels que soient le légendaire et son état, un nom ne dit jamais deux choses.
+  const vus = new Map<string, string>()
+  for (const l of LEGENDAIRES) {
+    for (const etat of ETATS) {
+      for (const [id, definition] of definitions(await legendaire({ cle: l.key, ...etat }))) {
+        const avant = vus.get(id)
+        if (avant) assert.equal(definition, avant, `${id}, ${JSON.stringify(etat)}`)
+        vus.set(id, definition)
+      }
+    }
+  }
 })
 
 const divin = (props: object) => rendu('components/Divin', 'Divin', props)

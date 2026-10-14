@@ -43,7 +43,7 @@ import {
   prochainDansLaBranche,
 } from '../../shared/branches'
 import { cibleEclat } from '../../shared/legendaires'
-import { gainVide, releveVide, totalGain } from '../../shared/profil'
+import { FINITIONS, gainVide, releveVide, totalGain } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -239,6 +239,36 @@ test('peint, un portrait monte en puissance : le visage, l’anneau d’argent, 
 
   // Deux états du même portrait sur une page ne partagent jamais un identifiant.
   for (const id of ids(ultime)) assert.ok(!ids(verrou).has(id), id)
+})
+
+/** Chaque identifiant d'un rendu, avec l'élément qui le porte tout entier : ce qu'un `url(#…)` de la page ira chercher. */
+const definitions = (html: string) =>
+  new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
+
+/** Tous les états d'un portrait : chaque finition ou aucune, verrouillé ou non, éclaté ou non, en grand ou non. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition =>
+  [false, true].flatMap(verrouille => [false, true].flatMap(eclat => [false, true].map(grand => ({ finition, verrouille, eclat, grand })))),
+)
+
+test('rendus chacun dans sa racine, comme sur une planche, deux états d’un portrait ne se prennent jamais un dégradé', async () => {
+  const { DESSINS } = await import(url('components/portraits/mythes.ts'))
+  const r = (props: object) => rendu('components/Portrait', 'Portrait', props)
+  // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
+  // dégradé d'un nom gagne : la case « classement » de la planche, en
+  // Argent, prenait l'or de la case d'avant.
+  const argent = definitions(await r({ cle: 'br:athena', finition: 'argent' }))
+  for (const id of definitions(await r({ cle: 'br:athena', finition: 'or' })).keys()) assert.ok(!argent.has(id), id)
+  // Quels que soient le portrait et son état, un nom ne dit jamais deux choses.
+  const vus = new Map<string, string>()
+  for (const cle of Object.keys(DESSINS)) {
+    for (const etat of ETATS) {
+      for (const [id, definition] of definitions(await r({ cle, ...etat }))) {
+        const avant = vus.get(id)
+        if (avant) assert.equal(definition, avant, `${id}, ${JSON.stringify(etat)}`)
+        vus.set(id, definition)
+      }
+    }
+  }
 })
 
 test('porté, un portrait se dit comme un légendaire, et prend la place de l’emoji, éclaté avec ses paillettes', async () => {

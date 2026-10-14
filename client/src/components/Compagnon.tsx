@@ -243,9 +243,11 @@ export function Compagnon({ cle, verrouille, finition, grand, className }: Props
   // Verrouillé, il n'a pas de cercle : il n'est pas encore à lui.
   const cercle = !!finition && finition !== 'mat' && !verrouille
   // `useId` rend des deux-points, que `url(#…)` n'aime pas ; la clé et l'état
-  // entrent dans le préfixe, comme pour un portrait : deux racines React
-  // numérotent chacune depuis zéro, et le premier dégradé d'un nom gagne.
-  const etat = (verrouille ? 'v' : 'n') + (cercle ? 'c' : '') + (grand ? 'g' : '')
+  // — la finition de son cercle comprise — entrent dans le préfixe, comme
+  // pour un portrait : deux racines React numérotent chacune depuis zéro, et
+  // le premier dégradé d'un nom gagne. Sur une planche, l'Or d'un compagnon
+  // prenait le dégradé de l'Argent posé avant lui.
+  const etat = (verrouille ? 'v' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
   const u = `cp-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
   // Peint une fois par état (`useMemo`) : React réécrit un `innerHTML` dès
   // que l'objet `__html` change, même à texte égal (`Portrait.tsx`).
