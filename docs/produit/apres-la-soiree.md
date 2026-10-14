@@ -8,7 +8,7 @@ L'historique s'écrit tout seul : dès le podium de chaque quiz, la soirée s'y 
 
 ### « Clore la soirée », à l'écran commun
 
-C'est le seul geste de fin de l'écran commun, dans la salle d'attente et sur l'écran de victoire dès qu'un invité est entré. La boîte propose un nom — celui que la soirée porte déjà dans l'historique, sinon le titre de ton espace, sinon « Soirée du *date* » —, que tu peux changer (80 caractères au plus). Confirmer :
+C'est le seul geste de fin de l'écran commun, dans la salle d'attente et sur l'écran de victoire dès qu'un invité est entré. La boîte propose un nom — celui que tu lui as déjà donné dans l'historique, sinon le titre que tu as donné à ton espace, sinon « Soirée du *date* » —, que tu peux changer (80 caractères au plus). Confirmer :
 
 1. termine le quiz en cours : ses questions révélées comptent, celle qui était ouverte non ;
 2. range la soirée une dernière fois dans l'historique, sous ce nom ;
@@ -113,7 +113,7 @@ Une soirée se date à sa première question jouée — l'heure de sa révélati
 
 `npm run export` écrit une soirée en fichiers, pour la garder à l'abri ou rédiger tes messages toi-même — `npm run export -- https://ton-serveur.example --slug demo --soiree <id>`, ou `--db` pour lire la base distante sans le serveur ([les commandes](../reference/commandes.md)).
 
-Il écrit dans `export/<espace>/` un `bilan.json` complet et trois CSV faits pour Excel, au point-virgule : `invites.csv` (une colonne par question : « Canberra ✔ · 1,8 s · 200 pts »), `questions.csv` (la répartition des réponses, la réussite de chaque équipe) et `equipes.csv` (un quiz par colonne). Une cellule qui commencerait comme une formule (`=`, `+`, `-`, `@`) prend une apostrophe : un prénom piégé reste du texte. Sans `--soiree`, c'est la soirée en cours — vide entre deux soirées, où l'export refuse (« Aucune question au journal : rien à exporter. ») : la dernière close s'exporte par son identifiant, celui de ses adresses.
+Il écrit dans `export/<espace>/` (`export/<espace>/<id>/` avec `--soiree`) un `bilan.json` complet et trois CSV faits pour Excel, au point-virgule : `invites.csv` (une colonne par question : « Canberra ✔ · 1,8 s · 200 pts »), `questions.csv` (la répartition des réponses, la réussite de chaque équipe) et `equipes.csv` (un quiz par colonne). Une cellule qui commencerait comme une formule (`=`, `+`, `-`, `@`) prend une apostrophe : un prénom piégé reste du texte. Sans `--soiree`, c'est la soirée en cours — vide entre deux soirées, où l'export refuse (« Aucune question au journal : rien à exporter. ») : la dernière close s'exporte par son identifiant, celui de ses adresses.
 
 ## Les prix de fin de soirée
 
@@ -142,8 +142,8 @@ Un prix ne se propose que s'il a de la matière : son seuil est dans la dernièr
 | 🐑 Le Mouton | Le plus souvent sur la réponse la plus choisie de la salle, seule en tête | 3 fois |
 | ✋ Le Doigt qui Tremble | A changé d'avis le plus souvent avant la révélation | 2 revirements |
 | 🦸 Le Sauveur | Le plus souvent seul de son équipe à trouver, avec deux coéquipiers au moins à la question | 2 fois |
-| 📈 La Remontada | A le plus progressé entre son premier quiz et son dernier (son rang dans chacun) | 2 quiz joués, 2 places gagnées |
-| 📉 La Chute Libre | A le plus reculé entre son premier quiz et son dernier | 2 quiz joués, 2 places perdues |
+| 📈 La Remontada | A le plus progressé entre le premier quiz de la soirée et le dernier (son rang dans chacun) | 2 quiz joués, 2 places gagnées |
+| 📉 La Chute Libre | A le plus reculé entre le premier quiz de la soirée et le dernier | 2 quiz joués, 2 places perdues |
 | 👁️ L'Œil de Lynx | La meilleure mémoire sur les questions à photo qui disparaît | 2 de ces questions, la moitié justes |
 | 🤝 Le Coup de Pouce *(équipe)* | L'équipe du joueur qui a le moins marqué, parmi ceux qui ont répondu | un joueur en équipe qui a répondu |
 | ⚖️ La Plus Solidaire *(équipe)* | L'équipe dont les membres ont les points les plus proches | deux membres qui ont répondu ; à égalité, l'équipe du mieux classé |
