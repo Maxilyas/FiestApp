@@ -118,6 +118,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | La dernière soirée | La soirée close que le souvenir et le bilan de l'espace montrent jusqu'à la première question de la suivante, et que le téléphone propose sept jours | `derniere` (`server/src/server.ts`), `DERNIERE_MS` (`client/src/state.ts`) |
 | Désactiver (un espace) | Fermer un espace sans rien effacer : ni console, ni invités ; ses pages publiques restent lisibles | `accounts.disabled_at` |
 | Difficulté estimée | La note de 1 à 5 donnée à une question quand on l'écrit. Elle sert d'a priori à sa marche | `TAUX_A_PRIORI` |
+| Distinctions du souvenir | Le plus beau coup, le plus régulier, le vainqueur de chaque quiz, au souvenir | `client/src/components/Trophies.tsx` |
 | Divin | Un des six avatars à part, dont les règles et les récits sont secrets et ne quittent jamais le serveur | `server/src/core/divins.ts` |
 | Don (de confettis) | Des confettis que l'administrateur offre depuis la fiche d'un joueur, avec un mot, annoncés une fois sur son accueil et jamais repris | `offrirDesConfettis` |
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
@@ -144,7 +145,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Emoji de collection | Un des douze emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition | `COLLECTION` |
 | Emoji récent | Un emoji d'Unicode 13 ou après, que l'écran commun sous Windows 10 dessine en carré vide | `emojisRecents` |
 | En ligne | Un ami réciproque passé ces 5 dernières minutes, tenu en mémoire seulement | `EN_LIGNE_MS` |
-| Enchaînement | La question suivante qui part seule après la révélation, au palier choisi ; suspendu après une question sans une seule réponse | `autoNextSeconds` |
+| Enchaînement | La question suivante qui part seule après la révélation, au délai choisi (5, 10 ou 20 secondes) ; suspendu après une question sans une seule réponse | `autoNextSeconds`, `PALIERS_ENCHAINEMENT` |
 | Enjeu | Ce qu'un duel ferait à la cote — gagné, à égalité ou perdu —, dit avant et pendant la partie | `enjeuContre` |
 | Entourage | Ce qui entoure une question jouée : l'anecdote, la note, l'intertitre, la photo de la révélation, l'extrait — le moteur décide qui les reçoit, et quand | `Entourage` |
 | Entrée de départ | L'état de l'entrée d'un invité — l'instantané des téléphones, le profil du cookie —, servi avant la liaison temps réel | `EntreeDeDepart` (`shared/depart.ts`), `/s/<espace>/entree.json` |
@@ -161,6 +162,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Étape (d'une piste) | Bronze, argent ou or : elle tombe une fois, paie son expérience et ouvre parfois un laurier, une gerbe, un fond, un thème ou un légendaire ; le code dit « palier », un mot qu'à l'écran seuls les sentiers emploient | `clePalier` |
 | Étiquetage | Les descriptions d'une question de la réserve (sous-thème, étiquettes, difficulté estimée, âge, portée…), écrites par une IA et relues au catalogue ; rien ne les lit encore | `lireEtiquetage` |
 | Étoiles | La note d'une épreuve validée : une au seuil, deux à treize bonnes réponses, trois sans faute ; la meilleure de chaque palier paie des confettis | `etoilesDe` |
+| Étoiles du jour | La note d'une partie du quiz du jour : une étoile dès 60 % des questions qui comptent, deux dès 80 %, trois au sans-faute — la « médaille » d'avant, dont le code garde le nom | `medailleDe`, `NOM_DE_LA_NOTE` |
 | Expérience (XP) | Les points qu'un profil garde d'une fois à l'autre — en soirée, au quiz du jour, en campagne — et qui font son niveau ; elle ne donne aucun avantage de jeu | `profile_xp` |
 | Expert | Un agent qui pose un regard sur une soirée — parcours, mots, accessibilité, performance — ou audite le code, et rend un rapport | `.claude/skills/tablee/experts/` |
 | Exploit, coup du sort | Les deux sortes de hauts faits : ce qu'on a réussi, ou ce qu'on assume en riant — un coup du sort rapporte peu, et la carte ne le montre que s'il est choisi (dans le code, le ton `eclat` ou `ombre`) | `Ton` |
@@ -267,7 +269,6 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar, jamais écrit en base | `nomsAffiches` (`shared/homonymes.ts`), `nomAffiche` |
 | Masquer (un profil) | Retirer un profil des classements et des récompenses de la nuit du quiz du jour, sans qu'il en soit averti ; il se voit toujours | `jour_masques` |
-| Médaille du jour | Or si tout est juste, argent dès 80 %, bronze dès 60 % des questions qui comptent | `medailleDe` |
 | Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes | `Melange` |
 | Même fait | Deux intitulés différents qui posent le même fait. Ils sont refusés comme un doublon | `memeFait` |
 | Mémoire des quiz | Ce que l'historique sait de chaque quiz et de chaque question — joué combien de fois, trouvée par combien —, dérivé des fiches des soirées | `server/src/core/memoire.ts` |
@@ -314,7 +315,6 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Page sans espace | Une page dont l'adresse ne porte pas d'espace (`/host`, `/profil`, `/jour`…) : treize, lues avant les noms d'espace | `ACCOUNT_PAGES` (`shared/adresses.ts`) |
 | Palier | Une marche d'un sentier, validée par une épreuve ; le douzième est le sommet, le treizième celui du maître | `PALIERS` |
 | Palier de maître | Le palier facultatif d'après le sommet : seize expertes, neuf pour valider, un titre au bout | `PALIER_DU_MAITRE` |
-| Palier du jour | Un haut fait de carrière que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) | `accorderPaliersDuJour` |
 | Palmarès | Les prix que les chiffres désignent, un lauréat chacun, remis ou non : vingt individuels, deux d'équipe | `computeStats`, `SPECS` (`server/src/core/stats.ts`) |
 | Paquet | Le serveur construit en un seul fichier, que Render démarre sans traduire de TypeScript | `server/scripts/empaqueter.ts` |
 | Parcours de thème | Un sujet de la campagne monté en six étapes de dix questions, sans vies, dans l'onglet « Apprendre » ; un « sentier à thème » dans le code | `shared/sentiersDeSujets.ts` |
@@ -331,6 +331,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Pièce (de la loge) | Une des six choses qu'on porte : Avatar, Titre, Vitrine, Fond (ce que la salle voit), Thème, Gerbe (ce que soi seul voit) | `PIECES_DE_LA_LOGE` |
 | Pilote | La commande par laquelle un agent de la tablée fait un geste — voir, toucher, écrire, répondre —, un geste par commande | `server/scripts/tablee/pilote.mjs` |
 | Piste | Un trophée qui se cumule sur la carrière et monte en trois étapes — bronze, argent, or —, chacune disant ce qu'elle ouvre ; le code dit « haut fait de carrière » | `shared/pistes.ts` |
+| Piste du jour | Un trophée de carrière en trois étapes que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) ; le code appelle chaque étape un palier | `accorderPaliersDuJour` |
 | Placement | Les 10 premiers duels d'un joueur, qui comptent double ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
 | Planche | Une image où chaque dessin peint paraît dans tous ses états, rendue par les vrais composants, sans serveur | `server/scripts/planche-medaillons.ts` |
 | Les plus beaux | Les trois trophées qu'une carte montre quand son profil n'a pas choisi sa vitrine — exploits et plus hautes étapes de piste, les plus rares d'après une rareté mesurée d'avance | `plusBeaux` |
@@ -386,7 +387,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Règle (de Claude) | Le détail d'un domaine pour Claude Code, chargé quand il ouvre un fichier que désigne son en-tête `paths:` | `.claude/rules/` |
 | Rejeu | Une épreuve sur un palier déjà validé : aucune vie en jeu, pour les étoiles et leurs confettis | `campagne_series.rejeu` |
 | Relais | Un relais TCP devant le serveur, qu'on change en trou noir pour rejouer une liaison morte que socket.io croit vivante | `server/test/relais.ts` (`trouNoir`) |
-| Relecture des séries | Le recalcul, au démarrage, des hauts faits des séries et des paliers de campagne, une fois par version | `relireLesSeries` |
+| Relecture des séries | Le recalcul, au démarrage, des hauts faits des séries et des étapes des pistes de la campagne, une fois par version | `relireLesSeries` |
 | Relevé de l'heure | Les mesures d'une heure, réécrites toutes les dix minutes dans la base permanente, que relit la page « Le serveur » du QG | `releve` |
 | Remise à zéro | L'effacement du miroir d'un espace, avant celui de la base locale, à la clôture, à l'essai effacé ou à la suppression de l'espace | `remettreAZero` |
 | Rencontre d'avant | Un duel au dé d'avant Automate, qui rejouait la série finie d'un autre joueur, dont les réponses restent recopiées | `AdversaireGarde` |
@@ -470,10 +471,9 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Toute la catégorie | La règle des paliers 9 à 13 : chaque sous-thème de la catégorie a sa question avant qu'un autre en ait deux | `touteLaCategorie` |
 | Trois gros boutons | Le premier écran de l'entrée d'une soirée et de l'accueil sans profil : « Jouer sans compte » d'abord, puis « Me connecter » et « Créer un profil », de même taille | `client/src/components/Entree.tsx`, `client/src/components/ProfilForm.tsx` |
 | Trophée | Tout ce qui se gagne par un exploit : les hauts faits, les pistes, les prix du palmarès, les maîtres des sentiers, les ligues des duels ; l'album de « Ma collection » les range par mode | `shared/trophees.ts` |
-| Trophées | Le plus beau coup, le plus régulier, le vainqueur de chaque quiz, au souvenir | `client/src/components/Trophies.tsx` |
 | Trou | Ce qui reste à écrire dans un modèle de fête — une réponse marquée ✏️, un « [Prénom] » — : la question n'est pas prête tant qu'il reste | `trouDeLaQuestion` |
 | « Trouvée par » | La part des joueurs du jour qui ont trouvé une question, dite à partir de trois réponses | `TROUVEE_PAR_DES` |
-| « Tu t'en approches » | Deux objectifs au plus, avancés ce soir et passés à moitié : un avatar légendaire, un palier de carrière | `approchesDeLaSoiree` (`server/src/core/objectifs.ts`) |
+| « Tu t'en approches » | Deux objectifs au plus, avancés ce soir et passés à moitié : un avatar légendaire, l'étape suivante d'une piste | `approchesDeLaSoiree` (`server/src/core/objectifs.ts`) |
 
 ## U
 
