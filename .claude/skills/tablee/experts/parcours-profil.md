@@ -4,7 +4,7 @@
 fidélisation. **Ta question** : le profil relie-t-il vraiment les soirées
 d'une personne — de sa création à sa troisième soirée, chez deux animateurs
 différents ? Et reste-t-il à côté du chemin anonyme, sans le remplacer
-(parti pris n° 1 du README) ?
+(le premier parti pris, `docs/produit/vue-d-ensemble.md`) ?
 
 **Tes comptes** : Chloé (`chloe`, espace `chez-chloe`) et Denis (`denis`,
 espace `chez-denis`) — deux animateurs, deux espaces, que tu fais jouer

@@ -1,0 +1,381 @@
+# L'API HTTP
+
+> Chaque route que le serveur sert, rangée par domaine : sa méthode, son chemin tel que le code l'écrit, qui peut l'appeler, ce qu'elle fait et le fichier qui la déclare. Pour qui écrit un client, un script, ou cherche d'où vient une requête.
+
+Le temps réel d'une soirée — rejoindre, répondre, animer — ne passe pas par ici mais par la liaison Socket.io : voir [les événements temps réel](evenements-temps-reel.md). Les adresses des pages, elles, sont dans [les adresses](adresses.md).
+
+**Cette page est relue contre le code.** `server/test/documentation.test.ts` lit chaque `app.get(…)`, `app.post(…)`… de `server/src/` et exige sa ligne ici — et qu'aucune ligne ne survive à sa route. Une route ajoutée sans sa ligne fait rougir le test.
+
+**Dans cette page** : [ce que toutes les routes partagent](#ce-que-toutes-les-routes-partagent) · [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration) · [le profil](#le-profil) · [la boutique](#les-thèmes-les-compagnons-et-la-boutique) · [les quiz](#les-quiz) · [les soirées passées](#les-soirées-passées) · [le quiz du jour](#le-quiz-du-jour) · [la campagne](#la-campagne) · [les sentiers](#les-sentiers-du-savoir-et-les-parcours-de-thème) · [les duels](#les-duels) · [la page](#la-page-et-ses-fichiers) · [l'exploitation](#lexploitation)
+
+## Ce que toutes les routes partagent
+
+### Qui peut appeler une route
+
+La colonne « Accès » de chaque tableau dit la porte :
+
+| Accès | Ce qu'il faut | Sans |
+|---|---|---|
+| `public` | Rien : un invité, un navigateur, la sonde de l'hébergeur | — |
+| `profil` | Le cookie du profil d'un joueur (`qz_joueur`, posé à la connexion ou à l'inscription, un an) | 401, avec une phrase qui dit de se connecter |
+| `compte` | La session d'un animateur (`qz_session`, posée par la console ou par un profil qui tient un espace, trente jours) — elle désigne l'espace, et rien d'un autre espace ne s'y lit | 401 « Connexion requise » |
+| `admin` | La session d'un animateur dont le compte est administrateur, jamais celle d'une télé branchée | 401, ou 403 « Réservé à l'administrateur » |
+| `jeton` | L'en-tête `Authorization: Bearer <RESERVE_TOKEN>` — la routine qui remplit la réserve du quiz du jour et la base de la campagne ; le jeton se compare par son empreinte, en temps constant | 401 « Jeton de la réserve refusé » ; 404 tant que le serveur n'a pas de `RESERVE_TOKEN` d'au moins trente-deux caractères |
+
+Les deux cookies sont `HttpOnly`, `SameSite=Lax`, et `Secure` en ligne ; leur durée ne glisse pas (`server/src/auth/http.ts`). Le détail des sessions, des preuves à donner et de la télé branchée : [la sécurité](../architecture/securite.md).
+
+### L'ordre des gardes
+
+Dans `server/src/api.ts`, avant toute route :
+
+1. **Contre les requêtes forgées** (`csrfGuard`) : sous `/api`, toute écriture — tout ce qui n'est pas `GET`, `HEAD` ou `OPTIONS` — porte l'en-tête `X-Requested-With: quizz`, qu'un formulaire ou une page tierce ne peut pas poser sans une pré-vérification que le serveur ne répond jamais ; en ligne, elle vient en plus de l'origine publique (`PUBLIC_URL`, sinon `RENDER_EXTERNAL_URL`). Sinon : 403 « Requête refusée ».
+2. **L'administration, d'un bloc** : tout `/api/admin` passe la session, le rôle d'administrateur et le refus des télés branchées, avant de lire le moindre corps ; chaque geste qui change quelque chose s'y note au journal du QG.
+3. **Les routes sans compte d'animateur** : se connecter et activer un compte, brancher une télé, le profil d'un joueur, le quiz du jour, la campagne, les sentiers, les duels, et les deux portes à jeton.
+4. **La porte des animateurs** (`requireAccount`) : tout le reste de `/api` demande une session, et répond `Cache-Control: no-store`.
+
+### Les corps et les réponses
+
+- Les corps sont en JSON. Leur taille est bornée route par route : 1 Ko à 8 Ko pour un geste du profil, du jour ou de la campagne, 256 Ko et 512 Ko pour les dépôts de la routine, 4 Mo derrière la porte des animateurs (les photos d'un quiz arrivent en dataURL).
+- Une réponse d'erreur est toujours du JSON, `{ "error": "…" }` :
+
+| Statut | Quand | Le message |
+|---|---|---|
+| 400 | Une erreur faite pour être lue, levée par la route (`new Error('…')` nu) | La phrase de l'erreur, en français, qui dit quoi faire |
+| 400 | Un corps illisible (JSON cassé) | « Requête illisible — recharge la page et réessaie » |
+| 401, 403, 404, 409 | Une porte fermée, un geste refusé, un identifiant d'un autre espace (toujours « introuvable »), un conflit — répondus à la main par la route | La phrase de la route |
+| 413 | Un corps trop lourd | « Envoi trop lourd — allège-le et réessaie » |
+| 500 | Toute autre erreur (base, code) — son détail part au journal du serveur, et elle compte aux « Erreurs serveur » du QG | « Erreur serveur — réessaie dans un instant » |
+
+Le pourquoi de cette règle : [les conventions](../contribuer/conventions.md) et `server/src/core/http.ts`.
+
+## Les comptes, les sessions et l'administration
+
+Se connecter, l'espace d'un animateur, sa télé branchée, et le QG de l'administrateur. Le pourquoi des protections : [la sécurité](../architecture/securite.md) ; le QG pas à pas : [administrer](../guides/administrer.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `POST` | `/api/auth/login` | public | Ouvre une console avec l'identifiant et le mot de passe d'un compte (`{ login, password }`) : rend le compte et son espace, pose `qz_session` ; 401 « Identifiant ou mot de passe incorrect », 403 au bon mot de passe d'un compte en pause | `server/src/auth/routes.ts` |
+| `POST` | `/api/auth/logout` | compte | Ferme cette session de console | `server/src/auth/routes.ts` |
+| `GET` | `/api/auth/me` | compte | Le compte, son espace et le profil qui le tient, réduit à ce que « Compte » montre (`ProfilDeLEspace`) — une télé branchée le lit aussi | `server/src/auth/routes.ts` |
+| `POST` | `/api/auth/activation` | public | Lit un lien d'activation sans le consommer (`{ token }`) : l'identifiant, le nom et l'adresse de l'espace s'il sert encore, sinon `{ etat: 'servi' }` ou `{ etat: 'perime' }` ; 404 pour un lien inconnu | `server/src/auth/routes.ts` |
+| `POST` | `/api/auth/activate` | public | Sert un lien d'activation (`{ token, password }`) : pose le mot de passe, ferme toutes les sessions du compte et en ouvre une ; 400 « Lien invalide ou expiré — demande un nouveau lien à l'administrateur » | `server/src/auth/routes.ts` |
+| `POST` | `/api/auth/password` | compte | Change le mot de passe du compte (`{ current, next }`) : ferme toutes ses sessions et en rouvre une ici ; 400 « Le mot de passe actuel ne correspond pas » | `server/src/auth/routes.ts` |
+| `POST` | `/api/auth/appairage` | public | Une télé demande un code (`{ code, jeton, expireA }` : six signes, un jeton de 256 bits, cinq minutes) ; 429 au-delà de cinq cents télés en attente | `server/src/auth/appairage.ts` |
+| `POST` | `/api/auth/appairage/valider` | compte, pas une télé | La console valide le code affiché par la télé (`{ code }`) ; 400 « Code inconnu ou périmé — vérifie celui de la télé » | `server/src/auth/appairage.ts` |
+| `POST` | `/api/auth/appairage/attente` | public (jeton de la télé) | La télé attend avec son jeton (`{ jeton }`) : `{ attente: true }`, `{ perime: true }`, ou `{ ok: true }` et le cookie d'une session de 24 h au plus, qui retient le profil de la console qui a validé | `server/src/auth/appairage.ts` |
+| `POST` | `/api/space/profil` | compte, pas une télé | Rattache un profil à l'espace (`{ login?, password, preuve? }`) : le mot de passe du profil — son identifiant aussi, sauf s'il est ouvert dans ce navigateur —, et une preuve fraîche s'il en remplace un autre ; 400 « Ce profil anime déjà une autre soirée » | `server/src/auth/routes.ts` |
+| `DELETE` | `/api/space/profil` | compte, pas une télé | Détache le profil de l'espace, sur preuve fraîche (`{ preuve }` : le mot de passe du profil rattaché, ou celui du compte) ; les consoles de ce profil tombent, sauf celle-ci | `server/src/auth/routes.ts` |
+| `PUT` | `/api/space/settings` | compte | Remplace les réglages de l'affiche (titre, surtitre, grand titre, date, invités au plus) : chaque champ borné, un champ absent revient à son défaut ; la salle est rediffusée | `server/src/auth/routes.ts` |
+| `GET` | `/api/admin/accounts` | admin | Tous les comptes (`PublicAccount[]`) — aucune page ne l'appelle, « Les salons » lit `/api/admin/espaces` | `server/src/auth/routes.ts` |
+| `POST` | `/api/admin/accounts` | admin | Crée un compte à activer (`{ login, name, slug }`) et rend son lien d'activation — sans page : les tests, le smoke et la tablée s'en servent | `server/src/auth/routes.ts` |
+| `POST` | `/api/admin/accounts/:id/activation` | admin | Un lien d'activation neuf pour un compte d'avant, sept jours, à usage unique ; les précédents ne valent plus ; refusé à un compte désactivé | `server/src/auth/routes.ts` |
+| `POST` | `/api/admin/accounts/:id/disable` | admin | Désactive un espace : ses sessions tombent, ses écrans se ferment, les invités n'y entrent plus ; ses quiz, ses soirées et ses pages publiques restent | `server/src/auth/routes.ts` |
+| `POST` | `/api/admin/accounts/:id/enable` | admin | Réactive un espace ; aucune session ne revient | `server/src/auth/routes.ts` |
+| `PUT` | `/api/admin/accounts/:id` | admin | Renomme un espace (`{ name?, slug? }`) ; 400 « Ce nom d'adresse est déjà pris » | `server/src/auth/routes.ts` |
+| `DELETE` | `/api/admin/accounts/:id` | admin | Supprime un espace désactivé et tout ce qu'il a laissé, dans les deux bases, le compte en dernier ; `?credits=reprendre` reprend aussi ce que ses soirées ont crédité aux joueurs ; jamais l'espace par défaut | `server/src/auth/routes.ts` |
+| `GET` | `/api/admin/espaces` | admin | Tous les espaces, chacun avec son titulaire, son nombre de quiz et s'il est un salon (`EspaceDAdministration`) | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/espaces/:id/titulaire` | admin | Rattache un espace sans titulaire à un profil (`{ login }`) : les quiz de l'espace que ce profil tenait y sont recopiés, photos comprises, et l'ancien se détache ; jamais sur un espace désactivé | `server/src/profilsAdmin.ts` |
+| `GET` | `/api/admin/profils` | admin | Les profils et leur total (`?q=` : un prénom ou un identifiant, trente au plus ; sans recherche, les derniers vus), suspendus compris | `server/src/profilsAdmin.ts` |
+| `GET` | `/api/admin/profils/:id` | admin | La fiche d'un joueur (`FicheDuJoueur`) : chaque mode, ses confettis, son espace, sa connexion, l'épreuve qui l'attend ; une base muette ôte la ligne du quiz du jour, de la campagne, des duels, des confettis ou de l'épreuve, pas la fiche | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/confettis` | admin | Offre des confettis (`{ confettis, mot? }` : de 1 à 500, un mot de 140 caractères au plus), annoncés une fois sur son accueil ; pas à un profil suspendu | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/secours` | admin | Tire un code de secours neuf, rendu une seule fois (`Cache-Control: no-store`, jamais au journal) ; l'ancien ne vaut plus rien ; pas pour un profil suspendu | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/prenom` | admin | Change le prénom d'un profil (`{ nom }`), annoncé sur son accueil ; une soirée en cours garde celui de son arrivée | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/suspendre` | admin | Suspend un profil : ses sessions et ses consoles tombent, il sort des classements, de la recherche et des cartes, rien ne s'efface ; 409 s'il joue une soirée pas encore close | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/reactiver` | admin | Réactive un profil suspendu ; 400 « Ce profil n'est pas suspendu » | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/connexion` | admin | Lève le verrou de connexion d'un profil (ses clés `joueur:` et `secours:`), sans toucher la réserve de l'adresse ; 400 « Sa connexion n'est pas fermée » | `server/src/profilsAdmin.ts` |
+| `POST` | `/api/admin/profils/:id/epreuve` | admin | Libère l'épreuve de sentier qui attend le profil, sans lui coûter de vie (`{ ok, sentier, palier }`) ; 404 « Aucune épreuve ne l'attend » | `server/src/profilsAdmin.ts` |
+| `DELETE` | `/api/admin/profils/:id` | admin | Supprime un profil et tout ce qui n'était qu'à lui ; l'espace qu'il tenait se détache et reste (`{ salon: 'detache' }`) ; 409 s'il joue une soirée pas encore close | `server/src/profilsAdmin.ts` |
+| `GET` | `/api/admin/qg/direct` | admin | Le direct du QG (`DirectDuQg`) : les soirées pas encore closes en chiffres, les invités connectés, les profils en ligne, le miroir, le serveur — lu en mémoire et dans la base locale | `server/src/qg.ts` |
+| `GET` | `/api/admin/qg` | admin | La vue d'ensemble (`VueDEnsemble`) : les chiffres d'aujourd'hui à la même heure, trente jours de participations, ce qui attend un geste | `server/src/qg.ts` |
+| `GET` | `/api/admin/gestes` | admin | Le journal des gestes, cinquante à la fois, le plus récent d'abord (`?sorte=`, `?cible=`, `?suite=` : le curseur rendu par la page d'avant) | `server/src/qg.ts` |
+| `GET` | `/api/admin/serveur` | admin | La santé du serveur sur sept jours, heure par heure (`PageDuServeur`), relue au plus une fois la minute | `server/src/qg.ts` |
+| `GET` | `/api/admin/soirees` | admin | Le bilan des soirées (`PageDesSoirees`) : trente et quatre-vingt-dix jours, l'historique du mois, sans un prénom ni un titre | `server/src/qg.ts` |
+| `POST` | `/api/admin/soirees/:spaceId/clore` | admin | Clôt la soirée laissée en plan d'un espace, comme son animateur l'aurait close (`{ close: true, rangee }`) ; 409 si elle vit encore ou finit déjà, 404 s'il n'y a plus rien à clore | `server/src/qg.ts` |
+| `POST` | `/api/joueur/inscription` | public | Crée un profil (`{ login, password, name, avatar }`) et ouvre sa session ; rend son code de secours, la seule fois qu'il existe en clair (`recovery`) ; un identifiant pris est refusé avec une `suggestion` | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/connexion` | public | Se connecte à un profil (`{ login, password }`) et ouvre la console de l'espace qu'il tient ; 403 « Ton profil est suspendu : demande à l'administrateur de le réactiver » au bon mot de passe d'un suspendu | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/deconnexion` | profil | Ferme la session de joueur, et la console de ce navigateur si ce profil l'a ouverte | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/console` | profil | Rouvre la console de l'espace que le profil tient ; 403 « Aucune soirée à animer avec ce profil » — aucune page ne l'appelle | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/espace` | profil | L'espace du profil, créé à son premier appel (un salon `p-…`, adresse `s-…`), et sa console ouverte (`{ espace, nouveau }`) ; 403 « Ton salon est en pause — demande à l'administrateur », 429 « Trop de salons ouverts depuis ce réseau — réessaie dans un moment » | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/salon` | profil | « Ouvrir le salon » : l'espace, sa console et le code du salon (`{ equipes? }` : les équipes préparées, posées avant le premier invité) | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/mot-de-passe` | profil | Change le mot de passe du profil (`{ current, next }` ou `{ code, next }`) — par le code, il en rend un neuf ; ferme ses autres sessions et les consoles qu'il a ouvertes, en rouvre une ici | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/secours` | public | « J'ai oublié mon mot de passe » (`{ login, code, password }`) : le code se consomme et un neuf est rendu ; ouvre la session du profil et la console de l'espace qu'il tient ; 400 « Identifiant ou code de secours incorrect » | `server/src/auth/profileRoutes.ts` |
+
+Toute route sous `/api/admin` passe d'un bloc `requireAccount`, `requireAdmin` et `refuserLesTeles` (`server/src/api.ts`) : 401 « Connexion requise » sans console, 403 « Réservé à l'administrateur » pour un animateur ordinaire, 403 « Pas depuis une télé branchée : fais-le depuis ta console » pour une télé ; chaque écriture acceptée s'y note au journal du QG. « compte » veut dire une session de console (`qz_session`, `requireAccount`), « pas une télé » une session sans `fin_max` (`refuserLesTeles`).
+
+Les portes qui vérifient un secret puisent dans une seule réserve par serveur (`loginBudgetOf`) : 20 essais d'un coup puis 20 par minute par adresse, et 5 échecs ferment un secret un quart d'heure — clés `compte:` (`/api/auth/login`, `/api/auth/password`), `joueur:` (`/api/joueur/connexion`, `/api/space/profil`, `/api/joueur/mot-de-passe` par l'actuel), `secours:` (`/api/joueur/secours`, `/api/joueur/mot-de-passe` par le code), `appairage:<session>` (`/api/auth/appairage/valider`) ; `/api/auth/activation`, `/api/auth/activate` et `/api/auth/appairage` ne comptent que l'adresse, `/api/auth/appairage/attente` rien. Refus : 429 « Trop d'essais — réessaie dans un quart d'heure ». `/api/joueur/inscription` a sa propre réserve : 10 d'un coup puis 5 par minute par adresse (429 « Trop d'inscriptions d'un coup — réessaie dans une minute »), l'adresse locale exemptée.
+
+Les routes de `server/src/auth/` lisent un corps de quelques kilo-octets (8 Ko pour `server/src/auth/routes.ts`, 4 Ko pour le profil, 1 Ko pour la télé) ; celles de `server/src/profilsAdmin.ts` et `server/src/qg.ts`, derrière la porte, passent par le lecteur de 4 Mo. Les réponses qui portent un secret ou une session sont `Cache-Control: no-store`.
+
+## Le profil
+
+La page du profil, sa loge et sa carte. Ce qu'on y fait : [le profil](../produit/le-profil.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/joueur/moi` | public | Le profil du cookie : sa page (`PublicProfileDetail`), l'espace qu'il tient (`espace`, s'il n'est pas en pause) et les soirées où il joue depuis moins de 12 h (`enCours`) ; sans cookie, `profile: null` — un invité, pas une erreur | `server/src/auth/profileRoutes.ts` |
+| `PUT` | `/api/joueur/moi` | profil | Enregistre ce qu'il porte, d'un seul envoi : `avatar`, `legendaire`, `finition`, `bordure`, `eclat` (`{ cle, brille }`), `titre`, `vitrine`, `fond`, `theme`, `gerbe` (et `name`, qu'aucune page n'envoie) ; rend le profil léger (`PublicProfile`) et rediffuse la salle de chaque soirée où il joue | `server/src/auth/profileRoutes.ts` |
+| `GET` | `/api/joueur/carte` | profil | Sa propre carte (`CarteDeJoueur`), celle que la salle voit, sans « ce soir » | `server/src/auth/profileRoutes.ts` |
+| `GET` | `/api/joueur/carte/:id` | profil | La carte entière d'un autre profil, hors d'une soirée (classement du quiz du jour ou du défi, duels, amis, recherche), sans « ce soir » ; 404 « Carte introuvable » pour un profil inconnu ou masqué par l'administrateur (sauf le sien) | `server/src/auth/profileRoutes.ts` |
+
+**À savoir :**
+- `GET /api/joueur/moi` a deux variantes, par paramètre : `?accueil` rend l'en-tête de l'accueil (`ProfilDAccueil` : sa série et s'il a joué aujourd'hui, son solde, ses sentiers, ses duels, les annonces de l'administrateur, le jour de Paris), avec `espace` et `enCours` ; `?leger` rend le profil léger seul (`{ profile: PublicProfile }`, ou `{ profile: null }`), pour les pages de jeu — le quiz du jour, la campagne, les duels. Les trois closent d'abord la nuit du quiz du jour, pour que le podium d'hier soit crédité et le laurier passé au vainqueur avant d'être lus. La page servie précharge l'adresse que sa vue demandera (`shared/depart.ts`). Réponses `no-store`.
+- `PUT /api/joueur/moi` : corps JSON de 4 Ko au plus ; 401 « Connexion requise » sans profil. Chaque champ se valide avant toute écriture (`ProfileStore.update`) : un seul refus — en clair, 400, par exemple « Ce Divin n'est pas encore descendu sur toi », « Choisis de 1 à 3 hauts faits parmi ceux que tu as gagnés » — et rien n'est écrit. Une finition qu'il n'a pas vaut `auto` au lieu d'être refusée. Comme toute écriture de l'API, elle exige l'en-tête `X-Requested-With: quizz`.
+- Les deux cartes : 401 « Connexion requise » sans profil ; la moitié profil se calcule par `carteDuProfil` (`server/src/core/carte.ts`), comme celle d'un invité de la soirée (`GET /s/:slug/joueurs/:id.json`, [les soirées passées](#les-soirées-passées)). Aucune ne rend d'identifiant de connexion.
+
+## Les thèmes, les compagnons et la boutique
+
+Ce qu'on porte et ce qu'on achète avec ses confettis : [la boutique](../produit/la-boutique.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/joueur/theme` | public | Le thème que porte le profil du cookie, et rien d'autre (`{ theme }`, `null` pour Velours ou sans profil : un invité n'est pas une erreur) ; lu en mémoire, jamais mis en cache — les pages qui ne lisent pas le profil s'en habillent (`confirmerTheme`) | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/themes` | profil | Acheter un thème en confettis (`{ theme, porter? }`) et le porter aussitôt, ou le garder (`porter: false`) ; rend `{ profile, boutique }`, le solde compté au serveur | `server/src/auth/profileRoutes.ts` |
+| `POST` | `/api/joueur/compagnons` | profil | Acheter un compagnon à sa première forme (`{ compagnon, porter? }`), le porter ou le garder ; porté, la salle où il joue est rediffusée ; rend `{ profile, boutique }` | `server/src/auth/profileRoutes.ts` |
+
+**À savoir :**
+- Les deux achats : corps de 4 Ko au plus ; sans profil, 401 « Connexion requise » ; un refus est un 400 qui dit sa phrase (« Il te manque 150 confettis pour le thème Cahier d'écolier », « Le thème Halloween revient en boutique du 25 octobre au 1er novembre », « Le thème Babel ne se vend pas : il se gagne avec les douze paliers de maître des sentiers du savoir », « Le Loup est déjà à toi »). Un achat à la fois par profil (`ProfileStore.unAchatALaFois`) : deux achats partis ensemble contre le même solde, un seul passe. Sans `porter`, une page d'avant achète et porte. La saison d'un thème se lit au jour de Paris de l'horloge du quiz du jour.
+- Porter ce qu'on a passe par `PUT /api/joueur/moi` (domaine profil : champs `theme`, `fond`, `gerbe`, tous validés avant d'écrire — « Ce thème n'existe pas », « Le thème Aurore boréale s'achète d'abord, en confettis », « Ce fond se gagne d'abord : le niveau 20 », « Cette gerbe se gagne avec le défi de la semaine, gagné » ; Velours, `null` ou `''` s'écrivent `null`).
+- Les autres dépenses et le don ont leurs routes ailleurs : `POST /api/campagne/vies` (sentiers, `server/src/campagne.ts`), `POST /api/jour/sablier` (jour, `server/src/quizDuJour.ts`), `POST /api/admin/profils/:id/confettis` (comptes, `server/src/profilsAdmin.ts`). Toutes passent par le même solde (`ProfileStore.boutiqueEtDons`).
+
+## Les quiz
+
+La bibliothèque de l'animateur : ses quiz, leurs images, les modèles, le programme, le quiz tout prêt, le partage : [les quiz](../produit/les-quiz.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/quizzes` | compte | La bibliothèque de l'espace sans les questions (`QuizSummary` : prêtes, à compléter, durée, photos, estimations, catégories, archivé), chaque quiz avec sa mémoire (`joue`) ; `?q=`, coupé à 120 caractères, ne garde que les quiz qui contiennent ces mots — titre, intitulés, réponses — et dit par quel intitulé (`trouve`) | `server/src/api.ts` |
+| `POST` | `/api/quizzes` | compte | Crée un quiz (`title`, `questions`, `reglages`) — « Un quiz vide », l'import d'un fichier ; 400 au-delà de cent questions, en le disant, le reste borné en silence (`normalizeQuestions`) ; 201 et le quiz | `server/src/api.ts` |
+| `GET` | `/api/quizzes/:id` | compte | Un quiz entier, ses questions et ses réglages compris | `server/src/api.ts` |
+| `GET` | `/api/quizzes/:id/memoire` | compte | Ce que l'historique sait de ce quiz (`MemoireDuQuiz`) : « joué N fois », le dernier relevé de chaque question, et la marche des questions tirées de la base | `server/src/api.ts` |
+| `PUT` | `/api/quizzes/:id` | compte | Enregistre titre, questions et réglages. Avec `base` (la version d'où part l'éditeur) : 409 `{ error, conflit: { updatedAt } }` si le quiz a été enregistré ailleurs depuis, 400 à un temps, une observation ou une cible hors bornes (`horsBornesALEnvoi`) ; `jeton` et `essai` reconnaissent les essais rejoués d'un même clic. Un enregistrement à la fois par quiz, puis le ménage des pièces | `server/src/api.ts` |
+| `DELETE` | `/api/quizzes/:id` | compte | Supprime le quiz, puis le ménage des pièces | `server/src/api.ts` |
+| `POST` | `/api/quizzes/:id/archive` | compte | Archive (`{ archive: true }`, d'office) ou ressort (`false`) un quiz : hors de la liste et du choix de la soirée, sans rien effacer | `server/src/api.ts` |
+| `POST` | `/api/quizzes/:id/duplicate` | compte | « Dupliquer » : une copie titrée « (copie) », qui garde les identifiants des questions — donc leur mémoire ; 201 | `server/src/api.ts` |
+| `GET` | `/api/modeles` | compte | Les onze modèles relus du disque (`lireModeles`), sans leurs questions : titre, nombre, prêtes, rayon, description, « Pour qui ? » | `server/src/api.ts` |
+| `POST` | `/api/modeles/:id` | compte | Copie un modèle dans l'espace, réponses mélangées à chaque partie ; avec `prenoms` et `accord`, « Pour qui ? » remplace les « [Prénom] » (400 s'il en manque un) ; 201 | `server/src/api.ts` |
+| `GET` | `/api/quiz-tout-pret` | compte | Ce que la base de la campagne offre aux soirées (`baseDesSoirees`) : le total jouable, les catégories et les sujets qui ont de quoi faire un quiz | `server/src/api.ts` |
+| `POST` | `/api/quiz-tout-pret` | compte | Compose un quiz tout prêt du choix envoyé (`lireChoixDuQuiz` : catégories ou sujet, difficulté, 5 à 50 questions, `enfants`, `estimations`) et le range, réponses mélangées, sous un titre libre ; 400 si le choix ne se lit pas ou s'il reste moins de cinq questions ; 201 | `server/src/api.ts` |
+| `POST` | `/api/quiz-tout-pret/apercu` | compte | Le même tirage, sans rien ranger : combien de questions et d'estimations ce choix donnerait (`ApercuDuQuiz`) | `server/src/api.ts` |
+| `POST` | `/api/quiz-tout-pret/une-autre` | compte | « Une autre » : la voisine d'une question tirée de la base (`{ id, kind, quiz }`), sans rien écrire ; 400 pour une question écrite à la main, 404 quand la base n'a plus rien de semblable | `server/src/api.ts` |
+| `POST` | `/api/images` | compte | Range une photo ou un extrait (`{ dataUrl }` : JPEG, PNG, WebP, ou un son de `SON_MIMES`) et rend son adresse `/media/image/<id>` ; 400 trop lourd ou illisible ; 201 | `server/src/api.ts` |
+| `GET` | `/media/image/:id` | public | Sert une photo ou un extrait par son identifiant — un UUID tiré au hasard, qui tient lieu de permission —, en cache un an (`immutable`) ; 404 sinon | `server/src/api.ts` |
+| `GET` | `/api/programmes` | compte | Les programmes de soirée de l'espace, chacun réduit aux quiz encore dans la bibliothèque | `server/src/api.ts` |
+| `POST` | `/api/programmes` | compte | Crée un programme (`titre`, `entrees`), qui devient celui de ce soir — « Ouvrir le salon » ; une entrée qui désigne le quiz d'un autre espace est écartée ; 201 | `server/src/api.ts` |
+| `PUT` | `/api/programmes/:id` | compte | Change le titre ou les entrées d'un programme — « Ouvrir le salon » réécrit celui de ce soir | `server/src/api.ts` |
+| `POST` | `/api/programmes/:id/activer` | compte | En fait le programme de ce soir (`{ actif: true }`, d'office) ou le range (`false`) | `server/src/api.ts` |
+| `DELETE` | `/api/programmes/:id` | compte | Supprime un programme | `server/src/api.ts` |
+| `POST` | `/api/quizzes/:id/partage` | compte | « Partager par un code » : un instantané du quiz et son code de six caractères, valable sept jours (`{ code, expiresAt }`) ; 400 sans question ou au-delà de trente codes en cours ; 201 | `server/src/partages.ts` |
+| `GET` | `/api/quizzes/:id/partages` | compte | Les codes en cours d'un quiz, leur échéance et combien de fois chacun a été reçu | `server/src/partages.ts` |
+| `DELETE` | `/api/partages/:code` | compte | « Annuler ce code » : il ne mène plus à rien | `server/src/partages.ts` |
+| `POST` | `/api/partages/recevoir` | compte | « Recevoir par un code » (`{ code }` : tiret, espaces, minuscules ou lien entier acceptés) : la copie rangée dans l'espace, pièces recopiées, titre libre ; 404 code inconnu, 410 expiré ou annulé, 429 après dix codes manqués en un quart d'heure ; 201 | `server/src/partages.ts` |
+| `POST` | `/api/quizzes/:id/catalogue` | compte | « Proposer au catalogue » : un instantané et sa phrase (`description`, 200 caractères, obligatoire), au nom du compte ; remplace la proposition qui attend encore pour ce quiz ; 201 | `server/src/partages.ts` |
+| `GET` | `/api/catalogue` | compte | Les copies publiées au catalogue du serveur, sans leurs questions | `server/src/partages.ts` |
+| `POST` | `/api/catalogue/:id` | compte | Copie une entrée publiée dans l'espace, comme un code reçu ; 404 pour une copie qui n'est pas publiée ; 201 | `server/src/partages.ts` |
+| `GET` | `/api/admin/catalogue` | admin | Toutes les entrées du catalogue, quel que soit leur statut | `server/src/partages.ts` |
+| `GET` | `/api/admin/catalogue/:id` | admin | Une entrée et ses questions, à relire avant de la publier | `server/src/partages.ts` |
+| `POST` | `/api/admin/catalogue/:id` | admin | Change le statut d'une entrée (`propose`, `publie`, `refuse`, `retire`), noté au journal des gestes ; publier une version retire les autres versions publiées du même quiz | `server/src/partages.ts` |
+
+**À savoir :**
+- `/media/quiz/<fichier>` n'est pas une route mais un `express.static` (`app.use('/media/quiz', …)`, `server/src/server.ts`) : les photos des quiz livrés, rangées dans `server/content/quiz/images/`, publiques. Une copie de modèle ou une copie reçue garde ces adresses telles quelles.
+- L'espace n'est jamais lu dans la requête : c'est celui de la session. Un quiz, un programme, un code ou une soirée d'un autre espace vaut 404 (« Quiz introuvable », « Programme introuvable », « Code introuvable »), et le voisin n'en sait rien (invariant 3). Seule exception, assumée : `/media/image/:id`, public et sans espace, parce que les téléphones des invités chargent les photos sans session.
+- « compte » : la session de console — un compte d'animateur, ou celle qu'un profil ouvre par « Mes quiz » (`ouvrirParLeProfil`) ; sans elle, 401 « Connexion requise ». Une télé branchée par un code porte aussi cette session : seules les routes `/api/admin` la refusent (`refuserLesTeles`), et `/api/admin/catalogue*` avec elles.
+- Toute écriture sous `/api` porte l'en-tête `X-Requested-With: quizz`, et en ligne vient de l'origine publique (`csrfGuard`), sinon 403. Le corps JSON est borné à 4 Mo (`express.json`) : c'est lui qui plafonne une photo ou un extrait envoyé en `dataURL`, bien au-dessus de `MAX_IMAGE_DATAURL` et `MAX_SON_DATAURL`.
+- Les essais manqués de `/api/partages/recevoir` se comptent par espace, en mémoire (`ESSAIS_PAR_FENETRE`, `FENETRE_MS`) : un redémarrage les remet à zéro. Un essai compte dès qu'il part et se rend s'il aboutit — compté après la base, dix essais partis ensemble passaient tous.
+- Les `jeton` et `essai` de `PUT /api/quizzes/:id` ne vivent qu'en mémoire (`derniers`) : après un redémarrage, un faux conflit reste possible, que le brouillon du navigateur rattrape.
+- `GET /api/quizzes/:id/partages` et `DELETE /api/programmes/:id` n'ont aucun appelant dans le client d'aujourd'hui : « Annuler ce code » ne s'offre que dans la boîte qui vient de donner le code.
+- Chaque écriture de la bibliothèque relit la bibliothèque en mémoire du moteur (`onLibraryChanged`), chaque écriture d'un programme le programme de ce soir (`onProgrammeChanged`), avant de répondre.
+
+## Les soirées passées
+
+L'historique d'un espace, le souvenir et le bilan d'une soirée, lus par leur lien : [après la soirée](../produit/apres-la-soiree.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `PUT` | `/api/soirees/:id` | compte | Renomme une soirée de l'historique de son espace (`{ title }`, coupé à 80 caractères) et rend sa fiche | `server/src/api.ts` |
+| `DELETE` | `/api/soirees/:id` | compte | Retire une soirée close de l'historique : ce qu'elle avait crédité aux profils d'abord (`retirerSoireeEntiere`), l'archive en dernier | `server/src/api.ts` |
+| `GET` | `/s/:slug/recap.json` | public | Le souvenir de la soirée en cours ; entre deux soirées, la dernière close jointe (`derniere`, sa page dans `derniere.page`) | `server/src/server.ts` |
+| `GET` | `/s/:slug/bilan.json` | public | Le bilan de la soirée en cours, la dernière close jointe de même entre deux soirées | `server/src/server.ts` |
+| `GET` | `/s/:slug/soirees.json` | public | L'historique de l'espace : la soirée en cours à part (`current`), les soirées closes (`archives`, leurs fiches), les réglages publics de l'espace (`space`) | `server/src/server.ts` |
+| `GET` | `/s/:slug/soirees/:id/recap.json` | public | Le souvenir d'une soirée archivée, relu avec le code du jour (`recapOfArchive`), et sa fiche (`archive`) | `server/src/server.ts` |
+| `GET` | `/s/:slug/soirees/:id/bilan.json` | public | Le bilan d'une soirée archivée, relu avec le code du jour (`reviewOfArchive`) | `server/src/server.ts` |
+| `GET` | `/s/:slug/joueurs/:id.json` | public | La carte d'un invité de la soirée en cours, ouverte en touchant son nom | `server/src/server.ts` |
+
+**À savoir :**
+- `PUT /api/soirees/:id` : 400 « Il faut un titre » sans titre ; 404 « Soirée introuvable » pour un identifiant d'un autre espace ou mal formé (invariant 3).
+- `DELETE /api/soirees/:id` : 409 pour la soirée en cours (« La soirée en cours s'efface depuis l'écran commun — « C'était un essai » ») ; 404 « Soirée introuvable » hors de son espace, sans rien toucher. Les profils d'abord, l'archive en dernier : une panne entre les deux laisse la soirée dans la liste, et un second essai finit le travail.
+- Accès `compte` : `requireAccount`, posé sur tout `/api`. Une session de télé branchée y suffit : ces deux routes ne passent pas par `refuserLesTeles`, contrairement à `/api/admin/*` et aux gestes du compte.
+- Les pages `/s/:slug/…` : un espace inconnu vaut 404 « Soirée introuvable » (`withSpace`, `server/src/server.ts`). Un espace fermé (`disabledAt`) garde son souvenir, son bilan et son historique lisibles : seule `entree.json` le traite en introuvable. Une soirée archivée introuvable, ou d'un autre espace : 404 « Soirée introuvable » ; un invité qui n'est pas de la soirée en cours de l'espace : 404 « Joueur introuvable ».
+- Le souvenir et le bilan se gardent, calculés une fois pour toute la salle qui scanne le QR (`server/src/core/pages.ts`) : ceux de la soirée en cours tant que ses journaux ne bougent pas, une minute au plus ; ceux d'une archive tant que l'historique de l'espace ne bouge pas, dix minutes au plus. Compressés une fois, avec leur ETag : 304 à qui a déjà la page. Les réglages publics de l'espace (son nom, sa couleur) entrent dans l'empreinte.
+- La clôture d'une soirée laissée en plan, par l'administrateur, passe par `POST /api/admin/soirees/:spaceId/clore` (`server/src/qg.ts`, `cloreLaSoiree`), dans [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration).
+
+## Le quiz du jour
+
+Les dix questions du jour, la série, le classement, le rappel du soir, et la réserve que l'administrateur et la routine du matin remplissent : [le quiz du jour](../produit/le-quiz-du-jour.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/jour/rappel` | profil | La clé publique du serveur (VAPID), que le téléphone donne à son service de push en s'abonnant, et l'heure du rappel du soir | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/rappel` | profil | Abonne ce téléphone au rappel du soir, attaché à la session qui le demande (`{ abonnement, activer, ancien }`) ; rend son réglage | `server/src/quizDuJour.ts` |
+| `DELETE` | `/api/jour/rappel` | profil | Désabonne ce téléphone (`{ endpoint }`) ; rend son réglage | `server/src/quizDuJour.ts` |
+| `GET` | `/api/jour` | profil | La partie du jour de ce profil (`PartieDuJour`) : la nuit d'hier close d'abord, le jour tiré à sa première demande, une question échue comptée sans réponse ; sans l'en-tête `X-Requested-With: quizz` (le préchargement de la page), elle se dit `prechargee` | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/commencer` | profil | Commence la partie du jour, ou rend celle en cours : bonus de série et paliers du début, puis la première question, servie en dernier | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/suivante` | profil | Sert la question suivante ; son chronomètre part au dernier aller-retour | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/repondre` | profil | Une réponse (`{ jour, index, choix }`) : sa révélation, ses points, l'expérience de la partie ; à la dernière, la fin (paliers, hauts faits, Éclat) | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/sablier` | profil | Achète un ou deux sabliers pour la série (`{ nombre }`), en confettis ; rend les sabliers et le solde | `server/src/quizDuJour.ts` |
+| `GET` | `/api/jour/classement` | profil | Le classement d'un jour (`?jour=AAAA-MM-JJ`, aujourd'hui par défaut) ou d'un mois (`?mois=AAAA-MM`), sur tout le serveur | `server/src/quizDuJour.ts` |
+| `GET` | `/api/jour/correction/:jour` | profil | La correction d'un jour, question par question (bonne réponse, la sienne, points, temps, rapidité) : à qui a fini sa partie, à tous une fois le jour clos | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/signaler` | profil | Signale une question à laquelle on a répondu (`{ jour, index, texte }`, une phrase de 280 caractères au plus) ; un nouveau signalement du même joueur remplace le sien | `server/src/quizDuJour.ts` |
+| `GET` | `/api/jour/reserve` | jeton | La consigne d'écriture pour une IA : jours d'avance, combien en écrire, les intitulés à ne pas reprendre (les questions prêtes d'abord), `parEnvoi` | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/reserve` | jeton | Le dépôt de la routine (`{ liste }`, au format de « Coller une liste », 100 questions au plus) ; rend les ajoutées, les écartées et leur raison | `server/src/quizDuJour.ts` |
+| `GET` | `/api/jour/reserve/etiquetage` | jeton | La consigne d'étiquetage et jusqu'à 50 questions pas encore décrites, les prochaines à sortir d'abord, chacune avec ses réponses et l'index de la bonne | `server/src/quizDuJour.ts` |
+| `POST` | `/api/jour/reserve/etiquetage` | jeton | Les descriptions rendues (`{ etiquetage }`, 50 au plus), relues au catalogue : une entrée fautive est refusée entière | `server/src/quizDuJour.ts` |
+| `GET` | `/api/admin/jour` | admin | La page du quiz du jour à `/admin` : l'état de la réserve et ses derniers apports, les signalements ouverts, les profils masqués, si la routine est branchée | `server/src/quizDuJour.ts` |
+| `GET` | `/api/admin/jour/suivi` | admin | Le suivi du jour au QG (`SuiviDuJour`) : les parties d'aujourd'hui, la part de bonnes réponses d'aujourd'hui et d'hier, le tirage d'aujourd'hui question par question (ce que chaque réponse a recueilli, celles laissées au temps, le temps moyen, les signalements ouverts), les 10 premiers du mois, les séries qui tiennent par tranche et les 3 plus longues, les sabliers du mois, le rappel du soir (téléphones abonnés, 7 derniers soirs) | `server/src/quizDuJour.ts` |
+| `GET` | `/api/admin/jour/consigne` | admin | « Copier la consigne pour une IA » : la consigne de la routine, pour 30 questions | `server/src/quizDuJour.ts` |
+| `GET` | `/api/admin/jour/prochaines` | admin | Les 70 prochaines questions prêtes, dans l'ordre d'arrivée, celles des quiz livrés en dernier | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/liste` | admin | « Coller une liste » (`{ texte }`) dans la réserve ; rend les ajoutées et les écartées | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/garder` | admin | Garde une question signalée (`{ jour, index }`) : ses signalements se referment | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/annuler` | admin | Annule une question du jour pour tous (`{ jour, index }`), le jour même seulement : chaque joueur se recompte | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/retirer` | admin | Retire une question de la réserve (`{ reserveId, jour?, index? }`) : plus jamais tirée ; ses signalements se referment si le jour est donné | `server/src/quizDuJour.ts` |
+| `GET` | `/api/admin/jour/profils` | admin | Les profils masqués (50 au plus), ou ceux que trouve `?q=` (12 au plus) | `server/src/quizDuJour.ts` |
+| `POST` | `/api/admin/jour/masquer` | admin | Masque un profil du quiz du jour, ou l'y remet (`{ profileId, masque }`) | `server/src/quizDuJour.ts` |
+
+**À savoir :**
+- **Toute écriture** (`POST`, `DELETE`) demande l'en-tête `X-Requested-With: quizz`, sinon 403 « Requête refusée » — en ligne, une origine étrangère aussi (`csrfGuard`, `server/src/auth/http.ts`). La routine de la réserve le pose comme toute écriture.
+- **Profil** : ces routes passent avant la porte des animateurs ; sans cookie de profil, 401 « Connecte-toi à ton profil pour jouer au quiz du jour ». Réponses en `Cache-Control: no-store`, corps de 4 Ko au plus (1 Ko pour le sablier). Une réponse arrivée plus de 1,5 s après l'échéance s'écrit sans choix (`tropTard`) ; les refus se disent en clair, en 400 (« Commence d'abord le quiz du jour », « Cette question n'est pas encore posée », « Minuit est passé : le quiz d'hier est clos »). La correction répond 404 « La correction s'ouvre quand tu as fini, ou à minuit » avant l'heure.
+- **Rappel** : cinq téléphones au plus par profil ; une adresse hors des services de push connus est refusée. Une page d'avant qui demande la cloche des défis (`quoi: 'defis'`) ne change rien, et l'allumer est refusé (« Les duels ne sonnent plus : seul le quiz du jour a son rappel, sur sa page »).
+- **Jeton** : `Authorization: Bearer <RESERVE_TOKEN>`, vérifié **avant** la lecture du corps et comparé par empreinte SHA-256 en temps constant (`porteDeLaReserve`). Sans jeton posé — ou d'un jeton de moins de 32 caractères, ignoré au démarrage —, 404 « Le dépôt automatique n'est pas ouvert sur ce serveur » ; jeton faux, 401 « Jeton de la réserve refusé ». Corps de 256 Ko au plus. Il n'efface rien et ne lit aucun profil, mais **il lit des questions à venir avec leur bonne réponse** (`GET /api/jour/reserve/etiquetage`) et ouvre aussi `/api/campagne/base` (domaine campagne) : il se garde comme un mot de passe.
+- **Admin** : derrière `/api/admin` — session d'animateur, rôle administrateur, jamais depuis une télé branchée (`refuserLesTeles`) ; chaque geste qui change quelque chose se note au journal du QG (`noterLeGeste`) ; corps de 4 Mo au plus. `retirer` répond 404 « Cette question n'est plus dans la réserve », `masquer` 404 « Profil introuvable », `annuler` un jour clos, 400 : « Ce jour est clos : on ne peut plus annuler ses points. Retire la question de la réserve. »
+- **Le suivi** (`/api/admin/jour/suivi`) se demande à part de `/api/admin/jour`, pour que la réserve se montre sans l'attendre. Il lit le tirage du jour sans jamais le tirer — sans joueur aujourd'hui, pas de questions —, hier une fois, les séries au plus toutes les dix minutes ; le classement du mois y est celui des joueurs, les masqués écartés et comptés à part.
+
+## La campagne
+
+Les séries, le carnet, le défi de la semaine, et la base de questions que l'administrateur relit : [la campagne](../produit/la-campagne.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/campagne` | profil | L'état de la campagne du joueur (`EtatDeCampagne`) : son record, ses séries jouées, l'expérience et les bonnes réponses du jour, la série laissée en route, les catégories et sujets jouables, le nombre de questions et les records par catégorie | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/choix` | profil | Les catégories et les sujets que la campagne peut poser (`ChoixDeLaCampagne`), identiques pour tous et sans lire le passé du joueur. La préparation d'un duel n'a besoin que de cela | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/serie` | profil | Commence une série (`{ categories?, sujet? }`). Seules les douze catégories de la liste comptent, et un sujet inconnu est refusé. Referme la série laissée en route, en lui décernant ce qu'elle a joué. Rend la première question | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/serie/:id/reponse` | profil | Répond à la question en cours (`{ index, choix }`) d'une série, d'une révision, d'un défi, d'un duel ou d'une rencontre. Rend le verdict, la bonne réponse, l'anecdote et l'expérience. À la fin de la partie, rend aussi le record, les hauts faits, les paliers, l'Éclat du défi et la place. Une réponse qui ne vise pas la question en cours est refusée | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/serie/:id/abandon` | profil | « Recommencer » : finit une série (mode `serie` seulement) comme si elle était perdue. Le record et les hauts faits se lisent sur ce qu'elle a joué. Le défi, le duel et la rencontre refusent | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/serie/:id/signalement` | profil | Signale une question déjà répondue de cette partie (`{ index, texte }`, 280 caractères au plus). Un nouveau signalement du même joueur remplace le sien. Les épreuves des sentiers et les parcours se signalent aussi par cette route | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/serie/:id/correction` | profil | La correction d'une partie finie du joueur (`CorrectionDeCampagne[]`). Le défi de la semaine attend sa clôture, un défi entre amis sa fermeture, et un duel classé que les deux joueurs l'aient joué | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/carnet` | profil | Le carnet de révision (`EtatDuCarnet`) : les questions à revoir aujourd'hui, demain et plus tard, le prochain jour de rendez-vous, les questions apprises et la révision laissée en route | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/carnet/appris` | profil | Les cent derniers faits appris (`FaitAppris[]`) : la question, sa réponse et son anecdote. Jamais ce qui reste à revoir | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/revision` | profil | Commence une révision (dix questions au plus, les plus en retard d'abord) ou reprend celle laissée en route. `{ tout: true }` revoit tout le carnet ; `{ recommencer: true }` referme la révision en cours et en tire une neuve. Seules les vraies valeurs booléennes comptent | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/defi` | profil | Le défi de la semaine (`DefiDeLaSemaine`) : le temps qui reste, la tentative du joueur, le classement et la semaine passée (vainqueurs, sa place). Clôt d'abord les semaines passées | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/defi` | profil | Relève le défi : le tire s'il ne l'est pas encore (au premier qui le relève), puis commence ou reprend la tentative du joueur. Refusé une fois la tentative finie | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/base` | jeton | La commande du jour pour la routine du matin (`CommandeDeLaBase`). Par catégorie : combien de questions écrire (cinq par jour, moins celles déjà déposées), les sous-thèmes et difficultés visés, et la part de consigne. La consigne commune n'y figure qu'une fois | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/base` | jeton | Dépose les questions d'une catégorie (`{ categorie, entrees }`, quarante au plus). Chacune passe le juge de la base et le dédoublonnage (même intitulé, même fait), dans la limite de dix par catégorie et par jour. Rend `ajoutees` et `ecartees`, chaque refus avec son motif. Les questions acceptées se jouent aussitôt | `server/src/campagne.ts` |
+| `GET` | `/api/admin/campagne` | admin | La base et ses signalements pour `/admin#campagne` (`AdminDeLaCampagne`) : les questions jouables et retirées, leur répartition par catégorie et par difficulté, les dépôts de la routine, et chaque signalement avec son auteur, le lieu où il jouait et ce qu'il a répondu | `server/src/campagne.ts` |
+| `POST` | `/api/admin/campagne/garder` | admin | Garde une question signalée (`{ questionId }`) et referme ses signalements. Noté au journal du QG | `server/src/campagne.ts` |
+| `POST` | `/api/admin/campagne/retirer` | admin | Retire une question de la campagne (`{ questionId }`), pour tous et définitivement (`campagne_retraits`). Les parties déjà tirées la gardent. Noté au journal du QG | `server/src/campagne.ts` |
+| `POST` | `/api/admin/campagne/corriger` | admin | Corrige une question (`{ questionId, correction: { texte, reponses, bonne, anecdote } }`), relue par le juge de la base. Si la bonne réponse reste la même, la question garde son identifiant ; sinon, elle en reçoit un neuf et l'ancienne est retirée. Rend `{ id, nouvelle }`. Noté au journal du QG | `server/src/campagne.ts` |
+
+**À savoir :**
+- Toutes ces routes répondent avec `Cache-Control: no-store`.
+- Sans session de profil, les routes des joueurs répondent 401 « Connecte-toi à ton profil pour jouer la campagne ». Leur corps JSON est limité à 4 Ko.
+- Une erreur lisible devient un 400 `{ error }` (par exemple « Cette question est passée : la série a continué sans elle »).
+- Une partie d'un autre joueur vaut « introuvable ».
+- Les écritures passent par la protection contre les requêtes forgées (`X-Requested-With`).
+- `/api/campagne/base` est la porte de la routine du matin, avec le même jeton que la réserve du quiz du jour : `Authorization: Bearer <RESERVE_TOKEN>`.
+  - Le jeton est comparé par empreinte, en temps constant, et vérifié avant de lire le corps.
+  - Sans jeton posé, ou si le jeton fait moins de 32 caractères (`server/src/index.ts`), la porte n'existe pas : 404 « Le dépôt automatique n'est pas ouvert sur ce serveur ».
+  - Un mauvais jeton reçoit 401 « Jeton de la réserve refusé ».
+  - La route est montée avant la porte des animateurs. Son corps est limité à 512 Ko, et le serveur traite un dépôt à la fois.
+  - Le jeton ne lit que des intitulés, jamais une bonne réponse, et ne retire rien.
+- `/api/admin/campagne*` demande une session d'administrateur, jamais depuis une télé branchée. Chaque geste est noté au journal du QG.
+- Les parties des autres modes (révision, défi de la semaine, défi entre amis et duel classé, rencontre) répondent, se signalent et se corrigent par les routes `/api/campagne/serie/:id/…`, sous leur propre identifiant. Les épreuves des sentiers et des parcours ont leurs routes de réponse ([les sentiers](#les-sentiers-du-savoir-et-les-parcours-de-thème)), mais se signalent et se corrigent par celles de la série.
+- Dans le même fichier `server/src/campagne.ts` vivent aussi les routes [des sentiers et des parcours](#les-sentiers-du-savoir-et-les-parcours-de-thème) et [des duels](#les-duels).
+
+## Les sentiers du savoir et les parcours de thème
+
+Les paliers, les épreuves, les vies du jour, les parcours d'« Apprendre » : [les sentiers du savoir](../produit/les-sentiers-du-savoir.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/campagne/sentiers` | profil | L'état des sentiers du joueur (`EtatDesSentiers`) : ses vies (du jour, en réserve, leur renouvellement), ses douze sentiers (paliers validés, paliers repris des portraits d'avant, étoiles de chaque palier), l'épreuve laissée en route avec sa question en cours, sans la bonne réponse, et son solde de confettis, pour racheter des vies (absent si le solde ne se lit pas : les sentiers s'affichent quand même) | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/sentiers/epreuve` | profil | Commence l'épreuve d'un palier (`{ branche, palier }`), ou reprend telle quelle celle laissée sur ce palier (`EpreuveDeSentier`). Un palier déjà validé se rejoue sans vie en jeu. Refuse un palier sauté, une épreuve quand une autre en jeu attend (rejeu compris), et un palier en jeu sans vie. Referme d'elle-même une épreuve laissée qui ne risquait rien (un rejeu, ou une épreuve déjà validée) | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/epreuve/:id/reponse` | profil | Répond à la question en cours d'une épreuve (`{ index, choix }`) et rend `ReponseDEpreuve` : le verdict, la bonne réponse, l'anecdote, l'expérience (et `xpPalier` à la bonne réponse qui valide le palier pour la première fois), l'épreuve à jour ; à la fin, les étoiles, le record, les confettis des étoiles, le portrait ou le titre ouvert, les vies après un échec en jeu, les paliers de la campagne tombés et les légendaires qu'ils ouvrent | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/epreuve/:id/abandon` | profil | Arrête l'épreuve. En jeu, elle devient ratée et coûte une vie ; un rejeu se referme sans issue ni coût ; une épreuve déjà validée s'arrête là et rend sa fin (« Arrêter là · voir mon palier »). Rend l'état des sentiers, avec `fin` (`FinDEpreuve`) si elle était validée | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/vies` | profil | Achète des vies (`{ nombre }`, un entier de 1 à 10) à 25 confettis la vie, dans la réserve, et rend l'état des sentiers. Refusé s'il manque des confettis. Un achat à la fois par profil | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/sujets` | profil | Les parcours de thème du joueur (`EtatDesSujets`) : ceux que la base sert assez, leurs étapes validées et leurs étoiles, et l'étape laissée en route | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/sujets/epreuve` | profil | Commence l'étape d'un parcours (`{ sujet, palier }`), ou reprend celle laissée sur cette étape (`EpreuveDeSujet`). Sans vie : ouvrir une étape referme celle laissée ailleurs, sans rien coûter. Refuse une étape sautée | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/sujets/epreuve/:id/reponse` | profil | Répond à la question en cours d'une étape (`{ index, choix }`) et rend `ReponseDuSujet` : le verdict, la bonne réponse, l'anecdote, l'expérience et l'étape à jour ; finie, ses étoiles et son record si elle est validée, Le Marathonien s'il tombe et les légendaires qu'il ouvre | `server/src/campagne.ts` |
+| `GET` | `/api/admin/campagne/sentiers` | admin | Les sentiers palier par palier pour `/admin#campagne` (`AdminDesSentiers`), sur tous les sentiers ou un seul (`?branche=<clé>` ; une clé inconnue vaut tous) : la semaine (joueurs, épreuves, paliers validés, vies perdues, vies achetées), chaque palier sur trois mois (chance d'un essai à chaque seuil, validés, bloqués et leurs échecs, abandons, rejeux), les bonnes réponses par marche, et les joueurs les plus bloqués, nommés | `server/src/campagne.ts` |
+
+**À savoir :**
+- Sans session de profil, les routes des joueurs répondent 401 « Connecte-toi à ton profil pour jouer la campagne », avec `Cache-Control: no-store`. Leur corps JSON est limité à 4 Ko.
+- Un refus lisible est un 400 `{ error }`, par exemple « Une épreuve t’attend : le palier 10 du sentier de la forêt. Finis-la, ou abandonne-la. », « Valide d’abord le palier 4 », « Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis », « Cette question est passée : l’épreuve a continué sans elle », « Choisis de 1 à 10 vies », « Il te manque 13 confettis pour une vie ». Une épreuve d'un autre profil, ou d'un autre mode, vaut « Cette épreuve est introuvable ».
+- Les épreuves des sentiers et les étapes des parcours sont des séries de la campagne d'un autre mode (`mode = 'sentier'`, `mode = 'sujet'`) : elles se signalent et se corrigent par les routes de la série (`/api/campagne/serie/:id/signalement`, `/api/campagne/serie/:id/correction`, [la campagne](#la-campagne)).
+- Les parcours de thème gardent dans l'API leurs noms d'avant : `sujets` pour les parcours, `palier` pour les étapes.
+- Ailleurs, mais du domaine : `POST /api/admin/profils/:id/epreuve` libère l'épreuve qui attend un joueur, sans lui coûter de vie (`server/src/profilsAdmin.ts`, [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration)) ; `GET /api/admin/profils/:id` la montre dans sa fiche ; `GET /api/joueur/moi?accueil` porte les vies et le sentier avancé de l'accueil (`SentiersDAccueil`), et `PUT /api/joueur/moi` refuse un portrait ou un titre de maître dont le palier n'est pas validé (fragment du profil).
+- Aucun événement temps réel : les sentiers ne passent que par HTTP.
+
+## Les duels
+
+La cote, les ligues, les duels contre quelqu'un, contre Automate, et les amis : [les duels](../produit/les-duels.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/duels` | profil | La page des duels (`EtatDesDuels`) : sa cote, sa ligue, sa semaine et la passée, le classement (sa place, « À ta portée », ses amis), ses duels en cours et à voir, ses derniers duels, son bilan et son historique ; préchargée par la page servie (`shared/depart.ts`) | `server/src/campagne.ts` |
+| `GET` | `/api/duels/historique` | profil | La suite de son historique, au « Voir plus » : 20 duels de plus après le dernier qu'il a sous les yeux (`?le=<instant>&cle=<série>`), jusqu'à 30 jours en arrière | `server/src/campagne.ts` |
+| `GET` | `/api/duels/joueurs` | profil | Chercher un joueur à défier ou à ajouter (`?q=`, 2 lettres au moins) : 12 au plus, dont le prénom contient le texte (sans accents ni casse) ou dont l'identifiant de connexion commence par lui ; jamais soi, un masqué ni un suspendu, et l'identifiant n'est jamais rendu | `server/src/campagne.ts` |
+| `GET` | `/api/duels/joueurs/:id` | profil | Ce que la carte d'un joueur et la préparation d'un duel disent de lui (`FaceAFace`) : sa ligne de recherche, s'il est son ami, et sa propre cote ; 404 « Ce joueur est introuvable : cherche-le de nouveau » pour soi, un masqué ou un inconnu | `server/src/campagne.ts` |
+| `GET` | `/api/duels/amis` | profil | La feuille des amis (`AmisDeLaFeuille`) : ses amis (« en ligne » entre amis réciproques seulement), ceux qui l'ont ajouté sans qu'il les ait (5 au plus), et des joueurs croisés | `server/src/campagne.ts` |
+| `GET` | `/api/duels/croises` | profil | Les joueurs croisés de « Contre qui ? » (6 au plus) : ses soirées, ses duels, le défi de la semaine, puis sa cote ; ni ami, ni retiré, ni masqué, ni Automate | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/rencontre` | profil | Le dé : reprend son duel contre Automate laissé en route, sinon tire une série de toutes les catégories et la partie d'Automate ; rend la série, Automate sans son score, et l'enjeu | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/rencontres` | profil | Ses rencontres (`MesRencontres`) ; le client ne l'appelle plus | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/duel` | profil | Lancer un duel contre quelqu'un (`{adversaire, categories?, sujet?}`) : tire la série parmi ce que ni l'un ni l'autre n'a vu, fige les deux cotes, commence la tentative de l'auteur et rend `{code, serie, enjeu}` ; un seul duel ouvert par paire. Sans `adversaire`, d'une page d'avant, un défi entre amis (`amis`), 5 ouverts au plus | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/duels` | profil | Ses défis entre amis — lancés ou relevés — fermés depuis moins de 30 jours ou encore ouverts, 10 au plus (`ResumeDuDuel[]`) | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/duel/:code` | profil | Un duel ou un défi par son code (`DuelEntreAmis`) — un duel contre quelqu'un ne se lit que par ses deux joueurs ; la première lecture de son résultat par l'auteur écrit `campagne_duels.vu_le`, et un envoi raté repart d'ici | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/duel/:code` | profil | Relever un duel ou un défi, ou reprendre sa tentative : rend la série ; refus s'il est fermé (« Ce défi est fermé : son classement est figé »), déjà joué, ou, pour un duel contre quelqu'un, à qui n'y joue pas | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/duel/:code/envoi` | profil | Envoyer son défi entre amis ouvert à des amis choisis (`{amis}`) : seulement l'auteur, seulement à ses amis ; rend `{envoyes}` | `server/src/campagne.ts` |
+| `GET` | `/api/campagne/amis` | profil | Ses amis et les défis qu'on lui a envoyés (`MesAmis`, 10 défis au plus) ; avec `?duel=<code>`, ceux qui ont déjà ce défi | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/amis/:id/ajout` | profil | Ajouter un profil à ses amis, sans demande ni attente ; efface un retrait, et le duel retenu pendant le retrait lui arrive ; refus pour soi, un masqué ou un inconnu | `server/src/campagne.ts` |
+| `POST` | `/api/campagne/amis/:id/retrait` | profil | Retirer un ami : ses duels et ses défis ne lui parviennent plus, sans qu'il l'apprenne ; sans effet pour soi-même | `server/src/campagne.ts` |
+
+**À savoir :**
+- Sans session de profil, toutes répondent 401 « Connecte-toi à ton profil pour jouer la campagne », et aucune ne se garde en cache (`Cache-Control: no-store`). Une erreur métier est un 400 au message lisible (`wrap`).
+- Les corps JSON se lisent à 4 Ko au plus (`express.json({ limit: '4kb' })`) : `POST /api/campagne/duel`, `/api/campagne/duel/:code`, `/api/campagne/duel/:code/envoi`, `/api/campagne/rencontre`.
+- **`GET /api/campagne/duel/:code` écrit** : ne jamais la précharger (la carte du verdict ne se retournerait plus, et l'accueil cesserait de compter le résultat).
+- Les réponses d'un duel passent par les routes de la série, décrites avec [la campagne](#la-campagne) (`POST /api/campagne/serie/:id/reponse`, qui rend aussi `rencontre`, `duel`, `contre`, `classe`, `partiA` ; `…/abandon`, refusé pour un duel au dé (« Une rencontre se joue jusqu'au bout : elle ne s'abandonne pas ») comme pour un duel ou un défi (« Le défi n'a qu'une tentative : elle ne s'abandonne pas ») ; `…/correction`, ouverte quand le duel est joué des deux côtés ou fermé). `GET /api/campagne/choix` (catégories et sujets jouables, sans toucher à la base) sert la préparation d'un duel ; elle est aussi à la campagne.
+- Ailleurs, sans être des routes des duels : `GET /api/joueur/carte/:id` porte `profil.duels` (ligue, cote) et la bordure ; `GET /api/joueur/moi?accueil` porte `duels` (`DuelsDAccueil`) ; `PUT /api/joueur/moi` accepte `bordure` (`auto`, `aucune` ou une clé de ligue atteinte) ; `/healthz` dit `campagne.savoir`, l'état du modèle du savoir, sans un nom.
+
+## La page et ses fichiers
+
+Ce que le serveur sert au navigateur : la page, son état de départ, ses fichiers et ses redirections : [le client](../architecture/client.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/s/:slug/entree.json` | public | L'entrée d'un invité avant sa liaison temps réel — ce que `party:watch` lui dirait : l'instantané des téléphones et, si le cookie en reconnaît un, son profil (`EntreeDeDepart`) ; préchargée avec la page `/<espace>`, jamais gardée en route (`no-store`) | `server/src/server.ts` |
+| `GET` | `/s/:slug/space.json` | public | Les réglages publics d'un espace (`publicSpace` : son nom dans l'adresse, son nom, son titre, son surtitre, son grand titre, sa date, son plafond d'invités) ; le client ne la lit plus, le smoke et les tests si | `server/src/server.ts` |
+| `GET` | `/index.html` | public | La page de l'accueil, servie comme `/` : statut, balises d'aperçu, préchargement, attente écrite et, hors production, la balise `app-env` | `server/src/server.ts` |
+| `GET` | `/robots.txt` | public | `Disallow` sur `/s/`, `/api/` et `/media/` : seul l'accueil se laisse indexer (`ROBOTS_TXT`, `server/src/core/apercus.ts`) | `server/src/server.ts` |
+
+**À savoir :**
+- `/s/:slug/entree.json` et `/s/:slug/space.json` répondent 404 `{ "error": "Soirée introuvable" }` pour un nom d'espace inconnu (`withSpace`) ; `entree.json` aussi pour un espace désactivé, comme `party:watch`.
+- **Ce que le serveur sert sans route déclarée** — un motif, un tableau ou `app.use`, tout dans `server/src/server.ts` — :
+  - **le repli vers la page**, `app.get('*')` : toute adresse que rien d'autre n'a servie passe par `servirPage` — statut, redirection, balises d'aperçu, préchargement, attente écrite ([les adresses](adresses.md)) ; sans client construit, 404 « Client non compilé (npm run build) » ;
+  - **les fichiers statiques** : `/assets` (un an, `immutable`, précompressés — `server/src/core/precompresse.ts`), `/fonts` (trente jours), `/portraits`, `/medaillons`, `/compagnons`, `/decors` (un an, `immutable`), tous en `fallthrough: false` — un fichier absent y est un 404, jamais la page ; le reste de `client/dist/` (les fichiers de `client/public` : `/sw.js`, `/manifest.webmanifest`, les icônes) à la racine, une heure ;
+  - **un fichier absent** dont l'extension est servie (`.ico`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`, `.js`, `.mjs`, `.css`, `.map`, `.json`, `.webmanifest`, `.txt`, `.xml`, `.woff`, `.woff2`) : 404 en texte, « Introuvable » ;
+  - **tout chemin inconnu sous `/api`, `/media` ou `/s`**, quelle que soit la méthode : 404 `{ "error": "Introuvable" }` ;
+  - **les adresses d'avant les espaces**, 302 vers l'espace de l'administrateur : `GET` `/recap.json`, `/bilan.json`, `/soirees.json`, `/soirees/:id/recap.json`, `/soirees/:id/bilan.json` (sous `/s/<espace>`) ; `GET` `/souvenir`, `/stats`, `/bilan`, `/bilan/fiches`, `/soirees`, `/soirees/:id`, `/soirees/:id/souvenir`, `/soirees/:id/stats`, `/soirees/:id/bilan`, `/soirees/:id/bilan/fiches` (sous `/<espace>`). Hors de ma liste et de celle de « cloture » : à ranger où le coordinateur le juge bon.
+
+## L'exploitation
+
+Ce que l'hébergeur et la veille interrogent : [exploiter](../exploitation/exploiter.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/healthz` | public | La santé du serveur, agrégée sur tous les espaces et sans un nom ni une adresse : qui répond (`ok`, `env`, `version`, `uptime`), la salle (`spaces`, `players`, `quizzes`, `espacesActifs`, `quizEnCours`, `podiumsAffiches`, `maxPlayers`), la mémoire et la charge, les pages publiques, les inscriptions refusées, les réponses « trop tard », le miroir de la soirée, les allers-retours vers la base permanente, le temps de chaque route d'API sous son modèle, l'avance de la réserve du quiz du jour, les dépôts dans la base de la campagne et le modèle du savoir, la dernière tournée du rappel du soir | `server/src/server.ts` |
+
+**À savoir :** `/healthz` répond **toujours 200** — un échec ferait redémarrer l'instance par l'hébergeur, disque effacé —, chaque mesure sous son propre filet (une mesure qui échoue manque, seule, et le journal le dit). « Par minute » y veut dire : la minute en cours et la précédente. Elle sert à la sonde de santé de Render et à la tâche de cron-job.org qui tient la production éveillée de 7 h à minuit ; sous `npm run dev`, Vite ne la relaie pas (port 3001). Le détail de chaque champ : `docs/exploitation/exploiter.md`.
+
+## Pour aller plus loin
+
+- [Les événements temps réel](evenements-temps-reel.md) — la soirée elle-même, sur la liaison Socket.io
+- [Les adresses](adresses.md) — les pages que le navigateur ouvre, et leurs redirections
+- [La sécurité](../architecture/securite.md) — les sessions, les preuves à donner, les limites d'essais, le cloisonnement
+- [Le serveur](../architecture/serveur.md) — qui déclare quelles routes, dans quel ordre, et comment une erreur devient une réponse

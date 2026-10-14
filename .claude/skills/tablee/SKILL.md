@@ -114,7 +114,7 @@ tirer quoi que ce soit des retours, **vérifie** :
   plusieurs agents rapportent le même « bug » sans trace dans le journal ni
   la console, soupçonne d'abord le banc (la première tablée en a trouvé un
   ainsi : `retours/2026-09-23/synthese.md`, « Écarté ») ;
-- un retour qui contredit un parti pris du dépôt (README, « La direction » ;
+- un retour qui contredit un parti pris du dépôt (`docs/produit/vue-d-ensemble.md`, « Les partis pris » ;
   CLAUDE.md, invariants) se note comme tel : c'est une tension à arbitrer,
   pas une correction à faire.
 

@@ -14,7 +14,7 @@ redémarre) ? Consignes : `consignes-audit.md`.
 `shared/saisons.ts`, ce que `auth/profiles.ts` fait pour le jour (la ligne
 `#jour`, les paliers `duJour`, le Sphinx et sa voie `aussi`, les lauriers),
 `shared/hautsfaits.ts`, `shared/legendaires.ts` ; la documentation :
-`RECOMPENSES.md` et le README (le quiz du jour), `.claude/rules/jour.md` (le
+`docs/produit/le-quiz-du-jour.md`, `.claude/rules/jour.md` (le
 piège « Le quiz du jour a son horloge ») ; les tests : `jour.test.ts`,
 `jour-partie.test.ts`, `jour-paliers.test.ts`, `jour-reserve.test.ts`,
 `sphinx.test.ts`, `laurier.test.ts`, `saisons.test.ts`.

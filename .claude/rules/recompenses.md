@@ -94,8 +94,8 @@ paths:
 
 ## L'invariant 22, en entier
 
-22. **Durcir un légendaire, la courbe des niveaux ou les seuils des
-    branches ne reprend rien à personne.** Les légendaires et les niveaux se dérivent à chaque lecture :
+22. **Durcir un légendaire, la courbe des niveaux ou le palier d'un
+    portrait ne reprend rien à personne.** Les légendaires et les niveaux se dérivent à chaque lecture :
     relever un seuil suffisait à reprendre le légendaire qu'on portait, et
     ce qui en dépendait, et durcir la courbe à faire redescendre de niveau,
     finitions comprises. Une règle qui se durcit ajoute donc une entrée —

@@ -330,16 +330,26 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
   // Le catalogue public ne porte que de quoi dessiner et nommer.
   for (const d of DIVINS) assert.deepEqual(Object.keys(d).sort(), ['key', 'nom'])
   // Et la documentation ne l'écrit pas non plus : la règle de l'Arbre-Monde
-  // s'était glissée dans RECOMPENSES.md et le CLAUDE.md, alors que les règles
-  // vivent dans core/divins.ts « et nulle part ailleurs » (invariants-4). Le
-  // CLAUDE.md a laissé le détail de chaque domaine à ses règles
-  // (`.claude/rules/`) : elles se relisent avec lui.
-  const regles = readdirSync(path.join(racine, '.claude/rules'))
-    .filter(f => f.endsWith('.md'))
-    .map(f => `.claude/rules/${f}`)
-  for (const doc of ['README.md', 'RECOMPENSES.md', 'CLAUDE.md', 'MISE-EN-LIGNE.md', ...regles]) {
+  // s'était glissée dans l'ancien RECOMPENSES.md et dans le CLAUDE.md, alors
+  // que les règles vivent dans core/divins.ts « et nulle part ailleurs »
+  // (invariants-4). Tout ce qui se lit hors du serveur se relit donc : le
+  // README, le CLAUDE.md et ses règles (`.claude/rules/`), et chaque page de
+  // `docs/`, la vitrine comprise — ni la règle, ni le début d'une légende.
+  const documentation = [
+    'README.md',
+    'CLAUDE.md',
+    ...readdirSync(path.join(racine, '.claude/rules'))
+      .filter(f => f.endsWith('.md'))
+      .map(f => `.claude/rules/${f}`),
+    ...readdirSync(path.join(racine, 'docs'), { recursive: true })
+      .map(f => `docs/${String(f).split(path.sep).join('/')}`)
+      .filter(f => /\.(md|html)$/.test(f)),
+  ]
+  assert.ok(documentation.length > 30, `seulement ${documentation.length} pages relues`)
+  for (const doc of documentation) {
     const texte = readFileSync(path.join(racine, doc), 'utf8')
     assert.doesNotMatch(texte, /DOUZE_LEGENDAIRES|douze d.origine/, doc)
+    for (const legende of legendes) assert.ok(!texte.includes(legende.slice(0, 24)), `${doc} recopie le début d'une légende`)
   }
 })
 

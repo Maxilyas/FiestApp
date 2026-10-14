@@ -193,7 +193,7 @@ export function AdminDuJour({ vue }: { vue: VueDEnsemble | null }) {
             </span>
           ) : (
             <span>
-              <b>Pas de remplissage automatique</b> : pose <code>RESERVE_TOKEN</code> sur le serveur (MISE-EN-LIGNE.md),
+              <b>Pas de remplissage automatique</b> : pose <code>RESERVE_TOKEN</code> sur le serveur (docs/exploitation/mise-en-ligne.md, étape 9),
               ou copie la consigne dans ton IA.
             </span>
           )}

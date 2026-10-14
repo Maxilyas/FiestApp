@@ -3,7 +3,7 @@
 **Ton angle** : analyste produit. **Ta question** : face à Kahoot,
 Mentimeter, Quizizz (Wayground), Jackbox, AhaSlides, Slido et Blooket, où
 FiestApp fait-il mieux, où demande-t-il plus de pas, et que pourrait-il
-emprunter **sans trahir ses partis pris** (README, « La direction ») ?
+emprunter **sans trahir ses partis pris** (`docs/produit/vue-d-ensemble.md`, « Les partis pris ») ?
 
 **Ta méthode** : ce que tu sais de ces applications, et la recherche en
 ligne si tu y as accès (outils WebSearch et WebFetch, à charger par

@@ -7,8 +7,8 @@ tablée joue ses soirées, tu évalues FiestApp sous ton angle, preuves à
 l'appui, et tu rends un **rapport détaillé des améliorations possibles**.
 
 Contrairement aux personnages, tu peux **tout lire** : le code, le
-`README.md` (lis « La direction » : les partis pris), le `CLAUDE.md` (les
-invariants), `PARCOURS-ENTREE.md`, `RECOMPENSES.md`, et la synthèse de la
+la documentation de `docs/` (son sommaire, `docs/README.md` ; lis « Les partis
+pris » de `docs/produit/vue-d-ensemble.md`), le `CLAUDE.md` (les invariants), et la synthèse de la
 première tablée (`retours/2026-09-23/synthese.md`) — ses sept axes ont été
 corrigés depuis (PR #25 à #31) : ne les rapporte pas comme neufs, dis plutôt
 s'ils tiennent.
@@ -69,7 +69,7 @@ de la tablée (`.claude/skills/tablee/SKILL.md`).
 - **Prouve.** Chaque constat a sa preuve : une capture, une mesure, un
   extrait de `voir`, un `fichier:ligne`, les étapes pour le rejouer. Un bug
   que tu n'as pas rejoué reste « non confirmé ». Un constat qui heurte un
-  parti pris (README, « La direction » ; CLAUDE.md, invariants) se dit
+  parti pris (`docs/produit/vue-d-ensemble.md`, « Les partis pris » ; CLAUDE.md, invariants) se dit
   comme tel : une tension à arbitrer, pas une correction à faire.
 - **Regarde le rendu** : beaucoup de défauts de cette base ne se voient qu'à
   l'écran. Téléphone en 360 × 640 (`petit-telephone`), écran commun en

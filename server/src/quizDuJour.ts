@@ -195,7 +195,7 @@ const empreinte = (jeton: string) => createHash('sha256').update(jeton).digest()
  * rappelle les intitulés déjà en réserve, ceux des prochains jours d'abord
  * — l'IA ne les réécrit pas : le jeton les vaut. Gardé tel quel à
  * l'arbitrage du 27 septembre 2026 ; s'il fuit, on le change des deux
- * côtés (MISE-EN-LIGNE.md, étape 8). Sans jeton posé, la porte n'existe pas.
+ * côtés (docs/exploitation/mise-en-ligne.md, étape 9). Sans jeton posé, la porte n'existe pas.
  *
  * La routine tourne sur l'abonnement Claude de l'administrateur : aucune
  * clé d'IA n'est confiée au serveur. Elle passe AVANT la porte des

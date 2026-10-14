@@ -33,7 +33,7 @@ chaque épreuve y sont).
   Chaque mutant qui survit est un trou du filet. Retire la copie de travail
   à la fin (`git worktree remove`).
 - **Les trous** : les invariants du `CLAUDE.md` sans épreuve qui les garde,
-  les promesses de `RECOMPENSES.md` sur le quiz du jour et le lot D sans
+  les promesses de `docs/produit/le-quiz-du-jour.md` et le lot D sans
   épreuve, les chemins d'erreur jamais parcourus.
 
 **Hors de ton angle** : corriger — tu proposes les épreuves à écrire, sur le

@@ -56,7 +56,8 @@ paths:
   pas de lien d'activation pour soi (n'importe quelle session
   d'administrateur, le téléphone prêté compris, en tirait une console de
   trente jours), ni confettis, prénom, suspension ou suppression sur son
-  propre profil — chaque geste sur un profil vérifie `estLeSien`.
+  propre profil (`estLeSien`). Un geste de plus sur un profil se pose la
+  même question.
 - **Une page de plus à la racine rejoint `RESERVED_SLUGS`** (`shared/space.ts`) :
   `parseRoute` lit `ACCOUNT_PAGES` avant les espaces, et un espace nommé
   comme une page — `duels` aujourd'hui, ou un dossier servi (`portraits`,

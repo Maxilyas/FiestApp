@@ -25,7 +25,7 @@ import { carriereDe, ficheDe, gainVide, releveVide, totalGain } from '../../shar
 import { VERSION_BAREME } from '../src/auth/profiles'
 
 test('les seuils des écussons sont un choix de produit : 20, 75, 200 bonnes réponses', () => {
-  // RECOMPENSES.md les annonce ; les épreuves suivantes se construisent sur
+  // `docs/reference/baremes.md` les annonce ; les épreuves suivantes se construisent sur
   // `SEUILS_ECUSSON` et passaient avec l'or à 150. Les changer se dit, ici
   // comme là-bas — comme le podium du jour (`jour.test.ts`).
   assert.deepEqual([...SEUILS_ECUSSON], [20, 75, 200])
