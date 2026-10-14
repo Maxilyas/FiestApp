@@ -127,7 +127,7 @@ Si deux invités se retrouvent malgré tout avec le même prénom et le même av
 
 ## La fin de soirée
 
-Quand l'animateur clôt la soirée, ton téléphone passe à **ta fin de soirée** : « Fin de la soirée », son titre, ton avatar, ta place et tes points de la soirée. Avec un profil, « Ce que tu gagnes » suit — l'expérience, les confettis, ton niveau —, et ce que tu viens de débloquer. Puis tes « Nouveaux trophées » : exploits, coups du sort, prix du palmarès — et, avec un profil, les étapes de tes pistes, puis « À porter » : ce qu'elles t'ouvrent, à « Essayer » tout de suite. Deux boutons : « Mon bilan » et « Accueil ».
+Quand l'animateur clôt la soirée, ton téléphone passe à **ta fin de soirée** : « Fin de la soirée », son titre, ton avatar, ta place et tes points de la soirée. Avec un profil, « Ce que tu gagnes » suit — l'expérience, les confettis, ton niveau —, et ce que tu viens de débloquer. Puis tes « Nouveaux trophées » : exploits, coups du sort, prix du palmarès et, avec un profil, les étapes de tes pistes. Ce qu'elles t'ouvrent attend sous « À porter », à « Essayer » tout de suite. Deux boutons : « Mon bilan » et « Accueil ».
 
 - **Tu recharges la page** dans les douze heures : ta fin de soirée revient.
 - **Une nouvelle soirée commence** dans le même salon : « La soirée suivante commence », et « La rejoindre ».
