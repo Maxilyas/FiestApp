@@ -8,7 +8,7 @@ paths:
   - "client/src/brouillon.ts"
   - "client/src/views/EditorApp.tsx"
   - "client/src/components/{MesQuiz,Partage,ChampNombre,QuizToutPret,QuizToutPretADemande}.tsx"
-  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis}.test.ts"
+  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis,gestes}.test.ts"
 ---
 
 # Les quiz : l'éditeur, la liste collée, l'import, le partage, la mémoire
