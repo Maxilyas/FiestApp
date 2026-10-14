@@ -38,6 +38,16 @@ export const RARETES_D_AVATAR: readonly RareteDAvatar[] = ['commune', 'peucommun
 
 export const NOM_DE_RARETE_D_AVATAR: Readonly<Record<RareteDAvatar, string>> = { ...NOM_RARETE, divin: 'Divin' }
 
+/** Le nom d'une gemme sous sa rangée : six tiennent sur un téléphone, abrégées ; le lecteur d'écran entend le nom entier. */
+export const NOM_COURT_DE_RARETE_D_AVATAR: Readonly<Record<RareteDAvatar, string>> = {
+  commune: 'Commune',
+  peucommune: 'Peu com.',
+  rare: 'Rare',
+  epique: 'Épique',
+  legendaire: 'Légend.',
+  divin: 'Divin',
+}
+
 export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | 'emoji'
 
 /**
@@ -157,6 +167,18 @@ export function pagesDeLAlbum(p: ProfilDeLAlbum): PageDeLAlbum[] {
     const aLui = tous.filter(a => a.aLui)
     return { rarete, avatars: [...aLui, ...tous.filter(a => !a.aLui)], acquis: aLui.length, total: tous.length }
   })
+}
+
+/**
+ * Ce qu'il peut porter de l'album, rangé comme lui : les pages où il a
+ * quelque chose, chacune ses avatars dans l'ordre du catalogue, et ce qui y
+ * reste à gagner. La grille de la loge les montre ainsi — elle les rangeait
+ * en familles quand l'album les rangeait en raretés.
+ */
+export function sesPagesDeLAlbum(p: ProfilDeLAlbum): { rarete: RareteDAvatar; avatars: AvatarDeLAlbum[]; reste: number }[] {
+  return pagesDeLAlbum(p)
+    .filter(page => page.acquis > 0)
+    .map(page => ({ rarete: page.rarete, avatars: page.avatars.filter(a => a.aLui).map(a => a.avatar), reste: page.total - page.acquis }))
 }
 
 /** Tout l'album, compté : la ligne de « Ma collection », et sa part du total. */

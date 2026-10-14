@@ -193,6 +193,15 @@ export function etapesDeLaPiste(cle: string): readonly EtapeDePiste[] {
   return PISTES.get(cle) ?? []
 }
 
+/**
+ * L'étape qui ouvre un fond : sa piste et son seuil — le style de « Ma
+ * collection » dit où l'on en est. Null pour le Triomphe, qui va au champion
+ * du mois, sans compte.
+ */
+export function etapeDuFond(cle: CleDeFond): { piste: string; seuil: number } | null {
+  return cle === 'triomphe' ? null : ETAPES_DES_FONDS[cle]
+}
+
 /** Ce qu'ouvre un trophée qui se regagne, à tant de fois : « ×3 : le Kraken ». */
 export function ceQuOuvreLeTrophee(cle: string): readonly { fois: number; recompense: Recompense }[] {
   return DES_TROPHEES.get(cle) ?? []

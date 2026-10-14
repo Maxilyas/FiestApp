@@ -1,15 +1,17 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon, type IconName } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { ChoixDeLEclat } from './Carriere'
-import { JaugeFine } from './LigneDeCollection'
-import { gemme, useFiche } from './Boutique'
-import { ongletVise } from './Onglets'
+import { EtapeDuChemin } from './LigneDeCollection'
+import { Gemmes } from './Gemmes'
+import { useFiche } from './Boutique'
 import { dessinDuCompagnon, dessinDuPortrait, useDessins } from './medaillons'
 import { espacesFines } from '../format'
+import { gemmeDAvatar } from '../gemmes'
 import {
+  NOM_COURT_DE_RARETE_D_AVATAR,
   NOM_DE_RARETE_D_AVATAR,
   RARETES_D_AVATAR,
   ouIlSeGagne,
@@ -41,12 +43,6 @@ import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 // On n'y porte rien : ce qui est à lui se porte dans la loge (« Mon avatar »).
 
 const SORTES = BRANCHES.map(b => `branche:${b.key}` as const)
-
-/** La gemme de chaque page : celles des thèmes, et un opale pour les Divins, que la feuille irise. */
-const gemmeDAvatar = (r: RareteDAvatar): CSSProperties => (r === 'divin' ? ({ '--gemme': '#c9b6ff' } as CSSProperties) : gemme(r))
-
-/** Le nom d'une gemme sous la rangée : six tiennent sur un téléphone, abrégées ; le lecteur d'écran entend le nom entier. */
-const COURT: Record<RareteDAvatar, string> = { commune: 'Commune', peucommune: 'Peu com.', rare: 'Rare', epique: 'Épique', legendaire: 'Légend.', divin: 'Divin' }
 
 /** Ce que range chaque page, sous ses gemmes. */
 const CE_QU_ELLE_RANGE: Record<RareteDAvatar, string> = {
@@ -119,65 +115,32 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
 
 const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-/**
- * Les six gemmes, une par page, chacune son compte : les onglets de toute
- * l'application — un seul arrêt de Tab, les flèches passent à la voisine.
- */
+/** Les six gemmes, une par page, chacune son compte. */
 function GemmesDeLAlbum({ pages, choisie, onChoisir }: { pages: PageDeLAlbum[]; choisie: RareteDAvatar; onChoisir: (r: RareteDAvatar) => void }) {
-  const liste = useRef<HTMLDivElement>(null)
-  const touche = (e: KeyboardEvent, i: number) => {
-    const j = ongletVise(e.key, i, pages.length)
-    if (j === null) return
-    e.preventDefault()
-    onChoisir(pages[j].rarete)
-    liste.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
-  }
   return (
-    <div ref={liste} className="gemmes gemmes-album" role="tablist" aria-label="Les raretés">
-      {pages.map((p, i) => (
-        <button
-          key={p.rarete}
-          id={`gemme-${p.rarete}`}
-          type="button"
-          role="tab"
-          aria-selected={choisie === p.rarete}
-          aria-controls={choisie === p.rarete ? 'album-page' : undefined}
-          aria-label={`${NOM_DE_RARETE_D_AVATAR[p.rarete]}, ${p.acquis} sur ${p.total}`}
-          tabIndex={choisie === p.rarete ? 0 : -1}
-          className={'gemme' + (p.rarete === 'divin' ? ' gemme-divin' : '')}
-          style={gemmeDAvatar(p.rarete)}
-          onClick={() => onChoisir(p.rarete)}
-          onKeyDown={e => touche(e, i)}
-        >
-          <i aria-hidden="true" />
-          <span aria-hidden="true">{COURT[p.rarete]}</span>
-          <b aria-hidden="true">{`${p.acquis}/${p.total}`}</b>
-        </button>
-      ))}
-    </div>
+    <Gemmes
+      gemmes={pages.map(p => ({
+        id: p.rarete,
+        court: NOM_COURT_DE_RARETE_D_AVATAR[p.rarete],
+        label: `${NOM_DE_RARETE_D_AVATAR[p.rarete]}, ${p.acquis} sur ${p.total}`,
+        compte: `${p.acquis}/${p.total}`,
+        style: gemmeDAvatar(p.rarete),
+        divin: p.rarete === 'divin',
+      }))}
+      choisie={choisie}
+      onChoisir={onChoisir}
+      label="Les raretés"
+      idDe={r => `gemme-${r}`}
+      panneau="album-page"
+      className="gemmes-album"
+    />
   )
 }
 
-/** Une étape d'une voie : son lieu en icône — une coche si elle est tenue —, ce qu'il faut, sa règle, et où il en est. */
-function Etape({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) {
-  return (
-    <div className={'album-etape' + (e.tenue ? ' album-tenue' : '')}>
-      <span className="album-etape-icone" aria-hidden="true">
-        <Icon name={e.tenue ? 'check' : ICONE_DU_LIEU[e.lieu]} />
-      </span>
-      <span className="album-etape-texte">
-        <b>{espacesFines(e.titre)}</b>
-        {e.regle && <span className="muted small">{espacesFines(`${majuscule(e.regle)}.`)}</span>}
-        {jauge && e.progres && (
-          <span className="album-progres">
-            <JaugeFine part={e.progres.acquis / e.progres.requis} />
-            <span>{e.progres.dit}</span>
-          </span>
-        )}
-      </span>
-    </div>
-  )
-}
+/** Une étape d'une voie : son lieu en icône, ce qu'il faut, sa règle, et — à gagner — où il en est. */
+const Etape = ({ etape: e, jauge }: { etape: EtapeDUneVoie; jauge: boolean }) => (
+  <EtapeDuChemin icone={ICONE_DU_LIEU[e.lieu]} titre={e.titre} regle={e.regle} tenue={e.tenue} progres={jauge ? e.progres : null} />
+)
 
 /**
  * La fiche d'un avatar, sous sa rangée (la maquette de la fiche) : en grand,
@@ -239,6 +202,12 @@ export function FicheDeLAvatar({ a, aLui, porte, profil, dessin }: { a: AvatarDe
             .
           </span>
         </p>
+      )}
+      {/* « Essayer », comme sous « À porter » à la fin d'une partie et dans le style : la loge s'ouvre, lui sur la carte. */}
+      {aLui && !porte && (
+        <a className="btn btn-small album-essayer" href={`?essayer=${encodeURIComponent(a.cle)}#avatar`}>
+          Essayer
+        </a>
       )}
       {eclate && <ChoixDeLEclat brille={brilleChez(profil, a.cle)} busy={false} />}
       {voies.length > 0 && (

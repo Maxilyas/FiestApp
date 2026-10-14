@@ -18,6 +18,7 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 import type { VieDesSentiers } from '../../../shared/sentiers'
 import { SABLIERS_MAX } from '../../../shared/jour'
 import { OBJETS, type CleDObjet, type Objet } from './Objets'
+import { AGagner } from './LigneDeCollection'
 import { api, motifDe } from '../api'
 import { apercuDe } from '../apercus'
 import type { PropsDUnePiece } from './choix'
@@ -357,12 +358,8 @@ export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         <Icon name="palette" />
         {aVendre > 0 ? `${aVendre} autre${aVendre > 1 ? 's' : ''} à la boutique` : 'La boutique'}
       </a>
-      {aGagner > 0 && (
-        <a className="link-inline lien-boutique" href="#collection-themes">
-          <Icon name="award" />
-          {`${aGagner} qui ne se vend${aGagner > 1 ? 'ent' : ''} pas : où ${aGagner > 1 ? 'les' : 'le'} gagner`}
-        </a>
-      )}
+      {/* Ceux qui ne se vendent pas : le lien de toutes les pièces de la loge, vers la collection. */}
+      <AGagner n={aGagner} un="thème" plusieurs="thèmes" href="#collection-themes" />
     </section>
   )
 }

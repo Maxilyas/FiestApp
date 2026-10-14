@@ -385,12 +385,16 @@ test('un Divin verrouillé se tient tranquille, comme un légendaire verrouillé
 test('dans la grille des avatars, seul bouge ce que la carte montre — et celui qu’on survole', async () => {
   // 219 animations chez un habitué, pour un seul avatar regardé
   // (design-recompenses-4) : les halos de finition sous chaque emoji, les
-  // formes de chaque médaillon. Dans la loge, une famille à la fois : chacune a sa grille.
+  // formes de chaque médaillon. Dans la loge, une page de rareté à la fois : chacune a sa grille.
   const cases = (html: string) => [...html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
+  const { pagesDeLaLoge } = await import(url('components/Apparence.tsx'))
+  /** Une page de la grille, rendue — sous un essai, s'il y en a un. */
+  const page = (profil: object, p: unknown, essai: object = {}) => rendu('components/Apparence', 'PageDAvatars', { profil, essai, essayer: () => {}, busy: false, page: p })
   const toutes: { classes: string[]; nom: string }[] = []
-  for (const famille of ['legendaires', 'portraits', 'emojis']) {
-    const html = await rendu('components/Apparence', 'FamilleDAvatars', { profil: { ...HABITUE, sentiers: { foret: 5 } }, essai: {}, essayer: () => {}, busy: false, famille })
-    assert.match(html, /class="loge-grille[^"]* grille-unique"/)
+  const avecLaForet = { ...HABITUE, sentiers: { foret: 5 } }
+  for (const p of pagesDeLaLoge(avecLaForet)) {
+    const html = await page(avecLaForet, p)
+    assert.match(html, /class="loge-grille[^"]* grille-unique/)
     toutes.push(...cases(html))
   }
   assert.ok(toutes.length > 30, 'les grilles sont rendues')
@@ -402,7 +406,9 @@ test('dans la grille des avatars, seul bouge ce que la carte montre — et celui
   )
   // Sous un essai, `selected` passe à ce que la carte montre — et lui seul
   // bouge encore ; le porté, marqué `porte`, se fige avec les autres.
-  const sous = cases(await rendu('components/Apparence', 'FamilleDAvatars', { profil: HABITUE, essai: { legendaire: 'dv:seraphin' }, essayer: () => {}, busy: false, famille: 'legendaires' }))
+  // Le Divin essayé vit sur sa page, le Phénix porté sur la sienne : les deux pages, sous le même essai.
+  const sesPages = pagesDeLaLoge(HABITUE).filter((p: { page: string }) => p.page === 'legendaire' || p.page === 'divin')
+  const sous = (await Promise.all(sesPages.map((p: unknown) => page(HABITUE, p, { legendaire: 'dv:seraphin' })))).flatMap(cases)
   const montres = sous.filter(c => c.classes.includes('selected'))
   assert.equal(montres.length, 1, 'un seul montré')
   assert.equal(montres[0].nom, 'Le Séraphin, Divin')

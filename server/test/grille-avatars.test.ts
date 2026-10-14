@@ -1,10 +1,12 @@
-// La grille des avatars de la loge : la maquette 1 validée le 12 octobre 2026.
-// Trois pastilles qui comptent — ses légendaires, ses portraits, ses emojis —,
-// puis la grille de ce qu'il a : un toucher essaie l'avatar — la carte de la
-// loge le montre, la case a son halo d'or —, celui qu'il porte garde sa
-// coche, et « Porter », dans la barre de la loge, le garde. Des cadenas
-// finissent la rangée de ce qui reste ; d'où il vient, et comment gagner les
-// autres, se lit dans « Ma collection ».
+// La grille des avatars de la loge : la maquette 1 validée le 12 octobre 2026,
+// rangée le lendemain comme l'album de « Ma collection » — les gemmes des
+// raretés, au lieu de quatre familles (légendaires, portraits, compagnons,
+// emojis) : on ne s'y retrouvait pas d'un écran à l'autre. Les offerts, puis
+// chaque rareté où il a quelque chose, chacune son compte ; dessous, la grille
+// de ce qu'il a : un toucher essaie l'avatar — la carte de la loge le montre,
+// la case a son halo d'or —, celui qu'il porte garde sa coche, et « Porter »,
+// dans la barre de la loge, le garde. Ni cadenas ni fantômes : ce qui reste se
+// compte sous la grille, et mène à sa page de l'album, qui dit d'où il vient.
 //
 // Avant elle, la même grille répondait de deux façons — un emoji se portait
 // d'un toucher, un avatar dessiné ouvrait sa légende —, puis chaque case
@@ -75,10 +77,21 @@ const HABITUE = {
 /** Le premier jour : niveau 1, rien de dessiné. */
 const DEBUTANT = { ...HABITUE, legendaire: null, legendaires: [], divins: [], niveau: 1, sentiers: {}, eclats: [] }
 
-const FAMILLES = ['legendaires', 'portraits', 'emojis'] as const
-
 /** Ce que reçoit une pièce de la loge : rien d'essayé. */
 const loge = { essai: {}, essayer: () => {}, busy: false }
+
+/** Les pages de sa grille, telles que la loge les range. */
+async function sesPages(profil: object = HABITUE): Promise<{ page: string; cles: readonly string[]; reste: number }[]> {
+  const { pagesDeLaLoge } = await import(url('components/Apparence.tsx'))
+  return pagesDeLaLoge(profil)
+}
+
+/** Une page de sa grille : ses cases et ce qui reste. */
+async function laPage(nom: string, profil: object = HABITUE) {
+  const page = (await sesPages(profil)).find(p => p.page === nom)
+  assert.ok(page, `la page ${nom}`)
+  return page
+}
 
 /** Les cases d'une grille rendue : leurs classes, leur nom, si elles sont pressées. */
 const casesDe = (html: string) =>
@@ -88,149 +101,160 @@ const casesDe = (html: string) =>
     nom: m[3],
   }))
 
-/** Une famille de la grille, rendue. */
-const famille = (f: string, profil: object = HABITUE, essai: object = {}) => rendu('components/Apparence', 'FamilleDAvatars', { profil, ...loge, essai, famille: f })
+/** Une page de la grille, rendue. */
+const page = async (nom: string, profil: object = HABITUE, essai: object = {}) =>
+  rendu('components/Apparence', 'PageDAvatars', { profil, ...loge, essai, page: await laPage(nom, profil) })
 
-test('dans chaque famille, chaque case essaie son avatar : rien ne se porte ni ne s’enregistre d’un toucher, aucune fiche ne s’ouvre', async () => {
+test('dans chaque page, chaque case essaie son avatar : rien ne se porte ni ne s’enregistre d’un toucher, aucune fiche ne s’ouvre', async () => {
   const essais: object[] = []
   const vus: Record<string, object[]> = {}
-  for (const f of FAMILLES) {
+  for (const p of await sesPages()) {
     essais.length = 0
-    const boutons = elements(await arbre('components/Apparence', 'FamilleDAvatars', { profil: HABITUE, ...loge, essayer: (p: object) => essais.push(p), famille: f })).filter(
+    const boutons = elements(await arbre('components/Apparence', 'PageDAvatars', { profil: HABITUE, ...loge, essayer: (x: object) => essais.push(x), page: p })).filter(
       e => e.type === 'button',
     )
     for (const b of boutons) {
       // Une case, pressée si la carte la montre — pas un bouton qui déplie une fiche.
-      assert.match(b.props.className, /^loge-case case-avatar/, f)
-      assert.equal(typeof b.props['aria-pressed'], 'boolean', f)
-      assert.equal(b.props['aria-expanded'], undefined, f)
-      assert.equal(b.props['aria-controls'], undefined, f)
+      assert.match(b.props.className, /^loge-case case-avatar/, p.page)
+      assert.equal(typeof b.props['aria-pressed'], 'boolean', p.page)
+      assert.equal(b.props['aria-expanded'], undefined, p.page)
+      assert.equal(b.props['aria-controls'], undefined, p.page)
       b.props.onClick()
     }
-    vus[f] = [...essais]
+    vus[p.page] = [...essais]
   }
-  // Ses deux légendaires et son Divin ; ses trois portraits, rangés comme le catalogue ; vingt-quatre emojis et les dix de collection du niveau 14.
-  assert.deepEqual(vus.legendaires, [{ legendaire: 'lg:phenix' }, { legendaire: 'lg:dragon' }, { legendaire: 'dv:seraphin' }])
-  assert.deepEqual(vus.portraits, [{ legendaire: 'br:minotaure' }, { legendaire: 'br:ecureuil' }, { legendaire: 'br:blaireau' }])
-  assert.equal(vus.emojis.length, 34)
-  assert.ok(vus.emojis.every(e => Object.keys(e).join() === 'avatar'), 'un emoji s’essaie, il ôte le légendaire')
+  // Les pages de l'album où il a quelque chose, après les offerts : ni rare ni épique, il n'en a pas.
+  assert.deepEqual(Object.keys(vus), ['offert', 'commune', 'peucommune', 'legendaire', 'divin'])
+  // Ses deux légendaires, son Divin à part ; ses portraits à la rareté de leur rang — le visage commun, le deuxième peu commun.
+  assert.deepEqual(vus.legendaire, [{ legendaire: 'lg:phenix' }, { legendaire: 'lg:dragon' }])
+  assert.deepEqual(vus.divin, [{ legendaire: 'dv:seraphin' }])
+  assert.deepEqual(
+    vus.commune.filter(e => 'legendaire' in e),
+    [{ legendaire: 'br:minotaure' }, { legendaire: 'br:ecureuil' }],
+  )
+  assert.deepEqual(
+    vus.peucommune.filter(e => 'legendaire' in e),
+    [{ legendaire: 'br:blaireau' }],
+  )
+  // Les vingt-quatre de l'inscription, et les dix de collection du niveau 14 à la rareté de leur niveau.
+  assert.equal(vus.offert.length, 24)
+  assert.equal([...vus.commune, ...vus.peucommune].filter(e => 'avatar' in e).length, 10)
+  assert.ok(
+    [...vus.offert, ...vus.commune, ...vus.peucommune].filter(e => 'avatar' in e).every(e => Object.keys(e).join() === 'avatar'),
+    'un emoji s’essaie, il ôte le légendaire',
+  )
   // Rien ne s'enregistre d'un toucher dans la grille, ni dans aucune pièce : pas même la version d'un avatar éclaté.
   const APPARENCE = source('components/Apparence.tsx')
   assert.doesNotMatch(APPARENCE, /\benregistrer\(|onPorter=|id="detail-avatar"|fiche-case/)
-  // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste — la page de l'album où ils sont.
-  assert.match(await famille('legendaires'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">24 légendaires à gagner : où \?<svg/)
+  // Les espaces de `espacesFines` devant les deux-points et le point d'interrogation : le chemin de ce qui reste — sa page de l'album.
+  assert.match(await page('legendaire'), /<a class="loge-a-gagner" href="#collection-avatars-legendaire">39 avatars légendaires à gagner\s:\soù\s\?<svg/)
 })
 
-test('quatre pastilles, chacune son compte, ouvertes sur la famille de ce qu’il porte', async () => {
-  const pastilles = (html: string) =>
-    [...html.matchAll(/<button id="famille-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*>([^<]*)<span class="onglet-pastille" aria-hidden="true">(\d+)<\/span><span class="sr-only">, \4 à toi<\/span><\/button>/g)].map(m => [
+test('les gemmes de l’album : les offerts, puis chaque rareté où il a quelque chose, chacune son compte, ouvertes sur la page de ce qu’il porte', async () => {
+  const gemmes = (html: string) =>
+    [...html.matchAll(/<button id="loge-gemme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*aria-label="([^"]+)"[^>]*>.*?<span aria-hidden="true">([^<]*)<\/span><b aria-hidden="true">(\d+)<\/b><\/button>/g)].map(m => [
       m[1],
       m[2],
       m[3],
       m[4],
+      m[5],
     ])
   const mes = (profil: object) => rendu('components/Apparence', 'MesAvatars', { profil, ...loge })
-  // Deux légendaires et un Divin, trois portraits, aucun compagnon, vingt-quatre emojis et dix de collection.
-  assert.deepEqual(await pastilles(await mes(HABITUE)), [
-    ['legendaires', 'true', 'Légendaires', '3'],
-    ['portraits', 'false', 'Portraits', '3'],
-    ['compagnons', 'false', 'Compagnons', '0'],
-    ['emojis', 'false', 'Emojis', '34'],
+  // Vingt-quatre offerts ; des communs et des peu communs — portraits et emojis de collection ; deux légendaires ; un Divin.
+  assert.deepEqual(await gemmes(await mes(HABITUE)), [
+    ['offert', 'false', 'Offerts à tous, 24 à toi', 'Offerts', '24'],
+    ['commune', 'false', 'Commune, 8 à toi', 'Commune', '8'],
+    ['peucommune', 'false', 'Peu commune, 5 à toi', 'Peu com.', '5'],
+    ['legendaire', 'true', 'Légendaire, 2 à toi', 'Légend.', '2'],
+    ['divin', 'false', 'Divin, 1 à toi', 'Divin', '1'],
   ])
-  // Un seul arrêt de Tab — l'onglet choisi — et `aria-controls` ne vise que le panneau affiché.
+  // Un seul arrêt de Tab — la gemme choisie — et `aria-controls` ne vise que le panneau affiché.
   const html = await mes(HABITUE)
-  assert.match(html, /<div class="onglets onglets-puces" role="tablist" aria-label="Familles d’avatars">/)
+  assert.match(html, /<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/)
   assert.equal([...html.matchAll(/tabindex="0"/g)].length, 1)
-  assert.equal([...html.matchAll(/aria-controls="famille-avatars"/g)].length, 1)
-  assert.match(html, /<div class="famille-avatars" role="tabpanel" id="famille-avatars" aria-labelledby="famille-legendaires">/)
-  // Sous le Phénix — ou un Divin —, les légendaires ; sous un portrait, les portraits ; sous un emoji, les emojis.
-  const actif = async (profil: object) => (await pastilles(await mes(profil))).find(p => p[1] === 'true')?.[2]
-  assert.equal(await actif(HABITUE), 'Légendaires')
-  assert.equal(await actif({ ...HABITUE, legendaire: 'dv:seraphin' }), 'Légendaires')
-  assert.equal(await actif({ ...HABITUE, legendaire: 'br:blaireau' }), 'Portraits')
-  assert.equal(await actif({ ...HABITUE, legendaire: 'cp:loup-jeune', compagnons: [{ compagnon: 'loup', rang: 1 }] }), 'Compagnons')
-  assert.equal(await actif({ ...HABITUE, legendaire: null, avatar: '🐝' }), 'Emojis')
-  assert.equal(await actif(DEBUTANT), 'Emojis')
-  // Le premier jour : zéro légendaire, zéro portrait, zéro compagnon — les pastilles disent qu'ils existent.
-  assert.deepEqual((await pastilles(await mes(DEBUTANT))).map(p => p[3]), ['0', '0', '0', '24'])
-  // Les onglets de toute l'application : les flèches passent à la voisine (`petit-ecran.test.ts`).
-  assert.match(source('components/Apparence.tsx'), /<Onglets\s+onglets=\{FAMILLES\.map/)
+  assert.equal([...html.matchAll(/aria-controls="loge-page-avatars"/g)].length, 1)
+  assert.match(html, /<div class="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby="loge-gemme-legendaire">/)
+  // La page de ce qu'il porte : le Phénix, légendaire ; un Divin, la sienne ; un portrait, sa rareté ; un compagnon, celle de sa forme ; un emoji, la sienne.
+  const choisie = async (profil: object) => (await gemmes(await mes(profil))).find(g => g[1] === 'true')?.[0]
+  assert.equal(await choisie(HABITUE), 'legendaire')
+  assert.equal(await choisie({ ...HABITUE, legendaire: 'dv:seraphin' }), 'divin')
+  assert.equal(await choisie({ ...HABITUE, legendaire: 'br:blaireau' }), 'peucommune')
+  assert.equal(await choisie({ ...HABITUE, legendaire: 'cp:loup-jeune', compagnons: [{ compagnon: 'loup', rang: 1 }] }), 'rare')
+  assert.equal(await choisie({ ...HABITUE, legendaire: null, avatar: '🐝' }), 'commune')
+  assert.equal(await choisie({ ...HABITUE, legendaire: null, avatar: '🐸' }), 'offert')
+  assert.equal(await choisie(DEBUTANT), 'offert')
+  // Le premier jour : les offerts seuls — pas de gemme vide pour dire ce qui existe, l'album le dit.
+  assert.deepEqual((await gemmes(await mes(DEBUTANT))).map(g => g[0]), ['offert'])
+  // Les gemmes de l'album, les mêmes, et ses noms courts : on passe de l'un à l'autre sans réapprendre (`petit-ecran.test.ts` : les flèches).
+  assert.match(source('components/Apparence.tsx'), /<Gemmes\s/)
+  assert.match(source('components/AlbumDesAvatars.tsx'), /<Gemmes\s/)
+  // Une rangée jusqu'à cinq, deux au-delà — et une règle plus précise que `.gemmes`, posée plus bas : à classe seule, la sienne l'emportait.
+  assert.match(CSS, /\.gemmes\.gemmes-loge \{ grid-template-columns: none; grid-auto-flow: column;/)
+  assert.match(CSS, /\.gemmes\.gemmes-loge:has\(> :nth-child\(6\)\) \{ grid-auto-flow: row; grid-template-columns: repeat\(3,/)
+  assert.match(CSS, /\.gemmes\.gemmes-loge:has\(> :nth-child\(7\)\) \{ grid-template-columns: repeat\(4,/)
+  assert.doesNotMatch(CSS, /^\.gemmes-loge \{/m)
 })
 
-test('seulement ce qu’il a : des cadenas finissent la rangée, et « N à gagner : où ? » mène à sa page de l’album de la collection', async () => {
+test('seulement ce qu’il a : ni cadenas ni fantômes — ce qui reste se compte sous la grille, et mène à sa page de l’album', async () => {
+  // Les cadenas rayés qui finissaient chaque rangée sont partis avec les
+  // familles (le 13 octobre 2026) : la loge ne montre que ce qu'il a.
   const { cadenas } = await import(url('components/Apparence.tsx'))
-  // La dernière rangée, ou une rangée entière quand elle tombe juste — jamais plus que ce qui reste.
-  assert.deepEqual([cadenas(0, 4, 26), cadenas(2, 4, 24), cadenas(4, 4, 22), cadenas(3, 4, 1), cadenas(5, 4, 0), cadenas(10, 5, 2)], [4, 2, 4, 1, 0, 2])
-  const fermes = (html: string) => [...html.matchAll(/<span class="loge-case loge-ferme" aria-hidden="true"><svg[^>]*>.*?<\/svg>(?:<span class="loge-ferme-niveau">([^<]*)<\/span>)?<\/span>/g)].map(m => m[1] ?? '')
-
-  // Les légendaires : les deux siens et deux cadenas ; son Divin sous son titre, sans cadenas — les Divins ne disent pas comment.
-  const legendaires = await famille('legendaires')
-  assert.equal(casesDe(legendaires).length, 3)
-  assert.deepEqual(fermes(legendaires), ['', ''])
-  assert.match(legendaires, /<p class="loge-grille-titre">Les Divins <span>1 \/ 6<\/span><\/p>/)
-  assert.ok(legendaires.indexOf('loge-ferme') < legendaires.indexOf('Les Divins'), 'les cadenas finissent la rangée des légendaires')
-  // Les portraits : trois, un cadenas, soixante-neuf à gagner sur les sentiers.
-  const portraits = await famille('portraits')
-  assert.deepEqual(casesDe(portraits).map(c => c.nom), ['Le Minotaure, portrait des mythologies', 'L’écureuil, portrait de la forêt', 'Le blaireau, portrait de la forêt'])
-  assert.deepEqual(fermes(portraits), [''])
-  // Le prochain portrait est un visage, d'une autre branche : la page commune de l'album.
-  assert.match(portraits, /href="#collection-avatars-commune">69 portraits à gagner : où \?/)
-  // Les emojis : les vingt-quatre de l'inscription, sans cadenas ; dix de collection, et les deux suivants disent leur niveau.
-  const emojis = await famille('emojis')
-  assert.equal(casesDe(emojis).length, 34)
-  assert.match(emojis, /<p class="loge-grille-titre">De collection <span>10 \/ 12<\/span><\/p>/)
-  assert.deepEqual(fermes(emojis), ['niv. 16', 'niv. 17'])
-  assert.match(emojis, /href="#collection-avatars-peucommune">2 emojis de collection à gagner : où \?/)
-  // Les cadenas sont du décor : ni bouton, ni lien — le lien dessous dit où.
-  assert.doesNotMatch(emojis, /<(button|a)[^>]*loge-ferme/)
-  // Les compagnons : le loup acheté et grandi d'une forme — ses deux formes se portent —, deux cadenas, dix à gagner.
-  const compagnons = await famille('compagnons', { ...HABITUE, compagnons: [{ compagnon: 'loup', rang: 1 }] })
-  assert.deepEqual(
-    casesDe(compagnons).map(c => c.nom),
-    ['Le louveteau, Le Loup, première forme', 'Le jeune loup, Le Loup, deuxième forme'],
-  )
-  assert.deepEqual(fermes(compagnons), ['', ''])
-  assert.match(compagnons, /href="#collection-avatars-commune">10 formes de compagnons à gagner\s: où\s\?/)
-
-  // Le premier jour : ce qui se gagne, et où — une rangée de cadenas dans chaque famille.
-  const rien = await famille('legendaires', DEBUTANT)
-  assert.match(rien, /Chacun se réveille par un exploit, en soirée, au quiz du jour ou en campagne\./)
-  assert.deepEqual(fermes(rien), ['', '', '', ''])
-  assert.doesNotMatch(rien, /Les Divins/)
-  const sentiers = await famille('portraits', DEBUTANT)
-  assert.match(sentiers, /Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers\. <a class="link-inline" href="\/campagne#sentiers">Les sentiers<\/a>/)
-  assert.match(sentiers, /72 portraits à gagner/)
-  const collection = await famille('emojis', DEBUTANT)
-  assert.match(collection, /De collection <span>0 \/ 12<\/span>/)
-  assert.deepEqual(fermes(collection), ['niv. 2', 'niv. 4', 'niv. 5', 'niv. 7', 'niv. 8'])
-  const boutique = await famille('compagnons', DEBUTANT)
-  assert.match(boutique, /Ils s’achètent à la boutique, puis grandissent avec les bonnes réponses que tu donnes en les portant\. <a class="link-inline" href="\/boutique#compagnons">La boutique<\/a>/)
-  assert.deepEqual(fermes(boutique), ['', '', '', ''])
-  assert.match(boutique, /12 formes de compagnons à gagner/)
+  assert.equal(cadenas, undefined)
+  for (const p of await sesPages()) assert.doesNotMatch(await page(p.page), /loge-ferme|niv\. \d/, p.page)
+  assert.doesNotMatch(CSS, /\.loge-ferme/)
+  // Les communs : ses deux visages, puis ses emojis de collection des premiers niveaux, chacun à sa place du catalogue.
+  const commune = await page('commune')
+  assert.deepEqual(casesDe(commune).map(c => c.nom), [
+    'Le Minotaure, portrait des mythologies',
+    'L’écureuil, portrait de la forêt',
+    'Avatar 🦚, de collection · niveau 2',
+    'Avatar 🐢, de collection · niveau 4',
+    'Avatar 🦈, de collection · niveau 5',
+    'Avatar 🦔, de collection · niveau 7',
+    'Avatar 🐝, de collection · niveau 8',
+    'Avatar 🦩, de collection · niveau 9',
+  ])
+  // Ce qui reste sur sa page de l'album, compté, et son chemin — les espaces fines de `espacesFines` comprises.
+  assert.match(commune, /href="#collection-avatars-commune">13 avatars communs à gagner\s:\soù\s\?/)
+  assert.match(await page('peucommune'), /href="#collection-avatars-peucommune">13 avatars peu communs à gagner\s:\soù\s\?/)
+  // Les offerts mènent à tout l'album : ce qui reste de toutes ses pages.
+  assert.match(await page('offert'), /href="#collection-avatars">112 avatars à gagner\s:\soù\s\?/)
+  // Un Divin ne dit pas comment : rien à compter sous sa page (invariant 21).
+  assert.doesNotMatch(await page('divin'), /loge-a-gagner/)
+  // Les compagnons, à la rareté de leur forme : le louveteau commun, le jeune loup rare.
+  const avecLeLoup = { ...HABITUE, compagnons: [{ compagnon: 'loup', rang: 1 }] }
+  assert.ok(casesDe(await page('commune', avecLeLoup)).some(c => c.nom === 'Le louveteau, Le Loup, première forme'))
+  assert.deepEqual(casesDe(await page('rare', avecLeLoup)).map(c => c.nom), ['Le jeune loup, Le Loup, deuxième forme'])
+  // Le premier jour : les offerts seuls, et ce qui reste de tout l'album.
+  assert.deepEqual((await sesPages(DEBUTANT)).map(p => p.page), ['offert'])
+  assert.match(await page('offert', DEBUTANT), /href="#collection-avatars">128 avatars à gagner\s:\soù\s\?/)
 })
 
 test('la carte montre une case — son halo d’or —, celle qu’il porte garde sa coche, et rien ne bouge sous le doigt', async () => {
   // Rien d'essayé : le Phénix est montré et porté — pressé, sa coche, sans « porté » redit à l'oreille.
-  const sansEssai = casesDe(await famille('legendaires'))
+  const sansEssai = casesDe(await page('legendaire'))
   assert.deepEqual(sansEssai.map(c => [c.nom, c.presse, c.classes.join(' ')]), [
     ['Le Phénix, légendaire', true, 'anneau-legendaire selected porte'],
     ['Le Dragon d’Or, légendaire', false, 'anneau-legendaire'],
-    ['Le Séraphin, Divin', false, 'anneau-divin'],
   ])
   // Le Dragon essayé : son halo ; le Phénix garde sa coche, et l'oreille entend qu'il le porte toujours.
-  const dragon = casesDe(await famille('legendaires', HABITUE, { legendaire: 'lg:dragon' }))
+  const dragon = casesDe(await page('legendaire', HABITUE, { legendaire: 'lg:dragon' }))
   assert.deepEqual(dragon.map(c => [c.nom, c.presse, c.classes.join(' ')]), [
     ['Le Phénix, légendaire, porté', false, 'anneau-legendaire porte'],
     ['Le Dragon d’Or, légendaire', true, 'anneau-legendaire selected essaye'],
-    ['Le Séraphin, Divin', false, 'anneau-divin'],
   ])
   // Les mêmes cases, dans le même ordre : un essai ne change que leur état — rien ne part sous le doigt, ni le focus avec.
   const sansEtat = (cases: { nom: string }[]) => cases.map(c => c.nom.replace(/, porté$/, ''))
   assert.deepEqual(sansEtat(dragon), sansEtat(sansEssai))
+  // Son Divin, sur sa page, dans son anneau.
+  assert.deepEqual(
+    casesDe(await page('divin')).map(c => [c.nom, c.presse, c.classes.join(' ')]),
+    [['Le Séraphin, Divin', false, 'anneau-divin']],
+  )
   // Sous le Phénix, la grenouille n'est pas portée : c'est le Phénix que la salle voit. Essayée, elle le remplace sur la carte.
-  const avant = casesDe(await famille('emojis')).find(c => c.nom === 'Avatar 🐸')!
+  const avant = casesDe(await page('offert')).find(c => c.nom === 'Avatar 🐸')!
   assert.deepEqual([avant.presse, avant.classes], [false, []])
-  const apres = casesDe(await famille('emojis', HABITUE, { avatar: '🐸' })).find(c => c.nom === 'Avatar 🐸')!
+  const apres = casesDe(await page('offert', HABITUE, { avatar: '🐸' })).find(c => c.nom === 'Avatar 🐸')!
   assert.deepEqual([apres.presse, apres.classes], [true, ['selected', 'essaye']])
   // Le halo d'or de l'essai, la coche de ce qu'il porte, le cadre de ce que la carte montre.
   assert.match(regle('.loge-case.essaye'), /box-shadow:/)
@@ -244,24 +268,27 @@ async function ficheDeLAlbum(cle: string, plus: { aLui?: boolean; porte?: boolea
   return rendu('components/AlbumDesAvatars', 'FicheDeLAvatar', { a: avatarDeLAlbum(cle), aLui: false, porte: false, profil: HABITUE, dessin: null, ...plus })
 }
 
-test('la fiche d’un portrait dit le palier qui l’ouvre, et où il en est ; à lui, où le porter — rien ne s’y porte', async () => {
+test('la fiche d’un portrait dit le palier qui l’ouvre, et où il en est ; à lui, où le porter et « Essayer » — rien ne s’y porte', async () => {
   // Le blaireau, au palier 4 de la forêt : à lui. Il se porte dans la loge, pas d'ici.
   const blaireau = await ficheDeLAlbum('br:blaireau', { aLui: true })
   assert.match(blaireau, /<b class="galerie-detail-nom">Le blaireau<\/b><span class="album-detail-rarete"><i aria-hidden="true"><\/i>Peu commune<\/span>/)
   assert.match(blaireau, /<p class="muted small">La forêt · Nature<\/p>/)
-  assert.match(blaireau, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">« Mon avatar »<\/a>\./)
+  assert.match(blaireau, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">«\sMon avatar\s»<\/a>\./)
   assert.match(blaireau, /<span class="label album-etiquette">Comment il se gagne<\/span>/)
+  // « Essayer », comme sous « À porter » à la fin d'une partie : la loge s'ouvre, lui sur la carte (`essaiDemande`).
+  assert.match(blaireau, /<a class="btn btn-small album-essayer" href="\?essayer=br%3Ablaireau#avatar">Essayer<\/a>/)
   // À lui, plus de jauge ni de chemin : il l'a.
   assert.doesNotMatch(blaireau, /<button|Le porter|album-progres|album-aller/)
   // Le lynx, au palier 6 : où il en est sur son sentier, et le chemin du sentier.
   const lynx = await ficheDeLAlbum('br:lynx')
-  assert.match(lynx, /Sur les sentiers : le palier 6 du sentier de la forêt<\/b>/)
+  assert.match(lynx, /Sur les sentiers\s: le palier 6 du sentier de la forêt<\/b>/)
   assert.match(lynx, /<span class="album-progres"><span class="jauge-fine" aria-hidden="true"><span style="width:83%"><\/span><\/span><span>palier 5 sur 6<\/span><\/span>/)
-  assert.doesNotMatch(lynx, /<button/, 'à gagner : rien à porter')
+  assert.doesNotMatch(lynx, /<button|album-essayer/, 'à gagner : rien à porter, rien à essayer')
   assert.match(lynx, /<a class="btn btn-small album-aller" href="\/campagne#sentier-foret">Aller au sentier<\/a>/)
-  // Le Loup, au palier 8 : à lui, et porté.
+  // Le Loup, au palier 8 : à lui, et porté — l'essayer ne montrerait rien de neuf.
   const loup = await ficheDeLAlbum('br:loup', { aLui: true, porte: true, profil: { ...HABITUE, sentiers: { foret: 8 } } })
   assert.match(loup, /À toi, et tu le portes\./)
+  assert.doesNotMatch(loup, /album-essayer/)
 })
 
 test('touché dans l’album, un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
@@ -351,7 +378,7 @@ test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la 
   assert.equal(brilleChez({ eclats: [], eclatsEteints: ['🦊'] }, '🦊'), false)
   // La grille montre la version que la carte montrerait.
   assert.match(source('components/Apparence.tsx'), /const tenue = avecLEssai\(profil, essai\)\s*const brille = \(cle: string\) => brilleChez\(tenue, cle\)/)
-  assert.match((await famille('emojis')), /aria-label="Avatar 🦊, éclaté"/)
+  assert.match(await page('offert'), /aria-label="Avatar 🦊, éclaté"/)
   // Et le lecteur d'écran entend ce qui a changé.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ eclat: { cle: '🦊', brille: false } }), 'Tu portes sa version d’origine.')
@@ -359,7 +386,8 @@ test('un avatar éclaté s’essaie dans sa version rare ou d’origine, sur la 
 })
 
 test('un emoji de collection dit son niveau, à l’oreille et dans la barre de la loge', async () => {
-  const cases = casesDe(await famille('emojis'))
+  // Ils vivent à la rareté de leur niveau, comme dans l'album : communs, puis peu communs à partir du niveau 10.
+  const cases = [...casesDe(await page('commune')), ...casesDe(await page('peucommune'))]
   const abeille = cases.find(c => c.nom.startsWith('Avatar 🐝'))!
   assert.equal(abeille.nom, 'Avatar 🐝, de collection · niveau 8')
   assert.ok(abeille.classes.includes('anneau-collection'))
@@ -372,13 +400,16 @@ test('un emoji de collection dit son niveau, à l’oreille et dans la barre de 
 test('dans l’album, la fiche d’un avatar à lui dit qu’il l’a, et s’il le porte — en changer se fait dans la loge, qui l’essaie d’abord', async () => {
   // « Le porter » vivait dans les fiches, et disait ce qu'il remplaçait : la
   // loge essaie désormais sur la carte, et sa barre le dit. L'album ne fait
-  // que montrer, légendaire, Divin, portrait ou emoji.
+  // que montrer, légendaire, Divin, portrait ou emoji — et « Essayer » y mène.
   const dragon = await ficheDeLAlbum('lg:dragon', { aLui: true })
-  assert.match(dragon, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">« Mon avatar »<\/a>\./)
-  assert.match(await ficheDeLAlbum('lg:phenix', { aLui: true, porte: true }), /À toi, et tu le portes\./)
+  assert.match(dragon, /À toi\. Il se porte dans <a class="link-inline" href="#avatar">«\sMon avatar\s»<\/a>\./)
+  assert.match(dragon, /href="\?essayer=lg%3Adragon#avatar">Essayer</)
+  const phenix = await ficheDeLAlbum('lg:phenix', { aLui: true, porte: true })
+  assert.match(phenix, /À toi, et tu le portes\./)
+  assert.doesNotMatch(phenix, /album-essayer/)
   assert.match(await ficheDeLAlbum('dv:seraphin', { aLui: true }), /À toi\./)
   const aGagner = await ficheDeLAlbum('lg:oracle')
-  assert.doesNotMatch(aGagner, /À toi/)
+  assert.doesNotMatch(aGagner, /À toi|album-essayer/)
   for (const html of [dragon, aGagner]) assert.doesNotMatch(html, /<button|Le porter|Il remplacera|Revenir à mon emoji/)
   assert.doesNotMatch(source('components/AlbumDesAvatars.tsx'), /enregistrer|onPorter|onEclat/)
 })

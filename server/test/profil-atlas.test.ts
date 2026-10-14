@@ -17,7 +17,7 @@ import { LEGENDAIRES } from '../../shared/legendaires'
 import { DIVINS } from '../../shared/divins'
 import { COMPAGNONS } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION } from '../../shared/profil'
+import { FINITIONS } from '../../shared/profil'
 
 Object.assign(globalThis, {
   React,
@@ -275,16 +275,15 @@ test('la loge, sur l’avatar : sa carte collée en tête, ses finitions en past
   // Ses finitions sur une rangée de pastilles (la maquette 3) : « Auto », celle
   // qu'il porte d'office ; dépliées en grandes cases, elles repoussaient ses
   // avatars de plus d'un écran.
-  assert.match(html, /<div class="loge-finitions"><span class="loge-sous-titre" id="loge-finitions-titre">Finition<\/span><div class="loge-finitions-rangee" role="group" aria-labelledby="loge-finitions-titre"><button type="button" class="finition-choix selected porte" aria-pressed="true" aria-label="Auto, toujours la plus belle : Argent">/)
+  // Peu de pastilles — sa première finition — s'alignent à gauche (`rangee-courte`).
+  assert.match(html, /<div class="loge-finitions"><span class="loge-sous-titre" id="loge-finitions-titre">Finition<\/span><div class="loge-finitions-rangee rangee-courte" role="group" aria-labelledby="loge-finitions-titre"><button type="button" class="finition-choix selected porte" aria-pressed="true" aria-label="Auto, toujours la plus belle : Argent">/)
   assert.doesNotMatch(html, /class="finitions"|aria-controls="mes-finitions"/)
-  assert.ok(html.indexOf('loge-finitions') < html.indexOf('onglets-puces'), 'la finition avant les avatars')
-  // Seulement ce qu'il a : chaque case se touche ; ce qui reste est un cadenas, du décor.
-  assert.doesNotMatch(html, /<button[^>]*loge-ferme/)
-  // Ce qui reste, et où le gagner : un lien vers l'album de la collection, sur la page du prochain à gagner, compté.
-  const { pageDuProchain } = await import('../../shared/album')
-  const famille = /aria-labelledby="famille-(\w+)"/.exec(html)![1]
-  const sorte = ({ legendaires: 'legendaire', portraits: 'portrait', emojis: 'emoji' } as const)[famille as 'legendaires']
-  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-avatars-${pageDuProchain(complet as any, sorte)}">\\d+ [^<]* à gagner`))
+  assert.ok(html.indexOf('loge-finitions') < html.indexOf('gemmes-loge'), 'la finition avant les avatars')
+  // Seulement ce qu'il a : ni cadenas, ni finition ni bordure éteinte (le 13 octobre 2026).
+  assert.doesNotMatch(html, /loge-ferme|finition-fermee|bordure-fermee/)
+  // Ce qui reste, et où le gagner : un lien vers sa page de l'album, compté.
+  const page = /aria-labelledby="loge-gemme-(\w+)"/.exec(html)![1]
+  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-avatars${page === 'offert' ? '' : `-${page}`}">\\d+ [^<]* à gagner`))
   // La carte reste collée pendant qu'on choisit.
   assert.match(source('styles.css'), /\.loge-collante \{ position: sticky; top: 0;/)
 })
@@ -294,7 +293,8 @@ test('la loge, sur le thème : ses thèmes, deux liens vers ce qu’il n’a pas
   assert.doesNotMatch(html, /Mes gerbes|gerbes-choix/, 'la gerbe a son panneau')
   // Ce qui s'achète à la boutique, ce qui se gagne dans la collection : pas sur l'écran où l'on choisit.
   assert.match(html, /<a class="link-inline lien-boutique" href="\/boutique"><svg[^>]*>.*?<\/svg>\d+ autres à la boutique<\/a>/)
-  assert.match(html, /<a class="link-inline lien-boutique" href="#collection-themes"><svg[^>]*>.*?<\/svg>5 qui ne se vendent pas : où les gagner<\/a>/)
+  // Ce qui se gagne : le lien de toutes les pièces de la loge.
+  assert.match(html, /<a class="loge-a-gagner" href="#collection-themes">5 thèmes à gagner\s:\soù\s\?<svg/)
   // Seulement ceux qu'il a, dans leurs cartes : les autres se montrent dans la collection.
   assert.equal(html.match(/<button type="button" class="theme-vitrine/g)?.length, complet.boutique.possedes.length)
 })
@@ -313,32 +313,37 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   assert.doesNotMatch(gerbes, /gerbe-a-gagner/)
   assert.equal(gerbes.match(/class="finition-btn( selected)?"/g)?.length, 1 + complet.gerbes.length, 'Aucune, et les siennes')
   const reste = GERBES.length - complet.gerbes.length
-  assert.match(gerbes, new RegExp(`<a class="link-inline lien-boutique" href="#collection-gerbes"><svg[^>]*>.*?</svg>${reste} autres gerbes à gagner : où et comment, dans « Ma collection »</a>`))
+  assert.match(gerbes, new RegExp(`<a class="loge-a-gagner" href="#collection-gerbes">${reste} gerbes à gagner\\s:\\soù\\s\\?<svg`))
   const APPARENCE = source('components/Apparence.tsx')
   assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
   assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
   // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
   const carte = await laLoge('fond')
-  assert.match(carte, /href="#collection-fonds"><svg[^>]*>.*?<\/svg>7 autres fonds à gagner : où et comment, dans « Ma collection »<\/a>/)
+  assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">7 fonds à gagner\s:\soù\s\?<svg/)
   assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
-  // La finition : chacune qui reste à gagner, éteinte, dit son niveau et mène à sa ligne de la collection.
+  // La finition : les siennes seulement. Les restantes s'y montraient
+  // éteintes, chacune son niveau (le 12 octobre 2026 : « il manque les
+  // finitions 15, 20, 25 ») ; le lendemain, le propriétaire ne voulait plus
+  // voir dans la loge ce qu'il n'avait pas. Elles se comptent au bout de la
+  // rangée, et mènent à leur ligne de la collection, qui dit le niveau de chacune.
   const avatar = await rendu('components/Apparence', 'MesFinitions', { profil: complet, ...loge })
-  assert.match(avatar, /<a class="finition-choix finition-fermee" href="#collection-finitions" aria-label="Argent, au niveau 3 : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-argent" aria-hidden="true"><\/i><span aria-hidden="true">Niv\. 3<\/span><\/a>/)
-  // Toutes, jusqu'à la dernière (le propriétaire, le 12 octobre 2026 : « il
-  // manque les finitions 15, 20, 25 ») : seule la prochaine se montrait.
-  const fermees = (html: string) => [...html.matchAll(/<a class="finition-choix finition-fermee" href="#collection-finitions" aria-label="([^,]+), au niveau (\d+) :[^"]*"><i class="finition-teinte teinte-(\w+)" aria-hidden="true"><\/i><span aria-hidden="true">Niv\. (\d+)<\/span><\/a>/g)].map(m => `${m[1]} ${m[2]} ${m[3]} ${m[4]}`)
-  assert.deepEqual(fermees(avatar), FINITIONS.filter(f => f !== 'mat').map(f => `${NOM_FINITION[f]} ${NIVEAU_FINITION[f]} ${f} ${NIVEAU_FINITION[f]}`))
-  for (const niveau of [15, 20, 25]) assert.match(avatar, new RegExp(`<span aria-hidden="true">Niv\\. ${niveau}</span>`), `niv. ${niveau}`)
-  // Celles qu'il a se touchent ; celles qui restent suivent, dans l'ordre des niveaux.
+  assert.doesNotMatch(avatar, /finition-fermee|Niv\. \d/)
+  assert.match(
+    avatar,
+    /<a class="finition-choix pastille-a-gagner" href="#collection-finitions" aria-label="6 finitions à gagner : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+6<\/i><span aria-hidden="true">à gagner<\/span><\/a>/,
+  )
   const auNiveau12 = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: ['mat', 'argent', 'or', 'holo'], finition: 'holo' }, ...loge })
-  assert.deepEqual(fermees(auNiveau12), ['Prisme 15 prisme 15', 'Aurore 20 aurore 20', 'Constellation 25 constellation 25'])
   assert.equal(auNiveau12.match(/<button type="button" class="finition-choix/g)?.length, 5, 'Auto, et les quatre qu’il a')
+  assert.match(auNiveau12, /aria-label="3 finitions à gagner[^"]*"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+3<\/i>/)
   const auSommet = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: [...FINITIONS], finition: 'constellation' }, ...loge })
-  assert.deepEqual(fermees(auSommet), [], 'toutes gagnées : plus rien d’éteint')
-  // Dans la collection, chaque gerbe se touche pour éclater, même à gagner.
-  const COLLECTION = source('components/Collection.tsx')
-  assert.match(COLLECTION, /onToucher=\{cle => setGerbeVue\(a => \(\{ cle, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\}/)
-  assert.match(COLLECTION, /\{gerbeVue && <GerbeDeJuste key=\{gerbeVue\.n\} cle=\{gerbeVue\.cle\} \/>\}/)
+  assert.doesNotMatch(auSommet, /pastille-a-gagner/, 'toutes gagnées : rien à compter')
+  // Huit pastilles se serrent d'un bord à l'autre ; deux ou trois s'alignent à gauche.
+  assert.match(auSommet, /class="loge-finitions-rangee"/)
+  assert.match(avatar, /class="loge-finitions-rangee rangee-courte"/)
+  // Dans la collection, chaque gerbe se touche pour éclater, même à gagner (`AlbumDuStyle`).
+  const STYLE = source('components/AlbumDuStyle.tsx')
+  assert.match(STYLE, /if \(partie === 'gerbes'\) setEclat\(e => \(\{ cle: o\.cle, n: \(e\?\.n \?\? 0\) \+ 1 \}\)\)/)
+  assert.match(STYLE, /\{eclat && <GerbeDeJuste key=\{eclat\.n\} cle=\{eclat\.cle\} \/>\}/)
 })
 
 // ── Les trophées, la carrière, les soirées ─────────────────────────────

@@ -189,9 +189,11 @@ test('les onglets se prennent aux flèches, un seul arrêt de Tab, le panneau af
   assert.match(boutons[1], /tabindex="0"/)
   assert.match(boutons[1], /aria-controls="profil-t"/)
 
-  // Les familles de « Mes avatars » et le classement du jour passent par
-  // elle ; le classement a son panneau. Le profil, lui, a ses tuiles.
-  assert.match(source('components/Apparence.tsx'), /<Onglets\s/)
+  // Le classement du jour passe par elle, et a son panneau. Les pages de
+  // « Mes avatars » passent par les gemmes de l'album (`Gemmes`), qui prennent
+  // les flèches de même. Le profil, lui, a ses tuiles.
+  assert.match(source('components/Apparence.tsx'), /<Gemmes\s/)
+  assert.match(source('components/Gemmes.tsx'), /const j = ongletVise\(e\.key, i, gemmes\.length\)/)
   const jour = source('views/JourApp.tsx')
   assert.match(jour, /<Onglets\s/)
   assert.match(jour, /role="tabpanel" id="classement-periode" aria-labelledby=\{`periode-\$\{periode\}`\}/)
@@ -331,7 +333,7 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   // option de la liste, toujours là (`loge.test.ts` la rend dans les deux
   // états) ; aucun bouton de la vitrine ne dépend de ce qu'elle montre.
   const vitrine = trophees.slice(trophees.indexOf('export function MaVitrine'), trophees.indexOf('export function UnProche'))
-  assert.match(vitrine, /<ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">\s*<li>\s*<button\s+type="button"\s+className=\{'vitrine-option' \+ \(office\.montre/)
+  assert.match(vitrine, /<ul className="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte">\s*<li>\s*<button\s+type="button"\s+className=\{'vitrine-option' \+ \(office\.montre/)
   assert.doesNotMatch(vitrine, /\{montree && \(/)
   // Dans la loge, une case d'avatar touchée n'ouvre plus rien et ne part pas :
   // elle s'essaie, et ses voisines restent où elles sont (`grille-avatars.test.ts`
