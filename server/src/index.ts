@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
+import { gardeDemandee, reglerLaGarde } from './core/connexions'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
 import { releve } from './core/pouls'
 import { SERVEUR } from './racine'
@@ -48,6 +49,17 @@ if (online && !quizDbUrlDonnee) {
 }
 const quizDbUrl = quizDbUrlDonnee || `file:${path.resolve(path.dirname(dbPath), 'quizzes.db').replace(/\\/g, '/')}`
 const quizDbToken = process.env.QUIZ_DB_TOKEN
+// Combien de temps garder une connexion inactive vers la base (la revue du 14
+// octobre 2026) : sans réglage, les 4 s du `fetch` de Node, et chaque
+// requête après une pause repaie sa poignée de main. Plus longue que le délai
+// de Turso, elle ferait tomber des requêtes : elle s'essaie en préproduction,
+// la page « Le serveur » du QG et `/healthz` disent ce qu'elle change.
+const garde = gardeDemandee(process.env.QUIZ_DB_KEEPALIVE_MS)
+if (garde && 'refus' in garde) console.warn(`[base] ${garde.refus}`)
+else if (garde) {
+  reglerLaGarde(garde.ms)
+  console.log(`[base] connexions vers la base gardées ${garde.ms / 1000} s (QUIZ_DB_KEEPALIVE_MS)`)
+}
 // Le plafond d'invités par soirée, que même le réglage d'un espace ne dépasse
 // pas : au-delà, l'instance gratuite de l'hébergeur ne suit plus.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined

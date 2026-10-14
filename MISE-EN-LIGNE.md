@@ -542,6 +542,8 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 | `inscriptions.clesDistinctes` | les adresses distinctes vues par la réserve d'inscriptions | voir plus bas |
 | `reponses.tropTardParMin` | des réponses refusées pour « trop tard » | en hausse avec la charge : le serveur prend du retard |
 | `miroir` | la santé de la sauvegarde dans Turso, et la durée de ses envois | voir « Sauvegarde en retard » ci-dessus |
+| `base.p50Ms`, `base.p95Ms`, `base.allersRetoursParMin` | ce qu'un aller-retour vers Turso coûte, vu du serveur | une trentaine de millisecondes sur une connexion gardée, plus de deux cents sur une connexion à rouvrir (mesuré le 14 octobre 2026) |
+| `base.connexions` | les connexions vers Turso de la minute : ouvertes, refermées par Turso, allers-retours tombés en route ; la garde en vigueur (`gardeMs`) et le délai que Turso annonce (`gardeAnnonceeMs`, qui passe avant elle) | autant de connexions ouvertes que d'allers-retours : chacun repaie sa poignée de main. `QUIZ_DB_KEEPALIVE_MS` les garde plus longtemps — en préproduction d'abord : des connexions refermées par Turso ou des allers-retours tombés en route disent qu'elle est trop longue |
 | `memoire`, `rssMo` | le tas, la mémoire du processus, les connexions ouvertes | 512 Mo sur l'offre gratuite |
 | `version` | le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT`) — la ligne `[serveur] prêt …` du journal le dit aussi | après un « Manual Deploy », que c'est bien le bon |
 | `jour.joursDAvance`, `jour.dernierApport` | l'avance de la réserve du quiz du jour, et l'heure du dernier apport (en millisecondes) — relues au plus toutes les dix minutes, absentes juste après un réveil | sous sept jours, la routine ne dépose plus (étape 8) |

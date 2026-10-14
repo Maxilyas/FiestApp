@@ -11,7 +11,8 @@ requêtes ; et sur **un banc qui rejoue le vrai chemin de la production** :
 un faux Turso qui parle le protocole HTTP de libsql, une latence réglable
 par aller-retour, une activité jouée par les vraies routes — sur le code
 d'hier soir et sur celui d'aujourd'hui. Tout se rejoue (`reproductions/`,
-son `README.md`). Aucun fichier de l'application n'a été modifié.
+son `README.md`). Le premier pas du plan, le transport, est fait dans la
+même PR ([perf-turso-13]) ; le reste attend.
 
 ## En bref
 
@@ -213,13 +214,20 @@ rien de son délai (`keepAliveTimeout` d'undici, démontré par
 `reproductions/connexions.mjs`) ; la requête suivante repaie TCP et TLS,
 et le chiffrement au dixième de cœur. Et chaque requête simultanée — une
 vague de six lectures, un réveil qui en lance vingt — ouvre sa propre
-connexion : en HTTP/1.1, une connexion porte une requête à la fois.
+connexion : en HTTP/1.1, une connexion porte une requête à la fois. Même
+d'affilée, deux allers-retours enchaînés en ouvrent deux : le `fetch` de
+Node n'a pas encore rendu la première connexion quand la requête suivante
+part dans la même tâche (mesuré : deux connexions pour dix allers-retours
+enchaînés, une seule dès qu'une milliseconde les sépare) — après une pause,
+une chaîne d'`await` paie deux poignées de main, pas une.
 Le délai d'inactivité de Turso, lui, reste à lire : la session qui a lu la
 base de production passait par un proxy qui rouvre le TLS, et c'est lui
 qu'elle a mesuré (ci-dessus). Seul le serveur, sur Render, peut le dire :
 d'abord en comptant ses connexions neuves ([perf-turso-12]), puis, en
 préproduction, avec un délai plus long, en guettant les connexions que
-Turso aurait fermées (`other side closed`, `UND_ERR_SOCKET`).
+Turso aurait fermées (`other side closed`, `UND_ERR_SOCKET`). S'il
+l'annonce (`Keep-Alive: timeout=…`, un en-tête que le proxy retirait),
+undici préfère l'annonce à toute garde : au-delà, rien à gagner.
 **Pistes**, ce délai connu :
 un agent au `keepAliveTimeout` plus long pour les seules requêtes de Turso,
 sous ce délai — une connexion que Turso aurait fermée ferait échouer
@@ -231,6 +239,16 @@ dispatcher global de Node remplacé par un autre de sa classe — ou par
 `undici` en dépendance (une de plus : au propriétaire d'en décider, le
 dépôt en veut peu). Le gain, sur un trafic clairsemé : de ~225 ms à ~30 par
 aller-retour, sur chacun.
+
+**Le premier pas est fait, dans cette PR** (`server/src/core/connexions.ts`,
+`connexions-de-la-base.test.ts`) : les connexions se comptent — ouvertes,
+refermées par la base et leur âge, tombées en route, le délai que Turso
+annonce —, à `/healthz` (`base.connexions`) et sur la page « Le serveur »,
+sous le temps de Turso ; et la garde se règle (`QUIZ_DB_KEEPALIVE_MS`, les
+4 s de Node sans elle), par un agent de la classe de celui du `fetch`, sans
+dépendance. Sur le banc, par le vrai client libsql : après six secondes de
+calme, la page du profil ouvrait huit à neuf connexions, aucune avec une
+garde de trente secondes. Reste à la poser en préproduction et à lire sa page.
 
 ### Le processeur
 
@@ -427,12 +445,13 @@ ses heures ne se comparent pas à celles de la production.
 
 ## Le plan proposé
 
-1. **Le transport** [13] : compter les connexions neuves vers Turso dans le
-   relevé [12] — la session de lecture n'a pas pu lire le délai
-   d'inactivité de Turso, le serveur le peut —, puis garder les
-   connexions : l'agent au délai plus long, essayé en préproduction,
-   HTTP/2 s'il passe. C'est le seul levier qui divise chaque aller-retour ;
-   il se mesure tout de suite à `base.p50Ms`.
+1. **Le transport** [13] — la mesure et le réglage sont dans cette PR :
+   poser `QUIZ_DB_KEEPALIVE_MS=30000` en préproduction, lire sa page « Le
+   serveur » — la part des connexions neuves doit tomber, sans connexion
+   refermée par Turso ni aller-retour tombé en route ; si Turso annonce
+   un délai, c'est lui qui vaut —, puis la production. HTTP/2 ensuite,
+   s'il passe. C'est le seul levier qui divise chaque aller-retour ; il se
+   mesure tout de suite à `base.p50Ms`.
 2. **Une petite PR sûre**, chaque correction avec son test au compteur
    d'allers-retours que les tests ont déjà (`duels-attente.test.ts`,
    `jour-charge.test.ts`) : les lectures partagées [6], la mesure séparée

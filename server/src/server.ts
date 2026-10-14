@@ -32,6 +32,7 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls, releve } from './core/pouls'
+import { gardeAnnoncee, gardeDeLaBase } from './core/connexions'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -838,7 +839,25 @@ export async function createQuizServer(opts: QuizServerOptions) {
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))
     mesurer('base', () => {
       const base = pouls.base.lireAvecMediane()
-      return { base: { allersRetoursParMin: base.n, p50Ms: base.p50, p95Ms: base.p95, maxMs: base.max } }
+      return {
+        base: {
+          allersRetoursParMin: base.n,
+          p50Ms: base.p50,
+          p95Ms: base.p95,
+          maxMs: base.max,
+          // Ce que coûtent ses connexions (`core/connexions.ts`) : une neuve par
+          // aller-retour, c'est une poignée de main à chacun ; la garde en
+          // vigueur, pour voir qu'un réglage a pris, et le délai que la base
+          // annonce, qu'undici lui préfère.
+          connexions: {
+            ouvertesParMin: pouls.connexions.lire().n,
+            refermeesParLaBaseParMin: pouls.refermeesParLaBase.lire().n,
+            echecsParMin: pouls.echecsDeLaBase.lire().n,
+            gardeMs: gardeDeLaBase(),
+            gardeAnnonceeMs: gardeAnnoncee(),
+          },
+        },
+      }
     })
     mesurer('routes', () => ({ routes: pouls.lireRoutes() }))
     res.json(corps)

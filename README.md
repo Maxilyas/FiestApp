@@ -431,6 +431,7 @@ Sur `http://192.168…`, deux conforts demandent HTTPS et manquent donc : garder
 | `DB_PATH` | `server/data/quizz.db` | Base de la partie en cours (jetable) |
 | `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Base permanente : `file:...` ou `libsql://...` (Turso). En ligne, obligatoire : sans elle, le serveur refuse de démarrer |
 | `QUIZ_DB_TOKEN` | — | Jeton Turso, si base distante |
+| `QUIZ_DB_KEEPALIVE_MS` | les 4 s de Node | Combien de temps garder une connexion inactive vers Turso, en millisecondes (de 1000 à 600000) : chaque connexion rouverte repaie sa poignée de main. À essayer en préproduction d'abord — trop longue, des requêtes tomberaient ; la page « Le serveur » du QG dit ce qu'elle change |
 | `PUBLIC_URL` | `RENDER_EXTERNAL_URL`, sinon l'adresse réseau du PC | URL publique à mettre dans le QR code |
 | `APP_ENV` | — | Le nom de l'environnement quand ce n'est pas la production (`preprod`) : un bandeau le rappelle sur toutes les pages |
 | `WIFI_SSID` / `WIFI_PASS` | — | Si définis : QR « rejoindre le wifi » sur l'écran commun |

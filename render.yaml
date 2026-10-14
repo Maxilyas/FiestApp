@@ -162,6 +162,15 @@ services:
         sync: false
       - key: QUIZ_DB_TOKEN
         sync: false
+      # Combien de temps garder une connexion inactive vers Turso, en
+      # millisecondes (la revue du 14 octobre 2026) : sans elle, les 4 s du
+      # `fetch` de Node, et chaque requête après une pause repaie sa poignée
+      # de main — 225 ms l'aller-retour contre 29 en production. À essayer
+      # ici d'abord (30000), la page « Le serveur » du QG ouverte : des
+      # connexions refermées par Turso, ou des allers-retours tombés en
+      # route, disent qu'elle est trop longue. En production ensuite.
+      - key: QUIZ_DB_KEEPALIVE_MS
+        sync: false
       # Pour essayer la routine de la réserve avant la production : un jeton
       # à elle, jamais celui de la prod (MISE-EN-LIGNE.md, étape 8).
       - key: RESERVE_TOKEN

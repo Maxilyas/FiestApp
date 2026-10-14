@@ -45,7 +45,18 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   // La charge, toutes les dix secondes : la moyenne et les pics de l'heure ; une mémoire qui se tait ne compte pas.
   r.charge({ processeur: 4, boucleMaxMs: 120, memoireMo: 200, invites: 12 })
   r.charge({ processeur: 8, boucleMaxMs: 30, memoireMo: null, invites: 20 })
+  // Les connexions vers la base : ouvertes, refermées par elle — la plus jeune compte —, tombées en route,
+  // la garde en vigueur, et le délai qu'elle annonce — le plus long de l'heure.
+  assert.deepEqual(r.lignes('d1')[0].connexions, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 4_000, annonceeMs: null })
+  for (let i = 0; i < 3; i++) r.connexion()
+  r.refermeeParLaBase(45_200.4)
+  r.refermeeParLaBase(31_000.6)
+  r.echecDeLaBase()
+  r.garde(60_000)
+  r.annonceDeLaBase(5_000)
+  r.annonceDeLaBase(2_000)
   const [h] = r.lignes('d1')
+  assert.deepEqual(h.connexions, { ouvertes: 3, refermeesParLaBase: 2, plusJeuneRefermeeMs: 31_001, echecs: 1, gardeMs: 60_000, annonceeMs: 5_000 })
   assert.deepEqual(h.charge, { n: 2, processeur: 6, processeurMax: 8, boucleMaxMs: 120, memoireMaxMo: 200, invitesMax: 20 })
   assert.deepEqual([h.heure, h.demarrage], [Date.UTC(2026, 9, 13, 19), 'd1'])
   assert.deepEqual(h.base, { n: 30, p50: 35, p95: 48, max: 49 })
@@ -69,11 +80,11 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   const erreurs = r.lignes('d1')[1].erreurs
   assert.equal(Object.keys(erreurs).length, 21)
   assert.equal(erreurs.autre, 5)
-  // Un serveur neuf part de zéro.
+  // Un serveur neuf part de zéro ; la garde, réglée pour le processus, reste.
   r.remettreAZero()
   assert.deepEqual(
-    r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir, l.charge]),
-    [[null, null, {}, 0, null]],
+    r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir, l.charge, l.connexions]),
+    [[null, null, {}, 0, null, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 60_000, annonceeMs: null }]],
   )
 })
 
@@ -128,6 +139,7 @@ const ligne = (heure: number, demarrage: string, l: Partial<HeureDeSante>): Heur
   erreurs: {},
   miroir: 0,
   charge: null,
+  connexions: null,
   ...l,
 })
 const LIGNES: HeureDeSante[] = [
@@ -137,6 +149,7 @@ const LIGNES: HeureDeSante[] = [
     routes: { n: 20, p50: 100, p95: 300, max: 500 },
     erreurs: { 'POST /api/jour/reponse': 2 },
     charge: { n: 60, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18 },
+    connexions: { ouvertes: 8, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 1, gardeMs: 4_000, annonceeMs: null },
   }),
   ligne(a(4, 14), 'c', {
     base: { n: 30, p50: 50, p95: 90, max: 120 },
@@ -144,6 +157,7 @@ const LIGNES: HeureDeSante[] = [
     erreurs: { 'POST /api/jour/reponse': 1, 'socket host:launch': 1 },
     miroir: 2,
     charge: { n: 180, processeur: 7, processeurMax: 11, boucleMaxMs: 80, memoireMaxMo: 260, invitesMax: 25 },
+    connexions: { ouvertes: 12, refermeesParLaBase: 2, plusJeuneRefermeeMs: 31_000, echecs: 0, gardeMs: 30_000, annonceeMs: 5_000 },
   }),
   ligne(a(3, 19), 'd', { base: { n: 12, p50: 40, p95: 100, max: 130 }, routes: { n: 50, p50: 90, p95: 300, max: 400 } }),
   ligne(a(3, 20), 'd', { base: { n: 15, p50: 45, p95: 120, max: 150 }, routes: { n: 45, p50: 95, p95: 320, max: 410 } }),
@@ -152,7 +166,12 @@ const LIGNES: HeureDeSante[] = [
     routes: { n: 40, p50: 120, p95: 420, max: 700 },
     lentes: [{ route: 'GET /api/jour', n: 30, p95: 520 }],
   }),
-  ligne(a(0, 21), 'g', { base: { n: 5, p50: 55, p95: 110, max: 115 }, routes: { n: 6, p50: 110, p95: 380, max: 390 } }),
+  ligne(a(0, 21), 'g', {
+    base: { n: 5, p50: 55, p95: 110, max: 115 },
+    routes: { n: 6, p50: 110, p95: 380, max: 390 },
+    // Une connexion par aller-retour : chacun a refait sa poignée de main.
+    connexions: { ouvertes: 5, refermeesParLaBase: 2, plusJeuneRefermeeMs: 31_000, echecs: 1, gardeMs: 30_000, annonceeMs: 20_000 },
+  }),
 ]
 
 test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque démarrage et sa raison, les arrêts nets', () => {
@@ -163,7 +182,8 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
 
   const heure = (t: number) => page.heures.find(h => h.heure === t)!
   // b et c dans la même heure : le pire des 95ᵉ centiles, les erreurs additionnées ; la charge
-  // moyenne pondérée par ses relevés, ses pics au pire des deux.
+  // moyenne pondérée par ses relevés, ses pics au pire des deux ; les connexions additionnées —
+  // vingt pour quarante allers-retours —, la plus jeune refermée, la garde la plus longue.
   assert.deepEqual(heure(a(4, 14)), {
     heure: a(4, 14),
     eveille: true,
@@ -175,6 +195,8 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     boucle: 300,
     memoire: 260,
     invites: 25,
+    connexionsNeuves: 50,
+    connexions: { ouvertes: 20, refermeesParLaBase: 2, plusJeuneRefermeeMs: 31_000, echecs: 1, gardeMs: 30_000, annonceeMs: 5_000 },
   })
   // La nuit, l'hébergeur dort ; le matin, le réveil de 7 h 02 compte son heure.
   assert.equal(heure(a(0, 3)).eveille, false)
@@ -190,7 +212,11 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     boucle: null,
     memoire: null,
     invites: null,
+    connexionsNeuves: null,
+    connexions: null,
   })
+  // Une heure d'avant le compte des connexions : ni part, ni détail.
+  assert.deepEqual([heure(a(3, 19)).connexionsNeuves, heure(a(3, 19)).connexions], [null, null])
 
   assert.deepEqual(
     page.evenements.map(e => [e.sorte, e.quand]),
@@ -384,6 +410,9 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'Invités connectés',
     'plafond',
     'ven. 9 oct., 14 h : processeur 6,5 % · boucle 300 ms · mémoire 260 Mo · 25 invités',
+    // Turso et ses connexions : deux graphiques, et l'heure lue dans les deux — la garde, ce que la base a refermé, ce qui est tombé.
+    'Connexions neuves',
+    'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }
