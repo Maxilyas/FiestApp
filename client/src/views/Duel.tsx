@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
-import { Sortie } from '../components/Pieces'
+import { Feuille, Sortie } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
@@ -15,6 +15,7 @@ import {
   type CorrectionDeCampagne,
   type DuelEntreAmis,
   type IssueDeRencontre,
+  type RencontreDeCampagne,
   type ResumeDuDuel,
   type SerieDeCampagne,
   type SonApparence,
@@ -34,7 +35,7 @@ import { LigneDuDefiVue } from './Defi'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
-import { ceQuIlPorte, ecartSigne, type ContreEnJeu } from './Rencontre'
+import { JetonsDeLEnjeu, ceQuIlPorte, ecartSigne, type ContreEnJeu } from './Rencontre'
 
 export { ADRESSE_DU_LANCEMENT, adresseDuDuel } from './adressesDesDuels'
 
@@ -131,26 +132,6 @@ export function SemaineEnLosanges({ semaine, passee, className }: { semaine: Sem
         </span>
       )}
     </p>
-  )
-}
-
-/**
- * Ce qu'un duel met en jeu sur sa cote, en deux jetons : ce que la victoire
- * rapporte, ce que la défaite coûte — ou rapporte encore, sous l'Or (la
- * montée) : le jeton ne prend alors pas la couleur d'une perte.
- */
-function JetonsDeLEnjeu({ enjeu }: { enjeu: EnjeuDuDuel }) {
-  return (
-    <div className="duels-jetons" role="group" aria-label="Ce qui se joue sur ta cote">
-      <span className="duels-jeton">
-        <b className="num">{ecartSigne(enjeu.gagne)}</b>
-        <span>victoire</span>
-      </span>
-      <span className={'duels-jeton' + (enjeu.perdu < 0 ? ' perdu' : '')}>
-        <b className="num">{ecartSigne(enjeu.perdu)}</b>
-        <span>défaite</span>
-      </span>
-    </div>
   )
 }
 
@@ -771,6 +752,61 @@ export function DuelFaceCachee({
         </GestesDuBas>
       )}
     </div>
+  )
+}
+
+/**
+ * Avant un duel au dé, ce qu'il met en jeu (le souhait du propriétaire du
+ * 14 octobre 2026 : « une confirmation avec le dé pour jouer contre
+ * l'automate : combien je gagne ou je perds si je joue »). Le dé a déjà tiré
+ * la série et la partie d'Automate : l'enjeu se lit contre son score, et
+ * n'est exact qu'une fois tiré — dit d'avance, au niveau d'Automate, il
+ * aurait annoncé « +17 » quand la partie dirait « +14 ». En deux jetons,
+ * comme un duel reçu, puis « Jouer le duel ». Fermée, la rencontre attend
+ * dans « En cours », et le dé la reprend : il ne se relance pas pour un
+ * enjeu plus doux — un Automate plus faible.
+ */
+export function FeuilleDuDe({ rencontre, onJouer, onFermer }: { rencontre: RencontreDeCampagne & { enjeu: EnjeuDuDuel }; onJouer: () => void; onFermer: () => void }) {
+  const { adversaire, enjeu } = rencontre
+  return (
+    <Feuille
+      // Contre qui, dessous : « Un duel contre Automate » passait à la ligne à côté de « Fermer », en 360.
+      titre="Un duel au dé"
+      onFermer={onFermer}
+      className="feuille-du-de"
+      pied={
+        <button type="button" className="btn btn-primary btn-big btn-block btn-duel" onClick={onJouer}>
+          <Icon name="swords" />
+          Jouer le duel
+        </button>
+      }
+    >
+      <p className="duels-de-qui">
+        <Anneau avatar={adversaire.avatar} apparence={ceQuIlPorte(adversaire)} />
+        <span>
+          <b>{adversaire.nom}</b>
+          {/* Automate se dit simulé, comme pendant la partie : on n'affronte pas une personne. */}
+          {adversaire.simule && <span className="muted small">simulé, de ton niveau</span>}
+        </span>
+      </p>
+      <JetonsDeLEnjeu enjeu={enjeu} />
+      <ul className="duels-regles-ligne">
+        <li>
+          <Icon name="heart" />
+          <span aria-hidden="true">× 3</span>
+          <span className="sr-only">trois vies</span>
+        </li>
+        <li>
+          <Icon name="infinity" />
+          sans chrono
+        </li>
+        <li>
+          <Icon name="list" />
+          toutes catégories
+        </li>
+      </ul>
+      <p className="muted small centre">{espacesFines('Pas maintenant ? Il t’attend dans tes duels.')}</p>
+    </Feuille>
   )
 }
 
