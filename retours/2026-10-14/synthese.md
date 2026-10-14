@@ -5,12 +5,13 @@ latence, tu pourrais me faire une review complète niveau perf et ce que l'on
 peut améliorer ? »
 
 La revue s'appuie sur le code ; sur ce que la production dit d'elle-même par
-`/healthz`, public, lu le 14 octobre au matin ; et sur **un banc qui rejoue
-le vrai chemin de la production** : un faux Turso qui parle le protocole
-HTTP de libsql, une latence réglable par aller-retour, une activité jouée
-par les vraies routes — sur le code d'hier soir et sur celui d'aujourd'hui.
-Tout se rejoue (`reproductions/`, son `README.md`). Aucun fichier de
-l'application n'a été modifié.
+`/healthz`, public, lu le 14 octobre au matin ; sur la base de production,
+lue le même jour en lecture seule — volumes, index, plans, temps des
+requêtes ; et sur **un banc qui rejoue le vrai chemin de la production** :
+un faux Turso qui parle le protocole HTTP de libsql, une latence réglable
+par aller-retour, une activité jouée par les vraies routes — sur le code
+d'hier soir et sur celui d'aujourd'hui. Tout se rejoue (`reproductions/`,
+son `README.md`). Aucun fichier de l'application n'a été modifié.
 
 ## En bref
 
@@ -27,7 +28,9 @@ l'application n'a été modifié.
    octobre, ce sont des connexions rouvertes. Le `fetch` de Node referme
    une connexion inactive au bout de 4 s quand le serveur n'annonce pas son
    délai ; hors soirée, presque chaque requête arrive après une pause, et
-   repaie TCP et TLS.
+   repaie TCP et TLS. La base est en Irlande, le service à Francfort : les
+   29 ms, c'est surtout le trajet ; les 196 de plus, la connexion à
+   rouvrir.
 3. **Le chiffre de « Turso » suit donc surtout le rythme du trafic** :
    dense, les connexions restent chaudes ; clairsemé, elles se rouvrent.
    D'un jour à l'autre, il peut doubler sans que rien ne change. En
@@ -55,12 +58,21 @@ l'application n'a été modifié.
    connexion froide, la page du profil en attend 6 (≈ 1,4 s), « Commencer »
    le quiz du jour 7, chaque question 6 — la réponse 3, « Question
    suivante » 3 —, la dernière réponse 10 (≈ 2,3 s), un réveil 35.
+7. **La base de production est petite, et SQLite n'y coûte presque rien**
+   — 9 907 réponses de campagne, 52 quiz, 31 profils : la plupart des
+   lectures y prennent moins de 20 ms de plus que l'aller-retour lui-même.
+   Ce qui pèse, ce sont les lectures entières qui grandissent : les
+   bibliothèques de tous les espaces à chaque réveil (570 Ko), la mesure
+   des difficultés, ce qu'un joueur a vu, et le modèle du savoir quand il
+   arrivera. Les réécritures du banc y gagnent peu (5 à 10 ms), et celle de
+   l'économie y perd tant que son index manque.
 
 Le premier levier est donc le transport — garder les connexions chaudes, ou
 n'en ouvrir qu'une ([perf-turso-13]) : il ramènerait l'aller-retour d'un
-trafic clairsemé de ~225 ms vers ~30. Puis les allers-retours en série, les
-parcours complets, et le processeur, avant que la base doublée n'arrive en
-production.
+trafic clairsemé de ~225 ms vers ~30. Puis les allers-retours en série, et
+le processeur avant que la base doublée n'arrive en production. Les
+parcours complets que relevait le banc viennent après : à ces volumes, ils
+ne coûtent presque rien.
 
 ## Ce que la production a dit (14 octobre, au matin)
 
@@ -79,12 +91,72 @@ lignes. La production : `d4cd799`, levée depuis quatre heures et demie,
 142 Mo de mémoire résidente, 69 Mo de tas, aucun joueur connecté. Le
 script : `reproductions/sonde.mjs`.
 
-Ce qui reste à lire, avec l'accès à la base de production (deux variables
-d'environnement que le propriétaire a ajoutées, visibles d'une session
-neuve) : les volumes des tables, ce que coûtent vraiment les parcours
-complets ([perf-turso-3], [8] à [11]), les plans sur les index de la
-production, et les en-têtes que Turso renvoie — dont `Keep-Alive`, qui dit
-combien de temps il garde une connexion, et donc jusqu'où allonger la nôtre.
+## Ce que la base de production a dit (14 octobre, lecture seule)
+
+Lue depuis une session à part, avec les deux variables de lecture que le
+propriétaire a ajoutées : des `SELECT`, des `EXPLAIN QUERY PLAN` et
+`sqlite_master`, rien d'écrit, et rien que des comptes, des tailles, des
+plans et des temps — ni un nom, ni un identifiant. Une requête qui prend un
+profil a pris le plus assidu, sans le nommer. Les temps passent par le
+proxy de sortie de la session, qui rouvre le TLS : un `SELECT 1` y coûte
+126 ms sur une connexion gardée. Chaque temps ci-dessous est la médiane de
+trois, moins ce `SELECT 1` — ce que la requête coûte de plus que
+l'aller-retour, à une dizaine de millisecondes près (des nets négatifs le
+montrent) : l'ordre de grandeur compte, pas la milliseconde. La consigne
+exacte : `reproductions/lecture-de-la-production.md`.
+
+**La base est en Irlande** (`aws-eu-west-1`) ; le service Render, à
+Francfort — Render n'a pas de région en Irlande. Les 29 ms d'une connexion
+gardée, c'est surtout ce trajet ; une connexion à rouvrir y ajoute deux ou
+trois allers-retours vers Dublin, et le chiffrement au dixième de cœur.
+
+**Elle est petite** : 9 907 réponses de campagne en 945 séries, 1 950
+réponses et 195 parties du quiz du jour, 404 questions dans sa réserve, 52
+quiz, 40 soirées, 31 profils, 23 comptes, 201 sessions, 49 duels, 149
+lignes d'expérience. Les tables `party_*` sont vides (aucune soirée en
+cours), et `qg_sante` comme `qg_demarrages` n'existent pas : la production
+n'a pas encore le relevé.
+
+| Lecture | quand | plan en production | lignes · octets | ms de plus qu'un `SELECT 1` |
+|---|---|---|---|---|
+| Les bibliothèques de tous les espaces (`allBySpace`) | chaque réveil | `SCAN quizzes` | 52 · 570 Ko | 295 |
+| Le modèle du savoir (`LECTURE_DU_SAVOIR`) | chaque réveil, puis toutes les demi-heures — au prochain déploiement | `SCAN r` | 15 · 134 Ko | 133 |
+| La mesure des difficultés (`mesures`) | toutes les dix minutes, sur une requête | `SCAN campagne_reponses` | 1 · 89 Ko | 106 |
+| Les fiches des soirées (`memoiresDeTous`) | chaque réveil | `SCAN soirees` | 40 · 85 Ko | 46 |
+| Ce que le plus assidu a vu (`lectureDesVues`) | chaque série, chaque dé | ses séries, par leur index | 1 · 103 Ko | 45 |
+| Le carnet du plus assidu (`suivisDe`) | chaque accueil | `SCAN campagne_duels`, deux fois | 1 622 · 76 Ko | 31 |
+| … réécrit en `EXISTS` ([perf-turso-8]) | | son duel, par la clé | 1 622 · 76 Ko | 22 |
+| Les sessions des comptes (`AuthStore.init`) | chaque réveil | `SCAN auth_sessions` | 201 · 82 Ko | 20 |
+| Les séries du QG (`seriesEnCours`), `UNION` | au prochain déploiement | `SCAN profile_xp` | 19 · 4 Ko | 17 |
+| … en `UNION ALL` ([perf-turso-10]) | | `SCAN profile_xp` | 19 · 4 Ko | 12 |
+| Les cotes de tous (`toutesLesCotes`) | le classement des duels, le préchauffage | par leurs index | 93 · 16 Ko | 15 |
+| L'économie (`economieDepuis`), `JOIN` | au prochain déploiement | `SCAN r` | 17 · 0,4 Ko | 3 |
+| … en `CROSS JOIN` ([perf-turso-9]) | | `SCAN s` | 17 · 0,4 Ko | 12 |
+| La réserve du jour (`etatDeLaReserve`) | `/healthz`, toutes les dix minutes | `SCAN jour_reserve` | 1 · 42 o | 2 |
+
+Ce qu'elle dit :
+
+- **Le coût n'est pas dans SQLite.** À ces volumes, la plupart des lectures
+  coûtent moins de 20 ms de plus que l'aller-retour lui-même. Ce qui se
+  paie, c'est l'aller-retour — et sa connexion.
+- **Ce qui pèse, ce sont les lectures entières qui grandissent** : les
+  bibliothèques, à chaque réveil — 570 des 753 Ko que lisent ses neuf
+  lectures entières ([perf-turso-14]) ; la mesure et le savoir,
+  qui relisent toutes les réponses de campagne ([perf-turso-3]) ; ce qu'un
+  joueur a vu, à chaque série, qui grandit avec lui.
+- **Les réécritures du banc sont justes, mais petites aujourd'hui** :
+  `EXISTS` −9 ms, `UNION ALL` −5, à peine plus que le bruit. Le `CROSS
+  JOIN` de l'économie est même plus lent : la production n'a pas
+  `idx_campagne_series_commencee`, ni `idx_profile_xp_quand` — le code
+  d'aujourd'hui les crée (`1788205` et `de69637`, le 13 octobre au soir),
+  au prochain déploiement. Les plans de [perf-turso-9] et [10] se relisent
+  après lui : un plan ne dépend pas du volume, mais des index.
+- **La tenue des connexions ne s'est pas laissé lire** : le proxy de la
+  session rouvre le TLS, et c'est lui qu'on mesurait — aucun en-tête
+  `Keep-Alive`, pas de HTTP/2 négocié, une connexion neuve à chaque essai
+  après 10, 30, 60 ou 90 s de calme, sans une erreur. Seul le serveur, sur
+  Render, peut dire combien de temps Turso garde une connexion
+  ([perf-turso-12], [13]).
 
 ## Sur la page « Le serveur » de la préproduction
 
@@ -98,10 +170,6 @@ combien de temps il garde une connexion, et donc jusqu'où allonger la nôtre.
   qu'un joueur attend ».
 - **Le processeur et le pire gel**, contre le pointillé des 10 % : au
   plafond, le calcul s'ajoute aux connexions.
-
-Et une fois : `turso db show fiestapp`, pour la région de la base (le
-service Render est à Francfort). À 29 ms la connexion gardée, elle n'est
-pas loin ; c'est la poignée de main qui coûte.
 
 ## Ce qui a changé depuis hier soir, mesuré
 
@@ -146,9 +214,13 @@ rien de son délai (`keepAliveTimeout` d'undici, démontré par
 et le chiffrement au dixième de cœur. Et chaque requête simultanée — une
 vague de six lectures, un réveil qui en lance vingt — ouvre sa propre
 connexion : en HTTP/1.1, une connexion porte une requête à la fois.
-**Pistes**, une fois connu le délai d'inactivité de Turso (ses en-têtes, et
-des essais à 10, 30, 60 et 90 s de calme — la lecture de la base de
-production le dira) :
+Le délai d'inactivité de Turso, lui, reste à lire : la session qui a lu la
+base de production passait par un proxy qui rouvre le TLS, et c'est lui
+qu'elle a mesuré (ci-dessus). Seul le serveur, sur Render, peut le dire :
+d'abord en comptant ses connexions neuves ([perf-turso-12]), puis, en
+préproduction, avec un délai plus long, en guettant les connexions que
+Turso aurait fermées (`other side closed`, `UND_ERR_SOCKET`).
+**Pistes**, ce délai connu :
 un agent au `keepAliveTimeout` plus long pour les seules requêtes de Turso,
 sous ce délai — une connexion que Turso aurait fermée ferait échouer
 l'écriture qui l'emprunte ; HTTP/2 (`allowH2` du même agent), si Turso
@@ -200,6 +272,15 @@ venu depuis la dernière lecture (`WHERE r.rowid > ?` : le plan est une
 recherche par la clé, `reproductions/plans.mjs`), en gardant les sommes en
 mémoire ; ou les tenir à jour à chaque réponse, le serveur étant le seul à
 écrire.
+
+En production : 9 907 réponses ; la mesure en lit 89 Ko, ~106 ms de plus
+qu'un `SELECT 1`, le modèle du savoir — qui arrive au prochain déploiement
+— 134 Ko, ~133 ms : les deux lectures les plus chères après les
+bibliothèques du réveil, et elles grandissent à chaque réponse. Aucun index
+sur `campagne_reponses(reserve_id)` : il n'aiderait pas une lecture qui
+prend tout. Ce qu'un joueur a vu (`lectureDesVues`, à chaque série et à
+chaque dé) suit la même pente, à son échelle : 103 Ko pour le plus assidu,
+déjà en un seul texte.
 
 ### Les allers-retours en série
 
@@ -254,14 +335,20 @@ du solo, les portraits). **Piste** : chacune en un lot — une douzaine de
 vagues (≈ −5 s par réveil). Et le recalcul relit tout `profile_xp` à chaque
 réveil pour y chercher une ligne d'une ancienne version (`detail NOT LIKE`,
 `auth/profiles.ts:3561`) : un drapeau à la version du barème lui
-éviterait ce parcours.
+éviterait ce parcours — en production, 149 lignes : c'est l'aller-retour
+qui coûte, pas le parcours. Les neuf lectures entières du réveil y pèsent
+753 Ko, dont 570 pour les bibliothèques ([perf-turso-14]).
 
 ### Les parcours complets
 
 Les plans viennent d'`EXPLAIN QUERY PLAN`, avec les vrais arguments, sur la
 base du banc. Sans `ANALYZE` — ni sur le banc, ni chez Turso —, SQLite ne
-sait rien du volume : le plan lu ici est celui de la production. Chaque
-réécriture proposée a été vérifiée (`reproductions/plans.mjs`).
+sait rien du volume : le plan lu ici est celui de la production, à index
+égaux — et la production n'a pas encore deux des index du code
+d'aujourd'hui ([9] et [10]). Chaque réécriture proposée a été vérifiée
+(`reproductions/plans.mjs`), et la base de production en a donné les
+temps : à ses volumes, les quatre premiers ne coûtent pas plus de 31 ms —
+le dernier, [14], en coûte 295.
 
 **[perf-turso-8] Le carnet parcourt tous les duels du serveur, à chaque
 accueil.** `suivisDe` (`core/campagne.ts:1744`) écarte les défis ouverts par
@@ -270,27 +357,55 @@ tous les duels ouverts, sans index sur `ferme_le` (`SCAN campagne_duels`) —
 l'accueil de chaque profil (le compte « À revoir »), le carnet, ce qu'il a
 appris. **Piste** : `EXISTS (SELECT 1 FROM campagne_duels d WHERE d.code =
 s.duel AND d.ferme_le > ?)`, une recherche par la clé pour ses seuls duels.
+En production : 49 duels ; le carnet du plus assidu, 1 622 lignes, coûte
+31 ms de plus qu'un `SELECT 1`, 22 en `EXISTS`. Peu aujourd'hui, à chaque
+accueil — et le parcours grandit avec les duels.
 
 **[perf-turso-9] La page de l'économie parcourt toutes les réponses de
 campagne**, à chaque ouverture (`economieDepuis`,
 `core/campagne.ts:5250`) : le commentaire compte sur
 `idx_campagne_series_commencee`, mais le planificateur préfère parcourir
-`campagne_reponses` et chercher chaque série par sa clé (`SCAN r`).
-**Piste** : `CROSS JOIN`, qui impose l'ordre — les séries par leur date, puis
-leurs réponses par la clé.
+`campagne_reponses` et chercher chaque série par sa clé (`SCAN r`). Le
+`CROSS JOIN`, qui impose l'ordre — les séries par leur date, puis leurs
+réponses par la clé —, le corrige sur le banc. En production, il perd : la
+page n'y est pas encore (la PR #208), ni l'index (`1788205`), et sans lui
+le `CROSS JOIN` parcourt toutes les séries — 12 ms de plus qu'un `SELECT
+1`, contre 3 pour le parcours des 9 907 réponses. **Piste** : rien pour
+l'instant. Le `CROSS JOIN` se remesure une fois l'index en production ; il
+ne gagnera que lorsque la semaine de la page ne couvrira plus qu'une part
+des séries.
 
 **[perf-turso-10] Les séries du QG parcourent `jour_parties` et
 `profile_xp` entiers** (`seriesEnCours`, `core/jour.ts:2650-2654`) : leur
 `UNION` se fusionne en parcourant les deux tables par profil, trois fois
 (une par lecture du lot). **Piste** : `UNION ALL` — un `IN` n'a que faire des
 doublons —, et chaque moitié prend l'index de sa date
-(`idx_jour_parties_jour`, `idx_profile_xp_quand`).
+(`idx_jour_parties_jour`, `idx_profile_xp_quand`). En production : 17 ms
+de plus qu'un `SELECT 1`, 12 en `UNION ALL` ; `profile_xp` n'y a que 149
+lignes, et pas encore son index (`de69637`) : sa moitié ne le prendra
+qu'au prochain déploiement. Petit, pour une page du QG — la réécriture
+reste juste.
 
 **[perf-turso-11] `/healthz` parcourt la réserve du quiz du jour toutes les
 dix minutes** — la tâche de cron-job.org qui garde la production éveillée
 l'appelle autant (`reserveDuJour`, `server.ts:742-757` →
 `etatDeLaReserve`, `core/jour.ts:709`). **Piste** : `avanceDeLaReserve`
-(`core/jour.ts:2511`), que la vue d'ensemble lit déjà, par son index.
+(`core/jour.ts:2511`), que la vue d'ensemble lit déjà, par son index. En
+production, la réserve compte 404 questions : le parcours coûte 2 ms.
+Négligeable — la piste ne vaut que pour la forme.
+
+**[perf-turso-14] Chaque réveil lit les bibliothèques de tous les espaces,
+questions comprises** (`allBySpace`, `core/quizStore.ts:172-181`, appelé
+par `refreshLibrary` au démarrage, `server.ts:449`). En production : 52
+quiz, 570 Ko — les trois quarts des 753 Ko que lisent les neuf lectures
+entières du réveil —, quand un réveil ne sert presque toujours qu'un ou
+deux espaces. Un seul aller-retour, en parallèle des autres branches du
+démarrage, mais un demi-mégaoctet à recevoir sur une connexion neuve et à
+décoder deux fois au dixième de cœur : la réponse, puis les questions de
+chaque quiz (`rowToQuiz`). **Piste**, à étudier : la bibliothèque d'un
+espace lue quand il s'ouvre — un écran d'animateur, une soirée à reprendre
+(`refreshLibrary(spaceId)` existe déjà) —, pourvu que « Lancer » et le
+salon l'attendent.
 
 ### La mesure
 
@@ -303,33 +418,43 @@ reste du relevé : les routes `/api/admin` à part ; Turso « sous une route »
 et « en fond », séparés par un `AsyncLocalStorage` posé dans le minutage des
 routes ; les connexions neuves vers Turso, comptées par le canal de
 diagnostic `undici:client:connected` (sans dépendance) — la part des
-allers-retours qui repaient leur poignée de main ; le gel imposé par
-l'hébergeur, lu dans `/sys/fs/cgroup/cpu.stat` (`throttled_usec`, sous
-try/catch) — la part du processeur. Et la préproduction, redéployée à chaque
-fusion, mesure surtout ses démarrages : ses heures ne se comparent pas à
-celles de la production.
+allers-retours qui repaient leur poignée de main, et la seule façon de lire
+combien de temps Turso garde une connexion ([perf-turso-13]) ; le gel
+imposé par l'hébergeur, lu dans `/sys/fs/cgroup/cpu.stat`
+(`throttled_usec`, sous try/catch) — la part du processeur. Et la
+préproduction, redéployée à chaque fusion, mesure surtout ses démarrages :
+ses heures ne se comparent pas à celles de la production.
 
 ## Le plan proposé
 
-1. **Le transport** [13] : lire le délai d'inactivité de Turso (la session
-   de lecture de la base de production), puis garder les connexions —
-   l'agent au délai plus long, HTTP/2 s'il passe. C'est le seul levier qui
-   divise chaque aller-retour ; il se mesure tout de suite à `base.p50Ms`.
+1. **Le transport** [13] : compter les connexions neuves vers Turso dans le
+   relevé [12] — la session de lecture n'a pas pu lire le délai
+   d'inactivité de Turso, le serveur le peut —, puis garder les
+   connexions : l'agent au délai plus long, essayé en préproduction,
+   HTTP/2 s'il passe. C'est le seul levier qui divise chaque aller-retour ;
+   il se mesure tout de suite à `base.p50Ms`.
 2. **Une petite PR sûre**, chaque correction avec son test au compteur
    d'allers-retours que les tests ont déjà (`duels-attente.test.ts`,
-   `jour-charge.test.ts`) : le carnet [8], l'économie [9], les séries du QG
-   [10], `/healthz` [11], les lectures partagées [6], la mesure séparée
-   [12].
+   `jour-charge.test.ts`) : les lectures partagées [6], la mesure séparée
+   [12], le carnet [8], les séries du QG [10]. L'économie [9] et `/healthz`
+   [11] attendent : la production n'y gagnerait rien aujourd'hui.
 3. **Les allers-retours en série**, un par un : le quiz du jour [4], le
    profil [5], le réveil [7].
-4. **Le processeur**, avant que la base doublée n'arrive en production : la
-   base validée au build [1], le préchauffage étalé [2], la mesure et le
-   modèle en delta [3].
+4. **Le processeur et les lectures entières**, avant que la base doublée
+   n'arrive en production : la base validée au build [1], le préchauffage
+   étalé [2] ; puis ce qui lit tout et grandit — la mesure et le modèle en
+   delta [3], les bibliothèques à la demande [14].
 
 Hors du code : la plus petite offre payante de Render (un demi-cœur, jamais
 endormie) diviserait le terme du processeur et supprimerait les réveils —
 un choix de budget, pas une correction ; elle ne change rien aux
-connexions.
+connexions. Et la région de la base : à Dublin pour un service à
+Francfort, chaque aller-retour fait le trajet, et une connexion à rouvrir
+le fait trois fois. Une région plus proche de Francfort, si l'offre de
+Turso en propose une (`turso db locations`), raccourcirait chacun ; mais
+une base ne déménage pas, elle se recopie sous une autre adresse — une
+opération de production, à décider par le propriétaire, et après le
+transport, qui gagne plus.
 
 ## Le banc
 
@@ -347,8 +472,13 @@ connexions.
   rapports comptent, pas les valeurs.
 - **Les limites** : pas de vraie latence de Turso ni de vraies poignées de
   main TLS ; des volumes de banc (quelques centaines de réponses de
-  campagne, pas des dizaines de milliers) — les plans, eux, ne dépendent pas
-  du volume ; le miroir des soirées n'a pas été mesuré.
+  campagne ; la production en a près de dix mille) — les plans ne dépendent
+  pas du volume, mais des index ; le miroir des soirées n'a pas été mesuré.
+- **La base de production** se lit en lecture seule, depuis une session
+  neuve qui voit ses deux variables : `reproductions/lecture-de-la-production.md`
+  est la consigne qu'elle a reçue, à lui redonner telle quelle — après le
+  prochain déploiement, pour relire [9] et [10] sur leurs index, et le
+  modèle du savoir.
 
 ## Annexes
 

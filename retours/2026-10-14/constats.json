@@ -31,12 +31,12 @@
     "titre": "La mesure des difficultés et le modèle du savoir relisent toutes les réponses de campagne, toutes les dix minutes et toutes les demi-heures",
     "nature": "perf",
     "gravite": "P2",
-    "statut": "plans relevés",
-    "ou": "server/src/core/campagne.ts:944-963 (mesures) ; server/src/core/campagne.ts:995-1010 et 5621-5625 (ajusterLeSavoir, LECTURE_DU_SAVOIR)",
-    "constat": "Deux parcours complets de `campagne_reponses`, avec regroupements en arbre temporaire, qui grandissent à chaque réponse jouée : du temps chez Turso, des lignes lues au quota, un gros texte à décoder au dixième de cœur. La mesure se relit sur le chemin de la requête qui la trouve périmée, et deux requêtes simultanées la relisent deux fois (pas de promesse partagée).",
-    "preuve": "plans.mjs : SCAN campagne_reponses (mesures) ; SCAN r puis deux USE TEMP B-TREE FOR GROUP BY (savoir). La lecture en delta, `WHERE r.rowid > ?` : SEARCH r USING INTEGER PRIMARY KEY.",
+    "statut": "plans relevés, mesuré en production",
+    "ou": "server/src/core/campagne.ts:944-963 (mesures) ; server/src/core/campagne.ts:995-1010 et 5621-5625 (ajusterLeSavoir, LECTURE_DU_SAVOIR) ; server/src/core/campagne.ts:5588-5597 (lectureDesVues)",
+    "constat": "Deux parcours complets de `campagne_reponses`, avec regroupements en arbre temporaire, qui grandissent à chaque réponse jouée : du temps chez Turso, des lignes lues au quota, un gros texte à décoder au dixième de cœur. La mesure se relit sur le chemin de la requête qui la trouve périmée, et deux requêtes simultanées la relisent deux fois (pas de promesse partagée). En production, ce sont les deux lectures les plus chères après les bibliothèques du réveil (perf-turso-14). Ce qu'un joueur a vu (`lectureDesVues`, à chaque série et à chaque dé) suit la même pente, à son échelle.",
+    "preuve": "plans.mjs : SCAN campagne_reponses (mesures) ; SCAN r puis deux USE TEMP B-TREE FOR GROUP BY (savoir). La lecture en delta, `WHERE r.rowid > ?` : SEARCH r USING INTEGER PRIMARY KEY. Base de production (14 octobre, lecture seule, 9 907 réponses) : la mesure, 1 ligne de 89 Ko, ~106 ms de plus qu'un SELECT 1 ; le savoir (au prochain déploiement), 15 lignes, 134 Ko, ~133 ms ; ce qu'a vu le plus assidu, 103 Ko, ~45 ms. Aucun index sur campagne_reponses(reserve_id) : il n'aiderait pas une lecture qui prend tout.",
     "piste": "Ne lire que ce qui est venu depuis la dernière lecture (rowid), les sommes gardées en mémoire ; ou les tenir à jour à chaque réponse écrite, le serveur étant seul à écrire. Partager la promesse de `mesures` en vol.",
-    "reproduction": "reproductions/plans.mjs"
+    "reproduction": "reproductions/plans.mjs, reproductions/lecture-de-la-production.md"
   },
   {
     "id": "perf-turso-4",
@@ -85,7 +85,7 @@
     "gravite": "P2",
     "statut": "tracé (rejoué)",
     "ou": "server/src/auth/store.ts:137-218 (AuthStore.init) ; server/src/core/backup.ts:1089-1095 (restoreInto), 432-443 (schéma des tables party_*) ; server/src/auth/profiles.ts:3561 (detail NOT LIKE)",
-    "constat": "Les comptes : 8 allers-retours l'un après l'autre. La soirée à recharger : sept SELECT successifs, et le schéma des six tables party_* lu table après table. Après le démarrage de front, les drapeaux relus un à un. Et le recalcul parcourt tout profile_xp à chaque réveil pour y chercher une ligne d'une ancienne version.",
+    "constat": "Les comptes : 8 allers-retours l'un après l'autre. La soirée à recharger : sept SELECT successifs, et le schéma des six tables party_* lu table après table. Après le démarrage de front, les drapeaux relus un à un. Et le recalcul parcourt tout profile_xp à chaque réveil pour y chercher une ligne d'une ancienne version — en production, 149 lignes : l'aller-retour coûte, pas le parcours. Les neuf lectures entières du réveil y pèsent 753 Ko, dont 570 pour les bibliothèques (perf-turso-14).",
     "preuve": "jeu.ts : 71 allers-retours en 35 vagues, prêt en 1 060 ms à 30 ms par aller-retour, 140 ms à 0. plans relevés au réveil : SCAN profile_xp.",
     "piste": "Chacune des trois chaînes en un lot : une douzaine de vagues (≈ −5 s par réveil à 230 ms). Un drapeau à la version du barème pour le recalcul.",
     "reproduction": "reproductions/jeu.ts"
@@ -95,11 +95,11 @@
     "expert": "perf-turso",
     "titre": "Le carnet parcourt tous les duels du serveur, à chaque accueil d'un profil",
     "nature": "perf",
-    "gravite": "P2",
-    "statut": "plan relevé, réécriture vérifiée",
+    "gravite": "P3",
+    "statut": "plan relevé, réécriture vérifiée, mesuré en production",
     "ou": "server/src/core/campagne.ts:1744 (suivisDe)",
     "constat": "`s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?)` construit la liste de tous les duels ouverts, sans index sur `ferme_le` : un parcours complet de campagne_duels à chaque accueil (le compte « À revoir »), au carnet et à ce qu'il a appris.",
-    "preuve": "plans.mjs : SCAN campagne_duels (deux fois) ; réécrit, SEARCH d USING INDEX sqlite_autoindex_campagne_duels_1 (code=?).",
+    "preuve": "plans.mjs : SCAN campagne_duels (deux fois) ; réécrit, SEARCH d USING INDEX sqlite_autoindex_campagne_duels_1 (code=?). Base de production (49 duels) : le carnet du plus assidu, 1 622 lignes, 31 ms de plus qu'un SELECT 1, 22 réécrit — peu aujourd'hui, et le parcours grandit avec les duels.",
     "piste": "`NOT (s.mode = 'duel' AND EXISTS (SELECT 1 FROM campagne_duels d WHERE d.code = s.duel AND d.ferme_le > ?))`.",
     "reproduction": "reproductions/plans.mjs"
   },
@@ -109,12 +109,12 @@
     "titre": "La page de l'économie parcourt toutes les réponses de campagne à chaque ouverture : le planificateur ignore l'index des séries",
     "nature": "perf",
     "gravite": "P3",
-    "statut": "plan relevé, réécriture vérifiée",
+    "statut": "mesuré en production : à remesurer après le déploiement",
     "ou": "server/src/core/campagne.ts:5250 (economieDepuis)",
-    "constat": "Le commentaire compte sur `idx_campagne_series_commencee` ; sans statistiques, SQLite préfère parcourir campagne_reponses et chercher chaque série par sa clé.",
-    "preuve": "plans.mjs : SCAN r | SEARCH s ; avec CROSS JOIN, SEARCH s USING INDEX idx_campagne_series_commencee | SEARCH r (serie_id=?).",
-    "piste": "`FROM campagne_series s CROSS JOIN campagne_reponses r ON r.serie_id = s.id`.",
-    "reproduction": "reproductions/plans.mjs"
+    "constat": "Le commentaire compte sur `idx_campagne_series_commencee` ; sans statistiques, SQLite préfère parcourir campagne_reponses et chercher chaque série par sa clé. La page n'est pas encore en production (PR #208), ni l'index (créé depuis 1788205) : sans lui, le CROSS JOIN parcourt toutes les séries, et perd.",
+    "preuve": "plans.mjs : SCAN r | SEARCH s ; avec CROSS JOIN, SEARCH s USING INDEX idx_campagne_series_commencee | SEARCH r (serie_id=?). Base de production (sans l'index) : JOIN, SCAN r, 3 ms de plus qu'un SELECT 1 pour 9 907 réponses ; CROSS JOIN, SCAN s, 12 ms.",
+    "piste": "Rien pour l'instant : à ces volumes, le parcours ne coûte rien. Le CROSS JOIN (`FROM campagne_series s CROSS JOIN campagne_reponses r ON r.serie_id = s.id`) se remesure une fois l'index en production ; il ne gagnera que lorsque la semaine de la page ne couvrira plus qu'une part des séries.",
+    "reproduction": "reproductions/plans.mjs, reproductions/lecture-de-la-production.md"
   },
   {
     "id": "perf-turso-10",
@@ -122,10 +122,10 @@
     "titre": "Les séries du QG parcourent jour_parties et profile_xp entiers, trois fois par lecture",
     "nature": "perf",
     "gravite": "P3",
-    "statut": "plan relevé, réécriture vérifiée",
+    "statut": "plan relevé, réécriture vérifiée, mesuré en production",
     "ou": "server/src/core/jour.ts:2650-2654 (seriesEnCours)",
-    "constat": "L'UNION des candidats se fusionne par profil en parcourant les deux tables par leur clé ; la même CTE ouvre les trois lectures du lot.",
-    "preuve": "plans.mjs : MERGE (UNION) | SCAN jour_parties … | SCAN profile_xp … ; avec UNION ALL, SEARCH jour_parties USING INDEX idx_jour_parties_jour et SEARCH profile_xp USING INDEX idx_profile_xp_quand.",
+    "constat": "L'UNION des candidats se fusionne par profil en parcourant les deux tables par leur clé ; la même CTE ouvre les trois lectures du lot. Petit à ces volumes, pour une page du QG (au prochain déploiement) : la réécriture reste juste.",
+    "preuve": "plans.mjs : MERGE (UNION) | SCAN jour_parties … | SCAN profile_xp … ; avec UNION ALL, SEARCH jour_parties USING INDEX idx_jour_parties_jour et SEARCH profile_xp USING INDEX idx_profile_xp_quand. Base de production : 17 ms de plus qu'un SELECT 1, 12 en UNION ALL ; profile_xp n'y a que 149 lignes, et pas encore idx_profile_xp_quand (créé depuis de69637), d'où SCAN profile_xp dans les deux.",
     "piste": "`UNION ALL` : le `IN` qui les lit n'a que faire des doublons.",
     "reproduction": "reproductions/plans.mjs"
   },
@@ -135,11 +135,11 @@
     "titre": "/healthz parcourt la réserve du quiz du jour toutes les dix minutes",
     "nature": "perf",
     "gravite": "P3",
-    "statut": "plan relevé",
+    "statut": "plan relevé, mesuré en production : négligeable",
     "ou": "server/src/server.ts:742-757 (reserveDuJour) ; server/src/core/jour.ts:709 (etatDeLaReserve)",
     "constat": "La tâche de cron-job.org qui garde la production éveillée appelle /healthz toutes les dix minutes ; sa réserve se relit au plus aussi souvent, par un parcours complet.",
-    "preuve": "plans.mjs : SCAN jour_reserve ; `avanceDeLaReserve` : SEARCH jour_reserve USING INDEX idx_jour_reserve_posee.",
-    "piste": "Lire `avanceDeLaReserve` (`core/jour.ts:2511`), que la vue d'ensemble lit déjà.",
+    "preuve": "plans.mjs : SCAN jour_reserve ; `avanceDeLaReserve` : SEARCH jour_reserve USING INDEX idx_jour_reserve_posee. Base de production : 404 questions, 2 ms de plus qu'un SELECT 1.",
+    "piste": "Lire `avanceDeLaReserve` (`core/jour.ts:2511`), que la vue d'ensemble lit déjà — pour la forme : la production n'y gagnerait rien aujourd'hui.",
     "reproduction": "reproductions/plans.mjs"
   },
   {
@@ -152,7 +152,7 @@
     "ou": "server/src/server.ts:259-271 (minutage des routes) ; server/src/core/distante.ts:112-120 (avecDelai)",
     "constat": "Toute route sous /api compte, /api/admin compris — et quatre pages neuves du QG sont arrivées depuis la nuit. Le chrono de Turso part avant le fetch et s'arrête quand la boucle reprend la main : au dixième de cœur, une boucle occupée ou un processus mis en pause s'y ajoutent ; il compte aussi le réveil, le préchauffage, la mesure, le modèle, le relevé.",
     "preuve": "Le 13 octobre, /healthz disait 230 ms de médiane et 765 ms au 95ᵉ centile par aller-retour (server/test/duels-attente.test.ts:5). Le 14, la production au repos : 225 ms connexion rouverte, 29 ms gardée (perf-turso-13). La production tourne sur d4cd799, sans la page « Le serveur » : celle qui montre le doublement est la préproduction, redéployée à chaque fusion, dont les heures sont faites de démarrages.",
-    "piste": "Les routes /api/admin à part ; Turso « sous une route » et « en fond » (un AsyncLocalStorage posé par le minutage) ; les connexions neuves (canal de diagnostic undici:client:connected, sans dépendance) — la part des allers-retours qui repaient leur poignée de main ; le gel imposé par l'hébergeur (/sys/fs/cgroup/cpu.stat, throttled_usec, sous try/catch) — la part du processeur. Agrégés, sans un nom.",
+    "piste": "Les routes /api/admin à part ; Turso « sous une route » et « en fond » (un AsyncLocalStorage posé par le minutage) ; les connexions neuves (canal de diagnostic undici:client:connected, sans dépendance) — la part des allers-retours qui repaient leur poignée de main ; le gel imposé par l'hébergeur (/sys/fs/cgroup/cpu.stat, throttled_usec, sous try/catch) — la part du processeur. Agrégés, sans un nom. Les connexions neuves sont aussi la seule façon de lire combien de temps Turso garde une connexion (perf-turso-13).",
     "reproduction": "reproductions/connexions.mjs"
   },
   {
@@ -163,9 +163,22 @@
     "gravite": "P1",
     "statut": "mesuré en production (14 octobre, au repos)",
     "ou": "server/src/core/distante.ts:114 (fetch, dispatcher global de Node)",
-    "constat": "Sans en-tête Keep-Alive, le fetch de Node referme une connexion inactive au bout de 4 s ; la requête suivante repaie TCP et TLS, et le chiffrement au dixième de cœur. Hors soirée, presque chaque requête arrive après une pause ; et en HTTP/1.1 chaque requête simultanée — une vague de lectures, un réveil — ouvre la sienne. Le chiffre de Turso suit donc le rythme du trafic plus que le code : il peut doubler d'un jour à l'autre sans que rien ne change.",
-    "preuve": "sonde.mjs, production au repos (d4cd799, processeur à 0 %, aucun joueur), mesuré par le serveur (/healthz, base) : douze lectures d'un aller-retour espacées de 6 s → 225 ms de médiane, 566 au pire ; douze d'affilée → 29 ms de médiane (263 pour la première). Préproduction, la minute de son réveil : 74 allers-retours, 93 ms de médiane, 408 au 95ᵉ centile. connexions.mjs : serveur muet, quatre requêtes à 4,5 s ou 8 s d'écart → quatre connexions neuves ; avec « Keep-Alive: timeout=120 », aucune ; dispatcher global remplacé (keepAliveTimeout 60 s) → une seule.",
-    "piste": "Lire d'abord le délai d'inactivité de Turso (ses en-têtes, des essais à 10, 30, 60 et 90 s de calme). Puis un agent au keepAliveTimeout plus long pour les requêtes de Turso, sous ce délai ; HTTP/2 (allowH2) si Turso l'accepte, pour une seule connexion chaude ; à défaut, un SELECT 1 toutes les quelques secondes tant que des joueurs sont là. Sans dépendance (le dispatcher global remplacé) ou par undici en dépendance.",
-    "reproduction": "reproductions/sonde.mjs, reproductions/connexions.mjs"
+    "constat": "Sans en-tête Keep-Alive, le fetch de Node referme une connexion inactive au bout de 4 s ; la requête suivante repaie TCP et TLS, et le chiffrement au dixième de cœur. Hors soirée, presque chaque requête arrive après une pause ; et en HTTP/1.1 chaque requête simultanée — une vague de lectures, un réveil — ouvre la sienne. Le chiffre de Turso suit donc le rythme du trafic plus que le code : il peut doubler d'un jour à l'autre sans que rien ne change. La base est en Irlande (aws-eu-west-1), le service à Francfort : les 29 ms d'une connexion gardée sont surtout ce trajet, et une connexion à rouvrir le refait deux ou trois fois.",
+    "preuve": "sonde.mjs, production au repos (d4cd799, processeur à 0 %, aucun joueur), mesuré par le serveur (/healthz, base) : douze lectures d'un aller-retour espacées de 6 s → 225 ms de médiane, 566 au pire ; douze d'affilée → 29 ms de médiane (263 pour la première). Préproduction, la minute de son réveil : 74 allers-retours, 93 ms de médiane, 408 au 95ᵉ centile. connexions.mjs : serveur muet, quatre requêtes à 4,5 s ou 8 s d'écart → quatre connexions neuves ; avec « Keep-Alive: timeout=120 », aucune ; dispatcher global remplacé (keepAliveTimeout 60 s) → une seule. La session de lecture de la base de production, à travers un proxy de sortie qui rouvre le TLS : 126 ms gardée, 580 rouverte — le même écart ; ni en-tête Keep-Alive ni HTTP/2, et une connexion neuve après 10, 30, 60 et 90 s de calme même au keepAliveTimeout de 120 s, sans une erreur : c'est le proxy qu'elle lisait, pas Turso.",
+    "piste": "Lire d'abord le délai d'inactivité de Turso, depuis Render — la session de lecture ne le peut pas : les connexions neuves comptées dans le relevé (perf-turso-12), puis, en préproduction, un délai plus long, en guettant les connexions fermées par Turso (other side closed, UND_ERR_SOCKET). Puis un agent au keepAliveTimeout plus long pour les requêtes de Turso, sous ce délai ; HTTP/2 (allowH2) si Turso l'accepte, pour une seule connexion chaude ; à défaut, un SELECT 1 toutes les quelques secondes tant que des joueurs sont là. Sans dépendance (le dispatcher global remplacé) ou par undici en dépendance.",
+    "reproduction": "reproductions/sonde.mjs, reproductions/connexions.mjs, reproductions/lecture-de-la-production.md"
+  },
+  {
+    "id": "perf-turso-14",
+    "expert": "perf-turso",
+    "titre": "Chaque réveil lit les bibliothèques de tous les espaces, questions comprises : 570 Ko pour 52 quiz, les trois quarts de ce que lisent les lectures entières du réveil",
+    "nature": "perf",
+    "gravite": "P3",
+    "statut": "mesuré en production (14 octobre, lecture seule)",
+    "ou": "server/src/core/quizStore.ts:172-181 (allBySpace) ; server/src/server.ts:419-422 et 449 (refreshLibrary au démarrage)",
+    "constat": "Le démarrage relit `SELECT * FROM quizzes` pour remplir la bibliothèque en mémoire de chaque espace, quand un réveil ne sert presque toujours qu'un ou deux espaces. Un seul aller-retour, en parallèle des autres branches du démarrage, mais un demi-mégaoctet à recevoir sur une connexion neuve et à décoder deux fois au dixième de cœur : la réponse, puis les questions de chaque quiz (`rowToQuiz`).",
+    "preuve": "Base de production : SCAN quizzes, 52 lignes, 569 731 octets, ~295 ms de plus qu'un SELECT 1 (à travers le proxy de la session). Les neuf lectures entières du réveil — les bibliothèques, les fiches des soirées (memoiresDeTous, 85 Ko), les sessions des comptes (82 Ko), les comptes, les sessions des profils, les tables party_*, le recalcul — en font 753 Ko.",
+    "piste": "À étudier : la bibliothèque d'un espace lue quand il s'ouvre — un écran d'animateur, une soirée à reprendre ; `refreshLibrary(spaceId)` existe déjà —, pourvu que « Lancer » et le salon l'attendent (règle bibliotheque.md, `derniereRelecture`).",
+    "reproduction": "reproductions/lecture-de-la-production.md"
   }
 ]

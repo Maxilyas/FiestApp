@@ -34,6 +34,11 @@ Turso rouverte contre gardée, mesurée par le serveur lui-même.
 BASE=https://<le service> SLUG=<un espace> node ../retours/2026-10-14/reproductions/sonde.mjs
 ```
 
+La base de production, en lecture seule : `lecture-de-la-production.md`,
+la consigne à redonner telle quelle à une session neuve qui voit les deux
+variables de lecture — des volumes, des index, des plans et des temps,
+jamais un nom.
+
 Comparer deux commits : un autre arbre, mesuré avec les modules de celui-ci.
 
 ```bash
