@@ -22,7 +22,7 @@ Le détail : [la vue d'ensemble de l'architecture](../architecture/vue-d-ensembl
 ### La soirée en local, le reste dans une base permanente, un miroir entre les deux
 **Contexte** : le disque de l'offre gratuite s'efface à chaque réveil, et une réponse d'invité ne doit jamais attendre une base distante.
 
-**Décision** : la soirée en cours vit dans une base SQLite locale, jetable et synchrone ; tout ce qui doit survivre vit dans libSQL (Turso en ligne) ; chaque écriture de la soirée rejoint une file par espace qui la recopie au miroir (`party_*`), et le démarrage recharge le miroir dans une base locale vide (`restoreInto`).
+**Décision** : la soirée en cours vit dans une base SQLite locale, jetable et synchrone ; tout ce qui doit survivre vit dans libSQL (Turso en ligne) ; chaque écriture de la soirée — sauf son nom, qui part sur-le-champ — rejoint une file par espace qui la recopie au miroir (`party_*`), et le démarrage recharge le miroir dans une base locale vide (`restoreInto`).
 
 **Conséquence** : un réveil en pleine soirée la reprend ; la file insiste jusqu'au succès, et ses gains et réponses portent un `uid` tiré à l'écriture locale pour un rejeu sans doublon ; l'état d'une partie part avec ses gains, en une transaction ; la clôture efface le miroir avant la base locale ; jamais la même base Turso pour la production et la préproduction.
 
@@ -252,7 +252,7 @@ Le détail : [après la soirée](../produit/apres-la-soiree.md).
 
 **Décision** : `soireeEnCours` le tire une fois, daté à l'heure de la révélation de la première réponse au journal (`soireeDesInvites`), avec une empreinte de l'espace (`archiveIdOf`) ; toute écriture permanente sous ce nom passe d'abord par `recopierSoiree` (invariant 11).
 
-**Conséquence** : ni une exclusion ni un redémarrage ne le changent ; seules la clôture et l'essai effacé l'oublient (`viderSoiree`). Les soirées d'avant l'empreinte se désignent par `(espace, nom)` partout où l'on en compare plusieurs.
+**Conséquence** : ni une exclusion ni un redémarrage ne le changent ; seules la clôture et l'essai effacé l'oublient (`viderSoiree`). Les soirées d'avant l'empreinte pouvant porter le même nom d'un espace à l'autre, toute soirée se désigne par `(espace, nom)` partout où l'on en compare plusieurs (`cleDeSoiree`).
 
 *Fichiers : `server/src/core/archive.ts`, `server/src/core/space.ts`*
 
