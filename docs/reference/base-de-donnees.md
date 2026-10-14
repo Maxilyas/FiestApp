@@ -242,10 +242,10 @@ saisons, titres et pages du mois.
 
 Les Éclats : la version rare d'un avatar, une ligne par profil et par avatar.
 
-- **Colonnes clés** : `profile_id` et `avatar` (la clé), `soiree_id` (la soirée, ou le jour, ou la semaine du défi, qui l'a fait tomber), `created_at`, `eteint` (porté dans sa version d'origine).
+- **Colonnes clés** : `profile_id` et `avatar` (la clé), `soiree_id` (la soirée, ou le jour, ou la semaine du défi, qui l'a fait tomber), `created_at` (indexée : le QG compte les Éclats tombés ces trente jours), `eteint` (porté dans sa version d'origine).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (le tirage, la loge).
-- **Lue par** : `ProfileStore`.
+- **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`).
 - **Effacée par** : l'essai effacé, une soirée retirée, l'exclusion, la suppression du profil.
 
 ### `profile_niveaux`
@@ -274,10 +274,10 @@ Les légendaires acquis sous une règle d'avant, gardés quand elle s'est durcie
 
 Les thèmes achetés en confettis, au prix payé.
 
-- **Colonnes clés** : `profile_id` et `theme` (la clé), `prix`, `created_at`.
+- **Colonnes clés** : `profile_id` et `theme` (la clé), `prix`, `created_at` (indexée : la page de l'économie du QG lit les achats par date).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (la boutique).
-- **Lue par** : `ProfileStore` (le solde se relit : ce qu'on a gagné, moins ce qu'on a payé).
+- **Lue par** : `ProfileStore` (le solde se relit : ce qu'on a gagné, moins ce qu'on a payé) ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
 - **Effacée par** : la suppression du profil.
 
 ### `profile_vies`
@@ -304,20 +304,20 @@ Les sabliers qui protègent la série du quiz du jour, une ligne par sablier.
 
 Les compagnons achetés, et la plus haute forme que chacun a atteinte.
 
-- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at`.
+- **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (l'achat, la croissance).
-- **Lue par** : `ProfileStore`.
+- **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
 - **Effacée par** : la suppression du profil.
 
 ### `profile_dons`
 
 Les confettis offerts par l'administrateur, avec leur mot.
 
-- **Colonnes clés** : `id`, `profile_id`, `confettis`, `mot`, `created_at`.
+- **Colonnes clés** : `id`, `profile_id`, `confettis`, `mot`, `created_at` (indexée : la page de l'économie du QG lit les dons par date).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG), jamais modifiée.
-- **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil).
+- **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
 **Le miroir de la soirée** (`server/src/core/backup.ts`) — la copie, dans la
@@ -417,7 +417,7 @@ hasard, est la permission.
 - **Espace** : oui.
 - **Écrite par** : `QuizStore` (l'envoi d'une photo) ; `npm run migrate`, qui ne l'écrase jamais.
 - **Lue par** : `QuizStore`, qui en garde une partie en mémoire.
-- **Effacée par** : le ménage des photos (`pruneImages`) — une photo qu'aucun quiz, aucune archive et aucune partie encore sur le disque ne cite, après une heure de grâce (`IMAGE_GRACE_MS`) ; la suppression de l'espace.
+- **Effacée par** : le ménage des photos (`pruneImages`) — une photo qu'aucun quiz, aucune archive, aucune partie encore sur le disque ni aucun partage vivant ne cite, après une heure de grâce (`IMAGE_GRACE_MS`) ; la suppression de l'espace.
 
 ### `programmes`
 
@@ -738,10 +738,10 @@ ensemble. Un palier sans ligne tire celui du code (`PALIERS`).
 
 Les duels lancés : contre quelqu'un (classés), ou entre amis (d'avant).
 
-- **Colonnes clés** : `code` (la clé), `auteur`, `questions`, `categories`, `sujet`, `cree_le`, `ferme_le`, `clos_le`, `adversaire` (vide pour un défi entre amis), `cote_auteur` et `cote_adversaire` (figées au lancement), `vu_le` (le résultat vu par qui l'a lancé).
+- **Colonnes clés** : `code` (la clé), `auteur`, `questions`, `categories`, `sujet`, `cree_le` (indexé : le QG lit les duels par leur date de lancement), `ferme_le`, `clos_le`, `adversaire` (vide pour un défi entre amis), `cote_auteur` et `cote_adversaire` (figées au lancement), `vu_le` (le résultat vu par qui l'a lancé).
 - **Espace** : non.
-- **Écrite par** : `CampagneStore` (lancer, fermer, retenir le résultat vu).
-- **Lue par** : `CampagneStore` (la page des duels, la cote relue du journal).
+- **Écrite par** : `CampagneStore` (lancer, fermer, retenir le résultat vu ; l'administrateur qui annule un duel classé pas encore commencé, `annulerUnDuel`, qui pose `ferme_le` à l'instant).
+- **Lue par** : `CampagneStore` (la page des duels, la cote relue du journal ; le QG, `suiviDesDuelsAuQg` : les duels classés lancés, ceux qui attendent leur adversaire).
 - **Effacée par** : rien ; les parties d'un profil supprimé partent, et son duel ne compte plus.
 
 ### `campagne_envois`

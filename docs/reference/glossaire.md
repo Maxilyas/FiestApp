@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 388 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 398 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -11,17 +11,20 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | À compléter | Une question à qui il manque de quoi se jouer : elle s'enregistre telle quelle, dit sur sa carte ce qui lui manque, et la partie la saute | `questionProblem` |
+| « À gagner : où ? » | Le lien sous ce qu'une pièce de la loge laisse choisir (« 3 fonds à gagner : où ? ») : la loge ne montre que ce qu'on a, et il mène à la ligne de « Ma collection » où se lit ce qui reste, et ce qu'il faut pour l'ouvrir | `AGagner` (`client/src/components/LigneDeCollection.tsx`) |
 | À ta portée | Les 3 classés juste au-dessus de sa cote, avec ce que les battre rapporterait | `aSaPortee` |
 | À traiter | La liste de ce qui attend un geste de l'administrateur, le plus pressé d'abord | `lesChosesATraiter` |
 | Accusé | La réponse du serveur à un message qui l'attend : retenu, ou refusé avec son motif et son message | `ecouter`, `ActionAck`, `JoinAck` |
 | Administrateur | Le compte créé au premier démarrage, seul à entrer au QG | `role: 'admin'` |
 | Adresse inconnue | Une adresse qui ne mène à aucune page : le serveur répond 404 et la page propose « Rejoindre une soirée » | `parseRoute` (sorte `unknown`), `client/src/views/LandingApp.tsx` |
 | Album des avatars | La partie avatars de « Ma collection » : une page par rareté, de « Commune » à « Divin » | `shared/album.ts` |
+| Album du style | La partie de « Ma collection » qui range les fonds de carte, les gerbes, les finitions et les bordures de ligue (les thèmes ont leur album) : en couleur ce qu'on a, éteint le reste, ce qu'il faut sous chaque case, et au toucher sa fiche — comment l'avoir, où l'on en est, « Essayer » | `AlbumDuStyle` (`client/src/components/AlbumDuStyle.tsx`), `objetsDuStyle` (`shared/style.ts`) |
 | Allure (d'une gerbe) | Son nombre de particules, leur taille et leur durée : un ballon flotte, une étincelle file | `AllureDeGerbe` |
 | Ami | Un profil qu'on a mis dans sa liste, sans demande, ou avec qui on a joué un défi entre amis | `idsDesAmis` |
 | Amorce (de la bibliothèque) | Les deux modèles marqués `"amorce": true`, qui entrent une seule fois, au premier démarrage d'une base, dans la bibliothèque de l'administrateur | `seedLibrary` |
 | Amorce (de la réserve du jour) | Le premier remplissage de la réserve, au tout premier démarrage, avec les questions des quiz livrés qui se jouent seules ; elles ne sortent qu'en dernier recours | `amorcer` |
 | Annonce de la clôture | Ce que l'écran commun montre à la salle quand la soirée est close : son nom, le QR du souvenir, les podiums, ce qui est tombé | `soiree:cloture`, `ClotureDeSoiree` (`shared/fin.ts`) |
+| Annuler (un duel) | Le geste du QG qui ferme tout de suite un duel classé que l'adversaire n'a pas commencé, comme à son expiration : il ne compte pour personne ; commencé de l'autre côté, il ne s'annule plus | `CampagneStore.annulerUnDuel`, `POST /api/admin/duels/:code/annuler` |
 | Annuler (une question) | Retirer une question du jour pour tous, le jour même seulement : chaque joueur se recompte | `JourStore.annuler` |
 | Aperçu (d'un thème) | L'écran d'une question photographié dans l'application sous ce thème, que montrent la boutique et la collection | `apercuDe` |
 | Application installée | FiestApp ajoutée à l'écran d'accueil du téléphone, seule à pouvoir recevoir le rappel du soir | `estInstallee` |
@@ -76,6 +79,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Chef | Le profil qui tient l'espace et anime depuis son téléphone de joueur, par sa barre | `chefIci` (`client/src/chef.ts`), `accounts.profile_id` |
 | Choix local | Le prénom et l'avatar retenus sur un téléphone pour un espace — une commodité de l'appareil, sans rapport avec un profil | `ChoixLocal`, `quizz.profile.<espace>` (`client/src/state.ts`) |
 | Chronologie | Le journal d'une tablée en une page : qui a fait quoi, les gestes ratés, les délais de réponse, ce qui s'est dit, les retours attendus | `server/scripts/tablee/chronologie.mjs` |
+| Circulation (des confettis) | « En circulation », sur la page de l'économie du QG : tous les soldes relus une fois par jour — leur somme, la médiane de ceux qui ont joué ces trente jours, les profils par tranche, ceux qui ont de quoi s'offrir un compagnon | `circulationDes` (`shared/qgEconomie.ts`) |
 | Clés VAPID | La paire de clés du serveur qui signe ses envois aux services de push, tirée une fois et gardée dans la base permanente | `jour_rappels_cles` |
 | Cloche | Le bouton de la page du jour qui allume ou coupe le rappel du soir, seulement dans l'application installée | `client/src/components/RappelDuJour.tsx` |
 | Clôture | Le seul geste de fin d'une soirée : dernier rangement, crédits de fin, effacement (le miroir, puis la base locale), puis la fin de soirée à chacun | `cloreLaSoiree` (`server/src/sockets.ts`), `SpaceRuntime.closeParty` |
@@ -125,7 +129,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |
 | Duel au dé | Le duel tout de suite contre Automate, toujours sur toutes les catégories ; une série de mode `rencontre` (« rencontre » dans le code) | `commencerUneRencontre` |
 | Duel classé | À l'écran, le duel contre quelqu'un ; dans le code, tout duel qui compte pour la cote, celui du dé compris | `lectureDesDuels` |
-| Duel contre quelqu'un | Le duel lancé contre un joueur à profil : son auteur joue d'abord, l'autre le reçoit à sa dernière réponse et a 7 jours pour le jouer | `creerUnDuel` |
+| Duel contre quelqu'un | Le duel lancé contre un joueur à profil : son auteur joue d'abord, l'autre le reçoit à sa dernière réponse et peut le jouer jusqu'à 7 jours après son lancement | `creerUnDuel` |
+| Duels (au QG) | La page « Les duels » de l'administrateur (`/admin#duels`) : les chiffres d'aujourd'hui, les duels par jour sur trente jours — contre Automate, classés —, les ligues, le classement tel que les joueurs le voient et son « Masquer », puis les duels classés « En attente » de leur adversaire, chacun son « Annuler » | `SuiviDesDuels` (`shared/qgDuels.ts`), `CampagneStore.suiviDesDuelsAuQg` |
 | Durcissement | La règle d'avant d'un légendaire ou de la courbe, gardée sous un drapeau pour que la durcir ne reprenne rien à personne | `DURCISSEMENTS` |
 
 ## E
@@ -137,6 +142,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Écart typique | La médiane des écarts de la salle à une estimation, bornée par deux crans et par la bonne réponse : la moitié de la proximité s'y gagne | `pointsDesEstimations` |
 | Échec passager | Un échec qui passe tout seul — le réseau qui revient, l'hébergeur qui se réveille — et qu'une écriture rejouable peut attendre | `statutPassager`, `echecPassager` (`shared/erreurs.ts`), `auReveil` (`client/src/api.ts`) |
 | Éclat | Un tirage — une chance sur quarante en soirée et au quiz du jour, sur vingt au défi de la semaine — qui change pour toujours les couleurs de l'avatar porté | `profile_eclats` |
+| Économie (au QG) | La page « L'économie » de l'administrateur (`/admin#economie`), à lire, sans geste : les confettis gagnés et dépensés jour par jour, d'où ils viennent — « Tes dons » compris — et où ils partent, ce qui est en circulation, les meilleures ventes, les Éclats tombés et les légendaires portés | `PageDeLEconomie` (`shared/qgEconomie.ts`), `economieDuQg` (`server/src/economie.ts`) |
 | Écran commun | La page de l'animateur projetée à la salle, sa console en bas | `/host`, `client/src/views/HostApp.tsx` |
 | Écran d'animateur | Toute connexion présentée par une session d'animateur : écran commun, télécommande, télé branchée, liaison du chef | `host:hello`, `hosts:<espace>` |
 | Écran des gains | La fin de chaque partie, la même partout : « Ce que tu gagnes », « Nouveaux trophées », « À porter » | `shared/gains.ts` |
@@ -156,6 +162,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; et à l'intérieur des guillemets « » | `shared/typographie.ts` |
 | Espace par défaut | Celui de l'administrateur, où mènent les anciennes adresses ; il ne se supprime pas | `default_space` (`meta`) |
 | Essai | Ce qu'on a touché dans la loge sans l'enregistrer : la carte le montre, « Porter » l'enregistre d'un seul envoi, tout ou rien | `essayer` |
+| « Essayer » | Le bouton qui ouvre la loge avec un objet déjà sur la carte, sans rien enregistrer : sous « À porter » à la fin d'une partie, et dans la fiche d'un avatar ou d'un objet du style de « Ma collection » qu'on a sans le porter ; une adresse n'essaie que ce qui est à lui | `essaiDemande` (`shared/loge.ts`), `?essayer=finition:or#avatar` |
 | Estimation en direct | Une estimation dont la bonne réponse se mesure après les réponses — le gâteau pesé — et se tape pour révéler | `enDirect` |
 | Étagère | Ce qu'un profil a rangé — prix du palmarès, hauts faits, étapes de piste, Divins, saisons —, une ligne par récompense et par rangement | `profile_badges` |
 | Étape | Un des six paliers d'un parcours de thème : dix questions, sept pour passer | `PALIERS_DES_SUJETS` |
@@ -201,7 +208,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Garder cet ordre | Une question dont les réponses restent telles qu'écrites dans un quiz qui les mélange | `ordreFixe` |
-| Gerbe | Ce qui éclate sur le téléphone d'un joueur à chaque bonne réponse, pour lui seul ; les confettis d'office | `shared/gerbes.ts` |
+| Gemmes | Les onglets de ce qui se range par rareté, une gemme par page avec son compte : les mêmes dans l'album des avatars de « Ma collection » et dans la grille des avatars de la loge | `Gemmes` (`client/src/components/Gemmes.tsx`) |
+| Gerbe | Ce qui éclate sur le téléphone d'un joueur à profil à chaque bonne réponse, pour lui seul ; les confettis d'office | `shared/gerbes.ts` |
 | Geste (du QG) | Ce que l'administrateur a changé, noté en une phrase au journal des gestes, jamais modifié | `qg_gestes`, `noterLeGeste` |
 | Gluon | Le caractère invisible U+2060 qui empêche de couper « a-t-il » en fin de ligne, sans dépendre d'une police | `espacesFines` |
 
@@ -269,10 +277,12 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar, jamais écrit en base | `nomsAffiches` (`shared/homonymes.ts`), `nomAffiche` |
 | Masquer (un profil) | Retirer un profil des classements et des récompenses de la nuit du quiz du jour, sans qu'il en soit averti ; il se voit toujours | `jour_masques` |
+| Meilleures ventes | Les thèmes et les compagnons les plus vendus, ces trente jours d'abord puis depuis toujours, sur la page de l'économie du QG — huit au plus ; un thème à prix nul n'est pas une vente | `meilleuresVentes` (`shared/qgEconomie.ts`) |
 | Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes : celle du code, ou celle que l'administrateur règle au QG pour les douze sentiers | `Melange`, `PALIERS`, `sentier_melanges` |
 | Même fait | Deux intitulés différents qui posent le même fait. Ils sont refusés comme un doublon | `memeFait` |
 | Mémoire des quiz | Ce que l'historique sait de chaque quiz et de chaque question — joué combien de fois, trouvée par combien —, dérivé des fiches des soirées | `server/src/core/memoire.ts` |
 | Ménage | L'effacement des pièces que plus aucun quiz ne cite, une heure après, jamais celles d'une partie, d'une soirée archivée ou d'un partage vivant | `pruneImages` |
+| « Mes trophées » | Le panneau de la pièce « Vitrine » de la loge : les trophées gagnés, à toucher jusqu'à trois, dans l'ordre où la carte les montrera — « Mes hauts faits » jusqu'au 13 octobre 2026 | `MaVitrine` (`client/src/components/Trophees.tsx`) |
 | Mesure | La phase où une estimation en direct, close, attend la valeur que l'animateur tape | `cible` |
 | Mesure des pages | Ce que chaque page fait attendre à un téléphone bridé, cache vide puis plein, avant et après une retouche | `server/scripts/mesure-pages.ts` |
 | Miroir | La copie de la soirée en cours dans la base permanente (les tables `party_*`), d'où elle se recharge quand le disque est reparti vide | `PartyBackup` |
@@ -421,7 +431,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Salle socket.io | Un groupe de connexions auquel le serveur émet : tout l'espace, ses écrans d'animateur, ou les connexions d'un invité | `space:<espace>`, `hosts:<espace>`, `player:<invité>` |
 | Salon | La soirée d'un espace, ouverte par son animateur — depuis son téléphone (« Créer un salon ») ou son écran commun —, avec son code | `SalonStore` (`server/src/core/salons.ts`) |
 | Salon (l'espace) | L'espace qu'un profil ouvre par « Créer un salon » : identifiant `p-…`, adresse `s-…`, aucun mot de passe | `estUnSalon` |
-| Sauvegarde en retard | L'état d'un espace dont le miroir échoue depuis dix secondes, que seul l'écran commun affiche | `sauvegardeEnRetard` |
+| Sauvegarde en retard | L'état d'un espace dont le miroir échoue depuis dix secondes, que seuls l'écran commun et le QG affichent | `sauvegardeEnRetard` |
 | Scène | L'écran de fin que montrent ensemble tous les écrans d'animateur — podium, remise des prix, victoire, clôture —, tenu par le serveur | `poserScene`, `Scene` (`shared/types.ts`) |
 | Script de rendu | Un script qui rejoue un écran sur un serveur jetable et le photographie dans Chromium : l'œil avant et après une retouche, pas un test | `server/scripts/rendu-ecran.ts` |
 | Second « Rachid » | La fiche qu'un invité au téléphone mort a créée sur un téléphone emprunté avant de reprendre sa place : effacée s'il n'a rien joué, laissée et plus attendue sinon | `laisserPlace` (`server/src/core/space.ts`) |
