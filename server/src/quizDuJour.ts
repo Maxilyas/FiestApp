@@ -13,6 +13,7 @@ import { HEURE_DU_RAPPEL, jourAvant, jourDe, jourValide, moisDe } from '../../sh
 import { tronquer } from '../../shared/avatars'
 import { apparenceDeLAvatar } from '../../shared/profil'
 import { LIGNES_DU_MOIS_AU_QG, SERIES_NOMMEES, TOURNEES_MONTREES, partDesBonnes, repartirLesSeries, type SuiviDuJour } from '../../shared/qgDuJour'
+import { classementAuJournal } from '../../shared/qgSignalements'
 
 interface JourDeps {
   jour: JourStore
@@ -423,11 +424,44 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
     wrap(async (req, res) => {
       const reserveId = String(req.body?.reserveId ?? '')
       const texte = await deps.jour.texteDeLaReserve(reserveId)
-      const retiree = await deps.jour.retirer(reserveId)
+      // Ses signalements, s'il y en avait, n'ont plus rien à attendre : ceux qui l'ont signalée l'apprendront.
+      const index = Number(req.body?.index)
+      const signalee = jourValide(req.body?.jour) && Number.isInteger(index) ? { jour: String(req.body.jour), index } : undefined
+      const retiree = await deps.jour.retirer(reserveId, signalee)
       if (!retiree) return res.status(404).json({ error: 'Cette question n’est plus dans la réserve' })
-      // Ses signalements, s'il y en avait, n'ont plus rien à attendre.
-      if (jourValide(req.body?.jour)) await deps.jour.garder(req.body.jour, Number(req.body?.index))
       noterLeGeste(res, { sorte: 'jour', resume: `Question retirée de la réserve du quiz du jour : « ${extrait(texte ?? reserveId)} »`, cible: reserveId })
+      res.json({ ok: true })
+    }),
+  )
+
+  // Corriger une question signalée (`/admin#signalements`) : sa version de
+  // la réserve, et le jour qui l'a posée quand la bonne réponse ne change pas.
+  app.post(
+    '/api/admin/jour/corriger',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const index = Number(req.body?.index)
+      // Citée telle qu'elle était : c'est elle qu'on a signalée, et corrigée.
+      const q = await questionDuJour(req.body?.jour, index)
+      const corrigee = await deps.jour.corriger(String(req.body?.jour ?? ''), index, req.body?.correction, { annuler: req.body?.annuler === true })
+      noterLeGeste(res, {
+        sorte: 'jour',
+        resume: `Question du jour corrigée${corrigee.jourAussi ? ', le jour qui l’a posée compris' : ', pour ses prochains tirages'}${corrigee.annulee ? ', ses points annulés pour tous' : ''} : ${q.cite}`,
+        cible: q.reserveId,
+      })
+      res.json(corrigee)
+    }),
+  )
+
+  // La reclasser : sa catégorie — son sous-thème et sa difficulté estimée, si la routine l'a décrite —, pour ses prochains tirages.
+  app.post(
+    '/api/admin/jour/reclasser',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const index = Number(req.body?.index)
+      const { avant, apres } = await deps.jour.reclasser(String(req.body?.jour ?? ''), index, req.body?.classement)
+      const q = await questionDuJour(req.body?.jour, index)
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du jour reclassée, ${classementAuJournal(avant, apres)} : ${q.cite}`, cible: q.reserveId })
       res.json({ ok: true })
     }),
   )

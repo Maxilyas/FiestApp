@@ -129,12 +129,13 @@ Ils ouvrent quatre légendaires : la Salamandre (le Funambule), le Serpent à pl
 
 Après ta réponse, le lien « Signaler une erreur dans cette question » te laisse écrire une phrase de 280 caractères au plus (`SIGNALEMENT_MAX`). Tu as droit à un signalement par question : si tu en renvoies un, il remplace le précédent. Toutes les parties de campagne se signalent de cette façon, y compris les épreuves des sentiers et les parcours.
 
-L'administrateur relit chaque signalement à `/admin#campagne`, avec ce que le joueur a répondu et ce que disent toutes les réponses à la question. Il a ensuite trois gestes :
+L'administrateur relit chaque signalement à `/admin#signalements`, avec ceux du quiz du jour, ce que le joueur a répondu et ce que disent toutes les réponses à la question. Il a ensuite quatre gestes :
 - « Garder » laisse la question en jeu et referme ses signalements.
 - « Corriger » reprend l'intitulé, les réponses, la bonne réponse et l'anecdote. Si la bonne réponse reste la même, la question garde son identifiant et ses mesures. Si elle change, la question corrigée devient une question neuve, avec un identifiant neuf, et l'ancienne est retirée.
+- « Reclasser » change sa catégorie, son sous-thème et sa difficulté estimée : elle rejoint les séries, les sentiers et le défi de sa nouvelle catégorie dès le prochain tirage. Les réponses déjà données gardent la leur, et tes écussons ne bougent pas.
 - « Retirer de la campagne » la retire pour tous et pour toujours.
 
-Les parties déjà tirées, y compris le défi de la semaine, gardent la version qu'elles ont lue. Pour le détail côté administration, voir [administrer](../guides/administrer.md).
+Les parties déjà tirées, y compris le défi de la semaine, gardent la version qu'elles ont lue. Quand ta remarque a servi — la question corrigée, reclassée ou retirée —, ton accueil te remercie, une fois ; « Garder » ne dit rien. Pour le détail côté administration, voir [administrer](../guides/administrer.md#les-signalements).
 
 ## La base de questions
 

@@ -1,11 +1,11 @@
 # Administrer FiestApp
 
-> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
+> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
-> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie aussi ; une page « Animer » viendra à son tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
+> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; une page « Animer » viendra à son tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
 
 ## Entrer au QG
 
@@ -23,12 +23,13 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Le serveur | `/admin#serveur` | sept jours de santé, heure par heure |
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
-| La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin, les signalements |
+| La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin |
 | Les duels | `/admin#duels` | la journée, les duels par jour, les ligues, le classement, les duels qui attendent leur adversaire |
 | Les profils | `/admin#profils` | chaque joueur, et sa fiche |
 | Les salons | `/admin#salons` | chaque espace du serveur |
 | L'économie | `/admin#economie` | les confettis gagnés et dépensés, d'où ils viennent, où ils partent, ce qui circule, les meilleures ventes, les Éclats et les légendaires |
 | Le catalogue | `/admin#catalogue` | les copies de quiz proposées à tous |
+| Les signalements | `/admin#signalements` | les questions que les joueurs signalent, au quiz du jour et en campagne, et celles relues ces trente jours |
 
 Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ensemble toutes les cinq minutes et chaque fois que tu y reviens — et ne relit rien tant que l'onglet est caché. En tête, « En direct » ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
 
@@ -46,7 +47,7 @@ Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ense
 | « La mémoire approche du plafond » (rouge) | plus de 450 Mo, sur les 512 de l'hébergeur | Le serveur |
 | « Turso répond lentement » | plus d'une seconde au 95ᵉ centile, sur au moins vingt allers-retours | Le serveur |
 | « La réserve du quiz du jour » (rouge) | moins de sept jours d'avance | Le quiz du jour |
-| « Signalements du quiz du jour » · « … de la campagne » | des questions signalées | Le quiz du jour · La campagne |
+| « 3 questions signalées » | des questions signalées, au quiz du jour ou en campagne — le détail dit combien de chaque mode, et par combien de joueurs | Les signalements |
 | « Une copie à relire » | des copies proposées au catalogue | Le catalogue |
 | « Une soirée laissée en plan » | six heures sans un signe de vie | Les soirées |
 | « Le rappel du soir » | des envois en échec à la dernière tournée | — |
@@ -112,7 +113,7 @@ Il n'y a ni adresse e-mail, ni mot de passe provisoire, ni lien de réinitialisa
 
 La suppression efface pour de bon son niveau, ses avatars, ses trophées, ses achats, les confettis qu'on lui a offerts, ses parties du quiz du jour et de la campagne, ses duels, ses amis et ses rappels du soir ; son identifiant redevient libre. Restent les soirées jouées, dans l'historique des autres avec ce qu'elles leur ont rapporté, et l'espace qu'il tenait, détaché — son salon garde ses quiz et les souvenirs de ses soirées ; tu le supprimes à part, dans « Les salons », si tu le veux. Suspendre et supprimer se refusent tant qu'il joue une soirée pas encore close : sa clôture ne le retrouverait plus.
 
-**Ce que le joueur en voit** : en tête de son accueil, une fois par téléphone, ce que tu as fait pour lui ces trente derniers jours — « +50 confettis », ton mot, « — de l'administrateur » ; ou « Ton prénom a changé » —, chaque annonce avec son « Merci ».
+**Ce que le joueur en voit** : en tête de son accueil, une fois par téléphone, ce que tu as fait pour lui ces trente derniers jours — « +50 confettis », ton mot, « — de l'administrateur » ; ou « Ton prénom a changé » —, chaque annonce avec son « Merci ». Une question qu'il avait signalée et qui a servi l'y remercie aussi, avec « Avec plaisir » ([les signalements](#les-signalements)).
 
 ## Les salons
 
@@ -135,6 +136,26 @@ Filtres : Tous, Sans titulaire, Désactivés. Chaque espace se nomme par son tit
 
 Les copies de quiz que les animateurs proposent à tous depuis « Mes quiz ». Rien n'y paraît sans toi : « Relis-la : pas de prénoms d'invités, pas de photos de proches. » Rangées en « À relire » et « Publiées » ; « Relire » déplie leurs questions, la bonne réponse marquée. « Publier » met la copie dans « Partir d'un modèle » de chaque espace, avec le nom de son auteur ; « Refuser » l'écarte ; « Retirer » sort une copie publiée. Le partage côté animateur : [Les quiz](../produit/les-quiz.md).
 
+## Les signalements
+
+Ce que les joueurs signalent après leur réponse (« Signaler une erreur dans cette question »), au quiz du jour comme en campagne — séries, sentiers, parcours de thème, défi de la semaine, duels —, sur une seule page ; la barre de côté compte les questions qui attendent, et les pages du quiz du jour et de la campagne y mènent par une ligne. Côté joueur : [Le quiz du jour](../produit/le-quiz-du-jour.md), [La campagne](../produit/la-campagne.md).
+
+- **En tête** : les questions à relire et les joueurs qui les signalent ; celles du quiz du jour (« dont 2 d'aujourd'hui ») et celles de la campagne ; les questions relues ces trente jours, et ce qui en a été fait (« 3 corrigées · 1 retirée · 2 gardées »).
+- **À relire** : une carte par question, de tous les modes ou d'un seul (Tout, Quiz du jour, Campagne), « les plus signalées d'abord » ou « les plus récentes d'abord ». D'où elle vient — sa catégorie et le jour qui l'a posée, ou sa catégorie, son sous-thème et où on l'a jouée —, combien de joueurs la signalent et depuis quand ; l'intitulé, les réponses, la bonne cochée — au quiz du jour, la part de chacune ; ce que disent toutes les réponses — au quiz du jour, combien l'ont jouée et la part de justes ; en campagne, la part de justes, sa difficulté estimée à l'écriture et celle de l'usage, d'où elle vient et son identifiant ; l'anecdote ; puis chaque joueur qui la signale — son prénom, son identifiant, ce qu'il avait répondu, quand, et sa phrase —, ceux déjà relus repliés dessous. La page montre les cinquante questions les plus récemment signalées de chaque mode ; les autres paraissent à mesure.
+- **Relues** : les questions relues ces trente jours, la plus récente d'abord — d'où elle venait, combien de joueurs la signalaient, ce qui en a été fait et quand : « Corrigée · l'anecdote », « Reclassée · Histoire › Civilisations anciennes · difficulté 4 », « Retirée de la réserve », « Points annulés pour tous », « Gardée » ; « Relue » pour une question relue avant le 14 octobre 2026. Signalée de nouveau, une question revient dans « À relire », ses signalements d'avant repliés dessous.
+
+Chaque geste referme les signalements de sa question, dit ce qui en a été fait et se note au journal. Un geste refusé le dit — « Rien n'a changé : « Garder » referme ses signalements », « Cet intitulé est déjà dans la campagne » — et ne referme rien.
+
+| Geste | Ce qu'il fait |
+|---|---|
+| « Corriger » | L'intitulé, les réponses et la bonne, l'anecdote ; le formulaire dit ce que fera la correction avant que tu l'enregistres. **Au quiz du jour**, c'est la version de la réserve qui change — celle que ses prochains tirages poseront. La même bonne réponse — une faute, un leurre, une anecdote —, et le jour qui l'a posée la prend aussi : l'écran de correction de chacun, et ceux qui la jouent encore aujourd'hui. Une autre bonne réponse ne vaut que pour la suite — ses joueurs ont répondu par la place de chaque réponse — : tant que son jour court, « Annuler aussi ses points pour tous », cochée d'office, règle le jour joué dans le même geste. **En campagne**, la même bonne réponse garde l'identifiant de la question, ses réponses passées et sa difficulté mesurée ; une autre la fait repartir sous un nouvel identifiant, sans les mesures de l'ancienne, qui est retirée. Les séries déjà tirées gardent la version qu'elles ont lue. |
+| « Reclasser » | La catégorie, le sous-thème et la difficulté estimée — de 1, presque tout le monde la trouve, à 5, un passionné —, celle d'avant en pointillé. Pour la suite : les réponses déjà données gardent leur catégorie, et les écussons de chacun ne bougent pas. Une question du jour que la routine n'a pas encore décrite ne reclasse que sa catégorie. |
+| « Retirer de la réserve » · « Retirer de la campagne » | Elle ne sera plus posée, pour personne, pour toujours ; les séries déjà tirées la gardent. |
+| « Annuler ses points pour tous » | Au quiz du jour, tant que son jour court (après minuit, son podium est payé) : ses points s'effacent pour tous ceux qui l'ont jouée aujourd'hui, du classement du jour comme de celui du mois, et l'expérience de chacun suit. Elle reste dans le tirage, annulée. Une confirmation : rien ne la rend. |
+| « Garder » | La question est juste : ses signalements se referment. Sur une question déjà retirée, « Refermer ». |
+
+**Ce que le joueur en voit** : quand sa remarque a servi — la question corrigée, reclassée, retirée, ou ses points annulés —, un merci en tête de son accueil, une fois : « Merci, Léa ! La question du quiz du jour que tu as signalée, « Quel fleuve traverse… », a servi : elle a été corrigée. » « Garder » ne lui dit rien : la question était juste.
+
 ## Le quiz du jour
 
 Les règles du mode vivent dans [Le quiz du jour](../produit/le-quiz-du-jour.md) ; sa page au QG suit la journée et tient la réserve.
@@ -142,7 +163,7 @@ Les règles du mode vivent dans [Le quiz du jour](../produit/le-quiz-du-jour.md)
 - **Aujourd'hui** : les parties commencées et finies (comparées à la même heure d'habitude), la part de bonnes réponses et celle d'hier, les séries en cours et la plus longue, les téléphones abonnés au rappel et la dernière tournée.
 - **La réserve** : ses jours d'avance, ses questions prêtes et déjà posées. Sous sept jours, elle s'allume : « Moins d'une semaine d'avance. Colle une liste, ou copie la consigne dans ton IA : sans question neuve, la réserve rejouera les plus anciennes. » Elle dit si le remplissage automatique est ouvert — la routine du matin y dépose ses questions quand le serveur a son `RESERVE_TOKEN` — et ses derniers apports, avec ce qui a été écarté et pourquoi : elle ne prend que des questions à choix, sans photo. « Coller une liste » (au format de l'éditeur de quiz, puis « Ajouter à la réserve »), « Copier la consigne pour une IA » (la même que celle de la routine : colle-la dans le chatbot de ton choix, puis sa réponse dans « Coller une liste »), « Voir les prochains jours » (les prochaines questions avec leur réponse, « Retirer » en ôte une).
 - **Question par question** : le tirage d'aujourd'hui — chaque question, sa part de bonnes réponses, ses signalements ouverts ; touchée, ce que chaque réponse a recueilli (une question piège se voit à la mauvaise réponse qui l'emporte), celles laissées au temps, le temps moyen. « Annuler ses points pour tous », sans attendre un signalement : ses points s'effacent pour tous ceux qui l'ont jouée aujourd'hui, du classement du jour comme du mois, et l'expérience de chacun suit — rien ne la rend. « Retirer de la réserve » : elle ne reviendra plus.
-- **Signalements** : chaque question signalée — son jour, sa bonne réponse, ce qu'en disent les joueurs — avec « Annuler ses points pour tous » (tant que son jour court : après minuit, son podium est payé), « Retirer de la réserve », et « Garder », qui referme les signalements.
+- **Les signalements** : une ligne dit combien de questions attendent, et mène à [leur page](#les-signalements), où l'on corrige, reclasse, annule, retire ou garde.
 - **Joueurs par jour**, sur trente jours ; **le classement du mois**, tel que les joueurs le voient, avec « Masquer » au bout de chaque ligne ; **les séries en cours**, par longueur (1 à 6 jours, 7 à 29, 30 à 99, 100 et plus), les trois plus longues et les sabliers achetés ce mois-ci.
 - **Le rappel du soir** — à 18 h, aux téléphones qui l'ont demandé et dont la partie n'est pas finie : les téléphones abonnés, puis les sept derniers soirs (envoyés, « Déjà joué », échecs, « Partis » : des abonnements défaits).
 - **Masquer un profil** : le chercher, « Masquer du classement » ou « Remettre au classement ». Masqué, un profil joue toujours, mais il sort des classements — quiz du jour et duels —, des podiums et des lauriers, et on ne peut plus le défier ; personne ne l'en avertit, et sur son téléphone sa ligne reste. Sa fiche dit « hors classement ».
@@ -158,7 +179,7 @@ Les règles vivent dans [La campagne](../produit/la-campagne.md) et [Les sentier
 - **Les sentiers** : les sept derniers jours (joueurs, épreuves, paliers validés, vies perdues et achetées), puis, sur trois mois, chaque palier de tous les sentiers ou d'un seul — la chance d'un essai au seuil du jour, qui l'a validé (du premier coup ou non), qui y reste bloqué et ses échecs, les abandons, les rejeux à part ; les bonnes réponses par marche (faciles, moyennes, difficiles, expertes) à côté de ce que le calibrage suppose ; un palier plus facile que celui d'avant se signale (« plus facile que P3 ») ; enfin « Les plus bloqués ».
 - **Régler un palier** : sous « Tous les sentiers », « Régler » ouvre le mélange d'un palier — combien de faciles, de moyennes, de difficiles, seize en tout, jamais d'experte —, la difficulté que les joueurs liront, et la chance d'un essai que donnerait ce mélange, estimée sur ce que les joueurs de ce palier trouvent vraiment (au calcul, pour un joueur moyen, tant que le palier a trop peu d'épreuves). Un avertissement dit si le palier deviendrait plus facile que celui d'avant, ou plus dur que le suivant. « Appliquer » vaut pour les douze sentiers ensemble, et pour les épreuves qui commencent : celles en cours gardent leurs questions, aucun palier validé ne se reprend, et le seuil reste à dix. Un palier réglé porte « réglé au QG », son mélange d'origine et ce que disent les épreuves commencées depuis ; « Revenir au mélange d'origine » le défait. Chaque réglage va au journal, avec l'ancien mélange et le nouveau. Le palier du maître ne se règle pas, et les seuils restent dans le code.
 - **La base** : ses questions à jouer et retirées, par catégorie et par difficulté (de 1 à 5). **La routine du matin** : ce qu'elle a déposé aujourd'hui, ces sept jours et en tout, et ses dernières questions — c'est la première fois qu'un humain les lit ; « Retirer » en sort une, pour tous.
-- **Signalements** : qui signale, où il a joué, ce qu'il a répondu et ce qu'il en dit ; ce que toutes les réponses en disent ; d'où vient la question, et son identifiant. « Corriger » (l'intitulé, les réponses et la bonne, l'anecdote : la même bonne réponse garde l'identifiant et les mesures de la question ; une autre la fait repartir sous un nouvel identifiant et retire l'ancienne ; les séries déjà tirées gardent la version qu'elles ont lue), « Retirer de la campagne » (pour tous, pour toujours), « Garder » (referme les signalements).
+- **Les signalements** : une ligne dit combien de questions attendent, et mène à [leur page](#les-signalements), où l'on corrige, reclasse, retire ou garde.
 
 Une épreuve de sentier qui bloque un joueur se libère depuis sa fiche.
 

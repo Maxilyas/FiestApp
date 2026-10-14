@@ -3,7 +3,7 @@ paths:
   - "server/src/core/{baseCampagne,consigneCampagne,memeFait}.ts"
   - "server/scripts/{base-campagne,generer-campagne,lots-campagne,faits-wikidata}.ts"
   - "server/content/campagne/**"
-  - "client/src/components/AdminCampagne.tsx"
+  - "client/src/components/{AdminCampagne,QgSignalements}.tsx"
   - "server/test/{campagne-base,campagne-routine,campagne-signalements,meme-fait,generer-campagne,faits-wikidata,reponses-soufflees}.test.ts"
   - ".claude/agents/{redacteur-campagne,relecteur-campagne}.md"
   - ".claude/skills/base-campagne/SKILL.md"
@@ -26,14 +26,17 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   corrige dans son fichier, l'identifiant ne bouge pas ; une correction de
   fond — la bonne réponse change — la retire et en range une neuve, sous un
   identifiant neuf (`ranger`), pour que les mesures d'avant ne la suivent
-  pas. « Corriger », à `/admin#campagne`, suit la même règle sans toucher
-  au dépôt : la version corrigée se range dans Turso (`campagne_corrections`,
-  sous l'identifiant de la question corrigée), relue par le juge de la base,
-  ses leurres refaits (`leurresApres`), et l'emporte sur la ligne de son
-  fichier (`appliquerLesCorrections`) ; une autre bonne réponse
-  (`bonneReponseChange`, la même règle à l'écran et au serveur) lui tire un
-  identifiant neuf et retire l'ancienne. Les séries déjà tirées, le défi de
-  la semaine compris, gardent la version qu'elles ont lue. Un lot se
+  pas. « Corriger », à `/admin#signalements`, suit la même règle sans
+  toucher au dépôt : la version corrigée se range dans Turso
+  (`campagne_corrections`, sous l'identifiant de la question corrigée),
+  relue par le juge de la base, ses leurres refaits (`leurresApres`), et
+  l'emporte sur la ligne de son fichier (`appliquerLesCorrections`) ; une
+  autre bonne réponse (`bonneReponseChange`, la même règle à l'écran et au
+  serveur) lui tire un identifiant neuf et retire l'ancienne. « Reclasser »
+  — sa catégorie, son sous-thème, sa difficulté estimée — se range de même,
+  sous son identifiant, relu par le même juge (`CampagneStore.reclasser`,
+  le 14 octobre 2026). Les séries déjà tirées, le défi de la semaine
+  compris, gardent la version qu'elles ont lue. Un lot se
   vérifie avant d'entrer (`verifier`), et une épreuve qui joue la campagne
   donne sa base (`baseDEssai`, `banc.ts`) : celle du dépôt grandit à chaque
   lot rangé.
@@ -45,9 +48,10 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   soufflait sa réponse) « … les fûts et les barriques ? », le fait de
   `48udq4ya` en culture générale — `voisines` le montre. Une correction
   appliquée hors d'un lot se suit d'un `voisines`. Et deux « retirer » :
-  `base-campagne.ts retirer` sort une question des fichiers ; « Retirer » à
-  `/admin#campagne` la marque dans Turso (`campagne_retraits`), pour
-  toujours, sans toucher au dépôt.
+  `base-campagne.ts retirer` sort une question des fichiers ; « Retirer » au
+  QG — une question signalée à `/admin#signalements`, un ajout de la
+  routine à `/admin#campagne` — la marque dans Turso (`campagne_retraits`),
+  pour toujours, sans toucher au dépôt.
 - **La base a été relue en entier une seconde fois**, classement compris, le
   13 octobre 2026, par Opus et sur le crédit de l'API (une fois, jamais
   d'autre ; `retours/2026-10-13/credit-api.md`, et chaque décision dans ses

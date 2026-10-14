@@ -498,8 +498,8 @@ La réserve de questions du quiz du jour.
 
 - **Colonnes clés** : `id`, `question` (JSON), `empreinte` (unique : l'intitulé normalisé, contre les doublons), `categorie`, `source` (`livre`, `liste` ou `ia`), `ajoutee_le`, `posee_le` (le jour qui l'a tirée), `retiree_le`, `metadonnees` (JSON, l'étiquetage), `etiquetee_le`.
 - **Espace** : non.
-- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, le tirage, un retrait, l'étiquetage.
-- **Lue par** : `JourStore` (le tirage, la consigne de la routine, le QG) ; la campagne, qui écarte ses intitulés.
+- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, le tirage, un retrait, l'étiquetage ; « Corriger » et « Reclasser » à la page des signalements (la question, son empreinte, sa catégorie, ses métadonnées).
+- **Lue par** : `JourStore` (le tirage, la consigne de la routine, le QG — la page des signalements lit la version d'une question signalée, et ses métadonnées) ; la campagne, qui écarte ses intitulés.
 - **Effacée par** : rien : une question retirée garde sa ligne (`retiree_le`).
 
 ### `jour_apports`
@@ -567,10 +567,10 @@ Le podium de chaque jour clos, et l'expérience qu'il a payée.
 
 Les questions du jour signalées par les joueurs.
 
-- **Colonnes clés** : `jour`, `question`, `profile_id` (la clé à trois), `texte`, `cree_le`, `traite_le`.
+- **Colonnes clés** : `jour`, `question`, `profile_id` (la clé à trois), `texte`, `cree_le`, `traite_le`, `issue` (ce qu'un geste du QG en a fait : `gardee`, `corrigee`, `reclassee`, `retiree`, `annulee` ; vide pour un signalement relu avant le 14 octobre 2026), `detail` (comment, pour l'historique : « nouvelle bonne réponse : 1997 »). Signalée de nouveau, la ligne repart sans `traite_le`, `issue` ni `detail`. Index `(profile_id, traite_le)`, pour le merci de l'accueil.
 - **Espace** : non.
-- **Écrite par** : `JourStore` (le signalement, la décision au QG).
-- **Lue par** : `JourStore` (le QG).
+- **Écrite par** : `JourStore` (le signalement ; au QG, chaque geste — garder, corriger, reclasser, retirer, annuler — dans son propre lot).
+- **Lue par** : `JourStore` (la page des signalements du QG, son historique de trente jours, le merci sur l'accueil du joueur).
 - **Effacée par** : la suppression du profil.
 
 ### `jour_masques`
@@ -654,10 +654,10 @@ Les réponses de chaque partie.
 
 Les questions de la campagne signalées par les joueurs.
 
-- **Colonnes clés** : `question_id` et `profile_id` (la clé), `serie_id`, `texte`, `cree_le`, `traite_le`.
+- **Colonnes clés** : `question_id` et `profile_id` (la clé), `serie_id`, `texte`, `cree_le`, `traite_le`, `issue` et `detail` (comme `jour_signalements`, sans `annulee`). Index `(profile_id, traite_le)`, pour le merci de l'accueil.
 - **Espace** : non.
-- **Écrite par** : `CampagneStore` (le signalement ; garder, corriger ou retirer, au QG).
-- **Lue par** : `CampagneStore` (le QG).
+- **Écrite par** : `CampagneStore` (le signalement ; garder, corriger, reclasser ou retirer, au QG).
+- **Lue par** : `CampagneStore` (la page des signalements du QG, son historique de trente jours, le merci sur l'accueil du joueur).
 - **Effacée par** : la suppression du profil.
 
 ### `campagne_retraits`
@@ -683,11 +683,11 @@ livrée et se jouent tout de suite, sans déploiement.
 
 ### `campagne_corrections`
 
-Les questions corrigées par l'administrateur.
+Les questions corrigées ou reclassées par l'administrateur.
 
-- **Colonnes clés** : `question_id` (la question d'origine), `entree` (JSON : la version corrigée), `corrigee_le`.
+- **Colonnes clés** : `question_id` (la question d'origine), `entree` (JSON : la version corrigée, ou reclassée — sa catégorie, son sous-thème, sa difficulté estimée —, sous le même identifiant), `corrigee_le`.
 - **Espace** : non.
-- **Écrite par** : `CampagneStore.corriger`.
+- **Écrite par** : `CampagneStore.corriger`, `CampagneStore.reclasser`.
 - **Lue par** : `CampagneStore`, au démarrage.
 - **Effacée par** : rien.
 

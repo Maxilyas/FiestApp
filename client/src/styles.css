@@ -6576,20 +6576,6 @@ h3 > .icon {
 .prochaines-du-jour { margin: 10px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
 .liste-a-coller { display: flex; flex-direction: column; gap: 10px; }
 .liste-a-coller textarea { width: 100%; font-family: var(--sans); resize: vertical; }
-.compte-rond {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.6em;
-  height: 1.6em;
-  padding: 0 6px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--sans);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    L'ÉCRAN COMMUN EN 1366 × 768
@@ -9974,6 +9960,64 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .annonce-admin-icone .icon { width: 16px; height: 16px; }
 .annonce-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 .annonce-admin-merci { flex: none; align-self: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+/* Le merci d'un signalement se lit en une longue phrase : son bouton passe sous le texte, qu'il serrait en colonne. */
+.annonce-admin-pile { flex-wrap: wrap; }
+.annonce-admin-pile .annonce-admin-texte { flex-basis: calc(100% - 46px); }
+.annonce-admin-pile .annonce-admin-merci { margin-left: 46px; }
+/* Les signalements (`/admin#signalements`) : les onglets, d'où viennent les
+   questions et le tri sur une rangée ; puis une carte par question — d'où
+   elle vient et qui la signale, l'intitulé en grand, ses réponses en
+   pastilles, ce qu'on en dit, ses gestes. Corriger ou reclasser prend la
+   place des gestes. */
+.signalements-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.signalements-filtres .onglets { flex: 0 1 auto; }
+/* Chaque onglet à la largeur de son nom : partagée, « À relire » passait sur deux lignes. */
+.signalements-filtres .onglet { flex: 0 0 auto; padding: 0 12px; white-space: nowrap; }
+.signalements-tri { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.signalements-tri .input { width: auto; min-height: 40px; padding: 6px 10px; font-size: 0.9rem; }
+.signalements-panneau { display: flex; flex-direction: column; gap: 14px; }
+.signalement-carte p { margin: 0; }
+.signalement-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.signalement-mode { gap: 5px; }
+.signalement-mode .icon { width: 12px; height: 12px; }
+.signalement-qui { color: var(--muted); }
+/* Les chiffres en sans-serif, comme le texte qu'ils côtoient : en Cormorant, ils paraissaient d'une autre ligne. */
+.signalement-qui b { font-family: var(--sans); color: var(--ink); font-weight: 600; }
+.signalement-question { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.signalement-reponses { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.signalement-reponses li { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); font-size: 0.9rem; overflow-wrap: anywhere; }
+.signalement-reponses li > b { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.signalement-reponses .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
+.signalement-reponses .signalement-juste { border-color: color-mix(in srgb, var(--accent) 65%, transparent); font-weight: 600; }
+.signalement-marques { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+/* « Annuler aussi ses points pour tous », sous une correction du quiz du jour : la case à la taille d'un doigt, sa phrase à côté. */
+.correction-question > .correction-annuler { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
+.correction-annuler input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; }
+.reclassement-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px 16px; }
+.reclassement-champs label { display: flex; flex-direction: column; gap: 6px; }
+.reclassement-crans { min-width: 0; margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; }
+.reclassement-crans legend { padding: 0; margin-bottom: 4px; }
+.reclassement-rangee { display: flex; flex-wrap: wrap; gap: 8px; }
+/* La difficulté d'avant en pointillé : on voit d'où l'on part. */
+.reclassement-cran { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--edge-strong); border-radius: var(--radius-xs); background: none; color: var(--ink); font: inherit; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+.reclassement-cran-avant { border-style: dashed; }
+.reclassement-cran[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+/* Les questions relues : l'intitulé et d'où il vient, puis ce qui en a été
+   fait et quand — dessous au téléphone, au bout de la ligne à l'ordinateur.
+   L'issue s'écrit à l'encre du texte, son icône et son filet à sa couleur :
+   la couleur seule ne dit rien à qui la distingue mal. */
+.signalement-relu { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'texte' 'issue' 'quand'; align-items: center; gap: 6px 12px; padding: 10px 0; }
+.signalement-relu > .qg-ligne-texte { grid-area: texte; }
+/* Un détail long passe à la ligne dans son cadre : l'arrondi d'une pilule en faisait une bulle. */
+.signalement-issue { --issue: var(--muted); grid-area: issue; justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 3px 10px; border: 1px solid color-mix(in srgb, var(--issue) 50%, transparent); border-radius: var(--radius-xs); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
+.signalement-issue .icon { flex: none; width: 13px; height: 13px; color: var(--issue); }
+.signalement-issue-corrigee { --issue: var(--en-ligne); }
+.signalement-issue-reclassee { --issue: var(--accent-text); }
+.signalement-issue-retiree, .signalement-issue-annulee { --issue: var(--alert); }
+.signalement-quand { grid-area: quand; white-space: nowrap; }
+/* La ligne qui y mène, depuis les pages du quiz du jour et de la campagne. */
+.signalements-lien { padding: 10px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); text-decoration: none; }
+.signalements-lien:hover .qg-chevron { color: var(--ink); }
 @media (min-width: 1101px) {
   /* La barre de côté dans la première colonne, l'en-tête et la page dans la
      seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
@@ -10034,6 +10078,11 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-rang { grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto auto; grid-template-areas: 'place avatar nom points geste'; }
   .qg-ratees .qg-piste-ligne { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte piste part'; }
   .qg-ratee-texte { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .signalement-relu { grid-template-columns: minmax(0, 1fr) minmax(0, auto) 10rem; grid-template-areas: 'texte issue quand'; }
+  .signalement-issue { justify-self: end; }
+  .signalement-quand { justify-self: end; }
+  .signalement-qui { margin-left: auto; }
+  .signalement-question { font-size: 1.65rem; }
 }
 @media (min-width: 1400px) {
   .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }

@@ -37,6 +37,7 @@ import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
 import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
+import { JOURS_DES_RELUS, RELUS_MONTRES, type PageDesSignalements } from '../../shared/qgSignalements'
 
 export interface QgDeps {
   /** La base locale : le registre des soirées pas encore closes — la clôture la vide. */
@@ -411,6 +412,40 @@ export function mountQg(app: Express, deps: QgDeps) {
     '/api/admin/economie',
     wrap(async (_req, res) => {
       res.json(await economie.page())
+    }),
+  )
+  // Les signalements (`/admin#signalements`, le choix du 14 octobre 2026) :
+  // ce que les joueurs signalent au quiz du jour et en campagne, à relire, et
+  // ce qui a été fait des questions relues ces trente jours. Qui signale se
+  // lit d'un coup, suspendus compris : un profil suspendu depuis reste nommé,
+  // il n'a pas cessé d'exister.
+  app.get(
+    '/api/admin/signalements',
+    wrap(async (_req, res) => {
+      const maintenant = deps.maintenant()
+      const depuis = maintenant - JOURS_DES_RELUS * 86_400_000
+      const [jour, campagne, relusDuJour, relusDeLaCampagne] = await Promise.all([
+        deps.jour.signalementsAuQg(),
+        deps.campagne.signalements(),
+        deps.jour.signalementsRelus(depuis),
+        deps.campagne.relus(depuis),
+      ])
+      const ids = [...new Set([...jour, ...campagne].flatMap(s => s.rapports.map(r => r.profileId)))]
+      await deps.profiles.byIds(ids)
+      const profils = new Map(await Promise.all(ids.map(async id => [id, await deps.profiles.pourLAdministrateur(id)] as const)))
+      const nomme = <R extends { profileId: string }>(r: R): R => {
+        const p = profils.get(r.profileId)
+        return p ? { ...r, prenom: p.name, login: p.login } : r
+      }
+      for (const s of jour) s.rapports = s.rapports.map(nomme)
+      for (const s of campagne) s.rapports = s.rapports.map(nomme)
+      const page: PageDesSignalements = {
+        maintenant,
+        jour,
+        campagne,
+        relus: [...relusDuJour, ...relusDeLaCampagne].sort((a, b) => b.quand - a.quand).slice(0, RELUS_MONTRES),
+      }
+      res.json(page)
     }),
   )
   // La santé du serveur sur sept jours : relue au plus une fois la minute, à l'ouverture de sa page.

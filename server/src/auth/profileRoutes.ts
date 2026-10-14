@@ -19,7 +19,7 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import type { JourStore } from '../core/jour'
 import { CATALOGUE_DES_PRIX } from '../core/stats'
 import { ecussonsDe } from '../../../shared/ecussons'
-import { distinctions, type ProfilDAccueil } from '../../../shared/profil'
+import { ANNONCE_MS, distinctions, type ProfilDAccueil } from '../../../shared/profil'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
@@ -49,9 +49,10 @@ interface ProfileApiDeps {
   maintenant: () => number
   /**
    * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
-   * celui qu'il avance ; ses duels, pour le leur.
+   * celui qu'il avance ; ses duels, pour le leur ; les questions qu'il a
+   * signalées et dont sa remarque a servi, pour le remercier.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'coteDe'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'coteDe' | 'mercisDe'>
 }
 
 /**
@@ -150,7 +151,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const aujourdhui = jourDe(deps.maintenant())
     await deps.jour.clorePasses(aujourdhui)
     const rec = (await profiles.byId(me.id)) ?? me
-    const [jour, lue, campagne, duels] = await Promise.all([
+    // À l'horloge des magasins, qui datent leurs relectures : les tests l'avancent.
+    const depuis = deps.maintenant() - ANNONCE_MS
+    const [jour, lue, campagne, duels, mercis] = await Promise.all([
       deps.jour.carriereDe(rec.id),
       // Une base qui se tait ôte le solde, pas la page. Les dons de
       // l'administrateur viennent avec lui, dans la même lecture : l'accueil
@@ -169,10 +172,19 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         console.error('[profil] duels illisibles :', e)
         return undefined
       }),
+      // Et les questions qu'il a signalées dont sa remarque a servi : un merci, en même temps que le reste.
+      Promise.all([deps.jour.mercisDe(rec.id, depuis), deps.campagne.mercisDe(rec.id, depuis)]).then(
+        ([duJour, deCampagne]) => [...duJour, ...deCampagne],
+        e => {
+          console.error('[profil] mercis illisibles :', e)
+          return []
+        },
+      ),
     ])
     const boutique = lue?.boutique
-    // Ce que l'administrateur a fait pour lui : ses dons, son prénom changé — dits une fois, son téléphone retient le reste.
-    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now())
+    // Ce que l'administrateur a fait pour lui : ses dons, son prénom changé, ses
+    // signalements qui ont servi — dits une fois, son téléphone retient le reste.
+    const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis)
     return {
       ...profiles.toPublic(rec),
       jour,

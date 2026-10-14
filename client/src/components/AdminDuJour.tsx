@@ -4,10 +4,10 @@ import { confirmDialog } from './Dialog'
 import { Flamme, Icon } from './Icon'
 import { AujourdhuiDuJour, ClassementDuMoisAuQg, JoueursParJour, QuestionsDuJour, RappelDuSoirAuQg, SeriesDuJourAuQg } from './QgDuJour'
 import { confirmerLeMasque } from './QgModes'
+import { VersLesSignalements } from './QgSignalements'
 import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
-import { jourEnToutesLettres } from '../../../shared/jour'
 import type { QuizQuestionDef } from '../../../shared/library'
 import type { SuiviDuJour } from '../../../shared/qgDuJour'
 // Le même seuil que « À traiter », à la vue d'ensemble du QG : écrit deux fois, il pouvait s'allumer ici et pas là.
@@ -18,14 +18,14 @@ const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste c
 /**
  * Le quiz du jour, côté administrateur : les chiffres d'aujourd'hui, la
  * réserve et ses jours d'avance, de quoi la remplir (« Coller une liste », le
- * format de l'éditeur), le tirage question par question, les signalements
- * des joueurs — annuler une question pour tous, la retirer, la garder —, les
- * joueurs des trente derniers jours, le classement du mois, les séries, le
- * rappel du soir, et les profils à masquer du classement (`QgDuJour.tsx`).
- * La vue d'ensemble du QG lui prête ses trente jours : déjà lus, ils ne se
- * relisent pas ici.
+ * format de l'éditeur), le tirage question par question, la ligne qui mène
+ * aux signalements des joueurs — ils se relisent sur leur page, avec ceux de
+ * la campagne (`AdminSignalements.tsx`) —, les joueurs des trente derniers
+ * jours, le classement du mois, les séries, le rappel du soir, et les
+ * profils à masquer du classement (`QgDuJour.tsx`). La vue d'ensemble du QG
+ * lui prête ses trente jours : déjà lus, ils ne se relisent pas ici.
  */
-export function AdminDuJour({ vue }: { vue: VueDEnsemble | null }) {
+export function AdminDuJour({ vue, versLesSignalements }: { vue: VueDEnsemble | null; versLesSignalements: () => void }) {
   const [etat, setEtat] = useState<Etat | null>(null)
   const [erreur, setErreur] = useState('')
   const [suivi, setSuivi] = useState<SuiviDuJour | null>(null)
@@ -290,43 +290,8 @@ export function AdminDuJour({ vue }: { vue: VueDEnsemble | null }) {
         retirer={q => suivi && void faire(() => api.admin.retirerDuJour(q.reserveId, suivi.jour, q.index), 'Retirée de la réserve')}
       />
 
-      <section className="admin-groupe" aria-labelledby="signalements-titre">
-        <h2 className="compte-groupe" id="signalements-titre">
-          Signalements {etat.signalements.length > 0 && <span className="compte-rond">{etat.signalements.length}</span>}
-        </h2>
-        {etat.signalements.length === 0 && <p className="muted small">Aucun signalement à relire.</p>}
-        {etat.signalements.map(s => (
-          <div key={`${s.jour}#${s.index}`} className="signalement">
-            <p>
-              <b>« {s.texte} »</b>{' '}
-              <span className="muted">
-                · {jourEnToutesLettres(s.jour, true)} · réponse : {s.bonne}
-                {s.annulee && ' · annulée'}
-              </span>
-            </p>
-            <p className="muted small">
-              {s.joueurs} joueur{s.joueurs > 1 ? 's' : ''} : {s.textes.map(t => `« ${t} »`).join(' · ')}
-            </p>
-            <div className="row">
-              {s.annulable && !s.annulee && (
-                <button className="btn btn-small btn-danger" disabled={occupe} onClick={() => void annuler(s.jour, s.index)}>
-                  Annuler ses points pour tous
-                </button>
-              )}
-              <button
-                className="btn btn-small"
-                disabled={occupe}
-                onClick={() => void faire(() => api.admin.retirerDuJour(s.reserveId, s.jour, s.index), 'Retirée de la réserve')}
-              >
-                Retirer de la réserve
-              </button>
-              <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => void faire(() => api.admin.garderDuJour(s.jour, s.index), 'Gardée')}>
-                Garder
-              </button>
-            </div>
-          </div>
-        ))}
-      </section>
+      {/* Les signalements se relisent sur leur page, avec ceux de la campagne (le choix du 14 octobre 2026). */}
+      <VersLesSignalements questions={etat.signalements.length} ouvrir={versLesSignalements} />
 
       <JoueursParJour vue={vue} />
       <div className="qg-deux">

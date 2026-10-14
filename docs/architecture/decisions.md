@@ -480,6 +480,15 @@ Le détail : [la sécurité](../architecture/securite.md).
 
 *Fichiers : `shared/qgEconomie.ts`, `server/src/economie.ts`, `client/src/components/QgEconomie.tsx`, `server/test/qg-economie.test.ts`*
 
+### Les signalements se relisent sur une page, et chaque geste dit ce qu'il en a fait
+**Contexte** : les questions signalées se relisaient en bas de deux pages du QG — celle du quiz du jour, qui ne savait que garder, annuler et retirer, et celle de la campagne —, et rien ne gardait ce qui en avait été fait (« Est-ce que j'ai une page de monitoring pour les signalements, me permettant de reclasser la question, la modifier, la supprimer ? », le 14 octobre 2026). Au quiz du jour, chaque joueur répond par la place d'une réponse : corriger le jour joué comme la suite aurait changé ce qu'il avait répondu.
+
+**Décision** : une page, choisie sur maquettes (`/admin#signalements`, « Une page qui remplace les sections »), les deux modes ensemble, avec les mêmes gestes — corriger, reclasser (la catégorie, le sous-thème, la difficulté estimée), retirer, garder, et au quiz du jour annuler ses points pour tous. Corriger une question du jour change sa version de la réserve ; le jour qui l'a posée la prend aussi quand la bonne réponse ne change pas, à la même place (« Même réponse : partout ; autre réponse : pour la suite », `corrigeAussiLeJour`), et une autre bonne réponse règle le jour joué en annulant ses points, dans le même geste. Un reclassement ne vaut que pour la suite. Chaque geste écrit son issue sur les signalements qu'il referme (`issue`, `detail`), dans son propre lot : l'historique de trente jours la relit (« Oui, trente jours, avec l'issue »), et le joueur dont la remarque a servi en est remercié sur son accueil, une fois (« Remercier le joueur »).
+
+**Conséquence** : une question signalée de nouveau revient à relire, sans son issue d'avant ; une issue vide est un signalement relu avant le 14 octobre 2026. Reclasser en campagne se range comme une correction sur place, sous le même identifiant : réponses passées et difficulté mesurée la suivent, et les écussons de chacun ne bougent pas. Le merci se lit dans le lot de l'accueil, par un index de chaque table : pas un aller-retour de plus. « Garder » ne remercie personne.
+
+*Fichiers : `shared/qgSignalements.ts`, `server/src/core/jour.ts`, `server/src/core/campagne.ts`, `server/src/qg.ts`, `client/src/components/AdminSignalements.tsx`, `client/src/components/QgSignalements.tsx`, `server/test/qg-signalements.test.ts`*
+
 ### Une panne ne se raconte qu'au journal
 **Contexte** : une erreur de base ou de code lue à l'écran parle de tables et de chemins du serveur — rien qui aide un invité, tout ce qui renseigne un curieux.
 

@@ -29,8 +29,12 @@ paths:
   (`aEtiqueter`) ; la même porte (`porteDeLaReserve`) ouvre aussi la base
   de la campagne (`mountBaseDeLaCampagne`). Il les vaut donc, et se change
   des deux côtés s'il fuit ; une route de plus derrière lui n'efface rien.
-- **Les métadonnées de la réserve ne servent encore à rien** : rien ne
-  relit `jour_reserve.metadonnees` — ni le tirage, ni la consigne, ni
-  `/admin`. Une question décrite « hors-base » (un prénom à remplacer, une
-  photo à regarder) reste tirable : le jour où l'étiquetage doit trier, le
-  tirage (`tirer`) le lit dans le même commit.
+- **Les métadonnées de la réserve ne servent encore presque à rien** : ni
+  le tirage ni la consigne ne relisent `jour_reserve.metadonnees` ; seule la
+  page des signalements les lit — le sous-thème et la difficulté estimée
+  d'une question signalée — et les réécrit quand on la reclasse
+  (`JourStore.reclasser`, depuis le 14 octobre 2026, règle `qg.md`) ; sans
+  elles, ou décrite « hors-base », elle ne reclasse que sa catégorie. Une
+  question décrite « hors-base » (un prénom à remplacer, une photo à
+  regarder) reste tirable : le jour où l'étiquetage doit trier, le tirage
+  (`tirer`) le lit dans le même commit.

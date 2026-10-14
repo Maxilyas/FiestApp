@@ -18,6 +18,7 @@ import { jourAvant, jourDe, type LaurierPorte, type PalierTombe } from './jour'
 import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
 import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise, SemaineDesDuels } from './duels'
+import type { IssueDUnSignalement } from './qgSignalements'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -317,6 +318,8 @@ export interface RapportDeSignalement {
   le: number
   /** Déjà relu — gardé, corrigé — et quand : un signalement de plus après un « Garder » se lit avec ceux d'avant. */
   traiteLe: number | null
+  /** Ce qui en a été fait, quand il a été relu (`shared/qgSignalements.ts`) ; null : relu avant qu'on l'écrive, le 14 octobre 2026. */
+  issue: IssueDUnSignalement | null
   /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un parcours de thème (`sujet`). */
   ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
   branche?: string

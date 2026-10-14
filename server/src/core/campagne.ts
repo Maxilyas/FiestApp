@@ -28,7 +28,23 @@ import {
 } from './modeleDuSavoir'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
-import { CHANCE_ECLAT_DU_DEFI, type StatsDeCampagne } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_DEFI, type AnnonceDeLAdministrateur, type StatsDeCampagne } from '../../../shared/profil'
+import {
+  ISSUES_QUI_SERVENT,
+  QUESTION_DU_MERCI,
+  RELUS_MONTRES,
+  SIGNALEMENTS_MONTRES_AU_QG,
+  classementEcrit,
+  detailDeLaCorrection,
+  lireIssue,
+  lireLaCorrection,
+  lireLeClassement,
+  memeLecture,
+  type Classement,
+  type IssueDUnSignalement,
+  type SignalementRelu,
+} from '../../../shared/qgSignalements'
+import { extrait } from './journalDesGestes'
 import { cleDeSerie, cleDuDefi, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { classer, rangPartage } from '../../../shared/classement'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
@@ -363,8 +379,6 @@ const LIGNES_DU_DEFI = 50
  * voir. Jamais ce qui l'attend encore : la page montre tous ceux en route.
  */
 const DUELS_MONTRES = 10
-/** Les questions signalées que l'administration relit d'un coup : les plus récentes. */
-const SIGNALEMENTS_MONTRES = 50
 /** Ce que le carnet redonne de ce qu'il a appris : les plus récents, de quoi relire sans tout charger. */
 const FAITS_MONTRES = 100
 /** Ses rencontres qu'on lui rappelle : les plus récentes. */
@@ -685,6 +699,9 @@ export class CampagneStore {
            traite_le   INTEGER,
            PRIMARY KEY (question_id, profile_id)
          )`,
+        // Ses signalements relus ce dernier mois, que chaque accueil relit pour
+        // le remercier (`mercisDe`) : sans index, la table entière à chaque visite.
+        'CREATE INDEX IF NOT EXISTS idx_campagne_signalements_profil ON campagne_signalements(profile_id, traite_le)',
         `CREATE TABLE IF NOT EXISTS campagne_retraits (
            question_id TEXT PRIMARY KEY,
            retiree_le  INTEGER NOT NULL
@@ -871,6 +888,12 @@ export class CampagneStore {
     // Le compagnon porté à chaque réponse (`compagnonsDe`), venu le 13
     // octobre 2026 : ses bonnes réponses le font grandir.
     await ajouterColonne(this.client, 'campagne_reponses', 'compagnon', 'TEXT')
+    // Ce qu'un geste du QG a fait d'une question signalée, et comment
+    // (`IssueDUnSignalement`), venus le 14 octobre 2026 avec la page des
+    // signalements : son historique les relit, et le joueur dont la remarque
+    // a servi l'apprend sur son accueil. Relus avant, ils n'en ont pas.
+    await ajouterColonne(this.client, 'campagne_signalements', 'issue', 'TEXT')
+    await ajouterColonne(this.client, 'campagne_signalements', 'detail', 'TEXT')
   }
 
   /** Le compagnon qu'il porte (`loup`), que la ligne de sa réponse retient ; null sans compagnon. */
@@ -5386,9 +5409,11 @@ export class CampagneStore {
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
     if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
+    // Signalée de nouveau après une relecture, elle revient à relire : l'issue d'avant ne la suit pas.
     await this.client.execute({
       sql: `INSERT INTO campagne_signalements (question_id, profile_id, serie_id, texte, cree_le) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(question_id, profile_id) DO UPDATE SET serie_id = excluded.serie_id, texte = excluded.texte, cree_le = excluded.cree_le, traite_le = NULL`,
+            ON CONFLICT(question_id, profile_id) DO UPDATE SET serie_id = excluded.serie_id, texte = excluded.texte, cree_le = excluded.cree_le,
+                                                               traite_le = NULL, issue = NULL, detail = NULL`,
       args: [q.id, profileId, s.id, propre, this.maintenant()],
     })
   }
@@ -5405,14 +5430,14 @@ export class CampagneStore {
   async signalements(): Promise<SignalementDeCampagne[]> {
     const [res, base, fichiers, mesure] = await Promise.all([
       this.client.execute(
-        `SELECT g.question_id, g.profile_id, g.texte, g.cree_le, g.traite_le, s.mode, s.branche, s.palier, r.choix, r.juste,
+        `SELECT g.question_id, g.profile_id, g.texte, g.cree_le, g.traite_le, g.issue, s.mode, s.branche, s.palier, r.choix, r.juste,
                 json_extract(s.questions, '$[' || r.position || ']') AS vue
          FROM campagne_signalements g
          LEFT JOIN campagne_series s ON s.id = g.serie_id
          LEFT JOIN campagne_reponses r ON r.serie_id = g.serie_id AND r.reserve_id = g.question_id
          WHERE g.question_id IN (
            SELECT question_id FROM campagne_signalements WHERE traite_le IS NULL
-           GROUP BY question_id ORDER BY MAX(cree_le) DESC LIMIT ${SIGNALEMENTS_MONTRES}
+           GROUP BY question_id ORDER BY MAX(cree_le) DESC LIMIT ${SIGNALEMENTS_MONTRES_AU_QG}
          )
          ORDER BY g.cree_le DESC`,
       ),
@@ -5467,24 +5492,37 @@ export class CampagneStore {
 
   /** « Garder » : la question est juste, ses signalements se referment. */
   async garder(questionId: string): Promise<void> {
-    await this.client.execute({
-      sql: 'UPDATE campagne_signalements SET traite_le = ? WHERE question_id = ? AND traite_le IS NULL',
-      args: [this.maintenant(), questionId],
-    })
+    await this.client.execute(this.refermerLes(questionId, 'gardee'))
+  }
+
+  /**
+   * L'écriture qui referme les signalements ouverts d'une question, en
+   * disant ce qui en a été fait (`IssueDUnSignalement`) et, pour
+   * l'historique, comment — « nouvelle bonne réponse : la Sicile ». Dans le
+   * lot du geste : à part, une panne entre les deux laissait la question
+   * corrigée et toujours à relire. Le joueur dont la remarque a servi
+   * l'apprend sur son accueil (`mercisDe`).
+   */
+  private refermerLes(questionId: string, issue: IssueDUnSignalement, detail: string | null = null): InStatement {
+    return {
+      sql: 'UPDATE campagne_signalements SET traite_le = ?, issue = ?, detail = ? WHERE question_id = ? AND traite_le IS NULL',
+      args: [this.maintenant(), issue, detail, questionId],
+    }
   }
 
   /**
    * « Retirer » : la campagne ne la tire plus, pour personne — les séries en
    * cours la gardent, elles l'ont déjà. Ses signalements se referment avec.
-   * Pour la reprendre plutôt que la perdre, il y a « Corriger ».
+   * Pour la reprendre plutôt que la perdre, il y a « Corriger ». Déjà
+   * retirée — on la signale d'une série tirée avant —, il ne reste qu'à
+   * refermer ce qu'on en dit.
    */
   async retirer(questionId: string): Promise<void> {
     if (!(await this.base()).parId.has(questionId)) throw new Error('Cette question n’est pas dans la base')
-    const maintenant = this.maintenant()
     await this.client.batch(
       [
-        { sql: 'INSERT OR IGNORE INTO campagne_retraits (question_id, retiree_le) VALUES (?, ?)', args: [questionId, maintenant] },
-        { sql: 'UPDATE campagne_signalements SET traite_le = ? WHERE question_id = ? AND traite_le IS NULL', args: [maintenant, questionId] },
+        { sql: 'INSERT OR IGNORE INTO campagne_retraits (question_id, retiree_le) VALUES (?, ?)', args: [questionId, this.maintenant()] },
+        this.refermerLes(questionId, 'retiree'),
       ],
       'write',
     )
@@ -5516,13 +5554,7 @@ export class CampagneStore {
       const proposee = lireLaCorrection(brut)
       if (!proposee) throw new Error('Envoie l’intitulé, les réponses, l’index de la bonne et l’anecdote')
       // Rangée pour rien, elle masquerait encore la ligne du fichier le jour où on la reprendrait dans le dépôt.
-      const pareille =
-        proposee.texte === avant.texte &&
-        proposee.anecdote === avant.anecdote &&
-        proposee.bonne === avant.bonne &&
-        proposee.reponses.length === avant.reponses.length &&
-        proposee.reponses.every((r, i) => r === avant.reponses[i])
-      if (pareille) throw new Error('Rien n’a changé : « Garder » referme ses signalements')
+      if (memeLecture(avant, proposee)) throw new Error('Rien n’a changé : « Garder » referme ses signalements')
       const nouvelle = bonneReponseChange(avant, proposee)
       const lu = lireQuestionDeLaBase({
         ...entreeDeLaBase(avant),
@@ -5550,7 +5582,7 @@ export class CampagneStore {
             args: [questionId, JSON.stringify(entreeDeLaBase(corrigee)), maintenant],
           },
           ...(nouvelle ? [{ sql: 'INSERT OR IGNORE INTO campagne_retraits (question_id, retiree_le) VALUES (?, ?)', args: [questionId, maintenant] }] : []),
-          { sql: 'UPDATE campagne_signalements SET traite_le = ? WHERE question_id = ? AND traite_le IS NULL', args: [maintenant, questionId] },
+          this.refermerLes(questionId, 'corrigee', detailDeLaCorrection(avant, corrigee)),
         ],
         'write',
       )
@@ -5559,6 +5591,109 @@ export class CampagneStore {
       this.versionDesCorrections++
       if (nouvelle) this.retirees.add(questionId)
       return { id: corrigee.id, nouvelle }
+    })
+  }
+
+  /**
+   * « Reclasser » une question signalée (le choix du 14 octobre 2026) : sa
+   * catégorie, son sous-thème, sa difficulté estimée à l'écriture. Rangée
+   * comme une correction sur place — son identifiant, ses réponses passées
+   * et sa difficulté mesurée la suivent —, relue par le juge de la base :
+   * elle rejoint les séries, les sentiers et le défi de sa nouvelle
+   * catégorie dès le prochain tirage. Les réponses déjà données gardent la
+   * leur, que leur série a gardée : les écussons de chacun ne bougent pas.
+   * Ses signalements se referment.
+   */
+  reclasser(questionId: string, brut: unknown): Promise<{ avant: Classement; apres: Classement }> {
+    return this.avecVerrou('#depot', async () => {
+      const base = await this.base()
+      const avant = base.parId.get(questionId)
+      if (!avant) throw new Error('Cette question n’est pas dans la base')
+      if (this.retirees.has(questionId)) throw new Error('Cette question est retirée de la campagne : on ne la reclasse plus')
+      const lu = lireLeClassement(brut, { avecMeta: true })
+      if (typeof lu === 'string') throw new Error(lu)
+      const classe: Classement = { categorie: avant.meta.categorie, sousTheme: avant.meta.sousTheme, difficulte: avant.meta.difficulte }
+      if (classe.categorie === lu.categorie && classe.sousTheme === lu.sousTheme && classe.difficulte === lu.difficulte) {
+        throw new Error('Rien n’a changé : « Garder » referme ses signalements')
+      }
+      const relue = lireQuestionDeLaBase({ ...entreeDeLaBase(avant), categorie: lu.categorie, sousTheme: lu.sousTheme, difficulte: lu.difficulte })
+      if ('refus' in relue) throw new Error(`Reclassement refusé : ${relue.refus}`)
+      const reclassee = { ...relue.question, id: questionId }
+      const maintenant = this.maintenant()
+      await this.client.batch(
+        [
+          {
+            sql: `INSERT INTO campagne_corrections (question_id, entree, corrigee_le) VALUES (?, ?, ?)
+                  ON CONFLICT(question_id) DO UPDATE SET entree = excluded.entree, corrigee_le = excluded.corrigee_le`,
+            args: [questionId, JSON.stringify(entreeDeLaBase(reclassee)), maintenant],
+          },
+          this.refermerLes(questionId, 'reclassee', classementEcrit(lu)),
+        ],
+        'write',
+      )
+      this.corrections.set(questionId, { question: reclassee, corrigeeLe: maintenant })
+      this.versionDesCorrections++
+      return { avant: classe, apres: lu }
+    })
+  }
+
+  /**
+   * Les questions relues depuis `depuis`, la plus récente d'abord :
+   * l'historique de la page des signalements. Une relecture referme d'un
+   * coup les signalements ouverts d'une question, au même instant et sous la
+   * même issue : ils se regroupent par là. L'intitulé, tel que la base le
+   * garde sous cet identifiant — celui qu'on a signalé, quand une correction
+   * l'a remplacée par une neuve.
+   */
+  async relus(depuis: number): Promise<SignalementRelu[]> {
+    const [res, base] = await Promise.all([
+      this.client.execute({
+        sql: `SELECT question_id, traite_le, MAX(issue) AS issue, MAX(detail) AS detail, COUNT(*) AS n
+              FROM campagne_signalements WHERE traite_le >= ?
+              GROUP BY question_id, traite_le ORDER BY traite_le DESC LIMIT ?`,
+        args: [depuis, RELUS_MONTRES],
+      }),
+      this.base(),
+    ])
+    return res.rows.flatMap((r): SignalementRelu[] => {
+      const q = base.parId.get(String(r.question_id))
+      return q
+        ? [
+            {
+              source: 'campagne',
+              cle: q.id,
+              texte: q.texte,
+              categorie: q.meta.categorie,
+              issue: lireIssue(r.issue),
+              detail: typeof r.detail === 'string' ? r.detail : null,
+              quand: Number(r.traite_le),
+              joueurs: Number(r.n),
+            },
+          ]
+        : []
+    })
+  }
+
+  /**
+   * Les questions de la campagne qu'il a signalées et dont sa remarque a
+   * servi — corrigée, reclassée, retirée —, relues depuis `depuis` : son
+   * accueil le remercie, une fois par téléphone. Une question gardée ne dit
+   * rien. Une requête par son index, dans le lot de l'accueil ; la base ne
+   * se lit que s'il y a de quoi remercier.
+   */
+  async mercisDe(profileId: string, depuis: number): Promise<AnnonceDeLAdministrateur[]> {
+    const res = await this.client.execute({
+      sql: `SELECT question_id, traite_le, issue FROM campagne_signalements
+            WHERE profile_id = ? AND traite_le >= ? AND issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
+      args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
+    })
+    if (res.rows.length === 0) return []
+    const base = await this.base()
+    return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
+      const issue = lireIssue(r.issue)
+      const q = base.parId.get(String(r.question_id))
+      if (!issue || issue === 'gardee' || !q) return []
+      return [{ id: `merci:campagne:${q.id}:${r.traite_le}`, sorte: 'merci', mode: 'campagne', issue, question: extrait(q.texte, QUESTION_DU_MERCI), le: Number(r.traite_le) }]
     })
   }
 
@@ -6348,23 +6483,6 @@ function appliquerLesCorrections(
 }
 
 /**
- * Ce que l'écran de l'administrateur envoie pour corriger une question, mis
- * en forme : des textes sur une ligne, sans espaces en trop — le juge de la
- * base refuserait un retour à la ligne collé avec l'intitulé. Il dira le
- * reste. Null : pas une correction.
- */
-function lireLaCorrection(brut: unknown): CorrectionDeQuestion | null {
-  if (!brut || typeof brut !== 'object') return null
-  const b = brut as Record<string, unknown>
-  if (typeof b.texte !== 'string' || !Array.isArray(b.reponses) || !b.reponses.every(r => typeof r === 'string')) return null
-  if (typeof b.bonne !== 'number' || !Number.isInteger(b.bonne)) return null
-  if (b.anecdote !== null && b.anecdote !== undefined && typeof b.anecdote !== 'string') return null
-  const uneLigne = (t: string) => t.replace(/\s+/g, ' ').trim()
-  const anecdote = typeof b.anecdote === 'string' ? b.anecdote.trim() : ''
-  return { texte: uneLigne(b.texte), reponses: (b.reponses as string[]).map(uneLigne), bonne: b.bonne, anecdote: anecdote || null }
-}
-
-/**
  * Les leurres d'une question corrigée. Ses mauvaises réponses d'abord : le
  * juge les y veut toutes, et n'en garde que huit. Puis ceux d'avant qu'on
  * ne montrait pas. Une réponse que la correction a ôtée n'en est plus un :
@@ -6403,6 +6521,7 @@ function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSi
     texte: String(r.texte),
     le: Number(r.cree_le),
     traiteLe: r.traite_le === null || r.traite_le === undefined ? null : Number(r.traite_le),
+    issue: lireIssue(r.issue),
     ou,
     ...(ou === 'sentier' && typeof r.branche === 'string' && { branche: r.branche }),
     ...(ou === 'sentier' && r.palier !== null && r.palier !== undefined && { palier: Number(r.palier) }),

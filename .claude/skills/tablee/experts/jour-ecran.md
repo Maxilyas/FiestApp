@@ -24,8 +24,10 @@ classement. Joue des journées entières :
   moment de répondre (`context.setOffline`), un double toucher, l'onglet
   caché une minute, un serveur qui redémarre, une réponse qui arrive après
   l'échéance, revenir après minuit, un invité sans profil qui ouvre `/jour` ;
-- l'administration (`/admin`) : la réserve, les signalements, garder,
-  annuler, masquer — ce que l'administrateur comprend et ce qu'il risque.
+- l'administration (`/admin`) : la réserve, masquer, et la page des
+  signalements (`/admin#signalements`) — garder, corriger, reclasser,
+  annuler, retirer —, puis le merci sur l'accueil du joueur : ce que
+  l'administrateur comprend et ce qu'il risque.
 
 **Ce que tu évalues** : le chronomètre affiché face à l'échéance du serveur
 (invariant 6 : une horloge de téléphone qui dérive — essaie une horloge

@@ -480,8 +480,8 @@ export function ProfilApp() {
           <IdentiteLigne profil={profil} />
           <BoutonDesAmis />
         </div>
-        {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé —, dit une fois. */}
-        <AnnoncesDeLAdministrateur profileId={profil.id} annonces={'annonces' in profil ? profil.annonces : undefined} />
+        {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé, un merci pour ses signalements —, dit une fois. */}
+        <AnnoncesDeLAdministrateur profileId={profil.id} prenom={profil.name} annonces={'annonces' in profil ? profil.annonces : undefined} />
         <AccueilJouer
           enCours={enCours}
           onRejoindre={() => setRejoindre(true)}

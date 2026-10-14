@@ -8,6 +8,7 @@ import { porteDeLaReserve } from './quizDuJour'
 import { CATEGORIES } from '../../shared/categories'
 import { jourDe } from '../../shared/jour'
 import { texteDuMelange, type EtatDesSentiers } from '../../shared/sentiers'
+import { classementAuJournal } from '../../shared/qgSignalements'
 
 interface CampagneDeps {
   campagne: CampagneStore
@@ -489,6 +490,18 @@ export function mountCampagneAdmin(app: Express, deps: CampagneDeps) {
         cible: questionId,
       })
       res.json(corrigee)
+    }),
+  )
+
+  // La reclasser (`/admin#signalements`) : sa catégorie, son sous-thème, sa difficulté estimée à l'écriture.
+  app.post(
+    '/api/admin/campagne/reclasser',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const questionId = String(req.body?.questionId ?? '')
+      const { avant, apres } = await deps.campagne.reclasser(questionId, req.body?.classement)
+      noterLeGeste(res, { sorte: 'campagne', resume: `Question de la campagne reclassée, ${classementAuJournal(avant, apres)} : ${await citee(questionId)}`, cible: questionId })
+      res.json({ ok: true })
     }),
   )
 
