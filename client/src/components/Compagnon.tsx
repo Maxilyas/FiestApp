@@ -270,8 +270,11 @@ export function Compagnon({ cle, verrouille, finition, grand, className }: Props
       <title>{titre}</title>
       <defs dangerouslySetInnerHTML={peinture.defs} />
       {peinture.avant && <g dangerouslySetInnerHTML={peinture.avant} />}
-      <g clipPath={`url(#${u}_clip)`} dangerouslySetInnerHTML={peinture.scene} />
+      {/* Sous la scène, comme sous un portrait : le cercle de l'Argent et de
+          l'Or est un disque plein, dont le disque peint ne laisse voir que le
+          bord. Posé par-dessus, il cachait l'animal entier. */}
       {cercle && <Cercle finition={finition} id={nom => `${u}_${nom}`} />}
+      <g clipPath={`url(#${u}_clip)`} dangerouslySetInnerHTML={peinture.scene} />
       {peinture.apres && <g dangerouslySetInnerHTML={peinture.apres} />}
     </svg>
   )
