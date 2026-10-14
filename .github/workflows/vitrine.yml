@@ -1,0 +1,56 @@
+# La vitrine — `docs/vitrine/`, la page qui présente FiestApp — publiée telle
+# quelle sur GitHub Pages : https://maxilyas.github.io/FiestApp/
+#
+# Sur GitHub, ouvrir `docs/vitrine/index.html` montre son code, pas la page :
+# Pages la sert pour de vrai. Le dossier part comme il est — son style vit dans
+# la page, ses images à côté —, sans build ni Jekyll, et rien d'autre du dépôt
+# ne part avec lui. Ses liens restent relatifs : la page est servie sous
+# `/FiestApp/`, où un chemin qui commence par `/` sortirait du site.
+#
+# Pages s'active une fois, à la main : Settings → Pages → Build and deployment
+# → Source « GitHub Actions ». Sans ça, `configure-pages` échoue et le dit.
+name: Vitrine
+
+on:
+  push:
+    branches: [main]
+    # Une fusion qui ne touche pas la vitrine n'a rien à republier.
+    paths:
+      - 'docs/vitrine/**'
+      - '.github/workflows/vitrine.yml'
+  # Republier à la main depuis l'onglet Actions, sur `main` : la première fois,
+  # si Pages a été activé après la fusion de ce fichier.
+  workflow_dispatch:
+
+# Le jeton de l'exécution lit le dépôt et publie sur Pages, rien de plus :
+# `id-token` sert à `deploy-pages` à prouver d'où vient la publication.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une publication à la fois. Celle qui arrive pendant une autre attend son tour
+# au lieu de la couper en route, et la plus récente en attente remplace
+# l'autre : c'est toujours le dernier état de `main` qui finit en ligne.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.publication.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/vitrine
+
+      - id: publication
+        uses: actions/deploy-pages@v4

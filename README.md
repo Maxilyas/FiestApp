@@ -8,7 +8,7 @@ Un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit 
 <p align="center">
   <a href="docs/README.md">La documentation</a> ·
   <a href="docs/guides/premiere-soiree.md">La première soirée</a> ·
-  <a href="docs/vitrine/index.html">La vitrine</a> ·
+  <a href="https://maxilyas.github.io/FiestApp/">La vitrine</a> ·
   <a href="docs/exploitation/mise-en-ligne.md">Mettre en ligne</a>
 </p>
 

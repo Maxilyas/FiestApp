@@ -2,7 +2,7 @@
 
 > FiestApp est un quiz de soirée auto-hébergé : un écran commun pour la salle, le téléphone de chacun pour répondre, et rien à installer. Entre deux soirées, les joueurs qui ont un profil continuent au quiz du jour, en campagne, sur les sentiers du savoir et en duel. Cette documentation dit ce que fait l'application et comment elle est construite, telle qu'elle est dans le code aujourd'hui.
 
-Pour une présentation en images, ouvre [la vitrine](vitrine/index.html).
+Pour une présentation en images, ouvre [la vitrine](https://maxilyas.github.io/FiestApp/) : `docs/vitrine/`, publiée sur GitHub Pages à chaque fusion sur `main` qui la touche ([la mise en ligne](exploitation/mise-en-ligne.md#11-la-vitrine-sur-github-pages)).
 
 ## Par où commencer
 
