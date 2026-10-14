@@ -166,7 +166,7 @@ Celles que lisent le serveur et le client sont dans [la configuration](configura
 | Variable | Qui la lit | Ce qu'elle règle |
 |---|---|---|
 | `CLAUDECODE` | `server/scripts/tests.mjs` | Posée (Claude Code la pose dans ses commandes), le compte rendu des tests passe en points |
-| `ADMIN_LOGIN`, `ADMIN_PASSWORD` | `server/scripts/login.mjs` (test de charge, invité fantôme, `qa-host.mjs`) | L'animateur que les scripts connectent ; `antoine` / `demo` sinon, comme le serveur chez soi |
+| `ADMIN_LOGIN`, `ADMIN_PASSWORD` | `server/scripts/login.mjs` (test de charge, `qa-host.mjs` ; l'invité fantôme ne se connecte pas en animateur) | L'animateur que les scripts connectent ; `antoine` / `demo` sinon, comme le serveur chez soi |
 | `QUIZ_SLUG` | `server/scripts/login.mjs` | L'espace des invités simulés, à défaut de `--slug` ; `demo` sinon |
 | `DB_PATH`, `WIFI_SSID`, `WIFI_PASS` | posées par `server/scripts/qa-start.ts` s'il n'y en a pas | La base locale jetable et le wifi de démonstration |
 | `QUIZ_DB_URL`, `QUIZ_DB_TOKEN` | `sauvegarde.ts`, `export-party.ts`, `migrate-library.ts` | La base permanente à lire (ou, pour la migration, à remplir) |
@@ -179,7 +179,7 @@ Celles que lisent le serveur et le client sont dans [la configuration](configura
 | `MESURE`, `DEBORDE`, `COUPE` | `server/scripts/rendu-ecran.ts` | Ce qui ne grandit pas en 1920 × 1080 ; ce qui dépasse de la scène ; les listes coupées |
 | `HEURES`, `DATE`, `SORTIE`, `ATTENTE`, `PLEIN` | `server/scripts/rendu-themes.ts` | Les heures de Paris des photos et leur jour ; le dossier des photos ; la pause avant chaque photo, en millisecondes ; la page entière |
 | `GEMINI_API_KEY` | `server/scripts/anime/gemini.ts` | La clé de l'API Gemini, envoyée en en-tête ; sans elle, rien ne se peint |
-| `MODELE`, `TAILLE` | les scripts de `server/scripts/anime/` | Le modèle d'image (`gemini-3-pro-image` d'office) et la taille des images (`1K` d'office) |
+| `MODELE`, `TAILLE` | les scripts de `server/scripts/anime/` qui peignent — `decors.ts` ne lit que `MODELE`, chaque décor a sa taille | Le modèle d'image (`gemini-3-pro-image` d'office) et la taille des images (`1K` d'office) |
 | `ATTENTE` | `styles.ts`, `portraits.ts`, `legendaires.ts`, `decors.ts` | Combien de secondes attendre un lot avant de le reprendre plus tard |
 | `BUDGET` | `server/scripts/anime/compagnons.ts`, `server/scripts/anime/decors.ts` | Le plafond, en dollars, de tout ce que le journal des coûts a payé : au-delà, rien ne part |
 | `HTTPS_PROXY`, `NODE_USE_ENV_PROXY` | `server/scripts/anime/gemini.ts`, `server/scripts/faits-wikidata.ts` | Derrière un proxy, le `fetch` de Node ne le suit que sous `NODE_USE_ENV_PROXY=1` ; les deux scripts le disent quand il manque |

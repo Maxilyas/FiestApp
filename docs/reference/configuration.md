@@ -85,7 +85,9 @@ l'emporter sur le wifi. `PUBLIC_URL=http://<adresse>:3001` la force.
 Ces quatre variables ne servent qu'une fois : sur une base permanente qui n'a
 encore **aucun compte**, le serveur crée l'administrateur et son espace avec
 elles (`ensureDefaultSpace`, `server/src/auth/store.ts`). Ensuite, plus rien
-ne les relit — sauf les scripts qui se connectent comme l'animateur. Le mot de
+ne s'en sert — sauf les scripts qui se connectent comme l'animateur, et le
+journal du démarrage, qui recopie `ADMIN_SLUG` et `ADMIN_LOGIN` tels qu'ils
+sont posés (ou leur défaut) dans ses adresses. Le mot de
 passe se change depuis « Mon compte », et `ADMIN_PASSWORD` peut être retirée
 de l'hébergeur.
 

@@ -91,7 +91,7 @@ Avant tout script, le serveur décide du statut et des balises de la page (`decr
 | six chiffres, quand l'adresse a épuisé ses essais | 429, « Trop d’essais · FiestApp » : vingt codes manqués d'affilée, puis deux par minute — même le bon code ne se cherche plus |
 | une adresse inconnue, un espace inconnu | 404, « Soirée introuvable · FiestApp » — « Cette adresse ne mène à aucune soirée. » ; la page propose « Rejoindre une soirée » |
 
-Sur toute page : `Cache-Control: no-cache` ; hors de l'accueil, la balise `robots` (`noindex, nofollow`) et l'en-tête `X-Robots-Tag`. Les balises d'aperçu ne nomment jamais un invité : leur titre vient des réglages de l'espace. Sans client construit, toute page répond 404 : « Client non compilé (npm run build) ».
+Sur toute page : `Cache-Control: no-cache` ; hors de l'accueil, la balise `robots` (`noindex, nofollow`) et l'en-tête `X-Robots-Tag`. Les balises d'aperçu ne nomment jamais un invité : leur titre vient des réglages de l'espace. Sans client construit, toute page répond 404 : « Client non compilé (npm run build) » quand `client/dist/` existe sans sa page, la réponse nue d'Express (« Cannot GET … ») quand le dossier manque.
 
 Le serveur de développement de Vite (`npm run dev`, port 5173) ne fait rien de tout cela : il sert la page telle quelle, et l'application lit l'adresse seule ([Le client](../architecture/client.md)).
 
