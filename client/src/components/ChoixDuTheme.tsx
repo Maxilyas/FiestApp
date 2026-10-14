@@ -22,6 +22,9 @@ export function LigneDuChoix({
   categories,
   sujet,
   sur,
+  toutes = 'Toutes les catégories',
+  detail: detailDonne,
+  uneLigne,
   onChanger,
 }: {
   categories: readonly string[]
@@ -29,18 +32,25 @@ export function LigneDuChoix({
   sujet: string | null
   /** « Sur » devant le choix — la série, où rien d'autre ne le dit ; au défi, « Sur quoi ? » le titre déjà. */
   sur?: boolean
+  /** Le nom de « rien de choisi » : toutes les catégories — tout le carnet, au carnet. */
+  toutes?: string
+  /** Ce que la ligne dit dessous, à la place de ce qu'elle en dirait : au carnet, ce qui y attend. */
+  detail?: string
+  /** Ce qu'elle dit dessous tient sur une ligne, coupé au bout : le carnet garde les parcours de thème sur le premier écran. */
+  uneLigne?: boolean
   onChanger: () => void
 }) {
   const leSujet = sujet ? sujetParCle(sujet) : undefined
   const icone: IconName = leSujet ? iconeDuSujet(leSujet) : categories.length === 1 ? (EMBLEME[categories[0]] ?? 'star') : 'sparkles'
   // Plusieurs catégories se nomment par leur nombre (« 4 catégories ») : la ligne d'en dessous les dit.
-  const detail = leSujet ? leSujet.description : categories.length > 1 ? categories.join(', ') : categories.length === 0 ? 'ou une catégorie, un thème, une époque…' : null
+  const detail =
+    detailDonne ?? (leSujet ? leSujet.description : categories.length > 1 ? categories.join(', ') : categories.length === 0 ? 'ou une catégorie, un thème, une époque…' : null)
   return (
-    <button type="button" className="quoi-ligne" aria-haspopup="dialog" onClick={onChanger}>
+    <button type="button" className={'quoi-ligne' + (uneLigne ? ' quoi-une-ligne' : '')} aria-haspopup="dialog" onClick={onChanger}>
       <Icon name={icone} />
       <span className="quoi-texte">
         {sur && <span className="muted small">Sur</span>}
-        <b>{nomDuChoix(categories, sujet) ?? 'Toutes les catégories'}</b>
+        <b>{nomDuChoix(categories, sujet) ?? toutes}</b>
         {detail && <span className="muted small">{espacesFines(detail)}</span>}
       </span>
       <span className="quoi-changer">
@@ -52,18 +62,41 @@ export function LigneDuChoix({
 }
 
 /**
+ * Ce qu'une case du choix compte, sous son nom — au carnet, ce qui y attend :
+ * « 4 à revoir », vif, ou « 9 au carnet » quand rien n'est dû aujourd'hui.
+ */
+export interface CompteDuChoix {
+  texte: string
+  vif?: boolean
+}
+
+/** Le compte d'une case, s'il en a un : après une espace, que le lecteur d'écran ne colle pas au nom. */
+function Compte({ compte }: { compte: CompteDuChoix | undefined }) {
+  if (!compte) return null
+  return (
+    <>
+      {' '}
+      <span className={'quoi-compte' + (compte.vif ? ' vif' : '')}>{compte.texte}</span>
+    </>
+  )
+}
+
+/**
  * La feuille du choix, par-dessus la page : les catégories — toutes d'un
  * toucher, ou une, ou plusieurs —, puis, dans leur onglet, les thèmes, les
  * époques et les fils rouges en pastilles, chaque famille sa rangée
  * (`FAMILLES_DE_SUJETS`). Rien ne change avant « Choisir » : « Fermer » rend
  * le choix d'avant. Sa hauteur ne suit pas son onglet : « Choisir » restait
- * sous le doigt d'un onglet à l'autre.
+ * sous le doigt d'un onglet à l'autre. Le carnet la reprend, chaque case
+ * disant ce qui y attend (`comptes`).
  */
 export function FeuilleDuChoix({
   categoriesJouables,
   sujets,
   categories,
   sujet,
+  toutes = 'Toutes les catégories',
+  comptes,
   onChoisir,
   onFermer,
 }: {
@@ -73,6 +106,10 @@ export function FeuilleDuChoix({
   sujets: readonly Sujet[]
   categories: readonly string[]
   sujet: string | null
+  /** Le nom de « rien de choisi » : toutes les catégories — tout le carnet, au carnet. */
+  toutes?: string
+  /** Ce que chaque case compte, sous son nom : au carnet, ce qui attend dans chaque catégorie et chaque sujet. */
+  comptes?: { toutes?: CompteDuChoix; categories: ReadonlyMap<string, CompteDuChoix>; sujets: ReadonlyMap<string, CompteDuChoix> }
   /** Le choix fait : ses catégories (aucune : toutes), et le sujet qui les laisse de côté s'il y en a un. */
   onChoisir: (categories: string[], sujet: string | null) => void
   onFermer: () => void
@@ -81,14 +118,14 @@ export function FeuilleDuChoix({
   const [choisi, setChoisi] = useState<string | null>(sujet)
   const [onglet, setOnglet] = useState<'categories' | 'sujets'>(sujet && sujets.length > 0 ? 'sujets' : 'categories')
   const leSujet = choisi ? sujetParCle(choisi) : undefined
-  const nom = nomDuChoix(choisies, choisi) ?? 'toutes les catégories'
+  const nom = nomDuChoix(choisies, choisi) ?? toutes.toLowerCase()
   const avecSujets = sujets.length > 0
   // Toucher une catégorie quitte le sujet ; sur un sujet, elle se choisit seule — la basculer retirerait celle qu'on ne voyait plus choisie.
   const basculer = (c: string) => {
     setChoisies(choisi ? [c] : choisies.includes(c) ? choisies.filter(x => x !== c) : [...choisies, c])
     setChoisi(null)
   }
-  const toutes = !choisi && choisies.length === 0
+  const aucune = !choisi && choisies.length === 0
   return (
     <Feuille
       titre="Sur quoi ?"
@@ -129,16 +166,17 @@ export function FeuilleDuChoix({
           <>
             <button
               type="button"
-              className={'quoi-toutes' + (toutes ? ' active' : '')}
-              aria-pressed={toutes}
+              className={'quoi-toutes' + (aucune ? ' active' : '')}
+              aria-pressed={aucune}
               onClick={() => {
                 setChoisies([])
                 setChoisi(null)
               }}
             >
               <Icon name="sparkles" />
-              <span>Toutes les catégories</span>
-              {toutes && <Icon name="check" />}
+              <span>{toutes}</span>
+              <Compte compte={comptes?.toutes} />
+              {aucune && <Icon name="check" />}
             </button>
             <p className="label">Ou une, ou plusieurs</p>
             <div className="quoi-grille" role="group" aria-label="Catégories">
@@ -147,6 +185,7 @@ export function FeuilleDuChoix({
                 return (
                   <button key={c} type="button" className={'quoi-case' + (oui ? ' active' : '')} aria-pressed={oui} onClick={() => basculer(c)}>
                     {c}
+                    <Compte compte={comptes?.categories.get(c)} />
                   </button>
                 )
               })}
@@ -170,6 +209,7 @@ export function FeuilleDuChoix({
                       onClick={() => setChoisi(choisi === s.cle ? null : s.cle)}
                     >
                       {s.nom}
+                      <Compte compte={comptes?.sujets.get(s.cle)} />
                     </button>
                   ))}
                 </div>

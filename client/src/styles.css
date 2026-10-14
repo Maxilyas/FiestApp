@@ -7673,6 +7673,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-apercu { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); text-shadow: none; }
 .loge-finition { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: none; }
 .loge-carte.loge-en-apercu { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18); }
+/* Toute la carte se touche pour s'ouvrir en grand : un bouton tendu sur elle,
+   « Version rare » au-dessus. Son anneau de focus se pose en dedans : la
+   carte rogne ce qui dépasse. */
+.loge-carte-ouvrir { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; border-radius: inherit; background: none; cursor: zoom-in; }
+/* Le survol, à la souris seulement : collé après un toucher, son filet d'or se lisait comme l'« Aperçu ». */
+@media (hover: hover) {
+  .loge-carte-ouvrir:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+}
+.loge-carte-ouvrir:active { background: rgba(var(--accent-rgb), 0.06); }
+.loge-carte-ouvrir:focus-visible { outline-offset: -3px; }
 .loge-pieces { display: flex; flex-direction: column; gap: 6px; }
 .loge-groupes { display: grid; grid-template-columns: 4fr 2fr; gap: 4px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--zone, var(--muted)); }
 .loge-groupes span { text-align: center; }
@@ -7823,7 +7833,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 /* La version d'un avatar éclaté, sur la carte, à côté de lui : rare (pressée) ou d'origine. */
-.loge-version { position: absolute; right: 0; bottom: 0; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
+.loge-version { position: absolute; right: 0; bottom: 0; z-index: 2; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
 .loge-version .icon { width: 13px; height: 13px; }
 .loge-version[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 
@@ -7873,6 +7883,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-texte b { font-weight: 600; }
 .quoi-changer { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; }
 .quoi-changer .icon { width: 16px; height: 16px; }
+/* Au carnet, ce qui attend dans chaque catégorie tient sur une ligne, coupé
+   au bout — la feuille les dit toutes : sur deux, la ligne poussait les
+   parcours de thème hors du premier écran. */
+.quoi-une-ligne .quoi-texte > .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Dans la carte de « Défier quelqu'un », plus étroite (son contenu fait
    254 px en 360 de large, celui de la série 300) : l'icône laisse sa place
    au nom de ce qu'on joue. */
@@ -7894,6 +7908,11 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
 .quoi-pastille { min-height: 38px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
 .quoi-toutes.active, .quoi-case.active, .quoi-pastille.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* Ce qu'une case compte, sous son nom — au carnet, ce qui y attend : « 4 à revoir », vif ; « 9 au carnet », éteint. */
+.quoi-compte { display: block; margin-top: 2px; font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.quoi-compte.vif { color: var(--accent-text); font-weight: 600; }
+.quoi-pastille .quoi-compte { display: inline; margin: 0 0 0 4px; }
+.quoi-toutes .quoi-compte { flex: none; margin: 0; }
 .quoi-description { margin: 0 0 8px; }
 /* « Choisir · Les grands rendez-vous du sport » : en capitales et sur une ligne, comme un gros bouton, il sortait de l'écran. */
 .quoi-choisir { min-height: 52px; padding: 8px 18px; font-weight: 600; line-height: 1.25; white-space: normal; text-align: center; }

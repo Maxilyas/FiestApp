@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { CarteDeLaLoge, PiecesDeLaLoge, QuiLaVoit } from './LogeTete'
 import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
-import type { ChoixDuProfil, PropsDUnePiece } from './choix'
+import { choixDialog } from './Dialog'
+import type { ChoixDuProfil, GardeDeLaLoge, PropsDUnePiece } from './choix'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
@@ -11,6 +13,7 @@ import {
   PIECES_DE_LA_LOGE,
   avatarMontre,
   avecLEssai,
+  carteAvecLEssai,
   cibleDeLEclat,
   ceQuIlAPorter,
   essaiDemande,
@@ -25,6 +28,9 @@ import {
   type PieceDeLaLoge,
   type VusDeLaLoge,
 } from '../../../shared/loge'
+
+/** Sa carte entière, en grand : elle ne vient qu'au toucher, comme au profil. */
+const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 
 // La loge : « M'habiller », derrière son bouton du profil — tout ce qu'on
 // porte, au même endroit (la maquette validée par le propriétaire le 12
@@ -114,6 +120,7 @@ export function Loge({
   busy,
   enregistrer,
   erreur,
+  garde,
 }: {
   profil: PublicProfileDetail
   piece: PieceDeLaLoge
@@ -123,6 +130,8 @@ export function Loge({
   enregistrer: (patch: ChoixDuProfil) => Promise<boolean>
   /** Le refus du dernier enregistrement, que la barre de l'essai dit. */
   erreur?: string
+  /** Ce que la page demande à la loge avant de la quitter (`GardeDeLaLoge`) : la loge l'y pose, tant qu'elle est là. */
+  garde?: MutableRefObject<GardeDeLaLoge | null>
 }) {
   // « Essayer », à la fin d'une partie : ce qu'elle vient d'ouvrir arrive déjà sur la carte.
   const [essai, setEssai] = useState<Essai>(() => essaiDemande(piece, lireLEssaiDemande(), profil))
@@ -148,13 +157,34 @@ export function Loge({
   const essayer = (morceau: Essai) => {
     if (!busy) setEssai(e => avecUnePiece(e, morceau, profil))
   }
-  const porter = async () => {
-    if (busy || essaiVide(essai)) return
-    if (!(await enregistrer(essai))) return
+  /** Porte tout l'essai d'un coup : vrai s'il est porté — ou s'il n'y avait rien à porter. */
+  const porter = async (): Promise<boolean> => {
+    if (essaiVide(essai)) return true
+    if (busy || !(await enregistrer(essai))) return false
     // Le thème essayé devient le thème porté, sans repasser par l'ancien.
     if (essai.theme !== undefined) finirLEssai(true)
     setEssai({})
+    return true
   }
+
+  // La page qui quitte la loge le lui demande d'abord — « ← Mon profil », un
+  // lien, le retour du navigateur (`GardeDeLaLoge`) : un essai qu'on n'avait
+  // pas porté se perdait en silence (le retour d'un joueur du 14 octobre
+  // 2026). La garde lit l'essai du moment, pas celui de sa pose.
+  const dernier = useRef({ essai, porter, profil })
+  dernier.current = { essai, porter, profil }
+  // Il a choisi de partir : ni la garde ni le navigateur ne le retiennent plus, jusqu'au prochain essai.
+  const laisserPartir = useRef(false)
+  useEffect(() => {
+    laisserPartir.current = false
+  }, [essai])
+  useEffect(() => {
+    if (!garde) return
+    garde.current = gardeDeLEssai(() => dernier.current, laisserPartir)
+    return () => {
+      garde.current = null
+    }
+  }, [garde])
 
   const lignes = lignesDeLEssai(essai, profil)
   // La barre part avec l'essai qu'elle portait ou annulait : le focus tombait
@@ -167,24 +197,69 @@ export function Loge({
     if (avaitUnEssai.current && !aUnEssai) rendreLeFocus(loge.current, ['.loge-panneau'])
     avaitUnEssai.current = aUnEssai
   }, [aUnEssai])
+  // Recharger, fermer l'onglet, partir par une adresse tapée : le navigateur demande, à sa façon.
+  useEffect(() => {
+    if (!aUnEssai) return
+    const retenir = (e: BeforeUnloadEvent) => {
+      if (laisserPartir.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', retenir)
+    return () => window.removeEventListener('beforeunload', retenir)
+  }, [aUnEssai])
+
+  // Sa carte, touchée : en grand, telle que la salle la verrait s'il portait l'essai.
+  const [enGrand, setEnGrand] = useState(false)
+  const laCarte = useALaDemande(carteJoueur, enGrand)
   const props: PropsDUnePiece = { profil, essai, essayer, busy, neufs: new Set(neufs[piece]) }
   // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
   const vu = avecLEssai(profil, essai)
   const cible = cibleDeLEclat(avatarMontre(profil, essai))
   const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
+  // Quelque chose de ce que la salle voit est à l'essai : la carte le montre, « Aperçu ».
+  const apercu = (['avatar', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)
   return (
     <div className="loge" ref={loge}>
       <CarteDeLaLoge
         vu={vu}
         vitrine={vitrineVue(vu)}
-        apercu={(['avatar', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)}
+        apercu={apercu}
         essaye={{
           avatar: essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || !!essai.eclat,
           titre: essai.titre !== undefined,
           vitrine: essai.vitrine !== undefined,
         }}
         version={rare !== null && cible ? { rare, essayee: !!essai.eclat, basculer: () => essayer({ eclat: { cle: cible, brille: !rare } }) } : null}
+        onOuvrir={() => setEnGrand(true)}
       />
+      {enGrand && laCarte && laCarte !== 'perdu' && (
+        <laCarte.CarteJoueur
+          adresse="/api/joueur/carte"
+          retouche={apercu ? c => carteAvecLEssai(c, profil, essai) : undefined}
+          // L'aperçu se porte d'ici : la carte se ferme, la barre de la loge dit ce qui a pris — ou le refus.
+          pied={
+            apercu ? (
+              <>
+                <p className="muted small">Rien n’est encore porté : la salle voit ta tenue d’avant.</p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-block"
+                  aria-disabled={busy || undefined}
+                  onClick={() => {
+                    if (busy) return
+                    setEnGrand(false)
+                    void porter()
+                  }}
+                >
+                  Porter
+                </button>
+              </>
+            ) : undefined
+          }
+          onFermer={() => setEnGrand(false)}
+        />
+      )}
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
       <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
@@ -213,6 +288,42 @@ export function Loge({
       {aUnEssai && <BarreDEssai lignes={lignes} busy={busy} erreur={erreur} onAnnuler={() => setEssai({})} onPorter={() => void porter()} />}
     </div>
   )
+}
+
+/**
+ * La garde de la loge (`GardeDeLaLoge`), sur l'essai du moment (`moment`) :
+ * un essai attend-il, et que faire de lui. Le dialogue dit ce qu'on essaie,
+ * puis « Porter » — partir une fois porté, rester sur un refus, que la barre
+ * dit —, « Partir sans » ou « Rester ». Parti, plus rien ne le retient
+ * (`laisserPartir`), le navigateur non plus. Le dialogue se passe en
+ * paramètre : un test y répond sans écran.
+ */
+export function gardeDeLEssai(
+  moment: () => { essai: Essai; profil: PublicProfileDetail; porter: () => Promise<boolean> },
+  laisserPartir: { current: boolean },
+  dialogue: typeof choixDialog = choixDialog,
+): GardeDeLaLoge {
+  return {
+    enCours: () => !laisserPartir.current && !essaiVide(moment().essai),
+    demander: async () => {
+      const { essai, profil, porter } = moment()
+      if (laisserPartir.current || essaiVide(essai)) return true
+      const choix = await dialogue({
+        title: 'Porter avant de partir ?',
+        message: `À l’essai : ${lignesDeLEssai(essai, profil)
+          .map(l => l.nom)
+          .join(' · ')}.\nSans « Porter », tu gardes ta tenue d’avant.`,
+        confirmLabel: 'Porter',
+        cancelLabel: 'Rester',
+        alternative: { label: 'Partir sans', danger: true },
+      })
+      // « Rester », Échap ou le voile : la loge reste, l'essai avec.
+      if (!choix) return false
+      if (choix.geste === 'confirmer' && !(await porter())) return false
+      laisserPartir.current = true
+      return true
+    },
+  }
 }
 
 /**

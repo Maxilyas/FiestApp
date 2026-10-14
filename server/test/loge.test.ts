@@ -16,7 +16,8 @@ import { legendaire } from '../../shared/legendaires'
 import { brancheDe, portrait } from '../../shared/branches'
 import { fond } from '../../shared/fonds'
 import { NOM_FINITION, meilleureFinition } from '../../shared/profil'
-import { PIECES_DE_LA_LOGE, avecLEssai, ceQuIlAPorter, essaiVide, essayer, lignesDeLEssai, nouveautes, retenirLesVus, type Tenue } from '../../shared/loge'
+import { PIECES_DE_LA_LOGE, avecLEssai, carteAvecLEssai, ceQuIlAPorter, essaiVide, essayer, lignesDeLEssai, nouveautes, retenirLesVus, type Tenue } from '../../shared/loge'
+import type { CarteDeJoueur } from '../../shared/carte'
 import { demarrer, ecrire, inscrireProfil } from './banc'
 
 Object.assign(globalThis, {
@@ -332,9 +333,13 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   const refus = await barre([{ piece: 'titre', nom: '« L’Oracle »', detail: 'Titre' }], 'Ce titre se gagne d’abord')
   assert.ok(elements(refus).some(e => e.props?.role === 'alert' && texte(e) === 'Ce titre se gagne d’abord'))
 
-  // « Porter » : l'essai entier, en un enregistrement ; pris, l'essai se vide et le thème essayé devient le sien.
+  // « Porter » : l'essai entier, en un enregistrement ; pris, l'essai se vide et le thème essayé devient le sien — et
+  // la garde de la loge sait s'il a pris (vrai), pour partir ensuite.
   const LOGE = source('components/Loge.tsx')
-  assert.match(LOGE, /const porter = async \(\) => \{\s*if \(busy \|\| essaiVide\(essai\)\) return\s*if \(!\(await enregistrer\(essai\)\)\) return[\s\S]*?if \(essai\.theme !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*\}/)
+  assert.match(
+    LOGE,
+    /const porter = async \(\): Promise<boolean> => \{\s*if \(essaiVide\(essai\)\) return true\s*if \(busy \|\| !\(await enregistrer\(essai\)\)\) return false[\s\S]*?if \(essai\.theme !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*return true\s*\}/,
+  )
   assert.match(LOGE, /onAnnuler=\{\(\) => setEssai\(\{\}\)\}/)
   // La loge quittée — « ← », le retour du téléphone — rend la page à son thème.
   assert.match(LOGE, /useEffect\(\(\) => \(\) => finirLEssai\(\), \[\]\)/)
@@ -344,7 +349,7 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   assert.match(APP, /const changerDePiece = \(piece: PieceDeLaLoge\) => \{\s*history\.replaceState\(/)
   // La loge a son écran, derrière « M'habiller » : sa pièce est celle de l'adresse (`#titre`).
   assert.match(APP, /if \(e\.groupe === 'M’habiller'\) \{/)
-  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} \/>/)
+  assert.match(APP, /<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} busy=\{busy\} enregistrer=\{enregistrer\} erreur=\{erreur\} garde=\{gardeDeLaLoge\} \/>/)
   // Et le lecteur d'écran entend chaque pièce portée d'un coup.
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ titre: 'maitre:foret', theme: 'ocean', avatar: '🦊' }), 'Tu portes 🦊. Ton titre : Maître de la forêt. Ton thème : Océan.')
@@ -469,6 +474,143 @@ test('le thème essayé habille la page ; fini, elle reprend le sien — porté,
   } finally {
     for (const k of ['document', 'localStorage']) delete (globalThis as Record<string, unknown>)[k]
   }
+})
+
+// Le retour d'un joueur du 14 octobre 2026 : « pouvoir cliquer sur la carte
+// pour l'afficher en grand ». La carte de la loge, touchée, ouvre sa carte
+// entière — celle que la salle ouvre en touchant son nom —, sur l'essai.
+test('la carte de la loge s’ouvre en grand sur l’essai : la carte du serveur, retouchée de ce qu’il essaie et de rien d’autre', async () => {
+  const carte: CarteDeJoueur = {
+    nom: 'Léa',
+    avatar: '🐸',
+    niveau: 8,
+    finition: 'or',
+    legendaire: 'lg:phenix',
+    bordure: { ligue: 'or', crans: 3 },
+    profil: {
+      prenom: 'Léa',
+      niveau: 8,
+      legendaires: ['lg:phenix'],
+      divins: [],
+      vitrine: LEA.vitrine,
+      hautsFaits: 2,
+      ecussons: [{ categorie: 'Histoire', palier: 1 }],
+      fiche: { soirees: 3, precision: 0.5, qcm: 10, justes: 5, coupDOeil: null, estimationsComparees: 0, reflexeMoyenMs: null, quizGagnes: 1, meilleureSerie: 2 },
+    },
+  }
+  const lea = { ...LEA, bordures: [{ ligue: 'or' as const, crans: 3 }], bordureChoisie: 'auto' as const }
+  const telle = structuredClone(carte)
+  // Rien d'essayé : la carte du serveur, telle quelle.
+  assert.deepEqual(carteAvecLEssai(carte, lea, {}), carte)
+  assert.deepEqual(carteAvecLEssai(carte, lea, { theme: 'ocean', gerbe: AUCUNE_GERBE }), carte, 'le thème et la gerbe ne se voient pas sur la carte')
+  // Un emoji ôte le légendaire ; la finition se lit comme le serveur la lit ; ni ses chiffres ni ses écussons ne s'essaient.
+  const renard = carteAvecLEssai(carte, lea, { avatar: '🦊', finition: 'argent' })
+  assert.deepEqual([renard.avatar, renard.legendaire, renard.finition, renard.eclat, renard.bordure], ['🦊', undefined, 'argent', undefined, { ligue: 'or', crans: 3 }])
+  assert.equal(renard.profil, carte.profil, 'son profil n’est pas touché')
+  assert.equal(carteAvecLEssai(carte, lea, { finition: 'auto' }).finition, meilleureFinition(8))
+  // Sous un Divin, ni bordure — il a sa propre lumière ; « Sans bordure », aucune.
+  const divin = carteAvecLEssai(carte, lea, { legendaire: 'dv:helios' })
+  assert.deepEqual([divin.legendaire, divin.bordure], ['dv:helios', undefined])
+  assert.equal(carteAvecLEssai(carte, lea, { bordure: 'aucune' }).bordure, undefined)
+  // Éclaté pour lui, son Phénix brille sur la carte en grand comme sur celle de la loge ; sa version d'origine, non.
+  const eclate = { ...lea, eclats: ['lg:phenix'] }
+  assert.equal(carteAvecLEssai(carte, eclate, { finition: 'argent' }).eclat, true)
+  assert.equal(carteAvecLEssai(carte, eclate, { eclat: { cle: 'lg:phenix', brille: false } }).eclat, undefined)
+  // Son titre, sa vitrine, son fond : ce qu'il essaie ; son avatar, ses écussons, tels quels.
+  const habillee = carteAvecLEssai(carte, lea, { titre: 'hf:oracle', fond: 'nuit', vitrine: ['hf:oracle'] })
+  assert.deepEqual([habillee.profil!.titre, habillee.profil!.fond, habillee.profil!.vitrine.map(b => b.key)], ['hf:oracle', 'nuit', ['hf:oracle']])
+  assert.deepEqual([habillee.avatar, habillee.legendaire, habillee.profil!.ecussons], ['🐸', 'lg:phenix', carte.profil!.ecussons])
+  // Ôtés à l'essai, son titre et son fond quittent la carte.
+  const portes = { ...carte, profil: { ...carte.profil!, titre: 'hf:phenix', fond: 'nuit' } }
+  const nue = carteAvecLEssai(portes, { ...lea, titre: 'hf:phenix', fond: 'nuit' }, { titre: null, fond: null })
+  assert.deepEqual(['titre' in nue.profil!, 'fond' in nue.profil!], [false, false])
+  assert.deepEqual(carte, telle, 'la carte lue n’est jamais touchée')
+
+  // Touchée, la carte de la loge s'ouvre : un bouton tendu sur elle, qui dit l'aperçu quand quelque chose est à l'essai.
+  const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: 'avatar', onPiece: () => {}, ...rien })
+  assert.match(loge, /<button type="button" class="loge-carte-ouvrir" title="Voir en grand"><span class="sr-only">Voir ma carte en grand<\/span><\/button><\/div><\/div>/)
+  const apercu = await arbre('components/LogeTete', 'CarteDeLaLoge', { vu: LEA, vitrine: [], apercu: true, onOuvrir: () => {} })
+  assert.match(texte(apercu), /Voir l’aperçu de ma carte en grand/)
+  // La loge l'ouvre sur l'essai — « Aperçu de ta carte », « Porter » au pied ; la carte en grand, sur ce qu'il porte, sans retouche.
+  const LOGE = source('components/Loge.tsx')
+  assert.match(LOGE, /<laCarte\.CarteJoueur\s+adresse="\/api\/joueur\/carte"\s+retouche=\{apercu \? c => carteAvecLEssai\(c, profil, essai\) : undefined\}/)
+  assert.match(source('components/CarteJoueur.tsx'), /\{retouche \? 'Aperçu de ta carte' : 'Carte de joueur'\}/)
+  // Elle vient à la demande, comme au profil : la loge ne la télécharge qu'au toucher.
+  assert.match(LOGE, /const carteJoueur = aLaDemande\(\(\) => import\('\.\/CarteJoueur'\)\)/)
+  assert.doesNotMatch(LOGE, /^import [^;]* from '\.\/CarteJoueur'/m)
+})
+
+// Le même retour : « un avertissement si on clique sur quelque chose et que
+// l'on n'a pas cliqué sur Porter ». Un essai qu'on quittait se perdait en
+// silence : la loge demande d'abord.
+test('quitter la loge sur un essai pas porté demande d’abord : « Porter », « Partir sans » ou « Rester »', async () => {
+  const { gardeDeLEssai } = await import(url('components/Loge.tsx'))
+  const lea = { ...LEA }
+  let essai: object = {}
+  const portes: object[] = []
+  let porteOk = true
+  const porter = async () => {
+    portes.push(essai)
+    return porteOk
+  }
+  let reponse: { geste: 'confirmer' | 'alternative'; valeur: string } | null = null
+  const demandes: any[] = []
+  const dialogue = async (o: unknown) => {
+    demandes.push(o)
+    return reponse
+  }
+  const laisserPartir = { current: false }
+  const garde = gardeDeLEssai(() => ({ essai, profil: lea, porter }), laisserPartir, dialogue)
+  // Rien à l'essai : on part, sans un mot.
+  assert.equal(garde.enCours(), false)
+  assert.equal(await garde.demander(), true)
+  assert.equal(demandes.length, 0)
+  // Un essai : la loge demande, et dit ce qu'on essaie.
+  essai = { legendaire: 'lg:dragon', titre: 'hf:oracle' }
+  assert.equal(garde.enCours(), true)
+  // « Rester » — Échap, le voile : la loge reste, l'essai avec, rien ne s'enregistre.
+  assert.equal(await garde.demander(), false)
+  assert.deepEqual(demandes[0], {
+    title: 'Porter avant de partir ?',
+    message: `À l’essai : ${lignesDeLEssai(essai, lea)
+      .map(l => l.nom)
+      .join(' · ')}.\nSans « Porter », tu gardes ta tenue d’avant.`,
+    confirmLabel: 'Porter',
+    cancelLabel: 'Rester',
+    alternative: { label: 'Partir sans', danger: true },
+  })
+  assert.deepEqual([portes.length, garde.enCours()], [0, true])
+  // « Porter » refusé par le serveur : on reste — la barre dit pourquoi.
+  reponse = { geste: 'confirmer', valeur: '' }
+  porteOk = false
+  assert.equal(await garde.demander(), false)
+  assert.deepEqual(portes, [essai])
+  // Porté : on part.
+  porteOk = true
+  assert.equal(await garde.demander(), true)
+  assert.equal(portes.length, 2)
+  // Parti, plus rien ne le retient — ni la garde, ni le navigateur — jusqu'au prochain essai.
+  assert.equal(garde.enCours(), false)
+  assert.equal(await garde.demander(), true)
+  assert.equal(demandes.length, 3)
+  // « Partir sans » : on part, l'essai laissé, rien d'enregistré.
+  laisserPartir.current = false
+  reponse = { geste: 'alternative', valeur: '' }
+  assert.equal(await garde.demander(), true)
+  assert.equal(portes.length, 2)
+
+  // La loge pose sa garde sur la page, et le navigateur aussi demande — recharger, fermer l'onglet.
+  const LOGE = source('components/Loge.tsx')
+  assert.match(LOGE, /garde\.current = gardeDeLEssai\(\(\) => dernier\.current, laisserPartir\)/)
+  assert.match(LOGE, /window\.addEventListener\('beforeunload', retenir\)/)
+  // La page lui demande avant chaque sortie : « ← Mon profil », un lien vers ailleurs, le retour du navigateur.
+  const app = source('views/ProfilApp.tsx')
+  assert.match(app, /ev\.preventDefault\(\)\s*quitter\(revenir\)/)
+  assert.match(app, /<div className="player-shell loge-page" onClick=\{surLaLoge\}>/)
+  assert.match(app, /<pret\.PanneauLoge [^>]*garde=\{gardeDeLaLoge\} \/>/)
+  assert.match(app, /if \(dansLaLoge\(cible\)\) aller\(\)\s*else quitter\(aller\)/)
+  assert.match(app, /if \(dansLaLoge\(ecranMontre\.current\) && !dansLaLoge\(suivant\) && garde\?\.enCours\(\)\) \{/)
+  assert.match(app, /quitter\(\(\) => window\.location\.assign\(lien\.href\)\)/)
 })
 
 test('la loge vient avec les panneaux, à la demande : l’accueil anonyme ne la télécharge pas', () => {

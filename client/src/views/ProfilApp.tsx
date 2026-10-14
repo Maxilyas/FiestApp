@@ -15,7 +15,7 @@ import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil
 // Le type seul : les règles de la loge viennent avec ses panneaux, à la demande.
 import type { PieceDeLaLoge } from '../../../shared/loge'
 import { FormulaireSoiree } from '../components/Rejoindre'
-import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
+import { annonceDuChoix, type ChoixDuProfil, type GardeDeLaLoge } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { espacesFines, formatNumber } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
@@ -97,11 +97,36 @@ export function ProfilApp() {
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
   const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
-  /** Sa carte entière, ouverte de sa ligne en tête du profil. */
+  /** Sa carte entière, ouverte de sa ligne en tête du profil — ou de la carte de la loge, avant ses panneaux. */
   const [carteOuverte, setCarteOuverte] = useState(false)
   const laCarte = useALaDemande(carteJoueur, carteOuverte)
+  const ouvrirLaCarte = () => setCarteOuverte(true)
   /** L'écran ouvert depuis un bouton du profil (`/profil#collection`), ou ses boutons. */
   const [ecran, setEcranOuvert] = useState<EcranDuProfil | null>(lireEcran)
+  /** L'écran montré, pour le retour du navigateur, qu'on écoute une fois pour toutes. */
+  const ecranMontre = useRef(ecran)
+  ecranMontre.current = ecran
+  /**
+   * La loge, tant qu'elle est là : de quoi lui demander avant de la quitter
+   * sur un essai pas porté (`GardeDeLaLoge`) — elle s'y pose elle-même.
+   */
+  const gardeDeLaLoge = useRef<GardeDeLaLoge | null>(null)
+  /** L'entrée de la loge dans l'historique, retenue à chaque pièce : le retour qui la quittait y revient si l'on reste. */
+  const entreeDeLaLoge = useRef<{ etat: unknown; adresse: string } | null>(null)
+  useEffect(() => {
+    if (dansLaLoge(ecran)) entreeDeLaLoge.current = { etat: history.state, adresse: window.location.href }
+  }, [ecran])
+  /**
+   * Partir d'un écran. De la loge, sur un essai pas porté, après sa réponse :
+   * « Porter », « Partir sans » ou « Rester » — l'essai se perdait en silence.
+   */
+  const quitter = (partir: () => void) => {
+    const garde = gardeDeLaLoge.current
+    if (!dansLaLoge(ecran) || !garde?.enCours()) return partir()
+    void garde.demander().then(ok => {
+      if (ok) partir()
+    })
+  }
   /**
    * Le contenu des écrans du profil et de la boutique, dès que le profil est
    * connu — pas sur l'accueil, qui n'en montre rien : il les fait venir en
@@ -149,10 +174,45 @@ export function ProfilApp() {
     const cible = adresse ? ecranDe(adresse) : null
     if (!lien || !cible) return
     e.preventDefault()
-    ouvrir(cible, adresse, lien.startsWith('?') ? lien.slice(0, diese) : window.location.search)
+    const aller = () => ouvrir(cible, adresse, lien.startsWith('?') ? lien.slice(0, diese) : window.location.search)
+    // Vers une autre pièce, la loge reste, l'essai avec ; ailleurs — la collection —, elle demande d'abord.
+    if (dansLaLoge(cible)) aller()
+    else quitter(aller)
+  }
+  /**
+   * Un lien de la loge vers une autre page — le menu, la boutique : sur un
+   * essai pas porté, elle demande d'abord, puis la page part. Ceux vers un
+   * écran du profil passent par `suivreUnLien`, qui demande de même.
+   */
+  const surLaLoge = (e: MouseEvent<HTMLElement>) => {
+    suivreUnLien(e)
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    const lien = (e.target as Element).closest?.('a[href]')
+    if (!(lien instanceof HTMLAnchorElement) || lien.target || /^[#?]/.test(lien.getAttribute('href') ?? '') || !gardeDeLaLoge.current?.enCours()) return
+    e.preventDefault()
+    quitter(() => window.location.assign(lien.href))
   }
   useEffect(() => {
-    const auRetour = () => setEcranOuvert(lireEcran())
+    let enQuestion = false
+    const auRetour = () => {
+      // Déjà en train de demander : un second retour passe, la réponse dira où l'on reste.
+      if (enQuestion) return
+      const suivant = lireEcran()
+      const garde = gardeDeLaLoge.current
+      // Le retour du navigateur quitte la loge sur un essai pas porté : elle
+      // reste à l'écran le temps de demander ; on reste, son entrée revient.
+      if (dansLaLoge(ecranMontre.current) && !dansLaLoge(suivant) && garde?.enCours()) {
+        enQuestion = true
+        const entree = entreeDeLaLoge.current
+        void garde.demander().then(partir => {
+          enQuestion = false
+          if (partir) setEcranOuvert(lireEcran())
+          else if (entree) history.pushState(entree.etat, '', entree.adresse)
+        })
+        return
+      }
+      setEcranOuvert(suivant)
+    }
     window.addEventListener('popstate', auRetour)
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
@@ -504,7 +564,7 @@ export function ProfilApp() {
         onClick={ev => {
           if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return
           ev.preventDefault()
-          revenir()
+          quitter(revenir)
         }}
       >
         <Icon name="arrow-left" />
@@ -516,17 +576,19 @@ export function ProfilApp() {
     // (`LogeEnChemin`) ; le panneau de la pièce, avec les écrans.
     if (e.groupe === 'M’habiller') {
       return (
-        <div className="player-shell loge-page" onClick={suivreUnLien}>
+        <div className="player-shell loge-page" onClick={surLaLoge}>
           <header className="loge-tete">
             {sortie}
             <h1>M’habiller</h1>
           </header>
           {regionDAnnonce}
           {pret ? (
-            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} />
+            <pret.PanneauLoge profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} busy={busy} enregistrer={enregistrer} erreur={erreur} garde={gardeDeLaLoge} />
           ) : (
-            <LogeEnChemin profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} attente={enChemin} />
+            <LogeEnChemin profil={profil} piece={ecran as PieceDeLaLoge} onPiece={changerDePiece} onOuvrir={ouvrirLaCarte} attente={enChemin} />
           )}
+          {/* Sa carte, touchée avant que la loge n'ait ses panneaux : rien n'y est encore à l'essai. La loge arrivée ouvre la sienne. */}
+          {carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarteOuverte(false)} />}
           {erreur && <p className="error">{erreur}</p>}
           {menu('profil')}
         </div>
@@ -665,6 +727,11 @@ const ECRANS: { id: EcranDuProfil; nom: string; groupe: 'M’habiller' | 'Mon pr
   { id: 'carriere', nom: 'Ma carrière', groupe: 'Mon profil' },
   { id: 'soirees', nom: 'Mes soirées', groupe: 'Mon profil' },
 ]
+
+/** Cet écran est-il une pièce de la loge (`#avatar`, `#titre`…) ? En passer de l'une à l'autre ne la quitte pas. */
+function dansLaLoge(e: EcranDuProfil | null): boolean {
+  return !!e && ECRANS.find(x => x.id === e)?.groupe === 'M’habiller'
+}
 
 /** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */
 const VUE: 'accueil' | 'profil' | 'boutique' =

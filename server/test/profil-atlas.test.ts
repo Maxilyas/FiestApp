@@ -169,10 +169,11 @@ test('le profil épuré : qui l’on est, puis quatre boutons — la loge derri�
   assert.doesNotMatch(page, /PanneauLoge|LogeEnChemin|CarteDeLaLoge|Vestiaire|apercuDuTheme|profil-groupe|<Tuile/)
   assert.doesNotMatch(app, /h\.startsWith\(`\$\{e\.id\}-`\)/, 'plus de partie d’écran où faire défiler (`#carte-vitrine`) : une adresse, une pièce')
 
-  // La loge, sur son écran : « ← Mon profil », son titre, sa tête dès que le profil est lu, ses panneaux quand ils arrivent.
+  // La loge, sur son écran : « ← Mon profil », son titre, sa tête dès que le profil est lu — sa carte s'y ouvre déjà en
+  // grand —, ses panneaux quand ils arrivent.
   assert.match(
     app,
-    /if \(e\.groupe === 'M’habiller'\) \{[\s\S]*?<header className="loge-tete">\s*\{sortie\}\s*<h1>M’habiller<\/h1>\s*<\/header>[\s\S]*?\{pret \? \(\s*<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} [^>]*\/>\s*\) : \(\s*<LogeEnChemin profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} attente=\{enChemin\} \/>\s*\)\}/,
+    /if \(e\.groupe === 'M’habiller'\) \{[\s\S]*?<header className="loge-tete">\s*\{sortie\}\s*<h1>M’habiller<\/h1>\s*<\/header>[\s\S]*?\{pret \? \(\s*<pret\.PanneauLoge profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} [^>]*\/>\s*\) : \(\s*<LogeEnChemin profil=\{profil\} piece=\{ecran as PieceDeLaLoge\} onPiece=\{changerDePiece\} onOuvrir=\{ouvrirLaCarte\} attente=\{enChemin\} \/>\s*\)\}/,
   )
   // « ← » dit d'où l'on vient : d'une pièce de la loge, c'est « M'habiller ».
   assert.match(app, /\{depuis \? \(depuis\.groupe === 'M’habiller' \? 'M’habiller' : depuis\.nom\) : 'Mon profil'\}/)
@@ -203,7 +204,13 @@ test('un gros bouton : sa jauge et son compte sous le titre — la collection ; 
 // les rejoignent.
 test('la loge sur son écran : sa carte et ses six pièces tout de suite, à la place exacte où la loge les reprend', async () => {
   const touchees: string[] = []
-  const props = { profil: complet, piece: 'avatar', onPiece: (p: string) => touchees.push(p), attente: React.createElement('p', { className: 'serif-note' }, 'Chargement…') }
+  const props = {
+    profil: complet,
+    piece: 'avatar',
+    onPiece: (p: string) => touchees.push(p),
+    onOuvrir: () => touchees.push('carte'),
+    attente: React.createElement('p', { className: 'serif-note' }, 'Chargement…'),
+  }
   const html = await rendu('components/LogeTete', 'LogeEnChemin', props)
   // Sa carte telle que la salle la voit : son avatar, son prénom, la place de son titre, sa finition.
   assert.match(html, /^<div class="loge"><div class="loge-collante"><div class="loge-carte"><div class="loge-carte-haut"><span class="loge-carte-avatar">/)
@@ -223,6 +230,10 @@ test('la loge sur son écran : sa carte et ses six pièces tout de suite, à la 
   const rangee = arbre.props.children.find((e: any) => e?.props?.onChoisir)
   rangee.props.onChoisir('titre')
   assert.deepEqual(touchees, ['titre'])
+  // Sa carte, touchée, s'ouvre déjà en grand : un bouton tendu sur elle, après ce qu'elle montre.
+  assert.match(html, /<\/span><button type="button" class="loge-carte-ouvrir" title="Voir en grand"><span class="sr-only">Voir ma carte en grand<\/span><\/button><\/div><\/div>/)
+  arbre.props.children.find((e: any) => e?.props?.onOuvrir).props.onOuvrir()
+  assert.deepEqual(touchees, ['titre', 'carte'])
 
   // La loge arrivée reprend la même carte, au pixel : rien ne saute sous le
   // doigt — seule sa vitrine se remplit (elle a sa hauteur d'avance).
