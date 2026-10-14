@@ -37,7 +37,11 @@ paths:
   que chacun porte (`apparenceDeLAvatar` : le plus beau coup, le plus
   régulier, les vainqueurs de chaque quiz, `PlayerStat`, `Award.player`), et
   un texte — le Coup de Pouce, « Tous les liens » — n'écrit l'emoji qu'à qui
-  le porte (`un-seul-avatar.test.ts`).
+  le porte (`un-seul-avatar.test.ts`). Les marques d'homonymie d'une soirée
+  passée comparent ce que la page montre, ce que chacun porte aujourd'hui
+  (`archivePlayers`, `joueursDeLaFiche`) : la liste lit donc aussi les
+  profils des homonymes de ses vainqueurs — leur Phénix décide de la marque
+  « (2) » —, et pas un de plus (`profilsDesVainqueurs`, `homonymes.test.ts`).
 - **Le nom d'une soirée porte une empreinte de son espace** (`archiveIdOf`),
   mais les soirées d'avant n'en ont pas : l'expérience, les paliers et les
   Éclats se rangent sous le nom seul, alors une soirée se désigne par

@@ -14,6 +14,22 @@ export interface Homonymable {
   id: string
   name: string
   avatar: string
+  /**
+   * Le dessin qu'il porte à la place de l'emoji — légendaire, Divin,
+   * portrait, compagnon —, s'il en porte un : c'est lui que la ligne montre.
+   */
+  legendaire?: string | null
+}
+
+/**
+ * Ce que la ligne d'un joueur montre, tel que les marques le comparent : le
+ * dessin qu'il porte, sinon son emoji. Ni la finition, ni l'Éclat, ni la
+ * bordure : trop discrets au fond de la salle pour distinguer deux lignes,
+ * et ils bougent avec la progression — la marque changerait de tête en
+ * pleine soirée.
+ */
+export function visageDe(joueur: Pick<Homonymable, 'avatar' | 'legendaire'>): string {
+  return joueur.legendaire || joueur.avatar
 }
 
 /**
@@ -31,6 +47,11 @@ export interface Homonymable {
  * « (3) ». Rien n'est écrit en base : la marque disparaît d'elle-même quand
  * l'homonyme s'en va, ou quand l'animateur renomme.
  *
+ * L'avatar comparé est celui qu'on voit (`visageDe`) : deux Camille sous le
+ * même Phénix se ressemblent, quels que soient leurs emojis d'en dessous —
+ * comparés seuls, ils les laissaient identiques sur le vidéoprojecteur, et
+ * marquaient celle qu'un légendaire distinguait déjà.
+ *
  * L'ordre d'entrée doit être celui de l'arrivée — la marque reste ainsi
  * stable quand un troisième homonyme se présente.
  */
@@ -40,7 +61,7 @@ export function nomsAffiches(joueurs: readonly Homonymable[]): Map<string, strin
   for (const joueur of joueurs) {
     // Le caractère nul sépare les deux parts : sans lui, « ab » + « c » et
     // « a » + « bc » feraient la même clé.
-    const cle = `${sansAccent(joueur.name)}\u0000${joueur.avatar}`
+    const cle = `${sansAccent(joueur.name)}\u0000${visageDe(joueur)}`
     const rang = (rangs.get(cle) ?? 0) + 1
     rangs.set(cle, rang)
     // La table ne porte que ce qui change : le premier n'y est pas, et
