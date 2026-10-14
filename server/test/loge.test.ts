@@ -236,6 +236,38 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
   assert.match(CSS, /\.menu-barre \{\s*position: fixed;[^}]*z-index: 40;/)
 })
 
+// « Un rectangle noir en dessous de la carte » (le propriétaire, le 14
+// octobre 2026) : la bande qui la colle en haut avait son fond uni, à angles
+// droits sous ses coins arrondis — plus sombre que le halo de la page, et
+// coupant net le décor d'un thème (les rayons de l'Océan, les lignes du
+// Cahier). La bande ne peint plus rien : la carte, opaque sur sa seule forme,
+// cache ce qui défile dessous. Et sous le rideau du Grand théâtre, le
+// lambrequin de la carte en grand, posé par-dessus, cachait son prénom.
+test('la carte de la loge, collée en haut : rien ne se peint autour d’elle, et rien ne cache son prénom', () => {
+  const css = source('styles.css').replace(/\/\*[\s\S]*?\*\//g, '')
+  const regles = [...css.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(([, sel, corps]) => ({ selecteurs: sel.split(',').map(s => s.trim()), corps }))
+  const regle = (selecteur: string) => {
+    const r = regles.find(r => r.selecteurs.includes(selecteur))
+    assert.ok(r, `la règle ${selecteur} existe`)
+    return r.corps
+  }
+  const collante = regle('.loge-collante')
+  assert.match(collante, /position: sticky; top: 0;/)
+  // Ni fond, ni marge intérieure où passerait ce qui défile : collée, la carte touche le haut de l'écran.
+  assert.doesNotMatch(collante, /background|padding/, 'la bande ne peint rien autour de la carte')
+  const carte = regle('.loge-carte')
+  // Son sol à part de ses dégradés : sans `color-mix`, l'image tombe, la carte reste opaque.
+  assert.match(carte, /background-color: var\(--bg\);/)
+  assert.match(carte, /background-image: [^;]*linear-gradient\(var\(--surface\), var\(--surface\)\)/)
+  assert.doesNotMatch(carte, /background:/)
+  // Le lambrequin de la vignette, sous le contenu, et tenu dans la marge du haut de la carte.
+  const rideau = regle('.loge-collante .loge-carte.carte-fond.fond-theatre::before')
+  assert.match(rideau, /z-index: -1;/)
+  const velours = Number(/var\(--lambrequin\) 0 (\d+)px/.exec(rideau)?.[1])
+  const marge = Number(/padding: (\d+)px/.exec(carte)?.[1])
+  assert.ok(velours > 0 && velours <= marge, `le velours (${velours} px) tient dans la marge du haut (${marge} px)`)
+})
+
 test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Porter »', async () => {
   const essais: object[] = []
   const enregistres: object[] = []
