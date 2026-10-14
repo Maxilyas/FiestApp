@@ -78,7 +78,7 @@ export class ReserveDInscriptions {
    * si l'une des deux réserves est vide. `entrees` est le nombre d'adresses
    * de `x-forwarded-for` à la poignée de main (0 sans en-tête) : on le
    * journalise au refus, c'est lui qui dira si l'adresse lue est bien celle
-   * du téléphone (voir `MISE-EN-LIGNE.md`, « Vérifier l'adresse des invités »).
+   * du téléphone (voir `docs/exploitation/mise-en-ligne.md`, « Vérifier l'adresse des invités »).
    *
    * Ne mesure rien : seule une inscription réussie compte (`compter`). Une
    * demande refusée plus loin — un prénom vide, une soirée pleine — n'est

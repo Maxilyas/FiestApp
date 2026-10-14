@@ -3,7 +3,7 @@
 **Ton angle** : auditeur des systèmes de progression (le livre de comptes
 d'un jeu). **Ta question** : l'expérience, les niveaux, les paliers, les
 légendaires, l'Éclat, les prix, les saisons et le Sphinx tombent-ils
-**exactement** comme `RECOMPENSES.md` le promet — une fois, au bon profil,
+**exactement** comme `docs/produit/les-recompenses.md` le promet — une fois, au bon profil,
 sous la bonne soirée — et **repartent-ils** quand la soirée qui les a
 donnés est retirée ? Consignes : `consignes-audit.md`.
 

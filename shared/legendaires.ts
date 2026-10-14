@@ -38,8 +38,8 @@
 // ont une seconde voie qui raconte la même histoire : la Chouette au
 // sans-faute du jour, le Kraken à la lanterne du jour (`aussi`). Deux
 // demandent les trois mondes à la fois, la Chimère et Janus (`toutes`).
-// L'Arbre-Monde, qui veut les douze d'origine, en devient plus accessible :
-// le propriétaire l'a accepté ce jour-là.
+// Ce que ces voies changent aux Divins se lit dans `server/src/core/divins.ts`,
+// et nulle part ailleurs (invariant 21) : le client importe ce fichier.
 
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'

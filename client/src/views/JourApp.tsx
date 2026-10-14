@@ -10,7 +10,7 @@ import { useSecondesRestantes } from '../decompte'
 import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
-import { Avatar, Dessin } from '../components/Avatar'
+import { Avatar, AvatarsEnLigne, Dessin } from '../components/Avatar'
 import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
@@ -1103,7 +1103,8 @@ function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; la
       ))}
       {partie.vainqueursDHier.length > 0 && (
         <p className="muted small">
-          {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.
+          <AvatarsEnLigne joueurs={partie.vainqueursDHier} />
+          {ontGagneHier(partie)}.
         </p>
       )}
       {/* Un lien, pas un bouton de plus : la carte se lit d'abord. */}

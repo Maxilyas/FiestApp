@@ -5,6 +5,7 @@ import { motifDe } from '../api'
 import { horsLigneDuMemeNom } from '../socket'
 import { espacesFines } from '../format'
 import { Icon } from './Icon'
+import { AvatarEnLigne } from './Avatar'
 
 /**
  * « Un Rachid 🦁 est hors ligne : si c'est toi, demande à l'animateur. »
@@ -33,11 +34,19 @@ export function AvisHorsLigne({
   /** Mène à « Me connecter » — absent quand ce téléphone porte déjà un profil. */
   onProfil?: () => void
 }) {
-  const qui = `Un « ${absent.name} » ${absent.avatar} est hors ligne : si c'est toi,`
+  // Son avatar tel que la salle le voit : un légendaire, l'emoji d'en dessous ne le désignait pas.
+  const qui = (
+    <>
+      {espacesFines(`Un « ${absent.name} » `)}
+      <AvatarEnLigne de={absent} />
+      {espacesFines(" est hors ligne : si c'est toi, ")}
+    </>
+  )
   if (absent.profil) {
     return (
       <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
-        {espacesFines(`${qui} connecte-toi à ton profil — il te rend ta place.`)}{' '}
+        {qui}
+        {espacesFines('connecte-toi à ton profil — il te rend ta place.')}{' '}
         {onProfil && !profilIci && (
           <button type="button" className="link-inline" onClick={onProfil}>
             Me connecter
@@ -49,15 +58,15 @@ export function AvisHorsLigne({
   if (profilIci) {
     return (
       <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
-        {espacesFines(
-          `${qui} ouvre la soirée dans une fenêtre privée, et demande à l'animateur de te rendre ta place.`,
-        )}
+        {qui}
+        {espacesFines("ouvre la soirée dans une fenêtre privée, et demande à l'animateur de te rendre ta place.")}
       </p>
     )
   }
   return (
     <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
-      {espacesFines(`${qui} demande à l'animateur de te rendre ta place.`)}{' '}
+      {qui}
+      {espacesFines("demande à l'animateur de te rendre ta place.")}{' '}
       <button type="button" className="link-inline" onClick={onCode}>
         J'ai un code
       </button>

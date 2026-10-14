@@ -11,6 +11,7 @@ import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
 import { HEURE_DU_RAPPEL, jourAvant, jourDe, jourValide, moisDe } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
+import { apparenceDeLAvatar } from '../../shared/profil'
 import { LIGNES_DU_MOIS_AU_QG, SERIES_NOMMEES, TOURNEES_MONTREES, partDesBonnes, repartirLesSeries, type SuiviDuJour } from '../../shared/qgDuJour'
 
 interface JourDeps {
@@ -195,7 +196,7 @@ const empreinte = (jeton: string) => createHash('sha256').update(jeton).digest()
  * rappelle les intitulés déjà en réserve, ceux des prochains jours d'abord
  * — l'IA ne les réécrit pas : le jeton les vaut. Gardé tel quel à
  * l'arbitrage du 27 septembre 2026 ; s'il fuit, on le change des deux
- * côtés (MISE-EN-LIGNE.md, étape 8). Sans jeton posé, la porte n'existe pas.
+ * côtés (docs/exploitation/mise-en-ligne.md, étape 9). Sans jeton posé, la porte n'existe pas.
  *
  * La routine tourne sur l'abonnement Claude de l'administrateur : aucune
  * clé d'IA n'est confiée au serveur. Elle passe AVANT la porte des
@@ -339,7 +340,10 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
       const plusLongues = candidates
         .flatMap((s, i) => {
           const p = profils[i]
-          return p ? [{ profileId: s.profileId, nom: p.name, avatar: deps.profiles.avatarPorte(p), serie: s.serie, tenue: s.tenue }] : []
+          // Ce qu'il porte, comme au classement : l'emoji seul montrait autrement qui porte un légendaire.
+          return p
+            ? [{ profileId: s.profileId, nom: p.name, avatar: deps.profiles.avatarPorte(p), ...apparenceDeLAvatar(deps.profiles.apparenceDe(p)), serie: s.serie, tenue: s.tenue }]
+            : []
         })
         .slice(0, SERIES_NOMMEES)
       const suivi: SuiviDuJour = {
@@ -440,7 +444,9 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
     '/api/admin/jour/masquer',
     requireAdmin,
     wrap(async (req, res) => {
-      const profil = await deps.profiles.byId(String(req.body?.profileId ?? ''))
+      // Suspendu compris, que `byId` tait : la liste des masqués le montre
+      // encore, et « Remettre au classement » y répondait « Profil introuvable ».
+      const profil = await deps.profiles.pourLAdministrateur(String(req.body?.profileId ?? ''))
       if (!profil) return res.status(404).json({ error: 'Profil introuvable' })
       const masque = req.body?.masque !== false
       await deps.jour.masquer(profil.id, masque)

@@ -9,6 +9,7 @@ import { readPlayerToken, readSessionToken } from './auth/http'
 import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
 import { sansAccent } from '../../shared/homonymes'
+import { apparenceDeLAvatar } from '../../shared/profil'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
 import { pouls, releve } from './core/pouls'
 
@@ -533,7 +534,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!absent) return repondre({ ok: true })
         repondre({
           ok: true,
-          absent: { name: rt.party.nomAffiche(absent.id) ?? absent.name, avatar: absent.avatar, profil: !!absent.profileId },
+          // Ce qu'il porte, comme la salle le voit : « Un « Rachid » » suivi d'un emoji qu'il ne porte pas ne le désignait pas.
+          absent: {
+            name: rt.party.nomAffiche(absent.id) ?? absent.name,
+            avatar: absent.avatar,
+            ...apparenceDeLAvatar(rt.party.publicOne(absent.id, 0)),
+            profil: !!absent.profileId,
+          },
         })
       },
       { ok: false, error: SERVER_ERROR },

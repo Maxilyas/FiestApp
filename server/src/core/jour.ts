@@ -56,7 +56,7 @@ import {
   type RevelationDuJour,
   type SerieDuJour,
 } from '../../../shared/jour'
-import { CHANCE_ECLAT_DU_JOUR, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_JOUR, apparenceDeLAvatar, niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
@@ -875,11 +875,11 @@ export class JourStore {
       choisies = [...choisies, ...choisir(lignes.filter(l => l.livree), QUESTIONS_PAR_JOUR - choisies.length)]
       choisies = [...choisies, ...anciennes.filter(l => l.livree)].slice(0, QUESTIONS_PAR_JOUR)
       // Personne ne regarde la réserve : le journal le dit. Sans la routine
-      // qui la remplit (MISE-EN-LIGNE.md, étape 8), l'amorce tient quatre
+      // qui la remplit (docs/exploitation/mise-en-ligne.md, étape 9), l'amorce tient quatre
       // jours, puis plus rien avant que ses questions redeviennent tirables.
       if (choisies.length < QUESTIONS_PAR_JOUR) {
         console.warn(
-          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (MISE-EN-LIGNE.md, étape 8)`,
+          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (docs/exploitation/mise-en-ligne.md, étape 9)`,
         )
       }
     }
@@ -1284,7 +1284,7 @@ export class JourStore {
     const comptees = total - tirage.annulees.length
     const categories = [...new Set(tirage.questions.map(q => q.categorie).filter((c): c is string => !!c))]
     const joueurs = lus ?? (await this.joueursDu(jour, profil.id))
-    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
+    const nom = nommer(joueurs, this.deps.profiles)
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const moi = classes.find(c => c.item.profil.id === profil.id)
     const devant = moi && classes.filter(c => c.item.points > moi.item.points).at(-1)
@@ -1491,7 +1491,7 @@ export class JourStore {
   }
 
   private lignes(joueurs: readonly Joueur[], periode: string, pour: string | null): Omit<ClassementDuJour, 'fige'> {
-    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
+    const nom = nommer(joueurs, this.deps.profiles)
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire, laurier } = this.deps.profiles.apparenceDe(j.profil)
@@ -1529,7 +1529,7 @@ export class JourStore {
    * masqué depuis la nuit — le prénom qui n'allait pas — ne s'annonce plus
    * sur tous les accueils, et un homonyme y garde sa marque.
    */
-  private async vainqueursDe(jour: string): Promise<{ nom: string; avatar: string }[]> {
+  private async vainqueursDe(jour: string): Promise<PartieDuJour['vainqueursDHier']> {
     // Les lauriers d'hier sont ses vainqueurs, lus à la nuit : les relire en
     // base coûtait un aller-retour à chaque vue. Les masqués s'écartent au
     // classement, d'un côté comme de l'autre.
@@ -1543,10 +1543,11 @@ export class JourStore {
           )
     if (premiers.size === 0) return []
     const joueurs = await this.joueursDu(jour, null)
-    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
+    const nom = nommer(joueurs, this.deps.profiles)
     return joueurs
       .filter(j => premiers.has(j.profil.id))
-      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil) }))
+      // Avec ce qu'ils portent, comme au classement : l'emoji seul les montrait autrement.
+      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil), ...apparenceDeLAvatar(this.deps.profiles.apparenceDe(j.profil)) }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }
 
@@ -2926,12 +2927,15 @@ function possiblesDe(tirage: Tirage): number {
  * que soit son rang. Tout prénom du quiz du jour passe par ici — le
  * classement, « à 70 pts de », le vainqueur d'hier (invariant 17).
  */
-function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string): (j: Joueur) => string {
+function nommer(joueurs: readonly Joueur[], profils: Pick<ProfileStore, 'avatarPorte' | 'legendairePorte'>): (j: Joueur) => string {
   const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
   // L'avatar qu'on voit, pas celui qu'il a en base : deux Camille qu'un
   // emoji de collection redevenu trop haut laisse sous le même 🎉 se
-  // distinguent comme les autres.
-  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: avatarDe(j.profil) })))
+  // distinguent comme les autres — et deux Camille sous le même Phénix,
+  // quels que soient leurs emojis d'en dessous (`visageDe`).
+  const marques = nomsAffiches(
+    arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: profils.avatarPorte(j.profil), legendaire: profils.legendairePorte(j.profil) })),
+  )
   return j => marques.get(j.profil.id) ?? j.profil.name
 }
 

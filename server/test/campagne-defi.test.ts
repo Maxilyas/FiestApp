@@ -205,6 +205,43 @@ test('des ex æquo en tête gagnent tous ; seul, on n’a battu personne', () =>
     assert.deepEqual(seule.saSemainePassee.recompenses, [])
   }))
 
+test('les vainqueurs de la semaine passée se montrent avec ce qu’ils portent, comme au classement : un portrait, pas l’emoji d’en dessous', () =>
+  // Le retour du propriétaire du 14 octobre 2026 : « une confusion entre
+  // emoji et légendaire […] c'est le défi de la semaine qui fait ça aussi ».
+  avecBanc(async (banc, horloge) => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐻')
+    await relever(banc, lea, i => i < 9)
+    await relever(banc, hugo, i => i < 5)
+    // Léa porte un portrait de la forêt : un palier validé ne se reprend
+    // jamais, il se croit (`legendairePorte`). Le serveur relit les profils au redémarrage.
+    base(banc, db => db.prepare(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login = 'lea'`).run())
+    await banc.redemarrer()
+    horloge.t = Date.UTC(2026, 9, 12, 7, 0)
+    const page = (await lire(banc, hugo, '/api/campagne/defi')).corps
+    assert.deepEqual(
+      page.vainqueurs.map((v: any) => [v.nom, v.avatar, v.legendaire]),
+      [['Léa', '🦊', 'br:blaireau']],
+    )
+  }))
+
+test('deux Léa sous le même portrait se distinguent au classement du défi, quels que soient leurs emojis', () =>
+  // La marque compare l'avatar qu'on voit (la décision du 14 octobre 2026) :
+  // sur leurs emojis, un renard et un ours, rien ne marquait deux fois le même blaireau.
+  avecBanc(async (banc, horloge) => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const seconde = await inscrireProfil(banc.url, 'lea2', 'Léa', '🐻')
+    await relever(banc, lea, i => i < 9)
+    // Une minute plus tard : arrivées au même instant, l'ordre se départagerait par l'identifiant, tiré au hasard.
+    horloge.t += 60_000
+    await relever(banc, seconde, i => i < 5)
+    const noms = async () => (await lire(banc, lea, '/api/campagne/defi')).corps.lignes.map((l: any) => l.nom)
+    assert.deepEqual(await noms(), ['Léa', 'Léa'], 'un renard, un ours')
+    base(banc, db => db.prepare(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login IN ('lea', 'lea2')`).run())
+    await banc.redemarrer()
+    assert.deepEqual(await noms(), ['Léa', 'Léa (2)'], 'deux fois le même blaireau : la seconde arrivée marquée')
+  }))
+
 test('toucher un nom du classement du défi ouvre sa carte — même sans quiz du jour, jamais celle d’un masqué', () =>
   // Le souhait du propriétaire du 11 octobre 2026 : la carte ne s'ouvrait
   // qu'au classement du jour, et à qui y avait joué.

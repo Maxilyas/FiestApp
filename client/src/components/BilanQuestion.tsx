@@ -1,5 +1,6 @@
-import type { CSSProperties } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import { Icon } from './Icon'
+import { AvatarEnLigne } from './Avatar'
 import { Shape } from './Shape'
 import { espacesFines, formatNumber, rang, pts } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
@@ -28,10 +29,20 @@ export function makeCtx(review: Review): BilanCtx {
   }
 }
 
-/** « 🦊 Léa » — ou trois points d'interrogation pour un invité disparu. */
-export function playerName(ctx: BilanCtx, id: string | null | undefined): string {
+/**
+ * « 🦊 Léa », son avatar tel qu'il le porte — ou trois points
+ * d'interrogation pour un invité disparu. Le bilan écrivait l'emoji : qui
+ * portait le Phénix y redevenait renard à côté de sa propre tête de bilan.
+ */
+export function JoueurDuBilan({ ctx, id }: { ctx: BilanCtx; id: string | null | undefined }) {
   const p = id ? ctx.playerById.get(id) : undefined
-  return p ? `${p.avatar} ${p.name}` : '???'
+  return p ? (
+    <>
+      <AvatarEnLigne de={p} /> {p.name}
+    </>
+  ) : (
+    <>???</>
+  )
 }
 
 /** Largeur d'une barre, en variable CSS : la feuille de style fait le reste. */
@@ -177,9 +188,13 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
             {q.fastest && (
               <span>
                 <Icon name="zap" />{' '}
-                {me && q.fastest.playerId === me.id
-                  ? `La réponse la plus rapide de la salle : la tienne, en ${formatSeconds(q.fastest.ms)}`
-                  : `La plus rapide : ${playerName(ctx, q.fastest.playerId)}, en ${formatSeconds(q.fastest.ms)}`}
+                {me && q.fastest.playerId === me.id ? (
+                  `La réponse la plus rapide de la salle : la tienne, en ${formatSeconds(q.fastest.ms)}`
+                ) : (
+                  <>
+                    La plus rapide : <JoueurDuBilan ctx={ctx} id={q.fastest.playerId} />, en {formatSeconds(q.fastest.ms)}
+                  </>
+                )}
               </span>
             )}
           </p>
@@ -211,11 +226,19 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
               <p className="muted">Tu n'as rien proposé.</p>
             ))}
           <p className="muted small">
-            {q.closest.length === 0
-              ? "Personne n'a proposé de valeur"
-              : `${q.closest.length > 1 ? 'Les plus proches de la salle, à égalité' : 'Le plus proche de la salle'} : ${q.closest
-                  .map(c => `${playerName(ctx, c.playerId)} avec ${formatNumber(c.value)} ${q.unit}`.trim())
-                  .join(', ')}`}
+            {q.closest.length === 0 ? (
+              "Personne n'a proposé de valeur"
+            ) : (
+              <>
+                {q.closest.length > 1 ? 'Les plus proches de la salle, à égalité' : 'Le plus proche de la salle'} :{' '}
+                {q.closest.map((c, i) => (
+                  <Fragment key={c.playerId}>
+                    {i > 0 && ', '}
+                    <JoueurDuBilan ctx={ctx} id={c.playerId} /> {`avec ${formatNumber(c.value)} ${q.unit}`.trim()}
+                  </Fragment>
+                ))}
+              </>
+            )}
             {q.guesses > 0 && ` · ${q.guesses} proposition${q.guesses > 1 ? 's' : ''}`}
           </p>
         </div>
@@ -243,7 +266,7 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
       )}
       {!me && q.newLeader && (
         <p className="bilan-leader">
-          <Icon name="crown" /> {playerName(ctx, q.newLeader)} prend la tête du classement
+          <Icon name="crown" /> <JoueurDuBilan ctx={ctx} id={q.newLeader} /> prend la tête du classement
         </p>
       )}
     </article>

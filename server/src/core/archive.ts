@@ -7,7 +7,7 @@ import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
 import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe } from '../../../shared/teams'
-import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
+import { nomAffiche, nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
 import { apparenceDeLAvatar } from '../../../shared/profil'
@@ -191,10 +191,14 @@ export function buildArchive(live: LiveParty): { id: string; heldAt: number; arc
 function archivePlayers(a: PartyArchive, apparences?: BadgeLookup): PublicPlayer[] {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
+  const badges = new Map(a.players.map(p => [p.id, p.profileId ? apparences?.(p.profileId, p.avatar) : undefined]))
   // Les marques d'homonymie se recalculent à la relecture, dans l'ordre
   // d'arrivée : une soirée rangée avant que cette règle existe les gagne donc
-  // elle aussi, sans qu'on ait réécrit une seule archive.
-  const marques = nomsAffiches([...a.players].sort((x, y) => x.createdAt - y.createdAt))
+  // elle aussi, sans qu'on ait réécrit une seule archive. Elles comparent ce
+  // que la page montre — ce que chacun porte aujourd'hui —, comme la salle.
+  const marques = nomsAffiches(
+    [...a.players].sort((x, y) => x.createdAt - y.createdAt).map(p => ({ id: p.id, name: p.name, avatar: p.avatar, legendaire: badges.get(p.id)?.legendaire })),
+  )
   return a.players.map(p => ({
     id: p.id,
     name: p.name,
@@ -202,7 +206,7 @@ function archivePlayers(a: PartyArchive, apparences?: BadgeLookup): PublicPlayer
     connected: false,
     score: totals.get(p.id) ?? 0,
     teamId: p.teamId,
-    ...apparenceDeLAvatar(p.profileId ? apparences?.(p.profileId, p.avatar) : undefined),
+    ...apparenceDeLAvatar(badges.get(p.id)),
     ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
   }))
 }
@@ -263,8 +267,18 @@ interface FicheSoiree {
    * comme un résumé d'avant les fiches.
    */
   v: 3
-  /** Tous les invités, dans l'ordre d'arrivée : celui des marques d'homonymie. */
-  invites: { id: string; name: string; avatar: string; teamId: string | null; points: number; joue: boolean }[]
+  /**
+   * Tous les invités, dans l'ordre d'arrivée : celui des marques d'homonymie.
+   * `profileId`, pour qui jouait avec un profil : la liste montre ses
+   * vainqueurs tels qu'ils se montrent aujourd'hui, un légendaire compris.
+   */
+  invites: { id: string; name: string; avatar: string; teamId: string | null; points: number; joue: boolean; profileId?: string }[]
+  /**
+   * Ses invités disent leur profil. Absent d'une fiche d'avant le 14 octobre
+   * 2026 : ses vainqueurs se montraient en emoji, même sous un légendaire —
+   * la liste le relit une fois dans l'archive (`completerLesProfils`).
+   */
+  profils?: true
   /**
    * `questions` : pour chaque question que l'équipe a jouée, combien de ses
    * membres y étaient et ce qu'ils y ont gagné — `[présents, points]`. Des
@@ -300,7 +314,9 @@ function ficheDe(a: PartyArchive): FicheSoiree {
         teamId: p.teamId,
         points: totals.get(p.id) ?? 0,
         joue: joue.has(p.id),
+        ...(p.profileId && { profileId: p.profileId }),
       })),
+    profils: true,
     equipes: a.teams.map(t => ({
       id: t.id,
       name: t.name,
@@ -330,8 +346,39 @@ function lireFiche(texte: string): FicheSoiree | null {
  * marques d'homonymie du souvenir, les ex æquo de la règle commune, et pour
  * les équipes la règle de l'écran de victoire — prix compris.
  */
-function resumer(meta: MetaSoiree, fiche: FicheSoiree): ArchiveSummary {
-  const marques = nomsAffiches(fiche.invites)
+function resumer(meta: MetaSoiree, fiche: FicheSoiree, apparences?: BadgeLookup): ArchiveSummary {
+  const { joueurs, joue, enTete } = joueursDeLaFiche(fiche, apparences)
+  const profilDe = new Map(fiche.invites.flatMap(i => (i.profileId ? [[i.id, i.profileId] as const] : [])))
+  // Ce que chaque vainqueur porte aujourd'hui, par la règle de la salle, comme
+  // le souvenir et le bilan d'une archive : un profil supprimé, ou une fiche
+  // sans profils, garde son emoji.
+  const apparence = (p: PublicPlayer) => {
+    const profil = profilDe.get(p.id)
+    return apparenceDeLAvatar(profil ? apparences?.(profil, p.avatar) : undefined)
+  }
+  return {
+    ...meta,
+    players: joue.size,
+    quizzes: fiche.quiz,
+    questions: fiche.questions,
+    winners: enTete.map(p => ({ name: nomAffiche(p), avatar: p.avatar, ...apparence(p), points: p.score })),
+    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix, questionsDeLaFiche(fiche))).map(t => ({
+      name: t.name,
+      emoji: t.emoji,
+      points: t.finalPoints,
+    })),
+  }
+}
+
+/**
+ * Ses invités en joueurs — leur marque d'homonymie comprise, sur ce que
+ * chacun porte aujourd'hui (`apparences`) —, ceux qui ont joué, et ceux qui
+ * finissent en tête (la règle commune).
+ */
+function joueursDeLaFiche(fiche: FicheSoiree, apparences?: BadgeLookup): { joueurs: PublicPlayer[]; joue: Set<string>; enTete: PublicPlayer[] } {
+  const marques = nomsAffiches(
+    fiche.invites.map(i => ({ id: i.id, name: i.name, avatar: i.avatar, legendaire: i.profileId ? apparences?.(i.profileId, i.avatar)?.legendaire : undefined })),
+  )
   const joueurs: PublicPlayer[] = fiche.invites.map(i => ({
     id: i.id,
     name: i.name,
@@ -348,18 +395,18 @@ function resumer(meta: MetaSoiree, fiche: FicheSoiree): ArchiveSummary {
     nomAffiche,
     p => p.id,
   )
-  return {
-    ...meta,
-    players: joue.size,
-    quizzes: fiche.quiz,
-    questions: fiche.questions,
-    winners: enTete.map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
-    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix, questionsDeLaFiche(fiche))).map(t => ({
-      name: t.name,
-      emoji: t.emoji,
-      points: t.finalPoints,
-    })),
-  }
+  return { joueurs, joue, enTete }
+}
+
+/**
+ * Les profils que la liste fait lire, et pas un de plus : ceux de ses
+ * vainqueurs, et ceux de leurs homonymes — ce qu'ils portent décide de la
+ * marque « (2) » d'un vainqueur. Qui finit en tête ne dépend pas des
+ * marques : elles ne font que ranger les ex æquo.
+ */
+function profilsDesVainqueurs(fiche: FicheSoiree): string[] {
+  const prenoms = new Set(joueursDeLaFiche(fiche).enTete.map(p => sansAccent(p.name)))
+  return fiche.invites.flatMap(i => (i.profileId && prenoms.has(sansAccent(i.name)) ? [i.profileId] : []))
 }
 
 function questionsDeLaFiche(fiche: FicheSoiree): Map<string, QuestionDEquipe[]> {
@@ -373,6 +420,9 @@ export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
 
 /** Combien d'archives une requête relit pour refaire leurs fiches (`ArchiveStore.refaireFiches`). */
 const LOT_DE_FICHES = 10
+
+/** Ce que portent ces profils, une fois lus d'un coup : la règle de la salle (`ProfileStore.badgeDe`). */
+export type ApparencesDesProfils = (ids: readonly string[]) => Promise<BadgeLookup>
 
 /** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
 const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
@@ -479,7 +529,7 @@ export class ArchiveStore {
    * archives elles-mêmes, sauf une fois pour une soirée rangée avant les
    * fiches.
    */
-  async list(spaceId: string): Promise<ArchiveSummary[]> {
+  async list(spaceId: string, apparencesDe?: ApparencesDesProfils): Promise<ArchiveSummary[]> {
     const res = await this.client.execute({
       sql: 'SELECT id, title, held_at, archived_at, summary FROM soirees WHERE space_id = ? ORDER BY held_at DESC',
       args: [spaceId],
@@ -494,7 +544,61 @@ export class ArchiveStore {
       const fiches = await this.refaireFiches(spaceId, anciennes)
       for (const l of anciennes) l.fiche = fiches.get(l.meta.id) ?? ficheDe(ARCHIVE_VIDE)
     }
-    return lignes.map(l => resumer(l.meta, l.fiche!))
+    // Ses vainqueurs tels qu'ils se montrent aujourd'hui : les profils des
+    // fiches d'avant d'abord, puis ce qu'ils portent. Sans profils à lire —
+    // ou une base qui hoquette —, la liste part en emojis, comme avant.
+    let apparences: BadgeLookup | undefined
+    if (apparencesDe) {
+      const sansProfils = lignes.filter((l): l is typeof l & { fiche: FicheSoiree } => !!l.fiche && !l.fiche.profils)
+      if (sansProfils.length > 0) await this.completerLesProfils(spaceId, sansProfils)
+      const ids = [...new Set(lignes.flatMap(l => profilsDesVainqueurs(l.fiche!)))]
+      if (ids.length > 0) {
+        apparences = await apparencesDe(ids).catch((e: unknown) => {
+          console.error('[historique] les profils des vainqueurs ne se lisent pas :', e)
+          return undefined
+        })
+      }
+    }
+    return lignes.map(l => resumer(l.meta, l.fiche!, apparences))
+  }
+
+  /**
+   * Les fiches d'avant le 14 octobre 2026 ne disent pas quel invité tenait
+   * quel profil : leurs vainqueurs se montraient en emoji, même sous un
+   * légendaire. Son archive le sait (`players[].profileId`) : lu dans la base
+   * même (`json_each`), sans faire voyager l'archive — jusqu'à plusieurs Mo
+   * —, par lots, et écrit dans la fiche, une fois. Comme `refaireFiches`, la
+   * fiche ne s'écrit que si elle n'a pas bougé entre-temps ; une panne laisse
+   * ses vainqueurs en emoji, la liste part quand même.
+   */
+  private async completerLesProfils(spaceId: string, lignes: { meta: MetaSoiree; stocke: string; fiche: FicheSoiree }[]): Promise<void> {
+    for (let i = 0; i < lignes.length; i += LOT_DE_FICHES) {
+      const lot = lignes.slice(i, i + LOT_DE_FICHES)
+      try {
+        const res = await this.client.execute({
+          // `json_valid` d'abord : une archive abîmée ne fait pas échouer le lot.
+          sql: `SELECT s.id AS soiree, json_extract(p.value, '$.id') AS joueur, json_extract(p.value, '$.profileId') AS profil
+                FROM soirees s, json_each(CASE WHEN json_valid(s.data) THEN s.data ELSE '{}' END, '$.players') p
+                WHERE s.space_id = ? AND s.id IN (${lot.map(() => '?').join(', ')}) AND json_extract(p.value, '$.profileId') IS NOT NULL`,
+          args: [spaceId, ...lot.map(l => l.meta.id)],
+        })
+        const profils = new Map<string, Map<string, string>>(lot.map(l => [l.meta.id, new Map()]))
+        for (const r of res.rows) profils.get(String(r.soiree))?.set(String(r.joueur), String(r.profil))
+        const majs = lot.map(l => {
+          const deLaSoiree = profils.get(l.meta.id)!
+          l.fiche = {
+            ...l.fiche,
+            invites: l.fiche.invites.map(inv => (deLaSoiree.has(inv.id) ? { ...inv, profileId: deLaSoiree.get(inv.id)! } : inv)),
+            profils: true,
+          }
+          return { sql: 'UPDATE soirees SET summary = ? WHERE space_id = ? AND id = ? AND summary = ?', args: [JSON.stringify(l.fiche), spaceId, l.meta.id, l.stocke] }
+        })
+        await this.client.batch(majs, 'write')
+      } catch (e) {
+        console.error('[historique] les profils des fiches d’avant ne se lisent pas :', e)
+        return
+      }
+    }
   }
 
   /**

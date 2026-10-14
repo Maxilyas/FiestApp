@@ -1,100 +1,115 @@
 ---
 paths:
   - "client/src/main.tsx"
-  - "client/src/{aLaDemande,api,routes,onglets,state,retour}.ts"
+  - "client/index.html"
+  - "client/vite.config.ts"
+  - "client/src/{aLaDemande,api,routes,onglets,state,retour,titres,clavier,toucher,modale,copier,decompte,egalite,format,apercus}.ts"
   - "client/src/annonce.tsx"
-  - "client/src/components/{Entree,IdentifiantDiscret,ProfilForm,NavAnimateur,Glossaire}.tsx"
+  - "client/src/views/LandingApp.tsx"
+  - "client/src/components/{Entree,IdentifiantDiscret,ProfilForm,NavAnimateur,Glossaire,Dialog,Icon,Invitation,Limite,Onglets}.tsx"
   - "client/src/components/inscription.ts"
   - "shared/{depart,adresses,erreurs,reveil,glossaire}.ts"
   - "server/src/core/{page,apercus}.ts"
   - "server/scripts/mesure-pages.ts"
-  - "server/test/{depart,chargement,navigation,connexion-claire,client,page,medaillons}.test.ts"
+  - "server/test/{depart,chargement,navigation,connexion-claire,client,page,medaillons,portes}.test.ts"
 ---
 
-# Ce que la page charge : l'entrée, l'accueil, la navigation
+# Ce que la page charge : les adresses, l'entrée, la navigation
 
 ## Les fichiers
 
-- `client/src/components/Entree.tsx` · `IdentifiantDiscret.tsx` — tout ce qu'on traverse entre le scan du QR et la salle d'attente — trois gros boutons d'abord, comme l'accueil sans profil (`ProfilForm`) ; et l'identifiant d'un profil qui naît, déduit du prénom, sur une ligne (« Pour te reconnecter : camille · modifier ») : pris par un autre, il prend celui que le serveur propose (`inscrireAvecRepli`), jamais s'il a été tapé à la main. La création s'ouvre toujours ainsi, par quelque chemin qu'on y arrive — rien de ce qu'on a tapé pour se connecter n'y passe : un essai raté, puis « Je n'en ai pas encore », y ouvrait le champ de l'identifiant avec celui de l'essai, et le mot de passe refusé — « une page de profil ancienne », le retour du propriétaire du 13 octobre 2026 (`champsAuChangement`, `connexion-claire.test.ts`). Ce que l'entrée partage avec le formulaire du profil (`tirage`, `identifiantPour`) vit dans `components/inscription.ts` : pris à `Entree.tsx`, il faisait télécharger toute la liaison temps réel à l'accueil (`medaillons.test.ts`)
-- `shared/depart.ts` · `core/page.ts` — ce que la page servie apporte avant son script : ce que sa vue demandera dès son code arrivé, préchargé (`donneesDeDepart`, `<link rel="preload" as="fetch">`, `prechargerDonnees`) — la page attendait son code pour demander ses données, un aller-retour de plus à chaque ouverture —, aux adresses mêmes que la page demande (`DEPART`, `adresseDesDonnees`) ; et son attente déjà écrite (`ecrireAttente`) : le balisage de `Patience` (`annonce.tsx`), que React remplace sans que rien ne bouge — le nom de la soirée et « On arrive… » à l'entrée d'un invité (`pageDEntree`), « Chargement… » ailleurs. L'entrée d'un invité aussi a sa donnée de départ : ce que `party:watch` lui dirait — l'instantané des téléphones, le profil du cookie —, servi par `/s/<espace>/entree.json` (`EntreeDeDepart`) ; elle paraît dès son code arrivé au lieu d'attendre la liaison temps réel (la piste 8 de `retours/2026-10-05/affichage-des-pages.md`, faite le 11 octobre 2026 ; ce qu'elle change à la salle : `soiree-salle.md`). Ce que le serveur ne voit pas — le fragment, `#sentiers` —, le premier script le précharge (`donneesDuFragment`, `main.tsx` : les sentiers ; l'onglet « Apprendre », `#carnet`, son carnet et ses parcours de thème ensemble — sa page les demande à son ouverture, quel que soit le visiteur), et la campagne s'ouvre sur les sentiers par la même règle (`versLesSentiers`, `ADRESSE_D_APPRENDRE`). La partie du jour préchargée le dit (`prechargee`) : son heure se mesure sur le préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui la trouve déjà là (`depart.test.ts`)
-- `shared/adresses.ts` · `core/apercus.ts` — une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3)
+- `shared/adresses.ts` · `client/src/routes.ts` · `client/src/main.tsx` — une adresse lue une seule fois, pour le client et le serveur (`parseRoute`) : l'accueil, les treize pages sans espace (`ACCOUNT_PAGES`), l'entrée d'un invité (`/<espace>`), les cinq pages publiques d'une soirée et de ses archives, et l'inconnue. L'accueil, `/profil` et `/boutique` sont une seule page (`ProfilApp`, règle `profil.md`) ; `views/LandingApp.tsx` ne sert que l'adresse inconnue (« Rejoindre une soirée », par le code du salon), et un espace qui n'existe pas passe par la page de l'invité, qui montre le même formulaire au refus de `party:watch`. `main.tsx` charge le code de la page avant son premier rendu, ne rend qu'une fois, sous un filet (`Filet`), pose le thème, et hors production la pastille d'environnement et le préfixe du titre de l'onglet (`<meta name="app-env">`, que `server/src/server.ts` glisse dans les pages qu'il sert)
+- `client/src/components/Entree.tsx` · `IdentifiantDiscret.tsx` · `components/inscription.ts` — tout ce qu'on traverse entre le scan du QR et la salle d'attente : neuf étapes (`Etape`) et quatre départs — les trois gros boutons pour un téléphone qui n'a rien, « Te revoilà » pour un profil reconnu, le prénom et l'avatar pré-remplis pour un choix retenu sur cet espace, l'équipe d'abord pour le chef qui vient d'ouvrir son salon en équipes (`equipeDAbord`) ; un jeton de la soirée n'en voit aucun, il se re-présente. Un profil y naît en deux écrans, le prénom puis « Garder ma progression » : un mot de passe, et l'identifiant déduit du prénom, sur une ligne (« Pour te reconnecter : **camille** modifier ») ; deviné et pris, il prend celui que le serveur propose (`inscrireAvecRepli`) — tapé à la main, jamais. Ce que l'entrée partage avec le formulaire du profil (`tirage`, `identifiantPour`) vit dans `inscription.ts` : pris à `Entree.tsx`, il faisait télécharger toute la liaison temps réel à l'accueil (`medaillons.test.ts`)
+- `client/src/components/ProfilForm.tsx` — le même choix sur l'accueil sans profil, puis la connexion ou la création ; rien de ce qu'on a tapé pour se connecter ne passe dans la création — un essai raté, puis « Je n’en ai pas encore », y ouvrait l'identifiant de l'essai et le mot de passe refusé : « une page de profil ancienne », le retour du propriétaire du 13 octobre 2026 (`champsAuChangement`, `connexion-claire.test.ts`). L'entrée d'une soirée n'a pas encore cette règle (les pièges)
+- `shared/depart.ts` · `core/page.ts` — ce que la page servie apporte avant son script : ce que sa vue demandera dès son code arrivé, préchargé (`donneesDeDepart`, `prechargerDonnees`) aux adresses mêmes que la page demande (`DEPART`, `adresseDesDonnees`) — un aller-retour de moins à chaque ouverture ; et son attente déjà écrite dans `#root` (`ecrireAttente`) : le balisage de `Patience` (`annonce.tsx`), que React remplace sans que rien ne bouge — le nom de la soirée et « On arrive… » à l'entrée d'un invité (`pageDEntree`), « Chargement… » ailleurs. L'entrée d'un invité a sa donnée de départ, ce que `party:watch` lui dirait (`/s/<espace>/entree.json`, `EntreeDeDepart`) : elle paraît sans attendre la liaison temps réel si le téléphone n'a rien à reprendre (`entreeUtilisable` ; la salle : règle `soiree-salle.md`). Le fragment, que le serveur ne voit pas, `main.tsx` le précharge (`donneesDuFragment` : `#sentiers`, `#carnet`), et la campagne s'ouvre sur les sentiers par la même règle (`versLesSentiers`). La partie du jour préchargée le dit (`prechargee`) : son heure se mesure sur le préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui la trouve déjà là (`depart.test.ts`)
+- `core/apercus.ts` · `servirPage` (`server/src/server.ts`) — ce que le serveur pose sur une page avant tout script : son statut (`decrirePage`) — 404 d'un espace, d'une page ou d'une archive inconnus (l'archive vérifiée en 1,5 s au plus, sinon 200) ; 302 vers le nom exact d'un espace tapé autrement, vers `chez-‹saisie›` s'il existe, et de six chiffres vers l'espace du salon ; 429 quand l'adresse a épuisé ses codes de salon (`salons.test.ts`) —, ses balises d'aperçu (`habillerPage` : le titre de l'espace, **jamais un prénom**), `noindex` et `X-Robots-Tag` hors de l'accueil, `Cache-Control: no-cache`. Les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3). Une page sans espace se lit telle quelle : `/Profil` est inconnue, quand `/Chez-Bruno` mène à `/chez-bruno` (`portes.test.ts`)
+- `client/src/api.ts` · `client/src/state.ts` — toute route du client passe par `req` : `X-Requested-With: quizz`, qu'exige le garde anti-CSRF sur toute écriture, l'abandon à vingt secondes, un échec rendu en `ApiError` à motif français (`UnauthorizedError`, `ConflitError`) ; `seConnecter` essaie le profil avant un compte d'avant. L'état d'une page tient dans un magasin à abonnés (`useAppState`) ; sur celle d'un invité, son jeton, son choix et la dernière soirée close (`quizz.me.<espace>`, `quizz.profile.<espace>`, `quizz.fin.<espace>`, rouverte au retour sur la page, jamais à une arrivée : `estUnRetour`), écrits par `writeSafe`
 - `client/src/onglets.ts` — les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte — l'accueil compris : jamais une seconde console
-- `client/src/components/NavAnimateur.tsx` — la barre des pages de l'animateur — Accueil · Écran commun · Mes quiz · Mon compte · Historique · Le QG —, la même en tête de « Mes quiz », de « Mon compte » et du QG, la page courante à sa place, sans lien ; l'écran commun a « Accueil » dans la bande de sa salle d'attente, et les pages publiques le donnent à l'animateur de l'espace
+- `client/src/components/NavAnimateur.tsx` — la ligne des pages de l'animateur — Accueil · Écran commun · Mes quiz · Mon compte · Historique · Le QG, à l'administrateur —, la page courante à sa place, sans lien : en tête de « Mon compte » et du QG, pour un espace **sans profil** seulement ; tous y ont en bas la barre du menu (`MenuBarre`, `components/Pieces.tsx`), et « Mes quiz » n'a qu'elle (`navigation.test.ts`). L'écran commun a « Accueil » dans la bande de sa salle d'attente
+- `components/Dialog.tsx` · `Onglets.tsx` · `client/src/{modale,clavier,retour,decompte}.ts` — un seul dialogue à la fois (`confirmDialog`, `promptDialog`, `choixDialog`) ; des onglets à un seul arrêt de Tab, parcourus aux flèches, et une modale qui rend le reste de la page `inert` et le focus en partant (`petit-ecran.test.ts`) ; sur un écran d'entrée, la page défile pour garder le bouton principal au-dessus du clavier ; « Quitter la soirée ? » au geste retour, dès la salle d'attente ; un décompte lu à `serverNow()`
 - `shared/erreurs.ts` — les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) — à l'inverse, un refus du serveur, qu'on ne retouche pas (`refusDuServeur`, `client/src/api.ts`)
 - `shared/reveil.ts` — une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`)
 - `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` — les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement
-- `server/scripts/mesure-pages.ts` — ce que chaque page fait attendre à un téléphone (`npm run mesure`) : un serveur jetable et une soirée jouée, puis chaque page ouverte dans Chromium bridé — 4G, 4G lente ou la 4G moyenne des audits de septembre, processeur ×4 —, cache vide puis plein ; le premier affichage, l'écran utile (un sélecteur par page, guetté dans la page), les octets et requêtes avant lui, le processeur. Derrière un relais HTTP/2, comme chez l'hébergeur : en HTTP/1.1, les trente morceaux d'une route font la queue sur six connexions, et toute conclusion sur le nombre de requêtes s'inverse ; le relais retarde aussi les messages temps réel, que Chrome ne bride pas. `--cascade`, `--couverture`, `--client` (deux paquets comparés) ; et à chaque page, les préchargements qu'elle n'a pas repris (`shared/depart.ts`). La mesure d'avant et d'après une retouche, pas un test (`retours/2026-10-05/affichage-des-pages.md`)
+- `server/scripts/mesure-pages.ts` — ce que chaque page fait attendre à un téléphone (`npm run mesure`) : un serveur jetable et une soirée jouée, puis chaque page ouverte dans Chromium bridé (4G, 4G lente ou la 4G moyenne des audits de septembre, processeur ×4), cache vide puis plein ; le premier affichage, l'écran utile, les octets et requêtes avant lui, le processeur, et les préchargements qu'elle n'a pas repris. Derrière un relais HTTP/2, comme chez l'hébergeur : en HTTP/1.1, les trente morceaux d'une route font la queue sur six connexions, et toute conclusion sur le nombre de requêtes s'inverse. La mesure d'avant et d'après une retouche, pas un test (`retours/2026-10-05/affichage-des-pages.md`)
 
 ## Les pièges
 
 - **Ce qui ne sert qu'après l'entrée vient à la demande, par `aLaDemande`**
   (`client/src/aLaDemande.ts`), jamais par `lazy` : un composant paresseux
   suspend au moins une fois, même son fichier déjà téléchargé, et React
-  retient alors 300 ms ce qui sort de l'attente — la grille du profil, la fin
-  de soirée, la carte d'un joueur. Les pages elles-mêmes non plus :
-  `main.tsx` charge le code de la route avant son premier rendu, et
-  l'attente écrite par le serveur reste jusqu'à la page — sous `lazy`, React
-  posait la sienne puis retenait chaque page, et un joueur qui revenait,
-  tout en cache, attendait 120 à 265 ms de plus (mesuré le 11 octobre 2026 ;
-  `depart.test.ts`). L'écran d'entrée ne télécharge ni la
-  carte, ni la fin de soirée, ni le quiz du jour (elles viennent une fois
-  entré), l'accueil anonyme ni les dessins ni les onglets du profil, et le quiz du jour
-  ni la fin de soirée (ses cartes de fin vivent dans `components/Ouverts.tsx`) :
-  `medaillons.test.ts` y veille, et un import statique de plus sur ces
-  chemins les y remettrait. L'accueil ne télécharge pas non plus la liaison
-  temps réel : rien de `socket.ts` sur son chemin.
-- **Une donnée préchargée se demande à l'ouverture, par tout visiteur.** La
-  page servie précharge ce que sa vue demandera dès son code arrivé
-  (`donneesDeDepart`, `shared/depart.ts`), et le navigateur garde la réponse
-  pour le premier `fetch` de la même adresse, sans regarder son âge ni
-  `no-store` — essayé : douze secondes après, il rendait encore celle du
-  chargement. Une adresse que la page ne demanderait qu'après une connexion
-  y lirait donc la réponse d'avant, celle d'un invité. Une page qui cesse de
-  demander une adresse d'emblée, ou la demande autrement (une lettre, un
-  paramètre), la retire de sa liste dans le même commit ; chaque mesure de
-  `npm run mesure` relève les préchargements qu'une page n'a pas repris.
-  Et `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que
-  `req` pose toujours) se dit préchargé (`prechargee`) : son heure se lit
-  alors dans le préchargement.
-
-- **Le premier `Intl` d'une page charge les données du français** : 90 ms
-  au processeur ×4, quel qu'il soit — retiré d'un endroit, il passe au
-  suivant. Un nombre s'écrit donc à la main (`formatNumber`,
-  `shared/typographie.ts` : le texte même de `toLocaleString('fr-FR')`, que
-  `typographie.test.ts` compare sur des milliers de nombres — avec ses
-  options, `toLocaleString` bâtissait en plus un formateur à chaque nombre),
-  et l'accueil reçoit le jour de Paris du serveur (`ProfilDAccueil.aujourdhui`)
-  au lieu de le calculer : aucun `Intl` avant son premier écran (mesuré le
-  11 octobre 2026 : le profil y gagnait 100 ms de script). Une date à écrire
-  passe par `shared/jour.ts`, dont les formateurs naissent à leur première
-  lecture (règle `jour.md`).
-
+  retient alors 300 ms ce qui sort de l'attente. Les pages non plus : sous
+  `lazy`, un joueur qui revenait, tout en cache, attendait 120 à 265 ms de
+  plus (mesuré le 11 octobre 2026 ; `depart.test.ts`). L'écran d'entrée ne
+  télécharge ni la carte, ni la fin de soirée, ni le quiz du jour ;
+  l'accueil anonyme ni les dessins, ni les onglets du profil, ni la liaison
+  temps réel ; le quiz du jour pas la fin de soirée (ses cartes de fin vivent
+  dans `components/Ouverts.tsx`) : `medaillons.test.ts` y veille, et un
+  import statique de plus sur ces chemins les y remettrait.
+- **Une donnée préchargée se demande à l'ouverture, par tout visiteur, à
+  l'adresse exacte.** Le navigateur garde la réponse préchargée pour le
+  premier `fetch` de la même adresse, sans regarder son âge ni `no-store` —
+  essayé : douze secondes après, il rendait encore celle du chargement. Une
+  adresse que la page ne demanderait qu'après une connexion y lirait la
+  réponse d'avant, celle d'un invité. Une page qui cesse de demander une
+  adresse d'emblée, ou la demande autrement (une lettre, un paramètre), la
+  retire de `donneesDeDepart` dans le même commit. Et `/api/jour` demandé
+  sans `X-Requested-With` (que `req` pose toujours) se dit préchargé.
+- **Le premier `Intl` d'une page charge les données du français** : 94 ms au
+  processeur d'un téléphone moyen (mesuré le 11 octobre 2026), quel qu'il
+  soit — retiré d'un endroit, il passe au suivant. Un nombre s'écrit à la
+  main (`formatNumber`, `shared/typographie.ts` : le texte de
+  `toLocaleString('fr-FR')`, milliers groupés à cinq chiffres seulement —
+  « 1889 », « 35 000 » ; `typographie.test.ts`), et l'accueil reçoit le jour
+  de Paris du serveur (`ProfilDAccueil.aujourdhui`). Une date passe par
+  `shared/jour.ts`, dont les formateurs naissent à leur première lecture
+  (règle `jour.md`) ; les `toLocaleDateString` de `client/src/format.ts` ne
+  servent qu'aux pages d'animateur.
 - **Ce qui ne se voit pas ne se rend pas d'avance, et ce qui se voit ne
-  s'avance pas sans mesure.** Un `<details>` replié ne rend que son titre :
-  les sentiers à thème rendaient leurs vingt-cinq tuiles cachées, un quart de
-  la carte des sentiers — devenus les parcours de thème, ils ne rendent que
-  la famille ouverte (`ParcoursDeTheme`). À l'inverse, les dessins des
-  douze branches demandés dès le profil connu (essayé le 11 octobre 2026)
-  arrivaient, cache plein, avant la carte : son premier rendu portait les
-  dix-huit portraits et paraissait 0,1 à 0,3 s plus tard en 4G — ils restent
-  au montage des portraits. Et la fusion des petits morceaux du paquet
-  (`experimentalMinChunkSize` à 4 Ko : 107 morceaux → 71, un tiers de
-  requêtes en moins sur chaque page) ajoutait 1 à 4 Ko de script à chaque
-  page sans gain qui dépasse le bruit : pas retenue. Le bruit, justement :
-  ±120 ms d'une série de `npm run mesure` à l'autre sur la même machine —
-  une retouche se juge en séries entrelacées, ou au travail du fil principal
-  (une trace, processeur ×4), jamais sur deux séries prises à une heure
-  d'écart.
+  s'avance pas sans mesure.** Un `<details>` replié ne rend que son titre
+  (`ParcoursDeTheme`). Les dessins des branches demandés dès le profil connu
+  retardaient la carte de 0,1 à 0,3 s en 4G ; la fusion des petits morceaux
+  du paquet (`experimentalMinChunkSize`) ajoutait du script sans gain : ni
+  l'un ni l'autre retenu. Le bruit fait ±120 ms d'une série de
+  `npm run mesure` à l'autre : une retouche se juge en séries entrelacées, ou
+  au travail du fil principal (une trace, processeur ×4).
+- **`npm run dev` ne passe pas par le serveur des pages** : à 5173, Vite sert
+  `client/index.html` tel quel et ne relaie que `/socket.io`, `/api`,
+  `/media`, `/s/` et les anciennes adresses (`client/vite.config.ts`). Ni
+  statut, ni redirection (`/482157` y finit en « Le code 482 157 ne mène à
+  aucun salon »), ni aperçus, ni préchargement, ni attente écrite, ni
+  pastille d'environnement : ils se vérifient sur le client construit, servi
+  par le serveur, ou au banc (`clientDist`, `portes.test.ts`).
+- **Une page sans espace de plus** entre dans `ACCOUNT_PAGES`, `ACCOUNT`
+  (`main.tsx`) et `TITRES` (`client/src/titres.ts`) — le typecheck force ces
+  deux-là —, dans `donneesDeDepart` si elle demande une donnée dès son
+  arrivée, et dans `RESERVED_SLUGS` (`shared/space.ts`), que rien ne force :
+  un espace du même nom n'aurait plus d'adresse. `duels` y manque, comme les
+  dossiers servis avant la page (`portraits`, `medaillons`, `compagnons`,
+  `decors`) — règle `auth-et-admin.md`.
+- **L'entrée d'une soirée garde le mot de passe d'une connexion ratée** :
+  `Entree.tsx` n'a qu'un état `password` pour « Me connecter » et pour
+  « Garder ma progression », et « ← Retour » ne le vide pas : refusé, puis
+  « Créer un profil », il attend dans le champ. L'écart que
+  `champsAuChangement` a fermé dans `ProfilForm` reste ouvert ici.
+- **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
+  (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
+  la page de jeu noire, et rien ne le vérifie partout. Les clés commencent
+  par `quizz.`, sauf `quizz-telecommande` et `fiestappTriDesQuiz`.
 
 ## Ce qu'il ne faut pas faire
 
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
-  connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
-  tous deux s'ouvrent sur trois gros boutons du même format, « Jouer sans
-  compte » d'abord, puis « Me connecter » et « Créer un profil » (les champs
-  ne viennent qu'avec le choix), qui se voient **sans défiler** en 360 × 640
-  (`connexion-claire.test.ts`). Un profil naît d'un prénom et d'un mot de
-  passe : l'identifiant s'en déduit (`IdentifiantDiscret`).
-  Aucun champ de l'entrée ni de `ProfilForm` n'a d'`autoFocus` : le clavier
-  pousserait le bouton hors de l'écran. **Le chemin anonyme reste la valeur de
-  l'application** ; les profils s'y greffent, ne le remplacent pas.
+  connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé —
+  mais, à qui n'a pas de profil (ni, à l'entrée, de choix retenu), tous deux
+  s'ouvrent sur trois gros boutons de même taille, « Jouer sans compte »
+  d'abord, en accent, puis « Me connecter » et « Créer un profil » — les
+  champs ne viennent qu'avec le choix. Ils se voient **sans défiler** en
+  360 × 640 : ça se regarde à l'écran (skill `regarder-le-rendu`), car
+  `connexion-claire.test.ts` ne garde que leur ordre, leur format et
+  l'absence de champ. Un profil naît d'un prénom et d'un mot de passe :
+  l'identifiant s'en déduit (`IdentifiantDiscret`). Aucun champ de l'entrée
+  ni de `ProfilForm` n'a d'`autoFocus` : le clavier pousserait le bouton hors
+  de l'écran. **Le chemin anonyme reste la valeur de l'application** ; les
+  profils s'y greffent, ne le remplacent pas.
+- Renommer un bouton de l'entrée ou de l'accueil sans chercher son texte :
+  la tablée le touche par son nom (règle `tablee.md`), et des tests le lisent.

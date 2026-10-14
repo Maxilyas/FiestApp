@@ -588,7 +588,7 @@ for (const cle of CLES_MESUREES) {
   mesurees.push([cle, partMoyenne(xs)])
 }
 // Ce qui se recopie dans `PART_DES_JOUEURS`, moyenné sur les trois formats de
-// RECOMPENSES.md (5.2) : un seul format ferait du Triplé un impossible.
+// soirée simulés ici : un seul format ferait du Triplé un impossible.
 console.log(`\nPART_DES_JOUEURS (moyenne sur les ${SOIREES} soirées) :`)
 for (const [cle, p] of mesurees) console.log(`  '${cle}': ${p.toFixed(4)},`)
 

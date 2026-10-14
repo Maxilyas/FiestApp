@@ -14,7 +14,7 @@ resynchronisation), `core/distante.ts` (le délai, `ajouterColonne`),
 `soireeEnCours` dans `core/space.ts`, les schémas de la base permanente
 (`auth/store.ts`, `auth/profiles.ts`, `core/jour.ts`, `core/quizStore.ts`,
 `core/partages.ts`, `core/programmes.ts`), `server/src/index.ts` (démarrage,
-arrêt), `scripts/sauvegarde.ts`, `core/export.ts`, et `MISE-EN-LIGNE.md`.
+arrêt), `scripts/sauvegarde.ts`, `core/export.ts`, et `docs/exploitation/exploiter.md`.
 Invariants 2, 5, 10, 11, 13, 14, 18, 20, et les pièges « Une colonne de plus
 au journal des réponses », « Un serveur qu'on ferme doit éteindre ses
 chronomètres », « `/healthz` doit rester un 200 », « Simuler une panne ».

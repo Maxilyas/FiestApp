@@ -279,7 +279,12 @@ function QuiDansLaSalle({ view: v, send, closes, enAttente, perdue }: PropsDeVar
               }
             >
               {/* L'avatar distingue deux Camille : le prénom seul faisait deux boutons pareils. */}
-              {v.avatars?.[i] && <span className="sondage-avatar">{v.avatars[i]}</span>}
+              {/* Celui qu'il porte : un légendaire s'y montrait en emoji. */}
+              {v.avatars?.[i] && (
+                <span className="sondage-avatar">
+                  <Avatar avatar={v.avatars[i]} finition={v.apparences?.[i]?.finition} legendaire={v.apparences?.[i]?.legendaire} eclat={v.apparences?.[i]?.eclat} />
+                </span>
+              )}
               <span className="ans-text">{nom}</span>
               {v.yourChoice === i && enAttente?.choice !== i && <Icon name="check" className="ans-check" />}
             </button>

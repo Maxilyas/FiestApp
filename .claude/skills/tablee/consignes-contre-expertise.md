@@ -29,8 +29,8 @@ Pour chacun :
 3. **La réalité** : sur la vraie production (Render, une seule instance,
    Turso, des invités au téléphone), qui le vivrait, combien de fois, avec
    quel dommage ? La gravité annoncée est-elle la bonne ?
-4. **Les partis pris** : un constat qui heurte « La direction » du README ou
-   un invariant voulu du `CLAUDE.md` est une **tension**, pas un bug.
+4. **Les partis pris** : un constat qui heurte « Les partis pris »
+   (`docs/produit/vue-d-ensemble.md`) ou un invariant voulu du `CLAUDE.md` est une **tension**, pas un bug.
 5. **Les doublons** : le même défaut vu par un autre expert (lis les autres
    JSON de `export/evaluations/rapports/`), ou déjà rapporté et corrigé
    (`retours/2026-09-2*/`).

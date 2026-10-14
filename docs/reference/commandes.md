@@ -1,0 +1,193 @@
+# Les commandes
+
+> Chaque commande npm du dépôt — à la racine, dans `server/`, dans `client/` — et chaque script de `server/scripts/` : à quoi il sert, comment on le lance, ce qu'il lit dans l'environnement, ce qu'il produit. Les variables propres à un script vivent ici ; celles du serveur, dans [la configuration](configuration.md).
+
+**Dans cette page** : [les commandes npm](#les-commandes-npm) · [vérifier](#vérifier) · [lancer et empaqueter](#lancer-et-empaqueter) · [sauvegarder, exporter, migrer](#sauvegarder-exporter-migrer) · [simuler et mesurer](#simuler-des-invités-et-mesurer) · [photographier](#photographier-lapplication) · [la tablée](#la-tablée) · [la base de la campagne](#la-base-de-la-campagne) · [les calibrages](#les-calibrages) · [les images peintes](#les-images-peintes) · [les variables des scripts](#les-variables-denvironnement-des-scripts)
+
+## Les commandes npm
+
+Le dépôt a deux espaces de travail npm, `client` et `server` (`package.json`) ; `shared/` n'est pas un paquet, les deux `tsconfig.json` l'incluent. Une commande de la racine délègue à un espace de travail ; `-w server` ou `-w client` en vise un seul depuis la racine — `npm run build -w client` ne construit que le client, ce que demandent les scripts de rendu et `npm run mesure`.
+
+### À la racine
+
+| Commande | Ce qu'elle lance | À quoi elle sert |
+|---|---|---|
+| `npm run dev` | `npm run dev -w server` (`tsx watch src/index.ts`, port 3001) et `npm run dev -w client` (Vite, port 5173), ensemble, par `concurrently` | Développer : le serveur redémarre à chaque retouche de son code, Vite recharge la page. Vite écoute aussi sur le réseau local et relaie vers le port 3001 le temps réel (`/socket.io`), `/api`, `/media`, `/s/` et les adresses d'avant les espaces (`client/vite.config.ts`). Les deux bases vivent dans `server/data/`, que git ignore |
+| `npm run build` | `npm run build -w client` (`vite build`), puis `npm run build -w server` (`server/scripts/empaqueter.ts`) | Le client dans `client/dist/`, les fichiers de texte de son paquet compressés une fois pour toutes (un `.br` et un `.gz` à côté de chacun) ; le serveur en un seul fichier, `server/dist/index.mjs` |
+| `npm start` | `npm run start -w server`, soit `tsx src/index.ts` | Le serveur seul, sans rechargement ; il sert `client/dist/` s'il existe à son démarrage. Il ne lance pas le paquet : c'est `node dist/index.mjs`, depuis `server/`, qui le fait — la commande de démarrage de l'hébergeur ([mise en ligne](../exploitation/mise-en-ligne.md)) |
+| `npm run check` | `tsc --noEmit` dans `server/`, puis dans `client/` | Le typecheck : côté serveur `server/src`, `server/scripts`, `server/test` et `shared/` ; côté client `client/src` et `shared/`. Les scripts `.mjs` n'y passent pas |
+| `npm test` | `node scripts/tests.mjs`, dans `server/` | Les tests de `server/test/` — voir [les tests](../contribuer/tests.md) |
+| `npm run smoke` | `tsx scripts/smoke.ts`, dans `server/` | Le test de bout en bout |
+| `npm run verify` | `npm run check && npm run test && npm run build && npm run smoke` | Tout, avant de committer ; la première étape qui échoue arrête la chaîne. Une dizaine de minutes : de 8 min à 9 min 40 sur la CI en octobre 2026, les tests en prenant les trois quarts |
+| `npm run migrate -- …` | `server/scripts/migrate-library.ts` | La bibliothèque de quiz d'une base à une autre |
+| `npm run load -- …` | `server/scripts/load-test.mjs` | Une salle entière simulée contre un serveur qui tourne |
+| `npm run export -- …` | `server/scripts/export-party.ts` | Le bilan d'une soirée en JSON et en CSV |
+| `npm run sauvegarde -- …` | `server/scripts/sauvegarde.ts` | La base permanente dans un fichier SQL daté |
+| `npm run mesure -- …` | `server/scripts/mesure-pages.ts` | Ce que chaque page fait attendre à un téléphone |
+| `npm run tablee -- …` | `server/scripts/tablee/regie.ts` | Une soirée jouée par des agents |
+
+Les six dernières passent leurs arguments au script (`npm run export -- --soiree 2026-09-19-k7x2q`) et tournent dans `server/` : un chemin relatif s'y lit — sauf pour `sauvegarde` et `tablee`, qui le lisent depuis le dossier où la commande a été tapée.
+
+### Dans `server/` ou `client/` seulement
+
+| Commande | Ce qu'elle lance | À quoi elle sert |
+|---|---|---|
+| `npm run start:qa -w server` | `tsx scripts/qa-start.ts` | Le vrai serveur sur des bases jetables (voir `server/scripts/qa-start.ts` plus bas) |
+| `npm run preview -w client` | `vite preview` | Le client construit, servi par Vite plutôt que par le serveur de FiestApp |
+
+Les autres commandes de `server/package.json` et `client/package.json` (`dev`, `build`, `check`, `test`, `smoke`, `migrate`…) sont celles que la racine appelle.
+
+## Les scripts de `server/scripts/`
+
+Un script `.ts` se lance par `tsx` (`npx tsx scripts/<script>.ts`), un `.mjs` par `node`, depuis `server/` sauf mention contraire. Un module que d'autres scripts importent est dit comme tel : il ne se lance pas.
+
+### Vérifier
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/tests.mjs` | Tous les `test/*.test.ts` en un seul `node --test`, triés par nom, 120 s au plus par épreuve et par fichier, un fichier de moins à la fois que la machine n'a de cœurs | `npm test` ; un fichier, sous les mêmes délais : `node scripts/tests.mjs test/<fichier>.test.ts` | `CLAUDECODE` posé (Claude Code le pose) : un point par épreuve et les échecs en entier (`--test-reporter=dot`) ; sinon le compte rendu de Node, en TAP hors d'un terminal. Le code de sortie de `node --test`, 1 s'il a été tué |
+| `server/scripts/smoke.ts` | Le test de bout en bout : huit serveurs jetables et une soirée entière rejouée, sections 0 à 35 | `npm run smoke` | « ✅ Smoke test OK — 41 étapes », ou « ❌ » et le message de la première assertion fausse, en code 1. Il laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système |
+
+### Lancer et empaqueter
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/empaqueter.ts` | Le serveur en un seul fichier, par esbuild (cible Node 20, les dépendances laissées dans `node_modules`) : un réveil de l'hébergeur ne traduit plus le TypeScript | `npm run build`, ou `npm run build -w server` | `server/dist/index.mjs`. `server/test/exploitation.test.ts` en construit un par la même fonction et le démarre |
+| `server/scripts/qa-start.ts` | Le vrai serveur (`server/src/index.ts`) sur des bases jetables, dans un dossier temporaire, avec un wifi de démonstration pour le QR | `npm run start:qa -w server` ; la configuration `quizz` de `.claude/launch.json` le lance | Pose `DB_PATH` (un `qa.db` dans un dossier `quizz-qa-*`), `WIFI_SSID` (`QuizzDemo`) et `WIFI_PASS` (`demo1234`) s'ils ne le sont pas déjà. La base permanente naît à côté de la locale, sauf si `QUIZ_DB_URL` est posée dans le shell ; `PORT` choisit le port |
+
+### Sauvegarder, exporter, migrer
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/sauvegarde.ts` | La base permanente en un fichier SQL daté : comptes, quiz, photos, soirées archivées, profils, miroir de la soirée en cours — tout ce que le serveur ne saurait pas refaire | `npm run sauvegarde` (la base de `QUIZ_DB_URL` et `QUIZ_DB_TOKEN`) ; ou `npm run sauvegarde -- libsql://… --token …` ; ou `npm run sauvegarde -- file:server/data/quizzes.db` ; `--out <dossier>` | `export/sauvegardes/<base>-<AAAA-MM-JJ-HHMMSS>.sql`. Un chemin relatif se lit depuis le dossier de la commande (`INIT_CWD`, que npm pose) ; une base `file:` qui n'existe pas est refusée, plutôt que sauvegardée vide. Le fichier contient les mots de passe hachés et les empreintes de session : il se garde comme un secret. Il se restaure dans une base neuve, vide (`turso db shell <base> < <fichier>.sql`, ou `sqlite3 <fichier>.db < <fichier>.sql`) |
+| `server/scripts/export-party.ts` | Le bilan d'une soirée en fichiers : un JSON complet et trois CSV qui s'ouvrent dans un tableur — une ligne par invité, par question, par équipe | `npm run export -- <adresse du serveur>` (il lit `/s/<espace>/bilan.json`, une adresse publique) ; `npm run export -- --db libsql://… --token …` (la base elle-même, le jour où le serveur ne répond plus) ; `npm run export` (la base locale) ; `--slug <espace>`, `--soiree <id>`, `--out <dossier>` | `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` à défaut d'adresse ou de `--db`. Écrit `bilan.json`, `invites.csv`, `questions.csv`, `equipes.csv` dans `export/`, un sous-dossier par espace et par soirée demandés. Entre deux soirées, la soirée en cours est vide : sans `--soiree`, rien à exporter |
+| `server/scripts/migrate-library.ts` | La bibliothèque de quiz d'une base à une autre, photos comprises — d'ordinaire du fichier local vers Turso | `npm run migrate -- --to libsql://… --token …` ; `--from <base>`, `--from-token <jeton>`, `--from-slug <espace>`, `--slug <espace>` | Source : `--from`, sinon `QUIZ_DB_URL_FROM`, sinon `server/data/quizzes.db` (jeton : `QUIZ_DB_TOKEN_FROM`) ; destination : `--to`, sinon `QUIZ_DB_URL` (jeton : `QUIZ_DB_TOKEN`), qui doit avoir démarré une fois. Rejouable sans doublon ; un quiz rangé dans un autre espace n'y est jamais touché, l'espace cible en reçoit sa copie. Ni les réglages des quiz, ni leur archivage, ni les programmes, ni les partages |
+
+### Simuler des invités et mesurer
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/load-test.mjs` | Une salle entière : le script se connecte en animateur, inscrit N invités d'un coup, lance le premier quiz de la liste, enchaîne les questions | `npm run load -- <adresse> <N> [--slug <espace>] [--sonde]` (défauts : `http://localhost:3001`, 50) | `ADMIN_LOGIN` et `ADMIN_PASSWORD` (sinon `antoine` / `demo`), `QUIZ_SLUG`. Moyenne, médiane, 95ᵉ centile et maximum de l'inscription, de la diffusion d'une question aux téléphones et du délai entre la dernière réponse et la révélation ; le nombre de vues reçues ; la mémoire du serveur avant et après, lue à `/healthz`. `--sonde` ne fait que connecter N téléphones, sans les inscrire. Il ne répond qu'aux QCM simples et aux estimations |
+| `server/scripts/fake-player.mjs` | Un invité fantôme, faute de second téléphone : il rejoint et répond au hasard, 0,5 à 4,5 s après chaque question — QCM, « plusieurs », « ordre » et estimations | `node server/scripts/fake-player.mjs [adresse] [prénom] [secondes] [--slug <espace>]` (défauts : `http://localhost:3001`, `TestPhone`, 90 s) | `QUIZ_SLUG` (sinon `demo`). Il porte l'avatar 📱 et écrit chacune de ses réponses dans le terminal |
+| `server/scripts/qa-host.mjs` | L'écran commun en ligne de commande | `node server/scripts/qa-host.mjs <adresse> launch`, `… command <sessionId> '<json>'`, `… end <sessionId>` ou `… state` | `ADMIN_LOGIN`, `ADMIN_PASSWORD` ; `state` imprime l'espace, la partie en cours et le nombre d'invités |
+| `server/scripts/login.mjs` | Ce que les trois précédents partagent : se connecter en animateur (`loginCookie`), ouvrir un socket d'écran commun (`hostSocket`), lire l'espace visé (`slugArg`) — un module | — | `ADMIN_LOGIN`, `ADMIN_PASSWORD`, `QUIZ_SLUG` |
+| `server/scripts/mesure-pages.ts` | Ce que chaque page fait attendre à un téléphone : un serveur jetable, une soirée jouée, puis seize pages ouvertes dans Chromium — un téléphone de 360 × 640 au processeur ralenti quatre fois, l'écran commun en 1366 × 768 —, le réseau bridé aux préréglages de Chrome, cache vide puis plein, derrière un relais HTTP/2 comme chez l'hébergeur | `npm run mesure -- [--pages=entree,accueil] [--reseaux=4g,4g-lente] [--essais=3] [--cache=froid,chaud] [--cascade] [--couverture] [--photos=<dossier>] [--json=<fichier>] [--client=<dossier>] [--http1]`, le client construit d'abord | Pour chaque page et chaque réseau : le premier affichage, l'écran utile, le plus grand affichage, le temps bloqué, le processeur, ce qui a transité avant l'écran utile, les préchargements que la page n'a pas repris. Réseaux : `4g`, `4g-lente`, `4g-moyenne`, `wifi`, `brut`. `--json` écrit les chiffres, `--photos` photographie, `--client` mesure un autre client construit. Une mesure d'avant et d'après une retouche, sur la même machine — pas un test |
+
+Contre un serveur en ligne, toutes les inscriptions du test de charge viennent d'une seule adresse : la réserve d'inscriptions en accepte soixante d'un coup par adresse et par espace, puis soixante par minute — et trois cents par adresse sur tout le serveur (`server/src/core/inscriptions.ts`). L'adresse locale n'a pas de limite.
+
+### Photographier l'application
+
+Ces scripts ne sont pas des tests : ils montrent un écran tel que le verra un invité ou la salle, avant et après une retouche — la skill `regarder-le-rendu` (`.claude/skills/regarder-le-rendu/SKILL.md`) dit quand s'en servir. Tous, sauf les planches, démarrent un serveur jetable par le banc des tests (`server/test/banc.ts`), qui sert `client/dist/` tel qu'il est : **construis le client d'abord** (`npm run build -w client`), ou la photo montre l'écran d'avant la retouche. Chromium vient de Playwright, cherché parmi les modules globaux (`npm root -g`) : ce n'est pas une dépendance du dépôt. On les lance depuis `server/`, le dossier des photos en premier argument (`npx tsx scripts/rendu-ecran.ts ../export/rendu`) ; sans lui, elles tombent dans un dossier du nom du script sous le dossier courant — dans `server/`, que git n'ignore pas.
+
+| Script | Ce qu'il photographie | Ses réglages | Sans dossier |
+|---|---|---|---|
+| `server/scripts/rendu-ecran.ts` | Le pire cas de l'écran commun — question longue, photo, réponses de cent caractères, estimation à neuf réponses, vrai ou faux, photo à mémoriser, trois équipes, dix invités, finitions, médaillons, un Divin, bordures — à chaque phase, en 1366 × 768, en 1920 × 1080 et au téléphone | `ivoire` en second argument ; `MESURE=1` (ce qui ne grandit pas en 1920 × 1080), `DEBORDE=1` (ce qui dépasse de la scène), `COUPE=1` (les listes coupées) | `rendu/` |
+| `server/scripts/rendu-tele.ts` | Brancher une télé de bout en bout : `/tele` et son code, le salon du chef, une question, le téléphone du chef qui part et revient, la télé rechargée, le serveur redémarré, le podium, la fin ; son journal dit à chaque moment si la télé montre la salle ou la console | — | `rendu-tele/` |
+| `server/scripts/rendu-recompenses.ts` | Les récompenses du quiz du jour et de la campagne au téléphone — records, fin de série, défi de la semaine et sa correction, laurier d'argent — et l'entrée en scène du champion du mois à l'écran commun | — | `rendu-recompenses/` |
+| `server/scripts/rendu-jour.ts` | Le quiz du jour — sa série, une partie jusqu'à sa fin, le jour joué, sa correction — et le rayon des objets de la boutique, au téléphone | `THEME` (la clé d'un thème, `ivoire` par exemple) | `rendu-jour/` |
+| `server/scripts/rendu-profil.ts` | Le profil, sa carte, la loge et ses pièces, « Ma collection », l'album des avatars, celui des trophées — page par page, et trois fiches — et celui des thèmes, la boutique et ses compagnons, au téléphone | `ivoire` en second argument | `rendu-profil/` |
+| `server/scripts/rendu-sentiers.ts` | Les sentiers du savoir : la carte, un sentier, la fiche d'un palier, l'épreuve, sa fin, un portrait révélé, le rachat des vies | `ivoire` en second argument | `rendu-sentiers/` |
+| `server/scripts/rendu-cloches.ts` | La cloche du rappel du soir, dans l'application installée, et le même endroit de la page des duels | — | `rendu-cloches/` |
+| `server/scripts/rendu-duels.ts` | Les duels : la page d'un débutant, un duel au dé contre Automate, celle d'un habitué et ses onglets, une montée de ligue, défier quelqu'un et recevoir son défi, les amis, les joueurs croisés | `ECRAN` (`390x844` par exemple ; 360 × 640 sinon), `THEME`, `CALME=1` (moins de mouvement) | `rendu-duels/` |
+| `server/scripts/rendu-bordures.ts` | Les bordures de ligue dans l'application — l'accueil, le profil, la loge, le classement des duels, la carte d'un maître — et le classement du quiz du jour | — | `rendu-bordures/` |
+| `server/scripts/rendu-campagne.ts` | Ce qui se joue sur plusieurs jours, l'horloge avancée à la main : le carnet et ses révisions, un duel au dé, les défis entre amis, les parcours de thème | — | `rendu-campagne/` |
+| `server/scripts/rendu-quiz-tout-pret.ts` | Le quiz tout prêt, sur la vraie base de la campagne : sa feuille, le quiz composé dans l'éditeur, le salon, l'écran commun jusqu'au quiz lancé | — | `rendu-quiz-tout-pret/` |
+| `server/scripts/rendu-qg.ts` | Le QG de l'administrateur sur trente jours d'activité inventée — la vue d'ensemble, le journal des gestes, les soirées, la santé du serveur, la page du quiz du jour, la fiche d'une joueuse —, au téléphone, en 1366 × 768 et en 1920 × 1080, en Velours et en Ivoire | — | `rendu-qg/` |
+| `server/scripts/rendu-themes.ts` | Des thèmes portés dans l'application, au téléphone, aux heures voulues, et leur contraste mesuré sur ce qui est vraiment peint derrière chaque ligne | les clés des thèmes en arguments ; `--ecrans=accueil,profil,question` (d'office ; aussi `boutique`, `jour`, `campagne`), `--fond=<fond>`, `--contraste` ; `HEURES` (`07:30,19:30` par exemple), `DATE` (le jour de ces heures), `ECRAN`, `CALME`, `ATTENTE` (la pause avant chaque photo, en millisecondes), `PLEIN=1` (la page entière), `SORTIE` (le dossier) | `export/rendus/`, d'où qu'on le lance |
+| `server/scripts/rendu-vitrine.ts` | Les captures de la vitrine (`docs/vitrine/`) : un quiz de culture générale, dix amis dont six profils qui portent ce qu'ils ont gagné, trois équipes ; l'écran commun en 1920 × 1080 (en Velours, la révélation aussi en Ivoire) et le téléphone d'une invitée en 390 × 844, en JPEG | — | `docs/vitrine/captures/`, qu'il réécrit |
+| `server/scripts/apercus-themes.ts` | Les vignettes WebP de la boutique des thèmes : une question au téléphone sous chaque thème, rognée et réduite | les clés des thèmes à refaire (tous, sinon) | `client/src/themes/apercus/`, dans le dépôt : `server/test/themes.test.ts` refuse un thème sans sa vignette |
+| `server/scripts/planche-portraits.ts`, `server/scripts/planche-medaillons.ts`, `server/scripts/planche-bordures.ts` | Les dessins dans tous leurs états — en grand, dans une liste, verrouillés, éclatés, portés sous les finitions — rendus par les vrais composants de `client/src` sous leur feuille de style ; ni serveur ni client construit | `planche-portraits.ts <dossier> [branche…]` | `planches/` |
+| `server/scripts/duelsDEssai.ts` | Des duels écrits au journal pour mener un profil jusqu'à sa ligue (`ecrireDesDuels`) — un module des rendus | — | — |
+
+### La tablée
+
+Une soirée jouée par des agents dans de vrais navigateurs ; la marche à suivre est la skill `tablee` (voir [travailler avec Claude](../contribuer/outillage-claude.md)).
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/tablee/regie.ts` | La régie : un vrai serveur sur des bases jetables, un Chromium, une porte HTTP locale que poussent les agents. Elle reconstruit le client s'il est plus vieux que ses sources, crée les comptes des animateurs et les profils demandés | `npm run tablee -- [--dossier <chemin>] [--port <n>] [--animateur <Prénom>[/<espace>]]… [--espace <nom>] [--sans-animateur] [--profil <Prénom/identifiant/avatar>]… [--sans-build] [--fiche <chemin>]` ; Ctrl+C l'arrête, ou `regie arreter` par le pilote | `INIT_CWD` (les chemins relatifs se lisent depuis le dossier de la commande). Un dossier `export/tablee/<AAAA-MM-JJ-HHhMM>/` — `journal.jsonl` (les gestes, sans leur sortie), `regie.log`, `regie.json`, `captures/`, `retours/`, `bases/`, `photos/`, `telechargements/` — et la fiche que lisent les pilotes, `export/tablee/courante.json` (ou `--fiche`), effacée à l'extinction |
+| `server/scripts/tablee/pilote.mjs` | Le geste d'un agent, porté à la régie : une commande, sa sortie — du JavaScript nu, pour ne pas payer une compilation à chaque geste | `node server/scripts/tablee/pilote.mjs <qui>[:<onglet>] <geste> [arguments…]` ; `… aide` les liste | `TABLEE` (la fiche d'une autre régie que la dernière démarrée). Code de sortie 0 (fait), 1 (refusé), 2 (pas de régie) |
+| `server/scripts/tablee/chronologie.mjs` | Le journal d'une tablée en une page : qui a fait quoi, les gestes ratés et pourquoi, les réponses question par question, ce qui s'est dit, les retours encore attendus | `node server/scripts/tablee/chronologie.mjs [dossier]` | Sans dossier, celui de `export/tablee/courante.json`, sinon le plus récent d'`export/tablee/` |
+
+### La base de la campagne
+
+La base de questions de la campagne (`server/content/campagne/`, une catégorie par fichier, une question par ligne) grandit par ces scripts, lancés depuis `server/` ; la skill `base-campagne` dit la marche à suivre. Les lots qui attendent leur rangement vivent dans `.lots-campagne/`, à la racine du dépôt, que git ignore.
+
+| Script | À quoi il sert |
+|---|---|
+| `server/scripts/base-campagne.ts` | De l'écriture au rangement, une sous-commande par étape (ci-dessous) |
+| `server/scripts/generer-campagne.ts` | Des centaines ou des milliers de questions d'un coup, sur l'abonnement Claude : le script fait le plan et la paperasse, une session Claude Code lance en nombre les agents `redacteur-campagne` et `relecteur-campagne`. `preparer --questions=<n> [--categories=…] [--par-lot=30] [--nom=<nom>]`, ou `preparer --sentiers[=2]` (ce qui manque aux sentiers), ou `preparer --theme=<clé>` (ce qui manque à un thème) ; puis `suite [<nom>] [--forcer]` à chaque vague, et `etat [<nom>]`. Les lots `<nom>-NN.json` et le dossier `<nom>/` (plan, consignes, fiches, décisions, refus) dans `.lots-campagne/` |
+| `server/scripts/faits-wikidata.ts` | Des faits sûrs tirés de Wikidata — bonne réponse, leurres, date, entités, source, difficulté a priori — dont un agent n'écrit que les phrases : `vues-des-dumps [--jours=10]` d'abord, puis `extraire [<famille> …] [--max-sujets=600]`, `lots --questions=<n> [--familles=…] [--par-lot=30] [--nom=<nom>]`, `fusionner <nom>-NN`, `familles`. Les fiches et le cache des requêtes dans `.faits-wikidata/`, à la racine, que git ignore. Derrière un proxy, `NODE_USE_ENV_PROXY=1` devant la commande : sans lui, le `fetch` de Node ne suit pas `HTTPS_PROXY` |
+| `server/scripts/lots-campagne.ts` | Ce que les trois partagent — lire et écrire un lot, le juger comme le rangement le jugera (`TriDesEntrees`), sa fiche de relecture, l'application des décisions — un module : deux copies de ces règles finiraient par dire deux choses |
+
+Les sous-commandes de `base-campagne.ts` :
+
+| Sous-commande | Ce qu'elle fait |
+|---|---|
+| `consigne <Catégorie> <sous-thème>:<n> …` | La consigne d'un lot, à donner à une IA ; `--nombres` : des questions à nombre |
+| `verifier [--nombres] <lot.json> …` | Ce que le rangement refuserait, et pourquoi |
+| `fiche <lot.json> …` | La fiche de relecture : l'essentiel de chaque question |
+| `appliquer <decisions.json>` | Ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté |
+| `ranger <lot.json> …` | Range des lots vérifiés dans la base : identifiants tirés, doublons écartés, fichiers réécrits une question par ligne |
+| `voisines [<lot.json> …]` | Les questions qui posent sans doute le même fait, et les intitulés presque pareils |
+| `racines` | Les questions dont l'intitulé souffle la bonne réponse par sa racine, à relire |
+| `stats` | La base par catégorie, sous-thème et difficulté |
+| `retirer <id> …` | Retire des questions de la base, par identifiant |
+
+### Les calibrages
+
+Des simulations sur le vrai code, qui mesurent ce qu'un barème ou un seuil fait aux joueurs avant qu'on le change — des choix de produit ([les barèmes](baremes.md)). Elles écrivent des tableaux dans le terminal, et rejouent la même mesure à l'identique à graine égale.
+
+| Script | Ce qu'il mesure | Comment le lancer |
+|---|---|---|
+| `server/scripts/calibrage.ts` | Combien de quiz demande chaque légendaire, combien de soirées chaque niveau, la rareté de chaque haut fait (que recopie `PART_DES_JOUEURS`, `shared/hautsfaits.ts`), les écussons de savoir : des bandes d'amis inventées jouent des soirées entières par les mêmes fonctions que la clôture | `npx tsx scripts/calibrage.ts [--quiz 2] [--questions 50] [--estimations 0.17] [--joueurs 12] [--bandes 120] [--soirees 40] [--graine 1] [--themes 0.3] [--classees 0.5] [--jour 0.3] [--jours 6]` (les valeurs d'office) |
+| `server/scripts/calibrage-sentiers.ts` | La chance de valider chaque palier des sentiers du premier coup, les vies qu'on y laisse et le temps qu'il faut, pour des joueurs de plus en plus forts | `npx tsx scripts/calibrage-sentiers.ts [--seuil <n>] [--maitre <n>]` — sans option, les seuils du code (`SEUIL_DES_PALIERS`, `SEUIL_DU_MAITRE`) |
+| `server/scripts/calibrage-automate.ts` | Ce que le modèle du savoir change aux duels contre Automate, sur des joueurs simulés qui jouent la vraie base au vrai tirage : les duels gagnés, nuls et perdus, l'écart d'Automate au niveau de la cote | `npx tsx scripts/calibrage-automate.ts [--joueurs 40] [--passe 15] [--duels 30] [--une-sur 1] [--categories 0.5] [--graine 1]` |
+
+### Les images peintes
+
+Les portraits, les légendaires, les Divins, les compagnons et les décors peints se refont par la chaîne de `server/scripts/anime/`, jamais à la main ; la skill `peindre` (`.claude/skills/peindre/SKILL.md`) la mène. Chaque image se paie à l'API Gemini, en lot à moitié prix ou en direct ; une image payée n'est jamais redemandée sans une option qui le dit, et l'ancienne est mise de côté. Les scripts se lancent depuis `server/` ; les originaux et les journaux des coûts restent dans `export/`, hors du dépôt ; seule la livraison écrit dans `client/`.
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/anime/styles.ts` | Un style d'image par branche, essayé sur sa forme ultime, et leur planche | `npx tsx scripts/anime/styles.ts [branche…] [--references] [--regenerer] [--lot]` | `export/styles/` |
+| `server/scripts/anime/portraits.ts` | Les soixante-douze portraits des branches, palier par palier, et leurs découpes | `npx tsx scripts/anime/portraits.ts [branche…] --lot [--sans-appel] [--regenerer=br:<clé>,…] [--redecouper=br:<clé>,…]` | `export/portraits/<branche>/` |
+| `server/scripts/anime/livrer.ts` | Pose dans le client les portraits d'une branche complète, sous leur empreinte | `npx tsx scripts/anime/livrer.ts [branche…]` | `client/public/portraits/` et le module de la branche, dans `client/src/components/portraits/` |
+| `server/scripts/anime/legendaires.ts` | Les légendaires et les Divins peints : l'illustration, la version rare, la découpe | `npx tsx scripts/anime/legendaires.ts --lot [--regenerer=…] [--rare=…] [--redecouper=…] [--retoucher=…]`, puis `--livrer` | `export/legendaires/` ; livrés : `client/public/medaillons/`, `client/src/components/legendaires-peints.ts`, `client/src/components/divins-peints.ts` |
+| `server/scripts/anime/decors.ts` | Les décors peints : le calendrier des Heures, les thèmes peints, deux fonds de carte | `npx tsx scripts/anime/decors.ts --groupe=<groupes> [--lot]`, `--seulement=<image>`, `--tout`, `--regenerer=…`, `--repeindre=…` ; sans rien nommer, il assemble et livre (`--livrer`) sans rien payer | `export/decors/` ; livrés : `client/public/decors/`, `client/src/components/calendrier-peint.ts` et le bloc des feuilles de thème qui les citent |
+| `server/scripts/anime/compagnons.ts` | Un compagnon de la boutique : l'essai des styles, ses quatre formes, leurs expressions, ses métamorphoses — en direct, au prix plein | `npx tsx scripts/anime/compagnons.ts <compagnon> [--style=<style>] [--eclat=<…>] [--regenerer=…]` | `export/compagnons/<compagnon>/` |
+| `server/scripts/anime/livrer-compagnons.ts` | Pose dans le client les compagnons dont les quatre formes sont assemblées | `npx tsx scripts/anime/livrer-compagnons.ts [compagnon…]` | `client/public/compagnons/`, `client/src/components/compagnons-peints.ts` |
+| `server/scripts/anime/gemini.ts`, `server/scripts/anime/pixels.ts`, `server/scripts/anime/consignes.ts` | Des modules : le client de l'API (un appel, ou un lot qui se reprend par son nom) ; détourer, aligner et assembler dans Chromium ; les consignes des portraits, branche par branche et palier par palier | — | — |
+
+## Les variables d'environnement des scripts
+
+Celles que lisent le serveur et le client sont dans [la configuration](configuration.md) ; un script qui démarre le serveur les lit aussi.
+
+| Variable | Qui la lit | Ce qu'elle règle |
+|---|---|---|
+| `CLAUDECODE` | `server/scripts/tests.mjs` | Posée (Claude Code la pose dans ses commandes), le compte rendu des tests passe en points |
+| `ADMIN_LOGIN`, `ADMIN_PASSWORD` | `server/scripts/login.mjs` (test de charge, `qa-host.mjs` ; l'invité fantôme ne se connecte pas en animateur) | L'animateur que les scripts connectent ; `antoine` / `demo` sinon, comme le serveur chez soi |
+| `QUIZ_SLUG` | `server/scripts/login.mjs` | L'espace des invités simulés, à défaut de `--slug` ; `demo` sinon |
+| `DB_PATH`, `WIFI_SSID`, `WIFI_PASS` | posées par `server/scripts/qa-start.ts` s'il n'y en a pas | La base locale jetable et le wifi de démonstration |
+| `QUIZ_DB_URL`, `QUIZ_DB_TOKEN` | `sauvegarde.ts`, `export-party.ts`, `migrate-library.ts` | La base permanente à lire (ou, pour la migration, à remplir) |
+| `QUIZ_DB_URL_FROM`, `QUIZ_DB_TOKEN_FROM` | `server/scripts/migrate-library.ts` | La base d'où vient la bibliothèque |
+| `INIT_CWD` | `server/scripts/sauvegarde.ts`, `server/scripts/tablee/regie.ts` | Posée par npm : le dossier où la commande a été tapée, d'où se lit un chemin relatif |
+| `TABLEE` | `server/scripts/tablee/pilote.mjs` | La fiche de la régie à viser, quand ce n'est pas la dernière démarrée |
+| `THEME` | `rendu-jour.ts`, `rendu-duels.ts` | Le thème que portent les profils photographiés |
+| `ECRAN` | `rendu-duels.ts`, `rendu-themes.ts` | La taille du téléphone, `390x844` par exemple ; 360 × 640 sinon |
+| `CALME` | `rendu-duels.ts`, `rendu-themes.ts` | Posée, le navigateur demande moins de mouvement |
+| `MESURE`, `DEBORDE`, `COUPE` | `server/scripts/rendu-ecran.ts` | Ce qui ne grandit pas en 1920 × 1080 ; ce qui dépasse de la scène ; les listes coupées |
+| `HEURES`, `DATE`, `SORTIE`, `ATTENTE`, `PLEIN` | `server/scripts/rendu-themes.ts` | Les heures de Paris des photos et leur jour ; le dossier des photos ; la pause avant chaque photo, en millisecondes ; la page entière |
+| `GEMINI_API_KEY` | `server/scripts/anime/gemini.ts` | La clé de l'API Gemini, envoyée en en-tête ; sans elle, rien ne se peint |
+| `MODELE`, `TAILLE` | les scripts de `server/scripts/anime/` qui peignent — `decors.ts` ne lit que `MODELE`, chaque décor a sa taille | Le modèle d'image (`gemini-3-pro-image` d'office) et la taille des images (`1K` d'office) |
+| `ATTENTE` | `styles.ts`, `portraits.ts`, `legendaires.ts`, `decors.ts` | Combien de secondes attendre un lot avant de le reprendre plus tard |
+| `BUDGET` | `server/scripts/anime/compagnons.ts`, `server/scripts/anime/decors.ts` | Le plafond, en dollars, de tout ce que le journal des coûts a payé : au-delà, rien ne part |
+| `HTTPS_PROXY`, `NODE_USE_ENV_PROXY` | `server/scripts/anime/gemini.ts`, `server/scripts/faits-wikidata.ts` | Derrière un proxy, le `fetch` de Node ne le suit que sous `NODE_USE_ENV_PROXY=1` ; les deux scripts le disent quand il manque |
+
+## Pour aller plus loin
+
+- [Les tests](../contribuer/tests.md) — `npm run verify`, `npm test`, `npm run smoke`, et comment écrire une épreuve
+- [Démarrer dans le code](../contribuer/demarrer.md) — installer, lancer, le cycle d'une modification
+- [Travailler avec Claude](../contribuer/outillage-claude.md) — les skills qui mènent la tablée, les rendus, la base de la campagne et les images peintes
+- [La configuration](configuration.md) — les variables du serveur et du client
+- [Exploiter](../exploitation/exploiter.md) — sauvegarder, restaurer, surveiller en production

@@ -5,6 +5,7 @@
 // pures : le serveur les applique, la page et les tests les relisent.
 
 import type { LigneDuJour } from './jour'
+import type { ApparenceDeLAvatar } from './profil'
 
 /** Une question du tirage d'aujourd'hui, et ce que les joueurs y ont répondu. */
 export interface QuestionDuSuivi {
@@ -57,7 +58,8 @@ export const TRANCHES_DE_SERIE = [
 /** Les plus longues séries que la page nomme. */
 export const SERIES_NOMMEES = 3
 
-export interface SerieNommee {
+/** Une des plus longues séries, nommée — avec ce que son joueur porte, comme au classement. */
+export interface SerieNommee extends ApparenceDeLAvatar {
   profileId: string
   nom: string
   avatar: string

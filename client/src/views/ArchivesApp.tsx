@@ -3,6 +3,7 @@ import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { formatDay } from '../../../shared/archive'
 import { enumerer } from '../../../shared/classement'
 import { Icon } from '../components/Icon'
+import { Nommes } from '../components/Avatar'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
@@ -188,7 +189,8 @@ function ArchiveCard({
         <p className="soiree-winner">
           {a.winners.length > 0 && (
             <>
-              <Icon name="trophy" /> {enumerer(a.winners.map(w => `${w.avatar} ${w.name}`))}
+              {/* Chacun avec ce qu'il porte : un légendaire s'y montrait en emoji. */}
+              <Icon name="trophy" /> <Nommes joueurs={a.winners.map(w => ({ ...w, nom: w.name }))} />
               {a.winners.length > 1 && ', ex æquo'} · {pts(a.winners[0].points)}
             </>
           )}

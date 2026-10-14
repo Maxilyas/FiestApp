@@ -11,7 +11,7 @@
 
 /**
  * Ce qu'une écriture attend avant de renoncer. Le réveil prend environ une
- * minute (MISE-EN-LIGNE.md, étape 5), et la petite instance gratuite démarre
+ * minute (docs/exploitation/mise-en-ligne.md, étape 6), et la petite instance gratuite démarre
  * parfois plus lentement encore : deux, pour ne pas renoncer au moment où il
  * allait répondre.
  */

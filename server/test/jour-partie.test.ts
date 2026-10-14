@@ -300,7 +300,8 @@ test('minuit clôt la journée : le podium est payé une fois, le lendemain le r
     const matin = (await lire(banc, alice, '/api/jour')).corps
     assert.equal(matin.jour, LENDEMAIN)
     assert.equal(matin.etat, 'a-jouer')
-    assert.deepEqual(matin.vainqueursDHier, [{ nom: 'Alice', avatar: '🦊' }])
+    // Avec ce qu'elle porte, comme au classement : sa finition d'Argent, gagnée en jouant.
+    assert.deepEqual(matin.vainqueursDHier, [{ nom: 'Alice', avatar: '🦊', finition: 'argent' }])
     assert.equal(matin.sonHier.rang, 1)
     assert.equal(matin.sonHier.xpPodium, xpDuPodium(1, 2), 'à deux, seul le premier monte sur le podium')
     assert.equal(matin.sonHier.medaille, 'or')
@@ -438,6 +439,31 @@ test('deux ex æquo en tête gagnent tous les deux : le podium les paie, le lend
     assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
   }))
 
+test('les vainqueurs d’hier se montrent avec ce qu’ils portent, comme au classement : un portrait, pas l’emoji d’en dessous', () =>
+  avecBanc(async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await jouer(banc, horloge, alice, () => true)
+    await jouer(banc, horloge, bob, () => false)
+    // Alice porte un portrait de la forêt : un palier validé ne se reprend
+    // jamais, il se croit (`legendairePorte`). Le serveur relit les profils au
+    // redémarrage. Le lendemain, son renard s'annonçait à côté de son nom (le
+    // retour du propriétaire du 14 octobre 2026).
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      db.prepare(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login = 'alice'`).run()
+    } finally {
+      db.close()
+    }
+    await banc.redemarrer()
+    horloge.t = Date.UTC(2026, 8, 27, 6, 0)
+    const matin = (await lire(banc, bob, '/api/jour')).corps
+    assert.deepEqual(
+      matin.vainqueursDHier.map((v: any) => [v.nom, v.avatar, v.legendaire]),
+      [['Alice', '🦊', 'br:blaireau']],
+    )
+  }))
+
 test('une annulation qui croise une réponse en route : la question annulée ne reste payée à personne', () =>
   avecBanc(async banc => {
     const admin = await connexionAnimateur(banc.url)
@@ -505,7 +531,7 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     )
 
     horloge.t = Date.UTC(2026, 8, 27, 6, 0)
-    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [{ nom: 'Camille (2)', avatar: '🦊' }])
+    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [{ nom: 'Camille (2)', avatar: '🦊', finition: 'argent' }])
 
     // Son prénom n'allait pas : masquée après la nuit, elle garde son podium
     // mais ne s'annonce plus sur l'accueil de tous.
@@ -513,6 +539,35 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: true })).status, 200)
     assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [])
     assert.equal((await lire(banc, seconde, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
+  }))
+
+test('deux Camille sous le même portrait se distinguent au classement, quels que soient leurs emojis — et un portrait distingue deux renards', () =>
+  // La marque compare l'avatar qu'on voit (la décision du 14 octobre 2026),
+  // pas l'emoji qu'un portrait cache.
+  avecBanc(async (banc, horloge) => {
+    const premiere = await inscrireProfil(banc.url, 'camille', 'Camille', '🦊')
+    const seconde = await inscrireProfil(banc.url, 'camille2', 'Camille', '🐻')
+    await jouer(banc, horloge, premiere, i => i < 5)
+    horloge.t += 60_000
+    await jouer(banc, horloge, seconde, () => true)
+    const noms = async () => (await lire(banc, premiere, '/api/jour/classement')).corps.lignes.map((l: any) => l.nom)
+    assert.deepEqual(await noms(), ['Camille', 'Camille'], 'un renard, un ours')
+    const base = (sql: string) => {
+      const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+      try {
+        db.exec(sql)
+      } finally {
+        db.close()
+      }
+    }
+    // Toutes deux portent le même portrait de la forêt (un palier validé se croit, `legendairePorte`).
+    base(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login IN ('camille', 'camille2')`)
+    await banc.redemarrer()
+    assert.deepEqual(await noms(), ['Camille (2)', 'Camille'], 'deux fois le même blaireau : la seconde arrivée marquée')
+    // La première quitte le sien, la seconde passe au renard sous le sien : deux renards en base, un seul à l'écran.
+    base(`UPDATE profiles SET legendaire = NULL WHERE login = 'camille'; UPDATE profiles SET avatar = '🦊' WHERE login = 'camille2'`)
+    await banc.redemarrer()
+    assert.deepEqual(await noms(), ['Camille', 'Camille'])
   }))
 
 test('une annulation tombée en panne à mi-chemin se rejoue : le second clic recompte ceux que le premier n’a pas eus', () =>

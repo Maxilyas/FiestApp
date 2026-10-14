@@ -560,7 +560,7 @@ export class CampagneStore {
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
    * Branchés au démarrage, comme les vies achetées.
    */
-  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'apparenceDe'> &
+  profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'legendairePorte' | 'apparenceDe'> &
     Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonPorte' | 'faireGrandir'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
@@ -2096,7 +2096,7 @@ export class CampagneStore {
     const p = this.profils
     if (!p) return { joueurs: 0, lignes: [] }
     const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
-    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil) })))
+    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil), legendaire: p.legendairePorte(j.profil) })))
     const nom = (j: (typeof joueurs)[number]) => marques.get(j.profil.id) ?? j.profil.name
     const classes = classer(joueurs, j => j.justes, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDuDefi => {
@@ -2142,7 +2142,7 @@ export class CampagneStore {
     const profils = ids.length > 0 && this.profils ? await this.profils.byIds(ids) : []
     return {
       ids,
-      montres: profils.flatMap(p => (p ? [{ nom: p.name, avatar: this.profils!.avatarPorte(p) }] : [])),
+      montres: profils.flatMap(p => (p ? [{ nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p) }] : [])),
     }
   }
 
@@ -2599,7 +2599,11 @@ export class CampagneStore {
     if (nouveau) await this.retenirLeResultatVu(duel)
     // La revanche, contre celui d'en face : jamais un masqué, ni un profil parti.
     const enFaceDeLui = duel.auteur === profileId ? defie : auteur
-    const revanche = sonEcart && enFaceDeLui && !this.masque?.(enFaceDeLui.id) && this.profils ? { profileId: enFaceDeLui.id, nom: enFaceDeLui.name, avatar: this.profils.avatarPorte(enFaceDeLui) } : null
+    // Avec ce qu'il porte : la préparation de la revanche le montrait en emoji.
+    const revanche =
+      sonEcart && enFaceDeLui && !this.masque?.(enFaceDeLui.id) && this.profils
+        ? { profileId: enFaceDeLui.id, nom: enFaceDeLui.name, avatar: this.profils.avatarPorte(enFaceDeLui), ...sonApparence(this.profils, enFaceDeLui) }
+        : null
     return {
       code: duel.code,
       auteur: {
@@ -2785,7 +2789,7 @@ export class CampagneStore {
     }
     const profils = (await p.byIds(ids)).filter((x): x is ProfileRec => x !== null)
     // Deux amis du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17).
-    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x), legendaire: p.legendairePorte(x) })))
     const amis: AmiDeCampagne[] = profils.map(x => ({
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
@@ -2906,7 +2910,7 @@ export class CampagneStore {
     if (trouves.length === 0) return []
     const [amis, cotes, rangs] = await Promise.all([this.idsDesAmis(profileId), this.toutesLesCotes(), this.rangsDuClassement()])
     const sesAmis = new Set(amis)
-    const marques = nomsAffiches(trouves.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const marques = nomsAffiches(trouves.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x), legendaire: p.legendairePorte(x) })))
     return trouves.map(x => ({
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
@@ -2998,7 +3002,7 @@ export class CampagneStore {
     const croises = this.choisirLesCroises(profileId, candidats, cercle, new Set(cercle.tOntAjoute), id => lus.has(id))
     const montres = [...cercle.amis, ...cercle.tOntAjoute, ...croises.map(c => c.id)].flatMap(id => lus.get(id) ?? [])
     // Deux du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17) — d'une section à l'autre aussi.
-    const marques = nomsAffiches(montres.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const marques = nomsAffiches(montres.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x), legendaire: p.legendairePorte(x) })))
     const ligne = (id: string): AmiDeCampagne[] => {
       const x = lus.get(id)
       return x ? [{ profileId: x.id, nom: marques.get(x.id) ?? x.name, avatar: p.avatarPorte(x), ...sonApparence(p, x, cotes.get(x.id)), ...this.saCote(cotes.get(x.id), rangs.get(x.id)) }] : []
@@ -3023,7 +3027,7 @@ export class CampagneStore {
       (await p.byIds([...new Set(Object.values(candidats).flat())])).filter((x): x is ProfileRec => x !== null).map(x => [x.id, x]),
     )
     const croises = this.choisirLesCroises(profileId, candidats, cercle, new Set(), id => lus.has(id)).map(c => ({ profil: lus.get(c.id)!, croise: c.croise }))
-    const marques = nomsAffiches(croises.map(({ profil: x }) => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const marques = nomsAffiches(croises.map(({ profil: x }) => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x), legendaire: p.legendairePorte(x) })))
     return croises.map(({ profil: x, croise }) => ({
       profileId: x.id,
       nom: marques.get(x.id) ?? x.name,
@@ -3241,7 +3245,7 @@ export class CampagneStore {
     const p = this.profils
     if (!p || ids.length === 0) return []
     const profils = (await p.byIds([...ids])).filter((x): x is ProfileRec => x !== null)
-    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x) })))
+    const marques = nomsAffiches(profils.map(x => ({ id: x.id, name: x.name, avatar: p.avatarPorte(x), legendaire: p.legendairePorte(x) })))
     return profils.map(x => marques.get(x.id) ?? x.name)
   }
 
@@ -3675,7 +3679,7 @@ export class CampagneStore {
       profil && (!this.masque?.(profil.id) || profil.id === pour) ? [{ profil, releve: cotes.get(profil.id)! }] : [],
     )
     const arrivee = [...joueurs].sort((a, b) => (a.releve.premierLe ?? 0) - (b.releve.premierLe ?? 0) || a.profil.id.localeCompare(b.profil.id))
-    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil) })))
+    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: p.avatarPorte(j.profil), legendaire: p.legendairePorte(j.profil) })))
     const nom = (j: (typeof joueurs)[number]) => marques.get(j.profil.id) ?? j.profil.name
     const classes = classer(joueurs, j => j.releve.cote, nom, j => j.profil.id)
     // La place de chacun au lundi : les flèches de chaque ligne, comme un tableau sportif.
@@ -3805,7 +3809,7 @@ export class CampagneStore {
     const qui = await this.quiAffrontes([...faces.map(f => f.contre), ...(plusBelle ? [plusBelle.contre] : []), ...page.duels.map(d => d.contre)], cotes)
     const nommes = faces.flatMap(f => (qui.get(f.contre) ? [{ ...f, contre: qui.get(f.contre)! }] : [])).slice(0, FACE_A_FACE_MONTRES)
     // Deux adversaires du même prénom et du même avatar se distinguent à l'affichage, jamais en base (invariant 17).
-    const marques = nomsAffiches(nommes.map(f => ({ id: f.contre.profileId ?? '', name: f.contre.nom, avatar: f.contre.avatar })))
+    const marques = nomsAffiches(nommes.map(f => ({ id: f.contre.profileId ?? '', name: f.contre.nom, avatar: f.contre.avatar, legendaire: f.contre.legendaire })))
     return {
       bilan: {
         ...chiffres,
@@ -5029,7 +5033,18 @@ export class CampagneStore {
       joueurs: joueurs.length,
       finies: finies.length,
       scores,
-      meilleur: premier && this.profils ? { justes: haut, nom: premier.profil.name, avatar: this.profils.avatarPorte(premier.profil), quand: premier.finieLe, exAequo: enTete.length - 1 } : null,
+      meilleur:
+        premier && this.profils
+          ? {
+              justes: haut,
+              nom: premier.profil.name,
+              avatar: this.profils.avatarPorte(premier.profil),
+              // Ce qu'il porte, comme au classement du défi.
+              ...sonApparence(this.profils, premier.profil),
+              quand: premier.finieLe,
+              exAequo: enTete.length - 1,
+            }
+          : null,
       ratees: lesPlusRatees(
         parQuestion.rows.flatMap(x => {
           const q = questions[Number(x.position)]
@@ -5193,7 +5208,8 @@ export class CampagneStore {
     const parId = new Map(ids.map((id, i) => [id, profils[i]]))
     const joueur = (id: string): JoueurDuDuel => {
       const p = parId.get(id)
-      return { id, nom: p?.name ?? 'Un profil parti', avatar: p && this.profils ? this.profils.avatarPorte(p) : '·' }
+      // Ce qu'il porte, comme les joueurs le voient : l'emoji seul montrait autrement qui porte un légendaire.
+      return { id, nom: p?.name ?? 'Un profil parti', avatar: p && this.profils ? this.profils.avatarPorte(p) : '·', ...(p && this.profils && sonApparence(this.profils, p)) }
     }
     return {
       duels: montres.map(r => ({

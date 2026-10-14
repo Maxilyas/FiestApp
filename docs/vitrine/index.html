@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FiestApp</title>
+<meta name="description" content="Le quiz de la soirée, sur ton téléphone : un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit et auto-hébergé.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/*
+  La vitrine de FiestApp, dans l'identité de l'application : « Velours » — un
+  noir chaud éclairé d'un seul halo, le champagne pour ce qui compte, une
+  serif pour ce qui se lit de loin — et, en clair, « Ivoire », le même passé
+  sur papier. Mise en page : le programme d'une soirée, lu dans l'ordre —
+  Avant ▲, Pendant ◆, Après ●, Entre deux soirées ■ —, chaque temps marqué
+  par l'une des quatre formes des réponses ; les écrans en grand, qui
+  débordent la colonne du texte.
+*/
+:root {
+  --fond: #1a1412;
+  --halo: #2b211b;
+  --releve: #241c18;
+  --encre: #f3ece2;
+  --doux: #a89b8a;
+  --champagne: #d9b56a;
+  --champagne-texte: #d9b56a;
+  --sur-champagne: #1a1412;
+  --filet: rgba(217, 181, 106, 0.22);
+  --filet-fort: rgba(217, 181, 106, 0.5);
+  --voile: rgba(255, 255, 255, 0.035);
+  --cadre: #0d0a09;
+  --ombre: 0 30px 70px rgba(0, 0, 0, 0.55);
+  --rose: #d98a9a;
+  --lavande: #a99ad6;
+  --sauge: #8fbfa8;
+  --affiche: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --texte: Figtree, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --colonne: 68rem;
+  --rayon: 16px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --fond: #f9f5ec;
+    --halo: #fffdf8;
+    --releve: #fffdf8;
+    --encre: #2a201b;
+    --doux: #6f6152;
+    --champagne: #ac8536;
+    --champagne-texte: #7a5d1e;
+    --sur-champagne: #1a1412;
+    --filet: rgba(172, 133, 54, 0.32);
+    --filet-fort: rgba(172, 133, 54, 0.7);
+    --voile: rgba(42, 32, 27, 0.04);
+    --cadre: #2a201b;
+    --ombre: 0 30px 60px rgba(42, 32, 27, 0.22);
+    --rose: #c2566c;
+    --lavande: #7a68b8;
+    --sauge: #4e8f6c;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --fond: #f9f5ec;
+  --halo: #fffdf8;
+  --releve: #fffdf8;
+  --encre: #2a201b;
+  --doux: #6f6152;
+  --champagne: #ac8536;
+  --champagne-texte: #7a5d1e;
+  --sur-champagne: #1a1412;
+  --filet: rgba(172, 133, 54, 0.32);
+  --filet-fort: rgba(172, 133, 54, 0.7);
+  --voile: rgba(42, 32, 27, 0.04);
+  --cadre: #2a201b;
+  --ombre: 0 30px 60px rgba(42, 32, 27, 0.22);
+  --rose: #c2566c;
+  --lavande: #7a68b8;
+  --sauge: #4e8f6c;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--fond);
+  background-image: radial-gradient(120% 60rem at 50% -20rem, var(--halo), var(--fond) 70%);
+  background-repeat: no-repeat;
+  color: var(--encre);
+  font: 400 1.0625rem/1.65 var(--texte);
+  padding-inline: max(1rem, env(safe-area-inset-left, 0px));
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--champagne-texte); text-underline-offset: 0.2em; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--champagne); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--affiche); font-weight: 600; line-height: 1.08; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+p { margin: 0; }
+.colonne { max-width: var(--colonne); margin-inline: auto; }
+.etiquette {
+  font: 600 0.75rem/1.2 var(--texte);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--doux);
+}
+.chiffre { font-variant-numeric: tabular-nums; }
+
+/* ── La barre ─────────────────────────────────────────────────────────── */
+.barre {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding-block: 1.25rem;
+}
+.marque { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; color: var(--encre); }
+.marque svg { width: 2.25rem; height: 2.25rem; flex: none; }
+.marque span { font: 600 1.6rem/1 var(--affiche); }
+.barre nav { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.barre nav a { color: var(--doux); text-decoration: none; font-weight: 500; font-size: 0.95rem; }
+.barre nav a:hover { color: var(--encre); }
+
+/* ── L'ouverture ──────────────────────────────────────────────────────── */
+.ouverture {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  padding-block: clamp(2rem, 6vw, 5rem) clamp(3rem, 7vw, 6rem);
+}
+.ouverture h1 { font-size: clamp(2.9rem, 6.4vw, 5.6rem); }
+.ouverture h1 em { font-style: italic; font-weight: 500; color: var(--champagne-texte); }
+.ouverture .chapeau { margin-top: 1.5rem; font-size: 1.2rem; color: var(--doux); max-width: 34rem; }
+.ouverture .chapeau strong { color: var(--encre); font-weight: 500; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+.bouton {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.85rem 1.4rem; border-radius: 999px;
+  font: 600 0.95rem/1 var(--texte); text-decoration: none;
+  border: 1px solid var(--filet-fort); color: var(--encre);
+}
+.bouton.plein { background: var(--champagne); border-color: var(--champagne); color: var(--sur-champagne); }
+.bouton:hover { border-color: var(--champagne); }
+.formes { display: flex; gap: 0.55rem; margin-bottom: 1.5rem; }
+.formes svg { width: 1.35rem; height: 1.35rem; }
+.formes svg:nth-child(1) { --i: 0; } .formes svg:nth-child(2) { --i: 1; } .formes svg:nth-child(3) { --i: 2; } .formes svg:nth-child(4) { --i: 3; }
+@media (prefers-reduced-motion: no-preference) {
+  .formes svg { animation: poser 0.9s cubic-bezier(.2, .8, .2, 1.2) both; animation-delay: calc(var(--i) * 0.12s + 0.15s); }
+  @keyframes poser { from { transform: translateY(-0.9rem) scale(0.6); } to { transform: none; } }
+}
+.scene { position: relative; padding-bottom: 3.5rem; }
+.ecran {
+  border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--filet);
+  box-shadow: 0 0 0 0.6rem var(--cadre), var(--ombre);
+  background: var(--cadre);
+}
+.ecran img { aspect-ratio: 16 / 9; width: 100%; object-fit: cover; }
+.telephone {
+  width: clamp(8.5rem, 22%, 13.5rem);
+  border-radius: 1.6rem; overflow: hidden;
+  border: 0.45rem solid var(--cadre);
+  box-shadow: var(--ombre);
+  background: var(--cadre);
+}
+.telephone img { width: 100%; }
+.scene .telephone { position: absolute; right: -0.5rem; bottom: 0; }
+.legende { margin-top: 0.9rem; color: var(--doux); font-size: 0.9rem; }
+
+/* ── Les chiffres ─────────────────────────────────────────────────────── */
+.chiffres {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
+  border-block: 1px solid var(--filet);
+  background: var(--filet);
+}
+.chiffres div { background: var(--fond); padding: 1.6rem 1rem; text-align: center; }
+.chiffres b { display: block; font: 600 clamp(2rem, 4vw, 2.9rem)/1 var(--affiche); color: var(--champagne-texte); font-variant-numeric: lining-nums tabular-nums; }
+.chiffres span { display: block; margin-top: 0.5rem; color: var(--doux); font-size: 0.92rem; }
+
+/* ── Les quatre temps ─────────────────────────────────────────────────── */
+.acte { padding-block: clamp(4rem, 9vw, 7.5rem); border-bottom: 1px solid var(--filet); }
+.tete { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.25rem; align-items: start; max-width: 46rem; }
+.tete svg { width: 2.6rem; height: 2.6rem; margin-top: 0.35rem; }
+.tete h2 { font-size: clamp(2.2rem, 4.6vw, 3.6rem); margin-top: 0.6rem; }
+.tete p { margin-top: 1rem; color: var(--doux); font-size: 1.125rem; }
+.ligne {
+  display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center;
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+}
+.ligne.inverse { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+.ligne.inverse > figure { order: 2; }
+.ligne figure { margin: 0; min-width: 0; }
+.points { display: grid; gap: 1.35rem; min-width: 0; }
+.points h3 { font-size: 1.55rem; }
+.points p { margin-top: 0.35rem; color: var(--doux); }
+.points p strong, .points p em { color: var(--encre); font-weight: 500; font-style: normal; }
+.duo { display: flex; gap: clamp(1rem, 3vw, 2rem); align-items: flex-end; justify-content: center; }
+.duo .telephone { width: clamp(9rem, 44%, 15rem); position: static; }
+
+.sortes {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px; background: var(--filet); border: 1px solid var(--filet); border-radius: var(--rayon); overflow: hidden;
+}
+.sortes div { background: var(--fond); padding: 1.25rem 1.3rem; min-width: 0; }
+.sortes b { font: 600 1.3rem/1.2 var(--affiche); display: block; }
+.sortes span { color: var(--doux); font-size: 0.95rem; display: block; margin-top: 0.3rem; }
+
+.rangee {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(0.9rem, 2.5vw, 1.75rem);
+}
+.rangee figure { margin: 0; min-width: 0; }
+.rangee .telephone { width: 100%; }
+.rangee .telephone img { aspect-ratio: 720 / 1280; object-fit: cover; object-position: top; }
+.rangee figcaption { margin-top: 1rem; }
+.rangee figcaption b { font: 600 1.35rem/1.2 var(--affiche); display: block; }
+.rangee figcaption span { color: var(--doux); font-size: 0.95rem; display: block; margin-top: 0.3rem; }
+
+/* ── Ce qu'on gagne ───────────────────────────────────────────────────── */
+.galerie {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(0.5rem, 1.5vw, 1rem);
+}
+.galerie figure { margin: 0; }
+.galerie img { border-radius: 50%; aspect-ratio: 1; object-fit: cover; box-shadow: 0 0 0 2px var(--filet-fort), 0 14px 30px rgba(0, 0, 0, 0.35); }
+.galerie figcaption { text-align: center; margin-top: 0.6rem; font: 500 1.02rem/1.25 var(--affiche); }
+.divins {
+  margin-top: clamp(3rem, 6vw, 4.5rem);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: center;
+  padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid var(--filet); border-radius: var(--rayon); background: var(--voile);
+}
+.divins h3 { font-size: clamp(1.8rem, 3.4vw, 2.5rem); }
+.divins p { margin-top: 0.8rem; color: var(--doux); }
+.joyaux { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.6rem; }
+.joyaux figure { margin: 0; text-align: center; }
+.joyaux img { filter: blur(6px) brightness(0.55) saturate(0.6); transition: filter 0.6s ease; }
+.joyaux figure:hover img, .joyaux figure:focus-within img, .joyaux figure:focus img { filter: none; }
+.joyaux figcaption { font: 500 0.95rem/1.2 var(--affiche); color: var(--doux); margin-top: 0.4rem; }
+.trio { margin-top: clamp(2.5rem, 5vw, 3.5rem); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2rem); }
+.trio > div { min-width: 0; }
+.trio h3 { font-size: 1.55rem; margin-top: 1rem; }
+.trio p { color: var(--doux); margin-top: 0.4rem; }
+.vignettes { display: flex; gap: 0.5rem; }
+.vignettes img { width: calc((100% - 2rem) / 5); border-radius: 50%; aspect-ratio: 1; object-fit: cover; box-shadow: 0 0 0 1px var(--filet-fort); }
+.vignettes.trois img { width: calc((100% - 2rem) / 5); }
+.paire { margin-top: clamp(2.5rem, 5vw, 3.5rem); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 4vw, 3.5rem); }
+.paire > div { min-width: 0; }
+.paire h3 { font-size: 1.55rem; margin-top: 1rem; }
+.paire p { color: var(--doux); margin-top: 0.4rem; }
+
+/* ── Les partis pris ──────────────────────────────────────────────────── */
+.principes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1.5rem, 3.5vw, 2.75rem) clamp(1.5rem, 4vw, 3.5rem); margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+.principes div { border-top: 1px solid var(--filet-fort); padding-top: 1.1rem; min-width: 0; }
+.principes h3 { font-size: 1.6rem; }
+.principes p { color: var(--doux); margin-top: 0.5rem; }
+
+/* ── Sous le capot ────────────────────────────────────────────────────── */
+.capot { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+.capot p { color: var(--doux); }
+.capot p + p { margin-top: 1rem; }
+.capot dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.85rem 1.25rem; align-content: start; }
+.capot dt { font: 600 1.9rem/1 var(--affiche); color: var(--champagne-texte); text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.capot dd { margin: 0; color: var(--doux); align-self: center; }
+
+/* ── Lancer ───────────────────────────────────────────────────────────── */
+.lancer { padding-block: clamp(4rem, 9vw, 7rem); text-align: center; }
+.lancer h2 { font-size: clamp(2.4rem, 5vw, 3.8rem); }
+.lancer > p { color: var(--doux); margin: 1rem auto 0; max-width: 36rem; }
+.terminal {
+  margin: 2rem auto 0; max-width: 32rem; text-align: left;
+  background: var(--cadre); color: #f3ece2; border-radius: 12px; padding: 1.25rem 1.4rem;
+  font: 500 0.95rem/1.9 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  overflow-x: auto; border: 1px solid var(--filet);
+}
+.terminal span { color: #a89b8a; user-select: none; }
+.lancer .actions { justify-content: center; }
+footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: var(--doux); font-size: 0.9rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+/* ── Le téléphone ─────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .ouverture, .ligne, .ligne.inverse, .divins, .capot { grid-template-columns: minmax(0, 1fr); }
+  .ligne.inverse > figure { order: 0; }
+  .chiffres { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rangee { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .galerie { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .joyaux { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .principes, .trio, .paire { grid-template-columns: minmax(0, 1fr); }
+  .sortes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .barre nav a.secondaire { display: none; }
+  .sortes { grid-template-columns: minmax(0, 1fr); }
+  .scene .telephone { width: 36%; right: -0.25rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="barre colonne">
+  <a class="marque" href="#">
+    <svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#1a1412"/><rect x="38" y="38" width="436" height="436" rx="86" fill="none" stroke="#d9b56a" stroke-opacity=".45" stroke-width="6"/><path fill="#d9b56a" d="M251.3 96Q241.8 96 239.3 102.4Q236.7 108.8 235.7 116.3Q234.8 121.5 233.1 128.3Q231.5 135.2 226.5 139.9Q221.6 144.6 211.7 144.6Q200.3 144.6 195.4 138Q190.4 131.4 190.4 124.8Q190.4 109.2 208.1 98.6Q225.8 88 251.8 88Q270.6 88 286.4 94.1Q302.2 100.3 311.9 112.8Q321.6 125.3 321.6 144.1Q321.6 160.2 314.7 171.3Q307.9 182.3 298.2 190.6Q288.5 198.8 279.1 207.8Q264 221.5 257.2 235.2Q250.3 248.8 250.3 265.8Q250.3 271.5 251 277.4Q251.8 283.3 253.2 291.3Q253.6 292.7 250.3 293.4Q247 294.1 246.1 292.7Q240.4 279.5 237.1 263Q233.8 246.5 233.8 236.1Q233.8 222.4 238.1 213.5Q242.3 204.5 248.7 197.4Q255.1 190.4 261.2 182.6Q267.3 174.8 271.6 164.4Q275.8 154 275.8 138.5Q275.8 120.1 269.2 108Q262.6 96 251.3 96ZM245.6 388Q233.8 388 226.8 380.9Q219.7 373.8 219.7 362.1Q219.7 351.2 226.8 344.4Q233.8 337.5 245.6 337.5Q257.9 337.5 264.5 344.4Q271.1 351.2 271.1 362.1Q271.1 373.8 264.5 380.9Q257.9 388 245.6 388Z"/><path d="M100 430 124 394 148 430Z" fill="#d98a9a"/><path d="M204 394 224 414 204 434 184 414Z" fill="#d9b56a"/><circle cx="304" cy="414" r="19" fill="#a99ad6"/><rect x="368" y="395" width="38" height="38" rx="5" fill="#8fbfa8"/></svg>
+    <span>FiestApp</span>
+  </a>
+  <nav aria-label="Liens">
+    <a class="secondaire" href="#pendant">Le jeu</a>
+    <a class="secondaire" href="#entre">Entre deux soirées</a>
+    <a href="https://github.com/Maxilyas/FiestApp/tree/main/docs">Documentation</a>
+    <a href="https://github.com/Maxilyas/FiestApp">Code</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="ouverture colonne" aria-labelledby="titre">
+  <div>
+    <div class="formes" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 3 22 20H2Z" fill="var(--rose)"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="var(--champagne)"/></svg>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--lavande)"/></svg>
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5" fill="var(--sauge)"/></svg>
+    </div>
+    <p class="etiquette">Quiz de soirée · gratuit · auto-hébergé</p>
+    <h1 id="titre" style="margin-top:1rem">Le quiz de la soirée, <em>sur ton téléphone.</em></h1>
+    <p class="chapeau">Un écran pour la salle, un téléphone pour chacun. Tes invités scannent un QR code, choisissent un prénom et un avatar, et jouent : <strong>rien à installer, aucun compte à créer.</strong></p>
+    <div class="actions">
+      <a class="bouton plein" href="#lancer">Lancer FiestApp</a>
+      <a class="bouton" href="https://github.com/Maxilyas/FiestApp/tree/main/docs">Lire la documentation</a>
+    </div>
+  </div>
+  <figure class="scene" style="margin:0">
+    <div class="ecran"><img src="captures/ecran-question.jpg" width="1600" height="900" alt="L'écran commun : « Quelle planète surnomme-t-on la planète rouge ? », une photo de Mars, quatre réponses marquées d'un triangle, d'un losange, d'un rond et d'un carré, le chronomètre à 30 et le code pour rejoindre."></div>
+    <div class="telephone"><img src="captures/telephone-repondu.jpg" width="720" height="1558" alt="Le téléphone de Nina : la même question, « Mars » cochée, et « Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité »."></div>
+  </figure>
+</section>
+
+<section class="chiffres colonne" aria-label="En chiffres">
+  <div><b class="chiffre">0&nbsp;€</b><span>d'hébergement, sur des offres gratuites</span></div>
+  <div><b class="chiffre">26</b><span>avatars légendaires peints, à mériter</span></div>
+  <div><b class="chiffre">21&nbsp;887</b><span>questions relues, prêtes à jouer</span></div>
+  <div><b class="chiffre">0</b><span>compte demandé pour jouer</span></div>
+</section>
+
+<section class="acte colonne" id="avant" aria-labelledby="titre-avant">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2Z" fill="var(--rose)"/></svg>
+    <div>
+      <p class="etiquette">Avant</p>
+      <h2 id="titre-avant">Un quiz prêt avant que la sonnette retentisse</h2>
+      <p>Tu écris tes questions dans le navigateur, ou tu laisses FiestApp composer un quiz pour toi. Puis tu branches la télé, et la salle d'attente s'ouvre.</p>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <figure>
+      <div class="ecran"><img src="captures/ecran-attente.jpg" width="1600" height="900" alt="La salle d'attente à la télé : le code du salon en grand, le QR code à scanner, les invités rangés par équipe à gauche, les équipes et le classement de la soirée à droite."></div>
+      <figcaption class="legende">La salle d'attente : un code à six chiffres, un QR code, les invités qui arrivent dans leur équipe.</figcaption>
+    </figure>
+    <div class="points">
+      <div><h3>Un quiz tout prêt, d'un geste</h3><p>Choisis des catégories, une difficulté et un nombre de questions : FiestApp tire un quiz dans sa base de <strong>21&nbsp;887 questions relues</strong>, chacune avec son anecdote. Tu le retouches à ton goût, ou tu le lances tel quel.</p></div>
+      <div><h3>Ou tes questions à toi</h3><p>L'éditeur garde tout ce que tu tapes, même si le serveur s'endort. Une photo, un extrait sonore, une anecdote pour la révélation, une note que toi seul lis à la télécommande.</p></div>
+      <div><h3>Des quiz qui voyagent</h3><p>Des modèles pour un anniversaire, un mariage ou Noël en famille ; une liste à coller, écrite par un ami ou par une IA ; un fichier à exporter, un code pour partager une copie.</p></div>
+    </div>
+  </div>
+
+  <div class="ligne inverse">
+    <figure>
+      <div class="ecran"><img src="captures/tele-a-brancher.jpg" width="1600" height="900" alt="Une télé qui affiche « Brancher cette télé » et un code de six caractères, avec trois étapes : sur ton téléphone, créer un salon ; choisir « Sur une télé » ; taper ce code."></div>
+      <figcaption class="legende">N'importe quelle télé avec un navigateur devient l'écran de la soirée : elle affiche un code, ton téléphone le tape.</figcaption>
+    </figure>
+    <div class="points">
+      <div><h3>La télé se branche d'un code</h3><p>Pas de câble à tirer depuis l'ordinateur : la télé affiche un code, tu le tapes depuis ton téléphone, et elle devient l'écran commun de ton salon.</p></div>
+      <div><h3>Les équipes se préparent avant</h3><p>Crée les équipes, leurs noms et leurs emojis ; chaque invité choisit la sienne en arrivant, ou tu les répartis toi-même.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="acte colonne" id="pendant" aria-labelledby="titre-pendant">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 22 12 12 22 2 12Z" fill="var(--champagne)"/></svg>
+    <div>
+      <p class="etiquette">Pendant</p>
+      <h2 id="titre-pendant">Une question, toute la salle</h2>
+      <p>La question s'affiche en grand sur la télé, les réponses arrivent sur les téléphones. Le temps de lire est offert, puis la rapidité rapporte des points bonus.</p>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <figure>
+      <div class="ecran"><img src="captures/ecran-revelation.jpg" width="1600" height="900" alt="La révélation : Mars en champagne, coché, avec huit réponses ; Jupiter en a deux ; « Julie — 0,4 s », la plus rapide ; dessous, le classement des équipes et les joueurs en tête du quiz, avec leur niveau."></div>
+      <figcaption class="legende">La révélation : ce que la salle a répondu, la main la plus rapide, les équipes et le classement en direct.</figcaption>
+    </figure>
+    <div class="duo">
+      <div class="telephone"><img src="captures/telephone-revelation.jpg" width="720" height="1558" alt="Le téléphone après la révélation : « +200 pts, Bien joué ! », la bonne réponse, sa place dans le quiz, le classement des équipes et la liste de ceux qui ont répondu juste, avec leur temps."></div>
+    </div>
+  </div>
+
+  <div class="sortes" role="list" aria-label="Les sortes de questions, et ce qui les entoure">
+    <div role="listitem"><b>Le QCM</b><span>Deux à quatre réponses, une bonne, chacune sa forme et sa couleur. Le vrai ou faux en est un.</span></div>
+    <div role="listitem"><b>L'estimation</b><span>Un nombre à taper : le plus proche gagne le plus, et personne ne reste bloqué.</span></div>
+    <div role="listitem"><b>En direct</b><span>La bonne réponse se tape à la révélation : le poids du gâteau, les bonbons du bocal.</span></div>
+    <div role="listitem"><b>Plusieurs réponses</b><span>Plusieurs sont bonnes : il faut les trouver toutes.</span></div>
+    <div role="listitem"><b>Remettre dans l'ordre</b><span>Les réponses arrivent mélangées, à toi de les ranger.</span></div>
+    <div role="listitem"><b>Qui dans la salle ?</b><span>Les invités sont les réponses ; la révélation montre les votes, pour rire.</span></div>
+    <div role="listitem"><b>La photo qui disparaît</b><span>Regarde bien : elle s'efface avant que la question tombe.</span></div>
+    <div role="listitem"><b>Le blind test</b><span>La télé joue l'extrait ; les téléphones ne l'entendent jamais.</span></div>
+    <div role="listitem"><b>Le saviez-vous ?</b><span>Une anecdote et une seconde photo pour la révélation, un intertitre entre deux manches.</span></div>
+  </div>
+
+  <div class="ligne inverse">
+    <figure>
+      <div class="ecran"><img src="captures/ecran-estimation.jpg" width="1600" height="900" alt="La révélation d'une estimation : « Combien de pays compte l'Union européenne ? » ; la bonne réponse, 27, et chaque estimation classée, de 27 pays (+200) à 24 pays (+90)."></div>
+      <figcaption class="legende">L'estimation paie la distance : 200 points en plein dans le mille, un peu moins à chaque pays d'écart, et jamais moins de 30 pour avoir tenté.</figcaption>
+    </figure>
+    <div class="points">
+      <div><h3>L'animateur garde la main</h3><p>Révéler, mettre en pause, reposer une question, annuler ses points, terminer. L'enchaînement se règle d'un toucher : au clic, ou toutes les 5, 10 ou 20 secondes.</p></div>
+      <div><h3>Animer debout</h3><p>Ton téléphone devient la télécommande : tu révèles depuis le canapé, tu joues avec les autres, ou tu animes seulement, hors classement.</p></div>
+      <div><h3>En équipe et chacun pour soi</h3><p>Un classement par équipe, à la moyenne, et un classement des joueurs, à chaque question et sur toute la soirée.</p></div>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <figure>
+      <div class="ecran"><img src="captures/ecran-revelation-ivoire.jpg" width="1600" height="900" alt="La même révélation en Ivoire : fond crème, encre sombre, Mars en or foncé."></div>
+      <figcaption class="legende">Ivoire, pour le vidéoprojecteur qui ne rend pas les noirs : les mêmes écrans, sur papier.</figcaption>
+    </figure>
+    <div class="points">
+      <div><h3>Lisible à cinq mètres</h3><p>Une serif généreuse pour la question, une forme pour chaque réponse en plus de sa couleur, et un écran qui tient sur le portable branché à la télé comme sur un grand écran.</p></div>
+      <div><h3>Une coupure n'arrête rien</h3><p>Un téléphone qui s'éteint retrouve sa place en se rallumant. Un serveur qui redémarre reprend la question là où elle en était.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="acte colonne" id="apres" aria-labelledby="titre-apres">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--lavande)"/></svg>
+    <div>
+      <p class="etiquette">Après</p>
+      <h2 id="titre-apres">Une fin qu'on garde</h2>
+      <p>Un podium, des prix, des hauts faits. Puis chacun repart avec sa fin de soirée sur son téléphone, et un lien pour s'en souvenir.</p>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <figure>
+      <div class="ecran"><img src="captures/ecran-cloture.jpg" width="1600" height="900" alt="La soirée close : le podium — Nina première avec 1 200 points, Julie et Léa deuxièmes ex æquo —, l'équipe qui l'emporte, le QR code du souvenir et les hauts faits de la soirée, La Foudre et La Lanterne Rouge."></div>
+      <figcaption class="legende">La clôture : le podium — des ex æquo partagent leur marche —, l'équipe qui l'emporte, les hauts faits et le QR du souvenir.</figcaption>
+    </figure>
+    <div class="duo">
+      <div class="telephone"><img src="captures/telephone-cloture.jpg" width="780" height="1688" alt="La fin de soirée sur le téléphone de Nina : première sur dix, 1 200 points, « Nouveaux trophées » — trois prix du palmarès —, « Mon bilan », et l'invitation à créer un profil pour garder tout cela."></div>
+      <div class="telephone"><img src="captures/telephone-souvenir.jpg" width="720" height="1558" alt="Le souvenir de la soirée : son titre, sa date, le podium et les équipes."></div>
+    </div>
+  </div>
+
+  <div class="trio">
+    <div><h3>Le souvenir</h3><p>Une page à partager dans le groupe : le podium, le palmarès, les équipes et tous les chiffres. Sans compte, par son lien.</p><h3>L'historique</h3><p>Chaque soirée close se range seule, avec son souvenir et son bilan, à une adresse qui ne change plus.</p></div>
+    <div><h3>Le bilan, question par question</h3><p>Chacun relit ses réponses à côté des bonnes. L'animateur y trouve une page à imprimer par invité, et l'export de toute la soirée.</p></div>
+    <div><h3>Les prix</h3><p>L'Éclair, Le Cancre Magnifique, Le Mouton… Le palmarès se calcule tout seul, et l'animateur remet ses prix à l'écran pour le plaisir.</p><h3>Même sans compte</h3><p>Nina a gagné la soirée sans profil. Sa fin de soirée lui propose d'en créer un : dès la prochaine, il gardera son niveau, ses prix et ses avatars.</p></div>
+  </div>
+</section>
+
+<section class="acte colonne" id="entre" aria-labelledby="titre-entre">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2.5" fill="var(--sauge)"/></svg>
+    <div>
+      <p class="etiquette">Entre deux soirées</p>
+      <h2 id="titre-entre">Le jeu continue dans la poche</h2>
+      <p>Avec un profil, FiestApp se joue aussi seul, chaque jour, et contre ses amis. L'application s'installe sur l'écran d'accueil, sans passer par un store.</p>
+    </div>
+  </div>
+  <div class="rangee">
+    <figure><div class="telephone"><img src="captures/telephone-quiz-du-jour.jpg" width="720" height="1388" alt="Le quiz du jour : la date, dix questions de plusieurs catégories, le bouton « Jouer », la série de douze jours, et la place d'hier notée en étoiles."></div><figcaption><b>Le quiz du jour</b><span>Dix questions, les mêmes pour tous, un classement du jour et du mois, une série à tenir.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-campagne.jpg" width="720" height="1280" alt="La campagne solo : « Jusqu'où iras-tu ? », un record de 15, trois vies, sans chrono, un confetti par bonne réponse."></div><figcaption><b>La campagne</b><span>Des séries à trois vies, sans chronomètre, un carnet qui fait revenir ce qu'on rate, un défi chaque semaine.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-sentiers.jpg" width="720" height="1280" alt="Les sentiers du savoir : la Forêt, palier 8 sur 12, les portraits gagnés en chemin, dix bonnes sur seize pour valider un palier, et les vies du jour."></div><figcaption><b>Les sentiers du savoir</b><span>Douze branches, des paliers à valider, et des portraits peints à gagner en chemin.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-duels.jpg" width="720" height="1280" alt="Les duels : une cote de 1 000 sur sa jauge, la ligue de bronze, le bouton « Défier »."></div><figcaption><b>Les duels</b><span>Une cote, des ligues du bronze aux maîtres, des défis à envoyer à ses amis.</span></figcaption></figure>
+  </div>
+</section>
+
+<section class="acte colonne" id="ce-qu-on-gagne" aria-labelledby="titre-gagne">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 14.6 9l7 .4-5.4 4.4 1.8 6.8L12 16.8l-6 3.8 1.8-6.8L2.4 9.4l7-.4Z" fill="var(--champagne)"/></svg>
+    <div>
+      <p class="etiquette">Ce qu'on gagne</p>
+      <h2 id="titre-gagne">Un profil qui se porte</h2>
+      <p>Des niveaux, des finitions autour de l'avatar, des trophées, des médaillons peints. Rien de tout cela ne fait gagner un point : un profil raconte, il n'avantage pas.</p>
+    </div>
+  </div>
+
+  <div class="ligne inverse">
+    <figure>
+      <div class="duo">
+        <div class="telephone"><img src="captures/telephone-profil.jpg" width="720" height="1280" alt="La page du profil de Léa, niveau 14 : « M'habiller », « Ma collection » (27 sur 373), « Mes soirées », « Ma carrière »."></div>
+        <div class="telephone"><img src="captures/telephone-album-des-trophees.jpg" width="720" height="1280" alt="L'album des trophées de Léa : 3 sur 180 ; « Les plus proches », L'Oracle, une fois sur huit ; une page par mode — la soirée, le quiz du jour, la campagne, les duels, les sentiers, partout — ; et les pistes, qui montent du bronze à l'or."></div>
+      </div>
+    </figure>
+    <div class="points">
+      <div><h3>Une expérience qui se mérite</h3><p>En soirée, rien pour la simple présence : tout se gagne dès deux joueurs, en répondant bien, et rien ne redescend en cours de route. Le quiz du jour et la campagne rapportent aussi.</p></div>
+      <div><h3>La loge</h3><p>On essaie, on voit le résultat sur sa carte, puis on porte tout d'un coup : avatar, finition et bordure, titre, vitrine, fond, thème, gerbe.</p></div>
+      <div><h3>Ma collection</h3><p>Tout ce qui se gagne au même endroit : les avatars, l'album des trophées — mode par mode, chaque piste du bronze à l'or et ce que chaque étape ouvre —, et le style en petits albums : fonds, gerbes, finitions, bordures de ligue. Ce qu'on a, ce qui reste, et où le gagner.</p></div>
+    </div>
+  </div>
+
+  <div class="galerie" role="list" aria-label="Quelques avatars légendaires">
+    <figure role="listitem"><img src="peintures/phenix.webp" width="256" height="256" alt="Le Phénix, ailes de feu déployées."><figcaption>Le Phénix</figcaption></figure>
+    <figure role="listitem"><img src="peintures/dragon.webp" width="256" height="256" alt="Le Dragon d'Or enroulé sur son trésor."><figcaption>Le Dragon d'Or</figcaption></figure>
+    <figure role="listitem"><img src="peintures/chouette.webp" width="256" height="256" alt="La Chouette d'Argent sur une pile de livres."><figcaption>La Chouette d'Argent</figcaption></figure>
+    <figure role="listitem"><img src="peintures/licorne.webp" width="256" height="256" alt="La Licorne Astrale, crinière arc-en-ciel."><figcaption>La Licorne Astrale</figcaption></figure>
+    <figure role="listitem"><img src="peintures/kraken.webp" width="256" height="256" alt="Le Kraken surgissant de la tempête."><figcaption>Le Kraken</figcaption></figure>
+    <figure role="listitem"><img src="peintures/sphinx.webp" width="256" height="256" alt="Le Sphinx doré entouré de points d'interrogation."><figcaption>Le Sphinx</figcaption></figure>
+    <figure role="listitem"><img src="peintures/trou-noir.webp" width="256" height="256" alt="Le Trou Noir et ses anneaux de chiffres."><figcaption>Le Trou Noir</figcaption></figure>
+    <figure role="listitem"><img src="peintures/oracle.webp" width="256" height="256" alt="L'Oracle encapuchonnée tenant une sphère de lumière."><figcaption>L'Oracle</figcaption></figure>
+    <figure role="listitem"><img src="peintures/lion.webp" width="256" height="256" alt="Le Lion Couronné."><figcaption>Le Lion Couronné</figcaption></figure>
+    <figure role="listitem"><img src="peintures/renard.webp" width="256" height="256" alt="Le Renard Lunaire."><figcaption>Le Renard Lunaire</figcaption></figure>
+    <figure role="listitem"><img src="peintures/salamandre.webp" width="256" height="256" alt="La Salamandre."><figcaption>La Salamandre</figcaption></figure>
+    <figure role="listitem"><img src="peintures/comete.webp" width="256" height="256" alt="La Comète."><figcaption>La Comète</figcaption></figure>
+  </div>
+  <p class="legende" style="text-align:center">Douze des vingt-six avatars légendaires. Ils se méritent sur la durée, en soirée, au quiz du jour ou en campagne, et ce qui est gagné reste gagné.</p>
+
+  <div class="divins">
+    <div>
+      <p class="etiquette">Au-dessus des légendaires</p>
+      <h3 style="margin-top:0.6rem">Six Divins</h3>
+      <p>Leurs noms sont publics. Leurs règles ne sont écrites nulle part ailleurs que sur le serveur : ni dans la page, ni dans ce que ton téléphone télécharge. Quand l'un d'eux descend pendant une soirée, toute la salle l'apprend à la clôture.</p>
+    </div>
+    <div class="joyaux" role="list" aria-label="Les six Divins, voilés">
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-helios.webp" width="256" height="256" alt="Hélios, un soleil d'or."><figcaption>Hélios</figcaption></figure>
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-seraphin.webp" width="256" height="256" alt="Le Séraphin, un œil entre deux paires d'ailes."><figcaption>Le Séraphin</figcaption></figure>
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-lotus.webp" width="256" height="256" alt="Le Lotus Sacré, une fleur d'émail rose et une opale."><figcaption>Le Lotus Sacré</figcaption></figure>
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-arbre.webp" width="256" height="256" alt="L'Arbre-Monde, un arbre d'émail vert serti de pierres."><figcaption>L'Arbre-Monde</figcaption></figure>
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-dechu.webp" width="256" height="256" alt="L'Ange Déchu, un cœur grenat entre deux ailes sombres."><figcaption>L'Ange Déchu</figcaption></figure>
+      <figure role="listitem" tabindex="0"><img src="peintures/divin-chronos.webp" width="256" height="256" alt="Chronos, un sablier d'or cerclé d'un anneau."><figcaption>Chronos</figcaption></figure>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div>
+      <div class="vignettes"><img src="peintures/portrait-anubis.webp" width="256" height="256" alt="Un portrait peint d'Anubis."><img src="peintures/portrait-archere.webp" width="256" height="256" alt="Un portrait peint d'archère."><img src="peintures/portrait-astronaute.webp" width="256" height="256" alt="Un portrait peint d'astronaute."><img src="peintures/portrait-arlequin.webp" width="256" height="256" alt="Un portrait peint d'Arlequin."><img src="peintures/portrait-astronome.webp" width="256" height="256" alt="Un portrait peint d'astronome."></div>
+      <h3>Soixante-douze portraits</h3><p>Les avatars du savoir, six par branche, se gagnent en avançant sur les sentiers.</p>
+    </div>
+    <div>
+      <div class="vignettes trois"><img src="peintures/compagnon-loup-ultime.webp" width="256" height="256" alt="Le Loup dans sa forme ultime."><img src="peintures/compagnon-chat-esprit.webp" width="256" height="256" alt="Le Chat des lanternes dans sa forme ultime."><img src="peintures/compagnon-tortue-ile.webp" width="256" height="256" alt="La Tortue-île dans sa forme ultime."></div>
+      <h3>Des compagnons qui grandissent</h3><p>Achetés en confettis, ils changent de forme au fil des bonnes réponses données en les portant. Une forme atteinte ne se perd jamais.</p>
+    </div>
+  </div>
+</section>
+
+<section class="acte colonne" aria-labelledby="titre-principes">
+  <div class="tete" style="grid-template-columns:minmax(0,1fr)">
+    <div>
+      <p class="etiquette">Les partis pris</p>
+      <h2 id="titre-principes">Ce qui ne bougera pas</h2>
+    </div>
+  </div>
+  <div class="principes">
+    <div><h3>Jouer sans compte, toujours</h3><p>« Jouer sans compte » est le premier bouton de l'entrée. Un profil s'ajoute à ce chemin, il ne le remplace jamais, et un invité anonyme n'affiche jamais un niveau zéro.</p></div>
+    <div><h3>Le serveur décide</h3><p>Les écrans ne reçoivent que ce qu'ils doivent montrer : la bonne réponse n'arrive sur aucun téléphone avant la révélation.</p></div>
+    <div><h3>Rien ne se perd</h3><p>Chaque réponse est recopiée dans une base qui survit aux redémarrages ; une soirée interrompue reprend où elle en était.</p></div>
+    <div><h3>Zéro euro, zéro e-mail</h3><p>Un hébergeur et une base en offre gratuite. Le profil ne demande ni adresse ni téléphone : un code de secours suffit.</p></div>
+    <div><h3>Chacun chez soi</h3><p>Plusieurs animateurs partagent un serveur : chacun son espace, ses quiz, ses soirées, et rien ne passe chez le voisin.</p></div>
+    <div><h3>Pour toute la famille</h3><p>Des formes en plus des couleurs, des écrans pensés pour les lecteurs d'écran, et des emojis que même une vieille télé sous Windows 10 affiche.</p></div>
+  </div>
+</section>
+
+<section class="acte colonne" aria-labelledby="titre-capot">
+  <div class="tete" style="grid-template-columns:minmax(0,1fr)">
+    <div>
+      <p class="etiquette">Sous le capot</p>
+      <h2 id="titre-capot">Petit, solide, et vérifié à chaque modification</h2>
+    </div>
+  </div>
+  <div class="capot">
+    <div>
+      <p>Node.js et Socket.io côté serveur, React et Vite côté navigateur, SQLite pour la partie en cours et une base libSQL hébergée chez Turso pour tout ce qui doit durer. Très peu de dépendances, et c'est voulu.</p>
+      <p>Toute la logique du jeu vit sur le serveur. Les journaux de chaque soirée se gardent tels quels, et les pages se recalculent à partir d'eux : une amélioration d'aujourd'hui profite aux soirées passées.</p>
+      <p>À chaque proposition de modification, l'intégration continue vérifie les types, lance les tests, construit l'application et rejoue une soirée entière sur un vrai serveur.</p>
+    </div>
+    <dl>
+      <dt class="chiffre">200+</dt><dd>fichiers de tests, la plupart sur leur propre serveur jetable</dd>
+      <dt class="chiffre">160+</dt><dd>routes HTTP, chacune dans la documentation</dd>
+      <dt class="chiffre">2</dt><dd>bases : une locale, jetable, pour la partie en cours ; une permanente pour tout ce qui doit durer</dd>
+      <dt class="chiffre">1</dt><dd>soirée entière rejouée à chaque modification</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="lancer colonne" id="lancer" aria-labelledby="titre-lancer">
+  <h2 id="titre-lancer">Lancer FiestApp chez toi</h2>
+  <p>Il faut Node 20 ou plus récent. Deux commandes, puis l'adresse locale : l'écran commun d'un côté, ton téléphone de l'autre.</p>
+  <pre class="terminal"><span>$ </span>npm install
+<span>$ </span>npm run dev
+<span># puis http://localhost:5173</span></pre>
+  <div class="actions">
+    <a class="bouton plein" href="https://github.com/Maxilyas/FiestApp/tree/main/docs/guides">Le premier pas à pas</a>
+    <a class="bouton" href="https://github.com/Maxilyas/FiestApp/tree/main/docs/exploitation">Mettre en ligne</a>
+  </div>
+</section>
+
+</main>
+
+<footer class="colonne">
+  <span>FiestApp · le quiz de la soirée, sur ton téléphone</span>
+  <span>Captures prises sur l'application réelle, par <code>server/scripts/rendu-vitrine.ts</code> et les scripts de rendu du dépôt.</span>
+</footer>
+
+</body>
+</html>

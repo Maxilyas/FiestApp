@@ -28,7 +28,7 @@ régler le temps de toutes ses questions d'un coup.
 | `consignes-audit.md` | les experts du code (sécurité, jeu solo, récompenses, moteur, données, courses…) : leur banc, leurs reproductions, leurs constats en JSON — « Les audits de code » plus bas |
 | `consignes-contre-expertise.md` | le contre-expert, qui essaie de réfuter chaque constat avant la synthèse |
 | `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
-| `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl`, `regie.log`, `captures/`, `retours/`, `bases/` |
+| `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl` (les gestes, sans leur sortie), `regie.log`, `regie.json`, `captures/`, `retours/`, `bases/`, `photos/`, `telechargements/` — ce que les navigateurs signalent ne s'y écrit pas : seul le geste `console` le lit |
 
 ## Le déroulé
 
@@ -114,7 +114,7 @@ tirer quoi que ce soit des retours, **vérifie** :
   plusieurs agents rapportent le même « bug » sans trace dans le journal ni
   la console, soupçonne d'abord le banc (la première tablée en a trouvé un
   ainsi : `retours/2026-09-23/synthese.md`, « Écarté ») ;
-- un retour qui contredit un parti pris du dépôt (README, « La direction » ;
+- un retour qui contredit un parti pris du dépôt (`docs/produit/vue-d-ensemble.md`, « Les partis pris » ;
   CLAUDE.md, invariants) se note comme tel : c'est une tension à arbitrer,
   pas une correction à faire.
 
@@ -179,9 +179,11 @@ npm run tablee -- --sans-build --fiche export/tablee/atelier.json \
 ```
 
 Chaque geste d'un expert commence alors par `TABLEE=<fiche de l'atelier>` —
-sans lui, il piloterait la tablée en direct. Les mesures de performance qui
-chargent la machine (`perf-chargement`, `perf-temps-reel`, `perf-rendu`)
-attendent la fin des soirées en direct : quatre cœurs partagés par une
+sans lui, il piloterait la tablée en direct. Toi aussi : `regie arreter`
+sans ce préfixe éteint la tablée en direct, et `chronologie.mjs` sans
+argument la raconte — donne-lui le dossier de l'atelier. Les mesures de
+performance qui chargent la machine (`perf-chargement`, `perf-temps-reel`,
+`perf-rendu`) attendent la fin des soirées en direct : quatre cœurs partagés par une
 trentaine d'agents faussent un chronomètre, et un test de charge ferait
 rater des questions aux invités.
 
@@ -249,9 +251,9 @@ dans un seul `constats.json`, et les épreuves qui les prouvent dans
   un salon par animateur), `--espace <nom>`,
   `--sans-animateur` (l'animateur utilise l'administrateur et ses deux quiz
   livrés), `--profil <Prénom/identifiant/avatar>` (répétable),
-  `--dossier <chemin>`, `--sans-build`, et `--fiche <chemin>` pour une
-  seconde tablée à côté d'une autre (ses pilotes la visent avec
-  `TABLEE=<chemin>`).
+  `--dossier <chemin>`, `--port <n>` (le serveur de jeu ; un port libre
+  sinon), `--sans-build`, et `--fiche <chemin>` pour une seconde tablée à
+  côté d'une autre (ses pilotes la visent avec `TABLEE=<chemin>`).
 
 ## Les limites à garder en tête
 
@@ -268,6 +270,11 @@ dans un seul `constats.json`, et les épreuves qui les prouvent dans
   rythme. `coller` remplit d'un coup, comme un texte copié ailleurs.
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
+- L'animatrice arrive par un compte que la régie crée à l'administration,
+  à activer par son lien : le chemin d'avant le 3 octobre 2026. Aujourd'hui,
+  un animateur ouvre son salon depuis son profil (« Créer un salon »), et
+  `/admin` ne crée plus de compte : ce que l'animatrice dit de son arrivée
+  parle de l'ancien chemin.
 - La salle (`dire`) est commune à toute la tablée — ou à tout un salon, s'il y
   en a plusieurs : c'est une pièce, pas un espace de l'application.
 - **Le nombre d'agents et la réserve d'usage.** Une session ne mène que vingt

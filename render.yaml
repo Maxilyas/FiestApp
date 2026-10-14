@@ -10,7 +10,7 @@
 # pas, le recréer si. Tant qu'un QR est imprimé ou qu'un lien circule, on
 # garde le service qui y répond. Les nôtres ont été créés à la main : ce
 # fichier reste la référence de ce qu'ils doivent contenir, et c'est leur
-# tableau de bord qui fait foi. Voir MISE-EN-LIGNE.md, étape 7.
+# tableau de bord qui fait foi. Voir docs/exploitation/mise-en-ligne.md, étape 8.
 #
 # ── Deux services, deux mondes ───────────────────────────────────────────
 #
@@ -47,7 +47,7 @@
 # plus, sur un dixième de cœur. L'ancienne commande marche toujours — c'est le
 # repli si le paquet refusait de démarrer.
 #
-# ⚠️ Si les services ont été créés à la main (voir MISE-EN-LIGNE.md, étape 7),
+# ⚠️ Si les services ont été créés à la main (voir docs/exploitation/mise-en-ligne.md, étape 8),
 # ce fichier ne les pilote pas : ces deux commandes se recopient dans le
 # tableau de bord de chacun (Settings, rubrique Build pour la première,
 # rubrique Deploy pour la seconde). Préprod d'abord — un déploiement, un
@@ -76,7 +76,7 @@ services:
     # le réveil de 6 h 55 (la routine de la réserve du quiz du jour, patiente :
     # un appel coupé à trente secondes ne réveille rien), et
     # jamais 24 h/24 : les 750 heures mensuelles se partagent avec la
-    # préprod (MISE-EN-LIGNE.md, étape 5). La nuit, ou si la tâche s'arrête,
+    # préprod (docs/exploitation/mise-en-ligne.md, étape 6). La nuit, ou si la tâche s'arrête,
     # l'écran commun ouvert cinq minutes avant l'arrivée des invités la
     # réveille, et le trafic des websockets la tient éveillée toute la soirée.
     healthCheckPath: /healthz
@@ -111,8 +111,8 @@ services:
       - key: QUIZ_DB_TOKEN
         sync: false
       # Le jeton de la routine Claude Code qui remplit la réserve du quiz du
-      # jour (MISE-EN-LIGNE.md, étape 8). Il ne sait qu'ajouter des
-      # questions. Tiré par le bouton « Generate » : sous trente-deux
+      # jour (docs/exploitation/mise-en-ligne.md, étape 9). Il dépose des questions, et lit celles à
+      # venir, bonnes réponses comprises : un secret. Tiré par le bouton « Generate » : sous trente-deux
       # caractères, la porte reste fermée. Absent, la réserve se remplit à
       # la main, depuis /admin.
       - key: RESERVE_TOKEN
@@ -172,6 +172,6 @@ services:
       - key: QUIZ_DB_KEEPALIVE_MS
         sync: false
       # Pour essayer la routine de la réserve avant la production : un jeton
-      # à elle, jamais celui de la prod (MISE-EN-LIGNE.md, étape 8).
+      # à elle, jamais celui de la prod (docs/exploitation/mise-en-ligne.md, étape 9).
       - key: RESERVE_TOKEN
         sync: false
