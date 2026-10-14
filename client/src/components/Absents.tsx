@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { PublicPlayer } from '../../../shared/types'
 import type { QuizCommand, QuizHostView } from '../../../shared/games/quiz'
+import { apparenceDeLAvatar, type ApparenceDeLAvatar } from '../../../shared/profil'
+import { Avatar } from './Avatar'
 import { rendrePlace } from '../socket'
 import { serverNow } from '../clock'
 import { Icon } from './Icon'
@@ -13,7 +15,8 @@ interface Props {
   sendCommand?: (command: QuizCommand) => void
 }
 
-interface Ligne {
+/** Une ligne du panneau — son avatar tel qu'il le porte : l'emoji seul lui donnait un autre visage qu'en salle. */
+interface Ligne extends ApparenceDeLAvatar {
   playerId: string
   name: string
   avatar: string
@@ -75,6 +78,7 @@ export function Absents({ players, quiz, sendCommand }: Props) {
         playerId: a.playerId,
         name: a.name,
         avatar: a.avatar,
+        ...apparenceDeLAvatar(a),
         horsLigne: !!a.horsLigne,
         attendu: true,
         dispense: !!a.dispense,
@@ -84,7 +88,7 @@ export function Absents({ players, quiz, sendCommand }: Props) {
   // Les autres hors-ligne : leur place peut se rendre à tout moment.
   const autres: Ligne[] = players
     .filter(p => !p.connected && !dejaLa.has(p.id))
-    .map(p => ({ playerId: p.id, name: p.nomAffiche ?? p.name, avatar: p.avatar, horsLigne: true, attendu: false, dispense: false }))
+    .map(p => ({ playerId: p.id, name: p.nomAffiche ?? p.name, avatar: p.avatar, ...apparenceDeLAvatar(p), horsLigne: true, attendu: false, dispense: false }))
   const lignes = [...deLaQuestion, ...autres]
   const enPlus = enQuestion ? quiz.attendusEnPlus ?? 0 : 0
   const nombre = enQuestion ? deLaQuestion.filter(l => !l.dispense).length + enPlus : autres.length
@@ -132,7 +136,7 @@ export function Absents({ players, quiz, sendCommand }: Props) {
                 <li key={l.playerId} className={'absent' + (l.horsLigne ? ' hors-ligne' : '')}>
                   <div className="absent-qui">
                     <span className="absent-avatar" aria-hidden="true">
-                      {l.avatar}
+                      <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
                     </span>
                     <span className="absent-nom">{l.name}</span>
                     {l.horsLigne && (

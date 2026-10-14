@@ -3724,6 +3724,11 @@ h3 > .icon {
   line-height: 1;
 }
 
+/* Dans une phrase (`AvatarEnLigne`) — les vainqueurs du défi, le bilan,
+   l'historique : un médaillon n'a pas de ligne de base, et se posait
+   au-dessus du texte. Centré sur lui, comme l'emoji. */
+.av-en-ligne { vertical-align: middle; }
+
 /* Le halo vit derrière l'emoji, jamais dessus : un `background-clip: text`
    rendrait transparent un glyphe qui porte ses propres couleurs.
 

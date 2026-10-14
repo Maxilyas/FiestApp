@@ -9,6 +9,7 @@
 import type { PlayableQuestion, QuestionKind } from './library'
 import type { PublicSpace } from './space'
 import type { TeamBonus } from './types'
+import type { ApparenceDeLAvatar } from './profil'
 
 export interface ArchivedPlayer {
   id: string
@@ -103,8 +104,12 @@ export interface ArchiveSummary {
   players: number
   quizzes: number
   questions: number
-  /** Les vainqueurs de la soirée : plusieurs s'ils finissent ex æquo, aucun si personne n'a marqué. */
-  winners: { name: string; avatar: string; points: number }[]
+  /**
+   * Les vainqueurs de la soirée : plusieurs s'ils finissent ex æquo, aucun si
+   * personne n'a marqué — avec ce qu'ils portent aujourd'hui, comme le
+   * souvenir et le bilan d'une archive.
+   */
+  winners: ({ name: string; avatar: string; points: number } & ApparenceDeLAvatar)[]
   /** Les équipes qui remportent le quiz, prix compris — la règle de l'écran de victoire. */
   teamWinners: { name: string; emoji: string; points: number }[]
 }

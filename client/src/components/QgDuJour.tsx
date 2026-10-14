@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Icon } from './Icon'
+import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourEnToutesLettres, moisEnToutesLettres, type LigneDuJour } from '../../../shared/jour'
@@ -226,8 +227,9 @@ export function ClassementDuMoisAuQg({ suivi, occupe, masquer }: { suivi: SuiviD
           {mois.lignes.map(l => (
             <li key={l.profileId} className="qg-rang">
               <span className="qg-rang-place num">{l.rang}</span>
+              {/* Tel que les joueurs le voient : ce qu'il porte, pas l'emoji d'en dessous. */}
               <span className="qg-avatar" aria-hidden="true">
-                {l.avatar}
+                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
               </span>
               <span className="qg-ligne-texte">
                 <b>{l.nom}</b>
@@ -285,7 +287,14 @@ export function SeriesDuJourAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
           </ul>
           {s.plusLongues.length > 0 && (
             <p className="muted small">
-              Les plus longues : {s.plusLongues.map(l => `${l.avatar} ${l.nom}, ${pluriel(l.serie, 'jour')}`).join(' · ')}.
+              Les plus longues :{' '}
+              {s.plusLongues.map((l, i) => (
+                <Fragment key={l.profileId}>
+                  {i > 0 && ' · '}
+                  <AvatarEnLigne de={l} /> {`${l.nom}, ${pluriel(l.serie, 'jour')}`}
+                </Fragment>
+              ))}
+              .
             </p>
           )}
         </>

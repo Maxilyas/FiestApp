@@ -1,4 +1,5 @@
 import { Icon } from './Icon'
+import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours } from './QgModes'
 import { formatNumber } from '../../../shared/typographie'
 import { dureeEcrite, type VueDEnsemble } from '../../../shared/qg'
@@ -146,8 +147,9 @@ export function ClassementDesDuelsAuQg({ suivi, occupe, masquer }: { suivi: Suiv
           {c.lignes.map(l => (
             <li key={l.profileId} className="qg-rang">
               <span className="qg-rang-place num">{l.rang}</span>
+              {/* Tel que les joueurs le voient : ce qu'il porte, pas l'emoji d'en dessous. */}
               <span className="qg-avatar" aria-hidden="true">
-                {l.avatar}
+                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
               </span>
               <span className="qg-ligne-texte">
                 <b>{l.nom}</b>
@@ -191,7 +193,7 @@ export function DuelsEnAttente({ suivi, occupe, annuler }: { suivi: SuiviDesDuel
                 <li key={d.code} className="qg-ligne qg-attente">
                   <span className="qg-ligne-texte">
                     <b>
-                      {`${d.auteur.avatar} ${d.auteur.nom}`} <Icon name="chevron-right" /> {`${d.adversaire.avatar} ${d.adversaire.nom}`}
+                      <AvatarEnLigne de={d.auteur} /> {d.auteur.nom} <Icon name="chevron-right" /> <AvatarEnLigne de={d.adversaire} /> {d.adversaire.nom}
                     </b>
                     <span className="muted small">{`${depuisQuand(d.envoyeLe, suivi.maintenant)}\u00a0· expire\u00a0dans\u00a0${dureeEcrite(d.fermeLe - suivi.maintenant)}`}</span>
                   </span>

@@ -24,6 +24,20 @@ paths:
 
 ## Les pièges
 
+- **L'historique montre ses vainqueurs tels qu'ils se montrent aujourd'hui**,
+  comme le souvenir et le bilan d'une archive : la liste lit leurs profils
+  d'un coup (`ArchiveStore.list(espace, apparencesDe)`, `apparencesDesProfils`
+  dans `server.ts`, la règle de la salle — `badgeDe`) ; sa fiche retient le
+  profil de chaque invité (`invites[].profileId`, `profils`). Une fiche
+  d'avant le 14 octobre 2026 ne le savait pas : elle le relit une fois dans
+  son archive, dans la base même (`completerLesProfils`, `json_each` — sans
+  faire voyager ses Mo), et se réécrit si elle n'a pas bougé ; une archive
+  illisible garde ses vainqueurs en emoji. Sans lecteur de profils — l'export
+  —, l'emoji. Le souvenir, ses prix et « Les chiffres » recopient de même ce
+  que chacun porte (`apparenceDeLAvatar` : le plus beau coup, le plus
+  régulier, les vainqueurs de chaque quiz, `PlayerStat`, `Award.player`), et
+  un texte — le Coup de Pouce, « Tous les liens » — n'écrit l'emoji qu'à qui
+  le porte (`un-seul-avatar.test.ts`).
 - **Le nom d'une soirée porte une empreinte de son espace** (`archiveIdOf`),
   mais les soirées d'avant n'en ont pas : l'expérience, les paliers et les
   Éclats se rangent sous le nom seul, alors une soirée se désigne par

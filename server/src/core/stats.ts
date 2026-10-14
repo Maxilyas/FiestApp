@@ -1,6 +1,7 @@
 import type { AnswerRow } from './answers'
 import type { Award, PartyStats, PlayerStat, PublicPlayer } from '../../../shared/types'
 import { nomAffiche } from '../../../shared/homonymes'
+import { apparenceDeLAvatar } from '../../../shared/profil'
 import { ordreDAffichage, ordreDeClassement, rangPartage } from '../../../shared/classement'
 import { coupDOeil, indexerJournal, questionsDe } from './journal'
 
@@ -162,6 +163,8 @@ export function computeStats(journal: AnswerRow[], players: PublicPlayer[]): Par
       playerId: player.id,
       name: nomAffiche(player),
       avatar: player.avatar,
+      // Ce qu'il porte, comme au classement : « Les chiffres » et les prix le montraient en emoji.
+      ...apparenceDeLAvatar(player),
       teamId: player.teamId,
       points: player.score,
       asked: mine.length,
@@ -203,6 +206,7 @@ function emptyStat(p: PublicPlayer): PlayerStat {
     playerId: p.id,
     name: nomAffiche(p),
     avatar: p.avatar,
+    ...apparenceDeLAvatar(p),
     teamId: p.teamId,
     points: p.score,
     asked: 0,
@@ -516,7 +520,7 @@ function buildAwards(
       title: spec.title,
       rule: spec.rule,
       detail: spec.detail(winner, x(winner)),
-      player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
+      player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar, ...apparenceDeLAvatar(winner) },
       teamId: winner.teamId,
       ...exAequoDe(classes, s => valeur(s) === valeur(winner) && volume(s) === volume(winner)),
     })
@@ -614,7 +618,8 @@ function buildAwards(
       emoji: '🤝',
       title: 'Le Coup de Pouce',
       rule: 'À l’équipe qui compte la personne ayant le moins marqué, parmi celles qui ont répondu au moins une fois',
-      detail: `${lowest.avatar} ${lowest.name} ferme la marche avec ${lowest.points} points`,
+      // Son emoji, s'il le porte : un légendaire ne s'écrit pas, et l'emoji d'en dessous le désignait.
+      detail: `${lowest.legendaire ? '' : `${lowest.avatar} `}${lowest.name} ferme la marche avec ${lowest.points} points`,
       player: null,
       teamId: lowest.teamId,
       // Le prénom départage aussi les derniers ; un coéquipier à égalité ne
@@ -688,7 +693,7 @@ function pushBest(
     title: spec.title,
     rule: spec.rule,
     detail: spec.detail(winner),
-    player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
+    player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar, ...apparenceDeLAvatar(winner) },
     teamId: winner.teamId,
     ...exAequoDe(ranked, s => spec.value(s) === spec.value(winner) && volume(s) === volume(winner)),
   })

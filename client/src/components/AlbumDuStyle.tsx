@@ -10,6 +10,8 @@ import { objetsDuStyle, type LieuDuStyle, type ObjetDuStyle, type PartieDuStyle 
 import { OU_JOUER } from '../../../shared/trophees'
 import { gerbe } from '../../../shared/gerbes'
 import { CRANS_D_UNE_BORDURE, ligueParCle, type CleDeLigue } from '../../../shared/duels'
+import { divin } from '../../../shared/divins'
+import { avatarDeLApercu, sonAvatar } from '../../../shared/sonAvatar'
 import type { Finition, PublicProfileDetail } from '../../../shared/profil'
 
 // Le style, dans « Ma collection » : les fonds de carte, les gerbes, les
@@ -92,25 +94,28 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
     setOuvert(x => (x === o.cle ? null : o.cle))
     if (partie === 'gerbes') setEclat(e => ({ cle: o.cle, n: (e?.n ?? 0) + 1 }))
   }
-  /** Son aperçu : le fond lui-même, la gerbe en ses particules, son avatar dans la finition ou la bordure. */
+  /**
+   * Son aperçu : le fond lui-même, la gerbe en ses particules, son avatar dans
+   * la finition ou la bordure — celui qu'il porte, un légendaire compris :
+   * l'emoji d'en dessous s'y montrait (le 14 octobre 2026). Sous un Divin, qui
+   * n'en prend aucune, la finition ou la bordure seule (`avatarDeLApercu`).
+   */
   const visuel = (o: ObjetDuStyle, grand = false): ReactNode => {
     switch (partie) {
       case 'fonds':
-        return (
-          <span className={`fond-apercu carte-fond fond-${o.cle}`}>
-            {grand && <Avatar avatar={profil.avatar} finition={profil.finition} />}
-          </span>
-        )
+        return <span className={`fond-apercu carte-fond fond-${o.cle}`}>{grand && <Avatar {...sonAvatar(profil)} finition={profil.finition} />}</span>
       case 'gerbes': {
         const g = gerbe(o.cle)
         return <span className={'style-gerbe' + (o.aLui ? '' : ' silhouette')}>{grand ? g?.particules.join(' ') : g?.particules[0]}</span>
       }
       case 'finitions':
-        return <Avatar avatar={profil.avatar} finition={o.cle as Finition} />
+        return <Avatar {...avatarDeLApercu(profil)} finition={o.cle as Finition} />
       case 'bordures':
-        return <Avatar avatar={profil.avatar} finition={profil.finition} bordure={{ ligue: o.cle as CleDeLigue, crans: o.crans ?? 0 }} />
+        return <Avatar {...avatarDeLApercu(profil)} finition={profil.finition} bordure={{ ligue: o.cle as CleDeLigue, crans: o.crans ?? 0 }} />
     }
   }
+  // Un Divin a sa propre lumière : ce que ces deux albums montrent se voit sous ses autres avatars.
+  const divinPorte = partie === 'finitions' || partie === 'bordures' ? divin(profil.legendaire) : undefined
   return (
     <>
       <div className={`trophees-grille style-grille style-${partie}`}>
@@ -151,6 +156,9 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
           </Fragment>
         ))}
       </div>
+      {divinPorte && (
+        <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ${partie === 'finitions' ? 'ta finition' : 'ta bordure'} se voit sous tes autres avatars.`}</p>
+      )}
       <p className="muted small">{espacesFines('En couleur, ce qui est à toi ; éteint, ce qui reste. Touches-en un : comment l’avoir, et où tu en es.')}</p>
       {eclat && <GerbeDeJuste key={eclat.n} cle={eclat.cle} />}
     </>

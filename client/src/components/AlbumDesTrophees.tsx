@@ -16,6 +16,7 @@ import { lesPlusProches } from '../../../shared/proches'
 import { ditLaRecompense, etapesDeLaPiste } from '../../../shared/pistes'
 import { PALIER_DU_MAITRE } from '../../../shared/sentiers'
 import { CRANS_D_UNE_BORDURE } from '../../../shared/duels'
+import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { PAGES } from '../../../shared/calendrier'
 import {
   CE_QUE_RANGE_LA_PAGE,
@@ -280,7 +281,8 @@ function Section({
       case 'ligue':
         return <BlasonDeLigue ligue={c.ligue!} taille={grand ? 56 : 30} decoratif />
       case 'bordure':
-        return <Avatar avatar={profil.avatar} finition={profil.finition} bordure={{ ligue: c.ligue!, crans: c.valeur ?? 0 }} />
+        // Autour de ce qu'il porte, un légendaire compris ; sous un Divin, la bordure seule.
+        return <Avatar {...avatarDeLApercu(profil)} finition={profil.finition} bordure={{ ligue: c.ligue!, crans: c.valeur ?? 0 }} />
       case 'maitre':
         return (
           <span className="trophee-couronne" style={lueur(LUEUR[c.branche!])}>

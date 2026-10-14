@@ -76,7 +76,9 @@ export function buildRecap(input: RecapInput): Recap {
       vainqueurs([...sess.totals], ([, points]) => points, ([id]) => nomDe(id), ([id]) => id).map(([id, points]) => ({
         title: sess.title || 'Un quiz',
         name: nomDe(id),
+        // Avec ce qu'il porte, comme au classement : les cartes des vainqueurs le montraient en emoji.
         avatar: byId.get(id)!.avatar,
+        ...apparenceDeLAvatar(byId.get(id)),
         points,
         sessionId,
       })),
@@ -103,13 +105,14 @@ export function buildRecap(input: RecapInput): Recap {
         ? {
             name: nomAffiche(bestPlayer),
             avatar: bestPlayer.avatar,
+            ...apparenceDeLAvatar(bestPlayer),
             points: best.points,
             // Le libellé que le module de jeu écrit au journal des gains.
             reason: `Quiz « ${best.quizTitle} » — Q${best.qIndex + 1}`,
           }
         : null,
     steadiest:
-      steady && steadyPlayer ? { name: nomAffiche(steadyPlayer), avatar: steadyPlayer.avatar, count: steady[1] } : null,
+      steady && steadyPlayer ? { name: nomAffiche(steadyPlayer), avatar: steadyPlayer.avatar, ...apparenceDeLAvatar(steadyPlayer), count: steady[1] } : null,
     quizWinners,
     bonuses: prixRemis(bonuses, teams),
   }

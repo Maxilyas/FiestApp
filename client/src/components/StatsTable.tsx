@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { PartyStats, PlayerStat } from '../../../shared/types'
+import { Avatar } from './Avatar'
 
 /** Ce qu'on peut trier, et comment chaque colonne se lit. */
 interface Column {
@@ -121,7 +122,8 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
           {rows.map(s => (
             <tr key={s.playerId}>
               <td className="stats-name">
-                <span className="lb-avatar">{s.avatar}</span> {s.name}
+                {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage. */}
+                <Avatar className="lb-avatar" avatar={s.avatar} finition={s.finition} legendaire={s.legendaire} eclat={s.eclat} /> {s.name}
               </td>
               {COLUMNS.map(c => (
                 <td

@@ -9,7 +9,7 @@
 // pause, un intertitre — qu'un vrai serveur ne laisse pas viser.
 import { mock } from 'node:test'
 import { initDb } from '../src/core/db'
-import { Party } from '../src/core/party'
+import { Party, type BadgeLookup } from '../src/core/party'
 import { ScoreLedger } from '../src/core/scores'
 import { AnswerLog } from '../src/core/answers'
 import { GameEngine } from '../src/core/engine'
@@ -34,15 +34,19 @@ export function horloge(now = 1_000_000) {
   }
 }
 
-/** Une salle, un moteur, les quiz `{ id, title, questions }` de son espace. */
-export function salle(quiz: { id: string; title: string; questions: unknown[] }[]) {
+/**
+ * Une salle, un moteur, les quiz `{ id, title, questions }` de son espace.
+ * `badgeOf` : ce que portent les profils — un invité s'y rattache par
+ * `party.bindProfile`, comme l'instantané le lit (`ProfileStore.badgeDe`).
+ */
+export function salle(quiz: { id: string; title: string; questions: unknown[] }[], { badgeOf }: { badgeOf?: BadgeLookup } = {}) {
   const spaceId = `salle-${Math.random().toString(36).slice(2)}`
   setQuizLibrary(
     spaceId,
     quiz.map(q => ({ id: q.id, title: q.title, updatedAt: 0, questions: q.questions }) as unknown as QuizDef),
   )
   const db = initDb(':memory:')
-  const party = new Party(db, spaceId)
+  const party = new Party(db, spaceId, undefined, badgeOf)
   const ledger = new ScoreLedger(db, spaceId)
   const answers = new AnswerLog(db, spaceId)
   const emissions: { salle: string; ev: string; payload: any }[] = []
