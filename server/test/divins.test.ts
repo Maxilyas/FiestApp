@@ -312,26 +312,44 @@ test('ni les règles ni les légendes des Divins ne partent dans le navigateur',
     emporte.filter(({ texte }) => /from\s+['"][^'"]*core\/divins['"]/.test(texte)).map(({ f }) => f),
     [],
   )
-  // …ni recopier une légende : « Plus vite que tous, à chaque question »,
-  // lue dans le code de la page, en dirait presque autant que la règle.
+  // …ni recopier une légende, ni même son début : lue dans le code de la
+  // page, elle en dirait presque autant que la règle. Le commentaire de
+  // `shared/divins.ts` qui en citait une, pour dire de ne pas le faire, la
+  // laissait dans un fichier que le client importe (relevé le 14 octobre
+  // 2026) : on cherche donc ses premiers mots, pas la légende entière.
   const legendes = raconter(DIVINS.map(d => d.key)).map(d => d.legende)
   assert.equal(legendes.length, DIVINS.length, 'chaque Divin a son récit')
   for (const legende of legendes) {
-    assert.deepEqual(emporte.filter(({ texte }) => texte.includes(legende)).map(({ f }) => f), [], legende)
+    const debut = legende.slice(0, 24)
+    assert.deepEqual(emporte.filter(({ texte }) => texte.includes(debut)).map(({ f }) => f), [], legende)
   }
+  // …ni un commentaire qui la raconte : celui de `shared/legendaires.ts`,
+  // un fichier que le client importe, disait la condition de l'Arbre-Monde
+  // (relevé le 14 octobre 2026).
+  assert.deepEqual(emporte.filter(({ texte }) => /DOUZE_LEGENDAIRES|douze d.origine/.test(texte)).map(({ f }) => f), [])
   // Le catalogue public ne porte que de quoi dessiner et nommer.
   for (const d of DIVINS) assert.deepEqual(Object.keys(d).sort(), ['key', 'nom'])
   // Et la documentation ne l'écrit pas non plus : la règle de l'Arbre-Monde
-  // s'était glissée dans RECOMPENSES.md et le CLAUDE.md, alors que les règles
-  // vivent dans core/divins.ts « et nulle part ailleurs » (invariants-4). Le
-  // CLAUDE.md a laissé le détail de chaque domaine à ses règles
-  // (`.claude/rules/`) : elles se relisent avec lui.
-  const regles = readdirSync(path.join(racine, '.claude/rules'))
-    .filter(f => f.endsWith('.md'))
-    .map(f => `.claude/rules/${f}`)
-  for (const doc of ['README.md', 'RECOMPENSES.md', 'CLAUDE.md', 'MISE-EN-LIGNE.md', ...regles]) {
+  // s'était glissée dans l'ancien RECOMPENSES.md et dans le CLAUDE.md, alors
+  // que les règles vivent dans core/divins.ts « et nulle part ailleurs »
+  // (invariants-4). Tout ce qui se lit hors du serveur se relit donc : le
+  // README, le CLAUDE.md et ses règles (`.claude/rules/`), et chaque page de
+  // `docs/`, la vitrine comprise — ni la règle, ni le début d'une légende.
+  const documentation = [
+    'README.md',
+    'CLAUDE.md',
+    ...readdirSync(path.join(racine, '.claude/rules'))
+      .filter(f => f.endsWith('.md'))
+      .map(f => `.claude/rules/${f}`),
+    ...readdirSync(path.join(racine, 'docs'), { recursive: true })
+      .map(f => `docs/${String(f).split(path.sep).join('/')}`)
+      .filter(f => /\.(md|html)$/.test(f)),
+  ]
+  assert.ok(documentation.length > 30, `seulement ${documentation.length} pages relues`)
+  for (const doc of documentation) {
     const texte = readFileSync(path.join(racine, doc), 'utf8')
     assert.doesNotMatch(texte, /DOUZE_LEGENDAIRES|douze d.origine/, doc)
+    for (const legende of legendes) assert.ok(!texte.includes(legende.slice(0, 24)), `${doc} recopie le début d'une légende`)
   }
 })
 

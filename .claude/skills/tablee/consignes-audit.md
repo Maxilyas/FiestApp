@@ -17,10 +17,12 @@ vrai bug manqué coûte une soirée à une salle entière.
   domaine arrive d'elle-même quand tu lis un de ses fichiers avec Read, et se
   lit aussi directement. Ensemble, ils sont la carte des bugs qu'on a déjà
   eus. Un invariant cassé est un constat ; un piège retombé aussi.
-- `README.md`, « La direction » : les partis pris. Un constat qui les heurte
+- `docs/produit/vue-d-ensemble.md`, « Les partis pris » : les partis pris de l'application. Un constat qui les heurte
   est une **tension à arbitrer**, pas un bug.
-- Selon ton angle : `RECOMPENSES.md` (la progression), `MISE-EN-LIGNE.md`
-  (l'hébergement), `PARCOURS-ENTREE.md` (l'entrée d'une soirée).
+- Selon ton angle, sa page de `docs/` (le sommaire : `docs/README.md`) :
+  `docs/produit/les-recompenses.md` (la progression),
+  `docs/exploitation/mise-en-ligne.md` (l'hébergement), `docs/guides/jouer.md`
+  et `docs/architecture/client.md` (l'entrée d'une soirée).
 - **Ce qui vient de changer d'abord.** Les deux dernières PR (#58 : le quiz du
   jour, le profil en onglets ; #59 : collection, paliers du jour, Sphinx,
   laurier, écussons, fonds de carte, saisons) ont ajouté dix mille lignes :

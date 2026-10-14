@@ -10,7 +10,7 @@ import { ETIQUETTES, SOUS_THEMES } from '../../../shared/etiquettes'
 // La consigne qu'on donne à une IA pour agrandir la base de la campagne
 // (`core/baseCampagne.ts`) — à la main, par lots que le script range dans le
 // dépôt (`scripts/base-campagne.ts`), ou chaque matin par la routine qui
-// dépose au serveur (`/api/campagne/base`, MISE-EN-LIGNE.md, étape 8) : une
+// dépose au serveur (`/api/campagne/base`, docs/exploitation/mise-en-ligne.md, étape 9) : une
 // seule consigne pour les deux, comme celle du quiz du jour.
 
 /** Au-delà, l'intitulé se lit mal sur un téléphone : un avertissement, pas un refus. */

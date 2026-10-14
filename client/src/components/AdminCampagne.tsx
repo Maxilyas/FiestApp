@@ -415,7 +415,7 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
     return (
       <p className="muted small">
         Rien de déposé pour l’instant. La routine de la réserve du quiz du jour agrandit aussi la base, chaque matin, une fois son étape « base de la
-        campagne » ajoutée (MISE-EN-LIGNE.md, étape 8).
+        campagne » ajoutée (docs/exploitation/mise-en-ligne.md, étape 9).
       </p>
     )
   }

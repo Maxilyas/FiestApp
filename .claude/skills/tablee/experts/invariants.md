@@ -41,8 +41,9 @@ positif). Par exemple — la liste n'est pas close :
   `laurierChange`, `accorderSaison`, `laureatsDeSaison`, `periodeDu`,
   `fondsOuverts`, `fondPorte`, `plusBeauxEcussons`, `SEUILS_ECUSSON`,
   `DOUZE_LEGENDAIRES`, `niveauRequis`, `COLLECTION`, `Distinctions.laurier`…)
-  existe-t-il et fait-il ce qui est dit ? Les chiffres de `RECOMPENSES.md` et
-  du README (seuils, barèmes, nombres de jours) sont-ils ceux du code ?
+  existe-t-il et fait-il ce qui est dit ? Les chiffres des pages de `docs/` (seuils,
+  barèmes, nombres de jours) sont-ils ceux du code ? `documentation.test.ts`
+  ne relit que ceux de `docs/reference/baremes.md`.
 
 **Hors de ton angle** : juger si une règle est bonne — tu vérifies qu'elle
 est tenue. Les bugs profonds de logique vont aux autres experts ; une règle

@@ -875,11 +875,11 @@ export class JourStore {
       choisies = [...choisies, ...choisir(lignes.filter(l => l.livree), QUESTIONS_PAR_JOUR - choisies.length)]
       choisies = [...choisies, ...anciennes.filter(l => l.livree)].slice(0, QUESTIONS_PAR_JOUR)
       // Personne ne regarde la réserve : le journal le dit. Sans la routine
-      // qui la remplit (MISE-EN-LIGNE.md, étape 8), l'amorce tient quatre
+      // qui la remplit (docs/exploitation/mise-en-ligne.md, étape 9), l'amorce tient quatre
       // jours, puis plus rien avant que ses questions redeviennent tirables.
       if (choisies.length < QUESTIONS_PAR_JOUR) {
         console.warn(
-          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (MISE-EN-LIGNE.md, étape 8)`,
+          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (docs/exploitation/mise-en-ligne.md, étape 9)`,
         )
       }
     }

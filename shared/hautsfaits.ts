@@ -883,7 +883,7 @@ export interface HautFaitVu {
  *
  * Mesurée, pas décrétée : `server/scripts/calibrage.ts` fait jouer quarante
  * soirées à des bandes d'amis inventées, sur le vrai code des hauts faits,
- * aux trois formats de RECOMPENSES.md (5.2) — deux quiz de cinquante
+ * à trois formats de soirée — deux quiz de cinquante
  * questions à douze, deux de trente à dix, trois de douze à huit —, et l'on
  * garde la moyenne des trois. Un seul format mentait : à deux quiz par
  * soirée, le Triplé est impossible, et le Grand Chelem tombe à trois joueurs
