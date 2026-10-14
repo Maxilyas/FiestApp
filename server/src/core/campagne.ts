@@ -197,6 +197,7 @@ import {
 } from '../../../shared/sentiersDeSujets'
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
+import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -5232,6 +5233,76 @@ export class CampagneStore {
       duel.fermeLe = maintenant
       return { code: duel.code, auteur: duel.auteur, adversaire }
     })
+  }
+
+  /**
+   * Ce que la campagne a payé depuis un instant, tous profils (le QG,
+   * `/admin#economie`) : ses bonnes réponses heure par heure — séries,
+   * épreuves, parcours, révisions, défis, duels : un confetti chacune —,
+   * les étoiles des sentiers à l'épreuve qui atteint la note, et les ligues
+   * des duels au lundi qui paie la semaine. Les réponses se cherchent par
+   * leur série, une semaine de marge (`MARGE_D_UNE_EPREUVE_MS`) : sans index
+   * sur `repondue_le`, la table entière.
+   */
+  async economieDepuis(depuis: number): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
+    const [justes, payes] = await Promise.all([
+      this.client.execute({
+        sql: `SELECT r.repondue_le / ${HEURE_MS} AS heure, COUNT(*) AS n
+              FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
+              WHERE s.commencee_le >= ? AND r.repondue_le >= ? AND r.juste = 1
+              GROUP BY heure`,
+        args: [depuis - MARGE_D_UNE_EPREUVE_MS, depuis],
+      }),
+      this.etoilesEtLigues(),
+    ])
+    const depuisLa = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis)
+    return {
+      justes: justes.rows.map(r => ({ quand: Number(r.heure) * HEURE_MS, confettis: Number(r.n) })),
+      etoiles: depuisLa(payes.etoiles.mouvements),
+      ligues: depuisLa(payes.ligues.mouvements),
+    }
+  }
+
+  /**
+   * Les confettis de campagne de chaque profil, aux règles de `confettisDe`
+   * — ses bonnes réponses, ses étoiles, ses ligues —, tous profils d'un coup :
+   * la circulation du QG, relue une fois par jour.
+   */
+  async confettisDeTous(): Promise<Map<string, number>> {
+    const [justes, payes] = await Promise.all([
+      this.client.execute('SELECT profile_id, SUM(justes) AS n FROM campagne_series GROUP BY profile_id'),
+      this.etoilesEtLigues(),
+    ])
+    const tous = new Map(justes.rows.map(r => [String(r.profile_id), Number(r.n ?? 0)]))
+    for (const parProfil of [payes.etoiles.parProfil, payes.ligues.parProfil]) {
+      for (const [id, n] of parProfil) tous.set(id, (tous.get(id) ?? 0) + n)
+    }
+    return tous
+  }
+
+  /**
+   * Ce que paient les étoiles et les ligues, qui n'écrivent aucune ligne :
+   * relu de toutes les épreuves validées (`etoilesDansLeTemps`, aux règles
+   * de `sentiersLus`) et des cotes du classement, déjà gardées
+   * (`liguesDansLeTemps`).
+   */
+  private async etoilesEtLigues(): Promise<{ etoiles: ReturnType<typeof etoilesDansLeTemps>; ligues: ReturnType<typeof liguesDansLeTemps> }> {
+    const [validees, cotes] = await Promise.all([
+      this.client.execute(
+        `SELECT profile_id, branche, palier, justes, seuil, commencee_le, finie_le FROM campagne_series WHERE mode = 'sentier' AND issue = 'validee'`,
+      ),
+      this.toutesLesCotes(),
+    ])
+    const epreuves: EpreuveValidee[] = validees.rows.map(r => ({
+      profil: String(r.profile_id),
+      branche: String(r.branche),
+      palier: Number(r.palier),
+      justes: Number(r.justes),
+      seuil: r.seuil == null ? null : Number(r.seuil),
+      // Validée, une épreuve en cours compte déjà ses étoiles : à son début.
+      quand: Number(r.finie_le ?? r.commencee_le),
+    }))
+    return { etoiles: etoilesDansLeTemps(epreuves), ligues: liguesDansLeTemps(cotes, this.semaineDeLHeure().semaine) }
   }
 
   // ── Les signalements ────────────────────────────────────────────────────

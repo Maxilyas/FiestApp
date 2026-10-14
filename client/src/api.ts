@@ -39,6 +39,7 @@ import type { PageDuServeur } from '../../shared/santeDuServeur'
 import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
+import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -650,6 +651,8 @@ export const api = {
     suiviDesDuels: () => req<SuiviDesDuels>('/api/admin/duels/suivi'),
     /** Annuler un duel classé que l'adversaire n'a pas commencé : il ne compte pour personne. */
     annulerUnDuel: (code: string) => req<{ ok: true; code: string }>(`/api/admin/duels/${encodeURIComponent(code)}/annuler`, { method: 'POST', body: '{}' }),
+    /** L'économie : les confettis gagnés et dépensés, ceux qui circulent, les meilleures ventes, les Éclats et les légendaires. */
+    economie: () => req<PageDeLEconomie>('/api/admin/economie'),
   },
 }
 

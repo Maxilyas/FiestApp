@@ -14,7 +14,9 @@
 // par vingt-quatre joueurs, trente jours d'épreuves, un palier réglé — et
 // « Régler » ouvert ; la page des duels — quatre semaines de duels contre
 // Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
-// ceux qui attendent leur adversaire — et l'un d'eux annulé ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
+// ceux qui attendent leur adversaire — et l'un d'eux annulé ; la page de
+// l'économie — trente jours de thèmes, de compagnons et de soirées, des Éclats,
+// dix-sept légendaires portés — ; enfin la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée —, le don qu'on prépare, le code de secours
 // tiré pour elle, et son accueil qui annonce le don, une fois. Le client
 // construit d'abord (`npm run build -w client`).
@@ -30,6 +32,9 @@ import { jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
 import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
 import { regleDuPalier } from '../../shared/sentiers'
+import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
+import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
+import { gainVide, releveVide } from '../../shared/profil'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
@@ -425,6 +430,59 @@ try {
         }
       })
     }
+    // L'économie : trente jours de thèmes et de compagnons achetés, des
+    // soirées le vendredi et le samedi — une bonne réponse, un confetti —,
+    // des Éclats au quiz du jour, en soirée et au défi, et dix-sept profils
+    // qui portent un légendaire, chacun gagné par son haut fait. Ceux-là
+    // naissent ici, dans la base : un profil déjà en mémoire n'y relirait pas
+    // ses hauts faits, et son légendaire ne se compterait pas.
+    {
+      const EN_VENTE = ['aurore', 'licorne', 'cahier', 'neon', 'jungle', 'stade', 'grimoire', 'cosmos', 'ocean', 'disco']
+      const theme = permanente.prepare('INSERT OR IGNORE INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, ?, ?)')
+      const compagnon = permanente.prepare('INSERT OR IGNORE INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, ?, 0, ?)')
+      const credit = permanente.prepare('INSERT OR IGNORE INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, 120, ?, ?)')
+      const eclat = permanente.prepare('INSERT OR IGNORE INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)')
+      minuits.forEach((minuit, d) => {
+        const jour = jourDe(minuit + 12 * H)
+        for (let k = 0; k < 1 + (d % 3); k++) {
+          const t = THEMES.find(x => x.key === EN_VENTE[(d + k * 3) % EN_VENTE.length])!
+          const quand = minuit + (11 + k) * H
+          if (quand <= maintenant) theme.run(joueurs[(d * 3 + k * 5) % joueurs.length].id, t.key, PRIX_DES_THEMES[t.rarete], quand)
+        }
+        if (d % 5 === 2) compagnon.run(joueurs[(d * 7) % joueurs.length].id, ['loup', 'chat', 'tortue'][d % 3], PRIX_D_UN_COMPAGNON, minuit + 15 * H)
+        const semaine = new Date(minuit + 12 * H).getUTCDay()
+        if ((semaine === 5 || semaine === 6) && minuit + 22 * H <= maintenant) {
+          joueurs.slice(0, 10 + (d % 8)).forEach((j, k) => {
+            const justes = 6 + ((d + k) % 9)
+            const detail = JSON.stringify({ v: 3, gain: { ...gainVide(), reponses: justes + 4 }, releve: { ...releveVide(), justes, estimationsProches: k % 3 } })
+            credit.run(j.id, `${jour}-rendu`, 'rendu', detail, minuit + 22 * H)
+          })
+          eclat.run(joueurs[(d + 5) % joueurs.length].id, `rendu-soiree-${d}`, `${jour}-rendu`, minuit + 23 * H)
+        }
+        if (d % 2 === 0 && minuit + 9 * H <= maintenant) eclat.run(joueurs[d % joueurs.length].id, `rendu-jour-${d}`, `#jour:${jour}`, minuit + 9 * H)
+        if (semaine === 1) eclat.run(joueurs[(d * 5) % joueurs.length].id, `rendu-defi-${d}`, `#defi:${semaineDe(jour)}`, minuit + 2 * H)
+      })
+      // Ce que chacun avait gagné avant les trente jours, en campagne : de quoi payer ses achats, et quelques-uns un compagnon.
+      const avant = permanente.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 0, 0, ?, ?, ?, 'serie')`)
+      joueurs.forEach((j, k) => avant.run(`avant-${k}`, j.id, 700 + ((k * 389) % 1500), maintenant - (60 + k) * 24 * H, maintenant - (60 + k) * 24 * H + H))
+      const porteur = permanente.prepare(
+        `INSERT INTO profiles (id, login, name, avatar, password_hash, recovery_hash, created_at, legendaire) VALUES (?, ?, ?, '🦊', 'rendu', 'rendu', ?, ?)`,
+      )
+      const hautFait = permanente.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, 'rendu', 'rendu', '✨', 'Haut fait', ?)`)
+      const PORTEURS: [string, string, number][] = [
+        ['lg:phenix', 'hf:phenix', 7],
+        ['lg:dragon', 'hf:triple', 5],
+        ['lg:chouette', 'hf:grand-chelem', 3],
+        ['lg:salamandre', 'hf:funambule', 2],
+      ]
+      let k = 0
+      for (const [legendaire, badge, n] of PORTEURS) {
+        for (let i = 0; i < n; i++, k++) {
+          porteur.run(`porteur-${k}`, `porteur${k}`, `Porteur ${k + 1}`, maintenant - 40 * 24 * H, legendaire)
+          hautFait.run(`porteur-${k}`, badge, maintenant - 20 * 24 * H)
+        }
+      }
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
@@ -453,6 +511,10 @@ try {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-classement, .qg-attente', { timeout: 15000 })
     }
+    if (adresse === '/admin#economie') {
+      await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
+      await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
+    }
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -480,6 +542,10 @@ try {
   await photographier('37-duels-1920', 1920, 1080, { adresse: '/admin#duels' })
   await photographier('38-duels-telephone', 360, 640, { adresse: '/admin#duels' })
   await photographier('39-duels-ivoire', 360, 640, { adresse: '/admin#duels', theme: 'ivoire' })
+  await photographier('42-economie', 1366, 768, { adresse: '/admin#economie' })
+  await photographier('43-economie-1920', 1920, 1080, { adresse: '/admin#economie' })
+  await photographier('44-economie-telephone', 360, 640, { adresse: '/admin#economie' })
+  await photographier('45-economie-ivoire', 360, 640, { adresse: '/admin#economie', theme: 'ivoire' })
   await photographier('7-journal', 1366, 768, { adresse: '/admin#journal', pleine: false })
   await photographier('8-journal-telephone', 360, 640, { adresse: '/admin#journal' })
   await photographier('9-soirees', 1366, 768, { adresse: '/admin#soirees' })

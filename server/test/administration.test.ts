@@ -51,16 +51,17 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   assert.doesNotMatch(page, /CreateForm|<h2>Créer un compte|accounts-table|<h2>Tous les comptes/)
   assert.doesNotMatch(source('api.ts'), /create: \(input: \{ login: string; name: string; slug: string \}\)/)
   // Le journal, le serveur et les six écrans, à leur adresse ; les ancres d'avant y mènent encore.
-  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels'\]/)
+  assert.match(page, /const ECRANS: readonly Ecran\[\] = \['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie'\]/)
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
   // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
   // liste des pages, qui dit ce qu'on y trouve — la campagne y compte ses
   // signalements.
-  for (const e of ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels']) assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
+  for (const e of ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie']) assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
   for (const nom of ['Le journal', 'Le serveur', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour']) assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
   assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)
   assert.match(page, /<Ligne\s+icone="swords"\s+nom="Les duels"/)
+  assert.match(page, /<Ligne\s+icone="bag"\s+nom="L’économie"/)
   // La barre du menu, comme « Mon compte » ; celle de l'animateur pour qui n'a pas de profil.
   assert.match(page, /<MenuBarre ici="compte" \/>/)
   assert.match(page, /\{!me\.profil && <NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>\}/)

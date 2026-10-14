@@ -62,6 +62,7 @@ import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
 import { minuitDe } from '../../../shared/qg'
 import { recueilDeLaQuestion, type PartDesBonnes, type QuestionDuSuivi } from '../../../shared/qgDuJour'
+import type { Mouvement } from '../../../shared/qgEconomie'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -1697,6 +1698,26 @@ export class JourStore {
       args: [profileId],
     })
     return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Les confettis du quiz du jour depuis un instant, tous profils, partie par
+   * partie — une bonne réponse, un confetti, ses questions annulées déjà
+   * retirées (`recompter`) —, au moment où elle a commencé : le QG,
+   * `/admin#economie`. Par le jour, qui a son index.
+   */
+  async confettisDepuis(depuis: number): Promise<Mouvement[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT commencee_le, justes FROM jour_parties WHERE jour >= ? AND commencee_le >= ? AND justes > 0',
+      args: [jourDe(depuis), depuis],
+    })
+    return res.rows.map(r => ({ quand: Number(r.commencee_le), confettis: Number(r.justes) }))
+  }
+
+  /** Les bonnes réponses du quiz du jour de chaque profil, depuis toujours — sa part du solde (`justesDe`) : le QG les relit une fois par jour. */
+  async justesDeTous(): Promise<Map<string, number>> {
+    const res = await this.client.execute('SELECT profile_id, SUM(justes) AS n FROM jour_parties GROUP BY profile_id')
+    return new Map(res.rows.map(r => [String(r.profile_id), Number(r.n ?? 0)]))
   }
 
   /** Le jour qu'il est à Paris, à l'horloge du quiz du jour — que les tests font passer minuit. */

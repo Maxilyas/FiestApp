@@ -4,6 +4,7 @@ import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminCampagne } from '../components/AdminCampagne'
 import { AdminDuels } from '../components/AdminDuels'
+import { AdminEconomie } from '../components/AdminEconomie'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
@@ -39,8 +40,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels']
+type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -59,11 +60,13 @@ const TITRE: Record<Ecran, string> = {
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
   duels: 'Les duels',
+  economie: 'L’économie',
 }
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
- * pages qui existent : l'économie et « Animer » la rejoindront à leur tour.
+ * pages qui existent : « Animer » la rejoindra à son tour. L'économie se
+ * range avec les joueurs, comme sur la maquette : leurs confettis.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -88,6 +91,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     pages: [
       { ecran: 'profils', nom: 'Profils', icone: 'users' },
       { ecran: 'salons', nom: 'Salons', icone: 'home' },
+      { ecran: 'economie', nom: 'Économie', icone: 'bag' },
     ],
   },
   { groupe: 'Le contenu', pages: [{ ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' }] },
@@ -349,6 +353,7 @@ export function AdminApp() {
                 <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
                 <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
                 <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
+                <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
                 <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
                 <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
@@ -366,6 +371,7 @@ export function AdminApp() {
         {ecran === 'jour' && <AdminDuJour vue={vue} />}
         {ecran === 'campagne' && <AdminCampagne vue={vue} />}
         {ecran === 'duels' && <AdminDuels vue={vue} />}
+        {ecran === 'economie' && <AdminEconomie />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
