@@ -2,10 +2,14 @@ import type { Finition } from '../../../shared/profil'
 
 // Le cercle d'un avatar dessiné qu'on porte, dans la matière de la finition
 // de son porteur — un légendaire (`Legendaire.tsx`) comme un portrait des
-// branches (`Portrait.tsx`) : la finition dit le niveau d'un joueur à toute
-// la salle, quel que soit le visage qu'il a choisi. Un halo par-dessus un
-// médaillon faisait deux ou trois anneaux, une cible ; il n'y a plus qu'une
-// bordure, et c'est elle.
+// branches (`Portrait.tsx`) ou un compagnon (`Compagnon.tsx`) : la finition
+// dit le niveau d'un joueur à toute la salle, quel que soit le visage qu'il a
+// choisi. Un halo par-dessus un médaillon faisait deux ou trois anneaux, une
+// cible ; il n'y a plus qu'une bordure, et c'est elle.
+//
+// Il se pose sous le disque : un métal est un disque plein, dont le disque
+// peint ne laisse voir que le bord. Posé par-dessus, l'Argent et l'Or
+// cachaient le compagnon entier.
 //
 // Un fichier à part, chargé avec le premier dessin qui en a besoin : les
 // portraits ne font pas venir les légendaires pour leur cercle.
