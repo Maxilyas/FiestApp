@@ -7,9 +7,9 @@
 // descendre n'est écrit nulle part où un téléphone pourrait le lire : ce
 // module part dans le paquet du navigateur, il ne porte donc que de quoi
 // dessiner et nommer. La règle vit dans `server/src/core/divins.ts` — et la
-// légende aussi : « Plus vite que tous, à chaque question », lue dans le
-// code de la page, en dirait presque autant que la règle. Le serveur ne la
-// raconte qu'à celui sur qui le Divin est descendu.
+// légende aussi : lue dans le code de la page, une légende en dirait presque
+// autant que la règle. Le serveur ne la raconte qu'à celui sur qui le Divin
+// est descendu.
 //
 // Comme le reste du profil, un Divin ne donne AUCUN avantage de jeu.
 

@@ -15,6 +15,16 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
   en une commande (client construit d'abord). Dans un script Playwright,
   `waitForFunction` prend une fonction, jamais un texte : la politique de
   sécurité des pages refuse `eval`.
+- **Les lancer** : depuis `server/`, `npx tsx scripts/<script>.ts
+  ../export/<dossier>` — sans dossier, les photos tombent dans un dossier
+  de `server/` que git n'ignore pas (`rendu-themes.ts` écrit dans
+  `export/rendus`, `apercus-themes.ts` dans `client/src/themes/apercus`).
+  Le serveur jetable sert `client/dist` tel qu'il est : sans
+  `npm run build -w client` d'abord, on photographie l'écran d'avant la
+  retouche. Playwright n'est pas une dépendance du dépôt : les scripts le
+  prennent parmi les modules globaux (`npm root -g`). Ce qu'ils évaluent
+  dans la page part en texte dès qu'il nomme une fonction : `tsx` y
+  glisserait des `__name` que la page ne connaît pas.
 
 ## Les scripts qui photographient
 
@@ -25,11 +35,12 @@ description: Regarder une page ou un écran de FiestApp comme le verra un invit�
 - `server/scripts/rendu-profil.ts` — la page du profil photographiée au téléphone sur un serveur jetable : soi-même et ses quatre boutons, sa carte entière et son avatar en grand, la loge — sa carte et ses pièces avant ses panneaux, puis entière —, sur chaque pièce, un essai de trois pièces — un thème compris, qui habille la page — porté d'un coup, la pastille d'une nouveauté, chaque ligne de « Ma collection » dépliée — l'album des avatars page par page et trois fiches, l'album des trophées page par page et trois fiches, l'album des thèmes, la fiche de l'un —, le retour de la collection à « Mon thème », et la boutique — ses compagnons aussi (les fichiers `10-…`) : leur rayon neuf puis à soi, la loge qui les porte, l'album et trois fiches, la carte et le loup des étoiles en grand, où un monde vivant mal livré montrait son carré noir
 - `server/scripts/rendu-sentiers.ts` — tous les écrans des sentiers du savoir (règle `sentiers.md`).
 - `server/scripts/rendu-cloches.ts` — la cloche du rappel du soir, qui ne paraît que dans l'application installée, en haut de la page du jour ; puis le même endroit de la page des duels, qui n'en a plus — ce qui s'y trouve, et combien de cloches (règle `rappel-et-installation.md`).
-- `server/scripts/rendu-duels.ts` — les duels (`/duels`) : le bouton de l'accueil, la page d'un débutant, un duel classé — son enjeu, sa cote à la fin —, une montée de ligue, le classement ; puis défier un ami : la préparation — sur quoi, sa feuille —, une partie jusqu'à sa fin — à qui il est parti —, et l'ami qui le reçoit (règle `duels.md`).
+- `server/scripts/rendu-duels.ts` — les duels (`/duels`) : le bouton de l'accueil, la page d'un débutant, un duel classé — son enjeu, sa cote à la fin —, une montée de ligue, le classement ; puis défier quelqu'un touché au classement : la préparation — sur quoi, sa feuille —, une partie jusqu'à sa fin — à qui il est parti —, et celui qui le reçoit ; la feuille des amis et les joueurs croisés (`ECRAN=390x844`, `THEME=ivoire`, `CALME=1` ; règle `duels.md`).
 - `server/scripts/rendu-bordures.ts` — les bordures de ligue dans l'application, six joueurs du bronze aux maîtres : sa ligne en tête de l'accueil et du profil, la loge et sa rangée « Bordure », une autre essayée, le classement des duels, la carte d'un maître et son avatar en grand (règle `duels.md`) ; `server/scripts/planche-bordures.ts`, leur planche — six ligues par sept finitions, leurs crans, ce qui déborde, les lumières, en petit, en Velours et en Ivoire (règle `medaillons.md`).
-- `server/scripts/rendu-campagne.ts` — les écrans de la campagne qui se jouent sur plusieurs jours, l'horloge avancée à la main : le carnet de révision, ses révisions et leur fin, une rencontre contre un inconnu (règle `campagne.md`), et les parcours de thème sous le carnet, dans « Apprendre » — une famille à la fois, la fiche d'un parcours, une étape et sa fin, le retour aux parcours (règle `sentiers.md`).
+- `server/scripts/rendu-campagne.ts` — les écrans de la campagne qui se jouent sur plusieurs jours, l'horloge avancée à la main : le carnet de révision, ses révisions et leur fin, un duel au dé contre Automate et les défis entre amis, dans leur page `/duels` (règles `campagne.md`, `duels.md`), et les parcours de thème sous le carnet, dans « Apprendre » — une famille à la fois, la fiche d'un parcours, une étape et sa fin, le retour aux parcours (règle `sentiers.md`).
 - `server/scripts/rendu-quiz-tout-pret.ts` — un quiz tout prêt, sur la vraie base de la campagne : « Créer un quiz », sa feuille réglée d'office puis choisie, le quiz composé dans l'éditeur, et le salon d'un profil où il rejoint ce soir (règle `bibliotheque.md`).
 - `server/scripts/rendu-qg.ts` — le QG de l'administrateur (`/admin`) : trente jours d'activité inventée, une soirée en cours et une laissée en plan, au téléphone, en 1366 × 768 et en 1920 × 1080, sous le Velours et sous l'Ivoire, puis le journal des gestes, la page des soirées et la soirée en plan close d'un clic, la page « Le serveur » sur une semaine inventée, la page du quiz du jour — une question piège touchée —, enfin la fiche d'une joueuse — le don qu'on prépare, le code de secours tiré — et son accueil qui annonce le don, une fois ; il dit si une page ou la fiche déborde en largeur (règle `qg.md`).
 - `server/scripts/rendu-themes.ts` et `server/scripts/apercus-themes.ts` — un thème dans l'application, son contraste, son aperçu (règle `themes.md`).
 - `server/scripts/planche-portraits.ts`, `server/scripts/planche-medaillons.ts` — les images peintes dans tous leurs états (skill `peindre`).
 - `server/scripts/mesure-pages.ts` (`npm run mesure`) — ce que chaque page fait attendre à un téléphone (règle `client.md`).
+- `server/scripts/rendu-vitrine.ts` — les captures de la vitrine (`docs/vitrine/`) : le cas qu'on raconte, là où `rendu-ecran.ts` cherche le pire — un quiz de culture générale, dix amis dont six profils qui portent ce qu'ils ont gagné, trois équipes —, à l'écran commun en 1920 × 1080 (en Velours, la révélation aussi en Ivoire) et au téléphone d'une invitée en 390 × 844, en JPEG. Sans dossier, il réécrit celles de `docs/vitrine/captures` : c'est voulu quand l'écran a changé, à éviter pour un simple coup d'œil.

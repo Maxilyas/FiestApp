@@ -1,6 +1,6 @@
 ---
 name: redacteur-campagne
-description: Écrit un lot de questions pour la base de la campagne solo de FiestApp, d'après la consigne de son lot (`server/scripts/base-campagne.ts consigne`), et le vérifie jusqu'à zéro refus. Pour agrandir la base de la campagne.
+description: Écrit un lot de questions pour la base de la campagne solo de FiestApp, d'après la consigne de son lot (`server/scripts/base-campagne.ts consigne`, `generer-campagne.ts` ou `faits-wikidata.ts lots`), et le vérifie jusqu'à zéro refus. Pour agrandir la base de la campagne.
 tools: Read, Write, Edit, Bash
 model: sonnet
 effort: low

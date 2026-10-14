@@ -15,7 +15,9 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
    catégorie, sous-thème et difficulté.
 2. **Le dossier des lots** : `../.lots-campagne/`, à côté du code, que git ne
    voit jamais (`.gitignore`). Dans un clone neuf (une session cloud),
-   crée-le avant tout : la consigne lit ce dossier, et rien n'y est committé.
+   crée-le avant tout (`mkdir -p ../.lots-campagne`) : la consigne s'y écrit
+   par une redirection, qui ne crée pas le dossier — `consigne` y lit aussi
+   les lots en attente —, et rien n'y est committé.
 3. **La consigne d'un lot** : `npx tsx scripts/base-campagne.ts consigne
    <Catégorie> <sous-thème>:<n> … --lot=<nom> > ../.lots-campagne/<nom>.consigne.md`.
    Le nom du lot ne prend que des lettres et des chiffres (`geo1`) : ses
@@ -49,8 +51,10 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
 8. **Ranger** : `verifier` une dernière fois, puis `npx tsx
    scripts/base-campagne.ts ranger ../.lots-campagne/<nom>-*.json`. Chaque
    question y reçoit son identifiant, et le rangement écarte ce que la base ou
-   les quiz livrés ont déjà — le même intitulé, ou le même fait. Commite
-   `server/content/campagne/`, jamais le dossier des lots.
+   les quiz livrés ont déjà — le même intitulé, ou le même fait. Relève
+   `AU_MOINS` (`server/test/campagne-base.test.ts`), avec la ligne qui dit
+   ce qui est entré, et commite `server/content/campagne/`, jamais le dossier
+   des lots.
 
 Sans déploiement, la routine du matin agrandit aussi la base, par l'API
 (`/api/campagne/base`) : voir la règle `campagne-base.md`.
@@ -92,7 +96,10 @@ moins qu'une réécriture.
 1. **Le plan** : `npx tsx scripts/generer-campagne.ts preparer
    --questions=<n>` (`--categories=Géographie,Sport`, `--par-lot=30`). Il dit ce
    qui manque à la base, en lots de trente au plus et en vagues, écrit les
-   consignes de la première vague, et donne une mission par lot.
+   consignes de la première vague, et donne une mission par lot. À la place
+   de `--questions` : `--sentiers` (ce qui manque aux sentiers pour se monter
+   deux fois, `--sentiers=3` pour trois) ou `--theme=<clé>` (ce qui manque à
+   un thème de `shared/sujets.ts`) ; `--nom=<nom>`, sinon g1, g2…
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle
    quelle, en arrière-plan, une dizaine à la fois.
 3. **La suite** : `npx tsx scripts/generer-campagne.ts suite`, après chaque
@@ -106,7 +113,8 @@ moins qu'une réécriture.
    fiche que personne n'a relue (`../.lots-campagne/<nom>/a-relire/`, à relire
    à la main avant de les remettre dans le dossier des lots).
 5. **Ranger** : le bilan donne les commandes — `voisines`, puis `ranger
-   ../.lots-campagne/<nom>-*.json` — ; commite `server/content/campagne/`.
+   ../.lots-campagne/<nom>-*.json` — ; relève `AU_MOINS`, et commite
+   `server/content/campagne/`.
 
 `etat` dit où en est une génération. Une seule à la fois : pour en abandonner
 une, supprime `../.lots-campagne/<nom>/` et ses lots `<nom>-*.json`.
@@ -128,9 +136,11 @@ ci-dessus. Les familles et leurs règles sont dans la règle `campagne-base.md`.
    renvoyait chaque requête du cloud à une minute. Puis `NODE_USE_ENV_PROXY=1
    npx tsx scripts/faits-wikidata.ts extraire [<famille> …]` (la variable :
    dans le cloud, `fetch` ne suit pas le proxy sans elle). Les fiches vont
-   dans `../.faits-wikidata/`, que git ignore, et les requêtes s'y gardent :
-   relancer une famille ne demande que ce qui a changé ; `familles` dit ce
-   qui est extrait.
+   dans `../.faits-wikidata/`, que git ignore, et les réponses de Wikidata
+   s'y gardent sans date (`cache/`, sous leur requête) : relancer une famille
+   ne redemande que les requêtes neuves — pour relire Wikidata à neuf, vide
+   `../.faits-wikidata/cache/` ; les vues, elles, valent trente jours.
+   `familles` dit ce qui est extrait.
 2. **Les lots** : `npx tsx scripts/faits-wikidata.ts lots --questions=<n>
    [--familles=films:150,goncourt:50] --nom=<nom>` (crée `../.lots-campagne/`
    s'il manque) : la part de chaque famille, prise parmi les plus lues — de
