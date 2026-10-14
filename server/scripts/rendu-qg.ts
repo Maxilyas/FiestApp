@@ -269,15 +269,17 @@ try {
         const invites = soiree ? Math.round(8 + 22 * vague) : Math.round(3 * vague)
         // Ses connexions vers Turso : avant la mise en ligne, la garde de Node —
         // le jour, clairsemé, rouvre presque à chaque aller-retour ; le soir, la
-        // salle les tient chaudes —, après, gardées trente secondes.
-        const gardee = version !== 'a1b2c3d'
+        // salle les tient chaudes —, après, gardées chaudes par l'entretien,
+        // qui bat sur chacune tant que des joueurs jouent.
+        const chaudes = version !== 'a1b2c3d'
         const connexions = {
-          ouvertes: gardee ? (soiree ? 6 : 14) : soiree ? 35 : 120,
+          ouvertes: chaudes ? (soiree ? 6 : 14) : soiree ? 35 : 120,
           refermeesParLaBase: 0,
           plusJeuneRefermeeMs: null,
           echecs: erreurs['POST /api/jour/reponse'] ? 1 : 0,
-          gardeMs: gardee ? 30_000 : 4_000,
+          gardeMs: 4_000,
           annonceeMs: null,
+          ...(chaudes && { chaudes: true, battements: soiree ? 40 : 260, battementsTombes: 0, ouvertesParUnBattement: soiree ? 0 : 3 }),
         }
         heureDeSante.run(
           heure,

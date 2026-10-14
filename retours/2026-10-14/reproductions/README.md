@@ -24,7 +24,17 @@ node --import tsx ../retours/2026-10-14/reproductions/trace.ts
 node ../retours/2026-10-14/reproductions/plans.mjs
 # Le fetch de Node et ses connexions.
 node ../retours/2026-10-14/reproductions/connexions.mjs
+# Les connexions gardées chaudes (QUIZ_DB_KEEPWARM), sans puis avec : une série jouée au rythme de la production (≈ 7 min).
+node --import tsx ../retours/2026-10-14/reproductions/connexions-chaudes.ts [réponses]
 ```
+
+Le faux Turso referme une connexion après un délai d'inactivité et fait payer
+sa poignée de main à une connexion neuve si on le lui demande
+(`POST /__connexions {refermeApresMs, poigneeMs}`, `Faux.connexions`) : 5 000
+et 196 ms pour `connexions-chaudes.ts`, ce que la production a montré le 14
+octobre 2026 — Turso referme à 5 s sans le dire, une connexion à rouvrir
+coûte 225 ms contre 29. Sans la demande, rien ne change pour les autres
+scripts.
 
 Sur un service déployé, au repos et rarement (chaque série compte dans sa
 minute de `/healthz` et dans son relevé de l'heure) : une connexion vers

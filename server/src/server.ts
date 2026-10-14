@@ -32,7 +32,9 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls, releve } from './core/pouls'
-import { gardeAnnoncee, gardeDeLaBase, reglerLaGarde } from './core/connexions'
+import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
+import { clientDistant } from './core/distante'
+import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -116,11 +118,13 @@ export interface QuizServerOptions {
    */
   version?: string
   /**
-   * Combien de temps garder une connexion inactive vers la base permanente
-   * (`QUIZ_DB_KEEPALIVE_MS`, `core/connexions.ts`) ; absente, les 4 s du
-   * `fetch` de Node.
+   * Garder les connexions vers la base permanente chaudes tant que des
+   * joueurs jouent (`QUIZ_DB_KEEPWARM`, `core/connexions.ts`) : un `SELECT 1`
+   * avant qu'une connexion ait trois secondes de calme. Une base en fichier
+   * n'a rien à garder. Les tests donnent leur battement (`battre`) et
+   * resserrent les délais.
    */
-  gardeDeLaBaseMs?: number
+  connexionsChaudes?: boolean | (ReglagesDeLEntretien & { battre?: () => Promise<unknown> })
 }
 
 /** L'avance de la réserve du quiz du jour ne se relit pas plus souvent : `/healthz` se sonde toutes les quelques secondes. */
@@ -248,10 +252,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // dans le même processus — les tests —, n'a rien à lui léguer. Ce que le
   // démarrage coûte à Turso, en revanche, compte dans sa première heure.
   releve.remettreAZero()
-  // La garde des connexions vers la base, avant la première requête : elle
-  // vaut pour le processus, et chaque serveur pose la sienne — un serveur
-  // d'avant ne lègue pas plus sa garde que son relevé.
-  reglerLaGarde(opts.gardeDeLaBaseMs)
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
@@ -269,6 +269,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // mesuré là où Turso est vraiment loin — `/healthz` le dit (`core/pouls.ts`).
   app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) return next()
+    // Un joueur est là : ses connexions vers la base restent chaudes une
+    // minute (`core/connexions.ts`). Pas l'administrateur : un QG ouvert toute
+    // la journée relit son direct toutes les dix secondes, sans Turso.
+    if (!req.path.startsWith('/api/admin')) noterUneDemande()
     const debut = performance.now()
     res.on('finish', () => {
       const modele: unknown = req.route?.path
@@ -856,15 +860,23 @@ export async function createQuizServer(opts: QuizServerOptions) {
           p95Ms: base.p95,
           maxMs: base.max,
           // Ce que coûtent ses connexions (`core/connexions.ts`) : une neuve par
-          // aller-retour, c'est une poignée de main à chacun ; la garde en
-          // vigueur, pour voir qu'un réglage a pris, et le délai que la base
-          // annonce, qu'undici lui préfère.
+          // aller-retour, c'est une poignée de main à chacun ; la garde de
+          // Node, et le délai que la base annonce, qu'undici lui préfère ;
+          // l'entretien qui les garde chaudes, null s'il ne tourne pas — pour
+          // voir que `QUIZ_DB_KEEPWARM` a pris.
           connexions: {
             ouvertesParMin: pouls.connexions.lire().n,
             refermeesParLaBaseParMin: pouls.refermeesParLaBase.lire().n,
             echecsParMin: pouls.echecsDeLaBase.lire().n,
-            gardeMs: gardeDeLaBase(),
+            gardeMs: GARDE_DE_NODE_MS,
             gardeAnnonceeMs: gardeAnnoncee(),
+            chaudes: connexionsGardeesChaudes()
+              ? {
+                  battementsParMin: pouls.battements.lire().n,
+                  tombesParMin: pouls.battementsTombes.lire().n,
+                  ouvertesParMin: pouls.ouvertesParUnBattement.lire().n,
+                }
+              : null,
           },
         },
       }
@@ -1287,6 +1299,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.
   app.use(erreurDeRequete)
 
+  // L'entretien des connexions vers la base, avant la première requête et
+  // seulement si le démarrage a abouti : il vaut pour le processus, et chaque
+  // serveur pose le sien — un serveur d'avant ne lègue pas plus son entretien
+  // que son relevé. Ses battements passent par un client à eux : ils ne
+  // comptent ni dans le temps de Turso ni dans ses échecs. Une base en
+  // fichier ne passe pas par le réseau : rien à garder.
+  const chaudes = opts.connexionsChaudes
+  const reglagesDesChaudes: ReglagesDeLEntretien & { battre?: () => Promise<unknown> } = typeof chaudes === 'object' ? chaudes : {}
+  const clientDesBattements =
+    chaudes && !reglagesDesChaudes.battre && !opts.quizDbUrl.startsWith('file:') ? clientDistant(opts.quizDbUrl, opts.quizDbToken, { battement: true }) : null
+  const battre = reglagesDesChaudes.battre ?? (clientDesBattements ? () => clientDesBattements.execute('SELECT 1') : null)
+  const arreterLEntretien = entretenirLesConnexions(chaudes ? battre : null, reglagesDesChaudes)
+
   await new Promise<void>(resolve => httpServer.listen(opts.port, resolve))
   const address = httpServer.address()
   const port = typeof address === 'object' && address ? address.port : opts.port
@@ -1316,6 +1341,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
       new Promise<void>(resolve => {
         clearInterval(resync)
         clearTimeout(prechauffage)
+        // Plus un battement : le serveur qui suit, dans le même processus, pose le sien.
+        arreterLEntretien()
+        clientDesBattements?.close()
         // L'extinction propre s'écrit tout de suite, à côté du miroir qui se
         // vide : l'hébergeur coupe net trente secondes après avoir prévenu, et
         // un démarrage sans elle passerait pour arrêté net.
