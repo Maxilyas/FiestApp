@@ -173,6 +173,10 @@ test('sans base, sur un fichier absent, une échelle illisible ou un hôte injoi
     assert.match(injoignable.erreurs, /lecture impossible/)
     assert.match(injoignable.erreurs, /relance avec NODE_USE_ENV_PROXY=1/)
     assert.ok(!`${injoignable.sortie}${injoignable.erreurs}`.includes('jeton-d-essai'), 'le jeton ne s’écrit jamais')
+    // Ni l'adresse : le nom d'hôte d'une base porte celui que l'administrateur
+    // lui a donné, un prénom parfois (la première mesure en production).
+    assert.match(injoignable.sortie, /· base distante \(libsql\)/)
+    assert.ok(!`${injoignable.sortie}${injoignable.erreurs}`.includes('hote-introuvable'), 'l’adresse d’une base distante ne s’écrit pas')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

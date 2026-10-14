@@ -114,7 +114,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   le smoke la liraient et y écriraient dès leur démarrage. Dans le cloud,
   `NODE_USE_ENV_PROXY=1` devant : sans, le `fetch` de Node ignore le proxy et
   ne trouve pas l'hôte (`ENOTFOUND`) — le script le dit. Rien que des SELECT,
-  dans une transaction en lecture seule, et des totaux sans un nom
+  dans une transaction en lecture seule, et des totaux sans un nom — ni
+  l'adresse d'une base distante, dont le nom d'hôte peut porter un prénom
   (`calibrage-duels.test.ts`)
 - `shared/qgDuels.ts` · `CampagneStore.suiviDesDuelsAuQg` · `annulerUnDuel` — les duels vus du QG (`/admin#duels`, règle `qg.md`) : les duels par jour, les ligues et le classement — « Masquer », et les masqués à y remettre —, les duels classés qui attendent leur adversaire. L'administrateur peut **annuler un duel classé que l'adversaire n'a pas commencé** (le choix du 13 octobre 2026, « Annuler un duel pas joué ») : il se ferme tout de suite, comme à son expiration, et ne compte pour personne — l'adversaire ne peut plus le relever (« Ce défi est fermé »). Commencé de l'autre côté, il compte déjà : il ne s'annule plus (`qg-duels.test.ts`)
 

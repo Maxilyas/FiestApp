@@ -85,14 +85,19 @@ function resoudre(adresse: string): string {
 }
 const url = resoudre(demandee)
 
-/** La base telle qu'on peut l'écrire : son hôte ou son fichier, jamais un jeton glissé dans l'adresse. */
+/**
+ * La base telle que la sortie la dit : un fichier par son chemin — il est sur
+ * la machine de qui mesure —, une base distante sans son adresse. Son nom
+ * d'hôte porte celui que l'administrateur lui a donné, un prénom parfois, et
+ * la sortie se colle dans une conversation (la première mesure en production,
+ * le 14 octobre 2026).
+ */
 function lisible(adresse: string): string {
   if (adresse.startsWith('file:')) return adresse
   try {
-    const u = new URL(adresse)
-    return `${u.protocol}//${u.host}`
+    return `base distante (${new URL(adresse).protocol.replace(/:$/, '')})`
   } catch {
-    return 'adresse illisible'
+    return 'base distante'
   }
 }
 
@@ -168,6 +173,9 @@ const DUELS_CONTRE = `SELECT m.id AS serie, m.profile_id AS joueur, d.auteur AS 
   WHERE m.mode = 'duel' AND d.adversaire IS NOT NULL`
 
 const maintenant = Date.now()
+// L'en-tête d'abord : une lecture qui échoue dit encore ce qu'elle visait.
+console.log(`Les duels mesurés · ${new Date(maintenant).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })} · ${lisible(url)}`)
+console.log('Lecture seule : rien n’est écrit, et rien ici ne nomme personne.')
 const client = clientDistant(url, jeton)
 const [series, journal, contre] = await client
   .batch([SERIES_FINIES, lectureDesDuels(null, maintenant), DUELS_CONTRE].map(lecture), 'read')
@@ -210,8 +218,6 @@ function resume(valeurs: readonly number[], ecrire: (x: number) => string = nomb
   return QUANTILES.map(([nom, q]) => `${nom} ${ecrire(quantile(t, q))}`).join(' · ')
 }
 
-console.log(`Les duels mesurés · ${new Date(maintenant).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })} · ${lisible(url)}`)
-console.log('Lecture seule : rien n’est écrit, et rien ici ne nomme personne.')
 
 // ── 1. Ce que les joueurs font par série ──────────────────────────────────
 
