@@ -78,7 +78,7 @@ Douze enluminures, une par mois. **Vingt jours joués** dans un mois (`JOURS_POU
 | Bonus de série | 10 par jour d'affilée, 100 au plus, versé dès la partie commencée | `XP_PAR_JOUR_DE_SERIE`, `XP_DE_SERIE_MAX` |
 | Podium du jour | 75, 45, 30 ; rang partagé, une marche de moins que de joueurs, points > 0 | `XP_PODIUM_DU_JOUR` |
 | Étoiles, la note de la partie | Trois au sans-faute ; deux à 8 sur 10 ; une à 6 sur 10 — sur les questions qui comptent encore | `medailleDe`, `ETOILES_DE_LA_MEDAILLE` |
-| « Trouvée par » | Dite à partir de 3 réponses | — |
+| « Trouvée par » | Dite à partir de 3 joueurs sur la question, temps écoulé compris | — |
 | Éclat | Une chance sur 40 à chaque partie finie | `CHANCE_ECLAT_DU_JOUR` |
 
 Le serveur compte encore la note en médailles (`medailleDe` : l'or, l'argent, le bronze), et l'écran la montre en étoiles (`NOM_DE_LA_NOTE`, `phraseDesEtoiles`) : bronze, argent et or nomment les étapes des pistes, et la « médaille d'or » d'un jour se lisait comme un trophée.
@@ -101,7 +101,7 @@ La Légende, qui suit le niveau, se juge aussi au quiz du jour.
 
 ### Les hauts faits du jour
 
-Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les range en exploits — Le Laurier, lui, se compte dans la piste du Champion du jour — et en coups du sort pour La Lanterne du jour, Le Courant d'air et Le Dernier Métro. Ceux qui se mesurent aux autres ne se jugent que dans une salle de **8 joueurs au moins** (`SALLE_DU_JOUR`) ; un profil masqué n'y compte ni n'y gagne.
+Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les range en exploits — Le Laurier, lui, se compte dans la piste du Champion du jour — et en coups du sort pour La Lanterne du jour, Le Courant d'air et Le Dernier Métro. Ceux qui se mesurent aux autres, hors Le Laurier et Le Triomphe, ne se jugent que dans une salle de **8 joueurs au moins** (`SALLE_DU_JOUR`) ; un profil masqué n'y compte ni n'y gagne.
 
 | Haut fait | Ce qu'il faut | XP | Quand |
 |---|---|---|---|

@@ -1,11 +1,11 @@
 # Administrer FiestApp
 
-> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions.
+> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Le serveur](#la-santé-du-serveur) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
-> Le QG grandit : chaque mode de jeu y reçoit sa page, l'une après l'autre — le quiz du jour, puis la campagne ; les duels et l'économie suivront. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
+> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie aussi ; une page « Animer » viendra à son tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
 
 ## Entrer au QG
 
@@ -24,8 +24,10 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
 | La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin, les signalements |
+| Les duels | `/admin#duels` | la journée, les duels par jour, les ligues, le classement, les duels qui attendent leur adversaire |
 | Les profils | `/admin#profils` | chaque joueur, et sa fiche |
 | Les salons | `/admin#salons` | chaque espace du serveur |
+| L'économie | `/admin#economie` | les confettis gagnés et dépensés, d'où ils viennent, où ils partent, ce qui circule, les meilleures ventes, les Éclats et les légendaires |
 | Le catalogue | `/admin#catalogue` | les copies de quiz proposées à tous |
 
 Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ensemble toutes les cinq minutes et chaque fois que tu y reviens — et ne relit rien tant que l'onglet est caché. En tête, « En direct » ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
@@ -59,7 +61,7 @@ Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ense
 
 Chaque geste du QG qui change quelque chose s'y note de lui-même, en une phrase qui nomme ce qu'il a touché : « Profil supprimé : Tom (@tom) », « Espace désactivé : Nadia B. », « Soirée laissée en plan close : Antoine — rien n'avait été joué ». Un refus ne s'y note jamais. Un geste noté ne se modifie ni ne s'efface : défaire, c'est faire le geste contraire, qui se note à son tour. Le journal garde le nom d'un profil supprimé — la trace de ce qui a eu lieu.
 
-Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
+Filtres : Tous, Soirées, Profils, Salons, Catalogue, Quiz du jour, Campagne, Duels. Les gestes se rangent par jour (« Aujourd'hui », « Hier », puis la date), cinquante à la fois (« Voir les gestes d'avant »). La fiche d'un joueur reprend les tiens sur son profil (« Tes gestes sur ce profil »). Un code de secours tiré n'y paraît jamais, seulement sa phrase : « Code de secours neuf tiré : Léa (@lea) ».
 
 ## La santé du serveur
 
@@ -81,7 +83,7 @@ Une alerte du serveur se traite dans [Exploiter](../exploitation/exploiter.md).
 - **Laissées en plan** : sans un signe de vie — une arrivée, une réponse, une partie qui avance — depuis six heures. Leurs invités attendent leurs récompenses de clôture, et leurs profils ne se suspendent ni ne se suppriment tant qu'elles ne sont pas closes.
 - **Ces trente jours** : Soirées, Invités par soirée (la médiane), Quiz par soirée, Questions jouées — chaque soirée comptée au jour de sa première question. **Quand on joue** et **La taille des salles**, sur quatre-vingt-dix jours. **L'historique du mois** : date, salon, invités, quiz, questions (« · pas encore close »).
 
-**Clore une soirée laissée en plan** est ton seul geste sur la soirée d'un autre. « Clore la soirée », puis confirme : elle se range dans l'historique et ses invités sont crédités comme à une clôture ordinaire — expérience, podium, prix ; chaque téléphone reçoit sa fin de soirée, et son animateur la retrouve close (« Soirée close — ses invités sont crédités », ou « … rien n'y avait été joué »). Une soirée qui a repris vie se refuse (« Cette soirée vit encore : seule une soirée laissée en plan se clôt d'ici »), comme celle que son animateur est en train de finir.
+**Clore une soirée laissée en plan** est ton seul geste sur la soirée d'un autre. « Clore la soirée », puis confirme : elle se range dans l'historique et ses invités sont crédités comme à une clôture ordinaire — expérience, podium, prix ; chaque téléphone reçoit sa fin de soirée, et son animateur la retrouve close ; le QG te le confirme : « Soirée close — ses invités sont crédités », ou « … rien n'y avait été joué ». Une soirée qui a repris vie se refuse (« Cette soirée vit encore : seule une soirée laissée en plan se clôt d'ici »), comme celle que son animateur est en train de finir.
 
 ## Les profils et la fiche d'un joueur
 
@@ -104,7 +106,7 @@ Il n'y a ni adresse e-mail, ni mot de passe provisoire, ni lien de réinitialisa
 |---|---|
 | « Changer son prénom » | Pour un prénom qui ne va pas — jamais pour départager deux homonymes : la salle les distingue d'elle-même. Ses soirées passées gardent l'ancien. |
 | « Suspendre » | Ses sessions tombent, et les consoles qu'il avait ouvertes ; le profil ne s'ouvre plus — son bon mot de passe lui répond « Ton profil est suspendu : demande à l'administrateur de le réactiver » — et disparaît des classements, de la recherche et des cartes. Rien ne s'efface. |
-| « Réactiver » | Il retrouve tout, et se reconnecte. |
+| « Réactiver » | Il retrouve tout, et peut se reconnecter ; ses anciennes sessions restent fermées. |
 | « Supprimer le profil » | Le dialogue dit, avant le clic, ce qui part et ce qui reste. |
 
 La suppression efface pour de bon son niveau, ses avatars, ses trophées, ses achats, les confettis qu'on lui a offerts, ses parties du quiz du jour et de la campagne, ses duels, ses amis et ses rappels du soir ; son identifiant redevient libre. Restent les soirées jouées, dans l'historique des autres avec ce qu'elles leur ont rapporté, et l'espace qu'il tenait, détaché — son salon garde ses quiz et les souvenirs de ses soirées ; tu le supprimes à part, dans « Les salons », si tu le veux. Suspendre et supprimer se refusent tant qu'il joue une soirée pas encore close : sa clôture ne le retrouverait plus.
@@ -159,6 +161,31 @@ Les règles vivent dans [La campagne](../produit/la-campagne.md) et [Les sentier
 
 Une épreuve de sentier qui bloque un joueur se libère depuis sa fiche.
 
+## Les duels
+
+Les règles vivent dans [Les duels](../produit/les-duels.md) ; leur page au QG suit les duels contre Automate comme ceux entre joueurs, et ceux qui attendent leur adversaire.
+
+- **Aujourd'hui** : « Duels joués » — les parties de duel commencées, « contre Automate » et « contre un joueur » — et leurs « Joueurs », comparés à la même heure des sept jours d'avant ; « En attente », les duels partis sans réponse ; « Confettis de ligue », ce que la semaine dernière a payé, et à combien de joueurs — masqués compris : ces confettis sont à eux.
+- **Les duels par jour**, sur trente jours, en deux petits graphiques : « Contre Automate », les parties du dé (« un adversaire simulé, de son niveau, toujours classé ») ; « Classés, entre joueurs », les duels lancés chaque jour, et combien ont été joués des deux côtés.
+- **Les ligues** : les joueurs classés, ligue par ligue, des Maîtres au Bronze — ceux qui ont fini un duel classé ces quatre dernières semaines, comptés comme le classement : sans les profils masqués ni suspendus. Dessous, la semaine dernière : les joueurs payés pour trois duels joués, et leurs confettis de ligue.
+- **Le classement**, tel que les joueurs le voient : ses dix premiers — rang, ligue, duels joués, cote — et combien il classe de joueurs, sur les quatre dernières semaines. « Masquer », au bout de chaque ligne, pose le masque du quiz du jour, le même pour les deux classements, après la même confirmation : le profil sort des classements du quiz du jour et des duels, des podiums et des lauriers, et on ne peut plus le défier ; personne ne l'en avertit. Le geste se note au journal sous « Quiz du jour », et le masque se lève depuis cette page-là (« Remettre au classement »).
+- **En attente** : les duels classés partis — qui l'a lancé a joué sa partie — que le profil défié n'a pas encore commencés, les plus près d'expirer d'abord, vingt au plus (« Et 3 autres, qui expirent plus tard. ») : qui défie qui, « parti il y a 2 j · expire dans 4 j », et « Annuler ». Puis « Partis, sans réponse », avec le plus ancien, et « Fermés sans réponse » ces sept jours, expirés ou annulés : ils ne comptent pour personne. Un profil suspendu s'y lit « Un profil parti ».
+- **Annuler un duel** : « Annuler », puis « Annuler le duel » — ou « Le garder ». Il se ferme tout de suite, comme à son expiration : il ne compte pour personne, aucune cote ne bouge, et il sort des duels à jouer du profil défié. Rien ne le rouvre. Il se refuse déjà fermé (« Ce duel est déjà fermé »), ou commencé par le profil défié (« Ce duel est commencé des deux côtés : il compte déjà, il ne s'annule plus »). Il se note au journal sous « Duels », et sur la fiche de qui l'avait lancé. Le QG ne rouvre aucun duel et n'en défait aucun de joué : la cote se relit des duels joués.
+
+## L'économie
+
+Les confettis se gagnent et se dépensent selon [La boutique](../produit/la-boutique.md). Leur page au QG se lit sans un geste — « Les prix restent dans le code. » — et ne tient aucun compte à part : chaque source se relit à ses règles, comme le solde de chacun.
+
+- **Aujourd'hui** : « Gagnés », toutes sources, « Dépensés », en boutique, et « Achats », sorte par sorte (« 19 thèmes · 2 compagnons » ; des vies achetées d'un coup font un achat), comparés à la même heure des sept jours d'avant ; « En circulation », la somme de tous les soldes, et ce que la journée y a ajouté.
+- **Gagnés et dépensés, jour par jour** : trente jours, en deux petits graphiques, et leurs totaux.
+- **D'où ils viennent**, sur trente jours, la plus grosse source d'abord : Campagne, Quiz du jour, Soirées, Ligues des duels, Étoiles des sentiers, et « Tes dons », ceux que tu as offerts depuis la fiche d'un joueur. Les ligues comptent au lundi qui paie la semaine close, les étoiles à l'épreuve qui atteint la note.
+- **Où ils partent**, sur trente jours : Thèmes, Compagnons, Vies, Sabliers — les objets achetés (une vie compte pour une), puis ce qu'ils ont coûté, au prix payé : « Un prix payé reste le sien : un thème qui change de prix ne change pas l'achat d'hier. »
+- **En circulation** : ce que les joueurs ont en poche, relu une fois par jour, à la première ouverture de la page (« relu à 9 h 12, une fois par jour ») — « Tous les soldes », profils suspendus compris ; le « Solde médian » de ceux qui ont joué ces trente jours ; « De quoi un compagnon », les profils qui ont de quoi s'en offrir un ; puis les profils par tranche de solde, la dernière au prix d'un compagnon. Un solde peut passer sous zéro : une soirée retirée de l'historique emporte ses confettis.
+- **Les meilleures ventes** : les thèmes et les compagnons, huit au plus, les plus vendus ces trente jours d'abord — « Article », « Rareté », « Ventes », « 30 jours ». Les vies et les sabliers se comptent dans « Où ils partent ».
+- **Les Éclats et les légendaires** : les Éclats tombés ces trente jours, au quiz du jour, en soirée et au défi de la semaine ; les profils qui portent un légendaire, et les six plus portés. Un légendaire ne compte que vraiment porté, par un profil qui n'est pas suspendu — ni un portrait, ni un compagnon, ni un Divin.
+
+Les jours finis et les soldes se lisent une fois par jour, les ventes et les légendaires au plus toutes les dix minutes, la journée à chaque ouverture.
+
 ## Les comptes d'avant
 
 Avant les salons ouverts par les profils, un animateur recevait un compte : un identifiant, un mot de passe, une adresse choisie (`/chez-bob`). Il en reste ; « Les salons » les marque « mot de passe », ou « à activer » tant qu'aucun mot de passe n'a été choisi. Le tien en est un si ton espace est né au premier démarrage du serveur.
@@ -171,5 +198,6 @@ Avant les salons ouverts par les profils, un animateur recevait un compte : un i
 - [La sécurité](../architecture/securite.md) — les comptes, les sessions, les limites d'essais, le cloisonnement des espaces
 - [Exploiter](../exploitation/exploiter.md) — surveiller, sauvegarder, restaurer, dépanner
 - [La mise en ligne](../exploitation/mise-en-ligne.md) — le compte administrateur, `RESERVE_TOKEN` et la routine du matin
-- [Le quiz du jour](../produit/le-quiz-du-jour.md), [La campagne](../produit/la-campagne.md), [Les sentiers du savoir](../produit/les-sentiers-du-savoir.md) — les règles des modes que le QG surveille
+- [Le quiz du jour](../produit/le-quiz-du-jour.md), [La campagne](../produit/la-campagne.md), [Les sentiers du savoir](../produit/les-sentiers-du-savoir.md), [Les duels](../produit/les-duels.md) — les règles des modes que le QG surveille
+- [La boutique](../produit/la-boutique.md), [Les récompenses](../produit/les-recompenses.md) — les confettis, l'Éclat et les légendaires que la page de l'économie compte
 - [L'API HTTP](../reference/api-http.md) — les routes `/api/admin/…`
