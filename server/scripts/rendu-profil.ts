@@ -88,7 +88,7 @@ try {
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge .loge-carte')
   await photo('2-loge-en-chemin')
-  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await page.waitForSelector('.loge-panneau .loge-page-avatars')
   await page.unroute('**/PanneauxDuProfil-*.js')
 
   // Le profil, épuré : soi-même en tête, puis ses quatre boutons.
@@ -106,7 +106,7 @@ try {
 
   // La loge, ouverte de son bouton, sur chaque pièce touchée sur sa rangée — et la collection, de son bouton.
   for (const [i, nom, piece, attente] of [
-    ['2', 'loge avatar', null, '.loge-panneau .famille-avatars'],
+    ['2', 'loge avatar', null, '.loge-panneau .loge-page-avatars'],
     ['3a', 'loge titre', '#loge-titre', '.loge-panneau .titres'],
     ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .vitrine-choix'],
     ['3c', 'loge fond', '#loge-fond', '.loge-panneau .fonds-choix'],
@@ -118,33 +118,37 @@ try {
     await page.waitForSelector('.profil-boutons .gros-compte')
     await page.click(`.profil-boutons .gros-bouton:has-text("${piece === 'collection' ? 'Ma collection' : 'M’habiller'}")`)
     if (piece && piece !== 'collection') {
-      await page.waitForSelector('.loge-panneau .famille-avatars')
+      await page.waitForSelector('.loge-panneau .loge-page-avatars')
       await page.click(piece)
     }
     await page.waitForSelector(attente)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}`)
     await photo(`${i}-${nom.toLowerCase().replace(/ /g, '-')}-pleine`, true)
   }
-  // Ses trois familles d'avatars, chacune sa grille, ses cadenas et le chemin de la collection.
-  for (const famille of ['Portraits', 'Emojis']) {
+  // Ses pages d'avatars, les gemmes de l'album : chacune sa grille, et le chemin de ce qui reste.
+  for (const [gemme, nomDeLaPage] of [
+    ['offert', 'offerts'],
+    ['commune', 'commune'],
+    ['peucommune', 'peu-commune'],
+  ] as const) {
     await page.goto(`${banc.url}/profil#avatar`)
-    await page.waitForSelector('.loge-panneau .famille-avatars')
-    await page.click(`.onglets-puces [role="tab"]:has-text("${famille}")`)
-    await photo(`2-loge-avatar-${famille.toLowerCase()}`)
-    await photo(`2-loge-avatar-${famille.toLowerCase()}-pleine`, true)
+    await page.waitForSelector('.loge-panneau .loge-page-avatars')
+    await page.click(`#loge-gemme-${gemme}`)
+    await photo(`2-loge-avatar-${nomDeLaPage}`)
+    await photo(`2-loge-avatar-${nomDeLaPage}-pleine`, true)
   }
 
   // Un essai : un emoji sur la carte, puis un titre — la barre compte deux
   // changements —, puis un thème, qui habille toute la page ; « Porter » garde tout.
   await page.goto(`${banc.url}/profil#avatar`)
-  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await page.waitForSelector('.loge-panneau .loge-page-avatars')
   // Sa version d'origine, essayée sur la carte, puis une finition.
   await page.click('.loge-version')
   await page.click('.finition-choix:not(.selected) >> nth=1')
   await page.waitForSelector('.loge-barre')
   await photo('2b-loge-essai-version-finition')
   await page.click('.loge-barre .btn-ghost')
-  await page.click('.onglets-puces [role="tab"]:has-text("Emojis")')
+  await page.click('#loge-gemme-offert')
   await page.click('.loge-panneau .loge-grille-emojis .case-avatar >> nth=1')
   await page.waitForSelector('.loge-barre')
   await photo('2b-loge-essai-avatar')
@@ -180,11 +184,34 @@ try {
   await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».
-  for (const partie of ['themes', 'avatars', 'trophees', 'fonds', 'gerbes', 'finitions']) {
+  for (const partie of ['themes', 'avatars', 'trophees', 'fonds', 'gerbes', 'finitions', 'bordures']) {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
     await photo(`6-collection-${partie}`)
   }
+  // Le style en albums : une fiche à gagner — où il en est —, une à elle — « Essayer » —, une bordure.
+  for (const [partie, nomDeLaFiche, cas] of [
+    ['fonds', 'fond-a-gagner', 'Nuit étoilée'],
+    ['gerbes', 'gerbe-a-elle', 'La pluie d’étoiles'],
+    ['finitions', 'finition-a-gagner', 'Prisme'],
+    ['bordures', 'bordure-a-gagner', 'Les Fleurons'],
+  ] as const) {
+    await page.goto(`${banc.url}/profil#collection-${partie}`)
+    await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
+    await page.click(`#collection-${partie} .style-case[aria-label^="${cas}"]`)
+    await page.waitForSelector('#fiche-style')
+    await page.locator('#fiche-style').evaluate((e: any) => e.scrollIntoView({ block: 'center' }))
+    await photo(`6-style-fiche-${nomDeLaFiche}`)
+  }
+  // « Essayer », d'une fiche : la loge s'ouvre, la finition à l'essai sur la carte, sans recharger la page.
+  await page.goto(`${banc.url}/profil#collection-finitions`)
+  await page.waitForSelector('#collection-finitions.trophee-ouvert')
+  await page.click('#collection-finitions .style-case[aria-label^="Or"]')
+  await page.waitForSelector('#fiche-style .album-essayer')
+  await page.click('#fiche-style .album-essayer')
+  await page.waitForSelector('.loge-barre')
+  await photo('6-style-essayer-dans-la-loge')
+  await page.click('.loge-barre .btn-ghost')
   // L'album des trophées, page par page — son adresse nomme la page —, puis trois fiches : une piste commencée et ce qu'ouvre chaque étape, une à gagner, un exploit.
   for (const p of ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'partout']) {
     await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
@@ -281,9 +308,10 @@ try {
   await photo('10-boutique-compagnons-a-toi')
   await photo('10-boutique-compagnons-a-toi-pleine', true)
   await page.goto(`${banc.url}/profil#avatar`)
-  await page.waitForSelector('.loge-panneau .famille-avatars')
+  await page.waitForSelector('.loge-panneau .loge-page-avatars')
+  // Il porte le loup à sa forme ultime : la loge s'ouvre sur la page légendaire, ses formes d'avant aux leurs.
   await photo('10-loge-loup-ultime')
-  await page.click('.onglets-puces [role="tab"]:has-text("Compagnons")')
+  await page.click('#loge-gemme-rare')
   await photo('10-loge-compagnons')
   for (const rarete of ['commune', 'legendaire']) {
     await page.goto(`${banc.url}/profil#collection-avatars-${rarete}`)

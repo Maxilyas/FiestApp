@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { Avatar } from './Avatar'
-import { Icon } from './Icon'
 import { AlbumDesAvatars, pageNommee } from './AlbumDesAvatars'
 import { AlbumDesTrophees } from './AlbumDesTrophees'
+import { AlbumDuStyle } from './AlbumDuStyle'
 import { JaugeFine, LigneDeCollection } from './LigneDeCollection'
-import { GerbeDeJuste } from './Gerbe'
 import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { LILAS, OR } from './Atlas'
 import { espacesFines, formatNumber } from '../format'
@@ -13,16 +11,15 @@ import { compteDeLaCollection, type FamilleDeLaCollection, type LigneDuCompte, t
 import { pageDuDebut, pageDuProchain, type RareteDAvatar } from '../../../shared/album'
 import { pageDuDebutDesTrophees } from '../../../shared/trophees'
 import { pageDesTropheesNommee, type PageDesTrophees } from '../../../shared/pagesDesTrophees'
-import { FONDS } from '../../../shared/fonds'
-import { GERBES } from '../../../shared/gerbes'
 import { NOM_DE_RARETE, RARETES_DE_THEME, THEMES, type Theme } from '../../../shared/themes'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
+import type { PublicProfileDetail } from '../../../shared/profil'
 
 // « Ma collection » : tout ce qui se gagne, d'un coup d'œil — ce qu'on a, ce
 // qui reste, et où le gagner. Trois familles, comptées par la même règle que
 // la tuile du profil (`shared/collection.ts`) : deux albums — les avatars,
 // une page par rareté (`AlbumDesAvatars`) ; les trophées, une page par mode
-// (`AlbumDesTrophees`) —, puis le style.
+// (`AlbumDesTrophees`) —, puis le style : les thèmes en vignettes, et le
+// reste en petits albums faits de même (`AlbumDuStyle`).
 //
 // On n'y règle rien : ce qu'on a se porte depuis « M'habiller », au profil —
 // la loge, une adresse par pièce —, et chaque ligne le dit, un lien vers
@@ -31,12 +28,13 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } fr
 
 /** Ce que chaque ligne dit d'elle. */
 const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }> = {
-  avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits et emojis, par rareté', couleur: OR },
+  avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits, compagnons, emojis : par rareté', couleur: OR },
   trophees: { emoji: '🏆', nom: 'L’album des trophées', detail: 'Ce que tu as réussi, mode par mode', couleur: OR },
   themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent toutes tes pages', couleur: LILAS },
   fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte, quand on touche ton nom', couleur: '#5fa8ff' },
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate à chaque bonne réponse', couleur: '#ff9f5a' },
   finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar, au fil des niveaux', couleur: '#ffd36e' },
+  bordures: { emoji: '⚔️', nom: 'Bordures de ligue', detail: 'Autour de ton avatar, une par ligue de duel', couleur: '#7dd3c0' },
 }
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
@@ -99,52 +97,6 @@ function OuLePorter({ ecran, nom, quoi = 'Ce qui est à toi se porte dans' }: { 
     </p>
   )
 }
-
-/**
- * Une liste à lire : ce qu'on a, coché, et ce qui manque, avec ce qu'il faut.
- * Rien ne s'y porte ; avec `onToucher`, chaque ligne se touche pour se voir
- * — une gerbe éclate, même à gagner : on sait ce qu'on vise.
- */
-function ListeAGagner({
-  items,
-  onToucher,
-}: {
-  items: { cle: string; apercu: ReactNode; nom: string; aToi: string | null; regle: string }[]
-  onToucher?: (cle: string) => void
-}) {
-  return (
-    <ul className="a-gagner">
-      {items.map(i => {
-        const contenu = (
-          <>
-            <span className="a-gagner-apercu" aria-hidden="true">
-              {i.apercu}
-            </span>
-            <span className="a-gagner-texte">
-              <b>{i.nom}</b>
-              <span className="small">{i.aToi ?? espacesFines(majuscule(i.regle))}</span>
-            </span>
-            <Icon name={i.aToi ? 'check' : 'lock'} className="a-gagner-marque" />
-          </>
-        )
-        return (
-          <li key={i.cle} className={(i.aToi ? 'a-gagner-a-toi' : 'a-gagner-reste') + (onToucher ? ' a-gagner-touchable' : '')}>
-            {onToucher ? (
-              <button type="button" className="a-gagner-bouton" onClick={() => onToucher(i.cle)}>
-                {contenu}
-                <span className="sr-only">{i.aToi ? ' : touche-la pour la voir' : ', à gagner : touche-la pour la voir'}</span>
-              </button>
-            ) : (
-              contenu
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
  * Une vignette de l'album : l'aperçu seul, en couleur s'il est à lui, en gris
@@ -261,11 +213,6 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
     ecrire(`-trophees-${p}`)
     setPageDesTrophees(p)
   }
-  const fonds = profil.fonds ?? []
-  const gerbes = profil.gerbes ?? []
-  // La gerbe qu'on vient de toucher éclate, une fois par toucher — celles à gagner aussi.
-  const [gerbeVue, setGerbeVue] = useState<{ cle: string; n: number } | null>(null)
-
   const contenus: Partial<Record<PartieDeLaCollection, ReactNode>> = {
     avatars: (
       <>
@@ -291,52 +238,33 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
       </>
     ),
     themes: <ThemesDeLaCollection profil={profil} />,
+    // Le reste du style, en albums comme les avatars et les trophées (`AlbumDuStyle`) :
+    // trois listes cochées ne disaient ni où l'on en était, ni comment l'essayer.
     fonds: (
       <>
-        <ListeAGagner
-          items={FONDS.map(f => ({
-            cle: f.key,
-            apercu: <span className={`fond-apercu carte-fond fond-${f.key}`} />,
-            nom: f.nom,
-            aToi: fonds.includes(f.key) ? (profil.fond === f.key ? 'Porté' : 'À toi') : null,
-            regle: f.regle,
-          }))}
-        />
+        <AlbumDuStyle partie="fonds" profil={profil} />
         <OuLePorter ecran="fond" nom="Mon fond de carte" quoi="Il se porte dans" />
       </>
     ),
     gerbes: (
       <>
-        <p className="muted small">Touche une gerbe pour la voir éclater, même celles à gagner.</p>
-        <ListeAGagner
-          items={GERBES.map(g => ({
-            cle: g.key,
-            apercu: <span className="gerbe-apercu">{g.particules.slice(0, 3).join('')}</span>,
-            nom: g.nom,
-            aToi: gerbes.includes(g.key) ? (profil.gerbe === g.key ? 'Portée' : 'À toi') : null,
-            regle: g.regle,
-          }))}
-          onToucher={cle => setGerbeVue(a => ({ cle, n: (a?.n ?? 0) + 1 }))}
-        />
-        {gerbeVue && <GerbeDeJuste key={gerbeVue.n} cle={gerbeVue.cle} />}
+        <AlbumDuStyle partie="gerbes" profil={profil} />
         <OuLePorter ecran="gerbe" nom="Ma gerbe" quoi="Elle se porte dans" />
       </>
     ),
     finitions: (
       <>
-        <ListeAGagner
-          items={FINITIONS.map(f => ({
-            cle: f,
-            apercu: <Avatar avatar={profil.avatar} finition={f} />,
-            nom: NOM_FINITION[f],
-            aToi: profil.ouvertes.includes(f) ? (profil.finition === f ? 'Portée' : 'À toi') : null,
-            regle: `au niveau ${NIVEAU_FINITION[f]}`,
-          }))}
-        />
+        <AlbumDuStyle partie="finitions" profil={profil} />
         <p className="muted small">
           L’Éclat, lui, ne se gagne pas : une chance sur quarante par soirée jouée à deux ou plus et par quiz du jour, une sur vingt
           par défi de la semaine, et c’est l’avatar lui-même qui change de couleurs.
         </p>
+        <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elle se choisit dans" />
+      </>
+    ),
+    bordures: (
+      <>
+        <AlbumDuStyle partie="bordures" profil={profil} />
         <OuLePorter ecran="avatar" nom="Mon avatar" quoi="Elle se choisit dans" />
       </>
     ),

@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { RareteDeTheme } from '../../shared/themes'
+import type { RareteDAvatar } from '../../shared/album'
 
 // La couleur de chaque rareté — sa gemme —, à part de la boutique : la fin
 // d'une partie cercle ses trophées de la même couleur que l'album, sans
@@ -16,3 +17,12 @@ const GEMMES: Record<RareteDeTheme, string> = {
 }
 
 export const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
+
+/**
+ * La gemme d'un avatar : celles des thèmes, une opale pour les Divins, que
+ * la feuille irise, et une pierre grise pour les emojis de l'inscription, à
+ * tout le monde : l'or des thèmes offerts, à côté de la gemme légendaire,
+ * se lisait comme elle.
+ */
+export const gemmeDAvatar = (r: RareteDAvatar | 'offert'): CSSProperties =>
+  r === 'divin' ? ({ '--gemme': '#c9b6ff' } as CSSProperties) : r === 'offert' ? ({ '--gemme': '#9a8f84' } as CSSProperties) : gemme(r)

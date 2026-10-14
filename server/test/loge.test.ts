@@ -190,10 +190,11 @@ test('ce qui est nouveau : rien à la première visite, puis ce qui arrive depui
 test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, qui le voit, puis la pièce touchée', async () => {
   const { espacesFines } = await import(url('format.ts'))
   const contenus: Record<string, RegExp> = {
-    // L'avatar : ses finitions en pastilles, puis ses familles en pastilles (les maquettes 3 et 1).
-    avatar: /<div class="loge-finitions">.*<div class="onglets onglets-puces" role="tablist" aria-label="Familles d’avatars">/,
+    // L'avatar : ses finitions en pastilles (la maquette 3), puis ses avatars aux gemmes de l'album.
+    avatar: /<div class="loge-finitions">.*<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/,
     titre: /<h3><svg[^>]*>.*?<\/svg>Mes titres /,
-    vitrine: /<h3><svg[^>]*>.*?<\/svg>Mes hauts faits /,
+    // Des trophées, le mot de l'album et des fins de partie.
+    vitrine: /<h3><svg[^>]*>.*?<\/svg>Mes trophées /,
     fond: /<h3><svg[^>]*>.*?<\/svg>Mes fonds /,
     theme: /<section class="mes-themes">/,
     gerbe: /<h3><svg[^>]*>.*?<\/svg>Mes gerbes /,
@@ -260,7 +261,7 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   // La vitrine d'office est une option de la liste, en tête, dans les deux
   // états : un bouton qui ne paraissait qu'une vitrine choisie partait sous
   // le doigt qui le touchait, et le focus tombait sur la page.
-  const office = (html: string) => /<ul class="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte"><li>(<button[^>]*>.*?<\/button>)<\/li>/.exec(html)?.[1]
+  const office = (html: string) => /<ul class="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte"><li>(<button[^>]*>.*?<\/button>)<\/li>/.exec(html)?.[1]
   assert.equal(
     office(await rendu('components/Trophees', 'MaVitrine', pieces)),
     '<button type="button" class="vitrine-option selected" aria-pressed="true"><span class="hf-emoji" aria-hidden="true">✨</span><span class="hf-corps"><span class="hf-titre">Les plus durs, d’office</span><span class="muted small">Ta carte choisit tes 2 plus durs.</span></span></button>',
@@ -281,13 +282,16 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   assert.match(fonds, /class="finition-btn porte" aria-pressed="false"><span class="fond-apercu" aria-hidden="true"><\/span><span class="finition-nom">Velours<\/span><span class="muted small">porté<\/span>/)
   assert.match(fonds, /class="finition-btn selected essaye" aria-pressed="true"><span class="fond-apercu carte-fond fond-nuit" aria-hidden="true"><\/span><span class="finition-nom">Nuit étoilée<\/span><span class="muted small">à l’essai<\/span>/)
 
-  // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il a son cadenas.
+  // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il se compte sous la grille.
   essais.length = 0
-  const cases = async (famille: string) =>
-    elements(await arbre('components/Apparence', 'FamilleDAvatars', { ...pieces, famille })).filter(e => e.type === 'button')
-  ;(await cases('legendaires')).find(b => b.props['aria-label'] === 'Le Phénix, légendaire').props.onClick()
-  ;(await cases('emojis')).find(b => b.props['aria-label'] === 'Avatar 🦊').props.onClick()
-  ;(await cases('portraits')).find(b => /^L’écureuil/.test(b.props['aria-label'])).props.onClick()
+  const { pagesDeLaLoge } = await import(url('components/Apparence.tsx'))
+  const cases = async (nom: string) =>
+    elements(await arbre('components/Apparence', 'PageDAvatars', { ...pieces, page: pagesDeLaLoge(LEA).find((p: { page: string }) => p.page === nom) })).filter(
+      e => e.type === 'button',
+    )
+  ;(await cases('legendaire')).find(b => b.props['aria-label'] === 'Le Phénix, légendaire').props.onClick()
+  ;(await cases('offert')).find(b => b.props['aria-label'] === 'Avatar 🦊').props.onClick()
+  ;(await cases('commune')).find(b => /^L’écureuil/.test(b.props['aria-label'])).props.onClick()
   assert.deepEqual(essais, [{ legendaire: 'lg:phenix' }, { avatar: '🦊' }, { legendaire: 'br:ecureuil' }])
   assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
 

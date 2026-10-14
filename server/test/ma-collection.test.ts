@@ -113,16 +113,25 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // rouge et l'Éclair ; au quiz du jour, la page de janvier ; partout, le
     // bronze de l'écusson d'histoire.
     ['trophees', '7/132', ['trophees 7/132']],
-    ['style', '9/59', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7']],
+    // Le style, et ses bordures de ligue depuis le 13 octobre 2026 : la loge
+    // les proposait, la collection ne les rangeait nulle part. Sans duel
+    // classé, le serveur les tait : zéro sur six, pas absentes.
+    ['style', '9/65', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 319 })
+  assert.deepEqual(total, { acquis: 25, total: 325 })
+  assert.deepEqual(
+    compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
+      .familles.find(f => f.famille === 'style')!
+      .parties.find(p => p.partie === 'bordures'),
+    { partie: 'bordures', acquis: 2, total: 6 },
+  )
   assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 132 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
   assert.deepEqual(
     avant.familles.find(f => f.famille === 'style')!.parties.map(p => p.partie),
-    ['finitions'],
+    ['finitions', 'bordures'],
   )
   const jour = albumDesTrophees({ ...LEA, calendrier: undefined } as any).find(p => p.page === 'jour')!
   assert.deepEqual([jour.acquis, jour.total, jour.sections.map(s => s.cle)], [0, 24, ['pistes', 'exploits', 'coups']])
@@ -185,9 +194,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 319<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 325<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 59'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 65'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -199,6 +208,7 @@ test('la collection : son total, trois familles, une ligne par collection — re
     'Fonds de carte',
     'Gerbes',
     'Finitions',
+    'Bordures de ligue',
   ])
   assert.equal(html.match(/aria-expanded="true"/g), null, 'tout replié à l’ouverture')
   // On n'y règle rien : on y regarde. Les avatars s'y parcourent sans « Le porter ».
@@ -217,10 +227,14 @@ test('les gerbes de la collection se touchent pour éclater, même celles à gag
   lieu.hash = ''
   assert.match(html, /<li id="collection-gerbes" class="trophee trophee-ouvert"/)
   const ligne = html.slice(html.indexOf('id="collection-gerbes"'), html.indexOf('id="collection-finitions"'))
-  assert.match(ligne, /Touche une gerbe pour la voir éclater, même celles à gagner\./)
-  assert.equal(ligne.match(/<button type="button" class="a-gagner-bouton">/g)?.length, GERBES.length)
-  assert.equal(ligne.match(/, à gagner : touche-la pour la voir<\/span>/g)?.length, GERBES.length - LEA.gerbes.length)
+  // Un album, comme les avatars et les trophées (le 13 octobre 2026) : une
+  // case par gerbe, éteintes celles à gagner, chacune ce qu'il faut sous elle.
+  assert.equal(ligne.match(/<button type="button" class="trophee-case style-case/g)?.length, GERBES.length)
+  assert.equal(ligne.match(/class="trophee-case style-case trophee-manque"/g)?.length, GERBES.length - LEA.gerbes.length)
+  assert.match(ligne, /aria-label="Les ballons, à gagner : Le Laurier">/)
   assert.doesNotMatch(ligne, /aria-pressed|Le porter/)
+  // Touchée, elle éclate — même à gagner : on sait ce qu'on vise.
+  assert.match(source('client/src/components/AlbumDuStyle.tsx'), /if \(partie === 'gerbes'\) setEclat\(/)
   // Elle se porte dans « Ma gerbe », sa page — plus sous les thèmes : le lien le dit.
   assert.match(ligne, /Elle se porte dans <a class="link-inline" href="#gerbe">« Ma gerbe »<\/a>/)
 })
@@ -290,17 +304,18 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
     ['fonds', 'fond'],
     ['gerbes', 'gerbe'],
     ['finitions', 'avatar'],
+    ['bordures', 'avatar'],
   ]) {
     lieu.hash = `#collection-${partie}`
     const ouverte = await rendu('components/Collection', 'MaCollection', { profil: LEA })
     assert.match(ouverte, new RegExp(`<li id="collection-${partie}" class="trophee trophee-ouvert"`), partie)
     assert.match(ouverte, new RegExp(`<a class="link-inline" href="#${ecran}">`), partie)
   }
-  // Les fonds et les gerbes : coché ce qu'on a, la règle du reste.
+  // Les fonds en album : celui qu'elle porte, coché ; les autres éteints, ce qu'il faut sous leur case.
   lieu.hash = '#collection-fonds'
   const fonds = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(fonds, /<li class="a-gagner-a-toi">.*?<b>Nuit étoilée<\/b><span class="small">Porté<\/span>/)
-  assert.match(fonds, /<li class="a-gagner-reste">.*?<b>Aurore boréale<\/b><span class="small">Le niveau 20<\/span>/)
+  assert.match(fonds, /aria-label="Nuit étoilée, porté"><span class="trophee-medaillon" aria-hidden="true"><span class="fond-apercu carte-fond fond-nuit"><\/span><span class="album-coche">/)
+  assert.match(fonds, /class="trophee-case style-case trophee-manque"[^>]*aria-label="Aurore boréale, à gagner : niv\. 20">.*?<span class="trophee-sous" aria-hidden="true">niv\. 20<\/span>/)
   lieu.hash = ''
 })
 
