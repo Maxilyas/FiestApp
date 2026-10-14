@@ -539,7 +539,8 @@ export function EnvoyerAuxAmis({ code }: { code: string }) {
               onClick={() => !a.deja && basculer(a.profileId)}
             >
               <span className="duel-ami-avatar" aria-hidden="true">
-                {a.avatar}
+                {/* Ce qu'il porte, comme au classement : son emoji seul lui donnait un autre visage. */}
+                <Visage avatar={a.avatar} apparence={ceQuIlPorte(a)} />
               </span>
               <span className="duel-ami-nom">{a.nom}</span>
               {a.deja ? <span className="muted small">{a.deja === 'releve' ? 'l’a relevé' : 'l’a reçu'}</span> : <Icon name={coche ? 'check' : 'plus'} />}

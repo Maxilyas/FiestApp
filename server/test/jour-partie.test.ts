@@ -300,7 +300,8 @@ test('minuit clôt la journée : le podium est payé une fois, le lendemain le r
     const matin = (await lire(banc, alice, '/api/jour')).corps
     assert.equal(matin.jour, LENDEMAIN)
     assert.equal(matin.etat, 'a-jouer')
-    assert.deepEqual(matin.vainqueursDHier, [{ nom: 'Alice', avatar: '🦊' }])
+    // Avec ce qu'elle porte, comme au classement : sa finition d'Argent, gagnée en jouant.
+    assert.deepEqual(matin.vainqueursDHier, [{ nom: 'Alice', avatar: '🦊', finition: 'argent' }])
     assert.equal(matin.sonHier.rang, 1)
     assert.equal(matin.sonHier.xpPodium, xpDuPodium(1, 2), 'à deux, seul le premier monte sur le podium')
     assert.equal(matin.sonHier.medaille, 'or')
@@ -438,6 +439,31 @@ test('deux ex æquo en tête gagnent tous les deux : le podium les paie, le lend
     assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, xpDuPodium(1, 2))
   }))
 
+test('les vainqueurs d’hier se montrent avec ce qu’ils portent, comme au classement : un portrait, pas l’emoji d’en dessous', () =>
+  avecBanc(async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await jouer(banc, horloge, alice, () => true)
+    await jouer(banc, horloge, bob, () => false)
+    // Alice porte un portrait de la forêt : un palier validé ne se reprend
+    // jamais, il se croit (`legendairePorte`). Le serveur relit les profils au
+    // redémarrage. Le lendemain, son renard s'annonçait à côté de son nom (le
+    // retour du propriétaire du 14 octobre 2026).
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      db.prepare(`UPDATE profiles SET legendaire = 'br:blaireau' WHERE login = 'alice'`).run()
+    } finally {
+      db.close()
+    }
+    await banc.redemarrer()
+    horloge.t = Date.UTC(2026, 8, 27, 6, 0)
+    const matin = (await lire(banc, bob, '/api/jour')).corps
+    assert.deepEqual(
+      matin.vainqueursDHier.map((v: any) => [v.nom, v.avatar, v.legendaire]),
+      [['Alice', '🦊', 'br:blaireau']],
+    )
+  }))
+
 test('une annulation qui croise une réponse en route : la question annulée ne reste payée à personne', () =>
   avecBanc(async banc => {
     const admin = await connexionAnimateur(banc.url)
@@ -505,7 +531,7 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     )
 
     horloge.t = Date.UTC(2026, 8, 27, 6, 0)
-    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [{ nom: 'Camille (2)', avatar: '🦊' }])
+    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [{ nom: 'Camille (2)', avatar: '🦊', finition: 'argent' }])
 
     // Son prénom n'allait pas : masquée après la nuit, elle garde son podium
     // mais ne s'annonce plus sur l'accueil de tous.

@@ -51,7 +51,8 @@ test('une ligne par soirée — celle en cours d’abord —, et sous chacune so
     '/chez-bob/soirees/2026-09-20-a1b2c/bilan',
   ])
   assert.ok(html.indexOf('En cours') < html.indexOf('La soirée de Nadia'), 'celle qui se joue d’abord')
-  assert.match(html, /6 joueurs · 3 quiz · 🏆 🐙 Hugo ex æquo<\/span>/)
+  // Le vainqueur, avec l'avatar qu'il porte (`AvatarEnLigne`) : un légendaire s'y montrait en emoji.
+  assert.match(html, /6 joueurs · 3 quiz · 🏆 <span class="av av-en-ligne"><span class="av-emoji">🐙<\/span><\/span> Hugo ex æquo<\/span>/)
   // Renommer et retirer attendent dans la feuille de chaque soirée close, à l'écart des pages.
   assert.match(html, /aria-label="Renommer ou retirer « Le quiz des 30 ans »"/)
   assert.equal(html.match(/class="historique-plus"/g)?.length, 2, 'pas pour celle qui se joue')

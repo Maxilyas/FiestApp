@@ -4,6 +4,7 @@ import type { ClotureDeSoiree, ProgresDeQuiz } from '../../../shared/fin'
 import { distinctions } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { portrait } from '../../../shared/branches'
+import { formeDeCompagnon } from '../../../shared/compagnons'
 import { divin } from '../../../shared/divins'
 import { enumerer } from '../../../shared/classement'
 import { formatNumber } from '../../../shared/typographie'
@@ -130,7 +131,8 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
               <div className="cloture-montees">
                 {c.eclats.map((e, i) => (
                   <span key={`${e.nom}-${i}`} className="cloture-montee">
-                    {legendaire(e.eclate) || portrait(e.eclate) ? (
+                    {/* Un compagnon porté éclate aussi : sa clé s'écrivait à la place de son dessin. */}
+                    {legendaire(e.eclate) || portrait(e.eclate) || formeDeCompagnon(e.eclate) ? (
                       <Avatar className="lb-avatar av-sujet" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
                     ) : (
                       <Avatar className="lb-avatar" avatar={e.eclate} finition={e.finition} eclat />

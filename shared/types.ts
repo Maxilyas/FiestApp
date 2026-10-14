@@ -170,8 +170,12 @@ export interface RecapRow extends ApparenceDeLAvatar {
   points: number
 }
 
-/** Le détail d'un joueur sur toute la soirée, dérivé du journal des réponses. */
-export interface PlayerStat {
+/**
+ * Le détail d'un joueur sur toute la soirée, dérivé du journal des réponses —
+ * son avatar compris, tel qu'il le porte : « Les chiffres » et les prix le
+ * montraient en emoji.
+ */
+export interface PlayerStat extends ApparenceDeLAvatar {
   playerId: string
   name: string
   avatar: string
@@ -225,8 +229,8 @@ export interface Award {
   rule: string
   /** Le chiffre qui le justifie (« 2,4 s de moyenne »). */
   detail: string
-  /** Le lauréat, quand le prix distingue une personne. */
-  player: { playerId: string; name: string; avatar: string } | null
+  /** Le lauréat, quand le prix distingue une personne — avec ce qu'il porte. */
+  player: ({ playerId: string; name: string; avatar: string } & ApparenceDeLAvatar) | null
   /** L'équipe qui encaisserait les points — null si le lauréat n'en a pas. */
   teamId: string | null
   /**
@@ -265,16 +269,16 @@ export interface Recap {
   quizCount: number
   /** Total des points distribués. */
   totalPoints: number
-  /** Le plus gros coup sur une seule question. */
-  bestShot: { name: string; avatar: string; points: number; reason: string } | null
+  /** Le plus gros coup sur une seule question — avec ce que son auteur porte, comme au classement. */
+  bestShot: ({ name: string; avatar: string; points: number; reason: string } & ApparenceDeLAvatar) | null
   /** Celui qui a marqué sur le plus de questions. */
-  steadiest: { name: string; avatar: string; count: number } | null
+  steadiest: ({ name: string; avatar: string; count: number } & ApparenceDeLAvatar) | null
   /**
    * Le vainqueur de chaque quiz de la soirée — autant de prix à remettre. Des
    * ex æquo ont chacun leur ligne, avec la même partie : c'est elle, et pas
    * le titre, qui dit qu'ils ont gagné ensemble. Absente des pages d'avant.
    */
-  quizWinners: { title: string; name: string; avatar: string; points: number; sessionId?: string }[]
+  quizWinners: ({ title: string; name: string; avatar: string; points: number; sessionId?: string } & ApparenceDeLAvatar)[]
   /**
    * Les prix remis à l'écran, prix libres compris, du premier au dernier.
    * Le palmarès (`stats.awards`) dit ce que l'application a calculé ; ceci

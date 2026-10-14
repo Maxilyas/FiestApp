@@ -11,6 +11,7 @@ import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
 import { HEURE_DU_RAPPEL, jourAvant, jourDe, jourValide, moisDe } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
+import { apparenceDeLAvatar } from '../../shared/profil'
 import { LIGNES_DU_MOIS_AU_QG, SERIES_NOMMEES, TOURNEES_MONTREES, partDesBonnes, repartirLesSeries, type SuiviDuJour } from '../../shared/qgDuJour'
 
 interface JourDeps {
@@ -339,7 +340,10 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
       const plusLongues = candidates
         .flatMap((s, i) => {
           const p = profils[i]
-          return p ? [{ profileId: s.profileId, nom: p.name, avatar: deps.profiles.avatarPorte(p), serie: s.serie, tenue: s.tenue }] : []
+          // Ce qu'il porte, comme au classement : l'emoji seul montrait autrement qui porte un légendaire.
+          return p
+            ? [{ profileId: s.profileId, nom: p.name, avatar: deps.profiles.avatarPorte(p), ...apparenceDeLAvatar(deps.profiles.apparenceDe(p)), serie: s.serie, tenue: s.tenue }]
+            : []
         })
         .slice(0, SERIES_NOMMEES)
       const suivi: SuiviDuJour = {

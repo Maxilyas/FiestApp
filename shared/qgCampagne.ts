@@ -7,6 +7,7 @@
 
 import { compteDuJour, jourDeLInstant, joursDesMinuits, type CompteDuJour } from './qg'
 import { VIES_PAR_JOUR } from './sentiers'
+import type { ApparenceDeLAvatar } from './profil'
 
 /** Les parties de la campagne que le QG suit, sous-mode par sous-mode — les duels ont leur page. */
 export const SOUS_MODES_DE_CAMPAGNE = ['serie', 'sentier', 'sujet', 'revision', 'defi'] as const
@@ -104,7 +105,7 @@ export interface DefiAuQg {
   /** Les tentatives finies, par bonnes réponses : `scores[k]` en ont trouvé k. */
   scores: number[]
   /** Le meilleur score de la semaine, en route ou fini, et qui le tient ; ceux qui l'égalent, à part. */
-  meilleur: { justes: number; nom: string; avatar: string; quand: number | null; exAequo: number } | null
+  meilleur: ({ justes: number; nom: string; avatar: string; quand: number | null; exAequo: number } & ApparenceDeLAvatar) | null
   /** Les questions les plus ratées, sur assez de réponses (`REPONSES_POUR_JUGER`). */
   ratees: QuestionDuDefiAuQg[]
   /** La semaine d'avant : ses joueurs, et ses vainqueurs — null tant qu'elle n'est pas close. Null : pas de défi. */

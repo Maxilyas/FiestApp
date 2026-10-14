@@ -463,7 +463,8 @@ test('la page de la campagne au QG : ce qu’on joue, le défi en chiffres, les 
     'Parcours de thème',
     'le carnet, à 1, 3 et 7 jours',
     'semaine du lundi 12 octobre',
-    '🦋 Inès et 1 autre · aujourd’hui à 20 h 04',
+    // L'avatar qu'elle porte (`AvatarEnLigne`), comme au classement du défi.
+    '<span class="av-emoji">🦋</span></span> Inès et 1 autre · aujourd’hui à 20 h 04',
     '2 vainqueurs ex æquo',
     'Le plus souvent : 7 bonnes réponses · 7 tentatives',
     '9 · Qui a écrit « Le Horla » ?',

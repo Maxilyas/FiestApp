@@ -20,7 +20,7 @@ import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
 import { clientIp, readPlayerToken } from './auth/http'
 import { PartageStore } from './core/partages'
-import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { ArchiveStore, recapOfArchive, reviewOfArchive, type ApparencesDesProfils } from './core/archive'
 import { JournalDesGestes } from './core/journalDesGestes'
 import { SanteDuServeur } from './core/santeDuServeur'
 import type { BadgeLookup } from './core/party'
@@ -940,6 +940,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/s/:slug/recap.json', withSpace, pageEnCours('recap'))
   app.get('/s/:slug/bilan.json', withSpace, pageEnCours('bilan'))
 
+  // Ce que portent des profils, lus d'un coup, par la règle de la salle
+  // (`badgeDe`) : un profil supprimé ou fermé garde son emoji.
+  const apparencesDesProfils: ApparencesDesProfils = async ids => {
+    const lus = await profiles.byIds(ids)
+    const actifs = new Set(lus.flatMap(p => (p ? [p.id] : [])))
+    return (profileId, avatar) => (actifs.has(profileId) ? profiles.badgeDe(profileId, avatar) : undefined)
+  }
+
   // L'historique : la soirée en cours et les soirées archivées.
   //
   // Pages publiques : une panne n'y montre qu'une phrase neutre. Le message
@@ -948,7 +956,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/s/:slug/soirees.json', withSpace, (req, res) => {
     const account = spaceOf(res)
     archives
-      .list(account.id)
+      // Ses vainqueurs tels qu'ils se montrent aujourd'hui, un légendaire compris : la liste ne montrait que l'emoji.
+      .list(account.id, apparencesDesProfils)
       .then(list => {
         const rt = registry.get(account.id)
         // La soirée en cours se range toute seule après chaque quiz : elle est
@@ -987,13 +996,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // emojis, sans se garder.
   const apparencesDe = async (archive: PartyArchive, provisoire: () => void): Promise<BadgeLookup> => {
     const ids = [...new Set(archive.players.flatMap(p => (p.profileId ? [p.profileId] : [])))]
-    const lus = await profiles.byIds(ids).catch((e: unknown) => {
+    return apparencesDesProfils(ids).catch((e: unknown): BadgeLookup => {
       console.error('[soirees] les profils d’une soirée archivée ne se lisent pas :', e)
       provisoire()
-      return []
+      return () => undefined
     })
-    const actifs = new Set(lus.flatMap(p => (p ? [p.id] : [])))
-    return (profileId, avatar) => (actifs.has(profileId) ? profiles.badgeDe(profileId, avatar) : undefined)
   }
 
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.

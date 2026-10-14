@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { barreArrondie, useLargeur } from './QgVueDEnsemble'
 import { espacesFines } from '../format'
@@ -212,9 +213,15 @@ export function DefiDeLaSemaineAuQg({ suivi }: { suivi: SuiviDeLaCampagne | null
               nom="Meilleur score"
               valeur={d.meilleur ? formatNumber(d.meilleur.justes) : '–'}
               detail={
-                d.meilleur
-                  ? `${d.meilleur.avatar} ${d.meilleur.nom}${d.meilleur.exAequo > 0 ? ` et ${pluriel(d.meilleur.exAequo, 'autre')}` : ''} · ${d.meilleur.quand === null ? 'en route' : quandEcrit(d.meilleur.quand, maintenant)}`
-                  : 'personne encore'
+                d.meilleur ? (
+                  // Ce qu'il porte, comme au classement du défi : l'emoji seul le montrait autrement.
+                  <>
+                    <AvatarEnLigne de={d.meilleur} />{' '}
+                    {`${d.meilleur.nom}${d.meilleur.exAequo > 0 ? ` et ${pluriel(d.meilleur.exAequo, 'autre')}` : ''} · ${d.meilleur.quand === null ? 'en route' : quandEcrit(d.meilleur.quand, maintenant)}`}
+                  </>
+                ) : (
+                  'personne encore'
+                )
               }
             />
             <Chiffre nom="Score médian" valeur={mediane === null ? '–' : demi(mediane)} detail="des tentatives finies" />

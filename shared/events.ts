@@ -1,6 +1,6 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
 import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
-import type { PublicProfile } from './profil'
+import type { ApparenceDeLAvatar, PublicProfile } from './profil'
 import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from './fin'
 
 /**
@@ -70,7 +70,7 @@ export type ActionRefusal =
  * liée à un profil, et c'est en s'y connectant qu'il retrouvera sa place —
  * jamais par un code.
  */
-export interface AbsentDuMemeNom {
+export interface AbsentDuMemeNom extends ApparenceDeLAvatar {
   name: string
   avatar: string
   profil: boolean
