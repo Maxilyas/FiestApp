@@ -70,9 +70,14 @@ import { sansAccent } from '../../shared/homonymes'
  * thème pour atteindre les six cents, 40 : 23 096. Puis le bal et le ballet,
  * nés ce jour-là, remis au niveau des autres sous-thèmes de leur catégorie
  * (95 et 216 questions, quand leurs voisins en avaient 236 et 319 : une
- * série tire autant dans chacun), 277 rangées sur 280 : 23 373.
+ * série tire autant dans chacun), 277 rangées sur 280 : 23 373. Puis les
+ * quatre plus petits thèmes de « Sur quoi ? » — les mythes, les premières
+ * fois, les surnoms, les années 50 —, deux cents questions de plus pour
+ * chacun là où il vit déjà (`preparer --sujet`), 758 rangées sur 800 (32
+ * refusées comme un fait ou un intitulé déjà posé, 10 retirées à la
+ * relecture) : 24 131.
  */
-const AU_MOINS = 23373
+const AU_MOINS = 24131
 
 const { questions, refusees } = lireLaBase()
 
