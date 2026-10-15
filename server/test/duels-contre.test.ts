@@ -347,6 +347,72 @@ test('autant de duels en attente qu’on veut, un par adversaire — tous dans s
   }
 })
 
+// Le retour du propriétaire du 15 octobre 2026 : « on peut défier nos amis
+// depuis la carte, mais on a peut-être déjà un duel engagé et ça ne nous
+// prévient pas ». La carte proposait « Défier », et le refus d'un second duel
+// ne tombait qu'au bout de la préparation : elle dit maintenant le duel ouvert,
+// de la règle même du refus.
+test('la carte d’un joueur dit le duel déjà ouvert entre eux — où il en est pour chacun, son code s’il est à lui —, de la règle même du refus', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
+    const [deLea, deTom] = [idDe(banc, 'lea'), idDe(banc, 'tom')]
+    const enCours = async (cookie: string, de: string) => (await lire(banc, cookie, `/api/duels/joueurs/${de}`)).corps.enCours
+    const refus = async (cookie: string, contre: string) => (await poster(banc, cookie, '/api/campagne/duel', { adversaire: contre })).corps.error
+    assert.equal(await enCours(lea, deTom), undefined, 'aucun duel entre eux : « Défier »')
+
+    // Léa le lance : à elle de le finir ; chez Tom, rien ne lui est encore parti — pas de code, qui le laisserait jouer d'abord.
+    const d = await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })
+    assert.equal(d.status, 200, d.corps.error)
+    const code: string = d.corps.code
+    assert.deepEqual(await enCours(lea, deTom), { ou: 'a-finir', code })
+    assert.deepEqual(await enCours(tom, deLea), { ou: 'a-venir' })
+    // Ce que la carte dit, le refus le dit aussi : une seule règle.
+    assert.equal(await refus(lea, deTom), 'Tu as déjà un duel en cours contre Tom : finis-le, il partira à ta dernière réponse')
+    assert.equal(await refus(tom, deLea), 'Léa t’a déjà défié : son duel t’arrivera à sa dernière réponse')
+    // Un troisième n'en sait rien.
+    assert.equal(await enCours(hugo, deTom), undefined)
+    assert.equal(await enCours(hugo, deLea), undefined)
+
+    // Joué jusqu'au bout : il attend Tom, et lui est parvenu.
+    horloge.t += 60_000
+    await jouer(banc, lea, d.corps.serie.id, 3)
+    assert.deepEqual(await enCours(lea, deTom), { ou: 'chez-l-autre', code })
+    assert.deepEqual(await enCours(tom, deLea), { ou: 'a-relever', code })
+    assert.equal(await refus(tom, deLea), 'Léa t’a déjà défié : relève son duel d’abord, en tête de tes duels')
+
+    // Joué des deux côtés : plus rien d'ouvert — la revanche se lance de la carte.
+    horloge.t += 60_000
+    await jouer(banc, tom, (await poster(banc, tom, `/api/campagne/duel/${code}`)).corps.id, 2)
+    assert.equal(await enCours(lea, deTom), undefined)
+    assert.equal(await enCours(tom, deLea), undefined)
+
+    // Tom a retiré Léa de ses amis : le duel qu'elle lui lance est retenu — elle n'en sait rien, et Tom sait quoi faire.
+    horloge.t += 60_000
+    assert.equal((await poster(banc, tom, `/api/campagne/amis/${deLea}/retrait`)).status, 200)
+    horloge.t += 60_000
+    const retenu = await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })
+    assert.equal(retenu.status, 200, retenu.corps.error)
+    await jouer(banc, lea, retenu.corps.serie.id, 3)
+    assert.deepEqual(await enCours(lea, deTom), { ou: 'chez-l-autre', code: retenu.corps.code })
+    assert.deepEqual(await enCours(tom, deLea), { ou: 'retenu' })
+    assert.equal(await refus(tom, deLea), 'Léa t’a déjà défié : remets ce profil dans tes amis pour recevoir son duel')
+    // Remise dans ses amis : son duel lui parvient, et sa carte le rouvre.
+    assert.equal((await poster(banc, tom, `/api/campagne/amis/${deLea}/ajout`)).status, 200)
+    assert.deepEqual(await enCours(tom, deLea), { ou: 'a-relever', code: retenu.corps.code })
+
+    // Fermé sans que Tom l'ait joué : il ne tient plus la paire.
+    horloge.t += DUREE_D_UN_DUEL_MS
+    assert.equal(await enCours(lea, deTom), undefined)
+    assert.equal(await enCours(tom, deLea), undefined)
+  } finally {
+    await banc.close()
+  }
+})
+
 /** Les cotes qu'un duel a figées à son lancement : celles qu'on voit, et les cachées. */
 async function coteAuLancement(banc: Banc, code: string): Promise<{ auteur: number; adversaire: number; cachees: { auteur: number; adversaire: number } }> {
   return base(banc, db => {

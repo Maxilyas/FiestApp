@@ -57,7 +57,7 @@ import {
 } from '../../../shared/campagne'
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, partVisee, type EtatDuCarnet, type ViseeDuCarnet } from '../../../shared/revision'
 import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees, type Tombe } from '../../../shared/gains'
-import { ligueDe, type CoteApresLeDuel, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
+import { ligueDe, type CoteApresLeDuel, type DuelOuvert, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 
 type Ecran =
   | { e: 'chargement' }
@@ -774,8 +774,15 @@ export function CampagneApp() {
    * carte d'un joueur y mène de l'accueil, du quiz du jour ou d'un défi, et
    * la préparation le relit en arrivant, sa propre cote avec.
    */
-  // Sa cote avec son plancher — la ligue qu'il garde : sans lui, la préparation annonçait une perte qu'il empêche.
-  const [depart, setDepart] = useState<{ categories: string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number; plancher?: number } }>({
+  // Sa cote avec son plancher — la ligue qu'il garde : sans lui, la préparation annonçait une perte qu'il empêche. Et le duel
+  // déjà ouvert contre celui qu'elle défie, lu avec (null : aucun).
+  const [depart, setDepart] = useState<{
+    categories: string[]
+    sujet: string | null
+    adversaire?: JoueurADefier
+    moi?: { cote: number; joues: number; plancher?: number }
+    enCours?: DuelOuvert | null
+  }>({
     categories: [],
     sujet: null,
   })
@@ -813,7 +820,7 @@ export function CampagneApp() {
     let vivant = true
     api.duels
       .joueur(contreQui)
-      .then(f => vivant && setDepart({ categories, sujet, adversaire: f.joueur, moi: f.moi }))
+      .then(f => vivant && setDepart({ categories, sujet, adversaire: f.joueur, moi: f.moi, enCours: f.enCours ?? null }))
       .catch(e => {
         if (!vivant) return
         // Introuvable — masqué, supprimé, ou soi-même : la préparation s'ouvre libre, et le dit.
@@ -993,6 +1000,7 @@ export function CampagneApp() {
             busy={busy}
             erreur={erreur}
             onLancer={(c, x, a, enjeu) => void lancerUnDuel(c, x, a, enjeu)}
+            onOuvrirDuel={code => void ouvrirLeDuel(code)}
             onAmis={() => {
               void relireMesAmis()
               setCroisesLus(n => n + 1)

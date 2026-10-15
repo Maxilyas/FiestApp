@@ -26,11 +26,14 @@ import { ChampDUnPrenom, LigneDeJoueur, useJoueursTrouves } from './Joueurs'
 export function FeuilleDesAmis({
   onFermer,
   onDefier,
+  onOuvrirDuel,
   onAmis,
 }: {
   onFermer: () => void
   /** Défier ici même (la page des duels) ; sans lui, la carte mène à sa préparation (`/duels#defier-<id>`). */
   onDefier?: (joueur: JoueurADefier, moi: FaceAFace['moi']) => void
+  /** Rouvrir ici même un duel déjà ouvert avec lui (la page des duels) ; sans lui, la carte mène à sa page (`/duels#duel-<code>`). */
+  onOuvrirDuel?: (code: string) => void
   /** Sa liste a changé : la page qui en dit quelque chose la relit. */
   onAmis?: () => void
 }) {
@@ -50,6 +53,7 @@ export function FeuilleDesAmis({
   }, [])
   const { ouvrir, carte } = useCarteDUnProfil({
     onDefier,
+    onOuvrirDuel,
     onAmis: () => {
       void relire()
       onAmis?.()

@@ -1246,6 +1246,15 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `client/src/views/Rencontre.tsx`, `client/src/views/Duel.tsx`, `client/src/views/Duels.tsx`, `client/src/views/LancerUnDefi.tsx`, `client/src/components/GestesDuJoueur.tsx`*
 
+### Un duel déjà ouvert se dit là où l'on choisit qui défier
+**Contexte** : un seul duel classé ouvert par paire, et le serveur refusait le second — mais seulement à « Jouer le duel », au bout de la préparation. La carte d'un joueur disait « Défier » à qui l'on affrontait déjà, et le classement entier ne marquait personne. Le propriétaire, le 15 octobre 2026 : « on peut défier nos amis / global depuis la carte, mais potentiellement on a déjà un duel engagé et ça ne nous prévient pas » ; « dans le classement complet, c'est pareil : on n'a pas d'indication si on les combat ».
+
+**Décision** : le refus et ce qu'on montre lisent la même règle (`duelOuvertEntre`), par la route qui dit un joueur touché (`FaceAFace.enCours`). Sa carte dit où en est le duel à la place de « Défier », et le rouvre s'il est à lui ; la préparation le dit sous l'adversaire choisi, et « Jouer le duel » attend ; le classement entier marque d'un sablier qui l'on affronte déjà, « Entre amis » et toute l'échelle disent « En cours ».
+
+**Conséquence** : un duel lancé contre lui et pas encore parti se dit sur la carte, sans son code — `releverUnDuel` ne vérifie pas qu'un duel classé est parti, et ce code laisserait l'adversaire jouer d'abord ; le classement, qui lit « En cours », ne le marque pas : il n'existe pas encore pour lui. La préparation lit chaque adversaire qu'on y choisit, une requête de plus.
+
+*Fichiers : `server/src/core/campagne.ts`, `shared/duels.ts`, `client/src/views/Rencontre.tsx`, `client/src/components/GestesDuJoueur.tsx`, `client/src/views/Duels.tsx`, `client/src/views/LancerUnDefi.tsx`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

@@ -1,5 +1,6 @@
 import type { IssueDeRencontre, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
-import type { CleDeLigue, EnjeuDuDuel } from '../../../shared/duels'
+import type { CleDeLigue, EnjeuDuDuel, OuEnEstLeDuel } from '../../../shared/duels'
+import type { IconName } from '../components/Icon'
 
 // Ce qu'une rencontre — un duel classé (`shared/duels.ts`) — écrit d'elle-même,
 // sur l'écran de la partie (`CampagneApp`) comme dans la page des duels
@@ -73,6 +74,25 @@ export function JetonsDeLEnjeu({ enjeu, petits }: { enjeu: Pick<EnjeuDuDuel, 'ga
       </span>
     </div>
   )
+}
+
+/**
+ * Ce qui se dit d'un duel déjà ouvert entre eux, là où l'on choisit qui
+ * défier — sa carte, à la place de « Défier » ; la préparation, sous celui
+ * qu'il a choisi : où il en est, en une phrase, et de quoi le rouvrir s'il est
+ * à lui. On y défiait qui l'on défiait déjà, et le refus ne tombait qu'au bout
+ * de la préparation (le retour du propriétaire du 15 octobre 2026). Pas
+ * encore parti, ou retenu, il n'est pas à lui : la phrase seule dit quoi
+ * faire. Ce que le refus d'un second duel dirait (`duelOuvertEntre`), dit
+ * avant qu'on le prépare — au présent : « te défie » ne devine pas qui lit,
+ * quand « t'a défié » l'accordait.
+ */
+export const DIT_DU_DUEL_OUVERT: Record<OuEnEstLeDuel, { phrase: (nom: string) => string; bouton?: { texte: string; icone: IconName; aToi?: true } }> = {
+  'a-finir': { phrase: nom => `Un duel est en cours entre vous : il partira à ${nom} à ta dernière réponse.`, bouton: { texte: 'Reprendre ton duel', icone: 'play', aToi: true } },
+  'chez-l-autre': { phrase: nom => `Un duel est en cours entre vous : il attend que ${nom} le joue.`, bouton: { texte: 'Voir ton duel', icone: 'eye' } },
+  'a-relever': { phrase: nom => `${nom} te défie : à toi de jouer.`, bouton: { texte: 'Relever son duel', icone: 'swords', aToi: true } },
+  'a-venir': { phrase: nom => `${nom} te défie : son duel t’arrivera à sa dernière réponse.` },
+  retenu: { phrase: nom => `${nom} te défie : remets ce profil dans tes amis pour recevoir son duel.` },
 }
 
 /**

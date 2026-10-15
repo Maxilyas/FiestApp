@@ -92,6 +92,7 @@ import {
   type DuelContre,
   type DuelDeLHistoire,
   type DuelJoue,
+  type DuelOuvert,
   type DuelRaconte,
   type DuelsDAccueil,
   type EnjeuDuDuel,
@@ -100,6 +101,7 @@ import {
   type JoueurADefier,
   type JoueurCroise,
   type LigneDesDuels,
+  type OuEnEstLeDuel,
   type PageDHistoire,
   type QuiAffronte,
   type ReleveDesDuels,
@@ -2595,34 +2597,41 @@ export class CampagneStore {
     if (id === profileId) throw new Error('Tu ne peux pas te défier toi-même : choisis quelqu’un d’autre')
     const [lui] = this.profils ? await this.profils.byIds([id]) : [null]
     if (!lui || this.masque?.(lui.id)) throw new Error('Ce joueur est introuvable : cherche-le de nouveau')
+    const ouvert = await this.duelOuvertEntre(profileId, lui.id)
+    if (ouvert) throw new Error(REFUS_D_UN_SECOND_DUEL[ouvert.ou](lui.name))
+    return lui.id
+  }
+
+  /**
+   * Le duel classé ouvert entre eux deux — pas encore joué des deux côtés —,
+   * s'il y en a un, et où il en est pour lui (`OuEnEstLeDuel`). Une seule
+   * règle pour le refus d'un second (`adversaireDuDuel`) et pour la carte de
+   * l'autre, qui le dit à la place de « Défier » (`faceAFace`) : elle
+   * proposait de défier qui l'on défiait déjà, et le refus ne tombait qu'au
+   * bout de la préparation (le retour du propriétaire du 15 octobre 2026).
+   * Deux défis lancés de part et d'autre au même instant passent chacun sous
+   * le verrou de son auteur : le plus ancien parle.
+   */
+  private async duelOuvertEntre(profileId: string, autre: string): Promise<DuelOuvert | null> {
     const ouvert = await this.client.execute({
-      // Et de quoi dire quoi faire : reçu, joué par qui l'a lancé.
-      sql: `SELECT d.auteur,
+      // Et de quoi dire où il en est : reçu, joué par qui l'a lancé.
+      sql: `SELECT d.code, d.auteur,
               EXISTS (SELECT 1 FROM campagne_envois e WHERE e.code = d.code AND e.profile_id = ?) AS recu,
               EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) AS joue
             FROM campagne_duels d
             WHERE d.ferme_le > ? AND ((d.auteur = ? AND d.adversaire = ?) OR (d.auteur = ? AND d.adversaire = ?))
               AND (SELECT COUNT(*) FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = d.code AND s.finie_le IS NOT NULL AND s.profile_id IN (d.auteur, d.adversaire)) < 2
+            ORDER BY d.cree_le, d.code
             LIMIT 1`,
-      args: [profileId, this.maintenant(), profileId, id, id, profileId],
+      args: [profileId, this.maintenant(), profileId, autre, autre, profileId],
     })
     const r = ouvert.rows[0]
-    if (r) {
-      const joue = Number(r.joue) === 1
-      throw new Error(
-        String(r.auteur) === profileId
-          ? joue
-            ? `Tu as déjà un duel en cours contre ${lui.name} : il attend d’être joué`
-            : `Tu as déjà un duel en cours contre ${lui.name} : finis-le, il partira à ta dernière réponse`
-          : Number(r.recu) === 1
-            ? `${lui.name} t’a déjà défié : relève son duel d’abord, en tête de tes duels`
-            : joue
-              ? // Retenu : il l'avait retiré de ses amis (`aRetire`).
-                `${lui.name} t’a déjà défié : remets ce profil dans tes amis pour recevoir son duel`
-              : `${lui.name} t’a déjà défié : son duel t’arrivera à sa dernière réponse`,
-      )
-    }
-    return lui.id
+    if (!r) return null
+    const joue = Number(r.joue) === 1
+    if (String(r.auteur) === profileId) return { ou: joue ? 'chez-l-autre' : 'a-finir', code: String(r.code) }
+    if (Number(r.recu) === 1) return { ou: 'a-relever', code: String(r.code) }
+    // Pas encore parti, ou retenu — il l'avait retiré de ses amis (`aRetire`) : il n'est pas encore à lui, son code non plus.
+    return { ou: joue ? 'retenu' : 'a-venir' }
   }
 
   /**
@@ -3395,15 +3404,23 @@ export class CampagneStore {
   /**
    * Un joueur touché hors d'une soirée (`GET /api/duels/joueurs/:id`) : ce
    * que la recherche dirait de lui — sa ligue, sa cote, sa place, s'il est
-   * son ami —, et sa propre cote, relue, pour que la préparation dise ce qui
-   * se joue. Ni lui-même, ni un masqué, ni un inconnu : null.
+   * son ami —, sa propre cote, relue, pour que la préparation dise ce qui se
+   * joue, et le duel déjà ouvert entre eux, que sa carte dit au lieu de
+   * « Défier » (`duelOuvertEntre`, la règle même du refus). Ni lui-même, ni
+   * un masqué, ni un inconnu : null.
    */
   async faceAFace(profileId: string, autre: unknown): Promise<FaceAFace | null> {
     const p = this.profils
     if (!p || typeof autre !== 'string' || !autre || autre === profileId || this.masque?.(autre)) return null
     const [lui] = await p.byIds([autre])
     if (!lui) return null
-    const [cercle, cotes, rangs, moi] = await Promise.all([this.cercleDe(profileId), this.toutesLesCotes(), this.rangsDuClassement(), this.releveDesDuels(profileId)])
+    const [cercle, cotes, rangs, moi, enCours] = await Promise.all([
+      this.cercleDe(profileId),
+      this.toutesLesCotes(),
+      this.rangsDuClassement(),
+      this.releveDesDuels(profileId),
+      this.duelOuvertEntre(profileId, lui.id),
+    ])
     return {
       joueur: {
         profileId: lui.id,
@@ -3414,6 +3431,7 @@ export class CampagneStore {
         ...(cercle.estAmi(lui.id) && { ami: true as const }),
       },
       moi: { cote: moi.cote, joues: moi.joues, ...(moi.plancher !== null && { plancher: moi.plancher }) },
+      ...(enCours && { enCours }),
     }
   }
 
@@ -6699,6 +6717,15 @@ const sesJustesEnTout = (a: AdversaireGarde): number => a.reponses.filter(Boolea
 
 /** Un défi envoyé (`e`, sur son duel `d`) qui est bien à lui : un défi entre amis, ou le duel classé qui le défie. */
 const DEFI_A_LUI = '(d.adversaire IS NULL OR d.adversaire = e.profile_id)'
+
+/** Pourquoi un second duel classé contre le même ne se lance pas : où en est le premier (`duelOuvertEntre`), et quoi faire. */
+const REFUS_D_UN_SECOND_DUEL: Record<OuEnEstLeDuel, (nom: string) => string> = {
+  'a-finir': nom => `Tu as déjà un duel en cours contre ${nom} : finis-le, il partira à ta dernière réponse`,
+  'chez-l-autre': nom => `Tu as déjà un duel en cours contre ${nom} : il attend d’être joué`,
+  'a-relever': nom => `${nom} t’a déjà défié : relève son duel d’abord, en tête de tes duels`,
+  'a-venir': nom => `${nom} t’a déjà défié : son duel t’arrivera à sa dernière réponse`,
+  retenu: nom => `${nom} t’a déjà défié : remets ce profil dans tes amis pour recevoir son duel`,
+}
 
 /**
  * Les défis que ses amis lui ont envoyés et qu'il n'a pas relevés, les plus

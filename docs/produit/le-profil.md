@@ -132,7 +132,7 @@ Ce que tu as d'abord, en couleur ; le reste en silhouette dorée, une pastille d
 | | des cadrans : soirées, quiz gagnés, hauts faits, précision, coup d'œil, réflexe — sans aucune soirée, ceux du solo : hauts faits, précision, record en série, paliers de sentier, bonnes réponses de campagne |
 | | des pastilles : « Prix 14/20 », « Quiz du jour 41 j · 3 victoires », sa ligue et sa cote, « Campagne · record 18 » |
 
-Ta propre carte n'a pas de « ce soir » ; celle d'un anonyme ne dit rien de ce qui lui manque. Hors d'une soirée, ses gestes viennent au pied — « Défier », ajouter à ses amis ([les duels](les-duels.md)). **Son avatar touché s'ouvre en grand**, à la place de ce que la carte raconte : la peinture entière d'un légendaire, son reflet qui suit le doigt, la lumière de sa finition, son Éclat, son nom dessous — rien pour un anonyme. Un nouveau toucher, ou Échap, rend la carte.
+Ta propre carte n'a pas de « ce soir » ; celle d'un anonyme ne dit rien de ce qui lui manque. Hors d'une soirée, ses gestes viennent au pied — « Défier », ou le duel déjà ouvert entre vous et de quoi le rouvrir ; ajouter à ses amis ([les duels](les-duels.md)). **Son avatar touché s'ouvre en grand**, à la place de ce que la carte raconte : la peinture entière d'un légendaire, son reflet qui suit le doigt, la lumière de sa finition, son Éclat, son nom dessous — rien pour un anonyme. Un nouveau toucher, ou Échap, rend la carte.
 
 ## Les amis et les objectifs les plus proches
 

@@ -17,6 +17,8 @@ export function useFeuilleDesAmis(
   gestes: {
     /** Défier ici même (la page des duels) ; sans lui, la carte d'un ami mène à sa préparation. */
     onDefier?: (joueur: JoueurADefier, moi: FaceAFace['moi']) => void
+    /** Rouvrir ici même un duel déjà ouvert avec un ami (la page des duels) ; sans lui, la carte mène à sa page. */
+    onOuvrirDuel?: (code: string) => void
     /** Sa liste a changé : la page qui en dit quelque chose la relit. */
     onAmis?: () => void
   } = {},
@@ -33,7 +35,7 @@ export function useFeuilleDesAmis(
         </p>
       </Feuille>
     ) : module ? (
-      <module.FeuilleDesAmis onFermer={fermer} onDefier={gestes.onDefier} onAmis={gestes.onAmis} />
+      <module.FeuilleDesAmis onFermer={fermer} onDefier={gestes.onDefier} onOuvrirDuel={gestes.onOuvrirDuel} onAmis={gestes.onAmis} />
     ) : null,
   }
 }

@@ -9,8 +9,12 @@
 // gestes au pied ; le dé laissé en route, puis une montée de ligue ; puis
 // défier quelqu'un : Tom touché au classement, « Défier Tom » sur
 // sa carte, la préparation, une partie jusqu'à « Duel envoyé », et le duel qui
-// l'attend chez Léa ; Tom qui le reçoit — compté en rouge à l'accueil, « À
-// toi » dans ses duels —, ses deux cartes, le joue et le gagne — la carte se
+// l'attend chez Léa — ouvert, chaque carte le dit à la place de « Défier » :
+// celle de Léa chez Tom pendant qu'elle joue, celle de Tom chez elle, qui le
+// rouvre, et le classement entier d'un sablier, entre amis « En cours », la
+// préparation qui le dit sous Tom choisi ; Tom
+// qui le reçoit — compté en rouge à l'accueil, « À toi » dans ses duels, et sa
+// carte de Léa —, ses deux cartes, le joue et le gagne — la carte se
 // retourne ; Léa qui l'apprend — la bannière de l'accueil, une fois, la tuile
 // allumée —, sa carte qui se retourne, ses réponses, la carte revue ouverte ;
 // la barre de recherche ; la feuille des amis — qui est en ligne, qui l'a
@@ -253,6 +257,16 @@ try {
   await page.getByRole('button', { name: 'Jouer le duel' }).click()
   await page.waitForSelector('.duels-enjeu')
   await photo(page, '07b-en-jeu-contre-tom')
+  // Pendant qu'elle joue, Tom touche Léa au classement entier : sa carte dit le duel qui lui arrivera, à la place de
+  // « Défier » — rien à rouvrir, il n'est pas encore à lui (le retour du propriétaire du 15 octobre 2026).
+  const tomPendant = await telephone(tom)
+  await tomPendant.goto(`${banc.url}/duels`)
+  await tomPendant.getByRole('tab', { name: 'Classement' }).click()
+  await tomPendant.click('.duels-podium')
+  await tomPendant.locator('.duels-ligne', { hasText: 'Léa' }).click()
+  await tomPendant.waitForSelector('.carte-gestes-duel')
+  await photo(tomPendant, '07c-carte-de-lea-a-venir')
+  await tomPendant.context().close()
   await jusquAuBout(page, lea, 'duel', 6)
   // Sa dernière réponse : « Duel envoyé », son score parti caché, « Accueil » en or.
   await page.waitForSelector('.duels-envoye')
@@ -264,6 +278,32 @@ try {
   await page.locator('.duels-attente').click()
   await page.waitForSelector('.duels-cartes')
   await photo(page, '08c-lea-cartes')
+  // Le classement entier : un sablier après le nom de Tom, dit sous la liste ; sa carte dit le duel au lieu de « Défier »,
+  // et « Voir ton duel » le rouvre. Entre amis, Tom « En cours ».
+  await page.goto(`${banc.url}/duels`)
+  await page.getByRole('tab', { name: 'Classement' }).click()
+  await page.click('.duels-podium')
+  await page.waitForSelector('.duels-ligne-en-cours')
+  await photo(page, '08d-classement-tom-en-cours')
+  await page.locator('.duels-legende-en-cours').scrollIntoViewIfNeeded()
+  await photo(page, '08d-classement-legende')
+  await page.locator('.duels-ligne', { hasText: 'Tom' }).click()
+  await page.waitForSelector('.carte-gestes-duel')
+  await photo(page, '08e-carte-de-tom-en-cours')
+  await page.locator('.carte-joueur').getByRole('button', { name: 'Voir ton duel' }).click()
+  await page.waitForSelector('.duels-cartes')
+  console.log('« Voir ton duel » →', new URL(page.url()).pathname + new URL(page.url()).hash)
+  await page.goto(`${banc.url}/duels`)
+  await page.getByRole('tab', { name: 'Classement' }).click()
+  await page.getByRole('tab', { name: /^Entre amis/ }).click()
+  await page.waitForSelector('.duels-echelon-geste.en-cours')
+  await page.locator('.duels-echelon-geste.en-cours').scrollIntoViewIfNeeded()
+  await photo(page, '08f-entre-amis-tom-en-cours')
+  // « Défier », puis « Choisir » Tom parmi ses amis : le duel ouvert se dit sous lui, et « Jouer le duel » attend.
+  await page.getByRole('button', { name: 'Défier', exact: true }).click()
+  await page.locator('ul[aria-label="Défier l’un de tes amis"]').getByRole('button', { name: 'Défier Tom' }).click()
+  await page.waitForSelector('.defier-deja')
+  await photo(page, '08g-defier-tom-deja')
   // Tom : le bouton de son accueil le dit — qui le défie, compté en rouge —, et le duel l'attend dans ses duels, « À toi ».
   const pourTom = await telephone(tom)
   await pourTom.goto(banc.url)
@@ -272,6 +312,14 @@ try {
   await pourTom.click('.gros-bouton[href="/duels"]')
   await pourTom.waitForSelector('.duels-a-toi')
   await photo(pourTom, '10-tom-le-recoit')
+  // Sa carte de Léa, au classement entier : le duel qu'elle lui a lancé, « Relever son duel » à la place de « Défier ».
+  await pourTom.getByRole('tab', { name: 'Classement' }).click()
+  await pourTom.click('.duels-podium')
+  await pourTom.locator('.duels-ligne', { hasText: 'Léa' }).click()
+  await pourTom.waitForSelector('.carte-gestes-duel')
+  await photo(pourTom, '10b-carte-de-lea-a-relever')
+  await pourTom.goto(`${banc.url}/duels`)
+  await pourTom.waitForSelector('.duels-a-toi')
   // Il l'ouvre : la carte de Léa face cachée, la sienne à jouer, ce qui se joue ; il le joue, et le gagne.
   await pourTom.locator('.duels-a-toi', { hasText: 'Léa' }).click()
   await pourTom.waitForSelector('.duels-cartes')

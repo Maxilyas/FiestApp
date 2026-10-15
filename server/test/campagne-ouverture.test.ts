@@ -387,9 +387,13 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(page, /estLeLancement\(hash\)\s*\? 'defier'/)
   assert.match(page, /actif=\{mode\}/, 'les onglets de la campagne n’ont plus rien des défis entre amis')
   assert.match(page, /onDefier=\{ouvrirLeLancement\}/)
-  // Le classement dans sa feuille ; « Défier » sur la carte de chaque joueur, du classement comme de ses amis, ouvre la préparation ici même.
-  assert.match(duels, /<FeuilleDuClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>/)
-  assert.match(duels, /const gestes = \{ onDefier: \(j: JoueurADefier, m: MaCote\) => onDefier\(j, m\), onAmis \}\s*const \{ ouvrir, carte \} = useCarteDUnProfil\(gestes\)\s*const feuilleDesAmis = useFeuilleDesAmis\(gestes\)/)
+  // Le classement dans sa feuille ; « Défier » sur la carte de chaque joueur, du classement comme de ses amis, ouvre la préparation ici même —
+  // un duel déjà ouvert entre eux, sa page (le 15 octobre 2026).
+  assert.match(duels, /<FeuilleDuClassement classement=\{etat\.classement\} contre=\{etat\.contre\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>/)
+  assert.match(
+    duels,
+    /const gestes = \{ onDefier: \(j: JoueurADefier, m: MaCote\) => onDefier\(j, m\), onOuvrirDuel, onAmis \}\s*const \{ ouvrir, carte \} = useCarteDUnProfil\(gestes\)\s*const feuilleDesAmis = useFeuilleDesAmis\(gestes\)/,
+  )
   assert.doesNotMatch(page, /Défier des amis/, 'plus de défi entre amis sous la série')
   assert.match(page, /await api\.campagne\.duel\.lancer\(choisi \? \[\] : choisies, choisi, \[\], adversaire\.profileId\)/)
   assert.doesNotMatch(page, /lancerUnDuel\(categories, sujetJouable\)/, 'plus de défi lancé sans dire à qui')

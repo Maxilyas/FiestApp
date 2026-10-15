@@ -938,14 +938,26 @@ const joueurDeLaLigne = (l: LigneDesDuels): JoueurADefier => ({
 })
 
 /**
+ * Le duel en route entre eux, s'il y en a un — un seul à la fois : son
+ * échelle, ses amis et le classement entier le marquent, de la règle même
+ * d'« En cours » (`duelEnRoute`). Lancé contre lui et pas encore parti, il
+ * n'y est pas : il n'existe pas encore pour lui, et sa carte seule le dit
+ * (`FaceAFace.enCours`).
+ */
+export const duelEnRouteAvec = (contre: readonly DuelContre[], profileId: string): DuelContre | undefined =>
+  contre.find(d => d.contre.profileId === profileId && duelEnRoute(d))
+
+/**
  * Un échelon de son échelle, ou de ses amis : un joueur — sa place, sa cote,
  * ses places depuis lundi — et, s'il est à sa portée, « Défier » et ce que le
  * duel mettrait en jeu : ce qu'il gagnerait à le battre, et ce qu'une défaite
  * lui coûterait — le gain seul ne disait pas le risque (le souhait du
  * propriétaire du 14 octobre 2026 : « savoir aussi combien je perds si je
  * défie quelqu'un et que je perds ») ; un duel déjà ouvert entre eux, « En
- * cours », qui le rouvre. Deux boutons côte à côte, jamais l'un dans l'autre :
- * sa carte, et le geste.
+ * cours », qui le rouvre — sur tout échelon, celui qui le suit et ses amis
+ * compris : on ne savait pas qui l'on affrontait déjà (le retour du
+ * propriétaire du 15 octobre 2026). Deux boutons côte à côte, jamais l'un
+ * dans l'autre : sa carte, et le geste.
  */
 function Echelon({
   ligne: l,
@@ -960,7 +972,7 @@ function Echelon({
   moi: boolean
   /** Ce qu'il mettrait en jeu à le défier (`enjeuContre`) ; absent : rien à défier — lui-même, celui qui le suit, un ami. */
   enjeu?: EnjeuDuDuel
-  /** Le code d'un duel déjà ouvert entre eux : un seul à la fois. */
+  /** Le code d'un duel déjà ouvert entre eux : un seul à la fois, « En cours » à la place de « Défier ». */
   enCours?: string
   onOuvrir: (profileId: string) => void
   onDefier?: () => void
@@ -986,13 +998,13 @@ function Echelon({
           </span>
         </span>
       </button>
-      {enjeu !== undefined &&
-        (enCours ? (
-          <button type="button" className="duels-echelon-geste en-cours" aria-label={`Ton duel contre ${l.nom}, en cours`} onClick={() => onOuvrirDuel?.(enCours)}>
-            <Icon name="hourglass" />
-            En cours
-          </button>
-        ) : (
+      {enCours ? (
+        <button type="button" className="duels-echelon-geste en-cours" aria-label={`Ton duel contre ${l.nom}, en cours`} onClick={() => onOuvrirDuel?.(enCours)}>
+          <Icon name="hourglass" />
+          En cours
+        </button>
+      ) : (
+        enjeu !== undefined && (
           <button type="button" className="duels-echelon-geste" aria-label={`Défier ${l.nom} : ${phraseDeLEnjeu(enjeu)}`} onClick={onDefier}>
             <span className="duels-echelon-defier">
               <Icon name="swords" />
@@ -1002,7 +1014,8 @@ function Echelon({
             {/* Sous l'Or, la défaite rapporte souvent (la montée) : « +4 même si tu perds », en rouge seulement quand elle coûte. */}
             <span className={'duels-echelon-perte' + (enjeu.perdu < 0 ? ' duels-moins' : '')}>{espacesFines(siTuPerds(enjeu.perdu))}</span>
           </button>
-        ))}
+        )
+      )}
     </li>
   )
 }
@@ -1042,7 +1055,7 @@ function ClassementDeTous({
   const auDessous = classement.enTete || (aPortee[0] !== undefined && aPortee[0].cote < maCote.cote)
   const echelle = auDessous ? [...(sienne ? [sienne] : []), ...aPortee] : [...[...aPortee].reverse(), ...(sienne ? [sienne] : []), ...(suivant ? [suivant] : [])]
   const vises = new Set(aPortee.map(l => l.profileId))
-  const enCours = (profileId: string) => contre.find(d => d.contre.profileId === profileId && duelEnRoute(d))?.code
+  const enCours = (profileId: string) => duelEnRouteAvec(contre, profileId)?.code
   return (
     <>
       {!sienne && (
@@ -1101,10 +1114,25 @@ function entreAmis(amis: MesAmis, sienne?: LigneDesDuels) {
 
 /**
  * « Entre amis », sous ses deux places : ses amis classés et lui, chacun sa
- * carte, comme son échelle, puis combien n'ont pas joué ces quatre semaines.
- * Sans ami, comment en ajouter.
+ * carte, comme son échelle — « En cours » sur qui il affronte déjà —, puis
+ * combien n'ont pas joué ces quatre semaines. Sans ami, comment en ajouter.
  */
-export function ClassementDesAmis({ amis, sienne, onOuvrir, onAmis }: { amis: MesAmis | null; sienne?: LigneDesDuels; onOuvrir: (profileId: string) => void; onAmis: () => void }) {
+export function ClassementDesAmis({
+  amis,
+  sienne,
+  contre = [],
+  onOuvrir,
+  onOuvrirDuel,
+  onAmis,
+}: {
+  amis: MesAmis | null
+  sienne?: LigneDesDuels
+  /** Ses duels contre quelqu'un : un ami qu'il affronte déjà le dit, et le rouvre. */
+  contre?: readonly DuelContre[]
+  onOuvrir: (profileId: string) => void
+  onOuvrirDuel?: (code: string) => void
+  onAmis: () => void
+}) {
   if (!amis) return <p className="duels-vide">Chargement…</p>
   if (amis.amis.length === 0) {
     return (
@@ -1123,7 +1151,14 @@ export function ClassementDesAmis({ amis, sienne, onOuvrir, onAmis }: { amis: Me
       {lignes.length > 0 && (
         <ol className="duels-echelons">
           {lignes.map(l => (
-            <Echelon key={l.profileId} ligne={l} moi={l.profileId === sienne?.profileId} onOuvrir={onOuvrir} />
+            <Echelon
+              key={l.profileId}
+              ligne={l}
+              moi={l.profileId === sienne?.profileId}
+              enCours={duelEnRouteAvec(contre, l.profileId)?.code}
+              onOuvrir={onOuvrir}
+              onOuvrirDuel={onOuvrirDuel}
+            />
           ))}
         </ol>
       )}
@@ -1177,7 +1212,7 @@ export function PanneauClassement({
         {qui === 'tous' ? (
           <ClassementDeTous classement={classement} maCote={maCote} contre={contre} onOuvrir={onOuvrir} onToutVoir={onToutVoir} onDefier={onDefier} onOuvrirDuel={onOuvrirDuel} />
         ) : (
-          <ClassementDesAmis amis={amis} sienne={sienne} onOuvrir={onOuvrir} onAmis={onAmis} />
+          <ClassementDesAmis amis={amis} sienne={sienne} contre={contre} onOuvrir={onOuvrir} onOuvrirDuel={onOuvrirDuel} onAmis={onAmis} />
         )}
       </div>
     </div>
@@ -1251,16 +1286,18 @@ function FeuilleDesRegles({ ligue, onFermer }: { ligue: CleDeLigue; onFermer: ()
  * souhait du 11 octobre 2026, « des petites épées pour affronter les
  * personnes ») est partie le soir même : avec la croix des amis, elle
  * encombrait la page — la remarque du propriétaire —, et l'on défie
- * maintenant qui l'on a vu.
+ * maintenant qui l'on a vu. Un sablier après le nom de qui il affronte déjà
+ * (le retour du propriétaire du 15 octobre 2026 : « on n'a pas d'indication
+ * si on les combat ») : sa carte dit où en est le duel, et le rouvre.
  */
-function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; onOuvrir: (profileId: string) => void }) {
+function LigneDuClassement({ ligne: l, moi, enCours, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; enCours?: boolean; onOuvrir: (profileId: string) => void }) {
   const ligue = ligueParCle(l.ligue)
   return (
     <button
       type="button"
       className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
-      // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote et les places depuis lundi doivent y être.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}`}
+      // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote, les places depuis lundi et le duel en cours doivent y être.
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}${enCours ? ', un duel en cours entre vous' : ''}`}
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
@@ -1268,6 +1305,11 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDesDuels; 
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>
+      {enCours && (
+        <span className="duels-ligne-en-cours" aria-hidden="true">
+          <Icon name="hourglass" />
+        </span>
+      )}
       <Mouvement n={l.progression} />
       <BlasonDeLigue ligue={l.ligue} taille={22} decoratif />
       <span className="lb-score">{l.cote}</span>
@@ -1293,18 +1335,24 @@ function TitreDeLigue({ ligue }: { ligue: CleDeLigue }) {
  * semaines, de la plus haute cote à la plus basse, rangés sous leur ligue ;
  * chaque nom ouvre sa carte, et « Défier » est à son pied. Il arrive avec la
  * page (`EtatDesDuels.classement`) : la feuille s'ouvre sans attendre. L'onglet
- * « Classement » n'en montre que sa place, ses voisins et le podium.
+ * « Classement » n'en montre que sa place, ses voisins et le podium. Qui il
+ * affronte déjà porte un sablier, dit sous la liste.
  */
 export function FeuilleDuClassement({
   classement,
+  contre = [],
   onOuvrir,
   onFermer,
 }: {
   classement: EtatDesDuels['classement']
+  /** Ses duels contre quelqu'un, qu'il a avec la page : ceux qui sont en route marquent leur adversaire. */
+  contre?: readonly DuelContre[]
   onOuvrir: (profileId: string) => void
   onFermer: () => void
 }) {
   const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
+  const enCours = (l: LigneDesDuels) => duelEnRouteAvec(contre, l.profileId) !== undefined
+  const unDuelEnCours = classement.lignes.some(enCours)
   return (
     <Feuille titre="Le classement des duels" onFermer={onFermer}>
       {sienne ? (
@@ -1327,7 +1375,7 @@ export function FeuilleDuClassement({
           {classement.lignes.map((l, i) => (
             <Fragment key={l.profileId}>
               {(i === 0 || classement.lignes[i - 1].ligue !== l.ligue) && <TitreDeLigue ligue={l.ligue} />}
-              <LigneDuClassement ligne={l} moi={l.profileId === classement.sienne} onOuvrir={onOuvrir} />
+              <LigneDuClassement ligne={l} moi={l.profileId === classement.sienne} enCours={enCours(l)} onOuvrir={onOuvrir} />
             </Fragment>
           ))}
           {classement.moi && (
@@ -1337,6 +1385,13 @@ export function FeuilleDuClassement({
             </>
           )}
         </div>
+      )}
+      {/* Le sablier dit sous la liste, comme le point « en ligne » des amis : seulement s'il y en a un. */}
+      {unDuelEnCours && (
+        <p className="muted small duels-legende-en-cours">
+          <Icon name="hourglass" />
+          {espacesFines('un duel en cours entre vous : sa carte le rouvre')}
+        </p>
       )}
       <p className="muted small">{espacesFines('Ceux qui ont joué un duel ces quatre dernières semaines. Touche un nom : sa carte s’ouvre, et tu le défies de là.')}</p>
     </Feuille>
@@ -1381,8 +1436,9 @@ export function PageDesDuels({
   const [correction, setCorrection] = useState<LigneDHistoire | null>(null)
   // Le dé tiré, pas encore joué : ce qu'il met en jeu, dans sa feuille, avant la première question.
   const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
-  // « Défier » sur la carte d'un joueur — du classement, de ses amis — ouvre la préparation ici même, sa cote relue avec lui.
-  const gestes = { onDefier: (j: JoueurADefier, m: MaCote) => onDefier(j, m), onAmis }
+  // « Défier » sur la carte d'un joueur — du classement, de ses amis — ouvre la préparation ici même, sa cote relue avec lui ;
+  // un duel déjà ouvert entre eux, sa page.
+  const gestes = { onDefier: (j: JoueurADefier, m: MaCote) => onDefier(j, m), onOuvrirDuel, onAmis }
   const { ouvrir, carte } = useCarteDUnProfil(gestes)
   const feuilleDesAmis = useFeuilleDesAmis(gestes)
 
@@ -1456,7 +1512,7 @@ export function PageDesDuels({
           />
         )}
       </div>
-      {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}
+      {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} contre={etat.contre} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}
       {reglesOuvertes && <FeuilleDesRegles ligue={etat?.ligue ?? 'bronze'} onFermer={() => setReglesOuvertes(false)} />}
       {correction && <FeuilleDeLaCorrection duel={correction} onFermer={() => setCorrection(null)} />}
       {deTire && <FeuilleDuDe rencontre={deTire} onJouer={() => onJouer(deTire)} onFermer={() => setDeTire(null)} />}
