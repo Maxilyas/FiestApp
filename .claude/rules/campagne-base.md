@@ -83,3 +83,15 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   porte : Guillaume Diop est resté sans question) ; et un rédacteur range ses
   scripts dans son dossier à lui — un `g.py` commun dans `/tmp` a réécrit le
   lot d'un voisin.
+- **Les quatre plus petits thèmes** (15 octobre 2026 encore) : les mythes,
+  les premières fois, les surnoms et les années 50, deux cents questions de
+  plus chacun (`preparer --sujet`) — 758 rangées sur 800, jusqu'à 24 131, de
+  190 à 198 par thème. Ce qu'on en a appris : une ligne « chacune
+  étiquetée… » ou « chacune datée… » se tient — toutes les questions gardées
+  sont entrées dans leur thème — ; un thème dont l'essentiel vit dans un seul
+  sous-thème s'y écrit un lot par vague (les mythes : trois vagues de plus
+  pour eux seuls) ; et la relecture laisse passer ce que le juge ne voit
+  pas, une réponse qui se calcule depuis l'intitulé (« lancé en 1951 »,
+  pour le pastis « 51 ») ou deux choix que l'intitulé élimine (« roi de
+  Navarre », quand deux leurres ne l'étaient pas) — un coup d'œil sur les
+  lots avant de ranger les attrape.

@@ -20,7 +20,7 @@ Un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit 
 
 **Des questions de toutes les sortes.** QCM et vrai ou faux, estimations où le plus proche gagne, plusieurs bonnes réponses, réponses à remettre dans l'ordre, « Qui dans la salle ? », photo qui disparaît, blind test, et l'estimation en direct dont on tape la réponse à la révélation. → [Les questions](docs/produit/les-questions.md)
 
-**Des quiz prêts en un geste.** L'éditeur dans le navigateur, une liste à coller (écrite par un ami ou par une IA), des modèles pour un anniversaire ou un mariage, l'import et le partage — ou le quiz tout prêt, composé d'un toucher dans une base de 23 373 questions relues. → [Les quiz](docs/produit/les-quiz.md)
+**Des quiz prêts en un geste.** L'éditeur dans le navigateur, une liste à coller (écrite par un ami ou par une IA), des modèles pour un anniversaire ou un mariage, l'import et le partage — ou le quiz tout prêt, composé d'un toucher dans une base de 24 131 questions relues. → [Les quiz](docs/produit/les-quiz.md)
 
 **L'animateur aux commandes.** Une console pour révéler, mettre en pause, reposer, annuler des points ; une télécommande sur son téléphone ; une télé qui se branche par son code ; des équipes préparées avant d'ouvrir. → [Animer une soirée](docs/guides/animer-une-soiree.md)
 
