@@ -60,9 +60,14 @@ import { sansAccent } from '../../shared/homonymes'
  * troisième, 2 753 (194 refusées, dont 180 pour un fait déjà posé, 25
  * retirées à la relecture) : 20 360 ; la dernière, mille sept cents pour
  * finir le crédit à dix dollars près, 1 527 (165 refusées, dont 153 pour un
- * fait déjà posé, 8 retirées à la relecture) : 21 887.
+ * fait déjà posé, 8 retirées à la relecture) : 21 887. Le 15 octobre 2026,
+ * deux thèmes neufs, la danse et les métiers de la santé : six cents
+ * questions demandées à chacun, famille par famille de leurs inventaires
+ * (`preparer --inventaire=danse,sante`), 1 121 rangées (59 refusées comme
+ * un fait ou un intitulé que la base ou un autre lot posait déjà, 20
+ * retirées à la relecture) : 23 008.
  */
-const AU_MOINS = 21887
+const AU_MOINS = 23008
 
 const { questions, refusees } = lireLaBase()
 
