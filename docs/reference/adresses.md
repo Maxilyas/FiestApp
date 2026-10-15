@@ -45,7 +45,8 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 |---|---|
 | `/profil#avatar`, `#titre`, `#vitrine`, `#fond`, `#theme`, `#gerbe` | la loge (« M'habiller »), ouverte sur une pièce ; avec `?essayer=<clé>` (`/profil?essayer=nuit#fond`), l'objet qu'une fin de partie propose sous « À porter » déjà essayé sur la carte — seulement s'il est au profil, et la requête s'efface aussitôt de l'adresse (`essaiDemande`) |
 | `/profil#collection` (et `#collection-<ligne>`, `#collection-avatars-<rareté>`, `#collection-trophees-<mode>`), `#soirees`, `#carriere` | « Ma collection » (sur une ligne, une page de l'album des avatars — `#collection-avatars-rare` — ou de l'album des trophées — `#collection-trophees-jour`, où mène chaque ligne de « Nouveaux trophées »), « Mes soirées », « Ma carrière » |
-| `/boutique#compagnons`, `#objets`, `#objet-<objet>` | un rayon de la boutique, la fiche d'un objet |
+| `/#missions` | l'accueil, la feuille des missions du jour ouverte — la fin d'une partie et la fiche d'un objet du trésor y mènent ; le fragment s'efface une fois lu |
+| `/boutique#compagnons`, `#objets`, `#objet-<objet>`, `#theme-<clé>` | un rayon de la boutique, la fiche d'un objet ; `#theme-aurore`, le rayon des thèmes ouvert sur sa rareté, sa fiche dépliée (le bandeau « À la une » de l'accueil y mène) |
 | `/jour#classement`, `#classement-hier`, `#classement-mois`, `#correction` | le classement d'une période, la correction de sa partie |
 | `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine, le carnet |
 | `/duels#duel-<code>`, `#defier`, `#defier-<id>` | un duel entre amis, en préparer un, défier quelqu'un |

@@ -17,7 +17,7 @@ import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
 import { EclatTombe, Medaillon } from './Ouverts'
-import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu, type NiveauDeLaFin } from './Gains'
+import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu, type NiveauDeLaFin } from './Gains'
 import { lienBilan } from './Lendemain'
 import { Feuille } from './Pieces'
 
@@ -222,6 +222,8 @@ export function FinDeSoiree({
         }
       />
       {gain && <APorter objets={[...aPorterDesTrophees(paliers.map(p => p.key)), ...emojisAPorter(niveau)]} />}
+      {/* Ses missions du jour, si la soirée en a fait — ses bonnes réponses comptent partout. */}
+      <MissionsAccomplies profil={!!gain} />
 
       {/* Deux gestes, côte à côte : relire sa soirée — « Mon bilan » s'ouvre
           sur lui, sans « Qui es-tu ? » —, ou rentrer. Un seul « Accueil » sur

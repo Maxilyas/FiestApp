@@ -14,7 +14,7 @@ import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
 import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
+import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
@@ -1602,6 +1602,9 @@ function GainsDeCampagne({ fin, profil, duel = false }: { fin: Extract<Ecran, { 
       ))}
       <NouveauxTrophees trophees={tropheesTombes(fin.recompenses as readonly Tombe[])} lien />
       <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
+      {/* Ses missions du jour, si la partie en a fait : une série, un défi, un duel, une révision —
+          relues à chaque fin (sa clé : la série), une série rejouée en faisant d'autres. */}
+      <MissionsAccomplies key={fin.serie} profil={!!profil} />
     </>
   )
 }

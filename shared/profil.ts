@@ -26,6 +26,7 @@ import type { BoutiqueDuProfil } from './themes'
 import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
+import type { VusDeLaLoge } from './piecesDeLaLoge'
 import { formeDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -1025,6 +1026,13 @@ export interface PublicProfileDetail extends PublicProfile {
    * serveur d'avant, ou si la base s'est tue.
    */
   bordures?: BordureDeLigue[]
+  /**
+   * Ce qu'il a déjà vu dans sa loge (`profile_loge_vus`) : ce qu'il a et qui
+   * n'y est pas porte la pastille rouge. null s'il n'y est jamais passé ;
+   * absent d'un serveur d'avant, ou si la base s'est tue — rien n'est alors
+   * nouveau.
+   */
+  vusDeLaLoge?: VusDeLaLoge | null
 }
 
 /**

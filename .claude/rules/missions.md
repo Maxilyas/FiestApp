@@ -1,0 +1,39 @@
+---
+paths:
+  - "shared/{missions,coffre,tresor,aLaUne}.ts"
+  - "server/src/core/missions.ts"
+  - "server/src/missions.ts"
+  - "client/src/missions.ts"
+  - "client/src/components/{Missions,Coffre,ALaUne,HautDeLAccueil}.tsx"
+  - "client/src/components/coffres-peints.ts"
+  - "server/test/{missions,missions-page}.test.ts"
+  - "server/scripts/rendu-missions.ts"
+---
+
+# Les missions du jour, le coffre de la semaine, le trésor, « À la une »
+
+Le plan d'action validé avec le propriétaire le 14 octobre 2026, après son constat — « le manque d'objectif à court terme » — : trois missions par jour, payées en confettis et en expérience (« Moyen : ~60 par jour »), une carte à tampons, et le lundi un coffre qui s'ouvre sur un objet introuvable en boutique (« une animation ultra stylée », puis « encore plus belle »). Pour les profils seulement (invariant 8). Le produit : `docs/produit/les-missions.md`.
+
+## Les fichiers
+
+- `shared/missions.ts` — tout ce qui se calcule, pur : trois missions par jour, une de chaque famille (habitude, savoir, découverte), tirées d'une graine `profil|jour` (`tirerLesMissions`, `hasardDe`) sur ce qu'il a fait ces sept jours (`ContexteDuTirage` : le quiz du jour joué, ses jours au quiz, ses découvertes jouées, le défi fini, son carnet, la découverte d'hier) ; jugées sur ses journaux, jour de Paris par jour (`activiteDesJours`, `avancement`) ; leurs mots et leur lien (`titreDeLaMission`, `aideDeLaMission`, `lienDeLaMission`) ; ce qu'elles paient (`gainsDesMissions` : `CONFETTIS_D_UNE_MISSION`, `XP_D_UNE_MISSION`, `CONFETTIS_DES_TROIS`, `XP_DES_TROIS` — des choix de produit, `docs/reference/baremes.md`)
+- `server/src/core/missions.ts` · `server/src/missions.ts` — `GET /api/joueur/missions` (`Missions.duJour`) et `POST /api/joueur/coffre` (`ouvrirLeCoffre`), une lecture à la fois par profil (`unALaFois`) : la première du jour tire et fige (`ProfileStore.tirerLesMissions`, `ON CONFLICT DO NOTHING`) ; chaque lecture juge depuis le lundi de la semaine passée — le quiz du jour (`JourStore.activiteDepuis`), la campagne (`CampagneStore.activiteDepuis`), ses soirées qui comptent (`ProfileStore.soireesDepuis`) —, retient ce qui est fait (`faitesARetenir`, `accomplirDesMissions` : `faite_le`, posé une fois) et le dit une fois (`nouvelles`, que lit la fin de la partie)
+- `ProfileStore` (`auth/profiles.ts`) — ses deux tables : `profile_missions` (une ligne par mission tirée, et la ligne des trois, `RANG_DES_TROIS` — le tampon du jour) et `profile_coffres` (un coffre ouvert par semaine, son tirage gardé) ; la ligne d'expérience `#missions` (`LIGNE_MISSIONS`, dans `LIGNES_A_PART`), réécrite entière dans le lot qui retient (un `INSERT … SELECT` sur les lignes faites), et La Légende jugée derrière (`accorderLaLegende`) ; les confettis relus des lignes (`achatsDe`, `boutiqueEtDons`, `economieDepuis`, `partsDesSoldes`) ; le trésor de chacun en mémoire (`tresorsOf`), chargé avec le profil (`byIds`)
+- `shared/coffre.ts` · `shared/tresor.ts` — le coffre : son rang selon ses tampons (`TAMPONS_DU_RANG`), ses chances (`CHANCES_DU_COFFRE`), ses confettis (`CONFETTIS_DU_COFFRE`) ; le tirage (`tirerLeCoffre`) : une rareté, puis un objet de cette rareté qu'il n'a pas, le trésor pesant double (`POIDS_DU_TRESOR`), sinon la rareté du dessous, jusqu'aux confettis — à la rareté commune, autant de chances que tous ses thèmes. `coffre.ts` reste léger : l'accueil le lit pour dire qu'un coffre attend ; les catalogues vivent dans `tresor.ts`
+- Le trésor : six fonds peints (`FONDS`, marqués `tresor`, `shared/fonds.ts` ; leurs images, règle `peintures.md`) et six gerbes (`par: { tresor }`, `shared/gerbes.ts`), ouverts par ce que ses coffres ont donné (`fondsOuverts`, `gerbesOuvertes`, leur argument `tresors`) — jamais par une piste (`ETAPES_DES_FONDS` est partiel, `trophees.test.ts`)
+- `client/src/missions.ts` — le magasin de la page : une lecture partagée (`relireLesMissions`), et chaque morceau qui s'y abonne (`abonnerAuxMissions`, `useMissionsDuJour`) ; `viserLaCategorie`, la campagne ouverte sur la catégorie d'une mission
+- `client/src/components/Missions.tsx` — la ligne de l'accueil (`LigneDesMissions`), la feuille (`FeuilleDesMissions`), la carte de la semaine (`CarteDesTampons`), le coffre qui attend, et ce qu'annonce la fin d'une partie (`MissionsDeLaFin`, posée par `MissionsAccomplies`, `components/Gains.tsx` : à la demande, pour un profil, une clé par partie)
+- `client/src/components/Coffre.tsx` · `coffres-peints.ts` — la scène de l'ouverture (`SceneDuCoffre`) : le repos, la charge, l'éclat, la révélation ; `apercu` pour le QG (`ApercuDuCoffre`, `QgEconomie.tsx`), le tirage fait sur la page, rien d'écrit. Ses images : quatre coffres peints, fermés et ouverts sur la même pose, écrits par `server/scripts/anime/decors.ts --livrer` (`fente` : où filtre la lumière)
+- `client/src/components/ALaUne.tsx` · `shared/aLaUne.ts` · `HautDeLAccueil.tsx` — « À la une » et la ligne des missions, le haut de l'accueil d'un profil, à la demande (`hautDeLAccueil`, `ProfilApp.tsx`) ; trois objets au plus, tirés pour la journée, de saison d'abord ; `/boutique#theme-<clé>` ouvre la fiche du thème (`themeDeLAdresse`, `Boutique.tsx`)
+- `server/scripts/rendu-missions.ts` — tout cela photographié au téléphone, un coffre de chaque rang ouvert acte par acte (`ivoire`, `calme`)
+
+## Les pièges
+
+- **Rien ne se compte à côté** : l'avancement se relit des journaux à chaque lecture ; seul s'écrit ce qui est fait (`faite_le`), une fois, jamais repris — une soirée retirée ne défait pas une mission. Une règle de mission changée vaut pour ce qui n'est pas encore fait.
+- **La semaine passée se juge jusqu'au lundi** (`depuis` : le lundi d'avant) : une mission faite dimanche à 23 h 50, lue lundi, remplit encore son coffre. Le coffre compte ses tampons à son ouverture (`joursAuxTrois`), et tout lundi passé non ouvert attend, le plus ancien d'abord (`coffresEnAttente`).
+- **Le tirage d'un coffre se fait une fois** (`ouvrirUnCoffre`, sous `unAchatALaFois` : un thème acheté pendant l'ouverture ne se tire pas une seconde fois) et se garde : rouvert, il redonne ce qu'il a donné. Un thème ou un compagnon donné s'écrit comme un achat à prix 0 (`profile_achats`, `profile_compagnons`) — à lui comme acheté, jamais une vente au QG (`economieDepuis` écarte le prix 0). Jamais un thème qui se gagne (`gagne`), ni de saison hors de sa saison.
+- **Une source de confettis de plus touche le QG** (règle `qg.md`) : `SOURCES_DE_CONFETTIS` compte « Missions du jour » et « Coffres de la semaine », et `qg-economie.test.ts` compare la circulation à la somme des soldes, au confetti près.
+- **La ligne `#missions` est une ligne à part** : `LIGNES_A_PART`, et les deux listes écrites à la main de `recalculerHistorique` et de `remettreAuBareme` (règle `jour.md`) — oubliée là, le recalcul la relirait comme une soirée.
+- **La page ne rate pas ses missions** : arrivées entre le rendu d'un morceau de page et son abonnement, elles ne prévenaient personne, et la ligne de l'accueil restait en chemin pour de bon — une fois sur trois au rendu. `abonnerAuxMissions` donne tout de suite celles déjà lues (`missions-page.test.ts`).
+- **La rareté ne se devine pas avant l'éclair** : la charge a la lumière de la matière du coffre (`--lumiere`), l'éclat et la révélation celle de la rareté (`--eclat`). Ni `transform`, ni `filter`, ni `backdrop-filter` sur `.coffre-scene` : la gerbe qui éclate dedans (`GerbeVue`, en `position: fixed`) s'y rognerait, comme dans un bandeau (règle `themes.md`). La pluie d'étincelles s'éteint avant le texte : sur un « e », elle se lisait comme un accent.
+- **Le hasard du coffre se règle au banc** (`hasardDuCoffre`, `QuizServerOptions`) : les tests et le rendu choisissent l'objet tiré ; `rendu-missions.ts` cherche les deux nombres par `tirerLeCoffre` lui-même.

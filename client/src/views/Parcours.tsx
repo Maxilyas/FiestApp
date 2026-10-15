@@ -6,7 +6,7 @@ import { Feuille, Sortie } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
+import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { promptDialog } from '../components/Dialog'
@@ -537,6 +537,8 @@ export function FinDeLEtape({
       ))}
       <NouveauxTrophees trophees={tropheesTombes(recompenses)} lien />
       <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
+      {/* Ses missions du jour, si l'étape en a fait — relues à chaque étape finie. */}
+      <MissionsAccomplies key={e.id} profil />
       {erreur && <p className="error">{erreur}</p>}
       {validee && !derniere && !e.rejeu ? (
         <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>

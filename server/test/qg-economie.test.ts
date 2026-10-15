@@ -92,7 +92,11 @@ test('les confettis jour par jour, les étoiles et les ligues datées, la circul
   const f = fluxDeConfettis(m, minuits, maintenant)
   assert.deepEqual(f.jours.at(-1), { jour: jourDe(maintenant), gagnes: 12, depenses: 475 }, 'un achat à venir ne compte pas encore')
   assert.deepEqual(f.jours.at(-2), { jour: jourDe(hier + 12 * H), gagnes: 38, depenses: 50 })
-  assert.deepEqual(f.sources, { campagne: 20, jour: 0, soirees: 0, ligues: 30, etoiles: 0, dons: 0 }, 'un don d’avant les trente jours n’en est pas')
+  assert.deepEqual(
+    f.sources,
+    { campagne: 20, jour: 0, soirees: 0, ligues: 30, etoiles: 0, missions: 0, coffres: 0, dons: 0 },
+    'un don d’avant les trente jours n’en est pas',
+  )
   assert.deepEqual(f.depenses, {
     themes: { objets: 1, confettis: 400 },
     compagnons: { objets: 0, confettis: 0 },
@@ -236,6 +240,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     const theme = THEMES.find(t => t.rarete === 'commune' && !t.saison && !t.gagne)!
     const achat = await poster(banc, lea, '/api/joueur/themes', { theme: theme.key, porter: false })
     assert.equal(achat.status, 200, achat.corps.error)
+    const cadeau = THEMES.find(t => t.rarete === 'rare' && !t.saison && !t.gagne)!
 
     base(banc, db => {
       const partie = db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes, finie_le) VALUES (?, ?, ?, 10, ?, ?)')
@@ -275,6 +280,14 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
       const eclat = db.prepare('INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)')
       eclat.run(deLea, '🦊', `#jour:${jourDe(hier)}`, hier)
       eclat.run(deTom, '🐻', `${jourDe(hier)}-soiree`, hier + H)
+      // Les trois missions d'hier de Léa, et leur bonus : soixante confettis ; le coffre d'argent de Tom, ouvert tantôt : quatre-vingt-dix.
+      const mission = db.prepare('INSERT INTO profile_missions (profile_id, jour, rang, mission, tiree_le, faite_le) VALUES (?, ?, ?, ?, ?, ?)')
+      for (let rang = 0; rang <= 3; rang++) mission.run(deLea, jourDe(hier), rang, rang < 3 ? JSON.stringify({ sorte: 'duel', cible: 1 }) : '{}', hier, hier + 2 * H)
+      const coffre = db.prepare('INSERT INTO profile_coffres (profile_id, semaine, tampons, rang, rarete, objet, confettis, ouvert_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      coffre.run(deTom, passee, 3, 'argent', 'commune', 'confettis', 90, tantot)
+      // Un thème tiré d'un coffre s'écrit à prix nul : ni une dépense, ni une vente.
+      coffre.run(deLea, semaineAvant(passee), 1, 'bois', 'rare', `theme:${cadeau.key}`, 0, avantHier)
+      db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, ?)').run(deLea, cadeau.key, avantHier)
       // Léa porte le Phénix, qu'elle a gagné ; Tom porte le Dragon, qu'il n'a pas : il ne compte pas.
       db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:phenix', 'une-soiree', 'banc', '🔥', 'Phénix', ?)`).run(deLea, avantHier)
       db.prepare(`UPDATE profiles SET legendaire = 'lg:phenix' WHERE id = ?`).run(deLea)
@@ -290,7 +303,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     ).semaines.get(passee)
     const ligues = recompenseDeLaSemaine(semaineDeTom)
     assert.ok(ligues > 0)
-    assert.deepEqual(page.sources, { campagne: 5 + 3 + 36, jour: 11, soirees: 7, ligues, etoiles: 10, dons: 240 })
+    assert.deepEqual(page.sources, { campagne: 5 + 3 + 36, jour: 11, soirees: 7, ligues, etoiles: 10, missions: 60, coffres: 90, dons: 240 })
     assert.deepEqual(page.depenses, {
       themes: { objets: 1, confettis: PRIX_DES_THEMES.commune },
       compagnons: { objets: 1, confettis: PRIX_D_UN_COMPAGNON },
@@ -303,7 +316,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
       gagnes,
     )
     assert.equal(page.jours.at(-1)!.jour, jourDe(maintenant))
-    assert.equal(page.aujourdhui.gagnes.aujourdhui, 3 + 4 + 240 + (lundiQuiPaie(passee) >= minuit ? ligues : 0))
+    assert.equal(page.aujourdhui.gagnes.aujourdhui, 3 + 4 + 240 + 90 + (lundiQuiPaie(passee) >= minuit ? ligues : 0))
     assert.equal(page.aujourdhui.depenses.aujourdhui, PRIX_DES_THEMES.commune + 50)
     assert.deepEqual(page.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, vies: 0, sabliers: 1 })
 

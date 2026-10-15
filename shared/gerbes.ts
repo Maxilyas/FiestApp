@@ -8,15 +8,38 @@
 //
 // Ses particules sont des emojis, tous antérieurs à Unicode 13
 // (`emojis.test.ts`) : un téléphone les dessine sans rien télécharger.
+//
+// Six de plus, le 14 octobre 2026, qui ne se gagnent pas : elles sortent du
+// coffre de la semaine (`shared/coffre.ts`), chacune à sa rareté, et restent
+// à qui les a tirées (`profile_coffres`).
+
+import type { Rarete } from './badges'
 
 /** La clé d'une gerbe, gardée dans son profil (`profiles.gerbe`). */
-export type CleDeGerbe = 'confettis' | 'etoiles' | 'etincelles' | 'ballons' | 'petales' | 'feuilles' | 'pixels' | 'colombes' | 'flammes' | 'trophees'
+export type CleDeGerbe =
+  | 'confettis'
+  | 'etoiles'
+  | 'etincelles'
+  | 'ballons'
+  | 'petales'
+  | 'feuilles'
+  | 'pixels'
+  | 'colombes'
+  | 'flammes'
+  | 'trophees'
+  | 'flocons'
+  | 'coeurs'
+  | 'papillons'
+  | 'filantes'
+  | 'diamants'
+  | 'tresor'
 
 /**
  * Ce qui ouvre une gerbe : un profil, tout simplement ; un haut fait gagné
- * tant de fois ; un palier atteint — ou un plus haut, qui le vaut.
+ * tant de fois ; un palier atteint — ou un plus haut, qui le vaut ; ou un
+ * coffre de la semaine, qui l'a donnée (sa rareté au coffre).
  */
-export type CeQuiOuvreUneGerbe = { profil: true } | { hautFait: string; fois: number } | { palier: string; au: 1 | 2 | 3 }
+export type CeQuiOuvreUneGerbe = { profil: true } | { hautFait: string; fois: number } | { palier: string; au: 1 | 2 | 3 } | { tresor: Rarete }
 
 /**
  * L'allure d'une gerbe : combien de particules, de quelle taille, en combien
@@ -144,7 +167,65 @@ export const GERBES: readonly Gerbe[] = [
     mouvement: 'jaillit',
     allure: { nombre: 12, taille: [1.2, 1.8], duree: [1.5, 2.2] },
   },
+  // Le trésor du coffre de la semaine : de la plus douce à la plus folle.
+  {
+    key: 'flocons',
+    nom: 'Les flocons',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'peucommune' },
+    particules: ['❄️'],
+    mouvement: 'tombe',
+    allure: { nombre: 22, taille: [0.5, 1.2], duree: [2.6, 3.6] },
+  },
+  {
+    key: 'coeurs',
+    nom: 'Les cœurs',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'peucommune' },
+    particules: ['💖', '💗', '💕'],
+    mouvement: 'monte',
+    allure: { nombre: 14, taille: [0.9, 1.6], duree: [2, 2.8] },
+  },
+  {
+    key: 'papillons',
+    nom: 'Les papillons',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'rare' },
+    particules: ['🦋'],
+    mouvement: 'monte',
+    allure: { nombre: 10, taille: [1.1, 1.8], duree: [2.6, 3.4] },
+  },
+  {
+    key: 'filantes',
+    nom: 'Les étoiles filantes',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'rare' },
+    particules: ['🌠', '✨'],
+    mouvement: 'tombe',
+    allure: { nombre: 16, taille: [0.7, 1.4], duree: [1, 1.6] },
+  },
+  {
+    key: 'diamants',
+    nom: 'Les diamants',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'epique' },
+    particules: ['💎', '✨'],
+    mouvement: 'jaillit',
+    allure: { nombre: 20, taille: [0.7, 1.4], duree: [1.2, 1.9] },
+  },
+  {
+    key: 'tresor',
+    nom: 'Le trésor',
+    regle: 'un coffre de la semaine',
+    par: { tresor: 'legendaire' },
+    particules: ['👑', '💎', '💰', '✨'],
+    mouvement: 'jaillit',
+    allure: { nombre: 24, taille: [0.9, 1.7], duree: [1.4, 2.2] },
+  },
 ]
+
+/** Les gerbes du trésor : celles qui ne sortent que du coffre de la semaine. */
+export const GERBES_DU_TRESOR: readonly Gerbe[] = GERBES.filter(g => 'tresor' in g.par)
 
 /**
  * La gerbe de tout profil qui n'en a pas choisi : les confettis, ouverts à
@@ -164,10 +245,15 @@ export function gerbe(cle: unknown): Gerbe | undefined {
   return typeof cle === 'string' ? PAR_CLE.get(cle as CleDeGerbe) : undefined
 }
 
-/** Cette gerbe est-elle à lui, au vu de ses récompenses (clé rangée → nombre de fois) ? */
-export function gerbeOuverte(g: Gerbe, recompenses: ReadonlyMap<string, number>): boolean {
+/**
+ * Cette gerbe est-elle à lui, au vu de ses récompenses (clé rangée → nombre
+ * de fois) — et, pour une gerbe du trésor, de ce que ses coffres lui ont
+ * donné (`gerbe:papillons`, `ProfileStore.tresorsOf`) ?
+ */
+export function gerbeOuverte(g: Gerbe, recompenses: ReadonlyMap<string, number>, tresors?: ReadonlySet<string>): boolean {
   const par = g.par
   if ('profil' in par) return true
+  if ('tresor' in par) return tresors?.has(`gerbe:${g.key}`) ?? false
   if ('hautFait' in par) return (recompenses.get(par.hautFait) ?? 0) >= par.fois
   // Un palier plus haut vaut le sien : la soirée qui avait fait tomber le
   // bronze, retirée, laisse l'argent — et la gerbe avec.
@@ -175,6 +261,6 @@ export function gerbeOuverte(g: Gerbe, recompenses: ReadonlyMap<string, number>)
 }
 
 /** Les gerbes qu'il peut porter, dans l'ordre du catalogue. */
-export function gerbesOuvertes(recompenses: ReadonlyMap<string, number>): CleDeGerbe[] {
-  return GERBES.filter(g => gerbeOuverte(g, recompenses)).map(g => g.key)
+export function gerbesOuvertes(recompenses: ReadonlyMap<string, number>, tresors?: ReadonlySet<string>): CleDeGerbe[] {
+  return GERBES.filter(g => gerbeOuverte(g, recompenses, tresors)).map(g => g.key)
 }

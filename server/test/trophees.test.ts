@@ -54,10 +54,17 @@ test('chaque fond est sur sa piste, à l’étape même où sa règle l’ouvre 
       }
     }
   }
-  // Tous, sauf celui du champion du mois, qui n'a pas de piste.
-  assert.equal(ranges, FONDS.length - 1)
+  // Tous, sauf celui du champion du mois et ceux du trésor, que seul le coffre de la semaine donne.
+  const duTresor = FONDS.filter(f => f.tresor)
+  assert.equal(duTresor.length, 6)
+  assert.equal(ranges, FONDS.length - 1 - duTresor.length)
   assert.deepEqual(DU_CHAMPION_DU_MOIS.map(r => r.cle), ['triomphe'])
   assert.ok(fondsOuverts({ niveau: 1, jour: { joues: 0, victoires: 0 }, recompenses: new Map([['mois:2026-10', 1]]) }).includes('triomphe'))
+  // Un fond du trésor n'est à lui que si un coffre le lui a donné — pas même au niveau 100.
+  for (const f of duTresor) {
+    assert.ok(!fondsOuverts({ niveau: 100, jour: { joues: 999, victoires: 999 }, recompenses: new Map(), maitres: 12 }).includes(f.key), f.key)
+    assert.ok(fondsOuverts({ niveau: 1, jour: { joues: 0, victoires: 0 }, recompenses: new Map(), tresors: new Set([`fond:${f.key}`]) }).includes(f.key), f.key)
+  }
 })
 
 test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la piste ou le trophée qui les ouvre', () => {
@@ -75,11 +82,11 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     assert.ok(themeGagne(t, etat(seuil)), `${t.key} à ${seuil}`)
     assert.ok(!themeGagne(t, etat(seuil - 1)), `${t.key} pas avant ${seuil}`)
   }
-  // Les gerbes : chacune une fois, sur une étape de piste ou un trophée qui se regagne.
+  // Les gerbes : chacune une fois, sur une étape de piste ou un trophée qui se regagne — celles du trésor nulle part : seul un coffre les donne.
   for (const g of GERBES.filter(x => !('profil' in x.par))) {
     const surLesPistes = HAUTS_FAITS_DE_CARRIERE.flatMap(h => etapesDeLaPiste(h.key)).filter(e => e.recompenses.some(r => r.sorte === 'gerbe' && r.cle === g.key)).length
     const surLesTrophees = HAUTS_FAITS_REGAGNABLES.flatMap(h => ceQuOuvreLeTrophee(h.key)).filter(x => x.recompense.sorte === 'gerbe' && x.recompense.cle === g.key).length
-    assert.equal(surLesPistes + surLesTrophees, 1, g.key)
+    assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par ? 0 : 1, g.key)
   }
   // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des saisons, qui n'ont pas de piste.
   for (const l of LEGENDAIRES) {

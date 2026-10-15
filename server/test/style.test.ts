@@ -256,9 +256,10 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
 
 test('chaque pièce de la loge finit par le même lien : « N à gagner : où ? », vers sa ligne de la collection', async () => {
   const fond = await rendu('components/Apparence', 'MonFond', { profil: MAYA, ...loge })
-  assert.match(fond, /<a class="loge-a-gagner" href="#collection-fonds">7 fonds à gagner\s:\soù\s\?<svg/)
+  // Les six fonds et les six gerbes du trésor du coffre de la semaine comptés avec les autres.
+  assert.match(fond, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)
   const gerbe = await rendu('components/Apparence', 'MaGerbe', { profil: MAYA, ...loge })
-  assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">8 gerbes à gagner\s:\soù\s\?<svg/)
+  assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">14 gerbes à gagner\s:\soù\s\?<svg/)
   const titre = await rendu('components/Apparence', 'MonTitre', { profil: MAYA, ...loge })
   // Un seul de ses quatre trophées lui reste : au singulier.
   assert.match(titre, /<a class="loge-a-gagner" href="#collection-trophees">1 titre à gagner\s:\soù\s\?<svg/)

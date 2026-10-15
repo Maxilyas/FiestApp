@@ -36,6 +36,31 @@ test('la barre du menu : cinq pièces, chacune son adresse, celle où l’on est
   assert.match(css, /\.menu-barre a\[aria-current='page'\]::before \{/)
 })
 
+test('la barre compte, sur « Profil », ce qu’il a de neuf à porter — blanc sur rouge, comme les messages', async () => {
+  // Le souhait du propriétaire du 14 octobre 2026 : « un petit indicateur rouge, un peu comme les
+  // notifications de duels », qui donne envie d'aller voir son profil. La pastille dorée « Nouveau »
+  // ne vivait que sur « M'habiller », sur la page du profil.
+  const sans = await rendu('components/Pieces', 'MenuBarre', { ici: 'accueil' })
+  assert.doesNotMatch(sans, /menu-compteur|à porter/)
+  const trois = await rendu('components/Pieces', 'MenuBarre', { ici: 'accueil', nouveautes: 3 })
+  assert.match(trois, /<a href="\/profil"><svg[^>]*>.*?<\/svg>Profil<span class="menu-compteur" aria-hidden="true">3<\/span><span class="sr-only">, 3 nouveautés à porter<\/span><\/a>/)
+  assert.equal(trois.match(/menu-compteur/g)?.length, 1, 'sur « Profil » seulement')
+  // Un rond, pas une bulle qui s'allonge : neuf au plus, puis « 9+ » — le lecteur d'écran entend le compte.
+  assert.match(await rendu('components/Pieces', 'MenuBarre', { ici: 'profil', nouveautes: 12 }), /aria-hidden="true">9\+<\/span><span class="sr-only">, 12 nouveautés à porter<\/span>/)
+  assert.match(await rendu('components/Pieces', 'MenuBarre', { ici: 'profil', nouveautes: 1 }), /<span class="sr-only">, 1 nouveauté à porter<\/span>/)
+  // Chaque page qui a la barre la nourrit : le profil et la boutique la recomptent sur le détail
+  // qu'ils lisent, l'accueil et les pages sans détail la demandent au serveur, une fois montrées.
+  assert.match(source('views/ProfilApp.tsx'), /const menu = \(ici: Piece\) => <MenuBarre ici=\{ici\} nouveautes=\{nouveautesDuDetail\?\.nouveautes \?\? compteDuMenu\} \/>/)
+  assert.match(source('views/ProfilApp.tsx'), /const compteDuMenu = useNouveautesDuMenu\(VUE === 'accueil' && aUnProfil\)/)
+  for (const f of ['views/EditorApp.tsx', 'views/AccountApp.tsx', 'views/AdminApp.tsx']) assert.match(source(f), /const nouveautes = useNouveautesDuMenu\(true\)/, f)
+  // La barre reste légère : l'entrée d'une soirée la partage, et n'a que faire de l'API du profil.
+  assert.doesNotMatch(source('components/Pieces.tsx'), /from '\.\.\/(api|nouveautes)'/)
+  // Le dernier compte connu de l'onglet, sous try/catch : la barre le montre en attendant le serveur.
+  const NOUVEAUTES = source('nouveautes.ts')
+  assert.equal(NOUVEAUTES.split('sessionStorage.').length - 1, 2)
+  assert.equal([...NOUVEAUTES.matchAll(/try \{\s*(?:const n = Number\()?sessionStorage\./g)].length, 2)
+})
+
 test('l’accueil, le profil et la boutique sont la même page, qui lit son adresse', () => {
   assert.deepEqual(parseRoute('/boutique'), { kind: 'account', page: 'boutique' })
   assert.match(source('main.tsx'), /boutique: ProfilApp,/)
@@ -81,10 +106,10 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
 
 test('« Mes quiz » et « Compte » s’ouvrent par le profil, une fois, puis la connexion', () => {
   const editeur = source('views/EditorApp.tsx')
-  assert.match(editeur, /<MenuBarre ici="quiz" \/>/)
+  assert.match(editeur, /<MenuBarre ici="quiz" nouveautes=\{nouveautes\} \/>/)
   assert.match(editeur, /if \(!essaiParLeProfil\.current\) \{\s*essaiParLeProfil\.current = true\s*const ouverte = await ouvrirParLeProfil\(\)/)
   const compte = source('views/AccountApp.tsx')
-  assert.match(compte, /<MenuBarre ici="compte" \/>/)
+  assert.match(compte, /<MenuBarre ici="compte" nouveautes=\{nouveautes\} \/>/)
   // Une fois : un cookie refusé relirait la page sans fin.
   assert.match(compte, /window\.location\.replace\(ouverte \? '\/compte\?par-profil=1' : '\/connexion\?next=\/compte'\)/)
   // L'éditeur d'un quiz a sa propre barre d'enregistrement : celle du menu n'y est pas.

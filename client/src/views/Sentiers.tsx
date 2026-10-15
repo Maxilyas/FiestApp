@@ -5,7 +5,7 @@ import { Shape } from '../components/Shape'
 import { Feuille, GesteDuBas, Sortie } from '../components/Pieces'
 import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
-import { APorter, CeQueTuGagnes, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
+import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
@@ -1541,6 +1541,8 @@ function FinDEpreuve({
       ))}
       <NouveauxTrophees trophees={tropheesTombes(recompenses)} lien />
       <APorter objets={[...aPorterDesTrophees(cles), ...objetsAPorter(desMaitres), ...emojisAPorter(niveau)]} />
+      {/* Ses missions du jour, si l'épreuve en a fait — relues à chaque épreuve finie. */}
+      <MissionsAccomplies key={e.id} profil />
     </>
   )
   const correction = fin.correction ? (

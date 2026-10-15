@@ -161,8 +161,12 @@ test('le profil épuré : qui l’on est, puis quatre boutons — la loge derri�
   const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis quatre boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
   assert.match(page, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>\s*\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
   const boutons = page.slice(page.indexOf('<div className="profil-boutons">'), page.indexOf('<Glossaire'))
-  const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"[\s\S]*?onClick=\{\(\) => ouvrir\('(\w+)'\)\}/g)].map(([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`)
+  // « M'habiller » ouvre la loge sur la première pièce qui a du neuf, l'avatar d'office.
+  const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"[\s\S]*?onClick=\{\(\) => ouvrir\((?:pieceNeuve \?\? )?'(\w+)'\)\}/g)].map(
+    ([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`,
+  )
   assert.deepEqual(gestes, ['M’habiller (hanger) → #avatar', 'Ma collection (award) → #collection', 'Mes soirées (book) → #soirees', 'Ma carrière (bar-chart) → #carriere'])
+  assert.match(page, /const pieceNeuve = plus \? premierePieceNeuve\(plus\.nouveautes\) : null/)
   // Sa collection : sa jauge et son compte, qui viennent avec les écrans.
   assert.match(boutons, /jauge=\{plus \? plus\.collection\.acquis \/ Math\.max\(1, plus\.collection\.total\) : 0\}\s*compte=\{plus && `\$\{formatNumber\(plus\.collection\.acquis\)\} sur \$\{formatNumber\(plus\.collection\.total\)\}`\}/)
   // Rien de ce qu'on porte sur la page : ni la loge, ni sa carte, ni le thème, ni la gerbe — ils sont derrière « M'habiller ».
@@ -330,7 +334,7 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
   // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
   const carte = await laLoge('fond')
-  assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">7 fonds à gagner\s:\soù\s\?<svg/)
+  assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)
   assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
   // La finition : les siennes seulement. Les restantes s'y montraient
   // éteintes, chacune son niveau (le 12 octobre 2026 : « il manque les

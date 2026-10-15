@@ -8,7 +8,9 @@ import type { ChoixDuProfil, GardeDeLaLoge, PropsDUnePiece } from './choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
+import { api } from '../api'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { compteDesNouveautes, type NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import {
   PIECES_DE_LA_LOGE,
   avatarMontre,
@@ -39,56 +41,58 @@ const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 // panneau de la pièce touchée, et, dès qu'on essaie quelque chose, la barre
 // qui le dit : « Annuler », « Porter ». Les règles de l'essai sont pures
 // (`shared/loge.ts`) ; la carte et la rangée, légères, à part
-// (`LogeTete.tsx`) ; ici, l'essai et ce que ce téléphone retient.
+// (`LogeTete.tsx`) ; ici, l'essai et ce qu'il a déjà vu.
 
-// ── Ce que ce téléphone a déjà vu ────────────────────────────────────────
+// ── Ce qu'il a déjà vu ───────────────────────────────────────────────────
+// Retenu par le serveur, pour tous ses appareils (`profile_loge_vus`) : sur
+// ce téléphone seulement jusqu'au 14 octobre 2026, ce qu'on regardait sur
+// l'ordinateur se redisait nouveau sur le téléphone, et la pastille ne
+// pouvait vivre que sur la page du profil.
 
-/** Une clé par profil : un téléphone prêté garde ce que chacun a vu. */
-const cleDesVus = (profil: string) => `quizz.loge.vus.${profil}`
+/** Ce que le serveur dit qu'il a vu ; rien de lu — une base qui s'est tue, un serveur d'avant —, rien n'est nouveau. */
+const vusDe = (profil: PublicProfileDetail): VusDeLaLoge => profil.vusDeLaLoge ?? {}
 
-function lireVus(profil: string): VusDeLaLoge {
-  // Sous try/catch : des cookies bloqués donnaient une page noire.
-  try {
-    const brut: unknown = JSON.parse(localStorage.getItem(cleDesVus(profil)) ?? '{}')
-    const vus: VusDeLaLoge = {}
-    if (brut && typeof brut === 'object') {
-      for (const { id } of PIECES_DE_LA_LOGE) {
-        const liste = (brut as Record<string, unknown>)[id]
-        if (Array.isArray(liste)) vus[id] = liste.filter((k): k is string => typeof k === 'string')
-      }
-    }
-    return vus
-  } catch {
-    return {}
-  }
-}
-
-function ecrireVus(profil: string, vus: VusDeLaLoge) {
-  try {
-    localStorage.setItem(cleDesVus(profil), JSON.stringify(vus))
-  } catch {
-    // Stockage refusé : rien ne se dira nouveau, rien ne casse.
-  }
+/** Deux retenues qui disent la même chose : la seconde ne repart pas au serveur. */
+function memesVus(a: VusDeLaLoge, b: VusDeLaLoge): boolean {
+  return PIECES_DE_LA_LOGE.every(({ id }) => {
+    const x = a[id]
+    const y = b[id]
+    return !x || !y ? x === y : x.length === y.length && x.every((k, i) => k === y[i])
+  })
 }
 
 /**
- * La première fois qu'un profil paraît sur ce téléphone, ce qu'il a s'y
- * retient tel quel : la prochaine nouveauté s'y verra. Sans ça, seul un
- * passage par la loge commençait le compte.
+ * Retient ce qu'il a vu : la page d'abord (`onVus`), qui recompte ses
+ * pastilles, puis le serveur. Rien ne part si rien n'a changé ; un envoi
+ * raté se tait — la pastille reviendra au prochain passage, rien ne casse.
+ * Un serveur qui n'a pas su lire ce qu'il a vu ne se voit rien écrire
+ * par-dessus : il effacerait ce qui restait à voir.
  */
-export function retenirLesPremiersVus(profil: PublicProfileDetail) {
-  const vus = lireVus(profil.id)
+function retenir(profil: PublicProfileDetail, vus: VusDeLaLoge, onVus?: (vus: VusDeLaLoge) => void) {
+  if (profil.vusDeLaLoge === undefined) return
+  if (profil.vusDeLaLoge && memesVus(profil.vusDeLaLoge, vus)) return
+  onVus?.(vus)
+  void api.joueur.retenirLesVus(vus).catch(() => {})
+}
+
+/**
+ * La première fois qu'un profil paraît — ici ou sur un autre appareil —, ce
+ * qu'il a se retient tel quel : la prochaine nouveauté aura sa pastille. Sans
+ * ça, seul un passage par la loge commençait le compte.
+ */
+export function retenirLesPremiersVus(profil: PublicProfileDetail, onVus?: (vus: VusDeLaLoge) => void) {
+  const vus = vusDe(profil)
   if (PIECES_DE_LA_LOGE.every(p => vus[p.id])) return
-  ecrireVus(profil.id, retenirLesVus(ceQuIlAPorter(profil), vus, null))
+  retenir(profil, retenirLesVus(ceQuIlAPorter(profil), vus, null), onVus)
 }
 
 /**
- * La loge a-t-elle du nouveau depuis son dernier passage sur ce téléphone ?
- * Le bouton « M'habiller » le dit, comme la pièce qui l'a dans la rangée.
+ * Ce que la loge a de neuf depuis son dernier passage, compté : la pastille
+ * rouge de « M'habiller » et de « Profil », et la pièce où la loge s'ouvre.
+ * La règle que le serveur compte pour l'accueil (`GET /api/joueur/nouveautes`).
  */
-export function aDuNouveau(profil: PublicProfileDetail): boolean {
-  const neufs = nouveautes(ceQuIlAPorter(profil), lireVus(profil.id))
-  return PIECES_DE_LA_LOGE.some(p => neufs[p.id].length > 0)
+export function nouveautesDuProfil(profil: PublicProfileDetail): NouveautesDeLaLoge {
+  return compteDesNouveautes(nouveautes(ceQuIlAPorter(profil), vusDe(profil)))
 }
 
 // ── L'essai qu'une fin de partie demande ─────────────────────────────────
@@ -121,6 +125,7 @@ export function Loge({
   enregistrer,
   erreur,
   garde,
+  onVus,
 }: {
   profil: PublicProfileDetail
   piece: PieceDeLaLoge
@@ -132,17 +137,20 @@ export function Loge({
   erreur?: string
   /** Ce que la page demande à la loge avant de la quitter (`GardeDeLaLoge`) : la loge l'y pose, tant qu'elle est là. */
   garde?: MutableRefObject<GardeDeLaLoge | null>
+  /** Ce qu'il vient de voir : la page le garde, et recompte la pastille de « Profil ». */
+  onVus?: (vus: VusDeLaLoge) => void
 }) {
   // « Essayer », à la fin d'une partie : ce qu'elle vient d'ouvrir arrive déjà sur la carte.
   const [essai, setEssai] = useState<Essai>(() => essaiDemande(piece, lireLEssaiDemande(), profil))
   useEffect(() => oublierLEssaiDemande(), [])
   // Ce qui était nouveau à l'ouverture le reste le temps de la visite ; la
   // pastille d'une pièce, elle, s'éteint dès qu'on l'a regardée.
-  const [neufs] = useState(() => nouveautes(ceQuIlAPorter(profil), lireVus(profil.id)))
+  const [neufs] = useState(() => nouveautes(ceQuIlAPorter(profil), vusDe(profil)))
   const [regardees, setRegardees] = useState<ReadonlySet<PieceDeLaLoge>>(() => new Set([piece]))
   useEffect(() => {
     setRegardees(r => (r.has(piece) ? r : new Set([...r, piece])))
-    ecrireVus(profil.id, retenirLesVus(ceQuIlAPorter(profil), lireVus(profil.id), piece))
+    // La page rend le profil à jour (`onVus`) : relue, la pièce n'a plus rien de neuf, rien ne repart.
+    retenir(profil, retenirLesVus(ceQuIlAPorter(profil), vusDe(profil), piece), onVus)
   }, [piece, profil])
 
   // Le thème essayé habille toute la page — la carte, à fond, garde ses

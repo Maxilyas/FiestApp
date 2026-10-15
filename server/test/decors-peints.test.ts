@@ -1,7 +1,8 @@
 // Les décors peints (`server/scripts/anime/decors.ts`) : le Calendrier des
-// Heures, les quatre thèmes peints et deux fonds de carte. Leurs fichiers,
-// servis sous leur empreinte et d'un poids qu'un téléphone porte ; ce qui
-// les cite — la table du calendrier, le bloc que la chaîne réécrit dans
+// Heures, les quatre thèmes peints, huit fonds de carte — deux gagnés, six du
+// trésor — et les quatre coffres de la semaine. Leurs fichiers, servis sous
+// leur empreinte et d'un poids qu'un téléphone porte ; ce qui les cite — la
+// table du calendrier, celle des coffres, le bloc que la chaîne réécrit dans
 // chaque feuille — ; aucun fichier que plus personne ne cite ; et l'horloge
 // de Paris, qui dit aux feuilles l'heure, le moment du ciel et le mois.
 import { test } from 'node:test'
@@ -124,10 +125,38 @@ test('les fonds du Triomphe et du Cadran solaire sont peints, dans le bloc de la
   assert.match(dehors, /var\(--fond-peint\)/)
 })
 
+test('les six fonds du trésor sont peints, dans le même bloc, chacun son voile écrit à la main', () => {
+  const { dedans, dehors } = bloc('styles.css')
+  for (const f of ['voie-lactee', 'lanternes', 'abysses', 'bibliotheque', 'dragon', 'cite-celeste']) {
+    const m = new RegExp(`\\.carte-fond\\.fond-${f} \\{ --fond-peint: url\\(([^)]+)\\); \\}`).exec(dedans)
+    assert.ok(m, `fond ${f}`)
+    verifierFichier(m[1], new RegExp(`^fond-${f}-720\\.`))
+    // Sa couleur de fond et son voile de nuit vivent hors du bloc : la livraison ne les réécrit pas.
+    assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f} \\{ background-color: #[0-9a-f]{6}; \\}`), `fond ${f} : sa couleur`)
+    assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f}::before`), `fond ${f} : son voile`)
+  }
+})
+
+test('les quatre coffres de la semaine sont peints, fermés et ouverts sur le même cadre', async () => {
+  // Posés l'un sur l'autre dans la scène de l'ouverture : la caisse ne saute
+  // pas quand le couvercle s'ouvre. `rapport` réserve leur place, `fente` dit
+  // où filtre la lumière — au milieu de l'image, jamais sur un bord.
+  const { COFFRES_PEINTS } = await import(client('components/coffres-peints.ts').href)
+  assert.deepEqual(Object.keys(COFFRES_PEINTS).sort(), ['argent', 'bois', 'or', 'royal'])
+  for (const [rang, c] of Object.entries<any>(COFFRES_PEINTS)) {
+    verifierFichier(c.ferme, new RegExp(`^coffre-${rang}-ferme-480\\.`))
+    verifierFichier(c.ouvert, new RegExp(`^coffre-${rang}-ouvert-480\\.`))
+    assert.ok(c.rapport > 0.6 && c.rapport < 1.5, `${rang} : son rapport ${c.rapport}`)
+    assert.ok(c.fente > 0.3 && c.fente < 0.8, `${rang} : sa fente ${c.fente}`)
+  }
+})
+
 test('les décors sont tous cités : un décor repeint emporte l’ancien', async () => {
   const { PAGES_PEINTES } = await import(client('components/calendrier-peint.ts').href)
+  const { COFFRES_PEINTS } = await import(client('components/coffres-peints.ts').href)
   const cites = new Set<string>()
   for (const { page, doree } of Object.values<any>(PAGES_PEINTES)) for (const f of [...page, ...doree]) cites.add(f)
+  for (const { ferme, ouvert } of Object.values<any>(COFFRES_PEINTS)) for (const f of [ferme, ouvert]) cites.add(f)
   for (const feuille of [...Object.keys(THEMES_PEINTS).map(c => `themes/${c}.css`), 'styles.css']) {
     for (const a of adresses(readFileSync(client(feuille), 'utf8'))) cites.add(a)
   }

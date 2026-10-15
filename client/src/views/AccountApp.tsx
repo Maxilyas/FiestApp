@@ -13,6 +13,7 @@ import { brilleChez, type ProfilDeLEspace } from '../../../shared/profil'
 import { Avatar } from '../components/Avatar'
 import { cibleEclat } from '../../../shared/legendaires'
 import { Niveau } from '../components/Niveau'
+import { useNouveautesDuMenu } from '../nouveautes'
 
 type FeuilleDuCompte = 'affiche' | 'mdp' | 'profil'
 
@@ -38,6 +39,8 @@ export function AccountApp() {
   const [historique, setHistorique] = useState(() => window.location.hash === '#historique')
   /** « Me déconnecter » : en route, puis ce qui l'a empêché. */
   const [sortie, setSortie] = useState<{ enCours: boolean; erreur: string }>({ enCours: false, erreur: '' })
+  /** Ce que son profil a de neuf à porter : la pastille de « Profil », dans la barre. */
+  const nouveautes = useNouveautesDuMenu(true)
   useEffect(() => {
     const auRetour = () => setHistorique(window.location.hash === '#historique')
     window.addEventListener('popstate', auRetour)
@@ -117,7 +120,7 @@ export function AccountApp() {
           <HistoriqueDuCompte slug={me.space.slug} />
           {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
         </main>
-        <MenuBarre ici="compte" />
+        <MenuBarre ici="compte" nouveautes={nouveautes} />
       </div>
     )
   }
@@ -289,7 +292,7 @@ export function AccountApp() {
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
-      <MenuBarre ici="compte" />
+      <MenuBarre ici="compte" nouveautes={nouveautes} />
     </div>
   )
 }

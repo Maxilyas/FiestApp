@@ -169,18 +169,23 @@ try {
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', titre: null, theme: ivoire ? 'ivoire' : null }, cookie, 'PUT')
 
   // Une nouveauté : un thème acheté ailleurs depuis son dernier passage —
-  // « M'habiller » en a la pastille, sa pièce aussi, et le panneau marque sa carte.
+  // « Profil », dans la barre de l'accueil, la compte en rouge ; « M'habiller »
+  // aussi, qui ouvre la loge sur sa pièce, où le panneau marque sa carte.
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   base.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 2)').run(id, 'jungle')
   base.close()
+  await page.goto(banc.url)
+  await page.waitForSelector('.menu-barre a[href="/profil"] .menu-compteur')
+  await photo('1-accueil-nouveau')
   await page.goto(`${banc.url}/profil`)
-  await page.waitForSelector('.profil-boutons .gros-bouton:has-text("M’habiller") .pastille-attente')
+  await page.waitForSelector('.profil-boutons .gros-bouton:has-text("M’habiller") .gros-compteur')
   await photo('1-profil-nouveau')
   await page.click('.profil-boutons .gros-bouton:has-text("M’habiller")')
-  await page.waitForSelector('#loge-theme .loge-neuf')
-  await photo('1-loge-nouveau')
-  await page.click('#loge-theme')
+  await page.waitForSelector('#loge-theme[aria-selected="true"]')
   await page.waitForSelector('.loge-panneau .theme-vitrine.neuve')
+  await photo('1-loge-nouveau')
+  // Regardé : plus rien à compter, la barre s'éteint.
+  await page.waitForSelector('.menu-barre .menu-compteur', { state: 'detached' })
   await photo('4a-loge-theme-nouveau')
 
   // La collection, une ligne dépliée à la fois — par son adresse, comme le lien de « Mon thème ».

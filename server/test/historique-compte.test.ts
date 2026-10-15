@@ -64,7 +64,7 @@ test('« L’historique » s’ouvre dans le compte : son adresse, la flèche ve
   const ecran = compte.slice(compte.indexOf('if (historique) {'), compte.indexOf('/**', compte.indexOf('if (historique) {')))
   assert.match(ecran, /<Sortie vers="Mon compte" href="\/compte" onClick=\{revenirAuCompte\} \/>/)
   assert.match(ecran, /<HistoriqueDuCompte slug=\{me\.space\.slug\} \/>/)
-  assert.match(ecran, /<MenuBarre ici="compte" \/>/)
+  assert.match(ecran, /<MenuBarre ici="compte" nouveautes=\{nouveautes\} \/>/)
   // La ligne du compte l'ouvre dans la page, pour tout espace — plus la page publique.
   assert.match(compte, /<button type="button" onClick=\{ouvrirHistorique\}>/)
   assert.doesNotMatch(compte, /ligne\('book', 'L’historique', '', `\/\$\{me\.space\.slug\}\/soirees`\)/)

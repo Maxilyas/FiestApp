@@ -1,6 +1,6 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, sept fonds de carte, dix gerbes, trois compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, treize fonds de carte, seize gerbes, trois compagnons — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
@@ -18,6 +18,8 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 | Les étoiles des sentiers | la meilleure note de chaque palier des douze sentiers (pas celles des parcours de thème) | deux étoiles 10, trois étoiles 25 (`CONFETTIS_DES_ETOILES`) ; une meilleure note paie la différence |
 | Les ligues des duels | chaque semaine close où tu as joué trois duels (`DUELS_POUR_LA_RECOMPENSE`) paie ta meilleure ligue de la semaine | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 (`LIGUES`) ; la semaine en cours paie le lundi |
 | L'administrateur | un don, depuis ta fiche au QG, avec un mot s'il le veut | de 1 à 500 (`CONFETTIS_PAR_DON_MAX`), annoncé une fois sur ton accueil |
+| Les missions du jour | chaque mission faite, et les trois le même jour ([les missions](les-missions.md)) | 15 chacune, 15 de plus pour les trois — 60 au plus par jour |
+| Le coffre de la semaine | sa rareté commune, ou quand tu as déjà tout le reste | 60, 90, 120 ou 150 selon le coffre (`CONFETTIS_DU_COFFRE`) |
 
 **Une soirée compte** dès que tu y as répondu à une question posée à deux joueurs au moins : seul devant ton propre quiz, tu connais les réponses. Ses confettis tombent dès le podium de chaque quiz, comme l'expérience.
 
@@ -141,6 +143,14 @@ Un fond se voit **derrière ta carte** quand quelqu'un l'ouvre en touchant ton n
 | Cabinet de curiosités | 3 paliers de maître des sentiers (`MAITRES_DU_CABINET`) | dessiné |
 | Le Triomphe | un titre de champion du mois au quiz du jour | peint |
 | Le Cadran solaire | 50 jours dans le premier quart du quiz du jour (L'Élite · Argent) | peint |
+| La Voie lactée | le coffre de la semaine — rare | peint, du trésor |
+| Le Jardin des lanternes | le coffre de la semaine — rare | peint, du trésor |
+| Les Abysses | le coffre de la semaine — épique | peint, du trésor |
+| La Bibliothèque enchantée | le coffre de la semaine — épique | peint, du trésor |
+| Le Dragon d'or | le coffre de la semaine — légendaire | peint, du trésor |
+| La Cité céleste | le coffre de la semaine — légendaire | peint, du trésor |
+
+Les six du trésor ne se trouvent nulle part ailleurs : seul le coffre de la semaine les donne, à sa rareté ([les missions](les-missions.md)), et ce qu'il a donné reste à toi.
 
 Sous tous les thèmes — le tien comme celui de qui regarde —, une carte à fond garde les couleurs du Velours : le décor d'un fond est nocturne, et le thème Héros, qui la repeignait en blanc, y laissait une encre claire illisible.
 
@@ -148,7 +158,7 @@ Sous tous les thèmes — le tien comme celui de qui regarde —, une carte à f
 
 Une gerbe éclate **sur ton téléphone, à chaque bonne réponse**, et sur le tien seulement : ni la salle ni l'écran commun n'en savent rien. En soirée : un QCM juste, « plusieurs » ou « ordre » trouvés en entier, une estimation pile-poil — pas une estimation seulement proche, qui paie pourtant son confetti. Puis au quiz du jour, en campagne — série, défi, duel —, aux épreuves des sentiers et aux parcours de thème. Elle se tait si ton téléphone demande moins de mouvement.
 
-Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Les neuf autres s'ouvrent par un haut fait ou l'étape d'une piste ([les récompenses](les-recompenses.md)) : une étape plus haute garde la gerbe de l'étape d'en dessous, et une gerbe choisie que tu ne mérites plus redevient les confettis. Chacune a son allure — un ballon flotte, une étincelle file.
+Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neuf autres s'ouvrent par un haut fait ou l'étape d'une piste ([les récompenses](les-recompenses.md)) : une étape plus haute garde la gerbe de l'étape d'en dessous, et une gerbe choisie que tu ne mérites plus redevient les confettis. Les six du trésor, seul le coffre de la semaine les donne ([les missions](les-missions.md)). Chacune a son allure — un ballon flotte, une étincelle file.
 
 | Gerbe | Elle se gagne avec | Ses particules | Mouvement |
 |---|---|---|---|
@@ -162,6 +172,12 @@ Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Les
 | Les colombes | le Funambule, en campagne | 🕊️ | monte |
 | Les flammes | trente jours de série (L'Infatigable · Argent) | 🔥 | monte |
 | Les trophées | le défi de la semaine, gagné | 🏆 🥇 | jaillit |
+| Les flocons | le coffre de la semaine — peu commune | ❄️ | tombe |
+| Les cœurs | le coffre de la semaine — peu commune | 💖 💗 💕 | monte |
+| Les papillons | le coffre de la semaine — rare | 🦋 | monte |
+| Les étoiles filantes | le coffre de la semaine — rare | 🌠 ✨ | tombe |
+| Les diamants | le coffre de la semaine — épique | 💎 ✨ | jaillit |
+| Le trésor | le coffre de la semaine — légendaire | 👑 💎 💰 ✨ | jaillit |
 
 ## Les compagnons
 

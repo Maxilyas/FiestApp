@@ -99,6 +99,9 @@ export type IconName =
   | 'bag'
   // Les signalements du QG : reclasser une question.
   | 'tag'
+  // Les missions du jour et le coffre de la semaine.
+  | 'coffre'
+  | 'missions'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -632,6 +635,27 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.7 6.7a1.4 1.4 0 0 1-2 0L3.5 12.2Z" />
         <circle cx="8" cy="8" r="1.4" />
+      </>
+    ),
+  },
+  // Un coffre, son couvercle bombé et sa serrure : le coffre de la semaine, et ce qui en sort.
+  coffre: {
+    paths: (
+      <>
+        <path d="M3.5 11V9.5C3.5 6.5 7 4.5 12 4.5s8.5 2 8.5 5V11" />
+        <rect x="3.5" y="11" width="17" height="8.5" rx="1.5" />
+        <path d="M3.5 11h17M8 4.9V11M16 4.9V11" />
+        <rect x="10.3" y="9.6" width="3.4" height="4" rx="0.8" />
+      </>
+    ),
+  },
+  // Une liste cochée : les missions du jour.
+  missions: {
+    paths: (
+      <>
+        <path d="M10 6h10M10 12h10M10 18h10" />
+        <path d="m3.5 6 1.4 1.4 2.6-2.6M3.5 12l1.4 1.4 2.6-2.6" />
+        <circle cx="5.2" cy="18" r="1.4" />
       </>
     ),
   },

@@ -7,7 +7,8 @@ import { CarriereAtlas } from './CarriereAtlas'
 import { RayonDesObjets, RayonDesThemes } from './Boutique'
 import { RayonDesCompagnons } from './RayonDesCompagnons'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
-import { aDuNouveau } from './Loge'
+import { nouveautesDuProfil } from './Loge'
+import type { NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
 
 // Le contenu des écrans du profil — la loge, où l'on change ce qu'on porte
 // (son avatar, son titre, sa vitrine, son fond, son thème, sa gerbe), « Ma
@@ -27,17 +28,17 @@ interface Props {
 
 /**
  * Ce que les boutons du profil disent en plus de leur nom : le total de sa
- * collection, et si la loge a du nouveau depuis son dernier passage
- * (« M'habiller »). Ici, avec les écrans : leurs catalogues n'ont rien à
- * faire sur le chemin de l'accueil anonyme, qui partage le fichier du profil
- * (`ProfilApp`).
+ * collection, et ce que la loge a de neuf depuis son dernier passage
+ * (« M'habiller », et « Profil » dans la barre du menu). Ici, avec les
+ * écrans : leurs catalogues n'ont rien à faire sur le chemin de l'accueil
+ * anonyme, qui partage le fichier du profil (`ProfilApp`).
  */
-export function apercusDesTuiles(profil: PublicProfileDetail): { collection: Compte; nouveau: boolean } {
-  return { collection: compteDeLaCollection(profil).total, nouveau: aDuNouveau(profil) }
+export function apercusDesTuiles(profil: PublicProfileDetail): { collection: Compte; nouveautes: NouveautesDeLaLoge } {
+  return { collection: compteDeLaCollection(profil).total, nouveautes: nouveautesDuProfil(profil) }
 }
 
 /** La loge : tout ce qu'on porte, sur son écran (`Loge.tsx`). */
-export { Loge as PanneauLoge, retenirLesPremiersVus } from './Loge'
+export { Loge as PanneauLoge, nouveautesDuProfil, retenirLesPremiersVus } from './Loge'
 
 export { MaCollection as PanneauCollection } from './Collection'
 

@@ -38,7 +38,7 @@ Les sessions, les essais et les codes en détail : [la sécurité](../architectu
 
 ## L'accueil
 
-Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, ton prénom, ton niveau, la barre « N XP → niv. N+1 », tes confettis 🎊 ; un toucher ouvre **ta carte**, telle que la salle la voit — ton profil est au menu —, et « Amis », à côté, ouvre la feuille de tes amis — ; **ce que l'administrateur a fait pour toi** ces trente derniers jours (des confettis offerts et leur mot, ton prénom changé), dit une fois sur ce téléphone, avec « Merci » ; **la soirée où tu joues déjà**, « Revenir chez Hugo » — « Ta soirée continue », tant qu'elle a vécu ces douze dernières heures ; puis deux sections de gros boutons :
+Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, ton prénom, ton niveau, la barre « N XP → niv. N+1 », tes confettis 🎊 ; un toucher ouvre **ta carte**, telle que la salle la voit — ton profil est au menu —, et « Amis », à côté, ouvre la feuille de tes amis — ; **ce que l'administrateur a fait pour toi** ces trente derniers jours (des confettis offerts et leur mot, ton prénom changé), dit une fois sur ce téléphone, avec « Merci » ; **« À la une »**, un objet de la boutique que tu n'as pas, et **la ligne de tes missions du jour**, ses trois anneaux et ce qui reste à gagner — elle s'allume d'or quand ton coffre de la semaine t'attend ([les missions](les-missions.md)) ; **la soirée où tu joues déjà**, « Revenir chez Hugo » — « Ta soirée continue », tant qu'elle a vécu ces douze dernières heures ; puis deux sections de gros boutons :
 
 | Section | Bouton | Ce qu'il dit, et sa pastille |
 |---|---|---|
@@ -58,7 +58,7 @@ Dessous, la dernière soirée gardée sur ce téléphone, l'installation de l'ap
 
 | Bouton | Sous son titre | Ouvre |
 |---|---|---|
-| « M'habiller » | « Avatar, titre, vitrine, fond, thème, gerbe » ; « Nouveau » quand la loge a du neuf | `/profil#avatar` |
+| « M'habiller » | « Avatar, titre, vitrine, fond, thème, gerbe » ; un compteur rouge quand la loge a du neuf | `/profil#avatar`, ou la première pièce qui a du neuf |
 | « Ma collection » | sa jauge et « N sur M » ; « Avatars, thèmes, trophées — et où gagner le reste » | `/profil#collection` |
 | « Mes soirées » | « Aucune encore », ou « 12 soirées, jouées ou animées » | `/profil#soirees` |
 | « Ma carrière » | « Précision 64 % · tes courbes » | `/profil#carriere` |
@@ -92,7 +92,7 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 - **Titre et Vitrine** : « Mes titres » — « Aucun », puis tes titres de maître des sentiers, de champion du mois, tes trophées ; « Mes trophées » — « Les plus durs, d'office », ou « Touches-en jusqu'à 3, dans l'ordre où ta carte les montrera. » Sans aucun haut fait, les deux disent le plus proche à gagner, sinon le plus simple pour commencer, L'Alpiniste. Leurs règles : [les récompenses](les-recompenses.md).
 - **Fond, Thème, Gerbe** : leurs catalogues sont dans [la boutique](la-boutique.md).
 
-**« Nouveau »** : une pastille sur « M'habiller » et sur chaque pièce qui a du neuf depuis ton dernier passage **sur ce téléphone** ; elle s'éteint dès que tu as regardé la pièce, et la première visite d'un profil sur un téléphone compte tout comme déjà vu. **La fin d'une partie** range sous « À porter » ce qu'elle vient d'ouvrir — un fond, une gerbe, un thème, un emoji de collection — : « Essayer » ouvre la loge, l'essai déjà sur ta carte (`/profil?essayer=nuit#fond`), seulement s'il est à toi — de même « Essayer », dans une fiche de « Ma collection ».
+**« Nouveau »** : ce que tu as gagné à porter depuis ton dernier passage dans la loge se compte en rouge, comme les défis reçus des duels — sur « Profil », dans la barre du menu de chaque page, sur « M'habiller », qui ouvre la loge sur la première pièce qui a du neuf, et d'un point sur chaque pièce. Il s'éteint dès que tu as regardé la pièce, **sur tous tes appareils** : le serveur retient ce que tu as vu. Ta première visite compte tout comme déjà vu. **La fin d'une partie** range sous « À porter » ce qu'elle vient d'ouvrir — un fond, une gerbe, un thème, un emoji de collection — : « Essayer » ouvre la loge, l'essai déjà sur ta carte (`/profil?essayer=nuit#fond`), seulement s'il est à toi — de même « Essayer », dans une fiche de « Ma collection ».
 
 ## Ma collection
 
