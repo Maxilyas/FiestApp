@@ -10539,8 +10539,15 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
    thème — le dessin de l'objet y déborde par la gauche, sur sa couleur. Son
    encre est écrite en dur : celle du thème, sombre sous l'Ivoire, se perdait
    dans la nuit de l'affiche. Sa teinte se pose sur le cadre, que partagent
-   l'affiche et ses points. */
-.une-cadre { --une-teinte: #d9b56a; position: relative; }
+   l'affiche et ses points.
+   Le cadre la retient de côté : l'affiche qui entrait de 28 pixels à droite
+   débordait de l'écran, la page s'élargissait — 368 pixels sur 360 —, et la
+   barre du menu, fixe, grandissait et sautait de 15 pixels à chaque objet,
+   sous la feuille des missions aussi (le propriétaire, le 15 octobre 2026).
+   `clip` ne coupe que de côté : le dessin déborde toujours par le haut ; sa
+   marge garde son ombre, et l'entrée tient dans les 20 pixels du bord de la
+   page même là où `clip` n'est pas lu. */
+.une-cadre { --une-teinte: #d9b56a; position: relative; overflow-x: clip; overflow-clip-margin: 12px; }
 .une {
   position: relative;
   display: flex;
@@ -10606,8 +10613,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .une-point-ici::before { width: 12px; background: color-mix(in srgb, var(--une-teinte) 55%, #fff); }
 .une-point:focus-visible { outline-offset: -4px; }
 @keyframes une-entre { from { opacity: 0; transform: translateY(4px); } }
-@keyframes une-de-droite { from { opacity: 0; transform: translateX(28px); } }
-@keyframes une-de-gauche { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes une-de-droite { from { opacity: 0; transform: translateX(16px); } }
+@keyframes une-de-gauche { from { opacity: 0; transform: translateX(-16px); } }
 @keyframes une-flotte {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
   50% { transform: translateY(-5px) rotate(2deg); }

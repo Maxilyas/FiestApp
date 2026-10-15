@@ -57,6 +57,15 @@ paths:
   Une taille qui varie d'un élément à l'autre passe par `scale()`, jamais
   par `font-size` — et se réduit, sans s'agrandir : l'emoji reste net. Un
   emoji dans un `content:` compte pour `emojis.test.ts`, comme un texte.
+- **Rien ne déborde de côté, même le temps d'une animation** : au téléphone,
+  un élément poussé hors de l'écran élargit la page, et tout ce qui est
+  fixe — la barre du menu, un voile — grandit et saute. L'affiche d'« À la
+  une », qui entrait de 28 pixels à droite, faisait la page large de 368
+  pixels sur 360, et la barre du menu sautait de 15 pixels à chaque objet
+  (le 15 octobre 2026). Ce qui glisse de côté reste dans son cadre
+  (`overflow-x: clip`, qui laisse déborder en hauteur) ou dans les 20 pixels
+  du bord de la page ; une sonde le mesure à chaque image
+  (`document.documentElement.scrollWidth`, la boîte de `.menu-barre`).
 - **Un voile ouvert fige la page de dessous** — une feuille (`.carte-voile`,
   `Feuille`, vingt-six écrans), la carte d'un joueur ou un dialogue
   (`.dialog-backdrop`) : `html:has(…) { overflow: hidden }`, et le cadre qui
