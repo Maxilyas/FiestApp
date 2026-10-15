@@ -73,7 +73,9 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
 - **La danse et les métiers de la santé** (15 octobre 2026) : six cents
   questions neuves par thème, écrites famille par famille de leurs
   inventaires, puis une par sujet resté sans question, et vingt de plus pour
-  finir les six cents — 1 209 rangées, jusqu'à 23 096. Ce qu'on en a appris :
+  finir les six cents — 1 209 rangées, jusqu'à 23 096 —, puis le bal et le
+  ballet remis au niveau des autres sous-thèmes de leur catégorie (277, jusqu'à
+  23 373). Ce qu'on en a appris :
   entre familles voisines d'une même vague, les rédacteurs posent le même
   fait (les maracas, les bongos et le güiro de la salsa et de la rumba) — le
   recueil en refuse la plupart, la relecture rattrape le reste ; une liste de
