@@ -59,7 +59,7 @@ import {
   xpHorsDesSoirees,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { fond, fondsOuverts, PRIX_D_UN_FOND, type CleDeFond } from '../../../shared/fonds'
+import { fond, fondsOuverts, FONDS_EN_BOUTIQUE, PRIX_D_UN_FOND, type CleDeFond } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBE_PAR_DEFAUT, gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
 import {
   ceQueDonnentLesConfettis,
@@ -1290,16 +1290,16 @@ export class ProfileStore {
   }
 
   /**
-   * Les thèmes qu'il a achetés et ce qu'il les a payés, ce que lui ont coûté
-   * ses vies des sentiers, ses sabliers, ses compagnons et ses fonds, et les
-   * confettis que l'administrateur lui a offerts : un seul aller-retour.
+   * Les thèmes et les fonds qu'il a achetés et ce qu'il les a payés, ce que
+   * lui ont coûté ses vies des sentiers, ses sabliers et ses compagnons, et
+   * les confettis que l'administrateur lui a offerts : un seul aller-retour.
    */
   private async achatsDe(profileId: string): Promise<{
     themes: Map<string, number>
     vies: number
     sabliers: number
     compagnons: number
-    fonds: number
+    fonds: Map<string, number>
     dons: { id: string; confettis: number; mot: string | null; le: number }[]
     /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
     missions: number
@@ -1311,7 +1311,8 @@ export class ProfileStore {
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
-        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_fonds WHERE profile_id = ?', args: [profileId] },
+        // Chaque fond, pas leur somme : « À la une » ne met en avant que ceux qu'il n'a pas.
+        { sql: 'SELECT fond, prix FROM profile_fonds WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT id, confettis, mot, created_at FROM profile_dons WHERE profile_id = ? ORDER BY created_at DESC', args: [profileId] },
         // Dans le même lot : les missions et les coffres n'ajoutent pas un aller-retour au solde.
         {
@@ -1327,7 +1328,7 @@ export class ProfileStore {
       vies: Number(vies.rows[0]?.prix ?? 0),
       sabliers: Number(sabliers.rows[0]?.prix ?? 0),
       compagnons: Number(compagnons.rows[0]?.prix ?? 0),
-      fonds: Number(fonds.rows[0]?.prix ?? 0),
+      fonds: new Map(fonds.rows.map(r => [String(r.fond), Number(r.prix)])),
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
       missions: gainsDesMissions(Number(missions.rows[0]?.faites ?? 0), Number(missions.rows[0]?.trois ?? 0)).confettis,
       coffres: Number(coffres.rows[0]?.n ?? 0),
@@ -1379,7 +1380,9 @@ export class ProfileStore {
     ])
     const offerts = achats.dons.reduce((n, d) => n + d.confettis, 0)
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne + offerts + achats.missions + achats.coffres
-    const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers + achats.compagnons + achats.fonds
+    const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
+    const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.compagnons + somme(achats.fonds)
+    const fondsAchetes = FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key)
     return {
       boutique: {
         confettis: { gagnes, depenses, solde: gagnes - depenses },
@@ -1388,8 +1391,9 @@ export class ProfileStore {
         ).map(t => t.key),
         porte: this.themePorte(p),
         jour,
-        // Absents sans compagnon : rien de plus à lire pour qui n'en a pas.
+        // Absents sans compagnon ni fond acheté : rien de plus à lire pour qui n'en a pas.
         ...(compagnons.length > 0 && { compagnons }),
+        ...(fondsAchetes.length > 0 && { fondsAchetes }),
       },
       dons: achats.dons,
     }
