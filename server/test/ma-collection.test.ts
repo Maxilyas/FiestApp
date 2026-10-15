@@ -111,8 +111,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
     // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
     // rouge et l'Éclair ; au quiz du jour, la page de janvier ; partout, le
-    // bronze de l'écusson d'histoire.
-    ['trophees', '7/132', ['trophees 7/132']],
+    // bronze de l'écusson d'histoire. Onze de plus à gagner depuis le
+    // 15 octobre 2026 : les trois pistes et les deux exploits des sentiers.
+    ['trophees', '7/143', ['trophees 7/143']],
     // Le style, et ses bordures de ligue depuis le 13 octobre 2026 : la loge
     // les proposait, la collection ne les rangeait nulle part. Sans duel
     // classé, le serveur les tait : zéro sur six, pas absentes. Les six fonds
@@ -121,14 +122,14 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // le 15.
     ['style', '9/89', ['themes 3/35', 'fonds 1/25', 'gerbes 2/16', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 349 })
+  assert.deepEqual(total, { acquis: 25, total: 360 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
       .parties.find(p => p.partie === 'bordures'),
     { partie: 'bordures', acquis: 2, total: 6 },
   )
-  assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 132 })
+  assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 143 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
@@ -175,7 +176,7 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
       'jour : pistes, exploits, coups, calendrier',
       'campagne : pistes, exploits',
       'duels : ligues, bordures',
-      'sentiers : maitres',
+      'sentiers : pistes, exploits, maitres',
       'partout : ecussons, niveau',
     ],
   )
@@ -183,6 +184,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
   const pistes = (page: string, section = 'pistes') => pages.find(p => p.page === page)!.sections.find(s => s.cle === section)!.cases.map(c => c.cle).sort()
   assert.deepEqual(pistes('jour'), ['hf:assidu', 'hf:champion-du-jour', 'hf:elite', 'hf:infatigable', 'hf:sans-faute'])
   assert.deepEqual(pistes('campagne'), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
+  // Ce qui se valide en épreuve, sur la page des sentiers — que la campagne compte pourtant.
+  assert.deepEqual(pistes('sentiers'), ['hf:cartographe', 'hf:constellation', 'hf:randonneur'])
+  assert.deepEqual(pistes('sentiers', 'exploits'), ['hf:contre-toute-attente', 'hf:impeccable'])
   assert.deepEqual(pistes('partout', 'niveau'), ['hf:eclats', 'hf:legende'])
   // Le Laurier n'a plus sa case : la piste du Champion du jour le compte, la même victoire.
   assert.ok(!pistes('jour', 'exploits').includes('hf:laurier'))
@@ -197,9 +201,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 349<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 360<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 89'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 143', 'Style 9 sur 89'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —

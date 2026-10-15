@@ -3,7 +3,7 @@
 // de ce qu'elle vient de faire tomber sans télécharger tous les catalogues
 // que l'album lit (les sentiers, les ligues, le calendrier, les écussons).
 
-import { hautFaitDeSoiree, palierDe } from './hautsfaits'
+import { hautFaitDeSoiree, origineDe, palierDe } from './hautsfaits'
 
 export type PageDesTrophees = 'soiree' | 'jour' | 'campagne' | 'duels' | 'sentiers' | 'partout'
 
@@ -33,13 +33,11 @@ export function pageDuTrophee(cle: string): PageDesTrophees {
   const p = palierDe(cle)
   if (p) {
     const h = p.hautFait
-    if (h.duJour) return 'jour'
-    if (h.deCampagne) return 'campagne'
     if (h.key === 'hf:legende' || h.key === 'hf:eclats') return 'partout'
-    return 'soiree'
+    return origineDe(h) ?? 'soiree'
   }
   const h = hautFaitDeSoiree(cle)
-  if (h) return h.origine ?? 'soiree'
+  if (h) return origineDe(h) ?? 'soiree'
   if (cle.startsWith('heures:') || cle.startsWith('mois:')) return 'jour'
   if (cle.startsWith('maitre:')) return 'sentiers'
   if (cle.startsWith('ligue:') || cle.startsWith('bordure:')) return 'duels'

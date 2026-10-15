@@ -25,6 +25,7 @@ import {
   scoreAttendu,
   scoreDeReference,
   serieDeReference,
+  type ForceDUnJoueur,
   type ModeleDuSavoir,
   type SerieDeReference,
 } from './modeleDuSavoir'
@@ -179,9 +180,11 @@ import {
   PRIX_D_UNE_VIE,
   REPONSES_DE_SA_PROGRESSION,
   QUESTIONS_PAR_EPREUVE,
+  SANS_VRAI_FAUX_DES,
   VIES_PAR_JOUR,
   confettisDeLaNouvelleNote,
   confettisDesEtoiles,
+  couleurDePiste,
   epreuveFinie,
   etoilesDe,
   issueDe,
@@ -190,6 +193,7 @@ import {
   refusDuMelange,
   regleDuPalier,
   sentierQuOnAvance,
+  statsDesSentiers,
   titreDeMaitre,
   viesDe,
   xpDuPalier,
@@ -302,6 +306,13 @@ interface Serie {
   seuil: number | null
   rejeu: boolean
   issue: IssueDEpreuve | null
+  /**
+   * Une épreuve en jeu : la chance de la valider que la page des sentiers lui
+   * annonçait à son départ (`chanceAuDepart`) — Contre toute attente la relit
+   * à sa fin. Null sans annonce : un rejeu, moins de vingt premières
+   * réponses, le modèle du savoir pas encore ajusté, une épreuve d'avant.
+   */
+  chance?: number | null
   /** Les catégories qu'elle a choisies ; null : toutes (`categoriesRetenues`). */
   categories?: string[] | null
   /** Le sujet qu'elle suit à travers les catégories (`shared/sujets.ts`) ; ses catégories sont alors null. */
@@ -811,6 +822,10 @@ export class CampagneStore {
       ['duel', 'TEXT'],
       // Une rencontre : son adversaire, en JSON (`AdversaireGarde`).
       ['adversaire', 'TEXT'],
+      // Une épreuve en jeu : la chance que la page lui annonçait à son départ
+      // (`chanceAuDepart`). Ce qu'elle dit au joueur ne se reconstruit pas
+      // après coup : le modèle se refait, ses réponses changent sa force.
+      ['chance', 'REAL'],
     ] as const) {
       await ajouterColonne(this.client, 'campagne_series', colonne, type)
     }
@@ -1253,11 +1268,12 @@ export class CampagneStore {
   /**
    * Ce que la campagne compte pour ses paliers : le record d'une série,
    * ses questions expertes trouvées et toutes ses bonnes réponses —
-   * épreuves des sentiers comprises pour ces deux-là. Le niveau d'une
-   * question est celui que la série lui donnait quand elle l'a posée.
+   * épreuves des sentiers comprises pour ces deux-là —, et ce que ses
+   * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
+   * d'une question est celui que la série lui donnait quand elle l'a posée.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
-    const [record, justes, expertes] = await this.client.batch(
+    const [record, justes, expertes, validees] = await this.client.batch(
       [
         {
           sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
@@ -1271,10 +1287,17 @@ export class CampagneStore {
                 WHERE s.profile_id = ? AND s.mode <> 'revision' AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
           args: [profileId],
         },
+        this.lectureDesValidees(profileId),
       ],
       'read',
     )
-    return { record: Number(record.rows[0]?.n ?? 0), justes: Number(justes.rows[0]?.n ?? 0), expertes: Number(expertes.rows[0]?.n ?? 0) }
+    return {
+      record: Number(record.rows[0]?.n ?? 0),
+      justes: Number(justes.rows[0]?.n ?? 0),
+      expertes: Number(expertes.rows[0]?.n ?? 0),
+      // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
+      ...statsDesSentiers(sentiersLus([], validees.rows)),
+    }
   }
 
   /** Son record dans chaque catégorie jouée seule : la meilleure série d'une seule catégorie. */
@@ -1374,6 +1397,48 @@ export class CampagneStore {
       args: ['relecture_des_series', String(VERSION_DES_SERIES)],
     })
     return { series: res.rows.length, profils: profils.size }
+  }
+
+  /**
+   * Relit les épreuves des sentiers une fois par version
+   * (`VERSION_DES_EPREUVES`) : ce que leur fin aurait fait tomber
+   * d'elles-mêmes (`hautsFaitsDeLEpreuve`), puis les paliers que la campagne
+   * de chacun atteint — les pistes des sentiers tombent à qui les tenait déjà
+   * (le 15 octobre 2026). Contre toute attente ne se relit que sur les
+   * épreuves qui ont gardé leur chance : avant la colonne, rien n'avait été
+   * annoncé. Un passage par joueur des sentiers, pas par série : monter
+   * `VERSION_DES_SERIES` aurait relu les cinq cents séries, au démarrage que
+   * l'hébergeur attend. Ajoute sans rien reprendre.
+   */
+  async relireLesEpreuves(): Promise<{ epreuves: number; profils: number } | null> {
+    if (!this.recompenses) return null
+    const fait = await this.client.execute({ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: ['relecture_des_epreuves'] })
+    if (Number(fait.rows[0]?.valeur ?? 0) >= VERSION_DES_EPREUVES) return null
+    const res = await this.client.execute(
+      `SELECT id, profile_id, branche, palier, rejeu, issue, justes, chance, finie_le FROM campagne_series WHERE mode = 'sentier' ORDER BY commencee_le`,
+    )
+    // Ses échecs en jeu sur chaque palier, épreuve après épreuve : Contre toute attente ne tombe que du premier coup.
+    const echecs = new Map<string, number>()
+    const profils = new Set<string>()
+    for (const r of res.rows) {
+      const profileId = String(r.profile_id)
+      profils.add(profileId)
+      if (r.finie_le === null || r.finie_le === undefined) continue
+      const issue: IssueDEpreuve | null = r.issue === 'validee' ? 'validee' : r.issue === 'ratee' ? 'ratee' : null
+      const e = { palier: Number(r.palier), rejeu: Number(r.rejeu ?? 0) === 1, issue, chance: r.chance === null || r.chance === undefined ? null : Number(r.chance) }
+      const cle = `${profileId}|${String(r.branche)}|${e.palier}`
+      const cles = hautsFaitsDeLEpreuve(e, Number(r.justes), echecs.get(cle) ?? 0)
+      if (!e.rejeu && e.issue === 'ratee') echecs.set(cle, (echecs.get(cle) ?? 0) + 1)
+      if (cles.length > 0) await this.avecVerrou(profileId, () => this.recompenses!.ranger(profileId, cleDeSerie(String(r.id)), cles, Number(r.finie_le)))
+    }
+    for (const id of profils) {
+      await this.avecVerrou(id, async () => this.recompenses!.accorderPaliersDeCampagne(id, cleDeSerie('relecture'), await this.statsDe(id)))
+    }
+    await this.client.execute({
+      sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
+      args: ['relecture_des_epreuves', String(VERSION_DES_EPREUVES)],
+    })
+    return { epreuves: res.rows.length, profils: profils.size }
   }
 
   /**
@@ -4222,13 +4287,15 @@ export class CampagneStore {
 
   /** Ce qu'il tenait d'avant les sentiers, et ses épreuves validées : les deux lectures de ses sentiers. */
   private lecturesDesSentiers(profileId: string): InStatement[] {
-    return [
-      { sql: 'SELECT branche, paliers FROM sentier_acquis WHERE profile_id = ?', args: [profileId] },
-      {
-        sql: `SELECT branche, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
-        args: [profileId],
-      },
-    ]
+    return [{ sql: 'SELECT branche, paliers FROM sentier_acquis WHERE profile_id = ?', args: [profileId] }, this.lectureDesValidees(profileId)]
+  }
+
+  /** Ses épreuves validées, rejeux compris : ses paliers et leurs étoiles (`sentiersLus`). */
+  private lectureDesValidees(profileId: string): InStatement {
+    return {
+      sql: `SELECT branche, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
+      args: [profileId],
+    }
   }
 
   /**
@@ -4361,11 +4428,7 @@ export class CampagneStore {
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
   ): ChanceDuSentier[] | undefined {
-    const reference = this.referencePour(jouables, mesure, modele)
-    const question = (id: string) => {
-      const q = base.parId.get(id)
-      return q && { categorie: q.meta.categorie, difficulte: modele.difficultes.get(id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(id)) }
-    }
+    const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
     const depuis = this.maintenant() - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
     const toutes = new Map<string, boolean>()
     const avant = new Map<string, boolean>()
@@ -4384,19 +4447,71 @@ export class CampagneStore {
         if (c >= 0) anciennes[c]++
       } else if (c >= 0) recentes[c]++
     }
-    const lui = forceDuJoueur(toutes, question, reference.forceDeDepart, modele.forces.get(profileId))
+    const lui = forceDe(toutes)
     if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
-    const luiAvant = forceDuJoueur(avant, question, reference.forceDeDepart, lui)
+    const luiAvant = forceDe(avant, lui)
     const avantSeLit = luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
     const melanges = this.melangesRegles()
     return sentiers.flatMap((s): ChanceDuSentier[] => {
       const regle = regleDuPalier(s.paliers + 1, melanges)
       const c = indiceDeCategorie(brancheParCle(s.branche)?.categorie ?? '')
       if (!regle || c < 0) return []
-      const sa = (f: { force: number; ecarts: readonly number[] }) => arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
       const progresse = avantSeLit && anciennes[c] >= REPONSES_DE_SA_PROGRESSION && recentes[c] >= REPONSES_DE_SA_PROGRESSION
-      return [{ branche: s.branche, palier: regle.n, chance: sa(lui), ...(progresse && { avant: sa(luiAvant) }) }]
+      return [{ branche: s.branche, palier: regle.n, chance: saChanceSur(reference, c, lui, regle), ...(progresse && { avant: saChanceSur(reference, c, luiAvant, regle) }) }]
     })
+  }
+
+  /**
+   * De quoi dire sa chance sur un palier : la série de référence de chaque
+   * catégorie, et sa force relue de premières réponses (`forceDuJoueur`) —
+   * partie de celle du modèle, comme au dé : refait en fond, il n'a peut-être
+   * pas vu sa dernière épreuve. La page (`chancesPourLui`) et le départ d'une
+   * épreuve (`chanceAuDepart`) la lisent par ici : Contre toute attente juge
+   * l'épreuve à la chance même que la page annonçait.
+   */
+  private forceSurLesSentiers(
+    profileId: string,
+    modele: ModeleDuSavoir,
+    base: BaseDeLaCampagne,
+    jouables: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  ): { reference: SerieDeReference; forceDe: (premieres: ReadonlyMap<string, boolean>, depart?: ForceDUnJoueur) => ForceDUnJoueur } {
+    const reference = this.referencePour(jouables, mesure, modele)
+    const question = (id: string) => {
+      const q = base.parId.get(id)
+      return q && { categorie: q.meta.categorie, difficulte: modele.difficultes.get(id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(id)) }
+    }
+    return { reference, forceDe: (premieres, depart = modele.forces.get(profileId)) => forceDuJoueur(premieres, question, reference.forceDeDepart, depart) }
+  }
+
+  /**
+   * La chance que la page des sentiers lui annonce sur ce palier
+   * (`chancesPourLui`), au départ d'une épreuve en jeu : gardée avec elle
+   * (`campagne_series.chance`), Contre toute attente la relit à sa fin. Ses
+   * premières réponses viennent de la lecture que le tirage vient de faire :
+   * pas un aller-retour de plus. Null sans modèle — il se lance en fond —,
+   * sous vingt premières réponses, comme la page, ou si le calcul échoue : ce
+   * n'est qu'un renseignement, l'épreuve part sans lui.
+   */
+  private async chanceAuDepart(
+    profileId: string,
+    categorie: string,
+    regle: RegleDuPalier,
+    premieres: ReadonlyMap<string, boolean>,
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  ): Promise<number | null> {
+    const modele = this.modeleDuSavoir()
+    const c = indiceDeCategorie(categorie)
+    if (!modele || c < 0) return null
+    try {
+      const [base, jouables] = await Promise.all([this.base(), this.jouables()])
+      const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
+      const lui = forceDe(premieres)
+      return lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE ? null : saChanceSur(reference, c, lui, regle)
+    } catch (e) {
+      console.warn('[campagne] chance de l’épreuve non gardée :', e instanceof Error ? e.message : e)
+      return null
+    }
   }
 
   /** Les mélanges réglés depuis le QG, palier par palier ; vide : ceux du code. */
@@ -4533,6 +4648,11 @@ export class CampagneStore {
         }
         await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ?', args: [this.maintenant(), ouverte.id] })
         this.enCours.delete(profileId)
+        // Validée, ce qu'elle a fait d'elle-même lui reste, rangé sans fin pour
+        // le dire — sans quoi Contre toute attente, validé à la dixième
+        // question puis laissé, se perdrait ici. Ses paliers attendent la fin
+        // suivante, qui les annonce.
+        if (ouverte.issue === 'validee') await this.recompenses?.ranger(profileId, cleDeSerie(ouverte.id), await this.hautsFaitsDe(ouverte), this.maintenant())
       }
       const valides = paliers[b.key] ?? 0
       if (regle.n > valides + 1) throw new Error(`Valide d’abord le palier ${valides + 1}`)
@@ -4541,10 +4661,16 @@ export class CampagneStore {
         const vies = await this.vies(profileId)
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
-      const [jouables, mesure, vues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.vuesPar(profileId)])
+      // Ce qu'il a vu, et sa première réponse à chacune : le tirage lit l'un, sa chance l'autre.
+      const [jouables, mesure, lues] = await Promise.all([
+        this.jouables([b.categorie]),
+        this.mesures(),
+        this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows)),
+      ])
       // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
       const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
-      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = tirerUneEpreuve(jouables, regle, lues.vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const chance = rejeu ? null : await this.chanceAuDepart(profileId, b.categorie, regle, lues.premieres, mesure)
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -4559,11 +4685,12 @@ export class CampagneStore {
         seuil: regle.seuil,
         rejeu,
         issue: null,
+        chance,
       }
       await this.client.execute({
-        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, branche, palier, seuil, rejeu, issue)
-              VALUES (?, ?, ?, 0, 0, 0, ?, NULL, 'sentier', ?, ?, ?, ?, NULL)`,
-        args: [e.id, profileId, JSON.stringify(questions), this.maintenant(), b.key, regle.n, regle.seuil, rejeu ? 1 : 0],
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, branche, palier, seuil, rejeu, issue, chance)
+              VALUES (?, ?, ?, 0, 0, 0, ?, NULL, 'sentier', ?, ?, ?, ?, NULL, ?)`,
+        args: [e.id, profileId, JSON.stringify(questions), this.maintenant(), b.key, regle.n, regle.seuil, rejeu ? 1 : 0, chance],
       })
       this.garderEnCours(e)
       return vueDEpreuve(e)
@@ -4638,11 +4765,36 @@ export class CampagneStore {
       if (valideeIci && xp > 0 && dAvant.length === 0) reponse.xpPalier = xpDuPalier(e.palier)
       if (finie && issue === 'validee') Object.assign(reponse, finDeLEpreuveValidee(e, justes, seuil, dAvant))
       if (issue === 'ratee' && !e.rejeu) reponse.vies = await this.vies(profileId)
-      // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme celles d'une série.
-      if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, [], this.maintenant()))
+      // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme
+      // celles d'une série ; ses paliers et ses étoiles pour les pistes des
+      // sentiers ; et ses exploits tombent avec (`hautsFaitsDe`).
+      if (finie) Object.assign(reponse, await this.recompenser(profileId, e.id, await this.hautsFaitsDe(apres), this.maintenant()))
       if (finie) await this.faireGrandir(profileId)
       return reponse
     })
+  }
+
+  /**
+   * Ce qu'une épreuve finie fait tomber d'elle-même (`hautsFaitsDeLEpreuve`).
+   * Ses échecs d'avant sur ce palier ne se lisent que pour une épreuve validée
+   * que sa chance annonçait en piste noire : une lecture de plus pour ces
+   * rares-là, aucune pour les autres.
+   */
+  private async hautsFaitsDe(e: Serie): Promise<string[]> {
+    if (!e.branche || !e.palier) return []
+    const enNoir = !e.rejeu && e.issue === 'validee' && e.chance != null && couleurDePiste(e.chance) === 'noire'
+    const echecs = enNoir
+      ? Number(
+          (
+            await this.client.execute({
+              sql: `SELECT COUNT(*) AS n FROM campagne_series
+                    WHERE profile_id = ? AND mode = 'sentier' AND branche = ? AND palier = ? AND rejeu = 0 AND issue = 'ratee' AND id <> ?`,
+              args: [e.profileId, e.branche, e.palier, e.id],
+            })
+          ).rows[0]?.n ?? 0,
+        )
+      : 0
+    return hautsFaitsDeLEpreuve({ palier: e.palier, rejeu: e.rejeu, issue: e.issue, chance: e.chance }, e.justes, echecs)
   }
 
   /**
@@ -4675,8 +4827,8 @@ export class CampagneStore {
       return {
         epreuve: vueDEpreuve({ ...e, finieLe: maintenant }),
         ...finDeLEpreuveValidee(e, e.justes, seuil, avant.rows),
-        // Ses bonnes réponses comptent pour Le Marathonien et L'Érudit, comme à sa dernière question.
-        ...(await this.recompenser(profileId, e.id, [], maintenant)),
+        // Ce qu'elle a fait compte comme à sa dernière question.
+        ...(await this.recompenser(profileId, e.id, await this.hautsFaitsDe(e), maintenant)),
       }
     })
   }
@@ -4707,7 +4859,7 @@ export class CampagneStore {
       const maintenant = this.maintenant()
       await this.client.execute({ sql: 'UPDATE campagne_series SET finie_le = ? WHERE id = ? AND finie_le IS NULL', args: [maintenant, e.id] })
       this.enCours.delete(profileId)
-      if (e.issue === 'validee') await this.recompenser(profileId, e.id, [], maintenant)
+      if (e.issue === 'validee') await this.recompenser(profileId, e.id, await this.hautsFaitsDe(e), maintenant)
       return { sentier: b.nom, palier: e.palier }
     })
   }
@@ -6028,7 +6180,8 @@ const PREMIERE_REPONSE = 'MIN(r.repondue_le * 2 + r.juste) % 2'
 
 /**
  * Les questions qu'il a vues, quand pour la dernière fois, et sa première
- * réponse à chacune — le modèle du savoir la lit au dé (`forceDuJoueur`) :
+ * réponse à chacune — le modèle du savoir la lit au dé (`forceDuJoueur`) et
+ * au départ d'une épreuve, pour la chance qu'elle garde (`chanceAuDepart`) :
  * seule (`vuesPar`), ou dans le lot qui prépare le dé
  * (`commencerUneRencontre`). En un seul texte (`json_group_object`) : une
  * ligne par question — des milliers pour un fidèle — se décodait ligne à
@@ -6087,6 +6240,10 @@ function lireLesPremieres(lignes: readonly Record<string, unknown>[]): Map<strin
 
 /** Une chance au millième : ce que la page en écrit, sans faire voyager seize décimales. */
 const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
+
+/** Sa chance de valider un palier d'une catégorie, à sa force (`chanceDeLEpreuve`) : celle que la page écrit, et que l'épreuve garde. */
+const saChanceSur = (reference: SerieDeReference, c: number, f: Pick<ForceDUnJoueur, 'force' | 'ecarts'>, regle: RegleDuPalier): number =>
+  arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
 
 /** Le texte de `lectureDesVues` : ce qu'il a vu, question par question (`parFraicheur`), et sa première réponse à chacune. */
 function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<string, number>; premieres: Map<string, boolean> } {
@@ -6376,6 +6533,13 @@ function justesParJourDe(lignes: readonly Record<string, unknown>[]): Map<string
  */
 const VERSION_DES_SERIES = 1
 
+/**
+ * La version des règles des épreuves que la relecture a appliquées aux
+ * épreuves passées (`relireLesEpreuves`) : 1 depuis les trophées des
+ * sentiers (le 15 octobre 2026). Une règle de plus la fait monter.
+ */
+const VERSION_DES_EPREUVES = 1
+
 /** Le Funambule : autant de bonnes réponses d'affilée sur sa dernière vie. */
 export const FUNAMBULE = 9
 /** La Grande Série : autant de bonnes réponses dans une série de toutes les catégories. */
@@ -6423,6 +6587,27 @@ export function hautsFaitsDeLaSerie(
   const experte = s.questions.findIndex(q => q.niveau === 'expert')
   if (experte >= AVANT_LES_EXPERTES && justes.length > experte - 1 && justes.slice(0, experte).every(Boolean)) cles.push('hf:intact')
   if (s.justes >= GRANDE_SERIE && !s.categories && !s.sujet) cles.push('hf:grande-serie')
+  return cles
+}
+
+/**
+ * Les hauts faits d'une épreuve finie, lus sur elle : L'Impeccable — seize
+ * sur seize, dès le palier où le vrai ou faux s'arrête — et Contre toute
+ * attente — validée quand la chance gardée à son départ l'annonçait en piste
+ * noire, sans un échec avant elle sur ce palier (`echecs`). Une épreuve en
+ * jeu seulement : un rejeu se rejoue à volonté, sans rien risquer.
+ * Dérivation pure, comme ceux d'une série : la fin d'une épreuve et la
+ * relecture la lisent pareil.
+ */
+export function hautsFaitsDeLEpreuve(
+  e: { palier: number; rejeu: boolean; issue: IssueDEpreuve | null; chance?: number | null },
+  justes: number,
+  echecs: number,
+): string[] {
+  if (e.rejeu || e.issue !== 'validee') return []
+  const cles: string[] = []
+  if (justes >= QUESTIONS_PAR_EPREUVE && e.palier >= SANS_VRAI_FAUX_DES) cles.push('hf:impeccable')
+  if (echecs === 0 && e.chance !== null && e.chance !== undefined && couleurDePiste(e.chance) === 'noire') cles.push('hf:contre-toute-attente')
   return cles
 }
 
@@ -6483,6 +6668,7 @@ function versSerie(r: Record<string, unknown>): Serie {
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
     rejeu: Number(r.rejeu ?? 0) === 1,
     issue: r.issue === 'validee' || r.issue === 'ratee' ? r.issue : null,
+    chance: r.chance === null || r.chance === undefined ? null : Number(r.chance),
     categories: lireCategories(r.categories),
     sujet: typeof r.sujet === 'string' ? r.sujet : null,
     semaine: typeof r.semaine === 'string' ? r.semaine : null,

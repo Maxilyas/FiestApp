@@ -679,7 +679,7 @@ Le bilan de chaque soir de rappel : des nombres, jamais un nom.
 Toutes les parties de la campagne, quel que soit leur mode : série, épreuve
 de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre.
 
-- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `categories`, `sujet`, `semaine`, `duel`, `adversaire`.
+- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve).
 - **Lue par** : `CampagneStore` — records, carnet, sentiers, duels, écussons, expérience, QG.
@@ -740,7 +740,7 @@ Les questions corrigées ou reclassées par l'administrateur.
 
 Les drapeaux de la campagne.
 
-- **Colonnes clés** : `cle`, `valeur` — `relecture_des_series` (la `VERSION_DES_SERIES` déjà relue).
+- **Colonnes clés** : `cle`, `valeur` — `relecture_des_series` (la `VERSION_DES_SERIES` déjà relue), `relecture_des_epreuves` (la `VERSION_DES_EPREUVES`).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
 - **Lue par** : `CampagneStore`.

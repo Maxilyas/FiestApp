@@ -577,6 +577,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La campagne aussi : les hauts faits de ses séries passées, ses paliers.
   const series = await campagne.relireLesSeries()
   if (series) console.log(`[campagne] ${series.series} série(s) relue(s), ${series.profils} profil(s)`)
+  // Et ses épreuves : les trophées des sentiers, à qui les avait déjà gagnés.
+  const epreuves = await campagne.relireLesEpreuves()
+  if (epreuves) console.log(`[sentiers] ${epreuves.epreuves} épreuve(s) relue(s), ${epreuves.profils} profil(s)`)
   // Le barème du solo (le 6 octobre 2026) : ce qui s'est déjà joué au quiz
   // du jour et en campagne se recompte au barème du jour, une fois, et les
   // niveaux gelés de l'ancienne courbe se rattrapent (`core/baremeDuSolo.ts`).

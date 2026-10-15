@@ -1200,6 +1200,16 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `server/src/core/modeleDuSavoir.ts`, `server/src/core/campagne.ts`, `shared/sentiers.ts`, `client/src/views/Sentiers.tsx`, `server/test/sentiers-pour-toi.test.ts`*
 
+### Des trophées pour les sentiers, comptés en épreuve
+
+**Contexte** : la campagne avait peu de trophées à gagner, et un portrait tous les deux paliers ne suffisait pas à revenir sur des sentiers durs (le propriétaire, le 15 octobre 2026). La page des sentiers de l'album ne montrait que les douze maîtres, que presque personne n'atteint. Adoucir restait exclu (la décision d'avant).
+
+**Décision** : trois pistes et deux exploits, sur la page « Sentiers » de l'album, mesurés sur la production avant d'être fixés. Les pistes comptent ce qui s'use à jouer — Le Randonneur, les paliers validés en épreuve (12, 48, 120) ; La Constellation, leurs étoiles (25, 100, 250) ; Le Cartographe, les sentiers validés jusqu'au palier 8, le dernier des chapitres (3, 6, 12) — : quatre joueurs sur seize auraient eu les deux premières au bronze, un à l'argent. Les exploits disent un moment : L'Impeccable, seize sur seize dès le cinquième palier (personne ne l'a encore fait), et Contre toute attente, un palier validé du premier coup que sa chance annonçait en piste noire (un premier essai noir sur huit a été validé). Tout se compte en épreuve : un palier repris d'un ancien portrait n'y entre qu'une fois rejoué et validé, comme son expérience. Contre toute attente se juge à la chance **gardée au départ** de l'épreuve (`campagne_series.chance`) : recalculée à la fin, elle aurait lu un autre modèle et des réponses que la page n'annonçait pas.
+
+**Conséquence** : l'album passe de 180 à 191 trophées. Les pistes tombent avec celles de la campagne, qui compte les épreuves ; une relecture à part (`relireLesEpreuves`, `VERSION_DES_EPREUVES`) les a données à qui les tenait déjà — un passage par joueur des sentiers, quand monter `VERSION_DES_SERIES` aurait relu les cinq cents séries au démarrage que l'hébergeur attend. Une seule règle dit désormais où se gagne un trophée (`origineDe`) : quatre fichiers la recopiaient. Rien n'est adouci, et rien n'ouvre encore d'avatar : les surprises viendront après.
+
+*Fichiers : `shared/hautsfaits.ts`, `shared/sentiers.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/test/sentiers-trophees.test.ts`*
+
 ### Des amis sans demande, un seul blocage, un « en ligne » réciproque
 **Contexte** : le propriétaire voulait « une liste d'amis avec leur classement et leur ligue, et pouvoir ajouter des amis » ; un « en ligne » montré à tous dirait à un inconnu quand on se connecte.
 

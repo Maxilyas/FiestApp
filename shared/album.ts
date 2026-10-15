@@ -24,7 +24,7 @@ import { PORTRAITS, brancheDe, deLaBranche, portrait, portraitsOuverts } from '.
 import { COLLECTION, COLLECTION_HAUTE } from './avatars'
 import { DIVINS } from './divins'
 import { LEGENDAIRES, legendaire, partiesDe, voiesDe, type Legendaire, type SimpleCondition } from './legendaires'
-import { NOM_PALIER, clePalier, hautFait, regleDuPalier } from './hautsfaits'
+import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
@@ -78,8 +78,7 @@ const RARETE_DU_RANG: readonly Rarete[] = ['commune', 'peucommune', 'rare', 'rar
 function lieuDuHautFait(cle: string): LieuDAvatar {
   if (saison(cle)) return 'saison'
   const h = hautFait(cle)
-  if (h?.famille === 'carriere') return h.duJour ? 'jour' : h.deCampagne ? 'campagne' : 'soiree'
-  return h?.origine ?? 'soiree'
+  return (h && origineDe(h)) ?? 'soiree'
 }
 
 const lieuxDuLegendaire = (l: Legendaire): LieuDAvatar[] => [...new Set(voiesDe(l).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)))]

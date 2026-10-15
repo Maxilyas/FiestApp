@@ -127,6 +127,8 @@ Trois pistes avancent elles aussi, et leurs étapes tombent à la fin de chaque 
 
 Ils ouvrent quatre légendaires : la Salamandre (le Funambule), le Serpent à plumes (la Grande Série), l'Éléphant (Le Marathonien · Or) et la Chimère (L'Alpiniste · Or, avec L'Habitué du Podium et Le Champion du jour). Ils ouvrent aussi le thème Le Sommet (L'Alpiniste · Or) et quatre gerbes. Dans « Ma collection », la page « Campagne » de l'album des trophées montre ces pistes en échelle, chaque étape disant ce qu'elle ouvre, puis les exploits, chacun compté autant de fois qu'il est tombé. Ce qui est commun à toutes les récompenses est dans [les récompenses](les-recompenses.md).
 
+Les épreuves des sentiers ont leurs propres trophées — Le Randonneur, La Constellation, Le Cartographe, L'Impeccable et Contre toute attente —, rangés sur la page « Sentiers » de l'album : voir [les sentiers du savoir](les-sentiers-du-savoir.md#les-trophées-des-sentiers).
+
 ## Signaler une erreur
 
 Après ta réponse, le lien « Signaler une erreur dans cette question » te laisse écrire une phrase de 280 caractères au plus (`SIGNALEMENT_MAX`). Tu as droit à un signalement par question : si tu en renvoies un, il remplace le précédent. Toutes les parties de campagne se signalent de cette façon, y compris les épreuves des sentiers et les parcours.

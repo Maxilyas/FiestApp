@@ -18,7 +18,7 @@ import type { Rarete } from './badges'
 import { GERBES, type Gerbe } from './gerbes'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from './profil'
 import { CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee } from './duels'
-import { hautFait, regleDuPalier, titreDePalier, type HautFaitDeCarriere } from './hautsfaits'
+import { hautFait, origineDe, regleDuPalier, titreDePalier, type HautFaitDeCarriere } from './hautsfaits'
 import { recompensesDe } from './proches'
 import { etapeDuFond } from './pistes'
 import { seuilDeLEtape } from './trophees'
@@ -100,8 +100,8 @@ const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 function lieuDe(cle: string): LieuDuStyle {
   const h = hautFait(cle)
   if (!h) return 'soiree'
-  if (h.famille === 'carriere') return h.key === 'hf:legende' ? 'niveau' : h.duJour ? 'jour' : h.deCampagne ? 'campagne' : 'soiree'
-  return h.origine ?? 'soiree'
+  if (h.key === 'hf:legende') return 'niveau'
+  return origineDe(h) ?? 'soiree'
 }
 
 /** L'étape d'une piste qui ouvre quelque chose : son métal s'il en a un, son seuil, où il en est. */
