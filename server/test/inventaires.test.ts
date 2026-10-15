@@ -120,7 +120,10 @@ test('la consigne donne l’inventaire : les familles visées, ou toutes pour la
 
   // Les sujets qui manquent se nomment sur la ligne ; un sous-thème sans inventaire n'en parle pas.
   const manques = consigneDEcriture('Autour de la fête', [{ cle: 'bal', n: 2, famille: 'Danses de groupe et en ligne', sujets: ['la conga', 'le limbo'] }], { sorte: 'routine' })
-  assert.match(manques, /› Danses de groupe et en ligne : 2 questions, une sur chacun de ces sujets : la conga, le limbo$/m)
+  assert.match(manques, /› Danses de groupe et en ligne : 2 questions, une sur chacun de ces sujets : la conga · le limbo$/m)
+  // Un sujet qui porte ses virgules se lit d'un bloc : deux sujets, deux questions.
+  const aVirgules = consigneDEcriture('Arts & lettres', [{ cle: 'ballet', n: 2, famille: 'Danseuses et danseurs', sujets: ['Nicolas Le Riche, Aurélie Dupont, Marie-Agnès Gillot', 'Guillaume Diop'] }], { sorte: 'routine' })
+  assert.match(aVirgules, /: 2 questions, une sur chacun de ces sujets : Nicolas Le Riche, Aurélie Dupont, Marie-Agnès Gillot · Guillaume Diop$/m)
   assert.doesNotMatch(consigneDEcriture('Sport', [{ cle: 'rugby', n: 5 }], { sorte: 'routine' }), /INVENTAIRE/)
 })
 

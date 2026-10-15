@@ -144,7 +144,9 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
       const nom = sousThemes.find(s => s.cle === q.cle)?.nom
       const combien = `${q.n} question${q.n > 1 ? 's' : ''}`
       const famille = q.famille ? ` › ${q.famille}` : ''
-      const sujets = q.sujets && q.sujets.length > 0 ? `, une sur chacun de ces sujets : ${q.sujets.join(', ')}` : ''
+      // Le point médian, comme dans l'inventaire : un sujet porte parfois ses virgules (« Nicolas Le Riche, Aurélie Dupont,
+      // Marie-Agnès Gillot »), et séparés par des virgules, cinq noms pour trois questions ont laissé Guillaume Diop sans la sienne.
+      const sujets = q.sujets && q.sujets.length > 0 ? `, une sur chacun de ces sujets : ${q.sujets.join(' · ')}` : ''
       return q.difficulte ? `- ${q.cle} (${nom})${famille} : ${combien} de difficulté ${q.difficulte}${sujets}` : `- ${q.cle} (${nom})${famille} : ${combien}${sujets}`
     })
     .join('\n')
