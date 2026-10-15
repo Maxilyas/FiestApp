@@ -7930,7 +7930,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .finition-teinte .icon { width: 15px; height: 15px; color: #fff; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)); }
 .finition-choix.selected .finition-teinte { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .finition-choix.porte:not(.selected) .finition-teinte::after { content: '✓'; position: absolute; top: -5px; right: -6px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
-.finition-choix.neuve .finition-teinte::before { content: ''; position: absolute; top: -3px; left: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+/* Le neuf, dans le rouge de toute la loge : en or, il se fondait dans l'anneau d'or de la pastille montrée. */
+.finition-choix.neuve .finition-teinte::before { content: ''; position: absolute; top: -3px; left: -3px; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 /* Peu de pastilles — ses premiers niveaux, sa première ligue — : à gauche,
    au lieu de s'écarter d'un bord à l'autre. */
 .loge-finitions-rangee.rangee-courte { justify-content: flex-start; gap: 4px 14px; }
@@ -7958,7 +7959,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .bordure-sans { display: block; width: 26px; height: 26px; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
-.bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+.bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 /* La version d'un avatar éclaté, sur la carte, à côté de lui : rare (pressée) ou d'origine. */
 .loge-version { position: absolute; right: 0; bottom: 0; z-index: 2; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
 .loge-version .icon { width: 13px; height: 13px; }
@@ -9267,10 +9268,14 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .boutique-tete h1 { margin: 0; font-size: 2rem; }
 .solde-puce { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .gemmes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-.gemme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
+.gemme { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
 .gemme i { width: 18px; height: 18px; transform: rotate(45deg); border-radius: 4px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); opacity: 0.55; transition: transform 0.2s ease, opacity 0.2s ease; }
 .gemme[aria-selected='true'] { color: var(--ink); border-color: color-mix(in srgb, var(--gemme) 45%, transparent); background: color-mix(in srgb, var(--gemme) 10%, transparent); }
 .gemme[aria-selected='true'] i { opacity: 1; transform: rotate(45deg) scale(1.15); box-shadow: 0 0 12px var(--gemme); }
+/* Sa page garde du neuf : le point rouge des pièces de la loge, sur l'épaule
+   de la pierre — la pastille s'arrêtait à la pièce « Avatar », et l'on ne
+   savait plus quelle rareté ouvrir. */
+.gemme-neuf { position: absolute; top: 3px; left: calc(50% + 5px); width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .gemme-legende { margin: -2px 0 0; font-size: 0.88rem; color: var(--muted); }
 .gemme-legende b { color: var(--ink); }
 .mes-themes { display: flex; flex-direction: column; gap: 12px; }

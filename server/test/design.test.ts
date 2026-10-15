@@ -358,7 +358,21 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
   // notifications de duels ». Le point d'or de la loge se perdait dans l'or de la pièce choisie.
   const rougeDe = (selecteur: string) => /background:\s*(#[0-9a-f]{6});/i.exec(regle(selecteur))?.[1]?.toLowerCase()
   const rouge = rougeDe('.gros-compteur')
-  for (const s of ['.menu-compteur', '.loge-neuf']) assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
+  // Le même rouge jusqu'à ce qui est neuf (le retour du propriétaire du 15 octobre 2026 : plus de pastille à suivre
+  // passé « M'habiller ») : la pièce, la gemme de sa rareté, sa case — la finition et la bordure gardaient l'or.
+  for (const s of [
+    '.menu-compteur',
+    '.loge-neuf',
+    '.gemme-neuf',
+    '.theme-vitrine.neuve::before',
+    '.finition-choix.neuve .finition-teinte::before',
+    '.bordure-choix.neuve .bordure-apercu::before',
+  ])
+    assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
+  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.finition-btn\.neuve::before,\s*\.vitrine-option\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
+  // Sur l'épaule de la gemme, sans pousser son nom.
+  assert.match(regle('.gemme'), /position:\s*relative/)
+  assert.match(regle('.gemme-neuf'), /position:\s*absolute/)
   const compteur = regle('.menu-compteur')
   assert.match(compteur, /[^-]color:\s*#ffffff;/i)
   // Posé sur l'épaule de l'icône, sans pousser son nom.
@@ -373,7 +387,7 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
   assert.match(compteur, /font-variant-numeric:\s*lining-nums tabular-nums/)
   // Aucun thème ne les repeint.
   const dossier = new URL('../../client/src/themes/', import.meta.url)
-  for (const f of readdirSync(dossier).filter(f => f.endsWith('.css'))) assert.doesNotMatch(readFileSync(new URL(f, dossier), 'utf8'), /menu-compteur|loge-neuf/, f)
+  for (const f of readdirSync(dossier).filter(f => f.endsWith('.css'))) assert.doesNotMatch(readFileSync(new URL(f, dossier), 'utf8'), /menu-compteur|loge-neuf|gemme-neuf|\.neuve\b/, f)
 })
 
 // ── Au texte agrandi ──────────────────────────────────────────────────────

@@ -4,7 +4,8 @@
 // avatar touché, en grand, la loge — sa carte et ses six pièces d'abord, son
 // panneau ensuite —, sur chaque pièce — avatar, titre, vitrine, fond, thème,
 // gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
-// nouveauté, « Ma collection », ses lignes dépliées, l'album des avatars — ses
+// nouveauté — un thème, puis un avatar d'une autre rareté que celle qu'elle
+// porte, jusqu'à sa case —, « Ma collection », ses lignes dépliées, l'album des avatars — ses
 // six pages et trois fiches —, l'album des thèmes et la fiche de l'un d'eux,
 // et la boutique des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
@@ -367,6 +368,32 @@ try {
   await page.goto(`${banc.url}/profil#collection-fonds`)
   await page.waitForSelector('#collection-fonds.trophee-ouvert')
   await photo('11-collection-fonds-pleine', true, 1500)
+
+  // Un avatar neuf rangé sur une autre rareté que le loup qu'elle porte — le
+  // lynx, au sixième palier de la forêt —, un Éclat tombé sur son renard et
+  // le niveau 15, qui ouvre le Prisme : « M'habiller » ouvre la loge sur
+  // l'avatar, et le point rouge mène de la gemme de chaque rareté à sa case
+  // (le retour du propriétaire du 15 octobre 2026 : passé « M'habiller », il
+  // n'y avait plus de pastille à suivre). En dernier : la fiche du lynx, plus
+  // haut, le montre encore à gagner.
+  const encoreDuNeuf = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  encoreDuNeuf.prepare('UPDATE sentier_acquis SET paliers = 6 WHERE profile_id = ? AND branche = ?').run(id, 'foret')
+  encoreDuNeuf.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, '🦊', 'une-autre-soiree', 3)`).run(id)
+  encoreDuNeuf.prepare(`UPDATE profile_xp SET xp = ? WHERE profile_id = ? AND soiree_id = '#jour'`).run(xpDuNiveau(15), id)
+  encoreDuNeuf.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(xpDuNiveau(15), id)
+  encoreDuNeuf.close()
+  await banc.redemarrer()
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.profil-boutons .gros-bouton:has-text("M’habiller") .gros-compteur')
+  await page.click('.profil-boutons .gros-bouton:has-text("M’habiller")')
+  await page.waitForSelector('#loge-avatar[aria-selected="true"]')
+  await page.waitForSelector('.gemmes-loge .gemme-neuf')
+  await photo('12-loge-finition-nouvelle')
+  await page.locator('.gemmes-loge').evaluate((e: any) => e.scrollIntoView({ block: 'center' }))
+  await photo('12-loge-avatar-nouveau')
+  await page.click('#loge-gemme-rare')
+  await page.waitForSelector('.loge-page-avatars .case-avatar.neuve')
+  await photo('12-loge-avatar-nouveau-rare')
 } finally {
   await navigateur.close()
   await banc.close()
