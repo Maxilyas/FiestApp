@@ -67,9 +67,12 @@ import { sansAccent } from '../../shared/homonymes'
  * un fait ou un intitulé que la base ou un autre lot posait déjà, 20
  * retirées à la relecture) : 23 008 ; puis une par sujet qu'aucune
  * n'abordait encore (`--manques`), 48 : 23 056 ; puis vingt de plus par
- * thème pour atteindre les six cents, 40 : 23 096.
+ * thème pour atteindre les six cents, 40 : 23 096. Puis le bal et le ballet,
+ * nés ce jour-là, remis au niveau des autres sous-thèmes de leur catégorie
+ * (95 et 216 questions, quand leurs voisins en avaient 236 et 319 : une
+ * série tire autant dans chacun), 277 rangées sur 280 : 23 373.
  */
-const AU_MOINS = 23096
+const AU_MOINS = 23373
 
 const { questions, refusees } = lireLaBase()
 

@@ -27,6 +27,12 @@ export interface QuotaDEcriture {
   famille?: string
   /** Les sujets de cette famille qu'aucune question n'aborde encore, une question chacun (`commandeDesManques`). */
   sujets?: readonly string[]
+  /**
+   * Ce qui fait de chaque question celle d'un sujet de « Sur quoi ? » hors de
+   * ses sous-thèmes (`commandeDuSujet`) : son étiquette, ses années, sa portée.
+   * Sans elle, un surnom commandé au cyclisme n'est qu'une question de cyclisme.
+   */
+  contrainte?: string
 }
 
 /**
@@ -147,7 +153,10 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
       // Le point médian, comme dans l'inventaire : un sujet porte parfois ses virgules (« Nicolas Le Riche, Aurélie Dupont,
       // Marie-Agnès Gillot »), et séparés par des virgules, cinq noms pour trois questions ont laissé Guillaume Diop sans la sienne.
       const sujets = q.sujets && q.sujets.length > 0 ? `, une sur chacun de ces sujets : ${q.sujets.join(' · ')}` : ''
-      return q.difficulte ? `- ${q.cle} (${nom})${famille} : ${combien} de difficulté ${q.difficulte}${sujets}` : `- ${q.cle} (${nom})${famille} : ${combien}${sujets}`
+      const contrainte = q.contrainte ? `, ${q.contrainte}` : ''
+      return q.difficulte
+        ? `- ${q.cle} (${nom})${famille} : ${combien} de difficulté ${q.difficulte}${sujets}${contrainte}`
+        : `- ${q.cle} (${nom})${famille} : ${combien}${sujets}${contrainte}`
     })
     .join('\n')
   // La commande de la routine dit la difficulté de chaque question ; un lot écrit à la main la répartit ; une part à nombre dit la sienne.
@@ -166,8 +175,11 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
   return `TA PART — ${total} QUESTIONS À ÉCRIRE, CATÉGORIE « ${categorie} »
 ${lignes}
 ${dosage} Un fait que la base pose déjà, dans n'importe quelle catégorie, est refusé : préfère les faits moins courus.
-${inventaireDeLaPart(categorie, quotas)}${nombres ? `\n${NOMBRES}\n` : ''}${dejaEcrites}`
+${quotas.some(q => q.contrainte) ? `${POUR_UN_SUJET}\n` : ''}${inventaireDeLaPart(categorie, quotas)}${nombres ? `\n${NOMBRES}\n` : ''}${dejaEcrites}`
 }
+
+/** Ce que demande une ligne écrite pour un sujet de « Sur quoi ? » (`QuotaDEcriture.contrainte`). */
+const POUR_UN_SUJET = `Une ligne qui finit par « chacune … » écrit pour un thème de « Sur quoi ? » : chacune de ses questions doit y entrer. Étiquetée, le fait mérite vraiment l'étiquette, à la lettre de sa définition (LES ÉTIQUETTES) ; datée, son champ date tombe dans ces années. Une question qui n'y entre pas ne compte pas pour le thème : écris-en une autre plutôt que de forcer l'étiquette.`
 
 /**
  * L'inventaire des sous-thèmes de la part qui en ont un (`core/inventaires.ts`) :

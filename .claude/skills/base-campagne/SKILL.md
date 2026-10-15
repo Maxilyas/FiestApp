@@ -108,6 +108,12 @@ moins qu'une réécriture.
    `--inventaire=<clé> --manques` pour ce que `base-campagne.ts couverture
    <clé>` dit encore sans question ; `base-campagne.ts inventaire <clé>` le
    met en clair, à relire avec le propriétaire avant de dépenser le forfait.
+   Pour étoffer un thème, une époque ou un fil rouge déjà là (les surnoms,
+   les années 50) : `--sujet=<clé>[,<clé>…] --questions=<n>`, n de plus
+   chacun, là où il vit déjà et aux difficultés qui lui manquent — hors de
+   ses sous-thèmes, chaque ligne dit son étiquette ou ses années. Un gros
+   morceau d'un seul sous-thème (les mythes, six questions sur dix du
+   thème) s'écrit sur plusieurs vagues.
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle
    quelle, en arrière-plan, une dizaine à la fois.
 3. **La suite** : `npx tsx scripts/generer-campagne.ts suite`, après chaque
