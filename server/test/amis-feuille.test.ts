@@ -211,7 +211,7 @@ test('la page des duels : le classement derrière « Tout voir », les amis derr
 
 test('« Amis » sur l’accueil d’un profil : la feuille monte sur la page, chargée à la demande', () => {
   const accueil = source('views/ProfilApp.tsx')
-  assert.match(accueil, /<div className="accueil-tete">\s*<IdentiteLigne profil=\{profil\} \/>\s*<BoutonDesAmis \/>\s*<\/div>/)
+  assert.match(accueil, /<div className="accueil-tete">\s*<IdentiteLigne profil=\{profil\} onCarte=\{ouvrirLaCarte\} sansOeil \/>\s*<BoutonDesAmis \/>\s*<\/div>/)
   assert.match(accueil, /import \{ BoutonDesAmis, lesAmis \} from '\.\.\/components\/FeuilleDesAmisADemande'/)
   assert.doesNotMatch(accueil, /from '\.\/Amis'|from '\.\.\/views\/Amis'/, 'la feuille ne pèse rien sur l’accueil')
   assert.match(accueil, /void lesAmis\.charger\(\)\.catch\(\(\) => \{\}\)/, 'en fond, une fois l’accueil montré')

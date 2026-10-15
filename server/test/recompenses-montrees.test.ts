@@ -282,8 +282,9 @@ test('l’éclat d’un avatar porté se calcule partout par cibleEclat, et s’
 })
 
 test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et entrée', () => {
-  // « Ce que la salle voit » et l'en-tête du téléphone oubliaient le laurier.
-  assert.match(source('components/Apparence.tsx'), /<NomLaure nom=\{profil\.name\} laurier=\{profil\.laurier\} \/>/)
+  // « Ce que la salle voit » et l'en-tête du téléphone oubliaient le laurier ;
+  // la carte de la loge, qui a pris la place de l'aperçu, le porte.
+  assert.match(source('components/LogeTete.tsx'), /\{vu\.name\}\s*<Laurier laurier=\{vu\.laurier\} \/>/)
   assert.match(source('views/PlayerApp.tsx'), /<span className="me-nom">[^\n]*\n(?:\s*\{\/\*[^\n]*\*\/\}\n)?\s*<Laurier laurier=\{me\?\.laurier\} \/>/)
   // La finition se voit sur le légendaire porté, pas sur l'emoji caché
   // dessous : dans la loge, sur l'avatar que la carte montre — l'essayé,

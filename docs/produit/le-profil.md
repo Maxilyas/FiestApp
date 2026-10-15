@@ -38,7 +38,7 @@ Les sessions, les essais et les codes en détail : [la sécurité](../architectu
 
 ## L'accueil
 
-Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, ton prénom, ton niveau, la barre « N XP → niv. N+1 », tes confettis 🎊 ; un toucher mène à ton profil, et « Amis », à côté, ouvre la feuille de tes amis — ; **ce que l'administrateur a fait pour toi** ces trente derniers jours (des confettis offerts et leur mot, ton prénom changé), dit une fois sur ce téléphone, avec « Merci » ; **« À la une »**, un objet de la boutique que tu n'as pas, et **la ligne de tes missions du jour**, ses trois anneaux et ce qui reste à gagner — elle s'allume d'or quand ton coffre de la semaine t'attend ([les missions](les-missions.md)) ; **la soirée où tu joues déjà**, « Revenir chez Hugo » — « Ta soirée continue », tant qu'elle a vécu ces douze dernières heures ; puis deux sections de gros boutons :
+Connecté, `/` est ton accueil. De haut en bas : **ta ligne** — ton avatar, ton prénom, ton niveau, la barre « N XP → niv. N+1 », tes confettis 🎊 ; un toucher ouvre **ta carte**, telle que la salle la voit — ton profil est au menu —, et « Amis », à côté, ouvre la feuille de tes amis — ; **ce que l'administrateur a fait pour toi** ces trente derniers jours (des confettis offerts et leur mot, ton prénom changé), dit une fois sur ce téléphone, avec « Merci » ; **« À la une »**, un objet de la boutique que tu n'as pas, et **la ligne de tes missions du jour**, ses trois anneaux et ce qui reste à gagner — elle s'allume d'or quand ton coffre de la semaine t'attend ([les missions](les-missions.md)) ; **la soirée où tu joues déjà**, « Revenir chez Hugo » — « Ta soirée continue », tant qu'elle a vécu ces douze dernières heures ; puis deux sections de gros boutons :
 
 | Section | Bouton | Ce qu'il dit, et sa pastille |
 |---|---|---|
@@ -123,7 +123,7 @@ Ce que tu as d'abord, en couleur ; le reste en silhouette dorée, une pastille d
 
 ## La carte d'un joueur
 
-**Où elle s'ouvre** : en soirée, dans la salle d'attente, en touchant un nom du « Classement de la soirée » (« Touche un nom pour voir sa carte. ») ; hors d'une soirée, au classement du quiz du jour ou du défi, dans les duels, parmi tes amis — seulement pour qui est connecté à son profil, et jamais pour un profil masqué par l'administrateur ; la tienne, en touchant ta ligne sur ton profil. Elle ne dépasse pas les trois quarts de l'écran, et son fond de carte la tapisse.
+**Où elle s'ouvre** : en soirée, dans la salle d'attente, en touchant un nom du « Classement de la soirée » (« Touche un nom pour voir sa carte. ») ; hors d'une soirée, au classement du quiz du jour ou du défi, dans les duels, parmi tes amis — seulement pour qui est connecté à son profil, et jamais pour un profil masqué par l'administrateur ; la tienne, en touchant ta ligne, sur l'accueil ou ton profil. Elle ne dépasse pas les trois quarts de l'écran, et son fond de carte la tapisse.
 
 | Pour tout le monde | Pour un profil, en plus |
 |---|---|

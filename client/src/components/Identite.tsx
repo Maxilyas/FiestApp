@@ -1,17 +1,11 @@
-import { useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { Icon } from './Icon'
-import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber } from '../format'
+import { formatNumber } from '../format'
 import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { nomDuTitre } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
-
-/** Sa carte, au toucher de sa ligne : rien ne la télécharge avant. */
-const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 
 /**
  * La bordure de ligue qu'il porte : ses bordures viennent du détail de sa
@@ -23,59 +17,26 @@ function saBordure(profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'
 }
 
 /**
- * Soi-même, en tête de l'accueil et du profil : son avatar, son prénom, son
- * titre, sa barre d'expérience et ses confettis au bout — une ligne qu'on
- * touche pour voir sa carte comme la salle la voit. Le fond de carte qu'il
- * porte la tapisse : on le voit sans ouvrir la carte.
- */
-export function Identite({ profil, titreVisible = true }: { profil: PublicProfileDetail; titreVisible?: boolean }) {
-  const [ouverte, setOuverte] = useState(false)
-  const laCarte = useALaDemande(carteJoueur, ouverte)
-  const titre = titreVisible ? nomDuTitre(profil.titre) : null
-  return (
-    <>
-      <button
-        type="button"
-        className={'identite' + (profil.fond ? ` carte-fond fond-${profil.fond}` : '')}
-        aria-label="Ma carte : la voir comme la salle la voit"
-        onClick={() => setOuverte(true)}
-      >
-        <Avatar
-          className="player-avatar big"
-          avatar={profil.avatar}
-          finition={profil.finition}
-          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-          legendaire={profil.legendaire ?? undefined}
-          bordure={saBordure(profil)}
-        />
-        <span className="identite-texte">
-          <span className="identite-nom">
-            {profil.name}
-            <Laurier laurier={profil.laurier} />
-            <Niveau niveau={profil.niveau} />
-          </span>
-          {titre && <span className="identite-titre">{espacesFines(`« ${titre} »`)}</span>}
-          <XpMince profil={profil} />
-        </span>
-        <span className="identite-carte">
-          Ma carte <Icon name="chevron-down" />
-        </span>
-      </button>
-      {ouverte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur adresse="/api/joueur/carte" onFermer={() => setOuverte(false)} />}
-    </>
-  )
-}
-
-/**
  * Soi-même, sur une ligne, en tête de l'accueil et du profil : son avatar,
  * son prénom, sa barre d'expérience et ses confettis — sans cadre, ces pages
- * sont aux gros boutons. À l'accueil, un toucher mène à son profil ; sur son
- * profil, il ouvre sa carte comme la salle l'ouvre en touchant son nom
- * (`onCarte`), l'œil au bout pour le dire.
+ * sont aux gros boutons. Un toucher ouvre sa carte comme la salle l'ouvre en
+ * touchant son nom (`onCarte`), l'œil au bout pour le dire. À l'accueil, il
+ * menait au profil, que le menu ouvre déjà (le souhait du propriétaire du
+ * 14 octobre 2026) ; l'œil n'y est pas (`sansOeil`) : « Amis » tient le bout
+ * de la ligne, et les deux ronds côte à côte passaient « 1500 XP → niv. 15 »
+ * sur deux lignes en 360.
  */
-export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>; onCarte?: () => void }) {
-  const contenu = (
-    <>
+export function IdentiteLigne({
+  profil,
+  onCarte,
+  sansOeil,
+}: {
+  profil: ProfilDAccueil & Pick<PublicProfileDetail, 'bordures'>
+  onCarte: () => void
+  sansOeil?: boolean
+}) {
+  return (
+    <button type="button" className="identite-ligne" aria-label={`${profil.name} : voir ma carte comme la salle la voit`} onClick={onCarte}>
       <Avatar
         className="player-avatar big"
         avatar={profil.avatar}
@@ -92,19 +53,12 @@ export function IdentiteLigne({ profil, onCarte }: { profil: ProfilDAccueil & Pi
         </span>
         <XpMince profil={profil} />
       </span>
-    </>
-  )
-  return onCarte ? (
-    <button type="button" className="identite-ligne" aria-label={`${profil.name} : voir ma carte comme la salle la voit`} onClick={onCarte}>
-      {contenu}
-      <span className="identite-oeil" aria-hidden="true">
-        <Icon name="eye" />
-      </span>
+      {!sansOeil && (
+        <span className="identite-oeil" aria-hidden="true">
+          <Icon name="eye" />
+        </span>
+      )}
     </button>
-  ) : (
-    <a className="identite-ligne" href="/profil" aria-label={`${profil.name} : mon profil`}>
-      {contenu}
-    </a>
   )
 }
 

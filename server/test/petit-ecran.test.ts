@@ -86,10 +86,9 @@ test('« Camille (2) » se coupe au prénom : la marque reste, le laurier aussi'
 })
 
 test('chaque prénom d’un classement passe par NomLaure', () => {
-  // Une ligne qui écrirait le prénom nu le laisserait couper sa marque. Seuls
-  // le nom d'une équipe et son propre prénom, sur l'aperçu du profil, n'en
-  // portent jamais.
-  const exceptions = new Set(['{t.name}', '{profil.name}'])
+  // Une ligne qui écrirait le prénom nu le laisserait couper sa marque. Seul
+  // le nom d'une équipe n'en porte jamais.
+  const exceptions = new Set(['{t.name}'])
   const racine = new URL('../../client/src/', import.meta.url)
   const fichiers = readdirSync(racine, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.tsx'))
   const vus: string[] = []
