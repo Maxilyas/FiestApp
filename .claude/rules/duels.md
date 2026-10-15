@@ -95,12 +95,15 @@ jour a sa notification (règle `rappel-et-installation.md`).
   « Défier »), les deux jetons (`JetonsDeLEnjeu` : un duel reçu, le dé tiré,
   petits sous l'adversaire choisi d'une préparation), et quand le dé demande
   avant de jouer (`aConfirmerAuDe`) — dans `Rencontre.tsx`
-  (`duels-enjeu.test.ts`)
+  (`duels-enjeu.test.ts`) ; un duel déjà ouvert entre eux aussi, que la
+  carte et la préparation disent des mêmes mots (`DIT_DU_DUEL_OUVERT`)
 - `components/GestesDuJoueur.tsx` · `components/CarteDUnProfil.tsx` ·
   `components/FeuilleDesAmisADemande.tsx` · `components/Blason.tsx` — les
   gestes au pied de la carte d'un profil hors d'une soirée (« Défier »,
-  l'ajouter, le retirer, lus de `GET /api/duels/joueurs/:id`), la carte et la
-  feuille des amis à la demande, « Amis » sur l'accueil, le blason d'une ligue
+  l'ajouter, le retirer, lus de `GET /api/duels/joueurs/:id` — un duel déjà
+  ouvert entre eux prend la place de « Défier » : où il en est, et de quoi le
+  rouvrir), la carte et la feuille des amis à la demande, « Amis » sur
+  l'accueil, le blason d'une ligue
 - Ailleurs : les parties et leurs fins se jouent dans
   `client/src/views/CampagneApp.tsx`, qui sert `/duels` — la carte du
   verdict, puis ce qui est tombé par l'écran des gains de toute la campagne
@@ -198,6 +201,22 @@ jour a sa notification (règle `rappel-et-installation.md`).
   des autres (`lecturesDesDuelsContre`) : ne lisant que ses dix derniers,
   elle perdait un duel plus ancien encore compté en rouge. Un compteur neuf
   lit la règle de ce qu'il compte, jamais une requête à lui.
+- **Un seul duel ouvert entre deux joueurs, et une seule règle pour le
+  dire.** Le refus d'un second (`adversaireDuDuel`) et ce que les duels
+  disent d'un joueur touché (`faceAFace` : `FaceAFace.enCours`,
+  `OuEnEstLeDuel`) lisent `duelOuvertEntre` : la carte disait « Défier », et
+  le refus ne tombait qu'au bout de la préparation (le retour du
+  propriétaire du 15 octobre 2026). Sa carte le dit à la place de
+  « Défier », la préparation sous celui qu'il choisit — elle lit chacun
+  qu'il choisit, et « Jouer le duel » attend —, des mêmes mots
+  (`DIT_DU_DUEL_OUVERT`, `Rencontre.tsx`). Le classement entier — un
+  sablier, et sa légende —, l'échelle et ses amis — « En cours » — le
+  marquent de `EtatDesDuels.contre` (`duelEnRouteAvec`, la règle d'« En
+  cours ») : un duel lancé contre lui et pas encore parti n'y est pas, sa
+  carte seule le dit. **Son code ne part qu'à qui il est** — lancé par lui,
+  ou parvenu (`campagne_envois`) : `releverUnDuel` ne vérifie pas qu'un duel
+  classé est parti, et son code en main, l'adversaire le jouerait avant
+  celui qui l'a lancé (`duels-contre.test.ts`, `duels-page.test.ts`).
 - **Lire la page d'un duel le retient vu.** La première lecture de son
   résultat par qui l'a lancé écrit `campagne_duels.vu_le` et répond
   `nouveau` : la carte se retourne, puis l'accueil, la bannière et « En

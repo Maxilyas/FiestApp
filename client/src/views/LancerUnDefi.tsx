@@ -8,8 +8,8 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { espacesFines } from '../format'
 import { PAGE_DES_DUELS } from './adressesDesDuels'
 import { ChercherUnJoueur, LigneDeJoueur } from './Joueurs'
-import { JetonsDeLEnjeu } from './Rencontre'
-import { COTE_DE_DEPART, RAISON_DU_CROISEMENT, enjeuContre, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
+import { DIT_DU_DUEL_OUVERT, JetonsDeLEnjeu } from './Rencontre'
+import { COTE_DE_DEPART, RAISON_DU_CROISEMENT, enjeuContre, type DuelOuvert, type EnjeuDuDuel, type JoueurADefier, type JoueurCroise } from '../../../shared/duels'
 import type { Sujet } from '../../../shared/sujets'
 import type { AmiDeCampagne } from '../../../shared/campagne'
 
@@ -31,7 +31,10 @@ import type { AmiDeCampagne } from '../../../shared/campagne'
  * phrase sous « Jouer le duel », il sortait de l'écran du téléphone. Chaque
  * prénom ouvre sa carte, entière — « Défier » à son pied le choisit ici même
  * —, et « Choisir » est à côté : on sait contre qui l'on joue avant de le
- * choisir.
+ * choisir. Un duel déjà ouvert contre celui qu'il choisit se dit sous lui, à
+ * la place de ce qui se jouerait, et ne se double pas : « Choisir » un ami
+ * qu'on affrontait déjà menait au refus du serveur, au bout de la
+ * préparation (le retour du propriétaire du 15 octobre 2026).
  */
 export function LancerUnDefi({
   amis,
@@ -42,6 +45,7 @@ export function LancerUnDefi({
   busy,
   erreur,
   onLancer,
+  onOuvrirDuel,
   onAmis,
   onRetour,
 }: {
@@ -53,14 +57,23 @@ export function LancerUnDefi({
   sujets: readonly Sujet[]
   /**
    * Ce qui est choisi en arrivant : les catégories ou le sujet de sa dernière
-   * série, l'adversaire touché — « Défier » sur sa carte —, et sa propre
-   * cote, pour dire ce qui se joue.
+   * série, l'adversaire touché — « Défier » sur sa carte —, sa propre cote,
+   * pour dire ce qui se joue, et le duel déjà ouvert contre lui, lu avec elle
+   * (`FaceAFace.enCours` ; null : aucun — absent : pas encore lu).
    */
-  depart: { categories: readonly string[]; sujet: string | null; adversaire?: JoueurADefier; moi?: { cote: number; joues: number; plancher?: number } }
+  depart: {
+    categories: readonly string[]
+    sujet: string | null
+    adversaire?: JoueurADefier
+    moi?: { cote: number; joues: number; plancher?: number }
+    enCours?: DuelOuvert | null
+  }
   busy: boolean
   erreur: string
   /** Lancer le duel : ce qu'il fait jouer, contre qui — et ce qu'il met en jeu, que la partie redit à chaque question. */
   onLancer: (categories: string[], sujet: string | null, adversaire: JoueurADefier, enjeu?: EnjeuDuDuel) => void
+  /** Rouvrir le duel déjà ouvert contre celui qu'il a choisi : sa page. */
+  onOuvrirDuel?: (code: string) => void
   /** Sa liste d'amis a changé, d'une carte : ses amis et les joueurs croisés se relisent. */
   onAmis?: () => void
   onRetour: () => void
@@ -80,15 +93,23 @@ export function LancerUnDefi({
     },
     onAmis,
   })
-  // Sa cote inconnue — la préparation ouverte telle quelle à son adresse, « Défier » touché avant que la page ait dit la
-  // sienne — : ce que les duels savent du joueur choisi la dit (`GET /api/duels/joueurs/:id`), sa cote à lui fraîche avec.
+  // Le duel déjà ouvert contre celui qu'il a choisi, tel que les duels le savent (`FaceAFace.enCours`) : null, aucun.
+  const [ouvert, setOuvert] = useState<{ profileId: string; duel: DuelOuvert | null } | null>(() =>
+    depart.adversaire && depart.enCours !== undefined ? { profileId: depart.adversaire.profileId, duel: depart.enCours } : null,
+  )
+  const ouvertLu = !!choisi && ouvert?.profileId === choisi.profileId
+  // Ce que les duels savent du joueur choisi (`GET /api/duels/joueurs/:id`), pour chacun qu'il choisit : le duel déjà ouvert
+  // entre eux — et, sa cote inconnue (la préparation ouverte telle quelle à son adresse, « Défier » touché avant que la page
+  // ait dit la sienne), sa cote à lui, fraîche avec celle du joueur choisi.
   useEffect(() => {
-    if (!choisi || moi) return
+    if (!choisi || (moi && ouvertLu)) return
     let vivant = true
     api.duels
       .joueur(choisi.profileId)
       .then(f => {
         if (!vivant) return
+        setOuvert({ profileId: f.joueur.profileId, duel: f.enCours ?? null })
+        if (moi) return
         setMoi(f.moi)
         setChoisi(f.joueur)
       })
@@ -97,7 +118,11 @@ export function LancerUnDefi({
     return () => {
       vivant = false
     }
-  }, [choisi?.profileId, moi])
+  }, [choisi?.profileId, moi, ouvertLu])
+  // Déjà un duel entre eux : il se dit sous lui, et « Jouer le duel » attend — le serveur en refuserait un second.
+  const dejaOuvert = ouvertLu ? ouvert.duel : null
+  const dit = dejaOuvert ? DIT_DU_DUEL_OUVERT[dejaOuvert.ou] : undefined
+  const codeOuvert = dejaOuvert?.code
   // Ce qui se joue pour lui, qui lance le défi : sa part de lanceur comprise, et sa ligue gardée.
   const enjeu = choisi && moi ? enjeuContre(moi, choisi.cote ?? COTE_DE_DEPART, true) : null
   const choisir = (j: JoueurADefier) => (
@@ -146,8 +171,20 @@ export function LancerUnDefi({
                 Changer
               </button>
             </LigneDeJoueur>
-            {/* Sous lui, ce que le duel met en jeu : on le voit en le choisissant. */}
-            {enjeu && <JetonsDeLEnjeu enjeu={enjeu} petits />}
+            {/* Sous lui, ce que le duel met en jeu : on le voit en le choisissant — ou, déjà un duel entre eux, où il en est. */}
+            {dit ? (
+              <div className="defier-deja">
+                <p className="small">{espacesFines(dit.phrase(choisi.nom))}</p>
+                {dit.bouton && codeOuvert && onOuvrirDuel && (
+                  <button type="button" className={dit.bouton.aToi ? 'btn btn-primary btn-small' : 'btn btn-small'} onClick={() => onOuvrirDuel(codeOuvert)}>
+                    <Icon name={dit.bouton.icone} />
+                    {dit.bouton.texte}
+                  </button>
+                )}
+              </div>
+            ) : (
+              enjeu && <JetonsDeLEnjeu enjeu={enjeu} petits />
+            )}
           </>
         ) : (
           <>
@@ -201,8 +238,8 @@ export function LancerUnDefi({
       <button
         type="button"
         className="btn btn-primary btn-big btn-block"
-        aria-disabled={busy || !choisi || undefined}
-        onClick={() => choisi && onLancer(sujet ? [] : categories, sujet, choisi, enjeu ?? undefined)}
+        aria-disabled={busy || !choisi || !!dit || undefined}
+        onClick={() => choisi && !dit && onLancer(sujet ? [] : categories, sujet, choisi, enjeu ?? undefined)}
       >
         <Icon name="swords" />
         {/* Le prénom dans la phrase dessous : en capitales, un long prénom faisait déborder le gros bouton. */}
@@ -210,9 +247,11 @@ export function LancerUnDefi({
       </button>
       <p className="muted small centre">
         {espacesFines(
-          choisi
-            ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent.`
-            : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
+          dit
+            ? 'Un seul duel à la fois entre vous : choisis quelqu’un d’autre, ou attends que celui-ci soit joué.'
+            : choisi
+              ? `Tu joues d’abord, trois vies. À ta dernière réponse, ${choisi.nom} reçoit le duel : dans ses duels, et son accueil le lui dit. Le duel joué des deux côtés, vos deux cotes bougent.`
+              : 'Choisis d’abord contre qui : un prénom, un ami — ou « Défier » sur la carte d’un joueur du classement.',
         )}
       </p>
       {choixOuvert && (

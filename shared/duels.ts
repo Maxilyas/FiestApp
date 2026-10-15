@@ -746,15 +746,46 @@ export interface JoueurADefier extends SonApparence {
 }
 
 /**
+ * Où en est le duel classé ouvert entre deux joueurs — un seul à la fois —,
+ * vu de l'un d'eux : `a-finir`, il l'a lancé et sa tentative attend sa
+ * dernière réponse ; `chez-l-autre`, il l'a lancé et joué, l'autre pas
+ * encore ; `a-relever`, l'autre le lui a lancé, et il lui est parvenu ;
+ * `a-venir`, l'autre le joue encore — il lui partira à sa dernière réponse ;
+ * `retenu`, l'autre l'a joué, mais il l'avait retiré de ses amis : remis, il
+ * le reçoit (`CampagneStore.ajouterUnAmi`).
+ */
+export type OuEnEstLeDuel = 'a-finir' | 'chez-l-autre' | 'a-relever' | 'a-venir' | 'retenu'
+
+/**
+ * Le duel classé ouvert entre eux, que sa carte dit à la place de « Défier »,
+ * et la préparation sous lui (`FaceAFace.enCours`) : on défiait qui l'on
+ * défiait déjà, et le refus ne tombait qu'au bout de la préparation (le
+ * retour du propriétaire du 15 octobre 2026). Le refus d'un second duel et
+ * ce qu'elles disent lisent la même règle (`CampagneStore.duelOuvertEntre`).
+ */
+export interface DuelOuvert {
+  ou: OuEnEstLeDuel
+  /**
+   * Son code, que la carte rouvre — seulement s'il est à lui : lancé par lui,
+   * ou parvenu. Avant, il n'existe pas pour lui (`DuelContre`), et son code
+   * le laisserait jouer avant celui qui l'a lancé.
+   */
+  code?: string
+}
+
+/**
  * Un joueur touché hors d'une soirée — sa carte, une ligne de ses amis, la
  * préparation ouverte à son adresse (`/duels#defier-<id>`) : ce que les duels
- * savent de lui — sa ligue, sa cote, sa place, s'il est son ami —, et sa
- * propre cote, pour dire ce qui se joue (`GET /api/duels/joueurs/:id`).
+ * savent de lui — sa ligue, sa cote, sa place, s'il est son ami —, sa propre
+ * cote, pour dire ce qui se joue (`GET /api/duels/joueurs/:id`), et le duel
+ * déjà ouvert entre eux, s'il y en a un.
  */
 export interface FaceAFace {
   joueur: JoueurADefier
   /** Sa cote, ses duels joués, et le plancher de sa cote (absent : aucune ligue gardée, ou un serveur d'avant). */
   moi: { cote: number; joues: number; plancher?: number }
+  /** Le duel classé déjà ouvert entre eux : un seul à la fois, la carte le dit au lieu de « Défier » (absent : aucun, ou un serveur d'avant). */
+  enCours?: DuelOuvert
 }
 
 /**

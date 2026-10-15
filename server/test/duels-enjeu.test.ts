@@ -132,10 +132,10 @@ test('défier quelqu’un : l’adversaire choisi, ce qu’il met en jeu se voit
   assert.doesNotMatch(composer({ categories: [], sujet: null, moi: { cote: 1000, joues: 0 } }), /duels-jetons/)
   assert.doesNotMatch(composer({ categories: [], sujet: null, adversaire: tom }), /duels-jetons/)
   // Sa cote inconnue — la préparation ouverte à son adresse, « Défier » touché avant que la page la dise — : la carte du
-  // joueur choisi la relit, la sienne fraîche avec.
+  // joueur choisi la relit, la sienne fraîche avec — et, connue, la même lecture dit le duel déjà ouvert entre eux.
   assert.match(
     source('views/LancerUnDefi.tsx'),
-    /if \(!choisi \|\| moi\) return[\s\S]*?api\.duels\s*\.joueur\(choisi\.profileId\)\s*\.then\(f => \{\s*if \(!vivant\) return\s*setMoi\(f\.moi\)\s*setChoisi\(f\.joueur\)/,
+    /if \(!choisi \|\| \(moi && ouvertLu\)\) return[\s\S]*?api\.duels\s*\.joueur\(choisi\.profileId\)\s*\.then\(f => \{\s*if \(!vivant\) return\s*setOuvert\(\{ profileId: f\.joueur\.profileId, duel: f\.enCours \?\? null \}\)\s*if \(moi\) return\s*setMoi\(f\.moi\)\s*setChoisi\(f\.joueur\)/,
   )
   // La revanche ne porte que le prénom d'en face : la page relit les deux cotes avant d'ouvrir la préparation.
   assert.match(source('views/CampagneApp.tsx'), /const adversaireAttendu = mode === 'defier' && !!contreQui && \(depart\.adversaire\?\.profileId !== contreQui \|\| !depart\.moi\)/)

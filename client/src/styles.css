@@ -8202,6 +8202,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .joueurs-trouves li { padding: 2px 0; border-bottom: 1px solid var(--edge); }
 .joueurs-trouves li:last-child { border-bottom: 0; }
 .defier-amis-titre { margin: 4px 0 0; }
+/* Déjà un duel contre celui qu'il a choisi : où il en est, à la place des jetons de l'enjeu, et de quoi le rouvrir. */
+.defier-deja { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--edge-strong); border-radius: 12px; background: var(--accent-soft); }
+.defier-deja p { flex: 1 1 12rem; margin: 0; }
 /* Une ligne de joueur qu'on touche — ses amis, une recherche : la ligne
    entière ouvre sa carte, où sont ses gestes. Aucun bouton dedans. */
 .ligne-joueur-ouvrable { width: 100%; margin: 0; padding: 0 6px; border: 0; border-radius: var(--radius-xs); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -8229,6 +8232,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .carte-gestes-nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Sous « Défier » : ce que le duel mettrait en jeu, comme au-dessus de chaque question d'une partie. */
 .carte-gestes-enjeu { color: var(--muted); text-align: center; }
+/* À sa place, un duel déjà ouvert entre eux : où il en est, au-dessus du geste qui le rouvre. */
+.carte-gestes-duel { text-align: center; }
 .carte-gestes-ami { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
 .carte-gestes-ami > span { display: inline-flex; align-items: center; gap: 6px; }
 .carte-gestes-ami .icon { width: 14px; height: 14px; color: var(--accent-text); }
@@ -8530,6 +8535,21 @@ button.duels-joue { cursor: pointer; }
 .duels-ligue-nom { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .duels-ligue-prix { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
 .duels-ligne .blason { margin-left: auto; }
+/* Qui il affronte déjà : un sablier après son nom, à l'or de ce qui l'attend — et sa légende sous la liste. */
+.duels-ligne-en-cours { flex: none; display: inline-flex; color: var(--accent-text); }
+.duels-ligne-en-cours .icon { width: 15px; height: 15px; }
+.duels-legende-en-cours { display: flex; align-items: center; gap: 6px; }
+.duels-legende-en-cours .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
+/* Étroite, la ligne passe sur deux étages (`.lb-row`) : le sablier y a sa case, au bout de son nom. Placé par la grille,
+   il prenait celle du second étage, et poussait le blason sur un troisième. */
+@container (max-width: 17rem) {
+  .lb-row.duels-ligne:has(> .duels-ligne-en-cours) {
+    grid-template-areas:
+      'rang av nom encours'
+      'rang av niv pts';
+  }
+  .lb-row.duels-ligne > .duels-ligne-en-cours { grid-area: encours; justify-self: end; }
+}
 
 /* Un duel reçu (C2) : sa carte face cachée, qui flotte, la tienne à jouer ;
    les mesures de la maquette en unités de la scène (`--u`), qui rétrécit

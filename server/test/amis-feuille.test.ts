@@ -194,7 +194,7 @@ test('la page des duels : le classement derrière « Tout voir », les amis derr
     /<PanneauClassement\s+classement=\{etat\.classement\}[\s\S]*?onOuvrir=\{ouvrir\}\s+onToutVoir=\{\(\) => setClassementOuvert\(true\)\}\s+onDefier=\{j => defier\(j\)\}[\s\S]*?onAmis=\{feuilleDesAmis\.ouvrir\}\s*\/>/,
   )
   assert.match(page, /<span className="duels-tout-voir">Tout voir ›<\/span>/)
-  assert.match(page, /\{classementOuvert && etat && <FeuilleDuClassement classement=\{etat\.classement\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>\}/)
+  assert.match(page, /\{classementOuvert && etat && <FeuilleDuClassement classement=\{etat\.classement\} contre=\{etat\.contre\} onOuvrir=\{ouvrir\} onFermer=\{\(\) => setClassementOuvert\(false\)\} \/>\}/)
   assert.doesNotMatch(page, /ClassementDesDuelsVue|TesAmis|duels-epee|PortesDesDuels|TesDuelsJoues|Voir le classement/)
   assert.doesNotMatch(source('views/Duel.tsx'), /export function (TesAmis|DefisRecus|TesDuelsContre)/)
   // Le squelette garde la place des onglets : rien ne saute quand la page arrive.
@@ -234,6 +234,6 @@ test('la préparation d’un duel s’ouvre à son adresse, contre celui que la 
   // Sans `onDefier` (l'accueil, le quiz du jour, un défi), « Défier » mène là ; la page des duels relit qui, sa cote avec.
   assert.match(source('components/GestesDuJoueur.tsx'), /window\.location\.assign\(`\$\{PAGE_DES_DUELS\}\$\{adresseDuLancementContre\(joueur\.profileId\)\}`\)/)
   const campagne = source('views/CampagneApp.tsx')
-  assert.match(campagne, /\.joueur\(contreQui\)\s*\.then\(f => vivant && setDepart\(\{ categories, sujet, adversaire: f\.joueur, moi: f\.moi \}\)\)/)
+  assert.match(campagne, /\.joueur\(contreQui\)\s*\.then\(f => vivant && setDepart\(\{ categories, sujet, adversaire: f\.joueur, moi: f\.moi, enCours: f\.enCours \?\? null \}\)\)/)
   assert.match(campagne, /if \(!laPreparation \|\| laPreparation === 'perdu' \|\| !choixPourLancer \|\| adversaireAttendu\) \{/, 'la préparation attend celui qu’elle défie : elle ne s’ouvre pas libre pour sauter sur lui')
 })

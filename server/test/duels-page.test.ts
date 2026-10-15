@@ -345,6 +345,152 @@ test('le classement : ses deux places, parmi tous et entre amis ; son échelle �
   assert.match(renderToStaticMarkup(React.createElement(ClassementDesAmis, { amis: { amis: [], recus: [] }, sienne: lea, onOuvrir() {}, onAmis() {} })), /Ajouter des amis<\/button>/)
 })
 
+// Le retour du propriétaire du 15 octobre 2026 : « on peut défier nos amis /
+// global depuis la carte, mais potentiellement on a déjà un duel engagé et ça
+// ne nous prévient pas » ; « dans le classement, quand on ouvre le classement
+// complet, c'est pareil : on n'a pas d'indication si on les combat ». La carte
+// disait « Défier », et le refus d'un second duel ne tombait qu'au bout de la
+// préparation (`duels-contre.test.ts`, la règle côté serveur).
+test('un duel déjà ouvert entre eux : sa carte le dit à la place de « Défier » et le rouvre ; le classement entier et ses amis le marquent', async () => {
+  const { GestesVue } = await import(client('components/GestesDuJoueur.tsx').href)
+  const { FeuilleDuClassement, ClassementDesAmis, PanneauClassement, duelEnRouteAvec } = await import(client('views/Duels.tsx').href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const tom = { profileId: 'tom', nom: 'Tom', avatar: '🐻', cote: 1185, ligue: 'argent', rang: 10 }
+  const ouverts: string[] = []
+  const carte = (enCours?: object, joueur: object = tom) =>
+    renderToStaticMarkup(
+      React.createElement(GestesVue, {
+        joueur,
+        enjeu: { cote: 1150, gagne: 19, egalite: 8, perdu: 2 },
+        enCours,
+        aConfirmer: false,
+        busy: false,
+        erreur: '',
+        onDefier() {},
+        onOuvrirDuel: (code: string) => ouverts.push(code),
+        onAjouter() {},
+        onRetirer() {},
+        onConfirmer() {},
+        onGarder() {},
+      }),
+    )
+
+  // Aucun duel entre eux : « Défier », et ce qu'il mettrait en jeu.
+  assert.match(carte(), /<span class="carte-gestes-nom">Défier Tom<\/span>/)
+  assert.match(carte(), /En jeu/)
+  // Un duel ouvert : où il en est d'abord, puis ce qui le rouvre — à lui de jouer, en grand ; chez Tom, en retrait. Ni un
+  // second « Défier », que le serveur refuserait au bout de la préparation, ni l'enjeu d'un duel qui ne se lancera pas.
+  for (const [enCours, phrase, bouton] of [
+    [{ ou: 'a-finir', code: 'K7M2QX' }, 'Un duel est en cours entre vous : il partira à Tom à ta dernière réponse.', '<button type="button" class="btn btn-primary btn-block"><svg[^>]*>.*?</svg>Reprendre ton duel</button>'],
+    [{ ou: 'chez-l-autre', code: 'K7M2QX' }, 'Un duel est en cours entre vous : il attend que Tom le joue.', '<button type="button" class="btn btn-block"><svg[^>]*>.*?</svg>Voir ton duel</button>'],
+    [{ ou: 'a-relever', code: 'K7M2QX' }, 'Tom te défie : à toi de jouer.', '<button type="button" class="btn btn-primary btn-block"><svg[^>]*>.*?</svg>Relever son duel</button>'],
+  ] as const) {
+    const html = carte(enCours)
+    assert.match(html, new RegExp(`<footer class="carte-gestes"><p class="small carte-gestes-duel">${phrase}</p>${bouton}`), enCours.ou)
+    assert.doesNotMatch(html, /Défier Tom|En jeu/, enCours.ou)
+    assert.match(html, /Ajouter à mes amis/, 'l’ajouter reste là')
+  }
+  // Pas encore parti, ou retenu : il n'est pas à lui — sans code, rien à rouvrir ; la phrase dit quoi faire.
+  const aVenir = carte({ ou: 'a-venir' })
+  assert.match(aVenir, /<footer class="carte-gestes"><p class="small carte-gestes-duel">Tom te défie : son duel t’arrivera à sa dernière réponse\.<\/p><button type="button" class="btn btn-block"><svg[^>]*>.*?<\/svg>Ajouter à mes amis<\/button><\/footer>/)
+  assert.match(carte({ ou: 'retenu' }), /<p class="small carte-gestes-duel">Tom te défie : remets ce profil dans tes amis pour recevoir son duel\.<\/p><button type="button" class="btn btn-block"><svg[^>]*>.*?<\/svg>Ajouter à mes amis<\/button>/)
+  // Au présent : « t'a défié » accordait le participe à qui lit la carte, sans rien savoir de lui.
+  assert.doesNotMatch(aVenir, /t’a défié/)
+  // Un état qu'elle ne connaît pas (un serveur plus récent) : « Défier », et le serveur dira le refus.
+  assert.match(carte({ ou: 'inconnu', code: 'K7M2QX' }), /Défier Tom/)
+  // La carte le rouvre par son code : la page des duels ici même, sinon son adresse.
+  const gestes = readFileSync(client('components/GestesDuJoueur.tsx'), 'utf8')
+  assert.match(gestes, /onClick=\{\(\) => onOuvrirDuel\?\.\(code\)\}/)
+  assert.match(gestes, /if \(gestes\.onOuvrirDuel\) \{\s*onFermer\(\)\s*gestes\.onOuvrirDuel\(code\)\s*return\s*\}\s*window\.location\.assign\(`\$\{PAGE_DES_DUELS\}\$\{adresseDuDuel\(code\)\}`\)/)
+  // Retenu, le remettre dans ses amis le lui fait parvenir : la carte se relit, pour le rouvrir d'ici.
+  assert.match(gestes, /if \(ajouter && enCours\?\.ou === 'retenu'\) \{\s*void api\.duels\s*\.joueur\(joueur\.profileId\)\s*\.then\(setFace\)/)
+  assert.match(readFileSync(client('views/Amis.tsx'), 'utf8'), /useCarteDUnProfil\(\{\s*onDefier,\s*onOuvrirDuel,/, 'de la feuille des amis aussi')
+
+  // Le classement entier : un sablier après le nom de qui il affronte déjà, dit à l'oreille — et sous la liste.
+  const ligne = (nom: string, rang: number, cote: number) => ({ profileId: nom.toLowerCase(), nom, avatar: '🐻', niveau: 3, cote, ligue: cote >= 1200 ? 'or' : 'argent', rang, duels: 12 })
+  const classement = { joueurs: 3, lignes: [ligne('Inès', 1, 1500), ligne('Tom', 2, 1240), ligne('Léa', 3, 1150)], sienne: 'léa' }
+  const duel = (code: string, profileId: string, plus: object = {}) => ({ code, contre: { profileId, nom: profileId, avatar: '🐻' }, lance: true, justes: 6, sesJustes: null, minutesRestantes: 600, ...plus })
+  const feuille = (contre?: object[]) => renderToStaticMarkup(React.createElement(FeuilleDuClassement, { classement, ...(contre && { contre }), onOuvrir() {}, onFermer() {} }))
+  const avecTom = feuille([duel('TOM1', 'tom')])
+  assert.match(
+    avecTom,
+    /<button type="button" class="lb-row lb-ouvrable duels-ligne" aria-label="La carte de Tom — rang 2, ligue d’or, cote 1240, un duel en cours entre vous">.*?<span class="lb-name">Tom<\/span><span class="duels-ligne-en-cours" aria-hidden="true"><svg/,
+  )
+  assert.equal(avecTom.match(/duels-ligne-en-cours/g)?.length, 1, 'Inès, qu’il n’affronte pas, rien')
+  assert.match(avecTom, /<p class="muted small duels-legende-en-cours"><svg[^>]*>.*?<\/svg>un duel en cours entre vous : sa carte le rouvre<\/p>/)
+  // Joué des deux côtés, ou fermé : plus en cours — ni sablier ni légende ; sans ses duels (une page d'avant), rien.
+  for (const sans of [feuille([duel('TOM1', 'tom', { sesJustes: 4 })]), feuille([duel('TOM1', 'tom', { minutesRestantes: 0 })]), feuille()]) {
+    assert.doesNotMatch(sans, /duels-ligne-en-cours|duels-legende-en-cours|un duel en cours/)
+  }
+  // À lui de jouer aussi : celui qu'on lui a lancé, ou le sien laissé en route.
+  assert.equal(duelEnRouteAvec([duel('TOM1', 'tom', { lance: false, justes: null })], 'tom')?.code, 'TOM1')
+  assert.equal(duelEnRouteAvec([duel('TOM1', 'tom')], 'ines'), undefined)
+
+  // Entre amis : « En cours » sur l'ami qu'il affronte déjà, qui le rouvre — comme son échelle ; les autres, rien.
+  const amis = { amis: [{ ...tom, cote: 1240, ligue: 'or', rang: 2 }, { profileId: 'max', nom: 'Max', avatar: '🦉', cote: 1100, ligue: 'argent', rang: 4 }], recus: [] }
+  const entreAmis = renderToStaticMarkup(React.createElement(ClassementDesAmis, { amis, sienne: ligne('Léa', 3, 1150), contre: [duel('TOM1', 'tom')], onOuvrir() {}, onOuvrirDuel() {}, onAmis() {} }))
+  assert.match(entreAmis, /<button type="button" class="duels-echelon-geste en-cours" aria-label="Ton duel contre Tom, en cours"><svg[^>]*>.*?<\/svg>En cours<\/button>/)
+  assert.equal(entreAmis.match(/duels-echelon-geste/g)?.length, 1, 'ni Max ni lui')
+  // Parmi tous : celui qui le suit aussi — on ne le défie pas d'ici, mais on le voit.
+  const lea = ligne('Léa', 12, 1150)
+  const parmiTous = renderToStaticMarkup(
+    React.createElement(PanneauClassement, {
+      classement: { joueurs: 34, lignes: [ligne('Inès', 1, 1500)], moi: lea, sienne: 'léa', autour: [ligne('Max', 11, 1160), lea, ligne('Noé', 13, 1140)], aPortee: [ligne('Max', 11, 1160)] },
+      maCote: { cote: 1150, joues: 30 },
+      contre: [duel('NOE1', 'noé', { lance: false, justes: null })],
+      amis: null,
+      onOuvrir() {},
+      onToutVoir() {},
+      onDefier() {},
+      onOuvrirDuel() {},
+      onAmis() {},
+    }),
+  )
+  assert.match(parmiTous, /aria-label="Ton duel contre Noé, en cours"/)
+  assert.match(parmiTous, /aria-label="Défier Max : /, 'Max, à sa portée, se défie toujours')
+
+  // La page passe ses duels à la feuille du classement, et rouvre un duel touché sur une carte.
+  const page = readFileSync(client('views/Duels.tsx'), 'utf8')
+  assert.match(page, /<FeuilleDuClassement classement=\{etat\.classement\} contre=\{etat\.contre\} /)
+  assert.match(page, /<ClassementDesAmis amis=\{amis\} sienne=\{sienne\} contre=\{contre\} onOuvrir=\{onOuvrir\} onOuvrirDuel=\{onOuvrirDuel\} onAmis=\{onAmis\} \/>/)
+  assert.deepEqual(ouverts, [], 'rendre la carte ne rouvre rien')
+
+  // La préparation : « Choisir » un ami qu'il affronte déjà, ou l'ouvrir à son adresse, menait au refus du serveur après
+  // « Jouer le duel ». Le duel se dit sous lui, à la place des jetons d'un second, et « Jouer le duel » attend.
+  const { LancerUnDefi } = await import(client('views/LancerUnDefi.tsx').href)
+  const preparer = (enCours?: object | null) =>
+    renderToStaticMarkup(
+      React.createElement(LancerUnDefi, {
+        amis: [],
+        categoriesJouables: ['Histoire'],
+        sujets: [],
+        depart: { categories: [], sujet: null, adversaire: tom, moi: { cote: 1150, joues: 30 }, ...(enCours !== undefined && { enCours }) },
+        busy: false,
+        erreur: '',
+        onLancer() {},
+        onOuvrirDuel() {},
+        onRetour() {},
+      }),
+    )
+  const dejaChezTom = preparer({ ou: 'chez-l-autre', code: 'K7M2QX' })
+  assert.match(dejaChezTom, /<div class="defier-deja"><p class="small">Un duel est en cours entre vous : il attend que Tom le joue\.<\/p><button type="button" class="btn btn-small"><svg[^>]*>.*?<\/svg>Voir ton duel<\/button><\/div>/)
+  assert.doesNotMatch(dejaChezTom, /duels-jetons/, 'ni ce qu’un second duel mettrait en jeu')
+  assert.match(dejaChezTom, /<button type="button" class="btn btn-primary btn-big btn-block" aria-disabled="true">/)
+  assert.match(dejaChezTom, /Un seul duel à la fois entre vous : choisis quelqu’un d’autre, ou attends que celui-ci soit joué\./)
+  // À lui de jouer : le geste en or ; pas encore parti, rien à rouvrir : la phrase seule.
+  assert.match(preparer({ ou: 'a-relever', code: 'K7M2QX' }), /<button type="button" class="btn btn-primary btn-small"><svg[^>]*>.*?<\/svg>Relever son duel<\/button>/)
+  assert.match(preparer({ ou: 'a-venir' }), /<div class="defier-deja"><p class="small">Tom te défie : son duel t’arrivera à sa dernière réponse\.<\/p><\/div>/)
+  // Aucun — lu, ou pas encore lu : les jetons, et « Jouer le duel » se touche.
+  for (const libre of [preparer(null), preparer()]) {
+    assert.match(libre, /duels-jetons/)
+    assert.doesNotMatch(libre, /defier-deja|class="btn btn-primary btn-big btn-block" aria-disabled="true"/)
+  }
+  // Chacun qu'il choisit se lit — son duel ouvert avec, et sa cote s'il ne l'a pas ; la page le lit avec sa cote à son
+  // adresse, et rouvre le duel ici même.
+  const campagne = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(campagne, /<laPreparation\.LancerUnDefi(?:(?!\/>)[\s\S])*?onOuvrirDuel=\{code => void ouvrirLeDuel\(code\)\}/)
+})
+
 // Les souhaits du propriétaire du 13 octobre 2026 : le dé « tout le temps
 // disponible » — il ne paraissait que s'il restait une série d'un autre à
 // affronter —, puis contre Automate seulement — la série d'un ami qui n'était
