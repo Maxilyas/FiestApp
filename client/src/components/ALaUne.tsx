@@ -13,9 +13,9 @@ import { prixDe, theme as themeDe, type BoutiqueDuProfil, type RareteDeTheme } f
 // un objet de la boutique à la fois, son dessin qui déborde du bandeau par la
 // gauche — le compagnon qui flotte, l'écran du thème ou la carte du fond
 // penchés —, et un toucher mène à sa place dans la boutique. Il passe au
-// suivant toutes les quelques secondes, jamais sous le doigt ni sous le
-// focus, et pas du tout si le système demande moins de mouvement : il
-// intrigue sans rien bousculer. Il se glisse aussi du doigt, et ses points se
+// suivant toutes les quelques secondes, jamais sous la souris, le doigt ou
+// le focus du clavier, et pas du tout si le système demande moins de
+// mouvement : il intrigue sans rien bousculer. Il se glisse aussi du doigt, et ses points se
 // touchent (la question du propriétaire du 15 octobre 2026 : « c'est fait
 // exprès qu'il ne puisse pas être slidé ? ») : on ne pouvait ni revenir à
 // celui qu'on venait de manquer, ni voir les autres sous « moins de
@@ -46,6 +46,47 @@ function sansMouvement(): boolean {
 export function pasDuGeste(dx: number, dy: number): -1 | 0 | 1 {
   if (Math.abs(dx) < PAS_DU_GESTE || Math.abs(dx) <= Math.abs(dy)) return 0
   return dx < 0 ? 1 : -1
+}
+
+/** Ce qui retient le bandeau sur son objet : une souris posée dessus, le clavier dedans. */
+export interface Retenue {
+  souris: boolean
+  clavier: boolean
+}
+
+/** Ce qui arrive au bandeau : un pointeur qui entre ou sort, un focus qui arrive ou s'en va. */
+export type EvenementDuBandeau =
+  | { quoi: 'entre' | 'sort'; pointeur: string }
+  | { quoi: 'focus'; auClavier: boolean }
+  | { quoi: 'blur'; resteDedans: boolean }
+
+/**
+ * Une souris posée dessus le retient, le clavier dedans aussi ; un doigt,
+ * jamais. Le défilement s'arrêtait pour de bon au premier geste (le 15
+ * octobre 2026, « au cas où la personne ne slide pas ») : levé, le doigt ne
+ * disait pas toujours qu'il partait — son lien, refait sous lui, emportait
+ * la sortie —, et le point touché gardait le focus, qu'on prenait pour celui
+ * du clavier. Le doigt posé, lui, suspend le tour (`geste`).
+ */
+export function retenue(r: Retenue, e: EvenementDuBandeau): Retenue {
+  switch (e.quoi) {
+    case 'entre':
+    case 'sort':
+      return e.pointeur === 'mouse' ? { ...r, souris: e.quoi === 'entre' } : r
+    case 'focus':
+      return { ...r, clavier: e.auClavier }
+    case 'blur':
+      return e.resteDedans ? r : { ...r, clavier: false }
+  }
+}
+
+/** Un focus posé au clavier, pas par un doigt ni une souris : `:focus-visible`, qu'un navigateur d'avant ne sait pas lire. */
+function auClavier(el: EventTarget): boolean {
+  try {
+    return (el as Element).matches(':focus-visible')
+  } catch {
+    return false
+  }
 }
 
 /** Ce qu'est un thème, à son genre : les raretés s'écrivent au féminin, la boutique dit « Peu commune ». */
@@ -124,7 +165,8 @@ export function BandeauALaUne({ boutique }: { boutique: BoutiqueDuProfil }) {
   const [vient, setVient] = useState<'suivant' | 'precedent' | null>(null)
   /** Chaque changement de main remet le compte à zéro : le suivant ne tombe pas une seconde après un geste. */
   const [tour, setTour] = useState(0)
-  const [retenu, setRetenu] = useState(false)
+  const [retenu, setRetenu] = useState<Retenue>({ souris: false, clavier: false })
+  const retenir = (e: EvenementDuBandeau) => setRetenu(r => retenue(r, e))
   const [calme] = useState(sansMouvement)
   const lien = useRef<HTMLAnchorElement | null>(null)
   const geste = useRef<{ x: number; y: number; id: number } | null>(null)
@@ -134,14 +176,17 @@ export function BandeauALaUne({ boutique }: { boutique: BoutiqueDuProfil }) {
   const rendreLeFocus = useRef(false)
   const n = une.length
   const ici = n > 0 ? i % n : 0
+  const tenu = retenu.souris || retenu.clavier
   useEffect(() => {
-    if (calme || retenu || n < 2) return
+    if (calme || tenu || n < 2) return
     const t = window.setInterval(() => {
+      // Un doigt posé : l'objet ne change pas sous lui.
+      if (geste.current) return
       setVient('suivant')
       setI(x => (x + 1) % n)
     }, TOUR_MS)
     return () => window.clearInterval(t)
-  }, [calme, retenu, n, tour])
+  }, [calme, tenu, n, tour])
   useEffect(() => {
     if (!rendreLeFocus.current) return
     rendreLeFocus.current = false
@@ -209,10 +254,10 @@ export function BandeauALaUne({ boutique }: { boutique: BoutiqueDuProfil }) {
       // Sa teinte se pose sur le cadre : les points, hors du lien, la lisent aussi.
       className={`une-cadre ${c.classe}`}
       style={c.style}
-      onPointerEnter={() => setRetenu(true)}
-      onPointerLeave={() => setRetenu(false)}
-      onFocus={() => setRetenu(true)}
-      onBlur={() => setRetenu(false)}
+      onPointerEnter={e => retenir({ quoi: 'entre', pointeur: e.pointerType })}
+      onPointerLeave={e => retenir({ quoi: 'sort', pointeur: e.pointerType })}
+      onFocus={e => retenir({ quoi: 'focus', auClavier: auClavier(e.target) })}
+      onBlur={e => retenir({ quoi: 'blur', resteDedans: e.currentTarget.contains(e.relatedTarget as Node | null) })}
     >
       <a
         // Une clé par objet : son entrée se rejoue à chaque passage.

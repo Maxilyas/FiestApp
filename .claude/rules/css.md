@@ -2,7 +2,7 @@
 paths:
   - "client/src/**/*.css"
   - "shared/typographie.ts"
-  - "server/test/{design,typographie}.test.ts"
+  - "server/test/{design,typographie,feuilles}.test.ts"
 ---
 
 # Le CSS du client, et la typographie
@@ -57,6 +57,17 @@ paths:
   Une taille qui varie d'un élément à l'autre passe par `scale()`, jamais
   par `font-size` — et se réduit, sans s'agrandir : l'emoji reste net. Un
   emoji dans un `content:` compte pour `emojis.test.ts`, comme un texte.
+- **Un voile ouvert fige la page de dessous** — une feuille (`.carte-voile`,
+  `Feuille`, vingt-six écrans), la carte d'un joueur ou un dialogue
+  (`.dialog-backdrop`) : `html:has(…) { overflow: hidden }`, et le cadre qui
+  défile garde ses gestes (`overscroll-behavior: contain` sur `.carte-corps`,
+  `.carte-defile`). Arrivé au bout d'une feuille, le geste suivant faisait
+  défiler la page de l'accueil, et au téléphone la barre d'adresse se
+  repliait : l'écran grandissait, la feuille posée en bas d'un voile fixe
+  sautait d'un coup (le 15 octobre 2026, `feuilles.test.ts`). Chromium sans
+  écran n'a pas de barre d'adresse : la sonde mesure `scrollY` sous la
+  feuille, au doigt (`Input.dispatchTouchEvent` — `synthesizeScrollGesture`
+  n'y fait rien défiler). Un voile de plus rejoint la liste du `:has()`.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`

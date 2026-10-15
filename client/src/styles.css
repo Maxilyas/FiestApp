@@ -6040,7 +6040,7 @@ h3 > .icon {
 /* Le cadre ne défile pas, son contenu si : le fond de la carte reste en
    place. La marge de la carte passe dans ce qui défile — laissée au cadre,
    elle rognait le halo de l'avatar au bord de la zone qui défile. */
-.carte-defile { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; padding: 14px 16px 16px; }
+.carte-defile { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; }
 .carte-joueur:focus { outline: none; }
 .carte-tete { display: flex; align-items: center; gap: 12px; }
 .carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; }
@@ -7372,7 +7372,15 @@ span.case-avatar { cursor: default; }
   font-weight: 600;
   cursor: pointer;
 }
-.carte-corps { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.carte-corps { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+/* Une feuille, une carte ou un dialogue ouvert, la page de dessous ne défile
+   plus. Arrivé au bout de la feuille, le geste suivant passait à elle — 309
+   pixels sous les missions du jour — et, au téléphone, la barre d'adresse se
+   repliait, l'écran grandissait et la feuille sautait d'un coup (« une sorte
+   de saccade où l'image remonte un peu », le propriétaire, le 15 octobre
+   2026). Le cadre qui défile garde ses gestes (`overscroll-behavior`), et la
+   page sous le voile ne bouge plus du tout. */
+html:has(.carte-voile, .dialog-backdrop) { overflow: hidden; }
 .carte-corps > .label { margin-top: 4px; }
 .carte-pied { flex: none; padding: 10px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--edge); }
 
