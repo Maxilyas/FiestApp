@@ -90,6 +90,12 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
   },
 }
 
+/** Les teintes d'un compagnon — le disque de sa première forme, son aura — : la vitrine de la boutique en fait sa scène. */
+export function teintesDuCompagnon(c: CleDeCompagnon): { aura: string; fond: readonly [string, string, string] } {
+  const { aura, fond } = ALLURES[c]
+  return { aura, fond }
+}
+
 /**
  * Le cadre de l'animal peint, forme par forme (origine, côté, dans le repère
  * du disque) : le carré du disque, ou plus large aux deux dernières, dont il

@@ -134,19 +134,35 @@ async function rayon(profil: object): Promise<string> {
 test('la boutique : trois compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
   const boutique = (solde: number, compagnons?: object[]) => ({ confettis: { gagnes: solde, depenses: 0, solde }, possedes: [], porte: null, jour: '2026-10-13', compagnons })
   const neuf = await rayon({ legendaire: null, boutique: boutique(1200) })
-  assert.equal(neuf.match(/<article class="card compagnon-carte"/g)?.length, 3)
-  assert.equal(neuf.match(/>L’acheter<\/button>/g)?.length, 3, 'de quoi les acheter tous les trois')
+  // Une vitrine : une scène par compagnon (le souhait du propriétaire du 14 octobre 2026 : « les
+  // mettre vraiment en avant, super mignon et avoir envie de les acheter »), qu'on caresse.
+  assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 3)
+  assert.match(neuf, /<button type="button" class="compagnon-scene" aria-label="Caresser le loup">/)
+  assert.match(neuf, /aria-label="Caresser la tortue-île"/)
+  assert.equal(neuf.match(/>L’adopter<\/button>/g)?.length, 3, 'de quoi les adopter tous les trois')
   assert.equal(neuf.match(/class="compagnon-prix">🎊 1000</g)?.length, 3)
-  // Chaque forme dit ce qu'elle demande : l'achat, puis 100, 300, 500.
+  // Chaque forme dit ce qu'elle demande : l'achat, puis 100, 300, 500 — en couleur, à toucher : on voit ce qu'il devient.
   assert.equal(neuf.match(/<span class="compagnon-seuil" aria-hidden="true">Achat<\/span>/g)?.length, 3)
   for (const n of ['100', '300', '500']) assert.equal(neuf.match(new RegExp(`<span class="compagnon-seuil" aria-hidden="true">${n}</span>`, 'g'))?.length, 3, n)
+  assert.equal(neuf.match(/<button type="button" class="compagnon-forme"/g)?.length, 12)
+  assert.match(neuf, /aria-pressed="true" aria-label="Le louveteau, commune, à l’adoption"/)
+  assert.match(neuf, /aria-label="Le loup des étoiles, légendaire, à 500 bonnes réponses"/)
+  assert.doesNotMatch(neuf, /pas encore à toi/, 'aucune silhouette : la boutique montre ce qu’il deviendra')
+  // Les points sous la vitrine : un par compagnon, le premier montré.
+  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 3)
+  assert.match(neuf, /<button type="button" class="vitrine-point" aria-label="Le Loup" aria-current="true">/)
   // Le loup grandi d'une forme, porté ; trop peu de confettis pour les autres.
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
   assert.match(avecLeLoup, /À toi · Le jeune loup, deuxième forme/)
   assert.match(avecLeLoup, /162 sur 300 bonnes réponses en le portant\s: le loup adulte/)
   assert.match(avecLeLoup, /<a class="link-inline" href="\/profil#avatar">Tu le portes · en changer<\/a>/)
+  // Ses formes atteintes cochées ; la sienne montrée en grand.
+  assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
+  assert.match(avecLeLoup, /aria-pressed="true" aria-label="Le jeune loup, rare, à toi"/)
   assert.equal(avecLeLoup.match(/>Encore 950 confettis</g)?.length, 2)
-  assert.doesNotMatch(avecLeLoup, /<\/button>/, 'rien à acheter à ce prix-là')
+  assert.doesNotMatch(avecLeLoup, />L’adopter</, 'rien à adopter à ce prix-là')
+  // Ce qui manque se gagne : les missions du jour le disent, sous chacun.
+  assert.equal(avecLeLoup.match(/<a class="link-inline" href="\/#missions">mes missions<\/a>/g)?.length, 2)
   // À sa forme ultime, il n'a plus rien à atteindre.
   assert.match(await rayon({ legendaire: null, boutique: boutique(0, [{ compagnon: 'tortue', rang: 3, justes: 620 }]) }), /Sa forme ultime\s: son monde prend vie\./)
   // La tortue se dit au féminin : « Tu le portes » se lisait de travers sous elle.

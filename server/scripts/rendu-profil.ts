@@ -71,8 +71,8 @@ try {
   await contexte.addCookies([{ name: nom, value: valeur, url: banc.url }])
   const page = await contexte.newPage()
   page.on('pageerror', (e: Error) => console.error('[page]', e.message))
-  const photo = async (nomFichier: string, pleine = false) => {
-    await page.waitForTimeout(700)
+  const photo = async (nomFichier: string, pleine = false, attente = 700) => {
+    await page.waitForTimeout(attente)
     await page.screenshot({ path: path.join(sortie, `${nomFichier}.png`), fullPage: pleine })
     console.log(path.join(sortie, `${nomFichier}.png`))
   }
@@ -294,6 +294,13 @@ try {
   await page.waitForSelector('.rayon-compagnons .compagnon-carte')
   await photo('10-boutique-compagnons')
   await photo('10-boutique-compagnons-pleine', true)
+  // La vitrine : caressé, il bondit et des cœurs s'envolent ; sa forme ultime en grand ; la tortue, d'un point.
+  await page.click('.compagnon-carte:first-child .compagnon-scene')
+  await photo('10-boutique-compagnon-caresse', false, 260)
+  await page.click('.compagnon-carte:first-child .compagnon-forme[aria-label^="Le loup des étoiles"]')
+  await photo('10-boutique-compagnon-ultime', false, 1200)
+  await page.click('.vitrine-point[aria-label="La Tortue-île"]')
+  await photo('10-boutique-compagnon-tortue', false, 900)
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'tortue', porter: false }, cookie)
   const nourrir = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -342,6 +349,24 @@ try {
   await page.click('.carte-avatar-bouton')
   await page.waitForSelector('.carte-loupe')
   await photo('10-carte-loup-en-grand')
+
+  // Les fonds des savoirs : le rayon, sa carte posée sur chacun ; une fiche
+  // dépliée ; le vitrail acheté et porté, dans la loge ; puis la collection,
+  // ses vingt-cinq fonds — ceux de la boutique à leur prix.
+  await page.goto(`${banc.url}/boutique#fonds`)
+  await page.waitForSelector('.vitrine-fonds .fond-vitrine')
+  await photo('11-boutique-fonds', false, 1500)
+  await photo('11-boutique-fonds-pleine', true)
+  await page.click('.fond-vitrine[aria-label^="Le Vitrail"]')
+  await page.waitForSelector('#detail-fond')
+  await photo('11-boutique-fond-fiche', false, 1200)
+  await ecrire(banc.url, '/api/joueur/fonds', { fond: 'vitrail' }, cookie)
+  await page.goto(`${banc.url}/profil#fond`)
+  await page.waitForSelector('.loge-carte')
+  await photo('11-loge-fond-vitrail', false, 1500)
+  await page.goto(`${banc.url}/profil#collection-fonds`)
+  await page.waitForSelector('#collection-fonds.trophee-ouvert')
+  await photo('11-collection-fonds-pleine', true, 1500)
 } finally {
   await navigateur.close()
   await banc.close()

@@ -22,7 +22,7 @@ import {
 } from '../../../shared/album'
 import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/branches'
 import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
-import { FONDS } from '../../../shared/fonds'
+import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
@@ -455,14 +455,16 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
  * Le fond de sa carte : ce qu'on voit derrière elle quand quelqu'un touche
  * son nom. Rien d'autre ne change — ni l'écran commun, ni les classements.
  * Ceux qu'il a seulement ; ceux qui restent à gagner se voient dans sa
- * collection, avec ce qu'il faut pour les ouvrir. Touché, un fond s'essaie
- * derrière la carte de la loge.
+ * collection, avec ce qu'il faut pour les ouvrir, et ceux des savoirs à la
+ * boutique. Touché, un fond s'essaie derrière la carte de la loge.
  */
 export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   if (!profil.fonds) return null
   const porte = profil.fond ?? null
   const montre = essai.fond !== undefined ? essai.fond : porte
-  const reste = FONDS.filter(f => !profil.fonds!.includes(f.key)).length
+  // Ceux des savoirs s'achètent : la boutique les montre, la collection dit où gagner les autres.
+  const aLaBoutique = FONDS_EN_BOUTIQUE.filter(f => !profil.fonds!.includes(f.key)).length
+  const reste = FONDS.filter(f => !profil.fonds!.includes(f.key) && !f.savoir).length
   const etat = (cle: string | null, sinon: string) => (porte === cle ? 'porté' : montre === cle ? 'à l’essai' : cle && neufs?.has(cle) ? 'nouveau' : sinon)
   return (
     <section className="card">
@@ -492,6 +494,12 @@ export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
           </button>
         ))}
       </div>
+      {aLaBoutique > 0 && (
+        <a className="link-inline lien-boutique" href="/boutique#fonds">
+          <Icon name="bag" />
+          {`${aLaBoutique} autre${aLaBoutique > 1 ? 's' : ''} à la boutique`}
+        </a>
+      )}
       <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
     </section>
   )

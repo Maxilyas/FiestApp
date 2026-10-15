@@ -312,6 +312,16 @@ Les compagnons achetés, et la plus haute forme que chacun a atteinte.
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`).
 - **Effacée par** : la suppression du profil.
 
+### `profile_fonds`
+
+Les fonds des savoirs achetés en boutique (`shared/fonds.ts`), un par profil et par fond. Les fonds qui se gagnent n'y sont pas — ils se relisent à chaque affichage —, ni ceux du trésor, dans `profile_coffres`.
+
+- **Colonnes clés** : `profile_id` et `fond` (la clé), `prix` (celui qu'il a payé), `created_at` (indexée : la page de l'économie du QG lit les achats par date).
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.acheterFond` (`POST /api/joueur/fonds`), jamais modifiée.
+- **Lue par** : `ProfileStore` — avec le profil (`byIds` : les fonds qu'il peut porter, `fondsOuverts`), le solde (`achatsDe`) ; la page de l'économie du QG (`economieDepuis`, `partsDesSoldes`, `ventesDepuis`).
+- **Effacée par** : la suppression du profil.
+
 ### `profile_dons`
 
 Les confettis offerts par l'administrateur, avec leur mot.

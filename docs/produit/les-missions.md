@@ -50,7 +50,7 @@ Le lundi, le coffre de la semaine passée attend sur l'accueil — la ligne des 
 
 Puis un objet de cette rareté qu'il n'a pas :
 
-- **le trésor**, qui ne se trouve nulle part ailleurs — six fonds de carte peints (rares : la Voie lactée, le Jardin des lanternes ; épiques : les Abysses, la Bibliothèque enchantée ; légendaires : le Dragon d'or, la Cité céleste) et six gerbes (peu communes : les flocons, les cœurs ; rares : les papillons, les étoiles filantes ; épique : les diamants ; légendaire : le trésor) ; il pèse double dans sa rareté ;
+- **le trésor**, qui ne se trouve nulle part ailleurs — six fonds de carte peints (rares : la Voie lactée, le Jardin des lanternes ; épiques : les Abysses, la Bibliothèque enchantée ; légendaires : le Dragon d'or, la Cité céleste) et six gerbes (peu communes : les flocons, les cœurs ; rares : les papillons, les étoiles filantes ; épique : les diamants ; légendaire : le trésor) ; il pèse double dans sa rareté, et ne se vend pas : la boutique ne le montre pas, « Ma collection » dit d'où il vient — les douze fonds des savoirs, qui se vendent, n'entrent pas au coffre ;
 - **un thème de la boutique**, offert — jamais un thème qui se gagne, ni un thème de saison hors de sa saison ;
 - **un compagnon**, sa première forme, au légendaire seulement — il vaut le prix d'un thème légendaire ;
 - **des confettis** à la rareté commune — 60, 90, 120 ou 150 selon le coffre —, autant de chances que tous ses thèmes ensemble : la rareté commune n'est pas qu'un lot de consolation.
@@ -77,7 +77,7 @@ Ce qu'il a donné compte aussitôt comme du neuf à porter : le compteur rouge d
 
 Sous la ligne de son identité, deux éléments fins, au-dessus des gros boutons de jeu (la maquette C) :
 
-- **« À la une »** — un objet de la boutique qu'il n'a pas : un compagnon qui déborde du bandeau, un thème en photo de son écran — celui de la saison d'abord, qui partira avec elle (« De saison »), puis les plus beaux. Trois au plus, tirés pour la journée, qui passent l'un après l'autre toutes les quelques secondes — jamais sous le doigt, et pas du tout si le téléphone demande moins de mouvement. « À ta portée » quand son solde le paie. Un toucher mène à sa place dans la boutique (`/boutique#compagnons`, `/boutique#theme-<clé>`, la fiche du thème dépliée). Rien s'il a tout ;
+- **« À la une »** — un objet de la boutique qu'il n'a pas : un compagnon qui déborde du bandeau, un thème en photo de son écran — celui de la saison d'abord, qui partira avec elle (« De saison »), puis les plus beaux. Trois au plus, tirés pour la journée, qui passent l'un après l'autre toutes les quelques secondes — jamais sous le doigt, et pas du tout si le téléphone demande moins de mouvement. « À ta portée » quand son solde le paie. Un toucher mène à sa place dans la boutique (`/boutique#compagnon-<clé>`, la vitrine tournée vers lui ; `/boutique#theme-<clé>`, la fiche du thème dépliée). Rien s'il a tout ;
 - **la ligne des missions** — « Missions du jour », trois anneaux, ce qui reste à gagner aujourd'hui ; un toucher ouvre leur feuille : les trois missions, où chacune en est, ce que paient les trois, la carte de la semaine, et un coffre qui attend en tête.
 
 Leur place est gardée tant qu'ils arrivent : rien ne saute sous le doigt.

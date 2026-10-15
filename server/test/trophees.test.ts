@@ -54,10 +54,18 @@ test('chaque fond est sur sa piste, à l’étape même où sa règle l’ouvre 
       }
     }
   }
-  // Tous, sauf celui du champion du mois et ceux du trésor, que seul le coffre de la semaine donne.
+  // Tous, sauf celui du champion du mois, ceux du trésor, que seul le coffre de la semaine donne,
+  // et ceux des savoirs, que seule la boutique vend.
   const duTresor = FONDS.filter(f => f.tresor)
+  const enBoutique = FONDS.filter(f => f.savoir)
   assert.equal(duTresor.length, 6)
-  assert.equal(ranges, FONDS.length - 1 - duTresor.length)
+  assert.equal(enBoutique.length, 12)
+  assert.equal(ranges, FONDS.length - 1 - duTresor.length - enBoutique.length)
+  // Un fond des savoirs n'est à lui que s'il l'a acheté — pas même au niveau 100, ni d'un coffre.
+  for (const f of enBoutique) {
+    assert.ok(!fondsOuverts({ niveau: 100, jour: { joues: 999, victoires: 999 }, recompenses: new Map(), maitres: 12, tresors: new Set([`fond:${f.key}`]) }).includes(f.key), f.key)
+    assert.ok(fondsOuverts({ niveau: 1, jour: { joues: 0, victoires: 0 }, recompenses: new Map(), achetes: new Set([f.key]) }).includes(f.key), f.key)
+  }
   assert.deepEqual(DU_CHAMPION_DU_MOIS.map(r => r.cle), ['triomphe'])
   assert.ok(fondsOuverts({ niveau: 1, jour: { joues: 0, victoires: 0 }, recompenses: new Map([['mois:2026-10', 1]]) }).includes('triomphe'))
   // Un fond du trésor n'est à lui que si un coffre le lui a donné — pas même au niveau 100.

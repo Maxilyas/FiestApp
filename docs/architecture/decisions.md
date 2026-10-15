@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 135 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 136 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -783,6 +783,15 @@ Le détail : [la boutique](../produit/la-boutique.md).
 **Conséquence** : on achète un thème de saison avant qu'il ne parte sans quitter le sien ; quitter la loge rend le thème porté ; l'aperçu de l'écran commun passe devant l'essai, l'essai devant le thème porté.
 
 *Fichiers : `client/src/components/Boutique.tsx`, `client/src/components/Loge.tsx`, `client/src/themeJoueur.ts`*
+
+### Des fonds à vendre, un trésor qui ne se vend pas
+**Contexte** : les fonds de carte se gagnaient sur une piste ou sortaient du coffre de la semaine ; la boutique n'en vendait aucun, et qui avait des confettis n'avait rien pour habiller sa carte. Vendre ceux du trésor aurait vidé le coffre de ce qu'il est seul à donner.
+
+**Décision** (le 15 octobre 2026) : douze fonds neufs, peints, un par catégorie de questions — les fonds des savoirs —, tous au même prix (`PRIX_D_UN_FOND`, 250 : celui d'un thème peu commun, car un fond se voit moins qu'un thème), dans un rayon « Fonds » où chacun se montre sous sa propre carte. Le trésor ne se vend pas, et la boutique n'en dit rien : « Ma collection » dit d'où vient chaque fond, et sa fiche y mène.
+
+**Conséquence** : les fonds des savoirs n'entrent pas au coffre, dont les chances restent au trésor ; un achat de plus, écrit avec son prix (`profile_fonds`) et compté au QG ; `savoir` seul ouvre la vente, et un fond qui se gagne refuse d'être acheté en disant comment il se gagne.
+
+*Fichiers : `shared/fonds.ts`, `server/src/auth/profiles.ts`, `client/src/components/RayonDesFonds.tsx`*
 
 ### Les polices et les décors voyagent avec l'application
 **Contexte** : une soirée peut se jouer sur le repli du wifi local, sans internet, et la politique de contenu du serveur n'ouvre que sa propre origine (`default-src 'self'`).

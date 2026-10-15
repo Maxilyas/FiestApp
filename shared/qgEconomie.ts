@@ -9,6 +9,7 @@
 import { BRANCHES } from './branches'
 import { PRIX_D_UN_COMPAGNON, COMPAGNONS } from './compagnons'
 import { recompenseDeLaSemaine, type SemaineJouee } from './duels'
+import { fond } from './fonds'
 import { jourAvant } from './jour'
 import { LEGENDAIRES } from './legendaires'
 import { compteDuJour, JOURS_DE_L_HABITUDE, JOURS_DES_TUILES, jourDeLInstant, joursDesMinuits, minuitDe, type CompteDuJour } from './qg'
@@ -32,12 +33,13 @@ export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
 }
 
 /** Où ils partent : tout ce que la boutique vend. */
-export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'vies', 'sabliers'] as const
+export const DEPENSES_DE_CONFETTIS = ['themes', 'compagnons', 'fonds', 'vies', 'sabliers'] as const
 export type DepenseDeConfettis = (typeof DEPENSES_DE_CONFETTIS)[number]
 
 export const NOM_DE_LA_DEPENSE: Record<DepenseDeConfettis, string> = {
   themes: 'Thèmes',
   compagnons: 'Compagnons',
+  fonds: 'Fonds de carte',
   vies: 'Vies',
   sabliers: 'Sabliers',
 }
@@ -293,12 +295,15 @@ export function circulationDes(soldes: readonly { solde: number; actif: boolean 
 /** Les articles que la page montre : de quoi voir ce qui se vend, sans tout le catalogue. */
 export const VENTES_AU_QG = 8
 
+/** Ce qui se vend à l'unité, et se compte aux meilleures ventes. */
+export type SorteDeVente = 'theme' | 'compagnon' | 'fond'
+
 /** Un article vendu : son nom et sa rareté, ses ventes depuis toujours et ces trente jours. */
 export interface VenteDUnArticle {
-  sorte: 'theme' | 'compagnon'
+  sorte: SorteDeVente
   article: string
   nom: string
-  /** « Rare », « Épique » — ou « Compagnon ». */
+  /** « Rare », « Épique » — ou « Compagnon », « Fond de carte ». */
   rarete: string
   ventes: number
   recentes: number
@@ -309,15 +314,16 @@ export interface VenteDUnArticle {
  * depuis toujours. Un article que le catalogue ne connaît plus garde sa
  * clé pour nom.
  */
-export function meilleuresVentes(lignes: readonly { sorte: 'theme' | 'compagnon'; article: string; ventes: number; recentes: number }[]): VenteDUnArticle[] {
+export function meilleuresVentes(lignes: readonly { sorte: SorteDeVente; article: string; ventes: number; recentes: number }[]): VenteDUnArticle[] {
   return lignes
     .map(l => {
       const theme = l.sorte === 'theme' ? THEMES.find(t => t.key === l.article) : undefined
       const compagnon = l.sorte === 'compagnon' ? COMPAGNONS.find(c => c.key === l.article) : undefined
+      const leFond = l.sorte === 'fond' ? fond(l.article) : undefined
       return {
         ...l,
-        nom: theme?.nom ?? compagnon?.nom ?? l.article,
-        rarete: l.sorte === 'compagnon' ? 'Compagnon' : theme ? NOM_DE_RARETE[theme.rarete] : '–',
+        nom: theme?.nom ?? compagnon?.nom ?? leFond?.nom ?? l.article,
+        rarete: l.sorte === 'compagnon' ? 'Compagnon' : l.sorte === 'fond' ? 'Fond de carte' : theme ? NOM_DE_RARETE[theme.rarete] : '–',
       }
     })
     .sort((a, b) => b.recentes - a.recentes || b.ventes - a.ventes || a.nom.localeCompare(b.nom, 'fr'))

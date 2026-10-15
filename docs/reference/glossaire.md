@@ -55,7 +55,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Bilan | La soirée de chacun, question par question, et celle de toute la salle | `buildReview` (`server/src/core/review.ts`) |
 | Bonus de série | L'expérience versée dès qu'une partie commence : dix par jour de série, cent au plus | `xpDeSerie` |
 | Bordure de ligue | L'anneau cranté autour de l'avatar d'un profil, une par ligue atteinte, porté d'office ou choisi dans la loge | `BordureDeLigue` |
-| Boutique | La page `/boutique`, où l'on dépense ses confettis, en trois rayons : « Thèmes », « Compagnons », « Objets » | `PanneauBoutique` |
+| Boutique | La page `/boutique`, où l'on dépense ses confettis, en quatre rayons : « Thèmes », « Compagnons », « Fonds », « Objets » | `PanneauBoutique` |
 | Branche | Une des douze familles de portraits, une par catégorie de questions, chacune son style peint | `BRANCHES` |
 | Brouillon | Ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit | `shared/brouillon.ts` |
 
@@ -197,7 +197,8 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Fin de soirée | Ce que chaque téléphone reçoit à la clôture : sa place, ses points, ce qu'il a gagné, ses liens | `soiree:fin`, `FinDeSoiree` (`shared/fin.ts`) |
 | Fin gardée | La fin de soirée rangée sur le téléphone : elle se rouvre quand on revient sur la page (douze heures), jamais quand on y arrive | `SoireeGardee` (`client/src/state.ts`), `estUnRetour` |
 | Finition | L'habillage de l'avatar d'un profil, de Mat à Constellation, ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
-| Fond de carte | Ce qu'on voit derrière la carte d'un joueur quand on touche son nom ; il se gagne, ne s'achète pas | `shared/fonds.ts` |
+| Fond de carte | Ce qu'on voit derrière la carte d'un joueur quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
+| Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
 | Force d'en face | Ce contre quoi la cote bouge : la cote du score d'Automate au dé, la cote figée de l'adversaire contre quelqu'un | `DuelJoue.coteAdverse` |
 | Format complet | Les règles de la liste collée, écrites à partir des bornes et des catégories, avec un exemple de chaque possibilité : ce qu'on donne à un ami ou à une IA | `FORMAT_DE_LISTE` |
 | Forme | Un des quatre âges d'un compagnon, de celle qu'on achète à la forme ultime ; une forme atteinte ne se perd jamais | `FORMES_DES_COMPAGNONS` |

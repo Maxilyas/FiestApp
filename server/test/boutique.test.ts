@@ -1,11 +1,12 @@
-// La boutique a trois rayons — les thèmes, les compagnons, les objets —,
-// chacun son onglet, sous une barre fine (la remarque du propriétaire du
-// 5 octobre 2026) : les vies, posées sous la vitrine des thèmes, ne se
-// trouvaient qu'en la faisant défiler toute. Le rayon des vies est devenu
-// celui des objets — les vies, le sablier de la série, et ce qui viendra —,
-// en icônes : toucher l'une dit ce qu'on achète et combien (la remarque du
-// 5 octobre 2026, au soir). Les compagnons sont venus entre les deux le
-// 13 octobre 2026 (`compagnons.test.ts`).
+// La boutique a quatre rayons — les thèmes, les compagnons, les fonds, les
+// objets —, chacun son onglet, sous une barre fine (la remarque du
+// propriétaire du 5 octobre 2026) : les vies, posées sous la vitrine des
+// thèmes, ne se trouvaient qu'en la faisant défiler toute. Le rayon des vies
+// est devenu celui des objets — les vies, le sablier de la série, et ce qui
+// viendra —, en icônes : toucher l'une dit ce qu'on achète et combien (la
+// remarque du 5 octobre 2026, au soir). Les compagnons sont venus entre les
+// deux le 13 octobre 2026 (`compagnons.test.ts`), les fonds des savoirs le
+// 15.
 //
 // Pas de serveur : la page de la boutique, rendue en HTML — la recette de
 // `profil-atlas.test.ts`.
@@ -17,9 +18,16 @@ import React from 'react'
 const lieu = { pathname: '/boutique', search: '', hash: '', origin: 'http://banc' }
 Object.assign(globalThis, { React, window: { location: lieu }, location: lieu })
 
-/** Jeanne, 420 confettis en poche, trois thèmes à elle. */
+/** Jeanne, 420 confettis en poche, trois thèmes à elle, et le fond du club de jazz. */
 const JEANNE = {
+  name: 'Jeanne',
+  avatar: '🦊',
+  finition: 'mat',
+  legendaire: null,
+  eclats: [],
   theme: 'ivoire',
+  fonds: ['nuit', 'jazz'],
+  fond: 'jazz',
   boutique: {
     confettis: { gagnes: 820, depenses: 400, solde: 420 },
     possedes: ['velours', 'ivoire', 'neige'],
@@ -48,11 +56,12 @@ function onglets(html: string) {
   }))
 }
 
-test('la boutique a trois rayons, chacun son onglet, sous une barre fine', async () => {
+test('la boutique a quatre rayons, chacun son onglet, sous une barre fine', async () => {
   const html = await boutique()
   assert.deepEqual(onglets(html), [
     { nom: 'Thèmes', choisi: true },
     { nom: 'Compagnons', choisi: false },
+    { nom: 'Fonds', choisi: false },
     { nom: 'Objets', choisi: false },
   ])
   assert.match(html, /class="onglets onglets-fins"/, 'la barre fine, pas les pilules')
@@ -60,25 +69,67 @@ test('la boutique a trois rayons, chacun son onglet, sous une barre fine', async
   assert.match(html, /class="gemmes"/, 'la vitrine des thèmes d’abord')
   assert.doesNotMatch(html, /class="objets-grille"/, 'les objets attendent leur onglet')
   assert.doesNotMatch(html, /class="rayon-compagnons"/, 'les compagnons aussi')
+  assert.doesNotMatch(html, /class="rayon-fonds"/, 'les fonds aussi')
 
   // À son adresse, le rayon des objets : un lien peut y mener.
   const objets = await boutique('#objets')
   assert.deepEqual(onglets(objets), [
     { nom: 'Thèmes', choisi: false },
     { nom: 'Compagnons', choisi: false },
+    { nom: 'Fonds', choisi: false },
     { nom: 'Objets', choisi: true },
   ])
   assert.match(objets, /class="objets-grille"/)
   assert.doesNotMatch(objets, /class="gemmes"/)
 
-  // Celui des compagnons de même : la boutique et l'album y mènent.
-  const compagnons = await boutique('#compagnons')
+  // Celui des compagnons de même : la boutique et l'album y mènent — et un compagnon, sa vitrine ouverte sur lui.
+  for (const adresse of ['#compagnons', '#compagnon-tortue']) {
+    const compagnons = await boutique(adresse)
+    assert.deepEqual(
+      onglets(compagnons).map(o => o.choisi),
+      [false, true, false, false],
+      adresse,
+    )
+    assert.match(compagnons, /class="rayon-compagnons"/)
+    assert.doesNotMatch(compagnons, /class="gemmes"|class="objets-grille"/)
+  }
+
+  // Et celui des fonds : la loge et la collection y mènent, un fond sa fiche dépliée.
+  const fonds = await boutique('#fonds')
   assert.deepEqual(
-    onglets(compagnons).map(o => o.choisi),
-    [false, true, false],
+    onglets(fonds).map(o => o.choisi),
+    [false, false, true, false],
   )
-  assert.match(compagnons, /class="rayon-compagnons"/)
-  assert.doesNotMatch(compagnons, /class="gemmes"|class="objets-grille"/)
+  assert.match(fonds, /class="rayon-fonds"/)
+  assert.doesNotMatch(fonds, /id="detail-fond"/, 'rien de déplié à l’adresse du rayon')
+  const vitrail = await boutique('#fond-vitrail')
+  assert.deepEqual(
+    onglets(vitrail).map(o => o.choisi),
+    [false, false, true, false],
+  )
+  assert.match(vitrail, /id="detail-fond"[\s\S]*?Le Vitrail/)
+  lieu.hash = ''
+})
+
+test('le rayon des fonds : les douze des savoirs, sa carte posée sur chacun, le prix ou ce qu’il en a — jamais ceux du trésor', async () => {
+  const html = await boutique('#fonds')
+  const cartes = [...html.matchAll(/<button type="button" class="(fond-vitrine[^"]*)"[^>]*aria-label="([^"]+)"/g)].map(m => ({ classe: m[1], dit: m[2] }))
+  assert.equal(cartes.length, 12, 'un par catégorie')
+  // Chacune porte sa carte : son prénom et son avatar, sur le fond — et le savoir qu'il habille.
+  assert.equal(html.match(/<span class="fond-carte carte-fond fond-[\w-]+" aria-hidden="true"><span class="fond-carte-tete">/g)?.length, 12)
+  assert.equal(html.match(/<b>Jeanne<\/b>/g)?.length, 12)
+  assert.match(html, /<span class="fond-carte-savoir">Histoire<\/span>/)
+  // Le club de jazz est à elle, et le porte : « Porté » ; les autres, à leur prix — elle en a de quoi.
+  assert.deepEqual(cartes.find(c => /Le Club de jazz/.test(c.dit)), { classe: 'fond-vitrine fond-porte', dit: 'Le Club de jazz, Musique, porté' })
+  assert.equal(html.match(/<span class="fond-vitrine-prix">🎊 250<\/span>/g)?.length, 11)
+  // Le trésor ne se vend pas : il ne sort que du coffre de la semaine, et la collection dit où.
+  assert.doesNotMatch(html, /fond-dragon|fond-voie-lactee|Le Dragon d’or/)
+  assert.match(html, /1 sur 12 à toi : <a class="link-inline" href="\/profil#fond">le porter<\/a>/)
+  // Déplié : la carte en grand, et l'achat — qui laisse ce qu'il restera.
+  const fiche = await boutique('#fond-vitrail')
+  assert.match(fiche, /<span class="fond-carte carte-fond fond-vitrail fond-carte-grande" aria-hidden="true">/)
+  assert.match(fiche, /Il coûte 250 confettis : il t’en restera 170\./)
+  assert.match(fiche, />L’acheter · 🎊 250<\/button>/)
   lieu.hash = ''
 })
 

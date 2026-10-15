@@ -108,7 +108,11 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'jour') return { nom: 'Jouer le quiz du jour', href: '/jour' }
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
-    if (e.lieu === 'boutique') return { nom: 'Aller à la boutique', href: '/boutique#compagnons' }
+    if (e.lieu === 'boutique') {
+      // La vitrine s'ouvre sur lui : les deux autres se font glisser.
+      const f = formeDeCompagnon(cle)
+      return { nom: 'Aller à la boutique', href: f ? `/boutique#compagnon-${f.compagnon}` : '/boutique#compagnons' }
+    }
   }
   return null
 }

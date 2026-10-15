@@ -5,7 +5,8 @@ import type { ChoixDuProfil } from './choix'
 import { Onglets, type Onglet } from './Onglets'
 import { CarriereAtlas } from './CarriereAtlas'
 import { RayonDesObjets, RayonDesThemes } from './Boutique'
-import { RayonDesCompagnons } from './RayonDesCompagnons'
+import { RayonDesCompagnons, compagnonDeLAdresse } from './RayonDesCompagnons'
+import { RayonDesFonds, fondDeLAdresse } from './RayonDesFonds'
 import { objetDeLAdresse, type CleDObjet } from './Objets'
 import { nouveautesDuProfil } from './Loge'
 import type { NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
@@ -42,11 +43,12 @@ export { Loge as PanneauLoge, nouveautesDuProfil, retenirLesPremiersVus } from '
 
 export { MaCollection as PanneauCollection } from './Collection'
 
-type RayonDeLaBoutique = 'themes' | 'compagnons' | 'objets'
+type RayonDeLaBoutique = 'themes' | 'compagnons' | 'fonds' | 'objets'
 
 const RAYONS: Onglet<RayonDeLaBoutique>[] = [
   { id: 'themes', nom: 'Thèmes' },
   { id: 'compagnons', nom: 'Compagnons' },
+  { id: 'fonds', nom: 'Fonds' },
   { id: 'objets', nom: 'Objets' },
 ]
 
@@ -54,15 +56,20 @@ const RAYONS: Onglet<RayonDeLaBoutique>[] = [
 const ADRESSE_DES_OBJETS = '#objets'
 /** Celle des compagnons : l'album et la loge y mènent (`/boutique#compagnons`). */
 const ADRESSE_DES_COMPAGNONS = '#compagnons'
+/** Celle des fonds : la loge et la collection y mènent (`/boutique#fonds`, `#fond-jazz` pour un seul). */
+const ADRESSE_DES_FONDS = '#fonds'
 
 /**
  * Le rayon et l'objet qu'ouvre l'adresse : `#objets`, le rayon ; `#objet-sablier`,
  * sa fiche dépliée (le lien de la série, au quiz du jour) ; et `#vies`, celle
- * d'avant, quand le rayon ne vendait que les vies ; `#compagnons`, leur rayon.
+ * d'avant, quand le rayon ne vendait que les vies ; `#compagnons`, leur rayon,
+ * et `#compagnon-chat`, sa vitrine ouverte sur lui (`compagnonDeLAdresse`) ;
+ * `#fonds`, le leur, et `#fond-jazz`, la fiche d'un fond (`fondDeLAdresse`).
  */
 function lireRayon(): { rayon: RayonDeLaBoutique; objet?: CleDObjet } {
   const h = window.location.hash
-  if (h === ADRESSE_DES_COMPAGNONS) return { rayon: 'compagnons' }
+  if (h === ADRESSE_DES_COMPAGNONS || compagnonDeLAdresse(h) !== null) return { rayon: 'compagnons' }
+  if (h === ADRESSE_DES_FONDS || fondDeLAdresse(h)) return { rayon: 'fonds' }
   if (h === ADRESSE_DES_OBJETS) return { rayon: 'objets' }
   if (h === '#vies') return { rayon: 'objets', objet: 'vie' }
   const objet = objetDeLAdresse(h)
@@ -70,30 +77,33 @@ function lireRayon(): { rayon: RayonDeLaBoutique; objet?: CleDObjet } {
 }
 
 /**
- * La boutique, en trois rayons sous une barre fine : les thèmes — ce qui
+ * La boutique, en quatre rayons sous une barre fine : les thèmes — ce qui
  * reste à prendre, une rareté à la fois —, les compagnons — qui grandissent
- * avec celui qui les porte —, et les objets — les vies des sentiers, le
- * sablier de la série, et ce qui viendra. Posées sous la vitrine, les vies ne
- * se trouvaient qu'en la faisant défiler toute (la remarque du propriétaire
- * du 5 octobre 2026). Changer de rayon n'empile rien : le retour du téléphone
- * quitte la boutique, comme avant.
+ * avec celui qui les porte —, les fonds des savoirs, un par catégorie, et les
+ * objets — les vies des sentiers, le sablier de la série, et ce qui viendra.
+ * Posées sous la vitrine, les vies ne se trouvaient qu'en la faisant défiler
+ * toute (la remarque du propriétaire du 5 octobre 2026). Changer de rayon
+ * n'empile rien : le retour du téléphone quitte la boutique, comme avant.
  */
 export function PanneauBoutique({
   profil,
   busy,
   acheter,
   acheterCompagnon,
+  acheterFond,
   onSolde,
 }: Props & {
   acheter: (cle: string, porter: boolean) => Promise<string | null>
   acheterCompagnon: (cle: string, porter: boolean) => Promise<string | null>
+  acheterFond: (cle: string, porter: boolean) => Promise<string | null>
   /** Un objet acheté : le solde que le serveur rend. */
   onSolde: (solde: number) => void
 }) {
   const [{ rayon, objet }, setLu] = useState(lireRayon)
   const choisir = (r: RayonDeLaBoutique) => {
     const ici = `${window.location.pathname}${window.location.search}`
-    history.replaceState(history.state, '', r === 'objets' ? ADRESSE_DES_OBJETS : r === 'compagnons' ? ADRESSE_DES_COMPAGNONS : ici)
+    const adresse = { objets: ADRESSE_DES_OBJETS, compagnons: ADRESSE_DES_COMPAGNONS, fonds: ADRESSE_DES_FONDS, themes: ici }[r]
+    history.replaceState(history.state, '', adresse)
     setLu({ rayon: r })
   }
   return (
@@ -112,6 +122,8 @@ export function PanneauBoutique({
           <RayonDesThemes profil={profil} busy={busy} acheter={acheter} />
         ) : rayon === 'compagnons' ? (
           <RayonDesCompagnons profil={profil} busy={busy} acheter={acheterCompagnon} />
+        ) : rayon === 'fonds' ? (
+          <RayonDesFonds profil={profil} busy={busy} acheter={acheterFond} />
         ) : (
           <RayonDesObjets profil={profil} ouvert={objet} onSolde={onSolde} />
         )}

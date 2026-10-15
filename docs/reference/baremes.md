@@ -342,11 +342,12 @@ Ce que le profil garde et montre : [le profil](../produit/le-profil.md).
 
 ## Les confettis et la boutique
 
-Ce que coûtent les thèmes et les compagnons, et ce que rapporte chaque mode : [la boutique](../produit/la-boutique.md).
+Ce que coûtent les thèmes, les compagnons et les fonds, et ce que rapporte chaque mode : [la boutique](../produit/la-boutique.md).
 
 | Constante | Valeur | Fichier | Ce qu'elle règle | Ce que la changer implique |
 |---|---|---|---|---|
 | `PRIX_DES_THEMES` | offert 0 · Commune 150 · Peu commune 250 · Rare 400 · Épique 650 · Légendaire 1 000 | `shared/themes.ts` | Le prix d'un thème selon sa rareté (confettis) ; la rareté d'un thème se décrète avec son prix | Un choix de produit (CLAUDE.md). Chaque achat garde le prix qu'il a payé (`profile_achats.prix`) : un prix changé ne rembourse ni ne refait payer personne, et ne vaut que pour les achats suivants. La phrase de la fin de soirée (« plus que 180 pour le thème… ») et la légende du rayon suivent d'elles-mêmes |
+| `PRIX_D_UN_FOND` | 250 | `shared/fonds.ts` | Le prix d'un fond des savoirs (confettis), le même pour les douze — celui d'un thème peu commun : un fond se voit moins qu'un thème (le choix du 15 octobre 2026) | Un choix de produit. Chaque achat garde le prix qu'il a payé (`profile_fonds.prix`) ; la règle de chaque fond (« 250 confettis en boutique »), le rayon, la fiche de la collection et ses refus suivent d'eux-mêmes. Les fonds du trésor et ceux qui se gagnent ne se vendent pas : `savoir` seul ouvre la vente |
 | `MAITRES_DU_CABINET` | 3 | `shared/fonds.ts` | Les paliers de maître des sentiers qui ouvrent le fond Cabinet de curiosités (paliers) | Relu à chaque affichage : relevé, le fond cesse de se voir chez qui n'y est plus, sans que rien ne soit réécrit ; un palier de maître, lui, ne se perd jamais. La règle du fond l'écrit en dur (« 3 paliers de maître des sentiers », `FONDS`) |
 | `GERBE_PAR_DEFAUT` | `'confettis'` | `shared/gerbes.ts` | La gerbe de qui n'en a choisi aucune, ou de qui ne mérite plus la sienne | Un choix de produit : change d'un coup ce qui éclate chez tous ceux qui n'ont rien choisi. Qui n'en veut aucune l'a rangé (`AUCUNE_GERBE`) et n'est pas touché |
 
@@ -366,6 +367,7 @@ Toutes les sources et toutes les dépenses, avec leur valeur : la ligne de chaqu
 | Gain | Le coffre de la semaine, à sa rareté commune (ou quand il a déjà tout le reste) | bois 60, argent 90, or 120, royal 150 | `CONFETTIS_DU_COFFRE` (`shared/coffre.ts`) ; `profile_coffres` |
 | Dépense | Un thème, une fois chacun | 150, 250, 400, 650 ou 1 000 | `PRIX_DES_THEMES` (`shared/themes.ts`) ; `profile_achats` |
 | Dépense | Un compagnon, une fois chacun | 1 000 | `PRIX_D_UN_COMPAGNON` (`shared/compagnons.ts`) ; `profile_compagnons` |
+| Dépense | Un fond des savoirs, une fois chacun | 250 | `PRIX_D_UN_FOND` (`shared/fonds.ts`) ; `profile_fonds` |
 | Dépense | Des vies des sentiers, dans une réserve qui ne périme pas | 25 la vie, de 1 à 10 par achat | `PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX` (`shared/sentiers.ts`) ; `profile_vies` |
 | Dépense | Des sabliers pour la série du quiz du jour | 50 l'un, 1 ou 2 à la fois, 2 au plus en réserve | `PRIX_D_UN_SABLIER`, `SABLIERS_MAX` (`shared/jour.ts`) ; `profile_sabliers` |
 

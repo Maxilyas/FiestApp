@@ -51,7 +51,7 @@ Le pourquoi technique de chacun : [la vue d'ensemble de l'architecture](../archi
 |---|---|---|
 | `/` | L'accueil : sans profil, le choix à trois boutons ; avec, ses gros boutons de jeu | tout le monde |
 | `/profil` | Le profil : la loge (« M'habiller »), « Ma collection », « Mes soirées », « Ma carrière » | les profils |
-| `/boutique` | La boutique : thèmes, compagnons, objets | les profils |
+| `/boutique` | La boutique : thèmes, compagnons, fonds, objets | les profils |
 | `/jour` | Le quiz du jour | les profils |
 | `/campagne` | La campagne : séries, sentiers, défi, « Apprendre » | les profils |
 | `/duels` | Les duels | les profils |

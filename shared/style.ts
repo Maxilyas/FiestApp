@@ -13,7 +13,8 @@
 // leur étape sur une piste (`etapeDuFond`), les finitions leur niveau, les
 // bordures leur ligue.
 
-import { FONDS, MAITRES_DU_CABINET } from './fonds'
+import { FONDS, MAITRES_DU_CABINET, PRIX_D_UN_FOND } from './fonds'
+import type { Rarete } from './badges'
 import { GERBES, type Gerbe } from './gerbes'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from './profil'
 import { CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee } from './duels'
@@ -27,8 +28,8 @@ import { formatNumber } from './typographie'
 /** Les lignes du style qui se montrent en album ; les thèmes ont le leur. */
 export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
-/** Où il se gagne : l'icône de son étape, et l'écran où aller. */
-export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre'
+/** Où il se gagne — ou s'achète : l'icône de son étape, et l'écran où aller. */
+export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique'
 
 /** Ce qu'il faut pour l'avoir : une étape, comme celles des avatars de l'album. */
 export interface EtapeDuStyle {
@@ -51,12 +52,14 @@ export interface ObjetDuStyle {
   etape: EtapeDuStyle
   /** Une bordure : ses crans sertis, sur `CRANS_D_UNE_BORDURE`. */
   crans?: number
+  /** Un objet du trésor : sa rareté au coffre de la semaine — un légendaire ne sort presque que d'un coffre d'or ou royal. */
+  rarete?: Rarete
 }
 
 /** Ce que le style lit d'un profil. */
 export type ProfilDuStyle = Pick<
   PublicProfileDetail,
-  'niveau' | 'hautsFaits' | 'sentiers' | 'fonds' | 'fond' | 'gerbes' | 'gerbe' | 'ouvertes' | 'finition' | 'bordures' | 'bordureChoisie'
+  'niveau' | 'hautsFaits' | 'sentiers' | 'fonds' | 'fond' | 'gerbes' | 'gerbe' | 'ouvertes' | 'finition' | 'bordures' | 'bordureChoisie' | 'boutique'
 >
 
 const OU: Record<LieuDuStyle, string> = {
@@ -68,6 +71,7 @@ const OU: Record<LieuDuStyle, string> = {
   niveau: 'En montant de niveau',
   profil: 'Avec un profil',
   coffre: 'Au coffre de la semaine',
+  boutique: 'En boutique',
 }
 
 /**
@@ -124,6 +128,15 @@ function fonds(p: ProfilDuStyle): ObjetDuStyle[] {
     if (f.tresor) {
       etape = DU_COFFRE
       court = 'coffre'
+    } else if (f.savoir) {
+      // Un fond des savoirs s'achète : ce qu'il a déjà de confettis compte vers son prix.
+      etape = {
+        lieu: 'boutique',
+        titre: `En boutique : ${formatNumber(PRIX_D_UN_FOND)} confettis`,
+        regle: `Un fond par savoir — celui-ci habille ${f.savoir}`,
+        progres: compte(Math.max(0, p.boutique?.confettis.solde ?? 0), PRIX_D_UN_FOND, '🎊 '),
+      }
+      court = `🎊 ${formatNumber(PRIX_D_UN_FOND)}`
     } else if (e?.piste === 'maitres') {
       etape = {
         lieu: 'sentiers',
@@ -140,7 +153,7 @@ function fonds(p: ProfilDuStyle): ObjetDuStyle[] {
       etape = { lieu: 'jour', titre: 'Au quiz du jour : champion du mois', regle: 'Le premier du classement d’un mois entier', progres: null }
       court = 'champion'
     }
-    return { cle: f.key, nom: f.nom, aLui: siens.has(f.key), porte: p.fond === f.key, court, etape }
+    return { cle: f.key, nom: f.nom, aLui: siens.has(f.key), porte: p.fond === f.key, court, etape, ...(f.tresor && { rarete: f.tresor }) }
   })
 }
 
@@ -171,7 +184,14 @@ function etapeDeLaGerbe(p: ProfilDuStyle, g: Gerbe): Pick<ObjetDuStyle, 'etape' 
 
 function gerbes(p: ProfilDuStyle): ObjetDuStyle[] {
   const siennes = new Set(p.gerbes ?? [])
-  return GERBES.map(g => ({ cle: g.key, nom: g.nom, aLui: siennes.has(g.key), porte: p.gerbe === g.key, ...etapeDeLaGerbe(p, g) }))
+  return GERBES.map(g => ({
+    cle: g.key,
+    nom: g.nom,
+    aLui: siennes.has(g.key),
+    porte: p.gerbe === g.key,
+    ...etapeDeLaGerbe(p, g),
+    ...('tresor' in g.par && { rarete: g.par.tresor }),
+  }))
 }
 
 function finitions(p: ProfilDuStyle): ObjetDuStyle[] {

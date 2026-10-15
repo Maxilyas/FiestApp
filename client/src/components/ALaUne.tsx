@@ -49,7 +49,8 @@ function contenuDe(u: ALaUne, solde: number): { href: string; classe: string; st
     const forme = c?.formes[0]
     if (!c || !forme) return null
     return {
-      href: '/boutique#compagnons',
+      // La vitrine s'ouvre sur lui, pas sur le premier des trois.
+      href: `/boutique#compagnon-${c.key}`,
       classe: `une-compagnon une-${c.key}`,
       visuel: <Dessin cle={forme.key} />,
       sur: surtitre(PRIX_D_UN_COMPAGNON, solde),

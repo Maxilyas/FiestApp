@@ -11,6 +11,7 @@ import { OU_JOUER } from '../../../shared/trophees'
 import { gerbe } from '../../../shared/gerbes'
 import { CRANS_D_UNE_BORDURE, ligueParCle, type CleDeLigue } from '../../../shared/duels'
 import { divin } from '../../../shared/divins'
+import { NOM_RARETE } from '../../../shared/badges'
 import { avatarDeLApercu, sonAvatar } from '../../../shared/sonAvatar'
 import type { Finition, PublicProfileDetail } from '../../../shared/profil'
 
@@ -65,6 +66,7 @@ const ICONE_DU_LIEU: Record<LieuDuStyle, IconName> = {
   niveau: 'star',
   profil: 'heart',
   coffre: 'coffre',
+  boutique: 'bag',
 }
 
 /**
@@ -78,7 +80,11 @@ const OU_ALLER: Partial<Record<LieuDuStyle, { nom: string; href: string }>> = {
   duels: OU_JOUER.duels,
   // Le coffre se remplit de ses missions du jour : leur feuille s'ouvre sur l'accueil.
   coffre: { nom: 'Mes missions du jour', href: '/#missions' },
+  boutique: { nom: 'La boutique', href: '/boutique#fonds' },
 }
+
+/** Où aller pour l'avoir : un fond de la boutique ouvre sa propre fiche dans le rayon (`/boutique#fond-jazz`). */
+const ouAller = (o: ObjetDuStyle) => (o.etape.lieu === 'boutique' ? { nom: 'Le voir en boutique', href: `/boutique#fond-${o.cle}` } : OU_ALLER[o.etape.lieu])
 
 /** L'adresse qui l'essaie dans la loge : `?essayer=finition:or#avatar`. */
 export const adresseDeLEssaiDuStyle = (partie: PartieDuStyle, o: ObjetDuStyle) => `?essayer=${encodeURIComponent(ESSAI[partie].cle(o))}#${ESSAI[partie].piece}`
@@ -174,7 +180,7 @@ export function AlbumDuStyle({ partie, profil }: { partie: PartieDuStyle; profil
  * qu'il ne l'a pas —, et le chemin de l'écran qui le donne.
  */
 export function FicheDuStyle({ o, partie, visuel }: { o: ObjetDuStyle; partie: PartieDuStyle; visuel: ReactNode }) {
-  const aller = o.aLui ? null : OU_ALLER[o.etape.lieu]
+  const aller = o.aLui ? null : ouAller(o)
   const crans = o.crans ?? 0
   return (
     <div className={`galerie-detail detail-case album-detail style-fiche style-fiche-${partie}`} style={gemme('offert')}>
@@ -184,7 +190,13 @@ export function FicheDuStyle({ o, partie, visuel }: { o: ObjetDuStyle; partie: P
         </span>
         <span className="album-detail-titre">
           <b className="galerie-detail-nom">{o.nom}</b>
-          <span className="album-detail-rarete">{partie === 'bordures' ? `${SORTE.bordures} · ${ligueParCle(o.cle as CleDeLigue).court}` : SORTE[partie]}</span>
+          <span className="album-detail-rarete">
+            {partie === 'bordures'
+              ? `${SORTE.bordures} · ${ligueParCle(o.cle as CleDeLigue).court}`
+              : o.rarete
+                ? `${SORTE[partie]} · ${NOM_RARETE[o.rarete]}`
+                : SORTE[partie]}
+          </span>
         </span>
       </div>
       <p className="muted small">{espacesFines(CE_QU_IL_HABILLE[partie])}</p>
@@ -207,7 +219,8 @@ export function FicheDuStyle({ o, partie, visuel }: { o: ObjetDuStyle; partie: P
           Essayer
         </a>
       )}
-      <span className="label album-etiquette">{o.aLui ? `Comment ${IL[partie].il} se gagne` : 'Comment l’obtenir'}</span>
+      {/* Un fond de la boutique ne s'est pas gagné : il s'est acheté. */}
+      <span className="label album-etiquette">{o.aLui ? `Comment ${IL[partie].il} ${o.etape.lieu === 'boutique' ? 's’achète' : 'se gagne'}` : 'Comment l’obtenir'}</span>
       <EtapeDuChemin icone={ICONE_DU_LIEU[o.etape.lieu]} titre={o.etape.titre} regle={o.etape.regle} tenue={o.aLui} progres={o.aLui ? null : o.etape.progres} />
       {aller && (
         <a className="btn btn-small album-aller" href={aller.href}>

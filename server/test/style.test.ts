@@ -104,6 +104,20 @@ test('le style se dit comme les albums : chaque objet, ce qu’il faut, où, et 
   assert.deepEqual(fonds.get('kintsugi')!.etape.progres, { acquis: 1, requis: 10, dit: '1 sur 10' })
   assert.deepEqual([fonds.get('cabinet')!.etape.titre, fonds.get('cabinet')!.etape.progres?.dit], ['Sur les sentiers : 3 maîtres', '0 sur 3'])
   assert.deepEqual([fonds.get('triomphe')!.etape.titre, fonds.get('triomphe')!.etape.progres, fonds.get('triomphe')!.court], ['Au quiz du jour : champion du mois', null, 'champion'])
+  // Un fond des savoirs s'achète : ses confettis comptent vers son prix — un solde sous zéro, pour rien.
+  const enPoche = (solde: number) => objetsDuStyle('fonds', { ...p, boutique: { confettis: { gagnes: 0, depenses: 0, solde } } }).find(o => o.cle === 'jazz')!
+  assert.deepEqual(enPoche(120), {
+    cle: 'jazz',
+    nom: 'Le Club de jazz',
+    aLui: false,
+    porte: false,
+    court: '🎊 250',
+    etape: { lieu: 'boutique', titre: 'En boutique : 250 confettis', regle: 'Un fond par savoir — celui-ci habille Musique', progres: { acquis: 120, requis: 250, dit: '🎊 120 sur 250' } },
+  })
+  assert.equal(enPoche(-40).etape.progres?.dit, '🎊 0 sur 250')
+  // Un fond du trésor ne se vend pas : le coffre seul, à sa rareté.
+  assert.deepEqual([fonds.get('dragon')!.etape.lieu, fonds.get('dragon')!.court, fonds.get('dragon')!.rarete], ['coffre', 'coffre', 'legendaire'])
+  assert.equal(fonds.get('jazz')!.rarete, undefined, 'un fond de la boutique n’a pas de rareté : un seul prix')
 
   const gerbes = new Map(objetsDuStyle('gerbes', p).map(o => [o.cle, o]))
   // Les confettis, à tout profil ; les ballons, portés, du Laurier ; un palier dit son métal, et où il en est.
@@ -185,6 +199,16 @@ test('l’album du style : ce qu’il a en couleur, ce qui reste éteint — la 
   assert.match(await fiche('gerbes', 'confettis'), /Comment elle se gagne/)
   const nuit = objetsDuStyle('fonds', { ...MAYA, fonds: ['nuit'] } as any).find(x => x.cle === 'nuit')!
   assert.match(await rendu('components/AlbumDuStyle', 'FicheDuStyle', { o: nuit, partie: 'fonds', visuel: null }), /Comment il se gagne/)
+  // Un fond de la boutique : sa fiche ouvre la sienne, dans le rayon ; acheté, il ne s'est pas gagné.
+  assert.match(await fiche('fonds', 'jazz'), /<a class="btn btn-small album-aller" href="\/boutique#fond-jazz">Le voir en boutique<\/a>/)
+  const jazz = objetsDuStyle('fonds', { ...MAYA, fonds: ['jazz'] } as any).find(x => x.cle === 'jazz')!
+  const achete = await rendu('components/AlbumDuStyle', 'FicheDuStyle', { o: jazz, partie: 'fonds', visuel: null })
+  assert.match(achete, /Comment il s’achète/)
+  assert.doesNotMatch(achete, /album-aller/)
+  // Un fond du trésor dit sa rareté au coffre, et mène aux missions qui le remplissent.
+  const dragon = await fiche('fonds', 'dragon')
+  assert.match(dragon, /<span class="album-detail-rarete">Fond de carte · Légendaire<\/span>/)
+  assert.match(dragon, /<a class="btn btn-small album-aller" href="\/#missions">Mes missions du jour<\/a>/)
   // Ce qu'il porte déjà : rien de neuf à essayer. Une bordure dit ses crans, et ce qui manque pour la sertir.
   const perle = await fiche('bordures', 'argent')
   assert.match(perle, /À toi, et tu la portes\./)
@@ -256,16 +280,22 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
 
 test('chaque pièce de la loge finit par le même lien : « N à gagner : où ? », vers sa ligne de la collection', async () => {
   const fond = await rendu('components/Apparence', 'MonFond', { profil: MAYA, ...loge })
-  // Les six fonds et les six gerbes du trésor du coffre de la semaine comptés avec les autres.
+  // Les six fonds et les six gerbes du trésor du coffre de la semaine comptés avec les autres ; les
+  // douze fonds des savoirs, qui s'achètent, à la boutique — comme les thèmes : deux liens.
   assert.match(fond, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)
+  assert.match(fond, /<a class="link-inline lien-boutique" href="\/boutique#fonds"><svg[^>]*>.*?<\/svg>12 autres à la boutique<\/a>/)
   const gerbe = await rendu('components/Apparence', 'MaGerbe', { profil: MAYA, ...loge })
   assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">14 gerbes à gagner\s:\soù\s\?<svg/)
   const titre = await rendu('components/Apparence', 'MonTitre', { profil: MAYA, ...loge })
   // Un seul de ses quatre trophées lui reste : au singulier.
   assert.match(titre, /<a class="loge-a-gagner" href="#collection-trophees">1 titre à gagner\s:\soù\s\?<svg/)
-  // Plus d'autre façon de le dire : ni cadenas parmi les titres, ni « où et comment » au long.
+  // Plus d'autre façon de le dire : ni cadenas parmi les titres, ni « où et comment » au long. Le
+  // seul autre lien d'une pièce, depuis que les fonds des savoirs s'achètent (le 15 octobre 2026),
+  // mène à la boutique — celui des thèmes, à l'identique.
   const APPARENCE = source('components/Apparence.tsx')
-  assert.doesNotMatch(APPARENCE, /AGagnerDansLaCollection|titre-choix ferme|lien-boutique/)
+  assert.doesNotMatch(APPARENCE, /AGagnerDansLaCollection|titre-choix ferme|lien-boutique" href=\{?[`"']#collection/)
+  assert.equal(APPARENCE.match(/lien-boutique/g)?.length, 1, 'un seul, celui du fond')
+  assert.match(APPARENCE, /<a className="link-inline lien-boutique" href="\/boutique#fonds">/)
   assert.match(source('components/Boutique.tsx'), /<AGagner n=\{aGagner\} un="thème" plusieurs="thèmes" href="#collection-themes" \/>/)
   // Un seul composant, dans les pièces partagées de la collection.
   assert.match(source('components/LigneDeCollection.tsx'), /export function AGagner\(/)
