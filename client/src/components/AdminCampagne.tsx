@@ -216,7 +216,8 @@ function QuestionsContredites({ etat, occupe, faire }: { etat: AdminDeLaCampagne
                 </p>
                 <p className="small">
                   {espacesFines(
-                    `${q.reponses[q.bonne]} · trouvée ${q.mesure.justes} fois sur ${q.mesure.total} (${pc(q.mesure.justes / q.mesure.total)}) : tirée ${QUESTION_DE_NIVEAU[q.niveau]}, ses réponses la disent ${QUESTION_DE_NIVEAU[q.niveauMesure]}.`,
+                    // Une espace fine insécable avant « % » : au téléphone, « (100 » finissait une ligne et « %) » ouvrait la suivante.
+                    `${q.reponses[q.bonne]} · trouvée ${q.mesure.justes} fois sur ${q.mesure.total} (${Math.round((100 * q.mesure.justes) / q.mesure.total)}\u202f%) : tirée ${QUESTION_DE_NIVEAU[q.niveau]}, ses réponses la disent ${QUESTION_DE_NIVEAU[q.niveauMesure]}.`,
                   )}
                 </p>
                 {ouverte === q.questionId ? (
@@ -295,8 +296,7 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
 
 /** « 1,4 » : un chiffre après la virgule, à la française — et « 3 » quand il n'y en a pas. */
 const dec = (x: number) => (Number.isInteger(x) ? formatNumber(x) : x.toFixed(1).replace('.', ','))
-// Une espace fine insécable avant « % » : au téléphone, « (100 » finissait une ligne et « %) » ouvrait la suivante.
-const pc = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)}\u202f%`)
+const pc = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
 
 /** La chance d'un essai au seuil d'une règle : null tant que personne ne l'a tenté à ce seuil-là. */
