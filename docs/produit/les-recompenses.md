@@ -180,6 +180,15 @@ Ils se jugent à la fin d'une partie de campagne — une série, le défi de la 
 | 🌍 Le Tour du monde | 250, une fois | pour chacune des douze catégories, un record de dix bonnes réponses dans une série de cette seule catégorie |
 | ⚔️ Le Vainqueur du défi | 150 | premier du défi de la semaine (ex æquo compris, une bonne réponse au moins), à deux joueurs au moins ; jugé à la clôture de la semaine |
 
+### Les hauts faits des sentiers
+
+Ils se jugent à la fin d'une épreuve en jeu — jamais d'un rejeu, qui se rejoue sans rien risquer —, une épreuve au plus chacun ([les sentiers du savoir](les-sentiers-du-savoir.md#les-trophées-des-sentiers)).
+
+| Haut fait | XP | Ce qu'il faut |
+|---|---|---|
+| 💎 L'Impeccable | 150 | seize bonnes réponses sur seize, dès le cinquième palier — où le vrai ou faux s'arrête |
+| ⛷️ Contre toute attente | 100 | valider du premier coup un palier que ta chance annonçait en piste noire, à son départ |
+
 ### Les pistes
 
 Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 points d'expérience (`XP_PALIER`) ; elle dit aussi ce qu'elle ouvre en chemin — un laurier, une gerbe, un fond, un thème, un légendaire (`shared/pistes.ts`). À l'écran, Le Laurier du quiz du jour se compte dans la piste du Champion du jour : une victoire, une ligne — chacun garde son expérience.
@@ -204,8 +213,11 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 🧗 L'Alpiniste | ton record d'une série de campagne | 10 · 15 · 20 | en campagne |
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |
+| 🥾 Le Randonneur | paliers des sentiers validés en épreuve | 12 · 48 · 120 | en campagne |
+| 🌟 La Constellation | étoiles des sentiers, la meilleure note de chaque palier | 25 · 100 · 250 | en campagne |
+| 🗺️ Le Cartographe | sentiers validés en épreuve jusqu'au palier 8 ou plus haut | 3 · 6 · 12 | en campagne |
 
-Les pistes de la clôture ne comptent que des soirées closes qui comptent — pas une soirée qui se joue encore ailleurs — et leurs étapes se rangent sous la soirée qui les fait tomber : elles ne partent qu'avec elle. Celles du quiz du jour et de la campagne se rangent sous leur jour ou leur partie, et ne se reprennent jamais.
+Les pistes de la clôture ne comptent que des soirées closes qui comptent — pas une soirée qui se joue encore ailleurs — et leurs étapes se rangent sous la soirée qui les fait tomber : elles ne partent qu'avec elle. Celles du quiz du jour et de la campagne se rangent sous leur jour ou leur partie, et ne se reprennent jamais. Celles des sentiers se jugent avec la campagne, à la fin d'une partie, et se rangent sur la page « Sentiers » de l'album ; un palier repris d'un ancien portrait n'y compte qu'une fois rejoué et validé.
 
 ### Le titre et la vitrine
 

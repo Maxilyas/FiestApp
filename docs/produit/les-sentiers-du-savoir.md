@@ -2,7 +2,7 @@
 
 > Le deuxième onglet de la campagne : douze sentiers, un par catégorie de questions, qu'on gravit palier par palier pour gagner les avatars du savoir — et, dans l'onglet « Apprendre », les parcours de thème, où l'on n'a rien à perdre. Comment on les joue, leurs règles chiffrées, puis comment c'est construit.
 
-**Dans cette page** : [La carte](#la-carte-des-sentiers) · [Ta chance](#ta-chance-sentier-par-sentier) · [Une épreuve](#une-épreuve-question-par-question) · [Quitter une épreuve](#quitter-une-épreuve) · [Les vies](#les-vies) · [Les parcours de thème](#les-parcours-de-thème) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [La carte](#la-carte-des-sentiers) · [Ta chance](#ta-chance-sentier-par-sentier) · [Une épreuve](#une-épreuve-question-par-question) · [Les trophées](#les-trophées-des-sentiers) · [Quitter une épreuve](#quitter-une-épreuve) · [Les vies](#les-vies) · [Les parcours de thème](#les-parcours-de-thème) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 ## En bref
 
@@ -11,6 +11,7 @@
 - **Un portrait tous les deux paliers** : six par sentier, soixante-douze en tout. C'est le seul endroit où se gagnent les avatars du savoir.
 - **Douze vies par jour** pour tous les sentiers : seul un palier raté en coûte une, et rejouer un palier validé ne coûte rien.
 - **Des étoiles** sur chaque palier validé ; la deuxième et la troisième paient des confettis.
+- **Des trophées** : trois pistes — tes paliers, tes étoiles, tes sentiers menés au palier 8 — et deux exploits, L'Impeccable et Contre toute attente.
 
 Les sentiers, comme toute la campagne, se jouent avec un profil : ce que tu y gagnes y reste. Sans profil, la campagne propose de se connecter ou d'en créer un — une soirée, elle, se joue toujours sans compte.
 
@@ -59,13 +60,32 @@ En haut, « ← Partir », « Palier 2 · question 4/16 » et tes vies du jour (
 
 ### La fin d'une épreuve
 
-Chaque fin passe par l'écran des gains, le même à la fin de chaque mode : **« Ce que tu gagnes »** — l'expérience en un total, et ce qui la fait (« tes bonnes réponses +70 · le palier +100 · tes trophées +100 »), tes confettis (« 🎊 +24 confettis », puis « Dont 10 confettis pour tes étoiles. »), ton niveau, relu après l'épreuve —, les légendaires en grand, **« Nouveaux trophées »** — les étapes des pistes de la campagne qu'elle a fait tomber, Le Marathonien ou L'Érudit, chacune menant à sa page de l'album — et **« À porter »** : ce qu'elles ouvrent, le Cabinet de curiosités ou Babel quand ce maître est ton troisième ou ton douzième, l'emoji de collection d'un niveau gagné, chacun avec « Essayer ». Elle propose aussi « Mes réponses », la correction.
+Chaque fin passe par l'écran des gains, le même à la fin de chaque mode : **« Ce que tu gagnes »** — l'expérience en un total, et ce qui la fait (« tes bonnes réponses +70 · le palier +100 · tes trophées +100 »), tes confettis (« 🎊 +24 confettis », puis « Dont 10 confettis pour tes étoiles. »), ton niveau, relu après l'épreuve —, les légendaires en grand, **« Nouveaux trophées »** — les étapes des pistes qu'elle a fait tomber, celles des sentiers (voir plus bas) comme Le Marathonien ou L'Érudit, et ses exploits, chacun menant à sa page de l'album — et **« À porter »** : ce qu'elles ouvrent, le Cabinet de curiosités ou Babel quand ce maître est ton troisième ou ton douzième, l'emoji de collection d'un niveau gagné, chacun avec « Essayer ». Elle propose aussi « Mes réponses », la correction.
 
 - **Un portrait** (un palier pair validé la première fois) se révèle en grand : « L’écureuil est à toi », « Le porter », « Continuer le sentier ». **Le maître**, de même : la couronne, « Maître de la forêt », « Le porter ».
 - **Un autre palier** : « Palier validé » (ou « Rejoué »), « Jouer le palier 4 », et « Rejouer pour ★★ · sans risquer de vie » s'il manque des étoiles.
 - **Raté** : « Raté de peu » ou « Pas cette fois », « 7 bonnes réponses : il en fallait 10. La septième faute a franchi la ligne. », une vie de moins (aucune en rejeu), puis « Réessayer » et « Retour au sentier ».
 
 **Le palier de maître**, après le sommet, est facultatif : « des questions que moins d’un joueur sur cinq trouve. En réussir plus de la moitié fait de toi le maître ». Seize expertes de toute la catégorie, neuf pour valider. Son titre — « Maître de la forêt », « Maître du stade » — se porte sous ton prénom, comme le nom d'un haut fait : « la salle le lit en touchant ton nom ». Trois maîtres ouvrent un fond de carte, le Cabinet de curiosités ; douze, un thème qu'aucune boutique ne vend, Babel (voir [la boutique](la-boutique.md)). Dans « Ma collection », la page « Sentiers » de l'album des trophées montre tes maîtres, sentier par sentier, et ce que leur nombre ouvre.
+
+## Les trophées des sentiers
+
+Un portrait tous les deux paliers ne suffisait pas à y revenir (le 15 octobre 2026) : les sentiers ont leurs trophées, sur leur page de l'album des trophées, avant les maîtres. Ils comptent ce qui se valide **en épreuve** : un palier repris d'un ancien portrait, sans étoiles, n'y compte qu'une fois rejoué et validé — comme son expérience.
+
+| Trophée | Ce qu'il compte | Bronze · argent · or |
+|---|---|---|
+| 🥾 Le Randonneur | les paliers validés en épreuve, chacun une fois, le maître compris | 12 · 48 · 120 |
+| 🌟 La Constellation | tes étoiles : la meilleure note de chaque palier, additionnées | 25 · 100 · 250 |
+| 🗺️ Le Cartographe | les sentiers validés jusqu'au palier 8 — le dernier des chapitres — ou plus haut | 3 · 6 · 12 |
+
+Comme toute piste, chaque étape tombe une fois et rapporte 50, 100 puis 200 XP (`XP_PALIER`), à la fin d'une épreuve ou d'une série — la campagne les compte avec Le Marathonien. Deux exploits se regagnent, une épreuve en jeu au plus chacun ; jamais un rejeu, qui se rejoue sans rien risquer :
+
+| Exploit | La règle | XP |
+|---|---|---|
+| 💎 L'Impeccable | seize bonnes réponses sur seize, dès le cinquième palier — avant, le vrai ou faux y aidait | 150 |
+| ⛷️ Contre toute attente | valider du premier coup un palier que ta chance annonçait en piste noire | 100 |
+
+**Contre toute attente** se juge à la chance que la page te disait **au départ** de l'épreuve : elle se garde avec elle, et ce que tu réponds ensuite n'y change rien. Sans chance annoncée — moins de vingt premières réponses, le modèle pas encore ajusté —, il n'y a rien à démentir. Raté une fois, le palier n'est plus du premier coup. Sur la production, un premier essai annoncé en piste noire sur huit a été validé.
 
 ## Quitter une épreuve
 
@@ -143,7 +163,7 @@ Ce sont les mélanges du code. L'administrateur peut régler celui d'un palier d
 | Deux, trois étoiles | 10, 25 confettis (`CONFETTIS_DES_ETOILES`) | la meilleure note de chaque palier ; un progrès paie la différence |
 | Un palier pair, le maître | son portrait, le titre de maître | à leur première validation |
 | Trois, douze maîtres | le Cabinet de curiosités, le thème Babel | dès qu'ils sont atteints |
-| Une épreuve finie, validée ou non | les étapes des pistes de la campagne qu'elle fait tomber, Le Marathonien et L'Érudit | à la fin |
+| Une épreuve finie, validée ou non | les étapes des pistes qu'elle fait tomber — Le Randonneur, La Constellation, Le Cartographe, Le Marathonien, L'Érudit — et ses exploits, L'Impeccable et Contre toute attente | à la fin |
 
 Chaque bonne réponse compte aussi pour l'écusson de sa catégorie (voir [les récompenses](les-recompenses.md)) et fait grandir le compagnon que tu portes.
 
@@ -186,6 +206,7 @@ Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai »
 - **Une épreuve garde son seuil et ses questions** : un seuil ou un mélange changé — dans le code, ou réglé au QG — ne vaut que pour les épreuves qui commencent, et une issue écrite ne se relit pas — une épreuve validée le reste.
 - **Les étoiles paient à chaque lecture du solde** : changer `CONFETTIS_DES_ETOILES` — ou `PRIX_D_UNE_VIE`, que vaut la troisième étoile — change d'un coup le solde de tout le monde, rétroactivement.
 - **Les portraits ouverts ne sont retenus nulle part** : ils se relisent des paliers. Repousser le palier d'un portrait le reprendrait à qui n'a pas le nouveau.
+- **Les trophées des sentiers se relisent une fois par version** (`VERSION_DES_EPREUVES`) : au démarrage qui l'apporte, chaque épreuve finie redonne ses exploits, et chacun reçoit les étapes de ses pistes, sans rien perdre. C'est ainsi qu'ils sont tombés, le 15 octobre 2026, à qui les tenait déjà. Contre toute attente ne se relit que sur les épreuves qui ont gardé leur chance.
 
 ## Comment c'est construit
 
@@ -195,7 +216,7 @@ Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai »
 
 **Le calibrage.** Mélanges et seuils ont été calculés avant d'être fixés (`server/scripts/calibrage-sentiers.ts`), une question étant trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche. À dix sur seize, un joueur moyen passe du premier coup le cinquième palier 79 fois sur cent, le huitième 23 ; un bon joueur, le douzième 46. À douze, le seuil d'avant, le joueur moyen ne passait plus le cinquième que 38 fois sur cent, le huitième 4 : les vraies épreuves butaient là. Le QG (`/admin#campagne`, « Les sentiers ») mesure chaque palier sur les épreuves de trois mois, et signale celui qui passe mieux que le précédent : son mélange est à revoir, et s'y règle (`sentier_melanges`).
 
-**Ta chance.** Le modèle du savoir (`server/src/core/modeleDuSavoir.ts`) ajuste ensemble une force par joueur et par catégorie et une difficulté par question, sur la première réponse de chacun ; il apprend aussi ce que vaut chaque difficulté estimée à l'écriture, en bloc (`ECART_DES_ESTIMATIONS`). La page des sentiers relit ta force de tes premières réponses, puis ta chance sur chaque marche du palier, et la loi de leur somme — ta forme du jour intégrée (`chanceDeLEpreuve`, `FORME_D_UNE_EPREUVE`). Mesurée avant d'être montrée, sur les épreuves de la production du 8 au 15 octobre 2026, le modèle ajusté avant le 8 : chaque tranche annoncée tient à quelques points près (16 % annoncés, 9 % validées ; 32 et 36 ; 56 et 51 ; 86 et 87). Le modèle d'avant annonçait 7 % à des épreuves qui se validaient une fois sur trois. Il se refait en fond, au plus toutes les demi-heures ; avant son premier ajustement, la page ne dit pas de chance.
+**Ta chance.** Le modèle du savoir (`server/src/core/modeleDuSavoir.ts`) ajuste ensemble une force par joueur et par catégorie et une difficulté par question, sur la première réponse de chacun ; il apprend aussi ce que vaut chaque difficulté estimée à l'écriture, en bloc (`ECART_DES_ESTIMATIONS`). La page des sentiers relit ta force de tes premières réponses, puis ta chance sur chaque marche du palier, et la loi de leur somme — ta forme du jour intégrée (`chanceDeLEpreuve`, `FORME_D_UNE_EPREUVE`). Mesurée avant d'être montrée, sur les épreuves de la production du 8 au 15 octobre 2026, le modèle ajusté avant le 8 : chaque tranche annoncée tient à quelques points près (16 % annoncés, 9 % validées ; 32 et 36 ; 56 et 51 ; 86 et 87). Le modèle d'avant annonçait 7 % à des épreuves qui se validaient une fois sur trois. Il se refait en fond, au plus toutes les demi-heures ; avant son premier ajustement, la page ne dit pas de chance. Au départ d'une épreuve en jeu, la chance de ce palier se calcule par le même chemin et se garde avec elle (`campagne_series.chance`) : Contre toute attente la relit à la fin — et ces chances, confrontées aux issues, mesureront le modèle sans le refaire.
 
 **Libérer une épreuve.** Depuis la fiche d'un joueur, au QG, l'administrateur peut libérer l'épreuve qui l'attend (« Libérer l’épreuve ») : elle se referme telle quelle, sans coûter de vie ni compter comme un échec (voir [administrer](../guides/administrer.md)).
 

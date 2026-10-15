@@ -48,6 +48,7 @@ import {
   clePalier,
   hautFait,
   hautsFaitsGagnes,
+  origineDe,
   palierDe,
   paliersAtteints,
   paliersDeCampagneAtteints,
@@ -2467,10 +2468,11 @@ export class ProfileStore {
     const rarete = new Map(vitrine.map(b => [b.key, b]))
     const soiree: HautFaitVu[] = HAUTS_FAITS_REGAGNABLES.map(h => {
       const porte = rarete.get(h.key)
+      const origine = origineDe(h)
       return {
         key: h.key,
         famille: 'soiree',
-        ...(h.origine && { origine: h.origine }),
+        ...(origine && { origine }),
         emoji: h.emoji,
         title: h.title,
         rule: h.rule,
@@ -2484,10 +2486,11 @@ export class ProfileStore {
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
+      const origine = origineDe(h)
       return {
         key: h.key,
         famille: 'carriere',
-        ...(h.duJour ? { origine: 'jour' as const } : h.deCampagne ? { origine: 'campagne' as const } : {}),
+        ...(origine && { origine }),
         emoji: h.emoji,
         title: h.title,
         rule: h.mesure,
@@ -3458,9 +3461,10 @@ export class ProfileStore {
 
   /**
    * Décerne les paliers de la campagne qu'il vient d'atteindre — L'Alpiniste,
-   * L'Érudit, Le Marathonien —, rangés sous la série qui les a fait tomber
-   * (`cleDeSerie`), leur expérience créditée avec celle des autres paliers.
-   * Rend ceux qui sont nouveaux.
+   * L'Érudit, Le Marathonien, et ceux des sentiers : Le Randonneur, La
+   * Constellation, Le Cartographe —, rangés sous la série ou l'épreuve qui
+   * les a fait tomber (`cleDeSerie`), leur expérience créditée avec celle des
+   * autres paliers. Rend ceux qui sont nouveaux.
    */
   async accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]> {
     return this.accorderDesPaliers(profileId, sous, paliersDeCampagneAtteints(stats))

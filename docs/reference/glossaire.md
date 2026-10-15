@@ -74,7 +74,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Cercle | La finition dessinée autour d'un avatar peint, à la place de l'anneau de son palier ou de sa forme | `client/src/components/Cercle.tsx` |
 | Cette question | La carte du téléphone à la révélation d'un QCM : qui a trouvé, en combien de temps, et sa place à soi | `laQuestion` |
 | Champion du mois | Le premier du classement d'un mois, à deux joueurs au moins : un titre daté, salué tout le mois suivant | `cleDuChampion` |
-| Chance (d'un palier) | Sa chance de valider du premier coup le palier qui l'attend sur un sentier, lue par le modèle du savoir sur ses premières réponses, sa forme du jour comprise ; la page la dit de 1 à 99 %, et en couleur de piste | `chanceDeLEpreuve`, `EtatDesSentiers.pourToi` |
+| Chance (d'un palier) | Sa chance de valider du premier coup le palier qui l'attend sur un sentier, lue par le modèle du savoir sur ses premières réponses, sa forme du jour comprise ; la page la dit de 1 à 99 %, et en couleur de piste. Une épreuve en jeu la garde à son départ : Contre toute attente la relit à sa fin | `chanceDeLEpreuve`, `EtatDesSentiers.pourToi`, `campagne_series.chance` |
 | Chapitre | Deux paliers d'un même thème, fait d'un à trois sous-thèmes de la catégorie, du premier au huitième palier | `shared/chapitres.ts` |
 | Chargement à la demande | Un module qui ne part qu'au moment où un écran en a besoin, sans `lazy` ni suspension | `aLaDemande` (`client/src/aLaDemande.ts`) |
 | Chef | Le profil qui tient l'espace et anime depuis son téléphone de joueur, par sa barre | `chefIci` (`client/src/chef.ts`), `accounts.profile_id` |
@@ -222,7 +222,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
-| Haut fait | Un trophée qui se regagne — vingt en soirée, dix au quiz du jour, cinq en campagne —, compté autant de fois qu'il tombe | `shared/hautsfaits.ts` |
+| Haut fait | Un trophée qui se regagne — vingt en soirée, dix au quiz du jour, cinq en campagne, deux sur les sentiers —, compté autant de fois qu'il tombe | `shared/hautsfaits.ts` |
 | Haut fait du jour | Une distinction qui se regagne, une fois par jour au plus, et paie son expérience à chaque fois (Le Laurier, Le Lève-tôt, Le Courant d'air…) | `HAUTS_FAITS_DU_JOUR` |
 | Heure du serveur | L'horloge que lisent tous les chronomètres d'un écran, mesurée sur sa liaison | `serverNow`, `bestSample` (`shared/clock.ts`) |
 | Hook de démarrage | Le script qui installe les dépendances au début d'une session de Claude Code sur le web, et ne fait rien en local | `.claude/hooks/session-start.sh` |

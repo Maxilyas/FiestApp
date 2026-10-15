@@ -6,12 +6,13 @@
 // · Les hauts faits **de soirée** se jugent sur une soirée entière, à sa
 //   clôture : un sans-faute, une remontée, une série noire. Ils se regagnent
 //   d'une soirée à l'autre, et l'étagère compte les fois (« ×3 »). Le quiz du
-//   jour et la campagne ont les leurs, de la même famille — ils se regagnent
-//   aussi, un jour ou une série au plus chacun (`origine`).
+//   jour, la campagne et ses sentiers ont les leurs, de la même famille — ils
+//   se regagnent aussi, un jour, une série ou une épreuve au plus chacun
+//   (`origine`).
 // · Les hauts faits **de carrière** additionnent toutes les soirées : trois
 //   paliers — bronze, argent, or —, qui ne tombent qu'une fois chacun. Ceux
 //   du quiz du jour et de la campagne comptent ce qu'on y fait (`duJour`,
-//   `deCampagne`).
+//   `deCampagne` — et `surLesSentiers` pour ce qui s'y valide en épreuve).
 //
 // Chacun a un ton. Les **éclats** récompensent un exploit ; les **ombres**,
 // un coup de malchance — un prix, pas une punition. Le bas du classement a
@@ -32,8 +33,8 @@ import { formatNumber } from './typographie'
 
 export type Ton = 'eclat' | 'ombre'
 
-/** Où se gagne un haut fait qui se regagne, s'il ne se gagne pas en soirée. */
-export type Origine = 'jour' | 'campagne'
+/** Où se gagne un haut fait, s'il ne se gagne pas en soirée (`origineDe`). */
+export type Origine = 'jour' | 'campagne' | 'sentiers'
 
 export interface HautFaitDeSoiree {
   key: string
@@ -82,6 +83,12 @@ export interface HautFaitDeCarriere {
    * clôture d'une soirée.
    */
   deCampagne?: keyof StatsDeCampagne
+  /**
+   * Ce qu'il compte se valide sur les sentiers du savoir, en épreuve : il
+   * tombe avec ceux de la campagne, qui compte les épreuves (`deCampagne`),
+   * et l'album le range sur la page des sentiers.
+   */
+  surLesSentiers?: true
 }
 
 export type HautFait = HautFaitDeSoiree | HautFaitDeCarriere
@@ -473,6 +480,41 @@ export const HAUTS_FAITS_DE_CAMPAGNE: HautFaitDeSoiree[] = [
   },
 ]
 
+/**
+ * Les hauts faits des sentiers du savoir (le 15 octobre 2026 : un portrait
+ * tous les deux paliers ne suffisait pas à y revenir) : ils se regagnent, une
+ * épreuve au plus chacun, rangés sous elle (`#campagne:<épreuve>`) et payés
+ * comme ceux de la campagne. Une épreuve en jeu seulement : un rejeu se
+ * rejoue à volonté, sans rien risquer (`hautsFaitsDeLEpreuve`).
+ */
+export const HAUTS_FAITS_DES_SENTIERS: HautFaitDeSoiree[] = [
+  {
+    // Dès le palier où le vrai ou faux s'arrête (`SANS_VRAI_FAUX_DES`, que ce
+    // fichier ne peut pas lire) : avant, un vrai ou faux se trouve une fois
+    // sur deux au hasard. L'espace insécable garde le numéro à son palier.
+    key: 'hf:impeccable',
+    famille: 'soiree',
+    origine: 'sentiers',
+    emoji: '💎',
+    title: 'L’Impeccable',
+    rule: 'Seize bonnes réponses sur seize dans une épreuve en jeu, dès le palier 5',
+    ton: 'eclat',
+    xp: 150,
+  },
+  {
+    // La couleur que la page des sentiers lui disait au départ, gardée avec
+    // l'épreuve (`campagne_series.chance`) : moins d'une chance sur cinq.
+    key: 'hf:contre-toute-attente',
+    famille: 'soiree',
+    origine: 'sentiers',
+    emoji: '⛷️',
+    title: 'Contre toute attente',
+    rule: 'Valider du premier coup un palier que ta chance annonçait en piste noire',
+    ton: 'eclat',
+    xp: 100,
+  },
+]
+
 export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   {
     key: 'hf:habitue',
@@ -670,13 +712,56 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.campagne.justes,
     deCampagne: 'justes',
   },
+  // Les sentiers du savoir (le 15 octobre 2026) : ce qui s'y valide en
+  // épreuve — un palier, ses étoiles, un sentier mené au bout de ses
+  // chapitres (`statsDesSentiers`). Un palier repris des portraits d'avant
+  // n'y compte qu'une fois rejoué et validé, comme son expérience.
+  {
+    key: 'hf:randonneur',
+    famille: 'carriere',
+    emoji: '🥾',
+    title: 'Le Randonneur',
+    mesure: 'paliers validés en épreuve',
+    mesureUne: 'palier validé en épreuve',
+    paliers: [12, 48, 120],
+    valeur: c => c.campagne.paliersValides,
+    deCampagne: 'paliersValides',
+    surLesSentiers: true,
+  },
+  {
+    key: 'hf:constellation',
+    famille: 'carriere',
+    emoji: '🌟',
+    title: 'La Constellation',
+    mesure: 'étoiles sur les sentiers',
+    mesureUne: 'étoile sur les sentiers',
+    paliers: [25, 100, 250],
+    valeur: c => c.campagne.etoiles,
+    deCampagne: 'etoiles',
+    surLesSentiers: true,
+  },
+  {
+    // « palier 8 » : `PALIER_DU_CARTOGRAPHE`, que ce fichier ne peut pas lire
+    // — `shared/sentiers.ts` le lit, lui (`nomDuTitre`). L'espace insécable :
+    // à la fin d'une épreuve, « 8 » passait seul à la ligne.
+    key: 'hf:cartographe',
+    famille: 'carriere',
+    emoji: '🗺️',
+    title: 'Le Cartographe',
+    mesure: 'sentiers validés jusqu’au palier 8',
+    mesureUne: 'sentier validé jusqu’au palier 8',
+    paliers: [3, 6, 12],
+    valeur: c => c.campagne.sentiersMenes,
+    deCampagne: 'sentiersMenes',
+    surLesSentiers: true,
+  },
 ]
 
-/** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne. */
-export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE]
+/** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne, des sentiers. */
+export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS]
 
-/** Ceux qui se gagnent hors des soirées — au quiz du jour, en campagne : leur expérience vit dans la ligne des paliers. */
-export const HAUTS_FAITS_HORS_SOIREE: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE]
+/** Ceux qui se gagnent hors des soirées — au quiz du jour, en campagne, sur les sentiers : leur expérience vit dans la ligne des paliers. */
+export const HAUTS_FAITS_HORS_SOIREE: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS]
 
 const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
 
@@ -688,6 +773,18 @@ export function hautFait(key: string): HautFait | undefined {
 export function hautFaitDeSoiree(key: string): HautFaitDeSoiree | undefined {
   const h = PAR_CLE.get(key)
   return h?.famille === 'soiree' ? h : undefined
+}
+
+/**
+ * Où se gagne un haut fait, s'il ne se gagne pas en soirée : son origine, ou,
+ * pour une piste, ce qu'elle compte — le quiz du jour, la campagne, les
+ * sentiers. La page de l'album qui le range, le lieu d'un avatar ou d'un fond
+ * qu'il ouvre, sa page du profil : une seule règle — quatre fichiers la
+ * recopiaient, et les sentiers devaient s'ajouter à chacun.
+ */
+export function origineDe(h: HautFait): Origine | undefined {
+  if (h.famille === 'soiree') return h.origine
+  return h.duJour ? 'jour' : h.surLesSentiers ? 'sentiers' : h.deCampagne ? 'campagne' : undefined
 }
 
 /** Le palier de carrière derrière une clé rangée (`hf:bavard:2`), s'il en est un. */
@@ -854,7 +951,7 @@ export function paliersDesEclats(eclats: number): string[] {
 export interface HautFaitVu {
   key: string
   famille: 'soiree' | 'carriere'
-  /** Il se gagne au quiz du jour ou en campagne (`origine`, ou un palier `duJour` / `deCampagne`) : la page le range à part. */
+  /** Il se gagne au quiz du jour, en campagne ou sur les sentiers (`origineDe`) : la page le range à part. */
   origine?: Origine
   emoji: string
   title: string
@@ -1005,6 +1102,24 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:marathonien:1': 0.35,
   'hf:marathonien:2': 0.1,
   'hf:marathonien:3': 0.03,
+  // Ceux des sentiers (le 15 octobre 2026), mesurés sur la production — seize
+  // joueurs de campagne, dix sur les sentiers en trois semaines : quatre
+  // auraient Le Randonneur et La Constellation au bronze, un à l'argent ;
+  // deux Le Cartographe, un à l'argent. Contre toute attente serait tombé
+  // une fois — un premier essai en piste noire validé sur huit, à un joueur
+  // sur neuf de ceux à qui la page dit leur chance —, et personne n'a encore
+  // fait seize sur seize : leurs parts sont estimées.
+  'hf:randonneur:1': 0.25,
+  'hf:randonneur:2': 0.06,
+  'hf:randonneur:3': 0.01,
+  'hf:constellation:1': 0.25,
+  'hf:constellation:2': 0.06,
+  'hf:constellation:3': 0.01,
+  'hf:cartographe:1': 0.12,
+  'hf:cartographe:2': 0.05,
+  'hf:cartographe:3': 0.01,
+  'hf:impeccable': 0.005,
+  'hf:contre-toute-attente': 0.06,
 }
 
 /**

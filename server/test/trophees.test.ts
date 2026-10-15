@@ -145,17 +145,17 @@ const NEUF = {
   sentiers: {},
 }
 
-test('l’album compte tout ce qui se gagne par ce qu’on a fait : 180 trophées, une page par mode — et s’ouvre où l’on joue', () => {
+test('l’album compte tout ce qui se gagne par ce qu’on a fait : 191 trophées, une page par mode — et s’ouvre où l’on joue', () => {
   const pages = albumDesTrophees(NEUF as any)
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
     // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : trois pistes, cinq exploits ;
-    // les duels : six ligues, six bordures serties ; les sentiers : douze maîtres ;
+    // les duels : six ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ;
     // partout : douze écussons de trois métaux, le niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/36', 'campagne 0/14', 'duels 0/12', 'sentiers 0/12', 'partout 0/42'],
+    ['soiree 0/64', 'jour 0/36', 'campagne 0/14', 'duels 0/12', 'sentiers 0/23', 'partout 0/42'],
   )
-  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 180 })
+  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 191 })
   // Rien encore : le quiz du jour, ce qu'on joue le plus. Sinon, le mode où il a le plus.
   assert.equal(pageDuDebutDesTrophees(NEUF as any), 'jour')
   const campagne = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:alpiniste' ? { ...h, fois: 2, valeur: 15 } : h)) }
@@ -181,6 +181,8 @@ test('chaque trophée a sa page : celle du mode où il se gagne', () => {
     ['hf:marathonien:3', 'campagne'],
     ['ligue:or', 'duels'],
     ['maitre:foret', 'sentiers'],
+    ['hf:randonneur:2', 'sentiers'],
+    ['hf:impeccable', 'sentiers'],
     ['hf:legende:2', 'partout'],
     ['ecusson:Histoire', 'partout'],
   ])

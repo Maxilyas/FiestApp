@@ -283,6 +283,32 @@ export function confettisDeLaNouvelleNote(avant: number, apres: number): number 
 /** Ses étoiles sur un sentier, ou sur tous : la somme des meilleures notes. */
 export const etoilesDuSentier = (s: { etoiles: readonly number[] }): number => s.etoiles.reduce((n, e) => n + e, 0)
 
+/**
+ * Le palier que Le Cartographe demande à un sentier, validé en épreuve : le
+ * dernier de ses chapitres à thème — au suivant, il pose toute sa catégorie
+ * (`TOUTE_LA_CATEGORIE_DES`). La mesure du trophée l'écrit telle quelle
+ * (`shared/hautsfaits.ts`, qui ne peut pas lire ce fichier).
+ */
+export const PALIER_DU_CARTOGRAPHE = TOUTE_LA_CATEGORIE_DES - 1
+
+/**
+ * Ce que comptent les pistes des sentiers (`StatsDeCampagne`), de la
+ * meilleure note de chaque palier : les paliers validés en épreuve, leurs
+ * étoiles, et les sentiers validés jusqu'au palier du Cartographe ou plus
+ * haut. Un palier repris des portraits d'avant (`sentier_acquis`) n'a pas
+ * d'étoile : il n'y compte qu'une fois rejoué et validé, comme son
+ * expérience (`xpDuPalier`) — ses portraits avaient déjà payé.
+ */
+export function statsDesSentiers(sentiers: readonly { etoiles: readonly number[] }[]): { paliersValides: number; etoiles: number; sentiersMenes: number } {
+  let paliersValides = 0
+  let sentiersMenes = 0
+  for (const s of sentiers) {
+    paliersValides += s.etoiles.filter(e => e > 0).length
+    if (s.etoiles.some((e, i) => e > 0 && i + 1 >= PALIER_DU_CARTOGRAPHE)) sentiersMenes++
+  }
+  return { paliersValides, etoiles: sentiers.reduce((n, s) => n + etoilesDuSentier(s), 0), sentiersMenes }
+}
+
 export type IssueDEpreuve = 'validee' | 'ratee'
 
 /**
@@ -549,7 +575,12 @@ export interface ReponseDEpreuve {
   maitre?: string
   /** Après un échec : les vies qui restent. */
   vies?: VieDesSentiers
-  /** Finie : les paliers de la campagne qu'elle a fait tomber (Le Marathonien, L'Érudit), et ce qu'ils ouvrent. */
+  /**
+   * Finie : ce qu'elle a fait tomber — les paliers de la campagne (Le
+   * Marathonien, L'Érudit) et des sentiers (Le Randonneur, La Constellation,
+   * Le Cartographe), ses exploits (L'Impeccable, Contre toute attente) —, et
+   * les légendaires qu'ils ouvrent.
+   */
   recompenses?: { key: string; emoji: string; title: string }[]
   legendaires?: string[]
 }

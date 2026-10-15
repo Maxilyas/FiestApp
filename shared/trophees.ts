@@ -24,11 +24,13 @@ import {
   HAUTS_FAITS_DE_CAMPAGNE,
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  HAUTS_FAITS_DES_SENTIERS,
   HAUTS_FAITS_DU_JOUR,
   XP_PALIER,
   clePalier,
   hautFait,
   hautFaitDeSoiree,
+  origineDe,
   type HautFaitDeCarriere,
   type HautFaitDeSoiree,
   type HautFaitVu,
@@ -66,7 +68,7 @@ export const CE_QUE_RANGE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
   jour: 'Dix questions chaque jour, les mêmes pour tous.',
   campagne: 'La série à trois vies, et le défi de la semaine.',
   duels: 'Ta cote, tes ligues et leurs bordures, duel après duel.',
-  sentiers: 'Le palier de maître de chaque sentier du savoir. Leurs portraits sont dans l’album des avatars.',
+  sentiers: 'Ce que tu valides en épreuve, et le maître de chaque sentier du savoir. Leurs portraits sont dans l’album des avatars.',
   partout: 'Ce que tous les modes nourrissent : tes écussons, ton niveau, tes Éclats.',
 }
 
@@ -165,6 +167,9 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
   'hf:infatigable': ['d’affilée', 'd’affilée'],
   'hf:erudit': ['experte', 'expertes'],
   'hf:marathonien': ['juste', 'justes'],
+  'hf:randonneur': ['palier', 'paliers'],
+  'hf:constellation': ['étoile', 'étoiles'],
+  'hf:cartographe': ['sentier', 'sentiers'],
 }
 
 /** Ce qu'une piste compte, en court : « 7 victoires », « niveau 14 », « record 18 ». */
@@ -291,10 +296,11 @@ function section(cle: CleDeSection, titre: string, aide: string, cases: CaseDeTr
 const exploits = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'eclat' && !ABSORBES[h.key])
 const coups = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'ombre')
 
-const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'partout', readonly HautFaitDeCarriere[]>> = {
-  soiree: HAUTS_FAITS_DE_CARRIERE.filter(h => !h.duJour && !h.deCampagne && h.key !== 'hf:legende' && h.key !== 'hf:eclats'),
-  jour: HAUTS_FAITS_DE_CARRIERE.filter(h => h.duJour),
-  campagne: HAUTS_FAITS_DE_CARRIERE.filter(h => h.deCampagne),
+const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'sentiers' | 'partout', readonly HautFaitDeCarriere[]>> = {
+  soiree: HAUTS_FAITS_DE_CARRIERE.filter(h => !origineDe(h) && h.key !== 'hf:legende' && h.key !== 'hf:eclats'),
+  jour: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'jour'),
+  campagne: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'campagne'),
+  sentiers: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'sentiers'),
   partout: HAUTS_FAITS_DE_CARRIERE.filter(h => h.key === 'hf:legende' || h.key === 'hf:eclats'),
 }
 
@@ -400,32 +406,36 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
         }),
       ),
     ],
-    sentiers: p.sentiers
-      ? [
-          section(
-            'maitres',
-            'Les maîtres',
-            'Le palier de maître d’un sentier : seize expertes, et un titre. Trois maîtres ouvrent un fond, les douze un thème.',
-            BRANCHES.map(b => {
-              const paliers = Math.max(0, Math.min(PALIER_DU_MAITRE, p.sentiers![b.key] ?? 0))
-              return {
-                cle: `maitre:${b.key}`,
-                sorte: 'maitre' as const,
-                emoji: '',
-                titre: titreDeMaitre(b),
-                regle: `${b.nom} · ${b.categorie}`,
-                aLui: paliers >= PALIER_DU_MAITRE,
-                rarete: null,
-                branche: b.key,
-                valeur: paliers,
-                prochain: paliers >= PALIER_DU_MAITRE ? null : PALIER_DU_MAITRE,
-                compte: `${paliers}/${PALIER_DU_MAITRE}`,
-              }
-            }),
-            { etapes: etapesVues('maitres', BRANCHES.filter(b => (p.sentiers![b.key] ?? 0) >= PALIER_DU_MAITRE).length) },
-          ),
-        ]
-      : [],
+    sentiers: [
+      section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('sentiers')),
+      section('exploits', 'Les exploits', 'Une épreuve en jeu : ils se regagnent, le nombre dit combien de fois.', HAUTS_FAITS_DES_SENTIERS.map(h => caseDExploit(h, vus))),
+      ...(p.sentiers
+        ? [
+            section(
+              'maitres',
+              'Les maîtres',
+              'Le palier de maître d’un sentier : seize expertes, et un titre. Trois maîtres ouvrent un fond, les douze un thème.',
+              BRANCHES.map(b => {
+                const paliers = Math.max(0, Math.min(PALIER_DU_MAITRE, p.sentiers![b.key] ?? 0))
+                return {
+                  cle: `maitre:${b.key}`,
+                  sorte: 'maitre' as const,
+                  emoji: '',
+                  titre: titreDeMaitre(b),
+                  regle: `${b.nom} · ${b.categorie}`,
+                  aLui: paliers >= PALIER_DU_MAITRE,
+                  rarete: null,
+                  branche: b.key,
+                  valeur: paliers,
+                  prochain: paliers >= PALIER_DU_MAITRE ? null : PALIER_DU_MAITRE,
+                  compte: `${paliers}/${PALIER_DU_MAITRE}`,
+                }
+              }),
+              { etapes: etapesVues('maitres', BRANCHES.filter(b => (p.sentiers![b.key] ?? 0) >= PALIER_DU_MAITRE).length) },
+            ),
+          ]
+        : []),
+    ],
     partout: [
       ...(p.ecussons
         ? [

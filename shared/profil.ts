@@ -443,16 +443,23 @@ export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, 
 /**
  * Ce que la campagne compte pour ses paliers : le record d'une série à trois
  * vies, les questions expertes trouvées et toutes les bonnes réponses —
- * épreuves des sentiers comprises pour ces deux-là.
+ * épreuves des sentiers comprises pour ces deux-là —, et ce qui s'est validé
+ * en épreuve sur les sentiers (`statsDesSentiers`).
  */
 export interface StatsDeCampagne {
   record: number
   expertes: number
   justes: number
+  /** Les paliers des sentiers validés en épreuve, chacun une fois. */
+  paliersValides: number
+  /** La meilleure note de chaque palier validé en épreuve, en étoiles, additionnées. */
+  etoiles: number
+  /** Les sentiers validés en épreuve jusqu'au palier du Cartographe (`PALIER_DU_CARTOGRAPHE`), ou plus haut. */
+  sentiersMenes: number
 }
 
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0 }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {

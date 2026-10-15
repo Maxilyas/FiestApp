@@ -287,6 +287,7 @@ un drapeau :
 | le barème de l'expérience, un haut fait ou un prix de soirée, un Divin, les saisons | `VERSION_BAREME` (`server/src/auth/profiles.ts`) | `recalculerHistorique` (`server/src/core/recalcul.ts`) relit chaque archive — sauf les soirées en cours —, réécrit les lignes d'expérience et remplace les récompenses de chaque soirée |
 | un haut fait ou un palier du quiz du jour | `VERSION_DES_JOURS` (`server/src/core/jour.ts`), retenue dans `jour_meta` | `relireLesJours`, qui ajoute sans rien reprendre |
 | un haut fait ou un palier de la campagne | `VERSION_DES_SERIES` (`server/src/core/campagne.ts`), retenue dans `campagne_meta` | `relireLesSeries`, qui ajoute sans rien reprendre |
+| un haut fait d'une épreuve, une piste des sentiers | `VERSION_DES_EPREUVES` (`server/src/core/campagne.ts`), retenue dans `campagne_meta` | `relireLesEpreuves` : les hauts faits de chaque épreuve finie, puis les paliers de chaque joueur des sentiers — un passage par joueur, sans relire les séries ; il ajoute sans rien reprendre |
 | le barème du solo | un drapeau dans `meta` | `appliquerLeBaremeDuSolo` (`server/src/core/baremeDuSolo.ts`), une fois |
 | la règle d'un légendaire, la courbe des niveaux | une entrée de plus à `DURCISSEMENTS` ou `COURBES_D_AVANT`, avec son drapeau | chaque profil retient ce qu'il avait (`profile_legendaires`, `profile_niveaux`) : rien ne se reprend (invariant 22) |
 
