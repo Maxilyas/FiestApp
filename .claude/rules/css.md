@@ -77,9 +77,15 @@ paths:
   sautait d'un coup. Jamais `html { overflow: hidden }` (essayé le même jour) :
   le défilement de la page changé à l'ouverture, la barre d'adresse peut
   revenir, et tout l'écran se redimensionne le temps qu'elle glisse. Et le
-  voile s'assombrit au pas de la feuille (`fade`) : posé noir d'un coup sous
-  une feuille encore transparente, il faisait clignoter tout l'écran (le 15
-  octobre 2026, `feuilles.test.ts`). Chromium sans écran n'a pas de barre
+  voile s'assombrit au pas de la feuille, par sa couleur (`voile-tombe`),
+  jamais par son opacité : posé noir d'un coup sous une feuille encore
+  transparente, il faisait clignoter tout l'écran ; en fondu d'opacité, il
+  emportait la feuille, tout l'écran repartait de transparent, et au
+  téléphone l'accueil reparaissait le temps d'une image (« la page de
+  dessous qui s'affiche une micro seconde », le 15 octobre 2026,
+  `feuilles.test.ts`). Une feuille, une carte ou un dialogue reste opaque dès
+  sa première image : `.dialog-backdrop` s'assombrit de même.
+  Chromium sans écran ne montrait ni cette image-là, ni la barre
   d'adresse : la sonde mesure `scrollY` sous la feuille, au doigt
   (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
   défiler), et filme l'ouverture (`Page.startScreencast`) pour la
