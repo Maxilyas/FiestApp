@@ -123,6 +123,26 @@ test('le bandeau : un lien qui se glisse, ses points en boutons hors du lien, la
   assert.equal(await bandeau({ ...NEUF, possedes: TOUS_LES_THEMES, compagnons: ADOPTES, fondsAchetes: TOUS_LES_FONDS }), '')
 })
 
+test('il tourne encore après un geste : une souris posée dessus le retient, le clavier aussi — un doigt levé, jamais', async () => {
+  // « Au cas où la personne ne slide pas » (le propriétaire, le 15 octobre 2026) : le
+  // défilement s'arrêtait pour de bon au premier geste. Levé, le doigt ne disait pas
+  // toujours qu'il partait, et le point touché gardait un focus pris pour celui du clavier.
+  const { retenue } = await import(new URL('../../client/src/components/ALaUne.tsx', import.meta.url).href)
+  const libre = { souris: false, clavier: false }
+  assert.deepEqual(retenue(libre, { quoi: 'entre', pointeur: 'touch' }), libre, 'un doigt ne le retient pas')
+  const survole = retenue(libre, { quoi: 'entre', pointeur: 'mouse' })
+  assert.deepEqual(survole, { souris: true, clavier: false }, 'une souris posée dessus, si')
+  assert.deepEqual(retenue(survole, { quoi: 'sort', pointeur: 'mouse' }), libre)
+  assert.deepEqual(retenue(survole, { quoi: 'sort', pointeur: 'touch' }), survole, 'un doigt qui sort ne lâche pas la souris')
+  // Un point touché garde le focus, sans `:focus-visible` : il ne le retient pas.
+  assert.deepEqual(retenue(libre, { quoi: 'focus', auClavier: false }), libre)
+  // Au clavier, si, tant que le focus reste dedans — du lien à ses points.
+  const lu = retenue(libre, { quoi: 'focus', auClavier: true })
+  assert.deepEqual(lu, { souris: false, clavier: true })
+  assert.deepEqual(retenue(lu, { quoi: 'blur', resteDedans: true }), lu)
+  assert.deepEqual(retenue(lu, { quoi: 'blur', resteDedans: false }), libre)
+})
+
 test('un geste de côté change d’objet ; trop court, ou plus vertical qu’horizontal, il ne fait rien — la page défile', async () => {
   const { pasDuGeste } = await import(new URL('../../client/src/components/ALaUne.tsx', import.meta.url).href)
   assert.equal(pasDuGeste(-60, 5), 1, 'vers la gauche : le suivant')

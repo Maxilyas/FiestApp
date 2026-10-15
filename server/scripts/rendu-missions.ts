@@ -126,9 +126,17 @@ try {
   for (let k = 1; k <= 8; k++) await doigt('touchMove', b.x + b.width - 30 - k * 28)
   await doigt('touchEnd', 0)
   await tel.waitForTimeout(700)
-  console.log(`au doigt : « ${avantAuDoigt} » → « ${await nomDeLaUne(tel)} », toujours sur ${new URL(tel.url()).pathname}`)
+  const apresLeDoigt = await nomDeLaUne(tel)
+  console.log(`au doigt : « ${avantAuDoigt} » → « ${apresLeDoigt} », toujours sur ${new URL(tel.url()).pathname}`)
   await tel.screenshot({ path: path.join(sortie, '1-accueil-une-au-doigt.png') })
   console.log(path.join(sortie, '1-accueil-une-au-doigt.png'))
+  // Le doigt levé, il tourne encore — un point touché, de même : seuls la souris posée dessus et le clavier le retiennent.
+  await tel.waitForTimeout(7500)
+  console.log(`7,5 s après le doigt : « ${await nomDeLaUne(tel)} »${calme ? ' (moins de mouvement : il ne tourne pas)' : ''}`)
+  await tel.locator('.une-point').nth(2).tap()
+  const auPoint = await nomDeLaUne(tel)
+  await tel.waitForTimeout(7500)
+  console.log(`un point touché : « ${auPoint} », 7,5 s après : « ${await nomDeLaUne(tel)} »`)
   // Un toucher, lui, mène à sa place dans la boutique.
   await tel.locator('.une').tap()
   await tel.waitForURL(/\/boutique/)
