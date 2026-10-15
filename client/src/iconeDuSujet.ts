@@ -14,6 +14,8 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   'terre-espace': 'planet',
   'grands-rendez-vous': 'medal',
   'petit-ecran': 'monitor',
+  danse: 'dancer',
+  sante: 'stethoscope',
   france: 'flag',
   pionnieres: 'award',
   pieges: 'alert',

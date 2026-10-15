@@ -49,6 +49,18 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'series')), ['petit-ecran'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'tele')), ['petit-ecran'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'cinema-fr')), [])
+  // La danse et les métiers de la santé (le 15 octobre 2026) : un sous-thème neuf par catégorie, leur étiquette ailleurs.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Musique', 'danses')), ['danse'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Arts & lettres', 'ballet')), ['danse'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Autour de la fête', 'bal')), ['danse'])
+  assert.deepEqual(sujetsDe(meta(null, ['danse'], 'monde', 'Sport', 'rugby')), ['danse'], 'le haka des All Blacks')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Musique', 'classique')), [], 'un concerto n’est pas de la danse')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'sante')), ['sante'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'medecine')), ['sante'])
+  // Le corps humain est du thème : c'est le socle de tous ces métiers.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'corps')), ['sante'])
+  assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Cinéma & séries', 'series')), ['petit-ecran', 'sante'], 'une série d’hôpital')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'societe')), [], 'les autres métiers n’en sont pas')
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {

@@ -50,11 +50,11 @@ Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de
 | Une à la fois | « Une nouvelle série » referme celle laissée en route et lui décerne ce qu'elle a joué. Une révision ou un défi en cours restent ouverts |
 | Record | Ta meilleure série finie, sujets compris. Le défi, les duels et les révisions n'y comptent pas |
 
-Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a vingt-cinq, en trois familles :
+Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a vingt-sept, en trois familles :
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
-| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran | Ses sous-thèmes, parfois une étiquette |
+| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé | Ses sous-thèmes, parfois une étiquette |
 | Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
 | Un fil rouge | La France, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
 
@@ -153,6 +153,7 @@ Tout ce que pose la campagne, et aussi le quiz tout prêt des soirées, vient d'
 | La routine du matin | La routine Claude Code de la réserve du quiz du jour utilise le même jeton (`RESERVE_TOKEN`). Elle demande ce qui manque (`GET /api/campagne/base` : cinq questions par catégorie et par jour), puis dépose ses questions (`POST`). Chaque refus revient avec son motif. Les questions acceptées se jouent aussitôt, sans déploiement |
 | Un lot à la main | La skill `base-campagne` : l'agent `redacteur-campagne` écrit le lot, `relecteur-campagne` le relit, puis le lot est rangé dans le dépôt (voir le schéma ci-dessous) |
 | En nombre | `server/scripts/generer-campagne.ts` : des lots de trente questions au plus, écrits par vagues où deux lots ne partagent jamais un sous-thème, avec les mêmes agents |
+| Par l'inventaire d'un thème | La danse et les métiers de la santé ont un inventaire (`server/src/core/inventaires.ts`) : tout ce que leurs sous-thèmes doivent couvrir, famille par famille — la salsa, les orishas, la rééducation, les urgences… La consigne le donne à qui écrit pour eux, la routine comprise ; `generer-campagne.ts preparer --inventaire=<clé>` commande famille par famille, deux familles s'écrivant en même temps, et `base-campagne.ts couverture <clé>` dit les sujets restés sans question |
 | Depuis Wikidata | `server/scripts/faits-wikidata.ts` : des faits sûrs pour quinze familles (tableaux, films, prix Goncourt…). Le rédacteur n'écrit que les phrases, ce qui coûte deux fois moins cher, et chaque lot est relu |
 
 Le chemin d'un lot, de la consigne au commit :

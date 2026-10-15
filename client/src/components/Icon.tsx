@@ -87,6 +87,8 @@ export type IconName =
   | 'paw'
   | 'planet'
   | 'medal'
+  | 'dancer'
+  | 'stethoscope'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -592,6 +594,29 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M7.5 3 10.2 9.4M16.5 3l-2.7 6.4" />
         <circle cx="12" cy="15" r="6" />
         <circle cx="12" cy="15" r="2.4" />
+      </>
+    ),
+  },
+  // Une danseuse en tutu, les bras ouverts, une jambe repliée : la danse. La
+  // note de musique aurait fait croire à la catégorie Musique, et une
+  // silhouette sans tutu, essayée, se lisait comme un coureur.
+  dancer: {
+    paths: (
+      <>
+        <circle cx="12" cy="3.6" r="1.6" />
+        <path d="M6.2 8.4c1.9-.9 3.8-1.3 5.8-1.3s3.9.4 5.8 1.3M12 5.3v5.4" />
+        <path d="M7.2 13.4 9.4 10.7h5.2l2.2 2.7Z" />
+        <path d="M11 13.4V21M13 13.4l1.8 4.2-1.6 3" />
+      </>
+    ),
+  },
+  // Le stéthoscope : les métiers de la santé, l'outil que tous reconnaissent.
+  stethoscope: {
+    paths: (
+      <>
+        <path d="M4.5 3.5h2M12.5 3.5h2M5.5 3.5V8a4 4 0 0 0 8 0V3.5" />
+        <path d="M9.5 12v2.5a4.5 4.5 0 0 0 9 0v-2" />
+        <circle cx="18.5" cy="10.5" r="2" />
       </>
     ),
   },

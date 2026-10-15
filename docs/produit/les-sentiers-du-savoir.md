@@ -33,7 +33,7 @@ Le sentier (« ← Les sentiers » pour revenir) se lit de bas en haut, du « D�
 
 ### Les chapitres
 
-Les huit premiers paliers vont **par deux**, et chaque paire est un chapitre qui a son thème, fait d'un à trois sous-thèmes de la catégorie : la forêt commence par « Mammifères et oiseaux », le stade par « Football et rugby ». Un chapitre change ce que tu lis, jamais la difficulté : ses questions passent devant le reste de la catégorie, à la même marche, et chaque sous-thème sert dans un seul chapitre. Du palier 9 au maître, plus de chapitre : **toute la catégorie**, chaque sous-thème à son tour — on ne gravit pas le stade sur le seul football.
+Les huit premiers paliers vont **par deux**, et chaque paire est un chapitre qui a son thème, fait d'un à quatre sous-thèmes de la catégorie : la forêt commence par « Mammifères et oiseaux », le stade par « Football et rugby ». Un chapitre change ce que tu lis, jamais la difficulté : ses questions passent devant le reste de la catégorie, à la même marche, et chaque sous-thème sert dans un seul chapitre. Du palier 9 au maître, plus de chapitre : **toute la catégorie**, chaque sous-thème à son tour — on ne gravit pas le stade sur le seul football.
 
 ### La fiche d'un palier
 

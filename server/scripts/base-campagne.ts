@@ -10,6 +10,9 @@
 //   npx tsx scripts/base-campagne.ts fiche <lot.json> …                         la fiche de relecture : l'essentiel de chaque question, une ligne ou trois
 //   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
 //   npx tsx scripts/base-campagne.ts retirer <id> …                              retire des questions de la base, par identifiant
+//   npx tsx scripts/base-campagne.ts reclasser <reclassements.json>             change la catégorie, le sous-thème ou les étiquettes de questions de la base, sous leur identifiant
+//   npx tsx scripts/base-campagne.ts inventaire <thème>                          l'inventaire d'un thème, famille par famille, à relire (core/inventaires.ts)
+//   npx tsx scripts/base-campagne.ts couverture <thème> [<lot.json> …]           les sujets de son inventaire qu'aucune question n'aborde encore, ou une seule
 //
 // Un lot est un tableau JSON d'entrées sans identifiant, écrit par une IA
 // selon la consigne — à la main, ou par milliers par `generer-campagne.ts`.
@@ -26,9 +29,11 @@ import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lir
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
 import { lireLEstimation } from '../src/core/quizToutPret'
 import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
+import { couverture, inventairesDuTheme, lireLeSujet, repartirLesFamilles } from '../src/core/inventaires'
 import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
 import { sansAccent } from '../../shared/homonymes'
+import { SUJETS, sujetParCle, sujetsDe } from '../../shared/sujets'
 import { DOSSIER_DES_LOTS, FICHIER_DE_LOT, TriDesEntrees, appliquerLesDecisions, ecrireLot, ficheDUneEntree, lireLot, type Decision } from './lots-campagne'
 
 /** Une ligne du fichier : la forme de `entreeDeLaBase`, celle des dépôts de la routine aussi. */
@@ -248,6 +253,110 @@ function racines() {
   console.log(`\n${soufflees.length} question(s) à relire.`)
 }
 
+/** Un reclassement : la question, par son identifiant, et ce qui change — l'étiquette à poser s'ajoute à celles qu'elle a (`ajouter`). */
+interface Reclassement {
+  id: string
+  categorie?: string
+  sousTheme?: string
+  etiquettes?: string[]
+  ajouter?: string[]
+}
+
+/**
+ * Reclasse des questions de la base sous leur identifiant : leur catégorie,
+ * leur sous-thème, leurs étiquettes. Ce que « Reclasser » fait au QG dans
+ * Turso (`CampagneStore.reclasser`), ici dans les fichiers du dépôt :
+ * l'identifiant ne bouge pas, ses réponses et ses mesures la suivent. Les
+ * sous-thèmes neufs de la danse et de la santé (le 15 octobre 2026) ont
+ * repris ainsi les questions que la base avait déjà sur eux. Chaque
+ * question reclassée repasse par le juge de la base — trois étiquettes au
+ * plus, un sous-thème de sa catégorie — : un seul refus, et rien ne s'écrit.
+ */
+function reclasser(fichier: string) {
+  const { questions: base, refusees } = lireLaBase()
+  if (refusees.length > 0) throw new Error(`La base a ${refusees.length} entrée(s) défectueuse(s) : corrige-les avant de reclasser.`)
+  const demandes = JSON.parse(readFileSync(fichier, 'utf8')) as Reclassement[]
+  const parId = new Map(base.map(q => [q.id, q]))
+  const reclassees = new Map<string, QuestionDeLaBase>()
+  const refus: string[] = []
+  for (const d of demandes) {
+    const q = reclassees.get(d.id) ?? parId.get(d.id)
+    if (!q) {
+      refus.push(`${d.id} : absente de la base`)
+      continue
+    }
+    const entree = entreeDeLaBase(q)
+    if (d.categorie !== undefined) entree.categorie = d.categorie
+    if (d.sousTheme !== undefined) entree.sousTheme = d.sousTheme
+    if (d.etiquettes !== undefined) entree.etiquettes = d.etiquettes
+    if (d.ajouter !== undefined) entree.etiquettes = [...new Set([...(entree.etiquettes as string[]), ...d.ajouter])]
+    const lu = lireQuestionDeLaBase(entree)
+    if ('refus' in lu) refus.push(`${d.id} « ${q.texte.slice(0, 80)} » — ${lu.refus}`)
+    else reclassees.set(d.id, lu.question)
+  }
+  if (refus.length > 0) {
+    for (const r of refus) console.log(`✗ ${r}`)
+    throw new Error(`${refus.length} reclassement(s) refusé(s) : rien n'est écrit.`)
+  }
+  const apres = base.map(q => reclassees.get(q.id) ?? q)
+  ecrireLaBase(new Map(CATEGORIES.map(c => [c, apres.filter(q => q.meta.categorie === c)])))
+  console.log(`${reclassees.size} question(s) reclassée(s), sous leur identifiant. La base en compte ${base.length}.`)
+}
+
+/** Le thème d'une commande, s'il a un inventaire ; sinon, l'erreur dit lesquels en ont un. */
+function themeAInventaire(cle: string | undefined) {
+  const theme = sujetParCle(cle)
+  if (theme && inventairesDuTheme(theme).length > 0) return theme
+  throw new Error(`un thème qui a un inventaire : ${SUJETS.filter(s => inventairesDuTheme(s).length > 0).map(s => s.cle).join(', ')}`)
+}
+
+/**
+ * L'inventaire d'un thème en clair, à relire avant une génération : chaque
+ * sous-thème, son périmètre, sa prudence, puis chaque famille, ce qu'une
+ * commande de six cents questions lui donnerait (`repartirLesFamilles`), et
+ * ses sujets.
+ */
+function inventaireEnClair(cle: string | undefined, total = 600) {
+  const theme = themeAInventaire(cle)
+  const inventaires = inventairesDuTheme(theme)
+  const parts = repartirLesFamilles(inventaires, total)
+  const lignes = [`# ${theme.nom} — l'inventaire`, '', `Sur ${total} questions à écrire, ce que chaque famille en recevrait.`]
+  for (const inventaire of inventaires) {
+    const nom = SOUS_THEMES[inventaire.categorie].find(s => s.cle === inventaire.sousTheme)?.nom
+    const siennes = parts.filter(p => p.inventaire === inventaire)
+    lignes.push('', `## ${inventaire.categorie} › ${nom} — ${siennes.reduce((s, p) => s + p.n, 0)} questions`, '', inventaire.perimetre)
+    if (inventaire.prudence) lignes.push('', `*Prudence : ${inventaire.prudence}*`)
+    for (const { famille, n } of siennes) lignes.push('', `### ${famille.nom} — ${n} questions`, '', famille.sujets.map(s => lireLeSujet(s).nom).join(' · '))
+  }
+  process.stdout.write(`${lignes.join('\n')}\n`)
+}
+
+/**
+ * Ce que l'inventaire d'un thème a déjà (`couverture`) : pour chaque famille,
+ * les sujets qu'aucune de ses questions n'aborde, puis ceux qui n'en ont
+ * qu'une — la base, et les lots nommés, pas encore rangés.
+ */
+function couvertureDuTheme(cle: string | undefined, fichiers: string[]) {
+  const theme = themeAInventaire(cle)
+  const lots = fichiers.flatMap(f => lireLot(f).flatMap(brut => {
+    const lu = lireQuestionDeLaBase(brut, { sansId: true })
+    return 'question' in lu ? [lu.question] : []
+  }))
+  const siennes = [...lireLaBase().questions, ...lots].filter(q => sujetsDe(q.meta).includes(theme.cle))
+  console.log(`${theme.nom} : ${siennes.length} questions${lots.length > 0 ? `, dont ${lots.length} des lots` : ''}.`)
+  for (const inventaire of inventairesDuTheme(theme)) {
+    const deLui = siennes.filter(q => q.meta.categorie === inventaire.categorie && q.meta.sousTheme === inventaire.sousTheme).length
+    console.log(`\n${inventaire.categorie} › ${inventaire.sousTheme} : ${deLui} questions`)
+    for (const { famille, sujets } of couverture(inventaire, siennes)) {
+      const aucune = sujets.filter(s => s.questions === 0).map(s => s.nom)
+      const une = sujets.filter(s => s.questions === 1).map(s => s.nom)
+      console.log(`  ${famille} — ${sujets.length - aucune.length}/${sujets.length} sujets abordés`)
+      if (aucune.length > 0) console.log(`    sans question : ${aucune.join(' · ')}`)
+      if (une.length > 0) console.log(`    une seule : ${une.join(' · ')}`)
+    }
+  }
+}
+
 function stats() {
   const { questions, refusees } = lireLaBase()
   console.log(`${questions.length} questions${refusees.length ? `, ${refusees.length} entrée(s) défectueuse(s)` : ''}\n`)
@@ -311,6 +420,13 @@ if (commande === 'verifier') {
   retirer(args)
 } else if (commande === 'racines') {
   racines()
+} else if (commande === 'reclasser') {
+  if (args.length !== 1) throw new Error('reclasser <reclassements.json>')
+  reclasser(args[0])
+} else if (commande === 'inventaire') {
+  inventaireEnClair(args[0])
+} else if (commande === 'couverture') {
+  couvertureDuTheme(args[0], args.slice(1))
 } else {
-  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | racines | fiche | appliquer | retirer')
+  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | racines | fiche | appliquer | retirer | reclasser | inventaire | couverture')
 }
