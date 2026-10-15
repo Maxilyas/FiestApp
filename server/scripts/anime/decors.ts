@@ -1,8 +1,9 @@
 // Les décors peints : le Calendrier des Heures, les quatre thèmes qui se
 // gagnent sans se vendre (l'Horloge astronomique, le Ciel du jour, les Très
 // Riches Heures, le Sommet), deux fonds de carte (le Triomphe, le Cadran
-// solaire), et le trésor du coffre de la semaine (`shared/coffre.ts`) : ses
-// six fonds de carte, et les quatre coffres, fermés puis ouverts.
+// solaire), le trésor du coffre de la semaine (`shared/coffre.ts`) : ses
+// six fonds de carte, et les quatre coffres, fermés puis ouverts — et les
+// douze fonds des savoirs, un par catégorie, que la boutique vend.
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/decors.ts --groupe=calendrier,horloge [--lot]
 //   … --seulement=horloge-cadran            # un essai, une image
@@ -58,8 +59,8 @@ function mettreDeCote(nom: string) {
 // ── Les consignes ─────────────────────────────────────────────────────────
 // En anglais, comme celles des portraits et des légendaires.
 
-type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds' | 'tresor'
-const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds', 'tresor']
+type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds' | 'tresor' | 'savoirs'
+const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds', 'tresor', 'savoirs']
 
 interface Travail {
   nom: string
@@ -355,6 +356,80 @@ export const FONDS_DU_TRESOR: { cle: string; sujet: string }[] = [
 ]
 
 /**
+ * Les fonds des savoirs, que la boutique vend (le souhait du propriétaire du
+ * 15 octobre 2026 : « de la variété par rapport à ce que l'on a déjà », « en
+ * rapport avec les thèmes des catégories ») : un par catégorie
+ * (`shared/categories.ts`), chacun sa palette et son sujet, loin des treize
+ * fonds d'avant — trois nuits étoilées, un théâtre, une bibliothèque — et des
+ * thèmes de la boutique : la Savane plutôt que la Jungle, la terre battue
+ * plutôt que le Stade, la table de jeux plutôt que le néon de l'Arcade, les
+ * Années folles plutôt que le Carnaval. Le nom est la clé de
+ * `shared/fonds.ts` ; la classe de la carte, `.fond-<clé>`.
+ */
+export const FONDS_DES_SAVOIRS: { cle: string; sujet: string }[] = [
+  {
+    cle: 'musee',
+    sujet:
+      'The Museum at Night: the great hall of an old museum after closing time, cold moonlight falling through a vaulted glass-and-iron roof at the top, the huge skeleton of a dinosaur arching along one side, white marble statues on pedestals and gilded picture frames holding abstract paintings along the other, an antique globe and a suspended model of the planets, a polished checkerboard marble floor at the bottom; the middle is calm shadowed air. Palette: moonlit blue-grey, white marble and warm gold.',
+  },
+  {
+    cle: 'egypte',
+    sujet:
+      'The Egyptian Temple: a hypostyle hall of colossal sandstone columns with papyrus capitals receding on both sides, their shafts covered with purely ornamental carved patterns (no readable hieroglyphs, no script), two colossal seated statues of pharaohs flanking a far doorway that glows with warm light, flames in bronze braziers, a golden scarab amulet, a canopic jar and gold treasures at the bottom; the middle is calm warm shadow. Palette: sandstone ochre, turquoise and lapis-blue accents, amber torchlight and gold.',
+  },
+  {
+    cle: 'navigateurs',
+    sujet:
+      'The Navigators’ Chart: an antique hand-painted sea chart on dark aged parchment filling the whole canvas, a large ornate compass rose with gilded points near the bottom, fine rhumb lines radiating across the sea, a sailing galleon and a coiling sea serpent along the edges, stylized coastlines and small islands, a brass navigator’s divider and a spyglass lying on the chart at the bottom; strictly no lettering, no labels, no place names and no numbers anywhere on the map; the middle is calm, empty dark sea. Palette: deep teal sea, sepia parchment, burnt umber and gold.',
+  },
+  {
+    cle: 'foudre',
+    sujet:
+      'The Lightning Laboratory: a nineteenth-century scientist’s laboratory at night, a great copper Tesla coil on one side throwing branching violet-white electric arcs toward a brass sphere on the other side, glass vacuum tubes glowing blue, a brass orrery, glass flasks and coils of copper wire on a workbench at the bottom; the middle is calm dark air crossed only by a faint thin spark. Palette: deep violet, electric blue, copper and brass.',
+  },
+  {
+    cle: 'savane',
+    sujet:
+      'The Savanna at Dusk: the African savanna after sunset, the silhouettes of flat-topped acacia trees on both sides, a giraffe and a family of elephants walking in silhouette along the bottom, tall golden grass, a huge pale moon rising near the top among the first stars, a last band of orange and violet light low on the horizon; the middle is calm deepening twilight sky. Palette: indigo dusk, burnt orange, ochre grass and gold.',
+  },
+  {
+    cle: 'salle-obscure',
+    sujet:
+      'The Picture Palace: an empty old cinema in darkness, the long beam of a film projector crossing the image diagonally from a small window high on one side, dust motes sparkling in the beam, strips of film and reels unspooling along the edges, rows of red velvet seats at the bottom, golden art-deco wall sconces glowing softly; the screen itself is out of view; the middle is calm darkness. Palette: black, crimson velvet, warm amber light and gold.',
+  },
+  {
+    cle: 'jazz',
+    sujet:
+      'The Jazz Club: an empty, intimate jazz club at midnight, a golden saxophone and a double bass resting on a little stage on one side, the curve of a black grand piano with gleaming keys at the bottom, a vinyl record and a few sheets of blank staff paper (no notes, no writing), soft violet and blue light through drifting smoke, small round tables with candles; the middle is calm smoky shadow. Palette: midnight blue, violet, warm brass and gold.',
+  },
+  {
+    cle: 'vitrail',
+    sujet:
+      'The Stained Glass: inside a gothic cathedral at dusk, a great rose window of stained glass glowing in jewel colors near the top, tall lancet windows of stained glass along both sides casting pools of colored light onto stone pillars, rows of small candles flickering at the bottom; the glass shows abstract geometric and floral patterns only (no figures, no faces, no letters); the middle is calm dark stone and shadow. Palette: ruby, sapphire, emerald and amber glass, dark stone and gold.',
+  },
+  {
+    cle: 'terre-battue',
+    sujet:
+      'The Clay Court: a grand tennis stadium at dusk seen from the stands, the warm terracotta clay court with crisp white lines and the net at the bottom, a few yellow tennis balls and a wooden racket resting on the clay in the foreground, the empty bottle-green stands curving around, tall floodlights just switching on at the top corners in a deep blue evening sky; no logos, no advertising, no scoreboard; the middle is calm darkening sky. Palette: terracotta orange, bottle green, dusk blue and gold.',
+  },
+  {
+    cle: 'epices',
+    sujet:
+      'The Spice Market: a covered oriental spice market at night, conical heaps of saffron, paprika, turmeric and cinnamon in copper bowls and wooden barrels at the bottom, hanging pierced-brass lanterns casting star-shaped patterns of light on the walls, strings of dried red chili peppers, sacks of dried rosebuds and star anise, a steaming copper teapot; the middle is calm warm shadow. Palette: saffron yellow, paprika red, cinnamon brown, copper and gold.',
+  },
+  {
+    cle: 'table-de-jeux',
+    sujet:
+      'The Game Table: a cozy game room at night, a large wooden table covered in green felt at the bottom with a chessboard, carved chess pieces, scattered dice of many shapes, a fan of playing cards with blank faces and game tokens, a vintage pinball machine glowing softly on one side, shelves of plain board game boxes without titles along the other, a warm lamp hanging from the top; the middle is calm warm shadow. Palette: walnut brown, felt green, warm lamplight and gold.',
+  },
+  {
+    cle: 'annees-folles',
+    sujet:
+      'The Roaring Twenties: a grand art-deco ballroom after midnight, empty of guests, a tall tower of champagne coupes sparkling at the bottom, black-and-gold geometric art-deco patterns and sunburst motifs along the edges, strings of pearls and white ostrich feathers, gold streamers and confetti drifting, a crystal chandelier glowing at the top; the middle is calm dark shadow. Palette: black, champagne gold, ivory and a touch of emerald.',
+  },
+]
+
+/**
  * Un coffre de la semaine, peint fermé sur un fond uni qu'on détoure, puis
  * repeint ouvert sur la même pose. Ni lueur ni rayon : la lumière qui en
  * jaillit, les rayons et les étincelles sont ceux de la page, qui les anime
@@ -497,6 +572,7 @@ const TRAVAUX: Travail[] = [
     ),
   },
   ...FONDS_DU_TRESOR.map(f => ({ nom: `fond-${f.cle}`, groupe: 'tresor' as const, format: '2:3' as const, taille: '2K' as const, consigne: FOND_DE_CARTE(f.sujet) })),
+  ...FONDS_DES_SAVOIRS.map(f => ({ nom: `fond-${f.cle}`, groupe: 'savoirs' as const, format: '2:3' as const, taille: '2K' as const, consigne: FOND_DE_CARTE(f.sujet) })),
   ...COFFRES_A_PEINDRE.flatMap(c => [
     { nom: `coffre-${c.rang}-ferme`, groupe: 'tresor' as const, format: '1:1' as const, taille: '1K' as const, consigne: COFFRE_FERME(c.matiere) },
     {
@@ -881,6 +957,7 @@ try {
     'fond-triomphe',
     'fond-cadran',
     ...FONDS_DU_TRESOR.map(f => `fond-${f.cle}`),
+    ...FONDS_DES_SAVOIRS.map(f => `fond-${f.cle}`),
   ]) {
     const f = existant(nom)
     if (!f) continue
@@ -1064,7 +1141,7 @@ function livrer() {
     })()
     const avant = new Map([...dedans.matchAll(/\.carte-fond\.fond-([\w-]+) \{ --fond-peint: url\(\/decors\/([^)]+)\); \}/g)].map(m => [m[1], m[2]]))
     const lignes: string[] = []
-    for (const cle of ['triomphe', 'cadran', ...FONDS_DU_TRESOR.map(f => f.cle)]) {
+    for (const cle of ['triomphe', 'cadran', ...FONDS_DU_TRESOR.map(f => f.cle), ...FONDS_DES_SAVOIRS.map(f => f.cle)]) {
       if (complet(`fond-${cle}-720`)) lignes.push(`.carte-fond.fond-${cle} { --fond-peint: url(${adresse(`fond-${cle}-720`)}); }`)
       else if (avant.has(cle)) {
         garder.add(avant.get(cle)!)

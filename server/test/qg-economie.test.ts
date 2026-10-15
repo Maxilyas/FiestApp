@@ -14,6 +14,7 @@ import { ProfileStore } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES, semaineAvant, semaineDe } from '../../shared/campagne'
 import { COMPAGNONS, PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
+import { PRIX_D_UN_FOND } from '../../shared/fonds'
 import { recompenseDeLaSemaine, releverLesDuels } from '../../shared/duels'
 import { jourDe } from '../../shared/jour'
 import { gainVide, releveVide } from '../../shared/profil'
@@ -87,11 +88,12 @@ test('les confettis jour par jour, les étoiles et les ligues datées, la circul
     { quand: aujourdhui + 10 * H, sorte: 'themes', objets: 1, article: 'aurore', confettis: 400 },
     { quand: aujourdhui + 11 * H, sorte: 'vies', objets: 3, article: null, confettis: 3 * PRIX_D_UNE_VIE },
     { quand: hier + 11 * H, sorte: 'vies', objets: 2, article: null, confettis: 2 * PRIX_D_UNE_VIE },
+    { quand: hier + 13 * H, sorte: 'fonds', objets: 1, article: 'jazz', confettis: PRIX_D_UN_FOND },
     { quand: maintenant + H, sorte: 'compagnons', objets: 1, article: 'loup', confettis: PRIX_D_UN_COMPAGNON },
   )
   const f = fluxDeConfettis(m, minuits, maintenant)
   assert.deepEqual(f.jours.at(-1), { jour: jourDe(maintenant), gagnes: 12, depenses: 475 }, 'un achat à venir ne compte pas encore')
-  assert.deepEqual(f.jours.at(-2), { jour: jourDe(hier + 12 * H), gagnes: 38, depenses: 50 })
+  assert.deepEqual(f.jours.at(-2), { jour: jourDe(hier + 12 * H), gagnes: 38, depenses: 50 + PRIX_D_UN_FOND })
   assert.deepEqual(
     f.sources,
     { campagne: 20, jour: 0, soirees: 0, ligues: 30, etoiles: 0, missions: 0, coffres: 0, dons: 0 },
@@ -100,10 +102,11 @@ test('les confettis jour par jour, les étoiles et les ligues datées, la circul
   assert.deepEqual(f.depenses, {
     themes: { objets: 1, confettis: 400 },
     compagnons: { objets: 0, confettis: 0 },
+    fonds: { objets: 1, confettis: PRIX_D_UN_FOND },
     vies: { objets: 5, confettis: 5 * PRIX_D_UNE_VIE },
     sabliers: { objets: 0, confettis: 0 },
   })
-  assert.deepEqual(f.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, vies: 1, sabliers: 0 })
+  assert.deepEqual(f.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 1, sabliers: 0 })
   assert.deepEqual([f.aujourdhui.achats.aujourdhui, f.aujourdhui.gagnes.aujourdhui, f.aujourdhui.depenses.aujourdhui], [2, 12, 475])
 
   // Les étoiles d'un palier : la meilleure note paie, une meilleure ne paie que la différence, à l'épreuve qui l'atteint.
@@ -272,8 +275,9 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
       const ligne = db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, 50, ?, ?)')
       ligne.run(deLea, `${jourDe(hier)}-soiree`, 'banc', detail(6), hier + 9 * H)
       ligne.run(deLea, '#jour', 'banc', detail(50), hier + 9 * H)
-      // Les achats d'avant : un compagnon avant-hier, deux vies hier, un sablier tantôt.
+      // Les achats d'avant : un compagnon et un fond des savoirs avant-hier, deux vies hier, un sablier tantôt.
       db.prepare('INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, ?, 0, ?)').run(deLea, 'loup', PRIX_D_UN_COMPAGNON, avantHier)
+      db.prepare('INSERT INTO profile_fonds (profile_id, fond, prix, created_at) VALUES (?, ?, ?, ?)').run(deLea, 'jazz', PRIX_D_UN_FOND, avantHier)
       db.prepare('INSERT INTO profile_vies (id, profile_id, nombre, prix, created_at) VALUES (?, ?, 2, ?, ?)').run(randomUUID(), deTom, 2 * PRIX_D_UNE_VIE, hier)
       db.prepare('INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, 50, ?)').run(randomUUID(), deTom, tantot)
       // Deux Éclats : un au quiz du jour d'hier, un en soirée.
@@ -307,6 +311,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     assert.deepEqual(page.depenses, {
       themes: { objets: 1, confettis: PRIX_DES_THEMES.commune },
       compagnons: { objets: 1, confettis: PRIX_D_UN_COMPAGNON },
+      fonds: { objets: 1, confettis: PRIX_D_UN_FOND },
       vies: { objets: 2, confettis: 2 * PRIX_D_UNE_VIE },
       sabliers: { objets: 1, confettis: 50 },
     })
@@ -318,7 +323,7 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     assert.equal(page.jours.at(-1)!.jour, jourDe(maintenant))
     assert.equal(page.aujourdhui.gagnes.aujourdhui, 3 + 4 + 240 + 90 + (lundiQuiPaie(passee) >= minuit ? ligues : 0))
     assert.equal(page.aujourdhui.depenses.aujourdhui, PRIX_DES_THEMES.commune + 50)
-    assert.deepEqual(page.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, vies: 0, sabliers: 1 })
+    assert.deepEqual(page.aujourdhui.achatsParSorte, { themes: 1, compagnons: 0, fonds: 0, vies: 0, sabliers: 1 })
 
     // La circulation : la somme des soldes que la fiche de chaque profil donne, au confetti près.
     const ids = base(banc, db => (db.prepare('SELECT id FROM profiles').all() as { id: string }[]).map(r => r.id))
@@ -329,13 +334,18 @@ test('l’économie sur un vrai serveur : chaque source et chaque achat à sa pl
     assert.equal(c.profils, ids.length)
     assert.equal(c.actifs, 2, 'Léa et Tom ont joué ces trente jours')
     assert.equal(c.tranches.reduce((n, t) => n + t.profils, 0), ids.length)
-    // Les ventes : le thème et le compagnon, chacun une fois, ces trente jours.
+    // Les ventes : le thème, le compagnon et le fond, chacun une fois, ces trente jours.
     assert.deepEqual(
       page.ventes.map(v => [v.article, v.ventes, v.recentes]).sort(),
       [
         ['loup', 1, 1],
+        ['jazz', 1, 1],
         [theme.key, 1, 1],
       ].sort(),
+    )
+    assert.deepEqual(
+      page.ventes.find(v => v.article === 'jazz'),
+      { sorte: 'fond', article: 'jazz', nom: 'Le Club de jazz', rarete: 'Fond de carte', ventes: 1, recentes: 1 },
     )
     assert.deepEqual(page.eclats, { total: 2, jour: 1, soirees: 1, defi: 0 })
     assert.deepEqual(page.legendaires, { porteurs: 1, plusPortes: [{ cle: 'lg:phenix', nom: 'Le Phénix', porteurs: 1 }] })

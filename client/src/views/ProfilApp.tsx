@@ -389,6 +389,24 @@ export function ProfilApp() {
     }
   }
 
+  /** Acheter un fond des savoirs : le serveur rend ses fonds relus, le nouveau compris — la loge le propose sans recharger. */
+  const acheterFond = async (cle: string, porter: boolean): Promise<string | null> => {
+    if (enregistrement.current) return null
+    enregistrement.current = true
+    setBusy(true)
+    setAnnonce('')
+    try {
+      const { profile, boutique, fond, fonds } = await api.joueur.acheterFond(cle, porter)
+      setProfil(p => (p ? { ...p, ...profile, boutique, fond, fonds } : p))
+      return null
+    } catch (e) {
+      return motifDe(e)
+    } finally {
+      enregistrement.current = false
+      setBusy(false)
+    }
+  }
+
   // Le lendemain, l'accueil ne connaissait aucune soirée jouée : il fallait
   // taper `/<espace>/bilan`. La dernière gardée sur ce téléphone, tous
   // espaces confondus — rien ne quitte le téléphone —, en une ligne sous
@@ -576,6 +594,7 @@ export function ProfilApp() {
             enregistrer={enregistrer}
             acheter={acheter}
             acheterCompagnon={acheterCompagnon}
+            acheterFond={acheterFond}
             onSolde={solde =>
               setProfil(p =>
                 p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,

@@ -336,9 +336,10 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 
 ### Les thèmes et la boutique
 
-- `server/test/boutique.test.ts` — les trois rayons de la boutique.
+- `server/test/boutique.test.ts` — les quatre rayons de la boutique.
 - `server/test/decors-peints.test.ts` — les décors peints.
 - `server/test/fonds.test.ts` — les fonds de carte.
+- `server/test/fonds-des-savoirs.test.ts` — les fonds des savoirs : l'achat, ses refus, le QG, la suppression.
 - `server/test/gerbes.test.ts` — les gerbes.
 - `server/test/heros.test.ts` — les pages phares.
 - `server/test/themes.test.ts` — les thèmes et leurs confettis.

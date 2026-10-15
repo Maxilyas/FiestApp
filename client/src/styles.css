@@ -4183,6 +4183,18 @@ h3 > .icon {
 .carte-fond.fond-bibliotheque { --fond-peint: url(/decors/fond-bibliotheque-720.1dba48651d.webp); }
 .carte-fond.fond-dragon { --fond-peint: url(/decors/fond-dragon-720.1c9ed04276.webp); }
 .carte-fond.fond-cite-celeste { --fond-peint: url(/decors/fond-cite-celeste-720.6361d06178.webp); }
+.carte-fond.fond-musee { --fond-peint: url(/decors/fond-musee-720.013d0ec727.webp); }
+.carte-fond.fond-egypte { --fond-peint: url(/decors/fond-egypte-720.3d564ce199.webp); }
+.carte-fond.fond-navigateurs { --fond-peint: url(/decors/fond-navigateurs-720.b4875f267d.webp); }
+.carte-fond.fond-foudre { --fond-peint: url(/decors/fond-foudre-720.19557f0a1f.webp); }
+.carte-fond.fond-savane { --fond-peint: url(/decors/fond-savane-720.84a854823e.webp); }
+.carte-fond.fond-salle-obscure { --fond-peint: url(/decors/fond-salle-obscure-720.277891691d.webp); }
+.carte-fond.fond-jazz { --fond-peint: url(/decors/fond-jazz-720.abe5f5a77a.webp); }
+.carte-fond.fond-vitrail { --fond-peint: url(/decors/fond-vitrail-720.2b33730b1e.webp); }
+.carte-fond.fond-terre-battue { --fond-peint: url(/decors/fond-terre-battue-720.40a4a28ae2.webp); }
+.carte-fond.fond-epices { --fond-peint: url(/decors/fond-epices-720.0af27890fb.webp); }
+.carte-fond.fond-table-de-jeux { --fond-peint: url(/decors/fond-table-de-jeux-720.1c5b3b3a0d.webp); }
+.carte-fond.fond-annees-folles { --fond-peint: url(/decors/fond-annees-folles-720.2efc802b5c.webp); }
 /* ── Fin des décors peints ── */
 .carte-fond.fond-triomphe,
 .carte-fond.fond-cadran,
@@ -4191,7 +4203,19 @@ h3 > .icon {
 .carte-fond.fond-abysses,
 .carte-fond.fond-bibliotheque,
 .carte-fond.fond-dragon,
-.carte-fond.fond-cite-celeste {
+.carte-fond.fond-cite-celeste,
+.carte-fond.fond-musee,
+.carte-fond.fond-egypte,
+.carte-fond.fond-navigateurs,
+.carte-fond.fond-foudre,
+.carte-fond.fond-savane,
+.carte-fond.fond-salle-obscure,
+.carte-fond.fond-jazz,
+.carte-fond.fond-vitrail,
+.carte-fond.fond-terre-battue,
+.carte-fond.fond-epices,
+.carte-fond.fond-table-de-jeux,
+.carte-fond.fond-annees-folles {
   background: var(--fond-peint) center top / cover no-repeat, #160c18;
   border-color: var(--fond-or);
 }
@@ -4225,6 +4249,45 @@ h3 > .icon {
 }
 .carte-fond.fond-cite-celeste::before {
   background: linear-gradient(180deg, rgba(26, 12, 32, 0.6) 0%, rgba(26, 12, 32, 0.66) 36%, rgba(26, 12, 32, 0.74) 64%, rgba(26, 12, 32, 0.82) 100%);
+}
+
+/* Les douze fonds des savoirs (le 15 octobre 2026), un par catégorie, les
+   seuls que la boutique vend : peints comme ceux du trésor, et leur voile à
+   la mesure de leur lumière — léger sur les nuits de la carte marine, de la
+   foudre, du cinéma, du jazz et des Années folles ; plus épais sur les ors
+   chauds des épices, de la table de jeux, du vitrail et de la savane ; épais
+   sur ce qui est peint clair au milieu — le grès du temple, le marbre du
+   musée, la terre battue sous le ciel du soir —, où l'encre claire doit
+   tenir comme ailleurs. */
+.carte-fond.fond-musee { background-color: #0e1218; }
+.carte-fond.fond-egypte { background-color: #1a1008; }
+.carte-fond.fond-navigateurs { background-color: #061416; }
+.carte-fond.fond-foudre { background-color: #0d0a1c; }
+.carte-fond.fond-savane { background-color: #0d0e1f; }
+.carte-fond.fond-salle-obscure { background-color: #0c0607; }
+.carte-fond.fond-jazz { background-color: #0a0b1e; }
+.carte-fond.fond-vitrail { background-color: #0d0a0c; }
+.carte-fond.fond-terre-battue { background-color: #0b1220; }
+.carte-fond.fond-epices { background-color: #160b05; }
+.carte-fond.fond-table-de-jeux { background-color: #0d0f09; }
+.carte-fond.fond-annees-folles { background-color: #080706; }
+.carte-fond.fond-navigateurs::before,
+.carte-fond.fond-foudre::before,
+.carte-fond.fond-salle-obscure::before,
+.carte-fond.fond-jazz::before,
+.carte-fond.fond-annees-folles::before {
+  background: linear-gradient(180deg, rgba(6, 8, 20, 0.3) 0%, rgba(6, 8, 20, 0.42) 40%, rgba(6, 8, 20, 0.62) 70%, rgba(6, 8, 20, 0.72) 100%);
+}
+.carte-fond.fond-savane::before,
+.carte-fond.fond-vitrail::before,
+.carte-fond.fond-epices::before,
+.carte-fond.fond-table-de-jeux::before {
+  background: linear-gradient(180deg, rgba(10, 7, 6, 0.4) 0%, rgba(10, 7, 6, 0.5) 40%, rgba(10, 7, 6, 0.66) 68%, rgba(10, 7, 6, 0.76) 100%);
+}
+.carte-fond.fond-musee::before,
+.carte-fond.fond-egypte::before,
+.carte-fond.fond-terre-battue::before {
+  background: linear-gradient(180deg, rgba(14, 10, 8, 0.56) 0%, rgba(14, 10, 8, 0.62) 36%, rgba(14, 10, 8, 0.72) 64%, rgba(14, 10, 8, 0.8) 100%);
 }
 
 /* L'aperçu, sur sa page : le même décor, en vignette. */
@@ -9200,6 +9263,36 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
+
+/* Le rayon des fonds : les douze fonds des savoirs, chacun sa carte posée
+   dessus — l'avatar et le prénom de celui qui regarde, comme la salle les
+   voit quand elle touche son nom —, son nom et son prix dessous. La fiche
+   suit sa carte, de toute la largeur (`dense`, comme les thèmes), et montre
+   la carte en grand. Le savoir du fond, au pied de la carte, à l'or du
+   décor : il reste nocturne sous tous les thèmes. */
+.rayon-fonds { display: flex; flex-direction: column; gap: 12px; }
+.vitrine-fonds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; grid-auto-flow: dense; }
+.fond-vitrine { position: relative; display: flex; flex-direction: column; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
+.fond-vitrine:hover, .fond-vitrine.ouverte { box-shadow: 0 0 0 1px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.3); }
+.fond-porte { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.3); }
+.fond-carte { display: flex; flex-direction: column; justify-content: space-between; aspect-ratio: 2 / 3; padding: 10px; }
+.fond-carte-tete { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fond-carte-tete b { min-width: 0; font-family: var(--serif); font-size: 1rem; font-weight: 600; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fond-carte-tete .lb-avatar { flex: none; font-size: 1.45rem; }
+.fond-carte-savoir { align-self: flex-start; max-width: 100%; padding: 2px 8px; border: 1px solid rgba(var(--fond-or-rgb), 0.55); border-radius: var(--radius-pill); background: rgba(8, 6, 10, 0.6); color: var(--fond-or); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.03em; text-shadow: none; overflow-wrap: anywhere; }
+.fond-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
+.fond-vitrine-pied b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
+.fond-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* Trop cher : la carte s'éteint un peu, et ce qui manque se lit à la place du prix. */
+.fond-cher .fond-carte { filter: saturate(0.6) brightness(0.8); }
+.fond-cher .fond-vitrine-prix { color: var(--muted); }
+.fond-a-toi .fond-vitrine-prix,
+.fond-porte .fond-vitrine-prix { color: var(--ink); }
+.detail-fond { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.fond-carte-grande { width: min(240px, 72%); padding: 16px; border: 1px solid var(--fond-or); border-radius: var(--radius); box-shadow: var(--shadow-dialog); }
+.fond-carte-grande .fond-carte-tete { flex-direction: column; gap: 6px; }
+.fond-carte-grande .fond-carte-tete b { font-size: 1.35rem; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+.fond-carte-avatar { font-size: 3rem; }
 /* « Ma collection » : les thèmes en album — une page par rareté, chaque
    thème en vignette, à sa place du catalogue : en couleur ceux qu'on a, en
    gris ceux qui restent, bordés de leur gemme. Huit par rangée au téléphone,
@@ -9455,32 +9548,114 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .fin-record { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
 .fin-record .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
 .fin-record b { font-weight: 600; }
-/* Le rayon des compagnons : une carte par compagnon — sa forme du moment en
-   grand, qui bouge (le sujet de la carte : son monde vivant en sort, il a de
-   la place autour), puis ses quatre formes sur une rangée, chacune la teinte
-   de sa rareté et ce qu'elle demande, figées dans leur disque. Acheté, la
-   carte dit où il en est. */
-.rayon-compagnons { display: flex; flex-direction: column; gap: 14px; }
-.compagnon-carte { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
-.compagnon-tete { display: flex; align-items: center; gap: 18px; }
-.compagnon-grand { flex: none; font-size: 5.25rem; line-height: 0; margin: 1.1rem 0.6rem 0.8rem; }
-.compagnon-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.compagnon-titre b { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
-.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.compagnon-forme { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 12%, transparent); }
+/* La vitrine des compagnons : une scène par compagnon, qu'on fait glisser —
+   la suivante dépasse au bord, pour qu'on devine qu'il y en a d'autres. La
+   scène est à ses couleurs (`teintesDuCompagnon` : le bleu de nuit du loup,
+   la prune du chat, le lagon de la tortue), nocturne sous tous les thèmes ;
+   il y flotte en grand, son monde vivant autour de lui, et sautille quand
+   on le touche — des cœurs s'envolent. Ses quatre formes dessous, chacune la
+   teinte de sa rareté et ce qu'elle demande, figées dans leur disque : en
+   toucher une la montre en grand. Adopté, la carte dit où il en est. */
+.rayon-compagnons { display: flex; flex-direction: column; gap: 12px; }
+.vitrine-compagnons {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 4px 6% 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.vitrine-compagnons::-webkit-scrollbar { display: none; }
+.compagnon-carte {
+  flex: 0 0 88%;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+  border: 1px solid color-mix(in srgb, var(--aura) 35%, var(--edge));
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.compagnon-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 290px;
+  padding: 0;
+  border: 0;
+  background:
+    radial-gradient(48% 40% at 50% 50%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
+    radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
+  cursor: pointer;
+  overflow: hidden;
+}
+.compagnon-bete { display: block; font-size: 9.5rem; line-height: 0; animation: compagnon-flotte 4.2s ease-in-out infinite; }
+/* Caressé : un bond, puis il reprend son vol tranquille. */
+.compagnon-bete.saute { animation: compagnon-saute 0.7s cubic-bezier(0.3, 1.5, 0.5, 1), compagnon-flotte 4.2s ease-in-out 0.7s infinite; }
+@keyframes compagnon-flotte {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-7px) scale(1.015); }
+}
+@keyframes compagnon-saute {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-24px) scale(1.06, 0.95); }
+  55% { transform: translateY(0) scale(0.96, 1.04); }
+  75% { transform: translateY(-6px) scale(1); }
+  100% { transform: translateY(0) scale(1); }
+}
+.compagnon-envols { position: absolute; inset: 0; pointer-events: none; }
+/* Une seule taille d'emoji, chacun réduit par `scale` (règle `css.md`). */
+.compagnon-envols i { position: absolute; top: 46%; left: 50%; font-size: 1.5rem; font-style: normal; line-height: 1; opacity: 0; animation: compagnon-envol 1.2s ease-out forwards; }
+.compagnon-envols i:nth-child(1) { --x: -78px; --y: -96px; --e: 0.9; }
+.compagnon-envols i:nth-child(2) { --x: -36px; --y: -128px; --e: 0.7; animation-delay: 0.06s; }
+.compagnon-envols i:nth-child(3) { --x: 6px; --y: -142px; --e: 1; animation-delay: 0.02s; }
+.compagnon-envols i:nth-child(4) { --x: 46px; --y: -118px; --e: 0.75; animation-delay: 0.1s; }
+.compagnon-envols i:nth-child(5) { --x: 82px; --y: -90px; --e: 0.85; animation-delay: 0.04s; }
+@keyframes compagnon-envol {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(calc(var(--e) * 0.5)); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--x)), var(--y)) scale(var(--e)); }
+}
+.compagnon-texte { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 16px; text-align: center; }
+.compagnon-texte p { margin: 2px 0 0; }
+.compagnon-nom { font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
+.compagnon-forme-nom { font-size: 0.85rem; font-weight: 600; color: color-mix(in srgb, var(--gemme) 65%, var(--ink)); }
+.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0 12px; list-style: none; }
+.compagnon-forme { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 10px 4px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 12%, transparent); color: inherit; font: inherit; cursor: pointer; }
+.compagnon-forme[aria-pressed='true'] { border-color: var(--gemme); box-shadow: 0 0 14px color-mix(in srgb, var(--gemme) 40%, transparent); }
 .compagnon-petit { font-size: 2.75rem; line-height: 0; }
 .compagnon-petit .pt-debord,
 .compagnon-petit .pt-aura,
 .compagnon-petit .pt-etoile { display: none; }
 .compagnon-petit .pt * { animation: none; }
 .compagnon-seuil { font-size: var(--t-label); font-weight: 700; color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); font-variant-numeric: lining-nums tabular-nums; }
-.compagnon-a-venir .compagnon-seuil { color: var(--muted); }
-.compagnon-sien { display: flex; flex-direction: column; gap: 8px; }
+/* Une forme qu'il a atteinte : sa coche dans le coin. */
+.compagnon-atteinte { position: relative; }
+.compagnon-atteinte::after { content: '✓'; position: absolute; top: 4px; right: 6px; font-size: var(--t-label); font-weight: 700; color: var(--accent-text); }
+.compagnon-sien { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
 .compagnon-sien p { display: flex; align-items: center; gap: 6px; margin: 0; }
 .compagnon-sien .icon { width: 15px; height: 15px; color: var(--accent-text); }
 .compagnon-jauge { display: flex; flex-direction: column; gap: 4px; }
-.compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.compagnon-prix { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; }
+.compagnon-prix { flex: none; font-family: var(--serif); font-size: 1.4rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.compagnon-economies { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 60%; }
+.compagnon-economies .jauge-fine { width: 100%; }
+.compagnon-astuce { margin: 0; padding: 0 16px; }
+/* Les points sous la vitrine : un par compagnon, le montré en long. Assez
+   grands pour un doigt, le point dessiné au milieu. */
+.vitrine-points { display: flex; justify-content: center; gap: 4px; margin-top: -4px; }
+.vitrine-point { display: grid; place-items: center; width: 32px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
+.vitrine-point::before { content: ''; width: 8px; height: 8px; border-radius: 4px; background: var(--edge-strong); }
+.vitrine-point[aria-current='true']::before { width: 22px; background: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .compagnon-bete,
+  .compagnon-bete.saute { animation: none; }
+  .compagnon-envols { display: none; }
+}
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

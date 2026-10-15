@@ -33,6 +33,7 @@ const total = (xs: readonly number[]) => xs.reduce((n, x) => n + x, 0)
 const MOTS_DES_ACHATS: Record<DepenseDeConfettis, [string, string]> = {
   themes: ['thème', 'thèmes'],
   compagnons: ['compagnon', 'compagnons'],
+  fonds: ['fond de carte', 'fonds de carte'],
   vies: ['achat de vies', 'achats de vies'],
   sabliers: ['sablier', 'sabliers'],
 }

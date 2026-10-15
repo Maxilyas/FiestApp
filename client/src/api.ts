@@ -390,6 +390,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ compagnon, porter }),
       }),
+    /** Acheter un fond des savoirs — le porter aussitôt, ou le garder pour plus tard. Ses fonds reviennent relus, le nouveau compris. */
+    acheterFond: (fond: string, porter = true) =>
+      req<{ profile: PublicProfile; boutique: BoutiqueDuProfil; fond: string | null; fonds: string[] }>('/api/joueur/fonds', {
+        method: 'POST',
+        body: JSON.stringify({ fond, porter }),
+      }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête

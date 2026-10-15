@@ -1,10 +1,10 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, treize fonds de carte, seize gerbes, trois compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, seize gerbes, trois compagnons — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
-Les confettis sont la monnaie des profils, et leur règle tient dans la phrase que l'application répète partout : « Une bonne réponse, un confetti ». Ils n'achètent que de l'habit — un thème pour tes pages, un compagnon pour ton avatar — et deux objets pour le jeu solo : rien de ce qui s'achète ou se gagne ici ne rapporte un point en soirée. L'invité sans profil joue en Velours, sans gerbe ni confettis, et rien ne lui montre ce qui lui manque : tout se joue sans compte. Chaque valeur citée a sa ligne dans [les barèmes](../reference/baremes.md).
+Les confettis sont la monnaie des profils, et leur règle tient dans la phrase que l'application répète partout : « Une bonne réponse, un confetti ». Ils n'achètent que de l'habit — un thème pour tes pages, un compagnon pour ton avatar, un fond pour ta carte — et deux objets pour le jeu solo : rien de ce qui s'achète ou se gagne ici ne rapporte un point en soirée. L'invité sans profil joue en Velours, sans gerbe ni confettis, et rien ne lui montre ce qui lui manque : tout se joue sans compte. Chaque valeur citée a sa ligne dans [les barèmes](../reference/baremes.md).
 
 ## Gagner des confettis
 
@@ -32,10 +32,11 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 |---|---|---|---|
 | Un thème | de 150 à 1 000 selon sa rareté (`PRIX_DES_THEMES`) | la boutique, rayon « Thèmes » | une fois chacun ; un thème de saison, pendant sa saison |
 | Un compagnon | 1 000 (`PRIX_D_UN_COMPAGNON`) | rayon « Compagnons » | une fois chacun |
+| Un fond des savoirs | 250 (`PRIX_D_UN_FOND`) | rayon « Fonds » | une fois chacun |
 | Une vie des sentiers | 25 (`PRIX_D_UNE_VIE`) | rayon « Objets », ou « Plus de vies » sur les sentiers | de 1 à 10 par achat (`VIES_PAR_ACHAT_MAX`), dans une réserve qui ne périme pas |
 | Un sablier | 50 (`PRIX_D_UN_SABLIER`) | rayon « Objets » ; le quiz du jour y mène | un ou deux à la fois, deux au plus en réserve (`SABLIERS_MAX`) |
 
-Le serveur compte chaque achat contre ton solde relu à l'instant, **un seul à la fois par profil** — deux onglets ou un double toucher liraient le même solde —, et la page affiche le solde qu'il rend, jamais une soustraction faite dans le téléphone. Un refus se dit en clair, là où tu as touché : « Il te manque 150 confettis pour le thème Cahier d'écolier », « Le thème Halloween revient en boutique du 25 octobre au 1er novembre ». Les fonds, les gerbes et les cinq thèmes qui se gagnent ne s'achètent pas ; rien ne se rembourse, ne se revend ni ne se donne entre joueurs.
+Le serveur compte chaque achat contre ton solde relu à l'instant, **un seul à la fois par profil** — deux onglets ou un double toucher liraient le même solde —, et la page affiche le solde qu'il rend, jamais une soustraction faite dans le téléphone. Un refus se dit en clair, là où tu as touché : « Il te manque 150 confettis pour le thème Cahier d'écolier », « Le thème Halloween revient en boutique du 25 octobre au 1er novembre ». Les gerbes, les cinq thèmes qui se gagnent et les fonds qui se gagnent ou sortent du coffre ne s'achètent pas ; rien ne se rembourse, ne se revend ni ne se donne entre joueurs.
 
 ## Un solde qui se relit
 
@@ -47,7 +48,7 @@ flowchart LR
   J["Quiz du jour"] --> G
   C["Campagne : bonnes réponses,<br/>étoiles, ligues"] --> G
   D["Dons de l'administrateur"] --> G
-  A["Thèmes, compagnons,<br/>vies, sabliers"] --> P["Dépensés"]
+  A["Thèmes, compagnons, fonds,<br/>vies, sabliers"] --> P["Dépensés"]
   G --> R["Solde = gagnés − dépensés"]
   P --> R
 ```
@@ -58,7 +59,7 @@ flowchart LR
 
 ## La boutique et ses rayons
 
-La boutique (`/boutique`) est dans la barre du menu, entre « Profil » et « Compte » : en tête, « Boutique » et ton solde, puis trois rayons sous une barre d'onglets fine, chacun à son adresse — « Thèmes » (`/boutique`), « Compagnons » (`/boutique#compagnons`), « Objets » (`/boutique#objets`). La fin d'une soirée y mène par « La boutique des thèmes », le quiz du jour par « Un sablier à la boutique · 50 confettis ». Sans profil, `/boutique` ouvre l'accueil et ses trois gros boutons, « Jouer sans compte » d'abord.
+La boutique (`/boutique`) est dans la barre du menu, entre « Profil » et « Compte » : en tête, « Boutique » et ton solde, puis quatre rayons sous une barre d'onglets fine, chacun à son adresse — « Thèmes » (`/boutique`), « Compagnons » (`/boutique#compagnons`), « Fonds » (`/boutique#fonds`), « Objets » (`/boutique#objets`). La fin d'une soirée y mène par « La boutique des thèmes », le quiz du jour par « Un sablier à la boutique · 50 confettis ». Sans profil, `/boutique` ouvre l'accueil et ses trois gros boutons, « Jouer sans compte » d'abord.
 
 **Le rayon « Thèmes »** ne montre que ce que tu n'as pas et que la date permet — ni les offerts, ni ceux qui se gagnent, ni un thème hors de sa saison —, une rareté à la fois, choisie sur une rangée de gemmes (d'office la plus haute où un thème est à ta portée) : « Rare · 🎊 400 le thème · 3 en boutique ». Chaque thème y est une carte bordée de la couleur de sa rareté : son aperçu — l'écran d'une question photographié sous ce thème —, son nom, son prix ou « encore 50 », sa période s'il est de saison.
 
@@ -66,7 +67,9 @@ La boutique (`/boutique`) est dans la barre du menu, entre « Profil » et « Co
 - « L'acheter » ouvre un choix : **« Acheter et porter »**, **« L'acheter seulement »** ou « Plus tard ». Acheter sans porter, c'est prendre un thème de saison avant qu'il ne parte, ou compléter son album, sans quitter celui qu'on aime. La boutique dit ensuite où il est passé : « Océan habille tes pages. », ou « Océan est à toi : le porter quand tu veux. »
 - Au pied du rayon, « 3 thèmes déjà à toi : les porter » mène à la loge.
 
-**Le rayon « Compagnons »** a une carte par compagnon : ses quatre formes et ce que chacune demande, son prix et « L'acheter » — ou « Encore 180 confettis » —, avec le même choix qu'un thème ; à toi, sa jauge, et « Le porter », qui mène à la loge ([les compagnons](#les-compagnons)).
+**Le rayon « Compagnons »** est une vitrine qu'on fait défiler du doigt, une scène par compagnon, et un point par compagnon dessous : sa forme du moment en grand, qui flotte — touchée, elle bondit et des cœurs s'envolent —, son nom et sa rareté, puis ses quatre formes en couleur, chacune avec ce qu'elle demande (« Achat », 100, 300, 500) ; toucher une forme la montre en grand sur la scène. Dessous, son prix et « L'adopter », avec le même choix qu'un thème — « L'adopter et le porter » ou « L'adopter seulement » —, ou, trop cher, « Encore 180 confettis » et ce que tes missions du jour rapportent ; à toi, sa jauge, les formes atteintes cochées, et « Le porter », qui mène à la loge ([les compagnons](#les-compagnons)). `/boutique#compagnon-tortue` ouvre la vitrine sur lui : « À la une » et la collection y mènent.
+
+**Le rayon « Fonds »** vend les douze fonds des savoirs, deux par rangée : chacun est ta carte telle que la salle la verrait — ton avatar et ton prénom posés sur le fond, le savoir qu'il habille en pastille —, son nom et son prix, ou « Porté », « À toi ». Toucher une carte ouvre sa fiche (`/boutique#fond-jazz`) : ta carte en grand, « Il coûte 250 confettis : il t'en restera 170. » et « L'acheter · 🎊 250 », avec le même choix qu'un thème — trop cher, « encore 80 » et ce que tes missions du jour rapportent ; à toi, « L'essayer sur ma carte » ouvre la loge, l'essai en place. Au pied du rayon, « 1 sur 12 à toi : le porter » mène à la loge. Les fonds du trésor n'y paraissent pas : seul le coffre de la semaine les donne, et « Ma collection » le dit ([les fonds de carte](#les-fonds-de-carte)).
 
 **Le rayon « Objets »** a une case par objet, avec son prix et ce que tu en as — « 0/2 » pour les sabliers, ta réserve pour les vies. Sa fiche (`/boutique#objet-vie`, `/boutique#objet-sablier`) dit ce qu'il fait, puis la quantité (− et +), le total, « Acheter » ou « Il te manque 30 confettis ». La vie sert après celles du jour ([les sentiers du savoir](les-sentiers-du-savoir.md)) ; le sablier garde ta série un jour manqué ([le quiz du jour](le-quiz-du-jour.md)).
 
@@ -74,9 +77,9 @@ La boutique (`/boutique`) est dans la barre du menu, entre « Profil » et « Co
 
 ![La loge au téléphone : la carte de Léa en tête, ses confettis au bout de la ligne d'expérience, puis les six pièces — Avatar, Titre, Vitrine et Fond sous « La salle voit », Thème et Gerbe sous « Toi seul »](../vitrine/captures/telephone-loge.jpg)
 
-Ce que tu as se porte dans **la loge**, « M'habiller » sur ton profil ([le profil](le-profil.md)) : la pièce « Fond », sous « La salle voit », puis « Thème » et « Gerbe », sous « Toi seul ». Chaque pièce ne montre que ce que tu as, et compte dessous ce qui reste — « 7 fonds à gagner : où ? », vers « Ma collection » ; sous « Thème », « N autres à la boutique » aussi. **Un toucher essaie, rien ne s'enregistre** : un thème touché habille toute la page, un fond s'essaie derrière ta carte, une gerbe éclate. Une barre prend la place du menu — ce que tu essaies, « Annuler », « Porter » — et « Porter » enregistre tout l'essai d'un coup ; quitter la loge rend le thème que tu portais. Quand un toucher portait pour de bon, le doigt qui voulait seulement regarder un thème en habillait déjà toutes ses pages. La fin d'une partie qui vient de t'ouvrir un fond, une gerbe ou un thème le range sous « À porter » : « Essayer » ouvre la loge sur sa pièce, l'essai déjà en place — rien ne s'enregistre avant « Porter ».
+Ce que tu as se porte dans **la loge**, « M'habiller » sur ton profil ([le profil](le-profil.md)) : la pièce « Fond », sous « La salle voit », puis « Thème » et « Gerbe », sous « Toi seul ». Chaque pièce ne montre que ce que tu as, et compte dessous ce qui reste — « 13 fonds à gagner : où ? », vers « Ma collection » ; sous « Thème » et « Fond », « N autres à la boutique » aussi. **Un toucher essaie, rien ne s'enregistre** : un thème touché habille toute la page, un fond s'essaie derrière ta carte, une gerbe éclate. Une barre prend la place du menu — ce que tu essaies, « Annuler », « Porter » — et « Porter » enregistre tout l'essai d'un coup ; quitter la loge rend le thème que tu portais. Quand un toucher portait pour de bon, le doigt qui voulait seulement regarder un thème en habillait déjà toutes ses pages. La fin d'une partie qui vient de t'ouvrir un fond, une gerbe ou un thème le range sous « À porter » : « Essayer » ouvre la loge sur sa pièce, l'essai déjà en place — rien ne s'enregistre avant « Porter ».
 
-**« Ma collection »** montre tout ce qui se gagne, en trois familles — les avatars, les trophées, puis le style. Dans le style, les thèmes en album, une page par rareté — en couleur ceux qui sont à toi, en gris les autres —, puis les fonds, les gerbes, les finitions et les bordures de ligue en petits albums : une case chacun, éteinte s'il reste à gagner, et sa fiche dit comment l'avoir et où tu en es — à toi et pas porté, « Essayer » ouvre la loge, l'essai déjà sur ta carte. Elle ne vend ni ne porte : la fiche d'un thème à gagner dit « Il ne se vend pas : il se gagne avec cinquante victoires au quiz du jour. » et mène au quiz du jour. Une gerbe y éclate au toucher, même à gagner. Et l'album des trophées dit, sous chaque étape d'une piste, le fond, la gerbe ou le thème qu'elle ouvre.
+**« Ma collection »** montre tout ce qui se gagne, en trois familles — les avatars, les trophées, puis le style. Dans le style, les thèmes en album, une page par rareté — en couleur ceux qui sont à toi, en gris les autres —, puis les fonds, les gerbes, les finitions et les bordures de ligue en petits albums : une case chacun, éteinte s'il reste à gagner, et sa fiche dit comment l'avoir et où tu en es — à toi et pas porté, « Essayer » ouvre la loge, l'essai déjà sur ta carte. Elle ne vend ni ne porte : la fiche d'un thème à gagner dit « Il ne se vend pas : il se gagne avec cinquante victoires au quiz du jour. » et mène au quiz du jour ; celle d'un fond des savoirs, son prix et ce que tu en as déjà (« 🎊 120 sur 250 »), et « Le voir en boutique » ouvre sa fiche dans le rayon ; celle d'un objet du trésor, sa rareté au coffre (« Fond de carte · Légendaire ») et tes missions du jour, qui le remplissent. Une gerbe y éclate au toucher, même à gagner. Et l'album des trophées dit, sous chaque étape d'une piste, le fond, la gerbe ou le thème qu'elle ouvre.
 
 ## Les thèmes
 
@@ -132,9 +135,15 @@ Trois thèmes peints suivent l'heure de Paris, quelle que soit celle du téléph
 
 ## Les fonds de carte
 
-Un fond se voit **derrière ta carte** quand quelqu'un l'ouvre en touchant ton nom, et sur la carte en tête de ta loge ; rien d'autre ne change, ni l'écran commun ni les classements. Les fonds ne s'achètent pas : ils se gagnent, et se relisent à chaque affichage — celui que tu ne mérites plus (une soirée retirée qui te fait redescendre sous le niveau 20) cesse de se voir sans que rien ne soit réécrit, et revient avec ce qui l'avait ouvert. Sans fond choisi, ta carte reste en Velours.
+![La boutique au téléphone, rayon « Fonds » : « Un fond par savoir · 250 chacun », puis les cartes de Léa posées sur le Musée de nuit (Culture générale), le Temple d'Égypte (Histoire), la Carte des navigateurs et le Laboratoire de la foudre, chacune avec son prix](../vitrine/captures/telephone-fonds.jpg)
 
-| Fond | Il se gagne avec | Décor |
+Un fond se voit **derrière ta carte** quand quelqu'un l'ouvre en touchant ton nom, et sur la carte en tête de ta loge ; rien d'autre ne change, ni l'écran commun ni les classements. Sans fond choisi, ta carte reste en Velours. Vingt-cinq fonds, de trois façons :
+
+- **Sept se gagnent**, et se relisent à chaque affichage — celui que tu ne mérites plus (une soirée retirée qui te fait redescendre sous le niveau 20) cesse de se voir sans que rien ne soit réécrit, et revient avec ce qui l'avait ouvert.
+- **Douze s'achètent**, les fonds des savoirs : un par catégorie de questions, tous peints, tous au même prix — 250 confettis (`PRIX_D_UN_FOND`), celui d'un thème peu commun : un fond se voit moins qu'un thème, qui habille toutes tes pages. Acheté, il est à toi pour de bon. Ils ne sortent pas du coffre de la semaine, dont les chances restent au trésor.
+- **Six sortent du coffre de la semaine**, le trésor, à sa rareté — et de nulle part ailleurs : ils ne se vendent pas ([les missions](les-missions.md)).
+
+| Fond | Il s'obtient avec | Décor |
 |---|---|---|
 | Nuit étoilée | 30 jours joués au quiz du jour | dessiné |
 | Aurore boréale | le niveau 20 | dessiné |
@@ -143,6 +152,18 @@ Un fond se voit **derrière ta carte** quand quelqu'un l'ouvre en touchant ton n
 | Cabinet de curiosités | 3 paliers de maître des sentiers (`MAITRES_DU_CABINET`) | dessiné |
 | Le Triomphe | un titre de champion du mois au quiz du jour | peint |
 | Le Cadran solaire | 50 jours dans le premier quart du quiz du jour (L'Élite · Argent) | peint |
+| Le Musée de nuit | 250 confettis en boutique — Culture générale | peint, des savoirs |
+| Le Temple d'Égypte | 250 confettis en boutique — Histoire | peint, des savoirs |
+| La Carte des navigateurs | 250 confettis en boutique — Géographie | peint, des savoirs |
+| Le Laboratoire de la foudre | 250 confettis en boutique — Sciences | peint, des savoirs |
+| La Savane au crépuscule | 250 confettis en boutique — Nature | peint, des savoirs |
+| La Salle obscure | 250 confettis en boutique — Cinéma & séries | peint, des savoirs |
+| Le Club de jazz | 250 confettis en boutique — Musique | peint, des savoirs |
+| Le Vitrail | 250 confettis en boutique — Arts & lettres | peint, des savoirs |
+| La Terre battue | 250 confettis en boutique — Sport | peint, des savoirs |
+| Le Marché aux épices | 250 confettis en boutique — Cuisine | peint, des savoirs |
+| La Table de jeux | 250 confettis en boutique — Jeux & pop culture | peint, des savoirs |
+| Les Années folles | 250 confettis en boutique — Autour de la fête | peint, des savoirs |
 | La Voie lactée | le coffre de la semaine — rare | peint, du trésor |
 | Le Jardin des lanternes | le coffre de la semaine — rare | peint, du trésor |
 | Les Abysses | le coffre de la semaine — épique | peint, du trésor |
@@ -150,7 +171,7 @@ Un fond se voit **derrière ta carte** quand quelqu'un l'ouvre en touchant ton n
 | Le Dragon d'or | le coffre de la semaine — légendaire | peint, du trésor |
 | La Cité céleste | le coffre de la semaine — légendaire | peint, du trésor |
 
-Les six du trésor ne se trouvent nulle part ailleurs : seul le coffre de la semaine les donne, à sa rareté ([les missions](les-missions.md)), et ce qu'il a donné reste à toi.
+Les six du trésor ne se trouvent nulle part ailleurs : seul le coffre de la semaine les donne, à sa rareté ([les missions](les-missions.md)), et ce qu'il a donné reste à toi. La boutique ne les montre pas, pas même en vitrine : « Ma collection » dit d'où ils viennent.
 
 Sous tous les thèmes — le tien comme celui de qui regarde —, une carte à fond garde les couleurs du Velours : le décor d'un fond est nocturne, et le thème Héros, qui la repeignait en blanc, y laissait une encre claire illisible.
 
@@ -181,7 +202,7 @@ Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neu
 
 ## Les compagnons
 
-![La boutique au téléphone, rayon « Compagnons » : le Loup, ses quatre formes en silhouette — Achat, 100, 300, 500 — et son prix, 1000 confettis, à côté de « L'acheter »](../vitrine/captures/telephone-compagnons.jpg)
+![La boutique au téléphone, rayon « Compagnons » : le Loup sur sa scène, sous sa forme ultime touchée — le loup des étoiles, légendaire —, ses quatre formes en couleur — Achat, 100, 300, 500 —, son prix, 1000 confettis, à côté de « L'adopter », et les trois points de la vitrine](../vitrine/captures/telephone-compagnons.jpg)
 
 Trois compagnons, des avatars peints, s'achètent **1 000 confettis** à leur première forme (`PRIX_D_UN_COMPAGNON`). Ils grandissent avec les bonnes réponses que tu donnes **en les portant**, comptées depuis l'achat : celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne — les étoiles et les ligues, qui paient sans être des réponses, n'y comptent pas. Une deuxième forme à 100, une troisième à 300, la forme ultime à 500 (`JUSTES_DES_FORMES`), de rareté montante : commune, rare, épique, légendaire. **Une forme atteinte ne se perd jamais**, même si une soirée retirée fait redescendre tes bonnes réponses.
 
@@ -213,7 +234,7 @@ Les jetons du CSS, les couches d'un décor et ce que les tests en gardent : [les
 
 - **Les catalogues sont purs** : `shared/themes.ts` — les thèmes, leurs prix et leurs saisons, ceux qui se gagnent, les confettis d'une soirée (`THEMES`, `PRIX_DES_THEMES`, `enBoutique`, `themeGagne`, `confettisDeSoiree`) —, `shared/fonds.ts`, `shared/gerbes.ts`, `shared/compagnons.ts` ; les albums des fonds et des gerbes dans « Ma collection », `shared/style.ts`.
 - **Chaque thème a sa feuille** dans `client/src/themes/` — Velours et Ivoire vivent dans `client/src/styles.css` —, chargée seulement quand on le porte ou l'essaie, avec ses polices (`client/public/fonts/themes/`). Ses aperçus (`client/src/themes/apercus/`) sont l'application photographiée par `server/scripts/apercus-themes.ts`, jamais une maquette. Le thème d'un profil se pose par `client/src/themeJoueur.ts`, celui de l'écran commun par `client/src/theme.ts`.
-- **Les achats vivent dans la base permanente**, une ligne par achat avec le prix payé, que rien ne modifie — sauf la forme atteinte d'un compagnon, qui ne fait que monter : `profile_achats`, `profile_compagnons`, `profile_vies`, `profile_sabliers`, et les dons dans `profile_dons`. La base locale jetable n'en sait rien.
+- **Les achats vivent dans la base permanente**, une ligne par achat avec le prix payé, que rien ne modifie — sauf la forme atteinte d'un compagnon, qui ne fait que monter : `profile_achats`, `profile_compagnons`, `profile_fonds`, `profile_vies`, `profile_sabliers`, et les dons dans `profile_dons`. La base locale jetable n'en sait rien.
 - **Le solde se dérive** : `ProfileStore.boutiqueEtDons` (`server/src/auth/profiles.ts`) lit d'un seul aller-retour tes achats et tes dons, et en même temps tes soirées, ton quiz du jour (`JourStore.justesDe`) et ta campagne (`CampagneStore.confettisDe` : bonnes réponses, étoiles, ligues). Chaque achat passe par `unAchatALaFois` ; les routes sont dans [la référence](../reference/api-http.md).
 
 Les deux bases et les journaux d'où se relisent les gains : [les données](../architecture/donnees.md).

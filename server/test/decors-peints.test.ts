@@ -1,6 +1,7 @@
 // Les décors peints (`server/scripts/anime/decors.ts`) : le Calendrier des
-// Heures, les quatre thèmes peints, huit fonds de carte — deux gagnés, six du
-// trésor — et les quatre coffres de la semaine. Leurs fichiers, servis sous
+// Heures, les quatre thèmes peints, vingt fonds de carte — deux gagnés, six du
+// trésor, douze des savoirs que la boutique vend — et les quatre coffres de
+// la semaine. Leurs fichiers, servis sous
 // leur empreinte et d'un poids qu'un téléphone porte ; ce qui les cite — la
 // table du calendrier, celle des coffres, le bloc que la chaîne réécrit dans
 // chaque feuille — ; aucun fichier que plus personne ne cite ; et l'horloge
@@ -12,6 +13,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { demarrer } from './banc'
 import { PAGES } from '../../shared/calendrier'
+import { FONDS_EN_BOUTIQUE } from '../../shared/fonds'
 
 const client = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url)
 
@@ -134,6 +136,21 @@ test('les six fonds du trésor sont peints, dans le même bloc, chacun son voile
     // Sa couleur de fond et son voile de nuit vivent hors du bloc : la livraison ne les réécrit pas.
     assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f} \\{ background-color: #[0-9a-f]{6}; \\}`), `fond ${f} : sa couleur`)
     assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f}::before`), `fond ${f} : son voile`)
+  }
+})
+
+test('les douze fonds des savoirs sont peints, dans le même bloc, chacun son voile écrit à la main', () => {
+  const { dedans, dehors } = bloc('styles.css')
+  // Tous ceux que la boutique vend : un fond de plus au catalogue sans sa peinture ferait rougir ici.
+  assert.equal(FONDS_EN_BOUTIQUE.length, 12)
+  for (const { key: f } of FONDS_EN_BOUTIQUE) {
+    const m = new RegExp(`\\.carte-fond\\.fond-${f} \\{ --fond-peint: url\\(([^)]+)\\); \\}`).exec(dedans)
+    assert.ok(m, `fond ${f}`)
+    verifierFichier(m[1], new RegExp(`^fond-${f}-720\\.`))
+    assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f} \\{ background-color: #[0-9a-f]{6}; \\}`), `fond ${f} : sa couleur`)
+    assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f}::before`), `fond ${f} : son voile`)
+    // Et la règle commune qui pose son image : sans elle, le bloc nommait une image que rien ne montrait.
+    assert.match(dehors, new RegExp(`\\.carte-fond\\.fond-${f}[,\\s][^{]*\\{\\s*background: var\\(--fond-peint\\)`), `fond ${f} : son image posée`)
   }
 })
 

@@ -685,6 +685,26 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
+   * Acheter un fond des savoirs, en confettis — et le porter aussitôt
+   * derrière sa carte, ou le garder pour plus tard (`porter: false`), comme
+   * un thème. Le fond ne part pas à la salle : il se lit à l'ouverture de sa
+   * carte.
+   */
+  app.post(
+    '/api/joueur/fonds',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const jour = jourDe(deps.maintenant())
+      const achete = await profiles.acheterFond(me.id, req.body?.fond, jour, { porter: req.body?.porter !== false })
+      const [boutique, fonds] = await Promise.all([profiles.boutiqueDe(achete, jour), profiles.fondsAJour(achete)])
+      res.json({ profile: profiles.toPublic(achete), boutique, ...fonds })
+    }),
+  )
+
+  /**
    * Changer son mot de passe : il faut prouver qu'on connaît l'actuel — ou
    * donner son code de secours, pour qui l'a oublié.
    *
