@@ -2,7 +2,8 @@
 // propriétaire le 14 octobre 2026, la maquette C : un bandeau fin, sous
 // l'identité, qui ne repousse pas les gros boutons de jeu) : ce que la
 // boutique a de plus beau à lui montrer — un compagnon qu'il n'a pas, un
-// thème qui lui manque, celui de la saison d'abord, qui partira avec elle.
+// thème qui lui manque, celui de la saison d'abord, qui partira avec elle,
+// et un fond des savoirs qu'il n'a pas acheté.
 //
 // Le tirage tourne d'un cran chaque jour, et reste le même toute la journée,
 // sur tous ses appareils : un bandeau qui changerait à chaque visite ne
@@ -10,9 +11,10 @@
 // tout — l'absence, pas un bandeau vide.
 
 import { COMPAGNONS, type CleDeCompagnon } from './compagnons'
+import { FONDS_EN_BOUTIQUE, type CleDeFond } from './fonds'
 import { enBoutique, THEMES, type BoutiqueDuProfil, type Theme } from './themes'
 
-export type ALaUne = { sorte: 'compagnon'; cle: CleDeCompagnon } | { sorte: 'theme'; cle: string; saison: boolean }
+export type ALaUne = { sorte: 'compagnon'; cle: CleDeCompagnon } | { sorte: 'theme'; cle: string; saison: boolean } | { sorte: 'fond'; cle: CleDeFond }
 
 /** Ce que le bandeau montre au plus : au-delà, plus personne ne voit le premier revenir. */
 export const A_LA_UNE_MAX = 3
@@ -36,11 +38,14 @@ function tournee<T>(liste: readonly T[], n: number): T[] {
 const BEAUX = new Set(['rare', 'epique', 'legendaire'])
 
 /**
- * Ce que l'accueil met à la une ce jour-là, trois au plus, en alternance :
- * un compagnon qu'il n'a pas, un thème — de saison d'abord, puis les plus
- * beaux, rares et au-delà, puis les autres —, puis ce qui reste des deux.
+ * Ce que l'accueil met à la une ce jour-là, trois au plus : un compagnon, un
+ * thème — de saison d'abord, puis les plus beaux, rares et au-delà, puis les
+ * autres —, un fond des savoirs, chacun le sien. Deux compagnons pour un
+ * thème laissaient les fonds dehors (la question du propriétaire du 15
+ * octobre 2026 : « une rotation 1 compagnon / 1 thème / 1 carte de fond ? ») ;
+ * une sorte dont il a tout laisse sa place aux deux autres.
  */
-export function aLaUne(boutique: Pick<BoutiqueDuProfil, 'possedes' | 'jour' | 'compagnons'>): ALaUne[] {
+export function aLaUne(boutique: Pick<BoutiqueDuProfil, 'possedes' | 'jour' | 'compagnons' | 'fondsAchetes'>): ALaUne[] {
   const n = rangDuJour(boutique.jour)
   const adoptes = new Set((boutique.compagnons ?? []).map(c => c.compagnon))
   const compagnons: ALaUne[] = tournee(
@@ -53,10 +58,16 @@ export function aLaUne(boutique: Pick<BoutiqueDuProfil, 'possedes' | 'jour' | 'c
   const beaux = aPrendre.filter(t => !t.saison && BEAUX.has(t.rarete))
   const autres = aPrendre.filter(t => !t.saison && !BEAUX.has(t.rarete))
   const themes: ALaUne[] = [...tournee(deSaison, n), ...tournee(beaux, n), ...tournee(autres, n)].map(t => ({ sorte: 'theme', cle: t.key, saison: !!t.saison }))
+  const achetes = new Set(boutique.fondsAchetes ?? [])
+  const fonds: ALaUne[] = tournee(
+    FONDS_EN_BOUTIQUE.filter(f => !achetes.has(f.key)),
+    n,
+  ).map(f => ({ sorte: 'fond', cle: f.key }))
+  // À tour de rôle : le premier de chaque sorte, puis le deuxième de celles qui en ont encore.
+  const sortes = [compagnons, themes, fonds]
   const une: ALaUne[] = []
-  for (let i = 0; une.length < A_LA_UNE_MAX && (i < compagnons.length || i < themes.length); i++) {
-    if (compagnons[i]) une.push(compagnons[i])
-    if (une.length < A_LA_UNE_MAX && themes[i]) une.push(themes[i])
+  for (let i = 0; une.length < A_LA_UNE_MAX && sortes.some(s => i < s.length); i++) {
+    for (const s of sortes) if (une.length < A_LA_UNE_MAX && s[i]) une.push(s[i])
   }
   return une
 }

@@ -10530,9 +10530,10 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 /* « À la une » (`ALaUne.tsx`) : une affiche à elle, nocturne quel que soit le
    thème — le dessin de l'objet y déborde par la gauche, sur sa couleur. Son
    encre est écrite en dur : celle du thème, sombre sous l'Ivoire, se perdait
-   dans la nuit de l'affiche. */
+   dans la nuit de l'affiche. Sa teinte se pose sur le cadre, que partagent
+   l'affiche et ses points. */
+.une-cadre { --une-teinte: #d9b56a; position: relative; }
 .une {
-  --une-teinte: #d9b56a;
   position: relative;
   display: flex;
   align-items: center;
@@ -10547,7 +10548,18 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   color: #f3ece2;
   text-decoration: none;
   animation: une-entre 0.6s ease-out both;
+  /* Elle se glisse du doigt, de côté : la page, elle, défile toujours de haut
+     en bas. `translate` suit le doigt, à part du `transform` de son entrée. */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  translate: var(--glisse, 0) 0;
+  transition: translate 0.25s ease-out;
 }
+.une.une-glisse { transition: none; }
+/* Glissée, la suivante arrive du côté d'où le doigt la tirait. */
+.une-vient-suivant { animation: une-de-droite 0.4s ease-out both; }
+.une-vient-precedent { animation: une-de-gauche 0.4s ease-out both; }
 .une:hover { border-color: color-mix(in srgb, var(--une-teinte) 80%, transparent); }
 .une-loup { --une-teinte: #6f8fe0; }
 .une-chat { --une-teinte: #e07a8f; }
@@ -10568,6 +10580,9 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 }
 .une-theme .une-visuel { left: 20px; bottom: 6px; width: 64px; height: 80px; }
 .une-theme .une-visuel img { width: 56px; height: 70px; border: 1px solid color-mix(in srgb, var(--une-teinte) 60%, transparent); border-radius: 8px; object-fit: cover; transform: rotate(-7deg); }
+/* Un fond des savoirs : sa carte penchée, comme l'écran d'un thème — le décor peint, son voile compris. */
+.une-fond .une-visuel { left: 22px; bottom: 2px; width: 64px; height: 88px; }
+.une-carte { display: block; width: 54px; height: 81px; border: 1px solid color-mix(in srgb, var(--une-teinte) 60%, transparent); border-radius: 8px; transform: rotate(-7deg); }
 .une-visuel > .icon { width: 40px; height: 40px; color: var(--une-teinte); }
 .une-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .une-sur { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--une-teinte) 55%, #fff); }
@@ -10575,10 +10590,16 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .une-detail { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 0.78rem; line-height: 1.25; color: #d8ccbd; }
 .une-aller { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid color-mix(in srgb, var(--une-teinte) 60%, transparent); border-radius: 50%; color: color-mix(in srgb, var(--une-teinte) 55%, #fff); }
 .une-aller .icon { width: 15px; height: 15px; }
-.une-points { position: absolute; top: 9px; right: 14px; display: flex; gap: 4px; }
-.une-points i { width: 4px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.3); }
-.une-points .une-point-ici { width: 12px; background: color-mix(in srgb, var(--une-teinte) 55%, #fff); }
+/* Ses points se touchent : chacun mène à son objet. Le trait reste fin, la
+   cible du doigt, elle, fait sa taille. */
+.une-points { position: absolute; top: 0; right: 8px; display: flex; }
+.une-point { display: grid; place-items: center; width: 16px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; }
+.une-point::before { content: ''; width: 4px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.3); transition: width 0.2s ease-out; }
+.une-point-ici::before { width: 12px; background: color-mix(in srgb, var(--une-teinte) 55%, #fff); }
+.une-point:focus-visible { outline-offset: -4px; }
 @keyframes une-entre { from { opacity: 0; transform: translateY(4px); } }
+@keyframes une-de-droite { from { opacity: 0; transform: translateX(28px); } }
+@keyframes une-de-gauche { from { opacity: 0; transform: translateX(-28px); } }
 @keyframes une-flotte {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
   50% { transform: translateY(-5px) rotate(2deg); }
@@ -11240,7 +11261,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   /* Moins de mouvement : le coffre s'ouvre en fondu, l'objet paraît, rien ne
      tourne, ne tremble ni ne tombe ; le bandeau ne flotte ni ne tourne. */
-  .une, .une-visuel, .missions-ligne.missions-coffre, .coffre-attend-image, .mission-accomplie { animation: none; }
+  .une, .une-vient-suivant, .une-vient-precedent, .une-visuel, .missions-ligne.missions-coffre, .coffre-attend-image, .mission-accomplie { animation: none; }
+  .une, .une-point::before { transition: none; }
   .coffre-scene, .coffre-caisse, .coffre-lueur, .coffre-halo, .coffre-socle, .coffre-rayons::before, .coffre-attente, .coffre-repos .coffre-braise, .coffre-repos .coffre-ouvrir { animation: none; }
   .coffre-charge .coffre-caisse, .coffre-eclat .coffre-caisse, .coffre-charge .coffre-lueur, .coffre-charge .coffre-halo, .coffre-charge .coffre-fuite, .coffre-charge .coffre-braise, .coffre-eclat .coffre-fuite, .coffre-eclat .coffre-onde, .coffre-eclat .coffre-colonne, .coffre-eclat .coffre-flash, .coffre-revele .coffre-reflet, .coffre-revele .coffre-objet { animation: none; }
   .coffre-revele .coffre-caisse { transform: translateY(5%) scale(0.6); animation: none; }

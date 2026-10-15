@@ -335,6 +335,12 @@ export interface BoutiqueDuProfil {
    * suivante. Absent d'un serveur d'avant.
    */
   compagnons?: CompagnonAcquis[]
+  /**
+   * Les fonds des savoirs qu'il a achetés (`profile_fonds`), dans l'ordre du
+   * catalogue : « À la une » ne met en avant que les autres. Absent sans
+   * achat, et d'un serveur d'avant.
+   */
+  fondsAchetes?: string[]
 }
 
 /**

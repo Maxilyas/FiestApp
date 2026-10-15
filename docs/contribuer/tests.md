@@ -336,6 +336,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 
 ### Les thèmes et la boutique
 
+- `server/test/a-la-une.test.ts` — « À la une » : un compagnon, un thème, un fond, et le bandeau qui se glisse.
 - `server/test/boutique.test.ts` — les quatre rayons de la boutique.
 - `server/test/decors-peints.test.ts` — les décors peints.
 - `server/test/fonds.test.ts` — les fonds de carte.

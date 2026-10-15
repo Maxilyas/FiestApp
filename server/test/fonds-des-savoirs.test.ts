@@ -47,7 +47,8 @@ const acheter = (banc: Banc, cookie: string | undefined, fond: string, porter?: 
   ecrire(banc.url, '/api/joueur/fonds', { fond, ...(porter === false && { porter }) }, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 const porter = (banc: Banc, cookie: string, patch: object) =>
   ecrire(banc.url, '/api/joueur/moi', patch, cookie, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
-const moi = async (banc: Banc, cookie: string) => ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
+const moi = async (banc: Banc, cookie: string, accueil = false) =>
+  ((await (await fetch(`${banc.url}/api/joueur/moi${accueil ? '?accueil' : ''}`, { headers: { Cookie: cookie } })).json()) as any).profile
 
 test('un fond des savoirs s’achète à son prix, se porte ou se garde ; le reste est refusé en clair', () =>
   avecBanc(async banc => {
@@ -64,6 +65,7 @@ test('un fond des savoirs s’achète à son prix, se porte ou se garde ; le res
     assert.equal((await acheter(banc, cookie, 'nuit')).corps.error, 'Ce fond ne se vend pas : il se gagne avec 30 jours de quiz du jour')
 
     confettis(banc, alice, '2026-09-20', 600)
+    assert.equal((await moi(banc, cookie, true)).boutique.fondsAchetes, undefined, 'rien d’acheté : rien à lire')
     const achat = await acheter(banc, cookie, 'jazz')
     assert.equal(achat.status, 200, achat.corps.error)
     // Porté aussitôt, et ses fonds relus avec : la loge le propose sans recharger.
@@ -89,6 +91,8 @@ test('un fond des savoirs s’achète à son prix, se porte ou se garde ; le res
     assert.equal(relu.fond, 'savane')
     assert.deepEqual(relu.fonds, ['savane', 'jazz'])
     assert.equal(relu.boutique.confettis.solde, 600 - 2 * PRIX_D_UN_FOND)
+    // L'accueil les sait aussi : « À la une » ne met en avant que les dix autres.
+    assert.deepEqual((await moi(banc, cookie, true)).boutique.fondsAchetes, ['savane', 'jazz'])
   }))
 
 test('deux achats partis ensemble ne dépensent pas deux fois les mêmes confettis', () =>
