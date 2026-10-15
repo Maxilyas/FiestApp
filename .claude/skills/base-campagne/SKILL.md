@@ -99,7 +99,15 @@ moins qu'une réécriture.
    consignes de la première vague, et donne une mission par lot. À la place
    de `--questions` : `--sentiers` (ce qui manque aux sentiers pour se monter
    deux fois, `--sentiers=3` pour trois) ou `--theme=<clé>` (ce qui manque à
-   un thème de `shared/sujets.ts`) ; `--nom=<nom>`, sinon g1, g2…
+   un thème de `shared/sujets.ts`) ; `--nom=<nom>`, sinon g1, g2… Un thème
+   qui a un inventaire (`server/src/core/inventaires.ts` : la danse, les
+   métiers de la santé) se commande famille par famille :
+   `--inventaire=<clé> --questions=<n>`, ses familles écrites en même temps
+   — chacune son lot, sans poser les mêmes faits ; `--inventaire=danse,sante`
+   pour deux thèmes dans les mêmes vagues, `n` chacun —, puis, rangé,
+   `--inventaire=<clé> --manques` pour ce que `base-campagne.ts couverture
+   <clé>` dit encore sans question ; `base-campagne.ts inventaire <clé>` le
+   met en clair, à relire avec le propriétaire avant de dépenser le forfait.
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle
    quelle, en arrière-plan, une dizaine à la fois.
 3. **La suite** : `npx tsx scripts/generer-campagne.ts suite`, après chaque

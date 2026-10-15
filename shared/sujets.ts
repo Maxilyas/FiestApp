@@ -99,6 +99,28 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Séries cultes, jeux télévisés et émissions de toujours',
     sousThemes: { 'Cinéma & séries': ['series'], 'Jeux & pop culture': ['tele'] },
   },
+  // La danse et les métiers de la santé (le souhait du propriétaire du
+  // 15 octobre 2026 : « couvrir toutes les danses, et tous les métiers de la
+  // médecine et du paramédical ») : un sous-thème neuf dans chaque catégorie
+  // où leur savoir vit, l'inventaire de leurs familles à côté
+  // (`server/src/core/inventaires.ts`), et l'étiquette pour le reste. Le
+  // corps humain est des métiers de la santé : c'est leur socle.
+  {
+    cle: 'danse',
+    nom: 'La danse',
+    famille: 'theme',
+    description: 'Du ballet au hip-hop, de la salsa à la Macarena',
+    sousThemes: { 'Arts & lettres': ['ballet'], Musique: ['danses'], 'Autour de la fête': ['bal'] },
+    etiquettes: ['danse'],
+  },
+  {
+    cle: 'sante',
+    nom: 'Les métiers de la santé',
+    famille: 'theme',
+    description: 'Médecins, soignants, et le corps qu’ils soignent',
+    sousThemes: { 'Culture générale': ['sante'], Sciences: ['medecine', 'corps'] },
+    etiquettes: ['sante'],
+  },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
   { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },

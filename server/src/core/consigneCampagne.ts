@@ -6,6 +6,7 @@ import { empreinteDe } from './jour'
 import type { Categorie } from '../../../shared/categories'
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { ETIQUETTES, SOUS_THEMES } from '../../../shared/etiquettes'
+import { inventaireDe, lireLeSujet } from './inventaires'
 
 // La consigne qu'on donne à une IA pour agrandir la base de la campagne
 // (`core/baseCampagne.ts`) — à la main, par lots que le script range dans le
@@ -22,6 +23,10 @@ export interface QuotaDEcriture {
   cle: string
   n: number
   difficulte?: number
+  /** Une famille de l'inventaire du sous-thème (`core/inventaires.ts`) : deux familles s'écrivent en même temps sans poser les mêmes faits. */
+  famille?: string
+  /** Les sujets de cette famille qu'aucune question n'aborde encore, une question chacun (`commandeDesManques`). */
+  sujets?: readonly string[]
 }
 
 /**
@@ -138,15 +143,22 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
     .map(q => {
       const nom = sousThemes.find(s => s.cle === q.cle)?.nom
       const combien = `${q.n} question${q.n > 1 ? 's' : ''}`
-      return q.difficulte ? `- ${q.cle} (${nom}) : ${combien} de difficulté ${q.difficulte}` : `- ${q.cle} (${nom}) : ${combien}`
+      const famille = q.famille ? ` › ${q.famille}` : ''
+      // Le point médian, comme dans l'inventaire : un sujet porte parfois ses virgules (« Nicolas Le Riche, Aurélie Dupont,
+      // Marie-Agnès Gillot »), et séparés par des virgules, cinq noms pour trois questions ont laissé Guillaume Diop sans la sienne.
+      const sujets = q.sujets && q.sujets.length > 0 ? `, une sur chacun de ces sujets : ${q.sujets.join(' · ')}` : ''
+      return q.difficulte ? `- ${q.cle} (${nom})${famille} : ${combien} de difficulté ${q.difficulte}${sujets}` : `- ${q.cle} (${nom})${famille} : ${combien}${sujets}`
     })
     .join('\n')
   // La commande de la routine dit la difficulté de chaque question ; un lot écrit à la main la répartit ; une part à nombre dit la sienne.
+  // Une part par familles la répartit aussi, mais famille par famille : la timba n'a pas de question facile, la Macarena pas d'experte.
   const dosage = nombres
     ? `La difficulté (échelle plus haut) suit la consigne des nombres, plus bas.`
     : quotas.every(q => q.difficulte)
       ? `Chaque ligne dit la difficulté à viser (échelle plus haut) : tiens-la, c'est ce qui manque à la base. Une 4 ou une 5 n'est pas obscure pour autant.`
-      : `Dans chaque sous-thème, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
+      : quotas.some(q => q.famille)
+        ? `Dans ta part, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5 — dose chaque famille selon ce qu'elle a de connu : plus de faciles pour ce que tout le monde a croisé, plus de difficiles pour ce que seuls les passionnés savent. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
+        : `Dans chaque sous-thème, la difficulté (échelle plus haut) se répartit ainsi : environ 10 % de 1, 25 % de 2, 30 % de 3, 22 % de 4, 13 % de 5. Les faciles viennent toutes seules : écris d'abord les 4 et les 5, sans les rendre obscures.`
   const dejaEcrites =
     deja.length > 0
       ? `\nDÉJÀ ÉCRITES DANS CES SOUS-THÈMES — n'en reprends aucune, même reformulée ou retournée\n${deja.map(t => `- ${t.replace(/\s+/g, ' ').trim()}`).join('\n')}\n`
@@ -154,7 +166,35 @@ export function partDeLaCategorie(categorie: Categorie, quotas: readonly QuotaDE
   return `TA PART — ${total} QUESTIONS À ÉCRIRE, CATÉGORIE « ${categorie} »
 ${lignes}
 ${dosage} Un fait que la base pose déjà, dans n'importe quelle catégorie, est refusé : préfère les faits moins courus.
-${nombres ? `\n${NOMBRES}\n` : ''}${dejaEcrites}`
+${inventaireDeLaPart(categorie, quotas)}${nombres ? `\n${NOMBRES}\n` : ''}${dejaEcrites}`
+}
+
+/**
+ * L'inventaire des sous-thèmes de la part qui en ont un (`core/inventaires.ts`) :
+ * leur périmètre, leur prudence, et ce que couvre chaque famille — celles que
+ * la commande vise, ou toutes quand elle ne vise que le sous-thème, comme la
+ * routine du matin. Sans lui, le rédacteur revenait aux faits qu'il connaît le
+ * mieux : vingt tangos, pas une kizomba.
+ */
+function inventaireDeLaPart(categorie: Categorie, quotas: readonly QuotaDEcriture[]): string {
+  const blocs: string[] = []
+  for (const cle of new Set(quotas.map(q => q.cle))) {
+    const inventaire = inventaireDe(categorie, cle)
+    if (!inventaire) continue
+    const visees = new Set(quotas.filter(q => q.cle === cle && q.famille).map(q => q.famille))
+    const familles = inventaire.familles.filter(f => visees.size === 0 || visees.has(f.nom))
+    const nom = SOUS_THEMES[categorie].find(s => s.cle === cle)?.nom
+    blocs.push(
+      [
+        `${cle} (${nom}) — ${inventaire.perimetre}`,
+        ...(inventaire.prudence ? [`Prudence : ${inventaire.prudence}`] : []),
+        // Le point médian sépare les sujets : un sujet a ses virgules (« guaguancó, yambú, columbia »).
+        ...familles.map(f => `- ${f.nom} : ${f.sujets.map(s => lireLeSujet(s).nom).join(' · ')}`),
+      ].join('\n'),
+    )
+  }
+  if (blocs.length === 0) return ''
+  return `\nL'INVENTAIRE DE TA PART — ce que chaque famille couvre. Chaque sujet mérite au moins sa question, les plus connus plusieurs : commence par ceux qu'aucun intitulé déjà écrit n'aborde, et ne pose jamais deux fois le même fait.\n${blocs.join('\n\n')}\n`
 }
 
 /**
@@ -233,6 +273,8 @@ LES RÈGLES DE PARTAGE — elles disent à quelle catégorie appartient un savoi
 - Le calendrier, l'heure, les unités et leurs calculs → Culture générale (mesures) ; l'origine d'un mot, une écriture, un alphabet → Culture générale (langue) ; la mythologie → Culture générale (mythes).
 - Un monument ou un lieu célèbre → Géographie (sites) quand la réponse est le lieu ou un fait sur le lieu ; quand la réponse est une personne, un peuple ou une date — qui l'a bâti, en quelle année —, c'est de l'Histoire.
 - BD et manga → Arts & lettres (bd) ; un film tiré d'une BD → Cinéma ; une musique de film → Musique (ecrans) ; un aliment ou une boisson → Cuisine, l'alcool dans Cuisine (boissons).
+- La danse : une danse comme style — son origine, même un pays, ses pas, son rythme, sa musique — → Musique (danses) ; la danse de scène — les ballets, leurs danseurs et leurs chorégraphes, le contemporain, le music-hall — → Arts & lettres (ballet) ; ce qu'on danse en fête — le bal, le mariage, la soirée, les tubes à chorégraphie — → Autour de la fête (bal). Qui a composé la musique d'un ballet → Musique (classique) ; un film, une émission ou un tableau de danse : sa catégorie, avec l'étiquette danse.
+- La santé : un métier du soin — qui fait quoi, ses outils, son diplôme, ses institutions, les secours — → Culture générale (sante) ; une maladie, un examen, un traitement, un instrument, un geste de premiers secours → Sciences (medecine) ; le corps sain, ses organes et leurs fonctions → Sciences (corps) ; qui a découvert ou inventé un soin → Sciences (savants), avec l'étiquette sante.
 - C'est le savoir demandé qui décide : « Quel acteur joue Indiana Jones ? » est du cinéma, pas une célébrité.
 - Les étiquettes ne répètent jamais ce qu'un autre champ dit déjà : ni le pays, ni l'époque, ni la catégorie.
 

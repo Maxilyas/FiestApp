@@ -1,6 +1,6 @@
 // Les chapitres des sentiers du savoir : les huit premiers paliers d'un
 // sentier vont par deux, et chaque paire pose un thème nommé de sa catégorie
-// — un ou deux sous-thèmes, rarement trois —, des plus courants aux plus
+// — un ou deux sous-thèmes, parfois trois ou quatre —, des plus courants aux plus
 // pointus ; du neuvième palier au maître, toute la catégorie, comme avant.
 // Le propriétaire voulait des sentiers « beaucoup plus orientés sur un thème
 // précis », sans que la règle se complique (le 10 octobre 2026) : elle tient
@@ -38,7 +38,7 @@ const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly
     ['La vie de tous les jours', ['quotidien', 'transports']],
     ['Mots et symboles', ['langue', 'symboles']],
     ['Mythes et religions', ['mythes']],
-    ['Chiffres, métiers et records', ['societe', 'mesures', 'records']],
+    ['Métiers, santé et chiffres', ['societe', 'sante', 'mesures', 'records']],
   ],
   mythes: [
     ['Rois et grands personnages', ['pouvoirs', 'personnages']],
@@ -54,7 +54,7 @@ const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly
   ],
   espace: [
     ['L’espace et la Terre', ['espace', 'terre']],
-    ['Le corps humain', ['corps']],
+    ['Le corps et la médecine', ['corps', 'medecine']],
     ['Savants et technologies', ['savants', 'techno']],
     ['Physique, chimie et maths', ['physique-chimie', 'maths']],
   ],
@@ -73,12 +73,12 @@ const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly
   scene: [
     ['Chanson française et pop', ['chanson-fr', 'pop-rock']],
     ['Instruments et musiques de films', ['instruments', 'ecrans']],
-    ['Rap, jazz et musiques du monde', ['rap-electro', 'jazz-monde']],
+    ['Rap, jazz et danses du monde', ['rap-electro', 'jazz-monde', 'danses']],
     ['Classique et opéra', ['classique']],
   ],
   contes: [
     ['BD et peinture', ['bd', 'peinture']],
-    ['Littérature, poésie et théâtre', ['litterature-fr', 'poesie-theatre']],
+    ['Littérature, théâtre et danse', ['litterature-fr', 'poesie-theatre', 'ballet']],
     ['Littérature du monde', ['litterature-monde']],
     ['Architecture et grandes idées', ['sculpture-archi', 'philo']],
   ],
@@ -103,7 +103,7 @@ const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly
   carnaval: [
     ['Noël et Nouvel An', ['noel', 'nouvel-an']],
     ['Halloween et anniversaires', ['halloween', 'anniversaires']],
-    ['Mariages et apéritifs', ['amour', 'cocktails']],
+    ['Mariages, bals et apéritifs', ['amour', 'bal', 'cocktails']],
     ['Fêtes du monde', ['traditions']],
   ],
 }

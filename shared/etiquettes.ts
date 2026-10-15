@@ -7,6 +7,13 @@
 // Les listes ont été essayées sur les questions du dépôt et sur des
 // questions neuves (le 3 octobre 2026) : chaque sous-thème a ses questions,
 // et une étiquette ne dit rien qu'un autre champ dise déjà.
+//
+// La danse et la santé (le 15 octobre 2026) n'ont qu'un sous-thème par
+// catégorie, là où leur savoir vivait déjà — ballet, danses et bal ; sante et
+// medecine : chaque sous-thème prend sa part des séries de sa catégorie, et
+// six de danse en musique l'auraient faite à moitié dansée. Leurs familles —
+// la salsa, les orishas, la rééducation — vivent dans leur inventaire
+// (`server/src/core/inventaires.ts`).
 
 import { CATEGORIES } from './categories'
 import { tronquer } from './avatars'
@@ -25,6 +32,7 @@ export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme
     { cle: "transports", nom: "Transports" },
     { cle: "mythes", nom: "Mythes et religions" },
     { cle: "societe", nom: "Société, métiers et argent" },
+    { cle: "sante", nom: "Métiers de la santé" },
     { cle: "mesures", nom: "Mesures et calendrier" },
     { cle: "records", nom: "Records et superlatifs" },
   ],
@@ -50,7 +58,8 @@ export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme
   "Sciences": [
     { cle: "espace", nom: "Espace et astronomie" },
     { cle: "terre", nom: "Planète Terre" },
-    { cle: "corps", nom: "Corps humain et santé" },
+    { cle: "corps", nom: "Corps humain" },
+    { cle: "medecine", nom: "Maladies, examens et traitements" },
     { cle: "physique-chimie", nom: "Physique et chimie" },
     { cle: "maths", nom: "Mathématiques et logique" },
     { cle: "techno", nom: "Technologies et informatique" },
@@ -80,6 +89,7 @@ export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme
     { cle: "rap-electro", nom: "Rap, R&B et électro" },
     { cle: "classique", nom: "Classique et opéra" },
     { cle: "jazz-monde", nom: "Jazz, blues et musiques du monde" },
+    { cle: "danses", nom: "Danses de couple, de rue et du monde" },
     { cle: "ecrans", nom: "Musiques de films et comédies musicales" },
     { cle: "instruments", nom: "Instruments et théorie" },
   ],
@@ -87,6 +97,7 @@ export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme
     { cle: "litterature-fr", nom: "Littérature française" },
     { cle: "litterature-monde", nom: "Littérature du monde" },
     { cle: "poesie-theatre", nom: "Poésie et théâtre" },
+    { cle: "ballet", nom: "Ballet et danse de scène" },
     { cle: "bd", nom: "Bande dessinée et manga" },
     { cle: "peinture", nom: "Peinture et dessin" },
     { cle: "sculpture-archi", nom: "Sculpture et architecture" },
@@ -129,6 +140,7 @@ export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme
     { cle: "nouvel-an", nom: "Nouvel An" },
     { cle: "halloween", nom: "Halloween" },
     { cle: "traditions", nom: "Fêtes du monde et traditions" },
+    { cle: "bal", nom: "Bals et soirées dansantes" },
     { cle: "cocktails", nom: "Cocktails et apéritifs" },
   ],
 }
@@ -173,6 +185,8 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "animaux", nom: "Un animal", definition: "un animal est au cœur d'une question qui n'est pas de la catégorie Nature (mascotte, film, expression)" },
       { cle: "invention", nom: "Invention", definition: "qui a inventé quoi, hors de la catégorie Sciences (le sandwich, le Rubik's Cube)" },
       { cle: "outre-mer", nom: "Outre-mer", definition: "les territoires d'outre-mer, leur musique, leur cuisine, leur histoire" },
+      { cle: "danse", nom: "La danse", definition: "une danse, un danseur ou un chorégraphe est au cœur d'une question rangée hors des sous-thèmes ballet, danses et bal (un film, une émission, un tableau, un peuple et sa danse)" },
+      { cle: "sante", nom: "La santé", definition: "un soin, une maladie ou un métier de la santé est au cœur d'une question rangée hors des sous-thèmes corps, medecine et sante (un savant qui a soigné, une série d'hôpital, un médecin de roman)" },
     ],
   },
   {
