@@ -128,10 +128,12 @@ import {
   RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
+  CONTREDITES_MONTREES,
   bonneReponseChange,
   familleDeQuestion,
   formeDeReponse,
   issueDeRencontre,
+  marcheContredite,
   mesuresEnFamille,
   minutesAvantLundi,
   niveauDeQuestion,
@@ -5825,8 +5827,29 @@ export class CampagneStore {
 
   /** L'écran de l'administrateur : la base, ce qu'on en joue, et les signalements à relire. */
   async administration(): Promise<AdminDeLaCampagne> {
-    const [jouables, signalements, base] = await Promise.all([this.jouables(), this.signalements(), this.base()])
+    const [jouables, signalements, base, mesure] = await Promise.all([this.jouables(), this.signalements(), this.base(), this.mesures()])
+    // Ce que les réponses contredisent, les plus nettes d'abord : ce que les familles n'ont pas reclassé d'elles-mêmes.
+    const contredites = jouables
+      .flatMap(q => {
+        const c = marcheContredite(q.meta.difficulte, mesure.get(q.id))
+        return c ? [{ q, c, m: mesure.get(q.id)! }] : []
+      })
+      .sort((a, b) => b.c.force - a.c.force)
     return {
+      contredites: contredites.slice(0, CONTREDITES_MONTREES).map(({ q, c, m }) => ({
+        questionId: q.id,
+        texte: q.texte,
+        reponses: q.reponses,
+        bonne: q.bonne,
+        categorie: q.meta.categorie,
+        sousTheme: q.meta.sousTheme,
+        difficulte: q.meta.difficulte,
+        niveau: c.niveau,
+        niveauMesure: c.niveauMesure,
+        mesure: { justes: m.justes, total: m.total },
+        difficulteProposee: c.difficulteProposee,
+      })),
+      contreditesEnTout: contredites.length,
       questions: base.questions.length,
       jouables: jouables.length,
       retirees: this.retirees.size,

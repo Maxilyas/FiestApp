@@ -227,6 +227,62 @@ export function mesuresEnFamille(
   return mesures
 }
 
+// ── Ce que les réponses contredisent ────────────────────────────────────────
+
+/**
+ * La marche que les seules réponses d'une question diraient, quand elle n'est
+ * pas celle où la campagne la tire, et de combien elles la contredisent
+ * (`force`) : l'écart à la part d'où elle partait — sa famille, ou son
+ * estimation —, compté en écarts types d'un tirage de `total` réponses. Null
+ * sous `REPONSES_POUR_MESURER` réponses, ou d'accord avec sa marche. Les
+ * familles reclassent d'elles-mêmes ce qui ressemble à ses voisines : restent
+ * les questions qui font exception à la leur (le choix du 15 octobre 2026 :
+ * « la liste des moyennes que personne ne trouve »).
+ */
+export function marcheContredite(
+  difficulte: number,
+  mesure: MesureDUneQuestion | undefined,
+): { niveau: Niveau; niveauMesure: Niveau; force: number; difficulteProposee: number } | null {
+  if (!mesure || mesure.total < REPONSES_POUR_MESURER) return null
+  const part = mesure.justes / mesure.total
+  const niveau = niveauDeQuestion(difficulte, mesure)
+  const niveauMesure = niveauDuTaux(part)
+  if (niveau === niveauMesure) return null
+  const depart = Math.min(0.99, Math.max(0.01, mesure.depart ?? TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]))
+  const force = Math.abs(part - depart) / Math.sqrt((depart * (1 - depart)) / mesure.total)
+  return { niveau, niveauMesure, force, difficulteProposee: difficultePourLaPart(part) }
+}
+
+/**
+ * La difficulté estimée qui va à une part de bonnes réponses : celle de sa
+ * marche — la 1 pour une question que presque tout le monde trouve, la 2
+ * pour le reste des faciles. Ce que « Reclasser » propose au QG.
+ */
+export function difficultePourLaPart(part: number): number {
+  const n = niveauDuTaux(part)
+  return n === 'facile' ? (part >= 0.85 ? 1 : 2) : n === 'moyen' ? 3 : n === 'difficile' ? 4 : 5
+}
+
+/** Une question de la base que ses réponses contredisent, pour l'administrateur (`/admin#campagne`). */
+export interface QuestionContredite {
+  questionId: string
+  texte: string
+  reponses: string[]
+  bonne: number
+  categorie: string
+  sousTheme: string
+  difficulte: number
+  /** La marche où la campagne la tire, et celle que ses seules réponses diraient. */
+  niveau: Niveau
+  niveauMesure: Niveau
+  /** Ses réponses, révisions exclues. */
+  mesure: { justes: number; total: number }
+  difficulteProposee: number
+}
+
+/** Au plus, les questions contredites que le QG montre : les plus nettes d'abord. */
+export const CONTREDITES_MONTREES = 20
+
 /** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour. */
 export const SIGNALEMENT_MAX = 280
 
@@ -514,6 +570,9 @@ export interface AdminDeLaCampagne {
   /** Ce que la routine du matin a ajouté (`/api/campagne/base`). */
   ajouts: AjoutsDeLaRoutine
   signalements: SignalementDeCampagne[]
+  /** Les questions jouables que leurs réponses contredisent (`marcheContredite`), les plus nettes d'abord, `CONTREDITES_MONTREES` au plus ; et combien en tout. */
+  contredites: QuestionContredite[]
+  contreditesEnTout: number
 }
 
 /** La commande du matin, pour la routine qui agrandit la base (`GET /api/campagne/base`). */

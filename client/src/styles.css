@@ -8093,6 +8093,13 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .campagne-ajouts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
 .campagne-ajouts li p { margin: 0; }
 .campagne-ajout-retire { opacity: var(--dim); }
+/* Ce que les réponses contredisent (`QuestionsContredites`) : l'intitulé, ce
+   qu'en disent ses réponses, puis « Reclasser », en colonne — côte à côte,
+   au téléphone, chacun n'avait que quelques mots par ligne. */
+.campagne-contredites { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.campagne-contredites li { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
+.campagne-contredites li p { margin: 0; }
+.campagne-contredites .correction-question { align-self: stretch; }
 
 /* ── Les sentiers du savoir (`Sentiers.tsx`) ─────────────────────────────
    La maquette du 5 octobre 2026 : les sentiers en tuiles, un sentier en
