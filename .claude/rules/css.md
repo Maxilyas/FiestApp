@@ -66,17 +66,24 @@ paths:
   (`overflow-x: clip`, qui laisse déborder en hauteur) ou dans les 20 pixels
   du bord de la page ; une sonde le mesure à chaque image
   (`document.documentElement.scrollWidth`, la boîte de `.menu-barre`).
-- **Un voile ouvert fige la page de dessous** — une feuille (`.carte-voile`,
-  `Feuille`, vingt-six écrans), la carte d'un joueur ou un dialogue
-  (`.dialog-backdrop`) : `html:has(…) { overflow: hidden }`, et le cadre qui
-  défile garde ses gestes (`overscroll-behavior: contain` sur `.carte-corps`,
+- **Un voile ouvert fige la page de dessous, sans la toucher** — une feuille
+  (`.carte-voile`, `Feuille`, vingt-six écrans), la carte d'un joueur ou un
+  dialogue (`.dialog-backdrop`) : le voile ne laisse passer aucun geste
+  (`touch-action: none`, qui s'arrête au cadre qui défile), et ce cadre garde
+  les siens (`overscroll-behavior: contain` sur `.carte-corps`,
   `.carte-defile`). Arrivé au bout d'une feuille, le geste suivant faisait
   défiler la page de l'accueil, et au téléphone la barre d'adresse se
   repliait : l'écran grandissait, la feuille posée en bas d'un voile fixe
-  sautait d'un coup (le 15 octobre 2026, `feuilles.test.ts`). Chromium sans
-  écran n'a pas de barre d'adresse : la sonde mesure `scrollY` sous la
-  feuille, au doigt (`Input.dispatchTouchEvent` — `synthesizeScrollGesture`
-  n'y fait rien défiler). Un voile de plus rejoint la liste du `:has()`.
+  sautait d'un coup. Jamais `html { overflow: hidden }` (essayé le même jour) :
+  le défilement de la page changé à l'ouverture, la barre d'adresse peut
+  revenir, et tout l'écran se redimensionne le temps qu'elle glisse. Et le
+  voile s'assombrit au pas de la feuille (`fade`) : posé noir d'un coup sous
+  une feuille encore transparente, il faisait clignoter tout l'écran (le 15
+  octobre 2026, `feuilles.test.ts`). Chromium sans écran n'a pas de barre
+  d'adresse : la sonde mesure `scrollY` sous la feuille, au doigt
+  (`Input.dispatchTouchEvent` — `synthesizeScrollGesture` n'y fait rien
+  défiler), et filme l'ouverture (`Page.startScreencast`) pour la
+  luminosité de chaque image.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
