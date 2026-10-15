@@ -3437,6 +3437,8 @@ h3 > .icon {
   justify-content: center;
   padding: 20px;
   animation: fade 0.15s ease-out both;
+  /* Comme le voile d'une feuille : la page de dessous ne défile pas sous lui. */
+  touch-action: none;
 }
 
 .dialog {
@@ -7336,6 +7338,15 @@ span.case-avatar { cursor: default; }
   align-items: flex-end;
   justify-content: center;
   background: rgba(8, 5, 4, 0.72);
+  /* Le voile s'assombrit avec la feuille qui monte. Posé d'un coup, noir sous
+     une feuille encore transparente, il faisait clignoter tout l'écran à
+     l'ouverture — de 38 à 15 de luminosité en une image, puis 34 (« l'écran
+     qui clignote très rapidement », le propriétaire, le 15 octobre 2026). */
+  animation: fade 0.22s ease-out both;
+  /* Aucun geste parti de lui ne fait défiler la page de dessous ; ce qui
+     défile dans la feuille garde les siens : `touch-action` s'arrête au cadre
+     qui défile. */
+  touch-action: none;
 }
 .carte-feuille {
   display: flex;
@@ -7350,8 +7361,8 @@ span.case-avatar { cursor: default; }
   animation: carte-monte 0.22s ease-out;
 }
 @keyframes carte-monte {
-  from { transform: translateY(24px); opacity: 0; }
-  to { transform: none; opacity: 1; }
+  from { transform: translateY(24px); }
+  to { transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .carte-feuille { animation: none; }
@@ -7378,9 +7389,11 @@ span.case-avatar { cursor: default; }
    pixels sous les missions du jour — et, au téléphone, la barre d'adresse se
    repliait, l'écran grandissait et la feuille sautait d'un coup (« une sorte
    de saccade où l'image remonte un peu », le propriétaire, le 15 octobre
-   2026). Le cadre qui défile garde ses gestes (`overscroll-behavior`), et la
-   page sous le voile ne bouge plus du tout. */
-html:has(.carte-voile, .dialog-backdrop) { overflow: hidden; }
+   2026). Le cadre qui défile garde ses gestes (`overscroll-behavior`), le
+   voile n'en laisse passer aucun (`touch-action`). Jamais en figeant la page
+   elle-même (`html { overflow: hidden }`, essayé le même jour) : son
+   défilement changé à l'ouverture, la barre d'adresse peut revenir, et tout
+   l'écran se redimensionnait le temps qu'elle glisse. */
 .carte-corps > .label { margin-top: 4px; }
 .carte-pied { flex: none; padding: 10px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--edge); }
 
