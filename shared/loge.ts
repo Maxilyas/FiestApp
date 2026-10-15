@@ -19,7 +19,7 @@ import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
 import { cibleEclat, legendaire } from './legendaires'
-import { NOM_FINITION, brilleChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { NOM_FINITION, brilleChez, clesQuiBrillent, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
@@ -350,4 +350,23 @@ export function retenirLesVus(a: Record<PieceDeLaLoge, string[]>, vus: VusDeLaLo
   const suivant: VusDeLaLoge = { ...vus }
   for (const { id } of PIECES_DE_LA_LOGE) if (!suivant[id] || id === regardee) suivant[id] = a[id]
   return suivant
+}
+
+/**
+ * Les avatars que la loge marque neufs, parmi les nouveautés de la pièce
+ * « Avatar » : celui qui vient d'arriver, et celui qui vient d'éclater
+ * (`eclat:🐸`) — l'Éclat se comptait en rouge sur « Profil » et sur
+ * « M'habiller », et rien dans la loge ne disait où il était tombé. Celui
+ * d'un compagnon brille sur toutes ses formes (`clesQuiBrillent`) : chacune
+ * est neuve.
+ */
+export function avatarsNeufs(neufs: Iterable<string> = []): (cle: string) => boolean {
+  const cles = new Set(neufs)
+  const eclats = [...cles].filter(k => k.startsWith('eclat:')).map(k => k.slice('eclat:'.length))
+  return cle => cles.has(cle) || clesQuiBrillent(eclats, cle).length > 0
+}
+
+/** Une bordure de ligue neuve : sa ligue vient d'être atteinte, ou elle vient d'être sertie, à son douzième cran. */
+export function bordureNeuve(ligue: string, neufs: ReadonlySet<string> = new Set()): boolean {
+  return neufs.has(`bordure:${ligue}`) || neufs.has(`bordure:${ligue}:sertie`)
 }

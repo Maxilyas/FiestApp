@@ -21,6 +21,8 @@ export interface UneGemme<T extends string> {
   style: CSSProperties
   /** Les Divins : une opale irisée. */
   divin?: boolean
+  /** Sa page garde du neuf qu'on n'a pas sous les yeux : le point rouge des pièces de la loge, sur son épaule. */
+  neuve?: boolean
 }
 
 export function Gemmes<T extends string>({
@@ -60,7 +62,7 @@ export function Gemmes<T extends string>({
           role="tab"
           aria-selected={choisie === g.id}
           aria-controls={choisie === g.id ? panneau : undefined}
-          aria-label={g.label}
+          aria-label={g.neuve ? `${g.label}, du nouveau` : g.label}
           tabIndex={choisie === g.id ? 0 : -1}
           className={'gemme' + (g.divin ? ' gemme-divin' : '')}
           style={g.style}
@@ -68,6 +70,7 @@ export function Gemmes<T extends string>({
           onKeyDown={e => touche(e, i)}
         >
           <i aria-hidden="true" />
+          {g.neuve && <span className="gemme-neuf" aria-hidden="true" />}
           <span aria-hidden="true">{g.court}</span>
           <b aria-hidden="true">{g.compte}</b>
         </button>

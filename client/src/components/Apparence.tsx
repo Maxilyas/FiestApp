@@ -24,7 +24,7 @@ import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/
 import { NOM_DE_LA_FORME, compagnonDe, formeDeCompagnon } from '../../../shared/compagnons'
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
-import { avatarMontre, avecLEssai, type Essai } from '../../../shared/loge'
+import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
@@ -136,11 +136,18 @@ function ceQueDitLaCase({ montre, porte, neuve }: EtatDUneCase, portee = 'porté
  * précédée (la maquette 1 du 12 octobre 2026).
  */
 export function MesAvatars(props: PropsDUnePiece) {
-  const { profil } = props
+  const { profil, neufs } = props
   const pages = pagesDeLaLoge(profil)
   const [choisie, setChoisie] = useState<PageDeLaLoge>(() => pageDuPorte(profil))
   // Une page qu'il n'a plus (un profil relu) : la première, les offerts.
   const page = pages.find(p => p.page === choisie) ?? pages[0]
+  // Une page qui garde un avatar neuf a le point rouge sur sa gemme, tant
+  // qu'on n'y est pas — là, ses cases le disent. La pastille s'arrêtait à la
+  // pièce, et la grille, ouverte sur la page de ce qu'il porte, ne disait pas
+  // où chercher (le retour du propriétaire du 15 octobre 2026 : « plus de
+  // pastille à suivre »). Quittée, la page le reprend : ses cases restent
+  // marquées le temps de la visite, le chemin jusqu'à elles aussi.
+  const estNeuf = avatarsNeufs(neufs)
   return (
     <section className="loge-avatars">
       <Gemmes
@@ -151,6 +158,7 @@ export function MesAvatars(props: PropsDUnePiece) {
           compte: String(p.cles.length),
           style: gemmeDAvatar(p.page),
           divin: p.page === 'divin',
+          neuve: p.page !== page.page && p.cles.some(estNeuf),
         }))}
         choisie={page.page}
         onChoisir={setChoisie}
@@ -179,11 +187,13 @@ export function PageDAvatars({ profil, essai, essayer, neufs, page }: PropsDUneP
   const montre = avatarMontre(profil, essai)
   const tenue = avecLEssai(profil, essai)
   const brille = (cle: string) => brilleChez(tenue, cle)
-  const dessine = (cle: string): EtatDUneCase => ({ montre: montre.legendaire === cle, porte: profil.legendaire === cle, neuve: neufs?.has(cle) })
+  // Neuve : arrivée depuis son dernier passage, ou qui vient d'éclater.
+  const estNeuf = avatarsNeufs(neufs)
+  const dessine = (cle: string): EtatDUneCase => ({ montre: montre.legendaire === cle, porte: profil.legendaire === cle, neuve: estNeuf(cle) })
   const emoji = (e: string): EtatDUneCase => ({
     montre: !montre.legendaire && montre.avatar === e,
     porte: !profil.legendaire && profil.avatar === e,
-    neuve: neufs?.has(e),
+    neuve: estNeuf(e),
   })
   const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dedans: ReactNode, anneau = '') => (
     <button
@@ -356,7 +366,8 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const pastille = (cle: ChoixDeBordure, nom: string, bordure: BordureDeLigue | null, label: string) => {
     const montre = montree === cle
     const porte = portee === cle
-    const neuve = cle !== 'auto' && cle !== AUCUNE_BORDURE && !!neufs?.has(`bordure:${cle}`)
+    // Sertie à son douzième cran, elle est neuve aussi : ce cran-là se comptait en rouge sans se montrer nulle part.
+    const neuve = cle !== 'auto' && cle !== AUCUNE_BORDURE && bordureNeuve(cle, neufs)
     return (
       <button
         key={cle}
