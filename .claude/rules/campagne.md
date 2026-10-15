@@ -21,7 +21,7 @@ paths:
 ## Les pièges
 
 - **Un tirage passe toute la base au crible**, à chaque série, défi, duel
-  ou dé : vingt-deux mille questions (21 887 le 13 octobre 2026), au
+  ou dé : vingt-trois mille questions (23 096 le 15 octobre 2026), au
   dixième de cœur de l'hébergeur. La liste des jouables se garde tant que
   la base, la réserve du jour et les retraits ne changent pas
   (`jouablesGardees`, comparés par identité : la réserve du jour se relit

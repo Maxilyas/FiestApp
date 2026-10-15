@@ -65,9 +65,11 @@ import { sansAccent } from '../../shared/homonymes'
  * questions demandées à chacun, famille par famille de leurs inventaires
  * (`preparer --inventaire=danse,sante`), 1 121 rangées (59 refusées comme
  * un fait ou un intitulé que la base ou un autre lot posait déjà, 20
- * retirées à la relecture) : 23 008.
+ * retirées à la relecture) : 23 008 ; puis une par sujet qu'aucune
+ * n'abordait encore (`--manques`), 48 : 23 056 ; puis vingt de plus par
+ * thème pour atteindre les six cents, 40 : 23 096.
  */
-const AU_MOINS = 23008
+const AU_MOINS = 23096
 
 const { questions, refusees } = lireLaBase()
 

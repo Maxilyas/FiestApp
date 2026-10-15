@@ -69,3 +69,14 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   juge retire alors la question ; et passé vingt mille questions, le
   rédacteur retombe sur un fait déjà posé une fois sur seize (de 77 à 180
   refus par tranche de trois mille), et chaque correction se paie.
+- **La danse et les métiers de la santé** (15 octobre 2026) : six cents
+  questions neuves par thème, écrites famille par famille de leurs
+  inventaires, puis une par sujet resté sans question, et vingt de plus pour
+  finir les six cents — 1 209 rangées, jusqu'à 23 096. Ce qu'on en a appris :
+  entre familles voisines d'une même vague, les rédacteurs posent le même
+  fait (les maracas, les bongos et le güiro de la salsa et de la rumba) — le
+  recueil en refuse la plupart, la relecture rattrape le reste ; une liste de
+  sujets se sépare par un point médian, jamais par une virgule (un sujet en
+  porte : Guillaume Diop est resté sans question) ; et un rédacteur range ses
+  scripts dans son dossier à lui — un `g.py` commun dans `/tmp` a réécrit le
+  lot d'un voisin.
