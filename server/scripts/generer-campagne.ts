@@ -8,8 +8,8 @@
 //   npx tsx scripts/generer-campagne.ts preparer --questions=1000 [--categories=Géographie,Sport] [--par-lot=30] [--nom=g1]
 //   npx tsx scripts/generer-campagne.ts preparer --sentiers[=2] [--par-lot=30] [--nom=s1]   ce qui manque aux sentiers pour se monter deux fois
 //   npx tsx scripts/generer-campagne.ts preparer --theme=<clé> [--par-lot=30] [--nom=t1]    ce qui manque à un thème (shared/sujets.ts)
-//   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé> --questions=<n> [--nom=d1]   n questions pour un thème, famille par famille de son inventaire
-//   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé> --manques [--nom=d2]          une question par sujet de l'inventaire qu'aucune n'aborde encore
+//   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --questions=<n> [--nom=d1]   n questions pour chaque thème, famille par famille de son inventaire
+//   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --manques [--nom=d2]          une question par sujet de l'inventaire qu'aucune n'aborde encore
 //   npx tsx scripts/generer-campagne.ts suite [<nom>] [--forcer]
 //   npx tsx scripts/generer-campagne.ts etat [<nom>]
 //
@@ -241,6 +241,13 @@ export function commandeDuTheme(
     lignes.sort((a, b) => tous.indexOf(a.cle) - tous.indexOf(b.cle) || (a.difficulte ?? 0) - (b.difficulte ?? 0))
   }
   return commandes
+}
+
+/** Les commandes de plusieurs thèmes en une : leurs lignes, catégorie par catégorie. */
+function reunir(commandes: readonly Map<Categorie, QuotaDEcriture[]>[]): Map<Categorie, QuotaDEcriture[]> {
+  const toutes = new Map<Categorie, QuotaDEcriture[]>()
+  for (const c of commandes) for (const [categorie, lignes] of c) toutes.set(categorie, [...(toutes.get(categorie) ?? []), ...lignes])
+  return toutes
 }
 
 /** Les thèmes qui ont un inventaire (`core/inventaires.ts`), pour les dire quand on se trompe de clé. */
@@ -491,9 +498,11 @@ export interface OptionsDePreparation {
   /** Écrire ce qui manque à ce thème pour se monter deux fois (`commandeDuTheme`). */
   theme?: string
   /**
-   * Écrire `questions` questions pour ce thème, famille par famille de son
-   * inventaire (`commandeDeLInventaire`) — ou, avec `manques`, une par sujet
-   * qu'aucune question n'aborde encore (`commandeDesManques`).
+   * Écrire `questions` questions pour chacun de ces thèmes (« danse,sante »),
+   * famille par famille de son inventaire (`commandeDeLInventaire`) — ou,
+   * avec `manques`, une par sujet qu'aucune question n'aborde encore
+   * (`commandeDesManques`). Plusieurs thèmes en une génération s'écrivent
+   * dans les mêmes vagues : une génération à la fois les aurait mis en file.
    */
   inventaire?: string
   manques?: boolean
@@ -513,14 +522,14 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   if (o.theme !== undefined && theme?.famille !== 'theme') {
     throw new Error(`--theme=<clé> : l'un des thèmes de shared/sujets.ts (${SUJETS.filter(s => s.famille === 'theme').map(s => s.cle).join(', ')}).`)
   }
-  const inventaire = o.inventaire === undefined ? undefined : sujetParCle(o.inventaire)
-  if (o.inventaire !== undefined && (inventaire?.famille !== 'theme' || inventairesDuTheme(inventaire).length === 0)) {
-    throw new Error(`--inventaire=<clé> : un thème qui a un inventaire (${themesAInventaire().join(', ')}).`)
+  const inventaires = o.inventaire?.split(',').map(cle => sujetParCle(cle.trim()))
+  if (inventaires && !inventaires.every((t): t is Sujet => t?.famille === 'theme' && inventairesDuTheme(t).length > 0)) {
+    throw new Error(`--inventaire=<clé>[,<clé>…] : des thèmes qui ont un inventaire (${themesAInventaire().join(', ')}).`)
   }
-  if (inventaire && (o.manques ? o.questions !== undefined : !Number.isInteger(o.questions) || o.questions! < 1)) {
+  if (inventaires && (o.manques ? o.questions !== undefined : !Number.isInteger(o.questions) || o.questions! < 1)) {
     throw new Error('--inventaire=<clé> : avec --questions=<nombre>, ou avec --manques — l’un ou l’autre.')
   }
-  if (o.sentiers === undefined && !theme && !inventaire && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
+  if (o.sentiers === undefined && !theme && !inventaires && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
   const parLot = o.parLot ?? QUESTIONS_PAR_LOT
   if (!Number.isInteger(parLot) || parLot < 5 || parLot > 40) throw new Error('--par-lot : de 5 à 40 questions par lot.')
   const enCours = generations(ctx).find(x => !finie(x))
@@ -535,10 +544,8 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   const connues = lues.map(q => ({ categorie: q.meta.categorie, sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte }))
   const commandes = theme
     ? commandeDuTheme(theme, lues.map(q => q.meta))
-    : inventaire
-      ? o.manques
-        ? commandeDesManques(inventaire, lues)
-        : commandeDeLInventaire(inventaire, o.questions!)
+    : inventaires
+      ? reunir(inventaires.map(t => (o.manques ? commandeDesManques(t, lues) : commandeDeLInventaire(t, o.questions!))))
       : o.sentiers === undefined
         ? undefined
         : commandeDesSentiers(connues, o.sentiers)
@@ -547,8 +554,8 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
     throw new Error(
       theme
         ? `« ${theme.nom} » a de quoi se monter deux fois : rien à écrire.`
-        : inventaire
-          ? `« ${inventaire.nom} » : chaque sujet de son inventaire a déjà sa question.`
+        : inventaires
+          ? `${inventaires.map(t => `« ${t.nom} »`).join(' et ')} : chaque sujet de l'inventaire a déjà sa question.`
           : `Les sentiers ont de quoi se monter ${o.sentiers} fois : rien à écrire.`,
     )
   }

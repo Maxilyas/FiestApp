@@ -206,16 +206,22 @@ test('ce qui manque : un sujet sans question, une question, nommé dans sa famil
   for (const l of plan) for (const x of l.quotas) assert.equal(x.n, x.sujets!.length, `${l.id} : une question par sujet`)
 })
 
-test('préparer par l’inventaire : --questions ou --manques, jamais avec --theme', () => {
+test('préparer par l’inventaire : --questions ou --manques, jamais avec --theme, et deux thèmes dans les mêmes vagues', () => {
   const contexte = (): Contexte => ({ dossier: mkdtempSync(path.join(tmpdir(), 'inventaire-')), base: [], livres: new Set(), dire: () => {} })
   const ctx = contexte()
   try {
     assert.equal(preparer(ctx, { inventaire: 'sante', questions: 600, nom: 's1' }).generation.demandees, 600)
+    // Une génération à la fois : deux thèmes en une, plutôt que l'un après l'autre.
+    const deux = preparer(contexte(), { inventaire: 'danse,sante', questions: 600, nom: 'ds1' }).generation
+    assert.equal(deux.demandees, 1200)
+    const premiere = new Set(deux.vagues[0].lots.map(l => l.categorie))
+    for (const c of ['Musique', 'Arts & lettres', 'Autour de la fête', 'Culture générale', 'Sciences']) assert.ok(premiere.has(c as Categorie), `${c} dès la première vague`)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse', theme: 'danse', questions: 10 }), /un seul à la fois|ne se mêle/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse' }), /--questions=<nombre>, ou avec --manques/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse', questions: 10, manques: true }), /l’un ou l’autre/)
     assert.throws(() => preparer(contexte(), { manques: true, questions: 10 }), /--manques ne va qu’avec --inventaire/)
-    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /un thème qui a un inventaire \(danse, sante\)/)
+    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /des thèmes qui ont un inventaire \(danse, sante\)/)
+    assert.throws(() => preparer(contexte(), { inventaire: 'danse,animaux', questions: 10 }), /des thèmes qui ont un inventaire/)
     const manques = preparer(contexte(), { inventaire: 'danse', manques: true, nom: 'm1' })
     assert.equal(manques.generation.demandees, inventairesDuTheme(danse).flatMap(i => i.familles.flatMap(f => f.sujets)).length)
   } finally {

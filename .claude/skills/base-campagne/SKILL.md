@@ -103,7 +103,8 @@ moins qu'une réécriture.
    qui a un inventaire (`server/src/core/inventaires.ts` : la danse, les
    métiers de la santé) se commande famille par famille :
    `--inventaire=<clé> --questions=<n>`, ses familles écrites en même temps
-   — chacune son lot, sans poser les mêmes faits —, puis, rangé,
+   — chacune son lot, sans poser les mêmes faits ; `--inventaire=danse,sante`
+   pour deux thèmes dans les mêmes vagues, `n` chacun —, puis, rangé,
    `--inventaire=<clé> --manques` pour ce que `base-campagne.ts couverture
    <clé>` dit encore sans question ; `base-campagne.ts inventaire <clé>` le
    met en clair, à relire avec le propriétaire avant de dépenser le forfait.
