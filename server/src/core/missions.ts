@@ -3,6 +3,7 @@ import type { CampagneStore } from './campagne'
 import type { JourStore } from './jour'
 import { jourAvant, jourDe, minutesAvantMinuit } from '../../../shared/jour'
 import { minuitDe } from '../../../shared/qg'
+import { releve } from './pouls'
 import { rangDuCoffre, semaineValide, type CoffreEnAttente, type CoffreOuvert } from '../../../shared/coffre'
 import {
   activiteDesJours,
@@ -38,6 +39,29 @@ export interface DepsDesMissions {
   maintenant: () => number
   /** Le hasard du coffre, dans [0, 1[ : les tests le fixent. */
   hasard?: () => number
+  /** Ce qu'une lecture dure au plus (`DUREE_D_UNE_LECTURE_MS`) : les tests le raccourcissent. */
+  dureeMaxMs?: number
+}
+
+/**
+ * Ce qu'une lecture des missions — ou l'ouverture d'un coffre — dure au plus.
+ * Chaque requête vers la base tombe à dix secondes (`DELAI_DISTANT_MS`) : une
+ * lecture n'a aucune raison d'en prendre davantage. Restée en route, elle
+ * retenait toutes les suivantes du même profil (`unALaFois`) : le 15 octobre
+ * 2026, la route du propriétaire « charge sans fin » et la ligne de son
+ * accueil restait vide jusqu'au redémarrage du serveur, sans une erreur au
+ * journal. Elle échoue maintenant, et dit à quelle étape elle en était —
+ * avant les vingt secondes au bout desquelles la page abandonne d'elle-même
+ * (`DELAI_REQUETE_MS`, `client/src/api.ts`) : la suivante passe à temps.
+ */
+export const DUREE_D_UNE_LECTURE_MS = 15_000
+
+/** Une lecture restée en route au-delà de sa durée : une erreur du serveur, comptée au relevé, jamais un message pour l'invité. */
+export class LectureEnRoute extends Error {
+  constructor(etape: string, ms: number) {
+    super(`lecture des missions restée en route ${Math.round(ms / 1000)} s, à l’étape « ${etape} »`)
+    this.name = 'LectureEnRoute'
+  }
 }
 
 /** Le premier instant d'un jour de Paris (« 2026-10-14 ») : midi en temps universel tombe toujours dans le même jour de Paris. */
@@ -116,9 +140,27 @@ export class Missions {
 
   constructor(private deps: DepsDesMissions) {}
 
-  private unALaFois<T>(profileId: string, travail: () => Promise<T>): Promise<T> {
+  /**
+   * Le travail d'un profil après celui d'avant, borné (`DUREE_D_UNE_LECTURE_MS`) :
+   * au-delà, il échoue — `LectureEnRoute`, avec l'étape qu'il a dite en dernier
+   * (`etape`) — et le suivant passe. Ce qu'il attendait continue sans retenir
+   * personne.
+   */
+  private unALaFois<T>(profileId: string, travail: (etape: (ou: string) => void) => Promise<T>): Promise<T> {
     const avant = this.enCours.get(profileId) ?? Promise.resolve()
-    const suite = avant.then(travail)
+    const dureeMs = this.deps.dureeMaxMs ?? DUREE_D_UNE_LECTURE_MS
+    const suite = avant.then(() => {
+      let ou = 'au départ'
+      let minuteur: ReturnType<typeof setTimeout> | undefined
+      const enRoute = new Promise<never>((_, rejeter) => {
+        minuteur = setTimeout(() => {
+          // Au relevé de l'heure aussi, sous son étape — sans un nom : la page « Le serveur » du QG le dira.
+          releve.erreur(`missions en route · ${ou}`)
+          rejeter(new LectureEnRoute(ou, dureeMs))
+        }, dureeMs)
+      })
+      return Promise.race([travail(e => (ou = e)), enRoute]).finally(() => clearTimeout(minuteur))
+    })
     const fin = suite.catch(() => {})
     this.enCours.set(profileId, fin)
     void fin.then(() => {
@@ -141,8 +183,9 @@ export class Missions {
    * matin (le 15 octobre 2026 : « c'est le texte qui s'affiche après »).
    */
   duJour(profileId: string): Promise<MissionsDuJour> {
-    return this.unALaFois(profileId, async () => {
+    return this.unALaFois(profileId, async etape => {
       const { profiles, jour, campagne } = this.deps
+      etape('ses journaux')
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
       const lundi = lundiDe(aujourdhui)
@@ -160,11 +203,14 @@ export class Missions {
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       let siennes = lignes
       if (!lignes.some(l => l.jour === aujourdhui)) {
+        etape('son carnet')
         const contexte = this.contexte(aujourdhui, lundi, activites, lignes, deCampagne.series, await (carnet ?? this.aRevoirDe(profileId)))
+        etape('le tirage')
         const tirees = await profiles.tirerLesMissions(profileId, aujourdhui, tirerLesMissions(`${profileId}|${aujourdhui}`, contexte), maintenant)
         siennes = [...lignes, ...tirees]
       }
       this.tireesLe.set(profileId, aujourdhui)
+      etape('ce qui est fait')
       const retenues = await profiles.accomplirDesMissions(profileId, faitesARetenir(siennes, activites, aujourdhui, maintenant))
       const faites = new Set([...siennes.filter(l => l.faiteLe !== null), ...retenues].map(l => `${l.jour}|${l.rang}`))
       const estFaite = (j: string, rang: number) => faites.has(`${j}|${rang}`)
@@ -222,10 +268,11 @@ export class Missions {
    */
   ouvrirLeCoffre(profileId: string, semaine: unknown): Promise<CoffreOuvert> {
     if (!semaineValide(semaine)) return Promise.reject(new Error('Ce coffre n’existe pas : recharge la page.'))
-    return this.unALaFois(profileId, async () => {
+    return this.unALaFois(profileId, async etape => {
       const { profiles } = this.deps
       const maintenant = this.deps.maintenant()
       const aujourdhui = jourDe(maintenant)
+      etape('le coffre')
       if (semaine >= lundiDe(aujourdhui)) throw new Error('Ce coffre s’ouvre lundi : d’ici là, remplis ta carte.')
       const deja = await profiles.coffreDe(profileId, semaine)
       if (deja) return deja

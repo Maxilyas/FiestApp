@@ -23,7 +23,7 @@ import {
 import { rangDuCoffre } from '../../shared/coffre'
 import { jourDe } from '../../shared/jour'
 import { tirerLeCoffre } from '../../shared/tresor'
-import { coffresEnAttente, faitesARetenir } from '../src/core/missions'
+import { coffresEnAttente, faitesARetenir, LectureEnRoute, Missions, type DepsDesMissions } from '../src/core/missions'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -160,6 +160,43 @@ test('le coffre ne donne jamais ce qu’on a déjà, et descend d’un cran quan
   assert.deepEqual(tirerLeCoffre('or', { possede: () => true, hasard: hasards(0.5, 0.5), jour }), { objet: { sorte: 'confettis', confettis: 120 }, rarete: 'commune' })
   // Le coffre de bois ne donne jamais de légendaire.
   for (let i = 0; i < 100; i++) assert.notEqual(tirerLeCoffre('bois', { possede: () => false, hasard: hasards(i / 100, 0.5), jour }).rarete, 'legendaire')
+})
+
+test('une lecture restée en route ne retient plus les suivantes du profil : elle échoue en disant son étape, la suivante passe', async () => {
+  // Le 15 octobre 2026, en production : une lecture des missions du
+  // propriétaire n'a jamais rendu la main, et toutes les suivantes — une par
+  // page — l'attendaient (`unALaFois`) : sa route « charge sans fin », sa ligne
+  // restait vide, sans une erreur au journal, jusqu'au redémarrage.
+  const jour = '2026-10-15'
+  const lignes = [
+    { jour, rang: 0, mission: { sorte: 'serie', cible: 3 } as Mission, faiteLe: null },
+    { jour, rang: 1, mission: { sorte: 'justes', cible: 4 } as Mission, faiteLe: null },
+    { jour, rang: 2, mission: { sorte: 'categorie', cible: 2, categorie: 'Histoire' } as Mission, faiteLe: null },
+    { jour, rang: 3, mission: null, faiteLe: null },
+  ]
+  let lectures = 0
+  const missions = new Missions({
+    profiles: {
+      // La première ne revient jamais ; les suivantes, tout de suite.
+      lignesDesMissions: () => (++lectures === 1 ? new Promise(() => {}) : Promise.resolve(lignes)),
+      accomplirDesMissions: async () => [],
+      joursAuxTrois: async () => [],
+      semainesDesCoffres: async () => new Set<string>(),
+      soireesDepuis: async () => [],
+    } as unknown as DepsDesMissions['profiles'],
+    jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }) },
+    campagne: { activiteDepuis: async () => ({ series: [], reponses: [] }), aRevoirDe: async () => 0 },
+    maintenant: () => Date.UTC(2026, 9, 15, 8),
+    dureeMaxMs: 150,
+  })
+  const enRoute = missions.duJour('lea')
+  const suivante = missions.duJour('lea')
+  await assert.rejects(enRoute, (e: unknown) => e instanceof LectureEnRoute && e.message.includes('« ses journaux »'))
+  const lue = await suivante
+  assert.equal(lue.jour, jour)
+  assert.equal(lue.missions.length, 3, 'la suivante a lu, sans attendre celle restée en route')
+  // Et une lecture ordinaire n'est pas coupée.
+  assert.equal((await missions.duJour('lea')).missions.length, 3)
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────
