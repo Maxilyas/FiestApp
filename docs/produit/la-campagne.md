@@ -154,6 +154,7 @@ Tout ce que pose la campagne, et aussi le quiz tout prêt des soirées, vient d'
 | Un lot à la main | La skill `base-campagne` : l'agent `redacteur-campagne` écrit le lot, `relecteur-campagne` le relit, puis le lot est rangé dans le dépôt (voir le schéma ci-dessous) |
 | En nombre | `server/scripts/generer-campagne.ts` : des lots de trente questions au plus, écrits par vagues où deux lots ne partagent jamais un sous-thème, avec les mêmes agents |
 | Par l'inventaire d'un thème | La danse et les métiers de la santé ont un inventaire (`server/src/core/inventaires.ts`) : tout ce que leurs sous-thèmes doivent couvrir, famille par famille — la salsa, les orishas, la rééducation, les urgences… La consigne le donne à qui écrit pour eux, la routine comprise ; `generer-campagne.ts preparer --inventaire=<clé>` commande famille par famille, deux familles s'écrivant en même temps, et `base-campagne.ts couverture <clé>` dit les sujets restés sans question |
+| Pour étoffer un thème | `generer-campagne.ts preparer --sujet=<clé> --questions=<n>` : n questions de plus pour un thème, une époque ou un fil rouge, là où il vit déjà — les surnoms au cyclisme et chez les rois — et aux difficultés qui lui manquent ; hors de ses sous-thèmes, chaque ligne de la consigne dit son étiquette ou ses années |
 | Depuis Wikidata | `server/scripts/faits-wikidata.ts` : des faits sûrs pour quinze familles (tableaux, films, prix Goncourt…). Le rédacteur n'écrit que les phrases, ce qui coûte deux fois moins cher, et chaque lot est relu |
 
 Le chemin d'un lot, de la consigne au commit :

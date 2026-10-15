@@ -25,6 +25,7 @@ import {
   QUESTIONS_PAR_LOT,
   charger,
   commandeDesSentiers,
+  commandeDuSujet,
   commandeDuTheme,
   etat,
   lireLesDecisions,
@@ -221,6 +222,87 @@ test('pour un thème : ce que ses six paliers et une série demandent, marche pa
     assert.ok(missions.length > 0)
     assert.throws(() => preparer(contexte(), { theme: 'annees-80' }), /l'un des thèmes de shared\/sujets\.ts \(animaux, /)
     assert.throws(() => preparer(contexte(), { theme: 'animaux', questions: 10 }), /un seul à la fois/)
+  } finally {
+    rmSync(ctx.dossier, { recursive: true, force: true })
+  }
+})
+
+// Le souhait du propriétaire du 15 octobre 2026 : étoffer les plus petits
+// thèmes — un fil rouge, une époque, un thème —, là où ils vivent déjà.
+test('pour un sujet : n questions de plus là où il vit, aux difficultés qui lui manquent, chacune dite sienne hors de ses sous-thèmes', () => {
+  const meta = (categorie: string, sousTheme: string, difficulte: number, o: { etiquettes?: string[]; annee?: string } = {}) => ({
+    categorie,
+    sousTheme,
+    difficulte,
+    etiquettes: o.etiquettes ?? [],
+    date: o.annee ? { valeur: o.annee, precision: 'annee' as const } : null,
+    portee: 'monde' as const,
+  })
+  const deLaPaire = (c: Map<Categorie, QuotaDEcriture[]>, categorie: Categorie, cle: string) => (c.get(categorie) ?? []).filter(l => l.cle === cle).reduce((s, l) => s + l.n, 0)
+  const parDifficulte = (lignes: readonly QuotaDEcriture[], d: number) => lignes.filter(l => l.difficulte === d).reduce((s, l) => s + l.n, 0)
+
+  // Trente surnoms au cyclisme, dix chez les rois, tous experts ou difficiles ; cinquante questions de football qui n'en sont pas.
+  const surnoms = sujetParCle('surnoms')!
+  const base = [
+    ...Array.from({ length: 30 }, () => meta('Sport', 'cyclisme', 5, { etiquettes: ['surnom'] })),
+    ...Array.from({ length: 10 }, () => meta('Histoire', 'personnages', 4, { etiquettes: ['surnom'] })),
+    ...Array.from({ length: 50 }, () => meta('Sport', 'football', 1)),
+  ]
+  const commande = commandeDuSujet(surnoms, base, 40)
+  const lignes = [...commande.values()].flat()
+  assert.equal(lignes.reduce((s, l) => s + l.n, 0), 40)
+  assert.deepEqual([deLaPaire(commande, 'Sport', 'cyclisme'), deLaPaire(commande, 'Histoire', 'personnages'), deLaPaire(commande, 'Sport', 'football')], [30, 10, 0], 'là où il vit, à proportion')
+  assert.ok(lignes.every(l => l.contrainte === 'chacune étiquetée « surnom » (Les surnoms)'), 'hors de ses sous-thèmes — il n’en a pas —, son étiquette')
+  assert.equal(parDifficulte(lignes, 5), 0, 'des expertes, il en a déjà trop')
+  assert.ok(parDifficulte(lignes, 1) > 0 && parDifficulte(lignes, 2) > 0 && parDifficulte(lignes, 3) > 0, 'les faciles et les moyennes qui lui manquent')
+  assert.ok(new Set(commande.get('Sport')!.map(l => l.difficulte)).size >= 3, 'chaque paire un peu de chaque difficulté')
+
+  // Une époque : datée dans ses années.
+  const annees50 = sujetParCle('annees-50')!
+  const auJazz = commandeDuSujet(annees50, [meta('Musique', 'jazz-monde', 3, { annee: '1955' }), meta('Musique', 'jazz-monde', 3, { annee: '1975' })], 6)
+  assert.deepEqual([...auJazz.keys()], ['Musique'])
+  assert.ok(auJazz.get('Musique')!.every(l => l.cle === 'jazz-monde' && l.contrainte === 'chacune datée de 1950 à 1959 (Les années 50)'))
+
+  // Un thème : dans son sous-thème, rien à dire de plus ; ailleurs, son étiquette.
+  const mythes = sujetParCle('mythes-legendes')!
+  const enMythes = commandeDuSujet(mythes, [...Array.from({ length: 3 }, () => meta('Culture générale', 'mythes', 3)), meta('Autour de la fête', 'halloween', 3, { etiquettes: ['contes-legendes'] })], 8)
+  assert.deepEqual([deLaPaire(enMythes, 'Culture générale', 'mythes'), deLaPaire(enMythes, 'Autour de la fête', 'halloween')], [6, 2])
+  assert.ok(enMythes.get('Culture générale')!.every(l => l.contrainte === undefined))
+  assert.ok(enMythes.get('Autour de la fête')!.every(l => l.contrainte === 'chacune étiquetée « contes-legendes » (Mythes et légendes)'))
+  // Sans question encore, ses sous-thèmes ; sans sous-thème ni question, rien ne dit où écrire.
+  assert.deepEqual([...commandeDuSujet(mythes, [], 4).keys()], ['Culture générale'])
+  assert.throws(() => commandeDuSujet(surnoms, [], 4), /rien ne dit où l'écrire/)
+
+  // Deux sujets dans un même sous-thème : deux morceaux d'une même vague, chacun sa contrainte jusque dans la consigne.
+  const deux = new Map<Categorie, QuotaDEcriture[]>([
+    [
+      'Histoire',
+      [
+        { cle: 'personnages', n: 3, difficulte: 2, contrainte: 'chacune étiquetée « surnom » (Les surnoms)' },
+        { cle: 'personnages', n: 2, difficulte: 2, contrainte: 'chacune datée de 1950 à 1959 (Les années 50)' },
+      ],
+    ],
+  ])
+  const vagues = planDeLaGeneration([], { nom: 'p1', questions: 0, commandes: deux })
+  assert.equal(vagues.length, 1)
+  const quotas = vagues[0].lots.flatMap(l => l.quotas)
+  assert.deepEqual(quotas.map(q => `${q.n} ${q.contrainte}`).sort(), ['2 chacune datée de 1950 à 1959 (Les années 50)', '3 chacune étiquetée « surnom » (Les surnoms)'])
+  const consigne = consigneDEcriture('Histoire', quotas, { sorte: 'fichier', fichier: '/tmp/lots/p1-01.json' })
+  assert.match(consigne, /^- personnages \(.*\) : 3 questions de difficulté 2, chacune étiquetée « surnom » \(Les surnoms\)$/m)
+  assert.match(consigne, /^Une ligne qui finit par « chacune … » écrit pour un thème de « Sur quoi \? »/m)
+
+  // Préparer : n questions de plus pour chacun des sujets nommés.
+  const surnom = lireQuestionDeLaBase({ ...entree(1, { categorie: 'Sport', sousTheme: 'cyclisme' }), etiquettes: ['surnom'], id: 'surn0001' })
+  if ('refus' in surnom) throw new Error(surnom.refus)
+  const ctx = contexte([surnom.question])
+  try {
+    const { generation, missions } = preparer(ctx, { sujet: 'mythes-legendes,surnoms', questions: 10, nom: 'f1' })
+    assert.equal(generation.demandees, 20)
+    assert.ok(missions.length > 0)
+    assert.match(ctx.journal.join('\n'), /cyclisme : Les surnoms 10/)
+    assert.throws(() => preparer(contexte(), { sujet: 'surnoms' }), /avec --questions=<nombre>/)
+    assert.throws(() => preparer(contexte(), { sujet: 'licornes', questions: 5 }), /des sujets de shared\/sujets\.ts \(animaux, /)
+    assert.throws(() => preparer(contexte(), { sujet: 'surnoms', questions: 5, inventaire: 'danse' }), /--sujet ne se mêle/)
   } finally {
     rmSync(ctx.dossier, { recursive: true, force: true })
   }

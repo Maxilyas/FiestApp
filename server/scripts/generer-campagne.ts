@@ -10,6 +10,7 @@
 //   npx tsx scripts/generer-campagne.ts preparer --theme=<clé> [--par-lot=30] [--nom=t1]    ce qui manque à un thème (shared/sujets.ts)
 //   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --questions=<n> [--nom=d1]   n questions pour chaque thème, famille par famille de son inventaire
 //   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --manques [--nom=d2]          une question par sujet de l'inventaire qu'aucune n'aborde encore
+//   npx tsx scripts/generer-campagne.ts preparer --sujet=<clé>[,<clé>…] --questions=<n> [--nom=f1]        n questions de plus pour chaque thème, époque ou fil rouge, là où il vit déjà
 //   npx tsx scripts/generer-campagne.ts suite [<nom>] [--forcer]
 //   npx tsx scripts/generer-campagne.ts etat [<nom>]
 //
@@ -31,7 +32,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, w
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { commandeDeLaCategorie, consigneDEcriture, empreintesDesLivres, type QuotaDEcriture } from '../src/core/consigneCampagne'
+import { CIBLE_DES_DIFFICULTES, commandeDeLaCategorie, consigneDEcriture, empreintesDesLivres, type QuotaDEcriture } from '../src/core/consigneCampagne'
 import { couverture, inventairesDuTheme, repartirLesFamilles, type QuestionCouverte } from '../src/core/inventaires'
 import { CATEGORIES, categorieDe, type Categorie } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
@@ -302,6 +303,110 @@ export function commandeDesManques(
   return commandes
 }
 
+/** `total` réparti au prorata des poids, au plus fort reste : les plus gros restes prennent les unités qui manquent. */
+function auProrata(poids: readonly number[], total: number): number[] {
+  const somme = poids.reduce((s, p) => s + p, 0)
+  if (somme <= 0 || total <= 0) return poids.map(() => 0)
+  const parts = poids.map(p => (total * p) / somme)
+  const n = parts.map(p => Math.floor(p))
+  const restes = parts.map((p, i) => ({ i, reste: p - Math.floor(p) })).sort((a, b) => b.reste - a.reste || a.i - b.i)
+  for (let manque = total - n.reduce((s, x) => s + x, 0), k = 0; manque > 0; manque--, k++) n[restes[k % restes.length].i]++
+  return n
+}
+
+/**
+ * Ce qui fait d'une question celle du sujet dans ce sous-thème, à la lettre de
+ * `sujetsDe` : rien dans l'un de ses sous-thèmes ; ailleurs, son étiquette, ses
+ * années ou sa portée — la ligne de la consigne le dit au rédacteur.
+ */
+export function contrainteDuSujet(sujet: Sujet, categorie: Categorie, sousTheme: string): string | undefined {
+  if (sujet.sousThemes?.[categorie]?.includes(sousTheme)) return undefined
+  const voies: string[] = []
+  if (sujet.etiquettes && sujet.etiquettes.length > 0) voies.push(`étiquetée ${sujet.etiquettes.map(e => `« ${e} »`).join(' ou ')}`)
+  if (sujet.annees) voies.push(sujet.annees[1] >= 10000 ? `datée de ${sujet.annees[0]} ou après` : `datée de ${sujet.annees[0]} à ${sujet.annees[1]}`)
+  if (sujet.portee) voies.push(`de portée « ${sujet.portee} »`)
+  return voies.length > 0 ? `chacune ${voies.join(', ou ')} (${sujet.nom})` : undefined
+}
+
+/**
+ * `total` questions de plus pour un sujet de « Sur quoi ? » (`shared/sujets.ts`),
+ * là où il vit déjà : réparties comme ses questions le sont entre catégories
+ * et sous-thèmes — une époque ou un fil rouge n'a pas de sous-thème à lui, mais
+ * ses surnoms vivent au cyclisme et chez les rois —, chaque question à la
+ * difficulté où il est le plus en retard sur la cible de la base
+ * (`CIBLE_DES_DIFFICULTES`) : les premières fois n'avaient que 8 questions très
+ * faciles sur 395, quand un parcours de thème s'ouvre sur des étapes faciles.
+ * Hors de ses sous-thèmes, chaque ligne dit ce qui la fait sienne
+ * (`contrainteDuSujet`). Le souhait du propriétaire du 15 octobre 2026 :
+ * étoffer les plus petits thèmes.
+ */
+export function commandeDuSujet(
+  sujet: Sujet,
+  existantes: readonly Pick<MetadonneesDeQuestion, 'categorie' | 'sousTheme' | 'difficulte' | 'etiquettes' | 'date' | 'portee'>[],
+  total: number,
+): Map<Categorie, QuotaDEcriture[]> {
+  const siennes = existantes.filter(q => sujetsDe(q).includes(sujet.cle))
+  const cle = (categorie: string, sousTheme: string) => `${categorie}\u0000${sousTheme}`
+  const parPaire = new Map<string, { categorie: Categorie; sousTheme: string; n: number }>()
+  for (const q of siennes) {
+    const categorie = q.categorie as Categorie
+    if (!SOUS_THEMES[categorie]?.some(s => s.cle === q.sousTheme)) continue
+    const p = parPaire.get(cle(categorie, q.sousTheme)) ?? { categorie, sousTheme: q.sousTheme, n: 0 }
+    p.n++
+    parPaire.set(cle(categorie, q.sousTheme), p)
+  }
+  // Un sujet qui n'a encore aucune question prend ses sous-thèmes à parts égales.
+  if (parPaire.size === 0) {
+    for (const [categorie, cles] of Object.entries(sujet.sousThemes ?? {}) as [Categorie, readonly string[]][]) {
+      for (const sousTheme of cles) parPaire.set(cle(categorie, sousTheme), { categorie, sousTheme, n: 1 })
+    }
+  }
+  if (parPaire.size === 0) throw new Error(`« ${sujet.nom} » n'a encore ni question ni sous-thème : rien ne dit où l'écrire.`)
+  const rang = (p: { categorie: Categorie; sousTheme: string }) => CATEGORIES.indexOf(p.categorie) * 100 + SOUS_THEMES[p.categorie].findIndex(s => s.cle === p.sousTheme)
+  const paires = [...parPaire.values()].sort((a, b) => b.n - a.n || rang(a) - rang(b))
+  const parts = auProrata(
+    paires.map(p => p.n),
+    total,
+  )
+  // Les difficultés, une à une, là où le sujet est le plus en retard sur la cible ; puis distribuées
+  // à tour de rôle entre ses paires, pour que chacune ait un peu de chaque.
+  const compte = new Map([1, 2, 3, 4, 5].map(d => [d, siennes.filter(q => q.difficulte === d).length]))
+  const difficultes: number[] = []
+  for (let deja = siennes.length, i = 0; i < total; i++) {
+    deja++
+    let choisie = 3
+    let retard = -Infinity
+    for (const [d, n] of compte) {
+      const r = (CIBLE_DES_DIFFICULTES[d] ?? 0) * deja - n
+      if (r > retard) {
+        retard = r
+        choisie = d
+      }
+    }
+    compte.set(choisie, compte.get(choisie)! + 1)
+    difficultes.push(choisie)
+  }
+  const lignes = new Map<string, QuotaDEcriture & { categorie: Categorie }>()
+  for (let tour = 0, k = 0; k < total; tour++) {
+    paires.forEach((p, i) => {
+      if (tour >= parts[i] || k >= total) return
+      const difficulte = difficultes[k++]
+      const id = `${cle(p.categorie, p.sousTheme)}\u0000${difficulte}`
+      const l = lignes.get(id)
+      if (l) l.n++
+      else {
+        const contrainte = contrainteDuSujet(sujet, p.categorie, p.sousTheme)
+        lignes.set(id, { categorie: p.categorie, cle: p.sousTheme, n: 1, difficulte, ...(contrainte !== undefined && { contrainte }) })
+      }
+    })
+  }
+  const commandes = new Map<Categorie, QuotaDEcriture[]>()
+  for (const { categorie, ...ligne } of [...lignes.values()].sort((a, b) => rang({ categorie: a.categorie, sousTheme: a.cle }) - rang({ categorie: b.categorie, sousTheme: b.cle }) || a.difficulte! - b.difficulte!)) {
+    commandes.set(categorie, [...(commandes.get(categorie) ?? []), ligne])
+  }
+  return commandes
+}
+
 /**
  * Le plan d'une génération : la commande de chaque catégorie, celle de la
  * routine du matin (`commandeDeLaCategorie` : les sous-thèmes et les
@@ -314,7 +419,10 @@ export function commandeDesManques(
  * liste du déjà écrit. Une commande par familles d'un inventaire
  * (`commandeDeLInventaire`) découpe chaque famille à part : deux familles
  * d'un sous-thème — la salsa et les orishas — ne posent pas les mêmes faits,
- * et se partagent une vague ; deux morceaux d'une même famille, jamais.
+ * et se partagent une vague ; deux morceaux d'une même famille, jamais. Deux
+ * sujets écrits dans un même sous-thème (`commandeDuSujet` : les surnoms et
+ * les années 50 chez les rois) se partagent une vague de même, chacun sa
+ * contrainte.
  */
 export function planDeLaGeneration(
   existantes: readonly { categorie: string; sousTheme: string; difficulte: number }[],
@@ -345,9 +453,11 @@ export function planDeLaGeneration(
     // ⌈t / parLot⌉, distribuées une question à la fois pour que chacun ait un
     // peu de chaque difficulté, et chacun ses sujets à couvrir.
     const morceaux: QuotaDEcriture[][][] = []
+    const groupe = (l: QuotaDEcriture) => `${l.famille ?? ''}\u0000${l.contrainte ?? ''}`
     for (const { cle } of SOUS_THEMES[categorie]) {
-      for (const famille of new Set(commande.filter(l => l.cle === cle).map(l => l.famille))) {
-        const lignes = commande.filter(l => l.cle === cle && l.famille === famille)
+      for (const g of new Set(commande.filter(l => l.cle === cle).map(groupe))) {
+        const lignes = commande.filter(l => l.cle === cle && groupe(l) === g)
+        const { famille, contrainte } = lignes[0]
         const t = lignes.reduce((s, l) => s + l.n, 0)
         if (t === 0) continue
         const m = Math.ceil(t / parLot)
@@ -361,7 +471,7 @@ export function planDeLaGeneration(
             if (meme) {
               meme.n++
               if (sujet !== undefined) meme.sujets = [...(meme.sujets ?? []), sujet]
-            } else part.push({ cle, n: 1, difficulte: l.difficulte, ...(famille !== undefined && { famille }), ...(sujet !== undefined && { sujets: [sujet] }) })
+            } else part.push({ cle, n: 1, difficulte: l.difficulte, ...(famille !== undefined && { famille }), ...(contrainte !== undefined && { contrainte }), ...(sujet !== undefined && { sujets: [sujet] }) })
           }
         }
         parts.forEach((p, j) => (morceaux[j] ??= []).push(p))
@@ -506,6 +616,12 @@ export interface OptionsDePreparation {
    */
   inventaire?: string
   manques?: boolean
+  /**
+   * Écrire `questions` questions de plus pour chacun de ces sujets de « Sur
+   * quoi ? » (« surnoms,annees-50 ») — thème, époque ou fil rouge —, là où il
+   * vit déjà (`commandeDuSujet`), dans les mêmes vagues.
+   */
+  sujet?: string
 }
 
 /**
@@ -529,6 +645,10 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   if (inventaires && (o.manques ? o.questions !== undefined : !Number.isInteger(o.questions) || o.questions! < 1)) {
     throw new Error('--inventaire=<clé> : avec --questions=<nombre>, ou avec --manques — l’un ou l’autre.')
   }
+  if (o.sujet !== undefined && (o.inventaire !== undefined || o.sentiers !== undefined || o.theme !== undefined)) throw new Error('--sujet ne se mêle ni à --inventaire, ni à --sentiers, ni à --theme.')
+  const sujets = o.sujet?.split(',').map(cle => sujetParCle(cle.trim()))
+  if (sujets && !sujets.every((s): s is Sujet => s !== undefined)) throw new Error(`--sujet=<clé>[,<clé>…] : des sujets de shared/sujets.ts (${SUJETS.map(s => s.cle).join(', ')}).`)
+  if (sujets && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--sujet=<clé> : avec --questions=<nombre>, combien de plus pour chacun.')
   if (o.sentiers === undefined && !theme && !inventaires && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
   const parLot = o.parLot ?? QUESTIONS_PAR_LOT
   if (!Number.isInteger(parLot) || parLot < 5 || parLot > 40) throw new Error('--par-lot : de 5 à 40 questions par lot.')
@@ -544,11 +664,13 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   const connues = lues.map(q => ({ categorie: q.meta.categorie, sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte }))
   const commandes = theme
     ? commandeDuTheme(theme, lues.map(q => q.meta))
-    : inventaires
-      ? reunir(inventaires.map(t => (o.manques ? commandeDesManques(t, lues) : commandeDeLInventaire(t, o.questions!))))
-      : o.sentiers === undefined
-        ? undefined
-        : commandeDesSentiers(connues, o.sentiers)
+    : sujets
+      ? reunir(sujets.map(s => commandeDuSujet(s, lues.map(q => q.meta), o.questions!)))
+      : inventaires
+        ? reunir(inventaires.map(t => (o.manques ? commandeDesManques(t, lues) : commandeDeLInventaire(t, o.questions!))))
+        : o.sentiers === undefined
+          ? undefined
+          : commandeDesSentiers(connues, o.sentiers)
   const demandees = commandes ? [...commandes.values()].flat().reduce((s, l) => s + l.n, 0) : o.questions!
   if (demandees === 0) {
     throw new Error(
@@ -582,11 +704,12 @@ function direLePlan(ctx: Contexte, g: Generation) {
     const quotas = siens.flatMap(l => l.quotas)
     const parSousTheme = SOUS_THEMES[c].map(s => [s.cle, quotas.filter(q => q.cle === s.cle).reduce((t, q) => t + q.n, 0)] as const).filter(([, n]) => n > 0)
     ctx.dire(`  ${c} : ${siens.reduce((s, l) => s + totalDe(l), 0)} questions, ${pluriel(siens.length, 'lot')} — ${parSousTheme.map(([k, n]) => `${k} ${n}`).join(' · ')}`)
-    // Une commande par familles d'un inventaire les dit sous leur sous-thème.
+    // Une commande par familles d'un inventaire les dit sous leur sous-thème ; une commande par sujets, le sujet de chaque contrainte.
+    const groupe = (q: QuotaDEcriture) => q.famille ?? (q.contrainte ? (/\(([^()]*)\)$/.exec(q.contrainte)?.[1] ?? q.contrainte) : undefined)
     for (const [cle] of parSousTheme) {
-      const familles = [...new Set(quotas.filter(q => q.cle === cle && q.famille).map(q => q.famille!))]
-      const deLaFamille = (f: string) => quotas.filter(q => q.cle === cle && q.famille === f).reduce((t, q) => t + q.n, 0)
-      if (familles.length > 0) ctx.dire(`    ${cle} : ${familles.map(f => `${f} ${deLaFamille(f)}`).join(' · ')}`)
+      const groupes = [...new Set(quotas.filter(q => q.cle === cle && groupe(q)).map(q => groupe(q)!))]
+      const duGroupe = (g: string) => quotas.filter(q => q.cle === cle && groupe(q) === g).reduce((t, q) => t + q.n, 0)
+      if (groupes.length > 0) ctx.dire(`    ${cle} : ${groupes.map(g => `${g} ${duGroupe(g)}`).join(' · ')}`)
     }
   }
 }
@@ -872,7 +995,7 @@ function principal(args: readonly string[]) {
   if (refusees.length > 0) console.warn(`La base a ${refusees.length} entrée(s) défectueuse(s) : elles ne comptent pas.`)
   const ctx: Contexte = { dossier: DOSSIER_DES_LOTS, base, livres: empreintesDesLivres(), dire: ligne => console.log(ligne) }
   if (commande === 'preparer') {
-    const { options } = lireLesOptions(reste, ['questions', 'categories', 'par-lot', 'nom', 'sentiers', 'theme', 'inventaire', 'manques'])
+    const { options } = lireLesOptions(reste, ['questions', 'categories', 'par-lot', 'nom', 'sentiers', 'theme', 'inventaire', 'manques', 'sujet'])
     const categories = options.get('categories')?.split(',').map(nom => {
       const c = categorieDe(nom)
       if (!c) throw new Error(`Catégorie inconnue : ${nom} (${CATEGORIES.join(', ')}).`)
@@ -889,6 +1012,7 @@ function principal(args: readonly string[]) {
       theme: options.get('theme'),
       inventaire: options.get('inventaire'),
       manques: options.has('manques'),
+      sujet: options.get('sujet'),
     })
   } else if (commande === 'suite') {
     const { mots, options } = lireLesOptions(reste, ['forcer'])
