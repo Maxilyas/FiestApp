@@ -268,7 +268,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/mots.test.ts` — les noms des prix et leurs clés.
 - `server/test/chiffres.test.ts` — la précision des QCM, le coup d'œil des estimations.
 - `server/test/design.test.ts` — le système de design.
-- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus.
+- `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, et rien ne clignote à l’ouverture.
 - `server/test/typographie.test.ts` — élision, rang, espaces insécables.
 
 ### Les comptes, l'administration, le QG
@@ -345,6 +345,12 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/gerbes.test.ts` — les gerbes.
 - `server/test/heros.test.ts` — les pages phares.
 - `server/test/themes.test.ts` — les thèmes et leurs confettis.
+
+### Les missions du jour et le coffre de la semaine
+
+- `server/test/missions.test.ts` — trois missions par jour, ce qui est fait retenu une fois, le coffre du lundi.
+- `server/test/missions-page.test.ts` — ce que la page sait de ses missions : une lecture partagée, le refus d'un invité.
+- `server/test/missions-charge.test.ts` — ce que la ligne de l'accueil attend de Turso.
 
 ### La bibliothèque de quiz
 

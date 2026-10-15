@@ -63,3 +63,31 @@ test('arrivées avant qu’un morceau de page s’y abonne, ses missions lui par
     globalThis.fetch = fetchAvant
   }
 })
+
+test('l’accueil d’un invité les demande avec la page et reçoit un refus ; connecté, sa ligne attend la relecture à sa place', async () => {
+  // L'accueil demande ses missions à son ouverture, quel que soit le
+  // visiteur (`DEPART.missions`). Le refus de l'invité ne doit pas retirer
+  // la ligne qui paraît une fois connecté, pendant que la relecture vole :
+  // elle se montrerait à sa réponse, et pousserait les gros boutons.
+  const fetchAvant = globalThis.fetch
+  let reponse = (): Response | Promise<Response> => new Response(JSON.stringify({ error: 'Connecte-toi à ton profil pour tes missions du jour' }), { status: 401 })
+  globalThis.fetch = (async () => reponse()) as typeof fetch
+  try {
+    // Un magasin neuf : celui de l'épreuve d'avant a déjà lu les siennes.
+    const { abonnerAuxMissions, relireLesMissions } = await import(new URL('../../client/src/missions.ts?invite', import.meta.url).href)
+    await assert.rejects(relireLesMissions(), 'l’invité : un refus')
+    // Connecté : la relecture part, et la ligne qui s'abonne pendant qu'elle vole attend, en chemin.
+    let repondre!: (r: Response) => void
+    reponse = () => new Promise<Response>(r => (repondre = r))
+    const relecture = relireLesMissions()
+    const vues: unknown[] = []
+    const desabonner = abonnerAuxMissions((m: unknown) => vues.push(m))
+    assert.deepEqual(vues, [], 'ni retirée ni remplie : en chemin')
+    repondre(new Response(JSON.stringify(VUE), { status: 200 }))
+    await relecture
+    assert.deepEqual(vues, [VUE])
+    desabonner()
+  } finally {
+    globalThis.fetch = fetchAvant
+  }
+})

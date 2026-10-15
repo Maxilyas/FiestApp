@@ -353,7 +353,7 @@ export const api = {
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
     /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */
-    missions: () => req<MissionsDuJour>('/api/joueur/missions'),
+    missions: () => req<MissionsDuJour>(DEPART.missions),
     /**
      * Ouvrir le coffre d'une semaine passée : le tirage se fait une fois. Pas
      * de reprise au réveil du serveur : rejouée, l'ouverture redonnerait le

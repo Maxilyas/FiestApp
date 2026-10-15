@@ -14,7 +14,10 @@
 // puis 34 de luminosité, filmé image par image. Et figer la page par son
 // défilement (`html { overflow: hidden }`, la première réponse à la saccade)
 // la changeait de nature à l'ouverture : la barre d'adresse peut revenir, et
-// tout l'écran se redimensionnait le temps qu'elle glisse.
+// tout l'écran se redimensionnait le temps qu'elle glisse. Puis, en fondu
+// d'opacité, le voile emportait la feuille avec lui : « c'est la page de
+// dessous qui s'affiche une micro seconde (l'accueil) », au téléphone — sa
+// couleur seule s'anime depuis.
 //
 // Un vrai geste demande un navigateur ; ici, les règles qui l'empêchent, et
 // les voiles qui les portent.
@@ -47,10 +50,25 @@ test('le voile ne laisse passer aucun geste vers la page — sans jamais figer l
   assert.match(source('components/CarteJoueur.tsx'), /<div className="dialog-backdrop" onClick=\{onFermer\}>/)
 })
 
-test('à l’ouverture, le voile s’assombrit avec la feuille qui monte : rien ne clignote', () => {
-  assert.match(regle('.carte-voile'), /animation: fade 0\.22s ease-out both;/, 'le voile en fondu, au pas de la feuille')
+/** Une animation de la feuille de style, jusqu'à la fin de son dernier pas. */
+const pas = (nom: string) => {
+  const debut = css.indexOf(`@keyframes ${nom} {`)
+  assert.ok(debut >= 0, nom)
+  return css.slice(debut, css.indexOf('}\n}', debut))
+}
+
+test('à l’ouverture, le voile s’assombrit avec la feuille qui monte, par sa couleur — et celui d’une carte ou d’un dialogue : rien ne clignote', () => {
+  assert.match(regle('.carte-voile'), /animation: voile-tombe 0\.22s ease-out both;/, 'le voile au pas de la feuille')
   assert.match(regle('.carte-feuille'), /animation: carte-monte 0\.22s ease-out;/)
-  // La feuille ne s'efface plus elle-même : transparente sur un voile déjà noir, elle faisait le trou.
-  const monte = css.slice(css.indexOf('@keyframes carte-monte {'), css.indexOf('}\n}', css.indexOf('@keyframes carte-monte {')))
-  assert.doesNotMatch(monte, /opacity/)
+  // Le voile s'assombrit par sa couleur, jamais par son opacité : en fondu
+  // d'opacité, il emportait la feuille, tout l'écran repartait de transparent,
+  // et au téléphone l'accueil reparaissait le temps d'une image.
+  assert.match(pas('voile-tombe'), /from \{ background-color: rgba\(8, 5, 4, 0\);/)
+  assert.doesNotMatch(pas('voile-tombe'), /opacity/)
+  assert.doesNotMatch(regle('.carte-voile'), /opacity/)
+  // Le voile d'une carte ou d'un dialogue de même : la carte d'un joueur, sa fiche, un « Partir ? ».
+  assert.match(regle('.dialog-backdrop'), /animation: voile-tombe 0\.15s ease-out both;/)
+  assert.doesNotMatch(regle('.dialog-backdrop'), /opacity/)
+  // La feuille ne s'efface pas elle-même : transparente sur un voile déjà noir, elle faisait le trou.
+  assert.doesNotMatch(pas('carte-monte'), /opacity/)
 })

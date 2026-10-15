@@ -4,7 +4,8 @@ import type { MissionsDuJour } from '../../shared/missions'
 
 // Ses missions du jour, telles que la page les a lues (`GET /api/joueur/missions`) :
 // la ligne de l'accueil, leur feuille et la scène du coffre les partagent —
-// une lecture par page, puis celle que demande un geste (le coffre ouvert).
+// une lecture par page, partie avec elle sur l'accueil (`DEPART.missions`),
+// puis celle que demande un geste (le coffre ouvert).
 // La fin d'une partie relit les siennes à part (`MissionsDeLaFin`) : c'est
 // elle qui annonce ce qui vient d'être fait.
 
@@ -25,6 +26,11 @@ function poser(m: MissionsDuJour | 'perdu') {
 
 /** Les relit au serveur — une fois à la fois — et prévient chaque morceau de la page qui les montre. */
 export function relireLesMissions(): Promise<MissionsDuJour> {
+  // Une lecture en route n'est pas perdue : la ligne qui paraît pendant
+  // qu'elle vole garde sa place. L'accueil d'un invité les demande avec la
+  // page et reçoit un refus ; connecté, sa ligne se serait retirée jusqu'à
+  // la réponse, puis aurait poussé les gros boutons.
+  if (!lues) perdues = false
   enRoute ??= api.joueur
     .missions()
     .then(

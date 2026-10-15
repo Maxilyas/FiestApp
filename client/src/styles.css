@@ -3436,8 +3436,10 @@ h3 > .icon {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: fade 0.15s ease-out both;
-  /* Comme le voile d'une feuille : la page de dessous ne défile pas sous lui. */
+  /* Comme le voile d'une feuille : il s'assombrit par sa couleur — la carte
+     ou le dialogue qu'il porte est opaque dès sa première image, la page de
+     dessous ne paraît pas au travers —, et rien ne défile sous lui. */
+  animation: voile-tombe 0.15s ease-out both;
   touch-action: none;
 }
 
@@ -7338,11 +7340,16 @@ span.case-avatar { cursor: default; }
   align-items: flex-end;
   justify-content: center;
   background: rgba(8, 5, 4, 0.72);
-  /* Le voile s'assombrit avec la feuille qui monte. Posé d'un coup, noir sous
-     une feuille encore transparente, il faisait clignoter tout l'écran à
-     l'ouverture — de 38 à 15 de luminosité en une image, puis 34 (« l'écran
-     qui clignote très rapidement », le propriétaire, le 15 octobre 2026). */
-  animation: fade 0.22s ease-out both;
+  /* Le voile s'assombrit avec la feuille qui monte — sa couleur, jamais son
+     opacité. Posé d'un coup, noir sous une feuille encore transparente, il
+     faisait clignoter tout l'écran à l'ouverture — de 38 à 15 de luminosité
+     en une image, puis 34 (« l'écran qui clignote très rapidement », le
+     propriétaire, le 15 octobre 2026). En fondu d'opacité, il emportait la
+     feuille avec lui, tout l'écran repartait de transparent, et au téléphone
+     l'accueil reparaissait le temps d'une image (« la page de dessous qui
+     s'affiche une micro seconde », le même jour). Sa couleur seule s'anime :
+     la feuille est opaque dès sa première image. */
+  animation: voile-tombe 0.22s ease-out both;
   /* Aucun geste parti de lui ne fait défiler la page de dessous ; ce qui
      défile dans la feuille garde les siens : `touch-action` s'arrête au cadre
      qui défile. */
@@ -7359,6 +7366,9 @@ span.case-avatar { cursor: default; }
   border-radius: 22px 22px 0 0;
   background: var(--bg);
   animation: carte-monte 0.22s ease-out;
+}
+@keyframes voile-tombe {
+  from { background-color: rgba(8, 5, 4, 0); }
 }
 @keyframes carte-monte {
   from { transform: translateY(24px); }

@@ -129,7 +129,7 @@ Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre d
 
 | Page | Données préchargées |
 |---|---|
-| `/` | `/api/auth/me`, `/api/joueur/moi?accueil` |
+| `/` | `/api/auth/me`, `/api/joueur/moi?accueil`, `/api/joueur/missions` |
 | `/profil`, `/boutique` | `/api/auth/me`, `/api/joueur/moi` |
 | `/jour` | `/api/jour`, `/api/joueur/moi?leger` |
 | `/campagne` | `/api/campagne`, `/api/joueur/moi?leger` — et, d'après le fragment, `/api/campagne/sentiers`, ou `/api/campagne/carnet` et `/api/campagne/sujets` |
@@ -145,6 +145,8 @@ Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre d
 Les adresses viennent de `DEPART` et d'`adresseDesDonnees`, que les pages lisent aussi : un préchargement ne sert que si l'adresse est la même, lettre pour lettre.
 
 **L'entrée d'un invité** a la sienne : `/s/<espace>/entree.json` rend ce que `party:watch` dirait — l'instantané des téléphones et le profil que le cookie reconnaît (`EntreeDeDepart`). L'entrée paraît dès son code arrivé, sans attendre la poignée de main et les deux échanges de la liaison temps réel (une demi-seconde en 4G, une seconde en 4G lente), pourvu que le téléphone n'ait rien à reprendre (`entreeUtilisable` : ni jeton à re-présenter, ni fin de soirée gardée, ni liaison qui a déjà parlé). La vie de la liaison : [Le temps réel](temps-reel.md).
+
+**Les missions du jour** partent avec l'accueil : la page ne les demandait qu'une fois l'accueil lu, et leur ligne attendait vide, sous « À la une », un aller-retour de plus — 160 ms en 4G lente, cache plein (le 15 octobre 2026). L'accueil les demande à son ouverture, quel que soit le visiteur : un invité reçoit un refus (401), qui ne retire pas la ligne qu'il verra une fois connecté (`relireLesMissions`, `client/src/missions.ts`).
 
 **La partie du jour préchargée** se dit telle : `/api/jour` demandé sans l'en-tête maison (`X-Requested-With`, que l'API cliente pose toujours) répond `prechargee`, et le client mesure alors l'heure du serveur dans la trace du préchargement (`mesureDeLaReponse`, `client/src/clock.ts`), pas autour d'un `fetch` qui a trouvé la réponse déjà là.
 
