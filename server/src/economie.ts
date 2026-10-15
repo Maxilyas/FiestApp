@@ -49,7 +49,16 @@ export function economieDuQg(deps: DepsDeLEconomie) {
     ])
     return {
       mouvements: {
-        gagnes: { campagne: campagne.justes, jour, soirees: profils.soirees, ligues: campagne.ligues, etoiles: campagne.etoiles, dons: profils.dons },
+        gagnes: {
+          campagne: campagne.justes,
+          jour,
+          soirees: profils.soirees,
+          ligues: campagne.ligues,
+          etoiles: campagne.etoiles,
+          missions: profils.missions,
+          coffres: profils.coffres,
+          dons: profils.dons,
+        },
         achats: profils.achats,
       },
       eclats: profils.eclats,
@@ -90,7 +99,7 @@ export function economieDuQg(deps: DepsDeLEconomie) {
         ([parts, duJour, deCampagne, actifs]) =>
           circulationDes(
             [...parts].map(([id, p]) => ({
-              solde: p.soirees + p.dons + (duJour.get(id) ?? 0) + (deCampagne.get(id) ?? 0) - p.depenses,
+              solde: p.soirees + p.dons + p.missions + p.coffres + (duJour.get(id) ?? 0) + (deCampagne.get(id) ?? 0) - p.depenses,
               actif: !p.suspendu && actifs.has(id),
             })),
             maintenant,

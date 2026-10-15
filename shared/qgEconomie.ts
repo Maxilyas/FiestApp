@@ -16,7 +16,7 @@ import { confettisDeLaNouvelleNote, etoilesDe, regleDuPalier } from './sentiers'
 import { NOM_DE_RARETE, THEMES } from './themes'
 
 /** D'où viennent les confettis, dans l'ordre de la page. */
-export const SOURCES_DE_CONFETTIS = ['campagne', 'jour', 'soirees', 'ligues', 'etoiles', 'dons'] as const
+export const SOURCES_DE_CONFETTIS = ['campagne', 'jour', 'soirees', 'ligues', 'etoiles', 'missions', 'coffres', 'dons'] as const
 export type SourceDeConfettis = (typeof SOURCES_DE_CONFETTIS)[number]
 
 export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
@@ -25,6 +25,8 @@ export const NOM_DE_LA_SOURCE: Record<SourceDeConfettis, string> = {
   soirees: 'Soirées',
   ligues: 'Ligues des duels',
   etoiles: 'Étoiles des sentiers',
+  missions: 'Missions du jour',
+  coffres: 'Coffres de la semaine',
   // Le QG tutoie l'administrateur, comme son journal : ces dons sont les siens.
   dons: 'Tes dons',
 }
@@ -61,7 +63,7 @@ export interface MouvementsDeConfettis {
 
 /** Des mouvements vides, à remplir source par source. */
 export const sansMouvement = (): MouvementsDeConfettis => ({
-  gagnes: { campagne: [], jour: [], soirees: [], ligues: [], etoiles: [], dons: [] },
+  gagnes: { campagne: [], jour: [], soirees: [], ligues: [], etoiles: [], missions: [], coffres: [], dons: [] },
   achats: [],
 })
 

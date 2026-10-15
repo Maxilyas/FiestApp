@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { AujourdhuiDeLEconomie, DepensesDesConfettis, EclatsEtLegendairesAuQg, EnCirculation, GagnesEtDepenses, MeilleuresVentes, SourcesDesConfettis } from './QgEconomie'
+import {
+  ApercuDuCoffre,
+  AujourdhuiDeLEconomie,
+  DepensesDesConfettis,
+  EclatsEtLegendairesAuQg,
+  EnCirculation,
+  GagnesEtDepenses,
+  MeilleuresVentes,
+  SourcesDesConfettis,
+} from './QgEconomie'
 import type { PageDeLEconomie } from '../../../shared/qgEconomie'
 
 /**
@@ -33,6 +42,7 @@ export function AdminEconomie() {
         <MeilleuresVentes page={page} />
         <EclatsEtLegendairesAuQg page={page} />
       </div>
+      <ApercuDuCoffre />
     </>
   )
 }

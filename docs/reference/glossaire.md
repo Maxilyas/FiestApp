@@ -260,7 +260,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Lien d'activation | Le lien qui donne son mot de passe à un compte d'avant : sept jours, une seule fois | `createActivation`, `activations` |
 | Ligne `#campagne` | La ligne d'expérience qui porte toute l'expérience de campagne. Elle est réécrite en entier à chaque bonne réponse | `LIGNE_CAMPAGNE` |
 | Ligne `#jour` | La ligne d'expérience du quiz du jour : elle compte dans le total et le niveau, pas dans l'historique des soirées | `LIGNE_JOUR` |
-| Ligne d'expérience | Une ligne par profil et par soirée, remplacée à chaque crédit et jamais ajoutée, plus quatre lignes à part (`#paliers`, `#jour`, `#campagne`, `#rattrapage`) ; le total en est la somme | `LIGNES_A_PART` |
+| Ligne d'expérience | Une ligne par profil et par soirée, remplacée à chaque crédit et jamais ajoutée, plus cinq lignes à part (`#paliers`, `#jour`, `#campagne`, `#rattrapage`, `#missions`) ; le total en est la somme | `LIGNES_A_PART` |
 | Ligne d'or | Sur la barre d'une épreuve, la limite que les fautes ne doivent pas franchir | `BarreDEpreuve` |
 | Ligue | Une tranche de cote, une tous les 100 points, du bronze aux maîtres, qui paie ses confettis chaque lundi | `LIGUES` |
 | Liste collée | Un quiz écrit en texte — un bloc par question, l'étoile devant la bonne réponse —, que « Coller une liste » lit | `parseImportedQuestions` |

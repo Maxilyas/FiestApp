@@ -334,7 +334,7 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
   // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
   const carte = await laLoge('fond')
-  assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">7 fonds à gagner\s:\soù\s\?<svg/)
+  assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)
   assert.doesNotMatch(carte, /fonds-choix.*disabled=""/)
   // La finition : les siennes seulement. Les restantes s'y montraient
   // éteintes, chacune son niveau (le 12 octobre 2026 : « il manque les

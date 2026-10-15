@@ -29,6 +29,7 @@ import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { porterGerbe } from '../gerbe'
+import { relireLesMissions } from '../missions'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -44,6 +45,14 @@ const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
 
 /** Sa carte entière, comme la salle la voit, au toucher de l'œil : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/**
+ * Le haut de l'accueil d'un profil — « À la une », les missions du jour —, à
+ * la demande : l'accueil anonyme, qui partage la page, n'en télécharge rien.
+ * Il part avec ses missions dès que le profil est lu (`relire`) : sa place est
+ * gardée en attendant, rien ne saute sous le doigt.
+ */
+const hautDeLAccueil = aLaDemande(() => import('../components/HautDeLAccueil'))
 
 /**
  * L'accueil (`/`), le profil (`/profil`) et la boutique (`/boutique`) : une
@@ -250,6 +259,11 @@ export function ProfilApp() {
   const relire = () =>
     (VUE === 'accueil' ? api.joueur.moiAccueil() : api.joueur.moi()).then(r => {
       if (r.profile && VUE !== 'accueil') void panneaux.charger().catch(() => {})
+      // Le haut de l'accueil et ses missions, ensemble : ni l'un n'attend l'autre, ni l'un et l'autre la page.
+      if (r.profile && VUE === 'accueil') {
+        void hautDeLAccueil.charger().catch(() => {})
+        void relireLesMissions().catch(() => {})
+      }
       setProfil(r.profile)
       setEspace(r.espace)
       setEnCours(r.enCours ?? [])
@@ -286,6 +300,7 @@ export function ProfilApp() {
   const aUnProfil = !!profil
   // L'accueil ne lit pas le détail : sa barre demande au serveur ce qui est neuf, une fois l'accueil montré.
   const compteDuMenu = useNouveautesDuMenu(VUE === 'accueil' && aUnProfil)
+  const leHaut = useALaDemande(hautDeLAccueil, VUE === 'accueil' && aUnProfil)
   useEffect(() => {
     if (VUE !== 'accueil' || !aUnProfil) return
     const precharger = () => {
@@ -495,6 +510,12 @@ export function ProfilApp() {
         </div>
         {/* Ce que l'administrateur a fait pour lui — des confettis offerts, son prénom changé, un merci pour ses signalements —, dit une fois. */}
         <AnnoncesDeLAdministrateur profileId={profil.id} prenom={profil.name} annonces={'annonces' in profil ? profil.annonces : undefined} />
+        {/* « À la une » et les missions du jour, sous soi : un bandeau fin et une ligne, au-dessus des gros boutons (la maquette C). */}
+        {leHaut === 'perdu' ? null : leHaut ? (
+          <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} />
+        ) : (
+          <div className="haut-en-chemin" aria-hidden="true" />
+        )}
         <AccueilJouer
           enCours={enCours}
           onRejoindre={() => setRejoindre(true)}

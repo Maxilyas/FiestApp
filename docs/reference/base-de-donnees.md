@@ -19,15 +19,15 @@
 | Ce qu'elle garde | la soirée en cours de chaque espace, et rien d'autre | tout ce qui doit survivre — comptes, profils, quiz, historique, quiz du jour, campagne, QG — et le **miroir** de la soirée |
 | Sa durée de vie | **jetable** : le disque de l'hébergeur gratuit s'efface à chaque réveil | permanente |
 | Qui l'ouvre | `initDb` (`server/src/core/db.ts`), une seule connexion synchrone | chaque magasin ouvre son client (`clientDistant`, `server/src/core/distante.ts`), avec un délai de dix secondes par aller-retour |
-| Ses tables | 7 | 61, plus `soirees_v2`, qui ne vit que le temps d'une migration |
+| Ses tables | 7 | 64, plus `soirees_v2`, qui ne vit que le temps d'une migration |
 
 Chaque table se crée au démarrage, dans le magasin qui la possède
 (`CREATE TABLE IF NOT EXISTS`) ; une colonne venue après coup s'ajoute par
 `addColumn` dans la base locale (`server/src/core/db.ts`) et par
 `ajouterColonne` dans la permanente (`server/src/core/distante.ts`), qui lit
 le schéma au lieu de deviner, et dont l'échec arrête le démarrage. `meta` est
-créée par trois magasins, d'où soixante et onze `CREATE TABLE` pour
-soixante-neuf tables.
+créée par trois magasins, d'où soixante-quatorze `CREATE TABLE` pour
+soixante-douze tables.
 
 **L'espace.** Un compte d'animateur **est** un espace : `accounts.id` sert de
 `space_id` à tout ce qui appartient à une soirée ou à une bibliothèque. Ce
@@ -49,7 +49,7 @@ se range par `profile_id`, sans espace. Le pourquoi :
 | « Reposer » une question, « Annuler les points » | les réponses de la question (`answer_log`) ; les gains, en ajout seul, ne s'effacent pas | les mêmes réponses | — |
 | Retirer un prix remis, une équipe | sa ligne (`team_bonus`, `teams`) | la même ligne | — |
 | Supprimer un espace (« Les salons », au QG) | tout ce que l'espace avait (`wipeSpace`) | tout ce que l'espace avait | ses quiz, ses photos, ses programmes, ses partages, son entrée au catalogue, son code de salon, son historique, ses sessions et liens d'activation, son compte — et, si l'administrateur le choisit, ce que ses soirées avaient crédité |
-| Supprimer un profil (« Les profils », au QG) | — | — | sa fiche et ses sessions, son expérience, son étagère, ses Éclats, ses achats, les dons reçus, ses parties du quiz du jour et ses podiums, ses signalements, son masque, ses rappels du soir, ses séries de campagne et leurs réponses, ses paliers repris, ses envois et ses listes d'amis |
+| Supprimer un profil (« Les profils », au QG) | — | — | sa fiche et ses sessions, son expérience, son étagère, ses Éclats, ses achats, les dons reçus, ses missions du jour et ses coffres, ses parties du quiz du jour et ses podiums, ses signalements, son masque, ses rappels du soir, ses séries de campagne et leurs réponses, ses paliers repris, ses envois et ses listes d'amis |
 
 Et ce qui s'efface tout seul : au démarrage, les sessions et les liens
 d'activation expirés, les sessions de profil expirées, les codes de salon
@@ -218,8 +218,10 @@ Les sessions de profil (le cookie de joueur, un an).
 ### `profile_xp`
 
 L'expérience, une ligne par profil et par soirée — **remplacée** à chaque
-crédit, jamais ajoutée —, plus quatre lignes à part : `#paliers` (paliers et
-hauts faits hors des soirées), `#jour`, `#campagne`, `#rattrapage`.
+crédit, jamais ajoutée —, plus cinq lignes à part : `#paliers` (paliers et
+hauts faits hors des soirées), `#jour`, `#campagne`, `#rattrapage`,
+`#missions` (les missions du jour faites et leurs bonus, recomptés de
+`profile_missions`).
 
 - **Colonnes clés** : `profile_id` et `soiree_id` (la clé), `space_id`, `xp`, `detail` (JSON versionné : `{ v, gain, releve }`), `created_at`, `joueur_id` (sa fiche dans la soirée).
 - **Espace** : oui pour une soirée ; vide pour les lignes à part.
@@ -328,6 +330,29 @@ Ce que chaque profil a déjà vu dans sa loge, pièce par pièce : la pastille r
 - **Espace** : non.
 - **Écrite par** : `ProfileStore.retenirLesVusDeLaLoge` — la loge à chaque pièce regardée (`PUT /api/joueur/vus`), et `GET /api/joueur/nouveautes` la première fois, tout ce qu'il a vu d'un coup ; la ligne d'avant se remplace.
 - **Lue par** : `ProfileStore.vusDeLaLoge` (le détail du profil, le compte des nouveautés).
+- **Effacée par** : la suppression du profil.
+
+### `profile_missions`
+
+Les missions du jour de chaque profil (`shared/missions.ts`) : les trois
+tirées à sa première visite du jour, figées, et la ligne des trois — celle
+qui fait le tampon de la semaine.
+
+- **Colonnes clés** : `profile_id`, `jour` et `rang` (la clé à trois ; `rang` 0 à 2 pour les missions, 3 pour la ligne des trois), `mission` (JSON : `{ sorte, cible, categorie? }`, `{}` pour la ligne des trois), `tiree_le`, `faite_le` (indexée : la page de l'économie du QG lit les missions faites par date).
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` — `tirerLesMissions` à la première lecture du jour (`GET /api/joueur/missions`), `accomplirDesMissions` quand ses journaux disent une mission faite, jamais reprise.
+- **Lue par** : `ProfileStore` (le solde : quinze confettis par mission faite et par ligne des trois, `gainsDesMissions` ; la ligne d'expérience `#missions` ; les tampons et les coffres qui attendent) ; la page de l'économie du QG (`economieDepuis`, `partsDesSoldes`).
+- **Effacée par** : la suppression du profil.
+
+### `profile_coffres`
+
+Les coffres de la semaine ouverts (`shared/coffre.ts`), un par profil et par
+semaine : le tirage, fait une fois, et ce qu'il a donné.
+
+- **Colonnes clés** : `profile_id` et `semaine` (la clé ; le lundi de la semaine dont les tampons l'ont rempli), `tampons`, `rang` (`bois`, `argent`, `or`, `royal`), `rarete`, `objet` (`fond:dragon`, `gerbe:papillons`, `theme:jungle`, `compagnon:loup`, `confettis`), `confettis`, `ouvert_le` (indexée : la page de l'économie du QG).
+- **Espace** : non.
+- **Écrite par** : `ProfileStore.ouvrirUnCoffre` (`POST /api/joueur/coffre`), jamais modifiée — un thème ou un compagnon tiré s'écrit aussi dans `profile_achats` ou `profile_compagnons`, à prix nul.
+- **Lue par** : `ProfileStore` — avec le profil (`byIds` : les fonds et les gerbes du trésor qu'il porte, `tresorsOf`), le solde (ses confettis), un coffre rouvert (`coffreDe`) ; la page de l'économie du QG.
 - **Effacée par** : la suppression du profil.
 
 **Le miroir de la soirée** (`server/src/core/backup.ts`) — la copie, dans la

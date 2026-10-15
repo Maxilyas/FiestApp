@@ -115,10 +115,12 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     ['trophees', '7/132', ['trophees 7/132']],
     // Le style, et ses bordures de ligue depuis le 13 octobre 2026 : la loge
     // les proposait, la collection ne les rangeait nulle part. Sans duel
-    // classé, le serveur les tait : zéro sur six, pas absentes.
-    ['style', '9/65', ['themes 3/35', 'fonds 1/7', 'gerbes 2/10', 'finitions 3/7', 'bordures 0/6']],
+    // classé, le serveur les tait : zéro sur six, pas absentes. Les six fonds
+    // et les six gerbes du trésor du coffre de la semaine y comptent depuis
+    // le 14 octobre 2026.
+    ['style', '9/77', ['themes 3/35', 'fonds 1/13', 'gerbes 2/16', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 325 })
+  assert.deepEqual(total, { acquis: 25, total: 337 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -194,9 +196,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 325<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 337<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 65'])
+  assert.deepEqual(familles, ['Avatars 9 sur 128', 'Trophées 7 sur 132', 'Style 9 sur 77'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —

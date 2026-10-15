@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { Chiffre, GrapheDesJours } from './QgModes'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { formatNumber } from '../../../shared/typographie'
+import { NOM_DU_COFFRE, RANGS_DU_COFFRE, TAMPONS_DU_RANG, type RangDuCoffre } from '../../../shared/coffre'
+import { lundiDe } from '../../../shared/missions'
 import { heureEcrite } from '../../../shared/qg'
 import { PRIX_D_UN_COMPAGNON } from '../../../shared/compagnons'
 import {
@@ -221,6 +225,41 @@ export function MeilleuresVentes({ page }: { page: PageDeLEconomie | null }) {
         </div>
       )}
       <p className="muted small">Les vies et les sabliers se comptent dans « Où ils partent ».</p>
+    </section>
+  )
+}
+
+/** La scène de l'ouverture d'un coffre (`Coffre.tsx`), à la demande : le QG ne la télécharge qu'au toucher. */
+const laSceneDuCoffre = aLaDemande(() => import('./Coffre'))
+
+/**
+ * Le coffre de la semaine, ouvert pour voir (le souhait du propriétaire du
+ * 14 octobre 2026 : « une animation encore plus belle si tu le peux » — il
+ * faut pouvoir la regarder sans attendre un lundi et sept tampons) : la scène
+ * telle que les joueurs la voient, le tirage fait ici à ses vraies chances,
+ * comme pour un profil qui n'aurait rien. Rien ne s'écrit, rien ne se gagne :
+ * ce n'est pas un geste, le journal n'en sait rien.
+ */
+export function ApercuDuCoffre() {
+  const [rang, setRang] = useState<RangDuCoffre | null>(null)
+  const module = useALaDemande(laSceneDuCoffre, rang !== null)
+  return (
+    <section className="qg-carte" aria-labelledby="economie-coffre">
+      <div className="qg-carte-tete qg-carte-tete-pile">
+        <h2 id="economie-coffre">Le coffre de la semaine</h2>
+        <span className="muted small">son ouverture telle que les joueurs la voient, pour voir : rien ne s’écrit, rien ne se gagne</span>
+      </div>
+      <div className="qg-coffres">
+        {RANGS_DU_COFFRE.map(r => (
+          <button key={r} type="button" className="btn btn-small" onClick={() => setRang(r)} onPointerDown={() => void laSceneDuCoffre.charger().catch(() => {})}>
+            {NOM_DU_COFFRE[r]}
+          </button>
+        ))}
+      </div>
+      {rang && module === 'perdu' && <p className="error">La scène n’a pas pu se charger : recharge la page.</p>}
+      {rang && module && module !== 'perdu' && (
+        <module.SceneDuCoffre apercu attente={{ semaine: lundiDe(new Date().toISOString().slice(0, 10)), tampons: TAMPONS_DU_RANG[rang], rang }} onFermer={() => setRang(null)} />
+      )}
     </section>
   )
 }

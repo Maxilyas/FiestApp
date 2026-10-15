@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { Avatar } from './Avatar'
 import { api } from '../api'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { gemme } from '../gemmes'
 import { apercuDe } from '../apercus'
 import { espacesFines, formatNumber } from '../format'
@@ -255,6 +256,22 @@ export function NouveauxTrophees({ trophees, lien, titre = 'Nouveaux trophées',
       {apres}
     </section>
   )
+}
+
+// ── Les missions du jour ──────────────────────────────────────────────────
+
+/** Les missions (`Missions.tsx`), à la demande : une page de jeu ne télécharge leur code qu'à sa fin, et pour un profil. */
+const lesMissions = aLaDemande(() => import('./Missions'))
+
+/**
+ * Ce que la partie vient de faire de ses missions du jour, sous ce qu'elle a
+ * gagné — « Mission accomplie », les trois et leur tampon —, le même à la fin
+ * de chaque mode. Rien sans profil (`profil`), ni si elle n'en a fait aucune :
+ * la fin reste la même.
+ */
+export function MissionsAccomplies({ profil }: { profil: boolean }) {
+  const module = useALaDemande(lesMissions, profil)
+  return profil && module && module !== 'perdu' ? <module.MissionsDeLaFin /> : null
 }
 
 // ── À porter ──────────────────────────────────────────────────────────────

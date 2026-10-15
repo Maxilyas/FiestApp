@@ -144,6 +144,19 @@ Ce qu'on porte et ce qu'on achète avec ses confettis : [la boutique](../produit
 - Porter ce qu'on a passe par `PUT /api/joueur/moi` (domaine profil : champs `theme`, `fond`, `gerbe`, tous validés avant d'écrire — « Ce thème n'existe pas », « Le thème Aurore boréale s'achète d'abord, en confettis », « Ce fond se gagne d'abord : le niveau 20 », « Cette gerbe se gagne avec le défi de la semaine, gagné » ; Velours, `null` ou `''` s'écrivent `null`).
 - Les autres dépenses et le don ont leurs routes ailleurs : `POST /api/campagne/vies` (sentiers, `server/src/campagne.ts`), `POST /api/jour/sablier` (jour, `server/src/quizDuJour.ts`), `POST /api/admin/profils/:id/confettis` (comptes, `server/src/profilsAdmin.ts`). Toutes passent par le même solde (`ProfileStore.boutiqueEtDons`).
 
+## Les missions du jour et le coffre de la semaine
+
+Trois missions par jour, un tampon par jour aux trois faites, et le lundi le coffre de la semaine passée : [les missions](../produit/les-missions.md).
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/joueur/missions` | profil | Ses missions du jour (`MissionsDuJour`) : tirées à sa première visite du jour, jugées sur ses journaux, ce qui vient d'être fait retenu et dit (`nouvelles`), la carte de la semaine (`semaine`) et les coffres qui attendent (`coffres`) | `server/src/missions.ts` |
+| `POST` | `/api/joueur/coffre` | profil | Ouvre le coffre d'une semaine passée (`{ semaine }`, son lundi) : le tirage, une fois ; rend `{ coffre }` (`CoffreOuvert`) — rouvert, il redonne ce qu'il a donné | `server/src/missions.ts` |
+
+**À savoir :**
+- Les deux : 401 « Connecte-toi à ton profil pour tes missions du jour » sans profil ; réponses `no-store`. `GET /api/joueur/missions` est une lecture qui écrit : la première du jour tire les missions (`profile_missions`, figées), et chaque lecture retient ce que ses journaux disent fait — le quiz du jour, la campagne (tous ses modes), ses soirées qui comptent —, de la semaine passée comprise (une mission faite dimanche à 23 h 50, lue lundi, remplit encore son coffre). Ce qui est fait ne se reprend jamais. L'accueil la demande une fois montré, la fin de chaque partie une fois, pour annoncer la mission accomplie.
+- `POST /api/joueur/coffre` : corps de 4 Ko au plus ; 400 en clair pour une semaine mal écrite (« Ce coffre n'existe pas : recharge la page. »), qui n'est pas finie (« Ce coffre s'ouvre lundi : d'ici là, remplis ta carte. ») ou sans tampon (« Pas de coffre cette semaine-là : aucun jour aux trois missions. »). Le tirage se fait sous le verrou des achats du profil (`unAchatALaFois`) : un thème acheté pendant l'ouverture ne serait pas tiré une seconde fois.
+
 ## Les quiz
 
 La bibliothèque de l'animateur : ses quiz, leurs images, les modèles, le programme, le quiz tout prêt, le partage : [les quiz](../produit/les-quiz.md).

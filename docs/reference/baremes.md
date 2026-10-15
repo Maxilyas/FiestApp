@@ -362,12 +362,31 @@ Toutes les sources et toutes les dépenses, avec leur valeur : la ligne de chaqu
 | Gain | Les étoiles des douze sentiers : la meilleure note de chaque palier (pas les parcours de thème) | 2 étoiles 10, 3 étoiles 25 ; un progrès paie la différence | `CONFETTIS_DES_ETOILES` (`shared/sentiers.ts`) |
 | Gain | Les ligues des duels : chaque semaine close avec 3 duels joués paie sa meilleure ligue ; la semaine en cours paie le lundi | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 | `LIGUES`, `DUELS_POUR_LA_RECOMPENSE`, `confettisDesLigues` (`shared/duels.ts`) |
 | Gain | Un don de l'administrateur, avec un mot facultatif, coupé à 140 caractères (`MOT_D_UN_DON_MAX`) | de 1 à 500 | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `offrirDesConfettis` |
+| Gain | Les missions du jour : chacune faite, et les trois le même jour | 15 chacune, 15 de plus pour les trois — 60 au plus par jour | `CONFETTIS_D_UNE_MISSION`, `CONFETTIS_DES_TROIS` (`shared/missions.ts`) ; `profile_missions` |
+| Gain | Le coffre de la semaine, à sa rareté commune (ou quand il a déjà tout le reste) | bois 60, argent 90, or 120, royal 150 | `CONFETTIS_DU_COFFRE` (`shared/coffre.ts`) ; `profile_coffres` |
 | Dépense | Un thème, une fois chacun | 150, 250, 400, 650 ou 1 000 | `PRIX_DES_THEMES` (`shared/themes.ts`) ; `profile_achats` |
 | Dépense | Un compagnon, une fois chacun | 1 000 | `PRIX_D_UN_COMPAGNON` (`shared/compagnons.ts`) ; `profile_compagnons` |
 | Dépense | Des vies des sentiers, dans une réserve qui ne périme pas | 25 la vie, de 1 à 10 par achat | `PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX` (`shared/sentiers.ts`) ; `profile_vies` |
 | Dépense | Des sabliers pour la série du quiz du jour | 50 l'un, 1 ou 2 à la fois, 2 au plus en réserve | `PRIX_D_UN_SABLIER`, `SABLIERS_MAX` (`shared/jour.ts`) ; `profile_sabliers` |
 
 Le solde, `gagnés − dépensés`, n'est jamais écrit : `ProfileStore.boutiqueEtDons` (`server/src/auth/profiles.ts`) le recompte à chaque lecture. Toute règle de gain changée vaut donc pour tout le passé, d'un coup et pour tous — sans version ni drapeau, contrairement à l'expérience (`VERSION_BAREME`) — ; un prix changé ne touche aucun achat fait.
+
+## Les missions du jour et le coffre de la semaine
+
+Trois missions par jour, un tampon aux trois faites, et le lundi le coffre de la semaine passée : [les missions](../produit/les-missions.md). Des choix de produit, posés le 14 octobre 2026 (« Moyen : ~60 par jour », le choix du propriétaire) : le joueur médian gagnait alors 9 confettis par jour joué.
+
+| Constante | Valeur | Fichier | Ce qu'elle règle | Ce que la changer implique |
+|---|---|---|---|---|
+| `MISSIONS_PAR_JOUR` | 3 | `shared/missions.ts` | Les missions de chaque jour : une habitude, un savoir, une découverte | la ligne des trois prend son rang (`RANG_DES_TROIS`) : changé, les tampons d'avant se liraient de travers |
+| `CONFETTIS_D_UNE_MISSION` | 15 | `shared/missions.ts` | Les confettis d'une mission faite | relus à chaque lecture du solde : changé, il change d'un coup pour tout ce qui a été fait |
+| `XP_D_UNE_MISSION` | 25 | `shared/missions.ts` | L'expérience d'une mission faite, dans la ligne `#missions` | la ligne se réécrit entière à la mission suivante de chacun (`accomplirDesMissions`) : pour tous d'un coup, un drapeau et une relecture, comme le barème du solo |
+| `CONFETTIS_DES_TROIS` | 15 | `shared/missions.ts` | Les confettis de plus quand les trois sont faites le même jour | comme `CONFETTIS_D_UNE_MISSION` |
+| `XP_DES_TROIS` | 25 | `shared/missions.ts` | L'expérience de plus quand les trois sont faites le même jour | comme `XP_D_UNE_MISSION` |
+| `TAMPONS_PAR_SEMAINE` | 7 | `shared/coffre.ts` | Les cases de la carte de la semaine, du lundi au dimanche | — |
+| `TAMPONS_DU_RANG` | bois 1 · argent 3 · or 5 · royal 7 | `shared/coffre.ts` | Les tampons qu'il faut à chaque coffre | ne vaut que pour les coffres qui s'ouvrent : un coffre ouvert garde son rang (`profile_coffres.rang`) |
+| `CHANCES_DU_COFFRE` | bois 55/30/12/3/0 · argent 30/32/26/10/2 · or 10/25/37/21/7 · royal 0/10/40/35/15 (%, de la commune à la légendaire) | `shared/coffre.ts` | Les chances de chaque rareté, selon le coffre | ne vaut que pour les tirages à venir : un coffre ouvert ne se retire jamais |
+| `CONFETTIS_DU_COFFRE` | bois 60 · argent 90 · or 120 · royal 150 | `shared/coffre.ts` | Les confettis d'un coffre qui en donne | gardés avec le coffre (`profile_coffres.confettis`) : changés, ils ne valent que pour les coffres suivants |
+| `POIDS_DU_TRESOR` | 2 | `shared/tresor.ts` | Ce que pèse un objet du trésor (un fond, une gerbe, un compagnon) face à un thème de la boutique, dans sa rareté | ne vaut que pour les tirages à venir ; non exportée |
 
 ## Les quiz de l'animateur
 

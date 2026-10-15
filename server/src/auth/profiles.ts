@@ -84,6 +84,10 @@ import {
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
+import { gainsDesMissions, lireLaMission, RANG_DES_TROIS, type Mission } from '../../../shared/missions'
+import { cleDeLObjet, lireLObjet, rangDuCoffre, type CoffreOuvert, type ObjetDuTresor, type RangDuCoffre } from '../../../shared/coffre'
+import { nomDeLObjet, phraseDeLObjet, tirerLeCoffre } from '../../../shared/tresor'
+import type { Rarete } from '../../../shared/badges'
 import { brancheDe, deLaBranche, nomDansLaPhrase, portrait, portraitsOuverts, type Paliers } from '../../../shared/branches'
 import {
   COMPAGNONS,
@@ -250,11 +254,20 @@ export const LIGNE_CAMPAGNE = '#campagne'
 export const LIGNE_RATTRAPAGE = '#rattrapage'
 
 /**
+ * La ligne d'expérience des missions du jour (`shared/missions.ts`) : chaque
+ * mission faite, et chaque jour aux trois faites, recomptés de
+ * `profile_missions` à chaque mission faite (`accomplirDesMissions`). Comme
+ * celles du quiz du jour et de la campagne, elle compte dans le total et le
+ * niveau, et l'historique des soirées l'ignore.
+ */
+export const LIGNE_MISSIONS = '#missions'
+
+/**
  * Les lignes qui ne sont pas des soirées : tout ce qui lit `profile_xp`
  * comme des soirées les écarte — l'historique, la série du jour. Une ligne
  * de plus s'ajoute ici, et nulle part ailleurs.
  */
-export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGNE_CAMPAGNE, LIGNE_RATTRAPAGE]
+export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGNE_CAMPAGNE, LIGNE_RATTRAPAGE, LIGNE_MISSIONS]
 
 /** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
 export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
@@ -344,6 +357,25 @@ function lireCondition(brut: unknown): Condition | null {
  * d'identifiants reste loin de la borne des paramètres de SQLite.
  */
 const PROFILS_PAR_PAQUET = 200
+
+/** Une ligne de `profile_missions` : une mission tirée — ou la ligne des trois, sans mission —, faite ou non. */
+export interface LigneDeMission {
+  jour: string
+  rang: number
+  /** La mission tirée ; null pour la ligne des trois, ou une mission qui ne se lit plus. */
+  mission: Mission | null
+  faiteLe: number | null
+}
+
+function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
+  let mission: Mission | null = null
+  try {
+    mission = lireLaMission(JSON.parse(String(r.mission)))
+  } catch {
+    // Illisible, elle se tait : sa ligne garde ce qu'elle a payé, faite ou non.
+  }
+  return { jour: String(r.jour), rang: Number(r.rang), mission, faiteLe: r.faite_le == null ? null : Number(r.faite_le) }
+}
 
 /** Une ligne de `profile_compagnons`, rangée avec ses compagnons : un compagnon que le catalogue ne connaît plus ne se garde pas. */
 function lireCompagnon(siens: Map<CleDeCompagnon, number> | undefined, r: Record<string, unknown>) {
@@ -542,6 +574,13 @@ export class ProfileStore {
    * lit la forme qu'il porte sans aller-retour (`legendairePorte`).
    */
   private compagnons = new Map<string, Map<CleDeCompagnon, number>>()
+  /**
+   * Ce que ses coffres de la semaine lui ont donné (`fond:dragon`,
+   * `gerbe:papillons`, `theme:jungle`…), par profil. Chargé avec le profil :
+   * un fond ou une gerbe du trésor se lit sans aller-retour — la gerbe part
+   * avec son profil léger, le fond se vérifie quand il le porte.
+   */
+  private tresors = new Map<string, Set<string>>()
   /**
    * Les légendaires qu'il avait gagnés avant que leurs règles se durcissent,
    * avec la règle d'alors : il les garde tant qu'elle tient. Écrits au
@@ -878,6 +917,40 @@ export class ProfileStore {
            vus        TEXT NOT NULL,
            retenu_le  INTEGER NOT NULL
          )`,
+        // Ses missions du jour (`shared/missions.ts`) : les trois tirées à sa
+        // première visite du jour, figées (`mission`, en JSON), et la ligne
+        // des trois (`rang` 3, `mission` vide) — le tampon de la semaine.
+        // Seul s'écrit ce qui est fait (`faite_le`), jamais repris : le solde
+        // et l'expérience se relisent de ces lignes, l'avancement des
+        // journaux de chaque mode.
+        `CREATE TABLE IF NOT EXISTS profile_missions (
+           profile_id TEXT NOT NULL,
+           jour       TEXT NOT NULL,
+           rang       INTEGER NOT NULL,
+           mission    TEXT NOT NULL,
+           tiree_le   INTEGER NOT NULL,
+           faite_le   INTEGER,
+           PRIMARY KEY (profile_id, jour, rang)
+         )`,
+        // Les missions faites ces trente jours, au QG (`economieDepuis`) : lues par leur date, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_profile_missions_faite ON profile_missions(faite_le)',
+        // Ses coffres de la semaine ouverts (`shared/coffre.ts`), un par
+        // semaine, jamais modifiés : le tirage se fait une fois, à
+        // l'ouverture, et le coffre rouvert redonne ce qu'il a donné. Un thème
+        // ou un compagnon s'écrit aussi dans sa table, à prix nul ; un fond ou
+        // une gerbe du trésor ne vit qu'ici.
+        `CREATE TABLE IF NOT EXISTS profile_coffres (
+           profile_id TEXT NOT NULL,
+           semaine    TEXT NOT NULL,
+           tampons    INTEGER NOT NULL,
+           rang       TEXT NOT NULL,
+           rarete     TEXT NOT NULL,
+           objet      TEXT NOT NULL,
+           confettis  INTEGER NOT NULL DEFAULT 0,
+           ouvert_le  INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, semaine)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_coffres_quand ON profile_coffres(ouvert_le)',
       ],
       'write',
     )
@@ -967,7 +1040,7 @@ export class ProfileStore {
     for (let i = 0; i < manquants.length; i += PROFILS_PAR_PAQUET) {
       const paquet = manquants.slice(i, i + PROFILS_PAR_PAQUET)
       const marques = paquet.map(() => '?').join(', ')
-      const [lignes, eclats, badges, compagnons] = await this.client.batch(
+      const [lignes, eclats, badges, compagnons, coffres] = await this.client.batch(
         [
           { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
           { sql: `SELECT profile_id, avatar, eteint FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
@@ -976,6 +1049,8 @@ export class ProfileStore {
             args: paquet,
           },
           { sql: `SELECT profile_id, compagnon, rang FROM profile_compagnons WHERE profile_id IN (${marques})`, args: paquet },
+          // Dans le même lot : le trésor de ses coffres n'ajoute pas un aller-retour à son premier passage.
+          { sql: `SELECT profile_id, objet FROM profile_coffres WHERE profile_id IN (${marques})`, args: paquet },
         ],
         'read',
       )
@@ -989,6 +1064,8 @@ export class ProfileStore {
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
       const compagnonsDe = new Map<string, Map<CleDeCompagnon, number>>(paquet.map(id => [id, new Map()]))
       for (const r of compagnons.rows) lireCompagnon(compagnonsDe.get(String(r.profile_id)), r)
+      const tresorsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
+      for (const r of coffres.rows) tresorsDe.get(String(r.profile_id))?.add(String(r.objet))
       for (const r of lignes.rows) {
         const id = String(r.id)
         // Arrivé en mémoire pendant l'aller-retour — un geste, un renommage —,
@@ -1001,6 +1078,7 @@ export class ProfileStore {
         }
         if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
         if (!this.compagnons.has(id)) this.compagnons.set(id, compagnonsDe.get(id)!)
+        if (!this.tresors.has(id)) this.tresors.set(id, tresorsDe.get(id)!)
       }
     }
     return ids.map(id => {
@@ -1135,9 +1213,14 @@ export class ProfileStore {
     return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
   }
 
-  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers de carrière, ses maîtres des sentiers (`shared/fonds.ts`). */
+  /** Ce que ses coffres de la semaine lui ont donné (`fond:dragon`…), de mémoire : chargé avec le profil. */
+  tresorsOf(id: string): ReadonlySet<string> {
+    return this.tresors.get(id) ?? new Set()
+  }
+
+  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers de carrière, ses maîtres des sentiers, ses coffres (`shared/fonds.ts`). */
   fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond[] {
-    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id), maitres })
+    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id), maitres, tresors: this.tresorsOf(p.id) })
   }
 
   /** Le fond qu'on voit derrière sa carte : celui qu'il a choisi, s'il le mérite encore. */
@@ -1154,7 +1237,7 @@ export class ProfileStore {
   gerbePortee(p: ProfileRec): CleDeGerbe | null {
     if (p.gerbe === AUCUNE_GERBE) return null
     const choisie = gerbe(p.gerbe)
-    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id)) ? choisie.key : GERBE_PAR_DEFAUT
+    return choisie && gerbeOuverte(choisie, this.recompensesOf(p.id), this.tresorsOf(p.id)) ? choisie.key : GERBE_PAR_DEFAUT
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -1173,14 +1256,23 @@ export class ProfileStore {
     sabliers: number
     compagnons: number
     dons: { id: string; confettis: number; mot: string | null; le: number }[]
+    /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
+    missions: number
+    coffres: number
   }> {
-    const [themes, vies, sabliers, compagnons, dons] = await this.client.batch(
+    const [themes, vies, sabliers, compagnons, dons, missions, coffres] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT id, confettis, mot, created_at FROM profile_dons WHERE profile_id = ? ORDER BY created_at DESC', args: [profileId] },
+        // Dans le même lot : les missions et les coffres n'ajoutent pas un aller-retour au solde.
+        {
+          sql: `SELECT COALESCE(SUM(rang < ?), 0) AS faites, COALESCE(SUM(rang = ?), 0) AS trois FROM profile_missions WHERE profile_id = ? AND faite_le IS NOT NULL`,
+          args: [RANG_DES_TROIS, RANG_DES_TROIS, profileId],
+        },
+        { sql: 'SELECT COALESCE(SUM(confettis), 0) AS n FROM profile_coffres WHERE profile_id = ?', args: [profileId] },
       ],
       'read',
     )
@@ -1190,6 +1282,8 @@ export class ProfileStore {
       sabliers: Number(sabliers.rows[0]?.prix ?? 0),
       compagnons: Number(compagnons.rows[0]?.prix ?? 0),
       dons: dons.rows.map(r => ({ id: String(r.id), confettis: Number(r.confettis), mot: r.mot == null ? null : String(r.mot), le: Number(r.created_at) })),
+      missions: gainsDesMissions(Number(missions.rows[0]?.faites ?? 0), Number(missions.rows[0]?.trois ?? 0)).confettis,
+      coffres: Number(coffres.rows[0]?.n ?? 0),
     }
   }
 
@@ -1199,8 +1293,9 @@ export class ProfileStore {
    *
    * Une bonne réponse, un confetti : ses soirées qui comptent
    * (`confettisDeSoiree`), son quiz du jour et sa campagne — et les étoiles
-   * de ses sentiers —, plus ce que l'administrateur lui a offert, moins ce
-   * qu'il a dépensé : ses thèmes, ses vies des sentiers, ses sabliers, ses
+   * de ses sentiers —, plus ce que l'administrateur lui a offert, ses
+   * missions du jour faites et ses coffres de la semaine, moins ce qu'il a
+   * dépensé : ses thèmes, ses vies des sentiers, ses sabliers, ses
    * compagnons.
    * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
    * soirée retirée de l'historique emporte les siens. Le solde peut alors
@@ -1236,7 +1331,7 @@ export class ProfileStore {
       this.compagnonsDe(p, historique),
     ])
     const offerts = achats.dons.reduce((n, d) => n + d.confettis, 0)
-    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne + offerts
+    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne + offerts + achats.missions + achats.coffres
     const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies + achats.sabliers + achats.compagnons
     return {
       boutique: {
@@ -1275,6 +1370,197 @@ export class ProfileStore {
       sql: `INSERT INTO profile_loge_vus (profile_id, vus, retenu_le) VALUES (?, ?, ?)
             ON CONFLICT(profile_id) DO UPDATE SET vus = excluded.vus, retenu_le = excluded.retenu_le`,
       args: [profileId, JSON.stringify(vus), Date.now()],
+    })
+  }
+
+  // ── Les missions du jour et le coffre de la semaine ─────────────────────
+  //
+  // Ce qui s'en écrit, et rien d'autre : les missions tirées, celles faites,
+  // les coffres ouverts. Leur avancement se relit des journaux de chaque
+  // mode, et l'orchestration — tirer, juger, ouvrir — vit dans
+  // `core/missions.ts`, qui connaît le quiz du jour et la campagne.
+
+  /** Ses lignes de missions depuis un jour, dans l'ordre : chaque mission tirée (null si elle ne se lit plus), et ce qui est fait. */
+  async lignesDesMissions(profileId: string, depuis: string): Promise<LigneDeMission[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT jour, rang, mission, faite_le FROM profile_missions WHERE profile_id = ? AND jour >= ? ORDER BY jour, rang',
+      args: [profileId, depuis],
+    })
+    return res.rows.map(lireLigneDeMission)
+  }
+
+  /**
+   * Tire ses missions d'un jour, une fois : deux lectures parties ensemble
+   * tirent les mêmes (la graine de `tirerLesMissions`), et la seconde
+   * n'écrit rien. La ligne des trois naît avec elles. Rend les lignes du jour
+   * telles que la base les garde.
+   */
+  async tirerLesMissions(profileId: string, jour: string, missions: readonly Mission[], quand: number): Promise<LigneDeMission[]> {
+    const inserer = (rang: number, mission: string) => ({
+      sql: `INSERT INTO profile_missions (profile_id, jour, rang, mission, tiree_le) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(profile_id, jour, rang) DO NOTHING`,
+      args: [profileId, jour, rang, mission, quand],
+    })
+    const res = await this.client.batch(
+      [
+        ...missions.map((m, rang) => inserer(rang, JSON.stringify(m))),
+        inserer(RANG_DES_TROIS, '{}'),
+        { sql: 'SELECT jour, rang, mission, faite_le FROM profile_missions WHERE profile_id = ? AND jour = ? ORDER BY rang', args: [profileId, jour] },
+      ],
+      'write',
+    )
+    return res[res.length - 1].rows.map(lireLigneDeMission)
+  }
+
+  /**
+   * Retient ce qui vient d'être fait — jamais repris : une mission faite le
+   * reste, même si un journal se corrige ensuite —, puis réécrit la ligne
+   * d'expérience des missions sur toutes ses lignes faites, le total avec, et
+   * fait juger La Légende, comme le quiz du jour. Rend ce que cette écriture
+   * a fait : une lecture d'à côté a pu en retenir une juste avant.
+   */
+  async accomplirDesMissions(profileId: string, faites: readonly { jour: string; rang: number; quand: number }[]): Promise<{ jour: string; rang: number }[]> {
+    if (faites.length === 0) return []
+    const res = await this.client.batch(
+      faites.map(f => ({
+        sql: 'UPDATE profile_missions SET faite_le = ? WHERE profile_id = ? AND jour = ? AND rang = ? AND faite_le IS NULL',
+        args: [f.quand, profileId, f.jour, f.rang],
+      })),
+      'write',
+    )
+    const neuves = faites.filter((_, i) => res[i].rowsAffected > 0)
+    if (neuves.length === 0) return []
+    // Recomptée dans la transaction qui l'écrit, sur ce que la base garde à
+    // cet instant : deux écritures croisées ne laissent jamais le plus petit
+    // compte au-dessus du plus grand. La version, en entier (invariant 20).
+    await this.recalculerTotal(profileId, {
+      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+            SELECT ?, ?, '', COALESCE(SUM(CASE WHEN rang = ? THEN ? ELSE ? END), 0),
+                   json_object('v', CAST(? AS INTEGER), 'missions', COALESCE(SUM(rang < ?), 0), 'trois', COALESCE(SUM(rang = ?), 0)), ?
+            FROM profile_missions WHERE profile_id = ? AND faite_le IS NOT NULL
+            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+      args: [
+        profileId,
+        LIGNE_MISSIONS,
+        RANG_DES_TROIS,
+        gainsDesMissions(0, 1).xp,
+        gainsDesMissions(1, 0).xp,
+        VERSION_BAREME,
+        RANG_DES_TROIS,
+        RANG_DES_TROIS,
+        Date.now(),
+        profileId,
+      ],
+    })
+    // Une source d'expérience de plus fait juger La Légende (règle `recompenses.md`), rangée sous le jour.
+    await this.accorderLaLegende(profileId, cleDuJour(neuves[neuves.length - 1].jour))
+    return neuves.map(({ jour, rang }) => ({ jour, rang }))
+  }
+
+  /** Les jours où ses trois missions sont faites, avant un jour (exclu) : ses tampons, semaine par semaine. */
+  async joursAuxTrois(profileId: string, avant: string): Promise<string[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT jour FROM profile_missions WHERE profile_id = ? AND rang = ? AND faite_le IS NOT NULL AND jour < ? ORDER BY jour',
+      args: [profileId, RANG_DES_TROIS, avant],
+    })
+    return res.rows.map(r => String(r.jour))
+  }
+
+  /** Les semaines de ses coffres déjà ouverts. */
+  async semainesDesCoffres(profileId: string): Promise<Set<string>> {
+    const res = await this.client.execute({ sql: 'SELECT semaine FROM profile_coffres WHERE profile_id = ?', args: [profileId] })
+    return new Set(res.rows.map(r => String(r.semaine)))
+  }
+
+  /** Le coffre d'une semaine, s'il est ouvert : ce qu'il a donné. */
+  async coffreDe(profileId: string, semaine: string): Promise<CoffreOuvert | null> {
+    const res = await this.client.execute({
+      sql: 'SELECT semaine, tampons, rang, rarete, objet, confettis, ouvert_le FROM profile_coffres WHERE profile_id = ? AND semaine = ?',
+      args: [profileId, semaine],
+    })
+    const r = res.rows[0]
+    const objet = r ? lireLObjet(r.objet, Number(r.confettis)) : null
+    if (!r || !objet) return null
+    return {
+      semaine: String(r.semaine),
+      tampons: Number(r.tampons),
+      rang: String(r.rang) as RangDuCoffre,
+      rarete: String(r.rarete) as Rarete,
+      objet,
+      nom: nomDeLObjet(objet),
+      detail: phraseDeLObjet(objet),
+      ouvertLe: Number(r.ouvert_le),
+    }
+  }
+
+  /**
+   * Ouvre le coffre d'une semaine : le tirage, une fois — rouvert, il redonne
+   * ce qu'il a donné —, puis ce qu'il donne, dans le même lot : un thème ou
+   * un compagnon dans sa table, à prix nul — offert, il se porte et grandit
+   * comme acheté, et la boutique ne le propose plus —, un fond ou une gerbe
+   * du trésor ici seulement. Un achat à la fois (`unAchatALaFois`) : un thème
+   * acheté pendant l'ouverture serait sinon tiré une seconde fois.
+   */
+  ouvrirUnCoffre(
+    profileId: string,
+    semaine: string,
+    tampons: number,
+    { hasard, jour, quand }: { hasard: () => number; jour: string; quand: number },
+  ): Promise<CoffreOuvert> {
+    return this.unAchatALaFois(profileId, async () => {
+      const deja = await this.coffreDe(profileId, semaine)
+      if (deja) return deja
+      const rang = rangDuCoffre(tampons)
+      if (!rang) throw new Error('Pas de coffre cette semaine-là : aucun tampon.')
+      await this.require(profileId)
+      const achetes = await this.client.execute({ sql: 'SELECT theme FROM profile_achats WHERE profile_id = ?', args: [profileId] })
+      const themes = new Set(achetes.rows.map(r => String(r.theme)))
+      const tresors = this.tresorsOf(profileId)
+      const compagnons = this.compagnons.get(profileId)
+      const possede = (o: ObjetDuTresor) =>
+        o.sorte === 'theme' ? themes.has(o.cle) : o.sorte === 'compagnon' ? !!compagnons?.has(o.cle as CleDeCompagnon) : o.sorte !== 'confettis' && tresors.has(cleDeLObjet(o))
+      const { objet, rarete } = tirerLeCoffre(rang, { possede, hasard, jour })
+      await this.client.batch(
+        [
+          {
+            sql: `INSERT INTO profile_coffres (profile_id, semaine, tampons, rang, rarete, objet, confettis, ouvert_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            args: [profileId, semaine, tampons, rang, rarete, cleDeLObjet(objet), objet.sorte === 'confettis' ? objet.confettis : 0, quand],
+          },
+          ...(objet.sorte === 'theme'
+            ? [{ sql: 'INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, ?) ON CONFLICT(profile_id, theme) DO NOTHING', args: [profileId, objet.cle, quand] }]
+            : []),
+          ...(objet.sorte === 'compagnon'
+            ? [
+                {
+                  sql: 'INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, ?, 0, 0, ?) ON CONFLICT(profile_id, compagnon) DO NOTHING',
+                  args: [profileId, objet.cle, quand],
+                },
+              ]
+            : []),
+        ],
+        'write',
+      )
+      let siens = this.tresors.get(profileId)
+      if (!siens) this.tresors.set(profileId, (siens = new Set()))
+      siens.add(cleDeLObjet(objet))
+      if (objet.sorte === 'compagnon') {
+        let ses = this.compagnons.get(profileId)
+        if (!ses) this.compagnons.set(profileId, (ses = new Map()))
+        if (!ses.has(objet.cle as CleDeCompagnon)) ses.set(objet.cle as CleDeCompagnon, 0)
+      }
+      return { semaine, tampons, rang, rarete, objet, nom: nomDeLObjet(objet), detail: phraseDeLObjet(objet), ouvertLe: quand }
+    })
+  }
+
+  /** Ses parties de soirée créditées depuis un instant, et leurs confettis : la mission des bonnes réponses les compte aussi. */
+  async soireesDepuis(profileId: string, depuis: number): Promise<{ le: number; confettis: number }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT detail, created_at FROM profile_xp WHERE profile_id = ? AND created_at >= ? AND ${HORS_LIGNES_A_PART}`,
+      args: [profileId, depuis],
+    })
+    return res.rows.map(r => {
+      const { gain, releve } = decodeDetail(String(r.detail))
+      return { le: Number(r.created_at), confettis: confettisDeSoiree(gain, releve) }
     })
   }
 
@@ -1546,18 +1832,28 @@ export class ProfileStore {
    * (`confettisDeSoiree`) et à sa première ligne de crédit ; les dons de
    * l'administrateur ; chaque achat, au prix payé ; les Éclats tombés.
    */
-  async economieDepuis(depuis: number): Promise<{ soirees: Mouvement[]; dons: Mouvement[]; achats: Achat[]; eclats: { quand: number; soiree: string }[] }> {
-    const [soirees, dons, themes, compagnons, vies, sabliers, eclats] = await this.client.batch(
+  async economieDepuis(depuis: number): Promise<{
+    soirees: Mouvement[]
+    dons: Mouvement[]
+    missions: Mouvement[]
+    coffres: Mouvement[]
+    achats: Achat[]
+    eclats: { quand: number; soiree: string }[]
+  }> {
+    const [soirees, dons, themes, compagnons, vies, sabliers, eclats, missions, coffres] = await this.client.batch(
       [
         // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
         // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
         { sql: 'SELECT detail, created_at FROM profile_xp WHERE soiree_id >= ? AND created_at >= ?', args: [jourAvant(jourDe(depuis), 1), depuis] },
         { sql: 'SELECT confettis, created_at FROM profile_dons WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT theme, prix, created_at FROM profile_achats WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT compagnon, prix, created_at FROM profile_compagnons WHERE created_at >= ?', args: [depuis] },
+        // Un thème ou un compagnon tiré d'un coffre s'écrit à prix nul : ce n'est pas un achat.
+        { sql: 'SELECT theme, prix, created_at FROM profile_achats WHERE created_at >= ? AND prix > 0', args: [depuis] },
+        { sql: 'SELECT compagnon, prix, created_at FROM profile_compagnons WHERE created_at >= ? AND prix > 0', args: [depuis] },
         { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ?', args: [depuis] },
         { sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ?', args: [depuis] },
+        { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND confettis > 0', args: [depuis] },
       ],
       'read',
     )
@@ -1576,6 +1872,12 @@ export class ProfileStore {
         })
         .filter(m => m.confettis > 0),
       dons: dons.rows.map(r => ({ quand: Number(r.created_at), confettis: Number(r.confettis) })),
+      // Chaque mission faite paie la sienne, la ligne des trois son bonus — aux règles du solde (`gainsDesMissions`).
+      missions: missions.rows.map(r => ({
+        quand: Number(r.faite_le),
+        confettis: Number(r.rang) === RANG_DES_TROIS ? gainsDesMissions(0, 1).confettis : gainsDesMissions(1, 0).confettis,
+      })),
+      coffres: coffres.rows.map(r => ({ quand: Number(r.ouvert_le), confettis: Number(r.confettis) })),
       achats: [
         ...themes.rows.map(r => achat('themes', r, 1, String(r.theme))),
         ...compagnons.rows.map(r => achat('compagnons', r, 1, String(r.compagnon))),
@@ -1594,12 +1896,19 @@ export class ProfileStore {
    * lignes, soirées comprises : le QG ne relit les soldes qu'une fois par
    * jour (`/admin#economie`).
    */
-  async partsDesSoldes(): Promise<Map<string, { soirees: number; dons: number; depenses: number; vuLe: number | null; suspendu: boolean }>> {
-    const [profils, soirees, dons, ...depenses] = await this.client.batch(
+  async partsDesSoldes(): Promise<
+    Map<string, { soirees: number; dons: number; missions: number; coffres: number; depenses: number; vuLe: number | null; suspendu: boolean }>
+  > {
+    const [profils, soirees, dons, missions, coffres, ...depenses] = await this.client.batch(
       [
         'SELECT id, last_seen_at, disabled_at FROM profiles',
         `SELECT profile_id, detail FROM profile_xp WHERE ${HORS_LIGNES_A_PART}`,
         'SELECT profile_id, SUM(confettis) AS n FROM profile_dons GROUP BY profile_id',
+        {
+          sql: 'SELECT profile_id, SUM(rang < ?) AS faites, SUM(rang = ?) AS trois FROM profile_missions WHERE faite_le IS NOT NULL GROUP BY profile_id',
+          args: [RANG_DES_TROIS, RANG_DES_TROIS],
+        },
+        'SELECT profile_id, SUM(confettis) AS n FROM profile_coffres GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_achats GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_vies GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_sabliers GROUP BY profile_id',
@@ -1610,9 +1919,17 @@ export class ProfileStore {
     const parts = new Map(
       profils.rows.map(r => [
         String(r.id),
-        { soirees: 0, dons: 0, depenses: 0, vuLe: r.last_seen_at == null ? null : Number(r.last_seen_at), suspendu: r.disabled_at != null },
+        { soirees: 0, dons: 0, missions: 0, coffres: 0, depenses: 0, vuLe: r.last_seen_at == null ? null : Number(r.last_seen_at), suspendu: r.disabled_at != null },
       ]),
     )
+    for (const r of missions.rows) {
+      const part = parts.get(String(r.profile_id))
+      if (part) part.missions += gainsDesMissions(Number(r.faites ?? 0), Number(r.trois ?? 0)).confettis
+    }
+    for (const r of coffres.rows) {
+      const part = parts.get(String(r.profile_id))
+      if (part) part.coffres += Number(r.n ?? 0)
+    }
     for (const r of soirees.rows) {
       const part = parts.get(String(r.profile_id))
       if (!part) continue
@@ -2041,7 +2358,7 @@ export class ProfileStore {
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       fonds: this.fondsOuvertsDe(p, jour, maitres),
-      gerbes: gerbesOuvertes(this.recompensesOf(p.id)),
+      gerbes: gerbesOuvertes(this.recompensesOf(p.id), this.tresorsOf(p.id)),
       calendrier: {
         pages: pagesOuvertes(this.recompensesOf(p.id)),
         dorees: pagesDorees(this.recompensesOf(p.id)),
@@ -2164,6 +2481,7 @@ export class ProfileStore {
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
     this.compagnons.set(rec.id, new Map())
+    this.tresors.set(rec.id, new Set())
     // Né à l'instant, il se trouve tout de suite : l'ami qui le cherche est souvent à côté de lui.
     this.annuaire = null
     return { profile: rec, recovery }
@@ -2212,6 +2530,7 @@ export class ProfileStore {
     this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
     this.compagnons.set(rec.id, new Map())
+    this.tresors.set(rec.id, new Set())
     this.annuaire = null
     return rec
   }
@@ -2417,7 +2736,7 @@ export class ProfileStore {
       else {
         const choisie = gerbe(patch.gerbe)
         if (!choisie) throw new Error('Cette gerbe n’existe pas')
-        if (!gerbeOuverte(choisie, this.recompensesOf(id))) throw new Error(`Cette gerbe se gagne avec ${choisie.regle}`)
+        if (!gerbeOuverte(choisie, this.recompensesOf(id), this.tresorsOf(id))) throw new Error(`Cette gerbe se gagne avec ${choisie.regle}`)
         champs.gerbe = choisie.key
       }
     }
@@ -3506,6 +3825,8 @@ export class ProfileStore {
           'profile_compagnons',
           'profile_dons',
           'profile_loge_vus',
+          'profile_missions',
+          'profile_coffres',
         ].map(table => ({
           sql: `DELETE FROM ${table} WHERE profile_id = ?`,
           args: [profileId],
@@ -3515,7 +3836,7 @@ export class ProfileStore {
       'write',
     )
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
-    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.compagnons, this.acquis, this.gardes, this.achatsEnCours, this.vus]) {
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.compagnons, this.tresors, this.acquis, this.gardes, this.achatsEnCours, this.vus]) {
       carte.delete(profileId)
     }
     // La rareté des hauts faits se compte sur la population : elle a changé.
@@ -3649,8 +3970,8 @@ export class ProfileStore {
       await this.recalculerTotal(profileId)
       return
     }
-    if (soireeId === LIGNE_JOUR || soireeId === LIGNE_CAMPAGNE || soireeId === LIGNE_RATTRAPAGE) {
-      // Le quiz du jour et la campagne ne dépendent pas du barème des soirées,
+    if (soireeId === LIGNE_JOUR || soireeId === LIGNE_CAMPAGNE || soireeId === LIGNE_RATTRAPAGE || soireeId === LIGNE_MISSIONS) {
+      // Le quiz du jour, la campagne et les missions ne dépendent pas du barème des soirées,
       // ni le rattrapage, écrit une fois pour toutes : leur ligne garde
       // son expérience, et ne prend que la version du jour. En entier : le
       // nombre lié part en flottant, et `{"v":7.0,…}` n'était jamais « du
@@ -3815,6 +4136,10 @@ export class ProfileStore {
       const res = await this.client.execute({ sql: 'SELECT compagnon, rang FROM profile_compagnons WHERE profile_id = ?', args: [rec.id] })
       for (const r of res.rows) lireCompagnon(siens, r)
       this.compagnons.set(rec.id, siens)
+    }
+    if (!this.tresors.has(rec.id)) {
+      const res = await this.client.execute({ sql: 'SELECT objet FROM profile_coffres WHERE profile_id = ?', args: [rec.id] })
+      this.tresors.set(rec.id, new Set(res.rows.map(r => String(r.objet))))
     }
     return rec.disabledAt ? null : rec
   }

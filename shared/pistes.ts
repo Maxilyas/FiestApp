@@ -66,9 +66,10 @@ const LAURIERS = ['le laurier, le lendemain d’une victoire', 'le laurier d’o
  * boréale le niveau comme La Légende, le Kintsugi les victoires comme le
  * Champion du jour ; le Grand théâtre et le Cadran solaire suivent un palier,
  * le Cabinet de curiosités les maîtres. Le Triomphe va au titre de champion
- * du mois (`DU_CHAMPION_DU_MOIS`).
+ * du mois (`DU_CHAMPION_DU_MOIS`), les fonds du trésor au coffre de la
+ * semaine (`shared/coffre.ts`) : ni l'un ni les autres n'ont de piste.
  */
-const ETAPES_DES_FONDS: Readonly<Record<Exclude<CleDeFond, 'triomphe'>, { piste: string; seuil: number }>> = {
+const ETAPES_DES_FONDS: Readonly<Partial<Record<CleDeFond, { piste: string; seuil: number }>>> = {
   nuit: { piste: 'hf:assidu', seuil: 30 },
   aurore: { piste: 'hf:legende', seuil: 20 },
   kintsugi: { piste: 'hf:champion-du-jour', seuil: 10 },
@@ -146,7 +147,8 @@ SEUILS_DU_LAURIER.forEach((seuil, i) => etapeDe('hf:champion-du-jour', seuil).re
 
 for (const g of GERBES) {
   const par = g.par
-  if ('profil' in par) continue
+  // Celle de tous, et celles du trésor, que seul un coffre donne : aucune piste ne les ouvre.
+  if ('profil' in par || 'tresor' in par) continue
   const r: Recompense = { sorte: 'gerbe', cle: g.key, nom: g.nom }
   if ('palier' in par) ranger(destinationDe({ hautFait: par.palier, palier: par.au }), r)
   else ranger(destinationDe(par), r)
@@ -164,9 +166,10 @@ for (const t of THEMES) {
   } else ranger(destinationDe(par), r)
 }
 
-for (const [cle, { piste, seuil }] of Object.entries(ETAPES_DES_FONDS)) {
+for (const [cle, etape] of Object.entries(ETAPES_DES_FONDS)) {
+  if (!etape) continue
   const f = FONDS.find(x => x.key === cle)!
-  etapeDe(piste, seuil).recompenses.push({ sorte: 'fond', cle, nom: f.nom })
+  etapeDe(etape.piste, etape.seuil).recompenses.push({ sorte: 'fond', cle, nom: f.nom })
 }
 
 // Chaque voie d'un légendaire, sur chacune des conditions qu'elle demande ;
@@ -196,10 +199,10 @@ export function etapesDeLaPiste(cle: string): readonly EtapeDePiste[] {
 /**
  * L'étape qui ouvre un fond : sa piste et son seuil — le style de « Ma
  * collection » dit où l'on en est. Null pour le Triomphe, qui va au champion
- * du mois, sans compte.
+ * du mois, sans compte, et pour les fonds du trésor, que seul un coffre donne.
  */
 export function etapeDuFond(cle: CleDeFond): { piste: string; seuil: number } | null {
-  return cle === 'triomphe' ? null : ETAPES_DES_FONDS[cle]
+  return ETAPES_DES_FONDS[cle] ?? null
 }
 
 /** Ce qu'ouvre un trophée qui se regagne, à tant de fois : « ×3 : le Kraken ». */

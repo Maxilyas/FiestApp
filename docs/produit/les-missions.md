@@ -1,0 +1,94 @@
+# Les missions du jour et le coffre de la semaine
+
+> Un objectif à court terme pour chaque jour : trois missions qui rapportent des confettis et de l'expérience, un tampon quand les trois sont faites, et le lundi un coffre qui s'ouvre sur un objet introuvable en boutique — ou un thème, un compagnon, des confettis. Pour les profils seulement : un invité anonyme n'en voit rien. Et, en tête de l'accueil, « À la une » : ce que la boutique a de plus beau à lui montrer.
+
+Le constat du propriétaire, le 14 octobre 2026 : « le manque d'objectif à court terme ». On faisait le quiz du jour, quelques duels, et la campagne, difficile, en décourageait plus d'un. Le plan d'action validé le même jour : des missions payées en confettis et en expérience (« Moyen : ~60 par jour »), une carte à tampons, et un coffre en fin de semaine, ouvert par une animation à la hauteur (« une animation ultra stylée […] et on sait si on a un thème, un avatar, une carte » ; puis « encore plus belle si tu le peux »).
+
+## Trois missions par jour
+
+Tirées pour chacun à sa première visite du jour, puis figées jusqu'à minuit (heure de Paris) :
+
+| Famille | Ce qu'elle demande | Où |
+|---|---|---|
+| **Habitude** | Jouer le quiz du jour — ou, pour qui le joue presque chaque jour, y décrocher une ou deux étoiles | le quiz du jour |
+| **Savoir** | Trouver 10, 15 ou 20 bonnes réponses, ou 5 dans une catégorie (« Trouve 5 bonnes réponses en Histoire ») | partout : soirées, quiz du jour, campagne — une catégorie, au quiz du jour et en campagne |
+| **Découverte** | Un mode, plutôt un qu'il n'a pas joué ces sept jours : enchaîner 5 ou 7 bonnes réponses dans une série, jouer un duel, tenter une épreuve d'un sentier, réussir une étape d'un parcours, relever le défi de la semaine, revoir des questions de son carnet | la campagne, les duels |
+
+La découverte d'hier ne revient pas le lendemain ; le défi ne se propose plus une fois relevé dans la semaine, ni la révision sans trois questions à revoir. Chaque mission dit où la faire, d'un toucher (« Jouer une série », « Y aller ») ; une mission de catégorie ouvre la campagne sur cette catégorie.
+
+Rien ne se compte à côté : l'avancement se relit dans les journaux de chaque mode. Une mission faite le reste — ce qui est fait ne se reprend jamais —, et la semaine passée se juge encore le lundi : une mission faite dimanche à 23 h 50 remplit encore son coffre.
+
+### Ce qu'elles rapportent
+
+Chaque mission faite : **15 confettis et 25 points d'expérience**. Les trois le même jour : **15 confettis et 25 points de plus, et un tampon**. Au plus 60 confettis et 100 points par jour — le joueur médian gagnait 9 confettis par jour joué, mesuré le 14 octobre 2026. Des choix de produit : [les barèmes](../reference/baremes.md).
+
+Les confettis se relisent à chaque lecture du solde, comme toutes les sources (« Missions du jour » au QG) ; l'expérience vit dans sa ligne à part (`#missions`), comme celle du quiz du jour et de la campagne, et compte pour le niveau — La Légende se juge aussi sur elle.
+
+## La carte de la semaine
+
+Du lundi au dimanche, un tampon d'or par jour aux trois missions faites ; le jour d'aujourd'hui cerclé, ceux à venir en pointillé. Ses tampons font le coffre de la semaine :
+
+| Tampons | Coffre |
+|---|---|
+| 1 ou 2 | le coffre de bois |
+| 3 ou 4 | le coffre d'argent |
+| 5 ou 6 | le coffre d'or |
+| 7 | le coffre royal |
+
+Une semaine sans tampon n'a pas de coffre.
+
+## Le coffre de la semaine
+
+Le lundi, le coffre de la semaine passée attend sur l'accueil — la ligne des missions s'allume d'or, « Ton coffre t'attend ! ». Il donne un objet tiré à sa rareté :
+
+| Coffre | Commune | Peu commune | Rare | Épique | Légendaire |
+|---|---|---|---|---|---|
+| Bois | 55 % | 30 % | 12 % | 3 % | — |
+| Argent | 30 % | 32 % | 26 % | 10 % | 2 % |
+| Or | 10 % | 25 % | 37 % | 21 % | 7 % |
+| Royal | — | 10 % | 40 % | 35 % | 15 % |
+
+Puis un objet de cette rareté qu'il n'a pas :
+
+- **le trésor**, qui ne se trouve nulle part ailleurs — six fonds de carte peints (rares : la Voie lactée, le Jardin des lanternes ; épiques : les Abysses, la Bibliothèque enchantée ; légendaires : le Dragon d'or, la Cité céleste) et six gerbes (peu communes : les flocons, les cœurs ; rares : les papillons, les étoiles filantes ; épique : les diamants ; légendaire : le trésor) ; il pèse double dans sa rareté ;
+- **un thème de la boutique**, offert — jamais un thème qui se gagne, ni un thème de saison hors de sa saison ;
+- **un compagnon**, sa première forme, au légendaire seulement — il vaut le prix d'un thème légendaire ;
+- **des confettis** à la rareté commune — 60, 90, 120 ou 150 selon le coffre —, autant de chances que tous ses thèmes ensemble : la rareté commune n'est pas qu'un lot de consolation.
+
+Une rareté où il a déjà tout descend d'un cran, jusqu'aux confettis. Le tirage se fait une fois, à l'ouverture, et ne se refait jamais : rouvert, le coffre redonne ce qu'il a donné. Un thème ou un compagnon offert est à lui comme acheté — le QG ne le compte pas comme une vente.
+
+### L'ouverture
+
+Une scène à elle, par-dessus tout, dans une nuit qui ne dépend pas du thème porté :
+
+1. **le repos** — le coffre peint flotte, une lueur filtre sous son couvercle, de la poussière d'or monte ; ses chances se lisent, rareté par rareté, avant qu'on y touche ;
+2. **la charge** — « Ouvrir le coffre » : il tremble de plus en plus fort, la lumière fuit par la fente, la poussière s'y engouffre ;
+3. **l'éclat** — un éclair à la couleur de la rareté tirée, deux ondes, une colonne de lumière, et le coffre s'ouvre ;
+4. **la révélation** — l'objet monte du coffre devant des rayons qui tournent ; sa rareté, son nom, ce qu'il fait ; une pluie d'étincelles pour les plus rares, la gerbe elle-même si c'en est une. « L'essayer » ouvre la loge, l'objet déjà sur sa carte.
+
+La rareté ne se devine pas avant l'éclair : la charge a la lumière de la matière du coffre (le bois chaud, l'argent froid, l'or, le soleil du royal), jamais celle de ce qu'il cache. Si le téléphone demande moins de mouvement, le coffre s'ouvre en fondu. Échap ou la croix, pendant l'ouverture, passent à la révélation : le tirage est fait.
+
+Ce qu'il a donné compte aussitôt comme du neuf à porter : le compteur rouge de « Profil » et de « M'habiller » s'allume.
+
+> [!TIP]
+> Au QG, la page de l'économie ouvre un coffre de chaque rang pour voir (« Le coffre de la semaine ») : la même scène, le tirage fait sur la page à ses vraies chances — rien ne s'écrit, rien ne se gagne, « Encore un » en rouvre un autre.
+
+## Sur l'accueil
+
+Sous la ligne de son identité, deux éléments fins, au-dessus des gros boutons de jeu (la maquette C) :
+
+- **« À la une »** — un objet de la boutique qu'il n'a pas : un compagnon qui déborde du bandeau, un thème en photo de son écran — celui de la saison d'abord, qui partira avec elle (« De saison »), puis les plus beaux. Trois au plus, tirés pour la journée, qui passent l'un après l'autre toutes les quelques secondes — jamais sous le doigt, et pas du tout si le téléphone demande moins de mouvement. « À ta portée » quand son solde le paie. Un toucher mène à sa place dans la boutique (`/boutique#compagnons`, `/boutique#theme-<clé>`, la fiche du thème dépliée). Rien s'il a tout ;
+- **la ligne des missions** — « Missions du jour », trois anneaux, ce qui reste à gagner aujourd'hui ; un toucher ouvre leur feuille : les trois missions, où chacune en est, ce que paient les trois, la carte de la semaine, et un coffre qui attend en tête.
+
+Leur place est gardée tant qu'ils arrivent : rien ne saute sous le doigt.
+
+## À la fin de chaque partie
+
+Sous ce qu'elle a gagné, la fin d'une partie dit ce qu'elle a fait de ses missions — « Mission accomplie », les trois et leur tampon, la carte de la semaine — à la fin du quiz du jour, d'une série, d'un défi, d'un duel, d'une révision, d'une épreuve, d'une étape, et d'une soirée pour un profil. Rien si elle n'en a fait aucune.
+
+## Voir aussi
+
+- [La boutique](la-boutique.md) — les confettis, et le catalogue des fonds et des gerbes
+- [Le profil](le-profil.md) — la loge, où l'on essaie et porte ce que le coffre a donné
+- [Les récompenses](les-recompenses.md) — l'expérience et les niveaux
+- [Les routes](../reference/api-http.md#les-missions-du-jour-et-le-coffre-de-la-semaine) · [les tables](../reference/base-de-donnees.md) · [les barèmes](../reference/baremes.md)

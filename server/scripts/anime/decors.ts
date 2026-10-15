@@ -1,7 +1,8 @@
 // Les décors peints : le Calendrier des Heures, les quatre thèmes qui se
 // gagnent sans se vendre (l'Horloge astronomique, le Ciel du jour, les Très
-// Riches Heures, le Sommet) et deux fonds de carte (le Triomphe, le Cadran
-// solaire).
+// Riches Heures, le Sommet), deux fonds de carte (le Triomphe, le Cadran
+// solaire), et le trésor du coffre de la semaine (`shared/coffre.ts`) : ses
+// six fonds de carte, et les quatre coffres, fermés puis ouverts.
 //
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/decors.ts --groupe=calendrier,horloge [--lot]
 //   … --seulement=horloge-cadran            # un essai, une image
@@ -57,8 +58,8 @@ function mettreDeCote(nom: string) {
 // ── Les consignes ─────────────────────────────────────────────────────────
 // En anglais, comme celles des portraits et des légendaires.
 
-type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds'
-const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds']
+type Groupe = 'calendrier' | 'horloge' | 'ciel' | 'heures' | 'sommet' | 'fonds' | 'tresor'
+const GROUPES: Groupe[] = ['calendrier', 'horloge', 'ciel', 'heures', 'sommet', 'fonds', 'tresor']
 
 interface Travail {
   nom: string
@@ -312,6 +313,93 @@ const FOND_DE_CARTE = (sujet: string) =>
   `ink, so the whole image stays dark and calm in its middle, with its richest details toward the edges and the bottom. ${sujet} Painted as a ` +
   'rich, luminous digital painting with fine gold-leaf accents. No people, no text, no letters, no numerals, no inscriptions, no frame, no border.'
 
+/**
+ * Les fonds du trésor : introuvables en boutique, ils ne sortent que du coffre
+ * de la semaine (`shared/coffre.ts`) — deux rares, deux épiques, deux
+ * légendaires, chacun sa palette, loin des sept d'avant. Le nom est la clé de
+ * `shared/fonds.ts` ; la classe de la carte, `.fond-<clé>`.
+ */
+export const FONDS_DU_TRESOR: { cle: string; sujet: string }[] = [
+  {
+    cle: 'voie-lactee',
+    sujet:
+      'The Milky Way: a perfectly still alpine lake at night between two dark mountain slopes, the Milky Way arching across a deep indigo sky full of stars, mirrored in the black water at the bottom; a few dark pines on the shores, a faint violet and teal nebular glow; the middle of the image is calm night sky. Palette: indigo, violet, silver starlight and a touch of gold.',
+  },
+  {
+    cle: 'lanternes',
+    sujet:
+      'The Lantern Garden: a Japanese garden at night, round glowing paper lanterns hanging from the dark branches of maple trees along both sides (plain lanterns, no writing on them), a small vermilion arched bridge over a still pond at the bottom where koi glint gold, a few floating candle lanterns on the water; the middle is soft dark night air. Palette: deep indigo, warm amber lantern light, vermilion and gold.',
+  },
+  {
+    cle: 'abysses',
+    sujet:
+      'The Abyss: the deep ocean, pale shafts of light falling from far above into dark teal water, translucent bioluminescent jellyfish drifting along both sides with glowing cyan tendrils, and at the very bottom a half-buried ancient treasure chest spilling gold coins among corals and swaying seaweed; the middle is calm deep water. Palette: abyssal blue, teal, cyan glow and gold.',
+  },
+  {
+    cle: 'bibliotheque',
+    sujet:
+      'The Enchanted Library: an endless old library seen in perspective, towering walnut bookshelves rising on both sides into darkness, floating lit candles, a few open books flying like birds with fluttering blank pages, warm golden dust in the air, a reading desk with a brass astrolabe at the bottom; the middle is a calm dark nave of shadow. Palette: walnut brown, deep green, warm candlelight and gold.',
+  },
+  {
+    cle: 'dragon',
+    sujet:
+      // Le premier essai l'avait posé dans un panneau de laque — un cadre noir, un filet d'or, des coins arrondis, du blanc
+      // aux angles : la carte a déjà son bord. La consigne le lui interdit en toutes lettres.
+      'The Golden Dragon: a long Eastern dragon with scales of burnished gold leaf coiling along the edges of the image through dark storm clouds, its head near a top corner, its claw holding a luminous pearl near the bottom, crimson silk ribbons and small stylized clouds, in the spirit of Asian lacquer art; the middle stays dark cloud. The painting fills the whole canvas and bleeds off all four edges: it is not a lacquer panel or a screen — no border around it, no gold fillet, no rounded corners, no margin. Palette: black lacquer, crimson and burnished gold.',
+  },
+  {
+    cle: 'cite-celeste',
+    sujet:
+      'The Sky City: floating islands carrying a white palace with golden domes high above a sea of clouds at sunset, waterfalls pouring from the islands into the clouds, a few birds far away; the islands sit toward the top and the edges, the clouds glow at the bottom; the middle is calm twilight sky. Palette: rose, lilac, peach and gold.',
+  },
+]
+
+/**
+ * Un coffre de la semaine, peint fermé sur un fond uni qu'on détoure, puis
+ * repeint ouvert sur la même pose. Ni lueur ni rayon : la lumière qui en
+ * jaillit, les rayons et les étincelles sont ceux de la page, qui les anime
+ * (`components/Coffre.tsx`) — peints, ils se seraient mêlés au fond uni, et
+ * la page n'aurait plus su les éteindre. Assez petit dans le carré pour que
+ * le couvercle ouvert y tienne, à la même place fermé et ouvert : les deux
+ * se posent l'un sur l'autre.
+ */
+const COFFRE_FERME = (matiere: string) =>
+  'A single treasure chest for the reward screen of a mobile party quiz game, shown alone and centered, seen from the front and slightly above ' +
+  `(a three-quarter view), its lid closed. ${matiere} The chest sits in the lower half of the square canvas and fills about 55% of its width, ` +
+  'with empty background above it (room for its lid to open later). Painted as a rich, luminous, highly detailed digital painting with crisp ' +
+  'edges, warm light from the upper left, deep shadows inside the carvings. Background: a single perfectly flat, uniform chroma-key magenta ' +
+  '(#FF00FF) filling the entire canvas edge to edge — no floor, no shadow, no glow, no sparkles, no scenery. Do not use any pink or magenta on ' +
+  'the chest. No text, no letters, no numerals. Output one square image (1:1 aspect ratio).'
+const COFFRE_OUVERT =
+  'Edit the attached image: keep exactly the same treasure chest — the same materials, ornaments, colors and lighting, the same size and position ' +
+  'in the canvas, the same three-quarter view — but with its lid thrown wide open, swung back on its hinges, so that we look inside: a dark ' +
+  'velvet interior holding a heap of gold coins and a few jewels that catch the light. Do not add any glow, light beams, sparkles or magic ' +
+  'effects. Keep the background a single perfectly flat, uniform chroma-key magenta (#FF00FF) filling the entire canvas edge to edge. No text. ' +
+  'Output one square image (1:1 aspect ratio).'
+
+/** Les quatre rangs du coffre (`RANGS_DU_COFFRE`, `shared/coffre.ts`) : du plus humble au plus somptueux. */
+export const COFFRES_A_PEINDRE: { rang: string; matiere: string }[] = [
+  {
+    rang: 'bois',
+    matiere: 'A sturdy, humble chest of weathered oak planks bound with dark iron bands, iron corner plates with round rivets and a simple iron padlock; charming and well-used.',
+  },
+  {
+    rang: 'argent',
+    matiere:
+      'A chest of dark polished walnut bound with engraved silver bands, silver filigree corners and a silver lock set with a small blue sapphire; elegant and cool-toned.',
+  },
+  {
+    rang: 'or',
+    matiere:
+      'A chest of deep red lacquered wood bound with ornate burnished gold bands, gold filigree corners, a gold lock set with a large emerald, and a row of small rubies along the lid; rich and warm.',
+  },
+  {
+    rang: 'royal',
+    matiere:
+      'A royal chest of midnight-blue enamel and gold, encrusted with sapphires, rubies and amethysts, small golden crowns on its corners, and a lock shaped like a radiant golden sun around a great diamond; magnificent and precious.',
+  },
+]
+
 const TRAVAUX: Travail[] = [
   ...PAGES_A_PEINDRE.flatMap(p => [
     {
@@ -408,6 +496,18 @@ const TRAVAUX: Travail[] = [
       'The Sundial: a classical sundial of pale weathered stone on a carved pedestal in a formal garden at the golden hour, its bronze gnomon casting a long sharp shadow across the engraved hour lines (lines only, no numerals), clipped boxwood hedges, lavender and old roses around it; the low sun rakes through an arbor of dark foliage, so that the top of the image is deep shade, and warm gold light falls on the stone. Palette: deep green shade, warm gold and honey.',
     ),
   },
+  ...FONDS_DU_TRESOR.map(f => ({ nom: `fond-${f.cle}`, groupe: 'tresor' as const, format: '2:3' as const, taille: '2K' as const, consigne: FOND_DE_CARTE(f.sujet) })),
+  ...COFFRES_A_PEINDRE.flatMap(c => [
+    { nom: `coffre-${c.rang}-ferme`, groupe: 'tresor' as const, format: '1:1' as const, taille: '1K' as const, consigne: COFFRE_FERME(c.matiere) },
+    {
+      nom: `coffre-${c.rang}-ouvert`,
+      groupe: 'tresor' as const,
+      format: '1:1' as const,
+      taille: '1K' as const,
+      source: `coffre-${c.rang}-ferme`,
+      consigne: COFFRE_OUVERT,
+    },
+  ]),
 ]
 
 // Chaque mois du catalogue a sa page à peindre, et rien de plus.
@@ -624,6 +724,35 @@ async function rogner(src, largeur, qualite) {
   return { data: await redimensionner(src, largeur, Math.round((largeur * h) / l), qualite, [x0 / W, y0 / H, l / W, h / H]), rapport: h / l }
 }
 
+// Des pièces détourées de la même taille — un coffre fermé, le même ouvert —
+// rognées au même cadre, l'union de ce qui est opaque dans l'une ou l'autre,
+// puis réduites à la même largeur : posées l'une sur l'autre, la caisse ne
+// saute pas quand le couvercle s'ouvre.
+async function rognerEnsemble(srcs, largeur, qualite) {
+  const imgs = await Promise.all(srcs.map(charger))
+  const W = imgs[0].naturalWidth, H = imgs[0].naturalHeight
+  let x0 = W, y0 = H, x1 = 0, y1 = 0
+  // Et le haut de chacune : le couvercle fermé commence plus bas que l'ouvert.
+  const hauts = []
+  for (const img of imgs) {
+    const c = toile(W, H), x = c.getContext('2d', { willReadFrequently: true })
+    x.drawImage(img, 0, 0, W, H)
+    const d = x.getImageData(0, 0, W, H).data
+    let haut = H
+    for (let y = 0; y < H; y++) for (let u = 0; u < W; u++) if (d[(y * W + u) * 4 + 3] > 24) { x0 = Math.min(x0, u); x1 = Math.max(x1, u); y0 = Math.min(y0, y); y1 = Math.max(y1, y); haut = Math.min(haut, y) }
+    hauts.push(haut)
+  }
+  const l = x1 - x0 + 1, h = y1 - y0 + 1
+  const cadre = [x0 / W, y0 / H, l / W, h / H]
+  return {
+    donnees: await Promise.all(srcs.map(s => redimensionner(s, largeur, Math.round((largeur * h) / l), qualite, cadre))),
+    rapport: h / l,
+    cadre,
+    // Le haut de chaque pièce, en part de la hauteur du cadre commun.
+    hauts: hauts.map(y => (y - y0) / h),
+  }
+}
+
 // La planche de contrôle de l'horloge : le cadran, ses aiguilles posées comme
 // la feuille les pose (longueurs en part du rayon), à deux heures — un pivot
 // mal mesuré se voit tout de suite.
@@ -742,7 +871,17 @@ try {
   }
 
   // Les décors en hauteur : 720 de large, la mesure d'un téléphone (360 points, deux pixels par point).
-  for (const nom of ['ciel-aube', 'ciel-jour', 'ciel-crepuscule', 'ciel-nuit', 'heures-folio', 'sommet-aube', 'fond-triomphe', 'fond-cadran']) {
+  for (const nom of [
+    'ciel-aube',
+    'ciel-jour',
+    'ciel-crepuscule',
+    'ciel-nuit',
+    'heures-folio',
+    'sommet-aube',
+    'fond-triomphe',
+    'fond-cadran',
+    ...FONDS_DU_TRESOR.map(f => `fond-${f.cle}`),
+  ]) {
     const f = existant(nom)
     if (!f) continue
     const { l, h } = await page.evaluate(
@@ -757,6 +896,28 @@ try {
     poser('sommet-drapeaux-720', r.data)
     console.log(`  ${d.bordFaux || d.transparents < 0.3 ? '⚠ ' : ''}sommet-drapeaux : ${(d.transparents * 100).toFixed(0)} % transparent, ${(1 / r.rapport).toFixed(2)}:1`)
   }
+  // Les coffres : fermé et ouvert détourés sur leur magenta, rognés au même
+  // cadre, en 480 de large — la scène du coffre les montre à 240 points. Leur
+  // rapport (hauteur sur largeur) part avec eux : la page réserve leur place ;
+  // et la fente du couvercle fermé, où la lumière filtre avant l'ouverture —
+  // aux deux cinquièmes de la caisse fermée, sous son haut.
+  const mesuresDesCoffres: Record<string, { rapport: number; fente: number }> = {}
+  for (const c of COFFRES_A_PEINDRE) {
+    const noms = [`coffre-${c.rang}-ferme`, `coffre-${c.rang}-ouvert`]
+    if (manque(...noms).length) continue
+    const detoures = []
+    for (const nom of noms) {
+      const d = await dansLaPage<any>(page, 'detourer', enDataUrl(existant(nom)!), null, [255, 0, 255])
+      console.log(`  ${d.bordFaux || d.transparents < 0.3 ? '⚠ ' : ''}${nom} : ${(d.transparents * 100).toFixed(0)} % transparent`)
+      detoures.push(d.plein)
+    }
+    const r = await dansLaPage<any>(page, 'rognerEnsemble', detoures, 480, 0.86)
+    poser(`coffre-${c.rang}-ferme-480`, r.donnees[0])
+    poser(`coffre-${c.rang}-ouvert-480`, r.donnees[1])
+    const haut = r.hauts[0]
+    mesuresDesCoffres[c.rang] = { rapport: Math.round(r.rapport * 1000) / 1000, fente: Math.round((haut + (1 - haut) * 0.4) * 1000) / 1000 }
+  }
+  writeFileSync(path.join(app, 'coffres.json'), JSON.stringify(mesuresDesCoffres) + '\n')
   console.log(app)
   if (args.includes('--livrer')) livrer()
 } finally {
@@ -891,16 +1052,62 @@ function livrer() {
     reecrire(feuille, proprietes(t.cle, t.images) + (t.plus?.() ?? ''))
   }
 
-  // Les fonds de carte, dans `styles.css` : posés sur la carte qui les porte.
-  if (complet('fond-triomphe-720', 'fond-cadran-720')) {
-    reecrire(
-      'client/src/styles.css',
-      `.carte-fond.fond-triomphe { --fond-peint: url(${adresse('fond-triomphe-720')}); }\n` +
-        `.carte-fond.fond-cadran { --fond-peint: url(${adresse('fond-cadran-720')}); }\n`,
+  // Les fonds de carte, dans `styles.css` : posés sur la carte qui les porte,
+  // une ligne chacun. Un fond dont l'image manque ici garde sa ligne d'avant —
+  // les originaux d'un fond peint ailleurs ne sont pas dans ce dossier, et le
+  // trésor ne devait pas attendre qu'on repeigne le Triomphe pour arriver.
+  {
+    const feuille = 'client/src/styles.css'
+    const { dedans } = (() => {
+      const css = readFileSync(path.join(depot, feuille), 'utf8')
+      return { dedans: css.slice(css.indexOf(REPERE_DEBUT) + REPERE_DEBUT.length, css.indexOf(REPERE_FIN)) }
+    })()
+    const avant = new Map([...dedans.matchAll(/\.carte-fond\.fond-([\w-]+) \{ --fond-peint: url\(\/decors\/([^)]+)\); \}/g)].map(m => [m[1], m[2]]))
+    const lignes: string[] = []
+    for (const cle of ['triomphe', 'cadran', ...FONDS_DU_TRESOR.map(f => f.cle)]) {
+      if (complet(`fond-${cle}-720`)) lignes.push(`.carte-fond.fond-${cle} { --fond-peint: url(${adresse(`fond-${cle}-720`)}); }`)
+      else if (avant.has(cle)) {
+        garder.add(avant.get(cle)!)
+        lignes.push(`.carte-fond.fond-${cle} { --fond-peint: url(/decors/${avant.get(cle)}); }`)
+        console.log(`  fond ${cle} : pas d'image ici, sa ligne reste celle d'avant`)
+      } else console.log(`  fond ${cle} : pas encore peint`)
+    }
+    reecrire(feuille, lignes.join('\n') + '\n')
+  }
+
+  // Les coffres de la semaine : la table que lit la scène du coffre. Rien
+  // n'est livré tant qu'un des quatre manque : un rang sans dessin garderait
+  // les autres d'avant, et un coffre ne change pas de style d'une semaine à
+  // l'autre.
+  const rangs = COFFRES_A_PEINDRE.map(c => c.rang)
+  const moduleDesCoffres = path.join(depot, 'client/src/components/coffres-peints.ts')
+  const mesures: Record<string, { rapport: number; fente: number }> = existsSync(path.join(app, 'coffres.json'))
+    ? JSON.parse(readFileSync(path.join(app, 'coffres.json'), 'utf8'))
+    : {}
+  if (complet(...rangs.flatMap(r => [`coffre-${r}-ferme-480`, `coffre-${r}-ouvert-480`])) && rangs.every(r => mesures[r]?.rapport > 0)) {
+    const lignes = rangs.map(
+      r =>
+        `  ${r}: { ferme: '${adresse(`coffre-${r}-ferme-480`)}', ouvert: '${adresse(`coffre-${r}-ouvert-480`)}', rapport: ${mesures[r].rapport}, fente: ${mesures[r].fente} },`,
+    )
+    writeFileSync(
+      moduleDesCoffres,
+      '// Les coffres de la semaine, peints : chacun fermé, puis ouvert sur la même\n' +
+        '// pose (`shared/coffre.ts`, ses quatre rangs). Leurs fichiers vivent dans\n' +
+        '// `client/public/decors`, détourés, rognés au même cadre : posés l’un sur\n' +
+        '// l’autre, la caisse ne saute pas quand le couvercle s’ouvre. `rapport` :\n' +
+        '// la hauteur sur la largeur, pour réserver leur place.\n//\n' +
+        '// Écrit par `server/scripts/anime/decors.ts --livrer` : on ne le retouche\n' +
+        "// pas à la main, on relance la chaîne. Chaque fichier est nommé par son\n" +
+        "// empreinte : un coffre repeint change d'adresse. `fente` : où la lumière\n" +
+        '// filtre sous le couvercle fermé, en part de la hauteur.\n\n' +
+        "import type { RangDuCoffre } from '../../../shared/coffre'\n\n" +
+        'export const COFFRES_PEINTS: Partial<Record<RangDuCoffre, { ferme: string; ouvert: string; rapport: number; fente: number }>> = {\n' +
+        lignes.join('\n') +
+        '\n}\n',
     )
   } else {
-    dejaCitees('client/src/styles.css')
-    console.log('  fonds : incomplets, leur bloc reste celui d’avant')
+    if (existsSync(moduleDesCoffres)) for (const [, f] of readFileSync(moduleDesCoffres, 'utf8').matchAll(/\/decors\/([^']+)/g)) garder.add(f)
+    console.log('  coffres : incomplets, rien de livré')
   }
 
   // Les fichiers que plus rien ne cite : ceux d'avant un repeint.

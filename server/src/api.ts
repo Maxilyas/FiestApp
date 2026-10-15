@@ -24,6 +24,8 @@ import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
 import { mountJour, mountJourAdmin, mountReserve } from './quizDuJour'
+import { mountMissions } from './missions'
+import type { Missions } from './core/missions'
 import type { JourStore } from './core/jour'
 import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
@@ -75,6 +77,8 @@ interface ApiDeps {
   rappels: RappelStore
   /** La campagne solo : ses séries, pour les profils. */
   campagne: CampagneStore
+  /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
+  missions: Missions
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
   maintenant: () => number
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
@@ -128,6 +132,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
+  // Ses missions du jour et le coffre de la semaine, de même.
+  mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   // La base de la campagne aussi, par la même routine et le même jeton.

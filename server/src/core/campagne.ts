@@ -214,6 +214,7 @@ import {
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
+import type { JournauxDesJours } from '../../../shared/missions'
 import {
   PARCOURS_AU_QG,
   lesPlusRatees,
@@ -1695,6 +1696,52 @@ export class CampagneStore {
     )
     const ligues = confettisDesLigues(releverLesDuels(duelsLus(duels.rows), semaineDeLInstant), this.semaineDeLHeure().semaine)
     return Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiersLus(acquis.rows, validees.rows)) + ligues
+  }
+
+  /**
+   * Ses parties de campagne finies ou jouées depuis un instant, et leurs
+   * réponses, de tous les modes : de quoi juger ses missions du jour
+   * (`shared/missions.ts`), jour par jour. D'un aller-retour, par l'index de
+   * ses séries ; une partie commencée une semaine plus tôt — une épreuve
+   * laissée, reprise — compte encore ses réponses du jour (`MARGE_D_UNE_EPREUVE_MS`).
+   * La catégorie est celle que la série a gardée de sa question, comme pour
+   * ses écussons.
+   */
+  async activiteDepuis(profileId: string, depuis: number): Promise<Pick<JournauxDesJours, 'series' | 'reponses'>> {
+    const commencees = depuis - MARGE_D_UNE_EPREUVE_MS
+    const [series, reponses] = await this.client.batch(
+      [
+        {
+          sql: `SELECT id, mode, issue, finie_le FROM campagne_series
+                WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
+          args: [profileId, commencees, depuis],
+        },
+        {
+          sql: `SELECT r.serie_id AS serie, s.mode AS mode, r.juste AS juste, r.repondue_le AS le,
+                       json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie
+                FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+                WHERE s.profile_id = ? AND s.commencee_le >= ? AND r.repondue_le >= ? AND r.choix IS NOT NULL
+                LIMIT -1`,
+          args: [profileId, commencees, depuis],
+        },
+      ],
+      'read',
+    )
+    return {
+      series: series.rows.map(r => ({
+        id: String(r.id),
+        mode: String(r.mode ?? 'serie'),
+        issue: r.issue == null ? null : String(r.issue),
+        finieLe: r.finie_le == null ? null : Number(r.finie_le),
+      })),
+      reponses: reponses.rows.map(r => ({
+        serie: String(r.serie),
+        mode: String(r.mode ?? 'serie'),
+        juste: Number(r.juste) === 1,
+        le: Number(r.le),
+        categorie: r.categorie == null ? null : String(r.categorie),
+      })),
+    }
   }
 
   /**
@@ -4242,10 +4289,21 @@ export class CampagneStore {
       }),
     ])
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
+    const aRevoir = this.compterARevoir(suivis)
+    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }), ...(defi && { defi }) }
+  }
+
+  /** Les questions de son carnet à revoir aujourd'hui, comme l'accueil les compte : le tirage de ses missions du jour en propose une révision. */
+  async aRevoirDe(profileId: string): Promise<number> {
+    return this.compterARevoir(await this.suivisDe(profileId))
+  }
+
+  /** Ce que son carnet a à revoir aujourd'hui, parmi les questions que la campagne pose encore — la même règle que la page du carnet. */
+  private compterARevoir(suivis: ReadonlyMap<string, SuiviDeRevision>): number {
     const aujourdhui = jourDe(this.maintenant())
     let aRevoir = 0
     for (const [id, s] of suivis) if (!s.apprise && s.revientLe <= aujourdhui && !this.retirees.has(id)) aRevoir++
-    return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }), ...(defi && { defi }) }
+    return aRevoir
   }
 
   /**

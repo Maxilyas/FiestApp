@@ -64,6 +64,7 @@ const ICONE_DU_LIEU: Record<LieuDuStyle, IconName> = {
   duels: 'swords',
   niveau: 'star',
   profil: 'heart',
+  coffre: 'coffre',
 }
 
 /**
@@ -75,6 +76,8 @@ const OU_ALLER: Partial<Record<LieuDuStyle, { nom: string; href: string }>> = {
   campagne: OU_JOUER.campagne,
   sentiers: OU_JOUER.sentiers,
   duels: OU_JOUER.duels,
+  // Le coffre se remplit de ses missions du jour : leur feuille s'ouvre sur l'accueil.
+  coffre: { nom: 'Mes missions du jour', href: '/#missions' },
 }
 
 /** L'adresse qui l'essaie dans la loge : `?essayer=finition:or#avatar`. */

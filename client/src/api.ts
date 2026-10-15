@@ -34,6 +34,8 @@ import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
+import type { MissionsDuJour } from '../../shared/missions'
+import type { CoffreOuvert } from '../../shared/coffre'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { PageDuServeur } from '../../shared/santeDuServeur'
@@ -350,6 +352,14 @@ export const api = {
     nouveautes: () => req<NouveautesDeLaLoge>('/api/joueur/nouveautes'),
     /** Ce qu'il vient de voir dans sa loge, retenu pour tous ses appareils. */
     retenirLesVus: (vus: VusDeLaLoge) => req<{ ok: true }>('/api/joueur/vus', { method: 'PUT', body: JSON.stringify({ vus }) }),
+    /** Ses missions du jour : tirées à sa première visite, ce qui vient d'être fait retenu et dit (`nouvelles`). */
+    missions: () => req<MissionsDuJour>('/api/joueur/missions'),
+    /**
+     * Ouvrir le coffre d'une semaine passée : le tirage se fait une fois. Pas
+     * de reprise au réveil du serveur : rejouée, l'ouverture redonnerait le
+     * même objet — le geste se refait d'un toucher.
+     */
+    ouvrirLeCoffre: (semaine: string) => req<{ coffre: CoffreOuvert }>('/api/joueur/coffre', { method: 'POST', body: JSON.stringify({ semaine }) }),
     enregistrer: (patch: {
       name?: string
       avatar?: string

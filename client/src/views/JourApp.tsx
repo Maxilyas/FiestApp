@@ -21,7 +21,7 @@ import { Corrige, verdictDe } from '../components/Corrige'
 import { promptDialog } from '../components/Dialog'
 import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
 import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
-import { APorter, CeQueTuGagnes, LigneDeTrophee, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
+import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { PageOuverte } from '../components/Calendrier'
 import { RappelDuJour } from '../components/RappelDuJour'
@@ -804,6 +804,8 @@ export function Fin({
       {/* Les trophées, les plus rares d'abord, chacun menant à sa page de l'album ; et ce qu'ils ouvrent, à essayer. */}
       <NouveauxTrophees trophees={tropheesTombes(tombes)} lien />
       <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
+      {/* Ses missions du jour, si la partie en a fait. */}
+      <MissionsAccomplies profil />
       {partie.saison && <Saison saison={partie.saison} />}
       {/* L'enjeu que la page taisait : le laurier est la seule récompense du
           jour que les autres voient. Et le rendez-vous, pour tous. */}

@@ -94,6 +94,7 @@ import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfa
 import { minuitDe } from '../../../shared/qg'
 import { recueilDeLaQuestion, type PartDesBonnes, type QuestionDuSuivi } from '../../../shared/qgDuJour'
 import type { Mouvement } from '../../../shared/qgEconomie'
+import type { JournauxDesJours } from '../../../shared/missions'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -1745,6 +1746,43 @@ export class JourStore {
       args: [profileId],
     })
     return Object.fromEntries(res.rows.map(r => [String(r.compagnon), Number(r.n)]))
+  }
+
+  /**
+   * Ses parties depuis un jour, et leurs bonnes réponses par catégorie : de
+   * quoi juger ses missions du jour (`shared/missions.ts`). D'un aller-retour,
+   * par la clé de ses parties et de ses réponses ; une question annulée pour
+   * tous ne compte ni dans ses bonnes réponses ni dans les questions de sa
+   * partie, comme pour ses étoiles.
+   */
+  async activiteDepuis(profileId: string, depuis: string): Promise<Pick<JournauxDesJours, 'jour' | 'jourParCategorie'>> {
+    const [parties, categories] = await this.client.batch(
+      [
+        {
+          sql: `SELECT p.jour AS jour, p.finie_le AS finie_le, p.justes AS justes,
+                       json_array_length(t.questions) - json_array_length(t.annulees) AS questions
+                FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? AND p.jour >= ?`,
+          args: [profileId, depuis],
+        },
+        {
+          // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part (`savoirDe`).
+          sql: `SELECT jour, categorie, COUNT(*) AS n
+                FROM (SELECT r.jour AS jour, json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie
+                      FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+                      WHERE r.profile_id = ? AND r.jour >= ? AND r.juste = 1
+                        AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+                      LIMIT -1)
+                GROUP BY jour, categorie`,
+          args: [profileId, depuis],
+        },
+      ],
+      'read',
+    )
+    return {
+      jour: parties.rows.map(r => ({ jour: String(r.jour), finie: r.finie_le != null, justes: Number(r.justes ?? 0), questions: Number(r.questions ?? 0) })),
+      jourParCategorie: categories.rows.map(r => ({ jour: String(r.jour), categorie: r.categorie == null ? null : String(r.categorie), n: Number(r.n) })),
+    }
   }
 
   /**

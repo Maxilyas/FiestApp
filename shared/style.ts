@@ -28,7 +28,7 @@ import { formatNumber } from './typographie'
 export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
 /** Où il se gagne : l'icône de son étape, et l'écran où aller. */
-export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil'
+export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre'
 
 /** Ce qu'il faut pour l'avoir : une étape, comme celles des avatars de l'album. */
 export interface EtapeDuStyle {
@@ -67,6 +67,19 @@ const OU: Record<LieuDuStyle, string> = {
   duels: 'Aux duels',
   niveau: 'En montant de niveau',
   profil: 'Avec un profil',
+  coffre: 'Au coffre de la semaine',
+}
+
+/**
+ * L'étape d'un objet du trésor : seul un coffre de la semaine le donne
+ * (`shared/coffre.ts`), à sa rareté — rien à compter, la chance d'abord, et
+ * plus de tampons, plus beau coffre.
+ */
+const DU_COFFRE: EtapeDuStyle = {
+  lieu: 'coffre',
+  titre: 'Au coffre de la semaine',
+  regle: 'Tes trois missions d’un jour font un tampon ; le lundi, ton coffre s’ouvre — plus de tampons, plus beau coffre',
+  progres: null,
 }
 
 /** Le niveau se nourrit de tout : sa règle, la même pour une finition et pour l'Aurore boréale. */
@@ -108,7 +121,10 @@ function fonds(p: ProfilDuStyle): ObjetDuStyle[] {
     const h = e && hautFait(e.piste)
     let etape: EtapeDuStyle
     let court: string
-    if (e?.piste === 'maitres') {
+    if (f.tresor) {
+      etape = DU_COFFRE
+      court = 'coffre'
+    } else if (e?.piste === 'maitres') {
       etape = {
         lieu: 'sentiers',
         titre: `Sur les sentiers : ${MAITRES_DU_CABINET} maîtres`,
@@ -132,6 +148,7 @@ function fonds(p: ProfilDuStyle): ObjetDuStyle[] {
 function etapeDeLaGerbe(p: ProfilDuStyle, g: Gerbe): Pick<ObjetDuStyle, 'etape' | 'court'> {
   const par = g.par
   if ('profil' in par) return { etape: { lieu: 'profil', titre: 'Avec un profil', regle: 'Offerte à chaque profil', progres: null }, court: 'offerte' }
+  if ('tresor' in par) return { etape: DU_COFFRE, court: 'coffre' }
   if ('palier' in par) {
     const h = hautFait(par.palier)
     if (h?.famille === 'carriere') return { etape: etapeDeLaPiste(p, h, h.paliers[par.au - 1], regleDuPalier(h, par.au)), court: titreDePalier(h, par.au) }

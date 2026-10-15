@@ -184,6 +184,16 @@ export function rareteDuRayon(choisie: RareteDeTheme | null, aPrendre: readonly 
  * vendent pas n'y sont pas : ils se gagnent, et « Ma collection » dit où (la
  * remarque du 6 octobre 2026).
  */
+/**
+ * Le thème qu'une adresse ouvre — `/boutique#theme-aurore`, le bandeau « À la
+ * une » de l'accueil — : le rayon s'ouvre sur sa rareté, sa fiche dépliée.
+ */
+function themeDeLAdresse(): Theme | undefined {
+  if (typeof window === 'undefined') return undefined
+  const m = /^#theme-([\w-]+)$/.exec(window.location.hash)
+  return m ? THEMES.find(t => t.key === m[1] && t.rarete !== 'offert') : undefined
+}
+
 export function RayonDesThemes({
   profil,
   busy,
@@ -194,7 +204,8 @@ export function RayonDesThemes({
   /** Achète — et porte, ou garde pour plus tard : rend le motif d'un refus, ou null. */
   acheter: (cle: string, porter: boolean) => Promise<string | null>
 }) {
-  const [ouvert, setOuvert] = useState<string | null>(null)
+  const [demande] = useState(themeDeLAdresse)
+  const [ouvert, setOuvert] = useState<string | null>(demande?.key ?? null)
   const [erreur, setErreur] = useState('')
   // Le dernier acheté : sa carte quitte le rayon, la boutique dit où il est passé.
   const [achete, setAchete] = useState<{ nom: string; porte: boolean } | null>(null)
@@ -207,7 +218,7 @@ export function RayonDesThemes({
   const possedes = new Set(boutique?.possedes ?? [])
   const aPrendre = boutique ? THEMES.filter(t => t.rarete !== 'offert' && !possedes.has(t.key) && enBoutique(t, boutique.jour)) : []
   const raretes = RARETES_DE_THEME.filter(r => aPrendre.some(t => t.rarete === r))
-  const [choisie, setChoisie] = useState<RareteDeTheme | null>(null)
+  const [choisie, setChoisie] = useState<RareteDeTheme | null>(demande?.rarete ?? null)
   if (!boutique) return null
   const rarete = rareteDuRayon(choisie, aPrendre, solde)
   const liste = aPrendre.filter(t => t.rarete === rarete)
