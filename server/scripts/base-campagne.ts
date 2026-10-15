@@ -342,8 +342,11 @@ function couvertureDuTheme(cle: string | undefined, fichiers: string[]) {
     const lu = lireQuestionDeLaBase(brut, { sansId: true })
     return 'question' in lu ? [lu.question] : []
   }))
-  const siennes = [...lireLaBase().questions, ...lots].filter(q => sujetsDe(q.meta).includes(theme.cle))
-  console.log(`${theme.nom} : ${siennes.length} questions${lots.length > 0 ? `, dont ${lots.length} des lots` : ''}.`)
+  const duTheme = (q: QuestionDeLaBase) => sujetsDe(q.meta).includes(theme.cle)
+  const siennes = [...lireLaBase().questions, ...lots].filter(duTheme)
+  // Les lots d'une génération mêlent souvent deux thèmes : on ne compte que les siennes.
+  const desLots = lots.filter(duTheme).length
+  console.log(`${theme.nom} : ${siennes.length} questions${desLots > 0 ? `, dont ${desLots} des lots` : ''}.`)
   for (const inventaire of inventairesDuTheme(theme)) {
     const deLui = siennes.filter(q => q.meta.categorie === inventaire.categorie && q.meta.sousTheme === inventaire.sousTheme).length
     console.log(`\n${inventaire.categorie} › ${inventaire.sousTheme} : ${deLui} questions`)
