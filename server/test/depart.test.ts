@@ -67,7 +67,8 @@ const de = (chemin: string) => donneesDeDepart(parseRoute(chemin))
 // ── 1. Ce que chaque page demande ─────────────────────────────────────────
 
 test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les adresses mêmes qu’elle demande', () => {
-  assert.deepEqual(de('/'), ['/api/auth/me', '/api/joueur/moi?accueil'])
+  // Ses missions avec l'accueil : demandées une fois l'accueil lu, leur ligne attendait vide un aller-retour (le 15 octobre 2026).
+  assert.deepEqual(de('/'), ['/api/auth/me', '/api/joueur/moi?accueil', '/api/joueur/missions'])
   for (const c of ['/profil', '/boutique']) assert.deepEqual(de(c), ['/api/auth/me', '/api/joueur/moi'], c)
   assert.deepEqual(de('/jour'), ['/api/jour', '/api/joueur/moi?leger'])
   assert.deepEqual(de('/campagne'), ['/api/campagne', '/api/joueur/moi?leger'])
@@ -85,9 +86,17 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
+  // L'accueil demande ses missions à son ouverture, quel que soit le visiteur
+  // — un invité reçoit un refus — : demandées après une connexion seulement,
+  // elles liraient le refus préchargé. Et pas une seconde fois, l'accueil lu.
+  assert.match(
+    source('views/ProfilApp.tsx'),
+    /if \(VUE === 'accueil'\) void relireLesMissions\(\)\.catch\(\(\) => \{\}\)\n\s*relire\(\{ missionsDemandees: VUE === 'accueil' \}\)/,
+  )
+  assert.match(source('views/ProfilApp.tsx'), /if \(!missionsDemandees\) void relireLesMissions\(\)\.catch\(\(\) => \{\}\)/)
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
   assert.match(source('routes.ts'), /return adresseDesDonnees\(slug, file, archiveId\)/)
   // L'entrée la demande à son ouverture, quel que soit le téléphone.

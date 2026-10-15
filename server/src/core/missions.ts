@@ -106,6 +106,13 @@ export function coffresEnAttente(joursAuxTrois: readonly string[], ouverts: Read
 export class Missions {
   /** Une lecture à la fois par profil : deux onglets qui tirent et retiennent ensemble ne se croisent pas. */
   private enCours = new Map<string, Promise<unknown>>()
+  /**
+   * Le jour où l'on sait ses missions tirées, par profil : jusque-là, son
+   * carnet — que seul le tirage lit — part avec ses journaux, au lieu de
+   * coûter son propre aller-retour derrière eux. Oublié au redémarrage : la
+   * première lecture d'après le lit pour rien, une fois.
+   */
+  private tireesLe = new Map<string, string>()
 
   constructor(private deps: DepsDesMissions) {}
 
@@ -126,6 +133,12 @@ export class Missions {
    * l'accueil, leur feuille et la fin de chaque partie la lisent. La semaine
    * passée se juge encore jusqu'à lundi : une mission faite à 23 h 50
    * dimanche, lue lundi, remplit son coffre.
+   *
+   * D'un aller-retour à la base, deux à la première lecture du jour — le
+   * tirage s'écrit — et ce qui vient d'être fait s'écrit derrière : la ligne
+   * de l'accueil attendait ses tampons et ses coffres derrière ses journaux,
+   * et le tirage son carnet, quatre allers-retours l'un après l'autre le
+   * matin (le 15 octobre 2026 : « c'est le texte qui s'affiche après »).
    */
   duJour(profileId: string): Promise<MissionsDuJour> {
     return this.unALaFois(profileId, async () => {
@@ -135,23 +148,29 @@ export class Missions {
       const lundi = lundiDe(aujourdhui)
       const depuis = jourAvant(lundi, 7)
       const debut = minuitDuJour(depuis)
-      const [lignes, duJour, deCampagne, soirees] = await Promise.all([
+      const carnet = this.tireesLe.get(profileId) === aujourdhui ? null : this.aRevoirDe(profileId)
+      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts] = await Promise.all([
         profiles.lignesDesMissions(profileId, depuis),
         jour.activiteDepuis(profileId, depuis),
         campagne.activiteDepuis(profileId, debut),
         profiles.soireesDepuis(profileId, debut),
+        profiles.joursAuxTrois(profileId, lundi),
+        profiles.semainesDesCoffres(profileId),
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       let siennes = lignes
       if (!lignes.some(l => l.jour === aujourdhui)) {
-        const contexte = await this.contexte(profileId, aujourdhui, lundi, activites, lignes, deCampagne.series)
+        const contexte = this.contexte(aujourdhui, lundi, activites, lignes, deCampagne.series, await (carnet ?? this.aRevoirDe(profileId)))
         const tirees = await profiles.tirerLesMissions(profileId, aujourdhui, tirerLesMissions(`${profileId}|${aujourdhui}`, contexte), maintenant)
         siennes = [...lignes, ...tirees]
       }
+      this.tireesLe.set(profileId, aujourdhui)
       const retenues = await profiles.accomplirDesMissions(profileId, faitesARetenir(siennes, activites, aujourdhui, maintenant))
       const faites = new Set([...siennes.filter(l => l.faiteLe !== null), ...retenues].map(l => `${l.jour}|${l.rang}`))
       const estFaite = (j: string, rang: number) => faites.has(`${j}|${rang}`)
-      const [joursAuxTrois, ouverts] = await Promise.all([profiles.joursAuxTrois(profileId, lundi), profiles.semainesDesCoffres(profileId)])
+      // Ses tampons d'avant cette semaine, lus avec ses journaux : un dimanche
+      // que cette lecture vient de retenir — joué à 23 h 50, lu lundi — compte déjà.
+      const joursAuxTrois = [...auxTrois, ...retenues.filter(r => r.rang === RANG_DES_TROIS && r.jour < lundi).map(r => r.jour)]
       const activite = activites.get(aujourdhui) ?? AUCUNE_ACTIVITE
       return {
         jour: aujourdhui,
@@ -167,15 +186,23 @@ export class Missions {
     })
   }
 
+  /** Les questions de son carnet à revoir aujourd'hui, pour le tirage : un carnet qui ne se lit pas ne propose pas de révision, le reste du tirage tient. */
+  private aRevoirDe(profileId: string): Promise<number> {
+    return this.deps.campagne.aRevoirDe(profileId).catch(e => {
+      console.error('[missions] carnet illisible :', e)
+      return 0
+    })
+  }
+
   /** Ce que le tirage du jour sait de lui : ses sept derniers jours, son défi, son carnet, ses missions d'hier. */
-  private async contexte(
-    profileId: string,
+  private contexte(
     aujourdhui: string,
     lundi: string,
     activites: ReadonlyMap<string, ActiviteDuJour>,
     lignes: readonly LigneDeMission[],
     series: readonly { mode: string; finieLe: number | null }[],
-  ): Promise<ContexteDuTirage> {
+    aRevoir: number,
+  ): ContexteDuTirage {
     const septJours = Array.from({ length: 7 }, (_, i) => activites.get(jourAvant(aujourdhui, i + 1)) ?? AUCUNE_ACTIVITE)
     const hier = jourAvant(aujourdhui, 1)
     return {
@@ -183,11 +210,7 @@ export class Missions {
       joursDuJour: septJours.filter(a => a.quizDuJour).length,
       decouvertesJouees: new Set(septJours.flatMap(decouvertesDe)),
       defiFini: series.some(s => s.mode === 'defi' && s.finieLe !== null && jourDe(s.finieLe) >= lundi),
-      // Un carnet qui ne se lit pas ne propose pas de révision : le reste du tirage tient.
-      aRevoir: await this.deps.campagne.aRevoirDe(profileId).catch(e => {
-        console.error('[missions] carnet illisible :', e)
-        return 0
-      }),
+      aRevoir,
       hier: lignes.filter(l => l.jour === hier && l.mission).map(l => l.mission!),
     }
   }

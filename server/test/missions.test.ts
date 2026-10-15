@@ -21,6 +21,7 @@ import {
   type Mission,
 } from '../../shared/missions'
 import { rangDuCoffre } from '../../shared/coffre'
+import { jourDe } from '../../shared/jour'
 import { tirerLeCoffre } from '../../shared/tresor'
 import { coffresEnAttente, faitesARetenir } from '../src/core/missions'
 import { ProfileStore } from '../src/auth/profiles'
@@ -286,6 +287,51 @@ test('trois missions faites en une série : chacune paie, les trois aussi, une s
     assert.ok(boutique.possedes.includes('cahier'))
     assert.equal(boutique.confettis.depenses, 0)
     assert.equal(base(banc, db => db.prepare("SELECT prix FROM profile_achats WHERE profile_id = ? AND theme = 'cahier'").get(profile.id) as { prix: number }).prix, 0)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('trois missions faites dimanche à 23 h 50, lues lundi : leur tampon, et le coffre qui attend, dans la même réponse', async () => {
+  // Ses tampons se lisent avec ses journaux, avant que la lecture ne retienne
+  // ce qui est fait (`duJour`) : un dimanche retenu lundi s'y ajoute — sans
+  // quoi son coffre n'attendrait qu'à la lecture suivante.
+  // Le dimanche 18 octobre 2026, à 23 h 50 à Paris (21 h 50 en temps universel, à l'heure d'été).
+  let maintenant = Date.UTC(2026, 9, 18, 21, 50)
+  const banc = await demarrer({ horlogeDuJour: () => maintenant, baseDeLaCampagne: BASE })
+  try {
+    const cookie = await inscrireProfil(banc.url, 'dimanche', 'Noé')
+    const { profile } = (await lire(banc, cookie, '/api/joueur/moi?leger')).corps
+    const missions: Mission[] = [
+      { sorte: 'serie', cible: 3 },
+      { sorte: 'justes', cible: 4 },
+      { sorte: 'categorie', cible: 2, categorie: 'Histoire' },
+    ]
+    base(banc, db => {
+      const inserer = db.prepare('INSERT INTO profile_missions (profile_id, jour, rang, mission, tiree_le) VALUES (?, ?, ?, ?, ?)')
+      missions.forEach((m, rang) => inserer.run(profile.id, '2026-10-18', rang, JSON.stringify(m), maintenant))
+      inserer.run(profile.id, '2026-10-18', 3, '{}', maintenant)
+    })
+    // Jouées dimanche soir, sans rouvrir l'accueil : rien n'est encore retenu.
+    await jouerSerie(banc, cookie, 5, ['Histoire'])
+
+    // Lundi 19, à 10 h : la première lecture tire ses missions du jour et retient celles de dimanche.
+    maintenant = Date.UTC(2026, 9, 19, 8)
+    const lundi = (await lire(banc, cookie, '/api/joueur/missions')).corps
+    assert.equal(lundi.jour, '2026-10-19')
+    assert.equal(lundi.missions.length, 3)
+    assert.deepEqual(lundi.nouvelles, [], 'celles de dimanche ne s’annoncent pas comme celles du jour')
+    assert.deepEqual(lundi.coffres, [{ semaine: '2026-10-12', tampons: 1, rang: 'bois' }], 'le coffre de la semaine passée attend déjà')
+    // Retenues au dernier instant de dimanche : leur tampon est de la semaine passée.
+    const faites = base(banc, db =>
+      db.prepare("SELECT rang, faite_le FROM profile_missions WHERE profile_id = ? AND jour = '2026-10-18' ORDER BY rang").all(profile.id),
+    ) as { rang: number; faite_le: number | null }[]
+    assert.deepEqual(
+      faites.map(f => [f.rang, f.faite_le === null ? null : jourDe(f.faite_le)]),
+      [0, 1, 2, 3].map(rang => [rang, '2026-10-18']),
+    )
+    // Relue, la base le dit d'elle-même.
+    assert.deepEqual((await lire(banc, cookie, '/api/joueur/missions')).corps.coffres, lundi.coffres)
   } finally {
     await banc.close()
   }

@@ -25,6 +25,12 @@ export const DEPART = {
   moi: '/api/joueur/moi',
   /** L'en-tête du profil, sa série, ses sentiers : l'accueil. */
   moiAccueil: '/api/joueur/moi?accueil',
+  /**
+   * Ses missions du jour, sous son identité : l'accueil. Demandées une fois
+   * l'accueil lu, elles arrivaient un aller-retour après lui, et leur ligne
+   * attendait vide sous les yeux (le 15 octobre 2026).
+   */
+  missions: '/api/joueur/missions',
   /** Prénom, niveau, thème : les pages de jeu. */
   moiLeger: '/api/joueur/moi?leger',
   /** Le thème seul, pour les pages qui ne lisent pas le profil (`confirmerTheme`). */
@@ -86,7 +92,7 @@ export function adresseDesDonnees(slug: string, fichier: FichierDeSoiree, archiv
  * dans sa console, et `npm run mesure -- --cascade` le montre.
  */
 export function donneesDeDepart(route: Route): string[] {
-  if (route.kind === 'landing') return [DEPART.console, DEPART.moiAccueil]
+  if (route.kind === 'landing') return [DEPART.console, DEPART.moiAccueil, DEPART.missions]
   if (route.kind === 'join') return [adresseDesDonnees(route.slug, 'entree.json')]
   if (route.kind === 'account') {
     switch (route.page) {

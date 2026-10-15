@@ -49,8 +49,9 @@ const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
 /**
  * Le haut de l'accueil d'un profil — « À la une », les missions du jour —, à
  * la demande : l'accueil anonyme, qui partage la page, n'en télécharge rien.
- * Il part avec ses missions dès que le profil est lu (`relire`) : sa place est
- * gardée en attendant, rien ne saute sous le doigt.
+ * Il part dès que le profil est lu (`relire`), ses missions avec la page
+ * (`DEPART.missions`) : sa place est gardée en attendant, rien ne saute sous
+ * le doigt.
  */
 const hautDeLAccueil = aLaDemande(() => import('../components/HautDeLAccueil'))
 
@@ -256,13 +257,13 @@ export function ProfilApp() {
   // L'accueil ne lit que son en-tête, sa série et son solde : le détail —
   // historique, hauts faits, titres des soirées — coûtait quatre ou cinq
   // allers-retours à la base, l'un après l'autre, pour une ligne.
-  const relire = () =>
+  const relire = ({ missionsDemandees = false } = {}) =>
     (VUE === 'accueil' ? api.joueur.moiAccueil() : api.joueur.moi()).then(r => {
       if (r.profile && VUE !== 'accueil') void panneaux.charger().catch(() => {})
       // Le haut de l'accueil et ses missions, ensemble : ni l'un n'attend l'autre, ni l'un et l'autre la page.
       if (r.profile && VUE === 'accueil') {
         void hautDeLAccueil.charger().catch(() => {})
-        void relireLesMissions().catch(() => {})
+        if (!missionsDemandees) void relireLesMissions().catch(() => {})
       }
       setProfil(r.profile)
       setEspace(r.espace)
@@ -274,7 +275,12 @@ export function ProfilApp() {
     // ce qu'on y regarde.
     document.title = VUE === 'accueil' ? 'FiestApp · le quiz de soirée' : VUE === 'boutique' ? 'La boutique · FiestApp' : 'Mon profil · FiestApp'
     currentMe().then(m => setConsole(m?.space ?? null))
-    relire()
+    // Ses missions sont parties avec la page (`donneesDeDepart`), comme son
+    // profil : demandées ici, par tout visiteur — un invité reçoit un refus —,
+    // jamais après une connexion, qui lirait le refus préchargé. Demandées une
+    // fois l'accueil lu, elles arrivaient un aller-retour après lui.
+    if (VUE === 'accueil') void relireLesMissions().catch(() => {})
+    relire({ missionsDemandees: VUE === 'accueil' })
       .catch(() => setProfil(null))
       .finally(() => setChargement(false))
   }, [])
