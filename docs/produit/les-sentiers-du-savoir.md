@@ -2,7 +2,7 @@
 
 > Le deuxième onglet de la campagne : douze sentiers, un par catégorie de questions, qu'on gravit palier par palier pour gagner les avatars du savoir — et, dans l'onglet « Apprendre », les parcours de thème, où l'on n'a rien à perdre. Comment on les joue, leurs règles chiffrées, puis comment c'est construit.
 
-**Dans cette page** : [La carte](#la-carte-des-sentiers) · [Une épreuve](#une-épreuve-question-par-question) · [Quitter une épreuve](#quitter-une-épreuve) · [Les vies](#les-vies) · [Les parcours de thème](#les-parcours-de-thème) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [La carte](#la-carte-des-sentiers) · [Ta chance](#ta-chance-sentier-par-sentier) · [Une épreuve](#une-épreuve-question-par-question) · [Quitter une épreuve](#quitter-une-épreuve) · [Les vies](#les-vies) · [Les parcours de thème](#les-parcours-de-thème) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 ## En bref
 
@@ -25,7 +25,18 @@ Les sentiers, comme toute la campagne, se jouent avec un profil : ce que tu y ga
 
 Le haut de la carte est un seul bloc, qui montre **un sentier** : celui dont tu as touché la tuile, sinon celui que tu avances — l'épreuve laissée en route d'abord, sinon ton sentier le plus haut qui n'est pas au sommet. Il dit ce qui t'attend (« Le loup t’attend ») et d'où viennent ses questions : la catégorie, le thème du chapitre, la difficulté en un mot. Puis le panorama de ses treize étapes, un portrait sur chaque palier pair (en silhouette tant qu'il n'est pas gagné), les règles en quatre lignes, repliées sous « Comment ça marche ? » une fois trois paliers validés en jouant, et tes vies en cœurs. Son bouton ouvre le sentier (« Continuer · palier 8 ») ou reprend l'épreuve laissée (« Reprendre l’épreuve ») ; une épreuve laissée sur un autre sentier s'y rappelle (« … : une seule à la fois. »).
 
-Dessous, une tuile par sentier : son dernier portrait gagné, son nom et **sa catégorie dessous** — le nom d'un sentier est une image : « Le tour du monde » pose de la culture générale —, son état (« À commencer », « Palier 4 », « Maître à tenter », « Maître »), ses étoiles et la difficulté du palier à jouer. Toucher une tuile fait monter son sentier dans le bloc ; la toucher encore y entre.
+Dessous, une tuile par sentier : son dernier portrait gagné, son nom et **sa catégorie dessous** — le nom d'un sentier est une image : « Le tour du monde » pose de la culture générale —, son état (« À commencer », « Palier 4 », « Maître à tenter », « Maître »), ses étoiles et la difficulté du palier à jouer. Dans son coin, **la couleur de piste** de ce palier pour toi (voir plus bas). Toucher une tuile fait monter son sentier dans le bloc ; la toucher encore y entre.
+
+## Ta chance, sentier par sentier
+
+La difficulté d'un palier dit ce qu'il pose (« moyen à difficile »), pas ce qu'il est pour toi : un cinéphile passe l'écran les doigts dans le nez et bute sur le stade. Une fois **vingt premières réponses** données en campagne, la page dit ta chance de valider du premier coup le palier qui t'attend, sentier par sentier, lue sur tes réponses — rien n'est adouci, les questions restent celles du palier :
+
+- **La couleur de piste**, comme au ski, dans le coin de chaque tuile : **verte** à 70 % de chances et plus, **bleue** à 45 %, **rouge** à 20 %, **noire** en deçà. Chacune a sa forme — rond, carré, triangle, losange — pour qui ne distingue pas les couleurs.
+- **Le bloc du haut** le dit en clair : « Pour toi : piste rouge, 33 % de chances du premier coup ». Pas sur une épreuve déjà entamée : elle a ses bonnes réponses.
+- **La fiche du palier** qui t'attend aussi, sous sa difficulté : « piste rouge : 33 % de chances de le valider du premier coup ».
+- **Ta progression** : quand tu as répondu dans la catégorie avant la semaine et depuis — dix premières réponses de chaque côté —, ce que ta chance valait il y a une semaine, aux mêmes questions : « (14 % il y a une semaine) ». À la baisse aussi : elle dit ce qui est.
+
+Ta chance se lit sur ta **première réponse** à chaque question, comme le modèle du savoir qui la calcule (voir [comment c'est construit](#comment-cest-construit)) : revoir une question corrigée ne dit plus ce que tu savais. Elle se dit à 1 % près, jamais 0 ni 100 : aucune épreuve n'est perdue ou gagnée d'avance.
 
 ## Un sentier
 
@@ -37,7 +48,7 @@ Les huit premiers paliers vont **par deux**, et chaque paire est un chapitre qui
 
 ### La fiche d'un palier
 
-Toucher un palier ouvre sa fiche (« Palier 3 sur 12 ») : son thème (« Mots et symboles · chapitre 2 sur 4 »), sa difficulté, ses questions (« 12 faciles et 4 moyennes »), son seuil, ce que paient ses étoiles (« ★★ à 13 : 10 confettis · ★★★ sans faute : 25 ») et le portrait qu'il ouvre. Puis le geste : « Jouer le palier 3 », « Rejouer · sans risquer de vie » pour un palier validé, « Reprendre le palier 3 » pour l'épreuve laissée sur ce palier (« rien n’est perdu, tu reprends où tu en étais »), « Plus de vies : racheter » sans vie. Si une épreuve en jeu t'attend ailleurs, ni « Jouer » ni « Rejouer » : « Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté. »
+Toucher un palier ouvre sa fiche (« Palier 3 sur 12 ») : son thème (« Mots et symboles · chapitre 2 sur 4 »), sa difficulté — et, pour celui qui t'attend, ta chance de le valider —, ses questions (« 12 faciles et 4 moyennes »), son seuil, ce que paient ses étoiles (« ★★ à 13 : 10 confettis · ★★★ sans faute : 25 ») et le portrait qu'il ouvre. Puis le geste : « Jouer le palier 3 », « Rejouer · sans risquer de vie » pour un palier validé, « Reprendre le palier 3 » pour l'épreuve laissée sur ce palier (« rien n’est perdu, tu reprends où tu en étais »), « Plus de vies : racheter » sans vie. Si une épreuve en jeu t'attend ailleurs, ni « Jouer » ni « Rejouer » : « Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté. »
 
 ## Une épreuve, question par question
 
@@ -183,6 +194,8 @@ Les seize sont ensuite mélangées, et les réponses de chacune (sauf « Vrai »
 **Rien ne se compte à côté.** Une épreuve est une série de la campagne d'un autre mode, dans la base permanente : ses réponses, son seuil, son issue. Paliers, étoiles et vies se relisent de ce journal à chaque lecture, avec les paliers repris des anciens portraits (`sentier_acquis`) et les vies achetées (`profile_vies`) : aucun compteur qu'un hoquet de la base pourrait fausser. Le détail : [les données](../architecture/donnees.md).
 
 **Le calibrage.** Mélanges et seuils ont été calculés avant d'être fixés (`server/scripts/calibrage-sentiers.ts`), une question étant trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche. À dix sur seize, un joueur moyen passe du premier coup le cinquième palier 79 fois sur cent, le huitième 23 ; un bon joueur, le douzième 46. À douze, le seuil d'avant, le joueur moyen ne passait plus le cinquième que 38 fois sur cent, le huitième 4 : les vraies épreuves butaient là. Le QG (`/admin#campagne`, « Les sentiers ») mesure chaque palier sur les épreuves de trois mois, et signale celui qui passe mieux que le précédent : son mélange est à revoir, et s'y règle (`sentier_melanges`).
+
+**Ta chance.** Le modèle du savoir (`server/src/core/modeleDuSavoir.ts`) ajuste ensemble une force par joueur et par catégorie et une difficulté par question, sur la première réponse de chacun ; il apprend aussi ce que vaut chaque difficulté estimée à l'écriture, en bloc (`ECART_DES_ESTIMATIONS`). La page des sentiers relit ta force de tes premières réponses, puis ta chance sur chaque marche du palier, et la loi de leur somme — ta forme du jour intégrée (`chanceDeLEpreuve`, `FORME_D_UNE_EPREUVE`). Mesurée avant d'être montrée, sur les épreuves de la production du 8 au 15 octobre 2026, le modèle ajusté avant le 8 : chaque tranche annoncée tient à quelques points près (16 % annoncés, 9 % validées ; 32 et 36 ; 56 et 51 ; 86 et 87). Le modèle d'avant annonçait 7 % à des épreuves qui se validaient une fois sur trois. Il se refait en fond, au plus toutes les demi-heures ; avant son premier ajustement, la page ne dit pas de chance.
 
 **Libérer une épreuve.** Depuis la fiche d'un joueur, au QG, l'administrateur peut libérer l'épreuve qui l'attend (« Libérer l’épreuve ») : elle se referme telle quelle, sans coûter de vie ni compter comme un échec (voir [administrer](../guides/administrer.md)).
 

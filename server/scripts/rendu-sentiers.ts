@@ -1,7 +1,8 @@
 // Les écrans des sentiers du savoir, photographiés au téléphone (360 × 640)
-// sur un serveur jetable : la carte des sentiers, un sentier, sa fiche,
-// l'épreuve, sa fin, la révélation d'un portrait, le rachat des vies. Le
-// client construit d'abord (`npm run build -w client`).
+// sur un serveur jetable : la carte des sentiers — sa chance sur chacun, en
+// couleur de piste —, un sentier, sa fiche, l'épreuve, sa fin, la révélation
+// d'un portrait, le rachat des vies. Le client construit d'abord
+// (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-sentiers.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
@@ -22,7 +23,8 @@ function chargerPlaywright(): any {
 }
 const { chromium } = chargerPlaywright()
 
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }) })
+const laBase = baseDEssai(960, { categories: [...CATEGORIES] })
+const banc = await demarrer({ baseDeLaCampagne: laBase })
 const navigateur = await chromium.launch({ headless: true })
 try {
   const cookie = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -32,7 +34,38 @@ try {
   for (const [branche, paliers] of [['foret', 7], ['stade', 12], ['mythes', 2], ['scene', 5], ['carnaval', 1]] as const) {
     db.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, 1)').run(id, branche, paliers)
   }
+  // Et son passé en campagne, de quoi dire sa chance sur chaque sentier : forte
+  // en sport, fâchée avec la musique, et la nature qui monte depuis une semaine.
+  // Des faciles et des expertes : les moyennes et les difficiles de la forêt
+  // restent neuves pour ses épreuves.
+  {
+    const JOUR = 86_400_000
+    const maintenant = Date.now()
+    const serie = db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 0, 0, 0, ?, ?, 'serie')`)
+    const reponse = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, 0, ?, ?)')
+    const passe: [string, number, number, number, number][] = [
+      // catégorie, il y a combien de jours, combien, dont justes, à partir de la combientième
+      ['Nature', 10, 24, 9, 0],
+      ['Nature', 2, 14, 12, 24],
+      ['Sport', 4, 30, 26, 0],
+      ['Musique', 3, 24, 6, 0],
+      ['Histoire', 3, 12, 8, 0],
+    ]
+    passe.forEach(([categorie, jours, combien, justes, depuis], k) => {
+      const quand = maintenant - jours * JOUR
+      serie.run(`passe-${k}`, id, quand, quand + 3_600_000)
+      const questions = laBase.questions.filter(q => q.meta.categorie === categorie && [1, 2, 5].includes(q.meta.difficulte)).slice(depuis, depuis + combien)
+      questions.forEach((q, i) => reponse.run(`passe-${k}`, i, q.id, i < justes ? 1 : 0, quand + i * 20_000))
+    })
+  }
   db.close()
+  // Le modèle du savoir : la page le lance en fond à sa première lecture, et ne dit sa chance qu'une fois ajusté.
+  await fetch(`${banc.url}/api/campagne/sentiers`, { headers: { Cookie: cookie } })
+  for (let essai = 0; essai < 200; essai++) {
+    const sante = (await (await fetch(`${banc.url}/healthz`)).json()) as { campagne?: { savoir?: { ajusteLe: number | null } } }
+    if (sante.campagne?.savoir?.ajusteLe) break
+    await new Promise(rendre => setTimeout(rendre, 50))
+  }
 
   const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
   const [nom, valeur] = cookie.split('=')
@@ -134,12 +167,16 @@ try {
   await photo('8-rate')
   await photo('8-rate-entier', true)
 
-  // L'accueil : le bouton de la campagne dit le sentier qu'on avance et ses vies.
+  // L'accueil : le bouton de la campagne. Elle a joué la campagne : son carnet,
+  // puis le défi de la semaine, passent devant le sentier qu'on avance tant
+  // qu'il reste à revoir ou à relever (`boutonDeLaCampagne`, depuis le
+  // 12 octobre 2026 — l'étape attendait le bouton des sentiers, et le rendu
+  // s'arrêtait là).
   await page.goto(`${banc.url}/`)
-  await page.waitForSelector('.gros-bouton[href="/campagne#sentiers"]')
+  await page.waitForSelector('.gros-bouton[href^="/campagne"]')
   await photo('8-accueil')
-  // Touché, il ouvre la campagne sur ses sentiers — ses onglets, le sentier en tête —, jamais un sentier seul.
-  await page.click('.gros-bouton[href="/campagne#sentiers"]')
+  // La campagne ouverte sur ses sentiers — ses onglets, le sentier en tête —, jamais un sentier seul.
+  await page.goto(`${banc.url}/campagne#sentiers`)
   await page.waitForSelector('.onglets-campagne')
   await page.waitForSelector('.sentiers-haut .pano')
   await photo('8-accueil-campagne')

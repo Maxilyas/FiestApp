@@ -25,6 +25,7 @@ import { aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTro
 import { etapesDeLaPiste } from '../../../shared/pistes'
 import {
   CONFETTIS_DES_ETOILES,
+  JOURS_DE_SA_PROGRESSION,
   PALIERS,
   PALIER_DU_MAITRE,
   PALIERS_DU_SENTIER,
@@ -32,13 +33,17 @@ import {
   SEUIL_DES_PALIERS,
   VIES_PAR_ACHAT_MAX,
   cleDeMaitre,
+  couleurDePiste,
   difficulteDuMelange,
   etoilesDe,
   etoilesDuSentier,
+  pourcentDeChance,
   regleDuPalier,
   sentierQuOnAvance,
   texteDuMelange,
   titreDeMaitre,
+  type ChanceDuSentier,
+  type CouleurDePiste,
   type EpreuveDeSentier,
   type EtatDesSentiers,
   type FinDEpreuve,
@@ -508,6 +513,47 @@ export function BarreDEpreuve({
   )
 }
 
+// ── Sa chance, en piste ─────────────────────────────────────────────────────
+
+/**
+ * La couleur d'un palier pour lui, comme une piste de ski (`couleurDePiste`) —
+ * et sa forme, pour qui ne distingue pas les couleurs : le rond vert, le
+ * carré bleu, le triangle rouge, le losange noir. Une convention, écrite en
+ * dur (`.balise-*`) : aucun thème ne repeint une piste noire.
+ */
+function Balise({ couleur }: { couleur: CouleurDePiste }) {
+  return (
+    <svg className={`balise balise-${couleur}`} viewBox="0 0 16 16" aria-hidden="true">
+      {couleur === 'verte' ? (
+        <circle cx="8" cy="8" r="6" />
+      ) : couleur === 'bleue' ? (
+        <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
+      ) : couleur === 'rouge' ? (
+        <path d="M8 2 14.5 13.5h-13Z" />
+      ) : (
+        <path d="M8 1.5 14.5 8 8 14.5 1.5 8Z" />
+      )}
+    </svg>
+  )
+}
+
+/** Sa chance sur le palier qui l'attend dans ce sentier, si le serveur l'a dite (`EtatDesSentiers.pourToi`). */
+const saChance = (etat: EtatDesSentiers, b: CleDeBranche, palier: number | null): ChanceDuSentier | undefined =>
+  palier === null ? undefined : etat.pourToi?.find(c => c.branche === b && c.palier === palier)
+
+/** « 35 % » : une chance telle que la page l'écrit, le signe collé par une espace fine insécable. */
+const pourcents = (chance: number) => `${pourcentDeChance(chance)}\u202f%`
+
+/**
+ * « 28 % il y a une semaine » : ce que sa chance valait, quand ses réponses
+ * depuis l'ont changée d'un point au moins — à la baisse aussi : elle dit ce
+ * qui est.
+ */
+function saChanceAvant(c: ChanceDuSentier): string | null {
+  if (c.avant === undefined || pourcentDeChance(c.avant) === pourcentDeChance(c.chance)) return null
+  return `${pourcents(c.avant)} il y a ${JOURS_DE_SA_PROGRESSION === 7 ? 'une semaine' : `${JOURS_DE_SA_PROGRESSION} jours`}`
+}
+
 // ── La carte des sentiers ───────────────────────────────────────────────────
 
 /** Ce qu'on voit d'une branche sur sa tuile : son dernier portrait gagné, sinon le premier, en silhouette. */
@@ -569,16 +615,23 @@ export function CarteDesSentiers({
           // La difficulté du palier à jouer, d'un mot — lue sur le mélange réglé au QG s'il en a un : on sait contre quoi on joue avant d'entrer.
           const difficulte = s.paliers >= PALIER_DU_MAITRE ? null : difficulteDuMelange(regleDuPalier(s.paliers + 1, etat.melanges)!.melange)
           const etoilesIci = etoilesDuSentier(s)
+          // Ce que le palier à jouer est pour lui, d'un coup d'œil : la tuile où il a ses chances.
+          const sienne = saChance(etat, b.key, s.paliers >= PALIER_DU_MAITRE ? null : s.paliers + 1)
           return (
             <button
               key={b.key}
               type="button"
               className={'sentiers-tuile' + (s.paliers >= PALIERS_DU_SENTIER ? ' sentiers-tuile-complete' : '')}
               style={lueur(LUEUR[b.key])}
-              aria-label={`${b.nom}, ${b.categorie} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}${difficulte ? `, ${difficulte}` : ''}${etoilesIci > 0 ? `, ${etoilesIci} étoile${etoilesIci > 1 ? 's' : ''}` : ''}`}
+              aria-label={`${b.nom}, ${b.categorie} : ${n} avatar${n > 1 ? 's' : ''} sur 6, ${etatDuSentier.toLowerCase()}${difficulte ? `, ${difficulte}` : ''}${sienne ? `, pour toi piste ${couleurDePiste(sienne.chance)}, ${pourcents(sienne.chance)} de chances` : ''}${etoilesIci > 0 ? `, ${etoilesIci} étoile${etoilesIci > 1 ? 's' : ''}` : ''}`}
               aria-pressed={montre?.branche === b.key}
               onClick={() => (montre?.branche === b.key ? onOuvrir(b.key) : onChoisir(b.key))}
             >
+              {sienne && (
+                <span className="sentiers-balise" aria-hidden="true">
+                  <Balise couleur={couleurDePiste(sienne.chance)} />
+                </span>
+              )}
               <Portrait cle={v.cle} verrouille={v.verrouille} taille={46} />
               <b>{b.nom}</b>
               {/* Le nom est une image : « Le tour du monde » pose de la culture
@@ -711,6 +764,7 @@ function HautDesSentiers({
   const b = brancheDe(cible.branche)!
   const s = etat.sentiers.find(x => x.branche === b.key)!
   const c = cible.palier
+  const sienne = saChance(etat, b.key, c)
   const prochain = c === null ? null : prochainDansLaBranche(b, { [b.key]: c - 1 })
   const ici = prochain?.portrait.palier === c ? prochain.portrait : null
   const reponses = laissee ? laissee.justes + laissee.fausses : 0
@@ -752,6 +806,13 @@ function HautDesSentiers({
           {c !== null && regleDuPalier(c) && ` · ${difficulteDuMelange(regleDuPalier(c, etat.melanges)!.melange)}`}
           {etoilesDuSentier(s) > 0 && ` · ★ ${etoilesDuSentier(s)} sur ${PALIERS.length * 3}`}
         </p>
+        {/* Sa chance d'y passer du premier coup — pas sur une épreuve déjà entamée, qui a ses bonnes réponses. */}
+        {sienne && !cible.laissee && (
+          <p className="pano-pour-toi small">
+            <Balise couleur={couleurDePiste(sienne.chance)} />
+            <span>{espacesFines(`Pour toi : piste ${couleurDePiste(sienne.chance)}, ${pourcents(sienne.chance)} de chances du premier coup${saChanceAvant(sienne) ? ` (${saChanceAvant(sienne)})` : ''}`)}</span>
+          </p>
+        )}
       </div>
       <PanoramaDuSentier branche={b} sentier={s} courant={c} />
       {regles}
@@ -1101,6 +1162,7 @@ export function SentierVu({
             regle={regle}
             branche={b}
             sentier={s}
+            chance={saChance(etat, b.key, regle.n)}
             maitres={etat.sentiers.filter(x => x.paliers >= PALIER_DU_MAITRE).length}
             epreuve={etat.epreuve}
             sansVie={sansVie}
@@ -1146,6 +1208,7 @@ export function FicheDuPalier({
   regle: r,
   branche: b,
   sentier: s,
+  chance,
   maitres,
   epreuve,
   sansVie,
@@ -1157,6 +1220,8 @@ export function FicheDuPalier({
   regle: RegleDuPalier
   branche: Branche
   sentier: SentierDuJoueur
+  /** Sa chance de le valider du premier coup, quand c'est le palier qui l'attend. */
+  chance?: ChanceDuSentier
   /** Les sentiers dont il est déjà maître. */
   maitres: number
   /** L'épreuve qu'il a laissée en cours, où qu'elle soit. */
@@ -1193,6 +1258,16 @@ export function FicheDuPalier({
         )}
         <dt>Difficulté</dt>
         <dd>{difficulteDuMelange(r.melange)}</dd>
+        {/* Ce que ce mélange est pour lui ; pas sur une épreuve déjà entamée, qui a ses bonnes réponses. */}
+        {chance && !laissee && (
+          <>
+            <dt>Pour toi</dt>
+            <dd className="sentier-pour-toi">
+              <Balise couleur={couleurDePiste(chance.chance)} />
+              {espacesFines(`piste ${couleurDePiste(chance.chance)} : ${pourcents(chance.chance)} de chances de le valider du premier coup${saChanceAvant(chance) ? `, ${saChanceAvant(chance)}` : ''}`)}
+            </dd>
+          </>
+        )}
         <dt>Questions</dt>
         <dd>{`${texteDuMelange(r.melange)}${r.touteLaCategorie && sousThemes > 0 ? ', de toute la catégorie' : ''}`}</dd>
         <dt>Pour valider</dt>

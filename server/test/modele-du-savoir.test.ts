@@ -57,14 +57,18 @@ interface QuestionSimulee {
   vraie: number
 }
 
-/** Une base : `n` questions par catégorie et par difficulté estimée, de vraies difficultés autour de l'estimation. */
-function baseSimulee(h: () => number, n = 8): QuestionSimulee[] {
+/**
+ * Une base : `n` questions par catégorie et par difficulté estimée, de vraies
+ * difficultés autour de l'estimation — décalées en bloc, difficulté par
+ * difficulté, de `decalees` (de la 1 à la 5).
+ */
+function baseSimulee(h: () => number, n = 8, decalees: readonly number[] = [0, 0, 0, 0, 0]): QuestionSimulee[] {
   return CATEGORIES.flatMap(categorie =>
     [1, 2, 3, 4, 5].flatMap(difficulte =>
       Array.from({ length: n }, (_, i) => ({
         id: `${indiceDeCategorie(categorie)}-${difficulte}-${i}`,
         meta: { categorie, difficulte },
-        vraie: difficulteAPriori(difficulte).moyenne + 0.6 * normale(h),
+        vraie: difficulteAPriori(difficulte).moyenne + decalees[difficulte - 1] + 0.6 * normale(h),
       })),
     ),
   )
@@ -183,6 +187,37 @@ test('les expertes, que seuls les forts atteignent : la part de ceux qui les tro
     correlation(vraies, jouees.map(q => modele.difficultes.get(q.id)!)) > correlation(vraies, jouees.map(q => difficulteAPriori(q.meta.difficulte).moyenne)) + 0.03,
     'mieux que l’estimation d’écriture',
   )
+})
+
+// Sur les premières réponses de la production du 8 au 15 octobre 2026, le
+// modèle gardait aux 5 leur a priori — un joueur sur dix — quand les habitués
+// en trouvaient quatre, et une 5 que personne n'avait jouée restait
+// introuvable. Il apprend ce que vaut chaque difficulté estimée, en bloc.
+test('chaque difficulté estimée, en bloc : le modèle apprend ce qu’elle vaut, et une question jamais jouée en profite', () => {
+  const h = hasardFixe(7)
+  // Des 2 plus dures qu'écrites, des 5 bien plus faciles.
+  const DECALEES = [0, 0.4, 0, 0, -1.2]
+  const base = baseSimulee(h, 8, DECALEES)
+  // Des questions écrites depuis, que personne n'a encore jouées.
+  const neuves = baseSimulee(h, 3, DECALEES).map(q => ({ ...q, id: `neuve-${q.id}` }))
+  const salle = joueursSimules(h, 60)
+  const premieres = new Map(salle.map(j => [j.id, jouerDesSeries(h, j, base, 20).premieres]))
+  const sansModele = serieDeReference(base, marcheDe, q => difficulteSansModele(q.meta.difficulte))
+  const modele = ajusterLeModele({ questions: new Map([...base, ...neuves].map(q => [q.id, q.meta])), joueurs: premieres, forceDeDepart: sansModele.forceDeDepart })
+  assert.equal(modele.decalages[2], 0, 'la 3 tient l’échelle')
+  assert.ok(modele.decalages[4] < -0.6, `les 5 : ${modele.decalages[4].toFixed(2)}`)
+  assert.ok(modele.decalages[1] > 0.15, `les 2 : ${modele.decalages[1].toFixed(2)}`)
+  assert.ok(modele.passes < 60, `il converge : ${modele.passes} passes`)
+  // Une 5 jamais jouée part de ce que ses semblables ont montré, plus de l'a priori seul.
+  const cinq = neuves.filter(q => q.meta.difficulte === 5)
+  const ecart = (d: (q: QuestionSimulee) => number) => moyenne(cinq.map(q => Math.abs(d(q) - q.vraie)))
+  const avecModele = ecart(q => modele.difficultes.get(q.id)!)
+  const aPriori = ecart(() => difficulteAPriori(5).moyenne)
+  assert.ok(avecModele < aPriori - 0.4, `jamais jouées : ${avecModele.toFixed(2)} du vrai, contre ${aPriori.toFixed(2)} à l’a priori`)
+  // Reparti de lui, l'ajustement suivant garde ce qu'il a appris.
+  const suivant = ajusterLeModele({ questions: new Map([...base, ...neuves].map(q => [q.id, q.meta])), joueurs: premieres, forceDeDepart: sansModele.forceDeDepart, depart: modele })
+  assert.ok(Math.abs(suivant.decalages[4] - modele.decalages[4]) < 0.01)
+  assert.ok(suivant.passes < modele.passes)
 })
 
 test('au dé, sa force relue de ses réponses est celle de l’ajustement — sa dernière série comprise', () => {

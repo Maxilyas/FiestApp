@@ -16,10 +16,12 @@ import { DejaPrises } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
+  chanceDeLEpreuve,
   chancesSurLaSerie,
   difficulteSansModele,
   forceDuJoueur,
   forcePourLeNiveau,
+  indiceDeCategorie,
   scoreAttendu,
   scoreDeReference,
   serieDeReference,
@@ -170,9 +172,12 @@ import {
   type SignalementDeCampagne,
 } from '../../../shared/campagne'
 import {
+  JOURS_DE_SA_PROGRESSION,
   PALIERS,
   PALIER_DU_MAITRE,
+  PREMIERES_REPONSES_POUR_SA_CHANCE,
   PRIX_D_UNE_VIE,
+  REPONSES_DE_SA_PROGRESSION,
   QUESTIONS_PAR_EPREUVE,
   VIES_PAR_JOUR,
   confettisDeLaNouvelleNote,
@@ -189,6 +194,7 @@ import {
   viesDe,
   xpDuPalier,
   type AdminDesSentiers,
+  type ChanceDuSentier,
   type Melange,
   type MelangesRegles,
   type DefiDAccueil,
@@ -4276,25 +4282,121 @@ export class CampagneStore {
   /**
    * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
    * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
-   * profil : deux allers-retours de front, l'accueil les attend.
+   * profil : deux allers-retours de front, l'accueil les attend. La page des
+   * sentiers y ajoute ses premières réponses (`avecSesPremieres`), dans le
+   * même lot : sa chance sur chaque sentier ne coûte pas un aller-retour.
    */
-  private async lireLesSentiers(profileId: string): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null }> {
-    const [[acquis, validees, echecs, ouverte], achetees] = await Promise.all([
-      this.client.batch([...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)], 'read'),
+  private async lireLesSentiers(
+    profileId: string,
+    avecSesPremieres = false,
+  ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
+    const [[acquis, validees, echecs, ouverte, premieres], achetees] = await Promise.all([
+      this.client.batch(
+        [
+          ...this.lecturesDesSentiers(profileId),
+          this.lectureDesEchecs(profileId),
+          this.lectureDeLEpreuveOuverte(profileId),
+          ...(avecSesPremieres ? [lectureDesPremieres(profileId)] : []),
+        ],
+        'read',
+      ),
       this.viesAchetees?.(profileId) ?? 0,
     ])
     return {
       sentiers: sentiersLus(acquis.rows, validees.rows),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
+      premieres: premieres ? lireLesPremieres(premieres.rows) : null,
     }
   }
 
-  /** La page des sentiers : ses vies, chaque sentier — ses paliers, ses étoiles —, et l'épreuve qu'il a laissée. */
+  /**
+   * La page des sentiers : ses vies, chaque sentier — ses paliers, ses
+   * étoiles —, l'épreuve qu'il a laissée, et sa chance sur chacun
+   * (`chancesPourLui`).
+   */
   async etatDesSentiers(profileId: string): Promise<EtatDesSentiers> {
-    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    // Le modèle du savoir tel qu'il est — refait en fond s'il a vieilli, jamais
+    // attendu : sans lui, la page ne dit pas de chance. Les questions et leur
+    // mesure, gardées en mémoire, partent de front avec la lecture.
+    const modele = this.modeleDuSavoir()
+    const tirage = modele ? Promise.all([this.base(), this.jouables(), this.mesures()]) : null
+    tirage?.catch(() => {})
+    const { sentiers, vies, ouverte, premieres } = await this.lireLesSentiers(profileId, modele !== null)
+    let pourToi: ChanceDuSentier[] | undefined
+    if (modele && tirage && premieres) {
+      try {
+        pourToi = this.chancesPourLui(profileId, sentiers, premieres, modele, ...(await tirage))
+      } catch (e) {
+        // Sa chance n'est qu'un renseignement : la page s'ouvre sans elle.
+        console.warn('[campagne] chance des sentiers non calculée :', e instanceof Error ? e.message : e)
+      }
+    }
     // Les mélanges réglés au QG : la page lit la difficulté d'un palier dessus, pas sur celui du code.
-    return { vies, sentiers, epreuve: ouverte ? vueDEpreuve(ouverte) : null, ...(this.melanges.size > 0 && { melanges: this.melangesRegles() }) }
+    return {
+      vies,
+      sentiers,
+      epreuve: ouverte ? vueDEpreuve(ouverte) : null,
+      ...(this.melanges.size > 0 && { melanges: this.melangesRegles() }),
+      ...(pourToi && { pourToi }),
+    }
+  }
+
+  /**
+   * Sa chance de valider le palier qui l'attend, sur chaque sentier
+   * (`chanceDeLEpreuve`) — et, s'il a assez répondu depuis dans la
+   * catégorie, ce qu'elle valait il y a une semaine, aux difficultés
+   * d'aujourd'hui : ce que ses réponses ont changé, rien d'autre. Sa force se
+   * relit de ses premières réponses à chaque fois, partie de celle du modèle,
+   * comme au dé : le modèle, refait en fond, n'a peut-être pas vu sa
+   * dernière épreuve. Rien sous `PREMIERES_REPONSES_POUR_SA_CHANCE`
+   * premières réponses : la page ne dirait que la chance d'un joueur moyen.
+   */
+  private chancesPourLui(
+    profileId: string,
+    sentiers: readonly SentierDuJoueur[],
+    premieres: ReadonlyMap<string, PremiereReponse>,
+    modele: ModeleDuSavoir,
+    base: BaseDeLaCampagne,
+    jouables: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  ): ChanceDuSentier[] | undefined {
+    const reference = this.referencePour(jouables, mesure, modele)
+    const question = (id: string) => {
+      const q = base.parId.get(id)
+      return q && { categorie: q.meta.categorie, difficulte: modele.difficultes.get(id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(id)) }
+    }
+    const depuis = this.maintenant() - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
+    const toutes = new Map<string, boolean>()
+    const avant = new Map<string, boolean>()
+    // Ses premières réponses par catégorie, d'avant la semaine et de la
+    // semaine : sa chance d'avant ne se dit que là où il avait déjà répondu,
+    // et où il a répondu depuis. Sans les premières, elle ne disait que son
+    // niveau d'ailleurs — « 27 % il y a une semaine » sur un sport qu'il
+    // n'avait jamais joué ; sans les secondes, rien de ce qu'il a fait.
+    const anciennes = new Array<number>(CATEGORIES.length).fill(0)
+    const recentes = new Array<number>(CATEGORIES.length).fill(0)
+    for (const [id, p] of premieres) {
+      toutes.set(id, p.juste)
+      const c = indiceDeCategorie(base.parId.get(id)?.meta.categorie ?? '')
+      if (p.le < depuis) {
+        avant.set(id, p.juste)
+        if (c >= 0) anciennes[c]++
+      } else if (c >= 0) recentes[c]++
+    }
+    const lui = forceDuJoueur(toutes, question, reference.forceDeDepart, modele.forces.get(profileId))
+    if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
+    const luiAvant = forceDuJoueur(avant, question, reference.forceDeDepart, lui)
+    const avantSeLit = luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
+    const melanges = this.melangesRegles()
+    return sentiers.flatMap((s): ChanceDuSentier[] => {
+      const regle = regleDuPalier(s.paliers + 1, melanges)
+      const c = indiceDeCategorie(brancheParCle(s.branche)?.categorie ?? '')
+      if (!regle || c < 0) return []
+      const sa = (f: { force: number; ecarts: readonly number[] }) => arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
+      const progresse = avantSeLit && anciennes[c] >= REPONSES_DE_SA_PROGRESSION && recentes[c] >= REPONSES_DE_SA_PROGRESSION
+      return [{ branche: s.branche, palier: regle.n, chance: sa(lui), ...(progresse && { avant: sa(luiAvant) }) }]
+    })
   }
 
   /** Les mélanges réglés depuis le QG, palier par palier ; vide : ceux du code. */
@@ -5945,6 +6047,46 @@ function lectureDesVues(profileId: string): InStatement {
     args: [profileId],
   }
 }
+
+/** Sa première réponse à une question : quand, et si elle était juste. */
+interface PremiereReponse {
+  le: number
+  juste: boolean
+}
+
+/**
+ * Ses premières réponses, chacune avec son instant : la page des sentiers y
+ * relit sa force d'aujourd'hui et celle d'il y a une semaine
+ * (`chancesPourLui`). `MIN(repondue_le * 2 + juste)` dit les deux d'un
+ * nombre — l'instant de la première, et sa parité si elle était juste —,
+ * comme `PREMIERE_REPONSE` ; et en un seul texte, comme ce qu'il a vu
+ * (`lectureDesVues`).
+ */
+function lectureDesPremieres(profileId: string): InStatement {
+  return {
+    sql: `SELECT json_group_object(reserve_id, k) AS premieres FROM (
+            SELECT r.reserve_id, MIN(r.repondue_le * 2 + r.juste) AS k
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.profile_id = ? GROUP BY r.reserve_id
+          )`,
+    args: [profileId],
+  }
+}
+
+/** Le texte de `lectureDesPremieres`, question par question. */
+function lireLesPremieres(lignes: readonly Record<string, unknown>[]): Map<string, PremiereReponse> {
+  const texte = lignes[0]?.premieres
+  const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
+  const premieres = new Map<string, PremiereReponse>()
+  for (const [id, k] of Object.entries(lu)) {
+    const n = Number(k)
+    if (Number.isFinite(n)) premieres.set(id, { le: Math.floor(n / 2), juste: n % 2 === 1 })
+  }
+  return premieres
+}
+
+/** Une chance au millième : ce que la page en écrit, sans faire voyager seize décimales. */
+const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
 
 /** Le texte de `lectureDesVues` : ce qu'il a vu, question par question (`parFraicheur`), et sa première réponse à chacune. */
 function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<string, number>; premieres: Map<string, boolean> } {

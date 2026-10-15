@@ -339,9 +339,10 @@ change les deux. → [Les questions](../produit/les-questions.md),
 
 **Rien ne tourne la nuit** : l'hébergeur gratuit dort. La journée d'hier du
 quiz du jour se clôt à la première demande d'aujourd'hui (`clorePasses`), les
-semaines passées du défi à la première demande qui suit, et le modèle
-qu'Automate lit pour les duels se réajuste quand il a vieilli
-(`MODELE_GARDE_MS`). Un service externe garde la production éveillée en
+semaines passées du défi à la première demande qui suit, et le modèle du
+savoir — qu'Automate lit pour les duels, et la page des sentiers pour dire
+à chacun sa chance — se réajuste quand il a vieilli, à la demande de l'un ou
+de l'autre (`MODELE_GARDE_MS`). Un service externe garde la production éveillée en
 journée en appelant `/healthz`, qui répond toujours 200 : un échec ferait
 redémarrer l'instance, disque et file du miroir perdus
 ([Exploiter](../exploitation/exploiter.md)).

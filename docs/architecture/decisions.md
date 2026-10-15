@@ -1182,14 +1182,23 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `server/src/core/campagne.ts`, `shared/duels.ts`*
 
-### Le modèle du savoir, pour Automate seulement
+### Le modèle du savoir, pas pour les marches
 **Contexte** : la part de ceux qui trouvent une question ne dit pas qui l'a jouée : seuls les forts atteignent les expertes, qui passaient pour faciles, et Automate ne savait pas où un joueur est faible.
 
-**Décision** : un modèle de Rasch avec un écart par catégorie et par joueur, ajusté sur la première réponse de chacun à chaque question, refait en fond au plus toutes les trente minutes et jamais sur le chemin du dé, rendant la main par tranches (`CHANCES_PAR_TRANCHE`) ; seul Automate le lit — les marches des séries, des sentiers et du quiz tout prêt gardent `tauxLisse`, sur lequel leurs mélanges ont été calibrés.
+**Décision** : un modèle de Rasch avec un écart par catégorie et par joueur, ajusté sur la première réponse de chacun à chaque question, refait en fond au plus toutes les trente minutes et jamais sur le chemin du dé, rendant la main par tranches (`CHANCES_PAR_TRANCHE`) ; Automate le lit, puis la page des sentiers pour dire à chacun sa chance (décision suivante) — les marches des séries, des sentiers et du quiz tout prêt gardent `tauxLisse`, sur lequel leurs mélanges ont été calibrés.
 
 **Conséquence** : mesuré avec `server/scripts/calibrage-automate.ts`, les issues bougent à peine (44/13/43 % puis 45/13/42 %), mais ses chances collent à celles du joueur et le niveau de placement tombe deux fois plus près du vrai ; `/healthz` dit son état, sans un nom.
 
 *Fichiers : `server/src/core/modeleDuSavoir.ts`, `server/src/core/campagne.ts`, `server/scripts/calibrage-automate.ts`*
+
+### Dire à chacun sa chance, plutôt qu'adoucir les paliers
+**Contexte** : les sentiers semblaient trop durs pour un avatar, et le mur se trouvait au septième palier — seize moyennes, dont un tiers des joueurs ne passaient pas. Le propriétaire a refusé, le 15 octobre 2026, d'adoucir les paliers ou de baisser la ligne d'or à mesure des vies perdues : « on donne en quelque sorte la victoire ». Les questions difficiles restent ; certains domaines sont plus durs que d'autres pour chacun.
+
+**Décision** : la page des sentiers dit à chacun sa chance de valider du premier coup le palier qui l'attend, sentier par sentier — en couleur de piste sur chaque tuile, en clair dans le bloc du haut et dans la fiche du palier —, et ce qu'elle valait il y a une semaine, lue par le modèle du savoir sur ses premières réponses (`chanceDeLEpreuve`). Mesurée d'abord sur les vraies épreuves, hors échantillon : le modèle ajusté avant le 8 octobre, jugé sur les 215 épreuves du 8 au 15, annonçait 7 % à des épreuves qui se validaient une fois sur trois, et 0 % au maître, validé un essai sur trois. Deux corrections : le modèle apprend ce que vaut chaque difficulté estimée, en bloc (`ECART_DES_ESTIMATIONS` — les 5 se trouvaient à 42 %, pas à 10 %), la 3 tenant l'échelle ; et la chance d'une épreuve intègre la forme du jour (`FORME_D_UNE_EPREUVE`, 0,7 logit), qui fait varier un même joueur d'une épreuve à l'autre.
+
+**Conséquence** : sur les mêmes épreuves, la perte (log) passe de 0,71 à 0,56, et chaque tranche tient : annoncées 16, 32, 56 et 86 %, elles se validaient à 9, 36, 51 et 87 %. Rien ne change aux paliers ni aux marches ; Automate lit le même modèle, mieux ajusté. Sous vingt premières réponses, ou avant le premier ajustement, la page ne dit rien.
+
+*Fichiers : `server/src/core/modeleDuSavoir.ts`, `server/src/core/campagne.ts`, `shared/sentiers.ts`, `client/src/views/Sentiers.tsx`, `server/test/sentiers-pour-toi.test.ts`*
 
 ### Des amis sans demande, un seul blocage, un « en ligne » réciproque
 **Contexte** : le propriétaire voulait « une liste d'amis avec leur classement et leur ligue, et pouvoir ajouter des amis » ; un « en ligne » montré à tous dirait à un inconnu quand on se connecte.

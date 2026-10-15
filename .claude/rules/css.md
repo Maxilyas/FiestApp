@@ -23,7 +23,11 @@ paths:
   `.bilan-you` (0,68 rem) y échappent encore.
 - **Une convention s'écrit en dur**, et aucun thème ne la repeint : le
   compteur des gros boutons, blanc sur rouge (`.gros-compteur`,
-  `design.test.ts`) — `--alert` vire au jaune sous Braises.
+  `design.test.ts`) — `--alert` vire au jaune sous Braises ; les couleurs
+  de piste des sentiers, comme au ski (`.balise-verte`, `-bleue`, `-rouge`,
+  `-noire`, un liseré blanc pour la noire des thèmes sombres, et une forme
+  chacune pour qui ne distingue pas les couleurs). `.piste` est pris : la
+  piste d'un trophée, dans l'album.
 
 ## Le texte
 
