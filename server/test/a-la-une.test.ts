@@ -156,5 +156,19 @@ test('un geste de côté change d’objet ; trop court, ou plus vertical qu’ho
   assert.match(regle, /touch-action: pan-y/)
   assert.match(regle, /translate: var\(--glisse, 0\) 0/)
   // Les points prennent la teinte de l'objet, posée sur le cadre qu'ils partagent avec lui.
-  assert.match(css, /\.une-cadre \{ --une-teinte: #d9b56a; position: relative; \}/)
+  assert.match(css, /\.une-cadre \{ --une-teinte: #d9b56a; position: relative;/)
+})
+
+test('il ne déborde jamais de côté : la page ne s’élargit plus, la barre du menu ne saute plus', () => {
+  // L'affiche entrait de 28 pixels à droite : la page passait à 368 pixels sur 360, et la
+  // barre du menu, fixe, grandissait et sautait de 15 pixels à chaque objet — sous la
+  // feuille des missions aussi (le propriétaire, le 15 octobre 2026).
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  assert.match(css, /\.une-cadre \{[^}]*overflow-x: clip;/, 'le cadre la retient de côté, glissée au doigt comprise')
+  for (const sens of ['droite', 'gauche']) {
+    const entree = new RegExp(`@keyframes une-de-${sens} \\{ from \\{ opacity: 0; transform: translateX\\((-?\\d+)px\\); \\} \\}`).exec(css)
+    assert.ok(entree, sens)
+    // Là où `clip` n'est pas lu, l'entrée tient encore dans les 20 pixels du bord de la page.
+    assert.ok(Math.abs(Number(entree[1])) <= 20, `une-de-${sens} : ${entree[1]} px`)
+  }
 })
