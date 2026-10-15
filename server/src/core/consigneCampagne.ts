@@ -186,7 +186,8 @@ function inventaireDeLaPart(categorie: Categorie, quotas: readonly QuotaDEcritur
       [
         `${cle} (${nom}) — ${inventaire.perimetre}`,
         ...(inventaire.prudence ? [`Prudence : ${inventaire.prudence}`] : []),
-        ...familles.map(f => `- ${f.nom} : ${f.sujets.map(s => lireLeSujet(s).nom).join(', ')}`),
+        // Le point médian sépare les sujets : un sujet a ses virgules (« guaguancó, yambú, columbia »).
+        ...familles.map(f => `- ${f.nom} : ${f.sujets.map(s => lireLeSujet(s).nom).join(' · ')}`),
       ].join('\n'),
     )
   }
