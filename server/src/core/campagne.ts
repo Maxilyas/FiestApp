@@ -16,10 +16,12 @@ import { DejaPrises } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
+  chanceDeLEpreuve,
   chancesSurLaSerie,
   difficulteSansModele,
   forceDuJoueur,
   forcePourLeNiveau,
+  indiceDeCategorie,
   scoreAttendu,
   scoreDeReference,
   serieDeReference,
@@ -128,8 +130,13 @@ import {
   RECORD_DU_TOUR_DU_MONDE,
   SIGNALEMENT_MAX,
   VIES,
+  CONTREDITES_MONTREES,
   bonneReponseChange,
+  familleDeQuestion,
+  formeDeReponse,
   issueDeRencontre,
+  marcheContredite,
+  mesuresEnFamille,
   minutesAvantLundi,
   niveauDeQuestion,
   semaineAvant,
@@ -155,6 +162,7 @@ import {
   type EtatDeCampagne,
   type FinDeSerie,
   type LigneDuDefi,
+  type MesureDUneQuestion,
   type Niveau,
   type QuestionCorrigee,
   type QuestionDeCampagne,
@@ -164,9 +172,12 @@ import {
   type SignalementDeCampagne,
 } from '../../../shared/campagne'
 import {
+  JOURS_DE_SA_PROGRESSION,
   PALIERS,
   PALIER_DU_MAITRE,
+  PREMIERES_REPONSES_POUR_SA_CHANCE,
   PRIX_D_UNE_VIE,
+  REPONSES_DE_SA_PROGRESSION,
   QUESTIONS_PAR_EPREUVE,
   VIES_PAR_JOUR,
   confettisDeLaNouvelleNote,
@@ -183,6 +194,7 @@ import {
   viesDe,
   xpDuPalier,
   type AdminDesSentiers,
+  type ChanceDuSentier,
   type Melange,
   type MelangesRegles,
   type DefiDAccueil,
@@ -580,7 +592,21 @@ export class CampagneStore {
     Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonPorte' | 'faireGrandir'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
-  private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
+  /**
+   * La mesure des difficultés : les comptes du journal, relus au plus toutes
+   * les dix minutes (`brutes`, et `premieres` pour les familles), et ce que
+   * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
+   * refait quand la base change).
+   */
+  private mesuresGardees: {
+    a: number
+    brutes: Map<string, { justes: number; total: number }>
+    premieres: Map<string, { justes: number; total: number }>
+    base: BaseDeLaCampagne | null
+    parQuestion: ReadonlyMap<string, MesureDUneQuestion>
+  } | null = null
+  /** La famille de chaque question, par base (`famillesDe`). */
+  private famillesGardees = new WeakMap<BaseDeLaCampagne, readonly { id: string; difficulte: number; famille: string | null }[]>()
   /**
    * Le modèle du savoir (`core/modeleDuSavoir.ts`) : les difficultés de la
    * base et la force de chacun, ajustées ensemble sur les premières réponses
@@ -595,7 +621,7 @@ export class CampagneStore {
   /** La série de référence du dé, refaite quand les jouables, leur mesure ou le modèle changent : onze mille questions à ranger. */
   private referenceGardee: {
     jouables: readonly QuestionDeLaBase[]
-    mesure: ReadonlyMap<string, { justes: number; total: number }>
+    mesure: ReadonlyMap<string, MesureDUneQuestion>
     modele: ModeleDuSavoir | null
     reference: SerieDeReference
   } | null = null
@@ -967,29 +993,78 @@ export class CampagneStore {
 
   /**
    * La part de joueurs qui ont trouvé chaque question de la base, en
-   * campagne : ce qui corrige sa difficulté estimée (`niveauDeQuestion`).
-   * Relue au plus toutes les dix minutes.
+   * campagne, et celle de sa famille (`mesuresEnFamille`) : ce qui corrige sa
+   * difficulté estimée (`niveauDeQuestion`). Les réponses se relisent au plus
+   * toutes les dix minutes ; les familles, aussi quand la base change — un
+   * reclassement du QG vaut dès le tirage suivant.
    */
-  async mesures(): Promise<Map<string, { justes: number; total: number }>> {
-    const garde = this.mesuresGardees
-    if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.parQuestion
+  async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
+    const perimee = !this.mesuresGardees || this.maintenant() - this.mesuresGardees.a >= MESURES_GARDEES_MS
+    const [base, lues] = await Promise.all([this.base(), perimee ? this.mesuresBrutes() : null])
+    if (lues) this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
+    const garde = this.mesuresGardees!
+    if (garde.base !== base) {
+      garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
+      garde.base = base
+    }
+    return garde.parQuestion
+  }
+
+  /**
+   * Les bonnes réponses et les réponses de chaque question, telles que le
+   * journal les dit (`brutes`) ; et les mêmes sur la seule première réponse
+   * de chacun (`premieres`), dont se comptent les familles. D'un aller-retour.
+   */
+  private async mesuresBrutes(): Promise<{ brutes: Map<string, { justes: number; total: number }>; premieres: Map<string, { justes: number; total: number }> }> {
     // Sans les révisions du carnet : elles ne reposent que ce qu'on a raté,
     // dont on a lu la bonne réponse la veille — comptées, elles feraient
     // passer pour faciles les questions que tout le monde rate une fois. En
     // un seul texte, comme ce qu'il a vu (`lectureDesVues`) : une ligne par
     // question jouée — onze mille — se décodait sur le chemin de la requête
-    // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes.
-    const res = await this.client.execute(
-      `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
-         SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
-         WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
-       )`,
+    // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes. Une
+    // réponse sans série — un test qui l'écrit à la main — compte pour un
+    // joueur à elle seule.
+    const [brutes, premieres] = await this.client.batch(
+      [
+        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+           SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
+           WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
+         )`,
+        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+           SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM (
+             SELECT r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
+             FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
+             WHERE COALESCE(s.mode, 'serie') <> 'revision'
+             GROUP BY COALESCE(s.profile_id, r.serie_id), r.reserve_id
+           ) GROUP BY reserve_id
+         )`,
+      ],
+      'read',
     )
-    const texte = res.rows[0]?.mesures
-    const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, [unknown, unknown]>) : {}
-    const parQuestion = new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
-    this.mesuresGardees = { a: this.maintenant(), parQuestion }
-    return parQuestion
+    const lire = (texte: unknown) => {
+      const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, [unknown, unknown]>) : {}
+      return new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
+    }
+    return { brutes: lire(brutes.rows[0]?.mesures), premieres: lire(premieres.rows[0]?.mesures) }
+  }
+
+  /**
+   * La famille de chaque question de la base (`familleDeQuestion`), lue une
+   * fois par base : vingt-quatre mille formes de réponse à reconnaître toutes
+   * les dix minutes, sur le chemin de la requête qui trouve la mesure
+   * périmée, c'était du temps pris à tout le serveur pour rien.
+   */
+  private famillesDe(base: BaseDeLaCampagne): readonly { id: string; difficulte: number; famille: string | null }[] {
+    let familles = this.famillesGardees.get(base)
+    if (!familles) {
+      familles = base.questions.map(q => ({
+        id: q.id,
+        difficulte: q.meta.difficulte,
+        famille: familleDeQuestion({ categorie: q.meta.categorie, difficulte: q.meta.difficulte, forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur }) }),
+      }))
+      this.famillesGardees.set(base, familles)
+    }
+    return familles
   }
 
   /**
@@ -1063,7 +1138,7 @@ export class CampagneStore {
    */
   private referencePour(
     jouables: readonly QuestionDeLaBase[],
-    mesure: ReadonlyMap<string, { justes: number; total: number }>,
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
     modele: ModeleDuSavoir | null,
   ): SerieDeReference {
     const g = this.referenceGardee
@@ -1114,7 +1189,7 @@ export class CampagneStore {
    * du jour —, et la part de joueurs qui ont trouvé chacune, qui corrige sa
    * difficulté estimée.
    */
-  async pourLesSoirees(): Promise<{ questions: readonly QuestionDeLaBase[]; mesures: ReadonlyMap<string, { justes: number; total: number }> }> {
+  async pourLesSoirees(): Promise<{ questions: readonly QuestionDeLaBase[]; mesures: ReadonlyMap<string, MesureDUneQuestion> }> {
     const [questions, mesures] = await Promise.all([this.jouables(), this.mesures()])
     return { questions, mesures }
   }
@@ -3424,7 +3499,7 @@ export class CampagneStore {
     questions: readonly QuestionDeLaBase[],
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
-    mesure: ReadonlyMap<string, { justes: number; total: number }>,
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
   ): AutomateDuDe {
     const modele = this.savoir?.modele ?? null
     const difficulteDe = (q: QuestionDeLaBase) => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id))
@@ -4207,25 +4282,121 @@ export class CampagneStore {
   /**
    * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
    * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
-   * profil : deux allers-retours de front, l'accueil les attend.
+   * profil : deux allers-retours de front, l'accueil les attend. La page des
+   * sentiers y ajoute ses premières réponses (`avecSesPremieres`), dans le
+   * même lot : sa chance sur chaque sentier ne coûte pas un aller-retour.
    */
-  private async lireLesSentiers(profileId: string): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null }> {
-    const [[acquis, validees, echecs, ouverte], achetees] = await Promise.all([
-      this.client.batch([...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)], 'read'),
+  private async lireLesSentiers(
+    profileId: string,
+    avecSesPremieres = false,
+  ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
+    const [[acquis, validees, echecs, ouverte, premieres], achetees] = await Promise.all([
+      this.client.batch(
+        [
+          ...this.lecturesDesSentiers(profileId),
+          this.lectureDesEchecs(profileId),
+          this.lectureDeLEpreuveOuverte(profileId),
+          ...(avecSesPremieres ? [lectureDesPremieres(profileId)] : []),
+        ],
+        'read',
+      ),
       this.viesAchetees?.(profileId) ?? 0,
     ])
     return {
       sentiers: sentiersLus(acquis.rows, validees.rows),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
+      premieres: premieres ? lireLesPremieres(premieres.rows) : null,
     }
   }
 
-  /** La page des sentiers : ses vies, chaque sentier — ses paliers, ses étoiles —, et l'épreuve qu'il a laissée. */
+  /**
+   * La page des sentiers : ses vies, chaque sentier — ses paliers, ses
+   * étoiles —, l'épreuve qu'il a laissée, et sa chance sur chacun
+   * (`chancesPourLui`).
+   */
   async etatDesSentiers(profileId: string): Promise<EtatDesSentiers> {
-    const { sentiers, vies, ouverte } = await this.lireLesSentiers(profileId)
+    // Le modèle du savoir tel qu'il est — refait en fond s'il a vieilli, jamais
+    // attendu : sans lui, la page ne dit pas de chance. Les questions et leur
+    // mesure, gardées en mémoire, partent de front avec la lecture.
+    const modele = this.modeleDuSavoir()
+    const tirage = modele ? Promise.all([this.base(), this.jouables(), this.mesures()]) : null
+    tirage?.catch(() => {})
+    const { sentiers, vies, ouverte, premieres } = await this.lireLesSentiers(profileId, modele !== null)
+    let pourToi: ChanceDuSentier[] | undefined
+    if (modele && tirage && premieres) {
+      try {
+        pourToi = this.chancesPourLui(profileId, sentiers, premieres, modele, ...(await tirage))
+      } catch (e) {
+        // Sa chance n'est qu'un renseignement : la page s'ouvre sans elle.
+        console.warn('[campagne] chance des sentiers non calculée :', e instanceof Error ? e.message : e)
+      }
+    }
     // Les mélanges réglés au QG : la page lit la difficulté d'un palier dessus, pas sur celui du code.
-    return { vies, sentiers, epreuve: ouverte ? vueDEpreuve(ouverte) : null, ...(this.melanges.size > 0 && { melanges: this.melangesRegles() }) }
+    return {
+      vies,
+      sentiers,
+      epreuve: ouverte ? vueDEpreuve(ouverte) : null,
+      ...(this.melanges.size > 0 && { melanges: this.melangesRegles() }),
+      ...(pourToi && { pourToi }),
+    }
+  }
+
+  /**
+   * Sa chance de valider le palier qui l'attend, sur chaque sentier
+   * (`chanceDeLEpreuve`) — et, s'il a assez répondu depuis dans la
+   * catégorie, ce qu'elle valait il y a une semaine, aux difficultés
+   * d'aujourd'hui : ce que ses réponses ont changé, rien d'autre. Sa force se
+   * relit de ses premières réponses à chaque fois, partie de celle du modèle,
+   * comme au dé : le modèle, refait en fond, n'a peut-être pas vu sa
+   * dernière épreuve. Rien sous `PREMIERES_REPONSES_POUR_SA_CHANCE`
+   * premières réponses : la page ne dirait que la chance d'un joueur moyen.
+   */
+  private chancesPourLui(
+    profileId: string,
+    sentiers: readonly SentierDuJoueur[],
+    premieres: ReadonlyMap<string, PremiereReponse>,
+    modele: ModeleDuSavoir,
+    base: BaseDeLaCampagne,
+    jouables: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  ): ChanceDuSentier[] | undefined {
+    const reference = this.referencePour(jouables, mesure, modele)
+    const question = (id: string) => {
+      const q = base.parId.get(id)
+      return q && { categorie: q.meta.categorie, difficulte: modele.difficultes.get(id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(id)) }
+    }
+    const depuis = this.maintenant() - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
+    const toutes = new Map<string, boolean>()
+    const avant = new Map<string, boolean>()
+    // Ses premières réponses par catégorie, d'avant la semaine et de la
+    // semaine : sa chance d'avant ne se dit que là où il avait déjà répondu,
+    // et où il a répondu depuis. Sans les premières, elle ne disait que son
+    // niveau d'ailleurs — « 27 % il y a une semaine » sur un sport qu'il
+    // n'avait jamais joué ; sans les secondes, rien de ce qu'il a fait.
+    const anciennes = new Array<number>(CATEGORIES.length).fill(0)
+    const recentes = new Array<number>(CATEGORIES.length).fill(0)
+    for (const [id, p] of premieres) {
+      toutes.set(id, p.juste)
+      const c = indiceDeCategorie(base.parId.get(id)?.meta.categorie ?? '')
+      if (p.le < depuis) {
+        avant.set(id, p.juste)
+        if (c >= 0) anciennes[c]++
+      } else if (c >= 0) recentes[c]++
+    }
+    const lui = forceDuJoueur(toutes, question, reference.forceDeDepart, modele.forces.get(profileId))
+    if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
+    const luiAvant = forceDuJoueur(avant, question, reference.forceDeDepart, lui)
+    const avantSeLit = luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
+    const melanges = this.melangesRegles()
+    return sentiers.flatMap((s): ChanceDuSentier[] => {
+      const regle = regleDuPalier(s.paliers + 1, melanges)
+      const c = indiceDeCategorie(brancheParCle(s.branche)?.categorie ?? '')
+      if (!regle || c < 0) return []
+      const sa = (f: { force: number; ecarts: readonly number[] }) => arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
+      const progresse = avantSeLit && anciennes[c] >= REPONSES_DE_SA_PROGRESSION && recentes[c] >= REPONSES_DE_SA_PROGRESSION
+      return [{ branche: s.branche, palier: regle.n, chance: sa(lui), ...(progresse && { avant: sa(luiAvant) }) }]
+    })
   }
 
   /** Les mélanges réglés depuis le QG, palier par palier ; vide : ceux du code. */
@@ -5531,7 +5702,8 @@ export class CampagneStore {
         sousTheme: q.meta.sousTheme,
         difficulte: q.meta.difficulte,
         niveau: niveauDeQuestion(q.meta.difficulte, mesure.get(q.id)),
-        mesure: mesure.get(q.id) ?? { justes: 0, total: 0 },
+        // Ses réponses à elle : la part de sa famille ne se lit qu'au tirage.
+        mesure: { justes: mesure.get(q.id)?.justes ?? 0, total: mesure.get(q.id)?.total ?? 0 },
         origine: remplacantes.has(q.id) ? 'correction' : fichiers.parId.has(q.id) ? 'depot' : 'routine',
         corrigeeLe: surPlace?.question.id === q.id ? surPlace.corrigeeLe : (remplacantes.get(q.id) ?? null),
         ...(this.retirees.has(q.id) && { retiree: true as const }),
@@ -5757,8 +5929,29 @@ export class CampagneStore {
 
   /** L'écran de l'administrateur : la base, ce qu'on en joue, et les signalements à relire. */
   async administration(): Promise<AdminDeLaCampagne> {
-    const [jouables, signalements, base] = await Promise.all([this.jouables(), this.signalements(), this.base()])
+    const [jouables, signalements, base, mesure] = await Promise.all([this.jouables(), this.signalements(), this.base(), this.mesures()])
+    // Ce que les réponses contredisent, les plus nettes d'abord : ce que les familles n'ont pas reclassé d'elles-mêmes.
+    const contredites = jouables
+      .flatMap(q => {
+        const c = marcheContredite(q.meta.difficulte, mesure.get(q.id))
+        return c ? [{ q, c, m: mesure.get(q.id)! }] : []
+      })
+      .sort((a, b) => b.c.force - a.c.force)
     return {
+      contredites: contredites.slice(0, CONTREDITES_MONTREES).map(({ q, c, m }) => ({
+        questionId: q.id,
+        texte: q.texte,
+        reponses: q.reponses,
+        bonne: q.bonne,
+        categorie: q.meta.categorie,
+        sousTheme: q.meta.sousTheme,
+        difficulte: q.meta.difficulte,
+        niveau: c.niveau,
+        niveauMesure: c.niveauMesure,
+        mesure: { justes: m.justes, total: m.total },
+        difficulteProposee: c.difficulteProposee,
+      })),
+      contreditesEnTout: contredites.length,
       questions: base.questions.length,
       jouables: jouables.length,
       retirees: this.retirees.size,
@@ -5854,6 +6047,46 @@ function lectureDesVues(profileId: string): InStatement {
     args: [profileId],
   }
 }
+
+/** Sa première réponse à une question : quand, et si elle était juste. */
+interface PremiereReponse {
+  le: number
+  juste: boolean
+}
+
+/**
+ * Ses premières réponses, chacune avec son instant : la page des sentiers y
+ * relit sa force d'aujourd'hui et celle d'il y a une semaine
+ * (`chancesPourLui`). `MIN(repondue_le * 2 + juste)` dit les deux d'un
+ * nombre — l'instant de la première, et sa parité si elle était juste —,
+ * comme `PREMIERE_REPONSE` ; et en un seul texte, comme ce qu'il a vu
+ * (`lectureDesVues`).
+ */
+function lectureDesPremieres(profileId: string): InStatement {
+  return {
+    sql: `SELECT json_group_object(reserve_id, k) AS premieres FROM (
+            SELECT r.reserve_id, MIN(r.repondue_le * 2 + r.juste) AS k
+            FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+            WHERE s.profile_id = ? GROUP BY r.reserve_id
+          )`,
+    args: [profileId],
+  }
+}
+
+/** Le texte de `lectureDesPremieres`, question par question. */
+function lireLesPremieres(lignes: readonly Record<string, unknown>[]): Map<string, PremiereReponse> {
+  const texte = lignes[0]?.premieres
+  const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
+  const premieres = new Map<string, PremiereReponse>()
+  for (const [id, k] of Object.entries(lu)) {
+    const n = Number(k)
+    if (Number.isFinite(n)) premieres.set(id, { le: Math.floor(n / 2), juste: n % 2 === 1 })
+  }
+  return premieres
+}
+
+/** Une chance au millième : ce que la page en écrit, sans faire voyager seize décimales. */
+const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
 
 /** Le texte de `lectureDesVues` : ce qu'il a vu, question par question (`parFraicheur`), et sa première réponse à chacune. */
 function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<string, number>; premieres: Map<string, boolean> } {
@@ -6941,7 +7174,7 @@ export function aTourDeRole<T extends { id: string; meta: { categorie: string; s
  */
 export function tirerUneSerie(
   jouables: readonly QuestionDeLaBase[],
-  mesure: ReadonlyMap<string, { justes: number; total: number }>,
+  mesure: ReadonlyMap<string, MesureDUneQuestion>,
   vues: ReadonlyMap<string, number> = new Map(),
   maintenant = 0,
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
@@ -6989,7 +7222,7 @@ export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
   regle: RegleDuPalier,
   vues: ReadonlyMap<string, number>,
-  mesure: ReadonlyMap<string, { justes: number; total: number }>,
+  mesure: ReadonlyMap<string, MesureDUneQuestion>,
   maintenant: number,
   /** Les sous-thèmes du chapitre de ce palier (`chapitreDuPalier`) ; vide : aucun chapitre. */
   chapitre: readonly string[] = [],

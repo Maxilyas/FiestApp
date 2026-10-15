@@ -62,6 +62,8 @@ La feuille ne propose un sujet que s'il a au moins dix questions jouables. Une s
 
 **Les marches.** Une question est facile si au moins 70 % des joueurs la trouvent, moyenne à partir de 40 %, difficile à partir de 20 %, et experte en dessous. Avant toute réponse, la difficulté estimée à l'écriture, de 1 à 5, fixe une part de réussite attendue : 90, 80, 55, 30 ou 10 % (`TAUX_A_PRIORI`). Cette estimation pèse autant que vingt réponses (`REPONSES_FICTIVES`), et les vraies réponses de campagne la remplacent peu à peu. Les révisions ne comptent pas dans cette mesure.
 
+**Les familles.** De la difficulté 1 à la 3 (`DIFFICULTES_EN_FAMILLE`), ces vingt réponses fictives ne partent pas de l'estimation seule, mais de la part mesurée sur la famille de la question : les questions de sa catégorie et de sa difficulté, ou, quand sa réponse est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté, toutes catégories ensemble. Une question n'a que quelques réponses, sa famille des centaines : une question jamais jouée dont la famille est ratée part déjà difficile. Ses propres réponses ne comptent pas pour sa famille, et aucune question n'y pèse plus de vingt réponses, pour qu'une question piège n'emporte pas les autres. Mesuré le 15 octobre 2026, avant les familles : une 3 qui se répond par une année se trouvait à 33 %, une 2 du sport à 66 %, une 2 des sciences à 82 % ; et sur 5 801 questions jouées, aucune moyenne n'était jamais devenue difficile. Les 4 et les 5 gardent leur estimation : seuls les joueurs les plus forts les atteignent, et leur part mesurée dirait qui les a jouées plus que ce qu'elles valent.
+
 **Le tirage.** Chaque marche te pose d'abord ce que tu n'as jamais vu, puis ce que tu as vu il y a le plus longtemps. Une question vue ces dernières vingt-quatre heures ne revient qu'en dernier recours (`VUE_RECENTE_MS`). À fraîcheur égale, les catégories et les sous-thèmes passent à tour de rôle. Le tirage évite aussi deux questions **jumelles**, c'est-à-dire de même forme d'intitulé ou avec deux réponses en commun (`server/src/core/jumelles.ts`).
 
 ## Ce que la campagne rapporte
@@ -195,7 +197,7 @@ Le détail est dans [la base de données](../reference/base-de-donnees.md).
 | Ce qui se recalcule | À partir de quoi | Quand |
 |---|---|---|
 | Le carnet | Les réponses de campagne | À chaque lecture : une règle changée vaut aussitôt pour tout le passé |
-| La marche d'une question | Les réponses, révisions exclues | Toutes les dix minutes au plus |
+| La marche d'une question | Ses réponses et celles de sa famille, révisions exclues | Toutes les dix minutes au plus, et dès que la base change |
 | Les confettis de campagne | Les bonnes réponses, les étoiles des sentiers, les ligues des duels | À chaque lecture du solde |
 | L'expérience de campagne | Les bonnes réponses jour par jour, les paliers de sentier | Réécrite en entier (ligne `#campagne`) à chaque bonne réponse |
 | Les hauts faits et les étapes des pistes | Les parties finies | À chaque fin de partie, puis au démarrage, une fois par version (`VERSION_DES_SERIES`) |

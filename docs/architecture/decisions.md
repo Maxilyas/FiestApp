@@ -1048,6 +1048,15 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `server/scripts/generer-campagne.ts`, `server/scripts/faits-wikidata.ts`, `.claude/agents/redacteur-campagne.md`, `.claude/agents/relecteur-campagne.md`*
 
+### Une question part de sa famille, pas de son estimation seule
+**Contexte** : une question partait de vingt réponses fictives à la part que son estimation d'écriture promettait, et la production n'avait jamais montré une même question à plus de sept joueurs. Le 15 octobre 2026, sur 5 801 questions jouées, 39 avaient changé de marche et aucune moyenne n'était devenue difficile ; pourtant, les 3 qui se répondent par une année ne se trouvaient qu'à 33 %, et une 2 du sport à 66 %.
+
+**Décision** : de la difficulté 1 à la 3, ces vingt réponses fictives partent de la part mesurée sur la famille de la question — sa catégorie et sa difficulté, ou, pour une année, un autre nombre, un vrai ou faux, sa forme toutes catégories ensemble. La famille se compte sur la première réponse de chacun, sans les réponses de la question elle-même, et sans qu'une question y pèse plus de vingt réponses. La mesure les porte, jouées ou non : les tirages n'en savent rien. Les 4 et les 5 gardent leur estimation, parce que seuls les forts les atteignent.
+
+**Conséquence** : une question jamais jouée profite de ce que sa famille a appris, et les dates passent difficiles d'elles-mêmes — une 3 qui se répond par une année part à 36 %, Lincoln devient difficile. Calculé ce jour-là sur la production avec ce code, 1 668 questions changeaient de marche (7 % de la base) : 1 458 faciles devenaient moyennes, surtout des 2 du sport, de la musique, des arts, de la géographie et de l'histoire ; 169 moyennes devenaient difficiles, surtout des dates ; 41 moyennes devenaient faciles. Les mélanges des sentiers, calibrés sur des moyennes trouvées à 55 %, redeviennent vrais d'une catégorie à l'autre. Le calcul prend quelques millisecondes toutes les dix minutes, et la famille de chaque question se lit une fois par base.
+
+*Fichiers : `shared/campagne.ts`, `server/src/core/campagne.ts`, `server/test/campagne-familles.test.ts`*
+
 ## Les sentiers du savoir
 
 Le détail : [les sentiers du savoir](../produit/les-sentiers-du-savoir.md).
@@ -1173,14 +1182,23 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `server/src/core/campagne.ts`, `shared/duels.ts`*
 
-### Le modèle du savoir, pour Automate seulement
+### Le modèle du savoir, pas pour les marches
 **Contexte** : la part de ceux qui trouvent une question ne dit pas qui l'a jouée : seuls les forts atteignent les expertes, qui passaient pour faciles, et Automate ne savait pas où un joueur est faible.
 
-**Décision** : un modèle de Rasch avec un écart par catégorie et par joueur, ajusté sur la première réponse de chacun à chaque question, refait en fond au plus toutes les trente minutes et jamais sur le chemin du dé, rendant la main par tranches (`CHANCES_PAR_TRANCHE`) ; seul Automate le lit — les marches des séries, des sentiers et du quiz tout prêt gardent `tauxLisse`, sur lequel leurs mélanges ont été calibrés.
+**Décision** : un modèle de Rasch avec un écart par catégorie et par joueur, ajusté sur la première réponse de chacun à chaque question, refait en fond au plus toutes les trente minutes et jamais sur le chemin du dé, rendant la main par tranches (`CHANCES_PAR_TRANCHE`) ; Automate le lit, puis la page des sentiers pour dire à chacun sa chance (décision suivante) — les marches des séries, des sentiers et du quiz tout prêt gardent `tauxLisse`, sur lequel leurs mélanges ont été calibrés.
 
 **Conséquence** : mesuré avec `server/scripts/calibrage-automate.ts`, les issues bougent à peine (44/13/43 % puis 45/13/42 %), mais ses chances collent à celles du joueur et le niveau de placement tombe deux fois plus près du vrai ; `/healthz` dit son état, sans un nom.
 
 *Fichiers : `server/src/core/modeleDuSavoir.ts`, `server/src/core/campagne.ts`, `server/scripts/calibrage-automate.ts`*
+
+### Dire à chacun sa chance, plutôt qu'adoucir les paliers
+**Contexte** : les sentiers semblaient trop durs pour un avatar, et le mur se trouvait au septième palier — seize moyennes, dont un tiers des joueurs ne passaient pas. Le propriétaire a refusé, le 15 octobre 2026, d'adoucir les paliers ou de baisser la ligne d'or à mesure des vies perdues : « on donne en quelque sorte la victoire ». Les questions difficiles restent ; certains domaines sont plus durs que d'autres pour chacun.
+
+**Décision** : la page des sentiers dit à chacun sa chance de valider du premier coup le palier qui l'attend, sentier par sentier — en couleur de piste sur chaque tuile, en clair dans le bloc du haut et dans la fiche du palier —, et ce qu'elle valait il y a une semaine, lue par le modèle du savoir sur ses premières réponses (`chanceDeLEpreuve`). Mesurée d'abord sur les vraies épreuves, hors échantillon : le modèle ajusté avant le 8 octobre, jugé sur les 215 épreuves du 8 au 15, annonçait 7 % à des épreuves qui se validaient une fois sur trois, et 0 % au maître, validé un essai sur trois. Deux corrections : le modèle apprend ce que vaut chaque difficulté estimée, en bloc (`ECART_DES_ESTIMATIONS` — les 5 se trouvaient à 42 %, pas à 10 %), la 3 tenant l'échelle ; et la chance d'une épreuve intègre la forme du jour (`FORME_D_UNE_EPREUVE`, 0,7 logit), qui fait varier un même joueur d'une épreuve à l'autre.
+
+**Conséquence** : sur les mêmes épreuves, la perte (log) passe de 0,71 à 0,56, et chaque tranche tient : annoncées 16, 32, 56 et 86 %, elles se validaient à 9, 36, 51 et 87 %. Rien ne change aux paliers ni aux marches ; Automate lit le même modèle, mieux ajusté. Sous vingt premières réponses, ou avant le premier ajustement, la page ne dit rien.
+
+*Fichiers : `server/src/core/modeleDuSavoir.ts`, `server/src/core/campagne.ts`, `shared/sentiers.ts`, `client/src/views/Sentiers.tsx`, `server/test/sentiers-pour-toi.test.ts`*
 
 ### Des amis sans demande, un seul blocage, un « en ligne » réciproque
 **Contexte** : le propriétaire voulait « une liste d'amis avec leur classement et leur ligue, et pouvoir ajouter des amis » ; un « en ligne » montré à tous dirait à un inconnu quand on se connecte.

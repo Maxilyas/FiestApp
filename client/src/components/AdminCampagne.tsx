@@ -3,7 +3,7 @@ import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { AujourdhuiDeLaCampagne, CeQuOnJoue, DefiDeLaSemaineAuQg, ParcoursDeThemeAuQg, ViesDesSentiersAuQg } from './QgCampagne'
-import { VersLesSignalements } from './QgSignalements'
+import { ReclasserLaQuestion, VersLesSignalements } from './QgSignalements'
 import { espacesFines, quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
@@ -159,6 +159,8 @@ function BaseDeLaCampagne({ etat, occupe, faire, versLesSignalements }: { etat: 
         </details>
       </section>
 
+      <QuestionsContredites etat={etat} occupe={occupe} faire={faire} />
+
       <section className="admin-groupe" aria-labelledby="campagne-routine-titre">
         <h2 className="compte-groupe" id="campagne-routine-titre">
           La routine du matin
@@ -177,6 +179,76 @@ type Faire = (appel: () => Promise<unknown>, merci: string) => Promise<void>
 
 /** Une question au singulier, comme les marches des sentiers : « une question moyenne ». */
 const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+
+/**
+ * Les questions que leurs réponses contredisent (le choix du 15 octobre
+ * 2026 : « les moyennes que personne ne trouve ») : jouées cinq fois au
+ * moins, leur part de bonnes réponses dit une autre marche que la leur. Les
+ * familles en reclassent la plupart d'elles-mêmes — une date ratée part déjà
+ * difficile — : restent celles qui font exception à leurs voisines, les plus
+ * nettes d'abord. « Reclasser » propose la difficulté que disent ses réponses.
+ */
+function QuestionsContredites({ etat, occupe, faire }: { etat: AdminDeLaCampagne; occupe: boolean; faire: Faire }) {
+  const [ouverte, setOuverte] = useState<string | null>(null)
+  const { contredites, contreditesEnTout } = etat
+  return (
+    <section className="admin-groupe" aria-labelledby="campagne-contredites-titre">
+      <h2 className="compte-groupe" id="campagne-contredites-titre">
+        Ce que les réponses contredisent
+      </h2>
+      <p className="muted small">
+        {espacesFines(
+          'Les questions jouées cinq fois au moins dont la part de bonnes réponses dit une autre marche que la leur, les plus nettes d’abord. Leur famille — les questions de leur catégorie et de leur difficulté, ou les dates entre elles — corrige déjà ce qui leur ressemble : celles-ci font exception.',
+        )}
+      </p>
+      {contredites.length === 0 ? (
+        <p className="muted small">Aucune pour l’instant : les réponses des joueurs s’accordent avec les marches.</p>
+      ) : (
+        <>
+          <ul className="campagne-contredites">
+            {contredites.map(q => (
+              <li key={q.questionId}>
+                <p>
+                  <b>« {q.texte} »</b>{' '}
+                  <span className="muted">
+                    · {q.categorie} › {nomDuSousTheme(q.categorie, q.sousTheme)} · difficulté {q.difficulte}
+                  </span>
+                </p>
+                <p className="small">
+                  {espacesFines(
+                    // Une espace fine insécable avant « % » : au téléphone, « (100 » finissait une ligne et « %) » ouvrait la suivante.
+                    `${q.reponses[q.bonne]} · trouvée ${q.mesure.justes} fois sur ${q.mesure.total} (${Math.round((100 * q.mesure.justes) / q.mesure.total)}\u202f%) : tirée ${QUESTION_DE_NIVEAU[q.niveau]}, ses réponses la disent ${QUESTION_DE_NIVEAU[q.niveauMesure]}.`,
+                  )}
+                </p>
+                {ouverte === q.questionId ? (
+                  <ReclasserLaQuestion
+                    avant={{ categorie: q.categorie, sousTheme: q.sousTheme, difficulte: q.difficulte }}
+                    avecMeta
+                    occupe={occupe}
+                    difficulteAvant={`Estimée ${q.difficulte} à l’écriture, en pointillé ; ses réponses proposent ${q.difficulteProposee}.`}
+                    difficulteProposee={q.difficulteProposee}
+                    note="Elle change de marche dès le prochain tirage, et sa famille avec elle. Les réponses déjà données gardent la leur : les écussons de chacun ne bougent pas."
+                    onEnregistrer={classement => void faire(() => api.admin.reclasserDansLaCampagne(q.questionId, classement), 'Reclassée')}
+                    onAnnuler={() => setOuverte(null)}
+                  />
+                ) : (
+                  <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => setOuverte(q.questionId)}>
+                    Reclasser
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {contreditesEnTout > contredites.length && (
+            <p className="muted small">
+              {espacesFines(`Et ${formatNumber(contreditesEnTout - contredites.length)} autre${contreditesEnTout - contredites.length > 1 ? 's' : ''}, moins nettes : elles paraîtront ici une fois celles-ci relues.`)}
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
 
 /**
  * Ce que la routine du matin a déposé dans la base (`/api/campagne/base`) :

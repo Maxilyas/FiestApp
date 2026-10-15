@@ -89,17 +89,199 @@ export const REPONSES_FICTIVES = 20
  * vraies réponses mêlées à des réponses fictives tirées de son a priori,
  * qui s'effacent à mesure que les vraies arrivent. Sans elle, une question
  * jamais jouée passait pour moyenne, et une série où presque rien n'était
- * mesuré ne montait pas (l'état des lieux du 3 octobre 2026).
+ * mesuré ne montait pas (l'état des lieux du 3 octobre 2026). Les réponses
+ * fictives partent du taux de sa famille quand elle en a un (`depart`,
+ * `mesuresEnFamille`), de son estimation d'écriture sinon.
  */
-export function tauxLisse(difficulte: number, justes = 0, total = 0): number {
-  const a = TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]
+export function tauxLisse(difficulte: number, justes = 0, total = 0, depart?: number): number {
+  const a = depart ?? TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]
   return (justes + REPONSES_FICTIVES * a) / (total + REPONSES_FICTIVES)
 }
 
-/** Le niveau d'une question de la base : son a priori, corrigé par les réponses de campagne. */
-export function niveauDeQuestion(difficulte: number, mesure?: { justes: number; total: number }): Niveau {
-  return niveauDuTaux(tauxLisse(difficulte, mesure?.justes, mesure?.total))
+/**
+ * Ce que la campagne sait d'une question : ses bonnes réponses et ses
+ * réponses — révisions exclues —, et la part d'où partent ses réponses
+ * fictives, celle de sa famille (`mesuresEnFamille`). Sans `depart`, son
+ * estimation d'écriture (`TAUX_A_PRIORI`).
+ */
+export interface MesureDUneQuestion {
+  justes: number
+  total: number
+  depart?: number
 }
+
+/** Le niveau d'une question de la base : son a priori, corrigé par les réponses de campagne. */
+export function niveauDeQuestion(difficulte: number, mesure?: MesureDUneQuestion): Niveau {
+  return niveauDuTaux(tauxLisse(difficulte, mesure?.justes, mesure?.total, mesure?.depart))
+}
+
+// ── Les familles ────────────────────────────────────────────────────────────
+//
+// Une question ne se mesurait que par ses propres réponses : vingt réponses
+// fictives de son estimation contre au plus sept vrais joueurs, en
+// production, le 15 octobre 2026 — l'estimation gagnait toujours. Sur 5 801
+// questions jouées, 39 avaient changé de marche, et aucune moyenne n'était
+// devenue difficile : les quatorze que moins de 30 % des joueurs trouvaient
+// restaient moyennes, Lincoln compris (0 sur 5). Une famille — les questions
+// d'une même catégorie et d'une même difficulté estimée, les années, les
+// nombres et les vrai ou faux mis à part — en a des centaines : sa part se
+// mesure, et chaque question en part au lieu de partir de l'estimation seule.
+// Mesuré ce jour-là : une 3 qui se répond par une année se trouve à 33 %,
+// une 2 du sport à 66 %, une 2 des sciences à 82 %.
+
+/**
+ * Les difficultés estimées qui partent de leur famille. Au-delà, seuls les
+ * plus forts atteignent ces questions, au bout d'une série ou en haut des
+ * sentiers : leur part mesurée dirait qui les a jouées plus que ce qu'elles
+ * valent — 41 % pour les 4, 33 % une fois corrigée de qui avait répondu (le
+ * modèle du savoir, le 15 octobre 2026). Elles gardent leur estimation.
+ */
+export const DIFFICULTES_EN_FAMILLE: readonly number[] = [1, 2, 3]
+
+/**
+ * La forme de la bonne réponse : ce qui, à difficulté égale, la rend plus
+ * dure. Une année ne se devine pas — quatre dates voisines, et rien pour
+ * écarter les leurres —, un autre nombre non plus, et un vrai ou faux se joue
+ * à pile ou face. Mesuré sur les 3 le 15 octobre 2026 : 33 % pour une année,
+ * 51 % pour un nombre, 56 % pour des mots.
+ */
+export type FormeDeReponse = 'annee' | 'nombre' | 'vrai-faux' | 'mots'
+
+/** Une année, de 1000 à 2099 : au-delà, ou avec une unité (« 1920 pixels »), c'est un nombre. */
+const ANNEE = /^(1\d{3}|20\d{2})$/
+
+export function formeDeReponse(q: { reponses: readonly string[]; bonne: number; valeur?: { unite: string } | null }): FormeDeReponse {
+  if (q.reponses.length === 2) return 'vrai-faux'
+  const bonne = (q.reponses[q.bonne] ?? '').trim()
+  if (ANNEE.test(bonne) && !q.valeur?.unite) return 'annee'
+  return q.valeur || /\d/.test(bonne) ? 'nombre' : 'mots'
+}
+
+/**
+ * La famille d'une question : sa catégorie et sa difficulté estimée, ou, pour
+ * une année, un nombre ou un vrai ou faux, sa forme et sa difficulté, toutes
+ * catégories ensemble — chaque catégorie n'en a que quelques dizaines. Null
+ * hors de `DIFFICULTES_EN_FAMILLE`.
+ */
+export function familleDeQuestion(q: { categorie: string; difficulte: number; forme: FormeDeReponse }): string | null {
+  if (!DIFFICULTES_EN_FAMILLE.includes(q.difficulte)) return null
+  return `${q.forme === 'mots' ? q.categorie : '*'}|${q.forme}|${q.difficulte}`
+}
+
+/**
+ * Les mesures de la base, chaque question d'une famille avec la part d'où
+ * elle part (`depart`) : celle de ses voisines de famille, lissée elle aussi
+ * vers l'estimation d'écriture (`tauxLisse`). La famille se compte sur la
+ * première réponse de chacun (`premieres`) : revue, une question a déjà
+ * montré sa correction — les dates ratées puis revues passaient de 33 à 38 %
+ * en production, et leur famille restait moyenne. Ses propres réponses n'y
+ * sont pas — elles comptent déjà pour elle : deux fois, elles la pousseraient
+ * deux fois —, et une question n'y pèse que `REPONSES_FICTIVES` réponses au
+ * plus : une question piège, ratée cent fois, n'emporte pas toute sa famille.
+ * Les questions jamais jouées y ont leur ligne, à zéro réponse : c'est d'elles
+ * que la famille dit le plus. Pure : les tirages, le quiz tout prêt et
+ * l'administration la lisent pareil.
+ */
+export function mesuresEnFamille(
+  questions: Iterable<{ id: string; difficulte: number; famille: string | null }>,
+  parQuestion: ReadonlyMap<string, { justes: number; total: number }>,
+  premieres: ReadonlyMap<string, { justes: number; total: number }> = parQuestion,
+): Map<string, MesureDUneQuestion> {
+  // Le poids d'une question dans sa famille : toutes ses réponses jusqu'à vingt, vingt au-delà.
+  const poids = (m: { total: number } | undefined) => (!m || m.total <= 0 ? 0 : m.total <= REPONSES_FICTIVES ? 1 : REPONSES_FICTIVES / m.total)
+  const sommes = new Map<string, { justes: number; total: number }>()
+  const membres: { id: string; difficulte: number; famille: string }[] = []
+  for (const q of questions) {
+    if (!q.famille) continue
+    membres.push(q as { id: string; difficulte: number; famille: string })
+    const m = premieres.get(q.id)
+    const k = poids(m)
+    if (k === 0) continue
+    let s = sommes.get(q.famille)
+    if (!s) sommes.set(q.famille, (s = { justes: 0, total: 0 }))
+    s.justes += m!.justes * k
+    s.total += m!.total * k
+  }
+  const mesures = new Map<string, MesureDUneQuestion>(parQuestion)
+  // Une question jamais jouée part de toute sa famille : une seule ligne, la
+  // même pour toutes — quatorze mille objets refaits toutes les dix minutes,
+  // au dixième de cœur de l'hébergeur, pour dire treize fois la même chose.
+  const jamaisJouees = new Map<string, MesureDUneQuestion>()
+  for (const q of membres) {
+    const s = sommes.get(q.famille)
+    if (!s) continue
+    const m = parQuestion.get(q.id)
+    const p = premieres.get(q.id)
+    if (!m && !p) {
+      let ligne = jamaisJouees.get(q.famille)
+      if (!ligne) jamaisJouees.set(q.famille, (ligne = Object.freeze({ justes: 0, total: 0, depart: tauxLisse(q.difficulte, s.justes, s.total) })))
+      mesures.set(q.id, ligne)
+      continue
+    }
+    const k = poids(p)
+    const voisines = { justes: s.justes - (p ? p.justes * k : 0), total: s.total - (p ? p.total * k : 0) }
+    // Seule mesurée de sa famille : ses voisines ne disent rien encore.
+    if (voisines.total < 1e-9) continue
+    mesures.set(q.id, { justes: m?.justes ?? 0, total: m?.total ?? 0, depart: tauxLisse(q.difficulte, voisines.justes, voisines.total) })
+  }
+  return mesures
+}
+
+// ── Ce que les réponses contredisent ────────────────────────────────────────
+
+/**
+ * La marche que les seules réponses d'une question diraient, quand elle n'est
+ * pas celle où la campagne la tire, et de combien elles la contredisent
+ * (`force`) : l'écart à la part d'où elle partait — sa famille, ou son
+ * estimation —, compté en écarts types d'un tirage de `total` réponses. Null
+ * sous `REPONSES_POUR_MESURER` réponses, ou d'accord avec sa marche. Les
+ * familles reclassent d'elles-mêmes ce qui ressemble à ses voisines : restent
+ * les questions qui font exception à la leur (le choix du 15 octobre 2026 :
+ * « la liste des moyennes que personne ne trouve »).
+ */
+export function marcheContredite(
+  difficulte: number,
+  mesure: MesureDUneQuestion | undefined,
+): { niveau: Niveau; niveauMesure: Niveau; force: number; difficulteProposee: number } | null {
+  if (!mesure || mesure.total < REPONSES_POUR_MESURER) return null
+  const part = mesure.justes / mesure.total
+  const niveau = niveauDeQuestion(difficulte, mesure)
+  const niveauMesure = niveauDuTaux(part)
+  if (niveau === niveauMesure) return null
+  const depart = Math.min(0.99, Math.max(0.01, mesure.depart ?? TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]))
+  const force = Math.abs(part - depart) / Math.sqrt((depart * (1 - depart)) / mesure.total)
+  return { niveau, niveauMesure, force, difficulteProposee: difficultePourLaPart(part) }
+}
+
+/**
+ * La difficulté estimée qui va à une part de bonnes réponses : celle de sa
+ * marche — la 1 pour une question que presque tout le monde trouve, la 2
+ * pour le reste des faciles. Ce que « Reclasser » propose au QG.
+ */
+export function difficultePourLaPart(part: number): number {
+  const n = niveauDuTaux(part)
+  return n === 'facile' ? (part >= 0.85 ? 1 : 2) : n === 'moyen' ? 3 : n === 'difficile' ? 4 : 5
+}
+
+/** Une question de la base que ses réponses contredisent, pour l'administrateur (`/admin#campagne`). */
+export interface QuestionContredite {
+  questionId: string
+  texte: string
+  reponses: string[]
+  bonne: number
+  categorie: string
+  sousTheme: string
+  difficulte: number
+  /** La marche où la campagne la tire, et celle que ses seules réponses diraient. */
+  niveau: Niveau
+  niveauMesure: Niveau
+  /** Ses réponses, révisions exclues. */
+  mesure: { justes: number; total: number }
+  difficulteProposee: number
+}
+
+/** Au plus, les questions contredites que le QG montre : les plus nettes d'abord. */
+export const CONTREDITES_MONTREES = 20
 
 /** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour. */
 export const SIGNALEMENT_MAX = 280
@@ -388,6 +570,9 @@ export interface AdminDeLaCampagne {
   /** Ce que la routine du matin a ajouté (`/api/campagne/base`). */
   ajouts: AjoutsDeLaRoutine
   signalements: SignalementDeCampagne[]
+  /** Les questions jouables que leurs réponses contredisent (`marcheContredite`), les plus nettes d'abord, `CONTREDITES_MONTREES` au plus ; et combien en tout. */
+  contredites: QuestionContredite[]
+  contreditesEnTout: number
 }
 
 /** La commande du matin, pour la routine qui agrandit la base (`GET /api/campagne/base`). */

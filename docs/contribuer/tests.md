@@ -286,6 +286,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
 - `server/test/qg-jour.test.ts` — le quiz du jour au QG : le tirage question par question, le classement du mois, les séries, le rappel du soir.
+- `server/test/campagne-contredites.test.ts` — ce que les réponses contredisent, au QG : les plus nettes d'abord, et « Reclasser » à la difficulté qu'elles disent.
 - `server/test/qg-campagne.test.ts` — la campagne au QG : le mélange d'un palier réglé pour les épreuves qui commencent, jamais celles en cours ; les paliers du jour, le défi sans jamais le tirer, les parcours, les vies.
 - `server/test/qg-signalements.test.ts` — la page des signalements : corriger une question du jour — le jour qui l'a posée compris quand la bonne réponse ne change pas, ses points annulés dans le même geste —, reclasser au quiz du jour et en campagne — et les deux partis ensemble, chaque requête attendant son tour de boucle comme une réponse de Turso —, l'issue de chaque geste, l'historique, le merci sur l'accueil du joueur.
 - `server/test/fiche-joueur.test.ts` — la fiche d'un joueur et ses gestes.
@@ -400,6 +401,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-recompenses.test.ts` — hauts faits de série, paliers, légendaires, records par catégorie.
 - `server/test/campagne-sujets.test.ts` — une série sur un sujet qui traverse les catégories.
 - `server/test/campagne-variete.test.ts` — catégories et sous-thèmes à tour de rôle.
+- `server/test/campagne-familles.test.ts` — une question part de la part que trouve sa famille : sa catégorie et sa difficulté, ou, pour une année, un nombre, un vrai ou faux, sa forme.
 - `server/test/bareme-du-solo.test.ts` — le barème du solo et son recompte au démarrage.
 - `server/test/tirage-sans-redite.test.ts` — pas deux jumelles dans une épreuve ou un duel.
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
@@ -420,6 +422,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/sentiers-sujets.test.ts` — les sentiers à thème, sans vies.
 - `server/test/sentiers-une-epreuve.test.ts` — une épreuve à la fois, dite à l'écran.
 - `server/test/sentiers-vies.test.ts` — les vies du jour, celles qu'on achète, l'administration des paliers.
+- `server/test/sentiers-pour-toi.test.ts` — sa chance sur chaque sentier, en couleur de piste, et ce qu'elle valait il y a une semaine.
 - `server/test/parcours.test.ts` — les parcours de thème, dans « Apprendre ».
 
 ### Les duels et les amis
@@ -436,7 +439,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/amis.test.ts` — la feuille des amis, qui est en ligne.
 - `server/test/amis-feuille.test.ts` — la feuille des amis et la page des duels, rendues.
 - `server/test/joueurs-croises.test.ts` — les joueurs croisés, à défier ou à ajouter.
-- `server/test/modele-du-savoir.test.ts` — le modèle du savoir qu'Automate lit.
+- `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc.
 
 ## Pour aller plus loin
 

@@ -609,6 +609,7 @@ export function ReclasserLaQuestion({
   avecMeta,
   occupe,
   difficulteAvant,
+  difficulteProposee,
   note,
   onEnregistrer,
   onAnnuler,
@@ -618,13 +619,15 @@ export function ReclasserLaQuestion({
   occupe: boolean
   /** Ce que la difficulté d'avant voulait dire. */
   difficulteAvant: string | null
+  /** Celle que ses réponses disent, déjà choisie : la question que la mesure contredit (`/admin#campagne`). */
+  difficulteProposee?: number
   note: string
   onEnregistrer: (classement: Classement) => void
   onAnnuler: () => void
 }) {
   const [categorie, setCategorie] = useState(avant.categorie)
   const [sousTheme, setSousTheme] = useState(avant.sousTheme ?? '')
-  const [difficulte, setDifficulte] = useState<number | null>(avant.difficulte)
+  const [difficulte, setDifficulte] = useState<number | null>(difficulteProposee ?? avant.difficulte)
   const sousThemes = (SOUS_THEMES as Record<string, readonly { cle: string; nom: string }[]>)[categorie] ?? []
   const apres: Classement = { categorie, sousTheme: avecMeta ? sousTheme || null : null, difficulte: avecMeta ? difficulte : null }
   const complet = !!categorie && (!avecMeta || (apres.sousTheme !== null && apres.difficulte !== null))

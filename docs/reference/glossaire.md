@@ -74,6 +74,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Cercle | La finition dessinée autour d'un avatar peint, à la place de l'anneau de son palier ou de sa forme | `client/src/components/Cercle.tsx` |
 | Cette question | La carte du téléphone à la révélation d'un QCM : qui a trouvé, en combien de temps, et sa place à soi | `laQuestion` |
 | Champion du mois | Le premier du classement d'un mois, à deux joueurs au moins : un titre daté, salué tout le mois suivant | `cleDuChampion` |
+| Chance (d'un palier) | Sa chance de valider du premier coup le palier qui l'attend sur un sentier, lue par le modèle du savoir sur ses premières réponses, sa forme du jour comprise ; la page la dit de 1 à 99 %, et en couleur de piste | `chanceDeLEpreuve`, `EtatDesSentiers.pourToi` |
 | Chapitre | Deux paliers d'un même thème, fait d'un à trois sous-thèmes de la catégorie, du premier au huitième palier | `shared/chapitres.ts` |
 | Chargement à la demande | Un module qui ne part qu'au moment où un écran en a besoin, sans `lazy` ni suspension | `aLaDemande` (`client/src/aLaDemande.ts`) |
 | Chef | Le profil qui tient l'espace et anime depuis son téléphone de joueur, par sa barre | `chefIci` (`client/src/chef.ts`), `accounts.profile_id` |
@@ -183,6 +184,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
+| Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
 | Feuille du choix | La feuille « Sur quoi ? » où l'on choisit les catégories ou le sujet d'une série | `FeuilleDuChoix` |
 | Fiche | Un invité de la soirée : son prénom, son avatar, son équipe, son profil éventuel et son jeton | `PlayerRec` (`server/src/core/party.ts`) |
@@ -203,6 +205,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Format complet | Les règles de la liste collée, écrites à partir des bornes et des catégories, avec un exemple de chaque possibilité : ce qu'on donne à un ami ou à une IA | `FORMAT_DE_LISTE` |
 | Forme | Un des quatre âges d'un compagnon, de celle qu'on achète à la forme ultime ; une forme atteinte ne se perd jamais | `FORMES_DES_COMPAGNONS` |
 | Forme (d'un compagnon) | L'un de ses quatre états, de rareté montante, ouverts à l'achat puis à 100, 300 et 500 bonnes réponses ; atteinte, elle ne se perd jamais | `JUSTES_DES_FORMES` |
+| Forme du jour | Ce qui fait varier un joueur d'une épreuve à l'autre — sa forme, le chapitre tiré — et que sa chance d'un palier intègre ; rien à voir avec la forme d'un compagnon | `FORME_D_UNE_EPREUVE` |
 | Fraîcheur | L'ordre de tirage propre à un joueur : d'abord les questions jamais vues, puis celles vues il y a longtemps, et en dernier celles des dernières 24 heures | `parFraicheur` |
 
 ## G
@@ -292,7 +295,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Mode (d'une partie) | Ce que joue une ligne de `campagne_series` : une série, une révision, un défi, une épreuve de sentier, un parcours, un duel ou une rencontre | `campagne_series.mode` |
 | Mode « en ligne » | Ce que le serveur active quand `RENDER` est posée ou que `NODE_ENV` vaut `production` : refus sans base permanente, cookies `Secure`, origine publique imposée | `online` |
 | Modèle | Un des onze quiz livrés, fichier de `server/content/quiz/`, qu'on copie dans sa bibliothèque | `lireModeles` |
-| Modèle du savoir | L'ajustement, sur la première réponse de chacun, des forces des joueurs, de leurs écarts par catégorie et des difficultés des questions ; seul Automate le lit | `server/src/core/modeleDuSavoir.ts` |
+| Modèle du savoir | L'ajustement, sur la première réponse de chacun, des forces des joueurs, de leurs écarts par catégorie et des difficultés des questions — et de ce que vaut chaque difficulté estimée, en bloc ; Automate le lit, et la page des sentiers pour dire à chacun sa chance | `server/src/core/modeleDuSavoir.ts` |
 | Montée | La règle de la cote qu'on voit aux duels, depuis le 14 octobre 2026 : sous l'Or, chaque duel rapporte et une défaite ne coûte presque rien ; dès l'Or, l'enjeu suit l'écart ; l'argent et l'or ne se perdent plus ; qui lance un défi gagne un point de plus | `apresLeDuel`, `MONTEE` |
 | Module de jeu | Les règles d'un jeu branchées sur le moteur : phases, chronomètres, barème et vues | `quizModule` |
 | Mois complet | Le haut fait de qui a joué chaque jour de quiz d'un mois qui en a eu vingt-huit au moins | `JOURS_D_UN_MOIS_COMPLET` |
@@ -344,6 +347,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Pièce (de la loge) | Une des six choses qu'on porte : Avatar, Titre, Vitrine, Fond (ce que la salle voit), Thème, Gerbe (ce que soi seul voit) | `PIECES_DE_LA_LOGE` |
 | Pilote | La commande par laquelle un agent de la tablée fait un geste — voir, toucher, écrire, répondre —, un geste par commande | `server/scripts/tablee/pilote.mjs` |
 | Piste | Un trophée qui se cumule sur la carrière et monte en trois étapes — bronze, argent, or —, chacune disant ce qu'elle ouvre ; le code dit « haut fait de carrière » | `shared/pistes.ts` |
+| Piste (verte, bleue, rouge, noire) | La couleur d'un palier des sentiers pour un joueur, comme une piste de ski — sa chance de le valider du premier coup : verte dès 70 %, bleue dès 45 %, rouge dès 20 %, noire en deçà ; rien à voir avec la piste d'un trophée. Le code dit « couleur de piste », la page la dessine en balise | `couleurDePiste`, `COULEURS_DES_PISTES` |
 | Piste du jour | Un trophée de carrière en trois étapes que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) ; le code appelle chaque étape un palier | `accorderPaliersDuJour` |
 | Placement | Les 10 premiers duels d'un joueur, qui comptent double sur sa cote cachée ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
 | Plancher (d'une cote) | Le seuil de la plus haute ligue gardée qu'un joueur a atteinte — l'argent, puis l'or : sa cote qu'on voit ne redescend plus dessous | `plancherApres`, `LIGUES_GARDEES` |

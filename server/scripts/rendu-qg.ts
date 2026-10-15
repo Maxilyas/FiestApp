@@ -12,7 +12,8 @@
 // en ligne, un arrêt net hier soir — ; la page du quiz du jour — huit
 // habitués et leurs séries, cent réponses par question, une question piège
 // touchée, sept soirs de rappel — ; la page de la campagne — le défi relevé
-// par vingt-quatre joueurs, trente jours d'épreuves, un palier réglé — et
+// par vingt-quatre joueurs, trente jours d'épreuves, un palier réglé, deux
+// questions que leurs réponses contredisent — et
 // « Régler » ouvert ; la page des duels — quatre semaines de duels contre
 // Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
 // ceux qui attendent leur adversaire — et l'un d'eux annulé ; la page de
@@ -53,6 +54,18 @@ const H = 3_600_000
 const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40) })
 const navigateur = await chromium.launch({ headless: true })
 try {
+  // Ce que les réponses contredisent, à la page de la campagne : une moyenne
+  // que douze joueurs d'ailleurs ratent tous, une experte qu'ils trouvent
+  // tous. Écrites avant le premier tirage : la mesure se garde dix minutes.
+  {
+    const ecriture = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const reponse = ecriture.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, ?, ?, ?)')
+    for (let i = 0; i < 12; i++) {
+      reponse.run(`ailleurs-moyenne-${i}`, 'essai002', 1, 0, Date.now() - 2 * 86_400_000)
+      reponse.run(`ailleurs-experte-${i}`, 'essai004', 0, 1, Date.now() - 2 * 86_400_000)
+    }
+    ecriture.close()
+  }
   const admin = await connexionAnimateur(banc.url)
 
   // Une soirée en cours chez l'administrateur : deux invités, un quiz lancé.

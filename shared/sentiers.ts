@@ -402,7 +402,78 @@ export interface EtatDesSentiers {
   confettis?: number
   /** Les mélanges réglés depuis le QG : la difficulté d'un palier se lit dessus. Absent : ceux du code. */
   melanges?: MelangesRegles
+  /**
+   * Sa chance de valider le palier qui l'attend, sentier par sentier
+   * (`ChanceDuSentier`). Absente sous `PREMIERES_REPONSES_POUR_SA_CHANCE`
+   * premières réponses, ou tant que le serveur n'a pas encore ajusté le
+   * modèle du savoir.
+   */
+  pourToi?: ChanceDuSentier[]
 }
+
+// ── Sa chance, sentier par sentier ──────────────────────────────────────────
+//
+// Le mélange d'un palier dit ce qu'il pose, pas ce qu'il est pour celui qui
+// le joue : « moyen à difficile » ne disait pas au cinéphile que l'écran
+// l'attendait les bras ouverts, ni au même que le stade serait un mur. La
+// page des sentiers dit à chacun sa chance de valider le palier qui
+// l'attend, lue sur ses premières réponses par le modèle du savoir
+// (`chanceDeLEpreuve`), et la couleur de piste qui va avec (le choix du
+// propriétaire du 15 octobre 2026 : garder les questions difficiles, et
+// dire honnêtement où l'on a ses chances, plutôt que de rien adoucir).
+
+/** Ce qu'un sentier est pour lui : sa chance de valider le palier qui l'attend, du premier coup. */
+export interface ChanceDuSentier {
+  branche: CleDeBranche
+  /** Le palier qui l'attend : celui qui suit le dernier validé, le maître après le sommet. */
+  palier: number
+  /** Sa chance de le valider du premier coup, de 0 à 1. */
+  chance: number
+  /**
+   * La même il y a `JOURS_DE_SA_PROGRESSION` jours, sur ce même palier et
+   * avec les mêmes difficultés : ce que ses réponses depuis ont changé.
+   * Absente sans `REPONSES_DE_SA_PROGRESSION` premières réponses dans la
+   * catégorie, avant comme depuis : sans les premières, elle ne dirait que
+   * son niveau d'ailleurs ; sans les secondes, rien de ce qu'il a fait.
+   */
+  avant?: number
+}
+
+/**
+ * Les premières réponses qu'il faut pour que la page dise sa chance : une
+ * série et demie. En deçà, elle ne dirait que celle d'un joueur moyen.
+ */
+export const PREMIERES_REPONSES_POUR_SA_CHANCE = 20
+
+/** Sa progression se lit sur une semaine. */
+export const JOURS_DE_SA_PROGRESSION = 7
+
+/** Les premières réponses qu'il faut dans la catégorie, d'avant la semaine et de la semaine, pour dire ce que sa chance valait avant. */
+export const REPONSES_DE_SA_PROGRESSION = 10
+
+export type CouleurDePiste = 'verte' | 'bleue' | 'rouge' | 'noire'
+
+/**
+ * La couleur d'un palier pour lui, comme une piste de ski — rien à voir avec
+ * la piste d'un trophée (`shared/pistes.ts`) : la chance d'où part chaque
+ * couleur, de la verte (il passe presque toujours) à la noire (moins d'une
+ * fois sur cinq). Un choix de produit.
+ */
+export const COULEURS_DES_PISTES: readonly { couleur: CouleurDePiste; des: number }[] = [
+  { couleur: 'verte', des: 0.7 },
+  { couleur: 'bleue', des: 0.45 },
+  { couleur: 'rouge', des: 0.2 },
+  { couleur: 'noire', des: 0 },
+]
+
+/** La couleur de piste d'une chance de valider. */
+export const couleurDePiste = (chance: number): CouleurDePiste => COULEURS_DES_PISTES.find(p => chance >= p.des)?.couleur ?? 'noire'
+
+/**
+ * Une chance telle que la page l'écrit, de 1 à 99 % : « 100 % » promettrait
+ * ce qu'aucune épreuve ne garantit, « 0 % » condamnerait d'avance.
+ */
+export const pourcentDeChance = (chance: number): number => Math.min(99, Math.max(1, Math.round(chance * 100)))
 
 /** Le sentier qu'on avance, et le palier qui l'y attend. */
 export interface SentierQuOnAvance {

@@ -8094,6 +8094,13 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .campagne-ajouts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
 .campagne-ajouts li p { margin: 0; }
 .campagne-ajout-retire { opacity: var(--dim); }
+/* Ce que les réponses contredisent (`QuestionsContredites`) : l'intitulé, ce
+   qu'en disent ses réponses, puis « Reclasser », en colonne — côte à côte,
+   au téléphone, chacun n'avait que quelques mots par ligne. */
+.campagne-contredites { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.campagne-contredites li { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
+.campagne-contredites li p { margin: 0; }
+.campagne-contredites .correction-question { align-self: stretch; }
 
 /* ── Les sentiers du savoir (`Sentiers.tsx`) ─────────────────────────────
    La maquette du 5 octobre 2026 : les sentiers en tuiles, un sentier en
@@ -8797,7 +8804,7 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sentiers-compte { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; }
 .sentiers-compte .label { white-space: nowrap; }
 .sentiers-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.sentiers-tuile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 132px; padding: 10px 4px 9px; border-radius: var(--radius-xs); border: 1px solid color-mix(in srgb, var(--lueur) 35%, var(--edge)); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 75%), var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.sentiers-tuile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 132px; padding: 10px 4px 9px; border-radius: var(--radius-xs); border: 1px solid color-mix(in srgb, var(--lueur) 35%, var(--edge)); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 75%), var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
 .sentiers-tuile b { display: flex; align-items: center; min-height: 2.3em; font-size: 0.78rem; font-weight: 600; line-height: 1.15; }
 .sentiers-tuile-vide { justify-content: flex-end; }
 .sentiers-tuile-complete { border-color: var(--edge-strong); background: linear-gradient(180deg, var(--accent-soft), transparent 70%), var(--surface); }
@@ -8812,6 +8819,19 @@ details.pano-regles .pano-regles-liste { border-top: 0; padding-top: 0; }
 .sentiers-etoiles { color: var(--or-text); white-space: nowrap; }
 /* La difficulté du palier à jouer, d'un mot, sous son numéro. */
 .sentiers-difficulte { margin-top: -3px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; }
+/* Sa chance, en couleur de piste (`Balise`) : une convention, comme les
+   pistes de ski — écrite en dur, aucun thème ne la repeint. Le liseré clair
+   garde la noire lisible sur les thèmes sombres ; la forme dit la couleur à
+   qui ne la distingue pas. */
+.balise { flex: none; width: 0.95em; height: 0.95em; vertical-align: -0.12em; stroke: #ffffff; stroke-width: 1.2; stroke-linejoin: round; }
+.balise-verte { fill: #1e9a53; }
+.balise-bleue { fill: #1c6dd4; }
+.balise-rouge { fill: #d63b3b; }
+.balise-noire { fill: #151515; }
+.sentiers-balise { position: absolute; top: 7px; right: 7px; display: flex; font-size: 0.95rem; }
+.pano-pour-toi { display: flex; align-items: center; gap: 7px; margin: 2px 0 0; }
+.pano-pour-toi .balise { font-size: 1.05rem; }
+.sentier-pour-toi .balise { margin-right: 6px; }
 .sentiers-etat .icon { width: 12px; height: 12px; color: var(--shape-2); }
 .sentiers-tuile-complete .sentiers-etat { color: var(--accent-text); font-weight: 700; }
 .sentier-portrait { display: inline-grid; place-items: center; flex: none; line-height: 0; }

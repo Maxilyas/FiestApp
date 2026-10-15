@@ -56,10 +56,14 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `cote_cachee_auteur`, `cote_cachee_adversaire` —, `vu_le`),
   `campagne_envois`, `campagne_envois_prevus`, `campagne_amis_ajoutes`,
   `campagne_amis_retires`
-- `core/modeleDuSavoir.ts` — le modèle du savoir, que seul Automate lit
-  (les marches des séries, des sentiers et du quiz tout prêt gardent
-  `tauxLisse`) : une force par joueur et par catégorie, une difficulté par
-  question, ajustées sur la première réponse de chacun (`PREMIERE_REPONSE`) ;
+- `core/modeleDuSavoir.ts` — le modèle du savoir, qu'Automate lit, et la
+  page des sentiers pour dire à chacun sa chance (`chanceDeLEpreuve`, règle
+  `sentiers.md`) — les marches des séries, des sentiers et du quiz tout prêt
+  gardent `tauxLisse` : une force par joueur et par catégorie, une
+  difficulté par question, ajustées sur la première réponse de chacun
+  (`PREMIERE_REPONSE`), et ce que vaut chaque difficulté estimée, en bloc
+  (`decalages`, `ECART_DES_ESTIMATIONS` ; la 3 tient l'échelle — le
+  15 octobre 2026, les 5 se trouvaient à 42 %, pas à 10 %) ;
   `ajusterSansBloquer`, `forceDuJoueur`, `serieDeReference`,
   `forcePourLeNiveau`, `chancesSurLaSerie`. Refait en fond par
   `CampagneStore.modeleDuSavoir` (`MODELE_GARDE_MS`), dit à `/healthz` sans un

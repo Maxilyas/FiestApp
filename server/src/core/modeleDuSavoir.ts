@@ -20,15 +20,18 @@
 // question a déjà montré sa correction, et la retrouver ne dit plus ce qu'on
 // savait.
 //
-// Automate le lit seul pour l'instant (le dé, `core/campagne.ts`) : les
-// marches des séries, des sentiers et du quiz tout prêt gardent `tauxLisse`,
-// sur laquelle leurs mélanges et leurs seuils ont été calibrés — le choix du
-// même jour, à revoir après mesure. Rien ne s'écrit : tout se dérive du
-// journal des réponses, et se refait (`CampagneStore`).
+// Automate le lit (le dé, `core/campagne.ts`), et la page des sentiers, pour
+// dire à chacun sa chance de valider le palier qui l'attend
+// (`chanceDeLEpreuve`, le 15 octobre 2026). Les marches des séries, des
+// sentiers et du quiz tout prêt, elles, gardent `tauxLisse`, sur laquelle
+// leurs mélanges et leurs seuils ont été calibrés — le choix du 13 octobre
+// 2026, à revoir après mesure. Rien ne s'écrit : tout se dérive du journal
+// des réponses, et se refait (`CampagneStore`).
 
 import { CATEGORIES } from '../../../shared/categories'
-import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type Niveau } from '../../../shared/campagne'
+import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
 import { SCORE_DE_REFERENCE } from '../../../shared/duels'
+import { chanceDeValider, type Melange } from '../../../shared/sentiers'
 
 /**
  * L'écart type des forces, en logit, autour de celle du joueur de la cote de
@@ -44,6 +47,28 @@ export const ECART_DES_FORCES = 1
  * de sport ratées ne font pas un joueur fâché avec le sport.
  */
 export const ECART_DES_CATEGORIES = 0.5
+
+/**
+ * Ce qu'une difficulté estimée à l'écriture peut se tromper, en bloc :
+ * l'écart type du décalage que l'ajustement apprend pour toutes les questions
+ * d'une même difficulté (`ModeleDuSavoir.decalages`). Une question que
+ * personne n'a jouée part de l'a priori de sa difficulté (`TAUX_A_PRIORI`),
+ * décalé de ce que ses semblables ont montré. Sans lui, les 5 restaient
+ * trouvées par un joueur sur dix quand les habitués en trouvaient quatre :
+ * sur les premières réponses de la production du 8 au 15 octobre 2026, le
+ * modèle ajusté avant le 8 leur annonçait 15 %, et 42 % ont été trouvées —
+ * le palier de maître se disait perdu d'avance quand un essai sur trois le
+ * validait. Le décalage appris : −1,15 aux 5, −0,29 aux 4, +0,23 aux 2.
+ */
+export const ECART_DES_ESTIMATIONS = 1
+
+/**
+ * La difficulté estimée qui tient l'échelle : son décalage reste nul. Sans
+ * point fixe, forces et difficultés glissaient ensemble d'un même pas, et
+ * l'ajustement ne finissait plus en soixante passes ; la 3, la plus jouée,
+ * le fixe, et il finit en vingt-six.
+ */
+const DIFFICULTE_QUI_TIENT_L_ECHELLE = 3
 
 /** Une force, un écart ou une difficulté au-delà : la chance vaut 0 ou 1 à un millième près, et rien ne s'y joue plus. */
 const BORNE = 8
@@ -69,6 +94,8 @@ export const CHANCES_PAR_TRANCHE = 20_000
 const QUESTIONS_PAR_TRANCHE = 2_000
 
 const C = CATEGORIES.length
+/** Les difficultés estimées à l'écriture, de 1 à 5. */
+const DIFFICULTES = 5
 const INDICE_DE_CATEGORIE = new Map<string, number>(CATEGORIES.map((c, i) => [c, i]))
 
 /** La place d'une catégorie dans `CATEGORIES`, ou −1 : une question hors des douze n'a pas d'écart où se ranger. */
@@ -95,10 +122,11 @@ export function difficulteAPriori(difficulte: number): { moyenne: number; precis
 /**
  * La difficulté d'une question que le modèle ne connaît pas encore — avant
  * le premier ajustement, ou ajoutée depuis : celle que dit la part lissée de
- * ceux qui l'ont trouvée (`tauxLisse`), sur la même échelle.
+ * ceux qui l'ont trouvée (`tauxLisse`), partie de sa famille comme au tirage,
+ * sur la même échelle.
  */
-export function difficulteSansModele(difficulte: number, mesure?: { justes: number; total: number }): number {
-  const p = Math.min(0.995, Math.max(0.005, tauxLisse(difficulte, mesure?.justes, mesure?.total)))
+export function difficulteSansModele(difficulte: number, mesure?: MesureDUneQuestion): number {
+  const p = Math.min(0.995, Math.max(0.005, tauxLisse(difficulte, mesure?.justes, mesure?.total, mesure?.depart)))
   return borne(-logit(p))
 }
 
@@ -117,6 +145,12 @@ export interface ModeleDuSavoir {
   difficultes: ReadonlyMap<string, number>
   /** Ce qu'il a mesuré de chaque joueur : l'ajustement suivant en repart. */
   forces: ReadonlyMap<string, ForceDUnJoueur>
+  /**
+   * Ce que vaut vraiment chaque difficulté estimée, de 1 à 5, en logit autour
+   * de son a priori (`ECART_DES_ESTIMATIONS`) : nul pour la 3, qui tient
+   * l'échelle.
+   */
+  decalages: readonly number[]
   /** Les réponses qui l'ont ajusté. */
   reponses: number
   passes: number
@@ -220,6 +254,10 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
     justes: new Uint8Array(0),
     forceDeDepart: entree.forceDeDepart,
   }
+  // La difficulté estimée de chaque question, de 0 à 4 (−1 hors de 1 à 5), et
+  // ce que chacune vaut vraiment : reparti de l'ajustement d'avant.
+  const niveaux = new Int8Array(Q)
+  const decalages = Float64Array.from({ length: DIFFICULTES }, (_, l) => entree.depart?.decalages[l] ?? 0)
   // Onze mille questions à ranger : une douzaine de millisecondes d'un bloc.
   for (const [id, { categorie, difficulte }] of entree.questions) {
     const q = ids.length
@@ -229,7 +267,8 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
     moyennes[q] = a.moyenne
     precisions[q] = a.precision
     e.categories[q] = indiceDeCategorie(categorie)
-    e.difficultes[q] = entree.depart?.difficultes.get(id) ?? a.moyenne
+    niveaux[q] = Number.isInteger(difficulte) && difficulte >= 1 && difficulte <= DIFFICULTES ? difficulte - 1 : -1
+    e.difficultes[q] = entree.depart?.difficultes.get(id) ?? a.moyenne + (niveaux[q] >= 0 ? decalages[niveaux[q]] : 0)
     if ((q + 1) % QUESTIONS_PAR_TRANCHE === 0) yield
   }
   // Les réponses, joueur par joueur. Une question que la base n'a plus, ou
@@ -270,6 +309,9 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
 
   const pentes = new Float64Array(Q)
   const courbures = new Float64Array(Q)
+  const pentesDesNiveaux = new Float64Array(DIFFICULTES)
+  const courburesDesNiveaux = new Float64Array(DIFFICULTES)
+  const pasDesNiveaux = new Float64Array(DIFFICULTES)
   let passes = 0
   let calculees = 0
   while (passes < PASSES_MAX) {
@@ -282,10 +324,9 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
         yield
       }
     }
-    for (let q = 0; q < Q; q++) {
-      pentes[q] = precisions[q] * (moyennes[q] - e.difficultes[q])
-      courbures[q] = precisions[q]
-    }
+    // Ce que disent les réponses seules : l'a priori de chacune vient après le pas de sa difficulté estimée.
+    pentes.fill(0)
+    courbures.fill(0)
     for (let p = 0; p < joueurs.length; p++) {
       const o = p * C
       for (let i = e.debut[p]; i < e.debut[p + 1]; i++) {
@@ -301,8 +342,33 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
         yield
       }
     }
+    // Chaque difficulté estimée, d'un pas de bloc : toutes ses questions et
+    // son décalage ensemble, tirés vers zéro (`ECART_DES_ESTIMATIONS`). Les
+    // jamais jouées suivent leurs semblables ; l'a priori de chaque question
+    // ne bouge pas avec, il n'y pèse rien.
+    pentesDesNiveaux.fill(0)
+    courburesDesNiveaux.fill(0)
     for (let q = 0; q < Q; q++) {
-      const pas = pasBorne(pentes[q] / courbures[q])
+      const l = niveaux[q]
+      if (l < 0) continue
+      pentesDesNiveaux[l] += pentes[q]
+      courburesDesNiveaux[l] += courbures[q]
+    }
+    for (let l = 0; l < DIFFICULTES; l++) {
+      pasDesNiveaux[l] = l === DIFFICULTE_QUI_TIENT_L_ECHELLE - 1 ? 0 : pasBorne((pentesDesNiveaux[l] - decalages[l] / ECART_DES_ESTIMATIONS ** 2) / (courburesDesNiveaux[l] + 1 / ECART_DES_ESTIMATIONS ** 2))
+      decalages[l] += pasDesNiveaux[l]
+      plusGrand = Math.max(plusGrand, Math.abs(pasDesNiveaux[l]))
+    }
+    for (let q = 0; q < Q; q++) {
+      const l = niveaux[q]
+      const bloc = l >= 0 ? pasDesNiveaux[l] : 0
+      if (bloc !== 0) {
+        e.difficultes[q] = borne(e.difficultes[q] + bloc)
+        // Ses réponses voient le pas de bloc au premier ordre : déplacée d'autant, sa pente baisse d'autant de courbure.
+        pentes[q] -= courbures[q] * bloc
+      }
+      const moyenne = moyennes[q] + (l >= 0 ? decalages[l] : 0)
+      const pas = pasBorne((pentes[q] + precisions[q] * (moyenne - e.difficultes[q])) / (courbures[q] + precisions[q]))
       e.difficultes[q] = borne(e.difficultes[q] + pas)
       plusGrand = Math.max(plusGrand, Math.abs(pas))
     }
@@ -316,7 +382,7 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
   joueurs.forEach((joueur, p) => {
     forces.set(joueur, { force: e.forces[p], ecarts: Array.from(e.ecarts.subarray(p * C, (p + 1) * C)), reponses: e.debut[p + 1] - e.debut[p] })
   })
-  return { difficultes, forces, reponses: N, passes }
+  return { difficultes, forces, decalages: Array.from(decalages), reponses: N, passes }
 }
 
 /** L'ajustement d'une traite : pour les scripts et les épreuves. */
@@ -358,6 +424,8 @@ export function forceDuJoueur(
   premieres: ReadonlyMap<string, boolean>,
   question: (id: string) => { difficulte: number; categorie: string } | undefined,
   forceDeDepart: number,
+  /** D'où partir : une force déjà proche — celle du modèle — converge en deux ou trois pas au lieu d'une dizaine. Le résultat n'en dépend pas. */
+  depart?: Pick<ForceDUnJoueur, 'force' | 'ecarts'>,
 ): ForceDUnJoueur {
   const difficultes: number[] = []
   const categories: number[] = []
@@ -371,11 +439,13 @@ export function forceDuJoueur(
     justes.push(juste ? 1 : 0)
   }
   const n = justes.length
+  // Sans une réponse, le joueur de la cote de départ, d'où qu'on parte.
+  const d = n > 0 ? depart : undefined
   const e: Etat = {
     difficultes: Float64Array.from(difficultes),
     categories: Int8Array.from(categories),
-    forces: Float64Array.of(forceDeDepart),
-    ecarts: new Float64Array(C),
+    forces: Float64Array.of(d?.force ?? forceDeDepart),
+    ecarts: Float64Array.from({ length: C }, (_, c) => d?.ecarts[c] ?? 0),
     debut: Int32Array.of(0, n),
     // Chaque réponse a sa propre question : ses difficultés, dans l'ordre.
     quelles: Int32Array.from({ length: n }, (_, i) => i),
@@ -517,4 +587,61 @@ export function forcePourLeNiveau(niveau: number, ecarts: readonly number[], ref
 /** Ses chances sur les questions d'une série, à cette force et ces écarts : chacune sa difficulté et sa catégorie. */
 export function chancesSurLaSerie(questions: readonly { difficulte: number; categorie: string }[], force: number, ecarts: readonly number[]): number[] {
   return questions.map(q => chance(force + (ecarts[indiceDeCategorie(q.categorie)] ?? 0) - q.difficulte))
+}
+
+// ── Sa chance de valider un palier ──────────────────────────────────────────
+
+/**
+ * L'écart type de sa force nette d'une épreuve à l'autre, en logit : sa
+ * forme du jour, et le chapitre que l'épreuve tire — on peut savoir le
+ * football et pas le cyclisme, et sa force dans le sport n'en dit que la
+ * moyenne. Sans elle, la chance d'une épreuve était trop sûre d'elle aux
+ * deux bouts : sur les épreuves de la production du 8 au 15 octobre 2026,
+ * celles annoncées sous 20 % se validaient une fois sur trois, celles
+ * au-dessus de 70 % quatre fois sur cinq. Avec elle, chaque tranche tient à
+ * quelques points près, et la perte (log) des 215 épreuves passe de 0,71 à
+ * 0,56 ; de 0,6 à 1, elle ne bouge presque plus.
+ */
+export const FORME_D_UNE_EPREUVE = 0.7
+
+/** Sept nœuds de Gauss–Hermite, et leurs poids : la forme du jour, intégrée. */
+const NOEUDS_DE_LA_FORME = [-2.651961356835233, -1.673551628767471, -0.816287882858965, 0, 0.816287882858965, 1.673551628767471, 2.651961356835233]
+const POIDS_DE_LA_FORME = [0.000971781245099519, 0.054515582819127, 0.425607252610128, 0.810264617556807, 0.425607252610128, 0.054515582819127, 0.000971781245099519]
+
+/**
+ * Sa chance moyenne sur une marche d'une catégorie : sur les difficultés qui
+ * la résument (`SerieDeReference.marches`). Une marche que la catégorie n'a
+ * pas se lit sur celles des autres.
+ */
+function chanceSurLaMarche(reference: SerieDeReference, niveau: Niveau, categorie: number, net: number): number {
+  const groupes = reference.marches[niveau]
+  const sien = groupes.find(g => g.categorie === categorie)
+  const lus = sien ? [sien] : groupes
+  if (lus.length === 0) return 0
+  let somme = 0
+  for (const g of lus) {
+    let s = 0
+    for (const d of g.difficultes) s += chance(net - d)
+    somme += s / g.difficultes.length
+  }
+  return somme / lus.length
+}
+
+/**
+ * Sa chance de valider du premier coup une épreuve de ce mélange et de ce
+ * seuil, dans une catégorie (son indice dans `CATEGORIES`), à sa force nette
+ * — sa force et son écart dans la catégorie : à chaque marche, sa chance sur
+ * les difficultés qui la résument, puis la loi de la somme
+ * (`chanceDeValider`), sa forme du jour intégrée (`FORME_D_UNE_EPREUVE`).
+ * La page des sentiers la dit à chacun (`CampagneStore.chancesPourLui`).
+ */
+export function chanceDeLEpreuve(reference: SerieDeReference, categorie: number, net: number, melange: Melange, seuil: number): number {
+  let somme = 0
+  for (let k = 0; k < NOEUDS_DE_LA_FORME.length; k++) {
+    const forme = net + FORME_D_UNE_EPREUVE * Math.SQRT2 * NOEUDS_DE_LA_FORME[k]
+    const taux = {} as Record<Niveau, number>
+    for (const n of NIVEAUX) taux[n] = chanceSurLaMarche(reference, n, categorie, forme)
+    somme += POIDS_DE_LA_FORME[k] * chanceDeValider(melange, seuil, taux)
+  }
+  return Math.min(1, Math.max(0, somme / Math.sqrt(Math.PI)))
 }
