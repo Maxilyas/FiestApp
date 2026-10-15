@@ -1048,6 +1048,15 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `server/scripts/generer-campagne.ts`, `server/scripts/faits-wikidata.ts`, `.claude/agents/redacteur-campagne.md`, `.claude/agents/relecteur-campagne.md`*
 
+### Une question part de sa famille, pas de son estimation seule
+**Contexte** : une question partait de vingt réponses fictives à la part que son estimation d'écriture promettait, et la production n'avait jamais montré une même question à plus de sept joueurs. Le 15 octobre 2026, sur 5 801 questions jouées, 39 avaient changé de marche et aucune moyenne n'était devenue difficile ; pourtant, les 3 qui se répondent par une année ne se trouvaient qu'à 33 %, et une 2 du sport à 66 %.
+
+**Décision** : de la difficulté 1 à la 3, ces vingt réponses fictives partent de la part mesurée sur la famille de la question — sa catégorie et sa difficulté, ou, pour une année, un autre nombre, un vrai ou faux, sa forme toutes catégories ensemble. La famille se compte sur la première réponse de chacun, sans les réponses de la question elle-même, et sans qu'une question y pèse plus de vingt réponses. La mesure les porte, jouées ou non : les tirages n'en savent rien. Les 4 et les 5 gardent leur estimation, parce que seuls les forts les atteignent.
+
+**Conséquence** : une question jamais jouée profite de ce que sa famille a appris, et les dates passent difficiles d'elles-mêmes — une 3 qui se répond par une année part à 36 %, Lincoln devient difficile. Calculé ce jour-là sur la production avec ce code, 1 668 questions changeaient de marche (7 % de la base) : 1 458 faciles devenaient moyennes, surtout des 2 du sport, de la musique, des arts, de la géographie et de l'histoire ; 169 moyennes devenaient difficiles, surtout des dates ; 41 moyennes devenaient faciles. Les mélanges des sentiers, calibrés sur des moyennes trouvées à 55 %, redeviennent vrais d'une catégorie à l'autre. Le calcul prend quelques millisecondes toutes les dix minutes, et la famille de chaque question se lit une fois par base.
+
+*Fichiers : `shared/campagne.ts`, `server/src/core/campagne.ts`, `server/test/campagne-familles.test.ts`*
+
 ## Les sentiers du savoir
 
 Le détail : [les sentiers du savoir](../produit/les-sentiers-du-savoir.md).

@@ -1,5 +1,5 @@
 import { CATEGORIES, type Categorie } from '../../../shared/categories'
-import { NIVEAUX, niveauDeQuestion, type Niveau } from '../../../shared/campagne'
+import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
 import type { Aleatoire } from '../../../shared/hasard'
 import { DEFAULT_DURATION, MAX_UNIT, type QuizDef, type QuizQuestionDef } from '../../../shared/library'
 import { lireNombreEnTete } from '../../../shared/nombres'
@@ -363,7 +363,7 @@ interface Passe {
 export function composerUnQuiz(
   questions: readonly QuestionDeLaBase[],
   sujetsDe: (q: QuestionDeLaBase) => readonly string[],
-  mesures: ReadonlyMap<string, { justes: number; total: number }>,
+  mesures: ReadonlyMap<string, MesureDUneQuestion>,
   choix: ChoixDuQuiz,
   deja: DejaDansLEspace,
   aleatoire: Aleatoire = Math.random,
@@ -482,7 +482,7 @@ function passeAvant(a: readonly number[], b: readonly number[]): boolean {
 export function uneAutreQuestion(
   questions: readonly QuestionDeLaBase[],
   sujetsDe: (q: QuestionDeLaBase) => readonly string[],
-  mesures: ReadonlyMap<string, { justes: number; total: number }>,
+  mesures: ReadonlyMap<string, MesureDUneQuestion>,
   remplacee: { id: string; kind: QuizQuestionDef['kind'] },
   quiz: readonly string[],
   deja: DejaDansLEspace,

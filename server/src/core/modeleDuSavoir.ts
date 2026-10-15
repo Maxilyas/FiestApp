@@ -27,7 +27,7 @@
 // journal des réponses, et se refait (`CampagneStore`).
 
 import { CATEGORIES } from '../../../shared/categories'
-import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type Niveau } from '../../../shared/campagne'
+import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
 import { SCORE_DE_REFERENCE } from '../../../shared/duels'
 
 /**
@@ -95,10 +95,11 @@ export function difficulteAPriori(difficulte: number): { moyenne: number; precis
 /**
  * La difficulté d'une question que le modèle ne connaît pas encore — avant
  * le premier ajustement, ou ajoutée depuis : celle que dit la part lissée de
- * ceux qui l'ont trouvée (`tauxLisse`), sur la même échelle.
+ * ceux qui l'ont trouvée (`tauxLisse`), partie de sa famille comme au tirage,
+ * sur la même échelle.
  */
-export function difficulteSansModele(difficulte: number, mesure?: { justes: number; total: number }): number {
-  const p = Math.min(0.995, Math.max(0.005, tauxLisse(difficulte, mesure?.justes, mesure?.total)))
+export function difficulteSansModele(difficulte: number, mesure?: MesureDUneQuestion): number {
+  const p = Math.min(0.995, Math.max(0.005, tauxLisse(difficulte, mesure?.justes, mesure?.total, mesure?.depart)))
   return borne(-logit(p))
 }
 
