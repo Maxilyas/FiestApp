@@ -451,7 +451,7 @@ interface CercleDAmis {
  * et se corrige par les réponses de campagne (`niveauDeQuestion`).
  * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
  * sans plafond (`xpDeCampagne`), dans sa ligne à part (`LIGNE_CAMPAGNE`) ;
- * et un confetti, comme au quiz du jour (`ProfileStore.confettisDeCampagne`).
+ * et un confetti, comme au quiz du jour (`duProfil`).
  */
 /**
  * Ce que la campagne demande aux profils pour décerner ses récompenses —
@@ -466,6 +466,23 @@ export interface RecompensesDeCampagne {
   accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
+}
+
+/** Sa ligue, sa cote et ses bordures de ligue (`coteDe`) : sa carte, la bordure qu'il choisit. */
+export interface CoteDesDuels {
+  ligue: CleDeLigue
+  cote: number
+  bordures: BordureDeLigue[]
+}
+
+/** Ce que la campagne dit d'un profil à son solde et à sa page, d'une seule lecture (`CampagneStore.duProfil`). */
+export interface CampagneDuProfil {
+  /** Ses confettis de campagne : ses bonnes réponses, les étoiles de ses sentiers, les ligues de ses semaines closes. */
+  confettis: number
+  /** Ses paliers validés, sentier par sentier (`paliersDe`). */
+  paliers: Paliers
+  /** Null tant qu'il n'a fini aucun duel classé (`coteDe`). */
+  duels: CoteDesDuels | null
 }
 
 /** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
@@ -1821,13 +1838,20 @@ export class CampagneStore {
   }
 
   /**
-   * Ses confettis de campagne : une bonne réponse, un confetti — séries,
-   * épreuves et défis —, et ce que paient les étoiles de ses sentiers, la
-   * meilleure note de chaque palier (`confettisDesEtoiles`), et chaque semaine
-   * close de ses duels, sa meilleure ligue (`confettisDesLigues`). Relus à
-   * chaque lecture, d'un seul aller-retour.
+   * Ce que la campagne dit d'un profil à son solde et à sa page, d'un seul
+   * aller-retour. Ses confettis de campagne : une bonne réponse, un confetti
+   * — séries, épreuves et défis —, ce que paient les étoiles de ses
+   * sentiers, la meilleure note de chaque palier (`confettisDesEtoiles`), et
+   * chaque semaine close de ses duels, sa meilleure ligue
+   * (`confettisDesLigues`) ; et, des mêmes lignes, ses paliers (`paliersDe`)
+   * et sa cote (`coteDe`). Le solde relisait ses sentiers à part, et la page
+   * du profil ses sentiers trois fois et ses duels deux : au dixième de cœur
+   * de l'hébergeur, chaque aller-retour coûte au serveur deux millisecondes
+   * de processeur, et les accueils de quatre joueurs à la fois le figeaient
+   * deux secondes (le banc du 16 octobre 2026). Relus à chaque lecture.
    */
-  async confettisDe(profileId: string): Promise<number> {
+  async duProfil(profileId: string): Promise<CampagneDuProfil> {
+    const tour = ++this.tourDesBordures
     const [justes, acquis, validees, duels] = await this.client.batch(
       [
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
@@ -1836,8 +1860,14 @@ export class CampagneStore {
       ],
       'read',
     )
-    const ligues = confettisDesLigues(releverLesDuels(duelsLus(duels.rows), semaineDeLInstant), this.semaineDeLHeure().semaine)
-    return Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiersLus(acquis.rows, validees.rows)) + ligues
+    const sentiers = sentiersLus(acquis.rows, validees.rows)
+    const releve = this.releveLu(profileId, duels.rows, tour)
+    const ligues = confettisDesLigues(releve, this.semaineDeLHeure().semaine)
+    return {
+      confettis: Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiers) + ligues,
+      paliers: paliersCommences(sentiers),
+      duels: coteDuReleve(releve),
+    }
   }
 
   /**
@@ -3732,7 +3762,16 @@ export class CampagneStore {
   private async rencontresEtDuels(profileId: string, racontes = false): Promise<{ rencontres: MesRencontres; releve: ReleveDesDuels; racontes: DuelRaconte[] }> {
     const [res, duels, adversaires] = await this.client.batch(
       [
-        { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`, args: [profileId, RENCONTRES_MONTREES + 1] },
+        // Les questions de la seule rencontre en route, qui se reprend : une
+        // finie n'en dit que son score. Les soixante de chacune — vingt
+        // kilo-octets — faisaient décoder trois cents kilo-octets à chaque
+        // ouverture de la page (le banc du 16 octobre 2026).
+        {
+          sql: `SELECT id, profile_id, position, vies, justes, finie_le, mode, categories, sujet, adversaire,
+                       CASE WHEN finie_le IS NULL THEN questions ELSE '[]' END AS questions
+                FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
+          args: [profileId, RENCONTRES_MONTREES + 1],
+        },
         lectureDesDuels(profileId, this.maintenant()),
         ...(racontes ? [lectureDesAdversaires(profileId)] : []),
       ],
@@ -3888,9 +3927,8 @@ export class CampagneStore {
    * bordure qu'il choisit ; null tant qu'il n'a fini aucun duel classé —
    * l'absence, pas une ligue de bronze.
    */
-  async coteDe(profileId: string): Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null> {
-    const r = await this.releveDesDuels(profileId)
-    return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
+  async coteDe(profileId: string): Promise<CoteDesDuels | null> {
+    return coteDuReleve(await this.releveDesDuels(profileId))
   }
 
   /** Sa semaine de duels, telle que sa page la dit : ses duels, sa meilleure ligue, ce qu'elle rapportera lundi. */
@@ -4323,7 +4361,7 @@ export class CampagneStore {
    */
   async paliersDe(profileId: string): Promise<Paliers> {
     const [acquis, validees] = await this.client.batch(this.lecturesDesSentiers(profileId), 'read')
-    return Object.fromEntries(sentiersLus(acquis.rows, validees.rows).filter(s => s.paliers > 0).map(s => [s.branche, s.paliers]))
+    return paliersCommences(sentiersLus(acquis.rows, validees.rows))
   }
 
   /** Ses épreuves ratées, chacune au jour où elle l'a été : ce qui a coûté ses vies. */
@@ -5752,7 +5790,7 @@ export class CampagneStore {
   }
 
   /**
-   * Les confettis de campagne de chaque profil, aux règles de `confettisDe`
+   * Les confettis de campagne de chaque profil, aux règles de `duProfil`
    * — ses bonnes réponses, ses étoiles, ses ligues —, tous profils d'un coup :
    * la circulation du QG, relue une fois par jour.
    */
@@ -7161,6 +7199,16 @@ function sentiersLus(acquis: readonly Record<string, unknown>[], validees: reado
     const s = parBranche.get(b.key)!
     return { branche: b.key, paliers: Math.min(PALIER_DU_MAITRE, Math.max(s.acquis, s.haut)), acquis: s.acquis, etoiles: s.etoiles }
   })
+}
+
+/** Ses paliers validés, sentier par sentier (`sentiersLus`) : un sentier pas encore commencé n'y paraît pas. */
+function paliersCommences(sentiers: readonly SentierDuJoueur[]): Paliers {
+  return Object.fromEntries(sentiers.filter(s => s.paliers > 0).map(s => [s.branche, s.paliers]))
+}
+
+/** Sa ligue, sa cote et ses bordures, d'un relevé de ses duels ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
+function coteDuReleve(r: ReleveDesDuels): CoteDesDuels | null {
+  return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
 }
 
 /**

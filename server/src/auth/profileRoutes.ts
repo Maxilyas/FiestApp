@@ -54,7 +54,7 @@ interface ProfileApiDeps {
    * celui qu'il avance ; ses duels, pour le leur ; les questions qu'il a
    * signalées et dont sa remarque a servi, pour le remercier.
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'coteDe' | 'mercisDe'>
+  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
 }
 
 /**
@@ -100,32 +100,44 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * tous les modes de jeu ensemble (`detail.categories`).
    */
   const detailDe = async (me: ProfileRec) => {
+    // Ses sentiers, ses duels et ses confettis de campagne, d'une lecture que
+    // toute la page partage, partie avec la nuit, dont elle ne dépend pas :
+    // ses maîtres (ses fonds, ses thèmes), son solde, ses portraits et ses
+    // bordures relisaient ses sentiers quatre fois et ses duels deux. Chacun
+    // dit sa panne là où il la lit : attendue plus tard, elle passerait d'ici
+    // là pour une promesse que personne n'attend (le filet de `index.ts`).
+    const campagne = deps.campagne.duProfil(me.id)
+    const paliers = campagne.then(c => c.paliers)
+    for (const lecture of [campagne, paliers]) lecture.catch(() => {})
     // La nuit d'abord : `carriereDe` clôt la veille — le podium se crédite,
     // le laurier passe au vainqueur. Lu avant elle, le profil du vainqueur
     // n'avait, à sa première visite du jour, ni « Vainqueur du quiz du jour
     // d'hier » ni l'expérience du podium ; rechargée, la page les avait.
     const jour = await deps.jour.carriereDe(me.id)
     const rec = (await profiles.byId(me.id)) ?? me
-    const detail = await profiles.toDetail(rec, espaceDe, deps.archives)
+    const detail = await profiles.toDetail(rec, espaceDe, deps.archives, paliers)
     const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
     // Ses soirées viennent d'être relues : la boutique compte ses confettis
     // dessus. Une base qui se tait ôte la boutique, pas la page.
     // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
     // qui se tait les ôte, pas la page.
     const [boutique, sentiers, duels, vusDeLaLoge] = await Promise.all([
-      profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
+      profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees, campagne).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
-      profiles.paliersDe(rec.id).catch(e => {
+      paliers.catch(e => {
         console.error('[profil] sentiers illisibles :', e)
         return undefined
       }),
       // Ses bordures de ligue, que la loge propose : une base qui se tait les ôte, pas la page.
-      deps.campagne.coteDe(rec.id).catch(e => {
-        console.error('[profil] duels illisibles :', e)
-        return undefined
-      }),
+      campagne.then(
+        c => c.duels,
+        e => {
+          console.error('[profil] duels illisibles :', e)
+          return undefined
+        },
+      ),
       // Ce qu'il a déjà vu dans sa loge : une base qui se tait ôte la pastille, pas la page.
       profiles.vusDeLaLoge(rec.id).catch(e => {
         console.error('[profil] loge illisible :', e)
@@ -446,10 +458,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   // Ce qu'il a de neuf à porter depuis son dernier passage dans sa loge, compté :
   // la pastille rouge de « Profil », sur les pages qui ne lisent pas son détail —
   // l'accueil, ses quiz, son compte. La règle de la loge (`ceQuIlAPorter`,
-  // `nouveautes`), sur le même détail : un compteur lit la règle de ce qu'il
-  // compte, jamais une requête à lui. Sans profil, rien : un invité, pas une
-  // erreur. Jamais passé par sa loge, tout ce qu'il a se retient vu : la
-  // première visite ne crie pas « nouveau » sur tout ce qu'il a.
+  // `nouveautes`), sur ce qu'elle lit du détail et rien d'autre
+  // (`ceQueLaLogeLit`) : un compteur lit la règle de ce qu'il compte, jamais
+  // une requête à lui — mais refaire toute la page pour une pastille, c'était
+  // seize allers-retours vers la base, à chaque accueil. Sans profil, rien :
+  // un invité, pas une erreur. Jamais passé par sa loge, tout ce qu'il a se
+  // retient vu : la première visite ne crie pas « nouveau » sur tout ce qu'il a.
   app.get(
     '/api/joueur/nouveautes',
     wrap(async (req, res) => {
@@ -457,15 +471,24 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const me = await current(req)
       const rien: NouveautesDeLaLoge = { nouveautes: 0, pieces: {} }
       if (!me) return res.json(rien)
-      const detail = await detailDe(me)
+      // La nuit d'abord, comme sa page : le podium d'hier peut lui ouvrir un titre.
+      await deps.jour.clorePasses(jourDe(deps.maintenant()))
+      const rec = (await profiles.byId(me.id)) ?? me
+      const [lit, vus] = await Promise.all([
+        profiles.ceQueLaLogeLit(rec),
+        profiles.vusDeLaLoge(rec.id).catch(e => {
+          console.error('[profil] loge illisible :', e)
+          return undefined
+        }),
+      ])
       // La base s'est tue sur ce qu'il a vu : rien de nouveau, plutôt que tout.
-      if (detail.vusDeLaLoge === undefined) return res.json(rien)
-      const a = ceQuIlAPorter(detail)
-      if (detail.vusDeLaLoge === null) {
+      if (vus === undefined) return res.json(rien)
+      const a = ceQuIlAPorter(lit)
+      if (vus === null) {
         await profiles.retenirLesVusDeLaLoge(me.id, retenirLesVus(a, {}, null))
         return res.json(rien)
       }
-      res.json(compteDesNouveautes(nouveautes(a, detail.vusDeLaLoge)))
+      res.json(compteDesNouveautes(nouveautes(a, vus)))
     }),
   )
 

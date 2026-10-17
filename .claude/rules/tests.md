@@ -34,8 +34,10 @@ paths:
   (`portes.test.ts`, `page.test.ts`).
 - **On compte, on ne chronomètre pas** : une machine chargée ferait échouer
   un test qui mesure des millisecondes. `grande-salle.test.ts` compte les
-  vues, les écritures et les messages, `jour-charge.test.ts` les
-  allers-retours sur le fichier `file:` qui tient lieu de Turso. Les bornes
+  vues, les écritures et les messages, `jour-charge.test.ts` et
+  `profil-charge.test.ts` les allers-retours sur le fichier `file:` qui
+  tient lieu de Turso — chaque aller-retour coûte aussi du processeur au
+  serveur, règle `journaux-et-miroir.md`. Les bornes
   de temps qui restent sont larges : un calcul (`protocole.test.ts`, le
   podium au meilleur de trois essais ; `temps-reel.test.ts`) ou un délai qui
   doit tomber (`liaison-morte.test.ts`, `miroir.test.ts`).
