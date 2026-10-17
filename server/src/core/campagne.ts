@@ -3799,7 +3799,8 @@ export class CampagneStore {
       }
       if (choix.sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
       const [base, toutes, duChoix, mesure] = await tirage
-      const jouables = suivi ? duChoix.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : duChoix
+      // Sur un sujet, sa liste gardée, comme une série : son tirage se prépare une fois (`duSujet`, `tirage`).
+      const jouables = suivi ? this.duSujet(duChoix, suivi.cle) : duChoix
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
           suivi
