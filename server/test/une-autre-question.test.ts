@@ -33,7 +33,18 @@ function question(
     texte,
     reponses,
     date = null,
-  }: { categorie?: Categorie; difficulte?: number; ageMin?: number; nombre?: number; texte?: string; reponses?: string[]; date?: { valeur: string; precision: 'annee' } | null } = {},
+    sousTheme,
+  }: {
+    categorie?: Categorie
+    difficulte?: number
+    ageMin?: number
+    nombre?: number
+    texte?: string
+    reponses?: string[]
+    date?: { valeur: string; precision: 'annee' } | null
+    /** Le premier de sa catégorie, d'office. */
+    sousTheme?: string
+  } = {},
 ): QuestionDeLaBase {
   const autres = [1, 2, 3, 4, 5, 6].map(d => (nombre === undefined ? `Autre ${d}-${n}` : String(nombre + d * 7)))
   const lu = lireQuestionDeLaBase({
@@ -43,7 +54,7 @@ function question(
     bonne: 0,
     anecdote: `L'anecdote de ${n}.`,
     categorie,
-    sousTheme: SOUS_THEMES[categorie][0].cle,
+    sousTheme: sousTheme ?? SOUS_THEMES[categorie][0].cle,
     etiquettes: [],
     difficulte,
     ageMin,
@@ -120,6 +131,24 @@ test('une estimation pour une estimation ; d’abord ses sujets, puis la jamais 
   const jumelle = realise(42, 'Léon')
   const neuve = question(43)
   for (let graine = 1; graine <= 8; graine++) assert.equal(autre([dejaLa, aRemplacer, jumelle, neuve], aRemplacer, [dejaLa, aRemplacer], rien, 'choice', graine)?.id, idDansLeQuiz(neuve.id))
+})
+
+// Les rubriques (le 17 octobre 2026) : un quiz tout prêt composé sur le
+// football le reste quand on en remplace une question ; un quiz de toutes les
+// catégories y garde ses sous-thèmes à tour de rôle.
+test('la voisine garde la rubrique de la remplacée, mais pas au prix d’une jumelle', () => {
+  const remplacee = question(50, { categorie: 'Sport' })
+  const rugby = question(51, { categorie: 'Sport', sousTheme: 'rugby' })
+  const football = question(52, { categorie: 'Sport' })
+  for (let graine = 1; graine <= 8; graine++) assert.equal(autre([remplacee, rugby, football], remplacee, [remplacee], rien, 'choice', graine)?.id, idDansLeQuiz(football.id), `graine ${graine}`)
+  // De la même rubrique, mais la jumelle d'une autre question du quiz : une autre rubrique passe devant.
+  const finale = (n: number, annee: number) =>
+    question(n, { categorie: 'Sport', texte: `Qui a gagné la finale de la Coupe de l’année ${annee} ?`, reponses: [`Équipe ${n}`, `E${n}b`, `E${n}c`, `E${n}d`] })
+  const dejaLa = finale(60, 1998)
+  const aRemplacer = question(61, { categorie: 'Sport' })
+  const jumelle = finale(62, 2018)
+  const ailleurs = question(63, { categorie: 'Sport', sousTheme: 'rugby' })
+  for (let graine = 1; graine <= 8; graine++) assert.equal(autre([dejaLa, aRemplacer, jumelle, ailleurs], aRemplacer, [dejaLa, aRemplacer], rien, 'choice', graine)?.id, idDansLeQuiz(ailleurs.id))
 })
 
 test('sur un vrai serveur : la voisine se demande, rien ne s’écrit ; et l’éditeur ne la propose qu’aux questions de la base', async () => {

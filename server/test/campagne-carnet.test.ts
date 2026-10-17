@@ -12,7 +12,7 @@ import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type 
 import { CATEGORIES } from '../../shared/categories'
 import { DUREE_D_UN_DUEL_MS, VIES, xpDeLaBonneReponse } from '../../shared/campagne'
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, TOUT_LE_CARNET, partVisee, suiteDeLaRevision, suiviDeLaQuestion } from '../../shared/revision'
-import { sujetsDe } from '../../shared/sujets'
+import { rubriqueDe, sujetsDe } from '../../shared/sujets'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -246,9 +246,14 @@ test('le carnet se compte par catégorie et par sujet ; une révision vise l’u
   // Le retour d'un joueur du 14 octobre 2026 : « cibler un thème à revoir, et
   // savoir combien de questions on a à revoir dans tel thème ». Dans la base
   // d'essai, chaque question de Nature est des animaux, et l'Histoire n'a
-  // aucun sujet.
+  // aucun sujet ; chacune est du premier sous-thème de sa catégorie, sa
+  // rubrique (le 17 octobre 2026) — les mammifères, les civilisations anciennes.
   assert.deepEqual(sujetsDe(BASE.questions.find(q => q.meta.categorie === 'Nature')!.meta), ['animaux'])
   assert.deepEqual(sujetsDe(BASE.questions.find(q => q.meta.categorie === 'Histoire')!.meta), [])
+  assert.deepEqual(
+    [...new Set(BASE.questions.filter(q => q.meta.categorie === 'Histoire' || q.meta.categorie === 'Nature').map(q => rubriqueDe(q.meta)))],
+    ['histoire/civilisations', 'nature/mammiferes'],
+  )
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
   try {
@@ -271,7 +276,12 @@ test('le carnet se compte par catégorie et par sujet ; une révision vise l’u
         const n = categorie === 'Histoire' ? histoire : nature
         return { categorie, aRevoir: dues ? n : 0, enTout: n }
       }),
-      sujets: [{ sujet: 'animaux', aRevoir: dues ? nature : 0, enTout: nature }],
+      // Les sujets, puis les rubriques : la feuille du choix dit ce qui attend sous chaque catégorie qui s'affine.
+      sujets: [
+        { sujet: 'animaux', aRevoir: dues ? nature : 0, enTout: nature },
+        { sujet: 'histoire/civilisations', aRevoir: dues ? histoire : 0, enTout: histoire },
+        { sujet: 'nature/mammiferes', aRevoir: dues ? nature : 0, enTout: nature },
+      ],
     })
     const detail = async () => {
       const { categories, sujets } = (await lire(banc, lea, '/api/campagne/carnet')).corps
@@ -286,6 +296,7 @@ test('le carnet se compte par catégorie et par sujet ; une révision vise l’u
     assert.deepEqual(partVisee(carnet, { categories: ['Histoire'], sujet: null }), { aRevoir: histoire, enTout: histoire })
     assert.deepEqual(partVisee(carnet, { categories: ['Histoire', 'Nature'], sujet: null }), { aRevoir: 3, enTout: 3 })
     assert.deepEqual(partVisee(carnet, { categories: ['Histoire'], sujet: 'animaux' }), { aRevoir: nature, enTout: nature }, 'un sujet passe devant les catégories, comme en série')
+    assert.deepEqual(partVisee(carnet, { categories: ['Histoire'], sujet: 'histoire/civilisations' }), { aRevoir: histoire, enTout: histoire }, 'une rubrique se lit comme un sujet')
 
     // Une révision sur l'Histoire : ses questions seules, et elle dit ce qu'elle vise.
     const rev = (await poster(banc, lea, '/api/campagne/revision', { categories: ['Histoire'] })).corps
@@ -324,7 +335,22 @@ test('le carnet se compte par catégorie et par sujet ; une révision vise l’u
     let fin: any
     for (let i = 0; i < nature; i++) fin = await repondre(banc, lea, animaux.id, i, true)
     // Sa fin redit le carnet, ses comptes compris : de quoi réviser encore sur le même choix.
-    assert.deepEqual([fin.carnet.aRevoir, fin.carnet.sujets], [0, [{ sujet: 'animaux', aRevoir: 0, enTout: nature }]])
+    assert.deepEqual(
+      [fin.carnet.aRevoir, fin.carnet.sujets],
+      [
+        0,
+        [
+          { sujet: 'animaux', aRevoir: 0, enTout: nature },
+          { sujet: 'histoire/civilisations', aRevoir: 0, enTout: histoire },
+          { sujet: 'nature/mammiferes', aRevoir: 0, enTout: nature },
+        ],
+      ],
+    )
+
+    // Une rubrique, revue en avance : les questions de son sous-thème seul, et la révision la garde.
+    const rubrique = (await poster(banc, lea, '/api/campagne/revision', { sujet: 'histoire/civilisations', tout: true })).corps
+    assert.deepEqual([rubrique.total, rubrique.sujet, rubrique.categories], [histoire, 'histoire/civilisations', undefined])
+    assert.ok(questions(banc, rubrique.id).every(q => q.categorie === 'Histoire'))
   } finally {
     await banc.close()
   }

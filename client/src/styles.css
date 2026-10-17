@@ -8033,6 +8033,14 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .quoi-case { min-height: 44px; padding: 6px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
 .quoi-toutes.active, .quoi-case.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* Les rubriques d'une catégorie choisie seule, sous la rangée de sa case, de
+   toute la largeur de la grille — la feuille du choix comme le quiz tout
+   prêt (`RubriquesDuChoix`) : un filet d'or à gauche les rattache à elle. */
+.quoi-rubriques { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 4px; padding: 4px 0 4px 12px; border-left: 2px solid var(--accent); }
+.quoi-rubriques > .label { flex-basis: 100%; }
+.quoi-rubrique { display: inline-flex; align-items: center; min-height: 40px; padding: 4px 13px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
+.quoi-rubrique.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.quoi-rubrique .quoi-compte { display: inline; margin: 0 0 0 4px; }
 /* L'onglet des thèmes, chaque famille son allure (`SujetsDuChoix`, le souhait
    du propriétaire du 17 octobre 2026 : trente-cinq pastilles pareilles
    faisaient un mur de mots) ; son titre tire un filet jusqu'au bord. */
@@ -8050,7 +8058,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-medaillon .icon { width: 17px; height: 17px; }
 /* Le survol, à la souris seulement : collé après un toucher, il se lisait comme un second choix. */
 @media (hover: hover) {
-  .quoi-tuile:hover, .quoi-fil:hover { border-color: var(--edge-strong); }
+  .quoi-tuile:hover, .quoi-fil:hover, .quoi-rubrique:hover { border-color: var(--edge-strong); }
   .quoi-epoque:hover { background: var(--surface-strong); }
 }
 .quoi-tuile.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }

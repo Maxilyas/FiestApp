@@ -1,160 +1,20 @@
 // Le catalogue des métadonnées d'une question : ses sous-thèmes, une liste
-// fermée par catégorie, et ses étiquettes, rangées en familles. Une seule
-// source pour la consigne qu'on donne à une IA pour étiqueter la réserve
-// (`server/src/core/etiquetage.ts`) et pour la relecture de ce qu'elle rend
-// (`lireEtiquetage`) : une clé que la consigne ne propose pas est refusée.
+// fermée par catégorie (`shared/sousThemes.ts`, à part : la feuille du choix
+// les nomme sans télécharger le reste), et ses étiquettes, rangées en
+// familles. Une seule source pour la consigne qu'on donne à une IA pour
+// étiqueter la réserve (`server/src/core/etiquetage.ts`) et pour la relecture
+// de ce qu'elle rend (`lireEtiquetage`) : une clé que la consigne ne propose
+// pas est refusée.
 //
 // Les listes ont été essayées sur les questions du dépôt et sur des
 // questions neuves (le 3 octobre 2026) : chaque sous-thème a ses questions,
 // et une étiquette ne dit rien qu'un autre champ dise déjà.
-//
-// La danse et la santé (le 15 octobre 2026) n'ont qu'un sous-thème par
-// catégorie, là où leur savoir vivait déjà — ballet, danses et bal ; sante et
-// medecine : chaque sous-thème prend sa part des séries de sa catégorie, et
-// six de danse en musique l'auraient faite à moitié dansée. Leurs familles —
-// la salsa, les orishas, la rééducation — vivent dans leur inventaire
-// (`server/src/core/inventaires.ts`).
-//
-// La langue française (le 17 octobre 2026) a pris son sous-thème à langue,
-// qui mêlait les accords du participe et l'alphabet coréen : langue garde
-// les autres langues, les écritures et les codes, francais tout ce qui dit
-// le français — son orthographe, sa grammaire, ses mots et leur origine.
-// L'anglais et l'espagnol ont pris chacun le leur le même jour : une série
-// de Culture générale y gagne des questions de langue, quatre sous-thèmes
-// sur douze, et une série de toutes les catégories presque rien.
 
 import { CATEGORIES } from './categories'
 import { tronquer } from './avatars'
+import { SOUS_THEMES } from './sousThemes'
 
-export interface SousTheme {
-  cle: string
-  nom: string
-}
-
-/** Les sous-thèmes de chaque catégorie : une clé n'existe que dans la sienne. */
-export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme[]> = {
-  "Culture générale": [
-    { cle: "francais", nom: "Langue française" },
-    { cle: "anglais", nom: "Langue anglaise" },
-    { cle: "espagnol", nom: "Langue espagnole" },
-    { cle: "langue", nom: "Langues et écritures du monde" },
-    { cle: "symboles", nom: "Symboles et institutions" },
-    { cle: "quotidien", nom: "Objets et vie quotidienne" },
-    { cle: "transports", nom: "Transports" },
-    { cle: "mythes", nom: "Mythes et religions" },
-    { cle: "societe", nom: "Société, métiers et argent" },
-    { cle: "sante", nom: "Métiers de la santé" },
-    { cle: "mesures", nom: "Mesures et calendrier" },
-    { cle: "records", nom: "Records et superlatifs" },
-  ],
-  "Histoire": [
-    { cle: "civilisations", nom: "Civilisations anciennes" },
-    { cle: "pouvoirs", nom: "Rois, présidents et régimes" },
-    { cle: "guerres", nom: "Guerres et batailles" },
-    { cle: "explorations", nom: "Explorations et conquêtes" },
-    { cle: "personnages", nom: "Grands personnages" },
-    { cle: "vie-autrefois", nom: "Vie d’autrefois" },
-    { cle: "faits-divers", nom: "Grands événements et faits marquants" },
-  ],
-  "Géographie": [
-    { cle: "capitales", nom: "Capitales et villes" },
-    { cle: "pays", nom: "Pays et frontières" },
-    { cle: "drapeaux", nom: "Drapeaux" },
-    { cle: "reliefs", nom: "Montagnes, volcans et déserts" },
-    { cle: "eaux", nom: "Fleuves, lacs, mers et océans" },
-    { cle: "france", nom: "Régions et départements français" },
-    { cle: "sites", nom: "Sites et monuments" },
-    { cle: "peuples", nom: "Peuples, langues et cultures" },
-  ],
-  "Sciences": [
-    { cle: "espace", nom: "Espace et astronomie" },
-    { cle: "terre", nom: "Planète Terre" },
-    { cle: "corps", nom: "Corps humain" },
-    { cle: "medecine", nom: "Maladies, examens et traitements" },
-    { cle: "physique-chimie", nom: "Physique et chimie" },
-    { cle: "maths", nom: "Mathématiques et logique" },
-    { cle: "techno", nom: "Technologies et informatique" },
-    { cle: "savants", nom: "Inventions et savants" },
-  ],
-  "Nature": [
-    { cle: "mammiferes", nom: "Mammifères" },
-    { cle: "oiseaux", nom: "Oiseaux" },
-    { cle: "aquatique", nom: "Poissons et vie aquatique" },
-    { cle: "petites-betes", nom: "Insectes, reptiles et petites bêtes" },
-    { cle: "plantes", nom: "Plantes, arbres et champignons" },
-    { cle: "disparus", nom: "Dinosaures et espèces disparues" },
-    { cle: "ecologie", nom: "Écologie et environnement" },
-  ],
-  "Cinéma & séries": [
-    { cle: "cinema-fr", nom: "Cinéma français" },
-    { cle: "cinema-monde", nom: "Cinéma du monde" },
-    { cle: "animation", nom: "Animation" },
-    { cle: "sagas", nom: "Sagas et super-héros" },
-    { cle: "series", nom: "Séries" },
-    { cle: "repliques", nom: "Répliques cultes" },
-    { cle: "coulisses", nom: "Récompenses et coulisses" },
-  ],
-  "Musique": [
-    { cle: "chanson-fr", nom: "Chanson française" },
-    { cle: "pop-rock", nom: "Pop et rock" },
-    { cle: "rap-electro", nom: "Rap, R&B et électro" },
-    { cle: "classique", nom: "Classique et opéra" },
-    { cle: "jazz-monde", nom: "Jazz, blues et musiques du monde" },
-    { cle: "danses", nom: "Danses de couple, de rue et du monde" },
-    { cle: "ecrans", nom: "Musiques de films et comédies musicales" },
-    { cle: "instruments", nom: "Instruments et théorie" },
-  ],
-  "Arts & lettres": [
-    { cle: "litterature-fr", nom: "Littérature française" },
-    { cle: "litterature-monde", nom: "Littérature du monde" },
-    { cle: "poesie-theatre", nom: "Poésie et théâtre" },
-    { cle: "ballet", nom: "Ballet et danse de scène" },
-    { cle: "bd", nom: "Bande dessinée et manga" },
-    { cle: "peinture", nom: "Peinture et dessin" },
-    { cle: "sculpture-archi", nom: "Sculpture et architecture" },
-    { cle: "philo", nom: "Philosophie et idées" },
-  ],
-  "Sport": [
-    { cle: "football", nom: "Football" },
-    { cle: "rugby", nom: "Rugby" },
-    { cle: "tennis", nom: "Tennis" },
-    { cle: "cyclisme", nom: "Cyclisme" },
-    { cle: "olympisme", nom: "Jeux olympiques et athlétisme" },
-    { cle: "equipes", nom: "Basket, hand, volley et hockey" },
-    { cle: "mecaniques", nom: "Sports mécaniques" },
-    { cle: "glisse", nom: "Montagne, glisse et voile" },
-    { cle: "combat", nom: "Sports de combat" },
-  ],
-  "Cuisine": [
-    { cle: "france", nom: "Spécialités françaises" },
-    { cle: "monde", nom: "Cuisines du monde" },
-    { cle: "terroir", nom: "Fromages et produits du terroir" },
-    { cle: "desserts", nom: "Desserts et pâtisserie" },
-    { cle: "ingredients", nom: "Ingrédients et produits bruts" },
-    { cle: "boissons", nom: "Vins et boissons" },
-    { cle: "techniques", nom: "Techniques et vocabulaire" },
-    { cle: "chefs", nom: "Chefs et gastronomie" },
-  ],
-  "Jeux & pop culture": [
-    { cle: "jeux-video", nom: "Jeux vidéo" },
-    { cle: "jeux-societe", nom: "Jeux de société et de cartes" },
-    { cle: "jouets", nom: "Jouets et enfance" },
-    { cle: "tele", nom: "Télévision et émissions" },
-    { cle: "internet", nom: "Internet et réseaux sociaux" },
-    { cle: "celebrites", nom: "Célébrités" },
-    { cle: "mode", nom: "Mode et style" },
-  ],
-  "Autour de la fête": [
-    { cle: "anniversaires", nom: "Anniversaires" },
-    { cle: "amour", nom: "Mariage et amour" },
-    { cle: "noel", nom: "Noël" },
-    { cle: "nouvel-an", nom: "Nouvel An" },
-    { cle: "halloween", nom: "Halloween" },
-    { cle: "traditions", nom: "Fêtes du monde et traditions" },
-    { cle: "bal", nom: "Bals et soirées dansantes" },
-    { cle: "cocktails", nom: "Cocktails et apéritifs" },
-  ],
-}
+export { SOUS_THEMES, type SousTheme } from './sousThemes'
 
 export interface Etiquette {
   cle: string
@@ -232,6 +92,27 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "tour-de-france", nom: "Tour de France", definition: "" },
       { cle: "eurovision", nom: "Eurovision", definition: "" },
       { cle: "cannes", nom: "Festival de Cannes", definition: "" },
+    ],
+  },
+  // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : chacun
+  // un sujet de la campagne (`shared/sujets.ts`). Pas la France — sa portée
+  // le dit déjà —, ni la Belgique, la Suisse ou le Québec : la francophonie.
+  {
+    famille: "Les pays",
+    regle:
+      "la question parle de ce pays : ses villes et ses paysages, son histoire (l'antique comprise), ses dirigeants, sa cuisine, ses traditions, ses sports — ou de ce qui en vient quand elle le dit (« écrivain japonais ») ou que le pays est la réponse. Pas sa mythologie, ni sa langue seule, ni ce qui s'y passe par hasard (un film américain tourné à Rome)",
+    etiquettes: [
+      { cle: "allemagne", nom: "Allemagne", definition: "" },
+      { cle: "australie", nom: "Australie", definition: "" },
+      { cle: "chine", nom: "Chine", definition: "" },
+      { cle: "espagne", nom: "Espagne", definition: "" },
+      { cle: "etats-unis", nom: "États-Unis", definition: "" },
+      { cle: "grece", nom: "Grèce", definition: "" },
+      { cle: "italie", nom: "Italie", definition: "" },
+      { cle: "japon", nom: "Japon", definition: "" },
+      { cle: "pays-nordiques", nom: "Pays nordiques (Suède, Norvège, Danemark, Finlande, Islande)", definition: "" },
+      { cle: "royaume-uni", nom: "Royaume-Uni", definition: "" },
+      { cle: "russie", nom: "Russie", definition: "" },
     ],
   },
 ]

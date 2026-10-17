@@ -186,6 +186,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
 | Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
+| Fête (un sujet) | Noël, le Nouvel An, Halloween, l'amour ou les anniversaires : un sujet qui ouvre l'onglet « Thèmes », la plus proche d'abord, sans parcours | `fetesDansLOrdre` |
 | Feuille du choix | La feuille « Sur quoi ? » où l'on choisit les catégories ou le sujet d'une série | `FeuilleDuChoix` |
 | Fiche | Un invité de la soirée : son prénom, son avatar, son équipe, son profil éventuel et son jeton | `PlayerRec` (`server/src/core/party.ts`) |
 | Fiche d'un quiz | L'écran d'un quiz dans « Mes quiz » : ce qu'il contient, « Lancer » et « Modifier les questions » en grand, les gestes rares sous « Plus » | `FicheDeQuiz` |
@@ -351,6 +352,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Piste du jour | Un trophée de carrière en trois étapes que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) ; le code appelle chaque étape un palier | `accorderPaliersDuJour` |
 | Placement | Les 10 premiers duels d'un joueur, qui comptent double sur sa cote cachée ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
 | Plancher (d'une cote) | Le seuil de la plus haute ligue gardée qu'un joueur a atteinte — l'argent, l'or, puis la platine : sa cote qu'on voit ne redescend plus dessous, et un adversaire plus bas y compte | `plancherApres`, `LIGUES_GARDEES`, `apresLeDuel` |
+| Pays (un sujet) | L'Italie, le Japon, les pays nordiques… : un sujet lu sur son étiquette, posée sur chaque question qui parle de lui — pas sa mythologie, ni sa langue seule | `ETIQUETTES` « Les pays » (`shared/etiquettes.ts`) |
 | Planche | Une image où chaque dessin peint paraît dans tous ses états, rendue par les vrais composants, sans serveur | `server/scripts/planche-medaillons.ts` |
 | Les plus beaux | Les trois trophées qu'une carte montre quand son profil n'a pas choisi sa vitrine — exploits et plus hautes étapes de piste, les plus rares d'après une rareté mesurée d'avance | `plusBeaux` |
 | Les plus proches | Les trois objectifs commencés les plus avancés : un légendaire, ou l'étape suivante d'une piste | `lesPlusProches` |
@@ -426,6 +428,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Réveil | Le démarrage d'un service endormi, sur un disque effacé ; la page « Le serveur » le distingue d'une mise en ligne, d'une relance et d'un redémarrage après un arrêt net | `sorteDuDemarrage` |
 | Révision | Une partie sans vies de dix questions au plus, tirées du carnet, les plus en retard d'abord | `commencerRevision` |
 | Routine du matin | La routine Claude Code qui remplit chaque matin la réserve du quiz du jour et la base de la campagne, et réveille la production au passage | `RESERVE_TOKEN` |
+| Rubrique | Un sous-thème seul, choisi sous sa catégorie (« Sport », puis « Football ») : une partie le joue comme un sujet, sans parcours, dès cent questions. Un sujet qui ne lit qu'un sous-thème en tient la rubrique : « Les jeux vidéo », à la place de « Jeux vidéo » | `RUBRIQUES`, `rubriquesDeLaCategorie` (`shared/sujets.ts`) |
 
 ## S
 

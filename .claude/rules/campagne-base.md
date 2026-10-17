@@ -95,3 +95,18 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   pour le pastis « 51 ») ou deux choix que l'intitulé élimine (« roi de
   Navarre », quand deux leurres ne l'étaient pas) — un coup d'œil sur les
   lots avant de ranger les attrape.
+- **Une étiquette neuve se pose sur la base par des relecteurs, pas par des
+  mots-clés** (les pays, le 17 octobre 2026) : les mots-clés d'un pays —
+  ses noms, ses villes, ses spécialités, dans l'intitulé, la bonne réponse
+  et les entités, les sous-thèmes de langue écartés d'emblée — ont donné
+  6 600 candidates ; trente agents (Sonnet), chacun un lot de trois cents
+  au plus et la règle de la famille avec ses exemples, en ont gardé
+  4 614 — de 52 % pour la Grèce, dont la mythologie est aux mythes, à 81 %
+  pour les États-Unis — ; `reclasser` (`ajouter`) les a posées sous leur
+  identifiant, 4 354 pour les onze pays retenus. Les mots-clés seuls
+  auraient mis les chiffres romains à l'Italie, la crème anglaise au
+  Royaume-Uni, Valence la Drômoise à l'Espagne et les Indiens d'Amérique à
+  l'Inde. Un agent ne rend que les identifiants qu'il garde : tout autre
+  identifiant que ceux de son lot s'écarte avant `reclasser` (aucun ce
+  jour-là), et une question qui a déjà trois étiquettes n'en reçoit pas de
+  quatrième (onze).

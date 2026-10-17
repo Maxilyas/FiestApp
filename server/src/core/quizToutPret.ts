@@ -13,7 +13,7 @@ import {
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
-import { sujetParCle } from '../../../shared/sujets'
+import { rubriqueDe, sujetParCle } from '../../../shared/sujets'
 import type { QuestionDeLaBase } from './baseCampagne'
 import { empreinteDe } from './jour'
 import { DejaPrises } from './jumelles'
@@ -472,9 +472,11 @@ function passeAvant(a: readonly number[], b: readonly number[]): boolean {
  * estimation —, pas plus vieille d'âge — un quiz d'enfants le reste —, ni
  * de la bibliothèque, ni du quiz, ni la jumelle d'une de ses autres
  * questions (`jumelles`). Elle partage d'abord les sujets de la remplacée —
- * son époque, son thème —, puis vient ce que les soirées n'ont jamais posé,
- * puis le plus anciennement posé ; à égalité, au hasard. Null quand la base
- * n'a plus rien de semblable — ou que la remplacée n'en vient pas.
+ * son époque, son thème —, puis, sans jumelle, sa rubrique — son
+ * sous-thème : un quiz composé sur le football le reste —, puis vient ce que
+ * les soirées n'ont jamais posé, puis le plus anciennement posé ; à égalité,
+ * au hasard. Null quand la base n'a plus rien de semblable — ou que la
+ * remplacée n'en vient pas.
  *
  * `quiz` : les identifiants des questions du quiz tel que l'éditeur l'a, pas
  * encore enregistré.
@@ -494,7 +496,9 @@ export function uneAutreQuestion(
   const niveauDe = (q: QuestionDeLaBase) => niveauDeQuestion(q.meta.difficulte, mesures.get(q.id))
   const niveau = niveauDe(origine)
   const estimation = remplacee.kind === 'number'
-  const sesSujets = sujetsDe(origine)
+  // Sa rubrique passe après la jumelle (`rubriqueDe`) : comptée avec ses sujets, elle ferait préférer une jumelle du même sous-thème.
+  const saRubrique = rubriqueDe(origine.meta)
+  const sesSujets = sujetsDe(origine).filter(s => s !== saRubrique)
   const exclues = new Set(quiz)
   const autres = new DejaPrises()
   for (const id of quiz) {
@@ -509,9 +513,16 @@ export function uneAutreQuestion(
     if (estimation ? !cibleDeLEstimation(q) : niveau === 'expert' && q.reponses.length === 2) continue
     const lesSiens = sujetsDe(q)
     const posee = deja.posees.get(id)
-    // Le plus petit gagne : ses sujets manquants, la jumelle, la réponse soufflée par sa racine, puis jamais posée,
-    // puis la plus anciennement posée.
-    const rang = [sesSujets.filter(s => !lesSiens.includes(s)).length, autres.jumelle(q) ? 1 : 0, q.soufflee ? 1 : 0, posee === undefined ? 0 : 1, posee ?? 0]
+    // Le plus petit gagne : ses sujets manquants, la jumelle, une autre rubrique, la réponse soufflée par sa racine,
+    // puis jamais posée, puis la plus anciennement posée.
+    const rang = [
+      sesSujets.filter(s => !lesSiens.includes(s)).length,
+      autres.jumelle(q) ? 1 : 0,
+      rubriqueDe(q.meta) === saRubrique ? 0 : 1,
+      q.soufflee ? 1 : 0,
+      posee === undefined ? 0 : 1,
+      posee ?? 0,
+    ]
     if (!meilleure || passeAvant(rang, meilleure.rang)) meilleure = { q, rang }
   }
   if (!meilleure) return null

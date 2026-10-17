@@ -85,7 +85,7 @@ export type IconName =
   | 'shield'
   // Les thèmes de la campagne (`client/src/iconeDuSujet.ts`).
   | 'paw'
-  | 'planet'
+  | 'volcan'
   | 'medal'
   | 'dancer'
   | 'stethoscope'
@@ -97,6 +97,13 @@ export type IconName =
   | 'lettres'
   | 'hi'
   | 'enye'
+  // Les fêtes de la campagne : Noël, Halloween, le Nouvel An, les anniversaires.
+  | 'sapin'
+  | 'citrouille'
+  | 'artifice'
+  | 'gateau'
+  // Les pays de la campagne, tous du même repère.
+  | 'repere'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -588,11 +595,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
-  planet: {
+  // Un volcan qui fume au-dessus de la vague : volcans et océans. La planète à
+  // anneau qu'avait la Terre et l'espace est partie avec l'espace.
+  volcan: {
     paths: (
       <>
-        <circle cx="12" cy="12" r="5.5" />
-        <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-20 12 12)" />
+        <path d="M3.5 17.5 9 8.5c1 .9 2 1.3 3 1.3s2-.4 3-1.3l5.5 9" />
+        <path d="M10.6 6.2a1.7 1.7 0 0 1 1.5-2.6 2 2 0 0 1 3.7.4 1.5 1.5 0 0 1-.3 2.9" />
+        <path d="M3 20.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1" />
       </>
     ),
   },
@@ -630,7 +640,7 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   },
   // Les chevrons d'une balise : l'informatique. L'écran était pris par le
   // petit écran, la planète par la Terre et l'espace — d'où la lunette pour
-  // l'astronomie, posée sur son trépied.
+  // l'astronomie, posée sur son trépied, qu'elle a gardée.
   code: { paths: <path d="M8 7 3 12l5 5M16 7l5 5-5 5M13.5 5l-3 14" /> },
   telescope: {
     paths: (
@@ -675,6 +685,36 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   // comme le « Aa » du français — pas un drapeau, l'anglais n'est pas qu'anglais.
   hi: { paths: <path d="M5 6v12M12.5 6v12M5 12h7.5M18 11v7M18 7.2v.01" /> },
   enye: { paths: <path d="M8.5 19v-8.5M8.5 13.5a3.5 3.5 0 0 1 7 0V19M8 7.5c1.1-1.3 2.3-1.5 3.6-.6s2.6.8 3.9-.7" /> },
+  // Les fêtes (le 17 octobre 2026) : le sapin de Noël et son pied, la citrouille et ses côtes, le feu
+  // d'artifice du Nouvel An, le gâteau et ses trois bougies. L'amour a déjà son cœur.
+  sapin: { paths: <path d="M12 2.8 7.4 8.6h2.4l-3.6 4.8h2.6L5 18.6h14l-3.8-5.2h2.6l-3.6-4.8h2.4L12 2.8ZM12 18.6v2.8" /> },
+  citrouille: {
+    paths: (
+      <>
+        <path d="M12 7.5c-1.2-.9-2.6-1.3-4.2-1.3C5.1 6.2 3 9 3 13s2.1 6.8 4.8 6.8c1.6 0 3-.4 4.2-1.3 1.2.9 2.6 1.3 4.2 1.3 2.7 0 4.8-2.8 4.8-6.8s-2.1-6.8-4.8-6.8c-1.6 0-3 .4-4.2 1.3Z" />
+        <path d="M12 7.5c-1.3 1.4-2 3.3-2 5.5s.7 4.1 2 5.5c1.3-1.4 2-3.3 2-5.5s-.7-4.1-2-5.5ZM12 7.5V4.5c0-.9.5-1.5 1.5-1.8" />
+      </>
+    ),
+  },
+  artifice: { paths: <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21M5.6 5.6l2.5 2.5M15.9 15.9l2.5 2.5M5.6 18.4l2.5-2.5M15.9 8.1l2.5-2.5M12 10.5v3M10.5 12h3" /> },
+  // Le repère d'une carte : un pays. Quatorze drapeaux ne tiennent pas dans un
+  // trait, et ceux des emojis s'écrivent en lettres sous Windows 10 (« IT »).
+  repere: {
+    paths: (
+      <>
+        <path d="M12 21.2c-3.9-4.4-6.6-8.1-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 3.1-2.7 6.8-6.6 11.2Z" />
+        <circle cx="12" cy="10" r="2.4" />
+      </>
+    ),
+  },
+  gateau: {
+    paths: (
+      <>
+        <path d="M4.5 20.5V13a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v7.5M3 20.5h18" />
+        <path d="M4.5 15.5c1.2.9 2.4.9 3.6 0s2.4-.9 3.6 0 2.4.9 3.6 0 2.4-.9 3.6 0M8 11.5v-3M12 11.5v-3M16 11.5v-3M8 5.5v.01M12 5.5v.01M16 5.5v.01" />
+      </>
+    ),
+  },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.

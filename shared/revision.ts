@@ -80,9 +80,9 @@ export interface EtatDuCarnet {
    */
   categories: ({ categorie: string } & PartDuCarnet)[]
   /**
-   * De même par sujet — thème, époque, fil rouge (`shared/sujets.ts`) —, dans
-   * l'ordre de `SUJETS`. Une question en a plusieurs, ou aucun : leurs comptes
-   * ne s'additionnent pas.
+   * De même par sujet — thème, époque, fil rouge (`shared/sujets.ts`) —, puis
+   * par rubrique, son sous-thème : dans l'ordre de `SUJETS_ET_RUBRIQUES`. Une
+   * question en a plusieurs : leurs comptes ne s'additionnent pas.
    */
   sujets: ({ sujet: string } & PartDuCarnet)[]
 }
