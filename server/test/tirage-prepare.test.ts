@@ -408,7 +408,13 @@ test('le préchauffage compte les sujets et prépare le tirage en fond : la prem
     const jouables = await prive.jouables()
     assert.ok(!prive.choixGardes.has(jouables), 'rien de compté avant le préchauffage')
     campagne.prechauffer()
-    for (let tour = 0; tour < 500 && !prive.preparations.has(jouables); tour++) await new Promise(rendre => setTimeout(rendre, 2))
+    // Les deux, dans n'importe quel ordre : l'ajustement du modèle, que le
+    // préchauffage lance aussi, peut préparer le tirage le premier — sa série
+    // de référence en lit les marches (`referencePour`). Attendre le seul
+    // tirage s'arrêtait alors avant les sujets, une fois sur deux en CI.
+    for (let tour = 0; tour < 500 && !(prive.choixGardes.has(jouables) && prive.preparations.has(jouables)); tour++) {
+      await new Promise(rendre => setTimeout(rendre, 2))
+    }
     assert.ok(prive.choixGardes.has(jouables), 'les sujets comptés en fond, avant que personne ne les demande')
     const preparee = prive.preparations.get(jouables)
     assert.ok(preparee, 'le tirage préparé en fond')
