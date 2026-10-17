@@ -133,11 +133,11 @@ function poserLeFilet() {
   // Le serveur continue, mais la page « Le serveur » du QG s'en souvient.
   process.on('unhandledRejection', raison => {
     console.error('[filet] promesse rejetée sans personne pour l’attendre — le serveur continue :', raison)
-    releve.erreur('exception échappée')
+    releve.erreur('exception échappée', raison)
   })
   process.on('uncaughtException', (e, origine) => {
     console.error(`[filet] exception échappée (${origine}) — le serveur continue :`, e)
-    releve.erreur('exception échappée')
+    releve.erreur('exception échappée', e)
   })
 }
 

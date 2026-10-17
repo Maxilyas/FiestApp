@@ -10118,6 +10118,11 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .qg-tuile-detail { display: block; min-width: 0; overflow-wrap: anywhere; }
 .qg-sources > li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.85rem; }
 .qg-source { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; }
+/* Ce qui a échoué : le message sur deux lignes au plus dans la liste — un message de base de données en faisait six au téléphone —, entier dans sa fiche, et la pile en chasse fixe. */
+.qg-echec-message { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.qg-echec-entier { margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }
+.qg-pile { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 1.8em; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
+.qg-pile li::marker { color: var(--muted); }
 /* La légende dit aussi les chiffres du jour qu'on survole — aujourd'hui sinon : au toucher, pas d'infobulle. */
 .qg-legende { display: flex; flex-direction: column; gap: 6px; }
 .qg-legende-jour { font-size: 0.85rem; font-weight: 600; }

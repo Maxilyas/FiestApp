@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
+import { copierTexte } from '../copier'
+import { showToast } from '../state'
 import { Icon, type IconName } from './Icon'
+import { Feuille } from './Pieces'
 import { barreArrondie, useLargeur } from './QgVueDEnsemble'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
@@ -10,6 +13,7 @@ import {
   PROCESSEUR_DE_L_HEBERGEUR_PCT,
   requetesServies,
   tempsDeReponse,
+  type ErreurDeLaSemaine,
   type EvenementDuServeur,
   type HeureDuServeur,
   type PageDuServeur,
@@ -18,6 +22,10 @@ import {
 
 /** Une semaine de réveils en compte une quinzaine : les douze derniers d'emblée, le reste sur demande. */
 const EVENEMENTS_MONTRES = 12
+/** Les erreurs de la semaine montrées d'emblée, les plus récentes : le reste sur demande. */
+const ERREURS_MONTREES_D_ABORD = 10
+/** Les heures d'une erreur que sa fiche détaille : une panne qui a duré la semaine les remplirait toutes. */
+const HEURES_D_UNE_ERREUR = 12
 
 /** « mar. 13 oct. » */
 const dateCourte = (instant: number) => `${JOURS_DE_LA_SEMAINE[jourDeLaSemaine(instant)].court} ${jourAbrege(jourDe(instant))}`
@@ -39,6 +47,11 @@ function quandDuServeur(instant: number, maintenant: number): string {
 }
 
 const erreurs = (n: number) => `${formatNumber(n)} erreur${n > 1 ? 's' : ''}`
+const fois = (n: number) => `${formatNumber(n)} fois`
+
+/** « 3 erreurs : POST /api/jour/reponse (2), socket host:launch (1) » — l'heure lue nomme ses sources ; sans erreur, elle s'en tait. */
+const erreursDeLHeure = (h: HeureDuServeur) =>
+  h.erreurs === 0 ? null : `${erreurs(h.erreurs)} : ${h.erreursParSource.map(s => `${s.source} (${formatNumber(s.n)})`).join(', ')}`
 
 /**
  * La santé du serveur au QG (`/admin#serveur`, les choix du 13 octobre 2026) :
@@ -137,20 +150,11 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         heures={page.heures}
         valeur={h => (h.eveille ? h.erreurs : null)}
         ecrire={erreurs}
+        legende={erreursDeLHeure}
         classe="qg-serveur-erreur"
         maintenant={maintenant}
-      >
-        {c.erreurs.sources.length > 0 && (
-          <ul className="qg-liste qg-sources">
-            {c.erreurs.sources.map(s => (
-              <li key={s.source}>
-                <span className="qg-source">{s.source}</span>
-                <span className="num">{erreurs(s.n)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Heures>
+      />
+      <CeQuiAEchoue page={page} />
 
       <Evenements evenements={page.evenements} maintenant={maintenant} />
       <TableauDesHeures heures={page.heures} maintenant={maintenant} />
@@ -193,9 +197,9 @@ function Heures({
   heures,
   valeur,
   ecrire,
+  legende,
   classe,
   maintenant,
-  children,
 }: {
   id: string
   titre: string
@@ -203,9 +207,10 @@ function Heures({
   heures: HeureDuServeur[]
   valeur: (h: HeureDuServeur) => number | null
   ecrire: (v: number) => string
+  /** Ce que l'heure lue en dit, plus que son chiffre ; null, son chiffre seul. */
+  legende?: (h: HeureDuServeur) => string | null
   classe: string
   maintenant: number
-  children?: ReactNode
 }) {
   const [choisie, setChoisie] = useState<number | null>(null)
   const h = heures[choisie ?? derniereMesuree(heures.map(valeur))]
@@ -218,10 +223,193 @@ function Heures({
       </div>
       <GrapheDesHeures id={id} nom={titre} heures={heures} valeur={valeur} ecrire={ecrire} classe={classe} maintenant={maintenant} choisie={choisie} choisir={setChoisie} />
       <p className="qg-legende-jour" aria-live="polite">
-        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : ecrire(v)}
+        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : (legende?.(h) ?? ecrire(v))}
       </p>
-      {children}
     </section>
+  )
+}
+
+/**
+ * Ce qui a échoué cette semaine (le souhait du propriétaire du 17 octobre
+ * 2026 : « mieux voir les erreurs, d'où elles proviennent, et avoir des
+ * détails en cliquant dessus ») : les mêmes fondues, la plus récente
+ * d'abord — d'où elle vient, sa sorte et son message, l'endroit du code qui
+ * l'a levée —, chacune ouvre sa fiche. Le graphique disait combien et
+ * quand, rien de ce qu'il fallait réparer. Hors de l'écran nocturne : la
+ * fiche s'ouvre dans le thème de la page.
+ */
+function CeQuiAEchoue({ page }: { page: PageDuServeur }) {
+  const [toutes, setToutes] = useState(false)
+  const [ouverte, setOuverte] = useState<ErreurDeLaSemaine | null>(null)
+  const { erreurs: liste, erreursSansDetail: sansDetail, maintenant } = page
+  const montrees = toutes ? liste : liste.slice(0, ERREURS_MONTREES_D_ABORD)
+  return (
+    <section className="qg-carte" aria-labelledby="serveur-echecs">
+      <div className="qg-carte-tete">
+        <h2 id="serveur-echecs">Ce qui a échoué</h2>
+        {liste.length > 0 && <span className="etiquette num">{liste.length}</span>}
+      </div>
+      {liste.length === 0 && sansDetail.length === 0 && <p className="muted small">Aucune erreur serveur cette semaine.</p>}
+      {liste.length > 0 && (
+        <ul className="qg-liste">
+          {montrees.map(e => (
+            <li key={e.cle}>
+              <button type="button" className="qg-ligne" onClick={() => setOuverte(e)}>
+                <span className="qg-rond qg-rond-alerte" aria-hidden="true">
+                  <Icon name="alert" />
+                </span>
+                <span className="qg-ligne-texte">
+                  <span className="qg-source">{e.source}</span>
+                  <b className="qg-echec-message">{e.message ? `${e.nom} : ${e.message}` : e.nom}</b>
+                  <span className="muted small">{[fois(e.n), `la dernière ${quandDuServeur(e.derniere, maintenant)}`, e.ou].filter(Boolean).join(' · ')}</span>
+                </span>
+                <Icon name="chevron-right" className="qg-chevron" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!toutes && liste.length > ERREURS_MONTREES_D_ABORD && (
+        <button type="button" className="lien-discret qg-suite" onClick={() => setToutes(true)}>
+          Et {formatNumber(liste.length - ERREURS_MONTREES_D_ABORD)} de plus cette semaine
+          <Icon name="chevron-down" />
+        </button>
+      )}
+      {sansDetail.length > 0 && (
+        <div className="qg-fiche-groupe">
+          {/* Comptées, jamais perdues : d'avant le détail, ou au-delà de douze dans l'heure (`ERREURS_EN_DETAIL`). */}
+          <p className="muted small">Comptées sans leur détail — d’avant le 17 octobre 2026, ou au-delà de douze dans l’heure :</p>
+          <ul className="qg-liste qg-sources">
+            {sansDetail.map(s => (
+              <li key={s.source}>
+                <span className="qg-source">{s.source}</span>
+                <span className="num">{erreurs(s.n)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {ouverte && (
+        <Feuille
+          // Sa sorte seule : avec son code, « LibsqlError · SQLITE_BUSY » passait sur deux lignes au téléphone.
+          titre={ouverte.nom}
+          onFermer={() => setOuverte(null)}
+          pied={
+            <button
+              type="button"
+              className="btn btn-block"
+              onClick={async () => {
+                const copie = await copierTexte(texteDeLErreur(ouverte, page))
+                showToast({ kind: copie ? 'info' : 'error', message: copie ? 'Détail copié' : 'Copie impossible : sélectionne-le à la main' })
+              }}
+            >
+              <Icon name="copy" />
+              Copier le détail
+            </button>
+          }
+        >
+          <FicheDeLErreur erreur={ouverte} page={page} />
+        </Feuille>
+      )}
+    </section>
+  )
+}
+
+/**
+ * La fiche d'une erreur : son message entier, d'où elle vient — la route,
+ * le socket — et l'endroit du code, combien de fois et quand, sous quelles
+ * versions — encore là après une mise en ligne, elle n'est pas réparée —,
+ * ses heures, et sa pile d'appels ramenée aux fichiers du dépôt.
+ */
+export function FicheDeLErreur({ erreur: e, page }: { erreur: ErreurDeLaSemaine; page: PageDuServeur }) {
+  const { maintenant, enMarche } = page
+  const heures = e.heures.slice(0, HEURES_D_UNE_ERREUR)
+  return (
+    <div className="qg-fiche">
+      <p className="qg-echec-entier">{e.message || 'Sans message.'}</p>
+      <dl className="admin-fiche">
+        <Ligne nom="D’où">
+          <span className="qg-source">{e.source}</span>
+        </Ligne>
+        <Ligne nom="Dans le code">{e.ou ? <span className="qg-source">{e.ou}</span> : 'hors du dépôt'}</Ligne>
+        {e.code && (
+          <Ligne nom="Code">
+            <span className="qg-source">{e.code}</span>
+          </Ligne>
+        )}
+        <Ligne nom="Combien">
+          {fois(e.n)}, en {formatNumber(e.heures.length)} heure{e.heures.length > 1 ? 's' : ''}
+        </Ligne>
+        <Ligne nom="La première">{quandDuServeur(e.premiere, maintenant)}</Ligne>
+        <Ligne nom="La dernière">{quandDuServeur(e.derniere, maintenant)}</Ligne>
+        {e.versions.length > 0 && <Ligne nom={e.versions.length > 1 ? 'Versions' : 'Version'}>{e.versions.join(', ')}</Ligne>}
+      </dl>
+      {enMarche.version && (
+        <p className="qg-fiche-note">
+          <Icon name={e.versions.includes(enMarche.version) ? 'alert' : 'check'} />
+          <span>
+            {e.versions.includes(enMarche.version)
+              ? `Tombée sous la version en marche (${enMarche.version}) : pas réparée.`
+              : `Pas revue depuis la mise en ligne de la version ${enMarche.version} : peut-être réparée.`}
+          </span>
+        </p>
+      )}
+      {e.pile.length > 0 && (
+        <div className="qg-fiche-groupe">
+          <p className="label">La pile d’appels</p>
+          <ol className="qg-pile">
+            {e.pile.map((cadre, i) => (
+              <li key={i}>{cadre}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <div className="qg-fiche-groupe">
+        <p className="label">Ses heures</p>
+        <ul className="qg-liste qg-sources">
+          {heures.map(h => (
+            <li key={h.heure}>
+              <span>{heureDuReleve(h.heure, maintenant)}</span>
+              <span className="num">{fois(h.n)}</span>
+            </li>
+          ))}
+        </ul>
+        {e.heures.length > heures.length && (
+          <p className="muted small">
+            Et {formatNumber(e.heures.length - heures.length)} heure{e.heures.length - heures.length > 1 ? 's' : ''} de plus.
+          </p>
+        )}
+      </div>
+      <p className="muted small">
+        Le joueur, lui, a lu « Erreur serveur — réessaie dans un instant ». Le journal du service, sur Render, en garde la pile entière, à la minute de la
+        dernière.
+      </p>
+    </div>
+  )
+}
+
+/** Le détail d'une erreur en texte, à coller ailleurs — un ticket, une conversation qui la réparera. */
+export function texteDeLErreur(e: ErreurDeLaSemaine, page: PageDuServeur): string {
+  const { maintenant } = page
+  return [
+    e.code ? `${e.nom} · ${e.code}` : e.nom,
+    e.message,
+    `D’où : ${e.source}`,
+    e.ou && `Dans le code : ${e.ou}`,
+    `${fois(e.n)} cette semaine — la première ${quandDuServeur(e.premiere, maintenant)}, la dernière ${quandDuServeur(e.derniere, maintenant)}`,
+    e.versions.length > 0 && `Versions : ${e.versions.join(', ')}`,
+    e.pile.length > 0 && ['Pile :', ...e.pile.map(c => `  ${c}`)].join('\n'),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function Ligne({ nom, children }: { nom: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt>{nom}</dt>
+      <dd>{children}</dd>
+    </div>
   )
 }
 

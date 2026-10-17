@@ -154,9 +154,10 @@ export class Missions {
       let minuteur: ReturnType<typeof setTimeout> | undefined
       const enRoute = new Promise<never>((_, rejeter) => {
         minuteur = setTimeout(() => {
+          const enRetard = new LectureEnRoute(ou, dureeMs)
           // Au relevé de l'heure aussi, sous son étape — sans un nom : la page « Le serveur » du QG le dira.
-          releve.erreur(`missions en route · ${ou}`)
-          rejeter(new LectureEnRoute(ou, dureeMs))
+          releve.erreur(`missions en route · ${ou}`, enRetard)
+          rejeter(enRetard)
         }, dureeMs)
       })
       return Promise.race([travail(e => (ou = e)), enRoute]).finally(() => clearTimeout(minuteur))

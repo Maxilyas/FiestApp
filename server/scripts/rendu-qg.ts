@@ -9,7 +9,8 @@
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
 // clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
-// en ligne, un arrêt net hier soir, son trafic — ; la page de l'activité —
+// en ligne, un arrêt net hier soir, son trafic, ses erreurs en détail et une
+// d'avant le détail —, et la fiche d'une erreur ouverte ; la page de l'activité —
 // trente jours de questions jouées, les vingt-quatre joueurs nommés et leur
 // manie, campagne, quiz du jour, duels ou un peu de tout — ; la page du quiz du jour — huit
 // habitués et leurs séries, cent réponses par question, une question piège
@@ -47,6 +48,7 @@ import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
+import type { ErreurEnDetail } from '../../shared/santeDuServeur'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
@@ -291,9 +293,39 @@ try {
         const heureDeParis = Math.floor(minutesDeParis(heure) / 60)
         const r = releveDe(heure, heureDeParis >= 20)
         const erreurs: Record<string, number> = {}
+        // Leur détail, comme le serveur empaqueté le relève : le fichier du dépôt de chaque cadre, sans sa ligne.
+        const erreursEnDetail: ErreurEnDetail[] = []
         // Les erreurs de sa dernière heure : celles qui ont précédé l'arrêt net.
-        if (id === 'hier-matin' && heure === Math.floor((fin - 1) / H) * H) erreurs['POST /api/jour/reponse'] = 3
-        if (id === 'avant-hier' && heureDeParis === 14) erreurs['socket host:launch'] = 1
+        if (id === 'hier-matin' && heure === Math.floor((fin - 1) / H) * H) {
+          erreurs['POST /api/jour/reponse'] = 3
+          erreursEnDetail.push({
+            source: 'POST /api/jour/reponse',
+            nom: 'LibsqlError',
+            code: 'SQLITE_BUSY',
+            message: 'SQLITE_BUSY: database is locked',
+            ou: 'JourStore.repondre · server/src/core/jour.ts',
+            pile: ['Sqlite3Client.execute · @libsql/client', 'JourStore.repondre · server/src/core/jour.ts', 'async (anonyme) · server/src/jour.ts'],
+            n: 3,
+            premiere: fin - 9 * 60_000,
+            derniere: fin - 2 * 60_000,
+          })
+        }
+        if (id === 'avant-hier' && heureDeParis === 14) {
+          erreurs['socket host:launch'] = 1
+          erreursEnDetail.push({
+            source: 'socket host:launch',
+            nom: 'TypeError',
+            code: null,
+            message: "Cannot read properties of undefined (reading 'questions')",
+            ou: 'GameEngine.launch · server/src/core/engine.ts',
+            pile: ['GameEngine.launch · server/src/core/engine.ts', '(anonyme) · server/src/sockets.ts', 'Socket.emit · socket.io'],
+            n: 1,
+            premiere: heure + 23 * 60_000,
+            derniere: heure + 23 * 60_000,
+          })
+        }
+        // D'avant le détail : comptées, sans rien de ce qu'elles étaient.
+        if (id === 'j2' && heureDeParis === 15) erreurs['GET /api/campagne/sentiers'] = 2
         const base = id === 'mise-en-ligne' && heureDeParis === 18 ? 1240 : r.base
         // La charge suit la salle : une soirée le soir, quelques joueurs du jour la journée.
         const soiree = heureDeParis >= 20
@@ -326,6 +358,7 @@ try {
             routes: { n: 260, p50: Math.round(r.routes * 0.4), p95: r.routes, max: r.routes * 3 },
             lentes: [{ route: 'POST /api/campagne/serie/:id/reponse', n: 60, p95: Math.round(r.routes * 1.4) }],
             erreurs,
+            ...(erreursEnDetail.length > 0 && { erreursEnDetail }),
             miroir: 0,
             charge: {
               n: 360,
@@ -731,6 +764,25 @@ try {
   }
   await surLesSignalements('56-signalements-relues', 1366, 768, versLesRelues, true)
   await surLesSignalements('57-signalements-relues-telephone', 360, 640, versLesRelues, true)
+
+  // Ce qui a échoué : la fiche d'une erreur, ouverte d'un toucher sur sa ligne.
+  for (const [nom, largeur, hauteur] of [
+    ['29-serveur-erreur', 1366, 768],
+    ['29-serveur-erreur-telephone', 360, 640],
+  ] as const) {
+    const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
+    const [cle, valeur] = admin.split('=')
+    await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
+    const page = await contexte.newPage()
+    page.on('pageerror', (e: Error) => console.error('[page]', e.message))
+    await page.goto(`${banc.url}/admin#serveur`)
+    await page.locator('section[aria-labelledby="serveur-echecs"] button.qg-ligne').first().click()
+    await page.waitForSelector('.carte-feuille')
+    await page.waitForTimeout(500)
+    await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
+    console.log(path.join(sortie, `${nom}.png`))
+    await contexte.close()
+  }
 
   // La soirée laissée en plan, close d'ici : la confirmation, puis la page qui s'en remet.
   {
