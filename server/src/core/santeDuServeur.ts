@@ -15,6 +15,7 @@ import {
   pageDuServeur,
   type AlertesDuServeur,
   type DemarrageDuServeur,
+  type ErreurEnDetail,
   type HeureDeSante,
   type PageDuServeur,
   type PlafondsDuConteneur,
@@ -39,10 +40,27 @@ function lireDemarrage(r: Row): DemarrageDuServeur {
   }
 }
 
+/** Les erreurs en détail d'une ligne, celles qui se lisent : une seule de travers ne doit pas faire tomber la page qui les liste. */
+function erreursLues(v: unknown): ErreurEnDetail[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter(
+      (e): e is ErreurEnDetail =>
+        !!e &&
+        typeof e === 'object' &&
+        ['source', 'nom', 'message'].every(cle => typeof e[cle] === 'string') &&
+        ['n', 'premiere', 'derniere'].every(cle => Number.isFinite(e[cle])) &&
+        Array.isArray(e.pile) &&
+        e.pile.every((c: unknown) => typeof c === 'string'),
+    )
+    .map(e => ({ ...e, code: typeof e.code === 'string' ? e.code : null, ou: typeof e.ou === 'string' ? e.ou : null }))
+}
+
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
 function lireHeure(r: Row): HeureDeSante | null {
   try {
     const releve = JSON.parse(String(r.releve)) as Partial<HeureDeSante>
+    const enDetail = erreursLues(releve.erreursEnDetail)
     return {
       heure: Number(r.heure),
       demarrage: String(r.demarrage),
@@ -50,6 +68,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       routes: releve.routes ?? null,
       lentes: Array.isArray(releve.lentes) ? releve.lentes : [],
       erreurs: releve.erreurs && typeof releve.erreurs === 'object' ? releve.erreurs : {},
+      ...(enDetail.length > 0 && { erreursEnDetail: enDetail }),
       miroir: Number(releve.miroir ?? 0),
       charge: releve.charge ?? null,
       connexions: releve.connexions ?? null,

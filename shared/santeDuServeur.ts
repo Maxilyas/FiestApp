@@ -177,6 +177,43 @@ export interface ConnexionsDeLHeure {
   ouvertesParUnBattement?: number
 }
 
+/**
+ * Une erreur serveur en détail, comme l'heure la garde (le souhait du
+ * propriétaire du 17 octobre 2026 : « mieux voir les erreurs, d'où elles
+ * proviennent, et des détails en cliquant dessus ») : les mêmes — même
+ * source, même sorte, même message — se comptent ensemble (`cleDeLErreur`).
+ * Le journal du service garde tout, mais rien n'y dit où chercher.
+ */
+export interface ErreurEnDetail {
+  /** Sa source, comme au compte de l'heure : la route sous son modèle, l'événement d'un socket, une exception échappée. */
+  source: string
+  /** Sa sorte — `TypeError`, `LibsqlError` —, et son code quand elle en a un (`SQLITE_BUSY`, `ECONNRESET`). */
+  nom: string
+  code: string | null
+  /** Son message et ceux de ses causes, nettoyés — ni jeton, ni paramètre d'adresse — et coupés (`core/erreurs.ts`). */
+  message: string
+  /** Le premier cadre de la pile qui vient du dépôt : la fonction et son fichier — d'où elle vient. */
+  ou: string | null
+  /** La pile d'appels, ses cadres lisibles, du plus proche au plus lointain. */
+  pile: string[]
+  n: number
+  premiere: number
+  derniere: number
+}
+
+/** Au-delà, une erreur de plus dans l'heure se compte à sa source sans son détail : une panne en boucle ne remplit pas la base. */
+export const ERREURS_EN_DETAIL = 12
+
+/**
+ * Ce qui fait deux erreurs « les mêmes » : leur source, leur sorte, leur
+ * message — ses nombres et ses identifiants mis à part, sans quoi chaque
+ * « délai de 10 012 ms dépassé » ferait la sienne.
+ */
+export function cleDeLErreur(e: Pick<ErreurEnDetail, 'source' | 'nom' | 'message'>): string {
+  const message = e.message.replace(/\b[0-9a-f]{8,}\b/gi, '…').replace(/\d+/g, '#')
+  return `${e.source}|${e.nom}|${message}`
+}
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -189,6 +226,8 @@ export interface HeureDeSante {
   lentes: RouteLente[]
   /** Les erreurs serveur, par source : une route (`POST /api/jour/reponse`), un socket (`socket host:launch`), une exception échappée. */
   erreurs: Record<string, number>
+  /** Les mêmes, en détail — douze au plus (`ERREURS_EN_DETAIL`) ; absent d'une heure sans erreur, et des lignes d'avant le 17 octobre 2026. */
+  erreursEnDetail?: ErreurEnDetail[]
   /** Les envois au miroir qui ont échoué : l'écran commun le dit déjà, la semaine s'en souvient. */
   miroir: number
   /** Null sans un relevé de charge — une heure à peine commencée, ou une ligne d'avant. */
@@ -240,6 +279,8 @@ export interface HeureDuServeur {
   base: number | null
   routes: number | null
   erreurs: number
+  /** Ses erreurs par source, la plus fréquente d'abord : la légende de l'heure les nomme. */
+  erreursParSource: { source: string; n: number }[]
   miroir: number
   /** La charge de l'heure : le processeur en moyenne (en pour cent d'un cœur), le pire gel, les pics de mémoire et d'invités ; null sans relevé. */
   processeur: number | null
@@ -296,7 +337,26 @@ export interface PageDuServeur {
   }
   /** Les démarrages et les arrêts nets, du plus récent au plus ancien. */
   evenements: EvenementDuServeur[]
+  /** Les erreurs de la semaine en détail, la plus récente d'abord (`ERREURS_MONTREES` au plus). */
+  erreurs: ErreurDeLaSemaine[]
+  /**
+   * Celles de la semaine qui n'ont pas leur détail, par source : d'avant le
+   * 17 octobre 2026, ou au-delà de douze par heure. Comptées, jamais perdues.
+   */
+  erreursSansDetail: { source: string; n: number }[]
 }
+
+/** Une erreur de la semaine : ses heures et ses versions, les mêmes de chaque heure fondues. */
+export interface ErreurDeLaSemaine extends ErreurEnDetail {
+  cle: string
+  /** Les heures où elle est tombée, et combien de fois, la plus récente d'abord. */
+  heures: { heure: number; n: number }[]
+  /** Les versions des démarrages où elle est tombée : encore là après une mise en ligne, elle n'est pas réparée. */
+  versions: string[]
+}
+
+/** Les erreurs que la page détaille, au plus : une panne en boucle n'en fait qu'une, et la semaine en compte rarement plus. */
+export const ERREURS_MONTREES = 50
 
 /** Ce qui, du serveur, attend un geste dans « À traiter » (le choix du 13 octobre 2026 : les quatre). */
 export interface AlertesDuServeur {
@@ -448,6 +508,58 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
 
 const totalDesErreurs = (erreurs: Record<string, number>) => Object.values(erreurs).reduce((s, n) => s + n, 0)
 
+/** Les erreurs par source, la plus fréquente d'abord. */
+const parSource = (erreurs: Record<string, number>) =>
+  Object.entries(erreurs)
+    .map(([source, n]) => ({ source, n }))
+    .sort((a, b) => b.n - a.n || (a.source < b.source ? -1 : 1))
+
+/**
+ * Les erreurs de la semaine en détail : les mêmes (`cleDeLErreur`) fondues
+ * d'une heure et d'un démarrage à l'autre — leur compte, leurs heures, les
+ * versions où elles sont tombées —, la plus récente d'abord ; le message et
+ * la pile, ceux de leur dernière heure. Et ce qui n'a pas son détail, par
+ * source : le compte de l'heure le garde toujours.
+ */
+export function erreursDeLaSemaine(
+  lignes: readonly HeureDeSante[],
+  versionDe: (demarrage: string) => string | null,
+): { erreurs: ErreurDeLaSemaine[]; sansDetail: { source: string; n: number }[] } {
+  const fondues = new Map<string, ErreurDeLaSemaine & { parHeure: Map<number, number>; parVersion: Set<string> }>()
+  const comptees = new Map<string, number>()
+  const detaillees = new Map<string, number>()
+  for (const l of lignes) {
+    for (const [source, n] of Object.entries(l.erreurs)) comptees.set(source, (comptees.get(source) ?? 0) + n)
+    for (const e of l.erreursEnDetail ?? []) {
+      detaillees.set(e.source, (detaillees.get(e.source) ?? 0) + e.n)
+      const cle = cleDeLErreur(e)
+      let f = fondues.get(cle)
+      if (!f) fondues.set(cle, (f = { ...e, pile: [...e.pile], cle, heures: [], versions: [], parHeure: new Map(), parVersion: new Set() }))
+      else {
+        if (e.derniere > f.derniere) Object.assign(f, { message: e.message, code: e.code, ou: e.ou, pile: [...e.pile], derniere: e.derniere })
+        f.n += e.n
+        f.premiere = Math.min(f.premiere, e.premiere)
+      }
+      f.parHeure.set(l.heure, (f.parHeure.get(l.heure) ?? 0) + e.n)
+      const version = versionDe(l.demarrage)
+      if (version) f.parVersion.add(version)
+    }
+  }
+  const erreurs = [...fondues.values()]
+    .sort((a, b) => b.derniere - a.derniere)
+    .slice(0, ERREURS_MONTREES)
+    .map(({ parHeure, parVersion, ...e }) => ({
+      ...e,
+      heures: [...parHeure].map(([heure, n]) => ({ heure, n })).sort((a, b) => b.heure - a.heure),
+      versions: [...parVersion].sort(),
+    }))
+  const sansDetail = [...comptees]
+    .map(([source, n]) => ({ source, n: n - (detaillees.get(source) ?? 0) }))
+    .filter(s => s.n > 0)
+    .sort((a, b) => b.n - a.n || (a.source < b.source ? -1 : 1))
+  return { erreurs, sansDetail }
+}
+
 /** La médiane d'une liste, arrondie ; null si elle est vide. */
 function mediane(valeurs: readonly number[]): number | null {
   if (valeurs.length === 0) return null
@@ -520,6 +632,7 @@ export function pageDuServeur(
       base: h?.base?.p95 ?? null,
       routes: h?.routes?.p95 ?? null,
       erreurs: h ? totalDesErreurs(h.erreurs) : 0,
+      erreursParSource: h ? parSource(h.erreurs) : [],
       miroir: h?.miroir ?? 0,
       processeur: h?.charge?.processeur ?? null,
       gele: h?.charge?.gelePct ?? null,
@@ -570,6 +683,12 @@ export function pageDuServeur(
   evenements.sort((a, b) => b.quand - a.quand)
   const demarresCetteSemaine = tous.filter(d => d.demarreLe >= debut)
   const prets = demarresCetteSemaine.map(d => d.pretEnMs).filter((ms): ms is number => ms !== null)
+  // Les erreurs en détail, sur les heures de la semaine ; leur version, celle du démarrage qui les a relevées.
+  const versions = new Map(tous.map(d => [d.id, d.version]))
+  const enDetail = erreursDeLaSemaine(
+    lignes.filter(l => l.heure >= debut && l.heure <= derniere),
+    id => versions.get(id) ?? null,
+  )
 
   return {
     maintenant,
@@ -592,6 +711,8 @@ export function pageDuServeur(
       routes: { derniere: routes.at(-1)?.p95 ?? null, habituelle: mediane(assez(routes)), plusLente: plusLente ?? null },
     },
     evenements,
+    erreurs: enDetail.erreurs,
+    erreursSansDetail: enDetail.sansDetail,
   }
 }
 

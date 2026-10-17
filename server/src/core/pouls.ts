@@ -4,14 +4,18 @@ import type { Server, Socket } from 'node:net'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
 import {
   APPELS_POUR_UNE_LENTE,
+  ERREURS_EN_DETAIL,
   GARDE_DE_NODE_MS,
+  cleDeLErreur,
   debutDeLHeure,
   type ChargeDeLHeure,
+  type ErreurEnDetail,
   type HeureDeSante,
   type PlafondsDuConteneur,
   type Releve,
   type RequetesDeLHeure,
 } from '../../../shared/santeDuServeur'
+import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -289,6 +293,8 @@ class Heure {
   readonly routes = new Mesure(ECHANTILLON_HORAIRE)
   private parRoute = new Map<string, Mesure>()
   private erreurs = new Map<string, number>()
+  /** Les erreurs de l'heure en détail, les mêmes comptées ensemble (`cleDeLErreur`). */
+  private enDetail = new Map<string, ErreurEnDetail>()
   miroir = 0
   private charge = {
     n: 0,
@@ -406,9 +412,19 @@ class Heure {
     mesure.noter(ms)
   }
 
-  erreur(source: string) {
+  erreur(source: string, detail: DetailDUneErreur | null, quand: number) {
     const cle = this.erreurs.has(source) || this.erreurs.size < SOURCES_SUIVIES ? source : 'autre'
     this.erreurs.set(cle, (this.erreurs.get(cle) ?? 0) + 1)
+    if (!detail) return
+    // Sous la source de son compte : ce que la page dit « sans détail » se lit par différence.
+    const enDetail = { source: cle, ...detail }
+    const meme = this.enDetail.get(cleDeLErreur(enDetail))
+    if (meme) {
+      meme.n++
+      meme.derniere = quand
+    } else if (this.enDetail.size < ERREURS_EN_DETAIL) {
+      this.enDetail.set(cleDeLErreur(enDetail), { ...enDetail, n: 1, premiere: quand, derniere: quand })
+    }
   }
 
   ligne(demarrage: string, chaudes: boolean): HeureDeSante {
@@ -426,6 +442,7 @@ class Heure {
       routes: this.routes.lire(),
       lentes,
       erreurs: Object.fromEntries(this.erreurs),
+      ...(this.enDetail.size > 0 && { erreursEnDetail: [...this.enDetail.values()].map(e => ({ ...e, pile: [...e.pile] })) }),
       miroir: this.miroir,
       charge: this.chargeLue(),
       connexions: {
@@ -469,7 +486,8 @@ export interface ReleveDeCharge {
  * servie par son statut (`server.ts`), les
  * erreurs serveur — d'une route (`repondreErreur`), d'un socket
  * (`ecouter`, `messagePourEcran`), une exception échappée (`index.ts`) —,
- * les échecs du miroir (`backup.ts`). L'heure d'avant reste à côté de la
+ * chacune avec son détail (`core/erreurs.ts`), les échecs du miroir
+ * (`backup.ts`). L'heure d'avant reste à côté de la
  * suivante : ses dernières minutes s'écrivent après coup.
  */
 export class ReleveHoraire {
@@ -504,8 +522,22 @@ export class ReleveHoraire {
     this.heure().requete(statut)
   }
 
-  erreur(source: string) {
-    this.heure().erreur(source)
+  /**
+   * Une erreur serveur, sous sa source, et ce qu'elle était (`e`) : sa sorte,
+   * son message nettoyé, d'où elle vient (`detailDeLErreur`). `sansMessage` :
+   * une erreur dont le message cite ce que le joueur a envoyé. Le détail se
+   * lit sous son propre filet : celui qui tombe se tait, l'erreur se compte.
+   */
+  erreur(source: string, e?: unknown, { sansMessage = false }: { sansMessage?: boolean } = {}) {
+    let detail: DetailDUneErreur | null = null
+    if (e !== undefined) {
+      try {
+        detail = detailDeLErreur(e, { sansMessage })
+      } catch {
+        // Une pile illisible, un getter qui lève : l'erreur reste comptée.
+      }
+    }
+    this.heure().erreur(source, detail, this.now())
   }
 
   echecDuMiroir() {
