@@ -21,7 +21,8 @@ import {
   confettisDesLigues,
   coteDuScore,
   ecartDuDuel,
-  enjeuDuDuel,
+  enjeuContre,
+  enjeuDuDe,
   ligueDe,
   niveauDeLaCote,
   niveauPourLeDuel,
@@ -97,11 +98,14 @@ test('la cote : un score à battre a sa cote, une victoire contre plus fort rapp
   assert.equal(ecartDuDuel(1000, 7, DUELS_DE_PLACEMENT, 1), 12)
   assert.equal(ecartDuDuel(1000, 7, DUELS_DE_PLACEMENT, 0), -12)
   // Celle qu'on voit monte sous l'Or : à cotes égales, même une défaite rapporte.
-  assert.deepEqual(enjeuDuDuel({ cote: 1000 }, 7), { cote: 1000, gagne: 17, egalite: 4, perdu: 2 })
-  // Battre un gros score rapporte plus ; perdre contre un petit coûte plus.
+  assert.deepEqual(enjeuDuDe(1000), { cote: 1000, gagne: 17, egalite: 4, perdu: 2 })
+  // Sur la cachée, battre un gros score rapporte plus ; perdre contre un petit coûte plus.
   assert.ok(ecartDuDuel(1000, 12, 20, 1) > ecartDuDuel(1000, 8, 20, 1))
   assert.ok(ecartDuDuel(1000, 4, 20, 0) < ecartDuDuel(1000, 8, 20, 0))
-  assert.ok(enjeuDuDuel({ cote: 1000 }, 12).gagne > enjeuDuDuel({ cote: 1000 }, 8).gagne)
+  // Sur celle qu'on voit, contre quelqu'un aussi ; au dé, Automate compte comme un adversaire de sa cote — son score
+  // n'y est pour rien depuis le 16 octobre 2026 (`duels-de.test.ts`).
+  assert.ok(enjeuContre({ cote: 1000 }, coteDuScore(12)).gagne > enjeuContre({ cote: 1000 }, coteDuScore(8)).gagne)
+  assert.deepEqual(enjeuDuDe(1000), enjeuContre({ cote: 1000 }, 1000))
   // Placé, on lui cherche des adversaires de sa cote cachée ; avant, de ses séries.
   assert.equal(niveauPourLeDuel(3, 1300, 9), 9)
   assert.equal(niveauPourLeDuel(DUELS_DE_PLACEMENT, 1300, 9), 13)
@@ -119,7 +123,13 @@ test('la cote : un score à battre a sa cote, une victoire contre plus fort rapp
 
 test('le relevé des duels rejoue la cote dans l’ordre, et chaque semaine paie sa meilleure ligue — celle du lundi comprise —, dès trois duels', () => {
   const lundi = Date.UTC(2026, 9, 5, 10, 0)
-  const duel = (serie: string, justes: number, sesJustes: number, finiLe: number): DuelJoue => ({ serie, justes, sesJustes, finiLe })
+  const duel = (serie: string, justes: number, sesJustes: number, finiLe: number, coteAdverse?: number): DuelJoue => ({
+    serie,
+    justes,
+    sesJustes,
+    finiLe,
+    ...(coteAdverse !== undefined && { coteAdverse }),
+  })
   // Donnés dans le désordre : l'ordre se relit à leur fin.
   const r = releverLesDuels([duel('c', 10, 8, lundi + 3 * 3_600_000), duel('a', 10, 8, lundi), duel('b', 9, 8, lundi + 3_600_000)], semaineDeLInstant)
   assert.equal(r.joues, 3)
@@ -136,13 +146,14 @@ test('le relevé des duels rejoue la cote dans l’ordre, et chaque semaine paie
   assert.equal(confettisDesLigues(r, suivante), ligueDe(r.cote).confettis)
   // Deux duels ne suffisent pas.
   assert.equal(recompenseDeLaSemaine({ duels: DUELS_POUR_LA_RECOMPENSE - 1, meilleure: 1600 }), 0)
-  // Un duel perdu ne reprend pas la ligue qu'il avait en entrant dans la semaine.
+  // Un duel perdu ne reprend pas la ligue qu'il avait en entrant dans la semaine. Contre quelqu'un : au dé, à chances
+  // égales depuis le 16 octobre 2026, ni un gros score battu ni un petit ne fait plus d'écart qu'un autre.
   const haut = releverLesDuels(
     [
-      // La semaine d'avant, il bat vingt et un gros scores : il entre dans celle-ci chez les maîtres…
-      ...Array.from({ length: 21 }, (_, i) => duel(`h${i}`, 30, 25, lundi - 7 * JOUR_MS + i * 60_000)),
-      // … puis perd trois fois contre un score d'une bonne réponse : il redescend.
-      ...Array.from({ length: 3 }, (_, i) => duel(`p${i}`, 0, 1, lundi + i * 60_000)),
+      // La semaine d'avant, il bat vingt et une fois un joueur à 1900 : il entre dans celle-ci chez les maîtres…
+      ...Array.from({ length: 21 }, (_, i) => duel(`h${i}`, 30, 25, lundi - 7 * JOUR_MS + i * 60_000, 1900)),
+      // … puis perd trois fois contre un joueur à 700 : il redescend.
+      ...Array.from({ length: 3 }, (_, i) => duel(`p${i}`, 0, 1, lundi + i * 60_000, 700)),
     ],
     semaineDeLInstant,
   )

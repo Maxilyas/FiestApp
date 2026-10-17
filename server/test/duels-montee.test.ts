@@ -3,9 +3,13 @@
 // tout le monde monte en Or s'il joue, même s'il n'est pas très bon »). Deux
 // cotes : la cachée, l'ELO seul, dit le niveau et règle Automate ; celle
 // qu'on voit, celle des ligues, avance pour qui joue — sous l'Or, une défaite
-// ne coûte presque rien ; dès l'Or, l'enjeu suit l'écart ; l'Argent et l'Or
-// ne se perdent plus ; qui lance un défi gagne un point de plus. Chaque test
-// échouait avant : l'ELO seul faisait reculer une partie sur deux.
+// ne coûte presque rien ; en Or, l'enjeu suit l'écart ; l'Argent et l'Or ne
+// se perdent plus ; qui lance un défi gagne un point de plus. Chaque test
+// échouait avant : l'ELO seul faisait reculer une partie sur deux. Puis le
+// choix du 17 octobre 2026 (`duels-de.test.ts`) : à partir de la Platine,
+// l'ELO — « c'est là que ça commence vraiment » —, et la Platine se garde ;
+// et le même jour, un adversaire sous ses ligues gardées compte à son
+// plancher. Leurs épreuves échouaient avant.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -23,7 +27,7 @@ import {
   ecartContre,
   ecartDeLaMontee,
   enjeuContre,
-  enjeuDuDuel,
+  enjeuDuDe,
   ligueDe,
   niveauDeLaCote,
   niveauPourLeDuel,
@@ -40,6 +44,8 @@ ProfileStore.tirageEclat = () => false
 const DEBUT = Date.UTC(2026, 9, 6, 8, 0)
 const SEUIL_DE_L_ARGENT = 1100
 const SEUIL_DE_L_OR = 1200
+const SEUIL_DE_LA_PLATINE = 1300
+const SEUIL_DU_DIAMANT = 1400
 const semaine = () => '2026-10-05'
 
 /** Le `n`-ième duel d'un journal : ses bonnes réponses contre celles d'en face, finis une minute après l'autre. */
@@ -68,45 +74,65 @@ test('sous l’Or, chaque duel fait avancer : une victoire rapporte cinq points 
   assert.deepEqual(enjeuContre({ cote: COTE_DE_DEPART }, COTE_DE_DEPART), { cote: COTE_DE_DEPART, gagne: 17, egalite: 4, perdu: 2 })
 })
 
-test('dès l’Or, l’enjeu suit l’écart : contre plus fort, perdre ne coûte presque rien ; contre plus faible, plus qu’une victoire ne rapporte', () => {
-  const enOr = { cote: 1300, plancher: SEUIL_DE_L_OR }
-  const contreFort = enjeuContre(enOr, 1500)
+test('en Or, l’enjeu suit l’écart : contre plus fort, perdre ne coûte presque rien ; contre plus faible, plus — dès la Platine, plus qu’une victoire ne rapporte', () => {
+  const enOr = { cote: 1250, plancher: SEUIL_DE_L_OR }
+  const contreFort = enjeuContre(enOr, 1450)
   assert.ok(contreFort.perdu >= -1, `contre plus fort, perdre coûte ${contreFort.perdu}`)
   assert.ok(contreFort.gagne >= 15, `contre plus fort, gagner rapporte ${contreFort.gagne}`)
-  const contreFaible = enjeuContre(enOr, 1100)
-  assert.ok(-contreFaible.perdu > contreFaible.gagne, `contre plus faible : ${contreFaible.gagne} gagné, ${contreFaible.perdu} perdu`)
+  // Contre plus faible, la défaite coûte plus ; en Or, jamais plus qu'une victoire ne rapporte : sous son plancher,
+  // l'adversaire y compte (le choix du 17 octobre 2026, plus bas), et 24 × E² ne pèse pas plus.
+  const contreFaible = enjeuContre(enOr, 1200)
+  assert.ok(contreFaible.perdu < contreFort.perdu && -contreFaible.perdu < contreFaible.gagne, `contre plus faible : ${contreFaible.gagne} gagné, ${contreFaible.perdu} perdu`)
   // Une égalité contre plus faible coûte, contre plus fort rapporte.
   assert.ok(contreFaible.egalite < 0 && contreFort.egalite > 0)
+  // À partir de la Platine, l'ELO (le choix du 17 octobre 2026, `duels-de.test.ts`) : contre plus fort, perdre coûte ;
+  // contre plus faible, plus qu'une victoire ne rapporte — on ne gagne rien à s'acharner sur les petits.
+  assert.equal(enjeuContre({ cote: 1350, plancher: SEUIL_DE_LA_PLATINE }, 1550).perdu, -5)
+  const diamantContreFaible = enjeuContre({ cote: 1450, plancher: SEUIL_DE_LA_PLATINE }, SEUIL_DE_LA_PLATINE)
+  assert.ok(-diamantContreFaible.perdu > diamantContreFaible.gagne, `contre plus faible : ${diamantContreFaible.gagne} gagné, ${diamantContreFaible.perdu} perdu`)
   // La participation : cinq points par duel sous l'Or, un seul dès l'Or.
-  assert.equal(ecartDeLaMontee(1300, 1300, 1), 13)
+  assert.equal(ecartDeLaMontee(1250, 1250, 1), 13)
+  assert.equal(ecartDeLaMontee(1350, 1350, 1), 13)
   assert.equal(ecartDeLaMontee(1100, 1100, 1), 17)
 })
 
-test('l’Argent et l’Or, une fois atteints, ne se perdent plus ; la Platine, si', () => {
+test('l’Argent, l’Or et la Platine, une fois atteints, ne se perdent plus ; le Diamant, si', () => {
   assert.equal(plancherApres(null, 1099), null)
   assert.equal(plancherApres(null, SEUIL_DE_L_ARGENT), SEUIL_DE_L_ARGENT)
   assert.equal(plancherApres(SEUIL_DE_L_ARGENT, 1250), SEUIL_DE_L_OR)
   assert.equal(plancherApres(SEUIL_DE_L_OR, 1050), SEUIL_DE_L_OR, 'un plancher ne redescend jamais')
-  assert.equal(plancherApres(SEUIL_DE_L_OR, 1350), SEUIL_DE_L_OR, 'la Platine ne se garde pas')
+  // « Je veux aussi ne pas pouvoir retomber en or en platine » (le 17 octobre 2026).
+  assert.equal(plancherApres(SEUIL_DE_L_OR, 1350), SEUIL_DE_LA_PLATINE, 'la Platine se garde')
+  assert.equal(plancherApres(SEUIL_DE_LA_PLATINE, 1450), SEUIL_DE_LA_PLATINE, 'le Diamant ne se garde pas')
   // Ce que la page dit d'une défaite s'arrête au plancher : contre bien plus faible, à 1205, cinq points, pas onze.
   assert.equal(enjeuContre({ cote: 1205, plancher: SEUIL_DE_L_OR }, 1050).perdu, -5)
   assert.equal(enjeuContre({ cote: 1205 }, 1050).perdu, ecartDeLaMontee(1205, 1050, 0), 'sans plancher connu — une page d’avant —, l’écart brut')
   assert.equal(ecartDeLaMontee(1205, 1050, 0), -11)
+  // De même à la Platine : à 1310, dix points, pas dix-sept.
+  assert.equal(enjeuContre({ cote: 1310, plancher: SEUIL_DE_LA_PLATINE }, 1100).perdu, -10)
+  assert.equal(ecartDeLaMontee(1310, 1100, 0), -17)
 
-  // Des victoires jusqu'à l'Argent, puis cinquante défaites contre un score d'une bonne réponse : il y reste.
+  // Des victoires jusqu'à l'Argent, puis cinquante défaites contre un joueur bien plus faible : il y reste. Sous l'Or,
+  // une défaite à chances égales rapporte — au dé depuis le 16 octobre 2026, et contre qui est sous son plancher, qui y
+  // compte, depuis le 17 : le plancher de l'Argent n'a plus à servir.
   const argent: DuelJoue[] = []
   for (let i = 0; releverLesDuels(argent, semaine).cote < SEUIL_DE_L_ARGENT; i++) argent.push(duel(i, 10, 9))
-  for (let i = 0; i < 50; i++) argent.push(duel(argent.length, 0, 1))
+  for (let i = 0; i < 50; i++) argent.push(duel(argent.length, 0, 1, { coteAdverse: 700 }))
   const enArgent = releverLesDuels(argent, semaine)
   assert.equal(ligueDe(enArgent.cote).cle, 'argent')
   assert.equal(enArgent.plancher, SEUIL_DE_L_ARGENT)
-  // De même à l'Or ; puis la Platine, atteinte et reperdue : il redescend en Or, jamais dessous.
-  const or: DuelJoue[] = []
-  for (let i = 0; releverLesDuels(or, semaine).cote < 1300; i++) or.push(duel(i, 18, 17))
-  assert.equal(ligueDe(releverLesDuels(or, semaine).cote).cle, 'platine')
-  for (let i = 0; i < 50; i++) or.push(duel(or.length, 0, 1))
-  const retombe = releverLesDuels(or, semaine)
-  assert.deepEqual([retombe.cote, retombe.plancher], [SEUIL_DE_L_OR, SEUIL_DE_L_OR])
+  // De même à l'Or, puis à la Platine : atteinte, cinquante défaites ne la lui reprennent pas. Le Diamant, atteint et
+  // reperdu : il redescend en Platine, jamais dessous.
+  const haut: DuelJoue[] = []
+  for (let i = 0; releverLesDuels(haut, semaine).cote < SEUIL_DE_LA_PLATINE; i++) haut.push(duel(i, 18, 17))
+  assert.equal(ligueDe(releverLesDuels(haut, semaine).cote).cle, 'platine')
+  for (let i = 0; i < 50; i++) haut.push(duel(haut.length, 0, 1))
+  const enPlatine = releverLesDuels(haut, semaine)
+  assert.deepEqual([enPlatine.cote, enPlatine.plancher], [SEUIL_DE_LA_PLATINE, SEUIL_DE_LA_PLATINE])
+  while (releverLesDuels(haut, semaine).cote < SEUIL_DU_DIAMANT) haut.push(duel(haut.length, 18, 17))
+  for (let i = 0; i < 50; i++) haut.push(duel(haut.length, 0, 1))
+  const retombe = releverLesDuels(haut, semaine)
+  assert.deepEqual([retombe.cote, retombe.plancher], [SEUIL_DE_LA_PLATINE, SEUIL_DE_LA_PLATINE])
   // Les écarts que l'historique raconte disent ce qui s'est passé, plancher compris : leur somme fait la cote.
   assert.equal(
     [...retombe.ecarts.values()].reduce((n, e) => n + e.ecart, COTE_DE_DEPART),
@@ -155,6 +181,60 @@ test('qui joue monte en Or, même pas très bon : un duel gagné sur trois contr
   assert.ok(r.cachee < COTE_DE_DEPART)
   // Sans la montée — l'ELO seul, celui d'avant —, le même joueur ne quittait pas le Bronze.
   assert.equal(ligueDe(r.cachee).cle, 'bronze')
+})
+
+// Le choix du propriétaire du 17 octobre 2026 : « de jouer des joueurs qui
+// jouent peu et qui sont en ligue bronze, ça fait perdre beaucoup à des
+// platines, ça donne donc pas envie de jouer le duel ». Sous ses ligues
+// gardées, la cote d'en face dit combien il a joué, pas comment : en
+// production, les joueurs en Or ne battaient les bronzes qu'une fois sur
+// trois, quand la formule leur en prêtait trois sur quatre.
+test('un adversaire sous ses ligues gardées compte à son plancher : un bronze ne coûte plus « −19 » en Platine', () => {
+  // En Platine, à 1330, contre un bronze : comme contre qui vient d'y entrer, « +12 / −12 » — plus « +5 / −19 ».
+  const enPlatine = { cote: 1330, plancher: SEUIL_DE_LA_PLATINE }
+  assert.deepEqual(enjeuContre(enPlatine, 1030), { cote: 1330, gagne: 12, egalite: 0, perdu: -12 })
+  assert.deepEqual(enjeuContre(enPlatine, 1030), enjeuContre(enPlatine, SEUIL_DE_LA_PLATINE))
+  // En Or, « +11 / −7 » — plus « +6 / −14 ».
+  assert.deepEqual(enjeuContre({ cote: 1250, plancher: SEUIL_DE_L_OR }, 1030), { cote: 1250, gagne: 11, egalite: -3, perdu: -7 })
+  // Au-dessus de son plancher, rien ne change : entre joueurs de la Platine, l'ELO ; un diamant reste favori contre qui
+  // vient d'y entrer — battre des bronzes ne fait pas monter sans fin.
+  assert.deepEqual(enjeuContre(enPlatine, 1360), { cote: 1330, gagne: 14, egalite: 2, perdu: -10 })
+  assert.deepEqual(enjeuContre({ cote: 1450, plancher: SEUIL_DE_LA_PLATINE }, 1030), { cote: 1450, gagne: 8, egalite: -4, perdu: -16 })
+  // Sans ligue gardée — encore en Bronze —, la cote d'en face telle quelle : battre un joueur en Platine rapporte gros.
+  assert.deepEqual(enjeuContre({ cote: 1030, plancher: null }, 1330), { cote: 1030, gagne: 25, egalite: 13, perdu: 4 })
+
+  // Relu du journal : la Platine au dé, puis une défaite contre un bronze — ce que la page disait. La cachée, elle,
+  // bouge toujours contre sa cote cachée figée : c'est elle qui apprend le niveau.
+  const journal: DuelJoue[] = []
+  for (let i = 0; releverLesDuels(journal, semaine).cote < 1330; i++) journal.push(duel(i, 18, 17))
+  const avant = releverLesDuels(journal, semaine)
+  journal.push(duel(journal.length, 6, 7, { coteAdverse: 1030, coteCacheeAdverse: 1000 }))
+  const apres = releverLesDuels(journal, semaine)
+  assert.equal(apres.ecarts.get(journal.at(-1)!.serie)!.ecart, enjeuContre({ cote: avant.cote, plancher: avant.plancher }, 1030).perdu)
+  assert.equal(apres.cote - avant.cote, -12)
+  assert.equal(apres.cachee, avant.cachee + ecartContre(avant.cachee, 1000, journal.length - 1, 0))
+})
+
+// Puis le choix du 17 octobre 2026 : « monter jusqu'en platine c'est bien
+// comme ça […] à partir de platine c'est là que ça commence vraiment ». Le
+// même joueur, un duel gagné sur trois au dé : l'Or le mène en Platine,
+// qu'il garde ; au-delà, jouer ne suffit plus.
+test('qui joue monte jusqu’en Platine, même pas très bon, et la garde ; au-delà, il faut gagner', () => {
+  const journal: DuelJoue[] = []
+  let r = releverLesDuels(journal, semaine)
+  let platineA: number | null = null
+  for (let i = 0; i < 300; i++) {
+    const avant = r
+    const sesJustes = Math.max(1, Math.round(niveauPourLeDuel(r.joues, r.cachee, 4)))
+    journal.push(duel(i, i % 3 === 2 ? sesJustes + 1 : sesJustes - 1, sesJustes))
+    r = releverLesDuels(journal, semaine)
+    if (avant.cote >= SEUIL_DE_LA_PLATINE) assert.ok(r.cote >= SEUIL_DE_LA_PLATINE, `duel ${i + 1} : la Platine reperdue (${r.cote})`)
+    platineA ??= r.cote >= SEUIL_DE_LA_PLATINE ? i + 1 : null
+  }
+  // En Or, au dé, « +13 / −5 » : un duel gagné sur trois fait encore un point par duel.
+  assert.ok(platineA !== null && platineA <= 200, `la Platine en ${platineA} duels`)
+  // À partir d'elle, « +13 / −11 » : un sur trois ne le fait plus monter — il y reste, sans retomber en Or.
+  assert.equal(ligueDe(r.cote).cle, 'platine')
 })
 
 // ── Le serveur ──────────────────────────────────────────────────────────────
@@ -212,8 +292,8 @@ test('le serveur : Automate se règle sur la cote cachée, la page dit celle qu�
     assert.equal(de.status, 200, de.corps.error)
     assert.equal(niveaux.at(-1), niveauDeLaCote(attendu.cachee))
     assert.ok(niveaux.at(-1)! < niveauDeLaCote(attendu.cote))
-    // Ce qui se joue se dit sur celle qu'on voit, contre la cote de son score, son plancher compris.
-    assert.deepEqual(de.corps.enjeu, enjeuDuDuel(attendu, 7))
+    // Ce qui se joue se dit sur celle qu'on voit, à chances égales — contre elle-même —, son plancher compris.
+    assert.deepEqual(de.corps.enjeu, enjeuDuDe(attendu.cote))
     assert.ok(de.corps.enjeu.perdu > -2, `sous l’Or, perdre ne coûte presque rien : ${de.corps.enjeu.perdu}`)
     assert.ok(chancesDeGagner(attendu.cote, coteDuScore(7)) > 0.5, 'celle qu’on voit est au-dessus de son niveau')
   } finally {

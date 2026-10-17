@@ -465,9 +465,17 @@ export const api = {
       /** L'ajouter à sa liste, trouvé par son prénom : sans demande ni attente. */
       ajouter: (id: string) => req<{ ok: true }>(`/api/campagne/amis/${encodeURIComponent(id)}/ajout`, { method: 'POST' }),
     },
-    /** Un duel classé — affronter un inconnu : la série finie d'un autre joueur, contre son score — une série d'un autre mode, ses réponses passent par celles de la série. */
+    /**
+     * Le dé, un duel classé contre Automate : tiré sur ses catégories ou son
+     * sujet — celui laissé en route reprend, sur les siens. Une série d'un
+     * autre mode : ses réponses passent par celles de la série.
+     */
     rencontre: {
-      commencer: () => req<RencontreDeCampagne>('/api/campagne/rencontre', { method: 'POST' }),
+      commencer: (choix: { categories?: readonly string[]; sujet?: string | null } = {}) =>
+        req<RencontreDeCampagne>('/api/campagne/rencontre', {
+          method: 'POST',
+          body: JSON.stringify({ categories: choix.sujet ? [] : (choix.categories ?? []), ...(choix.sujet && { sujet: choix.sujet }) }),
+        }),
       miennes: () => req<MesRencontres>('/api/campagne/rencontres'),
     },
     /**
