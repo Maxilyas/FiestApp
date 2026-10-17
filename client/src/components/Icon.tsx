@@ -85,7 +85,7 @@ export type IconName =
   | 'shield'
   // Les thèmes de la campagne (`client/src/iconeDuSujet.ts`).
   | 'paw'
-  | 'planet'
+  | 'volcan'
   | 'medal'
   | 'dancer'
   | 'stethoscope'
@@ -593,11 +593,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
-  planet: {
+  // Un volcan qui fume au-dessus de la vague : volcans et océans. La planète à
+  // anneau qu'avait la Terre et l'espace est partie avec l'espace.
+  volcan: {
     paths: (
       <>
-        <circle cx="12" cy="12" r="5.5" />
-        <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-20 12 12)" />
+        <path d="M3.5 17.5 9 8.5c1 .9 2 1.3 3 1.3s2-.4 3-1.3l5.5 9" />
+        <path d="M10.6 6.2a1.7 1.7 0 0 1 1.5-2.6 2 2 0 0 1 3.7.4 1.5 1.5 0 0 1-.3 2.9" />
+        <path d="M3 20.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1" />
       </>
     ),
   },
@@ -635,7 +638,7 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   },
   // Les chevrons d'une balise : l'informatique. L'écran était pris par le
   // petit écran, la planète par la Terre et l'espace — d'où la lunette pour
-  // l'astronomie, posée sur son trépied.
+  // l'astronomie, posée sur son trépied, qu'elle a gardée.
   code: { paths: <path d="M8 7 3 12l5 5M16 7l5 5-5 5M13.5 5l-3 14" /> },
   telescope: {
     paths: (

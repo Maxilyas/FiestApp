@@ -167,3 +167,35 @@ test('au quiz tout prêt, une catégorie choisie seule s’affine en ses rubriqu
   // De toute la largeur de la grille.
   assert.match(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'), /\.quoi-rubriques \{ grid-column: 1 \/ -1;/)
 })
+
+// Un sujet qui ne lit qu'un sous-thème en tient la rubrique (le 17 octobre
+// 2026). Touché parmi les thèmes, plus bas, il n'ouvre pas sa catégorie :
+// les pastilles se seraient glissées au-dessus de sa tuile, sous le doigt.
+test('au quiz tout prêt, le sujet qui tient une rubrique se range à sa place sous sa catégorie, sans l’ouvrir quand on le touche parmi les thèmes', async () => {
+  const { GrilleDesCategories } = await import(new URL('../../client/src/components/ChoixDuTheme.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { SUJETS_ET_RUBRIQUES } = await import('../../shared/sujets')
+  const { CATEGORIES } = await import('../../shared/categories')
+  const grille = (categories: string[], sujet: string | null) =>
+    renderToStaticMarkup(
+      React.createElement(GrilleDesCategories, {
+        categoriesJouables: CATEGORIES,
+        categories,
+        sujet,
+        rubriques: SUJETS_ET_RUBRIQUES.filter(s => s.categorie),
+        onCategories: () => {},
+        onSujet: () => {},
+      }),
+    )
+  // Les sciences seules : l'astronomie à la place d'« Espace et astronomie », l'informatique et les inventions au bout.
+  const sciences = grille(['Sciences'], null)
+  assert.match(sciences, /<span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">L’astronomie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Planète Terre<\/button>/)
+  assert.match(sciences, />L’informatique<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Les inventions<\/button><\/div>/)
+  assert.doesNotMatch(sciences, />Espace et astronomie</)
+  // Choisi sous sa catégorie : elle reste ouverte, lui pressé.
+  const dessous = grille(['Sciences'], 'astronomie')
+  assert.match(dessous, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sciences<\/button>/)
+  assert.match(dessous, /class="quoi-rubrique active" aria-pressed="true">L’astronomie<\/button>/)
+  // Choisi parmi les thèmes : la grille des catégories ne bouge pas.
+  assert.doesNotMatch(grille([], 'astronomie'), /quoi-rubriques|categorie-case active/)
+})

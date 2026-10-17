@@ -301,6 +301,43 @@ test('une catégorie choisie seule s’affine en ses rubriques, sous sa rangée 
   assert.match(ligne, /<b>Football<\/b><span class="muted small">Sport<\/span>/)
 })
 
+// Un sujet qui ne lit qu'un sous-thème en tient la rubrique (le 17 octobre
+// 2026) : « Les jeux vidéo » et « Jeux vidéo » posaient les mêmes questions,
+// et se suivaient au carnet. Un seul sujet, deux portes.
+test('le sujet qui tient une rubrique se range à sa place sous sa catégorie ; la feuille le rouvre là où on l’a touché', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { FeuilleDuChoix } = await import(client('components/ChoixDuTheme.tsx').href)
+  const { SUJETS_ET_RUBRIQUES } = await import('../../shared/sujets')
+  const feuille = (categories: string[], sujet: string | null) =>
+    renderToStaticMarkup(
+      React.createElement(FeuilleDuChoix, {
+        categoriesJouables: ['Sport', 'Jeux & pop culture'],
+        sujets: SUJETS_ET_RUBRIQUES.filter(s => s.categorie === 'Jeux & pop culture'),
+        categories,
+        sujet,
+        onChoisir: () => {},
+        onFermer: () => {},
+      }),
+    )
+  // Les jeux et la pop culture seuls : « Les jeux vidéo » d'abord, à la place de « Jeux vidéo », une fois.
+  const seuls = feuille(['Jeux & pop culture'], null)
+  assert.match(
+    seuls,
+    /<span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">Les jeux vidéo<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Jeux de société et de cartes<\/button>/,
+  )
+  assert.doesNotMatch(seuls, />Jeux vidéo</)
+  assert.match(seuls, />Thèmes · 1<\/button>/, 'parmi les thèmes aussi : c’en est un')
+  // Touché sous sa catégorie — elle seule choisie avec lui —, la feuille l'y rouvre.
+  const dessous = feuille(['Jeux & pop culture'], 'jeux-video')
+  assert.match(dessous, /role="tab" aria-selected="true"[^>]*>Catégories<\/button>/)
+  assert.match(dessous, /class="quoi-case active" aria-pressed="true">Jeux &amp; pop culture<\/button>/)
+  assert.match(dessous, /class="quoi-rubrique active" aria-pressed="true">Les jeux vidéo<\/button>/)
+  // Touché parmi les thèmes, elle s'y rouvre : sa tuile pressée.
+  const parmi = feuille([], 'jeux-video')
+  assert.match(parmi, /role="tab" aria-selected="true"[^>]*>Thèmes · 1<\/button>/)
+  assert.match(parmi, /class="quoi-tuile active" aria-pressed="true">/)
+})
+
 // Le défi entre amis (`campagne-duel.test.ts`) : sa fin l'envoie d'abord —
 // celui qui vient de le lancer n'a encore défié personne —, et son lien
 // survit à une connexion.

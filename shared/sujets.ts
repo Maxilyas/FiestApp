@@ -55,7 +55,10 @@ export interface Sujet {
   portee?: MetadonneesDeQuestion['portee']
   /** … ou de l'un de ces sous-thèmes de leur catégorie (`SOUS_THEMES`) : un même mot — « france » — n'est pas le même sous-thème d'une catégorie à l'autre. */
   sousThemes?: Readonly<Partial<Record<Categorie, readonly string[]>>>
-  /** Une rubrique : la catégorie dont elle est un sous-thème — la feuille du choix la range sous elle. */
+  /**
+   * Une rubrique : la catégorie dont elle est un sous-thème — la feuille du choix la range sous elle. Un sujet
+   * qui la porte ne lit qu'un sous-thème de cette catégorie, et tient lieu de sa rubrique (`rubriquesDeLaCategorie`).
+   */
   categorie?: Categorie
   /** Une fête : son jour, mois et jour — la feuille du choix range les fêtes de la plus proche à la plus lointaine. */
   jour?: readonly [number, number]
@@ -70,14 +73,23 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { Nature: ['mammiferes', 'oiseaux', 'aquatique', 'petites-betes', 'disparus'] },
     etiquettes: ['animaux'],
   },
+  // Les inventions ont laissé l'informatique à son thème (le souhait du
+  // propriétaire du 17 octobre 2026 : « modifier des thèmes s'il y en a qui se
+  // recoupent ») : ses trois cent cinquante-cinq questions y étaient toutes,
+  // la moitié du thème. Restent les savants et l'étiquette — Diesel, le cube
+  // de Rubik —, et la rubrique des savants, qu'il tient.
   {
     cle: 'inventions',
     nom: 'Les inventions',
     famille: 'theme',
     description: 'Qui a inventé quoi, et les savants qui ont tout changé',
-    sousThemes: { Sciences: ['savants', 'techno'] },
+    sousThemes: { Sciences: ['savants'] },
     etiquettes: ['invention'],
+    categorie: 'Sciences',
   },
+  // Les contes et légendes ne sont plus qu'ici : les souvenirs d'enfance les
+  // lisaient aussi, et la moitié du thème s'y retrouvait — l'Ankou et Baba
+  // Yaga ne sont le souvenir d'enfance de personne.
   {
     cle: 'mythes-legendes',
     nom: 'Mythes et légendes',
@@ -85,14 +97,21 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Dieux, héros, contes et créatures fabuleuses',
     sousThemes: { 'Culture générale': ['mythes'] },
     etiquettes: ['contes-legendes'],
+    categorie: 'Culture générale',
   },
+  // La Terre et l'espace a laissé l'espace à l'astronomie (le même jour), qui
+  // en faisait le tiers : la clé reste, et les parcours commencés avec elle.
+  // Pas « La Terre » : sous les sciences, « Planète Terre » n'en est qu'un
+  // morceau, et les deux noms se seraient confondus au carnet.
   {
     cle: 'terre-espace',
-    nom: 'La Terre et l’espace',
+    nom: 'Volcans et océans',
     famille: 'theme',
-    description: 'Planètes, volcans, fleuves et montagnes',
-    sousThemes: { Sciences: ['espace', 'terre'], Géographie: ['eaux', 'reliefs'] },
+    description: 'Séismes, climats, fleuves, déserts et montagnes',
+    sousThemes: { Sciences: ['terre'], Géographie: ['eaux', 'reliefs'] },
   },
+  // Il ne tient pas la rubrique des Jeux olympiques : l'athlétisme y vit
+  // aussi, qui n'est pas un grand rendez-vous, et la Coupe du monde n'y est pas.
   {
     cle: 'grands-rendez-vous',
     nom: 'Les grands rendez-vous du sport',
@@ -115,7 +134,10 @@ export const SUJETS: readonly Sujet[] = [
   // médecine et du paramédical ») : un sous-thème neuf dans chaque catégorie
   // où leur savoir vit, l'inventaire de leurs familles à côté
   // (`server/src/core/inventaires.ts`), et l'étiquette pour le reste. Le
-  // corps humain est des métiers de la santé : c'est leur socle.
+  // corps humain est des métiers de la santé : c'est leur socle. Le thème
+  // s'appelle « La santé » depuis que le sous-thème de la culture générale se
+  // choisit seul : « Les métiers de la santé » et « Métiers de la santé »,
+  // deux fois plus petit, se suivaient au carnet.
   {
     cle: 'danse',
     nom: 'La danse',
@@ -126,7 +148,7 @@ export const SUJETS: readonly Sujet[] = [
   },
   {
     cle: 'sante',
-    nom: 'Les métiers de la santé',
+    nom: 'La santé',
     famille: 'theme',
     description: 'Médecins, soignants, et le corps qu’ils soignent',
     sousThemes: { 'Culture générale': ['sante'], Sciences: ['medecine', 'corps'] },
@@ -140,16 +162,16 @@ export const SUJETS: readonly Sujet[] = [
   },
   // L'informatique et l'astronomie (le souhait du propriétaire du 17 octobre
   // 2026) : chacune avait déjà son sous-thème en sciences, deux cent
-  // cinquante questions et plus. L'astronomie double une moitié de la Terre
-  // et l'espace, qui garde sa clé et ses parcours commencés ; l'informatique
-  // laisse Internet aux jeux et à la pop culture : ses réseaux sociaux et ses
-  // mèmes n'en sont pas.
+  // cinquante questions et plus, et chacune en tient la rubrique.
+  // L'informatique laisse Internet aux jeux et à la pop culture : ses réseaux
+  // sociaux et ses mèmes n'en sont pas.
   {
     cle: 'informatique',
     nom: 'L’informatique',
     famille: 'theme',
     description: 'Ordinateurs, langages, réseaux et ceux qui les ont inventés',
     sousThemes: { Sciences: ['techno'] },
+    categorie: 'Sciences',
   },
   {
     cle: 'astronomie',
@@ -157,6 +179,7 @@ export const SUJETS: readonly Sujet[] = [
     famille: 'theme',
     description: 'Planètes, étoiles, galaxies et conquête spatiale',
     sousThemes: { Sciences: ['espace'] },
+    categorie: 'Sciences',
   },
   // Puis trois de plus le même jour, chacun sur des sous-thèmes que la base
   // tenait déjà à plus de deux cents questions. La BD laisse les sagas au
@@ -169,6 +192,7 @@ export const SUJETS: readonly Sujet[] = [
     famille: 'theme',
     description: 'De Pong à Zelda, consoles, héros et studios',
     sousThemes: { 'Jeux & pop culture': ['jeux-video'] },
+    categorie: 'Jeux & pop culture',
   },
   {
     cle: 'bd',
@@ -176,6 +200,7 @@ export const SUJETS: readonly Sujet[] = [
     famille: 'theme',
     description: 'Tintin, Astérix, les super-héros et les mangas',
     sousThemes: { 'Arts & lettres': ['bd'] },
+    categorie: 'Arts & lettres',
   },
   {
     cle: 'monuments',
@@ -199,6 +224,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Orthographe, grammaire, expressions et origine des mots',
     sousThemes: { 'Culture générale': ['francais'] },
     etiquettes: ['francais'],
+    categorie: 'Culture générale',
   },
   // L'anglais et l'espagnol (le même jour) : la langue vue de France — le mot
   // à traduire, le verbe irrégulier, le faux ami, l'expression —, chacun son
@@ -211,6 +237,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Vocabulaire, verbes irréguliers, faux amis et expressions',
     sousThemes: { 'Culture générale': ['anglais'] },
     etiquettes: ['anglais'],
+    categorie: 'Culture générale',
   },
   {
     cle: 'espagnol',
@@ -219,13 +246,15 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Vocabulaire, ser et estar, faux amis et expressions',
     sousThemes: { 'Culture générale': ['espagnol'] },
     etiquettes: ['espagnol'],
+    categorie: 'Culture générale',
   },
   // Les fêtes (le 17 octobre 2026) : celles qu'« Autour de la fête » tenait
   // déjà, chacune son sous-thème — plus de deux cents questions — et
   // l'étiquette qui la nomme ailleurs (« Le père Noël est une ordure »).
   // Elles se rangent de la plus proche à la plus lointaine
   // (`fetesDansLOrdre`), et n'ont pas de parcours : le sentier de la fête
-  // les monte déjà, chapitre par chapitre (« Noël et Nouvel An »).
+  // les monte déjà, chapitre par chapitre (« Noël et Nouvel An »). Chacune
+  // tient la rubrique de son sous-thème.
   {
     cle: 'noel',
     nom: 'Noël',
@@ -233,6 +262,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Le Père Noël, le sapin, les marchés et les Noëls du monde',
     sousThemes: { 'Autour de la fête': ['noel'] },
     etiquettes: ['noel'],
+    categorie: 'Autour de la fête',
     jour: [12, 25],
   },
   {
@@ -242,6 +272,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Le réveillon, les vœux et la nouvelle année fêtée de Pékin à Téhéran',
     sousThemes: { 'Autour de la fête': ['nouvel-an'] },
     etiquettes: ['nouvel-an'],
+    categorie: 'Autour de la fête',
     jour: [12, 31],
   },
   {
@@ -251,6 +282,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Fantômes, vampires, sorcières et les fêtes des morts du monde',
     sousThemes: { 'Autour de la fête': ['halloween'] },
     etiquettes: ['halloween'],
+    categorie: 'Autour de la fête',
     jour: [10, 31],
   },
   {
@@ -260,6 +292,7 @@ export const SUJETS: readonly Sujet[] = [
     description: 'La Saint-Valentin, les mariages et les grandes histoires d’amour',
     sousThemes: { 'Autour de la fête': ['amour'] },
     etiquettes: ['saint-valentin'],
+    categorie: 'Autour de la fête',
     jour: [2, 14],
   },
   // Sans jour : chacun le sien. Au bout de la rangée.
@@ -269,6 +302,7 @@ export const SUJETS: readonly Sujet[] = [
     famille: 'fete',
     description: 'Bougies, signes du zodiaque, noces d’or et centenaires',
     sousThemes: { 'Autour de la fête': ['anniversaires'] },
+    categorie: 'Autour de la fête',
   },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
@@ -287,25 +321,43 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'pionnieres', nom: 'Pionnières', famille: 'fil', description: 'Des femmes qui ont ouvert la voie', etiquettes: ['femmes'] },
   { cle: 'pieges', nom: 'Les pièges', famille: 'fil', description: 'La réponse évidente est fausse', etiquettes: ['piege'] },
   { cle: 'premieres', nom: 'Les premières fois', famille: 'fil', description: 'Qui l’a fait le premier ?', etiquettes: ['premiere'] },
-  { cle: 'records', nom: 'Les records', famille: 'fil', description: 'Le plus grand, le plus rapide, le plus ancien', etiquettes: ['record'] },
+  // Les records tiennent la rubrique de la culture générale (le 17 octobre 2026) : 192 de ses 222 questions
+  // l'étaient déjà, et les trente autres — la plus grande ville de Suisse, le plus petit pays de l'Union — aussi.
+  {
+    cle: 'records',
+    nom: 'Les records',
+    famille: 'fil',
+    description: 'Le plus grand, le plus rapide, le plus ancien',
+    etiquettes: ['record'],
+    sousThemes: { 'Culture générale': ['records'] },
+    categorie: 'Culture générale',
+  },
   { cle: 'surnoms', nom: 'Les surnoms', famille: 'fil', description: 'La Ville Lumière, le Roi-Soleil…', etiquettes: ['surnom'] },
   { cle: 'mots', nom: 'L’origine des mots', famille: 'fil', description: 'D’où viennent les mots et les noms', etiquettes: ['etymologie'] },
   { cle: 'insolite', nom: 'L’insolite', famille: 'fil', description: 'Des faits qu’on a envie de raconter, et des idées reçues', etiquettes: ['insolite', 'idee-recue'] },
-  { cle: 'enfance', nom: 'Souvenirs d’enfance', famille: 'fil', description: 'Dessins animés, jouets, contes et légendes', etiquettes: ['enfance', 'contes-legendes'] },
+  // Sans les contes et légendes depuis le 17 octobre 2026 : ils sont aux mythes et légendes (plus haut).
+  { cle: 'enfance', nom: 'Souvenirs d’enfance', famille: 'fil', description: 'Dessins animés, jouets, chansons et livres d’enfant', etiquettes: ['enfance'] },
 ]
 
 // Les rubriques : chaque sous-thème seul, choisi sous sa catégorie — « Sport »,
 // puis « Football » (le choix du propriétaire du 17 octobre 2026, « apporter
 // beaucoup de choix ») : quatre-vingt-seize des quatre-vingt-dix-sept
 // sous-thèmes avaient de quoi faire une série, plus de deux cents questions
-// chacun, et le joueur n'en choisissait presque aucun — quatre thèmes
-// seulement n'en lisaient qu'un. Une rubrique est un sujet comme un autre
-// pour la série, la révision, le duel et le quiz tout prêt ; elle n'a ni
-// rangée dans l'onglet des thèmes, ni parcours : la feuille du choix la range
-// sous sa catégorie, et les sentiers montent déjà chaque sous-thème, chapitre
-// par chapitre. Les sujets d'une question ne la disent pas (`sujetsDe`) : sa
-// rubrique s'y ajoute (`sujetsEtRubriqueDe`). Pas « rayon » : c'est celui de
-// la boutique, et celui des modèles de quiz.
+// chacun, et le joueur n'en choisissait presque aucun. Une rubrique est un
+// sujet comme un autre pour la série, la révision, le duel et le quiz tout
+// prêt ; elle n'a ni rangée dans l'onglet des thèmes, ni parcours : la
+// feuille du choix la range sous sa catégorie, et les sentiers montent déjà
+// chaque sous-thème, chapitre par chapitre. Les sujets d'une question ne la
+// disent pas (`sujetsDe`) : sa rubrique s'y ajoute (`sujetsEtRubriqueDe`).
+// Pas « rayon » : c'est celui de la boutique, et celui des modèles de quiz.
+//
+// Un sujet qui ne lit qu'un sous-thème en tient la rubrique (`categorie`) :
+// « Les jeux vidéo » sous les jeux et la pop culture, à la place de « Jeux
+// vidéo ». Les deux posaient les mêmes questions, à quelques étiquettes près,
+// et se suivaient au carnet : douze thèmes doublaient ainsi leur rubrique (le
+// souhait du propriétaire du 17 octobre 2026 : « modifier des thèmes s'il y en
+// a qui se recoupent »). Un seul sujet, deux portes : sa tuile parmi les
+// thèmes, sa pastille sous sa catégorie.
 
 /** « Cinéma & séries » → « cinema-series » : le nom d'une catégorie, dans une clé. */
 const enCle = (categorie: string) =>
@@ -334,21 +386,38 @@ export const cleDeRubrique = (categorie: string, sousTheme: string): string => `
  */
 export const QUESTIONS_POUR_UNE_RUBRIQUE = 100
 
-/** Les rubriques, catégorie par catégorie, dans l'ordre de leurs sous-thèmes. */
-export const RUBRIQUES: readonly Sujet[] = CATEGORIES.flatMap(categorie =>
-  SOUS_THEMES[categorie].map(
-    (st): Sujet => ({
-      cle: cleDeRubrique(categorie, st.cle),
-      nom: st.nom,
-      famille: 'rubrique',
-      // Sa catégorie, sous son nom : seul, celui d'un sous-thème ne dit pas toujours de quoi — « Techniques et
-      // vocabulaire », en cuisine. « Cuisine › Techniques et vocabulaire » redisait son nom sous lui, sur deux lignes.
-      description: categorie,
-      categorie,
-      sousThemes: { [categorie]: [st.cle] } as Partial<Record<Categorie, readonly string[]>>,
-    }),
-  ),
+/** Les rubriques qu'un sujet tient, par leur clé : « jeux-pop-culture/jeux-video », c'est « jeux-video ». */
+const TENUES: ReadonlyMap<string, string> = new Map(
+  SUJETS.filter(s => s.categorie).map(s => [cleDeRubrique(s.categorie!, s.sousThemes![s.categorie!]![0]), s.cle]),
 )
+
+/** Les rubriques, catégorie par catégorie, dans l'ordre de leurs sous-thèmes — sauf celles qu'un sujet tient. */
+export const RUBRIQUES: readonly Sujet[] = CATEGORIES.flatMap(categorie =>
+  SOUS_THEMES[categorie]
+    .filter(st => !TENUES.has(cleDeRubrique(categorie, st.cle)))
+    .map(
+      (st): Sujet => ({
+        cle: cleDeRubrique(categorie, st.cle),
+        nom: st.nom,
+        famille: 'rubrique',
+        // Sa catégorie, sous son nom : seul, celui d'un sous-thème ne dit pas toujours de quoi — « Techniques et
+        // vocabulaire », en cuisine. « Cuisine › Techniques et vocabulaire » redisait son nom sous lui, sur deux lignes.
+        description: categorie,
+        categorie,
+        sousThemes: { [categorie]: [st.cle] } as Partial<Record<Categorie, readonly string[]>>,
+      }),
+    ),
+)
+
+/**
+ * Ce que la feuille du choix range sous une catégorie, dans l'ordre de ses
+ * sous-thèmes : chaque rubrique, ou le sujet qui en tient lieu — leurs clés.
+ */
+export const rubriquesDeLaCategorie = (categorie: string): readonly string[] =>
+  (SOUS_THEMES[categorie as Categorie] ?? []).map(st => {
+    const cle = cleDeRubrique(categorie, st.cle)
+    return TENUES.get(cle) ?? cle
+  })
 
 /** Tout ce qu'une partie vise au-delà des catégories : les sujets, puis les rubriques. */
 export const SUJETS_ET_RUBRIQUES: readonly Sujet[] = [...SUJETS, ...RUBRIQUES]
@@ -363,7 +432,12 @@ const RUBRIQUE_DU_SOUS_THEME: ReadonlyMap<string, ReadonlyMap<string, string>> =
   CATEGORIES.map(c => [c, new Map(SOUS_THEMES[c].map(st => [st.cle, cleDeRubrique(c, st.cle)]))]),
 )
 
-/** La rubrique d'une question : celle de son sous-thème, dans sa catégorie. */
+/**
+ * La rubrique d'une question : celle de son sous-thème, dans sa catégorie.
+ * Tenue par un sujet, elle ne se sert pas — `sujetParCle` ne la connaît pas —,
+ * mais dit encore son sous-thème : la voisine d'une question le garde
+ * (`uneAutreQuestion`).
+ */
 export const rubriqueDe = (meta: Pick<MetadonneesDeQuestion, 'categorie' | 'sousTheme'>): string | null =>
   RUBRIQUE_DU_SOUS_THEME.get(meta.categorie)?.get(meta.sousTheme) ?? null
 
@@ -472,9 +546,13 @@ export function sujetsDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes'
   return [...new Set(trouves)].sort((a, b) => a - b).map(r => SUJETS[r].cle)
 }
 
-/** Les sujets d'une question, puis sa rubrique : tout ce qu'une série, une révision, un duel ou un quiz tout prêt peut viser pour la poser. */
+/**
+ * Les sujets d'une question, puis sa rubrique : tout ce qu'une série, une
+ * révision, un duel ou un quiz tout prêt peut viser pour la poser. Une
+ * rubrique qu'un sujet tient n'y est pas : il y est déjà.
+ */
 export function sujetsEtRubriqueDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes' | 'portee' | 'categorie' | 'sousTheme'>): string[] {
   const sujets = sujetsDe(meta)
   const rubrique = rubriqueDe(meta)
-  return rubrique ? [...sujets, rubrique] : sujets
+  return rubrique && !TENUES.has(rubrique) ? [...sujets, rubrique] : sujets
 }

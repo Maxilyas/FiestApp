@@ -163,8 +163,8 @@ export function FeuilleDuQuizToutPret({
   }
 
   const servis = (base?.sujets ?? []).map(sujetParCle).filter((s): s is Sujet => !!s)
-  // Les rubriques s'affinent sous leur catégorie ; les sujets ont leurs rangées, plus bas.
-  const rubriques = servis.filter(s => s.famille === 'rubrique')
+  // Les rubriques — et les sujets qui en tiennent une — s'affinent sous leur catégorie ; les sujets ont leurs rangées, plus bas.
+  const rubriques = servis.filter(s => s.categorie)
   const sujets = servis.filter(s => s.famille !== 'rubrique')
   const laDifficulte = DIFFICULTES_DU_QUIZ.find(d => d.cle === difficulte)!
   const lu = apercu && apercu.pour === cleDuChoix ? apercu.lu : null

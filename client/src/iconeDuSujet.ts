@@ -13,7 +13,7 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   animaux: 'paw',
   inventions: 'bulb',
   'mythes-legendes': 'sparkles',
-  'terre-espace': 'planet',
+  'terre-espace': 'volcan',
   'grands-rendez-vous': 'medal',
   'petit-ecran': 'monitor',
   danse: 'dancer',

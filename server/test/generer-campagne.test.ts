@@ -201,7 +201,9 @@ test('pour un thème : ce que ses six paliers et une série demandent, marche pa
   const toutes = [...vide.values()].flat()
   assert.deepEqual(parMarche(toutes), { facile: 42, moyen: 48, difficile: 30, expert: 5 })
   const deSousTheme = (cle: string) => toutes.filter(l => l.cle === cle).reduce((s, l) => s + l.n, 0)
-  assert.deepEqual(['espace', 'terre', 'eaux', 'reliefs'].map(deSousTheme), [33, 32, 30, 30], 'ses quatre sous-thèmes à tour de rôle')
+  // Ses trois sous-thèmes depuis que l'espace est à l'astronomie (le 17 octobre 2026).
+  assert.deepEqual(['terre', 'eaux', 'reliefs'].map(deSousTheme), [42, 42, 41], 'ses trois sous-thèmes à tour de rôle')
+  assert.equal(deSousTheme('espace'), 0, 'rien de l’astronomie')
   assert.ok(vide.get('Géographie')!.every(l => l.cle === 'eaux' || l.cle === 'reliefs'), 'rien hors de ses sous-thèmes')
 
   // Ce que ses étiquettes lui apportent compte : quarante animaux faciles au cinéma, il n'en manque que deux — écrits en nature.

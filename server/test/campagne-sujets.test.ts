@@ -22,6 +22,7 @@ import {
   cleDeRubrique,
   fetesDansLOrdre,
   rubriqueDe,
+  rubriquesDeLaCategorie,
   sujetParCle,
   sujetsDe,
   sujetsEtRubriqueDe,
@@ -43,7 +44,9 @@ test('une question est d’une époque par sa date, d’un fil rouge par ses ét
   assert.deepEqual(sujetsDe(meta({ valeur: '1889-03-31', precision: 'jour' })), ['xixe'])
   // Au siècle près, « 1801 » dit tout le XIXe : elle n'est d'aucune époque.
   assert.deepEqual(sujetsDe(meta({ valeur: '1801', precision: 'siecle' })), [])
-  assert.deepEqual(sujetsDe(meta(null, ['idee-recue', 'contes-legendes'])), ['mythes-legendes', 'insolite', 'enfance'])
+  // Les contes et légendes sont aux mythes, plus aux souvenirs d'enfance (le 17 octobre 2026) : la moitié du thème était des deux.
+  assert.deepEqual(sujetsDe(meta(null, ['idee-recue', 'contes-legendes'])), ['mythes-legendes', 'insolite'])
+  assert.deepEqual(sujetsDe(meta(null, ['enfance'])), ['enfance'])
   assert.deepEqual(sujetsDe(meta(null)), [])
 })
 
@@ -79,10 +82,13 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Arts & lettres', 'poesie-theatre')), [], 'Le Médecin malgré lui')
   assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Histoire', 'faits-divers')), ['sante'], 'la peste noire')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'societe')), [], 'les autres métiers n’en sont pas')
-  // L'informatique et l'astronomie (le 17 octobre 2026) : leur sous-thème des sciences, qu'un autre thème lisait déjà.
-  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'techno')), ['inventions', 'informatique'])
-  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'espace')), ['terre-espace', 'astronomie'])
+  // L'informatique et l'astronomie (le 17 octobre 2026) : leur sous-thème des sciences, que les inventions et la
+  // Terre et l'espace — « Volcans et océans » — lisaient aussi, puis ont laissé : un thème n'en contient pas un autre.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'techno')), ['informatique'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'espace')), ['astronomie'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'terre')), ['terre-espace'], 'un volcan n’est pas de l’astronomie')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'savants')), ['inventions'])
+  assert.deepEqual(sujetsDe(meta(null, ['invention'], 'monde', 'Jeux & pop culture', 'jouets')), ['inventions'], 'le cube de Rubik')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'internet')), [], 'les réseaux sociaux ne sont pas l’informatique')
   // Les jeux vidéo, la BD et les monuments (le 17 octobre 2026 encore).
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'jeux-video')), ['jeux-video'])
@@ -108,6 +114,8 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Autour de la fête', 'traditions')), [], 'les fêtes du monde n’en sont pas une')
   // La francophonie : sa portée, comme la France la sienne.
   assert.deepEqual(sujetsDe(meta(null, [], 'francophonie', 'Musique', 'chanson-fr')), ['francophonie'])
+  // Les records : leur étiquette, et la rubrique de la culture générale qu'ils tiennent — la plus grande ville de Suisse.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'records')), ['records'])
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
@@ -117,7 +125,8 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
   const epoques = SUJETS.filter(s => s.famille === 'epoque')
   for (const s of epoques) assert.ok(s.annees && s.annees[0] <= s.annees[1], s.cle)
   for (let i = 1; i < epoques.length; i++) assert.equal(epoques[i].annees![0], epoques[i - 1].annees![1] + 1, `${epoques[i - 1].cle} puis ${epoques[i].cle}`)
-  for (const s of SUJETS.filter(s => s.famille === 'fil')) assert.ok(!s.annees && !s.sousThemes && (s.etiquettes || s.portee), s.cle)
+  // Un fil rouge se lit sur ses étiquettes ou sa portée ; un sous-thème, seulement celui dont il tient la rubrique.
+  for (const s of SUJETS.filter(s => s.famille === 'fil')) assert.ok(!s.annees && (!s.sousThemes || s.categorie) && (s.etiquettes || s.portee), s.cle)
   // Un thème se lit sur des sous-thèmes qui existent dans leur catégorie, et sur des étiquettes ; jamais sur une date ou une portée.
   const themes = SUJETS.filter(s => s.famille === 'theme')
   assert.ok(themes.length >= 5, 'les premiers thèmes')
@@ -176,7 +185,8 @@ test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horlog
 // « Sport », puis « Football ». La base en avait de quoi : plus de deux cents
 // questions par sous-thème, et le joueur n'en choisissait presque aucun.
 test('chaque sous-thème est une rubrique : sa clé dit sa catégorie, elle s’ajoute aux sujets d’une question, et une rubrique que la base livrée sert tient une série', () => {
-  assert.equal(RUBRIQUES.length, Object.values(SOUS_THEMES).flat().length, 'une rubrique par sous-thème')
+  const tenues = SUJETS.filter(s => s.categorie).length
+  assert.equal(RUBRIQUES.length + tenues, Object.values(SOUS_THEMES).flat().length, 'une rubrique par sous-thème, ou le sujet qui la tient')
   assert.equal(new Set(SUJETS_ET_RUBRIQUES.map(s => s.cle)).size, SUJETS_ET_RUBRIQUES.length, 'aucune clé partagée avec un sujet')
   assert.ok(RUBRIQUES.every(r => r.famille === 'rubrique' && r.categorie && r.cle === cleDeRubrique(r.categorie, r.sousThemes![r.categorie]![0])))
   // « france » n'est pas le même en cuisine et en géographie : la catégorie le précède.
@@ -209,9 +219,84 @@ test('chaque sous-thème est une rubrique : sa clé dit sa catégorie, elle s’
     else parRubrique.set(r, [q])
   }
   const servies = RUBRIQUES.filter(r => (parRubrique.get(r.cle)?.length ?? 0) >= QUESTIONS_POUR_UNE_RUBRIQUE)
-  assert.ok(servies.length >= 90, `${servies.length} rubriques servies : la base en avait 96 le 17 octobre 2026`)
+  // Celles qu'un sujet tient se jouent par lui, qui tient une série (plus bas) : la base en servait 96 en tout le 17 octobre 2026.
+  assert.ok(servies.length + tenues >= 90, `${servies.length} rubriques servies et ${tenues} tenues par un sujet`)
   for (const r of servies) {
     for (const n of NIVEAUX) assert.ok(parRubrique.get(r.cle)!.filter(q => niveauDeQuestion(q.meta.difficulte) === n).length >= 5, `${r.cle} › ${n}`)
+  }
+})
+
+// Douze thèmes doublaient leur rubrique — « Les jeux vidéo » et « Jeux
+// vidéo », les mêmes questions, deux lignes au carnet (le souhait du
+// propriétaire du 17 octobre 2026 : « modifier des thèmes s'il y en a qui se
+// recoupent »). Un sujet qui ne lit qu'un sous-thème en tient la rubrique.
+test('un sujet qui ne lit qu’un sous-thème en tient la rubrique : une seule porte par sous-thème, sous sa catégorie', () => {
+  const tenants = SUJETS.filter(s => s.categorie)
+  for (const s of tenants) {
+    assert.deepEqual(Object.keys(s.sousThemes ?? {}), [s.categorie], `${s.cle} : son sous-thème est de sa catégorie, et le seul`)
+    assert.equal(s.sousThemes![s.categorie!]!.length, 1, s.cle)
+  }
+  assert.equal(new Set(tenants.map(s => `${s.categorie}/${s.sousThemes![s.categorie!]![0]}`)).size, tenants.length, 'une rubrique, un sujet au plus')
+  // Sous chaque catégorie, une porte par sous-thème, dans leur ordre : la rubrique, ou le sujet qui la tient.
+  for (const categorie of Object.keys(SOUS_THEMES) as Categorie[]) {
+    const portes = rubriquesDeLaCategorie(categorie).map(cle => sujetParCle(cle)!)
+    assert.deepEqual(
+      portes.map(s => s.sousThemes![categorie]![0]),
+      SOUS_THEMES[categorie].map(st => st.cle),
+      categorie,
+    )
+  }
+  assert.deepEqual(rubriquesDeLaCategorie('Sciences'), [
+    'astronomie',
+    'sciences/terre',
+    'sciences/corps',
+    'sciences/medecine',
+    'sciences/physique-chimie',
+    'sciences/maths',
+    'informatique',
+    'inventions',
+  ])
+  // La rubrique tenue n'existe plus : ni à choisir, ni parmi les sujets d'une question — son sujet y est déjà.
+  assert.equal(sujetParCle('jeux-pop-culture/jeux-video'), undefined)
+  const jeu = meta(null, [], 'monde', 'Jeux & pop culture', 'jeux-video')
+  assert.deepEqual(sujetsEtRubriqueDe(jeu), ['jeux-video'])
+  // Elle dit encore son sous-thème : la voisine d'une question le garde (`uneAutreQuestion`).
+  assert.equal(rubriqueDe(jeu), 'jeux-pop-culture/jeux-video')
+})
+
+// La règle, sur la base livrée : ce qui se recoupe se voit dans les questions.
+test('dans la base livrée, aucun sujet ne double une rubrique, et deux sujets ne se contiennent pas', () => {
+  const { questions } = lireLaBase()
+  const membres = new Map<string, Set<string>>()
+  for (const q of questions) {
+    for (const s of sujetsEtRubriqueDe(q.meta)) {
+      const siens = membres.get(s)
+      if (siens) siens.add(q.id)
+      else membres.set(s, new Set([q.id]))
+    }
+  }
+  const communes = (a: Set<string>, b: Set<string>) => [...a].filter(id => b.has(id)).length
+  // Les quatre cinquièmes de leurs questions en commun, ensemble : le même sujet sous deux noms. Les monuments en ont
+  // trois cinquièmes avec la sculpture et l'architecture — ils réunissent deux rubriques —, les jeux vidéo en avaient tout.
+  for (const s of SUJETS) {
+    const siennes = membres.get(s.cle)!
+    for (const r of RUBRIQUES) {
+      const celles = membres.get(r.cle)
+      if (!celles || celles.size < QUESTIONS_POUR_UNE_RUBRIQUE) continue
+      const c = communes(siennes, celles)
+      assert.ok(c / (siennes.size + celles.size - c) < 0.8, `${s.cle} double ${r.cle} : donne-lui sa catégorie (\`categorie\`), il la tiendra`)
+    }
+  }
+  // Un thème n'en contient pas la moitié d'un autre : l'astronomie était toute dans la Terre et l'espace. Hors époques,
+  // qui se lisent à la date, et hors portées — la France tient la moitié de la langue française, et c'est juste.
+  const transverses = SUJETS.filter(s => s.famille !== 'epoque' && !s.portee)
+  for (let i = 0; i < transverses.length; i++) {
+    for (let j = i + 1; j < transverses.length; j++) {
+      const a = membres.get(transverses[i].cle)!
+      const b = membres.get(transverses[j].cle)!
+      const part = communes(a, b) / Math.min(a.size, b.size)
+      assert.ok(part < 0.5, `${transverses[i].cle} et ${transverses[j].cle} se recoupent à ${Math.round(part * 100)} %`)
+    }
   }
 })
 
@@ -418,17 +503,18 @@ test('une rubrique se propose à cent questions, se joue comme un sujet — sa s
 })
 
 test('une fête se propose et se joue comme un sujet — son sous-thème, son étiquette ailleurs — mais n’a pas de parcours', async () => {
-  const halloween = Array.from({ length: 70 }, (_, i) => question(300 + i, 'Autour de la fête', { sousTheme: 'halloween' }))
+  const halloween = Array.from({ length: 100 }, (_, i) => question(300 + i, 'Autour de la fête', { sousTheme: 'halloween' }))
   const ailleurs = Array.from({ length: 5 }, (_, i) => question(400 + i, 'Cinéma & séries', { etiquettes: ['halloween'] }))
   const banc = await demarrer({ baseDeLaCampagne: new BaseDeLaCampagne([...halloween, ...ailleurs]) })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-    assert.deepEqual((await lire(banc, lea, '/api/campagne')).corps.sujets, [{ sujet: 'halloween', questions: 75 }])
+    // Cent questions dans son sous-thème : elle en tient la rubrique, qui ne se propose pas une seconde fois.
+    assert.deepEqual((await lire(banc, lea, '/api/campagne')).corps.sujets, [{ sujet: 'halloween', questions: 105 }])
     const serie = (await poster(banc, lea, '/api/campagne/serie', { sujet: 'halloween' })).corps
     assert.equal(serie.sujet, 'halloween')
     const siennes = new Set([...halloween, ...ailleurs].map(q => q.id))
     assert.ok(tirees(banc, serie.id).every(id => siennes.has(id)), 'ses questions seules')
-    // Soixante-quinze questions : un thème aurait son parcours ; une fête, non — le sentier de la fête la monte déjà.
+    // Cent cinq questions : un thème aurait son parcours ; une fête, non — le sentier de la fête la monte déjà.
     assert.deepEqual((await lire(banc, lea, '/api/campagne/sujets')).corps.sujets, [])
     const etape = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'halloween', palier: 1 })
     assert.deepEqual([etape.status, etape.corps.error], [400, 'Ce parcours n’existe pas'])

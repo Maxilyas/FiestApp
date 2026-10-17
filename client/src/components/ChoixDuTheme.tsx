@@ -6,7 +6,7 @@ import { EMBLEME } from './Ecusson'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { espacesFines } from '../format'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
-import { FAMILLES_DE_SUJETS, fetesDansLOrdre, sujetParCle, type FamilleDeSujet, type Sujet } from '../../../shared/sujets'
+import { FAMILLES_DE_SUJETS, fetesDansLOrdre, rubriquesDeLaCategorie, sujetParCle, type FamilleDeSujet, type Sujet } from '../../../shared/sujets'
 
 /**
  * Ce que joue une partie de la campagne — des catégories, toutes d'office,
@@ -116,13 +116,16 @@ export function FeuilleDuChoix({
   onFermer: () => void
 }) {
   const transverses = sujets.filter(s => s.famille !== 'rubrique')
-  const rubriques = sujets.filter(s => s.famille === 'rubrique')
+  const servis = new Map(sujets.map(s => [s.cle, s]))
   const [choisies, setChoisies] = useState<string[]>(() => [...categories])
   const [choisi, setChoisi] = useState<string | null>(sujet)
-  // Sur une rubrique, la feuille s'ouvre sur sa catégorie : elle vit sous elle, pas dans l'onglet des thèmes.
-  const [onglet, setOnglet] = useState<'categories' | 'sujets'>(sujet && transverses.some(s => s.cle === sujet) ? 'sujets' : 'categories')
+  // Sur une rubrique, la feuille s'ouvre sur sa catégorie : elle vit sous elle, pas dans l'onglet des thèmes. Le sujet
+  // qui en tient une aussi, s'il y a été choisi (`sousSaCategorie`).
+  const [onglet, setOnglet] = useState<'categories' | 'sujets'>(
+    sujet && transverses.some(s => s.cle === sujet) && !sousSaCategorie(sujetParCle(sujet), categories) ? 'sujets' : 'categories',
+  )
   const leSujet = choisi ? sujetParCle(choisi) : undefined
-  const rubrique = leSujet?.famille === 'rubrique' ? leSujet : undefined
+  const rubrique = sousSaCategorie(leSujet, choisies)
   const nom = nomDuChoix(choisies, choisi) ?? toutes.toLowerCase()
   const avecSujets = transverses.length > 0
   // Toucher une catégorie quitte le sujet ; sur un sujet, elle se choisit seule — la basculer retirerait celle qu'on ne voyait plus choisie.
@@ -139,7 +142,7 @@ export function FeuilleDuChoix({
   const aucune = !choisi && choisies.length === 0
   // La catégorie qui s'affine : la seule choisie, ou celle de la rubrique choisie.
   const affinee = rubrique?.categorie ?? (!choisi && choisies.length === 1 ? choisies[0] : null)
-  const sesRubriques = affinee ? rubriques.filter(r => r.categorie === affinee) : []
+  const sesRubriques = affinee ? rubriquesDeLaCategorie(affinee).flatMap(cle => servis.get(cle) ?? []) : []
   const apres = sesRubriques.length > 0 ? finDeRangee(categoriesJouables.indexOf(affinee!), categoriesJouables.length, COLONNES_DE_LA_FEUILLE) : -1
   return (
     <Feuille
@@ -317,6 +320,16 @@ function SujetsDuChoix({
 /** Les colonnes de `.quoi-grille`, à toutes les largeurs : les rubriques d'une catégorie se posent sous la rangée de sa case. */
 const COLONNES_DE_LA_FEUILLE = 2
 
+/**
+ * Le sujet choisi, s'il se range sous sa catégorie : une rubrique, toujours ;
+ * le sujet qui en tient une, s'il a été touché sous elle — sa catégorie seule
+ * choisie avec lui. Touché parmi les thèmes, il y reste : sa catégorie
+ * s'ouvrait d'elle-même au-dessus de la tuile, dans le quiz tout prêt, et la
+ * repoussait sous le doigt.
+ */
+const sousSaCategorie = (s: Sujet | undefined, categories: readonly string[]): Sujet | undefined =>
+  s?.categorie && (s.famille === 'rubrique' || (categories.length === 1 && categories[0] === s.categorie)) ? s : undefined
+
 /** La dernière case de la rangée où tombe la case `i` — ou la dernière de toutes, sur une rangée qui n'est pas pleine. */
 const finDeRangee = (i: number, cases: number, colonnes: number) => Math.min(cases, (Math.floor(i / colonnes) + 1) * colonnes) - 1
 
@@ -371,7 +384,7 @@ export function GrilleDesCategories({
   categoriesJouables: readonly string[]
   categories: readonly string[]
   sujet: string | null
-  /** Les rubriques que la base sert ; sans elles, ou sans `onSujet`, une catégorie ne s'affine pas. */
+  /** Les rubriques que la base sert, et les sujets qui en tiennent une ; sans elles, ou sans `onSujet`, une catégorie ne s'affine pas. */
   rubriques?: readonly Sujet[]
   onCategories: (choisies: string[]) => void
   onSujet?: (choisi: string | null) => void
@@ -380,9 +393,10 @@ export function GrilleDesCategories({
   const basculer = (c: string) => onCategories(sujet ? [c] : categories.includes(c) ? categories.filter(x => x !== c) : [...categories, c])
   const toutes = !sujet && categories.length === 0
   const leSujet = sujet ? sujetParCle(sujet) : undefined
-  const rubrique = leSujet?.famille === 'rubrique' ? leSujet : undefined
+  const rubrique = sousSaCategorie(leSujet, categories)
   const affinee = rubrique?.categorie ?? (!sujet && categories.length === 1 ? categories[0] : null)
-  const sesRubriques = affinee && onSujet ? rubriques.filter(r => r.categorie === affinee) : []
+  const servies = new Map(rubriques.map(r => [r.cle, r]))
+  const sesRubriques = affinee && onSujet ? rubriquesDeLaCategorie(affinee).flatMap(cle => servies.get(cle) ?? []) : []
   // « Toutes » tient la première case : la rangée d'une catégorie se compte avec elle.
   const apres = sesRubriques.length > 0 ? finDeRangee(categoriesJouables.indexOf(affinee!) + 1, categoriesJouables.length + 1, COLONNES) - 1 : -1
   return (

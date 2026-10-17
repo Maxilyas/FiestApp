@@ -1,8 +1,8 @@
 // Les sous-thèmes de chaque catégorie : une liste fermée, que la consigne
 // donnée à une IA propose (`server/src/core/etiquetage.ts`), que la relecture
 // de ce qu'elle rend exige (`lireEtiquetage`, `shared/etiquettes.ts`), et que
-// lisent les chapitres des sentiers, les thèmes et les rayons de la feuille du
-// choix (`shared/sujets.ts`). À part du reste du catalogue des métadonnées :
+// lisent les chapitres des sentiers, les thèmes et les rubriques de la feuille
+// du choix (`shared/sujets.ts`). À part du reste du catalogue des métadonnées :
 // la feuille du choix nomme chaque sous-thème, et la page de la campagne n'a
 // pas à télécharger pour ça les définitions des étiquettes.
 //
