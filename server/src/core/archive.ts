@@ -290,6 +290,15 @@ interface FicheSoiree {
   quiz: number
   questions: number
   /**
+   * Les questions jouées par ses invités : une par invité et par question
+   * posée, répondue ou laissée au temps — les lignes du journal des
+   * réponses. Ce que l'activité du QG compte d'une soirée, comme les
+   * questions d'une partie du jour ou d'une série. Absent d'une fiche
+   * d'avant le 17 octobre 2026 : le QG le lit une fois dans son archive
+   * (`completerLesJouees`).
+   */
+  jouees?: number
+  /**
    * Le relevé des parties dont on connaît le quiz (`core/memoire.ts`) : ce
    * que « Mes quiz » lit pour dire quand il a été joué. Absent d'une fiche
    * d'avant — son archive n'en savait rien non plus.
@@ -327,6 +336,7 @@ function ficheDe(a: PartyArchive): FicheSoiree {
     prix: a.bonuses.map(b => ({ teamId: b.teamId, points: b.points })),
     quiz: new Set(a.answers.map(r => r.sessionId)).size,
     questions: new Set(a.answers.map(r => `${r.sessionId}#${r.qIndex}`)).size,
+    jouees: a.answers.length,
     jeux: jeuxDeLArchive(a),
   }
 }
@@ -794,23 +804,70 @@ export class ArchiveStore {
   /**
    * Les soirées commencées depuis un instant, tous espaces confondus, et leurs
    * chiffres — combien d'invités y ont joué, avec ou sans profil, combien de
-   * quiz et de questions : le QG en tire la participation des soirées et leur
-   * bilan. Lu dans les fiches, jamais dans les archives, et sans un prénom ni
-   * un titre. Une fiche d'avant les fiches ne compte rien.
+   * quiz et de questions, et les questions que ses invités ont jouées : le QG
+   * en tire la participation des soirées, leur bilan et leur activité. Lu
+   * dans les fiches, jamais dans les archives, et sans un prénom ni un
+   * titre. Une fiche d'avant les fiches ne compte rien.
+   *
+   * `jouees` : l'activité les demande, et une fiche d'avant le 17 octobre
+   * 2026 ne les dit pas — elles se lisent alors une fois dans son archive
+   * (`completerLesJouees`). La vue d'ensemble et le bilan ne les demandent
+   * pas : ils ne font jamais attendre cette lecture.
    */
-  async soireesDepuis(depuis: number): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number }[]> {
+  async soireesDepuis(
+    depuis: number,
+    { jouees = false }: { jouees?: boolean } = {},
+  ): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number; jouees: number }[]> {
     const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
-    return res.rows.map(r => {
-      const fiche = lireFiche(String(r.summary))
-      return {
-        spaceId: String(r.space_id),
-        id: String(r.id),
-        quand: Number(r.held_at),
-        joueurs: fiche?.invites.filter(i => i.joue).length ?? 0,
-        quiz: fiche?.quiz ?? 0,
-        questions: fiche?.questions ?? 0,
+    const lues = res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id), quand: Number(r.held_at), stocke: String(r.summary), fiche: lireFiche(String(r.summary)) }))
+    if (jouees) {
+      const sansJouees = lues.filter((l): l is (typeof lues)[number] & { fiche: FicheSoiree } => l.fiche !== null && l.fiche.jouees === undefined)
+      if (sansJouees.length > 0) await this.completerLesJouees(sansJouees)
+    }
+    return lues.map(({ spaceId, id, quand, fiche }) => ({
+      spaceId,
+      id,
+      quand,
+      joueurs: fiche?.invites.filter(i => i.joue).length ?? 0,
+      quiz: fiche?.quiz ?? 0,
+      questions: fiche?.questions ?? 0,
+      jouees: fiche?.jouees ?? 0,
+    }))
+  }
+
+  /**
+   * Les fiches d'avant le 17 octobre 2026 ne disent pas combien de questions
+   * leurs invités ont jouées : leur archive le sait — une ligne de
+   * `answers` par invité et par question posée —, lu dans la base même
+   * (`json_array_length`), sans faire voyager l'archive, par lots, et écrit
+   * dans la fiche, une fois. Comme `completerLesProfils`, la fiche ne
+   * s'écrit que si elle n'a pas bougé entre-temps ; une archive illisible
+   * compte zéro, et une panne laisse la fiche telle quelle : l'activité
+   * part quand même, et la relecture suivante réessaie.
+   */
+  private async completerLesJouees(lignes: { spaceId: string; id: string; stocke: string; fiche: FicheSoiree }[]): Promise<void> {
+    for (let i = 0; i < lignes.length; i += LOT_DE_FICHES) {
+      const lot = lignes.slice(i, i + LOT_DE_FICHES)
+      try {
+        const res = await this.client.execute({
+          sql: `SELECT space_id, id, CASE WHEN json_valid(data) THEN json_array_length(data, '$.answers') END AS n
+                FROM soirees WHERE (space_id, id) IN (VALUES ${lot.map(() => '(?, ?)').join(', ')})`,
+          args: lot.flatMap(l => [l.spaceId, l.id]),
+        })
+        const jouees = new Map(res.rows.map(r => [`${String(r.space_id)}|${String(r.id)}`, Number(r.n ?? 0)]))
+        const majs = lot.flatMap(l => {
+          const n = jouees.get(`${l.spaceId}|${l.id}`)
+          // Retirée entre les deux lectures : il n'y a plus rien à compléter.
+          if (n === undefined) return []
+          l.fiche = { ...l.fiche, jouees: n }
+          return [{ sql: 'UPDATE soirees SET summary = ? WHERE space_id = ? AND id = ? AND summary = ?', args: [JSON.stringify(l.fiche), l.spaceId, l.id, l.stocke] }]
+        })
+        if (majs.length > 0) await this.client.batch(majs, 'write')
+      } catch (e) {
+        console.error('[historique] les questions jouées des fiches d’avant ne se lisent pas :', e)
+        return
       }
-    })
+    }
   }
 
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */

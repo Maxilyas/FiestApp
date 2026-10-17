@@ -12,6 +12,8 @@ import { tronquer } from '../../shared/avatars'
 import { deNom } from '../../shared/typographie'
 import { jourDe } from '../../shared/jour'
 import type { FicheDuJoueur, ProfilDAdministration } from '../../shared/profil'
+import { JOURS_DU_QG, minuitsDeParis, modeDeLaSerie } from '../../shared/qg'
+import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeule } from '../../shared/qgActivite'
 import type { EspaceDAdministration } from '../../shared/space'
 import { titreLibre } from '../../shared/library'
 
@@ -19,8 +21,8 @@ interface ProfilsAdminDeps {
   profiles: ProfileStore
   auth: AuthStore
   store: QuizStore
-  jour: Pick<JourStore, 'resumeDe' | 'estMasque'>
-  campagne: Pick<CampagneStore, 'epreuveLaissee' | 'libererEpreuve'>
+  jour: Pick<JourStore, 'resumeDe' | 'estMasque' | 'partiesDepuis'>
+  campagne: Pick<CampagneStore, 'epreuveLaissee' | 'libererEpreuve' | 'seriesDepuis'>
   /** Les espaces dont une soirée pas encore close compte ce profil parmi ses invités — actives ou laissées en plan. */
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime le profil et ce qui n'était qu'à lui — composé dans `createQuizServer`, où tout est à portée. */
@@ -64,6 +66,27 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     }
   }
 
+  /**
+   * Ses trente derniers jours, mode par mode — sur quoi il s'acharne : ses
+   * parties du jour, ses séries et ses soirées, lues pour lui seul par leurs
+   * index, comptées comme la page de l'activité (`activiteDesJoueurs`).
+   */
+  const sesTrenteJours = async (profileId: string): Promise<ActiviteDUnJoueur> => {
+    const maintenant = deps.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const [parties, series, soirees] = await Promise.all([
+      deps.jour.partiesDepuis(minuits[0], profileId),
+      deps.campagne.seriesDepuis(minuits[0], profileId),
+      deps.profiles.soireesDuQgDe(profileId, minuits[0]),
+    ])
+    const seules: PartieSeule[] = [
+      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
+      ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+    ]
+    const [sienne] = activiteDesJoueurs(seules, soirees, minuits, maintenant)
+    return sienne ? { questions: sienne.questions, parties: sienne.parties, jours: sienne.jours } : { questions: parModeVide(), parties: parModeVide(), jours: 0 }
+  }
+
   /** Le profil que vise la route, suspendu compris ; sinon la réponse est partie (404). */
   const leProfil = async (req: Request, res: Response): Promise<ProfileRec | null> => {
     const p = await deps.profiles.pourLAdministrateur(String(req.params.id))
@@ -92,13 +115,14 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     wrap(async (req, res) => {
       const p = await leProfil(req, res)
       if (!p) return
-      const [soirees, jour, campagne, duels, boutique, epreuve] = await Promise.all([
+      const [soirees, jour, campagne, duels, boutique, epreuve, activite] = await Promise.all([
         deps.profiles.soireesDe([p.id]).then(n => n.get(p.id) ?? 0),
         deps.jour.resumeDe(p.id).catch(() => null),
         deps.profiles.statsDeCampagne?.(p.id).catch(() => null) ?? null,
         deps.profiles.duelsDe?.(p.id).catch(() => null) ?? null,
         deps.profiles.boutiqueEtDons(p, jourDe(deps.maintenant())).catch(() => null),
         deps.campagne.epreuveLaissee(p.id).catch(() => null),
+        sesTrenteJours(p.id).catch(() => null),
       ])
       const fiche: FicheDuJoueur = {
         ...(await ligne(accountOf(res), { profil: p, niveau: deps.profiles.niveauOf(p), soirees })),
@@ -112,6 +136,7 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         confettis: boutique ? { solde: boutique.boutique.confettis.solde, offerts: boutique.dons.reduce((n, d) => n + d.confettis, 0) } : null,
         connexion: { fermeeJusquA: fermeeJusquA(p.login) },
         epreuve,
+        activite,
       }
       res.json(fiche)
     }),

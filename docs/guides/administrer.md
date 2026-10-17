@@ -21,6 +21,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | La vue d'ensemble | `/admin` | l'instant, ce qui attend un geste, la journée, trente jours, le serveur |
 | Le journal | `/admin#journal` | tes gestes, du plus récent au plus ancien |
 | Le serveur | `/admin#serveur` | sept jours de santé, heure par heure |
+| L'activité | `/admin#activite` | trente jours de questions jouées et de parties, mode par mode, et qui joue à quoi |
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
 | La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin |
@@ -57,6 +58,16 @@ Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ense
 **Participations par jour** : trente jours, mode par mode — soirées, campagne, quiz du jour, duels. Un joueur compte une fois par mode et par jour ; en soirée, chaque invité qui a joué, au jour de la première question. « Les chiffres, jour par jour » déplie le tableau.
 
 **Soirées en cours** : chaque soirée par son salon — où elle en est, depuis quand, combien de téléphones connectés sur combien d'inscrits, « aucun écran branché » s'il y a lieu, « sauvegardée » ou « sauvegarde en retard ». **Le serveur** : mémoire, processeur (en part d'un cœur), boucle occupée, Turso au 95ᵉ centile, connexions temps réel, et le dernier dépôt de la routine du matin dans la réserve du quiz du jour et dans la base de la campagne.
+
+## L'activité
+
+Ce que les joueurs font, en quantité : la vue d'ensemble compte les joueurs, cette page ce qu'ils ont joué, sur trente jours. Une **question jouée** est une question posée à un joueur, qu'il y ait répondu ou l'ait laissée au temps — en soirée, une par invité et par question ; une **partie**, un quiz de soirée, une partie du quiz du jour ou de campagne, un duel (chaque côté d'un duel classé compte le sien). Une partie se date à son début.
+
+- **Ces trente jours** : une tuile par mode — ses questions jouées en grand, ses parties et ses joueurs dessous (en soirée, les soirées et leurs invités qui ont joué).
+- **Jour par jour** : un petit graphique par mode, chacun à son échelle — les soirées montent d'un coup le samedi, la campagne tous les jours ; « Questions jouées » ou « Parties ». Le jour touché se lit sous chacun.
+- **Qui joue à quoi** : chaque profil, le plus assidu d'abord, et une barre — sa longueur dit combien il a joué, ses couleurs à quoi —, avec ses questions, ses jours et le mode où il joue le plus (« surtout la campagne, 82 % »). « Tous les modes », ou un seul : les plus assidus de ce mode. Dix d'abord, cinquante au plus ; une ligne ouvre sa fiche. Les invités sans profil n'y sont pas : ils ne comptent qu'au volume des soirées.
+
+La fiche d'un joueur dit aussi ses trente jours, mode par mode (« Trente jours : 340 questions en 12 jours : campagne 280, quiz du jour 60 »).
 
 ## Le journal de tes gestes
 

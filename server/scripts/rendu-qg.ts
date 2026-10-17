@@ -9,7 +9,9 @@
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
 // clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
-// en ligne, un arrêt net hier soir — ; la page du quiz du jour — huit
+// en ligne, un arrêt net hier soir, son trafic — ; la page de l'activité —
+// trente jours de questions jouées, les vingt-quatre joueurs nommés et leur
+// manie, campagne, quiz du jour, duels ou un peu de tout — ; la page du quiz du jour — huit
 // habitués et leurs séries, cent réponses par question, une question piège
 // touchée, sept soirs de rappel — ; la page de la campagne — le défi relevé
 // par vingt-quatre joueurs, trente jours d'épreuves, un palier réglé, deux
@@ -223,8 +225,11 @@ try {
   const minuits = minuitsDeParis(maintenant, 30)
   const permanente = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   {
-    const partie = permanente.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
-    const serie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', 0, 3, ?, ?)")
+    const partie = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+    // Chaque série ses questions jouées, à la mesure de son mode : la page de l'activité les compte.
+    const serie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', ?, 3, ?, ?)")
+    const questionsDuMode = (mode: string, k: number) =>
+      mode === 'sentier' ? 16 : mode === 'sujet' ? 10 : mode === 'revision' ? 5 + (k % 6) : mode === 'defi' ? 12 + (k % 8) : mode === 'duel' || mode === 'rencontre' ? 10 : 8 + (k % 15)
     const soiree = permanente.prepare("INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, 'Une soirée', ?, ?, ?, '{}')")
     const signalement = permanente.prepare('INSERT INTO jour_signalements (jour, question, profile_id, texte, cree_le, traite_le) VALUES (?, ?, ?, ?, ?, NULL)')
     let n = 0
@@ -239,8 +244,20 @@ try {
       for (let k = 0; k < series; k++) {
         const quand = a(k, series)
         const mode = k % 4 === 0 ? 'duel' : k % 9 === 0 ? 'rencontre' : k % 5 === 0 ? 'sentier' : k % 7 === 0 ? 'sujet' : k % 11 === 0 ? 'revision' : k % 13 === 0 ? 'defi' : 'serie'
-        if (quand <= maintenant) serie.run(`s-${n++}`, `p-${(k * 7) % 80}`, quand, mode)
+        if (quand <= maintenant) serie.run(`s-${n++}`, `p-${(k * 7) % 80}`, questionsDuMode(mode, k), quand, mode)
       }
+      // Les vingt-quatre joueurs nommés, chacun sa manie, en plus des duels
+      // contre Automate qu'ils jouent tous (plus bas) : l'un s'acharne sur la
+      // campagne, l'autre ne manque pas un quiz du jour, un troisième s'en
+      // tient aux duels, le dernier touche à tout — « Qui joue à quoi » a de
+      // quoi dire.
+      joueurs.forEach((j, k) => {
+        const quand = (h: number) => minuit + (8 + h + (k % 5)) * H
+        const manie = k % 4
+        if ((manie === 1 || (manie === 3 && d % 3 === 0)) && quand(0) <= maintenant) partie.run(j.id, jourDe(minuit + 12 * H), quand(0), quand(0) + 5 * 60_000)
+        const series = manie === 0 ? 2 + ((d + k) % 3) : manie === 3 ? d % 2 : 0
+        for (let s = 0; s < series; s++) if (quand(1 + s) <= maintenant) serie.run(`j-${n++}`, j.id, questionsDuMode('serie', d + s + k), quand(1 + s), 'serie')
+      })
     })
     // Quatre-vingt-dix jours de soirées, chez l'administrateur et chez Tom :
     // le vendredi et le samedi presque toujours, le dimanche et le mercredi
@@ -253,7 +270,8 @@ try {
       if (!ce) return
       const joueurs = 3 + ((d * 7) % 22)
       const quiz = 1 + (d % 4)
-      const fiche = { v: 3, invites: Array.from({ length: joueurs + 1 }, (_, i) => ({ id: `i-${i}`, joue: i < joueurs })), quiz, questions: quiz * 12 }
+      // Chaque invité qui a joué a vu presque toutes les questions : l'activité compte ses questions jouées.
+      const fiche = { v: 3, invites: Array.from({ length: joueurs + 1 }, (_, i) => ({ id: `i-${i}`, joue: i < joueurs })), quiz, questions: quiz * 12, jouees: joueurs * quiz * 12 - (d % 7) }
       soiree.run(salons[d % 2], `soiree-${d}`, minuit + 21 * H, minuit + 23 * H, JSON.stringify(fiche))
     })
     // Sept jours de santé du serveur : réveillé vers 7 h, endormi vers minuit,
@@ -559,7 +577,11 @@ try {
         if ((semaine === 5 || semaine === 6) && minuit + 22 * H <= maintenant) {
           joueurs.slice(0, 10 + (d % 8)).forEach((j, k) => {
             const justes = 6 + ((d + k) % 9)
-            const detail = JSON.stringify({ v: 3, gain: { ...gainVide(), reponses: justes + 4 }, releve: { ...releveVide(), justes, estimationsProches: k % 3 } })
+            const detail = JSON.stringify({
+              v: 3,
+              gain: { ...gainVide(), reponses: justes + 4 },
+              releve: { ...releveVide(), justes, estimationsProches: k % 3, questions: 24, reponses: justes + 4, quizJoues: 2 },
+            })
             credit.run(j.id, `${jour}-rendu`, 'rendu', detail, minuit + 22 * H)
           })
           eclat.run(joueurs[(d + 5) % joueurs.length].id, `rendu-soiree-${d}`, `${jour}-rendu`, minuit + 23 * H)
@@ -621,6 +643,10 @@ try {
       await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
     }
     if (adresse === '/admin#signalements') await page.waitForSelector('.signalement-carte', { timeout: 15000 })
+    if (adresse === '/admin#activite') {
+      await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
+      await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
+    }
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -662,6 +688,10 @@ try {
   await photographier('23-serveur-1920', 1920, 1080, { adresse: '/admin#serveur' })
   await photographier('24-serveur-telephone', 360, 640, { adresse: '/admin#serveur' })
   await photographier('25-serveur-ivoire', 360, 640, { adresse: '/admin#serveur', theme: 'ivoire' })
+  await photographier('60-activite', 1366, 768, { adresse: '/admin#activite' })
+  await photographier('61-activite-1920', 1920, 1080, { adresse: '/admin#activite' })
+  await photographier('62-activite-telephone', 360, 640, { adresse: '/admin#activite' })
+  await photographier('63-activite-ivoire', 360, 640, { adresse: '/admin#activite', theme: 'ivoire' })
   await photographier('50-signalements', 1366, 768, { adresse: '/admin#signalements' })
   await photographier('51-signalements-1920', 1920, 1080, { adresse: '/admin#signalements' })
   await photographier('52-signalements-telephone', 360, 640, { adresse: '/admin#signalements' })
