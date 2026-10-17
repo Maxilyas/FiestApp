@@ -1,7 +1,17 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import type { Server, Socket } from 'node:net'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
-import { APPELS_POUR_UNE_LENTE, GARDE_DE_NODE_MS, debutDeLHeure, type ChargeDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
+import {
+  APPELS_POUR_UNE_LENTE,
+  GARDE_DE_NODE_MS,
+  debutDeLHeure,
+  type ChargeDeLHeure,
+  type HeureDeSante,
+  type PlafondsDuConteneur,
+  type Releve,
+  type RequetesDeLHeure,
+} from '../../../shared/santeDuServeur'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -280,7 +290,23 @@ class Heure {
   private parRoute = new Map<string, Mesure>()
   private erreurs = new Map<string, number>()
   miroir = 0
-  private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0, geles: 0, gele: 0, geleMax: 0 }
+  private charge = {
+    n: 0,
+    processeur: 0,
+    processeurMax: 0,
+    boucleMaxMs: 0,
+    memoireMaxMo: 0,
+    invitesMax: 0,
+    geles: 0,
+    gele: 0,
+    geleMax: 0,
+    // Null tant qu'aucun relevé ne les a dits : une machine qui se tait n'écrit pas un zéro.
+    connexionsMax: null as number | null,
+    tempsReelMax: null as number | null,
+    envoyes: null as number | null,
+    recus: null as number | null,
+  }
+  private requetes: RequetesDeLHeure = { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 }
   private liaison = {
     ouvertes: 0,
     refermeesParLaBase: 0,
@@ -337,6 +363,18 @@ class Heure {
       k.gele += c.gelePct
       k.geleMax = Math.max(k.geleMax, c.gelePct)
     }
+    if (typeof c.connexions === 'number') k.connexionsMax = Math.max(k.connexionsMax ?? 0, c.connexions)
+    if (typeof c.tempsReel === 'number') k.tempsReelMax = Math.max(k.tempsReelMax ?? 0, c.tempsReel)
+    if (typeof c.envoyesOctets === 'number') k.envoyes = (k.envoyes ?? 0) + c.envoyesOctets
+    if (typeof c.recusOctets === 'number') k.recus = (k.recus ?? 0) + c.recusOctets
+  }
+
+  requete(statut: number) {
+    const r = this.requetes
+    if (statut >= 500) r.enErreur++
+    else if (statut >= 400) r.refusees++
+    else if (statut >= 300) r.redirigees++
+    else r.reussies++
   }
 
   private chargeLue(): ChargeDeLHeure | null {
@@ -351,6 +389,10 @@ class Heure {
       invitesMax: k.invitesMax,
       // Absent hors d'un conteneur qui le dit : un PC, un Mac.
       ...(k.geles > 0 && { gelePct: Math.round((k.gele / k.geles) * 10) / 10, geleMaxPct: Math.round(k.geleMax * 10) / 10 }),
+      ...(k.connexionsMax !== null && { connexionsMax: k.connexionsMax }),
+      ...(k.tempsReelMax !== null && { tempsReelMax: k.tempsReelMax }),
+      ...(k.envoyes !== null && { envoyesKo: Math.round(k.envoyes / 1024) }),
+      ...(k.recus !== null && { recusKo: Math.round(k.recus / 1024) }),
     }
   }
 
@@ -398,6 +440,7 @@ class Heure {
         battementsTombes: l.battementsTombes,
         ouvertesParUnBattement: l.ouvertesParUnBattement,
       },
+      requetes: { ...this.requetes },
     }
   }
 }
@@ -410,13 +453,20 @@ export interface ReleveDeCharge {
   invites: number
   /** La part du relevé où l'hébergeur a gelé le processus faute de processeur (`sondeDuGel`) ; null hors d'un conteneur qui le dit. */
   gelePct?: number | null
+  /** Les connexions ouvertes sur le serveur à cet instant (`compteurDeConnexions`), et les clients du temps réel. */
+  connexions?: number | null
+  tempsReel?: number | null
+  /** Ce que la machine a envoyé et reçu depuis le relevé d'avant, en octets (`sondeDuReseau`) ; null hors d'une machine qui le dit. */
+  envoyesOctets?: number | null
+  recusOctets?: number | null
 }
 
 /**
  * Le relevé de l'heure : ce que la page « Le serveur » du QG garde sur sept
  * jours (`core/santeDuServeur.ts` l'écrit dans la base permanente). Un seul
  * par processus, que les modules nourrissent comme le pouls : les
- * allers-retours vers Turso (`distante.ts`), les routes (`server.ts`), les
+ * allers-retours vers Turso (`distante.ts`), les routes et chaque requête
+ * servie par son statut (`server.ts`), les
  * erreurs serveur — d'une route (`repondreErreur`), d'un socket
  * (`ecouter`, `messagePourEcran`), une exception échappée (`index.ts`) —,
  * les échecs du miroir (`backup.ts`). L'heure d'avant reste à côté de la
@@ -447,6 +497,11 @@ export class ReleveHoraire {
 
   route(modele: string, ms: number) {
     this.heure().route(modele, ms)
+  }
+
+  /** Une requête servie — une page, un fichier, une route d'API —, comptée par la famille de son statut. */
+  requete(statut: number) {
+    this.heure().requete(statut)
   }
 
   erreur(source: string) {
@@ -555,6 +610,120 @@ export function sondeDuGel(lire: (fichier: string) => string = f => readFileSync
   return null
 }
 
+/**
+ * Ce que la machine a envoyé et reçu depuis qu'elle tourne, en octets, toutes
+ * ses interfaces hors la boucle locale (`/proc/net/dev`) — la sonde, ou null
+ * hors d'une machine qui le dit (un Mac, Windows). Dans le conteneur de
+ * l'hébergeur, c'est le serveur seul : les pages aux téléphones, le temps
+ * réel, et chaque aller-retour vers Turso, qui compte dans ce qu'il reçoit.
+ * Sur un PC, c'est tout le PC. Comme le gel : une lecture qui tombe ensuite se
+ * tait, le pouls continue.
+ */
+export function sondeDuReseau(lire: (fichier: string) => string = f => readFileSync(f, 'utf8')): (() => { recus: number; envoyes: number } | null) | null {
+  const lu = (): { recus: number; envoyes: number } | null => {
+    let recus = 0
+    let envoyes = 0
+    let interfaces = 0
+    for (const ligne of lire('/proc/net/dev').split('\n')) {
+      // « eth0: 1234 5 0 0 0 0 0 0 5678 9 0 … » : huit colonnes reçues, puis huit envoyées ; les deux lignes de tête n'ont pas de deux-points.
+      const m = /^\s*([^\s:]+):\s*(.*)$/.exec(ligne)
+      if (!m || m[1] === 'lo') continue
+      const colonnes = m[2].trim().split(/\s+/).map(Number)
+      if (colonnes.length < 16 || colonnes.some(c => !Number.isFinite(c))) continue
+      recus += colonnes[0]
+      envoyes += colonnes[8]
+      interfaces++
+    }
+    return interfaces > 0 ? { recus, envoyes } : null
+  }
+  try {
+    if (lu() === null) return null
+  } catch {
+    return null
+  }
+  return () => {
+    try {
+      return lu()
+    } catch {
+      return null
+    }
+  }
+}
+
+/** Au-delà d'un tébioctet, une limite de mémoire n'en est pas une : cgroup v1 dit 2⁶³, arrondi à la page, quand rien ne borne. */
+const MEMOIRE_SANS_PLAFOND = 2 ** 40
+
+/**
+ * Les plafonds du conteneur, lus une fois dans son cgroup : le processeur
+ * (cgroup v2 `cpu.max`, « 10000 100000 » pour un dixième de cœur ; v1
+ * `cpu.cfs_quota_us` sur `cpu.cfs_period_us`) et la mémoire (`memory.max`,
+ * v1 `memory.limit_in_bytes`). La page « Le serveur » les traçait d'après
+ * l'offre gratuite, écrite dans le code : une autre offre, et le trait
+ * mentait. « max » ou -1 : pas de plafond. Null quand la machine ne les dit
+ * pas — un PC, un Mac — : la page reprend ceux du code.
+ */
+export function plafondsDuConteneur(lire: (fichier: string) => string = f => readFileSync(f, 'utf8')): PlafondsDuConteneur {
+  // La première source qui répond un nombre ; un fichier absent passe la main au suivant.
+  const premiere = (...sources: (() => number | null)[]): number | null => {
+    for (const source of sources) {
+      try {
+        const v = source()
+        if (v !== null && Number.isFinite(v) && v > 0) return v
+      } catch {
+        // Pas ce cgroup-là.
+      }
+    }
+    return null
+  }
+  const nombre = (fichier: string) => {
+    const t = lire(fichier).trim()
+    return t === 'max' || t === '-1' ? null : Number(t)
+  }
+  const processeur = premiere(
+    () => {
+      const [quota, periode] = lire('/sys/fs/cgroup/cpu.max').trim().split(/\s+/)
+      return quota === 'max' ? null : (Number(quota) / Number(periode)) * 100
+    },
+    ...['/sys/fs/cgroup/cpu', '/sys/fs/cgroup/cpu,cpuacct'].map(dossier => () => {
+      const quota = nombre(`${dossier}/cpu.cfs_quota_us`)
+      return quota === null ? null : (quota / Number(lire(`${dossier}/cpu.cfs_period_us`).trim())) * 100
+    }),
+  )
+  const memoire = premiere(
+    () => nombre('/sys/fs/cgroup/memory.max'),
+    () => nombre('/sys/fs/cgroup/memory/memory.limit_in_bytes'),
+  )
+  return {
+    processeurPct: processeur === null ? null : Math.round(processeur * 10) / 10,
+    memoireMo: memoire === null || memoire >= MEMOIRE_SANS_PLAFOND ? null : Math.round(memoire / 1024 / 1024),
+  }
+}
+
+/**
+ * Les connexions ouvertes sur le serveur, comptées à leur ouverture et à leur
+ * fermeture : chaque téléphone et chaque écran du temps réel en tient une —
+ * le temps réel passe par elle —, chaque page en cours de chargement aussi.
+ * Comptées plutôt que demandées (`getConnections`, qui répond plus tard) :
+ * le relevé de la charge les lit sans attendre.
+ */
+export function compteurDeConnexions(serveur: Server): () => number {
+  let ouvertes = 0
+  serveur.on('connection', (socket: Socket) => {
+    ouvertes++
+    socket.once('close', () => ouvertes--)
+  })
+  return () => ouvertes
+}
+
+/** Une mesure de plus au relevé, sous son propre filet : celle qui tombe se tait, le relevé part. */
+function tenter<T>(mesure: () => T): T | null {
+  try {
+    return mesure()
+  } catch {
+    return null
+  }
+}
+
 /** La période de l'histogramme de retard : voir `Charge`. */
 const RESOLUTION_MS = 100
 
@@ -582,19 +751,39 @@ export class Charge {
   private readonly invites: () => number
   private readonly gel: (() => number | null) | null
   private gelAvant: number | null
+  private readonly connexions: (() => number) | null
+  private readonly tempsReel: (() => number) | null
+  private readonly reseau: (() => { recus: number; envoyes: number } | null) | null
+  private reseauAvant: { recus: number; envoyes: number } | null
 
   /**
    * Chaque relevé part aussi au relevé de l'heure (`releve`), avec la mémoire
    * et les invités connectés — `invites`, que le serveur compte dans ses
    * soirées : la page « Le serveur » du QG montre la charge à côté de la
-   * salle qui la fait —, et le gel que l'hébergeur a imposé (`gel`, la sonde
-   * du conteneur : `sondeDuGel`).
+   * salle qui la fait —, le gel que l'hébergeur a imposé (`gel`, la sonde
+   * du conteneur : `sondeDuGel`), les connexions ouvertes et les clients du
+   * temps réel (`connexions`, `tempsReel`, que le serveur compte), et ce que
+   * la machine a envoyé et reçu (`reseau`, `sondeDuReseau`).
    */
-  constructor(periodeMs = 10_000, deps: { releve?: ReleveHoraire; invites?: () => number; gel?: (() => number | null) | null } = {}) {
+  constructor(
+    periodeMs = 10_000,
+    deps: {
+      releve?: ReleveHoraire
+      invites?: () => number
+      gel?: (() => number | null) | null
+      connexions?: () => number
+      tempsReel?: () => number
+      reseau?: (() => { recus: number; envoyes: number } | null) | null
+    } = {},
+  ) {
     this.versLHeure = deps.releve ?? releve
     this.invites = deps.invites ?? (() => 0)
     this.gel = deps.gel === undefined ? sondeDuGel() : deps.gel
     this.gelAvant = this.gel?.() ?? null
+    this.connexions = deps.connexions ?? null
+    this.tempsReel = deps.tempsReel ?? null
+    this.reseau = deps.reseau === undefined ? sondeDuReseau() : deps.reseau
+    this.reseauAvant = this.reseau?.() ?? null
     this.histogramme = monitorEventLoopDelay({ resolution: RESOLUTION_MS })
     this.histogramme.enable()
     this.minuterie = setInterval(() => this.relever(), periodeMs)
@@ -622,6 +811,13 @@ export class Charge {
     }
     this.releves.push(r)
     if (this.releves.length > 6) this.releves.shift()
+    // Le réseau depuis le relevé d'avant ; un compteur qui recule — une
+    // interface recréée — ne compte pas, il sert de départ au suivant.
+    const reseau = this.reseau?.() ?? null
+    const avant = this.reseauAvant
+    const envoyes = reseau && avant && reseau.envoyes >= avant.envoyes ? reseau.envoyes - avant.envoyes : null
+    const recus = reseau && avant && reseau.recus >= avant.recus ? reseau.recus - avant.recus : null
+    if (reseau) this.reseauAvant = reseau
     // Au relevé de l'heure, sous son propre filet : une mesure qui tombe —
     // la mémoire lève EMFILE sous `ulimit -n 64` — ne doit pas arrêter le pouls.
     try {
@@ -631,7 +827,17 @@ export class Charge {
       } catch {
         // La mémoire se tait, le reste du relevé part.
       }
-      this.versLHeure.charge({ processeur: r.cpuPct, boucleMaxMs: r.maxMs, memoireMo, invites: this.invites(), gelePct: r.gelePct })
+      this.versLHeure.charge({
+        processeur: r.cpuPct,
+        boucleMaxMs: r.maxMs,
+        memoireMo,
+        invites: this.invites(),
+        gelePct: r.gelePct,
+        connexions: this.connexions && tenter(this.connexions),
+        tempsReel: this.tempsReel && tenter(this.tempsReel),
+        envoyesOctets: envoyes,
+        recusOctets: recus,
+      })
     } catch (e) {
       console.error('[pouls] le relevé de charge n’a pas pu s’écrire dans l’heure :', e)
     }

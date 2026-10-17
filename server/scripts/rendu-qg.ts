@@ -51,7 +51,8 @@ mkdirSync(sortie, { recursive: true })
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 const H = 3_600_000
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40) })
+// Le lien vers les graphiques de Render, comme sur l'hébergeur : la page « Le serveur » le propose.
+const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics' })
 const navigateur = await chromium.launch({ headless: true })
 try {
   // Ce que les réponses contredisent, à la page de la campagne : une moyenne
@@ -294,6 +295,11 @@ try {
           annonceeMs: null,
           ...(chaudes && { chaudes: true, battements: soiree ? 40 : 260, battementsTombes: 0, ouvertesParUnBattement: soiree ? 0 : 3 }),
         }
+        // Le trafic suit la salle aussi : chaque téléphone charge ses pages et tient sa connexion du temps réel.
+        const servies = Math.round(soiree ? 700 + invites * 55 : 120 + invites * 40)
+        const refusees = Math.round(servies * 0.02) + (heureDeParis === 21 ? 14 : 0)
+        const enErreur = Object.values(erreurs).reduce((s, n) => s + n, 0)
+        const redirigees = Math.round(servies * 0.12)
         heureDeSante.run(
           heure,
           id,
@@ -313,8 +319,13 @@ try {
               // Le gel de l'hébergeur : nul au calme, il monte avec la salle passé le dixième de cœur.
               gelePct: Math.max(0, Math.round((invites * 0.27 - 6) * 10) / 10),
               geleMaxPct: Math.max(0, Math.round((invites * 0.9 - 8) * 10) / 10),
+              connexionsMax: invites + (soiree ? 5 : 2),
+              tempsReelMax: invites + (soiree ? 2 : 0),
+              envoyesKo: Math.round(servies * 9 + invites * 1400),
+              recusKo: Math.round(140 * 6 + servies * 1.5),
             },
             connexions,
+            requetes: { reussies: servies - refusees - enErreur - redirigees, redirigees, refusees, enErreur },
           }),
           heure,
         )

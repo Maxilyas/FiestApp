@@ -6,6 +6,7 @@ import {
   ARRET_RECENT_MS,
   HEURE_MS,
   HEURES_DE_SANTE,
+  PLAFONDS_INCONNUS,
   RELEVE_MS,
   SANTE_GARDEE_MS,
   SILENCE_D_UN_ARRET_MS,
@@ -16,6 +17,7 @@ import {
   type DemarrageDuServeur,
   type HeureDeSante,
   type PageDuServeur,
+  type PlafondsDuConteneur,
 } from '../../../shared/santeDuServeur'
 
 /** La page se relit au plus une fois la minute : un rechargement ne coûte rien au quota. */
@@ -51,6 +53,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       miroir: Number(releve.miroir ?? 0),
       charge: releve.charge ?? null,
       connexions: releve.connexions ?? null,
+      requetes: releve.requetes ?? null,
     }
   } catch {
     return null
@@ -83,16 +86,31 @@ export class SanteDuServeur {
   private readonly releve: ReleveHoraire
   private readonly now: () => number
   private readonly releveMs: number
+  private readonly plafonds: PlafondsDuConteneur
+  private readonly mesuresDeLHebergeur: string | null
 
+  /**
+   * `plafonds` : ceux du conteneur, lus une fois au démarrage
+   * (`plafondsDuConteneur`) ; `mesuresDeLHebergeur` : la page de ses
+   * mesures sur son tableau de bord, que la page « Le serveur » propose.
+   */
   constructor(
     url: string,
     authToken?: string,
-    deps: { maintenant?: () => number; releve?: ReleveHoraire; releveMs?: number } = {},
+    deps: {
+      maintenant?: () => number
+      releve?: ReleveHoraire
+      releveMs?: number
+      plafonds?: PlafondsDuConteneur
+      mesuresDeLHebergeur?: string | null
+    } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.releve = deps.releve ?? releveDuProcessus
     this.now = deps.maintenant ?? Date.now
     this.releveMs = deps.releveMs ?? RELEVE_MS
+    this.plafonds = deps.plafonds ?? PLAFONDS_INCONNUS
+    this.mesuresDeLHebergeur = deps.mesuresDeLHebergeur ?? null
   }
 
   async init() {
@@ -245,7 +263,7 @@ export class SanteDuServeur {
     const miennes = this.releve.lignes(this.id)
     const autres = heures.filter(h => h.demarrage !== this.id || !miennes.some(m => m.heure === h.heure))
     const courant = this.moi ?? { id: this.id, demarreLe: maintenant, pretEnMs: null, version: null, env: null, vuLe: maintenant, arreteLe: null }
-    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant })
+    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur })
   }
 
   /**

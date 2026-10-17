@@ -7,7 +7,10 @@
 // la minute en cours. La charge, d'abord laissée au direct, a rejoint la
 // page le même jour : sans elle, la page disait qu'une soirée avait été
 // lente, pas pourquoi — et seule la production dira combien d'invités le
-// dixième de cœur de l'hébergeur tient (`core/pouls.ts`).
+// dixième de cœur de l'hébergeur tient (`core/pouls.ts`). Le 17 octobre 2026,
+// ce que Render montre de dehors l'a rejointe, mesuré du dedans : les
+// requêtes par statut, les connexions ouvertes, le réseau, et les plafonds
+// lus dans le conteneur.
 //
 // Des dérivations pures : le serveur les calcule sur ce que la base garde
 // (`server/src/core/santeDuServeur.ts`), les tests les jouent sans serveur.
@@ -105,6 +108,40 @@ export interface ChargeDeLHeure {
    */
   gelePct?: number
   geleMaxPct?: number
+  /**
+   * Le pic des connexions ouvertes sur le serveur — chaque téléphone et
+   * chaque écran du temps réel en tient une, chaque page en cours de
+   * chargement aussi —, et celui des clients du temps réel seuls
+   * (`compteurDeConnexions`, `core/pouls.ts`). Absents des lignes d'avant le
+   * 17 octobre 2026.
+   */
+  connexionsMax?: number
+  tempsReelMax?: number
+  /**
+   * Ce que la machine a envoyé et reçu sur l'heure, en kilo-octets
+   * (`sondeDuReseau`) : les pages aux téléphones, les allers-retours vers
+   * Turso, tout ce qui passe par son réseau. Absents hors d'une machine qui
+   * le dit, et des lignes d'avant le 17 octobre 2026.
+   */
+  envoyesKo?: number
+  recusKo?: number
+}
+
+/**
+ * Les requêtes HTTP d'une heure, par famille de statut (le minutage de
+ * `server.ts`) : les pages, les fichiers et l'API. Ni le temps réel, qui
+ * passe à côté d'Express, ni les sondes de `/healthz`, que l'hébergeur et le
+ * réveil envoient sans cesse : elles auraient noyé les heures calmes.
+ */
+export interface RequetesDeLHeure {
+  /** 2xx. */
+  reussies: number
+  /** 3xx : une redirection, ou « pas changé » — le téléphone garde déjà le fichier. */
+  redirigees: number
+  /** 4xx : une page introuvable, une session expirée, la réserve d'inscriptions qui dit non. */
+  refusees: number
+  /** 5xx : les routes en erreur serveur. */
+  enErreur: number
 }
 
 /**
@@ -158,6 +195,8 @@ export interface HeureDeSante {
   charge: ChargeDeLHeure | null
   /** Null pour une ligne d'avant le compte des connexions. */
   connexions: ConnexionsDeLHeure | null
+  /** Null pour une ligne d'avant le compte des requêtes, le 17 octobre 2026. */
+  requetes: RequetesDeLHeure | null
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -212,12 +251,39 @@ export interface HeureDuServeur {
   /** La part des allers-retours vers Turso qui ont ouvert leur connexion, en pour cent ; null sans aller-retour, ou pour une heure d'avant le compte. */
   connexionsNeuves: number | null
   connexions: ConnexionsDeLHeure | null
+  /** Les requêtes servies, par famille de statut ; null pour une heure d'avant leur compte. */
+  requetes: RequetesDeLHeure | null
+  /** Le pic des connexions ouvertes et celui des clients du temps réel ; null sans relevé qui le dise. */
+  connexionsOuvertes: number | null
+  tempsReel: number | null
+  /** Ce que la machine a envoyé et reçu, en mégaoctets ; null sans relevé qui le dise. */
+  envoyesMo: number | null
+  recusMo: number | null
+}
+
+/**
+ * Les plafonds du conteneur, lus dans son cgroup au démarrage
+ * (`plafondsDuConteneur`, `core/pouls.ts`) : le processeur en pour cent d'un
+ * cœur, la mémoire en mégaoctets. Null quand la machine ne les dit pas — un
+ * PC, un Mac — : la page reprend ceux de l'offre gratuite, écrits dans le
+ * code.
+ */
+export interface PlafondsDuConteneur {
+  processeurPct: number | null
+  memoireMo: number | null
 }
 
 export interface PageDuServeur {
   maintenant: number
   /** Le démarrage qui répond. */
   enMarche: { depuis: number; version: string | null; env: string | null }
+  /** Ceux du démarrage qui répond : un changement d'offre déplace le trait de toute la semaine. */
+  plafonds: PlafondsDuConteneur
+  /**
+   * La page des mesures de l'hébergeur (`RENDER_SERVICE_ID`) : il garde aussi
+   * les siennes, vues de dehors. Null hors de l'hébergeur.
+   */
+  mesuresDeLHebergeur: string | null
   /** Les cent soixante-huit dernières heures, de la plus ancienne à celle-ci. */
   heures: HeureDuServeur[]
   chiffres: {
@@ -267,6 +333,10 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
   // Le gel ne se pondère que sur les relevés qui le disent : une ligne d'avant n'en dit rien.
   const geles = [a, b].filter((c): c is ChargeDeLHeure & { gelePct: number } => typeof c.gelePct === 'number')
   const relevesGeles = geles.reduce((s, c) => s + c.n, 0)
+  // Les connexions et le réseau, de même : le pire des pics, la somme des volumes, de ceux qui les disent.
+  const dits = (cle: 'connexionsMax' | 'tempsReelMax' | 'envoyesKo' | 'recusKo') => [a[cle], b[cle]].filter((v): v is number => typeof v === 'number')
+  const pic = (cle: 'connexionsMax' | 'tempsReelMax') => (dits(cle).length ? { [cle]: Math.max(...dits(cle)) } : {})
+  const volume = (cle: 'envoyesKo' | 'recusKo') => (dits(cle).length ? { [cle]: dits(cle).reduce((s, v) => s + v, 0) } : {})
   return {
     n,
     processeur: Math.round(((a.processeur * a.n + b.processeur * b.n) / n) * 10) / 10,
@@ -278,8 +348,25 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
       gelePct: Math.round((geles.reduce((s, c) => s + c.gelePct * c.n, 0) / relevesGeles) * 10) / 10,
       geleMaxPct: Math.max(...geles.map(c => c.geleMaxPct ?? c.gelePct)),
     }),
+    ...pic('connexionsMax'),
+    ...pic('tempsReelMax'),
+    ...volume('envoyesKo'),
+    ...volume('recusKo'),
   }
 }
+
+/** Les requêtes de deux démarrages dans la même heure : elles s'ajoutent. */
+export function fondreRequetes(a: RequetesDeLHeure | null, b: RequetesDeLHeure | null): RequetesDeLHeure | null {
+  if (!a) return b
+  if (!b) return a
+  return { reussies: a.reussies + b.reussies, redirigees: a.redirigees + b.redirigees, refusees: a.refusees + b.refusees, enErreur: a.enErreur + b.enErreur }
+}
+
+/** Toutes les requêtes servies d'une heure. */
+export const requetesServies = (r: RequetesDeLHeure) => r.reussies + r.redirigees + r.refusees + r.enErreur
+
+/** Des kilo-octets en mégaoctets, au dixième : le graphique gradue en mégaoctets ronds. */
+const enMo = (ko: number | undefined) => (typeof ko === 'number' ? Math.round((ko / 1024) * 10) / 10 : null)
 
 /**
  * Les connexions de deux démarrages dans la même heure : les comptes
@@ -330,13 +417,15 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
   let routes: Releve | null = null
   let charge: ChargeDeLHeure | null = null
   let connexions: ConnexionsDeLHeure | null = null
+  let requetes: RequetesDeLHeure | null = null
   let miroir = 0
   for (const l of lignes) {
     base = fondreReleves(base, l.base)
     routes = fondreReleves(routes, l.routes)
-    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions.
+    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions, ni d'avant celui des requêtes.
     charge = fondreCharges(charge, l.charge ?? null)
     connexions = fondreConnexions(connexions, l.connexions ?? null)
+    requetes = fondreRequetes(requetes, l.requetes ?? null)
     miroir += l.miroir
     for (const [source, n] of Object.entries(l.erreurs)) erreurs[source] = (erreurs[source] ?? 0) + n
     for (const r of l.lentes) {
@@ -353,6 +442,7 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
     miroir,
     charge,
     connexions,
+    requetes,
   }
 }
 
@@ -390,6 +480,9 @@ export function sorteDuDemarrage(d: DemarrageDuServeur, avant: DemarrageDuServeu
 /** Jusqu'où un démarrage a vécu : son extinction, sinon maintenant s'il répond, sinon son dernier signe. */
 const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.arreteLe ?? (d.id === courant ? maintenant : d.vuLe)
 
+/** Une machine qui ne dit pas ses plafonds. */
+export const PLAFONDS_INCONNUS: PlafondsDuConteneur = { processeurPct: null, memoireMo: null }
+
 /**
  * La page « Le serveur » : sept jours heure par heure, les démarrages et les
  * arrêts nets, et quatre chiffres. `demarrages` porte aussi le dernier
@@ -398,7 +491,12 @@ const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.
 export function pageDuServeur(
   lignes: readonly HeureDeSante[],
   demarrages: readonly DemarrageDuServeur[],
-  { maintenant, courant }: { maintenant: number; courant: DemarrageDuServeur },
+  {
+    maintenant,
+    courant,
+    plafonds = PLAFONDS_INCONNUS,
+    mesuresDeLHebergeur = null,
+  }: { maintenant: number; courant: DemarrageDuServeur; plafonds?: PlafondsDuConteneur; mesuresDeLHebergeur?: string | null },
 ): PageDuServeur {
   const derniere = debutDeLHeure(maintenant)
   const debut = derniere - (HEURES_DE_SANTE - 1) * HEURE_MS
@@ -430,6 +528,11 @@ export function pageDuServeur(
       invites: h?.charge?.invitesMax ?? null,
       connexionsNeuves: h ? partDesConnexionsNeuves(h.base, h.connexions) : null,
       connexions: h?.connexions ?? null,
+      requetes: h?.requetes ?? null,
+      connexionsOuvertes: h?.charge?.connexionsMax ?? null,
+      tempsReel: h?.charge?.tempsReelMax ?? null,
+      envoyesMo: enMo(h?.charge?.envoyesKo),
+      recusMo: enMo(h?.charge?.recusKo),
     })
   }
 
@@ -471,6 +574,8 @@ export function pageDuServeur(
   return {
     maintenant,
     enMarche: { depuis: courant.demarreLe, version: courant.version, env: courant.env },
+    plafonds,
+    mesuresDeLHebergeur,
     heures,
     chiffres: {
       demarrages: { n: demarresCetteSemaine.length, plusLongMs: prets.length ? Math.max(...prets) : null },
