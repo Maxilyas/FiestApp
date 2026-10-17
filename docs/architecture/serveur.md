@@ -157,7 +157,7 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `ArchiveStore` | `server/src/core/archive.ts` | L'historique des soirées | permanente (`soirees`) |
 | `JourStore` · `RappelStore` | `server/src/core/jour.ts`, `server/src/core/rappels.ts` | Le quiz du jour ; le rappel du soir | permanente (`jour_*`) |
 | `CampagneStore` | `server/src/core/campagne.ts` | Campagne, défi, sentiers, parcours, duels, amis | permanente (`campagne_*`, `sentier_acquis`, `sentier_melanges`) ; ses questions dans `server/content/campagne/` |
-| `JournalDesGestes` · `SanteDuServeur` | `server/src/core/journalDesGestes.ts`, `server/src/core/santeDuServeur.ts` | Le journal du QG ; la santé du serveur sur sept jours | permanente (`qg_*`) |
+| `JournalDesGestes` · `SanteDuServeur` | `server/src/core/journalDesGestes.ts`, `server/src/core/santeDuServeur.ts` | Le journal du QG ; la santé du serveur sur sept jours, et chaque erreur serveur en détail (`server/src/core/erreurs.ts`) | permanente (`qg_*`) |
 | `PagesPubliques` | `server/src/core/pages.ts` | Souvenir et bilan calculés une fois, gardés compressés | mémoire |
 | `PlacesRendues` · `ReserveDInscriptions` · `Appairages` | `server/src/core/places.ts`, `server/src/core/inscriptions.ts`, `server/src/auth/appairage.ts` | Codes « Rendre sa place », réserve d'inscriptions, branchement des télés | mémoire |
 
@@ -185,7 +185,7 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `server/src/campagne.ts` | `/api/campagne/*`, `/api/duels/*`, dont la base de la routine ; `/api/admin/campagne*` | `mountCampagne`, `mountBaseDeLaCampagne`, `mountCampagneAdmin` |
 | `server/src/partages.ts` | `/api/partages/*`, `/api/catalogue*`, `/api/admin/catalogue*`, le partage d'un quiz | `mountPartages` |
 | `server/src/profilsAdmin.ts` | `/api/admin/profils*`, `/api/admin/espaces*` | `mountProfilsAdmin` |
-| `server/src/qg.ts` | `/api/admin/qg*`, `/api/admin/soirees*`, `/api/admin/serveur`, `/api/admin/gestes` | `mountQg` |
+| `server/src/qg.ts` | `/api/admin/qg*`, `/api/admin/activite`, `/api/admin/soirees*`, `/api/admin/serveur`, `/api/admin/gestes` | `mountQg` |
 | `server/src/api.ts` | `/api/quizzes*`, `/api/images`, `/media/image/:id`, `/api/modeles*`, `/api/programmes*`, `/api/quiz-tout-pret*`, `/api/soirees/:id` | `mountApi` |
 
 Chaque route, sa méthode et son accès : [l'API HTTP](../reference/api-http.md).

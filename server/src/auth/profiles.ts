@@ -1,6 +1,6 @@
 import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
-import type { InStatement } from '@libsql/client'
+import type { InStatement, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
@@ -107,6 +107,7 @@ import {
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import type { Achat, Mouvement, SorteDeVente } from '../../../shared/qgEconomie'
+import type { SoireeDUnProfil } from '../../../shared/qgActivite'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
@@ -278,6 +279,19 @@ export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGN
 
 /** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
 export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
+
+/**
+ * Ce que le QG lit d'une ligne de soirée : qui, quand, les quiz qu'il y a
+ * joués et les questions qu'on lui a posées — tirés du détail dans la base
+ * même, sans le faire voyager (ses catégories en font l'essentiel). Une ligne
+ * illisible compte zéro au lieu de faire échouer la lecture.
+ */
+const COLONNES_D_UNE_SOIREE_DU_QG = `profile_id, created_at,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.quizJoues') END AS quiz,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.questions') END AS questions`
+
+/** Une soirée d'un profil, telle que le QG la compte (`COLONNES_D_UNE_SOIREE_DU_QG`). */
+const soireeDuQg = (r: Row): SoireeDUnProfil => ({ qui: String(r.profile_id), quand: Number(r.created_at), quiz: Number(r.quiz ?? 0), questions: Number(r.questions ?? 0) })
 
 /** Ses dernières soirées, où l'on cherche qui il a croisé (`compagnonsDeSoiree`) : au-delà, on ne se souvient plus de qui était là. */
 const SOIREES_DES_CROISES = 5
@@ -3043,11 +3057,12 @@ export class ProfileStore {
   /**
    * Ce que le QG compte d'un profil depuis un instant, d'un seul lot : les
    * inscriptions, les achats — thèmes, vies, sabliers — et les soirées où il
-   * a été crédité, à l'heure de leur dernier crédit (les lignes à part,
-   * `#jour` ou `#campagne`, n'en sont pas). Des dates, et qui pour les
-   * soirées : de quoi compter le jour et les profils actifs.
+   * a été crédité, à l'heure de leur premier crédit — la ligne se remplace,
+   * sa date reste (`ligneDeCredit`) ; les lignes à part, `#jour` ou
+   * `#campagne`, n'en sont pas. Des dates, qui pour les soirées, et ce qu'il
+   * y a joué : de quoi compter le jour, les profils actifs et leur activité.
    */
-  async activiteDepuis(depuis: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }> {
+  async activiteDepuis(depuis: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }> {
     const [inscrits, achats, soirees] = await this.client.batch(
       [
         { sql: 'SELECT created_at FROM profiles WHERE created_at >= ?', args: [depuis] },
@@ -3057,15 +3072,24 @@ export class ProfileStore {
                 UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?`,
           args: [depuis, depuis, depuis],
         },
-        { sql: `SELECT profile_id, created_at FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
+        { sql: `SELECT ${COLONNES_D_UNE_SOIREE_DU_QG} FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
       ],
       'read',
     )
     return {
       inscriptions: inscrits.rows.map(r => Number(r.created_at)),
       achats: achats.rows.map(r => Number(r.created_at)),
-      soirees: soirees.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.created_at) })),
+      soirees: soirees.rows.map(soireeDuQg),
     }
+  }
+
+  /** Les soirées d'un seul profil depuis un instant, lues comme celles de `activiteDepuis` : sa fiche au QG. */
+  async soireesDuQgDe(profileId: string, depuis: number): Promise<SoireeDUnProfil[]> {
+    const res = await this.client.execute({
+      sql: `SELECT ${COLONNES_D_UNE_SOIREE_DU_QG} FROM profile_xp WHERE profile_id = ? AND created_at >= ? AND ${HORS_LIGNES_A_PART}`,
+      args: [profileId, depuis],
+    })
+    return res.rows.map(soireeDuQg)
   }
 
   /**
@@ -3896,6 +3920,12 @@ export class ProfileStore {
   async pourLAdministrateur(id: string): Promise<ProfileRec | null> {
     await this.byIds([id])
     return this.profiles.get(id) ?? null
+  }
+
+  /** Des profils pour l'administrateur, ceux qui ne sont pas en mémoire chargés par paquets (`byIds`) : suspendus compris ; ceux qui n'existent plus manquent. */
+  async pourLAdministrateurDe(ids: readonly string[]): Promise<ProfileRec[]> {
+    await this.byIds(ids)
+    return ids.flatMap(id => this.profiles.get(id) ?? [])
   }
 
   /**

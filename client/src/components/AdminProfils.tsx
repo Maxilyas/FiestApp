@@ -9,6 +9,40 @@ import { espacesFines, quand } from '../format'
 import type { ProfilDAdministration } from '../../../shared/profil'
 
 /**
+ * Supprimer un profil depuis sa fiche — dans « Les profils », ou dans
+ * « Qui joue à quoi » de la page de l'activité. La confirmation dit avant le
+ * clic ce qu'elle emporte, et ce qui reste : l'espace qu'il tenait — son
+ * salon, un compte d'animateur —, détaché, et les soirées jouées, aux autres.
+ * Rend vrai une fois le profil supprimé ; un refus se dit, et rend faux.
+ */
+export async function supprimerLeProfil(p: ProfilDAdministration): Promise<boolean> {
+  // Sans genre : un prénom ne dit pas qui l'on est. L'espace reste : les
+  // souvenirs des soirées qu'on y a jouées s'ouvrent toujours.
+  const salon = p.salon
+    ? p.salon.propre
+      ? ` Son salon reste, sans titulaire, avec ${p.salon.quiz === 0 ? '' : p.salon.quiz === 1 ? 'son quiz et ' : `ses ${p.salon.quiz} quiz et `}les souvenirs de ses soirées : il se supprime à part, dans « Les salons ».`
+      : ` Le compte d’animateur « ${p.salon.slug} » reste, sans ce profil.`
+    : ''
+  const ok = await confirmDialog({
+    title: `Supprimer le profil de ${p.nom} ?`,
+    message:
+      `Son niveau, ses avatars, ses trophées, ses parties du quiz du jour et de la campagne disparaissent pour de bon.${salon} ` +
+      'Les soirées jouées restent dans l’historique des autres joueurs, avec ce qu’elles leur ont rapporté.',
+    confirmLabel: 'Supprimer le profil',
+    danger: true,
+  })
+  if (!ok) return false
+  try {
+    const fait = await api.admin.supprimerProfil(p.id)
+    showToast({ kind: 'info', message: `Le profil de ${p.nom} est supprimé${fait.salon ? ' — son espace reste, sans titulaire' : ''}` })
+    return true
+  } catch (e) {
+    showToast({ kind: 'error', message: (e as Error).message })
+    return false
+  }
+}
+
+/**
  * « Les profils », à `/admin#profils` : les personnes — les chercher, ouvrir
  * la fiche de l'une. Sans recherche, les derniers vus ; les suspendus aussi,
  * c'est d'ici qu'on les réactive. Une ligne chacun, qui ouvre sa feuille,
@@ -46,30 +80,11 @@ export function AdminProfils() {
   }, [cherche, relire])
 
   const supprimer = async (p: ProfilDAdministration) => {
-    // Sans genre : un prénom ne dit pas qui l'on est. L'espace reste : les
-    // souvenirs des soirées qu'on y a jouées s'ouvrent toujours.
-    const salon = p.salon
-      ? p.salon.propre
-        ? ` Son salon reste, sans titulaire, avec ${p.salon.quiz === 0 ? '' : p.salon.quiz === 1 ? 'son quiz et ' : `ses ${p.salon.quiz} quiz et `}les souvenirs de ses soirées : il se supprime à part, dans « Les salons ».`
-        : ` Le compte d’animateur « ${p.salon.slug} » reste, sans ce profil.`
-      : ''
-    const ok = await confirmDialog({
-      title: `Supprimer le profil de ${p.nom} ?`,
-      message:
-        `Son niveau, ses avatars, ses trophées, ses parties du quiz du jour et de la campagne disparaissent pour de bon.${salon} ` +
-        'Les soirées jouées restent dans l’historique des autres joueurs, avec ce qu’elles leur ont rapporté.',
-      confirmLabel: 'Supprimer le profil',
-      danger: true,
-    })
-    if (!ok) return
     setOccupe(true)
     try {
-      const fait = await api.admin.supprimerProfil(p.id)
-      showToast({ kind: 'info', message: `Le profil de ${p.nom} est supprimé${fait.salon ? ' — son espace reste, sans titulaire' : ''}` })
+      if (!(await supprimerLeProfil(p))) return
       setOuvert(null)
       setRelire(n => n + 1)
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
     } finally {
       setOccupe(false)
     }

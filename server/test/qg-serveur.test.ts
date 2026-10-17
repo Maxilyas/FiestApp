@@ -5,19 +5,30 @@
 // la mémoire près du plafond.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
+import { connect, type AddressInfo } from 'node:net'
+import path from 'node:path'
 import React from 'react'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
-import { Charge, ReleveHoraire, sondeDuGel } from '../src/core/pouls'
+import { Charge, ReleveHoraire, compteurDeConnexions, plafondsDuConteneur, sondeDuGel, sondeDuReseau } from '../src/core/pouls'
+import { cadresDeLaPile, detailDeLErreur, messageNettoye } from '../src/core/erreurs'
+import { SERVEUR } from '../src/racine'
 import {
+  ERREURS_EN_DETAIL,
   alertesDuServeur,
   arreteNet,
+  cleDeLErreur,
   debutDeLHeure,
   fondreCharges,
   fondreConnexions,
+  fondreRequetes,
   pageDuServeur,
+  requetesServies,
   sorteDuDemarrage,
   type DemarrageDuServeur,
+  type ErreurDeLaSemaine,
+  type ErreurEnDetail,
   type HeureDeSante,
   type PageDuServeur,
 } from '../../shared/santeDuServeur'
@@ -105,6 +116,146 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
     r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir, l.charge, l.connexions]),
     [[null, null, {}, 0, null, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 4_000, annonceeMs: null, chaudes: true, ...sansRien }]],
   )
+  // Comptées sans rien de ce qu'elles étaient, les erreurs n'ont pas de détail : la ligne n'en porte pas.
+  assert.equal('erreursEnDetail' in r.lignes('d1')[0], false)
+})
+
+/** Le dépôt, d'où se comptent les chemins qu'une pile montre. */
+const DEPOT = path.dirname(SERVEUR)
+
+test('une erreur serveur en détail : sa sorte, son code, son message nettoyé, d’où elle vient — les mêmes comptées ensemble, douze par heure au plus', () => {
+  let t = Date.UTC(2026, 9, 13, 19, 10)
+  const r = new ReleveHoraire(() => t)
+  // La même deux fois : comptée ensemble, sa première et sa dernière fois.
+  r.erreur('POST /api/jour/reponse', new TypeError('Cannot read properties of undefined (reading id)'))
+  t += 5 * 60_000
+  r.erreur('POST /api/jour/reponse', new TypeError('Cannot read properties of undefined (reading id)'))
+  // Son code est celui de sa cause, et son message dit la chaîne : « fetch failed » seul ne disait rien.
+  r.erreur('socket host:launch', new Error('fetch failed', { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) }))
+  // Ni jeton, ni paramètre d'adresse : la page les montrerait.
+  r.erreur('GET /api/jour', new Error('GET https://base.turso.io/v2/pipeline?authToken=abc123 refusée, jeton eyJhbGciOiJI.eyJzdWIiOiIx.c2lnbmF0dXJl, Bearer abc.def'))
+  // Le lecteur JSON cite le corps de la requête : seule sa sorte se garde.
+  r.erreur('requête illisible', Object.assign(new SyntaxError('Unexpected token in JSON at position 12: {"password":"secret'), { type: 'entity.parse.failed' }), {
+    sansMessage: true,
+  })
+  // Une promesse rejetée par autre chose qu'une erreur se dit par ce qu'elle est.
+  r.erreur('exception échappée', 'la base a dit non')
+  r.erreur('exception échappée', null)
+  // Deux délais qui ne diffèrent que par leurs nombres : les mêmes.
+  r.erreur('GET /api/duels', new Error('délai de 10012 ms dépassé'))
+  r.erreur('GET /api/duels', new Error('délai de 10340 ms dépassé'))
+
+  const [h] = r.lignes('d1')
+  const detail = (source: string) => h.erreursEnDetail!.filter(e => e.source === source)
+  assert.deepEqual(h.erreurs, { 'POST /api/jour/reponse': 2, 'socket host:launch': 1, 'GET /api/jour': 1, 'requête illisible': 1, 'exception échappée': 2, 'GET /api/duels': 2 })
+  const [typeError] = detail('POST /api/jour/reponse')
+  assert.deepEqual(
+    { ...typeError, pile: undefined },
+    {
+      source: 'POST /api/jour/reponse',
+      nom: 'TypeError',
+      code: null,
+      message: 'Cannot read properties of undefined (reading id)',
+      // Levée ici même : le premier cadre du dépôt est ce test, à sa ligne.
+      ou: typeError.ou,
+      pile: undefined,
+      n: 2,
+      premiere: Date.UTC(2026, 9, 13, 19, 10),
+      derniere: Date.UTC(2026, 9, 13, 19, 15),
+    },
+  )
+  assert.match(typeError.ou ?? '', /^(?:.+ · )?server\/test\/qg-serveur\.test\.ts:\d+$/)
+  // La pile ne garde que des chemins du dépôt, jamais ceux de la machine, ni les entrailles de Node.
+  assert.ok(typeError.pile.length > 0 && typeError.pile.length <= 8, JSON.stringify(typeError.pile))
+  assert.ok(typeError.pile.every(c => !c.includes(DEPOT) && !c.includes('node:')), JSON.stringify(typeError.pile))
+  assert.deepEqual(
+    detail('socket host:launch').map(e => [e.nom, e.code, e.message]),
+    [['Error', 'UND_ERR_SOCKET', 'fetch failed ← other side closed']],
+  )
+  assert.equal(detail('GET /api/jour')[0].message, 'GET https://base.turso.io/v2/pipeline?… refusée, jeton [jeton], Bearer [jeton]')
+  assert.deepEqual(
+    detail('requête illisible').map(e => [e.nom, e.message]),
+    [['SyntaxError', 'entity.parse.failed']],
+  )
+  assert.ok(!JSON.stringify(h).includes('secret'), 'le corps de la requête ne se garde pas')
+  assert.deepEqual(
+    detail('exception échappée').map(e => [e.nom, e.message, e.pile]),
+    [
+      ['string', 'la base a dit non', []],
+      ['null', '', []],
+    ],
+  )
+  assert.deepEqual(
+    detail('GET /api/duels').map(e => [e.message, e.n]),
+    [['délai de 10012 ms dépassé', 2]],
+  )
+  assert.equal(cleDeLErreur(detail('GET /api/duels')[0]), 'GET /api/duels|Error|délai de # ms dépassé')
+
+  // Une panne en boucle ne remplit pas la base : douze au plus par heure, chacune comptée à sa source.
+  for (let i = 0; i < 10; i++) r.erreur(`GET /api/route-${i}`, new RangeError(`valeur ${'abcdefghij'[i]} hors bornes`))
+  const [pleine] = r.lignes('d1')
+  assert.equal(pleine.erreursEnDetail!.length, ERREURS_EN_DETAIL)
+  assert.equal(Object.values(pleine.erreurs).reduce((s, n) => s + n, 0), 19)
+  // La même qu'une déjà détaillée se compte encore à son détail.
+  r.erreur('POST /api/jour/reponse', new TypeError('Cannot read properties of undefined (reading id)'))
+  assert.equal(r.lignes('d1')[0].erreursEnDetail!.find(e => e.source === 'POST /api/jour/reponse')!.n, 3)
+})
+
+test('la pile d’une erreur, cadre par cadre : le dépôt et sa ligne, un paquet de node_modules, le paquet du serveur — ni Node, ni ce qui n’est pas un fichier', () => {
+  const paquet = '/srv/fiestapp/server/dist/index.mjs'
+  const pile = [
+    'TypeError: x',
+    `    at lireJour (${path.join(DEPOT, 'server', 'src', 'core', 'jour.ts')}:1206:11)`,
+    `    at async repondre (file://${path.join(DEPOT, 'server', 'src', 'jour.ts')}:88:5)`,
+    '    at async Promise.all (index 0)',
+    '    at new Promise (<anonymous>)',
+    // Trois cadres dans le même paquet : seul compte celui par où le code y est entré.
+    '    at mapSqliteError (/srv/fiestapp/node_modules/@libsql/client/lib-esm/sqlite3.js:435:16)',
+    '    at executeStmt (/srv/fiestapp/node_modules/@libsql/client/lib-esm/sqlite3.js:338:15)',
+    '    at Sqlite3Client.execute (/srv/fiestapp/node_modules/@libsql/client/lib-esm/sqlite3.js:120:9)',
+    '    at Layer.handle (/srv/fiestapp/node_modules/express/lib/router/layer.js:95:5)',
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)',
+    '    at /tmp/ailleurs/outil.js:3:1',
+    `    at ProfileStore.offrirDesConfettis (${paquet}:4321:7)`,
+    // La route d'un `wrap(async (req, res) => …)` : attendue, sans nom.
+    `    at async ${paquet}:4400:5`,
+    `    at ${paquet}:9999:1`,
+  ].join('\n')
+  // Le paquet : chaque module y commence par son chemin en commentaire — ce test donne le sien.
+  const lecteur = (fichier: string, ligne: number) => (fichier === paquet ? (ligne >= 4000 && ligne < 5000 ? 'server/src/auth/profiles.ts' : null) : null)
+  assert.deepEqual(cadresDeLaPile(pile, lecteur), [
+    'lireJour · server/src/core/jour.ts:1206',
+    'async repondre · server/src/jour.ts:88',
+    'Sqlite3Client.execute · @libsql/client',
+    'Layer.handle · express',
+    '(anonyme) · outil.js:3',
+    'ProfileStore.offrirDesConfettis · server/src/auth/profiles.ts',
+    'async (anonyme) · server/src/auth/profiles.ts',
+    // Une ligne du paquet qu'aucun module ne réclame : le fichier, sans le chemin de la machine.
+    '(anonyme) · index.mjs:9999',
+  ])
+  // Où elle vient du dépôt : le premier cadre qui en est.
+  const e = new Error('x')
+  e.stack = pile
+  assert.equal(detailDeLErreur(e, { paquet: lecteur }).ou, 'lireJour · server/src/core/jour.ts:1206')
+  // Une erreur de la base : son code le plus précis, et sa cause seulement si elle dit autre chose.
+  const cause = Object.assign(new Error('quota'), { code: 'SQLITE_CONSTRAINT_TRIGGER' })
+  const libsql = Object.assign(new Error('SQLITE_CONSTRAINT: quota', { cause }), { name: 'LibsqlError', code: 'SQLITE_CONSTRAINT', extendedCode: 'SQLITE_CONSTRAINT_TRIGGER' })
+  assert.deepEqual(
+    (({ nom, code, message }) => ({ nom, code, message }))(detailDeLErreur(libsql)),
+    { nom: 'LibsqlError', code: 'SQLITE_CONSTRAINT_TRIGGER', message: 'SQLITE_CONSTRAINT: quota' },
+  )
+  // Un message sur une ligne, coupé : la phrase de l'erreur, pas les données qu'elle citerait.
+  assert.equal(messageNettoye(`une\n  ligne\tde trop ${'x'.repeat(400)}`).length, 300)
+  assert.equal(messageNettoye('wss://base.turso.io/v2#jeton=abc'), 'wss://base.turso.io/v2?…')
+  // Ce qu'un `JSON.parse` cite du texte qu'il n'a pas su lire ne se garde pas : un mot de passe y passerait.
+  let illisible = ''
+  try {
+    JSON.parse('password=secret')
+  } catch (e) {
+    illisible = (e as Error).message
+  }
+  assert.equal(messageNettoye(illisible), 'Unexpected token \'p\', "…" is not valid JSON')
 })
 
 test('le pouls nourrit le relevé de l’heure : le processeur, le pire gel, la mémoire et les invités connectés, à chaque relevé', async () => {
@@ -183,6 +334,126 @@ test('le gel de l’hébergeur : la sonde lit le cgroup du conteneur, le pouls e
   }
 })
 
+test('le trafic de l’heure : les requêtes par famille de statut, le pic des connexions ouvertes, ce que la machine a envoyé et reçu', () => {
+  // Le 17 octobre 2026 (« combien de connexions », sans clé de l'hébergeur) : ce
+  // que le tableau de bord de Render montre de dehors, le serveur le mesure de lui-même.
+  const r = new ReleveHoraire(() => Date.UTC(2026, 9, 17, 19, 10))
+  for (const statut of [200, 204, 304, 404, 401, 500]) r.requete(statut)
+  r.charge({ processeur: 3, boucleMaxMs: 40, memoireMo: 200, invites: 4, connexions: 12, tempsReel: 9, envoyesOctets: 3 * 1024 * 1024, recusOctets: 512 * 1024 })
+  // Un relevé dont le réseau se tait : il n'ôte rien à ce qui est dit, il n'y ajoute pas de zéro.
+  r.charge({ processeur: 5, boucleMaxMs: 60, memoireMo: 210, invites: 6, connexions: 30, tempsReel: 4, envoyesOctets: 1024 * 1024, recusOctets: null })
+  const [h] = r.lignes('d1')
+  assert.deepEqual(h.requetes, { reussies: 2, redirigees: 1, refusees: 2, enErreur: 1 })
+  assert.deepEqual(h.charge, { n: 2, processeur: 4, processeurMax: 5, boucleMaxMs: 60, memoireMaxMo: 210, invitesMax: 6, connexionsMax: 30, tempsReelMax: 9, envoyesKo: 4096, recusKo: 512 })
+  // Une machine qui ne dit ni ses connexions ni son réseau : rien d'écrit, pas un zéro.
+  const muette = new ReleveHoraire(() => Date.UTC(2026, 9, 17, 19, 10))
+  muette.charge({ processeur: 3, boucleMaxMs: 40, memoireMo: 200, invites: 4 })
+  assert.deepEqual(muette.lignes('d1')[0].charge, { n: 1, processeur: 3, processeurMax: 3, boucleMaxMs: 40, memoireMaxMo: 200, invitesMax: 4 })
+  assert.deepEqual(muette.lignes('d1')[0].requetes, { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 })
+
+  // Deux démarrages dans la même heure : le pire des pics, la somme des volumes et des requêtes ; une ligne d'avant n'en dit rien.
+  const avec = { n: 30, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18, connexionsMax: 30, tempsReelMax: 22, envoyesKo: 2048, recusKo: 512 }
+  const davant = { n: 90, processeur: 1, processeurMax: 3, boucleMaxMs: 80, memoireMaxMo: 260, invitesMax: 2 }
+  assert.deepEqual(fondreCharges(avec, davant), { n: 120, processeur: 2, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 260, invitesMax: 18, connexionsMax: 30, tempsReelMax: 22, envoyesKo: 2048, recusKo: 512 })
+  assert.deepEqual(fondreCharges(avec, { ...avec, connexionsMax: 41, tempsReelMax: 3, envoyesKo: 1000, recusKo: 24 }), { ...avec, n: 60, connexionsMax: 41, envoyesKo: 3048, recusKo: 536 })
+  assert.deepEqual(fondreCharges(davant, davant), { ...davant, n: 180 }, 'deux lignes d’avant restent sans eux')
+  assert.deepEqual(fondreRequetes({ reussies: 10, redirigees: 2, refusees: 1, enErreur: 0 }, { reussies: 5, redirigees: 0, refusees: 4, enErreur: 1 }), { reussies: 15, redirigees: 2, refusees: 5, enErreur: 1 })
+  assert.deepEqual(fondreRequetes(null, { reussies: 5, redirigees: 0, refusees: 4, enErreur: 1 }), { reussies: 5, redirigees: 0, refusees: 4, enErreur: 1 })
+  assert.equal(fondreRequetes(null, null), null)
+})
+
+test('les sondes du conteneur : son réseau, hors la boucle locale, et ses plafonds de processeur et de mémoire — rien sur une machine qui ne les dit pas', () => {
+  const machine = (fichiers: Record<string, string>) => (f: string) => {
+    if (!(f in fichiers)) throw new Error(`ENOENT: ${f}`)
+    return fichiers[f]
+  }
+  const NET_DEV = [
+    'Inter-|   Receive                                                |  Transmit',
+    ' face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed',
+    '    lo: 9999999     100    0    0    0     0          0         0  9999999     100    0    0    0     0       0          0',
+    '  eth0: 1000000    2000    0    0    0     0          0         0   300000    1500    0    0    0     0       0          0',
+    '  eth1:500 10 0 0 0 0 0 0 200 5 0 0 0 0 0 0',
+    '',
+  ].join('\n')
+  assert.deepEqual(sondeDuReseau(machine({ '/proc/net/dev': NET_DEV }))?.(), { recus: 1_000_500, envoyes: 300_200 })
+  assert.equal(sondeDuReseau(machine({})), null, 'un Mac, Windows')
+  assert.equal(sondeDuReseau(machine({ '/proc/net/dev': NET_DEV.split('\n').slice(0, 3).join('\n') })), null, 'la boucle locale seule')
+
+  // cgroup v2 : un dixième de cœur, 512 Mo — l'offre gratuite de l'hébergeur.
+  assert.deepEqual(plafondsDuConteneur(machine({ '/sys/fs/cgroup/cpu.max': '10000 100000\n', '/sys/fs/cgroup/memory.max': '536870912\n' })), { processeurPct: 10, memoireMo: 512 })
+  // Sans plafond : « max ».
+  assert.deepEqual(plafondsDuConteneur(machine({ '/sys/fs/cgroup/cpu.max': 'max 100000\n', '/sys/fs/cgroup/memory.max': 'max\n' })), { processeurPct: null, memoireMo: null })
+  // cgroup v1 : un demi-cœur ; une mémoire sans plafond s'y dit 2⁶³ arrondi à la page.
+  assert.deepEqual(
+    plafondsDuConteneur(
+      machine({
+        '/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us': '50000\n',
+        '/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us': '100000\n',
+        '/sys/fs/cgroup/memory/memory.limit_in_bytes': '9223372036854771712\n',
+      }),
+    ),
+    { processeurPct: 50, memoireMo: null },
+  )
+  assert.deepEqual(
+    plafondsDuConteneur(machine({ '/sys/fs/cgroup/cpu/cpu.cfs_quota_us': '-1\n', '/sys/fs/cgroup/cpu/cpu.cfs_period_us': '100000\n', '/sys/fs/cgroup/memory/memory.limit_in_bytes': '1073741824\n' })),
+    { processeurPct: null, memoireMo: 1024 },
+  )
+  assert.deepEqual(plafondsDuConteneur(machine({})), { processeurPct: null, memoireMo: null }, 'un PC, un Mac')
+  assert.deepEqual(plafondsDuConteneur(machine({ '/sys/fs/cgroup/cpu.max': 'illisible\n' })), { processeurPct: null, memoireMo: null })
+})
+
+test('les connexions ouvertes se comptent à leur ouverture et à leur fermeture', async () => {
+  const serveur = createServer((_req, res) => res.end('ok'))
+  const ouvertes = compteurDeConnexions(serveur)
+  await new Promise<void>(resolve => serveur.listen(0, '127.0.0.1', resolve))
+  const port = (serveur.address() as AddressInfo).port
+  const sockets = [connect(port, '127.0.0.1'), connect(port, '127.0.0.1')]
+  try {
+    for (let i = 0; i < 100 && ouvertes() < 2; i++) await patienter(10)
+    assert.equal(ouvertes(), 2)
+    sockets[0].destroy()
+    for (let i = 0; i < 100 && ouvertes() > 1; i++) await patienter(10)
+    assert.equal(ouvertes(), 1)
+  } finally {
+    for (const s of sockets) s.destroy()
+    await new Promise(resolve => serveur.close(resolve))
+  }
+})
+
+test('le pouls nourrit l’heure des connexions ouvertes et du réseau : ce que chaque relevé a vu passer depuis le précédent', async () => {
+  let recus = 1_000_000
+  let envoyes = 5_000_000
+  const releve = new ReleveHoraire()
+  const pouls = new Charge(20, {
+    releve,
+    gel: null,
+    connexions: () => 5,
+    tempsReel: () => 3,
+    // 2 Ko reçus et 4 envoyés par relevé.
+    reseau: () => ({ recus: (recus += 2048), envoyes: (envoyes += 4096) }),
+  })
+  try {
+    for (let i = 0; i < 100 && (releve.lignes('d1').at(-1)!.charge?.n ?? 0) < 2; i++) await patienter(20)
+  } finally {
+    pouls.arreter()
+  }
+  // Lue d'un seul tenant : le nombre de relevés et ce qu'ils ont compté vont ensemble.
+  const lue = releve.lignes('d1').at(-1)!.charge!
+  assert.ok(lue.n >= 2, JSON.stringify(lue))
+  assert.deepEqual([lue.connexionsMax, lue.tempsReelMax, lue.envoyesKo, lue.recusKo], [5, 3, 4 * lue.n, 2 * lue.n])
+
+  // Un compteur qui recule — l'interface recréée — ne compte pas : il sert de départ au suivant.
+  const recule = new ReleveHoraire()
+  const autre = new Charge(20, { releve: recule, gel: null, reseau: () => ({ recus: (recus -= 100), envoyes: (envoyes -= 100) }) })
+  try {
+    for (let i = 0; i < 100 && (recule.lignes('d1').at(-1)!.charge?.n ?? 0) < 1; i++) await patienter(20)
+  } finally {
+    autre.arreter()
+  }
+  const sansReseau = recule.lignes('d1').at(-1)!.charge!
+  assert.equal('envoyesKo' in sansReseau || 'recusKo' in sansReseau || 'connexionsMax' in sansReseau, false, JSON.stringify(sansReseau))
+})
+
 // Une semaine de démarrages : un réveil, un arrêt net puis son redémarrage,
 // une mise en ligne, une relance, et celui qui répond.
 const demarrage = (id: string, d: Partial<DemarrageDuServeur>): DemarrageDuServeur => ({
@@ -219,6 +490,7 @@ const ligne = (heure: number, demarrage: string, l: Partial<HeureDeSante>): Heur
   miroir: 0,
   charge: null,
   connexions: null,
+  requetes: null,
   ...l,
 })
 const LIGNES: HeureDeSante[] = [
@@ -227,9 +499,23 @@ const LIGNES: HeureDeSante[] = [
     base: { n: 10, p50: 30, p95: 60, max: 80 },
     routes: { n: 20, p50: 100, p95: 300, max: 500 },
     erreurs: { 'POST /api/jour/reponse': 2 },
-    // Le gel de l'hébergeur, que c, une ligne d'avant, ne dit pas.
-    charge: { n: 60, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18, gelePct: 12, geleMaxPct: 40 },
+    // Le gel de l'hébergeur, les connexions ouvertes et le réseau, que c, une ligne d'avant, ne dit pas.
+    charge: {
+      n: 60,
+      processeur: 5,
+      processeurMax: 9,
+      boucleMaxMs: 300,
+      memoireMaxMo: 210,
+      invitesMax: 18,
+      gelePct: 12,
+      geleMaxPct: 40,
+      connexionsMax: 30,
+      tempsReelMax: 22,
+      envoyesKo: 2048,
+      recusKo: 512,
+    },
     connexions: { ouvertes: 8, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 1, gardeMs: 4_000, annonceeMs: null },
+    requetes: { reussies: 100, redirigees: 20, refusees: 3, enErreur: 2 },
   }),
   ligne(a(4, 14), 'c', {
     base: { n: 30, p50: 50, p95: 90, max: 120 },
@@ -270,6 +556,11 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     base: 90,
     routes: 300,
     erreurs: 4,
+    // Ses sources, la plus fréquente d'abord : la légende de l'heure les nomme.
+    erreursParSource: [
+      { source: 'POST /api/jour/reponse', n: 3 },
+      { source: 'socket host:launch', n: 1 },
+    ],
     miroir: 2,
     processeur: 6.5,
     // Pondéré sur les seuls relevés qui le disent : ceux de b.
@@ -279,6 +570,12 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     invites: 25,
     connexionsNeuves: 50,
     connexions: { ouvertes: 20, refermeesParLaBase: 2, plusJeuneRefermeeMs: 31_000, echecs: 1, gardeMs: 30_000, annonceeMs: 5_000 },
+    // Les requêtes, les connexions ouvertes et le réseau : ceux de b, c n'en disant rien.
+    requetes: { reussies: 100, redirigees: 20, refusees: 3, enErreur: 2 },
+    connexionsOuvertes: 30,
+    tempsReel: 22,
+    envoyesMo: 2,
+    recusMo: 0.5,
   })
   // La nuit, l'hébergeur dort ; le matin, le réveil de 7 h 02 compte son heure.
   assert.equal(heure(a(0, 3)).eveille, false)
@@ -289,6 +586,7 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     base: null,
     routes: null,
     erreurs: 0,
+    erreursParSource: [],
     miroir: 0,
     processeur: null,
     gele: null,
@@ -297,6 +595,11 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     invites: null,
     connexionsNeuves: null,
     connexions: null,
+    requetes: null,
+    connexionsOuvertes: null,
+    tempsReel: null,
+    envoyesMo: null,
+    recusMo: null,
   })
   // Une heure d'avant le compte des connexions : ni part, ni détail.
   assert.deepEqual([heure(a(3, 19)).connexionsNeuves, heure(a(3, 19)).connexions], [null, null])
@@ -327,6 +630,145 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
   // La dernière heure mesurée, et l'habitude : la médiane des heures assez fournies.
   assert.deepEqual(page.chiffres.base, { derniere: 110, habituelle: 110 })
   assert.deepEqual(page.chiffres.routes, { derniere: 380, habituelle: 320, plusLente: { route: 'GET /api/jour', p95: 520 } })
+})
+
+/** Une erreur en détail, comme une heure la garde. */
+const enDetail = (d: Partial<ErreurEnDetail> & Pick<ErreurEnDetail, 'n' | 'premiere' | 'derniere'>): ErreurEnDetail => ({
+  source: 'POST /api/jour/reponse',
+  nom: 'TypeError',
+  code: null,
+  message: 'jour.questions is not iterable',
+  ou: 'lireJour · server/src/core/jour.ts:1206',
+  pile: ['lireJour · server/src/core/jour.ts:1206', 'async repondre · server/src/jour.ts:88'],
+  ...d,
+})
+
+/** La semaine de `LIGNES`, ses erreurs en détail : la même sous trois démarrages et deux versions, et une de la base, ce soir. */
+const LIGNES_DETAILLEES: HeureDeSante[] = LIGNES.map(l => {
+  if (l.heure === a(4, 14) && l.demarrage === 'b') return { ...l, erreursEnDetail: [enDetail({ n: 2, premiere: a(4, 14, 5), derniere: a(4, 14, 9) })] }
+  // c ne détaille que celle-ci : celle de son socket reste comptée sans son détail.
+  if (l.heure === a(4, 14) && l.demarrage === 'c') return { ...l, erreursEnDetail: [enDetail({ n: 1, premiere: a(4, 14, 40), derniere: a(4, 14, 40) })] }
+  if (l.heure !== a(0, 20)) return l
+  return {
+    ...l,
+    erreurs: { 'POST /api/jour/reponse': 1, 'socket host:launch': 2 },
+    erreursEnDetail: [
+      // Levée quelques lignes plus bas cette fois : la fiche dit la plus récente.
+      enDetail({ n: 1, premiere: a(0, 20, 15), derniere: a(0, 20, 15), ou: 'lireJour · server/src/core/jour.ts:1215', pile: ['lireJour · server/src/core/jour.ts:1215'] }),
+      enDetail({
+        source: 'socket host:launch',
+        nom: 'LibsqlError',
+        code: 'SQLITE_BUSY',
+        message: 'SQLITE_BUSY: database is locked',
+        ou: null,
+        pile: ['Sqlite3Client.execute · @libsql/client'],
+        n: 2,
+        premiere: a(0, 20, 30),
+        derniere: a(0, 20, 31),
+      }),
+    ],
+  }
+})
+
+test('les erreurs de la semaine : les mêmes fondues d’une heure et d’un démarrage à l’autre, la plus récente d’abord, leurs versions — et celles sans détail, comptées', () => {
+  // Des lignes d'avant le détail : toutes comptées, aucune détaillée.
+  const avant = pageDuServeur(LIGNES, SEMAINE, { maintenant, courant: COURANT })
+  assert.deepEqual(avant.erreurs, [])
+  assert.deepEqual(avant.erreursSansDetail, [
+    { source: 'POST /api/jour/reponse', n: 3 },
+    { source: 'socket host:launch', n: 1 },
+  ])
+
+  const page = pageDuServeur(LIGNES_DETAILLEES, SEMAINE, { maintenant, courant: COURANT })
+  assert.deepEqual(
+    page.erreurs.map(e => [e.source, e.nom, e.code, e.n]),
+    [
+      ['socket host:launch', 'LibsqlError', 'SQLITE_BUSY', 2],
+      ['POST /api/jour/reponse', 'TypeError', null, 4],
+    ],
+  )
+  const [base, typeError] = page.erreurs
+  assert.deepEqual([base.heures, base.versions], [[{ heure: a(0, 20), n: 2 }], ['bbbbbbb']])
+  // Fondue de trois démarrages : sa première fois, et ce que dit la dernière — son endroit, sa pile.
+  assert.deepEqual(
+    { premiere: typeError.premiere, derniere: typeError.derniere, ou: typeError.ou, pile: typeError.pile, heures: typeError.heures, versions: typeError.versions },
+    {
+      premiere: a(4, 14, 5),
+      derniere: a(0, 20, 15),
+      ou: 'lireJour · server/src/core/jour.ts:1215',
+      pile: ['lireJour · server/src/core/jour.ts:1215'],
+      heures: [
+        { heure: a(0, 20), n: 1 },
+        { heure: a(4, 14), n: 3 },
+      ],
+      versions: ['aaaaaaa', 'bbbbbbb'],
+    },
+  )
+  // Celle du socket de c n'a pas son détail : comptée à part, jamais perdue.
+  assert.deepEqual(page.erreursSansDetail, [{ source: 'socket host:launch', n: 1 }])
+  // Une erreur d'il y a huit jours ne se montre plus.
+  const vieille = ligne(a(8, 10), 'z', { erreurs: { 'GET /api/vieux': 1 }, erreursEnDetail: [enDetail({ source: 'GET /api/vieux', n: 1, premiere: a(8, 10, 1), derniere: a(8, 10, 1) })] })
+  assert.deepEqual(
+    pageDuServeur([...LIGNES_DETAILLEES, vieille], SEMAINE, { maintenant, courant: COURANT }).erreurs.map(e => e.source),
+    ['socket host:launch', 'POST /api/jour/reponse'],
+  )
+})
+
+test('ce qui a échoué se lit sur la page, et chaque erreur ouvre sa fiche : d’où elle vient, combien, sous quelles versions, sa pile', async () => {
+  Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
+  const { SanteDuServeurAuQg, FicheDeLErreur, texteDeLErreur } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const rendu = (el: React.ReactElement) => sansInsecables(renderToStaticMarkup(el).replace(/<!-- -->/g, ''))
+  const page = pageDuServeur(LIGNES_DETAILLEES, SEMAINE, { maintenant, courant: COURANT })
+  const html = rendu(React.createElement(SanteDuServeurAuQg, { page }))
+  for (const attendu of [
+    'Ce qui a échoué',
+    'LibsqlError : SQLITE_BUSY: database is locked',
+    '2 fois · la dernière aujourd’hui à 20 h 31',
+    'TypeError : jour.questions is not iterable',
+    '4 fois · la dernière aujourd’hui à 20 h 15 · lireJour · server/src/core/jour.ts:1215',
+    'Comptées sans leur détail',
+  ]) {
+    assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
+  }
+  for (const absent of ['NaN', 'undefined', 'null']) assert.ok(!html.includes(absent), `pas de « ${absent} »`)
+
+  const typeError: ErreurDeLaSemaine = page.erreurs[1]
+  const fiche = rendu(React.createElement(FicheDeLErreur, { erreur: typeError, page }))
+  for (const attendu of [
+    'jour.questions is not iterable',
+    'POST /api/jour/reponse',
+    '4 fois, en 2 heures',
+    'ven. 9 oct. à 14 h 05',
+    'aaaaaaa, bbbbbbb',
+    // La version en marche l'a vue tomber : pas réparée.
+    'Tombée sous la version en marche (bbbbbbb) : pas réparée.',
+    'La pile d’appels',
+    'aujourd’hui, 20 h',
+    'ven. 9 oct., 14 h',
+    '3 fois',
+  ]) {
+    assert.ok(fiche.includes(attendu), `« ${attendu} » dans la fiche`)
+  }
+  // Son code, quand elle en a un : celui de la base.
+  assert.ok(rendu(React.createElement(FicheDeLErreur, { erreur: page.erreurs[0], page })).includes('<dt>Code</dt><dd><span class="qg-source">SQLITE_BUSY</span></dd>'))
+  // Une version neuve qui ne l'a pas vue : peut-être réparée.
+  const apresUneMiseEnLigne = { ...page, enMarche: { ...page.enMarche, version: 'ccccccc' } }
+  assert.ok(rendu(React.createElement(FicheDeLErreur, { erreur: typeError, page: apresUneMiseEnLigne })).includes('Pas revue depuis la mise en ligne de la version ccccccc : peut-être réparée.'))
+  // Ce que « Copier le détail » emporte : de quoi la réparer ailleurs.
+  assert.equal(
+    sansInsecables(texteDeLErreur(typeError, page)),
+    [
+      'TypeError',
+      'jour.questions is not iterable',
+      'D’où : POST /api/jour/reponse',
+      'Dans le code : lireJour · server/src/core/jour.ts:1215',
+      '4 fois cette semaine — la première ven. 9 oct. à 14 h 05, la dernière aujourd’hui à 20 h 15',
+      'Versions : aaaaaaa, bbbbbbb',
+      'Pile :',
+      '  lireJour · server/src/core/jour.ts:1215',
+    ].join('\n'),
+  )
 })
 
 test('un démarrage ne se juge pas arrêté net tant qu’il donne signe de vie : à une relance, l’ancien vit encore un instant', () => {
@@ -431,7 +873,17 @@ test('un vrai serveur se souvient de lui-même : son démarrage, une erreur serv
     assert.deepEqual(vue.aTraiter.serveur.erreurs && [vue.aTraiter.serveur.erreurs.n, vue.aTraiter.serveur.erreurs.source], [1, route])
     assert.equal(vue.aTraiter.serveur.arretNet, null)
     // Sur la page, l'heure en cours se lit dans le relevé : plus fraîche que la base.
-    assert.deepEqual((await lire<PageDuServeur>(banc, admin, '/api/admin/serveur')).corps.chiffres.erreurs.sources, [{ source: route, n: 1 }])
+    const pageAvecLErreur = (await lire<PageDuServeur>(banc, admin, '/api/admin/serveur')).corps
+    assert.deepEqual(pageAvecLErreur.chiffres.erreurs.sources, [{ source: route, n: 1 }])
+    // Et son détail : ce que la base a dit, l'endroit du code qui l'a appelée — jamais un chemin de la machine.
+    assert.equal(pageAvecLErreur.erreurs.length, 1)
+    const [echec] = pageAvecLErreur.erreurs
+    assert.equal(echec.source, route)
+    assert.equal(echec.n, 1)
+    assert.match(echec.message, /quota/)
+    assert.match(echec.ou ?? '', / · server\/src\/[\w/]+\.ts:\d+$/)
+    assert.ok(!JSON.stringify(echec).includes(DEPOT), JSON.stringify(echec))
+    assert.deepEqual(pageAvecLErreur.erreursSansDetail, [])
 
     // Éteint proprement : son extinction s'écrit, et son heure avec son erreur.
     await banc.redemarrer()
@@ -447,6 +899,10 @@ test('un vrai serveur se souvient de lui-même : son démarrage, une erreur serv
       heures.some(h => JSON.parse(h.releve).erreurs[route] === 1),
       'son heure est écrite, avec son erreur',
     )
+    assert.ok(
+      heures.some(h => JSON.parse(h.releve).erreursEnDetail?.[0]?.source === route),
+      'et son détail',
+    )
 
     // Un arrêt net : le premier démarrage n'a plus ni extinction ni signe depuis une heure.
     db.prepare('UPDATE qg_demarrages SET demarre_le = ?, vu_le = ?, arrete_le = NULL WHERE id = ?').run(Date.now() - 2 * H, Date.now() - H, demarrages[0].id)
@@ -457,6 +913,11 @@ test('un vrai serveur se souvient de lui-même : son démarrage, une erreur serv
       ['apres-arret', 'arret-net', 'reveil'],
     )
     assert.equal(apres.chiffres.arretsNets, 1)
+    // Relue de la base au réveil, l'erreur d'avant garde son détail.
+    assert.deepEqual(
+      apres.erreurs.map(e => [e.source, e.ou]),
+      [[route, echec.ou]],
+    )
     const vue2 = (await lire<VueDEnsemble>(banc, admin2, '/api/admin/qg')).corps
     assert.ok(vue2.aTraiter.serveur.arretNet, 'un arrêt net du jour attend un geste')
     // Le relevé repart de zéro avec le serveur : l'erreur d'avant est dans la base, pas dans l'alerte.
@@ -465,6 +926,60 @@ test('un vrai serveur se souvient de lui-même : son démarrage, une erreur serv
     db.close()
     await banc.close()
   }
+})
+
+test('un vrai serveur compte ses requêtes par statut — pas les sondes de /healthz —, et sa page dit ses plafonds et mène aux mesures de l’hébergeur', async () => {
+  const banc = await demarrer({ mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-banc/metrics' })
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    // Toutes les heures de la page : un test à cheval sur deux heures compte encore juste.
+    const lesRequetes = (page: PageDuServeur) =>
+      page.heures.reduce((s, h) => (h.requetes ? { servies: s.servies + requetesServies(h.requetes), refusees: s.refusees + h.requetes.refusees } : s), { servies: 0, refusees: 0 })
+    const avant = lesRequetes((await lire<PageDuServeur>(banc, admin, '/api/admin/serveur')).corps)
+    // Un fichier qui n'existe pas — le `favicon.ico` d'une vieille version —, et une route d'administrateur sans session.
+    const introuvable = await fetch(`${banc.url}/nexiste.png`)
+    assert.equal(introuvable.status, 404)
+    const sansSession = await fetch(`${banc.url}/api/admin/serveur`)
+    assert.ok(sansSession.status >= 400 && sansSession.status < 500, `refusée sans session : ${sansSession.status}`)
+    // Les sondes de l'hébergeur et du réveil ne comptent pas.
+    for (let i = 0; i < 10; i++) assert.equal((await fetch(`${banc.url}/healthz`)).status, 200)
+    const page = (await lire<PageDuServeur>(banc, admin, '/api/admin/serveur')).corps
+    // La lecture d'avant, servie, et les deux refusées : rien de plus.
+    assert.deepEqual(lesRequetes(page), { servies: avant.servies + 3, refusees: avant.refusees + 2 })
+
+    // Les plafonds de cette machine-ci, lus ou non ; et le chemin des mesures de l'hébergeur, tel qu'on l'a donné.
+    assert.deepEqual(Object.keys(page.plafonds).sort(), ['memoireMo', 'processeurPct'])
+    for (const v of Object.values(page.plafonds)) assert.ok(v === null || (typeof v === 'number' && v > 0), JSON.stringify(page.plafonds))
+    assert.equal(page.mesuresDeLHebergeur, 'https://dashboard.render.com/web/srv-banc/metrics')
+  } finally {
+    await banc.close()
+  }
+})
+
+test('la page « Le serveur » trace les plafonds lus dans le conteneur, et mène aux graphiques de l’hébergeur quand elle les connaît', async () => {
+  Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
+  const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const rendre = (page: PageDuServeur) => sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page })).replace(/<!-- -->/g, ''))
+  const lus = rendre(
+    pageDuServeur(LIGNES, SEMAINE, {
+      maintenant,
+      courant: COURANT,
+      plafonds: { processeurPct: 50, memoireMo: 2048 },
+      mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-abc123/metrics',
+    }),
+  )
+  for (const attendu of [
+    'en pointillé, les plafonds du conteneur : 50 % d’un cœur, 2048 Mo',
+    'href="https://dashboard.render.com/web/srv-abc123/metrics"',
+    'ses propres graphiques',
+  ]) {
+    assert.ok(lus.includes(attendu), `« ${attendu} » dans la page`)
+  }
+  // Hors de l'hébergeur : ni lien, ni trait inventé — ceux de l'offre gratuite.
+  const ailleurs = rendre(pageDuServeur(LIGNES, SEMAINE, { maintenant, courant: COURANT }))
+  assert.ok(!ailleurs.includes('ses propres graphiques'))
+  assert.ok(ailleurs.includes('les plafonds de l’hébergeur gratuit'))
 })
 
 test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la nuit hachurée, chaque réveil et sa raison', async () => {
@@ -493,7 +1008,14 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'Gel de l’hébergeur',
     'Invités connectés',
     'plafond',
-    'ven. 9 oct., 14 h : processeur 6,5 % · gel de l’hébergeur 12 % · boucle 300 ms · mémoire 260 Mo · 25 invités',
+    // Sans plafonds lus dans un conteneur, ceux de l'offre gratuite.
+    'en pointillé, les plafonds de l’hébergeur gratuit',
+    // Les connexions ouvertes, à la suite de la charge : celles de b.
+    'Connexions ouvertes',
+    'ven. 9 oct., 14 h : processeur 6,5 % · gel de l’hébergeur 12 % · boucle 300 ms · mémoire 260 Mo · 25 invités · 30 connexions ouvertes, 22 en temps réel',
+    // Le trafic : les requêtes par statut, ce que la machine a envoyé et reçu.
+    'Le trafic, heure par heure',
+    'ven. 9 oct., 14 h : 125 requêtes — 100 réussies, 20 redirigées, 3 refusées, 2 en erreur · 2 Mo envoyés · 512 Ko reçus',
     // Turso et ses connexions : deux graphiques, et l'heure lue dans les deux — la garde, ce que la base a refermé, ce qui est tombé.
     'Connexions neuves',
     'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',

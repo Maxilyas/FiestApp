@@ -242,7 +242,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         }
         const panne = (e: unknown) => {
           console.error(`[socket] « ${event} » a échoué :`, e)
-          releve.erreur(`socket ${event}`)
+          releve.erreur(`socket ${event}`, e)
           if (enPanne !== undefined) repondre(enPanne)
         }
         try {

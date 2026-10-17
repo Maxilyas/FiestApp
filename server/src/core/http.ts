@@ -34,8 +34,8 @@ export function repondreErreur(req: Request, res: Response, e: unknown) {
     return
   }
   console.error(`[http] ${req.method} ${req.path} :`, e)
-  // Au relevé de l'heure, la route sous son modèle — jamais son adresse, qui peut porter un identifiant.
-  releve.erreur(`${req.method} ${typeof req.route?.path === 'string' ? req.route.path : 'hors route'}`)
+  // Au relevé de l'heure, la route sous son modèle — jamais son adresse, qui peut porter un identifiant —, et ce qu'elle était.
+  releve.erreur(`${req.method} ${typeof req.route?.path === 'string' ? req.route.path : 'hors route'}`, e)
   if (!res.headersSent) res.status(500).json({ error: ERREUR_SERVEUR })
 }
 
@@ -54,7 +54,7 @@ export const wrap =
 export function messagePourEcran(e: unknown, contexte: string): string {
   if (erreurMontrable(e)) return e.message
   console.error(`[socket] ${contexte} :`, e)
-  releve.erreur(`socket ${contexte}`)
+  releve.erreur(`socket ${contexte}`, e)
   return ERREUR_SERVEUR
 }
 
@@ -89,6 +89,9 @@ export function erreurDeRequete(err: unknown, req: Request, res: Response, next:
     return
   }
   console.error(`[http] ${req.method} ${req.path} :`, err)
-  releve.erreur('requête illisible')
+  // Celle du lecteur du corps — elle dit sa sorte (`type`) — sans son message :
+  // il peut citer le corps de la requête, et le QG le montrerait. Une autre —
+  // une route qui a levé sans `wrap` — le garde.
+  releve.erreur('requête illisible', err, { sansMessage: typeof (err as { type?: unknown } | null)?.type === 'string' })
   res.status(500).json({ error: ERREUR_SERVEUR })
 }

@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type CSSProperties } from 'react'
 import { Icon, type IconName } from './Icon'
 import { Feuille } from './Pieces'
 import { Onglets } from './Onglets'
@@ -84,9 +84,9 @@ function Compte({ compte }: { compte: CompteDuChoix | undefined }) {
 /**
  * La feuille du choix, par-dessus la page : les catégories — toutes d'un
  * toucher, ou une, ou plusieurs —, puis, dans leur onglet, les thèmes, les
- * époques et les fils rouges en pastilles, chaque famille sa rangée
- * (`FAMILLES_DE_SUJETS`). Rien ne change avant « Choisir » : « Fermer » rend
- * le choix d'avant. Sa hauteur ne suit pas son onglet : « Choisir » restait
+ * époques et les fils rouges, chaque famille sa rangée et son allure
+ * (`SujetsDuChoix`). Rien ne change avant « Choisir » : « Fermer » rend le
+ * choix d'avant. Sa hauteur ne suit pas son onglet : « Choisir » restait
  * sous le doigt d'un onglet à l'autre. Le carnet la reprend, chaque case
  * disant ce qui y attend (`comptes`).
  */
@@ -192,33 +192,98 @@ export function FeuilleDuChoix({
             </div>
           </>
         ) : (
-          FAMILLES_DE_SUJETS.map(({ famille, nom: nomDeLaFamille }) => {
-            const ici = sujets.filter(s => s.famille === famille)
-            if (ici.length === 0) return null
-            return (
-              <div key={famille} className="quoi-famille">
-                <p className="label">{nomDeLaFamille}</p>
-                <div className="quoi-pastilles" role="group" aria-label={nomDeLaFamille}>
-                  {ici.map(s => (
-                    <button
-                      key={s.cle}
-                      type="button"
-                      className={'quoi-pastille' + (choisi === s.cle ? ' active' : '')}
-                      aria-pressed={choisi === s.cle}
-                      // Le toucher de nouveau le quitte : les catégories reviennent.
-                      onClick={() => setChoisi(choisi === s.cle ? null : s.cle)}
-                    >
-                      {s.nom}
-                      <Compte compte={comptes?.sujets.get(s.cle)} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })
+          <SujetsDuChoix sujets={sujets} choisi={choisi} comptes={comptes?.sujets} onChoisi={setChoisi} />
         )}
       </div>
     </Feuille>
+  )
+}
+
+/**
+ * L'onglet des thèmes, chaque famille son allure : les thèmes en tuiles, leur
+ * emblème dans un médaillon ; les époques en frise, dans l'ordre du temps —
+ * la première colonne, puis la seconde ; les fils rouges en pastilles, leur
+ * emblème devant. Trente-cinq pastilles toutes pareilles faisaient un mur de
+ * mots sur trois écrans (le souhait du propriétaire du 17 octobre 2026 :
+ * « plus stylisé, plus agréable à voir »). Toucher de nouveau un sujet le
+ * quitte : les catégories reviennent.
+ */
+function SujetsDuChoix({
+  sujets,
+  choisi,
+  comptes,
+  onChoisi,
+}: {
+  sujets: readonly Sujet[]
+  choisi: string | null
+  comptes: ReadonlyMap<string, CompteDuChoix> | undefined
+  onChoisi: (cle: string | null) => void
+}) {
+  const basculer = (cle: string) => onChoisi(choisi === cle ? null : cle)
+  return (
+    <>
+      {FAMILLES_DE_SUJETS.map(({ famille, nom: nomDeLaFamille }) => {
+        const ici = sujets.filter(s => s.famille === famille)
+        if (ici.length === 0) return null
+        // La frise remplit ses colonnes de haut en bas : autant de rangs que la moitié de ses époques.
+        const rangs = Math.ceil(ici.length / 2)
+        return (
+          <div key={famille} className="quoi-famille">
+            <p className="label quoi-titre">{nomDeLaFamille}</p>
+            {famille === 'epoque' ? (
+              <div className="quoi-frise" role="group" aria-label={nomDeLaFamille} style={{ '--rangs': rangs } as CSSProperties}>
+                {ici.map((s, i) => (
+                  <button
+                    key={s.cle}
+                    type="button"
+                    className={
+                      'quoi-epoque' +
+                      (i % rangs === 0 ? ' quoi-epoque-debut' : '') +
+                      (i % rangs === rangs - 1 || i === ici.length - 1 ? ' quoi-epoque-fin' : '') +
+                      (choisi === s.cle ? ' active' : '')
+                    }
+                    aria-pressed={choisi === s.cle}
+                    onClick={() => basculer(s.cle)}
+                  >
+                    <span className="quoi-jalon" />
+                    <span className="quoi-nom">
+                      {s.nom}
+                      <Compte compte={comptes?.get(s.cle)} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : famille === 'theme' ? (
+              <div className="quoi-tuiles" role="group" aria-label={nomDeLaFamille}>
+                {ici.map(s => (
+                  <button key={s.cle} type="button" className={'quoi-tuile' + (choisi === s.cle ? ' active' : '')} aria-pressed={choisi === s.cle} onClick={() => basculer(s.cle)}>
+                    <span className="quoi-medaillon">
+                      <Icon name={iconeDuSujet(s)} />
+                    </span>
+                    <span className="quoi-nom">
+                      {s.nom}
+                      <Compte compte={comptes?.get(s.cle)} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="quoi-fils" role="group" aria-label={nomDeLaFamille}>
+                {ici.map(s => (
+                  <button key={s.cle} type="button" className={'quoi-fil' + (choisi === s.cle ? ' active' : '')} aria-pressed={choisi === s.cle} onClick={() => basculer(s.cle)}>
+                    <Icon name={iconeDuSujet(s)} />
+                    <span className="quoi-nom">
+                      {s.nom}
+                      <Compte compte={comptes?.get(s.cle)} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
   )
 }
 

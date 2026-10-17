@@ -79,7 +79,12 @@ paths:
   vol — une connexion ouverte pendant un battement, sans vrai aller-retour
   en vol, est à l'entretien. Le `fetch` donne à chaque requête la première
   connexion libre (mesuré) : autant de battements de front que de
-  connexions libres les touche toutes.
+  connexions libres les touche toutes. Un aller-retour qui part pendant ce
+  tour les trouve donc toutes occupées, et en ouvre une de plus, comptée
+  au joueur : un test qui compte des connexions fait partir ses requêtes
+  entre les tours — à trois secondes de calme, la troisième réponse d'une
+  par seconde tombait sur le premier, trois fois sur dix sur une machine
+  chargée (`connexions-de-la-base.test.ts`, la CI du 17 octobre 2026).
 - **Deux allers-retours enchaînés ouvrent deux connexions** : quand la
   requête suivante part dans la même tâche, le `fetch` de Node n'a pas encore
   rendu la première (mesuré : deux connexions pour dix, une seule dès qu'une

@@ -12,6 +12,8 @@ import { tronquer } from '../../shared/avatars'
 import { deNom } from '../../shared/typographie'
 import { jourDe } from '../../shared/jour'
 import type { FicheDuJoueur, ProfilDAdministration } from '../../shared/profil'
+import { JOURS_DU_QG, minuitsDeParis, modeDeLaSerie } from '../../shared/qg'
+import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeule } from '../../shared/qgActivite'
 import type { EspaceDAdministration } from '../../shared/space'
 import { titreLibre } from '../../shared/library'
 
@@ -19,8 +21,8 @@ interface ProfilsAdminDeps {
   profiles: ProfileStore
   auth: AuthStore
   store: QuizStore
-  jour: Pick<JourStore, 'resumeDe' | 'estMasque'>
-  campagne: Pick<CampagneStore, 'epreuveLaissee' | 'libererEpreuve'>
+  jour: Pick<JourStore, 'resumeDe' | 'estMasque' | 'partiesDepuis'>
+  campagne: Pick<CampagneStore, 'epreuveLaissee' | 'libererEpreuve' | 'seriesDepuis'>
   /** Les espaces dont une soirée pas encore close compte ce profil parmi ses invités — actives ou laissées en plan. */
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime le profil et ce qui n'était qu'à lui — composé dans `createQuizServer`, où tout est à portée. */
@@ -48,7 +50,12 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
   /** Jusqu'à quand sa connexion est fermée — par l'un ou l'autre de ses secrets —, ou null. */
   const fermeeJusquA = (login: string) => Math.max(0, ...clesDeConnexion(login).map(cle => budget.fermeJusquA(cle) ?? 0)) || null
 
-  const ligne = async (moi: AccountRec, p: { profil: ProfileRec; niveau: number; soirees: number }): Promise<ProfilDAdministration> => {
+  /** Une ligne de « Les profils » ; les quiz de chaque espace, lus d'un coup pour toute la page (`countBySpace`). */
+  const ligne = (
+    moi: AccountRec,
+    p: { profil: ProfileRec; niveau: number; soirees: number },
+    quiz: ReadonlyMap<string, number>,
+  ): ProfilDAdministration => {
     const salon = deps.auth.byProfile(p.profil.id)
     return {
       id: p.profil.id,
@@ -58,10 +65,31 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       niveau: p.niveau,
       soirees: p.soirees,
       vuLe: p.profil.lastSeenAt,
-      salon: salon ? { slug: salon.slug, quiz: await deps.store.count(salon.id), propre: estSalonDuProfil(salon) } : null,
+      salon: salon ? { slug: salon.slug, quiz: quiz.get(salon.id) ?? 0, propre: estSalonDuProfil(salon) } : null,
       toi: salon?.id === moi.id,
       suspendu: p.profil.disabledAt !== null,
     }
+  }
+
+  /**
+   * Ses trente derniers jours, mode par mode — sur quoi il s'acharne : ses
+   * parties du jour, ses séries et ses soirées, lues pour lui seul par leurs
+   * index, comptées comme la page de l'activité (`activiteDesJoueurs`).
+   */
+  const sesTrenteJours = async (profileId: string): Promise<ActiviteDUnJoueur> => {
+    const maintenant = deps.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const [parties, series, soirees] = await Promise.all([
+      deps.jour.partiesDepuis(minuits[0], profileId),
+      deps.campagne.seriesDepuis(minuits[0], profileId),
+      deps.profiles.soireesDuQgDe(profileId, minuits[0]),
+    ])
+    const seules: PartieSeule[] = [
+      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
+      ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+    ]
+    const [sienne] = activiteDesJoueurs(seules, soirees, minuits, maintenant)
+    return sienne ? { questions: sienne.questions, parties: sienne.parties, jours: sienne.jours } : { questions: parModeVide(), parties: parModeVide(), jours: 0 }
   }
 
   /** Le profil que vise la route, suspendu compris ; sinon la réponse est partie (404). */
@@ -78,9 +106,12 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
   app.get(
     '/api/admin/profils',
     wrap(async (req, res) => {
-      const { total, profils } = await deps.profiles.pourLAdministration(typeof req.query.q === 'string' ? tronquer(req.query.q, 40) : '')
+      const [{ total, profils }, quiz] = await Promise.all([
+        deps.profiles.pourLAdministration(typeof req.query.q === 'string' ? tronquer(req.query.q, 40) : ''),
+        deps.store.countBySpace(),
+      ])
       const moi = accountOf(res)
-      res.json({ total, profils: await Promise.all(profils.map(p => ligne(moi, p))) })
+      res.json({ total, profils: profils.map(p => ligne(moi, p, quiz)) })
     }),
   )
 
@@ -92,16 +123,18 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     wrap(async (req, res) => {
       const p = await leProfil(req, res)
       if (!p) return
-      const [soirees, jour, campagne, duels, boutique, epreuve] = await Promise.all([
+      const [soirees, jour, campagne, duels, boutique, epreuve, activite, quiz] = await Promise.all([
         deps.profiles.soireesDe([p.id]).then(n => n.get(p.id) ?? 0),
         deps.jour.resumeDe(p.id).catch(() => null),
         deps.profiles.statsDeCampagne?.(p.id).catch(() => null) ?? null,
         deps.profiles.duelsDe?.(p.id).catch(() => null) ?? null,
         deps.profiles.boutiqueEtDons(p, jourDe(deps.maintenant())).catch(() => null),
         deps.campagne.epreuveLaissee(p.id).catch(() => null),
+        sesTrenteJours(p.id).catch(() => null),
+        deps.store.countBySpace(),
       ])
       const fiche: FicheDuJoueur = {
-        ...(await ligne(accountOf(res), { profil: p, niveau: deps.profiles.niveauOf(p), soirees })),
+        ...ligne(accountOf(res), { profil: p, niveau: deps.profiles.niveauOf(p), soirees }, quiz),
         creeLe: p.createdAt,
         enLigne: deps.profiles.enLigne(p.id),
         masque: deps.jour.estMasque(p.id),
@@ -112,6 +145,7 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         confettis: boutique ? { solde: boutique.boutique.confettis.solde, offerts: boutique.dons.reduce((n, d) => n + d.confettis, 0) } : null,
         connexion: { fermeeJusquA: fermeeJusquA(p.login) },
         epreuve,
+        activite,
       }
       res.json(fiche)
     }),
@@ -236,28 +270,33 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     }),
   )
 
-  // « Les salons » : tous les espaces, chacun avec son titulaire — les
-  // profils se chargent d'un coup (`byIds`), pas un aller-retour par espace.
-  // `/api/admin/accounts` reste, pour les pages d'avant.
+  // « Les salons » : tous les espaces, chacun avec son titulaire et ses quiz —
+  // les profils d'un aller-retour (`byIds`), les quiz d'un autre
+  // (`countBySpace`), partis ensemble. Les quiz se comptaient espace par
+  // espace : vingt-quatre allers-retours en rafale à chaque ouverture du QG,
+  // qui prenaient toutes les connexions libres, celle que Turso refermait
+  // comprise — et un seul tombé en route faisait répondre 500 à toute la
+  // liste (le 17 octobre 2026). `/api/admin/accounts` reste, pour les pages d'avant.
   app.get(
     '/api/admin/espaces',
     wrap(async (_req, res) => {
       const moi = accountOf(res)
       const comptes = deps.auth.list()
-      const profils = await deps.profiles.byIds(comptes.flatMap(a => (a.profileId ? [a.profileId] : [])))
+      const [profils, quiz] = await Promise.all([
+        deps.profiles.byIds(comptes.flatMap(a => (a.profileId ? [a.profileId] : []))),
+        deps.store.countBySpace(),
+      ])
       const parId = new Map(profils.flatMap(p => (p ? [[p.id, p] as const] : [])))
-      const espaces: EspaceDAdministration[] = await Promise.all(
-        comptes.map(async a => {
-          const titulaire = a.profileId ? parId.get(a.profileId) : undefined
-          return {
-            ...deps.auth.toPublic(a),
-            salon: estUnSalon(a),
-            titulaire: titulaire ? { nom: titulaire.name, avatar: titulaire.avatar } : null,
-            quiz: await deps.store.count(a.id),
-            toi: a.id === moi.id,
-          }
-        }),
-      )
+      const espaces: EspaceDAdministration[] = comptes.map(a => {
+        const titulaire = a.profileId ? parId.get(a.profileId) : undefined
+        return {
+          ...deps.auth.toPublic(a),
+          salon: estUnSalon(a),
+          titulaire: titulaire ? { nom: titulaire.name, avatar: titulaire.avatar } : null,
+          quiz: quiz.get(a.id) ?? 0,
+          toi: a.id === moi.id,
+        }
+      })
       res.json(espaces)
     }),
   )

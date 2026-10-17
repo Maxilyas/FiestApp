@@ -20,6 +20,11 @@
 // connaît le nom (`__BASE_PREPAREE__`) et la relit telle quelle à chaque
 // réveil, au lieu de repasser ses vingt-quatre mille questions au juge —
 // 1,3 s de processeur, treize secondes au dixième de cœur.
+//
+// Jamais minifié : esbuild ouvre chaque module par son chemin en commentaire
+// (`// src/core/jour.ts`), et les fonctions gardent leur nom — c'est ainsi
+// que la page « Le serveur » du QG dit d'où vient une erreur levée dans le
+// paquet (`core/erreurs.ts`).
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'

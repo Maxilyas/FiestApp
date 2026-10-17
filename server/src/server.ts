@@ -32,7 +32,7 @@ import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
-import { Charge, pouls, releve } from './core/pouls'
+import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, releve } from './core/pouls'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDistant } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
@@ -120,6 +120,12 @@ export interface QuizServerOptions {
    * laquelle tournait.
    */
   version?: string
+  /**
+   * La page des mesures du service sur le tableau de bord de l'hébergeur
+   * (`RENDER_SERVICE_ID`) : la page « Le serveur » du QG la propose, à côté
+   * de ce que le serveur mesure de lui-même. Absente hors de l'hébergeur.
+   */
+  mesuresDeLHebergeur?: string
   /**
    * Garder les connexions vers la base permanente chaudes tant que des
    * joueurs jouent (`QUIZ_DB_KEEPWARM`, `core/connexions.ts`) : un `SELECT 1`
@@ -258,6 +264,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
+  // Les connexions ouvertes, que chaque relevé de charge lit (`Charge`).
+  const connexionsOuvertes = compteurDeConnexions(httpServer)
 
   app.disable('x-powered-by')
   // L'analyseur de requête « étendu » d'Express repose sur `qs`, dont les
@@ -268,6 +276,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
+  // Chaque requête servie, par la famille de son statut — les pages, les
+  // fichiers, l'API —, heure par heure pour la page « Le serveur » du QG.
+  // Pas `/healthz` : l'hébergeur et le réveil la sondent sans cesse, et ses
+  // sondes noyaient les heures calmes.
+  app.use((req, res, next) => {
+    if (req.path !== '/healthz') res.on('finish', () => releve.requete(res.statusCode))
+    next()
+  })
   // Le temps de chaque route d'API, sous son modèle : ce qu'un joueur attend,
   // mesuré là où Turso est vraiment loin — `/healthz` le dit (`core/pouls.ts`).
   app.use((req, res, next) => {
@@ -414,7 +430,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // La santé du serveur sur sept jours, que la page « Le serveur » du QG relit :
   // dans la base permanente, la seule qui survive à un réveil.
-  const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken)
+  const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken, {
+    plafonds: plafondsDuConteneur(),
+    mesuresDeLHebergeur: opts.mesuresDeLHebergeur ?? null,
+  })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -726,8 +745,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
   // l'ancien rythme de 30 secondes aussi inutile que coûteux.
-  // Chaque relevé de charge porte aussi les invités connectés : la page « Le serveur » du QG les montre à côté.
-  const charge = new Charge(undefined, { invites: () => registry.all().reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0) })
+  // Chaque relevé de charge porte aussi les invités connectés, les connexions
+  // ouvertes et les clients du temps réel : la page « Le serveur » du QG les
+  // montre à côté.
+  const charge = new Charge(undefined, {
+    invites: () => registry.all().reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
+    connexions: connexionsOuvertes,
+    tempsReel: () => io.engine.clientsCount,
+  })
   const resync = setInterval(() => {
     for (const runtime of registry.all()) runtime.sendSnapshot(true)
   }, 300_000)

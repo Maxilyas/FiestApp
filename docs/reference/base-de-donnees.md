@@ -863,7 +863,7 @@ quelque chose, jamais modifiée.
 
 Le relevé de la santé du serveur, heure par heure et par démarrage.
 
-- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs, invités), `maj_le`.
+- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs par source et, depuis le 17 octobre 2026, en détail — douze au plus par heure : sorte, code, message nettoyé, pile ramenée aux fichiers du dépôt —, invités), `maj_le`.
 - **Espace** : non.
 - **Écrite par** : `SanteDuServeur` (`server/src/core/santeDuServeur.ts`), toutes les dix minutes (`RELEVE_MS`).
 - **Lue par** : `SanteDuServeur` (la page « Le serveur » du QG, sept jours).

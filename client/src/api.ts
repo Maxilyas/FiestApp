@@ -44,6 +44,7 @@ import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
+import type { PageDeLActivite } from '../../shared/qgActivite'
 import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
@@ -610,6 +611,8 @@ export const api = {
     soirees: () => req<PageDesSoirees>('/api/admin/soirees'),
     /** La santé du serveur sur sept jours : les temps de réponse, les réveils et les arrêts, les erreurs. */
     serveur: () => req<PageDuServeur>('/api/admin/serveur'),
+    /** L'activité : trente jours de questions jouées et de parties, mode par mode, et ce que chaque profil a joué. */
+    activite: () => req<PageDeLActivite>('/api/admin/activite'),
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */
     cloreLaSoiree: (spaceId: string) =>
       req<{ close: true; rangee: boolean }>(`/api/admin/soirees/${encodeURIComponent(spaceId)}/clore`, { method: 'POST' }),
