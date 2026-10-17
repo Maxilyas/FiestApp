@@ -83,9 +83,10 @@ test('le relevé d’un duel contre quelqu’un se joue contre la cote d’en fa
   const releve = releverLesDuels([contreFort], semaine)
   const ecart = releve.ecarts.get('a')!.ecart
   assert.equal(ecart, ecartDeLaMontee(COTE_DE_DEPART, 1400, 1))
-  // Huit bonnes réponses en face valent à peine plus que la cote de départ : battre un joueur classé à 1400 rapporte bien plus.
+  // Sans cote figée — un duel au dé —, à chances égales, contre sa propre cote, pas contre ces huit bonnes réponses (le
+  // 16 octobre 2026, `duels-de.test.ts`) : battre un joueur classé à 1400 rapporte bien plus.
   const contreSonScore = releverLesDuels([{ ...contreFort, coteAdverse: undefined }], semaine).ecarts.get('a')!.ecart
-  assert.equal(contreSonScore, ecartDeLaMontee(COTE_DE_DEPART, coteDuScore(8), 1))
+  assert.equal(contreSonScore, ecartDeLaMontee(COTE_DE_DEPART, COTE_DE_DEPART, 1))
   assert.ok(ecart > contreSonScore)
   // Ce que la préparation dit avant de jouer, c'est ce que le relevé fera.
   assert.deepEqual(enjeuContre({ cote: COTE_DE_DEPART }, 1400), {

@@ -7,7 +7,7 @@ paths:
   - "client/src/views/{Rencontre.tsx,adressesDesDuels.ts}"
   - "client/src/components/{Blason,GestesDuJoueur,CarteDUnProfil,FeuilleDesAmisADemande}.tsx"
   - "server/scripts/{rendu-duels,rendu-bordures,duelsDEssai,calibrage-automate,calibrage-duels}.ts"
-  - "server/test/{duels,duels-attente,duels-contre,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
+  - "server/test/{duels,duels-attente,duels-contre,duels-de,duels-enjeu,duels-historique,duels-montee,duels-page,duels-place,campagne-amis,campagne-duel,campagne-rencontre,amis,amis-feuille,joueurs-croises,tirage-sans-redite,bordures,modele-du-savoir,calibrage-duels}.test.ts"
 ---
 
 # Les duels : la cote, les ligues, Automate, défier quelqu'un, les amis
@@ -25,9 +25,11 @@ jour a sa notification (règle `rappel-et-installation.md`).
 - `shared/duels.ts` — tout ce qui se calcule, pur : les deux cotes — la
   cachée, l'ELO seul (`coteDuScore`, `chancesDeGagner`, `ecartContre`, le
   placement `DUELS_DE_PLACEMENT`), et celle qu'on voit, la montée
-  (`ecartDeLaMontee`, `apresLeDuel`, `plancherApres`, `MONTEE` et ses
-  constantes, `LIGUES_GARDEES` ; ce qu'un duel mettrait en jeu :
-  `enjeuContre`, `enjeuDuDuel`) —, les ligues (`LIGUES`, `ligueDe`), la
+  (`ecartDeLaMontee` — l'ELO dès l'Or —, `apresLeDuel`, `plancherApres`,
+  `MONTEE` et ses constantes, `LIGUES_GARDEES` ; la force d'en face,
+  `forceQuOnVoit` — au dé, sa propre cote ; ce qu'un duel mettrait en jeu :
+  `enjeuContre`, `enjeuDuDe`) —, le nom d'Automate (`AUTOMATE`, que la
+  feuille du dé montre avant de tirer), les ligues (`LIGUES`, `ligueDe`), la
   relecture du journal (`releverLesDuels` : les deux cotes, le plancher,
   chaque semaine, les crans des bordures), la récompense du lundi (`recompenseDeLaSemaine`,
   `confettisDesLigues`, dans le solde par `CampagneStore.confettisDe`), la
@@ -36,8 +38,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   (`EtatDesDuels`, `DuelsDAccueil`). Ses constantes de cote et de ligues sont
   des choix de produit (CLAUDE.md).
 - `core/campagne.ts` — sa moitié duels, dans `CampagneStore` : le dé
-  (`commencerUneRencontre`, `automatePour`, `partieDAutomate`, `AUTOMATE`,
-  `ECART_D_AUTOMATE`) ; les duels contre quelqu'un et les défis d'avant
+  (`commencerUneRencontre` — sur ses catégories ou un sujet, comme une
+  série —, `automatePour`, `partieDAutomate`, `ECART_D_AUTOMATE`) ; les
+  duels contre quelqu'un et les défis d'avant
   (`creerUnDuel`, `adversaireDuDuel`, `releverUnDuel`, `duel`,
   `envoyerLesPrevus`, `fermerLeDuel`) ; la fin d'une partie qui compte
   (`repondre` : `scoreABattre`, le journal relu dans le lot qui écrit la
@@ -81,7 +84,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   cadran, semaine, « Défier » et le dé, les onglets (`lignesEnCours`,
   `PanneauHistorique`, `PanneauClassement`) et ses feuilles ;
   `views/Duel.tsx` — les pièces (`Anneau`, `SemaineEnLosanges`,
-  `VerdictDuDuel`, `DuelEnvoye`, la feuille du dé tiré `FeuilleDuDe`), la
+  `VerdictDuDuel`, `DuelEnvoye`, la feuille du dé `FeuilleDuDe` et ce qui la
+  mène jusqu'au tirage, `LeDe` — la feuille du choix à sa place), la
   page d'un duel (`PageDuDuel`, `DuelFaceCachee`) et le défi d'avant
   (`FinDuDuel`, `EnvoyerAuxAmis`, `MesDuels`) ; `views/LancerUnDefi.tsx` — la
   préparation (`/duels#defier`, `#defier-<id>`) ; `views/Joueurs.tsx` — la
@@ -92,10 +96,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   propriétaire du 14 octobre 2026 : « voir ce que je gagne / perds ») — la
   phrase (`phraseDeLEnjeu` : l'échelle du classement, le nom d'un bouton),
   la ligne « En jeu » (`EnJeu` : la partie, la carte d'un joueur sous
-  « Défier »), les deux jetons (`JetonsDeLEnjeu` : un duel reçu, le dé tiré,
-  petits sous l'adversaire choisi d'une préparation), et quand le dé demande
-  avant de jouer (`aConfirmerAuDe`) — dans `Rencontre.tsx`
-  (`duels-enjeu.test.ts`) ; un duel déjà ouvert entre eux aussi, que la
+  « Défier »), les deux jetons (`JetonsDeLEnjeu` : un duel reçu, la feuille
+  du dé, petits sous l'adversaire choisi d'une préparation) — dans
+  `Rencontre.tsx` (`duels-enjeu.test.ts`) ; un duel déjà ouvert entre eux aussi, que la
   carte et la préparation disent des mêmes mots (`DIT_DU_DUEL_OUVERT`)
 - `components/GestesDuJoueur.tsx` · `components/CarteDUnProfil.tsx` ·
   `components/FeuilleDesAmisADemande.tsx` · `components/Blason.tsx` — les
@@ -166,6 +169,16 @@ jour a sa notification (règle `rappel-et-installation.md`).
   (`enjeuContre(moi: SaCote, …)`, `EtatDesDuels.plancher`,
   `FaceAFace.moi.plancher`) et la part du lanceur (`lance`) : sans eux, la
   page annonçait une perte que le plancher empêche, ou un point de moins.
+- **Au dé, celle qu'on voit se joue contre elle-même** (`forceQuOnVoit`, le
+  choix du propriétaire du 16 octobre 2026, après « je perds 17 pour gagner
+  4 ») : Automate joue au niveau de la cachée, et lire son score contre la
+  cote qu'on voit, portée 300 points plus haut par la montée, prêtait 88 %
+  de chances contre un adversaire qu'on bat quatre fois sur dix. La cachée,
+  elle, bouge toujours contre son score : c'est elle qui apprend. Et dès
+  l'Or, une défaite coûte l'ELO (24 × E) : sous 24 × E², un duel à chances
+  égales rapportait quatre points, et le haut montait pour avoir joué
+  (`duels-de.test.ts`). Le plancher d'un enjeu du dé se lit de la cote même
+  (`enjeuDuDe`) : une ligue gardée atteinte, elle ne repasse jamais dessous.
 - **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
   contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
   sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée
@@ -233,17 +246,22 @@ jour a sa notification (règle `rappel-et-installation.md`).
   aller-retour, et le profil d'Automate ne se demande jamais (son
   identifiant vide repartait vers la base, `rencontresEtDuels`).
   `duels-attente.test.ts` compte ceux qui se suivent.
-- **Le dé tire avant de demander, et ne se relance pas.** Sa feuille
-  (`FeuilleDuDe`) dit l'enjeu de la rencontre déjà tirée, contre le score
-  qu'Automate vient de jouer : dit d'avance, à son niveau, il aurait
-  annoncé une autre valeur que la partie — et la cote cachée qui le règle ne
-  part jamais au téléphone. Fermée, la rencontre reste en route — la page la
-  pose dans `EtatDesDuels.enCours` sans relire — et le dé la reprend, sa
-  feuille avec tant qu'elle n'a pas de réponse ; reprise après une réponse,
-  elle se joue tout de suite. Ne la jette ni ne la referme jamais à la
-  fermeture de la feuille : relancer le dé jusqu'à un enjeu plus doux, c'est
-  choisir un Automate plus faible. « Un autre duel », sous un verdict, passe
-  par la même feuille (`CampagneApp`).
+- **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
+  (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule
+  cote qu'on voit (`enjeuDuDe`) — et sur quoi il jouera ; rien ne part au
+  serveur avant « Jouer le duel », et fermée, rien n'est en cours. Il tirait
+  d'abord, son enjeu lu contre le score qu'Automate venait de jouer, et sa
+  feuille fermée laissait en cours un duel que le joueur n'avait pas lancé
+  (le retour du propriétaire du 16 octobre 2026). Ne refais pas dépendre
+  l'enjeu du tirage : le dé devrait retirer d'abord. Tirée, la rencontre
+  est à lui : laissée, le dé la reprend telle quelle, sur ce qu'elle jouait,
+  sans feuille — elle ne s'abandonne pas, et on ne voit rien de la partie
+  d'Automate avant sa première réponse. « Un autre duel », sous un verdict,
+  passe par la même feuille, sur ce que jouait celui-ci, à sa cote d'après
+  (`CampagneApp`). Sur un thème, Automate se règle sur une série de toutes
+  les catégories (`automatePour` reçoit toutes les jouables, le tirage
+  celles du choix) : réglé sur le thème, il effacerait les points faibles
+  du joueur que ses écarts de catégorie font jouer.
 - **L'enjeu d'une préparation se lit sur les deux cotes.** Sans la sienne —
   la revanche, qui ne porte que le prénom d'en face, la préparation ouverte
   à son adresse, « Défier » touché avant que la page ait dit la sienne —, la
@@ -278,6 +296,6 @@ jour a sa notification (règle `rappel-et-installation.md`).
   (`lesDuels`), demandé par `main.tsx` en même temps que la campagne sur
   `/duels` : un import statique de l'un d'eux dans `CampagneApp` le ferait
   télécharger à chaque ouverture de la campagne — la feuille du dé, sous un
-  verdict, s'y rend par `laPageDesDuels.FeuilleDuDe`. Ce que la partie écrit
+  verdict, s'y rend par `laPageDesDuels.LeDe`. Ce que la partie écrit
   d'un duel tient dans `Rencontre.tsx` et `adressesDesDuels.ts`, qui
   n'importent rien que React.

@@ -60,6 +60,7 @@ import { chapitreDuPalier } from '../../../shared/chapitres'
 import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import {
+  AUTOMATE,
   COTE_DE_DEPART,
   DUELS_DE_L_HISTOIRE,
   DUELS_PAR_SUITE,
@@ -77,7 +78,7 @@ import {
   bordurePortee,
   confettisDesLigues,
   enjeuContre,
-  enjeuDuDuel,
+  enjeuDuDe,
   ligueDe,
   ligueDeLaSemaine,
   niveauPourLeDuel,
@@ -3609,13 +3610,21 @@ export class CampagneStore {
   }
 
   /**
-   * Le dé : celle qu'il a laissée en route reprend ; sinon, Automate,
-   * l'adversaire simulé, sur une série neuve tirée pour lui comme une série
-   * de la campagne, qui joue comme lui à son niveau (`automatePour`). Jamais
-   * plus la série finie d'un autre joueur : elle montrait son profil — celui
-   * d'un ami, sur un serveur de quelques amis — quand il n'était pas là, et
-   * « c'est trompeur » (le propriétaire, le 13 octobre 2026). Une série en
-   * cours, elle, attend.
+   * Le dé : celle qu'il a laissée en route reprend, sur ce qu'elle jouait ;
+   * sinon, Automate, l'adversaire simulé, sur une série neuve tirée pour lui
+   * comme une série de la campagne — sur ses catégories ou son sujet, s'il en
+   * a choisi (le souhait du propriétaire du 16 octobre 2026 : « je ne peux
+   * pas choisir le thème ») —, qui joue comme lui à son niveau
+   * (`automatePour`). Jamais plus la série finie d'un autre joueur : elle
+   * montrait son profil — celui d'un ami, sur un serveur de quelques amis —
+   * quand il n'était pas là, et « c'est trompeur » (le propriétaire, le
+   * 13 octobre 2026). Une série en cours, elle, attend.
+   *
+   * Le dé ne tire qu'à « Jouer le duel » : ce qu'il met en jeu ne dépend plus
+   * du tirage (`enjeuDuDe`), sa feuille le dit avant. Il tirait d'abord, et
+   * sa feuille fermée laissait un duel en cours que le joueur n'avait pas
+   * lancé (le même retour). Tirée, la rencontre est à lui : laissée, elle
+   * reprend, et elle ne s'abandonne pas.
    *
    * Tout ce qu'il lui faut de la base permanente part d'un seul aller-retour
    * — sa rencontre laissée, sa cote, ce qu'il a vu et ses premières
@@ -3631,13 +3640,16 @@ export class CampagneStore {
    * (`rencontresPerdues`). Une rencontre laissée, qui se reprend, a lu ses
    * vues pour rien : moins cher qu'un aller-retour de plus à chaque dé.
    */
-  commencerUneRencontre(profileId: string): Promise<RencontreDeCampagne> {
+  commencerUneRencontre(profileId: string, choix: { categories?: readonly string[]; sujet?: string } = {}): Promise<RencontreDeCampagne> {
     return this.avecVerrouJusquALEcriture(profileId, async () => {
       this.rencontresPerdues.delete(profileId)
       const maintenant = this.maintenant()
+      const suivi = choix.sujet === undefined ? undefined : sujetParCle(choix.sujet)
       // La base et sa mesure, gardées en mémoire, partent à côté ; une
       // rencontre reprise s'en passe, et leur échec ne compte qu'au tirage.
-      const tirage = Promise.all([this.base(), this.jouables(), this.mesures()])
+      // Toutes les jouables avec celles du choix : Automate se règle sur une
+      // série de toutes les catégories (`automatePour`).
+      const tirage = Promise.all([this.base(), this.jouables(), this.jouables(suivi ? undefined : choix.categories), this.mesures()])
       tirage.catch(() => {})
       // Le modèle du savoir, s'il a vieilli, se refait en fond : sa lecture
       // part avec celles du dé, que rien n'attend derrière elle.
@@ -3651,7 +3663,7 @@ export class CampagneStore {
         ],
         'read',
       )
-      // Sa cote : ce que la rencontre met en jeu se dit avant de jouer.
+      // Sa cote : ce que la rencontre met en jeu se redit à chaque question.
       const releve = this.releveLu(profileId, duels.rows, tour)
       const ouverte = laissee.rows[0] ? versSerie(laissee.rows[0]) : null
       if (ouverte?.adversaire) {
@@ -3661,16 +3673,27 @@ export class CampagneStore {
             serie: vueDeSerie(ouverte),
             adversaire: enJeu(await this.adversaireVu(ouverte.adversaire)),
             sesJustes: sesJustesAvant(ouverte),
-            enjeu: enjeuDuDuel(releve, sesJustesEnTout(ouverte.adversaire)),
+            enjeu: enjeuDuDe(releve.cote),
           },
         }
       }
-      const [base, jouables, mesure] = await tirage
-      if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('La campagne n’a pas encore de questions à poser : reviens bientôt')
+      if (choix.sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
+      const [base, toutes, duChoix, mesure] = await tirage
+      const jouables = suivi ? duChoix.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : duChoix
+      if (jouables.length < QUESTIONS_POUR_JOUER) {
+        throw new Error(
+          suivi
+            ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre'
+            : choix.categories && choix.categories.length > 0
+              ? 'Pas assez de questions dans ces catégories : ajoutes-en une autre'
+              : 'La campagne n’a pas encore de questions à poser : reviens bientôt',
+        )
+      }
       const { vues: sesVues, premieres } = lireLesVues(vues.rows)
       const tirees = tirerUneSerie(jouables, mesure, sesVues, maintenant)
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses réponses.
-      const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, jouables, mesure)
+      // Sur un thème, ses écarts de catégorie y jouent : il rate où il rate.
+      const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, toutes, mesure)
       const id = randomUUID()
       const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(automate), simule: true }
       const serie: Serie = {
@@ -3687,8 +3710,8 @@ export class CampagneStore {
         seuil: null,
         rejeu: false,
         issue: null,
-        categories: null,
-        sujet: null,
+        categories: suivi ? null : lireCategories(categoriesRetenues(choix.categories)),
+        sujet: suivi?.cle ?? null,
         adversaire,
       }
       // La réponse d'abord : rien ne doit plus lever entre l'écriture lancée
@@ -3697,7 +3720,7 @@ export class CampagneStore {
         serie: vueDeSerie(serie),
         adversaire: enJeu(await this.adversaireVu(adversaire)),
         sesJustes: 0,
-        enjeu: enjeuDuDuel(releve, sesJustesEnTout(adversaire)),
+        enjeu: enjeuDuDe(releve.cote),
       }
       // Gardée une fois écrite, comme toute série (`enCours`). Ratée, rien ne
       // l'est : sa première réponse la cherche en base, et dit de relancer le dé.
@@ -3768,7 +3791,7 @@ export class CampagneStore {
               serie: vueDeSerie(ouverte),
               adversaire: enJeu(vu(ouverte)),
               sesJustes: sesJustesAvant(ouverte),
-              enjeu: enjeuDuDuel(releve, sesJustesEnTout(ouverte.adversaire!)),
+              enjeu: enjeuDuDe(releve.cote),
             }
           : null,
         passees: rencontres
@@ -6712,7 +6735,7 @@ function sesJustesAvant(s: Serie): number {
   return s.adversaire ? s.adversaire.reponses.slice(0, s.index).filter(Boolean).length : 0
 }
 
-/** Son score entier : celui à battre, qui fait la cote d'en face (`coteDuScore`). */
+/** Son score entier : celui à battre, qui fait la cote d'en face sur la cachée (`coteDuScore`) — sur celle qu'on voit, le dé se joue à chances égales. */
 const sesJustesEnTout = (a: AdversaireGarde): number => a.reponses.filter(Boolean).length
 
 /** Un défi envoyé (`e`, sur son duel `d`) qui est bien à lui : un défi entre amis, ou le duel classé qui le défie. */
@@ -6792,11 +6815,11 @@ const enJeu = ({ justes, ...lui }: Adversaire): AdversaireEnJeu => lui
 // plus dure que son estimation d'écriture (`scripts/calibrage-automate.ts`).
 // Son score se tient à deux bonnes réponses de ce qu'on attend de lui sur
 // cette série (`ECART_D_AUTOMATE`), et sa série finit à sa troisième faute,
-// comme celle d'un joueur allé au bout de ses vies : la cote de son score se
-// lit pareil (`coteDuScore`).
-
-/** Le nom et l'avatar d'Automate : sans article, il se lit partout — « Toi 7 – Automate 6 », « le score d'Automate ». */
-export const AUTOMATE = { nom: 'Automate', avatar: '🤖' } as const
+// comme celle d'un joueur allé au bout de ses vies : la cote cachée lit son
+// score pareil (`coteDuScore`). Celle qu'on voit le compte, depuis le
+// 16 octobre 2026, comme un adversaire de sa cote (`forceQuOnVoit`). Son nom
+// et son avatar vivent dans `shared/duels.ts` (`AUTOMATE`) : la feuille du dé
+// les montre avant qu'il ait rien tiré.
 
 /**
  * Ce que le dé demande à Automate (`CampagneStore.reponsesDAutomate`) : ses

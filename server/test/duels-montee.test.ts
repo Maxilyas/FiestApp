@@ -3,9 +3,10 @@
 // tout le monde monte en Or s'il joue, même s'il n'est pas très bon »). Deux
 // cotes : la cachée, l'ELO seul, dit le niveau et règle Automate ; celle
 // qu'on voit, celle des ligues, avance pour qui joue — sous l'Or, une défaite
-// ne coûte presque rien ; dès l'Or, l'enjeu suit l'écart ; l'Argent et l'Or
-// ne se perdent plus ; qui lance un défi gagne un point de plus. Chaque test
-// échouait avant : l'ELO seul faisait reculer une partie sur deux.
+// ne coûte presque rien ; dès l'Or, l'enjeu suit l'écart — l'ELO, depuis le
+// 16 octobre 2026 (`duels-de.test.ts`) ; l'Argent et l'Or ne se perdent plus ;
+// qui lance un défi gagne un point de plus. Chaque test échouait avant :
+// l'ELO seul faisait reculer une partie sur deux.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -23,7 +24,7 @@ import {
   ecartContre,
   ecartDeLaMontee,
   enjeuContre,
-  enjeuDuDuel,
+  enjeuDuDe,
   ligueDe,
   niveauDeLaCote,
   niveauPourLeDuel,
@@ -68,10 +69,11 @@ test('sous l’Or, chaque duel fait avancer : une victoire rapporte cinq points 
   assert.deepEqual(enjeuContre({ cote: COTE_DE_DEPART }, COTE_DE_DEPART), { cote: COTE_DE_DEPART, gagne: 17, egalite: 4, perdu: 2 })
 })
 
-test('dès l’Or, l’enjeu suit l’écart : contre plus fort, perdre ne coûte presque rien ; contre plus faible, plus qu’une victoire ne rapporte', () => {
+test('dès l’Or, l’enjeu suit l’écart : contre plus fort, perdre coûte peu ; contre plus faible, plus qu’une victoire ne rapporte', () => {
   const enOr = { cote: 1300, plancher: SEUIL_DE_L_OR }
   const contreFort = enjeuContre(enOr, 1500)
-  assert.ok(contreFort.perdu >= -1, `contre plus fort, perdre coûte ${contreFort.perdu}`)
+  // L'ELO depuis le 16 octobre 2026 : 24 × E² n'en coûtait rien, et laissait monter qui jouait à chances égales (`duels-de.test.ts`).
+  assert.equal(contreFort.perdu, -5, `contre plus fort, perdre coûte ${contreFort.perdu}`)
   assert.ok(contreFort.gagne >= 15, `contre plus fort, gagner rapporte ${contreFort.gagne}`)
   const contreFaible = enjeuContre(enOr, 1100)
   assert.ok(-contreFaible.perdu > contreFaible.gagne, `contre plus faible : ${contreFaible.gagne} gagné, ${contreFaible.perdu} perdu`)
@@ -88,15 +90,16 @@ test('l’Argent et l’Or, une fois atteints, ne se perdent plus ; la Platine, 
   assert.equal(plancherApres(SEUIL_DE_L_ARGENT, 1250), SEUIL_DE_L_OR)
   assert.equal(plancherApres(SEUIL_DE_L_OR, 1050), SEUIL_DE_L_OR, 'un plancher ne redescend jamais')
   assert.equal(plancherApres(SEUIL_DE_L_OR, 1350), SEUIL_DE_L_OR, 'la Platine ne se garde pas')
-  // Ce que la page dit d'une défaite s'arrête au plancher : contre bien plus faible, à 1205, cinq points, pas onze.
+  // Ce que la page dit d'une défaite s'arrête au plancher : contre bien plus faible, à 1205, cinq points, pas seize.
   assert.equal(enjeuContre({ cote: 1205, plancher: SEUIL_DE_L_OR }, 1050).perdu, -5)
   assert.equal(enjeuContre({ cote: 1205 }, 1050).perdu, ecartDeLaMontee(1205, 1050, 0), 'sans plancher connu — une page d’avant —, l’écart brut')
-  assert.equal(ecartDeLaMontee(1205, 1050, 0), -11)
+  assert.equal(ecartDeLaMontee(1205, 1050, 0), -16)
 
-  // Des victoires jusqu'à l'Argent, puis cinquante défaites contre un score d'une bonne réponse : il y reste.
+  // Des victoires jusqu'à l'Argent, puis cinquante défaites contre un joueur bien plus faible : il y reste. Au dé, à
+  // chances égales depuis le 16 octobre 2026, une défaite sous l'Or rapporte : elle ne l'y mettrait pas à l'épreuve.
   const argent: DuelJoue[] = []
   for (let i = 0; releverLesDuels(argent, semaine).cote < SEUIL_DE_L_ARGENT; i++) argent.push(duel(i, 10, 9))
-  for (let i = 0; i < 50; i++) argent.push(duel(argent.length, 0, 1))
+  for (let i = 0; i < 50; i++) argent.push(duel(argent.length, 0, 1, { coteAdverse: 700 }))
   const enArgent = releverLesDuels(argent, semaine)
   assert.equal(ligueDe(enArgent.cote).cle, 'argent')
   assert.equal(enArgent.plancher, SEUIL_DE_L_ARGENT)
@@ -212,8 +215,8 @@ test('le serveur : Automate se règle sur la cote cachée, la page dit celle qu�
     assert.equal(de.status, 200, de.corps.error)
     assert.equal(niveaux.at(-1), niveauDeLaCote(attendu.cachee))
     assert.ok(niveaux.at(-1)! < niveauDeLaCote(attendu.cote))
-    // Ce qui se joue se dit sur celle qu'on voit, contre la cote de son score, son plancher compris.
-    assert.deepEqual(de.corps.enjeu, enjeuDuDuel(attendu, 7))
+    // Ce qui se joue se dit sur celle qu'on voit, à chances égales — contre elle-même —, son plancher compris.
+    assert.deepEqual(de.corps.enjeu, enjeuDuDe(attendu.cote))
     assert.ok(de.corps.enjeu.perdu > -2, `sous l’Or, perdre ne coûte presque rien : ${de.corps.enjeu.perdu}`)
     assert.ok(chancesDeGagner(attendu.cote, coteDuScore(7)) > 0.5, 'celle qu’on voit est au-dessus de son niveau')
   } finally {

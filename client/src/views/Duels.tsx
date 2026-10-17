@@ -12,13 +12,14 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { lesAmis, useFeuilleDesAmis } from '../components/FeuilleDesAmisADemande'
 import { deNom, espacesFines, rang as rangEcrit } from '../format'
 import { classer } from '../../../shared/classement'
-import { Anneau, FeuilleDuDe, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
-import { aConfirmerAuDe, ceQuIlPorte, ecartSigne, phraseDeLEnjeu, siTuPerds } from './Rencontre'
+import { Anneau, LeDe, MesDuels, SemaineEnLosanges, duelEnRoute, resteCourt, surQuoi } from './Duel'
+import { ceQuIlPorte, ecartSigne, phraseDeLEnjeu, siTuPerds } from './Rencontre'
 import {
   COTE_DE_DEPART,
   DUELS_DE_L_HISTOIRE,
   DUELS_POUR_LA_RECOMPENSE,
   LIGUES,
+  PARTICIPATION_AU_DESSUS,
   PARTICIPATION_SOUS_L_OR,
   PART_DU_LANCEUR,
   enjeuContre,
@@ -35,7 +36,7 @@ import {
   type JoueurADefier,
   type LigneDesDuels,
 } from '../../../shared/duels'
-import type { CorrectionDeCampagne, DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
+import type { ChoixDeLaCampagne, CorrectionDeCampagne, DefiRecu, MesAmis, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
 
 /** Sa cote, ses duels joués et sa ligue gardée : ce que la préparation d'un duel dit de ce qui se joue (`enjeuContre`). */
 export type MaCote = { cote: number; joues: number; plancher?: number }
@@ -55,7 +56,7 @@ export type MaCote = { cote: number; joues: number; plancher?: number }
 // et le dé, puis trois onglets — en cours, historique, classement. Les règles
 // et les ligues, qui tenaient trois replis de phrases, sont derrière « ? ».
 
-export { DuelEnvoye, FeuilleDuDe, FinDuDuel, PageDuDuel, VerdictDuDuel } from './Duel'
+export { DuelEnvoye, FeuilleDuDe, FinDuDuel, LeDe, PageDuDuel, VerdictDuDuel } from './Duel'
 
 // ── Le cadran des ligues ─────────────────────────────────────────────────
 
@@ -178,11 +179,12 @@ function BarreDesDuels({ onRegles, onAmis }: { onRegles?: () => void; onAmis?: (
  * d'un autre joueur sous son profil, et disparaissait quand il les avait
  * toutes affrontées (le propriétaire, le 13 octobre 2026 : « tout le temps
  * disponible », puis « c'est trompeur »). La même place pendant que la page
- * arrive. Touché, il s'allume tant que le serveur tire la série, et le dé
- * roule (`roule`) : rien ne bougeait, et l'attente se lisait comme un
- * toucher perdu (le retour du propriétaire du 13 octobre 2026 : « l'attente
- * est perceptible »). Tirée, sa feuille dit ce qu'elle met en jeu avant la
- * première question (`FeuilleDuDe`).
+ * arrive. Touché, il ouvre sa feuille (`LeDe`) : ce qu'il met en jeu, sur
+ * quoi — rien n'est tiré avant « Jouer le duel » (le 16 octobre 2026). Pour
+ * reprendre celui laissé en route, il s'allume tant que le serveur le relit,
+ * et le dé roule (`roule`) : rien ne bougeait, et l'attente se lisait comme
+ * un toucher perdu (le retour du propriétaire du 13 octobre 2026 :
+ * « l'attente est perceptible »).
  */
 function BoutonsDesDuels({
   busy,
@@ -289,7 +291,19 @@ export function lignesEnCours(etat: Pick<EtatDesDuels, 'contre' | 'enCours'>, re
     ...recus
       .filter(r => !connus.has(r.code))
       .map((r): LigneEnCours => ({ cle: r.code, sorte: 'a-toi', nom: r.auteur.nom, avatar: r.auteur.avatar, ...porte(r.auteur), quoi: r.classe ? surQuoi(r) : 'Défi entre amis', code: r.code })),
-    ...(enCours ? [{ cle: 'au-hasard', sorte: 'a-toi' as const, nom: enCours.adversaire.nom, avatar: enCours.adversaire.avatar, ...porte(enCours.adversaire), quoi: 'Au hasard' }] : []),
+    // Le dé laissé en route : sur quoi, s'il l'a choisi (le 16 octobre 2026), sinon au hasard.
+    ...(enCours
+      ? [
+          {
+            cle: 'au-hasard',
+            sorte: 'a-toi' as const,
+            nom: enCours.adversaire.nom,
+            avatar: enCours.adversaire.avatar,
+            ...porte(enCours.adversaire),
+            quoi: enCours.serie.sujet || enCours.serie.categories?.length ? surQuoi(enCours.serie) : 'Au hasard',
+          },
+        ]
+      : []),
     ...contre.filter(d => duelEnRoute(d) && d.justes !== null).map(d => deSonDuel(d, 'attente')),
   ]
 }
@@ -1230,16 +1244,17 @@ export function CommentCaMarche() {
     <ol className="duels-etapes">
       <li>{espacesFines('« Défier » : choisis qui — un prénom, un ami, un joueur du classement : « Défier » est sur sa carte — et sur quoi. Tu joues d’abord, le duel lui part à ta dernière réponse : trois vies, sans chrono.')}</li>
       <li>{espacesFines('À ta dernière réponse, le duel part dans ses duels, et son accueil le lui dit : aucun lien à envoyer.')}</li>
-      <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent. Battre plus fort que toi rapporte gros, et perdre contre lui ne coûte presque rien : avant de jouer, tu sais combien.')}</li>
+      <li>{espacesFines('Les scores restent cachés : chacun découvre celui de l’autre à sa dernière réponse. Le duel joué des deux côtés, vos deux cotes bougent. Battre plus fort que toi rapporte gros, et perdre contre lui coûte peu : avant de jouer, tu sais combien.')}</li>
+      {/* Le dé à chances égales, sur ce qu'on choisit (le 16 octobre 2026, `shared/duels.ts`) : « je perds 17 pour gagner 4 », « je ne peux pas choisir le thème ». */}
       <li>
         {espacesFines(
-          'Pressé ? Le dé : Automate, tout de suite — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates ; son score se dévoile à la fin.',
+          'Pressé ? Le dé : Automate, tout de suite, sur ce que tu choisis — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates. Un duel à chances égales ; son score se dévoile à la fin.',
         )}
       </li>
       {/* La montée (le 14 octobre 2026, `shared/duels.ts`) : « je veux que tout le monde monte en Or s'il joue, même s'il n'est pas très bon ». */}
       <li>
         {espacesFines(
-          `Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres. Jusqu’à la ligue d’or, chaque duel te fait avancer : +${PARTICIPATION_SOUS_L_OR} rien qu’en le jouant, +${PART_DU_LANCEUR} de plus si tu as lancé le défi, et une défaite ne coûte presque rien. L’argent et l’or, une fois atteints, ne se perdent plus ; au-dessus, c’est ton niveau qui parle.`,
+          `Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres. Jusqu’à la ligue d’or, chaque duel te fait avancer : +${PARTICIPATION_SOUS_L_OR} rien qu’en le jouant, +${PART_DU_LANCEUR} de plus si tu as lancé le défi, et une défaite ne coûte presque rien. L’argent et l’or, une fois atteints, ne se perdent plus ; au-dessus, chaque duel rapporte +${PARTICIPATION_AU_DESSUS}, et à chances égales, une défaite coûte à peu près ce qu’une victoire rapporte.`,
         )}
       </li>
       <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>
@@ -1411,6 +1426,7 @@ export function FeuilleDuClassement({
  */
 export function PageDesDuels({
   amis,
+  choix,
   onJouer,
   onDefier,
   onOuvrirDuel,
@@ -1418,7 +1434,9 @@ export function PageDesDuels({
 }: {
   /** Ses amis et ce qu'on lui envoie ; null tant qu'ils arrivent. */
   amis: MesAmis | null
-  /** Un duel au hasard trouvé — ou repris : la partie se joue sur l'écran de la série (`CampagneApp`). */
+  /** Ce que la campagne peut poser, pour choisir sur quoi joue le dé ; null tant qu'il arrive. */
+  choix: ChoixDeLaCampagne | null
+  /** Un duel au dé tiré — ou repris : la partie se joue sur l'écran de la série (`CampagneApp`). */
   onJouer: (r: RencontreDeCampagne) => void
   /** Préparer un duel (`LancerUnDefi`) : contre qui, s'il est déjà choisi — « Défier » sur sa carte —, et sa propre cote, pour dire ce qui se joue. */
   onDefier: (joueur?: JoueurADefier, moi?: MaCote) => void
@@ -1434,8 +1452,9 @@ export function PageDesDuels({
   const [reglesOuvertes, setReglesOuvertes] = useState(false)
   // Un duel au dé touché dans l'historique : sa correction, dans sa feuille.
   const [correction, setCorrection] = useState<LigneDHistoire | null>(null)
-  // Le dé tiré, pas encore joué : ce qu'il met en jeu, dans sa feuille, avant la première question.
-  const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
+  // La feuille du dé, avant tout tirage, et ce qu'il a joué la dernière fois : le dé suivant repart de là.
+  const [deOuvert, setDeOuvert] = useState(false)
+  const [surQuoiDuDe, setSurQuoiDuDe] = useState<{ categories: string[]; sujet: string | null }>({ categories: [], sujet: null })
   // « Défier » sur la carte d'un joueur — du classement, de ses amis — ouvre la préparation ici même, sa cote relue avec lui ;
   // un duel déjà ouvert entre eux, sa page.
   const gestes = { onDefier: (j: JoueurADefier, m: MaCote) => onDefier(j, m), onOuvrirDuel, onAmis }
@@ -1455,18 +1474,14 @@ export function PageDesDuels({
     }
   }, [])
 
-  const chercher = async () => {
+  // Celui laissé en route se reprend tel quel, sans feuille : l'enjeu se redit à chaque question.
+  const reprendre = async () => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
       const r = await api.campagne.rencontre.commencer()
-      if (!r.serie.question) return
-      if (aConfirmerAuDe(r)) {
-        // Tirée, elle est à lui : la feuille fermée, elle attend dans « En cours », et le dé la reprend.
-        setEtat(e => e && { ...e, enCours: r })
-        setDeTire(r)
-      } else onJouer(r)
+      if (r.serie.question) onJouer(r)
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -1491,11 +1506,18 @@ export function PageDesDuels({
           {erreur}
         </p>
       )}
-      <BoutonsDesDuels busy={busy} roule={busy} onDefier={() => defier()} onAuHasard={() => void chercher()} reprendre={enCours ? enCours.adversaire.nom : null} />
+      <BoutonsDesDuels
+        busy={busy}
+        roule={busy}
+        onDefier={() => defier()}
+        // Sa cote d'abord : la feuille dit ce que le duel met en jeu.
+        onAuHasard={!etat ? undefined : enCours ? () => void reprendre() : () => setDeOuvert(true)}
+        reprendre={enCours ? enCours.adversaire.nom : null}
+      />
       <OngletsDesDuels actif={onglet} nouveaux={nouveaux} onChoisir={setOnglet} />
       <div id="duels-panneau" className="duels-panneau" role="tabpanel" aria-labelledby={`duels-onglet-${onglet}`}>
         {!etat ? null : onglet === 'cours' ? (
-          <PanneauEnCours lignes={lignes} debutant={etat.joues === 0} onOuvrir={onOuvrirDuel} onReprendre={() => void chercher()} onRegles={() => setReglesOuvertes(true)} />
+          <PanneauEnCours lignes={lignes} debutant={etat.joues === 0} onOuvrir={onOuvrirDuel} onReprendre={() => void reprendre()} onRegles={() => setReglesOuvertes(true)} />
         ) : onglet === 'histo' ? (
           <PanneauHistorique etat={etat} onOuvrir={onOuvrirDuel} onCorrection={setCorrection} onJoueur={ouvrir} />
         ) : (
@@ -1515,7 +1537,16 @@ export function PageDesDuels({
       {classementOuvert && etat && <FeuilleDuClassement classement={etat.classement} contre={etat.contre} onOuvrir={ouvrir} onFermer={() => setClassementOuvert(false)} />}
       {reglesOuvertes && <FeuilleDesRegles ligue={etat?.ligue ?? 'bronze'} onFermer={() => setReglesOuvertes(false)} />}
       {correction && <FeuilleDeLaCorrection duel={correction} onFermer={() => setCorrection(null)} />}
-      {deTire && <FeuilleDuDe rencontre={deTire} onJouer={() => onJouer(deTire)} onFermer={() => setDeTire(null)} />}
+      {deOuvert && etat && (
+        <LeDe
+          cote={etat.cote}
+          choix={choix}
+          depart={surQuoiDuDe}
+          onChoisir={(categories, sujet) => setSurQuoiDuDe({ categories, sujet })}
+          onJouer={onJouer}
+          onFermer={() => setDeOuvert(false)}
+        />
+      )}
       {feuilleDesAmis.feuille}
       {carte}
     </div>

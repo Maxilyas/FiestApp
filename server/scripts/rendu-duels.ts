@@ -2,11 +2,12 @@
 // ou à la taille des maquettes choisies le 12 octobre 2026 (`ECRAN=390x844`),
 // sous le thème qu'on veut (`THEME=ivoire`) : le bouton de l'accueil, la page
 // d'un débutant et « Comment ça marche ? » ; un duel au dé, contre Automate —
-// la feuille du dé tiré, ce qu'il met en jeu —, jusqu'à sa carte du verdict,
+// sa feuille avant de tirer, ce qu'il met en jeu —, jusqu'à sa carte du verdict,
 // scellée puis retournée ; la page d'un habitué — ses trois onglets : en
 // cours, historique, classement, ce que chacun à sa portée mettrait en jeu —,
 // la feuille du classement, sa place en tête, et la carte d'un joueur, ses
-// gestes au pied ; le dé laissé en route, puis une montée de ligue ; puis
+// gestes au pied ; le dé et sur quoi il joue — la feuille du choix —, le dé
+// laissé en route, puis une montée de ligue ; puis
 // défier quelqu'un : Tom touché au classement, « Défier Tom » sur
 // sa carte, la préparation, une partie jusqu'à « Duel envoyé », et le duel qui
 // l'attend chez Léa — ouvert, chaque carte le dit à la place de « Défier » :
@@ -113,9 +114,10 @@ try {
   }
   duelsJoues(banc, deLaSoiree[3], 3, 10, 8)
   // Les autres ont déjà joué : Inès chez les maîtres, Hugo en platine, Tom en argent, Zoé tout près de l'argent —
-  // dès l'Or, la montée ne donne qu'un point par duel : il en faut plus pour les hautes ligues.
-  duelsJoues(banc, await idDe(banc, ines), 22, 30, 25)
-  duelsJoues(banc, await idDe(banc, hugo), 14, 30, 18)
+  // au dé, à chances égales, une victoire vaut dix-sept points sous l'Or, treize dès l'Or : il en faut plus pour les
+  // hautes ligues.
+  duelsJoues(banc, await idDe(banc, ines), 35, 30, 25)
+  duelsJoues(banc, await idDe(banc, hugo), 20, 30, 18)
   duelsJoues(banc, await idDe(banc, tom), 6, 12, 8)
   duelsJoues(banc, await idDe(banc, zoe), 5, 12, 8)
   // Un premier défi de Léa, que Tom, Hugo et Inès relèvent : ses amis.
@@ -163,14 +165,19 @@ try {
     }
   }
   /**
-   * Un duel au dé, contre Automate, joué jusqu'au bout depuis la page : tiré, sa feuille dit ce qu'il met en jeu
-   * (`feuille`, sa photo), « Jouer le duel » le commence ; sa carte du verdict arrive.
+   * Un duel au dé, contre Automate, joué jusqu'au bout depuis la page : sa feuille dit ce qu'il met en jeu avant de
+   * tirer (`feuille`, sa photo), « Jouer le duel » le tire et le commence ; laissé en route, il se reprend sans elle.
+   * Sa carte du verdict arrive.
    */
   const jouerLeDuel = async (page: any, cookie: string, justes: number, avant?: () => Promise<void>, feuille?: string) => {
-    await page.getByRole('button', { name: /Un duel contre Automate|Reprendre ton duel contre/ }).click()
-    await page.waitForSelector('.feuille-du-de')
-    if (feuille) await photo(page, feuille)
-    await page.locator('.feuille-du-de').getByRole('button', { name: 'Jouer le duel' }).click()
+    const de = page.getByRole('button', { name: /Un duel contre Automate|Reprendre ton duel contre/ })
+    const reprise = ((await de.getAttribute('aria-label')) ?? '').startsWith('Reprendre')
+    await de.click()
+    if (!reprise) {
+      await page.waitForSelector('.feuille-du-de')
+      if (feuille) await photo(page, feuille)
+      await page.locator('.feuille-du-de').getByRole('button', { name: 'Jouer le duel' }).click()
+    }
     await page.waitForSelector('.ans-btn')
     if (avant) await avant()
     await jusquAuBout(page, cookie, 'rencontre', justes)
@@ -224,16 +231,28 @@ try {
   await photo(page, '05d-carte-d-ines')
   await page.keyboard.press('Escape')
 
-  // Zoé, tout près de l'argent : le dé tiré, sa feuille fermée — le duel l'attend, « En cours », le dé le reprend —,
-  // puis repris, sa feuille encore, un duel gagné, et elle y monte.
+  // Zoé, tout près de l'argent : la feuille du dé, puis sur quoi il joue — la feuille du choix, à sa place —, la
+  // sienne refermée sans rien tirer ; puis le duel commencé et laissé à sa première question — « En cours », le dé le
+  // reprend, sans feuille —, gagné, et elle y monte.
   const pourZoe = await telephone(zoe)
   await pourZoe.goto(`${banc.url}/duels`)
   await pourZoe.waitForSelector('.duels-cadran-point')
   await pourZoe.getByRole('button', { name: 'Un duel contre Automate' }).click()
   await pourZoe.waitForSelector('.feuille-du-de')
-  await pourZoe.getByRole('button', { name: 'Fermer' }).click()
+  await pourZoe.locator('.feuille-du-de .quoi-ligne').click()
+  await pourZoe.waitForSelector('.feuille-du-choix')
+  await photo(pourZoe, '06a-le-de-sur-quoi')
+  await pourZoe.locator('.feuille-du-choix .quoi-case', { hasText: 'Histoire' }).click()
+  await pourZoe.locator('.feuille-du-choix .quoi-choisir').click()
+  await pourZoe.waitForSelector('.feuille-du-de')
+  await photo(pourZoe, '06b-le-de-sur-l-histoire')
+  await pourZoe.locator('.feuille-du-de').getByRole('button', { name: 'Fermer' }).click()
+  await pourZoe.getByRole('button', { name: 'Un duel contre Automate' }).click()
+  await pourZoe.locator('.feuille-du-de').getByRole('button', { name: 'Jouer le duel' }).click()
+  await pourZoe.waitForSelector('.ans-btn')
+  await pourZoe.goto(`${banc.url}/duels`)
   await pourZoe.waitForSelector('.duels-a-toi')
-  await photo(pourZoe, '06a-le-de-attend')
+  await photo(pourZoe, '06c-le-de-attend')
   await jouerLeDuel(pourZoe, zoe, 10)
   await verdict(pourZoe, '06-promotion')
 

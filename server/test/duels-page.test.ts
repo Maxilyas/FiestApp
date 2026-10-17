@@ -505,10 +505,11 @@ test('le dé est toujours là, à côté de « Défier », et se dit contre Auto
   // Ce qu'il est se dit : un adversaire simulé, de son niveau — dans les règles, pendant la partie, après elle.
   // Et ce qu'il apprend : il joue comme qui le lance, tel que ses réponses de campagne le disent (le modèle du savoir).
   const regles = renderToStaticMarkup(React.createElement(CommentCaMarche))
-  assert.match(regles, /Pressé\s\? Le dé\s: Automate, tout de suite — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates/)
+  // Sur ce qu'on choisit, à chances égales, depuis le 16 octobre 2026 (`duels-de.test.ts`).
+  assert.match(regles, /Pressé\s\? Le dé\s: Automate, tout de suite, sur ce que tu choisis — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates\. Un duel à chances égales/)
   assert.doesNotMatch(regles, /la série d’un joueur|Toutes affrontées/, 'plus la série d’un autre')
   const partie = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(partie, /ecran\.rencontre\.adversaire\.simule && <span className="muted small">simulé, de ton niveau<\/span>/)
-  assert.match(partie, /\{ texte: 'Un autre duel', icone: 'dice', onClick: \(\) => void uneAutreRencontre\(\) \}/)
+  assert.match(partie, /\{ texte: 'Un autre duel', icone: 'dice', onClick: \(\) => setDeOuvert\(true\) \}/)
   assert.doesNotMatch(partie + page, /Un autre adversaire|Un adversaire au hasard/)
 })
