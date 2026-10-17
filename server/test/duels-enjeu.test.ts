@@ -62,45 +62,53 @@ test('l’échelle du classement : « Défier », ce qu’il gagnerait à battre
   assert.match(auPlancher, /<span class="duels-echelon-perte">rien à perdre<\/span>/)
 })
 
-test('le dé : tiré, ce que le duel contre Automate met en jeu se dit avant la première question — sa feuille, ses deux jetons, « Jouer le duel » ; fermée, il attend dans ses duels', async () => {
-  const { aConfirmerAuDe } = await import(client('views/Rencontre.tsx').href)
-  const { FeuilleDuDe } = await import(client('views/Duels.tsx').href)
+test('le dé : sa feuille dit ce que le duel contre Automate met en jeu — à chances égales — et sur quoi, avant de rien tirer ; « Jouer le duel » tire, et fermée, rien n’est en cours', async () => {
+  const { FeuilleDuDe, LeDe } = await import(client('views/Duels.tsx').href)
+  const { enjeuDuDe } = await import('../../shared/duels')
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const serie = (index: number) => ({ id: 's', vies: 3, justes: index > 0 ? 1 : 0, total: 20, finie: false, question: { index, texte: 'Q ?', reponses: ['a', 'b', 'c', 'd'], categorie: 'Histoire', niveau: 'facile' } })
-  const automate = { nom: 'Automate', avatar: '🤖', simule: true as const }
-  const enjeu = { cote: 1019, gagne: 19, egalite: 5, perdu: 2 }
-  const tiree = { serie: serie(0), adversaire: automate, sesJustes: 0, enjeu }
-  assert.equal(aConfirmerAuDe(tiree), true, 'tirée, pas encore jouée : sa feuille d’abord')
-  assert.equal(aConfirmerAuDe({ ...tiree, serie: serie(4), sesJustes: 3 }), false, 'reprise en route : elle se joue tout de suite — l’enjeu se redit à chaque question')
-  const { enjeu: _, ...sansEnjeu } = tiree
-  assert.equal(aConfirmerAuDe(sansEnjeu), false, 'un serveur d’avant ne dit pas l’enjeu : rien à confirmer')
-
-  const feuille = (e: object) => renderToStaticMarkup(React.createElement(FeuilleDuDe, { rencontre: { ...tiree, enjeu: e }, onJouer() {}, onFermer() {} }))
-  const html = feuille(enjeu)
+  const feuille = (props: object) => renderToStaticMarkup(React.createElement(FeuilleDuDe, { categories: [], sujet: null, onChanger() {}, onJouer() {}, onFermer() {}, ...props }))
+  const html = feuille({ enjeu: enjeuDuDe(1000) })
   assert.match(html, /role="dialog" aria-modal="true" aria-label="Un duel au dé"/)
+  // Automate, avant d'avoir rien tiré : son nom et son avatar sont ceux de la partie (`AUTOMATE`, `shared/duels.ts`).
   assert.match(html, /<b>Automate<\/b><span class="muted small">simulé, de ton niveau<\/span>/)
   // Sous l'Or, une défaite qui rapporte ne prend pas la couleur d'une perte.
   assert.match(
     html,
-    /<div class="duels-jetons" role="group" aria-label="Ce qui se joue sur ta cote"><span class="duels-jeton"><b class="num">\+19<\/b><span>victoire<\/span><\/span><span class="duels-jeton"><b class="num">\+2<\/b><span>défaite<\/span><\/span><\/div>/,
+    /<div class="duels-jetons" role="group" aria-label="Ce qui se joue sur ta cote"><span class="duels-jeton"><b class="num">\+17<\/b><span>victoire<\/span><\/span><span class="duels-jeton"><b class="num">\+2<\/b><span>défaite<\/span><\/span><\/div>/,
   )
-  assert.match(html, /<span class="sr-only">trois vies<\/span>.*sans chrono.*toutes catégories/)
+  assert.match(html, /<span class="sr-only">trois vies<\/span>.*sans chrono/)
+  // Sur quoi : la ligne du choix de la série et de « Défier quelqu'un », « Changer » au bout (« je ne peux pas choisir le thème »).
+  assert.match(html, /<button type="button" class="quoi-ligne" aria-haspopup="dialog">.*<span class="muted small">Sur<\/span><b>Toutes les catégories<\/b>.*Changer/)
+  assert.match(feuille({ enjeu: enjeuDuDe(1000), categories: ['Histoire'] }), /<b>Histoire<\/b>/)
   assert.match(html, /<footer class="carte-pied"><button type="button" class="btn btn-primary btn-big btn-block btn-duel"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button><\/footer>/)
-  assert.match(html, /Pas maintenant\s\? Il t’attend dans tes duels\./)
-  // Une défaite qui coûte : au rouge d'une perte.
-  assert.match(feuille({ cote: 1350, gagne: 9, egalite: -3, perdu: -8 }), /<span class="duels-jeton perdu"><b class="num">−8<\/b><span>défaite<\/span><\/span>/)
+  // Fermée, rien n'est tiré : elle ne promet plus qu'il attend dans ses duels.
+  assert.doesNotMatch(html, /Il t’attend dans tes duels/)
+  // En Or, presque platine : « +13 / −5 », la défaite au rouge d'une perte — « +4 / −17 » contre un Automate qui avait raté.
+  assert.match(feuille({ enjeu: enjeuDuDe(1274) }), /<b class="num">\+13<\/b><span>victoire<\/span><\/span><span class="duels-jeton perdu"><b class="num">−5<\/b><span>défaite<\/span><\/span>/)
+  // À partir de la Platine, l'ELO (le choix du 17 octobre 2026) : « +13 / −11 ».
+  assert.match(feuille({ enjeu: enjeuDuDe(1350) }), /<b class="num">\+13<\/b><span>victoire<\/span><\/span><span class="duels-jeton perdu"><b class="num">−11<\/b><span>défaite<\/span><\/span>/)
+  // Le refus d'un tirage se dit dans la feuille ; le tirage en route, « Jouer le duel » attend.
+  assert.match(feuille({ enjeu: enjeuDuDe(1000), erreur: 'Pas assez de questions dans ces catégories : ajoutes-en une autre' }), /<p class="error" role="alert">Pas assez de questions/)
+  assert.match(feuille({ enjeu: enjeuDuDe(1000), busy: true }), /<button type="button" class="btn btn-primary btn-big btn-block btn-duel" aria-disabled="true">/)
+  // Le dé ouvert, sa feuille d'abord : l'enjeu lu de sa cote, ce qu'il jouait la dernière fois — rien ne part au serveur.
+  const ouvert = renderToStaticMarkup(React.createElement(LeDe, { cote: 1274, choix: null, depart: { categories: [], sujet: 'animaux' }, onJouer() {}, onFermer() {} }))
+  assert.match(ouvert, /aria-label="Un duel au dé"/)
+  assert.match(ouvert, /<b class="num">\+13<\/b>/)
+  assert.match(ouvert, /<b>Les animaux<\/b>/)
 
-  // La page : le dé touché tire, puis sa feuille — jamais la première question d'emblée. Tirée, la rencontre est la
-  // sienne : sa feuille fermée, « En cours » la montre et le dé la reprend — on ne relance pas le dé pour un meilleur enjeu.
+  // La page : le dé touché ouvre sa feuille, sans rien tirer ; seul celui laissé en route se reprend, tout de suite.
   const page = source('views/Duels.tsx')
-  assert.match(page, /if \(aConfirmerAuDe\(r\)\) \{[\s\S]*?setEtat\(e => e && \{ \.\.\.e, enCours: r \}\)\s*setDeTire\(r\)\s*\} else onJouer\(r\)/)
-  assert.match(page, /\{deTire && <FeuilleDuDe rencontre=\{deTire\} onJouer=\{\(\) => onJouer\(deTire\)\} onFermer=\{\(\) => setDeTire\(null\)\} \/>\}/)
-  // « Un autre duel », sous le verdict d'un duel au dé, est le même dé : la même feuille. La partie n'en tire pas le
-  // code des duels pour autant — la règle vit dans `Rencontre.tsx`, la feuille vient avec la page des duels.
+  assert.match(page, /onAuHasard=\{!etat \? undefined : enCours \? \(\) => void reprendre\(\) : \(\) => setDeOuvert\(true\)\}/)
+  assert.match(page, /const r = await api\.campagne\.rencontre\.commencer\(\)\s*if \(r\.serie\.question\) onJouer\(r\)/)
+  assert.match(page, /\{deOuvert && etat && \(\s*<LeDe\s+cote=\{etat\.cote\}\s+choix=\{choix\}\s+depart=\{surQuoiDuDe\}/)
+  // Le tirage part de « Jouer le duel », sur ce qu'il a choisi — la feuille, dans `Duel.tsx`.
+  assert.match(source('views/Duel.tsx'), /onJouer\(await api\.campagne\.rencontre\.commencer\(\{ categories, sujet \}\)\)/)
+  // « Un autre duel », sous le verdict d'un duel au dé, est le même dé : la même feuille, sur ce que jouait celui-ci, à
+  // sa cote d'après. La partie n'en tire pas le code des duels pour autant : la feuille vient avec la page des duels.
   const partie = source('views/CampagneApp.tsx')
-  assert.match(partie, /const r = await api\.campagne\.rencontre\.commencer\(\)\s*if \(aConfirmerAuDe\(r\)\) setDeTire\(r\)\s*else jouerLaRencontre\(r\)/)
-  assert.match(partie, /<laPageDesDuels\.FeuilleDuDe\s+rencontre=\{deTire\}\s+onJouer=\{\(\) => \{\s*setDeTire\(null\)\s*jouerLaRencontre\(deTire\)\s*\}\}/)
-  assert.match(partie, /import \{[^}]*\baConfirmerAuDe\b[^}]*\} from '\.\/Rencontre'/)
+  assert.match(partie, /\{ texte: 'Un autre duel', icone: 'dice', onClick: \(\) => setDeOuvert\(true\) \}/)
+  assert.match(partie, /<laPageDesDuels\.LeDe\s+cote=\{ecran\.cote\?\.apres \?\? null\}\s+choix=\{choixPourLancer\}\s+depart=\{\{ categories: ecran\.categories, sujet: ecran\.sujet \}\}/)
+  assert.doesNotMatch(partie, /api\.campagne\.rencontre\.commencer/, 'la partie ne tire jamais de dé elle-même')
   // Pendant la partie, l'enjeu se redit à chaque question, de la même pièce que la carte d'un joueur.
   assert.match(partie, /\{enjeu && !r\?\.finie && <EnJeu enjeu=\{enjeu\} className="muted small duels-enjeu" \/>\}/)
 })

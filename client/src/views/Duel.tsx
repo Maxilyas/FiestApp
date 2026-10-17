@@ -7,11 +7,14 @@ import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
 import { Visage } from '../components/Avatar'
 import { OR, lueur } from '../components/Atlas'
+import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { deNom, espacesFines, rang } from '../format'
 import { placeDuJour } from '../../../shared/course'
+import { SUJETS } from '../../../shared/sujets'
 import {
   issueDeRencontre,
   type AmiDeCampagne,
+  type ChoixDeLaCampagne,
   type CorrectionDeCampagne,
   type DuelEntreAmis,
   type IssueDeRencontre,
@@ -21,8 +24,10 @@ import {
   type SonApparence,
 } from '../../../shared/campagne'
 import {
+  AUTOMATE,
   DUELS_POUR_LA_RECOMPENSE,
   LIGUES,
+  enjeuDuDe,
   ligueDe,
   ligueParCle,
   type CleDeLigue,
@@ -758,16 +763,36 @@ export function DuelFaceCachee({
 /**
  * Avant un duel au dé, ce qu'il met en jeu (le souhait du propriétaire du
  * 14 octobre 2026 : « une confirmation avec le dé pour jouer contre
- * l'automate : combien je gagne ou je perds si je joue »). Le dé a déjà tiré
- * la série et la partie d'Automate : l'enjeu se lit contre son score, et
- * n'est exact qu'une fois tiré — dit d'avance, au niveau d'Automate, il
- * aurait annoncé « +17 » quand la partie dirait « +14 ». En deux jetons,
- * comme un duel reçu, puis « Jouer le duel ». Fermée, la rencontre attend
- * dans « En cours », et le dé la reprend : il ne se relance pas pour un
- * enjeu plus doux — un Automate plus faible.
+ * l'automate : combien je gagne ou je perds si je joue ») et ce qu'il fera
+ * jouer. À chances égales depuis le 16 octobre 2026 (`enjeuDuDe`) : l'enjeu
+ * ne dépend plus du tirage, il se dit avant — le dé tirait d'abord, et sa
+ * feuille fermée laissait en cours un duel que le joueur n'avait pas lancé.
+ * Ce qu'il joue se choisit sur la ligne du choix, comme une série ou
+ * « Défier quelqu'un » (« je ne peux pas choisir le thème », le même jour).
+ * En deux jetons, comme un duel reçu ; puis « Jouer le duel », qui tire.
  */
-export function FeuilleDuDe({ rencontre, onJouer, onFermer }: { rencontre: RencontreDeCampagne & { enjeu: EnjeuDuDuel }; onJouer: () => void; onFermer: () => void }) {
-  const { adversaire, enjeu } = rencontre
+export function FeuilleDuDe({
+  enjeu,
+  categories,
+  sujet,
+  busy,
+  erreur,
+  onChanger,
+  onJouer,
+  onFermer,
+}: {
+  /** Ce qu'il met en jeu ; absent tant que sa cote n'est pas connue. */
+  enjeu?: EnjeuDuDuel
+  categories: readonly string[]
+  sujet: string | null
+  /** Le tirage part : « Jouer le duel » attend. */
+  busy?: boolean
+  /** Le refus du tirage — trop peu de questions sur ce choix : dans la feuille, que la page ne montre pas dessous. */
+  erreur?: string
+  onChanger: () => void
+  onJouer: () => void
+  onFermer: () => void
+}) {
   return (
     <Feuille
       // Contre qui, dessous : « Un duel contre Automate » passait à la ligne à côté de « Fermer », en 360.
@@ -775,21 +800,21 @@ export function FeuilleDuDe({ rencontre, onJouer, onFermer }: { rencontre: Renco
       onFermer={onFermer}
       className="feuille-du-de"
       pied={
-        <button type="button" className="btn btn-primary btn-big btn-block btn-duel" onClick={onJouer}>
+        <button type="button" className="btn btn-primary btn-big btn-block btn-duel" aria-disabled={busy || undefined} onClick={onJouer}>
           <Icon name="swords" />
           Jouer le duel
         </button>
       }
     >
       <p className="duels-de-qui">
-        <Anneau avatar={adversaire.avatar} apparence={ceQuIlPorte(adversaire)} />
+        <Anneau avatar={AUTOMATE.avatar} />
         <span>
-          <b>{adversaire.nom}</b>
-          {/* Automate se dit simulé, comme pendant la partie : on n'affronte pas une personne. */}
-          {adversaire.simule && <span className="muted small">simulé, de ton niveau</span>}
+          <b>{AUTOMATE.nom}</b>
+          {/* Simulé, comme pendant la partie : on n'affronte pas une personne. */}
+          <span className="muted small">simulé, de ton niveau</span>
         </span>
       </p>
-      <JetonsDeLEnjeu enjeu={enjeu} />
+      {enjeu && <JetonsDeLEnjeu enjeu={enjeu} />}
       <ul className="duels-regles-ligne">
         <li>
           <Icon name="heart" />
@@ -800,13 +825,90 @@ export function FeuilleDuDe({ rencontre, onJouer, onFermer }: { rencontre: Renco
           <Icon name="infinity" />
           sans chrono
         </li>
-        <li>
-          <Icon name="list" />
-          toutes catégories
-        </li>
       </ul>
-      <p className="muted small centre">{espacesFines('Pas maintenant ? Il t’attend dans tes duels.')}</p>
+      <LigneDuChoix categories={categories} sujet={sujet} sur onChanger={onChanger} />
+      {erreur && (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      )}
     </Feuille>
+  )
+}
+
+/**
+ * Le dé, de sa feuille à la partie : ce qu'il fera jouer — la feuille du
+ * choix derrière « Changer », à la place de la sienne — puis le tirage, à
+ * « Jouer le duel » seulement. Fermée, rien n'est tiré, rien ne reste en
+ * cours. La page des duels et « Un autre duel », sous un verdict, l'ouvrent
+ * pareil.
+ */
+export function LeDe({
+  cote,
+  choix,
+  depart,
+  onChoisir,
+  onJouer,
+  onFermer,
+}: {
+  /** Sa cote qu'on voit, d'où se lit l'enjeu (`enjeuDuDe`) ; null : inconnue, la feuille le tait. */
+  cote: number | null
+  /** Ce que la campagne peut poser (`GET /api/campagne/choix`) ; null tant qu'il arrive — « Changer » ouvre sa feuille dès qu'il est là. */
+  choix: ChoixDeLaCampagne | null
+  /** Ce qu'il fera jouer en ouvrant : le dernier choix du dé, ou ce que jouait le duel qu'il vient de finir. */
+  depart: { categories: readonly string[]; sujet: string | null }
+  /** Son choix a changé : la page le retient pour le dé suivant. */
+  onChoisir?: (categories: string[], sujet: string | null) => void
+  /** Tirée — ou celle laissée en route, que le serveur reprend d'abord : la partie. */
+  onJouer: (r: RencontreDeCampagne) => void
+  onFermer: () => void
+}) {
+  const [categories, setCategories] = useState<string[]>(() => [...depart.categories])
+  const [sujet, setSujet] = useState<string | null>(depart.sujet)
+  const [choixOuvert, setChoixOuvert] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const jouer = async () => {
+    if (busy) return
+    setBusy(true)
+    setErreur('')
+    try {
+      onJouer(await api.campagne.rencontre.commencer({ categories, sujet }))
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (choixOuvert && choix) {
+    return (
+      <FeuilleDuChoix
+        categoriesJouables={choix.categories.map(c => c.categorie)}
+        // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
+        sujets={SUJETS.filter(s => choix.sujets.some(x => x.sujet === s.cle))}
+        categories={categories}
+        sujet={sujet}
+        onChoisir={(c, s) => {
+          setCategories(c)
+          setSujet(s)
+          setErreur('')
+          onChoisir?.(c, s)
+        }}
+        onFermer={() => setChoixOuvert(false)}
+      />
+    )
+  }
+  return (
+    <FeuilleDuDe
+      enjeu={cote === null ? undefined : enjeuDuDe(cote)}
+      categories={categories}
+      sujet={sujet}
+      busy={busy}
+      erreur={erreur}
+      onChanger={() => setChoixOuvert(true)}
+      onJouer={() => void jouer()}
+      onFermer={onFermer}
+    />
   )
 }
 

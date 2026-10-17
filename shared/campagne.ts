@@ -951,7 +951,7 @@ export interface RencontreDeCampagne {
   adversaire: AdversaireEnJeu
   /** Ses bonnes réponses sur les questions déjà jouées : le score d'en face, quand on la reprend. */
   sesJustes: number
-  /** Ce qu'elle met en jeu sur sa cote, dit avant de jouer (`enjeuDuDuel`) ; absent d'un serveur d'avant. */
+  /** Ce qu'elle met en jeu sur sa cote, redit à chaque question — à chances égales, connu avant de tirer (`enjeuDuDe`) ; absent d'un serveur d'avant. */
   enjeu?: EnjeuDuDuel
 }
 
