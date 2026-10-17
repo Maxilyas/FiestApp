@@ -24,8 +24,10 @@ les invariants qu'elle touche, le calibrage, les tests et le découpage en
 étapes. Les quatorze maquettes, jouables — la carte s'y tire vraiment au
 sort —, sont sur claude.ai : https://claude.ai/artifact/B7HYdDffstjHybu1gTtj2g
 (privées, au compte du propriétaire). Là où ce brief les contredit, il
-l'emporte, et dit pourquoi (« Ce qui change depuis les maquettes »). Rien
-n'est encore dans le code.
+l'emporte, et dit pourquoi (« Ce qui change depuis les maquettes »).
+L'étape 1 est dans le code depuis le 17 octobre 2026 : là où elle s'écarte
+du brief, il a été mis à jour, et le dit (« l'étape 1 » entre parenthèses) ;
+ses fichiers et ses pièges, dans `.claude/rules/expedition.md`.
 
 ## En bref
 
@@ -100,11 +102,14 @@ n'est encore dans le code.
   parties ce jour-là : c'est par lui qu'un profil sans légendaire découvre
   ce qu'ils font, et lequel il veut.
 - **Les trois gardiens** se tirent au départ, un par acte, parmi les
-  légendaires qu'on n'a pas — ceux de saison à leur seule période, jamais
+  légendaires qu'on n'a pas — jamais ceux de saison, qui ne se gagnent qu'à
+  leur saison, par elle seule (l'étape 1 : même à leur période, l'expédition
+  leur aurait ouvert une seconde porte), jamais
   l'invité du jour, et seulement ceux qui ont leur joker. S'il en manque, les
-  places restantes se prennent parmi les siens (à trancher : ce qu'un gardien
-  qu'on a déjà rapporte au bout). Un gardien gagné ailleurs en cours de route
-  reste au choix, marqué « déjà à toi ».
+  places restantes se prennent parmi les siens : garder l'un d'eux au bout
+  ne rapporte rien de plus que l'expérience de ses réponses, et la page le
+  dit avant le départ. Un gardien gagné ailleurs en cours de route reste au
+  choix, marqué « déjà à toi ».
 - La page de départ dit les trois gardiens, l'acte de chacun, et ce que dure
   une expédition : vingt à trente questions.
 
@@ -140,16 +145,21 @@ moyen en trouve une sur dix (`TAUX_DU_CALIBRAGE`), moins que le hasard.
 | 2 | facile | moyenne | moyenne | moyen, trois bonnes réponses |
 | 3 | moyenne | moyenne | difficile | difficile, trois bonnes réponses |
 
-**La chance sur chaque escale** se calcule à l'ouverture de l'acte et se
-garde avec lui, comme la chance d'une épreuve à son départ : la chance, pour
-le modèle du savoir (`core/modeleDuSavoir.ts`, lu comme pour les sentiers —
-`chancesPourLui`, `saChanceSur`), que le joueur trouve une question de sa
-catégorie à sa marche — la moyenne de ses catégories pour un mélange, celle
-des catégories du sujet pour un thème pointu —, puis ramenée à sa forme : le
-savoir se lit sous le hasard d'un sur quatre, et le hasard vaut un sur six à
-six choix, un sur deux en vrai ou faux. Une source dit sa chance sur la
-question du carnet qu'elle reposera, choisie à l'ouverture de l'acte. Elle
-se montre comme sur les sentiers : la couleur de piste (`couleurDePiste`) et
+**La chance sur chaque escale** se calcule au départ, pour les trois actes,
+et se garde avec l'expédition, comme la chance d'une épreuve à son départ
+(l'étape 1 : à l'ouverture de chaque acte, elle aurait demandé le modèle
+trois fois, et changé entre deux actes ce que la page avait promis) : la
+chance, pour le modèle du savoir (`core/modeleDuSavoir.ts`, lu comme pour
+les sentiers — `forceSurLesSentiers`, `chanceSurLaMarche`, sur ses premières
+réponses), que le joueur trouve une question de sa catégorie à sa marche —
+la moyenne de ses catégories pour un mélange, celle des catégories du sujet,
+au poids de leurs questions, pour un thème pointu —, puis ramenée à sa
+forme : le savoir se lit sous le hasard d'un sur quatre, et le hasard vaut
+un sur six à six choix, un sur deux en vrai ou faux. Une source dit sa
+chance à la marche moyenne, toutes catégories, comme le gardien à la
+sienne : la question du carnet qu'elle repose ne se choisit qu'en y
+marchant — la plus en retard à ce moment-là, quand l'expédition a pu en
+ajouter. Elle se montre comme sur les sentiers : la couleur de piste (`couleurDePiste`) et
 le pour cent (`pourcentDeChance`). Sous vingt premières réponses, ou avant
 le premier ajustement du modèle, la carte dit la chance d'un joueur moyen,
 et le dit.
@@ -182,8 +192,9 @@ déjà montrées.
   passage, dont le joker reste jusqu'au bout de l'acte.
 - **Le gardien** pose ses questions jusqu'à ce qu'on en ait trouvé autant
   qu'il en demande ; chaque erreur coûte une vie. Toutes catégories, à la
-  marche de son acte, à tour de rôle et sans jumelles (`TourDeRole`,
-  `core/jumelles.ts`). Vaincu, il glisse son joker dans le paquet jusqu'au
+  marche de son acte, sans jumelles (`core/jumelles.ts`) ni vrai ou faux —
+  une chance sur deux à la porte de l'acte suivant —, tirées d'avance, de
+  quoi aller au bout de ses vies. Vaincu, il glisse son joker dans le paquet jusqu'au
   bout ; les vies passent d'un acte à l'autre. En V1, tous les gardiens ont
   cette règle ; les leurs — le Kraken et tes erreurs passées, le quitte ou
   double du Dragon d'Or, les années et les nombres de l'Oracle, dans les
@@ -192,9 +203,10 @@ déjà montrées.
   À zéro, l'expédition s'arrête.
 
 Les questions viennent de la base de la campagne (`core/baseCampagne.ts`),
-jamais de la réserve du quiz du jour, tirées comme une marche de série :
-jamais vues d'abord (`parFraicheur`), sur le tirage préparé
-(`PreparationDuTirage`).
+jamais de la réserve du quiz du jour, tirées comme une épreuve des sentiers
+(`tirerUneEpreuve`) sur le thème de l'escale : jamais vues d'abord, sans
+jumelles — ce que l'expédition a déjà posé passe en dernier, comme vu à
+l'instant.
 
 ### La fin
 
@@ -328,17 +340,18 @@ dirait trop sur ce qui les fait descendre (invariant 21).
   sport paie double écus ; la boussole, l'inconnu se dévoile).
 - **Ils meurent avec l'expédition**, et ne deviennent jamais des confettis :
   un confetti reste une bonne réponse.
-- **La mise** (la maquette 5) attend une décision.
+- **La mise** (la maquette 5) viendra plus tard.
 
 ### Ce que l'expédition paie, et ce qu'elle ne compte pas
 
 | | Compte | Pourquoi |
 |---|---|---|
 | Un confetti par bonne réponse | oui, comme dans tous les modes (`CampagneStore.duProfil`) | |
-| L'expérience d'une bonne réponse | oui (`XP_PAR_JUSTE`, `JUSTES_DOUBLEES_PAR_JOUR`) | le barème ne bouge pas : aucune expérience de plus pour un gardien (à trancher) |
+| L'expérience d'une bonne réponse | oui (`XP_PAR_JUSTE`, `JUSTES_DOUBLEES_PAR_JOUR`) | le barème ne bouge pas : aucune expérience de plus pour un gardien |
 | Le Marathonien | oui | il compte l'effort |
 | Le carnet | toutes ses erreurs ; une bonne réponse aidée — par un joker, ou un vrai ou faux tiré d'une question à quatre choix — ne retrouve rien | trouvée par chance, elle ne prouve rien |
 | La mesure des difficultés (`mesures`), le modèle du savoir, les écussons et la précision (`savoirDe`), L'Érudit | les seules réponses nues : la question telle que la base l'a écrite, sans joker | à six choix ou aidée, une question n'a plus la difficulté qu'on mesure |
+| Une source | au carnet, comme une révision ; ni à la mesure, ni aux écussons et à la précision, ni à L'Érudit, ni aux catégories des missions (`carnet: true`, `HORS_DU_CARNET` — l'étape 1) | elle repose une question ratée, réponse lue : elle ne dit rien de la question ni de son savoir |
 | « Jamais vues d'abord » | oui | une question posée est vue |
 | Les records, la Grande Série, les hauts faits des séries, l'Éclat | non | l'expédition n'est pas une série, et se rejoue à volonté : comme la série, elle ne tire pas l'Éclat |
 | Les écus | non | ils meurent avec elle |
@@ -401,42 +414,55 @@ ne sait pas.
    expédition sur deux. Le rendre facile à cinq bonnes réponses porte le
    faible à 14 %, mais le moyen à 44 %, et le mur passe à l'acte 3.
 
-**La cible proposée** : le moyen une fois sur trois, le fort huit fois sur
-dix (à trancher). Elle se mesure pour de bon à l'étape 1, par
-`server/scripts/calibrage-expedition.ts`, sur le vrai générateur, la vraie
-règle et le vrai modèle du savoir, comme `calibrage-sentiers.ts` le fait des
-paliers — puis sur les vraies expéditions.
+**La cible**, retenue le 17 octobre : le moyen une fois sur trois, le fort
+huit fois sur dix. Elle se mesure pour de bon par
+`server/scripts/calibrage-expedition.ts`, sur le vrai générateur et le vrai
+pli, les joueurs décalés d'un logit comme `calibrage-sentiers.ts` le fait des
+paliers, chacun suivant le tracé le plus sûr que la page lui propose — puis
+sur les vraies expéditions. **À l'étape 1, sans jokers** : faible 0 %, moyen
+5 %, fort 42 % sur deux mille expéditions — la simulation disait 0, 3 et 38.
+Les jokers de l'étape 2 doivent faire le reste : la cible se remesure avec
+eux, avant d'ouvrir en production.
 
 ## Les données
 
 - **Une expédition est une partie de la campagne d'un autre mode**
   (`campagne_series`, `mode = 'expedition'`), comme une épreuve de sentier :
   ses questions telles qu'elle les a lues (`questions`, allongées à chaque
-  tirage, avec leur forme, leur escale et leurs réponses dans l'ordre
-  montré) ; `position`, `vies` et `justes`, tenues à jour par chaque
-  écriture, pour ce qui les lit sans refaire le pli ; `issue` (`legendaire`,
-  `perdue`, `abandonnee`) ; et une colonne neuve, `expedition` (JSON
-  versionné : `{ v, graine, equipee, invite, gardiens, cartes }`). Les trois
-  cartes, tirées au départ de leur graine, se gardent telles quelles : une
-  retouche du générateur ne déplace pas une escale sous les pieds de qui
-  joue. Toute requête des parties filtre déjà son mode — `SERIES`, ou ses
-  modes nommés un à un — : `expedition` rejoint chaque liste à dessein,
-  jamais par défaut.
+  tirage, avec leur escale et leur acte — leur forme à l'étape 3 —, et
+  `carnet` pour celle d'une source) ; `position`, `vies` et `justes`, tenues
+  à jour par chaque écriture, pour ce qui les lit sans refaire le pli ;
+  `issue` (`legendaire`, `perdue`, `abandonnee`) ; et une colonne neuve,
+  `expedition` (JSON versionné : `{ v, graine, numero, gardiens, cartes,
+  moyen }` à l'étape 1 — les chances de chaque escale dans ses cartes,
+  `moyen` quand elles sont celles d'un joueur moyen —, `equipee` et `invite`
+  à l'étape 2). Les trois cartes, tirées au départ de leur graine, se gardent
+  telles quelles : une retouche du générateur ne déplace pas une escale sous
+  les pieds de qui joue. Toute requête des parties filtre déjà son mode —
+  `SERIES`, ou ses modes nommés un à un — : `expedition` rejoint chaque
+  liste à dessein, jamais par défaut.
 - **Le journal des gestes** — `expedition_gestes`, une table neuve :
-  `serie_id` et `rang` (la clé), `apres` (les réponses données avant lui :
-  le pli remet gestes et réponses dans l'ordre), `geste` (JSON), `fait_le`.
+  `serie_id` et `rang` (la clé), `geste` (JSON), `fait_le`. Pas de colonne
+  `apres`, prévue ici d'abord (l'étape 1) : une question qui attend sa
+  réponse n'admet que l'abandon, et les questions se consomment dans l'ordre
+  de leur tirage — gestes et réponses ne s'entrelacent que d'une façon. Un
+  joker joué sur une question (étape 2) dira la position qu'il vise.
   Un geste : `avancer` (vers une escale), `jouer` (un joker, sur quelle
   question), `poser`, `prendre` (une offre d'un coffre ou d'une élite, ou
   rien), `camper` (une vie, ou le joker retiré), `acheter` (étape 4),
   `garder` (le légendaire, au bout), `abandonner`.
 - **Les réponses restent dans `campagne_reponses`** — c'est ce qui fait
   compter l'expérience, les confettis, le carnet et « jamais vues d'abord »
-  sans rien en savoir —, avec deux colonnes neuves, vides partout ailleurs :
-  `forme` (vide : telle que la base l'a écrite ; sinon `six`, `vrai-faux`,
-  `devoilement`) et `joker` (vide : sans aide ; sinon la clé du joker qui l'a
-  touchée). Un seul fragment SQL dit « une réponse nue » (`forme IS NULL AND
-  joker IS NULL`), que lisent la mesure, le modèle du savoir, les écussons et
-  L'Érudit ; le carnet ne compte une bonne réponse retrouvée que nue.
+  sans rien en savoir —, avec deux colonnes neuves, vides partout ailleurs,
+  chacune à l'étape qui la remplit (l'étape 1 : vides, elles n'auraient rien
+  dit) : `forme` (vide : telle que la base l'a écrite ; sinon `six`,
+  `vrai-faux`, `devoilement` — étape 3) et `joker` (vide : sans aide ; sinon
+  la clé du joker qui l'a touchée — étape 2). Un seul fragment SQL dit « une
+  réponse nue » (`forme IS NULL AND joker IS NULL`), que lisent la mesure,
+  le modèle du savoir, les écussons et L'Érudit ; le carnet ne compte une
+  bonne réponse retrouvée que nue. À l'étape 1, ce fragment est celui des
+  sources (`HORS_DU_CARNET`, sur le drapeau `carnet` de la question) : il
+  s'étendra aux deux colonnes.
 - **L'état est un pli** (`shared/expedition.ts`) : les cartes, les gestes et
   les réponses donnent la position, les vies, le paquet, la main, la
   défausse, les jokers posés, les écus, les gardiens vaincus — le même pli
@@ -446,11 +472,13 @@ paliers — puis sur les vraies expéditions.
   questions se tirent de la base — elles dépendent de ce qu'il a vu, et de la
   mesure — : elles s'écrivent à leur tirage, comme en série.
 - **Le légendaire gagné** est une ligne de `profile_badges`,
-  `expedition:<légendaire>` rangée sous `#expedition:<id>`, hors de
-  l'étagère et du compte des badges, comme les saisons (`saison:halloween`) ;
-  chaque légendaire reçoit la voie qui la lit (`aussi`, `{ hautFait:
-  'expedition:kraken', fois: 1 }`), que `voiesDe` et `origineDe` disent
-  partout où un légendaire dit comment il se gagne.
+  `expedition:<légendaire>` rangée sous la partie (`#campagne:<id>`, comme
+  ce que range une série), hors de l'étagère et du compte des badges, comme
+  les saisons (`saison:halloween`) ; chaque légendaire qui a son joker, hors
+  saison, reçoit la voie qui la lit (`aussi`, `{ hautFait:
+  'expedition:kraken', fois: 1 }`), que l'album dit partout où un légendaire
+  dit comment il se gagne (son lieu `expedition`) — cachée tant que
+  l'expédition est fermée en production (`voiesMontrees`).
 - **Le poids** : une expédition, vingt à trente questions — une série en
   garde jusqu'à soixante —, une soixantaine de gestes, et trois cartes de
   quelques kilo-octets.
@@ -504,7 +532,7 @@ réponse : pas un aller-retour de plus.
 - **Le chemin anonyme reste la valeur** : l'accueil d'un invité ne change
   pas, ni ses trois gros boutons.
 - **Le dixième de cœur** : un tirage par escale, sur le tirage préparé ; les
-  chances d'un acte, une fois, à son ouverture, sur le modèle déjà en
+  chances des trois actes, une fois, au départ, sur le modèle déjà en
   mémoire ; le pli, un passage sur une soixantaine de gestes ; aucune passe
   sur toute la base.
 
@@ -523,7 +551,7 @@ réponse : pas un aller-retour de plus.
 | Un joker pour ton paquet | 12 · Un joker pour ton paquet | 2 |
 | Le dévoilement | 11 · Le dévoilement, et ta main | 3 |
 | Un talisman | 6 · Un talisman | 4 |
-| La mise | 5 · La mise | à trancher |
+| La mise | 5 · La mise | plus tard |
 
 Les mots : une **expédition**, trois **actes**, des **escales**, un
 **gardien** ; le **tracé** ; l'**équipée**, l'**invité du jour** ; un
@@ -552,8 +580,9 @@ rien ne s'y gagne en production avant que le mode soit entier.
   `shared/jokers.ts` : le catalogue, en données seulement — il dit quels
   légendaires peuvent garder un acte.
 - Le mode `expedition`, la colonne `expedition`, la table
-  `expedition_gestes`, les colonnes `forme` et `joker` (vides à cette
-  étape), le fragment de la réponse nue.
+  `expedition_gestes` ; les colonnes `forme` et `joker` attendent l'étape
+  qui les remplit, et le fragment de la réponse nue n'écarte encore que les
+  sources (`HORS_DU_CARNET`).
 - Les escales de l'étape : des questions à quatre choix (et les vrai ou faux
   natifs que le tirage amène), sur une catégorie, un mélange ou un thème
   pointu ; les sources ; les campements ; les gardiens à la règle commune ;
@@ -571,9 +600,10 @@ rien ne s'y gagne en production avant que le mode soit entier.
 - Les tests :
   - `expedition-carte.test.ts` — la même graine donne la même carte ; les
     chemins ne se croisent jamais ; toute escale mène à un campement ; une
-    source et un coffre au moins ; les plafonds ; sur dix mille graines, les
-    parts des escales, des thèmes et des formes dans leurs bornes ; un thème
-    pointu toujours tirable.
+    source au moins (le coffre en devient une) ; sur deux mille cartes, les
+    parts des sources, des mélanges et des thèmes pointus dans leurs bornes ;
+    un thème pointu toujours tirable ; les chances, le tracé le plus sûr, ce
+    qu'on peut encore atteindre ; les gardiens, jamais de saison.
   - `expedition.test.ts` (sur `banc.ts`) — partir ; n'avancer que vers une
     escale reliée ; une erreur coûte une vie, une source et un campement en
     rendent une, jamais au-delà de trois ; le gardien tombe à sa n-ième bonne
@@ -581,10 +611,13 @@ rien ne s'y gagne en production avant que le mode soit entier.
     retrouve telle quelle, et une seule à la fois ; un geste rejoué ou en
     retard est refusé ; la bonne réponse ne part jamais avant la réponse ; au
     bout, un seul légendaire, parmi les trois gardiens, jamais deux fois.
-  - `expedition-legendaires.test.ts` — les gardiens se tirent parmi ceux
-    qu'on n'a pas, ceux de saison à leur période seulement ; la ligne
-    `expedition:` ouvre le légendaire par sa voie, sans paraître sur
-    l'étagère ni au compte des badges.
+  - `expedition-legendaires.test.ts` — la voie sur chaque légendaire qui a
+    son joker, hors saison ; la ligne `expedition:` ouvre le légendaire par
+    sa voie, sans paraître sur l'étagère ni au compte des badges ; fermée en
+    production, la voie compte mais ne se montre pas.
+  - `expedition.test.ts` dit aussi qu'une source reprend une question du
+    carnet sans que sa réponse mesure rien, et qu'un gardien qu'on a déjà se
+    dit avant le départ.
   - `expedition-pli.test.ts` — le pli du journal redonne l'état, et le même
     journal rejoué redonne le même état.
   - `gains.test.ts` rend aussi la fin de l'expédition.
@@ -632,7 +665,15 @@ escales, et l'Aigle avec elle ; la Licorne et l'Éléphant ; les trophées de
 l'expédition dans l'album ; une page au QG, qui relira le calibrage sur les
 vraies expéditions ; une expédition de la semaine, la même carte pour tous.
 
-## À trancher
+## Tranché le 17 octobre 2026
+
+Les sept questions ci-dessous, relues avec le propriétaire, et ce qui change
+depuis les maquettes : « Go je valide passe a la suite ». Chaque proposition
+est retenue telle qu'écrite — la cible du calibrage, rien de plus pour un
+gardien qu'on a déjà, aucune expérience de plus pour un gardien vaincu, la
+mise plus tard, le vrai ou faux tiré d'une question à quatre choix, une
+carte neuve à qui abandonne avant sa première réponse, l'expédition de la
+semaine plus tard et sans jokers classés.
 
 1. **La cible du calibrage** : le joueur moyen au bout une fois sur trois, le
    fort huit fois sur dix ? Le faible n'y arrive qu'une fois sur quatorze,

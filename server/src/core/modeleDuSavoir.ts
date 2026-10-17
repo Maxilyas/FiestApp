@@ -634,9 +634,11 @@ const POIDS_DE_LA_FORME = [0.000971781245099519, 0.054515582819127, 0.4256072526
 /**
  * Sa chance moyenne sur une marche d'une catégorie : sur les difficultés qui
  * la résument (`SerieDeReference.marches`). Une marche que la catégorie n'a
- * pas se lit sur celles des autres.
+ * pas se lit sur celles des autres — et une catégorie hors des douze (−1),
+ * sur toutes : la chance qu'une escale de l'expédition annonce sur un gardien
+ * de toutes les catégories (`CampagneStore.chancesDeLExpedition`).
  */
-function chanceSurLaMarche(reference: SerieDeReference, niveau: Niveau, categorie: number, net: number): number {
+export function chanceSurLaMarche(reference: SerieDeReference, niveau: Niveau, categorie: number, net: number): number {
   const groupes = reference.marches[niveau]
   const sien = groupes.find(g => g.categorie === categorie)
   const lus = sien ? [sien] : groupes

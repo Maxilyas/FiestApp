@@ -96,11 +96,11 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     const surLesTrophees = HAUTS_FAITS_REGAGNABLES.flatMap(h => ceQuOuvreLeTrophee(h.key)).filter(x => x.recompense.sorte === 'gerbe' && x.recompense.cle === g.key).length
     assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par ? 0 : 1, g.key)
   }
-  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des saisons, qui n'ont pas de piste.
+  // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des saisons et de l'expédition, qui n'ont pas de piste.
   for (const l of LEGENDAIRES) {
     for (const voie of voiesDe(l)) {
       for (const c of partiesDe(voie)) {
-        if (c.hautFait.startsWith('saison:')) continue
+        if (c.hautFait.startsWith('saison:') || c.hautFait.startsWith('expedition:')) continue
         const ouvre =
           'palier' in c
             ? ceQuIlOuvre(clePalier(c.hautFait, c.palier))

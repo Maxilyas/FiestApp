@@ -79,6 +79,7 @@ import {
   cibleEclat,
   conditionTenue,
   legendaire,
+  legendaireDeLExpedition,
   legendairesDebloques,
   legendairesOuvertsPar,
   type Condition,
@@ -544,6 +545,8 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (page) return { emoji: '📜', title: `Le calendrier : ${PAGES.find(x => x.mois === page)?.nom ?? page}` }
   const d = divin(cle)
   if (d) return { emoji: '✨', title: d.nom }
+  const l = legendaireDeLExpedition(cle)
+  if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
   return { emoji: '✨', title: cle }
 }
 
@@ -2366,8 +2369,11 @@ export class ProfileStore {
       eclats: this.eclatsOf(p.id),
       eclatsEteints: this.eteintsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
-      // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !moisDeLaPage(k)).length,
+      // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
+      // saison, ni un légendaire gardé au bout de l'expédition : ils ne se
+      // montrent que par leur légendaire.
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !k.startsWith('expedition:') && !moisDeLaPage(k))
+        .length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
@@ -3789,8 +3795,9 @@ export class ProfileStore {
   private async etagereDe(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire ;
-    // ni les pages du calendrier, qui ont leur page.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire,
+    // comme un légendaire gardé au bout de l'expédition ; ni les pages du
+    // calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -3801,7 +3808,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE 'expedition:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })

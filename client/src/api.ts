@@ -18,6 +18,7 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
+import type { ApresUnGeste, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -518,6 +519,23 @@ export const api = {
         req<EtatDesSentiers & { fin?: FinDEpreuve }>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
       acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
     },
+  },
+  /**
+   * L'Expédition (`shared/expedition.ts`) : sa page, partir, un geste — qui
+   * porte le rang qu'il croit suivre —, une réponse — avec la position de sa
+   * question —, l'abandon. Une partie d'un autre mode : sa correction et ses
+   * signalements passent par celles de la série.
+   */
+  expedition: {
+    page: () => req<PageDeLExpedition>(DEPART.expedition),
+    partir: () => req<VueDeLExpedition>('/api/expedition', { method: 'POST' }),
+    avancer: (id: string, rang: number, vers: string) =>
+      req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste: { quoi: 'avancer', vers } }) }),
+    garder: (id: string, rang: number, legendaire: string) =>
+      req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste: { quoi: 'garder', legendaire } }) }),
+    repondre: (id: string, position: number, choix: number) =>
+      req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
+    abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

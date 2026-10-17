@@ -63,6 +63,7 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   saison: 'calendar',
   boutique: 'bag',
   porte: 'paw',
+  expedition: 'flag',
 }
 
 /** La légende des pastilles, sous la grille : un emoji dit son niveau en toutes lettres, il n'y est pas. */
@@ -73,6 +74,7 @@ const LEGENDE_DU_LIEU: Partial<Record<LieuDAvatar, string>> = {
   sentiers: 'sur les sentiers',
   saison: 'à sa saison',
   boutique: 'en boutique',
+  expedition: 'en expédition',
 }
 
 /** Le nom d'un avatar de l'album, tel que sa case et sa fiche le disent. */
@@ -108,6 +110,7 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'jour') return { nom: 'Jouer le quiz du jour', href: '/jour' }
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
+    if (e.lieu === 'expedition') return { nom: 'Partir en expédition', href: '/expedition' }
     if (e.lieu === 'boutique') {
       // La vitrine s'ouvre sur lui : les deux autres se font glisser.
       const f = formeDeCompagnon(cle)

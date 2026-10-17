@@ -9,7 +9,7 @@
 // serveur, et rien ne s'écrit.
 
 import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, palierDe, type HautFaitVu } from './hautsfaits'
-import { LEGENDAIRES, progresSur, voiesDe } from './legendaires'
+import { LEGENDAIRES, progresSur, voiesDe, voiesMontrees } from './legendaires'
 
 /** Un objectif commencé : un légendaire (`lg:…`) ou un palier de carrière (`hf:…:2`), et où il en est. */
 export interface Proche {
@@ -75,7 +75,8 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
       }
       if (voie.acquis <= 0 || voie.acquis >= voie.requis) continue
       if (meilleure && voie.acquis / voie.requis <= meilleure.acquis / meilleure.requis) continue
-      meilleure = { key: l.key, ...voie, legendaire: true, ...(l.aussi && !('toutes' in c) && { hautFait: c.hautFait }) }
+      // Le haut fait de la voie qui avance, quand il en a plusieurs à montrer : la voie cachée de l'expédition n'en fait pas une seconde.
+      meilleure = { key: l.key, ...voie, legendaire: true, ...(voiesMontrees(l).length > 1 && !('toutes' in c) && { hautFait: c.hautFait }) }
     }
     if (meilleure) candidats.push(meilleure)
   }
