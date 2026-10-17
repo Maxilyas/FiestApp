@@ -426,6 +426,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Réveil | Le démarrage d'un service endormi, sur un disque effacé ; la page « Le serveur » le distingue d'une mise en ligne, d'une relance et d'un redémarrage après un arrêt net | `sorteDuDemarrage` |
 | Révision | Une partie sans vies de dix questions au plus, tirées du carnet, les plus en retard d'abord | `commencerRevision` |
 | Routine du matin | La routine Claude Code qui remplit chaque matin la réserve du quiz du jour et la base de la campagne, et réveille la production au passage | `RESERVE_TOKEN` |
+| Rubrique | Un sous-thème seul, choisi sous sa catégorie (« Sport », puis « Football ») : une partie le joue comme un sujet, sans parcours, dès cent questions | `RUBRIQUES` (`shared/sujets.ts`) |
 
 ## S
 

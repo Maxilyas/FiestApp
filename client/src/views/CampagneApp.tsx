@@ -30,7 +30,7 @@ import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { SUJETS, sujetParCle } from '../../../shared/sujets'
+import { SUJETS_ET_RUBRIQUES, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -972,8 +972,8 @@ export function CampagneApp() {
           </div>
         )
       }
-      // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
-      const sujets = SUJETS.filter(x => choixPourLancer.sujets.some(y => y.sujet === x.cle))
+      // Les sujets et les rubriques que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
+      const sujets = SUJETS_ET_RUBRIQUES.filter(x => choixPourLancer.sujets.some(y => y.sujet === x.cle))
       return (
         <>
           <laPreparation.LancerUnDefi
@@ -1056,8 +1056,8 @@ export function CampagneApp() {
     const pret = etat.questions >= QUESTIONS_POUR_JOUER
     // Les bonnes réponses du jour qui paient encore double (`JUSTES_DOUBLEES_PAR_JOUR`).
     const doubles = Math.max(0, JUSTES_DOUBLEES_PAR_JOUR - (etat.justesAujourdhui ?? 0))
-    // Les sujets que la base sert ; un sujet retenu qui n'en est plus un — un serveur d'avant, une base qui a changé — ne se joue pas.
-    const sujets = SUJETS.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
+    // Les sujets et les rubriques que la base sert ; un sujet retenu qui n'en est plus un — un serveur d'avant, une base qui a changé — ne se joue pas.
+    const sujets = SUJETS_ET_RUBRIQUES.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
     const sujetJouable = sujets.some(s => s.cle === sujet) ? sujet : null
     // Un choix à faire : plusieurs catégories, ou des sujets. Sinon, ni ligne ni feuille.
     const aChoisir = etat.categories.length > 1 || sujets.length > 0

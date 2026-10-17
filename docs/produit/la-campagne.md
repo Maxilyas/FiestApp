@@ -26,7 +26,7 @@ Chaque valeur citée ici a sa ligne dans [les barèmes](../reference/baremes.md)
 
 **À l'accueil**, le gros bouton de la campagne te mène d'abord à une épreuve de sentier laissée en route, puis à ton défi de la semaine (si tu l'as commencé, si c'est lundi ou si tu en as déjà relevé un), puis aux questions de ton carnet à revoir aujourd'hui, puis au défi, et enfin au sentier que tu avances. Le défi n'y paraît qu'après ta première partie de campagne, et disparaît une fois ta tentative finie.
 
-**L'onglet « La série »** montre ton record. Sous « Commencer une série », une ligne dit sur quoi tu joues (« Sur Toutes les catégories », « Histoire et Sport », un sujet). « Changer › » ouvre la feuille « Sur quoi ? » : toutes les catégories, une ou plusieurs des douze, ou, dans l'onglet « Thèmes », un sujet — les thèmes en tuiles, chacun son emblème, les époques sur une frise, dans l'ordre du temps, et les fils rouges en pastilles. Ton choix est retenu sur ce téléphone.
+**L'onglet « La série »** montre ton record. Sous « Commencer une série », une ligne dit sur quoi tu joues (« Sur Toutes les catégories », « Histoire et Sport », un sujet). « Changer › » ouvre la feuille « Sur quoi ? » : toutes les catégories, une ou plusieurs des douze, ou, dans l'onglet « Thèmes », un sujet — les thèmes en tuiles, chacun son emblème, les époques sur une frise, dans l'ordre du temps, et les fils rouges en pastilles. Une catégorie choisie seule s'affine : sous sa case, « Ou seulement » propose ses **rubriques**, chacun de ses sous-thèmes (« Sport », puis « Football »). Ton choix est retenu sur ce téléphone.
 
 **Une question** affiche sa marche et son numéro (« Moyen · question 10 »), tes bonnes réponses (« 7 bonnes réponses ») et tes vies, puis l'intitulé et quatre réponses, ou « Vrai » et « Faux ». Après ta réponse, tu lis « Bien joué ! +10 XP » et ta gerbe éclate, ou bien « Raté… plus que 2 vies ». Viennent ensuite la bonne réponse et l'anecdote, que le serveur ne t'envoie qu'après ta réponse. « ← Partir » te ramène à l'onglet sans rien perdre. « Recommencer », en bas, arrête la série : elle finit comme si tu l'avais perdue, et ton record et tes hauts faits comptent ce qu'elle a joué.
 
@@ -50,7 +50,7 @@ Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de
 | Une à la fois | « Une nouvelle série » referme celle laissée en route et lui décerne ce qu'elle a joué. Une révision ou un défi en cours restent ouverts |
 | Record | Ta meilleure série finie, sujets compris. Le défi, les duels et les révisions n'y comptent pas |
 
-Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a vingt-sept, en trois familles :
+Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a trente-cinq, en trois familles :
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
@@ -58,7 +58,9 @@ Les **catégories** sont douze : Culture générale, Histoire, Géographie, Scie
 | Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
 | Un fil rouge | La France, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
 
-La feuille ne propose un sujet que s'il a au moins dix questions jouables. Une série sur un sujet compte pour ton record, mais pas pour tes records par catégorie ni pour la Grande Série.
+Une **rubrique** est un sous-thème seul, dans sa catégorie : « Football » en sport, « Spécialités françaises » en cuisine, « Drapeaux » en géographie. Il y en a une par sous-thème, quatre-vingt-dix-sept, et la feuille les range sous leur catégorie, pas dans l'onglet « Thèmes ». Une rubrique se joue comme un sujet — en série, en révision, en duel, au quiz tout prêt d'une soirée —, mais n'a pas de parcours : le sentier de sa catégorie monte déjà chaque sous-thème, chapitre par chapitre.
+
+La feuille ne propose un sujet que s'il a au moins dix questions jouables, et une rubrique que si elle en a cent (`QUESTIONS_POUR_UNE_RUBRIQUE`) : toutes sauf « Langues et écritures du monde », cinquante-cinq questions depuis que le français, l'anglais et l'espagnol ont pris les leurs. Une série sur un sujet ou une rubrique compte pour ton record, mais pas pour tes records par catégorie ni pour la Grande Série.
 
 **Les marches.** Une question est facile si au moins 70 % des joueurs la trouvent, moyenne à partir de 40 %, difficile à partir de 20 %, et experte en dessous. Avant toute réponse, la difficulté estimée à l'écriture, de 1 à 5, fixe une part de réussite attendue : 90, 80, 55, 30 ou 10 % (`TAUX_A_PRIORI`). Cette estimation pèse autant que vingt réponses (`REPONSES_FICTIVES`), et les vraies réponses de campagne la remplacent peu à peu. Les révisions ne comptent pas dans cette mesure.
 

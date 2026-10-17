@@ -1,5 +1,6 @@
-import type { Categorie } from './categories'
+import { CATEGORIES, type Categorie } from './categories'
 import type { MetadonneesDeQuestion } from './etiquettes'
+import { SOUS_THEMES } from './sousThemes'
 
 // Les sujets de la campagne : une série sur un fil qui traverse les douze
 // catégories — une époque, la France, les pionnières —, tirée des
@@ -21,7 +22,8 @@ import type { MetadonneesDeQuestion } from './etiquettes'
 // quoi faire une série, et `generer-campagne.ts preparer --theme=<clé>`
 // écrit ce qui lui manque.
 
-export type FamilleDeSujet = 'epoque' | 'fil' | 'theme'
+/** Une rubrique (`RUBRIQUES`) n'a pas de rangée : la feuille du choix la range sous sa catégorie. */
+export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'rubrique'
 
 /**
  * Les familles de sujets, dans l'ordre où l'écran les range, chacune sa
@@ -50,6 +52,8 @@ export interface Sujet {
   portee?: MetadonneesDeQuestion['portee']
   /** … ou de l'un de ces sous-thèmes de leur catégorie (`SOUS_THEMES`) : un même mot — « france » — n'est pas le même sous-thème d'une catégorie à l'autre. */
   sousThemes?: Readonly<Partial<Record<Categorie, readonly string[]>>>
+  /** Une rubrique : la catégorie dont elle est un sous-thème — la feuille du choix la range sous elle. */
+  categorie?: Categorie
 }
 
 export const SUJETS: readonly Sujet[] = [
@@ -232,7 +236,78 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'enfance', nom: 'Souvenirs d’enfance', famille: 'fil', description: 'Dessins animés, jouets, contes et légendes', etiquettes: ['enfance', 'contes-legendes'] },
 ]
 
-export const sujetParCle = (cle: unknown): Sujet | undefined => SUJETS.find(s => s.cle === cle)
+// Les rubriques : chaque sous-thème seul, choisi sous sa catégorie — « Sport »,
+// puis « Football » (le choix du propriétaire du 17 octobre 2026, « apporter
+// beaucoup de choix ») : quatre-vingt-seize des quatre-vingt-dix-sept
+// sous-thèmes avaient de quoi faire une série, plus de deux cents questions
+// chacun, et le joueur n'en choisissait presque aucun — quatre thèmes
+// seulement n'en lisaient qu'un. Une rubrique est un sujet comme un autre
+// pour la série, la révision, le duel et le quiz tout prêt ; elle n'a ni
+// rangée dans l'onglet des thèmes, ni parcours : la feuille du choix la range
+// sous sa catégorie, et les sentiers montent déjà chaque sous-thème, chapitre
+// par chapitre. Les sujets d'une question ne la disent pas (`sujetsDe`) : sa
+// rubrique s'y ajoute (`sujetsEtRubriqueDe`). Pas « rayon » : c'est celui de
+// la boutique, et celui des modèles de quiz.
+
+/** « Cinéma & séries » → « cinema-series » : le nom d'une catégorie, dans une clé. */
+const enCle = (categorie: string) =>
+  categorie
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+/**
+ * La clé d'une rubrique : « sport/football ». Sa catégorie la précède — un
+ * même sous-thème, « france », n'est pas le même en cuisine et en
+ * géographie —, et aucune clé de `SUJETS` n'a de barre : une rubrique n'en
+ * prend jamais une.
+ */
+export const cleDeRubrique = (categorie: string, sousTheme: string): string => `${enCle(categorie)}/${sousTheme}`
+
+/**
+ * Sous ce nombre de questions jouables, une rubrique ne se propose pas. Un
+ * thème se garde au test de la base livrée (`campagne-sujets.test.ts` : cent
+ * questions, cinq à chaque marche) ; une rubrique, à la lecture : « Langues
+ * et écritures du monde », cinquante-cinq questions depuis que le français,
+ * l'anglais et l'espagnol ont pris les leurs, reviendra d'elle-même quand
+ * elle les aura.
+ */
+export const QUESTIONS_POUR_UNE_RUBRIQUE = 100
+
+/** Les rubriques, catégorie par catégorie, dans l'ordre de leurs sous-thèmes. */
+export const RUBRIQUES: readonly Sujet[] = CATEGORIES.flatMap(categorie =>
+  SOUS_THEMES[categorie].map(
+    (st): Sujet => ({
+      cle: cleDeRubrique(categorie, st.cle),
+      nom: st.nom,
+      famille: 'rubrique',
+      // Sa catégorie, sous son nom : seul, celui d'un sous-thème ne dit pas toujours de quoi — « Techniques et
+      // vocabulaire », en cuisine. « Cuisine › Techniques et vocabulaire » redisait son nom sous lui, sur deux lignes.
+      description: categorie,
+      categorie,
+      sousThemes: { [categorie]: [st.cle] } as Partial<Record<Categorie, readonly string[]>>,
+    }),
+  ),
+)
+
+/** Tout ce qu'une partie vise au-delà des catégories : les sujets, puis les rubriques. */
+export const SUJETS_ET_RUBRIQUES: readonly Sujet[] = [...SUJETS, ...RUBRIQUES]
+
+const PAR_CLE: ReadonlyMap<string, Sujet> = new Map(SUJETS_ET_RUBRIQUES.map(s => [s.cle, s]))
+
+/** Un sujet ou une rubrique, par sa clé. */
+export const sujetParCle = (cle: unknown): Sujet | undefined => (typeof cle === 'string' ? PAR_CLE.get(cle) : undefined)
+
+/** La rubrique de chaque sous-thème, par catégorie : une question la trouve sans refaire sa clé. */
+const RUBRIQUE_DU_SOUS_THEME: ReadonlyMap<string, ReadonlyMap<string, string>> = new Map(
+  CATEGORIES.map(c => [c, new Map(SOUS_THEMES[c].map(st => [st.cle, cleDeRubrique(c, st.cle)]))]),
+)
+
+/** La rubrique d'une question : celle de son sous-thème, dans sa catégorie. */
+export const rubriqueDe = (meta: Pick<MetadonneesDeQuestion, 'categorie' | 'sousTheme'>): string | null =>
+  RUBRIQUE_DU_SOUS_THEME.get(meta.categorie)?.get(meta.sousTheme) ?? null
 
 /**
  * L'année d'une question datée. Au siècle près, elle ne range rien : « 1801 »
@@ -315,4 +390,11 @@ export function sujetsDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes'
   if (trouves.length === 1) return [SUJETS[trouves[0]].cle]
   // Chacun une fois : une question des années 80 étiquetée « record » et « insolite » en a deux.
   return [...new Set(trouves)].sort((a, b) => a - b).map(r => SUJETS[r].cle)
+}
+
+/** Les sujets d'une question, puis sa rubrique : tout ce qu'une série, une révision, un duel ou un quiz tout prêt peut viser pour la poser. */
+export function sujetsEtRubriqueDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes' | 'portee' | 'categorie' | 'sousTheme'>): string[] {
+  const sujets = sujetsDe(meta)
+  const rubrique = rubriqueDe(meta)
+  return rubrique ? [...sujets, rubrique] : sujets
 }

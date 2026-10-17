@@ -9,8 +9,21 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { hautsFaitsDeLaSerie } from '../src/core/campagne'
-import { FAMILLES_DE_SUJETS, SUJETS, anneeDe, sujetsDe } from '../../shared/sujets'
+import { hautsFaitsDeLaSerie, sujetsDeLaQuestion } from '../src/core/campagne'
+import { composerUnQuiz, idDeLaBase } from '../src/core/quizToutPret'
+import {
+  FAMILLES_DE_SUJETS,
+  QUESTIONS_POUR_UNE_RUBRIQUE,
+  RUBRIQUES,
+  SUJETS,
+  SUJETS_ET_RUBRIQUES,
+  anneeDe,
+  cleDeRubrique,
+  rubriqueDe,
+  sujetParCle,
+  sujetsDe,
+  sujetsEtRubriqueDe,
+} from '../../shared/sujets'
 import { ETIQUETTES, PORTEES, SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import type { Categorie } from '../../shared/categories'
@@ -110,11 +123,59 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
   assert.equal(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)).size, FAMILLES_DE_SUJETS.length)
 })
 
-test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horloge des époques', async () => {
+test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horloge des époques ; une rubrique, l’emblème de sa catégorie', async () => {
+  // L'emblème d'une catégorie vit avec l'écusson (`components/Ecusson.tsx`), dont les icônes s'écrivent en JSX : React d'abord.
+  Object.assign(globalThis, { React: (await import('react')).default })
   const { iconeDuSujet } = await import(new URL('../../client/src/iconeDuSujet.ts', import.meta.url).href)
+  const { EMBLEME } = await import(new URL('../../client/src/components/Ecusson.tsx', import.meta.url).href)
   for (const s of SUJETS) {
     if (s.famille === 'epoque') assert.equal(iconeDuSujet(s), 'clock', s.cle)
     else assert.notEqual(iconeDuSujet(s), 'clock', `${s.cle} : ajoute son icône à client/src/iconeDuSujet.ts`)
+  }
+  for (const r of RUBRIQUES) assert.equal(iconeDuSujet(r), EMBLEME[r.categorie!], r.cle)
+})
+
+// Les rubriques (le choix du propriétaire du 17 octobre 2026, « apporter
+// beaucoup de choix ») : chaque sous-thème seul, choisi sous sa catégorie —
+// « Sport », puis « Football ». La base en avait de quoi : plus de deux cents
+// questions par sous-thème, et le joueur n'en choisissait presque aucun.
+test('chaque sous-thème est une rubrique : sa clé dit sa catégorie, elle s’ajoute aux sujets d’une question, et une rubrique que la base livrée sert tient une série', () => {
+  assert.equal(RUBRIQUES.length, Object.values(SOUS_THEMES).flat().length, 'une rubrique par sous-thème')
+  assert.equal(new Set(SUJETS_ET_RUBRIQUES.map(s => s.cle)).size, SUJETS_ET_RUBRIQUES.length, 'aucune clé partagée avec un sujet')
+  assert.ok(RUBRIQUES.every(r => r.famille === 'rubrique' && r.categorie && r.cle === cleDeRubrique(r.categorie, r.sousThemes![r.categorie]![0])))
+  // « france » n'est pas le même en cuisine et en géographie : la catégorie le précède.
+  assert.equal(cleDeRubrique('Cinéma & séries', 'cinema-fr'), 'cinema-series/cinema-fr')
+  assert.notEqual(cleDeRubrique('Géographie', 'france'), cleDeRubrique('Cuisine', 'france'))
+  assert.deepEqual(
+    { ...sujetParCle('cuisine/techniques') },
+    {
+      cle: 'cuisine/techniques',
+      nom: 'Techniques et vocabulaire',
+      famille: 'rubrique',
+      description: 'Cuisine',
+      categorie: 'Cuisine',
+      sousThemes: { Cuisine: ['techniques'] },
+    },
+  )
+  // Les sujets d'une question ne disent pas sa rubrique : elle s'y ajoute, au bout.
+  const m = meta({ valeur: '1998', precision: 'annee' }, ['coupe-du-monde'], 'france', 'Sport', 'football')
+  assert.deepEqual(sujetsDe(m), ['grands-rendez-vous', 'annees-90', 'france'])
+  assert.deepEqual(sujetsEtRubriqueDe(m), ['grands-rendez-vous', 'annees-90', 'france', 'sport/football'])
+  assert.equal(rubriqueDe({ categorie: 'Cuisine', sousTheme: 'france' }), 'cuisine/france')
+  assert.equal(rubriqueDe({ categorie: 'Cuisine', sousTheme: 'capitales' }), null, 'un sous-thème d’une autre catégorie n’en est pas une')
+  // Une rubrique que la base livrée sert — cent questions au moins — tient une série : cinq de chaque marche.
+  const { questions } = lireLaBase()
+  const parRubrique = new Map<string, QuestionDeLaBase[]>()
+  for (const q of questions) {
+    const r = rubriqueDe(q.meta)!
+    const siennes = parRubrique.get(r)
+    if (siennes) siennes.push(q)
+    else parRubrique.set(r, [q])
+  }
+  const servies = RUBRIQUES.filter(r => (parRubrique.get(r.cle)?.length ?? 0) >= QUESTIONS_POUR_UNE_RUBRIQUE)
+  assert.ok(servies.length >= 90, `${servies.length} rubriques servies : la base en avait 96 le 17 octobre 2026`)
+  for (const r of servies) {
+    for (const n of NIVEAUX) assert.ok(parRubrique.get(r.cle)!.filter(q => niveauDeQuestion(q.meta.difficulte) === n).length >= 5, `${r.cle} › ${n}`)
   }
 })
 
@@ -179,8 +240,12 @@ test('la Grande Série se gagne dans une série de toutes les catégories, pas s
 
 // ── Au serveur ──────────────────────────────────────────────────────────────
 
-/** Une question d'essai, de la catégorie et de la difficulté qu'on veut, avec ses étiquettes et sa date. */
-function question(i: number, categorie: Categorie, { etiquettes = [] as string[], date = null as { valeur: string; precision: string } | null } = {}): QuestionDeLaBase {
+/** Une question d'essai, de la catégorie et de la difficulté qu'on veut, avec ses étiquettes, sa date et son sous-thème — le premier de sa catégorie, d'office. */
+function question(
+  i: number,
+  categorie: Categorie,
+  { etiquettes = [] as string[], date = null as { valeur: string; precision: string } | null, sousTheme = SOUS_THEMES[categorie][0].cle } = {},
+): QuestionDeLaBase {
   const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${i}`)
   const lu = lireQuestionDeLaBase({
     id: `sujet${String(i).padStart(3, '0')}`,
@@ -189,7 +254,7 @@ function question(i: number, categorie: Categorie, { etiquettes = [] as string[]
     bonne: 0,
     anecdote: `L'anecdote de la question ${i}.`,
     categorie,
-    sousTheme: SOUS_THEMES[categorie][0].cle,
+    sousTheme,
     etiquettes,
     difficulte: 1 + (i % 5),
     ageMin: 10,
@@ -276,6 +341,41 @@ test('une série sur un sujet ne pose que ses questions, à travers les catégor
     const toutes = (await poster(banc, lea, '/api/campagne/serie', {})).corps
     assert.equal(toutes.sujet, undefined)
     assert.equal(tirees(banc, toutes.id).length, 60)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('une rubrique se propose à cent questions, se joue comme un sujet — sa série, son quiz tout prêt — et n’a pas de parcours', async () => {
+  const football = Array.from({ length: 100 }, (_, i) => question(100 + i, 'Sport'))
+  const rugby = Array.from({ length: 99 }, (_, i) => question(200 + i, 'Sport', { sousTheme: 'rugby' }))
+  const base = new BaseDeLaCampagne([...football, ...rugby])
+  const duFootball = new Set(football.map(q => q.id))
+  // Le quiz tout prêt d'une soirée, sur le football : ses questions seules.
+  const quiz = composerUnQuiz(
+    base.questions,
+    sujetsDeLaQuestion,
+    new Map(),
+    { categories: [], sujet: 'sport/football', difficulte: 'progressive', nombre: 20, enfants: false, estimations: false },
+    { ids: new Set(), empreintes: new Set(), posees: new Map() },
+  )
+  assert.equal(quiz.length, 20)
+  assert.ok(quiz.every(q => duFootball.has(idDeLaBase(q.id)!)))
+  const banc = await demarrer({ baseDeLaCampagne: base })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    // Cent questions : le football se propose, à la série comme au duel ; à quatre-vingt-dix-neuf, le rugby attend.
+    assert.deepEqual((await lire(banc, lea, '/api/campagne')).corps.sujets, [{ sujet: 'sport/football', questions: 100 }])
+    assert.deepEqual((await lire(banc, lea, '/api/campagne/choix')).corps.sujets, [{ sujet: 'sport/football', questions: 100 }])
+    // Sa série ne pose que lui, et le garde à la reprise.
+    const serie = (await poster(banc, lea, '/api/campagne/serie', { sujet: 'sport/football' })).corps
+    assert.equal(serie.sujet, 'sport/football')
+    assert.ok(tirees(banc, serie.id).every(id => duFootball.has(id)))
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.enCours.sujet, 'sport/football')
+    // Ni parcours, ni étape : son sous-thème se monte déjà sur le sentier du sport.
+    assert.deepEqual((await lire(banc, lea, '/api/campagne/sujets')).corps.sujets, [])
+    const etape = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'sport/football', palier: 1 })
+    assert.deepEqual([etape.status, etape.corps.error], [400, 'Ce parcours n’existe pas'])
   } finally {
     await banc.close()
   }

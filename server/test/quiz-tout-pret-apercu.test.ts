@@ -131,3 +131,39 @@ test('la phrase d’un sujet se lit sous la rangée de sa tuile, pas sous la der
   // De toute la largeur de la grille.
   assert.match(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'), /\.categories-grille \.sujet-phrase \{ grid-column: 1 \/ -1;/)
 })
+
+// Les rubriques (le 17 octobre 2026) : une soirée sur le football se compose
+// comme une série — une catégorie choisie seule s'affine en ses sous-thèmes,
+// sous la rangée de sa case, « Toutes » comptée dans la première rangée.
+test('au quiz tout prêt, une catégorie choisie seule s’affine en ses rubriques, sous sa rangée de trois', async () => {
+  const { GrilleDesCategories } = await import(new URL('../../client/src/components/ChoixDuTheme.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { RUBRIQUES } = await import('../../shared/sujets')
+  const { CATEGORIES } = await import('../../shared/categories')
+  const grille = (categories: string[], sujet: string | null, avecRubriques = true) =>
+    renderToStaticMarkup(
+      React.createElement(GrilleDesCategories, {
+        categoriesJouables: CATEGORIES,
+        categories,
+        sujet,
+        rubriques: avecRubriques ? RUBRIQUES : [],
+        onCategories: () => {},
+        onSujet: () => {},
+      }),
+    )
+  assert.doesNotMatch(grille([], null), /quoi-rubriques/)
+  assert.doesNotMatch(grille(['Sport', 'Cuisine'], null), /quoi-rubriques/)
+  assert.doesNotMatch(grille(['Sport'], null, false), /quoi-rubriques/, 'sans rubriques servies, rien ne s’affine')
+  // « Toutes », puis les douze : le sport ouvre la quatrième rangée (Sport, Cuisine, Jeux & pop culture), ses rubriques la suivent.
+  const sport = grille(['Sport'], null)
+  const rubriques = sport.indexOf('class="quoi-rubriques"')
+  assert.ok(rubriques > sport.indexOf('Jeux &amp; pop culture</button>') && rubriques < sport.indexOf('Autour de la fête</button>'))
+  assert.equal([...sport.matchAll(/class="quoi-rubrique"/g)].length, RUBRIQUES.filter(r => r.categorie === 'Sport').length)
+  // Une rubrique choisie : sa catégorie pressée avec elle, « Toutes » non.
+  const foot = grille(['Sport'], 'sport/football')
+  assert.match(foot, /class="categorie-case" aria-pressed="false"><svg[^>]*>.*?<\/svg>Toutes<\/button>/)
+  assert.match(foot, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sport<\/button>/)
+  assert.match(foot, /class="quoi-rubrique active" aria-pressed="true">Football<\/button>/)
+  // De toute la largeur de la grille.
+  assert.match(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'), /\.quoi-rubriques \{ grid-column: 1 \/ -1;/)
+})

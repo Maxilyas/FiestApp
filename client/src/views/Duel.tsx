@@ -10,7 +10,7 @@ import { OR, lueur } from '../components/Atlas'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { deNom, espacesFines, rang } from '../format'
 import { placeDuJour } from '../../../shared/course'
-import { SUJETS } from '../../../shared/sujets'
+import { SUJETS_ET_RUBRIQUES } from '../../../shared/sujets'
 import {
   issueDeRencontre,
   type AmiDeCampagne,
@@ -884,8 +884,8 @@ export function LeDe({
     return (
       <FeuilleDuChoix
         categoriesJouables={choix.categories.map(c => c.categorie)}
-        // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
-        sujets={SUJETS.filter(s => choix.sujets.some(x => x.sujet === s.cle))}
+        // Les sujets et les rubriques que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
+        sujets={SUJETS_ET_RUBRIQUES.filter(s => choix.sujets.some(x => x.sujet === s.cle))}
         categories={categories}
         sujet={sujet}
         onChoisir={(c, s) => {

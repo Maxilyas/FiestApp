@@ -249,6 +249,53 @@ test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du ch
   assert.doesNotMatch(lancer, /GrilleDesCategories|GrilleDesSujets/)
 })
 
+// Les rubriques (le choix du propriétaire du 17 octobre 2026, « apporter
+// beaucoup de choix ») : « Sport », puis « Football ». Une catégorie choisie
+// seule s'affine en ses sous-thèmes, sous la rangée de sa case ; douze
+// catégories dépliées feraient près de cent pastilles, le mur de mots d'avant.
+test('une catégorie choisie seule s’affine en ses rubriques, sous sa rangée ; une rubrique choisie garde sa catégorie, et l’onglet des thèmes ne les compte pas', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { FeuilleDuChoix, LigneDuChoix } = await import(client('components/ChoixDuTheme.tsx').href)
+  const { SUJETS, RUBRIQUES } = await import('../../shared/sujets')
+  const sport = RUBRIQUES.filter(r => r.categorie === 'Sport')
+  const feuille = (categories: string[], sujet: string | null) =>
+    renderToStaticMarkup(
+      React.createElement(FeuilleDuChoix, {
+        categoriesJouables: ['Histoire', 'Sport', 'Nature'],
+        sujets: [...SUJETS.slice(0, 2), ...sport],
+        categories,
+        sujet,
+        onChoisir: () => {},
+        onFermer: () => {},
+      }),
+    )
+  // Rien de choisi, ou deux catégories : rien ne s'affine. Les rubriques ne comptent pas parmi les thèmes.
+  assert.doesNotMatch(feuille([], null), /quoi-rubrique/)
+  assert.doesNotMatch(feuille(['Histoire', 'Sport'], null), /quoi-rubrique/)
+  assert.match(feuille([], null), /role="tab" aria-selected="false"[^>]*>Thèmes · 2<\/button>/)
+  // Le sport seul : ses rubriques sous sa rangée — l'Histoire et lui —, avant la Nature, chacune sa pastille.
+  const seul = feuille(['Sport'], null)
+  assert.match(
+    seul,
+    /class="quoi-case active" aria-pressed="true">Sport<\/button><div class="quoi-rubriques" role="group" aria-label="Ou seulement, dans Sport"><span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">Football<\/button>/,
+  )
+  assert.ok(seul.indexOf('quoi-rubriques') < seul.indexOf('>Nature<'), 'sous la rangée de sa case')
+  assert.equal([...seul.matchAll(/class="quoi-rubrique"/g)].length, sport.length)
+  // L'Histoire seule : la base ne lui sert ici aucune rubrique, rien ne s'affine.
+  assert.doesNotMatch(feuille(['Histoire'], null), /quoi-rubriques/)
+  // Une rubrique choisie : la feuille s'ouvre sur les catégories, sa catégorie et elle pressées, ce qu'elle est au-dessus de « Choisir ».
+  const foot = feuille(['Histoire'], 'sport/football')
+  assert.match(foot, /role="tab" aria-selected="true"[^>]*>Catégories<\/button>/)
+  assert.match(foot, /class="quoi-case" aria-pressed="false">Histoire<\/button>/)
+  assert.match(foot, /class="quoi-case active" aria-pressed="true">Sport<\/button>/)
+  assert.match(foot, /class="quoi-rubrique active" aria-pressed="true">Football<\/button>/)
+  assert.match(foot, /<p class="muted small centre quoi-description">Sport<\/p>/)
+  assert.match(foot, /Choisir · Football<\/button>/)
+  // La ligne du choix la nomme, et dit d'où elle vient.
+  const ligne = renderToStaticMarkup(React.createElement(LigneDuChoix, { categories: ['Sport'], sujet: 'sport/football', onChanger: () => {} }))
+  assert.match(ligne, /<b>Football<\/b><span class="muted small">Sport<\/span>/)
+})
+
 // Le défi entre amis (`campagne-duel.test.ts`) : sa fin l'envoie d'abord —
 // celui qui vient de le lancer n'a encore défié personne —, et son lien
 // survit à une connexion.

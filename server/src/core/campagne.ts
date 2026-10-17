@@ -57,7 +57,7 @@ import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
-import { SUJETS, sujetParCle, sujetsDe } from '../../../shared/sujets'
+import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import {
   AUTOMATE,
@@ -1322,10 +1322,18 @@ export class CampagneStore {
     return p
   }
 
-  /** Les sujets qui ont de quoi faire une série, comptés sur ce que la campagne peut poser. */
+  /**
+   * Les sujets et les rubriques qui ont de quoi faire une série, comptés sur
+   * ce que la campagne peut poser : une rubrique en demande cent
+   * (`QUESTIONS_POUR_UNE_RUBRIQUE`), qu'aucun test de la base livrée ne lui
+   * garantit.
+   */
   private sujetsJouables(jouables: readonly QuestionDeLaBase[]): { sujet: string; questions: number }[] {
     const compte = this.sujetsComptes(jouables)
-    return SUJETS.filter(s => (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_JOUER).map(s => ({ sujet: s.cle, questions: compte.get(s.cle)! }))
+    return SUJETS_ET_RUBRIQUES.filter(s => (compte.get(s.cle) ?? 0) >= (s.famille === 'rubrique' ? QUESTIONS_POUR_UNE_RUBRIQUE : QUESTIONS_POUR_JOUER)).map(s => ({
+      sujet: s.cle,
+      questions: compte.get(s.cle)!,
+    }))
   }
 
   /**
@@ -2190,7 +2198,7 @@ export class CampagneStore {
       for (const sujet of sujetsDeLaQuestion(q)) compter(parSujet, sujet, due)
     }
     carnet.categories = CATEGORIES.filter(c => parCategorie.has(c)).map(categorie => ({ categorie, ...parCategorie.get(categorie)! }))
-    carnet.sujets = SUJETS.filter(s => parSujet.has(s.cle)).map(s => ({ sujet: s.cle, ...parSujet.get(s.cle)! }))
+    carnet.sujets = SUJETS_ET_RUBRIQUES.filter(s => parSujet.has(s.cle)).map(s => ({ sujet: s.cle, ...parSujet.get(s.cle)! }))
     return carnet
   }
 
@@ -5136,7 +5144,8 @@ export class CampagneStore {
   commencerUnSujet(profileId: string, cle: unknown, n: unknown): Promise<EpreuveDeSujet> {
     return this.avecVerrou(profileId, async () => {
       const suivi = sujetParCle(cle)
-      if (!suivi) throw new Error('Ce parcours n’existe pas')
+      // Une rubrique n'a pas de parcours : son sous-thème se monte déjà, chapitre par chapitre, sur le sentier de sa catégorie.
+      if (!suivi || suivi.famille === 'rubrique') throw new Error('Ce parcours n’existe pas')
       const regle = regleDuPalierDeSujet(n)
       if (!regle) throw new Error('Cette étape n’existe pas')
       const etat = await this.etatDesSujets(profileId)
@@ -7075,16 +7084,16 @@ function nouveauCode(): string {
 const SUJETS_PAR_TRANCHE = 1000
 
 /**
- * Les sujets d'une question de la base, lus une fois : la page de la
- * campagne les compte à chaque ouverture, vingt-quatre mille questions et
- * vingt-sept sujets — au dixième de cœur de l'hébergeur, recompté à chaque
- * fois, la page attendait. Lus en fond après le démarrage
- * (`preparerEnFond`).
+ * Les sujets d'une question de la base, et sa rubrique (`sujetsEtRubriqueDe`),
+ * lus une fois : la page de la campagne les compte à chaque ouverture,
+ * vingt-quatre mille questions et vingt-sept sujets — au dixième de cœur de
+ * l'hébergeur, recompté à chaque fois, la page attendait. Lus en fond après
+ * le démarrage (`preparerEnFond`).
  */
 const SUJETS_LUS = new WeakMap<QuestionDeLaBase, readonly string[]>()
 export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
   let lus = SUJETS_LUS.get(q)
-  if (!lus) SUJETS_LUS.set(q, (lus = sujetsDe(q.meta)))
+  if (!lus) SUJETS_LUS.set(q, (lus = sujetsEtRubriqueDe(q.meta)))
   return lus
 }
 
