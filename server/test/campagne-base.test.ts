@@ -82,9 +82,10 @@ import { sansAccent } from '../../shared/homonymes'
  * relecture) : 24 627. Puis la langue française, son sous-thème neuf écrit
  * famille par famille de son inventaire (`preparer --inventaire=francais`),
  * 390 rangées sur 400 (7 refusées comme un fait ou un intitulé déjà posé, 3
- * retirées à la relecture) : 25 017.
+ * retirées à la relecture) : 25 017 ; puis une question par sujet que
+ * l'inventaire laissait sans question (`--manques`), 15 : 25 032.
  */
-const AU_MOINS = 25017
+const AU_MOINS = 25032
 
 const { questions, refusees } = lireLaBase()
 
