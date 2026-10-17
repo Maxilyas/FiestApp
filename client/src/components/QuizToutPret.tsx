@@ -5,7 +5,7 @@ import { GrilleDesCategories, GrilleDesSujets } from './ChoixDuTheme'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { formatNumber } from '../../../shared/typographie'
-import { sujetParCle, type Sujet } from '../../../shared/sujets'
+import { estRemplace, sujetParCle, type Sujet } from '../../../shared/sujets'
 import { CATEGORIES, type Categorie } from '../../../shared/categories'
 import { ecrireDuree, type QuizDef } from '../../../shared/library'
 import {
@@ -52,8 +52,9 @@ export function resumeDuQuiz(choix: ChoixDuQuiz, apercu: ApercuDuQuiz | null): s
  * Le dernier choix composé, retenu sur ce téléphone : qui compose un second
  * quiz pour la même tablée — une manche de plus — retrouve ses catégories,
  * sa difficulté, ses enfants, au lieu de tout rechoisir. Relu prudemment :
- * une catégorie ou un sujet que ce téléphone ne connaît plus n'y revient pas.
- * Sous try/catch : des cookies bloqués donnaient une page noire.
+ * une catégorie ou un sujet que ce téléphone ne connaît plus n'y revient pas,
+ * ni une époque redécoupée depuis (`estRemplace`), que la feuille ne propose
+ * plus. Sous try/catch : des cookies bloqués donnaient une page noire.
  */
 const CLE_DU_CHOIX = 'quizz.quizToutPret'
 export function choixRetenu(): Partial<ChoixDuQuiz> {
@@ -65,7 +66,7 @@ export function choixRetenu(): Partial<ChoixDuQuiz> {
     const difficulte = DIFFICULTES_DU_QUIZ.find(d => d.cle === b.difficulte)?.cle
     return {
       ...(categories && { categories: CATEGORIES.filter(c => categories.includes(c)) }),
-      ...(typeof b.sujet === 'string' && sujetParCle(b.sujet) && { sujet: b.sujet }),
+      ...(typeof b.sujet === 'string' && sujetParCle(b.sujet) && !estRemplace(b.sujet) && { sujet: b.sujet }),
       ...(difficulte && { difficulte }),
       ...(typeof b.nombre === 'number' && NOMBRES_DU_QUIZ.includes(b.nombre) && { nombre: b.nombre }),
       ...(typeof b.enfants === 'boolean' && { enfants: b.enfants }),

@@ -17,9 +17,11 @@ import {
   RUBRIQUES,
   SUJETS,
   SUJETS_ET_RUBRIQUES,
+  SUJETS_REMPLACES,
   aUnParcours,
   anneeDe,
   cleDeRubrique,
+  estRemplace,
   fetesDansLOrdre,
   rubriqueDe,
   rubriquesDeLaCategorie,
@@ -40,7 +42,11 @@ test('une question est d’une époque par sa date, d’un fil rouge par ses ét
   assert.deepEqual(sujetsDe(meta({ valeur: '1985-06', precision: 'mois' }, ['record'], 'france')), ['annees-80', 'france', 'records'])
   // Une décennie s'écrit par sa première année : elle tombe dans la sienne.
   assert.deepEqual(sujetsDe(meta({ valeur: '1980', precision: 'decennie' })), ['annees-80'])
-  assert.deepEqual(sujetsDe(meta({ valeur: '-27', precision: 'annee' })), ['avant-1800'])
+  // Les époques larges redécoupées (le 17 octobre 2026) : la neuve, puis l'ancienne, remplacée, qui se lit encore.
+  assert.deepEqual(sujetsDe(meta({ valeur: '-27', precision: 'annee' })), ['antiquite', 'avant-1800'])
+  assert.deepEqual(sujetsDe(meta({ valeur: '1715', precision: 'annee' })), ['grand-siecle', 'avant-1800'], 'la mort de Louis XIV clôt le Grand Siècle')
+  assert.deepEqual(sujetsDe(meta({ valeur: '1936', precision: 'annee' })), ['1919-1938', '1900-1949'])
+  assert.deepEqual(sujetsDe(meta({ valeur: '2023-05', precision: 'mois' })), ['depuis-2020', 'depuis-2010'])
   assert.deepEqual(sujetsDe(meta({ valeur: '1889-03-31', precision: 'jour' })), ['xixe'])
   // Au siècle près, « 1801 » dit tout le XIXe : elle n'est d'aucune époque.
   assert.deepEqual(sujetsDe(meta({ valeur: '1801', precision: 'siecle' })), [])
@@ -154,6 +160,30 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
   // Chaque famille a sa rangée à l'écran, une seule fois.
   assert.deepEqual(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)), new Set(SUJETS.map(s => s.famille)))
   assert.equal(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)).size, FAMILLES_DE_SUJETS.length)
+})
+
+// Les époques larges redécoupées (le 17 octobre 2026, « apporter beaucoup de
+// choix ») : « Avant 1800 » mêlait les pharaons et Voltaire. Les anciennes se
+// lisent encore — un parcours commencé, un choix retenu —, sans se proposer.
+test('une époque remplacée couvre exactement celles qui la remplacent, et aucune liste de choix ne la propose', () => {
+  const epoques = SUJETS.filter(s => s.famille === 'epoque')
+  assert.equal(epoques.length, 17)
+  for (const r of SUJETS_REMPLACES) {
+    assert.equal(r.famille, 'epoque', r.cle)
+    const siennes = epoques.filter(s => s.annees![0] >= r.annees![0] && s.annees![1] <= r.annees![1])
+    assert.ok(siennes.length >= 2, `${r.cle} : redécoupée en plusieurs`)
+    assert.equal(siennes[0].annees![0], r.annees![0], `${r.cle} commence avec ${siennes[0].cle}`)
+    assert.equal(siennes.at(-1)!.annees![1], r.annees![1], `${r.cle} finit avec ${siennes.at(-1)!.cle}`)
+    // Lue encore, par sa clé et son nom ; jamais dans ce qu'une partie propose.
+    assert.equal(sujetParCle(r.cle), r)
+    assert.ok(estRemplace(r.cle))
+    assert.ok(!SUJETS_ET_RUBRIQUES.some(s => s.cle === r.cle))
+  }
+  assert.deepEqual(
+    SUJETS_REMPLACES.map(r => r.cle),
+    ['avant-1800', '1900-1949', 'depuis-2010'],
+  )
+  assert.ok(!estRemplace('antiquite') && !estRemplace(undefined))
 })
 
 // Les fêtes se rangent de la plus proche à la plus lointaine (le 17 octobre
@@ -307,7 +337,7 @@ test('dans la base livrée, aucun sujet ne double une rubrique, et deux sujets n
 test('les sujets d’une question, lus par leur index : les mêmes, dans le même ordre, que la règle lue sujet par sujet', () => {
   const reference = (m: Parameters<typeof sujetsDe>[0]) => {
     const annee = anneeDe(m.date)
-    return SUJETS.filter(
+    return [...SUJETS, ...SUJETS_REMPLACES].filter(
       s =>
         (s.annees && annee !== null && annee >= s.annees[0] && annee <= s.annees[1]) ||
         (s.etiquettes && !s.etiquettesHors?.includes(m.categorie as Categorie) && s.etiquettes.some(e => m.etiquettes.includes(e))) ||
@@ -321,7 +351,7 @@ test('les sujets d’une question, lus par leur index : les mêmes, dans le mêm
   let graine = 3
   const hasard = () => ((graine = (graine * 16807) % 2147483647) - 1) / 2147483646
   const parmi = <T>(liste: readonly T[]) => liste[Math.floor(hasard() * liste.length)]
-  const bornes = SUJETS.flatMap(s => (s.annees ? [s.annees[0] - 1, s.annees[0], s.annees[1], s.annees[1] + 1] : []))
+  const bornes = [...SUJETS, ...SUJETS_REMPLACES].flatMap(s => (s.annees ? [s.annees[0] - 1, s.annees[0], s.annees[1], s.annees[1] + 1] : []))
   const etiquettes = ETIQUETTES.flatMap(f => f.etiquettes.map(e => e.cle))
   const categories = Object.keys(SOUS_THEMES) as Categorie[]
   for (let i = 0; i < 5000; i++) {
@@ -497,6 +527,41 @@ test('une rubrique se propose à cent questions, se joue comme un sujet — sa s
     assert.deepEqual((await lire(banc, lea, '/api/campagne/sujets')).corps.sujets, [])
     const etape = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'sport/football', palier: 1 })
     assert.deepEqual([etape.status, etape.corps.error], [400, 'Ce parcours n’existe pas'])
+  } finally {
+    await banc.close()
+  }
+})
+
+// « Avant 1800 » redécoupée (le 17 octobre 2026) : qui avait monté une étape
+// de son parcours la garde, et le finit ; les autres ne la voient plus.
+test('une époque redécoupée ne se propose plus ; un parcours commencé sur elle se poursuit, ses étapes validées gardées', async () => {
+  const antiques = Array.from({ length: 70 }, (_, i) => question(500 + i, CATEGORIES_DU_BANC[i % 4], { date: { valeur: '-27', precision: 'annee' } }))
+  const banc = await demarrer({ baseDeLaCampagne: new BaseDeLaCampagne(antiques) })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob')
+    // La feuille ne propose que la neuve, les parcours aussi.
+    assert.deepEqual((await lire(banc, lea, '/api/campagne')).corps.sujets, [{ sujet: 'antiquite', questions: 70 }])
+    const parcoursDe = async (cookie: string) => (await lire(banc, cookie, '/api/campagne/sujets')).corps.sujets.map((s: { sujet: string; paliers: number }) => [s.sujet, s.paliers])
+    assert.deepEqual(await parcoursDe(lea), [['antiquite', 0]])
+    const refus = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'avant-1800', palier: 1 })
+    assert.deepEqual([refus.status, refus.corps.error], [400, 'Cette époque se joue maintenant en plusieurs : choisis-en une'])
+    // Bob avait validé la première étape d'« Avant 1800 » avant le redécoupage.
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      const { id } = db.prepare('SELECT id FROM profiles WHERE login = ?').get('bob') as { id: string }
+      db.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet, palier, issue) VALUES (?, ?, '[]', 10, 0, 8, ?, ?, 'sujet', 'avant-1800', 1, 'validee')`,
+      ).run('bob-avant-1800', id, Date.now() - 120_000, Date.now() - 60_000)
+    } finally {
+      db.close()
+    }
+    assert.deepEqual(await parcoursDe(bob), [['antiquite', 0], ['avant-1800', 1]], 'son parcours, au bout')
+    const suite = await poster(banc, bob, '/api/campagne/sujets/epreuve', { sujet: 'avant-1800', palier: 2 })
+    assert.equal(suite.status, 200, suite.corps.error)
+    assert.deepEqual([suite.corps.sujet, suite.corps.palier], ['avant-1800', 2])
+    // Léa, elle, ne le voit toujours pas.
+    assert.deepEqual(await parcoursDe(lea), [['antiquite', 0]])
   } finally {
     await banc.close()
   }

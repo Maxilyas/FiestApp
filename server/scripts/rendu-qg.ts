@@ -482,7 +482,7 @@ try {
       const etape = permanente.prepare(
         `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet, palier, seuil, issue) VALUES (?, ?, '[]', 10, 0, ?, ?, ?, 'sujet', ?, ?, 7, ?)`,
       )
-      const sujets = ['animaux', 'avant-1800', 'terre-espace', 'annees-80', 'mythes-legendes', 'france', 'records']
+      const sujets = ['animaux', 'antiquite', 'terre-espace', 'annees-80', 'mythes-legendes', 'france', 'records']
       for (const [k, j] of joueurs.entries()) {
         for (let s = 0; s < 1 + (k % 3); s++) {
           const sujet = sujets[(k + s * 2) % sujets.length]

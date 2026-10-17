@@ -30,7 +30,7 @@ import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { SUJETS_ET_RUBRIQUES, sujetParCle } from '../../../shared/sujets'
+import { SUJETS_ET_RUBRIQUES, estRemplace, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -242,12 +242,14 @@ export { nomDesCategories, nomDuChoix }
 /**
  * Le sujet de sa dernière série (`shared/sujets.ts`), retenu sur ce
  * téléphone comme ses catégories — un sujet que ce téléphone ne connaît
- * plus n'y revient pas. Sous try/catch, comme elles.
+ * plus n'y revient pas, ni une époque redécoupée depuis (`estRemplace`) :
+ * aucune liste ne la propose plus. Sous try/catch, comme elles.
  */
 const CLE_SUJET = 'quizz.campagne.sujet'
 export function sujetRetenu(): string | null {
   try {
-    return sujetParCle(localStorage.getItem(CLE_SUJET))?.cle ?? null
+    const retenu = sujetParCle(localStorage.getItem(CLE_SUJET))
+    return retenu && !estRemplace(retenu.cle) ? retenu.cle : null
   } catch {
     return null
   }

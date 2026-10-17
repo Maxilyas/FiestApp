@@ -50,14 +50,16 @@ Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de
 | Une à la fois | « Une nouvelle série » referme celle laissée en route et lui décerne ce qu'elle a joué. Une révision ou un défi en cours restent ouverts |
 | Record | Ta meilleure série finie, sujets compris. Le défi, les duels et les révisions n'y comptent pas |
 
-Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a quarante et un, en quatre familles :
+Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a quarante-huit, en quatre familles :
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
 | Une fête | Noël, Le Nouvel An, Halloween, L'amour, Les anniversaires | Son sous-thème d'« Autour de la fête », et l'étiquette qui la nomme ailleurs (la Saint-Valentin pour l'amour) |
 | Un thème | Les animaux, Les inventions, Mythes et légendes, Volcans et océans, Les grands rendez-vous du sport, Le petit écran, La danse, La santé, L'informatique, L'astronomie, Les jeux vidéo, La BD et le manga, Monuments et architecture, La langue française, L'anglais, L'espagnol | Ses sous-thèmes, parfois une étiquette |
-| Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
+| Une époque | L'Antiquité, Le Moyen Âge, La Renaissance, Le Grand Siècle, Les Lumières, Le XIXe siècle, 1900 à 1918, 1919 à 1938, 1939 à 1949, les années 50 à 2010 (une par décennie), Depuis 2020 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
 | Un fil rouge | La France, La francophonie, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
+
+Les époques ont été redécoupées le 17 octobre 2026. « Avant 1800 » mêlait les pharaons et Voltaire : elle est devenue cinq époques, de l'Antiquité aux Lumières (le Grand Siècle finit avec Louis XIV, en 1715). « 1900 à 1949 » est devenue trois époques, « Depuis 2010 » les années 2010 et « Depuis 2020 ». Chacune a ses cent questions, de sept catégories au moins. Les trois anciennes ne se proposent plus nulle part, mais leur parcours reste à qui l'avait commencé, qui le finit avec ses étapes validées (`SUJETS_REMPLACES`).
 
 Les fêtes ouvrent l'onglet « Thèmes », de la plus proche à la plus lointaine : en octobre, Halloween d'abord, en décembre Noël ; les anniversaires, sans jour, au bout. Comme une rubrique, une fête n'a pas de parcours : le sentier de la fête monte déjà ses sous-thèmes, chapitre par chapitre (« Noël et Nouvel An », « Halloween et anniversaires »).
 

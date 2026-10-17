@@ -57,7 +57,7 @@ import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
-import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, aUnParcours, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
+import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, SUJETS_REMPLACES, aUnParcours, estRemplace, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import {
   AUTOMATE,
@@ -5119,8 +5119,10 @@ export class CampagneStore {
       this.jouables(),
     ])
     const compte = this.sujetsComptes(jouables)
+    // Une époque redécoupée garde son parcours à qui l'a commencé — une étape validée, ou laissée en route : il se finit.
+    const commences = new Set([...validees.rows, ...ouverte.rows].map(r => String(r.sujet)))
     const parSujet = new Map<string, SentierDeSujet>()
-    for (const s of SUJETS) {
+    for (const s of [...SUJETS, ...SUJETS_REMPLACES.filter(s => commences.has(s.cle))]) {
       if (aUnParcours(s) && (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
     }
     for (const r of validees.rows) {
@@ -5150,7 +5152,7 @@ export class CampagneStore {
       if (!regle) throw new Error('Cette étape n’existe pas')
       const etat = await this.etatDesSujets(profileId)
       const sentier = etat.sujets.find(s => s.sujet === suivi.cle)
-      if (!sentier) throw new Error('Ce parcours n’a pas encore assez de questions : reviens bientôt')
+      if (!sentier) throw new Error(estRemplace(suivi.cle) ? 'Cette époque se joue maintenant en plusieurs : choisis-en une' : 'Ce parcours n’a pas encore assez de questions : reviens bientôt')
       const ouverte = etat.epreuve
       if (ouverte) {
         if (ouverte.sujet === suivi.cle && ouverte.palier === regle.n) {

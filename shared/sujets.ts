@@ -304,16 +304,29 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { 'Autour de la fête': ['anniversaires'] },
     categorie: 'Autour de la fête',
   },
-  { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
+  // Les époques larges redécoupées (le 17 octobre 2026, « apporter beaucoup de
+  // choix ») : « Avant 1800 » mêlait les pharaons et Voltaire, « 1900 à 1949 »
+  // la Belle Époque et la Libération, « Depuis 2010 » les années 2010 et
+  // celles d'après. Chacune des neuves a ses cent questions, ses sept
+  // catégories et cinq de chaque marche ; les anciennes attendent à part
+  // (`SUJETS_REMPLACES`). Le Grand Siècle finit avec Louis XIV, en 1715.
+  { cle: 'antiquite', nom: 'L’Antiquité', famille: 'epoque', description: 'Des pharaons à la chute de Rome', annees: [-100000, 475] },
+  { cle: 'moyen-age', nom: 'Le Moyen Âge', famille: 'epoque', description: 'De Clovis à Jeanne d’Arc', annees: [476, 1491] },
+  { cle: 'renaissance', nom: 'La Renaissance', famille: 'epoque', description: 'Des grandes découvertes à Shakespeare', annees: [1492, 1609] },
+  { cle: 'grand-siecle', nom: 'Le Grand Siècle', famille: 'epoque', description: 'Louis XIV, Versailles, Molière et les mousquetaires', annees: [1610, 1715] },
+  { cle: 'lumieres', nom: 'Les Lumières', famille: 'epoque', description: 'De Voltaire à la Révolution', annees: [1716, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
-  { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },
+  { cle: '1900-1918', nom: '1900 à 1918', famille: 'epoque', description: 'La Belle Époque et la Grande Guerre', annees: [1900, 1918] },
+  { cle: '1919-1938', nom: '1919 à 1938', famille: 'epoque', description: 'Les Années folles et l’entre-deux-guerres', annees: [1919, 1938] },
+  { cle: '1939-1949', nom: '1939 à 1949', famille: 'epoque', description: 'La Seconde Guerre mondiale et l’après-guerre', annees: [1939, 1949] },
   { cle: 'annees-50', nom: 'Les années 50', famille: 'epoque', description: 'De 1950 à 1959, dans toutes les catégories', annees: [1950, 1959] },
   { cle: 'annees-60', nom: 'Les années 60', famille: 'epoque', description: 'De 1960 à 1969, dans toutes les catégories', annees: [1960, 1969] },
   { cle: 'annees-70', nom: 'Les années 70', famille: 'epoque', description: 'De 1970 à 1979, dans toutes les catégories', annees: [1970, 1979] },
   { cle: 'annees-80', nom: 'Les années 80', famille: 'epoque', description: 'De 1980 à 1989, dans toutes les catégories', annees: [1980, 1989] },
   { cle: 'annees-90', nom: 'Les années 90', famille: 'epoque', description: 'De 1990 à 1999, dans toutes les catégories', annees: [1990, 1999] },
   { cle: 'annees-2000', nom: 'Les années 2000', famille: 'epoque', description: 'De 2000 à 2009, dans toutes les catégories', annees: [2000, 2009] },
-  { cle: 'depuis-2010', nom: 'Depuis 2010', famille: 'epoque', description: 'Ce qui s’est passé depuis 2010', annees: [2010, 100000] },
+  { cle: 'annees-2010', nom: 'Les années 2010', famille: 'epoque', description: 'De 2010 à 2019, dans toutes les catégories', annees: [2010, 2019] },
+  { cle: 'depuis-2020', nom: 'Depuis 2020', famille: 'epoque', description: 'Ce qui s’est passé depuis 2020', annees: [2020, 100000] },
   { cle: 'france', nom: 'La France', famille: 'fil', description: 'Ce qu’on sait d’avoir grandi en France', portee: 'france' },
   // La francophonie (le 17 octobre 2026) : la portée que chaque question porte déjà — ce qu'on sait d'avoir
   // grandi en Belgique, en Suisse, au Québec ou en Afrique francophone —, cinq cents questions de douze catégories.
@@ -338,6 +351,25 @@ export const SUJETS: readonly Sujet[] = [
   // Sans les contes et légendes depuis le 17 octobre 2026 : ils sont aux mythes et légendes (plus haut).
   { cle: 'enfance', nom: 'Souvenirs d’enfance', famille: 'fil', description: 'Dessins animés, jouets, chansons et livres d’enfant', etiquettes: ['enfance'] },
 ]
+
+/**
+ * Les époques larges d'avant leur redécoupage (le 17 octobre 2026). Leur clé
+ * se lit encore — un parcours commencé, une partie en route, un choix retenu
+ * sur un téléphone — et leurs questions s'y rangent toujours : un parcours
+ * commencé se finit, ses étapes validées ne se perdent pas. Hors de `SUJETS`,
+ * aucune liste ne les propose plus : ni la feuille du choix, ni le carnet,
+ * ni les parcours de qui ne les a pas commencés.
+ */
+export const SUJETS_REMPLACES: readonly Sujet[] = [
+  { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
+  { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },
+  { cle: 'depuis-2010', nom: 'Depuis 2010', famille: 'epoque', description: 'Ce qui s’est passé depuis 2010', annees: [2010, 100000] },
+]
+
+const REMPLACES: ReadonlySet<string> = new Set(SUJETS_REMPLACES.map(s => s.cle))
+
+/** Un sujet d'avant, qui ne se propose plus (`SUJETS_REMPLACES`). */
+export const estRemplace = (cle: unknown): boolean => typeof cle === 'string' && REMPLACES.has(cle)
 
 // Les rubriques : chaque sous-thème seul, choisi sous sa catégorie — « Sport »,
 // puis « Football » (le choix du propriétaire du 17 octobre 2026, « apporter
@@ -422,9 +454,9 @@ export const rubriquesDeLaCategorie = (categorie: string): readonly string[] =>
 /** Tout ce qu'une partie vise au-delà des catégories : les sujets, puis les rubriques. */
 export const SUJETS_ET_RUBRIQUES: readonly Sujet[] = [...SUJETS, ...RUBRIQUES]
 
-const PAR_CLE: ReadonlyMap<string, Sujet> = new Map(SUJETS_ET_RUBRIQUES.map(s => [s.cle, s]))
+const PAR_CLE: ReadonlyMap<string, Sujet> = new Map([...SUJETS_ET_RUBRIQUES, ...SUJETS_REMPLACES].map(s => [s.cle, s]))
 
-/** Un sujet ou une rubrique, par sa clé. */
+/** Un sujet ou une rubrique, par sa clé — un sujet remplacé aussi : son nom se lit encore. */
 export const sujetParCle = (cle: unknown): Sujet | undefined => (typeof cle === 'string' ? PAR_CLE.get(cle) : undefined)
 
 /** La rubrique de chaque sous-thème, par catégorie : une question la trouve sans refaire sa clé. */
@@ -474,10 +506,13 @@ export function anneeDe(date: MetadonneesDeQuestion['date']): number | null {
   return lue ? Number(lue[0]) : null
 }
 
+/** Ce qu'une question peut être : les sujets, puis les remplacés, qui se lisent encore. */
+const LUS: readonly Sujet[] = [...SUJETS, ...SUJETS_REMPLACES]
+
 /**
  * Les sujets rangés par ce qui y fait entrer une question — une étiquette, une
  * portée, un sous-thème de sa catégorie, des années —, chacun par son rang
- * dans `SUJETS`. Bâti à la première lecture : la page qui n'importe ce module
+ * dans `LUS`. Bâti à la première lecture : la page qui n'importe ce module
  * que pour un nom n'en paie rien.
  */
 interface IndexDesSujets {
@@ -500,7 +535,7 @@ function indexer(): IndexDesSujets {
     if (!rangs) m.set(cle, [rang])
     else if (!rangs.includes(rang)) rangs.push(rang)
   }
-  SUJETS.forEach((s, rang) => {
+  LUS.forEach((s, rang) => {
     if (s.annees) parAnnees.push({ rang, de: s.annees[0], a: s.annees[1] })
     for (const e of s.etiquettes ?? []) ranger(parEtiquette, e, rang)
     if (s.portee) ranger(parPortee, s.portee, rang)
@@ -517,7 +552,8 @@ function indexer(): IndexDesSujets {
 const trouves: number[] = []
 
 /**
- * Les sujets d'une question, par leur clé, dans l'ordre de `SUJETS`. Lus par
+ * Les sujets d'une question, par leur clé, dans l'ordre de `SUJETS` — les
+ * remplacés au bout (`SUJETS_REMPLACES`). Lus par
  * l'index de ce qui y fait entrer (`IndexDesSujets`) : passer les vingt-sept
  * sujets pour chacune des vingt-quatre mille questions de la base prenait
  * 35 à 60 ms, à chaque réveil, à la première ouverture de la campagne — dix
@@ -536,14 +572,14 @@ export function sujetsDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes'
   for (const etiquette of meta.etiquettes) {
     const rangs = parEtiquette.get(etiquette)
     // Une étiquette ne fait pas sienne une question des catégories qu'elle écarte (`etiquettesHors`) : son sous-thème, si.
-    if (rangs) for (const r of rangs) if (!SUJETS[r].etiquettesHors?.includes(meta.categorie as Categorie)) trouves.push(r)
+    if (rangs) for (const r of rangs) if (!LUS[r].etiquettesHors?.includes(meta.categorie as Categorie)) trouves.push(r)
   }
   ajouter(parPortee.get(meta.portee))
   ajouter(parSousTheme.get(meta.categorie)?.get(meta.sousTheme))
   if (trouves.length === 0) return []
-  if (trouves.length === 1) return [SUJETS[trouves[0]].cle]
+  if (trouves.length === 1) return [LUS[trouves[0]].cle]
   // Chacun une fois : une question des années 80 étiquetée « record » et « insolite » en a deux.
-  return [...new Set(trouves)].sort((a, b) => a - b).map(r => SUJETS[r].cle)
+  return [...new Set(trouves)].sort((a, b) => a - b).map(r => LUS[r].cle)
 }
 
 /**

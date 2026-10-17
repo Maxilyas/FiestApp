@@ -229,9 +229,10 @@ test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du ch
   // Chaque famille son allure : les époques en frise, dans l'ordre du temps,
   // un jalon chacune, le fil coupé en haut et en bas de ses deux colonnes ;
   // les fils rouges en pastilles, leur emblème devant.
+  // Dix-sept depuis leur redécoupage (le 17 octobre 2026) : neuf rangs, la seconde colonne finie un rang plus tôt.
   const epoques = SUJETS.filter(s => s.famille === 'epoque')
-  assert.equal(epoques.length, 10)
-  assert.match(sujet, /<div class="quoi-frise" role="group" aria-label="Une époque" style="--rangs:5">/)
+  assert.equal(epoques.length, 17)
+  assert.match(sujet, /<div class="quoi-frise" role="group" aria-label="Une époque" style="--rangs:9">/)
   const frise = [...sujet.matchAll(/class="(quoi-epoque[^"]*)" aria-pressed="false"><span class="quoi-jalon"><\/span><span class="quoi-nom">([^<]+)<\/span>/g)]
   assert.deepEqual(
     frise.map(m => m[2]),
@@ -239,7 +240,7 @@ test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du ch
   )
   assert.deepEqual(
     frise.map(m => m[1]),
-    epoques.map((_, i) => 'quoi-epoque' + (i % 5 === 0 ? ' quoi-epoque-debut' : '') + (i % 5 === 4 ? ' quoi-epoque-fin' : '')),
+    epoques.map((_, i) => 'quoi-epoque' + (i % 9 === 0 ? ' quoi-epoque-debut' : '') + (i % 9 === 8 || i === 16 ? ' quoi-epoque-fin' : '')),
   )
   const fil = SUJETS.find(s => s.famille === 'fil')!
   assert.match(sujet, new RegExp(`class="quoi-fil" aria-pressed="false"><svg[^>]*>.*?</svg><span class="quoi-nom">${fil.nom}</span></button>`))
