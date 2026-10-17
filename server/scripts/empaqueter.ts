@@ -14,13 +14,24 @@
 // c'est ce que `SERVEUR` (`src/racine.ts`) suppose pour retrouver les quiz
 // livrés, les photos et le client. `exploitation.test.ts` démarre un paquet
 // construit par cette même fonction.
+//
+// La base de la campagne se vérifie ici aussi, une fois pour toutes, à côté
+// du paquet (`<paquet>.campagne.ndjson`, `preparerLaBase`) : le paquet en
+// connaît le nom (`__BASE_PREPAREE__`) et la relit telle quelle à chaque
+// réveil, au lieu de repasser ses vingt-quatre mille questions au juge —
+// 1,3 s de processeur, treize secondes au dixième de cœur.
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { preparerLaBase } from '../src/core/baseCampagne'
 
 const SERVEUR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
+/** Le fichier de la base vérifiée qui accompagne un paquet : `dist/index.mjs` → `dist/index.campagne.ndjson`. */
+export const baseDuPaquet = (paquet: string) => path.join(path.dirname(paquet), `${path.basename(paquet, '.mjs')}.campagne.ndjson`)
+
 export async function empaqueter(sortie = path.join(SERVEUR, 'dist/index.mjs')): Promise<void> {
+  const base = baseDuPaquet(sortie)
   await build({
     entryPoints: [path.join(SERVEUR, 'src/index.ts')],
     outfile: sortie,
@@ -30,7 +41,10 @@ export async function empaqueter(sortie = path.join(SERVEUR, 'dist/index.mjs')):
     target: 'node20',
     packages: 'external',
     logLevel: 'warning',
+    define: { __BASE_PREPAREE__: JSON.stringify(path.basename(base)) },
   })
+  const { questions, refusees } = preparerLaBase(base)
+  console.log(`[build] base de la campagne vérifiée : ${questions.length} questions${refusees.length > 0 ? `, ${refusees.length} écartée(s)` : ''}`)
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await empaqueter()

@@ -8,7 +8,7 @@ script dit en tête ce qu'il mesure : `banc-vague.ts` l'accueil d'un
 téléphone, médiane de sept vagues ; `allers-par-route.ts` les
 allers-retours de chaque route ; `tas-de-la-base.ts` ce que la base de la
 campagne pèse et coûte à chaque réveil ; `banc-tirage.ts` les sujets et le
-tirage (plus bas).
+tirage, `banc-reveil.ts` la base relue au réveil (plus bas).
 
 ```bash
 cd server
@@ -61,6 +61,12 @@ npx esbuild ../retours/2026-10-16/reproductions/banc-tirage.ts --bundle --platfo
   --format=esm --packages=external --outfile=../export/banc/banc-tirage.mjs
 node ../export/banc/banc-tirage.mjs
 ```
+
+**L'étape 3 — le réveil** (`banc-reveil.ts`, compilé de même) : la base
+relue et vérifiée, comme chaque démarrage le faisait, contre la base
+vérifiée au build et relue telle quelle (`preparerLaBase`,
+`lireLaBasePreparee`) — le temps, le processeur, le plus long bloc de la
+boucle.
 
 **Les limites** : le faux Turso n'a ni TLS ni vraie latence ; la base est
 inventée — mêmes volumes, pas les mêmes joueurs ; le banc ne lit jamais la

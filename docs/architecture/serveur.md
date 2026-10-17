@@ -333,7 +333,7 @@ change les deux. → [Les questions](../produit/les-questions.md),
 | La mesure de charge | `Charge` (`server/src/core/pouls.ts`) | 10 s | processeur, boucle (sonde à 100 ms), mémoire, invités connectés |
 | La santé du serveur | `SanteDuServeur` | 10 min (`RELEVE_MS`) | le relevé de l'heure et un signe de vie, gardés huit jours |
 | Le rappel du soir | `RappelStore` | chaque minute | la tournée part dès 18 h, jamais à partir de 22 h |
-| La base de la campagne | `CampagneStore.prechauffer` | une fois, 20 s après l'ouverture | par tranches de 200 questions qui rendent la main ; puis les sujets de chaque question, par tranches de mille, et la préparation des tirages (`preparerEnFond`) : la première ouverture de la campagne et le premier tirage les trouvent faits |
+| La base de la campagne | `CampagneStore.prechauffer` | une fois, 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis les sujets de chaque question, par tranches de mille, et la préparation des tirages (`preparerEnFond`) : la première ouverture de la campagne et le premier tirage les trouvent faits |
 | La réserve du jour pour `/healthz` | `server/src/server.ts` | 10 min au plus | relue en arrière-plan ; `/healthz` répond avec ce qu'il a |
 | La fin d'une télé branchée | `server/src/sockets.ts` | à l'heure dite | sa connexion tombe, même sans un geste |
 

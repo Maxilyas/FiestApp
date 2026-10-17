@@ -4,7 +4,8 @@ Les demandes : « Turso répond vraiment lentement, tu peux analyser avec les
 données de prod ? Est-ce que c'est les duels qui font ça ? », puis « Liste-moi
 toutes les améliorations de perf possibles et celle que tu penses mettre en
 place pour le gel du processeur », puis « Go » — la première étape du plan,
-faite dans la même PR —, puis « Oui et passe à la suite » — la deuxième.
+faite dans la même PR —, puis « Oui et passe à la suite » — la deuxième —,
+puis « passe à la suite » — la troisième.
 
 La revue s'appuie sur la base de production, lue en lecture seule et en
 totaux (`reproductions/lecture-de-la-production.md`) — le relevé de l'heure
@@ -150,16 +151,50 @@ après l'étape 1 → après l'étape 2) :
 Le tirage qui suit l'expiration de la mesure reste lourd (1,2 à 1,4 s au
 dixième de cœur) : la mesure se relit et se refait sur toute la base
 (`mesuresEnFamille`), et le dé refait sa série de référence
-(`serieDeReference`) — la suite.
+(`serieDeReference`). Mesuré à part, compilé : 45 à 70 ms de processeur par
+relecture — le décodage de ses deux textes 15 ms, les familles 9 à 22, la
+préparation du tirage 4, la série de référence du dé 15 à 24 —, toutes les
+dix minutes d'activité au plus. Moins que le réveil : il passe avant.
+
+## L'étape 3 — le réveil
+
+Puis « passe à la suite », encore dans la même PR. À chaque démarrage —
+trois à onze par jour en production, mises en ligne comprises —, le serveur
+relisait la base de la campagne et repassait ses 24 131 questions au juge :
+1,3 s de processeur sur les 1,6 de la lecture, treize secondes de serveur
+saturé au dixième de cœur (perf-gel-9).
+
+- **`npm run build` la vérifie une fois** et la range à côté du paquet, une
+  question par ligne, telle que le juge la rend (`preparerLaBase`,
+  `server/dist/index.campagne.ndjson`) ; le paquet en connaît le nom
+  (`__BASE_PREPAREE__`) et la relit telle quelle (`lireLaBasePreparee`).
+- **Au fil du fichier**, par morceaux de 64 Ko : un seul `JSON.parse` de ses
+  vingt-cinq mégaoctets aurait figé le serveur deux secondes au dixième de
+  cœur ; la lecture rend la main toutes les quelques millisecondes.
+- **Écartée quand elle ne dit plus le dossier** — un fichier de la base qui
+  a changé depuis le build, sa taille ou sa date, ou un autre format — : le
+  journal le dit, et le dossier se relit et se vérifie, comme avant. Sous
+  tsx (`npm run dev`, les tests, les scripts), rien ne change.
+
+| La base, au réveil (`banc-reveil.ts`, compilé) | Avant | Après |
+|---|---|---|
+| Le temps | 0,96 à 1,13 s | 0,29 s |
+| Le processeur | 1,1 à 1,2 s | 0,38 s |
+| Le plus long bloc de la boucle | 23 à 96 ms | 5 ms |
+
+Au journal du paquet : « base préparée relue : 24131 questions en 339 ms ».
+Pas allégée : les corrections du QG et le dépôt de la routine relisent
+l'entrée entière (`entreeDeLaBase`, ses `leurres`, ses `entites`) ; ôter ces
+champs demanderait de la relire à la demande — 8 Mo de tas et 0,1 s de
+plus à gagner.
 
 ## La suite proposée
 
 2. ~~**Les calculs sur toute la base**~~ : faits (l'étape 2, plus haut). Il
    en reste ce que chaque mesure neuve refait — `mesuresEnFamille` et la
    série de référence du dé, toutes les dix minutes d'activité.
-3. **Le réveil** : la base validée au build et allégée des champs que le jeu
-   ne lit pas (perf-gel-9, perf-turso-1) — moins de processeur à chaque
-   démarrage, moins de tas pour le ramasse-miettes (perf-gel-10).
+3. ~~**Le réveil**~~ : la base vérifiée au build (l'étape 3, plus haut).
+   L'alléger des champs que le jeu ne lit pas reste à faire (perf-gel-10).
 4. **Le transport**, mesuré en préproduction d'abord : un `fetch` sur
    `https.request`, ou Hrana sur WebSocket (perf-gel-2).
 5. **Les questions des séries** : la catégorie et le niveau sur la réponse,
