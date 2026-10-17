@@ -507,33 +507,56 @@ export const AUCUN_ECART: readonly number[] = new Array<number>(C).fill(0)
 
 /**
  * La série de référence : les jouables, leur marche (`marcheDe`, celle du
- * tirage), et leur difficulté au modèle (`difficulteDe`).
+ * tirage), et leur difficulté au modèle (`difficulteDe`) — chacune reçoit
+ * aussi la place de la question dans `jouables` : la préparation du tirage
+ * sait déjà la marche de chacune (`CampagneStore.referencePour`).
  */
 export function serieDeReference<T extends { meta: { categorie: string } }>(
   jouables: readonly T[],
-  marcheDe: (q: T) => Niveau,
-  difficulteDe: (q: T) => number,
+  marcheDe: (q: T, i: number) => Niveau,
+  difficulteDe: (q: T, i: number) => number,
 ): SerieDeReference {
-  const parMarche = new Map<Niveau, Map<number, number[]>>(NIVEAUX.map(n => [n, new Map()]))
+  // Chaque groupe — une marche, une catégorie — dans un tableau de nombres,
+  // trié d'un coup : des listes triées par une fonction de comparaison
+  // prenaient la moitié des 10 à 13 ms que la série de référence coûtait à
+  // chaque mesure neuve, toutes les dix minutes d'activité (le banc du
+  // 17 octobre 2026). Les catégories d'une marche gardent l'ordre où elles
+  // paraissent : les chances de la série s'y somment dans cet ordre.
+  const nombre = jouables.length
+  const marcheDeChaque = new Uint8Array(nombre)
+  const categorieDeChaque = new Int8Array(nombre)
+  const difficulteDeChaque = new Float64Array(nombre)
   const compte: Record<Niveau, number> = { facile: 0, moyen: 0, difficile: 0, expert: 0 }
-  for (const q of jouables) {
-    const n = marcheDe(q)
-    compte[n]++
+  const tailles = new Int32Array(NIVEAUX.length * C)
+  const categoriesDeLaMarche: number[][] = NIVEAUX.map(() => [])
+  for (let i = 0; i < nombre; i++) {
+    const q = jouables[i]
+    const niveau = marcheDe(q, i)
+    compte[niveau]++
     const c = indiceDeCategorie(q.meta.categorie)
+    categorieDeChaque[i] = c
     if (c < 0) continue
-    const groupe = parMarche.get(n)!
-    const liste = groupe.get(c)
-    if (liste) liste.push(difficulteDe(q))
-    else groupe.set(c, [difficulteDe(q)])
+    const m = NIVEAUX.indexOf(niveau)
+    marcheDeChaque[i] = m
+    difficulteDeChaque[i] = difficulteDe(q, i)
+    if (tailles[m * C + c]++ === 0) categoriesDeLaMarche[m].push(c)
+  }
+  const groupes: Float64Array[] = []
+  const remplis = new Int32Array(NIVEAUX.length * C)
+  for (let i = 0; i < nombre; i++) {
+    const c = categorieDeChaque[i]
+    if (c < 0) continue
+    const g = marcheDeChaque[i] * C + c
+    ;(groupes[g] ??= new Float64Array(tailles[g]))[remplis[g]++] = difficulteDeChaque[i]
   }
   const marches = {} as Record<Niveau, { categorie: number; difficultes: Float64Array }[]>
-  for (const n of NIVEAUX) {
-    marches[n] = [...parMarche.get(n)!].map(([categorie, liste]) => {
-      liste.sort((a, b) => a - b)
+  NIVEAUX.forEach((niveau, m) => {
+    marches[niveau] = categoriesDeLaMarche[m].map(categorie => {
+      const liste = groupes[m * C + categorie].sort()
       const k = Math.min(QUANTILES, liste.length)
       return { categorie, difficultes: Float64Array.from({ length: k }, (_, i) => liste[Math.floor(((i + 0.5) / k) * liste.length)]) }
     })
-  }
+  })
   // Les places, comme `tirerUneSerie` les remplit : une marche trop courte
   // donne ce qu'elle a, et le reste repart de l'experte.
   const places: Niveau[] = []

@@ -140,18 +140,61 @@ function aLaPremiereLecture(creer: () => Intl.DateTimeFormat): () => Intl.DateTi
   return () => (format ??= creer())
 }
 
+// L'heure et la seconde avec le jour : `jourDe` y lit si Paris est à une
+// heure pleine de Greenwich.
 const formatDuJour = aLaPremiereLecture(
-  () => new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU_DU_JOUR, year: 'numeric', month: '2-digit', day: '2-digit' }),
+  () =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: FUSEAU_DU_JOUR,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }),
 )
+
+const HEURE_MS = 3_600_000
+/** Au-delà, on oublie tout et l'on recommence : assez pour les mois qu'une page relit. */
+const HEURES_GARDEES = 4096
+/** Le jour de Paris de chaque heure déjà lue (son numéro depuis 1970, en UTC). */
+const joursDesHeures = new Map<number, string>()
+
+/**
+ * Le jour de Paris d'un instant, demandé à `Intl` — quelques microsecondes
+ * chaque fois —, et s'il y tombe une heure pile.
+ */
+function jourLu(instant: number): { jour: string; heurePile: boolean } {
+  const parts = Object.fromEntries(formatDuJour().formatToParts(new Date(instant)).map(p => [p.type, p.value]))
+  return { jour: `${parts.year}-${parts.month}-${parts.day}`, heurePile: Number(parts.minute) === 0 && Number(parts.second) === 0 }
+}
 
 /**
  * Le jour de Paris d'un instant, écrit « 2026-09-26 » : la clé de tout ce qui
  * se range au jour — le tirage, les parties, le classement, la série. Écrit
  * ainsi, il se trie comme une chaîne.
+ *
+ * Gardé par heure, et lu une fois au début de chacune : chaque ligne d'un
+ * journal le demandait à `Intl`. Les missions d'un joueur en lisaient ses
+ * réponses de la semaine, le carnet aussi : quatre millisecondes par page au
+ * banc du 16 octobre 2026, dix fois plus au dixième de cœur de l'hébergeur.
+ * Une heure du temps universel tient dans un seul jour de Paris quand elle y
+ * commence à une heure pile : depuis 1911, Paris est à une heure pleine de
+ * Greenwich et change d'heure à une heure pleine. Vérifié, pas supposé :
+ * l'heure de Paris d'avant avait neuf minutes d'avance, et ses heures à
+ * cheval sur deux jours se lisent instant par instant.
  */
 export function jourDe(instant: number): string {
-  const parts = Object.fromEntries(formatDuJour().formatToParts(new Date(instant)).map(p => [p.type, p.value]))
-  return `${parts.year}-${parts.month}-${parts.day}`
+  const heure = Math.floor(instant / HEURE_MS)
+  const garde = joursDesHeures.get(heure)
+  if (garde !== undefined) return garde
+  const debut = jourLu(heure * HEURE_MS)
+  if (!debut.heurePile) return jourLu(instant).jour
+  if (joursDesHeures.size >= HEURES_GARDEES) joursDesHeures.clear()
+  joursDesHeures.set(heure, debut.jour)
+  return debut.jour
 }
 
 const JOUR = /^(\d{4})-(\d{2})-(\d{2})$/

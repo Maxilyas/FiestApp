@@ -307,7 +307,12 @@ function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: n
   )
 }
 
-/** Les quatre graphiques de la charge, l'un sous l'autre, le même temps pour tous. */
+/**
+ * Les graphiques de la charge, l'un sous l'autre, le même temps pour tous.
+ * Le gel de l'hébergeur sous le processeur (le banc du 16 octobre 2026) : la
+ * boucle se figeait deux secondes chaque heure et Turso paraissait lent, sans
+ * rien qui dise que le dixième de cœur manquait.
+ */
 const MESURES_DE_CHARGE: {
   cle: string
   nom: string
@@ -318,6 +323,13 @@ const MESURES_DE_CHARGE: {
   plafond?: number
 }[] = [
   { cle: 'processeur', nom: 'Processeur', detail: 'la moyenne de l’heure, en part d’un cœur', valeur: h => h.processeur, ecrire: pourcentsDUnCoeur, plafond: PROCESSEUR_DE_L_HEBERGEUR_PCT },
+  {
+    cle: 'gele',
+    nom: 'Gel de l’hébergeur',
+    detail: 'la part de l’heure où le processeur manquait',
+    valeur: h => h.gele,
+    ecrire: pourcents,
+  },
   { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
   { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: MEMOIRE_DE_L_HEBERGEUR_MO },
   { cle: 'invites', nom: 'Invités connectés', detail: 'le pic de l’heure, toutes soirées confondues', valeur: h => h.invites, ecrire: invites, ecrireAxe: formatNumber },

@@ -369,6 +369,13 @@ interface Duel {
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
 const MESURES_GARDEES_MS = 10 * 60_000
 /**
+ * Lue dans ses deux dernières minutes, elle se relit en fond (`mesures`) :
+ * la requête qui l'aurait trouvée périmée — un tirage, un dé — attendait
+ * l'aller-retour de toute la mesure et son calcul, 1,2 à 1,4 s au dixième
+ * de cœur de l'hébergeur (le banc du 16 octobre 2026).
+ */
+const MESURE_EN_AVANCE_MS = 2 * 60_000
+/**
  * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
  * quand un dé le demande : il relit les réponses de tout le monde, et ses
  * difficultés bougent lentement — la force de qui lance le dé, elle, se
@@ -415,6 +422,8 @@ const COTES_GARDEES_MS = 10 * 60_000
 /** Les bordures demandées à quelques millisecondes d'écart se lisent ensemble : une vague d'arrivées, une requête. */
 const BORDURES_GROUPEES_MS = 30
 const AUCUN_VAINQUEUR: ReadonlySet<string> = new Set()
+/** La réserve du quiz du jour d'une campagne qui n'en a pas : un banc, un script. */
+const AUCUNE_EMPREINTE: ReadonlySet<string> = new Set()
 /** Ce qu'on lit de chaque source des joueurs croisés : de quoi en garder assez une fois ses amis et les masqués écartés. */
 const CANDIDATS_PAR_SOURCE = 12
 /** Au défi de la semaine, ses derniers venus, parmi lesquels on cherche ceux de son score. */
@@ -452,7 +461,7 @@ interface CercleDAmis {
  * et se corrige par les réponses de campagne (`niveauDeQuestion`).
  * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
  * sans plafond (`xpDeCampagne`), dans sa ligne à part (`LIGNE_CAMPAGNE`) ;
- * et un confetti, comme au quiz du jour (`ProfileStore.confettisDeCampagne`).
+ * et un confetti, comme au quiz du jour (`duProfil`).
  */
 /**
  * Ce que la campagne demande aux profils pour décerner ses récompenses —
@@ -467,6 +476,23 @@ export interface RecompensesDeCampagne {
   accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
+}
+
+/** Sa ligue, sa cote et ses bordures de ligue (`coteDe`) : sa carte, la bordure qu'il choisit. */
+export interface CoteDesDuels {
+  ligue: CleDeLigue
+  cote: number
+  bordures: BordureDeLigue[]
+}
+
+/** Ce que la campagne dit d'un profil à son solde et à sa page, d'une seule lecture (`CampagneStore.duProfil`). */
+export interface CampagneDuProfil {
+  /** Ses confettis de campagne : ses bonnes réponses, les étoiles de ses sentiers, les ligues de ses semaines closes. */
+  confettis: number
+  /** Ses paliers validés, sentier par sentier (`paliersDe`). */
+  paliers: Paliers
+  /** Null tant qu'il n'a fini aucun duel classé (`coteDe`). */
+  duels: CoteDesDuels | null
 }
 
 /** Ce qu'une fin de série ou d'épreuve annonce : ce qui est tombé, et les légendaires que ça ouvre. */
@@ -618,7 +644,11 @@ export class CampagneStore {
     premieres: Map<string, { justes: number; total: number }>
     base: BaseDeLaCampagne | null
     parQuestion: ReadonlyMap<string, MesureDUneQuestion>
+    /** Sa suivante est partie en fond (`MESURE_EN_AVANCE_MS`) : une fois, même ratée — une base muette ne se fait pas relire à chaque requête. */
+    relueEnFond?: boolean
   } | null = null
+  /** La relecture des comptes en cours (`mesures`). */
+  private mesuresEnRoute: Promise<void> | null = null
   /** La famille de chaque question, par base (`famillesDe`). */
   private famillesGardees = new WeakMap<BaseDeLaCampagne, readonly { id: string; difficulte: number; famille: string | null }[]>()
   /**
@@ -643,6 +673,12 @@ export class CampagneStore {
   private jouablesGardees: { base: BaseDeLaCampagne; duJour: ReadonlySet<string>; retirees: number; questions: readonly QuestionDeLaBase[] } | null = null
   /** Les catégories et les sujets de chaque liste de jouables (`choixDe`). */
   private choixGardes = new WeakMap<readonly QuestionDeLaBase[], ChoixDeLaCampagne>()
+  /** Combien chaque sujet compte de questions, par liste de jouables (`sujetsComptes`). */
+  private comptesDesSujets = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, number>>()
+  /** Les jouables de chaque sujet, par liste de jouables (`duSujet`). */
+  private listesDesSujets = new WeakMap<readonly QuestionDeLaBase[], Map<string, readonly QuestionDeLaBase[]>>()
+  /** Ce que le tirage d'une série relit de chaque liste de jouables, à sa mesure (`tirage`). */
+  private preparations = new WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>()
 
   constructor(
     url: string,
@@ -669,7 +705,8 @@ export class CampagneStore {
               lue = null
               throw e
             }))
-    this.empreintesDuJour = opts.empreintesDuJour ?? (async () => new Set())
+    // Toujours le même ensemble vide : un neuf à chaque lecture refaisait les jouables, et tout ce qui s'en tire, à chaque demande.
+    this.empreintesDuJour = opts.empreintesDuJour ?? (async () => AUCUNE_EMPREINTE)
     this.ecrireXp = opts.ecrireXp ?? (async () => {})
   }
 
@@ -1017,15 +1054,59 @@ export class CampagneStore {
    * reclassement du QG vaut dès le tirage suivant.
    */
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
-    const perimee = !this.mesuresGardees || this.maintenant() - this.mesuresGardees.a >= MESURES_GARDEES_MS
-    const [base, lues] = await Promise.all([this.base(), perimee ? this.mesuresBrutes() : null])
-    if (lues) this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
-    const garde = this.mesuresGardees!
+    const gardee = this.mesuresGardees
+    const age = gardee ? this.maintenant() - gardee.a : Infinity
+    const perimee = age >= MESURES_GARDEES_MS
+    // Dans ses deux dernières minutes, elle se relit en fond, et ses tirages
+    // se préparent avec elle (`relireLaMesureEnFond`) : qui la demande d'ici
+    // là reçoit encore celle-ci.
+    const enAvance = !perimee && age >= MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS && !gardee!.relueEnFond
+    // Une seule relecture pour ceux qui la trouvent périmée ensemble — le
+    // préchauffage, le modèle du savoir, deux tirages : chacun relisait tous
+    // les comptes, et chacun refaisait une mesure neuve, que les tirages
+    // préparés (`tirage`) prenaient pour une autre.
+    if ((perimee || enAvance) && !this.mesuresEnRoute) {
+      this.mesuresEnRoute = this.mesuresBrutes()
+        .then(lues => {
+          this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
+        })
+        .finally(() => {
+          this.mesuresEnRoute = null
+        })
+      if (enAvance) {
+        gardee!.relueEnFond = true
+        this.relireLaMesureEnFond(this.mesuresEnRoute)
+      }
+    }
+    const [base] = await Promise.all([this.base(), perimee ? this.mesuresEnRoute : null])
+    // Encore bonne, celle qu'il a trouvée : la neuve, arrivée pendant qu'il
+    // attendait, ferait ses familles sur son chemin — c'est la relecture en
+    // fond qui les fait.
+    const garde = perimee ? this.mesuresGardees! : gardee!
     if (garde.base !== base) {
       garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
       garde.base = base
     }
     return garde.parQuestion
+  }
+
+  /**
+   * La mesure relue avant d'être due (`MESURE_EN_AVANCE_MS`), puis ses
+   * familles et la préparation des tirages de toutes les catégories : la
+   * requête suivante les trouve faits. Ratée, rien ne change — celle d'avant
+   * sert jusqu'à son heure, puis se relit sur le chemin de la requête, comme
+   * avant.
+   */
+  private relireLaMesureEnFond(enRoute: Promise<void>): void {
+    enRoute
+      .then(async () => {
+        if (this.ferme) return
+        const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
+        if (!this.ferme) this.tirage(jouables, mesure)
+      })
+      .catch(e => {
+        if (!this.ferme) console.warn('[campagne] mesure non relue en fond — elle se relira à son heure :', e instanceof Error ? e.message : e)
+      })
   }
 
   /**
@@ -1041,14 +1122,16 @@ export class CampagneStore {
     // question jouée — onze mille — se décodait sur le chemin de la requête
     // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes. Une
     // réponse sans série — un test qui l'écrit à la main — compte pour un
-    // joueur à elle seule.
+    // joueur à elle seule. Un tableau de triplets plutôt qu'un objet : sept
+    // mille clés d'objet se décodaient trois fois plus lentement — 13 ms pour
+    // les deux textes, 4 en tableaux (le banc du 17 octobre 2026).
     const [brutes, premieres] = await this.client.batch(
       [
-        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
            WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
          )`,
-        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM (
              SELECT r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
              FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
@@ -1060,8 +1143,10 @@ export class CampagneStore {
       'read',
     )
     const lire = (texte: unknown) => {
-      const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, [unknown, unknown]>) : {}
-      return new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
+      const lues = new Map<string, { justes: number; total: number }>()
+      if (typeof texte !== 'string') return lues
+      for (const [id, justes, total] of JSON.parse(texte) as [unknown, unknown, unknown][]) lues.set(String(id), { justes: Number(justes), total: Number(total) })
+      return lues
     }
     return { brutes: lire(brutes.rows[0]?.mesures), premieres: lire(premieres.rows[0]?.mesures) }
   }
@@ -1152,7 +1237,9 @@ export class CampagneStore {
    * La série de référence du dé (`serieDeReference`) : les marches du tirage
    * (`niveauDeQuestion`), et les difficultés du modèle — ou, sans lui, celles
    * de la part qui a trouvé (`difficulteSansModele`). Gardée tant que rien de
-   * cela ne change.
+   * cela ne change. Les marches, la préparation du tirage de ces jouables les
+   * a lues à cette mesure (`tirage`) : la série de référence les relisait
+   * toutes, à chaque mesure neuve.
    */
   private referencePour(
     jouables: readonly QuestionDeLaBase[],
@@ -1161,9 +1248,10 @@ export class CampagneStore {
   ): SerieDeReference {
     const g = this.referenceGardee
     if (g && g.jouables === jouables && g.mesure === mesure && g.modele === modele) return g.reference
+    const preparee = this.tirage(jouables, mesure)
     const reference = serieDeReference(
       jouables,
-      q => niveauDeQuestion(q.meta.difficulte, mesure.get(q.id)),
+      (_, i) => preparee.marche(i),
       q => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id)),
     )
     this.referenceGardee = { jouables, mesure, modele, reference }
@@ -1187,18 +1275,77 @@ export class CampagneStore {
     return this.choixDe(await this.jouables())
   }
 
-  /** Les catégories et les sujets de ces jouables : dix-neuf sujets sur onze mille questions, recomptés à chaque ouverture de la campagne. */
+  /** Les catégories et les sujets de ces jouables : vingt-sept sujets sur vingt-quatre mille questions, recomptés à chaque ouverture de la campagne. */
   private choixDe(jouables: readonly QuestionDeLaBase[]): ChoixDeLaCampagne {
     let choix = this.choixGardes.get(jouables)
     if (!choix) this.choixGardes.set(jouables, (choix = { categories: parCategorie(jouables), sujets: this.sujetsJouables(jouables) }))
     return choix
   }
 
+  /**
+   * Combien de ces jouables chaque sujet compte, une fois par liste : la page
+   * de la campagne, le quiz tout prêt et les parcours de thème les
+   * recomptaient chacun, à chaque ouverture.
+   */
+  private sujetsComptes(jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, number> {
+    let compte = this.comptesDesSujets.get(jouables)
+    if (!compte) {
+      const neuf = new Map<string, number>()
+      for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) neuf.set(s, (neuf.get(s) ?? 0) + 1)
+      this.comptesDesSujets.set(jouables, (compte = neuf))
+    }
+    return compte
+  }
+
+  /**
+   * Les jouables d'un sujet, gardées avec leur liste : une série, un duel ou
+   * un parcours sur un sujet repassaient les vingt-quatre mille au crible, et
+   * gardées, leur tirage se prépare une fois (`tirage`).
+   */
+  private duSujet(jouables: readonly QuestionDeLaBase[], cle: string): readonly QuestionDeLaBase[] {
+    let parSujet = this.listesDesSujets.get(jouables)
+    if (!parSujet) this.listesDesSujets.set(jouables, (parSujet = new Map()))
+    let siennes = parSujet.get(cle)
+    if (!siennes) parSujet.set(cle, (siennes = jouables.filter(q => sujetsDeLaQuestion(q).includes(cle))))
+    return siennes
+  }
+
+  /**
+   * Le tirage d'une série sur ces jouables, préparé une fois pour leur
+   * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
+   * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
+   * ne changent pas, et la mesure dix minutes.
+   */
+  private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): PreparationDuTirage {
+    let p = this.preparations.get(jouables)
+    if (!p || p.mesure !== mesure) this.preparations.set(jouables, (p = new PreparationDuTirage(jouables, mesure, p)))
+    return p
+  }
+
   /** Les sujets qui ont de quoi faire une série, comptés sur ce que la campagne peut poser. */
   private sujetsJouables(jouables: readonly QuestionDeLaBase[]): { sujet: string; questions: number }[] {
-    const compte = new Map<string, number>()
-    for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
+    const compte = this.sujetsComptes(jouables)
     return SUJETS.filter(s => (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_JOUER).map(s => ({ sujet: s.cle, questions: compte.get(s.cle)! }))
+  }
+
+  /**
+   * Ce que la première ouverture de la campagne et le premier tirage après
+   * un réveil faisaient d'un bloc, fait en fond : les sujets de chaque
+   * question, par tranches qui rendent la main, et ce que la campagne en
+   * propose (`choixDe`) — 1,5 s de serveur figé au dixième de cœur de
+   * l'hébergeur (le banc du 16 octobre 2026) —, puis la préparation de ses
+   * tirages, à la mesure du moment (`tirage`).
+   */
+  private async preparerEnFond(): Promise<void> {
+    const jouables = await this.jouables()
+    for (let debut = 0; debut < jouables.length && !this.ferme; debut += SUJETS_PAR_TRANCHE) {
+      for (let i = debut; i < Math.min(debut + SUJETS_PAR_TRANCHE, jouables.length); i++) sujetsDeLaQuestion(jouables[i])
+      await new Promise<void>(rendre => setImmediate(rendre))
+    }
+    if (this.ferme) return
+    this.choixDe(jouables)
+    const mesure = await this.mesures()
+    if (!this.ferme) this.tirage(jouables, mesure)
   }
 
   /**
@@ -1231,12 +1378,12 @@ export class CampagneStore {
   /** Ce que la base offre à un quiz tout prêt : son total, et les catégories et les sujets qui ont de quoi en faire un. */
   async baseDesSoirees(): Promise<BaseDuQuizToutPret> {
     const jouables = await this.jouables()
-    const parCategorie = new Map<string, number>()
-    for (const q of jouables) parCategorie.set(q.meta.categorie, (parCategorie.get(q.meta.categorie) ?? 0) + 1)
+    const { categories, sujets } = this.choixDe(jouables)
+    const parCategorie = new Map(categories.map(c => [c.categorie, c.questions]))
     return {
       total: jouables.length,
       categories: CATEGORIES.filter(c => (parCategorie.get(c) ?? 0) >= QUESTIONS_POUR_JOUER),
-      sujets: this.sujetsJouables(jouables).map(s => s.sujet),
+      sujets: sujets.map(s => s.sujet),
     }
   }
 
@@ -1459,7 +1606,7 @@ export class CampagneStore {
       const suivi = sujet === undefined ? undefined : sujetParCle(sujet)
       if (sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
       const [toutes, mesure, vues, laissee] = await Promise.all([this.jouables(suivi ? undefined : categories), this.mesures(), this.vuesPar(profileId), this.serieEnCours(profileId)])
-      const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
+      const jouables = suivi ? this.duSujet(toutes, suivi.cle) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
           suivi
@@ -1470,7 +1617,9 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const questions = tirerUneSerie(jouables, mesure, vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = this.tirage(jouables, mesure)
+        .tirer(vues, maintenant)
+        .map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -1809,6 +1958,8 @@ export class CampagneStore {
   /** Lit la base en fond, sans rien attendre : la première série la trouve prête (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`). */
   prechauffer(): void {
     this.base().catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
+    // Ses sujets et la préparation de ses tirages : la première ouverture de la campagne et le premier tirage les trouvent faits.
+    this.preparerEnFond().catch(e => console.warn('[campagne] sujets et tirages non préparés en fond — la première demande les fera :', e instanceof Error ? e.message : e))
     // Les bordures de ligue de tous, d'une lecture : les classements du jour
     // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
     this.toutesLesCotes().catch(e => console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e))
@@ -1822,13 +1973,20 @@ export class CampagneStore {
   }
 
   /**
-   * Ses confettis de campagne : une bonne réponse, un confetti — séries,
-   * épreuves et défis —, et ce que paient les étoiles de ses sentiers, la
-   * meilleure note de chaque palier (`confettisDesEtoiles`), et chaque semaine
-   * close de ses duels, sa meilleure ligue (`confettisDesLigues`). Relus à
-   * chaque lecture, d'un seul aller-retour.
+   * Ce que la campagne dit d'un profil à son solde et à sa page, d'un seul
+   * aller-retour. Ses confettis de campagne : une bonne réponse, un confetti
+   * — séries, épreuves et défis —, ce que paient les étoiles de ses
+   * sentiers, la meilleure note de chaque palier (`confettisDesEtoiles`), et
+   * chaque semaine close de ses duels, sa meilleure ligue
+   * (`confettisDesLigues`) ; et, des mêmes lignes, ses paliers (`paliersDe`)
+   * et sa cote (`coteDe`). Le solde relisait ses sentiers à part, et la page
+   * du profil ses sentiers trois fois et ses duels deux : au dixième de cœur
+   * de l'hébergeur, chaque aller-retour coûte au serveur deux millisecondes
+   * de processeur, et les accueils de quatre joueurs à la fois le figeaient
+   * deux secondes (le banc du 16 octobre 2026). Relus à chaque lecture.
    */
-  async confettisDe(profileId: string): Promise<number> {
+  async duProfil(profileId: string): Promise<CampagneDuProfil> {
+    const tour = ++this.tourDesBordures
     const [justes, acquis, validees, duels] = await this.client.batch(
       [
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
@@ -1837,8 +1995,14 @@ export class CampagneStore {
       ],
       'read',
     )
-    const ligues = confettisDesLigues(releverLesDuels(duelsLus(duels.rows), semaineDeLInstant), this.semaineDeLHeure().semaine)
-    return Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiersLus(acquis.rows, validees.rows)) + ligues
+    const sentiers = sentiersLus(acquis.rows, validees.rows)
+    const releve = this.releveLu(profileId, duels.rows, tour)
+    const ligues = confettisDesLigues(releve, this.semaineDeLHeure().semaine)
+    return {
+      confettis: Number(justes.rows[0]?.n ?? 0) + confettisDesEtoiles(sentiers) + ligues,
+      paliers: paliersCommences(sentiers),
+      duels: coteDuReleve(releve),
+    }
   }
 
   /**
@@ -2216,7 +2380,9 @@ export class CampagneStore {
       if (!questions) {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
         if (jouables.length < QUESTIONS_POUR_JOUER) return []
-        const tirees = tirerUneSerie(jouables, mesure).map(x => versQuestionDeSerie(x.question, x.niveau))
+        const tirees = this.tirage(jouables, mesure)
+          .tirer()
+          .map(x => versQuestionDeSerie(x.question, x.niveau))
         await this.client.execute({
           sql: 'INSERT INTO campagne_defis (semaine, questions, tire_le) VALUES (?, ?, ?) ON CONFLICT(semaine) DO NOTHING',
           args: [semaine, JSON.stringify(tirees), this.maintenant()],
@@ -2706,11 +2872,13 @@ export class CampagneStore {
         }),
       ])
       const prevus = contre ? [contre] : sesAmis.filter(id => voulus.has(id))
-      const jouables = suivi ? toutes.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : toutes
+      const jouables = suivi ? this.duSujet(toutes, suivi.cle) : toutes
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
       }
-      const questions = tirerUneSerie(jouables, mesure, vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = this.tirage(jouables, mesure)
+        .tirer(vues, maintenant)
+        .map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
       for (let essai = 0; ; essai++) {
         const duel: Duel = {
@@ -3679,7 +3847,8 @@ export class CampagneStore {
       }
       if (choix.sujet !== undefined && !suivi) throw new Error('Ce sujet n’existe plus : choisis-en un autre')
       const [base, toutes, duChoix, mesure] = await tirage
-      const jouables = suivi ? duChoix.filter(q => sujetsDeLaQuestion(q).includes(suivi.cle)) : duChoix
+      // Sur un sujet, sa liste gardée, comme une série : son tirage se prépare une fois (`duSujet`, `tirage`).
+      const jouables = suivi ? this.duSujet(duChoix, suivi.cle) : duChoix
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(
           suivi
@@ -3690,7 +3859,7 @@ export class CampagneStore {
         )
       }
       const { vues: sesVues, premieres } = lireLesVues(vues.rows)
-      const tirees = tirerUneSerie(jouables, mesure, sesVues, maintenant)
+      const tirees = this.tirage(jouables, mesure).tirer(sesVues, maintenant)
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses réponses.
       // Sur un thème, ses écarts de catégorie y jouent : il rate où il rate.
       const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, toutes, mesure)
@@ -3755,7 +3924,16 @@ export class CampagneStore {
   private async rencontresEtDuels(profileId: string, racontes = false): Promise<{ rencontres: MesRencontres; releve: ReleveDesDuels; racontes: DuelRaconte[] }> {
     const [res, duels, adversaires] = await this.client.batch(
       [
-        { sql: `SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`, args: [profileId, RENCONTRES_MONTREES + 1] },
+        // Les questions de la seule rencontre en route, qui se reprend : une
+        // finie n'en dit que son score. Les soixante de chacune — vingt
+        // kilo-octets — faisaient décoder trois cents kilo-octets à chaque
+        // ouverture de la page (le banc du 16 octobre 2026).
+        {
+          sql: `SELECT id, profile_id, position, vies, justes, finie_le, mode, categories, sujet, adversaire,
+                       CASE WHEN finie_le IS NULL THEN questions ELSE '[]' END AS questions
+                FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' ORDER BY commencee_le DESC LIMIT ?`,
+          args: [profileId, RENCONTRES_MONTREES + 1],
+        },
         lectureDesDuels(profileId, this.maintenant()),
         ...(racontes ? [lectureDesAdversaires(profileId)] : []),
       ],
@@ -3911,9 +4089,8 @@ export class CampagneStore {
    * bordure qu'il choisit ; null tant qu'il n'a fini aucun duel classé —
    * l'absence, pas une ligue de bronze.
    */
-  async coteDe(profileId: string): Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null> {
-    const r = await this.releveDesDuels(profileId)
-    return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
+  async coteDe(profileId: string): Promise<CoteDesDuels | null> {
+    return coteDuReleve(await this.releveDesDuels(profileId))
   }
 
   /** Sa semaine de duels, telle que sa page la dit : ses duels, sa meilleure ligue, ce qu'elle rapportera lundi. */
@@ -4346,7 +4523,7 @@ export class CampagneStore {
    */
   async paliersDe(profileId: string): Promise<Paliers> {
     const [acquis, validees] = await this.client.batch(this.lecturesDesSentiers(profileId), 'read')
-    return Object.fromEntries(sentiersLus(acquis.rows, validees.rows).filter(s => s.paliers > 0).map(s => [s.branche, s.paliers]))
+    return paliersCommences(sentiersLus(acquis.rows, validees.rows))
   }
 
   /** Ses épreuves ratées, chacune au jour où elle l'a été : ce qui a coûté ses vies. */
@@ -4917,8 +5094,8 @@ export class CampagneStore {
   // et l'administration des sentiers ne regardent que les leurs.
 
   /** Les questions qu'un sujet peut poser : la base jouable, sur lui. */
-  private async jouablesDuSujet(cle: string): Promise<QuestionDeLaBase[]> {
-    return (await this.jouables()).filter(q => sujetsDeLaQuestion(q).includes(cle))
+  private async jouablesDuSujet(cle: string): Promise<readonly QuestionDeLaBase[]> {
+    return this.duSujet(await this.jouables(), cle)
   }
 
   /** Ses sentiers à thème : ceux que la base sert assez — leurs paliers, leurs étoiles —, et l'épreuve laissée en route. */
@@ -4933,8 +5110,7 @@ export class CampagneStore {
       ),
       this.jouables(),
     ])
-    const compte = new Map<string, number>()
-    for (const q of jouables) for (const s of sujetsDeLaQuestion(q)) compte.set(s, (compte.get(s) ?? 0) + 1)
+    const compte = this.sujetsComptes(jouables)
     const parSujet = new Map<string, SentierDeSujet>()
     for (const s of SUJETS) {
       if ((compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
@@ -5775,7 +5951,7 @@ export class CampagneStore {
   }
 
   /**
-   * Les confettis de campagne de chaque profil, aux règles de `confettisDe`
+   * Les confettis de campagne de chaque profil, aux règles de `duProfil`
    * — ses bonnes réponses, ses étoiles, ses ligues —, tous profils d'un coup :
    * la circulation du QG, relue une fois par jour.
    */
@@ -6887,11 +7063,15 @@ function nouveauCode(): string {
   return Array.from(randomBytes(LONGUEUR_D_UN_CODE), o => LETTRES_D_UN_CODE[o % LETTRES_D_UN_CODE.length]).join('')
 }
 
+/** Ce que la lecture des sujets en fond passe d'une traite avant de rendre la main (`preparerEnFond`) : une à deux millisecondes. */
+const SUJETS_PAR_TRANCHE = 1000
+
 /**
  * Les sujets d'une question de la base, lus une fois : la page de la
- * campagne les compte à chaque ouverture, cinq mille questions et dix-neuf
- * sujets — au dixième de cœur de l'hébergeur, recompté à chaque fois, la
- * page attendait.
+ * campagne les compte à chaque ouverture, vingt-quatre mille questions et
+ * vingt-sept sujets — au dixième de cœur de l'hébergeur, recompté à chaque
+ * fois, la page attendait. Lus en fond après le démarrage
+ * (`preparerEnFond`).
  */
 const SUJETS_LUS = new WeakMap<QuestionDeLaBase, readonly string[]>()
 export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
@@ -7186,6 +7366,16 @@ function sentiersLus(acquis: readonly Record<string, unknown>[], validees: reado
   })
 }
 
+/** Ses paliers validés, sentier par sentier (`sentiersLus`) : un sentier pas encore commencé n'y paraît pas. */
+function paliersCommences(sentiers: readonly SentierDuJoueur[]): Paliers {
+  return Object.fromEntries(sentiers.filter(s => s.paliers > 0).map(s => [s.branche, s.paliers]))
+}
+
+/** Sa ligue, sa cote et ses bordures, d'un relevé de ses duels ; null tant qu'il n'a fini aucun duel classé — l'absence, pas une ligue de bronze. */
+function coteDuReleve(r: ReleveDesDuels): CoteDesDuels | null {
+  return r.joues > 0 ? { ligue: ligueDe(r.cote).cle, cote: r.cote, bordures: r.bordures } : null
+}
+
 /**
  * D'où emprunter quand un niveau manque à la catégorie : le même, puis le
  * plus dur d'à côté, puis le plus facile. Une base qui grandit chaque matin
@@ -7219,8 +7409,8 @@ function fraicheurDe(vues: ReadonlyMap<string, number>, maintenant: number) {
 
 /**
  * La même fraîcheur en un chiffre, sans rien bâtir : 0 jamais vue, 1 vue,
- * 2 vue ces dernières vingt-quatre heures. Un tirage la lit pour chacune des
- * onze mille questions de la base, deux fois.
+ * 2 vue ces dernières vingt-quatre heures. Un tirage la lit pour chacune de
+ * ses vues.
  */
 const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 2 => (le === undefined ? 0 : maintenant - le < VUE_RECENTE_MS ? 2 : 1)
 
@@ -7229,11 +7419,10 @@ const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 
  * d'abord, puis les déjà vues de la plus anciennement vue à la plus récente,
  * celles des dernières vingt-quatre heures en tout dernier. Chaque groupe
  * garde l'ordre qu'on lui donne — le hasard du battage, pour les jamais
- * vues —, et seules les vues se trient, d'un tri stable. Toute la base
- * triée, sa fraîcheur relue à chaque comparaison, coûtait 8 ms à chaque
- * série — onze mille questions, quatre à dix fois plus au dixième de cœur
- * de l'hébergeur — pour ranger surtout des jamais vues, déjà dans leur ordre
- * (`duels-attente.test.ts` la compare au tri d'avant).
+ * vues —, et seules les vues se trient, d'un tri stable. L'ordre où une
+ * série tire chaque marche : `PreparationDuTirage` le suit sur des indices,
+ * sans ranger toute la base ; il se dit et se vérifie ici
+ * (`duels-attente.test.ts` le compare au tri d'avant).
  */
 export function parFraicheur<T extends { id: string }>(questions: readonly T[], vues: ReadonlyMap<string, number>, maintenant: number): T[] {
   const jamaisVues: T[] = []
@@ -7250,14 +7439,36 @@ export function parFraicheur<T extends { id: string }>(questions: readonly T[], 
 
 /**
  * Ce que les marches d'un même tirage tiennent en commun : combien chaque
- * catégorie et chaque sous-thème ont servi, et, si l'on veut, les questions
- * déjà prises, pour reconnaître leurs jumelles (`DejaPrises`).
+ * catégorie et chaque sous-thème ont servi, par leur indice dans le tirage
+ * (`FileDuTour`), et, si l'on veut, les questions déjà prises, pour
+ * reconnaître leurs jumelles (`DejaPrises`).
  */
 interface Servies<T> {
-  categories: Map<string, number>
-  sousThemes: Map<string, number>
+  categories: number[]
+  sousThemes: number[]
   deja?: { jumelle(q: T): boolean; prendre(q: T): void }
 }
+
+/**
+ * Une file d'une marche : les questions d'un sous-thème de sa catégorie, par
+ * leur rang dans la classe de fraîcheur ouverte — l'ordre du battage, ou la
+ * plus anciennement vue d'abord. Ses rangs montent ; celui de sa tête
+ * départage deux files à égalité.
+ */
+interface FileDuTour {
+  categorie: number
+  sousTheme: number
+  rangs: number[]
+}
+
+/** Une classe de fraîcheur, bâtie à son ouverture : ses files, et la question de chaque rang. */
+interface ClasseDuTour<T> {
+  files: readonly FileDuTour[]
+  question: (rang: number) => T
+}
+
+/** Les jamais vues, les vues, celles des dernières vingt-quatre heures (`classeDeFraicheur`). */
+const CLASSES_DE_FRAICHEUR = 3
 
 /**
  * Combien de questions d'une file se regardent pour en trouver une qui n'est
@@ -7280,23 +7491,18 @@ const REGARD_DES_JUMELLES = 12
  * le hasard du battage, ou la plus anciennement vue (`parFraicheur`). Elle se
  * tire en plusieurs fois (`prendre`), et plusieurs marches partagent leurs
  * comptes (`Servies`) : une série prend cinq questions de chacune dans
- * l'ordre où elle les pose, puis le reste.
+ * l'ordre où elle les pose, puis le reste. Chaque classe de fraîcheur ne se
+ * bâtit qu'à son ouverture (`classes`) — une fois la précédente vide : une
+ * marche qui a des jamais vues ne range jamais ses vues.
  */
-class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: string } }> {
-  /** Les jamais vues, les vues, celles des dernières vingt-quatre heures : une classe ne s'ouvre qu'une fois la précédente vide. */
-  private readonly classes: T[][] = [[], [], []]
+class TourDeRole<T> {
   private classe = -1
-  /** Une file par sous-thème de la classe ouverte, dans l'ordre reçu : le rang de sa tête départage deux files à égalité. */
-  private files: { categorie: string; cle: string; questions: T[]; rangs: number[] }[] = []
+  private ouverte: ClasseDuTour<T> | null = null
 
   constructor(
-    questions: readonly T[],
-    vues: ReadonlyMap<string, number>,
-    maintenant: number,
-    private readonly servies: Servies<T> = { categories: new Map(), sousThemes: new Map() },
-  ) {
-    for (const q of questions) this.classes[classeDeFraicheur(vues.get(q.id), maintenant)].push(q)
-  }
+    private readonly classes: (classe: number) => ClasseDuTour<T>,
+    private readonly servies: Servies<T>,
+  ) {}
 
   /** Les `n` questions suivantes de la marche, moins quand elle n'en a plus. */
   prendre(n: number): T[] {
@@ -7306,29 +7512,32 @@ class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: s
       const choix = this.suivante()
       if (!choix) break
       const { file, i } = choix
-      const [q] = file.questions.splice(i, 1)
-      file.rangs.splice(i, 1)
+      const [rang] = file.rangs.splice(i, 1)
+      const q = this.ouverte!.question(rang)
       tirees.push(q)
-      categories.set(file.categorie, (categories.get(file.categorie) ?? 0) + 1)
-      sousThemes.set(file.cle, (sousThemes.get(file.cle) ?? 0) + 1)
+      categories[file.categorie]++
+      sousThemes[file.sousTheme]++
       deja?.prendre(q)
     }
     return tirees
   }
 
-  private suivante(): { file: TourDeRole<T>['files'][number]; i: number } | null {
+  private suivante(): { file: FileDuTour; i: number } | null {
     const { categories, sousThemes, deja } = this.servies
     for (;;) {
       // Les files de la catégorie la moins servie, et de son sous-thème le moins servi.
-      let moins: number[] | null = null
-      let egales: TourDeRole<T>['files'] = []
-      for (const f of this.files) {
-        if (f.questions.length === 0) continue
-        const r = [categories.get(f.categorie) ?? 0, sousThemes.get(f.cle) ?? 0]
-        if (!moins || passeAvant(r, moins)) {
-          moins = r
+      let moinsDeCategorie = Infinity
+      let moinsDeSousTheme = Infinity
+      let egales: FileDuTour[] = []
+      for (const f of this.ouverte?.files ?? []) {
+        if (f.rangs.length === 0) continue
+        const c = categories[f.categorie]
+        const s = sousThemes[f.sousTheme]
+        if (c < moinsDeCategorie || (c === moinsDeCategorie && s < moinsDeSousTheme)) {
+          moinsDeCategorie = c
+          moinsDeSousTheme = s
           egales = [f]
-        } else if (!passeAvant(moins, r)) egales.push(f)
+        } else if (c === moinsDeCategorie && s === moinsDeSousTheme) egales.push(f)
       }
       if (egales.length === 0) {
         if (!this.ouvrirLaClasseSuivante()) return null
@@ -7339,12 +7548,13 @@ class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: s
       // La question reçue la première parmi celles qui ne sont pas des
       // jumelles : les rangs d'une file montent, et une file dont la tête
       // vient après la meilleure trouvée n'a rien de mieux.
-      let meilleure: { file: (typeof egales)[number]; i: number } | null = null
+      const question = this.ouverte!.question
+      let meilleure: { file: FileDuTour; i: number } | null = null
       for (const f of egales) {
         if (meilleure && f.rangs[0] > meilleure.file.rangs[meilleure.i]) break
-        for (let i = 0; i < Math.min(f.questions.length, REGARD_DES_JUMELLES); i++) {
+        for (let i = 0; i < Math.min(f.rangs.length, REGARD_DES_JUMELLES); i++) {
           if (meilleure && f.rangs[i] > meilleure.file.rangs[meilleure.i]) break
-          if (!deja.jumelle(f.questions[i])) {
+          if (!deja.jumelle(question(f.rangs[i]))) {
             meilleure = { file: f, i }
             break
           }
@@ -7355,36 +7565,17 @@ class TourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: s
   }
 
   private ouvrirLaClasseSuivante(): boolean {
-    if (++this.classe >= this.classes.length) return false
-    // Les files se trouvent par catégorie, puis par sous-thème : une clé bâtie
-    // pour chaque question — huit mille à chaque série — coûtait le tiers du
-    // tirage. Elles restent dans l'ordre où leur première question arrive.
-    const parCategorie = new Map<string, Map<string, TourDeRole<T>['files'][number]>>()
-    const files: TourDeRole<T>['files'] = []
-    const classe = this.classes[this.classe]
-    for (let rang = 0; rang < classe.length; rang++) {
-      const q = classe[rang]
-      const { categorie, sousTheme } = q.meta
-      let parSousTheme = parCategorie.get(categorie)
-      if (!parSousTheme) parCategorie.set(categorie, (parSousTheme = new Map()))
-      let f = parSousTheme.get(sousTheme)
-      if (!f) {
-        f = { categorie, cle: `${categorie}\u0000${sousTheme}`, questions: [], rangs: [] }
-        parSousTheme.set(sousTheme, f)
-        files.push(f)
-      }
-      f.questions.push(q)
-      f.rangs.push(rang)
-    }
-    this.files = files
+    if (++this.classe >= CLASSES_DE_FRAICHEUR) return false
+    this.ouverte = this.classes(this.classe)
     return true
   }
 }
 
 /**
- * Une marche seule, catégories et sous-thèmes à tour de rôle (`TourDeRole`).
- * Ne range que les `max` premières : une série n'en lit pas plus, et la base
- * en compte des milliers par marche.
+ * Une marche seule, catégories et sous-thèmes à tour de rôle (`TourDeRole`),
+ * dans l'ordre reçu : le rang d'une question est sa place dans sa classe de
+ * fraîcheur. Ne range que les `max` premières : une série n'en lit pas plus,
+ * et la base en compte des milliers par marche.
  */
 export function aTourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: string } }>(
   questions: readonly T[],
@@ -7392,7 +7583,32 @@ export function aTourDeRole<T extends { id: string; meta: { categorie: string; s
   maintenant: number,
   max = QUESTIONS_PAR_SERIE,
 ): T[] {
-  return new TourDeRole(questions, vues, maintenant).prendre(max)
+  const parClasse: T[][] = Array.from({ length: CLASSES_DE_FRAICHEUR }, () => [])
+  for (const q of questions) parClasse[classeDeFraicheur(vues.get(q.id), maintenant)].push(q)
+  const categories = new Map<string, number>()
+  const sousThemes = new Map<string, Map<string, number>>()
+  let nombreDeSousThemes = 0
+  const indices = parClasse.map(liste =>
+    liste.map(({ meta: { categorie, sousTheme } }) => {
+      if (!categories.has(categorie)) categories.set(categorie, categories.size)
+      let siens = sousThemes.get(categorie)
+      if (!siens) sousThemes.set(categorie, (siens = new Map()))
+      let s = siens.get(sousTheme)
+      if (s === undefined) siens.set(sousTheme, (s = nombreDeSousThemes++))
+      return { categorie: categories.get(categorie)!, sousTheme: s }
+    }),
+  )
+  const servies: Servies<T> = { categories: new Array(categories.size).fill(0), sousThemes: new Array(nombreDeSousThemes).fill(0) }
+  return new TourDeRole<T>(classe => {
+    const liste = parClasse[classe]
+    const files = new Map<number, FileDuTour>()
+    indices[classe].forEach(({ categorie, sousTheme }, rang) => {
+      let f = files.get(sousTheme)
+      if (!f) files.set(sousTheme, (f = { categorie, sousTheme, rangs: [] }))
+      f.rangs.push(rang)
+    })
+    return { files: [...files.values()], question: rang => liste[rang] }
+  }, servies).prendre(max)
 }
 
 /**
@@ -7407,6 +7623,8 @@ export function aTourDeRole<T extends { id: string; meta: { categorie: string; s
  * quatre —, et une jumelle se juge sur tout ce que la série a posé avant
  * elle : une série du petit écran posait cinq « Qui a créé la série… » en
  * vingt questions, une de géographie trois capitales (le 12 octobre 2026).
+ * Le serveur garde la préparation de ses jouables (`PreparationDuTirage`) ;
+ * celle-ci la refait à chaque appel.
  */
 export function tirerUneSerie(
   jouables: readonly QuestionDeLaBase[],
@@ -7414,20 +7632,168 @@ export function tirerUneSerie(
   vues: ReadonlyMap<string, number> = new Map(),
   maintenant = 0,
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
-  const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-  // Battues, puis rangées par ce qu'il en a vu : chaque marche garde cet ordre.
-  for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
-  const servies: Servies<QuestionDeLaBase> = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
-  const tours = new Map(NIVEAUX.map(n => [n, new TourDeRole(parNiveau[n], vues, maintenant, servies)]))
-  const marches: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-  for (const n of NIVEAUX) marches[n].push(...tours.get(n)!.prendre(QUESTIONS_PAR_MARCHE))
-  let reste = QUESTIONS_PAR_SERIE - NIVEAUX.reduce((s, n) => s + marches[n].length, 0)
-  for (const n of [...NIVEAUX].reverse()) {
-    const suite = tours.get(n)!.prendre(reste)
-    marches[n].push(...suite)
-    reste -= suite.length
+  return new PreparationDuTirage(jouables, mesure).tirer(vues, maintenant)
+}
+
+/**
+ * Ce qu'un tirage de série relit de chaque question jouable — sa marche, sa
+ * catégorie et son sous-thème —, lu une fois par liste de jouables et par
+ * mesure des difficultés, qui ne change qu'au plus toutes les dix minutes
+ * (`CampagneStore.tirage`). Un tirage battait les vingt-quatre mille
+ * questions, puis les repassait quatre fois — rangées par fraîcheur, par
+ * marche, par classe, par file — pour en prendre soixante : 13 à 25 ms de
+ * processeur à chaque série, chaque défi, chaque duel, chaque dé, dix fois
+ * plus au dixième de cœur de l'hébergeur (le banc du 16 octobre 2026). Il ne
+ * lui reste que le battage, sur des indices, et une passe qui range les
+ * jamais vues dans leur file ; ses vues se marquent depuis ses vues, pas
+ * depuis la base, et ne se trient qu'au besoin.
+ *
+ * La série est la même qu'avant, question pour question, au même hasard :
+ * le battage tire le hasard comme `melanger`, et un rang ne se compare qu'à
+ * un autre de la même marche et de la même classe — la place au battage
+ * pour les jamais vues, la place parmi les vues triées pour les autres,
+ * dans l'ordre même des rangs d'avant (`tirage-prepare.test.ts` les
+ * compare).
+ */
+export class PreparationDuTirage {
+  /** La marche de chaque question (son indice dans `NIVEAUX`), à cette mesure. */
+  private readonly marches: Uint8Array
+  /** La file de chaque question : sa catégorie et son sous-thème, un indice pour les deux. */
+  private readonly files: Int32Array
+  /** La catégorie de chaque file, par son indice. */
+  private readonly categorieDeLaFile: number[] = []
+  private readonly nombreDeCategories: number
+  /** Chaque question par son identifiant ; null quand deux le partagent — les vues se lisent alors question par question. */
+  private readonly parId: Map<string, number> | null
+
+  /** `avant`, la préparation des mêmes jouables à une autre mesure : leurs files et leurs identifiants n'en dépendent pas. */
+  constructor(
+    readonly questions: readonly QuestionDeLaBase[],
+    readonly mesure: ReadonlyMap<string, MesureDUneQuestion>,
+    avant?: PreparationDuTirage,
+  ) {
+    const n = questions.length
+    this.marches = new Uint8Array(n)
+    for (let i = 0; i < n; i++) this.marches[i] = NIVEAUX.indexOf(niveauDeQuestion(questions[i].meta.difficulte, mesure.get(questions[i].id)))
+    if (avant?.questions === questions) {
+      this.files = avant.files
+      this.categorieDeLaFile = avant.categorieDeLaFile
+      this.nombreDeCategories = avant.nombreDeCategories
+      this.parId = avant.parId
+      return
+    }
+    this.files = new Int32Array(n)
+    const categories = new Map<string, number>()
+    const filesParCategorie = new Map<string, Map<string, number>>()
+    const parId = new Map<string, number>()
+    let doublon = false
+    for (let i = 0; i < n; i++) {
+      const q = questions[i]
+      const { categorie, sousTheme } = q.meta
+      let parSousTheme = filesParCategorie.get(categorie)
+      if (!parSousTheme) {
+        filesParCategorie.set(categorie, (parSousTheme = new Map()))
+        categories.set(categorie, categories.size)
+      }
+      let f = parSousTheme.get(sousTheme)
+      if (f === undefined) {
+        parSousTheme.set(sousTheme, (f = this.categorieDeLaFile.length))
+        this.categorieDeLaFile.push(categories.get(categorie)!)
+      }
+      this.files[i] = f
+      if (parId.has(q.id)) doublon = true
+      else parId.set(q.id, i)
+    }
+    this.nombreDeCategories = categories.size
+    this.parId = doublon ? null : parId
   }
-  return ordreDeSerie(marches, QUESTIONS_PAR_SERIE)
+
+  /** La marche de la `i`-ième question, à cette mesure : la série de référence du dé la relit d'ici (`referencePour`). */
+  marche(i: number): Niveau {
+    return NIVEAUX[this.marches[i]]
+  }
+
+  /** Une série pour ce joueur : `vues`, ce qu'il a vu et quand (aucune, pour le défi, tiré pour tous). */
+  tirer(vues: ReadonlyMap<string, number> = new Map(), maintenant = 0): { question: QuestionDeLaBase; niveau: Niveau }[] {
+    const { questions, marches: marcheDe, files: fileDe, categorieDeLaFile } = this
+    const n = questions.length
+    const nombreDeFiles = categorieDeLaFile.length
+    // Le battage de `melanger`, sur les indices : les mêmes tirages du hasard, dans le même ordre.
+    const ordre = new Int32Array(n)
+    for (let i = 0; i < n; i++) ordre[i] = i
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const x = ordre[i]
+      ordre[i] = ordre[j]
+      ordre[j] = x
+    }
+    // Ce qu'il a vu, et quand : depuis ses vues — quelques centaines —, pas depuis la base.
+    const classe = new Uint8Array(n)
+    const vueLe = new Float64Array(n)
+    const marquer = (i: number, le: number | undefined) => {
+      classe[i] = classeDeFraicheur(le, maintenant)
+      if (le !== undefined) vueLe[i] = le
+    }
+    if (vues.size > 0) {
+      if (this.parId) {
+        for (const [id, le] of vues) {
+          const i = this.parId.get(id)
+          if (i !== undefined) marquer(i, le)
+        }
+      } else for (let i = 0; i < n; i++) marquer(i, vues.get(questions[i].id))
+    }
+    // Les jamais vues, dans l'ordre du battage, chacune dans la file de sa
+    // marche ; les vues à part, dans ce même ordre, pour leurs classes.
+    const seaux: (number[] | undefined)[] = new Array(NIVEAUX.length * nombreDeFiles)
+    const vuesParClasse: number[][] = [[], []]
+    for (let p = 0; p < n; p++) {
+      const i = ordre[p]
+      const c = classe[i]
+      if (c === 0) (seaux[marcheDe[i] * nombreDeFiles + fileDe[i]] ??= []).push(p)
+      else vuesParClasse[c - 1].push(p)
+    }
+    // Les vues de la plus anciennement vue à la plus récente, d'un tri
+    // stable sur l'ordre du battage, comme `parFraicheur` : triées à la
+    // première marche qui en a besoin, une fois pour toutes.
+    const triees: (number[] | null)[] = [null, null]
+    const vuesTriees = (c: 1 | 2) => (triees[c - 1] ??= vuesParClasse[c - 1].sort((a, b) => vueLe[ordre[a]] - vueLe[ordre[b]]))
+    const classeDeLaMarche = (m: number, c: number): ClasseDuTour<QuestionDeLaBase> => {
+      if (c === 0) {
+        const files: FileDuTour[] = []
+        for (let f = 0; f < nombreDeFiles; f++) {
+          const rangs = seaux[m * nombreDeFiles + f]
+          if (rangs) files.push({ categorie: categorieDeLaFile[f], sousTheme: f, rangs })
+        }
+        return { files, question: p => questions[ordre[p]] }
+      }
+      // Une classe de vues : le rang, la place parmi toutes les vues de cette classe, triées.
+      const liste = vuesTriees(c as 1 | 2)
+      const parFile = new Map<number, FileDuTour>()
+      for (let r = 0; r < liste.length; r++) {
+        const i = ordre[liste[r]]
+        if (marcheDe[i] !== m) continue
+        let f = parFile.get(fileDe[i])
+        if (!f) parFile.set(fileDe[i], (f = { categorie: categorieDeLaFile[fileDe[i]], sousTheme: fileDe[i], rangs: [] }))
+        f.rangs.push(r)
+      }
+      return { files: [...parFile.values()], question: r => questions[ordre[liste[r]]] }
+    }
+    const servies: Servies<QuestionDeLaBase> = {
+      categories: new Array(this.nombreDeCategories).fill(0),
+      sousThemes: new Array(nombreDeFiles).fill(0),
+      deja: new DejaPrises(),
+    }
+    const tours = NIVEAUX.map((_, m) => new TourDeRole<QuestionDeLaBase>(c => classeDeLaMarche(m, c), servies))
+    const parMarche: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
+    NIVEAUX.forEach((niveau, m) => parMarche[niveau].push(...tours[m].prendre(QUESTIONS_PAR_MARCHE)))
+    let reste = QUESTIONS_PAR_SERIE - NIVEAUX.reduce((s, niveau) => s + parMarche[niveau].length, 0)
+    for (let m = NIVEAUX.length - 1; m >= 0; m--) {
+      const suite = tours[m].prendre(reste)
+      parMarche[NIVEAUX[m]].push(...suite)
+      reste -= suite.length
+    }
+    return ordreDeSerie(parMarche, QUESTIONS_PAR_SERIE)
+  }
 }
 
 /** `a` passe-t-il avant `b` ? Deux rangs se lisent de gauche à droite. */

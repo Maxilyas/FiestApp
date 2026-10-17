@@ -29,6 +29,7 @@ La CI (`.github/workflows/ci.yml`, « Vérification ») joue ces quatre étapes 
 - **un seul `node --test`** (`--import tsx`) : chaque fichier dans son processus, un de moins à la fois que la machine n'a de cœurs ;
 - **120 s au plus par épreuve — et, en Node 22, par fichier entier** (`--test-timeout=120000`) : un fichier qui approche la minute et demie se coupe par thème, comme `server/test/credits.test.ts` est né de `server/test/cloture.test.ts` ;
 - **un point par épreuve** (`--test-reporter=dot`) quand `CLAUDECODE` est posé — Claude Code le pose, et d'une commande qui échoue il ne lit que 10 000 caractères des 30 000 premiers : le TAP de toute la suite faisait 500 Ko, l'épreuve en échec n'y était jamais. Un terminal et la CI gardent le compte rendu de Node ;
+- **en CI, les échecs redits à la fin** (`CI` posé) : le TAP reste, et un second compte rendu, en points, redit après le décompte chaque épreuve en échec, en entier — GitHub ne rend que les cinq mille dernières lignes d'un journal, et le TAP de la suite en fait quinze mille : le 17 octobre 2026, deux exécutions rouges n'ont pas pu dire quelle épreuve avait échoué (`server/test/compte-rendu-des-tests.test.ts`) ;
 - **son code de sortie** est celui de `node --test` ; tué par un signal, 1.
 
 Un seul fichier, ou une seule épreuve, depuis `server/` :

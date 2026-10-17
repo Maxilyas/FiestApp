@@ -8,11 +8,12 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
-import { Charge, ReleveHoraire } from '../src/core/pouls'
+import { Charge, ReleveHoraire, sondeDuGel } from '../src/core/pouls'
 import {
   alertesDuServeur,
   arreteNet,
   debutDeLHeure,
+  fondreCharges,
   fondreConnexions,
   pageDuServeur,
   sorteDuDemarrage,
@@ -122,6 +123,66 @@ test('le pouls nourrit le relevé de l’heure : le processeur, le pire gel, la 
   assert.ok(lue.processeur >= 0 && lue.processeurMax >= lue.processeur)
 })
 
+test('le gel de l’hébergeur : la sonde lit le cgroup du conteneur, le pouls en fait une part du temps, l’heure en garde la moyenne et le pire', async () => {
+  // Le 16 octobre 2026, la boucle de la production se figeait deux secondes
+  // chaque heure, Turso paraissait lent, et rien ne disait si le dixième de
+  // cœur de l'hébergeur manquait.
+  const conteneur = (fichiers: Record<string, string>) => (f: string) => {
+    if (!(f in fichiers)) throw new Error(`ENOENT: ${f}`)
+    return fichiers[f]
+  }
+  // cgroup v2, en microsecondes ; v1, en nanosecondes ; ailleurs — un PC, un Mac —, pas de sonde.
+  assert.equal(sondeDuGel(conteneur({ '/sys/fs/cgroup/cpu.stat': 'usage_usec 812\nnr_periods 100\nnr_throttled 7\nthrottled_usec 4200\n' }))?.(), 4200)
+  assert.equal(sondeDuGel(conteneur({ '/sys/fs/cgroup/cpu/cpu.stat': 'nr_periods 10\nnr_throttled 2\nthrottled_time 3000000\n' }))?.(), 3000)
+  assert.equal(sondeDuGel(conteneur({})), null)
+  assert.equal(sondeDuGel(conteneur({ '/sys/fs/cgroup/cpu.stat': 'usage_usec 812\n' })), null, 'un cgroup sans limite de processeur')
+  // Un fichier qui se tait ensuite : la sonde aussi, sans rien jeter.
+  let present = true
+  const sonde = sondeDuGel(f => {
+    if (!present || f !== '/sys/fs/cgroup/cpu.stat') throw new Error('ENOENT')
+    return 'throttled_usec 10\n'
+  })!
+  present = false
+  assert.equal(sonde(), null)
+
+  // L'heure : la moyenne et le pire des relevés qui le disent, les autres n'y comptent pas.
+  const r = new ReleveHoraire(() => Date.UTC(2026, 9, 16, 15, 10))
+  r.charge({ processeur: 9, boucleMaxMs: 2000, memoireMo: 240, invites: 0, gelePct: 30 })
+  r.charge({ processeur: 4, boucleMaxMs: 100, memoireMo: 240, invites: 0, gelePct: 10 })
+  r.charge({ processeur: 2, boucleMaxMs: 50, memoireMo: 240, invites: 0, gelePct: null })
+  assert.deepEqual(r.lignes('d1')[0].charge, { n: 3, processeur: 5, processeurMax: 9, boucleMaxMs: 2000, memoireMaxMo: 240, invitesMax: 0, gelePct: 20, geleMaxPct: 30 })
+  // Deux démarrages de la même heure : pondéré sur les relevés qui le disent, le pire des deux.
+  const avec = { n: 30, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18, gelePct: 20, geleMaxPct: 60 }
+  const sans = { n: 90, processeur: 1, processeurMax: 3, boucleMaxMs: 80, memoireMaxMo: 260, invitesMax: 2 }
+  assert.deepEqual(fondreCharges(avec, sans), { n: 120, processeur: 2, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 260, invitesMax: 18, gelePct: 20, geleMaxPct: 60 })
+  assert.deepEqual(fondreCharges(avec, { ...avec, gelePct: 40, geleMaxPct: 45 })?.gelePct, 30)
+  assert.equal('gelePct' in fondreCharges(sans, sans)!, false, 'deux lignes d’avant n’en disent rien')
+
+  // Branchée sur le pouls : chaque relevé dit la part de son temps gelée, et /healthz la moyenne et le pire de la minute.
+  let gele = 0
+  const releve = new ReleveHoraire()
+  const pouls = new Charge(20, { releve, gel: () => (gele += 5_000) })
+  try {
+    for (let i = 0; i < 100 && (releve.lignes('d1').at(-1)!.charge?.n ?? 0) < 2; i++) await patienter(20)
+    const lue = releve.lignes('d1').at(-1)!.charge!
+    assert.ok(typeof lue.gelePct === 'number' && lue.gelePct > 0 && lue.gelePct <= 100, JSON.stringify(lue))
+    const minute = pouls.lire()
+    assert.ok(typeof minute.geleePct === 'number' && minute.geleeMaxPct! >= minute.geleePct, JSON.stringify(minute))
+  } finally {
+    pouls.arreter()
+  }
+  // Sans sonde, rien : ni dans l'heure, ni à /healthz.
+  const ailleurs = new ReleveHoraire()
+  const sansSonde = new Charge(20, { releve: ailleurs, gel: null })
+  try {
+    for (let i = 0; i < 100 && (ailleurs.lignes('d1').at(-1)!.charge?.n ?? 0) < 1; i++) await patienter(20)
+    assert.equal('gelePct' in ailleurs.lignes('d1').at(-1)!.charge!, false)
+    assert.equal(sansSonde.lire().geleePct, null)
+  } finally {
+    sansSonde.arreter()
+  }
+})
+
 // Une semaine de démarrages : un réveil, un arrêt net puis son redémarrage,
 // une mise en ligne, une relance, et celui qui répond.
 const demarrage = (id: string, d: Partial<DemarrageDuServeur>): DemarrageDuServeur => ({
@@ -166,7 +227,8 @@ const LIGNES: HeureDeSante[] = [
     base: { n: 10, p50: 30, p95: 60, max: 80 },
     routes: { n: 20, p50: 100, p95: 300, max: 500 },
     erreurs: { 'POST /api/jour/reponse': 2 },
-    charge: { n: 60, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18 },
+    // Le gel de l'hébergeur, que c, une ligne d'avant, ne dit pas.
+    charge: { n: 60, processeur: 5, processeurMax: 9, boucleMaxMs: 300, memoireMaxMo: 210, invitesMax: 18, gelePct: 12, geleMaxPct: 40 },
     connexions: { ouvertes: 8, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 1, gardeMs: 4_000, annonceeMs: null },
   }),
   ligne(a(4, 14), 'c', {
@@ -210,6 +272,8 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     erreurs: 4,
     miroir: 2,
     processeur: 6.5,
+    // Pondéré sur les seuls relevés qui le disent : ceux de b.
+    gele: 12,
     boucle: 300,
     memoire: 260,
     invites: 25,
@@ -227,6 +291,7 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     erreurs: 0,
     miroir: 0,
     processeur: null,
+    gele: null,
     boucle: null,
     memoire: null,
     invites: null,
@@ -423,11 +488,12 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'POST /api/jour/reponse',
     'serveur-routes-endormi',
     'Les chiffres des',
-    // La charge : ses quatre graphiques, leurs plafonds, et l'heure lue dans les quatre.
+    // La charge : ses cinq graphiques, leurs plafonds, et l'heure lue dans les cinq — le gel de l'hébergeur sous le processeur.
     'La charge, heure par heure',
+    'Gel de l’hébergeur',
     'Invités connectés',
     'plafond',
-    'ven. 9 oct., 14 h : processeur 6,5 % · boucle 300 ms · mémoire 260 Mo · 25 invités',
+    'ven. 9 oct., 14 h : processeur 6,5 % · gel de l’hébergeur 12 % · boucle 300 ms · mémoire 260 Mo · 25 invités',
     // Turso et ses connexions : deux graphiques, et l'heure lue dans les deux — la garde, ce que la base a refermé, ce qui est tombé.
     'Connexions neuves',
     'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',

@@ -10,8 +10,8 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { hautsFaitsDeLaSerie } from '../src/core/campagne'
-import { FAMILLES_DE_SUJETS, SUJETS, sujetsDe } from '../../shared/sujets'
-import { ETIQUETTES, SOUS_THEMES } from '../../shared/etiquettes'
+import { FAMILLES_DE_SUJETS, SUJETS, anneeDe, sujetsDe } from '../../shared/sujets'
+import { ETIQUETTES, PORTEES, SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import type { Categorie } from '../../shared/categories'
 
@@ -115,6 +115,43 @@ test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horlog
   for (const s of SUJETS) {
     if (s.famille === 'epoque') assert.equal(iconeDuSujet(s), 'clock', s.cle)
     else assert.notEqual(iconeDuSujet(s), 'clock', `${s.cle} : ajoute son icône à client/src/iconeDuSujet.ts`)
+  }
+})
+
+// La règle d'avant, sujet par sujet : la référence. Elle passait les
+// vingt-sept sujets pour chacune des vingt-quatre mille questions de la base —
+// 35 à 60 ms à la première ouverture de la campagne après chaque réveil, dix
+// fois plus au dixième de cœur de l'hébergeur (le banc du 16 octobre 2026).
+test('les sujets d’une question, lus par leur index : les mêmes, dans le même ordre, que la règle lue sujet par sujet', () => {
+  const reference = (m: Parameters<typeof sujetsDe>[0]) => {
+    const annee = anneeDe(m.date)
+    return SUJETS.filter(
+      s =>
+        (s.annees && annee !== null && annee >= s.annees[0] && annee <= s.annees[1]) ||
+        (s.etiquettes && !s.etiquettesHors?.includes(m.categorie as Categorie) && s.etiquettes.some(e => m.etiquettes.includes(e))) ||
+        (s.portee && m.portee === s.portee) ||
+        (s.sousThemes && !!s.sousThemes[m.categorie as Categorie]?.includes(m.sousTheme)),
+    ).map(s => s.cle)
+  }
+  const { questions } = lireLaBase()
+  for (const q of questions) assert.deepEqual(sujetsDe(q.meta), reference(q.meta), q.id)
+  // Et ce que la base n'a pas : chaque étiquette, chaque sous-thème, deux étiquettes d'un même sujet, une date aux bornes de chaque époque.
+  let graine = 3
+  const hasard = () => ((graine = (graine * 16807) % 2147483647) - 1) / 2147483646
+  const parmi = <T>(liste: readonly T[]) => liste[Math.floor(hasard() * liste.length)]
+  const bornes = SUJETS.flatMap(s => (s.annees ? [s.annees[0] - 1, s.annees[0], s.annees[1], s.annees[1] + 1] : []))
+  const etiquettes = ETIQUETTES.flatMap(f => f.etiquettes.map(e => e.cle))
+  const categories = Object.keys(SOUS_THEMES) as Categorie[]
+  for (let i = 0; i < 5000; i++) {
+    const categorie = parmi(categories)
+    const m = meta(
+      hasard() < 0.2 ? null : { valeur: String(hasard() < 0.5 ? parmi(bornes) : Math.floor(hasard() * 2200) - 100), precision: parmi(['jour', 'annee', 'decennie', 'siecle']) },
+      Array.from({ length: Math.floor(hasard() * 4) }, () => parmi(etiquettes)),
+      parmi(PORTEES),
+      categorie,
+      parmi(SOUS_THEMES[categorie]).cle,
+    )
+    assert.deepEqual(sujetsDe(m), reference(m), JSON.stringify(m))
   }
 })
 

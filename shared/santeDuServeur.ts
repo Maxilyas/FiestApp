@@ -96,6 +96,15 @@ export interface ChargeDeLHeure {
   boucleMaxMs: number
   memoireMaxMo: number
   invitesMax: number
+  /**
+   * La part de l'heure où l'hébergeur a gelé le processus faute de
+   * processeur, en moyenne et au pire relevé (`sondeDuGel`, `core/pouls.ts`) :
+   * ce qui fige la boucle et allonge chaque aller-retour vers Turso, sans que
+   * Turso y soit pour rien. Absente hors d'un conteneur qui le dit, et des
+   * lignes d'avant le 16 octobre 2026.
+   */
+  gelePct?: number
+  geleMaxPct?: number
 }
 
 /**
@@ -195,6 +204,8 @@ export interface HeureDuServeur {
   miroir: number
   /** La charge de l'heure : le processeur en moyenne (en pour cent d'un cœur), le pire gel, les pics de mémoire et d'invités ; null sans relevé. */
   processeur: number | null
+  /** La part de l'heure gelée par l'hébergeur, faute de processeur ; null sans relevé qui le dise. */
+  gele: number | null
   boucle: number | null
   memoire: number | null
   invites: number | null
@@ -253,6 +264,9 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
   if (!a || a.n === 0) return b && b.n > 0 ? b : null
   if (!b || b.n === 0) return a
   const n = a.n + b.n
+  // Le gel ne se pondère que sur les relevés qui le disent : une ligne d'avant n'en dit rien.
+  const geles = [a, b].filter((c): c is ChargeDeLHeure & { gelePct: number } => typeof c.gelePct === 'number')
+  const relevesGeles = geles.reduce((s, c) => s + c.n, 0)
   return {
     n,
     processeur: Math.round(((a.processeur * a.n + b.processeur * b.n) / n) * 10) / 10,
@@ -260,6 +274,10 @@ export function fondreCharges(a: ChargeDeLHeure | null, b: ChargeDeLHeure | null
     boucleMaxMs: Math.max(a.boucleMaxMs, b.boucleMaxMs),
     memoireMaxMo: Math.max(a.memoireMaxMo, b.memoireMaxMo),
     invitesMax: Math.max(a.invitesMax, b.invitesMax),
+    ...(geles.length > 0 && {
+      gelePct: Math.round((geles.reduce((s, c) => s + c.gelePct * c.n, 0) / relevesGeles) * 10) / 10,
+      geleMaxPct: Math.max(...geles.map(c => c.geleMaxPct ?? c.gelePct)),
+    }),
   }
 }
 
@@ -406,6 +424,7 @@ export function pageDuServeur(
       erreurs: h ? totalDesErreurs(h.erreurs) : 0,
       miroir: h?.miroir ?? 0,
       processeur: h?.charge?.processeur ?? null,
+      gele: h?.charge?.gelePct ?? null,
       boucle: h?.charge?.boucleMaxMs ?? null,
       memoire: h?.charge?.memoireMaxMo ?? null,
       invites: h?.charge?.invitesMax ?? null,

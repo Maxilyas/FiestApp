@@ -7,7 +7,7 @@ paths:
   - "client/src/components/{AccueilDesRoles,Pieces,Apparence,Trophees,Collection,AlbumDesTrophees,AlbumDuStyle,Gemmes,LigneDeCollection,PanneauxDuProfil,CarteJoueur,Identite,Atlas,AlbumDesAvatars,ProfilForm,Loge,LogeTete,RayonDesCompagnons}.tsx"
   - "client/src/components/choix.ts"
   - "client/src/nouveautes.ts"
-  - "server/test/{profil,profil-atlas,collection,ma-collection,album-des-avatars,carte,carte-du-solo,proches,premier-haut-fait,avatars-des-pages,menu,mots-du-solo,loge,grille-avatars,compagnons,trophees,style,nouveautes}.test.ts"
+  - "server/test/{profil,profil-atlas,profil-charge,collection,ma-collection,album-des-avatars,carte,carte-du-solo,proches,premier-haut-fait,avatars-des-pages,menu,mots-du-solo,loge,grille-avatars,compagnons,trophees,style,nouveautes}.test.ts"
 ---
 
 # Le profil : l'accueil, ce qu'on porte, la carte, la collection
@@ -54,3 +54,18 @@ paths:
   par-dessus le contenu de la carte en grand (le lambrequin du théâtre,
   `z-index: 1`) passe dessous sur elle, à la taille de la vignette : il
   cachait le prénom (`loge.test.ts`).
+- **La pastille de « Profil » ne refait pas la page.** `GET
+  /api/joueur/nouveautes` lit ce que la loge compte et rien d'autre
+  (`ProfileStore.ceQueLaLogeLit`, le type `CeQueLaLogeLit` de
+  `shared/loge.ts`) : elle refaisait tout le détail — seize allers-retours
+  en quatre vagues — à chaque accueil, chaque « Mes quiz », chaque
+  « Compte » (le banc du 16 octobre 2026, `retours/2026-10-16/`). Chaque
+  champ vient du même endroit que dans la page (`ouvertsDe`, `etagereDe`,
+  `themesPossedes`, `campagneDuProfil`) ; un champ de plus que
+  `ceQuIlAPorter` lit s'ajoute au type, et `ToutDonne` oblige le serveur à
+  le remplir. `profil-charge.test.ts` compare le compte de la pastille à
+  celui de la page, et compte ses allers-retours. La page du profil, elle,
+  partage une seule lecture de la campagne (`CampagneStore.duProfil` :
+  confettis, paliers, cote) entre sa boutique, ses portraits, ses fonds et
+  ses bordures — qu'une panne dit à chacun là où il la lit, sous peine
+  d'une promesse rejetée que personne n'attend.
