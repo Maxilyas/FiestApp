@@ -93,9 +93,12 @@ import { sansAccent } from '../../shared/homonymes'
  * des anneaux, James Bond, l'Égypte, l'Inde, le Mexique —, chacun ce qui
  * lui manquait, avec de la marge (`preparer --sujet=james-bond:75,…`), 301
  * rangées sur 320 (15 refusées comme un fait ou un intitulé déjà posé, 4
- * retirées à la relecture) : 25 830.
+ * retirées à la relecture) : 25 830. Puis l'outre-mer, fil rouge neuf du
+ * même soir, à 92 questions : trente de plus là où il vit déjà
+ * (`preparer --sujet=outre-mer:30`), 29 rangées (une refusée comme un fait
+ * déjà posé) : 25 859.
  */
-const AU_MOINS = 25830
+const AU_MOINS = 25859
 
 const { questions, refusees } = lireLaBase()
 

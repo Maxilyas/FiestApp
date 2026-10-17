@@ -323,10 +323,15 @@ export const SUJETS: readonly Sujet[] = [
   // étiquette chacun (`ETIQUETTES`, « Les pays »), posée sur les questions que
   // la base avait déjà, relues une à une — l'Italie de la pizza et de Fellini,
   // pas les chiffres romains ni Jupiter, qui est aux mythes. Ni la France, ni
-  // la Belgique, la Suisse ou le Québec : leurs fils rouges les disent. Dans
-  // l'ordre de l'alphabet : on y cherche un nom.
+  // la Belgique ou la Suisse : leurs fils rouges les disent. Le soir même, le
+  // Canada, Québec compris, et deux continents — l'Afrique sans l'Égypte, qui
+  // a son sujet, l'Amérique du Sud sans le Mexique : deux sujets ne se
+  // recoupent pas. Dans l'ordre de l'alphabet : on y cherche un nom.
+  { cle: 'afrique', nom: 'L’Afrique', famille: 'pays', description: 'Du Sahara au Cap, ses pays, ses peuples et ses musiques (l’Égypte a la sienne)', etiquettes: ['afrique'] },
   { cle: 'allemagne', nom: 'L’Allemagne', famille: 'pays', description: 'Berlin, la Bavière, Goethe et le Mur', etiquettes: ['allemagne'] },
+  { cle: 'amerique-du-sud', nom: 'L’Amérique du Sud', famille: 'pays', description: 'Le Brésil, l’Argentine, les Andes et l’Amazonie', etiquettes: ['amerique-du-sud'] },
   { cle: 'australie', nom: 'L’Australie', famille: 'pays', description: 'Sydney, les kangourous et le bush', etiquettes: ['australie'] },
+  { cle: 'canada', nom: 'Le Canada', famille: 'pays', description: 'Le Québec, les Rocheuses, le hockey et le sirop d’érable', etiquettes: ['canada'] },
   { cle: 'chine', nom: 'La Chine', famille: 'pays', description: 'Pékin, la Grande Muraille, les dynasties et le kung-fu', etiquettes: ['chine'] },
   { cle: 'egypte', nom: 'L’Égypte', famille: 'pays', description: 'Les pharaons, les pyramides et le Nil', etiquettes: ['egypte'] },
   { cle: 'espagne', nom: 'L’Espagne', famille: 'pays', description: 'Madrid, Barcelone, le flamenco et la paella', etiquettes: ['espagne'] },
@@ -366,6 +371,15 @@ export const SUJETS: readonly Sujet[] = [
   // La francophonie (le 17 octobre 2026) : la portée que chaque question porte déjà — ce qu'on sait d'avoir
   // grandi en Belgique, en Suisse, au Québec ou en Afrique francophone —, cinq cents questions de douze catégories.
   { cle: 'francophonie', nom: 'La francophonie', famille: 'fil', description: 'La Belgique, la Suisse, le Québec et l’Afrique francophone', portee: 'francophonie' },
+  // Le 17 octobre 2026, au soir (« rajouter ce qui te semble pertinent ») : ce que la base posait sans qu'on puisse
+  // le choisir, mesuré sur elle — chacun ses cent questions de sept catégories au moins, et aucun ne tient à moitié
+  // dans un autre sujet. L'outre-mer, les citations et le calcul avaient déjà leur étiquette ; Paris, les rois et la
+  // mer ont reçu la leur question par question, relues à sa règle comme les pays. Pas les îles : l'outre-mer et
+  // les pays-îles s'y seraient retrouvés.
+  { cle: 'outre-mer', nom: 'L’outre-mer', famille: 'fil', description: 'Des Antilles à la Polynésie, leurs musiques, leurs saveurs et leur histoire', etiquettes: ['outre-mer'] },
+  { cle: 'paris', nom: 'Paris', famille: 'fil', description: 'Ses monuments, ses quartiers, son histoire et ses Parisiens', etiquettes: ['paris'] },
+  { cle: 'rois-de-france', nom: 'Les rois et reines de France', famille: 'fil', description: 'De Clovis à Louis-Philippe, leurs règnes et leurs cours', etiquettes: ['rois-de-france'] },
+  { cle: 'mer', nom: 'La mer et les marins', famille: 'fil', description: 'Navires, pirates, naufrages et courses au large', etiquettes: ['mer'] },
   { cle: 'pionnieres', nom: 'Pionnières', famille: 'fil', description: 'Des femmes qui ont ouvert la voie', etiquettes: ['femmes'] },
   { cle: 'pieges', nom: 'Les pièges', famille: 'fil', description: 'La réponse évidente est fausse', etiquettes: ['piege'] },
   { cle: 'premieres', nom: 'Les premières fois', famille: 'fil', description: 'Qui l’a fait le premier ?', etiquettes: ['premiere'] },
@@ -381,7 +395,9 @@ export const SUJETS: readonly Sujet[] = [
     categorie: 'Culture générale',
   },
   { cle: 'surnoms', nom: 'Les surnoms', famille: 'fil', description: 'La Ville Lumière, le Roi-Soleil…', etiquettes: ['surnom'] },
+  { cle: 'citations', nom: 'Les citations', famille: 'fil', description: 'Qui a dit, écrit ou chanté cette phrase ?', etiquettes: ['citation'] },
   { cle: 'mots', nom: 'L’origine des mots', famille: 'fil', description: 'D’où viennent les mots et les noms', etiquettes: ['etymologie'] },
+  { cle: 'calcul-mental', nom: 'Le calcul mental', famille: 'fil', description: 'Des questions où il faut compter', etiquettes: ['calcul'] },
   { cle: 'insolite', nom: 'L’insolite', famille: 'fil', description: 'Des faits qu’on a envie de raconter, et des idées reçues', etiquettes: ['insolite', 'idee-recue'] },
   // Sans les contes et légendes depuis le 17 octobre 2026 : ils sont aux mythes et légendes (plus haut).
   { cle: 'enfance', nom: 'Souvenirs d’enfance', famille: 'fil', description: 'Dessins animés, jouets, chansons et livres d’enfant', etiquettes: ['enfance'] },

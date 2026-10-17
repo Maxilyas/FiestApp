@@ -111,6 +111,12 @@ export type IconName =
   | 'bouclier'
   | 'anneau'
   | 'sabre'
+  // Les fils rouges du 17 octobre 2026 au soir : Paris, la mer, l'outre-mer, les citations, le calcul mental.
+  | 'tour-eiffel'
+  | 'ancre'
+  | 'palmier'
+  | 'guillemets'
+  | 'operations'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -764,6 +770,48 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M10.6 13.4 19.8 4.2M7.6 12.6l3.8 3.8" />
         <path d="M3.4 19.2 8.6 14l1.4 1.4-5.2 5.2Z" />
+      </>
+    ),
+  },
+  // Les fils rouges du 17 octobre 2026 au soir. Les rois et reines de France
+  // ont la couronne (`crown`), qui existait déjà.
+  'tour-eiffel': {
+    paths: (
+      <>
+        <path d="M12 2.5V5M10.8 5h2.4M10.8 5 7 21M13.2 5 17 21" />
+        <path d="M9.3 11.5h5.4M8.1 16.5h7.8M9.5 21a2.5 2.5 0 0 1 5 0" />
+      </>
+    ),
+  },
+  ancre: {
+    paths: (
+      <>
+        <circle cx="12" cy="5" r="2.4" />
+        <path d="M12 7.4V21M8.5 10.5h7M5 13H3.5a8.5 8.5 0 0 0 17 0H19" />
+      </>
+    ),
+  },
+  palmier: {
+    paths: (
+      <>
+        <path d="M13 21c.2-3.6-.3-6.8-1.6-9.6" />
+        <path d="M11.4 11.4C10.2 8.7 7.6 7.6 4.5 8.2M11.4 11.4c.2-2.9 2-4.9 5-5.4M11.4 11.4c2.7-.9 5.2-.1 7.1 2M11.4 11.4c-2.6.4-4.6 2-5.4 4.6M7 21h10" />
+      </>
+    ),
+  },
+  guillemets: {
+    paths: (
+      <>
+        <path d="M10 6.5H6v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+        <path d="M18 6.5h-4v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+      </>
+    ),
+  },
+  operations: {
+    paths: (
+      <>
+        <path d="M7 4.5v5M4.5 7h5M14.5 7h5" />
+        <path d="m5 15 4 4M9 15l-4 4M14.5 17h5M17 14.5v.01M17 19.5v.01" />
       </>
     ),
   },

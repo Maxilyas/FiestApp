@@ -61,6 +61,10 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "francais", nom: "La langue française", definition: "la langue française elle-même est au cœur d'une question rangée hors du sous-thème francais : le sens d'une expression, d'un mot familier ou d'argot, le mot recommandé à la place d'un anglicisme, l'histoire du français (ouvrir le bal, le toubib, courriel, l'ordonnance de Villers-Cotterêts). Pas pour le vocabulaire d'un métier ou d'un art (émincer, crescendo), ni pour la seule origine d'un mot : etymologie le dit" },
       { cle: "anglais", nom: "La langue anglaise", definition: "le sens d'un mot ou d'une expression anglaise est au cœur d'une question rangée hors du sous-thème anglais (happy hour, black tie, love au tennis, LOL). Pas pour un sigle technique (USB, GPS), un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
       { cle: "espagnol", nom: "La langue espagnole", definition: "le sens d'un mot ou d'une expression espagnole est au cœur d'une question rangée hors du sous-thème espagnol (piña colada, paso doble, Feliz Navidad). Pas pour un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
+      // Le 17 octobre 2026, au soir : trois fils rouges de plus, posés sur la base question par question.
+      { cle: "paris", nom: "Paris", definition: "Paris est au cœur de la question — ses monuments, ses musées, ses quartiers, son histoire, ses institutions, ses clubs et ses grands rendez-vous —, ou Paris est la réponse. Pas ce qui s'y passe par hasard (un roman qui s'y déroule, un tableau conservé au Louvre, un traité signé à Paris), ni un nom qui le contient (le Paris-Brest)" },
+      { cle: "rois-de-france", nom: "Les rois et reines de France", definition: "un roi ou une reine de France, des Mérovingiens à Louis-Philippe, est au cœur de la question — son règne, sa cour, ses favorites, ses grands ministres, ses châteaux royaux —, ou il est la réponse. Pas les empereurs (Napoléon), ni les rois d'ailleurs, ni un roi cité pour dater autre chose" },
+      { cle: "mer", nom: "La mer et les marins", definition: "les navires et la navigation, les marins et les navigateurs, les pirates et les corsaires, les batailles navales, les naufrages, les phares et les ports, la voile et les courses au large. Pas la faune marine (animaux), ni la seule géographie des mers et des océans" },
     ],
   },
   {
@@ -96,14 +100,20 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
   },
   // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : chacun
   // un sujet de la campagne (`shared/sujets.ts`). Pas la France — sa portée
-  // le dit déjà —, ni la Belgique, la Suisse ou le Québec : la francophonie.
+  // le dit déjà —, ni la Belgique ou la Suisse : la francophonie. Le soir
+  // même, le Canada, Québec compris, et deux continents, l'Afrique sans
+  // l'Égypte et l'Amérique du Sud : un pays qui a son sujet n'entre pas dans
+  // celui de son continent, deux sujets ne se recoupent pas.
   {
     famille: "Les pays",
     regle:
       "la question parle de ce pays : ses villes et ses paysages, son histoire (l'antique comprise), ses dirigeants, sa cuisine, ses traditions, ses sports — ou de ce qui en vient quand elle le dit (« écrivain japonais ») ou que le pays est la réponse. Pas sa mythologie, ni sa langue seule, ni ce qui s'y passe par hasard (un film américain tourné à Rome)",
     etiquettes: [
+      { cle: "afrique", nom: "Afrique (tous ses pays, sauf l'Égypte, qui a la sienne)", definition: "" },
       { cle: "allemagne", nom: "Allemagne", definition: "" },
+      { cle: "amerique-du-sud", nom: "Amérique du Sud (Brésil, Argentine, Chili, Pérou, Colombie… : ni le Mexique, ni les Caraïbes, ni la Guyane française)", definition: "" },
       { cle: "australie", nom: "Australie", definition: "" },
+      { cle: "canada", nom: "Canada (le Québec compris)", definition: "" },
       { cle: "chine", nom: "Chine", definition: "" },
       { cle: "egypte", nom: "Égypte", definition: "" },
       { cle: "espagne", nom: "Espagne", definition: "" },
