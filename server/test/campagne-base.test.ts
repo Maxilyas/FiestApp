@@ -79,9 +79,12 @@ import { sansAccent } from '../../shared/homonymes'
  * l'informatique, l'astronomie, les jeux vidéo, la BD et le manga, les
  * monuments —, cent questions de plus chacun (`preparer --sujet`), 496
  * rangées sur 500 (2 refusées comme un fait déjà posé, 2 retirées à la
- * relecture) : 24 627.
+ * relecture) : 24 627. Puis la langue française, son sous-thème neuf écrit
+ * famille par famille de son inventaire (`preparer --inventaire=francais`),
+ * 390 rangées sur 400 (7 refusées comme un fait ou un intitulé déjà posé, 3
+ * retirées à la relecture) : 25 017.
  */
-const AU_MOINS = 24627
+const AU_MOINS = 25017
 
 const { questions, refusees } = lireLaBase()
 
