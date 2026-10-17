@@ -11,7 +11,7 @@ Tout se joue sans compte : un invité anonyme joue la même partie, aux mêmes p
 
 ## Les principes
 
-**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fera servir ce qu'on a gagné : chaque légendaire y deviendra un joker, qui n'en sort jamais.
+**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fait servir ce qu'on a gagné : chaque légendaire qui a son joker y part dans l'équipée, et son joker n'en sort jamais.
 
 **L'invité anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise, ni finition : l'absence, pas l'infériorité. Ses hauts faits de soirée sont annoncés à la clôture comme ceux des autres, sur son téléphone et à la salle, mais rien ne se garde ; le profil qu'il crée ensuite commence à la soirée suivante.
 
@@ -260,7 +260,7 @@ Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te
 
 Quatre sont de l'ombre — le Kraken, le Fantôme, le Trou Noir, la Chauve-souris : ils s'ouvrent par des coups du sort.
 
-**Une voie de plus, au bout de l'Expédition** : chacun des vingt légendaires qui ont leur joker hors des saisons — tous sauf l'Aigle, la Licorne, l'Éléphant et les trois de saison — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus. Cette voie ne se montre nulle part tant que l'expédition n'est pas ouverte en production ; elle ne reprend rien à personne.
+**Une voie de plus, au bout de l'Expédition** : chacun des vingt légendaires qui ont leur joker hors des saisons — tous sauf l'Aigle, la Licorne, l'Éléphant et les trois de saison — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus — l'album le dit, « en expédition », depuis qu'elle est ouverte. Cette voie ne reprend rien à personne.
 
 - **Ta progression** se lit sur la voie la plus avancée ; une voie « tout à la fois » se compte en conditions tenues (« 2 sur 3 »). Un légendaire ne s'annonce qu'une fois, même quand sa seconde voie se remplit.
 - **Il se relit à chaque affichage** : une soirée retirée peut emporter le légendaire que ses hauts faits ouvraient.

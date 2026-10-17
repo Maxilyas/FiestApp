@@ -9,18 +9,18 @@ interface ExpeditionDeps {
   campagne: CampagneStore
   profiles: ProfileStore
   /**
-   * Ses routes répondent : hors de la production, ou une fois ses jokers
-   * venus (`EXPEDITION_EN_PRODUCTION`, `shared/jokers.ts`). Sans jokers, le
-   * joueur moyen n'arrive au bout que trois fois sur cent : rien ne s'y gagne
-   * en production avant que le mode soit entier.
+   * Ses routes répondent : hors de la production, et en production depuis
+   * ses jokers (`EXPEDITION_EN_PRODUCTION`, `shared/jokers.ts`). Sans eux, le
+   * joueur moyen n'arrivait au bout que quatre fois sur cent : rien ne s'y
+   * gagnait en production avant que le mode soit entier.
    */
   ouverte: boolean
 }
 
 /**
  * L'expédition répond-elle ? Hors de la production toujours — la
- * préproduction (`APP_ENV`), `npm run dev`, les tests —, en production une
- * fois ses jokers venus.
+ * préproduction (`APP_ENV`), `npm run dev`, les tests —, en production tant
+ * que le drapeau l'ouvre : ses jokers venus, il l'ouvre.
  */
 export function expeditionOuverte({ online, env }: { online: boolean; env: string }): boolean {
   return EXPEDITION_EN_PRODUCTION || !online || env !== 'production'

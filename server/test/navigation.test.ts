@@ -119,7 +119,7 @@ test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de 
   assert.match(profil, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
 })
 
-test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, les duels, un salon, rejoindre — en gros boutons, à la même place', async () => {
+test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, les duels, l’expédition, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
   const toujours = [
@@ -127,17 +127,19 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
     'Le quiz du jourDix questions, les mêmes pour tous → /jour',
     // Sous le quiz du jour (le souhait du propriétaire du 11 octobre 2026) : défier un joueur, sorti de la campagne.
     'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
+    // Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) : sans eux, elle n'avait pas de bouton.
+    'L’ExpéditionTrois gardiens à vaincre, un légendaire au bout → /expedition',
     'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
     'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
   ]
 
-  // Rien en cours : les cinq gestes, aucun principal — l'ordre ne dépend ni
+  // Rien en cours : les six gestes, aucun principal — l'ordre ne dépend ni
   // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
   const libre = await accueil({})
   assert.deepEqual(gestes(libre), toujours)
   assert.doesNotMatch(libre, /gros-principal/)
   // En deux sections nommées : seul, puis à plusieurs.
-  assert.match(libre, /<span class="label" id="jouer-seul">Seul<\/span>.*La campagne.*Le quiz du jour.*Les duels.*<span class="label" id="jouer-amis">Entre amis<\/span>.*Créer un salon/)
+  assert.match(libre, /<span class="label" id="jouer-seul">Seul<\/span>.*La campagne.*Le quiz du jour.*Les duels.*L’Expédition.*<span class="label" id="jouer-amis">Entre amis<\/span>.*Créer un salon/)
 
   // Le quiz du jour dit sa série, et « À jouer » tant qu'on ne l'a pas joué aujourd'hui.
   const { jourDe } = await import('../../shared/jour')

@@ -357,8 +357,9 @@ test('un gardien qu’il a déjà se dit avant le départ et en route : les plac
   }
 })
 
-test('en production, l’expédition attend ses jokers : ses routes ne répondent qu’hors de la production', () => {
-  assert.equal(expeditionOuverte({ online: true, env: 'production' }), false)
+test('ses jokers venus, l’expédition répond partout — en production aussi', () => {
+  // L'étape 1 : ses routes ne répondaient qu'hors de la production. Le drapeau (`EXPEDITION_EN_PRODUCTION`) peut la refermer d'une ligne.
+  assert.equal(expeditionOuverte({ online: true, env: 'production' }), true)
   assert.equal(expeditionOuverte({ online: true, env: 'preprod' }), true)
   assert.equal(expeditionOuverte({ online: false, env: 'production' }), true, '`npm run dev`, les tests')
 })

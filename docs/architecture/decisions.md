@@ -1280,7 +1280,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 ### Ce qu'on a gagné sert enfin, mais seulement en expédition
 **Contexte** : le propriétaire, le 17 octobre 2026 : « on fait que rajouter des choses mais on ne sait plus quoi choisir », et « les légendaires pourrait donner justement des pouvoirs pour aider à avancer ». Or un profil ne donnait aucun avantage de jeu (invariant 8) : en soirée, un niveau 30 et un invité arrivé ce soir jouent la même partie, et c'est ce qui laisse le chemin anonyme entier.
 
-**Décision** : un mode à part, l'Expédition, où les légendaires se gagnent — au bout de l'acte 3, l'un des trois gardiens vaincus — et où ils serviront, en jokers (l'étape 2). L'invariant 8 devient « aucun avantage de jeu face aux autres » : ni en soirée, ni au quiz du jour, ni au défi, ni en duel ; seule l'expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers n'en sortent jamais. Elle n'a pas de classement. Les Divins n'ont ni joker ni gardien (invariant 21).
+**Décision** : un mode à part, l'Expédition, où les légendaires se gagnent — au bout de l'acte 3, l'un des trois gardiens vaincus — et où ils servent, en jokers (l'étape 2). L'invariant 8 devient « aucun avantage de jeu face aux autres » : ni en soirée, ni au quiz du jour, ni au défi, ni en duel ; seule l'expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers n'en sortent jamais. Elle n'a pas de classement. Les Divins n'ont ni joker ni gardien (invariant 21).
 
 **Conséquence** : aucune route d'un autre mode n'accepte un joker. Chaque légendaire qui a son joker reçoit une voie de plus (`aussi`, `expedition:<légendaire>`), qui ne reprend rien à personne (invariant 22) ; ceux de saison n'en ont pas : ils ne se gagnent qu'à leur saison, par elle seule.
 
@@ -1305,13 +1305,49 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 *Fichiers : `server/src/core/campagne.ts`, `server/test/expedition.test.ts`*
 
 ### L'expédition s'ouvre en production avec ses jokers
-**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`server/scripts/calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que cinq fois sur cent : les jokers font le mode.
+**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`server/scripts/calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que quatre fois sur cent : les jokers font le mode.
 
-**Décision** : jusqu'aux jokers, ses routes répondent 404 en production — en ligne et sans `APP_ENV` (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouent. Sa voie ne se montre nulle part tant qu'elle est fermée (`voiesMontrees`), et l'accueil n'a pas encore son bouton.
+**Décision** : jusqu'aux jokers, ses routes répondaient 404 en production — en ligne et sans `APP_ENV` (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouaient. Sa voie ne se montrait nulle part (`voiesMontrees`), et l'accueil n'avait pas son bouton. Les jokers venus (l'étape 2, le 17 octobre 2026), la constante l'ouvre : ses routes, le bouton « L’Expédition » de l'accueil d'un profil, sous les duels, et sa voie dans l'album.
 
-**Conséquence** : rien ne s'y gagne en production avant que le mode soit entier. Ouvrir, c'est passer une constante, et la voie paraît d'elle-même dans l'album et les fiches.
+**Conséquence** : rien ne s'y est gagné en production avant que le mode soit entier. La refermer, c'est repasser la constante ; les légendaires gardés restent. La voie montrée, la phrase de l'album se dit voie par voie (`ouIlSeGagne`) : un seul mot pour tous ses lieux disait que la Chimère se gagnait « en soirée, au quiz du jour, en campagne ou en expédition », quand il lui faut les trois premiers ensemble, ou l'expédition.
 
-*Fichiers : `shared/jokers.ts`, `server/src/expedition.ts`, `shared/legendaires.ts`, `server/test/expedition-legendaires.test.ts`*
+*Fichiers : `shared/jokers.ts`, `server/src/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `client/src/components/AccueilDesRoles.tsx`, `server/test/expedition-legendaires.test.ts`, `server/test/album-des-avatars.test.ts`*
+
+### La main se garde, la défausse revient à l'acte suivant
+**Contexte** : les maquettes tiraient deux jokers par question et jetaient ceux qu'on ne jouait pas : jouer ne coûtait rien, on jouait tout sans choisir, et un joker de carte, tiré devant une question, ne pouvait pas attendre la carte. Une défausse rendue dès le paquet vide laissait un seul Double chance repasser presque à chaque question : il portait le joueur moyen de 3 à 31 %, autant qu'une équipée entière.
+
+**Décision** : un joker tiré par question, trois en main (`MAIN_MAX`) — quatre et deux tirés sous Trois têtes ; ce qu'on ne joue pas se garde. Un joker à jouer au plus par question ; joué, il va à la défausse, qui ne revient au paquet qu'à l'acte suivant ; un posé agit jusqu'au bout de l'acte. Le hasard — la pioche, les offres, la maison qu'on ouvre, les réponses effacées — vient de la graine et du rang du tirage, et le pli rejoue le tout (`pliDeLExpedition`).
+
+**Conséquence** : chaque joker sert une fois par acte, et le paquet qui s'épuise avant le gardien est la tension du mode ; un paquet court tire plus souvent ses meilleurs — d'où le campement qui retire un joker, et l'offre qu'on peut laisser. Recharger ne retire ni une main ni une offre.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-jokers.test.ts`*
+
+### Un joker se joue en deux touchers, et une seule règle dit pourquoi pas
+**Contexte** : un joker joué ne se reprend pas. Sur la maquette 4, toucher sa carte le jouait : un toucher perdu sous les réponses coûtait le meilleur joker de l'acte. Et un joker qui ne se joue pas — un second sur la même question, Sagesse sur un vrai ou faux, le Commandement face au gardien — se refusait sans dire pourquoi.
+
+**Décision** : sa carte ouvre « Ta main », qui dit ce qu'il fait et le joue d'un bouton — ou dit pourquoi il ne se joue pas maintenant. Ce pourquoi vient d'une seule règle pure (`refusDuJoker`) : le pli l'applique, le serveur la renvoie en refus, et la vue la porte pour chaque joker de la main (`JokersEnJeu.refus`) — la carte éteinte, la raison dans la feuille. Un joker joué sur une question porte sa position : périmé, il est refusé, et le pli ne juge la question qu'après lui.
+
+**Conséquence** : la page n'a aucune règle des jokers à recopier ; une règle changée vaut d'un coup pour le pli, le refus et l'écran.
+
+*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`*
+
+### Ce qu'un joker montre se calcule au serveur, et une réponse aidée ne mesure rien
+**Contexte** : Coup d'œil efface une mauvaise réponse, l'Énigme dit le siècle, l'Oracle dit « plus haut » : tous lisent la bonne réponse. Et une question trouvée avec deux réponses barrées n'a plus la difficulté qu'on mesure ; comptée, elle ferait passer pour faciles les questions où l'on joue ses jokers, et L'Érudit se gagnerait à coups de Double chance.
+
+**Décision** : ce que montre un joker se calcule dans la vue que le serveur envoie (`reponsesEffacees`, `indiceDeLEnigme`, `sensDeLOracle`) : le téléphone ne reçoit que ce qu'il montre (invariant 1). Une réponse aidée porte la clé de son joker (`campagne_reponses.joker`, `JOKERS_QUI_AIDENT`) : la mesure des difficultés, le modèle du savoir, les écussons, la précision et L'Érudit ne lisent que les réponses nues (`REPONSE_NUE`) ; juste, elle ne retrouve rien au carnet — une erreur aidée y entre. Échange et La mue posent une autre question, nue ; Deux visages ne l'est plus : on prend celle qu'on sait.
+
+**Conséquence** : elle paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien. Aucune route d'un autre mode n'accepte un joker (invariant 8). Une lecture neuve de `campagne_reponses` qui mesure un savoir écarte les réponses aidées.
+
+*Fichiers : `server/src/core/campagne.ts`, `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-mesure.test.ts`*
+
+### Une cible approchée, pas tenue
+**Contexte** : la cible retenue le 17 octobre 2026 — avec une équipée de deux, le joueur moyen au bout une fois sur trois, le fort huit fois sur dix — venait d'une simulation faite avant tout code. Le calibrage sur le vrai code, avec les jokers, la remesure : le joueur sait ou ne sait pas chaque question, et joue son meilleur joker quand il ne sait pas.
+
+**Décision** : ouverte aux règles du brief. Avec la Chouette et le Phénix, le moyen arrive au bout 26 fois sur cent, le fort 67 ; s'il garde ses jokers rares et légendaires pour le gardien, 29 et 72 — avec Janus et le Serpent, 28 et 79. La main de quatre tiendrait la cible (33 et 74 %) : un choix de produit, laissé au propriétaire, comme un quatrième Coup d'œil au départ, qui n'y change rien de mesurable.
+
+**Conséquence** : les vraies expéditions diront le reste ; le calibrage se rejoue (`--garder` pour le joueur soigneux), et une règle changée ne vaut que pour les expéditions qui partent ensuite.
+
+*Fichiers : `server/scripts/calibrage-expedition.ts`, `shared/jokers.ts`, `docs/reference/baremes.md`*
 
 ## L'outillage
 

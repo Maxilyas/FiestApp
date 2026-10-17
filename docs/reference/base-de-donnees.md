@@ -682,7 +682,7 @@ Toutes les parties de la campagne, quel que soit leur mode : série, épreuve
 de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre,
 expédition.
 
-- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`).
+- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; depuis la version 2, les jokers, son équipée et l'invité du jour de son départ, sa chance sur chaque marche de chaque catégorie et sur une source — le Commandement et Il connaît la maison changent une escale en route ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve).
 - **Lue par** : `CampagneStore` — records, carnet, sentiers, duels, écussons, expérience, QG.
@@ -692,20 +692,23 @@ expédition.
 
 Les réponses de chaque partie.
 
-- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`.
+- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) ; NULL : une réponse nue).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
-- **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis).
+- **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues (`REPONSE_NUE`), et une bonne réponse aidée ne retrouve rien au carnet ; une erreur aidée y entre.
 - **Effacée par** : la suppression du profil, avec ses parties.
 
 ### `expedition_gestes`
 
 Le journal des gestes d'une expédition, dans l'ordre : avancer vers une
-escale, garder un gardien au bout, abandonner. Son état ne s'écrit nulle
-part : il se replie de son départ (`campagne_series.expedition`), de ces
-gestes et de ses réponses (`pliDeLExpedition`, `shared/expedition.ts`).
+escale, jouer un joker, prendre ce qu'offre un coffre ou une élite, choisir
+au campement, garder un gardien au bout, abandonner. Son état — ses vies,
+sa main, son paquet, sa défausse — ne s'écrit nulle part : il se replie de
+son départ (`campagne_series.expedition`), de ces gestes et de ses réponses
+(`pliDeLExpedition`, `shared/expedition.ts`) ; la pioche et les offres se
+tirent au hasard de sa graine et du rang du tirage.
 
-- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
+- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'jouer', joker, position?, categorie?, montre? }` — joué sur une question, il porte sa position : le pli ne la juge qu'après lui —, `{ quoi: 'prendre', jokers }`, `{ quoi: 'camper', retirer? }`, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (`gesteDExpedition`, `garderUnGardien`, `abandonnerLExpedition`), dans le lot de la question tirée pour l'escale.
 - **Lue par** : `CampagneStore` — la page de l'expédition et chaque geste, qui la replient.

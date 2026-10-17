@@ -118,12 +118,21 @@ const DANS: Record<LieuDAvatar, string> = {
   expedition: 'en expédition',
 }
 
+/** « a, b et c », « a ou b » : une liste dite, son dernier lien devant le dernier. */
+function dite(elements: readonly string[], mot: string, avant = ''): string {
+  if (elements.length < 2) return elements[0] ?? ''
+  return `${elements.slice(0, -1).join(', ')}${avant} ${mot} ${elements[elements.length - 1]}`
+}
+
 /**
  * Où il se gagne, d'une phrase — ce que sa case dit à l'oreille : « en
  * soirée ou au quiz du jour » quand ses voies sont l'une ou l'autre, « en
  * soirée, au quiz du jour et en campagne » quand une seule les demande
- * toutes ; un emoji, son niveau ; un légendaire de saison, sa fête ; une
- * forme de compagnon, ses bonnes réponses. Rien pour un Divin.
+ * toutes — et les deux à la fois, voie par voie : « en soirée, au quiz du
+ * jour et en campagne, ou en expédition » (la Chimère, depuis la voie de
+ * l'expédition : un seul mot pour tous ses lieux disait qu'un seul suffisait) ;
+ * un emoji, son niveau ; un légendaire de saison, sa fête ; une forme de
+ * compagnon, ses bonnes réponses. Rien pour un Divin.
  */
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
@@ -132,10 +141,11 @@ export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
   if (s) return `pour ${s.nom}`
-  const lieux = a.lieux.map(x => DANS[x])
-  if (lieux.length < 2) return lieux[0] ?? ''
-  const mot = l && voiesMontrees(l).length > 1 ? 'ou' : 'et'
-  return `${lieux.slice(0, -1).join(', ')} ${mot} ${lieux[lieux.length - 1]}`
+  if (!l) return dite(a.lieux.map(x => DANS[x]), 'et')
+  // Chaque voie, ses lieux liés par « et » ; deux voies au même lieu n'en font qu'une à l'oreille.
+  const voies = [...new Set(voiesMontrees(l).map(v => dite([...new Set(partiesDe(v).map(c => DANS[lieuDuHautFait(c.hautFait)]))], 'et')))]
+  // Une voie de plusieurs lieux se détache des autres par une virgule : « …et en campagne, ou en expédition ».
+  return dite(voies, 'ou', voies.some(v => v.includes(' et ')) ? ',' : '')
 }
 
 /** Ce que l'album lit d'un profil : ce qu'il a. */

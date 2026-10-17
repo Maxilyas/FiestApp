@@ -25,9 +25,11 @@ les invariants qu'elle touche, le calibrage, les tests et le découpage en
 sort —, sont sur claude.ai : https://claude.ai/artifact/B7HYdDffstjHybu1gTtj2g
 (privées, au compte du propriétaire). Là où ce brief les contredit, il
 l'emporte, et dit pourquoi (« Ce qui change depuis les maquettes »).
-L'étape 1 est dans le code depuis le 17 octobre 2026 : là où elle s'écarte
-du brief, il a été mis à jour, et le dit (« l'étape 1 » entre parenthèses) ;
-ses fichiers et ses pièges, dans `.claude/rules/expedition.md`.
+Les étapes 1 et 2 sont dans le code depuis le 17 octobre 2026 : là où
+elles s'écartent du brief, il a été mis à jour, et le dit (« l'étape 1 »,
+« l'étape 2 » entre parenthèses) ; leurs fichiers et leurs pièges, dans
+`.claude/rules/expedition.md`. L'expédition est ouverte en production depuis
+ses jokers, la cible du calibrage approchée (« Le calibrage »).
 
 ## En bref
 
@@ -363,6 +365,18 @@ dirait trop sur ce qui les fait descendre (invariant 21).
   maquettes en tiraient deux par question et jetaient ceux qu'on ne jouait
   pas : jouer ne coûtait donc rien, on jouait tout, sans choix — et un joker
   de carte, tiré devant une question, ne pouvait pas attendre la carte.
+- **Un joker se joue en deux touchers** (l'étape 2) : sur la maquette 4,
+  toucher sa carte le jouait — un toucher perdu sous les réponses coûtait le
+  meilleur joker de l'acte. Sa carte ouvre « Ta main », qui dit ce qu'il fait,
+  ou pourquoi il ne se joue pas maintenant, puis son bouton le joue. Sur la
+  carte, la main tient en une ligne dans le panneau du tracé : ses cartes
+  l'auraient poussé au-dessus de la moitié de l'écran.
+- **L'équipée se choisit dans une feuille** (l'étape 2), comme les
+  catégories d'une série : rien ne change avant « Choisir ». La maquette 2
+  en faisait un écran ; le départ garde la ligne de la maquette 1, « Ton
+  équipée · Changer ».
+- **Le campement a son écran** (l'étape 2), que les maquettes n'avaient
+  pas : une vie, ou un joker retiré, choisi parmi les siens.
 - **La défausse revient à chaque acte**, pas dès que le paquet est vide :
   sinon un seul Double chance repassait presque à chaque question, et
   réduire son paquet à son meilleur joker devenait le seul jeu (le
@@ -423,6 +437,25 @@ sur les vraies expéditions. **À l'étape 1, sans jokers** : faible 0 %, moyen
 5 %, fort 42 % sur deux mille expéditions — la simulation disait 0, 3 et 38.
 Les jokers de l'étape 2 doivent faire le reste : la cible se remesure avec
 eux, avant d'ouvrir en production.
+
+**Avec les jokers (l'étape 2)**, remesurée le même jour sur deux mille
+expéditions par joueur, chacun sachant ou ne sachant pas chaque question et
+jouant son meilleur joker quand il ne sait pas, comme la simulation :
+
+| | Faible | Moyen | Fort |
+|---|---|---|---|
+| Avec la Chouette et le Phénix | 4 % | 26 % | 67 % |
+| — en gardant ses jokers rares et légendaires pour le gardien (`--garder`) | 5 % | 29 % | 72 % |
+| Avec Janus et le Serpent à plumes, en les gardant | 4 % | 28 % | 79 % |
+| Le paquet de départ seul | 2 % | 16 % | 60 % |
+| Sans aucun joker | 0 % | 4 % | 39 % |
+
+La cible est approchée, pas tenue : la simulation, plus simple — l'élite et
+le coffre donnaient toujours un Double chance, le gardien vaincu rien —,
+disait 34 et 85. Une main de quatre la tiendrait (`MAIN_MAX` : le moyen à
+33 %, le fort à 74 %, en gardant ses jokers) ; un quatrième Coup d'œil au
+départ n'y change rien de mesurable. L'expédition s'ouvre aux règles du
+brief, et le choix d'une main de quatre reste au propriétaire (l'étape 2).
 
 ## Les données
 

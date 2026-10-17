@@ -58,13 +58,15 @@ test('la ligne de l’expédition ouvre le légendaire, et l’annonce une fois'
   assert.ok(!legendairesDebloques(new Map([['expedition:licorne', 1]])).includes('lg:licorne'))
 })
 
-test('tant que l’expédition est fermée en production, sa voie compte mais ne se montre pas', () => {
-  assert.equal(EXPEDITION_EN_PRODUCTION, false, 'l’étape 1 : elle s’ouvre avec ses jokers')
-  for (const l of LEGENDAIRES) assert.ok(voiesMontrees(l).every(v => !estUneVoieDExpedition(v)), l.key)
-  // L'album ne la dit nulle part : ni sa pastille, ni « où il se gagne ».
+test('ses jokers venus, l’expédition s’ouvre en production : sa voie se montre, et l’album dit où la gagner', () => {
+  // L'étape 1 la gardait fermée : sans jokers, le joueur moyen n'arrivait au bout que cinq fois sur cent.
+  assert.equal(EXPEDITION_EN_PRODUCTION, true, 'l’étape 2 : elle s’ouvre avec ses jokers')
+  const avecLaVoie = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison)
+  assert.equal(avecLaVoie.length, 20, 'vingt légendaires ont la voie — le Bouquet a son joker, pas la voie')
   for (const l of LEGENDAIRES) {
+    assert.equal(voiesMontrees(l).some(estUneVoieDExpedition), avecLaVoie.includes(l), l.key)
     const a = avatarDeLAlbum(l.key)!
-    assert.ok(!a.lieux.includes('expedition'), l.key)
-    assert.ok(!ouIlSeGagne(a).includes('expédition'), l.key)
+    assert.equal(a.lieux.includes('expedition'), avecLaVoie.includes(l), l.key)
+    assert.equal(ouIlSeGagne(a).includes('expédition'), avecLaVoie.includes(l), l.key)
   }
 })

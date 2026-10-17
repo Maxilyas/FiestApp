@@ -88,8 +88,9 @@ export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c)
  * `expedition:…` rangée sur le profil, comme une saison. Pas ceux de
  * saison : ils ne se gagnent qu'à leur saison, par elle seule. Une voie de
  * plus ne reprend rien à personne (invariant 22) ; ce qu'elle change aux
- * Divins se lit dans `server/src/core/divins.ts`. Tant que l'expédition est
- * fermée en production, elle ne se montre pas (`voiesMontrees`).
+ * Divins se lit dans `server/src/core/divins.ts`. L'expédition fermée en
+ * production (`EXPEDITION_EN_PRODUCTION`), elle ne se montre pas
+ * (`voiesMontrees`).
  */
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
   legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
@@ -323,10 +324,10 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
 }
 
 /**
- * Les voies qu'on montre : toutes, sauf celle de l'Expédition tant qu'elle
- * est fermée en production (`EXPEDITION_EN_PRODUCTION`) — l'album aurait
- * mené à une page qui n'y répond pas. Elle compte quand même : qui garde un
- * légendaire en préproduction l'a (`legendairesDebloques`).
+ * Les voies qu'on montre : toutes — sauf celle de l'Expédition quand elle est
+ * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
+ * jokers) : l'album mènerait à une page qui n'y répond pas. Elle compte quand
+ * même : qui garde un légendaire en préproduction l'a (`legendairesDebloques`).
  */
 export function voiesMontrees(l: Legendaire): readonly Condition[] {
   return EXPEDITION_EN_PRODUCTION ? voiesDe(l) : voiesDe(l).filter(v => !estUneVoieDExpedition(v))

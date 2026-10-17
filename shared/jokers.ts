@@ -15,14 +15,17 @@
 
 /**
  * L'expédition s'ouvre en production avec ses jokers (l'étape 2 du brief) :
- * sans eux, le joueur moyen n'arrive au bout que trois fois sur cent, et
- * l'expédition n'est qu'une série en carte. D'ici là, ses routes répondent
- * 404 en production (`server/src/expedition.ts`) et sa voie ne se montre pas
- * sur les légendaires (`voiesMontrees`, `shared/legendaires.ts`) ; la
- * préproduction, `npm run dev` et les tests la jouent entière. Ici, dans le
- * fichier qui n'importe rien : l'album le lit sans tirer toute l'expédition.
+ * sans eux, le joueur moyen n'arrivait au bout que quatre fois sur cent, et
+ * l'expédition n'était qu'une série en carte ; avec une équipée de deux, une
+ * fois sur quatre à une fois sur trois et demie selon qu'il garde ses jokers
+ * pour le gardien (`calibrage-expedition.ts`, le 17 octobre 2026). Repassé à
+ * `false`, ses routes répondent 404 en production (`server/src/expedition.ts`),
+ * l'accueil perd son bouton et sa voie ne se montre plus sur les légendaires
+ * (`voiesMontrees`, `shared/legendaires.ts`) ; la préproduction, `npm run dev`
+ * et les tests la jouent toujours. Ici, dans le fichier qui n'importe rien :
+ * l'album et l'accueil le lisent sans tirer toute l'expédition.
  */
-export const EXPEDITION_EN_PRODUCTION = false
+export const EXPEDITION_EN_PRODUCTION = true
 
 /** À jouer sur une question, puis défaussé ; à poser, il agit jusqu'au bout de l'acte ; sur la carte, entre deux escales. */
 export type SorteDeJoker = 'jouer' | 'poser' | 'carte'

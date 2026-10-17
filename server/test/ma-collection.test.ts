@@ -355,7 +355,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   assert.ok(cases.slice(1).every(c => c.classes.includes('album-manque')))
   for (const nom of [
     'La Licorne Astrale, légendaire, à gagner en soirée ou au quiz du jour',
-    'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne',
+    'La Chimère, légendaire, à gagner en soirée, au quiz du jour et en campagne, ou en expédition',
     'La Citrouille, légendaire, à gagner pour Halloween',
     'L’Éléphant, légendaire, à gagner en campagne',
     'Le loup des étoiles, légendaire, à gagner en boutique, puis à 500 bonnes réponses en le portant',
@@ -454,12 +454,12 @@ test('la fiche d’un avatar à gagner : ses voies — « ou » entre elles, « 
   ])
   assert.equal(licorne.match(/<span class="album-ou">ou<\/span>/g)?.length, 1)
   assert.match(licorne, /<a class="btn btn-small album-aller" href="\/jour">Jouer le quiz du jour<\/a>/)
-  // La Chimère : une voie, trois étapes à la fois.
+  // La Chimère : une voie de trois étapes à la fois — ou l'expédition, l'autre voie.
   const chimere = await fiche('lg:chimere')
   assert.equal(chimere.match(/<span class="album-et">et<\/span>/g)?.length, 2)
-  assert.doesNotMatch(chimere, /album-ou/)
-  // Un légendaire des soirées seulement : pas d'écran où aller, on rejoint une soirée par son code.
-  assert.doesNotMatch(await fiche('lg:oracle'), /album-aller/)
+  assert.equal(chimere.match(/<span class="album-ou">ou<\/span>/g)?.length, 1)
+  // Un légendaire des soirées — qu'on rejoint par leur code, sans écran où aller — a l'expédition, qui en est un.
+  assert.match(await fiche('lg:oracle'), /<a class="btn btn-small album-aller" href="\/expedition">Partir en expédition<\/a>/)
   // Un légendaire de saison non plus : ses dates seules, sans jauge — le quiz du jour ne compte que pendant elles.
   const citrouille = await fiche('lg:citrouille')
   assert.match(citrouille, /Pour Halloween, du 25 octobre au 1er novembre/)

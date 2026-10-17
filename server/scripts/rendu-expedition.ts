@@ -1,18 +1,30 @@
 // Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
-// serveur jetable : le départ et ses gardiens, la carte d'un acte — sa chance
-// sur chaque escale, le tracé le plus sûr, puis un autre —, une escale et sa
-// révélation, le campement, le gardien et ses crans, le gardien vaincu, la
-// carte de l'acte suivant, le choix au bout, la fin et ses gains ; puis une
-// expédition perdue, et la page d'un invité sans profil. Le client construit
-// d'abord (`npm run build -w client`).
+// serveur jetable : la page d'un invité sans profil ; le départ, son équipée
+// et sa feuille — les vingt-huit jokers dépliés — ; la carte d'un acte, la
+// main en une ligne et sa feuille ; une escale et sa main, puis ce que fait
+// chaque joker qui passe — les réponses effacées, Double chance, Deux
+// visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
+// coffre, le campement — une vie, ou un joker retiré — ; le gardien, vaincu,
+// la carte de l'acte suivant ; le choix au bout, la fin et ses gains. Puis une
+// seconde expédition, ses jokers de carte — Commandement et sa catégorie, Le
+// raccourci —, perdue au bout. Le client construit d'abord
+// (`npm run build -w client`).
+//
+// Léa a six légendaires à joker, rangés comme gardés au bout d'expéditions
+// passées ; l'invité du jour est le Dragon d'Or (`horlogeDuJour`) : ses
+// coffres offrent deux jokers.
 //
 //   npx tsx scripts/rendu-expedition.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
+import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { CATEGORIES } from '../../shared/categories'
+import { jourDe } from '../../shared/jour'
+import { inviteDuJour } from '../../shared/expedition'
+import { cleDeLExpedition } from '../../shared/legendaires'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-expedition')
 const ivoire = process.argv.includes('ivoire')
@@ -24,8 +36,21 @@ function chargerPlaywright(): any {
 }
 const { chromium } = chargerPlaywright()
 
+/** Un jour où l'invité est ce légendaire. */
+function unJourOu(legendaire: string): number {
+  for (let k = 0; k < 2000; k++) {
+    const t = Date.UTC(2026, 9, 1, 10) + k * 86_400_000
+    if (inviteDuJour(jourDe(t)) === legendaire) return t
+  }
+  throw new Error(`${legendaire} n’est jamais l’invité du jour`)
+}
+const JOUR = unJourOu('lg:dragon')
+
+/** Les siens : de quoi montrer l'équipée et des jokers de question et de carte. */
+const SIENS = ['lg:oracle', 'lg:janus', 'lg:chouette', 'lg:lion', 'lg:comete', 'lg:phenix']
+
 // Quatre-vingts questions par catégorie, de chaque difficulté : de quoi tirer trois actes et leurs gardiens.
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }) })
+const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }), horlogeDuJour: () => JOUR })
 const navigateur = await chromium.launch({ headless: true })
 try {
   const contexteDe = async (cookie: string | null) => {
@@ -55,15 +80,59 @@ try {
 
   const cookie = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   if (ivoire) await ecrire(banc.url, '/api/joueur/moi', { theme: 'ivoire' }, cookie, 'PUT')
+  const id = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile.id
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const ranger = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:rendu', '', '🧭', 'rendu', 1)`)
+    for (const cle of SIENS) ranger.run(id, cleDeLExpedition(cle))
+  } finally {
+    db.close()
+  }
+  // Relus au démarrage : le profil sait ce qu'il a.
+  await banc.redemarrer()
   const { page } = await contexteDe(cookie)
   const photo = photographe(page)
+  const fait = new Set<string>()
+  /** Une photo, la première fois seulement. */
+  const unePhoto = async (nom: string, pleine = false) => {
+    if (fait.has(nom)) return
+    fait.add(nom)
+    await photo(nom, pleine)
+  }
 
-  // Le départ : les trois gardiens, un par acte.
+  // L'accueil d'un profil : « L’Expédition » sous les duels, dans « Seul ».
+  await page.goto(`${banc.url}/`)
+  await page.waitForSelector('a.gros-bouton[href="/expedition"]')
+  await page.locator('a.gros-bouton[href="/expedition"]').scrollIntoViewIfNeeded()
+  await photo('0b-accueil')
+
+  // Le départ : les trois gardiens, l'équipée proposée — l'invité du jour d'abord.
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
   await photo('1-depart')
+  await photo('1-depart-entier', true)
 
-  // La carte de l'acte 1 : le tracé le plus sûr d'abord.
+  /** L'équipée : la feuille, puis ces deux-là, choisis. */
+  const choisirLEquipee = async (noms: string[], photos?: { feuille: string; tous: string }) => {
+    await page.click('.exp-changer')
+    await page.waitForSelector('.feuille-equipee')
+    if (photos) await photo(photos.feuille)
+    // Laisse d'abord ceux qui partaient, puis touche les deux voulus.
+    const partants = page.locator('.exp-equipable[aria-pressed="true"]')
+    while (await partants.count()) await partants.first().click()
+    for (const nom of noms) await page.locator('.exp-equipable', { hasText: nom }).first().click()
+    if (photos) {
+      await page.click('.exp-tous')
+      await page.locator('#exp-tous-les-jokers').scrollIntoViewIfNeeded()
+      await photo(photos.tous)
+    }
+    await page.locator('.feuille-equipee .carte-pied .btn-primary').click()
+    await page.waitForTimeout(200)
+  }
+  await choisirLEquipee(['Oracle', 'Janus'], { feuille: '1b-equipee', tous: '1c-tous-les-jokers' })
+  await photo('1d-depart-equipee')
+
+  // La carte de l'acte 1 : le tracé le plus sûr d'abord ; la main encore vide.
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-carte')
   await photo('2-carte')
@@ -76,77 +145,138 @@ try {
     await photo('3-trace-retouche')
   }
 
-  /** Répond à la question à l'écran : juste, ou la réponse d'à côté. */
+  const ici = async (): Promise<string> => {
+    if (await page.locator('.exp-carte').count()) return 'carte'
+    if (await page.locator('.exp-offre').count()) return 'offre'
+    if (await page.locator('.exp-camper').count()) return 'campement'
+    if (await page.locator('.result-banner').count()) return 'revelation'
+    if (await page.locator('.ans-btn').count()) return 'question'
+    if (await page.locator('.exp-vaincu').count()) return 'vaincu'
+    if (await page.locator('.exp-choix').count()) return 'choix'
+    if (await page.locator('.exp-fin-tete').count()) return 'fin'
+    return 'autre'
+  }
+
+  /** Répond à la question à l'écran : juste, ou une autre qui n'est pas effacée. Double chance : deux. */
   const repondre = async (juste: boolean) => {
     await page.waitForSelector('.ans-btn')
     const textes: string[] = await page.$$eval('.ans-btn .ans-text', (els: any[]) => els.map(e => String(e.textContent ?? '')))
+    const effacees: boolean[] = await page.$$eval('.ans-btn', (els: any[]) => els.map(e => e.classList.contains('exp-effacee')))
     const bonne = textes.findIndex(t => t.startsWith('Bonne'))
-    await page.locator('.ans-btn').nth(juste ? bonne : (bonne + 1) % textes.length).click()
+    const fausse = textes.findIndex((t, i) => i !== bonne && !effacees[i])
+    const deux = (await page.locator('.exp-consigne', { hasText: 'Double chance' }).count()) > 0
+    if (deux) {
+      await page.locator('.ans-btn').nth(juste ? bonne : fausse).click()
+      await page.locator('.ans-btn').nth(textes.findIndex((t, i) => i !== bonne && i !== fausse && !effacees[i])).click()
+      await unePhoto('j-double-chance')
+      await page.locator('.quiz-player > .btn-primary').click()
+    } else await page.locator('.ans-btn').nth(juste ? bonne : fausse).click()
     await page.waitForSelector('.result-banner')
   }
   const suite = async () => {
     await page.locator('.result-banner ~ .btn-primary.btn-big').click()
     await page.waitForTimeout(250)
   }
-  const avancer = async () => {
-    await page.locator('.exp-panneau .btn-primary').click()
-    await page.waitForTimeout(250)
+
+  /** Les jokers à montrer, un à la fois : ceux de question, joués dès qu'ils se jouent ; les posés aussi. */
+  const A_MONTRER = ['coup-d-oeil', 'echange', 'sagesse', 'prediction', 'deux-visages', 'double-chance', 'sursis', 'tout-ou-rien', 'pioche', 'renaissance', 'tresor', 'enigme']
+  /** Lequel jouer : le premier à montrer pas encore photographié. */
+  const aMontrer = (c: { cle: string }) => A_MONTRER.includes(c.cle) && !fait.has(`j-${c.cle}`)
+  /** Pour faire tourner le paquet : Coup d'œil, Échange — la main pleine ne tire plus. */
+  const pourTourner = (c: { cle: string }) => c.cle === 'coup-d-oeil' || c.cle === 'echange'
+  /** Joue un joker de la main que `choisir` retient ; vrai s'il en a joué un. */
+  const jouerUnJoker = async (choisir: (c: { cle: string }) => boolean): Promise<boolean> => {
+    if (await page.locator('.exp-perte, .exp-indice, .exp-visages, .exp-consigne').count()) return false
+    const cartes: { cle: string; refuse: boolean }[] = await page.$$eval('.exp-carte-joker', (els: any[]) =>
+      els.map(e => ({ cle: String(e.dataset.joker), refuse: e.classList.contains('exp-refuse') })),
+    )
+    const i = cartes.findIndex(c => !c.refuse && choisir(c))
+    if (i < 0) return false
+    const cle = cartes[i].cle
+    await page.locator('.exp-carte-joker').nth(i).click()
+    await page.waitForSelector('.feuille-main')
+    await unePhoto('4b-main')
+    await page.locator(`.exp-joker-ligne[data-joker="${cle}"] .exp-joker-detail .btn-primary`).click()
+    await page.waitForTimeout(300)
+    if (cle === 'prediction') {
+      // L'Oracle : la réponse à montrer se touche sur la question.
+      await photo('j-prediction-montrer')
+      const effacees: boolean[] = await page.$$eval('.ans-btn', (els: any[]) => els.map(e => e.classList.contains('exp-effacee')))
+      await page.locator('.ans-btn').nth(effacees.findIndex(e => !e)).click()
+      await page.waitForSelector('.exp-indice')
+    }
+    await unePhoto(`j-${cle}`)
+    if (cle === 'deux-visages') {
+      await page.locator('.exp-visages .pill-btn').nth(1).click()
+      await photo('j-deux-visages-seconde')
+    }
+    return true
   }
-  const ici = async () =>
-    (await page.locator('.exp-carte').count())
-      ? 'carte'
-      : (await page.locator('.ans-btn').count())
-        ? 'question'
-        : (await page.locator('.exp-vaincu').count())
-          ? 'vaincu'
-          : (await page.locator('.exp-choix').count())
-            ? 'choix'
-            : (await page.locator('.exp-fin-tete').count())
-              ? 'fin'
-              : 'autre'
 
   /**
-   * Joue un acte jusqu'à son gardien vaincu — ou jusqu'à la fin : `fautes`
-   * dit, question après question, s'il se trompe ; les photos tombent aux
-   * moments nommés.
+   * Joue jusqu'au gardien vaincu, au choix ou à la fin : `fautes` dit,
+   * question après question, s'il se trompe. Il passe par les élites et les
+   * coffres qu'il croise, et photographie chaque écran une fois.
    */
-  const jouerLActe = async (
-    fautes: (n: number) => boolean,
-    photos: { escale?: string; revelation?: string; campement?: string; gardien?: string; gardienRevele?: string; derniere?: string } = {},
-  ) => {
+  const jouerLActe = async (fautes: (n: number) => boolean, { jokers = aMontrer, carte }: { jokers?: (c: { cle: string }) => boolean; carte?: () => Promise<void> } = {}) => {
     let n = 0
-    for (let tour = 0; tour < 60; tour++) {
+    for (let tour = 0; tour < 120; tour++) {
       const ou = await ici()
       if (ou === 'vaincu' || ou === 'fin' || ou === 'choix') return ou
       if (ou === 'carte') {
-        const auCampement = (await page.locator('.exp-panneau-titre').count()) > 0
-        if (auCampement && photos.campement) {
-          await photo(photos.campement)
-          photos.campement = undefined
+        if (!(await page.locator('.exp-main-noms', { hasText: 'vide' }).count())) await unePhoto('2b-carte-main')
+        if (carte) await carte()
+        if (await page.locator('.exp-panneau-titre').count()) {
+          await unePhoto('6-avant-le-gardien')
+        } else {
+          // Une élite ou un coffre qu'il n'a pas encore vus, s'il peut y aller : touchés, le tracé passe par eux.
+          for (const sorte of ['coffre', 'elite']) {
+            const la = page.locator(`.exp-escale.exp-ouverte.exp-${sorte}`).first()
+            if (!fait.has(`offre-${sorte}`) && (await la.count())) {
+              await la.click()
+              break
+            }
+          }
         }
-        await avancer()
+        await page.locator('.exp-panneau .btn-primary').click()
+        await page.waitForTimeout(250)
+        continue
+      }
+      if (ou === 'offre') {
+        const sorte = (await page.locator('.exp-surtitre', { hasText: 'coffre' }).count()) ? 'coffre' : 'elite'
+        await unePhoto(`offre-${sorte}`)
+        if (await page.locator('.exp-offre-ligne').count()) {
+          await page.locator('.exp-offre-ligne').first().click()
+          await unePhoto(`offre-${sorte}-choisi`)
+        }
+        await page.locator('.exp-offre .exp-depart-pied .btn-primary').click()
+        await page.waitForTimeout(250)
+        continue
+      }
+      if (ou === 'campement') {
+        await unePhoto('7-campement')
+        if (!fait.has('7-campement-retirer') && (await page.locator('.exp-choix-ligne').nth(1).getAttribute('aria-disabled')) === null) {
+          await page.locator('.exp-choix-ligne').nth(1).click()
+          await page.locator('.exp-a-retirer .pill-btn').first().click()
+          await unePhoto('7-campement-retirer')
+        } else await page.locator('.exp-choix-ligne').first().click()
+        await page.locator('.exp-camper .exp-depart-pied .btn-primary').click()
+        await page.waitForTimeout(250)
         continue
       }
       if (ou === 'question') {
         const auGardien = (await page.locator('.exp-gardien-tete').count()) > 0
-        if (auGardien && photos.gardien) {
-          await photo(photos.gardien)
-          photos.gardien = undefined
-        }
-        if (!auGardien && photos.escale) {
-          await photo(photos.escale)
-          photos.escale = undefined
-        }
+        await unePhoto(auGardien ? '8-gardien' : '4-escale')
+        if (await page.locator('.exp-regle', { hasText: 'élite' }).count()) await unePhoto('4-elite')
+        if (await jouerUnJoker(jokers)) continue
         await repondre(!fautes(n++))
-        if (!auGardien && photos.revelation) {
-          await photo(photos.revelation)
-          photos.revelation = undefined
-        }
-        if (auGardien && photos.gardienRevele) {
-          await photo(photos.gardienRevele)
-          photos.gardienRevele = undefined
-        }
-        if (photos.derniere && (await page.locator('.result-banner ~ .btn-primary.btn-big').textContent())?.includes('Voir la fin')) await photo(photos.derniere)
+        const ratee = (await page.locator('.result-ko').count()) > 0
+        await unePhoto(auGardien ? '8-gardien-revele' : ratee ? '5-ratee' : '5-revelation')
+        if ((await page.locator('.result-banner ~ .btn-primary.btn-big').textContent())?.includes('Voir la fin')) await unePhoto('14-derniere-vie')
+        await suite()
+        continue
+      }
+      if (ou === 'revelation') {
         await suite()
         continue
       }
@@ -156,7 +286,7 @@ try {
   }
 
   // L'acte 1 : une faute à la deuxième question, une au gardien.
-  const acte1 = await jouerLActe(n => n === 1 || n === 7, { escale: '4-escale', revelation: '5-revelation', campement: '6-campement', gardien: '7-gardien', gardienRevele: '8-gardien-revele' })
+  const acte1 = await jouerLActe(n => n === 1 || n === 7)
   if (acte1 !== 'vaincu') throw new Error(`l’acte 1 finit en ${acte1}`)
   await photo('9-vaincu')
   await page.locator('.exp-vaincu .btn-primary').click()
@@ -176,13 +306,44 @@ try {
   await photo('12-fin')
   await photo('12-fin-entiere', true)
 
-  // Une autre : le départ annonce la suivante ; puis perdue, toutes ratées.
+  // Une autre, avec le Lion et la Comète : leurs jokers se jouent sur la carte. Puis perdue, toutes ratées.
   await page.locator('.fin-actions .btn-primary').click()
   await page.waitForSelector('.exp-gardiens')
   await photo('13-depart-suivant')
+  await choisirLEquipee(['Lion', 'Comète'])
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-carte')
-  const perdue = await jouerLActe(() => true, { revelation: '14-ratee', derniere: '14-derniere-vie' })
+  /** Sur la carte, un joker de carte en main : sa feuille, puis joué. */
+  const jouerSurLaCarte = async () => {
+    for (const [cle, nom] of [
+      ['commandement', 'Commandement'],
+      ['raccourci', 'Le raccourci'],
+    ]) {
+      if (fait.has(`c-${cle}`) || !(await page.locator('.exp-main-noms', { hasText: nom }).count())) continue
+      await page.locator('.exp-main-ligne').click()
+      await page.waitForSelector('.feuille-main')
+      const ligne = page.locator(`.exp-joker-ligne[data-joker="${cle}"]:not(.exp-refuse)`)
+      if (!(await ligne.count())) {
+        await page.locator('.feuille-main .carte-fermer').click()
+        continue
+      }
+      // La carte ouvre la feuille sur sa première carte : celle-ci se déplie à son tour.
+      if ((await ligne.locator('.exp-joker-ligne-tete').getAttribute('aria-expanded')) !== 'true') await ligne.locator('.exp-joker-ligne-tete').click()
+      if (cle === 'commandement') {
+        await ligne.locator('.exp-categories .pill-btn').nth(1).click()
+        await unePhoto('c-commandement-feuille')
+      } else await unePhoto(`c-${cle}-feuille`)
+      await ligne.locator('.exp-joker-detail .btn-primary').click()
+      await page.waitForTimeout(400)
+      await unePhoto(`c-${cle}`)
+    }
+  }
+  // Il fait tourner son paquet — Coup d'œil, Échange — tant que ses jokers de carte ne sont pas venus, puis se trompe ; un gardien vaincu en route, il se trompe à chaque question.
+  let perdue = await jouerLActe(n => n >= 8, { jokers: pourTourner, carte: jouerSurLaCarte })
+  while (perdue === 'vaincu') {
+    await page.locator('.exp-vaincu .btn-primary').click()
+    perdue = await jouerLActe(() => true, { jokers: () => false })
+  }
   if (perdue !== 'fin') throw new Error(`l’expédition ratée finit en ${perdue}`)
   await photo('15-perdue', true)
 } finally {

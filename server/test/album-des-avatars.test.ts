@@ -83,34 +83,35 @@ test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus 
 
 test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle part', () => {
   const lieux = Object.fromEntries(LEGENDAIRES.map(l => [l.key.slice(3), avatarDeLAlbum(l.key)!.lieux.join(' ')]))
+  // L'expédition ouverte (l'étape 2), sa voie se montre : chacun de ceux qui ont leur joker, hors des saisons, s'y gagne aussi.
   assert.deepEqual(lieux, {
-    phenix: 'soiree jour',
-    dragon: 'soiree jour',
-    oracle: 'soiree',
-    chouette: 'soiree jour',
-    tigre: 'soiree jour',
+    phenix: 'soiree jour expedition',
+    dragon: 'soiree jour expedition',
+    oracle: 'soiree expedition',
+    chouette: 'soiree jour expedition',
+    tigre: 'soiree jour expedition',
     licorne: 'soiree jour',
-    lion: 'soiree jour',
-    renard: 'soiree jour',
-    comete: 'soiree',
-    kraken: 'soiree jour',
-    fantome: 'soiree jour',
-    'trou-noir': 'soiree',
-    sphinx: 'jour',
+    lion: 'soiree jour expedition',
+    renard: 'soiree jour expedition',
+    comete: 'soiree expedition',
+    kraken: 'soiree jour expedition',
+    fantome: 'soiree jour expedition',
+    'trou-noir': 'soiree expedition',
+    sphinx: 'jour expedition',
     citrouille: 'saison',
     sapin: 'saison',
     bouquet: 'saison',
     aigle: 'jour',
-    ouroboros: 'jour',
-    scarabee: 'jour',
-    coq: 'jour',
-    'chauve-souris': 'jour',
-    salamandre: 'campagne',
+    ouroboros: 'jour expedition',
+    scarabee: 'jour expedition',
+    coq: 'jour expedition',
+    'chauve-souris': 'jour expedition',
+    salamandre: 'campagne expedition',
     elephant: 'campagne',
-    serpent: 'campagne',
-    // Les trois mondes à la fois.
-    chimere: 'soiree jour campagne',
-    janus: 'soiree jour',
+    serpent: 'campagne expedition',
+    // Les trois mondes à la fois — ou l'expédition.
+    chimere: 'soiree jour campagne expedition',
+    janus: 'soiree jour expedition',
   })
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji)!.lieux, ['niveau'], c.emoji)
@@ -120,9 +121,13 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   // D'une phrase, à l'oreille : ses voies sont l'une ou l'autre, les étapes d'une voie toutes à la fois.
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle)!)
   assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
-  assert.equal(dit('lg:chimere'), 'en soirée, au quiz du jour et en campagne')
-  assert.equal(dit('lg:janus'), 'en soirée et au quiz du jour')
-  assert.equal(dit('lg:sphinx'), 'au quiz du jour')
+  // Voie par voie : un seul mot pour tous ses lieux, « en soirée, au quiz du jour, en campagne ou en expédition »,
+  // disait qu'un seul suffisait à la Chimère.
+  assert.equal(dit('lg:chimere'), 'en soirée, au quiz du jour et en campagne, ou en expédition')
+  assert.equal(dit('lg:janus'), 'en soirée et au quiz du jour, ou en expédition')
+  assert.equal(dit('lg:phenix'), 'en soirée, au quiz du jour ou en expédition')
+  assert.equal(dit('lg:sphinx'), 'au quiz du jour ou en expédition')
+  assert.equal(dit('lg:aigle'), 'au quiz du jour', 'sans joker, pas de voie de l’expédition')
   assert.equal(dit('lg:bouquet'), 'pour le Nouvel An')
   assert.equal(dit('br:lynx'), 'sur les sentiers')
   assert.equal(dit('🐳'), 'au niveau 12')
