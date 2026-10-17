@@ -175,6 +175,22 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Des pyramides aux gratte-ciel, et les statues qu’on visite',
     sousThemes: { Géographie: ['sites'], 'Arts & lettres': ['sculpture-archi'] },
   },
+  // La langue française (le souhait du propriétaire du 17 octobre 2026 :
+  // « tout ce qui est lié à la langue française, orthographe, grammaire,
+  // étymologie, morphologie ») : un sous-thème neuf, qui a repris à langue
+  // tout ce qui parlait du français, un inventaire, et l'étiquette pour une
+  // expression rangée ailleurs (ouvrir le bal, le toubib). L'origine d'un mot
+  // rangé dans sa catégorie — les noms des dinosaures, des cocktails — reste
+  // à « L'origine des mots » : ses six cents questions auraient fait du thème
+  // un dictionnaire étymologique, sans une règle d'accord.
+  {
+    cle: 'francais',
+    nom: 'La langue française',
+    famille: 'theme',
+    description: 'Orthographe, grammaire, expressions et origine des mots',
+    sousThemes: { 'Culture générale': ['francais'] },
+    etiquettes: ['francais'],
+  },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
   { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },

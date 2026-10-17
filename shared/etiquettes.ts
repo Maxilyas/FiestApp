@@ -14,6 +14,11 @@
 // six de danse en musique l'auraient faite à moitié dansée. Leurs familles —
 // la salsa, les orishas, la rééducation — vivent dans leur inventaire
 // (`server/src/core/inventaires.ts`).
+//
+// La langue française (le 17 octobre 2026) a pris son sous-thème à langue,
+// qui mêlait les accords du participe et l'alphabet coréen : langue garde
+// les autres langues, les écritures et les codes, francais tout ce qui dit
+// le français — son orthographe, sa grammaire, ses mots et leur origine.
 
 import { CATEGORIES } from './categories'
 import { tronquer } from './avatars'
@@ -26,7 +31,8 @@ export interface SousTheme {
 /** Les sous-thèmes de chaque catégorie : une clé n'existe que dans la sienne. */
 export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme[]> = {
   "Culture générale": [
-    { cle: "langue", nom: "Langues et écritures" },
+    { cle: "francais", nom: "Langue française" },
+    { cle: "langue", nom: "Langues et écritures du monde" },
     { cle: "symboles", nom: "Symboles et institutions" },
     { cle: "quotidien", nom: "Objets et vie quotidienne" },
     { cle: "transports", nom: "Transports" },
@@ -187,6 +193,7 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "outre-mer", nom: "Outre-mer", definition: "les territoires d'outre-mer, leur musique, leur cuisine, leur histoire" },
       { cle: "danse", nom: "La danse", definition: "une danse, un danseur ou un chorégraphe est au cœur d'une question rangée hors des sous-thèmes ballet, danses et bal (un film, une émission, un tableau, un peuple et sa danse)" },
       { cle: "sante", nom: "La santé", definition: "un soin, une maladie ou un métier de la santé est au cœur d'une question rangée hors des sous-thèmes corps, medecine et sante (un savant qui a soigné, une série d'hôpital, un médecin de roman)" },
+      { cle: "francais", nom: "La langue française", definition: "la langue française elle-même est au cœur d'une question rangée hors du sous-thème francais : le sens d'une expression, d'un mot familier ou d'argot, le mot recommandé à la place d'un anglicisme, l'histoire du français (ouvrir le bal, le toubib, courriel, l'ordonnance de Villers-Cotterêts). Pas pour le vocabulaire d'un métier ou d'un art (émincer, crescendo), ni pour la seule origine d'un mot : etymologie le dit" },
     ],
   },
   {

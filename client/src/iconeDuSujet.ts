@@ -21,6 +21,7 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   'jeux-video': 'gamepad',
   bd: 'bulles',
   monuments: 'landmark',
+  francais: 'lettres',
   france: 'flag',
   pionnieres: 'award',
   pieges: 'alert',

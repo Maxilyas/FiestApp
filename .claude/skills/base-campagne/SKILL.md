@@ -101,7 +101,7 @@ moins qu'une réécriture.
    deux fois, `--sentiers=3` pour trois) ou `--theme=<clé>` (ce qui manque à
    un thème de `shared/sujets.ts`) ; `--nom=<nom>`, sinon g1, g2… Un thème
    qui a un inventaire (`server/src/core/inventaires.ts` : la danse, les
-   métiers de la santé) se commande famille par famille :
+   métiers de la santé, la langue française) se commande famille par famille :
    `--inventaire=<clé> --questions=<n>`, ses familles écrites en même temps
    — chacune son lot, sans poser les mêmes faits ; `--inventaire=danse,sante`
    pour deux thèmes dans les mêmes vagues, `n` chacun —, puis, rangé,

@@ -57,6 +57,19 @@ test('chaque inventaire vit dans un sous-thème de sa catégorie, et d’un thè
   )
 })
 
+// La langue française (le 17 octobre 2026) : ce que le propriétaire a nommé —
+// l'orthographe, la grammaire, l'étymologie, la morphologie — a chacun sa
+// famille, et l'étymologie, que la base avait déjà en nombre, pèse le moins
+// des quatre.
+test('la langue française : l’orthographe, la grammaire, l’étymologie et la formation des mots, chacune sa famille', () => {
+  const francais = inventaireDe('Culture générale', 'francais')!
+  assert.deepEqual(inventairesDuTheme(sujetParCle('francais')!), [francais])
+  const poids = new Map(francais.familles.map(f => [f.nom, f.poids]))
+  for (const famille of ['Orthographe et accords', 'Grammaire et conjugaison', 'Étymologie et emprunts', 'Formation des mots']) assert.ok(poids.has(famille), famille)
+  assert.ok(poids.get('Étymologie et emprunts')! < Math.min(poids.get('Orthographe et accords')!, poids.get('Grammaire et conjugaison')!, poids.get('Formation des mots')!))
+  assert.match(francais.prudence!, /rectifications de 1990/)
+})
+
 test('la salsa et ce qui l’entoure : le son, le danzón, la rumba, l’afro et chacun des orishas', () => {
   const musique = inventaireDe('Musique', 'danses')!
   const noms = (famille: string) => musique.familles.find(f => f.nom === famille)!.sujets.map(s => lireLeSujet(s).nom).join(' · ')
@@ -223,7 +236,7 @@ test('préparer par l’inventaire : --questions ou --manques, jamais avec --the
     assert.throws(() => preparer(contexte(), { inventaire: 'danse' }), /--questions=<nombre>, ou avec --manques/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse', questions: 10, manques: true }), /l’un ou l’autre/)
     assert.throws(() => preparer(contexte(), { manques: true, questions: 10 }), /--manques ne va qu’avec --inventaire/)
-    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /des thèmes qui ont un inventaire \(danse, sante\)/)
+    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /des thèmes qui ont un inventaire \(danse, sante, francais\)/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse,animaux', questions: 10 }), /des thèmes qui ont un inventaire/)
     const manques = preparer(contexte(), { inventaire: 'danse', manques: true, nom: 'm1' })
     assert.equal(manques.generation.demandees, inventairesDuTheme(danse).flatMap(i => i.familles.flatMap(f => f.sujets)).length)

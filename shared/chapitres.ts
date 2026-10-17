@@ -36,7 +36,7 @@ export interface Chapitre {
 const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly string[]])[]>> = {
   monde: [
     ['La vie de tous les jours', ['quotidien', 'transports']],
-    ['Mots et symboles', ['langue', 'symboles']],
+    ['Mots et symboles', ['francais', 'langue', 'symboles']],
     ['Mythes et religions', ['mythes']],
     ['Métiers, santé et chiffres', ['societe', 'sante', 'mesures', 'records']],
   ],

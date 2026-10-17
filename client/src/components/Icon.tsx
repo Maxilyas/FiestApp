@@ -94,6 +94,7 @@ export type IconName =
   | 'gamepad'
   | 'bulles'
   | 'landmark'
+  | 'lettres'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -657,6 +658,17 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   landmark: { paths: <path d="M3 9.5 12 4l9 5.5ZM4 20.5h16M5.5 17.5h13M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7" /> },
+  // « Aa », une capitale et sa minuscule : la langue française. Le livre était
+  // pris par l'origine des mots.
+  lettres: {
+    paths: (
+      <>
+        <path d="M2.5 19 8 5l5.5 14M4.6 14h6.8" />
+        <circle cx="17.5" cy="16" r="3" />
+        <path d="M20.5 12.5V19" />
+      </>
+    ),
+  },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.

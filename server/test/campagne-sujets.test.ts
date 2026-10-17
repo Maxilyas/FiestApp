@@ -75,6 +75,11 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'sagas')), [], 'Harry Potter n’est pas de la BD')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'sites')), ['monuments'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Arts & lettres', 'sculpture-archi')), ['monuments'])
+  // La langue française (le 17 octobre 2026) : son sous-thème, et l'étiquette pour une expression rangée ailleurs.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'francais')), ['francais'])
+  assert.deepEqual(sujetsDe(meta(null, ['francais'], 'monde', 'Autour de la fête', 'bal')), ['danse', 'francais'], '« ouvrir le bal »')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'langue')), [], 'l’alphabet coréen n’est pas du français')
+  assert.deepEqual(sujetsDe(meta(null, ['etymologie'], 'monde', 'Nature', 'disparus')), ['animaux', 'mots'], 'le nom d’un dinosaure reste à l’origine des mots, pas au français')
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
