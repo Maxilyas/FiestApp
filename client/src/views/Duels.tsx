@@ -1251,10 +1251,11 @@ export function CommentCaMarche() {
           'Pressé ? Le dé : Automate, tout de suite, sur ce que tu choisis — un adversaire simulé de ton niveau, qui apprend de tes réponses de campagne et rate où tu rates. Un duel à chances égales ; son score se dévoile à la fin.',
         )}
       </li>
-      {/* La montée (le 14 octobre 2026, `shared/duels.ts`) : « je veux que tout le monde monte en Or s'il joue, même s'il n'est pas très bon ». */}
+      {/* La montée (le 14 octobre 2026, `shared/duels.ts`) : « je veux que tout le monde monte en Or s'il joue, même s'il n'est pas très bon » ;
+          puis la platine (le 17 octobre 2026) : « à partir de platine c'est là que ça commence vraiment ». */}
       <li>
         {espacesFines(
-          `Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres. Jusqu’à la ligue d’or, chaque duel te fait avancer : +${PARTICIPATION_SOUS_L_OR} rien qu’en le jouant, +${PART_DU_LANCEUR} de plus si tu as lancé le défi, et une défaite ne coûte presque rien. L’argent et l’or, une fois atteints, ne se perdent plus ; au-dessus, chaque duel rapporte +${PARTICIPATION_AU_DESSUS}, et à chances égales, une défaite coûte à peu près ce qu’une victoire rapporte.`,
+          `Tout le monde part de 1000, en ligue de bronze. Une ligue tous les cent points, jusqu’aux maîtres. Jusqu’à la ligue d’or, chaque duel te fait avancer : +${PARTICIPATION_SOUS_L_OR} rien qu’en le jouant, +${PART_DU_LANCEUR} de plus si tu as lancé le défi, et une défaite ne coûte presque rien. En or, chaque duel rapporte +${PARTICIPATION_AU_DESSUS}, et à chances égales, une défaite coûte moins qu’une victoire ne rapporte. L’argent, l’or et la platine, une fois atteints, ne se perdent plus ; à partir de la platine, c’est ton niveau qui parle : une défaite coûte à peu près ce qu’une victoire rapporte.`,
         )}
       </li>
       <li>{espacesFines(`Chaque lundi, ta meilleure ligue de la semaine te rapporte ses confettis, dès ${DUELS_POUR_LA_RECOMPENSE} duels joués dans la semaine.`)}</li>

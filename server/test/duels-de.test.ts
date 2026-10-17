@@ -6,10 +6,16 @@
 // quatre fois sur dix —, mais l'enjeu lisait son score contre la cote qu'on
 // voit, que la montée et les duels entre amis portaient 300 points plus haut :
 // pour la formule, 88 % de chances. Il compte désormais comme un adversaire de
-// sa cote ; dès l'Or, une défaite coûte l'ELO (24 × E), plus 24 × E² ; et le
-// dé tire sur ce qu'on a choisi. Chaque test échouait avant, sauf celui du
-// plancher : une règle qui tenait déjà, et que l'enjeu du dé suppose. Que sa
-// feuille s'ouvre avant de tirer : `duels-enjeu.test.ts`.
+// sa cote, et le dé tire sur ce qu'on a choisi. Chaque test échouait avant,
+// sauf celui du plancher : une règle qui tenait déjà, et que l'enjeu du dé
+// suppose. Que sa feuille s'ouvre avant de tirer : `duels-enjeu.test.ts`.
+//
+// Puis le choix du 17 octobre 2026 : « Je ne veux pas changer pour l'or la
+// formule, je trouve que monter jusqu'en platine c'est bien comme ça. Je veux
+// aussi ne pas pouvoir retomber en or en platine et à partir de platine c'est
+// là que ça commence vraiment. » L'Or garde 24 × E², l'ELO — proposé dès
+// l'Or la veille — ne commence qu'à la Platine, et la Platine se garde
+// (`duels-montee.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -39,15 +45,20 @@ const semaine = () => '2026-10-05'
 const contreAutomate = (sesJustes: number): DuelJoue[] =>
   Array.from({ length: 30 }, (_, i) => ({ serie: `d${String(i).padStart(2, '0')}`, finiLe: DEBUT + i * 60_000, sesJustes, justes: i % 5 < 2 ? sesJustes + 1 : sesJustes - 1 }))
 
-test('au dé, un duel à chances égales : l’enjeu ne dépend plus du score d’Automate — en Or, presque platine, « +13 / −11 », plus « +4 / −17 »', () => {
+test('au dé, un duel à chances égales : l’enjeu ne dépend plus du score d’Automate — en Or, presque platine, « +13 / −5 », plus « +4 / −17 »', () => {
   // Le retour même : 1274 en Or. Contre la cote de six bonnes réponses, la formule lui prêtait 88 % de chances.
-  assert.deepEqual(enjeuDuDe(1274), { cote: 1274, gagne: 13, egalite: 1, perdu: -11 })
+  assert.deepEqual(enjeuDuDe(1274), { cote: 1274, gagne: 13, egalite: -2, perdu: -5 })
   assert.ok(chancesDeGagner(1274, 950) > 0.85, 'ce qui faisait « +4 / −17 »')
   // Sous l'Or, la montée : même perdu, il rapporte.
   assert.deepEqual(enjeuDuDe(COTE_DE_DEPART), { cote: COTE_DE_DEPART, gagne: 17, egalite: 4, perdu: 2 })
-  // Son plancher se lit de sa cote même : l'Or tout juste atteint, rien à perdre ; un peu au-dessus, jusqu'au seuil.
+  // À partir de la Platine, l'ELO : une défaite coûte à peu près ce qu'une victoire rapporte.
+  assert.deepEqual(enjeuDuDe(1350), { cote: 1350, gagne: 13, egalite: 1, perdu: -11 })
+  // Son plancher se lit de sa cote même : une ligue gardée tout juste atteinte, rien à perdre ; un peu au-dessus,
+  // jusqu'au seuil — l'Or, puis la Platine.
   assert.equal(enjeuDuDe(1200).perdu, 0)
-  assert.equal(enjeuDuDe(1205).perdu, -5)
+  assert.equal(enjeuDuDe(1203).perdu, -3)
+  assert.equal(enjeuDuDe(1300).perdu, 0)
+  assert.equal(enjeuDuDe(1305).perdu, -5)
 
   // Joué : contre un Automate à quatre ou à douze, la cote qu'on voit bouge pareil, duel pour duel.
   const contreQuatre = releverLesDuels(contreAutomate(4), semaine)
@@ -64,17 +75,31 @@ test('au dé, un duel à chances égales : l’enjeu ne dépend plus du score d�
   assert.ok(niveauDeLaCote(contreDouze.cachee) > niveauDeLaCote(contreQuatre.cachee))
 })
 
-test('dès l’Or, l’ELO : à ses vraies chances, un duel ne rapporte en moyenne que sa participation — 24 × E² en donnait jusqu’à quatre de plus', () => {
-  // Entre amis aux cotes gonflées pareil, chacun à ses vraies chances : le haut montait de 2,3 points par duel
-  // (mesuré en production le 16 octobre 2026), et Automate à chances égales en aurait rapporté quatre.
-  for (const cote of [1200, 1290, 1400, 1550]) {
+test('en Or, la montée d’avant : jouer y fait monter ; à partir de la Platine, l’ELO — à ses vraies chances, un duel n’y rapporte que sa participation', () => {
+  /** Ce qu'un duel lui rapporte en moyenne, à ses vraies chances contre `ecart` points de plus. */
+  const enMoyenne = (cote: number, ecart: number) => {
+    const e = chancesDeGagner(cote, cote + ecart)
+    return e * ecartDeLaMontee(cote, cote + ecart, 1) + (1 - e) * ecartDeLaMontee(cote, cote + ecart, 0)
+  }
+  const contre = (ecart: number) => `contre ${ecart > 0 ? '+' : ''}${ecart}`
+  // En Or, 24 × E² : quel que soit l'adversaire, plus d'un demi-point par duel, quatre à chances égales — qui joue
+  // monte jusqu'en Platine (« je trouve que monter jusqu'en platine c'est bien comme ça »). L'ELO dès l'Or, proposé la
+  // veille, n'en laissait qu'un.
+  for (const cote of [1200, 1250, 1299]) {
     for (let ecart = -400; ecart <= 400; ecart += 25) {
-      const e = chancesDeGagner(cote, cote + ecart)
-      const moyen = e * ecartDeLaMontee(cote, cote + ecart, 1) + (1 - e) * ecartDeLaMontee(cote, cote + ecart, 0)
-      assert.ok(Math.abs(moyen - PARTICIPATION_AU_DESSUS) <= 0.5, `${cote} contre ${ecart > 0 ? '+' : ''}${ecart} : ${moyen.toFixed(2)} en moyenne`)
+      assert.ok(enMoyenne(cote, ecart) > 0.5, `${cote} ${contre(ecart)} : ${enMoyenne(cote, ecart).toFixed(2)} en moyenne`)
+    }
+    assert.equal(enMoyenne(cote, 0), 4)
+  }
+  // À partir de la Platine, l'ELO : entre amis aux cotes gonflées, chacun à ses vraies chances, le haut montait de
+  // 2,3 points par duel sous 24 × E² (mesuré en production le 16 octobre 2026) — « c'est là que ça commence vraiment ».
+  for (const cote of [1300, 1340, 1400, 1550]) {
+    for (let ecart = -400; ecart <= 400; ecart += 25) {
+      assert.ok(Math.abs(enMoyenne(cote, ecart) - PARTICIPATION_AU_DESSUS) <= 0.5, `${cote} ${contre(ecart)} : ${enMoyenne(cote, ecart).toFixed(2)} en moyenne`)
     }
   }
-  // Une égalité à chances égales : la participation, rien d'autre.
+  // Une égalité à chances égales : en Or, la moitié d'une défaite ; à partir de la Platine, la participation, rien d'autre.
+  assert.equal(ecartDeLaMontee(1250, 1250, 0.5), -2)
   assert.equal(ecartDeLaMontee(1300, 1300, 0.5), PARTICIPATION_AU_DESSUS)
   // Sous l'Or, la montée ne change pas : même une défaite rapporte.
   assert.equal(ecartDeLaMontee(1100, 1100, 0), 2)

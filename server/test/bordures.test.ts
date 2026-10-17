@@ -76,15 +76,16 @@ test('un duel gagné sertit un cran de la ligue où il s’est joué ; rien ne s
   ])
   // Une défaite, une égalité ne sertissent rien — mais le premier duel ouvre la bordure de sa ligue.
   assert.deepEqual(releverLesDuels([duel(0, 3, 14), duel(1, 8, 8)], semaine).bordures, [{ ligue: 'bronze', crans: 0 }])
-  // Monté en platine, redescendre en or ne reprend ni la platine ni ses crans ; une victoire en or y sertit le sien.
-  // (L'argent et l'or, une fois atteints, ne se perdent plus : c'est de la platine qu'on redescend.)
-  const montee = [...DIX_VICTOIRES, ...[10, 11, 12, 13, 14].map(i => duel(i, 21, 20))]
-  const chute = [...montee, ...[15, 16, 17, 18].map(i => duel(i, 1, 9))]
+  // Monté en diamant, redescendre en platine ne reprend ni le diamant ni ses crans ; une victoire en platine y sertit
+  // le sien. (L'argent, l'or et la platine, une fois atteints, ne se perdent plus — la platine depuis le 17 octobre
+  // 2026 : c'est du diamant qu'on redescend.)
+  const montee = [...DIX_VICTOIRES, ...Array.from({ length: 10 }, (_, k) => duel(10 + k, 21, 20))]
+  const chute = [...montee, ...[20, 21, 22, 23].map(i => duel(i, 1, 9))]
   const apres = releverLesDuels(chute, semaine)
-  assert.ok(apres.cote >= 1200 && apres.cote < 1300, `redescendu en or (${apres.cote})`)
-  assert.deepEqual(apres.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 2 })
-  const relevee = releverLesDuels([...chute, duel(19, 16, 15)], semaine)
-  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'or'), { ligue: 'or', crans: 6 })
+  assert.ok(apres.cote >= 1300 && apres.cote < 1400, `redescendu en platine (${apres.cote})`)
+  assert.deepEqual(apres.bordures.find(b => b.ligue === 'diamant'), { ligue: 'diamant', crans: 2 })
+  const relevee = releverLesDuels([...chute, duel(24, 16, 15)], semaine)
+  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 6 })
   // Douze crans au plus : treize victoires en bronze la sertissent, sans rien de plus.
   const treize = releverLesDuels([...Array(13)].map((_, i) => duel(i, 3, 0)), semaine)
   assert.deepEqual(treize.bordures, [{ ligue: 'bronze', crans: CRANS_D_UNE_BORDURE }])

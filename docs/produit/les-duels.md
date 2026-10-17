@@ -28,7 +28,7 @@ Les duels demandent un profil, où restent ta cote, ta ligue et tes confettis : 
 
 ## Le duel au dé, contre Automate
 
-1. Touche le dé : une feuille dit ce qu'il met en jeu, en deux jetons — « +17 victoire » et « +2 défaite » sous l'Or, « +13 » et « −11 » dès l'Or ([la cote](#la-cote)) : Automate joue à ton niveau, c'est un duel à chances égales, et son score n'y change rien —, et sur quoi il se joue : « Sur Toutes les catégories », « Changer › » au bout, la feuille du choix de la série — des catégories, ou un thème, une époque, un fil rouge. Rien n'est tiré avant « Jouer le duel », qui tire la série et la partie d'Automate, et le commence : fermée, la feuille ne laisse rien en cours. Un duel commencé puis laissé reprend tout de suite, sur ce qu'il jouait. « Un autre duel », sous un verdict, passe par la même feuille, sur ce que jouait celui-ci. Jusqu'au 16 octobre 2026, le dé tirait d'abord : l'enjeu se lisait contre le score d'Automate, et la feuille fermée laissait en cours un duel qu'on n'avait pas lancé.
+1. Touche le dé : une feuille dit ce qu'il met en jeu, en deux jetons — « +17 victoire » et « +2 défaite » sous l'Or, « +13 » et « −5 » en Or, « +13 » et « −11 » dès la Platine ([la cote](#la-cote)) : Automate joue à ton niveau, c'est un duel à chances égales, et son score n'y change rien —, et sur quoi il se joue : « Sur Toutes les catégories », « Changer › » au bout, la feuille du choix de la série — des catégories, ou un thème, une époque, un fil rouge. Rien n'est tiré avant « Jouer le duel », qui tire la série et la partie d'Automate, et le commence : fermée, la feuille ne laisse rien en cours. Un duel commencé puis laissé reprend tout de suite, sur ce qu'il jouait. « Un autre duel », sous un verdict, passe par la même feuille, sur ce que jouait celui-ci. Jusqu'au 16 octobre 2026, le dé tirait d'abord : l'enjeu se lisait contre le score d'Automate, et la feuille fermée laissait en cours un duel qu'on n'avait pas lancé.
 2. Au-dessus de chaque question : « Toi 7 – Automate 6 » (son score sur les questions déjà jouées), « simulé, de ton niveau », et l'enjeu, « En jeu : +17 si tu gagnes, +2 même si tu perds » ([la cote](#la-cote)). Après ta réponse, ce qu'il en avait fait (« Automate l'avait trouvée. », ou « ratée ») — ou « Automate n'avait pas joué celle-ci. » si sa série s'était arrêtée à sa troisième faute.
 3. Le duel finit dès que tu dépasses son score total (tu as gagné : plus rien à jouer), à ta troisième faute, ou au bout des questions. « Voir qui a gagné » mène à la carte du verdict, qui se retourne d'elle-même : victoire, défaite ou égalité, les deux scores, ce que ta cote a gagné ou perdu, ta ligue et ta place. Dessous, ta semaine, puis ce que le duel a fait tomber, par l'écran des gains de toute la campagne : « Nouveaux trophées » et « À porter » ; « Ce que tu gagnes » n'y paraît qu'à un niveau gagné — la carte dit déjà ce que le duel a fait. Enfin « Un autre duel », « Accueil », « Réponses ».
 
@@ -72,24 +72,25 @@ Un duel se gagne au nombre de bonnes réponses — gagné vaut 1, égalité 0,5,
 **La cote qu'on voit** avance d'un écart en points entiers :
 
 - **sous l'Or**, chaque duel rapporte 5 (`PARTICIPATION_SOUS_L_OR`), plus 24 × (1 − E) s'il est gagné ; perdu, il ne coûte que le quart de ce que l'ELO ferait payer, 24 × E × 0,25 (`PERTE_SOUS_L_OR`) : au pire un point. Une égalité rapporte, contre plus fort, ce que l'ELO lui donnerait ; contre plus faible, elle coûte la moitié d'une défaite ;
-- **dès l'Or**, chaque duel rapporte 1 (`PARTICIPATION_AU_DESSUS`), plus l'ELO, 24 × (résultat − E) : peu à perdre contre plus fort, beaucoup contre plus faible, et à chances égales, une victoire vaut à peu près ce qu'une défaite coûte ;
+- **en Or**, chaque duel rapporte 1 (`PARTICIPATION_AU_DESSUS`), et l'enjeu suit l'écart : une défaite coûte 24 × E² — presque rien contre plus fort, beaucoup contre plus faible ; à chances égales, moins qu'une victoire ne rapporte ;
+- **dès la Platine** (`LIGUE_DE_L_ELO`), chaque duel rapporte 1, plus l'ELO, 24 × (résultat − E) : peu à perdre contre plus fort, beaucoup contre plus faible, et à chances égales, une victoire vaut à peu près ce qu'une défaite coûte ;
 - **qui lance un défi** gagne 1 de plus, quelle qu'en soit l'issue (`PART_DU_LANCEUR`) : provoquer paie ;
-- **l'Argent et l'Or**, une fois atteints, ne se perdent plus (`LIGUES_GARDEES`) : ta cote ne redescend plus sous leur seuil.
+- **l'Argent, l'Or et la Platine**, une fois atteints, ne se perdent plus (`LIGUES_GARDEES`) : ta cote ne redescend plus sous leur seuil.
 
 Ce qui se joue, gagné / égalité / perdu :
 
-| En face | À 1 000 | À 1 000, qui a lancé le défi | À 1 300 |
-|---|---|---|---|
-| 200 de moins | +11 / +3 / 0 | +12 / +4 / +1 | +7 / −5 / −17 |
-| 100 de moins | +14 / +3 / +1 | +15 / +4 / +2 | +10 / −2 / −14 |
-| autant | +17 / +4 / +2 | +18 / +5 / +3 | +13 / +1 / −11 |
-| 100 de plus | +20 / +8 / +3 | +21 / +9 / +4 | +16 / +4 / −8 |
-| 200 de plus | +23 / +11 / +4 | +24 / +12 / +5 | +19 / +7 / −5 |
+| En face | À 1 000 | À 1 000, qui a lancé le défi | En Or, à 1 250 | En Platine, à 1 350 |
+|---|---|---|---|---|
+| 200 de moins | +11 / +3 / 0 | +12 / +4 / +1 | +7 / −6 / −13 | +7 / −5 / −17 |
+| 100 de moins | +14 / +3 / +1 | +15 / +4 / +2 | +10 / −4 / −9 | +10 / −2 / −14 |
+| autant | +17 / +4 / +2 | +18 / +5 / +3 | +13 / −2 / −5 | +13 / +1 / −11 |
+| 100 de plus | +20 / +8 / +3 | +21 / +9 / +4 | +16 / +4 / −2 | +16 / +4 / −8 |
+| 200 de plus | +23 / +11 / +4 | +24 / +12 / +5 | +19 / +7 / 0 | +19 / +7 / −5 |
 
-Le dé se joue toujours sur la ligne « autant » : « +17 / +2 » sous l'Or, « +13 / −11 » dès l'Or, son plancher compris (`enjeuDuDe`). Sous l'Or, même une défaite fait avancer — la page le dit, « +2 même si tu perds », jamais en rouge, et « rien à perdre » quand elle ne coûte rien. Contre Automate, réglé sur ton niveau, chacun gagne à peu près quatre duels sur dix : qui joue monte en Or, même pas très fort — un joueur qui n'en gagne qu'un sur trois y arrive en moins de cent duels (`server/test/duels-montee.test.ts`). Dès l'Or, contre quelqu'un, battre plus fort que soi rapporte gros, s'acharner sur plus faible ne paie pas ; à ses vraies chances, un duel n'y rapporte en moyenne que son point de participation — une ligue tous les cent duels (`server/test/duels-de.test.ts`).
+Le dé se joue toujours sur la ligne « autant » : « +17 / +2 » sous l'Or, « +13 / −5 » en Or, « +13 / −11 » dès la Platine, son plancher compris (`enjeuDuDe`). Sous l'Or, même une défaite fait avancer — la page le dit, « +2 même si tu perds », jamais en rouge, et « rien à perdre » quand elle ne coûte rien. Contre Automate, réglé sur ton niveau, chacun gagne à peu près quatre duels sur dix : qui joue monte en Or, même pas très fort — un joueur qui n'en gagne qu'un sur trois y arrive en moins de cent duels —, puis en Platine, en deux cents duels au plus (`server/test/duels-montee.test.ts`). Dès la Platine, c'est ton niveau qui parle : battre plus fort que soi rapporte gros, s'acharner sur plus faible ne paie pas, et à ses vraies chances, un duel n'y rapporte en moyenne que son point de participation (`server/test/duels-de.test.ts`). Au dé, où l'on gagne quatre duels sur dix, « +13 / −11 » ne fait plus monter : au-delà de la Platine, on monte en battant des joueurs.
 
 > [!NOTE]
-> **« +4 / −17 », jusqu'au 16 octobre 2026.** Contre Automate, l'enjeu lisait son score contre la cote qu'on voit, que la montée et les duels entre amis portaient de 260 à 310 points au-dessus du niveau des joueurs en Or : la formule leur prêtait 85 à 88 % de chances contre un adversaire qu'on bat quatre fois sur dix, et chaque duel au dé leur coûtait six points en moyenne. Et dès l'Or, une défaite ne coûtait que 24 × E² : à chances égales, « +13 / −5 », de quoi monter de 2,3 points par duel entre amis. Le propriétaire a choisi les chances égales au dé et l'ELO dès l'Or ; relue sous ces règles, la cote des quatre joueurs en Or a rendu de 19 à 42 points.
+> **« +4 / −17 », jusqu'au 16 octobre 2026.** Contre Automate, l'enjeu lisait son score contre la cote qu'on voit, que la montée et les duels entre amis portaient de 260 à 310 points au-dessus du niveau des joueurs en Or : la formule leur prêtait 85 à 88 % de chances contre un adversaire qu'on bat quatre fois sur dix, et chaque duel au dé leur coûtait six points en moyenne. Le propriétaire a choisi les chances égales au dé. À chances égales, en Or, 24 × E² fait monter — « +13 / −5 », quatre points par duel en moyenne — et rien ne l'arrêtait : le 17 octobre, il a gardé l'Or tel quel (« monter jusqu'en platine c'est bien comme ça »), fait de la Platine une ligue gardée, et réservé l'ELO à partir d'elle (« c'est là que ça commence vraiment »). Relue sous ces règles, aucune cote de la production n'a baissé : trois joueurs en Platine ont gagné de 1 à 5 points, et celui qui en était retombé l'a retrouvée.
 
 **La cote cachée** suit l'ELO tel qu'il était avant la montée : le poids du duel × (résultat − chances), arrondi ; 48 pendant tes 10 premiers duels, qui comptent double (`POIDS_DU_PLACEMENT`, `DUELS_DE_PLACEMENT`), puis 24 (`POIDS_D_UN_DUEL`). Réglé sur la cote qu'on voit, qui monte au-dessus du niveau, Automate se renforcerait, et l'on perdrait plus souvent.
 
@@ -102,7 +103,7 @@ Les cotes ne sont écrites nulle part : elles se relisent de tout ton journal de
 
 ## Les ligues et leurs bordures
 
-Une ligue tous les 100 points, deux bonnes réponses de mieux en moyenne (`LIGUES`, voir [les barèmes](../reference/baremes.md)) ; l'argent et l'or, une fois atteints, ne se perdent plus :
+Une ligue tous les 100 points, deux bonnes réponses de mieux en moyenne (`LIGUES`, voir [les barèmes](../reference/baremes.md)) ; l'argent, l'or et la platine, une fois atteints, ne se perdent plus :
 
 | Ligue | Dès la cote | Confettis chaque lundi | Blason | Sa bordure |
 |---|---|---|---|---|

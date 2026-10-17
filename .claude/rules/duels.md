@@ -25,8 +25,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
 - `shared/duels.ts` — tout ce qui se calcule, pur : les deux cotes — la
   cachée, l'ELO seul (`coteDuScore`, `chancesDeGagner`, `ecartContre`, le
   placement `DUELS_DE_PLACEMENT`), et celle qu'on voit, la montée
-  (`ecartDeLaMontee` — l'ELO dès l'Or —, `apresLeDuel`, `plancherApres`,
-  `MONTEE` et ses constantes, `LIGUES_GARDEES` ; la force d'en face,
+  (`ecartDeLaMontee` — 24 × E² en Or, l'ELO dès la Platine, `LIGUE_DE_L_ELO`
+  —, `apresLeDuel`, `plancherApres`, `MONTEE` et ses constantes,
+  `LIGUES_GARDEES` — la Platine comprise ; la force d'en face,
   `forceQuOnVoit` — au dé, sa propre cote ; ce qu'un duel mettrait en jeu :
   `enjeuContre`, `enjeuDuDe`) —, le nom d'Automate (`AUTOMATE`, que la
   feuille du dé montre avant de tirer), les ligues (`LIGUES`, `ligueDe`), la
@@ -174,11 +175,21 @@ jour a sa notification (règle `rappel-et-installation.md`).
   4 ») : Automate joue au niveau de la cachée, et lire son score contre la
   cote qu'on voit, portée 300 points plus haut par la montée, prêtait 88 %
   de chances contre un adversaire qu'on bat quatre fois sur dix. La cachée,
-  elle, bouge toujours contre son score : c'est elle qui apprend. Et dès
-  l'Or, une défaite coûte l'ELO (24 × E) : sous 24 × E², un duel à chances
-  égales rapportait quatre points, et le haut montait pour avoir joué
-  (`duels-de.test.ts`). Le plancher d'un enjeu du dé se lit de la cote même
-  (`enjeuDuDe`) : une ligue gardée atteinte, elle ne repasse jamais dessous.
+  elle, bouge toujours contre son score : c'est elle qui apprend. Le
+  plancher d'un enjeu du dé se lit de la cote même (`enjeuDuDe`) : une ligue
+  gardée atteinte, elle ne repasse jamais dessous.
+- **L'Or fait monter, la Platine fait jouer** (le choix du propriétaire du
+  17 octobre 2026 : « monter jusqu'en platine c'est bien comme ça […] à
+  partir de platine c'est là que ça commence vraiment »). En Or, une défaite
+  coûte 24 × E² : à chances égales, « +13 / −5 », quatre points par duel —
+  qui joue monte en Platine, qui se garde (`LIGUES_GARDEES`). À partir
+  d'elle (`LIGUE_DE_L_ELO`), l'ELO, 24 × E : au dé, où l'on gagne quatre
+  duels sur dix, « +13 / −11 » ne fait plus monter, et l'on reste au
+  plancher — on monte en battant des joueurs. L'ELO dès l'Or, proposé la
+  veille, reprenait de 19 à 42 points aux joueurs en Or : le propriétaire
+  l'a refusé. Et 24 × E² au-dessus de la Platine mènerait tout joueur
+  assidu chez les maîtres pour avoir joué (`duels-de.test.ts`,
+  `duels-montee.test.ts`).
 - **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
   contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
   sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée

@@ -30,10 +30,11 @@
 //
 // Puis la montée (le choix du propriétaire du 14 octobre 2026, plus bas) :
 // deux cotes, une cachée — l'ELO, le niveau, qui règle Automate — et celle
-// qu'on voit, celle des ligues, qui avance pour qui joue. Et, depuis le
+// qu'on voit, celle des ligues, qui avance pour qui joue. Depuis le
 // 16 octobre 2026, le dé à chances égales : sur la cote qu'on voit, Automate
-// compte comme un adversaire de sa cote, son score n'y est plus pour rien
-// (plus bas aussi).
+// compte comme un adversaire de sa cote, son score n'y est plus pour rien ;
+// et depuis le 17, l'ELO ne commence qu'à la Platine, qui se garde (plus bas
+// aussi).
 //
 // Tout se relit dans le journal des rencontres finies (`releverLesDuels`) : la
 // cote, les ligues de chaque semaine, les confettis qu'elles ont payés. Une
@@ -197,12 +198,16 @@ export function ecartDuDuel(cote: number, sesJustes: number, dejaJoues: number, 
 //   un point, pour une victoire d'au moins cinq. Contre Automate, réglé sur
 //   son niveau, chacun gagne quatre duels sur dix : qui joue monte en Or,
 //   même pas très fort ;
-// - dès l'Or, chaque duel rapporte `PARTICIPATION_AU_DESSUS`, plus l'ELO :
-//   `POIDS_D_UN_DUEL` × (résultat − E), E ses chances — peu à perdre contre
-//   plus fort, beaucoup contre plus faible : on ne gagne rien à s'acharner
-//   sur les petits ;
+// - en Or, chaque duel rapporte `PARTICIPATION_AU_DESSUS`, et l'enjeu suit
+//   l'écart : une défaite coûte `POIDS_D_UN_DUEL` × E² (E, ses chances) —
+//   presque rien contre plus fort, beaucoup contre plus faible : on ne gagne
+//   rien à s'acharner sur les petits ;
+// - à partir de la Platine (`LIGUE_DE_L_ELO`), la participation plus l'ELO,
+//   `POIDS_D_UN_DUEL` × (résultat − E) : à chances égales, une défaite coûte
+//   ce qu'une victoire rapporte (le choix du 17 octobre 2026, plus bas) ;
 // - qui lance un défi gagne `PART_DU_LANCEUR` de plus : provoquer paie ;
-// - l'Argent et l'Or, une fois atteints, ne se perdent plus (`LIGUES_GARDEES`).
+// - l'Argent, l'Or et la Platine, une fois atteints, ne se perdent plus
+//   (`LIGUES_GARDEES`) — la Platine depuis le 17 octobre 2026.
 // Pas de placement sur elle : le poids double des dix premiers duels sert à
 // trouver vite le niveau, la cote cachée. Rejoués sur les vrais duels de
 // production (`calibrage-duels.ts`), les trois joueurs les plus actifs
@@ -218,15 +223,22 @@ export function ecartDuDuel(cote: number, sesJustes: number, dejaJoues: number, 
 // six points perdus par duel en moyenne, et cent duels ramenaient chacun au
 // plancher de l'Or. Sur la cote qu'on voit, il compte désormais comme un
 // adversaire de sa cote (`forceQuOnVoit`) : « +17 / +2 » sous l'Or,
-// « +13 / −11 » dès l'Or, dit avant de tirer (`enjeuDuDe`) — le dé demande,
-// puis tire. La cachée, elle, bouge toujours contre son score : c'est elle
-// qui apprend le niveau. Dès l'Or, une défaite coûtait 24 × E² : contre
-// Automate à chances égales, « +13 / −5 », chaque duel en aurait rapporté
-// quatre, et tout joueur assidu aurait fini chez les maîtres ; entre amis,
-// cotes gonflées pareil, le haut montait déjà de 2,3 points par duel. L'ELO
-// l'arrête : un point de participation par duel, une ligue tous les cent.
-// Rejoué ce jour-là, chacun des quatre joueurs en Or rendait de 19 à
-// 42 points.
+// « +13 / −5 » en Or, « +13 / −11 » dès la Platine, dit avant de tirer
+// (`enjeuDuDe`) — le dé demande, puis tire. La cachée, elle, bouge toujours
+// contre son score : c'est elle qui apprend le niveau.
+//
+// Puis la Platine, où « ça commence vraiment » (le choix du propriétaire du
+// 17 octobre 2026). À chances égales, 24 × E² fait monter — « +13 / −5 »,
+// quatre points par duel en moyenne —, et rien ne l'arrêtait : tout joueur
+// assidu aurait fini chez les maîtres, et entre amis, le haut montait déjà
+// de 2,3 points par duel. Le 16, l'ELO devait le remplacer dès l'Or — de
+// 19 à 42 points repris aux joueurs en Or ; le propriétaire a gardé l'Or tel
+// quel — « monter jusqu'en platine c'est bien comme ça » —, et l'ELO ne
+// commence qu'à la Platine (`LIGUE_DE_L_ELO`), qui ne se perd plus une fois
+// atteinte. Qui joue monte jusqu'en Platine ; au-delà, on monte en gagnant :
+// à ses vraies chances, un duel n'y rapporte que son point de participation,
+// et au dé, où l'on gagne quatre duels sur dix, « +13 / −11 » ne fait plus
+// monter.
 
 /** Ce que chaque duel rapporte à la cote qu'on voit : sous l'Or, et à partir de l'Or. */
 export const PARTICIPATION_SOUS_L_OR = 5
@@ -239,7 +251,10 @@ export const PART_DU_LANCEUR = 1
 export const PERTE_SOUS_L_OR = 0.25
 
 /** Les ligues qui ne se perdent plus une fois atteintes : la cote qu'on voit ne redescend plus sous leur seuil. */
-export const LIGUES_GARDEES: readonly CleDeLigue[] = ['argent', 'or']
+export const LIGUES_GARDEES: readonly CleDeLigue[] = ['argent', 'or', 'platine']
+
+/** La ligue où la montée devient l'ELO : en dessous, une défaite coûte moins qu'une victoire ne rapporte, à chances égales ; à partir d'elle, autant. */
+export const LIGUE_DE_L_ELO: CleDeLigue = 'platine'
 
 /**
  * Les réglages de la montée, ensemble : `calibrage-duels.ts` en essaie
@@ -262,6 +277,7 @@ export const MONTEE: ReglagesDeLaMontee = {
 }
 
 const SEUIL_DE_L_OR = PAR_CLE.get('or')!.depuis
+const SEUIL_DE_L_ELO = PAR_CLE.get(LIGUE_DE_L_ELO)!.depuis
 
 /** Le plancher de la cote qu'on voit, une cote atteinte : le seuil de la plus haute ligue gardée qu'elle a passé — null tant qu'aucune. */
 export function plancherApres(plancher: number | null, cote: number): number | null {
@@ -282,9 +298,9 @@ export function ecartDeLaMontee(cote: number, adverse: number, resultat: Resulta
   const e = chancesDeGagner(cote, adverse)
   const sousLOr = cote < SEUIL_DE_L_OR
   const part = (sousLOr ? reglages.sousLOr : reglages.auDessus) + (lance ? reglages.lanceur : 0)
-  // Dès l'Or, l'ELO : 24 × E² y laissait monter qui jouait à chances égales (le choix du 16 octobre 2026, plus haut).
-  if (!sousLOr) return Math.round(part + POIDS_D_UN_DUEL * (resultat - e))
-  const perte = POIDS_D_UN_DUEL * e * reglages.perteSousLOr
+  // À partir de la Platine, l'ELO : 24 × E² y faisait monter qui jouait à chances égales (le choix du 17 octobre 2026, plus haut).
+  if (cote >= SEUIL_DE_L_ELO) return Math.round(part + POIDS_D_UN_DUEL * (resultat - e))
+  const perte = POIDS_D_UN_DUEL * e * (sousLOr ? reglages.perteSousLOr : e)
   if (resultat === 1) return Math.round(part + POIDS_D_UN_DUEL * (1 - e))
   // Une égalité contre plus fort rapporte ce que l'ELO lui donnerait ; contre plus faible, elle coûte la moitié d'une défaite.
   if (resultat === 0.5) return Math.round(part + (e < 0.5 ? POIDS_D_UN_DUEL * (0.5 - e) : -perte / 2))

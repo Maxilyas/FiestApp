@@ -83,8 +83,10 @@ test('le dé : sa feuille dit ce que le duel contre Automate met en jeu — à c
   assert.match(html, /<footer class="carte-pied"><button type="button" class="btn btn-primary btn-big btn-block btn-duel"><svg[^>]*>.*?<\/svg>Jouer le duel<\/button><\/footer>/)
   // Fermée, rien n'est tiré : elle ne promet plus qu'il attend dans ses duels.
   assert.doesNotMatch(html, /Il t’attend dans tes duels/)
-  // En Or, presque platine : « +13 / −11 », la défaite au rouge d'une perte — « +4 / −17 » contre un Automate qui avait raté.
-  assert.match(feuille({ enjeu: enjeuDuDe(1274) }), /<b class="num">\+13<\/b><span>victoire<\/span><\/span><span class="duels-jeton perdu"><b class="num">−11<\/b><span>défaite<\/span><\/span>/)
+  // En Or, presque platine : « +13 / −5 », la défaite au rouge d'une perte — « +4 / −17 » contre un Automate qui avait raté.
+  assert.match(feuille({ enjeu: enjeuDuDe(1274) }), /<b class="num">\+13<\/b><span>victoire<\/span><\/span><span class="duels-jeton perdu"><b class="num">−5<\/b><span>défaite<\/span><\/span>/)
+  // À partir de la Platine, l'ELO (le choix du 17 octobre 2026) : « +13 / −11 ».
+  assert.match(feuille({ enjeu: enjeuDuDe(1350) }), /<b class="num">\+13<\/b><span>victoire<\/span><\/span><span class="duels-jeton perdu"><b class="num">−11<\/b><span>défaite<\/span><\/span>/)
   // Le refus d'un tirage se dit dans la feuille ; le tirage en route, « Jouer le duel » attend.
   assert.match(feuille({ enjeu: enjeuDuDe(1000), erreur: 'Pas assez de questions dans ces catégories : ajoutes-en une autre' }), /<p class="error" role="alert">Pas assez de questions/)
   assert.match(feuille({ enjeu: enjeuDuDe(1000), busy: true }), /<button type="button" class="btn btn-primary btn-big btn-block btn-duel" aria-disabled="true">/)

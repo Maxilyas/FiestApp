@@ -32,6 +32,7 @@ import type { InStatement } from '@libsql/client'
 import { clientDistant, pourquoiInjoignable } from '../src/core/distante'
 import { duelsLus, lectureDesDuels } from '../src/core/campagne'
 import { semaineDe } from '../../shared/campagne'
+import { enumerer } from '../../shared/classement'
 import { jourDe } from '../../shared/jour'
 import { lireNombre } from '../../shared/nombres'
 import {
@@ -39,6 +40,7 @@ import {
   DUELS_DE_PLACEMENT,
   LIGUES,
   LIGUES_GARDEES,
+  LIGUE_DE_L_ELO,
   MONTEE,
   PARTICIPATION_AU_DESSUS,
   PARTICIPATION_SOUS_L_OR,
@@ -431,9 +433,9 @@ if (joueurs.length > 0) {
   console.log(`Contrôle : le rejeu des règles d’aujourd’hui retrouve la cote de chacun — ${retrouves} sur ${joueurs.length}.`)
   console.log(
     `La montée, la règle depuis le 14 octobre 2026 : +${PARTICIPATION_SOUS_L_OR} par duel sous l’Or, +${PARTICIPATION_AU_DESSUS} au-dessus, ` +
-      `+${PART_DU_LANCEUR} de plus pour qui lance un défi ; une défaite à ${Math.round(PERTE_SOUS_L_OR * 100)} % de l’ELO sous l’Or, l’ELO au-dessus ; ` +
-      `${LIGUES_GARDEES.map(c => ligueParCle(c).court).join(' et ')} gardés une fois atteints. Automate réglé sur la cote cachée ; ` +
-      'au dé, celle qu’on voit se joue à chances égales (le 16 octobre 2026).',
+      `+${PART_DU_LANCEUR} de plus pour qui lance un défi ; une défaite à ${Math.round(PERTE_SOUS_L_OR * 100)} % de l’ELO sous l’Or, à 24 × E² ensuite, ` +
+      `l’ELO dès la ${ligueParCle(LIGUE_DE_L_ELO).court} (le 17 octobre 2026) ; ${enumerer(LIGUES_GARDEES.map(c => ligueParCle(c).court))} gardés une fois atteints. ` +
+      'Automate réglé sur la cote cachée ; au dé, celle qu’on voit se joue à chances égales (le 16 octobre 2026).',
   )
   console.log('Avant la montée : l’ELO seul, une seule cote. « Montée · … » : comme si elle avait toujours été la règle — la cote d’en face rejouée, pas celle figée au lancement.')
   const largeur = Math.max(...variantes.map(v => v.nom.length)) + 2
