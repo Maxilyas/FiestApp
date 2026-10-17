@@ -44,6 +44,8 @@ export interface Sujet {
   annees?: readonly [number, number]
   /** … ou qui portent l'une de ces étiquettes… */
   etiquettes?: readonly string[]
+  /** … sauf dans ces catégories, où l'étiquette ne la fait pas sienne… */
+  etiquettesHors?: readonly Categorie[]
   /** … ou de cette portée… */
   portee?: MetadonneesDeQuestion['portee']
   /** … ou de l'un de ces sous-thèmes de leur catégorie (`SOUS_THEMES`) : un même mot — « france » — n'est pas le même sous-thème d'une catégorie à l'autre. */
@@ -119,7 +121,59 @@ export const SUJETS: readonly Sujet[] = [
     famille: 'theme',
     description: 'Médecins, soignants, et le corps qu’ils soignent',
     sousThemes: { 'Culture générale': ['sante'], Sciences: ['medecine', 'corps'] },
+    // Le métier, pas sa fiction (le retour du propriétaire du 17 octobre
+    // 2026) : l'étiquette y mettait « Dr House », « Urgences », Knock et
+    // le Médecin malgré lui : une vingtaine de fictions parmi les
+    // soixante-dix-sept questions qu'elle ajoutait. Pasteur, la peste noire
+    // et le quinquina restent.
     etiquettes: ['sante'],
+    etiquettesHors: ['Cinéma & séries', 'Arts & lettres', 'Jeux & pop culture'],
+  },
+  // L'informatique et l'astronomie (le souhait du propriétaire du 17 octobre
+  // 2026) : chacune avait déjà son sous-thème en sciences, deux cent
+  // cinquante questions et plus. L'astronomie double une moitié de la Terre
+  // et l'espace, qui garde sa clé et ses parcours commencés ; l'informatique
+  // laisse Internet aux jeux et à la pop culture : ses réseaux sociaux et ses
+  // mèmes n'en sont pas.
+  {
+    cle: 'informatique',
+    nom: 'L’informatique',
+    famille: 'theme',
+    description: 'Ordinateurs, langages, réseaux et ceux qui les ont inventés',
+    sousThemes: { Sciences: ['techno'] },
+  },
+  {
+    cle: 'astronomie',
+    nom: 'L’astronomie',
+    famille: 'theme',
+    description: 'Planètes, étoiles, galaxies et conquête spatiale',
+    sousThemes: { Sciences: ['espace'] },
+  },
+  // Puis trois de plus le même jour, chacun sur des sous-thèmes que la base
+  // tenait déjà à plus de deux cents questions. La BD laisse les sagas au
+  // cinéma : Harry Potter et James Bond n'en sont pas. Les monuments prennent
+  // la sculpture avec l'architecture — un tiers de son sous-thème, mais la
+  // statue de la Liberté, le Sphinx et les moaïs se visitent.
+  {
+    cle: 'jeux-video',
+    nom: 'Les jeux vidéo',
+    famille: 'theme',
+    description: 'De Pong à Zelda, consoles, héros et studios',
+    sousThemes: { 'Jeux & pop culture': ['jeux-video'] },
+  },
+  {
+    cle: 'bd',
+    nom: 'La BD et le manga',
+    famille: 'theme',
+    description: 'Tintin, Astérix, les super-héros et les mangas',
+    sousThemes: { 'Arts & lettres': ['bd'] },
+  },
+  {
+    cle: 'monuments',
+    nom: 'Monuments et architecture',
+    famille: 'theme',
+    description: 'Des pyramides aux gratte-ciel, et les statues qu’on visite',
+    sousThemes: { Géographie: ['sites'], 'Arts & lettres': ['sculpture-archi'] },
   },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
@@ -161,7 +215,7 @@ export function sujetsDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes'
   return SUJETS.filter(
     s =>
       (s.annees && annee !== null && annee >= s.annees[0] && annee <= s.annees[1]) ||
-      (s.etiquettes && s.etiquettes.some(e => meta.etiquettes.includes(e))) ||
+      (s.etiquettes && !s.etiquettesHors?.includes(meta.categorie as Categorie) && s.etiquettes.some(e => meta.etiquettes.includes(e))) ||
       (s.portee && meta.portee === s.portee) ||
       (s.sousThemes && !!s.sousThemes[meta.categorie as Categorie]?.includes(meta.sousTheme)),
   ).map(s => s.cle)

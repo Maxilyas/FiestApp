@@ -54,7 +54,7 @@ Les **catégories** sont douze : Culture générale, Histoire, Géographie, Scie
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
-| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé | Ses sous-thèmes, parfois une étiquette |
+| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé, L'informatique, L'astronomie, Les jeux vidéo, La BD et le manga, Monuments et architecture | Ses sous-thèmes, parfois une étiquette |
 | Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
 | Un fil rouge | La France, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
 
