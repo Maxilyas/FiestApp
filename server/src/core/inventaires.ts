@@ -1605,7 +1605,7 @@ export const INVENTAIRES: readonly Inventaire[] = [
           "l'heure et la journée (la madrugada, la sobremesa, la siesta)|madrugada|sobremesa|siesta|mediodía|qué hora es",
           'au café et au restaurant (la cuenta, una caña, tapas, el menú del día)|la cuenta|caña|tapa|camarero|menú del día',
           'les prénoms et leurs diminutifs (Pepe, Paco, Lola, Nacho)|pepe|paco|lola|nacho|pancho|conchita',
-          'les deux noms de famille espagnols|apellido|apellidos|deux noms de famille',
+          'les deux noms de famille espagnols|apellido|apellidos|deux noms de famille|nom de famille espagnol|second nom de famille',
         ],
       },
     ],

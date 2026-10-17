@@ -86,9 +86,11 @@ import { sansAccent } from '../../shared/homonymes'
  * l'inventaire laissait sans question (`--manques`), 15 : 25 032. Puis
  * l'anglais et l'espagnol, deux sous-thèmes neufs écrits de même
  * (`preparer --inventaire=anglais,espagnol`), 488 rangées sur 500 (8
- * refusées comme un fait déjà posé, 4 retirées à la relecture) : 25 520.
+ * refusées comme un fait déjà posé, 4 retirées à la relecture) : 25 520 ;
+ * puis une question par sujet que leurs inventaires laissaient sans
+ * question (`--manques`), 9 : 25 529.
  */
-const AU_MOINS = 25520
+const AU_MOINS = 25529
 
 const { questions, refusees } = lireLaBase()
 
