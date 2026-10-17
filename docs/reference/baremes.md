@@ -6,7 +6,7 @@ Ces valeurs sont des **choix de produit**, pas des réglages techniques : on n'e
 
 **Cette page est relue contre le code.** `server/test/documentation.test.ts` importe le fichier de chaque ligne : chaque constante doit y être déclarée, et un nombre écrit nu dans la colonne « Valeur » doit être exactement celui du code. Une valeur qui change sans que sa ligne change fait rougir le test. Les valeurs qui ne sont pas des nombres (`[50, 100, 200]`, « voir `LIGUES` », `24 h`) se lisent sans se comparer ; une constante qui vit dans un fichier du navigateur, que Node ne sait pas importer, est dite en remarque sous son tableau.
 
-**Dans cette page** : [ce qu'un changement fait au passé](#ce-quun-changement-fait-au-passé) · [le quiz](#le-quiz--les-points-dune-question) · [la salle](#la-salle) · [l'expérience et les récompenses](#lexpérience-et-les-récompenses) · [la fin de soirée](#la-fin-de-soirée-et-les-prix) · [le quiz du jour](#le-quiz-du-jour) · [la campagne](#la-campagne-et-le-défi) · [les sentiers](#les-sentiers-du-savoir) · [les duels](#les-duels) · [le profil](#le-profil) · [la boutique](#les-confettis-et-la-boutique) · [les quiz](#les-quiz-de-lanimateur) · [les comptes](#les-comptes-et-le-qg) · [la page](#la-page) · [l'exploitation](#lexploitation) · [l'outillage](#loutillage)
+**Dans cette page** : [ce qu'un changement fait au passé](#ce-quun-changement-fait-au-passé) · [le quiz](#le-quiz--les-points-dune-question) · [la salle](#la-salle) · [l'expérience et les récompenses](#lexpérience-et-les-récompenses) · [la fin de soirée](#la-fin-de-soirée-et-les-prix) · [le quiz du jour](#le-quiz-du-jour) · [la campagne](#la-campagne-et-le-défi) · [les sentiers](#les-sentiers-du-savoir) · [l'expédition](#lexpédition) · [les duels](#les-duels) · [le profil](#le-profil) · [la boutique](#les-confettis-et-la-boutique) · [les quiz](#les-quiz-de-lanimateur) · [les comptes](#les-comptes-et-le-qg) · [la page](#la-page) · [l'exploitation](#lexploitation) · [l'outillage](#loutillage)
 
 ## Ce qu'un changement fait au passé
 
@@ -23,7 +23,7 @@ Toutes les constantes ne vieillissent pas de la même façon. Avant d'en changer
 > [!IMPORTANT]
 > Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis monter `VERSION_BAREME`, **reprend le passé** : le recalcul remplace les récompenses de chaque soirée, et ce que la règle neuve ne donne plus tombe — avec le titre, la vitrine et le légendaire qui en dépendaient. Rien ne le retient aujourd'hui : retiens d'abord ce que chacun avait, comme `DURCISSEMENTS` le fait pour les légendaires.
 
-Les mesures qui ont fixé ces valeurs se rejouent : `server/scripts/calibrage.ts` (les niveaux, les légendaires des soirées, la rareté des hauts faits), `server/scripts/calibrage-sentiers.ts` (les seuils et les mélanges des paliers), `server/scripts/calibrage-automate.ts` (Automate). Voir [les commandes](commandes.md).
+Les mesures qui ont fixé ces valeurs se rejouent : `server/scripts/calibrage.ts` (les niveaux, les légendaires des soirées, la rareté des hauts faits), `server/scripts/calibrage-sentiers.ts` (les seuils et les mélanges des paliers), `server/scripts/calibrage-automate.ts` (Automate), `server/scripts/calibrage-expedition.ts` (les marches de l'expédition). Voir [les commandes](commandes.md).
 
 ## Le quiz : les points d'une question
 
@@ -292,6 +292,28 @@ Les paliers, leurs mélanges, leurs seuils, les vies du jour, les portraits : [l
 - `EMPRUNTS`, `STATS_DES_SENTIERS_MS` et `VERSION_DES_EPREUVES` ne sont pas exportées : le test ne vérifie que leur déclaration. Les autres constantes numériques sont exportées et comparées.
 - Les étapes des trois pistes et l'expérience des deux hauts faits des sentiers sont des champs de `HAUTS_FAITS_DE_CARRIERE` et de `HAUTS_FAITS_DES_SENTIERS`, listés sous leur clé (`hf:…`) comme ceux de la campagne. Leur rareté (`PART_DES_JOUEURS`, `shared/hautsfaits.ts`) est mesurée sur la production du 15 octobre 2026, ou estimée là où rien n'était encore tombé.
 - Ne jamais mettre `server/scripts/calibrage-sentiers.ts` dans ce tableau : il calcule dès qu'on l'importe.
+
+## L'Expédition
+
+Trois actes, une carte tirée au sort chacun, un gardien au bout de chacun, un légendaire à garder au bout du troisième : [l'Expédition](../produit/l-expedition.md). Le brief de la V1, ses quatre étapes et son calibrage : `retours/2026-10-17/expedition.md`. Une expédition garde ses trois cartes et sa chance sur chaque escale telles qu'à son départ (`campagne_series.expedition`) : un générateur, des poids ou des marches qui changent ne valent que pour les expéditions qui partent ensuite, et un légendaire gardé ne se reprend jamais.
+
+| Constante | Valeur | Fichier | Ce qu'elle règle | Ce que la changer implique |
+|---|---|---|---|---|
+| `EXPEDITION_EN_PRODUCTION` | non (l'étape 1) | `shared/jokers.ts` | L'expédition s'ouvre-t-elle en production ? Sans elle, ses routes y répondent 404 et la voie de l'expédition ne se montre nulle part (`voiesMontrees`) | Elle s'ouvre avec ses jokers (l'étape 2) : sans eux, le joueur moyen n'arrive au bout que trois fois sur cent, et rien ne s'y gagnerait en production avant que le mode soit entier. La préproduction, `npm run dev` et les tests la jouent toujours |
+| `ACTES` | 3 | `shared/expedition.ts` | Les actes d'une expédition, un gardien chacun (actes) | Structurel : trois gardiens, un à garder au bout du troisième ; `MARCHES_DES_ACTES` en a autant |
+| `ETAGES` | 6 | `shared/expedition.ts` | Les étages d'escales d'une carte, sous ses campements (étages) | Structurel : la carte de la page les place, et le calibrage (vingt à trente questions par expédition) en dépend |
+| `COLONNES` | 4 | `shared/expedition.ts` | Les colonnes d'une carte (colonnes) | Structurel : deux campements, l'un au bout des deux colonnes de gauche, l'autre des deux de droite |
+| `CHEMINS` | 5 | `shared/expedition.ts` | Les chemins qui montent du bas, sans jamais se croiser : leurs pas font les escales et les liens (chemins) | Plus de chemins, plus d'escales et de choix sur chaque carte |
+| `MARCHES_DES_ACTES` | acte 1 : facile, facile, gardien facile à 4 ; acte 2 : facile, moyenne, gardien moyen à 3 ; acte 3 : moyenne, moyenne, gardien difficile à 3 | `shared/expedition.ts` | La marche des étages du bas et du haut de chaque acte, celle de l'élite, celle du gardien et ses bonnes réponses à trouver — jamais d'experte | Un choix de produit (CLAUDE.md), à mesurer par `server/scripts/calibrage-expedition.ts` (la cible retenue le 17 octobre 2026 : le joueur moyen au bout une fois sur trois, le fort huit fois sur dix, avec les jokers). Vaut pour les questions tirées ensuite, l'expédition en cours comprise : seules ses cartes sont gardées |
+| `POIDS_DES_ESCALES` | question 46 %, élite 12 % (dès le troisième étage, deux par acte au plus), source 10 %, coffre 12 %, l'inconnu 8 % (deux au plus), échoppe 5 % (une au plus) | `shared/expedition.ts` | La sorte de chaque escale des étages 2 à 6 — le premier n'a que des questions ; ce qu'un plafond refuse, et le reste, devient une question | Un choix de produit (CLAUDE.md). À l'étape 1, l'élite, l'échoppe et l'inconnu deviennent des questions, le coffre une source (`SORTES_OUVERTES`) : la carte garde ses proportions d'une étape à l'autre. Une source et un coffre au moins par acte, toujours |
+| `PART_DES_MELANGES` | 0,18 | `shared/expedition.ts` | La part des questions des étages 2 à 6 qui mêlent deux ou trois catégories (part) | Un choix de produit (CLAUDE.md). Sa chance se lit à parts égales de ses catégories |
+| `PART_DES_THEMES_POINTUS` | 0,14 | `shared/expedition.ts` | La part des questions des étages 2 à 6 sur un thème pointu — un sujet de `shared/sujets.ts` qui a de quoi tirer (`QUESTIONS_POUR_UN_SENTIER_DE_SUJET`) (part) | Un choix de produit (CLAUDE.md). Sans sujet qui ait de quoi tirer, la carte n'en pose aucun |
+| `POIDS_DES_FORMES` | quatre choix 40 %, vrai ou faux 20 %, six choix 20 %, dévoilement 20 % | `shared/expedition.ts` | La forme de chaque question des étages 2 à 6 ; le premier étage pose quatre choix sept fois sur dix, sinon un vrai ou faux | À l'étape 1, toutes posent quatre choix (`FORMES_OUVERTES`) ; les autres formes viennent à l'étape 3 |
+
+**À savoir :**
+- La chance sur chaque escale est celle du modèle du savoir (`chanceSurLaMarche`, comme la page des sentiers), à la marche de l'escale, ramenée à sa forme (`chanceSelonLaForme`) ; sous `PREMIERES_REPONSES_POUR_SA_CHANCE` premières réponses, ou avant le premier ajustement du modèle, celle d'un joueur moyen (`TAUX_DU_CALIBRAGE`), et la carte le dit. Elle se montre en couleur de piste (`COULEURS_DES_PISTES`).
+- Une bonne réponse paie comme en série — un confetti, l'expérience d'une bonne réponse (`XP_PAR_JUSTE`, `JUSTES_DOUBLEES_PAR_JOUR`) —, Le Marathonien la compte ; ni le record, ni la Grande Série, ni L'Alpiniste, ni l'Éclat. Un gardien vaincu ne rapporte aucune expérience de plus (le choix du 17 octobre 2026), et garder un gardien qu'on avait déjà ne rapporte rien de plus que l'expérience de ses réponses.
+- Les vies sont celles de la campagne (`VIES`, trois, trois au plus) ; un campement et une source retrouvée en rendent une, une source ratée n'en coûte pas.
 
 ## Les duels
 

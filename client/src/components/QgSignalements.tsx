@@ -385,6 +385,7 @@ const LIEUX: Record<RapportDeSignalement['ou'], string> = {
   revision: 'révision',
   rencontre: 'contre Automate',
   sujet: 'parcours de thème',
+  expedition: 'expédition',
 }
 
 /** Où il l'a jouée : « en série », « sentier des mythologies, palier 3 », « défi de la semaine », « en duel », « en révision », « contre Automate ». */
@@ -396,6 +397,7 @@ function ouDuRapport(r: RapportDeSignalement): string {
   if (r.ou === 'rencontre') return 'contre Automate'
   // Les mots de la page du joueur : un parcours de thème (« sentier à thème » jusqu'au 12 octobre 2026).
   if (r.ou === 'sujet') return 'parcours de thème'
+  if (r.ou === 'expedition') return 'en expédition'
   const b = brancheParCle(r.branche)
   const palier = r.palier === PALIER_DU_MAITRE ? 'palier de maître' : r.palier !== undefined ? `palier ${r.palier}` : null
   return [b ? `sentier ${deLaBranche(b)}` : 'sentier', palier].filter(Boolean).join(', ')

@@ -112,6 +112,9 @@ export type IconName =
   // Les missions du jour et le coffre de la semaine.
   | 'coffre'
   | 'missions'
+  // L'expédition : la source qui rend une vie, le campement avant le gardien.
+  | 'source'
+  | 'campement'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -736,6 +739,17 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M10 6h10M10 12h10M10 18h10" />
         <path d="m3.5 6 1.4 1.4 2.6-2.6M3.5 12l1.4 1.4 2.6-2.6" />
         <circle cx="5.2" cy="18" r="1.4" />
+      </>
+    ),
+  },
+  // Une goutte : la source de l'expédition, qui rend une vie.
+  source: { paths: <path d="M12 3.5s6 6.4 6 10.6a6 6 0 0 1-12 0c0-4.2 6-10.6 6-10.6Z" /> },
+  // Un feu sur ses deux bûches : le campement, la dernière halte avant le gardien.
+  campement: {
+    paths: (
+      <>
+        <path d="M12 3c1 3.2 4.5 4.8 4.5 8.8a4.5 4.5 0 0 1-9 0c0-2.1 1.1-3.5 2.2-4.6.2 1.5.9 2.4 1.8 2.8-.4-2.2.1-4.8.5-7Z" />
+        <path d="M4 21l16-4M20 21 4 17" />
       </>
     ),
   },

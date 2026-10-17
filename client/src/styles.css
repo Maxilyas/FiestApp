@@ -9104,6 +9104,117 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
   .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i, .pano-courant::before { animation: none; }
 }
 
+/* ── L'Expédition (`ExpeditionApp.tsx`) ──────────────────────────────────
+   Les maquettes validées le 17 octobre 2026 : le départ et ses trois
+   gardiens, la carte d'un acte — ses escales, leurs liens, la chance en
+   piste sur chacune —, une escale, le gardien et ses crans, le gardien
+   vaincu, le choix au bout. Les couleurs sont celles du thème porté ; les
+   pistes, écrites en dur (`.balise-*`), comme aux sentiers. */
+.expedition { gap: 14px; }
+.exp-tete { display: flex; flex-direction: column; gap: 4px; }
+/* « Acte 1 » : le chiffre de Cormorant, à l'ancienne, s'y lisait « Acte ı ». */
+.exp-tete h1 { margin: 0; font-size: 1.9rem; line-height: 1.1; text-wrap: balance; font-variant-numeric: lining-nums; }
+.exp-tete p { margin: 0; }
+.exp-surtitre { color: var(--accent-text); }
+.exp-barre { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.exp-barre .vies { margin-left: auto; }
+.exp-medaillon { flex: none; display: inline-grid; place-items: center; font-size: 44px; line-height: 0; }
+.exp-pastille { flex: none; display: inline-flex; align-items: center; min-height: 22px; padding: 0 9px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--muted); font-family: var(--sans); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.02em; }
+.exp-pastille-or { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* Le départ : un gardien par acte, sa règle dessous, puis le geste. */
+.exp-gardiens { display: flex; flex-direction: column; gap: 10px; }
+.exp-gardiens h2, .exp-gardiens p { margin: 0; }
+.exp-gardiens ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.exp-gardien-ligne { display: flex; align-items: center; gap: 12px; }
+.exp-gardien-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.exp-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+.exp-vaincu-ligne .exp-gardien-nom { color: var(--accent-text); }
+.exp-depart-pied { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+.exp-depart-pied p { margin: 0; }
+/* La carte : les colonnes en pour cent de sa largeur, les étages en pixels
+   (`ExpeditionApp.tsx`). Les liens, sous les escales, d'un trait qui ne
+   s'étire pas avec elle (`vector-effect`) : en pointillé ce qui reste à
+   choisir, en or le tracé, éteint ce qui est passé. */
+.exp-carte { position: relative; flex: none; width: 100%; margin: 6px 0 2px; }
+.exp-liens { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.exp-liens line { stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
+.exp-liens line.lien-fait { stroke: var(--muted); stroke-dasharray: none; opacity: 0.55; }
+.exp-liens line.lien-prevu { stroke: var(--accent); stroke-width: 3; stroke-dasharray: none; }
+.exp-escale { position: absolute; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); font: inherit; cursor: pointer; }
+.exp-escale > .icon { width: 20px; height: 20px; }
+.exp-escale > .balise { position: absolute; top: -4px; right: -4px; width: 15px; height: 15px; }
+/* Le nom d'une escale passe sur les liens : un halo du fond le détache du pointillé. */
+.exp-etiquette { position: absolute; top: 46px; left: 50%; width: 84px; margin-left: -42px; color: var(--muted); font-size: var(--t-label); font-weight: 600; line-height: 1.15; text-align: center; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg); pointer-events: none; }
+.exp-escale.exp-ouverte { border: 2px solid var(--ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 14%, transparent); }
+.exp-escale.exp-tracee { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--bg-raised)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent); }
+.exp-escale.exp-tracee .exp-etiquette { color: var(--ink); }
+.exp-escale.exp-passee { color: var(--muted); opacity: 0.6; }
+.exp-escale.exp-loin { opacity: 0.4; }
+/* L'escale où il est : un anneau qui s'élargit et s'éteint, par `scale` et `opacity` seulement. */
+.exp-escale.exp-ici { border: 2px solid var(--accent); color: var(--ink); }
+.exp-escale.exp-ici::after { content: ''; position: absolute; inset: -7px; border: 2px solid var(--accent); border-radius: 50%; animation: exp-ici 1.8s ease-out infinite; pointer-events: none; }
+@keyframes exp-ici { from { scale: 0.85; opacity: 0.9; } to { scale: 1.35; opacity: 0; } }
+.exp-escale.exp-campement { color: var(--or-text); }
+.exp-escale.exp-gardien { width: 64px; height: 64px; margin: -32px 0 0 -32px; border-width: 2px; }
+.exp-escale.exp-gardien .exp-medaillon { font-size: 56px; }
+.exp-escale.exp-gardien .exp-etiquette { top: 68px; width: 180px; margin-left: -90px; font-family: var(--serif); font-size: 1rem; color: var(--accent-text); }
+.exp-depart { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 24px; margin-top: -12px; color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+.exp-depart .icon { width: 16px; height: 16px; }
+.exp-depart.exp-ici { color: var(--accent-text); }
+/* Le tracé, collé au bas de l'écran : le pas suivant reste sous le doigt, la carte défile au-dessus. */
+.exp-panneau { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 6px; margin: 0 -8px; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); border: 1px solid var(--edge-strong); border-radius: var(--radius) var(--radius) 0 0; background: var(--bg-raised); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28); }
+.exp-panneau p { margin: 0; }
+.exp-panneau-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.exp-panneau-titre { font-size: 0.92rem; line-height: 1.35; }
+/* Deux lignes gardées : la phrase d'une escale touchée ne fait pas sauter le bouton sous le doigt. */
+.exp-vu { min-height: 2.7em; font-size: 0.86rem; line-height: 1.35; }
+.exp-chances { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--muted); }
+.exp-chances b { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.exp-chances .balise { font-size: 1.05rem; }
+.exp-legende { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 0.78rem; }
+.exp-legende li { display: inline-flex; align-items: center; gap: 5px; }
+.exp-legende .icon { width: 14px; height: 14px; color: var(--accent-text); }
+.exp-legende-pistes { display: inline-flex; gap: 2px; }
+/* Une escale, le gardien : la question de la campagne, avec ce qui la situe au-dessus. */
+.exp-ou { margin: 0; }
+/* Pas `.exp-source` : c'est la classe d'une escale de la carte (`exp-${sorte}`), qu'elle décentrait. */
+.exp-source-regle { margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); line-height: 1.35; }
+.exp-gardien-tete { display: flex; align-items: center; gap: 12px; }
+.exp-gardien-tete p { margin: 0; }
+.exp-medaillon-gardien { font-size: 64px; }
+.exp-crans { display: flex; align-items: center; gap: 4px; }
+.exp-crans i { flex: 1; height: 8px; border-radius: var(--radius-pill); background: var(--track); }
+.exp-crans i.cran-trouve { background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
+.exp-crans b { flex: none; margin-left: 6px; font-size: 0.82rem; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* Le gardien vaincu : son médaillon en grand, monté comme un portrait révélé. */
+.exp-vaincu { align-items: center; text-align: center; }
+.exp-vaincu h1 { margin: 0; font-size: 2rem; text-wrap: balance; }
+.exp-vaincu > p { margin: 0; max-width: 34ch; }
+.exp-medaillon-grand { font-size: 128px; animation: sentier-monter 1s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.exp-vaincus { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--surface-strong); }
+.exp-vaincus b { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.exp-vaincus-medaillons { display: inline-flex; gap: 8px; }
+.exp-medaillon-petit { font-size: 34px; }
+/* Trois médaillons côte à côte : ils se tiennent tranquilles, comme dans une liste. */
+.exp-medaillon-petit .lg *, .exp-medaillon-petit .dv * { animation: none; }
+.exp-joker-carte { align-self: stretch; margin: 0; text-align: left; }
+.exp-joker { display: flex; flex-direction: column; gap: 2px; }
+.exp-joker b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.exp-maudit { align-self: flex-start; padding: 0 7px; border-radius: var(--radius-pill); background: rgba(var(--alert-rgb), 0.16); color: var(--alert); font-size: var(--t-label); font-weight: 700; }
+.exp-vaincu > .btn { align-self: stretch; margin-top: auto; }
+/* Le choix au bout : trois gardiens, un seul à garder. */
+.exp-choix-liste { display: flex; flex-direction: column; gap: 8px; }
+.exp-choix-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 84px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.exp-choix-ligne .exp-medaillon { font-size: 56px; }
+.exp-choix-ligne .exp-gardien-nom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.exp-choix-ligne.exp-choisi { border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+.exp-choix > .btn-primary { margin-top: auto; }
+.exp-fin-tete { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.exp-fin-tete p { margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .exp-escale.exp-ici::after, .exp-medaillon-grand { animation: none; }
+}
+
 /* ── L'atlas ─────────────────────────────────────────────────────────────
    Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
    gagnée —, puis la collection choisie sur une trame fine, comme un écran de

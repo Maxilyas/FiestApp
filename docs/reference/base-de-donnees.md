@@ -232,9 +232,11 @@ hauts faits hors des soirées), `#jour`, `#campagne`, `#rattrapage`,
 ### `profile_badges`
 
 L'étagère : prix du palmarès, hauts faits, paliers de carrière, Divins,
-saisons, titres et pages du mois.
+saisons, titres et pages du mois — et les légendaires gardés au bout d'une
+expédition (`expedition:<légendaire>`), comme les saisons hors de l'étagère
+et du compte des badges.
 
-- **Colonnes clés** : `profile_id`, `badge`, `soiree_id` (la clé à trois ; `soiree_id` vaut le nom de la soirée, ou `#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…` hors des soirées), `space_id`, `emoji`, `title`, `created_at`.
+- **Colonnes clés** : `profile_id`, `badge`, `soiree_id` (la clé à trois ; `soiree_id` vaut le nom de la soirée, ou `#jour:…`, `#mois:…`, `#campagne:…`, `#defi:…` hors des soirées — une expédition range son légendaire sous `#campagne:<son id>`), `space_id`, `emoji`, `title`, `created_at`.
 - **Espace** : oui pour une soirée.
 - **Écrite par** : `ProfileStore` — la clôture (`remplacerRecompensesDeSoiree`, remplacée en un lot), les paliers, le quiz du jour, la campagne, le recalcul.
 - **Lue par** : `ProfileStore` ; `JourStore`.
@@ -677,9 +679,10 @@ Le bilan de chaque soir de rappel : des nombres, jamais un nom.
 ### `campagne_series`
 
 Toutes les parties de la campagne, quel que soit leur mode : série, épreuve
-de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre.
+de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre,
+expédition.
 
-- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`.
+- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve).
 - **Lue par** : `CampagneStore` — records, carnet, sentiers, duels, écussons, expérience, QG.
@@ -693,6 +696,19 @@ Les réponses de chaque partie.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
 - **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis).
+- **Effacée par** : la suppression du profil, avec ses parties.
+
+### `expedition_gestes`
+
+Le journal des gestes d'une expédition, dans l'ordre : avancer vers une
+escale, garder un gardien au bout, abandonner. Son état ne s'écrit nulle
+part : il se replie de son départ (`campagne_series.expedition`), de ces
+gestes et de ses réponses (`pliDeLExpedition`, `shared/expedition.ts`).
+
+- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
+- **Espace** : non.
+- **Écrite par** : `CampagneStore` (`gesteDExpedition`, `garderUnGardien`, `abandonnerLExpedition`), dans le lot de la question tirée pour l'escale.
+- **Lue par** : `CampagneStore` — la page de l'expédition et chaque geste, qui la replient.
 - **Effacée par** : la suppression du profil, avec ses parties.
 
 ### `campagne_signalements`

@@ -1,10 +1,10 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 136 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 140 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
-**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'outillage](#loutillage)
+**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'Expédition](#lexpédition) · [L'outillage](#loutillage)
 
 ## L'ensemble
 
@@ -1272,6 +1272,46 @@ Le détail : [les duels](../produit/les-duels.md).
 **Conséquence** : en Or, une défaite ne coûte plus jamais plus qu'une victoire ne rapporte. Entre joueurs de la Platine, rien ne change ; un diamant à 1 450 reste favori contre qui vient d'y entrer (« +8 / −16 ») : battre des bronzes ne fait pas monter sans fin, comme des chances égales contre plus bas l'auraient permis. Les vraies chances, justes duel par duel, auraient fait de la cote au-dessus de la Platine un compte des duels joués — chacun y gagnant son point de participation en moyenne, fort ou pas —, et l'enjeu affiché aurait trahi les cotes cachées. Tout passe par `apresLeDuel` : le relevé, chaque enjeu dit (`enjeuContre`) et le rejeu de `calibrage-duels.ts`. Relue du journal, aucune cote de la production n'a baissé.
 
 *Fichiers : `shared/duels.ts`, `client/src/views/Duels.tsx`, `server/test/duels-montee.test.ts`, `server/test/duels-page.test.ts`*
+
+## L'Expédition
+
+Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, `retours/2026-10-17/expedition.md`.
+
+### Ce qu'on a gagné sert enfin, mais seulement en expédition
+**Contexte** : le propriétaire, le 17 octobre 2026 : « on fait que rajouter des choses mais on ne sait plus quoi choisir », et « les légendaires pourrait donner justement des pouvoirs pour aider à avancer ». Or un profil ne donnait aucun avantage de jeu (invariant 8) : en soirée, un niveau 30 et un invité arrivé ce soir jouent la même partie, et c'est ce qui laisse le chemin anonyme entier.
+
+**Décision** : un mode à part, l'Expédition, où les légendaires se gagnent — au bout de l'acte 3, l'un des trois gardiens vaincus — et où ils serviront, en jokers (l'étape 2). L'invariant 8 devient « aucun avantage de jeu face aux autres » : ni en soirée, ni au quiz du jour, ni au défi, ni en duel ; seule l'expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers n'en sortent jamais. Elle n'a pas de classement. Les Divins n'ont ni joker ni gardien (invariant 21).
+
+**Conséquence** : aucune route d'un autre mode n'accepte un joker. Chaque légendaire qui a son joker reçoit une voie de plus (`aussi`, `expedition:<légendaire>`), qui ne reprend rien à personne (invariant 22) ; ceux de saison n'en ont pas : ils ne se gagnent qu'à leur saison, par elle seule.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `shared/legendaires.ts`, `CLAUDE.md`*
+
+### Une expédition est une partie d'un autre mode, et son état le pli de son journal
+**Contexte** : une expédition dure vingt à trente questions, se laisse et se reprend, et ses réponses doivent compter comme toutes les autres — l'expérience, les confettis, le carnet, « jamais vues d'abord ».
+
+**Décision** : une ligne de `campagne_series` (`mode = 'expedition'`), qui garde son départ — ses trois cartes, la chance sur chaque escale, ses gardiens (`campagne_series.expedition`) —, ses réponses dans `campagne_reponses`, et ses gestes dans leur journal (`expedition_gestes`), chacun avec le rang qu'il suit. Rien d'autre ne s'écrit : l'état — l'acte, l'escale, les vies, le gardien, l'issue — se replie du départ, des gestes et des réponses (`pliDeLExpedition`), le même pour celle qu'on joue et pour une finie (invariant 14). Le hasard de la carte se rejoue de sa graine (`hasardDe`) ; seules les questions se tirent de la base, à chaque escale, dans le lot du geste qui y mène.
+
+**Conséquence** : un double toucher, un second onglet ne jouent pas deux fois (invariant 12, porté au solo) ; recharger ne retire rien ; une retouche du générateur ne déplace pas une escale sous les pieds de qui joue. Toute requête des parties filtre son mode : l'expédition n'est ni une série — ni record, ni Grande Série, ni L'Alpiniste —, et Le Marathonien la compte.
+
+*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `server/test/expedition-pli.test.ts`, `server/test/expedition.test.ts`*
+
+### Une source est une révision : sa réponse ne mesure rien
+**Contexte** : une source de l'expédition repose une question du carnet, déjà ratée, réponse lue. Les révisions sont écartées de la mesure des difficultés, des écussons et de L'Érudit pour cette raison : comptées, elles feraient passer pour faciles les questions que tout le monde rate une fois, et trois expertes ratées exprès feraient L'Érudit.
+
+**Décision** : la question qu'une source reprend du carnet le dit (`QuestionDeSerie.carnet`), et un seul fragment l'écarte (`HORS_DU_CARNET`) — de L'Érudit, de la précision et des écussons, des catégories des missions ; la mesure lit d'un coup les quelques questions des expéditions plutôt qu'une série par réponse. Le carnet, lui, la compte : retrouvée, elle avance comme en révision.
+
+**Conséquence** : une source paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien —, et ne dit rien du savoir. Les premières réponses, que lit le modèle du savoir, n'en ont pas besoin : une question du carnet a toujours la sienne avant.
+
+*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition.test.ts`*
+
+### L'expédition s'ouvre en production avec ses jokers
+**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`server/scripts/calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que cinq fois sur cent : les jokers font le mode.
+
+**Décision** : jusqu'aux jokers, ses routes répondent 404 en production — en ligne et sans `APP_ENV` (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouent. Sa voie ne se montre nulle part tant qu'elle est fermée (`voiesMontrees`), et l'accueil n'a pas encore son bouton.
+
+**Conséquence** : rien ne s'y gagne en production avant que le mode soit entier. Ouvrir, c'est passer une constante, et la voie paraît d'elle-même dans l'album et les fiches.
+
+*Fichiers : `shared/jokers.ts`, `server/src/expedition.ts`, `shared/legendaires.ts`, `server/test/expedition-legendaires.test.ts`*
 
 ## L'outillage
 

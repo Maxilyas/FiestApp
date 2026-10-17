@@ -6,7 +6,7 @@ Le temps réel d'une soirée — rejoindre, répondre, animer — ne passe pas p
 
 **Cette page est relue contre le code.** `server/test/documentation.test.ts` lit chaque `app.get(…)`, `app.post(…)`… de `server/src/` et exige sa ligne ici — et qu'aucune ligne ne survive à sa route. Une route ajoutée sans sa ligne fait rougir le test.
 
-**Dans cette page** : [ce que toutes les routes partagent](#ce-que-toutes-les-routes-partagent) · [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration) · [le profil](#le-profil) · [la boutique](#les-thèmes-les-compagnons-les-fonds-et-la-boutique) · [les quiz](#les-quiz) · [les soirées passées](#les-soirées-passées) · [le quiz du jour](#le-quiz-du-jour) · [la campagne](#la-campagne) · [les sentiers](#les-sentiers-du-savoir-et-les-parcours-de-thème) · [les duels](#les-duels) · [la page](#la-page-et-ses-fichiers) · [l'exploitation](#lexploitation)
+**Dans cette page** : [ce que toutes les routes partagent](#ce-que-toutes-les-routes-partagent) · [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration) · [le profil](#le-profil) · [la boutique](#les-thèmes-les-compagnons-les-fonds-et-la-boutique) · [les quiz](#les-quiz) · [les soirées passées](#les-soirées-passées) · [le quiz du jour](#le-quiz-du-jour) · [la campagne](#la-campagne) · [les sentiers](#les-sentiers-du-savoir-et-les-parcours-de-thème) · [l'expédition](#lexpédition) · [les duels](#les-duels) · [la page](#la-page-et-ses-fichiers) · [l'exploitation](#lexploitation)
 
 ## Ce que toutes les routes partagent
 
@@ -339,6 +339,23 @@ Les paliers, les épreuves, les vies du jour, les parcours d'« Apprendre » : [
 - Les parcours de thème gardent dans l'API leurs noms d'avant : `sujets` pour les parcours, `palier` pour les étapes.
 - Ailleurs, mais du domaine : `POST /api/admin/profils/:id/epreuve` libère l'épreuve qui attend un joueur, sans lui coûter de vie (`server/src/profilsAdmin.ts`, [les comptes et l'administration](#les-comptes-les-sessions-et-ladministration)) ; `GET /api/admin/profils/:id` la montre dans sa fiche ; `GET /api/joueur/moi?accueil` porte les vies et le sentier avancé de l'accueil (`SentiersDAccueil`), et `PUT /api/joueur/moi` refuse un portrait ou un titre de maître dont le palier n'est pas validé (fragment du profil).
 - Aucun événement temps réel : les sentiers ne passent que par HTTP.
+
+## L'Expédition
+
+Trois actes, une carte tirée au sort chacun, un gardien au bout, un légendaire à garder au bout du troisième : [l'Expédition](../produit/l-expedition.md). En production, ces routes répondent 404 « L’expédition arrive bientôt : reviens dans quelques jours » tant que ses jokers ne sont pas venus (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouent.
+
+| Méthode | Route | Accès | Ce qu'elle fait | Fichier |
+|---|---|---|---|---|
+| `GET` | `/api/expedition` | profil | La page de l'expédition (`PageDeLExpedition`) : celle qu'il a en route, vue de lui (`VueDeLExpedition` : la carte de l'acte en cours et sa chance sur chaque escale, où il en est, ses vies, la question qui attend sans sa bonne réponse ni son anecdote), sinon `null` ; et la prochaine — son numéro, ses trois gardiens, ceux qu'il a déjà (`aLui`) ; préchargée par la page servie (`shared/depart.ts`) | `server/src/expedition.ts` |
+| `POST` | `/api/expedition` | profil | Part en expédition : ses trois cartes et ses gardiens, tirés de la graine de sa prochaine (`graineDe`), sa chance sur chaque escale, gardée avec elle ; rend la vue. Une à la fois : refuse s'il en a une en route | `server/src/expedition.ts` |
+| `POST` | `/api/expedition/:id/geste` | profil | Un geste du journal, avec le rang qu'il croit suivre (`{ rang, geste }`, invariant 12) : `{ quoi: 'avancer', vers }` vers une escale reliée — la question de l'escale tirée dans le même lot, celles du gardien d'un coup —, ou `{ quoi: 'garder', legendaire }` au bout de l'acte 3, l'un de ses trois gardiens. Rend `ApresUnGeste` : la vue d'après et, au légendaire gardé, ce qui est tombé — le légendaire, Le Marathonien | `server/src/expedition.ts` |
+| `POST` | `/api/expedition/:id/reponse` | profil | Répond à la question qui attend (`{ position, choix }`) et rend `ReponseDExpedition` : le verdict, la bonne réponse, l'anecdote, l'expérience, la vue d'après ; le gardien qui tombe (`vaincu`) ; à la dernière vie perdue, ce qui est tombé | `server/src/expedition.ts` |
+| `POST` | `/api/expedition/:id/abandon` | profil | Abandonne l'expédition : elle finit là, sans légendaire, ce qu'elle a joué compte. Rend `ApresUnGeste` | `server/src/expedition.ts` |
+
+**À savoir :**
+- Sans session de profil, ces routes répondent 401 « Connecte-toi à ton profil pour partir en expédition », avec `Cache-Control: no-store`. Leur corps JSON est limité à 4 Ko.
+- Un refus lisible est un 400 `{ error }` : « Ton expédition t’attend : reprends-la, ou abandonne-la d’abord », « Cette escale n’est pas sur ta route : choisis-en une reliée à la tienne », « Ce geste est passé : l’expédition a continué sans lui », « Cette question est passée : l’expédition a continué sans elle », « Va au bout de l’acte 3 pour garder un gardien », « Ce gardien n’est pas de ton expédition », « Cette expédition est finie : pars pour une autre ». Celle d'un autre profil vaut « Cette expédition est introuvable » (invariant 3).
+- Une expédition est une série de la campagne d'un autre mode (`mode = 'expedition'`) : elle se signale et se corrige par les routes de la série (`/api/campagne/serie/:id/signalement`, `/api/campagne/serie/:id/correction`, [la campagne](#la-campagne)).
 
 ## Les duels
 

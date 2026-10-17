@@ -32,7 +32,7 @@ import {
   XP_PALIER,
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
-import { LEGENDAIRES, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
+import { LEGENDAIRES, estUneVoieDExpedition, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -350,7 +350,9 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
       assert.equal(saison(l.saison)?.legendaire, l.key, `${l.key} est celui de sa saison`)
       continue
     }
-    for (const voie of voiesDe(l)) {
+    // La voie de l'expédition lit une ligne rangée au bout de l'acte 3, pas un
+    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie.
+    for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v))) {
       for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
     }
   }
