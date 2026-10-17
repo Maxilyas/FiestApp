@@ -96,9 +96,13 @@ import { sansAccent } from '../../shared/homonymes'
  * retirées à la relecture) : 25 830. Puis l'outre-mer, fil rouge neuf du
  * même soir, à 92 questions : trente de plus là où il vit déjà
  * (`preparer --sujet=outre-mer:30`), 29 rangées (une refusée comme un fait
- * déjà posé) : 25 859.
+ * déjà posé) : 25 859. Puis le second lot de sujets du même soir — huit
+ * pays, des thèmes de leur seule étiquette —, ce qui manquait à dix d'entre
+ * eux pour leurs cent questions (`preparer --sujet=coree:65,…`), 432
+ * rangées sur 455 (18 refusées comme un fait ou un intitulé déjà posé, 5
+ * retirées à la relecture) : 26 291.
  */
-const AU_MOINS = 25859
+const AU_MOINS = 26291
 
 const { questions, refusees } = lireLaBase()
 

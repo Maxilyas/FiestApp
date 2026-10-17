@@ -68,13 +68,26 @@ export interface Sujet {
 }
 
 export const SUJETS: readonly Sujet[] = [
+  // Sans les dinosaures depuis le 17 octobre 2026, au soir : partis pour leur thème, juste dessous — les animaux
+  // en tenaient les quatre cinquièmes, et deux thèmes ne se contiennent pas.
   {
     cle: 'animaux',
     nom: 'Les animaux',
     famille: 'theme',
-    description: 'Des mammifères aux dinosaures, et ceux du cinéma',
-    sousThemes: { Nature: ['mammiferes', 'oiseaux', 'aquatique', 'petites-betes', 'disparus'] },
+    description: 'Des mammifères aux insectes, et ceux du cinéma',
+    sousThemes: { Nature: ['mammiferes', 'oiseaux', 'aquatique', 'petites-betes'] },
     etiquettes: ['animaux'],
+  },
+  // Les dinosaures tiennent leur rubrique, « Dinosaures et espèces disparues » ; leur étiquette les porte au cinéma
+  // et dans les mots.
+  {
+    cle: 'dinosaures',
+    nom: 'Les dinosaures',
+    famille: 'theme',
+    description: 'Et les espèces disparues : mammouths, dodos, ptérosaures',
+    sousThemes: { Nature: ['disparus'] },
+    etiquettes: ['dinosaures'],
+    categorie: 'Nature',
   },
   // Les inventions ont laissé l'informatique à son thème (le souhait du
   // propriétaire du 17 octobre 2026 : « modifier des thèmes s'il y en a qui se
@@ -212,6 +225,19 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Des pyramides aux gratte-ciel, et les statues qu’on visite',
     sousThemes: { Géographie: ['sites'], 'Arts & lettres': ['sculpture-archi'] },
   },
+  // Les thèmes de leur seule étiquette (le 17 octobre 2026, au soir : « n'hésite pas à compléter et rajouter des
+  // questions si ça permet d'avoir d'autres thèmes ») : aucun sous-thème ne les dit, la base les posait sans qu'on
+  // puisse les choisir. Chacun son étiquette, posée question par question à sa règle comme celles des pays, puis
+  // écrite là où il manquait de quoi faire cent questions. Un sujet d'histoire ou un genre vit dans quelques
+  // catégories : thème, pas fil rouge, qui en traverse sept. Les rois et la mer étaient des fils rouges une heure.
+  { cle: 'rois-de-france', nom: 'Les rois et reines de France', famille: 'theme', description: 'De Clovis à Louis-Philippe, leurs règnes et leurs cours', etiquettes: ['rois-de-france'] },
+  { cle: 'revolution-empire', nom: 'La Révolution et l’Empire', famille: 'theme', description: 'De la Bastille à Waterloo', etiquettes: ['revolution-empire'] },
+  { cle: 'presidents', nom: 'Les présidents de la République', famille: 'theme', description: 'Leurs élections, leurs mandats et leurs petites phrases', etiquettes: ['presidents'] },
+  { cle: 'mer', nom: 'La mer et les marins', famille: 'theme', description: 'Navires, pirates, naufrages et courses au large', etiquettes: ['mer'] },
+  { cle: 'aviation', nom: 'L’aviation', famille: 'theme', description: 'Des pionniers au Concorde, les avions et ceux qui les pilotent', etiquettes: ['aviation'] },
+  { cle: 'polar', nom: 'Le polar et les détectives', famille: 'theme', description: 'Sherlock, Poirot, Maigret et leurs enquêtes', etiquettes: ['polar'] },
+  { cle: 'mysteres', nom: 'Mystères et trésors', famille: 'theme', description: 'Énigmes jamais résolues, trésors perdus et vols célèbres', etiquettes: ['mysteres', 'tresors'] },
+  { cle: 'marques', nom: 'Les marques', famille: 'theme', description: 'Leurs logos, leurs slogans et leurs fondateurs', etiquettes: ['marques'] },
   // La langue française (le souhait du propriétaire du 17 octobre 2026 :
   // « tout ce qui est lié à la langue française, orthographe, grammaire,
   // étymologie, morphologie ») : un sous-thème neuf, qui a repris à langue
@@ -330,20 +356,28 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'afrique', nom: 'L’Afrique', famille: 'pays', description: 'Du Sahara au Cap, ses pays, ses peuples et ses musiques (l’Égypte a la sienne)', etiquettes: ['afrique'] },
   { cle: 'allemagne', nom: 'L’Allemagne', famille: 'pays', description: 'Berlin, la Bavière, Goethe et le Mur', etiquettes: ['allemagne'] },
   { cle: 'amerique-du-sud', nom: 'L’Amérique du Sud', famille: 'pays', description: 'Le Brésil, l’Argentine, les Andes et l’Amazonie', etiquettes: ['amerique-du-sud'] },
+  { cle: 'asie-du-sud-est', nom: 'L’Asie du Sud-Est', famille: 'pays', description: 'La Thaïlande, le Viêt Nam, Angkor et Bali', etiquettes: ['asie-du-sud-est'] },
   { cle: 'australie', nom: 'L’Australie', famille: 'pays', description: 'Sydney, les kangourous et le bush', etiquettes: ['australie'] },
+  { cle: 'autriche', nom: 'L’Autriche', famille: 'pays', description: 'Vienne, Salzbourg, les Habsbourg et la valse', etiquettes: ['autriche'] },
   { cle: 'canada', nom: 'Le Canada', famille: 'pays', description: 'Le Québec, les Rocheuses, le hockey et le sirop d’érable', etiquettes: ['canada'] },
   { cle: 'chine', nom: 'La Chine', famille: 'pays', description: 'Pékin, la Grande Muraille, les dynasties et le kung-fu', etiquettes: ['chine'] },
+  { cle: 'coree', nom: 'La Corée', famille: 'pays', description: 'Séoul, la K-pop, le kimchi et le taekwondo', etiquettes: ['coree'] },
   { cle: 'egypte', nom: 'L’Égypte', famille: 'pays', description: 'Les pharaons, les pyramides et le Nil', etiquettes: ['egypte'] },
   { cle: 'espagne', nom: 'L’Espagne', famille: 'pays', description: 'Madrid, Barcelone, le flamenco et la paella', etiquettes: ['espagne'] },
   { cle: 'etats-unis', nom: 'Les États-Unis', famille: 'pays', description: 'New York, Hollywood, les présidents et le Far West', etiquettes: ['etats-unis'] },
   { cle: 'grece', nom: 'La Grèce', famille: 'pays', description: 'Athènes, l’Acropole, les philosophes et les îles', etiquettes: ['grece'] },
   { cle: 'inde', nom: 'L’Inde', famille: 'pays', description: 'Bollywood, le Taj Mahal, Gandhi et le curry', etiquettes: ['inde'] },
+  { cle: 'irlande', nom: 'L’Irlande', famille: 'pays', description: 'Dublin, la Saint-Patrick, le trèfle et le rugby', etiquettes: ['irlande'] },
   { cle: 'italie', nom: 'L’Italie', famille: 'pays', description: 'Rome, Venise, la pizza et la dolce vita', etiquettes: ['italie'] },
   { cle: 'japon', nom: 'Le Japon', famille: 'pays', description: 'Tokyo, les samouraïs, les sushis et les mangas', etiquettes: ['japon'] },
   { cle: 'mexique', nom: 'Le Mexique', famille: 'pays', description: 'Les Aztèques, les mariachis et Frida Kahlo', etiquettes: ['mexique'] },
   { cle: 'pays-nordiques', nom: 'Les pays nordiques', famille: 'pays', description: 'Les Vikings, les fjords, ABBA et les aurores boréales', etiquettes: ['pays-nordiques'] },
+  { cle: 'pays-bas', nom: 'Les Pays-Bas', famille: 'pays', description: 'Amsterdam, les tulipes, les moulins et les maîtres hollandais', etiquettes: ['pays-bas'] },
+  { cle: 'pologne', nom: 'La Pologne', famille: 'pays', description: 'Varsovie, Cracovie, Chopin et Solidarność', etiquettes: ['pologne'] },
+  { cle: 'portugal', nom: 'Le Portugal', famille: 'pays', description: 'Lisbonne, le fado, les navigateurs et le pastel de nata', etiquettes: ['portugal'] },
   { cle: 'royaume-uni', nom: 'Le Royaume-Uni', famille: 'pays', description: 'Londres, la Couronne, les Beatles et le thé', etiquettes: ['royaume-uni'] },
   { cle: 'russie', nom: 'La Russie', famille: 'pays', description: 'Moscou, les tsars, l’URSS et le Bolchoï', etiquettes: ['russie'] },
+  { cle: 'turquie', nom: 'La Turquie', famille: 'pays', description: 'Istanbul, la Cappadoce, les sultans et le loukoum', etiquettes: ['turquie'] },
   // Les époques larges redécoupées (le 17 octobre 2026, « apporter beaucoup de
   // choix ») : « Avant 1800 » mêlait les pharaons et Voltaire, « 1900 à 1949 »
   // la Belle Époque et la Libération, « Depuis 2010 » les années 2010 et
@@ -373,13 +407,11 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'francophonie', nom: 'La francophonie', famille: 'fil', description: 'La Belgique, la Suisse, le Québec et l’Afrique francophone', portee: 'francophonie' },
   // Le 17 octobre 2026, au soir (« rajouter ce qui te semble pertinent ») : ce que la base posait sans qu'on puisse
   // le choisir, mesuré sur elle — chacun ses cent questions de sept catégories au moins, et aucun ne tient à moitié
-  // dans un autre sujet. L'outre-mer, les citations et le calcul avaient déjà leur étiquette ; Paris, les rois et la
-  // mer ont reçu la leur question par question, relues à sa règle comme les pays. Pas les îles : l'outre-mer et
-  // les pays-îles s'y seraient retrouvés.
+  // dans un autre sujet. L'outre-mer, les citations et le calcul avaient déjà leur étiquette ; Paris a reçu la
+  // sienne question par question, relues à sa règle comme les pays. Pas les îles : l'outre-mer et les pays-îles s'y
+  // seraient retrouvés. Les rois et la mer, posés le même soir, sont devenus des thèmes (plus haut).
   { cle: 'outre-mer', nom: 'L’outre-mer', famille: 'fil', description: 'Des Antilles à la Polynésie, leurs musiques, leurs saveurs et leur histoire', etiquettes: ['outre-mer'] },
   { cle: 'paris', nom: 'Paris', famille: 'fil', description: 'Ses monuments, ses quartiers, son histoire et ses Parisiens', etiquettes: ['paris'] },
-  { cle: 'rois-de-france', nom: 'Les rois et reines de France', famille: 'fil', description: 'De Clovis à Louis-Philippe, leurs règnes et leurs cours', etiquettes: ['rois-de-france'] },
-  { cle: 'mer', nom: 'La mer et les marins', famille: 'fil', description: 'Navires, pirates, naufrages et courses au large', etiquettes: ['mer'] },
   { cle: 'pionnieres', nom: 'Pionnières', famille: 'fil', description: 'Des femmes qui ont ouvert la voie', etiquettes: ['femmes'] },
   { cle: 'pieges', nom: 'Les pièges', famille: 'fil', description: 'La réponse évidente est fausse', etiquettes: ['piege'] },
   { cle: 'premieres', nom: 'Les premières fois', famille: 'fil', description: 'Qui l’a fait le premier ?', etiquettes: ['premiere'] },

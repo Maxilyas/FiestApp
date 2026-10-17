@@ -66,6 +66,10 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   // Les plantes ne sont pas des animaux, et un sous-thème ne vaut que dans sa catégorie.
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Nature', 'plantes')), [])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Histoire', 'espace')), [])
+  // Les dinosaures (le 17 octobre 2026, au soir) ont quitté les animaux, qui en contenaient les quatre cinquièmes :
+  // leur thème tient leur rubrique, et leur étiquette les porte ailleurs — Jurassic Park.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Nature', 'disparus')), ['dinosaures'])
+  assert.deepEqual(sujetsDe(meta(null, ['dinosaures'], 'monde', 'Cinéma & séries', 'sagas')), ['dinosaures'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'reliefs')), ['terre-espace'])
   // Un thème se croise avec une époque et un fil rouge : chacun le sien.
   assert.deepEqual(sujetsDe(meta({ valeur: '1998', precision: 'annee' }, ['coupe-du-monde', 'record'], 'france', 'Sport', 'football')), ['grands-rendez-vous', 'annees-90', 'france', 'records'])
@@ -106,7 +110,7 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'francais')), ['francais'])
   assert.deepEqual(sujetsDe(meta(null, ['francais'], 'monde', 'Autour de la fête', 'bal')), ['danse', 'francais'], '« ouvrir le bal »')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'langue')), [], 'l’alphabet coréen n’est pas du français')
-  assert.deepEqual(sujetsDe(meta(null, ['etymologie'], 'monde', 'Nature', 'disparus')), ['animaux', 'mots'], 'le nom d’un dinosaure reste à l’origine des mots, pas au français')
+  assert.deepEqual(sujetsDe(meta(null, ['etymologie'], 'monde', 'Nature', 'disparus')), ['dinosaures', 'mots'], 'le nom d’un dinosaure reste à l’origine des mots, pas au français')
   // L'anglais et l'espagnol (le même jour) : chacun son sous-thème, et son étiquette pour le mot qu'on croise ailleurs.
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'anglais')), ['anglais'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'espagnol')), ['espagnol'])
@@ -142,11 +146,12 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
   // Un fil rouge se lit sur ses étiquettes ou sa portée ; un sous-thème, seulement celui dont il tient la rubrique.
   for (const s of SUJETS.filter(s => s.famille === 'fil')) assert.ok(!s.annees && (!s.sousThemes || s.categorie) && (s.etiquettes || s.portee), s.cle)
   // Un thème se lit sur des sous-thèmes qui existent dans leur catégorie, et sur des étiquettes ; jamais sur une date ou une portée.
+  // Ou sur sa seule étiquette (le 17 octobre 2026, au soir) : la Révolution et l'Empire, le polar — aucun sous-thème ne les dit.
   const themes = SUJETS.filter(s => s.famille === 'theme')
   assert.ok(themes.length >= 5, 'les premiers thèmes')
   for (const s of themes) {
-    assert.ok(!s.annees && !s.portee && s.sousThemes, s.cle)
-    for (const [categorie, cles] of Object.entries(s.sousThemes!) as [Categorie, readonly string[]][]) {
+    assert.ok(!s.annees && !s.portee && (s.sousThemes || s.etiquettes?.length), s.cle)
+    for (const [categorie, cles] of Object.entries(s.sousThemes ?? {}) as [Categorie, readonly string[]][]) {
       assert.ok(SOUS_THEMES[categorie], `${s.cle} : ${categorie}`)
       for (const cle of cles) assert.ok(SOUS_THEMES[categorie].some(x => x.cle === cle), `${s.cle} : ${categorie} › ${cle}`)
     }

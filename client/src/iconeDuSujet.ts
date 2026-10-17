@@ -11,6 +11,7 @@ import type { FamilleDeSujet, Sujet } from '../../shared/sujets'
  */
 const ICONE_DU_SUJET: Record<string, IconName> = {
   animaux: 'paw',
+  dinosaures: 'dinosaure',
   inventions: 'bulb',
   'mythes-legendes': 'sparkles',
   'terre-espace': 'volcan',
@@ -42,7 +43,13 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   'outre-mer': 'palmier',
   paris: 'tour-eiffel',
   'rois-de-france': 'crown',
+  'revolution-empire': 'bicorne',
+  presidents: 'pupitre',
   mer: 'ancre',
+  aviation: 'avion',
+  polar: 'search',
+  mysteres: 'coffre',
+  marques: 'tag',
   pionnieres: 'award',
   pieges: 'alert',
   premieres: 'zap',

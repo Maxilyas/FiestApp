@@ -117,6 +117,11 @@ export type IconName =
   | 'palmier'
   | 'guillemets'
   | 'operations'
+  // Puis la Révolution et l'Empire, l'aviation, les présidents de la République, les dinosaures.
+  | 'bicorne'
+  | 'avion'
+  | 'pupitre'
+  | 'dinosaure'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -812,6 +817,37 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M7 4.5v5M4.5 7h5M14.5 7h5" />
         <path d="m5 15 4 4M9 15l-4 4M14.5 17h5M17 14.5v.01M17 19.5v.01" />
+      </>
+    ),
+  },
+  // Le bicorne de l'Empereur, porté en bataille : un croissant, ses deux pointes en bas, la cocarde devant. En amande,
+  // il se lisait comme un œil — celui de l'insolite.
+  bicorne: {
+    paths: (
+      <>
+        <path d="M2.5 16C5 10 8.5 7.5 12 7.5s7 2.5 9.5 8.5c-3-1.7-6.2-2.6-9.5-2.6S5.5 14.3 2.5 16Z" />
+        <circle cx="12" cy="10.6" r="1.3" />
+      </>
+    ),
+  },
+  avion: {
+    paths: <path d="M21 15.5v-1.8l-7.5-4.7V4a1.5 1.5 0 0 0-3 0v5L3 13.7v1.8l7.5-2.3V18l-2 1.5V21l3.5-1 3.5 1v-1.5l-2-1.5v-4.8l7.5 2.3Z" />,
+  },
+  // Le pupitre et son micro : le discours d'un président.
+  pupitre: {
+    paths: (
+      <>
+        <path d="M5 10.5h14M7 10.5l1 10h8l1-10M6 20.5h12" />
+        <path d="M12 10.5V7M10.8 5.2a1.2 1.2 0 1 1 2.4 0V7h-2.4V5.2Z" />
+      </>
+    ),
+  },
+  // Un sauropode, de profil : le long cou, la queue, deux pattes.
+  dinosaure: {
+    paths: (
+      <>
+        <path d="M3 14c3-.2 5.5-4.5 10-4.5 1.2 0 2.2.2 3 .5V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2h-1V13c0 1.6-1.4 2.5-3.5 2.5H8.5C6 15.5 4.2 15 3 14Z" />
+        <path d="M9 15.5V20M15.5 15.5V20" />
       </>
     ),
   },
