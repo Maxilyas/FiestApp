@@ -88,9 +88,14 @@ import { sansAccent } from '../../shared/homonymes'
  * (`preparer --inventaire=anglais,espagnol`), 488 rangées sur 500 (8
  * refusées comme un fait déjà posé, 4 retirées à la relecture) : 25 520 ;
  * puis une question par sujet que leurs inventaires laissaient sans
- * question (`--manques`), 9 : 25 529.
+ * question (`--manques`), 9 : 25 529. Puis les quatre univers et les trois
+ * pays à qui manquaient des questions — Harry Potter, Star Wars, le Seigneur
+ * des anneaux, James Bond, l'Égypte, l'Inde, le Mexique —, chacun ce qui
+ * lui manquait, avec de la marge (`preparer --sujet=james-bond:75,…`), 301
+ * rangées sur 320 (15 refusées comme un fait ou un intitulé déjà posé, 4
+ * retirées à la relecture) : 25 830.
  */
-const AU_MOINS = 25529
+const AU_MOINS = 25830
 
 const { questions, refusees } = lireLaBase()
 

@@ -229,8 +229,9 @@ const deLaFamille = (sujets: readonly Sujet[], famille: FamilleDeSujet): readonl
 }
 
 /**
- * L'onglet des thèmes, chaque famille son allure : les fêtes et les thèmes en
- * tuiles, leur emblème dans un médaillon — la fête la plus proche d'abord ;
+ * L'onglet des thèmes, chaque famille son allure : les fêtes, les thèmes et
+ * les univers en tuiles, leur emblème dans un médaillon — la fête la plus
+ * proche d'abord ;
  * les époques en frise, dans l'ordre du temps — la première colonne, puis la
  * seconde ; les pays et les fils rouges en pastilles, leur emblème devant. Trente-cinq
  * pastilles toutes pareilles faisaient un mur de mots sur trois écrans (le
@@ -283,7 +284,7 @@ function SujetsDuChoix({
                   </button>
                 ))}
               </div>
-            ) : famille === 'theme' || famille === 'fete' ? (
+            ) : famille === 'theme' || famille === 'fete' || famille === 'univers' ? (
               <div className="quoi-tuiles" role="group" aria-label={nomDeLaFamille}>
                 {ici.map(s => (
                   <button key={s.cle} type="button" className={'quoi-tuile' + (choisi === s.cle ? ' active' : '')} aria-pressed={choisi === s.cle} onClick={() => basculer(s.cle)}>

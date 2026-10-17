@@ -105,14 +105,33 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "allemagne", nom: "Allemagne", definition: "" },
       { cle: "australie", nom: "Australie", definition: "" },
       { cle: "chine", nom: "Chine", definition: "" },
+      { cle: "egypte", nom: "Égypte", definition: "" },
       { cle: "espagne", nom: "Espagne", definition: "" },
       { cle: "etats-unis", nom: "États-Unis", definition: "" },
       { cle: "grece", nom: "Grèce", definition: "" },
+      { cle: "inde", nom: "Inde", definition: "" },
       { cle: "italie", nom: "Italie", definition: "" },
       { cle: "japon", nom: "Japon", definition: "" },
+      { cle: "mexique", nom: "Mexique", definition: "" },
       { cle: "pays-nordiques", nom: "Pays nordiques (Suède, Norvège, Danemark, Finlande, Islande)", definition: "" },
       { cle: "royaume-uni", nom: "Royaume-Uni", definition: "" },
       { cle: "russie", nom: "Russie", definition: "" },
+    ],
+  },
+  // Les univers (le même jour) : les sagas qui traversent les livres, les
+  // films, les jeux et les chansons. Pas Astérix, Tintin, Nintendo ni
+  // Pokémon : trois quarts et plus de leurs questions vivaient dans un thème
+  // déjà là — la BD, les jeux vidéo —, et le propriétaire ne voulait plus de
+  // thèmes qui se recoupent.
+  {
+    famille: "Les univers",
+    etiquettes: [
+      { cle: "disney", nom: "Disney et Pixar", definition: "leurs films, leurs personnages, leurs chansons et leurs parcs. Pas Star Wars ni Marvel, qui ont le leur, ni un conte avant que Disney ne l'adapte (Perrault, Grimm, Collodi)" },
+      { cle: "harry-potter", nom: "Harry Potter", definition: "les livres de J. K. Rowling, leurs films et leurs suites, leurs personnages et leurs lieux (Poudlard)" },
+      { cle: "james-bond", nom: "James Bond", definition: "les romans de Ian Fleming et les films de 007 : leurs acteurs dans le rôle, leurs chansons, leurs méchants, leurs gadgets" },
+      { cle: "marvel", nom: "Marvel", definition: "ses super-héros en bande dessinée et au cinéma (les Avengers, Spider-Man, les X-Men). Pas DC (Batman, Superman), ni Thor le dieu nordique" },
+      { cle: "seigneur-des-anneaux", nom: "Le Seigneur des anneaux", definition: "la Terre du Milieu de Tolkien — Le Hobbit compris — et ses films" },
+      { cle: "star-wars", nom: "Star Wars", definition: "ses films, ses séries, ses personnages, ses planètes et ceux qui l'ont fait (George Lucas, la musique de John Williams pour la saga)" },
     ],
   },
 ]

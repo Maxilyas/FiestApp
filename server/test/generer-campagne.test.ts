@@ -275,6 +275,24 @@ test('pour un sujet : n questions de plus là où il vit, aux difficultés qui l
   assert.deepEqual([...commandeDuSujet(mythes, [], 4).keys()], ['Culture générale'])
   assert.throws(() => commandeDuSujet(surnoms, [], 4), /rien ne dit où l'écrire/)
 
+  // Chacun son nombre après ses deux-points (le 17 octobre 2026) : sept sujets, de 39 à 93 questions, ne demandaient
+  // pas tous autant pour atteindre leurs cent. Sans le sien, celui de --questions ; sans l'un ni l'autre, rien.
+  const chacun = contexte()
+  try {
+    const { generation } = preparer(chacun, { sujet: 'mythes-legendes:12,danse:5', nom: 's1' })
+    assert.equal(generation.demandees, 17)
+    assert.throws(() => preparer(contexte(), { sujet: 'mythes-legendes:12,danse' }), /le sien après ses deux-points/)
+    assert.throws(() => preparer(contexte(), { sujet: 'mythes-legendes:zéro' }), /le sien après ses deux-points/)
+  } finally {
+    rmSync(chacun.dossier, { recursive: true, force: true })
+  }
+  const avecQuestions = contexte()
+  try {
+    assert.equal(preparer(avecQuestions, { sujet: 'mythes-legendes:12,danse', questions: 3, nom: 's2' }).generation.demandees, 15)
+  } finally {
+    rmSync(avecQuestions.dossier, { recursive: true, force: true })
+  }
+
   // Deux sujets dans un même sous-thème : deux morceaux d'une même vague, chacun sa contrainte jusque dans la consigne.
   const deux = new Map<Categorie, QuotaDEcriture[]>([
     [

@@ -104,6 +104,13 @@ export type IconName =
   | 'gateau'
   // Les pays de la campagne, tous du même repère.
   | 'repere'
+  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars.
+  | 'chateau'
+  | 'baguette'
+  | 'noeud'
+  | 'bouclier'
+  | 'anneau'
+  | 'sabre'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -704,6 +711,59 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M12 21.2c-3.9-4.4-6.6-8.1-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 3.1-2.7 6.8-6.6 11.2Z" />
         <circle cx="12" cy="10" r="2.4" />
+      </>
+    ),
+  },
+  // Les univers : chacun l'objet qu'on reconnaît de loin — le château de
+  // Disney, la baguette du sorcier, le nœud papillon de 007, le bouclier
+  // étoilé, l'Anneau unique, le sabre laser. Un logo aurait été une marque.
+  chateau: {
+    paths: (
+      <>
+        <path d="M3.5 21h17M5.5 21v-8M9.5 21v-8M4.8 13 7.5 8.5l2.7 4.5M14.5 21v-8M18.5 21v-8M13.8 13l2.7-4.5 2.7 4.5" />
+        <path d="M9.5 15h5M10.5 15V9.8L12 6.5l1.5 3.3V15M11 21v-2.6a1 1 0 0 1 2 0V21" />
+      </>
+    ),
+  },
+  baguette: {
+    paths: (
+      <>
+        <path d="M3.6 19 13.3 9.3l1.4 1.4L5 20.4Z" />
+        <path d="M17 3.5v3.2M15.4 5.1h3.2M19.8 9.3v2M18.8 10.3h2M12.6 4.2v1.6M11.8 5h1.6" />
+      </>
+    ),
+  },
+  noeud: {
+    paths: (
+      <>
+        <path d="M3 8.5v7l6.5-2.4v-2.2L3 8.5ZM21 8.5v7l-6.5-2.4v-2.2L21 8.5Z" />
+        <path d="M9.5 10.3h5v3.4h-5Z" />
+      </>
+    ),
+  },
+  bouclier: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5.6" />
+        <path d="m12 9.3.8 1.7 1.8.2-1.3 1.2.4 1.8-1.7-.9-1.7.9.4-1.8-1.3-1.2 1.8-.2Z" />
+      </>
+    ),
+  },
+  anneau: {
+    paths: (
+      <>
+        <ellipse cx="12" cy="13.5" rx="8" ry="4.6" />
+        <ellipse cx="12" cy="12.6" rx="5.4" ry="2.6" />
+        <path d="M18 4v2.6M16.7 5.3h2.6" />
+      </>
+    ),
+  },
+  sabre: {
+    paths: (
+      <>
+        <path d="M10.6 13.4 19.8 4.2M7.6 12.6l3.8 3.8" />
+        <path d="M3.4 19.2 8.6 14l1.4 1.4-5.2 5.2Z" />
       </>
     ),
   },

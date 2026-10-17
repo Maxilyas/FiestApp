@@ -23,18 +23,19 @@ import { SOUS_THEMES } from './sousThemes'
 // écrit ce qui lui manque.
 
 /** Une rubrique (`RUBRIQUES`) n'a pas de rangée : la feuille du choix la range sous sa catégorie. */
-export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'fete' | 'pays' | 'rubrique'
+export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'fete' | 'univers' | 'pays' | 'rubrique'
 
 /**
  * Les familles de sujets, dans l'ordre où l'écran les range, chacune sa
  * rangée ; au pluriel, le nom de son onglet parmi les parcours de thème. Les
  * fêtes d'abord (le 17 octobre 2026) : FiestApp en est une, et la plus
- * proche s'y lit sans défiler (`fetesDansLOrdre`). Les pays après les thèmes,
- * le même jour.
+ * proche s'y lit sans défiler (`fetesDansLOrdre`). Les univers et les pays
+ * après les thèmes, le même jour.
  */
 export const FAMILLES_DE_SUJETS: readonly { famille: FamilleDeSujet; nom: string; pluriel: string }[] = [
   { famille: 'fete', nom: 'Une fête', pluriel: 'Fêtes' },
   { famille: 'theme', nom: 'Un thème', pluriel: 'Thèmes' },
+  { famille: 'univers', nom: 'Un univers', pluriel: 'Univers' },
   { famille: 'pays', nom: 'Un pays', pluriel: 'Pays' },
   { famille: 'epoque', nom: 'Une époque', pluriel: 'Époques' },
   { famille: 'fil', nom: 'Un fil rouge', pluriel: 'Fils rouges' },
@@ -306,6 +307,18 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { 'Autour de la fête': ['anniversaires'] },
     categorie: 'Autour de la fête',
   },
+  // Les univers (le 17 octobre 2026) : les sagas qui traversent les livres,
+  // les films, les jeux et les chansons, chacune son étiquette (`ETIQUETTES`,
+  // « Les univers »), posée sur la base comme celle des pays, puis écrite là où
+  // il manquait de quoi faire cent questions. Astérix, Tintin, Nintendo et
+  // Pokémon tenaient aux trois quarts dans la BD ou les jeux vidéo : des
+  // thèmes qui se recoupent, ce que le propriétaire ne voulait plus.
+  { cle: 'disney', nom: 'Disney et Pixar', famille: 'univers', description: 'Des princesses aux jouets de Toy Story, les films et les parcs', etiquettes: ['disney'] },
+  { cle: 'harry-potter', nom: 'Harry Potter', famille: 'univers', description: 'Poudlard, les sorciers, les livres et les films', etiquettes: ['harry-potter'] },
+  { cle: 'james-bond', nom: 'James Bond', famille: 'univers', description: '007, ses films, ses acteurs, ses chansons et ses méchants', etiquettes: ['james-bond'] },
+  { cle: 'marvel', nom: 'Marvel', famille: 'univers', description: 'Les Avengers, Spider-Man et les X-Men, en BD et au cinéma', etiquettes: ['marvel'] },
+  { cle: 'seigneur-des-anneaux', nom: 'Le Seigneur des anneaux', famille: 'univers', description: 'La Terre du Milieu, de Tolkien à Peter Jackson', etiquettes: ['seigneur-des-anneaux'] },
+  { cle: 'star-wars', nom: 'Star Wars', famille: 'univers', description: 'Les Jedi, l’Empire et la Force, au cinéma et au-delà', etiquettes: ['star-wars'] },
   // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : une
   // étiquette chacun (`ETIQUETTES`, « Les pays »), posée sur les questions que
   // la base avait déjà, relues une à une — l'Italie de la pizza et de Fellini,
@@ -315,11 +328,14 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'allemagne', nom: 'L’Allemagne', famille: 'pays', description: 'Berlin, la Bavière, Goethe et le Mur', etiquettes: ['allemagne'] },
   { cle: 'australie', nom: 'L’Australie', famille: 'pays', description: 'Sydney, les kangourous et le bush', etiquettes: ['australie'] },
   { cle: 'chine', nom: 'La Chine', famille: 'pays', description: 'Pékin, la Grande Muraille, les dynasties et le kung-fu', etiquettes: ['chine'] },
+  { cle: 'egypte', nom: 'L’Égypte', famille: 'pays', description: 'Les pharaons, les pyramides et le Nil', etiquettes: ['egypte'] },
   { cle: 'espagne', nom: 'L’Espagne', famille: 'pays', description: 'Madrid, Barcelone, le flamenco et la paella', etiquettes: ['espagne'] },
   { cle: 'etats-unis', nom: 'Les États-Unis', famille: 'pays', description: 'New York, Hollywood, les présidents et le Far West', etiquettes: ['etats-unis'] },
   { cle: 'grece', nom: 'La Grèce', famille: 'pays', description: 'Athènes, l’Acropole, les philosophes et les îles', etiquettes: ['grece'] },
+  { cle: 'inde', nom: 'L’Inde', famille: 'pays', description: 'Bollywood, le Taj Mahal, Gandhi et le curry', etiquettes: ['inde'] },
   { cle: 'italie', nom: 'L’Italie', famille: 'pays', description: 'Rome, Venise, la pizza et la dolce vita', etiquettes: ['italie'] },
   { cle: 'japon', nom: 'Le Japon', famille: 'pays', description: 'Tokyo, les samouraïs, les sushis et les mangas', etiquettes: ['japon'] },
+  { cle: 'mexique', nom: 'Le Mexique', famille: 'pays', description: 'Les Aztèques, les mariachis et Frida Kahlo', etiquettes: ['mexique'] },
   { cle: 'pays-nordiques', nom: 'Les pays nordiques', famille: 'pays', description: 'Les Vikings, les fjords, ABBA et les aurores boréales', etiquettes: ['pays-nordiques'] },
   { cle: 'royaume-uni', nom: 'Le Royaume-Uni', famille: 'pays', description: 'Londres, la Couronne, les Beatles et le thé', etiquettes: ['royaume-uni'] },
   { cle: 'russie', nom: 'La Russie', famille: 'pays', description: 'Moscou, les tsars, l’URSS et le Bolchoï', etiquettes: ['russie'] },

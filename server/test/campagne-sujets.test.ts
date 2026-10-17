@@ -126,6 +126,10 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, ['italie'], 'monde', 'Cuisine', 'monde')), ['italie'])
   assert.deepEqual(sujetsDe(meta(null, ['royaume-uni', 'japon'], 'monde', 'Sport', 'combat')), ['japon', 'royaume-uni'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'capitales')), [], 'une capitale n’est d’aucun pays sans son étiquette')
+  // Les univers (le même jour) : leur étiquette seule, de la saga au cinéma à sa chanson.
+  assert.deepEqual(sujetsDe(meta(null, ['harry-potter'], 'monde', 'Cinéma & séries', 'sagas')), ['harry-potter'])
+  assert.deepEqual(sujetsDe(meta(null, ['james-bond', 'royaume-uni'], 'monde', 'Musique', 'ecrans')), ['james-bond', 'royaume-uni'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'sagas')), [], 'une saga n’est d’aucun univers sans son étiquette')
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
@@ -156,16 +160,22 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
     for (const cle of s.sousThemes!['Autour de la fête']!) assert.ok(SOUS_THEMES['Autour de la fête'].some(x => x.cle === cle), `${s.cle} › ${cle}`)
     assert.equal(!!s.jour, s.cle !== 'anniversaires', s.cle)
   }
-  // Un pays se lit sur son étiquette, de la famille « Les pays », et sur rien d'autre ; chaque étiquette de la famille a son pays.
-  const lesPays = ETIQUETTES.find(f => f.famille === 'Les pays')!.etiquettes.map(e => e.cle)
-  const pays = SUJETS.filter(s => s.famille === 'pays')
-  for (const s of pays) assert.ok(!s.annees && !s.portee && !s.sousThemes && s.etiquettes?.length === 1 && s.etiquettes[0] === s.cle, s.cle)
-  assert.deepEqual(pays.map(s => s.cle).sort(), [...lesPays].sort())
-  assert.deepEqual(
-    pays.map(s => s.nom),
-    [...pays.map(s => s.nom)].sort((a, b) => a.replace(/^(L’|Le |La |Les )/, '').localeCompare(b.replace(/^(L’|Le |La |Les )/, ''), 'fr')),
-    'dans l’ordre de l’alphabet, sans l’article',
-  )
+  // Un pays, un univers se lit sur son étiquette, de sa famille (« Les pays », « Les univers »), et sur rien d'autre ;
+  // chaque étiquette de la famille a son sujet, rangés dans l'ordre de l'alphabet, sans l'article.
+  for (const [famille, laFamille] of [
+    ['pays', 'Les pays'],
+    ['univers', 'Les univers'],
+  ] as const) {
+    const siennes = ETIQUETTES.find(f => f.famille === laFamille)!.etiquettes.map(e => e.cle)
+    const sujets = SUJETS.filter(s => s.famille === famille)
+    for (const s of sujets) assert.ok(!s.annees && !s.portee && !s.sousThemes && s.etiquettes?.length === 1 && s.etiquettes[0] === s.cle, s.cle)
+    assert.deepEqual(sujets.map(s => s.cle).sort(), [...siennes].sort(), famille)
+    assert.deepEqual(
+      sujets.map(s => s.nom),
+      [...sujets.map(s => s.nom)].sort((a, b) => a.replace(/^(L’|Le |La |Les )/, '').localeCompare(b.replace(/^(L’|Le |La |Les )/, ''), 'fr')),
+      `${famille} : dans l’ordre de l’alphabet, sans l’article`,
+    )
+  }
   // Ni une fête ni une rubrique ne montent en parcours : le sentier de leur catégorie le fait.
   assert.deepEqual(
     SUJETS_ET_RUBRIQUES.filter(s => !aUnParcours(s)).map(s => s.famille).filter((f, i, toutes) => toutes.indexOf(f) === i),
