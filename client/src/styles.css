@@ -8022,8 +8022,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   .quoi-ligne > .icon { display: none; }
 }
 /* Sa feuille : toutes d'un toucher, puis les douze en deux colonnes ; les
-   sujets en pastilles, une rangée par famille. Sa hauteur ne suit pas son
-   onglet : « Choisir » reste sous le doigt de l'un à l'autre. */
+   sujets, une rangée par famille, chacune son allure. Sa hauteur ne suit pas
+   son onglet : « Choisir » reste sous le doigt de l'un à l'autre. */
 .carte-feuille.feuille-du-choix { height: 88%; }
 .quoi-panneau { display: flex; flex-direction: column; gap: 10px; }
 .quoi-panneau p { margin: 0; }
@@ -8032,14 +8032,50 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-toutes .icon { flex: none; width: 20px; height: 20px; }
 .quoi-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .quoi-case { min-height: 44px; padding: 6px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
-.quoi-famille { display: flex; flex-direction: column; gap: 8px; }
-.quoi-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
-.quoi-pastille { min-height: 38px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
-.quoi-toutes.active, .quoi-case.active, .quoi-pastille.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.quoi-toutes.active, .quoi-case.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* L'onglet des thèmes, chaque famille son allure (`SujetsDuChoix`, le souhait
+   du propriétaire du 17 octobre 2026 : trente-cinq pastilles pareilles
+   faisaient un mur de mots) ; son titre tire un filet jusqu'au bord. */
+.quoi-famille { display: flex; flex-direction: column; gap: 10px; }
+.quoi-famille + .quoi-famille { margin-top: 8px; }
+.quoi-titre { display: flex; align-items: center; gap: 10px; }
+.quoi-titre::after { content: ''; flex: 1; height: 1px; background: var(--edge); }
+.quoi-nom { min-width: 0; overflow-wrap: break-word; hyphens: auto; }
+/* Les thèmes : des tuiles en deux colonnes, l'emblème dans un médaillon qui
+   s'emplit d'or au choix. */
+.quoi-tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* Le nom garde 97 px en 360 de large : « L'informatique » y tient d'un mot. */
+.quoi-tuile { display: flex; align-items: center; gap: 9px; min-height: 58px; padding: 8px 8px 8px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: linear-gradient(150deg, rgba(var(--accent-rgb), 0.09), transparent 65%), var(--surface); color: var(--ink); font: inherit; font-size: 0.875rem; font-weight: 600; line-height: 1.2; text-align: left; text-wrap: balance; cursor: pointer; }
+.quoi-medaillon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--edge); border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.32), rgba(var(--accent-rgb), 0.07) 72%); color: var(--accent-text); }
+.quoi-medaillon .icon { width: 17px; height: 17px; }
+/* Le survol, à la souris seulement : collé après un toucher, il se lisait comme un second choix. */
+@media (hover: hover) {
+  .quoi-tuile:hover, .quoi-fil:hover { border-color: var(--edge-strong); }
+  .quoi-epoque:hover { background: var(--surface-strong); }
+}
+.quoi-tuile.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.quoi-tuile.active .quoi-medaillon { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+/* Les époques : une frise, un jalon par époque sur le fil du temps, qui
+   court d'une colonne à l'autre ; le fil s'arrête au premier jalon et au
+   dernier de sa colonne. Leurs noms en Cormorant, comme un livre d'histoire. */
+.quoi-frise { display: grid; grid-auto-flow: column; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(var(--rangs, 5), auto); column-gap: 8px; }
+.quoi-epoque { position: relative; display: flex; align-items: center; min-height: 44px; padding: 6px 8px 6px 32px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.quoi-epoque::before { content: ''; position: absolute; top: 0; bottom: 0; left: 15px; width: 2px; background: var(--edge-strong); }
+.quoi-epoque-debut::before { top: 50%; }
+.quoi-epoque-fin::before { bottom: 50%; }
+.quoi-jalon { position: absolute; top: 50%; left: 16px; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 2px solid var(--accent); border-radius: 50%; background: var(--bg); }
+.quoi-epoque .quoi-nom { font-family: var(--serif); font-size: 1.125rem; font-weight: 600; font-variant-numeric: lining-nums; line-height: 1.15; }
+.quoi-epoque.active { background: var(--accent-soft); color: var(--accent-text); }
+.quoi-epoque.active .quoi-jalon { width: 16px; height: 16px; margin: -8px 0 0 -8px; background: var(--accent); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.22); }
+/* Les fils rouges : des pastilles, leur emblème devant. */
+.quoi-fils { display: flex; flex-wrap: wrap; gap: 8px; }
+.quoi-fil { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 4px 14px 4px 11px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.875rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
+.quoi-fil > .icon { flex: none; width: 16px; height: 16px; color: var(--accent-text); }
+.quoi-fil.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 /* Ce qu'une case compte, sous son nom — au carnet, ce qui y attend : « 4 à revoir », vif ; « 9 au carnet », éteint. */
-.quoi-compte { display: block; margin-top: 2px; font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.quoi-compte { display: block; margin-top: 2px; font-family: var(--sans); font-size: 0.75rem; font-weight: 500; color: var(--muted); }
 .quoi-compte.vif { color: var(--accent-text); font-weight: 600; }
-.quoi-pastille .quoi-compte { display: inline; margin: 0 0 0 4px; }
+.quoi-fil .quoi-compte { display: inline; margin: 0 0 0 4px; }
 .quoi-toutes .quoi-compte { flex: none; margin: 0; }
 .quoi-description { margin: 0 0 8px; }
 /* « Choisir · Les grands rendez-vous du sport » : en capitales et sur une ligne, comme un gros bouton, il sortait de l'écran. */

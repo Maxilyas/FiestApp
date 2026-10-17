@@ -156,7 +156,7 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   memoire.delete('quizz.campagne.sujet')
   assert.equal(module.sujetRetenu(), null)
   // La page : la ligne du choix sous le gros bouton, et sa feuille — un sujet de chaque famille,
-  // en pastilles, dans l'onglet d'à côté ; « Commencer » part sur celui qui se joue.
+  // chacune son allure, dans l'onglet d'à côté ; « Commencer » part sur celui qui se joue.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(page, /useState<string \| null>\(sujetRetenu\)/)
   // La feuille vit à part, la même pour la série et pour « Défier quelqu'un » (`ChoixDuTheme.tsx`) :
@@ -216,11 +216,28 @@ test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du ch
   assert.match(deux, /class="quoi-case active" aria-pressed="true">Histoire<\/button>/)
   assert.match(deux, /class="quoi-case" aria-pressed="false">Nature<\/button>/)
   assert.match(deux, /Choisir · Histoire et Sport<\/button>/)
-  // Sur un sujet, la feuille s'ouvre sur son onglet : sa pastille pressée, sa description au-dessus de « Choisir ».
+  // Sur un sujet, la feuille s'ouvre sur son onglet : sa tuile pressée, sa description au-dessus de « Choisir ».
   const sujet = feuille(['Histoire'], SUJETS[0].cle, SUJETS)
   assert.match(sujet, /role="tab" aria-selected="true"[^>]*>Thèmes · \d+<\/button>/)
-  assert.match(sujet, new RegExp(`class="quoi-pastille active" aria-pressed="true">${SUJETS[0].nom}</button>`))
+  assert.match(sujet, new RegExp(`class="quoi-tuile active" aria-pressed="true"><span class="quoi-medaillon"><svg[^>]*>.*?</svg></span><span class="quoi-nom">${SUJETS[0].nom}</span></button>`))
   assert.ok(sujet.indexOf('Un thème') < sujet.indexOf('Une époque') && sujet.indexOf('Une époque') < sujet.indexOf('Un fil rouge'), 'chaque famille sa rangée, les thèmes d’abord')
+  // Chaque famille son allure : les époques en frise, dans l'ordre du temps,
+  // un jalon chacune, le fil coupé en haut et en bas de ses deux colonnes ;
+  // les fils rouges en pastilles, leur emblème devant.
+  const epoques = SUJETS.filter(s => s.famille === 'epoque')
+  assert.equal(epoques.length, 10)
+  assert.match(sujet, /<div class="quoi-frise" role="group" aria-label="Une époque" style="--rangs:5">/)
+  const frise = [...sujet.matchAll(/class="(quoi-epoque[^"]*)" aria-pressed="false"><span class="quoi-jalon"><\/span><span class="quoi-nom">([^<]+)<\/span>/g)]
+  assert.deepEqual(
+    frise.map(m => m[2]),
+    epoques.map(s => s.nom),
+  )
+  assert.deepEqual(
+    frise.map(m => m[1]),
+    epoques.map((_, i) => 'quoi-epoque' + (i % 5 === 0 ? ' quoi-epoque-debut' : '') + (i % 5 === 4 ? ' quoi-epoque-fin' : '')),
+  )
+  const fil = SUJETS.find(s => s.famille === 'fil')!
+  assert.match(sujet, new RegExp(`class="quoi-fil" aria-pressed="false"><svg[^>]*>.*?</svg><span class="quoi-nom">${fil.nom}</span></button>`))
   assert.match(sujet, new RegExp(`<p class="muted small centre quoi-description">${SUJETS[0].description}</p>`))
   assert.match(sujet, new RegExp(`Choisir · ${SUJETS[0].nom}</button>`))
   // Sans sujet à jouer : pas d'onglets, les catégories seules.
