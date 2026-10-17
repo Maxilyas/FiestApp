@@ -154,7 +154,8 @@ dixième de cœur) : la mesure se relit et se refait sur toute la base
 (`serieDeReference`). Mesuré à part, compilé : 45 à 70 ms de processeur par
 relecture — le décodage de ses deux textes 15 ms, les familles 9 à 22, la
 préparation du tirage 4, la série de référence du dé 15 à 24 —, toutes les
-dix minutes d'activité au plus. Moins que le réveil : il passe avant.
+dix minutes d'activité au plus. Moins que le réveil : il passe avant
+(l'étape 4, plus bas).
 
 ## L'étape 3 — le réveil
 
@@ -188,11 +189,48 @@ l'entrée entière (`entreeDeLaBase`, ses `leurres`, ses `entites`) ; ôter ces
 champs demanderait de la relire à la demande — 8 Mo de tas et 0,1 s de
 plus à gagner.
 
+## L'étape 4 — la mesure relue
+
+Puis « passe à la suite » : ce que chaque mesure neuve refait, toutes les
+dix minutes d'activité, sur le chemin de la requête qui la trouvait
+périmée — le tirage ou le dé qui suivait son expiration, 1,2 à 1,4 s au
+dixième de cœur.
+
+- **Elle se relit avant d'être due** : demandée dans ses deux dernières
+  minutes (`MESURE_EN_AVANCE_MS`), la suivante part en fond, puis ses
+  familles et la préparation du tirage de toutes les catégories
+  (`relireLaMesureEnFond`). Qui la demande pendant ce temps reçoit celle
+  qu'il a trouvée ; la requête de la onzième minute trouve la neuve prête,
+  sans un aller-retour. Une fois par mesure, même ratée : elle se relit
+  alors à son heure, sur le chemin de la requête, comme avant. Sans
+  activité dans ses deux dernières minutes, rien ne change.
+- **Ses deux textes en tableaux** (`json_group_array`) : sept mille clés
+  d'objet se décodaient deux à trois fois plus lentement que des triplets.
+- **La série de référence du dé** lit ses marches de la préparation du
+  tirage, qui les sait déjà (`referencePour`, `PreparationDuTirage.marche`),
+  et trie chaque groupe — une marche, une catégorie — en tableau de nombres,
+  d'un coup, au lieu de listes triées par une fonction (`serieDeReference`).
+  La même au nombre près : `campagne-mesure.test.ts` garde l'ancienne et
+  les compare sur la vraie base.
+
+| Une mesure neuve (`banc-mesure.ts`, compilé, 7 000 questions jouées), médianes de trois passages | Avant | Après |
+|---|---|---|
+| Ses deux textes décodés | 11 à 16 ms | 5 à 7 ms |
+| Ses familles (`mesuresEnFamille`) | 5 à 7 ms | 5 à 7 ms |
+| La préparation du tirage | 3 à 4 ms | 3 à 4 ms |
+| La série de référence du dé | 11 à 13 ms | 6 à 7 ms |
+| En tout | 30 à 37 ms, sur le chemin de la requête | 19 à 23 ms, en fond sous l'activité |
+
+Le premier passage, à froid — le cas d'une mesure toutes les dix minutes,
+que le moteur de JavaScript a peut-être oubliée —, coûte deux fois la
+médiane, avant comme après. Restent à prendre : les familles, qu'un index
+par base réduirait, et ce qu'il a vu, encore décodé d'un objet à chaque
+série (`lectureDesVues`) — un à deux millisecondes pour les plus fidèles.
+
 ## La suite proposée
 
-2. ~~**Les calculs sur toute la base**~~ : faits (l'étape 2, plus haut). Il
-   en reste ce que chaque mesure neuve refait — `mesuresEnFamille` et la
-   série de référence du dé, toutes les dix minutes d'activité.
+2. ~~**Les calculs sur toute la base**~~ : faits (les étapes 2 et 4, plus
+   haut).
 3. ~~**Le réveil**~~ : la base vérifiée au build (l'étape 3, plus haut).
    L'alléger des champs que le jeu ne lit pas reste à faire (perf-gel-10).
 4. **Le transport**, mesuré en préproduction d'abord : un `fetch` sur

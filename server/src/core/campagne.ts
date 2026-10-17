@@ -369,6 +369,13 @@ interface Duel {
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
 const MESURES_GARDEES_MS = 10 * 60_000
 /**
+ * Lue dans ses deux dernières minutes, elle se relit en fond (`mesures`) :
+ * la requête qui l'aurait trouvée périmée — un tirage, un dé — attendait
+ * l'aller-retour de toute la mesure et son calcul, 1,2 à 1,4 s au dixième
+ * de cœur de l'hébergeur (le banc du 16 octobre 2026).
+ */
+const MESURE_EN_AVANCE_MS = 2 * 60_000
+/**
  * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
  * quand un dé le demande : il relit les réponses de tout le monde, et ses
  * difficultés bougent lentement — la force de qui lance le dé, elle, se
@@ -637,6 +644,8 @@ export class CampagneStore {
     premieres: Map<string, { justes: number; total: number }>
     base: BaseDeLaCampagne | null
     parQuestion: ReadonlyMap<string, MesureDUneQuestion>
+    /** Sa suivante est partie en fond (`MESURE_EN_AVANCE_MS`) : une fois, même ratée — une base muette ne se fait pas relire à chaque requête. */
+    relueEnFond?: boolean
   } | null = null
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
@@ -1045,27 +1054,59 @@ export class CampagneStore {
    * reclassement du QG vaut dès le tirage suivant.
    */
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
-    const perimee = !this.mesuresGardees || this.maintenant() - this.mesuresGardees.a >= MESURES_GARDEES_MS
+    const gardee = this.mesuresGardees
+    const age = gardee ? this.maintenant() - gardee.a : Infinity
+    const perimee = age >= MESURES_GARDEES_MS
+    // Dans ses deux dernières minutes, elle se relit en fond, et ses tirages
+    // se préparent avec elle (`relireLaMesureEnFond`) : qui la demande d'ici
+    // là reçoit encore celle-ci.
+    const enAvance = !perimee && age >= MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS && !gardee!.relueEnFond
     // Une seule relecture pour ceux qui la trouvent périmée ensemble — le
     // préchauffage, le modèle du savoir, deux tirages : chacun relisait tous
     // les comptes, et chacun refaisait une mesure neuve, que les tirages
     // préparés (`tirage`) prenaient pour une autre.
-    if (perimee) {
-      this.mesuresEnRoute ??= this.mesuresBrutes()
+    if ((perimee || enAvance) && !this.mesuresEnRoute) {
+      this.mesuresEnRoute = this.mesuresBrutes()
         .then(lues => {
           this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
         })
         .finally(() => {
           this.mesuresEnRoute = null
         })
+      if (enAvance) {
+        gardee!.relueEnFond = true
+        this.relireLaMesureEnFond(this.mesuresEnRoute)
+      }
     }
-    const [base] = await Promise.all([this.base(), this.mesuresEnRoute])
-    const garde = this.mesuresGardees!
+    const [base] = await Promise.all([this.base(), perimee ? this.mesuresEnRoute : null])
+    // Encore bonne, celle qu'il a trouvée : la neuve, arrivée pendant qu'il
+    // attendait, ferait ses familles sur son chemin — c'est la relecture en
+    // fond qui les fait.
+    const garde = perimee ? this.mesuresGardees! : gardee!
     if (garde.base !== base) {
       garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
       garde.base = base
     }
     return garde.parQuestion
+  }
+
+  /**
+   * La mesure relue avant d'être due (`MESURE_EN_AVANCE_MS`), puis ses
+   * familles et la préparation des tirages de toutes les catégories : la
+   * requête suivante les trouve faits. Ratée, rien ne change — celle d'avant
+   * sert jusqu'à son heure, puis se relit sur le chemin de la requête, comme
+   * avant.
+   */
+  private relireLaMesureEnFond(enRoute: Promise<void>): void {
+    enRoute
+      .then(async () => {
+        if (this.ferme) return
+        const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
+        if (!this.ferme) this.tirage(jouables, mesure)
+      })
+      .catch(e => {
+        if (!this.ferme) console.warn('[campagne] mesure non relue en fond — elle se relira à son heure :', e instanceof Error ? e.message : e)
+      })
   }
 
   /**
@@ -1081,14 +1122,16 @@ export class CampagneStore {
     // question jouée — onze mille — se décodait sur le chemin de la requête
     // qui la trouvait périmée, le dé d'un joueur toutes les dix minutes. Une
     // réponse sans série — un test qui l'écrit à la main — compte pour un
-    // joueur à elle seule.
+    // joueur à elle seule. Un tableau de triplets plutôt qu'un objet : sept
+    // mille clés d'objet se décodaient trois fois plus lentement — 13 ms pour
+    // les deux textes, 4 en tableaux (le banc du 17 octobre 2026).
     const [brutes, premieres] = await this.client.batch(
       [
-        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
            WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
          )`,
-        `SELECT json_group_object(reserve_id, json_array(justes, total)) AS mesures FROM (
+        `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM (
              SELECT r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
              FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
@@ -1100,8 +1143,10 @@ export class CampagneStore {
       'read',
     )
     const lire = (texte: unknown) => {
-      const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, [unknown, unknown]>) : {}
-      return new Map(Object.entries(lu).map(([id, [justes, total]]) => [id, { justes: Number(justes), total: Number(total) }]))
+      const lues = new Map<string, { justes: number; total: number }>()
+      if (typeof texte !== 'string') return lues
+      for (const [id, justes, total] of JSON.parse(texte) as [unknown, unknown, unknown][]) lues.set(String(id), { justes: Number(justes), total: Number(total) })
+      return lues
     }
     return { brutes: lire(brutes.rows[0]?.mesures), premieres: lire(premieres.rows[0]?.mesures) }
   }
@@ -1192,7 +1237,9 @@ export class CampagneStore {
    * La série de référence du dé (`serieDeReference`) : les marches du tirage
    * (`niveauDeQuestion`), et les difficultés du modèle — ou, sans lui, celles
    * de la part qui a trouvé (`difficulteSansModele`). Gardée tant que rien de
-   * cela ne change.
+   * cela ne change. Les marches, la préparation du tirage de ces jouables les
+   * a lues à cette mesure (`tirage`) : la série de référence les relisait
+   * toutes, à chaque mesure neuve.
    */
   private referencePour(
     jouables: readonly QuestionDeLaBase[],
@@ -1201,9 +1248,10 @@ export class CampagneStore {
   ): SerieDeReference {
     const g = this.referenceGardee
     if (g && g.jouables === jouables && g.mesure === mesure && g.modele === modele) return g.reference
+    const preparee = this.tirage(jouables, mesure)
     const reference = serieDeReference(
       jouables,
-      q => niveauDeQuestion(q.meta.difficulte, mesure.get(q.id)),
+      (_, i) => preparee.marche(i),
       q => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id)),
     )
     this.referenceGardee = { jouables, mesure, modele, reference }
@@ -7658,6 +7706,11 @@ export class PreparationDuTirage {
     }
     this.nombreDeCategories = categories.size
     this.parId = doublon ? null : parId
+  }
+
+  /** La marche de la `i`-ième question, à cette mesure : la série de référence du dé la relit d'ici (`referencePour`). */
+  marche(i: number): Niveau {
+    return NIVEAUX[this.marches[i]]
   }
 
   /** Une série pour ce joueur : `vues`, ce qu'il a vu et quand (aucune, pour le défi, tiré pour tous). */

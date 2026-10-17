@@ -7,7 +7,7 @@ paths:
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/rendu-campagne.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo}.test.ts"
+  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-mesure,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,bareme-du-solo}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -46,11 +46,30 @@ paths:
   l'ordre que le tirage suit, au tri d'avant.
 - **Une ligne par question ne voyage plus** : ce qu'il a vu
   (`lectureDesVues`) et la mesure des difficultés (`mesures`) se lisent en
-  un seul texte JSON (`json_group_object`). Le client de Turso décode chaque
-  ligne à coups de `defineProperty` : trois mille questions vues faisaient
-  235 Ko et 9,6 ms à chaque série et à chaque dé, 79 Ko et 2,3 ms en un
-  texte ; la mesure, onze mille lignes, toutes les dix minutes, sur le
-  chemin de la requête qui la trouvait périmée.
+  un seul texte JSON — un objet (`json_group_object`) pour ce qu'il a vu, un
+  tableau de triplets pour la mesure (`json_group_array`, `mesuresBrutes` :
+  sept mille clés d'objet se décodaient deux à trois fois plus lentement).
+  Le client de Turso décode chaque ligne à coups de `defineProperty` :
+  trois mille questions vues faisaient 235 Ko et 9,6 ms à chaque série et à
+  chaque dé, 79 Ko et 2,3 ms en un texte ; la mesure, onze mille lignes,
+  toutes les dix minutes, sur le chemin de la requête qui la trouvait
+  périmée.
+- **La mesure se relit avant d'être due** : demandée dans ses deux
+  dernières minutes (`MESURE_EN_AVANCE_MS`), la suivante part en fond, puis
+  ses familles et la préparation du tirage de toutes les catégories
+  (`relireLaMesureEnFond`) ; qui la demande pendant ce temps reçoit celle
+  qu'il a trouvée — la neuve, arrivée pendant qu'il attendait, ferait ses
+  familles sur son chemin. La requête qui l'aurait trouvée périmée — un
+  tirage, un dé — attendait l'aller-retour de toute la mesure et son
+  calcul, 1,2 à 1,4 s au dixième de cœur (le banc du 16 octobre 2026).
+  Une fois par mesure, même ratée : une base muette ne se fait pas relire
+  à chaque requête, et la mesure se relit alors à son heure, sur le chemin
+  de la requête, comme avant. Une mesure neuve coûte 19 à 23 ms de
+  processeur, 30 à 37 avant (`banc-mesure.ts`, compilé) : la série de
+  référence du dé lit ses marches de la préparation du tirage
+  (`referencePour`, `PreparationDuTirage.marche`) et trie ses groupes en
+  tableaux de nombres (`serieDeReference`) — `campagne-mesure.test.ts` les
+  compare au code d'avant, gardé dans le test.
 - **L'en-tête d'une partie passe à la ligne au téléphone** : en 360 de
   large, à côté des cœurs, « Contre Automate · question 1 » laissait le
   « 1 » seul sur sa seconde ligne (contre Tom, il tenait sur une). « question

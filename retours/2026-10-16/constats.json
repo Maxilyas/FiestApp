@@ -89,11 +89,11 @@
     "titre": "Un tirage — une série, un dé — bat et range les vingt-quatre mille questions jouables",
     "nature": "perf",
     "gravite": "P1",
-    "statut": "corrigé dans cette PR, l'étape 2 (tirage-prepare.test.ts)",
-    "ou": "server/src/core/campagne.ts (PreparationDuTirage, CampagneStore.tirage, TourDeRole, mesures)",
+    "statut": "corrigé dans cette PR, les étapes 2 et 4 (tirage-prepare.test.ts, campagne-mesure.test.ts)",
+    "ou": "server/src/core/campagne.ts (PreparationDuTirage, CampagneStore.tirage, TourDeRole, mesures) ; server/src/core/modeleDuSavoir.ts (serieDeReference)",
     "constat": "Chaque tirage mélange toute la liste, puis la repasse quatre fois — rangée par fraîcheur, par marche, par classe, par file — pour soixante questions.",
     "preuve": "banc-gel.ts : 35 à 120 ms de processeur par tirage, 0,3 à 1,7 s de gel au dixième de cœur ; profil de V8 : la marche de chaque question 5 ms, les files 4,5, la fraîcheur 3, les classes 2 — le choix lui-même, moins d'une.",
-    "piste": "Fait : la marche et la file de chaque question préparées une fois par liste de jouables et par mesure (`PreparationDuTirage`, gardée par le serveur, prête dès le réveil), le battage sur des indices, les vues marquées depuis ses vues ; une seule relecture de la mesure pour ceux qui la trouvent périmée ensemble. Le tirage passe de 13 à 25 ms à 1,4 à 3,4 (compilé, sur la vraie base), la préparation 15 ms toutes les dix minutes au plus. La même série qu'avant, question pour question, au même hasard : `tirage-prepare.test.ts` garde l'ancien tirage et les compare sur la vraie base."
+    "piste": "Fait : la marche et la file de chaque question préparées une fois par liste de jouables et par mesure (`PreparationDuTirage`, gardée par le serveur, prête dès le réveil), le battage sur des indices, les vues marquées depuis ses vues ; une seule relecture de la mesure pour ceux qui la trouvent périmée ensemble. Le tirage passe de 13 à 25 ms à 1,4 à 3,4 (compilé, sur la vraie base), la préparation 15 ms toutes les dix minutes au plus. La même série qu'avant, question pour question, au même hasard : `tirage-prepare.test.ts` garde l'ancien tirage et les compare sur la vraie base. Puis l'étape 4 : la mesure relue en fond dans ses deux dernières minutes, avec ses familles et la préparation du tirage (`relireLaMesureEnFond`) ; ses deux textes en tableaux ; la série de référence du dé sur les marches préparées, ses groupes triés en tableaux de nombres. Une mesure neuve passe de 30 à 37 ms à 19 à 23 (`banc-mesure.ts`, compilé), hors du chemin de la requête sous l'activité ; `campagne-mesure.test.ts` compare la série de référence et le décodage au code d'avant."
   },
   {
     "id": "perf-gel-9",

@@ -8,7 +8,8 @@ script dit en tête ce qu'il mesure : `banc-vague.ts` l'accueil d'un
 téléphone, médiane de sept vagues ; `allers-par-route.ts` les
 allers-retours de chaque route ; `tas-de-la-base.ts` ce que la base de la
 campagne pèse et coûte à chaque réveil ; `banc-tirage.ts` les sujets et le
-tirage, `banc-reveil.ts` la base relue au réveil (plus bas).
+tirage, `banc-reveil.ts` la base relue au réveil, `banc-mesure.ts` une
+mesure neuve (plus bas).
 
 ```bash
 cd server
@@ -67,6 +68,12 @@ relue et vérifiée, comme chaque démarrage le faisait, contre la base
 vérifiée au build et relue telle quelle (`preparerLaBase`,
 `lireLaBasePreparee`) — le temps, le processeur, le plus long bloc de la
 boucle.
+
+**L'étape 4 — la mesure relue** (`banc-mesure.ts`, compilé de même) : ce
+qu'une mesure neuve coûte, morceau par morceau, sur la vraie base et sept
+mille questions jouées (`JOUEES`) — ses deux textes décodés en objets
+(avant) et en tableaux, ses familles, la préparation du tirage, la série de
+référence du dé d'avant, recopiée, et celle d'aujourd'hui.
 
 **Les limites** : le faux Turso n'a ni TLS ni vraie latence ; la base est
 inventée — mêmes volumes, pas les mêmes joueurs ; le banc ne lit jamais la

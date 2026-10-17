@@ -432,7 +432,7 @@ test('ceux qui trouvent la mesure périmée ensemble n’en relisent qu’une, e
     const batch = client.batch.bind(client)
     let relectures = 0
     client.batch = (...args: unknown[]) => {
-      if (JSON.stringify(args[0]).includes('json_group_object(reserve_id')) relectures++
+      if (JSON.stringify(args[0]).includes('COUNT(*) AS total FROM campagne_reponses')) relectures++
       return batch(...args)
     }
     const [a, b, c] = await Promise.all([campagne.mesures(), campagne.mesures(), campagne.mesures()])
