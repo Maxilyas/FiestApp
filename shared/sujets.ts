@@ -175,6 +175,42 @@ export const SUJETS: readonly Sujet[] = [
     description: 'Des pyramides aux gratte-ciel, et les statues qu’on visite',
     sousThemes: { Géographie: ['sites'], 'Arts & lettres': ['sculpture-archi'] },
   },
+  // La langue française (le souhait du propriétaire du 17 octobre 2026 :
+  // « tout ce qui est lié à la langue française, orthographe, grammaire,
+  // étymologie, morphologie ») : un sous-thème neuf, qui a repris à langue
+  // tout ce qui parlait du français, un inventaire, et l'étiquette pour une
+  // expression rangée ailleurs (ouvrir le bal, le toubib). L'origine d'un mot
+  // rangé dans sa catégorie — les noms des dinosaures, des cocktails — reste
+  // à « L'origine des mots » : ses six cents questions auraient fait du thème
+  // un dictionnaire étymologique, sans une règle d'accord.
+  {
+    cle: 'francais',
+    nom: 'La langue française',
+    famille: 'theme',
+    description: 'Orthographe, grammaire, expressions et origine des mots',
+    sousThemes: { 'Culture générale': ['francais'] },
+    etiquettes: ['francais'],
+  },
+  // L'anglais et l'espagnol (le même jour) : la langue vue de France — le mot
+  // à traduire, le verbe irrégulier, le faux ami, l'expression —, chacun son
+  // sous-thème et son inventaire, et son étiquette pour le mot qu'on croise
+  // ailleurs (happy hour, piña colada). La base n'en avait presque rien.
+  {
+    cle: 'anglais',
+    nom: 'L’anglais',
+    famille: 'theme',
+    description: 'Vocabulaire, verbes irréguliers, faux amis et expressions',
+    sousThemes: { 'Culture générale': ['anglais'] },
+    etiquettes: ['anglais'],
+  },
+  {
+    cle: 'espagnol',
+    nom: 'L’espagnol',
+    famille: 'theme',
+    description: 'Vocabulaire, ser et estar, faux amis et expressions',
+    sousThemes: { 'Culture générale': ['espagnol'] },
+    etiquettes: ['espagnol'],
+  },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
   { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },
