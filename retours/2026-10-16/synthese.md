@@ -4,7 +4,7 @@ Les demandes : « Turso répond vraiment lentement, tu peux analyser avec les
 données de prod ? Est-ce que c'est les duels qui font ça ? », puis « Liste-moi
 toutes les améliorations de perf possibles et celle que tu penses mettre en
 place pour le gel du processeur », puis « Go » — la première étape du plan,
-faite dans la même PR.
+faite dans la même PR —, puis « Oui et passe à la suite » — la deuxième.
 
 La revue s'appuie sur la base de production, lue en lecture seule et en
 totaux (`reproductions/lecture-de-la-production.md`) — le relevé de l'heure
@@ -103,12 +103,60 @@ duels 13 → 7, le carnet 27 → 20, la page du profil 20 → 14. À la premièr
 visite après un réveil, au dixième de cœur, quatre accueils de front
 passent de 12,1 à 7,5 s.
 
+## L'étape 2 — les calculs sur toute la base
+
+Puis « Oui et passe à la suite », dans la même PR :
+
+- **Les sujets** (perf-gel-7) : `sujetsDe` lu par l'index de ce qui fait
+  entrer une question dans un sujet — une étiquette, une portée, un
+  sous-thème, des années — au lieu de passer les vingt-sept sujets pour
+  chacune (35 à 60 ms → 14 à 30 pour la base, compilé) ; lus en fond après le
+  démarrage, par tranches de mille (`preparerEnFond`) ; comptés une fois par
+  liste de jouables (`sujetsComptes`), que la campagne, le quiz tout prêt et
+  les parcours partagent.
+- **Le tirage** (perf-gel-8) : ce qu'il relit de chaque question — sa
+  marche, sa catégorie et son sous-thème — se prépare une fois par liste de
+  jouables et par mesure (`PreparationDuTirage`, gardée par le serveur, prête
+  dès le réveil, ses files gardées quand la mesure change). Il ne reste à
+  chaque tirage que le battage, sur des indices, ses vues marquées depuis ses
+  vues, et une passe qui range les jamais vues. **La même série qu'avant,
+  question pour question, au même hasard** : `tirage-prepare.test.ts` garde
+  l'ancien tirage entier et les compare sur la vraie base — toute la base,
+  une catégorie, un sujet, de zéro à neuf dixièmes de questions vues.
+- **Ce qui faisait tout refaire** : la réserve du quiz du jour se relisait
+  en un ensemble neuf toutes les dix minutes, et la campagne refaisait alors
+  ses jouables et tout ce qui s'en tire — elle garde désormais son ensemble
+  tant qu'elle ne change pas ; et ceux qui trouvent la mesure périmée
+  ensemble n'en relisent qu'une, et reçoivent la même.
+
+Mesuré sur la vraie base, compilé comme en production (`banc-tirage.ts`) :
+
+| | Avant | Après |
+|---|---|---|
+| Un tirage, joueur neuf · moyen · lourd | 13 · 15 · 25 ms | 1,4 · 1,5 · 2,7 ms |
+| La préparation d'un tirage | — | 11 à 19 ms, une fois toutes les dix minutes au plus ; 5 ms quand seule la mesure change |
+| Les sujets de toute la base | 35 à 60 ms, à la première ouverture | 14 à 30 ms, en fond |
+
+Et au banc complet, le serveur au dixième de cœur (`banc-gel.ts GEL=1`,
+après l'étape 1 → après l'étape 2) :
+
+| | Avant | Après |
+|---|---|---|
+| La première ouverture de la campagne après un réveil | 1,6 s, la boucle gelée 1,5 s | 0,2 s, 0,17 s |
+| Le dé du joueur le plus actif | 1,0 s, gelée 0,87 s | 0,2 s, 0,17 s |
+| Une série et un dé d'un joueur moyen | 0,39 s et 0,37 s | 0,13 s et 0,07 s |
+| La série du joueur le plus actif, premier tirage après le réveil | 1,1 s | 0,7 s — sa préparation, désormais faite en fond |
+
+Le tirage qui suit l'expiration de la mesure reste lourd (1,2 à 1,4 s au
+dixième de cœur) : la mesure se relit et se refait sur toute la base
+(`mesuresEnFamille`), et le dé refait sa série de référence
+(`serieDeReference`) — la suite.
+
 ## La suite proposée
 
-2. **Les calculs sur toute la base** : les sujets de chaque question lus une
-   fois avec la base (perf-gel-7), le tirage qui pioche au lieu de tout
-   ranger (perf-gel-8) — les gels de 0,5 à 1,5 s à l'ouverture de la
-   campagne et à chaque série ou dé.
+2. ~~**Les calculs sur toute la base**~~ : faits (l'étape 2, plus haut). Il
+   en reste ce que chaque mesure neuve refait — `mesuresEnFamille` et la
+   série de référence du dé, toutes les dix minutes d'activité.
 3. **Le réveil** : la base validée au build et allégée des champs que le jeu
    ne lit pas (perf-gel-9, perf-turso-1) — moins de processeur à chaque
    démarrage, moins de tas pour le ramasse-miettes (perf-gel-10).

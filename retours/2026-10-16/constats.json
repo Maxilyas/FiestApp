@@ -77,11 +77,11 @@
     "titre": "Les sujets de la campagne se comptent sur les vingt-quatre mille questions à la première ouverture après chaque réveil",
     "nature": "perf",
     "gravite": "P1",
-    "statut": "mesuré au banc, à faire (étape 2 du plan)",
-    "ou": "server/src/core/campagne.ts (sujetsJouables, choixDe) ; shared/sujets.ts (sujetsDe)",
-    "constat": "`sujetsDeLaQuestion` pour chaque question jouable, recalculé quand la liste des jouables change — à chaque réveil, et quand la réserve du jour change.",
+    "statut": "corrigé dans cette PR, l'étape 2 (campagne-sujets.test.ts, tirage-prepare.test.ts)",
+    "ou": "server/src/core/campagne.ts (sujetsJouables, choixDe, preparerEnFond) ; shared/sujets.ts (sujetsDe) ; server/src/core/jour.ts (empreintes)",
+    "constat": "`sujetsDeLaQuestion` pour chaque question jouable, recalculé quand la liste des jouables change — à chaque réveil, et toutes les dix minutes : la réserve du jour se relisait en un ensemble neuf, et la liste se refaisait avec tout ce qui s'en tire.",
     "preuve": "banc-gel.ts : 138 à 154 ms de processeur pour la première ouverture, 1,4 s de gel de la boucle au dixième de cœur.",
-    "piste": "Les sujets de chaque question lus une fois, avec la base (au chargement, ou au build : perf-turso-1)."
+    "piste": "Fait : `sujetsDe` lu par l'index de ce qui y fait entrer (35 à 60 ms → 14 à 30 pour la base, compilé), les sujets lus en fond après le démarrage par tranches de mille (`preparerEnFond`), comptés une fois par liste (`sujetsComptes`), et la réserve du jour relue inchangée garde son ensemble. Au banc, la première ouverture passe de 138 à 37 ms de processeur."
   },
   {
     "id": "perf-gel-8",
@@ -89,11 +89,11 @@
     "titre": "Un tirage — une série, un dé — bat et range les vingt-quatre mille questions jouables",
     "nature": "perf",
     "gravite": "P1",
-    "statut": "mesuré au banc, à faire (étape 2 du plan)",
-    "ou": "server/src/core/campagne.ts (tirerUneSerie, parFraicheur, TourDeRole)",
-    "constat": "Chaque tirage mélange toute la liste, la range par fraîcheur et par marche, pour soixante questions.",
-    "preuve": "banc-gel.ts : 35 à 120 ms de processeur par tirage, 0,3 à 1,7 s de gel au dixième de cœur.",
-    "piste": "Les marches gardées par mesure des difficultés (elle change toutes les dix minutes), puis piocher : les jamais vues d'abord, sans tout ranger. Se vérifie au même hasard contre l'ancien tirage, question pour question (règle campagne.md)."
+    "statut": "corrigé dans cette PR, l'étape 2 (tirage-prepare.test.ts)",
+    "ou": "server/src/core/campagne.ts (PreparationDuTirage, CampagneStore.tirage, TourDeRole, mesures)",
+    "constat": "Chaque tirage mélange toute la liste, puis la repasse quatre fois — rangée par fraîcheur, par marche, par classe, par file — pour soixante questions.",
+    "preuve": "banc-gel.ts : 35 à 120 ms de processeur par tirage, 0,3 à 1,7 s de gel au dixième de cœur ; profil de V8 : la marche de chaque question 5 ms, les files 4,5, la fraîcheur 3, les classes 2 — le choix lui-même, moins d'une.",
+    "piste": "Fait : la marche et la file de chaque question préparées une fois par liste de jouables et par mesure (`PreparationDuTirage`, gardée par le serveur, prête dès le réveil), le battage sur des indices, les vues marquées depuis ses vues ; une seule relecture de la mesure pour ceux qui la trouvent périmée ensemble. Le tirage passe de 13 à 25 ms à 1,4 à 3,4 (compilé, sur la vraie base), la préparation 15 ms toutes les dix minutes au plus. La même série qu'avant, question pour question, au même hasard : `tirage-prepare.test.ts` garde l'ancien tirage et les compare sur la vraie base."
   },
   {
     "id": "perf-gel-9",

@@ -1,9 +1,14 @@
 # Le banc du 16 octobre 2026 : le gel du processeur
 
-Deux scripts, posés sur le banc de la revue du 14 octobre
+Les scripts du banc, posés sur celui de la revue du 14 octobre
 (`../../2026-10-14/reproductions/` : le faux Turso, qui parle le protocole
 HTTP de libsql et compte chaque aller-retour). Les bases jetables vont dans
-`export/perf-turso/` (ignoré par git). Tout se lance depuis `server/`.
+`export/perf-turso/` (ignoré par git). Tout se lance depuis `server/`. Chaque
+script dit en tête ce qu'il mesure : `banc-vague.ts` l'accueil d'un
+téléphone, médiane de sept vagues ; `allers-par-route.ts` les
+allers-retours de chaque route ; `tas-de-la-base.ts` ce que la base de la
+campagne pèse et coûte à chaque réveil ; `banc-tirage.ts` les sujets et le
+tirage (plus bas).
 
 ```bash
 cd server
@@ -42,6 +47,20 @@ l'offre gratuite —, et le faux Turso en ressort : c'est la base distante,
 200 ms de processeur y prenaient 600 ms de mur sans bride, 4,8 s bridées.
 Ses gels sont donc plus longs que ceux de Render ; les rapports entre
 étapes, avant et après une correction, restent justes.
+
+**L'étape 2 — les sujets et le tirage** (`banc-tirage.ts`) : sur la vraie
+base, sans serveur, les sujets de toute la base, la préparation d'un tirage
+(`PreparationDuTirage`), puis chaque tirage pour un joueur lourd, moyen et
+neuf. Sous tsx, chaque fonction fléchée passe par `__name` (esbuild garde
+leurs noms) ; le paquet de production non : le script se compile d'abord,
+pour mesurer comme en production.
+
+```bash
+cd server
+npx esbuild ../retours/2026-10-16/reproductions/banc-tirage.ts --bundle --platform=node \
+  --format=esm --packages=external --outfile=../export/banc/banc-tirage.mjs
+node ../export/banc/banc-tirage.mjs
+```
 
 **Les limites** : le faux Turso n'a ni TLS ni vraie latence ; la base est
 inventée — mêmes volumes, pas les mêmes joueurs ; le banc ne lit jamais la

@@ -86,3 +86,10 @@ paths:
   `GRACE_MS` + 0,6 s après l'échéance — une marge recopiée en dur
   (`APRES_ECHEANCE_MS`, `JourApp.tsx`) : changée au serveur, elle se
   change là aussi.
+- **Les intitulés de la réserve gardent leur ensemble tant qu'ils ne
+  changent pas** (`empreintes`, relus toutes les dix minutes) : la campagne
+  le compare par identité (`jouablesGardees`), et un ensemble neuf à chaque
+  relecture lui faisait refaire ses jouables, leurs sujets et la
+  préparation de ses tirages (`tirage-prepare.test.ts`). Un apport ou une
+  correction l'efface (`empreintesGardees = null`) : la relecture suivante
+  en fait un neuf.

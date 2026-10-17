@@ -741,7 +741,15 @@ export class JourStore {
     const garde = this.empreintesGardees
     if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.empreintes
     const res = await this.client.execute('SELECT empreinte FROM jour_reserve')
-    const empreintes = new Set(res.rows.map(r => String(r.empreinte)))
+    const lues = new Set(res.rows.map(r => String(r.empreinte)))
+    // Inchangée, la même instance : la campagne garde ce qu'elle en a tiré —
+    // ses jouables, leurs sujets, la préparation de ses tirages — tant
+    // qu'elle la reçoit (`CampagneStore.jouables`). Relue en un ensemble neuf
+    // toutes les dix minutes, elle refaisait tout, vingt-quatre mille
+    // questions repassées au crible pour une réserve qui ne change qu'au
+    // matin.
+    const avant = garde?.empreintes
+    const empreintes = avant && avant.size === lues.size && [...lues].every(e => avant.has(e)) ? avant : lues
     this.empreintesGardees = { a: this.maintenant(), empreintes }
     return empreintes
   }
