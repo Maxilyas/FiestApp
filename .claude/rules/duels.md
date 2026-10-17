@@ -26,9 +26,10 @@ jour a sa notification (règle `rappel-et-installation.md`).
   cachée, l'ELO seul (`coteDuScore`, `chancesDeGagner`, `ecartContre`, le
   placement `DUELS_DE_PLACEMENT`), et celle qu'on voit, la montée
   (`ecartDeLaMontee` — 24 × E² en Or, l'ELO dès la Platine, `LIGUE_DE_L_ELO`
-  —, `apresLeDuel`, `plancherApres`, `MONTEE` et ses constantes,
-  `LIGUES_GARDEES` — la Platine comprise ; la force d'en face,
-  `forceQuOnVoit` — au dé, sa propre cote ; ce qu'un duel mettrait en jeu :
+  —, `apresLeDuel` — la force d'en face jamais sous son plancher —,
+  `plancherApres`, `MONTEE` et ses constantes, `LIGUES_GARDEES` — la
+  Platine comprise ; la force d'en face, `forceQuOnVoit` — au dé, sa propre
+  cote ; ce qu'un duel mettrait en jeu :
   `enjeuContre`, `enjeuDuDe`) —, le nom d'Automate (`AUTOMATE`, que la
   feuille du dé montre avant de tirer), les ligues (`LIGUES`, `ligueDe`), la
   relecture du journal (`releverLesDuels` : les deux cotes, le plancher,
@@ -190,6 +191,20 @@ jour a sa notification (règle `rappel-et-installation.md`).
   l'a refusé. Et 24 × E² au-dessus de la Platine mènerait tout joueur
   assidu chez les maîtres pour avoir joué (`duels-de.test.ts`,
   `duels-montee.test.ts`).
+- **Sous ses ligues gardées, l'adversaire compte à son plancher**
+  (`apresLeDuel`, le choix du propriétaire du 17 octobre 2026 : « de jouer
+  des joueurs qui jouent peu et qui sont en ligue bronze, ça fait perdre
+  beaucoup à des platines »). Sous la Platine, la cote qu'on voit dit
+  combien on a joué, pas comment : les joueurs en Or ne battaient les
+  bronzes qu'une fois sur trois quand la formule leur en prêtait trois sur
+  quatre. En Platine, un bronze vaut 1300 — « +12 / −12 » à 1330, plus
+  « +5 / −19 ». La règle vit dans `apresLeDuel`, pas dans `forceQuOnVoit` :
+  le relevé, chaque enjeu (`enjeuContre`, qui a besoin du plancher —
+  `SaCote`) et le rejeu de `calibrage-duels.ts` la lisent tous. Ne la
+  remplace pas par des chances égales contre plus bas — un fort monterait
+  sans fin en battant des bronzes —, ni par les cotes cachées : au-dessus
+  de la Platine, la cote ne départagerait plus personne, et l'enjeu les
+  trahirait (`duels-montee.test.ts`).
 - **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
   contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
   sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée

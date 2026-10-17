@@ -1264,6 +1264,15 @@ Le détail : [les duels](../produit/les-duels.md).
 
 *Fichiers : `shared/duels.ts`, `server/src/core/campagne.ts`, `server/src/campagne.ts`, `client/src/views/Duel.tsx`, `client/src/views/Duels.tsx`, `client/src/views/CampagneApp.tsx`, `server/scripts/calibrage-duels.ts`, `server/test/duels-de.test.ts`, `server/test/duels-montee.test.ts`*
 
+### Un adversaire plus bas compte à son plancher
+**Contexte** : le propriétaire, le 17 octobre 2026 : « de jouer des joueurs qui jouent peu et qui sont en ligue bronze, ça fait perdre beaucoup à des platines, ça donne donc pas envie de jouer le duel. Comment on pourrait faire pour régler ce problème ? Ou c'est inévitable ? ». Sous la Platine, la cote qu'on voit dit surtout combien on a joué — la montée paie la participation —, mais la formule lisait l'écart comme un écart de niveau : à 1 330, un bronze à 1 030 laissait 85 % de chances au joueur en Platine, « +5 / −16 » sous 24 × E², « +5 / −19 » sous l'ELO. Mesuré sur la production, en lecture seule : 22 duels d'un joueur en Or contre un bronze, que la formule donnait gagnant à 75 % — 36 % gagnés, 14 % de nuls, 50 % perdus ; les cotes cachées disaient 49 %, les bronzes avaient le niveau des joueurs en Platine.
+
+**Décision** : quatre chemins proposés — l'adversaire compté à son plancher, des chances égales contre plus bas, les vraies chances des cotes cachées, ne rien changer —, le propriétaire a choisi le premier. Sur la cote qu'on voit, un adversaire plus bas que les ligues qu'on garde compte à son plancher (`apresLeDuel`) : en Platine, un bronze vaut 1 300, la cote où chacun y entre — « +12 / −12 » à 1 330 ; en Or, « +11 / −7 ». La cote cachée, elle, bouge toujours contre la sienne.
+
+**Conséquence** : en Or, une défaite ne coûte plus jamais plus qu'une victoire ne rapporte. Entre joueurs de la Platine, rien ne change ; un diamant à 1 450 reste favori contre qui vient d'y entrer (« +8 / −16 ») : battre des bronzes ne fait pas monter sans fin, comme des chances égales contre plus bas l'auraient permis. Les vraies chances, justes duel par duel, auraient fait de la cote au-dessus de la Platine un compte des duels joués — chacun y gagnant son point de participation en moyenne, fort ou pas —, et l'enjeu affiché aurait trahi les cotes cachées. Tout passe par `apresLeDuel` : le relevé, chaque enjeu dit (`enjeuContre`) et le rejeu de `calibrage-duels.ts`. Relue du journal, aucune cote de la production n'a baissé.
+
+*Fichiers : `shared/duels.ts`, `client/src/views/Duels.tsx`, `server/test/duels-montee.test.ts`, `server/test/duels-page.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

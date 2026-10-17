@@ -295,7 +295,7 @@ Les paliers, leurs mélanges, leurs seuils, les vies du jour, les portraits : [l
 
 ## Les duels
 
-La cote, le placement, la montée, les ligues, Automate : [les duels](../produit/les-duels.md). Chacun a deux cotes depuis le 14 octobre 2026 : la cachée, l'ELO seul, dit son niveau et règle Automate ; celle qu'on voit — la cote des ligues, du classement, des bordures et des confettis — suit la montée. Depuis le 16 octobre 2026, au dé, celle qu'on voit se joue à chances égales — contre sa propre cote, pas contre le score d'Automate (`forceQuOnVoit`, `enjeuDuDe`) : une règle, pas une constante, qui ne se change qu'en le disant. Et depuis le 17, l'ELO ne commence qu'à la Platine, qui se garde (`LIGUE_DE_L_ELO`, `LIGUES_GARDEES`).
+La cote, le placement, la montée, les ligues, Automate : [les duels](../produit/les-duels.md). Chacun a deux cotes depuis le 14 octobre 2026 : la cachée, l'ELO seul, dit son niveau et règle Automate ; celle qu'on voit — la cote des ligues, du classement, des bordures et des confettis — suit la montée. Depuis le 16 octobre 2026, au dé, celle qu'on voit se joue à chances égales — contre sa propre cote, pas contre le score d'Automate (`forceQuOnVoit`, `enjeuDuDe`) : une règle, pas une constante, qui ne se change qu'en le disant. Et depuis le 17, l'ELO ne commence qu'à la Platine, qui se garde (`LIGUE_DE_L_ELO`, `LIGUES_GARDEES`), et un adversaire plus bas que les ligues qu'on garde compte à son plancher (`apresLeDuel`) — une règle aussi.
 
 | Constante | Valeur | Fichier | Ce qu'elle règle | Ce que la changer implique |
 |---|---|---|---|---|

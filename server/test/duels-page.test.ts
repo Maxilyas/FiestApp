@@ -514,17 +514,22 @@ test('le dé est toujours là, à côté de « Défier », et se dit contre Auto
   assert.doesNotMatch(partie + page, /Un autre adversaire|Un adversaire au hasard/)
 })
 
-// Le choix du propriétaire du 17 octobre 2026 : « je veux aussi ne pas
+// Les choix du propriétaire du 17 octobre 2026 : « je veux aussi ne pas
 // pouvoir retomber en or en platine et à partir de platine c'est là que ça
-// commence vraiment ». Les règles l'écrivent en toutes lettres : chaque ligue
-// gardée (`LIGUES_GARDEES`), et celle où commence l'ELO (`LIGUE_DE_L_ELO`).
-test('les règles disent les ligues qui ne se perdent plus, et où l’ELO commence', async () => {
+// commence vraiment » ; puis un bronze qui ne coûte plus « −19 » en platine.
+// Les règles l'écrivent en toutes lettres : chaque ligue gardée
+// (`LIGUES_GARDEES`), qu'un joueur plus bas compte comme s'il y était
+// (`apresLeDuel`), et celle où commence l'ELO (`LIGUE_DE_L_ELO`).
+test('les règles disent les ligues qui ne se perdent plus, ce que vaut un joueur plus bas, et où l’ELO commence', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server')
   const { CommentCaMarche } = await import(client('views/Duels.tsx').href)
   const { LIGUES_GARDEES, LIGUE_DE_L_ELO, ligueParCle } = await import('../../shared/duels')
   const regles = renderToStaticMarkup(React.createElement(CommentCaMarche))
   assert.match(regles, /En or, chaque duel rapporte \+1, et à chances égales, une défaite coûte moins qu’une victoire ne rapporte\./)
-  const phrase = /L’argent, l’or et la platine, une fois atteints, ne se perdent plus\s; à partir de la platine, c’est ton niveau qui parle\s: une défaite coûte à peu près ce qu’une victoire rapporte\./.exec(regles)
+  const phrase =
+    /L’argent, l’or et la platine, une fois atteints, ne se perdent plus\s; contre un joueur plus bas, tu joues comme s’il y était aussi — sa cote dit qu’il a peu joué, pas qu’il joue moins bien\. À partir de la platine, c’est ton niveau qui parle\s: une défaite coûte à peu près ce qu’une victoire rapporte\./.exec(
+      regles,
+    )
   assert.ok(phrase, 'les ligues gardées, puis l’ELO')
   for (const cle of LIGUES_GARDEES) assert.match(phrase[0], new RegExp(`l’${ligueParCle(cle).court}|la ${ligueParCle(cle).court}`, 'i'))
   assert.match(phrase[0], new RegExp(`à partir de la ${ligueParCle(LIGUE_DE_L_ELO).court}`, 'i'))
