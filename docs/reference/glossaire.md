@@ -352,6 +352,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Piste du jour | Un trophée de carrière en trois étapes que seul le quiz du jour décerne (L'Assidu, Le Champion du jour, Le Sans-Faute, L'Élite, L'Infatigable) ; le code appelle chaque étape un palier | `accorderPaliersDuJour` |
 | Placement | Les 10 premiers duels d'un joueur, qui comptent double sur sa cote cachée ; Automate y vise son niveau de campagne | `DUELS_DE_PLACEMENT` |
 | Plancher (d'une cote) | Le seuil de la plus haute ligue gardée qu'un joueur a atteinte — l'argent, l'or, puis la platine : sa cote qu'on voit ne redescend plus dessous, et un adversaire plus bas y compte | `plancherApres`, `LIGUES_GARDEES`, `apresLeDuel` |
+| Pays (un sujet) | L'Italie, le Japon, les pays nordiques… : un sujet lu sur son étiquette, posée sur chaque question qui parle de lui — pas sa mythologie, ni sa langue seule | `ETIQUETTES` « Les pays » (`shared/etiquettes.ts`) |
 | Planche | Une image où chaque dessin peint paraît dans tous ses états, rendue par les vrais composants, sans serveur | `server/scripts/planche-medaillons.ts` |
 | Les plus beaux | Les trois trophées qu'une carte montre quand son profil n'a pas choisi sa vitrine — exploits et plus hautes étapes de piste, les plus rares d'après une rareté mesurée d'avance | `plusBeaux` |
 | Les plus proches | Les trois objectifs commencés les plus avancés : un légendaire, ou l'étape suivante d'une piste | `lesPlusProches` |

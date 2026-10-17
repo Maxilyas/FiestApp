@@ -232,7 +232,7 @@ const deLaFamille = (sujets: readonly Sujet[], famille: FamilleDeSujet): readonl
  * L'onglet des thèmes, chaque famille son allure : les fêtes et les thèmes en
  * tuiles, leur emblème dans un médaillon — la fête la plus proche d'abord ;
  * les époques en frise, dans l'ordre du temps — la première colonne, puis la
- * seconde ; les fils rouges en pastilles, leur emblème devant. Trente-cinq
+ * seconde ; les pays et les fils rouges en pastilles, leur emblème devant. Trente-cinq
  * pastilles toutes pareilles faisaient un mur de mots sur trois écrans (le
  * souhait du propriétaire du 17 octobre 2026 : « plus stylisé, plus agréable
  * à voir »). Toucher de nouveau un sujet le quitte : les catégories

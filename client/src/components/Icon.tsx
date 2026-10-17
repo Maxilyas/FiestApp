@@ -102,6 +102,8 @@ export type IconName =
   | 'citrouille'
   | 'artifice'
   | 'gateau'
+  // Les pays de la campagne, tous du même repère.
+  | 'repere'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -695,6 +697,16 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   artifice: { paths: <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21M5.6 5.6l2.5 2.5M15.9 15.9l2.5 2.5M5.6 18.4l2.5-2.5M15.9 8.1l2.5-2.5M12 10.5v3M10.5 12h3" /> },
+  // Le repère d'une carte : un pays. Quatorze drapeaux ne tiennent pas dans un
+  // trait, et ceux des emojis s'écrivent en lettres sous Windows 10 (« IT »).
+  repere: {
+    paths: (
+      <>
+        <path d="M12 21.2c-3.9-4.4-6.6-8.1-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 3.1-2.7 6.8-6.6 11.2Z" />
+        <circle cx="12" cy="10" r="2.4" />
+      </>
+    ),
+  },
   gateau: {
     paths: (
       <>

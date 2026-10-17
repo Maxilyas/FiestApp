@@ -23,17 +23,19 @@ import { SOUS_THEMES } from './sousThemes'
 // écrit ce qui lui manque.
 
 /** Une rubrique (`RUBRIQUES`) n'a pas de rangée : la feuille du choix la range sous sa catégorie. */
-export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'fete' | 'rubrique'
+export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'fete' | 'pays' | 'rubrique'
 
 /**
  * Les familles de sujets, dans l'ordre où l'écran les range, chacune sa
  * rangée ; au pluriel, le nom de son onglet parmi les parcours de thème. Les
  * fêtes d'abord (le 17 octobre 2026) : FiestApp en est une, et la plus
- * proche s'y lit sans défiler (`fetesDansLOrdre`).
+ * proche s'y lit sans défiler (`fetesDansLOrdre`). Les pays après les thèmes,
+ * le même jour.
  */
 export const FAMILLES_DE_SUJETS: readonly { famille: FamilleDeSujet; nom: string; pluriel: string }[] = [
   { famille: 'fete', nom: 'Une fête', pluriel: 'Fêtes' },
   { famille: 'theme', nom: 'Un thème', pluriel: 'Thèmes' },
+  { famille: 'pays', nom: 'Un pays', pluriel: 'Pays' },
   { famille: 'epoque', nom: 'Une époque', pluriel: 'Époques' },
   { famille: 'fil', nom: 'Un fil rouge', pluriel: 'Fils rouges' },
 ]
@@ -304,6 +306,23 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { 'Autour de la fête': ['anniversaires'] },
     categorie: 'Autour de la fête',
   },
+  // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : une
+  // étiquette chacun (`ETIQUETTES`, « Les pays »), posée sur les questions que
+  // la base avait déjà, relues une à une — l'Italie de la pizza et de Fellini,
+  // pas les chiffres romains ni Jupiter, qui est aux mythes. Ni la France, ni
+  // la Belgique, la Suisse ou le Québec : leurs fils rouges les disent. Dans
+  // l'ordre de l'alphabet : on y cherche un nom.
+  { cle: 'allemagne', nom: 'L’Allemagne', famille: 'pays', description: 'Berlin, la Bavière, Goethe et le Mur', etiquettes: ['allemagne'] },
+  { cle: 'australie', nom: 'L’Australie', famille: 'pays', description: 'Sydney, les kangourous et le bush', etiquettes: ['australie'] },
+  { cle: 'chine', nom: 'La Chine', famille: 'pays', description: 'Pékin, la Grande Muraille, les dynasties et le kung-fu', etiquettes: ['chine'] },
+  { cle: 'espagne', nom: 'L’Espagne', famille: 'pays', description: 'Madrid, Barcelone, le flamenco et la paella', etiquettes: ['espagne'] },
+  { cle: 'etats-unis', nom: 'Les États-Unis', famille: 'pays', description: 'New York, Hollywood, les présidents et le Far West', etiquettes: ['etats-unis'] },
+  { cle: 'grece', nom: 'La Grèce', famille: 'pays', description: 'Athènes, l’Acropole, les philosophes et les îles', etiquettes: ['grece'] },
+  { cle: 'italie', nom: 'L’Italie', famille: 'pays', description: 'Rome, Venise, la pizza et la dolce vita', etiquettes: ['italie'] },
+  { cle: 'japon', nom: 'Le Japon', famille: 'pays', description: 'Tokyo, les samouraïs, les sushis et les mangas', etiquettes: ['japon'] },
+  { cle: 'pays-nordiques', nom: 'Les pays nordiques', famille: 'pays', description: 'Les Vikings, les fjords, ABBA et les aurores boréales', etiquettes: ['pays-nordiques'] },
+  { cle: 'royaume-uni', nom: 'Le Royaume-Uni', famille: 'pays', description: 'Londres, la Couronne, les Beatles et le thé', etiquettes: ['royaume-uni'] },
+  { cle: 'russie', nom: 'La Russie', famille: 'pays', description: 'Moscou, les tsars, l’URSS et le Bolchoï', etiquettes: ['russie'] },
   // Les époques larges redécoupées (le 17 octobre 2026, « apporter beaucoup de
   // choix ») : « Avant 1800 » mêlait les pharaons et Voltaire, « 1900 à 1949 »
   // la Belle Époque et la Libération, « Depuis 2010 » les années 2010 et

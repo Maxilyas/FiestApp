@@ -94,6 +94,27 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "cannes", nom: "Festival de Cannes", definition: "" },
     ],
   },
+  // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : chacun
+  // un sujet de la campagne (`shared/sujets.ts`). Pas la France — sa portée
+  // le dit déjà —, ni la Belgique, la Suisse ou le Québec : la francophonie.
+  {
+    famille: "Les pays",
+    regle:
+      "la question parle de ce pays : ses villes et ses paysages, son histoire (l'antique comprise), ses dirigeants, sa cuisine, ses traditions, ses sports — ou de ce qui en vient quand elle le dit (« écrivain japonais ») ou que le pays est la réponse. Pas sa mythologie, ni sa langue seule, ni ce qui s'y passe par hasard (un film américain tourné à Rome)",
+    etiquettes: [
+      { cle: "allemagne", nom: "Allemagne", definition: "" },
+      { cle: "australie", nom: "Australie", definition: "" },
+      { cle: "chine", nom: "Chine", definition: "" },
+      { cle: "espagne", nom: "Espagne", definition: "" },
+      { cle: "etats-unis", nom: "États-Unis", definition: "" },
+      { cle: "grece", nom: "Grèce", definition: "" },
+      { cle: "italie", nom: "Italie", definition: "" },
+      { cle: "japon", nom: "Japon", definition: "" },
+      { cle: "pays-nordiques", nom: "Pays nordiques (Suède, Norvège, Danemark, Finlande, Islande)", definition: "" },
+      { cle: "royaume-uni", nom: "Royaume-Uni", definition: "" },
+      { cle: "russie", nom: "Russie", definition: "" },
+    ],
+  },
 ]
 /** Les types d'une entité — ce dont parle la question —, pour la retrouver dans Wikidata. */
 export const TYPES_D_ENTITE = ['personne', 'personnage', 'lieu', 'oeuvre', 'organisation', 'groupe', 'espece', 'evenement', 'objet', 'notion'] as const

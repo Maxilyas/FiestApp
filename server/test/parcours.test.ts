@@ -76,7 +76,8 @@ test('les parcours : celui laissé en route à reprendre, ceux en cours, puis un
   assert.match(enCours, /<span class="muted small">étape 1 sur 6 · en route<\/span>/)
   assert.match(enCours, /aria-label="Les années 80 : étape 3 sur 6, facile à moyen, 5 étoiles"/)
   // Les familles en onglets, la première ouverte : ses parcours seuls, sans ceux d'en cours — les autres familles ne se rendent pas.
-  assert.deepEqual([...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([^<]+)<\/button>/g)].map(m => `${m[2]}${m[1] === 'true' ? ' *' : ''}`), ['Thèmes *', 'Époques', 'Fils rouges'])
+  // Les pays (le 17 octobre 2026) entre les thèmes et les époques, comme dans la feuille du choix.
+  assert.deepEqual([...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([^<]+)<\/button>/g)].map(m => `${m[2]}${m[1] === 'true' ? ' *' : ''}`), ['Thèmes *', 'Pays', 'Époques', 'Fils rouges'])
   const famille = html.slice(html.indexOf('id="parcours-famille"'))
   const themes = SUJETS.filter(s => s.famille === 'theme' && s.cle !== 'animaux').map(s => s.nom)
   assert.deepEqual([...famille.matchAll(/<b>([^<]+)<\/b>/g)].map(m => m[1]), themes)
