@@ -75,9 +75,13 @@ import { sansAccent } from '../../shared/homonymes'
  * fois, les surnoms, les années 50 —, deux cents questions de plus pour
  * chacun là où il vit déjà (`preparer --sujet`), 758 rangées sur 800 (32
  * refusées comme un fait ou un intitulé déjà posé, 10 retirées à la
- * relecture) : 24 131.
+ * relecture) : 24 131. Le 17 octobre 2026, les cinq thèmes neufs —
+ * l'informatique, l'astronomie, les jeux vidéo, la BD et le manga, les
+ * monuments —, cent questions de plus chacun (`preparer --sujet`), 496
+ * rangées sur 500 (2 refusées comme un fait déjà posé, 2 retirées à la
+ * relecture) : 24 627.
  */
-const AU_MOINS = 24131
+const AU_MOINS = 24627
 
 const { questions, refusees } = lireLaBase()
 
