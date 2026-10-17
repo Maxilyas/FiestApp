@@ -59,8 +59,22 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'medecine')), ['sante'])
   // Le corps humain est du thème : c'est le socle de tous ces métiers.
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'corps')), ['sante'])
-  assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Cinéma & séries', 'series')), ['petit-ecran', 'sante'], 'une série d’hôpital')
+  // Le métier, pas sa fiction (le 17 octobre 2026) : une série d'hôpital ou une pièce de Molière reste hors du thème, l'histoire d'une épidémie y entre.
+  assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Cinéma & séries', 'series')), ['petit-ecran'], 'une série d’hôpital')
+  assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Arts & lettres', 'poesie-theatre')), [], 'Le Médecin malgré lui')
+  assert.deepEqual(sujetsDe(meta(null, ['sante'], 'monde', 'Histoire', 'faits-divers')), ['sante'], 'la peste noire')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'societe')), [], 'les autres métiers n’en sont pas')
+  // L'informatique et l'astronomie (le 17 octobre 2026) : leur sous-thème des sciences, qu'un autre thème lisait déjà.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'techno')), ['inventions', 'informatique'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'espace')), ['terre-espace', 'astronomie'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Sciences', 'terre')), ['terre-espace'], 'un volcan n’est pas de l’astronomie')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'internet')), [], 'les réseaux sociaux ne sont pas l’informatique')
+  // Les jeux vidéo, la BD et les monuments (le 17 octobre 2026 encore).
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Jeux & pop culture', 'jeux-video')), ['jeux-video'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Arts & lettres', 'bd')), ['bd'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Cinéma & séries', 'sagas')), [], 'Harry Potter n’est pas de la BD')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Géographie', 'sites')), ['monuments'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Arts & lettres', 'sculpture-archi')), ['monuments'])
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
@@ -104,7 +118,7 @@ test('les sujets d’une question, lus par leur index : les mêmes, dans le mêm
     return SUJETS.filter(
       s =>
         (s.annees && annee !== null && annee >= s.annees[0] && annee <= s.annees[1]) ||
-        (s.etiquettes && s.etiquettes.some(e => m.etiquettes.includes(e))) ||
+        (s.etiquettes && !s.etiquettesHors?.includes(m.categorie as Categorie) && s.etiquettes.some(e => m.etiquettes.includes(e))) ||
         (s.portee && m.portee === s.portee) ||
         (s.sousThemes && !!s.sousThemes[m.categorie as Categorie]?.includes(m.sousTheme)),
     ).map(s => s.cle)

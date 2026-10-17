@@ -54,7 +54,7 @@ Les **catégories** sont douze : Culture générale, Histoire, Géographie, Scie
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
-| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé | Ses sous-thèmes, parfois une étiquette |
+| Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé, L'informatique, L'astronomie, Les jeux vidéo, La BD et le manga, Monuments et architecture | Ses sous-thèmes, parfois une étiquette |
 | Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
 | Un fil rouge | La France, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
 
@@ -145,7 +145,7 @@ Les parties déjà tirées, y compris le défi de la semaine, gardent la version
 
 Tout ce que pose la campagne, et aussi le quiz tout prêt des soirées, vient d'une base qui lui est propre : des QCM écrits et étiquetés à l'avance, rangés dans `server/content/campagne/`, avec un fichier par catégorie et une question par ligne. Cette base ne partage aucune question avec la réserve du quiz du jour ; sinon, la campagne reposerait des questions vues le matin même.
 
-- **Sa taille** : 24 131 questions au 15 octobre 2026, de 1 692 à 2 674 par catégorie, et au moins 200 par sous-thème. Pour le compte du jour, lance `npx tsx scripts/base-campagne.ts stats` depuis `server/`. Chaque question a une difficulté estimée de 1 à 5, avec une répartition visée de 8, 17, 27, 28 et 20 % (`CIBLE_DES_DIFFICULTES`).
+- **Sa taille** : 24 627 questions au 17 octobre 2026, de 1 692 à 2 834 par catégorie, et au moins 200 par sous-thème. Pour le compte du jour, lance `npx tsx scripts/base-campagne.ts stats` depuis `server/`. Chaque question a une difficulté estimée de 1 à 5, avec une répartition visée de 8, 17, 27, 28 et 20 % (`CIBLE_DES_DIFFICULTES`).
 - **L'identifiant** : huit caractères, qui ne changent jamais. Les réponses, les signalements et le retrait d'une question s'y rattachent.
 - **Le juge** : toute question passe par le même contrôle (`lireQuestionDeLaBase`, `server/src/core/baseCampagne.ts`), qu'elle vienne du dépôt, d'un lot ou de la routine. Il la refuse au premier défaut : intitulé négatif, bonne réponse écrite dans l'intitulé (ou nom de famille de la personne qui répond), emoji, réponse en double, fait incertain… Une réponse que l'intitulé laisse deviner par sa racine (« Qui a peint *Les Deux Fridas* ? ») est acceptée, mais la commande `racines` la liste, et le quiz tout prêt ne la pose qu'en dernier recours.
 - **Pas de doublon** : le rangement d'un lot et le dépôt de la routine refusent le même intitulé, mais aussi **le même fait** sous un autre intitulé (`server/src/core/memeFait.ts`). C'est le cas quand deux questions ont la même bonne réponse et une entité ou l'essentiel de leurs mots en commun, ou quand chacune répond à l'autre (Charlot et Charlie Chaplin). Le refus cite la question qui pose déjà le fait.

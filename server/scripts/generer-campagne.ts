@@ -322,7 +322,7 @@ function auProrata(poids: readonly number[], total: number): number[] {
 export function contrainteDuSujet(sujet: Sujet, categorie: Categorie, sousTheme: string): string | undefined {
   if (sujet.sousThemes?.[categorie]?.includes(sousTheme)) return undefined
   const voies: string[] = []
-  if (sujet.etiquettes && sujet.etiquettes.length > 0) voies.push(`étiquetée ${sujet.etiquettes.map(e => `« ${e} »`).join(' ou ')}`)
+  if (sujet.etiquettes && sujet.etiquettes.length > 0 && !sujet.etiquettesHors?.includes(categorie)) voies.push(`étiquetée ${sujet.etiquettes.map(e => `« ${e} »`).join(' ou ')}`)
   if (sujet.annees) voies.push(sujet.annees[1] >= 10000 ? `datée de ${sujet.annees[0]} ou après` : `datée de ${sujet.annees[0]} à ${sujet.annees[1]}`)
   if (sujet.portee) voies.push(`de portée « ${sujet.portee} »`)
   return voies.length > 0 ? `chacune ${voies.join(', ou ')} (${sujet.nom})` : undefined

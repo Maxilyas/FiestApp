@@ -89,6 +89,11 @@ export type IconName =
   | 'medal'
   | 'dancer'
   | 'stethoscope'
+  | 'code'
+  | 'telescope'
+  | 'gamepad'
+  | 'bulles'
+  | 'landmark'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -620,6 +625,38 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
+  // Les chevrons d'une balise : l'informatique. L'écran était pris par le
+  // petit écran, la planète par la Terre et l'espace — d'où la lunette pour
+  // l'astronomie, posée sur son trépied.
+  code: { paths: <path d="M8 7 3 12l5 5M16 7l5 5-5 5M13.5 5l-3 14" /> },
+  telescope: {
+    paths: (
+      <>
+        <path d="m4 11.5 12.5-6.2 1.8 3.6L5.8 15.1Z" />
+        <path d="m18.3 4.4 2.2-1.1 1.8 3.6-2.2 1.1" />
+        <path d="m11 12.5-3.5 8.5M11 12.5l3.5 8.5" />
+      </>
+    ),
+  },
+  // Une manette, deux bulles de BD (une seule était prise par les surnoms),
+  // un fronton à colonnes : les jeux vidéo, la BD, les monuments.
+  gamepad: {
+    paths: (
+      <>
+        <path d="M7 7h10a5 5 0 0 1 4.6 7l-1 2.4a2.6 2.6 0 0 1-4.3.7L14.5 15h-5l-1.8 2.1a2.6 2.6 0 0 1-4.3-.7l-1-2.4A5 5 0 0 1 7 7Z" />
+        <path d="M7.5 9.8v3M6 11.3h3M15.5 11h.01M17.5 12.5h.01" />
+      </>
+    ),
+  },
+  bulles: {
+    paths: (
+      <>
+        <path d="M3 4.5h11v7.5H8l-3 2.5V12H3Z" />
+        <path d="M17 8h4v8h-2v2.5L16 16h-6v-1.5" />
+      </>
+    ),
+  },
+  landmark: { paths: <path d="M3 9.5 12 4l9 5.5ZM4 20.5h16M5.5 17.5h13M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7" /> },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.
