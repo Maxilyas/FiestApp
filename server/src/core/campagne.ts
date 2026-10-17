@@ -5606,16 +5606,24 @@ export class CampagneStore {
 
   /**
    * Les séries commencées depuis un instant, de tous les modes — série,
-   * épreuve, parcours, révision, défi, duel, rencontre — : qui, quand, et
-   * dans quel mode. Le QG en tire ses chiffres du jour et ses participations ;
-   * une série d'avant les modes n'en a pas (null) : c'est une série.
+   * épreuve, parcours, révision, défi, duel, rencontre — : qui, quand, dans
+   * quel mode, et combien de questions jouées (`position`, qui avance à
+   * chaque réponse). Le QG en tire ses chiffres du jour, ses participations
+   * et l'activité de chaque mode ; une série d'avant les modes n'en a pas
+   * (null) : c'est une série. `qui` : celles d'un seul profil, sa fiche au
+   * QG — par l'index `(profile_id, commencee_le)`.
    */
-  async seriesDepuis(depuis: number): Promise<{ qui: string; quand: number; mode: string | null }[]> {
+  async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
     const res = await this.client.execute({
-      sql: 'SELECT profile_id, commencee_le, mode FROM campagne_series WHERE commencee_le >= ?',
-      args: [depuis],
+      sql: `SELECT profile_id, commencee_le, mode, position FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+      args: qui === undefined ? [depuis] : [depuis, qui],
     })
-    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le), mode: r.mode === null ? null : String(r.mode) }))
+    return res.rows.map(r => ({
+      qui: String(r.profile_id),
+      quand: Number(r.commencee_le),
+      mode: r.mode === null ? null : String(r.mode),
+      questions: Number(r.position),
+    }))
   }
 
   /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */

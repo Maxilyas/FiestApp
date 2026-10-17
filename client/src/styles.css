@@ -10259,6 +10259,16 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-deux-haut { align-items: start; }
 /* Les duels par jour : deux petits multiples, côte à côte dès qu'ils tiennent. */
 .qg-multiples-deux { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+/* L'activité, qui joue à quoi : la légende des couleurs, puis une ligne par
+   profil — son nom, une barre dont la longueur dit combien il a joué et les
+   morceaux à quoi, dans l'ordre de la pile des modes, puis ce qu'elle dit en
+   mots. Un filet du fond entre deux morceaux : collées, deux couleurs
+   voisines se fondaient, comme dans la pile des participations. */
+.qg-legende-modes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--muted); }
+.qg-legende-modes li { display: inline-flex; align-items: center; gap: 6px; }
+.qg-assidu-nom { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.qg-assidu-barre { display: flex; height: 10px; margin: 4px 0 2px; overflow: hidden; }
+.qg-assidu-barre > span { flex: none; min-width: 2px; margin-right: 2px; border-radius: 3px; }
 /* Un duel en attente : qui défie qui, la flèche à la taille du texte. */
 .qg-attente b .icon { width: 12px; height: 12px; vertical-align: -1px; }
 /* Les questions les plus ratées du défi : au téléphone, l'intitulé sur toute la largeur et sa piste dessous ; à l'ordinateur, sur une ligne, coupé d'une ellipse. */

@@ -143,8 +143,25 @@ function poserLeFilet() {
 
 // Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
 const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
+// Le service, aussi (`srv-…`) : la page « Le serveur » du QG mène à ses mesures sur le tableau de bord de l'hébergeur.
+const service = process.env.RENDER_SERVICE_ID?.trim()
+const mesuresDeLHebergeur = service && /^srv-[a-z0-9]+$/.test(service) ? `https://dashboard.render.com/web/${service}/metrics` : undefined
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version, connexionsChaudes }).then(
+createQuizServer({
+  port,
+  dbPath,
+  admin,
+  quizDbUrl,
+  quizDbToken,
+  publicUrl,
+  online,
+  maxPlayers,
+  appEnv,
+  jetonDeLaReserve,
+  version,
+  mesuresDeLHebergeur,
+  connexionsChaudes,
+}).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)

@@ -8,10 +8,12 @@ import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege,
 import {
   MEMOIRE_DE_L_HEBERGEUR_MO,
   PROCESSEUR_DE_L_HEBERGEUR_PCT,
+  requetesServies,
   tempsDeReponse,
   type EvenementDuServeur,
   type HeureDuServeur,
   type PageDuServeur,
+  type PlafondsDuConteneur,
 } from '../../../shared/santeDuServeur'
 
 /** Une semaine de réveils en compte une quinzaine : les douze derniers d'emblée, le reste sur demande. */
@@ -66,6 +68,16 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         {enMarche.env === 'production' || enMarche.env === null ? 'Production' : enMarche.env}
         {enMarche.version && ` · version ${enMarche.version}`} · en marche depuis {dureeEcrite(maintenant - enMarche.depuis)}. Sept jours heure par heure ;
         la nuit, l’hébergeur endort le serveur : ses heures sont hachurées.
+        {page.mesuresDeLHebergeur && (
+          <>
+            {' '}
+            Ce que le serveur mesure de lui-même ; Render garde aussi{' '}
+            <a className="link-inline" href={page.mesuresDeLHebergeur} target="_blank" rel="noreferrer">
+              ses propres graphiques
+            </a>
+            , vus de dehors.
+          </>
+        )}
       </p>
 
       <section className="qg-jour" aria-labelledby="serveur-semaine">
@@ -116,7 +128,8 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         maintenant={maintenant}
       />
       <Turso heures={page.heures} maintenant={maintenant} />
-      <LaCharge heures={page.heures} maintenant={maintenant} />
+      <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
+      <LeTrafic heures={page.heures} maintenant={maintenant} />
       <Heures
         id="serveur-erreurs"
         titre="Les erreurs serveur"
@@ -307,51 +320,51 @@ function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: n
   )
 }
 
-/**
- * Les graphiques de la charge, l'un sous l'autre, le même temps pour tous.
- * Le gel de l'hébergeur sous le processeur (le banc du 16 octobre 2026) : la
- * boucle se figeait deux secondes chaque heure et Turso paraissait lent, sans
- * rien qui dise que le dixième de cœur manquait.
- */
-const MESURES_DE_CHARGE: {
+/** Un graphique d'une pile : ce qu'il montre, comment l'écrire, et ce que l'heure lue en dit. */
+interface MesureDeLaPile {
   cle: string
   nom: string
   detail: string
   valeur: (h: HeureDuServeur) => number | null
   ecrire: (v: number) => string
   ecrireAxe?: (v: number) => string
+  /** Un trait pointillé : le plafond de l'hébergeur. */
   plafond?: number
-}[] = [
-  { cle: 'processeur', nom: 'Processeur', detail: 'la moyenne de l’heure, en part d’un cœur', valeur: h => h.processeur, ecrire: pourcentsDUnCoeur, plafond: PROCESSEUR_DE_L_HEBERGEUR_PCT },
-  {
-    cle: 'gele',
-    nom: 'Gel de l’hébergeur',
-    detail: 'la part de l’heure où le processeur manquait',
-    valeur: h => h.gele,
-    ecrire: pourcents,
-  },
-  { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
-  { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: MEMOIRE_DE_L_HEBERGEUR_MO },
-  { cle: 'invites', nom: 'Invités connectés', detail: 'le pic de l’heure, toutes soirées confondues', valeur: h => h.invites, ecrire: invites, ecrireAxe: formatNumber },
-]
+  /** Son morceau de la légende ; null, il s'en tait. Par défaut, son nom et sa valeur. */
+  legende?: (h: HeureDuServeur) => string | null
+}
 
 /**
- * La charge, heure par heure (le conseil suivi le 13 octobre 2026) : les
- * temps de réponse disent qu'une soirée a été lente, la charge dit pourquoi
- * — le processeur au plafond de l'hébergeur, un gel de la boucle, la mémoire
- * —, à côté de la salle qui la fait. Les traits pointillés : les plafonds de
- * l'hébergeur gratuit, un dixième de cœur et 512 Mo.
+ * Des graphiques l'un sous l'autre, le même temps pour tous : une heure
+ * choisie l'est dans chacun, et la légende la lit dans tous. `mesuree` dit
+ * si une heure a été mesurée — sans survol, la dernière qui l'a été.
  */
-function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+function PileDeGraphes({
+  id,
+  titre,
+  sousTitre,
+  mesures,
+  mesuree,
+  heures,
+  maintenant,
+}: {
+  id: string
+  titre: string
+  sousTitre: string
+  mesures: MesureDeLaPile[]
+  mesuree: (h: HeureDuServeur) => number | null
+  heures: HeureDuServeur[]
+  maintenant: number
+}) {
   const [choisie, setChoisie] = useState<number | null>(null)
-  const h = heures[choisie ?? derniereMesuree(heures.map(x => x.processeur))]
+  const h = heures[choisie ?? derniereMesuree(heures.map(mesuree))]
   return (
-    <section className="qg-carte qg-ecran" aria-labelledby="serveur-charge">
+    <section className="qg-carte qg-ecran" aria-labelledby={id}>
       <div className="qg-carte-tete qg-carte-tete-pile">
-        <h2 id="serveur-charge">La charge, heure par heure</h2>
-        <span className="muted small">relevée toutes les dix secondes ; en pointillé, les plafonds de l’hébergeur gratuit</span>
+        <h2 id={id}>{titre}</h2>
+        <span className="muted small">{sousTitre}</span>
       </div>
-      {MESURES_DE_CHARGE.map((m, i) => (
+      {mesures.map((m, i) => (
         <div key={m.cle} className="qg-charge">
           <span className="qg-charge-nom">
             <b>{m.nom}</b> · {m.detail}
@@ -369,7 +382,7 @@ function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant
             choisir={setChoisie}
             plafond={m.plafond}
             compact
-            sansJours={i < MESURES_DE_CHARGE.length - 1}
+            sansJours={i < mesures.length - 1}
           />
         </div>
       ))}
@@ -377,14 +390,169 @@ function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant
         {heureDuReleve(h.heure, maintenant)} :{' '}
         {!h.eveille
           ? 'endormi'
-          : h.processeur === null
+          : mesuree(h) === null
             ? 'rien de mesuré'
-            : MESURES_DE_CHARGE.map(m => {
-                const v = m.valeur(h)
-                return m.cle === 'invites' ? invites(v ?? 0) : `${m.nom.toLowerCase()} ${v === null ? '–' : m.ecrire(v)}`
-              }).join(' · ')}
+            : mesures
+                .map(m => {
+                  if (m.legende) return m.legende(h)
+                  const v = m.valeur(h)
+                  return `${m.nom.toLowerCase()} ${v === null ? '–' : m.ecrire(v)}`
+                })
+                .filter((morceau): morceau is string => morceau !== null)
+                .join(' · ')}
       </p>
     </section>
+  )
+}
+
+const connexions = (v: number) => `${formatNumber(v)} connexion${v > 1 ? 's' : ''}`
+
+/**
+ * Les graphiques de la charge. Le gel de l'hébergeur sous le processeur (le
+ * banc du 16 octobre 2026) : la boucle se figeait deux secondes chaque heure
+ * et Turso paraissait lent, sans rien qui dise que le dixième de cœur
+ * manquait. Les plafonds sont ceux du conteneur quand il les dit — une autre
+ * offre déplace le trait —, ceux de l'offre gratuite sinon.
+ */
+function mesuresDeLaCharge(plafonds: PlafondsDuConteneur): MesureDeLaPile[] {
+  return [
+    {
+      cle: 'processeur',
+      nom: 'Processeur',
+      detail: 'la moyenne de l’heure, en part d’un cœur',
+      valeur: h => h.processeur,
+      ecrire: pourcentsDUnCoeur,
+      plafond: plafonds.processeurPct ?? PROCESSEUR_DE_L_HEBERGEUR_PCT,
+    },
+    { cle: 'gele', nom: 'Gel de l’hébergeur', detail: 'la part de l’heure où le processeur manquait', valeur: h => h.gele, ecrire: pourcents },
+    { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
+    { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: plafonds.memoireMo ?? MEMOIRE_DE_L_HEBERGEUR_MO },
+    {
+      cle: 'invites',
+      nom: 'Invités connectés',
+      detail: 'le pic de l’heure, toutes soirées confondues',
+      valeur: h => h.invites,
+      ecrire: invites,
+      ecrireAxe: formatNumber,
+      legende: h => invites(h.invites ?? 0),
+    },
+    {
+      cle: 'connexions',
+      nom: 'Connexions ouvertes',
+      detail: 'le pic de l’heure — chaque téléphone, chaque écran en tient une',
+      valeur: h => h.connexionsOuvertes,
+      ecrire: connexions,
+      ecrireAxe: formatNumber,
+      // Une heure d'avant leur compte n'en dit rien, plutôt qu'un tiret.
+      legende: h =>
+        h.connexionsOuvertes === null
+          ? null
+          : `${connexions(h.connexionsOuvertes)} ouverte${h.connexionsOuvertes > 1 ? 's' : ''}` +
+            (h.tempsReel === null ? '' : `, ${formatNumber(h.tempsReel)} en temps réel`),
+    },
+  ]
+}
+
+/**
+ * La charge, heure par heure (le conseil suivi le 13 octobre 2026) : les
+ * temps de réponse disent qu'une soirée a été lente, la charge dit pourquoi
+ * — le processeur au plafond de l'hébergeur, un gel de la boucle, la mémoire
+ * —, à côté de la salle qui la fait et des connexions qu'elle tient ouvertes.
+ */
+function LaCharge({ heures, maintenant, plafonds }: { heures: HeureDuServeur[]; maintenant: number; plafonds: PlafondsDuConteneur }) {
+  const lus = plafonds.processeurPct !== null && plafonds.memoireMo !== null
+  return (
+    <PileDeGraphes
+      id="serveur-charge"
+      titre="La charge, heure par heure"
+      sousTitre={
+        'relevée toutes les dix secondes ; en pointillé, ' +
+        (lus
+          ? `les plafonds du conteneur : ${pourcentsDUnCoeur(plafonds.processeurPct!)} d’un cœur, ${megaOctets(plafonds.memoireMo!)}`
+          : 'les plafonds de l’hébergeur gratuit')
+      }
+      mesures={mesuresDeLaCharge(plafonds)}
+      mesuree={h => h.processeur}
+      heures={heures}
+      maintenant={maintenant}
+    />
+  )
+}
+
+const requetes = (v: number) => `${formatNumber(v)} requête${v > 1 ? 's' : ''}`
+
+/** « 850 Ko », « 12,4 Mo », « 1,2 Go » : ce que la machine a envoyé ou reçu. */
+function volume(mo: number): string {
+  if (mo < 1) return `${formatNumber(Math.round(mo * 1024))} Ko`
+  if (mo < 1024) return `${formatNumber(Math.round(mo * 10) / 10)} Mo`
+  return `${formatNumber(Math.round((mo / 1024) * 10) / 10)} Go`
+}
+
+/** Le détail des requêtes d'une heure : « 1 240 requêtes — 1 180 réussies, 52 redirigées, 8 refusées, 0 en erreur ». */
+function detailDesRequetes(h: HeureDuServeur): string | null {
+  const r = h.requetes
+  if (!r) return null
+  const n = requetesServies(r)
+  if (n === 0) return 'aucune requête'
+  const s = (v: number) => (v > 1 ? 's' : '')
+  return `${requetes(n)} — ${formatNumber(r.reussies)} réussie${s(r.reussies)}, ${formatNumber(r.redirigees)} redirigée${s(r.redirigees)}, ${formatNumber(r.refusees)} refusée${s(r.refusees)}, ${formatNumber(r.enErreur)} en erreur`
+}
+
+const MESURES_DU_TRAFIC: MesureDeLaPile[] = [
+  {
+    cle: 'requetes',
+    nom: 'Requêtes',
+    detail: 'les pages, les fichiers et l’API servis — ni le temps réel, ni les sondes de /healthz',
+    valeur: h => (h.requetes ? requetesServies(h.requetes) : null),
+    ecrire: requetes,
+    ecrireAxe: formatNumber,
+    legende: detailDesRequetes,
+  },
+  {
+    cle: 'refusees',
+    nom: 'Refusées',
+    detail: 'les 4xx : une page introuvable, une session expirée, une inscription refusée',
+    valeur: h => h.requetes?.refusees ?? null,
+    ecrire: requetes,
+    ecrireAxe: formatNumber,
+    // Déjà dites dans le détail des requêtes.
+    legende: () => null,
+  },
+  {
+    cle: 'envoye',
+    nom: 'Envoyé',
+    detail: 'ce que la machine a envoyé : les pages, le temps réel, les requêtes à Turso',
+    valeur: h => h.envoyesMo,
+    ecrire: volume,
+    legende: h => (h.envoyesMo === null ? null : `${volume(h.envoyesMo)} envoyés`),
+  },
+  {
+    cle: 'recu',
+    nom: 'Reçu',
+    detail: 'ce qu’elle a reçu : les réponses de Turso, ce que les téléphones envoient',
+    valeur: h => h.recusMo,
+    ecrire: volume,
+    legende: h => (h.recusMo === null ? null : `${volume(h.recusMo)} reçus`),
+  },
+]
+
+/**
+ * Le trafic, heure par heure (le 17 octobre 2026, « combien de connexions »,
+ * sans clé de l'hébergeur) : les requêtes servies et ce qu'il en a refusé,
+ * ce que la machine a envoyé et reçu — ce que le tableau de bord de Render
+ * montre de dehors, mesuré par le serveur lui-même et gardé avec le reste.
+ */
+function LeTrafic({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+  return (
+    <PileDeGraphes
+      id="serveur-trafic"
+      titre="Le trafic, heure par heure"
+      sousTitre="les requêtes servies, et ce que la machine a envoyé et reçu"
+      mesures={MESURES_DU_TRAFIC}
+      mesuree={h => (h.requetes ? requetesServies(h.requetes) : (h.envoyesMo ?? null))}
+      heures={heures}
+      maintenant={maintenant}
+    />
   )
 }
 
@@ -614,6 +782,12 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                 <th scope="col" className="qg-colonne-large">
                   Invités
                 </th>
+                <th scope="col" className="qg-colonne-large">
+                  Connexions
+                </th>
+                <th scope="col" className="qg-colonne-large">
+                  Requêtes
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -627,6 +801,8 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                   <td className="num qg-colonne-large">{h.processeur === null ? '–' : pourcentsDUnCoeur(h.processeur)}</td>
                   <td className="num qg-colonne-large">{h.memoire === null ? '–' : megaOctets(h.memoire)}</td>
                   <td className="num qg-colonne-large">{h.invites === null ? '–' : formatNumber(h.invites)}</td>
+                  <td className="num qg-colonne-large">{h.connexionsOuvertes === null ? '–' : formatNumber(h.connexionsOuvertes)}</td>
+                  <td className="num qg-colonne-large">{h.requetes === null ? '–' : formatNumber(requetesServies(h.requetes))}</td>
                 </tr>
               ))}
             </tbody>

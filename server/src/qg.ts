@@ -35,6 +35,15 @@ import {
 } from '../../shared/qg'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
+import {
+  activiteDesJoueurs,
+  activiteParJour,
+  joueursAMontrer,
+  totauxDeLActivite,
+  type PageDeLActivite,
+  type PartieSeule,
+  type SoireeDUnProfil,
+} from '../../shared/qgActivite'
 import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
 import { JOURS_DES_RELUS, RELUS_MONTRES, type PageDesSignalements } from '../../shared/qgSignalements'
@@ -80,6 +89,8 @@ interface LigneDeSoiree {
   joueurs: number
   /** Les questions jouées, toutes parties confondues. */
   questions: number
+  /** Les lignes du journal des réponses : une par invité et par question posée — ce que l'activité du QG compte. */
+  jouees: number
   held_at: number | null
   soiree_id: string | null
 }
@@ -100,6 +111,7 @@ function lignesDesSoirees(db: DB): LigneDeSoiree[] {
          (SELECT group_concat(DISTINCT session_id) FROM answer_log a WHERE a.space_id = p.space_id) AS parties,
          (SELECT COUNT(DISTINCT player_id) FROM answer_log a WHERE a.space_id = p.space_id) AS joueurs,
          (SELECT COUNT(DISTINCT session_id || '#' || q_index) FROM answer_log a WHERE a.space_id = p.space_id) AS questions,
+         (SELECT COUNT(*) FROM answer_log a WHERE a.space_id = p.space_id) AS jouees,
          (SELECT held_at FROM soiree WHERE space_id = p.space_id) AS held_at,
          (SELECT id FROM soiree WHERE space_id = p.space_id) AS soiree_id
        FROM players p WHERE p.space_id IS NOT NULL GROUP BY p.space_id`,
@@ -107,11 +119,11 @@ function lignesDesSoirees(db: DB): LigneDeSoiree[] {
     .all() as LigneDeSoiree[]
 }
 
-/** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand. */
+/** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand — et ce qu'il a joué, pour l'activité. */
 interface Journaux {
-  parties: { qui: string; quand: number }[]
-  series: { qui: string; quand: number; mode: string | null }[]
-  activite: { inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }
+  parties: { qui: string; quand: number; questions: number }[]
+  series: { qui: string; quand: number; mode: string | null; questions: number }[]
+  activite: { inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }
 }
 
 /** Ce que des journaux disent d'avant un instant. */
@@ -278,10 +290,12 @@ export function mountQg(app: Express, deps: QgDeps) {
    * Les soirées commencées depuis un instant : celles de l'historique, et
    * celles pas encore closes. Une soirée se range après chaque quiz : celle
    * qui se joue encore a déjà sa fiche, un quiz en retard — elle compte ce
-   * qu'elle a joué depuis, lu dans la base locale.
+   * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
+   * que ses invités ont jouées, que seule l'activité demande — une fiche
+   * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
    */
-  const lesSoireesDepuis = async (depuis: number) => {
-    const rangees = await deps.archives.soireesDepuis(depuis)
+  const lesSoireesDepuis = async (depuis: number, { jouees = false }: { jouees?: boolean } = {}) => {
+    const rangees = await deps.archives.soireesDepuis(depuis, { jouees })
     const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
     for (const l of lignesDesSoirees(deps.db)) {
       if (l.held_at === null || l.soiree_id === null || l.held_at < depuis) continue
@@ -294,6 +308,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         joueurs: Math.max(rangee?.joueurs ?? 0, l.joueurs),
         quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
         questions: Math.max(rangee?.questions ?? 0, l.questions),
+        jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
         ouverte: true,
       })
     }
@@ -377,10 +392,49 @@ export function mountQg(app: Express, deps: QgDeps) {
     }
   }
 
+  /**
+   * L'activité (`/admin#activite`, le souhait du propriétaire du 17 octobre
+   * 2026) : les questions jouées et les parties de chaque mode, jour par
+   * jour, et ce que chaque profil a joué. Les journaux sont ceux de la vue
+   * d'ensemble, déjà gardés (`lesTrenteJours`) ; les soirées se relisent,
+   * avec les questions de leurs invités ; seuls les profils montrés se
+   * nomment. Des soirées des autres, rien que des chiffres : ni un prénom
+   * d'invité, ni un titre, ni un espace.
+   */
+  const pageDeLActivite = async (): Promise<PageDeLActivite> => {
+    const maintenant = deps.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(minuits[0], { jouees: true })])
+    const seules: PartieSeule[] = [
+      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
+      ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+    ]
+    const classes = activiteDesJoueurs(seules, activite.soirees, minuits, maintenant)
+    const montres = joueursAMontrer(classes)
+    const profils = new Map((await deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui))).map(p => [p.id, p]))
+    return {
+      maintenant,
+      parJour: activiteParJour(seules, soirees, minuits, maintenant),
+      totaux: totauxDeLActivite(seules, soirees, minuits, maintenant),
+      // Un profil supprimé aujourd'hui reste dans les jours gardés jusqu'à minuit : sans nom, il ne se montre pas.
+      joueurs: montres.flatMap(({ qui, ...a }) => {
+        const p = profils.get(qui)
+        return p ? [{ id: p.id, nom: p.name, login: p.login, suspendu: p.disabledAt !== null, ...a }] : []
+      }),
+      profilsActifs: classes.length,
+    }
+  }
+
   app.get(
     '/api/admin/qg/direct',
     wrap(async (_req, res) => {
       res.json(await direct())
+    }),
+  )
+  app.get(
+    '/api/admin/activite',
+    wrap(async (_req, res) => {
+      res.json(await pageDeLActivite())
     }),
   )
   app.get(
