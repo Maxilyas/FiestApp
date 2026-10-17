@@ -12,7 +12,7 @@ import { FAMILLES_DE_SUJETS, sujetParCle, type Sujet } from '../../../shared/suj
  * Ce que joue une partie de la campagne — des catégories, toutes d'office,
  * ou un sujet qui les traverse (`shared/sujets.ts`) —, sur une seule ligne :
  * ce qui est choisi, et « Changer » au bout, qui ouvre la feuille du choix
- * (`FeuilleDuChoix`). La série et « Défier quelqu'un » la partagent. Les
+ * (`FeuilleDuChoix`). La série, « Défier quelqu'un » et le dé la partagent. Les
  * douze catégories et les vingt-cinq sujets, en grille sous les yeux,
  * faisaient trois écrans de cases et repoussaient « Jouer le duel » tout en
  * bas (la remarque du propriétaire du 12 octobre 2026 : « trop

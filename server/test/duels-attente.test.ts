@@ -250,12 +250,14 @@ test('« Défier » s’ouvre sans attendre : la page des duels demande en fond 
   assert.match(client('api.ts'), /choix: \(\) => req<ChoixDeLaCampagne>\('\/api\/campagne\/choix'\)/)
 })
 
-test('le dé touché le montre tout de suite : il s’allume et roule tant que le serveur tire la série — allumé, immobile, sous le mouvement réduit', () => {
+test('le dé touché le montre tout de suite : il s’allume et roule tant que le serveur lui répond — allumé, immobile, sous le mouvement réduit', () => {
   const duels = client('views/Duels.tsx')
   assert.match(duels, /className=\{'duels-hasard' \+ \(roule \? ' roule' : ''\)\}/)
   // Le dé seul roule : la flèche d'une rencontre à reprendre tournerait sur elle-même.
   assert.match(duels, /<Icon name=\{reprendre \? 'play' : 'dice'\} className=\{reprendre \? undefined : 'duels-de'\} \/>/)
-  assert.match(duels, /<BoutonsDesDuels busy=\{busy\} roule=\{busy\} /, 'sur la page, il roule pendant sa requête')
+  // Depuis le 16 octobre 2026, il ouvre sa feuille sans requête (`duels-enjeu.test.ts`) : il roule pendant celle qui
+  // reprend un duel laissé en route.
+  assert.match(duels, /<BoutonsDesDuels\s+busy=\{busy\}\s+roule=\{busy\}\s/, 'sur la page, il roule pendant sa requête')
   // La page qui arrive l'attend sans le faire rouler (`duels-page.test.ts` la rend).
   assert.match(duels, /<BoutonsDesDuels busy reprendre=\{null\} \/>/)
   const css = client('styles.css')

@@ -227,12 +227,17 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
   // Une rencontre est une série d'un autre mode : ses réponses, son
   // signalement et sa correction passent par les routes de la série.
 
+  // Le dé : sur des catégories ou un sujet, comme une série ; une rencontre laissée reprend, sur les siens.
   app.post(
     '/api/campagne/rencontre',
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.commencerUneRencontre(profil.id))
+      if (!profil) return
+      const brut: unknown = req.body?.categories
+      const categories = Array.isArray(brut) ? brut.filter((c): c is string => typeof c === 'string' && (CATEGORIES as readonly string[]).includes(c)).slice(0, CATEGORIES.length) : []
+      const sujet: unknown = req.body?.sujet
+      res.json(await deps.campagne.commencerUneRencontre(profil.id, { categories, ...(typeof sujet === 'string' && sujet && { sujet }) }))
     }),
   )
 

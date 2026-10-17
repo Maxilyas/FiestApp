@@ -7,7 +7,7 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, corpsDeLaVisee, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { EnJeu, aConfirmerAuDe, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { EnJeu, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
@@ -662,24 +662,11 @@ export function CampagneApp() {
 
   /**
    * De la fin d'une rencontre à une autre : Automate encore, sur une série
-   * neuve — ce qu'elle met en jeu dit d'abord, dans la feuille du dé
-   * (`FeuilleDuDe`), comme sur la page des duels.
+   * neuve — la feuille du dé d'abord (`LeDe`), comme sur la page des duels :
+   * ce qu'elle met en jeu, sur quoi — ce que jouait celle-ci —, et rien de
+   * tiré avant « Jouer le duel ».
    */
-  const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
-  const uneAutreRencontre = async () => {
-    if (busy) return
-    setBusy(true)
-    setErreur('')
-    try {
-      const r = await api.campagne.rencontre.commencer()
-      if (aConfirmerAuDe(r)) setDeTire(r)
-      else jouerLaRencontre(r)
-    } catch (e) {
-      setErreur(motifDe(e))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [deOuvert, setDeOuvert] = useState(false)
 
   /**
    * De la fin d'une révision à une autre, tant qu'il reste à revoir — ou tout
@@ -1023,6 +1010,7 @@ export function CampagneApp() {
       <>
         <laPageDesDuels.PageDesDuels
           amis={mesAmis}
+          choix={choixPourLancer}
           onJouer={jouerLaRencontre}
           onDefier={ouvrirLeLancement}
           onOuvrirDuel={code => void ouvrirLeDuel(code)}
@@ -1270,7 +1258,7 @@ export function CampagneApp() {
                   },
                 }
               : // Le dé, encore : Automate. « Un autre » adversaire promettait quelqu'un ; « Rejouer contre Automate » touchait le bord du bouton en 360.
-                { texte: 'Un autre duel', icone: 'dice', onClick: () => void uneAutreRencontre() }
+                { texte: 'Un autre duel', icone: 'dice', onClick: () => setDeOuvert(true) }
           }
           busy={busy}
           onReponses={ecran.correction ? undefined : () => void voirCorrection()}
@@ -1279,15 +1267,17 @@ export function CampagneApp() {
           extra={tombeAvecLeDuel(ecran)}
           apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
         />
-        {/* « Un autre duel » tiré : ce qu'il met en jeu, avant de le jouer. Fermée, la feuille le laisse en route : ses duels le reprennent. */}
-        {deTire && (
-          <laPageDesDuels.FeuilleDuDe
-            rencontre={deTire}
-            onJouer={() => {
-              setDeTire(null)
-              jouerLaRencontre(deTire)
+        {/* « Un autre duel » : ce qu'il mettrait en jeu, sur sa cote d'après celui-ci, et sur quoi. Fermée, rien n'est tiré. */}
+        {deOuvert && (
+          <laPageDesDuels.LeDe
+            cote={ecran.cote?.apres ?? null}
+            choix={choixPourLancer}
+            depart={{ categories: ecran.categories, sujet: ecran.sujet }}
+            onJouer={r => {
+              setDeOuvert(false)
+              jouerLaRencontre(r)
             }}
-            onFermer={() => setDeTire(null)}
+            onFermer={() => setDeOuvert(false)}
           />
         )}
       </>
