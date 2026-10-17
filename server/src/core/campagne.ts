@@ -5686,11 +5686,15 @@ export class CampagneStore {
    * chaque réponse). Le QG en tire ses chiffres du jour, ses participations
    * et l'activité de chaque mode ; une série d'avant les modes n'en a pas
    * (null) : c'est une série. `qui` : celles d'un seul profil, sa fiche au
-   * QG — par l'index `(profile_id, commencee_le)`.
+   * QG — par l'index `(profile_id, commencee_le)`. Une expédition compte ses
+   * réponses : sa position saute les questions de reste d'un gardien vaincu,
+   * tirées d'avance pour lui et jamais posées (`questionsDuGardien`).
    */
   async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, commencee_le, mode, position FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+      sql: `SELECT profile_id, commencee_le, mode,
+                   CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END AS position
+            FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
     })
     return res.rows.map(r => ({

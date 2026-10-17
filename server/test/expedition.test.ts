@@ -213,6 +213,12 @@ test('le gardien tombe à sa n-ième bonne réponse, l’acte suivant s’ouvre 
     // Finie, elle se corrige comme toute partie ; la page annonce la suivante, et ses gardiens n'ont plus celui-là.
     const correction = (await lire(banc, lea, `/api/campagne/serie/${v.id}/correction`)).corps
     assert.ok(correction.length >= 20 && correction.every((c: any) => c.juste))
+    // « L'activité » du QG compte ce qui lui a été posé, ses réponses : pas les
+    // questions de reste de ses trois gardiens, tirées d'avance, que sa
+    // position saute — deux chacun, vaincus sans une faute.
+    const admin = await connexionAnimateur(banc.url)
+    const activite = (await lire(banc, admin, '/api/admin/activite')).corps
+    assert.equal(activite.joueurs.find((j: { login: string }) => j.login === 'lea')?.questions.campagne, correction.length)
     const page = (await lire(banc, lea, '/api/expedition')).corps
     assert.equal(page.expedition, null)
     assert.ok(!page.prochaine.gardiens.includes(gardiens[1]), 'il a ce légendaire : il ne garde plus d’acte pour lui')

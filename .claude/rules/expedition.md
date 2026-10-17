@@ -81,4 +81,9 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   soirée, ni quiz du jour, ni défi, ni duel. Un Divin n'en a aucun
   (invariant 21).
 - **Le QG ne la lit pas encore à part** : sa page de la campagne ignore le
-  mode (`sousModeDe` le rend nul), la vue d'ensemble la compte en campagne.
+  mode (`sousModeDe` le rend nul), la vue d'ensemble et « L'activité » la
+  comptent en campagne (`modeDeLaSerie`). « L'activité » compte ses
+  réponses, pas sa `position` (`seriesDepuis`) : la position saute les
+  questions de reste d'un gardien vaincu, tirées d'avance et jamais posées —
+  six de trop pour une expédition sans faute. Une lecture neuve de ses
+  questions jouées fait de même.
