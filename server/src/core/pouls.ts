@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks'
 import { APPELS_POUR_UNE_LENTE, GARDE_DE_NODE_MS, debutDeLHeure, type ChargeDeLHeure, type HeureDeSante, type Releve } from '../../../shared/santeDuServeur'
 
@@ -279,7 +280,7 @@ class Heure {
   private parRoute = new Map<string, Mesure>()
   private erreurs = new Map<string, number>()
   miroir = 0
-  private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
+  private charge = { n: 0, processeur: 0, processeurMax: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0, geles: 0, gele: 0, geleMax: 0 }
   private liaison = {
     ouvertes: 0,
     refermeesParLaBase: 0,
@@ -331,6 +332,11 @@ class Heure {
     k.boucleMaxMs = Math.max(k.boucleMaxMs, c.boucleMaxMs)
     if (c.memoireMo !== null) k.memoireMaxMo = Math.max(k.memoireMaxMo, c.memoireMo)
     k.invitesMax = Math.max(k.invitesMax, c.invites)
+    if (typeof c.gelePct === 'number') {
+      k.geles++
+      k.gele += c.gelePct
+      k.geleMax = Math.max(k.geleMax, c.gelePct)
+    }
   }
 
   private chargeLue(): ChargeDeLHeure | null {
@@ -343,6 +349,8 @@ class Heure {
       boucleMaxMs: Math.round(k.boucleMaxMs),
       memoireMaxMo: Math.round(k.memoireMaxMo),
       invitesMax: k.invitesMax,
+      // Absent hors d'un conteneur qui le dit : un PC, un Mac.
+      ...(k.geles > 0 && { gelePct: Math.round((k.gele / k.geles) * 10) / 10, geleMaxPct: Math.round(k.geleMax * 10) / 10 }),
     }
   }
 
@@ -400,6 +408,8 @@ export interface ReleveDeCharge {
   boucleMaxMs: number
   memoireMo: number | null
   invites: number
+  /** La part du relevé où l'hébergeur a gelé le processus faute de processeur (`sondeDuGel`) ; null hors d'un conteneur qui le dit. */
+  gelePct?: number | null
 }
 
 /**
@@ -501,6 +511,50 @@ export class ReleveHoraire {
 
 export const releve = new ReleveHoraire()
 
+/**
+ * Où le conteneur dit le temps qu'il a passé gelé faute de processeur, et en
+ * quelle unité : cgroup v2, puis les deux noms de cgroup v1, en nanosecondes.
+ */
+const SOURCES_DU_GEL: readonly { fichier: string; cle: string; enMicrosecondes: number }[] = [
+  { fichier: '/sys/fs/cgroup/cpu.stat', cle: 'throttled_usec', enMicrosecondes: 1 },
+  { fichier: '/sys/fs/cgroup/cpu/cpu.stat', cle: 'throttled_time', enMicrosecondes: 1 / 1000 },
+  { fichier: '/sys/fs/cgroup/cpu,cpuacct/cpu.stat', cle: 'throttled_time', enMicrosecondes: 1 / 1000 },
+]
+
+/**
+ * Le temps où l'hébergeur a gelé le processus faute de processeur, cumulé, en
+ * microsecondes — la sonde, ou null hors d'un conteneur qui le dit (un PC, un
+ * Mac). Le dixième de cœur de l'offre gratuite se distribue par tranches de
+ * dix millisecondes tous les dixièmes de seconde : un calcul qui en demande
+ * plus attend la tranche suivante, et chaque aller-retour vers Turso en cours
+ * attend avec lui. Le 16 octobre 2026, la boucle de la production se figeait
+ * deux secondes chaque heure quand Turso répondait en cent millisecondes, et
+ * rien ne disait si ce gel venait de l'hébergeur (la revue du 14 octobre,
+ * perf-turso-12) : c'est ce que dit cette sonde. Le fichier se choisit une
+ * fois ; une lecture qui tombe ensuite se tait (null), le pouls continue.
+ */
+export function sondeDuGel(lire: (fichier: string) => string = f => readFileSync(f, 'utf8')): (() => number | null) | null {
+  const valeur = (s: (typeof SOURCES_DU_GEL)[number]): number | null => {
+    const m = new RegExp(`^${s.cle} (\\d+)$`, 'm').exec(lire(s.fichier))
+    return m ? Number(m[1]) * s.enMicrosecondes : null
+  }
+  for (const s of SOURCES_DU_GEL) {
+    try {
+      if (valeur(s) === null) continue
+    } catch {
+      continue
+    }
+    return () => {
+      try {
+        return valeur(s)
+      } catch {
+        return null
+      }
+    }
+  }
+  return null
+}
+
 /** La période de l'histogramme de retard : voir `Charge`. */
 const RESOLUTION_MS = 100
 
@@ -523,19 +577,24 @@ export class Charge {
   private cpu = process.cpuUsage()
   private elu = performance.eventLoopUtilization()
   private instant = performance.now()
-  private releves: { cpuPct: number; occupePct: number; p99Ms: number; maxMs: number }[] = []
+  private releves: { cpuPct: number; occupePct: number; p99Ms: number; maxMs: number; gelePct: number | null }[] = []
   private readonly versLHeure: ReleveHoraire
   private readonly invites: () => number
+  private readonly gel: (() => number | null) | null
+  private gelAvant: number | null
 
   /**
    * Chaque relevé part aussi au relevé de l'heure (`releve`), avec la mémoire
    * et les invités connectés — `invites`, que le serveur compte dans ses
    * soirées : la page « Le serveur » du QG montre la charge à côté de la
-   * salle qui la fait.
+   * salle qui la fait —, et le gel que l'hébergeur a imposé (`gel`, la sonde
+   * du conteneur : `sondeDuGel`).
    */
-  constructor(periodeMs = 10_000, deps: { releve?: ReleveHoraire; invites?: () => number } = {}) {
+  constructor(periodeMs = 10_000, deps: { releve?: ReleveHoraire; invites?: () => number; gel?: (() => number | null) | null } = {}) {
     this.versLHeure = deps.releve ?? releve
     this.invites = deps.invites ?? (() => 0)
+    this.gel = deps.gel === undefined ? sondeDuGel() : deps.gel
+    this.gelAvant = this.gel?.() ?? null
     this.histogramme = monitorEventLoopDelay({ resolution: RESOLUTION_MS })
     this.histogramme.enable()
     this.minuterie = setInterval(() => this.relever(), periodeMs)
@@ -547,6 +606,10 @@ export class Charge {
     const ecoule = maintenant - this.instant
     const cpu = process.cpuUsage(this.cpu)
     const elu = performance.eventLoopUtilization(this.elu)
+    // Le gel de l'hébergeur depuis le relevé d'avant ; une lecture qui se tait ne compte pas.
+    const gel = this.gel?.() ?? null
+    const geleMs = gel !== null && this.gelAvant !== null ? Math.max(0, gel - this.gelAvant) / 1000 : null
+    if (gel !== null) this.gelAvant = gel
     const r = {
       cpuPct: ((cpu.user + cpu.system) / 1000 / ecoule) * 100,
       occupePct: elu.utilization * 100,
@@ -554,6 +617,8 @@ export class Charge {
       // retard au-delà de ce qu'on attendait qu'on veut lire.
       p99Ms: Math.max(0, this.histogramme.percentile(99) / 1e6 - RESOLUTION_MS),
       maxMs: Math.max(0, this.histogramme.max / 1e6 - RESOLUTION_MS),
+      // Compté sur chaque cœur où le processus attendait : borné au temps écoulé.
+      gelePct: geleMs === null ? null : Math.min(100, (geleMs / ecoule) * 100),
     }
     this.releves.push(r)
     if (this.releves.length > 6) this.releves.shift()
@@ -566,7 +631,7 @@ export class Charge {
       } catch {
         // La mémoire se tait, le reste du relevé part.
       }
-      this.versLHeure.charge({ processeur: r.cpuPct, boucleMaxMs: r.maxMs, memoireMo, invites: this.invites() })
+      this.versLHeure.charge({ processeur: r.cpuPct, boucleMaxMs: r.maxMs, memoireMo, invites: this.invites(), gelePct: r.gelePct })
     } catch (e) {
       console.error('[pouls] le relevé de charge n’a pas pu s’écrire dans l’heure :', e)
     }
@@ -582,11 +647,15 @@ export class Charge {
     const moyenne = (f: (x: (typeof r)[number]) => number) =>
       r.length ? Math.round(r.reduce((s, x) => s + f(x), 0) / r.length) : null
     const pire = (f: (x: (typeof r)[number]) => number) => (r.length ? Math.round(Math.max(...r.map(f))) : null)
+    const geles = r.map(x => x.gelePct).filter((x): x is number => x !== null)
     return {
       cpuPct: moyenne(x => x.cpuPct),
       boucleOccupeePct: moyenne(x => x.occupePct),
       retardBoucleP99Ms: pire(x => x.p99Ms),
       retardBoucleMaxMs: pire(x => x.maxMs),
+      // La part du temps où l'hébergeur a gelé le processus faute de processeur, en moyenne et au pire ; null hors d'un conteneur qui le dit.
+      geleePct: geles.length ? Math.round(geles.reduce((s, x) => s + x, 0) / geles.length) : null,
+      geleeMaxPct: geles.length ? Math.round(Math.max(...geles)) : null,
       retardChronosMaxMs: chronos.max,
       // Combien de chronomètres ont sonné : un retard de 0 ne veut rien dire
       // si aucun n'a été mesuré.

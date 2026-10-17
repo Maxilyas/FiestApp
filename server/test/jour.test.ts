@@ -67,6 +67,48 @@ test('le module ne crée aucun formateur de date à son import : une page qui l�
   }
 })
 
+test('le jour de Paris se garde par heure : mille instants d’une heure ne demandent pas mille fois Intl, et minuit tombe toujours au même instant', () => {
+  // Les missions d'un joueur et son carnet lisaient le jour de chacune de
+  // ses réponses à `Intl` : quatre millisecondes par page au banc du
+  // 16 octobre 2026, dix fois plus au dixième de cœur de l'hébergeur.
+  const intl = Intl.DateTimeFormat.prototype
+  const formatToParts = intl.formatToParts
+  let appels = 0
+  intl.formatToParts = function (this: Intl.DateTimeFormat, ...args: Parameters<Intl.DateTimeFormat['formatToParts']>) {
+    appels++
+    return formatToParts.apply(this, args)
+  }
+  try {
+    const debut = Date.UTC(2026, 9, 14, 17, 0, 0)
+    for (let i = 0; i < 1000; i++) assert.equal(jourDe(debut + i * 3_000), '2026-10-14')
+    assert.ok(appels <= 1, `${appels} appels à Intl pour mille instants de la même heure`)
+  } finally {
+    intl.formatToParts = formatToParts
+  }
+  // Le jour qu'Intl dit lui-même, sur une année, aux minuits et aux changements d'heure à la milliseconde près.
+  const paris = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const lu = (t: number) => {
+    const p = Object.fromEntries(paris.formatToParts(new Date(t)).map(x => [x.type, x.value]))
+    return `${p.year}-${p.month}-${p.day}`
+  }
+  const bords = [
+    Date.UTC(2026, 2, 28, 22, 59, 59, 999),
+    Date.UTC(2026, 2, 28, 23, 0),
+    Date.UTC(2026, 2, 29, 0, 59, 59, 999),
+    Date.UTC(2026, 2, 29, 1, 0),
+    Date.UTC(2026, 9, 24, 21, 59, 59, 999),
+    Date.UTC(2026, 9, 24, 22, 0),
+    Date.UTC(2026, 9, 25, 22, 59, 59, 999),
+    Date.UTC(2026, 9, 25, 23, 0),
+  ]
+  for (const t of bords) assert.equal(jourDe(t), lu(t), new Date(t).toISOString())
+  for (let t = Date.UTC(2026, 0, 1); t < Date.UTC(2027, 0, 1); t += 17 * 60_000 + 1) assert.equal(jourDe(t), lu(t), new Date(t).toISOString())
+  // Avant 1911, Paris avait neuf minutes d'avance sur Greenwich : une heure à cheval sur deux jours ne se garde pas.
+  for (let t = Date.UTC(1900, 0, 1, 23, 0); t < Date.UTC(1900, 0, 2, 0, 30); t += 60_000) assert.equal(jourDe(t), lu(t), new Date(t).toISOString())
+  // Et le 11 mars 1911, quand Paris a pris l'heure de Greenwich au milieu d'une heure.
+  for (let t = Date.UTC(1911, 2, 10, 22, 0); t < Date.UTC(1911, 2, 11, 2, 0); t += 30_000 + 1) assert.equal(jourDe(t), lu(t), new Date(t).toISOString())
+})
+
 test('l’expérience du jour : vingt points par question au plus, à proportion des points', () => {
   // Le barème du solo (le 6 octobre 2026) : 200 pour un quiz parfait — 75 avant.
   assert.equal(XP_MAX_DU_JOUR, 200)

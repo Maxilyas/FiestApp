@@ -13,7 +13,7 @@ Le dépôt a deux espaces de travail npm, `client` et `server` (`package.json`) 
 | Commande | Ce qu'elle lance | À quoi elle sert |
 |---|---|---|
 | `npm run dev` | `npm run dev -w server` (`tsx watch src/index.ts`, port 3001) et `npm run dev -w client` (Vite, port 5173), ensemble, par `concurrently` | Développer : le serveur redémarre à chaque retouche de son code, Vite recharge la page. Vite écoute aussi sur le réseau local et relaie vers le port 3001 le temps réel (`/socket.io`), `/api`, `/media`, `/s/` et les adresses d'avant les espaces (`client/vite.config.ts`). Les deux bases vivent dans `server/data/`, que git ignore |
-| `npm run build` | `npm run build -w client` (`vite build`), puis `npm run build -w server` (`server/scripts/empaqueter.ts`) | Le client dans `client/dist/`, les fichiers de texte de son paquet compressés une fois pour toutes (un `.br` et un `.gz` à côté de chacun) ; le serveur en un seul fichier, `server/dist/index.mjs` |
+| `npm run build` | `npm run build -w client` (`vite build`), puis `npm run build -w server` (`server/scripts/empaqueter.ts`) | Le client dans `client/dist/`, les fichiers de texte de son paquet compressés une fois pour toutes (un `.br` et un `.gz` à côté de chacun) ; le serveur en un seul fichier, `server/dist/index.mjs`, et la base de la campagne vérifiée une fois pour toutes, à côté, `server/dist/index.campagne.ndjson` |
 | `npm start` | `npm run start -w server`, soit `tsx src/index.ts` | Le serveur seul, sans rechargement ; il sert `client/dist/` s'il existe à son démarrage. Il ne lance pas le paquet : c'est `node dist/index.mjs`, depuis `server/`, qui le fait — la commande de démarrage de l'hébergeur ([mise en ligne](../exploitation/mise-en-ligne.md)) |
 | `npm run check` | `tsc --noEmit` dans `server/`, puis dans `client/` | Le typecheck : côté serveur `server/src`, `server/scripts`, `server/test` et `shared/` ; côté client `client/src` et `shared/`. Les scripts `.mjs` n'y passent pas |
 | `npm test` | `node scripts/tests.mjs`, dans `server/` | Les tests de `server/test/` — voir [les tests](../contribuer/tests.md) |
@@ -45,14 +45,14 @@ Un script `.ts` se lance par `tsx` (`npx tsx scripts/<script>.ts`), un `.mjs` pa
 
 | Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
 |---|---|---|---|
-| `server/scripts/tests.mjs` | Tous les `test/*.test.ts` en un seul `node --test`, triés par nom, 120 s au plus par épreuve et par fichier, un fichier de moins à la fois que la machine n'a de cœurs | `npm test` ; un fichier, sous les mêmes délais : `node scripts/tests.mjs test/<fichier>.test.ts` | `CLAUDECODE` posé (Claude Code le pose) : un point par épreuve et les échecs en entier (`--test-reporter=dot`) ; sinon le compte rendu de Node, en TAP hors d'un terminal. Le code de sortie de `node --test`, 1 s'il a été tué |
+| `server/scripts/tests.mjs` | Tous les `test/*.test.ts` en un seul `node --test`, triés par nom, 120 s au plus par épreuve et par fichier, un fichier de moins à la fois que la machine n'a de cœurs | `npm test` ; un fichier, sous les mêmes délais : `node scripts/tests.mjs test/<fichier>.test.ts` | `CLAUDECODE` posé (Claude Code le pose) : un point par épreuve et les échecs en entier (`--test-reporter=dot`) ; sinon le compte rendu de Node, en TAP hors d'un terminal — et `CI` posé, les échecs redits en entier après le décompte. Le code de sortie de `node --test`, 1 s'il a été tué |
 | `server/scripts/smoke.ts` | Le test de bout en bout : huit serveurs jetables et une soirée entière rejouée, sections 0 à 35 | `npm run smoke` | « ✅ Smoke test OK — 41 étapes », ou « ❌ » et le message de la première assertion fausse, en code 1. Il laisse ses dossiers `quizz-smoke-*` et `quizz-legacy-*` dans le dossier temporaire du système |
 
 ### Lancer et empaqueter
 
 | Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
 |---|---|---|---|
-| `server/scripts/empaqueter.ts` | Le serveur en un seul fichier, par esbuild (cible Node 20, les dépendances laissées dans `node_modules`) : un réveil de l'hébergeur ne traduit plus le TypeScript | `npm run build`, ou `npm run build -w server` | `server/dist/index.mjs`. `server/test/exploitation.test.ts` en construit un par la même fonction et le démarre |
+| `server/scripts/empaqueter.ts` | Le serveur en un seul fichier, par esbuild (cible Node 20, les dépendances laissées dans `node_modules`) : un réveil de l'hébergeur ne traduit plus le TypeScript ; et la base de la campagne passée au juge une fois, rangée à côté, une question vérifiée par ligne, que le paquet relit telle quelle (`preparerLaBase`) : un réveil ne repasse plus ses vingt-quatre mille questions au juge | `npm run build`, ou `npm run build -w server` | `server/dist/index.mjs` et `server/dist/index.campagne.ndjson`. `server/test/exploitation.test.ts` en construit un par la même fonction et le démarre |
 | `server/scripts/qa-start.ts` | Le vrai serveur (`server/src/index.ts`) sur des bases jetables, dans un dossier temporaire, avec un wifi de démonstration pour le QR | `npm run start:qa -w server` ; la configuration `quizz` de `.claude/launch.json` le lance | Pose `DB_PATH` (un `qa.db` dans un dossier `quizz-qa-*`), `WIFI_SSID` (`QuizzDemo`) et `WIFI_PASS` (`demo1234`) s'ils ne le sont pas déjà. La base permanente naît à côté de la locale, sauf si `QUIZ_DB_URL` est posée dans le shell ; `PORT` choisit le port |
 
 ### Sauvegarder, exporter, migrer
@@ -172,6 +172,7 @@ Celles que lisent le serveur et le client sont dans [la configuration](configura
 | Variable | Qui la lit | Ce qu'elle règle |
 |---|---|---|
 | `CLAUDECODE` | `server/scripts/tests.mjs` | Posée (Claude Code la pose dans ses commandes), le compte rendu des tests passe en points |
+| `CI` | `server/scripts/tests.mjs` | Posée (GitHub Actions la pose), le compte rendu reste en TAP et redit les épreuves en échec à la fin du journal, dont GitHub ne rend que la fin |
 | `ADMIN_LOGIN`, `ADMIN_PASSWORD` | `server/scripts/login.mjs` (test de charge, `qa-host.mjs` ; l'invité fantôme ne se connecte pas en animateur) | L'animateur que les scripts connectent ; `antoine` / `demo` sinon, comme le serveur chez soi |
 | `QUIZ_SLUG` | `server/scripts/login.mjs` | L'espace des invités simulés, à défaut de `--slug` ; `demo` sinon |
 | `DB_PATH`, `WIFI_SSID`, `WIFI_PASS` | posées par `server/scripts/qa-start.ts` s'il n'y en a pas | La base locale jetable et le wifi de démonstration |

@@ -209,14 +209,74 @@ export function anneeDe(date: MetadonneesDeQuestion['date']): number | null {
   return lue ? Number(lue[0]) : null
 }
 
-/** Les sujets d'une question, par leur clé : son année se lit une fois pour toutes les époques. */
+/**
+ * Les sujets rangés par ce qui y fait entrer une question — une étiquette, une
+ * portée, un sous-thème de sa catégorie, des années —, chacun par son rang
+ * dans `SUJETS`. Bâti à la première lecture : la page qui n'importe ce module
+ * que pour un nom n'en paie rien.
+ */
+interface IndexDesSujets {
+  parEtiquette: Map<string, readonly number[]>
+  parPortee: Map<string, readonly number[]>
+  /** Par catégorie, puis par sous-thème : « france » n'est pas le même d'une catégorie à l'autre. */
+  parSousTheme: Map<string, Map<string, readonly number[]>>
+  parAnnees: readonly { rang: number; de: number; a: number }[]
+}
+
+let indexDesSujets: IndexDesSujets | null = null
+
+function indexer(): IndexDesSujets {
+  const parEtiquette = new Map<string, number[]>()
+  const parPortee = new Map<string, number[]>()
+  const parSousTheme = new Map<string, Map<string, number[]>>()
+  const parAnnees: { rang: number; de: number; a: number }[] = []
+  const ranger = (m: Map<string, number[]>, cle: string, rang: number) => {
+    const rangs = m.get(cle)
+    if (!rangs) m.set(cle, [rang])
+    else if (!rangs.includes(rang)) rangs.push(rang)
+  }
+  SUJETS.forEach((s, rang) => {
+    if (s.annees) parAnnees.push({ rang, de: s.annees[0], a: s.annees[1] })
+    for (const e of s.etiquettes ?? []) ranger(parEtiquette, e, rang)
+    if (s.portee) ranger(parPortee, s.portee, rang)
+    for (const [categorie, sousThemes] of Object.entries(s.sousThemes ?? {})) {
+      let siens = parSousTheme.get(categorie)
+      if (!siens) parSousTheme.set(categorie, (siens = new Map()))
+      for (const st of sousThemes ?? []) ranger(siens, st, rang)
+    }
+  })
+  return { parEtiquette, parPortee, parSousTheme, parAnnees }
+}
+
+/** Les rangs trouvés pour la question en cours : `sujetsDe` ne se rappelle pas lui-même, un seul tableau suffit. */
+const trouves: number[] = []
+
+/**
+ * Les sujets d'une question, par leur clé, dans l'ordre de `SUJETS`. Lus par
+ * l'index de ce qui y fait entrer (`IndexDesSujets`) : passer les vingt-sept
+ * sujets pour chacune des vingt-quatre mille questions de la base prenait
+ * 35 à 60 ms, à chaque réveil, à la première ouverture de la campagne — dix
+ * fois plus au dixième de cœur de l'hébergeur (le banc du 16 octobre 2026).
+ * `campagne-sujets.test.ts` le compare, question par question, à la règle lue
+ * sujet par sujet.
+ */
 export function sujetsDe(meta: Pick<MetadonneesDeQuestion, 'date' | 'etiquettes' | 'portee' | 'categorie' | 'sousTheme'>): string[] {
+  const { parEtiquette, parPortee, parSousTheme, parAnnees } = (indexDesSujets ??= indexer())
+  trouves.length = 0
+  const ajouter = (rangs: readonly number[] | undefined) => {
+    if (rangs) for (const r of rangs) trouves.push(r)
+  }
   const annee = anneeDe(meta.date)
-  return SUJETS.filter(
-    s =>
-      (s.annees && annee !== null && annee >= s.annees[0] && annee <= s.annees[1]) ||
-      (s.etiquettes && !s.etiquettesHors?.includes(meta.categorie as Categorie) && s.etiquettes.some(e => meta.etiquettes.includes(e))) ||
-      (s.portee && meta.portee === s.portee) ||
-      (s.sousThemes && !!s.sousThemes[meta.categorie as Categorie]?.includes(meta.sousTheme)),
-  ).map(s => s.cle)
+  if (annee !== null) for (const e of parAnnees) if (annee >= e.de && annee <= e.a) trouves.push(e.rang)
+  for (const etiquette of meta.etiquettes) {
+    const rangs = parEtiquette.get(etiquette)
+    // Une étiquette ne fait pas sienne une question des catégories qu'elle écarte (`etiquettesHors`) : son sous-thème, si.
+    if (rangs) for (const r of rangs) if (!SUJETS[r].etiquettesHors?.includes(meta.categorie as Categorie)) trouves.push(r)
+  }
+  ajouter(parPortee.get(meta.portee))
+  ajouter(parSousTheme.get(meta.categorie)?.get(meta.sousTheme))
+  if (trouves.length === 0) return []
+  if (trouves.length === 1) return [SUJETS[trouves[0]].cle]
+  // Chacun une fois : une question des années 80 étiquetée « record » et « insolite » en a deux.
+  return [...new Set(trouves)].sort((a, b) => a - b).map(r => SUJETS[r].cle)
 }

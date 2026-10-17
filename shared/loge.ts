@@ -292,12 +292,28 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
 }
 
 /**
+ * Ce que la loge lit d'un profil pour dire ce qui est nouveau
+ * (`ceQuIlAPorter`) : le détail de sa page le contient, et le compteur de
+ * « Profil » (`GET /api/joueur/nouveautes`) ne lit que cela
+ * (`ProfileStore.ceQueLaLogeLit`) — il refaisait toute la page pour une
+ * pastille. Un champ de plus lu ici se donne aussi là-bas : le serveur
+ * remplit chacun, même vide.
+ */
+export type CeQueLaLogeLit = Pick<
+  PublicProfileDetail,
+  'hautsFaits' | 'legendaires' | 'divins' | 'compagnons' | 'niveau' | 'ouvertes' | 'eclats' | 'bordures' | 'titresDates' | 'sentiers' | 'fonds' | 'gerbes'
+> & {
+  vitrine: readonly Pick<PublicProfileDetail['vitrine'][number], 'key'>[]
+  boutique?: Pick<NonNullable<PublicProfileDetail['boutique']>, 'possedes'>
+}
+
+/**
  * Ce qu'il a, pièce par pièce, de quoi dire ce qui est nouveau : les avatars
  * (portraits, légendaires, Divins, emojis de collection), leurs finitions et
  * leurs Éclats ; ses titres ; les hauts faits de sa vitrine ; ses fonds, ses
  * thèmes, ses gerbes. Des clés, rien d'autre.
  */
-export function ceQuIlAPorter(profil: PublicProfileDetail): Record<PieceDeLaLoge, string[]> {
+export function ceQuIlAPorter(profil: CeQueLaLogeLit): Record<PieceDeLaLoge, string[]> {
   const recompenses = recompensesDe(profil.hautsFaits)
   const gagnes = hautsFaitsGagnes(recompenses)
   const etagere = new Set(profil.vitrine.map(b => b.key))

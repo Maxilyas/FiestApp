@@ -310,6 +310,9 @@ try {
               boucleMaxMs: Math.round(18 + invites * (soiree ? 11 : 4)),
               memoireMaxMo: Math.round(150 + invites * 3.4),
               invitesMax: invites,
+              // Le gel de l'hébergeur : nul au calme, il monte avec la salle passé le dixième de cœur.
+              gelePct: Math.max(0, Math.round((invites * 0.27 - 6) * 10) / 10),
+              geleMaxPct: Math.max(0, Math.round((invites * 0.9 - 8) * 10) / 10),
             },
             connexions,
           }),

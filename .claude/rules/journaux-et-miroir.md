@@ -86,6 +86,20 @@ paths:
   milliseconde les sépare). Une chaîne d'`await` après une pause paie donc
   deux poignées de main, pas une — et un test qui compte des connexions
   espace ses requêtes.
+- **Un aller-retour coûte aussi du processeur au serveur**, pas seulement
+  du temps : le `fetch` de Node, le décodage du client libsql et ses
+  sockets — 1 à 2 ms chacun sur un vrai cœur, une poignée de main TLS
+  deux de plus —, soit dix à vingt au dixième de cœur de l'hébergeur, où
+  le processeur se distribue par tranches de dix millisecondes. Le banc du
+  16 octobre 2026 (`retours/2026-10-16/`) : 60 % du processeur d'une
+  requête partait là, l'accueil de quatre joueurs à la fois figeait la
+  boucle deux secondes, et chaque aller-retour en vol pendant le gel
+  paraissait lent à `avecDelai` — qui chronomètre le `fetch` entier : un
+  Turso « lent » au relevé peut être un serveur gelé. Lire à quoi s'en
+  tenir : le gel de l'hébergeur au relevé (`sondeDuGel`, règle
+  `exploitation.md`). D'où : une lecture partagée par page plutôt que
+  relue par chacun de ses morceaux (`CampagneStore.duProfil`), des lots, et
+  jamais une colonne de questions qu'on ne montre pas.
 - **Un serveur qu'on ferme doit éteindre ses chronomètres** et vider son
   miroir avant de fermer la base locale, que la resynchronisation relit.
   Un chrono de question qui sonne après `close()` révèle sur une base fermée —

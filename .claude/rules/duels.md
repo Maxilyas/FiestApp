@@ -34,7 +34,7 @@ jour a sa notification (règle `rappel-et-installation.md`).
   feuille du dé montre avant de tirer), les ligues (`LIGUES`, `ligueDe`), la
   relecture du journal (`releverLesDuels` : les deux cotes, le plancher,
   chaque semaine, les crans des bordures), la récompense du lundi (`recompenseDeLaSemaine`,
-  `confettisDesLigues`, dans le solde par `CampagneStore.confettisDe`), la
+  `confettisDesLigues`, dans le solde par `CampagneStore.duProfil`), la
   bordure portée (`bordurePortee`), le bilan et l'historique
   (`bilanDesDuels`, `pageDeLHistoire`), les types de la page
   (`EtatDesDuels`, `DuelsDAccueil`). Ses constantes de cote et de ligues sont

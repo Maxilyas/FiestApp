@@ -298,7 +298,7 @@ export function enBoutique(t: Theme, jour: string): boolean {
  * Seulement une soirée qui compte (`soireeQuiCompte`) : seul devant son
  * propre quiz, on connaît les réponses, et deux cents questions lancées pour
  * soi auraient rempli la tirelire. La campagne solo a la sienne : une
- * bonne réponse, un confetti (`ProfileStore.confettisDeCampagne`).
+ * bonne réponse, un confetti (`CampagneStore.duProfil`).
  *
  * Ni la rapidité ni le multiplicateur de l'animateur n'y changent rien : une
  * finale « ×3 » payait trois fois plus de points à ceux qui étaient là ce
