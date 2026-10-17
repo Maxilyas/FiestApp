@@ -56,8 +56,12 @@ const SORTES_OUVERTES: ReadonlySet<SorteDEscale> = new Set(['question', 'elite',
 
 export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement'
 
-/** Les formes de l'étape 1 : la question telle que la base l'a écrite. Les trois autres viennent à l'étape 3. */
-const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre'])
+/**
+ * Les formes qu'une carte tire : toutes depuis l'étape 3 — quatre choix,
+ * vrai ou faux, six choix, dévoilement. Celles d'avant, gardées par leur
+ * expédition, restent à quatre choix.
+ */
+const FORMES_OUVERTES: ReadonlySet<FormeDEscale> = new Set(['quatre', 'vrai-faux', 'six', 'devoilement'])
 
 /** Le thème d'une escale : une catégorie, un mélange de deux ou trois, ou un sujet de `shared/sujets.ts` — un thème pointu. */
 export type ThemeDEscale = { categories: string[] } | { sujet: string }
@@ -337,9 +341,12 @@ export function refusDeLEquipee(equipee: readonly string[], possedes: ReadonlySe
  * L'offre d'un coffre ou d'une élite : trois jokers sans légendaire,
  * distincts, chacun d'une rareté tirée à son poids (`POIDS_DES_RARETES`). Du
  * hasard de la graine et du rang de l'offre : recharger ne la change pas.
+ * Parmi les jokers que la version de son départ connaît (`v`, `Joker.depuis`) :
+ * un joker venu après ne change pas les offres d'une expédition partie avant.
  */
-export function offreDeJokers(graine: string, rang: number): string[] {
+export function offreDeJokers(graine: string, rang: number, v = 2): string[] {
   const r = hasardDe(`${graine}:offre:${rang}`)
+  const catalogue = JOKERS_SANS_LEGENDAIRE.filter(j => (j.depuis ?? 2) <= v)
   const raretes = Object.entries(POIDS_DES_RARETES) as [keyof typeof POIDS_DES_RARETES, number][]
   const prises: string[] = []
   for (let essai = 0; prises.length < JOKERS_PAR_OFFRE && essai < 60; essai++) {
@@ -353,10 +360,50 @@ export function offreDeJokers(graine: string, rang: number): string[] {
         break
       }
     }
-    const candidats = JOKERS_SANS_LEGENDAIRE.filter(j => j.rarete === rarete && !prises.includes(j.cle))
+    const candidats = catalogue.filter(j => j.rarete === rarete && !prises.includes(j.cle))
     if (candidats.length > 0) prises.push(candidats[Math.floor(r() * candidats.length)].cle)
   }
   return prises
+}
+
+// ── Le dévoilement (l'étape 3) ─────────────────────────────────────────────
+
+/**
+ * Le dévoilement : l'intitulé paraît mot à mot, le premier dès que la
+ * question se pose, puis un tous les `MS_PAR_MOT` ; Arrêt sur image en
+ * suspend le compte `ARRET_SUR_IMAGE_MS`. Une question ne se dévoile qu'à
+ * `MOTS_DU_DEVOILEMENT` mots au moins : trois mots ne se dévoilent pas. Des
+ * choix de produit (`docs/reference/baremes.md`).
+ */
+export const MS_PAR_MOT = 350
+export const ARRET_SUR_IMAGE_MS = 5000
+export const MOTS_DU_DEVOILEMENT = 6
+
+/** Les mots d'un intitulé, tels que le dévoilement les livre un à un. */
+export const motsDe = (texte: string): string[] => texte.split(/\s+/).filter(Boolean)
+
+/** Le temps compté depuis le premier mot à l'instant `t` : la pause d'Arrêt sur image n'y entre pas. */
+function tempsCompte(depuis: number, t: number, arret?: number): number {
+  let compte = Math.max(0, t - depuis)
+  if (arret !== undefined) compte -= Math.max(0, Math.min(t, arret + ARRET_SUR_IMAGE_MS) - Math.max(depuis, arret))
+  return Math.max(0, compte)
+}
+
+/**
+ * Combien des `total` mots d'un dévoilement sont dits à l'instant `t` —
+ * l'heure du serveur, jamais celle du téléphone (invariant 6) : le premier
+ * dès `depuis`, puis un tous les `MS_PAR_MOT`, sans compter la pause
+ * d'Arrêt sur image joué à `arret`.
+ */
+export function motsDits(total: number, depuis: number, t: number, arret?: number): number {
+  if (total <= 0 || t < depuis) return 0
+  return Math.min(total, 1 + Math.floor(tempsCompte(depuis, t, arret) / MS_PAR_MOT))
+}
+
+/** L'instant où se dit le `n`-ième mot (de 1 à `total`) : la route l'attend pour l'écrire. */
+export function instantDuMot(n: number, depuis: number, arret?: number): number {
+  const sansPause = depuis + Math.max(0, n - 1) * MS_PAR_MOT
+  return arret !== undefined && arret >= depuis && sansPause > arret ? sansPause + ARRET_SUR_IMAGE_MS : sansPause
 }
 
 // ── Les chances ────────────────────────────────────────────────────────────
@@ -485,8 +532,12 @@ export function escalesAtteignables(carte: CarteDUnActe, ici: string | null): Se
 
 /** Ce que l'expédition garde de son départ (`campagne_series.expedition`), versionné. */
 export interface DepartDExpedition {
-  /** 1 : l'étape 1, sans jokers — le campement y rend sa vie d'office ; 2 : les jokers. */
-  v: 1 | 2
+  /**
+   * 1 : l'étape 1, sans jokers — le campement y rend sa vie d'office ; 2 :
+   * les jokers ; 3 : les formes — ses offres connaissent Arrêt sur image
+   * (`Joker.depuis`). Les formes elles-mêmes sont dans ses cartes.
+   */
+  v: 1 | 2 | 3
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -531,6 +582,8 @@ export interface QuestionPosee {
   reponses?: number
   /** Ses réponses sont des années ou des nombres : la Prédiction s'y joue. */
   nombre?: boolean
+  /** La forme où elle s'est posée, quand ce n'est pas celle de la base : Arrêt sur image ne se joue que sur un dévoilement. */
+  forme?: FormeDEscale
 }
 
 export type IssueDExpedition = 'en-route' | 'au-bout' | 'legendaire' | 'perdue' | 'abandonnee'
@@ -703,7 +756,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.offre = { jokers: [], aPrendre: 0 }
       return
     }
-    e.offre = { jokers: offreDeJokers(depart.graine, e.offres++), aPrendre: coffre && pose('tresor') ? 2 : 1 }
+    e.offre = { jokers: offreDeJokers(depart.graine, e.offres++, depart.v), aPrendre: coffre && pose('tresor') ? 2 : 1 }
   }
   const vaincre = () => {
     const acte = e.acte
@@ -1061,6 +1114,9 @@ export function refusDuJoker(
   if (e.joue) return 'Un seul joker par question'
   const q = questions[e.enAttente]
   if (q?.reponses === 2 && (cle in EFFACE || cle === 'double-chance')) return 'Pas sur un vrai ou faux : il répondrait à ta place'
+  if (cle === 'arret-sur-image' && q?.forme !== 'devoilement') return 'Arrêt sur image se joue sur un dévoilement'
+  // Deux textes qui se dévoilent ensemble, on n'en lirait aucun.
+  if (cle === 'deux-visages' && q?.forme === 'devoilement') return 'Deux visages ne se joue pas sur un dévoilement'
   if (cle === 'prediction') {
     if (!q?.nombre) return 'La Prédiction se joue sur une année ou un nombre'
     if (geste && !(Number.isInteger(geste.montre) && geste.montre! >= 0 && geste.montre! < (q.reponses ?? 0))) return 'Montre une des réponses à l’Oracle'
@@ -1087,6 +1143,16 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
   indice?: string
   /** La Prédiction : la réponse montrée à l'Oracle, et ce qu'il en dit. */
   prediction?: { montre: number; sens: SensDeLOracle }
+  /** Sa forme, quand ce n'est pas celle de la base : six choix, un vrai ou faux tiré d'une question à quatre choix, un dévoilement. */
+  forme?: FormeDEscale
+  /** Un vrai ou faux tiré d'une question à quatre choix : la réponse proposée, à dire vraie ou fausse. */
+  proposee?: string
+  /**
+   * Un dévoilement : son intitulé n'arrive pas ici (`texte` vide) — il se lit
+   * mot à mot, du serveur, à mesure qu'il se dit —, seulement combien il a
+   * de mots, de quoi dire où il en est.
+   */
+  devoilement?: { mots: number }
 }
 
 /** Ce que dit l'Oracle d'une réponse montrée : la bonne est plus haut, plus bas, ou c'est elle. */
@@ -1170,6 +1236,10 @@ export interface ReponseDExpedition {
   vaincu?: string
   recompenses?: PalierTombe[]
   legendaires?: string[]
+  /** Un dévoilement : son intitulé entier, qu'il n'avait peut-être pas fini de lire. */
+  texte?: string
+  /** Un dévoilement : les mots dits quand sa réponse est arrivée, à l'heure du serveur (invariant 6), sur combien. */
+  devoile?: { mots: number; sur: number }
 }
 
 /** Ce que rend un geste : l'expédition d'après, et, à sa fin, ce qui est tombé — le légendaire gardé. */

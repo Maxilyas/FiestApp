@@ -692,10 +692,10 @@ expédition.
 
 Les réponses de chaque partie.
 
-- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) ; NULL : une réponse nue).
+- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) ; NULL : une réponse sans aide), `forme` (la forme où l'expédition l'a posée, quand ce n'est pas celle de la base — `six`, `vrai-faux`, `devoilement` ; NULL : telle que la base l'a écrite, un vrai ou faux né tel compris).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
-- **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues (`REPONSE_NUE`), et une bonne réponse aidée ne retrouve rien au carnet ; une erreur aidée y entre.
+- **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues — ni joker ni autre forme (`REPONSE_NUE`) —, et une bonne réponse aidée, ou trouvée en vrai ou faux tiré d'une question à quatre choix, ne retrouve rien au carnet ; une erreur aidée y entre.
 - **Effacée par** : la suppression du profil, avec ses parties.
 
 ### `expedition_gestes`

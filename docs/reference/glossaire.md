@@ -257,7 +257,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Jeton | Le secret qu'un téléphone garde pour retrouver sa fiche, qui ne vaut que dans son espace | `token`, `quizz.me.<espace>` |
 | Jeton de la réserve | Le secret qui ouvre les six routes de la routine du matin, et rien d'autre — mais qui lit les bonnes réponses à venir | `porteDeLaReserve` |
-| Joker | Un pouvoir de l'expédition — à jouer sur une question, à poser pour un acte, ou sur la carte —, jamais hors d'elle : sept sans légendaire, de départ ou des offres, et un par légendaire de la V1 ; aucun pour un Divin | `Joker`, `JOKERS_SANS_LEGENDAIRE`, `JOKERS_DES_LEGENDAIRES` (`shared/jokers.ts`) |
+| Joker | Un pouvoir de l'expédition — à jouer sur une question, à poser pour un acte, ou sur la carte —, jamais hors d'elle : huit sans légendaire, de départ ou des offres — Arrêt sur image depuis les formes, et un par légendaire de la V1 ; aucun pour un Divin | `Joker`, `JOKERS_SANS_LEGENDAIRE`, `JOKERS_DES_LEGENDAIRES` (`shared/jokers.ts`) |
 | Joué ce soir | Un quiz choisi dans une partie de la soirée, même interrompue : le programme ne le repropose plus | `lancementDeQuiz` |
 | Joueurs croisés | Des profils rencontrés en soirée, en duel, au défi de la semaine, ou de cote proche, proposés à défier ou à ajouter | `joueursCroises` |
 | Jours d'avance | Les questions prêtes de la réserve divisées par dix, arrondi en dessous ; le QG s'inquiète sous sept | `etatDeLaReserve` |

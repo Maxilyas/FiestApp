@@ -18,7 +18,8 @@ export function SerieCorrigee({ correction }: { correction: CorrectionDeCampagne
           key={i}
           verdict={verdictDe(c)}
           tete={`Question ${i + 1} · ${NOM_NIVEAU[c.niveau]}`}
-          texte={c.texte}
+          // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : « Faux » ne se lit qu'avec ce qu'il proposait.
+          texte={c.proposee !== undefined ? `${c.texte} — « ${c.proposee} »` : c.texte}
           reponses={c.reponses}
           bonne={c.bonne}
           choix={c.choix}

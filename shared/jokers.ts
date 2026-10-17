@@ -41,6 +41,13 @@ export interface Joker {
   legendaire?: string
   /** Plus fort, mais il coûte — une vie, un coffre, ta chance sur la carte. */
   maudit?: boolean
+  /**
+   * La version du départ (`DepartDExpedition.v`) d'où les offres le
+   * proposent ; absent : depuis les jokers (2). Une offre se rejoue de la
+   * graine à chaque lecture : un joker de plus au catalogue changerait les
+   * offres d'une expédition déjà partie, et le joker qu'elle y a pris.
+   */
+  depuis?: number
 }
 
 /**
@@ -81,14 +88,16 @@ export const JOKERS_DES_LEGENDAIRES: readonly Joker[] = [
 /**
  * Les jokers sans légendaire : le paquet de départ (Coup d'œil trois fois,
  * Échange) et ce que les élites et les coffres offrent, un au choix parmi
- * trois (étape 2). Arrêt sur image vient avec le dévoilement (étape 3),
- * Quitte ou double avec les écus (étape 4).
+ * trois (étape 2). Arrêt sur image est venu avec le dévoilement (étape 3) :
+ * seules les expéditions parties depuis l'offrent (`depuis`). Quitte ou
+ * double viendra avec les écus (étape 4).
  */
 export const JOKERS_SANS_LEGENDAIRE: readonly Joker[] = [
   { cle: 'coup-d-oeil', nom: 'Coup d’œil', sorte: 'jouer', rarete: 'commun', effet: 'Une mauvaise réponse s’efface.' },
   { cle: 'echange', nom: 'Échange', sorte: 'jouer', rarete: 'commun', effet: 'Une autre question, de la même escale.' },
   { cle: 'pioche', nom: 'La pioche', sorte: 'jouer', rarete: 'commun', effet: 'Tu tires deux jokers, pour les questions suivantes : elle prend la place du joker de celle-ci.' },
   { cle: 'detour', nom: 'Le détour', sorte: 'carte', rarete: 'commun', effet: 'Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus.' },
+  { cle: 'arret-sur-image', nom: 'Arrêt sur image', sorte: 'jouer', rarete: 'commun', depuis: 3, effet: 'Sur un dévoilement : le texte s’arrête cinq secondes, et ton gain avec lui.' },
   { cle: 'double-chance', nom: 'Double chance', sorte: 'jouer', rarete: 'rare', effet: 'Deux réponses : il suffit que l’une soit juste.' },
   { cle: 'sursis', nom: 'Sursis', sorte: 'jouer', rarete: 'rare', effet: 'Si tu te trompes, tu ne perds pas de vie.' },
   { cle: 'tout-ou-rien', nom: 'Tout ou rien', sorte: 'jouer', rarete: 'maudit', maudit: true, effet: 'Deux mauvaises réponses s’effacent ; si tu te trompes quand même, deux vies.' },

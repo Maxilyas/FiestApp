@@ -2,10 +2,10 @@
 
 > Un mode pour les profils, où l'on gagne les légendaires du jeu — et où ils servent enfin : trois actes, chacun une carte tirée au sort, un gardien au bout de chacun — un légendaire —, et l'un des trois à garder au bout du troisième ; en main, des jokers, dont ceux des légendaires qu'on emmène. Comment on la joue, ses règles chiffrées, ce qui reste à venir, puis comment c'est construit.
 
-**Dans cette page** : [En bref](#en-bref) · [Partir](#partir) · [La carte d'un acte](#la-carte-dun-acte) · [Les escales](#les-escales) · [Les jokers](#les-jokers) · [Le gardien](#le-gardien) · [La fin](#la-fin) · [Ce qu'elle paie](#ce-quelle-paie) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [En bref](#en-bref) · [Partir](#partir) · [La carte d'un acte](#la-carte-dun-acte) · [Les escales](#les-escales) · [Les formes](#les-formes) · [Les jokers](#les-jokers) · [Le gardien](#le-gardien) · [La fin](#la-fin) · [Ce qu'elle paie](#ce-quelle-paie) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
-> L'Expédition se construit en quatre étapes (le brief : `retours/2026-10-17/expedition.md`, validé par le propriétaire le 17 octobre 2026). Cette page dit les deux premières : la carte et une expédition de bout en bout, puis les jokers. **Elle est ouverte en production depuis ses jokers**, et l'accueil d'un profil y mène (« L’Expédition », sous les duels) ; l'accueil d'un invité anonyme ne change pas.
+> L'Expédition se construit en quatre étapes (le brief : `retours/2026-10-17/expedition.md`, validé par le propriétaire le 17 octobre 2026). Cette page dit les trois premières : la carte et une expédition de bout en bout, les jokers, puis les formes de question. **Elle est ouverte en production depuis ses jokers**, et l'accueil d'un profil y mène (« L’Expédition », sous les duels) ; l'accueil d'un invité anonyme ne change pas.
 
 ## En bref
 
@@ -20,7 +20,7 @@
 
 La page de l'expédition (`/expedition`) dit ce qui t'attend : **les trois gardiens**, l'acte de chacun et ce qu'il demande, et ce que dure une expédition — vingt à trente questions. Les gardiens se tirent parmi les légendaires que tu n'as pas et qui ont leur joker ; ceux de saison n'en sont jamais, ils ne se gagnent qu'à leur saison, et l'invité du jour non plus. S'il n'en reste pas assez, les places se prennent parmi les tiens : la page le dit avant le départ, « déjà à toi » — le garder au bout ne te rapporterait que l'expérience de tes réponses.
 
-Dessous, **ton équipée** : deux places, et ton paquet au départ — Coup d'œil trois fois, Échange, et le joker de chacun. « Changer » ouvre sa feuille : tes légendaires qui ont leur joker, l'**invité du jour** d'abord — le même pour tous, tiré du jour de Paris, qui part même chez qui ne l'a pas : c'est par lui qu'un profil sans légendaire découvre ce qu'ils font —, la fiche de chacun et son joker ; et, dépliés à la demande, les vingt-huit jokers de l'expédition, les tiens et ceux à gagner. Un toucher emmène ou laisse ; rien ne change avant « Choisir ». La page retient l'équipée de ton dernier départ.
+Dessous, **ton équipée** : deux places, et ton paquet au départ — Coup d'œil trois fois, Échange, et le joker de chacun. « Changer » ouvre sa feuille : tes légendaires qui ont leur joker, l'**invité du jour** d'abord — le même pour tous, tiré du jour de Paris, qui part même chez qui ne l'a pas : c'est par lui qu'un profil sans légendaire découvre ce qu'ils font —, la fiche de chacun et son joker ; et, dépliés à la demande, les vingt-neuf jokers de l'expédition, les tiens et ceux à gagner. Un toucher emmène ou laisse ; rien ne change avant « Choisir ». La page retient l'équipée de ton dernier départ.
 
 « Partir » tire tes trois cartes. Une seule expédition à la fois : « ← Partir », en haut, la laisse où elle en est, sans rien perdre, et la page la reprend telle quelle ; « Abandonner l’expédition », sous la carte, la finit là.
 
@@ -43,6 +43,17 @@ La carte se lit de bas en haut : on part d'en bas, chaque escale mène à une ou
 
 Ne rien prendre d'une offre est permis. Les questions viennent de la base de la campagne, jamais de la réserve du quiz du jour, tirées comme une marche de série : jamais vues d'abord. Chacune se signale après sa réponse, comme en série.
 
+## Les formes
+
+Chaque question et chaque élite a sa forme, que sa chance sur la carte compte déjà :
+
+- **Quatre choix** : la question telle que la base l'a écrite.
+- **Vrai ou faux** : une question à quatre choix en devient un — son intitulé, une réponse proposée, la bonne une fois sur deux : « Vrai » ou « Faux » ? Une question née vrai ou faux se pose telle qu'elle est écrite. Un joker qui efface ou qui double ne s'y joue pas : il répondrait à ta place.
+- **Six choix** : ses quatre réponses et deux leurres de plus.
+- **Le dévoilement** : l'intitulé paraît mot à mot, un toutes les 350 ms, les quatre réponses dès le départ — réponds dès que tu sais. Le texte vient du serveur au fil des mots, jamais entier d'avance, et l'heure de ta réponse est celle du serveur : la révélation dit à quel mot tu as répondu, et redonne l'intitulé entier. **Arrêt sur image**, un commun des offres, l'arrête cinq secondes, son compte avec lui ; Deux visages ne s'y joue pas — deux textes à la fois, on n'en lirait aucun.
+
+Le premier étage pose quatre choix sept fois sur dix, sinon un vrai ou faux ; au-dessus, quatre choix 40 %, les trois autres 20 % chacune. Une question à une autre forme ne mesure pas son savoir : ni la précision, ni les écussons, ni la difficulté mesurée ne la comptent, et un vrai ou faux tiré d'une question à quatre choix, trouvé, ne retrouve rien au carnet.
+
 ## Les jokers
 
 - **Le paquet, la main, la défausse.** Au départ, le paquet tient Coup d'œil trois fois, Échange, et le joker de chaque légendaire de ton équipée. À chaque question, ta main tire un joker du paquet, tant qu'elle en tient moins de trois ; ce que tu ne joues pas se garde. Joué, un joker va à la défausse, qui ne revient au paquet qu'à l'acte suivant : chaque joker sert une fois par acte, et le paquet qui s'épuise avant le gardien est la tension du mode. Vaincu, un gardien glisse son joker dans ton paquet, jusqu'au bout.
@@ -53,7 +64,7 @@ Ne rien prendre d'une offre est permis. Les questions viennent de la base de la 
 - **Le hasard se rejoue** : la main, les offres, les réponses qu'un joker efface viennent de la graine de l'expédition — recharger la page ne retire rien.
 - **Les jokers ne sortent jamais de l'expédition** : ni soirée, ni quiz du jour, ni défi, ni duel. Un Divin n'en a aucun.
 
-Les vingt-huit jokers, leur sorte, leur rareté et ce qu'ils font : `shared/jokers.ts`, et la feuille de l'équipée.
+Les vingt-neuf jokers, leur sorte, leur rareté et ce qu'ils font : `shared/jokers.ts`, et la feuille de l'équipée.
 
 ## Le gardien
 
@@ -72,19 +83,18 @@ Le gardien pose ses questions, toutes catégories, jusqu'à ce que tu en aies tr
 | Un confetti par bonne réponse | oui, aidée ou non | comme dans tous les modes |
 | L'expérience d'une bonne réponse | oui, comme en campagne | le barème ne bouge pas : aucune expérience de plus pour un gardien |
 | Le Marathonien | oui | il compte l'effort |
-| Le carnet | toutes ses erreurs, aidées ou non ; une bonne réponse aidée par un joker n'y retrouve rien ; une source retrouvée y compte comme une révision | trouvée par chance, une réponse ne prouve rien |
-| La mesure des difficultés, le modèle du savoir, les écussons et la précision, L'Érudit | ses réponses nues seulement : ni celles qu'un joker a aidées, ni celles d'une source | aidée, une question n'a plus la difficulté qu'on mesure ; une source repose ce qu'il a raté, réponse lue |
+| Le carnet | toutes ses erreurs, aidées ou non ; une bonne réponse aidée par un joker, ou trouvée en vrai ou faux tiré d'une question à quatre choix, n'y retrouve rien ; une source retrouvée y compte comme une révision | trouvée par chance, une réponse ne prouve rien |
+| La mesure des difficultés, le modèle du savoir, les écussons et la précision, L'Érudit | ses réponses nues seulement : ni celles qu'un joker a aidées, ni celles d'une autre forme, ni celles d'une source | aidée, à six choix, en vrai ou faux, à mi-mot, une question n'a plus la difficulté qu'on mesure ; une source repose ce qu'il a raté, réponse lue |
 | Les records, la Grande Série, L'Alpiniste, l'Éclat | non | l'expédition n'est pas une série |
 | Le légendaire | oui | au bout de l'acte 3 |
 
 ## Ce qui vient ensuite
 
-Les étapes 1 et 2 posent la carte, une expédition de bout en bout, et les jokers. Les deux suivantes, chacune sa PR :
+Les étapes 1 à 3 posent la carte, une expédition de bout en bout, les jokers et les formes. Reste la quatrième :
 
-- **Les formes** — vrai ou faux, six choix, le dévoilement mot à mot ; Arrêt sur image.
 - **Les écus** — l'échoppe, les talismans, l'inconnu ; Quitte ou double.
 
-D'ici là, la carte tire déjà ces escales et ces formes, à leurs proportions — et pose une question à la place d'une échoppe ou de l'inconnu, quatre choix à la place des autres formes. Cinq légendaires attendent leur joker — l'Éléphant, la Licorne, l'Aigle, la Citrouille, le Sapin — : sans lui, ils ne partent ni dans l'équipée ni parmi les gardiens.
+D'ici là, la carte tire déjà ces escales, à leurs proportions — et pose une question à quatre choix à la place d'une échoppe ou de l'inconnu. Cinq légendaires attendent leur joker — l'Éléphant, la Licorne, l'Aigle, la Citrouille, le Sapin — : sans lui, ils ne partent ni dans l'équipée ni parmi les gardiens.
 
 ## Les règles chiffrées
 
@@ -92,9 +102,11 @@ D'ici là, la carte tire déjà ces escales et ces formes, à leurs proportions 
 |---|---|
 | Actes | 3, un gardien chacun |
 | Une carte | 6 étages de 4 colonnes, 5 chemins, 2 campements, le gardien |
-| Le premier étage | des questions d'une catégorie |
+| Le premier étage | des questions d'une catégorie, à quatre choix 70 %, en vrai ou faux 30 % |
 | Les étages 2 à 6 | question 46 %, élite 12 %, source 10 %, coffre 12 %, l'inconnu 8 %, échoppe 5 % — jusqu'à l'étape 4, échoppes et inconnus en questions ; une source et un coffre au moins par acte |
 | Les thèmes | un mélange de deux ou trois catégories 18 %, un thème pointu 14 %, sinon une catégorie |
+| Les formes, au-dessus du premier étage | quatre choix 40 %, vrai ou faux 20 %, six choix 20 %, dévoilement 20 % |
+| Le dévoilement | un mot tout de suite, puis un toutes les 350 ms ; Arrêt sur image l'arrête 5 s ; six mots au moins |
 | Les marches | acte 1 : facile, puis facile ; acte 2 : facile, puis moyenne ; acte 3 : moyenne — l'élite, une marche au-dessus ; jamais d'experte |
 | Le gardien | 4 bonnes réponses faciles, puis 3 moyennes, puis 3 difficiles |
 | Les vies | 3 au départ, 3 au plus ; −1 par question ratée, +1 par source retrouvée et par campement |
@@ -103,7 +115,7 @@ D'ici là, la carte tire déjà ces escales et ces formes, à leurs proportions 
 | L'équipée | 2 légendaires, les tiens ou l'invité du jour |
 | Une offre | 3 jokers, un à prendre — deux sous Le trésor ; commun 60 %, rare 30 %, maudit 10 % |
 
-Chaque constante, sa valeur et ce que la changer implique : [les barèmes](../reference/baremes.md#lexpédition). **Le calibrage** : `server/scripts/calibrage-expedition.ts` rejoue des milliers d'expéditions sur le vrai code, pour un joueur faible, moyen et fort ; sur chaque question, il sait ou ne sait pas, et joue son meilleur joker quand il ne sait pas. Le 17 octobre 2026, avec la Chouette et le Phénix : le faible arrive au bout quatre fois sur cent, le moyen vingt-six, le fort soixante-sept ; s'il garde ses jokers rares et légendaires pour le gardien, cinq, vingt-neuf et soixante-douze. Sans jokers, 0, 4 et 39. La cible retenue le même jour — le moyen une fois sur trois, le fort huit fois sur dix — est approchée ; une main de quatre la tiendrait (33 et 74 %), un choix laissé au propriétaire.
+Chaque constante, sa valeur et ce que la changer implique : [les barèmes](../reference/baremes.md#lexpédition). **Le calibrage** : `server/scripts/calibrage-expedition.ts` rejoue des milliers d'expéditions sur le vrai code, pour un joueur faible, moyen et fort ; sur chaque question, il sait ou ne sait pas, et joue son meilleur joker quand il ne sait pas. Le 17 octobre 2026, avec la Chouette et le Phénix : le faible arrive au bout quatre fois sur cent, le moyen vingt-six, le fort soixante-sept ; s'il garde ses jokers rares et légendaires pour le gardien, cinq, vingt-neuf et soixante-douze. Sans jokers, 0, 4 et 39. La cible retenue le même jour — le moyen une fois sur trois, le fort huit fois sur dix — est approchée ; une main de quatre la tiendrait (33 et 74 %), un choix laissé au propriétaire. Les formes (l'étape 3) n'y changent rien de mesurable : cinq, vingt-cinq et soixante-six ; en gardant ses jokers, six, vingt-huit et soixante-dix — le vrai ou faux que le hasard aide paie ce que le six choix coûte.
 
 ## Comment c'est construit
 
@@ -111,6 +123,7 @@ Chaque constante, sa valeur et ce que la changer implique : [les barèmes](../re
 - **Une expédition est une partie de la campagne d'un autre mode** (`campagne_series`, `mode = 'expedition'`) : ses réponses vont au journal de toutes les parties — l'expérience, les confettis, le carnet et « jamais vues d'abord » les comptent sans rien en savoir ; une réponse aidée y porte la clé de son joker (`campagne_reponses.joker`), que la mesure et le savoir écartent. Son départ — ses trois cartes et la chance sur chaque escale, ses gardiens, son équipée — se garde avec elle (la colonne `expedition`) : une retouche du générateur ne déplace pas une escale sous les pieds de qui joue. Ses gestes vont à leur journal (`expedition_gestes`), chacun avec le rang qu'il suit : un double toucher, un second onglet ne jouent pas deux fois (invariant 12). Voir [la base de données](../reference/base-de-donnees.md).
 - **Le serveur tire et juge** (`CampagneStore`, « L'Expédition », `server/src/core/campagne.ts` ; les routes, `server/src/expedition.ts`) : la question d'une escale se tire dans le lot même du geste qui y mène, celles du gardien d'un coup, l'autre d'Échange ou de Deux visages aussi ; la bonne réponse et l'anecdote n'arrivent qu'avec le verdict, et ce qu'un joker montre — les réponses effacées, l'indice, l'Oracle — se calcule de son côté (invariant 1). Voir [l'API HTTP](../reference/api-http.md#lexpédition).
 - **Un geste ne coûte que son écriture** (le 17 octobre 2026, « n'oublie pas le côté performance ») : l'expédition en route se garde en mémoire, sous le verrou du profil, avec ce que le joueur a vu, lu dans le lot du départ. Une escale coûtait trois allers-retours vers la base permanente, l'un après l'autre — relire l'expédition, relire ce qu'il a vu, écrire —, une réponse deux ou trois. Désormais : partir, deux ; une escale, un geste ou une mauvaise réponse, un ; une bonne réponse, deux, comme en série — sa ligne d'expérience s'écrit après elle. Une écriture ratée fait oublier l'expédition gardée, et la base fait foi ; une réponse donnée ailleurs dans la campagne fait relire ce qu'il a vu à l'escale suivante. Le tirage d'une escale ne bat plus tout son tas : il le lit dans un ordre tiré au fur et à mesure, et s'arrête à la première question jamais vue de sa marche — 0,1 ms pour le gardien, qui en battait vingt-cinq mille en 15 ms (`expedition-charge.test.ts`, `expedition-tirage.test.ts`).
+- **Les formes se posent au serveur** (`aSaForme`, `server/src/core/campagne.ts`) : six choix prend deux leurres de la question (`meta.leurres`), un vrai ou faux une réponse proposée, un dévoilement l'heure de son premier mot (`devoileLe`) ; la question les garde, et sa réponse sa forme (`campagne_reponses.forme`), que la mesure écarte (`REPONSE_NUE`). **Le dévoilement s'écrit au fil des mots** (`GET /api/expedition/:id/devoilement`) : une réponse HTTP qui écrit chaque mot à son heure, celle du serveur (`motsDits`, `instantDuMot`) — l'intitulé ne part jamais entier d'avance (invariant 1) —, et rouverte, redit d'un coup les mots déjà dits ; Arrêt sur image y est relu à chaque mot (`arretLe`). La réponse lit les mots dits à l'heure où elle arrive (invariant 6).
 - **Le légendaire gardé** est une ligne `expedition:<légendaire>` de l'étagère, hors de l'étagère qu'on voit et du compte des badges, comme les saisons ; chaque légendaire qui a son joker reçoit la voie qui la lit (`aussi`, `shared/legendaires.ts`) — une voie de plus, qui ne reprend rien à personne (invariant 22) ; l'album la montre (« en expédition ») depuis que l'expédition est ouverte (`voiesMontrees`). Les Divins n'ont ni joker ni gardien (invariant 21).
 - **La page** : `client/src/views/ExpeditionApp.tsx` — le départ et l'équipée, la carte et son tracé, l'escale et la main, l'offre, le campement, le gardien, le gardien vaincu, le choix, la fin par l'écran des gains (`Gains.tsx`). `server/scripts/rendu-expedition.ts` photographie chaque écran en 360 × 640, les jokers compris.
 - `.claude/rules/expedition.md` — les fichiers et les pièges du domaine, pour qui modifie le code.

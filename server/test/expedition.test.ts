@@ -297,12 +297,14 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
     let v: VueDeLExpedition = (await poster(banc, lea, '/api/expedition')).corps
     const chemin = versUneSource(v.carte!)
     assert.ok(chemin.length > 1, 'chaque acte a sa source')
-    let justes = 0
+    // Ses bonnes réponses en route posées nues, telles que la base les a écrites : à une autre forme (l'étape 3), elles ne disent plus son savoir.
+    let nues = 0
     for (const id of chemin.slice(0, -1)) {
       v = (await avancer(banc, lea, v, id)).corps.expedition
       if (v.question) {
+        const posee = questionsDe(banc, v.id)[v.question.index] as { forme?: string }
         v = (await repondre(banc, lea, v, true)).expedition
-        justes++
+        if (!posee.forme) nues++
       }
       // Un coffre, une élite trouvée : rien de pris — aucun joker ne touche ses réponses.
       if (v.offre) v = await pasSuivant(banc, lea, v)
@@ -313,9 +315,9 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
     assert.equal(reprise.carnet, true)
     await repondre(banc, lea, v, true)
 
-    // Sa précision : les trois de la série et les escales d'avant, pas la question reprise.
+    // Sa précision : les trois de la série et les escales d'avant posées nues, pas la question reprise.
     const fiche = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.fiche
-    assert.deepEqual([fiche.qcm, fiche.justes], [3 + justes, justes])
+    assert.deepEqual([fiche.qcm, fiche.justes], [3 + nues, nues])
     // Sa mesure : la seule réponse de la série — relue au plus toutes les dix minutes.
     await poster(banc, lea, `/api/campagne/serie/${v.id}/signalement`, { index: v.question!.index, texte: 'Pour relire sa mesure.' })
     horloge.t += 11 * 60_000

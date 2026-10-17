@@ -1349,6 +1349,24 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 *Fichiers : `server/scripts/calibrage-expedition.ts`, `shared/jokers.ts`, `docs/reference/baremes.md`*
 
+### L'expédition en route vit en mémoire, et le tirage d'une escale ne bat plus la base
+**Contexte** : le propriétaire, le 17 octobre 2026 : « n'oublie pas le côté performance pour que ça soit rapide aussi niveau requête ». Une escale se jouait en trois allers-retours vers Turso l'un après l'autre — relire l'expédition, relire ce qu'il a vu, écrire —, une réponse en deux ou trois : 29 ms chacun sur une connexion gardée, 225 sur une connexion à rouvrir. Et le gardien battait les vingt-cinq mille questions de la base pour en prendre six : 15 ms de processeur, dix fois plus au dixième de cœur de l'hébergeur.
+
+**Décision** : l'expédition en route se garde en mémoire après chaque écriture, avec ce que le joueur a vu, lu dans le lot du départ, sous le verrou du profil, comme la série en cours ; une écriture ratée l'oublie, et une réponse écrite ailleurs dans la campagne fait relire ce qu'il a vu (`vuAilleurs`). Le tirage d'une escale lit son tas dans un ordre tiré à mesure, et s'arrête à la première question qui ne peut être battue (`tirerPourUneEscale`).
+
+**Conséquence** : partir coûte deux allers-retours, une escale, un joker ou une mauvaise réponse un, une bonne réponse deux, comme en série ; le gardien se tire en 0,1 ms. Une écriture neuve de l'expédition, ou une porte neuve qui écrit une réponse de campagne, tient la mémoire à jour — `expedition-charge.test.ts` compte.
+
+*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition-charge.test.ts`, `server/test/expedition-tirage.test.ts`*
+
+### Les formes : le dévoilement s'écrit au fil des mots, et une autre forme ne mesure rien
+**Contexte** : l'étape 3 du brief pose quatre formes — quatre choix, vrai ou faux, six choix, dévoilement. Un dévoilement envoyé entier, même caché par la page, donnerait l'intitulé au téléphone d'avance (invariant 1), et une heure lue au téléphone dériverait (invariant 6). Une question à six choix, en vrai ou faux tiré d'une autre ou lue à mi-mot n'a plus la difficulté qu'on mesure.
+
+**Décision** : la forme se pose au serveur, au tirage (`aSaForme`) : six choix prend deux leurres de la question, un vrai ou faux propose une de ses réponses — la bonne une fois sur deux —, un dévoilement garde l'heure de son premier mot. Le dévoilement part par sa route, une réponse HTTP qui écrit chaque mot à son heure, celle du serveur ; la réponse lit les mots dits à l'heure où elle arrive. Arrêt sur image l'arrête cinq secondes ; Deux visages ne s'y joue pas. La réponse porte sa forme (`campagne_reponses.forme`) : ni la mesure, ni le modèle du savoir, ni la précision et les écussons, ni L'Érudit ne la lisent, et un vrai ou faux tiré d'une autre, trouvé, ne retrouve rien au carnet. Arrêt sur image, joker des offres, ne s'offre qu'aux expéditions parties depuis (`Joker.depuis`, le départ en version 3) : une offre se rejoue de la graine, et un joker de plus aurait changé celles d'avant.
+
+**Conséquence** : la page ne reçoit d'un dévoilement que son compte de mots, puis ses mots, un à un ; rouverte, la route redit d'un coup ceux déjà dits. Une forme que le thème ne sait pas prendre se pose à quatre choix. Ce qui compare une question jouée à la base la lit à sa forme — un signalement en vrai ou faux n'est pas une version d'avant.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-formes.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

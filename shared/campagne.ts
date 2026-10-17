@@ -626,6 +626,8 @@ export interface CorrectionDeCampagne {
   juste: boolean
   niveau: Niveau
   anecdote: string | null
+  /** Un vrai ou faux de l'expédition tiré d'une question à quatre choix : la réponse qu'il proposait. */
+  proposee?: string
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────

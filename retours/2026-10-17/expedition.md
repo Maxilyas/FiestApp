@@ -326,6 +326,21 @@ dirait trop sur ce qui les fait descendre (invariant 21).
   d'avance (invariant 1), et le gain se lit à l'heure du serveur, à la
   réception de la réponse (invariant 6).
 
+**Fait à l'étape 3** (le 17 octobre 2026), avec ce que le code a dû
+trancher : le dévoilement dit un mot tous les 350 ms (`MS_PAR_MOT`), le
+premier dès que la question se pose, et ne se tire que parmi les intitulés
+de six mots au moins (`MOTS_DU_DEVOILEMENT`) ; ses mots partent par leur
+route (`GET /api/expedition/:id/devoilement`), un par ligne, et la réponse
+dit à quel mot elle est arrivée (`devoile`) — les écus de l'étape 4 le
+liront. Arrêt sur image suspend le compte cinq secondes
+(`ARRET_SUR_IMAGE_MS`), mots compris. Deux visages ne se joue pas sur un
+dévoilement : deux textes à la fois, on n'en lirait aucun. Une forme
+qu'aucune question du thème ne peut prendre se pose à quatre choix ; une
+élite a sa forme, comme une question. Arrêt sur image ne s'offre qu'aux
+expéditions parties depuis (`Joker.depuis`, le départ en version 3) : les
+offres se rejouent de la graine, et un joker de plus aurait changé celles
+d'une expédition en route.
+
 ### Les écus, l'échoppe, les talismans (étape 4)
 
 - **Les écus** d'une escale trouvée, selon la chance qu'elle annonçait :
@@ -456,6 +471,21 @@ disait 34 et 85. Une main de quatre la tiendrait (`MAIN_MAX` : le moyen à
 33 %, le fort à 74 %, en gardant ses jokers) ; un quatrième Coup d'œil au
 départ n'y change rien de mesurable. L'expédition s'ouvre aux règles du
 brief, et le choix d'une main de quatre reste au propriétaire (l'étape 2).
+
+**Avec les formes (l'étape 3)**, remesurée le même jour, le calibrage
+posant chaque escale à sa forme — le vrai ou faux à deux réponses, le six
+choix à six, sa chance ramenée comme la carte la ramène :
+
+| | Faible | Moyen | Fort |
+|---|---|---|---|
+| Avec la Chouette et le Phénix | 5 % | 25 % | 66 % |
+| — en les gardant (`--garder`) | 6 % | 28 % | 70 % |
+| Avec Janus et le Serpent à plumes, en les gardant | 4 % | 28 % | 77 % |
+| Le paquet de départ seul | 2 % | 17 % | 61 % |
+| Sans aucun joker | 0 % | 4 % | 40 % |
+
+Rien ne bouge au-delà du bruit de deux mille expéditions : le vrai ou faux,
+que le hasard aide, paie ce que le six choix coûte.
 
 ## Les données
 
@@ -675,7 +705,7 @@ rien ne s'y gagne en production avant que le mode soit entier.
     elle paie son confetti, son expérience et Le Marathonien ; une erreur
     aidée entre au carnet.
 
-### Étape 3 — Les formes
+### Étape 3 — Les formes (faite le 17 octobre 2026)
 
 - Six choix, vrai ou faux tiré d'une question à quatre choix, dévoilement
   au fil des mots ; Arrêt sur image. La colonne `forme` remplie.

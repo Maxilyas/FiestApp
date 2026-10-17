@@ -9302,6 +9302,28 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .ans-btn.exp-effacee .ans-text { text-decoration: line-through; }
 .ans-btn.exp-choisie { border: 1.5px solid var(--accent); background: var(--accent-soft); }
 .ans-btn.exp-montree { border: 1.5px dashed var(--accent); }
+/* Les formes (la maquette 11) : le dévoilement mot à mot et sa jauge, la réponse proposée d'un vrai ou faux, six choix plus serrés. */
+/* Ni la question ni sa jauge ne cèdent leur hauteur aux réponses : la page tient
+   en un écran (`.player-shell:has(.ans-grid)`), la jauge vide s'écrasait à zéro,
+   et la question, ramenée à sa hauteur minimale, passait sous la consigne. */
+.quiz-question.exp-devoile { min-height: 2.6em; flex-shrink: 0; }
+.exp-curseur { display: inline-block; width: 0.5em; height: 1em; margin-left: 2px; vertical-align: -0.12em; background: var(--accent); animation: exp-clignote 0.9s steps(2, start) infinite; }
+@keyframes exp-clignote { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .exp-curseur { animation: none; } }
+.exp-jauge { flex: none; height: 6px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 12%, transparent); overflow: hidden; }
+.exp-jauge > i { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
+.exp-proposee { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--accent); border-radius: var(--radius-xs); background: var(--accent-soft); text-align: center; }
+.exp-proposee b { font-size: 1.15rem; line-height: 1.3; color: var(--ink); }
+.ans-grid.exp-six { gap: 6px; }
+.ans-grid.exp-six .ans-btn { min-height: 0; padding-block: 10px; }
+/* Six réponses ne tiennent pas dans le plancher de quatre (244 px) : elles
+   gardent la hauteur de leur texte, sans s'étirer, et la page défile s'il le
+   faut. À la hauteur de la fenêtre, la grille débordait de sa boîte, et la
+   sixième passait sous le bouton de Double chance, qui ne se touchait plus ;
+   la page libérée, chaque rangée montait à ses 100 px, et la main passait
+   sous le pli. */
+.player-shell:has(.ans-grid.exp-six) { height: auto; min-height: 100dvh; }
+.player-shell:has(.ans-grid) .ans-grid.exp-six { flex: none; min-height: min-content; grid-auto-rows: auto; }
 /* Un joker pour son paquet (la maquette 12) : trois jokers, leur rareté en pastille. */
 .exp-offres { display: flex; flex-direction: column; gap: 8px; }
 .exp-offre-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }

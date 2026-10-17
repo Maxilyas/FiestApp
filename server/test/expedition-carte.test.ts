@@ -70,6 +70,8 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
   let melanges = 0
   let pointus = 0
   let questions = 0
+  const formesDuBas = new Map<string, number>()
+  const formesDuHaut = new Map<string, number>()
   for (let i = 0; i < 2000; i++) {
     const carte = carteDUnActe(`essai:${i}`, i % ACTES, SUJETS)
     const parId = new Map(carte.escales.map(e => [e.id, e]))
@@ -101,13 +103,18 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
       comptes.set(e.sorte, (comptes.get(e.sorte) ?? 0) + 1)
       if (e.sorte === 'elite') {
         assert.ok(e.etage >= 2, 'une élite, dès le troisième étage')
-        assert.ok(e.theme && e.forme === 'quatre')
+        assert.ok(e.theme && e.forme)
       }
       if (e.sorte === 'coffre' || e.sorte === 'source') assert.ok(!e.theme && !e.forme, 'un coffre, une source n’ont ni thème ni forme')
+      // Les formes (l'étape 3) : le premier étage à quatre choix ou en vrai ou faux, les autres de toutes les formes.
+      if (e.sorte === 'question' || e.sorte === 'elite') {
+        const etage = e.etage === 0 ? formesDuBas : formesDuHaut
+        etage.set(e.forme!, (etage.get(e.forme!) ?? 0) + 1)
+        if (e.etage === 0) assert.ok(e.forme === 'quatre' || e.forme === 'vrai-faux', `${e.id} : ${e.forme} au premier étage`)
+      }
       if (e.sorte === 'question') {
         questions++
         assert.ok(e.theme, `${e.id} a un thème`)
-        assert.equal(e.forme, 'quatre', 'avant l’étape 3, rien que des questions à quatre choix')
         if (e.theme && 'sujet' in e.theme) {
           pointus++
           assert.ok(SUJETS.includes(e.theme.sujet))
@@ -128,6 +135,15 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
   assert.ok(part(comptes.get('elite')!, escales) > 0.03 && part(comptes.get('elite')!, escales) < 0.1, `élites : ${part(comptes.get('elite')!, escales)}`)
   assert.ok(part(melanges, questions) > 0.1 && part(melanges, questions) < 0.2, `mélanges : ${part(melanges, questions)}`)
   assert.ok(part(pointus, questions) > 0.07 && part(pointus, questions) < 0.16, `thèmes pointus : ${part(pointus, questions)}`)
+  // Les formes (l'étape 3, `POIDS_DES_FORMES`) : le premier étage pose un vrai ou faux trois fois sur dix ; au-dessus, quatre
+  // choix 40 %, les trois autres 20 % chacune — et l'échoppe et l'inconnu, devenus des questions avant les écus, à quatre choix.
+  const sur = (m: Map<string, number>) => [...m.values()].reduce((s, n) => s + n, 0)
+  assert.ok(part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas)) > 0.2 && part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas)) < 0.4, `vrai ou faux en bas : ${part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas))}`)
+  for (const forme of ['vrai-faux', 'six', 'devoilement']) {
+    const p = part(formesDuHaut.get(forme) ?? 0, sur(formesDuHaut))
+    assert.ok(p > 0.1 && p < 0.25, `${forme} au-dessus : ${p}`)
+  }
+  assert.ok(part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut)) > 0.4, `quatre choix au-dessus : ${part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut))}`)
 })
 
 test('sans thème pointu à tirer, la carte n’en pose aucun', () => {

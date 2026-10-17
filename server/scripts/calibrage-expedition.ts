@@ -23,6 +23,11 @@
 // son tracé plus sûr. Une politique simple, pas la meilleure : un vrai joueur
 // garde parfois ses jokers pour le gardien.
 //
+// Les formes (l'étape 3) : la carte dit la chance à la forme de l'escale
+// (`chanceSelonLaForme`), et qui ne sait pas devine parmi les réponses de sa
+// forme — deux en vrai ou faux, six à six choix ; un dévoilement se répond
+// le texte entier, comme quatre choix.
+//
 //   npx tsx scripts/calibrage-expedition.ts [--expeditions 2000]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
@@ -36,6 +41,7 @@ import {
   MARCHES_DES_ACTES,
   carteDUnActe,
   carteEnJeu,
+  chanceSelonLaForme,
   chancesDuTrace,
   escaleEnJeu,
   escalesPermises,
@@ -49,6 +55,7 @@ import {
   type DepartDExpedition,
   type EscaleDeLaCarte,
   type EtatDeLExpedition,
+  type FormeDEscale,
   type GesteDExpedition,
   type QuestionPosee,
 } from '../../shared/expedition'
@@ -103,14 +110,17 @@ function unJoueur(theta: number, graine: string): Joueur {
 const chanceSur = (j: Joueur, marche: Niveau, categorie: string | null, sujet: string | null = null) =>
   sigmoide(logit(TAUX_DU_CALIBRAGE[marche]) + j.theta + (categorie ? (j.categories.get(categorie) ?? 0) : 0) + (sujet ? (j.sujets.get(sujet) ?? 0) : 0))
 
-/** Ce que la carte lui dit d'une escale : sa chance moyenne sur ce qu'elle peut poser. */
+/** Ce que la carte lui dit d'une escale : sa chance moyenne sur ce qu'elle peut poser, à sa forme. */
 function chanceAnnoncee(j: Joueur, acte: number, e: EscaleDeLaCarte): number {
   if (e.sorte === 'source') return chanceSur(j, 'moyen', null)
   const marche = marcheDe(acte, e)
   const t = e.theme
-  if (!t) return chanceSur(j, marche, null)
-  if ('sujet' in t) return CATEGORIES.reduce((s, c) => s + chanceSur(j, marche, c, t.sujet), 0) / CATEGORIES.length
-  return t.categories.reduce((s, c) => s + chanceSur(j, marche, c), 0) / t.categories.length
+  const p4 = !t
+    ? chanceSur(j, marche, null)
+    : 'sujet' in t
+      ? CATEGORIES.reduce((s, c) => s + chanceSur(j, marche, c, t.sujet), 0) / CATEGORIES.length
+      : t.categories.reduce((s, c) => s + chanceSur(j, marche, c), 0) / t.categories.length
+  return chanceSelonLaForme(p4, e.forme ?? 'quatre')
 }
 
 /** Le savoir sous le hasard d'un sur quatre : la part des questions qu'il sait. */
@@ -143,7 +153,7 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
   })
   const chances = Object.fromEntries(CATEGORIES.map(c => [c, Object.fromEntries((['facile', 'moyen', 'difficile'] as const).map(m => [m, chanceSur(j, m, c)]))]))
   const depart: DepartDExpedition = {
-    v: equipee ? 2 : 1,
+    v: equipee ? 3 : 1,
     graine,
     numero: 0,
     gardiens: gardiensDe(graine, new Set(equipee ?? [])),
@@ -164,28 +174,49 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
     const nombre = r() < PART_DES_NOMBRES
     if (t.reprise !== undefined) {
       const avant = posees[t.reprise]
-      return posees.push({ escale: t.escale, acte: t.acte, reponses: 4, p4: avant.p4, sait: r() < Math.max(SAIT_UNE_REPRISE, savoir(avant.p4)), ...(avant.nombre && { nombre: true }) })
+      // Reposée telle qu'il l'a vue : sa forme et ses réponses comprises.
+      return posees.push({
+        escale: t.escale,
+        acte: t.acte,
+        reponses: avant.reponses ?? 4,
+        p4: avant.p4,
+        sait: r() < Math.max(SAIT_UNE_REPRISE, savoir(avant.p4)),
+        ...(avant.nombre && { nombre: true }),
+        ...(avant.forme && { forme: avant.forme }),
+      })
     }
     let p4: number
+    let forme: FormeDEscale | undefined
     if (t.escale === GARDIEN) p4 = chanceSur(j, MARCHES_DES_ACTES[t.acte].gardien, au(CATEGORIES))
     else {
       const escale = escaleEnJeu(depart, e, t.escale)!
       const marche = marcheDe(t.acte, escale)
       const th = escale.theme
+      if (escale.sorte === 'question' || escale.sorte === 'elite') forme = escale.forme
       if (escale.sorte === 'source') p4 = chanceSur(j, 'moyen', au(CATEGORIES))
       else if (t.categorie) p4 = chanceSur(j, marche, t.categorie)
       else if (!th) p4 = chanceSur(j, marche, au(CATEGORIES))
       else if ('sujet' in th) p4 = chanceSur(j, marche, au(CATEGORIES), th.sujet)
       else p4 = chanceSur(j, marche, au(th.categories))
     }
-    posees.push({ escale: t.escale, acte: t.acte, reponses: 4, p4, sait: r() < savoir(p4), ...(nombre && { nombre: true }) })
+    // Sa forme : deux réponses en vrai ou faux — pas de nombres à montrer à l'Oracle —, six à six choix.
+    const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : 4
+    posees.push({
+      escale: t.escale,
+      acte: t.acte,
+      reponses: reponsesDeLaForme,
+      p4,
+      sait: r() < savoir(p4),
+      ...(nombre && forme !== 'vrai-faux' && { nombre: true }),
+      ...(forme && forme !== 'quatre' && { forme }),
+    })
   }
 
   /** Juste ou non, à la question `i` : il sait, sinon il devine parmi ce qui reste — ce que son joker y change. */
   const juger = (i: number, e: EtatDeLExpedition): boolean => {
     if (posees[i].sait) return true
     const joue = e.joue?.joker
-    let restent = 4 - (joue ? (EFFACE[joue] ?? 0) : 0) - (e.poses.includes('echolocation') ? EFFACE.echolocation : 0)
+    let restent = (posees[i].reponses ?? 4) - (joue ? (EFFACE[joue] ?? 0) : 0) - (e.poses.includes('echolocation') && (posees[i].reponses ?? 4) > 2 ? EFFACE.echolocation : 0)
     // L'Énigme : le siècle et le domaine écartent, en moyenne, une réponse de plus.
     if (joue === 'enigme') restent--
     restent = Math.max(2, restent)

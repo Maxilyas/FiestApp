@@ -880,7 +880,7 @@ function FeuilleDeLEquipee({
         {`Les ${JOKERS_SANS_LEGENDAIRE.length + JOKERS_DES_LEGENDAIRES.length} jokers de l’expédition`}
         <Icon name="chevron-down" />
       </button>
-      {/* Replié, il ne se rend pas : vingt-huit fiches pour qui ne les demande pas (règle `client.md`). */}
+      {/* Replié, il ne se rend pas : vingt-neuf fiches pour qui ne les demande pas (règle `client.md`). */}
       {tous && <TousLesJokers siens={siens} invite={prochaine.invite} />}
     </Feuille>
   )
@@ -1495,13 +1495,44 @@ function FeuilleDeLaMain({
 const SENS: Record<SensDeLOracle, string> = { haut: 'plus haut', bas: 'plus bas', juste: 'c’est elle' }
 
 /**
+ * Le dévoilement d'une question (l'étape 3) : ses mots tels que le serveur
+ * les dit — jamais l'intitulé d'avance. Rouvert quand un joker change son
+ * heure (`relance` : Arrêt sur image), coupé dès qu'on répond ou qu'on quitte
+ * l'escale. Une liaison tombée en route se reprend : rouvert, le serveur
+ * redit d'un coup les mots déjà dits. Les mots se gardent par question, pas
+ * par liaison : rouverte, elle effaçait le texte le temps d'un aller-retour.
+ */
+function useDevoilement(id: string, position: number | null, relance: string): { mots: string[]; fini: boolean } {
+  const cle = `${id}:${position}`
+  const [etat, setEtat] = useState<{ cle: string; mots: string[]; fini: boolean }>({ cle: '', mots: [], fini: false })
+  useEffect(() => {
+    if (position === null) return
+    const arret = new AbortController()
+    let essais = 0
+    const lire = () => {
+      api.expedition
+        .devoilement(id, position, mots => setEtat(e => ({ cle, mots, fini: e.cle === cle && e.fini && mots.length >= e.mots.length })), arret.signal)
+        .then(() => setEtat(e => ({ cle, mots: e.cle === cle ? e.mots : [], fini: true })))
+        .catch(() => {
+          if (!arret.signal.aborted && ++essais <= 3) setTimeout(lire, 800)
+        })
+    }
+    lire()
+    return () => arret.abort()
+  }, [id, position, cle, relance])
+  return etat.cle === cle ? etat : { mots: [], fini: false }
+}
+
+/**
  * Une question de l'expédition (les maquettes 4 et 7) : celle d'une escale —
  * sa catégorie, son mélange ou son thème pointu —, d'une source, d'une
  * élite, ou du gardien, son médaillon et ses crans au-dessus ; sous ses
  * réponses, la main. Ce qu'un joker y a fait se voit sur elle : les réponses
  * effacées, deux à choisir (Double chance), l'autre question (Deux visages),
  * l'indice de l'Énigme, ce que dit l'Oracle, ce que coûterait une erreur.
- * Puis sa révélation : la bonne réponse, l'anecdote, et la suite.
+ * Sa forme (l'étape 3, la maquette 11) : six choix, un vrai ou faux et sa
+ * réponse proposée, un dévoilement mot à mot. Puis sa révélation : la bonne
+ * réponse, l'anecdote, et la suite.
  */
 function Escale({
   vue,
@@ -1554,6 +1585,11 @@ function Escale({
   const doubleChance = !r && !!affichee.deux
   const aMontrer = montrer && !vue.joue
   const joue = vue.joue ? jokerDeCle(vue.joue) : undefined
+  // Un dévoilement : ses mots à mesure qu'ils se disent ; répondu, son intitulé entier revient avec le verdict.
+  const devoile = useDevoilement(vue.id, !r && affichee.forme === 'devoilement' ? affichee.index : null, vue.joue ?? '')
+  const enDevoilement = !r && affichee.forme === 'devoilement'
+  const texte = r?.texte ?? affichee.texte
+  const total = affichee.devoilement?.mots ?? 0
   const toucherReponse = (i: number) => {
     if (busy || effacees.has(i)) return
     if (aMontrer) {
@@ -1602,7 +1638,27 @@ function Escale({
           </div>
         )}
         <span className="label quiz-categorie">{[theme, affichee.categorie, NOM_NIVEAU[affichee.niveau]].filter(Boolean).join(' · ')}</span>
-        <h2 className={'quiz-question' + questionSizeClass(affichee.texte)}>{espacesFines(affichee.texte)}</h2>
+        {enDevoilement ? (
+          <>
+            {/* Sa taille se lit sur son compte de mots : elle ne change pas à chaque mot qui arrive. */}
+            <h2 className={'quiz-question exp-devoile' + questionSizeClass('x'.repeat(total * 6))}>
+              {espacesFines(devoile.mots.join(' '))}
+              {!devoile.fini && <span className="exp-curseur" aria-hidden="true" />}
+            </h2>
+            <div className="exp-jauge" role="progressbar" aria-label="Le texte se dévoile" aria-valuemin={0} aria-valuemax={total} aria-valuenow={devoile.mots.length}>
+              <i style={{ width: `${total > 0 ? Math.round((devoile.mots.length / total) * 100) : 0}%` }} />
+            </div>
+            <p className="exp-consigne small">{devoile.fini ? 'Tout le texte est là.' : espacesFines('Le texte se dévoile mot à mot : réponds dès que tu sais.')}</p>
+          </>
+        ) : (
+          <h2 className={'quiz-question' + questionSizeClass(texte)}>{espacesFines(texte)}</h2>
+        )}
+        {affichee.proposee !== undefined && (
+          <p className="exp-proposee">
+            <span className="label">Vrai ou faux ?</span>
+            <b>{espacesFines(`« ${affichee.proposee} »`)}</b>
+          </p>
+        )}
         {!r && affichee.indice && (
           <p className="exp-indice small">
             <b>Énigme :</b> {espacesFines(affichee.indice)}
@@ -1624,7 +1680,7 @@ function Escale({
         )}
         {doubleChance && <p className="exp-consigne small">{espacesFines('Double chance : choisis deux réponses — il suffit que l’une soit juste.')}</p>}
         {!r ? (
-          <div className={'ans-grid' + answersSizeClass(affichee.reponses)}>
+          <div className={'ans-grid' + (affichee.reponses.length > 4 ? ' exp-six' : '') + answersSizeClass(affichee.reponses)}>
             {affichee.reponses.map((a, i) => (
               <button
                 key={i}
@@ -1633,7 +1689,8 @@ function Escale({
                 aria-pressed={doubleChance ? deux.includes(i) : undefined}
                 {...toucher(() => toucherReponse(i))}
               >
-                <Shape index={i} />
+                {/* Quatre formes : à six choix, chacune n'aurait plus la sienne. */}
+                {affichee.reponses.length <= 4 && <Shape index={i} />}
                 <span className="ans-text">{espacesFines(a)}</span>
                 {effacees.has(i) && <span className="sr-only">, effacée</span>}
               </button>
@@ -1742,9 +1799,21 @@ function Revelation({
           </>
         )}
         <p className="muted">
-          {choix === null ? 'Sans réponse. ' : ''}La bonne réponse : <Shape index={r.bonne} inline />
-          <strong>{espacesFines(q.reponses[r.bonne])}</strong>
+          {choix === null ? 'Sans réponse. ' : ''}
+          {q.proposee !== undefined ? (
+            // Un vrai ou faux tiré d'une question à quatre choix : ce qu'il proposait, et ce qu'il valait.
+            <>
+              {espacesFines(`« ${q.proposee} » : `)}
+              <strong>{r.bonne === 0 ? 'vrai' : 'faux'}</strong>
+            </>
+          ) : (
+            <>
+              La bonne réponse : {q.reponses.length <= 4 && <Shape index={r.bonne} inline />}
+              <strong>{espacesFines(q.reponses[r.bonne])}</strong>
+            </>
+          )}
         </p>
+        {r.devoile && <p className="muted small">{espacesFines(`Répondu au ${r.devoile.mots === 1 ? '1ᵉʳ' : `${r.devoile.mots}ᵉ`} mot sur ${r.devoile.sur}.`)}</p>}
       </div>
       {r.anecdote && (
         <p className="card anecdote">

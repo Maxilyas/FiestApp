@@ -194,6 +194,32 @@ export const activationUrl = (token: string) => `${window.location.origin}/activ
 const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition) =>
   req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
 
+/**
+ * Les mots d'un dévoilement de l'expédition, à mesure que le serveur les
+ * dit : une réponse qui s'écrit mot à mot, un par ligne — jamais l'intitulé
+ * entier d'avance (invariant 1). `recevoir` reçoit à chaque fois tous les
+ * mots dits ; la promesse se tient au dernier, ou à l'abandon (`signal`).
+ */
+async function lireLeDevoilement(id: string, position: number, recevoir: (mots: string[]) => void, signal: AbortSignal): Promise<void> {
+  const r = await fetch(`/api/expedition/${encodeURIComponent(id)}/devoilement?position=${position}`, { signal, cache: 'no-store' })
+  if (!r.ok || !r.body) throw new Error('Le texte ne se dévoile pas : recharge la page')
+  const lecteur = r.body.getReader()
+  const decodeur = new TextDecoder()
+  const mots: string[] = []
+  let reste = ''
+  for (;;) {
+    const { value, done } = await lecteur.read()
+    if (done) return
+    reste += decodeur.decode(value, { stream: true })
+    const lignes = reste.split('\n')
+    reste = lignes.pop() ?? ''
+    if (lignes.length > 0) {
+      mots.push(...lignes)
+      recevoir([...mots])
+    }
+  }
+}
+
 export const api = {
   list: () => req<QuizSummary[]>(DEPART.quiz),
   /** Les quiz qui contiennent ces mots — titre, intitulés, réponses. */
@@ -546,6 +572,7 @@ export const api = {
     repondre: (id: string, position: number, choix: number | readonly number[]) =>
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
     abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
+    devoilement: lireLeDevoilement,
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

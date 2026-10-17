@@ -1,14 +1,15 @@
 // Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
-// et sa feuille — les vingt-huit jokers dépliés — ; la carte d'un acte, la
+// et sa feuille — les vingt-neuf jokers dépliés — ; la carte d'un acte, la
 // main en une ligne et sa feuille ; une escale et sa main, puis ce que fait
 // chaque joker qui passe — les réponses effacées, Double chance, Deux
 // visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
 // coffre, le campement — une vie, ou un joker retiré — ; le gardien, vaincu,
 // la carte de l'acte suivant ; le choix au bout, la fin et ses gains. Puis une
 // seconde expédition, ses jokers de carte — Commandement et sa catégorie, Le
-// raccourci —, perdue au bout. Le client construit d'abord
-// (`npm run build -w client`).
+// raccourci —, perdue au bout ; une troisième, ses formes forcées dans son
+// départ — un vrai ou faux, six choix, un dévoilement qui se dit, puis entier.
+// Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a six légendaires à joker, rangés comme gardés au bout d'expéditions
 // passées ; l'invité du jour est le Dragon d'Or (`horlogeDuJour`) : ses
@@ -50,7 +51,9 @@ const JOUR = unJourOu('lg:dragon')
 const SIENS = ['lg:oracle', 'lg:janus', 'lg:chouette', 'lg:lion', 'lg:comete', 'lg:phenix']
 
 // Quatre-vingts questions par catégorie, de chaque difficulté : de quoi tirer trois actes et leurs gardiens.
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }), horlogeDuJour: () => JOUR })
+// L'horloge part du jour du Dragon d'Or et avance : un dévoilement se dit à l'heure du serveur.
+const debut = Date.now()
+const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }), horlogeDuJour: () => JOUR + (Date.now() - debut) })
 const navigateur = await chromium.launch({ headless: true })
 try {
   const contexteDe = async (cookie: string | null) => {
@@ -162,7 +165,9 @@ try {
     await page.waitForSelector('.ans-btn')
     const textes: string[] = await page.$$eval('.ans-btn .ans-text', (els: any[]) => els.map(e => String(e.textContent ?? '')))
     const effacees: boolean[] = await page.$$eval('.ans-btn', (els: any[]) => els.map(e => e.classList.contains('exp-effacee')))
-    const bonne = textes.findIndex(t => t.startsWith('Bonne'))
+    // Un vrai ou faux tiré d'une question à quatre choix : « Vrai » si la réponse proposée est la bonne.
+    const proposee = (await page.locator('.exp-proposee b').count()) > 0 ? String(await page.locator('.exp-proposee b').textContent()) : null
+    const bonne = proposee === null ? textes.findIndex(t => t.startsWith('Bonne')) : textes.indexOf(proposee.includes('Bonne') ? 'Vrai' : 'Faux')
     const fausse = textes.findIndex((t, i) => i !== bonne && !effacees[i])
     const deux = (await page.locator('.exp-consigne', { hasText: 'Double chance' }).count()) > 0
     if (deux) {
@@ -346,6 +351,63 @@ try {
   }
   if (perdue !== 'fin') throw new Error(`l’expédition ratée finit en ${perdue}`)
   await photo('15-perdue', true)
+
+  // Les formes (l'étape 3), forcées dans le départ gardé : le premier étage en vrai ou faux, le
+  // deuxième à six choix, le troisième en dévoilement — puis le serveur redémarré les relit.
+  await page.locator('.fin-actions .btn-primary').click()
+  await page.waitForSelector('.exp-gardiens')
+  await page.click('.exp-depart-pied .btn-primary')
+  await page.waitForSelector('.exp-carte')
+  const enRoute = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const depart = JSON.parse((base.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(enRoute.id) as { expedition: string }).expedition)
+    const formes = ['vrai-faux', 'six', 'devoilement']
+    for (const e of depart.cartes[0].escales) {
+      if (e.etage > 2) continue
+      if (e.sorte !== 'question') {
+        e.sorte = 'question'
+        e.theme = { categories: ['Histoire'] }
+        delete e.chance
+      }
+      e.forme = formes[e.etage]
+    }
+    base.prepare('UPDATE campagne_series SET expedition = ? WHERE id = ?').run(JSON.stringify(depart), enRoute.id)
+  } finally {
+    base.close()
+  }
+  await banc.redemarrer()
+  await page.goto(`${banc.url}/expedition`)
+  /** Le pas suivant du tracé, depuis la carte : chaque étage n'a plus qu'une forme. */
+  const avancerSurLeTrace = async () => {
+    await page.waitForSelector('.exp-carte')
+    await page.locator('.exp-panneau .btn-primary').click()
+    await page.waitForSelector('.ans-btn')
+  }
+  await avancerSurLeTrace()
+  await photo('f1-vrai-faux')
+  await page.locator('.ans-btn').first().click()
+  await page.waitForSelector('.result-banner')
+  await photo('f1b-vrai-faux-revele')
+  await suite()
+  await avancerSurLeTrace()
+  await photo('f2-six-choix')
+  await photo('f2-six-choix-entier', true)
+  // Six réponses tiennent dans leur grille : à la hauteur de la fenêtre, elle débordait, et la sixième passait sous le bouton de Double chance.
+  const deborde: number = await page.$eval('.ans-grid', (g: any) => g.scrollHeight - g.clientHeight)
+  console.log(deborde > 1 ? `⚠ six choix : la grille déborde de ${deborde} px` : 'six choix : la grille tient ses six réponses')
+  await page.locator('.ans-btn').nth(4).click()
+  await page.waitForSelector('.result-banner')
+  await photo('f2b-six-choix-revele')
+  await suite()
+  await avancerSurLeTrace()
+  await page.waitForTimeout(1200)
+  await photo('f3-devoilement')
+  await page.waitForFunction(() => !(globalThis as any).document.querySelector('.exp-curseur'), undefined, { timeout: 20_000 })
+  await photo('f3b-devoilement-entier')
+  await page.locator('.ans-btn').first().click()
+  await page.waitForSelector('.result-banner')
+  await photo('f3c-devoilement-revele')
 } finally {
   await navigateur.close()
   await banc.close()

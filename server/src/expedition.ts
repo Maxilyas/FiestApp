@@ -94,4 +94,39 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
       if (profil) res.json(await deps.campagne.abandonnerLExpedition(profil.id, String(req.params.id)))
     }),
   )
+
+  // Un dévoilement (l'étape 3) : les mots de la question qui attend, chacun
+  // à son heure — une réponse qui s'écrit au fil du texte, un mot par ligne,
+  // jamais l'intitulé entier d'avance (invariant 1). Rouverte, elle redit
+  // d'un coup les mots déjà dits, puis reprend leur rythme.
+  app.get(
+    '/api/expedition/:id/devoilement',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const d = await deps.campagne.devoilement(profil.id, String(req.params.id), Number(req.query.position))
+      // Ni compressée — `compression()` garderait les mots jusqu'au dernier —, ni retenue par un proxy, ni minutée comme une attente.
+      res.locals.auFilDuTemps = true
+      res.status(200).set({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' })
+      res.flushHeaders()
+      let ecrits = 0
+      let minuterie: ReturnType<typeof setTimeout> | null = null
+      res.on('close', () => {
+        if (minuterie) clearTimeout(minuterie)
+      })
+      const ecrire = () => {
+        minuterie = null
+        if (res.writableEnded || res.destroyed) return
+        const { dits, suivantDans } = d.ou()
+        if (dits > ecrits) {
+          res.write(d.mots.slice(ecrits, dits).map(mot => `${mot}\n`).join(''))
+          ecrits = dits
+        }
+        if (suivantDans === null) res.end()
+        // L'heure du mot suivant se relit à chaque mot : Arrêt sur image joué en route la repousse.
+        else minuterie = setTimeout(ecrire, Math.max(20, suivantDans))
+      }
+      ecrire()
+    }),
+  )
 }
