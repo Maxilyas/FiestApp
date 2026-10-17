@@ -23,13 +23,16 @@ import { SOUS_THEMES } from './sousThemes'
 // écrit ce qui lui manque.
 
 /** Une rubrique (`RUBRIQUES`) n'a pas de rangée : la feuille du choix la range sous sa catégorie. */
-export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'rubrique'
+export type FamilleDeSujet = 'epoque' | 'fil' | 'theme' | 'fete' | 'rubrique'
 
 /**
  * Les familles de sujets, dans l'ordre où l'écran les range, chacune sa
- * rangée ; au pluriel, le nom de son onglet parmi les parcours de thème.
+ * rangée ; au pluriel, le nom de son onglet parmi les parcours de thème. Les
+ * fêtes d'abord (le 17 octobre 2026) : FiestApp en est une, et la plus
+ * proche s'y lit sans défiler (`fetesDansLOrdre`).
  */
 export const FAMILLES_DE_SUJETS: readonly { famille: FamilleDeSujet; nom: string; pluriel: string }[] = [
+  { famille: 'fete', nom: 'Une fête', pluriel: 'Fêtes' },
   { famille: 'theme', nom: 'Un thème', pluriel: 'Thèmes' },
   { famille: 'epoque', nom: 'Une époque', pluriel: 'Époques' },
   { famille: 'fil', nom: 'Un fil rouge', pluriel: 'Fils rouges' },
@@ -54,6 +57,8 @@ export interface Sujet {
   sousThemes?: Readonly<Partial<Record<Categorie, readonly string[]>>>
   /** Une rubrique : la catégorie dont elle est un sous-thème — la feuille du choix la range sous elle. */
   categorie?: Categorie
+  /** Une fête : son jour, mois et jour — la feuille du choix range les fêtes de la plus proche à la plus lointaine. */
+  jour?: readonly [number, number]
 }
 
 export const SUJETS: readonly Sujet[] = [
@@ -215,6 +220,56 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { 'Culture générale': ['espagnol'] },
     etiquettes: ['espagnol'],
   },
+  // Les fêtes (le 17 octobre 2026) : celles qu'« Autour de la fête » tenait
+  // déjà, chacune son sous-thème — plus de deux cents questions — et
+  // l'étiquette qui la nomme ailleurs (« Le père Noël est une ordure »).
+  // Elles se rangent de la plus proche à la plus lointaine
+  // (`fetesDansLOrdre`), et n'ont pas de parcours : le sentier de la fête
+  // les monte déjà, chapitre par chapitre (« Noël et Nouvel An »).
+  {
+    cle: 'noel',
+    nom: 'Noël',
+    famille: 'fete',
+    description: 'Le Père Noël, le sapin, les marchés et les Noëls du monde',
+    sousThemes: { 'Autour de la fête': ['noel'] },
+    etiquettes: ['noel'],
+    jour: [12, 25],
+  },
+  {
+    cle: 'nouvel-an',
+    nom: 'Le Nouvel An',
+    famille: 'fete',
+    description: 'Le réveillon, les vœux et la nouvelle année fêtée de Pékin à Téhéran',
+    sousThemes: { 'Autour de la fête': ['nouvel-an'] },
+    etiquettes: ['nouvel-an'],
+    jour: [12, 31],
+  },
+  {
+    cle: 'halloween',
+    nom: 'Halloween',
+    famille: 'fete',
+    description: 'Fantômes, vampires, sorcières et les fêtes des morts du monde',
+    sousThemes: { 'Autour de la fête': ['halloween'] },
+    etiquettes: ['halloween'],
+    jour: [10, 31],
+  },
+  {
+    cle: 'amour',
+    nom: 'L’amour',
+    famille: 'fete',
+    description: 'La Saint-Valentin, les mariages et les grandes histoires d’amour',
+    sousThemes: { 'Autour de la fête': ['amour'] },
+    etiquettes: ['saint-valentin'],
+    jour: [2, 14],
+  },
+  // Sans jour : chacun le sien. Au bout de la rangée.
+  {
+    cle: 'anniversaires',
+    nom: 'Les anniversaires',
+    famille: 'fete',
+    description: 'Bougies, signes du zodiaque, noces d’or et centenaires',
+    sousThemes: { 'Autour de la fête': ['anniversaires'] },
+  },
   { cle: 'avant-1800', nom: 'Avant 1800', famille: 'epoque', description: 'Des pharaons aux Lumières', annees: [-100000, 1799] },
   { cle: 'xixe', nom: 'Le XIXe siècle', famille: 'epoque', description: 'De Napoléon à la tour Eiffel', annees: [1800, 1899] },
   { cle: '1900-1949', nom: '1900 à 1949', famille: 'epoque', description: 'La Belle Époque et les deux guerres', annees: [1900, 1949] },
@@ -226,6 +281,9 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'annees-2000', nom: 'Les années 2000', famille: 'epoque', description: 'De 2000 à 2009, dans toutes les catégories', annees: [2000, 2009] },
   { cle: 'depuis-2010', nom: 'Depuis 2010', famille: 'epoque', description: 'Ce qui s’est passé depuis 2010', annees: [2010, 100000] },
   { cle: 'france', nom: 'La France', famille: 'fil', description: 'Ce qu’on sait d’avoir grandi en France', portee: 'france' },
+  // La francophonie (le 17 octobre 2026) : la portée que chaque question porte déjà — ce qu'on sait d'avoir
+  // grandi en Belgique, en Suisse, au Québec ou en Afrique francophone —, cinq cents questions de douze catégories.
+  { cle: 'francophonie', nom: 'La francophonie', famille: 'fil', description: 'La Belgique, la Suisse, le Québec et l’Afrique francophone', portee: 'francophonie' },
   { cle: 'pionnieres', nom: 'Pionnières', famille: 'fil', description: 'Des femmes qui ont ouvert la voie', etiquettes: ['femmes'] },
   { cle: 'pieges', nom: 'Les pièges', famille: 'fil', description: 'La réponse évidente est fausse', etiquettes: ['piege'] },
   { cle: 'premieres', nom: 'Les premières fois', famille: 'fil', description: 'Qui l’a fait le premier ?', etiquettes: ['premiere'] },
@@ -308,6 +366,28 @@ const RUBRIQUE_DU_SOUS_THEME: ReadonlyMap<string, ReadonlyMap<string, string>> =
 /** La rubrique d'une question : celle de son sous-thème, dans sa catégorie. */
 export const rubriqueDe = (meta: Pick<MetadonneesDeQuestion, 'categorie' | 'sousTheme'>): string | null =>
   RUBRIQUE_DU_SOUS_THEME.get(meta.categorie)?.get(meta.sousTheme) ?? null
+
+/**
+ * Un sujet monte-t-il en parcours de thème (`shared/sentiersDeSujets.ts`) ?
+ * Pas une rubrique, ni une fête : le sentier de leur catégorie monte déjà
+ * leur sous-thème, chapitre par chapitre — six étapes de plus n'y
+ * apprendraient rien.
+ */
+export const aUnParcours = (s: Pick<Sujet, 'famille'>): boolean => s.famille !== 'rubrique' && s.famille !== 'fete'
+
+/**
+ * Les fêtes, de la plus proche à la plus lointaine — celle du jour d'abord,
+ * celle d'hier au bout de l'année —, les fêtes sans jour à la fin : en
+ * octobre, Halloween ouvre la rangée, en décembre Noël. Au mois et au jour
+ * de l'appareil : un ordre, pas une échéance.
+ */
+export function fetesDansLOrdre<S extends Pick<Sujet, 'jour'>>(fetes: readonly S[], maintenant: Date): S[] {
+  // Trente et un jours par mois : un rang dans l'année, que l'ordre seul lit.
+  const rang = (mois: number, jour: number) => (mois - 1) * 31 + jour
+  const aujourdhui = rang(maintenant.getMonth() + 1, maintenant.getDate())
+  const attente = (f: S) => (f.jour ? (rang(f.jour[0], f.jour[1]) - aujourdhui + 12 * 31) % (12 * 31) : Infinity)
+  return [...fetes].sort((a, b) => attente(a) - attente(b))
+}
 
 /**
  * L'année d'une question datée. Au siècle près, elle ne range rien : « 1801 »

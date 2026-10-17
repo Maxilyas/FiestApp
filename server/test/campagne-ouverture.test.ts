@@ -221,6 +221,11 @@ test('« Sur quoi ? » tient en une ligne ; « Changer » ouvre la feuille du ch
   assert.match(sujet, /role="tab" aria-selected="true"[^>]*>Thèmes · \d+<\/button>/)
   assert.match(sujet, new RegExp(`class="quoi-tuile active" aria-pressed="true"><span class="quoi-medaillon"><svg[^>]*>.*?</svg></span><span class="quoi-nom">${SUJETS[0].nom}</span></button>`))
   assert.ok(sujet.indexOf('Un thème') < sujet.indexOf('Une époque') && sujet.indexOf('Une époque') < sujet.indexOf('Un fil rouge'), 'chaque famille sa rangée, les thèmes d’abord')
+  // Les fêtes avant tout (le 17 octobre 2026) : en tuiles, comme les thèmes, la plus proche d'abord.
+  assert.ok(sujet.indexOf('Une fête') > 0 && sujet.indexOf('Une fête') < sujet.indexOf('Un thème'), 'les fêtes, puis les thèmes')
+  for (const fete of SUJETS.filter(s => s.famille === 'fete')) {
+    assert.match(sujet, new RegExp(`class="quoi-tuile" aria-pressed="false"><span class="quoi-medaillon"><svg[^>]*>.*?</svg></span><span class="quoi-nom">${fete.nom}</span></button>`), fete.cle)
+  }
   // Chaque famille son allure : les époques en frise, dans l'ordre du temps,
   // un jalon chacune, le fil coupé en haut et en bas de ses deux colonnes ;
   // les fils rouges en pastilles, leur emblème devant.

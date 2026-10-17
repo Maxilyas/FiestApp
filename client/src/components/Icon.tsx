@@ -97,6 +97,11 @@ export type IconName =
   | 'lettres'
   | 'hi'
   | 'enye'
+  // Les fêtes de la campagne : Noël, Halloween, le Nouvel An, les anniversaires.
+  | 'sapin'
+  | 'citrouille'
+  | 'artifice'
+  | 'gateau'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -675,6 +680,26 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   // comme le « Aa » du français — pas un drapeau, l'anglais n'est pas qu'anglais.
   hi: { paths: <path d="M5 6v12M12.5 6v12M5 12h7.5M18 11v7M18 7.2v.01" /> },
   enye: { paths: <path d="M8.5 19v-8.5M8.5 13.5a3.5 3.5 0 0 1 7 0V19M8 7.5c1.1-1.3 2.3-1.5 3.6-.6s2.6.8 3.9-.7" /> },
+  // Les fêtes (le 17 octobre 2026) : le sapin de Noël et son pied, la citrouille et ses côtes, le feu
+  // d'artifice du Nouvel An, le gâteau et ses trois bougies. L'amour a déjà son cœur.
+  sapin: { paths: <path d="M12 2.8 7.4 8.6h2.4l-3.6 4.8h2.6L5 18.6h14l-3.8-5.2h2.6l-3.6-4.8h2.4L12 2.8ZM12 18.6v2.8" /> },
+  citrouille: {
+    paths: (
+      <>
+        <path d="M12 7.5c-1.2-.9-2.6-1.3-4.2-1.3C5.1 6.2 3 9 3 13s2.1 6.8 4.8 6.8c1.6 0 3-.4 4.2-1.3 1.2.9 2.6 1.3 4.2 1.3 2.7 0 4.8-2.8 4.8-6.8s-2.1-6.8-4.8-6.8c-1.6 0-3 .4-4.2 1.3Z" />
+        <path d="M12 7.5c-1.3 1.4-2 3.3-2 5.5s.7 4.1 2 5.5c1.3-1.4 2-3.3 2-5.5s-.7-4.1-2-5.5ZM12 7.5V4.5c0-.9.5-1.5 1.5-1.8" />
+      </>
+    ),
+  },
+  artifice: { paths: <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21M5.6 5.6l2.5 2.5M15.9 15.9l2.5 2.5M5.6 18.4l2.5-2.5M15.9 8.1l2.5-2.5M12 10.5v3M10.5 12h3" /> },
+  gateau: {
+    paths: (
+      <>
+        <path d="M4.5 20.5V13a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v7.5M3 20.5h18" />
+        <path d="M4.5 15.5c1.2.9 2.4.9 3.6 0s2.4-.9 3.6 0 2.4.9 3.6 0 2.4-.9 3.6 0M8 11.5v-3M12 11.5v-3M16 11.5v-3M8 5.5v.01M12 5.5v.01M16 5.5v.01" />
+      </>
+    ),
+  },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.

@@ -50,13 +50,16 @@ Viennent enfin « Rejouer » (« Rejouer · Histoire et Sport »), « Changer de
 | Une à la fois | « Une nouvelle série » referme celle laissée en route et lui décerne ce qu'elle a joué. Une révision ou un défi en cours restent ouverts |
 | Record | Ta meilleure série finie, sujets compris. Le défi, les duels et les révisions n'y comptent pas |
 
-Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a trente-cinq, en trois familles :
+Les **catégories** sont douze : Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries, Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de la fête. Un **sujet** est un choix qui traverse les catégories (`shared/sujets.ts`). Il y en a quarante et un, en quatre familles :
 
 | Famille | Sujets | Ce qui range une question dans le sujet |
 |---|---|---|
+| Une fête | Noël, Le Nouvel An, Halloween, L'amour, Les anniversaires | Son sous-thème d'« Autour de la fête », et l'étiquette qui la nomme ailleurs (la Saint-Valentin pour l'amour) |
 | Un thème | Les animaux, Les inventions, Mythes et légendes, La Terre et l'espace, Les grands rendez-vous du sport, Le petit écran, La danse, Les métiers de la santé, L'informatique, L'astronomie, Les jeux vidéo, La BD et le manga, Monuments et architecture, La langue française, L'anglais, L'espagnol | Ses sous-thèmes, parfois une étiquette |
 | Une époque | Avant 1800, Le XIXe siècle, 1900 à 1949, les années 50 à 2000 (une par décennie), Depuis 2010 | Sa date. Une date connue seulement « au siècle près » ne compte pour aucune époque |
-| Un fil rouge | La France, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
+| Un fil rouge | La France, La francophonie, Pionnières, Les pièges, Les premières fois, Les records, Les surnoms, L'origine des mots, L'insolite, Souvenirs d'enfance | Ses étiquettes, ou sa portée |
+
+Les fêtes ouvrent l'onglet « Thèmes », de la plus proche à la plus lointaine : en octobre, Halloween d'abord, en décembre Noël ; les anniversaires, sans jour, au bout. Comme une rubrique, une fête n'a pas de parcours : le sentier de la fête monte déjà ses sous-thèmes, chapitre par chapitre (« Noël et Nouvel An », « Halloween et anniversaires »).
 
 Une **rubrique** est un sous-thème seul, dans sa catégorie : « Football » en sport, « Spécialités françaises » en cuisine, « Drapeaux » en géographie. Il y en a une par sous-thème, quatre-vingt-dix-sept, et la feuille les range sous leur catégorie, pas dans l'onglet « Thèmes ». Une rubrique se joue comme un sujet — en série, en révision, en duel, au quiz tout prêt d'une soirée —, mais n'a pas de parcours : le sentier de sa catégorie monte déjà chaque sous-thème, chapitre par chapitre.
 

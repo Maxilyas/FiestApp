@@ -17,8 +17,10 @@ import {
   RUBRIQUES,
   SUJETS,
   SUJETS_ET_RUBRIQUES,
+  aUnParcours,
   anneeDe,
   cleDeRubrique,
+  fetesDansLOrdre,
   rubriqueDe,
   sujetParCle,
   sujetsDe,
@@ -97,7 +99,15 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'anglais')), ['anglais'])
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'espagnol')), ['espagnol'])
   assert.deepEqual(sujetsDe(meta(null, ['alcool', 'anglais'], 'monde', 'Autour de la fête', 'cocktails')), ['anglais'], '« happy hour »')
-  assert.deepEqual(sujetsDe(meta(null, ['espagnol'], 'monde', 'Autour de la fête', 'noel')), ['espagnol'], '« Feliz Navidad »')
+  // Les fêtes (le 17 octobre 2026) : leur sous-thème d'« Autour de la fête », et l'étiquette qui les nomme ailleurs.
+  assert.deepEqual(sujetsDe(meta(null, ['espagnol'], 'monde', 'Autour de la fête', 'noel')), ['espagnol', 'noel'], '« Feliz Navidad »')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Autour de la fête', 'halloween')), ['halloween'])
+  assert.deepEqual(sujetsDe(meta(null, ['noel'], 'monde', 'Cinéma & séries', 'cinema-fr')), ['noel'], '« Le père Noël est une ordure »')
+  assert.deepEqual(sujetsDe(meta(null, ['saint-valentin'], 'monde', 'Autour de la fête', 'traditions')), ['amour'], 'la Saint-Valentin est de l’amour')
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Autour de la fête', 'anniversaires')), ['anniversaires'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Autour de la fête', 'traditions')), [], 'les fêtes du monde n’en sont pas une')
+  // La francophonie : sa portée, comme la France la sienne.
+  assert.deepEqual(sujetsDe(meta(null, [], 'francophonie', 'Musique', 'chanson-fr')), ['francophonie'])
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {
@@ -118,9 +128,35 @@ test('le catalogue des sujets : des clés uniques, des étiquettes qui existent,
       for (const cle of cles) assert.ok(SOUS_THEMES[categorie].some(x => x.cle === cle), `${s.cle} : ${categorie} › ${cle}`)
     }
   }
+  // Une fête se lit sur un sous-thème d'« Autour de la fête », et a son jour — sauf les anniversaires, chacun le sien.
+  const fetes = SUJETS.filter(s => s.famille === 'fete')
+  assert.deepEqual(fetes.map(s => s.cle), ['noel', 'nouvel-an', 'halloween', 'amour', 'anniversaires'])
+  for (const s of fetes) {
+    assert.ok(!s.annees && !s.portee, s.cle)
+    assert.deepEqual(Object.keys(s.sousThemes ?? {}), ['Autour de la fête'], s.cle)
+    for (const cle of s.sousThemes!['Autour de la fête']!) assert.ok(SOUS_THEMES['Autour de la fête'].some(x => x.cle === cle), `${s.cle} › ${cle}`)
+    assert.equal(!!s.jour, s.cle !== 'anniversaires', s.cle)
+  }
+  // Ni une fête ni une rubrique ne montent en parcours : le sentier de leur catégorie le fait.
+  assert.deepEqual(
+    SUJETS_ET_RUBRIQUES.filter(s => !aUnParcours(s)).map(s => s.famille).filter((f, i, toutes) => toutes.indexOf(f) === i),
+    ['fete', 'rubrique'],
+  )
   // Chaque famille a sa rangée à l'écran, une seule fois.
   assert.deepEqual(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)), new Set(SUJETS.map(s => s.famille)))
   assert.equal(new Set(FAMILLES_DE_SUJETS.map(f => f.famille)).size, FAMILLES_DE_SUJETS.length)
+})
+
+// Les fêtes se rangent de la plus proche à la plus lointaine (le 17 octobre
+// 2026) : FiestApp en est une, et celle qui vient s'y lit sans défiler.
+test('les fêtes, de la plus proche à la plus lointaine : celle du jour d’abord, celle d’hier au bout, les anniversaires à la fin', () => {
+  const fetes = SUJETS.filter(s => s.famille === 'fete')
+  const ordre = (mois: number, jour: number) => fetesDansLOrdre(fetes, new Date(2026, mois - 1, jour, 12)).map(s => s.cle)
+  assert.deepEqual(ordre(10, 17), ['halloween', 'noel', 'nouvel-an', 'amour', 'anniversaires'])
+  assert.deepEqual(ordre(10, 31), ['halloween', 'noel', 'nouvel-an', 'amour', 'anniversaires'], 'le jour même, elle ouvre encore la rangée')
+  assert.deepEqual(ordre(11, 1), ['noel', 'nouvel-an', 'amour', 'halloween', 'anniversaires'], 'passée, elle attend l’an prochain')
+  assert.deepEqual(ordre(12, 26), ['nouvel-an', 'amour', 'halloween', 'noel', 'anniversaires'])
+  assert.deepEqual(ordre(2, 1), ['amour', 'halloween', 'noel', 'nouvel-an', 'anniversaires'])
 })
 
 test('un fil rouge et un thème ont chacun leur icône — sans elle, l’horloge des époques ; une rubrique, l’emblème de sa catégorie', async () => {
@@ -223,8 +259,8 @@ test('chaque sujet tient une série dans la base livrée : cent questions, cinq 
     const siennes = questions.filter(q => sujetsDe(q.meta).includes(s.cle))
     assert.ok(siennes.length >= 100, `${s.cle} : ${siennes.length} questions`)
     const categories = new Set(siennes.map(q => q.meta.categorie))
-    // Un thème a son nom, pas l'obligation de traverser les catégories : les animaux vivent surtout dans la nature.
-    if (s.famille !== 'theme') assert.ok(categories.size >= 7, `${s.cle} : ${categories.size} catégories — un sujet traverse les catégories`)
+    // Un thème a son nom, pas l'obligation de traverser les catégories : les animaux vivent surtout dans la nature. Une fête, dans celle de la fête.
+    if (s.famille === 'epoque' || s.famille === 'fil') assert.ok(categories.size >= 7, `${s.cle} : ${categories.size} catégories — un sujet traverse les catégories`)
     const parNiveau = new Map<Niveau, number>()
     for (const q of siennes) parNiveau.set(niveauDeQuestion(q.meta.difficulte), (parNiveau.get(niveauDeQuestion(q.meta.difficulte)) ?? 0) + 1)
     for (const n of NIVEAUX) assert.ok((parNiveau.get(n) ?? 0) >= 5, `${s.cle} › ${n} : ${parNiveau.get(n) ?? 0}`)
@@ -375,6 +411,26 @@ test('une rubrique se propose à cent questions, se joue comme un sujet — sa s
     // Ni parcours, ni étape : son sous-thème se monte déjà sur le sentier du sport.
     assert.deepEqual((await lire(banc, lea, '/api/campagne/sujets')).corps.sujets, [])
     const etape = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'sport/football', palier: 1 })
+    assert.deepEqual([etape.status, etape.corps.error], [400, 'Ce parcours n’existe pas'])
+  } finally {
+    await banc.close()
+  }
+})
+
+test('une fête se propose et se joue comme un sujet — son sous-thème, son étiquette ailleurs — mais n’a pas de parcours', async () => {
+  const halloween = Array.from({ length: 70 }, (_, i) => question(300 + i, 'Autour de la fête', { sousTheme: 'halloween' }))
+  const ailleurs = Array.from({ length: 5 }, (_, i) => question(400 + i, 'Cinéma & séries', { etiquettes: ['halloween'] }))
+  const banc = await demarrer({ baseDeLaCampagne: new BaseDeLaCampagne([...halloween, ...ailleurs]) })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    assert.deepEqual((await lire(banc, lea, '/api/campagne')).corps.sujets, [{ sujet: 'halloween', questions: 75 }])
+    const serie = (await poster(banc, lea, '/api/campagne/serie', { sujet: 'halloween' })).corps
+    assert.equal(serie.sujet, 'halloween')
+    const siennes = new Set([...halloween, ...ailleurs].map(q => q.id))
+    assert.ok(tirees(banc, serie.id).every(id => siennes.has(id)), 'ses questions seules')
+    // Soixante-quinze questions : un thème aurait son parcours ; une fête, non — le sentier de la fête la monte déjà.
+    assert.deepEqual((await lire(banc, lea, '/api/campagne/sujets')).corps.sujets, [])
+    const etape = await poster(banc, lea, '/api/campagne/sujets/epreuve', { sujet: 'halloween', palier: 1 })
     assert.deepEqual([etape.status, etape.corps.error], [400, 'Ce parcours n’existe pas'])
   } finally {
     await banc.close()

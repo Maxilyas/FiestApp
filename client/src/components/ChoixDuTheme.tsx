@@ -6,7 +6,7 @@ import { EMBLEME } from './Ecusson'
 import { iconeDuSujet } from '../iconeDuSujet'
 import { espacesFines } from '../format'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
-import { FAMILLES_DE_SUJETS, sujetParCle, type Sujet } from '../../../shared/sujets'
+import { FAMILLES_DE_SUJETS, fetesDansLOrdre, sujetParCle, type FamilleDeSujet, type Sujet } from '../../../shared/sujets'
 
 /**
  * Ce que joue une partie de la campagne — des catégories, toutes d'office,
@@ -219,14 +219,21 @@ export function FeuilleDuChoix({
   )
 }
 
+/** Les sujets d'une famille, dans l'ordre de leur rangée : les fêtes de la plus proche à la plus lointaine, les autres dans celui du catalogue. */
+const deLaFamille = (sujets: readonly Sujet[], famille: FamilleDeSujet): readonly Sujet[] => {
+  const ici = sujets.filter(s => s.famille === famille)
+  return famille === 'fete' ? fetesDansLOrdre(ici, new Date()) : ici
+}
+
 /**
- * L'onglet des thèmes, chaque famille son allure : les thèmes en tuiles, leur
- * emblème dans un médaillon ; les époques en frise, dans l'ordre du temps —
- * la première colonne, puis la seconde ; les fils rouges en pastilles, leur
- * emblème devant. Trente-cinq pastilles toutes pareilles faisaient un mur de
- * mots sur trois écrans (le souhait du propriétaire du 17 octobre 2026 :
- * « plus stylisé, plus agréable à voir »). Toucher de nouveau un sujet le
- * quitte : les catégories reviennent.
+ * L'onglet des thèmes, chaque famille son allure : les fêtes et les thèmes en
+ * tuiles, leur emblème dans un médaillon — la fête la plus proche d'abord ;
+ * les époques en frise, dans l'ordre du temps — la première colonne, puis la
+ * seconde ; les fils rouges en pastilles, leur emblème devant. Trente-cinq
+ * pastilles toutes pareilles faisaient un mur de mots sur trois écrans (le
+ * souhait du propriétaire du 17 octobre 2026 : « plus stylisé, plus agréable
+ * à voir »). Toucher de nouveau un sujet le quitte : les catégories
+ * reviennent.
  */
 function SujetsDuChoix({
   sujets,
@@ -243,7 +250,7 @@ function SujetsDuChoix({
   return (
     <>
       {FAMILLES_DE_SUJETS.map(({ famille, nom: nomDeLaFamille }) => {
-        const ici = sujets.filter(s => s.famille === famille)
+        const ici = deLaFamille(sujets, famille)
         if (ici.length === 0) return null
         // La frise remplit ses colonnes de haut en bas : autant de rangs que la moitié de ses époques.
         const rangs = Math.ceil(ici.length / 2)
@@ -273,7 +280,7 @@ function SujetsDuChoix({
                   </button>
                 ))}
               </div>
-            ) : famille === 'theme' ? (
+            ) : famille === 'theme' || famille === 'fete' ? (
               <div className="quoi-tuiles" role="group" aria-label={nomDeLaFamille}>
                 {ici.map(s => (
                   <button key={s.cle} type="button" className={'quoi-tuile' + (choisi === s.cle ? ' active' : '')} aria-pressed={choisi === s.cle} onClick={() => basculer(s.cle)}>
@@ -428,7 +435,7 @@ export function GrilleDesSujets({ sujets, sujet, onSujet }: { sujets: readonly S
     <div className="campagne-sujets">
       <p className="sujets-titre">Ou un sujet, au-delà des catégories</p>
       {FAMILLES_DE_SUJETS.map(({ famille, nom }) => {
-        const ici = sujets.filter(s => s.famille === famille)
+        const ici = deLaFamille(sujets, famille)
         if (ici.length === 0) return null
         const choisi = ici.findIndex(s => s.cle === sujet)
         const apres = choisi < 0 ? -1 : finDeRangee(choisi, ici.length, COLONNES)

@@ -12,7 +12,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
-import { SUJETS } from '../../shared/sujets'
+import { SUJETS, aUnParcours } from '../../shared/sujets'
 import type { EpreuveDeSujet, EtatDesSujets, SentierDeSujet } from '../../shared/sentiersDeSujets'
 
 Object.assign(globalThis, {
@@ -58,7 +58,10 @@ test('une ligne de parcours dit où il en est, la difficulté de son étape à j
 
 test('les parcours : celui laissé en route à reprendre, ceux en cours, puis une famille à la fois — les thèmes d’abord', async () => {
   const etat: EtatDesSujets = {
-    sujets: SUJETS.map(s => (s.cle === 'annees-80' ? parcours(s.cle, 2, [3, 2, 0, 0, 0, 0]) : s.cle === 'pieges' ? parcours(s.cle, 6, [1, 1, 1, 1, 1, 1]) : parcours(s.cle, 0))),
+    // Ce que le serveur sert : les sujets qui ont un parcours — pas les fêtes (`aUnParcours`).
+    sujets: SUJETS.filter(aUnParcours).map(s =>
+      s.cle === 'annees-80' ? parcours(s.cle, 2, [3, 2, 0, 0, 0, 0]) : s.cle === 'pieges' ? parcours(s.cle, 6, [1, 1, 1, 1, 1, 1]) : parcours(s.cle, 0),
+    ),
     epreuve: LAISSEE,
   }
   const html = await rendre('ParcoursDeTheme', { etat, onEtape: () => {} })

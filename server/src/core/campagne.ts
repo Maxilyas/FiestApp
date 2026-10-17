@@ -57,7 +57,7 @@ import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
-import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
+import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, aUnParcours, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
 import {
   AUTOMATE,
@@ -5121,7 +5121,7 @@ export class CampagneStore {
     const compte = this.sujetsComptes(jouables)
     const parSujet = new Map<string, SentierDeSujet>()
     for (const s of SUJETS) {
-      if ((compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
+      if (aUnParcours(s) && (compte.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET) parSujet.set(s.cle, { sujet: s.cle, paliers: 0, etoiles: PALIERS_DES_SUJETS.map(() => 0) })
     }
     for (const r of validees.rows) {
       const s = parSujet.get(String(r.sujet))
@@ -5144,8 +5144,8 @@ export class CampagneStore {
   commencerUnSujet(profileId: string, cle: unknown, n: unknown): Promise<EpreuveDeSujet> {
     return this.avecVerrou(profileId, async () => {
       const suivi = sujetParCle(cle)
-      // Une rubrique n'a pas de parcours : son sous-thème se monte déjà, chapitre par chapitre, sur le sentier de sa catégorie.
-      if (!suivi || suivi.famille === 'rubrique') throw new Error('Ce parcours n’existe pas')
+      // Ni une rubrique ni une fête n'ont de parcours : leur sous-thème se monte déjà, chapitre par chapitre, sur le sentier de leur catégorie.
+      if (!suivi || !aUnParcours(suivi)) throw new Error('Ce parcours n’existe pas')
       const regle = regleDuPalierDeSujet(n)
       if (!regle) throw new Error('Cette étape n’existe pas')
       const etat = await this.etatDesSujets(profileId)

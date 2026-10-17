@@ -186,6 +186,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
 | Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
+| Fête (un sujet) | Noël, le Nouvel An, Halloween, l'amour ou les anniversaires : un sujet qui ouvre l'onglet « Thèmes », la plus proche d'abord, sans parcours | `fetesDansLOrdre` |
 | Feuille du choix | La feuille « Sur quoi ? » où l'on choisit les catégories ou le sujet d'une série | `FeuilleDuChoix` |
 | Fiche | Un invité de la soirée : son prénom, son avatar, son équipe, son profil éventuel et son jeton | `PlayerRec` (`server/src/core/party.ts`) |
 | Fiche d'un quiz | L'écran d'un quiz dans « Mes quiz » : ce qu'il contient, « Lancer » et « Modifier les questions » en grand, les gestes rares sous « Plus » | `FicheDeQuiz` |

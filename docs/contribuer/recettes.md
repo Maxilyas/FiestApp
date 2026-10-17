@@ -387,7 +387,7 @@ C'est un choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis-le
 
 ### Ajouter un parcours de thème
 
-Un parcours n'a rien à lui : il vient tout seul à chaque sujet de la campagne qui a soixante questions jouables (`QUESTIONS_POUR_UN_SENTIER_DE_SUJET`). Ajouter un parcours, c'est ajouter un sujet.
+Un parcours n'a rien à lui : il vient tout seul à chaque sujet de la campagne qui a soixante questions jouables (`QUESTIONS_POUR_UN_SENTIER_DE_SUJET`) — sauf une fête ou une rubrique, que le sentier de leur catégorie monte déjà (`aUnParcours`). Ajouter un parcours, c'est ajouter un sujet.
 
 1. `shared/sujets.ts` : une ligne de `SUJETS` — sa clé, son nom, `famille: 'theme'` (ou une époque, un fil rouge), ses sous-thèmes par catégorie (`sousThemes` : « france » n'est pas le même en cuisine et en géographie) et, s'il en a, l'étiquette qui le porte hors d'elles (`etiquettes`, comme `animaux` ou `invention`).
 2. `client/src/iconeDuSujet.ts` : son icône. Sans elle, il prend l'horloge des époques — `server/test/campagne-sujets.test.ts` le refuse pour un thème ou un fil rouge.
