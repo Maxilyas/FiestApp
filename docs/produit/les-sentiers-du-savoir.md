@@ -49,7 +49,7 @@ Les huit premiers paliers vont **par deux**, et chaque paire est un chapitre qui
 
 ### La fiche d'un palier
 
-Toucher un palier ouvre sa fiche (« Palier 3 sur 12 ») : son thème (« Mots et symboles · chapitre 2 sur 4 »), sa difficulté — et, pour celui qui t'attend, ta chance de le valider —, ses questions (« 12 faciles et 4 moyennes »), son seuil, ce que paient ses étoiles (« ★★ à 13 : 10 confettis · ★★★ sans faute : 25 ») et le portrait qu'il ouvre. Puis le geste : « Jouer le palier 3 », « Rejouer · sans risquer de vie » pour un palier validé, « Reprendre le palier 3 » pour l'épreuve laissée sur ce palier (« rien n’est perdu, tu reprends où tu en étais »), « Plus de vies : racheter » sans vie. Si une épreuve en jeu t'attend ailleurs, ni « Jouer » ni « Rejouer » : « Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté. »
+Toucher un palier ouvre sa fiche (« Palier 3 sur 12 ») : son thème (« Le français et les langues · chapitre 2 sur 4 »), sa difficulté — et, pour celui qui t'attend, ta chance de le valider —, ses questions (« 12 faciles et 4 moyennes »), son seuil, ce que paient ses étoiles (« ★★ à 13 : 10 confettis · ★★★ sans faute : 25 ») et le portrait qu'il ouvre. Puis le geste : « Jouer le palier 3 », « Rejouer · sans risquer de vie » pour un palier validé, « Reprendre le palier 3 » pour l'épreuve laissée sur ce palier (« rien n’est perdu, tu reprends où tu en étais »), « Plus de vies : racheter » sans vie. Si une épreuve en jeu t'attend ailleurs, ni « Jouer » ni « Rejouer » : « Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté. »
 
 ## Une épreuve, question par question
 

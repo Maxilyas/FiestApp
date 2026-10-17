@@ -19,6 +19,9 @@
 // qui mêlait les accords du participe et l'alphabet coréen : langue garde
 // les autres langues, les écritures et les codes, francais tout ce qui dit
 // le français — son orthographe, sa grammaire, ses mots et leur origine.
+// L'anglais et l'espagnol ont pris chacun le leur le même jour : une série
+// de Culture générale y gagne des questions de langue, quatre sous-thèmes
+// sur douze, et une série de toutes les catégories presque rien.
 
 import { CATEGORIES } from './categories'
 import { tronquer } from './avatars'
@@ -32,6 +35,8 @@ export interface SousTheme {
 export const SOUS_THEMES: Record<(typeof CATEGORIES)[number], readonly SousTheme[]> = {
   "Culture générale": [
     { cle: "francais", nom: "Langue française" },
+    { cle: "anglais", nom: "Langue anglaise" },
+    { cle: "espagnol", nom: "Langue espagnole" },
     { cle: "langue", nom: "Langues et écritures du monde" },
     { cle: "symboles", nom: "Symboles et institutions" },
     { cle: "quotidien", nom: "Objets et vie quotidienne" },
@@ -194,6 +199,8 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "danse", nom: "La danse", definition: "une danse, un danseur ou un chorégraphe est au cœur d'une question rangée hors des sous-thèmes ballet, danses et bal (un film, une émission, un tableau, un peuple et sa danse)" },
       { cle: "sante", nom: "La santé", definition: "un soin, une maladie ou un métier de la santé est au cœur d'une question rangée hors des sous-thèmes corps, medecine et sante (un savant qui a soigné, une série d'hôpital, un médecin de roman)" },
       { cle: "francais", nom: "La langue française", definition: "la langue française elle-même est au cœur d'une question rangée hors du sous-thème francais : le sens d'une expression, d'un mot familier ou d'argot, le mot recommandé à la place d'un anglicisme, l'histoire du français (ouvrir le bal, le toubib, courriel, l'ordonnance de Villers-Cotterêts). Pas pour le vocabulaire d'un métier ou d'un art (émincer, crescendo), ni pour la seule origine d'un mot : etymologie le dit" },
+      { cle: "anglais", nom: "La langue anglaise", definition: "le sens d'un mot ou d'une expression anglaise est au cœur d'une question rangée hors du sous-thème anglais (happy hour, black tie, love au tennis, LOL). Pas pour un sigle technique (USB, GPS), un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
+      { cle: "espagnol", nom: "La langue espagnole", definition: "le sens d'un mot ou d'une expression espagnole est au cœur d'une question rangée hors du sous-thème espagnol (piña colada, paso doble, Feliz Navidad). Pas pour un titre de film ou de chanson, ni pour la seule origine d'un mot : etymologie le dit" },
     ],
   },
   {

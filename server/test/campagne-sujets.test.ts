@@ -80,6 +80,11 @@ test('une question est d’un thème par son sous-thème, dans sa catégorie, ou
   assert.deepEqual(sujetsDe(meta(null, ['francais'], 'monde', 'Autour de la fête', 'bal')), ['danse', 'francais'], '« ouvrir le bal »')
   assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'langue')), [], 'l’alphabet coréen n’est pas du français')
   assert.deepEqual(sujetsDe(meta(null, ['etymologie'], 'monde', 'Nature', 'disparus')), ['animaux', 'mots'], 'le nom d’un dinosaure reste à l’origine des mots, pas au français')
+  // L'anglais et l'espagnol (le même jour) : chacun son sous-thème, et son étiquette pour le mot qu'on croise ailleurs.
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'anglais')), ['anglais'])
+  assert.deepEqual(sujetsDe(meta(null, [], 'monde', 'Culture générale', 'espagnol')), ['espagnol'])
+  assert.deepEqual(sujetsDe(meta(null, ['alcool', 'anglais'], 'monde', 'Autour de la fête', 'cocktails')), ['anglais'], '« happy hour »')
+  assert.deepEqual(sujetsDe(meta(null, ['espagnol'], 'monde', 'Autour de la fête', 'noel')), ['espagnol'], '« Feliz Navidad »')
 })
 
 test('le catalogue des sujets : des clés uniques, des étiquettes qui existent, des époques qui se suivent sans se chevaucher', () => {

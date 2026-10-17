@@ -409,7 +409,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
 - `server/test/meme-fait.test.ts` — le même fait sous deux intitulés.
 - `server/test/generer-campagne.test.ts` — la génération en nombre : vagues, dédoublonnage, relecture rejouée.
-- `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé et de la langue française : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
+- `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais et de l'espagnol : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
 - `server/test/faits-wikidata.test.ts` — les faits de Wikidata, sans réseau.
 - `server/test/reponses-soufflees.test.ts` — les réponses soufflées par leur racine.
 

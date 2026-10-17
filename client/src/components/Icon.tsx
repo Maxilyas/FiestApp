@@ -95,6 +95,8 @@ export type IconName =
   | 'bulles'
   | 'landmark'
   | 'lettres'
+  | 'hi'
+  | 'enye'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -669,6 +671,10 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
+  // « Hi » pour l'anglais, la ñ pour l'espagnol : deux langues, deux lettres,
+  // comme le « Aa » du français — pas un drapeau, l'anglais n'est pas qu'anglais.
+  hi: { paths: <path d="M5 6v12M12.5 6v12M5 12h7.5M18 11v7M18 7.2v.01" /> },
+  enye: { paths: <path d="M8.5 19v-8.5M8.5 13.5a3.5 3.5 0 0 1 7 0V19M8 7.5c1.1-1.3 2.3-1.5 3.6-.6s2.6.8 3.9-.7" /> },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.

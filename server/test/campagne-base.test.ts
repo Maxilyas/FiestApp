@@ -83,9 +83,12 @@ import { sansAccent } from '../../shared/homonymes'
  * famille par famille de son inventaire (`preparer --inventaire=francais`),
  * 390 rangées sur 400 (7 refusées comme un fait ou un intitulé déjà posé, 3
  * retirées à la relecture) : 25 017 ; puis une question par sujet que
- * l'inventaire laissait sans question (`--manques`), 15 : 25 032.
+ * l'inventaire laissait sans question (`--manques`), 15 : 25 032. Puis
+ * l'anglais et l'espagnol, deux sous-thèmes neufs écrits de même
+ * (`preparer --inventaire=anglais,espagnol`), 488 rangées sur 500 (8
+ * refusées comme un fait déjà posé, 4 retirées à la relecture) : 25 520.
  */
-const AU_MOINS = 25032
+const AU_MOINS = 25520
 
 const { questions, refusees } = lireLaBase()
 

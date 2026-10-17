@@ -22,6 +22,8 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   bd: 'bulles',
   monuments: 'landmark',
   francais: 'lettres',
+  anglais: 'hi',
+  espagnol: 'enye',
   france: 'flag',
   pionnieres: 'award',
   pieges: 'alert',
