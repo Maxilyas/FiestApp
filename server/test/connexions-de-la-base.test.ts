@@ -213,6 +213,12 @@ test('les connexions qu’aucune réponse n’emprunte restent chaudes aussi, m�
     const avant = comptes()
     const page = () => Promise.all([allerRetour(turso.adresse), allerRetour(turso.adresse), allerRetour(turso.adresse)])
     await page()
+    // Les réponses tombent entre les tours de battements. Le premier part quand
+    // les deux connexions qu'elles n'empruntent pas ont trois secondes de calme ;
+    // la troisième réponse, partie à 3 s elle aussi, les trouvait toutes trois
+    // occupées par leur battement et en ouvrait une quatrième — sur une machine
+    // chargée, trois fois sur dix (la CI du 17 octobre 2026).
+    await attendre(500)
     for (let i = 0; i < 5; i++) {
       await attendre(1_000)
       noterUneDemande()
