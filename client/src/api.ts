@@ -18,7 +18,7 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
-import type { ApresUnGeste, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
+import type { ApresUnGeste, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -189,6 +189,10 @@ export interface Activation {
 
 /** L'adresse à envoyer : le jeton voyage dans le fragment, que le navigateur garde pour lui. */
 export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
+
+/** Un geste de l'expédition, avec le rang qu'il croit suivre : un double toucher ne joue pas deux fois. */
+const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition) =>
+  req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
 
 export const api = {
   list: () => req<QuizSummary[]>(DEPART.quiz),
@@ -522,19 +526,24 @@ export const api = {
     },
   },
   /**
-   * L'Expédition (`shared/expedition.ts`) : sa page, partir, un geste — qui
-   * porte le rang qu'il croit suivre —, une réponse — avec la position de sa
-   * question —, l'abandon. Une partie d'un autre mode : sa correction et ses
-   * signalements passent par celles de la série.
+   * L'Expédition (`shared/expedition.ts`) : sa page, partir avec son équipée,
+   * un geste — qui porte le rang qu'il croit suivre —, une réponse — avec la
+   * position de sa question ; deux réponses sous Double chance —, l'abandon.
+   * Une partie d'un autre mode : sa correction et ses signalements passent par
+   * celles de la série.
    */
   expedition: {
     page: () => req<PageDeLExpedition>(DEPART.expedition),
-    partir: () => req<VueDeLExpedition>('/api/expedition', { method: 'POST' }),
-    avancer: (id: string, rang: number, vers: string) =>
-      req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste: { quoi: 'avancer', vers } }) }),
-    garder: (id: string, rang: number, legendaire: string) =>
-      req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste: { quoi: 'garder', legendaire } }) }),
-    repondre: (id: string, position: number, choix: number) =>
+    partir: (equipee: readonly string[]) => req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee }) }),
+    avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
+    /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
+    jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
+      gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),
+    prendre: (id: string, rang: number, jokers: readonly string[]) => gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers] }),
+    /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet. */
+    camper: (id: string, rang: number, retirer?: string) => gesteDExpedition(id, rang, { quoi: 'camper', ...(retirer !== undefined && { retirer }) }),
+    garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
+    repondre: (id: string, position: number, choix: number | readonly number[]) =>
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
     abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
   },

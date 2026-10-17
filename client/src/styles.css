@@ -9129,7 +9129,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-gardien-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .exp-gardien-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
 .exp-vaincu-ligne .exp-gardien-nom { color: var(--accent-text); }
-.exp-depart-pied { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+/* Le geste du bas — partir, prendre, camper —, collé au bas de l'écran : l'équipée a poussé « Partir » sous le pli en 360 × 640. Le fond du thème y monte en fondu, sans bande. */
+.exp-depart-pied { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding: 18px 0 max(4px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 18px); }
 .exp-depart-pied p { margin: 0; }
 /* La carte : les colonnes en pour cent de sa largeur, les étages en pixels
    (`ExpeditionApp.tsx`). Les liens, sous les escales, d'un trait qui ne
@@ -9177,8 +9178,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-legende-pistes { display: inline-flex; gap: 2px; }
 /* Une escale, le gardien : la question de la campagne, avec ce qui la situe au-dessus. */
 .exp-ou { margin: 0; }
-/* Pas `.exp-source` : c'est la classe d'une escale de la carte (`exp-${sorte}`), qu'elle décentrait. */
-.exp-source-regle { margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); line-height: 1.35; }
+/* La règle d'une source, d'une élite. Pas `.exp-source` ni `.exp-elite` : ce sont les classes d'une escale de la carte (`exp-${sorte}`), que `.exp-source` décentrait. */
+.exp-regle { margin: 0; padding: 7px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); line-height: 1.35; }
 .exp-gardien-tete { display: flex; align-items: center; gap: 12px; }
 .exp-gardien-tete p { margin: 0; }
 .exp-medaillon-gardien { font-size: 64px; }
@@ -9211,6 +9212,117 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-choix > .btn-primary { margin-top: auto; }
 .exp-fin-tete { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .exp-fin-tete p { margin: 0; }
+/* L'équipée (la maquette 2) : deux places, un médaillon et son joker dans
+   chacune ; dans sa feuille, les légendaires qu'il peut emmener, quatre par
+   rangée, l'anneau d'or sur ceux qui partent. */
+.exp-equipee { display: flex; flex-direction: column; gap: 10px; }
+.exp-equipee p { margin: 0; }
+.exp-section-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.exp-section-tete h2 { margin: 0; }
+.exp-changer { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; text-decoration: none; }
+.exp-changer .icon { width: 16px; height: 16px; }
+.exp-places { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.exp-place { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 64px; padding: 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-strong); }
+.exp-place .exp-medaillon { font-size: 40px; }
+.exp-place-libre { justify-content: center; border-style: dashed; background: none; color: var(--muted); font-size: 0.85rem; }
+/* « Dragon d'Or », « Le trésor » : deux lignes s'il le faut, plutôt que des points de suspension — et « Renais-sance » coupé à la syllabe. */
+.exp-place-texte { display: flex; flex-direction: column; min-width: 0; font-size: 0.9rem; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; }
+.exp-place-joker { color: var(--accent-text); font-size: 0.8rem; font-weight: 600; }
+.feuille-equipee .carte-corps { display: flex; flex-direction: column; gap: 12px; }
+.feuille-equipee .carte-corps p, .feuille-equipee h3 { margin: 0; }
+.exp-equipables { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; }
+.exp-equipable { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.exp-equipable .exp-medaillon { font-size: 52px; border-radius: 50%; box-shadow: 0 0 0 1px var(--edge-strong); }
+.exp-equipable[aria-pressed='true'] .exp-medaillon { box-shadow: 0 0 0 3px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 50%, transparent); }
+.exp-equipable[aria-pressed='true'] .exp-equipable-nom { color: var(--accent-text); font-weight: 700; }
+.exp-equipable-nom { font-size: 0.78rem; line-height: 1.15; text-align: center; }
+/* L'invité du jour : un ruban à cheval sur le bas de son médaillon, qui ne déborde pas de sa case. */
+.exp-medaillon-ruban { position: relative; flex: none; display: inline-grid; place-items: center; }
+.exp-ruban { position: absolute; bottom: -7px; left: 50%; width: 52px; margin-left: -26px; padding: 1px 0; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1.3; text-align: center; }
+.exp-place .exp-ruban { bottom: -6px; width: 46px; margin-left: -23px; }
+.exp-fiche { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); }
+.exp-fiche-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.exp-statut { flex: none; color: var(--accent-text); font-weight: 600; }
+.exp-tous { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; text-decoration: none; font-weight: 600; }
+.exp-tous .icon { width: 16px; height: 16px; transition: rotate 0.2s ease; }
+.exp-tous[aria-expanded='true'] .icon { rotate: 180deg; }
+.exp-catalogue { display: flex; flex-direction: column; gap: 8px; }
+.exp-catalogue ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.exp-joker-du-catalogue { display: flex; align-items: flex-start; gap: 10px; }
+.exp-joker-du-catalogue > .icon { flex: none; width: 22px; height: 22px; margin: 4px 7px; color: var(--accent-text); }
+/* Le médaillon d'un légendaire là où un joker se montre en petit : la taille de son icône. */
+.exp-visage-joker { font-size: 36px; }
+.exp-jetons { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.exp-jeton { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--ink); font-size: 0.8rem; }
+/* La main (la maquette 4) : sous la question, ses jokers en cartes, trois
+   par rangée ; sur la carte, une ligne dans le panneau du tracé. Une carte
+   qui ne se joue pas maintenant s'éteint, sans se fermer : touchée, sa
+   feuille dit pourquoi. */
+.exp-main { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.exp-main-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.exp-main-tete h3 { margin: 0; }
+.exp-main-tete .link-inline { color: var(--muted); text-decoration: none; }
+.exp-main p { margin: 0; }
+.exp-cartes-joker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.exp-carte-joker { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; min-height: 68px; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius-sm); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.exp-carte-joker b { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; line-height: 1.1; hyphens: auto; overflow-wrap: break-word; }
+.exp-carte-joker-tete { display: flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.exp-carte-joker-tete .icon { width: 20px; height: 20px; }
+.exp-carte-joker-tete .exp-visage-joker { font-size: 24px; }
+.exp-carte-joker.exp-refuse { border-color: var(--edge); background: var(--surface); opacity: 0.55; }
+.exp-poses { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--muted); }
+.exp-main-ligne { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.86rem; text-align: left; cursor: pointer; }
+.exp-main-ligne > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
+.exp-main-noms { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.exp-main-noms b { color: var(--ink); }
+.exp-route { color: var(--accent-text); line-height: 1.35; }
+/* « Ta main », la feuille : chaque joker se déplie, son bouton dessous. */
+.feuille-main .carte-corps { display: flex; flex-direction: column; gap: 14px; }
+.feuille-main .carte-corps p, .feuille-main h3 { margin: 0; }
+.exp-main-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.exp-joker-ligne { border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius-sm); background: var(--surface); }
+.exp-joker-ligne.exp-refuse { border-color: var(--edge); }
+.exp-joker-ligne-tete { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.exp-joker-ligne-tete > .icon:first-child { flex: none; width: 22px; height: 22px; margin: 0 7px; color: var(--accent-text); }
+.exp-joker-ligne-tete .exp-joker { flex: 1; min-width: 0; }
+.exp-joker-ligne-tete .chevron { flex: none; width: 18px; height: 18px; color: var(--muted); transition: rotate 0.2s ease; }
+.exp-joker-ligne-tete[aria-expanded='true'] .chevron { rotate: 180deg; }
+.exp-joker-ligne.exp-refuse .exp-joker-ligne-tete { opacity: 0.65; }
+.exp-joker-detail { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.exp-refus { padding: 7px 10px; border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); }
+.exp-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.exp-main-section { display: flex; flex-direction: column; gap: 6px; }
+.exp-poses-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; line-height: 1.35; }
+/* Ce qu'un joker a fait à la question : des réponses effacées, deux à choisir, celle montrée à l'Oracle, l'indice. */
+.exp-visages { display: flex; gap: 6px; }
+.exp-indice { margin: 0; padding: 7px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius-xs); background: var(--accent-soft); color: var(--ink); line-height: 1.35; }
+.exp-consigne { margin: 0; color: var(--accent-text); line-height: 1.35; }
+.exp-perte { margin: 0; color: var(--muted); line-height: 1.35; }
+.ans-btn.exp-effacee { opacity: 0.32; cursor: default; }
+.ans-btn.exp-effacee .ans-text { text-decoration: line-through; }
+.ans-btn.exp-choisie { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+.ans-btn.exp-montree { border: 1.5px dashed var(--accent); }
+/* Un joker pour son paquet (la maquette 12) : trois jokers, leur rareté en pastille. */
+.exp-offres { display: flex; flex-direction: column; gap: 8px; }
+.exp-offre-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.exp-offre-ligne.exp-choisi { border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+.exp-offre-visage { flex: none; display: grid; place-items: center; width: 46px; height: 58px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius-xs); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 4%, transparent)); color: var(--accent-text); }
+.exp-offre-visage .icon { width: 24px; height: 24px; }
+.exp-offre-ligne .exp-joker { flex: 1; min-width: 0; }
+.exp-offre-nom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.exp-offre-nom b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.1; }
+/* Les raretés par les jetons du thème, et pas seulement par leur teinte : commun en filet terne, rare en filet d'or, légendaire en or plein, maudit en rouge. */
+.exp-rarete { flex: none; padding: 1px 8px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--muted); font-size: var(--t-label); font-weight: 700; }
+.exp-rarete-rare { border-color: var(--accent); color: var(--accent-text); }
+.exp-rarete-maudit { border-color: transparent; background: rgba(var(--alert-rgb), 0.16); color: var(--alert); }
+.exp-rarete-legendaire { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.exp-paquet { display: flex; flex-direction: column; gap: 6px; }
+.exp-paquet h2 { margin: 0; }
+/* Le campement : une vie, ou un joker de moins — deux lignes comme le choix au bout, puis les jokers à retirer. */
+.exp-choix-icone { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-strong); color: var(--accent-text); }
+.exp-choix-icone .icon { width: 22px; height: 22px; }
+.exp-camper .exp-choix-ligne { min-height: 68px; }
+.exp-a-retirer { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (prefers-reduced-motion: reduce) {
   .exp-escale.exp-ici::after, .exp-medaillon-grand { animation: none; }
 }
