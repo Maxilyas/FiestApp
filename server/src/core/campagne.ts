@@ -12,7 +12,7 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { DejaPrises } from './jumelles'
+import { DejaPrises, type Intitule } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
@@ -454,6 +454,12 @@ const MODELE_GARDE_MS = 30 * 60_000
 const MODELE_RETENTE_MS = 60_000
 /** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
 const SERIES_GARDEES = 500
+/**
+ * Combien d'expéditions en route restent en mémoire (`expeditions`), avec ce
+ * que chacun a vu — trois mille questions pour un fidèle : moins que les
+ * séries, chacune pèse plus.
+ */
+const EXPEDITIONS_GARDEES = 100
 const HEURE_MS = 3600_000
 /** Les séries de la campagne, sans les épreuves des sentiers : une ligne d'avant les sentiers n'a pas de mode. */
 const SERIES = "COALESCE(mode, 'serie') = 'serie'"
@@ -627,6 +633,15 @@ export class CampagneStore {
    */
   private enCours = new Map<string, Serie>()
   /**
+   * L'expédition en route de chaque profil, telle que son dernier geste
+   * l'a écrite, avec ce qu'il avait vu : le geste suivant ne relit ni l'une
+   * ni l'autre — une escale coûtait trois allers-retours de suite, une
+   * réponse deux ou trois (le 17 octobre 2026). Tenue à jour sous son
+   * verrou, après chaque écriture réussie ; oubliée au moindre échec, comme
+   * la série en cours.
+   */
+  private expeditions = new Map<string, ExpeditionGardee>()
+  /**
    * La rencontre que le dé a promise à chaque profil sans pouvoir l'écrire
    * (`commencerUneRencontre` répond avant l'écriture) : sa première réponse
    * dit quoi faire, au lieu de « introuvable ». Oubliée au dé suivant.
@@ -747,6 +762,10 @@ export class CampagneStore {
   private comptesDesSujets = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, number>>()
   /** Les jouables de chaque sujet, par liste de jouables (`duSujet`). */
   private listesDesSujets = new WeakMap<readonly QuestionDeLaBase[], Map<string, readonly QuestionDeLaBase[]>>()
+  /** Les jouables de chaque catégorie, par liste de jouables (`deLaCategorie`). */
+  private listesDesCategories = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, readonly QuestionDeLaBase[]>>()
+  /** Chaque jouable par son identifiant, par liste de jouables (`parIdDe`). */
+  private parIdGardes = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, QuestionDeLaBase>>()
   /** Ce que le tirage d'une série relit de chaque liste de jouables, à sa mesure (`tirage`). */
   private preparations = new WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>()
 
@@ -1411,6 +1430,28 @@ export class CampagneStore {
   }
 
   /**
+   * Les jouables d'une catégorie, rangées d'une passe pour toutes, une fois
+   * par liste : chaque escale de l'expédition repassait les vingt-cinq mille
+   * au crible pour en tirer une.
+   */
+  private deLaCategorie(jouables: readonly QuestionDeLaBase[], categorie: string): readonly QuestionDeLaBase[] {
+    let parCategorie = this.listesDesCategories.get(jouables)
+    if (!parCategorie) {
+      const neuves = new Map<string, QuestionDeLaBase[]>()
+      for (const q of jouables) (neuves.get(q.meta.categorie) ?? neuves.set(q.meta.categorie, []).get(q.meta.categorie)!).push(q)
+      this.listesDesCategories.set(jouables, (parCategorie = neuves))
+    }
+    return parCategorie.get(categorie) ?? []
+  }
+
+  /** Chaque jouable par son identifiant, une fois par liste : une source en refaisait la table à chaque tirage. */
+  private parIdDe(jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, QuestionDeLaBase> {
+    let parId = this.parIdGardes.get(jouables)
+    if (!parId) this.parIdGardes.set(jouables, (parId = new Map(jouables.map(q => [q.id, q]))))
+    return parId
+  }
+
+  /**
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
@@ -1892,6 +1933,8 @@ export class CampagneStore {
       if (juste) lot.push(...lecturesDeLExperience(profileId))
       // Le tour de ses bordures, pris avant le lot qui les relit avec son duel.
       const tourDesBordures = ++this.tourDesBordures
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -5073,6 +5116,8 @@ export class CampagneStore {
         })
       }
       if (juste) lot.push(...lecturesDeLExperience(profileId))
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -5331,6 +5376,8 @@ export class CampagneStore {
         })
       }
       if (juste) lot.push(...lecturesDeLExperience(profileId))
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -6480,6 +6527,44 @@ export class CampagneStore {
     return expeditionLue(series.rows[0], gestes.rows, reponses.rows)
   }
 
+  /** L'expédition à jouer : celle que son dernier geste a gardée en mémoire (`expeditions`), sinon relue. */
+  private async expeditionAJouer(profileId: string, id: string): Promise<ExpeditionGardee | null> {
+    const gardee = this.expeditions.get(profileId)
+    if (gardee?.lue.serie.id === id) return gardee
+    const lue = await this.lireLExpedition(profileId, id)
+    return lue && { lue, vues: null }
+  }
+
+  /** L'expédition telle qu'elle vient de s'écrire, gardée pour le geste suivant — finie, oubliée. */
+  private garderLExpedition(profileId: string, lue: ExpeditionLue, vues: ReadonlyMap<string, number> | null): void {
+    this.expeditions.delete(profileId)
+    if (lue.serie.finieLe !== null) return
+    this.expeditions.set(profileId, { lue, vues })
+    if (this.expeditions.size > EXPEDITIONS_GARDEES) this.expeditions.delete(this.expeditions.keys().next().value!)
+  }
+
+  /**
+   * Une réponse vient de s'écrire ailleurs dans la campagne — une série, une
+   * épreuve, un parcours — : ce que son expédition avait vu ne dit plus
+   * tout, et sa question suivante le relira. Sinon elle pourrait reposer,
+   * comme jamais vue, celle qu'il vient de voir. Sous son verrou : rien de
+   * l'expédition ne se joue pendant ce temps.
+   */
+  private vuAilleurs(profileId: string): void {
+    const gardee = this.expeditions.get(profileId)
+    if (gardee) gardee.vues = null
+  }
+
+  /** Le lot d'un geste ou d'une réponse ; raté, l'expédition gardée s'oublie : écrit ou non, on ne le sait pas, et la base fait alors foi. */
+  private async ecrireLExpedition(profileId: string, lot: InStatement[]): Promise<ResultSet[]> {
+    try {
+      return await this.client.batch(lot, 'write')
+    } catch (e) {
+      this.expeditions.delete(profileId)
+      throw e
+    }
+  }
+
   /** Les légendaires qu'il a : l'expédition tire ses gardiens parmi les autres. */
   private legendairesDe(profileId: string): ReadonlySet<string> {
     return new Set(this.recompenses?.legendairesOf?.(profileId) ?? [])
@@ -6530,10 +6615,13 @@ export class CampagneStore {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipée ne se lit pas : recharge la page'))
     return this.avecVerrou(profileId, async () => {
-      const [ouverte, compte] = await this.client.batch(
+      // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
+      // réponses, et ses premières escales s'en tirent sans le relire.
+      const [ouverte, compte, lues] = await this.client.batch(
         [
           { sql: `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1`, args: [profileId] },
           { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
+          lectureDesVues(profileId),
         ],
         'read',
       )
@@ -6551,7 +6639,8 @@ export class CampagneStore {
       const refus = refusDeLEquipee(equipee, siens, invite)
       if (refus) throw new Error(refus)
       const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets))
-      const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables)
+      const vues = lireLesVues(lues.rows)
+      const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
         v: 2,
         graine,
@@ -6587,6 +6676,7 @@ export class CampagneStore {
         expedition: depart,
       }
       const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map() }
+      this.garderLExpedition(profileId, lue, vues.vues)
       return vueDeLExpedition(lue, plier(lue), siens)
     })
   }
@@ -6607,14 +6697,16 @@ export class CampagneStore {
     profileId: string,
     cartes: CarteDUnActe[],
     jouables: readonly QuestionDeLaBase[],
+    /** Ses premières réponses, lues avec ce qu'il a vu dans le lot du départ (`lectureDesVues`). */
+    premieres: ReadonlyMap<string, boolean>,
   ): Promise<{ moyen: boolean; chances: Record<string, Partial<Record<Niveau, number>>>; chanceDeLaSource: number }> {
     const modele = this.modeleDuSavoir()
     let sa: { reference: SerieDeReference; lui: ForceDUnJoueur } | null = null
     if (modele) {
       try {
-        const [base, mesure, lues] = await Promise.all([this.base(), this.mesures(), this.client.execute(lectureDesVues(profileId))])
+        const [base, mesure] = await Promise.all([this.base(), this.mesures()])
         const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
-        const lui = forceDe(lireLesVues(lues.rows).premieres)
+        const lui = forceDe(premieres)
         if (lui.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE) sa = { reference, lui }
       } catch (e) {
         console.warn('[expedition] chances non calculées :', e instanceof Error ? e.message : e)
@@ -6672,8 +6764,9 @@ export class CampagneStore {
    */
   gesteDExpedition(profileId: string, id: string, rang: unknown, brut: unknown): Promise<ApresUnGeste> {
     return this.avecVerrou(profileId, async () => {
-      const l = await this.lireLExpedition(profileId, id)
-      if (!l) throw new Error('Cette expédition est introuvable')
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const l = gardee.lue
       if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
       if (rang !== l.gestes.length + 1) throw new Error('Ce geste est passé : l’expédition a continué sans lui')
       const lu = lireGeste(brut)
@@ -6686,7 +6779,7 @@ export class CampagneStore {
       // Passe-muraille répond à sa place : la question part au carnet comme ratée, sans coûter de vie.
       const traversee = g.quoi === 'jouer' && g.joker === 'passe-muraille' && g.position !== undefined ? g.position : null
       const reponses = traversee === null ? l.reponses : new Map(l.reponses).set(traversee, false)
-      const { questions, apres } = await this.completerLExpedition(profileId, l, gestes, reponses)
+      const { questions, apres, vues } = await this.completerLExpedition(profileId, l, gestes, reponses, gardee.vues)
       const lot: InStatement[] = [
         { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
       ]
@@ -6701,8 +6794,10 @@ export class CampagneStore {
           ? { sql: 'UPDATE campagne_series SET questions = ?, position = ?, vies = ?, justes = ? WHERE id = ?', args: [JSON.stringify(questions), apres.enAttente ?? apres.passees, apres.vies, apres.justes, l.serie.id] }
           : { sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ? WHERE id = ?', args: [apres.enAttente ?? apres.passees, apres.vies, apres.justes, l.serie.id] },
       )
-      await this.client.batch(lot, 'write')
-      return { expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, questions }, gestes, reponses }, apres, this.legendairesDe(profileId)) }
+      await this.ecrireLExpedition(profileId, lot)
+      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions }, gestes, reponses }
+      this.garderLExpedition(profileId, ecrite, vues)
+      return { expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)) }
     })
   }
 
@@ -6711,22 +6806,26 @@ export class CampagneStore {
    * tiré : la question d'une escale, celles du gardien, la reprise de La
    * boucle, l'autre de Deux visages. Le serveur écrit le tout d'un lot :
    * aucune lecture d'entre-deux ne trouve une question promise et absente.
+   * Ce qu'il a vu vient de l'expédition gardée (`vues`), relu s'il le faut,
+   * et rendu avec, pour le geste suivant.
    */
   private async completerLExpedition(
     profileId: string,
     l: ExpeditionLue,
     gestes: readonly GesteDExpedition[],
     reponses: ReadonlyMap<number, boolean>,
-  ): Promise<{ questions: QuestionDeSerie[]; apres: EtatDeLExpedition }> {
+    vues: ReadonlyMap<string, number> | null,
+  ): Promise<{ questions: QuestionDeSerie[]; apres: EtatDeLExpedition; vues: ReadonlyMap<string, number> | null }> {
     let questions = l.serie.questions
     let apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions), reponses)
     for (let tour = 0; tour < 3 && apres.aTirer; tour++) {
-      const tirees = await this.tirerPourLExpedition(profileId, l.depart, questions, apres)
-      if (tirees.length === 0) break
-      questions = [...questions, ...tirees]
+      const tire = await this.tirerPourLExpedition(profileId, l.depart, questions, apres, vues)
+      vues = tire.vues
+      if (tire.tirees.length === 0) break
+      questions = [...questions, ...tire.tirees]
       apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions), reponses)
     }
-    return { questions, apres }
+    return { questions, apres, vues }
   }
 
   /**
@@ -6741,13 +6840,11 @@ export class CampagneStore {
     const legendaires = this.recompenses ? this.recompenses.legendairesOuverts(profileId, await this.recompenses.ranger(profileId, cleDeSerie(l.serie.id), [cleDeLExpedition(g.legendaire)], maintenant)) : []
     const gestes = [...l.gestes, g]
     const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions), l.reponses)
-    await this.client.batch(
-      [
-        { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
-        { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'legendaire' WHERE id = ?`, args: [maintenant, l.serie.id] },
-      ],
-      'write',
-    )
+    await this.ecrireLExpedition(profileId, [
+      { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
+      { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'legendaire' WHERE id = ?`, args: [maintenant, l.serie.id] },
+    ])
+    this.expeditions.delete(profileId)
     const gains = await this.recompenserLExpedition(profileId, l.serie.id, maintenant)
     await this.faireGrandir(profileId)
     const tous = [...new Set([...legendaires, ...(gains.legendaires ?? [])])]
@@ -6771,8 +6868,9 @@ export class CampagneStore {
    */
   repondreEnExpedition(profileId: string, id: string, position: unknown, choix: unknown): Promise<ReponseDExpedition> {
     return this.avecVerrou(profileId, async () => {
-      const l = await this.lireLExpedition(profileId, id)
-      if (!l) throw new Error('Cette expédition est introuvable')
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const l = gardee.lue
       if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
       const avant = plier(l)
       // Deux visages : il répond à l'une des deux, au choix.
@@ -6787,7 +6885,7 @@ export class CampagneStore {
       const c = juste ? q.bonne : (choisis[0] ?? null)
       const aide = jokerQuiAide(avant, q)
       const reponses = new Map(l.reponses).set(i, juste)
-      const { questions, apres } = await this.completerLExpedition(profileId, l, l.gestes, reponses)
+      const { questions, apres, vues } = await this.completerLExpedition(profileId, l, l.gestes, reponses, gardee.vues)
       const finie = apres.issue === 'perdue'
       const maintenant = this.maintenant()
       const position_ = apres.enAttente ?? apres.passees
@@ -6807,7 +6905,9 @@ export class CampagneStore {
             },
       ]
       if (juste) lot.push(...lecturesDeLExperience(profileId))
-      const res = await this.client.batch(lot, 'write')
+      const res = await this.ecrireLExpedition(profileId, lot)
+      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses }
+      this.garderLExpedition(profileId, ecrite, vues)
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
       const gains = finie ? await this.recompenserLExpedition(profileId, l.serie.id, maintenant) : {}
       if (finie) await this.faireGrandir(profileId)
@@ -6817,7 +6917,7 @@ export class CampagneStore {
         bonne: q.bonne,
         anecdote: q.anecdote,
         xp,
-        expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses }, apres, this.legendairesDe(profileId)),
+        expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)),
         ...(vaincu && { vaincu }),
         ...gains,
       }
@@ -6827,19 +6927,17 @@ export class CampagneStore {
   /** Abandonner l'expédition : elle finit là, sans légendaire ; ce qu'elle a joué compte, comme une série abandonnée. */
   abandonnerLExpedition(profileId: string, id: string): Promise<ApresUnGeste> {
     return this.avecVerrou(profileId, async () => {
-      const l = await this.lireLExpedition(profileId, id)
+      const l = (await this.expeditionAJouer(profileId, id))?.lue
       if (!l) throw new Error('Cette expédition est introuvable')
       if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
       const maintenant = this.maintenant()
       const gestes: GesteDExpedition[] = [...l.gestes, { quoi: 'abandonner' }]
       const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions), l.reponses)
-      await this.client.batch(
-        [
-          { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify({ quoi: 'abandonner' }), maintenant] },
-          { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'abandonnee' WHERE id = ?`, args: [maintenant, l.serie.id] },
-        ],
-        'write',
-      )
+      await this.ecrireLExpedition(profileId, [
+        { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify({ quoi: 'abandonner' }), maintenant] },
+        { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'abandonnee' WHERE id = ?`, args: [maintenant, l.serie.id] },
+      ])
+      this.expeditions.delete(profileId)
       const gains = await this.recompenserLExpedition(profileId, l.serie.id, maintenant)
       await this.faireGrandir(profileId)
       return { expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, finieLe: maintenant }, gestes }, apres, this.legendairesDe(profileId)), ...gains }
@@ -6865,28 +6963,35 @@ export class CampagneStore {
    * facile ; de quoi aller au bout de ses vies pour un gardien, toutes
    * catégories, sans vrai ou faux — une chance sur deux à la porte de l'acte
    * suivant ; la question ratée que La boucle repose. Ce que l'expédition a
-   * déjà posé passe en dernier, comme vu à l'instant. Chaque question garde
-   * sa date et dit si ses réponses sont des nombres : l'Énigme et la
-   * Prédiction les lisent.
+   * déjà posé passe en dernier, comme vu à l'instant, et ses jumelles après
+   * les autres. Chaque question garde sa date et dit si ses réponses sont des
+   * nombres : l'Énigme et la Prédiction les lisent. Ce qu'il a vu se lit de
+   * l'expédition gardée (`vuesGardees`) — relu sinon, et rendu avec.
    */
-  private async tirerPourLExpedition(profileId: string, depart: DepartDExpedition, posees: readonly QuestionDeSerie[], e: EtatDeLExpedition): Promise<QuestionDeSerie[]> {
+  private async tirerPourLExpedition(
+    profileId: string,
+    depart: DepartDExpedition,
+    posees: readonly QuestionDeSerie[],
+    e: EtatDeLExpedition,
+    vuesGardees: ReadonlyMap<string, number> | null,
+  ): Promise<{ tirees: QuestionDeSerie[]; vues: ReadonlyMap<string, number> | null }> {
     const a = e.aTirer
-    if (!a) return []
+    if (!a) return { tirees: [], vues: vuesGardees }
     // La boucle : la question ratée revient telle qu'il l'a vue — sa réponse lue, elle ne mesure rien (`HORS_DU_CARNET`).
-    if (a.reprise !== undefined && posees[a.reprise]) return [{ ...posees[a.reprise], escale: a.escale, acte: a.acte, carnet: true }]
+    if (a.reprise !== undefined && posees[a.reprise]) return { tirees: [{ ...posees[a.reprise], escale: a.escale, acte: a.acte, carnet: true }], vues: vuesGardees }
     const escale = escaleEnJeu(depart, e, a.escale)
-    if (!escale) return []
+    if (!escale) return { tirees: [], vues: vuesGardees }
     const maintenant = this.maintenant()
     const source = escale.sorte === 'source'
     const [toutes, mesure, lues, suivis] = await Promise.all([
       this.jouables(),
       this.mesures(),
-      this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows)),
+      vuesGardees ?? this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows).vues),
       source ? this.suivisDe(profileId) : null,
     ])
     const dejaPosees = new Set(posees.map(q => q.id))
-    const vues = new Map(lues.vues)
-    for (const id of dejaPosees) vues.set(id, maintenant)
+    // Ce que l'expédition a posé, vu à l'instant — sans recopier les trois mille qu'il a vues.
+    const vues = { get: (id: string) => (dejaPosees.has(id) ? maintenant : lues.get(id)) }
     const acte = a.acte
     const rangee = (q: QuestionDeLaBase, niveau: Niveau): QuestionDeSerie => ({
       ...versQuestionDeSerie(q, niveau),
@@ -6896,35 +7001,32 @@ export class CampagneStore {
       ...(['annee', 'nombre'].includes(formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur })) && { nombre: true as const }),
     })
     if (suivis) {
-      const parId = new Map(toutes.map(q => [q.id, q]))
+      const parId = this.parIdDe(toutes)
       const aRevoir = [...suivis]
         .flatMap(([id, s]) => (!s.apprise && parId.has(id) && !dejaPosees.has(id) ? [{ id, le: s.revientLe }] : []))
         .sort((a, b) => a.le.localeCompare(b.le))
       const q = aRevoir.length > 0 ? parId.get(aRevoir[0].id)! : null
       // Reprise du carnet, elle le dit : sa réponse a été lue, rien ne la mesure (`HORS_DU_CARNET`).
-      if (q) return [{ ...rangee(q, niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))), carnet: true }]
+      if (q) return { tirees: [{ ...rangee(q, niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))), carnet: true }], vues: lues }
     }
     const gardien = escale.sorte === 'gardien'
     const marche: Niveau = source ? 'facile' : marcheDe(acte, escale)
     const n = a.combien
     const theme: ThemeDEscale | undefined = a.categorie ? { categories: [a.categorie] } : escale.theme
-    let pool: readonly QuestionDeLaBase[] = toutes
-    if (theme && 'sujet' in theme) pool = this.duSujet(toutes, theme.sujet)
-    else if (theme) {
-      const categories = new Set(theme.categories)
-      pool = toutes.filter(q => categories.has(q.meta.categorie))
-    }
+    let tas: readonly (readonly QuestionDeLaBase[])[] = [toutes]
+    if (theme && 'sujet' in theme) tas = [this.duSujet(toutes, theme.sujet)]
+    else if (theme) tas = [...new Set(theme.categories)].map(c => this.deLaCategorie(toutes, c))
     // Un thème qui n'a plus de quoi tirer — une base qui a changé depuis le départ — tire dans toute la base.
-    if (pool.length < n * 2) pool = toutes
-    const melange: Melange = { [marche]: n }
-    const regle: RegleDuPalier = { n: 0, melange, seuil: 0, avatar: null, maitre: false, sansVraiFaux: gardien, touteLaCategorie: false }
-    return tirerUneEpreuve(pool, regle, vues, mesure, maintenant).map(x => rangee(x.question, x.niveau))
+    if (tas.reduce((s, morceau) => s + morceau.length, 0) < n * 2) tas = [toutes]
+    const tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien, vues, mesure, maintenant, posees })
+    return { tirees: tirees.map(x => rangee(x.question, x.niveau)), vues: lues }
   }
 
   /** Un profil supprimé : ses séries, leurs réponses et ses signalements, sous son verrou. */
   oublierProfil(profileId: string): Promise<void> {
     return this.avecVerrou(profileId, async () => {
       this.enCours.delete(profileId)
+      this.expeditions.delete(profileId)
       await this.client.batch(
         [
           { sql: 'DELETE FROM campagne_reponses WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
@@ -7599,6 +7701,18 @@ interface ExpeditionLue {
   reponses: Map<number, boolean>
 }
 
+/** Une expédition en route gardée en mémoire (`CampagneStore.expeditions`). */
+interface ExpeditionGardee {
+  lue: ExpeditionLue
+  /**
+   * Ce qu'il avait vu, et quand (`lectureDesVues`), lu à son départ ou à son
+   * dernier tirage relu : null, à relire — rien encore, ou une réponse
+   * ailleurs dans la campagne l'a changé (`vuAilleurs`). Ce que l'expédition
+   * pose s'y ajoute au tirage, vu à l'instant.
+   */
+  vues: ReadonlyMap<string, number> | null
+}
+
 function expeditionLue(ligne: Record<string, unknown> | undefined, gestes: readonly Record<string, unknown>[], reponses: readonly Record<string, unknown>[]): ExpeditionLue | null {
   if (!ligne) return null
   const serie = versSerie(ligne)
@@ -8215,7 +8329,7 @@ const EMPRUNTS: Readonly<Record<Niveau, readonly Niveau[]>> = {
 export const VUE_RECENTE_MS = 24 * HEURE_MS
 
 /** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était ces dernières vingt-quatre heures. */
-function fraicheurDe(vues: ReadonlyMap<string, number>, maintenant: number) {
+function fraicheurDe(vues: Pick<ReadonlyMap<string, number>, 'get'>, maintenant: number) {
   return (id: string): { recente: number; vue: number; le: number } => {
     const le = vues.get(id)
     return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant) === 2 ? 1 : 0, vue: 1, le }
@@ -8696,6 +8810,130 @@ export function tirerUneEpreuve(
           tirees.push({ question: meilleure, niveau: n })
           break
         }
+      }
+    }
+  }
+  return melanger(tirees)
+}
+
+/**
+ * Un ordre au hasard qui se tire à mesure qu'on le lit : le p-ième rang ne
+ * se tire qu'au moment où on le demande (Fisher-Yates à l'endroit, ses
+ * échanges dans une table). Aussi uniforme que `melanger`, sans recopier ni
+ * battre tout un tas pour n'en lire que dix.
+ */
+class OrdreParesseux {
+  private readonly echanges = new Map<number, number>()
+  private readonly tires: number[] = []
+
+  constructor(private readonly n: number) {}
+
+  /** Le p-ième indice de l'ordre ; undefined au-delà du tas. */
+  rang(p: number): number | undefined {
+    while (this.tires.length <= p && this.tires.length < this.n) {
+      const i = this.tires.length
+      const j = i + Math.floor(Math.random() * (this.n - i))
+      const aJ = this.echanges.get(j) ?? j
+      this.echanges.set(j, this.echanges.get(i) ?? i)
+      // Le rang i est tiré : on ne le relira plus.
+      this.echanges.delete(i)
+      this.tires.push(aJ)
+    }
+    return this.tires[p]
+  }
+}
+
+/**
+ * Les questions d'une escale de l'expédition — une, ou celles d'un
+ * gardien —, choisies comme celles d'une épreuve (`tirerUneEpreuve`) : à sa
+ * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; jamais vues
+ * d'abord, une vue ces vingt-quatre heures en dernier ; puis le sous-thème le
+ * moins servi du tirage ; puis la jumelle d'une question déjà prise après les
+ * autres — celles que l'expédition a déjà posées comprises (`posees`) ; puis
+ * la plus anciennement vue. Le tas se lit au hasard, dans un ordre tiré à
+ * mesure (`OrdreParesseux`), et la lecture s'arrête à la première qui ne
+ * peut être battue — une jamais vue, d'un sous-thème encore à servir, sans
+ * jumelle : la même loi que le battage entier, quelques questions lues au
+ * lieu de toutes. Une épreuve bat d'avance les deux mille questions de sa
+ * catégorie pour en prendre seize ; une escale n'en prend qu'une, et le
+ * gardien tirait dans les vingt-cinq mille de la base : 17 ms de
+ * processeur à chaque gardien, dix fois plus au dixième de cœur de
+ * l'hébergeur (le banc du 17 octobre 2026). Le tas vient en morceaux — les
+ * catégories d'un mélange, chacune gardée (`deLaCategorie`) —, lus comme un
+ * seul.
+ */
+export function tirerPourUneEscale(
+  tas: readonly (readonly QuestionDeLaBase[])[],
+  marche: Niveau,
+  combien: number,
+  {
+    sansVraiFaux,
+    vues,
+    mesure,
+    maintenant,
+    posees = [],
+  }: {
+    sansVraiFaux: boolean
+    /** Ce qu'il a vu, et quand ; ce que l'expédition a posé, à l'instant. */
+    vues: Pick<ReadonlyMap<string, number>, 'get'>
+    mesure: ReadonlyMap<string, MesureDUneQuestion>
+    maintenant: number
+    /** Les questions que l'expédition a déjà posées : leurs jumelles passent après. */
+    posees?: readonly Intitule[]
+  },
+): { question: QuestionDeLaBase; niveau: Niveau }[] {
+  const n = tas.reduce((s, morceau) => s + morceau.length, 0)
+  const question = (k: number): QuestionDeLaBase => {
+    for (const morceau of tas) {
+      if (k < morceau.length) return morceau[k]
+      k -= morceau.length
+    }
+    throw new RangeError(`question ${k} hors du tas`)
+  }
+  const ordre = new OrdreParesseux(n)
+  // La marche de chaque question lue, une fois : une place relit le début de l'ordre.
+  const marches = new Map<number, Niveau>()
+  const marcheDeLa = (k: number, q: QuestionDeLaBase): Niveau => {
+    let m = marches.get(k)
+    if (m === undefined) marches.set(k, (m = niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))))
+    return m
+  }
+  const usage = new Map<string, number>()
+  const prises = new Set<number>()
+  const deja = new DejaPrises()
+  for (const q of posees) deja.prendre(q)
+  const fraicheur = fraicheurDe(vues, maintenant)
+  const rang = (q: QuestionDeLaBase): number[] => {
+    const f = fraicheur(q.id)
+    return [f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
+  }
+  const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
+  for (let place = 0; place < combien; place++) {
+    for (const m of EMPRUNTS[marche]) {
+      let meilleure = -1
+      let sonRang: number[] | null = null
+      for (let p = 0; ; p++) {
+        const k = ordre.rang(p)
+        if (k === undefined) break
+        if (prises.has(k)) continue
+        const q = question(k)
+        if (sansVraiFaux && q.reponses.length === 2) continue
+        if (marcheDeLa(k, q) !== m) continue
+        const r = rang(q)
+        if (!sonRang || passeAvant(r, sonRang)) {
+          meilleure = k
+          sonRang = r
+          // Jamais vue, d'un sous-thème encore à servir, sans jumelle : rien ne fera mieux.
+          if (r.every(x => x === 0)) break
+        }
+      }
+      if (meilleure >= 0) {
+        const q = question(meilleure)
+        prises.add(meilleure)
+        deja.prendre(q)
+        usage.set(q.meta.sousTheme, (usage.get(q.meta.sousTheme) ?? 0) + 1)
+        tirees.push({ question: q, niveau: m })
+        break
       }
     }
   }
