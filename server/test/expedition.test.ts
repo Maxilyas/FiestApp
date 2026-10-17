@@ -66,6 +66,14 @@ function questionsDe(banc: Banc, id: string): { id: string; bonne: number; repon
 const avancer = (banc: Banc, cookie: string, v: VueDeLExpedition, vers: string) =>
   poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers } })
 
+/** Le pas suivant sur la carte : une offre laissée, une vie au campement, sinon le gardien s'il est là, ou la première escale permise. */
+async function pasSuivant(banc: Banc, cookie: string, v: VueDeLExpedition): Promise<VueDeLExpedition> {
+  const geste = v.offre ? { quoi: 'prendre', jokers: [] } : v.campement ? { quoi: 'camper' } : { quoi: 'avancer', vers: v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0] }
+  const r = await poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste })
+  assert.equal(r.status, 200, r.corps.error)
+  return r.corps.expedition
+}
+
 async function repondre(banc: Banc, cookie: string, v: VueDeLExpedition, juste: boolean) {
   const q = questionsDe(banc, v.id)[v.question!.index]
   const r = await poster(banc, cookie, `/api/expedition/${v.id}/reponse`, { position: v.question!.index, choix: juste ? q.bonne : (q.bonne + 1) % q.reponses.length })
@@ -77,15 +85,9 @@ async function repondre(banc: Banc, cookie: string, v: VueDeLExpedition, juste: 
 async function jouerLActe(banc: Banc, cookie: string, depart: VueDeLExpedition, juste: () => boolean): Promise<VueDeLExpedition> {
   let v = depart
   const acte = v.acte
-  for (let pas = 0; pas < 60 && v.issue === 'en-route' && v.acte === acte; pas++) {
-    if (v.question) {
-      v = (await repondre(banc, cookie, v, juste())).expedition
-      continue
-    }
-    const vers = v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0]
-    const r = await avancer(banc, cookie, v, vers)
-    assert.equal(r.status, 200, r.corps.error)
-    v = r.corps.expedition
+  for (let pas = 0; pas < 80 && v.issue === 'en-route' && v.acte === acte; pas++) {
+    if (v.question) v = (await repondre(banc, cookie, v, juste())).expedition
+    else v = await pasSuivant(banc, cookie, v)
   }
   return v
 }
@@ -133,8 +135,8 @@ test('partir : trois cartes, trois gardiens qu’il n’a pas, et la bonne répo
     // Recharger ne retire rien : la même question attend.
     const relue = (await lire(banc, lea, '/api/expedition')).corps.expedition as VueDeLExpedition
     assert.deepEqual([relue.question?.index, relue.question?.texte, relue.rang], [a.question!.index, a.question!.texte, 1])
-    // Un geste par-dessus une question qui attend, refusé.
-    assert.equal((await avancer(banc, lea, a, a.carte!.escales.find(e => e.id === vers)!.suite[0])).corps.error, 'Cette escale n’est pas sur ta route : choisis-en une reliée à la tienne')
+    // Un pas par-dessus une question qui attend, refusé — en le disant.
+    assert.equal((await avancer(banc, lea, a, a.carte!.escales.find(e => e.id === vers)!.suite[0])).corps.error, 'Réponds d’abord à la question')
     assert.equal((await poster(banc, lea, `/api/expedition/${a.id}/reponse`, { position: a.question!.index + 1, choix: 0 })).corps.error, 'Cette question est passée : l’expédition a continué sans elle')
 
     const bonne = await repondre(banc, lea, a, true)
@@ -170,7 +172,7 @@ test('le gardien tombe à sa n-ième bonne réponse, l’acte suivant s’ouvre 
         v = r.expedition
         continue
       }
-      v = (await avancer(banc, lea, v, v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0])).corps.expedition
+      v = await pasSuivant(banc, lea, v)
     }
     assert.equal(tombe, gardiens[0])
     assert.deepEqual([v.acte, v.ici, v.trace, v.gardiens[0].vaincu, v.gardiens[1].vaincu], [1, null, [], true, false])
@@ -240,6 +242,10 @@ test('la dernière vie perdue finit l’expédition, ses erreurs vont au carnet 
         v = fin.expedition
         continue
       }
+      if (v.offre || v.campement) {
+        v = await pasSuivant(banc, lea, v)
+        continue
+      }
       // Les sources épargnent qui les rate : le chemin les évite quand il peut, pour finir vite.
       const vers = v.permises.find(id => v.carte!.escales.find(e => e.id === id)?.sorte === 'question') ?? (v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0])
       v = (await avancer(banc, lea, v, vers)).corps.expedition
@@ -298,6 +304,8 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
         v = (await repondre(banc, lea, v, true)).expedition
         justes++
       }
+      // Un coffre, une élite trouvée : rien de pris — aucun joker ne touche ses réponses.
+      if (v.offre) v = await pasSuivant(banc, lea, v)
     }
     v = (await avancer(banc, lea, v, chemin[chemin.length - 1])).corps.expedition
     const reprise = questionsDe(banc, v.id)[v.question!.index] as { id: string; carnet?: true }

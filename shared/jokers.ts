@@ -4,10 +4,11 @@
 // soirée, ni quiz du jour, ni défi, ni duel : l'invariant 8, « aucun avantage
 // de jeu face aux autres »).
 //
-// À l'étape 1, le catalogue n'est que des données : il dit quels légendaires
-// peuvent garder un acte — un gardien vaincu suit en joker jusqu'au bout, il
-// lui en faut un — et ce que dit l'écran du choix, au bout de l'acte 3. La
-// main, le paquet et la défausse arrivent à l'étape 2.
+// Le catalogue et ses règles fixes : quels légendaires gardent un acte — un
+// gardien vaincu suit en joker jusqu'au bout, il lui en faut un —, ce que
+// fait chaque joker, le paquet de départ, la main, ce qu'une offre propose.
+// Ce qu'ils font à une expédition se replie avec elle
+// (`pliDeLExpedition`, `shared/expedition.ts`).
 //
 // Ce fichier n'importe rien : `shared/legendaires.ts` le lit pour poser la
 // voie de l'expédition sur les légendaires qui ont leur joker.
@@ -91,11 +92,65 @@ export const JOKERS_SANS_LEGENDAIRE: readonly Joker[] = [
 ]
 
 const PAR_LEGENDAIRE = new Map(JOKERS_DES_LEGENDAIRES.map(j => [j.legendaire!, j]))
+const PAR_CLE = new Map([...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE].map(j => [j.cle, j]))
 
 /** Le joker d'un légendaire (`lg:phenix`), s'il en a un. */
 export function jokerDuLegendaire(cle: unknown): Joker | undefined {
   return typeof cle === 'string' ? PAR_LEGENDAIRE.get(cle) : undefined
 }
 
+/** Un joker par sa clé (`coup-d-oeil`, `renaissance`). */
+export function joker(cle: unknown): Joker | undefined {
+  return typeof cle === 'string' ? PAR_CLE.get(cle) : undefined
+}
+
 /** Les légendaires qui ont leur joker : eux seuls gardent un acte, et s'emmènent. */
 export const LEGENDAIRES_A_JOKER: readonly string[] = JOKERS_DES_LEGENDAIRES.map(j => j.legendaire!)
+
+// ── Les règles du paquet : des choix de produit (`docs/reference/baremes.md`) ──
+
+/** Le paquet de départ, avant l'équipée : Coup d'œil trois fois, Échange (le brief). */
+export const PAQUET_DE_DEPART: readonly string[] = ['coup-d-oeil', 'coup-d-oeil', 'coup-d-oeil', 'echange']
+
+/**
+ * La main : on tire un joker à chaque question tant qu'elle en tient moins
+ * de trois — quatre, et deux tirés par question, sous Trois têtes. Ce qu'on ne
+ * joue pas se garde : les maquettes jetaient la main, jouer ne coûtait rien,
+ * et l'on jouait tout sans choisir.
+ */
+export const MAIN_MAX = 3
+export const MAIN_MAX_DES_TROIS_TETES = 4
+
+/** L'équipée : deux légendaires qu'on a — ou l'invité du jour —, chacun son joker dans le paquet. */
+export const PLACES_DE_L_EQUIPEE = 2
+
+/**
+ * Une offre — un coffre, une élite trouvée — propose trois jokers sans
+ * légendaire, chacun d'une rareté tirée à ces poids : un maudit sur dix, plus
+ * fort mais qui coûte.
+ */
+export const JOKERS_PAR_OFFRE = 3
+export const POIDS_DES_RARETES: Readonly<Record<'commun' | 'rare' | 'maudit', number>> = { commun: 0.6, rare: 0.3, maudit: 0.1 }
+
+/** Combien de mauvaises réponses chaque joker efface. Pas sur un vrai ou faux : il répondrait à la place du joueur. */
+export const EFFACE: Readonly<Record<string, number>> = { 'coup-d-oeil': 1, sagesse: 2, 'tout-ou-rien': 2, echolocation: 1 }
+
+/**
+ * Les jokers qui aident à trouver : la réponse qu'ils ont touchée ne dit plus
+ * le savoir — ni la mesure des difficultés, ni le modèle du savoir, ni les
+ * écussons, ni L'Érudit ne la comptent, et, juste, elle ne retrouve rien au
+ * carnet (`campagne_reponses.joker`). Une autre question (Échange, la mue)
+ * se pose nue ; deux à choisir (Deux visages) ne l'est plus : on prend celle
+ * qu'on sait.
+ */
+export const JOKERS_QUI_AIDENT: ReadonlySet<string> = new Set([
+  'coup-d-oeil',
+  'sagesse',
+  'tout-ou-rien',
+  'echolocation',
+  'double-chance',
+  'enigme',
+  'prediction',
+  'deux-visages',
+  'passe-muraille',
+])

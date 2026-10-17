@@ -1,7 +1,10 @@
 // Le pli d'une expédition (`pliDeLExpedition`) : son état n'est écrit nulle
 // part, il se replie de son départ, de ses gestes et de ses réponses — le
 // même pour celle qu'on joue et pour une finie (invariant 14). Rejoué, le
-// même journal redonne le même état.
+// même journal redonne le même état. Le départ de l'étape 1 (`v: 1`), sans
+// jokers : une expédition partie avant eux se rejoue telle qu'elle s'est
+// jouée — son campement rend sa vie d'office. Les jokers ont leur fichier
+// (`expedition-jokers.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { GARDIEN, escalesPermises, pliDeLExpedition, questionsDuGardien, type CarteDUnActe, type GesteDExpedition, type QuestionPosee } from '../../shared/expedition'
@@ -19,7 +22,7 @@ function carte(): CarteDUnActe {
     ],
   }
 }
-const DEPART = { cartes: [carte(), carte(), carte()], gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'] }
+const DEPART = { v: 1 as const, graine: 'pli', cartes: [carte(), carte(), carte()], gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'] }
 
 /** Un journal qu'on écrit comme le serveur : chaque escale à question tire la sienne, le gardien de quoi aller au bout de ses vies. */
 class Journal {

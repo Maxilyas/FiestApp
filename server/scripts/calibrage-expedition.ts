@@ -118,7 +118,7 @@ function jouer(j: Joueur, graine: string): Issue {
     for (const e of carte.escales) if (e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source') e.chance = chanceAnnoncee(j, acte, e)
     carte.chanceDuGardien = CATEGORIES.reduce((s, c) => s + chanceSur(j, MARCHES_DES_ACTES[acte].gardien, c), 0) / CATEGORIES.length
   })
-  const depart = { cartes, gardiens: ['a', 'b', 'c'] }
+  const depart = { v: 1 as const, graine, cartes, gardiens: ['a', 'b', 'c'] }
   const r = hasardDe(`${graine}:reponses`)
   const gestes: GesteDExpedition[] = []
   const questions: QuestionPosee[] = []

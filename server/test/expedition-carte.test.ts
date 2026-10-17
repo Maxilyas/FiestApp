@@ -64,7 +64,7 @@ test('la même graine redonne la même carte ; une autre, une autre carte', () =
   assert.equal(graineDe('lea', 3), 'lea:3')
 })
 
-test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale vers un campement, une source au moins, le premier étage en questions', () => {
+test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale vers un campement, une source et un coffre au moins, le premier étage en questions', () => {
   const comptes = new Map<string, number>()
   let escales = 0
   let melanges = 0
@@ -90,6 +90,7 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
     for (const e of carte.escales) if (e.sorte !== 'gardien') assert.ok(atteint.has(e.id), `carte ${i} : ${e.id} mène à un campement`)
     assert.ok(carte.depart.length >= 1 && carte.depart.every(id => parId.get(id)?.etage === 0))
     assert.ok(carte.escales.some(e => e.sorte === 'source'), `carte ${i} : une source au moins`)
+    assert.ok(carte.escales.some(e => e.sorte === 'coffre'), `carte ${i} : un coffre au moins`)
     assert.ok(carte.escales.some(e => e.sorte === 'campement'))
     assert.equal(carte.escales.filter(e => e.sorte === 'gardien').length, 1)
     assert.ok(carte.escales.filter(e => e.etage === 0).every(e => e.sorte === 'question' && e.theme && 'categories' in e.theme && e.theme.categories.length === 1))
@@ -98,10 +99,15 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
       assert.ok(e.colonne >= 0 && e.colonne < COLONNES)
       escales++
       comptes.set(e.sorte, (comptes.get(e.sorte) ?? 0) + 1)
+      if (e.sorte === 'elite') {
+        assert.ok(e.etage >= 2, 'une élite, dès le troisième étage')
+        assert.ok(e.theme && e.forme === 'quatre')
+      }
+      if (e.sorte === 'coffre' || e.sorte === 'source') assert.ok(!e.theme && !e.forme, 'un coffre, une source n’ont ni thème ni forme')
       if (e.sorte === 'question') {
         questions++
         assert.ok(e.theme, `${e.id} a un thème`)
-        assert.equal(e.forme, 'quatre', 'l’étape 1 ne pose que des questions à quatre choix')
+        assert.equal(e.forme, 'quatre', 'avant l’étape 3, rien que des questions à quatre choix')
         if (e.theme && 'sujet' in e.theme) {
           pointus++
           assert.ok(SUJETS.includes(e.theme.sujet))
@@ -113,10 +119,13 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
       }
     }
   }
-  // L'étape 1 ne joue que des questions, des sources et des campements : l'élite, l'échoppe et l'inconnu deviennent des questions, le coffre une source.
-  assert.deepEqual([...comptes.keys()].sort(), ['question', 'source'])
+  // Avant les écus (l'étape 4), l'échoppe et l'inconnu deviennent des questions ; les élites et les coffres sont venus avec les jokers.
+  assert.deepEqual([...comptes.keys()].sort(), ['coffre', 'elite', 'question', 'source'])
   const part = (n: number, sur: number) => n / sur
-  assert.ok(part(comptes.get('source')!, escales) > 0.12 && part(comptes.get('source')!, escales) < 0.3, `sources : ${part(comptes.get('source')!, escales)}`)
+  // Sur deux mille cartes, le 17 octobre 2026 : 9 % de sources, 10 % de coffres, 6 % d'élites.
+  assert.ok(part(comptes.get('source')!, escales) > 0.06 && part(comptes.get('source')!, escales) < 0.14, `sources : ${part(comptes.get('source')!, escales)}`)
+  assert.ok(part(comptes.get('coffre')!, escales) > 0.07 && part(comptes.get('coffre')!, escales) < 0.15, `coffres : ${part(comptes.get('coffre')!, escales)}`)
+  assert.ok(part(comptes.get('elite')!, escales) > 0.03 && part(comptes.get('elite')!, escales) < 0.1, `élites : ${part(comptes.get('elite')!, escales)}`)
   assert.ok(part(melanges, questions) > 0.1 && part(melanges, questions) < 0.2, `mélanges : ${part(melanges, questions)}`)
   assert.ok(part(pointus, questions) > 0.07 && part(pointus, questions) < 0.16, `thèmes pointus : ${part(pointus, questions)}`)
 })

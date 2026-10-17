@@ -57,16 +57,17 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     }),
   )
 
+  // Partir, avec son équipée : deux légendaires au plus, les siens ou l'invité du jour.
   app.post(
     '/api/expedition',
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.partirEnExpedition(profil.id))
+      if (profil) res.json(await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? []))
     }),
   )
 
-  // Un geste — avancer, garder un gardien —, avec le rang qu'il croit suivre.
+  // Un geste — avancer, jouer un joker, prendre une offre, camper, garder un gardien —, avec le rang qu'il croit suivre.
   app.post(
     '/api/expedition/:id/geste',
     petit,
