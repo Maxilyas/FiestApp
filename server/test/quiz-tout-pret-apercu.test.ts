@@ -154,16 +154,24 @@ test('au quiz tout prêt, une catégorie choisie seule s’affine en ses rubriqu
   assert.doesNotMatch(grille([], null), /quoi-rubriques/)
   assert.doesNotMatch(grille(['Sport', 'Cuisine'], null), /quoi-rubriques/)
   assert.doesNotMatch(grille(['Sport'], null, false), /quoi-rubriques/, 'sans rubriques servies, rien ne s’affine')
-  // « Toutes », puis les douze : le sport ouvre la quatrième rangée (Sport, Cuisine, Jeux & pop culture), ses rubriques la suivent.
+  // « Toutes », puis les douze : le sport ouvre la quatrième rangée (Sport, Cuisine, Jeux & pop culture), ses rubriques la suivent,
+  // incrustées sous sa case, qui s'ouvre sur leur panneau — au bord gauche de la grille, d'où son coin droit à gauche.
   const sport = grille(['Sport'], null)
-  const rubriques = sport.indexOf('class="quoi-rubriques"')
+  const rubriques = sport.indexOf('class="quoi-rubriques quoi-rubriques-gauche"')
   assert.ok(rubriques > sport.indexOf('Jeux &amp; pop culture</button>') && rubriques < sport.indexOf('Autour de la fête</button>'))
   assert.equal([...sport.matchAll(/class="quoi-rubrique"/g)].length, RUBRIQUES.filter(r => r.categorie === 'Sport').length)
+  assert.match(sport, /class="categorie-case active ouverte" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sport<\/button>/)
+  assert.match(sport, /aria-label="Dans Sport"><button type="button" class="quoi-rubrique active" aria-pressed="true">Toute la catégorie<\/button>/)
   // Une rubrique choisie : sa catégorie pressée avec elle, « Toutes » non.
   const foot = grille(['Sport'], 'sport/football')
   assert.match(foot, /class="categorie-case" aria-pressed="false"><svg[^>]*>.*?<\/svg>Toutes<\/button>/)
-  assert.match(foot, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sport<\/button>/)
+  assert.match(foot, /class="categorie-case active ouverte" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sport<\/button>/)
   assert.match(foot, /class="quoi-rubrique active" aria-pressed="true">Football<\/button>/)
+  assert.match(foot, /class="quoi-rubrique" aria-pressed="false">Toute la catégorie<\/button>/)
+  // Une case du milieu de sa rangée (la culture générale, les sciences, la musique, la cuisine) : un coin rond de chaque côté ;
+  // au bord droit, le coin droit à droite.
+  assert.match(grille(['Musique'], null), /<div class="quoi-rubriques" role="group" aria-label="Dans Musique">/)
+  assert.match(grille(['Histoire'], null), /<div class="quoi-rubriques quoi-rubriques-droite" role="group" aria-label="Dans Histoire">/)
   // De toute la largeur de la grille.
   assert.match(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'), /\.quoi-rubriques \{ grid-column: 1 \/ -1;/)
 })
@@ -189,12 +197,12 @@ test('au quiz tout prêt, le sujet qui tient une rubrique se range à sa place s
     )
   // Les sciences seules : l'astronomie à la place d'« Espace et astronomie », l'informatique et les inventions au bout.
   const sciences = grille(['Sciences'], null)
-  assert.match(sciences, /<span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">L’astronomie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Planète Terre<\/button>/)
+  assert.match(sciences, />Toute la catégorie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">L’astronomie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Planète Terre<\/button>/)
   assert.match(sciences, />L’informatique<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Les inventions<\/button><\/div>/)
   assert.doesNotMatch(sciences, />Espace et astronomie</)
   // Choisi sous sa catégorie : elle reste ouverte, lui pressé.
   const dessous = grille(['Sciences'], 'astronomie')
-  assert.match(dessous, /class="categorie-case active" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sciences<\/button>/)
+  assert.match(dessous, /class="categorie-case active ouverte" aria-pressed="true"><svg[^>]*>.*?<\/svg>Sciences<\/button>/)
   assert.match(dessous, /class="quoi-rubrique active" aria-pressed="true">L’astronomie<\/button>/)
   // Choisi parmi les thèmes : la grille des catégories ne bouge pas.
   assert.doesNotMatch(grille([], 'astronomie'), /quoi-rubriques|categorie-case active/)

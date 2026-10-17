@@ -279,27 +279,67 @@ test('une catégorie choisie seule s’affine en ses rubriques, sous sa rangée 
   assert.doesNotMatch(feuille([], null), /quoi-rubrique/)
   assert.doesNotMatch(feuille(['Histoire', 'Sport'], null), /quoi-rubrique/)
   assert.match(feuille([], null), /role="tab" aria-selected="false"[^>]*>Thèmes · 2<\/button>/)
-  // Le sport seul : ses rubriques sous sa rangée — l'Histoire et lui —, avant la Nature, chacune sa pastille.
+  // Le sport seul : ses rubriques sous sa rangée — l'Histoire et lui —, avant la Nature, chacune sa case. Incrustées
+  // sous la sienne (le souhait du propriétaire du 17 octobre 2026 : en pastilles, « pas très jolies », « un truc
+  // incrusté ») : elle s'ouvre sur leur panneau, qui garde un coin droit sous elle, au bord droit de la grille ;
+  // « Toute la catégorie » d'abord, pressée tant qu'aucune rubrique ne l'est.
   const seul = feuille(['Sport'], null)
   assert.match(
     seul,
-    /class="quoi-case active" aria-pressed="true">Sport<\/button><div class="quoi-rubriques" role="group" aria-label="Ou seulement, dans Sport"><span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">Football<\/button>/,
+    /class="quoi-case active ouverte" aria-pressed="true">Sport<\/button><div class="quoi-rubriques quoi-rubriques-droite" role="group" aria-label="Dans Sport"><button type="button" class="quoi-rubrique active" aria-pressed="true">Toute la catégorie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Football<\/button>/,
   )
   assert.ok(seul.indexOf('quoi-rubriques') < seul.indexOf('>Nature<'), 'sous la rangée de sa case')
   assert.equal([...seul.matchAll(/class="quoi-rubrique"/g)].length, sport.length)
+  assert.equal(seul.match(/ ouverte"/g)?.length, 1, 'sa case seule s’ouvre')
+  // Au bord gauche, le coin droit à gauche — et le panneau après sa voisine, au bout de la rangée.
+  const aGauche = renderToStaticMarkup(
+    React.createElement(FeuilleDuChoix, {
+      categoriesJouables: ['Sport', 'Histoire', 'Nature'],
+      sujets: [...SUJETS.slice(0, 2), ...sport],
+      categories: ['Sport'],
+      sujet: null,
+      onChoisir: () => {},
+      onFermer: () => {},
+    }),
+  )
+  assert.match(aGauche, /class="quoi-case active ouverte" aria-pressed="true">Sport<\/button><button type="button" class="quoi-case" aria-pressed="false">Histoire<\/button><div class="quoi-rubriques quoi-rubriques-gauche"/)
   // L'Histoire seule : la base ne lui sert ici aucune rubrique, rien ne s'affine.
   assert.doesNotMatch(feuille(['Histoire'], null), /quoi-rubriques/)
   // Une rubrique choisie : la feuille s'ouvre sur les catégories, sa catégorie et elle pressées, ce qu'elle est au-dessus de « Choisir ».
   const foot = feuille(['Histoire'], 'sport/football')
   assert.match(foot, /role="tab" aria-selected="true"[^>]*>Catégories<\/button>/)
   assert.match(foot, /class="quoi-case" aria-pressed="false">Histoire<\/button>/)
-  assert.match(foot, /class="quoi-case active" aria-pressed="true">Sport<\/button>/)
+  assert.match(foot, /class="quoi-case active ouverte" aria-pressed="true">Sport<\/button>/)
   assert.match(foot, /class="quoi-rubrique active" aria-pressed="true">Football<\/button>/)
+  assert.match(foot, /class="quoi-rubrique" aria-pressed="false">Toute la catégorie<\/button>/)
   assert.match(foot, /<p class="muted small centre quoi-description">Sport<\/p>/)
   assert.match(foot, /Choisir · Football<\/button>/)
   // La ligne du choix la nomme, et dit d'où elle vient.
   const ligne = renderToStaticMarkup(React.createElement(LigneDuChoix, { categories: ['Sport'], sujet: 'sport/football', onChanger: () => {} }))
   assert.match(ligne, /<b>Football<\/b><span class="muted small">Sport<\/span>/)
+})
+
+// L'onglet de classeur tient à des pixels : la case ouverte descend à travers
+// l'écart de sa grille et recouvre le bord du panneau, d'une teinte opaque.
+// Un écart changé d'un côté seulement, et la case flottait au-dessus du
+// panneau, ou le chevauchait ; translucide, elle laissait voir le bord.
+test('la case ouverte descend à travers l’écart de sa grille jusqu’au bord du panneau, qu’elle recouvre d’une teinte opaque', () => {
+  const css = readFileSync(client('styles.css'), 'utf8')
+  for (const [grille, kase] of [
+    ['quoi-grille', 'quoi-case'],
+    ['categories-grille', 'categorie-case'],
+  ]) {
+    const ecart = Number(new RegExp(`^\\.${grille} \\{[^}]*\\bgap: (\\d+)px`, 'm').exec(css)?.[1])
+    const fond = Number(new RegExp(`^\\.${kase} \\{[^}]*\\bpadding: (\\d+)px`, 'm').exec(css)?.[1])
+    const ouverte = new RegExp(`^\\.${kase}\\.ouverte \\{ margin-bottom: -(\\d+)px; padding-bottom: (\\d+)px; \\}`, 'm').exec(css)
+    assert.ok(ecart > 0 && fond > 0 && ouverte, kase)
+    assert.equal(Number(ouverte[1]), ecart + 1, `${kase} : l’écart, puis le bord du panneau`)
+    // Son bord du bas ôté, son fond le remplace : son propre fond, l'écart, le bord du panneau et le sien.
+    assert.equal(Number(ouverte[2]), fond + ecart + 2, `${kase} : son texte reste au milieu de sa rangée`)
+  }
+  assert.match(css, /--teinte-ouverte: color-mix\(in srgb, var\(--accent\) 12%, var\(--bg\)\);/)
+  assert.match(css, /\.quoi-case\.ouverte, \.categorie-case\.ouverte \{[^}]*border-bottom-width: 0;[^}]*background: var\(--teinte-ouverte\);/)
+  assert.match(css, /\.quoi-rubriques \{[^}]*background: var\(--teinte-ouverte\);/)
 })
 
 // Un sujet qui ne lit qu'un sous-thème en tient la rubrique (le 17 octobre
@@ -324,14 +364,14 @@ test('le sujet qui tient une rubrique se range à sa place sous sa catégorie ; 
   const seuls = feuille(['Jeux & pop culture'], null)
   assert.match(
     seuls,
-    /<span class="label">Ou seulement<\/span><button type="button" class="quoi-rubrique" aria-pressed="false">Les jeux vidéo<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Jeux de société et de cartes<\/button>/,
+    />Toute la catégorie<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Les jeux vidéo<\/button><button type="button" class="quoi-rubrique" aria-pressed="false">Jeux de société et de cartes<\/button>/,
   )
   assert.doesNotMatch(seuls, />Jeux vidéo</)
   assert.match(seuls, />Thèmes · 1<\/button>/, 'parmi les thèmes aussi : c’en est un')
   // Touché sous sa catégorie — elle seule choisie avec lui —, la feuille l'y rouvre.
   const dessous = feuille(['Jeux & pop culture'], 'jeux-video')
   assert.match(dessous, /role="tab" aria-selected="true"[^>]*>Catégories<\/button>/)
-  assert.match(dessous, /class="quoi-case active" aria-pressed="true">Jeux &amp; pop culture<\/button>/)
+  assert.match(dessous, /class="quoi-case active ouverte" aria-pressed="true">Jeux &amp; pop culture<\/button>/)
   assert.match(dessous, /class="quoi-rubrique active" aria-pressed="true">Les jeux vidéo<\/button>/)
   // Touché parmi les thèmes, elle s'y rouvre : sa tuile pressée.
   const parmi = feuille([], 'jeux-video')

@@ -83,8 +83,8 @@ function Compte({ compte }: { compte: CompteDuChoix | undefined }) {
 
 /**
  * La feuille du choix, par-dessus la page : les catégories — toutes d'un
- * toucher, ou une, ou plusieurs ; une seule s'affine en ses rubriques, sous
- * sa rangée (`RubriquesDuChoix`) —, puis, dans leur onglet, les thèmes, les
+ * toucher, ou une, ou plusieurs ; une seule s'affine en ses rubriques,
+ * incrustées sous sa case (`RubriquesDuChoix`) —, puis, dans leur onglet, les thèmes, les
  * époques et les fils rouges, chaque famille sa rangée et son allure
  * (`SujetsDuChoix`). Rien ne change avant « Choisir » : « Fermer » rend le
  * choix d'avant. Sa hauteur ne suit pas son onglet : « Choisir » restait
@@ -143,7 +143,8 @@ export function FeuilleDuChoix({
   // La catégorie qui s'affine : la seule choisie, ou celle de la rubrique choisie.
   const affinee = rubrique?.categorie ?? (!choisi && choisies.length === 1 ? choisies[0] : null)
   const sesRubriques = affinee ? rubriquesDeLaCategorie(affinee).flatMap(cle => servis.get(cle) ?? []) : []
-  const apres = sesRubriques.length > 0 ? finDeRangee(categoriesJouables.indexOf(affinee!), categoriesJouables.length, COLONNES_DE_LA_FEUILLE) : -1
+  const ouverte = sesRubriques.length > 0 ? categoriesJouables.indexOf(affinee!) : -1
+  const apres = ouverte < 0 ? -1 : finDeRangee(ouverte, categoriesJouables.length, COLONNES_DE_LA_FEUILLE)
   return (
     <Feuille
       titre="Sur quoi ?"
@@ -202,12 +203,19 @@ export function FeuilleDuChoix({
                 const oui = (!choisi && choisies.includes(c)) || rubrique?.categorie === c
                 return (
                   <Fragment key={c}>
-                    <button type="button" className={'quoi-case' + (oui ? ' active' : '')} aria-pressed={oui} onClick={() => basculer(c)}>
+                    <button type="button" className={'quoi-case' + (oui ? ' active' : '') + (i === ouverte ? ' ouverte' : '')} aria-pressed={oui} onClick={() => basculer(c)}>
                       {c}
                       <Compte compte={comptes?.categories.get(c)} />
                     </button>
                     {i === apres && (
-                      <RubriquesDuChoix categorie={affinee!} rubriques={sesRubriques} choisi={choisi} comptes={comptes?.sujets} onChoisi={cle => choisirRubrique(cle, affinee!)} />
+                      <RubriquesDuChoix
+                        categorie={affinee!}
+                        cote={coteDeLaCase(ouverte, COLONNES_DE_LA_FEUILLE)}
+                        rubriques={sesRubriques}
+                        choisi={choisi}
+                        comptes={comptes?.sujets}
+                        onChoisi={cle => choisirRubrique(cle, affinee!)}
+                      />
                     )}
                   </Fragment>
                 )
@@ -334,30 +342,45 @@ const sousSaCategorie = (s: Sujet | undefined, categories: readonly string[]): S
 /** La dernière case de la rangée où tombe la case `i` — ou la dernière de toutes, sur une rangée qui n'est pas pleine. */
 const finDeRangee = (i: number, cases: number, colonnes: number) => Math.min(cases, (Math.floor(i / colonnes) + 1) * colonnes) - 1
 
+/** Le bord de la grille que touche la case `i`, s'il y en a un : le panneau des rubriques y garde un coin droit, d'où la case descend. */
+const coteDeLaCase = (i: number, colonnes: number): 'gauche' | 'droite' | null =>
+  i % colonnes === 0 ? 'gauche' : i % colonnes === colonnes - 1 ? 'droite' : null
+
 /**
  * Les rubriques d'une catégorie choisie seule — « Sport », puis
- * « Football » —, en pastilles sous la rangée de sa case, de toute la largeur
- * de la grille. Toucher une rubrique la choisit ; la toucher encore rend la
- * catégorie entière. Elles ne viennent qu'à une catégorie choisie seule :
- * douze catégories dépliées feraient près de cent pastilles, le mur de mots
- * d'avant.
+ * « Football » —, incrustées sous sa case : elle s'ouvre comme un onglet de
+ * classeur sur un panneau de toute la largeur de la grille, d'une seule pièce
+ * avec elle, où chaque rubrique est sertie en creux, « Toute la catégorie »
+ * d'abord (le souhait du propriétaire du 17 octobre 2026 : en pastilles sous
+ * un filet d'or, elles n'étaient « pas très jolies » — « un truc incrusté »).
+ * Sur deux colonnes, le sport et ses neuf rubriques tiennent en cinq rangs :
+ * une pastille par ligne, ils prenaient plus d'un écran. Toucher
+ * une rubrique la choisit ; la toucher encore, ou « Toute la catégorie »,
+ * rend la catégorie entière. Elles ne viennent qu'à une catégorie choisie
+ * seule : douze catégories dépliées feraient près de cent cases, le mur de
+ * mots d'avant.
  */
 function RubriquesDuChoix({
   categorie,
+  cote,
   rubriques,
   choisi,
   comptes,
   onChoisi,
 }: {
   categorie: string
+  /** Le bord de la grille d'où descend sa case (`coteDeLaCase`). */
+  cote: 'gauche' | 'droite' | null
   rubriques: readonly Sujet[]
   choisi: string | null
   comptes?: ReadonlyMap<string, CompteDuChoix>
   onChoisi: (cle: string | null) => void
 }) {
   return (
-    <div className="quoi-rubriques" role="group" aria-label={`Ou seulement, dans ${categorie}`}>
-      <span className="label">Ou seulement</span>
+    <div className={'quoi-rubriques' + (cote ? ` quoi-rubriques-${cote}` : '')} role="group" aria-label={`Dans ${categorie}`}>
+      <button type="button" className={'quoi-rubrique' + (choisi ? '' : ' active')} aria-pressed={!choisi} onClick={() => onChoisi(null)}>
+        Toute la catégorie
+      </button>
       {rubriques.map(r => (
         <button key={r.cle} type="button" className={'quoi-rubrique' + (choisi === r.cle ? ' active' : '')} aria-pressed={choisi === r.cle} onClick={() => onChoisi(choisi === r.cle ? null : r.cle)}>
           {r.nom}
@@ -399,7 +422,8 @@ export function GrilleDesCategories({
   const servies = new Map(rubriques.map(r => [r.cle, r]))
   const sesRubriques = affinee && onSujet ? rubriquesDeLaCategorie(affinee).flatMap(cle => servies.get(cle) ?? []) : []
   // « Toutes » tient la première case : la rangée d'une catégorie se compte avec elle.
-  const apres = sesRubriques.length > 0 ? finDeRangee(categoriesJouables.indexOf(affinee!) + 1, categoriesJouables.length + 1, COLONNES) - 1 : -1
+  const ouverte = sesRubriques.length > 0 ? categoriesJouables.indexOf(affinee!) : -1
+  const apres = ouverte < 0 ? -1 : finDeRangee(ouverte + 1, categoriesJouables.length + 1, COLONNES) - 1
   return (
     <div className="categories-grille" role="group" aria-label="Catégories">
       <button type="button" className={'categorie-case' + (toutes ? ' active' : '')} aria-pressed={toutes} onClick={() => onCategories([])}>
@@ -412,13 +436,14 @@ export function GrilleDesCategories({
         const pressee = choisie || rubrique?.categorie === c
         return (
           <Fragment key={c}>
-            <button type="button" className={'categorie-case' + (pressee ? ' active' : '')} aria-pressed={pressee} onClick={() => basculer(c)}>
+            <button type="button" className={'categorie-case' + (pressee ? ' active' : '') + (i === ouverte ? ' ouverte' : '')} aria-pressed={pressee} onClick={() => basculer(c)}>
               <Icon name={EMBLEME[c] ?? 'star'} />
               {c}
             </button>
             {i === apres && (
               <RubriquesDuChoix
                 categorie={affinee!}
+                cote={coteDeLaCase(ouverte + 1, COLONNES)}
                 rubriques={sesRubriques}
                 choisi={sujet}
                 onChoisi={cle => {
