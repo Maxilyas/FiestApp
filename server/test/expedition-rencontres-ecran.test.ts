@@ -222,7 +222,7 @@ test('à la première rencontre, les règles s’ouvrent d’elles-mêmes, la re
   const regles = html.slice(html.indexOf('feuille-regles'))
   assert.deepEqual(
     [...regles.matchAll(/<h3 class="label" id="exp-regles-[^"]+">([^<]*)<\/h3>/g)].map(m => m[1]),
-    ['Une rencontre', 'Tes cartes', 'Le pari', 'L’expédition', 'La carte', 'Tes récompenses', 'Ton équipe', 'Ton passeport'],
+    ['Une rencontre', 'Tes cartes', 'Le pari', 'L’expédition', 'Le plan', 'Tes récompenses', 'Ton équipe', 'Ton passeport'],
   )
   const lu = texte(regles)
   assert.match(lu, /Réponds juste : l’adversaire perd des points\. À zéro, il tombe\./)
@@ -243,8 +243,8 @@ test('les règles disent les cartes que tire chaque acte, telles que le serveur 
   // Une expédition partie avant la main qui grandit : cinq partout.
   assert.match(texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [5, 5, 5], onFermer: rien })), /Tu tires 5 cartes à chaque question\./)
   // Aux règles d'avant — la production —, trois vies et des jokers ; `debut` met sa section en tête.
-  const jokers = await rendre(FeuilleDesRegles, { rencontres: false, debut: 'carte', onFermer: rien })
-  assert.equal(/<h3 class="label" id="exp-regles-([^"]+)">/.exec(jokers)?.[1], 'carte')
+  const jokers = await rendre(FeuilleDesRegles, { rencontres: false, debut: 'plan', onFermer: rien })
+  assert.equal(/<h3 class="label" id="exp-regles-([^"]+)">/.exec(jokers)?.[1], 'plan')
   assert.match(texte(jokers), /Trois vies : chaque erreur en coûte une\./)
   assert.doesNotMatch(texte(jokers), /énergie|courage/)
 })
@@ -371,6 +371,52 @@ test('l’offre : trois vraies cartes côte à côte ; la touchée s’éclaire,
   assert.doesNotMatch(html.slice(0, html.indexOf('exp-a-prendre-dit')), /exp-vc-texte/)
   // Rien de touché, rien dessous : le détail apparaît au toucher.
   assert.doesNotMatch(await rendre(CartesAPrendre, { cles: ['corser', 'banco', 'sursis'], prises: [], onToucher: rien }), /exp-a-prendre-dit|Touche une carte/)
+})
+
+// ── Le codex et le plan ─────────────────────────────────────────────────────
+
+test('le codex : toutes les cartes de l’expédition, une page par rareté en onglets qui comptent ; touchée, une carte se lève', async () => {
+  // « Est-ce que l'on ferait pas un codex de carte global aussi, avec de commun à légendaire ? » (le 18 octobre 2026)
+  const { FeuilleDuCodex } = (await pieces()) as unknown as { FeuilleDuCodex: Composant }
+  assert.equal(typeof FeuilleDuCodex, 'function', 'le codex est une feuille (`FeuilleDuCodex`)')
+  const html = await rendre(FeuilleDuCodex, { onFermer: rien })
+  assert.match(html, /class="carte-feuille feuille-codex" role="dialog" aria-modal="true" aria-label="Ton codex"/)
+  // Les onglets : toutes, puis de la commune à la légendaire, chacun son compte.
+  const compte = (r: string) => CARTES_DES_RENCONTRES.filter(c => c.rarete === r).length
+  assert.deepEqual(
+    [...html.matchAll(/role="tab" aria-selected="(true|false)"[^>]*>([^<]+)<span class="onglet-pastille" aria-hidden="true">(\d+)<\/span>/g)].map(m => [m[2], Number(m[3]), m[1]]),
+    [
+      ['Toutes', CARTES_DES_RENCONTRES.length, 'true'],
+      ['Communes', compte('commun'), 'false'],
+      ['Rares', compte('rare'), 'false'],
+      ['Maudites', compte('maudit'), 'false'],
+      ['Légendaires', compte('legendaire'), 'false'],
+    ],
+  )
+  // Toutes ses cartes, dans l'ordre du catalogue, en vraies cartes qu'on touche pour les lever.
+  const grille = html.slice(html.indexOf('class="exp-codex"'))
+  assert.deepEqual(
+    [...grille.matchAll(/<button type="button" class="exp-codex-carte" data-carte="([^"]+)" aria-haspopup="dialog">/g)].map(m => m[1]),
+    CARTES_DES_RENCONTRES.map(c => c.cle),
+  )
+  assert.equal((grille.match(/class="exp-vc exp-vc-rangee/g) ?? []).length, CARTES_DES_RENCONTRES.length)
+  assert.match(texte(grille), /Concentration, commune : \+4 si juste/)
+})
+
+test('le plan, plus « la carte » : le même mot disait la carte de l’acte et les cartes de la main', async () => {
+  // La recommandation du codex, validée le 18 octobre 2026 : « Le même mot désigne aujourd'hui la carte de l'acte et les cartes
+  // de la main, sur le même écran. » Ce que lit le joueur — une carte, un joker, un talisman, un refus, les règles — dit « le plan ».
+  const CARTE_DE_L_ACTE = /sur (la|cette|ta) carte|(La|la) carte ne dit|La carte ·|Retour à la carte|carte n°/i
+  const { JOKERS_DES_LEGENDAIRES, JOKERS_SANS_LEGENDAIRE, TALISMANS } = await import('../../shared/jokers')
+  for (const x of [...CARTES_DES_RENCONTRES, ...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE, ...TALISMANS]) assert.doesNotMatch(x.effet, CARTE_DE_L_ACTE, `${x.cle} : « ${x.effet} »`)
+  const { FeuilleDesRegles, CarteLevee } = await pieces()
+  for (const rencontres of [true, false]) {
+    const regles = texte(await rendre(FeuilleDesRegles, { rencontres, onFermer: rien }))
+    assert.doesNotMatch(regles, CARTE_DE_L_ACTE)
+    assert.match(regles, /Le plan/)
+  }
+  // Une carte de route dit quand elle se joue ; son refus en rencontre, `expedition-rencontres.test.ts`.
+  assert.match(texte(await rendre(CarteLevee, { cle: 'detour', onReposer: rien })), /Sur le plan, une fois par acte/)
 })
 
 test('au campement, la carte à retirer se choisit parmi ses vraies cartes', async () => {

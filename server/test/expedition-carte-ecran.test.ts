@@ -78,9 +78,11 @@ test('au départ : l’acte en petit, le départ qui brille ; les escales du bas
   // Le reste attend plus loin, en retrait ; le gardien, le but, non.
   assert.ok(avec('exp-plus-loin', plan).length > 10)
   assert.ok(!avec('exp-plus-loin', plan).includes(GARDIEN))
-  // Le plan est un dessin, sans un mot : touché, il ouvre la carte en grand — qui n'est pas rendue d'avance.
+  // Le plan est un dessin, sans un mot : touché, il s'ouvre en grand — et n'est pas rendu d'avance. « Le plan », plus
+  // « La carte » : le même mot disait la carte de l'acte et les cartes de la main, sur le même écran (le codex, le
+  // 18 octobre 2026).
   assert.match(html, /<button type="button" class="exp-plan" aria-haspopup="dialog"><span class="exp-petit-plan" aria-hidden="true">/)
-  assert.match(html, /<\/svg>La carte<\/span><span class="sr-only">, tu es au départ<\/span><\/button>/)
+  assert.match(html, /<\/svg>Le plan<\/span><span class="sr-only">, tu es au départ<\/span><\/button>/)
   assert.doesNotMatch(html, /id="escale-|exp-etiquette|exp-sa-chance|class="exp-legende"/)
   // D'ici, un trait vers chaque proposée.
   assert.equal(html.match(/class="lien-propose"/g)?.length, carte.depart.length)
@@ -262,7 +264,7 @@ test('une carte levée : le joker en grand — sa rareté, son effet, d’où il
   assert.match(detour, /class="exp-carte-joker exp-carte-levee" style="--gemme:#a8b3bf"/)
   assert.match(detour, /<span class="exp-joker-rarete"><i aria-hidden="true"><\/i>commun<\/span>/)
   assert.match(detour, /class="exp-joker-effet">Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus\.</)
-  assert.match(detour, /class="exp-joker-origine">Sur la carte, entre deux escales</)
+  assert.match(detour, /class="exp-joker-origine">Sur le plan, entre deux escales</)
   assert.match(detour, />Jouer « Le détour »<\/button>/)
   assert.match(detour, />Reposer la carte<\/button>/)
 

@@ -4,6 +4,8 @@ import { Dessin } from '../components/Avatar'
 import { EMBLEME } from '../components/Ecusson'
 import { Balise } from '../components/Balise'
 import { Feuille } from '../components/Pieces'
+import { Onglets } from '../components/Onglets'
+import { CARTES_PEINTES } from '../components/cartes-peintes'
 import { espacesFines } from '../format'
 import { gemme } from '../gemmes'
 import { useModale } from '../modale'
@@ -92,9 +94,9 @@ export const MOMENT: Record<MomentDUneCarte, string> = {
   preparation: 'Avant de voir la question',
   reflexe: 'Pendant la question',
   pouvoir: 'Pour toute la rencontre',
-  route: 'Sur la carte, une fois par acte',
+  route: 'Sur le plan, une fois par acte',
 }
-const MOMENT_COURT: Record<MomentDUneCarte, string> = { preparation: 'avant la question', reflexe: 'pendant la question', pouvoir: 'toute la rencontre', route: 'sur la carte' }
+const MOMENT_COURT: Record<MomentDUneCarte, string> = { preparation: 'avant la question', reflexe: 'pendant la question', pouvoir: 'toute la rencontre', route: 'sur le plan' }
 
 /** Son moment en un dessin, à côté de ses mots : l'œil fermé avant de voir la question, ouvert pendant. */
 const ICONE_DU_MOMENT: Record<MomentDUneCarte, IconName> = { preparation: 'eye-off', reflexe: 'eye', pouvoir: 'infinity', route: 'flag' }
@@ -189,6 +191,13 @@ function CoutEnEnergie({ c, manque }: { c: CarteDeRencontre; manque?: boolean })
 export type TailleDeCarte = 'main' | 'rangee' | 'levee'
 
 /**
+ * Un nom qui ne se coupe pas — un mot de onze lettres et plus — s'écrit plus
+ * serré dans une rangée : sur trois colonnes en 360, le codex lisait
+ * « Concentratio ».
+ */
+const serre = (nom: string) => Math.max(...nom.split(/[\s-]/).map(m => m.length)) >= 11
+
+/**
  * Une carte dessinée comme une vraie (« les cartes c'est des rectangles pas
  * très jolis, ça serait pas possible de faire de vraies cartes ? Ça
  * rajouterait à l'immersion », le 18 octobre 2026) : son cadre à la couleur
@@ -219,15 +228,18 @@ export function CarteDessinee({
   children?: ReactNode
 }) {
   const style = { ...gemmeDeLaCarte(c), '--famille': TEINTE_DE_LA_FAMILLE[c.famille] } as CSSProperties
+  // Peinte, son illustration (`server/scripts/anime/cartes.ts`) : la grande levée, la petite ailleurs. La teinte de sa famille
+  // reste dessous, le temps qu'elle arrive.
+  const peinture = CARTES_PEINTES[c.cle]
   return (
     <span className={`exp-vc exp-vc-${taille}` + (c.legendaire ? ' exp-vc-du-legendaire' : '')} style={style} aria-hidden={taille === 'levee' ? undefined : true}>
       <CoutEnEnergie c={c} manque={energie !== undefined && c.cout > energie} />
       {taille === 'levee' && c.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DE_LA_CARTE[c.rarete]}</span>}
       <span className="exp-vc-art">
-        <VisageDeLaCarte c={c} />
+        {peinture ? <img className="exp-vc-peinture" src={peinture[taille === 'levee' ? 0 : 1]} alt="" loading="lazy" decoding="async" /> : <VisageDeLaCarte c={c} />}
       </span>
       {taille !== 'levee' && c.valeur && <b className="exp-vc-valeur">{c.valeur}</b>}
-      {taille !== 'main' && <b className="exp-vc-nom">{c.nom}</b>}
+      {taille !== 'main' && <b className={'exp-vc-nom' + (taille === 'rangee' && serre(c.nom) ? ' exp-vc-nom-serre' : '')}>{c.nom}</b>}
       {taille === 'levee' && <span className="exp-vc-texte">{espacesFines(c.effet)}</span>}
       {children}
       <span className="exp-vc-gemme" />
@@ -451,7 +463,7 @@ function FaceDeLaCarte({ c, refus, energie, onToucher }: { c: CarteDeRencontre; 
   )
 }
 
-/** Sur la carte, ses cartes de route en petit : le dessin seul, au cadre de sa rareté. */
+/** Sur le plan, ses cartes de route en petit : le dessin seul, au cadre de sa rareté. */
 function CarteEnPetit({ c, refus, onToucher }: { c: CarteDeRencontre; refus: string | null; onToucher: () => void }) {
   return (
     <button type="button" className={'exp-carte-joker exp-carte-rencontre' + (refus ? ' exp-refuse' : '')} style={gemmeDeLaCarte(c)} data-carte={c.cle} aria-haspopup="dialog" onClick={onToucher}>
@@ -469,7 +481,7 @@ function CarteEnPetit({ c, refus, onToucher }: { c: CarteDeRencontre; refus: str
  * à part et éteintes, celles qui se jouent pendant la question ; la question
  * vue, celles-là seules. Touchée, une carte se lève (`CarteLevee`) : ce
  * qu'elle fait, ce qu'elle changerait, puis « Jouer » — ou pourquoi elle ne
- * se joue pas maintenant, de la règle du serveur (`refus`). Sur la carte de
+ * se joue pas maintenant, de la règle du serveur (`refus`). Sur le plan de
  * l'acte (`enPetit`), ses cartes de route en petit, et le dos du paquet.
  */
 export function MainDeRencontre({
@@ -488,7 +500,7 @@ export function MainDeRencontre({
   refus: Readonly<Record<string, string | null>>
   busy: boolean
   enPetit?: boolean
-  /** La pioche — le paquet, sur la carte — : combien, ce qu'elle dit à l'oreille, et ce qu'elle ouvre. */
+  /** La pioche — le paquet, sur le plan — : combien, ce qu'elle dit à l'oreille, et ce qu'elle ouvre. */
   pile: { compte: number; mot: string; dit: string; onOuvrir: () => void }
   /** En rencontre : son inspiration du tour, son énergie à l'écran. */
   inspiration?: number
@@ -680,7 +692,7 @@ export function CarteLevee({
 }
 
 /** Le cycle des cartes, en une fois : « on comprend pas bien ce qu'on a en main et comment les cartes reviennent » (le 18 octobre 2026). */
-const REGLE_DU_CYCLE = `À chaque question, tu tires ${CARTES_PAR_QUESTION} cartes de ta pioche, et tu as ${INSPIRATION_PAR_QUESTION} d’énergie pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur la carte, une fois par acte.`
+const REGLE_DU_CYCLE = `À chaque question, tu tires de nouvelles cartes de ta pioche, et tu as ${INSPIRATION_PAR_QUESTION} d’énergie pour les jouer. Celles que tu ne joues pas vont à la défausse ; quand ta pioche est vide, ta défausse y est remélangée. Une carte « une fois par rencontre » revient à la rencontre suivante, et chaque rencontre remélange tout ton paquet. Les cartes de route se jouent sur le plan, une fois par acte.`
 
 /**
  * Un tas en vraies cartes, qui défilent de côté (« Voir la pioche on voit
@@ -801,6 +813,55 @@ export function FeuilleDesCartes({ paquet, rencontre, onFermer }: { paquet: read
         )}
         {tas('Tout ton paquet', paquet, 'Ton paquet est vide.')}
         <p className="muted small">{espacesFines(REGLE_DU_CYCLE)}</p>
+      </Feuille>
+      {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
+    </>
+  )
+}
+
+/** Les pages du codex : toutes ses cartes, puis une rareté à la fois, de la commune à la légendaire. */
+type PageDuCodex = 'toutes' | CarteDeRencontre['rarete']
+const PAGES_DU_CODEX: { id: PageDuCodex; nom: string }[] = [
+  { id: 'toutes', nom: 'Toutes' },
+  { id: 'commun', nom: 'Communes' },
+  { id: 'rare', nom: 'Rares' },
+  { id: 'maudit', nom: 'Maudites' },
+  { id: 'legendaire', nom: 'Légendaires' },
+]
+
+/**
+ * Le codex : toutes les cartes de l'expédition, de la commune à la
+ * légendaire, en vraies cartes (« Est-ce que l'on ferait pas un codex de
+ * carte global aussi, avec de commun à légendaire et on en débloque au fur
+ * et à mesure qu'on avance dans l'aventure ? », le 18 octobre 2026). Une page
+ * par rareté, en onglets qui comptent ; touchée, une carte se lève et dit
+ * tout, comme dans un tas. Toutes ouvertes pour l'instant : ce qu'on
+ * débloque en jouant viendra avec la renommée.
+ */
+export function FeuilleDuCodex({ onFermer }: { onFermer: () => void }) {
+  const [page, setPage] = useState<PageDuCodex>('toutes')
+  const [regardee, setRegardee] = useState<string | null>(null)
+  const cartes = CARTES_DES_RENCONTRES.filter(c => page === 'toutes' || c.rarete === page)
+  // Des puces qui comptent, comme les pages de l'album des trophées : cinq onglets à leur nom ne tenaient pas sur une ligne en 360.
+  const onglets = PAGES_DU_CODEX.map(p => {
+    const n = p.id === 'toutes' ? CARTES_DES_RENCONTRES.length : CARTES_DES_RENCONTRES.filter(c => c.rarete === p.id).length
+    return { id: p.id, nom: p.nom, pastille: { n, label: `${n} carte${n > 1 ? 's' : ''}` } }
+  })
+  return (
+    <>
+      <Feuille titre="Ton codex" className="feuille-codex" onFermer={onFermer}>
+        <p className="muted small">{espacesFines(`Les ${CARTES_DES_RENCONTRES.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`)}</p>
+        <Onglets onglets={onglets} actif={page} onChoisir={setPage} label="Les raretés" idOnglet={id => `codex-${id}`} idPanneau={() => 'codex-page'} className="onglets-puces" />
+        <ul className="exp-codex" id="codex-page" role="tabpanel" aria-labelledby={`codex-${page}`}>
+          {cartes.map(c => (
+            <li key={c.cle}>
+              <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
+                <CarteDessinee c={c} taille="rangee" />
+                <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}`}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </Feuille>
       {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
     </>
@@ -947,7 +1008,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'carte' | 'recompenses' | 'equipe' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -984,7 +1045,7 @@ function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[]
         { icone: 'eye', texte: 'Touche une carte : elle dit ce qu’elle fait, et ce qu’elle changerait.' },
         { icone: 'infinity', texte: 'Une carte posée pour toute la rencontre se montre en haut de l’écran : touche-la pour la relire.' },
         { icone: 'rotate', texte: 'Celles que tu ne joues pas vont à la défausse ; ta pioche vide, ta défausse y revient. Chaque rencontre remélange tout ton paquet.' },
-        { icone: 'flag', texte: 'Une carte de route se joue sur la carte, une fois par acte.' },
+        { icone: 'flag', texte: 'Une carte de route se joue sur le plan, une fois par acte.' },
       ],
     },
     {
@@ -1005,8 +1066,8 @@ function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[]
       ],
     },
     {
-      cle: 'carte',
-      titre: 'La carte',
+      cle: 'plan',
+      titre: 'Le plan',
       lignes: [
         { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur ses questions — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
         { icone: 'swords', texte: 'Une rencontre : un adversaire de sa catégorie. Une élite : plus coriace, mieux payée.' },
@@ -1064,8 +1125,8 @@ function reglesDesJokers(): SectionDesRegles[] {
       ],
     },
     {
-      cle: 'carte',
-      titre: 'La carte',
+      cle: 'plan',
+      titre: 'Le plan',
       lignes: [
         { icone: 'flag', texte: 'À chaque pas, choisis ton escale. Son pourcentage : tes chances sur sa question — celles d’un joueur moyen, tant que tu n’as pas assez joué.' },
         { icone: 'source', texte: 'Une source : une question de ton carnet, une vie si tu la retrouves.' },
@@ -1081,7 +1142,7 @@ function reglesDesJokers(): SectionDesRegles[] {
 /**
  * Les règles, en feuille, de n'importe quelle page de l'expédition : ce que
  * les pages disaient en paragraphes, en une ligne par règle. `debut` : la
- * section à lire d'abord — la carte sur la carte, l'expédition au départ ;
+ * section à lire d'abord — le plan sur le plan, l'expédition au départ ;
  * en rencontre, l'ordre où l'on joue. Ouvertes d'elles-mêmes à la première
  * rencontre, avec « Compris » (`pied`).
  */

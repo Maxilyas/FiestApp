@@ -108,7 +108,7 @@ test('pourquoi une carte ne se joue pas : son moment, son inspiration, la questi
   assert.equal(refusDeLaCarte(enQuestion, 'coup-d-oeil'), null)
   assert.equal(refusDeLaCarte(enQuestion, 'parade'), 'Il lui faut 2 d’énergie : il t’en reste 1')
   assert.equal(refusDeLaCarte(contexte({ pouvoirs: ['bibliotheque'] }), 'bibliotheque'), 'Elle agit déjà dans cette rencontre')
-  assert.equal(refusDeLaCarte(contexte(), 'detour'), 'Elle se joue sur la carte, entre deux escales')
+  assert.equal(refusDeLaCarte(contexte(), 'detour'), 'Elle se joue sur le plan, entre deux escales')
   // La forme : Corser veut deux leurres, Simplifier une question à quatre choix ; une fois changée, elle ne change plus.
   assert.equal(refusDeLaCarte(contexte({}, { six: false }), 'corser'), 'Cette question n’a pas de quoi tenir six choix')
   assert.equal(refusDeLaCarte(contexte({}, { tiree: 'six', forme: 'six', reponses: 6 }), 'corser'), 'Elle est déjà à six choix')
