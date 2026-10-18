@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 436 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 438 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -16,6 +16,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | À traiter | La liste de ce qui attend un geste de l'administrateur, le plus pressé d'abord | `lesChosesATraiter` |
 | Accusé | La réponse du serveur à un message qui l'attend : retenu, ou refusé avec son motif et son message | `ecouter`, `ActionAck`, `JoinAck` |
 | Acte | Une des trois parties d'une expédition : une carte tirée au sort, un gardien au bout | `ACTES`, `EtatDeLExpedition.acte` |
+| Acte en petit | La carte d'un acte tout entière, en haut de l'écran de l'expédition, sans un mot : l'escale où l'on est, qui brille, celles qu'on peut prendre, le gardien au bout ; touchée, elle s'ouvre en grand dans sa feuille | `PetitPlan`, `GrandPlan` |
 | Administrateur | Le compte créé au premier démarrage, seul à entrer au QG | `role: 'admin'` |
 | Adresse inconnue | Une adresse qui ne mène à aucune page : le serveur répond 404 et la page propose « Rejoindre une soirée » | `parseRoute` (sorte `unknown`), `client/src/views/LandingApp.tsx` |
 | Album des avatars | La partie avatars de « Ma collection » : une page par rareté, de « Commune » à « Divin » | `shared/album.ts` |
@@ -72,6 +73,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Carnet de révision | Ce qu'on a raté en campagne, qui revient à des rendez-vous espacés jusqu'à être appris | `shared/revision.ts` |
 | Carte à fond | Une carte qui porte un fond : elle garde les couleurs du Velours sous tous les thèmes | `.carte-fond` |
 | Carte de joueur | La feuille qui s'ouvre en touchant un nom : ce qu'il fait ce soir et, pour un profil, ce qu'il a gagné | `CarteDeJoueur` |
+| Carte levée | Un joker de la main, touché en expédition : en grand au milieu de l'écran, au cadre de sa rareté, ce qu'il fait, puis « Jouer » — ou pourquoi il ne se joue pas maintenant ; toucher à côté le repose | `JokerLeve` |
 | Catalogue | Les copies relues et publiées par l'administrateur, offertes à chaque espace sous « Partir d'un modèle » | `EntreeDuCatalogue` |
 | Cercle | La finition dessinée autour d'un avatar peint, à la place de l'anneau de son palier ou de sa forme | `client/src/components/Cercle.tsx` |
 | Cette question | La carte du téléphone à la révélation d'un QCM : qui a trouvé, en combien de temps, et sa place à soi | `laQuestion` |
@@ -169,7 +171,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Épreuve en jeu | Une épreuve ni validée ni rejouée : ratée, elle coûte une vie, et tant qu'elle attend, aucune autre ne commence | `commencerEpreuve` |
 | Équipée | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker dans le paquet | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
 | Escale | Une étape d'une carte de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
-| Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur la carte, son nom dessous, sa chance au-dessus ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `exp-a-portee` |
+| Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur l'acte en petit, et en carte au bas de l'écran : sa sorte, son nom, sa chance, ce qu'elle rapporte ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `CarteDEscale`, `exp-a-portee` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
 | Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; et à l'intérieur des guillemets « » | `shared/typographie.ts` |
 | Espace par défaut | Celui de l'administrateur, où mènent les anciennes adresses ; il ne se supprime pas | `default_space` (`meta`) |
@@ -294,7 +296,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Ma collection | L'écran de tout ce qui se gagne — ce qu'on a, ce qui reste et où le gagner —, où l'on ne porte rien | `shared/collection.ts` |
-| Main (de jokers) | Les jokers qu'on tient en expédition : un se tire du paquet à chaque question, trois au plus ; ce qu'on ne joue pas se garde | `EtatDeLExpedition.main`, `MAIN_MAX` |
+| Main (de jokers) | Les jokers qu'on tient en expédition : un se tire du paquet à chaque question, trois au plus ; ce qu'on ne joue pas se garde. À l'écran, des cartes au cadre de leur rareté, posées au bas de l'écran, la pioche au bout | `EtatDeLExpedition.main`, `MAIN_MAX`, `Main` |
 | Marche | La difficulté d'une question tirée de la base — facile, moyen, difficile, expert —, que le quiz ne garde pas : sa mémoire la porte | `MemoireDuQuiz` |
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar qu'on voit — le dessin porté, sinon l'emoji —, jamais écrit en base | `nomsAffiches`, `visageDe` (`shared/homonymes.ts`), `nomAffiche` |

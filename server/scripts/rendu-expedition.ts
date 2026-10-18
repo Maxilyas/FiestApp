@@ -1,10 +1,10 @@
 // Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
-// et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte — le
-// départ qui brille et les escales proposées, la plus sûre choisie depuis le
-// panneau, une autre touchée, une plus loin, la feuille qui dit comment la
-// lire —, la main en une ligne et sa feuille ; une escale et sa main, puis ce
-// que fait
+// et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte — l'acte
+// en petit, le départ qui brille, les escales proposées en cartes, la plus sûre
+// à son ruban, choisie, puis une autre ; la carte en grand dans sa feuille, une
+// escale plus loin touchée, la légende —, la main posée au bas de l'écran ; une
+// escale et sa main, une carte levée, puis ce que fait
 // chaque joker qui passe — les réponses effacées, Double chance, Deux
 // visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
 // coffre, le campement — une vie, ou un joker retiré — ; le gardien, vaincu,
@@ -193,38 +193,40 @@ try {
   await choisirLEquipee(['Oracle', 'Janus'], { feuille: '1b-equipee', tous: '1c-tous-les-jokers' })
   await photo('1d-depart-equipee')
 
-  /** Sur la carte : une escale proposée — la première, s'il n'en a touché aucune —, puis « Y aller ». */
+  /** Sur la carte : une escale proposée — la première carte, s'il n'en a touché aucune —, puis « Y aller ». */
   const allerAUneProposee = async () => {
-    await page.waitForSelector('.exp-carte')
-    if (!(await page.locator('.exp-escale.exp-choisie').count())) await page.locator('.exp-escale.exp-a-portee').first().click()
-    await page.locator('.exp-panneau .btn-primary').click()
+    await page.waitForSelector('.exp-plan')
+    if (!(await page.locator('.exp-carte-escale[aria-pressed="true"]').count())) await page.locator('.exp-carte-escale').first().click()
+    await page.locator('.exp-panneau > .btn-primary').click()
   }
 
-  // La carte de l'acte 1 : le départ brille, les escales du bas sont proposées ; la main encore vide.
+  // La carte de l'acte 1 : l'acte en petit, le départ qui brille ; les escales du bas en cartes ; la main encore vide.
   await page.click('.exp-depart-pied .btn-primary')
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('2-carte')
   await photo('2-carte-entiere', true)
 
-  // La plus sûre, touchée dans le panneau : elle se choisit. Puis une autre proposée : le panneau la dit, son trait
-  // se dore. Puis une escale plus loin : ce qu'elle cache.
-  await page.locator('.exp-la-plus-sure').click()
+  // La plus sûre, son ruban sur sa carte : touchée, elle se lève, et son escale se dore sur le plan. Puis une autre.
+  await page.locator('.exp-carte-escale:has(.exp-la-plus-sure)').click()
   await photo('3-la-plus-sure')
-  await page.locator('.exp-escale.exp-a-portee').last().click()
+  await page.locator('.exp-carte-escale').last().click()
   await photo('3-escale-choisie')
-  const plusLoin = page.locator('.exp-escale.exp-plus-loin').first()
+  // Le plan touché : la carte en grand, dans sa feuille, sur l'escale où il est ; une escale plus loin y dit ce qu'elle cache.
+  await page.locator('.exp-plan').click()
+  await page.waitForSelector('.feuille-carte')
+  await page.waitForTimeout(300)
+  await photo('3c-la-carte')
+  const plusLoin = page.locator('.feuille-carte .exp-escale.exp-plus-loin').first()
   if (await plusLoin.count()) {
     await plusLoin.click()
     await photo('3b-plus-loin')
   }
-  // La carte, dans sa feuille : comment elle se lit, et ses emblèmes.
-  await page.locator('.exp-panneau-liens .exp-ouvrir').click()
-  await page.waitForSelector('.feuille-carte')
-  await photo('3c-la-carte')
+  await page.locator('.feuille-carte .exp-legende').scrollIntoViewIfNeeded()
+  await photo('3d-la-legende')
   await page.locator('.feuille-carte .carte-fermer').click()
 
   const ici = async (): Promise<string> => {
-    if (await page.locator('.exp-carte').count()) return 'carte'
+    if (await page.locator('.exp-plan').count()) return 'carte'
     if (await page.locator('.exp-offre').count()) return 'offre'
     if (await page.locator('.exp-camper').count()) return 'campement'
     if (await page.locator('.exp-echoppe-page').count()) return 'echoppe'
@@ -269,16 +271,19 @@ try {
   /** Joue un joker de la main que `choisir` retient ; vrai s'il en a joué un. */
   const jouerUnJoker = async (choisir: (c: { cle: string }) => boolean): Promise<boolean> => {
     if (await page.locator('.exp-perte, .exp-indice, .exp-visages, .exp-consigne').count()) return false
-    const cartes: { cle: string; refuse: boolean }[] = await page.$$eval('.exp-carte-joker', (els: any[]) =>
+    const cartes: { cle: string; refuse: boolean }[] = await page.$$eval('.exp-main .exp-carte-joker', (els: any[]) =>
       els.map(e => ({ cle: String(e.dataset.joker), refuse: e.classList.contains('exp-refuse') })),
     )
     const i = cartes.findIndex(c => !c.refuse && choisir(c))
     if (i < 0) return false
     const cle = cartes[i].cle
-    await page.locator('.exp-carte-joker').nth(i).click()
-    await page.waitForSelector('.feuille-main')
+    // La carte se lève : en grand, ce qu'elle fait, puis « Jouer ».
+    await page.locator('.exp-main .exp-carte-joker').nth(i).click()
+    await page.waitForSelector('.exp-leve')
+    await page.waitForTimeout(300)
     await unePhoto('4b-main')
-    await page.locator(`.exp-joker-ligne[data-joker="${cle}"] .exp-joker-detail .btn-primary`).click()
+    await unePhoto(`4c-leve-${cle}`)
+    await page.locator('.exp-leve .btn-primary').click()
     await page.waitForTimeout(300)
     if (cle === 'prediction') {
       // L'Oracle : la réponse à montrer se touche sur la question.
@@ -306,14 +311,14 @@ try {
       const ou = await ici()
       if (ou === 'vaincu' || ou === 'fin' || ou === 'choix') return ou
       if (ou === 'carte') {
-        if (!(await page.locator('.exp-main-noms', { hasText: 'vide' }).count())) await unePhoto('2b-carte-main')
+        if (await page.locator('.exp-panneau .exp-carte-joker').count()) await unePhoto('2b-carte-main')
         if (carte) await carte()
         if (await page.locator('.exp-panneau-titre').count()) {
           await unePhoto('6-avant-le-gardien')
         } else {
           // Une élite ou un coffre qu'il n'a pas encore vus, s'il peut y aller : touchés, c'est là qu'il va.
           for (const sorte of ['coffre', 'elite']) {
-            const la = page.locator(`.exp-escale.exp-a-portee.exp-${sorte}`).first()
+            const la = page.locator(`.exp-carte-escale.exp-${sorte}`).first()
             if (!fait.has(`offre-${sorte}`) && (await la.count())) {
               await la.click()
               break
@@ -385,7 +390,7 @@ try {
   if (acte1 !== 'vaincu') throw new Error(`l’acte 1 finit en ${acte1}`)
   await photo('9-vaincu')
   await page.locator('.exp-vaincu .btn-primary').click()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('10-acte-2')
   // Les actes 2 et 3 sans faute : le choix au bout.
   for (const acte of [2, 3]) {
@@ -407,28 +412,20 @@ try {
   await photo('13-depart-suivant')
   await choisirLEquipee(['Lion', 'Comète'])
   await page.click('.exp-depart-pied .btn-primary')
-  await page.waitForSelector('.exp-carte')
-  /** Sur la carte, un joker de carte en main : sa feuille, puis joué. */
+  await page.waitForSelector('.exp-plan')
+  /** Sur la carte, un joker de carte en main : sa carte levée, puis joué. */
   const jouerSurLaCarte = async () => {
-    for (const [cle, nom] of [
-      ['commandement', 'Commandement'],
-      ['raccourci', 'Le raccourci'],
-    ]) {
-      if (fait.has(`c-${cle}`) || !(await page.locator('.exp-main-noms', { hasText: nom }).count())) continue
-      await page.locator('.exp-main-ligne').click()
-      await page.waitForSelector('.feuille-main')
-      const ligne = page.locator(`.exp-joker-ligne[data-joker="${cle}"]:not(.exp-refuse)`)
-      if (!(await ligne.count())) {
-        await page.locator('.feuille-main .carte-fermer').click()
-        continue
-      }
-      // La carte ouvre la feuille sur sa première carte : celle-ci se déplie à son tour.
-      if ((await ligne.locator('.exp-joker-ligne-tete').getAttribute('aria-expanded')) !== 'true') await ligne.locator('.exp-joker-ligne-tete').click()
+    for (const cle of ['commandement', 'raccourci']) {
+      const carte = page.locator(`.exp-panneau .exp-main .exp-carte-joker[data-joker="${cle}"]:not(.exp-refuse)`)
+      if (fait.has(`c-${cle}`) || !(await carte.count())) continue
+      await carte.first().click()
+      await page.waitForSelector('.exp-leve')
+      await page.waitForTimeout(300)
       if (cle === 'commandement') {
-        await ligne.locator('.exp-categories .pill-btn').nth(1).click()
+        await page.locator('.exp-leve .exp-categories .pill-btn').nth(1).click()
         await unePhoto('c-commandement-feuille')
       } else await unePhoto(`c-${cle}-feuille`)
-      await ligne.locator('.exp-joker-detail .btn-primary').click()
+      await page.locator('.exp-leve .btn-primary').click()
       await page.waitForTimeout(400)
       await unePhoto(`c-${cle}`)
     }
@@ -447,7 +444,7 @@ try {
   await page.locator('.fin-actions .btn-primary').click()
   await page.waitForSelector('.exp-gardiens')
   await page.click('.exp-depart-pied .btn-primary')
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   const enRoute = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   try {
@@ -507,7 +504,7 @@ try {
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
   await page.click('.exp-depart-pied .btn-primary')
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   const quatrieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
   const baseDesEcus = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   try {
@@ -551,8 +548,8 @@ try {
   await page.locator('.result-banner ~ .btn-primary.btn-big').click()
   await page.waitForSelector('.exp-offre')
   await page.locator('.exp-depart-pied .btn-ghost').click()
-  await page.waitForSelector('.exp-carte')
-  await page.locator('.exp-escale.exp-a-portee').first().click()
+  await page.waitForSelector('.exp-plan')
+  await page.locator('.exp-carte-escale').first().click()
   await photo('e2-carte-ecus')
   await pasVers('.exp-echoppe-page')
   await photo('e3-echoppe')
@@ -563,24 +560,26 @@ try {
   await page.waitForSelector('.exp-offre-ligne.exp-achete')
   await photo('e3c-echoppe-achetee')
   await page.locator('.exp-depart-pied .btn-ghost').click()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('e4-carte-talisman')
   await pasVers('.exp-inconnu')
   await photo('e5-inconnu-passage')
   await page.locator('.exp-inconnu .btn-primary').click()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('e6-carte-inconnu-passe', true)
   await pasVers('.exp-offre')
   await photo('e7-coffre-talisman')
   await photo('e7-coffre-talisman-entier', true)
   await page.locator('.exp-depart-pied .btn-ghost').click()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await pasVers('.exp-inconnu')
   await photo('e8-inconnu-piege')
   await page.locator('.exp-inconnu .btn-primary').click()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   // Abandonnée : la fin dit que ses écus restent dans l'expédition.
-  await page.locator('.geste-du-bas', { hasText: 'Abandonner' }).click()
+  // « Abandonner l'expédition » vit dans la feuille de la carte : l'écran de la carte tient en un écran.
+  await page.locator('.exp-plan').click()
+  await page.locator('.feuille-carte .geste-du-bas', { hasText: 'Abandonner' }).click()
   await page.locator('.dialog-backdrop .btn-danger').click()
   await page.waitForSelector('.exp-fin-tete')
   await photo('e9-fin-ecus', true)
@@ -609,7 +608,7 @@ try {
   await photo('s2-passeport-vierge')
   await page.locator('.feuille-passeport .carte-fermer').click()
   await page.click('.exp-depart-pied .btn-primary')
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('s3-carte-saison')
   await photo('s3-carte-saison-entiere', true)
   const cinquieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: zoe } })).json()) as any).expedition
@@ -623,15 +622,17 @@ try {
   }
   await banc.redemarrer()
   await page.goto(`${banc.url}/expedition`)
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('s4-carte-a-tamponner')
   await pasVers('.ans-btn')
   await repondre(true)
   await photo('s5-tampon-revele')
   await suite()
-  await page.waitForSelector('.exp-carte')
+  await page.waitForSelector('.exp-plan')
   await photo('s6-carte-tamponnee')
-  await page.locator('.geste-du-bas', { hasText: 'Abandonner' }).click()
+  // « Abandonner l'expédition » vit dans la feuille de la carte : l'écran de la carte tient en un écran.
+  await page.locator('.exp-plan').click()
+  await page.locator('.feuille-carte .geste-du-bas', { hasText: 'Abandonner' }).click()
   await page.locator('.dialog-backdrop .btn-danger').click()
   await page.waitForSelector('.exp-fin-tete')
   await photo('s7-fin-tampon', true)

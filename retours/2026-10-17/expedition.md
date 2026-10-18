@@ -791,6 +791,22 @@ sans un mot ; on en touche une, puis « Y aller ». Le tracé le plus sûr se
 compte encore : le panneau nomme la plus sûre des proposées, et ce nom,
 touché, la choisit. La légende passe dans une feuille, « La carte ».
 
+Puis, le même jour : « Je n'aime pas le design de comment sont matérialisé
+les cartes, ça serait possible que ce soit de vrais cartes en bas ? […]
+Pareil ma main c'est pas ouf ». Entre deux maquettes, le propriétaire a
+choisi « la carte en haut, en petit et épurée, pour voir où tu es » et les
+choix en vraies cartes en bas ; et ses jokers en vraies cartes, au cadre de
+leur rareté, qui se lèvent quand on les touche. L'écran de la carte tient
+désormais en un écran : l'acte entier en petit, sans un mot ; dessous, les
+escales proposées en cartes — sorte, emblème, nom, chance, ce qu'elles
+rapportent, la plus sûre à son ruban —, puis « Y aller ». L'acte en petit,
+touché, s'ouvre en grand dans sa feuille, avec la légende et « Abandonner
+l'expédition ». La main est faite de cartes aux couleurs des raretés de
+l'album, posées au bas de l'écran sous une question, en petit sur la carte ;
+touchée, une carte se lève en grand, dit ce qu'elle fait, puis « Jouer » ou
+pourquoi pas. La pioche, au bout, ouvre le paquet ; les posés passent dans la
+barre du haut.
+
 ### Plus tard
 
 L'Ascension ; la règle propre de chaque gardien ; les compagnons et les
