@@ -201,7 +201,9 @@ test('pour un thème : ce que ses six paliers et une série demandent, marche pa
   const toutes = [...vide.values()].flat()
   assert.deepEqual(parMarche(toutes), { facile: 42, moyen: 48, difficile: 30, expert: 5 })
   const deSousTheme = (cle: string) => toutes.filter(l => l.cle === cle).reduce((s, l) => s + l.n, 0)
-  assert.deepEqual(['espace', 'terre', 'eaux', 'reliefs'].map(deSousTheme), [33, 32, 30, 30], 'ses quatre sous-thèmes à tour de rôle')
+  // Ses trois sous-thèmes depuis que l'espace est à l'astronomie (le 17 octobre 2026).
+  assert.deepEqual(['terre', 'eaux', 'reliefs'].map(deSousTheme), [42, 42, 41], 'ses trois sous-thèmes à tour de rôle')
+  assert.equal(deSousTheme('espace'), 0, 'rien de l’astronomie')
   assert.ok(vide.get('Géographie')!.every(l => l.cle === 'eaux' || l.cle === 'reliefs'), 'rien hors de ses sous-thèmes')
 
   // Ce que ses étiquettes lui apportent compte : quarante animaux faciles au cinéma, il n'en manque que deux — écrits en nature.
@@ -272,6 +274,24 @@ test('pour un sujet : n questions de plus là où il vit, aux difficultés qui l
   // Sans question encore, ses sous-thèmes ; sans sous-thème ni question, rien ne dit où écrire.
   assert.deepEqual([...commandeDuSujet(mythes, [], 4).keys()], ['Culture générale'])
   assert.throws(() => commandeDuSujet(surnoms, [], 4), /rien ne dit où l'écrire/)
+
+  // Chacun son nombre après ses deux-points (le 17 octobre 2026) : sept sujets, de 39 à 93 questions, ne demandaient
+  // pas tous autant pour atteindre leurs cent. Sans le sien, celui de --questions ; sans l'un ni l'autre, rien.
+  const chacun = contexte()
+  try {
+    const { generation } = preparer(chacun, { sujet: 'mythes-legendes:12,danse:5', nom: 's1' })
+    assert.equal(generation.demandees, 17)
+    assert.throws(() => preparer(contexte(), { sujet: 'mythes-legendes:12,danse' }), /le sien après ses deux-points/)
+    assert.throws(() => preparer(contexte(), { sujet: 'mythes-legendes:zéro' }), /le sien après ses deux-points/)
+  } finally {
+    rmSync(chacun.dossier, { recursive: true, force: true })
+  }
+  const avecQuestions = contexte()
+  try {
+    assert.equal(preparer(avecQuestions, { sujet: 'mythes-legendes:12,danse', questions: 3, nom: 's2' }).generation.demandees, 15)
+  } finally {
+    rmSync(avecQuestions.dossier, { recursive: true, force: true })
+  }
 
   // Deux sujets dans un même sous-thème : deux morceaux d'une même vague, chacun sa contrainte jusque dans la consigne.
   const deux = new Map<Categorie, QuotaDEcriture[]>([

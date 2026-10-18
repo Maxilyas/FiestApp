@@ -8033,6 +8033,29 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .quoi-case { min-height: 44px; padding: 6px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 500; line-height: 1.2; text-align: left; cursor: pointer; }
 .quoi-toutes.active, .quoi-case.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* Les rubriques d'une catégorie choisie seule, incrustées sous sa case — la
+   feuille du choix comme le quiz tout prêt (`RubriquesDuChoix` ; le souhait
+   du propriétaire du 17 octobre 2026 : sous un filet d'or, des pastilles
+   « pas très jolies », « un truc incrusté »). La case s'ouvre comme un
+   onglet de classeur : elle descend à travers l'écart de la grille et
+   recouvre le bord du panneau, d'une même teinte opaque — translucide, elle
+   laisserait voir le bord qu'elle traverse —, et le panneau garde un coin
+   droit sous elle quand elle touche un bord. Dedans, chaque rubrique est
+   sertie en creux, la choisie en or. */
+.quoi-grille, .categories-grille { --teinte-ouverte: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+/* Sans bord du bas, et non d'un bord transparent : son coin, partagé avec le bord de côté, laissait une encoche
+   sombre là où la case rejoint le panneau. */
+.quoi-case.ouverte, .categorie-case.ouverte { position: relative; z-index: 1; border-color: var(--accent); border-bottom-width: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--teinte-ouverte); box-shadow: none; }
+/* L'écart de sa grille, et le bord du panneau qu'elle recouvre. */
+.quoi-case.ouverte { margin-bottom: -9px; padding-bottom: 16px; }
+.categorie-case.ouverte { margin-bottom: -7px; padding-bottom: 14px; }
+.quoi-rubriques { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 9px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--teinte-ouverte); }
+.quoi-rubriques-gauche { border-top-left-radius: 0; }
+.quoi-rubriques-droite { border-top-right-radius: 0; }
+.quoi-rubrique { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 42px; padding: 6px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--bg); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35); color: var(--ink); font: inherit; font-size: 0.8125rem; font-weight: 500; line-height: 1.2; text-align: left; text-wrap: balance; cursor: pointer; }
+.quoi-rubrique.active { border-color: var(--accent); background: var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); color: var(--on-accent); font-weight: 600; }
+.quoi-rubrique .quoi-compte { margin-top: 1px; }
+.quoi-rubrique.active .quoi-compte { color: inherit; }
 /* L'onglet des thèmes, chaque famille son allure (`SujetsDuChoix`, le souhait
    du propriétaire du 17 octobre 2026 : trente-cinq pastilles pareilles
    faisaient un mur de mots) ; son titre tire un filet jusqu'au bord. */
@@ -8050,7 +8073,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-medaillon .icon { width: 17px; height: 17px; }
 /* Le survol, à la souris seulement : collé après un toucher, il se lisait comme un second choix. */
 @media (hover: hover) {
-  .quoi-tuile:hover, .quoi-fil:hover { border-color: var(--edge-strong); }
+  .quoi-tuile:hover, .quoi-fil:hover, .quoi-rubrique:hover { border-color: var(--edge-strong); }
   .quoi-epoque:hover { background: var(--surface-strong); }
 }
 .quoi-tuile.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }

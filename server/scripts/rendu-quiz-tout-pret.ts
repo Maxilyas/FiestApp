@@ -1,6 +1,7 @@
 // Un quiz tout prêt, photographié au téléphone (360 × 640) sur un serveur
 // jetable qui lit la vraie base de la campagne : « Créer un quiz » et sa
-// ligne, la feuille réglée d'office puis choisie — deux catégories, facile,
+// ligne, la feuille réglée d'office, une catégorie qui s'affine en ses
+// rubriques, puis choisie — deux catégories, facile,
 // dix questions —, le quiz composé ouvert dans l'éditeur, et sa première
 // estimation ; puis le salon d'un profil, où le quiz composé rejoint ce
 // soir ; un compte neuf au téléphone, sa bibliothèque vide — le quiz tout
@@ -68,6 +69,15 @@ try {
   await page.evaluate(`document.querySelector('.sujet-phrase').scrollIntoView({ block: 'center' })`)
   await photo(page, '04b-sujet-choisi')
   await page.getByRole('button', { name: 'Les animaux', exact: true }).click()
+  // Une catégorie seule s'affine en ses rubriques, sous sa rangée ; une rubrique touchée, puis rendue — la catégorie quittée.
+  await defiler(page, 0)
+  await page.getByRole('button', { name: 'Sport', exact: true }).click()
+  await page.evaluate(`document.querySelector('.quoi-rubriques').scrollIntoView({ block: 'center' })`)
+  await photo(page, '04c-rubriques')
+  await page.getByRole('button', { name: 'Football', exact: true }).click()
+  await photo(page, '04d-rubrique-choisie')
+  await page.getByRole('button', { name: 'Football', exact: true }).click()
+  await page.getByRole('button', { name: 'Sport', exact: true }).click()
   // Deux catégories, facile, dix questions — et des enfants.
   await defiler(page, 0)
   await page.getByRole('button', { name: 'Histoire', exact: true }).click()

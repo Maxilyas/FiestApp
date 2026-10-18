@@ -85,7 +85,7 @@ export type IconName =
   | 'shield'
   // Les thèmes de la campagne (`client/src/iconeDuSujet.ts`).
   | 'paw'
-  | 'planet'
+  | 'volcan'
   | 'medal'
   | 'dancer'
   | 'stethoscope'
@@ -97,6 +97,31 @@ export type IconName =
   | 'lettres'
   | 'hi'
   | 'enye'
+  // Les fêtes de la campagne : Noël, Halloween, le Nouvel An, les anniversaires.
+  | 'sapin'
+  | 'citrouille'
+  | 'artifice'
+  | 'gateau'
+  // Les pays de la campagne, tous du même repère.
+  | 'repere'
+  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars.
+  | 'chateau'
+  | 'baguette'
+  | 'noeud'
+  | 'bouclier'
+  | 'anneau'
+  | 'sabre'
+  // Les fils rouges du 17 octobre 2026 au soir : Paris, la mer, l'outre-mer, les citations, le calcul mental.
+  | 'tour-eiffel'
+  | 'ancre'
+  | 'palmier'
+  | 'guillemets'
+  | 'operations'
+  // Puis la Révolution et l'Empire, l'aviation, les présidents de la République, les dinosaures.
+  | 'bicorne'
+  | 'avion'
+  | 'pupitre'
+  | 'dinosaure'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -596,11 +621,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
-  planet: {
+  // Un volcan qui fume au-dessus de la vague : volcans et océans. La planète à
+  // anneau qu'avait la Terre et l'espace est partie avec l'espace.
+  volcan: {
     paths: (
       <>
-        <circle cx="12" cy="12" r="5.5" />
-        <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-20 12 12)" />
+        <path d="M3.5 17.5 9 8.5c1 .9 2 1.3 3 1.3s2-.4 3-1.3l5.5 9" />
+        <path d="M10.6 6.2a1.7 1.7 0 0 1 1.5-2.6 2 2 0 0 1 3.7.4 1.5 1.5 0 0 1-.3 2.9" />
+        <path d="M3 20.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1" />
       </>
     ),
   },
@@ -638,7 +666,7 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   },
   // Les chevrons d'une balise : l'informatique. L'écran était pris par le
   // petit écran, la planète par la Terre et l'espace — d'où la lunette pour
-  // l'astronomie, posée sur son trépied.
+  // l'astronomie, posée sur son trépied, qu'elle a gardée.
   code: { paths: <path d="M8 7 3 12l5 5M16 7l5 5-5 5M13.5 5l-3 14" /> },
   telescope: {
     paths: (
@@ -683,6 +711,162 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   // comme le « Aa » du français — pas un drapeau, l'anglais n'est pas qu'anglais.
   hi: { paths: <path d="M5 6v12M12.5 6v12M5 12h7.5M18 11v7M18 7.2v.01" /> },
   enye: { paths: <path d="M8.5 19v-8.5M8.5 13.5a3.5 3.5 0 0 1 7 0V19M8 7.5c1.1-1.3 2.3-1.5 3.6-.6s2.6.8 3.9-.7" /> },
+  // Les fêtes (le 17 octobre 2026) : le sapin de Noël et son pied, la citrouille et ses côtes, le feu
+  // d'artifice du Nouvel An, le gâteau et ses trois bougies. L'amour a déjà son cœur.
+  sapin: { paths: <path d="M12 2.8 7.4 8.6h2.4l-3.6 4.8h2.6L5 18.6h14l-3.8-5.2h2.6l-3.6-4.8h2.4L12 2.8ZM12 18.6v2.8" /> },
+  citrouille: {
+    paths: (
+      <>
+        <path d="M12 7.5c-1.2-.9-2.6-1.3-4.2-1.3C5.1 6.2 3 9 3 13s2.1 6.8 4.8 6.8c1.6 0 3-.4 4.2-1.3 1.2.9 2.6 1.3 4.2 1.3 2.7 0 4.8-2.8 4.8-6.8s-2.1-6.8-4.8-6.8c-1.6 0-3 .4-4.2 1.3Z" />
+        <path d="M12 7.5c-1.3 1.4-2 3.3-2 5.5s.7 4.1 2 5.5c1.3-1.4 2-3.3 2-5.5s-.7-4.1-2-5.5ZM12 7.5V4.5c0-.9.5-1.5 1.5-1.8" />
+      </>
+    ),
+  },
+  artifice: { paths: <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21M5.6 5.6l2.5 2.5M15.9 15.9l2.5 2.5M5.6 18.4l2.5-2.5M15.9 8.1l2.5-2.5M12 10.5v3M10.5 12h3" /> },
+  // Le repère d'une carte : un pays. Quatorze drapeaux ne tiennent pas dans un
+  // trait, et ceux des emojis s'écrivent en lettres sous Windows 10 (« IT »).
+  repere: {
+    paths: (
+      <>
+        <path d="M12 21.2c-3.9-4.4-6.6-8.1-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 3.1-2.7 6.8-6.6 11.2Z" />
+        <circle cx="12" cy="10" r="2.4" />
+      </>
+    ),
+  },
+  // Les univers : chacun l'objet qu'on reconnaît de loin — le château de
+  // Disney, la baguette du sorcier, le nœud papillon de 007, le bouclier
+  // étoilé, l'Anneau unique, le sabre laser. Un logo aurait été une marque.
+  chateau: {
+    paths: (
+      <>
+        <path d="M3.5 21h17M5.5 21v-8M9.5 21v-8M4.8 13 7.5 8.5l2.7 4.5M14.5 21v-8M18.5 21v-8M13.8 13l2.7-4.5 2.7 4.5" />
+        <path d="M9.5 15h5M10.5 15V9.8L12 6.5l1.5 3.3V15M11 21v-2.6a1 1 0 0 1 2 0V21" />
+      </>
+    ),
+  },
+  baguette: {
+    paths: (
+      <>
+        <path d="M3.6 19 13.3 9.3l1.4 1.4L5 20.4Z" />
+        <path d="M17 3.5v3.2M15.4 5.1h3.2M19.8 9.3v2M18.8 10.3h2M12.6 4.2v1.6M11.8 5h1.6" />
+      </>
+    ),
+  },
+  noeud: {
+    paths: (
+      <>
+        <path d="M3 8.5v7l6.5-2.4v-2.2L3 8.5ZM21 8.5v7l-6.5-2.4v-2.2L21 8.5Z" />
+        <path d="M9.5 10.3h5v3.4h-5Z" />
+      </>
+    ),
+  },
+  bouclier: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5.6" />
+        <path d="m12 9.3.8 1.7 1.8.2-1.3 1.2.4 1.8-1.7-.9-1.7.9.4-1.8-1.3-1.2 1.8-.2Z" />
+      </>
+    ),
+  },
+  anneau: {
+    paths: (
+      <>
+        <ellipse cx="12" cy="13.5" rx="8" ry="4.6" />
+        <ellipse cx="12" cy="12.6" rx="5.4" ry="2.6" />
+        <path d="M18 4v2.6M16.7 5.3h2.6" />
+      </>
+    ),
+  },
+  sabre: {
+    paths: (
+      <>
+        <path d="M10.6 13.4 19.8 4.2M7.6 12.6l3.8 3.8" />
+        <path d="M3.4 19.2 8.6 14l1.4 1.4-5.2 5.2Z" />
+      </>
+    ),
+  },
+  // Les fils rouges du 17 octobre 2026 au soir. Les rois et reines de France
+  // ont la couronne (`crown`), qui existait déjà.
+  'tour-eiffel': {
+    paths: (
+      <>
+        <path d="M12 2.5V5M10.8 5h2.4M10.8 5 7 21M13.2 5 17 21" />
+        <path d="M9.3 11.5h5.4M8.1 16.5h7.8M9.5 21a2.5 2.5 0 0 1 5 0" />
+      </>
+    ),
+  },
+  ancre: {
+    paths: (
+      <>
+        <circle cx="12" cy="5" r="2.4" />
+        <path d="M12 7.4V21M8.5 10.5h7M5 13H3.5a8.5 8.5 0 0 0 17 0H19" />
+      </>
+    ),
+  },
+  palmier: {
+    paths: (
+      <>
+        <path d="M13 21c.2-3.6-.3-6.8-1.6-9.6" />
+        <path d="M11.4 11.4C10.2 8.7 7.6 7.6 4.5 8.2M11.4 11.4c.2-2.9 2-4.9 5-5.4M11.4 11.4c2.7-.9 5.2-.1 7.1 2M11.4 11.4c-2.6.4-4.6 2-5.4 4.6M7 21h10" />
+      </>
+    ),
+  },
+  guillemets: {
+    paths: (
+      <>
+        <path d="M10 6.5H6v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+        <path d="M18 6.5h-4v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+      </>
+    ),
+  },
+  operations: {
+    paths: (
+      <>
+        <path d="M7 4.5v5M4.5 7h5M14.5 7h5" />
+        <path d="m5 15 4 4M9 15l-4 4M14.5 17h5M17 14.5v.01M17 19.5v.01" />
+      </>
+    ),
+  },
+  // Le bicorne de l'Empereur, porté en bataille : un croissant, ses deux pointes en bas, la cocarde devant. En amande,
+  // il se lisait comme un œil — celui de l'insolite.
+  bicorne: {
+    paths: (
+      <>
+        <path d="M2.5 16C5 10 8.5 7.5 12 7.5s7 2.5 9.5 8.5c-3-1.7-6.2-2.6-9.5-2.6S5.5 14.3 2.5 16Z" />
+        <circle cx="12" cy="10.6" r="1.3" />
+      </>
+    ),
+  },
+  avion: {
+    paths: <path d="M21 15.5v-1.8l-7.5-4.7V4a1.5 1.5 0 0 0-3 0v5L3 13.7v1.8l7.5-2.3V18l-2 1.5V21l3.5-1 3.5 1v-1.5l-2-1.5v-4.8l7.5 2.3Z" />,
+  },
+  // Le pupitre et son micro : le discours d'un président.
+  pupitre: {
+    paths: (
+      <>
+        <path d="M5 10.5h14M7 10.5l1 10h8l1-10M6 20.5h12" />
+        <path d="M12 10.5V7M10.8 5.2a1.2 1.2 0 1 1 2.4 0V7h-2.4V5.2Z" />
+      </>
+    ),
+  },
+  // Un sauropode, de profil : le long cou, la queue, deux pattes.
+  dinosaure: {
+    paths: (
+      <>
+        <path d="M3 14c3-.2 5.5-4.5 10-4.5 1.2 0 2.2.2 3 .5V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2h-1V13c0 1.6-1.4 2.5-3.5 2.5H8.5C6 15.5 4.2 15 3 14Z" />
+        <path d="M9 15.5V20M15.5 15.5V20" />
+      </>
+    ),
+  },
+  gateau: {
+    paths: (
+      <>
+        <path d="M4.5 20.5V13a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v7.5M3 20.5h18" />
+        <path d="M4.5 15.5c1.2.9 2.4.9 3.6 0s2.4-.9 3.6 0 2.4.9 3.6 0 2.4-.9 3.6 0M8 11.5v-3M12 11.5v-3M16 11.5v-3M8 5.5v.01M12 5.5v.01M16 5.5v.01" />
+      </>
+    ),
+  },
   // Les duels (la maquette choisie par le propriétaire le 12 octobre 2026) :
   // le temps qu'il reste à l'autre, « sans chrono », « Comment ça marche ? »,
   // une vie, et l'étincelle d'un résultat qui attend d'être vu.

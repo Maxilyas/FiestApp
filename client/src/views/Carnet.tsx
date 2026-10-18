@@ -10,7 +10,7 @@ import { ADRESSE_D_APPRENDRE } from '../../../shared/depart'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { XP_PAR_JUSTE, type SerieDeCampagne } from '../../../shared/campagne'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
-import { SUJETS } from '../../../shared/sujets'
+import { SUJETS_ET_RUBRIQUES } from '../../../shared/sujets'
 import {
   INTERVALLES_DE_REVISION,
   QUESTIONS_PAR_REVISION,
@@ -322,7 +322,7 @@ export function PageDuCarnet({ onglets, onReviser, onLu }: { onglets: ReactNode;
       {carnet && aChoisir && choixOuvert && (
         <FeuilleDuChoix
           categoriesJouables={carnet.categories.map(c => c.categorie)}
-          sujets={SUJETS.filter(s => carnet.sujets.some(x => x.sujet === s.cle))}
+          sujets={SUJETS_ET_RUBRIQUES.filter(s => carnet.sujets.some(x => x.sujet === s.cle))}
           categories={v.categories}
           sujet={v.sujet}
           toutes="Tout le carnet"
