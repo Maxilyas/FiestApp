@@ -98,7 +98,7 @@ et les mots, si :
 | la Garde | un **bouclier**, qui pare son attaque |
 | la mise | un **pari** |
 | la frappe | son **attaque** : « tu perds 5 de courage » |
-| l'inspiration | des étincelles ; le coût d'une carte aussi, ou « gratuite » |
+| l'inspiration | l'**énergie** : un orbe et son chiffre, le même au coin de chaque carte (des étincelles d'abord, que personne ne comprenait) |
 | préparation · réflexe · pouvoir | « avant de voir la question » · « pendant la question » · « pour toute la rencontre » |
 
 1. **Ce que la réponse fera, d'abord**, en deux tuiles sous l'adversaire :
@@ -124,6 +124,34 @@ et les mots, si :
 
 Le test : `expedition-rencontres-ecran.test.ts` ; l'écran :
 `rendu-rencontres.ts`, en Velours et en Ivoire.
+
+Puis, le soir, ses nouveaux retours : « J'aimerais pouvoir abandonner une
+expédition. L'histoire de l'inspiration n'est pas du tout clair[e]. Voir la
+pioche on voit uniquement des noms, ça serait pas possible de voir les
+vrai[e]s cartes, de pouvoir les faire défiler ? […] les cartes c'est des
+rectangles pas très jolies, ça serait pas possible de faire de vrai[e]s
+cartes ? Ça rajouterai[t] à l'immersion. Je pense aussi c'est pas clair de
+devoir mettre des légendaire[s] sur la première page. »
+
+6. **L'abandon au départ** : sous « Reprendre », « Abandonner cette
+   expédition », confirmé — le geste ne vivait qu'au fond de la feuille de
+   la carte.
+7. **L'énergie** au lieu de l'inspiration : un orbe cyan et son chiffre
+   au-dessus de la main, le même au coin de chaque carte, rouge quand il en
+   manque.
+8. **De vraies cartes** : un cadre à la couleur de la rareté, une
+   illustration sur la teinte de la famille — le portrait du légendaire
+   pour sa carte —, le nom au bandeau, la gemme au pied ; dans la main,
+   levées, dans les tas, à l'offre (trois côte à côte, comme la récompense
+   de Slay the Spire).
+9. **Les tas qui défilent** : la pioche, la défausse, tout le paquet, en
+   rangées de vraies cartes — une par sorte, « ×4 » au coin ; touchée, une
+   carte se montre en grand.
+10. **Un débutant ne choisit pas de légendaires** : sans légendaire à lui,
+    l'invité du jour part d'office, en une ligne. Le reste de la question —
+    un codex de cartes qui se débloque en jouant, la place des
+    légendaires, d'autres objets à gagner — est devenu une proposition, à
+    trancher avant d'écrire.
 
 ## La règle du prototype
 
@@ -183,7 +211,7 @@ suivant.
    reste, et la question qu'il pose — sa catégorie, sa marche, sa forme,
    « une année » ou « des nombres », ta chance ; jamais son texte. Puis ce
    que la réponse fera, en deux tuiles : « Si tu as juste : il perd 6 »,
-   « Si tu te trompes : tu perds 5 ». 3 d'inspiration, 5 cartes en main : tu
+   « Si tu te trompes : tu perds 5 ». 3 d'énergie, 5 cartes en main : tu
    joues tes cartes d'avant la question et tes pouvoirs, tu choisis ton
    pari ; les tuiles changent à chaque carte et à chaque pari.
 2. **« Voir la question »** : le pari part, la question arrive. Les cartes
@@ -195,7 +223,7 @@ suivant.
 
 ### Les cartes
 
-Une carte a son **coût** en inspiration (0, 1 ou 2), son **moment** — la
+Une carte a son **coût** en énergie (0, 1 ou 2 — l'inspiration du code), son **moment** — la
 préparation, avant de voir la question ; le réflexe, la question sous les
 yeux ; le pouvoir, posé pour toute la rencontre ; la route, sur la carte —,
 sa **famille** et sa **rareté**, au cadre de l'album. Une carte **épuisée**

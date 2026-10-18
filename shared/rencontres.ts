@@ -35,7 +35,7 @@ export const RENCONTRES_EN_PRODUCTION = false
 
 /** Le courage, au départ et au plus : ce qui remplace les trois vies. */
 export const COURAGE_MAX = 50
-/** L'inspiration de chaque question : de quoi jouer deux ou trois cartes. */
+/** L'inspiration de chaque question : de quoi jouer deux ou trois cartes. L'écran l'appelle « énergie », le mot de tous les jeux. */
 export const INSPIRATION_PAR_QUESTION = 3
 /** Les cartes tirées à chaque question ; ce qu'il n'en joue pas part à la défausse. */
 export const CARTES_PAR_QUESTION = 5
@@ -354,7 +354,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     effet: 'Quand l’adversaire tombe, tu reprends 3 de courage par bonne réponse de la rencontre.',
     resume: 'Soin à la fin',
   },
-  { cle: 'reveil', nom: 'Le réveil', legendaire: 'lg:coq', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: '+2 d’inspiration pour cette question.', resume: '+2 ✦' },
+  { cle: 'reveil', nom: 'Le réveil', legendaire: 'lg:coq', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: '+2 d’énergie pour cette question.', resume: '+2 énergie' },
   {
     cle: 'boucle',
     nom: 'La boucle',
@@ -434,7 +434,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'elan',
     rarete: 'legendaire',
-    effet: 'Pour toute la rencontre : toutes les trois bonnes réponses d’affilée, deux cartes et une inspiration de plus à la question suivante.',
+    effet: 'Pour toute la rencontre : toutes les trois bonnes réponses d’affilée, deux cartes et 1 d’énergie de plus à la question suivante.',
     resume: 'Série = cartes',
   },
   {
@@ -907,7 +907,8 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
   if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
   if (carte.moment === 'pouvoir' && c.pouvoirs.includes(cle)) return 'Elle agit déjà dans cette rencontre'
-  if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’inspiration : il t’en reste ${c.tour.inspiration}`
+  // L'inspiration du code se dit « énergie » à l'écran (le 18 octobre 2026 : « l'histoire de l'inspiration n'est pas du tout claire »).
+  if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’énergie : il t’en reste ${c.tour.inspiration}`
   const q = c.question
   if (!q) return 'Elle se joue sur une question'
   const changee = aJoueSurLaQuestion(c, 'corser') || aJoueSurLaQuestion(c, 'simplifier')

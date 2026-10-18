@@ -96,10 +96,12 @@ import {
   Apercu,
   AuDepart,
   COURT,
+  CarteLevee,
+  CartesAPrendre,
   Courage,
   FeuilleDesCartes,
-  JetonsDeCartes,
   LigneDeCarte,
+  RangeeDeCartes,
   MainDeRencontre,
   PreparationDeLaRencontre,
   ToutesLesCartes,
@@ -721,7 +723,16 @@ export function ExpeditionApp() {
   }
 
   if (ecran.e === 'depart') {
-    return <Depart page={ecran.page} busy={busy} erreur={erreur} onPartir={(equipee, rencontres) => void partir(equipee, rencontres)} onReprendre={vue => setEcran({ e: 'route', vue })} />
+    return (
+      <Depart
+        page={ecran.page}
+        busy={busy}
+        erreur={erreur}
+        onPartir={(equipee, rencontres) => void partir(equipee, rencontres)}
+        onReprendre={vue => setEcran({ e: 'route', vue })}
+        onAbandonner={vue => void abandonner(vue)}
+      />
+    )
   }
 
   if (ecran.e === 'vaincu') {
@@ -928,12 +939,13 @@ const regleDuGardien = (acte: number) => {
  * ne rapporterait que l'expérience de ses réponses (le choix du 17 octobre
  * 2026).
  */
-function Depart({
+export function Depart({
   page,
   busy,
   erreur,
   onPartir,
   onReprendre,
+  onAbandonner,
 }: {
   page: PageDeLExpedition
   busy: boolean
@@ -941,6 +953,8 @@ function Depart({
   /** `rencontres` : partir au prototype des rencontres, avec sa catégorie fétiche ; null, aux règles d'avant. */
   onPartir: (equipee: readonly string[], rencontres: { fetiche: string | null } | null) => void
   onReprendre: (vue: VueDeLExpedition) => void
+  /** Celle qui l'attend s'abandonne d'ici aussi : « J'aimerais pouvoir abandonner une expédition » (le 18 octobre 2026) — le geste ne vivait qu'au fond de la feuille de la carte. */
+  onAbandonner: (vue: VueDeLExpedition) => void
 }) {
   const vue = page.expedition
   const gardiens = vue ? vue.gardiens : page.prochaine.gardiens.map(cle => ({ cle, vaincu: false, ...(page.prochaine.aLui.includes(cle) && { aLui: true as const }) }))
@@ -955,6 +969,10 @@ function Depart({
   const enRencontres = vue ? vue.courage !== undefined : ouvertes && aux
   // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas.
   const montree = vue ? (vue.jokers || vue.cartes ? vue.equipee : null) : equipee
+  // Sans légendaire à lui, rien à choisir : l'invité du jour part d'office, et une ligne le dit. Deux places, dont une libre,
+  // demandaient de choisir ce qu'il n'avait pas (« c'est pas clair de devoir mettre des légendaires sur la première page, surtout
+  // qu'au début on n'a pas forcément ça », le 18 octobre 2026).
+  const invite = !vue && page.prochaine.equipables.length === 0 ? page.prochaine.invite : undefined
   // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir.
   const s = laSaison(vue ? vue.saison : page.prochaine.saison)
   const tampons = page.passeport.length
@@ -1005,7 +1023,16 @@ function Depart({
           </p>
         )}
       </section>
-      {montree && (
+      {invite ? (
+        <p className="card exp-invite-seul">
+          <Medaillon cle={invite} className="exp-medaillon" />
+          <span>
+            {espacesFines(
+              `${nomDuGardien(invite)}, ${gardienAuFeminin(invite) ? 'l’invitée' : 'l’invité'} du jour, part avec toi : ${enRencontres ? 'sa carte rejoint ton paquet' : 'son joker rejoint ton paquet'}. Garde un gardien au bout d’une expédition : tu choisiras qui t’accompagne.`,
+            )}
+          </span>
+        </p>
+      ) : montree && (
         <section className="card exp-equipee" aria-labelledby="exp-equipee-titre">
           <div className="exp-section-tete">
             <h2 className="label" id="exp-equipee-titre">
@@ -1031,6 +1058,7 @@ function Depart({
           actif={aux}
           fetiche={fetiche}
           equipee={equipee}
+          debutant={!!invite}
           onActif={setAux}
           onFetiche={setFetiche}
         />
@@ -1066,6 +1094,10 @@ function Depart({
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => onReprendre(vue)}>
               <Icon name="play" />
               Reprendre
+            </button>
+            {/* Discret sous « Reprendre », et confirmé : un toucher perdu ne coûte pas l'expédition. */}
+            <button type="button" className="link-inline small exp-abandonner" aria-disabled={busy || undefined} onClick={() => !busy && onAbandonner(vue)}>
+              Abandonner cette expédition
             </button>
           </>
         ) : (
@@ -2817,6 +2849,8 @@ function Offre({
   onPartir: () => void
 }) {
   const [pris, setPris] = useState<string[]>([])
+  // Au prototype des rencontres, une carte de son paquet touchée se montre en grand.
+  const [regardee, setRegardee] = useState<string | null>(null)
   const ici = vue.ici ? vue.carte?.escales.find(e => e.id === vue.ici) : undefined
   const vide = offre.jokers.length === 0
   const deux = offre.aPrendre > 1
@@ -2842,17 +2876,9 @@ function Offre({
             )}
           </p>
         </header>
-        {!vide && (
+        {!vide && <CartesAPrendre cles={offre.jokers} prises={pris} onToucher={toucher} />}
+        {!vide && t && (
           <div className="exp-offres">
-            {offre.jokers.map(cle => {
-              const c = carteDeRencontre(cle)
-              if (!c) return null
-              return (
-                <button key={cle} type="button" className={'exp-offre-ligne' + (pris.includes(cle) ? ' exp-choisi' : '')} aria-pressed={pris.includes(cle)} onClick={() => toucher(cle)}>
-                  <LigneDeCarte c={c} />
-                </button>
-              )
-            })}
             {t && (
               <button
                 type="button"
@@ -2877,8 +2903,9 @@ function Offre({
         )}
         <section className="exp-paquet" aria-labelledby="exp-paquet-titre">
           <h2 className="label" id="exp-paquet-titre">{`Ton paquet · ${vue.cartes?.paquet.length ?? 0}`}</h2>
-          <JetonsDeCartes cles={vue.cartes?.paquet ?? []} vide="Ton paquet est vide." />
+          <RangeeDeCartes cles={vue.cartes?.paquet ?? []} vide="Ton paquet est vide." nom="Ton paquet" onRegarder={setRegardee} />
         </section>
+        {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
         {erreur && (
           <p className="error" role="alert">
             {espacesFines(erreur)}

@@ -52,8 +52,23 @@ try {
   } finally {
     db.close()
   }
+  // Un débutant, sans légendaire : son départ ne lui demande rien à choisir — l'invité du jour part d'office.
+  const novice = await inscrireProfil(banc.url, 'noe', 'Noé', '🐢')
+  if (ivoire) await ecrire(banc.url, '/api/joueur/moi', { theme: 'ivoire' }, novice, 'PUT')
   // Relus au démarrage : le profil sait ce qu'il a.
   await banc.redemarrer()
+  {
+    const sien = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
+    const [n, v] = novice.split('=')
+    await sien.addCookies([{ name: n, value: v, url: banc.url }])
+    const p = await sien.newPage()
+    await p.goto(`${banc.url}/expedition`)
+    await p.waitForSelector('.exp-prototype')
+    await p.waitForTimeout(500)
+    await p.screenshot({ path: path.join(sortie, '0-depart-sans-legendaire.png'), fullPage: true })
+    console.log(path.join(sortie, '0-depart-sans-legendaire.png'))
+    await sien.close()
+  }
   const contexte = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 })
   const [nom, valeur] = cookie.split('=')
   await contexte.addCookies([{ name: nom, value: valeur, url: banc.url }])
@@ -71,10 +86,16 @@ try {
     fait.add(nomFichier)
     await photo(nomFichier, pleine)
   }
-  /** Ce qui déborde de côté : rien ne doit élargir la page (règle `css.md`). */
+  /** Ce qui déborde de côté : rien ne doit élargir la page (règle `css.md`) — et ce qui l'élargit, nommé. */
   const largeur = async (ou: string) => {
     const l = await page.evaluate('document.documentElement.scrollWidth')
-    if (Number(l) > 360) console.error(`[déborde] ${ou} : ${l} pixels de large`)
+    if (Number(l) <= 360) return
+    // Les suspects ordinaires : une boîte plus large que l'écran, ou ce qui est posé en absolu au-delà du bord — un `.sr-only` dont
+    // le cadre est plus haut qu'un cadre qui défile n'est pas coupé par lui (le 18 octobre 2026, le paquet de l'offre).
+    const fautifs = await page.evaluate(
+      `[...document.querySelectorAll('body *')].filter(e => { const r = e.getBoundingClientRect(); return r.right > 361 && !e.closest('.carte-voile') && (r.width > 361 || ['absolute', 'fixed'].includes(getComputedStyle(e).position)) }).map(e => e.tagName.toLowerCase() + '.' + String(e.className.baseVal ?? e.className).split(' ').join('.') + ' ' + Math.round(e.getBoundingClientRect().right)).slice(0, 4).join(' · ')`,
+    )
+    console.error(`[déborde] ${ou} : ${l} pixels de large — ${fautifs}`)
   }
 
   // Le départ : le prototype proposé d'office, sa catégorie fétiche à choisir.
@@ -205,6 +226,13 @@ try {
         await page.locator('.exp-cartes-tas').click()
         await page.waitForSelector('.feuille-paquet')
         await unePhoto('3b-tas')
+        // Ses tas en vraies cartes : la rangée défile de côté, une carte touchée se montre en grand par-dessus la feuille.
+        await page.locator('.feuille-paquet .exp-rangee').last().evaluate((e: any) => e.scrollBy(200, 0))
+        await unePhoto('3b-tas-defile')
+        await page.locator('.feuille-paquet .exp-rangee-carte').first().click()
+        await page.waitForSelector('.exp-leve')
+        await unePhoto('3b-tas-carte')
+        await page.locator('.exp-leve .exp-reposer').click()
         await page.locator('.feuille-paquet .carte-fermer').click()
       }
       // Ses cartes d'avant la question, une par une, tant qu'il en a : frapper plus fort, le bouclier, la forme, le pari.
@@ -241,9 +269,11 @@ try {
       continue
     }
     if (ou === 'offre') {
+      await largeur('l’offre')
       const coffre = (await page.locator('.exp-offre .exp-surtitre', { hasText: 'coffre' }).count()) > 0
       await unePhoto(coffre ? '8-coffre' : '5d-carte-a-prendre', true)
-      await page.locator('.exp-offre-ligne').first().click()
+      await page.locator('.exp-a-prendre-carte, .exp-offre-ligne').first().click()
+      await unePhoto(coffre ? '8-coffre-choisie' : '5e-carte-choisie', true)
       await page.locator('.exp-offre .exp-depart-pied .btn-primary').click()
       await page.waitForTimeout(300)
       continue
