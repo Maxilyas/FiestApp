@@ -9155,50 +9155,137 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* Le geste du bas — partir, prendre, camper —, collé au bas de l'écran : l'équipée a poussé « Partir » sous le pli en 360 × 640. Le fond du thème y monte en fondu, sans bande. */
 .exp-depart-pied { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding: 18px 0 max(4px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 18px); }
 .exp-depart-pied p { margin: 0; }
-/* La carte : les colonnes en pour cent de sa largeur, les étages en pixels
-   (`ExpeditionApp.tsx`). Les liens, sous les escales, d'un trait qui ne
-   s'étire pas avec elle (`vector-effect`) : en pointillé ce qui reste à
-   choisir, en or le tracé, éteint ce qui est passé. */
+/* L'écran de la carte (revu deux fois le 18 octobre 2026) : il tient en un
+   écran — l'acte en petit en haut prend ce que le panneau, collé en bas,
+   lui laisse ; le panneau porte les escales proposées en cartes, « Y aller »
+   et la main, posée au bas de l'écran. */
+.player-shell.exp-carte-page { gap: 10px; padding-bottom: 0; }
+.exp-titre-acte { margin: 0; font-size: 1.3rem; line-height: 1.15; text-wrap: balance; font-variant-numeric: lining-nums; }
+/* L'acte en petit : un bouton qui ouvre la carte en grand, tout l'acte d'un
+   coup d'œil. Ses escales, en pour cent de sa hauteur : il grandit sur un
+   écran plus haut, sans jamais descendre sous 170 pixels. */
+.exp-plan { position: relative; flex: 1 1 0; min-height: 170px; max-height: 440px; margin: 0 -8px; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%), var(--surface); color: inherit; font: inherit; cursor: zoom-in; }
+.exp-petit-plan { position: absolute; inset: 12px 10px 8px; }
+.exp-plan-ouvrir { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--accent-text); font-size: var(--t-label); font-weight: 700; line-height: 1.4; }
+.exp-plan-ouvrir .icon { width: 12px; height: 12px; }
+.exp-petit-plan .exp-liens line { stroke-width: 1.5; stroke-dasharray: 2 4; }
+.exp-petit-plan .exp-liens line.lien-fait, .exp-petit-plan .exp-liens line.lien-choisi { stroke-dasharray: none; }
+.exp-petit-plan .exp-liens line.lien-choisi { stroke-width: 2.5; }
+/* Une escale du plan : dix-huit pixels, son emblème sans un mot — les mêmes états qu'en grand. */
+.exp-point { position: absolute; display: grid; place-items: center; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); }
+.exp-point > .icon { width: 10px; height: 10px; }
+.exp-point.exp-plus-loin { opacity: 0.55; }
+.exp-point.exp-loin { opacity: 0.2; }
+.exp-point.exp-passee { color: var(--muted); opacity: 0.45; }
+.exp-point.exp-a-portee { border: 2px solid var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 14%, transparent); }
+.exp-point.exp-choisie { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+.exp-point.exp-ici { width: 20px; height: 20px; margin: -10px 0 0 -10px; border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.exp-point.exp-ici::after { content: ''; position: absolute; inset: -5px; border: 2px solid var(--accent); border-radius: 50%; animation: exp-ici 1.8s ease-out infinite; pointer-events: none; }
+.exp-point.exp-campement { color: var(--or-text); }
+.exp-point.exp-campement.exp-ici { color: var(--on-accent); }
+.exp-point.exp-gardien { width: 34px; height: 34px; margin: -17px 0 0 -17px; border-width: 2px; }
+.exp-point.exp-gardien .exp-medaillon { font-size: 30px; }
+.exp-point.exp-inconnu { border-style: dashed; }
+.exp-point.exp-piege { border-style: solid; border-color: var(--alert); color: var(--alert); }
+.exp-point-tampon { position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--bg-raised); }
+.exp-petit-depart { position: absolute; left: 50%; display: inline-flex; align-items: center; gap: 3px; height: 18px; margin-top: -9px; padding: 0 8px; translate: -50% 0; border-radius: var(--radius-pill); color: var(--muted); font-size: var(--t-label); font-weight: 700; white-space: nowrap; }
+.exp-petit-depart .icon { width: 11px; height: 11px; }
+.exp-petit-depart.exp-ici { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+/* Les escales proposées, en cartes (« de vrais cartes en bas ») : sa sorte,
+   son emblème, son nom, sa chance, ce qu'elle rapporte. Touchée, elle se
+   lève, cerclée d'or ; la plus sûre porte son ruban. Quatre au plus — le
+   départ, Le détour —, qui se partagent la largeur. */
+.exp-cartes-escale { display: flex; justify-content: center; gap: 6px; padding-top: 9px; }
+.exp-carte-escale { position: relative; flex: 0 1 104px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 3px 7px; border: 1.5px solid var(--edge-strong); border-radius: 10px; background: linear-gradient(180deg, var(--surface-strong), var(--surface)), var(--bg-raised); color: var(--ink); font: inherit; text-align: center; cursor: pointer; transition: translate 0.15s ease, box-shadow 0.15s ease; }
+/* Le filet garde son épaisseur, l'or s'ajoute dedans : à deux pixels, le pied de la carte choisie passait à la ligne. */
+.exp-carte-escale[aria-pressed='true'] { translate: 0 -6px; border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 8px 18px rgba(0, 0, 0, 0.3), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.exp-carte-sorte { max-width: 100%; overflow: hidden; color: var(--muted); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.exp-carte-escale.exp-elite .exp-carte-sorte, .exp-carte-escale.exp-gardien .exp-carte-sorte { color: var(--accent-text); }
+.exp-carte-embleme { display: grid; place-items: center; width: 32px; height: 32px; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); }
+.exp-carte-embleme > .icon { width: 17px; height: 17px; }
+.exp-carte-escale.exp-campement .exp-carte-embleme { color: var(--or-text); }
+.exp-carte-escale.exp-inconnu .exp-carte-embleme { border-style: dashed; }
+.exp-carte-escale.exp-gardien .exp-carte-embleme { width: 44px; height: 44px; border: 0; background: none; }
+.exp-carte-escale.exp-gardien .exp-medaillon { font-size: 44px; }
+.exp-carte-escale.exp-piege .exp-carte-embleme { border-color: var(--alert); color: var(--alert); }
+.exp-carte-nom { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--serif); font-size: 0.95rem; font-weight: 600; line-height: 1.1; hyphens: auto; overflow-wrap: break-word; }
+/* Sa chance et ses gains, au pied : sur une ligne même à quatre cartes ; l'élite, qui en a trois, sur deux. */
+.exp-carte-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 5px; margin-top: auto; font-size: 0.75rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; line-height: 1.2; }
+.exp-carte-chance { display: inline-flex; align-items: center; gap: 2px; color: var(--ink); white-space: nowrap; }
+.exp-carte-chance .balise { width: 10px; height: 10px; }
+.exp-carte-gain { display: inline-flex; align-items: center; gap: 1px; color: var(--accent-text); white-space: nowrap; }
+.exp-carte-gain .icon { width: 12px; height: 12px; }
+.exp-carte-gain.exp-gain-vie { color: var(--alert); }
+/* Un joker gagné, en petit : une carte. */
+.exp-glyphe-joker { display: inline-block; width: 9px; height: 12px; margin-right: 2px; border: 1.5px solid currentColor; border-radius: 2px; }
+.exp-la-plus-sure { position: absolute; top: -9px; left: 50%; translate: -50% 0; padding: 0 7px; border: 1px solid var(--accent); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--accent-text); font-size: var(--t-label); font-weight: 700; line-height: 1.45; white-space: nowrap; }
+.exp-note { color: var(--muted); line-height: 1.35; text-align: center; }
+/* La carte en grand, dans sa feuille : les colonnes en pour cent de sa
+   largeur, les étages en pixels (`ExpeditionApp.tsx`). Une seule escale
+   brille, celle où il est ; les proposées s'entourent ; le reste attend en
+   retrait, plus petit, son emblème sans un mot — tout le tracé allumé d'ici
+   au campement faisait douter de l'escale où l'on était. Les liens, sous les
+   escales, d'un trait qui ne s'étire pas avec elle (`vector-effect`) : en
+   pointillé ce qui mène encore quelque part, presque effacé ce qui n'y mène
+   plus, éteint ce qui est passé ; d'ici aux proposées, un pointillé clair,
+   doré et plein vers celle qu'il a choisie. */
 .exp-carte { position: relative; flex: none; width: 100%; margin: 6px 0 2px; }
 .exp-liens { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.exp-liens line { stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
-.exp-liens line.lien-fait { stroke: var(--muted); stroke-dasharray: none; opacity: 0.55; }
-.exp-liens line.lien-prevu { stroke: var(--accent); stroke-width: 3; stroke-dasharray: none; }
+.exp-liens line { stroke: color-mix(in srgb, var(--accent) 34%, transparent); stroke-width: 2; stroke-dasharray: 3 6; stroke-linecap: round; }
+.exp-liens line.lien-mort { stroke: color-mix(in srgb, var(--accent) 12%, transparent); }
+.exp-liens line.lien-fait { stroke: var(--muted); stroke-dasharray: none; opacity: 0.45; }
+.exp-liens line.lien-propose { stroke: color-mix(in srgb, var(--ink) 55%, transparent); stroke-dasharray: 2 5; }
+.exp-liens line.lien-choisi { stroke: var(--accent); stroke-width: 3; stroke-dasharray: none; }
 .exp-escale { position: absolute; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); font: inherit; cursor: pointer; }
 .exp-escale > .icon { width: 20px; height: 20px; }
-.exp-escale > .balise { position: absolute; top: -4px; right: -4px; width: 15px; height: 15px; }
-/* Le nom d'une escale passe sur les liens : un halo du fond le détache du pointillé. */
-.exp-etiquette { position: absolute; top: 46px; left: 50%; width: 84px; margin-left: -42px; color: var(--muted); font-size: var(--t-label); font-weight: 600; line-height: 1.15; text-align: center; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg); pointer-events: none; }
-.exp-escale.exp-ouverte { border: 2px solid var(--ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 14%, transparent); }
-.exp-escale.exp-tracee { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 20%, var(--bg-raised)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent); }
-.exp-escale.exp-tracee .exp-etiquette { color: var(--ink); }
-.exp-escale.exp-passee { color: var(--muted); opacity: 0.6; }
-.exp-escale.exp-loin { opacity: 0.4; }
-/* L'escale où il est : un anneau qui s'élargit et s'éteint, par `scale` et `opacity` seulement. */
-.exp-escale.exp-ici { border: 2px solid var(--accent); color: var(--ink); }
+/* Le nom d'une escale passe sur les liens : un halo du fond le détache du pointillé. Deux lignes au plus — le panneau dit le reste. */
+.exp-etiquette { position: absolute; top: 47px; left: 50%; display: -webkit-box; width: 84px; margin-left: -42px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--muted); font-size: var(--t-label); font-weight: 600; line-height: 1.15; text-align: center; text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg); pointer-events: none; }
+/* Plus loin sur sa route : en retrait, plus petite — son emblème suffit, et touchée, elle dit ce qu'elle cache. Hors de sa route ou passée : à peine là. */
+.exp-escale.exp-plus-loin { opacity: 0.5; scale: 0.86; }
+.exp-escale.exp-loin { opacity: 0.22; scale: 0.8; }
+.exp-escale.exp-passee { color: var(--muted); opacity: 0.45; scale: 0.8; }
+/* Les proposées, à portée : entourées, leur nom en clair dessous, leur chance au-dessus. Pas `.exp-proposee` : la réponse proposée d'un vrai ou faux, dont la règle en faisait des cartes carrées. */
+.exp-escale.exp-a-portee { border: 2px solid var(--ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 12%, transparent); }
+.exp-escale.exp-a-portee .exp-etiquette { color: var(--ink); }
+/* Celle que le pied de la feuille décrit, touchée hors des proposées : un anneau gris, sans sortir du retrait — pas un `outline`, que le focus tient seul. */
+.exp-escale.exp-regardee { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--muted); }
+/* Celle qu'il a touchée : un anneau doré, sans s'allumer — seule l'escale où il est brille. */
+.exp-escale.exp-choisie { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 34%, transparent); }
+.exp-escale.exp-choisie .exp-etiquette { color: var(--accent-text); font-weight: 700; }
+/* Sa chance, au-dessus d'une proposée : la balise et le pour cent, sur le fond. Au coin, elle sortait de l'écran à la colonne de droite ; le tampon tient le flanc gauche. */
+.exp-sa-chance { position: absolute; top: -15px; left: 50%; translate: -50% 0; display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 3px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--ink); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; line-height: 1.2; white-space: nowrap; pointer-events: none; }
+.exp-sa-chance .balise { width: 11px; height: 11px; }
+/* L'escale où il est : la seule qui brille — pleine, et un anneau qui s'élargit et s'éteint, par `scale` et `opacity` seulement. */
+.exp-escale.exp-ici { border: 2px solid var(--accent); background: var(--accent); color: var(--on-accent); }
+.exp-escale.exp-ici .exp-etiquette { color: var(--accent-text); font-weight: 700; }
 .exp-escale.exp-ici::after { content: ''; position: absolute; inset: -7px; border: 2px solid var(--accent); border-radius: 50%; animation: exp-ici 1.8s ease-out infinite; pointer-events: none; }
 @keyframes exp-ici { from { scale: 0.85; opacity: 0.9; } to { scale: 1.35; opacity: 0; } }
 .exp-escale.exp-campement { color: var(--or-text); }
+.exp-escale.exp-campement.exp-ici { color: var(--on-accent); }
 .exp-escale.exp-gardien { width: 64px; height: 64px; margin: -32px 0 0 -32px; border-width: 2px; }
 .exp-escale.exp-gardien .exp-medaillon { font-size: 56px; }
 .exp-escale.exp-gardien .exp-etiquette { top: 68px; width: 180px; margin-left: -90px; font-family: var(--serif); font-size: 1rem; color: var(--accent-text); }
-.exp-depart { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: 24px; margin-top: -12px; color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+.exp-depart { position: absolute; left: 0; right: 0; display: flex; justify-content: center; height: 26px; margin-top: -13px; pointer-events: none; }
+.exp-depart-nom { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: var(--radius-pill); color: var(--muted); font-size: 0.8rem; font-weight: 600; }
 .exp-depart .icon { width: 16px; height: 16px; }
-.exp-depart.exp-ici { color: var(--accent-text); }
-/* Le tracé, collé au bas de l'écran : le pas suivant reste sous le doigt, la carte défile au-dessus. */
-.exp-panneau { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 6px; margin: 0 -8px; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); border: 1px solid var(--edge-strong); border-radius: var(--radius) var(--radius) 0 0; background: var(--bg-raised); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28); }
+/* Au départ, il est là : le départ brille, comme l'escale où il sera. */
+.exp-depart.exp-ici .exp-depart-nom { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
+/* Le panneau, collé au bas de l'écran, de bord à bord : quatre cartes y gardent leur nom sur une ligne — « Géographie » se coupait à 336 pixels. */
+.exp-panneau { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 8px; margin: 0 -20px; padding: 10px 10px max(12px, env(safe-area-inset-bottom)); border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--bg-raised); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28); }
 .exp-panneau p { margin: 0; }
-.exp-panneau-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.exp-panneau-titre { font-size: 0.92rem; line-height: 1.35; }
-/* Deux lignes gardées : la phrase d'une escale touchée ne fait pas sauter le bouton sous le doigt. */
-.exp-vu { min-height: 2.7em; font-size: 0.86rem; line-height: 1.35; }
-.exp-chances { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; color: var(--muted); }
-.exp-chances b { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
-.exp-chances .balise { font-size: 1.05rem; }
-.exp-legende { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 0.78rem; }
-.exp-legende li { display: inline-flex; align-items: center; gap: 5px; }
-.exp-legende .icon { width: 14px; height: 14px; color: var(--accent-text); }
+.exp-panneau-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding-left: 2px; }
+.exp-panneau-tete h2 { margin: 0; }
+/* « Affronter le Scarabée solaire », « Y aller : Les grands rendez-vous du sport » : en capitales espacées, le nom débordait du bouton en 360 × 640 — il passe à la ligne. */
+.exp-panneau .btn-big { padding-block: 8px; white-space: normal; text-align: center; text-wrap: balance; line-height: 1.25; }
+.exp-panneau-titre { font-size: 0.86rem; line-height: 1.35; }
+/* Le pied de la feuille « La carte » : ce que dit l'escale touchée. Deux lignes gardées : la feuille ne saute pas d'une escale à l'autre. */
+.exp-vu { min-height: 2.7em; margin: 0; font-size: 0.86rem; line-height: 1.35; }
+/* La légende, dans sa feuille (« La carte ») : une ligne par emblème. */
+.exp-legende { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 0.86rem; }
+.exp-legende li { display: flex; align-items: center; gap: 8px; }
+.exp-legende .icon { flex: none; width: 16px; height: 16px; color: var(--accent-text); }
 .exp-legende-pistes { display: inline-flex; gap: 2px; }
+.feuille-carte p { margin: 0 0 10px; line-height: 1.4; }
 /* Une escale, le gardien : la question de la campagne, avec ce qui la situe au-dessus. */
 .exp-ou { margin: 0; }
 /* La règle d'une source, d'une élite. Pas `.exp-source` ni `.exp-elite` : ce sont les classes d'une escale de la carte (`exp-${sorte}`), que `.exp-source` décentrait. */
@@ -9277,42 +9364,74 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-visage-joker { font-size: 36px; }
 .exp-jetons { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .exp-jeton { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--ink); font-size: 0.8rem; }
-/* La main (la maquette 4) : sous la question, ses jokers en cartes, trois
-   par rangée ; sur la carte, une ligne dans le panneau du tracé. Une carte
-   qui ne se joue pas maintenant s'éteint, sans se fermer : touchée, sa
-   feuille dit pourquoi. */
-.exp-main { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.exp-main-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.exp-main-tete h3 { margin: 0; }
-.exp-main-tete .link-inline { color: var(--muted); text-decoration: none; }
-.exp-main p { margin: 0; }
-.exp-cartes-joker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.exp-carte-joker { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; min-height: 68px; padding: 8px 9px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius-sm); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, var(--accent) 3%, transparent)); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.exp-carte-joker b { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; line-height: 1.1; hyphens: auto; overflow-wrap: break-word; }
-.exp-carte-joker-tete { display: flex; align-items: center; gap: 6px; color: var(--accent-text); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.exp-carte-joker-tete .icon { width: 20px; height: 20px; }
-.exp-carte-joker-tete .exp-visage-joker { font-size: 24px; }
-.exp-carte-joker.exp-refuse { border-color: var(--edge); background: var(--surface); opacity: 0.55; }
-.exp-poses { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; color: var(--muted); }
-.exp-main-ligne { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.86rem; text-align: left; cursor: pointer; }
-.exp-main-ligne > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
-.exp-main-noms { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-.exp-main-noms b { color: var(--ink); }
+/* La main (la maquette 4, revue le 18 octobre 2026 : « ma main c'est pas
+   ouf ») : ses jokers en vraies cartes, posées au bord bas de l'écran — on
+   n'en voit que le haut, leur dessin et leur nom, comme une main qu'on
+   tient —, la pioche au bout. Le cadre dit la rareté, de la gemme de l'album
+   (`gemmes.ts`, `--gemme` posé par la page) : argent, bleu, or, et le
+   pourpre de l'épique pour un maudit. Une carte qui ne se joue pas
+   maintenant s'éteint ; touchée, elle se lève quand même, et dit pourquoi.
+   À la fin de la page, jamais collée par-dessus : sous une question trop
+   longue, elle couvrait la quatrième réponse. */
+.exp-main { flex: none; display: flex; justify-content: center; align-items: flex-start; gap: 7px; height: 88px; margin: 4px -20px 0; padding: 9px 12px 0; overflow: hidden; }
+/* Posée au bord, la page n'a plus de marge dessous : la main la tient. */
+.player-shell.expedition:has(.exp-main) { padding-bottom: 0; }
+/* Sur la carte, la main en petit, en tête du panneau : le dessin seul, au cadre de sa rareté. */
+.exp-main-en-petit { align-items: center; gap: 5px; height: auto; margin: 0 0 0 auto; padding: 0; overflow: visible; }
+.exp-main-en-petit .exp-carte-joker { flex: none; width: 32px; height: 44px; padding: 0; justify-content: center; border-width: 1.5px; border-radius: 6px; box-shadow: inset 0 0 0 1.5px var(--bg-raised); }
+.exp-main-en-petit .exp-carte-joker:hover, .exp-main-en-petit .exp-carte-joker:active { translate: 0 -2px; }
+.exp-main-en-petit .exp-joker-dessin { width: 24px; height: 24px; border: 0; background: none; }
+.exp-main-en-petit .exp-joker-dessin > .icon { width: 16px; height: 16px; }
+.exp-main-en-petit .exp-joker-dessin .exp-visage-joker { font-size: 24px; }
+.exp-main-en-petit .exp-pioche { flex: none; width: 32px; height: 44px; padding: 0; justify-content: center; border-width: 1.5px; border-radius: 6px; box-shadow: inset 0 0 0 1.5px var(--bg-raised); }
+.exp-main-en-petit .exp-pioche b { font-size: 1rem; }
+/* Opaque : levée, la carte passe sur le voile, et les surfaces du thème, translucides, y devenaient grises — l'encre d'Ivoire ne s'y lisait plus. */
+.exp-carte-joker { --gemme: #a8b3bf; position: relative; flex: 0 1 86px; min-width: 0; height: 124px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 5px; border: 2px solid var(--gemme); border-radius: 10px; background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--gemme) 24%, transparent), transparent 75%), linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); box-shadow: inset 0 0 0 2px var(--bg-raised), 0 -3px 12px rgba(0, 0, 0, 0.28); color: var(--ink); font: inherit; text-align: center; cursor: pointer; transition: translate 0.15s ease; }
+.exp-carte-joker:hover, .exp-carte-joker:active { translate: 0 -5px; }
+.exp-carte-joker.exp-refuse { opacity: 0.5; }
+.exp-joker-dessin { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid color-mix(in srgb, var(--gemme) 60%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--gemme) 18%, var(--bg-raised)); color: color-mix(in srgb, var(--gemme) 55%, var(--ink)); }
+.exp-joker-dessin > .icon { width: 18px; height: 18px; }
+.exp-joker-dessin .exp-visage-joker { font-size: 34px; }
+/* Deux lignes, qui tiennent dans le haut qu'on voit ; levée, la carte dit son nom entier. */
+.exp-joker-nom { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--serif); font-size: 0.92rem; font-weight: 600; line-height: 1.08; hyphens: auto; overflow-wrap: break-word; }
+.exp-main-vide { flex: 1; margin: 0; padding-top: 6px; color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+/* La pioche : le dos d'une carte, son paquet compté. */
+.exp-pioche { flex: 0 0 54px; height: 124px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 12px 0 0; border: 2px solid var(--edge-strong); border-radius: 10px; background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--accent) 14%, transparent) 0 4px, transparent 4px 9px), linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); box-shadow: inset 0 0 0 2px var(--bg-raised); color: var(--accent-text); font: inherit; cursor: pointer; }
+.exp-pioche b { font-size: 1.3rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 1; }
+.exp-pioche span { color: var(--muted); font-size: var(--t-label); font-weight: 700; }
+/* Une carte levée : en grand au milieu de l'écran — la main reste en vue dessous, d'où elle s'est levée —, ce qu'elle fait, puis le geste ; ou pourquoi elle ne se joue pas. */
+.exp-leve-voile { align-items: center; }
+.exp-leve { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 360px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px max(16px, env(safe-area-inset-bottom)); animation: exp-se-leve 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+@keyframes exp-se-leve { from { translate: 0 90px; scale: 0.55; } }
+.exp-carte-levee { flex: none; width: 216px; height: auto; gap: 8px; padding: 14px 14px 12px; border-width: 3px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 1px rgba(0, 0, 0, 0.3), 0 12px 32px color-mix(in srgb, var(--gemme) 30%, rgba(0, 0, 0, 0.45)); cursor: default; }
+.exp-carte-levee .exp-joker-dessin { width: 76px; height: 76px; }
+.exp-carte-levee .exp-joker-dessin > .icon { width: 38px; height: 38px; }
+.exp-carte-levee .exp-visage-joker { font-size: 76px; }
+.exp-carte-levee .exp-joker-nom { display: block; overflow: visible; font-size: 1.5rem; }
+/* Le Commandement : ses douze catégories sous la carte, qui se fait plus petite pour leur laisser l'écran. */
+.exp-leve-avec-choix .exp-carte-levee .exp-joker-dessin { width: 52px; height: 52px; }
+.exp-leve-avec-choix .exp-carte-levee .exp-visage-joker { font-size: 52px; }
+.exp-leve-avec-choix .exp-carte-levee .exp-joker-nom { font-size: 1.25rem; }
+.exp-leve-choix { display: flex; flex-direction: column; gap: 10px; align-self: stretch; padding: 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius); background: var(--bg-raised); }
+.exp-leve-choix p { margin: 0; font-size: 0.86rem; line-height: 1.35; text-align: center; }
+.exp-joker-rarete { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.exp-joker-rarete i { width: 8px; height: 8px; border-radius: 2px; rotate: 45deg; background: var(--gemme); box-shadow: 0 0 6px var(--gemme); }
+.exp-joker-effet { margin: 0; padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); font-size: 0.92rem; line-height: 1.35; }
+.exp-joker-origine { margin-top: auto; color: var(--muted); font-size: var(--t-label); line-height: 1.35; }
+.exp-leve > .btn { width: 100%; }
+.exp-leve .exp-categories { justify-content: center; }
+/* Sur le voile, qui reste sombre sous tous les thèmes : un texte clair, écrit en dur. */
+.exp-reposer { color: #f3ece4; font-weight: 600; text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .exp-leve { animation: none; } }
+/* Ce qui agit sur lui, en petit dans la barre : ses jokers posés, au cadre de leur rareté. */
+.exp-pose { display: inline-grid; place-items: center; width: 20px; height: 26px; border: 1.5px solid var(--gemme); border-radius: 4px; background: color-mix(in srgb, var(--gemme) 18%, var(--bg-raised)); color: var(--ink); }
+.exp-pose > .icon { width: 13px; height: 13px; }
+.exp-pose .exp-visage-joker { font-size: 18px; }
 .exp-route { color: var(--accent-text); line-height: 1.35; }
-/* « Ta main », la feuille : chaque joker se déplie, son bouton dessous. */
-.feuille-main .carte-corps { display: flex; flex-direction: column; gap: 14px; }
-.feuille-main .carte-corps p, .feuille-main h3 { margin: 0; }
-.exp-main-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.exp-joker-ligne { border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius-sm); background: var(--surface); }
-.exp-joker-ligne.exp-refuse { border-color: var(--edge); }
-.exp-joker-ligne-tete { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
-.exp-joker-ligne-tete > .icon:first-child { flex: none; width: 22px; height: 22px; margin: 0 7px; color: var(--accent-text); }
-.exp-joker-ligne-tete .exp-joker { flex: 1; min-width: 0; }
-.exp-joker-ligne-tete .chevron { flex: none; width: 18px; height: 18px; color: var(--muted); transition: rotate 0.2s ease; }
-.exp-joker-ligne-tete[aria-expanded='true'] .chevron { rotate: 180deg; }
-.exp-joker-ligne.exp-refuse .exp-joker-ligne-tete { opacity: 0.65; }
-.exp-joker-detail { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
-.exp-refus { padding: 7px 10px; border-radius: var(--radius-xs); background: var(--surface-strong); color: var(--ink); }
+/* La feuille du paquet : les posés, les talismans, le paquet, la défausse. */
+.feuille-paquet .carte-corps { display: flex; flex-direction: column; gap: 14px; }
+.feuille-paquet .carte-corps p, .feuille-paquet h3 { margin: 0; }
+.exp-refus { margin: 0; align-self: stretch; padding: 9px 12px; border-radius: var(--radius-xs); background: linear-gradient(var(--surface-strong), var(--surface-strong)), var(--bg-raised); color: var(--ink); line-height: 1.35; text-align: center; }
 .exp-categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .exp-main-section { display: flex; flex-direction: column; gap: 6px; }
 .exp-poses-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; line-height: 1.35; }
@@ -9351,7 +9470,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-offres { display: flex; flex-direction: column; gap: 8px; }
 .exp-offre-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .exp-offre-ligne.exp-choisi { border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 22%, transparent); }
-.exp-offre-visage { flex: none; display: grid; place-items: center; width: 46px; height: 58px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius-xs); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 4%, transparent)); color: var(--accent-text); }
+/* Le visage d'un joker est une petite carte, au cadre de sa rareté comme dans la main (`--gemme`) ; un talisman, une vie, à l'or du thème. */
+.exp-offre-visage { flex: none; display: grid; place-items: center; width: 46px; height: 58px; border: 2px solid var(--gemme, color-mix(in srgb, var(--accent) 55%, transparent)); border-radius: 7px; background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--gemme, var(--accent)) 24%, transparent), transparent 75%), var(--surface-strong); color: var(--accent-text); }
 .exp-offre-visage .icon { width: 24px; height: 24px; }
 .exp-offre-ligne .exp-joker { flex: 1; min-width: 0; }
 .exp-offre-nom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -9392,8 +9512,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* L'inconnu dévoilé : un piège, son signe en grand. */
 .exp-inconnu-piege { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
 .exp-inconnu-piege .icon { width: 52px; height: 52px; }
-/* Le passeport (le 18 octobre 2026) : son tampon au coin de chaque thème pointu qu'il n'a pas encore — à gauche, la balise de la chance tient la droite. */
-.exp-a-tamponner { position: absolute; top: -6px; left: -6px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--bg); }
+/* Le passeport (le 18 octobre 2026) : son tampon au flanc gauche de chaque thème pointu qu'il n'a pas encore — sa chance tient le dessus, son nom le dessous. */
+.exp-a-tamponner { position: absolute; top: 12px; left: -16px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--bg); }
 .exp-a-tamponner .icon { width: 13px; height: 13px; stroke-width: 2.2; }
 .exp-legende .exp-a-tamponner { position: static; width: 16px; height: 16px; box-shadow: none; }
 .exp-legende .exp-a-tamponner .icon { width: 11px; height: 11px; color: var(--on-accent); }

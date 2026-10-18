@@ -780,6 +780,33 @@ signale ceux qui manquent, et Le Globe-trotter pour les compter ; **la
 saison des fêtes**, leur fête plus souvent sur les cartes et leur légendaire
 en gardien de l'acte 3. Le détail : `docs/produit/l-expedition.md`.
 
+Le même jour, **la carte revue** à la demande du propriétaire : « il faudrait
+uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une
+fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut
+atteindre », et la carte « un peu fouillon et pas trop compréhensible ». Le
+tracé de la maquette 3 ne se dessine plus : seule l'escale où l'on est
+s'éclaire, les escales de devant qu'on peut atteindre sont proposées —
+entourées, leur nom et leur chance en clair —, le reste attend en retrait
+sans un mot ; on en touche une, puis « Y aller ». Le tracé le plus sûr se
+compte encore : le panneau nomme la plus sûre des proposées, et ce nom,
+touché, la choisit. La légende passe dans une feuille, « La carte ».
+
+Puis, le même jour : « Je n'aime pas le design de comment sont matérialisé
+les cartes, ça serait possible que ce soit de vrais cartes en bas ? […]
+Pareil ma main c'est pas ouf ». Entre deux maquettes, le propriétaire a
+choisi « la carte en haut, en petit et épurée, pour voir où tu es » et les
+choix en vraies cartes en bas ; et ses jokers en vraies cartes, au cadre de
+leur rareté, qui se lèvent quand on les touche. L'écran de la carte tient
+désormais en un écran : l'acte entier en petit, sans un mot ; dessous, les
+escales proposées en cartes — sorte, emblème, nom, chance, ce qu'elles
+rapportent, la plus sûre à son ruban —, puis « Y aller ». L'acte en petit,
+touché, s'ouvre en grand dans sa feuille, avec la légende et « Abandonner
+l'expédition ». La main est faite de cartes aux couleurs des raretés de
+l'album, posées au bas de l'écran sous une question, en petit sur la carte ;
+touchée, une carte se lève en grand, dit ce qu'elle fait, puis « Jouer » ou
+pourquoi pas. La pioche, au bout, ouvre le paquet ; les posés passent dans la
+barre du haut.
+
 ### Plus tard
 
 L'Ascension ; la règle propre de chaque gardien ; les compagnons et les

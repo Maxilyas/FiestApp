@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 143 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 145 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -1325,7 +1325,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 ### Un joker se joue en deux touchers, et une seule règle dit pourquoi pas
 **Contexte** : un joker joué ne se reprend pas. Sur la maquette 4, toucher sa carte le jouait : un toucher perdu sous les réponses coûtait le meilleur joker de l'acte. Et un joker qui ne se joue pas — un second sur la même question, Sagesse sur un vrai ou faux, le Commandement face au gardien — se refusait sans dire pourquoi.
 
-**Décision** : sa carte ouvre « Ta main », qui dit ce qu'il fait et le joue d'un bouton — ou dit pourquoi il ne se joue pas maintenant. Ce pourquoi vient d'une seule règle pure (`refusDuJoker`) : le pli l'applique, le serveur la renvoie en refus, et la vue la porte pour chaque joker de la main (`JokersEnJeu.refus`) — la carte éteinte, la raison dans la feuille. Un joker joué sur une question porte sa position : périmé, il est refusé, et le pli ne juge la question qu'après lui.
+**Décision** : touchée, sa carte se lève — en grand, depuis le 18 octobre 2026 —, dit ce qu'il fait et le joue d'un bouton — ou dit pourquoi il ne se joue pas maintenant ; toucher à côté la repose. Ce pourquoi vient d'une seule règle pure (`refusDuJoker`) : le pli l'applique, le serveur la renvoie en refus, et la vue la porte pour chaque joker de la main (`JokersEnJeu.refus`) — la carte éteinte dans la main, la raison sur la carte levée. Un joker joué sur une question porte sa position : périmé, il est refusé, et le pli ne juge la question qu'après lui.
 
 **Conséquence** : la page n'a aucune règle des jokers à recopier ; une règle changée vaut d'un coup pour le pli, le refus et l'écran.
 
@@ -1393,6 +1393,24 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 **Conséquence** : partie à temps, l'expédition se finit quand on veut. Le banc et le smoke ferment le calendrier des expéditions comme celui des soirées : sans quoi chaque test d'expédition aurait sa Citrouille à l'acte 3 une semaine par an. Ce qu'une voie neuve change aux Divins se vérifie dans `core/divins.ts`, et ne s'écrit nulle part ailleurs (invariant 21).
 
 *Fichiers : `shared/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `server/test/expedition-saison.test.ts`*
+
+### La carte n'éclaire que l'escale où l'on est, et propose celles de devant
+**Contexte** : la carte d'un acte dessinait le tracé le plus sûr jusqu'au campement — une dizaine d'escales et leurs liens dorés, l'escale où l'on était perdue parmi elles —, et chaque escale portait son nom et sa chance. Le propriétaire, le 18 octobre 2026 : « il faudrait uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut atteindre », et « le système de carte un peu fouillon et pas trop compréhensible. C'est pas très pratique non plus ».
+
+**Décision** : seule l'escale où l'on est s'éclaire — le départ, au début. Les escales permises (`VueDeLExpedition.permises` : la suite de la sienne, ou ce qu'un joker de route ouvre) sont proposées, entourées, leur nom dessous et leur chance au-dessus ; le reste de la carte attend en retrait, plus petit, son emblème sans un mot, et dit dans le panneau ce qu'il cache quand on le touche. On touche une proposée — son trait se dore —, puis « Y aller » ; seule, elle l'est d'office (le gardien, au campement). Le tracé le plus sûr se compte encore, sans se dessiner : le panneau nomme la plus sûre des proposées, et son nom, touché, la choisit — deux proposées portent souvent le même. La légende passe dans une feuille, « La carte », qui dit aussi comment la lire ; le panneau dit l'escale touchée, sans les chances d'un tracé.
+
+**Conséquence** : rien ne change au serveur ni au pli — ils ne vérifiaient déjà que le pas suivant. Un pas coûte deux touchers au lieu d'un : on choisit ce qu'on fait, au lieu de suivre ce qui s'allume. La chance d'arriver au gardien et le butin d'un tracé ne se lisent plus sur la carte ; le calibrage suit toujours le plus sûr, que le panneau conseille pas à pas.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
+
+### L'acte en petit en haut, les escales et les jokers en vraies cartes en bas
+**Contexte** : le même jour, la carte ne s'allumait plus que là où l'on était, mais ses escales restaient des ronds posés sur une carte qui défilait, que le panneau collé en bas couvrait à moitié ; la main, une ligne de noms dans le panneau, et sous une question des tuiles. Le propriétaire : « Je n'aime pas le design de comment sont matérialisé les cartes, ça serait possible que ce soit de vrais cartes en bas ? […] Pareil ma main c'est pas ouf ». Entre deux maquettes, il a choisi « la carte en haut, en petit et épurée, pour voir où tu es », les choix en vraies cartes en bas ; et les jokers en vraies cartes, au cadre de leur rareté, qui se lèvent quand on les touche.
+
+**Décision** : l'écran de la carte tient en un écran. En haut, l'acte entier en petit, sans un mot — l'escale où l'on est, qui brille, les proposées entourées, la touchée en or —, ses rangées en pour cent de la hauteur qu'il lui reste ; touché, il s'ouvre en grand dans une feuille, où chaque escale dit ce qu'elle cache, avec la légende et « Abandonner l'expédition ». En bas, les escales proposées en cartes — sorte, emblème, nom, chance, ce qu'elles rapportent —, la plus sûre à son ruban ; une carte touchée se lève, puis « Y aller ». Les jokers sont des cartes au cadre de leur rareté, de la gemme de l'album (`gemmes.ts`) : posées au bas de l'écran sous une question, leur haut seul en vue, et en petit en tête du panneau sur la carte ; touchée, une carte se lève en grand, dit ce qu'elle fait, puis « Jouer » ou pourquoi pas. La pioche, au bout de la main, ouvre le paquet, la défausse, les posés et les talismans ; les posés se montrent aussi dans la barre du haut.
+
+**Conséquence** : la page ne défile plus jusqu'à l'escale où l'on est — seule la carte en grand défile, dans sa feuille. Le panneau a un budget : ce qui le grandit rapetisse l'acte en petit, au moins 170 pixels ; posée au bas du panneau, la main en prenait 90, et elle vit en tête. La chance et les gains d'une escale se lisent sur sa carte, sa marche et à qui est la chance dans sa description. Une rareté n'a qu'une couleur dans toute l'application, et le maudit prend le pourpre de l'épique. Rien ne change au serveur ni au pli.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `client/src/gemmes.ts`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
 
 ## L'outillage
 

@@ -2,9 +2,11 @@
 // retenue le 17 octobre 2026 — le joueur moyen au bout une fois sur trois, le
 // fort huit fois sur dix —, mesurée sur le vrai code. Des joueurs inventés
 // partent sur le vrai générateur (`carteDUnActe`), choisissent leur route
-// comme la page la leur propose (le tracé le plus sûr, sur leur propre
-// chance), et le vrai pli (`pliDeLExpedition`) juge chaque réponse, chaque
-// vie et chaque joker.
+// comme la page la leur conseille (le tracé le plus sûr, sur leur propre
+// chance — la page n'en dit plus que le premier pas depuis le 18 octobre
+// 2026, la plus sûre des escales proposées, et il le suit à chaque pas), et
+// le vrai pli (`pliDeLExpedition`) juge chaque réponse, chaque vie et chaque
+// joker.
 //
 // Le modèle est celui des sentiers (`calibrage-sentiers.ts`) : le joueur
 // moyen trouve ce que trouve le calibrage (`TAUX_DU_CALIBRAGE`), le faible
