@@ -41,7 +41,11 @@ Trois actes, chacun une carte tirée au sort — six étages de quatre colonnes,
   question qui attend avant tout geste qui ne la vise pas (`vise`) — sans
   elle, un joker posé juste après une réponse se serait compté avant elle
   (L'aube, une erreur faite avant d'être posée). Passe-muraille écrit la
-  réponse traversée dans le lot de son geste.
+  réponse traversée dans le lot de son geste. Et le pli ne juge que jusqu'à
+  la question que le geste vise (`jugerTout(g)`) : jugées d'un coup, les
+  questions répondues du gardien passaient toutes avant le joker joué sur la
+  deuxième, qui revenait dans la main au repli — Tout ou rien n'y coûtait
+  qu'une vie (le 18 octobre 2026, `expedition-jokers.test.ts`).
 - **Le hasard vient de la graine et du rang du tirage** : la pioche
   (`graine:pioche:n`), les offres (`graine:offre:n`), la maison qu'on ouvre,
   les réponses effacées (`graine:efface:position`). Recharger ne retire rien ;

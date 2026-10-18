@@ -530,6 +530,40 @@ test('un joker posé juste après une réponse se compte après elle : L’aube 
   assert.equal(avant.repondre(false).aube, false)
 })
 
+test('un joker joué sur une question du gardien après la première reste joué une fois la question répondue', () => {
+  // Le 18 octobre 2026 : le pli jugeait d'un coup toutes les questions répondues du gardien, avant le joker qui visait la
+  // deuxième — rejoué après la réponse, il revenait dans la main, et Tout ou rien n'y coûtait plus qu'une vie.
+  const j = chercher('gardien-vise', [], k => {
+    for (const vers of ['e00', 'e10', 'e20', 'e30']) k.passer(vers)
+    k.avancer('cg')
+    k.geste({ quoi: 'camper' })
+    k.avancer(GARDIEN)
+    return k.repondre(true).main.includes('coup-d-oeil')
+  })
+  const deuxieme = j.etat().enAttente
+  let e = j.jouer('coup-d-oeil')
+  assert.deepEqual([e.joue?.joker, e.defausse], ['coup-d-oeil', ['coup-d-oeil']], 'joué sur la deuxième question')
+  e = j.repondre(false)
+  assert.ok(e.enAttente !== deuxieme, 'la question est passée')
+  assert.deepEqual(e.defausse, ['coup-d-oeil'], 'répondue, la question garde son joker : il ne revient pas dans la main')
+  assert.equal(e.gardien?.ratees, 1)
+
+  // Tout ou rien sur la deuxième : ratée, deux vies — pas une, comme si rien n'avait été joué.
+  const t = chercher('gardien-tout-ou-rien', [], k => {
+    k.passer('e00')
+    if (!k.avancer('e10').offre?.jokers.includes('tout-ou-rien')) return false
+    k.prendre(['tout-ou-rien'])
+    for (const vers of ['e20', 'e30']) k.passer(vers)
+    k.avancer('cg')
+    k.geste({ quoi: 'camper' })
+    k.avancer(GARDIEN)
+    return k.repondre(true).main.includes('tout-ou-rien')
+  })
+  const vies = t.etat().vies
+  t.jouer('tout-ou-rien')
+  assert.equal(t.repondre(false).vies, vies - 2)
+})
+
 test('l’invité du jour, le même pour tous ; l’équipée : deux des siens au plus, ou l’invité ; jamais un gardien', () => {
   assert.equal(inviteDuJour('2026-10-17'), inviteDuJour('2026-10-17'))
   assert.ok(LEGENDAIRES_A_JOKER.includes(inviteDuJour('2026-10-17')))

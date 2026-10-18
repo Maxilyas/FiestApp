@@ -1288,12 +1288,18 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
 
   /** Un joker qui vise la question qui attend : il se joue avant qu'elle soit jugée. */
   const vise = (g: GesteDExpedition) => g.quoi === 'jouer' && g.position !== undefined && (g.position === e.enAttente || g.position === e.autre)
-  const jugerTout = () => {
-    while (!fini() && juger());
+  /**
+   * Juge ce qui a sa réponse — jusqu'à la question que vise le geste `g` : la
+   * suivante s'ouvre, et le joker joué sur elle se joue avant qu'elle soit
+   * jugée. Jugées d'un coup, les questions du gardien passaient toutes avant
+   * le joker de la deuxième, qui revenait dans la main au repli.
+   */
+  const jugerTout = (g?: GesteDExpedition) => {
+    while (!fini() && !(g && vise(g)) && juger());
   }
   for (const g of gestes) {
     if (fini()) break
-    if (!vise(g)) jugerTout()
+    if (!vise(g)) jugerTout(g)
     if (fini()) break
     if (g.quoi === 'abandonner') {
       e.issue = 'abandonnee'
