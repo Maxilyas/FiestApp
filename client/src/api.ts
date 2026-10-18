@@ -560,8 +560,12 @@ export const api = {
    */
   expedition: {
     page: () => req<PageDeLExpedition>(DEPART.expedition),
-    partir: (equipee: readonly string[]) => req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee }) }),
+    /** Partir avec son équipée — et, là où le prototype s'ouvre, aux rencontres, avec sa catégorie fétiche. */
+    partir: (equipee: readonly string[], plus: { rencontres?: true; fetiche?: string } = {}) =>
+      req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
     avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
+    /** En rencontre : sa mise dite, il voit la question qui attend (`position`). */
+    voir: (id: string, rang: number, mise: number, position?: number) => gesteDExpedition(id, rang, { quoi: 'voir', mise, ...(position !== undefined && { position }) }),
     /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
     jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
       gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),

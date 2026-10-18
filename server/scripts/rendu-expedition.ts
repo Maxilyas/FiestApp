@@ -167,15 +167,21 @@ try {
   await page.locator('a.gros-bouton[href="/expedition"]').scrollIntoViewIfNeeded()
   await photo('0b-accueil')
 
-  // Le départ : les trois gardiens, l'équipée proposée — l'invité du jour d'abord.
+  // Le départ : les trois gardiens, l'équipée proposée — l'invité du jour d'abord. Hors de la production, le prototype
+  // des rencontres s'y propose, d'office : ce rendu-ci est celui des jokers, il le coupe (`rendu-rencontres.ts` le prend).
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
+  const sansLesRencontres = async () => {
+    const interrupteur = page.locator('.exp-interrupteur[aria-checked="true"]')
+    if (await interrupteur.count()) await interrupteur.click()
+  }
+  await sansLesRencontres()
   await photo('1-depart')
   await photo('1-depart-entier', true)
 
   /** L'équipée : la feuille, puis ces deux-là, choisis. */
   const choisirLEquipee = async (noms: string[], photos?: { feuille: string; tous: string }) => {
-    await page.click('.exp-changer')
+    await page.click('.exp-equipee .exp-changer')
     await page.waitForSelector('.feuille-equipee')
     if (photos) await photo(photos.feuille)
     // Laisse d'abord ceux qui partaient, puis touche les deux voulus.
@@ -201,6 +207,7 @@ try {
   }
 
   // La carte de l'acte 1 : l'acte en petit, le départ qui brille ; les escales du bas en cartes ; la main encore vide.
+  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   await photo('2-carte')
@@ -411,6 +418,7 @@ try {
   await page.waitForSelector('.exp-gardiens')
   await photo('13-depart-suivant')
   await choisirLEquipee(['Lion', 'Comète'])
+  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   /** Sur la carte, un joker de carte en main : sa carte levée, puis joué. */
@@ -443,6 +451,7 @@ try {
   // deuxième à six choix, le troisième en dévoilement — puis le serveur redémarré les relit.
   await page.locator('.fin-actions .btn-primary').click()
   await page.waitForSelector('.exp-gardiens')
+  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   const enRoute = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
@@ -503,6 +512,7 @@ try {
   if (laisser) await ecrire(banc.url, `/api/expedition/${laisser.id}/abandon`, {}, cookie)
   await page.goto(`${banc.url}/expedition`)
   await page.waitForSelector('.exp-gardiens')
+  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   const quatrieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
@@ -607,6 +617,7 @@ try {
   await page.waitForSelector('.feuille-passeport')
   await photo('s2-passeport-vierge')
   await page.locator('.feuille-passeport .carte-fermer').click()
+  await sansLesRencontres()
   await page.click('.exp-depart-pied .btn-primary')
   await page.waitForSelector('.exp-plan')
   await photo('s3-carte-saison')

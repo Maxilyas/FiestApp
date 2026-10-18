@@ -4,6 +4,7 @@ import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { readPlayerToken } from './auth/http'
 import { EXPEDITION_EN_PRODUCTION } from '../../shared/jokers'
+import { RENCONTRES_EN_PRODUCTION } from '../../shared/rencontres'
 
 interface ExpeditionDeps {
   campagne: CampagneStore
@@ -15,6 +16,13 @@ interface ExpeditionDeps {
    * gagnait en production avant que le mode soit entier.
    */
   ouverte: boolean
+  /**
+   * Le départ peut-il choisir les rencontres (la v5, `shared/rencontres.ts`) ?
+   * Un prototype : la préproduction d'abord (le choix du propriétaire du
+   * 18 octobre 2026), la production le jour où `RENCONTRES_EN_PRODUCTION`
+   * l'ouvre. Sans lui, le départ reste celui des jokers.
+   */
+  rencontres?: boolean
 }
 
 /**
@@ -24,6 +32,11 @@ interface ExpeditionDeps {
  */
 export function expeditionOuverte({ online, env }: { online: boolean; env: string }): boolean {
   return EXPEDITION_EN_PRODUCTION || !online || env !== 'production'
+}
+
+/** Les rencontres se choisissent-elles au départ ? La même règle, sous leur drapeau à elles. */
+export function rencontresOuvertes({ online, env }: { online: boolean; env: string }): boolean {
+  return RENCONTRES_EN_PRODUCTION || !online || env !== 'production'
 }
 
 /**
@@ -53,21 +66,26 @@ export function mountExpedition(app: Express, deps: ExpeditionDeps) {
     '/api/expedition',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.pageDeLExpedition(profil.id))
+      if (profil) res.json(await deps.campagne.pageDeLExpedition(profil.id, { rencontres: deps.rencontres === true }))
     }),
   )
 
-  // Partir, avec son équipée : deux légendaires au plus, les siens ou l'invité du jour.
+  // Partir, avec son équipée : deux légendaires au plus, les siens ou l'invité du jour —
+  // et, là où elles s'ouvrent, aux rencontres, sa catégorie fétiche avec.
   app.post(
     '/api/expedition',
     petit,
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
-      if (profil) res.json(await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? []))
+      if (!profil) return
+      // Demandées où elles ne s'ouvrent pas, elles se taisent : le départ reste celui des jokers, sans un refus pour une page d'avance.
+      const rencontres = deps.rencontres === true && req.body?.rencontres === true
+      const fetiche = typeof req.body?.fetiche === 'string' ? req.body.fetiche : undefined
+      res.json(await deps.campagne.partirEnExpedition(profil.id, req.body?.equipee ?? [], { rencontres, ...(rencontres && fetiche !== undefined && { fetiche }) }))
     }),
   )
 
-  // Un geste — avancer, jouer un joker, prendre une offre, camper, garder un gardien —, avec le rang qu'il croit suivre.
+  // Un geste — avancer, jouer une carte, voir la question et sa mise, prendre une offre, camper, garder un gardien —, avec le rang qu'il croit suivre.
   app.post(
     '/api/expedition/:id/geste',
     petit,

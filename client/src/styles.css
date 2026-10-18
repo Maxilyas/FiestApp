@@ -9535,8 +9535,108 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* La saison d'un départ : sa fête, son emblème devant. */
 .exp-saison { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: var(--accent); background: var(--accent-soft); font-size: 0.9rem; }
 .exp-saison .icon { flex: none; width: 24px; height: 24px; color: var(--accent-text); }
+/* Les rencontres (le prototype du 18 octobre 2026, `RencontresDExpedition.tsx`) :
+   l'adversaire en tête — son emblème, ses sceaux, ce qu'il frappe —, ce que le
+   tour a sous la main, l'annonce de la question qui vient, l'aperçu du
+   verdict, la mise, puis la main de cinq cartes, leur coût d'inspiration au
+   coin. Le courage remplace les cœurs dans la barre. */
+.player-shell.exp-rencontre { gap: 10px; }
+.exp-courage { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.exp-courage > .icon { width: 18px; height: 18px; color: var(--alert); }
+.exp-courage-jauge { display: block; width: 34px; height: 5px; border-radius: var(--radius-pill); background: var(--track); overflow: hidden; }
+.exp-courage-jauge i { display: block; height: 100%; border-radius: inherit; background: var(--alert); transition: width 0.4s ease; }
+.exp-courage-bas b { color: var(--alert); }
+.exp-barre .exp-courage { margin-left: auto; }
+.exp-barre .exp-ecus + .exp-courage { margin-left: 10px; }
+/* L'adversaire : l'emblème de sa catégorie dans un médaillon — le portrait d'un gardien —, ses sceaux en jauge, sa frappe à droite, en rouge. */
+.exp-adversaire { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius); background: radial-gradient(90% 120% at 0% 50%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--surface); }
+.exp-adversaire-elite { border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-strong)); }
+.exp-adversaire-gardien { border-color: var(--accent); }
+.exp-adversaire-embleme { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border: 1.5px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); color: var(--accent-text); }
+.exp-adversaire-embleme > .icon { width: 26px; height: 26px; }
+.exp-adversaire-gardien .exp-adversaire-embleme { border: 0; background: none; }
+.exp-adversaire-embleme .exp-medaillon { font-size: 52px; }
+.exp-adversaire-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.exp-adversaire-nom { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
+.exp-sceaux { display: flex; align-items: center; gap: 8px; }
+.exp-sceaux-jauge { flex: 1; height: 8px; border-radius: var(--radius-pill); background: var(--track); overflow: hidden; }
+.exp-sceaux-jauge i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.4s ease; }
+.exp-sceaux b { flex: none; color: var(--accent-text); font-size: 0.82rem; font-variant-numeric: lining-nums tabular-nums; }
+.exp-adversaire-tombe .exp-sceaux b { color: var(--muted); }
+.exp-intention { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 44px; padding: 5px 6px; border-radius: var(--radius-xs); background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
+.exp-intention .icon { width: 18px; height: 18px; }
+.exp-intention b { font-size: 1.15rem; font-variant-numeric: lining-nums tabular-nums; line-height: 1; }
+/* Ce que le tour a sous la main : des pastilles, l'inspiration cerclée d'or ; un pouvoir posé, au cadre de sa rareté. */
+.exp-tour { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.exp-tour li { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 9px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--muted); font-size: 0.78rem; }
+.exp-tour li .icon { width: 14px; height: 14px; color: var(--accent-text); }
+.exp-tour li b { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.exp-tour li.exp-tour-inspiration { border-color: var(--accent); }
+.exp-tour li.exp-tour-pouvoir { border-color: var(--gemme); color: var(--ink); }
+.exp-tour-compact { gap: 4px; }
+.exp-tour-compact li { min-height: 24px; padding: 0 7px; font-size: 0.72rem; }
+.exp-tour-visage { display: inline-grid; place-items: center; }
+.exp-tour-visage .exp-visage-joker { font-size: 18px; }
+/* L'annonce de la question qui vient, en pointillé : ce qu'on sait d'elle sans la voir. */
+.exp-annonce { display: flex; flex-direction: column; gap: 4px; }
+.exp-annonce h2 { margin: 0; }
+.exp-annonce-quoi { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-xs); background: var(--surface); }
+.exp-annonce-quoi > .icon { flex: none; width: 24px; height: 24px; color: var(--accent-text); }
+.exp-annonce-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.exp-annonce-chance { flex: none; display: inline-flex; align-items: center; gap: 3px; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.exp-annonce-chance .balise { width: 12px; height: 12px; }
+/* L'aperçu du verdict : juste, à l'or ; faux, au rouge de la frappe. */
+.exp-apercu { display: flex; flex-direction: column; gap: 4px; }
+.exp-apercu p { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.86rem; line-height: 1.35; }
+.exp-apercu .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.exp-apercu-juste .icon { color: var(--accent-text); }
+.exp-apercu-faux .icon { color: var(--alert); }
+/* La mise : quatre pastilles ; celle qu'il ne peut pas payer s'éteint, et dit pourquoi au toucher. */
+.exp-mises { display: flex; align-items: center; gap: 6px; }
+.exp-mises .label { margin-right: auto; }
+.exp-mise { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 52px; min-height: 36px; padding: 0 10px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+.exp-mise .icon { width: 15px; height: 15px; color: var(--accent-text); }
+.exp-mise.exp-choisi { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.exp-mise.exp-refuse { opacity: 0.45; }
+/* La main d'une rencontre : cinq cartes et la pioche dans 360 pixels — elles se partagent la largeur ; leur coût au coin, leur moment à l'autre.
+   Leur nom tient sur une ligne, coupé au bout : sur deux, en soixante pixels, « Concentration » se lisait « Conce ntrat… ». Levée, la carte le dit entier. */
+.exp-main-rencontre { gap: 5px; }
+.exp-main-rencontre .exp-carte-joker { flex: 1 1 0; max-width: 80px; padding: 14px 3px 0; }
+.exp-main-rencontre:not(.exp-main-en-petit) .exp-joker-nom { display: block; overflow: hidden; font-family: var(--sans); font-size: 0.72rem; font-weight: 700; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; hyphens: none; }
+.exp-main-rencontre .exp-pioche { flex: 0 0 40px; }
+/* La question sous les yeux, l'adversaire se fait petit : la question et ses réponses d'abord, la main encore en vue. */
+.exp-adversaire-compact { gap: 10px; padding: 6px 10px; }
+.exp-adversaire-compact .exp-adversaire-embleme { width: 36px; height: 36px; }
+.exp-adversaire-compact .exp-adversaire-embleme > .icon { width: 19px; height: 19px; }
+.exp-adversaire-compact .exp-adversaire-embleme .exp-medaillon { font-size: 36px; }
+.exp-adversaire-compact .label { display: none; }
+.exp-adversaire-compact .exp-adversaire-nom { font-size: 1.05rem; }
+.exp-adversaire-compact .exp-intention { min-width: 38px; padding: 3px 5px; }
+.exp-adversaire-compact .exp-intention b { font-size: 1rem; }
+.exp-main-rencontre.exp-main-en-petit .exp-carte-joker { flex: none; max-width: none; padding: 0; }
+.exp-cout { position: absolute; top: -1px; left: -1px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 8px 0 8px 0; background: var(--accent); color: var(--on-accent); font-size: 0.82rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; line-height: 1; }
+.exp-signe-moment { position: absolute; top: 4px; right: 4px; width: 13px; height: 13px; color: color-mix(in srgb, var(--gemme) 55%, var(--muted)); }
+.exp-carte-levee .exp-cout { width: 32px; height: 32px; border-radius: 12px 0 12px 0; font-size: 1.1rem; }
+/* La révélation d'une rencontre : ce que la réponse a brisé ou coûté, ligne à ligne. */
+.exp-coup { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.86rem; line-height: 1.35; }
+/* Le prototype au départ : un interrupteur, et sa catégorie fétiche ; sa feuille, les douze en deux colonnes. */
+.exp-prototype { display: flex; flex-direction: column; gap: 8px; border-color: color-mix(in srgb, var(--accent) 55%, var(--edge)); }
+.exp-prototype p { margin: 0; line-height: 1.4; }
+.exp-prototype h2 { display: inline-flex; align-items: center; gap: 8px; }
+.exp-interrupteur { position: relative; flex: none; width: 48px; height: 28px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface-strong); cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.exp-interrupteur i { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: var(--muted); transition: translate 0.15s ease, background 0.15s ease; }
+.exp-interrupteur[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.exp-interrupteur[aria-checked='true'] i { translate: 20px 0; background: var(--accent); }
+.feuille-fetiche .carte-corps { display: flex; flex-direction: column; gap: 12px; }
+.feuille-fetiche .carte-corps p { margin: 0; }
+.exp-fetiches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.exp-fetiche { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 10px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); font: inherit; font-size: 0.86rem; line-height: 1.2; text-align: left; cursor: pointer; }
+.exp-fetiche .icon { flex: none; width: 20px; height: 20px; color: var(--accent-text); }
+.exp-fetiche.exp-choisi { border: 2px solid var(--accent); background: var(--accent-soft); }
+.exp-catalogue section { display: flex; flex-direction: column; gap: 8px; }
 @media (prefers-reduced-motion: reduce) {
   .exp-escale.exp-ici::after, .exp-medaillon-grand { animation: none; }
+  .exp-interrupteur i, .exp-sceaux-jauge i, .exp-courage-jauge i { transition: none; }
 }
 
 /* ── L'atlas ─────────────────────────────────────────────────────────────

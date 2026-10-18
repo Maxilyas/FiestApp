@@ -75,7 +75,7 @@ Dans les règles, `core/`, `games/` et `auth/` sont sous `server/src/` ; `compon
 | Ce que la page charge : l'entrée, la navigation, le préchargement | `client.md` |
 | Le quiz du jour · sa réserve · le rappel du soir et l'installation | `jour.md` · `jour-reserve.md` · `rappel-et-installation.md` |
 | La campagne et le défi · sa base · les sentiers du savoir et les parcours de thème | `campagne.md` · `campagne-base.md` · `sentiers.md` |
-| L'Expédition : la carte, les gardiens, les jokers | `expedition.md` |
+| L'Expédition : la carte, les gardiens, les jokers, les rencontres | `expedition.md` |
 | Les duels : la cote, les ligues, les défis entre amis | `duels.md` |
 | Les quiz : l'éditeur, la liste collée, l'import, le partage | `bibliotheque.md` |
 | Les comptes, les profils, les sessions, la télé, l'administration | `auth-et-admin.md` |
