@@ -83,7 +83,8 @@ test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus 
 
 test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle part', () => {
   const lieux = Object.fromEntries(LEGENDAIRES.map(l => [l.key.slice(3), avatarDeLAlbum(l.key)!.lieux.join(' ')]))
-  // L'expédition ouverte (l'étape 2), sa voie se montre : chacun de ceux qui ont leur joker, hors des saisons, s'y gagne aussi.
+  // L'expédition ouverte (l'étape 2), sa voie se montre : chacun de ceux qui ont leur joker s'y gagne aussi — ceux de
+  // saison, partie à leur saison (le 18 octobre 2026).
   assert.deepEqual(lieux, {
     phenix: 'soiree jour expedition',
     dragon: 'soiree jour expedition',
@@ -98,9 +99,9 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
     fantome: 'soiree jour expedition',
     'trou-noir': 'soiree expedition',
     sphinx: 'jour expedition',
-    citrouille: 'saison',
-    sapin: 'saison',
-    bouquet: 'saison',
+    citrouille: 'saison expedition',
+    sapin: 'saison expedition',
+    bouquet: 'saison expedition',
     aigle: 'jour',
     ouroboros: 'jour expedition',
     scarabee: 'jour expedition',
@@ -270,9 +271,17 @@ test('comment l’obtenir : ses voies — l’une suffit —, chacune ses étape
   assert.deepEqual(voiesDeLAvatar('lg:phenix', LEA)[0], [
     { lieu: 'soiree', titre: 'En soirée : « Le Phénix »', regle: 'Gagner un quiz après avoir fini dans la moitié basse du précédent', tenue: true, progres: null },
   ])
-  // Un légendaire de saison : ses dates, sans jauge.
+  // Un légendaire de saison : ses dates, sans jauge — gardé au bout d'une expédition partie ces jours-là aussi, qui le met en gardien.
   assert.deepEqual(voiesDeLAvatar('lg:citrouille', LEA), [
-    [{ lieu: 'saison', titre: 'Pour Halloween, du 25 octobre au 1er novembre', regle: '3 jours de quiz du jour, ou une soirée ces jours-là', tenue: false, progres: null }],
+    [
+      {
+        lieu: 'saison',
+        titre: 'Pour Halloween, du 25 octobre au 1er novembre',
+        regle: '3 jours de quiz du jour, une soirée ces jours-là, ou le garder au bout d’une expédition partie ces jours-là',
+        tenue: false,
+        progres: null,
+      },
+    ],
   ])
   // Un portrait : le palier de son sentier ; un emoji de collection : son niveau.
   assert.deepEqual(voiesDeLAvatar('br:lynx', LEA), [

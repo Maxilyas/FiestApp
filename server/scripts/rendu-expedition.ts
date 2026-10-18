@@ -11,7 +11,11 @@
 // départ — un vrai ou faux, six choix, un dévoilement qui se dit, puis entier ;
 // une quatrième, ses écus — une élite qui paie, la carte et son butin,
 // l'échoppe et la loupe achetée, l'inconnu de passage puis piégé, un coffre qui
-// cache un talisman, la fin qui laisse les écus dans l'expédition.
+// cache un talisman, la fin qui laisse les écus dans l'expédition ; une
+// cinquième, partie un jour d'Halloween par une nouvelle venue (le 18 octobre
+// 2026) — la saison et la Citrouille au bout de l'acte 3, le passeport vierge,
+// la carte et ses escales à tamponner, un tampon neuf, la fin qui le compte,
+// le passeport tamponné.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a six légendaires à joker, rangés comme gardés au bout d'expéditions
@@ -25,8 +29,11 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
+import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
+import { calendrierDesExpeditions } from '../src/core/saisons'
 import { CATEGORIES } from '../../shared/categories'
 import { jourDe } from '../../shared/jour'
+import { periodeDu } from '../../shared/saisons'
 import { contenuDeLInconnu, inviteDuJour, talismanDeLOffre } from '../../shared/expedition'
 import { cleDeLExpedition } from '../../shared/legendaires'
 
@@ -50,13 +57,58 @@ function unJourOu(legendaire: string): number {
 }
 const JOUR = unJourOu('lg:dragon')
 
+/** Un jour d'Halloween, après celui du Dragon d'Or, où la Citrouille n'est pas l'invitée : elle garde l'acte 3. */
+function unJourDHalloween(): number {
+  for (let t = JOUR; t < JOUR + 800 * 86_400_000; t += 86_400_000) {
+    if (periodeDu(jourDe(t))?.saison.key === 'halloween' && inviteDuJour(jourDe(t)) !== 'lg:citrouille') return t
+  }
+  throw new Error('pas un jour d’Halloween en deux ans')
+}
+
 /** Les siens : de quoi montrer l'équipée et des jokers de question et de carte. */
 const SIENS = ['lg:oracle', 'lg:janus', 'lg:chouette', 'lg:lion', 'lg:comete', 'lg:phenix']
 
+/** Soixante-trois questions d'Halloween, vingt et une par marche : un thème pointu (`QUESTIONS_POUR_UN_SENTIER_DE_SUJET`), la fête de la cinquième. */
+const HALLOWEEN = [2, 3, 4].flatMap((difficulte, m) =>
+  Array.from({ length: 21 }, (_, i) => {
+    const n = 5000 + m * 100 + i
+    const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${n}`)
+    const lu = lireQuestionDeLaBase({
+      id: `fete${n}`,
+      texte: `Question d'Halloween numéro ${n} : laquelle est la bonne ?`,
+      reponses: [`Bonne ${n}`, ...autres.slice(0, 3)],
+      bonne: 0,
+      anecdote: `L'anecdote de la question ${n}.`,
+      categorie: 'Autour de la fête',
+      sousTheme: 'halloween',
+      etiquettes: [],
+      difficulte,
+      ageMin: 10,
+      date: null,
+      entites: [],
+      portee: 'monde',
+      valeur: null,
+      leurres: autres,
+      dureeDeVie: 'stable',
+      explication: '',
+      source: null,
+      confiance: 3,
+      aRelire: [],
+    })
+    if ('refus' in lu) throw new Error(`Halloween : ${lu.refus}`)
+    return lu.question
+  }),
+)
+
 // Quatre-vingts questions par catégorie, de chaque difficulté : de quoi tirer trois actes et leurs gardiens.
-// L'horloge part du jour du Dragon d'Or et avance : un dévoilement se dit à l'heure du serveur.
+// L'horloge part du jour du Dragon d'Or et avance : un dévoilement se dit à l'heure du serveur. La cinquième
+// la fait sauter à Halloween.
 const debut = Date.now()
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(960, { categories: [...CATEGORIES] }), horlogeDuJour: () => JOUR + (Date.now() - debut) })
+let jourDuRendu = JOUR
+const banc = await demarrer({
+  baseDeLaCampagne: new BaseDeLaCampagne([...baseDEssai(960, { categories: [...CATEGORIES] }).questions, ...HALLOWEEN]),
+  horlogeDuJour: () => jourDuRendu + (Date.now() - debut),
+})
 const navigateur = await chromium.launch({ headless: true })
 try {
   const contexteDe = async (cookie: string | null) => {
@@ -514,6 +566,63 @@ try {
   await page.locator('.dialog-backdrop .btn-danger').click()
   await page.waitForSelector('.exp-fin-tete')
   await photo('e9-fin-ecus', true)
+
+  // Le passeport et la saison des fêtes (le 18 octobre 2026) : l'horloge saute à Halloween, le calendrier des
+  // expéditions se rouvre — le banc le ferme. Une nouvelle venue, au passeport vierge — celui de Léa a déjà
+  // ses tampons, Halloween peut-être. La page dit la saison, la Citrouille garde l'acte 3 ; sa première
+  // expédition, son premier étage forcé en escales d'Halloween : trouvée, son tampon ; abandonnée, la fin le
+  // compte ; le passeport, rouvert, le montre.
+  jourDuRendu = unJourDHalloween()
+  calendrierDesExpeditions.periodeDu = periodeDu
+  const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🦉')
+  if (ivoire) await ecrire(banc.url, '/api/joueur/moi', { theme: 'ivoire' }, zoe, 'PUT')
+  const [nomDeZoe, valeurDeZoe] = zoe.split('=')
+  await page.context().clearCookies()
+  await page.context().addCookies([{ name: nomDeZoe, value: valeurDeZoe, url: banc.url }])
+  await page.goto(`${banc.url}/expedition`)
+  await page.waitForSelector('.exp-saison')
+  await photo('s1-depart-saison')
+  // Le troisième gardien est déjà « en vue », sous le bouton qui colle au bas : la molette le remonte.
+  await page.mouse.wheel(0, 420)
+  await photo('s1b-gardien-de-saison')
+  await photo('s1c-depart-saison-entier', true)
+  await page.locator('.exp-passeport .link-inline').click()
+  await page.waitForSelector('.feuille-passeport')
+  await photo('s2-passeport-vierge')
+  await page.locator('.feuille-passeport .carte-fermer').click()
+  await page.click('.exp-depart-pied .btn-primary')
+  await page.waitForSelector('.exp-carte')
+  await photo('s3-carte-saison')
+  await photo('s3-carte-saison-entiere', true)
+  const cinquieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: zoe } })).json()) as any).expedition
+  const baseDeLaSaison = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const depart = JSON.parse((baseDeLaSaison.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(cinquieme.id) as { expedition: string }).expedition)
+    for (const e of depart.cartes[0].escales.filter((e: any) => e.etage === 0)) Object.assign(e, { sorte: 'question', theme: { sujet: 'halloween' }, forme: 'quatre', chance: 0.5 })
+    baseDeLaSaison.prepare('UPDATE campagne_series SET expedition = ? WHERE id = ?').run(JSON.stringify(depart), cinquieme.id)
+  } finally {
+    baseDeLaSaison.close()
+  }
+  await banc.redemarrer()
+  await page.goto(`${banc.url}/expedition`)
+  await page.waitForSelector('.exp-carte')
+  await photo('s4-carte-a-tamponner')
+  await pasVers('.ans-btn')
+  await repondre(true)
+  await photo('s5-tampon-revele')
+  await suite()
+  await page.waitForSelector('.exp-carte')
+  await photo('s6-carte-tamponnee')
+  await page.locator('.geste-du-bas', { hasText: 'Abandonner' }).click()
+  await page.locator('.dialog-backdrop .btn-danger').click()
+  await page.waitForSelector('.exp-fin-tete')
+  await photo('s7-fin-tampon', true)
+  await page.locator('.fin-actions .btn-primary').click()
+  await page.waitForSelector('.exp-passeport')
+  await page.locator('.exp-passeport .link-inline').click()
+  await page.waitForSelector('.feuille-passeport')
+  await page.locator('#passeport-fete').scrollIntoViewIfNeeded()
+  await photo('s8-passeport-tamponne')
 } finally {
   await navigateur.close()
   await banc.close()

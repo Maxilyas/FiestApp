@@ -199,13 +199,16 @@ test('la fin d’une expédition : le légendaire gardé en grand, puis ce qu’
   const vue = { id: 'x', numero: 48_213, acte: 3, gardiens: vaincus, carte: null, ici: null, trace: [], permises: [], vies: 2, justes: 24, issue: 'legendaire', garde: 'lg:dragon', moyen: false, rang: 30 }
   const rendre = (tombe: object, v: object = vue) =>
     renderToStaticMarkup(
-      React.createElement(page.FinDeLExpedition, { fin: { e: 'fin', vue: v, tombe, correction: null }, gains: { xp: 180, justes: 24 }, erreur: '', onCorrection: () => {}, onAutre: () => {} }),
+      React.createElement(page.FinDeLExpedition, { fin: { e: 'fin', vue: v, tombe, correction: null }, gains: { xp: 180, justes: 24, tampons: ['animaux'] }, erreur: '', onCorrection: () => {}, onAutre: () => {} }),
     )
   const html = rendre({ recompenses: [{ key: 'hf:marathonien:1', emoji: '🏃', title: 'Le Marathonien · Bronze' }], legendaires: ['lg:dragon'] })
   assert.match(html, /Le Dragon d’Or est à toi/)
   assert.match(html, /Avatar légendaire débloqué/)
   assert.match(html, /<b class="num">\+\d+ XP<\/b>/)
   assert.match(html, /🎊<\/span> \+24 confettis/)
+  // Le passeport (le 18 octobre 2026) : les tampons neufs de cette expédition, nommés.
+  assert.match(html, /Un tampon neuf à ton passeport/)
+  assert.match(html, /Les animaux/)
   assert.match(html, /tes bonnes réponses \+180 · tes trophées \+\d+/)
   // L'ordre de l'écran A : ce qui est tombé de grand, ce que tu gagnes, les trophées, puis les gestes.
   const ou = (m: string) => html.indexOf(m)

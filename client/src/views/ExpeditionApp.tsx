@@ -23,6 +23,8 @@ import { aPorterDesTrophees, partsDeLXp, tropheesTombes, xpDesTrophees } from '.
 import { NOM_NIVEAU, SIGNALEMENT_MAX, VIES, type CorrectionDeCampagne, type Niveau } from '../../../shared/campagne'
 import { couleurDePiste, pourcentDeChance } from '../../../shared/sentiers'
 import { sujetParCle } from '../../../shared/sujets'
+import { saison as laSaison, type Saison } from '../../../shared/saisons'
+import { hautFait } from '../../../shared/hautsfaits'
 import { CATEGORIES } from '../../../shared/categories'
 import {
   JOKERS_DES_LEGENDAIRES,
@@ -53,6 +55,7 @@ import {
   marcheDe,
   nomDuGardien,
   paquetDeDepart,
+  passeportParFamille,
   prixDeLArticle,
   prixDeLEscale,
   refusDeLAchat,
@@ -215,8 +218,9 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
   }
   const t = e.theme
   const quoi = !t ? 'Une question' : 'sujet' in t ? `Thème pointu : ${nomDuTheme(t)}` : t.categories.length > 1 ? `Mélange : ${nomDuTheme(t)}` : nomDuTheme(t)
-  if (e.sorte === 'elite') return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]}. Trouvée, un joker au choix ; ratée, une vie${chance}`
-  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]}${chance}`
+  const tampon = e.aTamponner ? ' · un tampon neuf pour ton passeport' : ''
+  if (e.sorte === 'elite') return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]}. Trouvée, un joker au choix ; ratée, une vie${chance}${tampon}`
+  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]}${chance}${tampon}`
 }
 
 // ── Les jokers ──────────────────────────────────────────────────────────────
@@ -358,7 +362,7 @@ export function ExpeditionApp() {
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
-  const [gains, setGains] = useState({ xp: 0, justes: 0 })
+  const [gains, setGains] = useState<GainsDeLExpedition>({ xp: 0, justes: 0, tampons: [] })
   const setEcran = (e: Ecran) => {
     setEcranBrut(e)
     setErreur('')
@@ -423,7 +427,7 @@ export function ExpeditionApp() {
       const vue = await api.expedition.partir(equipee)
       retenirLEquipee(equipee)
       // Ce que la fin dira est celui de cette expédition : la précédente, jouée sur la même page, a eu sa fin.
-      setGains({ xp: 0, justes: 0 })
+      setGains({ xp: 0, justes: 0, tampons: [] })
       setEcran({ e: 'route', vue })
     } catch (e) {
       refuse(e)
@@ -502,7 +506,7 @@ export function ExpeditionApp() {
     setErreur('')
     try {
       const reponse = await api.expedition.repondre(vue.id, q.index, choix)
-      setGains(g => ({ xp: g.xp + reponse.xp, justes: g.justes + (reponse.juste ? 1 : 0) }))
+      setGains(g => ({ xp: g.xp + reponse.xp, justes: g.justes + (reponse.juste ? 1 : 0), tampons: reponse.tampon ? [...g.tampons, reponse.tampon] : g.tampons }))
       // La révélation reste à l'écran, sans le faire défiler : la bonne réponse est sous le doigt.
       const premier = typeof choix === 'number' ? choix : (choix.includes(reponse.bonne) ? reponse.bonne : choix[0])
       setEcranBrut({ e: 'route', vue: reponse.expedition, question: q, reponse, choix: premier, avant: vue })
@@ -709,6 +713,13 @@ export function ExpeditionApp() {
   )
 }
 
+/** Ce que la fin redit de l'expédition jouée sur cette page : son expérience, ses confettis, ses tampons neufs. */
+interface GainsDeLExpedition {
+  xp: number
+  justes: number
+  tampons: string[]
+}
+
 /** L'équipée de son dernier départ, retenue sur le téléphone. */
 const CLE_DE_L_EQUIPEE = 'quizz.expedition.equipee'
 
@@ -797,8 +808,12 @@ function Depart({
   const siens = gardiens.filter(g => g.aLui)
   const [equipee, setEquipee] = useState<string[]>(() => equipeeDeDepart(page.prochaine))
   const [choisir, setChoisir] = useState(false)
+  const [passeport, setPasseport] = useState(false)
   // Celle qui l'attend dit l'équipée qu'elle a emmenée ; une expédition de l'étape 1 n'en avait pas.
   const montree = vue ? (vue.jokers ? vue.equipee : null) : equipee
+  // La saison de son départ — celle qu'elle a eue, en route ; celle d'aujourd'hui, avant de partir.
+  const s = laSaison(vue ? vue.saison : page.prochaine.saison)
+  const tampons = page.passeport.length
   return (
     <div className="player-shell expedition">
       <Sortie />
@@ -806,6 +821,7 @@ function Depart({
         <h1>L’Expédition</h1>
         <p className="muted">{espacesFines('Trois actes, un gardien au bout de chacun. Va au bout : tu repars avec l’un des trois.')}</p>
       </header>
+      {s && <BandeauDeLaSaison saison={s} gardiens={gardiens.map(g => g.cle)} enRoute={!!vue} />}
       <section className="card exp-gardiens" aria-labelledby="exp-gardiens-titre">
         <h2 className="label" id="exp-gardiens-titre">
           {vue ? `Ton expédition · carte n° ${formatNumber(vue.numero)}` : 'Ce qui t’attend'}
@@ -819,7 +835,13 @@ function Depart({
                 <b className="exp-gardien-nom">{nomDuGardien(g.cle)}</b>
                 <span className="muted small">{g.vaincu ? (gardienAuFeminin(g.cle) ? 'Vaincue' : 'Vaincu') : regleDuGardien(acte)}</span>
               </span>
-              {g.aLui ? <span className="exp-pastille">déjà à toi</span> : vue && acte === vue.acte && <span className="exp-pastille exp-pastille-or">en route</span>}
+              {g.aLui ? (
+                <span className="exp-pastille">déjà à toi</span>
+              ) : vue && acte === vue.acte ? (
+                <span className="exp-pastille exp-pastille-or">en route</span>
+              ) : (
+                s?.legendaire === g.cle && <span className="exp-pastille exp-pastille-or">de saison</span>
+              )}
             </li>
           ))}
         </ol>
@@ -848,6 +870,23 @@ function Depart({
           {!vue && <p className="muted small">{espacesFines(`Ton paquet au départ : ${ditDesComptes(paquetDeDepart(montree)).join(', ')}.`)}</p>}
         </section>
       )}
+      <section className="card exp-passeport" aria-labelledby="exp-passeport-titre">
+        <div className="exp-section-tete">
+          <h2 className="label" id="exp-passeport-titre">
+            Ton passeport
+          </h2>
+          <button type="button" className="link-inline small exp-ouvrir" aria-haspopup="dialog" onClick={() => setPasseport(true)}>
+            Ouvrir
+            <Icon name="chevron-right" />
+          </button>
+        </div>
+        <p className="exp-passeport-compte">
+          <Icon name="tampon" />
+          <b>{formatNumber(tampons)}</b>
+          {` tampon${tampons > 1 ? 's' : ''} sur ${formatNumber(TAMPONS_DU_PASSEPORT)}`}
+        </p>
+        <p className="muted small">{espacesFines('Chaque thème pointu trouvé en expédition y met son tampon — un pays, une époque, un univers, une fête…')}</p>
+      </section>
       {erreur && (
         <p className="error" role="alert">
           {espacesFines(erreur)}
@@ -873,7 +912,78 @@ function Depart({
         )}
       </div>
       {choisir && <FeuilleDeLEquipee prochaine={page.prochaine} equipee={equipee} onChoisir={setEquipee} onFermer={() => setChoisir(false)} />}
+      {passeport && <FeuilleDuPasseport tampons={page.passeport} onFermer={() => setPasseport(false)} />}
     </div>
+  )
+}
+
+/** Les tampons d'un passeport complet : un par sujet de l'onglet des thèmes. */
+const TAMPONS_DU_PASSEPORT = passeportParFamille([]).reduce((n, f) => n + f.sujets.length, 0)
+
+/** « d’Halloween », « de Noël », « du Nouvel An » : une saison après « la saison ». */
+const DE_LA_SAISON: Readonly<Record<string, string>> = { halloween: 'd’Halloween', noel: 'de Noël', 'nouvel-an': 'du Nouvel An' }
+
+/**
+ * La saison d'un départ (le 18 octobre 2026) : sa fête plus souvent sur les
+ * cartes, et son légendaire au bout de l'acte 3 quand il le garde — en
+ * expédition, la seule porte vers lui, ouverte à sa saison seulement. En
+ * route, celle qu'elle a eue à son départ.
+ */
+function BandeauDeLaSaison({ saison: s, gardiens, enRoute }: { saison: Saison; gardiens: readonly string[]; enRoute: boolean }) {
+  const garde = gardiens[ACTES - 1] === s.legendaire
+  const fete = sujetParCle(s.key)
+  const elle = gardienAuFeminin(s.legendaire)
+  const tete = enRoute ? `Partie à la saison ${DE_LA_SAISON[s.key]}` : `La saison ${DE_LA_SAISON[s.key]}, ${s.periode}`
+  const suite = garde ? `, et ${leGardien(s.legendaire)} garde l’acte 3 : en expédition, ${elle ? 'elle' : 'il'} ne se gagne qu’à sa saison` : ''
+  return (
+    <p className="card exp-saison">
+      <Icon name={fete ? iconeDuSujet(fete) : 'sparkles'} />
+      <span>{espacesFines(`${tete} : ses escales reviennent plus souvent sur ${enRoute ? 'ta carte' : 'tes cartes'}${suite}.`)}</span>
+    </p>
+  )
+}
+
+/**
+ * Son passeport (le 18 octobre 2026) : chaque thème pointu de l'expédition,
+ * famille par famille — tamponné, son emblème en couleur ; à trouver, en
+ * creux. Une famille complète le dit. Le Globe-trotter compte les tampons.
+ */
+function FeuilleDuPasseport({ tampons, onFermer }: { tampons: readonly string[]; onFermer: () => void }) {
+  const familles = passeportParFamille(tampons)
+  const tenus = familles.reduce((n, f) => n + f.tamponnes, 0)
+  const globe = hautFait('hf:globe-trotter')
+  const paliers = globe?.famille === 'carriere' ? globe.paliers : null
+  return (
+    <Feuille titre="Ton passeport" className="feuille-passeport" onFermer={onFermer}>
+      <p className="muted small">
+        {espacesFines(
+          `${formatNumber(tenus)} tampon${tenus > 1 ? 's' : ''} sur ${formatNumber(TAMPONS_DU_PASSEPORT)}. Trouve une escale d’un thème pointu : son tampon est à toi. Sur la carte, ceux qui te manquent le disent.`,
+        )}
+      </p>
+      {familles.map(f => (
+        <section key={f.famille} className="exp-passeport-famille" aria-labelledby={`passeport-${f.famille}`}>
+          <h3 className="label" id={`passeport-${f.famille}`}>
+            {`${f.nom} · ${f.tamponnes} / ${f.sujets.length}`}
+            {f.tamponnes === f.sujets.length && <span className="exp-pastille exp-pastille-or">complet</span>}
+          </h3>
+          <ul className="exp-tampons">
+            {f.sujets.map(x => {
+              const sujet = sujetParCle(x.cle)
+              return (
+                <li key={x.cle} className={'exp-tampon-case' + (x.tamponne ? ' exp-tamponne' : '')}>
+                  <Icon name={sujet ? iconeDuSujet(sujet) : 'star'} />
+                  <span>{x.nom}</span>
+                  <span className="sr-only">{x.tamponne ? ', tamponné' : ', à trouver'}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ))}
+      {paliers && (
+        <p className="muted small">{espacesFines(`Le Globe-trotter, ton trophée : bronze à ${paliers[0]} tampons, argent à ${paliers[1]}, or à ${paliers[2]}.`)}</p>
+      )}
+    </Feuille>
   )
 }
 
@@ -1246,6 +1356,12 @@ function CarteDeLActe({
             >
               {e.sorte === 'gardien' ? <Medaillon cle={gardien} className="exp-medaillon" /> : <Icon name={passee ? 'check' : iconeDe(e)} />}
               {chance !== undefined && !passee && !loin && <Balise couleur={couleurDePiste(chance)} />}
+              {/* Un thème pointu que son passeport n'a pas : son tampon l'attend (le 18 octobre 2026). */}
+              {e.aTamponner && !loin && (
+                <span className="exp-a-tamponner" aria-hidden="true">
+                  <Icon name="tampon" />
+                </span>
+              )}
               <span className="exp-etiquette" aria-hidden="true">
                 {etiquette(e, vue.acte, vue.gardiens)}
               </span>
@@ -1369,6 +1485,14 @@ function CarteDeLActe({
           <Icon name="shuffle" />
           {espacesFines('Mélange : l’une de ses catégories')}
         </li>
+        {carte.escales.some(e => e.aTamponner) && (
+          <li>
+            <span className="exp-a-tamponner" aria-hidden="true">
+              <Icon name="tampon" />
+            </span>
+            {espacesFines('Un tampon neuf pour ton passeport')}
+          </li>
+        )}
         <li>
           <span className="exp-legende-pistes" aria-hidden="true">
             <Balise couleur="verte" />
@@ -1977,6 +2101,13 @@ function Revelation({
                 {`+${r.ecus} écus`}
               </p>
             )}
+            {/* Un thème pointu trouvé pour la première fois : son tampon au passeport. */}
+            {r.tampon && (
+              <p className="exp-gain-ecus exp-gain-tampon">
+                <Icon name="tampon" />
+                {espacesFines(`Nouveau tampon : ${sujetParCle(r.tampon)?.nom ?? r.tampon}`)}
+              </p>
+            )}
             <GerbeDeJuste />
           </>
         ) : (
@@ -2491,7 +2622,7 @@ function ChoixDuLegendaire({ vue, busy, erreur, onGarder }: { vue: VueDeLExpedit
             <span className="exp-gardien-texte">
               <b className="exp-gardien-nom">
                 {nomDuGardien(x.cle)}
-                {x.aLui && <span className="exp-pastille">déjà à toi</span>}
+                {x.aLui ? <span className="exp-pastille">déjà à toi</span> : laSaison(vue.saison)?.legendaire === x.cle && <span className="exp-pastille exp-pastille-or">de saison</span>}
               </b>
               <SonJoker cle={x.cle} />
             </span>
@@ -2499,6 +2630,10 @@ function ChoixDuLegendaire({ vue, busy, erreur, onGarder }: { vue: VueDeLExpedit
         ))}
       </div>
       {g?.aLui && <p className="muted small">{espacesFines(`${nomDuGardien(g.cle)} est déjà à toi : le garder ne te rapporte rien de plus.`)}</p>}
+      {/* Le légendaire de la saison du départ : en expédition, la seule fois qu'il se garde avant sa saison suivante. */}
+      {g && !g.aLui && laSaison(vue.saison)?.legendaire === g.cle && (
+        <p className="muted small">{espacesFines(`${nomDuGardien(g.cle)} ne garde une expédition qu’à sa saison : ${gardienAuFeminin(g.cle) ? 'la' : 'le'} laisser, c’est l’attendre jusqu’à la prochaine.`)}</p>
+      )}
       {erreur && (
         <p className="error" role="alert">
           {espacesFines(erreur)}
@@ -2527,7 +2662,7 @@ export function FinDeLExpedition({
   onAutre,
 }: {
   fin: Extract<Ecran, { e: 'fin' }>
-  gains: { xp: number; justes: number }
+  gains: GainsDeLExpedition
   erreur: string
   onCorrection: () => void
   onAutre: () => void
@@ -2556,6 +2691,14 @@ export function FinDeLExpedition({
         {/* Les écus meurent avec l'expédition (le brief) : la fin le dit, une fois. */}
         {vue.ecus !== undefined && vue.ecus > 0 && (
           <p className="muted small">{espacesFines(`Tes ${vue.ecus} écus restent dans l’expédition : ils ne deviennent jamais des confettis.`)}</p>
+        )}
+        {gains.tampons.length > 0 && (
+          <p className="exp-fin-tampons">
+            <Icon name="tampon" />
+            {espacesFines(
+              `${gains.tampons.length > 1 ? `${gains.tampons.length} tampons neufs` : 'Un tampon neuf'} à ton passeport : ${gains.tampons.map(x => sujetParCle(x)?.nom ?? x).join(', ')}.`,
+            )}
+          </p>
         )}
       </header>
       {(tombe.legendaires ?? []).map(cle => (

@@ -9242,8 +9242,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-equipee p { margin: 0; }
 .exp-section-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .exp-section-tete h2 { margin: 0; }
-.exp-changer { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; text-decoration: none; }
-.exp-changer .icon { width: 16px; height: 16px; }
+.exp-changer, .exp-ouvrir { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; text-decoration: none; }
+.exp-changer .icon, .exp-ouvrir .icon { width: 16px; height: 16px; }
 .exp-places { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .exp-place { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 64px; padding: 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-strong); }
 .exp-place .exp-medaillon { font-size: 40px; }
@@ -9392,6 +9392,28 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 /* L'inconnu dévoilé : un piège, son signe en grand. */
 .exp-inconnu-piege { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
 .exp-inconnu-piege .icon { width: 52px; height: 52px; }
+/* Le passeport (le 18 octobre 2026) : son tampon au coin de chaque thème pointu qu'il n'a pas encore — à gauche, la balise de la chance tient la droite. */
+.exp-a-tamponner { position: absolute; top: -6px; left: -6px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 2px var(--bg); }
+.exp-a-tamponner .icon { width: 13px; height: 13px; stroke-width: 2.2; }
+.exp-legende .exp-a-tamponner { position: static; width: 16px; height: 16px; box-shadow: none; }
+.exp-legende .exp-a-tamponner .icon { width: 11px; height: 11px; color: var(--on-accent); }
+.exp-passeport { display: flex; flex-direction: column; gap: 8px; }
+.exp-passeport p { margin: 0; }
+.exp-passeport-compte { display: flex; align-items: center; gap: 6px; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.exp-passeport-compte .icon { width: 20px; height: 20px; }
+.exp-passeport-compte b { font-size: 1.25rem; }
+.exp-passeport-famille h3 { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; }
+.exp-tampons { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.exp-tampon-case { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 8px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-xs); color: var(--muted); font-size: 0.82rem; line-height: 1.15; }
+.exp-tampon-case .icon { flex: none; width: 18px; height: 18px; opacity: 0.5; }
+.exp-tampon-case.exp-tamponne { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.exp-tampon-case.exp-tamponne .icon { color: var(--accent-text); opacity: 1; }
+/* Le tampon dans la ligne de sa phrase : en flex, une phrase sur deux lignes le laissait seul au bord. */
+.exp-fin-tampons { margin: 4px 0 0; text-align: center; color: var(--accent-text); font-weight: 700; }
+.exp-fin-tampons .icon { margin-right: 6px; }
+/* La saison d'un départ : sa fête, son emblème devant. */
+.exp-saison { display: flex; align-items: flex-start; gap: 10px; margin: 0; border-color: var(--accent); background: var(--accent-soft); font-size: 0.9rem; }
+.exp-saison .icon { flex: none; width: 24px; height: 24px; color: var(--accent-text); }
 @media (prefers-reduced-motion: reduce) {
   .exp-escale.exp-ici::after, .exp-medaillon-grand { animation: none; }
 }

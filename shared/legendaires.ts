@@ -31,7 +31,9 @@
 // Les trois de saison — la Citrouille, le Sapin, le Bouquet final — ne se
 // gagnent qu'à leur période (`shared/saisons.ts`) : des jours joués au quiz
 // du jour, ou une soirée ces jours-là. Leur condition porte sur une
-// récompense de saison (`saison:halloween`), rangée comme les autres.
+// récompense de saison (`saison:halloween`), rangée comme les autres. Depuis
+// le 18 octobre 2026, une expédition partie ces jours-là aussi : le
+// légendaire de la saison y garde l'acte 3 (`avecLExpedition`).
 //
 // Depuis le 5 octobre 2026, le quiz du jour et la campagne ont les leurs —
 // l'Aigle, l'Ouroboros, la Salamandre… —, et neuf légendaires de soirée y
@@ -85,15 +87,16 @@ export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c)
  * Depuis le 17 octobre 2026, chaque légendaire qui a son joker
  * (`shared/jokers.ts`) se gagne aussi au bout de l'Expédition — gardé parmi
  * les trois gardiens vaincus : une voie de plus (`aussi`), qui lit la ligne
- * `expedition:…` rangée sur le profil, comme une saison. Pas ceux de
- * saison : ils ne se gagnent qu'à leur saison, par elle seule. Une voie de
- * plus ne reprend rien à personne (invariant 22) ; ce qu'elle change aux
- * Divins se lit dans `server/src/core/divins.ts`. L'expédition fermée en
- * production (`EXPEDITION_EN_PRODUCTION`), elle ne se montre pas
- * (`voiesMontrees`).
+ * `expedition:…` rangée sur le profil, comme une saison. Ceux de saison
+ * aussi, depuis le 18 octobre 2026 : ils ne gardent l'acte 3 que d'une
+ * expédition partie à leur saison (`gardiensDe`), la voie ne s'ouvre donc
+ * qu'à elle. Une voie de plus ne reprend rien à personne (invariant 22) ; ce
+ * qu'elle change aux Divins se lit dans `server/src/core/divins.ts`.
+ * L'expédition fermée en production (`EXPEDITION_EN_PRODUCTION`), elle ne se
+ * montre pas (`voiesMontrees`).
  */
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
-  legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
+  legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
 
 export const LEGENDAIRES: Legendaire[] = avecLExpedition([
   {

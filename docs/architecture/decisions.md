@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 141 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 143 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -1375,6 +1375,24 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 **Conséquence** : ni colonne ni écriture de plus — une réponse coûte ce qu'elle coûtait, un achat un geste. Un prix changé ne vaut que pour les achats à venir. Les écus meurent avec l'expédition, et le solde de confettis n'en sait rien. Un piège peut finir l'expédition d'un geste : le serveur la clôt alors comme une réponse, ses gains compris.
 
 *Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-ecus.test.ts`, `server/test/expedition-echoppe.test.ts`*
+
+### Le passeport se relit du journal : un tampon par thème pointu trouvé
+**Contexte** : la refonte des sujets de la campagne porte l'onglet des thèmes à quatre-vingt-douze sujets ; le propriétaire, le 18 octobre 2026 : « Est-ce que l'on ne peut pas faire quelque chose avec tous ces thèmes ? », puis, parmi quatre propositions, « Idée 1 2 stp ». Un passeport tenu dans une table à part aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du journal.
+
+**Décision** : la question tirée du tas d'un thème pointu le garde (`QuestionDeSerie.sujet`), et sa réponse l'écrit avec elle (`campagne_reponses.sujet`) — ni celle d'un Commandement, ni celle du tirage de secours dans toute la base, ni celle que La boucle repose. Le passeport est la liste des thèmes trouvés (`lectureDuPasseport`), lue dans le lot qui lit déjà l'expédition, la page ou le départ, puis tenue en mémoire avec l'expédition ; la vue signale sur la carte ce qui manque (`aTamponner`). Le Globe-trotter, une piste de la campagne, les compte dans le lot des paliers (`statsDe`) : bronze à dix, argent à quarante, or au passeport complet.
+
+**Conséquence** : pas un aller-retour de plus. Un tampon ne donne aucun avantage de jeu (invariant 8) ; le Globe-trotter paie ses paliers comme les autres pistes — un barème de plus, dit (`docs/reference/baremes.md`). Un sujet ajouté à l'onglet arrive de lui-même sur les cartes et au passeport ; l'or reste à quatre-vingt-douze.
+
+*Fichiers : `shared/expedition.ts`, `shared/hautsfaits.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-passeport.test.ts`*
+
+### La saison d'une fête : sa fête sur les cartes, son légendaire à l'acte 3
+**Contexte** : la Citrouille, le Sapin et le Bouquet final ne se gagnaient qu'au quiz du jour ou en soirée, à leur saison ; leurs jokers, eux, agissaient toute l'année. La seconde idée retenue le 18 octobre 2026 — Halloween à une semaine.
+
+**Décision** : une expédition partie à la saison d'une fête voit sa fête tenir la moitié de ses thèmes pointus (`PART_DE_LA_FETE`), et son légendaire garder l'acte 3 s'il ne l'a pas — ni s'il est l'invité du jour (`gardiensDe`, `deSaison`). La voie de l'expédition s'ouvre aux légendaires de saison (`avecLExpedition`) : ils ne gardent qu'alors, elle ne sert donc qu'à leur saison. La saison se lit au jour de Paris du départ (`calendrierDesExpeditions`), et le départ la garde (`DepartDExpedition.saison`). Hors saison, le générateur ne tire rien de plus.
+
+**Conséquence** : partie à temps, l'expédition se finit quand on veut. Le banc et le smoke ferment le calendrier des expéditions comme celui des soirées : sans quoi chaque test d'expédition aurait sa Citrouille à l'acte 3 une semaine par an. Ce qu'une voie neuve change aux Divins se vérifie dans `core/divins.ts`, et ne s'écrit nulle part ailleurs (invariant 21).
+
+*Fichiers : `shared/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `server/test/expedition-saison.test.ts`*
 
 ## L'outillage
 

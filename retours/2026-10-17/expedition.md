@@ -771,6 +771,15 @@ rien ne s'y gagne en production avant que le mode soit entier.
 - Les tests : les écus meurent avec l'expédition, et le solde de confettis
   n'en sait rien ; les prix de l'échoppe ; un talisman tient jusqu'au bout.
 
+### Après le brief (le 18 octobre 2026)
+
+La refonte des sujets de la campagne venue — quatre-vingt-douze dans
+l'onglet des thèmes —, deux idées retenues par le propriétaire (« Idée 1 2
+stp ») : **le passeport**, un tampon par thème pointu trouvé, la carte qui
+signale ceux qui manquent, et Le Globe-trotter pour les compter ; **la
+saison des fêtes**, leur fête plus souvent sur les cartes et leur légendaire
+en gardien de l'acte 3. Le détail : `docs/produit/l-expedition.md`.
+
 ### Plus tard
 
 L'Ascension ; la règle propre de chaque gardien ; les compagnons et les

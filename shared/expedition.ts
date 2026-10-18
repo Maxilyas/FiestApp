@@ -33,6 +33,8 @@ import {
 import { SOUS_THEMES } from './etiquettes'
 import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
+import type { CleDeSaison } from './saisons'
+import { FAMILLES_DE_SUJETS, SUJETS, type FamilleDeSujet } from './sujets'
 
 export { EXPEDITION_EN_PRODUCTION } from './jokers'
 
@@ -88,6 +90,8 @@ export interface EscaleDeLaCarte {
   chance?: number
   /** L'inconnu dévoilé — par la boussole, la lanterne, ou parce qu'il y est passé : jamais gardé avec la carte, la vue seule le pose. */
   contenu?: ContenuDeLInconnu
+  /** Un thème pointu dont son passeport n'a pas encore le tampon : la vue seule le pose, jamais la carte gardée. */
+  aTamponner?: true
 }
 
 export interface CarteDUnActe {
@@ -131,6 +135,14 @@ export const POIDS_DES_ESCALES: readonly { sorte: SorteDEscale; part: number; au
 /** La part des mélanges de deux ou trois catégories, puis des thèmes pointus, parmi les questions des étages 2 à 6. */
 export const PART_DES_MELANGES = 0.18
 export const PART_DES_THEMES_POINTUS = 0.14
+/**
+ * À la saison d'une fête (`shared/saisons.ts` : Halloween, Noël, le Nouvel
+ * An), la part de ses thèmes pointus qui sont elle — sinon un sujet sur
+ * quatre-vingt-douze. Un choix de produit (le 18 octobre 2026 : « ses escales
+ * reviennent plus souvent ») : deux escales de la fête par expédition, en
+ * moyenne.
+ */
+export const PART_DE_LA_FETE = 0.5
 
 /** Les formes des étages 2 à 6 ; le premier étage pose quatre choix sept fois sur dix, sinon un vrai ou faux. */
 export const POIDS_DES_FORMES: readonly { forme: FormeDEscale; part: number }[] = [
@@ -154,9 +166,11 @@ const idDe = (etage: number, colonne: number) => `e${etage}${colonne}`
  * eux, aucune route ne laisserait le choix de se soigner ou de s'équiper) ;
  * deux campements au bout — celui de gauche pour les colonnes 1 et 2, celui de
  * droite pour 3 et 4 —, puis le gardien. `sujets` : les thèmes pointus qu'on
- * peut tirer, ceux qui ont assez de questions.
+ * peut tirer, ceux qui ont assez de questions ; `fete` : celui de la saison du
+ * départ, qui en tient la moitié (`PART_DE_LA_FETE`). Sans fête, pas un tirage
+ * de plus : hors saison, une graine redonne la carte d'avant les saisons.
  */
-export function carteDUnActe(graine: string, acte: number, sujets: readonly string[]): CarteDUnActe {
+export function carteDUnActe(graine: string, acte: number, sujets: readonly string[], fete?: string): CarteDUnActe {
   const r = hasardDe(`${graine}:carte:${acte}`)
   const entier = (n: number) => Math.floor(r() * n)
   const liens = new Map<string, number[]>()
@@ -213,7 +227,7 @@ export function carteDUnActe(graine: string, acte: number, sujets: readonly stri
           }
           e.theme = { categories: choisies }
         } else if (f > 0 && s < PART_DES_MELANGES + PART_DES_THEMES_POINTUS && sujets.length > 0) {
-          e.theme = { sujet: sujets[entier(sujets.length)] }
+          e.theme = { sujet: fete && r() < PART_DE_LA_FETE ? fete : sujets[entier(sujets.length)] }
         } else {
           e.theme = { categories: [CATEGORIES[entier(CATEGORIES.length)]] }
         }
@@ -290,12 +304,18 @@ export const graineDe = (profileId: string, n: number) => `${profileId}:${n}`
  * Les trois gardiens d'une expédition, un par acte : des légendaires qu'il
  * n'a pas, qui ont leur joker (`LEGENDAIRES_A_JOKER` : vaincu, un gardien
  * suit en joker) et la voie de l'expédition (`estUneVoieDExpedition`) — pas
- * ceux de saison, qui ne se gagnent qu'à leur saison, par elle seule —, et
- * jamais l'invité du jour, qu'on emmène peut-être déjà. Il n'en reste pas
- * assez ? Les places se prennent parmi les siens : les garder au bout ne
- * rapporte que l'expérience de ses réponses (le choix du 17 octobre 2026).
+ * ceux de saison, qui ne se gagnent qu'à leur saison et ne gardent donc qu'à
+ * elle (`deSaison`) —, et jamais l'invité du jour, qu'on emmène peut-être
+ * déjà. Il n'en reste pas assez ? Les places se prennent parmi les siens : les
+ * garder au bout ne rapporte que l'expérience de ses réponses (le choix du
+ * 17 octobre 2026).
+ *
+ * `deSaison` : le légendaire de la saison du départ (le 18 octobre 2026). Il
+ * garde l'acte 3 s'il ne l'a pas — et s'il n'est pas l'invité du jour : c'est
+ * en expédition la seule porte vers lui, et elle ne s'ouvre qu'à sa saison.
+ * Les deux premiers restent ceux d'avant : pas un tirage de plus.
  */
-export function gardiensDe(graine: string, possedes: ReadonlySet<string>, invite?: string): string[] {
+export function gardiensDe(graine: string, possedes: ReadonlySet<string>, invite?: string, deSaison?: string): string[] {
   const r = hasardDe(`${graine}:gardiens`)
   const candidats = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison && l.key !== invite).map(l => l.key)
   const melanges = (liste: string[]) => {
@@ -308,7 +328,9 @@ export function gardiensDe(graine: string, possedes: ReadonlySet<string>, invite
   }
   const neufs = melanges(candidats.filter(k => !possedes.has(k)))
   const siens = melanges(candidats.filter(k => possedes.has(k)))
-  return [...neufs, ...siens].slice(0, ACTES)
+  const gardiens = [...neufs, ...siens].slice(0, ACTES)
+  if (deSaison && !possedes.has(deSaison) && deSaison !== invite && gardiens.length === ACTES) gardiens[ACTES - 1] = deSaison
+  return gardiens
 }
 
 /**
@@ -689,6 +711,13 @@ export interface DepartDExpedition {
   chances?: Record<string, Partial<Record<Niveau, number>>>
   /** Sa chance sur une source (v2) : Il connaît la maison en ouvre une. */
   chanceDeLaSource?: number
+  /**
+   * La saison de son départ (le 18 octobre 2026) : sa fête tient la moitié
+   * des thèmes pointus de ses cartes, et son légendaire garde l'acte 3 s'il
+   * ne l'a pas — tous deux déjà dans ses cartes et ses gardiens. Le pli ne la
+   * lit pas : la page la dit.
+   */
+  saison?: CleDeSaison
 }
 
 /**
@@ -1580,6 +1609,8 @@ export interface VueDeLExpedition {
   echoppe?: EchoppeOuverte
   /** L'inconnu où il vient d'entrer, dévoilé. */
   inconnu?: { contenu: ContenuDeLInconnu; legendaire?: string }
+  /** La saison de son départ : la page la dit, et le gardien qu'elle a posé à l'acte 3. */
+  saison?: CleDeSaison
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */
@@ -1592,7 +1623,9 @@ export interface PageDeLExpedition {
    * L'invité du jour, et les légendaires qu'il peut emmener — les siens qui ont
    * leur joker.
    */
-  prochaine: { numero: number; gardiens: string[]; aLui: string[]; invite: string; equipables: string[] }
+  prochaine: { numero: number; gardiens: string[]; aLui: string[]; invite: string; equipables: string[]; saison?: CleDeSaison }
+  /** Son passeport : les thèmes pointus qu'il a trouvés en expédition, chacun une fois — leurs clés (`shared/sujets.ts`). */
+  passeport: string[]
 }
 
 /** Ce qu'une réponse rend : son verdict, et ce qui est tombé si l'expédition finit là. */
@@ -1612,6 +1645,31 @@ export interface ReponseDExpedition {
   devoile?: { mots: number; sur: number }
   /** Les écus qu'elle rapporte (v4) : ceux de l'escale, et ceux du gardien qui tombe. */
   ecus?: number
+  /** Le tampon neuf qu'elle met à son passeport : le thème pointu de l'escale, trouvé pour la première fois. */
+  tampon?: string
+}
+
+/** Une famille du passeport : ses sujets dans l'ordre du catalogue, et combien il en a tamponné. */
+export interface FamilleDuPasseport {
+  famille: FamilleDeSujet
+  /** « Pays », « Époques » : le nom de son onglet parmi les thèmes. */
+  nom: string
+  sujets: { cle: string; nom: string; tamponne: boolean }[]
+  tamponnes: number
+}
+
+/**
+ * Son passeport (le 18 octobre 2026), famille par famille, dans l'ordre de
+ * l'onglet des thèmes : chaque sujet qu'une carte peut tirer (`SUJETS`),
+ * tamponné ou non. Un tampon d'un sujet sorti du catalogue reste au journal
+ * et au Globe-trotter, mais ne se montre plus.
+ */
+export function passeportParFamille(tampons: readonly string[]): FamilleDuPasseport[] {
+  const tenus = new Set(tampons)
+  return FAMILLES_DE_SUJETS.map(({ famille, pluriel }) => {
+    const sujets = SUJETS.filter(s => s.famille === famille).map(s => ({ cle: s.cle, nom: s.nom, tamponne: tenus.has(s.cle) }))
+    return { famille, nom: pluriel, sujets, tamponnes: sujets.filter(s => s.tamponne).length }
+  }).filter(f => f.sujets.length > 0)
 }
 
 /** Ce que rend un geste : l'expédition d'après, et, à sa fin, ce qui est tombé — le légendaire gardé. */

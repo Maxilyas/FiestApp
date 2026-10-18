@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 429 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 435 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -354,6 +354,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Parcours de thème | Un sujet de la campagne monté en six étapes de dix questions, sans vies, dans l'onglet « Apprendre » ; un « sentier à thème » dans le code | `shared/sentiersDeSujets.ts` |
 | Partie | Un quiz joué dans un espace, du choix du quiz à son podium — une seule à la fois par espace | `GameEngine` |
 | Partie du jour | Ce qu'un profil a joué un jour donné : commencée, ses questions servies une à une, finie ou laissée | `jour_parties` |
+| Passeport (de l'expédition) | Les thèmes pointus qu'un profil a trouvés en expédition, un tampon chacun, une fois : quatre-vingt-douze à collectionner, famille par famille ; la carte dit ceux qui manquent, le Globe-trotter les compte | `passeportParFamille`, `campagne_reponses.sujet`, `lectureDuPasseport` |
 | Pastille d'environnement | La marque de chaque page servie hors production : une pastille en bas à gauche, le nom de l'environnement devant le titre de l'onglet | `APP_ENV`, `<meta name="app-env">` (`server/src/server.ts`, `client/src/main.tsx`) |
 | Pays (un sujet) | L'Italie, le Japon, les pays nordiques… : un sujet lu sur son étiquette, posée sur chaque question qui parle de lui — pas sa mythologie, ni sa langue seule | `ETIQUETTES` « Les pays » (`shared/etiquettes.ts`) |
 | PC de secours | Un PC qui reprend une soirée depuis la base de production quand l'hébergeur ne revient pas, sur une base locale neuve | `DB_PATH` |
@@ -454,7 +455,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Sa place dans la course | Les trois lignes du téléphone à chaque révélation : l'étiquette, la place, la cible nommée — les bonnes nouvelles seulement | `ligneDeCourse` |
 | Sablier | L'objet qui couvre un jour manqué au quiz du jour : la série tient, sans compter ce jour-là | `PRIX_D_UN_SABLIER` |
-| Saison | Halloween, Noël ou le Nouvel An : une période qui ouvre son légendaire, par quelques jours de quiz du jour ou une soirée jouée ces jours-là | `shared/saisons.ts` |
+| Saison | Halloween, Noël ou le Nouvel An : une période qui ouvre son légendaire, par quelques jours de quiz du jour, une soirée jouée ces jours-là, ou en le gardant au bout d'une expédition partie ces jours-là — sa fête y tient la moitié des thèmes pointus, son légendaire garde l'acte 3 | `shared/saisons.ts`, `calendrierDesExpeditions` |
 | Salle des tests | Le moteur du quiz joué seul, sans serveur, sur une base en mémoire et une horloge qu'on avance à la main, pour viser un instant précis | `server/test/salle.ts` (`salle`, `horloge`) |
 | Salle du jour | Les joueurs d'un jour, masqués et suspendus écartés ; certains hauts faits demandent qu'ils soient huit au moins | `SALLE_DU_JOUR` |
 | Salle socket.io | Un groupe de connexions auquel le serveur émet : tout l'espace, ses écrans d'animateur, ou les connexions d'un invité | `space:<espace>`, `hosts:<espace>`, `player:<invité>` |
@@ -493,6 +494,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Tablée | Une soirée jouée par des agents qui incarnent des invités et une animatrice, chacun dans un vrai navigateur, pour recueillir leurs retours | `.claude/skills/tablee/SKILL.md` |
 | Talisman | Un pouvoir de l'expédition qui agit seul, jusqu'à son bout : la loupe (une question d'Histoire qui se date dit son siècle), le maillot jaune (le sport paie double écus), la boussole (l'inconnu se dévoile) ; une offre en cache un une fois sur six ou sept, l'échoppe en vend un | `TALISMANS` (`shared/jokers.ts`), `EtatDeLExpedition.talismans` |
+| Tampon | Ce que met au passeport un thème pointu trouvé en expédition pour la première fois : la réponse le dit, la carte signale ceux qui manquent | `ReponseDExpedition.tampon`, `EscaleDeLaCarte.aTamponner` |
 | Taux lissé | La part de joueurs qui trouvent une question, mêlée de vingt réponses fictives tirées de sa difficulté estimée | `tauxLisse` |
 | Télé branchée | Une télé ouverte sur `/tele` et validée par un code d'appairage depuis un téléphone : un écran de salle, sans console, pour 24 heures au plus | `ecranDeSalle`, `server/src/auth/appairage.ts` |
 | Télécommande | La console tenue sur un petit écran : l'étape, les gestes en grand, la régie — jamais la réponse avant la salle | `host:telecommande`, `client/src/telecommande.ts` |

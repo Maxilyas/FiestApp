@@ -2,7 +2,7 @@
 
 > Un mode pour les profils, où l'on gagne les légendaires du jeu — et où ils servent enfin : trois actes, chacun une carte tirée au sort, un gardien au bout de chacun — un légendaire —, et l'un des trois à garder au bout du troisième ; en main, des jokers, dont ceux des légendaires qu'on emmène. Comment on la joue, ses règles chiffrées, ce qui reste à venir, puis comment c'est construit.
 
-**Dans cette page** : [En bref](#en-bref) · [Partir](#partir) · [La carte d'un acte](#la-carte-dun-acte) · [Les escales](#les-escales) · [Les formes](#les-formes) · [Les jokers](#les-jokers) · [Les écus](#les-écus) · [Le gardien](#le-gardien) · [La fin](#la-fin) · [Ce qu'elle paie](#ce-quelle-paie) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [En bref](#en-bref) · [Partir](#partir) · [La carte d'un acte](#la-carte-dun-acte) · [Les escales](#les-escales) · [Les formes](#les-formes) · [Les jokers](#les-jokers) · [Les écus](#les-écus) · [Le passeport](#le-passeport) · [La saison des fêtes](#la-saison-des-fêtes) · [Le gardien](#le-gardien) · [La fin](#la-fin) · [Ce qu'elle paie](#ce-quelle-paie) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
 > L'Expédition s'est construite en quatre étapes (le brief : `retours/2026-10-17/expedition.md`, validé par le propriétaire le 17 octobre 2026) : la carte et une expédition de bout en bout, les jokers, les formes de question, puis les écus — l'échoppe, l'inconnu, les talismans. **Elle est ouverte en production depuis ses jokers**, et l'accueil d'un profil y mène (« L’Expédition », sous les duels) ; l'accueil d'un invité anonyme ne change pas.
@@ -14,12 +14,13 @@
 - **Trois vies**, qui passent d'un acte à l'autre : une question ratée en coûte une, une source retrouvée et un campement en rendent une.
 - **Des jokers en main** : un se tire à chaque question, trois en main au plus ; joué, il va à la défausse, qui ne revient qu'à l'acte suivant. Deux légendaires partent avec toi — les tiens, ou l'invité du jour —, chacun son joker.
 - **Des écus**, la monnaie de l'expédition : une escale trouvée en paie d'autant plus que la carte la disait dure, l'échoppe les dépense, et ils meurent avec l'expédition — jamais un confetti.
-- **Les légendaires se gagnent au bout, et seulement là** : les trois gardiens sont trois légendaires qu'on n'a pas ; après le troisième, on en garde un.
+- **Les légendaires se gagnent au bout, et seulement là** : les trois gardiens sont trois légendaires qu'on n'a pas ; après le troisième, on en garde un. À la saison d'une fête, son légendaire garde l'acte 3.
+- **Un passeport** : chaque thème pointu trouvé y met son tampon — quatre-vingt-douze à collectionner, et la carte dit ceux qui manquent.
 - **Gratuite et sans limite**, une à la fois, qui se reprend où on l'a laissée.
 
 ## Partir
 
-La page de l'expédition (`/expedition`) dit ce qui t'attend : **les trois gardiens**, l'acte de chacun et ce qu'il demande, et ce que dure une expédition — vingt à trente questions. Les gardiens se tirent parmi les légendaires que tu n'as pas et qui ont leur joker ; ceux de saison n'en sont jamais, ils ne se gagnent qu'à leur saison, et l'invité du jour non plus. S'il n'en reste pas assez, les places se prennent parmi les tiens : la page le dit avant le départ, « déjà à toi » — le garder au bout ne te rapporterait que l'expérience de tes réponses.
+La page de l'expédition (`/expedition`) dit ce qui t'attend : **les trois gardiens**, l'acte de chacun et ce qu'il demande, et ce que dure une expédition — vingt à trente questions. Les gardiens se tirent parmi les légendaires que tu n'as pas et qui ont leur joker — jamais l'invité du jour. Ceux de saison ne se gagnent qu'à leur saison : le sien garde alors l'acte 3 (« La saison des fêtes », plus bas). S'il n'en reste pas assez, les places se prennent parmi les tiens : la page le dit avant le départ, « déjà à toi » — le garder au bout ne te rapporterait que l'expérience de tes réponses.
 
 Dessous, **ton équipée** : deux places, et ton paquet au départ — Coup d'œil trois fois, Échange, et le joker de chacun. « Changer » ouvre sa feuille : tes légendaires qui ont leur joker, l'**invité du jour** d'abord — le même pour tous, tiré du jour de Paris, qui part même chez qui ne l'a pas : c'est par lui qu'un profil sans légendaire découvre ce qu'ils font —, la fiche de chacun et son joker ; et, dépliés à la demande, les trente-deux jokers de l'expédition, les tiens et ceux à gagner. Un toucher emmène ou laisse ; rien ne change avant « Choisir ». La page retient l'équipée de ton dernier départ.
 
@@ -86,6 +87,24 @@ La monnaie de l'expédition, en haut de chaque écran, à côté des vies :
 
 Deux légendaires de saison ont leur joker avec l'inconnu : **la lanterne** de la Citrouille montre les pièges de l'acte ; **une boule pour chacun**, du Sapin, ouvre un coffre à l'étage du dessus.
 
+## Le passeport
+
+Depuis le 18 octobre 2026. Chaque **thème pointu** trouvé en expédition met son tampon à ton passeport — une fois chacun : un pays, une époque, un univers, une fête, un thème, un fil rouge ; les quatre-vingt-douze sujets de l'onglet « Thèmes » de la campagne.
+
+- **Sur la carte**, un thème pointu dont tu n'as pas le tampon le porte au coin de son escale : de quoi prendre une route plus risquée pour lui.
+- **Trouvé**, la révélation le dit — « Nouveau tampon : Le Portugal » —, et la fin de l'expédition redit ceux qu'elle t'a donnés. Raté, rien ; retrouvé, rien de neuf.
+- **Le passeport s'ouvre au départ** : famille par famille, les tampons en couleur, ceux qui manquent en creux ; une famille complète le dit.
+- **Le Globe-trotter**, un trophée de la campagne, compte les tampons : bronze à dix, argent à quarante, or au passeport complet. Il tombe au bout d'une expédition. Aucun avantage de jeu : un tampon ne fait que se voir.
+
+## La saison des fêtes
+
+Depuis le 18 octobre 2026. À la saison d'une fête — Halloween du 25 octobre au 1er novembre, Noël du 20 au 26 décembre, le Nouvel An du 30 décembre au 2 janvier, à l'heure de Paris —, une expédition qui part :
+
+- **voit sa fête plus souvent** : la moitié de ses thèmes pointus sont elle, deux escales par expédition en moyenne ;
+- **trouve son légendaire au bout de l'acte 3** — la Citrouille, le Sapin, le Bouquet final —, s'il n'est pas déjà à toi : le garder au bout le donne, comme tout gardien. En expédition, c'est la seule porte vers lui, et elle ne s'ouvre qu'à sa saison ; partie à temps, l'expédition se finit quand tu veux.
+
+La page de départ le dit, et la carte de l'acte 3 aussi ; une expédition partie hors saison n'en sait rien.
+
 ## Le gardien
 
 Le gardien pose ses questions, toutes catégories, jusqu'à ce que tu en aies trouvé autant qu'il en demande — quatre faciles à l'acte 1, trois moyennes à l'acte 2, trois difficiles à l'acte 3 ; chaque erreur te coûte une vie, et tes jokers s'y jouent comme ailleurs. Ses crans se remplissent à chaque bonne réponse. Vaincu, il glisse son joker dans ton paquet, ta défausse y revient, l'acte suivant s'ouvre sur sa carte, et tes vies te suivent. À la dernière vie perdue, en route ou face à lui, l'expédition s'arrête.
@@ -103,6 +122,7 @@ Le gardien pose ses questions, toutes catégories, jusqu'à ce que tu en aies tr
 | Un confetti par bonne réponse | oui, aidée ou non | comme dans tous les modes |
 | L'expérience d'une bonne réponse | oui, comme en campagne | le barème ne bouge pas : aucune expérience de plus pour un gardien |
 | Le Marathonien | oui | il compte l'effort |
+| Le passeport, Le Globe-trotter | un tampon par thème pointu trouvé, aidé ou non, une fois chacun ; ni un thème que le Commandement a changé, ni la question que La boucle repose | il compte ce qu'on a exploré |
 | Le carnet | toutes ses erreurs, aidées ou non ; une bonne réponse aidée par un joker, ou trouvée en vrai ou faux tiré d'une question à quatre choix, n'y retrouve rien ; une source retrouvée y compte comme une révision | trouvée par chance, une réponse ne prouve rien |
 | La mesure des difficultés, le modèle du savoir, les écussons et la précision, L'Érudit | ses réponses nues seulement : ni celles qu'un joker a aidées, ni celles d'une autre forme, ni celles d'une source | aidée, à six choix, en vrai ou faux, à mi-mot, une question n'a plus la difficulté qu'on mesure ; une source repose ce qu'il a raté, réponse lue |
 | Les records, la Grande Série, L'Alpiniste, l'Éclat | non | l'expédition n'est pas une série |
@@ -127,6 +147,8 @@ Les quatre étapes du brief sont faites. Viendront ensuite, comme il le prévoit
 | Les marches | acte 1 : facile, puis facile ; acte 2 : facile, puis moyenne ; acte 3 : moyenne — l'élite, une marche au-dessus ; jamais d'experte |
 | Le gardien | 4 bonnes réponses faciles, puis 3 moyennes, puis 3 difficiles |
 | Les vies | 3 au départ, 3 au plus ; −1 par question ratée et par piège, +1 par source retrouvée, par campement et par vie achetée |
+| La saison d'une fête | sa fête : la moitié des thèmes pointus ; son légendaire : le gardien de l'acte 3, s'il ne l'a pas |
+| Le Globe-trotter | 10, 40 et 92 tampons |
 | Le paquet au départ | Coup d'œil ×3, Échange, et le joker de chaque légendaire de l'équipée |
 | La main | 3 jokers au plus — 4 sous Trois têtes —, un tiré par question |
 | L'équipée | 2 légendaires, les tiens ou l'invité du jour |
@@ -145,6 +167,8 @@ Chaque constante, sa valeur et ce que la changer implique : [les barèmes](../re
 - **Un geste ne coûte que son écriture** (le 17 octobre 2026, « n'oublie pas le côté performance ») : l'expédition en route se garde en mémoire, sous le verrou du profil, avec ce que le joueur a vu, lu dans le lot du départ. Une escale coûtait trois allers-retours vers la base permanente, l'un après l'autre — relire l'expédition, relire ce qu'il a vu, écrire —, une réponse deux ou trois. Désormais : partir, deux ; une escale, un geste ou une mauvaise réponse, un ; une bonne réponse, deux, comme en série — sa ligne d'expérience s'écrit après elle. Une écriture ratée fait oublier l'expédition gardée, et la base fait foi ; une réponse donnée ailleurs dans la campagne fait relire ce qu'il a vu à l'escale suivante. Le tirage d'une escale ne bat plus tout son tas : il le lit dans un ordre tiré au fur et à mesure, et s'arrête à la première question jamais vue de sa marche — 0,1 ms pour le gardien, qui en battait vingt-cinq mille en 15 ms (`expedition-charge.test.ts`, `expedition-tirage.test.ts`).
 - **Les formes se posent au serveur** (`aSaForme`, `server/src/core/campagne.ts`) : six choix prend deux leurres de la question (`meta.leurres`), un vrai ou faux une réponse proposée, un dévoilement l'heure de son premier mot (`devoileLe`) ; la question les garde, et sa réponse sa forme (`campagne_reponses.forme`), que la mesure écarte (`REPONSE_NUE`). **Le dévoilement s'écrit au fil des mots** (`GET /api/expedition/:id/devoilement`) : une réponse HTTP qui écrit chaque mot à son heure, celle du serveur (`motsDits`, `instantDuMot`) — l'intitulé ne part jamais entier d'avance (invariant 1) —, et rouverte, redit d'un coup les mots déjà dits ; Arrêt sur image y est relu à chaque mot (`arretLe`). La réponse lit les mots dits à l'heure où elle arrive (invariant 6).
 - **Les écus se comptent, ils ne s'écrivent pas** (l'étape 4) : le pli les replie du journal (`ecusDeLaReponse`) — la couleur de la chance annoncée, la forme, le thème et, au dévoilement, le mot où la réponse est arrivée, lu de l'heure que le serveur écrit déjà avec elle (`repondue_le`, `devoileA`) : ni colonne, ni écriture de plus. Un achat est un geste (`acheter`), qui garde le prix payé, comme à la boutique. Ce que cache l'inconnu se tire de la graine (`contenuDeLInconnu`) et ne part jamais avec la carte avant d'être dévoilé (invariant 1) ; un piège qui prend la dernière vie finit l'expédition d'un geste, que le serveur clôt comme une réponse.
+- **Le passeport se relit du journal** (le 18 octobre 2026) : une question tirée du tas d'un thème pointu le garde (`QuestionDeSerie.sujet`), et sa réponse l'écrit avec elle (`campagne_reponses.sujet`) ; le passeport est la liste de ces thèmes trouvés (`lectureDuPasseport`), lue dans le lot qui lit déjà l'expédition, la page ou le départ — pas un aller-retour de plus —, puis tenue en mémoire avec l'expédition. Le Globe-trotter les compte dans le lot des paliers de la campagne (`statsDe`). La carte gardée n'en sait rien : la vue pose `aTamponner`.
+- **La saison se lit au départ** (`calendrierDesExpeditions`, que le banc ferme comme celui des soirées) : la fête passe à `carteDUnActe`, qui lui donne la moitié des thèmes pointus — hors saison, pas un tirage de plus —, et son légendaire à `gardiensDe`, qui le met à l'acte 3 ; le départ garde sa saison (`DepartDExpedition.saison`). La voie des légendaires de saison est celle de tous (`expedition:<légendaire>`) : elle ne s'ouvre qu'à leur saison, puisqu'ils ne gardent qu'alors.
 - **Le légendaire gardé** est une ligne `expedition:<légendaire>` de l'étagère, hors de l'étagère qu'on voit et du compte des badges, comme les saisons ; chaque légendaire qui a son joker reçoit la voie qui la lit (`aussi`, `shared/legendaires.ts`) — une voie de plus, qui ne reprend rien à personne (invariant 22) ; l'album la montre (« en expédition ») depuis que l'expédition est ouverte (`voiesMontrees`). Les Divins n'ont ni joker ni gardien (invariant 21).
-- **La page** : `client/src/views/ExpeditionApp.tsx` — le départ et l'équipée, la carte et son tracé, l'escale et la main, l'offre, l'échoppe, l'inconnu, le campement, le gardien, le gardien vaincu, le choix, la fin par l'écran des gains (`Gains.tsx`). `server/scripts/rendu-expedition.ts` photographie chaque écran en 360 × 640, les jokers et les écus compris.
+- **La page** : `client/src/views/ExpeditionApp.tsx` — le départ et l'équipée, la carte et son tracé, l'escale et la main, l'offre, l'échoppe, l'inconnu, le campement, le gardien, le gardien vaincu, le choix, la fin par l'écran des gains (`Gains.tsx`). `server/scripts/rendu-expedition.ts` photographie chaque écran en 360 × 640, les jokers, les écus, le passeport et la saison compris.
 - `.claude/rules/expedition.md` — les fichiers et les pièges du domaine, pour qui modifie le code.

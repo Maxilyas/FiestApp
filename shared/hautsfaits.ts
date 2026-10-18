@@ -712,6 +712,21 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.campagne.justes,
     deCampagne: 'justes',
   },
+  // Le passeport de l'Expédition (le 18 octobre 2026) : un tampon par thème
+  // pointu trouvé, une fois chacun (`StatsDeCampagne.tampons`) — quatre-vingt-
+  // douze sujets dans l'onglet des thèmes ce jour-là, l'or au passeport
+  // complet. Il tombe au bout d'une expédition, avec ceux de la campagne.
+  {
+    key: 'hf:globe-trotter',
+    famille: 'carriere',
+    emoji: '🧳',
+    title: 'Le Globe-trotter',
+    mesure: 'tampons au passeport de l’expédition',
+    mesureUne: 'tampon au passeport de l’expédition',
+    paliers: [10, 40, 92],
+    valeur: c => c.campagne.tampons,
+    deCampagne: 'tampons',
+  },
   // Les sentiers du savoir (le 15 octobre 2026) : ce qui s'y valide en
   // épreuve — un palier, ses étoiles, un sentier mené au bout de ses
   // chapitres (`statsDesSentiers`). Un palier repris des portraits d'avant
@@ -1102,6 +1117,13 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:marathonien:1': 0.35,
   'hf:marathonien:2': 0.1,
   'hf:marathonien:3': 0.03,
+  // Estimés le 18 octobre 2026, avant la première expédition en production :
+  // un thème pointu sur quatre escales à thème, trois ou quatre par
+  // expédition, et le passeport complet au bout d'une collection — les
+  // derniers tampons manquent le plus longtemps.
+  'hf:globe-trotter:1': 0.08,
+  'hf:globe-trotter:2': 0.015,
+  'hf:globe-trotter:3': 0.002,
   // Ceux des sentiers (le 15 octobre 2026), mesurés sur la production — seize
   // joueurs de campagne, dix sur les sentiers en trois semaines : quatre
   // auraient Le Randonneur et La Constellation au bronze, un à l'argent ;

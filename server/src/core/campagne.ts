@@ -31,6 +31,8 @@ import {
   type SerieDeReference,
 } from './modeleDuSavoir'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
+import type { Saison } from '../../../shared/saisons'
+import { calendrierDesExpeditions } from './saisons'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type AnnonceDeLAdministrateur, type StatsDeCampagne } from '../../../shared/profil'
 import {
@@ -355,6 +357,13 @@ interface QuestionDeSerie {
   devoileLe?: number
   /** Un dévoilement : l'heure du serveur où Arrêt sur image l'a arrêté. */
   arretLe?: number
+  /**
+   * Une expédition (le 18 octobre 2026) : le thème pointu de l'escale où elle
+   * a été tirée — de son tas à lui, ni par un Commandement ni dans toute la
+   * base faute de quoi tirer. Trouvée, elle tamponne le passeport ; sa
+   * réponse le dit (`campagne_reponses.sujet`).
+   */
+  sujet?: string
 }
 
 /**
@@ -1106,6 +1115,10 @@ export class CampagneStore {
     // que la base l'a écrite. Une autre forme ne dit plus sa difficulté : rien
     // de ce qui mesure ne la lit (`REPONSE_NUE`).
     await ajouterColonne(this.client, 'campagne_reponses', 'forme', 'TEXT')
+    // Le thème pointu d'une question de l'expédition (le 18 octobre 2026) :
+    // vide partout ailleurs. Trouvée, elle a mis son tampon au passeport — le
+    // passeport et le Globe-trotter se relisent d'elle (`lectureDuPasseport`).
+    await ajouterColonne(this.client, 'campagne_reponses', 'sujet', 'TEXT')
     await this.client.execute(
       `CREATE TABLE IF NOT EXISTS expedition_gestes (
          serie_id TEXT NOT NULL,
@@ -1607,7 +1620,7 @@ export class CampagneStore {
    * d'une question est celui que la série lui donnait quand elle l'a posée.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
-    const [record, justes, expertes, validees] = await this.client.batch(
+    const [record, justes, expertes, validees, passeport] = await this.client.batch(
       [
         {
           sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
@@ -1623,6 +1636,7 @@ export class CampagneStore {
           args: [profileId],
         },
         this.lectureDesValidees(profileId),
+        lectureDuPasseport(profileId),
       ],
       'read',
     )
@@ -1632,6 +1646,8 @@ export class CampagneStore {
       expertes: Number(expertes.rows[0]?.n ?? 0),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
       ...statsDesSentiers(sentiersLus([], validees.rows)),
+      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
+      tampons: passeport.rows.length,
     }
   }
 
@@ -6565,17 +6581,18 @@ export class CampagneStore {
   // geste se lit, se juge sur le pli, puis s'écrit d'un lot, sous le verrou du
   // profil.
 
-  /** Ce qu'une expédition a de quoi replier : sa ligne, ses gestes, ses réponses — d'un aller-retour. */
+  /** Ce qu'une expédition a de quoi replier : sa ligne, ses gestes, ses réponses — et son passeport, d'un aller-retour. */
   private async lireLExpedition(profileId: string, id: string): Promise<ExpeditionLue | null> {
-    const [series, gestes, reponses] = await this.client.batch(
+    const [series, gestes, reponses, passeport] = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE id = ? AND profile_id = ? AND mode = 'expedition'`, args: [id, profileId] },
         { sql: 'SELECT geste FROM expedition_gestes WHERE serie_id = ? ORDER BY rang', args: [id] },
         { sql: 'SELECT position, juste, repondue_le FROM campagne_reponses WHERE serie_id = ?', args: [id] },
+        lectureDuPasseport(profileId),
       ],
       'read',
     )
-    return expeditionLue(series.rows[0], gestes.rows, reponses.rows)
+    return expeditionLue(series.rows[0], gestes.rows, reponses.rows, tamponsLus(passeport.rows))
   }
 
   /**
@@ -6636,20 +6653,23 @@ export class CampagneStore {
    */
   async pageDeLExpedition(profileId: string): Promise<PageDeLExpedition> {
     const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
-    const [series, gestes, reponses, compte] = await this.client.batch(
+    const [series, gestes, reponses, compte, passeport] = await this.client.batch(
       [
         { sql: `SELECT * FROM campagne_series WHERE id = (${enRoute})`, args: [profileId] },
         { sql: `SELECT geste FROM expedition_gestes WHERE serie_id = (${enRoute}) ORDER BY rang`, args: [profileId] },
         { sql: `SELECT position, juste, repondue_le FROM campagne_reponses WHERE serie_id = (${enRoute})`, args: [profileId] },
         { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
+        lectureDuPasseport(profileId),
       ],
       'read',
     )
-    const lue = expeditionLue(series.rows[0], gestes.rows, reponses.rows)
+    const tampons = tamponsLus(passeport.rows)
+    const lue = expeditionLue(series.rows[0], gestes.rows, reponses.rows, tampons)
     const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
     const siens = this.legendairesDe(profileId)
     const invite = inviteDuJour(jourDe(this.maintenant()))
-    const gardiens = gardiensDe(graine, siens, invite)
+    const saison = this.saisonDuDepart()
+    const gardiens = gardiensDe(graine, siens, invite, saison?.legendaire)
     return {
       expedition: lue ? vueDeLExpedition(lue, plier(lue), siens) : null,
       prochaine: {
@@ -6658,8 +6678,20 @@ export class CampagneStore {
         aLui: gardiens.filter(g => siens.has(g)),
         invite,
         equipables: LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)),
+        ...(saison && { saison: saison.key }),
       },
+      passeport: [...tampons].sort(),
     }
+  }
+
+  /**
+   * La saison d'un départ, ce jour à Paris (le 18 octobre 2026) : sa fête
+   * plus souvent sur les cartes, son légendaire en gardien de l'acte 3 — hors
+   * saison, rien. La page l'annonce, le départ la retrouve
+   * (`calendrierDesExpeditions`, que le banc ferme).
+   */
+  private saisonDuDepart(): Saison | null {
+    return calendrierDesExpeditions.periodeDu(jourDe(this.maintenant()))?.saison ?? null
   }
 
   /**
@@ -6675,11 +6707,12 @@ export class CampagneStore {
     return this.avecVerrou(profileId, async () => {
       // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
       // réponses, et ses premières escales s'en tirent sans le relire.
-      const [ouverte, compte, lues] = await this.client.batch(
+      const [ouverte, compte, lues, passeport] = await this.client.batch(
         [
           { sql: `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1`, args: [profileId] },
           { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
           lectureDesVues(profileId),
+          lectureDuPasseport(profileId),
         ],
         'read',
       )
@@ -6700,20 +6733,24 @@ export class CampagneStore {
       const invite = inviteDuJour(jourDe(this.maintenant()))
       const refus = refusDeLEquipee(equipee, siens, invite)
       if (refus) throw new Error(refus)
-      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets))
+      // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
+      const saison = this.saisonDuDepart()
+      const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
+      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete))
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
         v: 4,
         graine,
         numero: numeroDeLaCarte(graine),
-        gardiens: gardiensDe(graine, siens, invite),
+        gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
         cartes,
         moyen,
         equipee,
         invite,
         chances,
         chanceDeLaSource,
+        ...(saison && { saison: saison.key }),
       }
       const id = randomUUID()
       await this.client.execute({
@@ -6737,7 +6774,7 @@ export class CampagneStore {
         issue: null,
         expedition: depart,
       }
-      const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map(), reponduesLe: new Map() }
+      const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map(), reponduesLe: new Map(), tampons: tamponsLus(passeport.rows) }
       this.garderLExpedition(profileId, lue, vues.vues)
       return vueDeLExpedition(lue, plier(lue), siens)
     })
@@ -6855,8 +6892,8 @@ export class CampagneStore {
       ]
       if (traversee !== null) {
         lot.push({
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme) VALUES (?, ?, ?, NULL, 0, ?, ?, ?, ?)',
-          args: [l.serie.id, traversee, questions[traversee].id, maintenant, this.compagnonPorte(profileId), 'passe-muraille', questions[traversee].forme ?? null],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, NULL, 0, ?, ?, ?, ?, ?)',
+          args: [l.serie.id, traversee, questions[traversee].id, maintenant, this.compagnonPorte(profileId), 'passe-muraille', questions[traversee].forme ?? null, questions[traversee].sujet ?? null],
         })
       }
       const fin = finie ? [maintenant, 'perdue'] : [null, null]
@@ -6972,10 +7009,12 @@ export class CampagneStore {
       const position_ = apres.enAttente ?? apres.passees
       // Un dévoilement : les mots dits quand sa réponse est arrivée — ce qu'un téléphone dirait de son horloge n'y entre pas.
       const devoile = devoileA(q, recueLe)
+      // Un thème pointu trouvé pour la première fois : un tampon neuf au passeport, que la réponse écrit avec elle.
+      const tampon = juste && q.sujet && !l.tampons.has(q.sujet) ? q.sujet : undefined
       const lot: InStatement[] = [
         {
-          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId), aide, q.forme ?? null],
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId), aide, q.forme ?? null, q.sujet ?? null],
         },
         questions !== l.serie.questions
           ? {
@@ -6989,7 +7028,8 @@ export class CampagneStore {
       ]
       if (juste) lot.push(...lecturesDeLExperience(profileId))
       const res = await this.ecrireLExpedition(profileId, lot)
-      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses, reponduesLe }
+      const tampons = tampon ? new Set([...l.tampons, tampon]) : l.tampons
+      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses, reponduesLe, tampons }
       this.garderLExpedition(profileId, ecrite, vues)
       const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
       const gains = finie ? await this.recompenserLExpedition(profileId, l.serie.id, maintenant) : {}
@@ -7005,6 +7045,7 @@ export class CampagneStore {
         expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)),
         ...(vaincu && { vaincu }),
         ...(ecus > 0 && { ecus }),
+        ...(tampon && { tampon }),
         // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
         ...(devoile && { texte: q.texte, devoile }),
         ...gains,
@@ -7098,7 +7139,8 @@ export class CampagneStore {
     const a = e.aTirer
     if (!a) return { tirees: [], vues: vuesGardees }
     // La boucle : la question ratée revient telle qu'il l'a vue — sa réponse lue, elle ne mesure rien (`HORS_DU_CARNET`).
-    if (a.reprise !== undefined && posees[a.reprise]) return { tirees: [{ ...posees[a.reprise], escale: a.escale, acte: a.acte, carnet: true }], vues: vuesGardees }
+    // Sa réponse lue, retrouvée, elle ne tamponne rien : le passeport compte ce qu'on trouve, pas ce qu'on a revu.
+    if (a.reprise !== undefined && posees[a.reprise]) return { tirees: [{ ...posees[a.reprise], escale: a.escale, acte: a.acte, carnet: true, sujet: undefined }], vues: vuesGardees }
     const escale = escaleEnJeu(depart, e, a.escale)
     if (!escale) return { tirees: [], vues: vuesGardees }
     const maintenant = this.maintenant()
@@ -7138,6 +7180,8 @@ export class CampagneStore {
     else if (theme) tas = [...new Set(theme.categories)].map(c => this.deLaCategorie(toutes, c))
     // Un thème qui n'a plus de quoi tirer — une base qui a changé depuis le départ — tire dans toute la base.
     if (tas.reduce((s, morceau) => s + morceau.length, 0) < n * 2) tas = [toutes]
+    // Son thème pointu, s'il en vient vraiment — pas de toute la base, faute de quoi tirer : trouvée, elle tamponne le passeport.
+    const sujet = theme && 'sujet' in theme && tas[0] !== toutes ? theme.sujet : undefined
     // Sa forme (l'étape 3) : celle d'une question ou d'une élite ; une source, un gardien posent la question telle qu'elle est écrite.
     const forme = escale.sorte === 'question' || escale.sorte === 'elite' ? escale.forme : undefined
     const garde = seLaissePoser(forme)
@@ -7148,7 +7192,7 @@ export class CampagneStore {
       tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien, vues, mesure, maintenant, posees })
       aPoser = undefined
     }
-    return { tirees: tirees.map(x => aSaForme(rangee(x.question, x.niveau), x.question, aPoser, maintenant)), vues: lues }
+    return { tirees: tirees.map(x => aSaForme({ ...rangee(x.question, x.niveau), ...(sujet && { sujet }) }, x.question, aPoser, maintenant)), vues: lues }
   }
 
   /** Un profil supprimé : ses séries, leurs réponses et ses signalements, sous son verrou. */
@@ -7848,6 +7892,8 @@ interface ExpeditionLue {
   reponses: Map<number, boolean>
   /** L'heure où chaque réponse est arrivée : un dévoilement y lit le mot où il en était, et ses écus (`devoileA`). */
   reponduesLe: Map<number, number>
+  /** Son passeport, lu avec elle : les thèmes pointus déjà tamponnés — la carte dit les autres, une réponse en ajoute un. */
+  tampons: ReadonlySet<string>
 }
 
 /** Une expédition en route gardée en mémoire (`CampagneStore.expeditions`). */
@@ -7862,7 +7908,12 @@ interface ExpeditionGardee {
   vues: ReadonlyMap<string, number> | null
 }
 
-function expeditionLue(ligne: Record<string, unknown> | undefined, gestes: readonly Record<string, unknown>[], reponses: readonly Record<string, unknown>[]): ExpeditionLue | null {
+function expeditionLue(
+  ligne: Record<string, unknown> | undefined,
+  gestes: readonly Record<string, unknown>[],
+  reponses: readonly Record<string, unknown>[],
+  tampons: ReadonlySet<string>,
+): ExpeditionLue | null {
   if (!ligne) return null
   const serie = versSerie(ligne)
   if (serie.mode !== 'expedition' || !serie.expedition) return null
@@ -7872,8 +7923,26 @@ function expeditionLue(ligne: Record<string, unknown> | undefined, gestes: reado
     gestes: gestes.map(r => gesteGarde(r.geste)).filter((g): g is GesteDExpedition => g !== null),
     reponses: new Map(reponses.map(r => [Number(r.position), Number(r.juste) === 1])),
     reponduesLe: new Map(reponses.map(r => [Number(r.position), Number(r.repondue_le)])),
+    tampons,
   }
 }
+
+/**
+ * Son passeport (le 18 octobre 2026) : les thèmes pointus qu'il a trouvés en
+ * expédition, chacun une fois — une ligne par tampon, quatre-vingt-douze au
+ * plus. Dans le lot qui lit l'expédition, la page ou le départ : pas un
+ * aller-retour de plus ; et dans celui des paliers de la campagne
+ * (`statsDe`), pour le Globe-trotter.
+ */
+function lectureDuPasseport(profileId: string): InStatement {
+  return {
+    sql: `SELECT DISTINCT r.sujet AS sujet FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+          WHERE s.profile_id = ? AND s.mode = 'expedition' AND r.juste = 1 AND r.sujet IS NOT NULL`,
+    args: [profileId],
+  }
+}
+
+const tamponsLus = (lignes: readonly Record<string, unknown>[]): Set<string> => new Set(lignes.map(r => String(r.sujet)))
 
 /** Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa réponse est arrivée (invariant 6) : les mots dits, sur combien. */
 function devoileA(q: QuestionDeSerie, t: number): { mots: number; sur: number } | undefined {
@@ -7949,8 +8018,10 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     const contenu = contenuDeLInconnu(d.graine, e.acte, x.id)
     return boussole || e.trace.includes(x.id) || (e.lanterne && contenu === 'piege') ? contenu : undefined
   }
+  /** Un thème pointu encore à tamponner, devant lui : le passeport le signale sur la carte. */
+  const aTamponner = (x: EscaleDeLaCarte) => !!x.theme && 'sujet' in x.theme && !l.tampons.has(x.theme.sujet) && !e.trace.includes(x.id)
   let carte = e.acte < ACTES ? carteEnJeu(d, e) : null
-  if (carte && (e.route.commandement || echo || carte.escales.some(x => devoile(x) !== undefined))) {
+  if (carte && (e.route.commandement || echo || carte.escales.some(x => devoile(x) !== undefined || aTamponner(x)))) {
     const lion = e.route.commandement
     const escales = carte.escales.map(x => {
       const y = { ...x }
@@ -7962,6 +8033,8 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       }
       const contenu = devoile(x)
       if (contenu) y.contenu = contenu
+      // Lue après le Commandement : une escale qu'il change en catégorie ne tamponne plus rien.
+      if (aTamponner(y)) y.aTamponner = true
       // L'écholocation : le prix d'un maudit, la carte ne dit plus sa chance.
       if (echo) delete y.chance
       return y
@@ -8020,6 +8093,7 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     ...(d.v >= 4 && { ecus: e.ecus, talismans: e.talismans }),
     ...(e.echoppe && { echoppe: e.echoppe }),
     ...(e.inconnu && { inconnu: e.inconnu }),
+    ...(d.saison && { saison: d.saison }),
   }
 }
 

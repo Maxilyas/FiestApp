@@ -138,13 +138,15 @@ export type IconName =
   | 'coffre'
   | 'missions'
   // L'expédition : la source qui rend une vie, le campement avant le gardien ;
-  // ses écus, l'échoppe qui les dépense, la boussole et le maillot jaune.
+  // ses écus, l'échoppe qui les dépense, la boussole et le maillot jaune ;
+  // le tampon de son passeport.
   | 'source'
   | 'campement'
   | 'ecu'
   | 'echoppe'
   | 'boussole'
   | 'maillot'
+  | 'tampon'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -974,6 +976,16 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
   // Un maillot : le sport paie double.
   maillot: {
     paths: <path d="M9 3.5 4 6l-1.5 4.5L6 12v8.5h12V12l3.5-1.5L20 6l-5-2.5a3 3 0 0 1-6 0Z" />,
+  },
+  // Un tampon encreur, sa poignée et son trait : le passeport de l'expédition.
+  tampon: {
+    paths: (
+      <>
+        <path d="M10 13.5V10c0-1.2-1.2-1.8-1.2-3.4a3.2 3.2 0 0 1 6.4 0c0 1.6-1.2 2.2-1.2 3.4v3.5" />
+        <path d="M5 18v-2a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 16v2Z" />
+        <path d="M5 21h14" />
+      </>
+    ),
   },
 }
 

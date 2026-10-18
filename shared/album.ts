@@ -23,7 +23,7 @@ import { NOM_RARETE, type Rarete } from './badges'
 import { PORTRAITS, brancheDe, deLaBranche, portrait, portraitsOuverts } from './branches'
 import { COLLECTION, COLLECTION_HAUTE } from './avatars'
 import { DIVINS } from './divins'
-import { LEGENDAIRES, legendaire, legendaireDeLExpedition, partiesDe, voiesMontrees, type Legendaire, type SimpleCondition } from './legendaires'
+import { LEGENDAIRES, estUneVoieDExpedition, legendaire, legendaireDeLExpedition, partiesDe, voiesMontrees, type Legendaire, type SimpleCondition } from './legendaires'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
@@ -365,8 +365,13 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)
   if (s) {
-    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge.
-    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle: `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`, tenue: p.legendaires.includes(l.key), progres: null }]]
+    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — gardé au bout d'une
+    // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`).
+    const enExpedition = voiesMontrees(l).some(estUneVoieDExpedition)
+    const regle = enExpedition
+      ? `${s.jours} jours de quiz du jour, une soirée ces jours-là, ou le garder au bout d’une expédition partie ces jours-là`
+      : `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`
+    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle, tenue: p.legendaires.includes(l.key), progres: null }]]
   }
   const recompenses = recompensesDe(p.hautsFaits)
   const valeurs = new Map(p.hautsFaits.filter(h => h.famille === 'carriere').map(h => [h.key, h.valeur ?? 0]))

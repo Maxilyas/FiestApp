@@ -32,7 +32,7 @@ import {
   XP_PALIER,
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
-import { LEGENDAIRES, estUneVoieDExpedition, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
+import { LEGENDAIRES, cleDeLExpedition, estUneVoieDExpedition, legendairesDebloques, partiesDe, progresVers, voiesDe } from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -343,9 +343,11 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
   assert.equal(LEGENDAIRES.length, 26)
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
-    // Un légendaire de saison se gagne par sa saison, et par elle seule.
+    // Un légendaire de saison se gagne par sa saison, et par elle seule : sa récompense de saison, ou l'expédition
+    // partie ces jours-là — elle seule le met en gardien de l'acte 3 (`gardiensDe`, le 18 octobre 2026).
     if (l.saison) {
-      assert.ok(!('toutes' in l.condition) && !l.aussi, `${l.key} n’a qu’une voie`)
+      assert.ok(!('toutes' in l.condition), `${l.key} : une seule condition`)
+      assert.deepEqual(l.aussi ?? [], [{ hautFait: cleDeLExpedition(l.key), fois: 1 }], `${l.key} : sa saison, ou l’expédition partie à sa saison`)
       assert.equal(!('toutes' in l.condition) && l.condition.hautFait, `saison:${l.saison}`, `${l.key} se gagne par sa saison`)
       assert.equal(saison(l.saison)?.legendaire, l.key, `${l.key} est celui de sa saison`)
       continue
