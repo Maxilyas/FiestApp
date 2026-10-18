@@ -9442,7 +9442,8 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-perte { margin: 0; color: var(--muted); line-height: 1.35; }
 .ans-btn.exp-effacee { opacity: 0.32; cursor: default; }
 .ans-btn.exp-effacee .ans-text { text-decoration: line-through; }
-.ans-btn.exp-choisie { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+/* Double chance : les réponses choisies, cochées, leur filet d'or tenu sous le doigt — le téléphone garde le survol de la dernière touchée, et `.ans-btn:not(:disabled):hover` repeignait son filet : on ne la voyait plus choisie. */
+.ans-btn.exp-choisie, .ans-btn.exp-choisie:not(:disabled):hover { border: 1.5px solid var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .ans-btn.exp-montree { border: 1.5px dashed var(--accent); }
 /* Les formes (la maquette 11) : le dévoilement mot à mot et sa jauge, la réponse proposée d'un vrai ou faux, six choix plus serrés. */
 /* Ni la question ni sa jauge ne cèdent leur hauteur aux réponses : la page tient

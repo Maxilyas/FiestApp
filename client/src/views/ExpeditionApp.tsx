@@ -2127,6 +2127,54 @@ function useDevoilement(id: string, position: number | null, relance: string): {
 }
 
 /**
+ * Les réponses d'une question de l'expédition : effacées par un joker,
+ * montrée à l'Oracle, choisies sous Double chance — celles-là cochées, leur
+ * filet d'or tenu même sous le doigt. « On ne voit pas les réponses que l'on
+ * choisit » (le 18 octobre 2026) : le téléphone garde le survol de la
+ * dernière réponse touchée, qui repeignait son filet, et rien d'autre ne la
+ * marquait qu'un fond à peine doré.
+ */
+export function ReponsesDeLEscale({
+  reponses,
+  effacees,
+  choisies,
+  doubleChance,
+  montree,
+  busy,
+  onToucher,
+}: {
+  reponses: readonly string[]
+  effacees: ReadonlySet<number>
+  /** Double chance : les réponses choisies, deux au plus. */
+  choisies: readonly number[]
+  doubleChance: boolean
+  /** La Prédiction : la réponse montrée à l'Oracle. */
+  montree?: number
+  busy: boolean
+  onToucher: (i: number) => void
+}) {
+  return (
+    <div className={'ans-grid' + (reponses.length > 4 ? ' exp-six' : '') + answersSizeClass(reponses)}>
+      {reponses.map((a, i) => (
+        <button
+          key={i}
+          className={'ans-btn' + (effacees.has(i) ? ' exp-effacee' : '') + (choisies.includes(i) ? ' exp-choisie' : '') + (montree === i ? ' exp-montree' : '')}
+          aria-disabled={busy || effacees.has(i) || undefined}
+          aria-pressed={doubleChance ? choisies.includes(i) : undefined}
+          {...toucher(() => onToucher(i))}
+        >
+          {/* Quatre formes : à six choix, chacune n'aurait plus la sienne. */}
+          {reponses.length <= 4 && <Shape index={i} />}
+          <span className="ans-text">{espacesFines(a)}</span>
+          {choisies.includes(i) && <Icon name="check" className="ans-check" />}
+          {effacees.has(i) && <span className="sr-only">, effacée</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
  * Une question de l'expédition (les maquettes 4 et 7) : celle d'une escale —
  * sa catégorie, son mélange ou son thème pointu —, d'une source, d'une
  * élite, ou du gardien, son médaillon et ses crans au-dessus ; sous ses
@@ -2285,22 +2333,15 @@ function Escale({
         )}
         {doubleChance && <p className="exp-consigne small">{espacesFines('Double chance : choisis deux réponses — il suffit que l’une soit juste.')}</p>}
         {!r ? (
-          <div className={'ans-grid' + (affichee.reponses.length > 4 ? ' exp-six' : '') + answersSizeClass(affichee.reponses)}>
-            {affichee.reponses.map((a, i) => (
-              <button
-                key={i}
-                className={'ans-btn' + (effacees.has(i) ? ' exp-effacee' : '') + (deux.includes(i) ? ' exp-choisie' : '') + (affichee.prediction?.montre === i ? ' exp-montree' : '')}
-                aria-disabled={busy || effacees.has(i) || undefined}
-                aria-pressed={doubleChance ? deux.includes(i) : undefined}
-                {...toucher(() => toucherReponse(i))}
-              >
-                {/* Quatre formes : à six choix, chacune n'aurait plus la sienne. */}
-                {affichee.reponses.length <= 4 && <Shape index={i} />}
-                <span className="ans-text">{espacesFines(a)}</span>
-                {effacees.has(i) && <span className="sr-only">, effacée</span>}
-              </button>
-            ))}
-          </div>
+          <ReponsesDeLEscale
+            reponses={affichee.reponses}
+            effacees={effacees}
+            choisies={deux}
+            doubleChance={doubleChance}
+            montree={affichee.prediction?.montre}
+            busy={busy}
+            onToucher={toucherReponse}
+          />
         ) : (
           <Revelation question={q} reponse={r} avant={avant} choix={choix} source={source} finie={finie} gardien={gardien} onSuite={onSuite} onSignaler={onSignaler} />
         )}
