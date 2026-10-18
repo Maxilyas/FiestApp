@@ -75,9 +75,34 @@ import { sansAccent } from '../../shared/homonymes'
  * fois, les surnoms, les années 50 —, deux cents questions de plus pour
  * chacun là où il vit déjà (`preparer --sujet`), 758 rangées sur 800 (32
  * refusées comme un fait ou un intitulé déjà posé, 10 retirées à la
- * relecture) : 24 131.
+ * relecture) : 24 131. Le 17 octobre 2026, les cinq thèmes neufs —
+ * l'informatique, l'astronomie, les jeux vidéo, la BD et le manga, les
+ * monuments —, cent questions de plus chacun (`preparer --sujet`), 496
+ * rangées sur 500 (2 refusées comme un fait déjà posé, 2 retirées à la
+ * relecture) : 24 627. Puis la langue française, son sous-thème neuf écrit
+ * famille par famille de son inventaire (`preparer --inventaire=francais`),
+ * 390 rangées sur 400 (7 refusées comme un fait ou un intitulé déjà posé, 3
+ * retirées à la relecture) : 25 017 ; puis une question par sujet que
+ * l'inventaire laissait sans question (`--manques`), 15 : 25 032. Puis
+ * l'anglais et l'espagnol, deux sous-thèmes neufs écrits de même
+ * (`preparer --inventaire=anglais,espagnol`), 488 rangées sur 500 (8
+ * refusées comme un fait déjà posé, 4 retirées à la relecture) : 25 520 ;
+ * puis une question par sujet que leurs inventaires laissaient sans
+ * question (`--manques`), 9 : 25 529. Puis les quatre univers et les trois
+ * pays à qui manquaient des questions — Harry Potter, Star Wars, le Seigneur
+ * des anneaux, James Bond, l'Égypte, l'Inde, le Mexique —, chacun ce qui
+ * lui manquait, avec de la marge (`preparer --sujet=james-bond:75,…`), 301
+ * rangées sur 320 (15 refusées comme un fait ou un intitulé déjà posé, 4
+ * retirées à la relecture) : 25 830. Puis l'outre-mer, fil rouge neuf du
+ * même soir, à 92 questions : trente de plus là où il vit déjà
+ * (`preparer --sujet=outre-mer:30`), 29 rangées (une refusée comme un fait
+ * déjà posé) : 25 859. Puis le second lot de sujets du même soir — huit
+ * pays, des thèmes de leur seule étiquette —, ce qui manquait à dix d'entre
+ * eux pour leurs cent questions (`preparer --sujet=coree:65,…`), 432
+ * rangées sur 455 (18 refusées comme un fait ou un intitulé déjà posé, 5
+ * retirées à la relecture) : 26 291.
  */
-const AU_MOINS = 24131
+const AU_MOINS = 26291
 
 const { questions, refusees } = lireLaBase()
 

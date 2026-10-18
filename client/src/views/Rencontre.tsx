@@ -1,4 +1,4 @@
-import type { IssueDeRencontre, RencontreDeCampagne, SonApparence } from '../../../shared/campagne'
+import type { IssueDeRencontre, SonApparence } from '../../../shared/campagne'
 import type { CleDeLigue, EnjeuDuDuel, OuEnEstLeDuel } from '../../../shared/duels'
 import type { IconName } from '../components/Icon'
 
@@ -94,15 +94,6 @@ export const DIT_DU_DUEL_OUVERT: Record<OuEnEstLeDuel, { phrase: (nom: string) =
   'a-venir': { phrase: nom => `${nom} te défie : son duel t’arrivera à sa dernière réponse.` },
   retenu: { phrase: nom => `${nom} te défie : remets ce profil dans tes amis pour recevoir son duel.` },
 }
-
-/**
- * Le dé demande-t-il avant de jouer ? Une rencontre tirée qu'il n'a pas
- * commencée — aucune réponse —, et dont le serveur dit l'enjeu : sa feuille
- * le dit avant « Jouer le duel » (`FeuilleDuDe`). Reprise en route, elle se
- * joue tout de suite : il a vu ce qu'elle met en jeu, qui se redit à chaque
- * question ; un serveur d'avant ne le dit pas.
- */
-export const aConfirmerAuDe = (r: RencontreDeCampagne): r is RencontreDeCampagne & { enjeu: EnjeuDuDuel } => !!r.enjeu && r.serie.question?.index === 0
 
 /**
  * Ce qu'un joueur porte, sur l'avatar d'un écran de duel : sa finition, son

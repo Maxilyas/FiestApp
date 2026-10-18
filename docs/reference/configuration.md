@@ -127,6 +127,7 @@ elles manquent, et le serveur s'en passe.
 | `NODE_ENV` | `production` met aussi le serveur en ligne ; Render ne la pose pas, et c'est voulu (l'encadré plus haut) | absente | non | `server/src/index.ts` |
 | `RENDER_EXTERNAL_URL` | L'adresse `onrender.com` du service : le repli de `PUBLIC_URL` | absente | non | `server/src/index.ts` |
 | `RENDER_GIT_COMMIT` | Le commit déployé : ses sept premiers caractères deviennent la version que disent `/healthz` (`version`), le journal (« [serveur] prêt en … — version abc1234 ») et la page « Le serveur » du QG | absente : pas de version | non | `server/src/index.ts` |
+| `RENDER_SERVICE_ID` | L'identifiant du service (`srv-…`) : la page « Le serveur » du QG mène à ses mesures sur le tableau de bord de Render (`https://dashboard.render.com/web/<id>/metrics`), à côté de celles que le serveur prend de lui-même. Le lien seulement : aucune clé de l'API de Render — elle ouvrirait tout le compte | absente : pas de lien | non | `server/src/index.ts` |
 | `NODE_VERSION` | La version de Node que Render installe : `22`, celle de l'intégration continue. Le code ne la lit pas | celle de Render | non | `render.yaml` |
 
 ## Les deux services en ligne

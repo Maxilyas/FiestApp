@@ -40,6 +40,8 @@ export const DEPART = {
   campagne: '/api/campagne',
   /** La page des duels : sa cote, sa ligue, sa semaine, le classement. */
   duels: '/api/duels',
+  /** L'expédition en route, sinon la prochaine et ses gardiens. */
+  expedition: '/api/expedition',
   /** Les sentiers du savoir — préchargés par la page, pas par le serveur (`donneesDuFragment`). */
   sentiers: '/api/campagne/sentiers',
   /** Le carnet de révision, en tête de l'onglet « Apprendre » — préchargé comme les sentiers. */
@@ -105,6 +107,8 @@ export function donneesDeDepart(route: Route): string[] {
         return [DEPART.campagne, DEPART.moiLeger]
       case 'duels':
         return [DEPART.duels, DEPART.moiLeger]
+      case 'expedition':
+        return [DEPART.expedition, DEPART.moiLeger]
       case 'edit':
         return [DEPART.quiz, DEPART.console, DEPART.theme]
       default:

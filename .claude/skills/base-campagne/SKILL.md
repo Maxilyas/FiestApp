@@ -101,7 +101,8 @@ moins qu'une réécriture.
    deux fois, `--sentiers=3` pour trois) ou `--theme=<clé>` (ce qui manque à
    un thème de `shared/sujets.ts`) ; `--nom=<nom>`, sinon g1, g2… Un thème
    qui a un inventaire (`server/src/core/inventaires.ts` : la danse, les
-   métiers de la santé) se commande famille par famille :
+   métiers de la santé, la langue française, l'anglais, l'espagnol) se
+   commande famille par famille :
    `--inventaire=<clé> --questions=<n>`, ses familles écrites en même temps
    — chacune son lot, sans poser les mêmes faits ; `--inventaire=danse,sante`
    pour deux thèmes dans les mêmes vagues, `n` chacun —, puis, rangé,
@@ -111,7 +112,9 @@ moins qu'une réécriture.
    Pour étoffer un thème, une époque ou un fil rouge déjà là (les surnoms,
    les années 50) : `--sujet=<clé>[,<clé>…] --questions=<n>`, n de plus
    chacun, là où il vit déjà et aux difficultés qui lui manquent — hors de
-   ses sous-thèmes, chaque ligne dit son étiquette ou ses années. Un gros
+   ses sous-thèmes, chaque ligne dit son étiquette ou ses années ; ou chacun
+   le sien après ses deux-points (`--sujet=harry-potter:40,james-bond:75`),
+   ce qui lui manque pour ses cent questions. Un gros
    morceau d'un seul sous-thème (les mythes, six questions sur dix du
    thème) s'écrit sur plusieurs vagues.
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle

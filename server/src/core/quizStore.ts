@@ -302,9 +302,16 @@ export class QuizStore {
     return this.create(spaceId, `${tronquer(source.title, MAX_TITRE - copie.length).trim()}${copie}`, source.questions, undefined, source.reglages)
   }
 
-  async count(spaceId: string): Promise<number> {
-    const res = await this.client.execute({ sql: 'SELECT COUNT(*) AS n FROM quizzes WHERE space_id = ?', args: [spaceId] })
-    return Number(res.rows[0]?.n ?? 0)
+  /**
+   * Les quiz de chaque espace, d'une seule lecture, par son index
+   * (`idx_quizzes_space`) — un espace sans quiz n'y est pas. Comptés espace
+   * par espace, les listes du QG partaient en rafale d'allers-retours à
+   * chaque ouverture, et un seul tombé en route faisait tomber la liste
+   * (`qg-charge.test.ts`).
+   */
+  async countBySpace(): Promise<Map<string, number>> {
+    const res = await this.client.execute('SELECT space_id, COUNT(*) AS n FROM quizzes GROUP BY space_id')
+    return new Map(res.rows.map(r => [String(r.space_id), Number(r.n)]))
   }
 
   // ── Images ──────────────────────────────────────────────────────────────

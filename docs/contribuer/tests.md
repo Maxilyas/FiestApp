@@ -29,6 +29,7 @@ La CI (`.github/workflows/ci.yml`, « Vérification ») joue ces quatre étapes 
 - **un seul `node --test`** (`--import tsx`) : chaque fichier dans son processus, un de moins à la fois que la machine n'a de cœurs ;
 - **120 s au plus par épreuve — et, en Node 22, par fichier entier** (`--test-timeout=120000`) : un fichier qui approche la minute et demie se coupe par thème, comme `server/test/credits.test.ts` est né de `server/test/cloture.test.ts` ;
 - **un point par épreuve** (`--test-reporter=dot`) quand `CLAUDECODE` est posé — Claude Code le pose, et d'une commande qui échoue il ne lit que 10 000 caractères des 30 000 premiers : le TAP de toute la suite faisait 500 Ko, l'épreuve en échec n'y était jamais. Un terminal et la CI gardent le compte rendu de Node ;
+- **en CI, les échecs redits à la fin** (`CI` posé) : le TAP reste, et un second compte rendu, en points, redit après le décompte chaque épreuve en échec, en entier — GitHub ne rend que les cinq mille dernières lignes d'un journal, et le TAP de la suite en fait quinze mille : le 17 octobre 2026, deux exécutions rouges n'ont pas pu dire quelle épreuve avait échoué (`server/test/compte-rendu-des-tests.test.ts`) ;
 - **son code de sortie** est celui de `node --test` ; tué par un signal, 1.
 
 Un seul fichier, ou une seule épreuve, depuis `server/` :
@@ -285,6 +286,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/journal.test.ts` — le journal des gestes de l'administrateur.
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
+- `server/test/qg-charge.test.ts` — ce que les listes du QG coûtent à Turso : les quiz de tous les espaces d'une seule lecture.
 - `server/test/qg-jour.test.ts` — le quiz du jour au QG : le tirage question par question, le classement du mois, les séries, le rappel du soir.
 - `server/test/campagne-contredites.test.ts` — ce que les réponses contredisent, au QG : les plus nettes d'abord, et « Reclasser » à la difficulté qu'elles disent.
 - `server/test/qg-campagne.test.ts` — la campagne au QG : le mélange d'un palier réglé pour les épreuves qui commencent, jamais celles en cours ; les paliers du jour, le défi sans jamais le tirer, les parcours, les vies.
@@ -409,7 +411,7 @@ Deux cent huit fichiers au 14 octobre 2026, quelque mille six cents épreuves ; 
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
 - `server/test/meme-fait.test.ts` — le même fait sous deux intitulés.
 - `server/test/generer-campagne.test.ts` — la génération en nombre : vagues, dédoublonnage, relecture rejouée.
-- `server/test/inventaires.test.ts` — les inventaires de la danse et de la santé : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
+- `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais et de l'espagnol : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
 - `server/test/faits-wikidata.test.ts` — les faits de Wikidata, sans réseau.
 - `server/test/reponses-soufflees.test.ts` — les réponses soufflées par leur racine.
 

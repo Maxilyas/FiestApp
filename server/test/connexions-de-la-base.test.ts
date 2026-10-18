@@ -6,7 +6,8 @@
 // payait. Le serveur compte ce que font ses connexions — ouvertes, refermées
 // par la base, tombées en route — et peut les garder chaudes tant que des
 // joueurs jouent (`QUIZ_DB_KEEPWARM`) : un `SELECT 1` après trois secondes de
-// calme, qui ne compte ni dans le temps de Turso ni dans ses échecs.
+// calme, qui ne compte ni dans le temps de Turso ni dans ses échecs. Et il
+// referme à l'heure de Node celles qu'une boucle gelée lui a fait garder.
 //
 // Le faux Turso ne dit pas son délai (aucun en-tête `Keep-Alive`), comme le
 // vrai : c'est la garde du client qui décide, ou la base qui referme.
@@ -14,6 +15,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type IncomingMessage } from 'node:http'
 import type { AddressInfo, Socket } from 'node:net'
+import { Worker } from 'node:worker_threads'
 import { avecDelai, BaseMuette, clientDistant } from '../src/core/distante'
 import { chaudesDemandees, connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande } from '../src/core/connexions'
 import { pouls, releve } from '../src/core/pouls'
@@ -25,16 +27,21 @@ const attendre = (ms: number) => new Promise(r => setTimeout(r, ms))
  * Un faux Turso qui répond `{}` à tout. `refermeApresMs` : il referme une
  * connexion restée inactive aussi longtemps, comme une base qui a son délai ;
  * `coupe` : il coupe la connexion sous chaque requête ; `annonce` : l'en-tête
- * `Keep-Alive` qu'il envoie, s'il en dit un.
+ * `Keep-Alive` qu'il envoie, s'il en dit un ; `enDeuxFoisMs` : il répond à
+ * `/longue` en deux morceaux, le second après tant de ms.
  */
-async function fauxTurso(reglage: { refermeApresMs?: number; coupe?: boolean; annonce?: string } = {}) {
+async function fauxTurso(reglage: { refermeApresMs?: number; coupe?: boolean; annonce?: string; enDeuxFoisMs?: number } = {}) {
   const minuteries = new Map<Socket, NodeJS.Timeout>()
   const serveur = createServer((req: IncomingMessage, res) => {
     clearTimeout(minuteries.get(req.socket))
     if (reglage.coupe) return void req.socket.destroy()
     if (reglage.annonce) res.setHeader('Keep-Alive', reglage.annonce)
     req.resume()
-    req.on('end', () => res.end('{}'))
+    req.on('end', () => {
+      if (reglage.enDeuxFoisMs === undefined || req.url !== '/longue') return void res.end('{}')
+      res.write('{"morceaux":')
+      minuteries.set(req.socket, setTimeout(() => res.end('2}'), reglage.enDeuxFoisMs))
+    })
     res.on('finish', () => {
       if (reglage.refermeApresMs !== undefined) minuteries.set(req.socket, setTimeout(() => req.socket.end(), reglage.refermeApresMs))
     })
@@ -56,6 +63,35 @@ async function fauxTurso(reglage: { refermeApresMs?: number; coupe?: boolean; an
         serveur.close(() => r())
       }),
   }
+}
+
+/**
+ * Le même faux Turso, dans un fil à lui : sa minuterie ne gèle pas avec la
+ * boucle du serveur — le vrai est à Dublin. Il referme une connexion restée
+ * inactive `refermeApresMs`, à son heure, quoi que fasse le serveur.
+ */
+async function fauxTursoAilleurs(refermeApresMs: number) {
+  const fil = new Worker(
+    `const { createServer } = require('node:http')
+     const { parentPort, workerData } = require('node:worker_threads')
+     const minuteries = new Map()
+     const serveur = createServer((req, res) => {
+       clearTimeout(minuteries.get(req.socket))
+       req.resume()
+       req.on('end', () => res.end('{}'))
+       res.on('finish', () => minuteries.set(req.socket, setTimeout(() => req.socket.end(), workerData.refermeApresMs)))
+     })
+     serveur.keepAliveTimeout = 0
+     serveur.listen(0, '127.0.0.1', () => parentPort.postMessage(serveur.address().port))`,
+    { eval: true, workerData: { refermeApresMs } },
+  )
+  const port = await new Promise<number>((r, refus) => {
+    fil.once('message', r)
+    fil.once('error', refus)
+  })
+  const adresse = `http://127.0.0.1:${port}`
+  clientDistant(adresse).close()
+  return { adresse, fermer: async () => void (await fil.terminate()) }
 }
 
 /** Un aller-retour vers le faux Turso, par le `fetch` du client libsql — un battement de l'entretien, si `battement`. */
@@ -174,6 +210,53 @@ test('le délai que la base annonce se lit à chaque aller-retour — undici le 
   }
 })
 
+test('une connexion que la boucle gelée a gardée au-delà de la garde de Node se referme avant de servir : Turso l’a fermée entre-temps', async () => {
+  // Turso referme à 5 s, Node à 4 : la seconde d'écart ne protège que si la
+  // boucle tourne. Gelée par un calcul, la garde de Node ne sonnait qu'après,
+  // et l'aller-retour suivant partait sur la connexion que Turso venait de
+  // fermer — « fetch failed ← other side closed », sous `GET
+  // /api/joueur/missions`, en production le 18 octobre 2026.
+  const turso = await fauxTursoAilleurs(5_000)
+  try {
+    const avant = comptes()
+    await allerRetour(turso.adresse)
+    await attendre(3_500)
+    // La boucle gelée 1,7 s : Turso ferme à 5 s, et Node ne l'a pas encore lu.
+    const degel = performance.now() + 1_700
+    while (performance.now() < degel) {
+      // Un calcul qui ne rend pas la main.
+    }
+    assert.equal((await allerRetour(turso.adresse)).status, 200)
+    assert.equal(comptes().ouvertes - avant.ouvertes, 2, 'l’attardée refermée avant de servir, une neuve pour la requête')
+    assert.equal(comptes().echecs, avant.echecs, 'rien n’est tombé en route')
+    assert.equal(comptes().refermees, avant.refermees, 'refermée par le serveur, à la garde de Node — pas par la base')
+  } finally {
+    await turso.fermer()
+  }
+})
+
+test('une connexion qui attend sa réponse, ou la lit encore, ne se referme pas — même au-delà de la garde', async () => {
+  // Annoncé à 3 s, le délai de la base met la garde d'undici à 1 s, et la
+  // réponse en prend 2 : son premier morceau arrive tout de suite, le second
+  // après. Comptée depuis le dernier morceau reçu, la connexion aurait paru
+  // libre et attardée, et l'aller-retour suivant l'aurait coupée sous la
+  // réponse — au réveil, les bibliothèques arrivent en un demi-mégaoctet.
+  const turso = await fauxTurso({ annonce: 'timeout=3', enDeuxFoisMs: 2_000 })
+  const muette = await fauxTurso()
+  try {
+    const avant = comptes().echecs
+    const longue = avecDelai(5_000)(new Request(`${turso.adresse}/longue`, { method: 'POST', body: '{}' })).then(r => r.text())
+    await attendre(1_200)
+    assert.equal(gardeAnnoncee(), 3_000, 'la garde d’undici est à 1 s')
+    await allerRetour(muette.adresse)
+    assert.equal(await longue, '{"morceaux":2}', 'la réponse arrive entière')
+    assert.equal(comptes().echecs, avant, 'rien n’est tombé en route')
+  } finally {
+    await turso.fermer()
+    await muette.fermer()
+  }
+})
+
 test('gardée chaude, la connexion passe la pause d’un joueur ; sans entretien, Node la referme au bout de 4 s', async () => {
   const turso = await fauxTurso()
   const arreter = entretenirLesConnexions(() => allerRetour(turso.adresse, { battement: true }))
@@ -213,6 +296,12 @@ test('les connexions qu’aucune réponse n’emprunte restent chaudes aussi, m�
     const avant = comptes()
     const page = () => Promise.all([allerRetour(turso.adresse), allerRetour(turso.adresse), allerRetour(turso.adresse)])
     await page()
+    // Les réponses tombent entre les tours de battements. Le premier part quand
+    // les deux connexions qu'elles n'empruntent pas ont trois secondes de calme ;
+    // la troisième réponse, partie à 3 s elle aussi, les trouvait toutes trois
+    // occupées par leur battement et en ouvrait une quatrième — sur une machine
+    // chargée, trois fois sur dix (la CI du 17 octobre 2026).
+    await attendre(500)
     for (let i = 0; i < 5; i++) {
       await attendre(1_000)
       noterUneDemande()

@@ -9,7 +9,7 @@
 Un profil, c'est toi d'une soirée à l'autre et d'un animateur à l'autre : un prénom, un avatar, ton expérience, ce que tu gagnes et ce que tu portes. Il t'ouvre aussi ce qui se joue seul ou entre amis — [le quiz du jour](le-quiz-du-jour.md), [la campagne](la-campagne.md), [les sentiers du savoir](les-sentiers-du-savoir.md), [les duels](les-duels.md) —, [la boutique](la-boutique.md), et ton salon pour animer.
 
 > [!IMPORTANT]
-> **Tout se joue sans profil.** À l'entrée d'une soirée comme à l'accueil, « Jouer sans compte » est le premier des trois boutons : un prénom et un avatar suffisent, et un invité anonyme n'affiche rien de ce qu'il n'a pas — ni « Niv. 0 », ni pastille grise. **Un profil ne donne aucun avantage de jeu** : mêmes questions, mêmes points, même chronomètre. Ce que tu gagnes se voit ; rien ne se joue.
+> **Tout se joue sans profil.** À l'entrée d'une soirée comme à l'accueil, « Jouer sans compte » est le premier des trois boutons : un prénom et un avatar suffisent, et un invité anonyme n'affiche rien de ce qu'il n'a pas — ni « Niv. 0 », ni pastille grise. **Un profil ne donne aucun avantage de jeu face aux autres** : mêmes questions, mêmes points, même chronomètre. Ce que tu gagnes se voit ; rien ne se joue — sauf dans [l'Expédition](l-expedition.md), qu'on joue seul, où tes légendaires deviendront des jokers qui n'en sortent jamais.
 
 ## Naître et revenir
 

@@ -85,10 +85,43 @@ export type IconName =
   | 'shield'
   // Les thèmes de la campagne (`client/src/iconeDuSujet.ts`).
   | 'paw'
-  | 'planet'
+  | 'volcan'
   | 'medal'
   | 'dancer'
   | 'stethoscope'
+  | 'code'
+  | 'telescope'
+  | 'gamepad'
+  | 'bulles'
+  | 'landmark'
+  | 'lettres'
+  | 'hi'
+  | 'enye'
+  // Les fêtes de la campagne : Noël, Halloween, le Nouvel An, les anniversaires.
+  | 'sapin'
+  | 'citrouille'
+  | 'artifice'
+  | 'gateau'
+  // Les pays de la campagne, tous du même repère.
+  | 'repere'
+  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars.
+  | 'chateau'
+  | 'baguette'
+  | 'noeud'
+  | 'bouclier'
+  | 'anneau'
+  | 'sabre'
+  // Les fils rouges du 17 octobre 2026 au soir : Paris, la mer, l'outre-mer, les citations, le calcul mental.
+  | 'tour-eiffel'
+  | 'ancre'
+  | 'palmier'
+  | 'guillemets'
+  | 'operations'
+  // Puis la Révolution et l'Empire, l'aviation, les présidents de la République, les dinosaures.
+  | 'bicorne'
+  | 'avion'
+  | 'pupitre'
+  | 'dinosaure'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -104,6 +137,16 @@ export type IconName =
   // Les missions du jour et le coffre de la semaine.
   | 'coffre'
   | 'missions'
+  // L'expédition : la source qui rend une vie, le campement avant le gardien ;
+  // ses écus, l'échoppe qui les dépense, la boussole et le maillot jaune ;
+  // le tampon de son passeport.
+  | 'source'
+  | 'campement'
+  | 'ecu'
+  | 'echoppe'
+  | 'boussole'
+  | 'maillot'
+  | 'tampon'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -580,11 +623,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
-  planet: {
+  // Un volcan qui fume au-dessus de la vague : volcans et océans. La planète à
+  // anneau qu'avait la Terre et l'espace est partie avec l'espace.
+  volcan: {
     paths: (
       <>
-        <circle cx="12" cy="12" r="5.5" />
-        <ellipse cx="12" cy="12" rx="10" ry="3.2" transform="rotate(-20 12 12)" />
+        <path d="M3.5 17.5 9 8.5c1 .9 2 1.3 3 1.3s2-.4 3-1.3l5.5 9" />
+        <path d="M10.6 6.2a1.7 1.7 0 0 1 1.5-2.6 2 2 0 0 1 3.7.4 1.5 1.5 0 0 1-.3 2.9" />
+        <path d="M3 20.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1" />
       </>
     ),
   },
@@ -617,6 +663,209 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M4.5 3.5h2M12.5 3.5h2M5.5 3.5V8a4 4 0 0 0 8 0V3.5" />
         <path d="M9.5 12v2.5a4.5 4.5 0 0 0 9 0v-2" />
         <circle cx="18.5" cy="10.5" r="2" />
+      </>
+    ),
+  },
+  // Les chevrons d'une balise : l'informatique. L'écran était pris par le
+  // petit écran, la planète par la Terre et l'espace — d'où la lunette pour
+  // l'astronomie, posée sur son trépied, qu'elle a gardée.
+  code: { paths: <path d="M8 7 3 12l5 5M16 7l5 5-5 5M13.5 5l-3 14" /> },
+  telescope: {
+    paths: (
+      <>
+        <path d="m4 11.5 12.5-6.2 1.8 3.6L5.8 15.1Z" />
+        <path d="m18.3 4.4 2.2-1.1 1.8 3.6-2.2 1.1" />
+        <path d="m11 12.5-3.5 8.5M11 12.5l3.5 8.5" />
+      </>
+    ),
+  },
+  // Une manette, deux bulles de BD (une seule était prise par les surnoms),
+  // un fronton à colonnes : les jeux vidéo, la BD, les monuments.
+  gamepad: {
+    paths: (
+      <>
+        <path d="M7 7h10a5 5 0 0 1 4.6 7l-1 2.4a2.6 2.6 0 0 1-4.3.7L14.5 15h-5l-1.8 2.1a2.6 2.6 0 0 1-4.3-.7l-1-2.4A5 5 0 0 1 7 7Z" />
+        <path d="M7.5 9.8v3M6 11.3h3M15.5 11h.01M17.5 12.5h.01" />
+      </>
+    ),
+  },
+  bulles: {
+    paths: (
+      <>
+        <path d="M3 4.5h11v7.5H8l-3 2.5V12H3Z" />
+        <path d="M17 8h4v8h-2v2.5L16 16h-6v-1.5" />
+      </>
+    ),
+  },
+  landmark: { paths: <path d="M3 9.5 12 4l9 5.5ZM4 20.5h16M5.5 17.5h13M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7" /> },
+  // « Aa », une capitale et sa minuscule : la langue française. Le livre était
+  // pris par l'origine des mots.
+  lettres: {
+    paths: (
+      <>
+        <path d="M2.5 19 8 5l5.5 14M4.6 14h6.8" />
+        <circle cx="17.5" cy="16" r="3" />
+        <path d="M20.5 12.5V19" />
+      </>
+    ),
+  },
+  // « Hi » pour l'anglais, la ñ pour l'espagnol : deux langues, deux lettres,
+  // comme le « Aa » du français — pas un drapeau, l'anglais n'est pas qu'anglais.
+  hi: { paths: <path d="M5 6v12M12.5 6v12M5 12h7.5M18 11v7M18 7.2v.01" /> },
+  enye: { paths: <path d="M8.5 19v-8.5M8.5 13.5a3.5 3.5 0 0 1 7 0V19M8 7.5c1.1-1.3 2.3-1.5 3.6-.6s2.6.8 3.9-.7" /> },
+  // Les fêtes (le 17 octobre 2026) : le sapin de Noël et son pied, la citrouille et ses côtes, le feu
+  // d'artifice du Nouvel An, le gâteau et ses trois bougies. L'amour a déjà son cœur.
+  sapin: { paths: <path d="M12 2.8 7.4 8.6h2.4l-3.6 4.8h2.6L5 18.6h14l-3.8-5.2h2.6l-3.6-4.8h2.4L12 2.8ZM12 18.6v2.8" /> },
+  citrouille: {
+    paths: (
+      <>
+        <path d="M12 7.5c-1.2-.9-2.6-1.3-4.2-1.3C5.1 6.2 3 9 3 13s2.1 6.8 4.8 6.8c1.6 0 3-.4 4.2-1.3 1.2.9 2.6 1.3 4.2 1.3 2.7 0 4.8-2.8 4.8-6.8s-2.1-6.8-4.8-6.8c-1.6 0-3 .4-4.2 1.3Z" />
+        <path d="M12 7.5c-1.3 1.4-2 3.3-2 5.5s.7 4.1 2 5.5c1.3-1.4 2-3.3 2-5.5s-.7-4.1-2-5.5ZM12 7.5V4.5c0-.9.5-1.5 1.5-1.8" />
+      </>
+    ),
+  },
+  artifice: { paths: <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21M5.6 5.6l2.5 2.5M15.9 15.9l2.5 2.5M5.6 18.4l2.5-2.5M15.9 8.1l2.5-2.5M12 10.5v3M10.5 12h3" /> },
+  // Le repère d'une carte : un pays. Quatorze drapeaux ne tiennent pas dans un
+  // trait, et ceux des emojis s'écrivent en lettres sous Windows 10 (« IT »).
+  repere: {
+    paths: (
+      <>
+        <path d="M12 21.2c-3.9-4.4-6.6-8.1-6.6-11.2a6.6 6.6 0 0 1 13.2 0c0 3.1-2.7 6.8-6.6 11.2Z" />
+        <circle cx="12" cy="10" r="2.4" />
+      </>
+    ),
+  },
+  // Les univers : chacun l'objet qu'on reconnaît de loin — le château de
+  // Disney, la baguette du sorcier, le nœud papillon de 007, le bouclier
+  // étoilé, l'Anneau unique, le sabre laser. Un logo aurait été une marque.
+  chateau: {
+    paths: (
+      <>
+        <path d="M3.5 21h17M5.5 21v-8M9.5 21v-8M4.8 13 7.5 8.5l2.7 4.5M14.5 21v-8M18.5 21v-8M13.8 13l2.7-4.5 2.7 4.5" />
+        <path d="M9.5 15h5M10.5 15V9.8L12 6.5l1.5 3.3V15M11 21v-2.6a1 1 0 0 1 2 0V21" />
+      </>
+    ),
+  },
+  baguette: {
+    paths: (
+      <>
+        <path d="M3.6 19 13.3 9.3l1.4 1.4L5 20.4Z" />
+        <path d="M17 3.5v3.2M15.4 5.1h3.2M19.8 9.3v2M18.8 10.3h2M12.6 4.2v1.6M11.8 5h1.6" />
+      </>
+    ),
+  },
+  noeud: {
+    paths: (
+      <>
+        <path d="M3 8.5v7l6.5-2.4v-2.2L3 8.5ZM21 8.5v7l-6.5-2.4v-2.2L21 8.5Z" />
+        <path d="M9.5 10.3h5v3.4h-5Z" />
+      </>
+    ),
+  },
+  bouclier: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5.6" />
+        <path d="m12 9.3.8 1.7 1.8.2-1.3 1.2.4 1.8-1.7-.9-1.7.9.4-1.8-1.3-1.2 1.8-.2Z" />
+      </>
+    ),
+  },
+  anneau: {
+    paths: (
+      <>
+        <ellipse cx="12" cy="13.5" rx="8" ry="4.6" />
+        <ellipse cx="12" cy="12.6" rx="5.4" ry="2.6" />
+        <path d="M18 4v2.6M16.7 5.3h2.6" />
+      </>
+    ),
+  },
+  sabre: {
+    paths: (
+      <>
+        <path d="M10.6 13.4 19.8 4.2M7.6 12.6l3.8 3.8" />
+        <path d="M3.4 19.2 8.6 14l1.4 1.4-5.2 5.2Z" />
+      </>
+    ),
+  },
+  // Les fils rouges du 17 octobre 2026 au soir. Les rois et reines de France
+  // ont la couronne (`crown`), qui existait déjà.
+  'tour-eiffel': {
+    paths: (
+      <>
+        <path d="M12 2.5V5M10.8 5h2.4M10.8 5 7 21M13.2 5 17 21" />
+        <path d="M9.3 11.5h5.4M8.1 16.5h7.8M9.5 21a2.5 2.5 0 0 1 5 0" />
+      </>
+    ),
+  },
+  ancre: {
+    paths: (
+      <>
+        <circle cx="12" cy="5" r="2.4" />
+        <path d="M12 7.4V21M8.5 10.5h7M5 13H3.5a8.5 8.5 0 0 0 17 0H19" />
+      </>
+    ),
+  },
+  palmier: {
+    paths: (
+      <>
+        <path d="M13 21c.2-3.6-.3-6.8-1.6-9.6" />
+        <path d="M11.4 11.4C10.2 8.7 7.6 7.6 4.5 8.2M11.4 11.4c.2-2.9 2-4.9 5-5.4M11.4 11.4c2.7-.9 5.2-.1 7.1 2M11.4 11.4c-2.6.4-4.6 2-5.4 4.6M7 21h10" />
+      </>
+    ),
+  },
+  guillemets: {
+    paths: (
+      <>
+        <path d="M10 6.5H6v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+        <path d="M18 6.5h-4v5h4v-5Zm0 5c0 3-1.3 5-4 6" />
+      </>
+    ),
+  },
+  operations: {
+    paths: (
+      <>
+        <path d="M7 4.5v5M4.5 7h5M14.5 7h5" />
+        <path d="m5 15 4 4M9 15l-4 4M14.5 17h5M17 14.5v.01M17 19.5v.01" />
+      </>
+    ),
+  },
+  // Le bicorne de l'Empereur, porté en bataille : un croissant, ses deux pointes en bas, la cocarde devant. En amande,
+  // il se lisait comme un œil — celui de l'insolite.
+  bicorne: {
+    paths: (
+      <>
+        <path d="M2.5 16C5 10 8.5 7.5 12 7.5s7 2.5 9.5 8.5c-3-1.7-6.2-2.6-9.5-2.6S5.5 14.3 2.5 16Z" />
+        <circle cx="12" cy="10.6" r="1.3" />
+      </>
+    ),
+  },
+  avion: {
+    paths: <path d="M21 15.5v-1.8l-7.5-4.7V4a1.5 1.5 0 0 0-3 0v5L3 13.7v1.8l7.5-2.3V18l-2 1.5V21l3.5-1 3.5 1v-1.5l-2-1.5v-4.8l7.5 2.3Z" />,
+  },
+  // Le pupitre et son micro : le discours d'un président.
+  pupitre: {
+    paths: (
+      <>
+        <path d="M5 10.5h14M7 10.5l1 10h8l1-10M6 20.5h12" />
+        <path d="M12 10.5V7M10.8 5.2a1.2 1.2 0 1 1 2.4 0V7h-2.4V5.2Z" />
+      </>
+    ),
+  },
+  // Un sauropode, de profil : le long cou, la queue, deux pattes.
+  dinosaure: {
+    paths: (
+      <>
+        <path d="M3 14c3-.2 5.5-4.5 10-4.5 1.2 0 2.2.2 3 .5V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2h-1V13c0 1.6-1.4 2.5-3.5 2.5H8.5C6 15.5 4.2 15 3 14Z" />
+        <path d="M9 15.5V20M15.5 15.5V20" />
+      </>
+    ),
+  },
+  gateau: {
+    paths: (
+      <>
+        <path d="M4.5 20.5V13a1.5 1.5 0 0 1 1.5-1.5h12a1.5 1.5 0 0 1 1.5 1.5v7.5M3 20.5h18" />
+        <path d="M4.5 15.5c1.2.9 2.4.9 3.6 0s2.4-.9 3.6 0 2.4.9 3.6 0 2.4-.9 3.6 0M8 11.5v-3M12 11.5v-3M16 11.5v-3M8 5.5v.01M12 5.5v.01M16 5.5v.01" />
       </>
     ),
   },
@@ -681,6 +930,60 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M10 6h10M10 12h10M10 18h10" />
         <path d="m3.5 6 1.4 1.4 2.6-2.6M3.5 12l1.4 1.4 2.6-2.6" />
         <circle cx="5.2" cy="18" r="1.4" />
+      </>
+    ),
+  },
+  // Une goutte : la source de l'expédition, qui rend une vie.
+  source: { paths: <path d="M12 3.5s6 6.4 6 10.6a6 6 0 0 1-12 0c0-4.2 6-10.6 6-10.6Z" /> },
+  // Un feu sur ses deux bûches : le campement, la dernière halte avant le gardien.
+  campement: {
+    paths: (
+      <>
+        <path d="M12 3c1 3.2 4.5 4.8 4.5 8.8a4.5 4.5 0 0 1-9 0c0-2.1 1.1-3.5 2.2-4.6.2 1.5.9 2.4 1.8 2.8-.4-2.2.1-4.8.5-7Z" />
+        <path d="M4 21l16-4M20 21 4 17" />
+      </>
+    ),
+  },
+  // Une pièce frappée d'une couronne : l'écu, la monnaie de l'expédition — pas un confetti.
+  ecu: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="5.5" />
+        <path d="m9.6 13.4-.6-3 1.8 1.2L12 9.4l1.2 2.2L15 10.4l-.6 3h-4.8Z" />
+      </>
+    ),
+  },
+  // Un étal sous son auvent rayé : l'échoppe.
+  echoppe: {
+    paths: (
+      <>
+        <path d="M3.5 9.5 5 4.5h14l1.5 5" />
+        <path d="M3.5 9.5a2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0" />
+        <path d="M5 11.5v8.5h14v-8.5M10 20v-4.5h4V20" />
+      </>
+    ),
+  },
+  // Une boussole : l'inconnu se dévoile.
+  boussole: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z" />
+      </>
+    ),
+  },
+  // Un maillot : le sport paie double.
+  maillot: {
+    paths: <path d="M9 3.5 4 6l-1.5 4.5L6 12v8.5h12V12l3.5-1.5L20 6l-5-2.5a3 3 0 0 1-6 0Z" />,
+  },
+  // Un tampon encreur, sa poignée et son trait : le passeport de l'expédition.
+  tampon: {
+    paths: (
+      <>
+        <path d="M10 13.5V10c0-1.2-1.2-1.8-1.2-3.4a3.2 3.2 0 0 1 6.4 0c0 1.6-1.2 2.2-1.2 3.4v3.5" />
+        <path d="M5 18v-2a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 16v2Z" />
+        <path d="M5 21h14" />
       </>
     ),
   },

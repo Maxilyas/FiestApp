@@ -11,6 +11,8 @@ import { branche, deLaBranche } from '../../../shared/branches'
 import { PALIER_DU_MAITRE, type DefiDAccueil, type SentiersDAccueil } from '../../../shared/sentiers'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 import { formatNumber } from '../../../shared/typographie'
+// Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
+import { EXPEDITION_EN_PRODUCTION } from '../../../shared/jokers'
 // Déjà sur l'accueil par son en-tête (`Identite.tsx`) : le merci n'y ajoute rien à télécharger.
 import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { BlasonDeLigue } from './Blason'
@@ -254,6 +256,8 @@ export function AccueilJouer({
           allume={lesDuels.allume}
           href="/duels"
         />
+        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec. */}
+        {EXPEDITION_EN_PRODUCTION && <GrosBouton icone={<Icon name="flag" />} titre="L’Expédition" detail="Trois gardiens à vaincre, un légendaire au bout" href="/expedition" />}
       </section>
       <section className="jouer-section" aria-labelledby="jouer-amis">
         <span className="label" id="jouer-amis">

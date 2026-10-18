@@ -7,11 +7,12 @@ import { ADRESSE_DU_DEFI, PageDuDefi } from './Defi'
 import { ADRESSE_DU_LANCEMENT, PAGE_DES_DUELS, adresseDuDuel, adresseDuLancementContre, estLeLancement, profilDuLancement } from './adressesDesDuels'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { ADRESSE_DU_CARNET, PageDuCarnet, corpsDeLaVisee, prochaineFois, revientDans, tailleDuCarnet } from './Carnet'
-import { EnJeu, aConfirmerAuDe, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
+import { EnJeu, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencontre'
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
 import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
+import { Vies } from '../components/Vies'
 import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, retenirLeNiveau, useNiveauRelu } from '../components/Gains'
@@ -30,7 +31,7 @@ import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { SUJETS, sujetParCle } from '../../../shared/sujets'
+import { SUJETS_ET_RUBRIQUES, estRemplace, sujetParCle } from '../../../shared/sujets'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -242,12 +243,14 @@ export { nomDesCategories, nomDuChoix }
 /**
  * Le sujet de sa dernière série (`shared/sujets.ts`), retenu sur ce
  * téléphone comme ses catégories — un sujet que ce téléphone ne connaît
- * plus n'y revient pas. Sous try/catch, comme elles.
+ * plus n'y revient pas, ni une époque redécoupée depuis (`estRemplace`) :
+ * aucune liste ne la propose plus. Sous try/catch, comme elles.
  */
 const CLE_SUJET = 'quizz.campagne.sujet'
 export function sujetRetenu(): string | null {
   try {
-    return sujetParCle(localStorage.getItem(CLE_SUJET))?.cle ?? null
+    const retenu = sujetParCle(localStorage.getItem(CLE_SUJET))
+    return retenu && !estRemplace(retenu.cle) ? retenu.cle : null
   } catch {
     return null
   }
@@ -662,24 +665,11 @@ export function CampagneApp() {
 
   /**
    * De la fin d'une rencontre à une autre : Automate encore, sur une série
-   * neuve — ce qu'elle met en jeu dit d'abord, dans la feuille du dé
-   * (`FeuilleDuDe`), comme sur la page des duels.
+   * neuve — la feuille du dé d'abord (`LeDe`), comme sur la page des duels :
+   * ce qu'elle met en jeu, sur quoi — ce que jouait celle-ci —, et rien de
+   * tiré avant « Jouer le duel ».
    */
-  const [deTire, setDeTire] = useState<(RencontreDeCampagne & { enjeu: EnjeuDuDuel }) | null>(null)
-  const uneAutreRencontre = async () => {
-    if (busy) return
-    setBusy(true)
-    setErreur('')
-    try {
-      const r = await api.campagne.rencontre.commencer()
-      if (aConfirmerAuDe(r)) setDeTire(r)
-      else jouerLaRencontre(r)
-    } catch (e) {
-      setErreur(motifDe(e))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [deOuvert, setDeOuvert] = useState(false)
 
   /**
    * De la fin d'une révision à une autre, tant qu'il reste à revoir — ou tout
@@ -985,8 +975,8 @@ export function CampagneApp() {
           </div>
         )
       }
-      // Les sujets que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
-      const sujets = SUJETS.filter(x => choixPourLancer.sujets.some(y => y.sujet === x.cle))
+      // Les sujets et les rubriques que la base sert : un sujet retenu qui n'en est plus un ne se propose pas.
+      const sujets = SUJETS_ET_RUBRIQUES.filter(x => choixPourLancer.sujets.some(y => y.sujet === x.cle))
       return (
         <>
           <laPreparation.LancerUnDefi
@@ -1023,6 +1013,7 @@ export function CampagneApp() {
       <>
         <laPageDesDuels.PageDesDuels
           amis={mesAmis}
+          choix={choixPourLancer}
           onJouer={jouerLaRencontre}
           onDefier={ouvrirLeLancement}
           onOuvrirDuel={code => void ouvrirLeDuel(code)}
@@ -1068,8 +1059,8 @@ export function CampagneApp() {
     const pret = etat.questions >= QUESTIONS_POUR_JOUER
     // Les bonnes réponses du jour qui paient encore double (`JUSTES_DOUBLEES_PAR_JOUR`).
     const doubles = Math.max(0, JUSTES_DOUBLEES_PAR_JOUR - (etat.justesAujourdhui ?? 0))
-    // Les sujets que la base sert ; un sujet retenu qui n'en est plus un — un serveur d'avant, une base qui a changé — ne se joue pas.
-    const sujets = SUJETS.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
+    // Les sujets et les rubriques que la base sert ; un sujet retenu qui n'en est plus un — un serveur d'avant, une base qui a changé — ne se joue pas.
+    const sujets = SUJETS_ET_RUBRIQUES.filter(s => etat.sujets?.some(x => x.sujet === s.cle))
     const sujetJouable = sujets.some(s => s.cle === sujet) ? sujet : null
     // Un choix à faire : plusieurs catégories, ou des sujets. Sinon, ni ligne ni feuille.
     const aChoisir = etat.categories.length > 1 || sujets.length > 0
@@ -1270,7 +1261,7 @@ export function CampagneApp() {
                   },
                 }
               : // Le dé, encore : Automate. « Un autre » adversaire promettait quelqu'un ; « Rejouer contre Automate » touchait le bord du bouton en 360.
-                { texte: 'Un autre duel', icone: 'dice', onClick: () => void uneAutreRencontre() }
+                { texte: 'Un autre duel', icone: 'dice', onClick: () => setDeOuvert(true) }
           }
           busy={busy}
           onReponses={ecran.correction ? undefined : () => void voirCorrection()}
@@ -1279,15 +1270,17 @@ export function CampagneApp() {
           extra={tombeAvecLeDuel(ecran)}
           apres={ecran.correction && <SerieCorrigee correction={ecran.correction} />}
         />
-        {/* « Un autre duel » tiré : ce qu'il met en jeu, avant de le jouer. Fermée, la feuille le laisse en route : ses duels le reprennent. */}
-        {deTire && (
-          <laPageDesDuels.FeuilleDuDe
-            rencontre={deTire}
-            onJouer={() => {
-              setDeTire(null)
-              jouerLaRencontre(deTire)
+        {/* « Un autre duel » : ce qu'il mettrait en jeu, sur sa cote d'après celui-ci, et sur quoi. Fermée, rien n'est tiré. */}
+        {deOuvert && (
+          <laPageDesDuels.LeDe
+            cote={ecran.cote?.apres ?? null}
+            choix={choixPourLancer}
+            depart={{ categories: ecran.categories, sujet: ecran.sujet }}
+            onJouer={r => {
+              setDeOuvert(false)
+              jouerLaRencontre(r)
             }}
-            onFermer={() => setDeTire(null)}
+            onFermer={() => setDeOuvert(false)}
           />
         )}
       </>
@@ -1839,17 +1832,5 @@ export function TeteDeLaQuestion({ ecran }: { ecran: Extract<Ecran, { e: 'jeu' }
         </>
       )}
     </div>
-  )
-}
-
-function Vies({ restantes }: { restantes: number }) {
-  return (
-    <span className="vies" role="img" aria-label={`${restantes} vie${restantes > 1 ? 's' : ''} sur ${VIES}`}>
-      {Array.from({ length: VIES }, (_, i) => (
-        <svg key={i} className={'icon coeur' + (i >= restantes ? ' perdu' : '')} viewBox="0 0 24 24" fill={i >= restantes ? 'none' : 'currentColor'} stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2Z" />
-        </svg>
-      ))}
-    </span>
   )
 }

@@ -9,6 +9,7 @@ import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPo
 import { Etoiles } from '../components/Etoiles'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { Dessin } from '../components/Avatar'
+import { Balise } from '../components/Balise'
 import { LUEUR, lueur } from '../components/Atlas'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
@@ -16,7 +17,7 @@ import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
-import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { SOUS_THEMES } from '../../../shared/sousThemes'
 import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
 import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
@@ -43,7 +44,6 @@ import {
   texteDuMelange,
   titreDeMaitre,
   type ChanceDuSentier,
-  type CouleurDePiste,
   type EpreuveDeSentier,
   type EtatDesSentiers,
   type FinDEpreuve,
@@ -514,28 +514,8 @@ export function BarreDEpreuve({
 }
 
 // ── Sa chance, en piste ─────────────────────────────────────────────────────
-
-/**
- * La couleur d'un palier pour lui, comme une piste de ski (`couleurDePiste`) —
- * et sa forme, pour qui ne distingue pas les couleurs : le rond vert, le
- * carré bleu, le triangle rouge, le losange noir. Une convention, écrite en
- * dur (`.balise-*`) : aucun thème ne repeint une piste noire.
- */
-function Balise({ couleur }: { couleur: CouleurDePiste }) {
-  return (
-    <svg className={`balise balise-${couleur}`} viewBox="0 0 16 16" aria-hidden="true">
-      {couleur === 'verte' ? (
-        <circle cx="8" cy="8" r="6" />
-      ) : couleur === 'bleue' ? (
-        <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
-      ) : couleur === 'rouge' ? (
-        <path d="M8 2 14.5 13.5h-13Z" />
-      ) : (
-        <path d="M8 1.5 14.5 8 8 14.5 1.5 8Z" />
-      )}
-    </svg>
-  )
-}
+// La couleur d'un palier pour lui, comme une piste de ski : `Balise`
+// (`components/Balise.tsx`), que l'expédition pose aussi sur ses escales.
 
 /** Sa chance sur le palier qui l'attend dans ce sentier, si le serveur l'a dite (`EtatDesSentiers.pourToi`). */
 const saChance = (etat: EtatDesSentiers, b: CleDeBranche, palier: number | null): ChanceDuSentier | undefined =>

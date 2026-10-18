@@ -191,8 +191,44 @@ test('la fin du quiz du jour : ses étoiles, ce qu’elle rapporte en un total, 
   assert.deepEqual(ordre, [...ordre].sort((a, b) => a - b))
 })
 
-test('chaque fin passe par les mêmes pièces : le jour, la campagne, le défi, les duels, les sentiers, les parcours, la soirée', () => {
-  for (const fichier of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'components/FinDeSoiree.tsx']) {
+test('la fin d’une expédition : le légendaire gardé en grand, puis ce qu’elle rapporte, ses trophées, ce qu’ils ouvrent', async () => {
+  Object.assign(globalThis, { window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+  const page = await import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const vaincus = ['lg:kraken', 'lg:dragon', 'lg:oracle'].map(cle => ({ cle, vaincu: true }))
+  const vue = { id: 'x', numero: 48_213, acte: 3, gardiens: vaincus, carte: null, ici: null, trace: [], permises: [], vies: 2, justes: 24, issue: 'legendaire', garde: 'lg:dragon', moyen: false, rang: 30 }
+  const rendre = (tombe: object, v: object = vue) =>
+    renderToStaticMarkup(
+      React.createElement(page.FinDeLExpedition, { fin: { e: 'fin', vue: v, tombe, correction: null }, gains: { xp: 180, justes: 24, tampons: ['animaux'] }, erreur: '', onCorrection: () => {}, onAutre: () => {} }),
+    )
+  const html = rendre({ recompenses: [{ key: 'hf:marathonien:1', emoji: '🏃', title: 'Le Marathonien · Bronze' }], legendaires: ['lg:dragon'] })
+  assert.match(html, /Le Dragon d’Or est à toi/)
+  assert.match(html, /Avatar légendaire débloqué/)
+  assert.match(html, /<b class="num">\+\d+ XP<\/b>/)
+  assert.match(html, /🎊<\/span> \+24 confettis/)
+  // Le passeport (le 18 octobre 2026) : les tampons neufs de cette expédition, nommés.
+  assert.match(html, /Un tampon neuf à ton passeport/)
+  assert.match(html, /Les animaux/)
+  assert.match(html, /tes bonnes réponses \+180 · tes trophées \+\d+/)
+  // L'ordre de l'écran A : ce qui est tombé de grand, ce que tu gagnes, les trophées, puis les gestes.
+  const ou = (m: string) => html.indexOf(m)
+  const ordre = ['exp-fin-tete', 'fin-legendaire', 'class="card gains"', 'class="card gains-trophees"', 'class="fin-actions"'].map(ou)
+  assert.ok(ordre.every(i => i >= 0), ordre.join(','))
+  assert.deepEqual(ordre, [...ordre].sort((a, b) => a - b))
+  // Un gardien qu'il avait déjà : rien de neuf à fêter, la fin le dit.
+  const deja = rendre({ legendaires: [] })
+  assert.match(deja, /Expédition accomplie/)
+  assert.match(deja, /Le Dragon d’Or était déjà à toi/)
+  assert.doesNotMatch(deja, /Avatar légendaire débloqué/)
+  // Perdue : pas de légendaire, et le carnet gardera ses erreurs.
+  const perdue = rendre({}, { ...vue, acte: 1, issue: 'perdue', garde: undefined, gardiens: vaincus.map((g, i) => ({ ...g, vaincu: i === 0 })) })
+  assert.match(perdue, /L’expédition s’arrête là/)
+  assert.match(perdue, /Acte 2 · 1 gardien vaincu · 24 bonnes réponses/)
+  assert.match(perdue, /href="\/campagne#carnet"/)
+})
+
+test('chaque fin passe par les mêmes pièces : le jour, la campagne, le défi, les duels, les sentiers, les parcours, l’expédition, la soirée', () => {
+  for (const fichier of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/Sentiers.tsx', 'views/Parcours.tsx', 'views/ExpeditionApp.tsx', 'components/FinDeSoiree.tsx']) {
     const page = source(fichier)
     assert.match(page, /<CeQueTuGagnes\b/, fichier)
     assert.match(page, /<NouveauxTrophees\b/, fichier)

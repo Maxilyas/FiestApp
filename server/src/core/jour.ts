@@ -741,7 +741,15 @@ export class JourStore {
     const garde = this.empreintesGardees
     if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.empreintes
     const res = await this.client.execute('SELECT empreinte FROM jour_reserve')
-    const empreintes = new Set(res.rows.map(r => String(r.empreinte)))
+    const lues = new Set(res.rows.map(r => String(r.empreinte)))
+    // Inchangée, la même instance : la campagne garde ce qu'elle en a tiré —
+    // ses jouables, leurs sujets, la préparation de ses tirages — tant
+    // qu'elle la reçoit (`CampagneStore.jouables`). Relue en un ensemble neuf
+    // toutes les dix minutes, elle refaisait tout, vingt-quatre mille
+    // questions repassées au crible pour une réserve qui ne change qu'au
+    // matin.
+    const avant = garde?.empreintes
+    const empreintes = avant && avant.size === lues.size && [...lues].every(e => avant.has(e)) ? avant : lues
     this.empreintesGardees = { a: this.maintenant(), empreintes }
     return empreintes
   }
@@ -2783,18 +2791,20 @@ export class JourStore {
   }
 
   /**
-   * Les parties commencées depuis un instant, qui et quand : le QG en tire
-   * les chiffres du jour et la participation des trente derniers jours. Deux
-   * colonnes seulement — une partie se lit ailleurs en entier. Cherchées par
-   * leur jour, que l'index connaît, puis à l'instant près : le QG les relit
-   * depuis minuit à chaque relecture.
+   * Les parties commencées depuis un instant, qui, quand et combien de
+   * questions jouées — répondues ou laissées au temps : le QG en tire les
+   * chiffres du jour, la participation des trente derniers jours et leur
+   * activité. Trois colonnes seulement — une partie se lit ailleurs en
+   * entier. Cherchées par leur jour, que l'index connaît, puis à l'instant
+   * près : le QG les relit depuis minuit à chaque relecture. `qui` : celles
+   * d'un seul profil, sa fiche au QG — par sa clé, `(profile_id, jour)`.
    */
-  async partiesDepuis(depuis: number): Promise<{ qui: string; quand: number }[]> {
+  async partiesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; questions: number }[]> {
     const res = await this.client.execute({
-      sql: 'SELECT profile_id, commencee_le FROM jour_parties WHERE jour >= ? AND commencee_le >= ?',
-      args: [jourDe(depuis), depuis],
+      sql: `SELECT profile_id, commencee_le, question FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+      args: qui === undefined ? [jourDe(depuis), depuis] : [jourDe(depuis), depuis, qui],
     })
-    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le) }))
+    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le), questions: Number(r.question) }))
   }
 
   // ── Le suivi du QG ──────────────────────────────────────────────────────

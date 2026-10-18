@@ -133,18 +133,35 @@ function poserLeFilet() {
   // Le serveur continue, mais la page « Le serveur » du QG s'en souvient.
   process.on('unhandledRejection', raison => {
     console.error('[filet] promesse rejetée sans personne pour l’attendre — le serveur continue :', raison)
-    releve.erreur('exception échappée')
+    releve.erreur('exception échappée', raison)
   })
   process.on('uncaughtException', (e, origine) => {
     console.error(`[filet] exception échappée (${origine}) — le serveur continue :`, e)
-    releve.erreur('exception échappée')
+    releve.erreur('exception échappée', e)
   })
 }
 
 // Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
 const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
+// Le service, aussi (`srv-…`) : la page « Le serveur » du QG mène à ses mesures sur le tableau de bord de l'hébergeur.
+const service = process.env.RENDER_SERVICE_ID?.trim()
+const mesuresDeLHebergeur = service && /^srv-[a-z0-9]+$/.test(service) ? `https://dashboard.render.com/web/${service}/metrics` : undefined
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version, connexionsChaudes }).then(
+createQuizServer({
+  port,
+  dbPath,
+  admin,
+  quizDbUrl,
+  quizDbToken,
+  publicUrl,
+  online,
+  maxPlayers,
+  appEnv,
+  jetonDeLaReserve,
+  version,
+  mesuresDeLHebergeur,
+  connexionsChaudes,
+}).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)

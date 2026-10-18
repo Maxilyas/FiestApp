@@ -10,7 +10,7 @@ paths:
 
 ## Les fichiers
 
-- `server/scripts/tests.mjs` — `npm test` : tous les `test/*.test.ts` en un `node --test`, un fichier de moins à la fois que de cœurs (trois sur quatre), 120 s, `dot` sous Claude Code ; `node scripts/tests.mjs test/<fichier>.test.ts` (depuis `server/`) en lance un sous les mêmes délais — la commande `spec` de `CLAUDE.md` n'en a aucun
+- `server/scripts/tests.mjs` — `npm test` : tous les `test/*.test.ts` en un `node --test`, un fichier de moins à la fois que de cœurs (trois sur quatre), 120 s, `dot` sous Claude Code ; `node scripts/tests.mjs test/<fichier>.test.ts` (depuis `server/`) en lance un sous les mêmes délais — la commande `spec` de `CLAUDE.md` n'en a aucun. En CI (`CI` posé), le TAP, puis les épreuves en échec redites en entier après le décompte : GitHub ne rend que les cinq mille dernières lignes d'un journal, et l'échec était au milieu de quinze mille (`compte-rendu-des-tests.test.ts`)
 - `server/test/banc.ts` — un vrai serveur sur deux bases jetables, redémarrable sur disque effacé, et de quoi lui parler (les rendus et `mesure-pages.ts` s'en servent aussi) · `salle.ts` — le moteur seul, horloge à la main · `relais.ts` — une liaison qu'on gèle
 - `server/scripts/smoke.ts` — sections 0 à 35 (24 à 29 sont devenues des fichiers de `server/test/`) ; la première assertion fausse arrête tout
 - `server/scripts/load-test.mjs` · `fake-player.mjs` · `qa-host.mjs` — une salle, un invité, un écran commun simulés contre un serveur qui tourne ; l'animateur par `ADMIN_LOGIN` / `ADMIN_PASSWORD` (`login.mjs`, `antoine` / `demo` par défaut)
@@ -34,8 +34,10 @@ paths:
   (`portes.test.ts`, `page.test.ts`).
 - **On compte, on ne chronomètre pas** : une machine chargée ferait échouer
   un test qui mesure des millisecondes. `grande-salle.test.ts` compte les
-  vues, les écritures et les messages, `jour-charge.test.ts` les
-  allers-retours sur le fichier `file:` qui tient lieu de Turso. Les bornes
+  vues, les écritures et les messages, `jour-charge.test.ts` et
+  `profil-charge.test.ts` les allers-retours sur le fichier `file:` qui
+  tient lieu de Turso — chaque aller-retour coûte aussi du processeur au
+  serveur, règle `journaux-et-miroir.md`. Les bornes
   de temps qui restent sont larges : un calcul (`protocole.test.ts`, le
   podium au meilleur de trois essais ; `temps-reel.test.ts`) ou un délai qui
   doit tomber (`liaison-morte.test.ts`, `miroir.test.ts`).

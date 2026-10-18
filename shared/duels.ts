@@ -30,7 +30,11 @@
 //
 // Puis la montée (le choix du propriétaire du 14 octobre 2026, plus bas) :
 // deux cotes, une cachée — l'ELO, le niveau, qui règle Automate — et celle
-// qu'on voit, celle des ligues, qui avance pour qui joue.
+// qu'on voit, celle des ligues, qui avance pour qui joue. Depuis le
+// 16 octobre 2026, le dé à chances égales : sur la cote qu'on voit, Automate
+// compte comme un adversaire de sa cote, son score n'y est plus pour rien ;
+// et depuis le 17, l'ELO ne commence qu'à la Platine, qui se garde (plus bas
+// aussi).
 //
 // Tout se relit dans le journal des rencontres finies (`releverLesDuels`) : la
 // cote, les ligues de chaque semaine, les confettis qu'elles ont payés. Une
@@ -43,6 +47,14 @@ import type { LaurierPorte } from './jour'
 
 /** La cote de tout le monde au premier duel : celle d'un joueur qui finit sa série vers sept bonnes réponses. */
 export const COTE_DE_DEPART = 1000
+
+/**
+ * Le nom et l'avatar d'Automate, l'adversaire simulé du dé
+ * (`core/campagne.ts`) : sans article, il se lit partout — « Toi 7 –
+ * Automate 6 », « le score d'Automate ». Ici plutôt qu'au serveur : la
+ * feuille du dé le montre avant d'avoir rien tiré.
+ */
+export const AUTOMATE = { nom: 'Automate', avatar: '🤖' } as const
 
 /**
  * Le score qui vaut la cote de départ — le niveau de qui n'a encore rien
@@ -186,17 +198,66 @@ export function ecartDuDuel(cote: number, sesJustes: number, dejaJoues: number, 
 //   un point, pour une victoire d'au moins cinq. Contre Automate, réglé sur
 //   son niveau, chacun gagne quatre duels sur dix : qui joue monte en Or,
 //   même pas très fort ;
-// - dès l'Or, chaque duel rapporte `PARTICIPATION_AU_DESSUS`, et l'enjeu suit
+// - en Or, chaque duel rapporte `PARTICIPATION_AU_DESSUS`, et l'enjeu suit
 //   l'écart : une défaite coûte `POIDS_D_UN_DUEL` × E² (E, ses chances) —
 //   presque rien contre plus fort, beaucoup contre plus faible : on ne gagne
-//   rien à s'acharner sur les petits, et le haut reste au niveau ;
+//   rien à s'acharner sur les petits ;
+// - à partir de la Platine (`LIGUE_DE_L_ELO`), la participation plus l'ELO,
+//   `POIDS_D_UN_DUEL` × (résultat − E) : à chances égales, une défaite coûte
+//   ce qu'une victoire rapporte (le choix du 17 octobre 2026, plus bas) ;
 // - qui lance un défi gagne `PART_DU_LANCEUR` de plus : provoquer paie ;
-// - l'Argent et l'Or, une fois atteints, ne se perdent plus (`LIGUES_GARDEES`).
+// - l'Argent, l'Or et la Platine, une fois atteints, ne se perdent plus
+//   (`LIGUES_GARDEES`) — la Platine depuis le 17 octobre 2026 ;
+// - un adversaire plus bas que ses ligues gardées compte à son plancher
+//   (`apresLeDuel`, le 17 octobre 2026 aussi, plus bas).
 // Pas de placement sur elle : le poids double des dix premiers duels sert à
 // trouver vite le niveau, la cote cachée. Rejoués sur les vrais duels de
 // production (`calibrage-duels.ts`), les trois joueurs les plus actifs
 // passaient de 947 (Bronze) à l'Argent et l'Or ; à +4 sous l'Or, personne n'y
 // arrivait encore. Des choix de produit, relus à chaque lecture.
+//
+// Puis le dé à chances égales (le choix du propriétaire du 16 octobre 2026,
+// après « je perds 17 pour gagner 4. C'est normal ? »). Automate joue au
+// niveau de la cote cachée — on le bat quatre duels sur dix —, mais l'enjeu
+// lisait son score contre la cote qu'on voit, que la montée et les duels
+// entre amis portaient de 260 à 310 points plus haut (les quatre joueurs en
+// Or de la production) : pour la formule, 85 à 88 % de chances, « +4 / −17 »,
+// six points perdus par duel en moyenne, et cent duels ramenaient chacun au
+// plancher de l'Or. Sur la cote qu'on voit, il compte désormais comme un
+// adversaire de sa cote (`forceQuOnVoit`) : « +17 / +2 » sous l'Or,
+// « +13 / −5 » en Or, « +13 / −11 » dès la Platine, dit avant de tirer
+// (`enjeuDuDe`) — le dé demande, puis tire. La cachée, elle, bouge toujours
+// contre son score : c'est elle qui apprend le niveau.
+//
+// Puis la Platine, où « ça commence vraiment » (le choix du propriétaire du
+// 17 octobre 2026). À chances égales, 24 × E² fait monter — « +13 / −5 »,
+// quatre points par duel en moyenne —, et rien ne l'arrêtait : tout joueur
+// assidu aurait fini chez les maîtres, et entre amis, le haut montait déjà
+// de 2,3 points par duel. Le 16, l'ELO devait le remplacer dès l'Or — de
+// 19 à 42 points repris aux joueurs en Or ; le propriétaire a gardé l'Or tel
+// quel — « monter jusqu'en platine c'est bien comme ça » —, et l'ELO ne
+// commence qu'à la Platine (`LIGUE_DE_L_ELO`), qui ne se perd plus une fois
+// atteinte. Qui joue monte jusqu'en Platine ; au-delà, on monte en gagnant :
+// à ses vraies chances, un duel n'y rapporte que son point de participation,
+// et au dé, où l'on gagne quatre duels sur dix, « +13 / −11 » ne fait plus
+// monter.
+//
+// Puis l'adversaire plus bas (le même jour : « de jouer des joueurs qui
+// jouent peu et qui sont en ligue bronze, ça fait perdre beaucoup à des
+// platines, ça donne donc pas envie de jouer le duel »). Sous la Platine, la
+// cote qu'on voit dit surtout combien on a joué : un bronze a peu joué, il
+// n'est pas plus faible. En production, les joueurs en Or ne battaient les
+// bronzes qu'une fois sur trois, quand la formule leur prêtait 75 % de
+// chances — les cotes cachées, 49 %. Sur la cote qu'on voit, un adversaire
+// sous ses ligues gardées compte donc à son plancher (`apresLeDuel`) : en
+// Platine, un bronze vaut 1300, la cote où chacun y entre — « +12 / −12 » à
+// 1330, plus « +5 / −19 » ; en Or, « +11 / −7 », plus « +6 / −14 ». Entre
+// joueurs de la Platine, rien ne change, et un diamant reste favori contre
+// qui vient d'y entrer : battre des bronzes ne fait pas monter sans fin,
+// comme des chances égales contre plus bas l'auraient permis. Les chances des
+// cotes cachées, justes duel par duel, auraient fait de la cote au-dessus de
+// la Platine un compte des duels joués — chacun y aurait gagné son point de
+// participation en moyenne, fort ou pas —, et l'enjeu les aurait trahies.
 
 /** Ce que chaque duel rapporte à la cote qu'on voit : sous l'Or, et à partir de l'Or. */
 export const PARTICIPATION_SOUS_L_OR = 5
@@ -209,7 +270,10 @@ export const PART_DU_LANCEUR = 1
 export const PERTE_SOUS_L_OR = 0.25
 
 /** Les ligues qui ne se perdent plus une fois atteintes : la cote qu'on voit ne redescend plus sous leur seuil. */
-export const LIGUES_GARDEES: readonly CleDeLigue[] = ['argent', 'or']
+export const LIGUES_GARDEES: readonly CleDeLigue[] = ['argent', 'or', 'platine']
+
+/** La ligue où la montée devient l'ELO : en dessous, une défaite coûte moins qu'une victoire ne rapporte, à chances égales ; à partir d'elle, autant. */
+export const LIGUE_DE_L_ELO: CleDeLigue = 'platine'
 
 /**
  * Les réglages de la montée, ensemble : `calibrage-duels.ts` en essaie
@@ -232,6 +296,7 @@ export const MONTEE: ReglagesDeLaMontee = {
 }
 
 const SEUIL_DE_L_OR = PAR_CLE.get('or')!.depuis
+const SEUIL_DE_L_ELO = PAR_CLE.get(LIGUE_DE_L_ELO)!.depuis
 
 /** Le plancher de la cote qu'on voit, une cote atteinte : le seuil de la plus haute ligue gardée qu'elle a passé — null tant qu'aucune. */
 export function plancherApres(plancher: number | null, cote: number): number | null {
@@ -245,13 +310,15 @@ export function plancherApres(plancher: number | null, cote: number): number | n
 
 /**
  * Ce qu'un duel fait à la cote qu'on voit, avant son plancher : contre la
- * force d'en face qu'on voit aussi — sa cote figée au lancement, ou celle de
- * son score —, avec la part de qui a lancé le défi.
+ * force d'en face qu'on voit aussi (`forceQuOnVoit`), avec la part de qui a
+ * lancé le défi.
  */
 export function ecartDeLaMontee(cote: number, adverse: number, resultat: Resultat, lance = false, reglages: ReglagesDeLaMontee = MONTEE): number {
   const e = chancesDeGagner(cote, adverse)
   const sousLOr = cote < SEUIL_DE_L_OR
   const part = (sousLOr ? reglages.sousLOr : reglages.auDessus) + (lance ? reglages.lanceur : 0)
+  // À partir de la Platine, l'ELO : 24 × E² y faisait monter qui jouait à chances égales (le choix du 17 octobre 2026, plus haut).
+  if (cote >= SEUIL_DE_L_ELO) return Math.round(part + POIDS_D_UN_DUEL * (resultat - e))
   const perte = POIDS_D_UN_DUEL * e * (sousLOr ? reglages.perteSousLOr : e)
   if (resultat === 1) return Math.round(part + POIDS_D_UN_DUEL * (1 - e))
   // Une égalité contre plus fort rapporte ce que l'ELO lui donnerait ; contre plus faible, elle coûte la moitié d'une défaite.
@@ -259,7 +326,21 @@ export function ecartDeLaMontee(cote: number, adverse: number, resultat: Resulta
   return Math.round(part - perte)
 }
 
-/** La cote qu'on voit après un duel, et son plancher : l'écart, puis jamais sous une ligue gardée. */
+/**
+ * La force d'en face sur la cote qu'on voit : contre quelqu'un, sa cote
+ * figée au lancement — comptée jamais sous son plancher (`apresLeDuel`) ;
+ * au dé, la sienne même — Automate joue à son niveau, un duel à chances
+ * égales (le choix du 16 octobre 2026, plus haut). Contre la cote de son
+ * score, la cote qu'on voit, portée au-dessus du niveau par la montée, lui
+ * prêtait 85 % de chances : « +4 / −17 ».
+ */
+export const forceQuOnVoit = (d: Pick<DuelJoue, 'coteAdverse'>, cote: number): number => d.coteAdverse ?? cote
+
+/**
+ * La cote qu'on voit après un duel, et son plancher : l'écart, contre une
+ * force d'en face qui ne compte jamais sous ce plancher, puis jamais sous une
+ * ligue gardée.
+ */
 export function apresLeDuel(
   cote: number,
   plancher: number | null,
@@ -268,7 +349,9 @@ export function apresLeDuel(
   lance = false,
   reglages: ReglagesDeLaMontee = MONTEE,
 ): { cote: number; plancher: number | null } {
-  const brute = cote + ecartDeLaMontee(cote, adverse, resultat, lance, reglages)
+  // Sous ses ligues gardées, la cote d'en face dit combien il a joué, pas comment : il compte à son plancher. En
+  // Platine, un bronze faisait « +5 / −19 » sous l'ELO (le choix du 17 octobre 2026, plus haut).
+  const brute = cote + ecartDeLaMontee(cote, Math.max(adverse, plancher ?? adverse), resultat, lance, reglages)
   const p = plancherApres(plancher, brute)
   return { cote: p === null ? brute : Math.max(brute, p), plancher: p }
 }
@@ -290,17 +373,21 @@ export interface SaCote {
 /**
  * Ce que met en jeu un duel contre une force d'en face : ce que chaque issue
  * ferait à la cote qu'on voit, plancher compris — sous l'Or, « +16 si tu
- * gagnes, +2 même si tu perds ». `lance` : c'est lui qui lance le défi.
+ * gagnes, +2 même si tu perds » ; plus bas que lui, l'adversaire y compte
+ * (`apresLeDuel`). `lance` : c'est lui qui lance le défi.
  */
 export function enjeuContre(moi: SaCote, adverse: number, lance = false): EnjeuDuDuel {
   const issue = (r: Resultat) => apresLeDuel(moi.cote, moi.plancher ?? null, adverse, r, lance).cote - moi.cote
   return { cote: moi.cote, gagne: issue(1), egalite: issue(0.5), perdu: issue(0) }
 }
 
-/** Ce que met en jeu une rencontre : contre la cote de son score. */
-export function enjeuDuDuel(moi: SaCote, sesJustes: number): EnjeuDuDuel {
-  return enjeuContre(moi, coteDuScore(sesJustes))
-}
+/**
+ * Ce que met en jeu un duel au dé, connu avant de tirer : à chances égales,
+ * contre sa propre cote (`forceQuOnVoit`) — le score d'Automate n'y est pour
+ * rien. Son plancher se lit de sa cote même : une ligue gardée atteinte, elle
+ * ne repasse jamais dessous (`releverLesDuels`).
+ */
+export const enjeuDuDe = (cote: number): EnjeuDuDuel => enjeuContre({ cote, plancher: plancherApres(null, cote) }, cote)
 
 /**
  * Un duel classé fini, tel que le journal le garde : sa série, ses bonnes
@@ -419,8 +506,9 @@ export interface ReleveDesDuels {
 
 /**
  * Relit ses duels, du plus ancien au plus récent : ses deux cotes partent de
- * `COTE_DE_DEPART`. La cachée suit l'ELO seul, placement compris ; celle
- * qu'on voit, la montée (`apresLeDuel`) — c'est elle que disent les écarts,
+ * `COTE_DE_DEPART`. La cachée suit l'ELO seul, placement compris, contre le
+ * score d'Automate au dé ; celle qu'on voit, la montée (`apresLeDuel`), contre
+ * sa propre cote au dé (`forceQuOnVoit`) — c'est elle que disent les écarts,
  * les semaines et les bordures. Chaque semaine (`semaineDe`, le lundi de
  * Paris) retient ses duels et la meilleure cote qu'elle a vue — celle qu'il
  * avait en y entrant comprise : il était dans sa ligue avant de jouer, et un
@@ -443,7 +531,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     const sonScore = coteDuScore(d.sesJustes)
     // Un duel d'avant la montée n'a figé qu'une cote, celle de l'ELO d'alors : la cachée bouge contre elle.
     cachee += ecartContre(cachee, d.coteCacheeAdverse ?? d.coteAdverse ?? sonScore, i, resultat)
-    const apres = apresLeDuel(cote, plancher, d.coteAdverse ?? sonScore, resultat, d.lance === true)
+    const apres = apresLeDuel(cote, plancher, forceQuOnVoit(d, cote), resultat, d.lance === true)
     const semaine = semaineDe(d.finiLe)
     const s = semaines.get(semaine) ?? { duels: 0, meilleure: cote, debut: cote }
     ecarts.set(d.serie, { avant: cote, ecart: apres.cote - cote })

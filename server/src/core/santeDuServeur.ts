@@ -6,6 +6,7 @@ import {
   ARRET_RECENT_MS,
   HEURE_MS,
   HEURES_DE_SANTE,
+  PLAFONDS_INCONNUS,
   RELEVE_MS,
   SANTE_GARDEE_MS,
   SILENCE_D_UN_ARRET_MS,
@@ -14,8 +15,10 @@ import {
   pageDuServeur,
   type AlertesDuServeur,
   type DemarrageDuServeur,
+  type ErreurEnDetail,
   type HeureDeSante,
   type PageDuServeur,
+  type PlafondsDuConteneur,
 } from '../../../shared/santeDuServeur'
 
 /** La page se relit au plus une fois la minute : un rechargement ne coûte rien au quota. */
@@ -37,10 +40,27 @@ function lireDemarrage(r: Row): DemarrageDuServeur {
   }
 }
 
+/** Les erreurs en détail d'une ligne, celles qui se lisent : une seule de travers ne doit pas faire tomber la page qui les liste. */
+function erreursLues(v: unknown): ErreurEnDetail[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter(
+      (e): e is ErreurEnDetail =>
+        !!e &&
+        typeof e === 'object' &&
+        ['source', 'nom', 'message'].every(cle => typeof e[cle] === 'string') &&
+        ['n', 'premiere', 'derniere'].every(cle => Number.isFinite(e[cle])) &&
+        Array.isArray(e.pile) &&
+        e.pile.every((c: unknown) => typeof c === 'string'),
+    )
+    .map(e => ({ ...e, code: typeof e.code === 'string' ? e.code : null, ou: typeof e.ou === 'string' ? e.ou : null }))
+}
+
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
 function lireHeure(r: Row): HeureDeSante | null {
   try {
     const releve = JSON.parse(String(r.releve)) as Partial<HeureDeSante>
+    const enDetail = erreursLues(releve.erreursEnDetail)
     return {
       heure: Number(r.heure),
       demarrage: String(r.demarrage),
@@ -48,9 +68,11 @@ function lireHeure(r: Row): HeureDeSante | null {
       routes: releve.routes ?? null,
       lentes: Array.isArray(releve.lentes) ? releve.lentes : [],
       erreurs: releve.erreurs && typeof releve.erreurs === 'object' ? releve.erreurs : {},
+      ...(enDetail.length > 0 && { erreursEnDetail: enDetail }),
       miroir: Number(releve.miroir ?? 0),
       charge: releve.charge ?? null,
       connexions: releve.connexions ?? null,
+      requetes: releve.requetes ?? null,
     }
   } catch {
     return null
@@ -83,16 +105,31 @@ export class SanteDuServeur {
   private readonly releve: ReleveHoraire
   private readonly now: () => number
   private readonly releveMs: number
+  private readonly plafonds: PlafondsDuConteneur
+  private readonly mesuresDeLHebergeur: string | null
 
+  /**
+   * `plafonds` : ceux du conteneur, lus une fois au démarrage
+   * (`plafondsDuConteneur`) ; `mesuresDeLHebergeur` : la page de ses
+   * mesures sur son tableau de bord, que la page « Le serveur » propose.
+   */
   constructor(
     url: string,
     authToken?: string,
-    deps: { maintenant?: () => number; releve?: ReleveHoraire; releveMs?: number } = {},
+    deps: {
+      maintenant?: () => number
+      releve?: ReleveHoraire
+      releveMs?: number
+      plafonds?: PlafondsDuConteneur
+      mesuresDeLHebergeur?: string | null
+    } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.releve = deps.releve ?? releveDuProcessus
     this.now = deps.maintenant ?? Date.now
     this.releveMs = deps.releveMs ?? RELEVE_MS
+    this.plafonds = deps.plafonds ?? PLAFONDS_INCONNUS
+    this.mesuresDeLHebergeur = deps.mesuresDeLHebergeur ?? null
   }
 
   async init() {
@@ -245,7 +282,7 @@ export class SanteDuServeur {
     const miennes = this.releve.lignes(this.id)
     const autres = heures.filter(h => h.demarrage !== this.id || !miennes.some(m => m.heure === h.heure))
     const courant = this.moi ?? { id: this.id, demarreLe: maintenant, pretEnMs: null, version: null, env: null, vuLe: maintenant, arreteLe: null }
-    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant })
+    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur })
   }
 
   /**

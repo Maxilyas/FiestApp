@@ -27,6 +27,7 @@ import type { Paliers } from './branches'
 import type { SentiersDAccueil } from './sentiers'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
+import type { ActiviteDUnJoueur } from './qgActivite'
 import { formeDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -456,10 +457,12 @@ export interface StatsDeCampagne {
   etoiles: number
   /** Les sentiers validés en épreuve jusqu'au palier du Cartographe (`PALIER_DU_CARTOGRAPHE`), ou plus haut. */
   sentiersMenes: number
+  /** Les tampons de son passeport : les thèmes pointus de l'expédition trouvés, chacun une fois (`campagne_reponses.sujet`). */
+  tampons: number
 }
 
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0 }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
@@ -934,6 +937,12 @@ export interface FicheDuJoueur extends ProfilDAdministration {
   connexion: { fermeeJusquA: number | null }
   /** L'épreuve de sentier qui l'attend : une seule à la fois, et il ne peut en commencer aucune autre. */
   epreuve: { sentier: string; palier: number; depuis: number; vieEnJeu: boolean } | null
+  /**
+   * Ses trente derniers jours, mode par mode : les questions jouées, les
+   * parties, les jours où il a joué (`shared/qgActivite.ts`) — sur quoi il
+   * s'acharne. Null si la base s'est tue.
+   */
+  activite: ActiviteDUnJoueur | null
 }
 
 /** Ce qu'un don de l'administrateur offre au plus : un geste pour quelqu'un, pas une économie à côté. */

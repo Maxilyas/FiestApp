@@ -470,7 +470,7 @@ export interface EtatDeCampagne {
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]
-  /** Les sujets qui ont de quoi faire une série, et combien de questions ; absents : un serveur d'avant. */
+  /** Les sujets et les rubriques (`SUJETS_ET_RUBRIQUES`) qui ont de quoi faire une série, et combien de questions ; absents : un serveur d'avant. */
   sujets?: { sujet: string; questions: number }[]
   /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number
@@ -502,8 +502,8 @@ export interface RapportDeSignalement {
   traiteLe: number | null
   /** Ce qui en a été fait, quand il a été relu (`shared/qgSignalements.ts`) ; null : relu avant qu'on l'écrive, le 14 octobre 2026. */
   issue: IssueDUnSignalement | null
-  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un parcours de thème (`sujet`). */
-  ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
+  /** Où il l'a jouée : une série, une épreuve d'un sentier (sa branche, son palier), le défi de la semaine, un défi entre amis, une révision de son carnet, une rencontre, un parcours de thème (`sujet`), une expédition. */
+  ou: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet' | 'expedition'
   branche?: string
   palier?: number
   /** Sa réponse, telle qu'il l'a lue, et si c'était la bonne ; null si elle n'est plus au journal. */
@@ -626,6 +626,8 @@ export interface CorrectionDeCampagne {
   juste: boolean
   niveau: Niveau
   anecdote: string | null
+  /** Un vrai ou faux de l'expédition tiré d'une question à quatre choix : la réponse qu'il proposait. */
+  proposee?: string
 }
 
 // ── Le défi de la semaine ─────────────────────────────────────────────────
@@ -951,7 +953,7 @@ export interface RencontreDeCampagne {
   adversaire: AdversaireEnJeu
   /** Ses bonnes réponses sur les questions déjà jouées : le score d'en face, quand on la reprend. */
   sesJustes: number
-  /** Ce qu'elle met en jeu sur sa cote, dit avant de jouer (`enjeuDuDuel`) ; absent d'un serveur d'avant. */
+  /** Ce qu'elle met en jeu sur sa cote, redit à chaque question — à chances égales, connu avant de tirer (`enjeuDuDe`) ; absent d'un serveur d'avant. */
   enjeu?: EnjeuDuDuel
 }
 

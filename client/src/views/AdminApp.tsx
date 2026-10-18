@@ -13,6 +13,7 @@ import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
+import { QgActivite } from '../components/QgActivite'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { useNouveautesDuMenu } from '../nouveautes'
@@ -30,7 +31,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
  * (`QgVueDEnsemble.tsx`), le journal de ses gestes (`QgJournal.tsx`) et la
  * santé du serveur sur sept jours (`QgServeur.tsx`), puis
- * une page par sujet, chacune à son adresse (`/admin#jour`) : les soirées
+ * une page par sujet, chacune à son adresse (`/admin#jour`) : l'activité de
+ * tous les modes (`QgActivite.tsx`), les soirées
  * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
  * le catalogue, les signalements (`AdminSignalements.tsx`). Au téléphone, la
  * liste des pages sous la vue d'ensemble et la barre du menu ; à
@@ -43,8 +45,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'journal' | 'serveur' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
-const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
+type Ecran = 'journal' | 'serveur' | 'activite' | 'soirees' | 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne' | 'duels' | 'economie' | 'signalements'
+const ECRANS: readonly Ecran[] = ['journal', 'serveur', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -56,6 +58,7 @@ function lireEcran(): Ecran | null {
 const TITRE: Record<Ecran, string> = {
   journal: 'Le journal',
   serveur: 'Le serveur',
+  activite: 'L’activité',
   soirees: 'Les soirées',
   profils: 'Les profils',
   salons: 'Les salons',
@@ -70,7 +73,8 @@ const TITRE: Record<Ecran, string> = {
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
  * pages qui existent : « Animer » la rejoindra à son tour. L'économie se
- * range avec les joueurs, comme sur la maquette : leurs confettis.
+ * range avec les joueurs, comme sur la maquette : leurs confettis ; l'activité
+ * en tête des modes, qu'elle compare.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -84,6 +88,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   {
     groupe: 'Les modes',
     pages: [
+      { ecran: 'activite', nom: 'Activité', icone: 'hash' },
       { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
@@ -340,6 +345,7 @@ export function AdminApp() {
                 Toutes les pages
               </h2>
               <ul className="style-liste">
+                <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
                 <Ligne
                   icone="glass"
                   nom="Les soirées"
@@ -378,6 +384,7 @@ export function AdminApp() {
         )}
         {ecran === 'journal' && <QgJournal />}
         {ecran === 'serveur' && <QgServeur />}
+        {ecran === 'activite' && <QgActivite />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}
         {ecran === 'profils' && <AdminProfils />}

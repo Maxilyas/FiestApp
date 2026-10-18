@@ -1,6 +1,6 @@
 import { AUCUNE_BORDURE, bordurePortee, choixDeBordure, ligueParCle, type BordureDeLigue, type CleDeLigue } from '../../../shared/duels'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
-import type { InStatement } from '@libsql/client'
+import type { InStatement, Row } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis, tronquer } from '../../../shared/avatars'
@@ -79,6 +79,7 @@ import {
   cibleEclat,
   conditionTenue,
   legendaire,
+  legendaireDeLExpedition,
   legendairesDebloques,
   legendairesOuvertsPar,
   type Condition,
@@ -106,6 +107,7 @@ import {
 import { PRIX_D_UNE_VIE, VIES_PAR_ACHAT_MAX, brancheDuMaitre, maitresDe } from '../../../shared/sentiers'
 import { PRIX_D_UN_SABLIER, SABLIERS_MAX, jourAvant, jourDe, moisDuChampion, niveauDuLaurier, titreDuChampion, titresDeChampion, type LaurierPorte, type NiveauDeLaurier } from '../../../shared/jour'
 import type { Achat, Mouvement, SorteDeVente } from '../../../shared/qgEconomie'
+import type { SoireeDUnProfil } from '../../../shared/qgActivite'
 import { PAGES, PREFIXE_DES_PAGES, moisDeLaPage, pagesDorees, pagesOuvertes } from '../../../shared/calendrier'
 import { additionnerCategories, additionnerSavoirs, justesParCategorie, type Savoir } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
@@ -113,7 +115,12 @@ import { sansAccent } from '../../../shared/homonymes'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
 import type { ArchiveStore } from '../core/archive'
+import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
+import type { CeQueLaLogeLit } from '../../../shared/loge'
+
+/** Chaque champ de `T` donné, même vide : un champ de plus dans `T` ne s'oublie pas en silence là où on le remplit. */
+type ToutDonne<T> = { [K in keyof Required<T>]: undefined extends T[K] ? T[K] | undefined : T[K] }
 
 /**
  * Les profils des joueurs récurrents, leurs sessions, leur expérience et
@@ -272,6 +279,19 @@ export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGN
 
 /** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
 export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
+
+/**
+ * Ce que le QG lit d'une ligne de soirée : qui, quand, les quiz qu'il y a
+ * joués et les questions qu'on lui a posées — tirés du détail dans la base
+ * même, sans le faire voyager (ses catégories en font l'essentiel). Une ligne
+ * illisible compte zéro au lieu de faire échouer la lecture.
+ */
+const COLONNES_D_UNE_SOIREE_DU_QG = `profile_id, created_at,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.quizJoues') END AS quiz,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.questions') END AS questions`
+
+/** Une soirée d'un profil, telle que le QG la compte (`COLONNES_D_UNE_SOIREE_DU_QG`). */
+const soireeDuQg = (r: Row): SoireeDUnProfil => ({ qui: String(r.profile_id), quand: Number(r.created_at), quiz: Number(r.quiz ?? 0), questions: Number(r.questions ?? 0) })
 
 /** Ses dernières soirées, où l'on cherche qui il a croisé (`compagnonsDeSoiree`) : au-delà, on ne se souvient plus de qui était là. */
 const SOIREES_DES_CROISES = 5
@@ -539,6 +559,8 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (page) return { emoji: '📜', title: `Le calendrier : ${PAGES.find(x => x.mois === page)?.nom ?? page}` }
   const d = divin(cle)
   if (d) return { emoji: '✨', title: d.nom }
+  const l = legendaireDeLExpedition(cle)
+  if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
   return { emoji: '✨', title: cle }
 }
 
@@ -667,7 +689,7 @@ export class ProfileStore {
    * Ce que la campagne sait de lui — séries, épreuves des sentiers, défis
    * (`CampagneStore.savoirDe`) : ses écussons, « Ma carrière » et sa
    * précision, avec les soirées et le quiz du jour. Branché au démarrage
-   * comme `confettisDeCampagne`.
+   * comme `campagneDuProfil`.
    */
   savoirDeCampagne?: (profileId: string) => Promise<Savoir>
 
@@ -686,12 +708,14 @@ export class ProfileStore {
   justesDuJour?: (profileId: string) => Promise<number>
 
   /**
-   * Ses confettis de campagne (`CampagneStore.confettisDe`) : un par bonne
-   * réponse, comme au quiz du jour, et ce que paient les étoiles de ses
-   * sentiers (`CONFETTIS_DES_ETOILES`) — des choix de produit, dits avec la
-   * campagne. Branchés au démarrage comme `justesDuJour`.
+   * Ce que la campagne dit de lui, d'une seule lecture (`CampagneStore.duProfil`) :
+   * ses confettis de campagne — un par bonne réponse, comme au quiz du jour,
+   * et ce que paient les étoiles de ses sentiers (`CONFETTIS_DES_ETOILES`) et
+   * les ligues de ses duels, des choix de produit dits avec la campagne —, ses
+   * paliers des sentiers et sa cote. Le solde lisait ses paliers à part, pour
+   * ses maîtres. Branchée au démarrage comme `justesDuJour`.
    */
-  confettisDeCampagne?: (profileId: string) => Promise<number>
+  campagneDuProfil?: (profileId: string) => Promise<CampagneDuProfil>
 
   /**
    * Ses bonnes réponses du quiz du jour et de la campagne données en portant
@@ -710,7 +734,7 @@ export class ProfileStore {
    * pour sa carte et pour la bordure qu'il choisit ; null tant qu'il n'a fini
    * aucun duel classé.
    */
-  duelsDe?: (profileId: string) => Promise<{ ligue: CleDeLigue; cote: number; bordures: BordureDeLigue[] } | null>
+  duelsDe?: (profileId: string) => Promise<CoteDesDuels | null>
 
   /**
    * Ses bordures de ligue, de mémoire (`CampagneStore.borduresEnMemoire`) :
@@ -1356,40 +1380,41 @@ export class ProfileStore {
     p: ProfileRec,
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
+    campagne?: Promise<CampagneDuProfil>,
   ): Promise<BoutiqueDuProfil> {
-    return (await this.boutiqueEtDons(p, jour, soirees)).boutique
+    return (await this.boutiqueEtDons(p, jour, soirees, campagne)).boutique
   }
 
-  /** Sa boutique, et les dons de l'administrateur qu'elle a comptés, le plus récent d'abord : l'accueil les annonce, la fiche du QG les additionne. */
+  /**
+   * Sa boutique, et les dons de l'administrateur qu'elle a comptés, le plus
+   * récent d'abord : l'accueil les annonce, la fiche du QG les additionne.
+   * `campagne`, quand sa page l'a déjà demandée (`campagneDuProfil`).
+   */
   async boutiqueEtDons(
     p: ProfileRec,
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
+    campagne?: Promise<CampagneDuProfil>,
   ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[] }> {
     const historique = soirees ?? this.historiqueOf(p.id)
-    const [lues, achats, duJour, deCampagne, maitres, compagnons] = await Promise.all([
+    const [lues, achats, duJour, deCampagne, compagnons] = await Promise.all([
       historique,
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
-      this.confettisDeCampagne?.(p.id) ?? 0,
-      // Ses maîtres ouvrent le thème qui se gagne ; muets, ils ne l'ôtent qu'à cette lecture.
-      this.paliersDe(p.id).then(
-        x => maitresDe(x).length,
-        () => 0,
-      ),
+      // Ses confettis de campagne, et ses maîtres, qui ouvrent le thème qui se gagne : la même lecture.
+      campagne ?? this.lectureDeCampagne(p.id),
       this.compagnonsDe(p, historique),
     ])
     const offerts = achats.dons.reduce((n, d) => n + d.confettis, 0)
-    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne + offerts + achats.missions + achats.coffres
+    const gagnes =
+      lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne.confettis + offerts + achats.missions + achats.coffres
     const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
     const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.compagnons + somme(achats.fonds)
     const fondsAchetes = FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key)
     return {
       boutique: {
         confettis: { gagnes, depenses, solde: gagnes - depenses },
-        possedes: THEMES.filter(
-          t => t.rarete === 'offert' || achats.themes.has(t.key) || themeGagne(t, { maitres, recompenses: this.recompensesOf(p.id) }),
-        ).map(t => t.key),
+        possedes: this.themesPossedes(p, achats.themes, maitresDe(deCampagne.paliers).length),
         porte: this.themePorte(p),
         jour,
         // Absents sans compagnon ni fond acheté : rien de plus à lire pour qui n'en a pas.
@@ -1398,6 +1423,16 @@ export class ProfileStore {
       },
       dons: achats.dons,
     }
+  }
+
+  /** Ce que la campagne dit de lui (`campagneDuProfil`) ; rien, sans campagne branchée — un test qui n'en a pas besoin. */
+  private lectureDeCampagne(profileId: string): Promise<CampagneDuProfil> {
+    return this.campagneDuProfil?.(profileId) ?? Promise.resolve({ confettis: 0, paliers: {}, duels: null })
+  }
+
+  /** Les thèmes qu'il a : les offerts, ceux qu'il a achetés, ceux que ses trophées et ses maîtres ouvrent. */
+  private themesPossedes(p: ProfileRec, achetes: ReadonlyMap<string, number>, maitres: number): string[] {
+    return THEMES.filter(t => t.rarete === 'offert' || achetes.has(t.key) || themeGagne(t, { maitres, recompenses: this.recompensesOf(p.id) })).map(t => t.key)
   }
 
   /**
@@ -2348,8 +2383,11 @@ export class ProfileStore {
       eclats: this.eclatsOf(p.id),
       eclatsEteints: this.eteintsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
-      // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !moisDeLaPage(k)).length,
+      // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
+      // saison, ni un légendaire gardé au bout de l'expédition : ils ne se
+      // montrent que par leur légendaire.
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:') && !k.startsWith('expedition:') && !moisDeLaPage(k))
+        .length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
@@ -2368,12 +2406,14 @@ export class ProfileStore {
    * Le profil au complet, pour sa propre page : l'étagère, l'historique, la
    * fiche de carrière et tous les hauts faits, gagnés ou non. Cela coûte
    * quelques requêtes, et n'a donc rien à faire dans l'accusé de réception
-   * que reçoit chaque téléphone qui rejoint une soirée.
+   * que reçoit chaque téléphone qui rejoint une soirée. `paliers`, quand sa
+   * page les a déjà demandés (`campagneDuProfil`).
    */
   async toDetail(
     p: ProfileRec,
     espace?: (spaceId: string) => { nom: string; slug: string } | null,
     historique?: Pick<ArchiveStore, 'titres' | 'joueurDuProfil'>,
+    paliers?: Promise<Paliers>,
   ): Promise<PublicProfileDetail> {
     const [vitrine, soirees] = await Promise.all([this.badgesOf(p.id), this.historiqueOf(p.id)])
     // Le titre que l'historique donne AUJOURD'HUI à chaque soirée — un
@@ -2402,7 +2442,7 @@ export class ProfileStore {
     const moisDuCalendrier = (this.moisDuJour?.() ?? '').slice(5, 7)
     const [jour, maitres, campagne, joursCeMois, ailleurs] = await Promise.all([
       this.statsDuJourDe(p.id),
-      this.paliersDe(p.id).then(
+      (paliers ?? this.paliersDe(p.id)).then(
         x => maitresDe(x).length,
         e => {
           console.error('[profil] sentiers illisibles pour ses fonds :', e)
@@ -2445,25 +2485,84 @@ export class ProfileStore {
       categories: additionnerCategories(carriere.categories, ailleurs.categories),
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
-      fonds: this.fondsOuvertsDe(p, jour, maitres),
-      gerbes: gerbesOuvertes(this.recompensesOf(p.id), this.tresorsOf(p.id)),
+      ...this.ouvertsDe(p, jour, maitres),
       calendrier: {
         pages: pagesOuvertes(this.recompensesOf(p.id)),
         dorees: pagesDorees(this.recompensesOf(p.id)),
         mois: moisDuCalendrier,
         joursCeMois,
       },
+    }
+  }
+
+  /**
+   * Ce qu'il peut porter que ses trophées, son quiz du jour, ses coffres et
+   * ses maîtres lui ouvrent, de mémoire : ses fonds, ses gerbes, ses titres
+   * datés. Sa page (`toDetail`) et ce que sa loge compte (`ceQueLaLogeLit`)
+   * le lisent d'ici.
+   */
+  private ouvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }, maitres: number) {
+    return {
+      fonds: this.fondsOuvertsDe(p, jour, maitres),
+      gerbes: gerbesOuvertes(this.recompensesOf(p.id), this.tresorsOf(p.id)),
       titresDates: titresDeChampion(this.recompensesOf(p.id)),
     }
+  }
+
+  /**
+   * Ce que sa loge compte de neuf (`ceQuIlAPorter`), sans le reste de sa
+   * page : la pastille rouge de « Profil », que l'accueil, ses quiz, son
+   * compte et le QG demandent à chaque affichage. Elle refaisait toute la
+   * page — seize allers-retours vers la base, en quatre vagues, deux fois
+   * ceux de l'accueil qu'elle accompagne — pour cinq lectures, ici d'une
+   * seule vague (le banc du 16 octobre 2026 : au dixième de cœur de
+   * l'hébergeur, chaque aller-retour coûte deux millisecondes de
+   * processeur). Chaque champ vient du même endroit que dans sa page —
+   * `profil-charge.test.ts` compare les deux comptes —, et le type oblige à
+   * les donner tous : un champ que la loge lirait de plus ne s'oublierait
+   * pas ici.
+   */
+  async ceQueLaLogeLit(p: ProfileRec): Promise<CeQueLaLogeLit> {
+    const [etagere, jour, achats, campagne] = await Promise.all([
+      this.etagereDe(p.id),
+      this.statsDuJourDe(p.id),
+      // Une base qui se tait ôte ce qu'elle dit — ses thèmes, ses sentiers,
+      // ses bordures —, comme à sa page, pas tout le compte.
+      this.achatsDe(p.id).catch(e => {
+        console.error('[profil] boutique illisible pour sa loge :', e)
+        return null
+      }),
+      this.lectureDeCampagne(p.id).catch(e => {
+        console.error('[profil] campagne illisible pour sa loge :', e)
+        return null
+      }),
+    ])
+    const maitres = campagne ? maitresDe(campagne.paliers).length : 0
+    const { niveau, ouvertes, eclats, legendaires, divins, compagnons } = this.toPublic(p)
+    const lit: ToutDonne<CeQueLaLogeLit> = {
+      niveau,
+      ouvertes,
+      eclats,
+      legendaires,
+      divins,
+      compagnons,
+      vitrine: etagere.map(r => ({ key: r.key })),
+      hautsFaits: await this.hautsFaitsVus(p.id, null, []),
+      sentiers: campagne?.paliers,
+      bordures: campagne?.duels?.bordures,
+      boutique: achats ? { possedes: this.themesPossedes(p, achats.themes, maitres) } : undefined,
+      ...this.ouvertsDe(p, jour, maitres),
+    }
+    return lit
   }
 
   /**
    * Tout le catalogue des hauts faits, vu par ce profil : ceux de soirée avec
    * le nombre de fois, ceux de carrière avec leur palier et leur jauge. Ce
    * qu'on n'a pas encore se montre aussi — savoir ce qui vient donne envie de
-   * revenir.
+   * revenir. Sans `carriere`, sans jauge : la loge ne compte que ce qu'il a.
    */
-  private async hautsFaitsVus(id: string, carriere: Carriere, vitrine: BadgePorte[]): Promise<HautFaitVu[]> {
+  private async hautsFaitsVus(id: string, carriere: Carriere | null, vitrine: readonly BadgePorte[]): Promise<HautFaitVu[]> {
     const recompenses = this.recompensesOf(id)
     const rarete = new Map(vitrine.map(b => [b.key, b]))
     const soiree: HautFaitVu[] = HAUTS_FAITS_REGAGNABLES.map(h => {
@@ -2482,7 +2581,6 @@ export class ProfileStore {
       }
     })
     const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.map(h => {
-      const valeur = h.valeur(carriere)
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
@@ -2497,7 +2595,7 @@ export class ProfileStore {
         ruleUne: h.mesureUne,
         ton: 'eclat',
         fois: palier,
-        valeur,
+        ...(carriere && { valeur: h.valeur(carriere) }),
         prochain: palier < 3 ? h.paliers[palier] : null,
         ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
       }
@@ -2959,11 +3057,12 @@ export class ProfileStore {
   /**
    * Ce que le QG compte d'un profil depuis un instant, d'un seul lot : les
    * inscriptions, les achats — thèmes, vies, sabliers — et les soirées où il
-   * a été crédité, à l'heure de leur dernier crédit (les lignes à part,
-   * `#jour` ou `#campagne`, n'en sont pas). Des dates, et qui pour les
-   * soirées : de quoi compter le jour et les profils actifs.
+   * a été crédité, à l'heure de leur premier crédit — la ligne se remplace,
+   * sa date reste (`ligneDeCredit`) ; les lignes à part, `#jour` ou
+   * `#campagne`, n'en sont pas. Des dates, qui pour les soirées, et ce qu'il
+   * y a joué : de quoi compter le jour, les profils actifs et leur activité.
    */
-  async activiteDepuis(depuis: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }> {
+  async activiteDepuis(depuis: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }> {
     const [inscrits, achats, soirees] = await this.client.batch(
       [
         { sql: 'SELECT created_at FROM profiles WHERE created_at >= ?', args: [depuis] },
@@ -2973,15 +3072,24 @@ export class ProfileStore {
                 UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?`,
           args: [depuis, depuis, depuis],
         },
-        { sql: `SELECT profile_id, created_at FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
+        { sql: `SELECT ${COLONNES_D_UNE_SOIREE_DU_QG} FROM profile_xp WHERE created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [depuis] },
       ],
       'read',
     )
     return {
       inscriptions: inscrits.rows.map(r => Number(r.created_at)),
       achats: achats.rows.map(r => Number(r.created_at)),
-      soirees: soirees.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.created_at) })),
+      soirees: soirees.rows.map(soireeDuQg),
     }
+  }
+
+  /** Les soirées d'un seul profil depuis un instant, lues comme celles de `activiteDepuis` : sa fiche au QG. */
+  async soireesDuQgDe(profileId: string, depuis: number): Promise<SoireeDUnProfil[]> {
+    const res = await this.client.execute({
+      sql: `SELECT ${COLONNES_D_UNE_SOIREE_DU_QG} FROM profile_xp WHERE profile_id = ? AND created_at >= ? AND ${HORS_LIGNES_A_PART}`,
+      args: [profileId, depuis],
+    })
+    return res.rows.map(soireeDuQg)
   }
 
   /**
@@ -3700,10 +3808,20 @@ export class ProfileStore {
    * et ce que sa rareté vaut dans la population du moment.
    */
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
+    const [etagere, { porteurs, profils }] = await Promise.all([this.etagereDe(profileId), this.populationBadges()])
+    return etagere.map(b => {
+      const n = porteurs.get(b.key) ?? 1
+      return { ...b, porteurs: n, rarete: rareteDe(n, profils) }
+    })
+  }
+
+  /** Les lignes de son étagère, sans leur rareté : ce que sa loge compte (`ceQueLaLogeLit`) n'en a pas besoin. */
+  private async etagereDe(profileId: string): Promise<Omit<BadgePorte, 'porteurs' | 'rarete'>[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
-    // Les saisons non plus : elles ne se montrent que par leur légendaire ;
-    // ni les pages du calendrier, qui ont leur page.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire,
+    // comme un légendaire gardé au bout de l'expédition ; ni les pages du
+    // calendrier, qui ont leur page.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -3714,22 +3832,18 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%' AND badge NOT LIKE 'expedition:%' AND badge NOT LIKE '${PREFIXE_DES_PAGES}%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
-    const { porteurs, profils } = await this.populationBadges()
     return rows.rows.map(r => {
       const key = String(r.badge)
-      const n = porteurs.get(key) ?? 1
       return {
         key,
         emoji: String(r.emoji),
         title: titreDuPrix(key) ?? String(r.title),
         fois: Number(r.fois),
         dernier: Number(r.dernier),
-        porteurs: n,
-        rarete: rareteDe(n, profils),
       }
     })
   }
@@ -3806,6 +3920,12 @@ export class ProfileStore {
   async pourLAdministrateur(id: string): Promise<ProfileRec | null> {
     await this.byIds([id])
     return this.profiles.get(id) ?? null
+  }
+
+  /** Des profils pour l'administrateur, ceux qui ne sont pas en mémoire chargés par paquets (`byIds`) : suspendus compris ; ceux qui n'existent plus manquent. */
+  async pourLAdministrateurDe(ids: readonly string[]): Promise<ProfileRec[]> {
+    await this.byIds(ids)
+    return ids.flatMap(id => this.profiles.get(id) ?? [])
   }
 
   /**

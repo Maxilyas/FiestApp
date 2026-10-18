@@ -11,6 +11,7 @@
 //   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --questions=<n> [--nom=d1]   n questions pour chaque thème, famille par famille de son inventaire
 //   npx tsx scripts/generer-campagne.ts preparer --inventaire=<clé>[,<clé>…] --manques [--nom=d2]          une question par sujet de l'inventaire qu'aucune n'aborde encore
 //   npx tsx scripts/generer-campagne.ts preparer --sujet=<clé>[,<clé>…] --questions=<n> [--nom=f1]        n questions de plus pour chaque thème, époque ou fil rouge, là où il vit déjà
+//   npx tsx scripts/generer-campagne.ts preparer --sujet=<clé>:<n>[,<clé>:<n>…] [--nom=f2]               le nombre de chacun après ses deux-points
 //   npx tsx scripts/generer-campagne.ts suite [<nom>] [--forcer]
 //   npx tsx scripts/generer-campagne.ts etat [<nom>]
 //
@@ -322,7 +323,7 @@ function auProrata(poids: readonly number[], total: number): number[] {
 export function contrainteDuSujet(sujet: Sujet, categorie: Categorie, sousTheme: string): string | undefined {
   if (sujet.sousThemes?.[categorie]?.includes(sousTheme)) return undefined
   const voies: string[] = []
-  if (sujet.etiquettes && sujet.etiquettes.length > 0) voies.push(`étiquetée ${sujet.etiquettes.map(e => `« ${e} »`).join(' ou ')}`)
+  if (sujet.etiquettes && sujet.etiquettes.length > 0 && !sujet.etiquettesHors?.includes(categorie)) voies.push(`étiquetée ${sujet.etiquettes.map(e => `« ${e} »`).join(' ou ')}`)
   if (sujet.annees) voies.push(sujet.annees[1] >= 10000 ? `datée de ${sujet.annees[0]} ou après` : `datée de ${sujet.annees[0]} à ${sujet.annees[1]}`)
   if (sujet.portee) voies.push(`de portée « ${sujet.portee} »`)
   return voies.length > 0 ? `chacune ${voies.join(', ou ')} (${sujet.nom})` : undefined
@@ -619,7 +620,8 @@ export interface OptionsDePreparation {
   /**
    * Écrire `questions` questions de plus pour chacun de ces sujets de « Sur
    * quoi ? » (« surnoms,annees-50 ») — thème, époque ou fil rouge —, là où il
-   * vit déjà (`commandeDuSujet`), dans les mêmes vagues.
+   * vit déjà (`commandeDuSujet`), dans les mêmes vagues ; ou le nombre de
+   * chacun après ses deux-points (« harry-potter:40,james-bond:75 »).
    */
   sujet?: string
 }
@@ -646,10 +648,15 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
     throw new Error('--inventaire=<clé> : avec --questions=<nombre>, ou avec --manques — l’un ou l’autre.')
   }
   if (o.sujet !== undefined && (o.inventaire !== undefined || o.sentiers !== undefined || o.theme !== undefined)) throw new Error('--sujet ne se mêle ni à --inventaire, ni à --sentiers, ni à --theme.')
-  const sujets = o.sujet?.split(',').map(cle => sujetParCle(cle.trim()))
-  if (sujets && !sujets.every((s): s is Sujet => s !== undefined)) throw new Error(`--sujet=<clé>[,<clé>…] : des sujets de shared/sujets.ts (${SUJETS.map(s => s.cle).join(', ')}).`)
-  if (sujets && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--sujet=<clé> : avec --questions=<nombre>, combien de plus pour chacun.')
-  if (o.sentiers === undefined && !theme && !inventaires && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
+  // Chacun son nombre après ses deux-points (« james-bond:75 »), sinon celui de --questions : sept sujets
+  // de 39 à 93 questions, le 17 octobre 2026, ne demandaient pas tous autant pour atteindre leurs cent.
+  const sujets = o.sujet?.split(',').map(morceau => {
+    const [cle, n] = morceau.trim().split(':')
+    return { sujet: sujetParCle(cle.trim()), n: n === undefined ? o.questions : Number(n) }
+  })
+  if (sujets && !sujets.every(d => d.sujet !== undefined)) throw new Error(`--sujet=<clé>[,<clé>…] : des sujets de shared/sujets.ts (${SUJETS.map(s => s.cle).join(', ')}).`)
+  if (sujets && !sujets.every(d => Number.isInteger(d.n) && d.n! >= 1)) throw new Error('--sujet=<clé> : avec --questions=<nombre>, combien de plus pour chacun — ou le sien après ses deux-points (« james-bond:75 »).')
+  if (o.sentiers === undefined && !theme && !inventaires && !sujets && (!Number.isInteger(o.questions) || o.questions! < 1)) throw new Error('--questions=<nombre> : combien de questions écrire, en tout.')
   const parLot = o.parLot ?? QUESTIONS_PAR_LOT
   if (!Number.isInteger(parLot) || parLot < 5 || parLot > 40) throw new Error('--par-lot : de 5 à 40 questions par lot.')
   const enCours = generations(ctx).find(x => !finie(x))
@@ -665,7 +672,7 @@ export function preparer(ctx: Contexte, o: OptionsDePreparation): { generation: 
   const commandes = theme
     ? commandeDuTheme(theme, lues.map(q => q.meta))
     : sujets
-      ? reunir(sujets.map(s => commandeDuSujet(s, lues.map(q => q.meta), o.questions!)))
+      ? reunir(sujets.map(d => commandeDuSujet(d.sujet!, lues.map(q => q.meta), d.n!)))
       : inventaires
         ? reunir(inventaires.map(t => (o.manques ? commandeDesManques(t, lues) : commandeDeLInventaire(t, o.questions!))))
         : o.sentiers === undefined

@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
+import { copierTexte } from '../copier'
+import { showToast } from '../state'
 import { Icon, type IconName } from './Icon'
+import { Feuille } from './Pieces'
 import { barreArrondie, useLargeur } from './QgVueDEnsemble'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
@@ -8,14 +11,21 @@ import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege,
 import {
   MEMOIRE_DE_L_HEBERGEUR_MO,
   PROCESSEUR_DE_L_HEBERGEUR_PCT,
+  requetesServies,
   tempsDeReponse,
+  type ErreurDeLaSemaine,
   type EvenementDuServeur,
   type HeureDuServeur,
   type PageDuServeur,
+  type PlafondsDuConteneur,
 } from '../../../shared/santeDuServeur'
 
 /** Une semaine de réveils en compte une quinzaine : les douze derniers d'emblée, le reste sur demande. */
 const EVENEMENTS_MONTRES = 12
+/** Les erreurs de la semaine montrées d'emblée, les plus récentes : le reste sur demande. */
+const ERREURS_MONTREES_D_ABORD = 10
+/** Les heures d'une erreur que sa fiche détaille : une panne qui a duré la semaine les remplirait toutes. */
+const HEURES_D_UNE_ERREUR = 12
 
 /** « mar. 13 oct. » */
 const dateCourte = (instant: number) => `${JOURS_DE_LA_SEMAINE[jourDeLaSemaine(instant)].court} ${jourAbrege(jourDe(instant))}`
@@ -37,6 +47,11 @@ function quandDuServeur(instant: number, maintenant: number): string {
 }
 
 const erreurs = (n: number) => `${formatNumber(n)} erreur${n > 1 ? 's' : ''}`
+const fois = (n: number) => `${formatNumber(n)} fois`
+
+/** « 3 erreurs : POST /api/jour/reponse (2), socket host:launch (1) » — l'heure lue nomme ses sources ; sans erreur, elle s'en tait. */
+const erreursDeLHeure = (h: HeureDuServeur) =>
+  h.erreurs === 0 ? null : `${erreurs(h.erreurs)} : ${h.erreursParSource.map(s => `${s.source} (${formatNumber(s.n)})`).join(', ')}`
 
 /**
  * La santé du serveur au QG (`/admin#serveur`, les choix du 13 octobre 2026) :
@@ -66,6 +81,16 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         {enMarche.env === 'production' || enMarche.env === null ? 'Production' : enMarche.env}
         {enMarche.version && ` · version ${enMarche.version}`} · en marche depuis {dureeEcrite(maintenant - enMarche.depuis)}. Sept jours heure par heure ;
         la nuit, l’hébergeur endort le serveur : ses heures sont hachurées.
+        {page.mesuresDeLHebergeur && (
+          <>
+            {' '}
+            Ce que le serveur mesure de lui-même ; Render garde aussi{' '}
+            <a className="link-inline" href={page.mesuresDeLHebergeur} target="_blank" rel="noreferrer">
+              ses propres graphiques
+            </a>
+            , vus de dehors.
+          </>
+        )}
       </p>
 
       <section className="qg-jour" aria-labelledby="serveur-semaine">
@@ -116,7 +141,8 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         maintenant={maintenant}
       />
       <Turso heures={page.heures} maintenant={maintenant} />
-      <LaCharge heures={page.heures} maintenant={maintenant} />
+      <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
+      <LeTrafic heures={page.heures} maintenant={maintenant} />
       <Heures
         id="serveur-erreurs"
         titre="Les erreurs serveur"
@@ -124,20 +150,11 @@ export function SanteDuServeurAuQg({ page }: { page: PageDuServeur }) {
         heures={page.heures}
         valeur={h => (h.eveille ? h.erreurs : null)}
         ecrire={erreurs}
+        legende={erreursDeLHeure}
         classe="qg-serveur-erreur"
         maintenant={maintenant}
-      >
-        {c.erreurs.sources.length > 0 && (
-          <ul className="qg-liste qg-sources">
-            {c.erreurs.sources.map(s => (
-              <li key={s.source}>
-                <span className="qg-source">{s.source}</span>
-                <span className="num">{erreurs(s.n)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Heures>
+      />
+      <CeQuiAEchoue page={page} />
 
       <Evenements evenements={page.evenements} maintenant={maintenant} />
       <TableauDesHeures heures={page.heures} maintenant={maintenant} />
@@ -180,9 +197,9 @@ function Heures({
   heures,
   valeur,
   ecrire,
+  legende,
   classe,
   maintenant,
-  children,
 }: {
   id: string
   titre: string
@@ -190,9 +207,10 @@ function Heures({
   heures: HeureDuServeur[]
   valeur: (h: HeureDuServeur) => number | null
   ecrire: (v: number) => string
+  /** Ce que l'heure lue en dit, plus que son chiffre ; null, son chiffre seul. */
+  legende?: (h: HeureDuServeur) => string | null
   classe: string
   maintenant: number
-  children?: ReactNode
 }) {
   const [choisie, setChoisie] = useState<number | null>(null)
   const h = heures[choisie ?? derniereMesuree(heures.map(valeur))]
@@ -205,10 +223,193 @@ function Heures({
       </div>
       <GrapheDesHeures id={id} nom={titre} heures={heures} valeur={valeur} ecrire={ecrire} classe={classe} maintenant={maintenant} choisie={choisie} choisir={setChoisie} />
       <p className="qg-legende-jour" aria-live="polite">
-        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : ecrire(v)}
+        {heureDuReleve(h.heure, maintenant)} : {!h.eveille ? 'endormi' : v === null ? 'rien de mesuré' : (legende?.(h) ?? ecrire(v))}
       </p>
-      {children}
     </section>
+  )
+}
+
+/**
+ * Ce qui a échoué cette semaine (le souhait du propriétaire du 17 octobre
+ * 2026 : « mieux voir les erreurs, d'où elles proviennent, et avoir des
+ * détails en cliquant dessus ») : les mêmes fondues, la plus récente
+ * d'abord — d'où elle vient, sa sorte et son message, l'endroit du code qui
+ * l'a levée —, chacune ouvre sa fiche. Le graphique disait combien et
+ * quand, rien de ce qu'il fallait réparer. Hors de l'écran nocturne : la
+ * fiche s'ouvre dans le thème de la page.
+ */
+function CeQuiAEchoue({ page }: { page: PageDuServeur }) {
+  const [toutes, setToutes] = useState(false)
+  const [ouverte, setOuverte] = useState<ErreurDeLaSemaine | null>(null)
+  const { erreurs: liste, erreursSansDetail: sansDetail, maintenant } = page
+  const montrees = toutes ? liste : liste.slice(0, ERREURS_MONTREES_D_ABORD)
+  return (
+    <section className="qg-carte" aria-labelledby="serveur-echecs">
+      <div className="qg-carte-tete">
+        <h2 id="serveur-echecs">Ce qui a échoué</h2>
+        {liste.length > 0 && <span className="etiquette num">{liste.length}</span>}
+      </div>
+      {liste.length === 0 && sansDetail.length === 0 && <p className="muted small">Aucune erreur serveur cette semaine.</p>}
+      {liste.length > 0 && (
+        <ul className="qg-liste">
+          {montrees.map(e => (
+            <li key={e.cle}>
+              <button type="button" className="qg-ligne" onClick={() => setOuverte(e)}>
+                <span className="qg-rond qg-rond-alerte" aria-hidden="true">
+                  <Icon name="alert" />
+                </span>
+                <span className="qg-ligne-texte">
+                  <span className="qg-source">{e.source}</span>
+                  <b className="qg-echec-message">{e.message ? `${e.nom} : ${e.message}` : e.nom}</b>
+                  <span className="muted small">{[fois(e.n), `la dernière ${quandDuServeur(e.derniere, maintenant)}`, e.ou].filter(Boolean).join(' · ')}</span>
+                </span>
+                <Icon name="chevron-right" className="qg-chevron" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!toutes && liste.length > ERREURS_MONTREES_D_ABORD && (
+        <button type="button" className="lien-discret qg-suite" onClick={() => setToutes(true)}>
+          Et {formatNumber(liste.length - ERREURS_MONTREES_D_ABORD)} de plus cette semaine
+          <Icon name="chevron-down" />
+        </button>
+      )}
+      {sansDetail.length > 0 && (
+        <div className="qg-fiche-groupe">
+          {/* Comptées, jamais perdues : d'avant le détail, ou au-delà de douze dans l'heure (`ERREURS_EN_DETAIL`). */}
+          <p className="muted small">Comptées sans leur détail — d’avant le 17 octobre 2026, ou au-delà de douze dans l’heure :</p>
+          <ul className="qg-liste qg-sources">
+            {sansDetail.map(s => (
+              <li key={s.source}>
+                <span className="qg-source">{s.source}</span>
+                <span className="num">{erreurs(s.n)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {ouverte && (
+        <Feuille
+          // Sa sorte seule : avec son code, « LibsqlError · SQLITE_BUSY » passait sur deux lignes au téléphone.
+          titre={ouverte.nom}
+          onFermer={() => setOuverte(null)}
+          pied={
+            <button
+              type="button"
+              className="btn btn-block"
+              onClick={async () => {
+                const copie = await copierTexte(texteDeLErreur(ouverte, page))
+                showToast({ kind: copie ? 'info' : 'error', message: copie ? 'Détail copié' : 'Copie impossible : sélectionne-le à la main' })
+              }}
+            >
+              <Icon name="copy" />
+              Copier le détail
+            </button>
+          }
+        >
+          <FicheDeLErreur erreur={ouverte} page={page} />
+        </Feuille>
+      )}
+    </section>
+  )
+}
+
+/**
+ * La fiche d'une erreur : son message entier, d'où elle vient — la route,
+ * le socket — et l'endroit du code, combien de fois et quand, sous quelles
+ * versions — encore là après une mise en ligne, elle n'est pas réparée —,
+ * ses heures, et sa pile d'appels ramenée aux fichiers du dépôt.
+ */
+export function FicheDeLErreur({ erreur: e, page }: { erreur: ErreurDeLaSemaine; page: PageDuServeur }) {
+  const { maintenant, enMarche } = page
+  const heures = e.heures.slice(0, HEURES_D_UNE_ERREUR)
+  return (
+    <div className="qg-fiche">
+      <p className="qg-echec-entier">{e.message || 'Sans message.'}</p>
+      <dl className="admin-fiche">
+        <Ligne nom="D’où">
+          <span className="qg-source">{e.source}</span>
+        </Ligne>
+        <Ligne nom="Dans le code">{e.ou ? <span className="qg-source">{e.ou}</span> : 'hors du dépôt'}</Ligne>
+        {e.code && (
+          <Ligne nom="Code">
+            <span className="qg-source">{e.code}</span>
+          </Ligne>
+        )}
+        <Ligne nom="Combien">
+          {fois(e.n)}, en {formatNumber(e.heures.length)} heure{e.heures.length > 1 ? 's' : ''}
+        </Ligne>
+        <Ligne nom="La première">{quandDuServeur(e.premiere, maintenant)}</Ligne>
+        <Ligne nom="La dernière">{quandDuServeur(e.derniere, maintenant)}</Ligne>
+        {e.versions.length > 0 && <Ligne nom={e.versions.length > 1 ? 'Versions' : 'Version'}>{e.versions.join(', ')}</Ligne>}
+      </dl>
+      {enMarche.version && (
+        <p className="qg-fiche-note">
+          <Icon name={e.versions.includes(enMarche.version) ? 'alert' : 'check'} />
+          <span>
+            {e.versions.includes(enMarche.version)
+              ? `Tombée sous la version en marche (${enMarche.version}) : pas réparée.`
+              : `Pas revue depuis la mise en ligne de la version ${enMarche.version} : peut-être réparée.`}
+          </span>
+        </p>
+      )}
+      {e.pile.length > 0 && (
+        <div className="qg-fiche-groupe">
+          <p className="label">La pile d’appels</p>
+          <ol className="qg-pile">
+            {e.pile.map((cadre, i) => (
+              <li key={i}>{cadre}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <div className="qg-fiche-groupe">
+        <p className="label">Ses heures</p>
+        <ul className="qg-liste qg-sources">
+          {heures.map(h => (
+            <li key={h.heure}>
+              <span>{heureDuReleve(h.heure, maintenant)}</span>
+              <span className="num">{fois(h.n)}</span>
+            </li>
+          ))}
+        </ul>
+        {e.heures.length > heures.length && (
+          <p className="muted small">
+            Et {formatNumber(e.heures.length - heures.length)} heure{e.heures.length - heures.length > 1 ? 's' : ''} de plus.
+          </p>
+        )}
+      </div>
+      <p className="muted small">
+        Le joueur, lui, a lu « Erreur serveur — réessaie dans un instant ». Le journal du service, sur Render, en garde la pile entière, à la minute de la
+        dernière.
+      </p>
+    </div>
+  )
+}
+
+/** Le détail d'une erreur en texte, à coller ailleurs — un ticket, une conversation qui la réparera. */
+export function texteDeLErreur(e: ErreurDeLaSemaine, page: PageDuServeur): string {
+  const { maintenant } = page
+  return [
+    e.code ? `${e.nom} · ${e.code}` : e.nom,
+    e.message,
+    `D’où : ${e.source}`,
+    e.ou && `Dans le code : ${e.ou}`,
+    `${fois(e.n)} cette semaine — la première ${quandDuServeur(e.premiere, maintenant)}, la dernière ${quandDuServeur(e.derniere, maintenant)}`,
+    e.versions.length > 0 && `Versions : ${e.versions.join(', ')}`,
+    e.pile.length > 0 && ['Pile :', ...e.pile.map(c => `  ${c}`)].join('\n'),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function Ligne({ nom, children }: { nom: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt>{nom}</dt>
+      <dd>{children}</dd>
+    </div>
   )
 }
 
@@ -307,39 +508,51 @@ function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: n
   )
 }
 
-/** Les quatre graphiques de la charge, l'un sous l'autre, le même temps pour tous. */
-const MESURES_DE_CHARGE: {
+/** Un graphique d'une pile : ce qu'il montre, comment l'écrire, et ce que l'heure lue en dit. */
+interface MesureDeLaPile {
   cle: string
   nom: string
   detail: string
   valeur: (h: HeureDuServeur) => number | null
   ecrire: (v: number) => string
   ecrireAxe?: (v: number) => string
+  /** Un trait pointillé : le plafond de l'hébergeur. */
   plafond?: number
-}[] = [
-  { cle: 'processeur', nom: 'Processeur', detail: 'la moyenne de l’heure, en part d’un cœur', valeur: h => h.processeur, ecrire: pourcentsDUnCoeur, plafond: PROCESSEUR_DE_L_HEBERGEUR_PCT },
-  { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
-  { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: MEMOIRE_DE_L_HEBERGEUR_MO },
-  { cle: 'invites', nom: 'Invités connectés', detail: 'le pic de l’heure, toutes soirées confondues', valeur: h => h.invites, ecrire: invites, ecrireAxe: formatNumber },
-]
+  /** Son morceau de la légende ; null, il s'en tait. Par défaut, son nom et sa valeur. */
+  legende?: (h: HeureDuServeur) => string | null
+}
 
 /**
- * La charge, heure par heure (le conseil suivi le 13 octobre 2026) : les
- * temps de réponse disent qu'une soirée a été lente, la charge dit pourquoi
- * — le processeur au plafond de l'hébergeur, un gel de la boucle, la mémoire
- * —, à côté de la salle qui la fait. Les traits pointillés : les plafonds de
- * l'hébergeur gratuit, un dixième de cœur et 512 Mo.
+ * Des graphiques l'un sous l'autre, le même temps pour tous : une heure
+ * choisie l'est dans chacun, et la légende la lit dans tous. `mesuree` dit
+ * si une heure a été mesurée — sans survol, la dernière qui l'a été.
  */
-function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+function PileDeGraphes({
+  id,
+  titre,
+  sousTitre,
+  mesures,
+  mesuree,
+  heures,
+  maintenant,
+}: {
+  id: string
+  titre: string
+  sousTitre: string
+  mesures: MesureDeLaPile[]
+  mesuree: (h: HeureDuServeur) => number | null
+  heures: HeureDuServeur[]
+  maintenant: number
+}) {
   const [choisie, setChoisie] = useState<number | null>(null)
-  const h = heures[choisie ?? derniereMesuree(heures.map(x => x.processeur))]
+  const h = heures[choisie ?? derniereMesuree(heures.map(mesuree))]
   return (
-    <section className="qg-carte qg-ecran" aria-labelledby="serveur-charge">
+    <section className="qg-carte qg-ecran" aria-labelledby={id}>
       <div className="qg-carte-tete qg-carte-tete-pile">
-        <h2 id="serveur-charge">La charge, heure par heure</h2>
-        <span className="muted small">relevée toutes les dix secondes ; en pointillé, les plafonds de l’hébergeur gratuit</span>
+        <h2 id={id}>{titre}</h2>
+        <span className="muted small">{sousTitre}</span>
       </div>
-      {MESURES_DE_CHARGE.map((m, i) => (
+      {mesures.map((m, i) => (
         <div key={m.cle} className="qg-charge">
           <span className="qg-charge-nom">
             <b>{m.nom}</b> · {m.detail}
@@ -357,7 +570,7 @@ function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant
             choisir={setChoisie}
             plafond={m.plafond}
             compact
-            sansJours={i < MESURES_DE_CHARGE.length - 1}
+            sansJours={i < mesures.length - 1}
           />
         </div>
       ))}
@@ -365,14 +578,169 @@ function LaCharge({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant
         {heureDuReleve(h.heure, maintenant)} :{' '}
         {!h.eveille
           ? 'endormi'
-          : h.processeur === null
+          : mesuree(h) === null
             ? 'rien de mesuré'
-            : MESURES_DE_CHARGE.map(m => {
-                const v = m.valeur(h)
-                return m.cle === 'invites' ? invites(v ?? 0) : `${m.nom.toLowerCase()} ${v === null ? '–' : m.ecrire(v)}`
-              }).join(' · ')}
+            : mesures
+                .map(m => {
+                  if (m.legende) return m.legende(h)
+                  const v = m.valeur(h)
+                  return `${m.nom.toLowerCase()} ${v === null ? '–' : m.ecrire(v)}`
+                })
+                .filter((morceau): morceau is string => morceau !== null)
+                .join(' · ')}
       </p>
     </section>
+  )
+}
+
+const connexions = (v: number) => `${formatNumber(v)} connexion${v > 1 ? 's' : ''}`
+
+/**
+ * Les graphiques de la charge. Le gel de l'hébergeur sous le processeur (le
+ * banc du 16 octobre 2026) : la boucle se figeait deux secondes chaque heure
+ * et Turso paraissait lent, sans rien qui dise que le dixième de cœur
+ * manquait. Les plafonds sont ceux du conteneur quand il les dit — une autre
+ * offre déplace le trait —, ceux de l'offre gratuite sinon.
+ */
+function mesuresDeLaCharge(plafonds: PlafondsDuConteneur): MesureDeLaPile[] {
+  return [
+    {
+      cle: 'processeur',
+      nom: 'Processeur',
+      detail: 'la moyenne de l’heure, en part d’un cœur',
+      valeur: h => h.processeur,
+      ecrire: pourcentsDUnCoeur,
+      plafond: plafonds.processeurPct ?? PROCESSEUR_DE_L_HEBERGEUR_PCT,
+    },
+    { cle: 'gele', nom: 'Gel de l’hébergeur', detail: 'la part de l’heure où le processeur manquait', valeur: h => h.gele, ecrire: pourcents },
+    { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
+    { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: plafonds.memoireMo ?? MEMOIRE_DE_L_HEBERGEUR_MO },
+    {
+      cle: 'invites',
+      nom: 'Invités connectés',
+      detail: 'le pic de l’heure, toutes soirées confondues',
+      valeur: h => h.invites,
+      ecrire: invites,
+      ecrireAxe: formatNumber,
+      legende: h => invites(h.invites ?? 0),
+    },
+    {
+      cle: 'connexions',
+      nom: 'Connexions ouvertes',
+      detail: 'le pic de l’heure — chaque téléphone, chaque écran en tient une',
+      valeur: h => h.connexionsOuvertes,
+      ecrire: connexions,
+      ecrireAxe: formatNumber,
+      // Une heure d'avant leur compte n'en dit rien, plutôt qu'un tiret.
+      legende: h =>
+        h.connexionsOuvertes === null
+          ? null
+          : `${connexions(h.connexionsOuvertes)} ouverte${h.connexionsOuvertes > 1 ? 's' : ''}` +
+            (h.tempsReel === null ? '' : `, ${formatNumber(h.tempsReel)} en temps réel`),
+    },
+  ]
+}
+
+/**
+ * La charge, heure par heure (le conseil suivi le 13 octobre 2026) : les
+ * temps de réponse disent qu'une soirée a été lente, la charge dit pourquoi
+ * — le processeur au plafond de l'hébergeur, un gel de la boucle, la mémoire
+ * —, à côté de la salle qui la fait et des connexions qu'elle tient ouvertes.
+ */
+function LaCharge({ heures, maintenant, plafonds }: { heures: HeureDuServeur[]; maintenant: number; plafonds: PlafondsDuConteneur }) {
+  const lus = plafonds.processeurPct !== null && plafonds.memoireMo !== null
+  return (
+    <PileDeGraphes
+      id="serveur-charge"
+      titre="La charge, heure par heure"
+      sousTitre={
+        'relevée toutes les dix secondes ; en pointillé, ' +
+        (lus
+          ? `les plafonds du conteneur : ${pourcentsDUnCoeur(plafonds.processeurPct!)} d’un cœur, ${megaOctets(plafonds.memoireMo!)}`
+          : 'les plafonds de l’hébergeur gratuit')
+      }
+      mesures={mesuresDeLaCharge(plafonds)}
+      mesuree={h => h.processeur}
+      heures={heures}
+      maintenant={maintenant}
+    />
+  )
+}
+
+const requetes = (v: number) => `${formatNumber(v)} requête${v > 1 ? 's' : ''}`
+
+/** « 850 Ko », « 12,4 Mo », « 1,2 Go » : ce que la machine a envoyé ou reçu. */
+function volume(mo: number): string {
+  if (mo < 1) return `${formatNumber(Math.round(mo * 1024))} Ko`
+  if (mo < 1024) return `${formatNumber(Math.round(mo * 10) / 10)} Mo`
+  return `${formatNumber(Math.round((mo / 1024) * 10) / 10)} Go`
+}
+
+/** Le détail des requêtes d'une heure : « 1 240 requêtes — 1 180 réussies, 52 redirigées, 8 refusées, 0 en erreur ». */
+function detailDesRequetes(h: HeureDuServeur): string | null {
+  const r = h.requetes
+  if (!r) return null
+  const n = requetesServies(r)
+  if (n === 0) return 'aucune requête'
+  const s = (v: number) => (v > 1 ? 's' : '')
+  return `${requetes(n)} — ${formatNumber(r.reussies)} réussie${s(r.reussies)}, ${formatNumber(r.redirigees)} redirigée${s(r.redirigees)}, ${formatNumber(r.refusees)} refusée${s(r.refusees)}, ${formatNumber(r.enErreur)} en erreur`
+}
+
+const MESURES_DU_TRAFIC: MesureDeLaPile[] = [
+  {
+    cle: 'requetes',
+    nom: 'Requêtes',
+    detail: 'les pages, les fichiers et l’API servis — ni le temps réel, ni les sondes de /healthz',
+    valeur: h => (h.requetes ? requetesServies(h.requetes) : null),
+    ecrire: requetes,
+    ecrireAxe: formatNumber,
+    legende: detailDesRequetes,
+  },
+  {
+    cle: 'refusees',
+    nom: 'Refusées',
+    detail: 'les 4xx : une page introuvable, une session expirée, une inscription refusée',
+    valeur: h => h.requetes?.refusees ?? null,
+    ecrire: requetes,
+    ecrireAxe: formatNumber,
+    // Déjà dites dans le détail des requêtes.
+    legende: () => null,
+  },
+  {
+    cle: 'envoye',
+    nom: 'Envoyé',
+    detail: 'ce que la machine a envoyé : les pages, le temps réel, les requêtes à Turso',
+    valeur: h => h.envoyesMo,
+    ecrire: volume,
+    legende: h => (h.envoyesMo === null ? null : `${volume(h.envoyesMo)} envoyés`),
+  },
+  {
+    cle: 'recu',
+    nom: 'Reçu',
+    detail: 'ce qu’elle a reçu : les réponses de Turso, ce que les téléphones envoient',
+    valeur: h => h.recusMo,
+    ecrire: volume,
+    legende: h => (h.recusMo === null ? null : `${volume(h.recusMo)} reçus`),
+  },
+]
+
+/**
+ * Le trafic, heure par heure (le 17 octobre 2026, « combien de connexions »,
+ * sans clé de l'hébergeur) : les requêtes servies et ce qu'il en a refusé,
+ * ce que la machine a envoyé et reçu — ce que le tableau de bord de Render
+ * montre de dehors, mesuré par le serveur lui-même et gardé avec le reste.
+ */
+function LeTrafic({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+  return (
+    <PileDeGraphes
+      id="serveur-trafic"
+      titre="Le trafic, heure par heure"
+      sousTitre="les requêtes servies, et ce que la machine a envoyé et reçu"
+      mesures={MESURES_DU_TRAFIC}
+      mesuree={h => (h.requetes ? requetesServies(h.requetes) : (h.envoyesMo ?? null))}
+      heures={heures}
+      maintenant={maintenant}
+    />
   )
 }
 
@@ -602,6 +970,12 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                 <th scope="col" className="qg-colonne-large">
                   Invités
                 </th>
+                <th scope="col" className="qg-colonne-large">
+                  Connexions
+                </th>
+                <th scope="col" className="qg-colonne-large">
+                  Requêtes
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -615,6 +989,8 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
                   <td className="num qg-colonne-large">{h.processeur === null ? '–' : pourcentsDUnCoeur(h.processeur)}</td>
                   <td className="num qg-colonne-large">{h.memoire === null ? '–' : megaOctets(h.memoire)}</td>
                   <td className="num qg-colonne-large">{h.invites === null ? '–' : formatNumber(h.invites)}</td>
+                  <td className="num qg-colonne-large">{h.connexionsOuvertes === null ? '–' : formatNumber(h.connexionsOuvertes)}</td>
+                  <td className="num qg-colonne-large">{h.requetes === null ? '–' : formatNumber(requetesServies(h.requetes))}</td>
                 </tr>
               ))}
             </tbody>

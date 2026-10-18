@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { SERVEUR } from '../racine'
 import { CATEGORIES } from '../../../shared/categories'
 import { lireEtiquetage, type MetadonneesDeQuestion } from '../../../shared/etiquettes'
@@ -371,13 +372,113 @@ function* lectureDeLaBase(dossier: string): Generator<void, BaseLue> {
   return { questions, refusees }
 }
 
+// ── La base vérifiée au build ───────────────────────────────────────────────
+
+/**
+ * Le fichier de la base vérifiée au build, à côté du serveur empaqueté —
+ * `scripts/empaqueter.ts` en pose le nom (`__BASE_PREPAREE__`) ; null sous
+ * tsx — `npm run dev`, les tests, les scripts —, qui relisent et vérifient
+ * le dossier.
+ */
+declare const __BASE_PREPAREE__: string | undefined
+export const BASE_PREPAREE: string | null =
+  typeof __BASE_PREPAREE__ === 'string' ? path.join(path.dirname(fileURLToPath(import.meta.url)), __BASE_PREPAREE__) : null
+
+/** Le format de la base préparée : celle d'un autre format s'écarte, et le dossier se relit et se vérifie. */
+const VERSION_DE_LA_BASE_PREPAREE = 1
+
+/** Ce qui dit qu'une base préparée est celle du dossier : chacun de ses fichiers, sa taille et sa date. */
+type SignatureDuDossier = { fichier: string; taille: number; modifie: number }[]
+
+function signatureDuDossier(dossier: string): SignatureDuDossier {
+  if (!existsSync(dossier)) return []
+  return readdirSync(dossier)
+    .filter(f => f.endsWith('.json'))
+    .sort()
+    .map(fichier => {
+      const s = statSync(path.join(dossier, fichier))
+      return { fichier, taille: s.size, modifie: Math.trunc(s.mtimeMs) }
+    })
+}
+
+/**
+ * Vérifie toute la base, une fois, au build (`npm run build`,
+ * `scripts/empaqueter.ts`), et la range dans `sortie` : une ligne
+ * d'en-tête — son format, la signature du dossier, ce que le juge a écarté
+ * —, puis une question par ligne, telle que le juge la rend, empreinte et
+ * réponse soufflée comprises.
+ */
+export function preparerLaBase(sortie: string, dossier = DOSSIER_DE_LA_BASE): BaseLue {
+  const signature = signatureDuDossier(dossier)
+  const lue = lireLaBase(dossier)
+  mkdirSync(path.dirname(sortie), { recursive: true })
+  const entete = { version: VERSION_DE_LA_BASE_PREPAREE, signature, refusees: lue.refusees }
+  writeFileSync(sortie, `${[entete, ...lue.questions].map(x => JSON.stringify(x)).join('\n')}\n`)
+  return lue
+}
+
+/**
+ * La base préparée au build, relue telle quelle : le juge ne repasse pas.
+ * Il prenait 1,3 s de processeur à chaque réveil — treize secondes de
+ * serveur saturé au dixième de cœur de l'hébergeur, trois à onze fois par
+ * jour (le banc du 16 octobre 2026) —, pour une base qui n'a pas changé
+ * depuis le build. Lue au fil du fichier, une ligne après l'autre : un seul
+ * `JSON.parse` de ses vingt-cinq mégaoctets figerait le serveur deux
+ * secondes, quand la lecture rend la main à chaque bloc du fichier. Écartée,
+ * avec son motif, quand elle manque, ne se lit pas, ou ne dit plus le
+ * dossier — un fichier de la base qui a changé depuis le build : le dossier
+ * se relit alors et se vérifie.
+ */
+export async function lireLaBasePreparee(fichier: string, dossier = DOSSIER_DE_LA_BASE): Promise<{ lue: BaseLue } | { motif: string }> {
+  if (!existsSync(fichier)) return { motif: 'absente' }
+  // Des morceaux de 64 Ko, une soixantaine de questions : quelques
+  // millisecondes chacun, la boucle reprend la main entre deux.
+  const flux = createReadStream(fichier, { encoding: 'utf8', highWaterMark: 64 * 1024 })
+  let refusees: BaseLue['refusees'] | null = null
+  const questions: QuestionDeLaBase[] = []
+  /** Une ligne : l'en-tête d'abord, puis une question ; un motif, quand l'en-tête l'écarte. */
+  const lire = (ligne: string): string | null => {
+    if (!ligne) return null
+    if (refusees) {
+      questions.push(JSON.parse(ligne) as QuestionDeLaBase)
+      return null
+    }
+    const entete = JSON.parse(ligne) as { version?: unknown; signature?: unknown; refusees?: BaseLue['refusees'] }
+    if (entete.version !== VERSION_DE_LA_BASE_PREPAREE) return `format ${String(entete.version)}`
+    if (JSON.stringify(entete.signature) !== JSON.stringify(signatureDuDossier(dossier))) return 'le dossier a changé depuis le build'
+    refusees = entete.refusees ?? []
+    return null
+  }
+  try {
+    let reste = ''
+    for await (const morceau of flux as AsyncIterable<string>) {
+      const texte = reste + morceau
+      let debut = 0
+      for (let fin = texte.indexOf('\n'); fin >= 0; fin = texte.indexOf('\n', debut)) {
+        const motif = lire(texte.slice(debut, fin))
+        if (motif) return { motif }
+        debut = fin + 1
+      }
+      reste = texte.slice(debut)
+    }
+    const motif = lire(reste)
+    if (motif) return { motif }
+    return refusees ? { lue: { questions, refusees } } : { motif: 'vide' }
+  } catch (e) {
+    return { motif: `illisible : ${(e as Error).message}` }
+  } finally {
+    flux.destroy()
+  }
+}
+
 /**
  * La base en mémoire, indexée : par identifiant, et par empreinte pour la
  * tenir à l'écart de la réserve du quiz du jour. Lue une fois, en fond peu
  * après le démarrage (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`) — ou à la
  * première demande, si elle arrive avant : lue seulement là, elle faisait
  * attendre 3,5 s le premier joueur après chaque déploiement, au dixième de
- * cœur, pour neuf mégaoctets de mémoire.
+ * cœur, pour neuf mégaoctets de mémoire. Le serveur empaqueté la relit
+ * vérifiée au build (`BASE_PREPAREE`).
  */
 export class BaseDeLaCampagne {
   readonly questions: readonly QuestionDeLaBase[]
@@ -390,9 +491,23 @@ export class BaseDeLaCampagne {
     this.empreintes = new Set(questions.map(q => q.empreinte))
   }
 
-  /** La base du dépôt, lue une fois sans figer le serveur ; ce qu'elle écarte part au journal, une ligne par cause. */
-  static async depuisLeDossier(dossier = DOSSIER_DE_LA_BASE): Promise<BaseDeLaCampagne> {
-    const { questions, refusees } = await lireLaBaseSansBloquer(dossier)
+  /**
+   * La base du dépôt, lue une fois sans figer le serveur — vérifiée au build
+   * quand `preparee` la donne, sinon relue et vérifiée ; ce qu'elle écarte
+   * part au journal, une ligne par cause.
+   */
+  static async depuisLeDossier(dossier = DOSSIER_DE_LA_BASE, preparee: string | null = BASE_PREPAREE): Promise<BaseDeLaCampagne> {
+    let lue: BaseLue | null = null
+    if (preparee) {
+      const debut = performance.now()
+      const relue = await lireLaBasePreparee(preparee, dossier)
+      if ('motif' in relue) console.warn(`[campagne] base préparée écartée (${relue.motif}) : le dossier se relit et se vérifie`)
+      else {
+        lue = relue.lue
+        console.log(`[campagne] base préparée relue : ${lue.questions.length} questions en ${Math.round(performance.now() - debut)} ms`)
+      }
+    }
+    const { questions, refusees } = lue ?? (await lireLaBaseSansBloquer(dossier))
     if (refusees.length > 0) {
       console.warn(`[campagne] ${refusees.length} question(s) de la base écartée(s) :`)
       for (const r of refusees.slice(0, 10)) console.warn(`  ${r.fichier} #${r.position} — ${r.motif}`)

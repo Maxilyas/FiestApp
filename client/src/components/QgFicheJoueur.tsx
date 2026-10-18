@@ -9,12 +9,31 @@ import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { LIGUES } from '../../../shared/duels'
-import { heureEcrite, quandEcrit, type GesteDuQg } from '../../../shared/qg'
+import { MODES_DU_QG, NOM_DU_MODE, heureEcrite, quandEcrit, type GesteDuQg } from '../../../shared/qg'
+import { totalDesModes, type ActiviteDUnJoueur } from '../../../shared/qgActivite'
 import { CONFETTIS_PAR_DON_MAX, MOT_D_UN_DON_MAX, type FicheDuJoueur, type ProfilDAdministration } from '../../../shared/profil'
 
 /** « 1 joué », « 0 gagné », « 3 joués » : zéro s'écrit au singulier. */
 const pluriel = (n: number, mot: string) => `${formatNumber(n)} ${mot}${n > 1 ? 's' : ''}`
 const nConfettis = (n: number) => pluriel(n, 'confetti')
+
+/**
+ * Ses trente jours, sur quoi il s'acharne (le souhait du propriétaire du
+ * 17 octobre 2026) : ses questions jouées et ses jours, puis chaque mode où
+ * il a joué, le plus joué d'abord — « 340 questions en 12 jours : campagne
+ * 280, quiz du jour 60 ». La page de l'activité les montre en barres.
+ */
+export function sesTrenteJours(a: ActiviteDUnJoueur): string {
+  const total = totalDesModes(a.questions)
+  const parties = totalDesModes(a.parties)
+  if (total === 0 && parties === 0) return 'rien joué'
+  // Une partie commencée, la première question pas encore jouée : « 0 question en 1 jour » ne se lisait pas.
+  if (total === 0) return `${pluriel(parties, 'partie')} commencée${parties > 1 ? 's' : ''}, aucune question jouée`
+  const modes = MODES_DU_QG.filter(m => a.questions[m] > 0)
+    .sort((x, y) => a.questions[y] - a.questions[x])
+    .map(m => `${NOM_DU_MODE[m].toLowerCase()} ${formatNumber(a.questions[m])}`)
+  return `${pluriel(total, 'question')} en ${pluriel(a.jours, 'jour')}${modes.length > 0 ? ` : ${modes.join(', ')}` : ''}`
+}
 
 /**
  * La fiche d'un joueur, au QG (`/admin#profils`, dans la feuille qu'ouvre sa
@@ -32,7 +51,8 @@ export function FicheDuJoueurAuQg({
   onChange,
   onSupprimer,
 }: {
-  profil: ProfilDAdministration
+  /** Le profil à lire : son identifiant suffit — « Les profils » et l'activité l'ouvrent de leur ligne. */
+  profil: Pick<ProfilDAdministration, 'id'>
   /** Un prénom, une suspension ont changé : la liste des profils se relit, la feuille reprend son titre. */
   onChange: (f: FicheDuJoueur) => void
   onSupprimer: (p: ProfilDAdministration) => void
@@ -222,6 +242,7 @@ export function FicheDuJoueurAuQg({
             : '–'}
         </Ligne>
         <Ligne nom="Duels">{f.duels ? `${ligue?.nom ?? f.duels.ligue} · cote ${formatNumber(f.duels.cote)}` : 'pas encore'}</Ligne>
+        <Ligne nom="Trente jours">{f.activite ? sesTrenteJours(f.activite) : '–'}</Ligne>
         <Ligne nom="Confettis">
           {f.confettis ? `${formatNumber(f.confettis.solde)}${f.confettis.offerts > 0 ? ` · dont ${pluriel(f.confettis.offerts, 'offert')}` : ''}` : '–'}
         </Ligne>

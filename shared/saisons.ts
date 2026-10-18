@@ -1,7 +1,9 @@
 // Les saisons : trois légendaires qui ne se gagnent qu'à leur période —
 // Halloween, Noël, le Nouvel An. Des jours joués au quiz du jour pendant la
 // période, ou une soirée ces jours-là (une soirée qui compte, à deux au
-// moins) : l'une des deux suffit.
+// moins) : l'une des deux suffit. Depuis le 18 octobre 2026, une troisième :
+// le garder au bout d'une expédition partie ces jours-là, qui le met en
+// gardien de l'acte 3 (`calendrierDesExpeditions`, `shared/expedition.ts`).
 //
 // Une saison gagnée se range comme une récompense (`saison:halloween`) :
 // sous le jour qui l'a ouverte pour le quiz du jour, sous la soirée qui l'a

@@ -1,10 +1,10 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 136 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 145 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
-**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'outillage](#loutillage)
+**Dans cette page** : [L'ensemble](#lensemble) · [Le quiz](#le-quiz) · [La salle et le temps réel](#la-salle-et-le-temps-réel) · [La fin de soirée et les archives](#la-fin-de-soirée-et-les-archives) · [Les données et la mise en ligne](#les-données-et-la-mise-en-ligne) · [Les comptes, la sécurité et le QG](#les-comptes-la-sécurité-et-le-qg) · [La page](#la-page) · [L'expérience et les récompenses](#lexpérience-et-les-récompenses) · [Le profil](#le-profil) · [Les confettis et la boutique](#les-confettis-et-la-boutique) · [Les quiz](#les-quiz) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne) · [Les sentiers du savoir](#les-sentiers-du-savoir) · [Les duels](#les-duels) · [L'Expédition](#lexpédition) · [L'outillage](#loutillage)
 
 ## L'ensemble
 
@@ -1233,7 +1233,7 @@ Le détail : [les duels](../produit/les-duels.md).
 
 **Décision** : deux cotes. La cachée, l'ELO d'avant, placement compris, dit le niveau et règle Automate. Celle qu'on voit — ligues, classement, bordures, confettis — suit la montée : sous l'Or, chaque duel rapporte cinq points et une défaite n'en coûte qu'un au plus ; dès l'Or, un point par duel, et l'enjeu suit l'écart (une défaite coûte 24 × E²) ; l'argent et l'or ne se perdent plus ; qui lance un défi gagne un point de plus. `SCORE_DE_REFERENCE` passe de 8 à 7. Des échelles plus larges (75 ou 100 points par bonne réponse), rejouées sur les vrais duels, ne changeaient presque rien : la montée l'emporte.
 
-**Conséquence** : qui joue monte en Or, même en ne gagnant qu'un duel sur trois (`server/test/duels-montee.test.ts`), et au-dessus c'est le niveau qui parle ; Automate, réglé sur la cachée, ne se renforce pas avec la cote qu'on voit — réglé sur elle, on perdait la moitié des duels au lieu de quatre sur dix. La règle se relit du journal : le jour même, ceux qui avaient reculé l'ont regagné, et le duel d'avant la montée, qui n'a figé qu'une cote, sert aux deux. La cote cachée ne part jamais au téléphone.
+**Conséquence** : qui joue monte en Or, même en ne gagnant qu'un duel sur trois (`server/test/duels-montee.test.ts`), et au-dessus c'est le niveau qui parle ; Automate, réglé sur la cachée, ne se renforce pas avec la cote qu'on voit — réglé sur elle, on perdait la moitié des duels au lieu de quatre sur dix. La règle se relit du journal : le jour même, ceux qui avaient reculé l'ont regagné, et le duel d'avant la montée, qui n'a figé qu'une cote, sert aux deux. La cote cachée ne part jamais au téléphone. Depuis le 17 octobre 2026, la platine se garde aussi, et l'ELO commence à elle ([plus bas](#le-dé-à-chances-égales-sur-ce-quon-choisit--la-platine-où-lelo-commence)).
 
 *Fichiers : `shared/duels.ts`, `server/src/core/campagne.ts`, `client/src/views/Duels.tsx`, `server/scripts/calibrage-duels.ts`*
 
@@ -1242,7 +1242,7 @@ Le détail : [les duels](../produit/les-duels.md).
 
 **Décision** : la victoire et la défaite, dites de la même règle que la cote (`enjeuContre`) et des mêmes pièces, là où l'on choisit : l'échelle du classement, la carte d'un joueur sous « Défier », deux jetons sous l'adversaire choisi d'une préparation — les deux cotes relues quand la sienne manque. Le dé tire d'abord la rencontre, puis une feuille dit son enjeu avant « Jouer le duel ».
 
-**Conséquence** : l'enjeu du dé est exact — il se lit contre le score qu'Automate vient de jouer, quand une estimation d'avant le tirage aurait annoncé une autre valeur que la partie —, mais la rencontre existe dès le dé touché : fermée, la feuille la laisse dans « En cours », et le dé la reprend au lieu d'en tirer une autre — sinon on relancerait le dé jusqu'à un Automate plus faible. « Un autre duel », sous un verdict, passe par la même feuille.
+**Conséquence** : l'enjeu du dé est exact — il se lit contre le score qu'Automate vient de jouer, quand une estimation d'avant le tirage aurait annoncé une autre valeur que la partie —, mais la rencontre existe dès le dé touché : fermée, la feuille la laisse dans « En cours », et le dé la reprend au lieu d'en tirer une autre — sinon on relancerait le dé jusqu'à un Automate plus faible. « Un autre duel », sous un verdict, passe par la même feuille. Depuis le 16 octobre 2026, l'enjeu du dé ne dépend plus du tirage, et le dé demande avant de tirer ([plus bas](#le-dé-à-chances-égales-sur-ce-quon-choisit--la-platine-où-lelo-commence)).
 
 *Fichiers : `client/src/views/Rencontre.tsx`, `client/src/views/Duel.tsx`, `client/src/views/Duels.tsx`, `client/src/views/LancerUnDefi.tsx`, `client/src/components/GestesDuJoueur.tsx`*
 
@@ -1254,6 +1254,163 @@ Le détail : [les duels](../produit/les-duels.md).
 **Conséquence** : un duel lancé contre lui et pas encore parti se dit sur la carte, sans son code — `releverUnDuel` ne vérifie pas qu'un duel classé est parti, et ce code laisserait l'adversaire jouer d'abord ; le classement, qui lit « En cours », ne le marque pas : il n'existe pas encore pour lui. La préparation lit chaque adversaire qu'on y choisit, une requête de plus.
 
 *Fichiers : `server/src/core/campagne.ts`, `shared/duels.ts`, `client/src/views/Rencontre.tsx`, `client/src/components/GestesDuJoueur.tsx`, `client/src/views/Duels.tsx`, `client/src/views/LancerUnDefi.tsx`*
+
+### Le dé à chances égales, sur ce qu'on choisit ; la Platine, où l'ELO commence
+**Contexte** : le propriétaire, le 16 octobre 2026, en ligue d'or, presque platine : « je veux jouer contre un automate, déjà ça lance le défi et il est toujours en cours même si j'ai pas lancé. Je peux pas choisir le thème. Et surtout je perds 17 pour gagner 4. C'est normal ? ». Mesuré sur la production (`server/scripts/calibrage-duels.ts`, en lecture seule) : les quatre joueurs en Or avaient une cote cachée de 969 à 1016 — six à sept bonnes réponses par série — pour une cote affichée de 1271 à 1298. Automate jouait à leur niveau (on le bat quatre fois sur dix), mais l'enjeu lisait son score contre la cote affichée : 85 à 88 % de chances pour la formule, « +4 / −17 », six points perdus par duel en moyenne, et cent duels ramenaient chacun au plancher de l'Or. Entre amis, cotes gonflées pareil, une défaite ne coûtait dès l'Or que 24 × E² : « +13 / −5 » à chances égales, et le haut montait de 2,3 points par duel. Les deux se contredisaient : les duels entre amis faisaient monter, Automate faisait redescendre.
+
+**Décision** : quatre chemins proposés — l'enjeu sur les chances réelles, le niveau d'abord, rien qu'une phrase, des chances égales —, le propriétaire a choisi les chances égales. Sur la cote qu'on voit, Automate compte comme un adversaire de sa cote (`forceQuOnVoit`) : « +17 / +2 » sous l'Or, « +13 / −5 » en Or, « +13 / −11 » dès la Platine, quel que soit son score ; la cachée, elle, bouge toujours contre son score, et règle Automate. À chances égales, 24 × E² fait monter de quatre points par duel, et rien ne l'arrêtait : l'ELO dès l'Or, proposé le 16, rendait de 19 à 42 points aux joueurs en Or. Le propriétaire l'a refusé le 17 : « Je ne veux pas changer pour l'or la formule, je trouve que monter jusqu'en platine c'est bien comme ça. Je veux aussi ne pas pouvoir retomber en or en platine et à partir de platine c'est là que ça commence vraiment. » L'Or garde 24 × E², la Platine se garde (`LIGUES_GARDEES`), et l'ELO, 24 × E, ne commence qu'à elle (`LIGUE_DE_L_ELO`) : à ses vraies chances, un duel n'y rapporte plus que son point de participation. L'enjeu ne dépendant plus du tirage, le dé demande d'abord : sa feuille (`LeDe`, `FeuilleDuDe`) dit l'enjeu (`enjeuDuDe`) et sur quoi il jouera — la ligne du choix de la série, ses catégories ou un sujet, que `POST /api/campagne/rencontre` reçoit comme une série —, et ne tire qu'à « Jouer le duel ». Fermée, rien n'est tiré.
+
+**Conséquence** : la règle se relit du journal, pour tous et pour le passé : le jour même, aucune cote de la production n'a baissé — trois joueurs en Platine ont gagné de 1 à 5 points, et celui qui en était retombé l'a retrouvée. Qui joue monte jusqu'en Platine, même en ne gagnant qu'un duel sur trois (`server/test/duels-montee.test.ts`) ; au-delà, le dé ne fait plus monter — on y gagne quatre duels sur dix, à « +13 / −11 » —, on monte en battant des joueurs. Relancer le dé ne choisit plus rien : on ne voit plus rien de la partie d'Automate avant de s'engager, et une rencontre tirée reprend, sans s'abandonner. Au dé, une victoire vaut autant contre un gros score que contre un petit : sous l'Or, cent points ne tiennent plus que six victoires, et seuls des duels contre plus faible sertissent les douze crans de l'argent (`server/scripts/duelsDEssai.ts`). Sur un thème, Automate se règle toujours sur une série de toutes les catégories : ses écarts de catégorie jouent, il est plus faible là où le joueur l'est. Ce qui précède — « le dé tire avant de demander » — ne vaut plus.
+
+*Fichiers : `shared/duels.ts`, `server/src/core/campagne.ts`, `server/src/campagne.ts`, `client/src/views/Duel.tsx`, `client/src/views/Duels.tsx`, `client/src/views/CampagneApp.tsx`, `server/scripts/calibrage-duels.ts`, `server/test/duels-de.test.ts`, `server/test/duels-montee.test.ts`*
+
+### Un adversaire plus bas compte à son plancher
+**Contexte** : le propriétaire, le 17 octobre 2026 : « de jouer des joueurs qui jouent peu et qui sont en ligue bronze, ça fait perdre beaucoup à des platines, ça donne donc pas envie de jouer le duel. Comment on pourrait faire pour régler ce problème ? Ou c'est inévitable ? ». Sous la Platine, la cote qu'on voit dit surtout combien on a joué — la montée paie la participation —, mais la formule lisait l'écart comme un écart de niveau : à 1 330, un bronze à 1 030 laissait 85 % de chances au joueur en Platine, « +5 / −16 » sous 24 × E², « +5 / −19 » sous l'ELO. Mesuré sur la production, en lecture seule : 22 duels d'un joueur en Or contre un bronze, que la formule donnait gagnant à 75 % — 36 % gagnés, 14 % de nuls, 50 % perdus ; les cotes cachées disaient 49 %, les bronzes avaient le niveau des joueurs en Platine.
+
+**Décision** : quatre chemins proposés — l'adversaire compté à son plancher, des chances égales contre plus bas, les vraies chances des cotes cachées, ne rien changer —, le propriétaire a choisi le premier. Sur la cote qu'on voit, un adversaire plus bas que les ligues qu'on garde compte à son plancher (`apresLeDuel`) : en Platine, un bronze vaut 1 300, la cote où chacun y entre — « +12 / −12 » à 1 330 ; en Or, « +11 / −7 ». La cote cachée, elle, bouge toujours contre la sienne.
+
+**Conséquence** : en Or, une défaite ne coûte plus jamais plus qu'une victoire ne rapporte. Entre joueurs de la Platine, rien ne change ; un diamant à 1 450 reste favori contre qui vient d'y entrer (« +8 / −16 ») : battre des bronzes ne fait pas monter sans fin, comme des chances égales contre plus bas l'auraient permis. Les vraies chances, justes duel par duel, auraient fait de la cote au-dessus de la Platine un compte des duels joués — chacun y gagnant son point de participation en moyenne, fort ou pas —, et l'enjeu affiché aurait trahi les cotes cachées. Tout passe par `apresLeDuel` : le relevé, chaque enjeu dit (`enjeuContre`) et le rejeu de `calibrage-duels.ts`. Relue du journal, aucune cote de la production n'a baissé.
+
+*Fichiers : `shared/duels.ts`, `client/src/views/Duels.tsx`, `server/test/duels-montee.test.ts`, `server/test/duels-page.test.ts`*
+
+## L'Expédition
+
+Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, `retours/2026-10-17/expedition.md`.
+
+### Ce qu'on a gagné sert enfin, mais seulement en expédition
+**Contexte** : le propriétaire, le 17 octobre 2026 : « on fait que rajouter des choses mais on ne sait plus quoi choisir », et « les légendaires pourrait donner justement des pouvoirs pour aider à avancer ». Or un profil ne donnait aucun avantage de jeu (invariant 8) : en soirée, un niveau 30 et un invité arrivé ce soir jouent la même partie, et c'est ce qui laisse le chemin anonyme entier.
+
+**Décision** : un mode à part, l'Expédition, où les légendaires se gagnent — au bout de l'acte 3, l'un des trois gardiens vaincus — et où ils servent, en jokers (l'étape 2). L'invariant 8 devient « aucun avantage de jeu face aux autres » : ni en soirée, ni au quiz du jour, ni au défi, ni en duel ; seule l'expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers n'en sortent jamais. Elle n'a pas de classement. Les Divins n'ont ni joker ni gardien (invariant 21).
+
+**Conséquence** : aucune route d'un autre mode n'accepte un joker. Chaque légendaire qui a son joker reçoit une voie de plus (`aussi`, `expedition:<légendaire>`), qui ne reprend rien à personne (invariant 22) ; ceux de saison n'en ont pas : ils ne se gagnent qu'à leur saison, par elle seule.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `shared/legendaires.ts`, `CLAUDE.md`*
+
+### Une expédition est une partie d'un autre mode, et son état le pli de son journal
+**Contexte** : une expédition dure vingt à trente questions, se laisse et se reprend, et ses réponses doivent compter comme toutes les autres — l'expérience, les confettis, le carnet, « jamais vues d'abord ».
+
+**Décision** : une ligne de `campagne_series` (`mode = 'expedition'`), qui garde son départ — ses trois cartes, la chance sur chaque escale, ses gardiens (`campagne_series.expedition`) —, ses réponses dans `campagne_reponses`, et ses gestes dans leur journal (`expedition_gestes`), chacun avec le rang qu'il suit. Rien d'autre ne s'écrit : l'état — l'acte, l'escale, les vies, le gardien, l'issue — se replie du départ, des gestes et des réponses (`pliDeLExpedition`), le même pour celle qu'on joue et pour une finie (invariant 14). Le hasard de la carte se rejoue de sa graine (`hasardDe`) ; seules les questions se tirent de la base, à chaque escale, dans le lot du geste qui y mène.
+
+**Conséquence** : un double toucher, un second onglet ne jouent pas deux fois (invariant 12, porté au solo) ; recharger ne retire rien ; une retouche du générateur ne déplace pas une escale sous les pieds de qui joue. Toute requête des parties filtre son mode : l'expédition n'est ni une série — ni record, ni Grande Série, ni L'Alpiniste —, et Le Marathonien la compte.
+
+*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `server/test/expedition-pli.test.ts`, `server/test/expedition.test.ts`*
+
+### Une source est une révision : sa réponse ne mesure rien
+**Contexte** : une source de l'expédition repose une question du carnet, déjà ratée, réponse lue. Les révisions sont écartées de la mesure des difficultés, des écussons et de L'Érudit pour cette raison : comptées, elles feraient passer pour faciles les questions que tout le monde rate une fois, et trois expertes ratées exprès feraient L'Érudit.
+
+**Décision** : la question qu'une source reprend du carnet le dit (`QuestionDeSerie.carnet`), et un seul fragment l'écarte (`HORS_DU_CARNET`) — de L'Érudit, de la précision et des écussons, des catégories des missions ; la mesure lit d'un coup les quelques questions des expéditions plutôt qu'une série par réponse. Le carnet, lui, la compte : retrouvée, elle avance comme en révision.
+
+**Conséquence** : une source paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien —, et ne dit rien du savoir. Les premières réponses, que lit le modèle du savoir, n'en ont pas besoin : une question du carnet a toujours la sienne avant.
+
+*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition.test.ts`*
+
+### L'expédition s'ouvre en production avec ses jokers
+**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`server/scripts/calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que quatre fois sur cent : les jokers font le mode.
+
+**Décision** : jusqu'aux jokers, ses routes répondaient 404 en production — en ligne et sans `APP_ENV` (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouaient. Sa voie ne se montrait nulle part (`voiesMontrees`), et l'accueil n'avait pas son bouton. Les jokers venus (l'étape 2, le 17 octobre 2026), la constante l'ouvre : ses routes, le bouton « L’Expédition » de l'accueil d'un profil, sous les duels, et sa voie dans l'album.
+
+**Conséquence** : rien ne s'y est gagné en production avant que le mode soit entier. La refermer, c'est repasser la constante ; les légendaires gardés restent. La voie montrée, la phrase de l'album se dit voie par voie (`ouIlSeGagne`) : un seul mot pour tous ses lieux disait que la Chimère se gagnait « en soirée, au quiz du jour, en campagne ou en expédition », quand il lui faut les trois premiers ensemble, ou l'expédition.
+
+*Fichiers : `shared/jokers.ts`, `server/src/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `client/src/components/AccueilDesRoles.tsx`, `server/test/expedition-legendaires.test.ts`, `server/test/album-des-avatars.test.ts`*
+
+### La main se garde, la défausse revient à l'acte suivant
+**Contexte** : les maquettes tiraient deux jokers par question et jetaient ceux qu'on ne jouait pas : jouer ne coûtait rien, on jouait tout sans choisir, et un joker de carte, tiré devant une question, ne pouvait pas attendre la carte. Une défausse rendue dès le paquet vide laissait un seul Double chance repasser presque à chaque question : il portait le joueur moyen de 3 à 31 %, autant qu'une équipée entière.
+
+**Décision** : un joker tiré par question, trois en main (`MAIN_MAX`) — quatre et deux tirés sous Trois têtes ; ce qu'on ne joue pas se garde. Un joker à jouer au plus par question ; joué, il va à la défausse, qui ne revient au paquet qu'à l'acte suivant ; un posé agit jusqu'au bout de l'acte. Le hasard — la pioche, les offres, la maison qu'on ouvre, les réponses effacées — vient de la graine et du rang du tirage, et le pli rejoue le tout (`pliDeLExpedition`).
+
+**Conséquence** : chaque joker sert une fois par acte, et le paquet qui s'épuise avant le gardien est la tension du mode ; un paquet court tire plus souvent ses meilleurs — d'où le campement qui retire un joker, et l'offre qu'on peut laisser. Recharger ne retire ni une main ni une offre.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-jokers.test.ts`*
+
+### Un joker se joue en deux touchers, et une seule règle dit pourquoi pas
+**Contexte** : un joker joué ne se reprend pas. Sur la maquette 4, toucher sa carte le jouait : un toucher perdu sous les réponses coûtait le meilleur joker de l'acte. Et un joker qui ne se joue pas — un second sur la même question, Sagesse sur un vrai ou faux, le Commandement face au gardien — se refusait sans dire pourquoi.
+
+**Décision** : touchée, sa carte se lève — en grand, depuis le 18 octobre 2026 —, dit ce qu'il fait et le joue d'un bouton — ou dit pourquoi il ne se joue pas maintenant ; toucher à côté la repose. Ce pourquoi vient d'une seule règle pure (`refusDuJoker`) : le pli l'applique, le serveur la renvoie en refus, et la vue la porte pour chaque joker de la main (`JokersEnJeu.refus`) — la carte éteinte dans la main, la raison sur la carte levée. Un joker joué sur une question porte sa position : périmé, il est refusé, et le pli ne juge la question qu'après lui.
+
+**Conséquence** : la page n'a aucune règle des jokers à recopier ; une règle changée vaut d'un coup pour le pli, le refus et l'écran.
+
+*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`*
+
+### Ce qu'un joker montre se calcule au serveur, et une réponse aidée ne mesure rien
+**Contexte** : Coup d'œil efface une mauvaise réponse, l'Énigme dit le siècle, l'Oracle dit « plus haut » : tous lisent la bonne réponse. Et une question trouvée avec deux réponses barrées n'a plus la difficulté qu'on mesure ; comptée, elle ferait passer pour faciles les questions où l'on joue ses jokers, et L'Érudit se gagnerait à coups de Double chance.
+
+**Décision** : ce que montre un joker se calcule dans la vue que le serveur envoie (`reponsesEffacees`, `indiceDeLEnigme`, `sensDeLOracle`) : le téléphone ne reçoit que ce qu'il montre (invariant 1). Une réponse aidée porte la clé de son joker (`campagne_reponses.joker`, `JOKERS_QUI_AIDENT`) : la mesure des difficultés, le modèle du savoir, les écussons, la précision et L'Érudit ne lisent que les réponses nues (`REPONSE_NUE`) ; juste, elle ne retrouve rien au carnet — une erreur aidée y entre. Échange et La mue posent une autre question, nue ; Deux visages ne l'est plus : on prend celle qu'on sait.
+
+**Conséquence** : elle paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien. Aucune route d'un autre mode n'accepte un joker (invariant 8). Une lecture neuve de `campagne_reponses` qui mesure un savoir écarte les réponses aidées.
+
+*Fichiers : `server/src/core/campagne.ts`, `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-mesure.test.ts`*
+
+### Une cible approchée, pas tenue
+**Contexte** : la cible retenue le 17 octobre 2026 — avec une équipée de deux, le joueur moyen au bout une fois sur trois, le fort huit fois sur dix — venait d'une simulation faite avant tout code. Le calibrage sur le vrai code, avec les jokers, la remesure : le joueur sait ou ne sait pas chaque question, et joue son meilleur joker quand il ne sait pas.
+
+**Décision** : ouverte aux règles du brief. Avec la Chouette et le Phénix, le moyen arrive au bout 26 fois sur cent, le fort 67 ; s'il garde ses jokers rares et légendaires pour le gardien, 29 et 72 — avec Janus et le Serpent, 28 et 79. La main de quatre tiendrait la cible (33 et 74 %) : un choix de produit, laissé au propriétaire, comme un quatrième Coup d'œil au départ, qui n'y change rien de mesurable.
+
+**Conséquence** : les vraies expéditions diront le reste ; le calibrage se rejoue (`--garder` pour le joueur soigneux), et une règle changée ne vaut que pour les expéditions qui partent ensuite.
+
+*Fichiers : `server/scripts/calibrage-expedition.ts`, `shared/jokers.ts`, `docs/reference/baremes.md`*
+
+### L'expédition en route vit en mémoire, et le tirage d'une escale ne bat plus la base
+**Contexte** : le propriétaire, le 17 octobre 2026 : « n'oublie pas le côté performance pour que ça soit rapide aussi niveau requête ». Une escale se jouait en trois allers-retours vers Turso l'un après l'autre — relire l'expédition, relire ce qu'il a vu, écrire —, une réponse en deux ou trois : 29 ms chacun sur une connexion gardée, 225 sur une connexion à rouvrir. Et le gardien battait les vingt-cinq mille questions de la base pour en prendre six : 15 ms de processeur, dix fois plus au dixième de cœur de l'hébergeur.
+
+**Décision** : l'expédition en route se garde en mémoire après chaque écriture, avec ce que le joueur a vu, lu dans le lot du départ, sous le verrou du profil, comme la série en cours ; une écriture ratée l'oublie, et une réponse écrite ailleurs dans la campagne fait relire ce qu'il a vu (`vuAilleurs`). Le tirage d'une escale lit son tas dans un ordre tiré à mesure, et s'arrête à la première question qui ne peut être battue (`tirerPourUneEscale`).
+
+**Conséquence** : partir coûte deux allers-retours, une escale, un joker ou une mauvaise réponse un, une bonne réponse deux, comme en série ; le gardien se tire en 0,1 ms. Une écriture neuve de l'expédition, ou une porte neuve qui écrit une réponse de campagne, tient la mémoire à jour — `expedition-charge.test.ts` compte.
+
+*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition-charge.test.ts`, `server/test/expedition-tirage.test.ts`*
+
+### Les formes : le dévoilement s'écrit au fil des mots, et une autre forme ne mesure rien
+**Contexte** : l'étape 3 du brief pose quatre formes — quatre choix, vrai ou faux, six choix, dévoilement. Un dévoilement envoyé entier, même caché par la page, donnerait l'intitulé au téléphone d'avance (invariant 1), et une heure lue au téléphone dériverait (invariant 6). Une question à six choix, en vrai ou faux tiré d'une autre ou lue à mi-mot n'a plus la difficulté qu'on mesure.
+
+**Décision** : la forme se pose au serveur, au tirage (`aSaForme`) : six choix prend deux leurres de la question, un vrai ou faux propose une de ses réponses — la bonne une fois sur deux —, un dévoilement garde l'heure de son premier mot. Le dévoilement part par sa route, une réponse HTTP qui écrit chaque mot à son heure, celle du serveur ; la réponse lit les mots dits à l'heure où elle arrive. Arrêt sur image l'arrête cinq secondes ; Deux visages ne s'y joue pas. La réponse porte sa forme (`campagne_reponses.forme`) : ni la mesure, ni le modèle du savoir, ni la précision et les écussons, ni L'Érudit ne la lisent, et un vrai ou faux tiré d'une autre, trouvé, ne retrouve rien au carnet. Arrêt sur image, joker des offres, ne s'offre qu'aux expéditions parties depuis (`Joker.depuis`, le départ en version 3) : une offre se rejoue de la graine, et un joker de plus aurait changé celles d'avant.
+
+**Conséquence** : la page ne reçoit d'un dévoilement que son compte de mots, puis ses mots, un à un ; rouverte, la route redit d'un coup ceux déjà dits. Une forme que le thème ne sait pas prendre se pose à quatre choix. Ce qui compare une question jouée à la base la lit à sa forme — un signalement en vrai ou faux n'est pas une version d'avant.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-formes.test.ts`*
+
+### Les écus se comptent du journal, et l'inconnu ne part qu'une fois dévoilé
+**Contexte** : l'étape 4 du brief donne sa monnaie à l'expédition : une escale trouvée paie selon la chance qu'elle annonçait, un dévoilement d'autant plus qu'on répond tôt, et l'échoppe dépense. Un solde tenu dans une colonne aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du pli ; un achat relu au prix du jour aurait changé, à chaque retouche du barème, le solde des expéditions en route. Et l'inconnu — un marchand, un piège, un légendaire de passage — n'en serait plus un si la carte, envoyée entière au téléphone, le disait.
+
+**Décision** : les écus ne s'écrivent nulle part : le pli les compte (`ecusDeLaReponse`), de la couleur de la chance annoncée — celle de la carte, ou du Commandement —, de la forme et du thème, et, au dévoilement, du mot où la réponse est arrivée, lu de l'heure que le serveur écrit déjà avec elle (`repondue_le`, `devoileA`). Un achat est un geste (`acheter`) qui écrit avec lui le prix payé, comme à la boutique. Ce que cache l'inconnu se tire de la graine (`contenuDeLInconnu`) et ne se garde pas sur la carte : la vue ne le dit qu'une fois dévoilé — par la boussole, par la lanterne pour les pièges, ou en y entrant (invariant 1). Les écus, Quitte ou double et les talismans ne valent que pour les expéditions parties depuis (le départ en version 4) : les offres se rejouent de la graine, et celles d'avant se rejouent sans écus.
+
+**Conséquence** : ni colonne ni écriture de plus — une réponse coûte ce qu'elle coûtait, un achat un geste. Un prix changé ne vaut que pour les achats à venir. Les écus meurent avec l'expédition, et le solde de confettis n'en sait rien. Un piège peut finir l'expédition d'un geste : le serveur la clôt alors comme une réponse, ses gains compris.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-ecus.test.ts`, `server/test/expedition-echoppe.test.ts`*
+
+### Le passeport se relit du journal : un tampon par thème pointu trouvé
+**Contexte** : la refonte des sujets de la campagne porte l'onglet des thèmes à quatre-vingt-douze sujets ; le propriétaire, le 18 octobre 2026 : « Est-ce que l'on ne peut pas faire quelque chose avec tous ces thèmes ? », puis, parmi quatre propositions, « Idée 1 2 stp ». Un passeport tenu dans une table à part aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du journal.
+
+**Décision** : la question tirée du tas d'un thème pointu le garde (`QuestionDeSerie.sujet`), et sa réponse l'écrit avec elle (`campagne_reponses.sujet`) — ni celle d'un Commandement, ni celle du tirage de secours dans toute la base, ni celle que La boucle repose. Le passeport est la liste des thèmes trouvés (`lectureDuPasseport`), lue dans le lot qui lit déjà l'expédition, la page ou le départ, puis tenue en mémoire avec l'expédition ; la vue signale sur la carte ce qui manque (`aTamponner`). Le Globe-trotter, une piste de la campagne, les compte dans le lot des paliers (`statsDe`) : bronze à dix, argent à quarante, or au passeport complet.
+
+**Conséquence** : pas un aller-retour de plus. Un tampon ne donne aucun avantage de jeu (invariant 8) ; le Globe-trotter paie ses paliers comme les autres pistes — un barème de plus, dit (`docs/reference/baremes.md`). Un sujet ajouté à l'onglet arrive de lui-même sur les cartes et au passeport ; l'or reste à quatre-vingt-douze.
+
+*Fichiers : `shared/expedition.ts`, `shared/hautsfaits.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-passeport.test.ts`*
+
+### La saison d'une fête : sa fête sur les cartes, son légendaire à l'acte 3
+**Contexte** : la Citrouille, le Sapin et le Bouquet final ne se gagnaient qu'au quiz du jour ou en soirée, à leur saison ; leurs jokers, eux, agissaient toute l'année. La seconde idée retenue le 18 octobre 2026 — Halloween à une semaine.
+
+**Décision** : une expédition partie à la saison d'une fête voit sa fête tenir la moitié de ses thèmes pointus (`PART_DE_LA_FETE`), et son légendaire garder l'acte 3 s'il ne l'a pas — ni s'il est l'invité du jour (`gardiensDe`, `deSaison`). La voie de l'expédition s'ouvre aux légendaires de saison (`avecLExpedition`) : ils ne gardent qu'alors, elle ne sert donc qu'à leur saison. La saison se lit au jour de Paris du départ (`calendrierDesExpeditions`), et le départ la garde (`DepartDExpedition.saison`). Hors saison, le générateur ne tire rien de plus.
+
+**Conséquence** : partie à temps, l'expédition se finit quand on veut. Le banc et le smoke ferment le calendrier des expéditions comme celui des soirées : sans quoi chaque test d'expédition aurait sa Citrouille à l'acte 3 une semaine par an. Ce qu'une voie neuve change aux Divins se vérifie dans `core/divins.ts`, et ne s'écrit nulle part ailleurs (invariant 21).
+
+*Fichiers : `shared/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `server/test/expedition-saison.test.ts`*
+
+### La carte n'éclaire que l'escale où l'on est, et propose celles de devant
+**Contexte** : la carte d'un acte dessinait le tracé le plus sûr jusqu'au campement — une dizaine d'escales et leurs liens dorés, l'escale où l'on était perdue parmi elles —, et chaque escale portait son nom et sa chance. Le propriétaire, le 18 octobre 2026 : « il faudrait uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut atteindre », et « le système de carte un peu fouillon et pas trop compréhensible. C'est pas très pratique non plus ».
+
+**Décision** : seule l'escale où l'on est s'éclaire — le départ, au début. Les escales permises (`VueDeLExpedition.permises` : la suite de la sienne, ou ce qu'un joker de route ouvre) sont proposées, entourées, leur nom dessous et leur chance au-dessus ; le reste de la carte attend en retrait, plus petit, son emblème sans un mot, et dit dans le panneau ce qu'il cache quand on le touche. On touche une proposée — son trait se dore —, puis « Y aller » ; seule, elle l'est d'office (le gardien, au campement). Le tracé le plus sûr se compte encore, sans se dessiner : le panneau nomme la plus sûre des proposées, et son nom, touché, la choisit — deux proposées portent souvent le même. La légende passe dans une feuille, « La carte », qui dit aussi comment la lire ; le panneau dit l'escale touchée, sans les chances d'un tracé.
+
+**Conséquence** : rien ne change au serveur ni au pli — ils ne vérifiaient déjà que le pas suivant. Un pas coûte deux touchers au lieu d'un : on choisit ce qu'on fait, au lieu de suivre ce qui s'allume. La chance d'arriver au gardien et le butin d'un tracé ne se lisent plus sur la carte ; le calibrage suit toujours le plus sûr, que le panneau conseille pas à pas.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
+
+### L'acte en petit en haut, les escales et les jokers en vraies cartes en bas
+**Contexte** : le même jour, la carte ne s'allumait plus que là où l'on était, mais ses escales restaient des ronds posés sur une carte qui défilait, que le panneau collé en bas couvrait à moitié ; la main, une ligne de noms dans le panneau, et sous une question des tuiles. Le propriétaire : « Je n'aime pas le design de comment sont matérialisé les cartes, ça serait possible que ce soit de vrais cartes en bas ? […] Pareil ma main c'est pas ouf ». Entre deux maquettes, il a choisi « la carte en haut, en petit et épurée, pour voir où tu es », les choix en vraies cartes en bas ; et les jokers en vraies cartes, au cadre de leur rareté, qui se lèvent quand on les touche.
+
+**Décision** : l'écran de la carte tient en un écran. En haut, l'acte entier en petit, sans un mot — l'escale où l'on est, qui brille, les proposées entourées, la touchée en or —, ses rangées en pour cent de la hauteur qu'il lui reste ; touché, il s'ouvre en grand dans une feuille, où chaque escale dit ce qu'elle cache, avec la légende et « Abandonner l'expédition ». En bas, les escales proposées en cartes — sorte, emblème, nom, chance, ce qu'elles rapportent —, la plus sûre à son ruban ; une carte touchée se lève, puis « Y aller ». Les jokers sont des cartes au cadre de leur rareté, de la gemme de l'album (`gemmes.ts`) : posées au bas de l'écran sous une question, leur haut seul en vue, et en petit en tête du panneau sur la carte ; touchée, une carte se lève en grand, dit ce qu'elle fait, puis « Jouer » ou pourquoi pas. La pioche, au bout de la main, ouvre le paquet, la défausse, les posés et les talismans ; les posés se montrent aussi dans la barre du haut.
+
+**Conséquence** : la page ne défile plus jusqu'à l'escale où l'on est — seule la carte en grand défile, dans sa feuille. Le panneau a un budget : ce qui le grandit rapetisse l'acte en petit, au moins 170 pixels ; posée au bas du panneau, la main en prenait 90, et elle vit en tête. La chance et les gains d'une escale se lisent sur sa carte, sa marche et à qui est la chance dans sa description. Une rareté n'a qu'une couleur dans toute l'application, et le maudit prend le pourpre de l'épique. Rien ne change au serveur ni au pli.
+
+*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `client/src/gemmes.ts`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
 
 ## L'outillage
 

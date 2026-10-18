@@ -26,7 +26,14 @@ paths:
   (`aLaPremiereLecture`). Presque toutes les pages l'importent pour une
   constante — le nom d'un laurier, un type —, et le premier `Intl` d'une page
   charge les données ICU : 20 à 80 ms au processeur d'un téléphone moyen,
-  avant son premier écran (`jour.test.ts`).
+  avant son premier écran (`jour.test.ts`). Et `jourDe` se garde par heure
+  (`joursDesHeures`) : les missions et le carnet le demandaient à `Intl`
+  pour chaque réponse d'un joueur — quatre millisecondes par page, dix fois
+  plus au dixième de cœur de l'hébergeur (le banc du 16 octobre 2026). Une
+  heure se lit une fois, à son début, et ne se garde que si Paris y tombe à
+  une heure pile — vrai depuis 1911 ; un seul appel à `Intl` par heure,
+  que `jour-charge.test.ts` borne pour le laurier. Une autre façon de dire
+  le jour de Paris passe par `jourDe`, jamais par un `Intl` à elle.
 - **Le quiz du jour a son horloge** (`horlogeDuJour`, `JourStore.maintenant`) :
   les tests la font passer minuit (`jour-partie.test.ts`). Sa ligne
   d'expérience (`LIGNE_JOUR`, `#jour`) compte dans le total et le niveau
@@ -79,3 +86,10 @@ paths:
   `GRACE_MS` + 0,6 s après l'échéance — une marge recopiée en dur
   (`APRES_ECHEANCE_MS`, `JourApp.tsx`) : changée au serveur, elle se
   change là aussi.
+- **Les intitulés de la réserve gardent leur ensemble tant qu'ils ne
+  changent pas** (`empreintes`, relus toutes les dix minutes) : la campagne
+  le compare par identité (`jouablesGardees`), et un ensemble neuf à chaque
+  relecture lui faisait refaire ses jouables, leurs sujets et la
+  préparation de ses tirages (`tirage-prepare.test.ts`). Un apport ou une
+  correction l'efface (`empreintesGardees = null`) : la relecture suivante
+  en fait un neuf.

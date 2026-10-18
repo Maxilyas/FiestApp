@@ -26,6 +26,7 @@ Treize pages, dont l'adresse ne porte pas d'espace : celui d'une page d'animateu
 | `/jour` | Le quiz du jour ; sans profil, une page qui le présente | profil | `client/src/views/JourApp.tsx` |
 | `/campagne` | La campagne : les séries, les sentiers, le défi de la semaine, le carnet | profil | `client/src/views/CampagneApp.tsx` |
 | `/duels` | Les duels : la cote, la ligue, les défis entre amis — joués sur l'écran de la campagne | profil | `client/src/views/CampagneApp.tsx`, `client/src/views/Duels.tsx` |
+| `/expedition` | L'Expédition : le départ et ses trois gardiens, la carte de l'acte en cours, ses escales, le légendaire à garder au bout ; en production, « L’expédition arrive bientôt » tant que ses jokers ne sont pas venus — aucun bouton n'y mène encore | profil | `client/src/views/ExpeditionApp.tsx` |
 | `/salon` | « Nouveau salon » : créer et ouvrir son salon depuis son profil (`?quiz=<id>` le prépare avec un quiz) | profil | `client/src/views/SalonApp.tsx` |
 | `/host` | L'écran commun et sa console ; sans session, la connexion et le code de la télé | animateur | `client/src/views/HostApp.tsx` |
 | `/tele` | La télé : sans session, le code qui la branche ; branchée, l'écran de la salle | une télé | `client/src/views/HostApp.tsx` |
