@@ -863,6 +863,8 @@ export interface RencontreEnCours {
   suivant: { cartes: number; inspiration: number; charge: number }
   /** Ce que la dernière erreur lui a coûté de courage : L'horizon le rend. */
   derniereFrappe: number
+  /** Le courage que ses frappes lui ont pris dans la rencontre : un gardien vaincu sans en perdre est un exploit (le codex). */
+  perdu: number
   /** L'aube : ses bonnes réponses depuis qu'elle est posée. */
   aube: number
   /** La boucle : l'erreur à reposer, ce qu'elle a coûté, le rang où elle se repose. */

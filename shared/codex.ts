@@ -12,7 +12,8 @@
 // ce qu'elle a fait : ses escales, ses adversaires, ses élites, ses gardiens,
 // le bout. Elle fait le niveau d'explorateur ; chaque niveau ouvre des cartes,
 // les premiers des règles — la première expédition n'a ni pari, ni talisman,
-// ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte.
+// ni catégorie fétiche. Un légendaire qu'on a ouvre sa carte ; un exploit — un
+// but précis, fait une fois — la sienne, ou le dos doré du paquet.
 //
 // Pur. Ce qu'une expédition a fait se compte de son pli (`bilanDuPli`,
 // `shared/expedition.ts`) — invariant 14 : la renommée d'une expédition finie
@@ -25,9 +26,62 @@
 import { CARTES_DES_RENCONTRES, CARTES_PAR_OFFRE, VERSION_DU_CODEX, carteDeRencontre, carteDuLegendaire, type CarteDeRencontre, type PoidsDesRaretes } from './rencontres'
 import { hasardDe } from './missions'
 
+// ── Les exploits ────────────────────────────────────────────────────────────
+
+/**
+ * Un exploit : un but précis, une récompense précise (la proposition du codex,
+ * le 18 octobre 2026 : « Dans le codex, une carte verrouillée dit toujours
+ * comment l'obtenir : un niveau, un exploit ou un légendaire »). Il se fait une
+ * fois, dans n'importe quelle expédition — perdue ensuite aussi —, et le bilan
+ * de celle-ci le garde : comme la renommée, il se relit des bilans.
+ */
+export type CleDExploit = 'pari-de-40' | 'une-seule-reponse' | 'd-affilee' | 'gardien-intact'
+
+export interface Exploit {
+  cle: CleDExploit
+  /** Ce qu'il faut faire, en minuscule : il suit « Exploit : ». */
+  but: string
+  /** La carte qu'il ouvre au codex — hors de l'échelle : elle ne s'ouvre que par lui. */
+  carte?: string
+  /** Sans carte : le dos doré de son paquet. */
+  dos?: 'dore'
+}
+
+/** Le pari qu'il faut gagner : le plus gros (`MISES`) — doublé par Doubler la mise, un pari de 20 y suffit. */
+export const PARI_DE_L_EXPLOIT = 40
+/**
+ * Les bonnes réponses d'affilée qu'il faut, dans toute l'expédition : une
+ * erreur, une source ratée comprise, repart de zéro. Dix, comme le proposait
+ * le codex, le joueur moyen les enchaînait à sa première expédition : vingt.
+ */
+export const BONNES_D_AFFILEE = 20
+
+/**
+ * Les exploits, dans l'ordre où ils se disent. Banco, Lancée et Échauffement
+ * ne s'ouvrent que par eux : chacun récompense la façon de jouer qu'il sert —
+ * parier gros, frapper fort, enchaîner. Mesurés sur la carrière
+ * (`calibrage-rencontres.ts`, le 18 octobre 2026, cent joueurs de chaque
+ * sorte) : le gros pari tombe à la deuxième ou la troisième expédition, dès
+ * que le pari s'ouvre — le premier but, qui apprend à parier ; les trois
+ * autres sont des exploits — en vingt expéditions, le joueur moyen fait
+ * chacun six fois sur dix environ, vers sa sixième à sa neuvième, le fort
+ * presque toujours, le faible une ou deux fois sur dix, et vingt d'affilée
+ * presque jamais. Au premier réglage — un adversaire ordinaire d'une seule
+ * réponse, n'importe quel gardien, dix d'affilée —, le moyen les faisait tous
+ * à sa première.
+ */
+export const EXPLOITS: readonly Exploit[] = [
+  { cle: 'pari-de-40', but: `gagner un pari de ${PARI_DE_L_EXPLOIT} écus`, carte: 'banco' },
+  { cle: 'une-seule-reponse', but: 'faire tomber une élite d’une seule réponse', carte: 'lancee' },
+  { cle: 'd-affilee', but: `répondre juste ${BONNES_D_AFFILEE} fois d’affilée`, carte: 'echauffement' },
+  { cle: 'gardien-intact', but: 'vaincre le gardien de l’acte 3 sans perdre de courage', dos: 'dore' },
+]
+
+export const exploitDe = (cle: string) => EXPLOITS.find(x => x.cle === cle)
+
 // ── La renommée ─────────────────────────────────────────────────────────────
 
-/** Ce qu'une expédition a fait, que la renommée compte. */
+/** Ce qu'une expédition a fait, que la renommée compte — et ses exploits. */
 export interface BilanDUneExpedition {
   /** Les escales où il est entré, gardiens compris. */
   escales: number
@@ -38,21 +92,24 @@ export interface BilanDUneExpedition {
   gardiens: number
   /** Allée au bout : le troisième gardien vaincu. */
   auBout: boolean
+  /** Les exploits qu'elle a faits (la version 2 du bilan) ; ils ne rapportent pas de renommée. */
+  exploits?: readonly CleDExploit[]
 }
 
 /**
  * Le bilan gardé à la fin d'une expédition (`campagne_series.bilan`), à sa
  * version : un bilan d'une version d'avant se refait du pli. Elle monte quand
- * le bilan compte une chose de plus.
+ * le bilan compte une chose de plus — la 2, ses exploits : chaque expédition
+ * finie s'est repliée une fois, et les exploits d'avant comptent.
  */
-export const VERSION_DU_BILAN = 1
+export const VERSION_DU_BILAN = 2
 
 /**
  * Ce que rapporte chaque chose faite, en renommée. Une première expédition
  * perdue à l'acte 1 en rapporte une vingtaine — de quoi passer le niveau 2 —,
  * une menée au bout cent cinquante environ.
  */
-export const RENOMMEE: Readonly<Record<keyof BilanDUneExpedition, number>> = {
+export const RENOMMEE: Readonly<Record<Exclude<keyof BilanDUneExpedition, 'exploits'>, number>> = {
   escales: 1,
   adversaires: 3,
   elites: 6,
@@ -71,22 +128,25 @@ export function renommeeDe(b: BilanDUneExpedition): number {
   )
 }
 
-/** Un bilan relu de la base : ses nombres, ou rien — d'une autre version, ou qui ne se lit pas. */
+/** Un bilan relu de la base : ses nombres et ses exploits, ou rien — d'une autre version, ou qui ne se lit pas. */
 export function lireLeBilan(brut: unknown): BilanDUneExpedition | null {
   if (typeof brut !== 'string') return null
   try {
     const b = JSON.parse(brut)
-    if (b?.v !== VERSION_DU_BILAN) return null
+    if (b?.v !== VERSION_DU_BILAN || !Array.isArray(b.exploits)) return null
     const n = (x: unknown) => (typeof x === 'number' && Number.isInteger(x) && x >= 0 ? x : null)
     const lu = { escales: n(b.escales), adversaires: n(b.adversaires), elites: n(b.elites), gardiens: n(b.gardiens), auBout: b.auBout === true }
-    return lu.escales === null || lu.adversaires === null || lu.elites === null || lu.gardiens === null ? null : (lu as BilanDUneExpedition)
+    if (lu.escales === null || lu.adversaires === null || lu.elites === null || lu.gardiens === null) return null
+    // Un exploit que le code ne connaît plus se tait : il n'ouvre rien.
+    const exploits = EXPLOITS.map(x => x.cle).filter(cle => (b.exploits as unknown[]).includes(cle))
+    return { ...(lu as Omit<BilanDUneExpedition, 'exploits'>), exploits }
   } catch {
     return null
   }
 }
 
 /** Le bilan tel que la base le garde, à sa version. */
-export const ecrireLeBilan = (b: BilanDUneExpedition) => JSON.stringify({ v: VERSION_DU_BILAN, ...b })
+export const ecrireLeBilan = (b: BilanDUneExpedition) => JSON.stringify({ v: VERSION_DU_BILAN, ...b, exploits: [...(b.exploits ?? [])] })
 
 // ── Les niveaux ─────────────────────────────────────────────────────────────
 
@@ -133,8 +193,9 @@ export interface MarcheDuCodex {
  * le début injouable et la fin trop facile. Les rares qui pèsent le plus
  * attendent — Sursis au niveau 6 : mesurée, elle seule ouverte au niveau 1
  * menait le joueur moyen au bout une fois sur deux, plus qu'avec tout le
- * codex (`calibrage-rencontres.ts`, le 18 octobre 2026). Toutes les cartes
- * sans légendaire y sont, une fois (`codex.test.ts`).
+ * codex (`calibrage-rencontres.ts`, le 18 octobre 2026). Banco, Lancée et
+ * Échauffement n'y sont pas : leur exploit les ouvre (`EXPLOITS`). Toutes les
+ * autres cartes sans légendaire y sont, une fois (`codex.test.ts`).
  */
 export const ECHELLE: readonly MarcheDuCodex[] = [
   { niveau: 1, cartes: ['concentration', 'prudence', 'coup-d-oeil', 'echange', 'pioche', 'arret-sur-image'] },
@@ -143,32 +204,40 @@ export const ECHELLE: readonly MarcheDuCodex[] = [
   { niveau: 4, cartes: ['detour', 'tout-ou-rien'], regle: 'talismans' },
   { niveau: 5, cartes: ['plume', 'bibliotheque'], regle: 'fetiche' },
   { niveau: 6, cartes: ['sursis', 'quitte-ou-double'] },
-  { niveau: 7, cartes: ['doubler-la-mise', 'banco'] },
+  { niveau: 7, cartes: ['doubler-la-mise'] },
   { niveau: 8, cartes: ['corser', 'simplifier'] },
-  { niveau: 9, cartes: ['echauffement', 'lancee'] },
-  { niveau: 10, cartes: ['lucidite', 'troisieme-oeil'] },
+  { niveau: 9, cartes: ['lucidite'] },
+  { niveau: 10, cartes: ['troisieme-oeil'] },
 ]
 
 /** Le niveau qui ouvre une règle. */
 export const niveauDeLaRegle = (regle: RegleDuCodex) => ECHELLE.find(m => m.regle === regle)?.niveau ?? 1
 
-/** Comment s'ouvre une carte : à son niveau, ou en ayant le légendaire qui la donne. */
-export function ouvertureDe(cle: string): { niveau: number } | { legendaire: string } | null {
+/** Comment s'ouvre une carte : à son niveau, par son exploit, ou en ayant le légendaire qui la donne. */
+export function ouvertureDe(cle: string): { niveau: number } | { exploit: CleDExploit } | { legendaire: string } | null {
   const marche = ECHELLE.find(m => m.cartes.includes(cle))
   if (marche) return { niveau: marche.niveau }
+  const exploit = EXPLOITS.find(x => x.carte === cle)
+  if (exploit) return { exploit: exploit.cle }
   const legendaire = carteDeRencontre(cle)?.legendaire
   return legendaire ? { legendaire } : null
 }
 
 /**
  * Le codex d'un profil, tel que son départ le fige (v7) : son niveau, les
- * cartes qu'il ouvre — l'échelle jusqu'à lui, puis la carte de chaque
- * légendaire qu'il a —, dans l'ordre du catalogue, et les règles ouvertes.
+ * cartes qu'il ouvre — l'échelle jusqu'à lui, la carte de chaque exploit
+ * qu'il a fait, puis celle de chaque légendaire qu'il a —, dans l'ordre du
+ * catalogue, les règles ouvertes et ses exploits.
  */
 export interface CodexDuDepart {
   niveau: number
   cartes: string[]
   regles: RegleDuCodex[]
+  /**
+   * Les exploits qu'il avait faits en partant : la fin dit ceux qu'elle
+   * ajoute. Absents d'un départ d'avant les exploits — la fin n'en dit rien.
+   */
+  exploits?: CleDExploit[]
   /**
    * La renommée qu'il avait en partant : la fin y ajoute celle de
    * l'expédition, et dit le niveau qu'elle fait passer. Absente au calibrage.
@@ -176,13 +245,18 @@ export interface CodexDuDepart {
   renommee?: number
 }
 
-export function codexDuNiveau(niveau: number, legendaires: readonly string[]): CodexDuDepart {
+export function codexDuNiveau(niveau: number, legendaires: readonly string[], exploits: readonly CleDExploit[] = []): CodexDuDepart & { exploits: CleDExploit[] } {
   const marches = ECHELLE.filter(m => m.niveau <= niveau)
-  const ouvertes = new Set([...marches.flatMap(m => m.cartes), ...legendaires.flatMap(l => carteDuLegendaire(l)?.cle ?? [])])
+  const ouvertes = new Set([
+    ...marches.flatMap(m => m.cartes),
+    ...exploits.flatMap(x => exploitDe(x)?.carte ?? []),
+    ...legendaires.flatMap(l => carteDuLegendaire(l)?.cle ?? []),
+  ])
   return {
     niveau,
     cartes: CARTES_DES_RENCONTRES.filter(c => ouvertes.has(c.cle)).map(c => c.cle),
     regles: marches.flatMap(m => (m.regle ? [m.regle] : [])),
+    exploits: EXPLOITS.map(x => x.cle).filter(cle => exploits.includes(cle)),
   }
 }
 

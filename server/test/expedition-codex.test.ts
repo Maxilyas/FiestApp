@@ -111,7 +111,8 @@ test('la renommée se relit de toutes ses expéditions finies : son niveau, ses 
   const v = parti.corps as VueDeLExpedition
   assert.equal(v.fetiche, 'Histoire', 'au niveau 5, sa catégorie fétiche part avec lui')
   assert.deepEqual(departDe(v.id).codex, { ...codexDuNiveau(5, []), renommee: NIVEAUX[4] })
-  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'talismans', 'fetiche'], renommee: NIVEAUX[4] })
+  assert.deepEqual(v.cartes?.codex, { niveau: 5, regles: ['pari', 'talismans', 'fetiche'], renommee: NIVEAUX[4], exploits: [] })
+  assert.deepEqual(v.exploits, [], 'aucun exploit au départ')
   // La renommée qui monte en route ne change rien à l'expédition partie : son codex est figé.
   ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[8] }))
   const relue = await page(c)
@@ -119,15 +120,40 @@ test('la renommée se relit de toutes ses expéditions finies : son niveau, ses 
   assert.equal(relue.expedition?.cartes?.codex?.niveau, 5, 'celle en route reste au 5')
 })
 
-test('une expédition finie sans bilan — d’avant le codex, ou qui ne se lit pas — se relit de son pli, et son bilan s’écrit', async () => {
+test('une expédition finie sans bilan — d’avant le codex, d’avant les exploits, ou qui ne se lit pas — se relit de son pli, et son bilan s’écrit', async () => {
   const c = await inscrireProfil(banc.url, 'ancien', 'Ancien')
   const finie = await unPasPuisAbandon(c)
-  for (const brut of [null, 'pas du JSON', JSON.stringify({ v: 99, escales: 500, adversaires: 0, elites: 0, gardiens: 0, auBout: false })]) {
+  for (const brut of [
+    null,
+    'pas du JSON',
+    JSON.stringify({ v: 99, escales: 500, adversaires: 0, elites: 0, gardiens: 0, auBout: false }),
+    // Le bilan de la version 1 (le 18 octobre 2026), sans ses exploits : replié une fois, ce qu'elle a fait d'exploit compte.
+    JSON.stringify({ v: 1, escales: 500, adversaires: 0, elites: 0, gardiens: 0, auBout: false }),
+  ]) {
     ecrireLeBilanEnBase(finie, brut)
     await banc.redemarrer()
     assert.equal((await page(c)).prochaine.codex?.renommee, 1, `${brut} : refait du pli, une escale`)
     assert.equal(bilanEnBase(finie), ecrireLeBilan(UNE_ESCALE), `${brut} : son bilan écrit, pour ne la replier qu’une fois`)
   }
+})
+
+test('ses exploits se relisent des bilans : chacun ouvre sa carte au codex, se fige au départ, et une expédition qui en refait un n’en dit rien de neuf', async () => {
+  const c = await inscrireProfil(banc.url, 'exploits', 'Exploits')
+  const finie = await unPasPuisAbandon(c)
+  assert.deepEqual((await page(c)).prochaine.codex?.exploits, [])
+  // Une expédition d'avant y a gagné un gros pari et tenu un gardien sans perdre de courage.
+  ecrireLeBilanEnBase(finie, ecrireLeBilan({ ...UNE_ESCALE, exploits: ['gardien-intact', 'pari-de-40'] }))
+  const codex = (await page(c)).prochaine.codex!
+  assert.deepEqual(codex, { renommee: 1, ...codexDuNiveau(1, [], ['pari-de-40', 'gardien-intact']) })
+  assert.deepEqual(codex.exploits, ['pari-de-40', 'gardien-intact'])
+  assert.ok(codex.cartes.includes('banco'), 'Banco s’ouvre par son exploit, dès le niveau 1')
+  assert.ok(!codex.cartes.includes('lancee'), 'Lancée attend le sien')
+  const parti = await poster(c, '/api/expedition', { rencontres: true })
+  assert.equal(parti.status, 200, parti.corps.error)
+  const v = parti.corps as VueDeLExpedition
+  assert.deepEqual(departDe(v.id).codex?.exploits, ['pari-de-40', 'gardien-intact'], 'figés au départ')
+  assert.deepEqual(v.cartes?.codex?.exploits, ['pari-de-40', 'gardien-intact'], 'la page les lit : le dos doré, et ce qui sera neuf à la fin')
+  assert.deepEqual(v.exploits, [])
 })
 
 test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir — l’invité du jour prête la sienne', async () => {

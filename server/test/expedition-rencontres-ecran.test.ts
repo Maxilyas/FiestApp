@@ -479,6 +479,64 @@ test('les règles au codex : la renommée et ce que chaque niveau ouvre ; une r�
   for (const t of [fermees, ouvertes]) assert.doesNotMatch(t, JARGON)
 })
 
+test('les exploits : une carte qu’un exploit ouvre le dit dessous ; au pied du codex, les quatre — faits ou à faire —, le dos doré ; la fin et les règles les disent', async () => {
+  // La proposition du codex : « Dans le codex, une carte verrouillée dit toujours comment l'obtenir : un niveau, un exploit ou un légendaire. »
+  const { FeuilleDuCodex, RenommeeGagnee, FeuilleDesRegles, MainDeRencontre } = await piecesDuCodex()
+  const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
+  const ouvert = codexDuNiveau(3, [], ['gardien-intact'])
+  const html = await rendre(FeuilleDuCodex, { codex: { renommee: NIVEAUX[2], ...ouvert }, onFermer: rien })
+  const t = texte(html)
+  assert.match(html, /data-carte="banco"[\s\S]*?<span class="exp-codex-ouverture" aria-hidden="true">[\s\S]*?Exploit<\/span>/)
+  assert.match(t, /Banco, rare : Le pari frappe\. Elle s’ouvre par un exploit : gagner un pari de 40 écus\./)
+  assert.match(t, /Tes exploits · 1 sur 4/)
+  assert.deepEqual(
+    [...html.matchAll(/<li class="exp-exploit( exp-exploit-fait)?">/g)].map(m => !!m[1]),
+    [false, false, false, true],
+    'dans leur ordre ; le gardien sans perdre de courage, fait',
+  )
+  assert.match(t, /gagner un pari de 40 écus Ouvre Banco\./)
+  assert.match(t, /vaincre le gardien de l’acte 3 sans perdre de courage Fait : ton paquet a son dos doré\./)
+  assert.match(html, /class="exp-pioche exp-dos-miniature exp-dos-dore"/, 'le dos doré tel que la pioche le porte')
+  // La fin : chaque exploit neuf, ce qu'il ouvre ; ses cartes avec celles du niveau.
+  const fin = await rendre(RenommeeGagnee, { avant: NIVEAUX[1], gagnee: 5, exploits: ['une-seule-reponse', 'gardien-intact'] })
+  const tf = texte(fin)
+  assert.match(tf, /Exploit : faire tomber une élite d’une seule réponse — Lancée rejoint ton codex\./)
+  assert.match(tf, /Exploit : vaincre le gardien de l’acte 3 sans perdre de courage — ton paquet prend un dos doré\./)
+  assert.deepEqual([...fin.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), ['lancee'])
+  assert.match(tf, /Elle rejoint ton codex : tes récompenses la proposeront dès ta prochaine expédition\./)
+  // Les règles : une ligne par exploit, au codex seulement.
+  const regles = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, onFermer: rien }))
+  for (const r of [
+    /Les exploits/,
+    /Un exploit se fait une fois, dans n’importe quelle expédition — même perdue ensuite\./,
+    /Exploit : gagner un pari de 40 écus — Banco rejoint ton codex\./,
+    /Exploit : faire tomber une élite d’une seule réponse — Lancée rejoint ton codex\./,
+    /Exploit : répondre juste 20 fois d’affilée — Échauffement rejoint ton codex\./,
+    /Exploit : vaincre le gardien de l’acte 3 sans perdre de courage — ton paquet prend un dos doré\./,
+  ]) {
+    assert.match(regles, r)
+  }
+  assert.doesNotMatch(texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], onFermer: rien })), /Les exploits/, 'avant le codex, aucun')
+  // Le dos doré sur le plan : la pioche du paquet en or.
+  const pile = { compte: 12, mot: 'paquet', dit: 'Ton paquet : 12 cartes', onOuvrir: rien }
+  assert.match(await rendre(MainDeRencontre, { cles: [], refus: {}, busy: false, enPetit: true, pile, dos: 'dore', onJouer: rien }), /class="exp-pioche exp-dos-dore"/)
+  assert.match(await rendre(MainDeRencontre, { cles: [], refus: {}, busy: false, enPetit: true, pile, onJouer: rien }), /class="exp-pioche"/)
+  for (const x of [t, tf, regles]) assert.doesNotMatch(x, JARGON)
+})
+
+test('les exploits neufs : ceux que son codex n’avait pas au départ — un départ d’avant les exploits n’en dit aucun ; le dos doré, de son codex', async () => {
+  const { exploitsNeufs, dosDuPaquet } = (await pieces()) as unknown as {
+    exploitsNeufs: (v: unknown) => string[]
+    dosDuPaquet: (v: unknown) => string | undefined
+  }
+  const codex = (exploits?: string[]) => ({ cartes: { codex: { niveau: 3, regles: [], ...(exploits && { exploits }) } } })
+  assert.deepEqual(exploitsNeufs({ exploits: ['d-affilee', 'gardien-intact'], ...codex(['gardien-intact']) }), ['d-affilee'])
+  assert.deepEqual(exploitsNeufs({ exploits: ['d-affilee'], ...codex() }), [], 'il aurait pu dire neuf un exploit déjà fait')
+  assert.deepEqual(exploitsNeufs({ exploits: ['d-affilee'] }), [], 'avant le codex, rien')
+  assert.equal(dosDuPaquet(codex(['gardien-intact'])), 'dore')
+  assert.equal(dosDuPaquet({ exploits: ['gardien-intact'], ...codex([]) }), undefined, 'fait en route : il dorera la suivante')
+})
+
 test('au niveau 1, la préparation ne propose pas de pari : la première expédition n’a que ses cartes, son énergie et son courage', async () => {
   const { codexDuNiveau } = await import('../../shared/codex')
   stockage(true)

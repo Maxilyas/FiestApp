@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 442 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 444 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -55,7 +55,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Bibliothèque | Les quiz d'un espace — « Mes quiz », à l'adresse `/edit` —, que les autres espaces ne voient pas | `QuizStore` |
 | Bibliothèque en mémoire | La copie des quiz jouables de chaque espace que lit le moteur, relue après chaque écriture ; de deux relectures croisées, la dernière partie gagne | `derniereRelecture` |
 | Bilan | La soirée de chacun, question par question, et celle de toute la salle | `buildReview` (`server/src/core/review.ts`) |
-| Bilan (d'une expédition) | Ce qu'une expédition finie a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout —, écrit à sa fin, abandonnée aussi : la renommée en est la somme. Un reflet du pli, refait une fois s'il manque | `campagne_series.bilan`, `bilanDuPli` |
+| Bilan (d'une expédition) | Ce qu'une expédition finie a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout, ses exploits —, écrit à sa fin, abandonnée aussi : la renommée en est la somme, ses exploits comptent dès lors. Un reflet du pli, refait une fois s'il manque ou s'il est d'une version d'avant | `campagne_series.bilan`, `bilanDuPli`, `VERSION_DU_BILAN` |
 | Bonus de série | L'expérience versée dès qu'une partie commence : dix par jour de série, cent au plus | `xpDeSerie` |
 | Bordure de ligue | L'anneau cranté autour de l'avatar d'un profil, une par ligue atteinte, porté d'office ou choisi dans la loge | `BordureDeLigue` |
 | Boutique | La page `/boutique`, où l'on dépense ses confettis, en quatre rayons : « Thèmes », « Compagnons », « Fonds », « Objets » | `PanneauBoutique` |
@@ -94,7 +94,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Code de partage | Six caractères, valables sept jours, qui donnent une copie d'un quiz à un autre espace du même serveur | `lireCode` |
 | Code de secours | Seize signes, donnés une fois, la seule porte de retour d'un profil qui a perdu son mot de passe ; il se consomme et se renouvelle | `useRecovery` |
 | Code du salon | Six chiffres tirés à l'ouverture du salon, qu'on tape dans « Rejoindre une soirée » ou qu'on suit par `/<code>` ; il vaut encore une demi-heure après la clôture | `SalonStore.ouvrir`, `CODE_DU_SALON` (`shared/space.ts`) |
-| Codex (de l'expédition) | Toutes les cartes des rencontres, de la commune à la légendaire, en vraies cartes, une page par rareté — « Ton codex », au départ ; celles que son niveau d'explorateur n'a pas encore ouvertes s'éteignent et disent comment s'ouvrir. Les récompenses ne tirent que les siennes ; son départ le fige (la version 7) | `FeuilleDuCodex`, `shared/codex.ts`, `DepartDExpedition.codex` |
+| Codex (de l'expédition) | Toutes les cartes des rencontres, de la commune à la légendaire, en vraies cartes, une page par rareté — « Ton codex », au départ ; celles qu'il n'a pas encore ouvertes s'éteignent et disent comment s'ouvrir — un niveau d'explorateur, un exploit, un légendaire ; ses exploits au pied. Les récompenses ne tirent que les siennes ; son départ le fige (la version 7) | `FeuilleDuCodex`, `shared/codex.ts`, `DepartDExpedition.codex` |
 | Coffre (d'une escale) | Une escale de l'expédition qui offre un joker au choix parmi trois — deux sous Le trésor, aucun après L'horizon | `sorte: 'coffre'`, `offreDeJokers` |
 | Collection de prix | Les prix du palmarès qu'un profil a remportés, sur vingt | `PRIX_INDIVIDUELS`, `CATALOGUE_DES_PRIX` (`server/src/core/stats.ts`) |
 | Commande du jour | Ce que la routine doit écrire aujourd'hui pour chaque catégorie : combien de questions, quels sous-thèmes et quelles difficultés | `commandeDuJour` |
@@ -137,6 +137,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Divin | Un des six avatars à part, dont les règles et les récits sont secrets : les règles ne quittent jamais le serveur, et le récit n'est dit qu'à son porteur | `server/src/core/divins.ts` |
 | Don (de confettis) | Des confettis que l'administrateur offre depuis la fiche d'un joueur, avec un mot, annoncés une fois sur son accueil et jamais repris | `offrirDesConfettis` |
 | Données de départ | Ce qu'une page demande dès son code arrivé, et que le serveur fait précharger avec la page, à la même adresse | `donneesDeDepart`, `DEPART` (`shared/depart.ts`) |
+| Dos doré | Le paquet d'une expédition en or sur le plan, une fois l'exploit du gardien de l'acte 3 vaincu sans perdre de courage fait ; l'or ne change rien au jeu | `dosDuPaquet`, `.exp-dos-dore` |
 | Duel | Une série de la campagne que deux adversaires jouent sur les mêmes questions, chacun à son heure ; le plus de bonnes réponses gagne | `shared/duels.ts` |
 | Duel au dé | Le duel tout de suite contre Automate, à chances égales sur la cote qu'on voit, sur toutes les catégories ou sur ce qu'on choisit ; une série de mode `rencontre` (« rencontre » dans le code) | `commencerUneRencontre`, `enjeuDuDe` |
 | Duel classé | À l'écran, le duel contre quelqu'un ; dans le code, tout duel qui compte pour la cote, celui du dé compris | `lectureDesDuels` |
@@ -190,6 +191,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Expédition | Le mode où se gagnent les légendaires, et où ils servent : trois actes, chacun son plan tiré au sort et son gardien, un légendaire à garder au bout du troisième, des jokers en main | `mode = 'expedition'`, `shared/expedition.ts`, `client/src/views/ExpeditionApp.tsx` |
 | Expérience (XP) | Les points qu'un profil garde d'une fois à l'autre — en soirée, au quiz du jour, en campagne — et qui font son niveau ; elle ne donne aucun avantage de jeu | `profile_xp` |
 | Expert | Un agent qui pose un regard sur une soirée — parcours, mots, accessibilité, performance — ou audite le code, et rend un rapport | `.claude/skills/tablee/experts/` |
+| Exploit (d'expédition) | Un but précis du codex, fait une fois dans n'importe quelle expédition : gagner un pari de 40 écus ouvre Banco, faire tomber une élite d'une seule réponse Lancée, répondre juste 20 fois d'affilée Échauffement, vaincre le gardien de l'acte 3 sans perdre de courage le dos doré du paquet. Gardé par le bilan, il compte dès l'expédition suivante. À ne pas confondre avec l'exploit d'un haut fait | `EXPLOITS`, `EtatDeLExpedition.exploits` |
 | Exploit, coup du sort | Les deux sortes de hauts faits : ce qu'on a réussi, ou ce qu'on assume en riant — un coup du sort rapporte peu, et la carte ne le montre que s'il est choisi (dans le code, le ton `eclat` ou `ombre`) | `Ton` |
 | Export | La soirée en fichiers : le bilan en JSON et trois CSV pour Excel | `exportFiles` (`server/src/core/export.ts`), `npm run export` |
 | Extinction propre | L'arrêt sur signal qui vide la file du miroir et s'inscrit dans les démarrages | `qg_demarrages` |

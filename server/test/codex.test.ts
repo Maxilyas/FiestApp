@@ -5,14 +5,19 @@
 // cartes ouvertes, pesées par les familles de son paquet ; le trésor d'un
 // gardien vaincu ; le pari et les talismans qui attendent leur niveau ; les
 // cartes que le codex a retouchées — à leurs chiffres d'avant dans une
-// expédition d'avant. Par les routes — la renommée relue des bilans,
-// rattrapée, le départ qui fige son codex — : `expedition-codex.test.ts`.
+// expédition d'avant. Puis les exploits — un but précis, une récompense
+// précise —, relevés dans le pli, gardés par le bilan. Par les routes — la
+// renommée et les exploits relus des bilans, rattrapés, le départ qui fige
+// son codex — : `expedition-codex.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  BONNES_D_AFFILEE,
   ECHELLE,
+  EXPLOITS,
   NIVEAUX,
   NIVEAU_MAX,
+  PARI_DE_L_EXPLOIT,
   RENOMMEE,
   VERSION_DU_BILAN,
   codexDuNiveau,
@@ -25,6 +30,7 @@ import {
   progressionDe,
   regleOuverte,
   renommeeDe,
+  type CleDExploit,
 } from '../../shared/codex'
 import {
   CARTES_DES_RENCONTRES,
@@ -54,10 +60,21 @@ import {
 
 // ── L'échelle et la renommée ────────────────────────────────────────────────
 
-test('l’échelle : chaque carte sans légendaire une fois, des communes au niveau 1 ; le pari au 2, les talismans au 4, la fétiche au 5 ; Sursis attend le 6', () => {
+test('l’échelle et les exploits : chaque carte sans légendaire une fois — par son niveau, ou par son exploit —, des communes au niveau 1 ; le pari au 2, les talismans au 4, la fétiche au 5 ; Sursis attend le 6', () => {
   const echelonnees = ECHELLE.flatMap(m => m.cartes)
-  assert.deepEqual([...echelonnees].sort(), CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle).sort(), 'toutes, une fois')
-  assert.equal(new Set(echelonnees).size, echelonnees.length)
+  const parExploit = EXPLOITS.flatMap(x => x.carte ?? [])
+  assert.deepEqual([...echelonnees, ...parExploit].sort(), CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle).sort(), 'toutes, une fois')
+  assert.equal(new Set([...echelonnees, ...parExploit]).size, echelonnees.length + parExploit.length)
+  // « Dans le codex, une carte verrouillée dit toujours comment l'obtenir : un niveau, un exploit ou un légendaire. »
+  assert.deepEqual(
+    ['banco', 'lancee', 'echauffement'].map(ouvertureDe),
+    [{ exploit: 'pari-de-40' }, { exploit: 'une-seule-reponse' }, { exploit: 'd-affilee' }],
+    'Banco, Lancée et Échauffement : leur exploit seul les ouvre',
+  )
+  assert.deepEqual(EXPLOITS.find(x => x.cle === 'gardien-intact'), { cle: 'gardien-intact', but: 'vaincre le gardien de l’acte 3 sans perdre de courage', dos: 'dore' })
+  // Des exploits, pas des cadeaux (la carrière de `calibrage-rencontres.ts`) : vingt d'affilée, une élite, le dernier gardien.
+  assert.equal(BONNES_D_AFFILEE, 20)
+  assert.ok(ECHELLE.every(m => m.cartes.length > 0), 'chaque niveau ouvre au moins une carte')
   assert.deepEqual(
     ECHELLE.map(m => m.niveau),
     Array.from({ length: NIVEAU_MAX }, (_, i) => i + 1),
@@ -87,10 +104,24 @@ test('la renommée : chaque chose faite, à son barème — perdue aussi ; le ni
   assert.deepEqual(progressionDe(NIVEAUX[NIVEAU_MAX - 1]), { niveau: NIVEAU_MAX, depuis: NIVEAUX[NIVEAU_MAX - 1], prochain: null }, 'au dernier, plus rien à gagner')
   for (let k = 1; k < NIVEAUX.length; k++) assert.ok(NIVEAUX[k] - NIVEAUX[k - 1] >= NIVEAUX[k - 1] - (NIVEAUX[k - 2] ?? 0), 'chaque niveau demande au moins autant que le précédent')
   const bilan = { escales: 8, adversaires: 4, elites: 1, gardiens: 1, auBout: false }
-  assert.deepEqual(lireLeBilan(ecrireLeBilan(bilan)), bilan)
+  assert.deepEqual(lireLeBilan(ecrireLeBilan(bilan)), { ...bilan, exploits: [] })
   assert.equal(JSON.parse(ecrireLeBilan(bilan)).v, VERSION_DU_BILAN)
-  // Un bilan d'une autre version, ou qui ne se lit pas, se refait du pli.
-  for (const brut of [null, '', '{', 42, JSON.stringify({ ...bilan, v: VERSION_DU_BILAN + 1 }), JSON.stringify({ ...bilan, v: VERSION_DU_BILAN, escales: -1 }), JSON.stringify({ ...bilan, v: VERSION_DU_BILAN, adversaires: 1.5 })]) {
+  // Ses exploits, dans l'ordre des exploits ; un exploit que le code ne connaît plus se tait.
+  assert.deepEqual(lireLeBilan(ecrireLeBilan({ ...bilan, exploits: ['gardien-intact', 'pari-de-40'] }))?.exploits, ['pari-de-40', 'gardien-intact'])
+  assert.deepEqual(lireLeBilan(JSON.stringify({ ...bilan, v: VERSION_DU_BILAN, exploits: ['d-affilee', 'disparu'] }))?.exploits, ['d-affilee'])
+  assert.equal(renommeeDe({ ...bilan, exploits: ['pari-de-40', 'gardien-intact'] }), renommeeDe(bilan), 'un exploit ne rapporte pas de renommée')
+  // Un bilan d'une autre version — la 1, d'avant les exploits, comprise —, ou qui ne se lit pas, se refait du pli.
+  for (const brut of [
+    null,
+    '',
+    '{',
+    42,
+    JSON.stringify({ ...bilan, v: 1 }),
+    JSON.stringify({ ...bilan, v: VERSION_DU_BILAN }),
+    JSON.stringify({ ...bilan, v: VERSION_DU_BILAN + 1, exploits: [] }),
+    JSON.stringify({ ...bilan, v: VERSION_DU_BILAN, exploits: [], escales: -1 }),
+    JSON.stringify({ ...bilan, v: VERSION_DU_BILAN, exploits: [], adversaires: 1.5 }),
+  ]) {
     assert.equal(lireLeBilan(brut), null, String(brut))
   }
 })
@@ -106,7 +137,18 @@ test('le codex d’un niveau : ses cartes dans l’ordre du catalogue, la carte 
   assert.deepEqual(cinq.regles, ['pari', 'talismans', 'fetiche'])
   assert.ok(cinq.cartes.includes('renaissance') && cinq.cartes.includes('plume'), 'la carte du Phénix qu’il a, et Plume du niveau 5')
   assert.ok(!cinq.cartes.includes('sursis') && !cinq.cartes.includes('sagesse'), 'ni Sursis du niveau 6, ni la carte de la Chouette qu’il n’a pas')
-  assert.equal(codexDuNiveau(NIVEAU_MAX, []).cartes.length, CARTES_DES_RENCONTRES.filter(c => !c.legendaire).length, 'le codex entier, sans légendaire')
+  // Au dernier niveau, tout ce que les niveaux ouvrent ; les cartes des exploits attendent leur exploit.
+  const sansLegendaire = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).length
+  const toutEnJouant = codexDuNiveau(NIVEAU_MAX, [])
+  assert.equal(toutEnJouant.cartes.length, sansLegendaire - 3)
+  assert.ok(!toutEnJouant.cartes.includes('banco') && !toutEnJouant.cartes.includes('lancee') && !toutEnJouant.cartes.includes('echauffement'))
+  const tous = EXPLOITS.map(x => x.cle)
+  assert.equal(codexDuNiveau(NIVEAU_MAX, [], tous).cartes.length, sansLegendaire, 'le codex entier, sans légendaire, ses exploits faits')
+  // Un exploit ouvre sa carte à tout niveau ; le codex garde ses exploits, dans leur ordre.
+  const unExploit = codexDuNiveau(1, [], ['gardien-intact', 'pari-de-40'])
+  assert.ok(unExploit.cartes.includes('banco') && !unExploit.cartes.includes('double-chance'))
+  assert.deepEqual(unExploit.exploits, ['pari-de-40', 'gardien-intact'])
+  assert.deepEqual(codexDuNiveau(1, []).exploits, [])
   assert.equal(regleOuverte({ v: 6 }, 'pari'), true, 'une expédition d’avant le codex se joue à ses règles')
   assert.equal(regleOuverte({ v: VERSION_DU_CODEX, codex: un }, 'pari'), false)
   assert.equal(regleOuverte({ v: VERSION_DU_CODEX, codex: cinq }, 'fetiche'), true)
@@ -361,10 +403,127 @@ test('le bilan du pli : les escales, les adversaires et les élites tombés, les
   j.prendre()
   j.avancer('e11')
   e = j.gagner()
-  assert.deepEqual(bilanDuPli(e), { escales: 2, adversaires: 1, elites: 1, gardiens: 0, auBout: false })
+  assert.deepEqual(bilanDuPli(e), { escales: 2, adversaires: 1, elites: 1, gardiens: 0, auBout: false, exploits: [] })
   assert.equal(renommeeDe(bilanDuPli(e)), 2 * RENOMMEE.escales + RENOMMEE.adversaires + RENOMMEE.elites)
   // Un acte entier : son gardien compte.
   const acte = new Journal(depart('bilan:acte', 1))
   e = acte.acte()
   assert.deepEqual([bilanDuPli(e).escales, bilanDuPli(e).gardiens, bilanDuPli(e).auBout], [6, 1, false], 'quatre escales, le campement, le gardien')
+})
+
+// ── Les exploits ────────────────────────────────────────────────────────────
+
+/** Jusqu'au gardien d'un acte, tout juste, les offres laissées en route : le gardien attend sa première question. */
+function jusquAuGardien(j: Journal) {
+  for (const vers of ['e00', 'e10', 'e20', 'e30']) {
+    j.avancer(vers)
+    if (j.gagner().offre) j.prendre()
+  }
+  j.avancer('cg')
+  j.geste({ quoi: 'camper' })
+  return j.avancer(GARDIEN)
+}
+
+test(`trois actes sans faute : ${BONNES_D_AFFILEE} bonnes réponses d’affilée, puis le gardien de l’acte 3 sans perdre de courage — ceux des premiers actes n’en sont pas ; le bilan les garde`, () => {
+  const j = new Journal(depart('exploits:propre', 1))
+  let e = j.acte()
+  assert.equal(e.vaincus, 1)
+  assert.ok(e.justes < BONNES_D_AFFILEE, `${e.justes} bonnes réponses au premier acte`)
+  assert.deepEqual(e.exploits, [], 'le gardien de l’acte 1 sans perdre de courage : pas encore l’exploit')
+  j.prendre()
+  e = j.acte()
+  assert.deepEqual(e.exploits, ['d-affilee'], `${e.justes} bonnes réponses d’affilée`)
+  j.prendre()
+  e = j.acte()
+  assert.equal(e.issue, 'au-bout')
+  assert.deepEqual(e.exploits, ['d-affilee', 'gardien-intact'], 'dans l’ordre où ils sont tombés')
+  assert.deepEqual(bilanDuPli(e).exploits, ['d-affilee', 'gardien-intact'])
+  // Deux réponses et plus par adversaire, sans carte : aucune élite n'est tombée d'une seule.
+  assert.ok(!e.exploits.includes('une-seule-reponse'))
+})
+
+test('une erreur repart de zéro, et face au gardien de l’acte 3 elle lui coûte son exploit : du courage perdu — un exploit déjà fait reste', () => {
+  const j = new Journal(depart('exploits:touche', 1))
+  j.acte()
+  j.prendre()
+  j.acte()
+  j.prendre()
+  let e = jusquAuGardien(j)
+  assert.deepEqual(e.exploits, ['d-affilee'])
+  const courage = e.courage!
+  e = j.repondre(false)
+  assert.ok(e.courage! < courage, 'il frappe : du courage perdu')
+  assert.equal(e.affilee, 0, 'une erreur repart de zéro')
+  e = j.gagner()
+  assert.equal(e.issue, 'au-bout', 'vaincu quand même')
+  assert.ok(e.affilee < BONNES_D_AFFILEE, `${e.affilee} d’affilée depuis l’erreur`)
+  assert.deepEqual(e.exploits, ['d-affilee'], 'pas le gardien sans perdre de courage ; les vingt d’affilée, faits avant, restent')
+})
+
+test(`un pari de ${PARI_DE_L_EXPLOIT} écus gagné est un exploit — pas un plus petit, ni un perdu`, () => {
+  const j = new Journal(depart('exploits:pari', 2))
+  j.avancer('e00')
+  j.voir(20)
+  let e = j.repondre(true)
+  j.voir(20)
+  e = j.repondre(true)
+  assert.ok(e.ecus >= PARI_DE_L_EXPLOIT, `${e.ecus} écus`)
+  assert.ok(!e.exploits.includes('pari-de-40'), 'deux paris de 20 : pas un exploit')
+  if (e.offre) j.prendre()
+  // Perdu, le gros pari ne compte pas.
+  const perdu = new Journal(depart('exploits:pari', 2))
+  perdu.gestes = [...j.gestes]
+  perdu.questions = [...j.questions]
+  perdu.reponses = new Map(j.reponses)
+  perdu.avancer('e11')
+  perdu.voir(PARI_DE_L_EXPLOIT)
+  assert.ok(!perdu.repondre(false).exploits.includes('pari-de-40'))
+  j.avancer('e11')
+  e = j.voir(PARI_DE_L_EXPLOIT)
+  assert.equal(e.rencontre?.tour.mise, PARI_DE_L_EXPLOIT, 'il a de quoi parier')
+  e = j.repondre(true)
+  assert.ok(e.exploits.includes('pari-de-40'))
+})
+
+test('une élite tombée d’une seule réponse — un dévoilement difficile trouvé au premier mot frappe trois fois — est un exploit ; un adversaire ordinaire, non', () => {
+  const j = new Journal(depart('exploits:un-coup', 1))
+  let e = j.avancer('e00')
+  const premiere = e.enAttente!
+  j.questions[premiere] = { ...j.questions[premiere], forme: 'devoilement', devoile: { mots: 1, sur: 10 } }
+  e = j.repondre(true)
+  assert.equal(e.rencontre, null, 'tombé à sa première réponse')
+  // Au premier réglage, n'importe quel adversaire : le joueur moyen le faisait à sa première expédition.
+  assert.deepEqual(e.exploits, [], 'un adversaire ordinaire : pas un exploit')
+  if (e.offre) j.prendre()
+  e = j.avancer('e11')
+  assert.equal(e.rencontre?.sorte, 'elite')
+  const i = e.enAttente!
+  j.questions[i] = { ...j.questions[i], niveau: 'difficile', forme: 'devoilement', devoile: { mots: 1, sur: 10 } }
+  e = j.repondre(true)
+  assert.equal(e.rencontre, null, 'l’élite tombée à sa première réponse')
+  assert.deepEqual(e.exploits, ['une-seule-reponse'])
+})
+
+/** Un acte par ses escales à question — une élite comprise —, les offres laissées en route : aux règles d'avant, de quoi enchaîner. */
+function acteParLesQuestions(j: Journal) {
+  for (const vers of ['e00', 'e11', 'e21', 'e31']) {
+    j.avancer(vers)
+    if (j.gagner().offre) j.prendre()
+  }
+  j.avancer('cg')
+  j.geste({ quoi: 'camper' })
+  j.avancer(GARDIEN)
+  return j.gagner()
+}
+
+test(`les exploits se relèvent aussi aux règles d’avant : une expédition aux jokers garde ses ${BONNES_D_AFFILEE} bonnes réponses d’affilée — rétroactifs, comme la renommée`, () => {
+  const j = new Journal({ ...depart('exploits:jokers', 1), v: 4, codex: undefined, equipee: [] })
+  acteParLesQuestions(j)
+  acteParLesQuestions(j)
+  const e = acteParLesQuestions(j)
+  assert.equal(e.issue, 'au-bout')
+  assert.ok(e.justes >= BONNES_D_AFFILEE, `${e.justes} bonnes réponses`)
+  assert.deepEqual(e.exploits, ['d-affilee'], 'ni pari ni rencontre aux règles d’avant')
+  const exploits: readonly CleDExploit[] = bilanDuPli(e).exploits ?? []
+  assert.deepEqual(exploits, ['d-affilee'])
 })

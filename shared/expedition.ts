@@ -35,7 +35,17 @@ import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
 import { FAMILLES_DE_SUJETS, SUJETS, type FamilleDeSujet } from './sujets'
-import { niveauDeLaRegle, offreDuCodex, regleOuverte, type BilanDUneExpedition, type CodexDuDepart, type RegleDuCodex } from './codex'
+import {
+  BONNES_D_AFFILEE,
+  PARI_DE_L_EXPLOIT,
+  niveauDeLaRegle,
+  offreDuCodex,
+  regleOuverte,
+  type BilanDUneExpedition,
+  type CleDExploit,
+  type CodexDuDepart,
+  type RegleDuCodex,
+} from './codex'
 import {
   COURAGE_A_L_ECHOPPE,
   COURAGE_D_UN_CAMPEMENT,
@@ -985,6 +995,14 @@ export interface EtatDeLExpedition {
    * bout se lisent de `vaincus` et de `issue` (`bilanDuPli`).
    */
   bilan: { escales: number; adversaires: number; elites: number }
+  /**
+   * Les exploits qu'elle a faits (le codex), dans l'ordre où ils sont tombés :
+   * le bilan les garde, la fin les dit. Ils ne changent rien au jeu — relevés
+   * à toutes les versions, ils ne déplacent aucun tirage.
+   */
+  exploits: CleDExploit[]
+  /** Ses bonnes réponses d'affilée dans toute l'expédition, sources comprises : une erreur repart de zéro. */
+  affilee: number
   /** Le pari est ouvert (v7 : au niveau qu'il faut ; toujours avant). */
   pari: boolean
 }
@@ -1023,9 +1041,9 @@ export function paquetDeDepart(equipee: readonly string[]): string[] {
 /** Ce que le pli lit du départ. */
 type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances' | 'fetiche' | 'codex'>
 
-/** Ce qu'une expédition a fait, que la renommée compte : le bilan du pli, ses gardiens et le bout. */
-export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'issue'>): BilanDUneExpedition {
-  return { ...e.bilan, gardiens: e.vaincus, auBout: e.issue === 'au-bout' || e.issue === 'legendaire' }
+/** Ce qu'une expédition a fait, que la renommée compte : le bilan du pli, ses gardiens et le bout — et ses exploits. */
+export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'issue' | 'exploits'>): BilanDUneExpedition {
+  return { ...e.bilan, gardiens: e.vaincus, auBout: e.issue === 'au-bout' || e.issue === 'legendaire', exploits: [...e.exploits] }
 }
 
 /**
@@ -1101,6 +1119,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     recompenseVide: false,
     coup: null,
     bilan: { escales: 0, adversaires: 0, elites: 0 },
+    exploits: [],
+    affilee: 0,
     pari: regleOuverte(depart, 'pari'),
   }
   // Le codex (v7) : ses offres ne tirent que les cartes qu'il a ouvertes, et les talismans attendent leur niveau.
@@ -1116,6 +1136,14 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Un joker posé qui a servi — Renaissance, Peau de feu, La boucle — quitte la table pour la défausse. */
   const servi = (cle: string) => {
     if (oter(e.poses, cle)) e.defausse.push(cle)
+  }
+  /** Un exploit fait (le codex) : une fois par expédition. */
+  const exploit = (x: CleDExploit) => {
+    if (!e.exploits.includes(x)) e.exploits.push(x)
+  }
+  /** Une bonne réponse de plus d'affilée — la vingtième (`BONNES_D_AFFILEE`) est un exploit ; une erreur les remet à zéro (`e.affilee = 0`). */
+  const deSuite = () => {
+    if (++e.affilee >= BONNES_D_AFFILEE) exploit('d-affilee')
   }
   const tirer = () => {
     const max = pose('trois-tetes') ? MAIN_MAX_DES_TROIS_TETES : MAIN_MAX
@@ -1185,6 +1213,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       tour: { phase: 'preparation', inspiration: 0, charge: 0, garde: 0, mise: 0, jouees: [], surLaQuestion: [] },
       suivant: { cartes: 0, inspiration: 0, charge: 0 },
       derniereFrappe: 0,
+      perdu: 0,
       aube: 0,
       boucle: null,
     }
@@ -1227,6 +1256,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** L'adversaire tombe : les écus, le courage de L'aube, puis une carte à choisir — ou l'acte suivant, pour le gardien. */
   const gagnerLaRencontre = () => {
     const r = e.rencontre!
+    // Les exploits du codex : une élite tombée à sa première réponse, juste ; le dernier gardien, sans lui avoir laissé un point de
+    // courage. Un adversaire ordinaire, un gardien des premiers actes y suffisaient : le joueur moyen les faisait tous à sa première
+    // expédition (`calibrage-rencontres.ts`, le 18 octobre 2026) — des cadeaux, pas des exploits.
+    if (r.sorte === 'elite' && r.questions === 1 && e.coup?.juste) exploit('une-seule-reponse')
+    if (r.sorte === 'gardien' && r.perdu === 0 && e.acte === Math.min(ACTES, depart.cartes.length) - 1) exploit('gardien-intact')
     const courage = r.pouvoirs.includes('aube') ? Math.min(COURAGE_MAX - e.courage!, COURAGE_DE_L_AUBE * r.aube) : 0
     e.courage! += courage
     e.rencontre = null
@@ -1273,8 +1307,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       r.sceaux = Math.max(0, r.sceaux - brises)
       r.serie++
       e.justes++
+      deSuite()
       const gain = mise > 0 ? gainDeLaMise(t, r.pouvoirs) : 0
       e.ecus += gain
+      if (mise >= PARI_DE_L_EXPLOIT) exploit('pari-de-40')
       if (r.pouvoirs.includes('aube')) r.aube++
       if (r.pouvoirs.includes('abysses') && e.courage! < SEUIL_DES_ABYSSES) e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_DES_ABYSSES)
       if (r.pouvoirs.includes('elan') && r.serie % 3 === 0) {
@@ -1297,6 +1333,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         garde: t.garde,
       })
       e.courage! -= f.perdu
+      r.perdu += f.perdu
+      e.affilee = 0
       const contre = t.jouees.includes('contre-attaque') ? f.absorbee : 0
       r.sceaux = Math.max(0, r.sceaux - contre)
       r.serie = 0
@@ -1537,9 +1575,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         e.coup = null
         if (juste) {
           e.justes++
+          deSuite()
           const ici = e.ici ? escaleEnJeu(depart, e, e.ici) : undefined
           if (ici?.sorte === 'source') e.courage = Math.min(COURAGE_MAX, e.courage! + COURAGE_D_UNE_SOURCE)
-        }
+        } else e.affilee = 0
       }
       return true
     }
@@ -1563,6 +1602,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       // Traversée : ni trouvée ni ratée — elle part au carnet, sans coûter de vie.
     } else if (juste) {
       e.justes++
+      deSuite()
       e.derniereErreur = false
       const surSaDerniere = e.vies === 1
       if (sorte === 'source' || retrouvee) e.vies = Math.min(VIES, e.vies + 1)
@@ -1596,6 +1636,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       if (e.gardien) e.gardien.trouvees++
       else if (sorte === 'elite' && avecJokers) offrir(false)
     } else {
+      // Ratée, même une source : ce n'est plus « d'affilée ».
+      e.affilee = 0
       // Une source ratée ne coûte rien, et n'est pas une erreur : le carnet la garde.
       const erreur = sorte !== 'source'
       let perte = erreur ? 1 : 0
@@ -2337,6 +2379,12 @@ export interface VueDeLExpedition {
    * passer.
    */
   renommee?: number
+  /**
+   * Les exploits qu'elle a faits jusqu'ici, au codex (v7) : la révélation dit
+   * celui qui tombe, la fin ceux qui sont neufs — ce que son codex n'avait pas
+   * au départ (`CartesEnJeu.codex.exploits`).
+   */
+  exploits?: CleDExploit[]
 }
 
 /** Les cartes d'une expédition en rencontres (v5), telles que la page les voit hors d'une rencontre. */
@@ -2355,22 +2403,25 @@ export interface CartesEnJeu {
    * Son codex à son départ (v7) : son niveau, les règles ouvertes — les
    * règles disent celles qui attendent —, et la renommée qu'il avait : la fin
    * y ajoute celle de l'expédition (`VueDeLExpedition.renommee`) pour dire le
-   * niveau gagné.
+   * niveau gagné. Ses exploits d'alors : la fin dit ceux qu'elle ajoute, et
+   * le dos doré habille son paquet ; absents d'un départ d'avant les exploits.
    */
-  codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number }
+  codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number; exploits?: CleDExploit[] }
 }
 
 /**
  * Son codex, sur la page de l'expédition (le 18 octobre 2026) : sa renommée,
  * de toutes ses expéditions finies — perdues et abandonnées comprises —, son
- * niveau d'explorateur, et ce qu'il ouvre — les cartes, celles des
- * légendaires qu'il a comprises, et les règles. Son départ le figera tel quel.
+ * niveau d'explorateur, et ce qu'il ouvre — les cartes, celles des exploits
+ * qu'il a faits et des légendaires qu'il a comprises, et les règles —, ses
+ * exploits. Son départ le figera tel quel.
  */
 export interface CodexDeLaPage {
   renommee: number
   niveau: number
   cartes: string[]
   regles: RegleDuCodex[]
+  exploits: CleDExploit[]
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */
