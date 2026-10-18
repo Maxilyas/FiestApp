@@ -2100,7 +2100,7 @@ function refusSurLaCarte(
   geste: { categorie?: string } | undefined,
   mot: 'joker' | 'carte',
 ): string | null {
-  if (e.enAttente !== null || e.gardien || e.rencontre) return mot === 'joker' ? 'Ce joker se joue sur la carte, entre deux escales' : 'Elle se joue sur la carte, entre deux escales'
+  if (e.enAttente !== null || e.gardien || e.rencontre) return mot === 'joker' ? 'Ce joker se joue sur le plan, entre deux escales' : 'Elle se joue sur le plan, entre deux escales'
   if (e.ici !== null && escaleEnJeu(depart, e, e.ici)?.sorte === 'campement') return 'Plus d’escale avant le gardien'
   if ((cle === 'detour' || cle === 'raccourci') && (e.route.detour || e.route.raccourci)) return mot === 'joker' ? 'Un joker de route est déjà en cours' : 'Une carte de route est déjà en cours'
   if (cle === 'raccourci' && pasDIci(depart, e, { detour: false, raccourci: true }).every(id => id === GARDIEN)) return 'Rien à sauter d’ici'

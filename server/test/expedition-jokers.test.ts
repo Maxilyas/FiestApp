@@ -412,7 +412,7 @@ test('les jokers de carte : Le d√©tour, Le raccourci, Le Commandement, Il conna√
     k.prendre(['detour'])
     return k.avancer('e20').main.includes('detour')
   })
-  assert.equal(refusDuJoker(j.depart, j.etat(), 'detour', j.questions), 'Ce joker se joue sur la carte, entre deux escales')
+  assert.equal(refusDuJoker(j.depart, j.etat(), 'detour', j.questions), 'Ce joker se joue sur le plan, entre deux escales')
   let e = j.repondre(true)
   assert.deepEqual(escalesPermises(j.depart, e), ['e30'])
   e = j.jouer('detour')

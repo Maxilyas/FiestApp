@@ -79,12 +79,12 @@ export const JOKERS_DES_LEGENDAIRES: readonly Joker[] = [
   { cle: 'maison', nom: 'Il connaît la maison', legendaire: 'lg:renard', sorte: 'carte', rarete: 'legendaire', effet: 'Une source ou un coffre s’ouvre à l’étage du dessus, relié à toi.' },
   { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', sorte: 'poser', rarete: 'legendaire', effet: 'Les coffres t’offrent deux jokers au lieu d’un.' },
   { cle: 'feu-d-artifice', nom: 'Le feu d’artifice', legendaire: 'lg:bouquet', sorte: 'jouer', rarete: 'legendaire', effet: 'Toute ta défausse revient dans ton paquet.' },
-  { cle: 'lanterne', nom: 'La lanterne', legendaire: 'lg:citrouille', sorte: 'carte', rarete: 'legendaire', effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.' },
+  { cle: 'lanterne', nom: 'La lanterne', legendaire: 'lg:citrouille', sorte: 'carte', rarete: 'legendaire', effet: 'Les pièges de l’inconnu se montrent sur le plan, jusqu’au bout de l’acte.' },
   { cle: 'boule', nom: 'Une boule pour chacun', legendaire: 'lg:sapin', sorte: 'carte', rarete: 'legendaire', effet: 'Un coffre de plus s’ouvre à l’étage du dessus, relié à toi.' },
   { cle: 'abysses', nom: 'Remonter des abysses', legendaire: 'lg:kraken', sorte: 'poser', rarete: 'legendaire', maudit: true, effet: 'Sur ta dernière vie, trois bonnes réponses d’affilée en rendent une — mais le poser coûte une vie.' },
   { cle: 'passe-muraille', nom: 'Passe-muraille', legendaire: 'lg:fantome', sorte: 'jouer', rarete: 'legendaire', maudit: true, effet: 'Tu traverses une question sans y répondre — elle part au carnet comme ratée.' },
   { cle: 'horizon', nom: 'L’horizon', legendaire: 'lg:trou-noir', sorte: 'jouer', rarete: 'legendaire', maudit: true, effet: 'Joué après une erreur, il te rend sa vie — et le coffre suivant est vide.' },
-  { cle: 'echolocation', nom: 'L’écholocation', legendaire: 'lg:chauve-souris', sorte: 'poser', rarete: 'legendaire', maudit: true, effet: 'Une mauvaise réponse s’efface à chaque question — mais la carte ne dit plus ta chance.' },
+  { cle: 'echolocation', nom: 'L’écholocation', legendaire: 'lg:chauve-souris', sorte: 'poser', rarete: 'legendaire', maudit: true, effet: 'Une mauvaise réponse s’efface à chaque question — mais le plan ne dit plus ta chance.' },
 ]
 
 /**
@@ -120,7 +120,7 @@ export interface Talisman {
 export const TALISMANS: readonly Talisman[] = [
   { cle: 'loupe', nom: 'La loupe', effet: 'Chaque question d’Histoire dit son siècle.' },
   { cle: 'maillot-jaune', nom: 'Le maillot jaune', effet: 'Le sport paie double écus.' },
-  { cle: 'boussole', nom: 'La boussole', effet: 'L’inconnu se dévoile sur la carte : un marchand, un piège, un légendaire de passage.' },
+  { cle: 'boussole', nom: 'La boussole', effet: 'L’inconnu se dévoile sur le plan : un marchand, un piège, un légendaire de passage.' },
 ]
 
 const TALISMAN_PAR_CLE = new Map(TALISMANS.map(t => [t.cle, t]))

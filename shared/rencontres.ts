@@ -556,7 +556,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'route',
     famille: 'devin',
     rarete: 'legendaire',
-    effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.',
+    effet: 'Les pièges de l’inconnu se montrent sur le plan, jusqu’au bout de l’acte.',
     resume: 'Voir les pièges',
   },
   {
@@ -979,12 +979,12 @@ const aJoueSurLaQuestion = (c: ContexteDUneCarte, cle: string) => c.tour.surLaQu
  * Pourquoi cette carte ne se joue pas maintenant, en rencontre — null : elle
  * se joue. Une seule règle : le pli l'applique, le serveur la renvoie en
  * refus, la vue la porte pour chaque carte de la main, et la page n'en
- * recopie rien. Les cartes de route ont la leur, sur la carte.
+ * recopie rien. Les cartes de route ont la leur, sur le plan.
  */
 export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null {
   const carte = carteDeRencontre(cle)
   if (!carte) return 'Cette carte ne se lit pas : recharge la page'
-  if (carte.moment === 'route') return 'Elle se joue sur la carte, entre deux escales'
+  if (carte.moment === 'route') return 'Elle se joue sur le plan, entre deux escales'
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
   const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'

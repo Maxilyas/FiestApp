@@ -82,3 +82,27 @@ test('le départ sans paragraphes : les gardiens côte à côte, le paquet en un
   assert.equal(/<ol class="exp-trois-gardiens">([\s\S]*?)<\/ol>/.exec(html)?.[1].match(/<li class="exp-gardien-col">/g)?.length, 3)
   assert.match(html, /<button type="button" class="link-inline small exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 12 cartes/)
 })
+
+test('la feuille de l’équipe dit « Ton équipe » d’un bout à l’autre : « équipée » se lisait comme une faute', async () => {
+  // La revue du 18 octobre 2026 : « Corriger orthographe : Ton équipée : ton équipe. » La feuille l'avait gardé, refus et bouton compris.
+  const { FeuilleDeLEquipee } = (await laPage()) as unknown as { FeuilleDeLEquipee: Composant }
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  for (const [equipee, rencontres] of [
+    [['lg:dragon'], true],
+    [[], false],
+  ] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(FeuilleDeLEquipee, { prochaine: { ...prochaine, equipables: ['lg:dragon'] }, equipee, rencontres, onChoisir: rien, onFermer: rien }),
+    )
+    assert.match(html, /aria-label="Ton équipe"/)
+    assert.doesNotMatch(html, /équipée/)
+  }
+})
+
+test('aux rencontres, le départ ouvre le codex : toutes les cartes de l’expédition', async () => {
+  const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true }, passeport: [] })
+  assert.match(html, /<h2 class="label" id="exp-codex-titre">Ton codex<\/h2><button type="button" class="link-inline small exp-ouvrir" aria-haspopup="dialog">Ouvrir/)
+  // Aux règles d'avant — la production —, des jokers : pas de codex.
+  const avant = await depart({ expedition: null, prochaine, passeport: [] })
+  assert.doesNotMatch(avant, /exp-codex/)
+})
