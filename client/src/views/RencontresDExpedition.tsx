@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon, type IconName } from '../components/Icon'
 import { Dessin } from '../components/Avatar'
 import { EMBLEME } from '../components/Ecusson'
@@ -6,7 +6,7 @@ import { Balise } from '../components/Balise'
 import { Feuille } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { CARTES_PEINTES } from '../components/cartes-peintes'
-import { espacesFines } from '../format'
+import { espacesFines, formatNumber } from '../format'
 import { gemme } from '../gemmes'
 import { useModale } from '../modale'
 import { iconeDuSujet } from '../iconeDuSujet'
@@ -15,7 +15,8 @@ import { sujetParCle } from '../../../shared/sujets'
 import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
-import { MARCHES_DES_ACTES, duGardien, nomDuGardien, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
+import { MARCHES_DES_ACTES, duGardien, gardienAuFeminin, leGardien, nomDuGardien, type CodexDeLaPage, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
+import { ECHELLE, RENOMMEE, niveauDeLaRegle, ouvertureDe, progressionDe, type RegleDuCodex } from '../../../shared/codex'
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
@@ -26,7 +27,9 @@ import {
   FAMILLES_DE_CARTES,
   INSPIRATION_PAR_QUESTION,
   MISES,
+  VERSION_DU_CODEX,
   apercuDuTour,
+  carteALaVersion,
   carteDeRencontre,
   cartesDeCombat,
   chiffresApresLaCarte,
@@ -77,6 +80,20 @@ export const COURT: Readonly<Record<string, string>> = {
 }
 
 // ── Les cartes ──────────────────────────────────────────────────────────────
+
+/**
+ * La version du départ de l'expédition à l'écran : ses cartes se lisent à ses
+ * chiffres (`carteALaVersion`) — une expédition partie avant le codex garde
+ * les siens, et sa main dit ce que le serveur fera. Le codex, hors de toute
+ * expédition, montre les cartes d'aujourd'hui.
+ */
+export const VersionDesCartes = createContext(VERSION_DU_CODEX)
+
+/** Une carte par sa clé, à la version de l'expédition à l'écran. */
+function useCarte(): (cle: string) => CarteDeRencontre | undefined {
+  const v = useContext(VersionDesCartes)
+  return cle => carteALaVersion(cle, v)
+}
 
 /**
  * La couleur d'une carte, au cadre : la gemme de sa rareté — celle des
@@ -316,12 +333,19 @@ export function Energie({ n }: { n: number }) {
 export function apercuALaMise(r: VueDeLaRencontre, mise: number, fetiche: string | undefined, avec?: string): ApercuDuTour | undefined {
   const a = r.annonce
   if (!a) return undefined
-  const c = avec === undefined ? undefined : carteDeRencontre(avec)
+  const c = avec === undefined ? undefined : carteALaVersion(avec, r.v)
   // Dans l'ordre du pli : un pouvoir est posé avant que ses chiffres se comptent.
   const pouvoirs = c?.moment === 'pouvoir' ? [...r.pouvoirs, c.cle] : r.pouvoirs
-  const chiffres = c ? chiffresApresLaCarte(c.cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie }, pouvoirs) : r
+  const chiffres = c
+    ? chiffresApresLaCarte(c.cle, { inspiration: r.inspiration, charge: r.charge, garde: r.garde, serie: r.serie }, pouvoirs, {
+        v: r.v,
+        fetiche: !!fetiche && a.categorie === fetiche,
+        effacees: r.effacees,
+      })
+    : r
   const q = c ? formeApresLaCarte(c.cle, { forme: a.forme, reponses: a.reponses }) : { forme: a.forme, reponses: a.reponses }
   return apercuDuTour({
+    v: r.v,
     tour: { charge: chiffres.charge, garde: chiffres.garde, mise, jouees: c ? [...r.jouees, c.cle] : r.jouees },
     pouvoirs,
     sceaux: r.sceaux,
@@ -513,9 +537,10 @@ export function MainDeRencontre({
   onMontrer?: () => void
 }) {
   const [levee, setLevee] = useState<number | null>(null)
+  const carte = useCarte()
   const cle = levee !== null ? cles[levee] : undefined
   const indexees = cles.flatMap((k, i) => {
-    const c = carteDeRencontre(k)
+    const c = carte(k)
     return c ? [{ k, i, c }] : []
   })
   // Avant la question, deux temps : ce qui se joue maintenant, puis ce qui attendra la question ; pendant, ce temps-là seul.
@@ -620,6 +645,7 @@ export function CarteLevee({
   refus = null,
   busy = false,
   changement,
+  ouverture,
   onJouer,
   onMontrer,
   onReposer,
@@ -628,6 +654,8 @@ export function CarteLevee({
   refus?: string | null
   busy?: boolean
   changement?: ChangementDeLaCarte | null
+  /** Une carte que son codex n'a pas encore : comment elle s'ouvre, sous la carte. */
+  ouverture?: string
   onJouer?: JouerUneCarte
   onMontrer?: () => void
   onReposer: () => void
@@ -635,7 +663,7 @@ export function CarteLevee({
   const boite = useRef<HTMLDivElement>(null)
   useModale(boite, onReposer)
   const [categorie, setCategorie] = useState<string | null>(null)
-  const c = carteDeRencontre(cle)
+  const c = useCarte()(cle)
   if (!c) return null
   const verbe = cle === 'prediction' ? 'Montrer une réponse à l’Oracle' : `${c.moment === 'pouvoir' ? 'Poser' : 'Jouer'} « ${c.nom} »`
   // Le Commandement choisit d'abord sa catégorie : douze pastilles sous la carte, qui se fait plus petite.
@@ -653,6 +681,12 @@ export function CarteLevee({
           {plus.length > 0 && <span className="exp-vc-plus">{espacesFines(plus.join(' · '))}</span>}
         </CarteDessinee>
         {changement && <Changement c={changement} />}
+        {ouverture && (
+          <p className="exp-ouverture">
+            <Icon name="lock" />
+            {espacesFines(ouverture)}
+          </p>
+        )}
         {!onJouer ? null : refus ? (
           <p className="exp-refus">{espacesFines(refus)}</p>
         ) : choix ? (
@@ -716,13 +750,14 @@ export function RangeeDeCartes({
   choisie?: string | null
   onRegarder: (cle: string) => void
 }) {
+  const carte = useCarte()
   const comptes = comptesDesCartes(cles)
   if (comptes.length === 0) return <p className="muted small">{espacesFines(vide)}</p>
   const aChoisir = choisie !== undefined
   return (
     <ul className="exp-rangee" aria-label={nom}>
       {comptes.map(x => {
-        const c = carteDeRencontre(x.cle)
+        const c = carte(x.cle)
         if (!c) return null
         return (
           <li key={x.cle}>
@@ -752,7 +787,8 @@ export function RangeeDeCartes({
  * 18 octobre 2026).
  */
 export function CartesAPrendre({ cles, prises, onToucher }: { cles: readonly string[]; prises: readonly string[]; onToucher: (cle: string) => void }) {
-  const cartes = cles.map(k => carteDeRencontre(k)).filter((c): c is CarteDeRencontre => !!c)
+  const carte = useCarte()
+  const cartes = cles.map(carte).filter((c): c is CarteDeRencontre => !!c)
   const choisie = cartes.find(c => prises.includes(c.cle))
   return (
     <>
@@ -830,40 +866,160 @@ const PAGES_DU_CODEX: { id: PageDuCodex; nom: string }[] = [
 ]
 
 /**
+ * Son niveau d'explorateur, et la renommée qui mène au suivant, en jauge : au
+ * départ, en tête du codex. Au dernier, le codex entier est à lui.
+ */
+export function NiveauDExplorateur({ renommee }: { renommee: number }) {
+  const p = progressionDe(renommee)
+  const part = p.prochain === null ? 1 : (renommee - p.depuis) / (p.prochain - p.depuis)
+  return (
+    <div className="exp-niveau">
+      <p className="exp-niveau-tete" aria-hidden="true">
+        <b>{`Niveau ${p.niveau}`}</b>
+        <span className="muted">{' d’explorateur'}</span>
+        <span className="exp-niveau-compte">{p.prochain === null ? 'le codex entier' : `${formatNumber(renommee)} / ${formatNumber(p.prochain)}`}</span>
+      </p>
+      <span className="jauge-fine" aria-hidden="true">
+        <span style={{ width: `${Math.round(part * 100)}%` }} />
+      </span>
+      <span className="sr-only">
+        {p.prochain === null
+          ? `Niveau ${p.niveau} d’explorateur, le dernier : ${renommee} de renommée.`
+          : `Niveau ${p.niveau} d’explorateur : ${renommee} de renommée, ${p.prochain} pour le niveau ${p.niveau + 1}.`}
+      </span>
+    </div>
+  )
+}
+
+/** Ce qu'un niveau ouvre d'autre que des cartes, dit à la fin qui l'ouvre. */
+const REGLE_OUVERTE: Readonly<Record<RegleDuCodex, string>> = {
+  pari: 'Le pari s’ouvre : avant de voir une question, parie des écus.',
+  talismans: 'Les talismans s’ouvrent : tes récompenses et l’échoppe en proposent.',
+  fetiche: 'Ta catégorie fétiche s’ouvre : choisis-la au départ.',
+}
+
+/**
+ * Ce que la fin d'une expédition rapporte au codex : sa renommée, perdue ou
+ * abandonnée aussi — sans quoi un joueur qui tombe à l'acte 1 resterait au
+ * même niveau —, et le niveau qu'elle fait passer, avec les cartes qu'il
+ * ouvre, en vraies cartes qui se lèvent, et les règles. `avant` : la
+ * renommée qu'il avait au départ, figée avec lui (`CodexDuDepart.renommee`).
+ */
+export function RenommeeGagnee({ avant, gagnee }: { avant: number; gagnee: number }) {
+  const [regardee, setRegardee] = useState<string | null>(null)
+  const niveauAvant = progressionDe(avant).niveau
+  const niveau = progressionDe(avant + gagnee).niveau
+  const marches = ECHELLE.filter(m => m.niveau > niveauAvant && m.niveau <= niveau)
+  const cartes = marches.flatMap(m => m.cartes).flatMap(cle => carteDeRencontre(cle) ?? [])
+  return (
+    <section className="card exp-renommee" aria-labelledby="exp-renommee-titre">
+      <h2 className="label" id="exp-renommee-titre">
+        Ton codex
+      </h2>
+      <p className="exp-renommee-gain">
+        <b>{`+${formatNumber(gagnee)}`}</b>
+        {' de renommée'}
+      </p>
+      {/* L'événement en titre ; la jauge dessous dit où il en est — « Niveau 6 d'explorateur » deux fois de suite se répétait. */}
+      {niveau > niveauAvant && <p className="exp-renommee-niveau">{`Tu passes au niveau ${niveau}`}</p>}
+      <NiveauDExplorateur renommee={avant + gagnee} />
+      {cartes.length > 0 && (
+        <>
+          <ul className="exp-codex exp-codex-neuves" aria-label="Les cartes qui rejoignent ton codex">
+            {cartes.map(c => (
+              <li key={c.cle}>
+                <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
+                  <CarteDessinee c={c} taille="rangee" />
+                  <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}`}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="muted small">
+            {espacesFines(
+              cartes.length > 1
+                ? `Ces ${cartes.length} cartes rejoignent ton codex : tes récompenses les proposeront dès ta prochaine expédition.`
+                : 'Elle rejoint ton codex : tes récompenses la proposeront dès ta prochaine expédition.',
+            )}
+          </p>
+        </>
+      )}
+      {marches.flatMap(m => (m.regle ? [m.regle] : [])).map(regle => (
+        <p key={regle} className="exp-renommee-regle">
+          <Icon name="sparkles" />
+          {espacesFines(REGLE_OUVERTE[regle])}
+        </p>
+      ))}
+      {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
+    </section>
+  )
+}
+
+/** Comment s'ouvre une carte que son codex n'a pas encore, en court sous elle, et en phrase quand elle se lève. */
+function ouvertureDite(cle: string): { court: string; phrase: string } | null {
+  const o = ouvertureDe(cle)
+  if (!o) return null
+  if ('niveau' in o) return { court: `Niveau ${o.niveau}`, phrase: `Elle s’ouvre au niveau ${o.niveau} d’explorateur.` }
+  const gagne = gardienAuFeminin(o.legendaire) ? 'gagnée' : 'gagné'
+  return { court: nomDuGardien(o.legendaire), phrase: `Elle s’ouvre quand ${leGardien(o.legendaire)} est à toi — ${gagne} en soirée, au quiz du jour, en campagne ou en expédition.` }
+}
+
+/**
  * Le codex : toutes les cartes de l'expédition, de la commune à la
  * légendaire, en vraies cartes (« Est-ce que l'on ferait pas un codex de
  * carte global aussi, avec de commun à légendaire et on en débloque au fur
  * et à mesure qu'on avance dans l'aventure ? », le 18 octobre 2026). Une page
  * par rareté, en onglets qui comptent ; touchée, une carte se lève et dit
- * tout, comme dans un tas. Toutes ouvertes pour l'instant : ce qu'on
- * débloque en jouant viendra avec la renommée.
+ * tout, comme dans un tas. `codex` : son niveau et sa jauge en tête, et les
+ * cartes qu'il n'a pas encore éteintes, comment les ouvrir dessous — un
+ * niveau, ou le légendaire qui la donne. Celles-là se lèvent aussi : savoir
+ * ce qui vient donne envie d'y aller.
  */
-export function FeuilleDuCodex({ onFermer }: { onFermer: () => void }) {
+export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onFermer: () => void }) {
   const [page, setPage] = useState<PageDuCodex>('toutes')
   const [regardee, setRegardee] = useState<string | null>(null)
+  const ouvertes = codex ? new Set(codex.cartes) : null
+  const estOuverte = (cle: string) => !ouvertes || ouvertes.has(cle)
   const cartes = CARTES_DES_RENCONTRES.filter(c => page === 'toutes' || c.rarete === page)
   // Des puces qui comptent, comme les pages de l'album des trophées : cinq onglets à leur nom ne tenaient pas sur une ligne en 360.
   const onglets = PAGES_DU_CODEX.map(p => {
     const n = p.id === 'toutes' ? CARTES_DES_RENCONTRES.length : CARTES_DES_RENCONTRES.filter(c => c.rarete === p.id).length
     return { id: p.id, nom: p.nom, pastille: { n, label: `${n} carte${n > 1 ? 's' : ''}` } }
   })
+  const fermee = regardee && !estOuverte(regardee) ? ouvertureDite(regardee) : null
   return (
     <>
       <Feuille titre="Ton codex" className="feuille-codex" onFermer={onFermer}>
-        <p className="muted small">{espacesFines(`Les ${CARTES_DES_RENCONTRES.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`)}</p>
+        {codex && <NiveauDExplorateur renommee={codex.renommee} />}
+        <p className="muted small">
+          {espacesFines(
+            codex
+              ? `${codex.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi : tes récompenses les tirent. Les autres s’ouvrent en jouant. Touche une carte pour la lire.`
+              : `Les ${CARTES_DES_RENCONTRES.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`,
+          )}
+        </p>
         <Onglets onglets={onglets} actif={page} onChoisir={setPage} label="Les raretés" idOnglet={id => `codex-${id}`} idPanneau={() => 'codex-page'} className="onglets-puces" />
         <ul className="exp-codex" id="codex-page" role="tabpanel" aria-labelledby={`codex-${page}`}>
-          {cartes.map(c => (
-            <li key={c.cle}>
-              <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
-                <CarteDessinee c={c} taille="rangee" />
-                <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}`}</span>
-              </button>
-            </li>
-          ))}
+          {cartes.map(c => {
+            const ouverture = estOuverte(c.cle) ? null : ouvertureDite(c.cle)
+            return (
+              <li key={c.cle} className={ouverture ? 'exp-codex-fermee' : undefined}>
+                <button type="button" className="exp-codex-carte" data-carte={c.cle} aria-haspopup="dialog" onClick={() => setRegardee(c.cle)}>
+                  <CarteDessinee c={c} taille="rangee" />
+                  {ouverture && (
+                    <span className="exp-codex-ouverture" aria-hidden="true">
+                      <Icon name="lock" />
+                      {ouverture.court}
+                    </span>
+                  )}
+                  <span className="sr-only">{`${c.nom}, ${RARETE_DE_LA_CARTE[c.rarete]} : ${c.resume}${ouverture ? `. ${ouverture.phrase}` : ''}`}</span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </Feuille>
-      {regardee && <CarteLevee cle={regardee} onReposer={() => setRegardee(null)} />}
+      {regardee && <CarteLevee cle={regardee} {...(fermee && { ouverture: fermee.phrase })} onReposer={() => setRegardee(null)} />}
     </>
   )
 }
@@ -1008,7 +1164,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1016,15 +1172,26 @@ interface SectionDesRegles {
 
 export type DebutDesRegles = SectionDesRegles['cle']
 
+/** Ce que les règles lisent du codex d'une expédition (v7) : les règles que son niveau a ouvertes. */
+export interface CodexDesRegles {
+  regles: readonly RegleDuCodex[]
+}
+
+/** « s'ouvre au niveau 2 d'explorateur » : une règle que son niveau n'a pas encore ouverte. */
+const ouvertAuNiveau = (regle: RegleDuCodex) => `au niveau ${niveauDeLaRegle(regle)} d’explorateur`
+
 /**
  * Les règles d'une expédition en rencontres, ce que les pages ne disent plus
  * (« Pas besoin d'explication pour tout, il faudrait juste un onglet règles
  * qu'on peut consulter de n'importe quelle page », la revue du 18 octobre
  * 2026). `parQuestion` : les cartes que chaque question tire, acte par acte,
- * telles que le serveur les dit.
+ * telles que le serveur les dit. `codex` (v7) : plus d'équipe à choisir, des
+ * récompenses de son codex, et ce que chaque niveau ouvre — une règle fermée
+ * dit le niveau qui l'ouvre.
  */
-function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[] {
+function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesRegles): SectionDesRegles[] {
   const [a1, a2, a3] = parQuestion
+  const ouverte = (regle: RegleDuCodex) => !codex || codex.regles.includes(regle)
   return [
     {
       cle: 'rencontre',
@@ -1052,6 +1219,7 @@ function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[]
       cle: 'pari',
       titre: 'Le pari',
       lignes: [
+        ...(ouverte('pari') ? [] : [{ icone: 'lock' as const, texte: `Il s’ouvre ${ouvertAuNiveau('pari')}.` }]),
         { icone: 'ecu', texte: 'Avant de voir la question, parie des écus : juste, tu gagnes la moitié de ta mise ; faux, tu la perds.' },
         { icone: 'echoppe', texte: 'Tes écus se gagnent en battant tes adversaires et se dépensent à l’échoppe. Ils restent dans l’expédition.' },
       ],
@@ -1077,20 +1245,47 @@ function reglesDesRencontres(parQuestion: readonly number[]): SectionDesRegles[]
         { icone: 'help', texte: 'L’inconnu : un marchand, un piège, ou un légendaire de passage.' },
       ],
     },
-    {
-      cle: 'recompenses',
-      titre: 'Tes récompenses',
-      lignes: [{ icone: 'plus-square', texte: 'Un adversaire tombé : une carte à choisir parmi trois, pour ton paquet — plus souvent rare après une élite ou dans un coffre.' }],
-    },
-    {
-      cle: 'equipe',
-      titre: 'Ton équipe',
-      lignes: [
-        { icone: 'users', texte: 'Les légendaires que tu emmènes : la carte de chacun rejoint ton paquet, et sa famille choisit les cartes de tes récompenses.' },
-        { icone: 'sparkles', texte: 'Sans légendaire à toi, l’invité du jour part avec toi. Va au bout d’une expédition : le gardien que tu choisis sera de la suivante.' },
-        { icone: 'book', texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' },
-      ],
-    },
+    codex
+      ? {
+          cle: 'recompenses',
+          titre: 'Tes récompenses',
+          lignes: [
+            { icone: 'plus-square', texte: 'Un adversaire tombé : une carte de ton codex à choisir parmi trois — plus souvent rare après une élite ou dans un coffre.' },
+            { icone: 'users', texte: 'Plus tu prends de cartes d’une famille, plus tes récompenses t’en proposent.' },
+            { icone: 'crown', texte: 'Un gardien vaincu, aux actes 1 et 2 : son trésor propose une carte légendaire de ton codex.' },
+            ...(ouverte('talismans') ? [] : [{ icone: 'lock' as const, texte: `Les talismans s’ouvrent ${ouvertAuNiveau('talismans')}.` }]),
+          ],
+        }
+      : {
+          cle: 'recompenses',
+          titre: 'Tes récompenses',
+          lignes: [{ icone: 'plus-square', texte: 'Un adversaire tombé : une carte à choisir parmi trois, pour ton paquet — plus souvent rare après une élite ou dans un coffre.' }],
+        },
+    codex
+      ? {
+          cle: 'codex',
+          titre: 'Ton codex',
+          lignes: [
+            {
+              icone: 'star',
+              texte: `Chaque expédition, même perdue, te rapporte de la renommée : +${RENOMMEE.escales} par escale, +${RENOMMEE.adversaires} par adversaire tombé, +${RENOMMEE.elites} par élite, +${RENOMMEE.gardiens} par gardien, +${RENOMMEE.auBout} au bout.`,
+            },
+            { icone: 'book', texte: 'Ta renommée fait ton niveau d’explorateur : chaque niveau ouvre des cartes dans ton codex, et seules celles-là tombent en récompense.' },
+            { icone: 'sparkles', texte: 'Chaque légendaire que tu as y ouvre sa carte. L’invité du jour part avec toi : sa carte rejoint ton paquet.' },
+            ...(ouverte('fetiche')
+              ? [{ icone: 'target' as const, texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' }]
+              : [{ icone: 'lock' as const, texte: `Ta catégorie fétiche s’ouvre ${ouvertAuNiveau('fetiche')}.` }]),
+          ],
+        }
+      : {
+          cle: 'equipe',
+          titre: 'Ton équipe',
+          lignes: [
+            { icone: 'users', texte: 'Les légendaires que tu emmènes : la carte de chacun rejoint ton paquet, et sa famille choisit les cartes de tes récompenses.' },
+            { icone: 'sparkles', texte: 'Sans légendaire à toi, l’invité du jour part avec toi. Va au bout d’une expédition : le gardien que tu choisis sera de la suivante.' },
+            { icone: 'book', texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' },
+          ],
+        },
     { cle: 'passeport', titre: 'Ton passeport', lignes: [{ icone: 'tampon', texte: 'Chaque thème pointu trouvé en expédition y met son tampon.' }] },
   ]
 }
@@ -1149,6 +1344,7 @@ function reglesDesJokers(): SectionDesRegles[] {
 export function FeuilleDesRegles({
   rencontres,
   parQuestion,
+  codex,
   debut,
   pied,
   onFermer,
@@ -1156,11 +1352,13 @@ export function FeuilleDesRegles({
   rencontres: boolean
   /** Les cartes que chaque question tire, acte par acte (`CartesEnJeu.parQuestion`). */
   parQuestion?: readonly number[]
+  /** Son codex (v7) : son départ, ou celui qui partirait. */
+  codex?: CodexDesRegles
   debut?: DebutDesRegles
   pied?: ReactNode
   onFermer: () => void
 }) {
-  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION]) : reglesDesJokers()
+  const sections = rencontres ? reglesDesRencontres(parQuestion ?? [CARTES_PAR_QUESTION, CARTES_PAR_QUESTION, CARTES_PAR_QUESTION], codex) : reglesDesJokers()
   const ordre = debut ? [...sections.filter(s => s.cle === debut), ...sections.filter(s => s.cle !== debut)] : sections
   return (
     <Feuille titre="Les règles" className="feuille-regles" onFermer={onFermer} pied={pied}>
@@ -1254,14 +1452,17 @@ export function PreparationDeLaRencontre({
         apercuDeLaCarte={cle => changementDeLaCarte(r, mise, vue.fetiche, cle)}
         onJouer={onJouer}
       />
-      <Paris
-        mises={r.mises ?? {}}
-        choisie={mise}
-        onChoisir={(m, refusDeM) => {
-          setDit(refusDeM)
-          if (refusDeM === null) setMise(m)
-        }}
-      />
+      {/* Le pari attend son niveau (le codex) : avant lui, la première expédition n'a que ses cartes, son énergie et son courage. */}
+      {r.pari !== false && (
+        <Paris
+          mises={r.mises ?? {}}
+          choisie={mise}
+          onChoisir={(m, refusDeM) => {
+            setDit(refusDeM)
+            if (refusDeM === null) setMise(m)
+          }}
+        />
+      )}
       {motif && (
         <p className="exp-refus small" role="status">
           {espacesFines(motif)}
@@ -1281,6 +1482,7 @@ export function PreparationDeLaRencontre({
         <FeuilleDesRegles
           rencontres
           parQuestion={vue.cartes?.parQuestion}
+          codex={vue.cartes?.codex}
           onFermer={vu}
           pied={
             <button type="button" className="btn btn-primary btn-block" onClick={vu}>
@@ -1382,16 +1584,19 @@ export function retenirLesRencontres(oui: boolean, fetiche: string | null) {
  * rencontres — d'office — et sa catégorie fétiche, que l'Érudit fait vivre.
  * Ce que sont les rencontres, et les familles de son équipe, se lisent dans
  * les règles : deux paragraphes de plus sur le départ, « on s'y perd » (la
- * revue du 18 octobre 2026).
+ * revue du 18 octobre 2026). La catégorie fétiche attend le niveau qui
+ * l'ouvre (`feticheOuverte`, le codex) : avant lui, rien à choisir.
  */
 export function AuDepart({
   actif,
   fetiche,
+  feticheOuverte = true,
   onActif,
   onFetiche,
 }: {
   actif: boolean
   fetiche: string | null
+  feticheOuverte?: boolean
   onActif: (oui: boolean) => void
   onFetiche: (categorie: string | null) => void
 }) {
@@ -1407,19 +1612,21 @@ export function AuDepart({
           <i aria-hidden="true" />
         </button>
       </div>
-      {actif ? (
-        <div className="exp-section-tete">
-          <span className="small">
-            {'Ta catégorie fétiche : '}
-            <b>{fetiche ?? 'aucune'}</b>
-          </span>
-          <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
-            {fetiche ? 'Changer' : 'Choisir'}
-            <Icon name="chevron-right" />
-          </button>
-        </div>
-      ) : (
+      {!actif ? (
         <p className="small">{espacesFines('Coupées : l’expédition part aux règles d’avant, trois vies et des jokers.')}</p>
+      ) : (
+        feticheOuverte && (
+          <div className="exp-section-tete">
+            <span className="small">
+              {'Ta catégorie fétiche : '}
+              <b>{fetiche ?? 'aucune'}</b>
+            </span>
+            <button type="button" className="link-inline small exp-changer" aria-haspopup="dialog" onClick={() => setChoisir(true)}>
+              {fetiche ? 'Changer' : 'Choisir'}
+              <Icon name="chevron-right" />
+            </button>
+          </div>
+        )
       )}
       {choisir && <FeuilleDeLaFetiche fetiche={fetiche} onChoisir={onFetiche} onFermer={() => setChoisir(false)} />}
     </section>

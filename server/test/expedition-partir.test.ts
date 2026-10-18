@@ -99,6 +99,22 @@ test('la feuille de l’équipe dit « Ton équipe » d’un bout à l’autre :
   }
 })
 
+test('au codex, le départ dit son niveau et sa jauge, ce qu’il a sur ce qu’il y a ; plus d’équipe à choisir — l’invité du jour, même avec des légendaires à lui ; sa catégorie fétiche attend son niveau', async () => {
+  const { codexDuNiveau, NIVEAUX } = await import('../../shared/codex')
+  const { CARTES_DES_RENCONTRES } = await import('../../shared/rencontres')
+  const deux = codexDuNiveau(2, ['lg:dragon'])
+  const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, equipables: ['lg:dragon'], codex: { renommee: NIVEAUX[1] + 10, ...deux } }, passeport: [] })
+  const lu = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  assert.doesNotMatch(html, /exp-equipee|exp-changer[^>]*>Changer/, 'ses légendaires ouvrent leur carte au codex : plus d’équipe à choisir')
+  assert.match(lu, /Le Lion Couronné, l’invité du jour, part avec toi\s*: sa carte rejoint ton paquet\./)
+  assert.match(lu, new RegExp(`Niveau 2 d’explorateur : ${NIVEAUX[1] + 10} de renommée, ${NIVEAUX[2]} pour le niveau 3\\.`))
+  assert.match(lu, new RegExp(`${deux.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length}`))
+  assert.match(html, /exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 11 cartes/, 'le paquet de départ et la carte de l’invité')
+  assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'au niveau 2, rien à choisir')
+  const cinq = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true, codex: { renommee: NIVEAUX[4], ...codexDuNiveau(5, []) } }, passeport: [] })
+  assert.match(cinq.replace(/<[^>]+>/g, ' '), /Ta catégorie fétiche/, 'au niveau 5, elle se choisit')
+})
+
 test('aux rencontres, le départ ouvre le codex : toutes les cartes de l’expédition', async () => {
   const html = await depart({ expedition: null, prochaine: { ...prochaine, rencontres: true }, passeport: [] })
   assert.match(html, /<h2 class="label" id="exp-codex-titre">Ton codex<\/h2><button type="button" class="link-inline small exp-ouvrir" aria-haspopup="dialog">Ouvrir/)

@@ -35,6 +35,7 @@ import { lireNombreEnTete } from './nombres'
 import type { PalierTombe } from './jour'
 import type { CleDeSaison } from './saisons'
 import { FAMILLES_DE_SUJETS, SUJETS, type FamilleDeSujet } from './sujets'
+import { niveauDeLaRegle, offreDuCodex, regleOuverte, type BilanDUneExpedition, type CodexDuDepart, type RegleDuCodex } from './codex'
 import {
   COURAGE_A_L_ECHOPPE,
   COURAGE_D_UN_CAMPEMENT,
@@ -50,15 +51,19 @@ import {
   MISES,
   SAVOIR_DES_MARCHES,
   SEUIL_DES_ABYSSES,
+  VERSION_DU_CODEX,
   adversaireDe,
   apercuDuTour,
   brisesDUneBonneReponse,
+  carteALaVersion,
   carteDeRencontre,
   carteDuLegendaire,
   cartesDeCombat,
   cartesParQuestion,
   chiffresApresLaCarte,
+  effaceesDuTour,
   enJeu,
+  enPlusDeLaBibliotheque,
   estDeRoute,
   famillesDeLEquipee,
   frappeDUneErreur,
@@ -775,9 +780,13 @@ export interface DepartDExpedition {
    * 6 : les rencontres revues le même soir — la main grandit avec les actes
    * (`CARTES_DES_ACTES`), et l'acte 1 n'offre ni rare en rencontre ni
    * maudite (`raretesDeLOffre`) ; une expédition partie en version 5 se
-   * rejoue telle qu'elle s'est jouée.
+   * rejoue telle qu'elle s'est jouée. 7 : le codex (`shared/codex.ts`) — les
+   * offres ne tirent que les cartes qu'il a ouvertes, et pèsent les familles
+   * de son paquet ; le coffre d'un gardien vaincu propose une légendaire ;
+   * plus d'équipe à choisir, l'invité du jour prête sa carte ; le pari, les
+   * talismans et la catégorie fétiche attendent leur niveau.
    */
-  v: 1 | 2 | 3 | 4 | 5 | 6
+  v: 1 | 2 | 3 | 4 | 5 | 6 | 7
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -810,6 +819,13 @@ export interface DepartDExpedition {
    * au départ parmi les douze, gardée avec elle.
    */
   fetiche?: string
+  /**
+   * Son codex à son départ (v7) : son niveau d'explorateur, les cartes qu'il
+   * a ouvertes — ce que ses offres tirent —, les règles ouvertes. Figé : la
+   * renommée gagnée en route, ou une échelle retouchée, ne change rien à une
+   * expédition partie.
+   */
+  codex?: CodexDuDepart
 }
 
 /**
@@ -962,6 +978,15 @@ export interface EtatDeLExpedition {
   recompenseVide: boolean
   /** Ce que la dernière réponse a fait en rencontre (v5) : la réponse le rend, la page le dit. */
   coup: CoupDeRencontre | null
+  /**
+   * Ce qu'elle a fait, que la renommée compte (`shared/codex.ts`) : les
+   * escales où il est entré, les adversaires et les élites tombés — aux
+   * règles d'avant, les questions et les élites trouvées. Ses gardiens et le
+   * bout se lisent de `vaincus` et de `issue` (`bilanDuPli`).
+   */
+  bilan: { escales: number; adversaires: number; elites: number }
+  /** Le pari est ouvert (v7 : au niveau qu'il faut ; toujours avant). */
+  pari: boolean
 }
 
 /** Une offre de jokers — un coffre, une élite trouvée. */
@@ -970,6 +995,8 @@ export interface OffreDeJokers {
   aPrendre: number
   /** Un coffre (v4) : passé sans rien prendre, il rapporte `ECUS_D_UN_COFFRE_LAISSE`. */
   coffre?: true
+  /** Le trésor d'un gardien vaincu (v7) : une carte légendaire de son codex, et deux autres. */
+  gardien?: true
   /** Un talisman, à prendre à la place d'un joker (v4). */
   talisman?: string
 }
@@ -994,7 +1021,12 @@ export function paquetDeDepart(equipee: readonly string[]): string[] {
 }
 
 /** Ce que le pli lit du départ. */
-type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances' | 'fetiche'>
+type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances' | 'fetiche' | 'codex'>
+
+/** Ce qu'une expédition a fait, que la renommée compte : le bilan du pli, ses gardiens et le bout. */
+export function bilanDuPli(e: Pick<EtatDeLExpedition, 'bilan' | 'vaincus' | 'issue'>): BilanDUneExpedition {
+  return { ...e.bilan, gardiens: e.vaincus, auBout: e.issue === 'au-bout' || e.issue === 'legendaire' }
+}
 
 /**
  * L'état d'une expédition, replié de son départ, de ses gestes et de ses
@@ -1068,7 +1100,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     routeJouees: [],
     recompenseVide: false,
     coup: null,
+    bilan: { escales: 0, adversaires: 0, elites: 0 },
+    pari: regleOuverte(depart, 'pari'),
   }
+  // Le codex (v7) : ses offres ne tirent que les cartes qu'il a ouvertes, et les talismans attendent leur niveau.
+  const avecLeCodex = depart.v >= VERSION_DU_CODEX && !!depart.codex
+  const talismans = regleOuverte(depart, 'talismans')
   const fini = () => e.issue !== 'en-route' && e.issue !== 'au-bout'
   const pose = (cle: string) => e.poses.includes(cle)
   const oter = (liste: string[], cle: string) => {
@@ -1152,19 +1189,27 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       boucle: null,
     }
   }
-  /** Une offre de cartes (v5) — une rencontre gagnée, une élite, un coffre — ; vide après L'horizon. */
-  const offrirDesCartes = (quelle: 'rencontre' | 'elite' | 'coffre') => {
+  /**
+   * Une offre de cartes (v5) — une rencontre gagnée, une élite, un coffre ; et,
+   * depuis le codex (v7), le coffre d'un gardien vaincu, qui ouvre sur une
+   * légendaire — ; vide après L'horizon.
+   */
+  const offrirDesCartes = (quelle: 'rencontre' | 'elite' | 'coffre' | 'gardien') => {
     if (e.recompenseVide) {
       e.recompenseVide = false
       e.offre = { jokers: [], aPrendre: 0 }
       return
     }
     const rang = e.offres++
-    const talisman = quelle !== 'rencontre' ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
+    const talisman = quelle !== 'rencontre' && talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
+    const poids = raretesDeLOffre(depart.v, e.acte, quelle === 'rencontre' ? 'rencontre' : 'elite')
     e.offre = {
-      jokers: offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), raretesDeLOffre(depart.v, e.acte, quelle === 'rencontre' ? 'rencontre' : 'elite'), depart.v >= 6),
+      jokers: avecLeCodex
+        ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids, quelle === 'gardien')
+        : offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6),
       aPrendre: 1,
       ...(quelle === 'coffre' && { coffre: true as const }),
+      ...(quelle === 'gardien' && { gardien: true as const }),
       ...(talisman && { talisman }),
     }
   }
@@ -1194,6 +1239,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const ecus = escale ? ecusDeLaVictoire(escale, r.categorie) : 0
     e.ecus += ecus
     e.coup = { ...e.coup!, victoire: { ecus, courage } }
+    if (r.sorte === 'elite') e.bilan.elites++
+    else e.bilan.adversaires++
     offrirDesCartes(r.sorte === 'elite' ? 'elite' : 'rencontre')
   }
   /**
@@ -1218,7 +1265,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       const brises = brisesDUneBonneReponse({
         savoir: SAVOIR_DES_MARCHES[q.niveau ?? marche],
         charge: t.charge,
-        enPlus: r.pouvoirs.includes('bibliotheque') && depart.fetiche && q.categorie === depart.fetiche ? 3 : 0,
+        enPlus: enPlusDeLaBibliotheque({ v: depart.v, pouvoirs: r.pouvoirs, fetiche: depart.fetiche, categorie: q.categorie }),
         multiplicateur: multiplicateurDeLaForme(q),
         banco: t.jouees.includes('banco') ? Math.floor(mise / 5) : 0,
         double: t.jouees.includes('quitte-ou-double'),
@@ -1291,8 +1338,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Une carte jouée en rencontre (v5) : elle quitte la main — pour la défausse, les épuisées, ou les pouvoirs — et fait ce qu'elle dit. */
   const jouerEnRencontre = (g: Extract<GesteDExpedition, { quoi: 'jouer' }>) => {
     const r = e.rencontre!
-    const carte = carteDeRencontre(g.joker)!
+    const carte = carteALaVersion(g.joker, depart.v)!
     const t = r.tour
+    // Ce que ses chiffres lisent de la question, avant qu'elle ne parte de la main : sa catégorie, ce qui y est déjà effacé.
+    const q = e.enAttente === null ? undefined : questions[e.enAttente]
+    const effacees = q ? effaceesDuTour(t.surLaQuestion, r.pouvoirs, { reponses: q.reponses ?? 4, datee: q.datee }) : 0
     oter(r.main, g.joker)
     t.jouees.push(g.joker)
     if (carte.moment === 'reflexe' || g.joker === 'corser' || g.joker === 'simplifier') t.surLaQuestion.push(g.joker)
@@ -1300,7 +1350,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     else if (carte.epuisement) r.epuisees.push(g.joker)
     else r.defausse.push(g.joker)
     // Ses chiffres — l'inspiration qu'elle coûte, la Charge, la Garde, la série — : la règle que la page relit, carte levée.
-    const x = chiffresApresLaCarte(g.joker, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: r.serie }, r.pouvoirs)
+    const x = chiffresApresLaCarte(g.joker, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: r.serie }, r.pouvoirs, {
+      v: depart.v,
+      fetiche: !!depart.fetiche && q?.categorie === depart.fetiche,
+      effacees,
+    })
     t.inspiration = x.inspiration
     t.charge = x.charge
     t.garde = x.garde
@@ -1370,10 +1424,13 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
   /** Une échoppe — ou le marchand de l'inconnu — : trois jokers, un talisman s'il en reste, du hasard de son rang d'offre. */
   const ouvrirLEchoppe = () => {
     const rang = e.offres++
-    const jokers = avecRencontres
-      ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), raretesDeLOffre(depart.v, e.acte, 'elite'), depart.v >= 6)
-      : offreDeJokers(depart.graine, rang, depart.v)
-    e.echoppe = { jokers, talisman: talismanDeLOffre(depart.graine, rang, e.talismans, true), achats: [] }
+    const poids = raretesDeLOffre(depart.v, e.acte, 'elite')
+    const jokers = avecLeCodex
+      ? offreDuCodex(depart.graine, rang, depart.codex!.cartes, e.paquet, poids)
+      : avecRencontres
+        ? offreDeCartes(depart.graine, rang, famillesDeLEquipee(depart.equipee ?? []), poids, depart.v >= 6)
+        : offreDeJokers(depart.graine, rang, depart.v)
+    e.echoppe = { jokers, talisman: talismans ? talismanDeLOffre(depart.graine, rang, e.talismans, true) : null, achats: [] }
   }
   /** Une vie de moins hors d'une question — un piège — : Renaissance relève, sinon l'expédition s'arrête là. */
   const blesser = () => {
@@ -1429,6 +1486,8 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.paquet.sort()
       e.routeJouees = []
       e.rencontre = null
+      // Le codex (v7) : le coffre d'un gardien vaincu — pas du dernier, qu'on garde — ouvre sur une légendaire de son codex.
+      if (avecLeCodex && acte < Math.min(ACTES, depart.cartes.length) - 1) offrirDesCartes('gardien')
     } else if (avecJokers) {
       if (pose('aube') && e.aube) e.vies = Math.min(VIES, e.vies + 1)
       // Les posés finissent avec l'acte ; le gardien glisse son joker dans le paquet ; la défausse y revient.
@@ -1531,6 +1590,9 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
           quitteOuDouble: sur === 'quitte-ou-double',
         })
       }
+      // Aux règles d'avant, une question trouvée est un adversaire tombé, pour la renommée ; une élite trouvée, une élite.
+      if (sorte === 'question') e.bilan.adversaires++
+      else if (sorte === 'elite') e.bilan.elites++
       if (e.gardien) e.gardien.trouvees++
       else if (sorte === 'elite' && avecJokers) offrir(false)
     } else {
@@ -1580,6 +1642,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.route = { detour: false, raccourci: false, commandement: null }
     e.ici = vers
     e.trace.push(vers)
+    e.bilan.escales++
     // L'échoppe se quitte en avançant ; ce que cachait l'inconnu d'avant ne se dit plus.
     e.echoppe = null
     e.inconnu = null
@@ -1806,9 +1869,14 @@ export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJoue
   return libres
 }
 
-/** Pourquoi cette mise ne se fait pas (v5) — null : elle se fait. Une des mises permises, et de quoi la payer, doublée sous Doubler la mise. La page dit « pari ». */
-export function refusDeLaMise(e: Pick<EtatDeLExpedition, 'ecus' | 'rencontre'>, mise: number): string | null {
+/**
+ * Pourquoi cette mise ne se fait pas (v5) — null : elle se fait. Une des mises
+ * permises, et de quoi la payer, doublée sous Doubler la mise ; depuis le
+ * codex (v7), au niveau où le pari s'ouvre (`pari`). La page dit « pari ».
+ */
+export function refusDeLaMise(e: Pick<EtatDeLExpedition, 'ecus' | 'rencontre'> & { pari?: boolean }, mise: number): string | null {
   if (!MISES.includes(mise)) return `Parie ${MISES.join(', ').replace(/, (\d+)$/, ' ou $1')} écus`
+  if (e.pari === false && mise > 0) return `Le pari s’ouvre au niveau ${niveauDeLaRegle('pari')} d’explorateur`
   const total = mise * (e.rencontre?.tour.jouees.includes('doubler-la-mise') ? 2 : 1)
   if (total > e.ecus) return `Il te manque ${total - e.ecus} écu${total - e.ecus > 1 ? 's' : ''} pour parier autant`
   return null
@@ -1831,10 +1899,11 @@ export function questionDuTour(q: QuestionPosee | undefined): QuestionDuTour | n
 }
 
 /** Ce que les règles des cartes lisent de l'état d'une rencontre (v5). */
-export function contexteDeLaCarte(depart: Pick<DepartDExpedition, 'fetiche'>, e: EtatDeLExpedition, questions: readonly QuestionPosee[]): ContexteDUneCarte | null {
+export function contexteDeLaCarte(depart: Pick<DepartDExpedition, 'v' | 'fetiche'>, e: EtatDeLExpedition, questions: readonly QuestionPosee[]): ContexteDUneCarte | null {
   const r = e.rencontre
   if (!r) return null
   return {
+    v: depart.v,
     tour: r.tour,
     main: r.main,
     pouvoirs: r.pouvoirs,
@@ -1911,6 +1980,7 @@ export function vueDeLaRencontre(
   }
   const theme = r.categorie ? undefined : escale?.theme
   return {
+    v: depart.v,
     sorte: r.sorte,
     adversaire: r.sorte === 'gardien' ? nomDuGardien(depart.gardiens[e.acte] ?? '') : adversaireDe(escale?.theme, r.categorie),
     ...(r.categorie ? { categorie: r.categorie } : theme && 'categories' in theme && theme.categories.length === 1 ? { categorie: theme.categories[0] } : {}),
@@ -1934,10 +2004,14 @@ export function vueDeLaRencontre(
     epuisees: r.epuisees,
     refus: Object.fromEntries([...new Set(r.main)].map(cle => [cle, ctx ? refusDeLaCarte(ctx, cle) : null])),
     ...(r.tour.phase === 'preparation' && { mises: Object.fromEntries(MISES.map(m => [m, refusDeLaMise(e, m)])) }),
+    // Le pari pas encore ouvert (v7) : la page ne le propose pas.
+    ...(!e.pari && { pari: false as const }),
+    ...(r.tour.phase === 'question' && qt && { effacees: effaceesDuTour(r.tour.surLaQuestion, r.pouvoirs, qt) }),
     ...(annonce && { annonce }),
     ...(annonce &&
       qt && {
         apercu: apercuDuTour({
+          v: depart.v,
           tour: r.tour,
           pouvoirs: r.pouvoirs,
           sceaux: r.sceaux,
@@ -2257,10 +2331,18 @@ export interface VueDeLExpedition {
   rencontre?: VueDeLaRencontre
   /** Ses cartes (v5) : tout son paquet, et celles de route qu'il peut jouer sur la carte. */
   cartes?: CartesEnJeu
+  /**
+   * La renommée qu'elle lui rapporte, de ce qu'elle a fait jusqu'ici
+   * (`renommeeDe`, `bilanDuPli`) : la fin la dit, et le niveau qu'elle fait
+   * passer.
+   */
+  renommee?: number
 }
 
 /** Les cartes d'une expédition en rencontres (v5), telles que la page les voit hors d'une rencontre. */
 export interface CartesEnJeu {
+  /** La version de son départ : ses cartes se lisent à ses chiffres (`carteALaVersion`) — celles que le codex a retouchées. */
+  v: number
   /** Tout son paquet : ses cartes pour toute l'expédition, celles de route comprises. */
   paquet: string[]
   /** Les cartes de route qu'il peut encore jouer sur la carte, dans cet acte. */
@@ -2269,6 +2351,26 @@ export interface CartesEnJeu {
   refus: Record<string, string | null>
   /** Les cartes que chaque question tire, acte par acte (`cartesDesActes`) : les règles le disent, la page n'en recopie rien. */
   parQuestion: number[]
+  /**
+   * Son codex à son départ (v7) : son niveau, les règles ouvertes — les
+   * règles disent celles qui attendent —, et la renommée qu'il avait : la fin
+   * y ajoute celle de l'expédition (`VueDeLExpedition.renommee`) pour dire le
+   * niveau gagné.
+   */
+  codex?: { niveau: number; regles: RegleDuCodex[]; renommee?: number }
+}
+
+/**
+ * Son codex, sur la page de l'expédition (le 18 octobre 2026) : sa renommée,
+ * de toutes ses expéditions finies — perdues et abandonnées comprises —, son
+ * niveau d'explorateur, et ce qu'il ouvre — les cartes, celles des
+ * légendaires qu'il a comprises, et les règles. Son départ le figera tel quel.
+ */
+export interface CodexDeLaPage {
+  renommee: number
+  niveau: number
+  cartes: string[]
+  regles: RegleDuCodex[]
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */
@@ -2290,6 +2392,8 @@ export interface PageDeLExpedition {
     saison?: CleDeSaison
     /** Le prototype des rencontres s'offre au départ : hors de la production (`RENCONTRES_EN_PRODUCTION`). */
     rencontres?: true
+    /** Son codex (le 18 octobre 2026), là où les rencontres s'offrent. */
+    codex?: CodexDeLaPage
   }
   /** Son passeport : les thèmes pointus qu'il a trouvés en expédition, chacun une fois — leurs clés (`shared/sujets.ts`). */
   passeport: string[]

@@ -77,16 +77,17 @@ test('ce que coûte une erreur : la frappe, moins la Garde ; rien sous Sursis, d
 
 test('l’aperçu du verdict : ce qu’elle briserait, s’il tombe, ce que coûterait une erreur — et le dévoilement, du premier mot au dernier', () => {
   const tour = { charge: 4, garde: 5, mise: 10, jouees: ['concentration', 'prudence', 'contre-attaque'] }
-  const a = apercuDuTour({ tour, pouvoirs: ['tresor'], sceaux: 12, frappe: 7, savoir: 8, question: { reponses: 4, forme: 'quatre', categorie: 'Histoire' } })
+  const a = apercuDuTour({ v: 5, tour, pouvoirs: ['tresor'], sceaux: 12, frappe: 7, savoir: 8, question: { reponses: 4, forme: 'quatre', categorie: 'Histoire' } })
   assert.deepEqual(a.juste, { brises: 12, tombe: true, ecus: 15 }, 'le trésor : la moitié des dix écus misés, rapportée triple')
   assert.deepEqual(a.faux, { frappe: 7, absorbee: 5, perdu: 2, ecus: 10, contre: 5, charge: true })
-  const d = apercuDuTour({ tour: { charge: 0, garde: 0, mise: 0, jouees: [] }, pouvoirs: [], sceaux: 40, frappe: 5, savoir: 6, question: { reponses: 4, forme: 'devoilement', categorie: null }, mots: 9 })
+  const d = apercuDuTour({ v: 5, tour: { charge: 0, garde: 0, mise: 0, jouees: [] }, pouvoirs: [], sceaux: 40, frappe: 5, savoir: 6, question: { reponses: 4, forme: 'devoilement', categorie: null }, mots: 9 })
   assert.deepEqual([d.juste.auPremierMot, d.juste.brises, d.juste.tombe], [18, 6, false])
 })
 
-/** Un contexte où tout se joue : une question à quatre choix, d'Histoire, qui se date, en préparation. */
+/** Un contexte où tout se joue : une question à quatre choix, d'Histoire, qui se date, en préparation — aux règles d'avant le codex (v5). */
 function contexte(plus: Partial<ContexteDUneCarte> = {}, question: Partial<NonNullable<ContexteDUneCarte['question']>> = {}): ContexteDUneCarte {
   return {
+    v: 5,
     tour: { phase: 'preparation', inspiration: 3, jouees: [], surLaQuestion: [] },
     main: CARTES_DES_RENCONTRES.map(c => c.cle),
     pouvoirs: [],
@@ -331,7 +332,7 @@ test('en préparation, la vue dit de quoi refaire l’aperçu à chaque mise, et
   assert.deepEqual([vue.annonce?.reponses, vue.annonce?.mots, vue.position], [4, undefined, 0])
   // L'aperçu que la page refait à la mise qu'elle choisit : la même règle que celui du serveur, qui voit la mise une fois dite.
   const a = vue.annonce!
-  const aDix = apercuDuTour({ tour: { charge: vue.charge, garde: vue.garde, mise: 10, jouees: vue.jouees }, pouvoirs: vue.pouvoirs, sceaux: vue.sceaux, frappe: vue.frappe, savoir: a.savoir, question: { reponses: a.reponses, forme: a.forme, categorie: a.categorie }, fetiche: 'Histoire' })
+  const aDix = apercuDuTour({ v: vue.v, tour: { charge: vue.charge, garde: vue.garde, mise: 10, jouees: vue.jouees }, pouvoirs: vue.pouvoirs, sceaux: vue.sceaux, frappe: vue.frappe, savoir: a.savoir, question: { reponses: a.reponses, forme: a.forme, categorie: a.categorie }, fetiche: 'Histoire' })
   const vu = vueDeLaRencontre(j.depart, j.voir(10), j.questions)!
   assert.deepEqual(aDix, vu.apercu)
 })

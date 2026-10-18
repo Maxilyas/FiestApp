@@ -143,9 +143,12 @@ function lignes(phrase: string, n: number): string[] {
   return out
 }
 
+/** Chaque carte telle que le codex la joue, et telle qu'une expédition d'avant le codex la montre encore, quand il l'a retouchée. */
+const TOUTES_LES_VERSIONS = CARTES_DES_RENCONTRES.flatMap(c => [c, ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : [])])
+
 test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {
   // « 2 questions » ne tenait pas : « questions » coupé, la carte disait « 2 questio… ». Le résumé se dit à l'oreille, et dans les lignes d'une offre.
-  for (const c of CARTES_DES_RENCONTRES) {
+  for (const c of TOUTES_LES_VERSIONS) {
     const l = lignes(c.resume, 9)
     assert.ok(l.length <= 2 && l.every(x => x.length <= 9), `${c.cle} : « ${c.resume} » se coupe en ${l.map(x => `« ${x} »`).join(', ')}`)
     // Le chiffre de la main : quelques signes, sans un mot (« trop de détails écrits en dessous de chaque icône »).
@@ -154,7 +157,7 @@ test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tien
 })
 
 test('les cartes parlent la langue de tout le monde : ni sceaux, ni Charge, ni Garde, ni inspiration', () => {
-  for (const c of CARTES_DES_RENCONTRES) {
+  for (const c of TOUTES_LES_VERSIONS) {
     for (const t of [c.effet, c.resume]) assert.doesNotMatch(t, JARGON, `${c.cle} : « ${t} »`)
   }
 })
@@ -321,16 +324,34 @@ test('l’énergie : un orbe chiffré au-dessus de la main, le même au coin de 
   // « L'histoire de l'inspiration n'est pas du tout claire » : des étincelles allumées et éteintes ne disaient ni ce qu'elles comptaient, ni ce qu'une carte en prenait.
   const { MainDeRencontre } = await pieces()
   const pile = { compte: 4, mot: 'pioche', dit: 'Ta pioche : 4 cartes', onOuvrir: rien }
-  const refus = { concentration: null, 'troisieme-oeil': 'Il lui faut 2 d’énergie : il t’en reste 1', echange: null }
-  const html = await rendre(MainDeRencontre, { cles: ['concentration', 'troisieme-oeil', 'echange'], refus, busy: false, inspiration: 1, pile, onJouer: rien })
+  const refus = { concentration: null, sursis: 'Il lui faut 2 d’énergie : il t’en reste 1', echange: null }
+  const html = await rendre(MainDeRencontre, { cles: ['concentration', 'sursis', 'echange'], refus, busy: false, inspiration: 1, pile, onJouer: rien })
   assert.match(html, /aria-label="1 d’énergie pour jouer tes cartes"><b class="exp-vc-cout" aria-hidden="true">1<\/b>/)
   const cout = (cle: string) => new RegExp(`data-carte="${cle}"[^>]*><span class="exp-vc[^"]*"[^>]*><span class="([^"]*)">(\\d)<\\/span>`).exec(html)
   assert.deepEqual(cout('concentration')?.slice(1), ['exp-vc-cout', '1'])
-  assert.deepEqual(cout('troisieme-oeil')?.slice(1), ['exp-vc-cout exp-vc-manque', '2'], 'deux, quand il en a un : rouge')
+  assert.deepEqual(cout('sursis')?.slice(1), ['exp-vc-cout exp-vc-manque', '2'], 'deux, quand il en a un : rouge')
   assert.deepEqual(cout('echange')?.slice(1), ['exp-vc-cout', '0'], 'gratuite : zéro, dans le même orbe')
   // Ce qui se dit à l'oreille dit l'énergie aussi.
-  assert.match(texte(html), /Troisième œil : Indices \+3, 2 d’énergie, pas maintenant/)
+  assert.match(texte(html), /Sursis : Erreur gratuite, 2 d’énergie, pas maintenant/)
   assert.doesNotMatch(texte(html), JARGON)
+})
+
+test('une carte se lit à la version de son départ : retouchée par le codex, elle garde ses chiffres d’avant dans une expédition d’avant', async () => {
+  const { MainDeRencontre, VersionDesCartes } = (await pieces()) as Pieces & { VersionDesCartes: React.Context<number> }
+  const pile = { compte: 4, mot: 'pioche', dit: 'Ta pioche : 4 cartes', onOuvrir: rien }
+  const main = (v: number) =>
+    rendre(
+      (() => React.createElement(VersionDesCartes.Provider, { value: v }, React.createElement(MainDeRencontre, { cles: ['troisieme-oeil', 'echauffement'], refus: { 'troisieme-oeil': null, echauffement: null }, busy: false, inspiration: 3, pile, onJouer: rien }))) as Composant,
+      {},
+    )
+  const cout = (html: string, cle: string) => new RegExp(`data-carte="${cle}"[^>]*><span class="exp-vc[^"]*"[^>]*><span class="[^"]*">(\\d)<\\/span>`).exec(html)?.[1]
+  const valeur = (html: string, cle: string) => new RegExp(`data-carte="${cle}"[\\s\\S]*?<b class="exp-vc-valeur">([^<]*)</b>`).exec(html)?.[1]
+  const codex = await main(7)
+  assert.deepEqual([cout(codex, 'troisieme-oeil'), valeur(codex, 'echauffement')], ['1', '+2'], 'le codex : Troisième œil coûte un, Échauffement frappe')
+  assert.match(texte(codex), /Échauffement : \+2, série \+1, gratuite/)
+  const avant = await main(6)
+  assert.deepEqual([cout(avant, 'troisieme-oeil'), valeur(avant, 'echauffement')], ['2', '+1'], 'une expédition partie avant le codex se joue — et se lit — à ses chiffres d’alors')
+  assert.match(texte(avant), /Échauffement : Série \+1, gratuite/)
 })
 
 test('ses tas en vraies cartes qui défilent : une par sorte, « ×4 » au coin ; touchée, elle se montre en grand', async () => {
@@ -403,12 +424,80 @@ test('le codex : toutes les cartes de l’expédition, une page par rareté en o
   assert.match(texte(grille), /Concentration, commune : \+4 si juste/)
 })
 
+// ── Le codex qui s'ouvre en jouant (la version 7) ─────────────────────────────
+
+/** Les pièces du codex : sa feuille, son niveau, ce que la fin rapporte. */
+const piecesDuCodex = async () => (await pieces()) as unknown as Pieces & { FeuilleDuCodex: Composant; RenommeeGagnee: Composant; NiveauDExplorateur: Composant }
+
+test('le codex à son niveau : sa jauge de renommée en tête, ce qu’il a sur ce qu’il y a ; les cartes qu’il n’a pas éteintes, comment les ouvrir dessous', async () => {
+  const { FeuilleDuCodex, CarteLevee } = await piecesDuCodex()
+  const { NIVEAUX, codexDuNiveau } = await import('../../shared/codex')
+  const ouvert = codexDuNiveau(3, ['lg:phenix'])
+  const html = await rendre(FeuilleDuCodex, { codex: { renommee: NIVEAUX[2] + 20, ...ouvert }, onFermer: rien })
+  const t = texte(html)
+  assert.match(t, new RegExp(`Niveau 3 d’explorateur : ${NIVEAUX[2] + 20} de renommée, ${NIVEAUX[3]} pour le niveau 4\\.`))
+  assert.match(t, new RegExp(`${ouvert.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi`))
+  const fermees = [...html.matchAll(/<li class="exp-codex-fermee"><button type="button" class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1])
+  assert.deepEqual(fermees, CARTES_DES_RENCONTRES.filter(c => !ouvert.cartes.includes(c.cle)).map(c => c.cle), 'toutes les autres, éteintes')
+  assert.ok(!fermees.includes('renaissance') && fermees.includes('sagesse'), 'la carte du Phénix, qu’il a ; pas celle de la Chouette')
+  // Dessous, en court : le niveau qui l'ouvre, ou le légendaire qui la donne ; à l'oreille, en phrase.
+  assert.match(html, /data-carte="detour"[\s\S]*?<span class="exp-codex-ouverture" aria-hidden="true">[\s\S]*?Niveau 4<\/span>/)
+  assert.match(t, /Le détour, commune : Va où tu veux\. Elle s’ouvre au niveau 4 d’explorateur\./)
+  assert.match(t, /Sagesse, légendaire : [^.]+\. Elle s’ouvre quand la Chouette d’Argent est à toi — gagnée en soirée, au quiz du jour, en campagne ou en expédition\./)
+  // Levée, une carte fermée dit comment l'ouvrir.
+  assert.match(texte(await rendre(CarteLevee, { cle: 'detour', ouverture: 'Elle s’ouvre au niveau 4 d’explorateur.', onReposer: rien })), /Elle s’ouvre au niveau 4 d’explorateur\./)
+  // Sans codex — une expédition d'avant —, tout est ouvert, comme avant.
+  assert.doesNotMatch(await rendre(FeuilleDuCodex, { onFermer: rien }), /exp-codex-fermee/)
+})
+
+test('la fin dit la renommée qu’elle rapporte, et le niveau qu’elle fait passer : ses cartes neuves en vraies cartes, la règle qui s’ouvre', async () => {
+  const { RenommeeGagnee } = await piecesDuCodex()
+  const { NIVEAUX } = await import('../../shared/codex')
+  const monte = await rendre(RenommeeGagnee, { avant: NIVEAUX[1] - 10, gagnee: 30 })
+  assert.match(texte(monte), /\+30 de renommée Tu passes au niveau 2 Niveau 2 d’explorateur/)
+  assert.deepEqual([...monte.matchAll(/class="exp-codex-carte" data-carte="([^"]+)"/g)].map(m => m[1]), ['double-chance'], 'la carte du niveau 2, à lever')
+  assert.match(texte(monte), /Elle rejoint ton codex : tes récompenses la proposeront dès ta prochaine expédition\./)
+  assert.match(texte(monte), /Le pari s’ouvre : avant de voir une question, parie des écus\./)
+  // Sans niveau passé : la renommée et la jauge, rien de neuf.
+  const sansNiveau = await rendre(RenommeeGagnee, { avant: NIVEAUX[1], gagnee: 5 })
+  assert.match(texte(sansNiveau), /\+5 de renommée/)
+  assert.doesNotMatch(sansNiveau, /exp-renommee-niveau|exp-codex-carte|exp-renommee-regle/)
+  assert.doesNotMatch(texte(monte), JARGON)
+})
+
+test('les règles au codex : la renommée et ce que chaque niveau ouvre ; une règle fermée dit le niveau qui l’ouvre ; plus d’équipe', async () => {
+  const { FeuilleDesRegles } = await pieces()
+  const fermees = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: [] }, onFermer: rien }))
+  assert.match(fermees, /Ton codex/)
+  assert.match(fermees, /Chaque expédition, même perdue, te rapporte de la renommée : \+1 par escale, \+3 par adversaire tombé, \+6 par élite, \+12 par gardien, \+25 au bout\./)
+  for (const r of [/Il s’ouvre au niveau 2 d’explorateur\./, /Les talismans s’ouvrent au niveau 4 d’explorateur\./, /Ta catégorie fétiche s’ouvre au niveau 5 d’explorateur\./]) assert.match(fermees, r)
+  assert.match(fermees, /Un gardien vaincu, aux actes 1 et 2 : son trésor propose une carte légendaire de ton codex\./)
+  assert.doesNotMatch(fermees, /Ton équipe|Les légendaires que tu emmènes/, 'au codex, plus d’équipe à choisir')
+  const ouvertes = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: ['pari', 'talismans', 'fetiche'] }, onFermer: rien }))
+  assert.doesNotMatch(ouvertes, /s’ouvrent? au niveau/)
+  assert.match(ouvertes, /Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions\./)
+  for (const t of [fermees, ouvertes]) assert.doesNotMatch(t, JARGON)
+})
+
+test('au niveau 1, la préparation ne propose pas de pari : la première expédition n’a que ses cartes, son énergie et son courage', async () => {
+  const { codexDuNiveau } = await import('../../shared/codex')
+  stockage(true)
+  const un = new Journal({ ...depart('sans-pari'), v: 7, codex: { ...codexDuNiveau(1, []), renommee: 0 } })
+  un.geste({ quoi: 'avancer', vers: 'e00' })
+  const html = await preparation(un)
+  assert.doesNotMatch(html, /class="exp-mises"/, 'pas de pari')
+  assert.match(html, /exp-voir/, '« Voir la question » reste')
+  const deux = new Journal({ ...depart('avec-pari'), v: 7, codex: { ...codexDuNiveau(2, []), renommee: 30 } })
+  deux.geste({ quoi: 'avancer', vers: 'e00' })
+  assert.match(await preparation(deux), /class="exp-mises"/, 'au niveau 2, il parie')
+})
+
 test('le plan, plus « la carte » : le même mot disait la carte de l’acte et les cartes de la main', async () => {
   // La recommandation du codex, validée le 18 octobre 2026 : « Le même mot désigne aujourd'hui la carte de l'acte et les cartes
   // de la main, sur le même écran. » Ce que lit le joueur — une carte, un joker, un talisman, un refus, les règles — dit « le plan ».
   const CARTE_DE_L_ACTE = /sur (la|cette|ta) carte|(La|la) carte ne dit|La carte ·|Retour à la carte|carte n°/i
   const { JOKERS_DES_LEGENDAIRES, JOKERS_SANS_LEGENDAIRE, TALISMANS } = await import('../../shared/jokers')
-  for (const x of [...CARTES_DES_RENCONTRES, ...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE, ...TALISMANS]) assert.doesNotMatch(x.effet, CARTE_DE_L_ACTE, `${x.cle} : « ${x.effet} »`)
+  for (const x of [...TOUTES_LES_VERSIONS, ...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE, ...TALISMANS]) assert.doesNotMatch(x.effet, CARTE_DE_L_ACTE, `${x.cle} : « ${x.effet} »`)
   const { FeuilleDesRegles, CarteLevee } = await pieces()
   for (const rencontres of [true, false]) {
     const regles = texte(await rendre(FeuilleDesRegles, { rencontres, onFermer: rien }))

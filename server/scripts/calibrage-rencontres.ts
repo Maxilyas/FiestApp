@@ -20,7 +20,20 @@
 // base, et suit sur la carte l'escale la plus sûre, comme la page la lui
 // conseille.
 //
-//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000]
+// Depuis le codex (la version 7, le 18 octobre 2026), il se mesure niveau par
+// niveau d'explorateur : ses offres ne tirent que les cartes que son niveau a
+// ouvertes, le pari, les talismans et la catégorie fétiche attendent le leur,
+// l'invité du jour prête sa carte et les légendaires qu'il a gardés ouvrent la
+// leur au trésor d'un gardien ; puis la carrière, du niveau 1, expédition
+// après expédition. Le joueur a appris : il ne prend que ce qui vaut, deux
+// fois au plus (`PREFERENCE_DU_CODEX`). Mesuré le même soir, aux cartes
+// retouchées : le moyen va au bout 43 fois sur cent au niveau 1, 47 au 3, 61
+// au 6 avec deux légendaires, 51 au 10 avec quatre ; le codex entier en
+// treize expéditions. La proposition visait 15 % au niveau 1 : les cartes
+// seules n'y mènent pas — l'issue tient à ce qu'il sait —, il faudrait durcir
+// les adversaires des premiers niveaux, ce qu'on attend d'une semaine de jeu.
+//
+//   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
@@ -30,6 +43,7 @@ import {
   ACTES,
   GARDIEN,
   MARCHES_DES_ACTES,
+  bilanDuPli,
   POIDS_DES_ESCALES,
   POIDS_DES_ESCALES_DES_RENCONTRES,
   carteDUnActe,
@@ -40,6 +54,7 @@ import {
   escaleEnJeu,
   escalesPermises,
   gardiensDe,
+  inviteDuJour,
   marcheDe,
   pliDeLExpedition,
   prixDeLArticle,
@@ -56,15 +71,20 @@ import {
   type GesteDExpedition,
   type QuestionPosee,
 } from '../../shared/expedition'
-import { COURAGE_MAX, effaceesDuTour } from '../../shared/rencontres'
+import { COURAGE_MAX, carteDeRencontre, effaceesDuTour } from '../../shared/rencontres'
+import { NIVEAUX, codexDuNiveau, niveauDe, renommeeDe } from '../../shared/codex'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
   return i >= 0 ? Number(process.argv[i + 1]) : defaut
 }
 const EXPEDITIONS = option('expeditions', 1000)
-/** La version des règles mesurée : 6 d'office, celle des départs d'aujourd'hui — `--version 5` remesure la main de cinq cartes d'emblée. */
-const VERSION = option('version', 6) === 5 ? 5 : 6
+/**
+ * La version des règles mesurée : 7 d'office, celle des départs d'aujourd'hui
+ * — le codex ; `--version 6` remesure la main qui grandit avec les actes sans
+ * le codex, `--version 5` la main de cinq cartes d'emblée.
+ */
+const VERSION = ([5, 6, 7] as const).find(v => v === option('version', 7)) ?? 7
 
 const logit = (p: number) => Math.log(p / (1 - p))
 const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
@@ -131,9 +151,13 @@ interface Issue {
   cartes: number
   ecus: number
   courage: number
+  /** La renommée qu'elle rapporte (`renommeeDe`), au bout ou non. */
+  renommee: number
+  /** Ses trois gardiens : au bout, la carrière en garde un. */
+  gardiens: string[]
 }
 
-/** Ce qu'il prend dans une offre, du meilleur au moins bon ; ce qu'il n'y nomme pas, il le laisse. */
+/** Ce qu'il prend dans une offre aux règles d'avant le codex (v5, v6), du meilleur au moins bon ; ce qu'il n'y nomme pas, il le laisse. */
 const PREFERENCE_DES_OFFRES = [
   'double-chance',
   'bibliotheque',
@@ -154,11 +178,55 @@ const PREFERENCE_DES_OFFRES = [
   'quitte-ou-double',
   'echange',
 ]
-/** Ce qu'il retire au campement, son courage au plus haut : une carte de base d'abord, comme dans Slay the Spire. */
+/** Ce qu'il retire au campement, son courage au plus haut, aux règles d'avant : une carte de base d'abord, comme dans Slay the Spire. */
 const A_RETIRER = ['echange', 'prudence', 'concentration']
+/**
+ * Au codex (v7), un joueur qui a appris : il prend la carte de l'offre qui
+ * vaut le plus, mesurée — chacune seule, deux au plus, contre ne rien prendre
+ * (le 18 octobre 2026, aux cartes retouchées : de Contre-attaque, dix-huit
+ * points de plus pour le moyen au bout, à Troisième œil, quatre de moins ;
+ * avant les retouches, Lancée en retirait onze) —, jamais une troisième de
+ * la même, et ne retire que les plus faibles.
+ */
+const PREFERENCE_DU_CODEX = [
+  'contre-attaque',
+  'echange',
+  'simplifier',
+  'pioche',
+  'lucidite',
+  'plume',
+  'sursis',
+  'echauffement',
+  'coup-d-oeil',
+  'corser',
+  'double-chance',
+  'bibliotheque',
+  'quitte-ou-double',
+  'detour',
+  'parade',
+  'lancee',
+  'doubler-la-mise',
+  'banco',
+  'arret-sur-image',
+  'tout-ou-rien',
+  'troisieme-oeil',
+]
+const EXEMPLAIRES_DU_CODEX = 2
+const A_RETIRER_DU_CODEX = ['troisieme-oeil', 'tout-ou-rien', 'arret-sur-image', 'banco', 'doubler-la-mise', 'lancee']
 const TALISMANS_UTILES = ['loupe', 'boussole']
 
-function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
+/**
+ * Une équipée mesurée : aux règles d'avant (v5, v6), les légendaires qu'il
+ * emmène ; au codex (v7), son niveau d'explorateur et les légendaires qu'il a
+ * gardés — l'invité du jour, tiré pour chaque expédition, prête sa carte.
+ */
+interface Cas {
+  nom: string
+  equipee: string[]
+  niveau?: number
+}
+
+function jouer(j: Joueur, graine: string, cas: Cas): Issue {
   const sujets = SUJETS.map(s => s.cle).sort()
   // Les cartes du départ, comme le serveur les tire : à plus d'adversaires dès la version 6.
   const cartes: CarteDUnActe[] = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, undefined, VERSION >= 6 ? POIDS_DES_ESCALES_DES_RENCONTRES : POIDS_DES_ESCALES))
@@ -167,19 +235,23 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
     carte.chanceDuGardien = CATEGORIES.reduce((s, c) => s + chanceSur(j, MARCHES_DES_ACTES[acte].gardien, c), 0) / CATEGORIES.length
   })
   const chances = Object.fromEntries(CATEGORIES.map(c => [c, Object.fromEntries((['facile', 'moyen', 'difficile'] as const).map(m => [m, chanceSur(j, m, c)]))]))
-  // Sa catégorie fétiche : sa meilleure.
+  // Sa catégorie fétiche : sa meilleure — au codex, à son niveau seulement, comme le serveur la garde.
   const fetiche = [...CATEGORIES].sort((a, b) => (j.categories.get(b) ?? 0) - (j.categories.get(a) ?? 0))[0]
+  // Au codex, l'invité du jour d'un jour tiré de la graine ; ses légendaires gardés ouvrent leur carte, et ne gardent plus d'acte.
+  const invite = inviteDuJour(graine)
+  const codex = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee) : undefined
   const depart: DepartDExpedition = {
     v: VERSION,
     graine,
     numero: 0,
-    gardiens: gardiensDe(graine, new Set(equipee)),
+    gardiens: codex ? gardiensDe(graine, new Set(cas.equipee), invite) : gardiensDe(graine, new Set(cas.equipee)),
     cartes,
     moyen: false,
-    equipee,
+    equipee: codex ? [invite] : cas.equipee,
     chances,
     chanceDeLaSource: chanceSur(j, 'moyen', null),
-    fetiche,
+    ...((!codex || codex.regles.includes('fetiche')) && { fetiche }),
+    ...(codex && { codex }),
   }
   const r = hasardDe(`${graine}:reponses`)
   const au = <T>(liste: readonly T[]) => liste[Math.floor(r() * liste.length)]
@@ -275,13 +347,15 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
       if (chance < 0.45 && peut(e, 'simplifier')) return jouerLa('simplifier')
       if (courage <= 20 && peut(e, 'sursis')) return jouerLa('sursis')
       for (const cle of ['prudence', 'peau-de-feu', 'contre-attaque']) if (peut(e, cle)) return jouerLa(cle)
-      for (const cle of ['concentration', 'plume']) if (peut(e, cle)) return jouerLa(cle)
+      for (const cle of ['concentration', 'plume', 'echauffement']) if (peut(e, cle)) return jouerLa(cle)
     }
     return null
   }
 
   /** Sa mise, au vu de sa chance : elle ne rapporte que la moitié de ce qu'elle engage, il ne mise qu'au-dessus de deux chances sur trois. */
   const miser = (e: EtatDeLExpedition, i: number): number => {
+    // Le pari pas encore ouvert à son niveau (v7) : le pli refuserait sa mise.
+    if (!e.pari) return 0
     const q = posees[i]
     const chance = chanceSelonLaForme(q.p4, q.forme ?? (q.reponses === 2 ? 'vrai-faux' : 'quatre'))
     const voulue = chance >= 0.85 ? 40 : chance >= 0.75 ? 20 : chance >= 0.67 ? 10 : 0
@@ -290,11 +364,19 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
   }
   const peutMiser = (e: EtatDeLExpedition, m: number) => m * (e.rencontre?.tour.jouees.includes('doubler-la-mise') ? 2 : 1) <= e.ecus
 
-  /** Ce qu'il joue la question sous les yeux, s'il ne la sait pas. */
+  /**
+   * Ce qu'il joue la question sous les yeux : s'il la sait, ce qui frappe sans
+   * rien coûter — Lucidité — et, sur un dévoilement, Arrêt sur image ; sinon,
+   * ce qui l'aide.
+   */
   const enQuestion = (e: EtatDeLExpedition, i: number): GesteDExpedition | null => {
     const q = posees[i]
     const autre = e.autre !== null ? posees[e.autre] : undefined
-    if (q.sait || autre?.sait) return null
+    if (q.sait) {
+      const cle = [...(q.forme === 'devoilement' ? ['arret-sur-image'] : []), 'lucidite'].find(c => peut(e, c))
+      return cle ? { quoi: 'jouer', joker: cle, position: i } : null
+    }
+    if (autre?.sait) return null
     const courage = e.courage ?? 0
     const ordre = [
       'deux-visages',
@@ -306,6 +388,7 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
       'enigme',
       ...(courage > 30 ? ['tout-ou-rien'] : []),
       'coup-d-oeil',
+      'lucidite',
       ...(courage <= 15 ? ['passe-muraille'] : []),
       'parade',
     ]
@@ -357,11 +440,17 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
     return null
   }
 
+  /** Ce qu'il voudrait parmi ces cartes, du meilleur au moins bon : au codex, jamais une de plus qu'il n'en garde. */
+  const aPrendre = (e: EtatDeLExpedition, cartes: readonly string[]) =>
+    codex
+      ? PREFERENCE_DU_CODEX.filter(c => cartes.includes(c) && e.paquet.filter(x => x === c).length < EXEMPLAIRES_DU_CODEX)
+      : PREFERENCE_DES_OFFRES.filter(c => cartes.includes(c))
+
   const aAcheter = (e: EtatDeLExpedition): { article: ArticleDeLEchoppe; joker?: string } | null => {
     const etal = e.echoppe!
     const voulus: { article: ArticleDeLEchoppe; joker?: string }[] = [
       ...((e.courage ?? 0) <= COURAGE_MAX - 15 ? [{ article: 'vie' as const }] : []),
-      ...PREFERENCE_DES_OFFRES.filter(c => etal.jokers.includes(c))
+      ...aPrendre(e, etal.jokers)
         .slice(0, 1)
         .map(cle => ({ article: 'joker' as const, joker: cle })),
       ...(etal.talisman && TALISMANS_UTILES.includes(etal.talisman) ? [{ article: 'talisman' as const }] : []),
@@ -377,11 +466,23 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
       e = plier()
     }
     if (e.issue !== 'en-route') {
-      return { auBout: e.issue === 'au-bout', acte: e.acte, questions: reponses.size, rencontres: e.rencontres, cartes: jouees, ecus: e.ecus + depenses, courage: e.courage ?? 0 }
+      return {
+        auBout: e.issue === 'au-bout',
+        acte: e.acte,
+        questions: reponses.size,
+        rencontres: e.rencontres,
+        cartes: jouees,
+        ecus: e.ecus + depenses,
+        courage: e.courage ?? 0,
+        renommee: renommeeDe(bilanDuPli(e)),
+        gardiens: depart.gardiens,
+      }
     }
     if (e.offre) {
       const offre = e.offre
-      const voulus = PREFERENCE_DES_OFFRES.filter(c => offre.jokers.includes(c))
+      // Le coffre d'un gardien (v7) ouvre sur une légendaire : il la prend d'abord.
+      const legendaires = offre.jokers.filter(c => carteDeRencontre(c)?.rarete === 'legendaire')
+      const voulus = [...legendaires, ...aPrendre(e, offre.jokers)]
       const talisman = offre.talisman && TALISMANS_UTILES.includes(offre.talisman) && !voulus.some(c => c === 'double-chance' || c === 'bibliotheque') ? offre.talisman : undefined
       gestes.push({ quoi: 'prendre', jokers: talisman ? [] : voulus.slice(0, 1), ...(talisman && { talisman }) })
       continue
@@ -395,7 +496,7 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
       }
     }
     if (e.campement) {
-      const retirer = (e.courage ?? 0) >= COURAGE_MAX - 8 ? A_RETIRER.find(c => e.paquet.includes(c)) : undefined
+      const retirer = (e.courage ?? 0) >= COURAGE_MAX - 8 ? (codex ? A_RETIRER_DU_CODEX : A_RETIRER).find(c => e.paquet.includes(c)) : undefined
       gestes.push({ quoi: 'camper', ...(retirer && { retirer }) })
       continue
     }
@@ -428,8 +529,12 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
       }
       // Deux visages : celle qu'il sait, s'il en sait une.
       const cible = e.autre !== null && !posees[i].sait && posees[e.autre]?.sait ? e.autre : i
-      // Un dévoilement qu'il sait se répond à mi-texte.
-      if (posees[cible].forme === 'devoilement') posees[cible] = { ...posees[cible], devoile: { mots: posees[cible].sait ? MOTS_D_UN_DEVOILEMENT / 2 : MOTS_D_UN_DEVOILEMENT, sur: MOTS_D_UN_DEVOILEMENT } }
+      // Un dévoilement qu'il sait se répond à mi-texte — au tiers, le texte arrêté par Arrêt sur image.
+      const arrete = !!e.rencontre?.tour.surLaQuestion.includes('arret-sur-image')
+      if (posees[cible].forme === 'devoilement') {
+        const mots = posees[cible].sait ? MOTS_D_UN_DEVOILEMENT / (arrete ? 3 : 2) : MOTS_D_UN_DEVOILEMENT
+        posees[cible] = { ...posees[cible], devoile: { mots, sur: MOTS_D_UN_DEVOILEMENT } }
+      }
       reponses.set(cible, juger(cible, e))
       continue
     }
@@ -451,26 +556,86 @@ function jouer(j: Joueur, graine: string, equipee: string[]): Issue {
 
 const pc = (x: number) => `${Math.round(x * 100)} %`
 const virgule = (x: number) => x.toFixed(1).replace('.', ',')
-const CAS: [string, string[]][] = [
-  ['Le paquet de départ seul', []],
-  ['Avec la Chouette et le Phénix (l’Érudit, le Rempart)', ['lg:chouette', 'lg:phenix']],
-  ['Avec le Dragon d’Or et Janus (le Flambeur, le Métamorphe)', ['lg:dragon', 'lg:janus']],
-]
-// `--cas 0` : une seule équipée, le temps d'essayer un réglage.
+const CAS: Cas[] =
+  VERSION >= 7
+    ? [
+        { nom: 'Niveau 1 — sa première expédition, sans légendaire', equipee: [], niveau: 1 },
+        { nom: 'Niveau 3 — le pari ouvert', equipee: [], niveau: 3 },
+        { nom: 'Niveau 6 — les talismans et la fétiche ouverts, la Chouette et le Phénix gardés', equipee: ['lg:chouette', 'lg:phenix'], niveau: 6 },
+        { nom: 'Niveau 10 — le codex entier, quatre légendaires gardés', equipee: ['lg:chouette', 'lg:phenix', 'lg:dragon', 'lg:janus'], niveau: 10 },
+      ]
+    : [
+        { nom: 'Le paquet de départ seul', equipee: [] },
+        { nom: 'Avec la Chouette et le Phénix (l’Érudit, le Rempart)', equipee: ['lg:chouette', 'lg:phenix'] },
+        { nom: 'Avec le Dragon d’Or et Janus (le Flambeur, le Métamorphe)', equipee: ['lg:dragon', 'lg:janus'] },
+      ]
+// `--cas 0` : un seul cas — un niveau au codex, une équipée avant —, le temps d'essayer un réglage ; `--niveau 4` : ce niveau seul, sans légendaire.
 const UN_CAS = process.argv.includes('--cas') ? option('cas', 0) : null
+const UN_NIVEAU: Cas | null = process.argv.includes('--niveau') ? { nom: `Niveau ${option('niveau', 1)}, sans légendaire`, equipee: [], niveau: option('niveau', 1) } : null
 console.log(`Les rencontres (v${VERSION}) — ${EXPEDITIONS} expéditions par joueur et par équipée. Courage ${COURAGE_MAX}, ${VIES} vies d'avant en reflet.\n`)
-for (const [nomDuCas, equipee] of UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
-  console.log(nomDuCas)
-  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout')
+const moyenne = (liste: Issue[], f: (i: Issue) => number) => (liste.length === 0 ? 0 : liste.reduce((s, i) => s + f(i), 0) / liste.length)
+for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]]) {
+  console.log(cas.nom)
+  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   rencontres   cartes jouées   écus   courage au bout   renommée')
   for (const [nom, theta] of JOUEURS) {
-    const issues = Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, equipee))
+    const issues = Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, cas))
     const auBout = issues.filter(i => i.auBout)
     const arrets = [0, 1, 2].map(a => issues.filter(i => !i.auBout && i.acte === a).length / EXPEDITIONS)
-    const moyenne = (liste: Issue[], f: (i: Issue) => number) => (liste.length === 0 ? 0 : liste.reduce((s, i) => s + f(i), 0) / liste.length)
     console.log(
-      `  ${nom.padEnd(8)} ${pc(auBout.length / EXPEDITIONS).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${virgule(moyenne(issues, i => i.questions)).padStart(9)}   ${virgule(moyenne(issues, i => i.rencontres)).padStart(10)}   ${virgule(moyenne(issues, i => i.cartes)).padStart(13)}   ${String(Math.round(moyenne(issues, i => i.ecus))).padStart(4)}   ${virgule(moyenne(auBout, i => i.courage)).padStart(15)}`,
+      `  ${nom.padEnd(8)} ${pc(auBout.length / EXPEDITIONS).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${virgule(moyenne(issues, i => i.questions)).padStart(9)}   ${virgule(moyenne(issues, i => i.rencontres)).padStart(10)}   ${virgule(moyenne(issues, i => i.cartes)).padStart(13)}   ${String(Math.round(moyenne(issues, i => i.ecus))).padStart(4)}   ${virgule(moyenne(auBout, i => i.courage)).padStart(15)}   ${String(Math.round(moyenne(issues, i => i.renommee))).padStart(8)}`,
     )
   }
   console.log('')
 }
-console.log('La cible : le moyen au bout une fois sur trois, le fort huit fois sur dix (`retours/2026-10-17/expedition.md`). Questions : celles d’une expédition jouée jusqu’à sa fin, au bout ou perdue.')
+
+/**
+ * Au codex, la carrière : des joueurs partis du niveau 1 enchaînent les
+ * expéditions, chacune au codex de leur renommée d'alors ; au bout, ils
+ * gardent un gardien qu'ils n'avaient pas, dont la carte rejoint leur codex.
+ * Combien d'expéditions pour chaque niveau, et combien vont au bout en
+ * chemin : ce que le joueur vit, là où le tableau d'au-dessus fige un niveau.
+ */
+if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null) {
+  const CARRIERES = Math.max(20, Math.round(EXPEDITIONS / 10))
+  const LONGUEUR = 20
+  const TRANCHES: [string, number, number][] = [
+    ['les 3 premières', 0, 3],
+    ['de la 4e à la 10e', 3, 10],
+    ['de la 11e à la 20e', 10, 20],
+  ]
+  console.log(`La carrière — ${CARRIERES} joueurs de chaque sorte, ${LONGUEUR} expéditions chacun, du niveau 1.`)
+  console.log(`  joueur   expéditions pour le niveau ${NIVEAUX.slice(1).map((_, i) => i + 2).join(' · ')}   au bout : ${TRANCHES.map(([nom]) => nom).join(' · ')}`)
+  for (const [nom, theta] of JOUEURS) {
+    // Pour chaque niveau, l'expédition — comptée de 1 — où chaque carrière l'a atteint ; Infinity : pas en vingt.
+    const atteint: number[][] = NIVEAUX.slice(1).map(() => [])
+    const tranches = TRANCHES.map(() => ({ auBout: 0, jouees: 0 }))
+    for (let c = 0; c < CARRIERES; c++) {
+      const j = unJoueur(theta, `carriere:${nom}:${c}`)
+      const siens: string[] = []
+      let renommee = 0
+      const premiere = NIVEAUX.slice(1).map(() => Infinity)
+      for (let k = 0; k < LONGUEUR; k++) {
+        const issue = jouer(j, `carriere:${nom}:${c}:${k}`, { nom, equipee: siens, niveau: niveauDe(renommee) })
+        renommee += issue.renommee
+        const garde = issue.auBout ? issue.gardiens.find(g => !siens.includes(g)) : undefined
+        if (garde) siens.push(garde)
+        NIVEAUX.slice(1).forEach((seuil, n) => {
+          if (renommee >= seuil && premiere[n] === Infinity) premiere[n] = k + 1
+        })
+        const t = TRANCHES.findIndex(([, de, a]) => k >= de && k < a)
+        tranches[t].jouees++
+        if (issue.auBout) tranches[t].auBout++
+      }
+      premiere.forEach((k, n) => atteint[n].push(k))
+    }
+    const mediane = (liste: number[]) => [...liste].sort((a, b) => a - b)[Math.floor(liste.length / 2)]
+    const pour = atteint.map(liste => (mediane(liste) === Infinity ? '—' : String(mediane(liste))))
+    console.log(`  ${nom.padEnd(8)} ${pour.join(' · ').padEnd(44)}   ${tranches.map(t => pc(t.auBout / t.jouees)).join(' · ')}`)
+  }
+  console.log('')
+}
+console.log(
+  VERSION >= 7
+    ? 'La cible du codex : on progresse en jouant — un niveau à chaque expédition au début, le codex entier en une douzaine pour le moyen — et débloquer n’affaiblit jamais : le moyen ne va pas moins souvent au bout à mesure qu’il monte. Questions : celles d’une expédition jouée jusqu’à sa fin, au bout ou perdue ; une carrière : la médiane des joueurs.'
+    : 'La cible : le moyen au bout une fois sur trois, le fort huit fois sur dix (`retours/2026-10-17/expedition.md`). Questions : celles d’une expédition jouée jusqu’à sa fin, au bout ou perdue.',
+)

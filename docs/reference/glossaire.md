@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 438 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 442 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -55,6 +55,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Bibliothèque | Les quiz d'un espace — « Mes quiz », à l'adresse `/edit` —, que les autres espaces ne voient pas | `QuizStore` |
 | Bibliothèque en mémoire | La copie des quiz jouables de chaque espace que lit le moteur, relue après chaque écriture ; de deux relectures croisées, la dernière partie gagne | `derniereRelecture` |
 | Bilan | La soirée de chacun, question par question, et celle de toute la salle | `buildReview` (`server/src/core/review.ts`) |
+| Bilan (d'une expédition) | Ce qu'une expédition finie a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout —, écrit à sa fin, abandonnée aussi : la renommée en est la somme. Un reflet du pli, refait une fois s'il manque | `campagne_series.bilan`, `bilanDuPli` |
 | Bonus de série | L'expérience versée dès qu'une partie commence : dix par jour de série, cent au plus | `xpDeSerie` |
 | Bordure de ligue | L'anneau cranté autour de l'avatar d'un profil, une par ligue atteinte, porté d'office ou choisi dans la loge | `BordureDeLigue` |
 | Boutique | La page `/boutique`, où l'on dépense ses confettis, en quatre rayons : « Thèmes », « Compagnons », « Fonds », « Objets » | `PanneauBoutique` |
@@ -93,7 +94,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Code de partage | Six caractères, valables sept jours, qui donnent une copie d'un quiz à un autre espace du même serveur | `lireCode` |
 | Code de secours | Seize signes, donnés une fois, la seule porte de retour d'un profil qui a perdu son mot de passe ; il se consomme et se renouvelle | `useRecovery` |
 | Code du salon | Six chiffres tirés à l'ouverture du salon, qu'on tape dans « Rejoindre une soirée » ou qu'on suit par `/<code>` ; il vaut encore une demi-heure après la clôture | `SalonStore.ouvrir`, `CODE_DU_SALON` (`shared/space.ts`) |
-| Codex (de l'expédition) | Toutes les cartes des rencontres, de la commune à la légendaire, en vraies cartes, une page par rareté — « Ton codex », au départ ; toutes ouvertes pour l'instant, la renommée viendra les débloquer | `FeuilleDuCodex` |
+| Codex (de l'expédition) | Toutes les cartes des rencontres, de la commune à la légendaire, en vraies cartes, une page par rareté — « Ton codex », au départ ; celles que son niveau d'explorateur n'a pas encore ouvertes s'éteignent et disent comment s'ouvrir. Les récompenses ne tirent que les siennes ; son départ le fige (la version 7) | `FeuilleDuCodex`, `shared/codex.ts`, `DepartDExpedition.codex` |
 | Coffre (d'une escale) | Une escale de l'expédition qui offre un joker au choix parmi trois — deux sous Le trésor, aucun après L'horizon | `sorte: 'coffre'`, `offreDeJokers` |
 | Collection de prix | Les prix du palmarès qu'un profil a remportés, sur vingt | `PRIX_INDIVIDUELS`, `CATALOGUE_DES_PRIX` (`server/src/core/stats.ts`) |
 | Commande du jour | Ce que la routine doit écrire aujourd'hui pour chaque catégorie : combien de questions, quels sous-thèmes et quelles difficultés | `commandeDuJour` |
@@ -171,7 +172,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Épreuve (d'un sentier) | La partie de seize questions qui valide un palier : une série de la campagne d'un autre mode | `campagne_series.mode = 'sentier'` |
 | Épreuve (d'un test) | Un `test(…)` de `node:test` dans un fichier de `server/test/` : ce qu'il vérifie, dit par son titre | `server/test/` |
 | Épreuve en jeu | Une épreuve ni validée ni rejouée : ratée, elle coûte une vie, et tant qu'elle attend, aucune autre ne commence | `commencerEpreuve` |
-| Équipe (d'expédition) | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker, ou sa carte, dans le paquet. « L'équipée » jusqu'au 18 octobre 2026 : la revue du propriétaire y lisait une faute ; le code garde son nom | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
+| Équipe (d'expédition) | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker, ou sa carte, dans le paquet. « L'équipée » jusqu'au 18 octobre 2026 : la revue du propriétaire y lisait une faute ; le code garde son nom. Au codex, plus d'équipe à choisir : l'invité du jour seul, ses légendaires ouvrant leur carte au codex | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
 | Escale | Une étape d'un plan de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
 | Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur l'acte en petit, et en carte au bas de l'écran : sa sorte, son nom, sa chance, ce qu'elle rapporte ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `CarteDEscale`, `exp-a-portee` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
@@ -256,7 +257,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Instantané (d'un partage) | La copie d'un quiz prise au moment d'un partage — code ou catalogue —, que les retouches d'après ne suivent pas | `Instantane` |
 | Instantané (de la salle) | L'état de la salle — invités, équipes, prix, partie en cours, code —, diffusé en deux versions, dédoublonné et regroupé | `party:snapshot`, `PartySnapshot` |
 | Intertitre | Une diapo sans réponse ni points avant une question (« Manche 2 : le cinéma ») | `intertitre` |
-| Invité du jour | Le légendaire du jour de Paris, le même pour tous, qui part dans l'équipe même chez qui ne l'a pas — jamais un gardien ce jour-là | `inviteDuJour` |
+| Invité du jour | Le légendaire du jour de Paris, le même pour tous, qui part dans l'équipe même chez qui ne l'a pas — jamais un gardien ce jour-là ; au codex, il prête sa carte à chaque départ | `inviteDuJour` |
 | Invité fantôme | Un invité simulé qui rejoint une soirée et répond au hasard, faute de second téléphone | `server/scripts/fake-player.mjs` |
 | Ivoire | Le Velours passé sur papier crème, pour un vidéoprojecteur qui délave les noirs ; l'écran commun y passe par « Fond clair », et il est offert aux profils | `client/src/theme.ts` |
 
@@ -332,6 +333,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Niveau | Ce que l'expérience donne sur la courbe 60 × (n − 1)², ou celui qu'une courbe d'avant avait donné, s'il est plus haut et qu'elle le donne encore | `niveauDuProfil` |
 | Niveau d'Automate | Le score qu'Automate vise sur une série : le niveau de campagne du joueur pendant son placement, puis celui de sa cote | `niveauPourLeDuel` |
 | Niveau de campagne | Le score qu'un joueur ferait en moyenne sur une série tirée pour lui, d'après ses réponses de campagne | `scoreDeReference` |
+| Niveau d'explorateur | Ce que sa renommée donne, de 1 à 10 : chaque niveau ouvre des cartes à son codex, les premiers une règle — le pari au 2, les talismans au 4, la catégorie fétiche au 5 | `niveauDe`, `NIVEAUX`, `ECHELLE` |
 | Nom d'espace | Le nom d'un espace dans l'adresse (`chez-nadia`) : 2 à 24 minuscules, chiffres ou tirets, ni réservé ni fait de six chiffres | `isValidSlug`, `SLUG` (`shared/space.ts`) |
 | Nom d'une soirée | Son identifiant figé : le jour et l'instant de sa première question jouée, et une empreinte de l'espace | `archiveIdOf`, `soireeEnCours` |
 | Nom réservé | Un premier segment d'adresse que l'application emploie elle-même, et qu'aucun espace ne peut porter | `RESERVED_SLUGS` (`shared/space.ts`) |
@@ -435,6 +437,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Relecture des séries | Le recalcul, au démarrage, des hauts faits des séries et des étapes des pistes de la campagne, une fois par version | `relireLesSeries` |
 | Relevé de l'heure | Les mesures d'une heure, réécrites toutes les dix minutes dans la base permanente, que relit la page « Le serveur » du QG | `releve` |
 | Remise à zéro | L'effacement du miroir d'un espace, avant celui de la base locale, à la clôture, à l'essai effacé ou à la suppression de l'espace | `remettreAZero` |
+| Renommée | Ce que rapporte chaque expédition, perdue ou abandonnée aussi : une escale, un adversaire, une élite, un gardien, le bout ; sa somme fait le niveau d'explorateur | `RENOMMEE`, `renommeeDe` (`shared/codex.ts`) |
 | Rencontre d'avant | Un duel au dé d'avant Automate, qui rejouait la série finie d'un autre joueur, dont les réponses restent recopiées | `AdversaireGarde` |
 | Rendez-vous | Le jour où une question ratée revient : le lendemain, trois jours après, puis une semaine après | `INTERVALLES_DE_REVISION` |
 | Rendre sa place | Le code de six chiffres, valable trois minutes, que l'animateur fait paraître pour qu'un invité au téléphone mort reprenne sa fiche, avec un jeton neuf | `PlacesRendues` (`server/src/core/places.ts`), `player:reprendre` |
@@ -520,6 +523,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Tournée | Le passage du rappel du soir, une fois par jour entre 18 h et 22 h, chaque téléphone réservé en base avant l'envoi ; son bilan du soir se garde pour le QG | `jour_rappels_tournees` |
 | Tout revoir | Une révision qui repasse aussi les questions en attente de leur rendez-vous et celles déjà apprises | `commencerRevision` (`tout`) |
 | Toute la catégorie | La règle des paliers 9 à 13 : chaque sous-thème de la catégorie a sa question avant qu'un autre en ait deux | `touteLaCategorie` |
+| Trésor (d'un gardien) | Ce qu'offre un gardien vaincu aux actes 1 et 2, au codex : une carte légendaire de son codex qu'il n'a pas dans son paquet, et deux autres. Pas au dernier, qu'on garde | `OffreDeJokers.gardien` |
 | Tracé | Une route d'ici au campement du plan d'un acte : la page compte le plus sûr — la meilleure chance de vaincre le gardien, arriver compris — sans le dessiner, et n'en dit que le premier pas, la plus sûre des escales proposées (depuis le 18 octobre 2026) | `traceLePlusSur`, `chancesDuTrace` |
 | Trois gros boutons | Le premier écran de l'entrée d'une soirée et de l'accueil sans profil : « Jouer sans compte » d'abord, puis « Me connecter » et « Créer un profil », de même taille | `client/src/components/Entree.tsx`, `client/src/components/ProfilForm.tsx` |
 | Trophée | Tout ce qui se gagne par un exploit : les hauts faits, les pistes, les prix du palmarès, les maîtres des sentiers, les ligues des duels ; l'album de « Ma collection » les range par mode | `shared/trophees.ts` |
