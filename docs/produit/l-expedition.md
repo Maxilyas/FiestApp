@@ -24,7 +24,7 @@ La page de l'expédition (`/expedition`) dit ce qui t'attend : **les trois gardi
 
 Dessous, **ton équipée** : deux places, et ton paquet au départ — Coup d'œil trois fois, Échange, et le joker de chacun. « Changer » ouvre sa feuille : tes légendaires qui ont leur joker, l'**invité du jour** d'abord — le même pour tous, tiré du jour de Paris, qui part même chez qui ne l'a pas : c'est par lui qu'un profil sans légendaire découvre ce qu'ils font —, la fiche de chacun et son joker ; et, dépliés à la demande, les trente-deux jokers de l'expédition, les tiens et ceux à gagner. Un toucher emmène ou laisse ; rien ne change avant « Choisir ». La page retient l'équipée de ton dernier départ.
 
-« Partir » tire tes trois cartes. Une seule expédition à la fois : « ← Partir », en haut, la laisse où elle en est, sans rien perdre, et la page la reprend telle quelle ; « Abandonner l’expédition », au bas de la carte en grand, la finit là.
+« Partir » tire tes trois cartes. Une seule expédition à la fois : « ← Partir », en haut de chaque écran, la laisse où elle en est, sans rien perdre, et ramène au départ — « Reprendre » la rouvre telle quelle, « ← Accueil » quitte la page ; revenu plus tard sur la page, on la retrouve où on l'a laissée. (Jusqu'au 18 octobre 2026, « ← Partir » la rouvrait sur place : on ne sortait de l'expédition que par le navigateur.) « Abandonner l’expédition », au bas de la carte en grand, la finit là.
 
 ## La carte d'un acte
 

@@ -185,6 +185,14 @@ try {
       await largeur('la préparation')
       const gardien = (await page.locator('.exp-adversaire-gardien').count()) > 0
       await unePhoto(gardien ? '7-gardien-preparation' : '3-preparation')
+      // « ← Partir » : le départ la garde, « Reprendre » la rouvre où elle en était — partir la rouvrait sur place.
+      if (!fait.has('3a-partir')) {
+        await page.click('a.jour-sortie')
+        await page.waitForSelector('.exp-depart-pied')
+        await unePhoto('3a-partir')
+        await page.click('.exp-depart-pied .btn-primary')
+        await page.waitForSelector('.exp-rencontre')
+      }
       if (!fait.has('3b-tas')) {
         await page.locator('.exp-main-rencontre .exp-pioche').click()
         await page.waitForSelector('.feuille-paquet')
