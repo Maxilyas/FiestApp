@@ -502,7 +502,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Thème de saison | Un thème en boutique pendant sa période seulement (Halloween, le Nouvel An…), gardé toute l'année une fois acheté | `enBoutique` |
 | Thème gagné | L'un des cinq thèmes légendaires qui ne se vendent pas : un exploit les ouvre, et ils se relisent à chaque lecture | `themeGagne` |
 | Thème offert | Velours ou Ivoire, à tous les profils, sans rien payer | `THEMES_OFFERTS` |
-| Thème pointu | Une escale de l'expédition sur un sujet de « Sur quoi ? » — un thème, une époque, un fil rouge —, plus étroite qu'une catégorie | `ThemeDEscale` (`sujet`), `PART_DES_THEMES_POINTUS` |
+| Thème pointu | Une escale de l'expédition sur un sujet de l'onglet « Thèmes » de « Sur quoi ? » — un thème, une fête, un univers, un pays, une époque, un fil rouge —, plus étroite qu'une catégorie ; jamais une rubrique | `ThemeDEscale` (`sujet`), `PART_DES_THEMES_POINTUS` |
 | Tirage | Les questions d'un jour, choisies à sa première demande puis figées pour tous, réponses mélangées par une graine tirée du jour | `jour_tirages` |
 | Titre | Le nom d'un haut fait ou d'une piste gagnés, d'un titre de champion du mois ou de maître d'un sentier, porté sous le prénom | `titrePorte` |
 | Titre de maître | « Maître de la forêt » : le titre que donne le palier de maître, porté sous le prénom comme celui d'un haut fait | `cleDeMaitre` |

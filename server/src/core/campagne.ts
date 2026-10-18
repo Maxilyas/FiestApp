@@ -6687,10 +6687,14 @@ export class CampagneStore {
       const jouables = await this.jouables()
       if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('L’expédition n’a pas encore de questions à poser : reviens bientôt')
       const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
-      // Les thèmes pointus : les sujets qui ont de quoi tirer, comme un parcours de thème — dans l'ordre de leur clé, pour que la graine redonne la même carte.
-      const sujets = [...this.sujetsComptes(jouables)]
-        .filter(([, n]) => n >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET)
-        .map(([cle]) => cle)
+      // Les thèmes pointus : les sujets de l'onglet des thèmes qui ont de quoi tirer, comme un parcours de thème — dans
+      // l'ordre de leur clé, pour que la graine redonne la même carte. Le compte sert aussi les rubriques et les époques
+      // remplacées (la refonte des sujets, le 17 octobre 2026) : une rubrique n'est qu'un morceau de sa catégorie, à son
+      // emblème — la carte la ferait passer pour une escale de la catégorie, payée double —, et une époque remplacée ne
+      // se propose plus nulle part (`expedition-themes.test.ts`).
+      const parSujet = this.sujetsComptes(jouables)
+      const sujets = SUJETS.filter(s => (parSujet.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET)
+        .map(s => s.cle)
         .sort()
       const siens = this.legendairesDe(profileId)
       const invite = inviteDuJour(jourDe(this.maintenant()))
