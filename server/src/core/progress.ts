@@ -46,7 +46,7 @@ export interface SoireeGain {
 /** L'écart relatif d'une estimation, borné : une touche restée enfoncée ne fausse pas la moyenne. */
 const ecartRelatif = (value: number, target: number) => Math.min(10, Math.abs(value - target) / Math.max(1, Math.abs(target)))
 
-/** Une bonne réponse de plus pour le compagnon qu'il portait, s'il en portait un : celles qui lui rapportent un confetti. */
+/** Une bonne réponse de plus pour le compagnon de sa niche, s'il en avait un : celles qui lui rapportent un confetti. */
 function nourrir(rel: ReleveSoiree, compagnon: string | undefined) {
   if (!compagnon) return
   rel.compagnons ??= {}

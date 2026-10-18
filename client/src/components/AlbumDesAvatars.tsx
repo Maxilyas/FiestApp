@@ -62,7 +62,7 @@ const ICONE_DU_LIEU: Record<LieuDAvatar, IconName> = {
   niveau: 'star',
   saison: 'calendar',
   boutique: 'bag',
-  porte: 'paw',
+  niche: 'paw',
   expedition: 'flag',
 }
 

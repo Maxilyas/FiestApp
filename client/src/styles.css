@@ -7652,7 +7652,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .xp-mince-barre { display: block; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
 .xp-mince-barre span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, transparent), var(--accent)); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
 /* Les confettis au bout de la ligne d'expérience : là où l'œil passe déjà, sans un bloc de plus. */
-.xp-mince-texte { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: var(--t-label); color: var(--muted); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+/* Trop étroite — la niche du compagnon prend le coin —, les confettis passent dessous : « niv. 15 » ne se coupe pas. */
+.xp-mince-texte { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 10px; font-size: var(--t-label); color: var(--muted); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .xp-confettis { flex: none; color: var(--accent-text); font-weight: 600; white-space: nowrap; }
 
 /* ── L'accueil : qui l'on est, puis des gros boutons en deux sections ──── */
@@ -10409,6 +10410,8 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .compagnon-sien { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
 .compagnon-sien p { display: flex; align-items: center; gap: 6px; margin: 0; }
 .compagnon-sien .icon { width: 15px; height: 15px; color: var(--accent-text); }
+/* Un compagnon adopté qui n'est pas dans sa niche : de quoi l'y installer, sous sa forme. */
+.compagnon-installer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
 .compagnon-jauge { display: flex; flex-direction: column; gap: 4px; }
 .compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; }
 .compagnon-prix { flex: none; font-family: var(--serif); font-size: 1.4rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
@@ -10426,6 +10429,151 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
   .compagnon-bete.saute { animation: none; }
   .compagnon-envols { display: none; }
 }
+/* ═══════════════════════════════════════════════════════════════════
+   LA NICHE DU COMPAGNON
+   La petite fenêtre en arche où vit son compagnon (`components/Niche.tsx`),
+   toujours au même coin : en haut à droite de la colonne du téléphone, sur
+   chaque page qui lit le profil. Toutes ses mesures suivent sa largeur
+   (`--l`) : 54 pixels au coin, le double dans sa fiche. Un objet peint —
+   son cadre d'or, son ciel de nuit — : aucun thème ne la repeint.
+   ═══════════════════════════════════════════════════════════════════ */
+.niche {
+  --l: 54px;
+  position: fixed;
+  z-index: 35;
+  /* Quatre pixels au-dessus de la première ligne de la page (`.player-shell`), encoche comprise. */
+  top: max(20px, calc(env(safe-area-inset-top) - 4px));
+  /* Le bord droit de la colonne (`.player-shell`, 560 pixels au plus), pas celui de l'écran : sur une tablette, elle reste à côté de la page. */
+  right: max(16px, calc((100vw - 560px) / 2 + 16px));
+  width: var(--l);
+  height: calc(var(--l) * 62 / 54);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--l) / 2) calc(var(--l) / 2) 12px 12px;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Repliée au défilement : plus petite, collée au coin. */
+  transform-origin: 100% 0;
+  /* `visibility` suit le fondu : effacée, elle ne prend plus le focus du clavier. */
+  transition: transform 0.32s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
+}
+.niche.repliee { transform: scale(0.62) translateY(-10px); }
+/* Une page qui colle sa tête en haut — la carte de la loge, la tête d'un sentier — : repliée, elle s'efface plutôt que d'en couvrir le coin. */
+body:has(.loge-collante, .sentier-tete) .niche.repliee { opacity: 0; visibility: hidden; }
+.niche:focus-visible { outline-offset: 3px; }
+.niche-cadre {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid rgba(217, 181, 106, 0.62);
+  border-radius: calc(var(--l) / 2) calc(var(--l) / 2) calc(var(--l) * 12 / 54) calc(var(--l) * 12 / 54);
+  background: #1a1412;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+/* Son décor peint, celui de son avatar : la pleine lune du loup adulte, la forêt sous la neige du jeune. */
+.niche-decor { position: absolute; inset: 0; background-position: center 30%; background-size: cover; background-repeat: no-repeat; }
+/* La première forme n'a pas de décor peint : un ciel à ses couleurs. */
+.niche-ciel-loup {
+  background:
+    radial-gradient(circle at 76% 22%, #fff4d6 0 3.4px, rgba(255, 244, 214, 0.35) 4.6px, rgba(255, 244, 214, 0) 12px),
+    radial-gradient(circle at 18% 16%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(circle at 40% 9%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(circle at 58% 30%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(circle at 12% 40%, #fff 0 0.6px, rgba(255, 255, 255, 0) 1.2px),
+    radial-gradient(140% 55% at 50% 118%, #241d2c 0 46%, rgba(36, 29, 44, 0) 47%),
+    linear-gradient(#18234a 0%, #272448 52%, #3a2b3c 100%);
+}
+.niche-ciel-chat {
+  background:
+    radial-gradient(circle at 20% 24%, rgba(255, 176, 92, 0.85) 0 2.6px, rgba(255, 176, 92, 0.28) 4px, rgba(255, 176, 92, 0) 10px),
+    radial-gradient(circle at 80% 16%, rgba(255, 196, 110, 0.9) 0 2.2px, rgba(255, 196, 110, 0.25) 3.6px, rgba(255, 196, 110, 0) 9px),
+    radial-gradient(circle at 62% 36%, rgba(255, 150, 90, 0.6) 0 1.8px, rgba(255, 150, 90, 0) 6px),
+    radial-gradient(140% 55% at 50% 118%, #2a1a20 0 46%, rgba(42, 26, 32, 0) 47%),
+    linear-gradient(#2c1838 0%, #4a2234 55%, #5a2c28 100%);
+}
+.niche-ciel-tortue {
+  background:
+    radial-gradient(circle at 72% 20%, rgba(255, 240, 200, 0.85) 0 3px, rgba(255, 240, 200, 0.25) 4.4px, rgba(255, 240, 200, 0) 11px),
+    radial-gradient(120% 40% at 50% 104%, rgba(120, 220, 210, 0.35), rgba(120, 220, 210, 0) 70%),
+    linear-gradient(#173a52 0%, #1d5560 58%, #1f6a63 100%);
+}
+/* Lui, en buste : son dessin livré, cadré forme par forme (`CADRAGES`), retourné pour regarder la page. */
+.niche-bete { position: absolute; transform-origin: 50% 100%; }
+.niche-bete img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); -webkit-user-drag: none; user-select: none; }
+.niche-bete.miroir img { transform: scaleX(-1); }
+.niche-bete.saute { animation: niche-saute 0.8s cubic-bezier(0.3, 0.6, 0.35, 1); }
+@keyframes niche-saute {
+  0% { transform: translateY(0) scale(1, 1); }
+  18% { transform: translateY(2%) scale(1.05, 0.94); }
+  45% { transform: translateY(-9%) scale(0.97, 1.05); }
+  70% { transform: translateY(0) scale(1.04, 0.96); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+.niche-rebord {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--l) * 7 / 54);
+  background: linear-gradient(rgba(240, 214, 150, 0.95), rgba(150, 112, 58, 0.95));
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.4);
+}
+/* Sa fiche : lui en grand, dans la même niche. */
+.niche-fiche .carte-corps { gap: 14px; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
+.niche-fiche-tete { display: flex; align-items: center; gap: 18px; }
+.niche-grande { --l: 108px; position: relative; flex: none; width: var(--l); height: calc(var(--l) * 62 / 54); }
+.niche-fiche-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.niche-fiche-nom { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.1; }
+.niche-fiche-legende,
+.niche-fiche-regle { margin: 0; }
+.niche-fiche-jauge { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 2.75em; }
+.niche-fiche-gestes { display: flex; gap: 10px; }
+.niche-fiche-gestes .btn { flex: 1; justify-content: center; min-height: 48px; }
+/* Ses cœurs s'envolent dans la feuille : moins haut qu'à la boutique, qui a toute sa scène. */
+.niche-envols i { top: 36%; }
+.niche-envols i:nth-child(1) { --x: -52px; --y: -54px; }
+.niche-envols i:nth-child(2) { --x: -24px; --y: -78px; }
+.niche-envols i:nth-child(3) { --x: 4px; --y: -88px; }
+.niche-envols i:nth-child(4) { --x: 30px; --y: -72px; }
+.niche-envols i:nth-child(5) { --x: 54px; --y: -50px; }
+@media (prefers-reduced-motion: reduce) {
+  .niche { transition: none; }
+  .niche-bete.saute { animation: none; }
+}
+/* Sa place, page par page : la première ligne de chaque page s'arrête avant
+   elle (`body.avec-niche`, posée par `client/src/niche.ts`). Elle couvre,
+   depuis le bord droit de la colonne, de −4 à 50 pixels : la ligne en garde
+   60. Une ligne trop courte pour qu'on passe dessous sans la toucher prend
+   sa hauteur. Sans compagnon, rien ne change : la ligne va jusqu'au bord
+   (invariant 8). Une tête de page de plus se range ici —
+   `server/scripts/rendu-niche.ts` dit ce qui passe encore dessous. */
+body.avec-niche { --niche-place: 60px; }
+/* Un bouton s'arrête avant elle, sa boîte comprise : rien ne se touche sous la niche. */
+body.avec-niche .player-shell > .identite-ligne { width: auto; margin-right: var(--niche-place); }
+body.avec-niche .duels-barre-haut .jour-barre-fin { margin-right: 0; }
+body.avec-niche .accueil-tete,
+body.avec-niche .sentier-ligne,
+body.avec-niche .loge-tete,
+body.avec-niche .boutique-tete,
+body.avec-niche .jour-barre,
+body.avec-niche .me-header,
+body.avec-niche .quiz-topbar,
+body.avec-niche .exp-barre,
+body.avec-niche .exp-haut-du-depart { padding-right: var(--niche-place); }
+/* Le jour et les points du quiz du jour, l'un sous l'autre : sur une ligne, « 200 pts » se cassait contre elle. */
+body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
+/* Les rangées d'onglets passent sous elle, sans la toucher. */
+body.avec-niche .boutique-tete { min-height: 64px; }
+body.avec-niche .onglets-campagne { margin-top: 10px; }
+/* En soirée, la question en tête : le chrono passe sous la niche. */
+body.avec-niche .player-shell > .quiz-player:first-child > .quiz-topbar:first-child { align-items: flex-start; min-height: 58px; padding-top: 6px; }
+/* La révélation prend la tête de la question (`TeteSousLaNiche`) : son verdict ne passe pas sous elle, et rien ne saute d'une phase à l'autre. Sans niche, pas de tête. */
+.tete-sous-la-niche { display: none; }
+body.avec-niche .tete-sous-la-niche { display: flex; }
+/* Au podium d'un quiz, la place va à la ligne plutôt que de passer sous elle, et « Quiz terminé » garde sa largeur. */
+body.avec-niche .fin-quiz-ligne { flex-wrap: wrap; row-gap: 2px; margin-right: var(--niche-place); border-radius: 20px; }
+body.avec-niche .fin-quiz-quoi { flex: 1 0 auto; overflow: visible; text-overflow: clip; }
 /* Le rayon des objets : une case par objet — son dessin dans un rond de sa
    couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
    au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on

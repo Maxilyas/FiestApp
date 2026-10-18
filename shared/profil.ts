@@ -28,7 +28,7 @@ import type { SentiersDAccueil } from './sentiers'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
-import { formeDeCompagnon, type CompagnonPossede } from './compagnons'
+import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -381,10 +381,11 @@ export interface ReleveSoiree {
   /** Par catégorie de question : posées, justes. */
   categories: Record<string, { questions: number; justes: number }>
   /**
-   * Par compagnon porté (`loup`) : ses bonnes réponses données en le portant,
-   * comptées comme ses confettis — un QCM juste, une estimation parmi les
-   * plus proches (`confettisDeSoiree`). Elles le font grandir
-   * (`shared/compagnons.ts`). Absent sans compagnon.
+   * Par compagnon (`loup`) : ses bonnes réponses données avec lui — celui de
+   * sa niche, celui qu'il portait avant elle —, comptées comme ses confettis
+   * — un QCM juste, une estimation parmi les plus proches
+   * (`confettisDeSoiree`). Elles le font grandir (`shared/compagnons.ts`).
+   * Absent sans compagnon.
    */
   compagnons?: Record<string, number>
 }
@@ -805,6 +806,13 @@ export interface PublicProfile {
    * sa boutique (`BoutiqueDuProfil.compagnons`).
    */
   compagnons?: CompagnonPossede[]
+  /**
+   * Le compagnon de sa niche (`compagnonDeLaNiche`) : celui qui vit en haut de
+   * chaque page de son téléphone, et que ses bonnes réponses font grandir.
+   * Pour lui seul, comme le thème ; absent sans compagnon, et d'un serveur
+   * d'avant.
+   */
+  niche?: CleDeCompagnon
   /**
    * Le titre qu'il porte sous son prénom — la clé d'un haut fait gagné, qui
    * s'écrit de son nom (`hautFait(cle).title`) —, ou rien. Absent d'un

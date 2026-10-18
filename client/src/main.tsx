@@ -1,8 +1,10 @@
 import React, { Component, Suspense, type ComponentType, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
+import { NicheHost } from './components/NicheHost'
 import { applyTheme } from './theme'
 import { confirmerTheme, poserThemeRetenu } from './themeJoueur'
+import { poserNicheRetenue } from './niche'
 import { installerClavier } from './clavier'
 import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
@@ -152,6 +154,12 @@ else if (!(route.kind === 'public' && route.page === 'bilan/fiches')) {
   if (!LISENT_LE_PROFIL.has(App)) void confirmerTheme()
 }
 
+// La niche de son compagnon, sur les pages qui lisent le profil : celle de la
+// dernière fois, dès le premier rendu — la page lui garde son coin
+// (`body.avec-niche`) au lieu de pousser sa première ligne quand le profil
+// arrive ; la page la confirme ou l'ôte (`porterNiche`). Ailleurs, aucune.
+if (LISENT_LE_PROFIL.has(App)) poserNicheRetenue()
+
 // Ce que le serveur n'a pas pu précharger avec la page : le fragment de
 // l'adresse (`#sentiers`) ne lui parvient pas. Demandé d'ici, il part avant
 // que le code de la page n'arrive pour le demander, et son `fetch` reprend
@@ -250,6 +258,7 @@ const rendre = (page: ReactNode) =>
         {/* Rien n'y suspend plus : le filet d'une page qui suspendrait un jour. */}
         <Suspense fallback={<Patience texte={<p className="muted">Chargement…</p>} />}>{page}</Suspense>
         <DialogHost />
+        <NicheHost />
       </Filet>
     </React.StrictMode>,
   )

@@ -1,9 +1,10 @@
 # Le compagnon qui suit — la maquette (16 octobre 2026)
 
-Rien de ceci n'est dans l'application. C'est une maquette : la niche du
-compagnon et ses réactions sont posées dans les vrais écrans d'une soirée
-jouée (Playwright, `addInitScript`) pour décider où il vit et comment il
-accompagne le joueur, avant d'écrire une ligne du vrai code.
+Une maquette : la niche du compagnon et ses réactions sont posées dans les
+vrais écrans d'une soirée jouée (Playwright, `addInitScript`) pour décider où
+il vit et comment il accompagne le joueur, avant d'écrire une ligne du vrai
+code. La niche elle-même est dans l'application depuis le 18 octobre 2026
+(plus bas) ; ses réactions, pas encore.
 
 ## La planche
 
@@ -18,6 +19,22 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
+
+## Le 18 octobre, la nuit : la niche dans l'application
+
+Le point 1 du principe (`principe.md`, § 10) est construit pour de vrai, plus
+une maquette : `client/src/components/Niche.tsx`, posée sur chaque page qui lit
+le profil, au coin haut droit de la colonne du téléphone ; le décor peint de
+sa forme et lui en buste, cadré forme par forme sur le dessin livré ; sa
+fiche au toucher — sa forme, sa jauge, « Le caresser », « Ses formes » ; son
+repli quand la page défile. Le serveur retient le compagnon de la niche
+(`profiles.niche`) : l'adoption l'y installe, la boutique en change d'un
+toucher, et **c'est lui qui grandit**, qu'on le porte ou non — qui n'a jamais
+choisi garde celui qu'il porte. Chaque page lui laisse son coin
+(`body.avec-niche`) ; `server/scripts/rendu-niche.ts` la photographie sur
+vingt-quatre écrans et dit ce qui passerait dessous : rien, en 360 × 640 comme
+en 390 × 844. Les humeurs à la révélation, Lumi et les paliers après 500
+attendent leur tour (§ 10, points 2 à 6).
 
 ## Le 18 octobre, le soir : la niche, son décor peint, et Lumi
 

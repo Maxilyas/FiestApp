@@ -605,6 +605,22 @@ function CetteQuestion({
 }
 
 /**
+ * La tête d'une révélation, sous la niche du compagnon : la même qu'à la
+ * question, que seule une page à niche montre (`body.avec-niche`). Le
+ * bandeau du verdict passait sous la niche, et la page sautait d'une phase à
+ * l'autre ; sans compagnon, rien ne change.
+ */
+function TeteSousLaNiche({ view: v }: { view: QuizPlayerView }) {
+  return (
+    <div className="quiz-topbar tete-sous-la-niche" aria-hidden="true">
+      <span className="label">
+        Question {v.qIndex + 1} / {v.qCount}
+      </span>
+    </div>
+  )
+}
+
+/**
  * « Plusieurs » et « ordre », révélées : tout juste ou raté — la question se
  * juge en entier —, puis les bonnes réponses, ou le bon ordre.
  */
@@ -625,6 +641,7 @@ function VarianteRevelee({
   const mots = (index: readonly number[]) => index.map(i => v.answers?.[i] ?? '')
   return (
     <div className="quiz-player">
+      <TeteSousLaNiche view={v} />
       <div className={'card result-banner ' + ton}>
         {v.justArrived ? (
           <Welcome />
@@ -686,6 +703,7 @@ function SondageRevele({ view: v, salle }: { view: QuizPlayerView; salle: Salle 
   const choisi = v.yourChoice !== null && v.yourChoice !== undefined ? v.answers?.[v.yourChoice] : null
   return (
     <div className="quiz-player">
+      <TeteSousLaNiche view={v} />
       <div className="card result-banner">
         <span className="result-icon">
           <Icon name="users" />
@@ -980,6 +998,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
       const ton = v.cancelled || !answered ? '' : 'result-ok'
       return (
         <div className="quiz-player">
+          <TeteSousLaNiche view={v} />
           <div className={'card result-banner ' + ton}>
             {v.justArrived && !answered ? (
               <Welcome />
@@ -1021,6 +1040,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
     const ton = v.cancelled || v.justArrived || v.yourChoice === null ? '' : good ? 'result-ok' : 'result-ko'
     return (
       <div className="quiz-player">
+        <TeteSousLaNiche view={v} />
         <div className={'card result-banner ' + ton}>
           {v.justArrived ? (
             <Welcome />

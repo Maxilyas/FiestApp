@@ -133,7 +133,7 @@ export function initDb(dbPath: string): DB {
   // « sans équipe », NULL pour les lignes d'avant, qui retombent sur la
   // composition du moment.
   addColumn(db, 'answer_log', 'team_id', 'TEXT')
-  // Le compagnon qu'il portait quand la ligne s'écrit (`AnswerRow.compagnon`) :
+  // Le compagnon de sa niche quand la ligne s'écrit (`AnswerRow.compagnon`) :
   // ses bonnes réponses le font grandir. NULL sans compagnon, et pour les
   // lignes d'avant.
   addColumn(db, 'answer_log', 'compagnon', 'TEXT')

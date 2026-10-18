@@ -28,7 +28,7 @@ import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hau
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
-import { FORMES_DES_COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, compagnonDe, enLePortant, formeDeCompagnon, formesOuvertes } from './compagnons'
+import { FORMES_DES_COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
 import type { PublicProfileDetail } from './profil'
 
 /** Les pages de l'album : les cinq raretés des thèmes, et les Divins à part. */
@@ -53,10 +53,10 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
 /**
  * Où se gagne un avatar : en soirée, au quiz du jour, en campagne — ses
  * séries, ses défis —, sur les sentiers du savoir, en montant de niveau, à sa
- * saison, ou en boutique — un compagnon, qui grandit ensuite en le portant
- * (`porte`). La pastille de sa case, et l'icône de chacune de ses voies.
+ * saison, ou en boutique — un compagnon, qui grandit ensuite dans sa niche
+ * (`niche`). La pastille de sa case, et l'icône de chacune de ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'porte' | 'expedition'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'niche' | 'expedition'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -95,7 +95,7 @@ const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: 
 export const AVATARS_DE_L_ALBUM: readonly AvatarDeLAlbum[] = [
   ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l))),
   ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
-  ...FORMES_DES_COMPAGNONS.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'porte'])),
+  ...FORMES_DES_COMPAGNONS.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'])),
   ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
   ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
 ]
@@ -114,7 +114,7 @@ const DANS: Record<LieuDAvatar, string> = {
   niveau: 'en montant de niveau',
   saison: 'à sa saison',
   boutique: 'en boutique',
-  porte: 'en le portant',
+  niche: 'dans sa niche',
   expedition: 'en expédition',
 }
 
@@ -137,7 +137,7 @@ function dite(elements: readonly string[], mot: string, avant = ''): string {
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
   const f = formeDeCompagnon(a.cle)
-  if (f) return f.rang === 0 ? 'en boutique' : `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${enLePortant(compagnonDe(f))}`
+  if (f) return f.rang === 0 ? 'en boutique' : `en boutique, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(compagnonDe(f))}`
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
   if (s) return `pour ${s.nom}`
@@ -255,7 +255,7 @@ const OU: Record<LieuDAvatar, string> = {
   niveau: 'En montant de niveau',
   saison: 'À sa saison',
   boutique: 'En boutique',
-  porte: 'En le portant',
+  niche: 'Dans sa niche',
   expedition: 'En expédition',
 }
 
@@ -333,7 +333,7 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
     ]
   }
   if (a.sorte === 'compagnon') {
-    // Une seule voie : l'acheter, puis le faire grandir en le portant.
+    // Une seule voie : l'acheter, puis le faire grandir dans sa niche.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
@@ -352,8 +352,8 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
       [
         achat,
         {
-          lieu: 'porte',
-          titre: `En ${c.le} portant : ${formatNumber(requis)} bonnes réponses`,
+          lieu: 'niche',
+          titre: `Dans sa niche : ${formatNumber(requis)} bonnes réponses`,
           regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
           tenue,
           // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.

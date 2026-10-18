@@ -1,9 +1,11 @@
 # Le compagnon — le principe, consolidé (18 octobre 2026)
 
-Ce qui est décidé ou proposé, en un seul endroit. Rien n'est encore dans
-l'application au-delà de ce qui existe déjà (les trois compagnons de la
-boutique, portés en avatar, leurs quatre formes) ; les preuves visuelles sont
-sur la planche (lien dans `README.md`).
+Ce qui est décidé ou proposé, en un seul endroit. Dans l'application : les
+trois compagnons de la boutique, leurs quatre formes, portées en avatar — et,
+depuis le 18 octobre 2026 au soir, **la niche** (le point 1 de la fin de
+cette page : sa place sur chaque page, sa fiche, son repli, et le compagnon de
+la niche qui grandit). Le reste attend ; les preuves visuelles sont sur la
+planche (lien dans `README.md`).
 
 ## En une phrase
 
@@ -118,7 +120,14 @@ vidéo générée : trop chère pour ce qu'elle apporte.
 
 ## 10. Ce qui reste à construire, dans l'ordre
 
-1. La niche dans l'application : sa place sur chaque page, sa fiche, son repli.
+1. ~~La niche dans l'application : sa place sur chaque page, sa fiche, son
+   repli.~~ Faite le 18 octobre 2026 : `client/src/components/Niche.tsx`,
+   sa place page par page dans `styles.css` (`body.avec-niche`), la colonne
+   `profiles.niche` — l'adoption y installe, la boutique en change d'un
+   toucher, et c'est le compagnon de la niche qui grandit (qui n'a jamais
+   choisi garde celui qu'il porte) —, sa fiche (`GET /api/joueur/niche`).
+   `server/scripts/rendu-niche.ts` la photographie sur vingt-quatre écrans :
+   rien ne passe dessous, en 360 × 640 comme en 390 × 844.
 2. Les humeurs livrées (peintes pour les quatre) et les réactions à la révélation.
 3. Le haut fait « Première traversée » et la livraison de Lumi
    (`livrer-compagnons.ts luciole`).

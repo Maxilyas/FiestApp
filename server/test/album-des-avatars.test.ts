@@ -117,8 +117,8 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   for (const p of PORTRAITS) assert.deepEqual(avatarDeLAlbum(p.key)!.lieux, ['sentiers'], p.key)
   for (const c of COLLECTION) assert.deepEqual(avatarDeLAlbum(c.emoji)!.lieux, ['niveau'], c.emoji)
   for (const d of DIVINS) assert.deepEqual(avatarDeLAlbum(d.key)!.lieux, [], d.key)
-  // Un compagnon s'achète ; ses formes suivantes, en le portant.
-  for (const f of FORMES_DES_COMPAGNONS) assert.deepEqual(avatarDeLAlbum(f.key)!.lieux, f.rang === 0 ? ['boutique'] : ['boutique', 'porte'], f.key)
+  // Un compagnon s'achète ; ses formes suivantes, dans sa niche.
+  for (const f of FORMES_DES_COMPAGNONS) assert.deepEqual(avatarDeLAlbum(f.key)!.lieux, f.rang === 0 ? ['boutique'] : ['boutique', 'niche'], f.key)
   // D'une phrase, à l'oreille : ses voies sont l'une ou l'autre, les étapes d'une voie toutes à la fois.
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle)!)
   assert.equal(dit('lg:licorne'), 'en soirée ou au quiz du jour')
@@ -134,9 +134,9 @@ test('chaque avatar dit où il se gagne — voie après voie ; un Divin, nulle p
   assert.equal(dit('🐳'), 'au niveau 12')
   assert.equal(dit('dv:seraphin'), '')
   assert.equal(dit('cp:loup-louveteau'), 'en boutique')
-  assert.equal(dit('cp:chat-adulte'), 'en boutique, puis à 300 bonnes réponses en le portant')
+  assert.equal(dit('cp:chat-adulte'), 'en boutique, puis à 300 bonnes réponses avec lui')
   // Chacun à son genre : « en le portant » se lisait de travers sous la tortue.
-  assert.equal(dit('cp:tortue-ile'), 'en boutique, puis à 500 bonnes réponses en la portant')
+  assert.equal(dit('cp:tortue-ile'), 'en boutique, puis à 500 bonnes réponses avec elle')
 })
 
 test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun dans l’ordre du catalogue — le compte de la collection est le sien', () => {
@@ -166,7 +166,7 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 128 }])
 })
 
-test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies en le portant', () => {
+test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies dans sa niche', () => {
   for (const c of COMPAGNONS) {
     assert.deepEqual(
       c.formes.map(f => avatarDeLAlbum(f.key)!.rarete),
@@ -185,22 +185,22 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
   assert.equal(pageDuDebut(AVEC_LE_LOUP), 'rare', 'il porte le jeune loup : la page rare')
   assert.equal(pageDuProchain(LEA, 'compagnon'), 'commune', 'aucun acheté : la première forme de chacun')
   assert.equal(pageDuProchain(AVEC_LE_LOUP, 'compagnon'), 'commune', 'le chat et la tortue restent à acheter')
-  // Comment l'obtenir : l'acheter ; puis tant de bonnes réponses en le portant, et où il en est.
+  // Comment l'obtenir : l'acheter ; puis tant de bonnes réponses dans sa niche, et où il en est.
   assert.deepEqual(voiesDeLAvatar('cp:tortue-bebe', LEA), [
     [{ lieu: 'boutique', titre: 'En boutique : 1000 confettis', regle: 'La Tortue-île s’achète à sa première forme, puis grandit avec toi', tenue: false, progres: null }],
   ])
   const [[achat, adulte]] = voiesDeLAvatar('cp:loup-adulte', AVEC_LE_LOUP)
   assert.equal(achat.tenue, true)
   assert.deepEqual(adulte, {
-    lieu: 'porte',
-    titre: 'En le portant : 300 bonnes réponses',
+    lieu: 'niche',
+    titre: 'Dans sa niche : 300 bonnes réponses',
     regle: 'Celles qui rapportent un confetti, en soirée, au quiz du jour et en campagne',
     tenue: false,
     progres: { acquis: 162, requis: 300, dit: '162 sur 300' },
   })
   // Pas encore acheté : rien à compter.
   assert.equal(voiesDeLAvatar('cp:chat-jeune', AVEC_LE_LOUP)[0][1].progres, null)
-  assert.equal(voiesDeLAvatar('cp:tortue-jeune', AVEC_LE_LOUP)[0][1].titre, 'En la portant : 100 bonnes réponses')
+  assert.equal(voiesDeLAvatar('cp:tortue-jeune', AVEC_LE_LOUP)[0][1].titre, 'Dans sa niche : 100 bonnes réponses')
   // Atteinte, une forme le reste : sa jauge est pleine, même si ses bonnes réponses ont redescendu.
   assert.deepEqual(voiesDeLAvatar('cp:loup-jeune', { ...AVEC_LE_LOUP, boutique: { ...AVEC_LE_LOUP.boutique, compagnons: [{ compagnon: 'loup', rang: 1, justes: 40 }] } })[0][1].progres, {
     acquis: 100,
