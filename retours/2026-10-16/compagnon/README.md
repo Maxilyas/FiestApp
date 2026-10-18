@@ -19,7 +19,23 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
 
-## Ce qui est décidé
+## Le 18 octobre : le médaillon plutôt que la niche
+
+« On va perdre l'avatar et surtout la déco, ils sont super jolis si on met ça
+sur l'avatar » (le propriétaire). Le compagnon reste donc un avatar qu'on
+porte, comme aujourd'hui, et c'est **son médaillon** — le SVG même que l'appli
+dessine, décor, anneau et débord compris — qui suit en haut à droite pendant
+un quiz (`maquette/medaillon.js`, film : `maquette/medaillon.ts`, page « Son
+médaillon » de la planche). Les humeurs peintes se posent au pixel près sur le
+dessin livré (`humeurs-perso/`, aucun pixel ne dépasse) ; à 58 px son visage
+est petit, alors il grandit (×1,3) à la révélation le temps de sa réaction.
+Au podium, il sort, et le médaillon garde sa lune.
+
+Sur la même page : la luciole, un compagnon que donne un haut fait de
+l'Expédition (sa première traversée), et la technique pour l'animer davantage
+sans perdre la peinture ni la fluidité.
+
+## Ce qui était décidé avant
 
 - Il ne se porte pas comme avatar ; aucun bonus en solo ; à l'écran commun,
   seulement l'arrivée, le podium et la métamorphose ; il a un nom (Nox, le
