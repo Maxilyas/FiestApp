@@ -100,7 +100,7 @@ function contexte(plus: Partial<ContexteDUneCarte> = {}, question: Partial<NonNu
 test('pourquoi une carte ne se joue pas : son moment, son inspiration, la question qu’elle vise — une seule règle', () => {
   assert.equal(refusDeLaCarte(contexte(), 'concentration'), null)
   assert.equal(refusDeLaCarte(contexte({ main: [] }), 'concentration'), 'Cette carte n’est plus dans ta main : recharge la page')
-  assert.equal(refusDeLaCarte(contexte(), 'coup-d-oeil'), 'Elle se joue la question sous les yeux : vois-la d’abord')
+  assert.equal(refusDeLaCarte(contexte(), 'coup-d-oeil'), 'Elle se joue pendant la question : vois-la d’abord')
   const enQuestion = contexte({ tour: { phase: 'question', inspiration: 1, jouees: [], surLaQuestion: [] } })
   assert.equal(refusDeLaCarte(enQuestion, 'prudence'), 'Elle se joue avant de voir la question')
   assert.equal(refusDeLaCarte(enQuestion, 'coup-d-oeil'), null)
@@ -307,9 +307,9 @@ test('préparer : chaque carte coûte son inspiration, la Charge et la Garde s�
   assert.deepEqual([e.rencontre!.tour.charge, e.rencontre!.tour.inspiration], [4, 2])
   e = j.jouer('prudence')
   assert.deepEqual([e.rencontre!.tour.garde, e.rencontre!.tour.inspiration], [5, 1])
-  assert.equal(refusDuJoker(j.depart, e, 'coup-d-oeil', j.questions), 'Elle se joue la question sous les yeux : vois-la d’abord')
-  assert.equal(refusDeLaMise(e, 40), 'Il te manque 15 écus pour miser autant')
-  assert.equal(refusDeLaMise(e, 12), 'Mise 0, 10, 20 ou 40 écus')
+  assert.equal(refusDuJoker(j.depart, e, 'coup-d-oeil', j.questions), 'Elle se joue pendant la question : vois-la d’abord')
+  assert.equal(refusDeLaMise(e, 40), 'Il te manque 15 écus pour parier autant')
+  assert.equal(refusDeLaMise(e, 12), 'Parie 0, 10, 20 ou 40 écus')
   e = j.voir(10)
   assert.deepEqual([e.rencontre!.tour.phase, e.rencontre!.tour.mise], ['question', 10])
   assert.equal(refusDuJoker(j.depart, e, 'concentration', j.questions) ?? refusDuJoker(j.depart, e, 'prudence', j.questions), e.rencontre!.main.some(c => c === 'concentration' || c === 'prudence') ? 'Elle se joue avant de voir la question' : null)
@@ -325,7 +325,7 @@ test('en préparation, la vue dit de quoi refaire l’aperçu à chaque mise, et
   const j = chercher('mises', [], k => k.avancer('e00').rencontre!.main.includes('concentration'))
   const e = j.jouer('concentration')
   const vue = vueDeLaRencontre(j.depart, e, j.questions)!
-  assert.deepEqual(vue.mises, { 0: null, 10: null, 20: null, 40: 'Il te manque 15 écus pour miser autant' })
+  assert.deepEqual(vue.mises, { 0: null, 10: null, 20: null, 40: 'Il te manque 15 écus pour parier autant' })
   assert.deepEqual([vue.annonce?.reponses, vue.annonce?.mots, vue.position], [4, undefined, 0])
   // L'aperçu que la page refait à la mise qu'elle choisit : la même règle que celui du serveur, qui voit la mise une fois dite.
   const a = vue.annonce!

@@ -97,7 +97,6 @@ import {
   AuDepart,
   COURT,
   Courage,
-  EtatDuTour,
   FeuilleDesCartes,
   JetonsDeCartes,
   LigneDeCarte,
@@ -105,6 +104,7 @@ import {
   PreparationDeLaRencontre,
   ToutesLesCartes,
   ceQueLaCarteAFait,
+  changementDeLaCarte,
   comptesDesCartes,
   ditDesCartes,
   feticheRetenue,
@@ -269,7 +269,7 @@ function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardi
 
 /**
  * Ce qu'une escale cache, au prototype des rencontres : une escale à question
- * est un adversaire — ses sceaux, sa chance par question —, le courage
+ * est un adversaire — les points à lui faire perdre, sa chance par question —, le courage
  * remplace les vies, une carte les jokers.
  */
 function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'ecus'>, carte: CarteDUnActe): string {
@@ -291,13 +291,13 @@ function decrireEnRencontres(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'ac
     const g = vue.gardiens[vue.acte]?.cle ?? ''
     const m = MARCHES_DES_ACTES[acte]
     const p = carte.chanceDuGardien
-    return `${nomDuGardien(g)}, gardien de l’acte : ${sceauxDe('gardien', acte)} sceaux à briser, en questions ${MARCHE[m.gardien]}s${p === undefined ? '' : ` · ${pourcents(p)} par question ${qui}`}`
+    return `${nomDuGardien(g)}, gardien de l’acte : ${sceauxDe('gardien', acte)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s${p === undefined ? '' : ` · ${pourcents(p)} par question ${qui}`}`
   }
   const t = e.theme
   const quoi = !t ? 'Une question' : 'sujet' in t ? `Thème pointu : ${nomDuTheme(t)}` : t.categories.length > 1 ? `Mélange : ${nomDuTheme(t)}` : nomDuTheme(t)
   const tampon = e.aTamponner ? ' · un tampon neuf pour ton passeport' : ''
-  if (e.sorte === 'elite') return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]} : ${sceauxDe('elite', acte)} sceaux. Tombée, une carte au choix, plus souvent rare${chance}${tampon}`
-  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]} : un adversaire, ${sceauxDe('question', acte)} sceaux${chance}${tampon}`
+  if (e.sorte === 'elite') return `Une élite, ${quoi.charAt(0).toLowerCase()}${quoi.slice(1)} · ${MARCHE[marcheDe(vue.acte, e)]} : ${sceauxDe('elite', acte)} points à lui faire perdre. Tombée, une carte au choix, plus souvent rare${chance}${tampon}`
+  return `${quoi} · ${MARCHE[marcheDe(vue.acte, e)]} : un adversaire, ${sceauxDe('question', acte)} points à lui faire perdre${chance}${tampon}`
 }
 
 // ── Les jokers ──────────────────────────────────────────────────────────────
@@ -983,7 +983,7 @@ function Depart({
                       ? 'Vaincue'
                       : 'Vaincu'
                     : enRencontres
-                      ? `${sceauxDe('gardien', acte)} sceaux à briser, en questions ${MARCHE[MARCHES_DES_ACTES[acte].gardien]}s`
+                      ? `${sceauxDe('gardien', acte)} points à lui faire perdre, en questions ${MARCHE[MARCHES_DES_ACTES[acte].gardien]}s`
                       : regleDuGardien(acte)}
                 </span>
               </span>
@@ -1729,7 +1729,7 @@ export function CarteDeLActe({
         {/* Une ligne : que chaque erreur lui coûte une vie, ses questions le disent en tête. */}
         {auCampement && (
           <p className="exp-panneau-titre">
-            {espacesFines(vue.cartes ? `${sceauxDe('gardien', vue.acte)} sceaux à briser, en questions ${MARCHE[m.gardien]}s.` : `${regleDuGardien(vue.acte)}.`)}
+            {espacesFines(vue.cartes ? `${sceauxDe('gardien', vue.acte)} points à lui faire perdre, en questions ${MARCHE[m.gardien]}s.` : `${regleDuGardien(vue.acte)}.`)}
           </p>
         )}
         {proposees.length === 0 ? (
@@ -1957,7 +1957,7 @@ function FeuilleDeLaCarte({
         {vue.cartes && (
           <li>
             <Icon name="target" />
-            {espacesFines('Question : un adversaire, ses sceaux à briser question après question')}
+            {espacesFines('Question : un adversaire, à qui chaque bonne réponse fait perdre des points')}
           </li>
         )}
         <li>
@@ -1972,7 +1972,7 @@ function FeuilleDeLaCarte({
           <>
             <li>
               <Icon name="swords" />
-              {espacesFines(vue.cartes ? 'Élite : plus de sceaux ; tombée, une carte plus souvent rare' : 'Élite : plus dure ; trouvée, un joker')}
+              {espacesFines(vue.cartes ? 'Élite : plus de points à lui faire perdre ; tombée, une carte plus souvent rare' : 'Élite : plus dure ; trouvée, un joker')}
             </li>
             <li>
               <Icon name="coffre" />
@@ -2448,10 +2448,7 @@ function Escale({
       <div className="quiz-player epreuve">
         <Barre vue={vue} onPartir={onPartir} sansSortie={finie} />
         {rencontre ? (
-          <>
-            <Adversaire r={rencontre} gardien={gardien} acte={acte} sceaux={sceauxApres} compact />
-            {!r && <EtatDuTour r={rencontre} compact />}
-          </>
+          <Adversaire r={rencontre} gardien={gardien} acte={acte} sceaux={sceauxApres} compact />
         ) : auGardien_ ? (
           <div className="exp-gardien-tete">
             <Medaillon cle={gardien} className="exp-medaillon exp-medaillon-gardien" />
@@ -2568,8 +2565,8 @@ function Escale({
             )}
           </p>
         )}
-        {/* En rencontre, ce que la réponse fera, la mise dite : la même règle que le verdict. */}
-        {!r && vue.rencontre?.apercu && <Apercu a={vue.rencontre.apercu} />}
+        {/* En rencontre, ce que la réponse fera, la mise dite : la même règle que le verdict, en deux chiffres — la question d'abord. */}
+        {!r && vue.rencontre?.apercu && <Apercu a={vue.rencontre.apercu} compact />}
         {erreur && (
           <p className="error" role="alert">
             {espacesFines(erreur)}
@@ -2581,12 +2578,16 @@ function Escale({
             cles={vue.rencontre.main}
             refus={vue.rencontre.refus}
             busy={busy}
+            inspiration={vue.rencontre.inspiration}
+            phase="question"
+            poses={vue.rencontre.pouvoirs}
             pile={{
               compte: vue.rencontre.pioche,
               mot: 'pioche',
               dit: `Ta pioche : ${vue.rencontre.pioche} carte${vue.rencontre.pioche > 1 ? 's' : ''}, ta défausse : ${vue.rencontre.defausse.length}`,
               onOuvrir: () => setTas(true),
             }}
+            apercuDeLaCarte={cle => changementDeLaCarte(vue.rencontre!, vue.rencontre!.mise, vue.fetiche, cle)}
             onJouer={onJouer}
             onMontrer={() => setMontrer(true)}
           />
