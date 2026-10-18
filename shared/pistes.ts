@@ -105,7 +105,8 @@ type Destination = { piste: string; seuil: number; metal?: 1 | 2 | 3 } | { troph
  * de piste.
  */
 function destinationDe(c: SimpleCondition): Destination | null {
-  if (c.hautFait.startsWith('saison:')) return null
+  // Un légendaire gardé au bout de l'expédition ne se range sur aucune piste non plus : on le garde, ou non.
+  if (c.hautFait.startsWith('saison:') || c.hautFait.startsWith('expedition:')) return null
   if ('palier' in c) {
     const h = hautFait(c.hautFait)
     if (h?.famille !== 'carriere') return null

@@ -17,7 +17,7 @@ import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 import { ProfileStore } from '../src/auth/profiles'
-import { calendrierDesSoirees } from '../src/core/saisons'
+import { calendrierDesExpeditions, calendrierDesSoirees } from '../src/core/saisons'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — cinquante points de plus à la clôture. Le smoke
@@ -26,6 +26,7 @@ ProfileStore.tirageEclat = () => false
 // Le calendrier non plus : une soirée jouée pendant une saison ouvrirait son
 // légendaire, et le smoke ne dépend pas du jour où il tourne.
 calendrierDesSoirees.periodeDu = () => null
+calendrierDesExpeditions.periodeDu = () => null
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)

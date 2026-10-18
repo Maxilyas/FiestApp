@@ -31,7 +31,9 @@
 // Les trois de saison — la Citrouille, le Sapin, le Bouquet final — ne se
 // gagnent qu'à leur période (`shared/saisons.ts`) : des jours joués au quiz
 // du jour, ou une soirée ces jours-là. Leur condition porte sur une
-// récompense de saison (`saison:halloween`), rangée comme les autres.
+// récompense de saison (`saison:halloween`), rangée comme les autres. Depuis
+// le 18 octobre 2026, une expédition partie ces jours-là aussi : le
+// légendaire de la saison y garde l'acte 3 (`avecLExpedition`).
 //
 // Depuis le 5 octobre 2026, le quiz du jour et la campagne ont les leurs —
 // l'Aigle, l'Ouroboros, la Salamandre… —, et neuf légendaires de soirée y
@@ -44,6 +46,7 @@
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
+import { EXPEDITION_EN_PRODUCTION, LEGENDAIRES_A_JOKER } from './jokers'
 import type { CleDeSaison } from './saisons'
 
 /**
@@ -74,7 +77,28 @@ export interface Legendaire {
   saison?: CleDeSaison
 }
 
-export const LEGENDAIRES: Legendaire[] = [
+/** La clé que l'Expédition range sur le profil quand il garde ce légendaire au bout de l'acte 3 : `expedition:kraken`. */
+export const cleDeLExpedition = (legendaireCle: string) => `expedition:${legendaireCle.replace(/^lg:/, '')}`
+
+/** Une voie de l'Expédition : garder ce légendaire au bout de l'acte 3, une fois. */
+export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('expedition:')
+
+/**
+ * Depuis le 17 octobre 2026, chaque légendaire qui a son joker
+ * (`shared/jokers.ts`) se gagne aussi au bout de l'Expédition — gardé parmi
+ * les trois gardiens vaincus : une voie de plus (`aussi`), qui lit la ligne
+ * `expedition:…` rangée sur le profil, comme une saison. Ceux de saison
+ * aussi, depuis le 18 octobre 2026 : ils ne gardent l'acte 3 que d'une
+ * expédition partie à leur saison (`gardiensDe`), la voie ne s'ouvre donc
+ * qu'à elle. Une voie de plus ne reprend rien à personne (invariant 22) ; ce
+ * qu'elle change aux Divins se lit dans `server/src/core/divins.ts`.
+ * L'expédition fermée en production (`EXPEDITION_EN_PRODUCTION`), elle ne se
+ * montre pas (`voiesMontrees`).
+ */
+const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
+  legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
+
+export const LEGENDAIRES: Legendaire[] = avecLExpedition([
   {
     key: 'lg:phenix',
     nom: 'Le Phénix',
@@ -284,9 +308,14 @@ export const LEGENDAIRES: Legendaire[] = [
     },
     ton: 'eclat',
   },
-]
+])
 
 const PAR_CLE = new Map(LEGENDAIRES.map(l => [l.key, l]))
+
+/** Le légendaire derrière une clé rangée par l'Expédition (`expedition:kraken`), s'il en est une. */
+export function legendaireDeLExpedition(cle: string): Legendaire | undefined {
+  return cle.startsWith('expedition:') ? PAR_CLE.get(`lg:${cle.slice('expedition:'.length)}`) : undefined
+}
 
 export function legendaire(key: unknown): Legendaire | undefined {
   return typeof key === 'string' ? PAR_CLE.get(key) : undefined
@@ -295,6 +324,16 @@ export function legendaire(key: unknown): Legendaire | undefined {
 /** Toutes les voies d'un légendaire, la première d'abord. */
 export function voiesDe(l: Legendaire): readonly Condition[] {
   return l.aussi ? [l.condition, ...l.aussi] : [l.condition]
+}
+
+/**
+ * Les voies qu'on montre : toutes — sauf celle de l'Expédition quand elle est
+ * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
+ * jokers) : l'album mènerait à une page qui n'y répond pas. Elle compte quand
+ * même : qui garde un légendaire en préproduction l'a (`legendairesDebloques`).
+ */
+export function voiesMontrees(l: Legendaire): readonly Condition[] {
+  return EXPEDITION_EN_PRODUCTION ? voiesDe(l) : voiesDe(l).filter(v => !estUneVoieDExpedition(v))
 }
 
 /** Le haut fait de sa première voie, si elle n'en demande qu'un : ce qu'une ligne en dit d'un mot. Null pour la Chimère. */

@@ -30,6 +30,7 @@ Ce que fait FiestApp, mode par mode, pour tout le monde — le code n'y vient qu
 - [La campagne](produit/la-campagne.md) — les séries, le carnet de révision, le défi de la semaine, la base de questions
 - [Les sentiers du savoir](produit/les-sentiers-du-savoir.md) — les branches, les paliers, les vies, les portraits à gagner
 - [Les duels](produit/les-duels.md) — la cote, les ligues, Automate, les défis entre amis
+- [L'Expédition](produit/l-expedition.md) — trois actes, une carte tirée au sort chacun, un gardien au bout, un légendaire à garder, des jokers en main, des formes de question, des écus à dépenser à l'échoppe
 - [Le profil](produit/le-profil.md) — l'accueil, la loge, la collection, la carrière, la carte d'un joueur, la sécurité du profil
 - [Les récompenses](produit/les-recompenses.md) — l'expérience, les niveaux, les trophées et leurs pistes, les légendaires, les Divins, les écussons
 - [La boutique](produit/la-boutique.md) — les confettis, ce qu'ils achètent, et le catalogue : thèmes, fonds, gerbes, compagnons

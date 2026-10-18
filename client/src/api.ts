@@ -18,6 +18,7 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
+import type { ApresUnGeste, ArticleDeLEchoppe, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -188,6 +189,36 @@ export interface Activation {
 
 /** L'adresse à envoyer : le jeton voyage dans le fragment, que le navigateur garde pour lui. */
 export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
+
+/** Un geste de l'expédition, avec le rang qu'il croit suivre : un double toucher ne joue pas deux fois. */
+const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition) =>
+  req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify({ rang, geste }) })
+
+/**
+ * Les mots d'un dévoilement de l'expédition, à mesure que le serveur les
+ * dit : une réponse qui s'écrit mot à mot, un par ligne — jamais l'intitulé
+ * entier d'avance (invariant 1). `recevoir` reçoit à chaque fois tous les
+ * mots dits ; la promesse se tient au dernier, ou à l'abandon (`signal`).
+ */
+async function lireLeDevoilement(id: string, position: number, recevoir: (mots: string[]) => void, signal: AbortSignal): Promise<void> {
+  const r = await fetch(`/api/expedition/${encodeURIComponent(id)}/devoilement?position=${position}`, { signal, cache: 'no-store' })
+  if (!r.ok || !r.body) throw new Error('Le texte ne se dévoile pas : recharge la page')
+  const lecteur = r.body.getReader()
+  const decodeur = new TextDecoder()
+  const mots: string[] = []
+  let reste = ''
+  for (;;) {
+    const { value, done } = await lecteur.read()
+    if (done) return
+    reste += decodeur.decode(value, { stream: true })
+    const lignes = reste.split('\n')
+    reste = lignes.pop() ?? ''
+    if (lignes.length > 0) {
+      mots.push(...lignes)
+      recevoir([...mots])
+    }
+  }
+}
 
 export const api = {
   list: () => req<QuizSummary[]>(DEPART.quiz),
@@ -519,6 +550,33 @@ export const api = {
         req<EtatDesSentiers & { fin?: FinDEpreuve }>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
       acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
     },
+  },
+  /**
+   * L'Expédition (`shared/expedition.ts`) : sa page, partir avec son équipée,
+   * un geste — qui porte le rang qu'il croit suivre —, une réponse — avec la
+   * position de sa question ; deux réponses sous Double chance —, l'abandon.
+   * Une partie d'un autre mode : sa correction et ses signalements passent par
+   * celles de la série.
+   */
+  expedition: {
+    page: () => req<PageDeLExpedition>(DEPART.expedition),
+    partir: (equipee: readonly string[]) => req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee }) }),
+    avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
+    /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
+    jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
+      gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),
+    /** Ce qu'il prend d'une offre : ses jokers, et le talisman qui en prend la place. */
+    prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string) =>
+      gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }) }),
+    /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet. */
+    camper: (id: string, rang: number, retirer?: string) => gesteDExpedition(id, rang, { quoi: 'camper', ...(retirer !== undefined && { retirer }) }),
+    /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
+    acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
+    garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
+    repondre: (id: string, position: number, choix: number | readonly number[]) =>
+      req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
+    abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
+    devoilement: lireLeDevoilement,
   },
   /** Les duels classés (`shared/duels.ts`) : sa cote, sa ligue, sa semaine, le classement — leur page, `/duels`. */
   duels: {

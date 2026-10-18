@@ -23,7 +23,7 @@ import { NOM_RARETE, type Rarete } from './badges'
 import { PORTRAITS, brancheDe, deLaBranche, portrait, portraitsOuverts } from './branches'
 import { COLLECTION, COLLECTION_HAUTE } from './avatars'
 import { DIVINS } from './divins'
-import { LEGENDAIRES, legendaire, partiesDe, voiesDe, type Legendaire, type SimpleCondition } from './legendaires'
+import { LEGENDAIRES, estUneVoieDExpedition, legendaire, legendaireDeLExpedition, partiesDe, voiesMontrees, type Legendaire, type SimpleCondition } from './legendaires'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
@@ -56,7 +56,7 @@ export type SorteDAvatar = 'legendaire' | 'divin' | 'portrait' | 'compagnon' | '
  * saison, ou en boutique — un compagnon, qui grandit ensuite en le portant
  * (`porte`). La pastille de sa case, et l'icône de chacune de ses voies.
  */
-export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'porte'
+export type LieuDAvatar = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'niveau' | 'saison' | 'boutique' | 'porte' | 'expedition'
 
 export interface AvatarDeLAlbum {
   /** `lg:phenix`, `dv:seraphin`, `br:cerf`, `cp:loup-jeune`, ou l'emoji de collection lui-même. */
@@ -74,14 +74,15 @@ export interface AvatarDeLAlbum {
  */
 const RARETE_DU_RANG: readonly Rarete[] = ['commune', 'peucommune', 'rare', 'rare', 'epique', 'legendaire']
 
-/** Le lieu d'un haut fait qu'une voie demande — ou d'une récompense de saison. */
+/** Le lieu d'un haut fait qu'une voie demande — ou d'une récompense de saison, ou d'un légendaire gardé au bout de l'expédition. */
 function lieuDuHautFait(cle: string): LieuDAvatar {
   if (saison(cle)) return 'saison'
+  if (legendaireDeLExpedition(cle)) return 'expedition'
   const h = hautFait(cle)
   return (h && origineDe(h)) ?? 'soiree'
 }
 
-const lieuxDuLegendaire = (l: Legendaire): LieuDAvatar[] => [...new Set(voiesDe(l).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)))]
+const lieuxDuLegendaire = (l: Legendaire): LieuDAvatar[] => [...new Set(voiesMontrees(l).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)))]
 
 const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: readonly LieuDAvatar[]): AvatarDeLAlbum => ({ cle, sorte, rarete, lieux })
 
@@ -114,14 +115,24 @@ const DANS: Record<LieuDAvatar, string> = {
   saison: 'à sa saison',
   boutique: 'en boutique',
   porte: 'en le portant',
+  expedition: 'en expédition',
+}
+
+/** « a, b et c », « a ou b » : une liste dite, son dernier lien devant le dernier. */
+function dite(elements: readonly string[], mot: string, avant = ''): string {
+  if (elements.length < 2) return elements[0] ?? ''
+  return `${elements.slice(0, -1).join(', ')}${avant} ${mot} ${elements[elements.length - 1]}`
 }
 
 /**
  * Où il se gagne, d'une phrase — ce que sa case dit à l'oreille : « en
  * soirée ou au quiz du jour » quand ses voies sont l'une ou l'autre, « en
  * soirée, au quiz du jour et en campagne » quand une seule les demande
- * toutes ; un emoji, son niveau ; un légendaire de saison, sa fête ; une
- * forme de compagnon, ses bonnes réponses. Rien pour un Divin.
+ * toutes — et les deux à la fois, voie par voie : « en soirée, au quiz du
+ * jour et en campagne, ou en expédition » (la Chimère, depuis la voie de
+ * l'expédition : un seul mot pour tous ses lieux disait qu'un seul suffisait) ;
+ * un emoji, son niveau ; un légendaire de saison, sa fête ; une forme de
+ * compagnon, ses bonnes réponses. Rien pour un Divin.
  */
 export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   if (a.sorte === 'emoji') return `au niveau ${COLLECTION.find(c => c.emoji === a.cle)!.niveau}`
@@ -130,10 +141,11 @@ export function ouIlSeGagne(a: AvatarDeLAlbum): string {
   const l = legendaire(a.cle)
   const s = l?.saison && saison(l.saison)
   if (s) return `pour ${s.nom}`
-  const lieux = a.lieux.map(x => DANS[x])
-  if (lieux.length < 2) return lieux[0] ?? ''
-  const mot = l && voiesDe(l).length > 1 ? 'ou' : 'et'
-  return `${lieux.slice(0, -1).join(', ')} ${mot} ${lieux[lieux.length - 1]}`
+  if (!l) return dite(a.lieux.map(x => DANS[x]), 'et')
+  // Chaque voie, ses lieux liés par « et » ; deux voies au même lieu n'en font qu'une à l'oreille.
+  const voies = [...new Set(voiesMontrees(l).map(v => dite([...new Set(partiesDe(v).map(c => DANS[lieuDuHautFait(c.hautFait)]))], 'et')))]
+  // Une voie de plusieurs lieux se détache des autres par une virgule : « …et en campagne, ou en expédition ».
+  return dite(voies, 'ou', voies.some(v => v.includes(' et ')) ? ',' : '')
 }
 
 /** Ce que l'album lit d'un profil : ce qu'il a. */
@@ -244,14 +256,25 @@ const OU: Record<LieuDAvatar, string> = {
   saison: 'À sa saison',
   boutique: 'En boutique',
   porte: 'En le portant',
+  expedition: 'En expédition',
 }
 
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
 
 /** Une étape d'un légendaire : un haut fait à décrocher tant de fois, ou un palier de carrière à atteindre. */
 function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, number>, valeurs: ReadonlyMap<string, number>): EtapeDUneVoie {
-  const h = hautFait(c.hautFait)
   const lieu = lieuDuHautFait(c.hautFait)
+  if (lieu === 'expedition') {
+    // Pas de jauge : il garde l'acte d'une expédition, ou non — on le garde au bout, une fois.
+    return {
+      lieu,
+      titre: 'En expédition : le garder au bout de l’acte 3',
+      regle: 'Quand il garde un acte, va au bout des trois, puis choisis-le parmi les gardiens vaincus',
+      tenue: (recompenses.get(c.hautFait) ?? 0) > 0,
+      progres: null,
+    }
+  }
+  const h = hautFait(c.hautFait)
   const nom = `« ${h?.title ?? c.hautFait} »`
   if ('palier' in c) {
     if (h?.famille !== 'carriere') return { lieu, titre: `${OU[lieu]} : ${nom}`, regle: '', tenue: false, progres: null }
@@ -342,10 +365,15 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies): EtapeDUneVoie[][
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)
   if (s) {
-    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge.
-    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle: `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`, tenue: p.legendaires.includes(l.key), progres: null }]]
+    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — gardé au bout d'une
+    // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`).
+    const enExpedition = voiesMontrees(l).some(estUneVoieDExpedition)
+    const regle = enExpedition
+      ? `${s.jours} jours de quiz du jour, une soirée ces jours-là, ou le garder au bout d’une expédition partie ces jours-là`
+      : `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`
+    return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle, tenue: p.legendaires.includes(l.key), progres: null }]]
   }
   const recompenses = recompensesDe(p.hautsFaits)
   const valeurs = new Map(p.hautsFaits.filter(h => h.famille === 'carriere').map(h => [h.key, h.valeur ?? 0]))
-  return voiesDe(l).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs)))
+  return voiesMontrees(l).map(v => partiesDe(v).map(c => etapeDuHautFait(c, recompenses, valeurs)))
 }

@@ -11,7 +11,7 @@ Tout se joue sans compte : un invité anonyme joue la même partie, aux mêmes p
 
 ## Les principes
 
-**Un profil ne donne aucun avantage de jeu.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie. Ce que tu gagnes se voit ; rien ne se joue.
+**Un profil ne donne aucun avantage de jeu face aux autres.** Ni points, ni temps, ni question plus facile : un niveau 30 et un invité arrivé ce soir jouent la même partie — en soirée, au quiz du jour, au défi, en duel. Ce que tu gagnes se voit ; rien ne s'y joue. Seule [l'Expédition](l-expedition.md), qu'on joue seul et sans classement, fait servir ce qu'on a gagné : chaque légendaire qui a son joker y part dans l'équipée, et son joker n'en sort jamais.
 
 **L'invité anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise, ni finition : l'absence, pas l'infériorité. Ses hauts faits de soirée sont annoncés à la clôture comme ceux des autres, sur son téléphone et à la salle, mais rien ne se garde ; le profil qu'il crée ensuite commence à la soirée suivante.
 
@@ -213,6 +213,7 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 🧗 L'Alpiniste | ton record d'une série de campagne | 10 · 15 · 20 | en campagne |
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |
+| 🧳 Le Globe-trotter | tampons au passeport de l'expédition : chaque thème pointu trouvé, une fois | 10 · 40 · 92 | au bout d'une expédition |
 | 🥾 Le Randonneur | paliers des sentiers validés en épreuve | 12 · 48 · 120 | en campagne |
 | 🌟 La Constellation | étoiles des sentiers, la meilleure note de chaque palier | 25 · 100 · 250 | en campagne |
 | 🗺️ Le Cartographe | sentiers validés en épreuve jusqu'au palier 8 ou plus haut | 3 · 6 · 12 | en campagne |
@@ -244,9 +245,9 @@ Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te
 | Le Fantôme | Le Somnambule × 6 | Le Courant d'air × 6 |
 | Le Trou Noir | L'Estimation Cosmique × 7 | — |
 | Le Sphinx | L'Assidu · Or | Le Sans-Faute · Or |
-| La Citrouille | la saison d'Halloween | — |
-| Le Sapin | la saison de Noël | — |
-| Le Bouquet final | la saison du Nouvel An | — |
+| La Citrouille | la saison d'Halloween — ou gardée au bout d'une expédition partie ces jours-là | — |
+| Le Sapin | la saison de Noël — ou gardé au bout d'une expédition partie ces jours-là | — |
+| Le Bouquet final | la saison du Nouvel An — ou gardé au bout d'une expédition partie ces jours-là | — |
 | L'Aigle aux lauriers | Le Laurier × 30 | — |
 | L'Ouroboros | L'Infatigable · Or | — |
 | Le Scarabée solaire | Le Mois complet × 1 | — |
@@ -259,6 +260,8 @@ Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te
 | Janus | tout à la fois : Le Roi de la soirée × 3 et Le Laurier × 3 | — |
 
 Quatre sont de l'ombre — le Kraken, le Fantôme, le Trou Noir, la Chauve-souris : ils s'ouvrent par des coups du sort.
+
+**Une voie de plus, au bout de l'Expédition** : chacun des vingt-trois légendaires qui ont leur joker — tous sauf l'Aigle, la Licorne et l'Éléphant — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus — l'album le dit, « en expédition », depuis qu'elle est ouverte. Les trois de saison depuis le 18 octobre 2026, et à leur saison seulement : ils ne gardent l'acte 3 que d'une expédition partie ces jours-là. Cette voie ne reprend rien à personne.
 
 - **Ta progression** se lit sur la voie la plus avancée ; une voie « tout à la fois » se compte en conditions tenues (« 2 sur 3 »). Un légendaire ne s'annonce qu'une fois, même quand sa seconde voie se remplit.
 - **Il se relit à chaque affichage** : une soirée retirée peut emporter le légendaire que ses hauts faits ouvraient.
@@ -275,7 +278,7 @@ Trois périodes de l'année, à l'heure de Paris, ouvrent chacune un légendaire
 | Noël | du 20 au 26 décembre | 3 | 🎄 Le Sapin |
 | Le Nouvel An | du 30 décembre au 2 janvier | 2 | 🎆 Le Bouquet final |
 
-Deux chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ou **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée. Une saison ne se montre que par son légendaire : ni ligne sur l'étagère, ni compte de trophées.
+Trois chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ; **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée ; ou, depuis le 18 octobre 2026, **une expédition partie dans la période** : le légendaire de la saison y garde l'acte 3, et se garde au bout comme les autres gardiens — même si la saison est passée entre-temps. Une saison ne se montre que par son légendaire : ni ligne sur l'étagère, ni compte de trophées.
 
 ## Les écussons de savoir
 

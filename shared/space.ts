@@ -27,6 +27,7 @@ export const RESERVED_SLUGS = new Set([
   'tele',
   'boutique',
   'campagne',
+  'expedition',
   'deconnexion',
   'stats',
   'souvenir',

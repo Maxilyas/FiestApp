@@ -12,11 +12,12 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { DejaPrises } from './jumelles'
+import { DejaPrises, type Intitule } from './jumelles'
 import {
   CHANCES_PAR_TRANCHE,
   ajusterSansBloquer,
   chanceDeLEpreuve,
+  chanceSurLaMarche,
   chancesSurLaSerie,
   difficulteSansModele,
   forceDuJoueur,
@@ -30,6 +31,8 @@ import {
   type SerieDeReference,
 } from './modeleDuSavoir'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
+import type { Saison } from '../../../shared/saisons'
+import { calendrierDesExpeditions } from './saisons'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { CHANCE_ECLAT_DU_DEFI, type AnnonceDeLAdministrateur, type StatsDeCampagne } from '../../../shared/profil'
 import {
@@ -255,6 +258,53 @@ import {
   type PartDuCarnet,
   type SuiviDeRevision,
 } from '../../../shared/revision'
+import {
+  ACTES,
+  MARCHES_DES_ACTES,
+  MOTS_DU_DEVOILEMENT,
+  arrondiDeChance,
+  carteDUnActe,
+  carteEnJeu,
+  chanceAnnoncee,
+  chanceDuJoueurMoyen,
+  chanceSelonLaForme,
+  contenuDeLInconnu,
+  escaleEnJeu,
+  escalesPermises,
+  gardiensDe,
+  graineDe,
+  indiceDeLEnigme,
+  instantDuMot,
+  inviteDuJour,
+  marcheDe,
+  motsDe,
+  motsDits,
+  numeroDeLaCarte,
+  pliDeLExpedition,
+  prixDeLArticle,
+  refusDeLAchat,
+  refusDeLEquipee,
+  refusDuJoker,
+  reponsesEffacees,
+  sensDeLOracle,
+  siecleDeLaQuestion,
+  type ApresUnGeste,
+  type CarteDUnActe,
+  type DepartDExpedition,
+  type EscaleDeLaCarte,
+  type EtatDeLExpedition,
+  type FormeDEscale,
+  type GesteDExpedition,
+  type JokersEnJeu,
+  type PageDeLExpedition,
+  type QuestionDExpedition,
+  type QuestionPosee,
+  type ReponseDExpedition,
+  type ThemeDEscale,
+  type VueDeLExpedition,
+} from '../../../shared/expedition'
+import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
+import { cleDeLExpedition } from '../../../shared/legendaires'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -280,7 +330,60 @@ interface QuestionDeSerie {
   etape?: number
   /** Une révision de tout le carnet : la question reprise en avance — pas encore à son rendez-vous, ou déjà apprise. */
   enAvance?: EnAvance
+  /** Une expédition : l'escale et l'acte où elle a été tirée — le pli range chaque réponse à sa place (`pliDeLExpedition`). */
+  escale?: string
+  acte?: number
+  /**
+   * Une source de l'expédition l'a reprise du carnet — ou La boucle, la
+   * question qu'il vient de rater : comme une révision, sa réponse a été lue —
+   * ni la mesure, ni les écussons, ni L'Érudit ne la comptent
+   * (`HORS_DU_CARNET`). Le carnet, lui, la compte.
+   */
+  carnet?: true
+  /** Une expédition : sa date, que l'Énigme dit au siècle près. */
+  date?: { valeur: string; precision: string }
+  /** Une expédition : ses réponses sont des années ou des nombres — la Prédiction s'y joue. */
+  nombre?: true
+  /**
+   * Une expédition (l'étape 3) : la forme où elle s'est posée, quand ce n'est
+   * pas celle de la base — six choix, un vrai ou faux tiré d'une question à
+   * quatre choix, un dévoilement (`aSaForme`). Ses réponses et sa bonne sont
+   * celles de cette forme ; sa réponse le dit (`campagne_reponses.forme`).
+   */
+  forme?: FormeDEscale
+  /** Un vrai ou faux tiré d'une question à quatre choix : la réponse proposée — la bonne une fois sur deux. */
+  proposee?: string
+  /** Un dévoilement : l'heure du serveur de son premier mot, celle de son tirage. */
+  devoileLe?: number
+  /** Un dévoilement : l'heure du serveur où Arrêt sur image l'a arrêté. */
+  arretLe?: number
+  /**
+   * Une expédition (le 18 octobre 2026) : le thème pointu de l'escale où elle
+   * a été tirée — de son tas à lui, ni par un Commandement ni dans toute la
+   * base faute de quoi tirer. Trouvée, elle tamponne le passeport ; sa
+   * réponse le dit (`campagne_reponses.sujet`).
+   */
+  sujet?: string
 }
+
+/**
+ * Une réponse `r` de la série `s` qui n'est pas une question reprise du
+ * carnet par une source de l'expédition (`QuestionDeSerie.carnet`) : sa bonne
+ * réponse avait été lue, comme en révision.
+ */
+const HORS_DU_CARNET = "json_extract(s.questions, '$[' || r.position || '].carnet') IS NULL"
+
+/**
+ * Une réponse `r` qui dit le savoir : nue — aucun joker de l'expédition ne l'a
+ * aidée (`campagne_reponses.joker` : deux réponses effacées, un indice, deux
+ * questions au choix), posée telle que la base l'a écrite
+ * (`campagne_reponses.forme` : à six choix, en vrai ou faux tiré d'une autre,
+ * dévoilée à mi-mot, une question n'a plus sa difficulté) — et qui ne reprend
+ * pas le carnet. Les écussons, la précision et L'Érudit ne lisent qu'elle ;
+ * la mesure et le modèle du savoir l'écrivent à leur façon (`mesuresBrutes`,
+ * `PREMIERE_REPONSE`).
+ */
+const REPONSE_NUE = `r.joker IS NULL AND r.forme IS NULL AND ${HORS_DU_CARNET}`
 
 /**
  * Une série de la campagne, ou une épreuve des sentiers (`mode`) : les mêmes
@@ -302,7 +405,7 @@ interface Serie {
    * rejoue la série finie d'un autre joueur, contre son score. Une épreuve
    * d'un sentier à thème (`sujet`) monte un sujet en six paliers, sans vies.
    */
-  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet'
+  mode: 'serie' | 'sentier' | 'defi' | 'duel' | 'revision' | 'rencontre' | 'sujet' | 'expedition'
   /** L'épreuve d'un sentier : sa branche, son palier, son seuil figé au départ — un seuil réglé ensuite ne change pas une épreuve en cours. */
   branche: CleDeBranche | null
   palier: number | null
@@ -326,6 +429,8 @@ interface Serie {
   duel?: string | null
   /** Une rencontre : qui elle affronte (`AdversaireGarde`). */
   adversaire?: AdversaireGarde | null
+  /** Une expédition : son départ — sa graine, ses gardiens, ses trois cartes (`DepartDExpedition`). */
+  expedition?: DepartDExpedition | null
 }
 
 /**
@@ -386,6 +491,12 @@ const MODELE_GARDE_MS = 30 * 60_000
 const MODELE_RETENTE_MS = 60_000
 /** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
 const SERIES_GARDEES = 500
+/**
+ * Combien d'expéditions en route restent en mémoire (`expeditions`), avec ce
+ * que chacun a vu — trois mille questions pour un fidèle : moins que les
+ * séries, chacune pèse plus.
+ */
+const EXPEDITIONS_GARDEES = 100
 const HEURE_MS = 3600_000
 /** Les séries de la campagne, sans les épreuves des sentiers : une ligne d'avant les sentiers n'a pas de mode. */
 const SERIES = "COALESCE(mode, 'serie') = 'serie'"
@@ -476,6 +587,8 @@ export interface RecompensesDeCampagne {
   accorderPaliersDeCampagne(profileId: string, sous: string, stats: StatsDeCampagne): Promise<string[]>
   legendairesOuverts(profileId: string, tombes: readonly string[]): string[]
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
+  /** Les légendaires qu'il a (`ProfileStore.legendairesOf`) : l'expédition tire ses gardiens parmi les autres. */
+  legendairesOf?(profileId: string): string[]
 }
 
 /** Sa ligue, sa cote et ses bordures de ligue (`coteDe`) : sa carte, la bordure qu'il choisit. */
@@ -556,6 +669,15 @@ export class CampagneStore {
    * échec — écrite ou non, on ne le sait pas, et la base fait alors foi.
    */
   private enCours = new Map<string, Serie>()
+  /**
+   * L'expédition en route de chaque profil, telle que son dernier geste
+   * l'a écrite, avec ce qu'il avait vu : le geste suivant ne relit ni l'une
+   * ni l'autre — une escale coûtait trois allers-retours de suite, une
+   * réponse deux ou trois (le 17 octobre 2026). Tenue à jour sous son
+   * verrou, après chaque écriture réussie ; oubliée au moindre échec, comme
+   * la série en cours.
+   */
+  private expeditions = new Map<string, ExpeditionGardee>()
   /**
    * La rencontre que le dé a promise à chaque profil sans pouvoir l'écrire
    * (`commencerUneRencontre` répond avant l'écriture) : sa première réponse
@@ -677,6 +799,10 @@ export class CampagneStore {
   private comptesDesSujets = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, number>>()
   /** Les jouables de chaque sujet, par liste de jouables (`duSujet`). */
   private listesDesSujets = new WeakMap<readonly QuestionDeLaBase[], Map<string, readonly QuestionDeLaBase[]>>()
+  /** Les jouables de chaque catégorie, par liste de jouables (`deLaCategorie`). */
+  private listesDesCategories = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, readonly QuestionDeLaBase[]>>()
+  /** Chaque jouable par son identifiant, par liste de jouables (`parIdDe`). */
+  private parIdGardes = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, QuestionDeLaBase>>()
   /** Ce que le tirage d'une série relit de chaque liste de jouables, à sa mesure (`tirage`). */
   private preparations = new WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>()
 
@@ -976,6 +1102,32 @@ export class CampagneStore {
     // a servi l'apprend sur son accueil. Relus avant, ils n'en ont pas.
     await ajouterColonne(this.client, 'campagne_signalements', 'issue', 'TEXT')
     await ajouterColonne(this.client, 'campagne_signalements', 'detail', 'TEXT')
+    // L'Expédition (le 17 octobre 2026) : une partie d'un autre mode, son
+    // départ en JSON — sa graine, ses gardiens, ses trois cartes, gardées
+    // telles quelles (`DepartDExpedition`) —, et le journal de ses gestes, dont
+    // son état se replie (`pliDeLExpedition`) : rien ne s'écrit à côté.
+    await ajouterColonne(this.client, 'campagne_series', 'expedition', 'TEXT')
+    // Le joker qui a aidé une réponse de l'expédition (l'étape 2) : vide partout ailleurs. Une réponse aidée ne dit
+    // plus le savoir — ni la mesure, ni le modèle, ni les écussons, ni L'Érudit ne la lisent (`REPONSE_NUE`).
+    await ajouterColonne(this.client, 'campagne_reponses', 'joker', 'TEXT')
+    // La forme d'une question de l'expédition (l'étape 3) — `six`, `vrai-faux`,
+    // `devoilement` ; vide partout ailleurs, et pour une question posée telle
+    // que la base l'a écrite. Une autre forme ne dit plus sa difficulté : rien
+    // de ce qui mesure ne la lit (`REPONSE_NUE`).
+    await ajouterColonne(this.client, 'campagne_reponses', 'forme', 'TEXT')
+    // Le thème pointu d'une question de l'expédition (le 18 octobre 2026) :
+    // vide partout ailleurs. Trouvée, elle a mis son tampon au passeport — le
+    // passeport et le Globe-trotter se relisent d'elle (`lectureDuPasseport`).
+    await ajouterColonne(this.client, 'campagne_reponses', 'sujet', 'TEXT')
+    await this.client.execute(
+      `CREATE TABLE IF NOT EXISTS expedition_gestes (
+         serie_id TEXT NOT NULL,
+         rang     INTEGER NOT NULL,
+         geste    TEXT NOT NULL,
+         fait_le  INTEGER NOT NULL,
+         PRIMARY KEY (serie_id, rang)
+       )`,
+    )
   }
 
   /** Le compagnon qu'il porte (`loup`), que la ligne de sa réponse retient ; null sans compagnon. */
@@ -1125,11 +1277,26 @@ export class CampagneStore {
     // joueur à elle seule. Un tableau de triplets plutôt qu'un objet : sept
     // mille clés d'objet se décodaient trois fois plus lentement — 13 ms pour
     // les deux textes, 4 en tableaux (le banc du 17 octobre 2026).
+    // Ni ce qu'une source de l'expédition reprend du carnet (`QuestionDeSerie.carnet`) :
+    // lues d'un coup, les quelques questions des expéditions, plutôt qu'une
+    // série relue par réponse. Les premières réponses n'en ont pas besoin :
+    // une question du carnet a toujours la sienne avant, celle qu'il a ratée.
+    // Ni ce qu'un joker a aidé à trouver (`joker`) : à deux réponses effacées,
+    // une question n'a plus la difficulté qu'on mesure ; ni ce qu'une autre
+    // forme a posé (`forme`) — à six choix, en vrai ou faux, à mi-mot. Une
+    // première réponse aidée ou d'une autre forme ne compte pas, et aucune
+    // d'après ne la remplace (`PREMIERE_REPONSE`).
     const [brutes, premieres] = await this.client.batch(
       [
         `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM campagne_reponses
-           WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision') GROUP BY reserve_id
+           WHERE serie_id NOT IN (SELECT id FROM campagne_series WHERE mode = 'revision')
+             AND joker IS NULL AND forme IS NULL
+             AND serie_id || ':' || position NOT IN (
+               SELECT e.id || ':' || j.key FROM campagne_series e, json_each(e.questions) j
+               WHERE e.mode = 'expedition' AND json_extract(j.value, '$.carnet') = 1
+             )
+           GROUP BY reserve_id
          )`,
         `SELECT json_group_array(json_array(reserve_id, justes, total)) AS mesures FROM (
            SELECT reserve_id, SUM(juste) AS justes, COUNT(*) AS total FROM (
@@ -1137,7 +1304,7 @@ export class CampagneStore {
              FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
              WHERE COALESCE(s.mode, 'serie') <> 'revision'
              GROUP BY COALESCE(s.profile_id, r.serie_id), r.reserve_id
-           ) GROUP BY reserve_id
+           ) WHERE juste IS NOT NULL GROUP BY reserve_id
          )`,
       ],
       'read',
@@ -1311,6 +1478,28 @@ export class CampagneStore {
   }
 
   /**
+   * Les jouables d'une catégorie, rangées d'une passe pour toutes, une fois
+   * par liste : chaque escale de l'expédition repassait les vingt-cinq mille
+   * au crible pour en tirer une.
+   */
+  private deLaCategorie(jouables: readonly QuestionDeLaBase[], categorie: string): readonly QuestionDeLaBase[] {
+    let parCategorie = this.listesDesCategories.get(jouables)
+    if (!parCategorie) {
+      const neuves = new Map<string, QuestionDeLaBase[]>()
+      for (const q of jouables) (neuves.get(q.meta.categorie) ?? neuves.set(q.meta.categorie, []).get(q.meta.categorie)!).push(q)
+      this.listesDesCategories.set(jouables, (parCategorie = neuves))
+    }
+    return parCategorie.get(categorie) ?? []
+  }
+
+  /** Chaque jouable par son identifiant, une fois par liste : une source en refaisait la table à chaque tirage. */
+  private parIdDe(jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, QuestionDeLaBase> {
+    let parId = this.parIdGardes.get(jouables)
+    if (!parId) this.parIdGardes.set(jouables, (parId = new Map(jouables.map(q => [q.id, q]))))
+    return parId
+  }
+
+  /**
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
@@ -1431,21 +1620,23 @@ export class CampagneStore {
    * d'une question est celui que la série lui donnait quand elle l'a posée.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
-    const [record, justes, expertes, validees] = await this.client.batch(
+    const [record, justes, expertes, validees, passeport] = await this.client.batch(
       [
         {
           sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
           args: [profileId],
         },
         { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM campagne_series WHERE profile_id = ?', args: [profileId] },
-        // Une experte retrouvée en révision ne compte pas pour L'Érudit : on
-        // en aurait fait trois d'une seule, ratée exprès.
+        // Une experte retrouvée en révision — ou à une source de l'expédition,
+        // qui la reprend du carnet — ne compte pas pour L'Érudit : on en aurait
+        // fait trois d'une seule, ratée exprès. Ni trouvée par un joker.
         {
           sql: `SELECT COUNT(*) AS n FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                WHERE s.profile_id = ? AND s.mode <> 'revision' AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
+                WHERE s.profile_id = ? AND s.mode <> 'revision' AND ${REPONSE_NUE} AND r.juste = 1 AND json_extract(s.questions, '$[' || r.position || '].niveau') = 'expert'`,
           args: [profileId],
         },
         this.lectureDesValidees(profileId),
+        lectureDuPasseport(profileId),
       ],
       'read',
     )
@@ -1455,6 +1646,8 @@ export class CampagneStore {
       expertes: Number(expertes.rows[0]?.n ?? 0),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
       ...statsDesSentiers(sentiersLus([], validees.rows)),
+      // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun.
+      tampons: passeport.rows.length,
     }
   }
 
@@ -1799,6 +1992,8 @@ export class CampagneStore {
       if (juste) lot.push(...lecturesDeLExperience(profileId))
       // Le tour de ses bordures, pris avant le lot qui les relit avec son duel.
       const tourDesBordures = ++this.tourDesBordures
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -1959,6 +2154,8 @@ export class CampagneStore {
         juste: Number(r.juste) === 1,
         niveau: q.niveau,
         anecdote: q.anecdote,
+        // Un vrai ou faux de l'expédition tiré d'une question à quatre choix : sans la réponse qu'il proposait, « Faux » ne dirait rien.
+        ...(q.proposee !== undefined && { proposee: q.proposee }),
       }
     })
   }
@@ -2031,9 +2228,11 @@ export class CampagneStore {
                 WHERE profile_id = ? AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
           args: [profileId, commencees, depuis],
         },
+        // Une question qu'une source de l'expédition reprend du carnet paie, mais ne dit rien
+        // de son savoir, comme une révision : sans catégorie, elle ne compte qu'en bonne réponse.
         {
           sql: `SELECT r.serie_id AS serie, s.mode AS mode, r.juste AS juste, r.repondue_le AS le,
-                       json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie
+                       CASE WHEN ${HORS_DU_CARNET} THEN json_extract(s.questions, '$[' || r.position || '].categorie') END AS categorie
                 FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
                 WHERE s.profile_id = ? AND s.commencee_le >= ? AND r.repondue_le >= ? AND r.choix IS NOT NULL
                 LIMIT -1`,
@@ -2093,12 +2292,14 @@ export class CampagneStore {
     // réponses. Six fois plus lent pour un joueur de cinq cents séries, et
     // la carte la lit à chaque toucher sur son nom. Les révisions du carnet
     // n'y sont pas : elles reposent ce qu'il a raté, réponse lue la veille,
-    // et sa précision y gagnait ce qu'il venait d'apprendre par cœur.
+    // et sa précision y gagnait ce qu'il venait d'apprendre par cœur — ni ce
+    // qu'une source de l'expédition reprend du carnet, ni ce qu'un joker a
+    // aidé à trouver : deux réponses effacées font une précision qu'il n'a pas.
     const res = await this.client.execute({
       sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
             FROM (SELECT json_extract(s.questions, '$[' || r.position || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
                   FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
-                  WHERE s.profile_id = ? AND s.mode <> 'revision'
+                  WHERE s.profile_id = ? AND s.mode <> 'revision' AND ${REPONSE_NUE}
                   LIMIT -1)
             GROUP BY categorie`,
       args: [profileId],
@@ -2122,7 +2323,12 @@ export class CampagneStore {
    * (`suiviDeLaQuestion`), lues dans l'ordre où elles sont venues. Le défi de
    * la semaine qui court et un défi entre amis ouvert n'y entrent qu'à leur
    * clôture : leur correction attend, le carnet aussi — il redonnerait leurs
-   * réponses à ceux qui jouent encore.
+   * réponses à ceux qui jouent encore. Une bonne réponse qu'un joker de
+   * l'expédition a aidée ne retrouve rien, ni un vrai ou faux qu'elle a tiré
+   * d'une question à quatre choix : trouvée par chance, elle ne prouve rien ;
+   * une erreur aidée y entre comme une autre. La forme se compare sans NULL
+   * (`COALESCE`) : `forme = 'vrai-faux'`, vide, rendait NULL tout le filtre,
+   * et écartait chaque bonne réponse nue.
    */
   private async suivisDe(profileId: string): Promise<Map<string, SuiviDeRevision>> {
     const res = await this.client.execute({
@@ -2130,6 +2336,7 @@ export class CampagneStore {
               SELECT r.reserve_id AS id, r.juste AS juste, r.repondue_le AS le, r.serie_id AS serie, r.position AS position
               FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
               WHERE s.profile_id = ?
+                AND NOT (r.juste = 1 AND (r.joker IS NOT NULL OR COALESCE(r.forme, '') = 'vrai-faux'))
                 AND NOT (s.mode = 'defi' AND s.semaine >= ?)
                 AND NOT (s.mode = 'duel' AND s.duel IN (SELECT code FROM campagne_duels WHERE ferme_le > ?))
             )
@@ -4973,6 +5180,8 @@ export class CampagneStore {
         })
       }
       if (juste) lot.push(...lecturesDeLExperience(profileId))
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -5234,6 +5443,8 @@ export class CampagneStore {
         })
       }
       if (juste) lot.push(...lecturesDeLExperience(profileId))
+      // Vue ici, elle l'est aussi pour son expédition en route.
+      this.vuAilleurs(profileId)
       let res: ResultSet[]
       try {
         res = await this.client.batch(lot, 'write')
@@ -5622,11 +5833,15 @@ export class CampagneStore {
    * chaque réponse). Le QG en tire ses chiffres du jour, ses participations
    * et l'activité de chaque mode ; une série d'avant les modes n'en a pas
    * (null) : c'est une série. `qui` : celles d'un seul profil, sa fiche au
-   * QG — par l'index `(profile_id, commencee_le)`.
+   * QG — par l'index `(profile_id, commencee_le)`. Une expédition compte ses
+   * réponses : sa position saute les questions de reste d'un gardien vaincu,
+   * tirées d'avance pour lui et jamais posées (`questionsDuGardien`).
    */
   async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, commencee_le, mode, position FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+      sql: `SELECT profile_id, commencee_le, mode,
+                   CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END AS position
+            FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
     })
     return res.rows.map(r => ({
@@ -6354,13 +6569,641 @@ export class CampagneStore {
     }
   }
 
+  // ── L'Expédition ────────────────────────────────────────────────────────
+  //
+  // Trois actes, chacun une carte tirée au sort, un gardien au bout de chacun,
+  // un légendaire à garder au bout du troisième (`shared/expedition.ts`, le
+  // brief du 17 octobre 2026). Une partie d'un autre mode
+  // (`mode = 'expedition'`) : ses réponses vont au journal de toutes les
+  // parties — l'expérience, les confettis, le carnet et « jamais vues
+  // d'abord » les comptent sans rien en savoir ; son état se replie de son
+  // départ, de ses gestes (`expedition_gestes`) et de ses réponses. Chaque
+  // geste se lit, se juge sur le pli, puis s'écrit d'un lot, sous le verrou du
+  // profil.
+
+  /** Ce qu'une expédition a de quoi replier : sa ligne, ses gestes, ses réponses — et son passeport, d'un aller-retour. */
+  private async lireLExpedition(profileId: string, id: string): Promise<ExpeditionLue | null> {
+    const [series, gestes, reponses, passeport] = await this.client.batch(
+      [
+        { sql: `SELECT * FROM campagne_series WHERE id = ? AND profile_id = ? AND mode = 'expedition'`, args: [id, profileId] },
+        { sql: 'SELECT geste FROM expedition_gestes WHERE serie_id = ? ORDER BY rang', args: [id] },
+        { sql: 'SELECT position, juste, repondue_le FROM campagne_reponses WHERE serie_id = ?', args: [id] },
+        lectureDuPasseport(profileId),
+      ],
+      'read',
+    )
+    return expeditionLue(series.rows[0], gestes.rows, reponses.rows, tamponsLus(passeport.rows))
+  }
+
+  /**
+   * L'expédition à jouer : celle que son dernier geste a gardée en mémoire
+   * (`expeditions`), sinon relue — et gardée à son tour, sous le verrou où
+   * l'on est : après un redémarrage, le dévoilement qui court y lit Arrêt sur
+   * image dès qu'il est joué.
+   */
+  private async expeditionAJouer(profileId: string, id: string): Promise<ExpeditionGardee | null> {
+    const gardee = this.expeditions.get(profileId)
+    if (gardee?.lue.serie.id === id) return gardee
+    const lue = await this.lireLExpedition(profileId, id)
+    if (!lue) return null
+    this.garderLExpedition(profileId, lue, null)
+    return this.expeditions.get(profileId) ?? { lue, vues: null }
+  }
+
+  /** L'expédition telle qu'elle vient de s'écrire, gardée pour le geste suivant — finie, oubliée. */
+  private garderLExpedition(profileId: string, lue: ExpeditionLue, vues: ReadonlyMap<string, number> | null): void {
+    this.expeditions.delete(profileId)
+    if (lue.serie.finieLe !== null) return
+    this.expeditions.set(profileId, { lue, vues })
+    if (this.expeditions.size > EXPEDITIONS_GARDEES) this.expeditions.delete(this.expeditions.keys().next().value!)
+  }
+
+  /**
+   * Une réponse vient de s'écrire ailleurs dans la campagne — une série, une
+   * épreuve, un parcours — : ce que son expédition avait vu ne dit plus
+   * tout, et sa question suivante le relira. Sinon elle pourrait reposer,
+   * comme jamais vue, celle qu'il vient de voir. Sous son verrou : rien de
+   * l'expédition ne se joue pendant ce temps.
+   */
+  private vuAilleurs(profileId: string): void {
+    const gardee = this.expeditions.get(profileId)
+    if (gardee) gardee.vues = null
+  }
+
+  /** Le lot d'un geste ou d'une réponse ; raté, l'expédition gardée s'oublie : écrit ou non, on ne le sait pas, et la base fait alors foi. */
+  private async ecrireLExpedition(profileId: string, lot: InStatement[]): Promise<ResultSet[]> {
+    try {
+      return await this.client.batch(lot, 'write')
+    } catch (e) {
+      this.expeditions.delete(profileId)
+      throw e
+    }
+  }
+
+  /** Les légendaires qu'il a : l'expédition tire ses gardiens parmi les autres. */
+  private legendairesDe(profileId: string): ReadonlySet<string> {
+    return new Set(this.recompenses?.legendairesOf?.(profileId) ?? [])
+  }
+
+  /**
+   * La page de l'expédition : celle qu'il a en route, sinon la prochaine — son
+   * numéro et ses gardiens, annoncés avant le départ, que le départ
+   * retrouve : la graine de la n-ième expédition d'un profil ne change pas
+   * (`graineDe`). Un aller-retour.
+   */
+  async pageDeLExpedition(profileId: string): Promise<PageDeLExpedition> {
+    const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
+    const [series, gestes, reponses, compte, passeport] = await this.client.batch(
+      [
+        { sql: `SELECT * FROM campagne_series WHERE id = (${enRoute})`, args: [profileId] },
+        { sql: `SELECT geste FROM expedition_gestes WHERE serie_id = (${enRoute}) ORDER BY rang`, args: [profileId] },
+        { sql: `SELECT position, juste, repondue_le FROM campagne_reponses WHERE serie_id = (${enRoute})`, args: [profileId] },
+        { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
+        lectureDuPasseport(profileId),
+      ],
+      'read',
+    )
+    const tampons = tamponsLus(passeport.rows)
+    const lue = expeditionLue(series.rows[0], gestes.rows, reponses.rows, tampons)
+    const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
+    const siens = this.legendairesDe(profileId)
+    const invite = inviteDuJour(jourDe(this.maintenant()))
+    const saison = this.saisonDuDepart()
+    const gardiens = gardiensDe(graine, siens, invite, saison?.legendaire)
+    return {
+      expedition: lue ? vueDeLExpedition(lue, plier(lue), siens) : null,
+      prochaine: {
+        numero: numeroDeLaCarte(graine),
+        gardiens,
+        aLui: gardiens.filter(g => siens.has(g)),
+        invite,
+        equipables: LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)),
+        ...(saison && { saison: saison.key }),
+      },
+      passeport: [...tampons].sort(),
+    }
+  }
+
+  /**
+   * La saison d'un départ, ce jour à Paris (le 18 octobre 2026) : sa fête
+   * plus souvent sur les cartes, son légendaire en gardien de l'acte 3 — hors
+   * saison, rien. La page l'annonce, le départ la retrouve
+   * (`calendrierDesExpeditions`, que le banc ferme).
+   */
+  private saisonDuDepart(): Saison | null {
+    return calendrierDesExpeditions.periodeDu(jourDe(this.maintenant()))?.saison ?? null
+  }
+
+  /**
+   * Partir : ses trois cartes et ses gardiens, tirés de la graine de sa
+   * prochaine expédition, et la chance qu'il a sur chaque escale, gardée avec
+   * elle ; son équipée — deux des siens au plus, ou l'invité du jour —, dont
+   * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
+   * laissée l'attend.
+   */
+  partirEnExpedition(profileId: string, equipeeBrute: unknown = []): Promise<VueDeLExpedition> {
+    const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
+    if (!equipee) return Promise.reject(new Error('Ton équipée ne se lit pas : recharge la page'))
+    return this.avecVerrou(profileId, async () => {
+      // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
+      // réponses, et ses premières escales s'en tirent sans le relire.
+      const [ouverte, compte, lues, passeport] = await this.client.batch(
+        [
+          { sql: `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1`, args: [profileId] },
+          { sql: `SELECT COUNT(*) AS n FROM campagne_series WHERE profile_id = ? AND mode = 'expedition'`, args: [profileId] },
+          lectureDesVues(profileId),
+          lectureDuPasseport(profileId),
+        ],
+        'read',
+      )
+      if (ouverte.rows.length > 0) throw new Error('Ton expédition t’attend : reprends-la, ou abandonne-la d’abord')
+      const jouables = await this.jouables()
+      if (jouables.length < QUESTIONS_POUR_JOUER) throw new Error('L’expédition n’a pas encore de questions à poser : reviens bientôt')
+      const graine = graineDe(profileId, Number(compte.rows[0]?.n ?? 0))
+      // Les thèmes pointus : les sujets de l'onglet des thèmes qui ont de quoi tirer, comme un parcours de thème — dans
+      // l'ordre de leur clé, pour que la graine redonne la même carte. Le compte sert aussi les rubriques et les époques
+      // remplacées (la refonte des sujets, le 17 octobre 2026) : une rubrique n'est qu'un morceau de sa catégorie, à son
+      // emblème — la carte la ferait passer pour une escale de la catégorie, payée double —, et une époque remplacée ne
+      // se propose plus nulle part (`expedition-themes.test.ts`).
+      const parSujet = this.sujetsComptes(jouables)
+      const sujets = SUJETS.filter(s => (parSujet.get(s.cle) ?? 0) >= QUESTIONS_POUR_UN_SENTIER_DE_SUJET)
+        .map(s => s.cle)
+        .sort()
+      const siens = this.legendairesDe(profileId)
+      const invite = inviteDuJour(jourDe(this.maintenant()))
+      const refus = refusDeLEquipee(equipee, siens, invite)
+      if (refus) throw new Error(refus)
+      // Sa saison : sa fête — si une carte peut la tirer — tient la moitié des thèmes pointus, son légendaire garde l'acte 3.
+      const saison = this.saisonDuDepart()
+      const fete = saison && sujets.includes(saison.key) ? saison.key : undefined
+      const cartes = Array.from({ length: ACTES }, (_, acte) => carteDUnActe(graine, acte, sujets, fete))
+      const vues = lireLesVues(lues.rows)
+      const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
+      const depart: DepartDExpedition = {
+        v: 4,
+        graine,
+        numero: numeroDeLaCarte(graine),
+        gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
+        cartes,
+        moyen,
+        equipee,
+        invite,
+        chances,
+        chanceDeLaSource,
+        ...(saison && { saison: saison.key }),
+      }
+      const id = randomUUID()
+      await this.client.execute({
+        sql: `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, expedition)
+              VALUES (?, ?, '[]', 0, ?, 0, ?, NULL, 'expedition', ?)`,
+        args: [id, profileId, VIES, this.maintenant(), JSON.stringify(depart)],
+      })
+      const serie: Serie = {
+        id,
+        profileId,
+        questions: [],
+        index: 0,
+        vies: VIES,
+        justes: 0,
+        finieLe: null,
+        mode: 'expedition',
+        branche: null,
+        palier: null,
+        seuil: null,
+        rejeu: false,
+        issue: null,
+        expedition: depart,
+      }
+      const lue: ExpeditionLue = { serie, depart, gestes: [], reponses: new Map(), reponduesLe: new Map(), tampons: tamponsLus(passeport.rows) }
+      this.garderLExpedition(profileId, lue, vues.vues)
+      return vueDeLExpedition(lue, plier(lue), siens)
+    })
+  }
+
+  /**
+   * Sa chance sur chaque escale, au départ (le choix du brief : « se calcule
+   * et se garde avec elle », comme la chance d'une épreuve) : celle que le
+   * modèle du savoir lui prête à la marche de l'escale, sur ses catégories —
+   * à parts égales dans un mélange, au poids de leurs questions dans un
+   * sujet —, ramenée à sa forme. Sans modèle, ou sous vingt premières
+   * réponses, celle d'un joueur moyen — la page le dit (`moyen`). Ce n'est
+   * qu'un renseignement : un calcul raté part sans lui. Avec elles, sa chance
+   * sur chaque marche de chaque catégorie, et sur une source : le
+   * Commandement et Il connaît la maison changent une escale en route, et la
+   * carte dit encore sa chance — sans redemander le modèle.
+   */
+  private async chancesDeLExpedition(
+    profileId: string,
+    cartes: CarteDUnActe[],
+    jouables: readonly QuestionDeLaBase[],
+    /** Ses premières réponses, lues avec ce qu'il a vu dans le lot du départ (`lectureDesVues`). */
+    premieres: ReadonlyMap<string, boolean>,
+  ): Promise<{ moyen: boolean; chances: Record<string, Partial<Record<Niveau, number>>>; chanceDeLaSource: number }> {
+    const modele = this.modeleDuSavoir()
+    let sa: { reference: SerieDeReference; lui: ForceDUnJoueur } | null = null
+    if (modele) {
+      try {
+        const [base, mesure] = await Promise.all([this.base(), this.mesures()])
+        const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
+        const lui = forceDe(premieres)
+        if (lui.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE) sa = { reference, lui }
+      } catch (e) {
+        console.warn('[expedition] chances non calculées :', e instanceof Error ? e.message : e)
+      }
+    }
+    const partsDuSujet = new Map<string, { c: number; poids: number }[]>()
+    const parts = (theme: ThemeDEscale): { c: number; poids: number }[] => {
+      if ('categories' in theme) return theme.categories.map(cat => ({ c: indiceDeCategorie(cat), poids: 1 }))
+      let lues = partsDuSujet.get(theme.sujet)
+      if (!lues) {
+        const compte = new Map<number, number>()
+        for (const q of this.duSujet(jouables, theme.sujet)) {
+          const c = indiceDeCategorie(q.meta.categorie)
+          compte.set(c, (compte.get(c) ?? 0) + 1)
+        }
+        partsDuSujet.set(theme.sujet, (lues = [...compte].map(([c, poids]) => ({ c, poids }))))
+      }
+      return lues
+    }
+    const chance = (marche: Niveau, theme?: ThemeDEscale): number => {
+      if (!sa) return chanceDuJoueurMoyen(marche)
+      // Hors d'une catégorie (−1), sa chance se lit sur toutes (`chanceSurLaMarche`) : un gardien, une source.
+      const lesParts = theme ? parts(theme) : [{ c: -1, poids: 1 }]
+      let somme = 0
+      let total = 0
+      for (const { c, poids } of lesParts) {
+        somme += poids * chanceSurLaMarche(sa.reference, marche, c, sa.lui.force + (c >= 0 ? (sa.lui.ecarts[c] ?? 0) : 0))
+        total += poids
+      }
+      return total > 0 ? somme / total : chanceDuJoueurMoyen(marche)
+    }
+    cartes.forEach((carte, acte) => {
+      for (const e of carte.escales) {
+        if (e.sorte === 'question' || e.sorte === 'elite') e.chance = arrondiDeChance(chanceSelonLaForme(chance(marcheDe(acte, e), e.theme), e.forme ?? 'quatre'))
+        // Une source repose une erreur de son carnet : une question qu'il a ratée, que sa chance sur une moyenne de toutes les catégories résume.
+        else if (e.sorte === 'source') e.chance = arrondiDeChance(chance('moyen'))
+      }
+      carte.chanceDuGardien = arrondiDeChance(chance(MARCHES_DES_ACTES[acte].gardien))
+    })
+    const chances: Record<string, Partial<Record<Niveau, number>>> = {}
+    for (const categorie of CATEGORIES) {
+      chances[categorie] = Object.fromEntries((['facile', 'moyen', 'difficile'] as const).map(marche => [marche, arrondiDeChance(chance(marche, { categories: [categorie] }))]))
+    }
+    return { moyen: sa === null, chances, chanceDeLaSource: arrondiDeChance(chance('moyen')) }
+  }
+
+  /**
+   * Un geste : avancer vers une escale reliée — sa question tirée dans le
+   * même lot —, jouer un joker, prendre ce qu'offre un coffre ou une élite,
+   * choisir au campement, garder un gardien au bout de l'acte 3. Le geste dit
+   * le rang qu'il croit suivre : un double toucher, un second onglet ne
+   * jouent pas deux fois (invariant 12, porté au solo). Ce que le pli demande
+   * ensuite — la question d'Échange, l'autre de Deux visages — se tire dans
+   * le même lot.
+   */
+  gesteDExpedition(profileId: string, id: string, rang: unknown, brut: unknown): Promise<ApresUnGeste> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const l = gardee.lue
+      if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
+      if (rang !== l.gestes.length + 1) throw new Error('Ce geste est passé : l’expédition a continué sans lui')
+      const lu = lireGeste(brut)
+      if (!lu) throw new Error('Ce geste ne se lit pas : recharge la page')
+      const avant = plier(l)
+      const maintenant = this.maintenant()
+      if (lu.quoi === 'garder') return this.garderUnGardien(profileId, l, avant, lu, maintenant)
+      const g = gesteRecevable(l, avant, lu)
+      const gestes = [...l.gestes, g]
+      // Passe-muraille répond à sa place : la question part au carnet comme ratée, sans coûter de vie.
+      const traversee = g.quoi === 'jouer' && g.joker === 'passe-muraille' && g.position !== undefined ? g.position : null
+      const reponses = traversee === null ? l.reponses : new Map(l.reponses).set(traversee, false)
+      const reponduesLe = traversee === null ? l.reponduesLe : new Map(l.reponduesLe).set(traversee, maintenant)
+      const complete = await this.completerLExpedition(profileId, l, gestes, reponses, reponduesLe, gardee.vues)
+      const { apres, vues } = complete
+      let questions = complete.questions
+      // Arrêt sur image : le dévoilement s'arrête à l'heure du serveur où il est joué — sa question le garde, la route des mots et la réponse le lisent.
+      const arret = g.quoi === 'jouer' && g.joker === 'arret-sur-image' && g.position !== undefined ? g.position : null
+      if (arret !== null && questions[arret]) questions = questions.map((q, i) => (i === arret ? { ...q, arretLe: maintenant } : q))
+      // Un piège de l'inconnu peut prendre la dernière vie : un geste, alors, finit l'expédition.
+      const finie = apres.issue === 'perdue'
+      const lot: InStatement[] = [
+        { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
+      ]
+      if (traversee !== null) {
+        lot.push({
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, NULL, 0, ?, ?, ?, ?, ?)',
+          args: [l.serie.id, traversee, questions[traversee].id, maintenant, this.compagnonPorte(profileId), 'passe-muraille', questions[traversee].forme ?? null, questions[traversee].sujet ?? null],
+        })
+      }
+      const fin = finie ? [maintenant, 'perdue'] : [null, null]
+      lot.push(
+        questions !== l.serie.questions
+          ? {
+              sql: 'UPDATE campagne_series SET questions = ?, position = ?, vies = ?, justes = ?, finie_le = ?, issue = ? WHERE id = ?',
+              args: [JSON.stringify(questions), apres.enAttente ?? apres.passees, apres.vies, apres.justes, ...fin, l.serie.id],
+            }
+          : { sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ?, issue = ? WHERE id = ?', args: [apres.enAttente ?? apres.passees, apres.vies, apres.justes, ...fin, l.serie.id] },
+      )
+      await this.ecrireLExpedition(profileId, lot)
+      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, gestes, reponses, reponduesLe }
+      this.garderLExpedition(profileId, ecrite, vues)
+      if (!finie) return { expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)) }
+      const gains = await this.recompenserLExpedition(profileId, l.serie.id, maintenant)
+      await this.faireGrandir(profileId)
+      return { expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)), ...gains }
+    })
+  }
+
+  /**
+   * Le pli de ces gestes et de ces réponses, et ce qu'il demande de tirer,
+   * tiré : la question d'une escale, celles du gardien, la reprise de La
+   * boucle, l'autre de Deux visages. Le serveur écrit le tout d'un lot :
+   * aucune lecture d'entre-deux ne trouve une question promise et absente.
+   * Ce qu'il a vu vient de l'expédition gardée (`vues`), relu s'il le faut,
+   * et rendu avec, pour le geste suivant.
+   */
+  private async completerLExpedition(
+    profileId: string,
+    l: ExpeditionLue,
+    gestes: readonly GesteDExpedition[],
+    reponses: ReadonlyMap<number, boolean>,
+    reponduesLe: ReadonlyMap<number, number>,
+    vues: ReadonlyMap<string, number> | null,
+  ): Promise<{ questions: QuestionDeSerie[]; apres: EtatDeLExpedition; vues: ReadonlyMap<string, number> | null }> {
+    let questions = l.serie.questions
+    let apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions, reponduesLe), reponses)
+    for (let tour = 0; tour < 3 && apres.aTirer; tour++) {
+      const tire = await this.tirerPourLExpedition(profileId, l.depart, questions, apres, vues)
+      vues = tire.vues
+      if (tire.tirees.length === 0) break
+      questions = [...questions, ...tire.tirees]
+      apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions, reponduesLe), reponses)
+    }
+    return { questions, apres, vues }
+  }
+
+  /**
+   * Garder un gardien, au bout de l'acte 3 : un légendaire de plus. La ligne
+   * qui le lui donne se range d'abord — un rangement qui échoue ne laisse pas
+   * une expédition finie sans son légendaire : le geste se rejoue —, puis
+   * l'expédition se clôt.
+   */
+  private async garderUnGardien(profileId: string, l: ExpeditionLue, avant: EtatDeLExpedition, g: Extract<GesteDExpedition, { quoi: 'garder' }>, maintenant: number): Promise<ApresUnGeste> {
+    if (avant.issue !== 'au-bout') throw new Error('Va au bout de l’acte 3 pour garder un gardien')
+    if (!l.depart.gardiens.includes(g.legendaire)) throw new Error('Ce gardien n’est pas de ton expédition')
+    const legendaires = this.recompenses ? this.recompenses.legendairesOuverts(profileId, await this.recompenses.ranger(profileId, cleDeSerie(l.serie.id), [cleDeLExpedition(g.legendaire)], maintenant)) : []
+    const gestes = [...l.gestes, g]
+    const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions, l.reponduesLe), l.reponses)
+    await this.ecrireLExpedition(profileId, [
+      { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify(g), maintenant] },
+      { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'legendaire' WHERE id = ?`, args: [maintenant, l.serie.id] },
+    ])
+    this.expeditions.delete(profileId)
+    const gains = await this.recompenserLExpedition(profileId, l.serie.id, maintenant)
+    await this.faireGrandir(profileId)
+    const tous = [...new Set([...legendaires, ...(gains.legendaires ?? [])])]
+    return {
+      expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, finieLe: maintenant }, gestes }, apres, this.legendairesDe(profileId)),
+      ...(gains.recompenses && { recompenses: gains.recompenses }),
+      ...(tous.length > 0 && { legendaires: tous }),
+    }
+  }
+
+  /**
+   * Une réponse : juste ou non, et ce que le pli en fait — une vie de moins à
+   * une question ratée (aucune sous Sursis ou La mue, deux sous Tout ou
+   * rien), une de plus à une source retrouvée, le gardien qui tombe et l'acte
+   * suivant qui s'ouvre. Double chance : deux réponses, une juste suffit. Une
+   * bonne réponse paie comme en série — un confetti, l'expérience d'une bonne
+   * réponse — ; aidée par un joker, elle porte sa clé
+   * (`campagne_reponses.joker`) : ni la mesure, ni le modèle du savoir, ni les
+   * écussons, ni L'Érudit ne la comptent, et le carnet ne la tient pas pour
+   * retrouvée.
+   */
+  repondreEnExpedition(profileId: string, id: string, position: unknown, choix: unknown): Promise<ReponseDExpedition> {
+    // L'heure où la réponse arrive, au serveur : c'est elle qui dit où en était un dévoilement (invariant 6).
+    const recueLe = this.maintenant()
+    return this.avecVerrou(profileId, async () => {
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const l = gardee.lue
+      if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
+      const avant = plier(l)
+      // Deux visages : il répond à l'une des deux, au choix.
+      if (avant.enAttente === null || (position !== avant.enAttente && position !== avant.autre)) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+      const i = position as number
+      const q = l.serie.questions[i]
+      if (!q) throw new Error('Cette question n’est pas encore tirée : recharge la page')
+      const valide = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < q.reponses.length
+      const choisis = avant.joue?.joker === 'double-chance' && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
+      const juste = choisis.includes(q.bonne)
+      // La sienne, telle que la correction la redit : la juste s'il l'a donnée, sinon la première.
+      const c = juste ? q.bonne : (choisis[0] ?? null)
+      const aide = jokerQuiAide(avant, q)
+      const reponses = new Map(l.reponses).set(i, juste)
+      const reponduesLe = new Map(l.reponduesLe).set(i, recueLe)
+      const { questions, apres, vues } = await this.completerLExpedition(profileId, l, l.gestes, reponses, reponduesLe, gardee.vues)
+      const finie = apres.issue === 'perdue'
+      const maintenant = recueLe
+      const position_ = apres.enAttente ?? apres.passees
+      // Un dévoilement : les mots dits quand sa réponse est arrivée — ce qu'un téléphone dirait de son horloge n'y entre pas.
+      const devoile = devoileA(q, recueLe)
+      // Un thème pointu trouvé pour la première fois : un tampon neuf au passeport, que la réponse écrit avec elle.
+      const tampon = juste && q.sujet && !l.tampons.has(q.sujet) ? q.sujet : undefined
+      const lot: InStatement[] = [
+        {
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, compagnon, joker, forme, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [l.serie.id, i, q.id, c, juste ? 1 : 0, maintenant, this.compagnonPorte(profileId), aide, q.forme ?? null, q.sujet ?? null],
+        },
+        questions !== l.serie.questions
+          ? {
+              sql: 'UPDATE campagne_series SET questions = ?, position = ?, vies = ?, justes = ?, finie_le = ?, issue = ? WHERE id = ?',
+              args: [JSON.stringify(questions), position_, apres.vies, apres.justes, finie ? maintenant : null, finie ? 'perdue' : null, l.serie.id],
+            }
+          : {
+              sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ?, issue = ? WHERE id = ?',
+              args: [position_, apres.vies, apres.justes, finie ? maintenant : null, finie ? 'perdue' : null, l.serie.id],
+            },
+      ]
+      if (juste) lot.push(...lecturesDeLExperience(profileId))
+      const res = await this.ecrireLExpedition(profileId, lot)
+      const tampons = tampon ? new Set([...l.tampons, tampon]) : l.tampons
+      const ecrite: ExpeditionLue = { ...l, serie: { ...l.serie, questions, finieLe: finie ? maintenant : null }, reponses, reponduesLe, tampons }
+      this.garderLExpedition(profileId, ecrite, vues)
+      const xp = juste ? await this.crediter(profileId, res.slice(-2)) : 0
+      const gains = finie ? await this.recompenserLExpedition(profileId, l.serie.id, maintenant) : {}
+      if (finie) await this.faireGrandir(profileId)
+      const vaincu = apres.vaincus > avant.vaincus ? l.depart.gardiens[avant.acte] : undefined
+      // Ce que la réponse a rapporté (v4) : les écus de l'escale, ceux du gardien qui tombe.
+      const ecus = apres.ecus - avant.ecus
+      return {
+        juste,
+        bonne: q.bonne,
+        anecdote: q.anecdote,
+        xp,
+        expedition: vueDeLExpedition(ecrite, apres, this.legendairesDe(profileId)),
+        ...(vaincu && { vaincu }),
+        ...(ecus > 0 && { ecus }),
+        ...(tampon && { tampon }),
+        // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
+        ...(devoile && { texte: q.texte, devoile }),
+        ...gains,
+      }
+    })
+  }
+
+  /**
+   * Le dévoilement d'une question qui attend (l'étape 3) : ses mots, et où il
+   * en est à l'heure du serveur — combien sont dits, quand se dit le
+   * suivant. La route les écrit à leur heure, jamais avant (invariant 1).
+   * Lue sous le verrou du profil, puis rendue hors de lui : sa réponse passe
+   * pendant qu'il se dit. L'heure d'Arrêt sur image se relit à chaque mot
+   * dans l'expédition gardée : joué en route, il arrête aussi les mots qui
+   * partent déjà.
+   */
+  devoilement(profileId: string, id: string, position: unknown): Promise<{ mots: readonly string[]; ou: () => { dits: number; suivantDans: number | null } }> {
+    return this.avecVerrou(profileId, async () => {
+      const gardee = await this.expeditionAJouer(profileId, id)
+      if (!gardee) throw new Error('Cette expédition est introuvable')
+      const avant = plier(gardee.lue)
+      if (avant.enAttente === null || (position !== avant.enAttente && position !== avant.autre)) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+      const i = position as number
+      const q = gardee.lue.serie.questions[i]
+      if (!q || q.forme !== 'devoilement' || q.devoileLe === undefined) throw new Error('Cette question ne se dévoile pas : recharge la page')
+      const mots = motsDe(q.texte)
+      const depuis = q.devoileLe
+      const arret = () => this.expeditions.get(profileId)?.lue.serie.questions[i]?.arretLe ?? q.arretLe
+      return {
+        mots,
+        ou: () => {
+          const t = this.maintenant()
+          const dits = motsDits(mots.length, depuis, t, arret())
+          return { dits, suivantDans: dits < mots.length ? Math.max(0, instantDuMot(dits + 1, depuis, arret()) - t) : null }
+        },
+      }
+    })
+  }
+
+  /** Abandonner l'expédition : elle finit là, sans légendaire ; ce qu'elle a joué compte, comme une série abandonnée. */
+  abandonnerLExpedition(profileId: string, id: string): Promise<ApresUnGeste> {
+    return this.avecVerrou(profileId, async () => {
+      const l = (await this.expeditionAJouer(profileId, id))?.lue
+      if (!l) throw new Error('Cette expédition est introuvable')
+      if (l.serie.finieLe !== null) throw new Error('Cette expédition est finie : pars pour une autre')
+      const maintenant = this.maintenant()
+      const gestes: GesteDExpedition[] = [...l.gestes, { quoi: 'abandonner' }]
+      const apres = pliDeLExpedition(l.depart, gestes, questionsPosees(l.serie.questions, l.reponduesLe), l.reponses)
+      await this.ecrireLExpedition(profileId, [
+        { sql: 'INSERT INTO expedition_gestes (serie_id, rang, geste, fait_le) VALUES (?, ?, ?, ?)', args: [l.serie.id, gestes.length, JSON.stringify({ quoi: 'abandonner' }), maintenant] },
+        { sql: `UPDATE campagne_series SET finie_le = ?, issue = 'abandonnee' WHERE id = ?`, args: [maintenant, l.serie.id] },
+      ])
+      this.expeditions.delete(profileId)
+      const gains = await this.recompenserLExpedition(profileId, l.serie.id, maintenant)
+      await this.faireGrandir(profileId)
+      return { expedition: vueDeLExpedition({ ...l, serie: { ...l.serie, finieLe: maintenant }, gestes }, apres, this.legendairesDe(profileId)), ...gains }
+    })
+  }
+
+  /** Ce que la fin d'une expédition fait tomber : les paliers de la campagne que ses bonnes réponses font atteindre — Le Marathonien. */
+  private async recompenserLExpedition(profileId: string, serieId: string, quand: number): Promise<Recompenses> {
+    try {
+      return await this.recompenser(profileId, serieId, [], quand)
+    } catch (e) {
+      // L'expédition est rangée : une étagère muette n'y change rien, la fin suivante les relira.
+      console.error('[expedition] récompenses non rangées :', e)
+      return {}
+    }
+  }
+
+  /**
+   * Ce que le pli demande de tirer (`EtatDeLExpedition.aTirer`) : une
+   * question, à la marche de l'escale et sur son thème — un sujet, une
+   * catégorie, un mélange, celle du Commandement —, jamais vue d'abord ; une
+   * erreur de son carnet pour une source, la plus en retard d'abord, sinon une
+   * facile ; de quoi aller au bout de ses vies pour un gardien, toutes
+   * catégories, sans vrai ou faux — une chance sur deux à la porte de l'acte
+   * suivant ; la question ratée que La boucle repose. Ce que l'expédition a
+   * déjà posé passe en dernier, comme vu à l'instant, et ses jumelles après
+   * les autres. Chaque question garde sa date et dit si ses réponses sont des
+   * nombres : l'Énigme et la Prédiction les lisent. Ce qu'il a vu se lit de
+   * l'expédition gardée (`vuesGardees`) — relu sinon, et rendu avec.
+   */
+  private async tirerPourLExpedition(
+    profileId: string,
+    depart: DepartDExpedition,
+    posees: readonly QuestionDeSerie[],
+    e: EtatDeLExpedition,
+    vuesGardees: ReadonlyMap<string, number> | null,
+  ): Promise<{ tirees: QuestionDeSerie[]; vues: ReadonlyMap<string, number> | null }> {
+    const a = e.aTirer
+    if (!a) return { tirees: [], vues: vuesGardees }
+    // La boucle : la question ratée revient telle qu'il l'a vue — sa réponse lue, elle ne mesure rien (`HORS_DU_CARNET`).
+    // Sa réponse lue, retrouvée, elle ne tamponne rien : le passeport compte ce qu'on trouve, pas ce qu'on a revu.
+    if (a.reprise !== undefined && posees[a.reprise]) return { tirees: [{ ...posees[a.reprise], escale: a.escale, acte: a.acte, carnet: true, sujet: undefined }], vues: vuesGardees }
+    const escale = escaleEnJeu(depart, e, a.escale)
+    if (!escale) return { tirees: [], vues: vuesGardees }
+    const maintenant = this.maintenant()
+    const source = escale.sorte === 'source'
+    const [toutes, mesure, lues, suivis] = await Promise.all([
+      this.jouables(),
+      this.mesures(),
+      vuesGardees ?? this.client.execute(lectureDesVues(profileId)).then(r => lireLesVues(r.rows).vues),
+      source ? this.suivisDe(profileId) : null,
+    ])
+    const dejaPosees = new Set(posees.map(q => q.id))
+    // Ce que l'expédition a posé, vu à l'instant — sans recopier les trois mille qu'il a vues.
+    const vues = { get: (id: string) => (dejaPosees.has(id) ? maintenant : lues.get(id)) }
+    const acte = a.acte
+    const rangee = (q: QuestionDeLaBase, niveau: Niveau): QuestionDeSerie => ({
+      ...versQuestionDeSerie(q, niveau),
+      escale: a.escale,
+      acte,
+      ...(q.meta.date && { date: q.meta.date }),
+      ...(['annee', 'nombre'].includes(formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur })) && { nombre: true as const }),
+    })
+    if (suivis) {
+      const parId = this.parIdDe(toutes)
+      const aRevoir = [...suivis]
+        .flatMap(([id, s]) => (!s.apprise && parId.has(id) && !dejaPosees.has(id) ? [{ id, le: s.revientLe }] : []))
+        .sort((a, b) => a.le.localeCompare(b.le))
+      const q = aRevoir.length > 0 ? parId.get(aRevoir[0].id)! : null
+      // Reprise du carnet, elle le dit : sa réponse a été lue, rien ne la mesure (`HORS_DU_CARNET`).
+      if (q) return { tirees: [{ ...rangee(q, niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))), carnet: true }], vues: lues }
+    }
+    const gardien = escale.sorte === 'gardien'
+    const marche: Niveau = source ? 'facile' : marcheDe(acte, escale)
+    const n = a.combien
+    const theme: ThemeDEscale | undefined = a.categorie ? { categories: [a.categorie] } : escale.theme
+    let tas: readonly (readonly QuestionDeLaBase[])[] = [toutes]
+    if (theme && 'sujet' in theme) tas = [this.duSujet(toutes, theme.sujet)]
+    else if (theme) tas = [...new Set(theme.categories)].map(c => this.deLaCategorie(toutes, c))
+    // Un thème qui n'a plus de quoi tirer — une base qui a changé depuis le départ — tire dans toute la base.
+    if (tas.reduce((s, morceau) => s + morceau.length, 0) < n * 2) tas = [toutes]
+    // Son thème pointu, s'il en vient vraiment — pas de toute la base, faute de quoi tirer : trouvée, elle tamponne le passeport.
+    const sujet = theme && 'sujet' in theme && tas[0] !== toutes ? theme.sujet : undefined
+    // Sa forme (l'étape 3) : celle d'une question ou d'une élite ; une source, un gardien posent la question telle qu'elle est écrite.
+    const forme = escale.sorte === 'question' || escale.sorte === 'elite' ? escale.forme : undefined
+    const garde = seLaissePoser(forme)
+    let tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien || garde !== undefined, garde, vues, mesure, maintenant, posees })
+    let aPoser = forme
+    // Rien sur ce thème ne se pose à cette forme : la question reste à quatre choix.
+    if (tirees.length < n && garde) {
+      tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien, vues, mesure, maintenant, posees })
+      aPoser = undefined
+    }
+    return { tirees: tirees.map(x => aSaForme({ ...rangee(x.question, x.niveau), ...(sujet && { sujet }) }, x.question, aPoser, maintenant)), vues: lues }
+  }
+
   /** Un profil supprimé : ses séries, leurs réponses et ses signalements, sous son verrou. */
   oublierProfil(profileId: string): Promise<void> {
     return this.avecVerrou(profileId, async () => {
       this.enCours.delete(profileId)
+      this.expeditions.delete(profileId)
       await this.client.batch(
         [
           { sql: 'DELETE FROM campagne_reponses WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
+          { sql: 'DELETE FROM expedition_gestes WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
           { sql: 'DELETE FROM campagne_series WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM campagne_signalements WHERE profile_id = ?', args: [profileId] },
           { sql: 'DELETE FROM sentier_acquis WHERE profile_id = ?', args: [profileId] },
@@ -6408,11 +7251,17 @@ function lectureDesJustes(profileId: string): InStatement {
 
 /**
  * Sa première réponse à une question, dans une agrégation SQL : celle de son
- * premier instant — `MIN(repondue_le * 2 + juste)` range par instant, et sa
- * parité dit si elle était juste. Une révision ne pose que ce qu'il a déjà
- * vu : sa première réponse n'y est jamais.
+ * premier instant — `MIN(repondue_le * 4 + aidée * 2 + juste)` range par
+ * instant, et ses deux derniers bits disent si l'expédition l'a posée
+ * autrement que nue — un joker l'a aidée, ou une autre forme l'a posée —, et
+ * si elle était juste. Une révision ne pose que ce qu'il a déjà vu : sa
+ * première réponse n'y est jamais. Pas nue, la première ne dit rien de son
+ * savoir — deux réponses effacées, deux questions au choix, un vrai ou faux,
+ * un intitulé à mi-mot — : NULL, et aucune d'après ne la remplace, il avait
+ * vu la correction. La question reste vue (`lectureDesVues`).
  */
-const PREMIERE_REPONSE = 'MIN(r.repondue_le * 2 + r.juste) % 2'
+const PREMIERE = 'MIN(r.repondue_le * 4 + (r.joker IS NOT NULL OR r.forme IS NOT NULL) * 2 + r.juste)'
+const PREMIERE_REPONSE = `CASE WHEN ${PREMIERE} % 4 >= 2 THEN NULL ELSE ${PREMIERE} % 2 END`
 
 /**
  * Les questions qu'il a vues, quand pour la dernière fois, et sa première
@@ -6446,15 +7295,15 @@ interface PremiereReponse {
 /**
  * Ses premières réponses, chacune avec son instant : la page des sentiers y
  * relit sa force d'aujourd'hui et celle d'il y a une semaine
- * (`chancesPourLui`). `MIN(repondue_le * 2 + juste)` dit les deux d'un
- * nombre — l'instant de la première, et sa parité si elle était juste —,
- * comme `PREMIERE_REPONSE` ; et en un seul texte, comme ce qu'il a vu
+ * (`chancesPourLui`). `PREMIERE` dit tout d'un nombre — l'instant de la
+ * première, si un joker l'a aidée, si elle était juste —, comme
+ * `PREMIERE_REPONSE` ; et en un seul texte, comme ce qu'il a vu
  * (`lectureDesVues`).
  */
 function lectureDesPremieres(profileId: string): InStatement {
   return {
     sql: `SELECT json_group_object(reserve_id, k) AS premieres FROM (
-            SELECT r.reserve_id, MIN(r.repondue_le * 2 + r.juste) AS k
+            SELECT r.reserve_id, ${PREMIERE} AS k
             FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
             WHERE s.profile_id = ? GROUP BY r.reserve_id
           )`,
@@ -6462,20 +7311,17 @@ function lectureDesPremieres(profileId: string): InStatement {
   }
 }
 
-/** Le texte de `lectureDesPremieres`, question par question. */
+/** Le texte de `lectureDesPremieres`, question par question — sans celles qu'un joker a aidées. */
 function lireLesPremieres(lignes: readonly Record<string, unknown>[]): Map<string, PremiereReponse> {
   const texte = lignes[0]?.premieres
   const lu = typeof texte === 'string' ? (JSON.parse(texte) as Record<string, unknown>) : {}
   const premieres = new Map<string, PremiereReponse>()
   for (const [id, k] of Object.entries(lu)) {
     const n = Number(k)
-    if (Number.isFinite(n)) premieres.set(id, { le: Math.floor(n / 2), juste: n % 2 === 1 })
+    if (Number.isFinite(n) && Math.floor(n / 2) % 2 === 0) premieres.set(id, { le: Math.floor(n / 4), juste: n % 2 === 1 })
   }
   return premieres
 }
-
-/** Une chance au millième : ce que la page en écrit, sans faire voyager seize décimales. */
-const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
 
 /** Sa chance de valider un palier d'une catégorie, à sa force (`chanceDeLEpreuve`) : celle que la page écrit, et que l'épreuve garde. */
 const saChanceSur = (reference: SerieDeReference, c: number, f: Pick<ForceDUnJoueur, 'force' | 'ecarts'>, regle: RegleDuPalier): number =>
@@ -6490,7 +7336,8 @@ function lireLesVues(lignes: readonly Record<string, unknown>[]): { vues: Map<st
   for (const [id, valeur] of Object.entries(lu)) {
     if (!Array.isArray(valeur)) continue
     vues.set(id, Number(valeur[0]))
-    premieres.set(id, Number(valeur[1]) === 1)
+    // Une première réponse aidée par un joker (null) : vue, et rien de plus.
+    if (valeur[1] !== null) premieres.set(id, Number(valeur[1]) === 1)
   }
   return { vues, premieres }
 }
@@ -6507,7 +7354,7 @@ const LECTURE_DU_SAVOIR = `SELECT profile_id, json_group_object(reserve_id, just
     SELECT s.profile_id AS profile_id, r.reserve_id AS reserve_id, ${PREMIERE_REPONSE} AS juste
     FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
     GROUP BY s.profile_id, r.reserve_id
-  ) GROUP BY profile_id`
+  ) WHERE juste IS NOT NULL GROUP BY profile_id`
 
 /** Les lignes de `LECTURE_DU_SAVOIR`, joueur par joueur — en rendant la main de temps en temps : des milliers de réponses chacun. */
 async function premieresDeTous(lignes: readonly Record<string, unknown>[]): Promise<Map<string, Map<string, boolean>>> {
@@ -6897,8 +7744,11 @@ function versSerie(r: Record<string, unknown>): Serie {
     vies: Number(r.vies),
     justes: Number(r.justes),
     finieLe: r.finie_le === null || r.finie_le === undefined ? null : Number(r.finie_le),
+    // Un mode inconnu se lit en série — une ligne d'avant les modes n'en a pas ; l'expédition garde le sien, ou une série l'accepterait.
     mode:
-      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie',
+      r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition'
+        ? r.mode
+        : 'serie',
     branche: brancheParCle(r.branche)?.key ?? null,
     palier: r.palier === null || r.palier === undefined ? null : Number(r.palier),
     seuil: r.seuil === null || r.seuil === undefined ? null : Number(r.seuil),
@@ -6910,6 +7760,340 @@ function versSerie(r: Record<string, unknown>): Serie {
     semaine: typeof r.semaine === 'string' ? r.semaine : null,
     duel: typeof r.duel === 'string' ? r.duel : null,
     adversaire: lireAdversaire(r.adversaire),
+    expedition: lireDepartDExpedition(r.expedition),
+  }
+}
+
+/** Le départ qu'une expédition a gardé ; null : pas une expédition, ou illisible. */
+function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
+  if (typeof brut !== 'string') return null
+  try {
+    const lu = JSON.parse(brut) as DepartDExpedition
+    // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus ; une version inconnue ne se lit pas.
+    return lu && (lu.v === 1 || lu.v === 2 || lu.v === 3 || lu.v === 4) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+  } catch {
+    return null
+  }
+}
+
+/** Un geste du journal d'une expédition, tel que la page l'envoie ; null s'il ne se lit pas. L'abandon a sa route. */
+function lireGeste(brut: unknown): GesteDExpedition | null {
+  if (!brut || typeof brut !== 'object') return null
+  const g = brut as Record<string, unknown>
+  const cle = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= 40
+  const rang = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0
+  if (g.quoi === 'avancer' && typeof g.vers === 'string' && g.vers.length <= 8) return { quoi: 'avancer', vers: g.vers }
+  if (g.quoi === 'garder' && cle(g.legendaire)) return { quoi: 'garder', legendaire: g.legendaire }
+  if (g.quoi === 'jouer' && cle(g.joker)) {
+    return {
+      quoi: 'jouer',
+      joker: g.joker,
+      ...(rang(g.position) && { position: g.position }),
+      ...(cle(g.categorie) && { categorie: g.categorie }),
+      ...(rang(g.montre) && { montre: g.montre }),
+    }
+  }
+  if (g.quoi === 'prendre' && Array.isArray(g.jokers) && g.jokers.length <= 3 && g.jokers.every(cle)) {
+    return { quoi: 'prendre', jokers: g.jokers as string[], ...(cle(g.talisman) && { talisman: g.talisman }) }
+  }
+  if (g.quoi === 'camper') return g.retirer === undefined || g.retirer === null ? { quoi: 'camper' } : cle(g.retirer) ? { quoi: 'camper', retirer: g.retirer } : null
+  if (g.quoi === 'acheter' && (g.article === 'vie' || g.article === 'talisman' || g.article === 'joker' || g.article === 'retirer')) {
+    // Le prix payé, relu du journal : celui qu'une page enverrait, `gesteRecevable` le remplace par celui du barème.
+    return { quoi: 'acheter', article: g.article, ...(cle(g.joker) && { joker: g.joker }), ...(rang(g.prix) && { prix: g.prix }) }
+  }
+  return null
+}
+
+/**
+ * Le geste tel que le journal l'écrira, ou ce qui le refuse, en mots qu'il
+ * lit. Un joker joué pendant une question porte sa position — le serveur
+ * l'écrit : le pli le joue avant de la juger ; une page qui en vise une autre
+ * a vu une question passée.
+ */
+function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExpedition): GesteDExpedition {
+  if (avant.issue === 'au-bout') throw new Error('L’expédition est au bout : garde un des trois gardiens')
+  if (avant.issue !== 'en-route') throw new Error('Cette expédition est finie : pars pour une autre')
+  if (g.quoi === 'avancer') {
+    if (avant.offre) throw new Error('Choisis d’abord ce que tu prends')
+    if (avant.campement) throw new Error('Choisis d’abord au campement : une vie, ou un joker retiré')
+    if (avant.enAttente !== null) throw new Error('Réponds d’abord à la question')
+    if (!escalesPermises(l.depart, avant).includes(g.vers)) throw new Error('Cette escale n’est pas sur ta route : choisis-en une reliée à la tienne')
+    return g
+  }
+  if (g.quoi === 'jouer') {
+    if (g.position !== undefined && g.position !== avant.enAttente && g.position !== avant.autre) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+    const refus = refusDuJoker(l.depart, avant, g.joker, questionsPosees(l.serie.questions), g)
+    if (refus) throw new Error(refus)
+    return {
+      quoi: 'jouer',
+      joker: g.joker,
+      ...(avant.enAttente !== null && { position: avant.enAttente }),
+      ...(g.joker === 'commandement' && { categorie: g.categorie }),
+      ...(g.joker === 'prediction' && { montre: g.montre }),
+    }
+  }
+  if (g.quoi === 'prendre') {
+    const offre = avant.offre
+    if (!offre) throw new Error('Il n’y a rien à prendre ici')
+    const pris = [...new Set(g.jokers)]
+    if (pris.some(j => !offre.jokers.includes(j))) throw new Error('Ce joker n’est pas dans l’offre : choisis parmi ceux-là')
+    if (g.talisman !== undefined && g.talisman !== offre.talisman) throw new Error('Ce talisman n’est pas dans l’offre')
+    // Le talisman prend la place d'un joker.
+    if (pris.length + (g.talisman ? 1 : 0) > offre.aPrendre) throw new Error(offre.aPrendre <= 1 ? 'Tu n’en prends qu’un' : `Tu n’en prends que ${offre.aPrendre}`)
+    return { quoi: 'prendre', jokers: pris, ...(g.talisman && { talisman: g.talisman }) }
+  }
+  if (g.quoi === 'acheter') {
+    if (l.depart.v < 4) throw new Error('Cette expédition n’a pas d’écus : recharge la page')
+    const refus = refusDeLAchat(avant, g)
+    if (refus) throw new Error(refus)
+    // Le journal garde le prix payé : un barème qui change ne refait pas un achat déjà fait.
+    return { quoi: 'acheter', article: g.article, ...((g.article === 'joker' || g.article === 'retirer') && { joker: g.joker }), prix: prixDeLArticle(g.article, g.joker) }
+  }
+  if (g.quoi === 'camper') {
+    if (!avant.campement) throw new Error('Tu n’es pas au campement')
+    if (g.retirer !== undefined && ![...avant.paquet, ...avant.defausse, ...avant.main].includes(g.retirer)) throw new Error('Ce joker n’est pas dans ton paquet')
+    return g
+  }
+  throw new Error('Ce geste ne se lit pas : recharge la page')
+}
+
+/**
+ * Le joker qui aide à répondre à la question qui attend — null : elle se
+ * répond nue. Une autre question (Échange, La mue) se pose nue ; deux au
+ * choix (Deux visages) ne l'est plus : on prend celle qu'on sait.
+ */
+function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
+  const joue = e.joue?.joker
+  if (joue && JOKERS_QUI_AIDENT.has(joue)) return joue
+  if (e.poses.includes('echolocation') && q.reponses.length > 2) return 'echolocation'
+  // La loupe lui a dit le siècle : une aide, comme l'Énigme — un talisman, mais la colonne garde sa clé.
+  if (e.talismans.includes('loupe') && aLaLoupe(q)) return 'loupe'
+  return null
+}
+
+/** Une question que la loupe éclaire : d'Histoire, et qui se date. */
+const aLaLoupe = (q: QuestionDeSerie) => q.categorie === 'Histoire' && siecleDeLaQuestion(q) !== null
+
+/** Un geste tel que le journal le garde, abandon compris ; null s'il ne se lit plus. */
+function gesteGarde(brut: unknown): GesteDExpedition | null {
+  try {
+    const lu: unknown = JSON.parse(String(brut))
+    return lu && typeof lu === 'object' && (lu as { quoi?: unknown }).quoi === 'abandonner' ? { quoi: 'abandonner' } : lireGeste(lu)
+  } catch {
+    return null
+  }
+}
+
+/** Une expédition lue : sa partie, son départ, ses gestes dans l'ordre, ses réponses par rang de question — et leur heure, au serveur. */
+interface ExpeditionLue {
+  serie: Serie
+  depart: DepartDExpedition
+  gestes: GesteDExpedition[]
+  reponses: Map<number, boolean>
+  /** L'heure où chaque réponse est arrivée : un dévoilement y lit le mot où il en était, et ses écus (`devoileA`). */
+  reponduesLe: Map<number, number>
+  /** Son passeport, lu avec elle : les thèmes pointus déjà tamponnés — la carte dit les autres, une réponse en ajoute un. */
+  tampons: ReadonlySet<string>
+}
+
+/** Une expédition en route gardée en mémoire (`CampagneStore.expeditions`). */
+interface ExpeditionGardee {
+  lue: ExpeditionLue
+  /**
+   * Ce qu'il avait vu, et quand (`lectureDesVues`), lu à son départ ou à son
+   * dernier tirage relu : null, à relire — rien encore, ou une réponse
+   * ailleurs dans la campagne l'a changé (`vuAilleurs`). Ce que l'expédition
+   * pose s'y ajoute au tirage, vu à l'instant.
+   */
+  vues: ReadonlyMap<string, number> | null
+}
+
+function expeditionLue(
+  ligne: Record<string, unknown> | undefined,
+  gestes: readonly Record<string, unknown>[],
+  reponses: readonly Record<string, unknown>[],
+  tampons: ReadonlySet<string>,
+): ExpeditionLue | null {
+  if (!ligne) return null
+  const serie = versSerie(ligne)
+  if (serie.mode !== 'expedition' || !serie.expedition) return null
+  return {
+    serie,
+    depart: serie.expedition,
+    gestes: gestes.map(r => gesteGarde(r.geste)).filter((g): g is GesteDExpedition => g !== null),
+    reponses: new Map(reponses.map(r => [Number(r.position), Number(r.juste) === 1])),
+    reponduesLe: new Map(reponses.map(r => [Number(r.position), Number(r.repondue_le)])),
+    tampons,
+  }
+}
+
+/**
+ * Son passeport (le 18 octobre 2026) : les thèmes pointus qu'il a trouvés en
+ * expédition, chacun une fois — une ligne par tampon, quatre-vingt-douze au
+ * plus. Dans le lot qui lit l'expédition, la page ou le départ : pas un
+ * aller-retour de plus ; et dans celui des paliers de la campagne
+ * (`statsDe`), pour le Globe-trotter.
+ */
+function lectureDuPasseport(profileId: string): InStatement {
+  return {
+    sql: `SELECT DISTINCT r.sujet AS sujet FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+          WHERE s.profile_id = ? AND s.mode = 'expedition' AND r.juste = 1 AND r.sujet IS NOT NULL`,
+    args: [profileId],
+  }
+}
+
+const tamponsLus = (lignes: readonly Record<string, unknown>[]): Set<string> => new Set(lignes.map(r => String(r.sujet)))
+
+/** Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa réponse est arrivée (invariant 6) : les mots dits, sur combien. */
+function devoileA(q: QuestionDeSerie, t: number): { mots: number; sur: number } | undefined {
+  if (q.forme !== 'devoilement' || q.devoileLe === undefined) return undefined
+  const sur = motsDe(q.texte).length
+  return { mots: motsDits(sur, q.devoileLe, t, q.arretLe), sur }
+}
+
+/**
+ * Où chaque question a été tirée, et ce qu'un joker doit en savoir : ce que
+ * le pli range. Jamais la bonne réponse. Sa catégorie, et pour un dévoilement
+ * répondu le mot où sa réponse est arrivée : ses écus en dépendent.
+ */
+const questionsPosees = (questions: readonly QuestionDeSerie[], reponduesLe?: ReadonlyMap<number, number>): QuestionPosee[] =>
+  questions.map((q, i) => {
+    const le = reponduesLe?.get(i)
+    const devoile = le === undefined ? undefined : devoileA(q, le)
+    return {
+      escale: q.escale ?? '',
+      acte: q.acte ?? 0,
+      reponses: q.reponses.length,
+      ...(q.nombre && { nombre: true }),
+      ...(q.forme && { forme: q.forme }),
+      ...(q.categorie && { categorie: q.categorie }),
+      ...(devoile && { devoile }),
+    }
+  })
+
+/** L'état d'une expédition lue (`pliDeLExpedition`). */
+const plier = (l: ExpeditionLue) => pliDeLExpedition(l.depart, l.gestes, questionsPosees(l.serie.questions, l.reponduesLe), l.reponses)
+
+/**
+ * Ce que la page reçoit d'une expédition : la carte de l'acte en cours, telle
+ * qu'il la joue — ses escales, leurs thèmes et la chance qu'il a sur
+ * chacune, publiques ; la catégorie que le Commandement impose à l'escale
+ * suivante ; plus une chance sous L'écholocation —, où il en est, ses
+ * jokers, et la question qui attend, sans sa bonne réponse ni son anecdote
+ * (invariant 1). Ce qu'un joker en montre — les réponses effacées, l'indice,
+ * ce que dit l'Oracle — se calcule ici, du côté qui sait la bonne. Ce que
+ * cache l'inconnu ne part qu'une fois dévoilé : par la boussole, par la
+ * lanterne (ses pièges), ou parce qu'il y est passé — la graine, qui le dit
+ * de chaque escale, reste au serveur. `possedes` : ses légendaires, pour
+ * marquer les gardiens déjà à lui.
+ */
+function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: ReadonlySet<string>): VueDeLExpedition {
+  const d = l.depart
+  const permises = escalesPermises(d, e)
+  const echo = e.poses.includes('echolocation')
+  const loupe = e.talismans.includes('loupe')
+  const joue = e.joue?.joker
+  const montree = (position: number): QuestionDExpedition | undefined => {
+    const q = l.serie.questions[position]
+    if (!q) return undefined
+    const effacees = reponsesEffacees(d.graine, position, q, (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0))
+    return {
+      ...questionMontree(q, position),
+      // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
+      ...(q.forme === 'devoilement' && { texte: '', devoilement: { mots: motsDe(q.texte).length } }),
+      ...(q.forme && { forme: q.forme }),
+      ...(q.proposee !== undefined && { proposee: q.proposee }),
+      escale: q.escale ?? '',
+      ...(effacees.length > 0 && { effacees }),
+      ...(joue === 'double-chance' && { deux: true as const }),
+      ...(joue === 'enigme' && { indice: indiceDeLEnigme(q) }),
+      ...(joue === 'prediction' && e.joue?.montre !== undefined && { prediction: { montre: e.joue.montre, sens: sensDeLOracle(q, e.joue.montre) } }),
+      ...(loupe && aLaLoupe(q) && { siecle: siecleDeLaQuestion(q)! }),
+    }
+  }
+  const boussole = e.talismans.includes('boussole')
+  /** Ce que cache un inconnu de la carte, s'il est dévoilé ; undefined sinon — et pour toute autre escale. */
+  const devoile = (x: EscaleDeLaCarte) => {
+    if (x.sorte !== 'inconnu') return undefined
+    const contenu = contenuDeLInconnu(d.graine, e.acte, x.id)
+    return boussole || e.trace.includes(x.id) || (e.lanterne && contenu === 'piege') ? contenu : undefined
+  }
+  /** Un thème pointu encore à tamponner, devant lui : le passeport le signale sur la carte. */
+  const aTamponner = (x: EscaleDeLaCarte) => !!x.theme && 'sujet' in x.theme && !l.tampons.has(x.theme.sujet) && !e.trace.includes(x.id)
+  let carte = e.acte < ACTES ? carteEnJeu(d, e) : null
+  if (carte && (e.route.commandement || echo || carte.escales.some(x => devoile(x) !== undefined || aTamponner(x)))) {
+    const lion = e.route.commandement
+    const escales = carte.escales.map(x => {
+      const y = { ...x }
+      if (lion && permises.includes(x.id) && (x.sorte === 'question' || x.sorte === 'elite')) {
+        y.theme = { categories: [lion] }
+        // Gardée à quatre choix : l'escale garde sa forme, et sa chance s'y ramène, comme au départ.
+        const chance = chanceAnnoncee(d, e.acte, x, lion)
+        if (chance !== undefined) y.chance = chance
+      }
+      const contenu = devoile(x)
+      if (contenu) y.contenu = contenu
+      // Lue après le Commandement : une escale qu'il change en catégorie ne tamponne plus rien.
+      if (aTamponner(y)) y.aTamponner = true
+      // L'écholocation : le prix d'un maudit, la carte ne dit plus sa chance.
+      if (echo) delete y.chance
+      return y
+    })
+    carte = { ...carte, escales }
+    if (echo) delete carte.chanceDuGardien
+  }
+  const jokers: JokersEnJeu | undefined =
+    d.v >= 2
+      ? {
+          main: e.main,
+          paquet: e.paquet,
+          defausse: e.defausse,
+          poses: e.poses,
+          refus: Object.fromEntries([...new Set(e.main)].map(cle => [cle, refusDuJoker(d, e, cle, questionsPosees(l.serie.questions))])),
+        }
+      : undefined
+  const question = e.enAttente === null ? undefined : montree(e.enAttente)
+  const autre = e.autre === null ? undefined : montree(e.autre)
+  const perte = joue === 'sursis' || joue === 'mue' ? 0 : joue === 'tout-ou-rien' || joue === 'quitte-ou-double' ? 2 : undefined
+  const route = e.route
+  return {
+    id: l.serie.id,
+    numero: d.numero,
+    acte: e.acte,
+    gardiens: d.gardiens.map((cle, i) => ({ cle, vaincu: i < e.vaincus, ...(possedes.has(cle) && { aLui: true as const }) })),
+    carte,
+    ici: e.ici,
+    trace: e.trace,
+    permises,
+    vies: e.vies,
+    justes: e.justes,
+    ...(question && { question }),
+    ...(autre && { autre }),
+    ...(e.gardien && { gardien: { trouvees: e.gardien.trouvees, aTrouver: MARCHES_DES_ACTES[e.acte].aTrouver } }),
+    issue: e.issue,
+    ...(e.garde && { garde: e.garde }),
+    moyen: d.moyen,
+    rang: l.gestes.length,
+    equipee: d.equipee ?? [],
+    ...(d.invite && { invite: d.invite }),
+    ...(jokers && { jokers }),
+    ...(joue && { joue }),
+    ...(perte !== undefined && { perte }),
+    ...(e.offre && { offre: e.offre }),
+    ...(e.campement && { campement: true as const }),
+    ...((route.detour || route.raccourci || route.commandement || e.lanterne) && {
+      route: {
+        ...(route.detour && { detour: true as const }),
+        ...(route.raccourci && { raccourci: true as const }),
+        ...(route.commandement && { commandement: route.commandement }),
+        ...(e.lanterne && { lanterne: true as const }),
+      },
+    }),
+    ...(echo && { sansChances: true as const }),
+    ...(d.v >= 4 && { ecus: e.ecus, talismans: e.talismans }),
+    ...(e.echoppe && { echoppe: e.echoppe }),
+    ...(e.inconnu && { inconnu: e.inconnu }),
+    ...(d.saison && { saison: d.saison }),
   }
 }
 
@@ -7148,6 +8332,63 @@ function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau): QuestionDeSer
   }
 }
 
+/** Une réponse comparable à une autre : sans casse ni accents, sans son article. */
+const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une|des)\s*/, '')
+
+/**
+ * Les leurres qu'un six choix ajoute aux quatre réponses d'une question :
+ * ceux qu'elle porte (`meta.leurres`, où ses mauvaises réponses sont toutes,
+ * recopiées à l'identique) qui n'en redisent pas une.
+ */
+function leurresDuSixChoix(q: QuestionDeLaBase): string[] {
+  const dites = new Set(q.reponses.map(reponseNette))
+  const leurres: string[] = []
+  for (const l of q.meta.leurres ?? []) {
+    const n = reponseNette(l)
+    if (!n || dites.has(n)) continue
+    dites.add(n)
+    leurres.push(l)
+  }
+  return leurres
+}
+
+/** Ce qu'une question de la base doit avoir pour se poser à cette forme ; rien à demander : undefined. */
+function seLaissePoser(forme: FormeDEscale | undefined): ((q: QuestionDeLaBase) => boolean) | undefined {
+  if (forme === 'six') return q => q.reponses.length > 2 && leurresDuSixChoix(q).length >= 2
+  if (forme === 'devoilement') return q => q.reponses.length > 2 && motsDe(q.texte).length >= MOTS_DU_DEVOILEMENT
+  return undefined
+}
+
+/**
+ * Une question tirée pour une escale, posée à sa forme (l'étape 3) : six
+ * choix — ses quatre réponses et deux leurres, mêlés —, un vrai ou faux tiré
+ * d'une question à quatre choix — son intitulé et une réponse proposée, la
+ * bonne une fois sur deux —, un dévoilement — son intitulé mot à mot, dès
+ * `maintenant`, l'heure de son tirage. Une question née vrai ou faux se
+ * pose telle qu'elle est écrite ; une forme qu'elle ne peut pas prendre la
+ * laisse à quatre choix.
+ */
+function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscale | undefined, maintenant: number): QuestionDeSerie {
+  if (forme === 'six') {
+    const leurres = leurresDuSixChoix(base).slice(0, 2)
+    if (leurres.length < 2) return q
+    const toutes = [...q.reponses, ...leurres]
+    const ordre = melanger(toutes.map((_, i) => i))
+    return { ...q, reponses: ordre.map(i => toutes[i]), bonne: ordre.indexOf(q.bonne), forme }
+  }
+  if (forme === 'vrai-faux') {
+    if (q.reponses.length <= 2) return q
+    const vraie = Math.random() < 0.5
+    const fausses = q.reponses.filter((_, i) => i !== q.bonne)
+    const proposee = vraie ? q.reponses[q.bonne] : fausses[Math.floor(Math.random() * fausses.length)]
+    // « Vrai », « Faux », dans cet ordre, comme un vrai ou faux de la base ; plus des nombres à montrer à l'Oracle.
+    const { nombre: _nombre, ...sansNombre } = q
+    return { ...sansNombre, reponses: ['Vrai', 'Faux'], bonne: vraie ? 0 : 1, forme, proposee }
+  }
+  if (forme === 'devoilement') return { ...q, forme, devoileLe: maintenant }
+  return q
+}
+
 /** Ce que le téléphone reçoit d'une question : jamais la bonne réponse ni l'anecdote avant la sienne. */
 function questionMontree(q: QuestionDeSerie, index: number): QuestionDeCampagne {
   return { index, texte: q.texte, reponses: q.reponses, categorie: q.categorie, niveau: q.niveau, ...(q.sousTheme && { sousTheme: q.sousTheme }) }
@@ -7239,7 +8480,7 @@ export function leurresApres(avant: QuestionDeLaBase, apres: CorrectionDeQuestio
 function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSignalement {
   const vue = lireLaVersionJouee(r.vue)
   const choix = r.choix === null || r.choix === undefined ? null : Number(r.choix)
-  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' ? r.mode : 'serie'
+  const ou = r.mode === 'sentier' || r.mode === 'defi' || r.mode === 'duel' || r.mode === 'revision' || r.mode === 'rencontre' || r.mode === 'sujet' || r.mode === 'expedition' ? r.mode : 'serie'
   return {
     profileId: String(r.profile_id),
     prenom: null,
@@ -7251,28 +8492,55 @@ function rapportDe(r: Record<string, unknown>, q: QuestionDeLaBase): RapportDeSi
     ou,
     ...(ou === 'sentier' && typeof r.branche === 'string' && { branche: r.branche }),
     ...(ou === 'sentier' && r.palier !== null && r.palier !== undefined && { palier: Number(r.palier) }),
-    reponse: vue && choix !== null ? (vue.reponses[choix] ?? null) : null,
+    // Un vrai ou faux tiré d'une question à quatre choix : « Vrai » seul ne dirait pas ce qu'il a jugé.
+    reponse: vue && choix !== null ? (vue.proposee !== undefined ? `« ${vue.proposee} » : ${choix === 0 ? 'vrai' : 'faux'}` : (vue.reponses[choix] ?? null)) : null,
     juste: r.juste === null || r.juste === undefined ? null : Number(r.juste) === 1,
     ...(vue && !memeVersion(vue, q) && { versionDAvant: true as const }),
   }
 }
 
+/** Une question telle qu'une série l'a jouée : ce qu'il en faut pour lire une réponse — et, en expédition, la forme où elle s'est posée. */
+interface VersionJouee {
+  texte: string
+  reponses: string[]
+  bonne: number
+  anecdote: string | null
+  forme?: string
+  proposee?: string
+}
+
 /** La question telle qu'une série l'a gardée (`QuestionDeSerie`) : ce qu'il en faut pour lire une réponse. Null : illisible. */
-function lireLaVersionJouee(brut: unknown): { texte: string; reponses: string[]; bonne: number; anecdote: string | null } | null {
+function lireLaVersionJouee(brut: unknown): VersionJouee | null {
   if (typeof brut !== 'string') return null
   try {
     const v = JSON.parse(brut) as Record<string, unknown>
     if (typeof v.texte !== 'string' || !Array.isArray(v.reponses) || typeof v.bonne !== 'number') return null
-    return { texte: v.texte, reponses: v.reponses.map(String), bonne: v.bonne, anecdote: typeof v.anecdote === 'string' ? v.anecdote : null }
+    return {
+      texte: v.texte,
+      reponses: v.reponses.map(String),
+      bonne: v.bonne,
+      anecdote: typeof v.anecdote === 'string' ? v.anecdote : null,
+      ...(typeof v.forme === 'string' && { forme: v.forme }),
+      ...(typeof v.proposee === 'string' && { proposee: v.proposee }),
+    }
   } catch {
     return null
   }
 }
 
-/** La même version qu'une question de la base : le même intitulé, les mêmes réponses — dans n'importe quel ordre, la série les mélange —, la même bonne, la même anecdote. */
-function memeVersion(vue: { texte: string; reponses: string[]; bonne: number; anecdote: string | null }, q: QuestionDeLaBase): boolean {
+/**
+ * La même version qu'une question de la base : le même intitulé, les mêmes
+ * réponses — dans n'importe quel ordre, la série les mélange —, la même
+ * bonne, la même anecdote. Posée à une autre forme en expédition, elle se
+ * compare à ce que la forme en a pris : six choix, ses quatre réponses parmi
+ * les six ; un vrai ou faux, la réponse proposée et ce qu'elle valait.
+ */
+function memeVersion(vue: VersionJouee, q: QuestionDeLaBase): boolean {
+  if (vue.texte !== q.texte || vue.anecdote !== q.anecdote) return false
+  if (vue.proposee !== undefined) return q.reponses.includes(vue.proposee) && (vue.proposee === q.reponses[q.bonne]) === (vue.bonne === 0)
+  if (vue.forme === 'six') return q.reponses.every(r => vue.reponses.includes(r)) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
   const triees = (r: readonly string[]) => [...r].sort().join('\n')
-  return vue.texte === q.texte && triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne] && vue.anecdote === q.anecdote
+  return triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
 }
 
 function melanger<T>(liste: readonly T[]): T[] {
@@ -7419,7 +8687,7 @@ const EMPRUNTS: Readonly<Record<Niveau, readonly Niveau[]>> = {
 export const VUE_RECENTE_MS = 24 * HEURE_MS
 
 /** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était ces dernières vingt-quatre heures. */
-function fraicheurDe(vues: ReadonlyMap<string, number>, maintenant: number) {
+function fraicheurDe(vues: Pick<ReadonlyMap<string, number>, 'get'>, maintenant: number) {
   return (id: string): { recente: number; vue: number; le: number } => {
     const le = vues.get(id)
     return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant) === 2 ? 1 : 0, vue: 1, le }
@@ -7900,6 +9168,134 @@ export function tirerUneEpreuve(
           tirees.push({ question: meilleure, niveau: n })
           break
         }
+      }
+    }
+  }
+  return melanger(tirees)
+}
+
+/**
+ * Un ordre au hasard qui se tire à mesure qu'on le lit : le p-ième rang ne
+ * se tire qu'au moment où on le demande (Fisher-Yates à l'endroit, ses
+ * échanges dans une table). Aussi uniforme que `melanger`, sans recopier ni
+ * battre tout un tas pour n'en lire que dix.
+ */
+class OrdreParesseux {
+  private readonly echanges = new Map<number, number>()
+  private readonly tires: number[] = []
+
+  constructor(private readonly n: number) {}
+
+  /** Le p-ième indice de l'ordre ; undefined au-delà du tas. */
+  rang(p: number): number | undefined {
+    while (this.tires.length <= p && this.tires.length < this.n) {
+      const i = this.tires.length
+      const j = i + Math.floor(Math.random() * (this.n - i))
+      const aJ = this.echanges.get(j) ?? j
+      this.echanges.set(j, this.echanges.get(i) ?? i)
+      // Le rang i est tiré : on ne le relira plus.
+      this.echanges.delete(i)
+      this.tires.push(aJ)
+    }
+    return this.tires[p]
+  }
+}
+
+/**
+ * Les questions d'une escale de l'expédition — une, ou celles d'un
+ * gardien —, choisies comme celles d'une épreuve (`tirerUneEpreuve`) : à sa
+ * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; jamais vues
+ * d'abord, une vue ces vingt-quatre heures en dernier ; puis le sous-thème le
+ * moins servi du tirage ; puis la jumelle d'une question déjà prise après les
+ * autres — celles que l'expédition a déjà posées comprises (`posees`) ; puis
+ * la plus anciennement vue. Le tas se lit au hasard, dans un ordre tiré à
+ * mesure (`OrdreParesseux`), et la lecture s'arrête à la première qui ne
+ * peut être battue — une jamais vue, d'un sous-thème encore à servir, sans
+ * jumelle : la même loi que le battage entier, quelques questions lues au
+ * lieu de toutes. Une épreuve bat d'avance les deux mille questions de sa
+ * catégorie pour en prendre seize ; une escale n'en prend qu'une, et le
+ * gardien tirait dans les vingt-cinq mille de la base : 17 ms de
+ * processeur à chaque gardien, dix fois plus au dixième de cœur de
+ * l'hébergeur (le banc du 17 octobre 2026). Le tas vient en morceaux — les
+ * catégories d'un mélange, chacune gardée (`deLaCategorie`) —, lus comme un
+ * seul. `garde` écarte ce que la forme de l'escale ne sait pas poser : six
+ * choix sans deux leurres, un dévoilement de trois mots.
+ */
+export function tirerPourUneEscale(
+  tas: readonly (readonly QuestionDeLaBase[])[],
+  marche: Niveau,
+  combien: number,
+  {
+    sansVraiFaux,
+    garde,
+    vues,
+    mesure,
+    maintenant,
+    posees = [],
+  }: {
+    sansVraiFaux: boolean
+    garde?: (q: QuestionDeLaBase) => boolean
+    /** Ce qu'il a vu, et quand ; ce que l'expédition a posé, à l'instant. */
+    vues: Pick<ReadonlyMap<string, number>, 'get'>
+    mesure: ReadonlyMap<string, MesureDUneQuestion>
+    maintenant: number
+    /** Les questions que l'expédition a déjà posées : leurs jumelles passent après. */
+    posees?: readonly Intitule[]
+  },
+): { question: QuestionDeLaBase; niveau: Niveau }[] {
+  const n = tas.reduce((s, morceau) => s + morceau.length, 0)
+  const question = (k: number): QuestionDeLaBase => {
+    for (const morceau of tas) {
+      if (k < morceau.length) return morceau[k]
+      k -= morceau.length
+    }
+    throw new RangeError(`question ${k} hors du tas`)
+  }
+  const ordre = new OrdreParesseux(n)
+  // La marche de chaque question lue, une fois : une place relit le début de l'ordre.
+  const marches = new Map<number, Niveau>()
+  const marcheDeLa = (k: number, q: QuestionDeLaBase): Niveau => {
+    let m = marches.get(k)
+    if (m === undefined) marches.set(k, (m = niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))))
+    return m
+  }
+  const usage = new Map<string, number>()
+  const prises = new Set<number>()
+  const deja = new DejaPrises()
+  for (const q of posees) deja.prendre(q)
+  const fraicheur = fraicheurDe(vues, maintenant)
+  const rang = (q: QuestionDeLaBase): number[] => {
+    const f = fraicheur(q.id)
+    return [f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
+  }
+  const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
+  for (let place = 0; place < combien; place++) {
+    for (const m of EMPRUNTS[marche]) {
+      let meilleure = -1
+      let sonRang: number[] | null = null
+      for (let p = 0; ; p++) {
+        const k = ordre.rang(p)
+        if (k === undefined) break
+        if (prises.has(k)) continue
+        const q = question(k)
+        if (sansVraiFaux && q.reponses.length === 2) continue
+        if (marcheDeLa(k, q) !== m) continue
+        if (garde && !garde(q)) continue
+        const r = rang(q)
+        if (!sonRang || passeAvant(r, sonRang)) {
+          meilleure = k
+          sonRang = r
+          // Jamais vue, d'un sous-thème encore à servir, sans jumelle : rien ne fera mieux.
+          if (r.every(x => x === 0)) break
+        }
+      }
+      if (meilleure >= 0) {
+        const q = question(meilleure)
+        prises.add(meilleure)
+        deja.prendre(q)
+        usage.set(q.meta.sousTheme, (usage.get(q.meta.sousTheme) ?? 0) + 1)
+        tirees.push({ question: q, niveau: m })
+        break
       }
     }
   }

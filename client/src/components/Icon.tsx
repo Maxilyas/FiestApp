@@ -137,6 +137,16 @@ export type IconName =
   // Les missions du jour et le coffre de la semaine.
   | 'coffre'
   | 'missions'
+  // L'expédition : la source qui rend une vie, le campement avant le gardien ;
+  // ses écus, l'échoppe qui les dépense, la boussole et le maillot jaune ;
+  // le tampon de son passeport.
+  | 'source'
+  | 'campement'
+  | 'ecu'
+  | 'echoppe'
+  | 'boussole'
+  | 'maillot'
+  | 'tampon'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -920,6 +930,60 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M10 6h10M10 12h10M10 18h10" />
         <path d="m3.5 6 1.4 1.4 2.6-2.6M3.5 12l1.4 1.4 2.6-2.6" />
         <circle cx="5.2" cy="18" r="1.4" />
+      </>
+    ),
+  },
+  // Une goutte : la source de l'expédition, qui rend une vie.
+  source: { paths: <path d="M12 3.5s6 6.4 6 10.6a6 6 0 0 1-12 0c0-4.2 6-10.6 6-10.6Z" /> },
+  // Un feu sur ses deux bûches : le campement, la dernière halte avant le gardien.
+  campement: {
+    paths: (
+      <>
+        <path d="M12 3c1 3.2 4.5 4.8 4.5 8.8a4.5 4.5 0 0 1-9 0c0-2.1 1.1-3.5 2.2-4.6.2 1.5.9 2.4 1.8 2.8-.4-2.2.1-4.8.5-7Z" />
+        <path d="M4 21l16-4M20 21 4 17" />
+      </>
+    ),
+  },
+  // Une pièce frappée d'une couronne : l'écu, la monnaie de l'expédition — pas un confetti.
+  ecu: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="5.5" />
+        <path d="m9.6 13.4-.6-3 1.8 1.2L12 9.4l1.2 2.2L15 10.4l-.6 3h-4.8Z" />
+      </>
+    ),
+  },
+  // Un étal sous son auvent rayé : l'échoppe.
+  echoppe: {
+    paths: (
+      <>
+        <path d="M3.5 9.5 5 4.5h14l1.5 5" />
+        <path d="M3.5 9.5a2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0 2.1 2.1 0 0 0 4.25 0" />
+        <path d="M5 11.5v8.5h14v-8.5M10 20v-4.5h4V20" />
+      </>
+    ),
+  },
+  // Une boussole : l'inconnu se dévoile.
+  boussole: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2Z" />
+      </>
+    ),
+  },
+  // Un maillot : le sport paie double.
+  maillot: {
+    paths: <path d="M9 3.5 4 6l-1.5 4.5L6 12v8.5h12V12l3.5-1.5L20 6l-5-2.5a3 3 0 0 1-6 0Z" />,
+  },
+  // Un tampon encreur, sa poignée et son trait : le passeport de l'expédition.
+  tampon: {
+    paths: (
+      <>
+        <path d="M10 13.5V10c0-1.2-1.2-1.8-1.2-3.4a3.2 3.2 0 0 1 6.4 0c0 1.6-1.2 2.2-1.2 3.4v3.5" />
+        <path d="M5 18v-2a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 16v2Z" />
+        <path d="M5 21h14" />
       </>
     ),
   },

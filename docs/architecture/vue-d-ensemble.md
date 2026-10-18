@@ -271,10 +271,12 @@ disparaissait sans un mot. → [Le temps réel](./temps-reel.md)
 
 ### Les identités
 
-**8. Un profil ne donne aucun avantage de jeu, et un invité anonyme n'affiche
-rien** — ni « Niv. 0 », ni pastille grise : l'absence, pas l'infériorité ; le
-chemin sans compte reste la valeur de l'application. Un profil reconnu ne
-rechoisit jamais prénom ni avatar. → [Le profil](../produit/le-profil.md)
+**8. Un profil ne donne aucun avantage de jeu face aux autres, et un invité
+anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise : l'absence, pas
+l'infériorité ; le chemin sans compte reste la valeur de l'application. Seule
+l'Expédition, qu'on joue seul, fait servir ce qu'on a gagné, et ses jokers
+n'en sortent jamais. Un profil reconnu ne rechoisit jamais prénom ni avatar.
+→ [Le profil](../produit/le-profil.md) · [L'Expédition](../produit/l-expedition.md)
 
 **9. La fiche du serveur fait foi.** Une re-présentation par jeton ignore le
 prénom et l'avatar envoyés — sinon le renommage par l'animateur tombait au

@@ -25,6 +25,16 @@ import type { PrixDeSoiree } from '../auth/profiles'
 export const calendrierDesSoirees: { periodeDu: typeof periodeDu } = { periodeDu }
 
 /**
+ * Le calendrier des expéditions : la saison d'un départ, à l'heure de Paris
+ * (le 18 octobre 2026) — sa fête plus souvent sur les cartes
+ * (`PART_DE_LA_FETE`), son légendaire en gardien de l'acte 3. Le banc et le
+ * smoke le ferment comme celui des soirées : du 25 octobre au 1er novembre,
+ * chaque expédition des tests aurait mis la Citrouille au bout de l'acte 3.
+ * `expedition-saison.test.ts` le rouvre.
+ */
+export const calendrierDesExpeditions: { periodeDu: typeof periodeDu } = { periodeDu }
+
+/**
  * Les récompenses de saison d'une soirée, profil par profil. Elle se date à
  * sa première question jouée, comme son nom (`soireeDesInvites`) : l'heure
  * de Paris, que le quiz du jour suit aussi.

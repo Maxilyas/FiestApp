@@ -11,7 +11,9 @@
 // ligne du journal des réponses par invité et par question (`jouees`, la
 // fiche de la soirée) ; au quiz du jour, celles de sa partie
 // (`jour_parties.question`) ; en campagne et en duel, celles de sa série
-// (`campagne_series.position`). Une partie : un quiz de soirée, une partie du
+// (`campagne_series.position`) — une expédition, ses réponses : sa position
+// saute les questions de reste d'un gardien vaincu, jamais posées
+// (`seriesDepuis`). Une partie : un quiz de soirée, une partie du
 // jour, une série de campagne, un duel — chaque côté d'un duel classé compte
 // le sien, comme les « Duels joués » de la vue d'ensemble. Une partie se date
 // à son début : celle qui court sur deux jours compte au premier.

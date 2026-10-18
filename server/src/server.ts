@@ -295,7 +295,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const debut = performance.now()
     res.on('finish', () => {
       const modele: unknown = req.route?.path
-      if (typeof modele !== 'string') return
+      // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition — dure ce qu'elle raconte : ce n'est pas une attente.
+      if (typeof modele !== 'string' || res.locals.auFilDuTemps) return
       const ms = performance.now() - debut
       pouls.noterRoute(`${req.method} ${modele}`, ms)
       // Et heure par heure, pour la page « Le serveur » du QG.

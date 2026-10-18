@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
-import { calendrierDesSoirees } from '../src/core/saisons'
+import { calendrierDesExpeditions, calendrierDesSoirees } from '../src/core/saisons'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
@@ -23,7 +23,10 @@ export type { Socket }
 // Noël ou le Nouvel An, elle ouvrirait son légendaire de saison, et chaque
 // épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
 // an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
+// Celui des expéditions aussi, qui mettrait le légendaire de la saison au
+// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre.
 calendrierDesSoirees.periodeDu = () => null
+calendrierDesExpeditions.periodeDu = () => null
 
 /**
  * Une petite base de campagne, inventée et valide (`lireQuestionDeLaBase`) :

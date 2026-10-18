@@ -54,6 +54,12 @@ paths:
   chaque dé, 79 Ko et 2,3 ms en un texte ; la mesure, onze mille lignes,
   toutes les dix minutes, sur le chemin de la requête qui la trouvait
   périmée.
+- **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
+  avant le lot de la série et de ses modes, de l'épreuve, du parcours) :
+  l'expédition en route garde en mémoire ce qu'il a vu, lu à son départ, et
+  ne le relit qu'ainsi (règle `expedition.md`). Une porte neuve qui écrit
+  dans `campagne_reponses` l'appelle aussi : sans, l'escale suivante
+  pourrait reposer, comme jamais vue, la question qu'il vient de voir.
 - **La mesure se relit avant d'être due** : demandée dans ses deux
   dernières minutes (`MESURE_EN_AVANCE_MS`), la suivante part en fond, puis
   ses familles et la préparation du tirage de toutes les catégories
