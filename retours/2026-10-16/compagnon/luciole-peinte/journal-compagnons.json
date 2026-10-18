@@ -738,5 +738,129 @@
       "serviceTier": "standard"
     },
     "cout": 0.13991
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "adulte-decoupe",
+    "date": "2026-10-18T21:05:17.693Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 471,
+      "candidatesTokenCount": 1282,
+      "totalTokenCount": 1964,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 213
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 211,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139818
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "adulte-depite",
+    "date": "2026-10-18T21:05:32.785Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 437,
+      "candidatesTokenCount": 1295,
+      "totalTokenCount": 1932,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 179
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 200,
+      "serviceTier": "standard"
+    },
+    "cout": 0.139774
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "adulte-triomphe",
+    "date": "2026-10-18T21:05:33.542Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 433,
+      "candidatesTokenCount": 1270,
+      "totalTokenCount": 1875,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 175
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 172,
+      "serviceTier": "standard"
+    },
+    "cout": 0.13913
+  },
+  {
+    "compagnon": "luciole",
+    "nom": "adulte-ravi",
+    "date": "2026-10-18T21:05:34.487Z",
+    "modele": "gemini-3-pro-image",
+    "taille": "1K",
+    "jetons": {
+      "promptTokenCount": 436,
+      "candidatesTokenCount": 1292,
+      "totalTokenCount": 1967,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 178
+        },
+        {
+          "modality": "IMAGE",
+          "tokenCount": 258
+        }
+      ],
+      "candidatesTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1120
+        }
+      ],
+      "thoughtsTokenCount": 239,
+      "serviceTier": "standard"
+    },
+    "cout": 0.140204
   }
 ]

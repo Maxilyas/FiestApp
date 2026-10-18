@@ -120,14 +120,14 @@ try {
   await planche(
     'niche-duree',
     'Après 500 : sa niche s’embellit',
-    'Sa forme ultime atteinte, ses bonnes réponses continuent de compter : à chaque palier, la niche gagne un ornement et le garde. Rien ne bouge de place, rien ne grandit — la même niche, plus belle.',
+    'Sa forme ultime atteinte, ses bonnes réponses continuent de compter : à chaque palier, la niche gagne un ornement et le garde. Les paliers suivent le rythme mesuré en production — pour un joueur du troisième quartile, environ six semaines, quatre mois, neuf mois, deux ans.',
     [
       [
         { niche: { ...ultime }, palier: '500', titre: 'Sa forme ultime', sous: 'le bout des quatre formes' },
-        { niche: { ...ultime, ornement: 'ami' }, palier: '1 000', titre: 'Amis pour la vie', sous: 'une guirlande de petites lampes' },
-        { niche: { ...ultime, ornement: 'complice' }, palier: '2 500', titre: 'Complices', sous: 'du lierre et des fleurs au rebord' },
-        { niche: { ...ultime, ornement: 'inseparable' }, palier: '5 000', titre: 'Inséparables', sous: 'l’arche dorée, son étoile' },
-        { niche: { ...ultime, ornement: 'legende' }, palier: '10 000', titre: 'Légende', sous: 'un halo, et son ciel qui scintille' },
+        { niche: { ...ultime, ornement: 'ami' }, palier: '1 500', titre: 'Amis pour la vie', sous: 'une guirlande de petites lampes' },
+        { niche: { ...ultime, ornement: 'complice' }, palier: '4 000', titre: 'Complices', sous: 'du lierre et des fleurs au rebord' },
+        { niche: { ...ultime, ornement: 'inseparable' }, palier: '10 000', titre: 'Inséparables', sous: 'l’arche dorée, son étoile' },
+        { niche: { ...ultime, ornement: 'legende' }, palier: '25 000', titre: 'Légende', sous: 'un halo, et son ciel qui scintille' },
       ],
     ],
   )

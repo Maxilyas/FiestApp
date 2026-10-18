@@ -114,9 +114,16 @@ const DECOR_SEUL = (garde: string) =>
   'The result shows only the empty setting: there is no animal, no creature and no character anywhere in it. No text, no frame. ' +
   'Output one square image (1:1 aspect ratio).'
 
-const DECOUPE = (garde: string, retirer: string, c: Chroma) =>
+// Ce qui est translucide prend la couleur du fond uni, et le détourage la
+// garde : les ailes et la traînée de la luciole adulte sortaient roses du
+// magenta (le 18 octobre 2026). Une forme qui en a les nomme (`opaque`).
+const DECOUPE = (garde: string, retirer: string, c: Chroma, opaque?: string) =>
   `Edit the attached image. Keep ${garde} exactly as it is — same pose, same position, same size, same outline, same colors and details, untouched. ` +
   `Replace everything else with ${fondUni(c)}. In particular, replace ${retirer} with the flat color. ` +
+  (opaque
+    ? `Paint ${opaque} fully opaque, in their own colors as in the original illustration: the flat background color must never show through ` +
+      'them, nor tint them. '
+    : '') +
   'Do not move, resize, crop, redraw or restyle what you keep. Output one square image (1:1 aspect ratio).'
 
 /** Les trois expressions qui se repeignent ; la neutre est la forme elle-même. */
@@ -156,6 +163,8 @@ interface Forme {
   /** Ce que sa découpe garde, et ce qu'elle retire. */
   garde: string
   retirer?: string
+  /** Ce qui est translucide et doit sortir opaque de sa découpe, sans quoi le fond uni le teinte. */
+  opaque?: string
   /** Le fond uni de ses découpes : vert, sauf pour qui porte du vert (la carapace moussue de la tortue). */
   chroma?: Chroma
 }
@@ -591,6 +600,7 @@ const LUCIOLE: Compagnon = {
       deborde: 'its raised antennae and the tips of its open wings',
       garde: 'the firefly — its head, antennae, body, wings, legs, its glowing belly and the ribbon of light it trails',
       retirer: 'the trees, the path, the roots, the ferns and the night',
+      opaque: 'its wings (pale amber and cream, with their amber veins) and the ribbon of light it trails (a warm yellow-green glow)',
       chroma: 'magenta',
     },
     {
@@ -677,7 +687,7 @@ function travaux(c: Compagnon, style: string | undefined, eclats: string[]): Tra
     t.push({ nom: f.id, sources: [feuille], consigne: consigneDeForme(c, i, s.consigne) })
     if (f.decor) {
       t.push({ nom: `${f.id}-decor`, sources: [f.id], consigne: DECOR_SEUL(f.garde) })
-      t.push({ nom: `${f.id}-decoupe`, sources: [f.id], consigne: DECOUPE(f.garde, f.retirer ?? 'the setting', f.chroma ?? 'vert') })
+      t.push({ nom: `${f.id}-decoupe`, sources: [f.id], consigne: DECOUPE(f.garde, f.retirer ?? 'the setting', f.chroma ?? 'vert', f.opaque) })
     }
   })
   for (const f of c.formes) {

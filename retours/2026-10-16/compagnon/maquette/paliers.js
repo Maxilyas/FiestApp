@@ -37,7 +37,7 @@
     [0, 72, 144, 216, 288].map(a => `<circle cx="${x + Math.cos((a * Math.PI) / 180) * r}" cy="${y + Math.sin((a * Math.PI) / 180) * r}" r="${r * 0.82}" fill="${couleur}"/>`).join('') +
     `<circle cx="${x}" cy="${y}" r="${r * 0.6}" fill="#ffd36a"/>`
 
-  /** Les ornements d'une niche, jusqu'au palier donné : 'ami' (1 000), 'complice' (2 500), 'inseparable' (5 000), 'legende' (10 000). */
+  /** Les ornements d'une niche, jusqu'au palier donné : 'ami' (1 500), 'complice' (4 000), 'inseparable' (10 000), 'legende' (25 000) — recalés sur le rythme de la production. */
   function orner(nc, palier) {
     styles()
     const rang = ['ami', 'complice', 'inseparable', 'legende'].indexOf(palier)
