@@ -33,6 +33,14 @@
 // seules n'y mènent pas — l'issue tient à ce qu'il sait —, il faudrait durcir
 // les adversaires des premiers niveaux, ce qu'on attend d'une semaine de jeu.
 //
+// Les exploits (le même soir) : la carrière dit quand chacun tombe. Au premier
+// réglage — un adversaire ordinaire d'une seule réponse, n'importe quel
+// gardien sans perdre de courage, dix d'affilée —, le moyen les faisait tous
+// à sa première expédition ; réglés — une élite, le gardien de l'acte 3,
+// vingt d'affilée —, il fait chacun six fois sur dix en vingt expéditions, le
+// fort presque toujours, le faible une ou deux fois sur dix ; le gros pari
+// tombe à la deuxième ou la troisième pour tous, dès que le pari s'ouvre.
+//
 //   npx tsx scripts/calibrage-rencontres.ts [--expeditions 1000] [--version 7] [--cas 0] [--niveau 3]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
@@ -72,7 +80,7 @@ import {
   type QuestionPosee,
 } from '../../shared/expedition'
 import { COURAGE_MAX, carteDeRencontre, effaceesDuTour } from '../../shared/rencontres'
-import { NIVEAUX, codexDuNiveau, niveauDe, renommeeDe } from '../../shared/codex'
+import { EXPLOITS, NIVEAUX, codexDuNiveau, niveauDe, renommeeDe, type CleDExploit } from '../../shared/codex'
 
 function option(nom: string, defaut: number): number {
   const i = process.argv.indexOf(`--${nom}`)
@@ -153,6 +161,8 @@ interface Issue {
   courage: number
   /** La renommée qu'elle rapporte (`renommeeDe`), au bout ou non. */
   renommee: number
+  /** Les exploits qu'elle a faits : la carrière ouvre leur carte à la suivante. */
+  exploits: CleDExploit[]
   /** Ses trois gardiens : au bout, la carrière en garde un. */
   gardiens: string[]
 }
@@ -224,6 +234,8 @@ interface Cas {
   nom: string
   equipee: string[]
   niveau?: number
+  /** Au codex : les exploits qu'il a faits — leurs cartes ouvertes. */
+  exploits?: CleDExploit[]
 }
 
 function jouer(j: Joueur, graine: string, cas: Cas): Issue {
@@ -239,7 +251,7 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
   const fetiche = [...CATEGORIES].sort((a, b) => (j.categories.get(b) ?? 0) - (j.categories.get(a) ?? 0))[0]
   // Au codex, l'invité du jour d'un jour tiré de la graine ; ses légendaires gardés ouvrent leur carte, et ne gardent plus d'acte.
   const invite = inviteDuJour(graine)
-  const codex = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee) : undefined
+  const codex = VERSION >= 7 ? codexDuNiveau(cas.niveau ?? 1, cas.equipee, cas.exploits ?? []) : undefined
   const depart: DepartDExpedition = {
     v: VERSION,
     graine,
@@ -475,6 +487,7 @@ function jouer(j: Joueur, graine: string, cas: Cas): Issue {
         ecus: e.ecus + depenses,
         courage: e.courage ?? 0,
         renommee: renommeeDe(bilanDuPli(e)),
+        exploits: e.exploits,
         gardiens: depart.gardiens,
       }
     }
@@ -562,7 +575,12 @@ const CAS: Cas[] =
         { nom: 'Niveau 1 — sa première expédition, sans légendaire', equipee: [], niveau: 1 },
         { nom: 'Niveau 3 — le pari ouvert', equipee: [], niveau: 3 },
         { nom: 'Niveau 6 — les talismans et la fétiche ouverts, la Chouette et le Phénix gardés', equipee: ['lg:chouette', 'lg:phenix'], niveau: 6 },
-        { nom: 'Niveau 10 — le codex entier, quatre légendaires gardés', equipee: ['lg:chouette', 'lg:phenix', 'lg:dragon', 'lg:janus'], niveau: 10 },
+        {
+          nom: 'Niveau 10 — le codex entier, ses exploits faits, quatre légendaires gardés',
+          equipee: ['lg:chouette', 'lg:phenix', 'lg:dragon', 'lg:janus'],
+          niveau: 10,
+          exploits: EXPLOITS.map(x => x.cle),
+        },
       ]
     : [
         { nom: 'Le paquet de départ seul', equipee: [] },
@@ -594,6 +612,8 @@ for (const cas of UN_NIVEAU ? [UN_NIVEAU] : UN_CAS === null ? CAS : [CAS[UN_CAS]
  * gardent un gardien qu'ils n'avaient pas, dont la carte rejoint leur codex.
  * Combien d'expéditions pour chaque niveau, et combien vont au bout en
  * chemin : ce que le joueur vit, là où le tableau d'au-dessus fige un niveau.
+ * Ses exploits aussi : faits, leur carte s'ouvre à l'expédition suivante —
+ * et quand chacun tombe, et pour combien de joueurs en vingt expéditions.
  */
 if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null) {
   const CARRIERES = Math.max(20, Math.round(EXPEDITIONS / 10))
@@ -605,32 +625,53 @@ if (VERSION >= 7 && !UN_NIVEAU && UN_CAS === null) {
   ]
   console.log(`La carrière — ${CARRIERES} joueurs de chaque sorte, ${LONGUEUR} expéditions chacun, du niveau 1.`)
   console.log(`  joueur   expéditions pour le niveau ${NIVEAUX.slice(1).map((_, i) => i + 2).join(' · ')}   au bout : ${TRANCHES.map(([nom]) => nom).join(' · ')}`)
+  const parExploit = new Map<string, { nom: string; premieres: number[] }[]>()
   for (const [nom, theta] of JOUEURS) {
     // Pour chaque niveau, l'expédition — comptée de 1 — où chaque carrière l'a atteint ; Infinity : pas en vingt.
     const atteint: number[][] = NIVEAUX.slice(1).map(() => [])
+    const exploitsFaits: number[][] = EXPLOITS.map(() => [])
     const tranches = TRANCHES.map(() => ({ auBout: 0, jouees: 0 }))
     for (let c = 0; c < CARRIERES; c++) {
       const j = unJoueur(theta, `carriere:${nom}:${c}`)
       const siens: string[] = []
+      const faits: CleDExploit[] = []
       let renommee = 0
       const premiere = NIVEAUX.slice(1).map(() => Infinity)
+      const premierExploit = EXPLOITS.map(() => Infinity)
       for (let k = 0; k < LONGUEUR; k++) {
-        const issue = jouer(j, `carriere:${nom}:${c}:${k}`, { nom, equipee: siens, niveau: niveauDe(renommee) })
+        const issue = jouer(j, `carriere:${nom}:${c}:${k}`, { nom, equipee: siens, niveau: niveauDe(renommee), exploits: [...faits] })
         renommee += issue.renommee
         const garde = issue.auBout ? issue.gardiens.find(g => !siens.includes(g)) : undefined
         if (garde) siens.push(garde)
+        for (const x of issue.exploits) if (!faits.includes(x)) faits.push(x)
         NIVEAUX.slice(1).forEach((seuil, n) => {
           if (renommee >= seuil && premiere[n] === Infinity) premiere[n] = k + 1
+        })
+        EXPLOITS.forEach((x, n) => {
+          if (faits.includes(x.cle) && premierExploit[n] === Infinity) premierExploit[n] = k + 1
         })
         const t = TRANCHES.findIndex(([, de, a]) => k >= de && k < a)
         tranches[t].jouees++
         if (issue.auBout) tranches[t].auBout++
       }
       premiere.forEach((k, n) => atteint[n].push(k))
+      premierExploit.forEach((k, n) => exploitsFaits[n].push(k))
     }
     const mediane = (liste: number[]) => [...liste].sort((a, b) => a - b)[Math.floor(liste.length / 2)]
     const pour = atteint.map(liste => (mediane(liste) === Infinity ? '—' : String(mediane(liste))))
     console.log(`  ${nom.padEnd(8)} ${pour.join(' · ').padEnd(44)}   ${tranches.map(t => pc(t.auBout / t.jouees)).join(' · ')}`)
+    parExploit.set(nom, exploitsFaits.map((premieres, n) => ({ nom: EXPLOITS[n].cle, premieres })))
+  }
+  console.log('')
+  // Chaque exploit : la part des joueurs qui l'ont fait en vingt expéditions, et à la combientième la médiane d'entre eux.
+  console.log(`Les exploits — en ${LONGUEUR} expéditions : la part des joueurs qui l'ont fait, et à la combientième, pour la médiane d'entre eux.`)
+  console.log(`  joueur   ${EXPLOITS.map(x => x.cle).join(' · ')}`)
+  for (const [nom, exploits] of parExploit) {
+    const dits = exploits.map(({ premieres }) => {
+      const faites = premieres.filter(k => k !== Infinity).sort((a, b) => a - b)
+      return faites.length === 0 ? '—' : `${pc(faites.length / premieres.length)} (${faites[Math.floor(faites.length / 2)]}e)`
+    })
+    console.log(`  ${nom.padEnd(8)} ${dits.join(' · ')}`)
   }
   console.log('')
 }

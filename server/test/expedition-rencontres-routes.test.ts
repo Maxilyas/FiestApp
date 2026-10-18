@@ -211,7 +211,7 @@ test('la page propose les rencontres ; le départ les prend — son courage, ses
   assert.equal(depart.v, 7)
   assert.deepEqual(v.cartes?.parQuestion, [3, 4, 5], 'les règles disent ce que tire chaque acte : la page n’en recopie rien')
   assert.deepEqual(depart.codex, { ...codexDuNiveau(1, []), renommee: 0 })
-  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0 })
+  assert.deepEqual(v.cartes?.codex, { niveau: 1, regles: [], renommee: 0, exploits: [] })
   assert.equal(depart.fetiche, undefined)
 })
 

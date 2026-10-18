@@ -77,6 +77,7 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
+import { exploitDe } from '../../../shared/codex'
 import {
   CARTES_DES_ACTES,
   CARTES_DES_RENCONTRES,
@@ -119,10 +120,13 @@ import {
   ceQueLaCarteAFait,
   changementDeLaCarte,
   comptesDesCartes,
+  dosDuPaquet,
+  exploitsNeufs,
   feticheRetenue,
   gemmeDeLaCarte,
   origineDeLaCarte,
   pourcents,
+  recompenseDe,
   rencontresRetenues,
   retenirLesRencontres,
   verdictDeLaRencontre,
@@ -1831,6 +1835,7 @@ export function CarteDeLActe({
               busy={busy}
               enPetit
               pile={{ compte: vue.cartes.paquet.length, mot: 'paquet', dit: `Ton paquet : ${vue.cartes.paquet.length} carte${vue.cartes.paquet.length > 1 ? 's' : ''}`, onOuvrir: () => setPaquet(true) }}
+              dos={dosDuPaquet(vue)}
               onJouer={onJouer}
             />
           )}
@@ -2770,6 +2775,9 @@ function Revelation({
   // En rencontre, le coup de la réponse dit ce qu'elle a brisé ou coûté : ses lignes remplacent les écus de l'escale.
   const coup = r.coup ? verdictDeLaRencontre(r.coup, adversaire ?? 'L’adversaire', finie) : null
   const verdict = coup ? coup.titre : verdictDe(r, avant, source, finie)
+  // L'exploit que cette réponse vient de faire (le codex) : neuf pour son codex, et pas encore dit à la question d'avant.
+  const dits = avant ? exploitsNeufs(avant) : []
+  const exploits = exploitsNeufs(r.expedition).filter(x => !dits.includes(x))
   const geste: ReactNode = r.vaincu
     ? `${nomDuGardien(r.vaincu)} est ${gardienAuFeminin(r.vaincu) ? 'vaincue' : 'vaincu'}`
     : finie
@@ -2802,6 +2810,13 @@ function Revelation({
                 {espacesFines(`Nouveau tampon : ${sujetParCle(r.tampon)?.nom ?? r.tampon}`)}
               </p>
             )}
+            {/* Un exploit : ce qu'il ouvre, au futur — son codex est figé, il compte dès l'expédition suivante. */}
+            {exploits.flatMap(x => exploitDe(x) ?? []).map(x => (
+              <p key={x.cle} className="exp-gain-ecus exp-gain-exploit">
+                <Icon name="medal" />
+                {espacesFines(`Exploit : ${x.but} — ${recompenseDe(x, true)}.`)}
+              </p>
+            ))}
             <GerbeDeJuste />
           </>
         ) : (
@@ -3551,7 +3566,7 @@ export function FinDeLExpedition({
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}
       {/* Le codex (v7) : la renommée qu'elle rapporte, perdue aussi, et le niveau qu'elle fait passer. */}
-      {vue.cartes?.codex && vue.renommee !== undefined && <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} />}
+      {vue.cartes?.codex && vue.renommee !== undefined && <RenommeeGagnee avant={vue.cartes.codex.renommee ?? 0} gagnee={vue.renommee} exploits={exploitsNeufs(vue)} />}
       <CeQueTuGagnes
         parts={partsDeLXp([
           { nom: 'tes bonnes réponses', xp: gains.xp },

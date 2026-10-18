@@ -16,7 +16,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import type { Niveau } from '../../../shared/campagne'
 import type { RareteDeTheme } from '../../../shared/themes'
 import { MARCHES_DES_ACTES, duGardien, gardienAuFeminin, leGardien, nomDuGardien, type CodexDeLaPage, type FormeDEscale, type VueDeLExpedition } from '../../../shared/expedition'
-import { ECHELLE, RENOMMEE, niveauDeLaRegle, ouvertureDe, progressionDe, type RegleDuCodex } from '../../../shared/codex'
+import { ECHELLE, EXPLOITS, RENOMMEE, exploitDe, niveauDeLaRegle, ouvertureDe, progressionDe, type CleDExploit, type Exploit, type RegleDuCodex } from '../../../shared/codex'
 import {
   CARTES_DES_RENCONTRES,
   CARTES_PAR_QUESTION,
@@ -514,6 +514,7 @@ export function MainDeRencontre({
   busy,
   enPetit,
   pile,
+  dos,
   inspiration,
   phase = 'preparation',
   apercuDeLaCarte,
@@ -526,6 +527,8 @@ export function MainDeRencontre({
   enPetit?: boolean
   /** La pioche — le paquet, sur le plan — : combien, ce qu'elle dit à l'oreille, et ce qu'elle ouvre. */
   pile: { compte: number; mot: string; dit: string; onOuvrir: () => void }
+  /** Le dos de son paquet, sur le plan : doré après l'exploit du gardien (`dosDuPaquet`). */
+  dos?: 'dore'
   /** En rencontre : son inspiration du tour, son énergie à l'écran. */
   inspiration?: number
   /** Avant la question, ou pendant. */
@@ -579,7 +582,7 @@ export function MainDeRencontre({
           {indexees.map(x => (
             <CarteEnPetit key={`${x.k}:${x.i}`} c={x.c} refus={refus[x.k] ?? null} onToucher={() => setLevee(x.i)} />
           ))}
-          <button type="button" className="exp-pioche" aria-haspopup="dialog" onClick={pile.onOuvrir}>
+          <button type="button" className={'exp-pioche' + (dos === 'dore' ? ' exp-dos-dore' : '')} aria-haspopup="dialog" onClick={pile.onOuvrir}>
             <b aria-hidden="true">{pile.compte}</b>
             <span className="sr-only">{pile.dit}</span>
           </button>
@@ -899,18 +902,47 @@ const REGLE_OUVERTE: Readonly<Record<RegleDuCodex, string>> = {
 }
 
 /**
+ * Ce qu'un exploit ouvre, en fin de phrase : « Banco rejoint ton codex »,
+ * « ton paquet prend un dos doré » — au futur tant que l'expédition court :
+ * son codex est figé, l'exploit ne compte qu'à la suivante.
+ */
+export function recompenseDe(x: Exploit, futur = false): string {
+  if (x.carte) return `${nomDeLaRecompense(x)} ${futur ? 'rejoindra' : 'rejoint'} ton codex`
+  return `ton paquet ${futur ? 'prendra' : 'prend'} un dos doré`
+}
+
+/** Ce qu'un exploit ouvre, en nom : sa carte, ou le dos doré. */
+const nomDeLaRecompense = (x: Exploit) => (x.carte ? (carteDeRencontre(x.carte)?.nom ?? x.carte) : 'un dos doré pour ton paquet')
+
+/**
+ * Les exploits neufs d'une expédition : faits en route, que son codex n'avait
+ * pas au départ. Un départ d'avant les exploits n'en sait rien : il n'en dit
+ * aucun — il aurait pu dire neuf un exploit déjà fait.
+ */
+export function exploitsNeufs(vue: Pick<VueDeLExpedition, 'exploits' | 'cartes'>): CleDExploit[] {
+  const deja = vue.cartes?.codex?.exploits
+  if (!deja) return []
+  return (vue.exploits ?? []).filter(x => !deja.includes(x))
+}
+
+/** Le dos de son paquet : doré après l'exploit du gardien — celui de son codex au départ. */
+export const dosDuPaquet = (vue: Pick<VueDeLExpedition, 'cartes'>): 'dore' | undefined => (vue.cartes?.codex?.exploits?.includes('gardien-intact') ? 'dore' : undefined)
+
+/**
  * Ce que la fin d'une expédition rapporte au codex : sa renommée, perdue ou
  * abandonnée aussi — sans quoi un joueur qui tombe à l'acte 1 resterait au
  * même niveau —, et le niveau qu'elle fait passer, avec les cartes qu'il
- * ouvre, en vraies cartes qui se lèvent, et les règles. `avant` : la
- * renommée qu'il avait au départ, figée avec lui (`CodexDuDepart.renommee`).
+ * ouvre, en vraies cartes qui se lèvent, et les règles ; ses exploits neufs
+ * (`exploitsNeufs`), et ce qu'ils ouvrent. `avant` : la renommée qu'il avait
+ * au départ, figée avec lui (`CodexDuDepart.renommee`).
  */
-export function RenommeeGagnee({ avant, gagnee }: { avant: number; gagnee: number }) {
+export function RenommeeGagnee({ avant, gagnee, exploits = [] }: { avant: number; gagnee: number; exploits?: readonly CleDExploit[] }) {
   const [regardee, setRegardee] = useState<string | null>(null)
   const niveauAvant = progressionDe(avant).niveau
   const niveau = progressionDe(avant + gagnee).niveau
   const marches = ECHELLE.filter(m => m.niveau > niveauAvant && m.niveau <= niveau)
-  const cartes = marches.flatMap(m => m.cartes).flatMap(cle => carteDeRencontre(cle) ?? [])
+  const faits = exploits.flatMap(x => exploitDe(x) ?? [])
+  const cartes = [...marches.flatMap(m => m.cartes), ...faits.flatMap(x => x.carte ?? [])].flatMap(cle => carteDeRencontre(cle) ?? [])
   return (
     <section className="card exp-renommee" aria-labelledby="exp-renommee-titre">
       <h2 className="label" id="exp-renommee-titre">
@@ -923,6 +955,16 @@ export function RenommeeGagnee({ avant, gagnee }: { avant: number; gagnee: numbe
       {/* L'événement en titre ; la jauge dessous dit où il en est — « Niveau 6 d'explorateur » deux fois de suite se répétait. */}
       {niveau > niveauAvant && <p className="exp-renommee-niveau">{`Tu passes au niveau ${niveau}`}</p>}
       <NiveauDExplorateur renommee={avant + gagnee} />
+      {/* Ses exploits neufs, chacun ce qu'il ouvre ; ses cartes rejoignent celles du niveau, dessous. */}
+      {faits.map(x => (
+        <p key={x.cle} className="exp-renommee-exploit">
+          <Icon name="medal" />
+          <span>
+            <b>{espacesFines(`Exploit : ${x.but}`)}</b>
+            {espacesFines(` — ${recompenseDe(x)}.`)}
+          </span>
+        </p>
+      ))}
       {cartes.length > 0 && (
         <>
           <ul className="exp-codex exp-codex-neuves" aria-label="Les cartes qui rejoignent ton codex">
@@ -960,6 +1002,7 @@ function ouvertureDite(cle: string): { court: string; phrase: string } | null {
   const o = ouvertureDe(cle)
   if (!o) return null
   if ('niveau' in o) return { court: `Niveau ${o.niveau}`, phrase: `Elle s’ouvre au niveau ${o.niveau} d’explorateur.` }
+  if ('exploit' in o) return { court: 'Exploit', phrase: `Elle s’ouvre par un exploit : ${exploitDe(o.exploit)?.but ?? o.exploit}.` }
   const gagne = gardienAuFeminin(o.legendaire) ? 'gagnée' : 'gagné'
   return { court: nomDuGardien(o.legendaire), phrase: `Elle s’ouvre quand ${leGardien(o.legendaire)} est à toi — ${gagne} en soirée, au quiz du jour, en campagne ou en expédition.` }
 }
@@ -972,8 +1015,9 @@ function ouvertureDite(cle: string): { court: string; phrase: string } | null {
  * par rareté, en onglets qui comptent ; touchée, une carte se lève et dit
  * tout, comme dans un tas. `codex` : son niveau et sa jauge en tête, et les
  * cartes qu'il n'a pas encore éteintes, comment les ouvrir dessous — un
- * niveau, ou le légendaire qui la donne. Celles-là se lèvent aussi : savoir
- * ce qui vient donne envie d'y aller.
+ * niveau, un exploit, ou le légendaire qui la donne. Celles-là se lèvent
+ * aussi : savoir ce qui vient donne envie d'y aller. Au pied, ses exploits :
+ * le dos doré n'a pas de carte qui le dise.
  */
 export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onFermer: () => void }) {
   const [page, setPage] = useState<PageDuCodex>('toutes')
@@ -994,7 +1038,7 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
         <p className="muted small">
           {espacesFines(
             codex
-              ? `${codex.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi : tes récompenses les tirent. Les autres s’ouvrent en jouant. Touche une carte pour la lire.`
+              ? `${codex.cartes.length} cartes sur ${CARTES_DES_RENCONTRES.length} sont à toi : tes récompenses les tirent. Les autres s’ouvrent en jouant — un niveau, un exploit. Touche une carte pour la lire.`
               : `Les ${CARTES_DES_RENCONTRES.length} cartes de l’expédition, de la commune à la légendaire. Touche une carte pour la lire.`,
           )}
         </p>
@@ -1018,6 +1062,29 @@ export function FeuilleDuCodex({ codex, onFermer }: { codex?: CodexDeLaPage; onF
             )
           })}
         </ul>
+        {codex && (
+          <section className="exp-exploits" aria-labelledby="exp-exploits-titre">
+            <h3 className="label" id="exp-exploits-titre">
+              {`Tes exploits · ${codex.exploits.length} sur ${EXPLOITS.length}`}
+            </h3>
+            <ul>
+              {EXPLOITS.map(x => {
+                const fait = codex.exploits.includes(x.cle)
+                return (
+                  <li key={x.cle} className={'exp-exploit' + (fait ? ' exp-exploit-fait' : '')}>
+                    <Icon name={fait ? 'check-circle' : 'medal'} />
+                    <span>
+                      <b className="exp-exploit-but">{espacesFines(x.but)}</b>
+                      <span className="muted small">{espacesFines(fait ? (x.carte ? `Fait : ${nomDeLaRecompense(x)} est dans ton codex.` : 'Fait : ton paquet a son dos doré.') : `Ouvre ${nomDeLaRecompense(x)}.`)}</span>
+                    </span>
+                    {/* Le dos doré se montre tel que la pioche le porte ; une carte, elle, se voit dans le codex. */}
+                    {x.dos && <span className={'exp-pioche exp-dos-miniature' + (fait ? ' exp-dos-dore' : '')} aria-hidden="true" />}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
       </Feuille>
       {regardee && <CarteLevee cle={regardee} {...(fermee && { ouverture: fermee.phrase })} onReposer={() => setRegardee(null)} />}
     </>
@@ -1164,7 +1231,7 @@ function retenirLeGuide() {
 
 /** Une section des règles : de quoi elle parle, son titre, une ligne par règle — un dessin, une phrase. */
 interface SectionDesRegles {
-  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'passeport' | 'questions' | 'jokers'
+  cle: 'rencontre' | 'cartes' | 'pari' | 'expedition' | 'plan' | 'recompenses' | 'equipe' | 'codex' | 'exploits' | 'passeport' | 'questions' | 'jokers'
   titre: string
   /** `energie` : l'orbe de l'énergie, tel que la main le montre. */
   lignes: { icone: IconName | 'energie'; texte: string }[]
@@ -1286,8 +1353,29 @@ function reglesDesRencontres(parQuestion: readonly number[], codex?: CodexDesReg
             { icone: 'book', texte: 'Ta catégorie fétiche : Plume et Bibliothèque frappent plus fort sur ses questions.' },
           ],
         },
+    // Les exploits (le codex) : chacun une ligne, ce qu'il demande et ce qu'il ouvre — Banco, Lancée, Échauffement ne s'ouvrent que par eux.
+    ...(codex
+      ? [
+          {
+            cle: 'exploits' as const,
+            titre: 'Les exploits',
+            lignes: [
+              { icone: 'medal' as const, texte: 'Un exploit se fait une fois, dans n’importe quelle expédition — même perdue ensuite. Il compte dès la suivante.' },
+              ...EXPLOITS.map(x => ({ icone: ICONE_DE_L_EXPLOIT[x.cle], texte: `Exploit : ${x.but} — ${recompenseDe(x)}.` })),
+            ],
+          },
+        ]
+      : []),
     { cle: 'passeport', titre: 'Ton passeport', lignes: [{ icone: 'tampon', texte: 'Chaque thème pointu trouvé en expédition y met son tampon.' }] },
   ]
+}
+
+/** Le dessin de chaque exploit, dans les règles : ce qu'il faut faire. */
+const ICONE_DE_L_EXPLOIT: Readonly<Record<CleDExploit, IconName>> = {
+  'pari-de-40': 'ecu',
+  'une-seule-reponse': 'swords',
+  'd-affilee': 'check',
+  'gardien-intact': 'crown',
 }
 
 /** Les règles d'une expédition d'avant les rencontres — trois vies, des jokers : celle de la production. */

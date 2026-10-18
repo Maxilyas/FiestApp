@@ -12,12 +12,16 @@
 // des points, une erreur que le bouclier pare, l'adversaire qui tombe et sa
 // carte à prendre ; un coffre, le campement et la carte qu'on y retire,
 // l'échoppe s'il s'en trouve une ; le gardien, vaincu, son trésor, et l'acte
-// suivant ; la fin et la renommée qu'elle rapporte. Il joue juste deux fois
-// sur trois. Le client construit d'abord (`npm run build -w client`).
+// suivant ; la fin et la renommée qu'elle rapporte. Il joue juste ses
+// vingt-deux premières questions — vingt d'affilée : un exploit, dit à la
+// révélation et à la fin —, puis deux fois sur trois. Le client construit
+// d'abord (`npm run build -w client`).
 //
 // Léa a quatre légendaires, rangés comme gardés au bout d'expéditions
 // passées — le Dragon d'Or, Janus, le Lion, le Phénix : leurs cartes sont à
-// son codex — et une expédition finie, de quoi la mettre au niveau 5.
+// son codex — et une expédition finie, de quoi la mettre au niveau 5, avec
+// deux exploits : un pari de 40 écus gagné (Banco s'ouvre) et un gardien
+// vaincu sans perdre de courage (le dos doré de son paquet).
 //
 //   npx tsx scripts/rendu-rencontres.ts [dossier] [ivoire]
 import { createRequire } from 'node:module'
@@ -89,7 +93,9 @@ try {
     await ecrire(banc.url, `/api/expedition/${partie.id}/abandon`, {}, cookie)
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
-      base.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(ecrireLeBilan({ escales: 70, adversaires: 46, elites: 12, gardiens: 9, auBout: true }), partie.id)
+      base
+        .prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?')
+        .run(ecrireLeBilan({ escales: 70, adversaires: 46, elites: 12, gardiens: 9, auBout: true, exploits: ['pari-de-40', 'gardien-intact'] }), partie.id)
     } finally {
       base.close()
     }
@@ -150,6 +156,9 @@ try {
   await page.waitForTimeout(300)
   await photo('1a-codex-levee')
   await page.locator('.exp-leve .exp-reposer').click()
+  // Au pied du codex, ses exploits : deux faits, deux à faire, le dos doré tel que la pioche le porte.
+  await page.locator('.feuille-codex .exp-exploits').scrollIntoViewIfNeeded()
+  await photo('1a-codex-exploits')
   await page.locator('.feuille-codex .carte-fermer').click()
   await page.locator('.exp-prototype .exp-changer').click()
   await page.waitForSelector('.feuille-fetiche')
@@ -315,12 +324,15 @@ try {
       if (await page.locator('.exp-visages').count()) await page.locator('.exp-visages .pill-btn').first().click()
       await unePhoto('4c-reflexe-joue')
       questions++
-      await repondre(questions % 3 !== 0)
+      // Ses vingt-deux premières justes — vingt d'affilée, un exploit —, puis deux sur trois.
+      await repondre(questions <= 22 || questions % 3 !== 0)
       continue
     }
     if (ou === 'revelation') {
       const juste = (await page.locator('.result-banner.result-ok').count()) > 0
       const tombe = (await page.locator('.exp-adversaire-tombe').count()) > 0
+      // Un exploit qui tombe : la révélation le dit, et ce qu'il ouvrira.
+      if (await page.locator('.exp-gain-exploit').count()) await unePhoto('5f-exploit', true)
       await unePhoto(tombe ? '5c-il-tombe' : juste ? '5-juste' : '5b-faux', true)
       await page.locator('.result-banner ~ .btn-primary.btn-big').click()
       await page.waitForTimeout(300)

@@ -9745,6 +9745,26 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-renommee-niveau { font-family: var(--serif); font-size: 1.35rem; }
 .exp-renommee-regle { display: flex; align-items: center; gap: 8px; }
 .exp-renommee-regle .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
+/* Un exploit neuf, à la fin et à la révélation : sa médaille, ce qu'il demandait, ce qu'il ouvre. */
+.exp-renommee-exploit { display: flex; align-items: flex-start; gap: 8px; line-height: 1.35; }
+.exp-renommee-exploit .icon { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--or-text); }
+.exp-gain-exploit { max-width: 100%; text-align: left; }
+/* Ses exploits, au pied du codex : faits, une coche ; à faire, leur médaille — et le dos doré tel que la pioche le portera. */
+.exp-exploits { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; border-top: 1px solid var(--edge); }
+.exp-exploits ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.exp-exploit { display: flex; align-items: center; gap: 10px; }
+.exp-exploit > .icon { flex: none; width: 20px; height: 20px; color: var(--muted); }
+.exp-exploit-fait > .icon { color: var(--or-text); }
+.exp-exploit > span:not(.exp-pioche) { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.3; }
+/* « gagner un pari… » suit « Exploit : » ailleurs ; seul en tête de ligne, il prend sa majuscule. */
+.exp-exploit-but { display: block; }
+.exp-exploit-but::first-letter { text-transform: uppercase; }
+/* Le dos doré (l'exploit du gardien sans perdre de courage) : la pioche du plan en or, quel que soit le thème — l'or est une
+   convention, comme les couleurs de piste. */
+.exp-pioche.exp-dos-dore { border-color: #b8860b; background: repeating-linear-gradient(45deg, rgba(255, 248, 214, 0.35) 0 4px, transparent 4px 9px), linear-gradient(135deg, #f7e08a, #d4a017 48%, #f3d36b 62%, #b8860b); box-shadow: inset 0 0 0 1.5px #fff3c4, 0 0 10px rgba(212, 160, 23, 0.45); color: #3a2a05; }
+.exp-pioche.exp-dos-dore span { color: #3a2a05; }
+.exp-dos-miniature { flex: none; width: 24px; height: 34px; padding: 0; border-width: 1.5px; border-radius: 5px; cursor: default; }
+.exp-dos-miniature:not(.exp-dos-dore) { opacity: 0.5; }
 .exp-a-prendre-carte.exp-choisi { translate: 0 -6px; }
 .exp-a-prendre-carte.exp-choisi .exp-vc { box-shadow: inset 0 0 0 2px var(--bg-raised), 0 0 0 3px var(--accent), 0 10px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
 .exp-a-prendre-dit { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-height: 4.6em; margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); line-height: 1.35; }

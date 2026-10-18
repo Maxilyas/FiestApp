@@ -310,7 +310,17 @@ import {
   type ThemeDEscale,
   type VueDeLExpedition,
 } from '../../../shared/expedition'
-import { VERSION_DU_BILAN, codexDuNiveau, ecrireLeBilan, lireLeBilan, niveauDe, renommeeDe } from '../../../shared/codex'
+import {
+  EXPLOITS,
+  VERSION_DU_BILAN,
+  codexDuNiveau,
+  ecrireLeBilan,
+  lireLeBilan,
+  niveauDe,
+  renommeeDe,
+  type BilanDUneExpedition,
+  type CleDExploit,
+} from '../../../shared/codex'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
 import { carteDeRencontre, cartesDesActes, effaceesDuTour } from '../../../shared/rencontres'
@@ -6720,11 +6730,12 @@ export class CampagneStore {
   /**
    * Son codex, de sa renommée lue (`lecturesDeLaRenommee`) : son niveau
    * d'explorateur, et ce qu'il ouvre — l'échelle jusqu'à lui, la carte de
-   * chaque légendaire qu'il a. Les bilans refaits du pli s'écrivent ici, une
-   * fois : ratés, ils se refont à la lecture suivante, rien de plus.
+   * chaque exploit qu'il a fait et de chaque légendaire qu'il a. Les bilans
+   * refaits du pli s'écrivent ici, une fois : ratés, ils se refont à la
+   * lecture suivante, rien de plus.
    */
   private async codexLu(lectures: readonly ResultSet[], siens: ReadonlySet<string>): Promise<CodexDeLaPage> {
-    const { renommee, aEcrire } = renommeeLue(lectures)
+    const { renommee, exploits, aEcrire } = renommeeLue(lectures)
     if (aEcrire.length > 0) {
       try {
         await this.client.batch(aEcrire, 'write')
@@ -6732,7 +6743,7 @@ export class CampagneStore {
         console.error('[expedition] bilans non écrits :', e)
       }
     }
-    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle))) }
+    return { renommee, ...codexDuNiveau(niveauDe(renommee), LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)), exploits) }
   }
 
   /**
@@ -6813,7 +6824,7 @@ export class CampagneStore {
         ...(saison && { saison: saison.key }),
         // Sa catégorie fétiche attend son niveau : avant lui, ni Plume ni Bibliothèque ne sont ouvertes.
         ...(codex?.regles.includes('fetiche') && typeof fetiche === 'string' && { fetiche }),
-        ...(codex && { codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, renommee: codex.renommee } }),
+        ...(codex && { codex: { niveau: codex.niveau, cartes: codex.cartes, regles: codex.regles, exploits: codex.exploits, renommee: codex.renommee } }),
       }
       const id = randomUUID()
       await this.client.execute({
@@ -8105,13 +8116,19 @@ function lecturesDeLaRenommee(profileId: string): InStatement[] {
 /**
  * La renommée de ces lectures : les bilans gardés, au barème du jour, et ceux
  * qu'il a fallu refaire du pli (invariant 14 : le même chemin que
- * l'expédition qu'on joue) — à écrire, pour ne les replier qu'une fois.
+ * l'expédition qu'on joue) — à écrire, pour ne les replier qu'une fois. Et
+ * ses exploits : chacun compte dès qu'une expédition l'a fait.
  */
-function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): { renommee: number; aEcrire: InStatement[] } {
+function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): { renommee: number; exploits: CleDExploit[]; aEcrire: InStatement[] } {
   let renommee = 0
+  const faits = new Set<CleDExploit>()
+  const compter = (b: BilanDUneExpedition) => {
+    renommee += renommeeDe(b)
+    for (const x of b.exploits ?? []) faits.add(x)
+  }
   for (const ligne of bilans.rows) {
     const b = lireLeBilan(ligne.bilan)
-    if (b) renommee += renommeeDe(b)
+    if (b) compter(b)
   }
   const aEcrire: InStatement[] = []
   for (const ligne of series.rows) {
@@ -8124,10 +8141,10 @@ function renommeeLue([bilans, series, gestes, reponses]: readonly ResultSet[]): 
     )
     if (!lue) continue
     const b = bilanDuPli(plier(lue))
-    renommee += renommeeDe(b)
+    compter(b)
     aEcrire.push({ sql: 'UPDATE campagne_series SET bilan = ? WHERE id = ?', args: [ecrireLeBilan(b), id] })
   }
-  return { renommee, aEcrire }
+  return { renommee, exploits: EXPLOITS.map(x => x.cle).filter(cle => faits.has(cle)), aEcrire }
 }
 
 /** Où en était un dévoilement à l'instant `t` — l'heure du serveur où sa réponse est arrivée (invariant 6) : les mots dits, sur combien. */
@@ -8313,11 +8330,20 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
         route: deRoute,
         refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
         parQuestion: cartesDesActes(d.v),
-        ...(d.codex && { codex: { niveau: d.codex.niveau, regles: d.codex.regles, ...(d.codex.renommee !== undefined && { renommee: d.codex.renommee }) } }),
+        ...(d.codex && {
+          codex: {
+            niveau: d.codex.niveau,
+            regles: d.codex.regles,
+            ...(d.codex.renommee !== undefined && { renommee: d.codex.renommee }),
+            ...(d.codex.exploits && { exploits: d.codex.exploits }),
+          },
+        }),
       },
     }),
     ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
     renommee: renommeeDe(bilanDuPli(e)),
+    // Ses exploits, au codex : la révélation dit celui qui tombe, la fin ceux qui sont neufs.
+    ...(d.codex && { exploits: [...e.exploits] }),
   }
 }
 
