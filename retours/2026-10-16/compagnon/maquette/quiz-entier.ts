@@ -39,6 +39,24 @@ const FILMS = path.join(ici, 'films')
 const ESSAI = path.join(ici, 'controle', 'quiz-entier')
 mkdirSync(FILMS, { recursive: true })
 const QUOI = process.argv[2] ?? 'film'
+const LUCIOLE = process.env.COMPAGNON === 'luciole'
+/** La luciole se dit au féminin, et s'appelle Lumi : les sous-titres du loup, accordés. */
+const ACCORDS: [string, string][] = [
+  ['Nox attend', 'Lumi attend'],
+  ['il ne bouge pas', 'elle ne bouge pas'],
+  ['il retient son souffle', 'elle retient son souffle'],
+  ['Tu le nourris : sa jauge monte, il sautille.', 'Tu la nourris : sa jauge monte, elle s’illumine.'],
+  ['Dépité avec toi, jamais déçu de toi.', 'Dépitée avec toi, jamais déçue de toi.'],
+  ['Nourri, et', 'Nourrie, et'],
+  ['de chez lui', 'de chez elle'],
+  ['Il reste chez lui', 'Elle reste chez elle'],
+  ['il sort de sa niche', 'elle sort de sa niche'],
+  ['il est près du pouce', 'elle est près du pouce'],
+  ['Il rentre chez lui', 'Elle rentre chez elle'],
+]
+const dire = (t: string) => (LUCIOLE ? ACCORDS.reduce((x, [a, b]) => x.split(a).join(b), t) : t)
+const CADRAGES = LUCIOLE ? JSON.parse(readFileSync(path.join(ici, 'humeurs-luciole', 'cadrages.json'), 'utf8')) : null
+const POSE = LUCIOLE ? { cle: 'luciole-adulte', ...CADRAGES.adulte } : { cle: 'loup-adulte' }
 if (QUOI === 'essai') {
   rmSync(ESSAI, { recursive: true, force: true })
   mkdirSync(ESSAI, { recursive: true })
@@ -237,7 +255,7 @@ async function quizEntier() {
   await ctx.addCookies([{ name: nomJoueur, value: valeurJoueur, url }])
   for (const f of ['niche.js', 'niche-plus.js']) await ctx.addInitScript({ path: path.join(ici, f) })
   await ctx.route('**/mq-humeurs/**', (route: any) =>
-    route.fulfill({ path: path.join(ici, 'humeurs', decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!)), contentType: 'image/webp' }),
+    route.fulfill({ path: path.join(ici, decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!).startsWith('luciole-') ? 'humeurs-luciole' : 'humeurs', decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop()!)), contentType: 'image/webp' }),
   )
   await ctx.addInitScript(([cle, me]: string[]) => localStorage.setItem(cle, me), [`quizz.me.${ADMIN.slug}`, JSON.stringify({ playerId: moi.playerId, token: moi.token })])
   const tel = await ctx.newPage()
@@ -259,7 +277,7 @@ async function quizEntier() {
 
   // La niche suit d'un écran à l'autre : posée une fois, calme, sa jauge cachée sur le rebord.
   const niche = async (ecran: string, etiquette?: string) => {
-    await js(tel, `document.querySelector('.nc') ? __niche.reposer(${JSON.stringify(ecran)}) : (__niche.poser(${JSON.stringify({ cle: 'loup-adulte', ecran, vit: true })}), __nicheplus.calme(), __nicheplus.jaugeDiscrete(52))`)
+    await js(tel, `document.querySelector('.nc') ? __niche.reposer(${JSON.stringify(ecran)}) : (__niche.poser(${JSON.stringify({ ...POSE, ecran, vit: true })}), __nicheplus.calme(), __nicheplus.jaugeDiscrete(52))`)
     if (etiquette) await js(tel, `document.querySelector('.nc-bloc .label').textContent = ${JSON.stringify(etiquette)}`)
   }
   let n = 0
@@ -268,9 +286,9 @@ async function quizEntier() {
   }
 
   await niche('soiree-attente')
-  const film = new Film(tel, 'quiz-entier', 780, 1688)
+  const film = new Film(tel, LUCIOLE ? 'quiz-entier-luciole' : 'quiz-entier', 780, 1688)
   if (QUOI === 'film') await film.debut()
-  film.marquer('La soirée', 'Nox attend dans sa niche, en haut à droite.')
+  film.marquer('La soirée', dire('Nox attend dans sa niche, en haut à droite.'))
   await patienter(1900)
   await controle('attente')
 
@@ -286,16 +304,16 @@ async function quizEntier() {
     await js(tel, `__niche.humeur('neutre')`)
     await patienter(150)
     film.couper(coupe, film.maintenant())
-    if (q === 0) film.marquer('Question 1', 'Pendant la question, il ne bouge pas.')
-    else if (q === 1) film.marquer('Question 2', 'Calme, puis le souffle retenu.')
-    else if (q === 2) film.marquer('Question 3', 'Une question difficile.')
-    else if (q === 3) film.marquer('Question 4', 'Une bonne réponse ordinaire…')
-    else film.marquer('Question 5', 'Pas de quoi sortir de chez lui.')
+    if (q === 0) film.marquer('Question 1', dire('Pendant la question, il ne bouge pas.'))
+    else if (q === 1) film.marquer('Question 2', dire('Calme, puis le souffle retenu.'))
+    else if (q === 2) film.marquer('Question 3', dire('Une question difficile.'))
+    else if (q === 3) film.marquer('Question 4', dire('Une bonne réponse ordinaire…'))
+    else film.marquer('Question 5', dire('Pas de quoi sortir de chez lui.'))
     await patienter(q === 0 ? 2000 : q < 3 ? 1300 : 1000)
     await controle(`q${q + 1}-question`)
 
     // Le doigt touche une réponse : il retient son souffle.
-    if (q === 0) film.marquer('Question 1', 'Tu touches une réponse : il retient son souffle.')
+    if (q === 0) film.marquer('Question 1', dire('Tu touches une réponse : il retient son souffle.'))
     const q0 = QUESTIONS[q]
     const viser = LEA[q] ? q0.reponses[q0.bonne] : q0.reponses.find((_, k) => k !== q0.bonne && k !== 0) ?? q0.reponses[0]
     const bouton = tel.locator('.ans-btn', { hasText: viser }).first()
@@ -318,11 +336,11 @@ async function quizEntier() {
     await patienter(200)
     await niche('soiree-revelation', `Question ${q + 1} / ${QUESTIONS.length}`)
     film.couper(coupe, film.maintenant())
-    if (q === 0) film.marquer('Question 1 · bonne réponse', 'Tu le nourris : sa jauge monte, il sautille.')
-    else if (q === 1) film.marquer('Question 2 · ratée', 'Dépité avec toi, jamais déçu de toi.')
-    else if (q === 2) film.marquer('Question 3 · peu l’ont trouvée', 'Nourri, et une bulle de cœurs en plus.')
-    else if (q === 3) film.marquer('Question 4 · bonne réponse', '…la même petite fête, sans plus.')
-    else film.marquer('Question 5 · bonne réponse', 'Il reste chez lui : ce n’est pas encore le moment.')
+    if (q === 0) film.marquer('Question 1 · bonne réponse', dire('Tu le nourris : sa jauge monte, il sautille.'))
+    else if (q === 1) film.marquer('Question 2 · ratée', dire('Dépité avec toi, jamais déçu de toi.'))
+    else if (q === 2) film.marquer('Question 3 · peu l’ont trouvée', dire('Nourri, et une bulle de cœurs en plus.'))
+    else if (q === 3) film.marquer('Question 4 · bonne réponse', dire('…la même petite fête, sans plus.'))
+    else film.marquer('Question 5 · bonne réponse', dire('Il reste chez lui : ce n’est pas encore le moment.'))
     await patienter(220)
     if (!LEA[q]) await js(tel, `__nicheplus.relacher(); __niche.humeur('depite', { geste: 'abat' })`)
     else if (q === 2)
@@ -341,7 +359,7 @@ async function quizEntier() {
   await patienter(300)
   await niche('soiree-podium')
   film.couper(coupe, film.maintenant())
-  film.marquer('Le podium · 1re place', 'Le grand moment : il sort de sa niche.')
+  film.marquer('Le podium · 1re place', dire('Le grand moment : il sort de sa niche.'))
   await patienter(1500)
   await controle('podium')
   // Il se pose sous le classement, dans le bas de l'écran — là où le pouce l'atteint.
@@ -349,7 +367,7 @@ async function quizEntier() {
   await js(tel, `__nicheplus.dehors({ x: 195, y: ${pieds}, h: 132, humeur: 'triomphe' })`)
   await patienter(1500)
   await controle('dehors')
-  film.marquer('Le podium', 'Dehors, il est près du pouce : une caresse.')
+  film.marquer('Le podium', dire('Dehors, il est près du pouce : une caresse.'))
   await patienter(500)
   const bete = await js(tel, `(() => { const r = document.querySelector('.npl-sortie').getBoundingClientRect(); return { x: r.left + r.width * 0.55, y: r.top + r.height * 0.55 } })()`)
   await js(tel, `__nicheplus.doigt(${bete.x}, ${bete.y})`)
@@ -357,7 +375,7 @@ async function quizEntier() {
   await js(tel, '__nicheplus.caresserDehors()')
   await patienter(1900)
   await controle('caresse')
-  film.marquer('Fin du quiz', 'Il rentre chez lui, jusqu’à la prochaine.')
+  film.marquer('Fin du quiz', dire('Il rentre chez lui, jusqu’à la prochaine.'))
   await patienter(300)
   await js(tel, '__nicheplus.rentrer()')
   await patienter(1900)

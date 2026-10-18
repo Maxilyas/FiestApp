@@ -46,6 +46,12 @@
       radial-gradient(circle at 62% 36%,rgba(255,150,90,.6) 0 1.8px,rgba(255,150,90,0) 6px),
       radial-gradient(140% 55% at 50% 118%,#2a1a20 0 46%,rgba(42,26,32,0) 47%),
       linear-gradient(#2c1838 0%,#4a2234 55%,#5a2c28 100%)`,
+    // Le pré d'été, la nuit : la luciole avant qu'elle ait son décor peint.
+    luciole: `radial-gradient(circle at 24% 26%,rgba(214,255,140,.9) 0 1.6px,rgba(214,255,140,.3) 3px,rgba(214,255,140,0) 8px),
+      radial-gradient(circle at 78% 40%,rgba(214,255,140,.8) 0 1.3px,rgba(214,255,140,.25) 2.6px,rgba(214,255,140,0) 7px),
+      radial-gradient(circle at 60% 14%,${ETOILES}),radial-gradient(circle at 16% 52%,${ETOILES}),
+      radial-gradient(120% 45% at 50% 112%,#1d3a2a 0 52%,rgba(29,58,42,0) 53%),
+      linear-gradient(#141c3c 0%,#1f2a4a 55%,#2a3a3a 100%)`,
     tortue: `radial-gradient(circle at 72% 20%,rgba(255,240,200,.85) 0 3px,rgba(255,240,200,.25) 4.4px,rgba(255,240,200,0) 11px),
       radial-gradient(120% 40% at 50% 104%,rgba(120,220,210,.35),rgba(120,220,210,0) 70%),
       linear-gradient(#173a52 0%,#1d5560 58%,#1f6a63 100%)`,
@@ -172,8 +178,9 @@
     if (!o.garder) retirer()
     const cle = o.cle || 'loup-adulte'
     const compagnon = cle.split('-')[0]
-    const c = CADRAGE[cle]
-    const w = Math.round(c.h * RATIOS[cle])
+    // Un compagnon de la maquette qui n'est pas encore aux tables (la luciole) apporte son cadrage.
+    const c = o.cadrage || CADRAGE[cle]
+    const w = Math.round(c.h * (o.ratio || RATIOS[cle]))
     const base = o.base || '/mq-humeurs/'
     const el = document.createElement('div')
     el.className = `nc ${o.humeur || 'neutre'}${o.vit ? ' vit' : ''}`
@@ -181,8 +188,11 @@
     const imgs = ['neutre', 'ravi', 'depite', 'triomphe']
       .map(h => `<img alt="" data-humeur="${h}" src="${base}${cle}-${h}.webp"${h === (o.humeur || 'neutre') ? ' class="on"' : ''}>`)
       .join('')
+    // Son décor peint, celui de son avatar, quand on l'a (`o.fond`) : le dégradé
+    // n'en était qu'une esquisse, et c'est la peinture qui le rend beau.
+    const fond = o.fond ? `url('${o.fond}') ${o.fondPos || 'center 30%'} / ${o.fondTaille || 'cover'} no-repeat, #1a1412` : DECORS[compagnon]
     el.innerHTML = `<div class="nc-cadre">
-  <span class="nc-decor" style="background:${DECORS[compagnon]}"></span>
+  <span class="nc-decor" style="background:${fond}"></span>
   <span class="nc-rayons"></span>
   <span class="nc-bete${c.droit ? ' droit' : ''}" style="left:${c.x}px;top:${c.y}px;width:${w}px;height:${c.h}px">${imgs}</span>
   <span class="nc-pluie">${PLUIE}</span>

@@ -552,7 +552,75 @@ const TORTUE: Compagnon = {
   ],
 }
 
-const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE]
+/**
+ * La luciole : la compagne de l'Expédition, qui ne s'achète pas (le souhait du
+ * propriétaire, le 18 octobre 2026 : « que certains hauts faits récompensent
+ * de nouveaux compagnons, comme la luciole »). Sa lumière est verte et dorée :
+ * magenta partout, sur du vert sa lanterne se serait percée au détourage.
+ * Mignonne d'abord — ni mandibules ni pattes velues : on n'adopte pas un insecte.
+ */
+const LUCIOLE: Compagnon = {
+  id: 'luciole',
+  identite:
+    'Its identity never changes from one age to the next: a round, soft, plush-like body of warm amber and honey-brown fuzz; a glowing ' +
+    'lantern-like belly that shines a soft golden-green light; big gentle dark eyes with tiny star-shaped highlights; rosy cheeks; two long ' +
+    'curling antennae ending in tiny glowing tips. A cute, round, cuddly design, never a realistic insect: no mandibles, no hairy legs — only ' +
+    'six tiny stubby legs. It must look nothing like a bee or a ladybird.',
+  ages: [
+    'a tiny glowworm: a plump little grub of soft amber fuzz, curled up on a round green leaf, big eyes, the tip of its tail glowing softly',
+    'a young firefly, just hatched: small and round, its new wings still small and a little crumpled, antennae too long for its head, its ' +
+      'lantern belly glowing gently',
+    'the adult firefly, graceful and bright: delicate translucent wings veined with amber spread open, its lantern belly shining warm light, ' +
+      'a ribbon of light trailing behind it',
+    'its mythic ultimate form — a great guardian firefly of the summer night, larger and majestic, its wings like glowing stained glass, its ' +
+      'lantern a small sun of golden-green light, a swarm of tiny fireflies orbiting it like a living constellation',
+  ],
+  formes: [
+    { id: 'ver', garde: 'the glowworm and its leaf', chroma: 'magenta' },
+    {
+      id: 'jeune',
+      decor: 'a summer meadow at dusk, tall grasses and wildflowers, the first stars in a deep blue sky, a few tiny fireflies glowing in the grass',
+      taille: 'It is still small: it fills only about 55% of the canvas height, with plenty of setting around it.',
+      garde: 'the young firefly — its head, antennae, body, wings, legs and glowing belly',
+      retirer: 'the grasses, the flowers, the distant fireflies and the sky',
+      chroma: 'magenta',
+    },
+    {
+      id: 'adulte',
+      decor: 'a winding path through an old forest at night, mossy roots and ferns, the path lit by the firefly’s glow and the trail of light behind it',
+      deborde: 'its raised antennae and the tips of its open wings',
+      garde: 'the firefly — its head, antennae, body, wings, legs, its glowing belly and the ribbon of light it trails',
+      retirer: 'the trees, the path, the roots, the ferns and the night',
+      chroma: 'magenta',
+    },
+    {
+      id: 'constellation',
+      entier: true,
+      decor: 'high above a sleeping valley under an immense starry summer night, a river of fireflies rising from the meadows below',
+      garde: 'the great firefly and the swarm of small fireflies orbiting right around it',
+      retirer: 'the sky, the stars, the valley and the distant fireflies',
+      chroma: 'magenta',
+    },
+  ],
+  // Ni oreilles ni queue : ses antennes, sa lanterne et ses ailes disent son humeur.
+  expressions: {
+    ravi: 'JOYFUL — bright smiling eyes, mouth open in a happy little smile, rosy cheeks, antennae perked up and curling with delight, its belly glowing brighter',
+    depite:
+      'DISAPPOINTED, in a cute and gentle way, never tragic — antennae drooping, big sad eyes looking up, a small pout, its belly glowing dimmer',
+    triomphe: 'TRIUMPHANT — head held high, eyes shining, mouth open in a joyful cheer, antennae raised high, its belly blazing with light',
+  },
+  // Pas de métamorphose pour l'instant : celles des trois autres attendent encore leur tour.
+  eclats: {},
+  vivant: [
+    {
+      cle: 'lucioles',
+      mode: 'lumiere',
+      consigne: 'a drifting swarm of tiny glowing fireflies, soft golden-green points of light of different sizes, spread around the frame, the center left empty',
+    },
+  ],
+}
+
+const COMPAGNONS: Compagnon[] = [LOUP, CHAT, TORTUE, LUCIOLE]
 
 const FEUILLE = (c: Compagnon, style: string) =>
   [

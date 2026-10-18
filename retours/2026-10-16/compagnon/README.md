@@ -19,7 +19,33 @@ Tout se regarde sur la planche Design, privée : <https://claude.ai/artifact/Uq6
 Les films et les images n'existent que là (et dans `export/`, qui ne se
 committe pas).
 
-## Le 18 octobre : le médaillon plutôt que la niche
+## Le 18 octobre, le soir : la niche, son décor peint, et Lumi
+
+« Je préfère la niche au médaillon […] je veux garder cette continuité »
+(le propriétaire). La niche reste donc, mais son fond devient le **décor
+peint de l'avatar** (`niche.js`, `o.fond`) : la pleine lune derrière le loup
+adulte, la forêt sous la neige du jeune — la déco ne se perd plus. Page
+« Lumi, la luciole » de la planche :
+
+- **Lumi, la luciole** — la compagne de l'Expédition, peinte par la chaîne
+  (`server/scripts/anime/compagnons.ts luciole --style=lumineux`) : 24 images,
+  3,37 $. Ses fichiers sont gardés dans `luciole-peinte/` — `app/` (ce que
+  `livrer-compagnons.ts` attend dans `export/compagnons/luciole/app`), les
+  originaux des cinq illustrations, les consignes et le journal des coûts :
+  recopiés dans `export/compagnons/luciole/`, la chaîne les reprend sans
+  repayer. À reprendre avant de la livrer : la traînée et les ailes de
+  l'adulte gardent un reflet rose du fond magenta (`--regenerer=adulte-decoupe`).
+  Le film d'un quiz entier avec elle : `COMPAGNON=luciole … quiz-entier.ts film`.
+- **Après 500** — rien n'existe aujourd'hui. La proposition : la niche
+  s'embellit, et garde chaque ornement (`paliers.js`) — 1 000 une guirlande,
+  2 500 du lierre et des fleurs, 5 000 l'arche dorée et son étoile, 10 000 un
+  halo et un ciel qui scintille.
+- **Les avatars** — la proposition : on garde aussi chaque forme atteinte en
+  avatar, comme aujourd'hui ; on ne reprend rien à qui porte déjà le sien.
+
+Les trois planches se refont sans serveur : `planche-niche.ts`.
+
+## Le 18 octobre : le médaillon plutôt que la niche (écarté le soir même)
 
 « On va perdre l'avatar et surtout la déco, ils sont super jolis si on met ça
 sur l'avatar » (le propriétaire). Le compagnon reste donc un avatar qu'on

@@ -1,0 +1,13 @@
+Square avatar illustration for a party quiz game: a collectible companion that a player buys and raises, shown at one of its four forms, each richer than the one before. It must read instantly even as a tiny round icon: a strong silhouette, big clear shapes, the face well lit. No text, no letters, no numbers, no signature, no watermark, no frame, no border, no round badge, no drawn circle, no vignette. Output one square image (1:1 aspect ratio).
+
+The attached image is this companion’s model sheet: the same individual at four ages, from left to right. Paint exactly this individual, in exactly the style of the sheet — its coat colors and markings, its eyes, its proportions at this age.
+
+Style: a luminous painterly digital illustration — visible soft brush strokes, glowing magical light, a dreamy atmosphere with floating motes of light, a refined jewel-tone palette (deep blues, silver, soft teal).
+
+An original character design: imitate no existing film, studio, game or character. No gold leaf, no gilding.
+
+Its identity never changes from one age to the next: a round, soft, plush-like body of warm amber and honey-brown fuzz; a glowing lantern-like belly that shines a soft golden-green light; big gentle dark eyes with tiny star-shaped highlights; rosy cheeks; two long curling antennae ending in tiny glowing tips. A cute, round, cuddly design, never a realistic insect: no mandibles, no hairy legs — only six tiny stubby legs. It must look nothing like a bee or a ladybird.
+
+Subject: its fourth form — its mythic ultimate form — a great guardian firefly of the summer night, larger and majestic, its wings like glowing stained glass, its lantern a small sun of golden-green light, a swarm of tiny fireflies orbiting it like a living constellation (the fourth from the left on the model sheet), calm and attentive, looking at the viewer, in a three-quarter view.
+
+Setting: high above a sleeping valley under an immense starry summer night, a river of fireflies rising from the meadows below. The setting fills the whole canvas edge to edge behind it. Framing: the great firefly and the swarm of small fireflies orbiting right around it, large, spreading toward all four edges of the canvas — this form overflows its round frame on every side — while everything stays inside the canvas with a small margin; the setting shows behind and between them.
