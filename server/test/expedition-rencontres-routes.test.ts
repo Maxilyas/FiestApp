@@ -260,11 +260,11 @@ test('une escale à question est une rencontre : l’annonce et la main d’abor
   // Ni réponse, ni carte de réflexe avant de la voir ; et une mise permise, qu'il peut payer.
   const tot = await poster(c, `/api/expedition/${v.id}/reponse`, { position: 0, choix: 0 })
   assert.deepEqual([tot.status, tot.corps.error], [400, PREPARE])
-  assert.equal(r.refus['coup-d-oeil'], 'Elle se joue la question sous les yeux : vois-la d’abord')
+  assert.equal(r.refus['coup-d-oeil'], 'Elle se joue pendant la question : vois-la d’abord')
   assert.equal((await geste(c, v, { quoi: 'jouer', joker: 'coup-d-oeil', position: 0 })).status, 400)
   for (const [mise, refus] of [
-    [7, 'Mise 0, 10, 20 ou 40 écus'],
-    [40, 'Il te manque 15 écus pour miser autant'],
+    [7, 'Parie 0, 10, 20 ou 40 écus'],
+    [40, 'Il te manque 15 écus pour parier autant'],
   ] as const) {
     const m = await geste(c, v, { quoi: 'voir', mise, position: 0 })
     assert.deepEqual([m.status, m.corps.error], [400, refus])

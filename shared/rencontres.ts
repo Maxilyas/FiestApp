@@ -125,8 +125,19 @@ export interface CarteDeRencontre {
   moment: MomentDUneCarte
   famille: FamilleDeCartes
   rarete: 'commun' | 'rare' | 'maudit' | 'legendaire'
-  /** Une phrase, qui commence par ce qu'elle fait. */
+  /**
+   * Une phrase, qui commence par ce qu'elle fait — en mots de tous les jours :
+   * « l'adversaire perd », « bouclier », « pari ». « Je veux que ce soit très
+   * simple à comprendre […] pour des novices » (le propriétaire, le 18
+   * octobre 2026) : « +4 de Charge » ne disait rien à qui découvrait.
+   */
   effet: string
+  /**
+   * Ce qu'elle fait en deux ou trois mots, sur sa face dans la main : on le lit
+   * sans la lever. Deux lignes au plus, de neuf signes chacune — la largeur
+   * d'une carte sur cinq en 360 pixels.
+   */
+  resume: string
   /** Jouée, elle quitte la rencontre ; elle revient à la suivante. */
   epuisement?: true
   /** Un indice : la réponse qu'elle aide ne mesure rien de son savoir (`JOKERS_QUI_AIDENT`). */
@@ -138,16 +149,57 @@ export interface CarteDeRencontre {
 
 /** Le paquet de tous, et les neutres que les offres proposent. */
 const NEUTRES: readonly CarteDeRencontre[] = [
-  { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: '+4 de Charge.' },
-  { cle: 'prudence', nom: 'Prudence', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Garde 5.' },
-  { cle: 'coup-d-oeil', nom: 'Coup d’œil', cout: 1, moment: 'reflexe', famille: 'neutre', rarete: 'commun', indice: true, effet: 'Efface une mauvaise réponse.' },
-  { cle: 'echange', nom: 'Échange', cout: 0, moment: 'reflexe', famille: 'neutre', rarete: 'commun', epuisement: true, effet: 'Une autre question, de la même escale.' },
-  { cle: 'pioche', nom: 'La pioche', cout: 0, moment: 'preparation', famille: 'neutre', rarete: 'commun', epuisement: true, effet: 'Tu tires deux cartes de plus.' },
-  { cle: 'arret-sur-image', nom: 'Arrêt sur image', cout: 1, moment: 'reflexe', famille: 'neutre', rarete: 'commun', effet: 'Sur un dévoilement : le texte s’arrête cinq secondes, et ton gain avec lui.' },
-  { cle: 'detour', nom: 'Le détour', cout: 0, moment: 'route', famille: 'neutre', rarete: 'commun', effet: 'Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus.' },
-  { cle: 'double-chance', nom: 'Double chance', cout: 2, moment: 'reflexe', famille: 'neutre', rarete: 'rare', indice: true, epuisement: true, effet: 'Choisis deux réponses : il suffit que l’une soit juste.' },
-  { cle: 'sursis', nom: 'Sursis', cout: 2, moment: 'preparation', famille: 'neutre', rarete: 'rare', epuisement: true, effet: 'Si tu te trompes, l’adversaire ne te frappe pas.' },
-  { cle: 'tout-ou-rien', nom: 'Tout ou rien', cout: 0, moment: 'reflexe', famille: 'neutre', rarete: 'maudit', maudit: true, indice: true, effet: 'Efface deux mauvaises réponses. Faux quand même : sa frappe double.' },
+  { cle: 'concentration', nom: 'Concentration', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Si tu réponds juste, l’adversaire perd 4 de plus.', resume: '+4 si juste' },
+  { cle: 'prudence', nom: 'Prudence', cout: 1, moment: 'preparation', famille: 'neutre', rarete: 'commun', effet: 'Bouclier 5 : si tu te trompes, il pare 5 de l’attaque.', resume: 'Bouclier 5' },
+  { cle: 'coup-d-oeil', nom: 'Coup d’œil', cout: 1, moment: 'reflexe', famille: 'neutre', rarete: 'commun', indice: true, effet: 'Efface une mauvaise réponse.', resume: 'Efface 1 réponse' },
+  {
+    cle: 'echange',
+    nom: 'Échange',
+    cout: 0,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'commun',
+    epuisement: true,
+    effet: 'Change de question : une autre, posée par le même adversaire.',
+    resume: 'Autre question',
+  },
+  { cle: 'pioche', nom: 'La pioche', cout: 0, moment: 'preparation', famille: 'neutre', rarete: 'commun', epuisement: true, effet: 'Tire deux cartes de plus.', resume: '+2 cartes' },
+  {
+    cle: 'arret-sur-image',
+    nom: 'Arrêt sur image',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'commun',
+    effet: 'Sur une question mot à mot : le texte s’arrête cinq secondes, et ton gain avec lui.',
+    resume: 'Pause 5 s',
+  },
+  { cle: 'detour', nom: 'Le détour', cout: 0, moment: 'route', famille: 'neutre', rarete: 'commun', effet: 'Ton pas suivant peut aller à n’importe quelle escale de l’étage du dessus.', resume: 'Va où tu veux' },
+  {
+    cle: 'double-chance',
+    nom: 'Double chance',
+    cout: 2,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'rare',
+    indice: true,
+    epuisement: true,
+    effet: 'Choisis deux réponses : il suffit que l’une soit juste.',
+    resume: '2 réponses',
+  },
+  { cle: 'sursis', nom: 'Sursis', cout: 2, moment: 'preparation', famille: 'neutre', rarete: 'rare', epuisement: true, effet: 'Si tu te trompes, l’adversaire ne t’attaque pas.', resume: 'Erreur gratuite' },
+  {
+    cle: 'tout-ou-rien',
+    nom: 'Tout ou rien',
+    cout: 0,
+    moment: 'reflexe',
+    famille: 'neutre',
+    rarete: 'maudit',
+    maudit: true,
+    indice: true,
+    effet: 'Efface deux mauvaises réponses. Mais si tu te trompes quand même, son attaque double.',
+    resume: 'Efface 2, risqué',
+  },
   {
     cle: 'quitte-ou-double',
     nom: 'Quitte ou double',
@@ -156,7 +208,8 @@ const NEUTRES: readonly CarteDeRencontre[] = [
     famille: 'neutre',
     rarete: 'maudit',
     maudit: true,
-    effet: 'Juste : tu brises double, et ta mise rapporte triple. Faux : sa frappe double.',
+    effet: 'Si tu as juste, l’adversaire perd le double et ton pari rapporte triple. Si tu te trompes, son attaque double.',
+    resume: 'Tout ×2',
   },
 ]
 
@@ -166,18 +219,99 @@ const NEUTRES: readonly CarteDeRencontre[] = [
  * d'écrire les autres.
  */
 const DES_FAMILLES: readonly CarteDeRencontre[] = [
-  { cle: 'plume', nom: 'Plume', cout: 0, moment: 'preparation', famille: 'erudit', rarete: 'commun', effet: 'Si la question est de ta catégorie fétiche : +5 de Charge.' },
-  { cle: 'bibliotheque', nom: 'Bibliothèque', cout: 1, moment: 'pouvoir', famille: 'erudit', rarete: 'rare', effet: 'Cette rencontre, tes bonnes réponses de ta catégorie fétiche brisent 3 sceaux de plus.' },
-  { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ta mise compte double, gain comme perte.' },
-  { cle: 'banco', nom: 'Banco', cout: 1, moment: 'preparation', famille: 'flambeur', rarete: 'rare', effet: 'Juste : tu brises aussi un sceau par tranche de cinq écus misés.' },
-  { cle: 'corser', nom: 'Corser', cout: 1, moment: 'preparation', famille: 'metamorphe', rarete: 'commun', effet: 'La question passe en six choix : tu brises une fois et demie plus.' },
-  { cle: 'simplifier', nom: 'Simplifier', cout: 0, moment: 'preparation', famille: 'metamorphe', rarete: 'commun', effet: 'La question passe en vrai ou faux : tu brises moitié moins, et Garde 3.' },
-  { cle: 'echauffement', nom: 'Échauffement', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: '+1 à ta série.' },
-  { cle: 'lancee', nom: 'Lancée', cout: 1, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: '+2 de Charge par bonne réponse de ta série.' },
-  { cle: 'parade', nom: 'Parade', cout: 2, moment: 'reflexe', famille: 'rempart', rarete: 'commun', effet: 'Garde 6, la question sous les yeux.' },
-  { cle: 'contre-attaque', nom: 'Contre-attaque', cout: 1, moment: 'preparation', famille: 'rempart', rarete: 'rare', effet: 'Si tu te trompes : tu brises autant de sceaux que ta Garde en a pris.' },
-  { cle: 'lucidite', nom: 'Lucidité', cout: 1, moment: 'reflexe', famille: 'devin', rarete: 'commun', effet: 'Une réponse est effacée sur la question : +5 de Charge.' },
-  { cle: 'troisieme-oeil', nom: 'Troisième œil', cout: 2, moment: 'pouvoir', famille: 'devin', rarete: 'rare', effet: 'Cette rencontre, chaque indice que tu joues : +3 de Charge.' },
+  {
+    cle: 'plume',
+    nom: 'Plume',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'erudit',
+    rarete: 'commun',
+    effet: 'Si la question est de ta catégorie fétiche et que tu réponds juste, l’adversaire perd 5 de plus.',
+    resume: '+5 si fétiche',
+  },
+  {
+    cle: 'bibliotheque',
+    nom: 'Bibliothèque',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'erudit',
+    rarete: 'rare',
+    effet: 'Pour toute la rencontre : tes bonnes réponses de ta catégorie fétiche lui font perdre 3 de plus.',
+    resume: 'Fétiche +3',
+  },
+  { cle: 'doubler-la-mise', nom: 'Doubler la mise', cout: 0, moment: 'preparation', famille: 'flambeur', rarete: 'commun', effet: 'Ton pari compte double, gain comme perte.', resume: 'Pari ×2' },
+  {
+    cle: 'banco',
+    nom: 'Banco',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'flambeur',
+    rarete: 'rare',
+    effet: 'Si tu as juste, ton pari frappe aussi : l’adversaire perd 1 de plus par tranche de cinq écus pariés.',
+    resume: 'Le pari frappe',
+  },
+  {
+    cle: 'corser',
+    nom: 'Corser',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'metamorphe',
+    rarete: 'commun',
+    effet: 'La question passe à six choix : plus dure, mais l’adversaire perd une fois et demie plus.',
+    resume: '6 choix ×1,5',
+  },
+  {
+    cle: 'simplifier',
+    nom: 'Simplifier',
+    cout: 0,
+    moment: 'preparation',
+    famille: 'metamorphe',
+    rarete: 'commun',
+    effet: 'La question passe en vrai ou faux : plus facile, mais l’adversaire perd moitié moins. Et bouclier 3.',
+    resume: 'Vrai ou faux',
+  },
+  { cle: 'echauffement', nom: 'Échauffement', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'commun', effet: 'Ajoute 1 à ta série de bonnes réponses d’affilée.', resume: 'Série +1' },
+  {
+    cle: 'lancee',
+    nom: 'Lancée',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'commun',
+    effet: 'Si tu réponds juste, l’adversaire perd 2 de plus par bonne réponse de ta série.',
+    resume: '+2 par série',
+  },
+  { cle: 'parade', nom: 'Parade', cout: 2, moment: 'reflexe', famille: 'rempart', rarete: 'commun', effet: 'Bouclier 6, une fois la question vue : si tu te trompes, il pare 6 de l’attaque.', resume: 'Bouclier 6' },
+  {
+    cle: 'contre-attaque',
+    nom: 'Contre-attaque',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'rempart',
+    rarete: 'rare',
+    effet: 'Si tu te trompes, ton bouclier riposte : l’adversaire perd ce qu’il a paré.',
+    resume: 'Riposte',
+  },
+  {
+    cle: 'lucidite',
+    nom: 'Lucidité',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'devin',
+    rarete: 'commun',
+    effet: 'Si une réponse est effacée et que tu réponds juste, l’adversaire perd 5 de plus.',
+    resume: '+5 si effacée',
+  },
+  {
+    cle: 'troisieme-oeil',
+    nom: 'Troisième œil',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'devin',
+    rarete: 'rare',
+    effet: 'Pour toute la rencontre : chaque indice que tu joues lui fait perdre 3 de plus, si tu réponds juste.',
+    resume: 'Indices +3',
+  },
 ]
 
 /**
@@ -195,11 +329,32 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'rempart',
     rarete: 'legendaire',
-    effet: 'Cette rencontre, si ton courage tombe à zéro, tu renais avec 15. Une fois par expédition.',
+    effet: 'Pour toute la rencontre : si ton courage tombe à zéro, tu renais avec 15. Une fois par expédition.',
+    resume: 'Renaître',
   },
-  { cle: 'peau-de-feu', nom: 'Peau de feu', legendaire: 'lg:salamandre', cout: 1, moment: 'preparation', famille: 'rempart', rarete: 'legendaire', effet: 'Garde 8. Si elle prend toute la frappe : +4 de Charge à la question suivante.' },
-  { cle: 'aube', nom: 'L’aube', legendaire: 'lg:scarabee', cout: 1, moment: 'pouvoir', famille: 'rempart', rarete: 'legendaire', effet: 'L’adversaire tombé, tu reprends 3 de courage par bonne réponse de la rencontre.' },
-  { cle: 'reveil', nom: 'Le réveil', legendaire: 'lg:coq', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: '+2 d’inspiration pour cette question.' },
+  {
+    cle: 'peau-de-feu',
+    nom: 'Peau de feu',
+    legendaire: 'lg:salamandre',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'rempart',
+    rarete: 'legendaire',
+    effet: 'Bouclier 8. S’il pare toute l’attaque, ta bonne réponse suivante lui fera perdre 4 de plus.',
+    resume: 'Bouclier 8',
+  },
+  {
+    cle: 'aube',
+    nom: 'L’aube',
+    legendaire: 'lg:scarabee',
+    cout: 1,
+    moment: 'pouvoir',
+    famille: 'rempart',
+    rarete: 'legendaire',
+    effet: 'Quand l’adversaire tombe, tu reprends 3 de courage par bonne réponse de la rencontre.',
+    resume: 'Soin à la fin',
+  },
+  { cle: 'reveil', nom: 'Le réveil', legendaire: 'lg:coq', cout: 0, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: '+2 d’inspiration pour cette question.', resume: '+2 ✦' },
   {
     cle: 'boucle',
     nom: 'La boucle',
@@ -208,9 +363,10 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'rempart',
     rarete: 'legendaire',
-    effet: 'Cette rencontre, ta prochaine erreur revient à la question suivante ; retrouvée, elle te rend son courage.',
+    effet: 'Pour toute la rencontre : ta prochaine erreur revient à la question suivante ; retrouvée, elle te rend son courage.',
+    resume: 'Seconde chance',
   },
-  { cle: 'sagesse', nom: 'Sagesse', legendaire: 'lg:chouette', cout: 1, moment: 'reflexe', famille: 'erudit', rarete: 'legendaire', indice: true, effet: 'Efface deux mauvaises réponses.' },
+  { cle: 'sagesse', nom: 'Sagesse', legendaire: 'lg:chouette', cout: 1, moment: 'reflexe', famille: 'erudit', rarete: 'legendaire', indice: true, effet: 'Efface deux mauvaises réponses.', resume: 'Efface 2 réponses' },
   {
     cle: 'enigme',
     nom: 'Énigme',
@@ -221,6 +377,7 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     indice: true,
     effet: 'Le Sphinx te souffle quand et de quoi parle la question. Elle ne se date pas ? Il efface une mauvaise réponse.',
+    resume: 'Un indice',
   },
   {
     cle: 'prediction',
@@ -232,10 +389,43 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     indice: true,
     effet: 'Sur une année ou un nombre : montre une réponse, l’Oracle dit « plus haut » ou « plus bas ».',
+    resume: 'Plus ou moins',
   },
-  { cle: 'deux-visages', nom: 'Deux visages', legendaire: 'lg:janus', cout: 1, moment: 'reflexe', famille: 'metamorphe', rarete: 'legendaire', indice: true, effet: 'Une seconde question s’affiche : tu réponds à celle que tu veux.' },
-  { cle: 'mue', nom: 'La mue', legendaire: 'lg:serpent', cout: 1, moment: 'reflexe', famille: 'metamorphe', rarete: 'legendaire', epuisement: true, effet: 'Une autre question, de la même escale. Ratée, elle ne te coûte rien.' },
-  { cle: 'commandement', nom: 'Commandement', legendaire: 'lg:lion', cout: 0, moment: 'route', famille: 'erudit', rarete: 'legendaire', effet: 'Tu choisis la catégorie de l’escale suivante : toute sa rencontre la pose.' },
+  {
+    cle: 'deux-visages',
+    nom: 'Deux visages',
+    legendaire: 'lg:janus',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'metamorphe',
+    rarete: 'legendaire',
+    indice: true,
+    effet: 'Une seconde question s’affiche : tu réponds à celle que tu veux.',
+    resume: 'Question au choix',
+  },
+  {
+    cle: 'mue',
+    nom: 'La mue',
+    legendaire: 'lg:serpent',
+    cout: 1,
+    moment: 'reflexe',
+    famille: 'metamorphe',
+    rarete: 'legendaire',
+    epuisement: true,
+    effet: 'Change de question : une autre, du même adversaire. Si tu te trompes à la nouvelle, elle ne te coûte rien.',
+    resume: 'Autre question',
+  },
+  {
+    cle: 'commandement',
+    nom: 'Commandement',
+    legendaire: 'lg:lion',
+    cout: 0,
+    moment: 'route',
+    famille: 'erudit',
+    rarete: 'legendaire',
+    effet: 'Tu choisis la catégorie de l’escale suivante : toute sa rencontre la pose.',
+    resume: 'Thème au choix',
+  },
   {
     cle: 'elan',
     nom: 'L’élan',
@@ -244,15 +434,67 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     moment: 'pouvoir',
     famille: 'elan',
     rarete: 'legendaire',
-    effet: 'Cette rencontre, chaque troisième bonne réponse d’affilée : deux cartes et une inspiration de plus à la question suivante.',
+    effet: 'Pour toute la rencontre : toutes les trois bonnes réponses d’affilée, deux cartes et une inspiration de plus à la question suivante.',
+    resume: 'Série = cartes',
   },
-  { cle: 'trois-tetes', nom: 'Trois têtes', legendaire: 'lg:chimere', cout: 2, moment: 'pouvoir', famille: 'metamorphe', rarete: 'legendaire', effet: 'Cette rencontre, tu tires deux cartes de plus à chaque question.' },
-  { cle: 'raccourci', nom: 'Le raccourci', legendaire: 'lg:comete', cout: 0, moment: 'route', famille: 'elan', rarete: 'legendaire', effet: 'Tu sautes une escale.' },
-  { cle: 'maison', nom: 'Il connaît la maison', legendaire: 'lg:renard', cout: 0, moment: 'route', famille: 'flambeur', rarete: 'legendaire', effet: 'Une source ou un coffre s’ouvre à l’étage du dessus, relié à toi.' },
-  { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', cout: 1, moment: 'pouvoir', famille: 'flambeur', rarete: 'legendaire', effet: 'Cette rencontre, tes mises gagnées rapportent triple.' },
-  { cle: 'feu-d-artifice', nom: 'Le feu d’artifice', legendaire: 'lg:bouquet', cout: 1, moment: 'preparation', famille: 'elan', rarete: 'legendaire', epuisement: true, effet: 'Ta défausse revient dans ta pioche, et tu tires trois cartes.' },
-  { cle: 'lanterne', nom: 'La lanterne', legendaire: 'lg:citrouille', cout: 0, moment: 'route', famille: 'devin', rarete: 'legendaire', effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.' },
-  { cle: 'boule', nom: 'Une boule pour chacun', legendaire: 'lg:sapin', cout: 0, moment: 'route', famille: 'flambeur', rarete: 'legendaire', effet: 'Un coffre de plus s’ouvre à l’étage du dessus, relié à toi.' },
+  {
+    cle: 'trois-tetes',
+    nom: 'Trois têtes',
+    legendaire: 'lg:chimere',
+    cout: 2,
+    moment: 'pouvoir',
+    famille: 'metamorphe',
+    rarete: 'legendaire',
+    effet: 'Pour toute la rencontre : tu tires deux cartes de plus à chaque question.',
+    resume: '+2 cartes',
+  },
+  { cle: 'raccourci', nom: 'Le raccourci', legendaire: 'lg:comete', cout: 0, moment: 'route', famille: 'elan', rarete: 'legendaire', effet: 'Tu sautes une escale.', resume: 'Saute 1 escale' },
+  {
+    cle: 'maison',
+    nom: 'Il connaît la maison',
+    legendaire: 'lg:renard',
+    cout: 0,
+    moment: 'route',
+    famille: 'flambeur',
+    rarete: 'legendaire',
+    effet: 'Une source ou un coffre s’ouvre à l’étage du dessus, relié à toi.',
+    resume: 'Coffre ou source',
+  },
+  { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', cout: 1, moment: 'pouvoir', famille: 'flambeur', rarete: 'legendaire', effet: 'Pour toute la rencontre : tes paris gagnés rapportent triple.', resume: 'Pari gagné ×3' },
+  {
+    cle: 'feu-d-artifice',
+    nom: 'Le feu d’artifice',
+    legendaire: 'lg:bouquet',
+    cout: 1,
+    moment: 'preparation',
+    famille: 'elan',
+    rarete: 'legendaire',
+    epuisement: true,
+    effet: 'Ta défausse revient dans ta pioche, et tu tires trois cartes.',
+    resume: '+3 cartes',
+  },
+  {
+    cle: 'lanterne',
+    nom: 'La lanterne',
+    legendaire: 'lg:citrouille',
+    cout: 0,
+    moment: 'route',
+    famille: 'devin',
+    rarete: 'legendaire',
+    effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.',
+    resume: 'Voir les pièges',
+  },
+  {
+    cle: 'boule',
+    nom: 'Une boule pour chacun',
+    legendaire: 'lg:sapin',
+    cout: 0,
+    moment: 'route',
+    famille: 'flambeur',
+    rarete: 'legendaire',
+    effet: 'Un coffre de plus s’ouvre à l’étage du dessus, relié à toi.',
+    resume: '+1 coffre',
+  },
   {
     cle: 'abysses',
     nom: 'Remonter des abysses',
@@ -262,7 +504,8 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     famille: 'rempart',
     rarete: 'legendaire',
     maudit: true,
-    effet: 'Le poser coûte 6 de courage. Cette rencontre, sous 20 de courage, chaque bonne réponse t’en rend 4.',
+    effet: 'La poser coûte 6 de courage. Pour toute la rencontre, sous 20 de courage, chaque bonne réponse t’en rend 4.',
+    resume: 'Soin si bas',
   },
   {
     cle: 'passe-muraille',
@@ -275,7 +518,8 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     maudit: true,
     indice: true,
     epuisement: true,
-    effet: 'Tu traverses la question : ni frappe, ni sceaux. Elle part à ton carnet.',
+    effet: 'Tu passes la question : ni toi ni l’adversaire ne perdez rien. Elle part à ton carnet.',
+    resume: 'Passer',
   },
   {
     cle: 'horizon',
@@ -287,7 +531,8 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     maudit: true,
     epuisement: true,
-    effet: 'Juste après une erreur : son courage te revient — mais ta prochaine récompense est vide.',
+    effet: 'Juste après une erreur : le courage qu’elle t’a coûté te revient — mais ta prochaine récompense est vide.',
+    resume: 'Courage rendu',
   },
   {
     cle: 'echolocation',
@@ -299,7 +544,8 @@ const DES_LEGENDAIRES: readonly CarteDeRencontre[] = [
     rarete: 'legendaire',
     maudit: true,
     indice: true,
-    effet: 'Cette rencontre, une mauvaise réponse s’efface à chaque question — mais l’annonce ne dit plus ta chance.',
+    effet: 'Pour toute la rencontre : une mauvaise réponse s’efface à chaque question — mais tu ne vois plus tes chances.',
+    resume: 'Efface 1, toujours',
   },
 ]
 
@@ -549,6 +795,73 @@ export function effaceesDuTour(surLaQuestion: readonly string[], pouvoirs: reado
   return Math.min(n, q.reponses - 2)
 }
 
+/** Les chiffres d'un tour qu'une carte change : ce qu'il lui reste d'inspiration, sa Charge, sa Garde, sa série. */
+export interface ChiffresDuTour {
+  inspiration: number
+  charge: number
+  garde: number
+  serie: number
+}
+
+/**
+ * Ce qu'une carte jouée fait aux chiffres du tour — l'inspiration qu'elle
+ * coûte, la Charge, la Garde, la série : la seule règle, que le pli applique
+ * (`pliDeLExpedition`) et que la page relit, carte levée, pour dire ce
+ * qu'elle changerait avant qu'on la joue (« je veux que ce soit bien
+ * compréhensible pour des novices », le 18 octobre 2026). Ce qu'elle fait
+ * d'autre — tirer des cartes, changer de question, la reposer à une autre
+ * forme —, le pli seul le fait.
+ */
+export function chiffresApresLaCarte(cle: string, avant: ChiffresDuTour, pouvoirs: readonly string[]): ChiffresDuTour {
+  const carte = carteDeRencontre(cle)
+  if (!carte) return { ...avant }
+  const x = { ...avant, inspiration: avant.inspiration - carte.cout }
+  switch (cle) {
+    case 'concentration':
+      x.charge += 4
+      break
+    case 'prudence':
+      x.garde += 5
+      break
+    case 'peau-de-feu':
+      x.garde += 8
+      break
+    case 'parade':
+      x.garde += 6
+      break
+    case 'simplifier':
+      x.garde += 3
+      break
+    case 'plume':
+    case 'lucidite':
+      x.charge += 5
+      break
+    case 'lancee':
+      x.charge += 2 * avant.serie
+      break
+    case 'echauffement':
+      x.serie += 1
+      break
+    case 'reveil':
+      x.inspiration += 2
+      break
+  }
+  // Troisième œil : chaque indice frappe aussi.
+  if (carte.indice && pouvoirs.includes('troisieme-oeil')) x.charge += 3
+  return x
+}
+
+/**
+ * La forme où une carte repose la question : Corser à six choix, Simplifier
+ * en vrai ou faux — ce qu'il en faut à l'aperçu d'une carte levée. Le serveur
+ * repose la vraie question de la base (`questionsApresLeGeste`).
+ */
+export function formeApresLaCarte(cle: string, q: { forme: FormeDEscale; reponses: number }): { forme: FormeDEscale; reponses: number } {
+  if (cle === 'corser') return { forme: 'six', reponses: 6 }
+  if (cle === 'simplifier') return { forme: 'vrai-faux', reponses: 2 }
+  return q
+}
+
 /** Ce que la question qui attend dit d'elle aux règles des cartes : jamais sa bonne réponse. */
 export interface QuestionDuTour {
   reponses: number
@@ -592,7 +905,7 @@ export function refusDeLaCarte(c: ContexteDUneCarte, cle: string): string | null
   if (!c.main.includes(cle)) return 'Cette carte n’est plus dans ta main : recharge la page'
   const avant = carte.moment === 'preparation' || carte.moment === 'pouvoir'
   if (avant && c.tour.phase !== 'preparation') return 'Elle se joue avant de voir la question'
-  if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue la question sous les yeux : vois-la d’abord'
+  if (carte.moment === 'reflexe' && c.tour.phase !== 'question') return 'Elle se joue pendant la question : vois-la d’abord'
   if (carte.moment === 'pouvoir' && c.pouvoirs.includes(cle)) return 'Elle agit déjà dans cette rencontre'
   if (carte.cout > c.tour.inspiration) return `Il lui faut ${carte.cout} d’inspiration : il t’en reste ${c.tour.inspiration}`
   const q = c.question

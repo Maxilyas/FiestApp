@@ -59,6 +59,7 @@ import {
   carteDeRencontre,
   carteDuLegendaire,
   cartesDeCombat,
+  chiffresApresLaCarte,
   enJeu,
   estDeRoute,
   famillesDeLEquipee,
@@ -1269,41 +1270,18 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     const carte = carteDeRencontre(g.joker)!
     const t = r.tour
     oter(r.main, g.joker)
-    t.inspiration -= carte.cout
     t.jouees.push(g.joker)
     if (carte.moment === 'reflexe' || g.joker === 'corser' || g.joker === 'simplifier') t.surLaQuestion.push(g.joker)
     if (carte.moment === 'pouvoir') r.pouvoirs.push(g.joker)
     else if (carte.epuisement) r.epuisees.push(g.joker)
     else r.defausse.push(g.joker)
+    // Ses chiffres — l'inspiration qu'elle coûte, la Charge, la Garde, la série — : la règle que la page relit, carte levée.
+    const x = chiffresApresLaCarte(g.joker, { inspiration: t.inspiration, charge: t.charge, garde: t.garde, serie: r.serie }, r.pouvoirs)
+    t.inspiration = x.inspiration
+    t.charge = x.charge
+    t.garde = x.garde
+    r.serie = x.serie
     switch (g.joker) {
-      case 'concentration':
-        t.charge += 4
-        break
-      case 'prudence':
-        t.garde += 5
-        break
-      case 'peau-de-feu':
-        t.garde += 8
-        break
-      case 'parade':
-        t.garde += 6
-        break
-      case 'simplifier':
-        t.garde += 3
-        break
-      case 'plume':
-      case 'lucidite':
-        t.charge += 5
-        break
-      case 'lancee':
-        t.charge += 2 * r.serie
-        break
-      case 'echauffement':
-        r.serie += 1
-        break
-      case 'reveil':
-        t.inspiration += 2
-        break
       case 'pioche':
         piocher(2)
         break
@@ -1341,8 +1319,6 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
         t.montre = g.montre
         break
     }
-    // Troisième œil : chaque indice frappe aussi.
-    if (carte.indice && r.pouvoirs.includes('troisieme-oeil')) t.charge += 3
   }
   /** Il voit la question (v5) : sa mise est dite, le tour passe à la question. */
   const voir = (g: Extract<GesteDExpedition, { quoi: 'voir' }>) => {
@@ -1804,11 +1780,11 @@ export function routeDisponible(e: Pick<EtatDeLExpedition, 'paquet' | 'routeJoue
   return libres
 }
 
-/** Pourquoi cette mise ne se fait pas (v5) — null : elle se fait. Une des mises permises, et de quoi la payer, doublée sous Doubler la mise. */
+/** Pourquoi cette mise ne se fait pas (v5) — null : elle se fait. Une des mises permises, et de quoi la payer, doublée sous Doubler la mise. La page dit « pari ». */
 export function refusDeLaMise(e: Pick<EtatDeLExpedition, 'ecus' | 'rencontre'>, mise: number): string | null {
-  if (!MISES.includes(mise)) return `Mise ${MISES.join(', ').replace(/, (\d+)$/, ' ou $1')} écus`
+  if (!MISES.includes(mise)) return `Parie ${MISES.join(', ').replace(/, (\d+)$/, ' ou $1')} écus`
   const total = mise * (e.rencontre?.tour.jouees.includes('doubler-la-mise') ? 2 : 1)
-  if (total > e.ecus) return `Il te manque ${total - e.ecus} écu${total - e.ecus > 1 ? 's' : ''} pour miser autant`
+  if (total > e.ecus) return `Il te manque ${total - e.ecus} écu${total - e.ecus > 1 ? 's' : ''} pour parier autant`
   return null
 }
 

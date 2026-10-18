@@ -41,10 +41,11 @@ chacune leur PR.
 3. **Le courage remplace les trois vies** : cinquante points pour toute
    l'expédition, qu'une erreur entame de la frappe de l'adversaire, moins ta
    Garde.
-4. **Chaque question est un tour** : l'annonce, la préparation sans voir la
-   question — tes cartes, ta mise —, puis la question, tes réflexes, ta
-   réponse, et le verdict. Au-dessus du bouton, l'aperçu : « Juste : brise
-   12 · Faux : −5 ».
+4. **Chaque question est un tour** : la préparation sans voir la question —
+   l'adversaire et la question qu'il pose, tes cartes, ton pari —, puis la
+   question, les cartes de pendant, ta réponse, et le verdict. En tête, ce
+   que la réponse fera : « Si tu as juste : il perd 12 », « Si tu te
+   trompes : tu perds 5 ».
 5. **Le cycle de Slay the Spire, montré** : ton paquet est mélangé à chaque
    rencontre, tu tires cinq cartes à chaque question, ce que tu ne joues pas
    part à la défausse, et les quatre tas sont à l'écran.
@@ -78,6 +79,51 @@ prototype avec tes recos » — ses recommandations, une à une :
 7. **Les expéditions en cours finissent à leurs règles** : la version du
    départ (`DepartDExpedition.v`) les garde — une expédition partie en
    version 4 ne verra jamais une rencontre.
+
+## Revu pour qui découvre, le même jour
+
+Le prototype en préproduction, le propriétaire : « Tu peux aussi modifier
+les cartes et la main de manière à que ce soit plus simple, esthétique et
+accès sur la compréhension. Je veux que ce soit très simple à comprendre.
+J'aime bien le principe d'envoyer des cartes avant la question, je trouve ça
+marrant mais je veux que ce soit bien compréhensible pour des novices. »
+
+La règle ne change pas d'un chiffre — le calibrage plus bas tient. L'écran
+et les mots, si :
+
+| Le code | L'écran |
+|---|---|
+| les sceaux de l'adversaire | ses **points** : « il perd 6 », une jauge, « 12 points » |
+| la Charge | « +4 si juste », « l'adversaire perd 4 de plus » |
+| la Garde | un **bouclier**, qui pare son attaque |
+| la mise | un **pari** |
+| la frappe | son **attaque** : « tu perds 5 de courage » |
+| l'inspiration | des étincelles ; le coût d'une carte aussi, ou « gratuite » |
+| préparation · réflexe · pouvoir | « avant de voir la question » · « pendant la question » · « pour toute la rencontre » |
+
+1. **Ce que la réponse fera, d'abord**, en deux tuiles sous l'adversaire :
+   « Si tu as juste : il perd 6 » — ou « il tombe ! » —, « Si tu te
+   trompes : tu perds 5 ♥ ». Dessous, ce que tes cartes y ajoutent, ce que
+   le pari rapporte ou coûte, ce que le bouclier pare. L'annonce de la
+   question rejoint l'adversaire : « Sa question : Histoire · facile · une
+   année », et ta chance.
+2. **La main entière, lisible sans rien toucher** : chaque carte dit ce
+   qu'elle fait en deux ou trois mots (« +4 si juste », « Bouclier 5 »,
+   « Efface 1 réponse »), son coût en étincelles au-dessus ; celles qui se
+   jouent pendant la question attendent à part, éteintes. Avant le bouton,
+   plus dessous : on joue ses cartes, puis on voit la question.
+3. **Une carte levée dit ce qu'elle changerait** : « Avec cette carte : si
+   tu as juste, il perd 6 › il perd 10 ». Le calcul est celui du pli
+   (`chiffresApresLaCarte`, extrait le même jour) : ce qu'elle promet est ce
+   qu'elle fait.
+4. **Un guide à la première rencontre**, en cinq lignes, puis à la demande
+   (« Comment ça marche ? »).
+5. **Les textes des cartes, réécrits** en phrases qui commencent par ce
+   qu'elles font : « Si tu réponds juste, l'adversaire perd 4 de plus »,
+   « Bouclier 5 : si tu te trompes, il pare 5 de l'attaque ».
+
+Le test : `expedition-rencontres-ecran.test.ts` ; l'écran :
+`rendu-rencontres.ts`, en Velours et en Ivoire.
 
 ## La règle du prototype
 
@@ -133,17 +179,19 @@ suivant.
 
 ### Un tour
 
-1. **L'annonce** : la catégorie, la marche, la forme, « réponses chiffrées »
-   si ce sont des années ou des nombres, ta chance — et l'intention de
-   l'adversaire, « ⚔ 6 si tu te trompes ». Jamais le texte de la question.
-2. **La préparation** : 3 d'inspiration, 5 cartes en main. Tu joues tes
-   cartes de préparation et tes pouvoirs, tu choisis ta mise ; l'aperçu
-   change à chaque carte et à chaque mise.
-3. **« Voir la question »** : la mise part, la question arrive. Tes réflexes
-   se jouent maintenant — Coup d'œil, Parade, Double chance…
-4. **La réponse, puis le verdict** : ce que tu as brisé, ce qu'il t'a pris,
-   ce que la mise a rapporté ou coûté. Ta main part à la défausse ; question
-   suivante, ou l'adversaire tombe.
+1. **La préparation**, sans voir la question : l'adversaire, ce qu'il lui
+   reste, et la question qu'il pose — sa catégorie, sa marche, sa forme,
+   « une année » ou « des nombres », ta chance ; jamais son texte. Puis ce
+   que la réponse fera, en deux tuiles : « Si tu as juste : il perd 6 »,
+   « Si tu te trompes : tu perds 5 ». 3 d'inspiration, 5 cartes en main : tu
+   joues tes cartes d'avant la question et tes pouvoirs, tu choisis ton
+   pari ; les tuiles changent à chaque carte et à chaque pari.
+2. **« Voir la question »** : le pari part, la question arrive. Les cartes
+   de pendant la question se jouent maintenant — Coup d'œil, Parade,
+   Double chance…
+3. **La réponse, puis le verdict** : ce que l'adversaire a perdu, ce qu'il
+   t'a pris, ce que le pari a rapporté ou coûté. Ta main part à la
+   défausse ; question suivante, ou l'adversaire tombe.
 
 ### Les cartes
 
@@ -307,9 +355,10 @@ de questions.
 1. Sur la préproduction, avec un profil : `/expedition`. Au départ, la
    section « Les rencontres · prototype » est allumée ; choisir sa catégorie
    fétiche si l'on veut, son équipée, puis partir.
-2. Sur une escale à question : l'adversaire, ses sceaux, son intention ;
-   l'annonce ; la main de cinq. Toucher une carte la lève — ce qu'elle fait,
-   « Jouer » ou son refus —, choisir sa mise, lire l'aperçu, puis « Voir la
+2. Sur une escale à question : le guide s'ouvre à la première ; puis
+   l'adversaire et la question qu'il pose, ce que la réponse fera, la main
+   de cinq. Toucher une carte la lève — ce qu'elle fait, ce qu'elle
+   changerait, « Jouer » ou son refus —, choisir son pari, puis « Voir la
    question ».
 3. Les quatre tas (pioche, main, défausse, épuisées) se touchent et
    s'ouvrent ; le paquet entier aussi, depuis la carte.

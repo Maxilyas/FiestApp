@@ -341,7 +341,7 @@ Trois actes, une carte tirée au sort chacun, un gardien au bout de chacun, un l
 
 ### Le prototype des rencontres
 
-Une escale à question devient un adversaire à faire tomber, question après question ; le courage remplace les vies, des cartes les jokers (la version 5 du départ, le 18 octobre 2026). Le brief, ce qui s'écarte de la proposition et le calibrage : `retours/2026-10-18/rencontres.md`. Ces chiffres sont des ordres de grandeur, qu'une semaine de jeu en préproduction fixera. Une expédition partie finit à ses règles : la version de son départ la garde, et ses sceaux, ses mises et son courage se replient du journal à chaque lecture — une valeur changée vaut aussitôt pour les expéditions en rencontres en route.
+Une escale à question devient un adversaire à faire tomber, question après question ; le courage remplace les vies, des cartes les jokers (la version 5 du départ, le 18 octobre 2026). Le brief, ce qui s'écarte de la proposition et le calibrage : `retours/2026-10-18/rencontres.md`. Ces chiffres sont des ordres de grandeur, qu'une semaine de jeu en préproduction fixera. Une expédition partie finit à ses règles : la version de son départ la garde, et ses sceaux, ses mises et son courage se replient du journal à chaque lecture — une valeur changée vaut aussitôt pour les expéditions en rencontres en route. Les noms ci-dessous sont ceux du code ; l'écran dit des **points** pour les sceaux, une **attaque** pour la frappe, un **bouclier** pour la Garde, « +4 si juste » pour la Charge, un **pari** pour la mise (`.claude/rules/expedition.md`).
 
 | Constante | Valeur | Fichier | Ce qu'elle règle | Ce que la changer implique |
 |---|---|---|---|---|

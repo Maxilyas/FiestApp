@@ -2,10 +2,12 @@
 // 18 octobre 2026), photographié au téléphone (360 × 640) sur un serveur
 // jetable : le départ et son interrupteur, la catégorie fétiche et sa feuille,
 // l'équipée et les cartes des rencontres dépliées ; la carte de l'acte et ses
-// cartes de route en petit ; une rencontre — l'adversaire, l'annonce,
-// l'aperçu, la mise, la main de cinq cartes, une carte levée, ses tas —, puis
-// la question vue et ses réflexes, une bonne réponse qui brise, une erreur
-// que la Garde amortit, l'adversaire qui tombe et sa carte à prendre ; un
+// cartes de route en petit ; une rencontre — le guide qui s'ouvre à la
+// première, l'adversaire et la question qu'il pose, ce que la réponse fera,
+// la main de cinq cartes, une carte levée et ce qu'elle changerait, ses tas,
+// le pari —, puis la question vue et ses cartes de pendant, une bonne réponse
+// qui fait perdre des points, une erreur que le bouclier pare, l'adversaire
+// qui tombe et sa carte à prendre ; un
 // coffre, le campement, l'échoppe s'il s'en trouve une ; le gardien, vaincu,
 // et l'acte suivant. Il joue juste deux fois sur trois.
 // Le client construit d'abord (`npm run build -w client`).
@@ -121,7 +123,7 @@ try {
   /** Une carte de la main qui se joue : la première de ces clés, qui n'est pas éteinte ; levée, photographiée une fois, puis jouée. */
   const jouerUneCarte = async (cles: string[], photoDeLaLevee?: string): Promise<boolean> => {
     for (const cle of cles) {
-      const carte = page.locator(`.exp-main-rencontre:not(.exp-main-en-petit) .exp-carte-rencontre[data-carte="${cle}"]:not(.exp-refuse)`).first()
+      const carte = page.locator(`.exp-cartes .exp-face[data-carte="${cle}"]:not(.exp-face-eteinte)`).first()
       if (!(await carte.count())) continue
       await carte.click()
       await page.waitForSelector('.exp-leve')
@@ -182,6 +184,12 @@ try {
       continue
     }
     if (ou === 'preparation') {
+      // Le guide, ouvert de lui-même à la première rencontre : lu, puis « Compris » — il ne revient plus.
+      if (await page.locator('.feuille-guide').count()) {
+        await unePhoto('3-guide')
+        await page.locator('.feuille-guide .carte-pied .btn-primary').click()
+        await page.waitForTimeout(250)
+      }
       await largeur('la préparation')
       const gardien = (await page.locator('.exp-adversaire-gardien').count()) > 0
       await unePhoto(gardien ? '7-gardien-preparation' : '3-preparation')
@@ -194,12 +202,12 @@ try {
         await page.waitForSelector('.exp-rencontre')
       }
       if (!fait.has('3b-tas')) {
-        await page.locator('.exp-main-rencontre .exp-pioche').click()
+        await page.locator('.exp-cartes-tas').click()
         await page.waitForSelector('.feuille-paquet')
         await unePhoto('3b-tas')
         await page.locator('.feuille-paquet .carte-fermer').click()
       }
-      // Ses cartes de préparation, une par une, tant qu'il en a : la Charge, la Garde, la forme, la mise.
+      // Ses cartes d'avant la question, une par une, tant qu'il en a : frapper plus fort, le bouclier, la forme, le pari.
       for (let k = 0; k < 3; k++) {
         if (!(await jouerUneCarte(['corser', 'simplifier', 'concentration', 'prudence', 'tresor', 'doubler-la-mise'], '3c-carte-levee'))) break
       }
@@ -242,6 +250,8 @@ try {
     }
     if (ou === 'campement') {
       await unePhoto('6b-campement')
+      // Le courage au plus haut, le campement propose d'office de retirer une carte : il en choisit une.
+      if (await page.locator('.exp-a-retirer').count()) await page.locator('.exp-a-retirer .pill-btn').first().click()
       await page.locator('.exp-camper .exp-depart-pied .btn-primary').click()
       await page.waitForTimeout(300)
       continue
