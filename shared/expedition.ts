@@ -14,7 +14,7 @@
 import { hasardDe } from './missions'
 import { CATEGORIES } from './categories'
 import { VIES, type Niveau, type QuestionDeCampagne } from './campagne'
-import { TAUX_DU_CALIBRAGE } from './sentiers'
+import { TAUX_DU_CALIBRAGE, couleurDePiste, type CouleurDePiste } from './sentiers'
 import { LEGENDAIRES, legendaire } from './legendaires'
 import {
   EFFACE,
@@ -26,6 +26,7 @@ import {
   PAQUET_DE_DEPART,
   PLACES_DE_L_EQUIPEE,
   POIDS_DES_RARETES,
+  TALISMANS,
   joker as jokerDeCle,
   jokerDuLegendaire,
 } from './jokers'
@@ -41,18 +42,23 @@ export const COLONNES = 4
 /** Les chemins qui montent du bas : leurs pas font les escales et les liens. */
 export const CHEMINS = 5
 
-/** Une escale de la carte. Le gardien est la dernière de chaque acte, après les campements. */
+/**
+ * Une escale de la carte. Le gardien est la dernière de chaque acte, après
+ * les campements. Le générateur tire toutes les sortes du brief depuis les
+ * écus (l'étape 4) ; avant eux, il posait une question à la place d'une
+ * échoppe ou de l'inconnu — les élites et les coffres sont venus avec les
+ * jokers (l'étape 2). Une carte d'avant, gardée par son expédition, garde
+ * ses escales.
+ */
 export type SorteDEscale = 'question' | 'elite' | 'source' | 'coffre' | 'inconnu' | 'echoppe' | 'campement' | 'gardien'
 
 /**
- * Ce que l'expédition sait jouer. Le générateur tire toutes les sortes du
- * brief — la carte garde ses proportions d'une étape à l'autre —, puis pose
- * une question à la place d'une échoppe ou de l'inconnu : sans écus (l'étape
- * 4), ils n'auraient rien à donner. Les élites et les coffres sont venus avec
- * les jokers (l'étape 2) ; une carte de l'étape 1, gardée par son
- * expédition, garde ses questions et ses sources.
+ * Ce que cache l'inconnu (l'étape 4) : un marchand — une échoppe —, un piège
+ * — une vie —, ou un légendaire de passage, dont le joker reste dans la main
+ * jusqu'au bout de l'acte. Tiré de la graine et de l'escale : la carte le sait
+ * dès le départ, mais la page ne le reçoit qu'une fois dévoilé (invariant 1).
  */
-const SORTES_OUVERTES: ReadonlySet<SorteDEscale> = new Set(['question', 'elite', 'source', 'coffre', 'campement', 'gardien'])
+export type ContenuDeLInconnu = 'marchand' | 'piege' | 'passage'
 
 export type FormeDEscale = 'quatre' | 'vrai-faux' | 'six' | 'devoilement'
 
@@ -80,6 +86,8 @@ export interface EscaleDeLaCarte {
   suite: string[]
   /** La chance qu'il la trouve, de 0 à 1, calculée au départ de l'expédition et gardée avec elle. */
   chance?: number
+  /** L'inconnu dévoilé — par la boussole, la lanterne, ou parce qu'il y est passé : jamais gardé avec la carte, la vue seule le pose. */
+  contenu?: ContenuDeLInconnu
 }
 
 export interface CarteDUnActe {
@@ -243,16 +251,6 @@ export function carteDUnActe(graine: string, acte: number, sujets: readonly stri
     }
   }
 
-  // Ce que l'expédition ne sait pas encore jouer devient une question
-  // (`SORTES_OUVERTES`) : l'inconnu et l'échoppe prennent une catégorie,
-  // comme toute question.
-  for (const e of escales) {
-    if (SORTES_OUVERTES.has(e.sorte)) continue
-    e.sorte = 'question'
-    e.theme ??= { categories: [CATEGORIES[entier(CATEGORIES.length)]] }
-    e.forme ??= 'quatre'
-  }
-
   const parId = new Map(escales.map(e => [e.id, e]))
   for (const e of escales) {
     if (e.etage < ETAGES - 1) e.suite = (liens.get(`${e.etage}:${e.colonne}`) ?? []).map(x => idDe(e.etage + 1, x)).filter(id => parId.has(id))
@@ -406,6 +404,121 @@ export function instantDuMot(n: number, depuis: number, arret?: number): number 
   return arret !== undefined && arret >= depuis && sansPause > arret ? sansPause + ARRET_SUR_IMAGE_MS : sansPause
 }
 
+// ── Les écus (l'étape 4) ───────────────────────────────────────────────────
+
+/**
+ * Les écus d'une escale trouvée, selon la couleur de la chance qu'elle
+ * annonçait : plus la piste est noire, plus elle paie. Une élite trouvée
+ * ajoute les siens, un gardien vaincu les siens ; un coffre qu'on passe sans
+ * rien prendre en rapporte. Des choix de produit (`docs/reference/baremes.md`).
+ * Ils meurent avec l'expédition : jamais un confetti — un confetti reste une
+ * bonne réponse.
+ */
+export const ECUS_DES_PISTES: Readonly<Record<CouleurDePiste, number>> = { verte: 5, bleue: 10, rouge: 20, noire: 30 }
+export const ECUS_D_UNE_ELITE = 25
+export const ECUS_D_UN_GARDIEN = 40
+export const ECUS_D_UN_COFFRE_LAISSE = 15
+
+/** Au dévoilement, le prix de l'escale fois trois au premier mot, puis il descend, mot à mot, jusqu'au prix de l'escale au dernier. */
+export const ECUS_AU_PREMIER_MOT = 3
+
+/**
+ * Ce que vend une échoppe — ou le marchand de l'inconnu —, et à quel prix :
+ * une vie, l'un de ses trois jokers (selon sa rareté), son talisman, un
+ * joker retiré de son paquet. Chaque article une fois par échoppe. Des choix
+ * de produit.
+ */
+export const PRIX_DE_L_ECHOPPE: Readonly<{ vie: number; talisman: number; retirer: number; commun: number; rare: number; maudit: number }> = {
+  vie: 40,
+  commun: 20,
+  rare: 35,
+  maudit: 15,
+  talisman: 50,
+  retirer: 15,
+}
+
+/** Une offre — un coffre, une élite trouvée — propose un talisman de plus, de temps en temps : ils sont rares. */
+export const CHANCE_D_UN_TALISMAN = 0.15
+
+/**
+ * Les écus d'une bonne réponse : la couleur de la chance que l'escale
+ * annonçait, doublée sur un thème pointu et par le maillot jaune sur le
+ * sport, divisée par deux en vrai ou faux — le hasard y fait la moitié du
+ * travail —, trois fois plus au premier mot d'un dévoilement ; puis ce
+ * qu'ajoute une élite, et Quitte ou double qui triple le tout.
+ */
+export function ecusDeLaReponse(o: {
+  chance: number | undefined
+  sujet?: boolean
+  vraiFaux?: boolean
+  sport?: boolean
+  devoile?: { mots: number; sur: number }
+  elite?: boolean
+  quitteOuDouble?: boolean
+}): number {
+  // Une escale sans chance dite — une carte d'avant les chances — paie comme une bleue.
+  let x = ECUS_DES_PISTES[couleurDePiste(o.chance ?? 0.5)]
+  if (o.sujet) x *= 2
+  if (o.sport) x *= 2
+  if (o.vraiFaux) x /= 2
+  if (o.devoile && o.devoile.sur > 0) {
+    const mots = Math.min(o.devoile.sur, Math.max(1, o.devoile.mots))
+    x *= 1 + ((ECUS_AU_PREMIER_MOT - 1) * (o.devoile.sur - mots)) / Math.max(1, o.devoile.sur - 1)
+  }
+  const total = Math.round(x) + (o.elite ? ECUS_D_UNE_ELITE : 0)
+  return o.quitteOuDouble ? total * 3 : total
+}
+
+/** Ce qu'une escale à question promet, trouvée, tel que la carte le dit : sans ce que la réponse y changera (le dévoilement, Quitte ou double, le maillot jaune). */
+export function prixDeLEscale(e: Pick<EscaleDeLaCarte, 'sorte' | 'theme' | 'forme' | 'chance'>): number {
+  return ecusDeLaReponse({ chance: e.chance, sujet: !!e.theme && 'sujet' in e.theme, vraiFaux: e.forme === 'vrai-faux', elite: e.sorte === 'elite' })
+}
+
+/**
+ * Ce que cache l'inconnu d'une escale : un marchand, un piège ou un
+ * légendaire de passage, à parts égales, du hasard de la graine, de l'acte et
+ * de l'escale — le même à chaque lecture, connu du serveur dès le départ.
+ */
+export function contenuDeLInconnu(graine: string, acte: number, id: string): ContenuDeLInconnu {
+  const t = hasardDe(`${graine}:inconnu:${acte}:${id}`)()
+  return t < 1 / 3 ? 'marchand' : t < 2 / 3 ? 'piege' : 'passage'
+}
+
+/**
+ * Le légendaire de passage d'un inconnu : un de ceux qui ont leur joker,
+ * hors de son équipée — dont les jokers sont déjà dans son paquet —, du même
+ * hasard. Son joker va dans la main, jusqu'au bout de l'acte.
+ */
+export function legendaireDePassage(graine: string, acte: number, id: string, equipee: readonly string[]): string {
+  const candidats = LEGENDAIRES_A_JOKER.filter(cle => !equipee.includes(cle))
+  const liste = candidats.length > 0 ? candidats : LEGENDAIRES_A_JOKER
+  return liste[Math.floor(hasardDe(`${graine}:passage:${acte}:${id}`)() * liste.length)]
+}
+
+/**
+ * Le talisman d'une offre ou d'une échoppe, parmi ceux qu'il n'a pas : à
+ * l'échoppe, toujours (s'il en reste) ; dans une offre, une fois sur
+ * `CHANCE_D_UN_TALISMAN`. Du hasard de la graine et du rang de l'offre.
+ */
+export function talismanDeLOffre(graine: string, rang: number, tenus: readonly string[], toujours: boolean): string | null {
+  const r = hasardDe(`${graine}:talisman:${rang}`)
+  if (!toujours && r() >= CHANCE_D_UN_TALISMAN) return null
+  const libres = TALISMANS.filter(t => !tenus.includes(t.cle))
+  return libres.length > 0 ? libres[Math.floor(r() * libres.length)].cle : null
+}
+
+/** Ce qu'il achète à l'échoppe : une vie, un de ses jokers, son talisman, ou un joker retiré de son paquet. */
+export type ArticleDeLEchoppe = 'vie' | 'joker' | 'talisman' | 'retirer'
+
+/** Le prix d'un article : un joker selon sa rareté. */
+export function prixDeLArticle(article: ArticleDeLEchoppe, cle?: string): number {
+  if (article === 'joker') {
+    const rarete = jokerDeCle(cle)?.rarete
+    return rarete === 'rare' || rarete === 'maudit' ? PRIX_DE_L_ECHOPPE[rarete] : PRIX_DE_L_ECHOPPE.commun
+  }
+  return PRIX_DE_L_ECHOPPE[article]
+}
+
 // ── Les chances ────────────────────────────────────────────────────────────
 
 /**
@@ -465,11 +578,27 @@ export function viesAuBout(carte: CarteDUnActe, trace: readonly string[], vies: 
         const c = e.chance ?? 0.5
         apres[v] += d[v] * c
         apres[v - 1] += d[v] * (1 - c)
+      } else if (e.sorte === 'inconnu') {
+        // Un piège sur trois tant qu'il ne s'est pas dévoilé ; dévoilé, on sait.
+        const piege = e.contenu === undefined ? 1 / 3 : e.contenu === 'piege' ? 1 : 0
+        apres[v] += d[v] * (1 - piege)
+        apres[v - 1] += d[v] * piege
       } else apres[v] += d[v]
     }
     d = apres
   }
   return d
+}
+
+/** Les écus qu'un tracé promet, en moyenne : sur chaque escale à question, sa chance fois son prix. Sans chances dites (L'écholocation), rien. */
+export function ecusEsperes(carte: CarteDUnActe, trace: readonly string[]): number {
+  const parId = new Map(carte.escales.map(e => [e.id, e]))
+  let somme = 0
+  for (const id of trace) {
+    const e = parId.get(id)
+    if (e && (e.sorte === 'question' || e.sorte === 'elite') && e.chance !== undefined) somme += e.chance * prixDeLEscale(e)
+  }
+  return Math.round(somme)
 }
 
 /** Ce que la page dit d'un tracé : la chance d'arriver au gardien vivant, puis de le vaincre. */
@@ -535,9 +664,11 @@ export interface DepartDExpedition {
   /**
    * 1 : l'étape 1, sans jokers — le campement y rend sa vie d'office ; 2 :
    * les jokers ; 3 : les formes — ses offres connaissent Arrêt sur image
-   * (`Joker.depuis`). Les formes elles-mêmes sont dans ses cartes.
+   * (`Joker.depuis`). Les formes elles-mêmes sont dans ses cartes. 4 : les
+   * écus — l'échoppe et l'inconnu sur ses cartes, les talismans dans ses
+   * offres, Quitte ou double au catalogue.
    */
-  v: 1 | 2 | 3
+  v: 1 | 2 | 3 | 4
   graine: string
   numero: number
   /** Les trois gardiens, un par acte, dans l'ordre des actes. */
@@ -569,8 +700,14 @@ export interface DepartDExpedition {
 export type GesteDExpedition =
   | { quoi: 'avancer'; vers: string }
   | { quoi: 'jouer'; joker: string; position?: number; categorie?: string; montre?: number }
-  | { quoi: 'prendre'; jokers: string[] }
+  | { quoi: 'prendre'; jokers: string[]; talisman?: string }
   | { quoi: 'camper'; retirer?: string }
+  /**
+   * À l'échoppe (v4) : un article, et le joker qu'il vise — celui de l'étal,
+   * ou celui qu'on retire. `prix` : ce qu'il a payé, que le serveur écrit —
+   * comme à la boutique, un achat garde son prix quand le barème change.
+   */
+  | { quoi: 'acheter'; article: ArticleDeLEchoppe; joker?: string; prix?: number }
   | { quoi: 'garder'; legendaire: string }
   | { quoi: 'abandonner' }
 
@@ -584,6 +721,10 @@ export interface QuestionPosee {
   nombre?: boolean
   /** La forme où elle s'est posée, quand ce n'est pas celle de la base : Arrêt sur image ne se joue que sur un dévoilement. */
   forme?: FormeDEscale
+  /** Sa catégorie : le maillot jaune double les écus du sport (v4). */
+  categorie?: string
+  /** Un dévoilement répondu : les mots dits quand sa réponse est arrivée, sur combien — ses écus en dépendent (v4). */
+  devoile?: { mots: number; sur: number }
 }
 
 export type IssueDExpedition = 'en-route' | 'au-bout' | 'legendaire' | 'perdue' | 'abandonnee'
@@ -632,8 +773,13 @@ export interface EtatDeLExpedition {
   categorie: string | null
   /** Ce qu'il faut tirer avant de continuer ; null : rien. */
   aTirer: ATirer | null
-  /** Une offre à prendre : celle d'un coffre — vide après L'horizon —, ou d'une élite trouvée. */
-  offre: { jokers: string[]; aPrendre: number } | null
+  /**
+   * Une offre à prendre : celle d'un coffre — vide après L'horizon —, ou
+   * d'une élite trouvée. Depuis les écus (v4), un talisman de temps en temps,
+   * à prendre à la place d'un joker ; et le coffre qu'on passe sans rien
+   * prendre rapporte ses écus.
+   */
+  offre: OffreDeJokers | null
   /** Arrivé à un campement : une vie, ou un joker retiré de son paquet. */
   campement: boolean
   /** Les jokers de carte en cours, jusqu'au pas suivant. */
@@ -654,6 +800,35 @@ export interface EtatDeLExpedition {
   /** Combien de tirages — la pioche, les offres — ont déjà eu lieu : le rang du hasard du suivant. */
   tirages: number
   offres: number
+  /** Ses écus (v4) : gagnés aux escales, dépensés à l'échoppe ; ils meurent avec l'expédition. */
+  ecus: number
+  /** Ses talismans (v4) : passifs, jusqu'au bout de l'expédition. */
+  talismans: string[]
+  /** L'échoppe où il est — ou le marchand de l'inconnu — : ce qu'elle vend, ce qu'il y a déjà acheté. Elle se quitte en avançant. */
+  echoppe: EchoppeOuverte | null
+  /** L'inconnu où il vient d'entrer : ce qu'il cachait, le légendaire de passage. */
+  inconnu: { contenu: ContenuDeLInconnu; legendaire?: string } | null
+  /** Les jokers des légendaires de passage : ils quittent sa main, son paquet ou sa défausse au bout de l'acte. */
+  passages: string[]
+  /** La lanterne est allumée : les pièges de l'acte se montrent. */
+  lanterne: boolean
+}
+
+/** Une offre de jokers — un coffre, une élite trouvée. */
+export interface OffreDeJokers {
+  jokers: string[]
+  aPrendre: number
+  /** Un coffre (v4) : passé sans rien prendre, il rapporte `ECUS_D_UN_COFFRE_LAISSE`. */
+  coffre?: true
+  /** Un talisman, à prendre à la place d'un joker (v4). */
+  talisman?: string
+}
+
+/** Une échoppe ouverte : ses trois jokers, son talisman, et ce qu'il y a déjà acheté — `vie`, `talisman`, `retirer` ou la clé d'un joker. */
+export interface EchoppeOuverte {
+  jokers: string[]
+  talisman: string | null
+  achats: string[]
 }
 
 /** Une escale qu'Il connaît la maison a ouverte : changée en source ou en coffre, reliée à l'escale d'où il l'a joué. */
@@ -669,7 +844,7 @@ export function paquetDeDepart(equipee: readonly string[]): string[] {
 }
 
 /** Ce que le pli lit du départ. */
-type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource'>
+type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' | 'equipee' | 'chanceDeLaSource' | 'chances'>
 
 /**
  * L'état d'une expédition, replié de son départ, de ses gestes et de ses
@@ -687,9 +862,16 @@ type DepartLu = Pick<DepartDExpedition, 'v' | 'graine' | 'cartes' | 'gardiens' |
  * ne retire rien. Ce qu'un joker montre d'une question — les réponses
  * effacées, l'indice, ce que dit l'Oracle — ne se lit pas ici : le serveur seul
  * connaît la bonne réponse (invariant 1).
+ *
+ * Les écus (v4) : une escale à question trouvée paie selon la chance qu'elle
+ * annonçait (`ecusDeLaReponse`), un gardien vaincu les siens, un coffre passé
+ * sans rien prendre les siens ; l'échoppe les dépense. L'inconnu se joue en y
+ * entrant : un marchand ouvre son échoppe, un piège prend une vie, un
+ * légendaire de passage glisse son joker dans la main jusqu'au bout de l'acte.
  */
 export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedition[], questions: readonly QuestionPosee[], reponses: ReadonlyMap<number, boolean>): EtatDeLExpedition {
   const avecJokers = depart.v >= 2
+  const avecEcus = depart.v >= 4
   const e: EtatDeLExpedition = {
     acte: 0,
     ici: null,
@@ -722,6 +904,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     derniereErreur: false,
     tirages: 0,
     offres: 0,
+    ecus: 0,
+    talismans: [],
+    echoppe: null,
+    inconnu: null,
+    passages: [],
+    lanterne: false,
   }
   const fini = () => e.issue !== 'en-route' && e.issue !== 'au-bout'
   const pose = (cle: string) => e.poses.includes(cle)
@@ -756,12 +944,56 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       e.offre = { jokers: [], aPrendre: 0 }
       return
     }
-    e.offre = { jokers: offreDeJokers(depart.graine, e.offres++, depart.v), aPrendre: coffre && pose('tresor') ? 2 : 1 }
+    const rang = e.offres++
+    const talisman = avecEcus ? talismanDeLOffre(depart.graine, rang, e.talismans, false) : null
+    e.offre = {
+      jokers: offreDeJokers(depart.graine, rang, depart.v),
+      aPrendre: coffre && pose('tresor') ? 2 : 1,
+      ...(avecEcus && coffre && { coffre: true as const }),
+      ...(talisman && { talisman }),
+    }
+  }
+  /** Une échoppe — ou le marchand de l'inconnu — : trois jokers, un talisman s'il en reste, du hasard de son rang d'offre. */
+  const ouvrirLEchoppe = () => {
+    const rang = e.offres++
+    e.echoppe = { jokers: offreDeJokers(depart.graine, rang, depart.v), talisman: talismanDeLOffre(depart.graine, rang, e.talismans, true), achats: [] }
+  }
+  /** Une vie de moins hors d'une question — un piège — : Renaissance relève, sinon l'expédition s'arrête là. */
+  const blesser = () => {
+    e.vies -= 1
+    if (e.vies > 0) return
+    if (pose('renaissance')) {
+      e.vies = 1
+      servi('renaissance')
+    } else {
+      e.vies = 0
+      e.issue = 'perdue'
+    }
+  }
+  const entrerDansLInconnu = (id: string) => {
+    const contenu = contenuDeLInconnu(depart.graine, e.acte, id)
+    if (contenu === 'marchand') {
+      ouvrirLEchoppe()
+      e.inconnu = { contenu }
+    } else if (contenu === 'piege') {
+      e.inconnu = { contenu }
+      blesser()
+    } else {
+      // Son joker va dans la main, même pleine : il ne reste que l'acte.
+      const legendaire = legendaireDePassage(depart.graine, e.acte, id, depart.equipee ?? [])
+      const j = jokerDuLegendaire(legendaire)
+      if (j) {
+        e.main.push(j.cle)
+        e.passages.push(j.cle)
+      }
+      e.inconnu = { contenu, legendaire }
+    }
   }
   const vaincre = () => {
     const acte = e.acte
     e.vaincus++
     e.gardien = null
+    if (avecEcus) e.ecus += ECUS_D_UN_GARDIEN
     if (avecJokers) {
       if (pose('aube') && e.aube) e.vies = Math.min(VIES, e.vies + 1)
       // Les posés finissent avec l'acte ; le gardien glisse son joker dans le paquet ; la défausse y revient.
@@ -771,8 +1003,12 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       if (j) e.paquet.push(j.cle)
       e.paquet.push(...e.defausse)
       e.defausse = []
+      // Les jokers de passage s'en vont avec l'acte, d'où qu'ils soient.
+      for (const p of e.passages) if (!oter(e.main, p)) oter(e.paquet, p)
+      e.passages = []
       e.paquet.sort()
     }
+    e.lanterne = false
     e.aube = false
     e.boucle = null
     e.elan = 0
@@ -797,7 +1033,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     if (i === null) return false
     const juste = reponses.get(i)!
     const sur = e.joue?.joker
-    const sorte = e.gardien ? 'gardien' : e.ici ? escaleEnJeu(depart, e, e.ici)?.sorte : undefined
+    const escale = e.gardien || !e.ici ? undefined : escaleEnJeu(depart, e, e.ici)
+    const sorte = e.gardien ? 'gardien' : escale?.sorte
+    // Le Commandement de cette question : ses écus se lisent sur la chance que la carte annonçait sous lui.
+    const commandee = e.categorie
     e.enAttente = null
     e.autre = null
     e.passees = Math.max(a, b ?? a) + 1
@@ -827,6 +1066,19 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
           e.vies = Math.min(VIES, e.vies + 1)
         }
       }
+      if (avecEcus && escale && (sorte === 'question' || sorte === 'elite')) {
+        const q = questions[i]
+        e.ecus += ecusDeLaReponse({
+          chance: chanceAnnoncee(depart, e.acte, escale, commandee),
+          sujet: !commandee && !!escale.theme && 'sujet' in escale.theme,
+          // Un vrai ou faux posé — tiré d'une autre, ou né tel : le hasard y fait la moitié du travail.
+          vraiFaux: q?.reponses === 2,
+          sport: e.talismans.includes('maillot-jaune') && q?.categorie === 'Sport',
+          devoile: q?.devoile,
+          elite: sorte === 'elite',
+          quitteOuDouble: sur === 'quitte-ou-double',
+        })
+      }
       if (e.gardien) e.gardien.trouvees++
       else if (sorte === 'elite' && avecJokers) offrir(false)
     } else {
@@ -834,7 +1086,7 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       const erreur = sorte !== 'source'
       let perte = erreur ? 1 : 0
       if (sur === 'sursis' || sur === 'mue') perte = 0
-      else if (sur === 'tout-ou-rien' && erreur) perte = 2
+      else if ((sur === 'tout-ou-rien' || sur === 'quitte-ou-double') && erreur) perte = 2
       if (perte > 0 && e.vies === 1 && pose('peau-de-feu')) {
         perte = 0
         servi('peau-de-feu')
@@ -876,11 +1128,18 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.route = { detour: false, raccourci: false, commandement: null }
     e.ici = vers
     e.trace.push(vers)
+    // L'échoppe se quitte en avançant ; ce que cachait l'inconnu d'avant ne se dit plus.
+    e.echoppe = null
+    e.inconnu = null
     if (escale.sorte === 'campement') {
       if (avecJokers) e.campement = true
       else e.vies = Math.min(VIES, e.vies + 1)
     } else if (escale.sorte === 'coffre') {
       if (avecJokers) offrir(true)
+    } else if (escale.sorte === 'echoppe') {
+      if (avecEcus) ouvrirLEchoppe()
+    } else if (escale.sorte === 'inconnu') {
+      if (avecEcus) entrerDansLInconnu(vers)
     } else if (escale.sorte === 'gardien') {
       e.gardien = { trouvees: 0, ratees: 0, debut: e.passees }
       ouvrir()
@@ -911,10 +1170,10 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
       if (g.joker === 'detour') e.route.detour = true
       else if (g.joker === 'raccourci') e.route.raccourci = true
       else if (g.joker === 'commandement') e.route.commandement = g.categorie ?? null
-      else if (g.joker === 'maison') {
-        const m = maisonAOuvrir(depart, e)
+      else if (g.joker === 'maison' || g.joker === 'boule') {
+        const m = maisonAOuvrir(depart, e, g.joker)
         if (m) e.maisons.push(m)
-      }
+      } else if (g.joker === 'lanterne') e.lanterne = true
       e.defausse.push(g.joker)
       return
     }
@@ -947,19 +1206,54 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     e.defausse.push(g.joker)
   }
 
-  const prendre = (jokers: readonly string[]) => {
+  const prendre = (g: Extract<GesteDExpedition, { quoi: 'prendre' }>) => {
     if (!e.offre) return
     const offre = e.offre
-    const pris = [...new Set(jokers)].filter(j => offre.jokers.includes(j)).slice(0, offre.aPrendre)
+    // Le talisman prend la place d'un joker.
+    const talisman = offre.talisman !== undefined && g.talisman === offre.talisman && offre.aPrendre > 0 ? offre.talisman : null
+    const pris = [...new Set(g.jokers)].filter(j => offre.jokers.includes(j)).slice(0, offre.aPrendre - (talisman ? 1 : 0))
     e.paquet.push(...pris)
     e.paquet.sort()
+    if (talisman && !e.talismans.includes(talisman)) e.talismans.push(talisman)
+    // Un coffre qu'on passe sans rien prendre rapporte ses écus ; vide, il n'avait rien à laisser.
+    if (offre.coffre && pris.length === 0 && !talisman && offre.jokers.length > 0) e.ecus += ECUS_D_UN_COFFRE_LAISSE
     e.offre = null
+  }
+
+  const acheter = (g: Extract<GesteDExpedition, { quoi: 'acheter' }>) => {
+    // Le prix payé, que le journal garde ; un journal d'avant lui, celui du barème.
+    const prix = g.prix ?? prixDeLArticle(g.article, g.joker)
+    if (refusDeLAchat(e, g, prix) !== null || !e.echoppe) return
+    const echoppe = e.echoppe
+    e.ecus -= prix
+    if (g.article === 'vie') {
+      e.vies = Math.min(VIES, e.vies + 1)
+      echoppe.achats.push('vie')
+    } else if (g.article === 'joker') {
+      e.paquet.push(g.joker!)
+      e.paquet.sort()
+      echoppe.achats.push(g.joker!)
+    } else if (g.article === 'talisman') {
+      e.talismans.push(echoppe.talisman!)
+      echoppe.achats.push('talisman')
+    } else {
+      retirer(g.joker!)
+      echoppe.achats.push('retirer')
+    }
+  }
+
+  /** Un joker retiré — au campement, à l'échoppe —, d'où qu'il soit ; faux s'il n'est nulle part. */
+  const retirer = (cle: string): boolean => {
+    if (!(oter(e.paquet, cle) || oter(e.defausse, cle) || oter(e.main, cle))) return false
+    // Celui de passage d'abord : il partait avec l'acte, et l'acte, sinon, prenait le même qu'un gardien a glissé.
+    oter(e.passages, cle)
+    return true
   }
 
   const camper = (cle: string | undefined) => {
     if (!e.campement) return
     if (cle === undefined) e.vies = Math.min(VIES, e.vies + 1)
-    else if (!(oter(e.paquet, cle) || oter(e.defausse, cle) || oter(e.main, cle))) return
+    else if (!retirer(cle)) return
     e.campement = false
   }
 
@@ -981,9 +1275,11 @@ export function pliDeLExpedition(depart: DepartLu, gestes: readonly GesteDExpedi
     if (g.quoi === 'avancer') avancer(g.vers)
     else if (g.quoi === 'jouer') {
       if (avecJokers) jouer(g)
-    } else if (g.quoi === 'prendre') prendre(g.jokers)
+    } else if (g.quoi === 'prendre') prendre(g)
     else if (g.quoi === 'camper') camper(g.retirer)
-    else if (g.quoi === 'garder' && e.issue === 'au-bout' && depart.gardiens.includes(g.legendaire)) {
+    else if (g.quoi === 'acheter') {
+      if (avecEcus) acheter(g)
+    } else if (g.quoi === 'garder' && e.issue === 'au-bout' && depart.gardiens.includes(g.legendaire)) {
       e.issue = 'legendaire'
       e.garde = g.legendaire
     }
@@ -1036,13 +1332,35 @@ export function carteEnJeu(depart: Pick<DepartDExpedition, 'cartes' | 'chanceDeL
 export const escaleEnJeu = (depart: Pick<DepartDExpedition, 'cartes' | 'chanceDeLaSource'>, e: Pick<EtatDeLExpedition, 'acte' | 'maisons'>, id: string) =>
   carteEnJeu(depart, e)?.escales.find(x => x.id === id)
 
+/** Une chance au millième : ce que la page en écrit, sans faire voyager seize décimales — l'expédition, les paliers des sentiers. */
+export const arrondiDeChance = (x: number) => Math.round(x * 1000) / 1000
+
+/**
+ * La chance qu'une escale annonce : celle du départ ; sous le Commandement,
+ * celle de sa catégorie à sa marche, gardée au départ à quatre choix et
+ * ramenée à la forme de l'escale. La carte la dit, et ses écus s'y lisent.
+ */
+export function chanceAnnoncee(depart: Pick<DepartDExpedition, 'chances'>, acte: number, x: EscaleDeLaCarte, commandement: string | null): number | undefined {
+  if (commandement && (x.sorte === 'question' || x.sorte === 'elite')) {
+    const p = depart.chances?.[commandement]?.[marcheDe(acte, x)]
+    if (p !== undefined) return arrondiDeChance(chanceSelonLaForme(p, x.forme ?? 'quatre'))
+  }
+  return x.chance
+}
+
 /**
  * L'escale qu'Il connaît la maison ouvrirait d'ici : une question ou une élite
  * de l'étage du dessus, dans sa colonne ou une voisine, changée en source ou en
- * coffre — au hasard de la graine, de l'acte et du pas : rejoué, le même. Null :
- * rien à ouvrir — au dernier étage, au-dessus, ce sont les campements.
+ * coffre — au hasard de la graine, de l'acte et du pas : rejoué, le même. Une
+ * boule pour chacun (le Sapin, l'étape 4) en ouvre une de même, toujours en
+ * coffre, de son propre hasard. Null : rien à ouvrir — au dernier étage,
+ * au-dessus, ce sont les campements.
  */
-export function maisonAOuvrir(depart: Pick<DepartDExpedition, 'graine' | 'cartes' | 'chanceDeLaSource'>, e: Pick<EtatDeLExpedition, 'acte' | 'ici' | 'trace' | 'maisons'>): MaisonOuverte | null {
+export function maisonAOuvrir(
+  depart: Pick<DepartDExpedition, 'graine' | 'cartes' | 'chanceDeLaSource'>,
+  e: Pick<EtatDeLExpedition, 'acte' | 'ici' | 'trace' | 'maisons'>,
+  quel: 'maison' | 'boule' = 'maison',
+): MaisonOuverte | null {
   const carte = carteEnJeu(depart, e)
   if (!carte) return null
   const ici = e.ici === null ? null : carte.escales.find(x => x.id === e.ici)
@@ -1051,9 +1369,9 @@ export function maisonAOuvrir(depart: Pick<DepartDExpedition, 'graine' | 'cartes
   if (etage >= ETAGES) return null
   const candidates = carte.escales.filter(x => x.etage === etage && (x.sorte === 'question' || x.sorte === 'elite') && (!ici || Math.abs(x.colonne - ici.colonne) <= 1))
   if (candidates.length === 0) return null
-  const r = hasardDe(`${depart.graine}:maison:${e.acte}:${e.trace.length}`)
+  const r = hasardDe(`${depart.graine}:${quel}:${e.acte}:${e.trace.length}`)
   const vers = candidates[Math.floor(r() * candidates.length)]
-  return { vers: vers.id, sorte: r() < 0.5 ? 'source' : 'coffre', depuis: e.ici }
+  return { vers: vers.id, sorte: quel === 'boule' || r() >= 0.5 ? 'coffre' : 'source', depuis: e.ici }
 }
 
 /** Les pas d'ici : la suite de l'escale où il est — n'importe quelle escale de l'étage du dessus sous Le détour, une de plus sous Le raccourci. */
@@ -1103,6 +1421,13 @@ export function refusDuJoker(
     if ((cle === 'detour' || cle === 'raccourci') && (e.route.detour || e.route.raccourci)) return 'Un joker de route est déjà en cours'
     if (cle === 'raccourci' && pasDIci(depart, e, { detour: false, raccourci: true }).every(id => id === GARDIEN)) return 'Rien à sauter d’ici'
     if (cle === 'maison' && !maisonAOuvrir(depart, e)) return 'Aucune escale à ouvrir au-dessus de toi'
+    if (cle === 'boule' && !maisonAOuvrir(depart, e, 'boule')) return 'Aucune escale à changer en coffre au-dessus de toi'
+    if (cle === 'lanterne') {
+      if (e.lanterne) return 'La lanterne est déjà allumée'
+      const carte = carteEnJeu(depart, e)
+      const devant = carte ? escalesAtteignables(carte, e.ici) : new Set<string>()
+      if (!carte?.escales.some(x => x.sorte === 'inconnu' && devant.has(x.id))) return 'Aucun inconnu devant toi dans cet acte'
+    }
     if (cle === 'commandement') {
       if (e.route.commandement) return 'Tu as déjà choisi la catégorie de l’escale suivante'
       if (geste && !(CATEGORIES as readonly string[]).includes(geste.categorie ?? '')) return 'Choisis une des douze catégories'
@@ -1124,6 +1449,42 @@ export function refusDuJoker(
   if (cle === 'horizon' && !e.derniereErreur) return 'L’horizon se joue juste après une erreur qui t’a coûté une vie'
   if (cle === 'reveil' && e.vies >= VIES) return 'Tu as déjà tes trois vies'
   if (cle === 'feu-d-artifice' && e.defausse.length === 0) return 'Ta défausse est vide'
+  if (cle === 'quitte-ou-double') {
+    // Une source, le gardien ne paient pas d'écus par question : il n'y aurait rien à tripler.
+    const sorte = e.gardien ? 'gardien' : e.ici ? escaleEnJeu(depart, e, e.ici)?.sorte : undefined
+    if (sorte !== 'question' && sorte !== 'elite') return 'Quitte ou double se joue sur une question ou une élite : elles seules paient des écus'
+  }
+  return null
+}
+
+/**
+ * Pourquoi cet achat ne se fait pas — null : il se fait. Le pli l'ignore, le
+ * serveur le refuse, la page le grise et dit pourquoi. Chaque article une
+ * fois par échoppe ; une vie, sous trois ; un joker de l'étal ; un joker
+ * retiré, de son paquet, de sa défausse ou de sa main ; et de quoi payer.
+ */
+export function refusDeLAchat(
+  e: Pick<EtatDeLExpedition, 'issue' | 'echoppe' | 'ecus' | 'vies' | 'paquet' | 'defausse' | 'main' | 'talismans'>,
+  g: { article: ArticleDeLEchoppe; joker?: string },
+  /** Le prix qu'il paie : celui du barème, sauf pour un achat que le journal garde à son prix. */
+  prix = prixDeLArticle(g.article, g.joker),
+): string | null {
+  const echoppe = e.echoppe
+  if (e.issue !== 'en-route' || !echoppe) return 'Il n’y a pas d’échoppe ici'
+  if (g.article === 'vie') {
+    if (echoppe.achats.includes('vie')) return 'Une vie par échoppe'
+    if (e.vies >= VIES) return 'Tu as déjà tes trois vies'
+  } else if (g.article === 'joker') {
+    if (!g.joker || !echoppe.jokers.includes(g.joker)) return 'Ce joker n’est pas à l’étal'
+    if (echoppe.achats.includes(g.joker)) return 'Déjà acheté'
+  } else if (g.article === 'talisman') {
+    if (!echoppe.talisman) return 'Plus de talisman à vendre'
+    if (echoppe.achats.includes('talisman') || e.talismans.includes(echoppe.talisman)) return 'Déjà acheté'
+  } else {
+    if (echoppe.achats.includes('retirer')) return 'Un joker retiré par échoppe'
+    if (!g.joker || ![...e.paquet, ...e.defausse, ...e.main].includes(g.joker)) return 'Ce joker n’est pas dans ton paquet'
+  }
+  if (e.ecus < prix) return `Il te manque ${prix - e.ecus} écu${prix - e.ecus > 1 ? 's' : ''}`
   return null
 }
 
@@ -1153,6 +1514,8 @@ export interface QuestionDExpedition extends QuestionDeCampagne {
    * de mots, de quoi dire où il en est.
    */
   devoilement?: { mots: number }
+  /** La loupe (un talisman) : le siècle d'une question d'Histoire qui se date. */
+  siecle?: string
 }
 
 /** Ce que dit l'Oracle d'une réponse montrée : la bonne est plus haut, plus bas, ou c'est elle. */
@@ -1198,18 +1561,25 @@ export interface VueDeLExpedition {
   jokers?: JokersEnJeu
   /** Le joker joué sur la question qui attend. */
   joue?: string
-  /** Ratée, la question qui attend ne coûte rien (Sursis, La mue) — ou deux vies (Tout ou rien). */
+  /** Ratée, la question qui attend ne coûte rien (Sursis, La mue) — ou deux vies (Tout ou rien, Quitte ou double). */
   perte?: 0 | 2
   /** Deux visages : l'autre question, au choix. */
   autre?: QuestionDExpedition
-  /** Une offre à prendre : un coffre — vide après L'horizon —, une élite trouvée. */
-  offre?: { jokers: string[]; aPrendre: number }
+  /** Une offre à prendre : un coffre — vide après L'horizon —, une élite trouvée ; un talisman, parfois (v4). */
+  offre?: OffreDeJokers
   /** Arrivé à un campement : une vie, ou un joker retiré. */
   campement?: true
-  /** Les jokers de route en cours, jusqu'au pas suivant. */
-  route?: { detour?: true; raccourci?: true; commandement?: string }
+  /** Les jokers de route en cours, jusqu'au pas suivant ; la lanterne, jusqu'au bout de l'acte. */
+  route?: { detour?: true; raccourci?: true; commandement?: string; lanterne?: true }
   /** L'écholocation est posée : la carte ne dit plus sa chance. */
   sansChances?: true
+  /** Ses écus et ses talismans (v4) ; absents d'une expédition d'avant les écus. */
+  ecus?: number
+  talismans?: string[]
+  /** L'échoppe où il est — ou le marchand de l'inconnu — : il la quitte en avançant. */
+  echoppe?: EchoppeOuverte
+  /** L'inconnu où il vient d'entrer, dévoilé. */
+  inconnu?: { contenu: ContenuDeLInconnu; legendaire?: string }
 }
 
 /** Ce que la page de l'expédition lit en arrivant. */
@@ -1240,6 +1610,8 @@ export interface ReponseDExpedition {
   texte?: string
   /** Un dévoilement : les mots dits quand sa réponse est arrivée, à l'heure du serveur (invariant 6), sur combien. */
   devoile?: { mots: number; sur: number }
+  /** Les écus qu'elle rapporte (v4) : ceux de l'escale, et ceux du gardien qui tombe. */
+  ecus?: number
 }
 
 /** Ce que rend un geste : l'expédition d'après, et, à sa fin, ce qui est tombé — le légendaire gardé. */
@@ -1299,10 +1671,15 @@ function siecleDe(annee: number, auSiecle: boolean): string {
   return `Le ${n === 1 ? 'Ier' : `${romain}e`} siècle${annee < 0 ? ' av. J.-C.' : ''}`
 }
 
+/** Le siècle d'une question qui se date — null sinon : ce que la loupe dit d'une question d'Histoire, et le début de l'Énigme. */
+export function siecleDeLaQuestion(q: { date?: { valeur: string; precision?: string } | null }): string | null {
+  const annee = q.date ? Number(/^-?\d+/.exec(q.date.valeur)?.[0]) : Number.NaN
+  return Number.isFinite(annee) && annee !== 0 ? siecleDe(annee, q.date?.precision === 'siecle') : null
+}
+
 /** L'indice de l'Énigme : le siècle de la question — ou qu'elle ne se date pas — et son domaine, sa catégorie et son sous-thème. */
 export function indiceDeLEnigme(q: { categorie: string | null; sousTheme?: string; date?: { valeur: string; precision?: string } | null }): string {
-  const annee = q.date ? Number(/^-?\d+/.exec(q.date.valeur)?.[0]) : Number.NaN
-  const quand = Number.isFinite(annee) && annee !== 0 ? siecleDe(annee, q.date?.precision === 'siecle') : 'Elle ne se date pas'
+  const quand = siecleDeLaQuestion(q) ?? 'Elle ne se date pas'
   const sousTheme = q.categorie && q.sousTheme ? SOUS_THEMES[q.categorie as keyof typeof SOUS_THEMES]?.find(s => s.cle === q.sousTheme)?.nom : undefined
   const domaine = [q.categorie, sousTheme].filter(Boolean).join(', ')
   return domaine ? `${quand} · ${domaine}` : quand

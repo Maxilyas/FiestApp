@@ -18,7 +18,7 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
-import type { ApresUnGeste, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
+import type { ApresUnGeste, ArticleDeLEchoppe, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
 import type { EpreuveDeSujet, EtatDesSujets, ReponseDuSujet } from '../../shared/sentiersDeSujets'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
@@ -565,9 +565,13 @@ export const api = {
     /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé. */
     jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}) =>
       gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }),
-    prendre: (id: string, rang: number, jokers: readonly string[]) => gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers] }),
+    /** Ce qu'il prend d'une offre : ses jokers, et le talisman qui en prend la place. */
+    prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string) =>
+      gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }) }),
     /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet. */
     camper: (id: string, rang: number, retirer?: string) => gesteDExpedition(id, rang, { quoi: 'camper', ...(retirer !== undefined && { retirer }) }),
+    /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
+    acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
     garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
     repondre: (id: string, position: number, choix: number | readonly number[]) =>
       req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),

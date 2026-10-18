@@ -51,15 +51,15 @@ export interface Joker {
 }
 
 /**
- * Les jokers des légendaires de la V1 : vingt et un. Les cinq autres — la
- * mémoire de l'Éléphant, le public de la Licorne, la vue de l'Aigle, la
- * lanterne de la Citrouille, la boule du Sapin — attendent ce qu'ils lisent
- * (une question déjà vue, une foule, une carte qui cache ses escales,
- * l'inconnu, l'échoppe) : tant qu'un légendaire n'a pas son joker, il n'entre
- * ni dans l'équipée ni parmi les gardiens. Ceux de saison agissent toute
- * l'année : leur saison ne borne que leur conquête. Les Divins n'en ont
- * aucun — un pouvoir en dirait trop sur ce qui les fait descendre
- * (invariant 21).
+ * Les jokers des légendaires : vingt et un à la V1, puis la lanterne de la
+ * Citrouille et la boule du Sapin avec l'inconnu et les écus (l'étape 4).
+ * Les trois autres — la mémoire de l'Éléphant, le public de la Licorne, la
+ * vue de l'Aigle — attendent ce qu'ils lisent (une question déjà vue, une
+ * foule, une carte qui cache ses escales) : tant qu'un légendaire n'a pas
+ * son joker, il n'entre ni dans l'équipée ni parmi les gardiens. Ceux de
+ * saison agissent toute l'année : leur saison ne borne que leur conquête.
+ * Les Divins n'en ont aucun — un pouvoir en dirait trop sur ce qui les fait
+ * descendre (invariant 21).
  */
 export const JOKERS_DES_LEGENDAIRES: readonly Joker[] = [
   { cle: 'renaissance', nom: 'Renaissance', legendaire: 'lg:phenix', sorte: 'poser', rarete: 'legendaire', effet: 'Si tu perds ta dernière vie, tu renais avec une.' },
@@ -79,6 +79,8 @@ export const JOKERS_DES_LEGENDAIRES: readonly Joker[] = [
   { cle: 'maison', nom: 'Il connaît la maison', legendaire: 'lg:renard', sorte: 'carte', rarete: 'legendaire', effet: 'Une source ou un coffre s’ouvre à l’étage du dessus, relié à toi.' },
   { cle: 'tresor', nom: 'Le trésor', legendaire: 'lg:dragon', sorte: 'poser', rarete: 'legendaire', effet: 'Les coffres t’offrent deux jokers au lieu d’un.' },
   { cle: 'feu-d-artifice', nom: 'Le feu d’artifice', legendaire: 'lg:bouquet', sorte: 'jouer', rarete: 'legendaire', effet: 'Toute ta défausse revient dans ton paquet.' },
+  { cle: 'lanterne', nom: 'La lanterne', legendaire: 'lg:citrouille', sorte: 'carte', rarete: 'legendaire', effet: 'Les pièges de l’inconnu se montrent sur la carte, jusqu’au bout de l’acte.' },
+  { cle: 'boule', nom: 'Une boule pour chacun', legendaire: 'lg:sapin', sorte: 'carte', rarete: 'legendaire', effet: 'Un coffre de plus s’ouvre à l’étage du dessus, relié à toi.' },
   { cle: 'abysses', nom: 'Remonter des abysses', legendaire: 'lg:kraken', sorte: 'poser', rarete: 'legendaire', maudit: true, effet: 'Sur ta dernière vie, trois bonnes réponses d’affilée en rendent une — mais le poser coûte une vie.' },
   { cle: 'passe-muraille', nom: 'Passe-muraille', legendaire: 'lg:fantome', sorte: 'jouer', rarete: 'legendaire', maudit: true, effet: 'Tu traverses une question sans y répondre — elle part au carnet comme ratée.' },
   { cle: 'horizon', nom: 'L’horizon', legendaire: 'lg:trou-noir', sorte: 'jouer', rarete: 'legendaire', maudit: true, effet: 'Joué après une erreur, il te rend sa vie — et le coffre suivant est vide.' },
@@ -88,9 +90,9 @@ export const JOKERS_DES_LEGENDAIRES: readonly Joker[] = [
 /**
  * Les jokers sans légendaire : le paquet de départ (Coup d'œil trois fois,
  * Échange) et ce que les élites et les coffres offrent, un au choix parmi
- * trois (étape 2). Arrêt sur image est venu avec le dévoilement (étape 3) :
- * seules les expéditions parties depuis l'offrent (`depuis`). Quitte ou
- * double viendra avec les écus (étape 4).
+ * trois (étape 2). Arrêt sur image est venu avec le dévoilement (étape 3),
+ * Quitte ou double avec les écus (étape 4) : seules les expéditions parties
+ * depuis les offrent (`depuis`).
  */
 export const JOKERS_SANS_LEGENDAIRE: readonly Joker[] = [
   { cle: 'coup-d-oeil', nom: 'Coup d’œil', sorte: 'jouer', rarete: 'commun', effet: 'Une mauvaise réponse s’efface.' },
@@ -101,7 +103,32 @@ export const JOKERS_SANS_LEGENDAIRE: readonly Joker[] = [
   { cle: 'double-chance', nom: 'Double chance', sorte: 'jouer', rarete: 'rare', effet: 'Deux réponses : il suffit que l’une soit juste.' },
   { cle: 'sursis', nom: 'Sursis', sorte: 'jouer', rarete: 'rare', effet: 'Si tu te trompes, tu ne perds pas de vie.' },
   { cle: 'tout-ou-rien', nom: 'Tout ou rien', sorte: 'jouer', rarete: 'maudit', maudit: true, effet: 'Deux mauvaises réponses s’effacent ; si tu te trompes quand même, deux vies.' },
+  { cle: 'quitte-ou-double', nom: 'Quitte ou double', sorte: 'jouer', rarete: 'maudit', maudit: true, depuis: 4, effet: 'Juste, les écus de l’escale triplent ; faux, deux vies.' },
 ]
+
+/**
+ * Les talismans (l'étape 4, la maquette 6) : rares, passifs, jusqu'au bout de
+ * l'expédition. Ils changent la route plus que la question : une élite ou un
+ * coffre en propose un de temps en temps, l'échoppe en vend un.
+ */
+export interface Talisman {
+  cle: string
+  nom: string
+  effet: string
+}
+
+export const TALISMANS: readonly Talisman[] = [
+  { cle: 'loupe', nom: 'La loupe', effet: 'Chaque question d’Histoire dit son siècle.' },
+  { cle: 'maillot-jaune', nom: 'Le maillot jaune', effet: 'Le sport paie double écus.' },
+  { cle: 'boussole', nom: 'La boussole', effet: 'L’inconnu se dévoile sur la carte : un marchand, un piège, un légendaire de passage.' },
+]
+
+const TALISMAN_PAR_CLE = new Map(TALISMANS.map(t => [t.cle, t]))
+
+/** Un talisman par sa clé (`loupe`). */
+export function talisman(cle: unknown): Talisman | undefined {
+  return typeof cle === 'string' ? TALISMAN_PAR_CLE.get(cle) : undefined
+}
 
 const PAR_LEGENDAIRE = new Map(JOKERS_DES_LEGENDAIRES.map(j => [j.legendaire!, j]))
 const PAR_CLE = new Map([...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE].map(j => [j.cle, j]))

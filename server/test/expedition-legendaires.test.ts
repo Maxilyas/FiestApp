@@ -32,16 +32,19 @@ test('chaque légendaire qui a son joker, hors des saisons, se gagne aussi au bo
   assert.equal(legendaireDeLExpedition('saison:noel'), undefined)
 })
 
-test('vingt et un jokers de légendaires, un par légendaire, aucun pour un Divin ; chacun dit ce qu’il fait', () => {
-  assert.equal(JOKERS_DES_LEGENDAIRES.length, 21)
-  assert.equal(new Set(LEGENDAIRES_A_JOKER).size, 21)
+test('vingt-trois jokers de légendaires, un par légendaire, aucun pour un Divin ; chacun dit ce qu’il fait', () => {
+  // Vingt et un à la V1 ; la lanterne de la Citrouille et la boule du Sapin avec l'inconnu et les écus (l'étape 4).
+  assert.equal(JOKERS_DES_LEGENDAIRES.length, 23)
+  assert.equal(new Set(LEGENDAIRES_A_JOKER).size, 23)
   for (const j of JOKERS_DES_LEGENDAIRES) {
     assert.ok(LEGENDAIRES.some(l => l.key === j.legendaire), `${j.cle} : ${j.legendaire} existe`)
     assert.ok(j.nom && j.effet.endsWith('.'), j.cle)
     assert.equal(jokerDuLegendaire(j.legendaire), j)
   }
   for (const d of DIVINS) assert.equal(jokerDuLegendaire(d.key), undefined, `${d.key} : aucun joker (invariant 21)`)
-  assert.equal(new Set(JOKERS_DES_LEGENDAIRES.map(j => j.cle)).size, 21, 'des clés uniques')
+  assert.equal(new Set(JOKERS_DES_LEGENDAIRES.map(j => j.cle)).size, 23, 'des clés uniques')
+  // De saison, les deux venus avec les écus n'ont pas la voie : ils ne se gagnent qu'à leur saison.
+  for (const cle of ['lg:citrouille', 'lg:sapin']) assert.ok(jokerDuLegendaire(cle) && LEGENDAIRES.find(l => l.key === cle)?.saison, cle)
 })
 
 test('la ligne de l’expédition ouvre le légendaire, et l’annonce une fois', () => {
@@ -62,7 +65,7 @@ test('ses jokers venus, l’expédition s’ouvre en production : sa voie se mon
   // L'étape 1 la gardait fermée : sans jokers, le joueur moyen n'arrivait au bout que cinq fois sur cent.
   assert.equal(EXPEDITION_EN_PRODUCTION, true, 'l’étape 2 : elle s’ouvre avec ses jokers')
   const avecLaVoie = LEGENDAIRES.filter(l => LEGENDAIRES_A_JOKER.includes(l.key) && !l.saison)
-  assert.equal(avecLaVoie.length, 20, 'vingt légendaires ont la voie — le Bouquet a son joker, pas la voie')
+  assert.equal(avecLaVoie.length, 20, 'vingt légendaires ont la voie — le Bouquet, la Citrouille et le Sapin ont leur joker, pas la voie')
   for (const l of LEGENDAIRES) {
     assert.equal(voiesMontrees(l).some(estUneVoieDExpedition), avecLaVoie.includes(l), l.key)
     const a = avatarDeLAlbum(l.key)!

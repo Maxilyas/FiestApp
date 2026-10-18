@@ -28,6 +28,15 @@
 // forme — deux en vrai ou faux, six à six choix ; un dévoilement se répond
 // le texte entier, comme quatre choix.
 //
+// Les écus (l'étape 4) : un dévoilement qu'il sait se répond à mi-texte, et
+// paie d'autant plus ; Quitte ou double se joue sur ce qu'il sait. À
+// l'échoppe, il achète une vie s'il lui en manque, puis le meilleur joker de
+// l'étal, puis la loupe ou la boussole, tant que ses écus suffisent ; d'une
+// offre, la loupe ou la boussole quand elle n'a ni Double chance ni Sursis.
+// Il suit le tracé le plus sûr, qui compte un piège sur trois dans l'inconnu
+// qu'il ne voit pas — la boussole, la lanterne le lui montrent. La loupe lui
+// ôte, en moyenne, une réponse de plus sur une question d'Histoire.
+//
 //   npx tsx scripts/calibrage-expedition.ts [--expeditions 2000]
 import { CATEGORIES } from '../../shared/categories'
 import { SUJETS } from '../../shared/sujets'
@@ -43,13 +52,18 @@ import {
   carteEnJeu,
   chanceSelonLaForme,
   chancesDuTrace,
+  contenuDeLInconnu,
   escaleEnJeu,
+  escalesAtteignables,
   escalesPermises,
   gardiensDe,
   marcheDe,
   pliDeLExpedition,
+  prixDeLArticle,
+  refusDeLAchat,
   refusDuJoker,
   traceLePlusSur,
+  type ArticleDeLEchoppe,
   type ATirer,
   type CarteDUnActe,
   type DepartDExpedition,
@@ -84,6 +98,8 @@ const ECART_D_UN_SUJET = 0.8
 const PART_DES_NOMBRES = 0.15
 /** Une question de la boucle revient après sa révélation : il en a vu la bonne réponse. */
 const SAIT_UNE_REPRISE = 0.7
+/** Un dévoilement : douze mots ; ce qu'il sait, il le répond à mi-texte ; sinon, le texte entier. */
+const MOTS_D_UN_DEVOILEMENT = 12
 
 /** Un tirage d'une loi normale centrée, d'un hasard qui se rejoue. */
 function normale(r: () => number): number {
@@ -133,10 +149,15 @@ interface Issue {
   questions: number
   /** Les jokers qu'il a joués. */
   jokers: number
+  /** Les écus qu'il a gagnés, et ce qu'il a acheté (l'étape 4). */
+  ecus: number
+  achats: number
 }
 
 /** Ce qu'il prend dans une offre, du meilleur au moins bon. */
-const PREFERENCE_DES_OFFRES = ['double-chance', 'sursis', 'coup-d-oeil', 'echange', 'pioche', 'tout-ou-rien', 'detour']
+const PREFERENCE_DES_OFFRES = ['double-chance', 'sursis', 'coup-d-oeil', 'echange', 'pioche', 'quitte-ou-double', 'arret-sur-image', 'tout-ou-rien', 'detour']
+/** Les talismans qui l'aident à passer : le maillot jaune ne fait que des écus. */
+const TALISMANS_UTILES = ['loupe', 'boussole']
 /** Ce qu'il retire au campement, ses trois vies là : le moins utile d'abord. */
 const A_RETIRER = ['detour', 'pioche', 'tout-ou-rien', 'echange']
 
@@ -153,7 +174,7 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
   })
   const chances = Object.fromEntries(CATEGORIES.map(c => [c, Object.fromEntries((['facile', 'moyen', 'difficile'] as const).map(m => [m, chanceSur(j, m, c)]))]))
   const depart: DepartDExpedition = {
-    v: equipee ? 3 : 1,
+    v: equipee ? 4 : 1,
     graine,
     numero: 0,
     gardiens: gardiensDe(graine, new Set(equipee ?? [])),
@@ -167,6 +188,8 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
   const posees: (QuestionPosee & { p4: number; sait: boolean })[] = []
   const reponses = new Map<number, boolean>()
   let joues = 0
+  let depenses = 0
+  let achats = 0
   const plier = () => pliDeLExpedition(depart, gestes, posees, reponses)
 
   /** Une question tirée pour ce que le pli demande, sa chance tirée comme le tirage : une catégorie de son thème. */
@@ -181,34 +204,41 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
         reponses: avant.reponses ?? 4,
         p4: avant.p4,
         sait: r() < Math.max(SAIT_UNE_REPRISE, savoir(avant.p4)),
+        ...(avant.categorie && { categorie: avant.categorie }),
         ...(avant.nombre && { nombre: true }),
         ...(avant.forme && { forme: avant.forme }),
       })
     }
     let p4: number
     let forme: FormeDEscale | undefined
-    if (t.escale === GARDIEN) p4 = chanceSur(j, MARCHES_DES_ACTES[t.acte].gardien, au(CATEGORIES))
+    // La catégorie de la question : le maillot jaune double les écus du sport, la loupe éclaire l'Histoire.
+    let categorie: string
+    if (t.escale === GARDIEN) p4 = chanceSur(j, MARCHES_DES_ACTES[t.acte].gardien, (categorie = au(CATEGORIES)))
     else {
       const escale = escaleEnJeu(depart, e, t.escale)!
       const marche = marcheDe(t.acte, escale)
       const th = escale.theme
       if (escale.sorte === 'question' || escale.sorte === 'elite') forme = escale.forme
-      if (escale.sorte === 'source') p4 = chanceSur(j, 'moyen', au(CATEGORIES))
-      else if (t.categorie) p4 = chanceSur(j, marche, t.categorie)
-      else if (!th) p4 = chanceSur(j, marche, au(CATEGORIES))
-      else if ('sujet' in th) p4 = chanceSur(j, marche, au(CATEGORIES), th.sujet)
-      else p4 = chanceSur(j, marche, au(th.categories))
+      if (escale.sorte === 'source') p4 = chanceSur(j, 'moyen', (categorie = au(CATEGORIES)))
+      else if (t.categorie) p4 = chanceSur(j, marche, (categorie = t.categorie))
+      else if (!th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)))
+      else if ('sujet' in th) p4 = chanceSur(j, marche, (categorie = au(CATEGORIES)), th.sujet)
+      else p4 = chanceSur(j, marche, (categorie = au(th.categories)))
     }
     // Sa forme : deux réponses en vrai ou faux — pas de nombres à montrer à l'Oracle —, six à six choix.
     const reponsesDeLaForme = forme === 'vrai-faux' ? 2 : forme === 'six' ? 6 : 4
+    const sait = r() < savoir(p4)
     posees.push({
       escale: t.escale,
       acte: t.acte,
       reponses: reponsesDeLaForme,
       p4,
-      sait: r() < savoir(p4),
+      sait,
+      categorie,
       ...(nombre && forme !== 'vrai-faux' && { nombre: true }),
       ...(forme && forme !== 'quatre' && { forme }),
+      // Un dévoilement qu'il sait se répond à mi-texte : ses écus montent d'autant.
+      ...(forme === 'devoilement' && { devoile: { mots: sait ? MOTS_D_UN_DEVOILEMENT / 2 : MOTS_D_UN_DEVOILEMENT, sur: MOTS_D_UN_DEVOILEMENT } }),
     })
   }
 
@@ -217,8 +247,9 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
     if (posees[i].sait) return true
     const joue = e.joue?.joker
     let restent = (posees[i].reponses ?? 4) - (joue ? (EFFACE[joue] ?? 0) : 0) - (e.poses.includes('echolocation') && (posees[i].reponses ?? 4) > 2 ? EFFACE.echolocation : 0)
-    // L'Énigme : le siècle et le domaine écartent, en moyenne, une réponse de plus.
+    // L'Énigme : le siècle et le domaine écartent, en moyenne, une réponse de plus ; la loupe, sur l'Histoire, le siècle seul.
     if (joue === 'enigme') restent--
+    else if (e.talismans.includes('loupe') && posees[i].categorie === 'Histoire') restent--
     restent = Math.max(2, restent)
     const p = joue === 'double-chance' ? 2 / restent : joue === 'prediction' ? 1 / 2 : 1 / restent
     return r() < p
@@ -231,7 +262,8 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
   const surLaQuestion = (e: EtatDeLExpedition, i: number): string | null => {
     if (e.joue) return null
     if (posees[i].sait) {
-      // Il sait : rien qui aide, mais ce qui ne demande pas de savoir.
+      // Il sait : rien qui aide, mais ce qui ne demande pas de savoir — et Quitte ou double, sans risque.
+      if (peut(e, 'quitte-ou-double')) return 'quitte-ou-double'
       if (e.vies < VIES && peut(e, 'reveil')) return 'reveil'
       if (peut(e, 'horizon')) return 'horizon'
       if (e.defausse.length >= 3 && peut(e, 'feu-d-artifice')) return 'feu-d-artifice'
@@ -248,9 +280,24 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
     return ordre.find(c => (!avantLeGardien || COMMUNS.has(c)) && peut(e, c, c === 'prediction' ? { montre: 0 } : undefined)) ?? null
   }
 
+  /** La carte telle que la page la lui montre : l'inconnu dévoilé par la boussole, la lanterne, ou son passage — comme la vue du serveur. */
+  const carteVue = (e: EtatDeLExpedition): CarteDUnActe => {
+    const carte = carteEnJeu(depart, e)!
+    if (!carte.escales.some(x => x.sorte === 'inconnu')) return carte
+    const boussole = e.talismans.includes('boussole')
+    return {
+      ...carte,
+      escales: carte.escales.map(x => {
+        if (x.sorte !== 'inconnu') return x
+        const contenu = contenuDeLInconnu(depart.graine, e.acte, x.id)
+        return boussole || e.trace.includes(x.id) || (e.lanterne && contenu === 'piege') ? { ...x, contenu } : x
+      }),
+    }
+  }
+
   /** Le tracé le plus sûr d'ici, depuis chacune des escales permises — Le détour, Le raccourci les changent. */
   const lePlusSur = (e: EtatDeLExpedition, permises: readonly string[]): { trace: string[]; vaincre: number } | null => {
-    const carte = carteEnJeu(depart, e)!
+    const carte = carteVue(e)
     let meilleur: { trace: string[]; vaincre: number } | null = null
     for (const p of permises) {
       if (p === GARDIEN) continue
@@ -271,6 +318,9 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
       if (avec > sansRien + 0.01) return { quoi: 'jouer', joker: cle }
     }
     if (e.vies < VIES && peut(e, 'maison')) return { quoi: 'jouer', joker: 'maison' }
+    // Un coffre de plus, toujours bon à prendre ; la lanterne, s'il ne voit pas déjà l'inconnu.
+    if (peut(e, 'boule')) return { quoi: 'jouer', joker: 'boule' }
+    if (!e.talismans.includes('boussole') && peut(e, 'lanterne')) return { quoi: 'jouer', joker: 'lanterne' }
     const prochaine = lePlusSur(e, permises)?.trace[0]
     const sorte = prochaine ? escaleEnJeu(depart, e, prochaine)?.sorte : undefined
     if ((sorte === 'question' || sorte === 'elite') && peut(e, 'commandement', { categorie: CATEGORIES[0] })) {
@@ -284,6 +334,19 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
   const aPoser = (e: EtatDeLExpedition) =>
     e.main.find(c => joker(c)?.sorte === 'poser' && (c !== 'abysses' || e.vies >= VIES) && refusDuJoker(depart, e, c, posees) === null)
 
+  /** À l'échoppe : une vie s'il lui en manque, le meilleur joker de l'étal, la loupe ou la boussole — tant que ses écus suffisent. */
+  const aAcheter = (e: EtatDeLExpedition): { article: ArticleDeLEchoppe; joker?: string } | null => {
+    const etal = e.echoppe!
+    const voulus: { article: ArticleDeLEchoppe; joker?: string }[] = [
+      ...(e.vies < VIES ? [{ article: 'vie' as const }] : []),
+      ...PREFERENCE_DES_OFFRES.filter(c => etal.jokers.includes(c))
+        .slice(0, 1)
+        .map(cle => ({ article: 'joker' as const, joker: cle })),
+      ...(etal.talisman && TALISMANS_UTILES.includes(etal.talisman) ? [{ article: 'talisman' as const }] : []),
+    ]
+    return voulus.find(a => refusDeLAchat(e, a) === null) ?? null
+  }
+
   for (let pas = 0; pas < 1500; pas++) {
     let e = plier()
     for (let tour = 0; e.aTirer && tour < 3; tour++) {
@@ -291,11 +354,23 @@ function jouer(j: Joueur, graine: string, equipee: string[] | null): Issue {
       for (let k = 0; k < t.combien; k++) tirer(t, e)
       e = plier()
     }
-    if (e.issue !== 'en-route') return { auBout: e.issue === 'au-bout', acte: e.acte, questions: reponses.size, jokers: joues }
+    if (e.issue !== 'en-route') return { auBout: e.issue === 'au-bout', acte: e.acte, questions: reponses.size, jokers: joues, ecus: e.ecus + depenses, achats }
     if (e.offre) {
       const offre = e.offre
-      gestes.push({ quoi: 'prendre', jokers: PREFERENCE_DES_OFFRES.filter(c => offre.jokers.includes(c)).slice(0, offre.aPrendre) })
+      const voulus = PREFERENCE_DES_OFFRES.filter(c => offre.jokers.includes(c))
+      // La loupe ou la boussole plutôt qu'un commun : jamais à la place de Double chance ou de Sursis.
+      const talisman = offre.talisman && TALISMANS_UTILES.includes(offre.talisman) && !voulus.some(c => c === 'double-chance' || c === 'sursis') ? offre.talisman : undefined
+      gestes.push({ quoi: 'prendre', jokers: voulus.slice(0, offre.aPrendre - (talisman ? 1 : 0)), ...(talisman && { talisman }) })
       continue
+    }
+    if (e.echoppe && e.enAttente === null) {
+      const achat = aAcheter(e)
+      if (achat) {
+        gestes.push({ quoi: 'acheter', ...achat })
+        depenses += prixDeLArticle(achat.article, achat.joker)
+        achats++
+        continue
+      }
     }
     if (e.campement) {
       const tous = [...e.paquet, ...e.main, ...e.defausse]
@@ -349,17 +424,17 @@ const CAS: [string, string[] | null][] = [
   ['Avec Janus et le Serpent à plumes', ['lg:janus', 'lg:serpent']],
 ]
 console.log(`L'Expédition — ${EXPEDITIONS} expéditions par joueur et par équipée.\n`)
+const virgule = (x: number) => x.toFixed(1).replace('.', ',')
 for (const [nomDuCas, equipee] of CAS) {
   console.log(nomDuCas)
-  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   jokers joués')
+  console.log('  joueur   au bout   arrêté à l’acte 1 · 2 · 3   questions   jokers joués   écus gagnés   achats')
   for (const [nom, theta] of JOUEURS) {
     const issues = Array.from({ length: EXPEDITIONS }, (_, k) => jouer(unJoueur(theta, `calibrage:${nom}:${k}`), `calibrage:${k}`, equipee))
     const auBout = issues.filter(i => i.auBout).length / EXPEDITIONS
     const arrets = [0, 1, 2].map(a => issues.filter(i => !i.auBout && i.acte === a).length / EXPEDITIONS)
-    const questions = issues.reduce((s, i) => s + i.questions, 0) / EXPEDITIONS
-    const jokers = issues.reduce((s, i) => s + i.jokers, 0) / EXPEDITIONS
+    const moyenne = (f: (i: Issue) => number) => issues.reduce((s, i) => s + f(i), 0) / EXPEDITIONS
     console.log(
-      `  ${nom.padEnd(8)} ${pc(auBout).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${questions.toFixed(1).replace('.', ',').padStart(9)}   ${jokers.toFixed(1).replace('.', ',').padStart(12)}`,
+      `  ${nom.padEnd(8)} ${pc(auBout).padStart(7)}   ${arrets.map(pc).join(' · ').padStart(24)}   ${virgule(moyenne(i => i.questions)).padStart(9)}   ${virgule(moyenne(i => i.jokers)).padStart(12)}   ${String(Math.round(moyenne(i => i.ecus))).padStart(11)}   ${virgule(moyenne(i => i.achats)).padStart(6)}`,
     )
   }
   console.log('')

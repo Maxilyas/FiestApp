@@ -66,9 +66,16 @@ function questionsDe(banc: Banc, id: string): { id: string; bonne: number; repon
 const avancer = (banc: Banc, cookie: string, v: VueDeLExpedition, vers: string) =>
   poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers } })
 
-/** Le pas suivant sur la carte : une offre laissée, une vie au campement, sinon le gardien s'il est là, ou la première escale permise. */
+/**
+ * Le pas suivant sur la carte : une offre laissée, une vie au campement,
+ * sinon le gardien s'il est là, ou la première escale permise qui pose une
+ * question. L'échoppe et l'inconnu (l'étape 4) n'en posent pas : par eux,
+ * trois actes sans faute tombaient, une carte sur mille, sous vingt réponses.
+ */
 async function pasSuivant(banc: Banc, cookie: string, v: VueDeLExpedition): Promise<VueDeLExpedition> {
-  const geste = v.offre ? { quoi: 'prendre', jokers: [] } : v.campement ? { quoi: 'camper' } : { quoi: 'avancer', vers: v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0] }
+  const posent = (id: string) => ['question', 'elite', 'source'].includes(v.carte?.escales.find(e => e.id === id)?.sorte ?? '')
+  const vers = v.permises.includes(GARDIEN) ? GARDIEN : (v.permises.find(posent) ?? v.permises[0])
+  const geste = v.offre ? { quoi: 'prendre', jokers: [] } : v.campement ? { quoi: 'camper' } : { quoi: 'avancer', vers }
   const r = await poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste })
   assert.equal(r.status, 200, r.corps.error)
   return r.corps.expedition
@@ -246,8 +253,13 @@ test('la dernière vie perdue finit l’expédition, ses erreurs vont au carnet 
         v = await pasSuivant(banc, lea, v)
         continue
       }
-      // Les sources épargnent qui les rate : le chemin les évite quand il peut, pour finir vite.
-      const vers = v.permises.find(id => v.carte!.escales.find(e => e.id === id)?.sorte === 'question') ?? (v.permises.includes(GARDIEN) ? GARDIEN : v.permises[0])
+      // Les sources épargnent qui les rate : le chemin les évite quand il peut, pour finir vite. L'inconnu aussi
+      // (l'étape 4) : un piège y prendrait une vie sans une erreur de plus au carnet.
+      const sorte = (id: string) => v.carte!.escales.find(e => e.id === id)?.sorte
+      const vers =
+        v.permises.find(id => sorte(id) === 'question') ??
+        v.permises.find(id => sorte(id) === 'elite') ??
+        (v.permises.includes(GARDIEN) ? GARDIEN : (v.permises.find(id => sorte(id) !== 'inconnu') ?? v.permises[0]))
       v = (await avancer(banc, lea, v, vers)).corps.expedition
     }
     assert.deepEqual([v.issue, v.vies], ['perdue', 0])

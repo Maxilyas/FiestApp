@@ -31,12 +31,14 @@ import {
   PLACES_DE_L_EQUIPEE,
   joker as jokerDeCle,
   jokerDuLegendaire,
+  talisman as talismanDeCle,
   type Joker,
   type SorteDeJoker,
 } from '../../../shared/jokers'
 import type { PalierTombe } from '../../../shared/jour'
 import {
   ACTES,
+  ECUS_D_UN_COFFRE_LAISSE,
   ETAGES,
   GARDIEN,
   MARCHES_DES_ACTES,
@@ -44,14 +46,21 @@ import {
   chanceDeVaincre,
   chanceDuJoueurMoyen,
   chancesDuTrace,
+  ecusEsperes,
   escalesAtteignables,
   gardienAuFeminin,
   leGardien,
   marcheDe,
   nomDuGardien,
   paquetDeDepart,
+  prixDeLArticle,
+  prixDeLEscale,
+  refusDeLAchat,
   traceLePlusSur,
+  type ApresUnGeste,
+  type ArticleDeLEchoppe,
   type CarteDUnActe,
+  type ContenuDeLInconnu,
   type EscaleDeLaCarte,
   type JokersEnJeu,
   type PageDeLExpedition,
@@ -74,9 +83,10 @@ import {
 // l'équipée (2, en feuille, comme le choix des catégories : rien ne change
 // avant « Choisir »), la carte d'un acte et son tracé (3), une escale et la
 // main (4), le gardien (7), le gardien vaincu (8), le choix du légendaire
-// (9), un joker pour son paquet (12) ; puis l'écran des gains de tous les
-// modes (`Gains.tsx`). Le campement, que les maquettes n'avaient pas, suit
-// l'offre. Les formes et les écus viennent aux étapes suivantes.
+// (9), un joker pour son paquet (12), le dévoilement (11), un talisman (6) ;
+// puis l'écran des gains de tous les modes (`Gains.tsx`). Le campement, que
+// les maquettes n'avaient pas, suit l'offre ; l'échoppe et l'inconnu (l'étape
+// 4), aussi.
 //
 // Un joker se joue en deux touchers : sa carte ouvre « Ta main », qui dit ce
 // qu'il fait — ou pourquoi il ne se joue pas maintenant (`refusDuJoker`,
@@ -102,6 +112,8 @@ type Ecran =
    */
   | { e: 'route'; vue: VueDeLExpedition; question?: QuestionDExpedition; reponse?: ReponseDExpedition; choix?: number; avant?: VueDeLExpedition }
   | { e: 'vaincu'; vue: VueDeLExpedition; gardien: string }
+  /** L'inconnu vient de se dévoiler — un piège, un légendaire de passage — ; `tombe` : le piège a pris sa dernière vie. */
+  | { e: 'inconnu'; vue: VueDeLExpedition; tombe?: Fin }
   | { e: 'fin'; vue: VueDeLExpedition; tombe: Fin; correction: CorrectionDeCampagne[] | null }
 
 /** « 62 % » : une chance telle que la page l'écrit, le signe collé par une espace fine insécable. */
@@ -133,21 +145,32 @@ function nomCourtDuTheme(t: ThemeDEscale | undefined): string {
   return t.categories.length > 1 ? `Mélange ×${t.categories.length}` : (COURT[t.categories[0]] ?? t.categories[0])
 }
 
+/** Ce que cache l'inconnu, en un mot sous l'escale. */
+const CONTENU: Record<ContenuDeLInconnu, string> = { marchand: 'Marchand', piege: 'Piège', passage: 'De passage' }
+
 /** Ce qu'on lit sous l'escale, sur la carte. */
 function etiquette(e: EscaleDeLaCarte, acte: number, gardiens: readonly { cle: string }[]): string {
   if (e.sorte === 'source') return 'Source'
   if (e.sorte === 'campement') return 'Campement'
   if (e.sorte === 'coffre') return 'Coffre'
+  if (e.sorte === 'echoppe') return 'Échoppe'
+  if (e.sorte === 'inconnu') return e.contenu ? CONTENU[e.contenu] : 'Inconnu'
   if (e.sorte === 'gardien') return nomDuGardien(gardiens[acte]?.cle ?? '')
   if (e.sorte === 'elite') return `Élite · ${nomCourtDuTheme(e.theme)}`
   return nomCourtDuTheme(e.theme)
 }
 
-/** L'emblème d'une escale : sa catégorie, son sujet, le mélange ; la goutte d'une source, le feu d'un campement, les épées d'une élite. */
+/**
+ * L'emblème d'une escale : sa catégorie, son sujet, le mélange ; la goutte
+ * d'une source, le feu d'un campement, les épées d'une élite, l'étal d'une
+ * échoppe ; l'inconnu, un point d'interrogation — dévoilé, ce qu'il cache.
+ */
 function iconeDe(e: EscaleDeLaCarte): IconName {
   if (e.sorte === 'source') return 'source'
   if (e.sorte === 'campement') return 'campement'
   if (e.sorte === 'coffre') return 'coffre'
+  if (e.sorte === 'echoppe') return 'echoppe'
+  if (e.sorte === 'inconnu') return e.contenu === 'marchand' ? 'echoppe' : e.contenu === 'piege' ? 'alert' : e.contenu === 'passage' ? 'sparkles' : 'help'
   if (e.sorte === 'elite') return 'swords'
   const t = e.theme
   if (!t) return 'help'
@@ -163,12 +186,25 @@ function iconeDe(e: EscaleDeLaCarte): IconName {
  * lecteur d'écran. Sous L'écholocation, la carte ne dit plus sa chance : la
  * phrase non plus.
  */
-function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'vies' | 'jokers'>, carte: CarteDUnActe): string {
+function decrire(e: EscaleDeLaCarte, vue: Pick<VueDeLExpedition, 'acte' | 'gardiens' | 'moyen' | 'vies' | 'jokers' | 'ecus'>, carte: CarteDUnActe): string {
   const qui = vue.moyen ? 'pour un joueur moyen' : 'pour toi'
-  const chance = e.chance === undefined ? '' : ` · ${pourcents(e.chance)} ${qui}`
+  // Ce qu'elle paie, trouvée (l'étape 4) : sa chance dite, la carte peut le dire — sous L'écholocation, ni l'une ni l'autre.
+  const prix = vue.ecus !== undefined && e.chance !== undefined && (e.sorte === 'question' || e.sorte === 'elite') ? ` · ${prixDeLEscale(e)} écus` : ''
+  const chance = e.chance === undefined ? '' : ` · ${pourcents(e.chance)} ${qui}${prix}`
   if (e.sorte === 'source') return `Une source : une question de ton carnet. Retrouvée, elle te rend une vie ; ratée, elle ne coûte rien${chance}`
   if (e.sorte === 'campement') return vue.jokers ? 'Un campement : une vie, jusqu’à trois — ou un joker retiré de ton paquet' : 'Un campement : il te rend une vie, jusqu’à trois'
-  if (e.sorte === 'coffre') return 'Un coffre : un joker au choix parmi trois, pour ton paquet'
+  if (e.sorte === 'coffre') {
+    return vue.ecus !== undefined
+      ? `Un coffre : un joker au choix parmi trois, pour ton paquet — ou ${ECUS_D_UN_COFFRE_LAISSE} écus, si tu n’en prends aucun`
+      : 'Un coffre : un joker au choix parmi trois, pour ton paquet'
+  }
+  if (e.sorte === 'echoppe') return 'Une échoppe : une vie, des jokers, un talisman, contre tes écus'
+  if (e.sorte === 'inconnu') {
+    if (e.contenu === 'marchand') return 'Un marchand : une échoppe, contre tes écus'
+    if (e.contenu === 'piege') return 'Un piège : il te coûte une vie'
+    if (e.contenu === 'passage') return 'Un légendaire de passage : son joker dans ta main, jusqu’au bout de l’acte'
+    return 'L’inconnu : un marchand, un piège qui coûte une vie, ou un légendaire de passage'
+  }
   if (e.sorte === 'gardien') {
     const g = vue.gardiens[vue.acte]?.cle ?? ''
     const m = MARCHES_DES_ACTES[Math.min(vue.acte, ACTES - 1)]
@@ -200,9 +236,48 @@ const ICONE_DU_JOKER: Readonly<Record<string, IconName>> = {
   echange: 'rotate',
   pioche: 'plus-square',
   detour: 'arrow-up',
+  'arret-sur-image': 'pause',
   'double-chance': 'copy',
   sursis: 'shield',
   'tout-ou-rien': 'dice',
+  'quitte-ou-double': 'zap',
+}
+
+/** Le dessin d'un talisman. */
+const ICONE_DU_TALISMAN: Readonly<Record<string, IconName>> = { loupe: 'search', 'maillot-jaune': 'maillot', boussole: 'boussole' }
+
+/** Ses écus, à côté de ses vies (l'étape 4) : une pièce et un nombre. */
+function Ecus({ n }: { n: number }) {
+  return (
+    <span className="exp-ecus" role="img" aria-label={`${n} écu${n > 1 ? 's' : ''}`}>
+      <Icon name="ecu" />
+      <b>{formatNumber(n)}</b>
+    </span>
+  )
+}
+
+/**
+ * La barre du haut : « ← Partir », ses talismans en petit — ce qu'ils font se
+ * lit dans « Ta main » —, ses écus — d'une expédition qui en a — et ses vies.
+ * Les talismans ici, pas sous le tracé : une ligne de plus y montait le
+ * panneau jusqu'à la moitié de l'écran.
+ */
+function Barre({ vue, onPartir, sansSortie }: { vue: Pick<VueDeLExpedition, 'ecus' | 'vies' | 'talismans'>; onPartir: () => void; sansSortie?: boolean }) {
+  const talismans = vue.talismans ?? []
+  return (
+    <div className="exp-barre">
+      {!sansSortie && <Sortie vers="Partir" href="/expedition" onClick={onPartir} />}
+      {talismans.length > 0 && (
+        <span className="exp-talismans" role="img" aria-label={`Tes talismans : ${talismans.map(cle => talismanDeCle(cle)?.nom ?? cle).join(', ')}`}>
+          {talismans.map(cle => (
+            <Icon key={cle} name={ICONE_DU_TALISMAN[cle] ?? 'sparkles'} />
+          ))}
+        </span>
+      )}
+      {vue.ecus !== undefined && <Ecus n={vue.ecus} />}
+      <Vies restantes={vue.vies} />
+    </div>
+  )
 }
 
 /** Un joker en petit : le médaillon du légendaire qui le donne, sinon son icône. */
@@ -262,9 +337,13 @@ function ceQuIlAFait(cle: string, avant: VueDeLExpedition, apres: VueDeLExpediti
   if (cle === 'detour') return 'Ton pas suivant va où tu veux, à l’étage du dessus'
   if (cle === 'raccourci') return 'Ton pas suivant saute une escale'
   if (cle === 'commandement') return apres.route?.commandement ? `Au pas suivant, une question ou une élite posera ${apres.route.commandement}` : null
-  if (cle === 'maison') {
+  if (cle === 'maison' || cle === 'boule') {
     const ouverte = apres.carte?.escales.find(e => avant.carte?.escales.find(x => x.id === e.id)?.sorte !== e.sorte)
     return ouverte ? `${ouverte.sorte === 'source' ? 'Une source' : 'Un coffre'} s’ouvre au-dessus de toi` : null
+  }
+  if (cle === 'lanterne') {
+    const pieges = apres.carte?.escales.filter(e => e.contenu === 'piege').length ?? 0
+    return pieges === 0 ? 'La lanterne éclaire l’acte : aucun piège sur cette carte' : `La lanterne montre ${pieges === 1 ? 'un piège' : `${pieges} pièges`} sur la carte`
   }
   return null
 }
@@ -353,15 +432,14 @@ export function ExpeditionApp() {
     }
   }
 
-  /** Un geste qui rend l'expédition d'après : l'écran se relit d'elle. */
-  const geste = async (faire: () => Promise<{ expedition: VueDeLExpedition }>, puis?: (apres: VueDeLExpedition) => void) => {
+  /** Un geste qui rend l'expédition d'après : l'écran se relit d'elle — sauf celui que `puis` choisit. */
+  const geste = async (faire: () => Promise<ApresUnGeste>, puis?: (apres: VueDeLExpedition, r: ApresUnGeste) => Ecran | void) => {
     if (busy) return
     setBusy(true)
     setErreur('')
     try {
-      const { expedition } = await faire()
-      puis?.(expedition)
-      setEcran({ e: 'route', vue: expedition })
+      const r = await faire()
+      setEcran(puis?.(r.expedition, r) ?? { e: 'route', vue: r.expedition })
     } catch (e) {
       refuse(e)
     } finally {
@@ -372,11 +450,16 @@ export function ExpeditionApp() {
   const avancer = (vue: VueDeLExpedition, vers: string) =>
     geste(
       () => api.expedition.avancer(vue.id, vue.rang + 1, vers),
-      apres => {
+      (apres, r) => {
         // Une expédition de l'étape 1 n'a pas de jokers : son campement rend sa vie d'office, et seul ce mot le dit.
         if (!apres.jokers && vers !== GARDIEN && !apres.question) {
           showToast({ kind: 'info', message: apres.vies > vue.vies ? 'Le campement te rend une vie' : 'Tes trois vies sont là : le campement veille sur elles' })
         }
+        // Un piège sur sa dernière vie finit l'expédition d'un pas : l'inconnu le dit d'abord, puis la fin.
+        const tombe = apres.issue === 'perdue' ? { recompenses: r.recompenses, legendaires: r.legendaires } : undefined
+        // L'inconnu dévoilé a son écran ; le marchand ouvre son échoppe, qui a le sien.
+        if (apres.inconnu && apres.inconnu.contenu !== 'marchand') return { e: 'inconnu', vue: apres, ...(tombe && { tombe }) }
+        if (tombe) return { e: 'fin', vue: apres, tombe, correction: null }
       },
     )
 
@@ -390,9 +473,27 @@ export function ExpeditionApp() {
       },
     )
 
-  const prendre = (vue: VueDeLExpedition, jokers: readonly string[]) => geste(() => api.expedition.prendre(vue.id, vue.rang + 1, jokers))
+  const prendre = (vue: VueDeLExpedition, jokers: readonly string[], talisman?: string) =>
+    geste(
+      () => api.expedition.prendre(vue.id, vue.rang + 1, jokers, talisman),
+      apres => {
+        // Un coffre passé sans rien prendre : ses écus, qu'un mot dit.
+        const gagnes = (apres.ecus ?? 0) - (vue.ecus ?? 0)
+        if (gagnes > 0) showToast({ kind: 'info', message: `+${gagnes} écus : le coffre reste fermé, tu passes` })
+      },
+    )
 
   const camper = (vue: VueDeLExpedition, retirer?: string) => geste(() => api.expedition.camper(vue.id, vue.rang + 1, retirer))
+
+  /** À l'échoppe : un article, payé en écus ; l'échoppe reste ouverte pour le suivant. */
+  const acheter = (vue: VueDeLExpedition, article: ArticleDeLEchoppe, joker?: string) => geste(() => api.expedition.acheter(vue.id, vue.rang + 1, article, joker))
+
+  /**
+   * L'échoppe qu'il a laissée sans avancer (« Reprendre la route ») : la carte
+   * s'affiche, et l'échoppe se rouvre d'un bouton tant qu'il n'a pas fait son
+   * pas. Elle ne bloque rien : le pas suivant la quitte.
+   */
+  const [echoppeLaissee, setEchoppeLaissee] = useState<string | null>(null)
 
   /** Une réponse — deux sous Double chance —, à la question qu'il a choisie sous Deux visages. */
   const repondre = async (vue: VueDeLExpedition, q: QuestionDExpedition, choix: number | readonly number[]) => {
@@ -515,6 +616,11 @@ export function ExpeditionApp() {
     return <GardienVaincu vue={vue} gardien={gardien} onSuite={() => setEcran({ e: 'route', vue })} />
   }
 
+  if (ecran.e === 'inconnu') {
+    const { vue, tombe } = ecran
+    return <Inconnu vue={vue} onSuite={() => setEcran(tombe ? { e: 'fin', vue, tombe, correction: null } : { e: 'route', vue })} />
+  }
+
   if (ecran.e === 'fin') {
     const voirCorrection = async () => {
       try {
@@ -547,8 +653,25 @@ export function ExpeditionApp() {
     )
   }
   if (vue.issue === 'au-bout') return <ChoixDuLegendaire vue={vue} busy={busy} erreur={erreur} onGarder={cle => void garder(vue, cle)} />
-  if (vue.offre) return <Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={jokers => void prendre(vue, jokers)} onPartir={quitter} />
+  if (vue.offre) return <Offre vue={vue} offre={vue.offre} busy={busy} erreur={erreur} onPrendre={(jokers, talisman) => void prendre(vue, jokers, talisman)} onPartir={quitter} />
   if (vue.campement) return <Campement vue={vue} busy={busy} erreur={erreur} onCamper={retirer => void camper(vue, retirer)} onPartir={quitter} />
+  // L'échoppe où il est, tant qu'il ne l'a pas laissée : elle se rouvre de la carte.
+  const ouEstLEchoppe = `${vue.id}:${vue.acte}:${vue.ici}`
+  if (vue.echoppe && echoppeLaissee !== ouEstLEchoppe) {
+    return (
+      <Echoppe
+        // Un achat fait, l'étal se relit sans rien de choisi : l'article acheté restait sous le bouton.
+        key={`${vue.id}:${vue.rang}`}
+        vue={vue}
+        echoppe={vue.echoppe}
+        busy={busy}
+        erreur={erreur}
+        onAcheter={(article, joker) => void acheter(vue, article, joker)}
+        onReprendre={() => setEchoppeLaissee(ouEstLEchoppe)}
+        onPartir={quitter}
+      />
+    )
+  }
   if (vue.question) {
     return (
       <Escale
@@ -580,6 +703,7 @@ export function ExpeditionApp() {
       onAvancer={vers => void avancer(vue, vers)}
       onAbandonner={() => void abandonner(vue)}
       onPartir={quitter}
+      onEchoppe={vue.echoppe ? () => setEchoppeLaissee(null) : undefined}
       {...surLaMain}
     />
   )
@@ -880,7 +1004,7 @@ function FeuilleDeLEquipee({
         {`Les ${JOKERS_SANS_LEGENDAIRE.length + JOKERS_DES_LEGENDAIRES.length} jokers de l’expédition`}
         <Icon name="chevron-down" />
       </button>
-      {/* Replié, il ne se rend pas : vingt-neuf fiches pour qui ne les demande pas (règle `client.md`). */}
+      {/* Replié, il ne se rend pas : trente-deux fiches pour qui ne les demande pas (règle `client.md`). */}
       {tous && <TousLesJokers siens={siens} invite={prochaine.invite} />}
     </Feuille>
   )
@@ -984,6 +1108,7 @@ function CarteDeLActe({
   onAbandonner,
   onPartir,
   onJouer,
+  onEchoppe,
 }: {
   vue: VueDeLExpedition
   carte: CarteDUnActe
@@ -993,6 +1118,8 @@ function CarteDeLActe({
   onAbandonner: () => void
   onPartir: () => void
   onJouer: (cle: string, plus?: { categorie?: string; montre?: number }) => void
+  /** Il est à une échoppe qu'il a laissée sans avancer : elle se rouvre. */
+  onEchoppe?: () => void
 }) {
   const parId = useMemo(() => new Map(carte.escales.map(e => [e.id, e])), [carte])
   // Où il peut encore aller : par les liens d'ici, et — Le détour, Le raccourci — par chaque escale permise.
@@ -1021,6 +1148,8 @@ function CarteDeLActe({
   // L'écholocation : la carte ne dit plus sa chance, ni le panneau celle d'arriver.
   const aveugle = !!vue.sansChances
   const chances = trace.length > 0 && !aveugle ? chancesDuTrace(carte, trace, vue.vies, vue.acte) : null
+  // Le butin du tracé (l'étape 4) : ses écus en moyenne, sur les chances que la carte dit.
+  const butin = chances && vue.ecus !== undefined ? ecusEsperes(carte, trace) : 0
   const estLePlusSur = trace.length === lePlusSur.length && trace.every((id, i) => id === lePlusSur[i])
 
   // L'escale où il est, sinon le départ, à l'écran : la carte monte d'acte en acte, et le bas défile hors de vue.
@@ -1051,10 +1180,7 @@ function CarteDeLActe({
 
   return (
     <div className="player-shell expedition exp-carte-page">
-      <div className="exp-barre">
-        <Sortie vers="Partir" href="/expedition" onClick={onPartir} />
-        <Vies restantes={vue.vies} />
-      </div>
+      <Barre vue={vue} onPartir={onPartir} />
       <header className="exp-tete">
         <h1>{`Acte ${vue.acte + 1} · Vers ${leGardien(gardien)}`}</h1>
         <p className="muted small">
@@ -1095,6 +1221,7 @@ function CarteDeLActe({
           if (passee) classes.push('exp-passee')
           if (tracee) classes.push('exp-tracee')
           if (loin) classes.push('exp-loin')
+          if (e.contenu === 'piege') classes.push('exp-piege')
           if (vue.permises.includes(e.id)) classes.push('exp-ouverte')
           const chance =
             e.sorte === 'question' || e.sorte === 'elite' || e.sorte === 'source'
@@ -1156,6 +1283,12 @@ function CarteDeLActe({
                   Le plus sûr
                 </button>
               )}
+              {/* L'échoppe laissée sans avancer : un lien, pas un bouton de plus — le panneau reste bas. */}
+              {onEchoppe && (
+                <button type="button" className="link-inline small" onClick={onEchoppe}>
+                  {vue.inconnu?.contenu === 'marchand' ? 'Le marchand' : 'L’échoppe'}
+                </button>
+              )}
             </div>
             <p className="exp-vu" role="status">
               {espacesFines(avis || (vueDe ? decrire(vueDe, vue, carte) : 'Touche les escales pour tracer ta route.'))}
@@ -1168,6 +1301,13 @@ function CarteDeLActe({
                   {` d’arriver ${auGardien(gardien)} · `}
                   <b>{pourcents(chances.vaincre)}</b>
                   {` de ${gardienAuFeminin(gardien) ? 'la' : 'le'} vaincre`}
+                  {butin > 0 && (
+                    <>
+                      {' · '}
+                      <b>{`≈ ${butin}`}</b>
+                      {' écus'}
+                    </>
+                  )}
                 </span>
               </p>
             )}
@@ -1213,6 +1353,18 @@ function CarteDeLActe({
             </li>
           </>
         )}
+        {vue.ecus !== undefined && (
+          <>
+            <li>
+              <Icon name="echoppe" />
+              {espacesFines('Échoppe : contre tes écus')}
+            </li>
+            <li>
+              <Icon name="help" />
+              {espacesFines('Inconnu : un marchand, un piège, un légendaire')}
+            </li>
+          </>
+        )}
         <li>
           <Icon name="shuffle" />
           {espacesFines('Mélange : l’une de ses catégories')}
@@ -1251,6 +1403,7 @@ function routeEnCours(route: NonNullable<VueDeLExpedition['route']>): string {
     route.raccourci && 'Le raccourci : ton pas suivant saute une escale',
     // Un coffre, une source au pas suivant : le Commandement n'y pose rien, et il est passé.
     route.commandement && `Commandement : au pas suivant, une question ou une élite pose ${route.commandement}`,
+    route.lanterne && 'La lanterne : les pièges de l’acte se montrent',
   ]
     .filter(Boolean)
     .join(' · ')
@@ -1342,6 +1495,7 @@ function MainDeJokers({
       {ouverte !== null && (
         <FeuilleDeLaMain
           jokers={jokers}
+          talismans={vue.talismans ?? []}
           ouverte={ouverte}
           busy={busy}
           aLaQuestion={!!vue.question}
@@ -1372,6 +1526,7 @@ function MainDeJokers({
  */
 function FeuilleDeLaMain({
   jokers,
+  talismans,
   ouverte,
   busy,
   aLaQuestion,
@@ -1380,6 +1535,8 @@ function FeuilleDeLaMain({
   onFermer,
 }: {
   jokers: JokersEnJeu
+  /** Ses talismans (l'étape 4) : ils agissent seuls, jusqu'au bout. */
+  talismans: readonly string[]
   /** La carte touchée ; -1 : aucune — le paquet, touché. */
   ouverte: number
   busy: boolean
@@ -1465,6 +1622,23 @@ function FeuilleDeLaMain({
                 j && (
                   <li key={cle}>
                     <b>{j.nom}</b> <span className="muted small">{espacesFines(j.effet)}</span>
+                  </li>
+                )
+              )
+            })}
+          </ul>
+        </section>
+      )}
+      {talismans.length > 0 && (
+        <section className="exp-main-section">
+          <h3 className="label">Tes talismans, jusqu’au bout de l’expédition</h3>
+          <ul className="exp-poses-liste">
+            {talismans.map(cle => {
+              const t = talismanDeCle(cle)
+              return (
+                t && (
+                  <li key={cle}>
+                    <b>{t.nom}</b> <span className="muted small">{espacesFines(t.effet)}</span>
                   </li>
                 )
               )
@@ -1601,10 +1775,7 @@ function Escale({
   return (
     <div className={'player-shell expedition' + (auGardien_ ? ' exp-au-gardien' : '')}>
       <div className="quiz-player epreuve">
-        <div className="exp-barre">
-          {!finie && <Sortie vers="Partir" href="/expedition" onClick={onPartir} />}
-          <Vies restantes={vue.vies} />
-        </div>
+        <Barre vue={vue} onPartir={onPartir} sansSortie={finie} />
         {auGardien_ ? (
           <div className="exp-gardien-tete">
             <Medaillon cle={gardien} className="exp-medaillon exp-medaillon-gardien" />
@@ -1664,6 +1835,11 @@ function Escale({
             <b>Énigme :</b> {espacesFines(affichee.indice)}
           </p>
         )}
+        {!r && affichee.siecle && (
+          <p className="exp-indice small">
+            <b>La loupe :</b> {espacesFines(affichee.siecle)}
+          </p>
+        )}
         {!r && affichee.prediction && (
           <p className="exp-indice small" role="status">
             <b>L’Oracle</b>
@@ -1706,7 +1882,13 @@ function Escale({
         )}
         {!r && vue.perte !== undefined && joue && (
           <p className="exp-perte small">
-            {espacesFines(vue.perte === 0 ? `${joue.nom} : ratée, elle ne te coûte pas de vie.` : `${joue.nom} : ratée, elle te coûte deux vies.`)}
+            {espacesFines(
+              vue.perte === 0
+                ? `${joue.nom} : ratée, elle ne te coûte pas de vie.`
+                : joue.cle === 'quitte-ou-double'
+                  ? `${joue.nom} : trouvée, ses écus triplent ; ratée, elle te coûte deux vies.`
+                  : `${joue.nom} : ratée, elle te coûte deux vies.`,
+            )}
           </p>
         )}
         {erreur && (
@@ -1788,6 +1970,13 @@ function Revelation({
           <>
             <span className="big">🎊 +1</span>
             <p>{`${verdict}${r.xp > 0 ? ` +${r.xp} XP` : ''}`}</p>
+            {/* Ses écus (l'étape 4) : ceux de l'escale, et ceux du gardien qui tombe — jamais des confettis. */}
+            {r.ecus !== undefined && (
+              <p className="exp-gain-ecus">
+                <Icon name="ecu" />
+                {`+${r.ecus} écus`}
+              </p>
+            )}
             <GerbeDeJuste />
           </>
         ) : (
@@ -1877,11 +2066,16 @@ function GardienVaincu({ vue, gardien, onSuite }: { vue: VueDeLExpedition; gardi
   )
 }
 
+/** Dans une offre, la clé du talisman, pour le distinguer d'un joker parmi ce qu'on prend. */
+const TALISMAN = 'talisman:'
+
 /**
  * Un joker pour son paquet (la maquette 12) : ce qu'offre un coffre ou une
  * élite trouvée — trois jokers, un à prendre, deux sous Le trésor —, ou le
  * coffre que L'horizon a vidé. Ne rien prendre est un choix : un paquet court
- * tire plus souvent ses meilleurs.
+ * tire plus souvent ses meilleurs — et un coffre passé rapporte ses écus
+ * (l'étape 4). Un talisman s'y cache parfois (la maquette 6) : il prend la
+ * place d'un joker, et agit seul jusqu'au bout de l'expédition.
  */
 function Offre({
   vue,
@@ -1895,7 +2089,7 @@ function Offre({
   offre: NonNullable<VueDeLExpedition['offre']>
   busy: boolean
   erreur: string
-  onPrendre: (jokers: readonly string[]) => void
+  onPrendre: (jokers: readonly string[], talisman?: string) => void
   onPartir: () => void
 }) {
   const [pris, setPris] = useState<string[]>([])
@@ -1904,13 +2098,18 @@ function Offre({
   const deux = offre.aPrendre > 1
   const toucher = (cle: string) => setPris(p => (p.includes(cle) ? p.filter(x => x !== cle) : p.length < offre.aPrendre ? [...p, cle] : [...p.slice(1), cle]))
   const siens = vue.jokers ? [...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse] : []
-  const nom = (cle: string) => jokerDeCle(cle)?.nom ?? cle
+  const nom = (cle: string) => (cle.startsWith(TALISMAN) ? (talismanDeCle(cle.slice(TALISMAN.length))?.nom ?? cle) : (jokerDeCle(cle)?.nom ?? cle))
+  const t = offre.talisman ? talismanDeCle(offre.talisman) : undefined
+  const prendre = () => {
+    const talisman = pris.find(c => c.startsWith(TALISMAN))?.slice(TALISMAN.length)
+    onPrendre(
+      pris.filter(c => !c.startsWith(TALISMAN)),
+      talisman,
+    )
+  }
   return (
     <div className="player-shell expedition exp-offre">
-      <div className="exp-barre">
-        <Sortie vers="Partir" href="/expedition" onClick={onPartir} />
-        <Vies restantes={vue.vies} />
-      </div>
+      <Barre vue={vue} onPartir={onPartir} />
       <header className="exp-tete">
         <span className="label exp-surtitre">{ici?.sorte === 'coffre' ? 'Un coffre' : 'L’élite est tombée'}</span>
         <h1>{vide ? 'Le coffre est vide' : deux ? 'Choisis deux jokers' : 'Choisis un joker'}</h1>
@@ -1918,7 +2117,7 @@ function Offre({
           {espacesFines(
             vide
               ? 'L’horizon l’a vidé : c’était le prix de ta vie rendue.'
-              : `Il rejoint ton paquet jusqu’au bout de l’expédition${deux ? ' : le trésor t’en donne deux' : ''}.`,
+              : `Il rejoint ton paquet jusqu’au bout de l’expédition${deux ? ' : le trésor t’en donne deux' : ''}.${t ? ' Un talisman s’y cache : il prend la place d’un joker.' : ''}`,
           )}
         </p>
       </header>
@@ -1943,6 +2142,26 @@ function Offre({
               </button>
             )
           })}
+          {t && (
+            <button
+              type="button"
+              className={'exp-offre-ligne exp-offre-talisman' + (pris.includes(TALISMAN + t.cle) ? ' exp-choisi' : '')}
+              aria-pressed={pris.includes(TALISMAN + t.cle)}
+              onClick={() => toucher(TALISMAN + t.cle)}
+            >
+              <span className="exp-offre-visage" aria-hidden="true">
+                <Icon name={ICONE_DU_TALISMAN[t.cle] ?? 'sparkles'} />
+              </span>
+              <span className="exp-joker">
+                <span className="exp-offre-nom">
+                  <b>{t.nom}</b>
+                  <span className="exp-rarete exp-rarete-talisman">talisman</span>
+                </span>
+                <span className="small">{espacesFines(t.effet)}</span>
+                <span className="muted small">Il agit seul, jusqu’au bout de l’expédition</span>
+              </span>
+            </button>
+          )}
         </div>
       )}
       <section className="exp-paquet" aria-labelledby="exp-paquet-titre">
@@ -1959,13 +2178,13 @@ function Offre({
           type="button"
           className="btn btn-primary btn-big btn-block"
           aria-disabled={busy || (!vide && pris.length === 0) || undefined}
-          onClick={() => (vide || pris.length > 0) && onPrendre(pris)}
+          onClick={() => (vide ? onPrendre([]) : pris.length > 0 && prendre())}
         >
-          {vide ? 'Continuer' : pris.length === 0 ? (deux ? 'Choisis deux jokers' : 'Choisis un joker') : pris.length === 1 ? `Ajouter « ${nom(pris[0])} »` : 'Ajouter ces deux jokers'}
+          {vide ? 'Continuer' : pris.length === 0 ? (deux ? 'Choisis deux jokers' : 'Choisis un joker') : pris.length === 1 ? `Prendre « ${nom(pris[0])} »` : 'Prendre ces deux-là'}
         </button>
         {!vide && (
           <button type="button" className="btn btn-ghost btn-block" aria-disabled={busy || undefined} onClick={() => onPrendre([])}>
-            Ne rien prendre
+            {offre.coffre ? `Passer : +${ECUS_D_UN_COFFRE_LAISSE} écus` : 'Ne rien prendre'}
           </button>
         )}
       </div>
@@ -1999,10 +2218,7 @@ function Campement({
   const choisi = siens.find(c => c.cle === cle)
   return (
     <div className="player-shell expedition exp-camper">
-      <div className="exp-barre">
-        <Sortie vers="Partir" href="/expedition" onClick={onPartir} />
-        <Vies restantes={vue.vies} />
-      </div>
+      <Barre vue={vue} onPartir={onPartir} />
       <header className="exp-tete">
         <span className="label exp-surtitre">{`Campement · acte ${vue.acte + 1}`}</span>
         <h1>Une nuit au campement</h1>
@@ -2059,6 +2275,189 @@ function Campement({
           {retirer ? (choisi ? `Retirer « ${choisi.nom} »` : 'Choisis le joker à retirer') : 'Te reposer'}
         </button>
       </div>
+    </div>
+  )
+}
+
+/** Un article de l'échoppe : ce qu'il achète, et le joker qu'il vise. */
+type Article = { article: ArticleDeLEchoppe; joker?: string }
+
+/**
+ * L'échoppe (l'étape 4) — ou le marchand de l'inconnu — : ce que ses écus
+ * achètent, chaque article une fois — une vie, l'un de ses trois jokers, son
+ * talisman, un joker retiré de son paquet. Un article se choisit, puis
+ * s'achète : un toucher perdu sous le pouce ne coûte rien. Ce qui ne
+ * s'achète pas dit pourquoi, de la même règle que le serveur
+ * (`refusDeLAchat`). Elle se quitte en reprenant la route : le pas suivant
+ * la ferme, sans geste de plus.
+ */
+function Echoppe({
+  vue,
+  echoppe,
+  busy,
+  erreur,
+  onAcheter,
+  onReprendre,
+  onPartir,
+}: {
+  vue: VueDeLExpedition
+  echoppe: NonNullable<VueDeLExpedition['echoppe']>
+  busy: boolean
+  erreur: string
+  onAcheter: (article: ArticleDeLEchoppe, joker?: string) => void
+  onReprendre: () => void
+  onPartir: () => void
+}) {
+  const [choisi, setChoisi] = useState<string | null>(null)
+  const [aRetirer, setARetirer] = useState<string | null>(null)
+  const ecus = vue.ecus ?? 0
+  const siens = vue.jokers ? comptes([...vue.jokers.paquet, ...vue.jokers.main, ...vue.jokers.defausse]) : []
+  const etat = {
+    issue: vue.issue,
+    echoppe,
+    ecus,
+    vies: vue.vies,
+    paquet: vue.jokers?.paquet ?? [],
+    defausse: vue.jokers?.defausse ?? [],
+    main: vue.jokers?.main ?? [],
+    talismans: vue.talismans ?? [],
+  }
+  const t = echoppe.talisman ? talismanDeCle(echoppe.talisman) : undefined
+  // L'étal, dans l'ordre où l'on pense : se soigner, s'équiper, puis s'alléger.
+  const etal: { cle: string; article: Article; nom: string; detail: string; visage: ReactNode; rarete?: string }[] = [
+    { cle: 'vie', article: { article: 'vie' }, nom: 'Une vie', detail: `Tu en as ${vue.vies} sur ${VIES}`, visage: <Icon name="heart" /> },
+    ...echoppe.jokers.flatMap(cle => {
+      const j = jokerDeCle(cle)
+      return j ? [{ cle, article: { article: 'joker' as const, joker: cle }, nom: j.nom, detail: j.effet, visage: <VisageDuJoker j={j} />, rarete: j.rarete }] : []
+    }),
+    ...(t ? [{ cle: 'talisman', article: { article: 'talisman' as const }, nom: t.nom, detail: t.effet, visage: <Icon name={ICONE_DU_TALISMAN[t.cle] ?? 'sparkles'} />, rarete: 'talisman' }] : []),
+    { cle: 'retirer', article: { article: 'retirer' }, nom: 'Retirer un joker', detail: 'Il quitte ton paquet jusqu’au bout de l’expédition', visage: <Icon name="trash" /> },
+  ]
+  const ligne = etal.find(x => x.cle === choisi)
+  const vise: Article | null = ligne ? (ligne.article.article === 'retirer' ? { article: 'retirer', ...(aRetirer && { joker: aRetirer }) } : ligne.article) : null
+  // « Retirer » sans joker choisi : le refus attend le choix, il ne dit pas encore « pas dans ton paquet ».
+  const refus = vise && !(vise.article === 'retirer' && !vise.joker) ? refusDeLAchat(etat, vise) : null
+  const prix = (a: Article) => prixDeLArticle(a.article, a.joker)
+  const marchand = vue.inconnu?.contenu === 'marchand'
+  return (
+    <div className="player-shell expedition exp-echoppe-page">
+      <Barre vue={vue} onPartir={onPartir} />
+      <header className="exp-tete">
+        <span className="label exp-surtitre">{marchand ? 'L’inconnu : un marchand' : 'Une échoppe'}</span>
+        <h1>Ce que tes écus achètent</h1>
+        <p className="muted">{espacesFines(`Tu as ${ecus} écu${ecus > 1 ? 's' : ''}. Chaque article une fois ; tes écus restent dans l’expédition.`)}</p>
+      </header>
+      <div className="exp-offres" role="radiogroup" aria-label="L’étal">
+        {etal.map(x => {
+          const achete = echoppe.achats.includes(x.cle)
+          return (
+            <button
+              key={x.cle}
+              type="button"
+              role="radio"
+              aria-checked={choisi === x.cle}
+              aria-disabled={achete || undefined}
+              className={'exp-offre-ligne' + (choisi === x.cle ? ' exp-choisi' : '') + (achete ? ' exp-achete' : '')}
+              onClick={() => !achete && setChoisi(x.cle)}
+            >
+              <span className="exp-offre-visage" aria-hidden="true">
+                {x.visage}
+              </span>
+              <span className="exp-joker">
+                <span className="exp-offre-nom">
+                  <b>{x.nom}</b>
+                  {x.rarete && <span className={`exp-rarete exp-rarete-${x.rarete}`}>{x.rarete === 'talisman' ? 'talisman' : RARETE[x.rarete as Joker['rarete']]}</span>}
+                </span>
+                <span className="small">{espacesFines(x.detail)}</span>
+              </span>
+              <span className="exp-prix">{achete ? 'Acheté' : <Prix n={prix(x.article)} />}</span>
+            </button>
+          )
+        })}
+      </div>
+      {choisi === 'retirer' && (
+        <div className="exp-a-retirer" role="group" aria-label="Le joker à retirer">
+          {siens.map(c => (
+            <button key={c.cle} type="button" className={'pill-btn' + (aRetirer === c.cle ? ' active' : '')} aria-pressed={aRetirer === c.cle} onClick={() => setARetirer(c.cle)}>
+              {c.n > 1 ? `${c.nom} ×${c.n}` : c.nom}
+            </button>
+          ))}
+        </div>
+      )}
+      {refus && <p className="exp-refus small">{espacesFines(refus)}</p>}
+      {erreur && (
+        <p className="error" role="alert">
+          {espacesFines(erreur)}
+        </p>
+      )}
+      <div className="exp-depart-pied">
+        <button
+          type="button"
+          className="btn btn-primary btn-big btn-block"
+          aria-disabled={busy || !vise || refus !== null || (vise.article === 'retirer' && !vise.joker) || undefined}
+          onClick={() => vise && !busy && refus === null && (vise.article !== 'retirer' || vise.joker) && onAcheter(vise.article, vise.joker)}
+        >
+          {!vise || !ligne
+            ? 'Choisis un article'
+            : vise.article === 'retirer'
+              ? vise.joker
+                ? `Retirer « ${jokerDeCle(vise.joker)?.nom ?? vise.joker} » · ${prix(vise)} écus`
+                : 'Choisis le joker à retirer'
+              : `Acheter « ${ligne.nom} » · ${prix(vise)} écus`}
+        </button>
+        <button type="button" className="btn btn-ghost btn-block" onClick={onReprendre}>
+          Reprendre la route
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Un prix en écus, sa pièce devant. */
+function Prix({ n }: { n: number }) {
+  return (
+    <>
+      <Icon name="ecu" />
+      {n}
+    </>
+  )
+}
+
+/**
+ * L'inconnu dévoilé (l'étape 4) : un piège — une vie de moins, peut-être la
+ * dernière —, ou un légendaire de passage, son joker dans la main jusqu'au
+ * bout de l'acte. Le marchand, lui, ouvre son échoppe.
+ */
+function Inconnu({ vue, onSuite }: { vue: VueDeLExpedition; onSuite: () => void }) {
+  const dedans = vue.inconnu
+  const perdue = vue.issue === 'perdue'
+  const legendaire = dedans?.contenu === 'passage' ? dedans.legendaire : undefined
+  return (
+    <div className="player-shell expedition exp-vaincu exp-inconnu">
+      <span className="exp-pastille exp-pastille-or">L’inconnu</span>
+      {legendaire ? (
+        <>
+          <Medaillon cle={legendaire} grand className="exp-medaillon exp-medaillon-grand" />
+          <h1>{`${nomDuGardien(legendaire)} est de passage`}</h1>
+          <p className="muted">{espacesFines('Son joker est dans ta main, jusqu’au bout de l’acte : joue-le avant le gardien.')}</p>
+          <p className="card exp-joker-carte">
+            <SonJoker cle={legendaire} />
+          </p>
+        </>
+      ) : (
+        <>
+          <span className="exp-inconnu-piege" aria-hidden="true">
+            <Icon name="alert" />
+          </span>
+          <h1>Un piège !</h1>
+          <p className="muted">{espacesFines(perdue ? 'Il t’a pris ta dernière vie : l’expédition s’arrête là.' : `Il te coûte une vie : il t’en reste ${vue.vies}.`)}</p>
+        </>
+      )}
+      <Vies restantes={vue.vies} />
+      <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuite}>
+        {perdue ? 'Voir la fin' : 'Reprendre la route'}
+        <Icon name="chevron-right" />
+      </button>
     </div>
   )
 }
@@ -2154,6 +2553,10 @@ export function FinDeLExpedition({
             : `Acte ${acte} · ${vaincus} gardien${vaincus > 1 ? 's' : ''} vaincu${vaincus > 1 ? 's' : ''} · ${vue.justes} bonne${s} réponse${s}.`}
         </p>
         {gardee && !nouveau && <p className="muted small">{espacesFines(`${nomDuGardien(gardee)} était déjà à toi : ton expédition te rapporte l’expérience de tes réponses.`)}</p>}
+        {/* Les écus meurent avec l'expédition (le brief) : la fin le dit, une fois. */}
+        {vue.ecus !== undefined && vue.ecus > 0 && (
+          <p className="muted small">{espacesFines(`Tes ${vue.ecus} écus restent dans l’expédition : ils ne deviennent jamais des confettis.`)}</p>
+        )}
       </header>
       {(tombe.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />

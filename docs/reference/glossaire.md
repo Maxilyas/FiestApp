@@ -1,6 +1,6 @@
 # Le glossaire
 
-> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 417 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
+> Les mots de FiestApp — ceux de l'écran et ceux du code —, chacun avec son sens en une phrase et le nom qu'il porte dans le code : 429 termes, du moteur du quiz à la boutique. Pour qui découvre le dépôt, ou cherche ce que recouvre un mot.
 
 FiestApp nomme les choses comme l'application les montre : une **soirée**, la **salle**, un **salon**, un **trophée**. Le code garde parfois un nom plus ancien ou plus technique — un compte d'animateur est un **espace** (`accounts`), et son identifiant cloisonne tout le reste — : la dernière colonne le donne, pour qu'on le retrouve d'une recherche. Les termes se rangent sans leur article (« Le Laurier » sous L, « L'Éclat » sous E).
 
@@ -147,12 +147,14 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Écart (d'une estimation) | La distance d'une estimation à la bonne réponse, comptée sur les nombres tapés | `ecartEstimation` |
 | Écart typique | La médiane des écarts de la salle à une estimation, bornée par deux crans et par la bonne réponse : la moitié de la proximité s'y gagne | `pointsDesEstimations` |
 | Échec passager | Un échec qui passe tout seul — le réseau qui revient, l'hébergeur qui se réveille — et qu'une écriture rejouable peut attendre | `statutPassager`, `echecPassager` (`shared/erreurs.ts`), `auReveil` (`client/src/api.ts`) |
+| Échoppe | Une escale de l'expédition — ou le marchand de l'inconnu — où les écus achètent une vie, l'un de ses trois jokers, son talisman ou un joker retiré de son paquet, chaque article une fois ; elle ne retient pas : le pas suivant la quitte | `sorte: 'echoppe'`, `{ quoi: 'acheter' }`, `PRIX_DE_L_ECHOPPE` |
 | Éclat | Un tirage — une chance sur quarante en soirée et au quiz du jour, sur vingt au défi de la semaine — qui change pour toujours les couleurs de l'avatar porté | `profile_eclats` |
 | Économie (au QG) | La page « L'économie » de l'administrateur (`/admin#economie`), à lire, sans geste : les confettis gagnés et dépensés jour par jour, d'où ils viennent — « Tes dons » compris — et où ils partent, ce qui est en circulation, les meilleures ventes, les Éclats tombés et les légendaires portés | `PageDeLEconomie` (`shared/qgEconomie.ts`), `economieDuQg` (`server/src/economie.ts`) |
 | Écran commun | La page de l'animateur projetée à la salle, sa console en bas | `/host`, `client/src/views/HostApp.tsx` |
 | Écran d'animateur | Toute connexion présentée par une session d'animateur : écran commun, télécommande, télé branchée, liaison du chef | `host:hello`, `hosts:<espace>` |
 | Écran des gains | La fin de chaque partie, la même partout : « Ce que tu gagnes », « Nouveaux trophées », « À porter » | `shared/gains.ts` |
 | Écran utile | Le premier élément qui dit qu'une page est là, celui que `npm run mesure` chronomètre | `server/scripts/mesure-pages.ts` |
+| Écus | La monnaie de l'expédition : une escale trouvée en paie selon la chance qu'elle annonçait, l'échoppe les dépense ; ils meurent avec l'expédition, jamais un confetti, et ne s'écrivent nulle part — le pli les compte | `EtatDeLExpedition.ecus`, `ecusDeLaReponse`, `ECUS_DES_PISTES` |
 | Écusson de savoir | La maîtrise d'une des douze catégories : bronze, argent, or à 20, 75 et 200 bonnes réponses, tous modes confondus | `shared/ecussons.ts` |
 | Élite (d'une escale) | Une escale de l'expédition qui pose une question de la marche au-dessus : trouvée, un joker au choix parmi trois ; ratée, une vie | `sorte: 'elite'`, `MARCHES_DES_ACTES` |
 | Emoji de collection | Un des douze emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition | `COLLECTION` |
@@ -166,7 +168,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Épreuve (d'un test) | Un `test(…)` de `node:test` dans un fichier de `server/test/` : ce qu'il vérifie, dit par son titre | `server/test/` |
 | Épreuve en jeu | Une épreuve ni validée ni rejouée : ratée, elle coûte une vie, et tant qu'elle attend, aucune autre ne commence | `commencerEpreuve` |
 | Équipée | Les deux légendaires qu'on emmène en expédition — les siens qui ont leur joker, ou l'invité du jour —, chacun son joker dans le paquet | `PLACES_DE_L_EQUIPEE`, `refusDeLEquipee` |
-| Escale | Une étape d'une carte de l'expédition : une question, une élite, une source, un coffre, un campement, le gardien — et, à l'étape 4 du mode, l'échoppe et l'inconnu | `EscaleDeLaCarte`, `SorteDEscale` |
+| Escale | Une étape d'une carte de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
 | Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; et à l'intérieur des guillemets « » | `shared/typographie.ts` |
 | Espace par défaut | Celui de l'administrateur, où mènent les anciennes adresses ; il ne se supprime pas | `default_space` (`meta`) |
@@ -244,6 +246,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Identifiant discret | L'identifiant d'un profil qui naît, déduit du prénom et montré sur une ligne (« Pour te reconnecter : camille »), modifiable d'un toucher | `IdentifiantDiscret`, `identifiantPour` |
 | Ils te talonnent | Pour qui est en tête du classement, les 3 classés qui le suivent, à la place d'« À ta portée » | `ClassementDesDuels.enTete` |
+| Inconnu (l') | Une escale de l'expédition qui cache, un tiers chacun, un marchand, un piège — une vie — ou un légendaire de passage, dont le joker rejoint la main jusqu'au bout de l'acte ; la carte ne le dit qu'une fois dévoilé — par la boussole, la lanterne, ou en y entrant | `sorte: 'inconnu'`, `contenuDeLInconnu`, `legendaireDePassage` |
 | Instantané (d'un partage) | La copie d'un quiz prise au moment d'un partage — code ou catalogue —, que les retouches d'après ne suivent pas | `Instantane` |
 | Instantané (de la salle) | L'état de la salle — invités, équipes, prix, partie en cours, code —, diffusé en deux versions, dédoublonné et regroupé | `party:snapshot`, `PartySnapshot` |
 | Intertitre | Une diapo sans réponse ni points avant une question (« Manche 2 : le cinéma ») | `intertitre` |
@@ -257,7 +260,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Jeton | Le secret qu'un téléphone garde pour retrouver sa fiche, qui ne vaut que dans son espace | `token`, `quizz.me.<espace>` |
 | Jeton de la réserve | Le secret qui ouvre les six routes de la routine du matin, et rien d'autre — mais qui lit les bonnes réponses à venir | `porteDeLaReserve` |
-| Joker | Un pouvoir de l'expédition — à jouer sur une question, à poser pour un acte, ou sur la carte —, jamais hors d'elle : huit sans légendaire, de départ ou des offres — Arrêt sur image depuis les formes, et un par légendaire de la V1 ; aucun pour un Divin | `Joker`, `JOKERS_SANS_LEGENDAIRE`, `JOKERS_DES_LEGENDAIRES` (`shared/jokers.ts`) |
+| Joker | Un pouvoir de l'expédition — à jouer sur une question, à poser pour un acte, ou sur la carte —, jamais hors d'elle : neuf sans légendaire, de départ ou des offres — Arrêt sur image depuis les formes, Quitte ou double depuis les écus —, et un par légendaire qui a le sien, vingt-trois ; aucun pour un Divin | `Joker`, `JOKERS_SANS_LEGENDAIRE`, `JOKERS_DES_LEGENDAIRES` (`shared/jokers.ts`) |
 | Joué ce soir | Un quiz choisi dans une partie de la soirée, même interrompue : le programme ne le repropose plus | `lancementDeQuiz` |
 | Joueurs croisés | Des profils rencontrés en soirée, en duel, au défi de la semaine, ou de cote proche, proposés à défier ou à ajouter | `joueursCroises` |
 | Jours d'avance | Les questions prêtes de la réserve divisées par dix, arrondi en dessous ; le QG s'inquiète sous sept | `etatDeLaReserve` |
@@ -486,6 +489,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
 | Tablée | Une soirée jouée par des agents qui incarnent des invités et une animatrice, chacun dans un vrai navigateur, pour recueillir leurs retours | `.claude/skills/tablee/SKILL.md` |
+| Talisman | Un pouvoir de l'expédition qui agit seul, jusqu'à son bout : la loupe (une question d'Histoire qui se date dit son siècle), le maillot jaune (le sport paie double écus), la boussole (l'inconnu se dévoile) ; une offre en cache un une fois sur six ou sept, l'échoppe en vend un | `TALISMANS` (`shared/jokers.ts`), `EtatDeLExpedition.talismans` |
 | Taux lissé | La part de joueurs qui trouvent une question, mêlée de vingt réponses fictives tirées de sa difficulté estimée | `tauxLisse` |
 | Télé branchée | Une télé ouverte sur `/tele` et validée par un code d'appairage depuis un téléphone : un écran de salle, sans console, pour 24 heures au plus | `ecranDeSalle`, `server/src/auth/appairage.ts` |
 | Télécommande | La console tenue sur un petit écran : l'étape, les gestes en grand, la régie — jamais la réponse avant la salle | `host:telecommande`, `client/src/telecommande.ts` |

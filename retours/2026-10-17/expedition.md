@@ -25,9 +25,10 @@ les invariants qu'elle touche, le calibrage, les tests et le découpage en
 sort —, sont sur claude.ai : https://claude.ai/artifact/B7HYdDffstjHybu1gTtj2g
 (privées, au compte du propriétaire). Là où ce brief les contredit, il
 l'emporte, et dit pourquoi (« Ce qui change depuis les maquettes »).
-Les étapes 1 et 2 sont dans le code depuis le 17 octobre 2026 : là où
-elles s'écartent du brief, il a été mis à jour, et le dit (« l'étape 1 »,
-« l'étape 2 » entre parenthèses) ; leurs fichiers et leurs pièges, dans
+Les quatre étapes sont dans le code — les trois premières le 17 octobre
+2026, les écus le 18 : là où elles s'écartent du brief, il a été mis à jour,
+et le dit (« l'étape 1 », « l'étape 2 » entre parenthèses, « Fait à l'étape
+3 », « Fait à l'étape 4 ») ; leurs fichiers et leurs pièges, dans
 `.claude/rules/expedition.md`. L'expédition est ouverte en production depuis
 ses jokers, la cible du calibrage approchée (« Le calibrage »).
 
@@ -294,17 +295,18 @@ Les jokers des légendaires (la maquette 10), et ceux de la V1 :
 | La Comète | Le raccourci | sur la carte | tu sautes une escale | oui |
 | Le Renard Lunaire | Il connaît la maison | sur la carte | une source ou un coffre s'ouvre à l'étage du dessus, relié à toi | oui |
 | Le Dragon d'Or | Le trésor | à poser | les coffres t'offrent deux jokers au lieu d'un | oui |
-| La Citrouille | La lanterne | sur la carte | les pièges de la carte se montrent | plus tard, avec l'inconnu (étape 4) |
-| Le Sapin | Une boule pour chacun | sur la carte | un coffre de plus sur la carte | plus tard, avec l'échoppe (étape 4) |
+| La Citrouille | La lanterne | sur la carte | les pièges de la carte se montrent | à l'étape 4, avec l'inconnu |
+| Le Sapin | Une boule pour chacun | sur la carte | un coffre de plus sur la carte | à l'étape 4, avec l'échoppe |
 | Le Bouquet final | Le feu d'artifice | à jouer | toute ta défausse revient dans ton paquet | oui |
 | Le Kraken | Remonter des abysses | à poser · maudit | sur ta dernière vie, trois bonnes réponses d'affilée en rendent une ; le poser coûte une vie | oui |
 | Le Fantôme | Passe-muraille | à jouer · maudit | tu traverses une question sans y répondre ; elle part au carnet comme ratée | oui |
 | Le Trou Noir | L'horizon | à jouer · maudit | joué après une erreur, il te rend sa vie ; le coffre suivant est vide | oui |
 | La Chauve-souris | L'écholocation | à poser · maudit | une mauvaise réponse s'efface à chaque question ; la carte ne dit plus ta chance | oui |
 
-Vingt et un en V1. Tant qu'un légendaire n'a pas son joker, il n'entre ni
-dans l'équipée ni parmi les gardiens. Ceux de saison agissent toute l'année :
-leur saison ne borne que leur conquête. Le reste de la collection viendra
+Vingt et un en V1, vingt-trois avec l'étape 4. Tant qu'un légendaire n'a
+pas son joker, il n'entre ni dans l'équipée ni parmi les gardiens. Ceux de
+saison agissent toute l'année : leur saison ne borne que leur conquête. Le
+reste de la collection viendra
 après (la maquette 10, en bas) : les compagnons, un joker qui grandit avec
 leurs formes — le Flair du Loup ; les portraits des sentiers, des talents
 passifs, comme un talisman. **Les Divins n'ont aucun joker** : un pouvoir en
@@ -358,6 +360,33 @@ d'une expédition en route.
 - **Ils meurent avec l'expédition**, et ne deviennent jamais des confettis :
   un confetti reste une bonne réponse.
 - **La mise** (la maquette 5) viendra plus tard.
+
+**Fait à l'étape 4** (le 18 octobre 2026), avec ce que le code a dû
+trancher : la couleur qui paie est celle de la chance que la carte
+annonçait — ou le Commandement, la catégorie choisie (`chanceAnnoncee`) — ;
+une question à deux réponses, née vrai ou faux ou tirée d'une autre, paie
+moitié ; au dévoilement, le prix descend du triple au premier mot jusqu'au
+prix de l'escale au dernier, lu de l'heure où le serveur a reçu la réponse
+(`repondue_le`, déjà écrite : `devoileA`). Les écus ne s'écrivent nulle part,
+le pli les compte (`ecusDeLaReponse`) ; un achat, un geste (`acheter`), garde
+le prix payé. Un coffre passé sans rien y prendre rapporte 15 écus. Une
+offre cache un talisman une fois sur six ou sept (`CHANCE_D_UN_TALISMAN`, à
+prendre au lieu d'un joker), l'échoppe en vend un ; une vie et un joker
+retiré, un par échoppe ; chaque article une fois. L'échoppe ne retient pas :
+le pas suivant la quitte. L'inconnu cache, un tiers chacun, un marchand,
+un piège — une vie, la dernière comprise — ou un légendaire de passage,
+tiré hors de l'équipée, dont le joker entre dans la main, pleine ou non,
+jusqu'au bout de l'acte. Ce qu'il cache se tire de la graine et ne part
+jamais avec la carte avant d'être dévoilé (invariant 1). La loupe ne dit le
+siècle que d'une question qui se date, et sa réponse, aidée, ne mesure
+rien. Quitte ou double ne se joue que sur une question ou une élite, qui
+seules paient des écus. La lanterne de la Citrouille montre les pièges de
+l'inconnu jusqu'au bout de l'acte ; la boule du Sapin change en coffre une
+escale de l'étage du dessus. Les écus, Quitte ou double et les talismans ne
+valent que pour les expéditions parties depuis (le départ en version 4) :
+celles d'avant se rejouent sans écus. La carte en compte : sous le tracé,
+le butin espéré (`ecusEsperes`) ; la chance d'arriver compte un piège sur
+trois dans l'inconnu qu'elle ne voit pas.
 
 ### Ce que l'expédition paie, et ce qu'elle ne compte pas
 
@@ -486,6 +515,28 @@ choix à six, sa chance ramenée comme la carte la ramène :
 
 Rien ne bouge au-delà du bruit de deux mille expéditions : le vrai ou faux,
 que le hasard aide, paie ce que le six choix coûte.
+
+**Avec les écus (l'étape 4)**, remesurée le 18 octobre 2026 : le joueur
+achète à l'échoppe une vie s'il lui en manque, puis le meilleur joker de
+l'étal, puis la loupe ou la boussole ; il répond à mi-texte un dévoilement
+qu'il sait, joue Quitte ou double sur ce qu'il sait, et suit le tracé le
+plus sûr, qui compte un piège sur trois dans l'inconnu qu'il ne voit pas :
+
+| | Faible | Moyen | Fort |
+|---|---|---|---|
+| Avec la Chouette et le Phénix | 6 % | 25 % | 67 % |
+| — en les gardant (`--garder`) | 8 % | 30 % | 71 % |
+| Avec Janus et le Serpent à plumes, en les gardant | 6 % | 31 % | 77 % |
+| Le paquet de départ seul | 3 % | 20 % | 62 % |
+| Sans aucun joker | 0 % | 5 % | 43 % |
+| Écus gagnés, avec la Chouette et le Phénix | 97 | 139 | 174 |
+| Articles achetés | 0,6 | 0,9 | 0,9 |
+
+L'échoppe rend un à trois points : une vie s'y achète, le moyen à peu près
+une fois par expédition. Sans jokers, l'échoppe et l'inconnu ne sont que des
+pas sans question — sans écus, rien ne s'y achète ni ne s'y cache —, et
+c'est ce qui monte le fort de 40 à 43 %. La cible reste approchée, pas
+tenue.
 
 ## Les données
 
@@ -713,7 +764,7 @@ rien ne s'y gagne en production avant que le mode soit entier.
   vrai ou faux ; un dévoilement ne livre que les mots déjà dits ; son gain
   se lit à l'heure du serveur ; une réponse d'une autre forme ne mesure rien.
 
-### Étape 4 — Les écus et ce qu'ils achètent
+### Étape 4 — Les écus et ce qu'ils achètent (faite le 18 octobre 2026)
 
 - Les écus, l'échoppe, les talismans, l'inconnu, Quitte ou double ; la
   Citrouille et le Sapin.

@@ -9345,6 +9345,30 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .exp-choix-icone .icon { width: 22px; height: 22px; }
 .exp-camper .exp-choix-ligne { min-height: 68px; }
 .exp-a-retirer { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Les écus (l'étape 4) : une pièce et son nombre, à gauche des vies ; un chiffre qu'on lit seul — à la ligne, pas à l'ancienne. */
+.exp-ecus { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.exp-ecus .icon { width: 20px; height: 20px; }
+.exp-barre .exp-ecus { margin-left: auto; }
+.exp-barre .exp-ecus + .vies { margin-left: 6px; }
+/* Ses talismans, en petit dans la barre : sous le tracé, une ligne de plus montait le panneau jusqu'à la moitié de l'écran. */
+.exp-talismans { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); }
+.exp-talismans .icon { width: 18px; height: 18px; }
+.exp-barre .exp-talismans { margin-left: auto; }
+.exp-barre .exp-talismans + .exp-ecus { margin-left: 8px; }
+.exp-gain-ecus { display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin: 0; color: var(--accent-text); font-weight: 800; font-variant-numeric: lining-nums; }
+.exp-gain-ecus .icon { width: 18px; height: 18px; }
+.exp-rarete-talisman { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+/* L'échoppe : l'étal comme une offre, son prix au bout de chaque ligne ; ce qui est acheté s'éteint. */
+.exp-prix { flex: none; display: inline-flex; align-items: center; gap: 3px; color: var(--accent-text); font-weight: 800; font-variant-numeric: lining-nums tabular-nums; }
+.exp-prix .icon { width: 16px; height: 16px; }
+.exp-offre-ligne.exp-achete { opacity: 0.55; cursor: default; }
+.exp-offre-ligne.exp-achete .exp-prix { color: var(--muted); font-weight: 700; }
+/* L'inconnu, sur la carte : un point d'interrogation, puis ce qu'il cache — le piège en rouge. */
+.exp-escale.exp-inconnu { border-style: dashed; }
+.exp-escale.exp-piege { border-style: solid; border-color: var(--alert); color: var(--alert); }
+/* L'inconnu dévoilé : un piège, son signe en grand. */
+.exp-inconnu-piege { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
+.exp-inconnu-piege .icon { width: 52px; height: 52px; }
 @media (prefers-reduced-motion: reduce) {
   .exp-escale.exp-ici::after, .exp-medaillon-grand { animation: none; }
 }

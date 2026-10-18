@@ -1,6 +1,6 @@
 # Les décisions
 
-> Pourquoi FiestApp est construite comme elle l'est : 140 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
+> Pourquoi FiestApp est construite comme elle l'est : 141 décisions structurantes, domaine par domaine, chacune avec son contexte, ce qui a été décidé et ce que cela implique aujourd'hui. Pour qui s'apprête à changer une règle et veut savoir ce qu'elle protège.
 
 Le dépôt garde le *pourquoi* de chaque choix au plus près du code : dans ses commentaires, dans les règles de `.claude/rules/`, dans l'[historique](../contribuer/historique.md). Cette page les rassemble, à la manière des « Architecture Decision Records » : un contexte, une décision, ses conséquences, et les fichiers où elle vit. Les invariants de `CLAUDE.md` en sont la forme la plus courte — [la vue d'ensemble de l'architecture](vue-d-ensemble.md) les explique un par un.
 
@@ -1366,6 +1366,15 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 **Conséquence** : la page ne reçoit d'un dévoilement que son compte de mots, puis ses mots, un à un ; rouverte, la route redit d'un coup ceux déjà dits. Une forme que le thème ne sait pas prendre se pose à quatre choix. Ce qui compare une question jouée à la base la lit à sa forme — un signalement en vrai ou faux n'est pas une version d'avant.
 
 *Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-formes.test.ts`*
+
+### Les écus se comptent du journal, et l'inconnu ne part qu'une fois dévoilé
+**Contexte** : l'étape 4 du brief donne sa monnaie à l'expédition : une escale trouvée paie selon la chance qu'elle annonçait, un dévoilement d'autant plus qu'on répond tôt, et l'échoppe dépense. Un solde tenu dans une colonne aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du pli ; un achat relu au prix du jour aurait changé, à chaque retouche du barème, le solde des expéditions en route. Et l'inconnu — un marchand, un piège, un légendaire de passage — n'en serait plus un si la carte, envoyée entière au téléphone, le disait.
+
+**Décision** : les écus ne s'écrivent nulle part : le pli les compte (`ecusDeLaReponse`), de la couleur de la chance annoncée — celle de la carte, ou du Commandement —, de la forme et du thème, et, au dévoilement, du mot où la réponse est arrivée, lu de l'heure que le serveur écrit déjà avec elle (`repondue_le`, `devoileA`). Un achat est un geste (`acheter`) qui écrit avec lui le prix payé, comme à la boutique. Ce que cache l'inconnu se tire de la graine (`contenuDeLInconnu`) et ne se garde pas sur la carte : la vue ne le dit qu'une fois dévoilé — par la boussole, par la lanterne pour les pièges, ou en y entrant (invariant 1). Les écus, Quitte ou double et les talismans ne valent que pour les expéditions parties depuis (le départ en version 4) : les offres se rejouent de la graine, et celles d'avant se rejouent sans écus.
+
+**Conséquence** : ni colonne ni écriture de plus — une réponse coûte ce qu'elle coûtait, un achat un geste. Un prix changé ne vaut que pour les achats à venir. Les écus meurent avec l'expédition, et le solde de confettis n'en sait rien. Un piège peut finir l'expédition d'un geste : le serveur la clôt alors comme une réponse, ses gains compris.
+
+*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-ecus.test.ts`, `server/test/expedition-echoppe.test.ts`*
 
 ## L'outillage
 

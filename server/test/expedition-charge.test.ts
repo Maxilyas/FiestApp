@@ -104,10 +104,15 @@ const sorteDe = (v: VueDeLExpedition, id: string) => v.carte!.escales.find(e => 
 /**
  * Le pas suivant vers une question : une question ou une élite — la carte
  * tirée n'en a pas à chaque étage —, sinon tout sauf une source, qui relit
- * le carnet. Le premier étage n'a que des questions.
+ * le carnet, et l'inconnu (l'étape 4), dont un piège sur la dernière vie
+ * finirait l'expédition — et sa fin lit plus. Le premier étage n'a que des
+ * questions.
  */
 const versUneQuestion = (v: VueDeLExpedition) =>
-  v.permises.find(id => sorteDe(v, id) === 'question') ?? v.permises.find(id => sorteDe(v, id) === 'elite') ?? v.permises.find(id => sorteDe(v, id) !== 'source') ?? v.permises[0]
+  v.permises.find(id => sorteDe(v, id) === 'question') ??
+  v.permises.find(id => sorteDe(v, id) === 'elite') ??
+  v.permises.find(id => sorteDe(v, id) !== 'source' && sorteDe(v, id) !== 'inconnu') ??
+  v.permises[0]
 
 const avancer = (v: VueDeLExpedition, vers: string) => poster(`/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers } })
 

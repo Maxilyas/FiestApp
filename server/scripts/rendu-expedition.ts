@@ -1,6 +1,6 @@
 // Les écrans de l'Expédition, photographiés au téléphone (360 × 640) sur un
 // serveur jetable : la page d'un invité sans profil ; le départ, son équipée
-// et sa feuille — les vingt-neuf jokers dépliés — ; la carte d'un acte, la
+// et sa feuille — les trente-deux jokers dépliés — ; la carte d'un acte, la
 // main en une ligne et sa feuille ; une escale et sa main, puis ce que fait
 // chaque joker qui passe — les réponses effacées, Double chance, Deux
 // visages, l'Oracle, l'Énigme, Sursis… — ; une élite et ce qu'elle offre, un
@@ -8,7 +8,10 @@
 // la carte de l'acte suivant ; le choix au bout, la fin et ses gains. Puis une
 // seconde expédition, ses jokers de carte — Commandement et sa catégorie, Le
 // raccourci —, perdue au bout ; une troisième, ses formes forcées dans son
-// départ — un vrai ou faux, six choix, un dévoilement qui se dit, puis entier.
+// départ — un vrai ou faux, six choix, un dévoilement qui se dit, puis entier ;
+// une quatrième, ses écus — une élite qui paie, la carte et son butin,
+// l'échoppe et la loupe achetée, l'inconnu de passage puis piégé, un coffre qui
+// cache un talisman, la fin qui laisse les écus dans l'expédition.
 // Le client construit d'abord (`npm run build -w client`).
 //
 // Léa a six légendaires à joker, rangés comme gardés au bout d'expéditions
@@ -24,7 +27,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { CATEGORIES } from '../../shared/categories'
 import { jourDe } from '../../shared/jour'
-import { inviteDuJour } from '../../shared/expedition'
+import { contenuDeLInconnu, inviteDuJour, talismanDeLOffre } from '../../shared/expedition'
 import { cleDeLExpedition } from '../../shared/legendaires'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-expedition')
@@ -152,6 +155,8 @@ try {
     if (await page.locator('.exp-carte').count()) return 'carte'
     if (await page.locator('.exp-offre').count()) return 'offre'
     if (await page.locator('.exp-camper').count()) return 'campement'
+    if (await page.locator('.exp-echoppe-page').count()) return 'echoppe'
+    if (await page.locator('.exp-inconnu').count()) return 'inconnu'
     if (await page.locator('.result-banner').count()) return 'revelation'
     if (await page.locator('.ans-btn').count()) return 'question'
     if (await page.locator('.exp-vaincu').count()) return 'vaincu'
@@ -285,6 +290,19 @@ try {
         await suite()
         continue
       }
+      // L'échoppe et l'inconnu (l'étape 4), que la carte tire d'elle-même : photographiés une fois, puis la route.
+      if (ou === 'echoppe') {
+        await unePhoto('e-echoppe-en-route')
+        await page.locator('.exp-echoppe-page .exp-depart-pied .btn-ghost').click()
+        await page.waitForTimeout(250)
+        continue
+      }
+      if (ou === 'inconnu') {
+        await unePhoto('e-inconnu-en-route')
+        await page.locator('.exp-inconnu .btn-primary').click()
+        await page.waitForTimeout(250)
+        continue
+      }
       await page.waitForTimeout(300)
     }
     throw new Error('l’acte ne finit pas')
@@ -408,6 +426,94 @@ try {
   await page.locator('.ans-btn').first().click()
   await page.waitForSelector('.result-banner')
   await photo('f3c-devoilement-revele')
+
+  // Les écus (l'étape 4) : une quatrième expédition, son départ forcé — une élite noire au premier étage, une échoppe
+  // au deuxième, l'inconnu au troisième, un coffre au quatrième, l'inconnu encore au cinquième —, sur une graine où
+  // l'échoppe vend la loupe, où le premier inconnu est un légendaire de passage et le second un piège, et où le coffre
+  // cache un talisman.
+  const laisser = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
+  if (laisser) await ecrire(banc.url, `/api/expedition/${laisser.id}/abandon`, {}, cookie)
+  await page.goto(`${banc.url}/expedition`)
+  await page.waitForSelector('.exp-gardiens')
+  await page.click('.exp-depart-pied .btn-primary')
+  await page.waitForSelector('.exp-carte')
+  const quatrieme = ((await (await fetch(`${banc.url}/api/expedition`, { headers: { Cookie: cookie } })).json()) as any).expedition
+  const baseDesEcus = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const depart = JSON.parse((baseDesEcus.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(quatrieme.id) as { expedition: string }).expedition)
+    const etage = (n: number) => depart.cartes[0].escales.filter((e: any) => e.etage === n)
+    const en = (e: any, sorte: string) => {
+      e.sorte = sorte
+      delete e.theme
+      delete e.forme
+      delete e.chance
+    }
+    for (const e of etage(0)) Object.assign(e, { sorte: 'elite', theme: { categories: ['Histoire'] }, forme: 'quatre', chance: 0.1 })
+    for (const e of etage(1)) en(e, 'echoppe')
+    for (const e of etage(2)) en(e, 'inconnu')
+    for (const e of etage(3)) en(e, 'coffre')
+    for (const e of etage(4)) en(e, 'inconnu')
+    const tient = (g: string) =>
+      talismanDeLOffre(g, 0, [], false) === null &&
+      talismanDeLOffre(g, 1, [], true) === 'loupe' &&
+      etage(2).every((e: any) => contenuDeLInconnu(g, 0, e.id) === 'passage') &&
+      talismanDeLOffre(g, 2, ['loupe'], false) !== null &&
+      etage(4).every((e: any) => contenuDeLInconnu(g, 0, e.id) === 'piege')
+    let k = 0
+    while (!tient(`rendu-ecus:${k}`)) k++
+    depart.graine = `rendu-ecus:${k}`
+    baseDesEcus.prepare('UPDATE campagne_series SET expedition = ? WHERE id = ?').run(JSON.stringify(depart), quatrieme.id)
+  } finally {
+    baseDesEcus.close()
+  }
+  await banc.redemarrer()
+  await page.goto(`${banc.url}/expedition`)
+  /** Le pas suivant du tracé, depuis la carte, et ce qu'il ouvre. */
+  const pasVers = async (attendu: string) => {
+    await page.waitForSelector('.exp-carte')
+    await page.locator('.exp-panneau .btn-primary').click()
+    await page.waitForSelector(attendu)
+  }
+  await pasVers('.ans-btn')
+  await repondre(true)
+  await photo('e1-elite-ecus-revele')
+  // L'élite tombée offre un joker : il n'en prend aucun.
+  await page.locator('.result-banner ~ .btn-primary.btn-big').click()
+  await page.waitForSelector('.exp-offre')
+  await page.locator('.exp-depart-pied .btn-ghost').click()
+  await page.waitForSelector('.exp-carte')
+  await page.locator('.exp-escale.exp-ouverte').first().click()
+  await photo('e2-carte-ecus')
+  await pasVers('.exp-echoppe-page')
+  await photo('e3-echoppe')
+  await photo('e3-echoppe-entiere', true)
+  await page.locator('.exp-offre-ligne', { hasText: 'La loupe' }).click()
+  await photo('e3b-echoppe-loupe')
+  await page.locator('.exp-depart-pied .btn-primary').click()
+  await page.waitForSelector('.exp-offre-ligne.exp-achete')
+  await photo('e3c-echoppe-achetee')
+  await page.locator('.exp-depart-pied .btn-ghost').click()
+  await page.waitForSelector('.exp-carte')
+  await photo('e4-carte-talisman')
+  await pasVers('.exp-inconnu')
+  await photo('e5-inconnu-passage')
+  await page.locator('.exp-inconnu .btn-primary').click()
+  await page.waitForSelector('.exp-carte')
+  await photo('e6-carte-inconnu-passe', true)
+  await pasVers('.exp-offre')
+  await photo('e7-coffre-talisman')
+  await photo('e7-coffre-talisman-entier', true)
+  await page.locator('.exp-depart-pied .btn-ghost').click()
+  await page.waitForSelector('.exp-carte')
+  await pasVers('.exp-inconnu')
+  await photo('e8-inconnu-piege')
+  await page.locator('.exp-inconnu .btn-primary').click()
+  await page.waitForSelector('.exp-carte')
+  // Abandonnée : la fin dit que ses écus restent dans l'expédition.
+  await page.locator('.geste-du-bas', { hasText: 'Abandonner' }).click()
+  await page.locator('.dialog-backdrop .btn-danger').click()
+  await page.waitForSelector('.exp-fin-tete')
+  await photo('e9-fin-ecus', true)
 } finally {
   await navigateur.close()
   await banc.close()

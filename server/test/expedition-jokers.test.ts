@@ -566,8 +566,8 @@ test('ce que montrent les jokers d’une question : les réponses effacées, l�
   assert.equal(sensDeLOracle({ reponses: ['44 av. J.-C.', '79', '410', '1453'], bonne: 0 }, 1), 'bas')
 })
 
-test('vingt et un jokers de légendaires, aucun pour un Divin ; chacun sa sorte, et ce qu’il fait', () => {
-  assert.equal(JOKERS_DES_LEGENDAIRES.length, 21)
+test('vingt-trois jokers de légendaires — vingt et un, puis la Citrouille et le Sapin avec les écus —, aucun pour un Divin ; chacun sa sorte, et ce qu’il fait', () => {
+  assert.equal(JOKERS_DES_LEGENDAIRES.length, 23)
   assert.ok(LEGENDAIRES_A_JOKER.every(cle => cle.startsWith('lg:')), 'les Divins n’en ont aucun (invariant 21)')
   for (const j of [...JOKERS_DES_LEGENDAIRES, ...JOKERS_SANS_LEGENDAIRE]) {
     assert.ok(['jouer', 'poser', 'carte'].includes(j.sorte), j.cle)

@@ -333,7 +333,14 @@ test('le Commandement change la catégorie d’une escale, pas sa forme : la car
     depart.equipee = ['lg:lion']
     const carte = depart.cartes[0]
     premiere = carte.depart[0]
-    for (const e of carte.escales) if (e.etage === 1 && (e.sorte === 'question' || e.sorte === 'elite')) e.forme = 'vrai-faux'
+    // Tout l'étage du dessus en questions à vrai ou faux : depuis les écus, une échoppe ou l'inconnu pourraient y être seuls.
+    for (const e of carte.escales) {
+      if (e.etage !== 1) continue
+      e.sorte = 'question'
+      e.theme = { categories: ['Histoire'] }
+      e.forme = 'vrai-faux'
+      e.chance = 0.6
+    }
     for (let k = 0; k < 500; k++) {
       const e = pliDeLExpedition({ ...depart, graine: `lion:${k}` }, [{ quoi: 'avancer', vers: premiere }], [{ escale: premiere, acte: 0, reponses: 4 }], new Map())
       if (e.main.includes('commandement')) {

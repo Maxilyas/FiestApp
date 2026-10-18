@@ -95,6 +95,8 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
     assert.ok(carte.escales.some(e => e.sorte === 'coffre'), `carte ${i} : un coffre au moins`)
     assert.ok(carte.escales.some(e => e.sorte === 'campement'))
     assert.equal(carte.escales.filter(e => e.sorte === 'gardien').length, 1)
+    assert.ok(carte.escales.filter(e => e.sorte === 'echoppe').length <= 1, `carte ${i} : une échoppe au plus`)
+    assert.ok(carte.escales.filter(e => e.sorte === 'inconnu').length <= 2, `carte ${i} : deux inconnus au plus`)
     assert.ok(carte.escales.filter(e => e.etage === 0).every(e => e.sorte === 'question' && e.theme && 'categories' in e.theme && e.theme.categories.length === 1))
     for (const e of carte.escales) {
       if (e.etage >= ETAGES) continue
@@ -105,7 +107,10 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
         assert.ok(e.etage >= 2, 'une élite, dès le troisième étage')
         assert.ok(e.theme && e.forme)
       }
-      if (e.sorte === 'coffre' || e.sorte === 'source') assert.ok(!e.theme && !e.forme, 'un coffre, une source n’ont ni thème ni forme')
+      if (e.sorte === 'coffre' || e.sorte === 'source' || e.sorte === 'echoppe' || e.sorte === 'inconnu') {
+        assert.ok(!e.theme && !e.forme, 'un coffre, une source, une échoppe, l’inconnu n’ont ni thème ni forme')
+        assert.equal(e.contenu, undefined, 'ce que cache l’inconnu ne s’écrit jamais sur la carte : la vue seule le pose, dévoilé')
+      }
       // Les formes (l'étape 3) : le premier étage à quatre choix ou en vrai ou faux, les autres de toutes les formes.
       if (e.sorte === 'question' || e.sorte === 'elite') {
         const etage = e.etage === 0 ? formesDuBas : formesDuHaut
@@ -126,24 +131,28 @@ test('sur deux mille cartes : des chemins qui ne se croisent pas, chaque escale 
       }
     }
   }
-  // Avant les écus (l'étape 4), l'échoppe et l'inconnu deviennent des questions ; les élites et les coffres sont venus avec les jokers.
-  assert.deepEqual([...comptes.keys()].sort(), ['coffre', 'elite', 'question', 'source'])
+  // Toutes les sortes du brief depuis les écus (l'étape 4) : avant eux, l'échoppe et l'inconnu devenaient des questions.
+  assert.deepEqual([...comptes.keys()].sort(), ['coffre', 'echoppe', 'elite', 'inconnu', 'question', 'source'])
   const part = (n: number, sur: number) => n / sur
-  // Sur deux mille cartes, le 17 octobre 2026 : 9 % de sources, 10 % de coffres, 6 % d'élites.
+  // Sur deux mille cartes, le 17 octobre 2026 : 9 % de sources, 10 % de coffres, 6 % d'élites, 5,5 % d'inconnus, 3 % d'échoppes.
   assert.ok(part(comptes.get('source')!, escales) > 0.06 && part(comptes.get('source')!, escales) < 0.14, `sources : ${part(comptes.get('source')!, escales)}`)
   assert.ok(part(comptes.get('coffre')!, escales) > 0.07 && part(comptes.get('coffre')!, escales) < 0.15, `coffres : ${part(comptes.get('coffre')!, escales)}`)
   assert.ok(part(comptes.get('elite')!, escales) > 0.03 && part(comptes.get('elite')!, escales) < 0.1, `élites : ${part(comptes.get('elite')!, escales)}`)
+  assert.ok(part(comptes.get('inconnu')!, escales) > 0.03 && part(comptes.get('inconnu')!, escales) < 0.08, `inconnus : ${part(comptes.get('inconnu')!, escales)}`)
+  assert.ok(part(comptes.get('echoppe')!, escales) > 0.015 && part(comptes.get('echoppe')!, escales) < 0.05, `échoppes : ${part(comptes.get('echoppe')!, escales)}`)
   assert.ok(part(melanges, questions) > 0.1 && part(melanges, questions) < 0.2, `mélanges : ${part(melanges, questions)}`)
   assert.ok(part(pointus, questions) > 0.07 && part(pointus, questions) < 0.16, `thèmes pointus : ${part(pointus, questions)}`)
   // Les formes (l'étape 3, `POIDS_DES_FORMES`) : le premier étage pose un vrai ou faux trois fois sur dix ; au-dessus, quatre
-  // choix 40 %, les trois autres 20 % chacune — et l'échoppe et l'inconnu, devenus des questions avant les écus, à quatre choix.
+  // choix 40 %, les trois autres 20 % chacune.
   const sur = (m: Map<string, number>) => [...m.values()].reduce((s, n) => s + n, 0)
   assert.ok(part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas)) > 0.2 && part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas)) < 0.4, `vrai ou faux en bas : ${part(formesDuBas.get('vrai-faux') ?? 0, sur(formesDuBas))}`)
   for (const forme of ['vrai-faux', 'six', 'devoilement']) {
     const p = part(formesDuHaut.get(forme) ?? 0, sur(formesDuHaut))
     assert.ok(p > 0.1 && p < 0.25, `${forme} au-dessus : ${p}`)
   }
-  assert.ok(part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut)) > 0.4, `quatre choix au-dessus : ${part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut))}`)
+  // Quatre choix 40 % : avant les écus, l'échoppe et l'inconnu, devenus des questions à quatre choix, l'emportaient au-dessus.
+  const quatre = part(formesDuHaut.get('quatre') ?? 0, sur(formesDuHaut))
+  assert.ok(quatre > 0.35 && quatre < 0.45, `quatre choix au-dessus : ${quatre}`)
 })
 
 test('sans thème pointu à tirer, la carte n’en pose aucun', () => {

@@ -692,7 +692,7 @@ expédition.
 
 Les réponses de chaque partie.
 
-- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) ; NULL : une réponse sans aide), `forme` (la forme où l'expédition l'a posée, quand ce n'est pas celle de la base — `six`, `vrai-faux`, `devoilement` ; NULL : telle que la base l'a écrite, un vrai ou faux né tel compris).
+- **Colonnes clés** : `serie_id` et `position` (la clé), `reserve_id` (l'identifiant de la question dans la base de la campagne), `choix`, `juste`, `repondue_le`, `compagnon`, `joker` (la clé du joker de l'expédition qui a aidé à répondre — Coup d'œil, Double chance, Passe-muraille… (`JOKERS_QUI_AIDENT`) —, ou `loupe`, le talisman qui a dit le siècle d'une question d'Histoire ; NULL : une réponse sans aide), `forme` (la forme où l'expédition l'a posée, quand ce n'est pas celle de la base — `six`, `vrai-faux`, `devoilement` ; NULL : telle que la base l'a écrite, un vrai ou faux né tel compris).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore`.
 - **Lue par** : `CampagneStore` (le carnet, la difficulté mesurée, le modèle du savoir, les confettis). La mesure, le modèle du savoir, les écussons, la précision et L'Érudit n'en lisent que les réponses nues — ni joker ni autre forme (`REPONSE_NUE`) —, et une bonne réponse aidée, ou trouvée en vrai ou faux tiré d'une question à quatre choix, ne retrouve rien au carnet ; une erreur aidée y entre.
@@ -702,13 +702,15 @@ Les réponses de chaque partie.
 
 Le journal des gestes d'une expédition, dans l'ordre : avancer vers une
 escale, jouer un joker, prendre ce qu'offre un coffre ou une élite, choisir
-au campement, garder un gardien au bout, abandonner. Son état — ses vies,
-sa main, son paquet, sa défausse — ne s'écrit nulle part : il se replie de
-son départ (`campagne_series.expedition`), de ces gestes et de ses réponses
-(`pliDeLExpedition`, `shared/expedition.ts`) ; la pioche et les offres se
-tirent au hasard de sa graine et du rang du tirage.
+au campement, acheter à l'échoppe, garder un gardien au bout, abandonner.
+Son état — ses vies, sa main, son paquet, sa défausse, ses écus, ses
+talismans — ne s'écrit nulle part : il se replie de son départ
+(`campagne_series.expedition`), de ces gestes et de ses réponses
+(`pliDeLExpedition`, `shared/expedition.ts`) — les écus d'un dévoilement, de
+l'heure de sa réponse (`campagne_reponses.repondue_le`) ; la pioche, les
+offres, l'étal et ce que cache l'inconnu se tirent au hasard de sa graine.
 
-- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'jouer', joker, position?, categorie?, montre? }` — joué sur une question, il porte sa position : le pli ne la juge qu'après lui —, `{ quoi: 'prendre', jokers }`, `{ quoi: 'camper', retirer? }`, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
+- **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'jouer', joker, position?, categorie?, montre? }` — joué sur une question, il porte sa position : le pli ne la juge qu'après lui —, `{ quoi: 'prendre', jokers, talisman? }`, `{ quoi: 'camper', retirer? }`, `{ quoi: 'acheter', article, joker?, prix }` — le prix payé, que le journal garde : un barème qui change ne refait pas un achat —, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (`gesteDExpedition`, `garderUnGardien`, `abandonnerLExpedition`), dans le lot de la question tirée pour l'escale.
 - **Lue par** : `CampagneStore` — la page de l'expédition et chaque geste, qui la replient.

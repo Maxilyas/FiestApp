@@ -81,12 +81,16 @@ async function repondre(banc: Banc, cookie: string, v: VueDeLExpedition, juste: 
   return r.corps
 }
 
-/** Le pas suivant sur la carte : une offre laissée, une vie au campement, le gardien, sinon une question plutôt qu'un coffre ou une source. */
+/**
+ * Le pas suivant sur la carte : une offre laissée, une vie au campement, le
+ * gardien, sinon une question plutôt qu'un coffre ou une source — et jamais
+ * l'inconnu s'il a le choix (l'étape 4) : un piège y prendrait une vie.
+ */
 function pasSuivant(banc: Banc, cookie: string, v: VueDeLExpedition) {
   if (v.offre) return geste(banc, cookie, v, { quoi: 'prendre', jokers: [] })
   if (v.campement) return geste(banc, cookie, v, { quoi: 'camper' })
   const sorte = (id: string) => v.carte!.escales.find(e => e.id === id)?.sorte
-  const vers = v.permises.includes(GARDIEN) ? GARDIEN : (v.permises.find(id => sorte(id) === 'question') ?? v.permises[0])
+  const vers = v.permises.includes(GARDIEN) ? GARDIEN : (v.permises.find(id => sorte(id) === 'question') ?? v.permises.find(id => sorte(id) !== 'inconnu') ?? v.permises[0])
   return geste(banc, cookie, v, { quoi: 'avancer', vers })
 }
 
