@@ -682,7 +682,7 @@ Toutes les parties de la campagne, quel que soit leur mode : série, épreuve
 de sentier, parcours de thème, révision, défi de la semaine, duel, rencontre,
 expédition.
 
-- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; depuis la version 2, les jokers, son équipée et l'invité du jour de son départ, sa chance sur chaque marche de chaque catégorie et sur une source — le Commandement et Il connaît la maison changent une escale en route ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`).
+- **Colonnes clés** : `id`, `profile_id`, `questions` (JSON : les questions telles que la partie les a lues — d'une expédition, chacune avec son escale et son acte, et `carnet` quand une source l'a reprise du carnet : ni la mesure, ni les écussons, ni L'Érudit ne comptent alors sa réponse), `position`, `vies`, `justes`, `commencee_le`, `finie_le`, `mode`, et selon le mode `branche`, `palier`, `seuil`, `rejeu`, `issue`, `chance` (une épreuve en jeu : la chance de la valider que la page des sentiers annonçait à son départ, que Contre toute attente relit ; NULL sans annonce), `categories`, `sujet`, `semaine`, `duel`, `adversaire`, `expedition` (JSON versionné, `DepartDExpedition` : sa graine, son numéro, ses trois gardiens, ses trois cartes et la chance sur chaque escale, gardées telles qu'au départ ; depuis la version 2, les jokers, son équipée et l'invité du jour de son départ, sa chance sur chaque marche de chaque catégorie et sur une source — le Commandement et Il connaît la maison changent une escale en route ; la version 5, le prototype des rencontres, hors de la production seulement, et sa catégorie fétiche (`fetiche`) : ses questions gardent alors leur forme de tirage (`tiree`), leurs deux leurres (`six`) et leurs réponses en années ou en nombres (`reponseEn`) ; `issue` y vaut `legendaire`, `perdue` ou `abandonnee`).
 - **Espace** : non.
 - **Écrite par** : `CampagneStore` (commencer, répondre, abandonner, clore un défi ou un duel ; l'administrateur qui libère une épreuve).
 - **Lue par** : `CampagneStore` — records, carnet, sentiers, duels, écussons, expérience, QG.
@@ -701,10 +701,12 @@ Les réponses de chaque partie.
 ### `expedition_gestes`
 
 Le journal des gestes d'une expédition, dans l'ordre : avancer vers une
-escale, jouer un joker, prendre ce qu'offre un coffre ou une élite, choisir
-au campement, acheter à l'échoppe, garder un gardien au bout, abandonner.
-Son état — ses vies, sa main, son paquet, sa défausse, ses écus, ses
-talismans — ne s'écrit nulle part : il se replie de son départ
+escale, jouer un joker — une carte, en rencontres —, voir la question et sa
+mise (`voir`, en rencontres), prendre ce qu'offre un coffre ou une élite,
+choisir au campement, acheter à l'échoppe, garder un gardien au bout,
+abandonner. Son état — ses vies, sa main, son paquet, sa défausse, ses écus,
+ses talismans ; en rencontres, son courage, les sceaux de l'adversaire et sa
+pioche — ne s'écrit nulle part : il se replie de son départ
 (`campagne_series.expedition`), de ces gestes et de ses réponses
 (`pliDeLExpedition`, `shared/expedition.ts`) — les écus d'un dévoilement, de
 l'heure de sa réponse (`campagne_reponses.repondue_le`) ; la pioche, les

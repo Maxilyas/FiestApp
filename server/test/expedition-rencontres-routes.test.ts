@@ -1,0 +1,428 @@
+// Le prototype des rencontres par ses routes, sur un vrai serveur : le départ
+// qui les choisit — hors de la production seulement —, la question tirée au
+// même lot que le pas mais gardée au serveur tant qu'il prépare (invariant 1),
+// la mise, le verdict qui brise ou qui frappe, la victoire et sa carte à
+// prendre ; un dévoilement qui ne court qu'une fois la question vue
+// (invariant 6), et les deux cartes qui changent la forme de la question —
+// Corser, Simplifier —, reposée de sa question de la base. Les règles seules
+// et le pli : `expedition-rencontres.test.ts`.
+//
+// La carte et la main se tirent au hasard de la graine : chaque essai force
+// les escales dans le départ gardé en base, et une graine où le pli tire ce
+// qu'il lui faut — le pli rejoue ce que le serveur jouera —, puis redémarre
+// le serveur, qui le relit.
+import { after, before, test } from 'node:test'
+import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
+import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { rencontresOuvertes } from '../src/expedition'
+import { SOUS_THEMES } from '../../shared/etiquettes'
+import { CATEGORIES, type Categorie } from '../../shared/categories'
+import { pliDeLExpedition, type DepartDExpedition, type FormeDEscale, type GesteDExpedition, type QuestionPosee, type VueDeLExpedition } from '../../shared/expedition'
+import {
+  CARTES_PAR_OFFRE,
+  CARTES_PAR_QUESTION,
+  COURAGE_MAX,
+  ECUS_AU_DEPART,
+  FRAPPE_DES_RENCONTRES,
+  FRAPPE_EN_PLUS_PAR_QUESTION,
+  INSPIRATION_PAR_QUESTION,
+  MULTIPLICATEUR_DU_SIX_CHOIX,
+  MULTIPLICATEUR_DU_VRAI_OU_FAUX,
+  PAQUET_DES_RENCONTRES,
+  RARETES_D_UNE_ELITE,
+  RENCONTRES_EN_PRODUCTION,
+  SAVOIR_DES_MARCHES,
+  SCEAUX_DES_RENCONTRES,
+  offreDeCartes,
+  paquetDesRencontres,
+  type FamilleDeCartes,
+} from '../../shared/rencontres'
+
+/** Une question d'essai — 2 facile, 3 moyenne, 4 difficile —, ses mauvaises réponses et trois leurres de plus : Corser s'y joue. */
+function question(i: number, categorie: Categorie, difficulte: number): QuestionDeLaBase {
+  const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${i}`)
+  const lu = lireQuestionDeLaBase({
+    id: `renc${String(i).padStart(4, '0')}`,
+    texte: `Question d'essai des rencontres numéro ${i} : laquelle de ces réponses est la bonne ?`,
+    reponses: [`Bonne ${i}`, ...autres.slice(0, 3)],
+    bonne: 0,
+    anecdote: `L'anecdote de la question ${i}.`,
+    categorie,
+    sousTheme: SOUS_THEMES[categorie][0].cle,
+    etiquettes: [],
+    difficulte,
+    ageMin: 10,
+    date: null,
+    entites: [],
+    portee: 'monde',
+    valeur: null,
+    leurres: autres,
+    dureeDeVie: 'stable',
+    explication: '',
+    source: null,
+    confiance: 3,
+    aRelire: [],
+  })
+  if ('refus' in lu) throw new Error(`question ${i} : ${lu.refus}`)
+  return lu.question
+}
+
+const BASE = new BaseDeLaCampagne(CATEGORIES.flatMap((c, k) => [2, 3, 4].flatMap((d, m) => Array.from({ length: 8 }, (_, i) => question(k * 100 + m * 10 + i, c, d)))))
+
+/** L'heure du serveur, à la main : un dévoilement se lit à elle. */
+const horloge = { t: Date.UTC(2026, 9, 18, 8, 0) }
+
+let banc: Banc
+
+before(async () => {
+  banc = await demarrer({ baseDeLaCampagne: BASE, horlogeDuJour: () => horloge.t })
+})
+
+after(() => banc.close())
+
+const lire = (cookie: string, chemin: string) => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const poster = (cookie: string, chemin: string, corps: unknown = {}) => ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+function base<T>(fn: (db: Database.Database) => T, ecriture = false): T {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: !ecriture, fileMustExist: true })
+  try {
+    return fn(db)
+  } finally {
+    db.close()
+  }
+}
+
+interface QuestionGardee {
+  id: string
+  texte: string
+  reponses: string[]
+  bonne: number
+  forme?: string
+  tiree?: string
+  proposee?: string
+  devoileLe?: number
+}
+
+/** Les questions telles que l'expédition les garde, bonne réponse comprise : ce que seul le serveur sait. */
+const questionsDe = (id: string): QuestionGardee[] => base(db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(id) as { questions: string }).questions))
+
+const departDe = (id: string): DepartDExpedition => base(db => JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(id) as { expedition: string }).expedition))
+
+const reponseEnBase = (serie: string, position: number) =>
+  base(db => db.prepare('SELECT forme, joker, juste FROM campagne_reponses WHERE serie_id = ? AND position = ?').get(serie, position)) as { forme: string | null; joker: string | null; juste: number }
+
+/**
+ * Partir aux rencontres, puis récrire le départ gardé — `forcer` le change —,
+ * et redémarrer le serveur pour qu'il le relise : l'expédition en route ne se
+ * garde en mémoire que tant que le processus vit.
+ */
+async function partirEt(cookie: string, corps: object, forcer: (depart: DepartDExpedition) => void): Promise<VueDeLExpedition> {
+  const r = await poster(cookie, '/api/expedition', corps)
+  assert.equal(r.status, 200, r.corps.error)
+  const v = r.corps as VueDeLExpedition
+  base(db => {
+    const depart = JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(v.id) as { expedition: string }).expedition) as DepartDExpedition
+    forcer(depart)
+    db.prepare('UPDATE campagne_series SET expedition = ? WHERE id = ?').run(JSON.stringify(depart), v.id)
+  }, true)
+  await banc.redemarrer()
+  return (await lire(cookie, '/api/expedition')).corps.expedition
+}
+
+/** La première graine de cette famille où le pli tire ce qu'il faut. */
+function graineOu(depart: DepartDExpedition, prefixe: string, convient: (d: DepartDExpedition) => boolean): void {
+  for (let k = 0; k < 5000; k++) {
+    const d = { ...depart, graine: `${prefixe}:${k}` }
+    if (convient(d)) {
+      depart.graine = d.graine
+      return
+    }
+  }
+  throw new Error(`aucune graine ne convient (${prefixe})`)
+}
+
+/** Tout le premier étage du premier acte en escales à question d'Histoire, à cette forme. */
+function premierEtage(depart: DepartDExpedition, forme: FormeDEscale): string {
+  for (const e of depart.cartes[0].escales) {
+    if (e.etage !== 0) continue
+    e.sorte = 'question'
+    e.theme = { categories: ['Histoire'] }
+    e.forme = forme
+    e.chance = 0.7
+  }
+  return depart.cartes[0].depart[0]
+}
+
+const geste = (cookie: string, v: VueDeLExpedition, g: unknown) => poster(cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: g })
+
+async function avancer(cookie: string, v: VueDeLExpedition, vers: string): Promise<VueDeLExpedition> {
+  const r = await geste(cookie, v, { quoi: 'avancer', vers })
+  assert.equal(r.status, 200, r.corps.error)
+  return r.corps.expedition
+}
+
+/** Une carte de la main, sur la question qui attend — en préparation, son rang seul la dit. */
+async function jouer(cookie: string, v: VueDeLExpedition, cle: string): Promise<VueDeLExpedition> {
+  const r = await geste(cookie, v, { quoi: 'jouer', joker: cle, position: v.rencontre!.position })
+  assert.equal(r.status, 200, r.corps.error)
+  return r.corps.expedition
+}
+
+async function voir(cookie: string, v: VueDeLExpedition, mise: number): Promise<VueDeLExpedition> {
+  const r = await geste(cookie, v, { quoi: 'voir', mise, position: v.rencontre!.position })
+  assert.equal(r.status, 200, r.corps.error)
+  return r.corps.expedition
+}
+
+async function repondre(cookie: string, v: VueDeLExpedition, juste: boolean) {
+  const q = questionsDe(v.id)[v.question!.index]
+  const r = await poster(cookie, `/api/expedition/${v.id}/reponse`, { position: v.question!.index, choix: juste ? q.bonne : (q.bonne + 1) % q.reponses.length })
+  assert.equal(r.status, 200, r.corps.error)
+  return r.corps
+}
+
+const PREPARE = 'Prépare-toi, puis vois la question : elle n’est pas encore sous tes yeux'
+
+test('les rencontres ne s’ouvrent pas en production tant que leur drapeau ne le dit pas', () => {
+  assert.equal(RENCONTRES_EN_PRODUCTION, false, 'un prototype : la préproduction d’abord')
+  assert.equal(rencontresOuvertes({ online: true, env: 'production' }), false)
+  assert.equal(rencontresOuvertes({ online: true, env: 'preprod' }), true)
+  assert.equal(rencontresOuvertes({ online: false, env: 'production' }), true, '`npm run dev`, les tests')
+})
+
+test('la page propose les rencontres ; le départ les prend — son courage, ses écus, le paquet des rencontres, sa catégorie fétiche', async () => {
+  const c = await inscrireProfil(banc.url, 'depart5', 'Départ')
+  assert.equal((await lire(c, '/api/expedition')).corps.prochaine.rencontres, true, 'hors de la production, le départ les propose')
+  const r = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Histoire' })
+  assert.equal(r.status, 200, r.corps.error)
+  const v = r.corps as VueDeLExpedition
+  assert.equal(v.courage, COURAGE_MAX)
+  assert.equal(v.ecus, ECUS_AU_DEPART)
+  assert.equal(v.fetiche, 'Histoire')
+  assert.deepEqual(v.cartes?.paquet, paquetDesRencontres([]))
+  assert.deepEqual(v.cartes?.route, [], 'aucune carte de route sans légendaire')
+  assert.equal(v.jokers, undefined, 'des cartes à la place des jokers')
+  assert.equal(v.rencontre, undefined, 'aucune rencontre avant le premier pas')
+  const depart = departDe(v.id)
+  assert.equal(depart.v, 5)
+  assert.equal(depart.fetiche, 'Histoire')
+})
+
+test('une catégorie fétiche hors des douze ne part pas ; sans rencontres demandées, le départ reste aux jokers', async () => {
+  const c = await inscrireProfil(banc.url, 'fetiche', 'Fétiche')
+  const refus = await poster(c, '/api/expedition', { rencontres: true, fetiche: 'Pétanque' })
+  assert.equal(refus.status, 400)
+  assert.equal(refus.corps.error, 'Choisis ta catégorie fétiche parmi les douze')
+  const v = (await poster(c, '/api/expedition', { fetiche: 'Histoire' })).corps as VueDeLExpedition
+  const depart = departDe(v.id)
+  assert.equal(depart.v, 4, 'les règles d’avant : une expédition en route finit sous les siennes')
+  assert.equal(depart.fetiche, undefined)
+  assert.ok(v.jokers, 'ses jokers')
+  assert.deepEqual([v.courage, v.cartes, v.fetiche], [undefined, undefined, undefined])
+})
+
+test('une escale à question est une rencontre : l’annonce et la main d’abord, la question une fois vue ; juste, elle brise et la mise paie ; fausse, il frappe, moins la Garde ; tombé, une carte à prendre', async () => {
+  const c = await inscrireProfil(banc.url, 'rencontre', 'Rencontre')
+  let premiere = ''
+  let v = await partirEt(c, { rencontres: true, fetiche: 'Histoire' }, depart => {
+    premiere = premierEtage(depart, 'quatre')
+    // Concentration et Coup d'œil à la première main, Prudence à la deuxième.
+    const q0: QuestionPosee = { escale: premiere, acte: 0, reponses: 4, tiree: 'quatre', six: true, niveau: 'facile', categorie: 'Histoire' }
+    graineOu(depart, 'prepare', d => {
+      const un = pliDeLExpedition(d, [{ quoi: 'avancer', vers: premiere }], [], new Map()).rencontre?.main ?? []
+      if (!un.includes('concentration') || !un.includes('coup-d-oeil')) return false
+      const gestes: GesteDExpedition[] = [
+        { quoi: 'avancer', vers: premiere },
+        { quoi: 'jouer', joker: 'concentration', position: 0 },
+        { quoi: 'voir', mise: 10, position: 0 },
+      ]
+      return !!pliDeLExpedition(d, gestes, [q0], new Map([[0, true]])).rencontre?.main.includes('prudence')
+    })
+  })
+  v = await avancer(c, v, premiere)
+  const r = v.rencontre!
+  assert.deepEqual([r.sorte, r.adversaire, r.categorie], ['question', 'Le Scribe', 'Histoire'], 'l’adversaire de sa catégorie')
+  const sceaux = SCEAUX_DES_RENCONTRES.question[0]
+  assert.deepEqual([r.sceaux, r.max, r.frappe], [sceaux, sceaux, FRAPPE_DES_RENCONTRES.question[0]])
+  assert.deepEqual([r.phase, r.position, r.inspiration], ['preparation', 0, INSPIRATION_PAR_QUESTION])
+  assert.equal(r.main.length, CARTES_PAR_QUESTION)
+  assert.equal(r.pioche, PAQUET_DES_RENCONTRES.length - CARTES_PAR_QUESTION)
+  assert.equal(v.question, undefined, 'en préparation, la question ne part pas (invariant 1)')
+  assert.equal(questionsDe(v.id).length, 1, 'tirée au même lot que le pas, gardée au serveur')
+  const annonce = r.annonce!
+  assert.deepEqual([annonce.categorie, annonce.forme], ['Histoire', 'quatre'])
+  assert.equal(annonce.savoir, SAVOIR_DES_MARCHES[annonce.niveau])
+  assert.equal(r.apercu!.juste.brises, annonce.savoir)
+  assert.equal(r.apercu!.faux.perdu, r.frappe)
+
+  // Ni réponse, ni carte de réflexe avant de la voir ; et une mise permise, qu'il peut payer.
+  const tot = await poster(c, `/api/expedition/${v.id}/reponse`, { position: 0, choix: 0 })
+  assert.deepEqual([tot.status, tot.corps.error], [400, PREPARE])
+  assert.equal(r.refus['coup-d-oeil'], 'Elle se joue la question sous les yeux : vois-la d’abord')
+  assert.equal((await geste(c, v, { quoi: 'jouer', joker: 'coup-d-oeil', position: 0 })).status, 400)
+  for (const [mise, refus] of [
+    [7, 'Mise 0, 10, 20 ou 40 écus'],
+    [40, 'Il te manque 15 écus pour miser autant'],
+  ] as const) {
+    const m = await geste(c, v, { quoi: 'voir', mise, position: 0 })
+    assert.deepEqual([m.status, m.corps.error], [400, refus])
+  }
+
+  // Concentration : +4 de Charge, l'aperçu le dit ; puis il mise dix écus et voit la question.
+  v = await jouer(c, v, 'concentration')
+  assert.deepEqual([v.rencontre!.charge, v.rencontre!.inspiration], [4, INSPIRATION_PAR_QUESTION - 1])
+  assert.equal(v.rencontre!.apercu!.juste.brises, annonce.savoir + 4)
+  assert.equal(v.question, undefined)
+  v = await voir(c, v, 10)
+  assert.equal(v.rencontre!.phase, 'question')
+  assert.ok(v.question, 'vue, elle part')
+  assert.equal((v.question as any).bonne, undefined, 'sans sa bonne réponse (invariant 1)')
+  assert.equal(v.rencontre!.mise, 10)
+  // Coup d'œil, la question sous les yeux : une réponse effacée, et la réponse ne mesure plus rien.
+  v = await jouer(c, v, 'coup-d-oeil')
+  assert.equal(v.question!.effacees?.length, 1)
+  const juste = await repondre(c, v, true)
+  assert.deepEqual(juste.coup, { juste: true, brises: annonce.savoir + 4, frappe: 0, absorbee: 0, perdu: 0, mise: 5 }, 'juste, la mise rapporte la moitié de ce qu’elle engage')
+  assert.deepEqual(reponseEnBase(v.id, 0), { forme: null, joker: 'coup-d-oeil', juste: 1 }, 'aidée par un indice : elle ne mesure rien')
+  v = juste.expedition
+  assert.equal(v.ecus, ECUS_AU_DEPART + 5)
+  assert.deepEqual([v.rencontre!.sceaux, v.rencontre!.phase, v.rencontre!.position], [sceaux - annonce.savoir - 4, 'preparation', 1])
+  assert.equal(v.question, undefined, 'la suivante, tirée, attend qu’il la voie')
+
+  // Prudence : Garde 5 ; fausse, sa frappe a grandi d'une question, la Garde en prend cinq, la mise est perdue.
+  v = await jouer(c, v, 'prudence')
+  v = await voir(c, v, 10)
+  const frappe = FRAPPE_DES_RENCONTRES.question[0] + FRAPPE_EN_PLUS_PAR_QUESTION
+  const faux = await repondre(c, v, false)
+  assert.deepEqual(faux.coup, { juste: false, brises: 0, frappe, absorbee: 5, perdu: frappe - 5, mise: -10 })
+  v = faux.expedition
+  assert.equal(v.courage, COURAGE_MAX - (frappe - 5))
+  assert.equal(v.ecus, ECUS_AU_DEPART + 5 - 10, 'fausse, la mise est perdue entière')
+  assert.equal(v.vies, 3, 'les vies de la série ne sont qu’un reflet du courage')
+
+  // Il tombe à la bonne réponse qui brise son dernier sceau : les écus de l'escale, puis trois cartes, une à prendre.
+  let fin: any = null
+  for (let k = 0; k < 4 && !fin; k++) {
+    v = await voir(c, v, 0)
+    const rep = await repondre(c, v, true)
+    if (rep.coup.victoire) fin = rep
+    else v = rep.expedition
+  }
+  assert.ok(fin, 'il tombe')
+  assert.ok(fin.coup.victoire.ecus > 0, 'les écus de l’escale')
+  v = fin.expedition
+  assert.equal(v.rencontre, undefined)
+  assert.deepEqual([v.offre?.jokers.length, v.offre?.aPrendre], [CARTES_PAR_OFFRE, 1])
+  const prise = v.offre!.jokers[0]
+  const pris = await geste(c, v, { quoi: 'prendre', jokers: [prise] })
+  assert.equal(pris.status, 200, pris.corps.error)
+  assert.ok(pris.corps.expedition.cartes.paquet.includes(prise), 'elle rejoint son paquet')
+})
+
+test('un dévoilement en rencontre ne court qu’une fois la question vue : ses mots ne partent pas en préparation', async () => {
+  const c = await inscrireProfil(banc.url, 'devoile5', 'Dévoile')
+  let premiere = ''
+  let v = await partirEt(c, { rencontres: true }, depart => {
+    premiere = premierEtage(depart, 'devoilement')
+  })
+  v = await avancer(c, v, premiere)
+  assert.equal(v.rencontre!.annonce!.forme, 'devoilement')
+  const apercu = v.rencontre!.apercu!.juste
+  assert.ok(apercu.auPremierMot! > apercu.brises, 'trouvée au premier mot, elle brise plus')
+  const tot = await fetch(`${banc.url}/api/expedition/${v.id}/devoilement?position=0`, { headers: { Cookie: c } })
+  assert.deepEqual([tot.status, ((await tot.json()) as { error: string }).error], [400, PREPARE], 'ses mots diraient la question avant l’heure')
+  horloge.t += 20_000
+  v = await voir(c, v, 0)
+  assert.equal(questionsDe(v.id)[0].devoileLe, horloge.t, 'son texte court depuis qu’il la voit, à l’heure du serveur')
+  assert.deepEqual([v.question!.forme, v.question!.texte], ['devoilement', ''], 'son intitulé ne part pas entier')
+})
+
+/**
+ * Une carte de famille en main à la première rencontre : l'équipée lui donne
+ * sa famille, le coffre du premier pas la propose, il la prend, et la main de
+ * l'escale d'après la tire.
+ */
+function forcerEnMain(depart: DepartDExpedition, cle: string, legendaire: string, famille: FamilleDeCartes): { coffre: string; question: string } {
+  depart.equipee = [legendaire]
+  const carte = depart.cartes[0]
+  const parId = new Map(carte.escales.map(e => [e.id, e]))
+  const coffre = parId.get(carte.depart[0])!
+  coffre.sorte = 'coffre'
+  delete coffre.theme
+  delete coffre.forme
+  delete coffre.chance
+  const question = parId.get(coffre.suite[0])!
+  question.sorte = 'question'
+  question.theme = { categories: ['Histoire'] }
+  question.forme = 'quatre'
+  question.chance = 0.7
+  const gestes: GesteDExpedition[] = [
+    { quoi: 'avancer', vers: coffre.id },
+    { quoi: 'prendre', jokers: [cle] },
+    { quoi: 'avancer', vers: question.id },
+  ]
+  graineOu(depart, cle, d => offreDeCartes(d.graine, 0, [famille], RARETES_D_UNE_ELITE).includes(cle) && !!pliDeLExpedition(d, gestes, [], new Map()).rencontre?.main.includes(cle))
+  return { coffre: coffre.id, question: question.id }
+}
+
+/** Le coffre, la carte prise, la rencontre d'après : la carte en main, jouable. */
+async function jusquALaCarte(c: string, cle: string): Promise<VueDeLExpedition> {
+  let chemin = { coffre: '', question: '' }
+  let v = await partirEt(c, { rencontres: true }, depart => {
+    chemin = forcerEnMain(depart, cle, 'lg:janus', 'metamorphe')
+  })
+  v = await avancer(c, v, chemin.coffre)
+  assert.ok(v.offre?.jokers.includes(cle), 'le coffre la propose : l’équipée apporte sa famille')
+  const pris = await geste(c, v, { quoi: 'prendre', jokers: [cle] })
+  assert.equal(pris.status, 200, pris.corps.error)
+  v = await avancer(c, pris.corps.expedition, chemin.question)
+  assert.ok(v.rencontre?.main.includes(cle))
+  assert.equal(v.rencontre!.refus[cle], null)
+  return v
+}
+
+test('Corser repose la question à six choix, de sa question de la base : sa bonne réponse gardée, une fois et demie brisée', async () => {
+  const c = await inscrireProfil(banc.url, 'corser', 'Corser')
+  let v = await jusquALaCarte(c, 'corser')
+  const savoir = v.rencontre!.annonce!.savoir
+  const avant = questionsDe(v.id)[0]
+  v = await jouer(c, v, 'corser')
+  const corsee = questionsDe(v.id)[0]
+  assert.equal(corsee.id, avant.id, 'la même question')
+  assert.deepEqual([corsee.forme, corsee.reponses.length, corsee.tiree], ['six', 6, 'quatre'], 'sa forme de tirage reste : la règle des cartes la relit')
+  const deLaBase = BASE.parId.get(corsee.id)!
+  assert.equal(corsee.reponses[corsee.bonne], deLaBase.reponses[deLaBase.bonne])
+  assert.ok(deLaBase.reponses.every(x => corsee.reponses.includes(x)), 'ses quatre réponses, et deux leurres')
+  assert.equal(v.rencontre!.annonce!.forme, 'six')
+  assert.equal(v.rencontre!.apercu!.juste.brises, Math.round(savoir * MULTIPLICATEUR_DU_SIX_CHOIX))
+  assert.equal(v.question, undefined, 'toujours cachée : il prépare encore')
+  v = await voir(c, v, 0)
+  assert.deepEqual([v.question!.forme, v.question!.reponses.length], ['six', 6])
+  const r = await repondre(c, v, true)
+  assert.equal(r.coup.brises, Math.round(savoir * MULTIPLICATEUR_DU_SIX_CHOIX))
+  assert.deepEqual(reponseEnBase(v.id, 0), { forme: 'six', joker: null, juste: 1 }, 'à six choix, elle n’a plus sa difficulté : elle ne mesure rien')
+})
+
+test('Simplifier la repose en vrai ou faux : Garde 3, moitié moins brisée ; fausse, la Garde prend sa part de la frappe', async () => {
+  const c = await inscrireProfil(banc.url, 'simplifier', 'Simplifier')
+  let v = await jusquALaCarte(c, 'simplifier')
+  const savoir = v.rencontre!.annonce!.savoir
+  v = await jouer(c, v, 'simplifier')
+  const simple = questionsDe(v.id)[0]
+  assert.deepEqual([simple.reponses, simple.forme, simple.tiree], [['Vrai', 'Faux'], 'vrai-faux', 'quatre'])
+  const deLaBase = BASE.parId.get(simple.id)!
+  assert.ok(deLaBase.reponses.includes(simple.proposee!), 'une des réponses de la question')
+  assert.equal(simple.bonne === 0, simple.proposee === deLaBase.reponses[deLaBase.bonne], '« Vrai » quand elle propose la bonne')
+  assert.equal(v.rencontre!.garde, 3)
+  assert.equal(v.rencontre!.annonce!.forme, 'vrai-faux')
+  assert.equal(v.rencontre!.apercu!.juste.brises, Math.round(savoir * MULTIPLICATEUR_DU_VRAI_OU_FAUX))
+  v = await voir(c, v, 0)
+  assert.deepEqual(v.question!.reponses, ['Vrai', 'Faux'])
+  assert.equal(v.question!.proposee, simple.proposee)
+  const r = await repondre(c, v, false)
+  const frappe = FRAPPE_DES_RENCONTRES.question[0]
+  assert.deepEqual(r.coup, { juste: false, brises: 0, frappe, absorbee: 3, perdu: frappe - 3, mise: 0 })
+  assert.equal(r.expedition.courage, COURAGE_MAX - (frappe - 3))
+})

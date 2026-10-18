@@ -284,10 +284,13 @@ import {
   prixDeLArticle,
   refusDeLAchat,
   refusDeLEquipee,
+  refusDeLaMise,
   refusDuJoker,
   reponsesEffacees,
+  routeDisponible,
   sensDeLOracle,
   siecleDeLaQuestion,
+  vueDeLaRencontre,
   type ApresUnGeste,
   type CarteDUnActe,
   type DepartDExpedition,
@@ -305,6 +308,7 @@ import {
 } from '../../../shared/expedition'
 import { EFFACE, JOKERS_QUI_AIDENT, LEGENDAIRES_A_JOKER } from '../../../shared/jokers'
 import { cleDeLExpedition } from '../../../shared/legendaires'
+import { carteDeRencontre, effaceesDuTour } from '../../../shared/rencontres'
 
 /** Une question de la série, telle que le serveur la garde : la bonne réponse avec. */
 interface QuestionDeSerie {
@@ -364,6 +368,15 @@ interface QuestionDeSerie {
    * réponse le dit (`campagne_reponses.sujet`).
    */
   sujet?: string
+  /**
+   * Les rencontres (v5) : la forme où elle a été tirée — Corser et Simplifier
+   * la changent ensuite, leur règle lit celle d'avant eux —, si elle a deux
+   * leurres de plus pour six choix, et si ses réponses sont des années ou des
+   * nombres : l'annonce le dit avant qu'il la voie.
+   */
+  tiree?: FormeDEscale
+  six?: true
+  reponseEn?: 'annee' | 'nombre'
 }
 
 /**
@@ -6649,9 +6662,10 @@ export class CampagneStore {
    * La page de l'expédition : celle qu'il a en route, sinon la prochaine — son
    * numéro et ses gardiens, annoncés avant le départ, que le départ
    * retrouve : la graine de la n-ième expédition d'un profil ne change pas
-   * (`graineDe`). Un aller-retour.
+   * (`graineDe`). Un aller-retour. `rencontres` : le prototype des rencontres
+   * s'offre au départ — hors de la production (`rencontresOuvertes`).
    */
-  async pageDeLExpedition(profileId: string): Promise<PageDeLExpedition> {
+  async pageDeLExpedition(profileId: string, { rencontres = false }: { rencontres?: boolean } = {}): Promise<PageDeLExpedition> {
     const enRoute = `SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL ORDER BY commencee_le DESC LIMIT 1`
     const [series, gestes, reponses, compte, passeport] = await this.client.batch(
       [
@@ -6679,6 +6693,7 @@ export class CampagneStore {
         invite,
         equipables: LEGENDAIRES_A_JOKER.filter(cle => siens.has(cle)),
         ...(saison && { saison: saison.key }),
+        ...(rencontres && { rencontres: true as const }),
       },
       passeport: [...tampons].sort(),
     }
@@ -6699,11 +6714,13 @@ export class CampagneStore {
    * prochaine expédition, et la chance qu'il a sur chaque escale, gardée avec
    * elle ; son équipée — deux des siens au plus, ou l'invité du jour —, dont
    * les jokers rejoignent le paquet de départ. Une à la fois : celle qu'il a
-   * laissée l'attend.
+   * laissée l'attend. `rencontres` : le prototype des rencontres (v5), que la
+   * route n'accorde que hors de la production — avec sa catégorie fétiche.
    */
-  partirEnExpedition(profileId: string, equipeeBrute: unknown = []): Promise<VueDeLExpedition> {
+  partirEnExpedition(profileId: string, equipeeBrute: unknown = [], { rencontres = false, fetiche }: { rencontres?: boolean; fetiche?: unknown } = {}): Promise<VueDeLExpedition> {
     const equipee = Array.isArray(equipeeBrute) && equipeeBrute.length <= 4 && equipeeBrute.every(x => typeof x === 'string' && x.length <= 40) ? (equipeeBrute as string[]) : null
     if (!equipee) return Promise.reject(new Error('Ton équipée ne se lit pas : recharge la page'))
+    if (rencontres && fetiche !== undefined && !(CATEGORIES as readonly unknown[]).includes(fetiche)) return Promise.reject(new Error('Choisis ta catégorie fétiche parmi les douze'))
     return this.avecVerrou(profileId, async () => {
       // Ce qu'il a vu, dans le même lot : ses chances en lisent ses premières
       // réponses, et ses premières escales s'en tirent sans le relire.
@@ -6740,7 +6757,7 @@ export class CampagneStore {
       const vues = lireLesVues(lues.rows)
       const { moyen, chances, chanceDeLaSource } = await this.chancesDeLExpedition(profileId, cartes, jouables, vues.premieres)
       const depart: DepartDExpedition = {
-        v: 4,
+        v: rencontres ? 5 : 4,
         graine,
         numero: numeroDeLaCarte(graine),
         gardiens: gardiensDe(graine, siens, invite, saison?.legendaire),
@@ -6751,6 +6768,7 @@ export class CampagneStore {
         chances,
         chanceDeLaSource,
         ...(saison && { saison: saison.key }),
+        ...(rencontres && typeof fetiche === 'string' && { fetiche }),
       }
       const id = randomUUID()
       await this.client.execute({
@@ -6879,7 +6897,8 @@ export class CampagneStore {
       const traversee = g.quoi === 'jouer' && g.joker === 'passe-muraille' && g.position !== undefined ? g.position : null
       const reponses = traversee === null ? l.reponses : new Map(l.reponses).set(traversee, false)
       const reponduesLe = traversee === null ? l.reponduesLe : new Map(l.reponduesLe).set(traversee, maintenant)
-      const complete = await this.completerLExpedition(profileId, l, gestes, reponses, reponduesLe, gardee.vues)
+      const posees = await this.questionsApresLeGeste(l, g, maintenant)
+      const complete = await this.completerLExpedition(profileId, l, gestes, reponses, reponduesLe, gardee.vues, posees)
       const { apres, vues } = complete
       let questions = complete.questions
       // Arrêt sur image : le dévoilement s'arrête à l'heure du serveur où il est joué — sa question le garde, la route des mots et la réponse le lisent.
@@ -6930,8 +6949,10 @@ export class CampagneStore {
     reponses: ReadonlyMap<number, boolean>,
     reponduesLe: ReadonlyMap<number, number>,
     vues: ReadonlyMap<string, number> | null,
+    /** Les questions de l'expédition, telles que le geste les laisse — Corser, Simplifier, un dévoilement qu'il voit (v5). */
+    posees: QuestionDeSerie[] = l.serie.questions,
   ): Promise<{ questions: QuestionDeSerie[]; apres: EtatDeLExpedition; vues: ReadonlyMap<string, number> | null }> {
-    let questions = l.serie.questions
+    let questions = posees
     let apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions, reponduesLe), reponses)
     for (let tour = 0; tour < 3 && apres.aTirer; tour++) {
       const tire = await this.tirerPourLExpedition(profileId, l.depart, questions, apres, vues)
@@ -6941,6 +6962,36 @@ export class CampagneStore {
       apres = pliDeLExpedition(l.depart, gestes, questionsPosees(questions, reponduesLe), reponses)
     }
     return { questions, apres, vues }
+  }
+
+  /**
+   * Ce qu'un geste en rencontre change à la question qui attend (v5) : Corser
+   * la repose à six choix, Simplifier en vrai ou faux — de sa question de la
+   * base, par `aSaForme`, comme au tirage —, et la voir lance son dévoilement
+   * à l'heure du serveur où il la voit : tirée en préparation, son texte ne
+   * courait pas encore (invariant 6). Sa forme de tirage reste (`tiree`) : la
+   * règle des cartes la relit, rejouée.
+   */
+  private async questionsApresLeGeste(l: ExpeditionLue, g: GesteDExpedition, maintenant: number): Promise<QuestionDeSerie[]> {
+    const questions = l.serie.questions
+    if (l.depart.v < 5 || (g.quoi !== 'jouer' && g.quoi !== 'voir') || g.position === undefined) return questions
+    const i = g.position
+    const q = questions[i]
+    if (!q) return questions
+    let nouvelle: QuestionDeSerie | null = null
+    if (g.quoi === 'jouer' && (g.joker === 'corser' || g.joker === 'simplifier')) {
+      const base = this.parIdDe(await this.jouables()).get(q.id)
+      if (!base) throw new Error('Cette question ne change plus de forme : recharge la page')
+      // Reposée nue — ni dévoilement en cours, ni réponse proposée —, puis à sa forme neuve.
+      const { forme: _forme, proposee: _proposee, devoileLe: _devoileLe, arretLe: _arretLe, ...nue } = q
+      nouvelle = aSaForme(nue, base, g.joker === 'corser' ? 'six' : 'vrai-faux', maintenant)
+      // Un vrai ou faux se répond « Vrai » ou « Faux » : l'annonce ne dit plus « une année ».
+      if (nouvelle.reponses.length <= 2) delete nouvelle.reponseEn
+    } else if (g.quoi === 'voir' && q.forme === 'devoilement') {
+      const { arretLe: _arretLe, ...sansArret } = q
+      nouvelle = { ...sansArret, devoileLe: maintenant }
+    }
+    return nouvelle ? questions.map((x, k) => (k === i ? nouvelle : x)) : questions
   }
 
   /**
@@ -6992,11 +7043,14 @@ export class CampagneStore {
       const avant = plier(l)
       // Deux visages : il répond à l'une des deux, au choix.
       if (avant.enAttente === null || (position !== avant.enAttente && position !== avant.autre)) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+      // En rencontre (v5), on ne répond qu'à la question qu'on voit : préparée, puis vue.
+      if (avant.rencontre?.tour.phase === 'preparation') throw new Error('Prépare-toi, puis vois la question : elle n’est pas encore sous tes yeux')
       const i = position as number
       const q = l.serie.questions[i]
       if (!q) throw new Error('Cette question n’est pas encore tirée : recharge la page')
       const valide = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < q.reponses.length
-      const choisis = avant.joue?.joker === 'double-chance' && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
+      const doubleChance = avant.rencontre ? avant.rencontre.tour.surLaQuestion.includes('double-chance') : avant.joue?.joker === 'double-chance'
+      const choisis = doubleChance && Array.isArray(choix) ? [...new Set(choix.filter(valide))].slice(0, 2) : valide(choix) ? [choix] : []
       const juste = choisis.includes(q.bonne)
       // La sienne, telle que la correction la redit : la juste s'il l'a donnée, sinon la première.
       const c = juste ? q.bonne : (choisis[0] ?? null)
@@ -7046,6 +7100,8 @@ export class CampagneStore {
         ...(vaincu && { vaincu }),
         ...(ecus > 0 && { ecus }),
         ...(tampon && { tampon }),
+        // En rencontre (v5) : ce que la réponse a brisé, coûté, rapporté.
+        ...(l.depart.v >= 5 && apres.coup && { coup: apres.coup }),
         // Le dévoilement répondu : son intitulé entier, qu'il n'avait peut-être pas fini de lire.
         ...(devoile && { texte: q.texte, devoile }),
         ...gains,
@@ -7068,6 +7124,8 @@ export class CampagneStore {
       if (!gardee) throw new Error('Cette expédition est introuvable')
       const avant = plier(gardee.lue)
       if (avant.enAttente === null || (position !== avant.enAttente && position !== avant.autre)) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+      // En rencontre (v5), son texte ne part qu'une fois vue : en préparation, il dirait la question avant l'heure (invariant 1).
+      if (avant.rencontre?.tour.phase === 'preparation') throw new Error('Prépare-toi, puis vois la question : elle n’est pas encore sous tes yeux')
       const i = position as number
       const q = gardee.lue.serie.questions[i]
       if (!q || q.forme !== 'devoilement' || q.devoileLe === undefined) throw new Error('Cette question ne se dévoile pas : recharge la page')
@@ -7192,7 +7250,18 @@ export class CampagneStore {
       tirees = tirerPourUneEscale(tas, marche, n, { sansVraiFaux: gardien, vues, mesure, maintenant, posees })
       aPoser = undefined
     }
-    return { tirees: tirees.map(x => aSaForme({ ...rangee(x.question, x.niveau), ...(sujet && { sujet }) }, x.question, aPoser, maintenant)), vues: lues }
+    // Les rencontres (v5) : ce que l'annonce et les cartes doivent savoir d'elle — sa forme de tirage, ses leurres, des années ou des nombres.
+    const enRencontre = (x: QuestionDeSerie, base: QuestionDeLaBase): QuestionDeSerie => {
+      if (depart.v < 5) return x
+      const en = formeDeReponse({ reponses: base.reponses, bonne: base.bonne, valeur: base.meta.valeur })
+      return {
+        ...x,
+        tiree: x.forme ?? (x.reponses.length <= 2 ? 'vrai-faux' : 'quatre'),
+        ...(seLaissePoser('six')!(base) && { six: true as const }),
+        ...((en === 'annee' || en === 'nombre') && x.reponses.length > 2 && { reponseEn: en }),
+      }
+    }
+    return { tirees: tirees.map(x => enRencontre(aSaForme({ ...rangee(x.question, x.niveau), ...(sujet && { sujet }) }, x.question, aPoser, maintenant), x.question)), vues: lues }
   }
 
   /** Un profil supprimé : ses séries, leurs réponses et ses signalements, sous son verrou. */
@@ -7769,8 +7838,8 @@ function lireDepartDExpedition(brut: unknown): DepartDExpedition | null {
   if (typeof brut !== 'string') return null
   try {
     const lu = JSON.parse(brut) as DepartDExpedition
-    // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus ; une version inconnue ne se lit pas.
-    return lu && (lu.v === 1 || lu.v === 2 || lu.v === 3 || lu.v === 4) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
+    // Chaque version se rejoue telle qu'elle s'est jouée — la 1 sans jokers, la 2 sans Arrêt sur image, la 3 sans écus, la 4 sans rencontres ; une version inconnue ne se lit pas.
+    return lu && (lu.v === 1 || lu.v === 2 || lu.v === 3 || lu.v === 4 || lu.v === 5) && Array.isArray(lu.cartes) && Array.isArray(lu.gardiens) ? lu : null
   } catch {
     return null
   }
@@ -7801,6 +7870,8 @@ function lireGeste(brut: unknown): GesteDExpedition | null {
     // Le prix payé, relu du journal : celui qu'une page enverrait, `gesteRecevable` le remplace par celui du barème.
     return { quoi: 'acheter', article: g.article, ...(cle(g.joker) && { joker: g.joker }), ...(rang(g.prix) && { prix: g.prix }) }
   }
+  // En rencontre (v5) : sa mise, en voyant la question.
+  if (g.quoi === 'voir' && rang(g.mise) && g.mise <= 1000) return { quoi: 'voir', mise: g.mise, ...(rang(g.position) && { position: g.position }) }
   return null
 }
 
@@ -7851,8 +7922,18 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
   }
   if (g.quoi === 'camper') {
     if (!avant.campement) throw new Error('Tu n’es pas au campement')
-    if (g.retirer !== undefined && ![...avant.paquet, ...avant.defausse, ...avant.main].includes(g.retirer)) throw new Error('Ce joker n’est pas dans ton paquet')
+    if (g.retirer !== undefined && ![...avant.paquet, ...avant.defausse, ...avant.main].includes(g.retirer)) throw new Error(l.depart.v >= 5 ? 'Cette carte n’est pas dans ton paquet' : 'Ce joker n’est pas dans ton paquet')
     return g
+  }
+  if (g.quoi === 'voir') {
+    // Les rencontres (v5) : ses cartes préparées, il mise et voit la question qui attend.
+    if (l.depart.v < 5) throw new Error('Ce geste ne se lit pas : recharge la page')
+    if (!avant.rencontre || avant.enAttente === null) throw new Error('Il n’y a pas de question à voir ici')
+    if (avant.rencontre.tour.phase !== 'preparation') throw new Error('La question est déjà sous tes yeux')
+    if (g.position !== undefined && g.position !== avant.enAttente) throw new Error('Cette question est passée : l’expédition a continué sans elle')
+    const refus = refusDeLaMise(avant, g.mise)
+    if (refus) throw new Error(refus)
+    return { quoi: 'voir', mise: g.mise, position: avant.enAttente }
   }
   throw new Error('Ce geste ne se lit pas : recharge la page')
 }
@@ -7863,6 +7944,13 @@ function gesteRecevable(l: ExpeditionLue, avant: EtatDeLExpedition, g: GesteDExp
  * choix (Deux visages) ne l'est plus : on prend celle qu'on sait.
  */
 function jokerQuiAide(e: EtatDeLExpedition, q: QuestionDeSerie): string | null {
+  const r = e.rencontre
+  if (r) {
+    // En rencontre (v5), plusieurs cartes visent la question : la colonne garde le premier indice — un seul suffit à ne rien mesurer.
+    const indice = r.tour.surLaQuestion.find(cle => carteDeRencontre(cle)?.indice)
+    if (indice) return indice
+    if (r.pouvoirs.includes('echolocation') && q.reponses.length > 2) return 'echolocation'
+  }
   const joue = e.joue?.joker
   if (joue && JOKERS_QUI_AIDENT.has(joue)) return joue
   if (e.poses.includes('echolocation') && q.reponses.length > 2) return 'echolocation'
@@ -7968,6 +8056,15 @@ const questionsPosees = (questions: readonly QuestionDeSerie[], reponduesLe?: Re
       ...(q.forme && { forme: q.forme }),
       ...(q.categorie && { categorie: q.categorie }),
       ...(devoile && { devoile }),
+      // Une question des rencontres (v5) : sa marche, sa forme de tirage, ce que les cartes et l'annonce en lisent.
+      ...(q.tiree && {
+        niveau: q.niveau,
+        tiree: q.tiree,
+        six: !!q.six,
+        datee: siecleDeLaQuestion(q) !== null,
+        ...(q.reponseEn && { reponseEn: q.reponseEn }),
+        ...(q.forme === 'devoilement' && { mots: motsDe(q.texte).length }),
+      }),
     }
   })
 
@@ -7989,14 +8086,25 @@ const plier = (l: ExpeditionLue) => pliDeLExpedition(l.depart, l.gestes, questio
  */
 function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: ReadonlySet<string>): VueDeLExpedition {
   const d = l.depart
+  // Les rencontres (v5) : des cartes à la place des jokers, et la question cachée tant qu'il prépare.
+  const v5 = d.v >= 5
+  const r = e.rencontre
   const permises = escalesPermises(d, e)
-  const echo = e.poses.includes('echolocation')
+  const echo = !v5 && e.poses.includes('echolocation')
   const loupe = e.talismans.includes('loupe')
   const joue = e.joue?.joker
+  const surLaQuestion = r?.tour.surLaQuestion ?? []
+  const vise = (cle: string) => (v5 ? surLaQuestion.includes(cle) : joue === cle)
+  const montre = v5 ? r?.tour.montre : e.joue?.montre
   const montree = (position: number): QuestionDExpedition | undefined => {
     const q = l.serie.questions[position]
     if (!q) return undefined
-    const effacees = reponsesEffacees(d.graine, position, q, (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0))
+    const combien = v5
+      ? r
+        ? effaceesDuTour(surLaQuestion, r.pouvoirs, { reponses: q.reponses.length, datee: siecleDeLaQuestion(q) !== null })
+        : 0
+      : (joue ? (EFFACE[joue] ?? 0) : 0) + (echo ? EFFACE.echolocation : 0)
+    const effacees = reponsesEffacees(d.graine, position, q, combien)
     return {
       ...questionMontree(q, position),
       // Un dévoilement ne part pas entier (invariant 1) : ses mots se lisent à leur heure (`devoilement`), son compte seul part ici.
@@ -8005,9 +8113,9 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
       ...(q.proposee !== undefined && { proposee: q.proposee }),
       escale: q.escale ?? '',
       ...(effacees.length > 0 && { effacees }),
-      ...(joue === 'double-chance' && { deux: true as const }),
-      ...(joue === 'enigme' && { indice: indiceDeLEnigme(q) }),
-      ...(joue === 'prediction' && e.joue?.montre !== undefined && { prediction: { montre: e.joue.montre, sens: sensDeLOracle(q, e.joue.montre) } }),
+      ...(vise('double-chance') && { deux: true as const }),
+      ...(vise('enigme') && { indice: indiceDeLEnigme(q) }),
+      ...(vise('prediction') && montre !== undefined && { prediction: { montre, sens: sensDeLOracle(q, montre) } }),
       ...(loupe && aLaLoupe(q) && { siecle: siecleDeLaQuestion(q)! }),
     }
   }
@@ -8042,18 +8150,22 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     carte = { ...carte, escales }
     if (echo) delete carte.chanceDuGardien
   }
+  const posees = questionsPosees(l.serie.questions, l.reponduesLe)
   const jokers: JokersEnJeu | undefined =
-    d.v >= 2
+    d.v >= 2 && !v5
       ? {
           main: e.main,
           paquet: e.paquet,
           defausse: e.defausse,
           poses: e.poses,
-          refus: Object.fromEntries([...new Set(e.main)].map(cle => [cle, refusDuJoker(d, e, cle, questionsPosees(l.serie.questions))])),
+          refus: Object.fromEntries([...new Set(e.main)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])),
         }
       : undefined
-  const question = e.enAttente === null ? undefined : montree(e.enAttente)
-  const autre = e.autre === null ? undefined : montree(e.autre)
+  const deRoute = v5 ? routeDisponible(e) : []
+  // En préparation, la question attend sans se montrer : l'annonce seule en dit ce qu'il faut pour préparer (invariant 1).
+  const cachee = v5 && r?.tour.phase === 'preparation'
+  const question = e.enAttente === null || cachee ? undefined : montree(e.enAttente)
+  const autre = e.autre === null || cachee ? undefined : montree(e.autre)
   const perte = joue === 'sursis' || joue === 'mue' ? 0 : joue === 'tout-ou-rien' || joue === 'quitte-ou-double' ? 2 : undefined
   const route = e.route
   return {
@@ -8094,6 +8206,12 @@ function vueDeLExpedition(l: ExpeditionLue, e: EtatDeLExpedition, possedes: Read
     ...(e.echoppe && { echoppe: e.echoppe }),
     ...(e.inconnu && { inconnu: e.inconnu }),
     ...(d.saison && { saison: d.saison }),
+    ...(v5 && {
+      courage: e.courage ?? 0,
+      ...(d.fetiche && { fetiche: d.fetiche }),
+      cartes: { paquet: e.paquet, route: deRoute, refus: Object.fromEntries([...new Set(deRoute)].map(cle => [cle, refusDuJoker(d, e, cle, posees)])) },
+    }),
+    ...(r && { rencontre: vueDeLaRencontre(d, e, posees) }),
   }
 }
 
